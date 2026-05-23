@@ -1,0 +1,64 @@
+version: "3.8"
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: openwook-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"  # HTTP/3
+    volumes:
+      - ./Caddyfile.prod:/etc/caddy/Caddyfile:ro
+      - ./public:/var/www/public:ro
+      - caddy_data:/data
+      - caddy_config:/config
+      - caddy_logs:/var/log/caddy
+    networks:
+      - openwook-network
+    depends_on:
+      - nextjs
+
+  nextjs:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: openwook-nextjs
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://ubuntu:openwook123@host.docker.internal:5432/openwook
+      - NEXT_PUBLIC_APP_URL=https://openwook.local
+      - API_SECRET_KEY=${API_SECRET_KEY}
+    networks:
+      - openwook-network
+    expose:
+      - "3000"
+
+  # Optional: PostgreSQL container (if not using host PostgreSQL)
+  # postgres:
+  #   image: postgres:16-alpine
+  #   container_name: openwook-postgres
+  #   restart: unless-stopped
+  #   environment:
+  #     POSTGRES_DB: openwook
+  #     POSTGRES_USER: ubuntu
+  #     POSTGRES_PASSWORD: openwook123
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #     - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+  #   networks:
+  #     - openwook-network
+  #   expose:
+  #     - "5432"
+
+networks:
+  openwook-network:
+    driver: bridge
+
+volumes:
+  caddy_data:
+  caddy_config:
+  caddy_logs:
+  # postgres_data:

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { validateVerificationCode } from "@/lib/verification";
 import type { ApiResponse, User, CreateUserRequest } from "@/lib/types";
 
 export async function GET(): Promise<NextResponse<ApiResponse<User[]>>> {
@@ -41,6 +42,27 @@ export async function POST(
     if (!emailRegex.test(body.email)) {
       return NextResponse.json(
         { success: false, error: "Invalid email format" },
+        { status: 400 }
+      );
+    }
+
+    if (!body.verificationCode) {
+      return NextResponse.json(
+        { success: false, error: "Email verification code is required" },
+        { status: 400 }
+      );
+    }
+
+    // Validate verification code
+    const validationResult = await validateVerificationCode(
+      body.email,
+      body.verificationCode,
+      "register"
+    );
+
+    if (!validationResult.success) {
+      return NextResponse.json(
+        { success: false, error: validationResult.error || "Invalid verification code" },
         { status: 400 }
       );
     }

@@ -1,0 +1,228 @@
+# OpenWook - Production Caddy Configuration (IP + Domain Ready)
+# 生产环境 - 支持公网IP访问 + 域名自动SSL证书
+# 当前IP: 122.51.255.108
+#
+# 注意: Let's Encrypt 不支持纯IP地址的SSL证书。
+#       IP地址使用 Caddy 内部自签名证书 (tls internal)。
+#       添加域名后，自动切换为 Let's Encrypt 证书。
+#       如需IP地址受信任证书，可使用 ZeroSSL (支持IP证书，需配置 EAB)。
+{
+	# 全局选项
+	auto_https off
+	admin off
+	email admin@openwook.local
+
+	# 日志
+	log {
+		output file /var/log/caddy/caddy.log {
+			roll_size 10MB
+			roll_keep 30
+		}
+		format json {
+			time_format iso8601
+		}
+		level INFO
+	}
+}
+
+# ========================================
+# 1. 公网IP地址访问 (HTTPS + HTTP)
+# ========================================
+# 当前通过 122.51.255.108 访问
+# 使用内部自签名证书，浏览器会有安全警告，但可以继续访问
+
+122.51.255.108:443 {
+	# 内部证书（IP地址不支持Let's Encrypt）
+	tls internal
+
+	# 压缩
+	encode zstd gzip
+
+	# 安全头
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		X-XSS-Protection "1; mode=block"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "geolocation=(), microphone=(), camera=()"
+		-Server
+	}
+
+	# API 路由 - CORS
+	@api {
+		path /api/*
+	}
+
+	handle @api {
+		header {
+			Access-Control-Allow-Origin "*"
+			Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+			Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With"
+			Access-Control-Allow-Credentials "true"
+			Access-Control-Max-Age "86400"
+		}
+
+		# 处理预检请求
+		@options method OPTIONS
+		handle @options {
+			respond "" 204
+		}
+
+		reverse_proxy localhost:3000 {
+			# 健康检查
+			health_uri /api/health
+			health_interval 30s
+			health_timeout 5s
+
+			header_up Host {host}
+			header_up X-Real-IP {remote}
+			header_up X-Forwarded-For {remote}
+			header_up X-Forwarded-Proto {scheme}
+			header_up X-Forwarded-Host {host}
+		}
+	}
+
+	# 静态文件
+	@static {
+		path /images/* /fonts/* /favicon.ico /robots.txt /sitemap.xml
+	}
+
+	handle @static {
+		root * {$OPENWOOK_ROOT}/public
+		file_server
+		header Cache-Control "public, max-age=31536000, immutable"
+	}
+
+	# Next.js 静态资源
+	@next_static {
+		path /_next/*
+	}
+
+	handle @next_static {
+		reverse_proxy localhost:3000
+		header Cache-Control "public, max-age=31536000, immutable"
+	}
+
+	# 主应用反向代理
+	handle {
+		reverse_proxy localhost:3000 {
+			header_up Host {host}
+			header_up X-Real-IP {remote}
+			header_up X-Forwarded-For {remote}
+			header_up X-Forwarded-Proto {scheme}
+			header_up X-Forwarded-Host {host}
+		}
+	}
+}
+
+# IP地址 HTTP 访问（可选：重定向到HTTPS）
+122.51.255.108:80 {
+	redir https://{host}{uri} permanent
+}
+
+# ========================================
+# 2. 域名配置（未来使用）
+# ========================================
+# 添加域名后，取消注释下方配置并替换 your-domain.com
+# Caddy 会自动通过 Let's Encrypt 申请和续期证书
+
+# your-domain.com:443 {
+#     # 自动 Let's Encrypt 证书
+#     tls admin@your-domain.com
+#     
+#     # 压缩
+#     encode zstd gzip
+#     
+#     # 安全头
+#     header {
+#         Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+#         X-Content-Type-Options "nosniff"
+#         X-Frame-Options "DENY"
+#         X-XSS-Protection "1; mode=block"
+#         Referrer-Policy "strict-origin-when-cross-origin"
+#         Permissions-Policy "geolocation=(), microphone=(), camera=()"
+#         -Server
+#     }
+#     
+#     # API 路由 - CORS（限制域名）
+#     @api {
+#         path /api/*
+#     }
+#     
+#     handle @api {
+#         header {
+#             Access-Control-Allow-Origin "https://your-domain.com"
+#             Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+#             Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With"
+#             Access-Control-Allow-Credentials "true"
+#             Access-Control-Max-Age "86400"
+#         }
+#         
+#         @options method OPTIONS
+#         handle @options {
+#             respond "" 204
+#         }
+#         
+#         reverse_proxy localhost:3000 {
+#             health_uri /api/health
+#             health_interval 30s
+#             health_timeout 5s
+#             
+#             header_up Host {host}
+#             header_up X-Real-IP {remote}
+#             header_up X-Forwarded-For {remote}
+#             header_up X-Forwarded-Proto {scheme}
+#             header_up X-Forwarded-Host {host}
+#         }
+#     }
+#     
+#     # 静态文件
+#     @static {
+#         path /images/* /fonts/* /favicon.ico /robots.txt /sitemap.xml
+#     }
+#     
+#     handle @static {
+#         root * {$OPENWOOK_ROOT}/public
+#         file_server
+#         header Cache-Control "public, max-age=31536000, immutable"
+#     }
+#     
+#     # Next.js 资源
+#     @next_static {
+#         path /_next/*
+#     }
+#     
+#     handle @next_static {
+#         reverse_proxy localhost:3000
+#         header Cache-Control "public, max-age=31536000, immutable"
+#     }
+#     
+#     # 主应用
+#     handle {
+#         reverse_proxy localhost:3000 {
+#             header_up Host {host}
+#             header_up X-Real-IP {remote}
+#             header_up X-Forwarded-For {remote}
+#             header_up X-Forwarded-Proto {scheme}
+#             header_up X-Forwarded-Host {host}
+#         }
+#     }
+# }
+#
+# # 域名 HTTP 重定向到 HTTPS
+# your-domain.com:80 {
+#     redir https://{host}{uri} permanent
+# }
+
+# ========================================
+# 3. 备用：零配置泛域名（Wildcard）
+# ========================================
+# 如果你有通配符域名 *.your-domain.com，可以配置:
+#
+# *.your-domain.com:443 {
+#     tls {
+#         dns <provider> { ... }  # DNS challenge 配置
+#     }
+#     ...
+# }

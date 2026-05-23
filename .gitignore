@@ -1,6 +1,11 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# ================================================
+# OpenWook .gitignore
+# Next.js 16 + PostgreSQL + Caddy + pnpm
+# ================================================
 
-# dependencies
+# -----------------------------------------------
+# Dependencies
+# -----------------------------------------------
 /node_modules
 /.pnp
 .pnp.*
@@ -10,32 +15,160 @@
 !.yarn/releases
 !.yarn/versions
 
-# testing
-/coverage
+# -----------------------------------------------
+# Package Manager
+# -----------------------------------------------
+# pnpm
+.pnpm-store/
 
-# next.js
+# -----------------------------------------------
+# Next.js Build Output
+# -----------------------------------------------
 /.next/
 /out/
-
-# production
 /build
 
-# misc
-.DS_Store
-*.pem
+# -----------------------------------------------
+# Testing
+# -----------------------------------------------
+/coverage
+*.lcov
 
-# debug
+# -----------------------------------------------
+# Environment Variables
+# -----------------------------------------------
+.env
+.env.local
+.env.*.local
+!.env.example
+!.env.template
+
+# -----------------------------------------------
+# OS Generated Files
+# -----------------------------------------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+Desktop.ini
+
+# -----------------------------------------------
+# IDE / Editor
+# -----------------------------------------------
+# VS Code
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json.example
+# JetBrains
+.idea/
+*.iml
+*.ipr
+*.iws
+# Vim
+*.swp
+*.swo
+*~
+# Emacs
+*~
+# Sublime
+*.sublime-project
+*.sublime-workspace
+
+# -----------------------------------------------
+# Logs
+# -----------------------------------------------
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+*.log
+logs/
 
-# env files (can opt-in for committing if needed)
-.env*
+# -----------------------------------------------
+# Caddy
+# -----------------------------------------------
+# 注意：Caddyfile、Caddyfile.dev、Caddyfile.ip、Caddyfile.prod、
+#       caddy-manage.sh、caddy-openwook.service、CADDY.md 等配置文件
+#       应该提交到 Git 仓库中，它们是项目基础设施的一部分。
+#
+# 以下是需要忽略的运行时/自动生成文件：
 
-# vercel
-.vercel
+# Caddy 自动保存的配置副本
+Caddyfile.autosave
+# Caddy 数据目录（证书、配置等运行时数据）
+caddy_data/
+caddy_config/
+# Caddy 运行时 PID 文件
+*.pid
+# Caddy 自动下载的模块
+xcaddy/
 
-# typescript
+# -----------------------------------------------
+# SSL / Certificates
+# -----------------------------------------------
+*.pem
+*.key
+*.crt
+*.csr
+*.der
+*.p12
+*.pfx
+
+# -----------------------------------------------
+# Database
+# -----------------------------------------------
+# PostgreSQL 本地数据（如果使用 Docker 数据卷）
+pgdata/
+postgres_data/
+# 数据库备份/dump
+*.dump
+*.sql.gz
+*.backup
+# 本地 SQLite（如果有）
+*.sqlite
+*.sqlite3
+*.db
+
+# -----------------------------------------------
+# Docker
+# -----------------------------------------------
+# Docker 数据卷（如果使用本地卷）
+docker_volumes/
+# Docker Compose 覆盖文件（本地配置）
+docker-compose.override.yml
+docker-compose.*.yml
+!docker-compose.yml
+
+# -----------------------------------------------
+# Temporary Files
+# -----------------------------------------------
+*.tmp
+*.temp
+*.cache
+.cache/
+*.bak
+*.orig
+
+# -----------------------------------------------
+# TypeScript
+# -----------------------------------------------
 *.tsbuildinfo
 next-env.d.ts
+
+# -----------------------------------------------
+# Vercel / Deployment
+# -----------------------------------------------
+.vercel
+.netlify
+
+# -----------------------------------------------
+# Misc
+# -----------------------------------------------
+# 本地开发配置
+.local/
+# 上传的临时文件
+uploads/
+tmp/
+temp/

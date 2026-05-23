@@ -51,7 +51,7 @@ export default async function Home() {
         <div className="grid gap-8 md:grid-cols-2">
           <section className="rounded-lg border border-border bg-card p-6 shadow-sm">
             <h2 className="mb-4 text-lg font-semibold text-foreground">
-              Create User
+              Create User (Email Verified)
             </h2>
             <UserFormWrapper />
           </section>
@@ -85,6 +85,12 @@ export default async function Home() {
               <p className="text-muted-foreground">Create User:</p>
               <code className="block rounded bg-muted px-3 py-2 text-foreground">
                 POST /api/users
+              </code>
+            </div>
+            <div className="space-y-2">
+              <p className="text-muted-foreground">Send Email Code:</p>
+              <code className="block rounded bg-muted px-3 py-2 text-foreground">
+                POST /api/verify-email
               </code>
             </div>
             <div className="space-y-2">

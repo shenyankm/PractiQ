@@ -1,0 +1,116 @@
+# OpenWook - Production Caddy Configuration (HTTPS)
+# 生产环境 - 使用 HTTPS 和自动 SSL 证书
+
+{
+    # 全局选项
+    auto_https off
+    admin off
+    email admin@openwook.local
+}
+
+# 生产服务器 - 替换为你的真实域名
+openwook.local {
+    # TLS 配置
+    # 方式 1: 内部证书 (本地测试用)
+    tls internal
+    
+    # 方式 2: Let's Encrypt 自动证书 (需要公网域名)
+    # tls admin@yourdomain.com
+    
+    # 方式 3: 使用已有证书
+    # tls /path/to/cert.pem /path/to/key.pem
+
+    # 日志
+    log {
+        output file /var/log/caddy/access.log {
+            roll_size 10MB
+            roll_keep 30
+        }
+        format json {
+            time_format iso8601
+        }
+    }
+
+    # 压缩
+    encode zstd gzip
+
+    # 安全头
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        -Server
+    }
+
+    # API 路由
+    @api {
+        path /api/*
+    }
+    
+    handle @api {
+        header {
+            Access-Control-Allow-Origin "https://openwook.local"
+            Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+            Access-Control-Allow-Headers "Content-Type, Authorization"
+            Access-Control-Allow-Credentials "true"
+            Access-Control-Max-Age "86400"
+        }
+
+        @options method OPTIONS
+        handle @options {
+            respond "" 204
+        }
+
+        reverse_proxy localhost:3000 {
+            # 健康检查
+            health_uri /api/health
+            health_interval 30s
+            health_timeout 5s
+            
+            header_up Host {host}
+            header_up X-Real-IP {remote}
+            header_up X-Forwarded-For {remote}
+            header_up X-Forwarded-Proto {scheme}
+            header_up X-Forwarded-Host {host}
+        }
+    }
+
+    # 静态文件
+    @static {
+        path /images/* /fonts/* /favicon.ico /robots.txt /sitemap.xml
+    }
+
+    handle @static {
+        root * {$OPENWOOK_ROOT}/public
+        file_server
+        header Cache-Control "public, max-age=31536000, immutable"
+    }
+
+    # Next.js 资源
+    @next_static {
+        path /_next/*
+    }
+
+    handle @next_static {
+        reverse_proxy localhost:3000
+        header Cache-Control "public, max-age=31536000, immutable"
+    }
+
+    # 主应用
+    handle {
+        reverse_proxy localhost:3000 {
+            header_up Host {host}
+            header_up X-Real-IP {remote}
+            header_up X-Forwarded-For {remote}
+            header_up X-Forwarded-Proto {scheme}
+            header_up X-Forwarded-Host {host}
+        }
+    }
+}
+
+# HTTP 重定向到 HTTPS
+:80 {
+    redir https://{host}{uri} permanent
+}

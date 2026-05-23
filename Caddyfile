@@ -1,0 +1,93 @@
+# OpenWook - Caddy Configuration
+# 本地开发环境 (HTTP)
+
+{
+    # 全局选项
+    auto_https off
+    admin off
+}
+
+# 开发服务器 - 监听 80 端口
+:80 {
+    # 日志配置
+    log {
+        output file /var/log/caddy/access.log {
+            roll_size 10MB
+            roll_keep 10
+        }
+        format json
+    }
+
+    # 启用压缩
+    encode zstd gzip
+
+    # 安全响应头
+    header {
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        -Server
+    }
+
+    # API 路由 - CORS 处理
+    @api {
+        path /api/*
+    }
+    
+    handle @api {
+        header {
+            Access-Control-Allow-Origin "*"
+            Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+            Access-Control-Allow-Headers "Content-Type, Authorization"
+            Access-Control-Max-Age "86400"
+        }
+
+        # 处理预检请求
+        @options method OPTIONS
+        handle @options {
+            respond "" 204
+        }
+
+        reverse_proxy localhost:3000 {
+            # 传递真实客户端信息到 Next.js
+            header_up Host {host}
+            header_up X-Real-IP {remote}
+            header_up X-Forwarded-For {remote}
+            header_up X-Forwarded-Proto {scheme}
+            header_up X-Forwarded-Host {host}
+        }
+    }
+
+    # 静态文件 - 直接从 public 目录提供
+    @static {
+        path /images/* /fonts/* /favicon.ico /robots.txt /sitemap.xml
+    }
+
+    handle @static {
+        root * {$OPENWOOK_ROOT}/public
+        file_server
+        header Cache-Control "public, max-age=31536000, immutable"
+    }
+
+    # Next.js 构建后的静态资源
+    @next_static {
+        path /_next/*
+    }
+
+    handle @next_static {
+        reverse_proxy localhost:3000
+        header Cache-Control "public, max-age=31536000, immutable"
+    }
+
+    # 默认 - 所有其他请求代理到 Next.js
+    handle {
+        reverse_proxy localhost:3000 {
+            header_up Host {host}
+            header_up X-Real-IP {remote}
+            header_up X-Forwarded-For {remote}
+            header_up X-Forwarded-Proto {scheme}
+            header_up X-Forwarded-Host {host}
+        }
+    }
+}
