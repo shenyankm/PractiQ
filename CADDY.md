@@ -38,23 +38,25 @@ pnpm start
 
 # 或直接运行
 export OPENWOOK_ROOT=/home/ubuntu/projects/openwook
-caddy run --config Caddyfile --adapter caddyfile
+caddy run --config /etc/caddy/Caddyfile.openwook --adapter caddyfile
 ```
 
 访问 `http://localhost` 即可通过 Caddy 访问应用。
 
 ## 文件说明
 
-| 文件 | 用途 |
-|------|------|
-| `Caddyfile` | 开发环境配置 (HTTP) |
-| `Caddyfile.prod` | 生产环境配置 (HTTPS) |
-| `caddy-manage.sh` | 服务管理脚本 |
-| `caddy-openwook.service` | systemd 服务配置 |
+| 文件 | 路径 | 用途 |
+|------|------|------|
+| `Caddyfile.openwook` | `/etc/caddy/Caddyfile.openwook` | 开发环境配置 (HTTP) |
+| `Caddyfile.dev` | `/etc/caddy/Caddyfile.dev` | 完整开发环境配置 (HTTP) |
+| `Caddyfile.prod` | `/etc/caddy/Caddyfile.prod` | 生产环境配置 (HTTPS) |
+| `Caddyfile.ip` | `/etc/caddy/Caddyfile.ip` | IP 访问模式配置 |
+| `caddy-manage.sh` | 项目目录 | 服务管理脚本 |
+| `caddy-openwook.service` | 项目目录 | systemd 服务配置模板 |
 
 ## 配置详解
 
-### 开发配置 (`Caddyfile`)
+### 开发配置 (`/etc/caddy/Caddyfile.openwook`)
 
 - **端口**: 80
 - **协议**: HTTP
@@ -63,7 +65,7 @@ caddy run --config Caddyfile --adapter caddyfile
 - **静态文件**: 直接从 `public/` 目录提供
 - **缓存**: Next.js 静态资源长期缓存
 
-### 生产配置 (`Caddyfile.prod`)
+### 生产配置 (`/etc/caddy/Caddyfile.prod`)
 
 - **端口**: 443 (HTTPS) + 80 (HTTP 重定向)
 - **SSL**: 自动证书 (Let's Encrypt) 或内部证书
@@ -213,7 +215,7 @@ sudo setcap cap_net_bind_service=+ep /usr/bin/caddy
 lsof -i :3000
 
 # 检查 Caddy 配置
-caddy validate --config Caddyfile
+caddy validate --config /etc/caddy/Caddyfile.openwook
 ```
 
 ### 查看详细日志

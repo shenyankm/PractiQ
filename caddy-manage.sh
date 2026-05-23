@@ -5,7 +5,7 @@
 
 set -e
 
-CADDYFILE="/home/ubuntu/projects/openwook/Caddyfile"
+CADDYFILE="/etc/caddy/Caddyfile.openwook"
 CADDY_PID_FILE="/tmp/caddy-openwook.pid"
 LOG_DIR="/var/log/caddy"
 OPENWOOK_ROOT="/home/ubuntu/projects/openwook"

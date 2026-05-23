@@ -75,7 +75,7 @@ pm2 startup
 ```bash
 # 使用新的IP配置文件
 export OPENWOOK_ROOT=/home/ubuntu/projects/openwook
-caddy run --config Caddyfile.ip --adapter caddyfile
+caddy run --config /etc/caddy/Caddyfile.ip --adapter caddyfile
 
 # 或使用管理脚本（见下方）
 ./caddy-manage-ip.sh start
@@ -151,7 +151,7 @@ ZeroSSL支持为IP地址签发证书。需要在 [zerossl.com](https://zerossl.c
 
 1. 购买/注册域名（如 `openwook.com`）
 2. 添加A记录指向 `122.51.255.108`
-3. 修改 `Caddyfile.ip`，取消注释域名配置块
+3. 修改 `/etc/caddy/Caddyfile.ip`，取消注释域名配置块
 4. 重启 Caddy
 
 ```caddyfile
@@ -177,7 +177,7 @@ Caddy会自动完成：
 #!/bin/bash
 set -e
 
-CADDYFILE="/home/ubuntu/projects/openwook/Caddyfile.ip"
+CADDYFILE="/etc/caddy/Caddyfile.ip"
 CADDY_PID_FILE="/tmp/caddy-openwook-ip.pid"
 LOG_DIR="/var/log/caddy"
 OPENWOOK_ROOT="/home/ubuntu/projects/openwook"
