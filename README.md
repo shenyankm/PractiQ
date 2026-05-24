@@ -139,6 +139,22 @@ GET /api/health
 
 Redis cache failures degrade to PostgreSQL reads. Queue, lock, and live-progress features require `REDIS_URL`.
 
+## Object Storage
+
+OpenWook stores uploaded avatars and import source files through a mounted object-storage directory. PostgreSQL keeps the object URL, while the mounted path is used only by the server to write or read the original file.
+
+Set environment variables:
+
+```env
+OBJECT_STORAGE_MOUNT_DIR=/lhcos-data
+OSS_PUBLIC_BASE_URL=https://<bucket>.cos.<region>.myqcloud.com
+OSS_URL_PREFIX=oss://openwook
+AVATAR_MAX_BYTES=5242880
+IMPORT_SOURCE_MAX_BYTES=26214400
+```
+
+If `OSS_PUBLIC_BASE_URL` is set, user avatars are stored in PostgreSQL as browser-usable HTTPS object URLs. If it is omitted, OpenWook stores `OSS_URL_PREFIX` URLs such as `oss://openwook/avatars/...`.
+
 ## Environment Variables
 
 | Variable | Description |
@@ -150,6 +166,11 @@ Redis cache failures degrade to PostgreSQL reads. Queue, lock, and live-progress
 | `IMPORT_QUEUE_ATTEMPTS` | BullMQ retry attempts for import jobs |
 | `AI_CACHE_TTL_SECONDS` | TTL for repeated AI parse/answer cache entries |
 | `LEADERBOARD_CACHE_TTL_SECONDS` | TTL for bank leaderboard cache entries |
+| `OBJECT_STORAGE_MOUNT_DIR` | Local mount path for the object-storage bucket |
+| `OSS_PUBLIC_BASE_URL` | Public bucket URL used for persisted avatar and source-file URLs |
+| `OSS_URL_PREFIX` | Fallback object URL prefix when no public bucket URL is configured |
+| `AVATAR_MAX_BYTES` | Max uploaded avatar size in bytes |
+| `IMPORT_SOURCE_MAX_BYTES` | Max uploaded TXT/DOCX source size in bytes |
 | `NEXT_PUBLIC_APP_URL` | Public app URL |
 | `API_SECRET_KEY` | API authentication key |
 

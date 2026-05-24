@@ -2,10 +2,12 @@ export type User = {
   id: number;
   username: string;
   email: string | null;
+  avatar_url: string | null;
   is_active: boolean;
   role: 'admin' | 'user';
   membership: 'free' | 'plus';
   plus_trial_ends_at: string | null;
+  plus_expires_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -99,6 +101,14 @@ export type PracticeSession = {
   score: number | null;
   started_at: string;
   completed_at: string | null;
+};
+
+export type PracticeMode = 'all' | 'wrong' | 'by_type' | 'exam';
+
+export type PracticeSessionOptions = {
+  mode?: PracticeMode;
+  questionTypeId?: string | null;
+  allQuestions?: boolean;
 };
 
 export type ImportJob = {

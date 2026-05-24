@@ -9,9 +9,9 @@ if (!connectionString) {
 }
 
 export const sql = postgres(connectionString, {
-  max: 10,
-  idle_timeout: 30,
-  connect_timeout: 10
+  max: Number(process.env.POSTGRES_POOL_MAX || process.env.DATABASE_POOL_MAX || 10),
+  idle_timeout: Number(process.env.POSTGRES_IDLE_TIMEOUT_SECONDS || 30),
+  connect_timeout: Number(process.env.POSTGRES_CONNECT_TIMEOUT_SECONDS || 10)
 });
 
 export type SqlClient = typeof sql;

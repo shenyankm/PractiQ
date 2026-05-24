@@ -3,6 +3,8 @@ import type { NextRequest } from 'next/server';
 import { signSessionToken, verifySessionToken } from '@/lib/openwook/session';
 
 const protectedRoutes = ['/dashboard', '/banks', '/imports', '/practice', '/questions', '/settings'];
+const sessionTtlMs = Number(process.env.SESSION_TTL_MS || 24 * 60 * 60 * 1000);
+const sessionRenewWindowMs = Number(process.env.SESSION_RENEW_WINDOW_MS || 6 * 60 * 60 * 1000);
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -18,20 +20,31 @@ export async function middleware(request: NextRequest) {
   if (sessionCookie && request.method === 'GET') {
     try {
       const parsed = await verifySessionToken(sessionCookie.value);
-      const expiresInOneDay = new Date(Date.now() + 24 * 60 * 60 * 1000);
+      const currentExpiresAt = new Date(parsed.expires).getTime();
+      const now = Date.now();
 
-      res.cookies.set({
-        name: 'session',
-        value: await signSessionToken({
-          ...parsed,
-          expires: expiresInOneDay.toISOString()
-        }, '1 day'),
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        path: '/',
-        expires: expiresInOneDay
-      });
+      if (!Number.isFinite(currentExpiresAt) || currentExpiresAt <= now) {
+        res.cookies.delete('session');
+        if (isProtectedRoute) {
+          return NextResponse.redirect(new URL('/sign-in', request.url));
+        }
+      } else if (currentExpiresAt - now <= sessionRenewWindowMs) {
+        const renewedExpiresAt = new Date(now + sessionTtlMs);
+        const expirationSeconds = `${Math.ceil(sessionTtlMs / 1000)}s`;
+
+        res.cookies.set({
+          name: 'session',
+          value: await signSessionToken({
+            ...parsed,
+            expires: renewedExpiresAt.toISOString()
+          }, expirationSeconds),
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          path: '/',
+          expires: renewedExpiresAt
+        });
+      }
     } catch (error) {
       console.error('Error updating session:', error);
       res.cookies.delete('session');

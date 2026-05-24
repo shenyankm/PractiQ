@@ -15,7 +15,7 @@ const { acquireRedisLock, createRedisConnection, redisKey } = await import('./re
 
 async function loadWorkerUser(userId: number) {
   const rows = await sql<User[]>`
-    SELECT id, username, email, is_active, role, membership, plus_trial_ends_at, created_at, updated_at
+    SELECT id, username, email, avatar_url, is_active, role, membership, plus_trial_ends_at, plus_expires_at, created_at, updated_at
     FROM users
     WHERE id = ${userId}
       AND is_active = true

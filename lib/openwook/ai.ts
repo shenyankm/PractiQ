@@ -5,6 +5,7 @@ import JSZip from 'jszip';
 import { z } from 'zod';
 import { sql } from './db';
 import { publishImportEvent } from './import-events';
+import { readObjectBuffer, relativePathFromObjectUrl } from './object-storage';
 import { hashKey, redisGetJson, redisKey, redisSetJson } from './redis';
 import {
   answerGeneratorAgent,
@@ -20,7 +21,9 @@ import {
   createQuestion,
   getImportJob,
   getQuestion,
+  invalidateBankCachesForTest,
   listImportJobChildren,
+  resolveQuestionTypeIdForSubject,
   upsertAnswerKey
 } from './services';
 import type { User } from './types';
@@ -32,6 +35,7 @@ export type DocumentParseRequest = {
   fileName?: string | null;
   text?: string | null;
   fileBase64?: string | null;
+  fileBuffer?: Buffer;
   mimeType?: string | null;
 };
 
@@ -198,34 +202,45 @@ export async function parseImportJobWithMastra(user: User, importJobId: number, 
   const job = await getImportJob(user, importJobId);
   await markImportJobProcessing(importJobId);
   const artifactRows = await listImportJobChildren(user, importJobId, 'artifacts') as unknown as Array<{ content_json: string | null; storage_path: string | null }>;
-  const artifacts = artifactRows.map(normalizeImportArtifact);
-  const content = artifacts
-    .map((artifact) => artifact.text ?? artifact.content ?? (artifact.storagePath ? `[file:${artifact.storagePath}]` : ''))
-    .filter(Boolean)
-    .join('\n\n');
-  const fileBase64 = artifacts.find((artifact) => artifact.fileBase64)?.fileBase64 ?? null;
-  const mimeType = artifacts.find((artifact) => artifact.mimeType)?.mimeType ?? null;
+  const contentParts: string[] = [];
+  let fileBuffer: Buffer | null = null;
+  let fileBase64: string | null = null;
+  let mimeType: string | null = null;
+  let fileName = job.file_name;
+
+  for (const artifactRow of artifactRows) {
+    const artifact = await hydrateImportArtifact(normalizeImportArtifact(artifactRow));
+    const text = artifact.text ?? artifact.content ?? (artifact.storagePath ? `[file:${artifact.storagePath}]` : '');
+    if (text) contentParts.push(text);
+    if (!fileBuffer && artifact.fileBuffer) fileBuffer = artifact.fileBuffer;
+    if (!fileBase64 && artifact.fileBase64) fileBase64 = artifact.fileBase64;
+    if (!mimeType && artifact.mimeType) mimeType = artifact.mimeType;
+    if (!fileName && artifact.fileName) fileName = artifact.fileName;
+  }
+
   const parsed = await parseDocumentWithMastra(user, {
     importJobId,
     bankId: job.bank_id ? Number(job.bank_id) : null,
     sourceType: normalizeSourceType(job.source_type),
-    fileName: job.file_name,
-    text: content || String(job.request_payload ?? ''),
+    fileName,
+    text: contentParts.join('\n\n') || String(job.request_payload ?? ''),
     fileBase64,
+    fileBuffer: fileBuffer ?? undefined,
     mimeType
   });
+  const sanitized = await validateDocumentParseResult(parsed, job.bank_id ? Number(job.bank_id) : null);
 
-  const pipelineRecords = await persistImportPipeline(importJobId, parsed);
+  const pipelineRecords = await persistImportPipeline(importJobId, sanitized);
 
   if (options?.persistQuestions !== false && job.bank_id) {
-    await persistParsedQuestions(user, importJobId, Number(job.bank_id), parsed, pipelineRecords);
+    await persistParsedQuestions(user, importJobId, Number(job.bank_id), sanitized, pipelineRecords);
   }
 
-  await completeImportJob(importJobId, parsed, {
-    importedQuestions: options?.persistQuestions === false || !job.bank_id ? 0 : parsed.questions.length
+  await completeImportJob(importJobId, sanitized, {
+    importedQuestions: options?.persistQuestions === false || !job.bank_id ? 0 : sanitized.questions.length
   });
 
-  return parsed;
+  return sanitized;
 }
 
 export async function generateAnswerWithMastra(user: User, request: AnswerGenerationRequest) {
@@ -282,6 +297,12 @@ export async function generateQuestionAnswerWithMastra(user: User, questionId: n
   });
 
   if (options?.apply !== false) {
+    if (result.confidence < Number(process.env.AI_APPLY_MIN_CONFIDENCE || 0.7)) {
+      throw new Error('AI generated answer confidence is too low to apply automatically');
+    }
+    if (!hasUsableParsedAnswer(question.answer_mode, result.answerPayload)) {
+      throw new Error('AI generated answer is incomplete and cannot be applied');
+    }
     await upsertAnswerKey(user, questionId, {
       answerMode: question.answer_mode,
       answerPayload: result.answerPayload,
@@ -361,6 +382,44 @@ async function persistParsedQuestions(
   parsed: DocumentParseResult,
   pipelineRecords: ImportPipelineRecord[]
 ) {
+  const outputRows: Array<{
+    job_id: number;
+    block_id: number | null;
+    attempt_id: number | null;
+    output_kind: 'question';
+    question_id: number;
+    confidence: number;
+    metadata_json: string;
+  }> = [];
+  const provenanceRows: Array<{
+    question_id: number;
+    source_job_id: number;
+    source_block_ref: string | null;
+    source_text: string;
+    confidence: number;
+    metadata_json: string;
+  }> = [];
+  const reviewRows: Array<{
+    job_id: number;
+    severity: 'medium';
+    code: string;
+    payload_json: string;
+  }> = [];
+  const contentBlockRows: Array<{
+    question_id: number;
+    owner_kind: 'question';
+    role: string | null;
+    part_type: string;
+    sequence: number;
+    content_mode: 'structured_rich';
+    text_format: string;
+    text_value: string | null;
+    latex_value: string | null;
+    markdown_value: string | null;
+    json_value: string | null;
+    metadata_json: string;
+  }> = [];
+
   for (const [index, parsedQuestion] of parsed.questions.entries()) {
     const pipelineRecord = pipelineRecords[index] ?? null;
     const question = await createQuestion(user, bankId, {
@@ -372,35 +431,132 @@ async function persistParsedQuestions(
       status: parsedQuestion.needsReview ? 'draft' : 'active',
       options: parsedQuestion.options,
       answerPayload: parsedQuestion.answerPayload ?? {}
+    }, {
+      invalidateCaches: false,
+      resolveQuestionType: false
     });
     await sql`
       UPDATE questions
       SET source_type = 'imported', source_job_id = ${importJobId}
       WHERE id = ${question.id}
     `;
-    await sql`
-      INSERT INTO question_import_job_outputs (job_id, block_id, attempt_id, output_kind, question_id, confidence, metadata_json)
-      VALUES (
-        ${importJobId}, ${pipelineRecord?.blockId ?? null}, ${pipelineRecord?.attemptId ?? null}, 'question',
-        ${question.id}, ${parsedQuestion.confidence}, ${JSON.stringify({ index, source: 'mastra' })}
-      )
-      ON CONFLICT DO NOTHING
-    `;
-    await sql`
-      INSERT INTO question_provenance (question_id, source_job_id, source_block_ref, source_text, confidence, metadata_json)
-      VALUES (
-        ${question.id}, ${importJobId}, ${pipelineRecord ? `mastra-q${index + 1}` : null},
-        ${parsedQuestion.sourceText ?? parsedQuestion.stem}, ${parsedQuestion.confidence}, ${JSON.stringify({ source: 'mastra' })}
-      )
-    `;
-    await persistQuestionContentBlocks(question.id, parsedQuestion.contentBlocks);
+    outputRows.push({
+      job_id: importJobId,
+      block_id: pipelineRecord?.blockId ?? null,
+      attempt_id: pipelineRecord?.attemptId ?? null,
+      output_kind: 'question',
+      question_id: Number(question.id),
+      confidence: parsedQuestion.confidence,
+      metadata_json: JSON.stringify({ index, source: 'mastra' })
+    });
+    provenanceRows.push({
+      question_id: Number(question.id),
+      source_job_id: importJobId,
+      source_block_ref: pipelineRecord ? `mastra-q${index + 1}` : null,
+      source_text: parsedQuestion.sourceText ?? parsedQuestion.stem,
+      confidence: parsedQuestion.confidence,
+      metadata_json: JSON.stringify({ source: 'mastra' })
+    });
+    contentBlockRows.push(...questionContentBlockRows(question.id, parsedQuestion.contentBlocks));
     if (parsedQuestion.needsReview) {
-      await sql`
-        INSERT INTO question_import_job_review_items (job_id, severity, code, payload_json)
-        VALUES (${importJobId}, 'medium', 'AI_NEEDS_REVIEW', ${JSON.stringify({ questionId: question.id, blockId: pipelineRecord?.blockId ?? null, stem: parsedQuestion.stem })})
-      `;
+      reviewRows.push({
+        job_id: importJobId,
+        severity: 'medium',
+        code: 'AI_NEEDS_REVIEW',
+        payload_json: JSON.stringify({ questionId: question.id, blockId: pipelineRecord?.blockId ?? null, stem: parsedQuestion.stem })
+      });
     }
   }
+  if (outputRows.length) {
+    await sql`
+      INSERT INTO question_import_job_outputs ${sql(outputRows, 'job_id', 'block_id', 'attempt_id', 'output_kind', 'question_id', 'confidence', 'metadata_json')}
+      ON CONFLICT DO NOTHING
+    `;
+  }
+  if (provenanceRows.length) {
+    await sql`
+      INSERT INTO question_provenance ${sql(provenanceRows, 'question_id', 'source_job_id', 'source_block_ref', 'source_text', 'confidence', 'metadata_json')}
+    `;
+  }
+  if (contentBlockRows.length) {
+    await sql`
+      INSERT INTO question_content_blocks ${
+        sql(contentBlockRows, 'question_id', 'owner_kind', 'role', 'part_type', 'sequence', 'content_mode', 'text_format', 'text_value', 'latex_value', 'markdown_value', 'json_value', 'metadata_json')
+      }
+    `;
+  }
+  if (reviewRows.length) {
+    await sql`
+      INSERT INTO question_import_job_review_items ${sql(reviewRows, 'job_id', 'severity', 'code', 'payload_json')}
+    `;
+  }
+  await invalidateBankCachesForTest(bankId, user.id);
+}
+
+async function validateDocumentParseResult(parsed: DocumentParseResult, bankId: number | null): Promise<DocumentParseResult> {
+  const subject = bankId ? await loadBankSubject(bankId) : null;
+  const questions = [];
+  const warnings = [...parsed.warnings];
+
+  for (const [index, question] of parsed.questions.entries()) {
+    const stem = question.stem.trim();
+    if (!stem) {
+      warnings.push(`Question ${index + 1} was discarded because its stem is empty.`);
+      continue;
+    }
+
+    const hasAnswer = hasUsableParsedAnswer(question.answerMode, question.answerPayload);
+    const hasChoiceOptions = question.answerMode !== 'choice'
+      || (question.options.length >= 2 && question.options.some((option) => option.isCorrect));
+    const compatibleTypeId = subject
+      ? await resolveQuestionTypeIdForSubject(subject, question.questionTypeId, question.answerMode)
+      : question.questionTypeId || 'generic_answer_mode';
+
+    questions.push({
+      ...question,
+      stem,
+      questionTypeId: compatibleTypeId,
+      options: question.answerMode === 'choice' ? normalizeParsedOptions(question.options, question.answerPayload) : [],
+      needsReview: question.needsReview || !hasAnswer || !hasChoiceOptions || question.confidence < 0.7,
+      confidence: Math.max(0, Math.min(1, question.confidence))
+    });
+  }
+
+  if (parsed.questions.length > 0 && questions.length === 0) {
+    throw new Error('AI parser did not produce any valid questions');
+  }
+
+  return {
+    ...parsed,
+    questions,
+    warnings,
+    qualityScore: Math.max(0, Math.min(100, parsed.qualityScore))
+  };
+}
+
+async function loadBankSubject(bankId: number) {
+  const rows = await sql<Array<{ subject: string }>>`
+    SELECT subject
+    FROM question_banks
+    WHERE id = ${bankId}
+    LIMIT 1
+  `;
+  if (!rows[0]) throw new Error(`Question bank ${bankId} is unavailable`);
+  return rows[0].subject;
+}
+
+function normalizeParsedOptions(
+  options: Array<{ label: string; content: string; isCorrect?: boolean }>,
+  answerPayload: Record<string, unknown> | undefined
+) {
+  const selected = new Set(normalizeStringArray(objectValue(answerPayload, 'selected')));
+  return options
+    .map((option) => ({
+      label: option.label.trim().toUpperCase(),
+      content: option.content.trim(),
+      isCorrect: option.isCorrect ?? selected.has(option.label.trim().toUpperCase())
+    }))
+    .filter((option, index, all) => option.label && option.content && all.findIndex((item) => item.label === option.label) === index);
 }
 
 function normalizeSourceType(value: string | null): DocumentParseRequest['sourceType'] {
@@ -408,15 +564,59 @@ function normalizeSourceType(value: string | null): DocumentParseRequest['source
   return 'unknown';
 }
 
-function normalizeImportArtifact(artifact: { content_json: string | null; storage_path: string | null }) {
+type NormalizedImportArtifact = {
+  text: string | null;
+  content: string | null;
+  fileBase64: string | null;
+  fileBuffer: Buffer | null;
+  mimeType: string | null;
+  relativePath: string | null;
+  storagePath: string | null;
+  fileName: string | null;
+};
+
+function normalizeImportArtifact(artifact: { content_json: string | null; storage_path: string | null }): NormalizedImportArtifact {
   const parsed = artifact.content_json ? safeArtifactContent(artifact.content_json) : {};
+  const objectKey = typeof parsed.objectKey === 'string' ? parsed.objectKey : null;
+  const legacyRelativePath = typeof parsed.relativePath === 'string' ? parsed.relativePath : null;
+  const relativePath = objectKey ?? legacyRelativePath ?? relativePathFromObjectUrl(artifact.storage_path);
   return {
     text: typeof parsed.text === 'string' ? parsed.text : null,
     content: typeof parsed.content === 'string' ? parsed.content : null,
     fileBase64: typeof parsed.fileBase64 === 'string' ? parsed.fileBase64 : null,
+    fileBuffer: null,
     mimeType: typeof parsed.mimeType === 'string' ? parsed.mimeType : null,
+    relativePath,
+    fileName: typeof parsed.originalName === 'string' ? parsed.originalName : null,
     storagePath: artifact.storage_path
   };
+}
+
+async function hydrateImportArtifact(artifact: NormalizedImportArtifact): Promise<NormalizedImportArtifact> {
+  if (artifact.text || artifact.fileBase64 || artifact.fileBuffer || !artifact.relativePath) return artifact;
+
+  const buffer = await readObjectBuffer(artifact.relativePath);
+  const mimeType = artifact.mimeType ?? inferMimeTypeFromName(artifact.fileName ?? artifact.relativePath);
+  if (mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || artifact.relativePath.toLowerCase().endsWith('.docx')) {
+    return {
+      ...artifact,
+      fileBuffer: buffer,
+      mimeType
+    };
+  }
+
+  return {
+    ...artifact,
+    text: buffer.toString('utf8').replace(/^\uFEFF/, ''),
+    mimeType: mimeType ?? 'text/plain'
+  };
+}
+
+function inferMimeTypeFromName(name: string) {
+  const normalizedName = name.toLowerCase();
+  if (normalizedName.endsWith('.docx')) return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  if (normalizedName.endsWith('.txt')) return 'text/plain';
+  return null;
 }
 
 function safeArtifactContent(contentJson: string): Record<string, unknown> {
@@ -428,6 +628,46 @@ function safeArtifactContent(contentJson: string): Record<string, unknown> {
   } catch {
     return { text: contentJson };
   }
+}
+
+function objectValue(value: unknown, key: string) {
+  return value && typeof value === 'object' && key in value
+    ? (value as Record<string, unknown>)[key]
+    : undefined;
+}
+
+function normalizeStringArray(value: unknown) {
+  const list = Array.isArray(value) ? value : value === undefined || value === null ? [] : [value];
+  return list.map((item) => String(item).trim()).filter(Boolean).sort();
+}
+
+function normalizeText(value: unknown) {
+  return String(value ?? '').trim().replace(/\s+/g, ' ');
+}
+
+function parsedFillBlankValues(payload: Record<string, unknown> | undefined) {
+  if (!payload) return [];
+  const directValue = objectValue(payload, 'value');
+  if (Array.isArray(directValue)) return directValue.map(normalizeText).filter(Boolean);
+  if (directValue !== undefined && directValue !== null) return [normalizeText(directValue)].filter(Boolean);
+
+  const slots = objectValue(payload, 'slots');
+  if (!Array.isArray(slots)) return [];
+  return slots.flatMap((slot) => {
+    if (!slot || typeof slot !== 'object') return [];
+    const record = slot as Record<string, unknown>;
+    const nested = record.answers ?? record.value;
+    const list = Array.isArray(nested) ? nested : [nested];
+    return list.map(normalizeText).filter(Boolean);
+  });
+}
+
+function hasUsableParsedAnswer(answerMode: AnswerGenerationRequest['answerMode'], payload: Record<string, unknown> | undefined) {
+  if (!payload) return false;
+  if (answerMode === 'choice') return normalizeStringArray(objectValue(payload, 'selected')).length > 0;
+  if (answerMode === 'true_false') return typeof payload.value === 'boolean';
+  if (answerMode === 'fill_blank') return parsedFillBlankValues(payload).length > 0;
+  return normalizeText(payload.value).length > 0;
 }
 
 async function markImportJobProcessing(importJobId: number) {
@@ -594,21 +834,21 @@ async function enqueueImportOutbox(importJobId: number, eventId: number | null, 
   `;
 }
 
-async function persistQuestionContentBlocks(questionId: number, blocks: z.infer<typeof contentBlockSchema>[]) {
-  for (const [index, block] of blocks.entries()) {
-    await sql`
-      INSERT INTO question_content_blocks (
-        question_id, owner_kind, role, part_type, sequence, content_mode, text_format,
-        text_value, latex_value, markdown_value, json_value, metadata_json
-      )
-      VALUES (
-        ${questionId}, 'question', ${block.role ?? null}, ${block.partType}, ${index + 1}, 'structured_rich',
-        ${block.partType === 'markdown' || block.markdownValue ? 'markdown' : 'plain'},
-        ${block.textValue ?? null}, ${block.latexValue ?? null}, ${block.markdownValue ?? null},
-        ${block.jsonValue ? JSON.stringify(block.jsonValue) : null}, ${JSON.stringify({ source: 'mastra' })}
-      )
-    `;
-  }
+function questionContentBlockRows(questionId: number, blocks: z.infer<typeof contentBlockSchema>[]) {
+  return blocks.map((block, index) => ({
+    question_id: questionId,
+    owner_kind: 'question' as const,
+    role: block.role ?? null,
+    part_type: block.partType,
+    sequence: index + 1,
+    content_mode: 'structured_rich' as const,
+    text_format: block.partType === 'markdown' || block.markdownValue ? 'markdown' : 'plain',
+    text_value: block.textValue ?? null,
+    latex_value: block.latexValue ?? null,
+    markdown_value: block.markdownValue ?? null,
+    json_value: block.jsonValue ? JSON.stringify(block.jsonValue) : null,
+    metadata_json: JSON.stringify({ source: 'mastra' })
+  }));
 }
 
 async function runStructuredAgent<T>({
@@ -639,19 +879,21 @@ async function normalizeDocument(request: DocumentParseRequest): Promise<Normali
   const visualHints: string[] = [];
   const metadata: Record<string, unknown> = {};
 
-  if (request.fileBase64 && request.sourceType === 'docx') {
-    const buffer = Buffer.from(stripDataUriPrefix(request.fileBase64), 'base64');
-    const htmlResult = await mammoth.convertToHtml({ buffer }, {
+  const fileBuffer = request.fileBuffer ?? (request.fileBase64 ? Buffer.from(stripDataUriPrefix(request.fileBase64), 'base64') : null);
+
+  if (fileBuffer && request.sourceType === 'docx') {
+    const htmlResult = await mammoth.convertToHtml({ buffer: fileBuffer }, {
       convertImage: mammoth.images.imgElement(async (image) => {
-        const base64 = await image.readAsBase64String();
-        visualHints.push(`image:${image.contentType}:${base64.length}base64chars`);
-        return { src: `data:${image.contentType};base64,${base64}` };
+        const content = await image.readAsBuffer();
+        visualHints.push(`image:${image.contentType}:${content.length}bytes`);
+        return { src: '' };
       })
     });
-    const rawTextResult = await mammoth.extractRawText({ buffer });
-    const ooxml = await extractDocxOoxmlHints(buffer);
+    const rawTextResult = await mammoth.extractRawText({ buffer: fileBuffer });
+    const ooxml = await extractDocxOoxmlHints(fileBuffer);
     metadata.mammothMessages = [...htmlResult.messages, ...rawTextResult.messages].map((message) => message.message);
     metadata.ooxml = ooxml.metadata;
+    metadata.byteLength = fileBuffer.length;
     warnings.push(...htmlResult.messages.map((message) => `docx html: ${message.message}`));
     warnings.push(...rawTextResult.messages.map((message) => `docx text: ${message.message}`));
     visualHints.push(...ooxml.visualHints);
@@ -669,15 +911,14 @@ async function normalizeDocument(request: DocumentParseRequest): Promise<Normali
     };
   }
 
-  if (request.fileBase64) {
-    const buffer = Buffer.from(stripDataUriPrefix(request.fileBase64), 'base64');
-    const decoded = buffer.toString('utf8').replace(/^\uFEFF/, '');
+  if (fileBuffer) {
+    const decoded = fileBuffer.toString('utf8').replace(/^\uFEFF/, '');
     return {
       text: [baseText, decoded].filter(Boolean).join('\n\n').trim(),
       html: null,
       warnings,
       visualHints,
-      metadata: { ...metadata, byteLength: buffer.length }
+      metadata: { ...metadata, byteLength: fileBuffer.length }
     };
   }
 
@@ -862,6 +1103,16 @@ function fallbackGenerateAnswer(request: AnswerGenerationRequest): AnswerGenerat
 }
 
 async function loadLearningReportSource(user: User, request: LearningReportRequest) {
+  const targetUserId = request.userId ?? user.id;
+  if (targetUserId !== user.id && user.role !== 'admin') {
+    throw new Error('Administrator privileges required to generate reports for other users');
+  }
+  if (request.bankId) {
+    await ensureReportBankAccess(user, request.bankId);
+  }
+  if (request.practiceSessionId) {
+    await ensureReportPracticeSessionAccess(user, request.practiceSessionId, targetUserId);
+  }
   const rows = await sql`
     SELECT
       uqs.question_id,
@@ -875,7 +1126,7 @@ async function loadLearningReportSource(user: User, request: LearningReportReque
       q.subject_id
     FROM user_question_stats uqs
     JOIN questions q ON q.id = uqs.question_id
-    WHERE uqs.user_id = ${request.userId ?? user.id}
+    WHERE uqs.user_id = ${targetUserId}
       AND (${request.bankId ?? null}::bigint IS NULL OR EXISTS (
         SELECT 1 FROM bank_question_links bql
         WHERE bql.question_id = q.id AND bql.bank_id = ${request.bankId ?? null}
@@ -885,11 +1136,37 @@ async function loadLearningReportSource(user: User, request: LearningReportReque
   `;
   return {
     scope: request.scope,
-    userId: request.userId ?? user.id,
+    userId: targetUserId,
     bankId: request.bankId ?? null,
     practiceSessionId: request.practiceSessionId ?? null,
     stats: rows
   };
+}
+
+async function ensureReportBankAccess(user: User, bankId: number) {
+  const rows = await sql<Array<{ id: number }>>`
+    SELECT b.id
+    FROM question_banks b
+    LEFT JOIN user_bank_links ubl
+      ON ubl.bank_id = b.id
+     AND ubl.user_id = ${user.id}
+    WHERE b.id = ${bankId}
+      AND (${user.role === 'admin'} OR b.is_public = true OR ubl.id IS NOT NULL)
+    LIMIT 1
+  `;
+  if (!rows[0]) throw new Error('Question bank access required for learning report');
+}
+
+async function ensureReportPracticeSessionAccess(user: User, sessionId: number, targetUserId: number) {
+  const rows = await sql<Array<{ id: number }>>`
+    SELECT id
+    FROM user_practice_sessions
+    WHERE id = ${sessionId}
+      AND (${user.role === 'admin'} OR user_id = ${user.id})
+      AND user_id = ${targetUserId}
+    LIMIT 1
+  `;
+  if (!rows[0]) throw new Error('Practice session access required for learning report');
 }
 
 function fallbackLearningReport(source: { stats?: Array<Record<string, unknown>>; scope?: string }): LearningReportResult {

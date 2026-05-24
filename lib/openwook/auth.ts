@@ -77,7 +77,7 @@ export async function getCurrentUser(): Promise<User | null> {
       Number(process.env.USER_CACHE_TTL_SECONDS || 60),
       async () => {
         const rows = await sql<User[]>`
-          SELECT id, username, email, is_active, role, membership, plus_trial_ends_at, created_at, updated_at
+          SELECT id, username, email, avatar_url, is_active, role, membership, plus_trial_ends_at, plus_expires_at, created_at, updated_at
           FROM users
           WHERE id = ${session.user.id}
           LIMIT 1

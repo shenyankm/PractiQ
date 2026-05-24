@@ -24,6 +24,19 @@ const signUpSchema = z.object({
   password: z.string().min(8).max(100)
 });
 
+function safeRedirect(value: FormDataEntryValue | null) {
+  const target = String(value || '/dashboard');
+  if (!target.startsWith('/') || target.startsWith('//')) return '/dashboard';
+
+  try {
+    const url = new URL(target, 'https://openwook.local');
+    if (url.origin !== 'https://openwook.local') return '/dashboard';
+    return `${url.pathname}${url.search}${url.hash}` || '/dashboard';
+  } catch {
+    return '/dashboard';
+  }
+}
+
 export async function signIn(_prevState: ActionState, formData: FormData): Promise<ActionState> {
   const parsed = signInSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.errors[0].message };
@@ -37,7 +50,7 @@ export async function signIn(_prevState: ActionState, formData: FormData): Promi
   }
 
   await setSession(found.id);
-  redirect('/dashboard');
+  redirect(safeRedirect(formData.get('redirect')));
 }
 
 export async function signUp(_prevState: ActionState, formData: FormData): Promise<ActionState> {
@@ -62,7 +75,7 @@ export async function signUp(_prevState: ActionState, formData: FormData): Promi
     };
   }
 
-  redirect('/dashboard');
+  redirect(safeRedirect(formData.get('redirect')));
 }
 
 export async function signOut() {

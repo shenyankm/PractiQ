@@ -15,11 +15,13 @@ export default async function BankManagePage({ params }: { params: Promise<{ ban
   const { bankId } = await params;
   const id = Number(bankId);
   if (!Number.isInteger(id)) notFound();
-  const [bank, items] = await Promise.all([
-    getBank(user, id),
-    listBankItems(user, id, new URLSearchParams({ limit: '100' }))
+  const bank = await getBank(user, id);
+  if (!bank.is_owner) notFound();
+
+  const [items, types] = await Promise.all([
+    listBankItems(user, id, new URLSearchParams({ limit: '100' })),
+    listQuestionTypes(bank.subject, 'question')
   ]);
-  const types = await listQuestionTypes(bank.subject, 'question');
   const action = createQuestionAction.bind(null, id);
 
   return (

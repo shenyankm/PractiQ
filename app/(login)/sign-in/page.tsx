@@ -1,10 +1,12 @@
-import { Suspense } from 'react';
 import { Login } from '../login';
 
-export default function SignInPage() {
-  return (
-    <Suspense>
-      <Login mode="signin" />
-    </Suspense>
-  );
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+
+export default async function SignInPage({ searchParams }: { searchParams: SearchParams }) {
+  const params = await searchParams;
+  return <Login mode="signin" redirect={first(params.redirect)} priceId={first(params.priceId)} inviteId={first(params.inviteId)} />;
+}
+
+function first(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
 }

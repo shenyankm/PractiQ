@@ -1,18 +1,13 @@
 import { z } from 'zod';
+import { NextResponse } from 'next/server';
 import { clearSession, comparePasswords, getCurrentUser, getUserPasswordByLogin, hashPassword, requireUser, setSession } from '@/lib/openwook/auth';
 import { ApiError, created, handleApiError, noContent, ok, parseId, readJson } from '@/lib/openwook/api';
 import { streamImportEvents, type ImportEventPayload } from '@/lib/openwook/import-events';
 import { incrementRateLimit, redisKey } from '@/lib/openwook/redis';
 import { sql } from '@/lib/openwook/db';
 import {
-  generateAnswerWithMastra,
-  generateLearningReportWithMastra,
-  generateQuestionAnswerWithMastra,
-  getAiArtifacts,
-  parseDocumentWithMastra,
-} from '@/lib/openwook/ai';
-import {
   addImportJobFile,
+  addImportJobUploadedFile,
   addQuestionToGroup,
   completePracticeSession,
   createBank,
@@ -34,6 +29,7 @@ import {
   getMediaAsset,
   exportUserSummaryPdf,
   getUserStatsSnapshot,
+  getPracticeQuestionPage,
   getPracticeQuestions,
   getPracticeResults,
   getPracticeSession,
@@ -131,7 +127,10 @@ const questionSchema = z.object({
 const practiceStartSchema = z.object({
   bankId: z.number().int().positive(),
   sessionType: z.enum(['practice', 'review', 'exam']).optional(),
-  questionCount: z.number().int().positive().max(100).optional()
+  questionCount: z.number().int().positive().max(500).optional(),
+  mode: z.enum(['all', 'wrong', 'by_type', 'exam']).optional(),
+  questionTypeId: z.string().min(1).max(64).optional().nullable(),
+  allQuestions: z.boolean().optional()
 });
 
 const answerSchema = z.object({
@@ -193,7 +192,8 @@ const contentBlocksSchema = z.object({
 const profileSchema = z.object({
   username: z.string().trim().min(2).max(32).optional(),
   email: z.string().email().optional().nullable(),
-  password: z.string().min(8).max(100).optional()
+  password: z.string().min(8).max(100).optional(),
+  avatarUrl: z.string().trim().min(1).max(1024).optional().nullable()
 });
 
 const aiDocumentParseSchema = z.object({
@@ -238,6 +238,18 @@ function clientIp(request: Request) {
     || 'unknown';
 }
 
+async function alipayHandlers() {
+  return import('@/lib/openwook/alipay');
+}
+
+async function aiHandlers() {
+  return import('@/lib/openwook/ai');
+}
+
+async function objectStorageHandlers() {
+  return import('@/lib/openwook/object-storage');
+}
+
 async function enforceRateLimit(key: string, limit: number, windowSeconds: number) {
   const result = await incrementRateLimit(redisKey('rate-limit', key), limit, windowSeconds);
   if (!result.allowed) {
@@ -249,6 +261,28 @@ export async function GET(request: Request, ctx: Ctx) {
   try {
     const parts = await partsFrom(ctx);
     const url = new URL(request.url);
+
+    if (parts.join('/') === 'billing/alipay/return') {
+      const { handleAlipayReturn } = await alipayHandlers();
+      let paid = false;
+      let outTradeNo: string | undefined;
+      try {
+        const result = await handleAlipayReturn(url.searchParams);
+        paid = Boolean(result.paid);
+        outTradeNo = result.outTradeNo;
+      } catch (error) {
+        outTradeNo = url.searchParams.get('out_trade_no') ?? undefined;
+        console.error('Alipay return processing failed', error instanceof ApiError ? {
+          code: error.code,
+          message: error.message
+        } : { message: 'Unexpected Alipay return error' });
+      }
+      const appUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.BASE_URL || url.origin).replace(/\/$/, '');
+      const redirectUrl = new URL('/settings', appUrl);
+      redirectUrl.searchParams.set('alipay', paid ? 'paid' : 'pending');
+      if (outTradeNo) redirectUrl.searchParams.set('order', outTradeNo);
+      return NextResponse.redirect(redirectUrl);
+    }
 
     if (parts.join('/') === 'auth/me') {
       return ok(await getCurrentUser());
@@ -264,6 +298,11 @@ export async function GET(request: Request, ctx: Ctx) {
 
     const user = await requireUser();
 
+    if (parts.join('/') === 'billing/alipay/summary') {
+      const { getAlipayBillingSummary } = await alipayHandlers();
+      return ok(await getAlipayBillingSummary(user));
+    }
+
     if (parts[0] === 'banks' && parts.length === 1) return ok(await listBanks(user, url.searchParams));
     if (parts[0] === 'banks' && parts[1]) {
       const bankId = parseId(parts[1], 'bankId');
@@ -278,6 +317,7 @@ export async function GET(request: Request, ctx: Ctx) {
     if (parts[0] === 'practice-sessions' && parts[1]) {
       const sessionId = parseId(parts[1], 'sessionId');
       if (parts.length === 2) return ok(await getPracticeSession(user, sessionId));
+      if (parts[2] === 'question-page') return ok(await getPracticeQuestionPage(user, sessionId, url.searchParams));
       if (parts[2] === 'questions') return ok(await getPracticeQuestions(user, sessionId));
       if (parts[2] === 'results') return ok(await getPracticeResults(user, sessionId));
     }
@@ -288,7 +328,7 @@ export async function GET(request: Request, ctx: Ctx) {
       if (parts.length === 2) return ok(await getImportJob(user, jobId));
       if (parts[2] === 'events' && parts[3] === 'stream') {
         const events = await listImportJobChildren(user, jobId, 'events') as unknown as ImportEventPayload[];
-        return streamImportEvents(jobId, events, request.signal);
+        return streamImportEvents(jobId, [...events].reverse(), request.signal);
       }
       if (isImportChildKind(parts[2])) {
         return ok(await listImportJobChildren(user, jobId, parts[2]));
@@ -299,7 +339,10 @@ export async function GET(request: Request, ctx: Ctx) {
 
     if (parts[0] === 'search' && parts[1]) return ok(await search(user, parts[1], url.searchParams));
 
-    if (parts[0] === 'ai' && parts[1] === 'artifacts') return ok(await getAiArtifacts(user, url.searchParams));
+    if (parts[0] === 'ai' && parts[1] === 'artifacts') {
+      const { getAiArtifacts } = await aiHandlers();
+      return ok(await getAiArtifacts(user, url.searchParams));
+    }
     if (parts.join('/') === 'exports/me/summary.pdf') {
       const pdfBytes = await exportUserSummaryPdf(user);
       return new Response(new Uint8Array(pdfBytes), {
@@ -329,6 +372,28 @@ export async function POST(request: Request, ctx: Ctx) {
   try {
     const parts = await partsFrom(ctx);
 
+    if (parts.join('/') === 'billing/alipay/notify') {
+      const { handleAlipayNotify } = await alipayHandlers();
+      const formData = await request.formData();
+      const params: Record<string, string> = {};
+      formData.forEach((value, key) => {
+        params[key] = String(value);
+      });
+      let success = false;
+      try {
+        success = await handleAlipayNotify(params);
+      } catch (error) {
+        console.error('Alipay notify processing failed', error instanceof ApiError ? {
+          code: error.code,
+          message: error.message
+        } : { message: 'Unexpected Alipay notify error' });
+      }
+      return new Response(success ? 'success' : 'failure', {
+        status: 200,
+        headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+      });
+    }
+
     if (parts.join('/') === 'auth/register') {
       await enforceRateLimit(`auth:register:ip:${clientIp(request)}`, 10, 3600);
       const body = registerSchema.parse(await readJson(request));
@@ -336,7 +401,7 @@ export async function POST(request: Request, ctx: Ctx) {
       const rows = await sql`
         INSERT INTO users (username, email, password, role, membership, plus_trial_ends_at)
         VALUES (${body.username}, ${body.email ?? null}, ${passwordHash}, 'user', 'free', NOW() + INTERVAL '3 days')
-        RETURNING id, username, email, is_active, role, membership, plus_trial_ends_at, created_at, updated_at
+        RETURNING id, username, email, avatar_url, is_active, role, membership, plus_trial_ends_at, plus_expires_at, created_at, updated_at
       `;
       await setSession(rows[0].id);
       return created(rows[0]);
@@ -360,6 +425,11 @@ export async function POST(request: Request, ctx: Ctx) {
     }
 
     const user = await requireUser();
+
+    if (parts.join('/') === 'billing/alipay/checkout') {
+      const { createAlipayCheckout } = await alipayHandlers();
+      return created(await createAlipayCheckout(user));
+    }
 
     if (parts[0] === 'knowledge-points' && parts.length === 1) {
       return created(await createKnowledgePoint(user, knowledgePointSchema.parse(await readJson(request))));
@@ -385,6 +455,7 @@ export async function POST(request: Request, ctx: Ctx) {
       if (parts[2] === 'publish') return ok(await setQuestionStatus(user, questionId, 'active'));
       if (parts[2] === 'archive') return ok(await setQuestionStatus(user, questionId, 'archived'));
       if (parts[2] === 'generate-answer') {
+        const { generateQuestionAnswerWithMastra } = await aiHandlers();
         const body = z.object({ apply: z.boolean().optional() }).parse(await readJson(request));
         return ok(await generateQuestionAnswerWithMastra(user, questionId, { apply: body.apply ?? true }));
       }
@@ -434,10 +505,15 @@ export async function POST(request: Request, ctx: Ctx) {
     if (parts[0] === 'import-jobs' && parts[1]) {
       const jobId = parseId(parts[1], 'jobId');
       if (parts[2] === 'file') {
+        if ((request.headers.get('content-type') || '').includes('multipart/form-data')) {
+          const formData = await request.formData();
+          return created(await addImportJobUploadedFile(user, jobId, formData.get('file')));
+        }
         const body = z.object({
           artifactType: z.string().optional(),
           storagePath: z.string().optional().nullable(),
-          content: z.record(z.unknown()).optional().nullable()
+          content: z.record(z.unknown()).optional().nullable(),
+          sourceType: z.enum(['txt', 'text', 'docx']).optional().nullable()
         }).parse(await readJson(request));
         return created(await addImportJobFile(user, jobId, body));
       }
@@ -466,6 +542,7 @@ export async function POST(request: Request, ctx: Ctx) {
     }
 
     if (parts[0] === 'ai') {
+      const { generateAnswerWithMastra, generateLearningReportWithMastra, parseDocumentWithMastra } = await aiHandlers();
       if (parts[1] === 'parse-document') return ok(await parseDocumentWithMastra(user, aiDocumentParseSchema.parse(await readJson(request))));
       if (parts[1] === 'generate-answer') return ok(await generateAnswerWithMastra(user, aiAnswerSchema.parse(await readJson(request))));
       if (parts[1] === 'learning-report') return ok(await generateLearningReportWithMastra(user, aiReportSchema.parse(await readJson(request))));
@@ -483,11 +560,28 @@ export async function PATCH(request: Request, ctx: Ctx) {
     const user = await requireUser();
 
     if (parts.join('/') === 'users/me') {
+      if ((request.headers.get('content-type') || '').includes('multipart/form-data')) {
+        const { isUploadedFile, storeAvatarFile } = await objectStorageHandlers();
+        const formData = await request.formData();
+        const avatarFile = formData.get('avatar');
+        const avatarUrl = isUploadedFile(avatarFile)
+          ? (await storeAvatarFile(user.id, avatarFile)).objectUrl
+          : undefined;
+        const password = String(formData.get('password') || '');
+        return ok(await updateCurrentUser(user, {
+          username: String(formData.get('username') || '') || undefined,
+          email: String(formData.get('email') || '') || null,
+          passwordHash: password ? await hashPassword(password) : undefined,
+          avatarUrl
+        }));
+      }
+
       const body = profileSchema.parse(await readJson(request));
       return ok(await updateCurrentUser(user, {
         username: body.username,
         email: body.email,
-        passwordHash: body.password ? await hashPassword(body.password) : undefined
+        passwordHash: body.password ? await hashPassword(body.password) : undefined,
+        avatarUrl: body.avatarUrl
       }));
     }
 

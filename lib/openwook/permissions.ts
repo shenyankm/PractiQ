@@ -1,11 +1,14 @@
 import { ApiError } from './api';
 import type { User } from './types';
 
-type EntitlementUser = Pick<User, 'role' | 'membership' | 'plus_trial_ends_at'>;
+type EntitlementUser = Pick<User, 'role' | 'membership' | 'plus_trial_ends_at' | 'plus_expires_at'>;
 
 export function hasPlusEntitlement(user: EntitlementUser, now = new Date()) {
   if (user.role === 'admin') return true;
-  if (user.membership === 'plus') return true;
+  if (user.membership === 'plus') {
+    if (!user.plus_expires_at) return true;
+    return new Date(user.plus_expires_at).getTime() > now.getTime();
+  }
   if (!user.plus_trial_ends_at) return false;
   return new Date(user.plus_trial_ends_at).getTime() > now.getTime();
 }

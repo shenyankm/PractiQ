@@ -1,8 +1,6 @@
 import './globals.css';
 import type { Metadata, Viewport } from 'next';
 import { Manrope } from 'next/font/google';
-import { SWRConfig } from 'swr';
-import { getCurrentUser } from '@/lib/openwook/auth';
 
 export const metadata: Metadata = {
   title: 'OpenWook',
@@ -27,15 +25,7 @@ export default function RootLayout({
       className={`bg-white dark:bg-gray-950 text-black dark:text-white ${manrope.className}`}
     >
       <body className="min-h-[100dvh] bg-gray-50">
-        <SWRConfig
-          value={{
-            fallback: {
-              '/api/v1/auth/me': getCurrentUser()
-            }
-          }}
-        >
-          {children}
-        </SWRConfig>
+        {children}
       </body>
     </html>
   );

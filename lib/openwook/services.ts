@@ -4,14 +4,15 @@ import { sql } from './db';
 import { ApiError } from './api';
 import { invalidateUserCache } from './auth';
 import { publishImportEvent } from './import-events';
-import { enqueueImportJob, isImportQueueConfigured, removeQueuedImportJob } from './import-queue';
 import { requireAdminRole, requireImportSourceType, requirePlusEntitlement } from './permissions';
 import {
   acquireRedisLock,
   hashKey,
-  redisDelByPattern,
+  redisDel,
+  redisGetText,
   redisGetJson,
   redisGetOrSetJson,
+  redisIncr,
   redisKey,
   redisSetJson
 } from './redis';
@@ -20,8 +21,10 @@ import type {
   BankQuestionItem,
   ImportJob,
   MediaAsset,
+  PracticeMode,
   PracticeAnswer,
   PracticeSession,
+  PracticeSessionOptions,
   Question,
   QuestionBank,
   QuestionType,
@@ -34,25 +37,10 @@ type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string
 const shortCacheTtl = Number(process.env.OPENWOOK_SHORT_CACHE_TTL_SECONDS || 60);
 const referenceCacheTtl = Number(process.env.OPENWOOK_REFERENCE_CACHE_TTL_SECONDS || 3600);
 const practiceQueueTtl = Number(process.env.PRACTICE_QUEUE_TTL_SECONDS || 7 * 24 * 60 * 60);
+const maxPracticeQuestions = Number(process.env.PRACTICE_MAX_QUESTIONS || 500);
 
 function toJsonValue(value: unknown): JsonValue {
   return JSON.parse(JSON.stringify(value ?? null)) as JsonValue;
-}
-
-function userBankListPattern(userId: number) {
-  return redisKey('cache', 'banks', userId, '*');
-}
-
-function bankCachePattern(bankId: number) {
-  return redisKey('cache', 'bank', bankId, '*');
-}
-
-function bankItemsCachePattern(bankId: number) {
-  return redisKey('cache', 'bank-items', bankId, '*');
-}
-
-function questionCachePattern(questionId: number) {
-  return redisKey('cache', 'question', questionId, '*');
 }
 
 function practiceQuestionQueueKey(sessionId: number) {
@@ -63,33 +51,32 @@ function answerKeyCacheKey(questionId: number) {
   return redisKey('cache', 'answer-key', questionId);
 }
 
-function userAnalyticsPattern(userId: number) {
-  return redisKey('cache', 'analytics', 'user', userId, '*');
-}
-
-function bankLeaderboardPattern(bankId: number) {
-  return redisKey('cache', 'leaderboard', 'bank', bankId, '*');
+async function cacheVersion(scope: string, id?: number | string | null) {
+  return await redisGetText(redisKey('cache-version', scope, id ?? 'global')) ?? '0';
 }
 
 async function invalidateUserBankLists(userId?: number) {
-  await redisDelByPattern(userId ? userBankListPattern(userId) : redisKey('cache', 'banks', '*'));
+  await redisIncr(redisKey('cache-version', 'banks', userId ?? 'global'));
 }
 
 async function invalidateUserAnalytics(userId: number) {
-  await redisDelByPattern(userAnalyticsPattern(userId));
+  await redisIncr(redisKey('cache-version', 'analytics', userId));
 }
 
 async function invalidateBankLeaderboard(bankId: number | null | undefined) {
-  if (bankId) await redisDelByPattern(bankLeaderboardPattern(bankId));
+  if (bankId) await redisIncr(redisKey('cache-version', 'leaderboard', bankId));
 }
 
-async function invalidateBankCaches(bankId: number, userId?: number) {
+export async function invalidateBankCachesForTest(bankId: number, userId?: number) {
   await Promise.all([
-    redisDelByPattern(bankCachePattern(bankId)),
-    redisDelByPattern(bankItemsCachePattern(bankId)),
+    redisIncr(redisKey('cache-version', 'bank', bankId)),
+    redisIncr(redisKey('cache-version', 'bank-items', bankId)),
+    redisIncr(redisKey('cache-version', 'bank-practice-summary', bankId)),
     invalidateUserBankLists(userId)
   ]);
 }
+
+export const invalidateBankCaches = invalidateBankCachesForTest;
 
 async function invalidateQuestionCaches(questionId: number) {
   const bankRows = await sql<Array<{ bank_id: number }>>`
@@ -100,19 +87,50 @@ async function invalidateQuestionCaches(questionId: number) {
     JOIN group_question_links gql ON gql.group_id = bgl.group_id
     WHERE gql.question_id = ${questionId}
   `;
-  await redisDelByPattern(questionCachePattern(questionId));
-  await redisDelByPattern(answerKeyCacheKey(questionId));
+  await redisIncr(redisKey('cache-version', 'question', questionId));
+  await redisDel(answerKeyCacheKey(questionId));
   await Promise.all(bankRows.map((row) => invalidateBankCaches(row.bank_id)));
 }
 
-async function loadPracticeQuestionIds(bankId: number, count: number) {
+async function invalidatePracticeSummaryCaches(userId: number, bankId?: number | null) {
+  void bankId;
+  await redisIncr(redisKey('cache-version', 'practice-summary', userId));
+}
+
+async function importQueueHandlers() {
+  return import('./import-queue');
+}
+
+async function loadPracticeQuestionIds(
+  user: User,
+  bankId: number,
+  count: number,
+  options: PracticeSessionOptions
+) {
+  const mode = normalizePracticeModeForTest(options.mode);
+  const typeFilter = mode === 'by_type' ? options.questionTypeId?.trim() || null : null;
+
   const rows = await sql<Array<{ question_id: number }>>`
-    SELECT question_id
-    FROM v_bank_question_items
-    WHERE bank_id = ${bankId}
-      AND bank_link_status = 'active'
-      AND question_status = 'active'
-    ORDER BY bank_sort_order, question_id
+    SELECT v.question_id
+    FROM v_bank_question_items v
+    LEFT JOIN user_question_stats uqs
+      ON uqs.question_id = v.question_id
+     AND uqs.user_id = ${user.id}
+    WHERE v.bank_id = ${bankId}
+      AND v.bank_link_status = 'active'
+      AND v.question_status = 'active'
+      AND (${typeFilter ?? null}::text IS NULL OR v.question_type_id = ${typeFilter ?? null})
+      AND (
+        ${mode} <> 'wrong'
+        OR COALESCE(uqs.wrong_count, 0) > 0
+        OR uqs.last_is_correct IS FALSE
+      )
+    ORDER BY
+      CASE WHEN ${mode} = 'wrong' THEN COALESCE(uqs.wrong_count, 0) ELSE 0 END DESC,
+      CASE WHEN ${mode} = 'exam' THEN md5(v.question_id::text || ${user.id}::text || CURRENT_DATE::text) ELSE NULL END,
+      v.bank_sort_order,
+      v.group_sort_order NULLS FIRST,
+      v.question_id
     LIMIT ${count}
   `;
   return rows.map((row) => Number(row.question_id));
@@ -129,6 +147,130 @@ async function getExistingPracticeAnswer(userId: number, sessionId: number, ques
     LIMIT 1
   `;
   return rows[0] ?? null;
+}
+
+export function normalizePracticeModeForTest(mode?: PracticeMode | null, sessionType?: 'practice' | 'review' | 'exam') {
+  if (mode === 'wrong' || sessionType === 'review') return 'wrong' as const;
+  if (mode === 'by_type') return 'by_type' as const;
+  if (mode === 'exam' || sessionType === 'exam') return 'exam' as const;
+  return 'all' as const;
+}
+
+export function normalizeQuestionCountForTest(value: number | undefined, allQuestions: boolean | undefined) {
+  if (allQuestions) return maxPracticeQuestions;
+  return Math.max(1, Math.min(Number.isFinite(value ?? NaN) ? Number(value) : 10, maxPracticeQuestions));
+}
+
+function hasNonEmptyText(value: unknown) {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function isNonEmptyRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
+}
+
+function selectedAnswerValues(value: unknown) {
+  return normalizeStringArray(objectValue(value, 'selected'));
+}
+
+export function hasUsableAnswerPayloadForTest(mode: AnswerMode, payload: Record<string, unknown> | undefined) {
+  if (!payload) return false;
+  if (mode === 'choice') return selectedAnswerValues(payload).length > 0;
+  if (mode === 'true_false') return typeof payload.value === 'boolean';
+  if (mode === 'fill_blank') return fillBlankValues(payload).some((value) => value.length > 0);
+  return hasNonEmptyText(payload.value);
+}
+
+export function validateQuestionPayloadForTest(data: {
+  answerMode: AnswerMode;
+  status?: 'draft' | 'active' | 'archived';
+  options?: Array<{ label: string; content: string; isCorrect?: boolean }>;
+  answerPayload?: Record<string, unknown>;
+}) {
+  if (data.answerMode !== 'choice' && data.options?.length) {
+    throw new ApiError(422, 'VALIDATION_ERROR', 'Options are only supported for choice questions');
+  }
+
+  if (data.answerMode === 'choice') {
+    const options = data.options ?? [];
+    const labels = new Set(options.map((option) => option.label.trim()).filter(Boolean));
+    if (labels.size !== options.length) {
+      throw new ApiError(422, 'VALIDATION_ERROR', 'Choice option labels must be unique and non-empty');
+    }
+    if (data.answerPayload && selectedAnswerValues(data.answerPayload).some((label) => !labels.has(label))) {
+      throw new ApiError(422, 'VALIDATION_ERROR', 'Choice answer must reference existing option labels');
+    }
+  }
+
+  if (data.status === 'active') {
+    if (!hasUsableAnswerPayloadForTest(data.answerMode, data.answerPayload)) {
+      throw new ApiError(409, 'INVALID_STATE', 'Active questions require a usable answer payload');
+    }
+    if (data.answerMode === 'choice') {
+      const options = data.options ?? [];
+      if (options.length < 2 || !options.some((option) => option.isCorrect)) {
+        throw new ApiError(409, 'INVALID_STATE', 'Active choice questions require at least two options and one correct option');
+      }
+    }
+  }
+}
+
+export async function resolveQuestionTypeIdForSubject(
+  subject: string,
+  requestedTypeId: string | null | undefined,
+  answerMode?: AnswerMode | null,
+  preferredScope: 'question' | 'group' | 'hybrid' = 'question'
+) {
+  const requested = requestedTypeId?.trim() || null;
+  if (requested) {
+    const requestedRows = await sql<Array<{ type_id: string }>>`
+      SELECT type_id
+      FROM question_types
+      WHERE subject_id = ${subject}
+        AND type_id = ${requested}
+      LIMIT 1
+    `;
+    if (requestedRows[0]) return requestedRows[0].type_id;
+  }
+
+  const fallbackRows = await sql<Array<{ type_id: string }>>`
+    SELECT type_id
+    FROM question_types
+    WHERE subject_id = ${subject}
+    ORDER BY
+      CASE WHEN default_answer_mode = ${answerMode ?? null} THEN 0 ELSE 1 END,
+      CASE WHEN default_answer_mode IS NULL THEN 0 ELSE 1 END,
+      CASE WHEN scope = ${preferredScope} THEN 0 WHEN scope = 'hybrid' THEN 1 ELSE 2 END,
+      type_id
+    LIMIT 1
+  `;
+  if (fallbackRows[0]) return fallbackRows[0].type_id;
+
+  throw new ApiError(422, 'INVALID_QUESTION_TYPE', `No compatible question type exists for subject ${subject}`);
+}
+
+async function ensureImportJobHasSourceArtifact(jobId: number) {
+  const rows = await sql<Array<{ id: number }>>`
+    SELECT id
+    FROM question_import_job_artifacts
+    WHERE job_id = ${jobId}
+      AND artifact_type = 'source_file'
+      AND (storage_path IS NOT NULL OR content_json IS NOT NULL)
+    LIMIT 1
+  `;
+  if (!rows[0]) {
+    throw new ApiError(409, 'SOURCE_FILE_REQUIRED', 'Import job requires an uploaded TXT or DOCX source file before parsing');
+  }
+}
+
+function extractSourceTypeFromArtifact(storagePath?: string | null, content?: Record<string, unknown> | null) {
+  const explicit = typeof content?.sourceType === 'string' ? content.sourceType : null;
+  if (explicit) return explicit;
+  const originalName = typeof content?.originalName === 'string' ? content.originalName : '';
+  const pathValue = storagePath || originalName;
+  if (/\.docx(?:$|[?#])/i.test(pathValue)) return 'docx';
+  if (/\.txt(?:$|[?#])/i.test(pathValue)) return 'txt';
+  return null;
 }
 
 export async function listSubjects() {
@@ -158,8 +300,9 @@ export async function listQuestionTypes(subject?: string, scope?: string) {
 }
 
 export async function listKnowledgePoints(subject?: string, parentId?: number) {
+  const version = await cacheVersion('knowledge-points');
   return redisGetOrSetJson(
-    redisKey('cache', 'knowledge-points', hashKey({ subject: subject ?? null, parentId: parentId ?? null })),
+    redisKey('cache', 'knowledge-points', version, hashKey({ subject: subject ?? null, parentId: parentId ?? null })),
     referenceCacheTtl,
     () => sql`
       SELECT id, subject_id, code, display_name, parent_id, metadata_json, created_at, updated_at
@@ -184,7 +327,7 @@ export async function createKnowledgePoint(
     VALUES (${data.subjectId}, ${data.code}, ${data.displayName}, ${data.parentId ?? null}, ${JSON.stringify(data.metadata ?? {})})
     RETURNING *
   `;
-  await redisDelByPattern(redisKey('cache', 'knowledge-points', '*'));
+  await redisIncr(redisKey('cache-version', 'knowledge-points'));
   return rows[0];
 }
 
@@ -205,7 +348,7 @@ export async function updateKnowledgePoint(
     RETURNING *
   `;
   if (!rows[0]) throw new ApiError(404, 'NOT_FOUND', 'Knowledge point not found');
-  await redisDelByPattern(redisKey('cache', 'knowledge-points', '*'));
+  await redisIncr(redisKey('cache-version', 'knowledge-points'));
   return rows[0];
 }
 
@@ -218,9 +361,11 @@ export async function listBanks(user: User, params: URLSearchParams) {
   const subject = params.get('subject');
   const q = params.get('q');
   const limit = Math.min(Number(params.get('limit') || 30), 100);
+  const version = await cacheVersion('banks', user.id);
+  const globalVersion = await cacheVersion('banks', 'global');
 
   return redisGetOrSetJson<QuestionBank[]>(
-    redisKey('cache', 'banks', user.id, hashKey({ scope, subject, q, limit })),
+    redisKey('cache', 'banks', user.id, version, globalVersion, hashKey({ scope, subject, q, limit })),
     shortCacheTtl,
     () => sql<QuestionBank[]>`
       SELECT
@@ -247,8 +392,9 @@ export async function listBanks(user: User, params: URLSearchParams) {
 }
 
 export async function getBank(user: User, bankId: number) {
+  const version = await cacheVersion('bank', bankId);
   const bank = await redisGetOrSetJson<QuestionBank | null>(
-    redisKey('cache', 'bank', bankId, 'user', user.id),
+    redisKey('cache', 'bank', bankId, 'user', user.id, version),
     shortCacheTtl,
     async () => {
       const rows = await sql<QuestionBank[]>`
@@ -365,8 +511,9 @@ export async function listBankItems(user: User, bankId: number, params: URLSearc
   const status = params.get('status');
   const type = params.get('type');
   const limit = Math.min(Number(params.get('limit') || 50), 100);
+  const version = await cacheVersion('bank-items', bankId);
   return redisGetOrSetJson<BankQuestionItem[]>(
-    redisKey('cache', 'bank-items', bankId, 'user', user.id, hashKey({ status, type, limit })),
+    redisKey('cache', 'bank-items', bankId, 'user', user.id, version, hashKey({ status, type, limit })),
     shortCacheTtl,
     () => sql<BankQuestionItem[]>`
       SELECT
@@ -390,13 +537,99 @@ export async function listBankItems(user: User, bankId: number, params: URLSearc
   );
 }
 
+function countMapFromDb(value: unknown) {
+  const parsed = typeof value === 'string' ? parseJson(value) : value;
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+  return Object.fromEntries(
+    Object.entries(parsed as Record<string, unknown>).map(([key, count]) => [key, Number(count) || 0])
+  );
+}
+
+export async function getBankPracticeSummary(user: User, bankId: number) {
+  const bank = await getBank(user, bankId);
+  const bankVersion = await cacheVersion('bank-practice-summary', bankId);
+  const userPracticeVersion = await cacheVersion('practice-summary', user.id);
+  const summary = await redisGetOrSetJson<{
+    activeCount: number;
+    wrongCount: number;
+    typeCounts: Record<string, number>;
+    modeCounts: Record<string, number>;
+  }>(
+    redisKey('cache', 'bank-practice-summary', bankId, 'user', user.id, bankVersion, userPracticeVersion),
+    shortCacheTtl,
+    async () => {
+      const rows = await sql<Array<{
+        active_count: number;
+        wrong_count: number;
+        type_counts: unknown;
+        mode_counts: unknown;
+      }>>`
+        WITH active_questions AS (
+          SELECT DISTINCT ON (v.question_id)
+            v.question_id,
+            v.question_type_id,
+            v.answer_mode
+          FROM v_bank_question_items v
+          WHERE v.bank_id = ${bankId}
+            AND v.bank_link_status = 'active'
+            AND v.question_status = 'active'
+          ORDER BY v.question_id
+        )
+        SELECT
+          (SELECT COUNT(*)::int FROM active_questions) AS active_count,
+          COALESCE(
+            (
+              SELECT jsonb_object_agg(question_type_id, total)
+              FROM (
+                SELECT question_type_id, COUNT(*)::int AS total
+                FROM active_questions
+                GROUP BY question_type_id
+              ) type_counts
+            ),
+            '{}'::jsonb
+          ) AS type_counts,
+          COALESCE(
+            (
+              SELECT jsonb_object_agg(answer_mode, total)
+              FROM (
+                SELECT answer_mode, COUNT(*)::int AS total
+                FROM active_questions
+                GROUP BY answer_mode
+              ) mode_counts
+            ),
+            '{}'::jsonb
+          ) AS mode_counts,
+          (
+            SELECT COUNT(*)::int
+            FROM active_questions aq
+            JOIN user_question_stats uqs
+              ON uqs.question_id = aq.question_id
+             AND uqs.user_id = ${user.id}
+            WHERE uqs.wrong_count > 0 OR uqs.last_is_correct IS FALSE
+          ) AS wrong_count
+      `;
+      const row = rows[0];
+      return {
+        activeCount: row?.active_count ?? 0,
+        wrongCount: row?.wrong_count ?? 0,
+        typeCounts: countMapFromDb(row?.type_counts),
+        modeCounts: countMapFromDb(row?.mode_counts)
+      };
+    }
+  );
+
+  return { bank, ...summary };
+}
+
 export async function createGroup(
   user: User,
   bankId: number,
   data: { title: string; instructions?: string | null; groupTypeId?: string | null; contentMode?: string | null; status?: 'draft' | 'active' | 'archived' }
 ) {
   const bank = await requireBankOwner(user, bankId);
+  const groupTypeId = await resolveQuestionTypeIdForSubject(bank.subject, data.groupTypeId ?? null, null, 'group');
   const group = await sql.begin(async (tx) => {
+    await tx`SELECT id FROM question_banks WHERE id = ${bankId} FOR UPDATE`;
     const maxRows = await tx<Array<{ next_sort: number }>>`
       SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_sort
       FROM bank_group_links
@@ -407,7 +640,7 @@ export async function createGroup(
         subject_id, group_type_id, title, instructions, content_mode, imported_by
       )
       VALUES (
-        ${bank.subject}, ${data.groupTypeId ?? 'generic_answer_mode'}, ${data.title}, ${data.instructions ?? null},
+        ${bank.subject}, ${groupTypeId}, ${data.title}, ${data.instructions ?? null},
         ${data.contentMode ?? 'text_only'}, ${user.id}
       )
       RETURNING *
@@ -530,10 +763,11 @@ export async function ensureGroupEditable(user: User, groupId: number) {
 }
 
 export async function getQuestion(user: User, questionId: number) {
+  const version = await cacheVersion('question', questionId);
   const question = await redisGetOrSetJson<
     (Question & { options: unknown; answer_keys: unknown; content_blocks: unknown; media_links: unknown }) | null
   >(
-    redisKey('cache', 'question', questionId, 'user', user.id),
+    redisKey('cache', 'question', questionId, 'user', user.id, version),
     shortCacheTtl,
     async () => {
       const rows = await sql<Array<Question & { options: unknown; answer_keys: unknown; content_blocks: unknown; media_links: unknown }>>`
@@ -602,10 +836,16 @@ export async function createQuestion(
     status?: 'draft' | 'active' | 'archived';
     options?: Array<{ label: string; content: string; isCorrect?: boolean }>;
     answerPayload?: Record<string, unknown>;
-  }
+  },
+  options?: { invalidateCaches?: boolean; resolveQuestionType?: boolean }
 ) {
   const bank = await requireBankOwner(user, bankId);
+  validateQuestionPayloadForTest(data);
+  const questionTypeId = options?.resolveQuestionType === false
+    ? data.questionTypeId
+    : await resolveQuestionTypeIdForSubject(bank.subject, data.questionTypeId, data.answerMode);
   const question = await sql.begin(async (tx) => {
+    await tx`SELECT id FROM question_banks WHERE id = ${bankId} FOR UPDATE`;
     const maxRows = await tx<Array<{ next_sort: number }>>`
       SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_sort
       FROM bank_question_links
@@ -617,7 +857,7 @@ export async function createQuestion(
         analysis, status, source_type, imported_by
       )
       VALUES (
-        ${bank.subject}, ${data.questionTypeId}, ${data.answerMode},
+        ${bank.subject}, ${questionTypeId}, ${data.answerMode},
         ${data.choiceVariant ?? null}, ${data.stem}, ${data.analysis ?? null},
         ${data.status ?? 'draft'}, 'manual', ${user.id}
       )
@@ -659,7 +899,7 @@ export async function createQuestion(
     `;
     return question;
   });
-  await invalidateBankCaches(bankId, user.id);
+  if (options?.invalidateCaches !== false) await invalidateBankCaches(bankId, user.id);
   return question;
 }
 
@@ -669,17 +909,35 @@ export async function updateQuestion(
   data: { stem?: string; analysis?: string | null; status?: string }
 ) {
   await ensureQuestionEditable(user, questionId);
-  const rows = await sql<Question[]>`
-    UPDATE questions
-    SET
-      stem = COALESCE(${data.stem ?? null}, stem),
-      analysis = COALESCE(${data.analysis ?? null}, analysis),
-      status = COALESCE(${data.status ?? null}, status)
-    WHERE id = ${questionId}
-    RETURNING *
-  `;
+  const status = normalizeQuestionStatus(data.status);
+  if (status === 'active') await assertQuestionPublishable(user, questionId);
+  const rows = await sql.begin(async (tx) => {
+    const updated = await tx<Question[]>`
+      UPDATE questions
+      SET
+        stem = COALESCE(${data.stem ?? null}, stem),
+        analysis = COALESCE(${data.analysis ?? null}, analysis),
+        status = COALESCE(${status ?? null}, status)
+      WHERE id = ${questionId}
+      RETURNING *
+    `;
+    if (status) {
+      await tx`
+        UPDATE bank_question_links
+        SET status = ${status}
+        WHERE question_id = ${questionId}
+      `;
+    }
+    return updated;
+  });
   await invalidateQuestionCaches(questionId);
   return rows[0];
+}
+
+function normalizeQuestionStatus(status?: string | null) {
+  if (!status) return null;
+  if (status === 'draft' || status === 'active' || status === 'archived') return status;
+  throw new ApiError(422, 'VALIDATION_ERROR', 'Invalid question status');
 }
 
 export async function deleteQuestion(user: User, questionId: number) {
@@ -701,22 +959,39 @@ export async function deleteQuestion(user: User, questionId: number) {
     return banks;
   });
   await Promise.all(banks.map((bank) => invalidateBankCaches(bank.bank_id, user.id)));
-  await redisDelByPattern(questionCachePattern(questionId));
+  await redisIncr(redisKey('cache-version', 'question', questionId));
 }
 
 export async function setQuestionStatus(user: User, questionId: number, status: 'draft' | 'active' | 'archived') {
   if (status === 'active') await assertQuestionPublishable(user, questionId);
-  return updateQuestion(user, questionId, { status });
+  await ensureQuestionEditable(user, questionId);
+  const rows = await sql.begin(async (tx) => {
+    const updated = await tx<Question[]>`
+      UPDATE questions
+      SET status = ${status}
+      WHERE id = ${questionId}
+      RETURNING *
+    `;
+    await tx`
+      UPDATE bank_question_links
+      SET status = ${status}
+      WHERE question_id = ${questionId}
+    `;
+    return updated;
+  });
+  await invalidateQuestionCaches(questionId);
+  return rows[0];
 }
 
 async function assertQuestionPublishable(user: User, questionId: number) {
   await ensureQuestionEditable(user, questionId);
-  const rows = await sql<Array<{ answer_mode: AnswerMode; option_count: number; correct_option_count: number; answer_key_count: number }>>`
+  const rows = await sql<Array<{ answer_mode: AnswerMode; option_count: number; correct_option_count: number; answer_key_count: number; answer_payload: string | null }>>`
     SELECT
       q.answer_mode,
       (SELECT COUNT(*)::int FROM question_options qo WHERE qo.question_id = q.id) AS option_count,
       (SELECT COUNT(*)::int FROM question_options qo WHERE qo.question_id = q.id AND qo.is_correct = true) AS correct_option_count,
-      (SELECT COUNT(*)::int FROM question_answer_keys qak WHERE qak.question_id = q.id AND qak.is_primary = true) AS answer_key_count
+      (SELECT COUNT(*)::int FROM question_answer_keys qak WHERE qak.question_id = q.id AND qak.is_primary = true) AS answer_key_count,
+      (SELECT qak.answer_payload FROM question_answer_keys qak WHERE qak.question_id = q.id AND qak.is_primary = true LIMIT 1) AS answer_payload
     FROM questions q
     WHERE q.id = ${questionId}
     LIMIT 1
@@ -727,6 +1002,9 @@ async function assertQuestionPublishable(user: User, questionId: number) {
   }
   if (question.answer_mode === 'choice' && (question.option_count < 2 || question.correct_option_count < 1)) {
     throw new ApiError(409, 'INVALID_STATE', 'Choice question requires at least two options and one correct option');
+  }
+  if (!hasUsableAnswerPayloadForTest(question.answer_mode, parseJson(question.answer_payload ?? '{}') as Record<string, unknown> | undefined)) {
+    throw new ApiError(409, 'INVALID_STATE', 'Question requires a usable primary answer payload before publishing');
   }
 }
 
@@ -918,17 +1196,38 @@ export async function ensureQuestionEditable(user: User, questionId: number) {
 
 export async function startPracticeSession(
   user: User,
-  data: { bankId: number; sessionType?: 'practice' | 'review' | 'exam'; questionCount?: number }
+  data: {
+    bankId: number;
+    sessionType?: 'practice' | 'review' | 'exam';
+    questionCount?: number;
+    mode?: PracticeMode;
+    questionTypeId?: string | null;
+    allQuestions?: boolean;
+  }
 ) {
   await getBank(user, data.bankId);
-  const count = Math.max(1, Math.min(data.questionCount ?? 10, 100));
-  const questionIds = await loadPracticeQuestionIds(data.bankId, count);
+  const mode = normalizePracticeModeForTest(data.mode, data.sessionType);
+  if (mode === 'by_type' && !data.questionTypeId?.trim()) {
+    throw new ApiError(422, 'VALIDATION_ERROR', 'Question type is required for type-based practice');
+  }
+  const count = normalizeQuestionCountForTest(data.questionCount, data.allQuestions || mode === 'all' && data.questionCount === undefined);
+  const questionIds = await loadPracticeQuestionIds(user, data.bankId, count, {
+    mode,
+    questionTypeId: data.questionTypeId ?? null,
+    allQuestions: data.allQuestions
+  });
   if (questionIds.length < 1) {
-    throw new ApiError(409, 'INVALID_STATE', 'No active questions are available for practice');
+    throw new ApiError(
+      409,
+      'INVALID_STATE',
+      mode === 'wrong'
+        ? 'No wrong questions are available for review'
+        : 'No active questions are available for practice'
+    );
   }
   const rows = await sql<PracticeSession[]>`
     INSERT INTO user_practice_sessions (user_id, bank_id, session_type, question_count)
-    VALUES (${user.id}, ${data.bankId}, ${data.sessionType ?? 'practice'}, ${questionIds.length})
+    VALUES (${user.id}, ${data.bankId}, ${mode === 'exam' ? 'exam' : mode === 'wrong' ? 'review' : data.sessionType ?? 'practice'}, ${questionIds.length})
     RETURNING *
   `;
   await redisSetJson(practiceQuestionQueueKey(rows[0].id), questionIds, practiceQueueTtl);
@@ -946,33 +1245,97 @@ export async function getPracticeSession(user: User, sessionId: number) {
   return rows[0];
 }
 
-export async function getPracticeQuestions(user: User, sessionId: number) {
-  const session = await getPracticeSession(user, sessionId);
+async function ensurePracticeQuestionQueue(session: PracticeSession) {
   if (!session.bank_id) return [];
-  const cachedQuestionIds = await redisGetJson<number[]>(practiceQuestionQueueKey(sessionId));
-  if (cachedQuestionIds?.length) {
-    const ids = sql.array(cachedQuestionIds);
-    return sql<BankQuestionItem[]>`
-      SELECT *
-      FROM v_bank_question_items
-      WHERE bank_id = ${session.bank_id}
-        AND question_id = ANY(${ids}::bigint[])
-      ORDER BY array_position(${ids}::bigint[], question_id)
-      LIMIT ${session.question_count}
-    `;
-  }
+  const key = practiceQuestionQueueKey(session.id);
+  const cachedQuestionIds = await redisGetJson<number[]>(key);
+  if (cachedQuestionIds?.length) return cachedQuestionIds.map(Number).slice(0, session.question_count);
 
-  const questions = await sql<BankQuestionItem[]>`
-    SELECT *
+  const rows = await sql<Array<{ question_id: number }>>`
+    SELECT v.question_id
     FROM v_bank_question_items
-    WHERE bank_id = ${session.bank_id}
-      AND bank_link_status = 'active'
-      AND question_status = 'active'
+      v
+    WHERE v.bank_id = ${session.bank_id}
+      AND v.bank_link_status = 'active'
+      AND v.question_status = 'active'
     ORDER BY bank_sort_order, question_id
     LIMIT ${session.question_count}
   `;
-  await redisSetJson(practiceQuestionQueueKey(sessionId), questions.map((question) => Number(question.question_id)), practiceQueueTtl);
-  return questions;
+  const questionIds = rows.map((row) => Number(row.question_id));
+  await redisSetJson(key, questionIds, practiceQueueTtl);
+  return questionIds;
+}
+
+async function loadPracticeQuestionRows(session: PracticeSession, questionIds: number[], offset = 0, limit = session.question_count) {
+  if (!session.bank_id || questionIds.length === 0) return [];
+  const slice = questionIds.slice(offset, offset + limit);
+  if (slice.length === 0) return [];
+  const ids = sql.array(slice);
+  return sql<BankQuestionItem[]>`
+    SELECT
+      v.*,
+      COALESCE(
+        (
+          SELECT json_agg(qo.* ORDER BY qo.sort_order)
+          FROM question_options qo
+          WHERE qo.question_id = v.question_id
+        ),
+        '[]'
+      ) AS options
+    FROM v_bank_question_items
+      v
+    WHERE v.bank_id = ${session.bank_id}
+      AND v.question_id = ANY(${ids}::bigint[])
+    ORDER BY array_position(${ids}::bigint[], v.question_id)
+    LIMIT ${slice.length}
+  `;
+}
+
+export async function getPracticeQuestions(user: User, sessionId: number) {
+  const session = await getPracticeSession(user, sessionId);
+  const questionIds = await ensurePracticeQuestionQueue(session);
+  return loadPracticeQuestionRows(session, questionIds);
+}
+
+export async function getPracticeQuestionPage(user: User, sessionId: number, params?: URLSearchParams) {
+  const session = await getPracticeSession(user, sessionId);
+  const questionIds = await ensurePracticeQuestionQueue(session);
+  const answeredRows = await sql<PracticeAnswer[]>`
+    SELECT *
+    FROM user_question_answers
+    WHERE user_id = ${user.id}
+      AND session_id = ${sessionId}
+    ORDER BY answered_at, id
+  `;
+  const answered = new Map(answeredRows.map((answer) => [Number(answer.question_id), answer]));
+  const requestedIndex = Number(params?.get('index'));
+  const firstUnansweredIndex = questionIds.findIndex((questionId) => !answered.has(questionId));
+  const fallbackIndex = firstUnansweredIndex >= 0 ? firstUnansweredIndex : 0;
+  const currentIndex = Number.isInteger(requestedIndex)
+    ? Math.max(0, Math.min(requestedIndex, Math.max(questionIds.length - 1, 0)))
+    : fallbackIndex;
+  const rows = await loadPracticeQuestionRows(session, questionIds, currentIndex, 1);
+  const question = rows[0] ?? null;
+  const questionId = question ? Number(question.question_id) : null;
+
+  return {
+    session,
+    question,
+    questionIndex: question ? currentIndex : 0,
+    total: questionIds.length,
+    result: questionId ? answered.get(questionId) ?? null : null,
+    progress: questionIds.map((questionId, index) => {
+      const result = answered.get(questionId);
+      return {
+        questionId,
+        index,
+        isAnswered: Boolean(result),
+        isCorrect: result?.is_correct ?? null
+      };
+    }),
+    previousIndex: currentIndex > 0 ? currentIndex - 1 : null,
+    nextIndex: currentIndex < questionIds.length - 1 ? currentIndex + 1 : null
+  };
 }
 
 export async function listPracticeSessions(user: User, params: URLSearchParams) {
@@ -986,6 +1349,22 @@ export async function listPracticeSessions(user: User, params: URLSearchParams) 
     ORDER BY started_at DESC, id DESC
     LIMIT ${limit}
   `;
+}
+
+export async function getBankWrongQuestionCount(user: User, bankId: number) {
+  await getBank(user, bankId);
+  const rows = await sql<Array<{ count: number }>>`
+    SELECT COUNT(DISTINCT v.question_id)::int AS count
+    FROM v_bank_question_items v
+    JOIN user_question_stats uqs
+      ON uqs.question_id = v.question_id
+     AND uqs.user_id = ${user.id}
+    WHERE v.bank_id = ${bankId}
+      AND v.bank_link_status = 'active'
+      AND v.question_status = 'active'
+      AND (uqs.wrong_count > 0 OR uqs.last_is_correct IS FALSE)
+  `;
+  return rows[0]?.count ?? 0;
 }
 
 export async function submitAnswer(
@@ -1007,6 +1386,10 @@ export async function submitAnswer(
     const session = await getPracticeSession(user, sessionId);
     if (session.status !== 'active') {
       throw new ApiError(409, 'INVALID_STATE', 'Practice session is not active');
+    }
+    const queuedQuestionIds = await redisGetJson<number[]>(practiceQuestionQueueKey(sessionId));
+    if (queuedQuestionIds?.length && !queuedQuestionIds.map(Number).includes(Number(data.questionId))) {
+      throw new ApiError(404, 'NOT_FOUND', 'Question is not part of this practice session');
     }
 
     const answerKey = await redisGetOrSetJson<{ id: number; answer_payload: string; score_payload: string } | null>(
@@ -1038,8 +1421,9 @@ export async function submitAnswer(
       LIMIT 1
     `;
     if (!questionRows[0]) throw new ApiError(404, 'NOT_FOUND', 'Question is not part of this active practice session');
+    validateSubmittedAnswerForTest(questionRows[0].answer_mode, data.answerPayload);
 
-    const isCorrect = answerKey ? gradeAnswer(questionRows[0].answer_mode, answerKey.answer_payload, data.answerPayload) : null;
+    const isCorrect = answerKey ? gradeAnswerForTest(questionRows[0].answer_mode, answerKey.answer_payload, data.answerPayload) : null;
     const maxScore = answerKey ? 1 : null;
     const score = isCorrect === null ? null : isCorrect ? 1 : 0;
 
@@ -1056,6 +1440,7 @@ export async function submitAnswer(
     `;
     await invalidateUserAnalytics(user.id);
     await invalidateBankLeaderboard(session.bank_id);
+    await invalidatePracticeSummaryCaches(user.id, session.bank_id);
     return rows[0];
   } finally {
     await lock.release();
@@ -1076,16 +1461,37 @@ function objectValue(value: unknown, key: string) {
     : undefined;
 }
 
-function firstSlotValue(value: unknown, slotKey: string) {
+function fillBlankValues(value: unknown) {
+  const directValue = objectValue(value, 'value');
+  if (Array.isArray(directValue)) return directValue.map(normalizeText);
+  if (directValue !== undefined && directValue !== null) return [normalizeText(directValue)];
+
   const slots = objectValue(value, 'slots');
-  if (!Array.isArray(slots) || !slots[0] || typeof slots[0] !== 'object') return undefined;
-  const firstSlot = slots[0] as Record<string, unknown>;
-  const nested = firstSlot[slotKey];
-  if (Array.isArray(nested)) return nested[0];
-  return nested;
+  if (!Array.isArray(slots)) return [];
+  return slots.flatMap((slot) => {
+    if (!isNonEmptyRecord(slot)) return [];
+    const nestedValue = slot.value ?? slot.answers;
+    const list = Array.isArray(nestedValue) ? nestedValue : [nestedValue];
+    return list.map(normalizeText).filter(Boolean);
+  });
 }
 
-function gradeAnswer(mode: AnswerMode, expectedJson: string, actual: Record<string, unknown>) {
+export function validateSubmittedAnswerForTest(mode: AnswerMode, actual: Record<string, unknown>) {
+  if (mode === 'choice' && selectedAnswerValues(actual).length < 1) {
+    throw new ApiError(422, 'VALIDATION_ERROR', 'Select at least one option before submitting');
+  }
+  if (mode === 'true_false' && typeof actual.value !== 'boolean') {
+    throw new ApiError(422, 'VALIDATION_ERROR', 'Select true or false before submitting');
+  }
+  if (mode === 'fill_blank' && fillBlankValues(actual).length < 1) {
+    throw new ApiError(422, 'VALIDATION_ERROR', 'Fill at least one blank before submitting');
+  }
+  if (mode === 'short_answer' && !hasNonEmptyText(actual.value)) {
+    throw new ApiError(422, 'VALIDATION_ERROR', 'Answer text is required before submitting');
+  }
+}
+
+export function gradeAnswerForTest(mode: AnswerMode, expectedJson: string, actual: Record<string, unknown>) {
   const expected = parseJson(expectedJson);
   if (!expected) return null;
 
@@ -1093,12 +1499,17 @@ function gradeAnswer(mode: AnswerMode, expectedJson: string, actual: Record<stri
     return normalizeStringArray(objectValue(expected, 'selected')).join('|') === normalizeStringArray(objectValue(actual, 'selected')).join('|');
   }
   if (mode === 'true_false') {
-    return Boolean(objectValue(expected, 'value')) === Boolean(objectValue(actual, 'value'));
+    const expectedValue = objectValue(expected, 'value');
+    const actualValue = objectValue(actual, 'value');
+    if (typeof expectedValue !== 'boolean' || typeof actualValue !== 'boolean') return null;
+    return expectedValue === actualValue;
   }
   if (mode === 'fill_blank') {
-    const expectedValue = normalizeText(objectValue(expected, 'value') ?? firstSlotValue(expected, 'answers'));
-    const actualValue = normalizeText(objectValue(actual, 'value') ?? firstSlotValue(actual, 'value'));
-    return expectedValue.length > 0 && expectedValue === actualValue;
+    const expectedValues = fillBlankValues(expected);
+    const actualValues = fillBlankValues(actual);
+    return expectedValues.length > 0
+      && actualValues.length >= expectedValues.length
+      && expectedValues.every((value, index) => value === actualValues[index]);
   }
   return null;
 }
@@ -1179,15 +1590,74 @@ export async function createImportJob(
 export async function addImportJobFile(
   user: User,
   jobId: number,
-  data: { artifactType?: string; storagePath?: string | null; content?: Record<string, unknown> | null }
+  data: { artifactType?: string; storagePath?: string | null; content?: Record<string, unknown> | null; sourceType?: string | null }
 ) {
-  await getImportJob(user, jobId);
+  const job = await getImportJob(user, jobId);
+  if (!data.storagePath && !data.content) {
+    throw new ApiError(400, 'SOURCE_FILE_REQUIRED', 'Import artifact requires storagePath or content');
+  }
+  const sourceType = requireImportSourceType(user, data.sourceType ?? extractSourceTypeFromArtifact(data.storagePath, data.content) ?? job.source_type);
   const rows = await sql`
-    INSERT INTO question_import_job_artifacts (job_id, artifact_type, storage_path, content_json)
-    VALUES (${jobId}, ${data.artifactType ?? 'source_file'}, ${data.storagePath ?? null}, ${data.content ? JSON.stringify(data.content) : null})
+    UPDATE question_import_jobs
+    SET source_type = ${sourceType}
+    WHERE id = ${jobId}
     RETURNING *
   `;
-  return rows[0];
+  const artifactRows = await sql`
+    INSERT INTO question_import_job_artifacts (job_id, artifact_type, storage_path, content_json)
+    VALUES (
+      ${jobId},
+      ${data.artifactType ?? 'source_file'},
+      ${data.storagePath ?? null},
+      ${JSON.stringify({ ...(data.content ?? {}), sourceType })}
+    )
+    RETURNING *
+  `;
+  void rows;
+  return artifactRows[0];
+}
+
+export async function addImportJobUploadedFile(
+  user: User,
+  jobId: number,
+  file: FormDataEntryValue | null
+) {
+  const { inferImportSourceType, isUploadedFile, readObjectBuffer, storeImportSourceFile } = await import('./object-storage');
+  const job = await getImportJob(user, jobId);
+  if (!isUploadedFile(file)) {
+    throw new ApiError(400, 'FILE_REQUIRED', 'Upload file is required');
+  }
+
+  const stored = await storeImportSourceFile(user.id, jobId, file);
+  const inferredSourceType = inferImportSourceType(file);
+  const sourceType = requireImportSourceType(user, inferredSourceType === 'unknown' ? job.source_type : inferredSourceType);
+  const content: Record<string, unknown> = {
+    objectUrl: stored.objectUrl,
+    objectKey: stored.relativePath,
+    originalName: stored.originalName,
+    mimeType: stored.mimeType,
+    sizeBytes: stored.sizeBytes,
+    sourceType
+  };
+
+  if (sourceType === 'txt') {
+    const buffer = await readObjectBuffer(stored.relativePath);
+    content.text = buffer.toString('utf8').replace(/^\uFEFF/, '');
+  }
+
+  const rows = await sql`
+    UPDATE question_import_jobs
+    SET source_type = ${sourceType}, file_name = COALESCE(file_name, ${stored.originalName})
+    WHERE id = ${jobId}
+    RETURNING *
+  `;
+  const artifactRows = await sql`
+    INSERT INTO question_import_job_artifacts (job_id, artifact_type, storage_path, content_json)
+    VALUES (${jobId}, 'source_file', ${stored.objectUrl}, ${JSON.stringify(content)})
+    RETURNING *
+  `;
+  void rows;
+  return artifactRows[0];
 }
 
 export async function getImportJob(user: User, jobId: number) {
@@ -1203,8 +1673,12 @@ export async function getImportJob(user: User, jobId: number) {
 
 export async function updateImportJobStatus(user: User, jobId: number, action: 'start' | 'retry' | 'cancel') {
   await getImportJob(user, jobId);
-  if ((action === 'start' || action === 'retry') && !isImportQueueConfigured()) {
+  const queue = await importQueueHandlers();
+  if ((action === 'start' || action === 'retry') && !queue.isImportQueueConfigured()) {
     throw new ApiError(503, 'IMPORT_QUEUE_UNAVAILABLE', 'Redis import queue is not configured');
+  }
+  if (action === 'start' || action === 'retry') {
+    await ensureImportJobHasSourceArtifact(jobId);
   }
   const values =
     action === 'cancel'
@@ -1235,12 +1709,12 @@ export async function updateImportJobStatus(user: User, jobId: number, action: '
   await publishImportEvent(jobId, rows.event);
 
   if (action === 'cancel') {
-    await removeQueuedImportJob(jobId).catch(() => false);
+    await queue.removeQueuedImportJob(jobId).catch(() => false);
     await invalidateUserAnalytics(user.id);
     return rows.updated[0];
   }
 
-  const queued = await enqueueImportJob({ jobId, userId: user.id, persistQuestions: true });
+  const queued = await queue.enqueueImportJob({ jobId, userId: user.id, persistQuestions: true });
   if (!queued) {
     await recordImportJobFailure(jobId, new Error('Redis import queue is not available'));
     throw new ApiError(503, 'IMPORT_QUEUE_UNAVAILABLE', 'Failed to enqueue import job');
@@ -1256,9 +1730,11 @@ export async function queueImportJobForUser(
   options?: { persistQuestions?: boolean; retry?: boolean }
 ) {
   await getImportJob(user, jobId);
-  if (!isImportQueueConfigured()) {
+  const queue = await importQueueHandlers();
+  if (!queue.isImportQueueConfigured()) {
     throw new ApiError(503, 'IMPORT_QUEUE_UNAVAILABLE', 'Redis import queue is not configured');
   }
+  await ensureImportJobHasSourceArtifact(jobId);
 
   const rows = await sql.begin(async (tx) => {
     const updated = await tx<ImportJob[]>`
@@ -1282,7 +1758,7 @@ export async function queueImportJobForUser(
   });
 
   await publishImportEvent(jobId, rows.event);
-  const queued = await enqueueImportJob({
+  const queued = await queue.enqueueImportJob({
     jobId,
     userId: user.id,
     persistQuestions: options?.persistQuestions ?? true
@@ -1342,12 +1818,12 @@ export async function resolveImportReviewItem(user: User, jobId: number, itemId:
 
 export async function listImportJobChildren(user: User, jobId: number, kind: 'events' | 'pages' | 'blocks' | 'review-items' | 'outputs' | 'artifacts') {
   await getImportJob(user, jobId);
-  if (kind === 'events') return sql`SELECT * FROM question_import_job_events WHERE job_id = ${jobId} ORDER BY id`;
+  if (kind === 'events') return sql`SELECT * FROM question_import_job_events WHERE job_id = ${jobId} ORDER BY id DESC LIMIT 100`;
   if (kind === 'pages') return sql`SELECT * FROM question_import_job_pages WHERE job_id = ${jobId} ORDER BY page_no`;
-  if (kind === 'blocks') return sql`SELECT * FROM question_import_job_blocks WHERE job_id = ${jobId} ORDER BY id`;
-  if (kind === 'review-items') return sql`SELECT * FROM question_import_job_review_items WHERE job_id = ${jobId} ORDER BY id`;
+  if (kind === 'blocks') return sql`SELECT * FROM question_import_job_blocks WHERE job_id = ${jobId} ORDER BY id LIMIT 200`;
+  if (kind === 'review-items') return sql`SELECT * FROM question_import_job_review_items WHERE job_id = ${jobId} ORDER BY id LIMIT 200`;
   if (kind === 'artifacts') return sql`SELECT * FROM question_import_job_artifacts WHERE job_id = ${jobId} ORDER BY id`;
-  return sql`SELECT * FROM question_import_job_outputs WHERE job_id = ${jobId} ORDER BY id`;
+  return sql`SELECT * FROM question_import_job_outputs WHERE job_id = ${jobId} ORDER BY id LIMIT 200`;
 }
 
 export async function createMediaAsset(
@@ -1470,8 +1946,9 @@ export async function search(user: User, target: string, params: URLSearchParams
 }
 
 export async function getAnalyticsSummary(user: User) {
+  const version = await cacheVersion('analytics', user.id);
   return redisGetOrSetJson(
-    redisKey('cache', 'analytics', 'user', user.id, 'summary'),
+    redisKey('cache', 'analytics', 'user', user.id, version, 'summary'),
     Number(process.env.ANALYTICS_CACHE_TTL_SECONDS || 30),
     async () => {
       const rows = await sql<Array<{
@@ -1524,8 +2001,9 @@ export async function getBankAnalytics(user: User, bankId: number) {
 export async function getBankLeaderboard(user: User, bankId: number, limit = 20) {
   await getBank(user, bankId);
   const safeLimit = Math.max(1, Math.min(limit, 100));
+  const version = await cacheVersion('leaderboard', bankId);
   return redisGetOrSetJson(
-    redisKey('cache', 'leaderboard', 'bank', bankId, hashKey({ limit: safeLimit })),
+    redisKey('cache', 'leaderboard', 'bank', bankId, version, hashKey({ limit: safeLimit })),
     Number(process.env.LEADERBOARD_CACHE_TTL_SECONDS || 60),
     () => sql`
       SELECT
@@ -1549,8 +2027,9 @@ export async function getBankLeaderboard(user: User, bankId: number, limit = 20)
 }
 
 export async function getUserStatsSnapshot(user: User) {
+  const version = await cacheVersion('analytics', user.id);
   return redisGetOrSetJson(
-    redisKey('cache', 'analytics', 'user', user.id, 'snapshot'),
+    redisKey('cache', 'analytics', 'user', user.id, version, 'snapshot'),
     Number(process.env.ANALYTICS_CACHE_TTL_SECONDS || 30),
     async () => {
       const [summary, recentSessions, weakQuestions] = await Promise.all([
@@ -1600,16 +2079,20 @@ export async function getImportAnalytics(user: User, jobId: number) {
 
 export async function updateCurrentUser(
   user: User,
-  data: { username?: string; email?: string | null; passwordHash?: string | null }
+  data: { username?: string; email?: string | null; passwordHash?: string | null; avatarUrl?: string | null }
 ) {
   const rows = await sql<User[]>`
     UPDATE users
     SET
       username = COALESCE(${data.username ?? null}, username),
       email = COALESCE(${data.email ?? null}, email),
-      password = COALESCE(${data.passwordHash ?? null}, password)
+      password = COALESCE(${data.passwordHash ?? null}, password),
+      avatar_url = CASE
+        WHEN ${data.avatarUrl === undefined} THEN avatar_url
+        ELSE ${data.avatarUrl ?? null}
+      END
     WHERE id = ${user.id}
-    RETURNING id, username, email, is_active, role, membership, plus_trial_ends_at, created_at, updated_at
+    RETURNING id, username, email, avatar_url, is_active, role, membership, plus_trial_ends_at, plus_expires_at, created_at, updated_at
   `;
   await invalidateUserCache(user.id);
   return rows[0];
@@ -1690,7 +2173,7 @@ export async function setUserStatus(user: User, targetUserId: number, isActive: 
     UPDATE users
     SET is_active = ${isActive}
     WHERE id = ${targetUserId}
-    RETURNING id, username, email, is_active, role, membership, plus_trial_ends_at, created_at, updated_at
+    RETURNING id, username, email, avatar_url, is_active, role, membership, plus_trial_ends_at, plus_expires_at, created_at, updated_at
   `;
   if (!rows[0]) throw new ApiError(404, 'NOT_FOUND', 'User not found');
   await invalidateUserCache(targetUserId);

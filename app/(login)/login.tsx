@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { useActionState } from 'react';
-import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,15 +9,23 @@ import { BookOpen, Loader2 } from 'lucide-react';
 import { signIn, signUp } from './actions';
 import type { ActionState } from './actions';
 
-export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
-  const searchParams = useSearchParams();
-  const redirect = searchParams.get('redirect');
-  const priceId = searchParams.get('priceId');
-  const inviteId = searchParams.get('inviteId');
+type LoginProps = {
+  mode?: 'signin' | 'signup';
+  redirect?: string;
+  priceId?: string;
+  inviteId?: string;
+};
+
+export function Login({ mode = 'signin', redirect, priceId, inviteId }: LoginProps) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(
     mode === 'signin' ? signIn : signUp,
     { error: '' }
   );
+  const switchHref = buildAuthHref(mode === 'signin' ? '/sign-up' : '/sign-in', {
+    redirect,
+    priceId,
+    inviteId
+  });
 
   return (
     <div className="min-h-[100dvh] flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 bg-gray-50">
@@ -146,9 +153,7 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
 
           <div className="mt-6">
             <Link
-              href={`${mode === 'signin' ? '/sign-up' : '/sign-in'}${
-                redirect ? `?redirect=${redirect}` : ''
-              }${priceId ? `&priceId=${priceId}` : ''}`}
+              href={switchHref}
               className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
             >
               {mode === 'signin' ? '创建账号' : '登录已有账号'}
@@ -158,4 +163,16 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
       </div>
     </div>
   );
+}
+
+function buildAuthHref(
+  pathname: string,
+  params: { redirect?: string; priceId?: string; inviteId?: string }
+) {
+  const searchParams = new URLSearchParams();
+  if (params.redirect) searchParams.set('redirect', params.redirect);
+  if (params.priceId) searchParams.set('priceId', params.priceId);
+  if (params.inviteId) searchParams.set('inviteId', params.inviteId);
+  const query = searchParams.toString();
+  return query ? `${pathname}?${query}` : pathname;
 }

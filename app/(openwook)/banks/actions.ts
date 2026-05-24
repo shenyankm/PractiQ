@@ -3,8 +3,10 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { getCurrentUser, hashPassword } from '@/lib/openwook/auth';
+import { inferImportSourceType, isUploadedFile, storeAvatarFile } from '@/lib/openwook/object-storage';
 import type { AnswerMode } from '@/lib/openwook/types';
 import {
+  addImportJobUploadedFile,
   completePracticeSession,
   createBank,
   createImportJob,
@@ -21,6 +23,7 @@ import {
 const answerModes = ['choice', 'true_false', 'fill_blank', 'short_answer'] as const;
 const questionStatuses = ['draft', 'active', 'archived'] as const;
 const sessionTypes = ['practice', 'review', 'exam'] as const;
+const practiceModes = ['all', 'wrong', 'by_type', 'exam'] as const;
 
 export async function createBankAction(formData: FormData) {
   const user = await getCurrentUser();
@@ -96,10 +99,15 @@ export async function favoriteBankAction(bankId: number, favorite: boolean) {
 export async function startPracticeAction(bankId: number, formData: FormData) {
   const user = await getCurrentUser();
   if (!user) redirect('/sign-in');
+  const mode = pickEnum(formData.get('mode'), practiceModes, 'all');
+  const allQuestions = formData.get('allQuestions') === 'on' || mode === 'all' && !formData.get('questionCount');
   const session = await startPracticeSession(user, {
     bankId,
-    sessionType: pickEnum(formData.get('sessionType'), sessionTypes, 'practice'),
-    questionCount: Number(formData.get('questionCount') || 10)
+    sessionType: mode === 'exam' ? 'exam' : mode === 'wrong' ? 'review' : pickEnum(formData.get('sessionType'), sessionTypes, 'practice'),
+    questionCount: Number(formData.get('questionCount') || 10),
+    mode,
+    questionTypeId: String(formData.get('questionTypeId') || '') || null,
+    allQuestions
   });
   redirect(`/practice/${session.id}`);
 }
@@ -118,7 +126,10 @@ export async function submitPracticeAnswerAction(sessionId: number, questionId: 
 
 function buildSubmittedAnswer(answerMode: string, formData: FormData) {
   if (answerMode === 'choice') return { selected: formData.getAll('selected').map(String) };
-  if (answerMode === 'true_false') return { value: String(formData.get('value') || 'false') === 'true' };
+  if (answerMode === 'true_false') {
+    const value = formData.get('value');
+    return value === null ? {} : { value: String(value) === 'true' };
+  }
   return { value: String(formData.get('value') || '') };
 }
 
@@ -140,15 +151,27 @@ export async function createImportJobAction(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) redirect('/sign-in');
   const bankIdValue = String(formData.get('bankId') || '');
+  const sourceFile = formData.get('sourceFile');
+  const hasSourceFile = isUploadedFile(sourceFile);
+  const uploadedSourceType = hasSourceFile ? inferImportSourceType(sourceFile) : null;
+  if (!hasSourceFile) {
+    throw new Error('Please upload a TXT or DOCX source file before creating an import job.');
+  }
+  if (uploadedSourceType === 'unknown') {
+    throw new Error('Only TXT and DOCX import source files are supported.');
+  }
   const job = await createImportJob(user, {
     bankId: bankIdValue ? Number(bankIdValue) : null,
-    fileName: String(formData.get('fileName') || '') || null,
-    sourceType: String(formData.get('sourceType') || '') || null,
+    fileName: hasSourceFile ? sourceFile.name : String(formData.get('fileName') || '') || null,
+    sourceType: hasSourceFile ? uploadedSourceType : String(formData.get('sourceType') || '') || null,
     requestPayload: {
       parseMode: String(formData.get('parseMode') || 'layout'),
       defaultQuestionTypeId: String(formData.get('defaultQuestionTypeId') || '')
     }
   });
+  if (hasSourceFile) {
+    await addImportJobUploadedFile(user, job.id, sourceFile);
+  }
   redirect(`/imports/${job.id}`);
 }
 
@@ -171,10 +194,15 @@ export async function updateProfileAction(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) redirect('/sign-in');
   const password = String(formData.get('password') || '');
+  const avatarFile = formData.get('avatar');
+  const avatarUrl = isUploadedFile(avatarFile)
+    ? (await storeAvatarFile(user.id, avatarFile)).objectUrl
+    : undefined;
   await updateCurrentUser(user, {
     username: String(formData.get('username') || '') || undefined,
     email: String(formData.get('email') || '') || null,
-    passwordHash: password ? await hashPassword(password) : undefined
+    passwordHash: password ? await hashPassword(password) : undefined,
+    avatarUrl
   });
   revalidatePath('/settings');
 }

@@ -30,13 +30,16 @@ type Props = {
 export function ImportLivePanel({ job, events: initialEvents, metrics }: Props) {
   const router = useRouter();
   const [liveJob, setLiveJob] = useState(job);
-  const [events, setEvents] = useState(initialEvents);
+  const [events, setEvents] = useState(() => initialEvents.slice(-100));
 
   useEffect(() => {
     const source = new EventSource(`/api/v1/import-jobs/${job.id}/events/stream`);
     source.addEventListener('import-event', (message) => {
       const event = JSON.parse((message as MessageEvent).data) as EventRow;
-      setEvents((current) => current.some((item) => item.id === event.id) ? current : [...current, event]);
+      setEvents((current) => {
+        if (current.some((item) => item.id === event.id)) return current;
+        return [...current, event].slice(-100);
+      });
       setLiveJob((current) => ({
         ...current,
         status: event.status === 'completed' || event.status === 'failed' ? event.status as ImportJob['status'] : current.status,

@@ -5,12 +5,13 @@ const redisUrl = process.env.REDIS_URL;
 const keyPrefix = process.env.REDIS_KEY_PREFIX || 'openwook';
 
 let sharedRedis: Redis | null | undefined;
+const jsonLoadInflight = new Map<string, Promise<unknown>>();
 
 function cacheRedisOptions(role: string): RedisOptions {
   return {
     connectionName: `openwook:${role}`,
     connectTimeout: 800,
-    enableOfflineQueue: false,
+    enableOfflineQueue: true,
     maxRetriesPerRequest: 1,
     retryStrategy(times) {
       return times > 2 ? null : Math.min(times * 100, 500);
@@ -105,6 +106,26 @@ export async function redisSetJson(key: string, value: unknown, ttlSeconds: numb
   }
 }
 
+export async function redisGetText(key: string): Promise<string | null> {
+  const redis = getRedis();
+  if (!redis) return null;
+  try {
+    return await redis.get(key);
+  } catch {
+    return null;
+  }
+}
+
+export async function redisIncr(key: string) {
+  const redis = getRedis();
+  if (!redis) return 0;
+  try {
+    return await redis.incr(key);
+  } catch {
+    return 0;
+  }
+}
+
 export async function redisGetOrSetJson<T>(
   key: string,
   ttlSeconds: number,
@@ -112,9 +133,27 @@ export async function redisGetOrSetJson<T>(
 ): Promise<T> {
   const cached = await redisGetJson<T>(key);
   if (cached !== null) return cached;
-  const value = await load();
-  await redisSetJson(key, value, ttlSeconds);
-  return value;
+
+  const inflight = jsonLoadInflight.get(key) as Promise<T> | undefined;
+  if (inflight) return inflight;
+
+  const request = (async () => {
+    const rechecked = await redisGetJson<T>(key);
+    if (rechecked !== null) return rechecked;
+
+    const value = await load();
+    await redisSetJson(key, value, ttlSeconds);
+    return value;
+  })();
+
+  jsonLoadInflight.set(key, request);
+  try {
+    return await request;
+  } finally {
+    if (jsonLoadInflight.get(key) === request) {
+      jsonLoadInflight.delete(key);
+    }
+  }
 }
 
 export async function redisDel(...keys: string[]) {

@@ -53,7 +53,7 @@ export default async function ImportsPage() {
           <CardTitle className="flex items-center gap-2"><FileUp className="size-4" />新建导入</CardTitle>
         </CardHeader>
         <CardContent>
-          <form action={createImportJobAction} className="space-y-4">
+          <form action={createImportJobAction} encType="multipart/form-data" className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="bankId">目标题库</Label>
               <select id="bankId" name="bankId" required className="h-9 w-full rounded-md border bg-white px-3 text-sm">
@@ -63,8 +63,18 @@ export default async function ImportsPage() {
               </select>
             </div>
             <div className="space-y-2">
+              <Label htmlFor="sourceFile">原件</Label>
+              <Input
+                id="sourceFile"
+                name="sourceFile"
+                type="file"
+                required
+                accept=".txt,.docx,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              />
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="fileName">文件名</Label>
-              <Input id="fileName" name="fileName" required placeholder="algebra.txt" />
+              <Input id="fileName" name="fileName" placeholder="algebra.txt" />
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2">

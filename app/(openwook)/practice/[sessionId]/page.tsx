@@ -1,48 +1,57 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { CheckCircle2, Circle, Flag, XCircle } from 'lucide-react';
+import { CheckCircle2, ChevronLeft, ChevronRight, Circle, Flag, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getCurrentUser } from '@/lib/openwook/auth';
-import { getPracticeQuestions, getPracticeResults, getPracticeSession } from '@/lib/openwook/services';
+import { getPracticeQuestionPage } from '@/lib/openwook/services';
 import { abandonPracticeAction, completePracticeAction, submitPracticeAnswerAction } from '../../banks/actions';
+import { AnswerForm } from './answer-form';
 import type { BankQuestionItem } from '@/lib/openwook/types';
 
-export default async function PracticeSessionPage({ params }: { params: Promise<{ sessionId: string }> }) {
+export default async function PracticeSessionPage({
+  params,
+  searchParams
+}: {
+  params: Promise<{ sessionId: string }>;
+  searchParams?: Promise<{ index?: string }>;
+}) {
   const user = await getCurrentUser();
   if (!user) return null;
-  const { sessionId } = await params;
+  const [{ sessionId }, query] = await Promise.all([
+    params,
+    searchParams ?? Promise.resolve({} as { index?: string })
+  ]);
   const id = Number(sessionId);
   if (!Number.isInteger(id)) notFound();
 
-  const [session, questions, results] = await Promise.all([
-    getPracticeSession(user, id),
-    getPracticeQuestions(user, id),
-    getPracticeResults(user, id)
-  ]);
-  const answered = new Map(results.map((answer) => [answer.question_id, answer]));
-  const nextQuestion = questions.find((question) => !answered.has(question.question_id)) ?? questions[0];
+  const state = await getPracticeQuestionPage(user, id, new URLSearchParams(query.index ? { index: query.index } : undefined));
+  const { session, question, questionIndex, total, result, progress, previousIndex, nextIndex } = state;
   const completeAction = completePracticeAction.bind(null, id);
   const abandonAction = abandonPracticeAction.bind(null, id);
+  const answeredCount = progress.filter((item) => item.isAnswered).length;
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[240px_1fr_320px]">
+    <div className="grid gap-6 lg:grid-cols-[220px_1fr_320px]">
       <Card className="h-fit">
         <CardHeader>
           <CardTitle>进度</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2">
-          {questions.map((question, index) => {
-            const result = answered.get(question.question_id);
+        <CardContent className="grid max-h-96 grid-cols-5 gap-2 overflow-auto lg:grid-cols-4">
+          {progress.map((item) => {
             return (
-              <a key={question.question_id} href={`#q-${question.question_id}`} className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-slate-50">
-                {result ? (
-                  result.is_correct ? <CheckCircle2 className="size-4 text-emerald-600" /> : <XCircle className="size-4 text-red-600" />
+              <Link
+                key={item.questionId}
+                href={`/practice/${id}?index=${item.index}`}
+                className={`flex h-10 items-center justify-center rounded-md border text-xs hover:bg-slate-50 ${item.index === questionIndex ? 'border-slate-900 bg-slate-100' : ''}`}
+                aria-label={`第 ${item.index + 1} 题`}
+              >
+                {item.isAnswered ? (
+                  item.isCorrect ? <CheckCircle2 className="size-4 text-emerald-600" /> : <XCircle className="size-4 text-red-600" />
                 ) : (
                   <Circle className="size-4 text-slate-400" />
                 )}
-                <span>第 {index + 1} 题</span>
-              </a>
+              </Link>
             );
           })}
         </CardContent>
@@ -50,26 +59,48 @@ export default async function PracticeSessionPage({ params }: { params: Promise<
 
       <div className="space-y-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">练习作答</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">{sessionTitle(session.session_type)}</h1>
           <p className="text-sm text-slate-500">
-            {session.status} · 已答 {session.answered_count}/{session.question_count} · 正确 {session.correct_count}
+            {session.status} · 已答 {answeredCount}/{total} · 正确 {session.correct_count}
           </p>
         </div>
-        {questions.length === 0 ? (
+        {!question ? (
           <Card>
             <CardContent className="p-6 text-sm text-slate-500">当前会话没有可练习题目。</CardContent>
           </Card>
         ) : (
-          questions.map((question, index) => (
+          <>
             <QuestionPanel
-              key={question.question_id}
               sessionId={id}
               question={question}
-              index={index}
-              disabled={session.status !== 'active' || answered.has(question.question_id)}
-              result={answered.get(question.question_id)}
+              index={questionIndex}
+              disabled={session.status !== 'active' || Boolean(result)}
+              result={result ?? undefined}
             />
-          ))
+            <div className="flex items-center justify-between gap-3">
+              {previousIndex === null ? (
+                <Button variant="outline" disabled><ChevronLeft className="size-4" />上一题</Button>
+              ) : (
+                <Button asChild variant="outline">
+                  <Link href={`/practice/${id}?index=${previousIndex}`}>
+                    <ChevronLeft className="size-4" />
+                    上一题
+                  </Link>
+                </Button>
+              )}
+              <span className="text-sm text-slate-500">第 {questionIndex + 1} / {total} 题</span>
+              {nextIndex === null ? (
+                <Button variant="outline" disabled>下一题<ChevronRight className="size-4" /></Button>
+              ) : (
+                <Button asChild variant="outline">
+                  <Link href={`/practice/${id}?index=${nextIndex}`}>
+                    下一题
+                    <ChevronRight className="size-4" />
+                  </Link>
+                </Button>
+              )}
+            </div>
+          </>
         )}
       </div>
 
@@ -106,7 +137,9 @@ export default async function PracticeSessionPage({ params }: { params: Promise<
               <Link href={session.bank_id ? `/banks/${session.bank_id}` : '/dashboard'}>返回题库</Link>
             </Button>
           )}
-          {nextQuestion && <a href={`#q-${nextQuestion.question_id}`} className="block text-center text-sm text-slate-500 hover:underline">跳到下一题</a>}
+          {nextIndex !== null && (
+            <Link href={`/practice/${id}?index=${nextIndex}`} className="block text-center text-sm text-slate-500 hover:underline">跳到下一题</Link>
+          )}
         </CardContent>
       </Card>
     </div>
@@ -137,11 +170,9 @@ function QuestionPanel({
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="whitespace-pre-wrap text-sm leading-6">{question.stem}</div>
-        <form action={action} className="space-y-3">
+        <AnswerForm action={action} disabled={disabled}>
           {renderAnswerInput(question)}
-          <input type="hidden" name="durationMs" value="0" />
-          <Button type="submit" disabled={disabled}>提交答案</Button>
-        </form>
+        </AnswerForm>
         {result && (
           <div className={`rounded-md border px-3 py-2 text-sm ${result.is_correct ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : result.is_correct === false ? 'border-red-200 bg-red-50 text-red-800' : 'bg-slate-50 text-slate-700'}`}>
             {result.is_correct === null ? '已提交，简答题等待人工或规则判分。' : result.is_correct ? '回答正确。' : '回答错误。'}
@@ -162,7 +193,7 @@ function renderAnswerInput(question: BankQuestionItem) {
       <div className="grid gap-2 sm:grid-cols-2">
         {options.map((option) => (
           <label key={option.label} className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
-            <input type={question.choice_variant === 'multiple' ? 'checkbox' : 'radio'} name="selected" value={option.label} />
+            <input type={question.choice_variant === 'multiple' ? 'checkbox' : 'radio'} name="selected" value={option.label} required={question.choice_variant !== 'multiple'} />
             <span className="font-medium">{option.label}.</span>
             <span>{option.content}</span>
           </label>
@@ -173,12 +204,18 @@ function renderAnswerInput(question: BankQuestionItem) {
   if (question.answer_mode === 'true_false') {
     return (
       <div className="grid grid-cols-2 gap-2">
-        <label className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"><input type="radio" name="value" value="true" />正确</label>
-        <label className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"><input type="radio" name="value" value="false" />错误</label>
+        <label className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"><input type="radio" name="value" value="true" required />正确</label>
+        <label className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"><input type="radio" name="value" value="false" required />错误</label>
       </div>
     );
   }
   return <textarea name="value" rows={4} required className="w-full rounded-md border bg-white px-3 py-2 text-sm" placeholder="输入答案" />;
+}
+
+function sessionTitle(type: string) {
+  if (type === 'review') return '错题复习';
+  if (type === 'exam') return '自测模考';
+  return '练习作答';
 }
 
 function modeLabel(mode: string) {

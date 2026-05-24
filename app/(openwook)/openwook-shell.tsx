@@ -12,13 +12,14 @@ import {
   UserRound
 } from 'lucide-react';
 import { signOut } from '@/app/(login)/actions';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 type ShellUser = {
   username: string;
   membership: 'free' | 'plus';
+  avatarUrl: string | null;
 };
 
 const navItems = [
@@ -185,10 +186,13 @@ function SidebarNavLink({
 }
 
 function UserActions({ user }: { user: ShellUser }) {
+  const avatarUrl = httpUrlOrNull(user.avatarUrl);
+
   return (
     <div className="flex shrink-0 items-center gap-3">
       <div className="hidden items-center gap-2 sm:flex">
         <Avatar className="size-8">
+          {avatarUrl ? <AvatarImage src={avatarUrl} alt={user.username} /> : null}
           <AvatarFallback className="bg-orange-100 text-xs font-semibold text-orange-700">
             {user.username.slice(0, 2).toUpperCase()}
           </AvatarFallback>
@@ -209,4 +213,8 @@ function UserActions({ user }: { user: ShellUser }) {
       </form>
     </div>
   );
+}
+
+function httpUrlOrNull(value: string | null) {
+  return value && /^https?:\/\//.test(value) ? value : null;
 }
