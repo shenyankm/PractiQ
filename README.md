@@ -2,6 +2,10 @@
 
 A complete full-stack application built with Next.js 16, PostgreSQL, and shadcn/ui.
 
+## Product Design
+
+The question-bank product design based on `db/schema.sql` is documented in [docs/system-design.md](docs/system-design.md). It covers the REST API surface, frontend pages, core modules, data flows, validation, errors, and implementation roadmap.
+
 ## Tech Stack
 
 - **Framework**: Next.js 16.2.6 (App Router)
@@ -87,11 +91,65 @@ The database connection uses a singleton pattern with connection pooling:
 - **Connection timeout**: 2s
 - **Transactions**: Supported via `transaction()` helper
 
+## Redis, Caching, and Import Workers
+
+OpenWook uses PostgreSQL as the source of truth and Redis as an optional acceleration and coordination layer.
+
+Redis-backed features:
+
+- Short-TTL cache for reference data, user profiles, bank lists/items, question detail, answer keys, and analytics summaries.
+- JWT session revocation on logout through `jti` blacklist keys.
+- Login/register rate limiting.
+- Stable practice-session question queues and duplicate answer submission protection.
+- BullMQ import queue for long-running document parsing jobs.
+- Redis Pub/Sub + SSE for live import progress events.
+- AI result de-duplication cache, bank leaderboard cache, and analytics snapshot cache.
+
+Start Redis locally:
+
+```bash
+docker run --name openwook-redis -p 6379:6379 -d redis:7-alpine redis-server --appendonly yes
+```
+
+Set environment variables:
+
+```env
+REDIS_URL=redis://localhost:6379
+REDIS_KEY_PREFIX=openwook
+IMPORT_WORKER_CONCURRENCY=2
+IMPORT_QUEUE_ATTEMPTS=3
+AI_CACHE_TTL_SECONDS=86400
+LEADERBOARD_CACHE_TTL_SECONDS=60
+```
+
+Run the Next.js app and the import worker in separate processes:
+
+```bash
+pnpm dev
+pnpm worker:imports
+```
+
+Production deployments should run the worker as a separate process. A systemd template is provided at `openwook-import-worker.service`.
+
+Health check:
+
+```text
+GET /api/health
+```
+
+Redis cache failures degrade to PostgreSQL reads. Queue, lock, and live-progress features require `REDIS_URL`.
+
 ## Environment Variables
 
 | Variable | Description |
 |----------|-------------|
 | `DATABASE_URL` | PostgreSQL connection string |
+| `REDIS_URL` | Redis connection string for cache, rate limits, queue, locks, and SSE |
+| `REDIS_KEY_PREFIX` | Optional Redis key namespace prefix |
+| `IMPORT_WORKER_CONCURRENCY` | Number of import jobs processed per worker |
+| `IMPORT_QUEUE_ATTEMPTS` | BullMQ retry attempts for import jobs |
+| `AI_CACHE_TTL_SECONDS` | TTL for repeated AI parse/answer cache entries |
+| `LEADERBOARD_CACHE_TTL_SECONDS` | TTL for bank leaderboard cache entries |
 | `NEXT_PUBLIC_APP_URL` | Public app URL |
 | `API_SECRET_KEY` | API authentication key |
 

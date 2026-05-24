@@ -15,6 +15,158 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION set_bank_question_link_subjects()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    SELECT subject INTO NEW.bank_subject
+    FROM question_banks
+    WHERE id = NEW.bank_id;
+
+    SELECT subject_id INTO NEW.question_subject_id
+    FROM questions
+    WHERE id = NEW.question_id;
+
+    RETURN NEW;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION set_bank_group_link_subjects()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    SELECT subject INTO NEW.bank_subject
+    FROM question_banks
+    WHERE id = NEW.bank_id;
+
+    SELECT subject_id INTO NEW.group_subject_id
+    FROM question_groups
+    WHERE id = NEW.group_id;
+
+    RETURN NEW;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION set_question_knowledge_point_link_subjects()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    SELECT subject_id INTO NEW.question_subject_id
+    FROM questions
+    WHERE id = NEW.question_id;
+
+    SELECT subject_id INTO NEW.knowledge_point_subject_id
+    FROM knowledge_points
+    WHERE id = NEW.knowledge_point_id;
+
+    RETURN NEW;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION set_group_question_link_subjects()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    SELECT subject_id INTO NEW.group_subject_id
+    FROM question_groups
+    WHERE id = NEW.group_id;
+
+    SELECT subject_id INTO NEW.question_subject_id
+    FROM questions
+    WHERE id = NEW.question_id;
+
+    RETURN NEW;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION apply_user_question_answer_stats()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    INSERT INTO user_question_stats (
+        user_id,
+        question_id,
+        attempt_count,
+        correct_count,
+        wrong_count,
+        last_answer_id,
+        last_answered_at,
+        last_is_correct,
+        mastery_score
+    )
+    VALUES (
+        NEW.user_id,
+        NEW.question_id,
+        1,
+        CASE WHEN NEW.is_correct IS TRUE THEN 1 ELSE 0 END,
+        CASE WHEN NEW.is_correct IS FALSE THEN 1 ELSE 0 END,
+        NEW.id,
+        NEW.answered_at,
+        NEW.is_correct,
+        CASE
+            WHEN NEW.is_correct IS TRUE THEN 1
+            WHEN NEW.is_correct IS FALSE THEN 0
+            ELSE NULL
+        END
+    )
+    ON CONFLICT (user_id, question_id) DO UPDATE SET
+        attempt_count = user_question_stats.attempt_count + 1,
+        correct_count = user_question_stats.correct_count + CASE WHEN NEW.is_correct IS TRUE THEN 1 ELSE 0 END,
+        wrong_count = user_question_stats.wrong_count + CASE WHEN NEW.is_correct IS FALSE THEN 1 ELSE 0 END,
+        last_answer_id = NEW.id,
+        last_answered_at = NEW.answered_at,
+        last_is_correct = NEW.is_correct,
+        mastery_score = CASE
+            WHEN (user_question_stats.attempt_count + 1) > 0
+            THEN (
+                user_question_stats.correct_count + CASE WHEN NEW.is_correct IS TRUE THEN 1 ELSE 0 END
+            )::DOUBLE PRECISION / (user_question_stats.attempt_count + 1)
+            ELSE NULL
+        END,
+        updated_at = NOW();
+
+    IF NEW.bank_id IS NOT NULL THEN
+        INSERT INTO user_bank_stats (
+            user_id,
+            bank_id,
+            completed_count,
+            wrong_count,
+            last_practiced_at
+        )
+        VALUES (
+            NEW.user_id,
+            NEW.bank_id,
+            1,
+            CASE WHEN NEW.is_correct IS FALSE THEN 1 ELSE 0 END,
+            NEW.answered_at
+        )
+        ON CONFLICT (user_id, bank_id) DO UPDATE SET
+            completed_count = user_bank_stats.completed_count + 1,
+            wrong_count = user_bank_stats.wrong_count + CASE WHEN NEW.is_correct IS FALSE THEN 1 ELSE 0 END,
+            last_practiced_at = NEW.answered_at,
+            updated_at = NOW();
+    END IF;
+
+    IF NEW.session_id IS NOT NULL THEN
+        UPDATE user_practice_sessions
+        SET
+            answered_count = answered_count + 1,
+            correct_count = correct_count + CASE WHEN NEW.is_correct IS TRUE THEN 1 ELSE 0 END,
+            wrong_count = wrong_count + CASE WHEN NEW.is_correct IS FALSE THEN 1 ELSE 0 END,
+            updated_at = NOW()
+        WHERE id = NEW.session_id
+          AND user_id = NEW.user_id;
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
 -- ============================================================
 -- 10_users.sql
 -- ============================================================
@@ -25,10 +177,13 @@ CREATE TABLE users (
     email VARCHAR(254),
     password VARCHAR(255),
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    role TEXT NOT NULL DEFAULT 'user',
     membership TEXT NOT NULL DEFAULT 'free',
+    plus_trial_ends_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '3 days'),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT chk_users_username_not_blank CHECK (btrim(username) <> ''),
+    CONSTRAINT chk_users_role CHECK (role IN ('admin', 'user')),
     CONSTRAINT chk_users_membership CHECK (membership IN ('free', 'plus'))
 );
 
@@ -45,7 +200,9 @@ COMMENT ON COLUMN users.username IS '用户名';
 COMMENT ON COLUMN users.email IS '邮箱';
 COMMENT ON COLUMN users.password IS '密码哈希';
 COMMENT ON COLUMN users.is_active IS '是否启用';
+COMMENT ON COLUMN users.role IS '系统角色，admin / user';
 COMMENT ON COLUMN users.membership IS '会员类型，free / plus';
+COMMENT ON COLUMN users.plus_trial_ends_at IS 'Plus 试用到期时间，新注册用户默认 3 天';
 
 -- ============================================================
 -- 20_question_banks.sql
@@ -80,6 +237,8 @@ CREATE TABLE question_types (
     )
 );
 
+CREATE UNIQUE INDEX uq_question_types_subject_type ON question_types (subject_id, type_id);
+
 INSERT INTO question_types (type_id, subject_id, display_name, scope, default_answer_mode) VALUES
     ('generic_answer_mode', 'general', 'Generic Answer Mode', 'hybrid', NULL),
     ('math_proof', 'math', 'Math Proof', 'question', 'short_answer'),
@@ -107,6 +266,7 @@ CREATE TABLE question_banks (
     CONSTRAINT chk_question_banks_total_count_nonnegative CHECK (total_count >= 0)
 );
 
+CREATE UNIQUE INDEX uq_question_banks_id_subject ON question_banks (id, subject);
 CREATE INDEX idx_question_banks_name ON question_banks (name);
 CREATE INDEX idx_question_banks_subject ON question_banks (subject);
 CREATE INDEX idx_question_banks_created_at ON question_banks (created_at);
@@ -142,9 +302,14 @@ CREATE TABLE question_groups (
     CONSTRAINT chk_question_groups_chapter_order CHECK (chapter_order IS NULL OR chapter_order > 0),
     CONSTRAINT chk_question_groups_content_mode CHECK (
         content_mode IS NULL OR content_mode IN ('text_only', 'mixed_media', 'structured_rich')
-    )
+    ),
+    CONSTRAINT fk_question_groups_subject_type
+        FOREIGN KEY (subject_id, group_type_id)
+        REFERENCES question_types(subject_id, type_id)
+        ON DELETE RESTRICT
 );
 
+CREATE UNIQUE INDEX uq_question_groups_id_subject ON question_groups (id, subject_id);
 CREATE INDEX idx_question_groups_business_type ON question_groups (business_type);
 CREATE INDEX idx_question_groups_subject_type ON question_groups (subject_id, group_type_id);
 CREATE INDEX idx_question_groups_content_mode ON question_groups (content_mode);
@@ -257,6 +422,22 @@ CREATE TABLE question_import_jobs (
         AND high_risk_block_count >= 0
         AND review_item_count >= 0
     ),
+    CONSTRAINT chk_question_import_jobs_counts_consistent CHECK (
+        imported_questions <= total_questions
+        AND completed_block_count <= block_count
+        AND failed_block_count <= block_count
+        AND high_risk_block_count <= block_count
+    ),
+    CONSTRAINT chk_question_import_jobs_progress_range CHECK (
+        coverage_percent BETWEEN 0 AND 100
+        AND quality_score BETWEEN 0 AND 100
+        AND (overall_progress_percent IS NULL OR overall_progress_percent BETWEEN 0 AND 100)
+        AND (step_progress_percent IS NULL OR step_progress_percent BETWEEN 0 AND 100)
+    ),
+    CONSTRAINT chk_question_import_jobs_completed_at CHECK (
+        (status IN ('completed', 'failed') AND completed_at IS NOT NULL)
+        OR (status IN ('queued', 'processing') AND completed_at IS NULL)
+    ),
     CONSTRAINT chk_question_import_jobs_risk_level CHECK (risk_level IN ('low', 'medium', 'high'))
 );
 
@@ -279,7 +460,16 @@ CREATE TABLE question_import_job_batches (
     next_attempt_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT uq_question_import_job_batches_job_wave UNIQUE (job_id, wave_index)
+    CONSTRAINT uq_question_import_job_batches_job_wave UNIQUE (job_id, wave_index),
+    CONSTRAINT chk_question_import_job_batches_status CHECK (status IN ('queued', 'processing', 'completed', 'failed')),
+    CONSTRAINT chk_question_import_job_batches_counts CHECK (
+        wave_index > 0
+        AND total_blocks >= 0
+        AND completed_blocks >= 0
+        AND failed_blocks >= 0
+        AND completed_blocks <= total_blocks
+        AND failed_blocks <= total_blocks
+    )
 );
 
 CREATE INDEX idx_question_import_job_batches_status ON question_import_job_batches (status, next_attempt_at);
@@ -295,7 +485,10 @@ CREATE TABLE question_import_job_artifacts (
     artifact_type TEXT NOT NULL,
     storage_path VARCHAR(512),
     content_json TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT chk_question_import_job_artifacts_content CHECK (
+        storage_path IS NOT NULL OR content_json IS NOT NULL
+    )
 );
 
 CREATE TABLE question_import_job_pages (
@@ -309,7 +502,14 @@ CREATE TABLE question_import_job_pages (
     analysis_status TEXT NOT NULL DEFAULT 'queued',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT uq_question_import_job_pages_job_page UNIQUE (job_id, page_no)
+    CONSTRAINT uq_question_import_job_pages_job_page UNIQUE (job_id, page_no),
+    CONSTRAINT chk_question_import_job_pages_page_no CHECK (page_no > 0),
+    CONSTRAINT chk_question_import_job_pages_coverage_status CHECK (
+        coverage_status IN ('pending', 'partial', 'covered', 'failed')
+    ),
+    CONSTRAINT chk_question_import_job_pages_analysis_status CHECK (
+        analysis_status IN ('queued', 'processing', 'completed', 'failed')
+    )
 );
 
 CREATE INDEX idx_question_import_job_pages_job_status ON question_import_job_pages (job_id, analysis_status);
@@ -347,6 +547,24 @@ CREATE TABLE question_import_job_blocks (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     completed_at TIMESTAMPTZ,
     CONSTRAINT uq_question_import_job_blocks_job_block UNIQUE (job_id, block_id),
+    CONSTRAINT chk_question_import_job_blocks_status CHECK (status IN ('queued', 'processing', 'completed', 'failed', 'needs_review')),
+    CONSTRAINT chk_question_import_job_blocks_retry_count CHECK (retry_count >= 0),
+    CONSTRAINT chk_question_import_job_blocks_location CHECK (
+        (page_start IS NULL OR page_start > 0)
+        AND (page_end IS NULL OR page_end > 0)
+        AND (page_start IS NULL OR page_end IS NULL OR page_start <= page_end)
+        AND (char_start IS NULL OR char_start >= 0)
+        AND (char_end IS NULL OR char_end >= 0)
+        AND (char_start IS NULL OR char_end IS NULL OR char_start <= char_end)
+    ),
+    CONSTRAINT chk_question_import_job_blocks_scores CHECK (
+        (confidence IS NULL OR confidence BETWEEN 0 AND 1)
+        AND (coverage IS NULL OR coverage BETWEEN 0 AND 1)
+    ),
+    CONSTRAINT chk_question_import_job_blocks_completed_at CHECK (
+        (status IN ('completed', 'failed') AND completed_at IS NOT NULL)
+        OR (status IN ('queued', 'processing', 'needs_review') AND completed_at IS NULL)
+    ),
     CONSTRAINT chk_question_import_job_blocks_risk_level CHECK (risk_level IN ('low', 'medium', 'high'))
 );
 
@@ -371,8 +589,17 @@ CREATE TABLE question_import_job_block_attempts (
     quality_score DOUBLE PRECISION,
     error_payload TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT uq_question_import_job_block_attempts UNIQUE (block_id, attempt_no)
+    CONSTRAINT uq_question_import_job_block_attempts UNIQUE (block_id, attempt_no),
+    CONSTRAINT chk_question_import_job_block_attempts_attempt_no CHECK (attempt_no > 0),
+    CONSTRAINT chk_question_import_job_block_attempts_scores CHECK (
+        (confidence IS NULL OR confidence BETWEEN 0 AND 1)
+        AND (coverage IS NULL OR coverage BETWEEN 0 AND 1)
+        AND (quality_score IS NULL OR quality_score BETWEEN 0 AND 100)
+    )
 );
+
+CREATE UNIQUE INDEX uq_question_import_job_block_attempts_id_block
+    ON question_import_job_block_attempts (id, block_id);
 
 CREATE TABLE question_import_job_review_items (
     id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
@@ -386,7 +613,14 @@ CREATE TABLE question_import_job_review_items (
     resolved_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT chk_question_import_job_review_items_status CHECK (status IN ('open', 'resolved'))
+    CONSTRAINT chk_question_import_job_review_items_status CHECK (status IN ('open', 'resolved')),
+    CONSTRAINT chk_question_import_job_review_items_severity CHECK (severity IN ('low', 'medium', 'high', 'critical')),
+    CONSTRAINT chk_question_import_job_review_items_resolution CHECK (
+        (status = 'open' AND resolved_at IS NULL)
+        OR (status = 'resolved' AND resolved_at IS NOT NULL)
+    ),
+    CONSTRAINT fk_question_import_job_review_items_resolved_by
+        FOREIGN KEY (resolved_by) REFERENCES users(id) ON DELETE SET NULL
 );
 
 CREATE INDEX idx_question_import_job_review_items_job_status
@@ -410,7 +644,14 @@ CREATE TABLE question_import_job_events (
     target_kind VARCHAR(64),
     target_name VARCHAR(512),
     payload_json TEXT NOT NULL DEFAULT '{}',
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT chk_question_import_job_events_status CHECK (
+        status IN ('queued', 'processing', 'completed', 'failed', 'warning', 'info')
+    ),
+    CONSTRAINT chk_question_import_job_events_progress CHECK (
+        (overall_progress_percent IS NULL OR overall_progress_percent BETWEEN 0 AND 100)
+        AND (step_progress_percent IS NULL OR step_progress_percent BETWEEN 0 AND 100)
+    )
 );
 
 CREATE INDEX idx_question_import_job_events_job_id
@@ -418,9 +659,13 @@ CREATE INDEX idx_question_import_job_events_job_id
 
 CREATE INDEX idx_question_import_job_events_step_code
     ON question_import_job_events (job_id, step_code, created_at);
+CREATE UNIQUE INDEX uq_question_import_job_events_id_job
+    ON question_import_job_events (id, job_id);
 
 CREATE TABLE question_import_outbox_events (
     id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+    job_id BIGINT REFERENCES question_import_jobs(id) ON DELETE SET NULL,
+    job_event_id BIGINT REFERENCES question_import_job_events(id) ON DELETE SET NULL,
     event_type VARCHAR(80) NOT NULL,
     routing_key VARCHAR(120) NOT NULL,
     payload_json TEXT NOT NULL,
@@ -430,16 +675,34 @@ CREATE TABLE question_import_outbox_events (
     next_attempt_at TIMESTAMPTZ,
     published_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT chk_question_import_outbox_events_status CHECK (
+        status IN ('pending', 'processing', 'published', 'failed')
+    ),
+    CONSTRAINT chk_question_import_outbox_events_retry_count CHECK (retry_count >= 0),
+    CONSTRAINT chk_question_import_outbox_events_published_at CHECK (
+        (status = 'published' AND published_at IS NOT NULL)
+        OR (status <> 'published')
+    )
 );
 
 CREATE INDEX idx_question_import_outbox_events_status
     ON question_import_outbox_events (status, next_attempt_at, created_at);
+CREATE INDEX idx_question_import_outbox_events_job
+    ON question_import_outbox_events (job_id, job_event_id);
 
 CREATE TRIGGER trg_question_import_outbox_events_set_updated_at
 BEFORE UPDATE ON question_import_outbox_events
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
+
+ALTER TABLE question_import_jobs
+    ADD CONSTRAINT fk_question_import_jobs_last_event
+    FOREIGN KEY (last_event_id, id) REFERENCES question_import_job_events(id, job_id);
+
+ALTER TABLE question_import_job_blocks
+    ADD CONSTRAINT fk_question_import_job_blocks_selected_attempt
+    FOREIGN KEY (selected_attempt_id, id) REFERENCES question_import_job_block_attempts(id, block_id);
 
 -- ============================================================
 -- 30_questions.sql
@@ -482,9 +745,14 @@ CREATE TABLE questions (
     ),
     CONSTRAINT chk_questions_stem_not_blank CHECK (btrim(stem) <> ''),
     CONSTRAINT chk_questions_status CHECK (status IN ('draft', 'active', 'archived')),
-    CONSTRAINT chk_questions_source_type CHECK (source_type IN ('manual', 'imported', 'parsed'))
+    CONSTRAINT chk_questions_source_type CHECK (source_type IN ('manual', 'imported', 'parsed')),
+    CONSTRAINT fk_questions_subject_type
+        FOREIGN KEY (subject_id, question_type_id)
+        REFERENCES question_types(subject_id, type_id)
+        ON DELETE RESTRICT
 );
 
+CREATE UNIQUE INDEX uq_questions_id_subject ON questions (id, subject_id);
 CREATE INDEX idx_questions_business_type ON questions (business_type);
 CREATE INDEX idx_questions_subject_type ON questions (subject_id, question_type_id);
 CREATE INDEX idx_questions_content_mode ON questions (content_mode);
@@ -492,6 +760,7 @@ CREATE INDEX idx_questions_source_ref ON questions (source_type, source_ref);
 CREATE INDEX idx_questions_source_job ON questions (source_job_id);
 CREATE INDEX idx_questions_imported_by ON questions (imported_by);
 CREATE INDEX idx_questions_chapter ON questions (chapter_ref, chapter_order);
+CREATE INDEX idx_questions_stem_fts ON questions USING GIN (to_tsvector('simple', stem));
 
 ALTER TABLE question_groups
     ADD COLUMN source_job_id BIGINT REFERENCES question_import_jobs(id) ON DELETE SET NULL;
@@ -506,7 +775,9 @@ EXECUTE FUNCTION set_updated_at();
 CREATE TABLE bank_question_links (
     id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
     bank_id BIGINT NOT NULL REFERENCES question_banks(id) ON DELETE CASCADE,
+    bank_subject VARCHAR(32) NOT NULL,
     question_id BIGINT NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
+    question_subject_id VARCHAR(32) NOT NULL,
     sort_order INTEGER NOT NULL DEFAULT 1,
     question_no VARCHAR(32),
     status TEXT NOT NULL DEFAULT 'draft',
@@ -517,11 +788,27 @@ CREATE TABLE bank_question_links (
     CONSTRAINT uq_bank_question_links_bank_sort UNIQUE (bank_id, sort_order),
     CONSTRAINT uq_bank_question_links_bank_question_no UNIQUE (bank_id, question_no),
     CONSTRAINT chk_bank_question_links_sort_order CHECK (sort_order > 0),
-    CONSTRAINT chk_bank_question_links_status CHECK (status IN ('draft', 'active', 'archived'))
+    CONSTRAINT chk_bank_question_links_status CHECK (status IN ('draft', 'active', 'archived')),
+    CONSTRAINT chk_bank_question_links_subject_match CHECK (bank_subject = question_subject_id),
+    CONSTRAINT fk_bank_question_links_bank_subject
+        FOREIGN KEY (bank_id, bank_subject)
+        REFERENCES question_banks(id, subject)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_bank_question_links_question_subject
+        FOREIGN KEY (question_id, question_subject_id)
+        REFERENCES questions(id, subject_id)
+        ON DELETE CASCADE
 );
 
 CREATE INDEX idx_bank_question_links_bank_sort ON bank_question_links (bank_id, sort_order);
 CREATE INDEX idx_bank_question_links_question_id ON bank_question_links (question_id);
+CREATE UNIQUE INDEX uq_bank_question_links_id_question
+    ON bank_question_links (id, question_id);
+
+CREATE TRIGGER trg_bank_question_links_set_subjects
+BEFORE INSERT OR UPDATE OF bank_id, question_id ON bank_question_links
+FOR EACH ROW
+EXECUTE FUNCTION set_bank_question_link_subjects();
 
 CREATE TRIGGER trg_bank_question_links_set_updated_at
 BEFORE UPDATE ON bank_question_links
@@ -531,7 +818,9 @@ EXECUTE FUNCTION set_updated_at();
 CREATE TABLE bank_group_links (
     id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
     bank_id BIGINT NOT NULL REFERENCES question_banks(id) ON DELETE CASCADE,
+    bank_subject VARCHAR(32) NOT NULL,
     group_id BIGINT NOT NULL REFERENCES question_groups(id) ON DELETE CASCADE,
+    group_subject_id VARCHAR(32) NOT NULL,
     sort_order INTEGER NOT NULL DEFAULT 1,
     status TEXT NOT NULL DEFAULT 'draft',
     added_by BIGINT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
@@ -540,11 +829,27 @@ CREATE TABLE bank_group_links (
     CONSTRAINT uq_bank_group_links_bank_group UNIQUE (bank_id, group_id),
     CONSTRAINT uq_bank_group_links_bank_sort UNIQUE (bank_id, sort_order),
     CONSTRAINT chk_bank_group_links_sort_order CHECK (sort_order > 0),
-    CONSTRAINT chk_bank_group_links_status CHECK (status IN ('draft', 'active', 'archived'))
+    CONSTRAINT chk_bank_group_links_status CHECK (status IN ('draft', 'active', 'archived')),
+    CONSTRAINT chk_bank_group_links_subject_match CHECK (bank_subject = group_subject_id),
+    CONSTRAINT fk_bank_group_links_bank_subject
+        FOREIGN KEY (bank_id, bank_subject)
+        REFERENCES question_banks(id, subject)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_bank_group_links_group_subject
+        FOREIGN KEY (group_id, group_subject_id)
+        REFERENCES question_groups(id, subject_id)
+        ON DELETE CASCADE
 );
 
 CREATE INDEX idx_bank_group_links_bank_sort ON bank_group_links (bank_id, sort_order);
 CREATE INDEX idx_bank_group_links_group_id ON bank_group_links (group_id);
+CREATE UNIQUE INDEX uq_bank_group_links_id_group
+    ON bank_group_links (id, group_id);
+
+CREATE TRIGGER trg_bank_group_links_set_subjects
+BEFORE INSERT OR UPDATE OF bank_id, group_id ON bank_group_links
+FOR EACH ROW
+EXECUTE FUNCTION set_bank_group_link_subjects();
 
 CREATE TRIGGER trg_bank_group_links_set_updated_at
 BEFORE UPDATE ON bank_group_links
@@ -554,7 +859,9 @@ EXECUTE FUNCTION set_updated_at();
 CREATE TABLE group_question_links (
     id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
     group_id BIGINT NOT NULL REFERENCES question_groups(id) ON DELETE CASCADE,
+    group_subject_id VARCHAR(32) NOT NULL,
     question_id BIGINT NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
+    question_subject_id VARCHAR(32) NOT NULL,
     sort_order INTEGER NOT NULL DEFAULT 1,
     question_no VARCHAR(32),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -562,16 +869,80 @@ CREATE TABLE group_question_links (
     CONSTRAINT uq_group_question_links_group_question UNIQUE (group_id, question_id),
     CONSTRAINT uq_group_question_links_group_sort UNIQUE (group_id, sort_order),
     CONSTRAINT uq_group_question_links_group_question_no UNIQUE (group_id, question_no),
-    CONSTRAINT chk_group_question_links_sort_order CHECK (sort_order > 0)
+    CONSTRAINT chk_group_question_links_sort_order CHECK (sort_order > 0),
+    CONSTRAINT chk_group_question_links_subject_match CHECK (group_subject_id = question_subject_id),
+    CONSTRAINT fk_group_question_links_group_subject
+        FOREIGN KEY (group_id, group_subject_id)
+        REFERENCES question_groups(id, subject_id)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_group_question_links_question_subject
+        FOREIGN KEY (question_id, question_subject_id)
+        REFERENCES questions(id, subject_id)
+        ON DELETE CASCADE
 );
 
 CREATE INDEX idx_group_question_links_group_sort ON group_question_links (group_id, sort_order);
 CREATE INDEX idx_group_question_links_question_id ON group_question_links (question_id);
 
+CREATE TRIGGER trg_group_question_links_set_subjects
+BEFORE INSERT OR UPDATE OF group_id, question_id ON group_question_links
+FOR EACH ROW
+EXECUTE FUNCTION set_group_question_link_subjects();
+
 CREATE TRIGGER trg_group_question_links_set_updated_at
 BEFORE UPDATE ON group_question_links
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
+
+CREATE TABLE question_import_job_outputs (
+    id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+    job_id BIGINT NOT NULL REFERENCES question_import_jobs(id) ON DELETE CASCADE,
+    block_id BIGINT REFERENCES question_import_job_blocks(id) ON DELETE SET NULL,
+    attempt_id BIGINT,
+    output_kind VARCHAR(32) NOT NULL,
+    question_id BIGINT REFERENCES questions(id) ON DELETE CASCADE,
+    group_id BIGINT REFERENCES question_groups(id) ON DELETE CASCADE,
+    bank_question_link_id BIGINT,
+    bank_group_link_id BIGINT,
+    confidence DOUBLE PRECISION,
+    metadata_json TEXT NOT NULL DEFAULT '{}',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT chk_question_import_job_outputs_kind CHECK (
+        output_kind IN ('question', 'group')
+    ),
+    CONSTRAINT chk_question_import_job_outputs_target CHECK (
+        (output_kind = 'question' AND question_id IS NOT NULL AND group_id IS NULL)
+        OR (output_kind = 'group' AND group_id IS NOT NULL AND question_id IS NULL)
+    ),
+    CONSTRAINT chk_question_import_job_outputs_link CHECK (
+        (bank_question_link_id IS NULL OR output_kind = 'question')
+        AND (bank_group_link_id IS NULL OR output_kind = 'group')
+    ),
+    CONSTRAINT chk_question_import_job_outputs_attempt_block CHECK (
+        attempt_id IS NULL OR block_id IS NOT NULL
+    ),
+    CONSTRAINT chk_question_import_job_outputs_confidence CHECK (
+        confidence IS NULL OR confidence BETWEEN 0 AND 1
+    ),
+    CONSTRAINT fk_question_import_job_outputs_attempt_block
+        FOREIGN KEY (attempt_id, block_id)
+        REFERENCES question_import_job_block_attempts(id, block_id),
+    CONSTRAINT fk_question_import_job_outputs_bank_question
+        FOREIGN KEY (bank_question_link_id, question_id)
+        REFERENCES bank_question_links(id, question_id),
+    CONSTRAINT fk_question_import_job_outputs_bank_group
+        FOREIGN KEY (bank_group_link_id, group_id)
+        REFERENCES bank_group_links(id, group_id)
+);
+
+CREATE UNIQUE INDEX uq_question_import_job_outputs_question
+    ON question_import_job_outputs (job_id, question_id)
+    WHERE question_id IS NOT NULL;
+CREATE UNIQUE INDEX uq_question_import_job_outputs_group
+    ON question_import_job_outputs (job_id, group_id)
+    WHERE group_id IS NOT NULL;
+CREATE INDEX idx_question_import_job_outputs_block
+    ON question_import_job_outputs (block_id, attempt_id);
 
 CREATE VIEW v_bank_question_items AS
 SELECT
@@ -742,12 +1113,23 @@ CREATE TABLE question_answer_keys (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT uq_question_answer_keys_question_version UNIQUE (question_id, version),
+    CONSTRAINT chk_question_answer_keys_version CHECK (version > 0),
     CONSTRAINT chk_question_answer_keys_answer_mode CHECK (
         answer_mode IN ('choice', 'true_false', 'fill_blank', 'short_answer')
     )
 );
 
+CREATE UNIQUE INDEX uq_question_answer_keys_id_question
+    ON question_answer_keys (id, question_id);
 CREATE INDEX idx_question_answer_keys_question ON question_answer_keys (question_id, is_primary);
+CREATE UNIQUE INDEX uq_question_answer_keys_primary
+    ON question_answer_keys (question_id)
+    WHERE is_primary;
+
+CREATE TRIGGER trg_question_answer_keys_set_updated_at
+BEFORE UPDATE ON question_answer_keys
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();
 
 CREATE TABLE question_fill_blank_slots (
     id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
@@ -774,6 +1156,11 @@ CREATE TABLE question_fill_blank_slots (
 
 CREATE INDEX idx_question_fill_blank_slots_question ON question_fill_blank_slots (question_id, blank_index);
 
+CREATE TRIGGER trg_question_fill_blank_slots_set_updated_at
+BEFORE UPDATE ON question_fill_blank_slots
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();
+
 CREATE TABLE question_rubric_items (
     id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
     question_id BIGINT NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
@@ -791,6 +1178,11 @@ CREATE TABLE question_rubric_items (
 );
 
 CREATE INDEX idx_question_rubric_items_question ON question_rubric_items (question_id, sort_order);
+
+CREATE TRIGGER trg_question_rubric_items_set_updated_at
+BEFORE UPDATE ON question_rubric_items
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();
 
 CREATE TABLE question_educational_metadata (
     question_id BIGINT PRIMARY KEY REFERENCES questions(id) ON DELETE CASCADE,
@@ -810,6 +1202,11 @@ CREATE TABLE question_educational_metadata (
 CREATE INDEX idx_question_educational_metadata_exam
     ON question_educational_metadata (exam_type, difficulty_level);
 
+CREATE TRIGGER trg_question_educational_metadata_set_updated_at
+BEFORE UPDATE ON question_educational_metadata
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();
+
 CREATE TABLE knowledge_points (
     id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
     subject_id VARCHAR(32) NOT NULL REFERENCES subjects(subject_id) ON DELETE RESTRICT,
@@ -824,20 +1221,47 @@ CREATE TABLE knowledge_points (
     CONSTRAINT chk_knowledge_points_name_not_blank CHECK (btrim(display_name) <> '')
 );
 
+CREATE UNIQUE INDEX uq_knowledge_points_id_subject ON knowledge_points (id, subject_id);
 CREATE INDEX idx_knowledge_points_parent ON knowledge_points (parent_id);
+
+CREATE TRIGGER trg_knowledge_points_set_updated_at
+BEFORE UPDATE ON knowledge_points
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();
 
 CREATE TABLE question_knowledge_point_links (
     id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
     question_id BIGINT NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
+    question_subject_id VARCHAR(32) NOT NULL,
     knowledge_point_id BIGINT NOT NULL REFERENCES knowledge_points(id) ON DELETE CASCADE,
+    knowledge_point_subject_id VARCHAR(32) NOT NULL,
     relevance_score DOUBLE PRECISION,
     source_type VARCHAR(32) NOT NULL DEFAULT 'parsed',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT uq_question_knowledge_point_links UNIQUE (question_id, knowledge_point_id)
+    CONSTRAINT uq_question_knowledge_point_links UNIQUE (question_id, knowledge_point_id),
+    CONSTRAINT chk_question_knowledge_point_links_subject_match CHECK (
+        question_subject_id = knowledge_point_subject_id
+    ),
+    CONSTRAINT chk_question_knowledge_point_links_relevance CHECK (
+        relevance_score IS NULL OR relevance_score BETWEEN 0 AND 1
+    ),
+    CONSTRAINT fk_question_knowledge_point_links_question_subject
+        FOREIGN KEY (question_id, question_subject_id)
+        REFERENCES questions(id, subject_id)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_question_knowledge_point_links_kp_subject
+        FOREIGN KEY (knowledge_point_id, knowledge_point_subject_id)
+        REFERENCES knowledge_points(id, subject_id)
+        ON DELETE CASCADE
 );
 
 CREATE INDEX idx_question_knowledge_point_links_kp
     ON question_knowledge_point_links (knowledge_point_id);
+
+CREATE TRIGGER trg_question_knowledge_point_links_set_subjects
+BEFORE INSERT OR UPDATE OF question_id, knowledge_point_id ON question_knowledge_point_links
+FOR EACH ROW
+EXECUTE FUNCTION set_question_knowledge_point_link_subjects();
 
 CREATE TABLE question_tags (
     id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
@@ -871,6 +1295,40 @@ CREATE INDEX idx_question_provenance_question ON question_provenance (question_i
 CREATE INDEX idx_question_provenance_source_job
     ON question_provenance (source_job_id, source_block_ref);
 
+CREATE TABLE ai_artifacts (
+    id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+    artifact_type VARCHAR(64) NOT NULL,
+    user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    bank_id BIGINT REFERENCES question_banks(id) ON DELETE SET NULL,
+    question_id BIGINT REFERENCES questions(id) ON DELETE SET NULL,
+    import_job_id BIGINT REFERENCES question_import_jobs(id) ON DELETE SET NULL,
+    practice_session_id BIGINT,
+    provider VARCHAR(64) NOT NULL DEFAULT 'mastra',
+    model VARCHAR(128),
+    input_payload JSONB NOT NULL DEFAULT '{}',
+    output_payload JSONB NOT NULL DEFAULT '{}',
+    status VARCHAR(32) NOT NULL DEFAULT 'completed',
+    error_message TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT chk_ai_artifacts_type CHECK (
+        artifact_type IN ('document_parse', 'answer_generation', 'learning_report')
+    ),
+    CONSTRAINT chk_ai_artifacts_status CHECK (
+        status IN ('completed', 'failed')
+    ),
+    CONSTRAINT chk_ai_artifacts_payload_object CHECK (
+        jsonb_typeof(input_payload) = 'object'
+        AND jsonb_typeof(output_payload) = 'object'
+    )
+);
+
+CREATE INDEX idx_ai_artifacts_question
+    ON ai_artifacts (question_id, artifact_type, created_at DESC);
+CREATE INDEX idx_ai_artifacts_import_job
+    ON ai_artifacts (import_job_id, artifact_type, created_at DESC);
+CREATE INDEX idx_ai_artifacts_user
+    ON ai_artifacts (user_id, artifact_type, created_at DESC);
+
 -- ============================================================
 -- 40_media.sql
 -- ============================================================
@@ -890,7 +1348,13 @@ CREATE TABLE media_assets (
     duration_ms INTEGER,
     checksum_sha256 VARCHAR(64),
     metadata_json TEXT NOT NULL DEFAULT '{}',
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT chk_media_assets_dimensions CHECK (
+        (width IS NULL OR width > 0)
+        AND (height IS NULL OR height > 0)
+        AND (size_bytes IS NULL OR size_bytes >= 0)
+        AND (duration_ms IS NULL OR duration_ms >= 0)
+    )
 );
 
 CREATE TABLE question_media_links (
@@ -899,7 +1363,10 @@ CREATE TABLE question_media_links (
     media_id BIGINT NOT NULL REFERENCES media_assets(id) ON DELETE CASCADE,
     media_kind TEXT NOT NULL,
     sort_order SMALLINT NOT NULL DEFAULT 1,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_question_media_links_sort UNIQUE (question_id, sort_order),
+    CONSTRAINT uq_question_media_links_media UNIQUE (question_id, media_id, media_kind),
+    CONSTRAINT chk_question_media_links_sort CHECK (sort_order > 0)
 );
 
 CREATE TABLE question_option_media_links (
@@ -908,7 +1375,10 @@ CREATE TABLE question_option_media_links (
     media_id BIGINT NOT NULL REFERENCES media_assets(id) ON DELETE CASCADE,
     media_kind TEXT NOT NULL,
     sort_order SMALLINT NOT NULL DEFAULT 1,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_question_option_media_links_sort UNIQUE (option_id, sort_order),
+    CONSTRAINT uq_question_option_media_links_media UNIQUE (option_id, media_id, media_kind),
+    CONSTRAINT chk_question_option_media_links_sort CHECK (sort_order > 0)
 );
 
 CREATE TABLE question_subquestion_media_links (
@@ -917,7 +1387,10 @@ CREATE TABLE question_subquestion_media_links (
     media_id BIGINT NOT NULL REFERENCES media_assets(id) ON DELETE CASCADE,
     media_kind TEXT NOT NULL,
     sort_order SMALLINT NOT NULL DEFAULT 1,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_question_subquestion_media_links_sort UNIQUE (subquestion_id, sort_order),
+    CONSTRAINT uq_question_subquestion_media_links_media UNIQUE (subquestion_id, media_id, media_kind),
+    CONSTRAINT chk_question_subquestion_media_links_sort CHECK (sort_order > 0)
 );
 
 CREATE TABLE question_group_media_links (
@@ -926,7 +1399,10 @@ CREATE TABLE question_group_media_links (
     media_id BIGINT NOT NULL REFERENCES media_assets(id) ON DELETE CASCADE,
     media_kind TEXT NOT NULL,
     sort_order SMALLINT NOT NULL DEFAULT 1,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_question_group_media_links_sort UNIQUE (group_id, sort_order),
+    CONSTRAINT uq_question_group_media_links_media UNIQUE (group_id, media_id, media_kind),
+    CONSTRAINT chk_question_group_media_links_sort CHECK (sort_order > 0)
 );
 
 CREATE TABLE question_content_blocks (
@@ -963,6 +1439,18 @@ CREATE TABLE question_content_blocks (
     CONSTRAINT chk_question_content_blocks_sequence CHECK (sequence > 0),
     CONSTRAINT chk_question_content_blocks_content_mode CHECK (
         content_mode IS NULL OR content_mode IN ('text_only', 'mixed_media', 'structured_rich')
+    ),
+    CONSTRAINT chk_question_content_blocks_owner_ref CHECK (
+        (CASE WHEN question_id IS NOT NULL THEN 1 ELSE 0 END)
+        + (CASE WHEN group_id IS NOT NULL THEN 1 ELSE 0 END)
+        + (CASE WHEN option_id IS NOT NULL THEN 1 ELSE 0 END)
+        + (CASE WHEN subquestion_id IS NOT NULL THEN 1 ELSE 0 END) = 1
+    ),
+    CONSTRAINT chk_question_content_blocks_owner_kind_ref CHECK (
+        (owner_kind IN ('question', 'stem', 'answer_key', 'analysis', 'explanation') AND question_id IS NOT NULL)
+        OR (owner_kind = 'group' AND group_id IS NOT NULL)
+        OR (owner_kind = 'option' AND option_id IS NOT NULL)
+        OR (owner_kind = 'subquestion' AND subquestion_id IS NOT NULL)
     )
 );
 
@@ -973,20 +1461,150 @@ CREATE INDEX idx_question_content_blocks_group
 CREATE INDEX idx_question_content_blocks_option ON question_content_blocks (option_id, sequence);
 CREATE INDEX idx_question_content_blocks_subquestion ON question_content_blocks (subquestion_id, sequence);
 
+CREATE TRIGGER trg_question_content_blocks_set_updated_at
+BEFORE UPDATE ON question_content_blocks
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();
+
 -- ============================================================
 -- 50_user_answers.sql
 -- ============================================================
 
+CREATE TABLE user_practice_sessions (
+    id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    bank_id BIGINT REFERENCES question_banks(id) ON DELETE SET NULL,
+    session_type VARCHAR(32) NOT NULL DEFAULT 'practice',
+    status VARCHAR(32) NOT NULL DEFAULT 'active',
+    question_count INTEGER NOT NULL DEFAULT 0,
+    answered_count INTEGER NOT NULL DEFAULT 0,
+    correct_count INTEGER NOT NULL DEFAULT 0,
+    wrong_count INTEGER NOT NULL DEFAULT 0,
+    score DOUBLE PRECISION,
+    started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    completed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT chk_user_practice_sessions_type CHECK (
+        session_type IN ('practice', 'review', 'exam')
+    ),
+    CONSTRAINT chk_user_practice_sessions_status CHECK (
+        status IN ('active', 'completed', 'abandoned')
+    ),
+    CONSTRAINT chk_user_practice_sessions_counts CHECK (
+        question_count >= 0
+        AND answered_count >= 0
+        AND correct_count >= 0
+        AND wrong_count >= 0
+        AND answered_count <= question_count
+        AND correct_count <= answered_count
+        AND wrong_count <= answered_count
+    ),
+    CONSTRAINT chk_user_practice_sessions_score CHECK (
+        score IS NULL OR score >= 0
+    ),
+    CONSTRAINT chk_user_practice_sessions_completed_at CHECK (
+        (status = 'active' AND completed_at IS NULL)
+        OR (status IN ('completed', 'abandoned') AND completed_at IS NOT NULL)
+    )
+);
+
+CREATE UNIQUE INDEX uq_user_practice_sessions_id_user
+    ON user_practice_sessions (id, user_id);
+CREATE INDEX idx_user_practice_sessions_user_started
+    ON user_practice_sessions (user_id, started_at DESC);
+CREATE INDEX idx_user_practice_sessions_bank
+    ON user_practice_sessions (bank_id, status);
+
+CREATE TRIGGER trg_user_practice_sessions_set_updated_at
+BEFORE UPDATE ON user_practice_sessions
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();
+
+ALTER TABLE ai_artifacts
+    ADD CONSTRAINT fk_ai_artifacts_practice_session
+    FOREIGN KEY (practice_session_id) REFERENCES user_practice_sessions(id) ON DELETE SET NULL;
+
 CREATE TABLE user_question_answers (
     id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
     user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    session_id BIGINT,
+    bank_id BIGINT REFERENCES question_banks(id) ON DELETE SET NULL,
     question_id BIGINT NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
+    answer_key_id BIGINT,
     answer_payload JSONB NOT NULL,
     is_correct BOOLEAN,
+    score DOUBLE PRECISION,
+    max_score DOUBLE PRECISION,
+    duration_ms INTEGER,
     answered_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT chk_user_question_answers_payload_object CHECK (jsonb_typeof(answer_payload) = 'object')
+    CONSTRAINT chk_user_question_answers_payload_object CHECK (jsonb_typeof(answer_payload) = 'object'),
+    CONSTRAINT chk_user_question_answers_score CHECK (
+        (score IS NULL OR score >= 0)
+        AND (max_score IS NULL OR max_score >= 0)
+        AND (score IS NULL OR max_score IS NULL OR score <= max_score)
+    ),
+    CONSTRAINT chk_user_question_answers_duration CHECK (
+        duration_ms IS NULL OR duration_ms >= 0
+    ),
+    CONSTRAINT fk_user_question_answers_session_user
+        FOREIGN KEY (session_id, user_id)
+        REFERENCES user_practice_sessions(id, user_id),
+    CONSTRAINT fk_user_question_answers_answer_key_question
+        FOREIGN KEY (answer_key_id, question_id)
+        REFERENCES question_answer_keys(id, question_id)
 );
 
+CREATE UNIQUE INDEX uq_user_question_answers_id_user_question
+    ON user_question_answers (id, user_id, question_id);
 CREATE INDEX idx_user_question_answers_user_question_answered_at
     ON user_question_answers (user_id, question_id, answered_at DESC);
 CREATE INDEX idx_user_question_answers_question_id ON user_question_answers (question_id);
+CREATE INDEX idx_user_question_answers_session
+    ON user_question_answers (session_id, answered_at);
+CREATE INDEX idx_user_question_answers_bank
+    ON user_question_answers (bank_id, user_id, answered_at DESC);
+
+CREATE TRIGGER trg_user_question_answers_apply_stats
+AFTER INSERT ON user_question_answers
+FOR EACH ROW
+EXECUTE FUNCTION apply_user_question_answer_stats();
+
+CREATE TABLE user_question_stats (
+    id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    question_id BIGINT NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
+    attempt_count INTEGER NOT NULL DEFAULT 0,
+    correct_count INTEGER NOT NULL DEFAULT 0,
+    wrong_count INTEGER NOT NULL DEFAULT 0,
+    last_answer_id BIGINT,
+    last_answered_at TIMESTAMPTZ,
+    last_is_correct BOOLEAN,
+    mastery_score DOUBLE PRECISION,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_user_question_stats_user_question UNIQUE (user_id, question_id),
+    CONSTRAINT chk_user_question_stats_counts CHECK (
+        attempt_count >= 0
+        AND correct_count >= 0
+        AND wrong_count >= 0
+        AND correct_count <= attempt_count
+        AND wrong_count <= attempt_count
+    ),
+    CONSTRAINT chk_user_question_stats_mastery CHECK (
+        mastery_score IS NULL OR mastery_score BETWEEN 0 AND 1
+    ),
+    CONSTRAINT fk_user_question_stats_last_answer
+        FOREIGN KEY (last_answer_id, user_id, question_id)
+        REFERENCES user_question_answers(id, user_id, question_id)
+);
+
+CREATE INDEX idx_user_question_stats_question
+    ON user_question_stats (question_id);
+CREATE INDEX idx_user_question_stats_last_answered
+    ON user_question_stats (user_id, last_answered_at DESC);
+
+CREATE TRIGGER trg_user_question_stats_set_updated_at
+BEFORE UPDATE ON user_question_stats
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();

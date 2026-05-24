@@ -1,0 +1,17 @@
+[Unit]
+Description=OpenWook Import Worker
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ubuntu/projects/openwook
+Environment=NODE_ENV=production
+EnvironmentFile=-/home/ubuntu/projects/openwook/.env.local
+ExecStart=/usr/bin/env pnpm worker:imports
+Restart=always
+RestartSec=5
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

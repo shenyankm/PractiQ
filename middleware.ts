@@ -1,34 +1,35 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { signToken, verifyToken } from '@/lib/auth/session';
+import { signSessionToken, verifySessionToken } from '@/lib/openwook/session';
 
-const protectedRoutes = '/dashboard';
+const protectedRoutes = ['/dashboard', '/banks', '/imports', '/practice', '/questions', '/settings'];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const sessionCookie = request.cookies.get('session');
-  const isProtectedRoute = pathname.startsWith(protectedRoutes);
+  const isProtectedRoute = protectedRoutes.some((route) => pathname.startsWith(route));
 
   if (isProtectedRoute && !sessionCookie) {
     return NextResponse.redirect(new URL('/sign-in', request.url));
   }
 
-  let res = NextResponse.next();
+  const res = NextResponse.next();
 
   if (sessionCookie && request.method === 'GET') {
     try {
-      const parsed = await verifyToken(sessionCookie.value);
+      const parsed = await verifySessionToken(sessionCookie.value);
       const expiresInOneDay = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
       res.cookies.set({
         name: 'session',
-        value: await signToken({
+        value: await signSessionToken({
           ...parsed,
           expires: expiresInOneDay.toISOString()
-        }),
+        }, '1 day'),
         httpOnly: true,
-        secure: true,
+        secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
+        path: '/',
         expires: expiresInOneDay
       });
     } catch (error) {
