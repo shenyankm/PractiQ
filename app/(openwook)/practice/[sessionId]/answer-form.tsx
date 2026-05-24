@@ -21,7 +21,7 @@ export function AnswerForm({ action, disabled, children }: AnswerFormProps) {
   return (
     <form
       action={action}
-      className="space-y-3"
+      className="flex flex-col gap-3"
       onSubmit={() => {
         if (durationInputRef.current) {
           durationInputRef.current.value = String(Date.now() - (startedAt.current ?? Date.now()));

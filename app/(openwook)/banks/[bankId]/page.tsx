@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getCurrentUser } from '@/lib/openwook/auth';
@@ -16,15 +17,15 @@ export default async function BankDetailPage({ params }: { params: Promise<{ ban
   const items = await listBankItems(user, id, new URLSearchParams({ limit: '30' }));
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">{bank.name}</h1>
-          <p className="mt-1 text-sm text-slate-500">{bank.description || '暂无描述'}</p>
-          <div className="mt-3 flex gap-2 text-xs text-slate-600">
-            <span className="rounded bg-slate-100 px-2 py-1">{bank.subject}</span>
-            <span className="rounded bg-slate-100 px-2 py-1">{bank.is_public ? '公开' : '私有'}</span>
-            <span className="rounded bg-slate-100 px-2 py-1">{bank.total_count} 题</span>
+          <p className="mt-1 text-sm text-muted-foreground">{bank.description || '暂无描述'}</p>
+          <div className="mt-3 flex gap-2">
+            <Badge variant="secondary">{bank.subject}</Badge>
+            <Badge variant="outline">{bank.is_public ? '公开' : '私有'}</Badge>
+            <Badge variant="outline">{bank.total_count} 题</Badge>
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -41,17 +42,17 @@ export default async function BankDetailPage({ params }: { params: Promise<{ ban
         <CardHeader>
           <CardTitle>题目列表</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="flex flex-col gap-3">
           {items.length === 0 ? (
-            <p className="text-sm text-slate-500">题库暂无题目。</p>
+            <p className="text-sm text-muted-foreground">题库暂无题目。</p>
           ) : items.map((item) => (
-            <Link key={`${item.item_scope}-${item.group_id ?? 'q'}-${item.question_id}`} href={`/questions/${item.question_id}`} className="block rounded-md border p-3 hover:bg-slate-50">
+            <Link key={`${item.item_scope}-${item.group_id ?? 'q'}-${item.question_id}`} href={`/questions/${item.question_id}`} className="block rounded-md border p-3 hover:bg-accent">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <div className="font-medium">{item.question_no ? `${item.question_no}. ` : ''}{item.stem}</div>
-                  {item.group_title && <div className="mt-1 text-sm text-slate-500">题组：{item.group_title}</div>}
+                  {item.group_title && <div className="mt-1 text-sm text-muted-foreground">题组：{item.group_title}</div>}
                 </div>
-                <span className="rounded bg-slate-100 px-2 py-1 text-xs">{item.answer_mode}</span>
+                <Badge variant="secondary">{item.answer_mode}</Badge>
               </div>
             </Link>
           ))}

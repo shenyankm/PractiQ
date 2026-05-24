@@ -1,8 +1,10 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { AlertTriangle, CheckCircle2, Play, RotateCcw, XCircle } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { getCurrentUser } from '@/lib/openwook/auth';
 import { getImportJob, listImportJobChildren } from '@/lib/openwook/services';
 import { resolveReviewItemAction, updateImportStatusAction } from '../../banks/actions';
@@ -60,11 +62,11 @@ export default async function ImportDetailPage({ params }: { params: Promise<{ j
   const outputRows = outputs as unknown as OutputRow[];
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">{job.file_name || `导入任务 #${job.id}`}</h1>
-          <p className="mt-1 text-sm text-slate-500">{job.status} · {job.stage} · 风险 {job.risk_level}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{job.status} · {job.stage} · 风险 {job.risk_level}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <form action={updateImportStatusAction.bind(null, id, 'start')}>
@@ -95,22 +97,22 @@ export default async function ImportDetailPage({ params }: { params: Promise<{ j
           <CardHeader>
             <CardTitle>人工复核</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="flex flex-col gap-3">
             {reviewItems.length === 0 ? (
-              <p className="text-sm text-slate-500">暂无复核项。</p>
+              <p className="text-sm text-muted-foreground">暂无复核项。</p>
             ) : reviewRows.map((item) => (
               <div key={item.id} className="rounded-md border p-3">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2 font-medium">
-                    <AlertTriangle className="size-4 text-orange-600" />
+                    <AlertTriangle className="size-4 text-primary" />
                     {item.code}
                   </div>
-                  <span className="rounded bg-slate-100 px-2 py-1 text-xs">{item.status}</span>
+                  <Badge variant={item.status === 'open' ? 'default' : 'secondary'}>{item.status}</Badge>
                 </div>
-                <pre className="mt-2 max-h-28 overflow-auto rounded bg-slate-50 p-2 text-xs text-slate-600">{item.payload_json}</pre>
+                <pre className="mt-2 max-h-28 overflow-auto rounded bg-muted p-2 text-xs text-muted-foreground">{item.payload_json}</pre>
                 {item.status === 'open' && (
                   <form action={resolveReviewItemAction.bind(null, id, item.id)} className="mt-3 flex gap-2">
-                    <input name="note" placeholder="处理备注" className="h-9 flex-1 rounded-md border px-3 text-sm" />
+                    <Input name="note" placeholder="处理备注" />
                     <Button size="sm" type="submit"><CheckCircle2 className="size-4" />解决</Button>
                   </form>
                 )}
@@ -123,13 +125,13 @@ export default async function ImportDetailPage({ params }: { params: Promise<{ j
           <CardHeader>
             <CardTitle>输出</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="flex flex-col gap-3">
             {outputs.length === 0 ? (
-              <p className="text-sm text-slate-500">暂无生成题目或题组。</p>
+              <p className="text-sm text-muted-foreground">暂无生成题目或题组。</p>
             ) : outputRows.map((output) => (
               <div key={output.id} className="rounded-md border p-3 text-sm">
                 <div className="font-medium">{output.output_kind} #{output.question_id ?? output.group_id}</div>
-                {output.question_id && <Link href={`/questions/${output.question_id}`} className="mt-1 inline-block text-slate-500 hover:underline">查看题目</Link>}
+                {output.question_id && <Link href={`/questions/${output.question_id}`} className="mt-1 inline-block text-muted-foreground hover:underline">查看题目</Link>}
               </div>
             ))}
           </CardContent>
@@ -141,11 +143,11 @@ export default async function ImportDetailPage({ params }: { params: Promise<{ j
           <CardHeader>
             <CardTitle>区块</CardTitle>
           </CardHeader>
-          <CardContent className="max-h-96 space-y-2 overflow-auto">
-            {blocks.length === 0 ? <p className="text-sm text-slate-500">暂无区块。</p> : blockRows.map((block) => (
+          <CardContent className="flex max-h-96 flex-col gap-2 overflow-auto">
+            {blocks.length === 0 ? <p className="text-sm text-muted-foreground">暂无区块。</p> : blockRows.map((block) => (
               <div key={block.id} className="rounded-md border px-3 py-2 text-sm">
                 <div className="font-medium">{block.block_id} · {block.status}</div>
-                <div className="text-slate-500">page {block.page_start ?? '-'}-{block.page_end ?? '-'}</div>
+                <div className="text-muted-foreground">page {block.page_start ?? '-'}-{block.page_end ?? '-'}</div>
               </div>
             ))}
           </CardContent>

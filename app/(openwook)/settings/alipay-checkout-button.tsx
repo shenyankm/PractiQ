@@ -49,12 +49,12 @@ export function AlipayCheckoutButton({ disabled = false }: { disabled?: boolean 
   }
 
   return (
-    <div className="space-y-2">
+    <div className="flex flex-col gap-2">
       <Button type="button" onClick={startCheckout} disabled={disabled || isPending} className="w-full">
         {isPending ? <Loader2 className="size-4 animate-spin" /> : <CreditCard className="size-4" />}
         购买月付套餐
       </Button>
-      {error ? <p className="text-xs text-red-600">{error}</p> : null}
+      {error ? <p className="text-xs text-destructive">{error}</p> : null}
     </div>
   );
 }

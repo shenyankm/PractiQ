@@ -11,3 +11,11 @@ process.env.OBJECT_STORAGE_MOUNT_DIR = join(tmpdir(), `openwook-vitest-storage-$
 process.env.MOONSHOT_API_KEY = '';
 process.env.OPENAI_API_KEY = '';
 process.env.AI_APPLY_MIN_CONFIDENCE ||= '0.7';
+
+if (!globalThis.ResizeObserver) {
+  globalThis.ResizeObserver = class ResizeObserver {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+}

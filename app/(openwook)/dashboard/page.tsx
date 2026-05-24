@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { BookOpen, CheckCircle2, FileWarning, Plus, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { getCurrentUser } from '@/lib/openwook/auth';
 import { getAnalyticsSummary, listBanks, listImportJobs } from '@/lib/openwook/services';
 import type { User } from '@/lib/openwook/types';
@@ -12,11 +13,11 @@ export default async function DashboardPage() {
   if (!user) return null;
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">仪表板</h1>
-          <p className="text-sm text-slate-500">管理题库、导入任务和练习表现。</p>
+          <p className="text-sm text-muted-foreground">管理题库、导入任务和练习表现。</p>
         </div>
         <Button asChild>
           <Link href="/banks">进入题库</Link>
@@ -64,13 +65,13 @@ async function RecentBanks({ user }: { user: User }) {
           <Link href="/banks"><Plus className="size-4" />新建</Link>
         </Button>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="flex flex-col gap-3">
         {banks.length === 0 ? (
-          <p className="text-sm text-slate-500">还没有题库。</p>
+          <p className="text-sm text-muted-foreground">还没有题库。</p>
         ) : banks.map((bank) => (
-          <Link key={bank.id} href={`/banks/${bank.id}`} className="block rounded-md border p-3 hover:bg-slate-50">
+          <Link key={bank.id} href={`/banks/${bank.id}`} className="block rounded-md border p-3 hover:bg-accent">
             <div className="font-medium">{bank.name}</div>
-            <div className="text-sm text-slate-500">{bank.subject} · {bank.total_count} 题</div>
+            <div className="text-sm text-muted-foreground">{bank.subject} · {bank.total_count} 题</div>
           </Link>
         ))}
       </CardContent>
@@ -86,15 +87,15 @@ async function ImportAttentionList({ user }: { user: User }) {
       <CardHeader>
         <CardTitle>导入任务</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="flex flex-col gap-3">
         {imports.length === 0 ? (
-          <p className="text-sm text-slate-500">当前没有需要关注的导入任务。</p>
+          <p className="text-sm text-muted-foreground">当前没有需要关注的导入任务。</p>
         ) : imports.slice(0, 6).map((job) => (
-          <Link key={job.id} href={`/imports/${job.id}`} className="flex items-center gap-3 rounded-md border p-3 hover:bg-slate-50">
-            <FileWarning className="size-4 text-orange-600" />
+          <Link key={job.id} href={`/imports/${job.id}`} className="flex items-center gap-3 rounded-md border p-3 hover:bg-accent">
+            <FileWarning className="size-4 text-primary" />
             <div>
               <div className="font-medium">{job.file_name || `任务 #${job.id}`}</div>
-              <div className="text-sm text-slate-500">{job.status} · {job.stage}</div>
+              <div className="text-sm text-muted-foreground">{job.status} · {job.stage}</div>
             </div>
           </Link>
         ))}
@@ -108,10 +109,10 @@ function Metric({ title, value, icon: Icon }: { title: string; value: string | n
     <Card>
       <CardContent className="flex items-center justify-between p-5">
         <div>
-          <div className="text-sm text-slate-500">{title}</div>
+          <div className="text-sm text-muted-foreground">{title}</div>
           <div className="mt-1 text-2xl font-semibold">{value}</div>
         </div>
-        <Icon className="size-5 text-orange-600" />
+        <Icon className="size-5 text-primary" />
       </CardContent>
     </Card>
   );
@@ -123,8 +124,8 @@ function MetricGridSkeleton() {
       {Array.from({ length: 4 }).map((_, index) => (
         <Card key={index}>
           <CardContent className="p-5">
-            <div className="h-4 w-20 rounded bg-slate-200" />
-            <div className="mt-3 h-8 w-16 rounded bg-slate-200" />
+            <Skeleton className="h-4 w-20" />
+            <Skeleton className="mt-3 h-8 w-16" />
           </CardContent>
         </Card>
       ))}
@@ -138,11 +139,11 @@ function PanelSkeleton({ title }: { title: string }) {
       <CardHeader>
         <CardTitle>{title}</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="flex flex-col gap-3">
         {Array.from({ length: 3 }).map((_, index) => (
           <div key={index} className="rounded-md border p-3">
-            <div className="h-4 w-40 rounded bg-slate-200" />
-            <div className="mt-2 h-3 w-24 rounded bg-slate-200" />
+            <Skeleton className="h-4 w-40" />
+            <Skeleton className="mt-2 h-3 w-24" />
           </div>
         ))}
       </CardContent>

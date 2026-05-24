@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getCurrentUser } from '@/lib/openwook/auth';
@@ -32,11 +33,11 @@ export default async function QuestionDetailPage({ params }: { params: Promise<{
   const answerKeys = Array.isArray(question.answer_keys) ? question.answer_keys as AnswerKeyRow[] : [];
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="mx-auto flex max-w-4xl flex-col gap-6">
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">题目 #{question.id}</h1>
-          <p className="text-sm text-slate-500">{question.question_type_id} · {question.answer_mode} · {question.status}</p>
+          <p className="text-sm text-muted-foreground">{question.question_type_id} · {question.answer_mode} · {question.status}</p>
         </div>
         <Button asChild variant="outline">
           <Link href="/banks"><ArrowLeft className="size-4" />返回题库</Link>
@@ -47,14 +48,14 @@ export default async function QuestionDetailPage({ params }: { params: Promise<{
         <CardHeader>
           <CardTitle>题干</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="whitespace-pre-wrap rounded-md bg-slate-50 p-4 text-sm leading-6">{question.stem}</div>
+        <CardContent className="flex flex-col gap-4">
+          <div className="whitespace-pre-wrap rounded-md bg-muted p-4 text-sm leading-6">{question.stem}</div>
           {options.length > 0 && (
             <div className="grid gap-2">
               {options.map((option) => (
                 <div key={option.id} className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
-                  {option.is_correct && <CheckCircle2 className="size-4 text-emerald-600" />}
-                  <span className="font-medium">{option.option_label}.</span>
+                  {option.is_correct && <CheckCircle2 className="size-4 text-primary" />}
+                  <Badge variant="secondary">{option.option_label}</Badge>
                   <span>{option.content}</span>
                 </div>
               ))}
@@ -70,9 +71,9 @@ export default async function QuestionDetailPage({ params }: { params: Promise<{
           </CardHeader>
           <CardContent>
             {answerKeys.length === 0 ? (
-              <p className="text-sm text-slate-500">暂无答案键。</p>
+              <p className="text-sm text-muted-foreground">暂无答案键。</p>
             ) : (
-              <pre className="max-h-72 overflow-auto rounded-md bg-slate-50 p-3 text-xs">{JSON.stringify(answerKeys, null, 2)}</pre>
+              <pre className="max-h-72 overflow-auto rounded-md bg-muted p-3 text-xs">{JSON.stringify(answerKeys, null, 2)}</pre>
             )}
           </CardContent>
         </Card>
@@ -80,7 +81,7 @@ export default async function QuestionDetailPage({ params }: { params: Promise<{
           <CardHeader>
             <CardTitle>解析</CardTitle>
           </CardHeader>
-          <CardContent className="whitespace-pre-wrap text-sm leading-6 text-slate-700">
+          <CardContent className="whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
             {question.analysis || '暂无解析。'}
           </CardContent>
         </Card>

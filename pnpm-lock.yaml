@@ -84,7 +84,7 @@ importers:
         specifier: ^25.0.4
         version: 25.0.4(typescript@5.9.3)
       radix-ui:
-        specifier: ^1.4.2
+        specifier: ^1.4.3
         version: 1.4.3(@types/react-dom@19.1.5(@types/react@19.1.4))(@types/react@19.1.4)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       react:
         specifier: 19.1.0

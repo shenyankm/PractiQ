@@ -101,12 +101,13 @@ export async function startPracticeAction(bankId: number, formData: FormData) {
   if (!user) redirect('/sign-in');
   const mode = pickEnum(formData.get('mode'), practiceModes, 'all');
   const allQuestions = formData.get('allQuestions') === 'on' || mode === 'all' && !formData.get('questionCount');
+  const questionTypeId = String(formData.get('questionTypeId') || '');
   const session = await startPracticeSession(user, {
     bankId,
     sessionType: mode === 'exam' ? 'exam' : mode === 'wrong' ? 'review' : pickEnum(formData.get('sessionType'), sessionTypes, 'practice'),
     questionCount: Number(formData.get('questionCount') || 10),
     mode,
-    questionTypeId: String(formData.get('questionTypeId') || '') || null,
+    questionTypeId: questionTypeId && questionTypeId !== 'all' ? questionTypeId : null,
     allQuestions
   });
   redirect(`/practice/${session.id}`);

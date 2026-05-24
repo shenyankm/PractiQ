@@ -21,40 +21,40 @@ export default async function SettingsPage() {
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-      <div className="space-y-4">
+      <div className="flex flex-col gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">设置</h1>
-          <p className="text-sm text-slate-500">维护账号资料、密码和会员信息。</p>
+          <p className="text-sm text-muted-foreground">维护账号资料、密码和会员信息。</p>
         </div>
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><UserRound className="size-4" />个人资料</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form action={updateProfileAction} encType="multipart/form-data" className="space-y-4">
+        </CardHeader>
+        <CardContent>
+            <form action={updateProfileAction} className="flex flex-col gap-4">
               <div className="flex items-center gap-4">
                 <Avatar className="size-16 border">
                   {avatarUrl ? <AvatarImage src={avatarUrl} alt={user.username} /> : null}
-                  <AvatarFallback className="bg-orange-100 text-base font-semibold text-orange-700">
+                  <AvatarFallback className="bg-primary/10 text-base font-semibold text-primary">
                     {user.username.slice(0, 2).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
-                <div className="min-w-0 flex-1 space-y-2">
+                <div className="flex min-w-0 flex-1 flex-col gap-2">
                   <Label htmlFor="avatar">头像</Label>
                   <Input id="avatar" name="avatar" type="file" accept="image/png,image/jpeg,image/webp,image/gif" />
                 </div>
               </div>
               <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
+                <div className="flex flex-col gap-2">
                   <Label htmlFor="username">用户名</Label>
                   <Input id="username" name="username" defaultValue={user.username} required maxLength={32} />
                 </div>
-                <div className="space-y-2">
+                <div className="flex flex-col gap-2">
                   <Label htmlFor="email">邮箱</Label>
                   <Input id="email" name="email" type="email" defaultValue={user.email ?? ''} />
                 </div>
               </div>
-              <div className="space-y-2">
+              <div className="flex flex-col gap-2">
                 <Label htmlFor="password">新密码</Label>
                 <Input id="password" name="password" type="password" minLength={8} placeholder="留空则不修改" />
               </div>
@@ -64,12 +64,12 @@ export default async function SettingsPage() {
         </Card>
       </div>
 
-      <div className="space-y-4">
+      <div className="flex flex-col gap-4">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><KeyRound className="size-4" />账号状态</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3 text-sm">
+          <CardContent className="flex flex-col gap-3 text-sm">
             <Row label="角色" value={user.role === 'admin' ? '管理员' : '用户'} />
             <Row label="会员" value={user.membership} />
             <Row label="Plus 试用" value={formatTrial(user.plus_trial_ends_at)} />
@@ -84,7 +84,7 @@ export default async function SettingsPage() {
           <CardHeader>
             <CardTitle>月付套餐</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3 text-sm">
+          <CardContent className="flex flex-col gap-3 text-sm">
             <Row label="套餐" value={billing.plan.subject} />
             <Row label="价格" value={`¥${billing.plan.amount} / 月`} />
             {billing.latestOrder ? (
@@ -95,7 +95,7 @@ export default async function SettingsPage() {
             ) : null}
             <AlipayCheckoutButton disabled={!billing.configured} />
             {!billing.configured ? (
-              <p className="text-xs text-slate-500">支付宝环境变量未配置，暂不能发起支付。</p>
+              <p className="text-xs text-muted-foreground">支付宝环境变量未配置，暂不能发起支付。</p>
             ) : null}
           </CardContent>
         </Card>
@@ -103,7 +103,7 @@ export default async function SettingsPage() {
           <CardHeader>
             <CardTitle>数据</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2 text-sm text-slate-600">
+          <CardContent className="flex flex-col gap-2 text-sm text-muted-foreground">
             <Button asChild variant="outline" size="sm">
               <a href="/api/v1/exports/me/summary.pdf">导出 PDF</a>
             </Button>
@@ -119,7 +119,7 @@ export default async function SettingsPage() {
 function Row({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="flex items-center justify-between rounded-md border px-3 py-2">
-      <span className="text-slate-500">{label}</span>
+      <span className="text-muted-foreground">{label}</span>
       <span className="font-medium">{value}</span>
     </div>
   );

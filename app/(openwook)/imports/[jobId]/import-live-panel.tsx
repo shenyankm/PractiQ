@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
 import type { ImportJob } from '@/lib/openwook/types';
 
 type EventRow = {
@@ -61,17 +63,19 @@ export function ImportLivePanel({ job, events: initialEvents, metrics }: Props) 
           <CardTitle>进度</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="h-2 overflow-hidden rounded bg-slate-100">
-            <div className="h-full bg-orange-600" style={{ width: `${liveJob.overall_progress_percent ?? 0}%` }} />
-          </div>
+          <Progress value={liveJob.overall_progress_percent ?? 0} />
           <div className="mt-3 grid gap-3 text-sm md:grid-cols-4">
             <Metric label="页数" value={metrics.pages} />
             <Metric label="区块" value={metrics.blocks} />
             <Metric label="已导入" value={metrics.imported} />
             <Metric label="复核项" value={metrics.reviewItems} />
           </div>
-          <div className="mt-3 text-sm text-slate-500">{liveJob.status} · {liveJob.stage}</div>
-          {liveJob.last_error && <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{liveJob.last_error}</div>}
+          <div className="mt-3 text-sm text-muted-foreground">{liveJob.status} · {liveJob.stage}</div>
+          {liveJob.last_error && (
+            <Alert className="mt-4" variant="destructive">
+              <AlertDescription>{liveJob.last_error}</AlertDescription>
+            </Alert>
+          )}
         </CardContent>
       </Card>
 
@@ -79,11 +83,11 @@ export function ImportLivePanel({ job, events: initialEvents, metrics }: Props) 
         <CardHeader>
           <CardTitle>事件</CardTitle>
         </CardHeader>
-        <CardContent className="max-h-96 space-y-2 overflow-auto">
-          {events.length === 0 ? <p className="text-sm text-slate-500">暂无事件。</p> : events.map((event) => (
+        <CardContent className="flex max-h-96 flex-col gap-2 overflow-auto">
+          {events.length === 0 ? <p className="text-sm text-muted-foreground">暂无事件。</p> : events.map((event) => (
             <div key={event.id} className="rounded-md border px-3 py-2 text-sm">
               <div className="font-medium">{event.step_label || event.step_code} · {event.status}</div>
-              {event.message && <div className="text-slate-500">{event.message}</div>}
+              {event.message && <div className="text-muted-foreground">{event.message}</div>}
             </div>
           ))}
         </CardContent>
@@ -94,9 +98,9 @@ export function ImportLivePanel({ job, events: initialEvents, metrics }: Props) 
 
 function Metric({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-md bg-slate-100 px-3 py-2">
+    <div className="rounded-md bg-muted px-3 py-2">
       <div className="text-lg font-semibold">{value}</div>
-      <div className="text-slate-500">{label}</div>
+      <div className="text-muted-foreground">{label}</div>
     </div>
   );
 }

@@ -1,10 +1,17 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { CheckCircle2, ChevronLeft, ChevronRight, Circle, Flag, XCircle } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Textarea } from '@/components/ui/textarea';
 import { getCurrentUser } from '@/lib/openwook/auth';
 import { getPracticeQuestionPage } from '@/lib/openwook/services';
+import { cn } from '@/lib/utils';
 import { abandonPracticeAction, completePracticeAction, submitPracticeAnswerAction } from '../../banks/actions';
 import { AnswerForm } from './answer-form';
 import type { BankQuestionItem } from '@/lib/openwook/types';
@@ -43,13 +50,16 @@ export default async function PracticeSessionPage({
               <Link
                 key={item.questionId}
                 href={`/practice/${id}?index=${item.index}`}
-                className={`flex h-10 items-center justify-center rounded-md border text-xs hover:bg-slate-50 ${item.index === questionIndex ? 'border-slate-900 bg-slate-100' : ''}`}
+                className={cn(
+                  'flex h-10 items-center justify-center rounded-md border text-xs hover:bg-accent',
+                  item.index === questionIndex && 'border-primary bg-primary/10'
+                )}
                 aria-label={`第 ${item.index + 1} 题`}
               >
                 {item.isAnswered ? (
-                  item.isCorrect ? <CheckCircle2 className="size-4 text-emerald-600" /> : <XCircle className="size-4 text-red-600" />
+                  item.isCorrect ? <CheckCircle2 className="size-4 text-primary" /> : <XCircle className="size-4 text-destructive" />
                 ) : (
-                  <Circle className="size-4 text-slate-400" />
+                  <Circle className="size-4 text-muted-foreground" />
                 )}
               </Link>
             );
@@ -57,16 +67,16 @@ export default async function PracticeSessionPage({
         </CardContent>
       </Card>
 
-      <div className="space-y-4">
+      <div className="flex flex-col gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">{sessionTitle(session.session_type)}</h1>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted-foreground">
             {session.status} · 已答 {answeredCount}/{total} · 正确 {session.correct_count}
           </p>
         </div>
         {!question ? (
           <Card>
-            <CardContent className="p-6 text-sm text-slate-500">当前会话没有可练习题目。</CardContent>
+            <CardContent className="p-6 text-sm text-muted-foreground">当前会话没有可练习题目。</CardContent>
           </Card>
         ) : (
           <>
@@ -88,7 +98,7 @@ export default async function PracticeSessionPage({
                   </Link>
                 </Button>
               )}
-              <span className="text-sm text-slate-500">第 {questionIndex + 1} / {total} 题</span>
+              <span className="text-sm text-muted-foreground">第 {questionIndex + 1} / {total} 题</span>
               {nextIndex === null ? (
                 <Button variant="outline" disabled>下一题<ChevronRight className="size-4" /></Button>
               ) : (
@@ -108,17 +118,17 @@ export default async function PracticeSessionPage({
         <CardHeader>
           <CardTitle>结果</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="flex flex-col gap-4">
           <div className="grid grid-cols-3 gap-2 text-center text-sm">
-            <div className="rounded-md bg-slate-100 p-3">
+            <div className="rounded-md bg-muted p-3">
               <div className="text-lg font-semibold">{session.answered_count}</div>
-              <div className="text-slate-500">已答</div>
+              <div className="text-muted-foreground">已答</div>
             </div>
-            <div className="rounded-md bg-emerald-50 p-3 text-emerald-700">
+            <div className="rounded-md bg-primary/10 p-3 text-primary">
               <div className="text-lg font-semibold">{session.correct_count}</div>
               <div>正确</div>
             </div>
-            <div className="rounded-md bg-red-50 p-3 text-red-700">
+            <div className="rounded-md bg-destructive/10 p-3 text-destructive">
               <div className="text-lg font-semibold">{session.wrong_count}</div>
               <div>错误</div>
             </div>
@@ -138,7 +148,7 @@ export default async function PracticeSessionPage({
             </Button>
           )}
           {nextIndex !== null && (
-            <Link href={`/practice/${id}?index=${nextIndex}`} className="block text-center text-sm text-slate-500 hover:underline">跳到下一题</Link>
+            <Link href={`/practice/${id}?index=${nextIndex}`} className="block text-center text-sm text-muted-foreground hover:underline">跳到下一题</Link>
           )}
         </CardContent>
       </Card>
@@ -165,19 +175,21 @@ function QuestionPanel({
       <CardHeader>
         <CardTitle className="flex items-start justify-between gap-3 text-base">
           <span>第 {index + 1} 题</span>
-          <span className="rounded bg-slate-100 px-2 py-1 text-xs font-normal">{modeLabel(question.answer_mode)}</span>
+          <Badge variant="secondary">{modeLabel(question.answer_mode)}</Badge>
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="flex flex-col gap-4">
         <div className="whitespace-pre-wrap text-sm leading-6">{question.stem}</div>
         <AnswerForm action={action} disabled={disabled}>
           {renderAnswerInput(question)}
         </AnswerForm>
         {result && (
-          <div className={`rounded-md border px-3 py-2 text-sm ${result.is_correct ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : result.is_correct === false ? 'border-red-200 bg-red-50 text-red-800' : 'bg-slate-50 text-slate-700'}`}>
-            {result.is_correct === null ? '已提交，简答题等待人工或规则判分。' : result.is_correct ? '回答正确。' : '回答错误。'}
-            {question.analysis && <div className="mt-2 text-slate-600">解析：{question.analysis}</div>}
-          </div>
+          <Alert variant={result.is_correct === false ? 'destructive' : 'default'}>
+            <AlertDescription>
+              {result.is_correct === null ? '已提交，简答题等待人工或规则判分。' : result.is_correct ? '回答正确。' : '回答错误。'}
+              {question.analysis && <div className="mt-2">解析：{question.analysis}</div>}
+            </AlertDescription>
+          </Alert>
         )}
       </CardContent>
     </Card>
@@ -189,27 +201,59 @@ function renderAnswerInput(question: BankQuestionItem) {
     const options = question.options?.length
       ? question.options.map((option) => ({ label: option.option_label, content: option.content }))
       : ['A', 'B', 'C', 'D'].map((label) => ({ label, content: label }));
+    if (question.choice_variant === 'multiple') {
+      return (
+        <div className="grid gap-2 sm:grid-cols-2">
+          {options.map((option) => {
+            const id = `selected-${question.question_id}-${option.label}`;
+
+            return (
+              <div key={option.label} className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
+                <Checkbox id={id} name="selected" value={option.label} />
+                <Label htmlFor={id} className="flex flex-1 gap-2 font-normal">
+                  <span className="font-medium">{option.label}.</span>
+                  <span>{option.content}</span>
+                </Label>
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
     return (
-      <div className="grid gap-2 sm:grid-cols-2">
-        {options.map((option) => (
-          <label key={option.label} className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
-            <input type={question.choice_variant === 'multiple' ? 'checkbox' : 'radio'} name="selected" value={option.label} required={question.choice_variant !== 'multiple'} />
-            <span className="font-medium">{option.label}.</span>
-            <span>{option.content}</span>
-          </label>
-        ))}
-      </div>
+      <RadioGroup name="selected" required className="grid gap-2 sm:grid-cols-2">
+        {options.map((option) => {
+          const id = `selected-${question.question_id}-${option.label}`;
+
+          return (
+            <div key={option.label} className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
+              <RadioGroupItem id={id} value={option.label} />
+              <Label htmlFor={id} className="flex flex-1 gap-2 font-normal">
+                <span className="font-medium">{option.label}.</span>
+                <span>{option.content}</span>
+              </Label>
+            </div>
+          );
+        })}
+      </RadioGroup>
     );
   }
   if (question.answer_mode === 'true_false') {
     return (
-      <div className="grid grid-cols-2 gap-2">
-        <label className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"><input type="radio" name="value" value="true" required />正确</label>
-        <label className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"><input type="radio" name="value" value="false" required />错误</label>
-      </div>
+      <RadioGroup name="value" required className="grid grid-cols-2 gap-2">
+        <div className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
+          <RadioGroupItem id={`value-${question.question_id}-true`} value="true" />
+          <Label htmlFor={`value-${question.question_id}-true`} className="font-normal">正确</Label>
+        </div>
+        <div className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
+          <RadioGroupItem id={`value-${question.question_id}-false`} value="false" />
+          <Label htmlFor={`value-${question.question_id}-false`} className="font-normal">错误</Label>
+        </div>
+      </RadioGroup>
     );
   }
-  return <textarea name="value" rows={4} required className="w-full rounded-md border bg-white px-3 py-2 text-sm" placeholder="输入答案" />;
+  return <Textarea name="value" rows={4} required placeholder="输入答案" />;
 }
 
 function sessionTitle(type: string) {

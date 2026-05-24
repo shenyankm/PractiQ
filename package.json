@@ -43,7 +43,7 @@
     "postcss": "^8.5.3",
     "postgres": "^3.4.5",
     "puppeteer": "^25.0.4",
-    "radix-ui": "^1.4.2",
+    "radix-ui": "^1.4.3",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "server-only": "^0.0.1",
