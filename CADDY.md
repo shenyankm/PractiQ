@@ -19,16 +19,15 @@ caddy version
 
 ### 2. 启动 Next.js 应用
 
-```bash
-# 开发模式
-pnpm dev
+开发环境可以使用 `pnpm dev`。生产环境不要把公开域名代理到 `next dev`，否则浏览器会加载 `/_next/webpack-hmr` 并持续尝试连接 HMR WebSocket。
 
+```bash
 # 生产模式
 pnpm build
-pnpm start
+NODE_ENV=production HOSTNAME=127.0.0.1 PORT=3000 pnpm start
 ```
 
-确保应用运行在 `localhost:3000`。
+推荐用仓库提供的 `openwook.service` 托管生产 Next.js 进程。确保应用只监听 `127.0.0.1:3000`，由 Caddy 对外提供 HTTPS。
 
 ### 3. 启动 Caddy
 
@@ -52,7 +51,8 @@ caddy run --config /etc/caddy/Caddyfile.openwook --adapter caddyfile
 | `Caddyfile.prod` | `/etc/caddy/Caddyfile.prod` | 生产环境配置 (HTTPS) |
 | `Caddyfile.ip` | `/etc/caddy/Caddyfile.ip` | IP 访问模式配置 |
 | `caddy-manage.sh` | 项目目录 | 服务管理脚本 |
-| `caddy-openwook.service` | 项目目录 | systemd 服务配置模板 |
+| `openwook.service` | 项目目录 | Next.js 生产应用 systemd 服务模板 |
+| `caddy-openwook.service` | 项目目录 | Caddy systemd 服务配置模板 |
 
 ## 配置详解
 
@@ -108,22 +108,26 @@ caddy run --config /etc/caddy/Caddyfile.openwook --adapter caddyfile
 
 ```bash
 # 复制服务文件
-sudo cp caddy-openwook.service /etc/systemd/system/
+sudo cp openwook.service caddy-openwook.service /etc/systemd/system/
+
+# 构建生产包
+pnpm build
 
 # 重新加载 systemd
 sudo systemctl daemon-reload
 
 # 启动服务
+sudo systemctl start openwook
 sudo systemctl start caddy-openwook
 
 # 开机自启
-sudo systemctl enable caddy-openwook
+sudo systemctl enable openwook caddy-openwook
 
 # 查看状态
-sudo systemctl status caddy-openwook
+sudo systemctl status openwook caddy-openwook
 
 # 查看日志
-sudo journalctl -u caddy-openwook -f
+sudo journalctl -u openwook -u caddy-openwook -f
 ```
 
 ## SSL 证书配置
@@ -211,8 +215,12 @@ sudo setcap cap_net_bind_service=+ep /usr/bin/caddy
 ### Caddy 无法连接 Next.js
 
 ```bash
-# 检查 Next.js 是否运行在 3000 端口
+# 检查 Next.js 是否以生产模式运行在 3000 端口
 lsof -i :3000
+ps -fp $(lsof -ti :3000)
+
+# 线上 HTML 不应包含 HMR/development 资源
+curl -fsSL https://openwook.cloud/ | grep -E 'webpack-hmr|/_next/static/development' && echo 'ERROR: still running next dev' || echo 'OK: no HMR artifacts' 
 
 # 检查 Caddy 配置
 caddy validate --config /etc/caddy/Caddyfile.openwook
@@ -238,8 +246,11 @@ Caddy 和 Next.js 配置互补：
 
 生产环境建议：
 ```env
-NEXT_PUBLIC_APP_URL=https://yourdomain.com
+NEXT_PUBLIC_APP_URL=https://openwook.cloud
+NODE_ENV=production
 ```
+
+生产进程应通过 `pnpm start` / `next start` 启动；`pnpm dev` 只用于本地开发。
 
 ## 安全建议
 
