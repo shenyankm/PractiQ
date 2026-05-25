@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getCurrentUser } from '@/lib/openwook/auth';
-import { getBank, listBankItems } from '@/lib/openwook/services';
+import { getBankWithItems } from '@/lib/openwook/services';
 import { favoriteBankAction } from '../actions';
 
 export default async function BankDetailPage({ params }: { params: Promise<{ bankId: string }> }) {
@@ -13,8 +13,7 @@ export default async function BankDetailPage({ params }: { params: Promise<{ ban
   const { bankId } = await params;
   const id = Number(bankId);
   if (!Number.isInteger(id)) notFound();
-  const bank = await getBank(user, id);
-  const items = await listBankItems(user, id, new URLSearchParams({ limit: '30' }));
+  const { bank, items } = await getBankWithItems(user, id, new URLSearchParams({ limit: '30' }));
 
   return (
     <div className="flex flex-col gap-6">

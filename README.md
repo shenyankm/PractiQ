@@ -122,6 +122,28 @@ AI_CACHE_TTL_SECONDS=86400
 LEADERBOARD_CACHE_TTL_SECONDS=60
 ```
 
+AI model calls use the Mastra OpenAI-compatible client. Configure at least one provider; the runtime fallback order is Kimi/Moonshot, then DeepSeek, then an OpenAI-compatible fallback:
+
+```env
+MOONSHOT_API_KEY=sk-...
+# Optional, defaults to https://api.moonshot.cn/v1 and kimi-k2.6
+MOONSHOT_BASE_URL=https://api.moonshot.cn/v1
+
+# Tried when Kimi is not configured or the primary provider call fails.
+DEEPSEEK_API_KEY=sk-...
+# Optional, defaults to https://api.deepseek.com and deepseek-v4-flash
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+DEEPSEEK_MODEL=deepseek-v4-flash
+
+# Optional generic OpenAI-compatible fallback.
+OPENAI_API_KEY=sk-...
+OPENAI_BASE_URL=https://api.openai.com/v1
+OPENAI_MODEL=gpt-4o-mini
+MASTRA_MODEL=
+MASTRA_TEMPERATURE=
+MASTRA_MAX_TOKENS=
+```
+
 Run the Next.js app and the import worker in separate processes:
 
 ```bash
@@ -165,6 +187,17 @@ If `OSS_PUBLIC_BASE_URL` is set, user avatars are stored in PostgreSQL as browse
 | `IMPORT_WORKER_CONCURRENCY` | Number of import jobs processed per worker |
 | `IMPORT_QUEUE_ATTEMPTS` | BullMQ retry attempts for import jobs |
 | `AI_CACHE_TTL_SECONDS` | TTL for repeated AI parse/answer cache entries |
+| `MOONSHOT_API_KEY` | Kimi/Moonshot API key; primary Mastra model provider |
+| `MOONSHOT_BASE_URL` | Optional Kimi-compatible base URL; defaults to `https://api.moonshot.cn/v1` |
+| `DEEPSEEK_API_KEY` | DeepSeek API key; fallback after Kimi or primary provider failure |
+| `DEEPSEEK_BASE_URL` | Optional DeepSeek OpenAI-compatible base URL; defaults to `https://api.deepseek.com` |
+| `DEEPSEEK_MODEL` | Optional DeepSeek model override; defaults to `deepseek-v4-flash` |
+| `OPENAI_API_KEY` | Optional OpenAI-compatible fallback API key |
+| `OPENAI_BASE_URL` | Optional OpenAI-compatible fallback base URL |
+| `OPENAI_MODEL` | Optional OpenAI-compatible fallback model |
+| `MASTRA_MODEL` | Optional global model override for the selected provider |
+| `MASTRA_TEMPERATURE` | Optional global model temperature override |
+| `MASTRA_MAX_TOKENS` | Optional global max token override |
 | `LEADERBOARD_CACHE_TTL_SECONDS` | TTL for bank leaderboard cache entries |
 | `OBJECT_STORAGE_MOUNT_DIR` | Local mount path for the object-storage bucket |
 | `OSS_PUBLIC_BASE_URL` | Public bucket URL used for persisted avatar and source-file URLs |

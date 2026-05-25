@@ -3,6 +3,7 @@ import 'server-only';
 import { randomUUID } from 'node:crypto';
 import { compare, hash } from 'bcryptjs';
 import { cookies } from 'next/headers';
+import { cache } from 'react';
 import { sql } from './db';
 import { ApiError } from './api';
 import { signSessionToken, verifySessionToken, type SessionPayload } from './session';
@@ -65,6 +66,10 @@ export async function getCurrentUser(): Promise<User | null> {
   const token = (await cookies()).get('session')?.value;
   if (!token) return null;
 
+  return getUserForSessionToken(token);
+}
+
+const getUserForSessionToken = cache(async (token: string): Promise<User | null> => {
   try {
     const session = await verifyToken(token);
     if (new Date(session.expires) < new Date()) return null;
@@ -88,7 +93,7 @@ export async function getCurrentUser(): Promise<User | null> {
   } catch {
     return null;
   }
-}
+});
 
 export function userCacheKey(userId: number) {
   return redisKey('cache', 'user', userId);

@@ -39,13 +39,13 @@ export function Login({ mode = 'signin', redirect, priceId, inviteId }: LoginPro
 
   return (
     <div className="flex min-h-[100dvh] flex-col justify-center bg-background px-4 py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
+      <div className="motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-top-2 motion-safe:duration-500 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center">
           <BookOpen className="size-12 text-primary" />
         </div>
       </div>
 
-      <Card className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+      <Card className="mt-8 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-3 motion-safe:duration-500 sm:mx-auto sm:w-full sm:max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">
             {mode === 'signin' ? '登录 OpenWook' : '创建 OpenWook 账号'}
@@ -115,6 +115,7 @@ export function Login({ mode = 'signin', redirect, priceId, inviteId }: LoginPro
               type="submit"
               className="w-full"
               disabled={pending}
+              aria-busy={pending}
             >
               {pending ? (
                 <>

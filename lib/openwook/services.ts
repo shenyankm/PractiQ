@@ -508,6 +508,17 @@ export async function setFavorite(user: User, bankId: number, favorite: boolean)
 
 export async function listBankItems(user: User, bankId: number, params: URLSearchParams) {
   await getBank(user, bankId);
+  return listBankItemsForBank(user, bankId, params);
+}
+
+export async function getBankWithItems(user: User, bankId: number, params: URLSearchParams) {
+  const bank = await getBank(user, bankId);
+  const items = await listBankItemsForBank(user, bankId, params);
+
+  return { bank, items };
+}
+
+async function listBankItemsForBank(user: User, bankId: number, params: URLSearchParams) {
   const status = params.get('status');
   const type = params.get('type');
   const limit = Math.min(Number(params.get('limit') || 50), 100);
@@ -1816,8 +1827,27 @@ export async function resolveImportReviewItem(user: User, jobId: number, itemId:
   return rows[0];
 }
 
-export async function listImportJobChildren(user: User, jobId: number, kind: 'events' | 'pages' | 'blocks' | 'review-items' | 'outputs' | 'artifacts') {
+type ImportJobChildKind = 'events' | 'pages' | 'blocks' | 'review-items' | 'outputs' | 'artifacts';
+
+export async function listImportJobChildren(user: User, jobId: number, kind: ImportJobChildKind) {
   await getImportJob(user, jobId);
+  return listImportJobChildrenForJob(jobId, kind);
+}
+
+export async function getImportJobDetail(user: User, jobId: number) {
+  const job = await getImportJob(user, jobId);
+  const [events, pages, blocks, reviewItems, outputs] = await Promise.all([
+    listImportJobChildrenForJob(jobId, 'events'),
+    listImportJobChildrenForJob(jobId, 'pages'),
+    listImportJobChildrenForJob(jobId, 'blocks'),
+    listImportJobChildrenForJob(jobId, 'review-items'),
+    listImportJobChildrenForJob(jobId, 'outputs')
+  ]);
+
+  return { job, events, pages, blocks, reviewItems, outputs };
+}
+
+async function listImportJobChildrenForJob(jobId: number, kind: ImportJobChildKind) {
   if (kind === 'events') return sql`SELECT * FROM question_import_job_events WHERE job_id = ${jobId} ORDER BY id DESC LIMIT 100`;
   if (kind === 'pages') return sql`SELECT * FROM question_import_job_pages WHERE job_id = ${jobId} ORDER BY page_no`;
   if (kind === 'blocks') return sql`SELECT * FROM question_import_job_blocks WHERE job_id = ${jobId} ORDER BY id LIMIT 200`;

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { useFormStatus } from 'react-dom';
+import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 type AnswerFormProps = {
@@ -39,8 +40,15 @@ function SubmitButton({ disabled }: { disabled: boolean }) {
   const { pending } = useFormStatus();
 
   return (
-    <Button type="submit" disabled={disabled || pending}>
-      {pending ? '提交中...' : '提交答案'}
+    <Button type="submit" disabled={disabled || pending} aria-busy={pending}>
+      {pending ? (
+        <>
+          <Loader2 className="animate-spin" />
+          提交中...
+        </>
+      ) : (
+        '提交答案'
+      )}
     </Button>
   );
 }

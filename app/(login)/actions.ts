@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { redirect } from 'next/navigation';
 import { clearSession, comparePasswords, getUserPasswordByLogin, hashPassword, setSession } from '@/lib/openwook/auth';
 import { sql } from '@/lib/openwook/db';
+import { assertSameOriginFromHeaders } from '@/lib/openwook/server-action-origin';
 
 export type ActionState = {
   error?: string;
@@ -38,6 +39,7 @@ function safeRedirect(value: FormDataEntryValue | null) {
 }
 
 export async function signIn(_prevState: ActionState, formData: FormData): Promise<ActionState> {
+  await assertSameOriginFromHeaders();
   const parsed = signInSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.errors[0].message };
 
@@ -54,6 +56,7 @@ export async function signIn(_prevState: ActionState, formData: FormData): Promi
 }
 
 export async function signUp(_prevState: ActionState, formData: FormData): Promise<ActionState> {
+  await assertSameOriginFromHeaders();
   const parsed = signUpSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.errors[0].message };
 
@@ -79,6 +82,7 @@ export async function signUp(_prevState: ActionState, formData: FormData): Promi
 }
 
 export async function signOut() {
+  await assertSameOriginFromHeaders();
   await clearSession();
   redirect('/sign-in');
 }

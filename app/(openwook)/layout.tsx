@@ -3,8 +3,6 @@ import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/openwook/auth';
 import { OpenWookShell } from './openwook-shell';
 
-export const dynamic = 'force-dynamic';
-
 export const metadata: Metadata = {
   robots: {
     index: false,

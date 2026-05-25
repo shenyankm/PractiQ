@@ -2,11 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useState } from 'react';
 import {
   Database,
   FileUp,
   LayoutDashboard,
   LogOut,
+  Menu,
+  X,
   Settings,
   UserRound
 } from 'lucide-react';
@@ -60,9 +63,11 @@ function UserShell({
   pathname: string;
   user: ShellUser;
 }) {
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
   return (
     <div className="min-h-screen bg-muted/30 text-foreground">
-      <header className="sticky top-0 z-20 border-b bg-background">
+      <header className="sticky top-0 z-20 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 lg:px-8">
           <Link href="/dashboard" className="flex min-w-0 items-center">
             <span className="truncate text-lg font-semibold">OpenWook</span>
@@ -74,17 +79,49 @@ function UserShell({
             ))}
           </nav>
 
-          <UserActions user={user} />
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="md:hidden"
+              aria-controls="mobile-navigation"
+              aria-expanded={mobileNavOpen}
+              aria-label={mobileNavOpen ? '关闭导航菜单' : '打开导航菜单'}
+              onClick={() => setMobileNavOpen((open) => !open)}
+            >
+              {mobileNavOpen ? <X className="size-4" /> : <Menu className="size-4" />}
+            </Button>
+            <UserActions user={user} />
+          </div>
         </div>
 
-        <nav className="mx-auto flex max-w-7xl gap-1 overflow-x-auto border-t px-4 py-2 md:hidden">
-          {navItems.map((item) => (
-            <TopNavLink key={item.href} item={item} pathname={pathname} compact />
-          ))}
+        <nav
+          id="mobile-navigation"
+          data-testid="mobile-nav-panel"
+          data-state={mobileNavOpen ? 'open' : 'closed'}
+          className={cn(
+            'mx-auto grid max-w-7xl border-t px-4 transition-[grid-template-rows,opacity] duration-200 ease-out md:hidden motion-reduce:transition-none',
+            mobileNavOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+          )}
+        >
+          <div className="flex min-h-0 gap-1 overflow-hidden overflow-x-auto py-2">
+            {navItems.map((item) => (
+              <TopNavLink key={item.href} item={item} pathname={pathname} compact />
+            ))}
+          </div>
         </nav>
       </header>
 
-      <main className="mx-auto max-w-7xl px-4 py-6 lg:px-8">{children}</main>
+      <main className="mx-auto max-w-7xl px-4 py-6 lg:px-8">
+        <div
+          key={pathname}
+          data-testid="route-transition"
+          className="motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-300"
+        >
+          {children}
+        </div>
+      </main>
     </div>
   );
 }
@@ -104,7 +141,7 @@ function TopNavLink({
     <Link
       href={item.href}
       className={cn(
-        'inline-flex h-9 shrink-0 items-center gap-2 rounded-md px-3 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+        'inline-flex h-9 shrink-0 items-center gap-2 rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors duration-200 hover:bg-accent hover:text-accent-foreground motion-reduce:transition-none',
         isActive && 'bg-primary/10 text-primary',
         compact && 'h-8'
       )}

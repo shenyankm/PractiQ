@@ -6,7 +6,7 @@ const protectedRoutes = ['/dashboard', '/banks', '/imports', '/practice', '/ques
 const sessionTtlMs = Number(process.env.SESSION_TTL_MS || 24 * 60 * 60 * 1000);
 const sessionRenewWindowMs = Number(process.env.SESSION_RENEW_WINDOW_MS || 6 * 60 * 60 * 1000);
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const sessionCookie = request.cookies.get('session');
   const isProtectedRoute = protectedRoutes.some((route) => pathname.startsWith(route));

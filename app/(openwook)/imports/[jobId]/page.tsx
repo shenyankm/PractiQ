@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { getCurrentUser } from '@/lib/openwook/auth';
-import { getImportJob, listImportJobChildren } from '@/lib/openwook/services';
+import { getImportJobDetail } from '@/lib/openwook/services';
 import { resolveReviewItemAction, updateImportStatusAction } from '../../banks/actions';
 import { ImportLivePanel } from './import-live-panel';
 
@@ -48,14 +48,7 @@ export default async function ImportDetailPage({ params }: { params: Promise<{ j
   const id = Number(jobId);
   if (!Number.isInteger(id)) notFound();
 
-  const [job, events, pages, blocks, reviewItems, outputs] = await Promise.all([
-    getImportJob(user, id),
-    listImportJobChildren(user, id, 'events'),
-    listImportJobChildren(user, id, 'pages'),
-    listImportJobChildren(user, id, 'blocks'),
-    listImportJobChildren(user, id, 'review-items'),
-    listImportJobChildren(user, id, 'outputs')
-  ]);
+  const { job, events, pages, blocks, reviewItems, outputs } = await getImportJobDetail(user, id);
   const eventRows = events as unknown as EventRow[];
   const blockRows = blocks as unknown as BlockRow[];
   const reviewRows = reviewItems as unknown as ReviewItemRow[];

@@ -1,10 +1,8 @@
 import { z } from 'zod';
-import { NextResponse } from 'next/server';
-import { clearSession, comparePasswords, getCurrentUser, getUserPasswordByLogin, hashPassword, requireUser, setSession } from '@/lib/openwook/auth';
+import { hashPassword, requireUser } from '@/lib/openwook/auth';
 import { ApiError, created, handleApiError, noContent, ok, parseId, readJson } from '@/lib/openwook/api';
 import { streamImportEvents, type ImportEventPayload } from '@/lib/openwook/import-events';
-import { incrementRateLimit, redisKey } from '@/lib/openwook/redis';
-import { sql } from '@/lib/openwook/db';
+import { assertSameOriginRequest } from '@/lib/openwook/request-origin';
 import {
   addImportJobFile,
   addImportJobUploadedFile,
@@ -74,17 +72,6 @@ export const dynamic = 'force-dynamic';
 
 type Ctx = { params: Promise<{ path?: string[] }> };
 type ImportChildKind = 'events' | 'pages' | 'blocks' | 'review-items' | 'outputs' | 'artifacts';
-
-const registerSchema = z.object({
-  username: z.string().trim().min(2).max(32),
-  email: z.string().email().optional().nullable(),
-  password: z.string().min(8).max(100)
-});
-
-const loginSchema = z.object({
-  login: z.string().min(1),
-  password: z.string().min(1)
-});
 
 const bankSchema = z.object({
   name: z.string().trim().min(1).max(100),
@@ -232,16 +219,6 @@ function isImportChildKind(value: string | undefined): value is ImportChildKind 
   return value === 'events' || value === 'pages' || value === 'blocks' || value === 'review-items' || value === 'outputs' || value === 'artifacts';
 }
 
-function clientIp(request: Request) {
-  return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-    || request.headers.get('x-real-ip')
-    || 'unknown';
-}
-
-async function alipayHandlers() {
-  return import('@/lib/openwook/alipay');
-}
-
 async function aiHandlers() {
   return import('@/lib/openwook/ai');
 }
@@ -250,43 +227,11 @@ async function objectStorageHandlers() {
   return import('@/lib/openwook/object-storage');
 }
 
-async function enforceRateLimit(key: string, limit: number, windowSeconds: number) {
-  const result = await incrementRateLimit(redisKey('rate-limit', key), limit, windowSeconds);
-  if (!result.allowed) {
-    throw new ApiError(429, 'RATE_LIMITED', `Too many requests. Try again in ${result.resetSeconds}s`);
-  }
-}
-
 export async function GET(request: Request, ctx: Ctx) {
   try {
     const parts = await partsFrom(ctx);
     const url = new URL(request.url);
 
-    if (parts.join('/') === 'billing/alipay/return') {
-      const { handleAlipayReturn } = await alipayHandlers();
-      let paid = false;
-      let outTradeNo: string | undefined;
-      try {
-        const result = await handleAlipayReturn(url.searchParams);
-        paid = Boolean(result.paid);
-        outTradeNo = result.outTradeNo;
-      } catch (error) {
-        outTradeNo = url.searchParams.get('out_trade_no') ?? undefined;
-        console.error('Alipay return processing failed', error instanceof ApiError ? {
-          code: error.code,
-          message: error.message
-        } : { message: 'Unexpected Alipay return error' });
-      }
-      const appUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.BASE_URL || url.origin).replace(/\/$/, '');
-      const redirectUrl = new URL('/settings', appUrl);
-      redirectUrl.searchParams.set('alipay', paid ? 'paid' : 'pending');
-      if (outTradeNo) redirectUrl.searchParams.set('order', outTradeNo);
-      return NextResponse.redirect(redirectUrl);
-    }
-
-    if (parts.join('/') === 'auth/me') {
-      return ok(await getCurrentUser());
-    }
     if (parts[0] === 'subjects') return ok(await listSubjects());
     if (parts[0] === 'question-types') {
       return ok(await listQuestionTypes(url.searchParams.get('subject') ?? undefined, url.searchParams.get('scope') ?? undefined));
@@ -297,11 +242,6 @@ export async function GET(request: Request, ctx: Ctx) {
     }
 
     const user = await requireUser();
-
-    if (parts.join('/') === 'billing/alipay/summary') {
-      const { getAlipayBillingSummary } = await alipayHandlers();
-      return ok(await getAlipayBillingSummary(user));
-    }
 
     if (parts[0] === 'banks' && parts.length === 1) return ok(await listBanks(user, url.searchParams));
     if (parts[0] === 'banks' && parts[1]) {
@@ -372,64 +312,9 @@ export async function POST(request: Request, ctx: Ctx) {
   try {
     const parts = await partsFrom(ctx);
 
-    if (parts.join('/') === 'billing/alipay/notify') {
-      const { handleAlipayNotify } = await alipayHandlers();
-      const formData = await request.formData();
-      const params: Record<string, string> = {};
-      formData.forEach((value, key) => {
-        params[key] = String(value);
-      });
-      let success = false;
-      try {
-        success = await handleAlipayNotify(params);
-      } catch (error) {
-        console.error('Alipay notify processing failed', error instanceof ApiError ? {
-          code: error.code,
-          message: error.message
-        } : { message: 'Unexpected Alipay notify error' });
-      }
-      return new Response(success ? 'success' : 'failure', {
-        status: 200,
-        headers: { 'Content-Type': 'text/plain; charset=utf-8' }
-      });
-    }
-
-    if (parts.join('/') === 'auth/register') {
-      await enforceRateLimit(`auth:register:ip:${clientIp(request)}`, 10, 3600);
-      const body = registerSchema.parse(await readJson(request));
-      const passwordHash = await hashPassword(body.password);
-      const rows = await sql`
-        INSERT INTO users (username, email, password, role, membership, plus_trial_ends_at)
-        VALUES (${body.username}, ${body.email ?? null}, ${passwordHash}, 'user', 'free', NOW() + INTERVAL '3 days')
-        RETURNING id, username, email, avatar_url, is_active, role, membership, plus_trial_ends_at, plus_expires_at, created_at, updated_at
-      `;
-      await setSession(rows[0].id);
-      return created(rows[0]);
-    }
-
-    if (parts.join('/') === 'auth/login') {
-      const body = loginSchema.parse(await readJson(request));
-      await enforceRateLimit(`auth:login:ip:${clientIp(request)}`, 20, 300);
-      await enforceRateLimit(`auth:login:${body.login.toLowerCase()}`, 10, 300);
-      const found = await getUserPasswordByLogin(body.login);
-      if (!found?.password || !(await comparePasswords(body.password, found.password))) {
-        throw new ApiError(401, 'INVALID_CREDENTIALS', 'Invalid login or password');
-      }
-      await setSession(found.id);
-      return ok(await getCurrentUser());
-    }
-
-    if (parts.join('/') === 'auth/logout') {
-      await clearSession();
-      return noContent();
-    }
+    assertSameOriginRequest(request);
 
     const user = await requireUser();
-
-    if (parts.join('/') === 'billing/alipay/checkout') {
-      const { createAlipayCheckout } = await alipayHandlers();
-      return created(await createAlipayCheckout(user));
-    }
 
     if (parts[0] === 'knowledge-points' && parts.length === 1) {
       return created(await createKnowledgePoint(user, knowledgePointSchema.parse(await readJson(request))));
@@ -556,6 +441,7 @@ export async function POST(request: Request, ctx: Ctx) {
 
 export async function PATCH(request: Request, ctx: Ctx) {
   try {
+    assertSameOriginRequest(request);
     const parts = await partsFrom(ctx);
     const user = await requireUser();
 
@@ -648,6 +534,7 @@ export async function PATCH(request: Request, ctx: Ctx) {
 
 export async function PUT(request: Request, ctx: Ctx) {
   try {
+    assertSameOriginRequest(request);
     const parts = await partsFrom(ctx);
     const user = await requireUser();
 
@@ -672,8 +559,9 @@ export async function PUT(request: Request, ctx: Ctx) {
   }
 }
 
-export async function DELETE(_request: Request, ctx: Ctx) {
+export async function DELETE(request: Request, ctx: Ctx) {
   try {
+    assertSameOriginRequest(request);
     const parts = await partsFrom(ctx);
     const user = await requireUser();
 

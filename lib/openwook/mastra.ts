@@ -3,29 +3,26 @@ import 'server-only';
 import { Agent } from '@mastra/core/agent';
 import { Mastra } from '@mastra/core/mastra';
 import { createOpenAI } from '@ai-sdk/openai';
+import {
+  type MastraProviderConfig,
+  resolveMastraProviderChain,
+  resolveMastraProviderConfig
+} from './mastra-config';
 
 type ProviderOptions = Record<string, Record<string, string | number | boolean | null | ProviderJsonObject>>;
 type ProviderJsonObject = { [key: string]: string | number | boolean | null | ProviderJsonObject };
 
-const kimiBaseURL = 'https://api.moonshot.cn/v1';
-const apiKey = process.env.MOONSHOT_API_KEY || process.env.OPENAI_API_KEY;
-const baseURL = process.env.MOONSHOT_BASE_URL || process.env.OPENAI_BASE_URL || kimiBaseURL;
-const providerName = baseURL.includes('moonshot.cn') ? 'moonshot' : 'openai';
-const modelName = process.env.MASTRA_MODEL || process.env.OPENAI_MODEL || (providerName === 'moonshot' ? 'kimi-k2.6' : 'gpt-4o-mini');
-const temperature = Number(process.env.MASTRA_TEMPERATURE ?? (providerName === 'moonshot' ? '1.0' : '0.2'));
-const maxTokens = Number(process.env.MASTRA_MAX_TOKENS ?? (providerName === 'moonshot' ? '16384' : '4096'));
-const thinkingType = process.env.KIMI_THINKING_TYPE || (process.env.KIMI_THINKING_ENABLED === 'false' ? 'disabled' : 'enabled');
-const thinkingKeep = process.env.KIMI_THINKING_KEEP;
-const openaiCompatible = createOpenAI({
-  name: providerName,
+const {
+  providerName,
   apiKey,
   baseURL,
-  headers: {
-    'User-Agent': 'openwook-mastra/1.0'
-  },
-  fetch: providerName === 'moonshot' ? moonshotFetch : undefined
-});
-const model = openaiCompatible.chat(modelName);
+  modelName,
+  temperature,
+  maxTokens
+} = resolveMastraProviderConfig();
+const providerChain = resolveMastraProviderChain();
+const thinkingType = process.env.KIMI_THINKING_TYPE || (process.env.KIMI_THINKING_ENABLED === 'false' ? 'disabled' : 'enabled');
+const thinkingKeep = process.env.KIMI_THINKING_KEEP;
 
 export const kimiThinkingOptions = {
   type: thinkingType,
@@ -43,41 +40,27 @@ export const mastraProviderOptions: ProviderOptions = {
   }
 };
 
-export const documentParserAgent = new Agent({
-  id: 'openwook-document-parser',
-  name: 'OpenWook Document Parser',
-  instructions: [
-    'You parse educational question source documents for OpenWook.',
-    'Extract standalone and grouped questions from docx/txt-derived text.',
-    'Preserve formulas, chemical equations, tables, charts, and image references as structured content blocks.',
-    'Return only schema-valid structured output. Do not invent facts that are absent from the source.'
-  ].join('\n'),
-  model
+export type MastraAgentSet = ReturnType<typeof buildMastraAgents>;
+
+export const mastraPrimaryAgents = buildMastraAgents({
+  providerName,
+  apiKey,
+  baseURL,
+  modelName,
+  temperature,
+  maxTokens
 });
 
-export const answerGeneratorAgent = new Agent({
-  id: 'openwook-answer-generator',
-  name: 'OpenWook Answer Generator',
-  instructions: [
-    'You generate standard educational answers for OpenWook questions.',
-    'Provide a concise canonical answer, detailed solving steps, and explanation.',
-    'For uncertain or underspecified questions, mark confidence below 0.7 and explain the uncertainty.',
-    'Return only schema-valid structured output.'
-  ].join('\n'),
-  model
-});
+export const mastraAgentFallbacks = providerChain
+  .filter((config) => config.providerName !== providerName)
+  .map((config) => ({
+    config,
+    agents: buildMastraAgents(config)
+  }));
 
-export const learningReportAgent = new Agent({
-  id: 'openwook-learning-report',
-  name: 'OpenWook Learning Report Agent',
-  instructions: [
-    'You analyze OpenWook practice data for students and classes.',
-    'Identify knowledge mastery, weak spots, patterns in mistakes, and actionable study recommendations.',
-    'Keep reports factual and grounded in the provided answer statistics.',
-    'Return only schema-valid structured output.'
-  ].join('\n'),
-  model
-});
+export const documentParserAgent = mastraPrimaryAgents.documentParserAgent;
+export const answerGeneratorAgent = mastraPrimaryAgents.answerGeneratorAgent;
+export const learningReportAgent = mastraPrimaryAgents.learningReportAgent;
 
 export const mastra = new Mastra({
   agents: {
@@ -101,6 +84,63 @@ export function getMastraProviderName() {
 
 export function getMastraBaseURL() {
   return baseURL;
+}
+
+export function getMastraProviderChain() {
+  return providerChain.map((config) => ({
+    providerName: config.providerName,
+    modelName: config.modelName,
+    baseURL: config.baseURL
+  }));
+}
+
+function buildMastraAgents(config: MastraProviderConfig) {
+  const openaiCompatible = createOpenAI({
+    name: config.providerName,
+    apiKey: config.apiKey,
+    baseURL: config.baseURL,
+    headers: {
+      'User-Agent': 'openwook-mastra/1.0'
+    },
+    fetch: config.providerName === 'moonshot' ? moonshotFetch : undefined
+  });
+  const model = openaiCompatible.chat(config.modelName);
+
+  return {
+    documentParserAgent: new Agent({
+      id: `openwook-document-parser-${config.providerName}`,
+      name: 'OpenWook Document Parser',
+      instructions: [
+        'You parse educational question source documents for OpenWook.',
+        'Extract standalone and grouped questions from docx/txt-derived text.',
+        'Preserve formulas, chemical equations, tables, charts, and image references as structured content blocks.',
+        'Return only schema-valid structured output. Do not invent facts that are absent from the source.'
+      ].join('\n'),
+      model
+    }),
+    answerGeneratorAgent: new Agent({
+      id: `openwook-answer-generator-${config.providerName}`,
+      name: 'OpenWook Answer Generator',
+      instructions: [
+        'You generate standard educational answers for OpenWook questions.',
+        'Provide a concise canonical answer, detailed solving steps, and explanation.',
+        'For uncertain or underspecified questions, mark confidence below 0.7 and explain the uncertainty.',
+        'Return only schema-valid structured output.'
+      ].join('\n'),
+      model
+    }),
+    learningReportAgent: new Agent({
+      id: `openwook-learning-report-${config.providerName}`,
+      name: 'OpenWook Learning Report Agent',
+      instructions: [
+        'You analyze OpenWook practice data for students and classes.',
+        'Identify knowledge mastery, weak spots, patterns in mistakes, and actionable study recommendations.',
+        'Keep reports factual and grounded in the provided answer statistics.',
+        'Return only schema-valid structured output.'
+      ].join('\n'),
+      model
+    })
+  };
 }
 
 async function moonshotFetch(input: RequestInfo | URL, init?: RequestInit) {

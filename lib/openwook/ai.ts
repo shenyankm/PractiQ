@@ -8,11 +8,11 @@ import { publishImportEvent } from './import-events';
 import { readObjectBuffer, relativePathFromObjectUrl } from './object-storage';
 import { hashKey, redisGetJson, redisKey, redisSetJson } from './redis';
 import {
-  answerGeneratorAgent,
-  documentParserAgent,
+  type MastraAgentSet,
+  mastraAgentFallbacks,
+  mastraPrimaryAgents,
   getMastraModelName,
   isMastraModelConfigured,
-  learningReportAgent,
   mastraModelSettings,
   mastraProviderOptions
 } from './mastra';
@@ -154,7 +154,7 @@ export async function parseDocumentWithMastra(user: User, request: DocumentParse
   };
   const cacheKey = redisKey('cache', 'ai', 'document-parse', hashKey(input));
   const cached = await redisGetJson<DocumentParseResult>(cacheKey);
-  const result = cached ?? await runStructuredAgent({
+  const generation = cached ? null : await runStructuredAgent({
     type: 'document_parse',
     input,
     schema: documentParseSchema,
@@ -167,8 +167,8 @@ export async function parseDocumentWithMastra(user: User, request: DocumentParse
       document.text,
       document.html ? `HTML:\n${document.html}` : ''
     ].join('\n\n'),
-    generate: async () => {
-      const output = await documentParserAgent.generate<DocumentParseResult>(
+    generate: async (agents) => {
+      const output = await agents.documentParserAgent.generate<DocumentParseResult>(
         [{ role: 'user', content: JSON.stringify(input) }],
         {
           modelSettings: mastraModelSettings,
@@ -184,6 +184,8 @@ export async function parseDocumentWithMastra(user: User, request: DocumentParse
     },
     fallback: () => fallbackParseDocument(request, document)
   });
+  const result = cached ?? generation?.result;
+  if (!result) throw new Error('Document parse generation failed');
   if (!cached) await redisSetJson(cacheKey, result, Number(process.env.AI_CACHE_TTL_SECONDS || 24 * 60 * 60));
   result.warnings = [...document.warnings, ...result.warnings];
 
@@ -192,7 +194,8 @@ export async function parseDocumentWithMastra(user: User, request: DocumentParse
     bankId: request.bankId ?? null,
     importJobId: request.importJobId ?? null,
     inputPayload: input,
-    outputPayload: result
+    outputPayload: result,
+    model: generation?.modelName
   });
   return result;
 }
@@ -247,13 +250,13 @@ export async function generateAnswerWithMastra(user: User, request: AnswerGenera
   requirePlusEntitlement(user, 'AI answer generation');
   const cacheKey = redisKey('cache', 'ai', 'answer-generation', hashKey(request));
   const cached = await redisGetJson<AnswerGenerationResult>(cacheKey);
-  const result = cached ?? await runStructuredAgent({
+  const generation = cached ? null : await runStructuredAgent({
     type: 'answer_generation',
     input: request,
     schema: answerGenerationSchema,
     prompt: `Generate a standard answer and solving explanation for this question:\n${JSON.stringify(request, null, 2)}`,
-    generate: async () => {
-      const output = await answerGeneratorAgent.generate<AnswerGenerationResult>(
+    generate: async (agents) => {
+      const output = await agents.answerGeneratorAgent.generate<AnswerGenerationResult>(
         [{ role: 'user', content: JSON.stringify(request) }],
         {
           modelSettings: mastraModelSettings,
@@ -269,13 +272,16 @@ export async function generateAnswerWithMastra(user: User, request: AnswerGenera
     },
     fallback: () => fallbackGenerateAnswer(request)
   });
+  const result = cached ?? generation?.result;
+  if (!result) throw new Error('Answer generation failed');
   if (!cached) await redisSetJson(cacheKey, result, Number(process.env.AI_CACHE_TTL_SECONDS || 24 * 60 * 60));
 
   await persistAiArtifact(user, {
     artifactType: 'answer_generation',
     questionId: request.questionId ?? null,
     inputPayload: request,
-    outputPayload: result
+    outputPayload: result,
+    model: generation?.modelName
   });
   return result;
 }
@@ -325,13 +331,13 @@ export async function generateLearningReportWithMastra(user: User, request: Lear
   const sourceData = await loadLearningReportSource(user, request);
   const cacheKey = redisKey('cache', 'ai', 'learning-report', hashKey(sourceData));
   const cached = await redisGetJson<LearningReportResult>(cacheKey);
-  const result = cached ?? await runStructuredAgent({
+  const generation = cached ? null : await runStructuredAgent({
     type: 'learning_report',
     input: sourceData,
     schema: learningReportSchema,
     prompt: `Generate a learning report from OpenWook practice data:\n${JSON.stringify(sourceData, null, 2)}`,
-    generate: async () => {
-      const output = await learningReportAgent.generate<LearningReportResult>(
+    generate: async (agents) => {
+      const output = await agents.learningReportAgent.generate<LearningReportResult>(
         [{ role: 'user', content: JSON.stringify(sourceData) }],
         {
           modelSettings: mastraModelSettings,
@@ -347,6 +353,8 @@ export async function generateLearningReportWithMastra(user: User, request: Lear
     },
     fallback: () => fallbackLearningReport(sourceData)
   });
+  const result = cached ?? generation?.result;
+  if (!result) throw new Error('Learning report generation failed');
   if (!cached) await redisSetJson(cacheKey, result, Number(process.env.AI_REPORT_CACHE_TTL_SECONDS || 3600));
 
   await persistAiArtifact(user, {
@@ -354,7 +362,8 @@ export async function generateLearningReportWithMastra(user: User, request: Lear
     bankId: request.bankId ?? null,
     practiceSessionId: request.practiceSessionId ?? null,
     inputPayload: sourceData,
-    outputPayload: result
+    outputPayload: result,
+    model: generation?.modelName
   });
   return result;
 }
@@ -861,15 +870,46 @@ async function runStructuredAgent<T>({
   input: unknown;
   schema: z.ZodType<T>;
   prompt: string;
-  generate: () => Promise<T>;
+  generate: (agents: MastraAgentSet) => Promise<T>;
   fallback: () => T;
 }) {
-  if (!isMastraModelConfigured()) return schema.parse(fallback());
+  if (!isMastraModelConfigured()) {
+    return {
+      result: schema.parse(fallback()),
+      modelName: 'deterministic'
+    };
+  }
   try {
-    return schema.parse(await generate());
+    return {
+      result: schema.parse(await generate(mastraPrimaryAgents)),
+      modelName: getMastraModelName()
+    };
   } catch (error) {
-    console.error(`Mastra ${type} failed; falling back to deterministic implementation`, error);
-    return schema.parse(fallback());
+    console.error(`Mastra ${type} failed with primary provider; trying configured fallbacks`, error);
+  }
+
+  for (const fallbackAgent of mastraAgentFallbacks) {
+    try {
+      return {
+        result: schema.parse(await generate(fallbackAgent.agents)),
+        modelName: fallbackAgent.config.modelName
+      };
+    } catch (error) {
+      console.error(
+        `Mastra ${type} failed with ${fallbackAgent.config.providerName}; trying next fallback`,
+        error
+      );
+    }
+  }
+
+  try {
+    return {
+      result: schema.parse(fallback()),
+      modelName: 'deterministic'
+    };
+  } catch (error) {
+    console.error(`Mastra ${type} deterministic fallback failed`, error);
+    throw error;
   }
 }
 
@@ -1095,7 +1135,7 @@ function fallbackGenerateAnswer(request: AnswerGenerationRequest): AnswerGenerat
   return {
     answerPayload: { value: '' },
     canonicalAnswer: '',
-    explanation: '未配置 Mastra 模型，无法可靠生成答案。请补充标准答案或配置 OPENAI_API_KEY。',
+    explanation: '未配置 Mastra 模型，无法可靠生成答案。请补充标准答案或配置 MOONSHOT_API_KEY、DEEPSEEK_API_KEY 或 OPENAI_API_KEY。',
     steps: ['等待教师补全答案。'],
     confidence: 0.2,
     educationalValue: '用于标记缺失答案，不应直接发布。'
@@ -1207,6 +1247,7 @@ async function persistAiArtifact(
     practiceSessionId?: number | null;
     inputPayload: unknown;
     outputPayload: unknown;
+    model?: string | null;
   }
 ) {
   await sql`
@@ -1217,7 +1258,7 @@ async function persistAiArtifact(
     VALUES (
       ${data.artifactType}, ${user.id}, ${data.bankId ?? null}, ${data.questionId ?? null},
       ${data.importJobId ?? null}, ${data.practiceSessionId ?? null},
-      'mastra', ${getMastraModelName()}, ${sql.json(data.inputPayload as never)}, ${sql.json(data.outputPayload as never)}, 'completed'
+      'mastra', ${data.model ?? getMastraModelName()}, ${sql.json(data.inputPayload as never)}, ${sql.json(data.outputPayload as never)}, 'completed'
     )
   `;
 }

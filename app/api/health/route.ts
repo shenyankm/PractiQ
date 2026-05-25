@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
   const started = Date.now();
-  let postgres: { ok: boolean; latencyMs: number | null; error?: string } = {
+  let postgres: { ok: boolean; latencyMs: number | null } = {
     ok: false,
     latencyMs: null
   };
@@ -15,10 +15,10 @@ export async function GET() {
     await sql`SELECT 1`;
     postgres = { ok: true, latencyMs: Date.now() - pgStarted };
   } catch (error) {
+    console.error('Health check failed for Postgres:', error);
     postgres = {
       ok: false,
-      latencyMs: Date.now() - pgStarted,
-      error: error instanceof Error ? error.message : String(error)
+      latencyMs: Date.now() - pgStarted
     };
   }
 

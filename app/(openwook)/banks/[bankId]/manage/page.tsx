@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { getCurrentUser } from '@/lib/openwook/auth';
-import { getBank, listBankItems, listQuestionTypes } from '@/lib/openwook/services';
+import { getBankWithItems, listQuestionTypes } from '@/lib/openwook/services';
 import { createQuestionAction } from '../../actions';
 
 export default async function BankManagePage({ params }: { params: Promise<{ bankId: string }> }) {
@@ -24,13 +24,10 @@ export default async function BankManagePage({ params }: { params: Promise<{ ban
   const { bankId } = await params;
   const id = Number(bankId);
   if (!Number.isInteger(id)) notFound();
-  const bank = await getBank(user, id);
+  const { bank, items } = await getBankWithItems(user, id, new URLSearchParams({ limit: '100' }));
   if (!bank.is_owner) notFound();
 
-  const [items, types] = await Promise.all([
-    listBankItems(user, id, new URLSearchParams({ limit: '100' })),
-    listQuestionTypes(bank.subject, 'question')
-  ]);
+  const types = await listQuestionTypes(bank.subject, 'question');
   const action = createQuestionAction.bind(null, id);
 
   return (
