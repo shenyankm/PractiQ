@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { getCurrentUser, hashPassword } from '@/lib/openwook/auth';
+import { comparePasswords, getCurrentUser, getUserPasswordById, hashPassword } from '@/lib/openwook/auth';
 import { inferImportSourceType, isUploadedFile, storeAvatarFile } from '@/lib/openwook/object-storage';
 import type { AnswerMode } from '@/lib/openwook/types';
 import {
@@ -194,7 +194,6 @@ export async function resolveReviewItemAction(jobId: number, itemId: number, for
 export async function updateProfileAction(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) redirect('/sign-in');
-  const password = String(formData.get('password') || '');
   const avatarFile = formData.get('avatar');
   const avatarUrl = isUploadedFile(avatarFile)
     ? (await storeAvatarFile(user.id, avatarFile)).objectUrl
@@ -202,8 +201,32 @@ export async function updateProfileAction(formData: FormData) {
   await updateCurrentUser(user, {
     username: String(formData.get('username') || '') || undefined,
     email: String(formData.get('email') || '') || null,
-    passwordHash: password ? await hashPassword(password) : undefined,
     avatarUrl
+  });
+  revalidatePath('/settings');
+}
+
+export async function updatePasswordAction(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) redirect('/sign-in');
+  const currentPassword = String(formData.get('currentPassword') || '');
+  const password = String(formData.get('password') || '');
+  const confirmPassword = String(formData.get('confirmPassword') || '');
+
+  if (password.length < 8 || password.length > 100) {
+    throw new Error('新密码长度必须在 8 到 100 位之间。');
+  }
+  if (password !== confirmPassword) {
+    throw new Error('两次输入的新密码不一致。');
+  }
+
+  const found = await getUserPasswordById(user.id);
+  if (!found?.password || !(await comparePasswords(currentPassword, found.password))) {
+    throw new Error('当前密码不正确。');
+  }
+
+  await updateCurrentUser(user, {
+    passwordHash: await hashPassword(password)
   });
   revalidatePath('/settings');
 }

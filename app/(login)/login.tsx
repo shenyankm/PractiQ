@@ -13,7 +13,12 @@ import {
   CardTitle
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel
+} from '@/components/ui/field';
 import { Separator } from '@/components/ui/separator';
 import { BookOpen, Loader2 } from 'lucide-react';
 import { signIn, signUp } from './actions';
@@ -59,51 +64,57 @@ export function Login({ mode = 'signin', redirect, priceId, inviteId }: LoginPro
             <input type="hidden" name="redirect" value={redirect || ''} />
             <input type="hidden" name="priceId" value={priceId || ''} />
             <input type="hidden" name="inviteId" value={inviteId || ''} />
-            {mode === 'signup' && (
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="username">用户名</Label>
+            <FieldGroup className="gap-4">
+              {mode === 'signup' && (
+                <Field>
+                  <FieldLabel htmlFor="username">用户名</FieldLabel>
+                  <Input
+                    id="username"
+                    name="username"
+                    type="text"
+                    autoComplete="username"
+                    defaultValue={state.username}
+                    required
+                    maxLength={32}
+                    placeholder="例如 alice"
+                  />
+                </Field>
+              )}
+              <Field>
+                <FieldLabel htmlFor="email">
+                  {mode === 'signin' ? '用户名或邮箱' : '邮箱'}
+                </FieldLabel>
                 <Input
-                  id="username"
-                  name="username"
-                  type="text"
-                  autoComplete="username"
-                  defaultValue={state.username}
+                  id="email"
+                  name="email"
+                  type={mode === 'signin' ? 'text' : 'email'}
+                  autoComplete={mode === 'signin' ? 'username' : 'email'}
+                  defaultValue={state.email}
                   required
-                  maxLength={32}
-                  placeholder="例如 alice"
+                  maxLength={50}
+                  placeholder={mode === 'signin' ? '用户名或邮箱' : '邮箱'}
                 />
-              </div>
-            )}
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="email">用户名或邮箱</Label>
-              <Input
-                id="email"
-                name="email"
-                type={mode === 'signin' ? 'text' : 'email'}
-                autoComplete="email"
-                defaultValue={state.email}
-                required
-                maxLength={50}
-                placeholder={mode === 'signin' ? '用户名或邮箱' : '邮箱'}
-              />
-            </div>
+              </Field>
 
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="password">密码</Label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete={
-                  mode === 'signin' ? 'current-password' : 'new-password'
-                }
-                defaultValue={state.password}
-                required
-                minLength={8}
-                maxLength={100}
-                placeholder="至少 8 位"
-              />
-            </div>
+              <Field>
+                <FieldLabel htmlFor="password">密码</FieldLabel>
+                <Input
+                  id="password"
+                  name="password"
+                  type="password"
+                  autoComplete={
+                    mode === 'signin' ? 'current-password' : 'new-password'
+                  }
+                  required
+                  minLength={8}
+                  maxLength={100}
+                  placeholder="至少 8 位"
+                />
+                {mode === 'signup' ? (
+                  <FieldDescription>至少 8 位，建议包含字母和数字。</FieldDescription>
+                ) : null}
+              </Field>
+            </FieldGroup>
 
             {state?.error && (
               <Alert variant="destructive">

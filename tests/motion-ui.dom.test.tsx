@@ -51,7 +51,7 @@ describe('motion UI affordances', () => {
 
   it('wraps authenticated page content in a route transition surface', () => {
     render(
-      <OpenWookShell user={{ username: 'tester', membership: 'free', avatarUrl: null }}>
+      <OpenWookShell user={{ username: 'tester', membership: 'free', avatarUrl: null, role: 'user' }}>
         <div>Dashboard</div>
       </OpenWookShell>
     );
@@ -62,7 +62,7 @@ describe('motion UI affordances', () => {
 
   it('animates mobile navigation expand and collapse state', () => {
     render(
-      <OpenWookShell user={{ username: 'tester', membership: 'free', avatarUrl: null }}>
+      <OpenWookShell user={{ username: 'tester', membership: 'free', avatarUrl: null, role: 'user' }}>
         <div>Dashboard</div>
       </OpenWookShell>
     );
@@ -94,7 +94,7 @@ describe('motion UI affordances', () => {
 
   it('keeps alert dialogs on the shared fade, zoom, and slide motion language', () => {
     render(
-      <OpenWookShell user={{ username: 'tester', membership: 'free', avatarUrl: null }}>
+      <OpenWookShell user={{ username: 'tester', membership: 'free', avatarUrl: null, role: 'user' }}>
         <div>Dashboard</div>
       </OpenWookShell>
     );

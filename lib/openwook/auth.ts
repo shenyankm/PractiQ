@@ -124,3 +124,13 @@ export async function getUserPasswordByLogin(login: string) {
   `;
   return rows[0] ?? null;
 }
+
+export async function getUserPasswordById(userId: number) {
+  const rows = await sql<Array<{ id: number; password: string | null }>>`
+    SELECT id, password
+    FROM users
+    WHERE id = ${userId}
+    LIMIT 1
+  `;
+  return rows[0] ?? null;
+}

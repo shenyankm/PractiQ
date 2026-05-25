@@ -17,6 +17,17 @@ export type Subject = {
   display_name: string;
 };
 
+export type KnowledgePoint = {
+  id: number;
+  subject_id: string;
+  code: string;
+  display_name: string;
+  parent_id: number | null;
+  metadata_json: string;
+  created_at: string;
+  updated_at: string;
+};
+
 export type QuestionType = {
   type_id: string;
   subject_id: string;

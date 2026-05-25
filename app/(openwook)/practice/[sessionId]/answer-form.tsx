@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -29,11 +29,31 @@ export function AnswerForm({ action, disabled, children }: AnswerFormProps) {
         }
       }}
     >
-      {children}
+      {disableNativeControls(children, disabled)}
       <input ref={durationInputRef} type="hidden" name="durationMs" defaultValue="0" />
       <SubmitButton disabled={disabled} />
     </form>
   );
+}
+
+function disableNativeControls(children: React.ReactNode, disabled: boolean): React.ReactNode {
+  if (!disabled) return children;
+
+  return React.Children.map(children, (child) => {
+    if (!React.isValidElement(child)) return child;
+
+    const props = child.props as { children?: React.ReactNode };
+    const shouldDisable = typeof child.type === 'string'
+      && ['button', 'input', 'select', 'textarea'].includes(child.type);
+
+    return React.cloneElement(
+      child as React.ReactElement<Record<string, unknown>>,
+      {
+        ...(shouldDisable ? { disabled: true } : {}),
+        ...(props.children ? { children: disableNativeControls(props.children, disabled) } : {})
+      }
+    );
+  });
 }
 
 function SubmitButton({ disabled }: { disabled: boolean }) {

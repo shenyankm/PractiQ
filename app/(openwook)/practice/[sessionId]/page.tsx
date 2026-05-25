@@ -2,6 +2,17 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { CheckCircle2, ChevronLeft, ChevronRight, Circle, Flag, XCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -39,8 +50,8 @@ export default async function PracticeSessionPage({
   const answeredCount = progress.filter((item) => item.isAnswered).length;
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[220px_1fr_320px]">
-      <Card className="h-fit">
+    <div className="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)_320px]">
+      <Card className="order-3 h-fit lg:order-1">
         <CardHeader>
           <CardTitle>进度</CardTitle>
         </CardHeader>
@@ -51,10 +62,11 @@ export default async function PracticeSessionPage({
                 key={item.questionId}
                 href={`/practice/${id}?index=${item.index}`}
                 className={cn(
-                  'flex h-10 items-center justify-center rounded-md border text-xs hover:bg-accent',
+                  'flex h-10 items-center justify-center rounded-md border text-xs hover:bg-accent focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
                   item.index === questionIndex && 'border-primary bg-primary/10'
                 )}
-                aria-label={`第 ${item.index + 1} 题`}
+                aria-current={item.index === questionIndex ? 'step' : undefined}
+                aria-label={`第 ${item.index + 1} 题，${progressLabel(item, item.index === questionIndex)}`}
               >
                 {item.isAnswered ? (
                   item.isCorrect ? <CheckCircle2 className="size-4 text-primary" /> : <XCircle className="size-4 text-destructive" />
@@ -67,7 +79,7 @@ export default async function PracticeSessionPage({
         </CardContent>
       </Card>
 
-      <div className="flex flex-col gap-4">
+      <div className="order-1 flex min-w-0 flex-col gap-4 lg:order-2">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">{sessionTitle(session.session_type)}</h1>
           <p className="text-sm text-muted-foreground">
@@ -102,7 +114,7 @@ export default async function PracticeSessionPage({
               {nextIndex === null ? (
                 <Button variant="outline" disabled>下一题<ChevronRight className="size-4" /></Button>
               ) : (
-                <Button asChild variant="outline">
+                <Button asChild variant={result ? 'default' : 'outline'}>
                   <Link href={`/practice/${id}?index=${nextIndex}`}>
                     下一题
                     <ChevronRight className="size-4" />
@@ -114,7 +126,7 @@ export default async function PracticeSessionPage({
         )}
       </div>
 
-      <Card className="h-fit">
+      <Card className="order-2 h-fit lg:order-3">
         <CardHeader>
           <CardTitle>结果</CardTitle>
         </CardHeader>
@@ -133,15 +145,53 @@ export default async function PracticeSessionPage({
               <div>错误</div>
             </div>
           </div>
-          <form action={completeAction}>
-            <Button className="w-full" disabled={session.status !== 'active'}>
-              <Flag className="size-4" />
-              完成会话
-            </Button>
-          </form>
-          <form action={abandonAction}>
-            <Button className="w-full" variant="outline" disabled={session.status !== 'active'}>放弃并返回</Button>
-          </form>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button className="w-full" disabled={session.status !== 'active'}>
+                <Flag className="size-4" />
+                完成会话
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>确认完成会话</AlertDialogTitle>
+                <AlertDialogDescription>
+                  完成后会锁定本次练习结果，你仍然可以返回题库重新开始新的练习。
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>继续答题</AlertDialogCancel>
+                <form action={completeAction}>
+                  <AlertDialogAction type="submit" className="w-full sm:w-auto">
+                    确认完成
+                  </AlertDialogAction>
+                </form>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button className="w-full" variant="outline" disabled={session.status !== 'active'}>
+                放弃并返回
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>确认放弃练习</AlertDialogTitle>
+                <AlertDialogDescription>
+                  放弃后会结束当前会话并返回仪表板，已提交的答题记录仍会保留。
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>继续答题</AlertDialogCancel>
+                <form action={abandonAction}>
+                  <AlertDialogAction type="submit" className="w-full sm:w-auto">
+                    确认放弃
+                  </AlertDialogAction>
+                </form>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
           {session.status !== 'active' && (
             <Button asChild variant="outline" className="w-full">
               <Link href={session.bank_id ? `/banks/${session.bank_id}` : '/dashboard'}>返回题库</Link>
@@ -269,4 +319,19 @@ function modeLabel(mode: string) {
     fill_blank: '填空题',
     short_answer: '简答题'
   }[mode] ?? mode;
+}
+
+function progressLabel(
+  item: { isAnswered: boolean; isCorrect: boolean | null },
+  current: boolean
+) {
+  const status = !item.isAnswered
+    ? '未作答'
+    : item.isCorrect === true
+      ? '已答正确'
+      : item.isCorrect === false
+        ? '已答错误'
+        : '已提交待判分';
+
+  return current ? `${status}，当前题` : status;
 }

@@ -19,6 +19,7 @@ export default async function OpenWookLayout({ children }: { children: React.Rea
       user={{
         username: user.username,
         membership: user.membership,
+        role: user.role,
         avatarUrl: user.avatar_url
       }}
     >

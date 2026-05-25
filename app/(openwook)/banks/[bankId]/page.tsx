@@ -1,8 +1,18 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { BookOpen } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator
+} from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { getCurrentUser } from '@/lib/openwook/auth';
 import { getBankWithItems } from '@/lib/openwook/services';
 import { favoriteBankAction } from '../actions';
@@ -17,6 +27,20 @@ export default async function BankDetailPage({ params }: { params: Promise<{ ban
 
   return (
     <div className="flex flex-col gap-6">
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link href="/banks">题库</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>{bank.name}</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">{bank.name}</h1>
@@ -31,8 +55,8 @@ export default async function BankDetailPage({ params }: { params: Promise<{ ban
           <form action={favoriteBankAction.bind(null, id, !bank.is_favorite)}>
             <Button variant="outline" type="submit">{bank.is_favorite ? '取消收藏' : '收藏'}</Button>
           </form>
-          <Button asChild variant="outline"><Link href={`/banks/${id}/practice`}>开始练习</Link></Button>
-          {bank.is_owner && <Button asChild><Link href={`/banks/${id}/manage`}>管理题目</Link></Button>}
+          <Button asChild><Link href={`/banks/${id}/practice`}>开始练习</Link></Button>
+          {bank.is_owner && <Button asChild variant="outline"><Link href={`/banks/${id}/manage`}>管理题目</Link></Button>}
           {bank.is_owner && <Button asChild variant="outline"><Link href={`/imports?bankId=${id}`}>导入题目</Link></Button>}
         </div>
       </div>
@@ -43,7 +67,27 @@ export default async function BankDetailPage({ params }: { params: Promise<{ ban
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
           {items.length === 0 ? (
-            <p className="text-sm text-muted-foreground">题库暂无题目。</p>
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <BookOpen />
+                </EmptyMedia>
+                <EmptyTitle>题库暂无题目</EmptyTitle>
+                <EmptyDescription>导入题目或进入管理页手动新增题目后即可开始练习。</EmptyDescription>
+              </EmptyHeader>
+              {bank.is_owner ? (
+                <EmptyContent>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    <Button asChild>
+                      <Link href={`/imports?bankId=${id}`}>导入题目</Link>
+                    </Button>
+                    <Button asChild variant="outline">
+                      <Link href={`/banks/${id}/manage`}>手动新增</Link>
+                    </Button>
+                  </div>
+                </EmptyContent>
+              ) : null}
+            </Empty>
           ) : items.map((item) => (
             <Link key={`${item.item_scope}-${item.group_id ?? 'q'}-${item.question_id}`} href={`/questions/${item.question_id}`} className="block rounded-md border p-3 hover:bg-accent">
               <div className="flex items-start justify-between gap-4">
@@ -51,7 +95,7 @@ export default async function BankDetailPage({ params }: { params: Promise<{ ban
                   <div className="font-medium">{item.question_no ? `${item.question_no}. ` : ''}{item.stem}</div>
                   {item.group_title && <div className="mt-1 text-sm text-muted-foreground">题组：{item.group_title}</div>}
                 </div>
-                <Badge variant="secondary">{item.answer_mode}</Badge>
+                <Badge variant="secondary">{modeLabel(item.answer_mode)}</Badge>
               </div>
             </Link>
           ))}
@@ -59,4 +103,13 @@ export default async function BankDetailPage({ params }: { params: Promise<{ ban
       </Card>
     </div>
   );
+}
+
+function modeLabel(mode: string) {
+  return {
+    choice: '选择题',
+    true_false: '判断题',
+    fill_blank: '填空题',
+    short_answer: '简答题'
+  }[mode] ?? mode;
 }

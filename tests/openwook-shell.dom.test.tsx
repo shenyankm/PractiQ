@@ -34,7 +34,7 @@ describe('OpenWookShell', () => {
     navigationMock.pathname = '/dashboard';
 
     render(
-      <OpenWookShell user={{ username: 'tester', membership: 'free', avatarUrl: null }}>
+      <OpenWookShell user={{ username: 'tester', membership: 'free', avatarUrl: null, role: 'user' }}>
         <div>Dashboard</div>
       </OpenWookShell>
     );
@@ -48,7 +48,7 @@ describe('OpenWookShell', () => {
     navigationMock.pathname = '/banks';
 
     const { container } = render(
-      <OpenWookShell user={{ username: 'tester', membership: 'free', avatarUrl: null }}>
+      <OpenWookShell user={{ username: 'tester', membership: 'free', avatarUrl: null, role: 'user' }}>
         <div>Bank list</div>
       </OpenWookShell>
     );
@@ -57,11 +57,28 @@ describe('OpenWookShell', () => {
     expect(screen.getByRole('banner').querySelector('a[href="/banks"]')?.textContent).toContain('题库');
   });
 
+  it('marks the current page and removes closed mobile navigation from assistive navigation', () => {
+    navigationMock.pathname = '/banks';
+
+    render(
+      <OpenWookShell user={{ username: 'tester', membership: 'free', avatarUrl: null, role: 'user' }}>
+        <div>Bank list</div>
+      </OpenWookShell>
+    );
+
+    const currentLinks = screen.getAllByRole('link', { name: /题库/ });
+    expect(currentLinks.some((link) => link.getAttribute('aria-current') === 'page')).toBe(true);
+
+    const mobilePanel = screen.getByTestId('mobile-nav-panel');
+    expect(mobilePanel.getAttribute('aria-hidden')).toBe('true');
+    expect(mobilePanel.hasAttribute('inert')).toBe(true);
+  });
+
   it('asks for confirmation before signing out', () => {
     navigationMock.pathname = '/dashboard';
 
     render(
-      <OpenWookShell user={{ username: 'tester', membership: 'free', avatarUrl: null }}>
+      <OpenWookShell user={{ username: 'tester', membership: 'free', avatarUrl: null, role: 'user' }}>
         <div>Dashboard</div>
       </OpenWookShell>
     );
@@ -71,5 +88,25 @@ describe('OpenWookShell', () => {
     expect(screen.getByRole('alertdialog', { name: '确认退出登录' })).toBeTruthy();
     expect(screen.getByRole('button', { name: '取消' })).toBeTruthy();
     expect(screen.getByRole('button', { name: '确认退出' })).toBeTruthy();
+  });
+
+  it('shows the admin navigation entry only to administrators', () => {
+    navigationMock.pathname = '/dashboard';
+
+    const { rerender } = render(
+      <OpenWookShell user={{ username: 'tester', membership: 'free', avatarUrl: null, role: 'user' }}>
+        <div>Dashboard</div>
+      </OpenWookShell>
+    );
+
+    expect(screen.queryByRole('link', { name: /后台/ })).toBeNull();
+
+    rerender(
+      <OpenWookShell user={{ username: 'admin', membership: 'plus', avatarUrl: null, role: 'admin' }}>
+        <div>Dashboard</div>
+      </OpenWookShell>
+    );
+
+    expect(screen.getAllByRole('link', { name: /后台/ })[0].getAttribute('href')).toBe('/admin');
   });
 });

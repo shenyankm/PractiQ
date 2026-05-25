@@ -1,9 +1,22 @@
 import { Suspense } from 'react';
 import Link from 'next/link';
-import { Plus, Search } from 'lucide-react';
+import { BookOpen, Plus, Search } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle
+} from '@/components/ui/empty';
+import {
+  Field,
+  FieldGroup,
+  FieldLabel
+} from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -86,40 +99,52 @@ async function BankFilters({
   return (
     <Card>
       <CardContent className="p-4">
-        <form className="grid gap-3 md:grid-cols-[1fr_180px_140px_auto]">
-          <div className="relative">
-            <Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
-            <Input name="q" placeholder="搜索题库名称" defaultValue={q} className="pl-9" />
-          </div>
-          <Select name="subject" defaultValue={subjectValue}>
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="全部学科" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                <SelectItem value="all">全部学科</SelectItem>
-                {subjects.map((subject) => (
-                  <SelectItem key={subject.subject_id} value={subject.subject_id}>
-                    {subject.display_name}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-          <Select name="scope" defaultValue={scopeValue}>
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="全部可见" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                <SelectItem value="all">全部可见</SelectItem>
-                <SelectItem value="mine">我的</SelectItem>
-                <SelectItem value="favorites">收藏</SelectItem>
-                <SelectItem value="public">公开</SelectItem>
-              </SelectGroup>
-            </SelectContent>
-          </Select>
+        <form className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px_140px_auto_auto] md:items-end">
+          <Field className="gap-2">
+            <FieldLabel htmlFor="bank-search" className="sr-only">搜索题库</FieldLabel>
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
+              <Input id="bank-search" name="q" placeholder="搜索题库名称" defaultValue={q} className="pl-9" />
+            </div>
+          </Field>
+          <Field className="gap-2">
+            <FieldLabel htmlFor="bank-subject" className="sr-only">学科</FieldLabel>
+            <Select name="subject" defaultValue={subjectValue}>
+              <SelectTrigger id="bank-subject" className="w-full">
+                <SelectValue placeholder="全部学科" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectItem value="all">全部学科</SelectItem>
+                  {subjects.map((subject) => (
+                    <SelectItem key={subject.subject_id} value={subject.subject_id}>
+                      {subject.display_name}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field className="gap-2">
+            <FieldLabel htmlFor="bank-scope" className="sr-only">范围</FieldLabel>
+            <Select name="scope" defaultValue={scopeValue}>
+              <SelectTrigger id="bank-scope" className="w-full">
+                <SelectValue placeholder="全部可见" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectItem value="all">全部可见</SelectItem>
+                  <SelectItem value="mine">我的</SelectItem>
+                  <SelectItem value="favorites">收藏</SelectItem>
+                  <SelectItem value="public">公开</SelectItem>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </Field>
           <Button type="submit" variant="outline">筛选</Button>
+          <Button asChild variant="ghost">
+            <Link href="/banks">重置</Link>
+          </Button>
         </form>
       </CardContent>
     </Card>
@@ -128,6 +153,32 @@ async function BankFilters({
 
 async function BankGrid({ banksPromise }: { banksPromise: ReturnType<typeof listBanks> }) {
   const banks = await banksPromise;
+
+  if (banks.length === 0) {
+    return (
+      <Empty className="border">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <BookOpen />
+          </EmptyMedia>
+          <EmptyTitle>没有匹配的题库</EmptyTitle>
+          <EmptyDescription>
+            调整搜索或筛选条件，或创建一个新的题库开始整理题目。
+          </EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          <FieldGroup className="gap-3">
+            <Button asChild>
+              <Link href="/banks/new">新建题库</Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href="/banks">清除筛选</Link>
+            </Button>
+          </FieldGroup>
+        </EmptyContent>
+      </Empty>
+    );
+  }
 
   return (
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">

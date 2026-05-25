@@ -1,22 +1,22 @@
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { Play, SlidersHorizontal } from 'lucide-react';
+import { SlidersHorizontal } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select';
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator
+} from '@/components/ui/breadcrumb';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getCurrentUser } from '@/lib/openwook/auth';
 import { getBankPracticeSummary } from '@/lib/openwook/services';
 import { startPracticeAction } from '../../actions';
+import { PracticeSetupForm } from './practice-setup-form';
+
+export { PracticeSetupForm };
 
 export default async function PracticeSetupPage({ params }: { params: Promise<{ bankId: string }> }) {
   const user = await getCurrentUser();
@@ -30,6 +30,26 @@ export default async function PracticeSetupPage({ params }: { params: Promise<{ 
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-6">
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link href="/banks">题库</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link href={`/banks/${id}`}>{bank.name}</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>练习配置</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">练习配置</h1>
@@ -68,75 +88,6 @@ export default async function PracticeSetupPage({ params }: { params: Promise<{ 
         </Card>
       </div>
     </div>
-  );
-}
-
-export function PracticeSetupForm({
-  action,
-  activeCount,
-  typeCounts,
-  wrongCount
-}: {
-  action: (formData: FormData) => void | Promise<void>;
-  activeCount: number;
-  typeCounts: Record<string, number>;
-  wrongCount: number;
-}) {
-  return (
-    <form action={action} className="flex flex-col gap-4">
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="mode">模式</Label>
-          <Select name="mode" defaultValue="all">
-            <SelectTrigger id="mode" className="w-full">
-              <SelectValue placeholder="选择模式" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                <SelectItem value="all">全量练习</SelectItem>
-                <SelectItem value="wrong">错题集练习</SelectItem>
-                <SelectItem value="by_type">按题型练习</SelectItem>
-                <SelectItem value="exam">自测模考</SelectItem>
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="questionCount">题目数量</Label>
-          <Input id="questionCount" name="questionCount" type="number" min={1} max={Math.max(activeCount, 1)} defaultValue={activeCount || 10} />
-        </div>
-      </div>
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="flex items-center gap-2 rounded-md border px-3 py-2">
-          <Checkbox id="allQuestions" name="allQuestions" defaultChecked />
-          <Label htmlFor="allQuestions" className="font-normal">
-          全量练习时使用全部题目
-          </Label>
-        </div>
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="questionTypeId">题型</Label>
-          <Select name="questionTypeId" defaultValue="all">
-            <SelectTrigger id="questionTypeId" className="w-full">
-              <SelectValue placeholder="选择题型" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                <SelectItem value="all">选择题型</SelectItem>
-                {Object.entries(typeCounts).map(([typeId, count]) => (
-                  <SelectItem key={typeId} value={typeId}>{typeId} ({count})</SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-      <input type="hidden" name="sessionType" value="practice" />
-      <div className="rounded-md border px-3 py-2 text-sm text-muted-foreground">错题集：{wrongCount} 题</div>
-      <Button type="submit" disabled={activeCount === 0}>
-        <Play className="size-4" />
-        开始
-      </Button>
-    </form>
   );
 }
 

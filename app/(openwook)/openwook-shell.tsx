@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  Shield,
   X,
   Settings,
   UserRound
@@ -32,14 +33,16 @@ import { cn } from '@/lib/utils';
 type ShellUser = {
   username: string;
   membership: 'free' | 'plus';
+  role: 'admin' | 'user';
   avatarUrl: string | null;
 };
 
-const navItems = [
+const navItems: Array<{ href: string; label: string; icon: React.ElementType; adminOnly?: boolean }> = [
   { href: '/dashboard', label: '仪表板', icon: LayoutDashboard },
   { href: '/banks', label: '题库', icon: Database },
   { href: '/imports', label: '导入', icon: FileUp },
-  { href: '/settings', label: '设置', icon: Settings }
+  { href: '/settings', label: '设置', icon: Settings },
+  { href: '/admin', label: '后台', icon: Shield, adminOnly: true }
 ];
 
 export function OpenWookShell({
@@ -64,6 +67,7 @@ function UserShell({
   user: ShellUser;
 }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const visibleNavItems = navItems.filter((item) => !item.adminOnly || user.role === 'admin');
 
   return (
     <div className="min-h-screen bg-muted/30 text-foreground">
@@ -74,7 +78,7 @@ function UserShell({
           </Link>
 
           <nav className="hidden items-center gap-1 md:flex">
-            {navItems.map((item) => (
+            {visibleNavItems.map((item) => (
               <TopNavLink key={item.href} item={item} pathname={pathname} />
             ))}
           </nav>
@@ -100,13 +104,15 @@ function UserShell({
           id="mobile-navigation"
           data-testid="mobile-nav-panel"
           data-state={mobileNavOpen ? 'open' : 'closed'}
+          aria-hidden={!mobileNavOpen}
+          inert={!mobileNavOpen}
           className={cn(
             'mx-auto grid max-w-7xl border-t px-4 transition-[grid-template-rows,opacity] duration-200 ease-out md:hidden motion-reduce:transition-none',
             mobileNavOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
           )}
         >
           <div className="flex min-h-0 gap-1 overflow-hidden overflow-x-auto py-2">
-            {navItems.map((item) => (
+            {visibleNavItems.map((item) => (
               <TopNavLink key={item.href} item={item} pathname={pathname} compact />
             ))}
           </div>
@@ -140,6 +146,7 @@ function TopNavLink({
   return (
     <Link
       href={item.href}
+      aria-current={isActive ? 'page' : undefined}
       className={cn(
         'inline-flex h-9 shrink-0 items-center gap-2 rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors duration-200 hover:bg-accent hover:text-accent-foreground motion-reduce:transition-none',
         isActive && 'bg-primary/10 text-primary',
