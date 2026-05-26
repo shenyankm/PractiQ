@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { comparePasswords, getCurrentUser, getUserPasswordByLogin, setSession } from '@/lib/openwook/auth';
 import { ApiError, handleApiError, ok, readJson } from '@/lib/openwook/api';
+import { withApiObservability } from '@/lib/openwook/observability';
 import { incrementRateLimit, redisKey } from '@/lib/openwook/redis';
 import { assertSameOriginRequest } from '@/lib/openwook/request-origin';
 
@@ -12,20 +13,22 @@ const loginSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  try {
-    assertSameOriginRequest(request);
-    const body = loginSchema.parse(await readJson(request));
-    await enforceRateLimit(`auth:login:ip:${clientIp(request)}`, 20, 300);
-    await enforceRateLimit(`auth:login:${body.login.toLowerCase()}`, 10, 300);
-    const found = await getUserPasswordByLogin(body.login);
-    if (!found?.password || !(await comparePasswords(body.password, found.password))) {
-      throw new ApiError(401, 'INVALID_CREDENTIALS', 'Invalid login or password');
+  return withApiObservability(request, '/api/v1/auth/login', async () => {
+    try {
+      assertSameOriginRequest(request);
+      const body = loginSchema.parse(await readJson(request));
+      await enforceRateLimit(`auth:login:ip:${clientIp(request)}`, 20, 300);
+      await enforceRateLimit(`auth:login:${body.login.toLowerCase()}`, 10, 300);
+      const found = await getUserPasswordByLogin(body.login);
+      if (!found?.password || !(await comparePasswords(body.password, found.password))) {
+        throw new ApiError(401, 'INVALID_CREDENTIALS', 'Invalid login or password');
+      }
+      await setSession(found.id);
+      return ok(await getCurrentUser());
+    } catch (error) {
+      return handleApiError(error);
     }
-    await setSession(found.id);
-    return ok(await getCurrentUser());
-  } catch (error) {
-    return handleApiError(error);
-  }
+  });
 }
 
 function clientIp(request: Request) {

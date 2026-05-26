@@ -44,10 +44,10 @@ export default async function PracticeSessionPage({
   if (!Number.isInteger(id)) notFound();
 
   const state = await getPracticeQuestionPage(user, id, new URLSearchParams(query.index ? { index: query.index } : undefined));
-  const { session, question, questionIndex, total, result, progress, previousIndex, nextIndex } = state;
+  const { session, question, questionIndex, total, result, progress, progressTruncated, previousIndex, nextIndex } = state;
   const completeAction = completePracticeAction.bind(null, id);
   const abandonAction = abandonPracticeAction.bind(null, id);
-  const answeredCount = progress.filter((item) => item.isAnswered).length;
+  const answeredCount = state.answeredCount;
 
   return (
     <div className="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)_320px]">
@@ -56,6 +56,11 @@ export default async function PracticeSessionPage({
           <CardTitle>进度</CardTitle>
         </CardHeader>
         <CardContent className="grid max-h-96 grid-cols-5 gap-2 overflow-auto lg:grid-cols-4">
+          {progressTruncated && (
+            <p className="col-span-full text-xs text-muted-foreground">
+              仅显示当前题附近进度，首尾题保留。
+            </p>
+          )}
           {progress.map((item) => {
             return (
               <Link

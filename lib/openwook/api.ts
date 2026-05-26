@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
+import { errorToLog, logger } from './logger';
+import { getCurrentRequestId, jsonWithRequestId } from './observability';
 
 export class ApiError extends Error {
   status: number;
@@ -14,43 +16,57 @@ export class ApiError extends Error {
   }
 }
 
-export function ok(data: unknown, meta?: Record<string, unknown>) {
-  return NextResponse.json({
+function responseBody(data: unknown, meta?: Record<string, unknown>, requestId?: string) {
+  const resolvedMeta = {
+    ...(meta ?? {}),
+    ...(requestId ? { requestId } : {})
+  };
+  return {
     data,
-    ...(meta ? { meta } : {})
-  });
+    ...(Object.keys(resolvedMeta).length > 0 ? { meta: resolvedMeta } : {})
+  };
 }
 
-export function created(data: unknown, meta?: Record<string, unknown>) {
-  return NextResponse.json(
-    {
-      data,
-      ...(meta ? { meta } : {})
-    },
-    { status: 201 }
-  );
+export function ok(data: unknown, meta?: Record<string, unknown>, requestId = getCurrentRequestId()) {
+  const body = responseBody(data, meta, requestId);
+  return requestId ? jsonWithRequestId(body, undefined, requestId) : NextResponse.json(body);
 }
 
-export function noContent() {
-  return new NextResponse(null, { status: 204 });
+export function created(data: unknown, meta?: Record<string, unknown>, requestId = getCurrentRequestId()) {
+  const body = responseBody(data, meta, requestId);
+  return requestId
+    ? jsonWithRequestId(body, { status: 201 }, requestId)
+    : NextResponse.json(body, { status: 201 });
 }
 
-export function handleApiError(error: unknown) {
+export function noContent(requestId = getCurrentRequestId()) {
+  const response = new NextResponse(null, { status: 204 });
+  if (requestId) response.headers.set('x-request-id', requestId);
+  return response;
+}
+
+function apiErrorResponse(body: unknown, status: number, requestId?: string) {
+  return requestId ? jsonWithRequestId(body, { status }, requestId) : NextResponse.json(body, { status });
+}
+
+export function handleApiError(error: unknown, requestId = getCurrentRequestId()) {
   if (error instanceof ApiError) {
-    return NextResponse.json(
+    return apiErrorResponse(
       {
         error: {
           code: error.code,
           message: error.message,
-          details: error.details
+          details: error.details,
+          ...(requestId ? { requestId } : {})
         }
       },
-      { status: error.status }
+      error.status,
+      requestId
     );
   }
 
   if (error instanceof ZodError) {
-    return NextResponse.json(
+    return apiErrorResponse(
       {
         error: {
           code: 'VALIDATION_ERROR',
@@ -58,22 +74,27 @@ export function handleApiError(error: unknown) {
           details: error.errors.map((item) => ({
             field: item.path.join('.'),
             message: item.message
-          }))
+          })),
+          ...(requestId ? { requestId } : {})
         }
       },
-      { status: 422 }
+      422,
+      requestId
     );
   }
 
-  console.error(error);
-  return NextResponse.json(
+  logger.error({ ...errorToLog(error), requestId }, 'Unhandled API error');
+  const fallbackRequestId = requestId ?? 'unknown';
+  return jsonWithRequestId(
     {
       error: {
         code: 'INTERNAL_ERROR',
-        message: 'Unexpected server error'
+        message: 'Unexpected server error',
+        ...(requestId ? { requestId } : {})
       }
     },
-    { status: 500 }
+    { status: 500 },
+    fallbackRequestId
   );
 }
 

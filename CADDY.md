@@ -24,10 +24,18 @@ caddy version
 ```bash
 # 生产模式
 pnpm build
-NODE_ENV=production HOSTNAME=127.0.0.1 PORT=3000 pnpm start
+NODE_ENV=production OPENWOOK_HOST=127.0.0.1 PORT=3000 pnpm start:prod
 ```
 
-推荐用仓库提供的 `openwook.service` 托管生产 Next.js 进程。确保应用只监听 `127.0.0.1:3000`，由 Caddy 对外提供 HTTPS。
+推荐用仓库提供的 `openwook.service` 托管单个生产 Next.js 进程。确保应用只监听 `127.0.0.1:3000`，由 Caddy 对外提供 HTTPS。
+
+高并发场景推荐使用 `openwook@.service` 模板启动多个 Next.js 实例：
+
+```bash
+sudo systemctl start openwook@3000 openwook@3001 openwook@3002 openwook@3003
+```
+
+Caddy 会把请求轮询转发到 `127.0.0.1:3000`、`3001`、`3002`、`3003`。
 
 ### 3. 启动 Caddy
 
@@ -51,7 +59,8 @@ caddy run --config /etc/caddy/Caddyfile.openwook --adapter caddyfile
 | `Caddyfile.prod` | `/etc/caddy/Caddyfile.prod` | 生产环境配置 (HTTPS) |
 | `Caddyfile.ip` | `/etc/caddy/Caddyfile.ip` | IP 访问模式配置 |
 | `caddy-manage.sh` | 项目目录 | 服务管理脚本 |
-| `openwook.service` | 项目目录 | Next.js 生产应用 systemd 服务模板 |
+| `openwook.service` | 项目目录 | Next.js 单实例生产应用 systemd 服务模板 |
+| `openwook@.service` | 项目目录 | Next.js 多实例 systemd 模板，实例名即监听端口 |
 | `caddy-openwook.service` | 项目目录 | Caddy systemd 服务配置模板 |
 
 ## 配置详解
@@ -60,7 +69,7 @@ caddy run --config /etc/caddy/Caddyfile.openwook --adapter caddyfile
 
 - **端口**: 80
 - **协议**: HTTP
-- **代理目标**: localhost:3000
+- **代理目标**: `127.0.0.1:3000`、`3001`、`3002`、`3003`
 - **CORS**: 全开放 (`*`)
 - **静态文件**: 直接从 `public/` 目录提供
 - **缓存**: Next.js 静态资源长期缓存
@@ -107,8 +116,9 @@ caddy run --config /etc/caddy/Caddyfile.openwook --adapter caddyfile
 ### 使用 systemd (推荐用于生产)
 
 ```bash
-# 复制服务文件
-sudo cp openwook.service caddy-openwook.service /etc/systemd/system/
+# 复制配置和服务文件
+sudo cp Caddyfile.openwook /etc/caddy/Caddyfile.openwook
+sudo cp openwook.service openwook@.service caddy-openwook.service /etc/systemd/system/
 
 # 构建生产包
 pnpm build
@@ -129,6 +139,50 @@ sudo systemctl status openwook caddy-openwook
 # 查看日志
 sudo journalctl -u openwook -u caddy-openwook -f
 ```
+
+### 使用 systemd 多实例运行 Next.js (推荐用于高并发)
+
+`openwook@.service` 是 systemd 模板服务，`@` 后面的实例名就是端口号。例如 `openwook@3001` 会以 `PORT=3001` 启动一个 Next.js 生产进程。
+
+```bash
+# 复制配置和服务模板
+sudo cp Caddyfile.openwook /etc/caddy/Caddyfile.openwook
+sudo cp openwook@.service caddy-openwook.service /etc/systemd/system/
+
+# 构建生产包
+pnpm build
+
+# 重新加载 systemd
+sudo systemctl daemon-reload
+
+# 启动 4 个 Next.js 实例
+sudo systemctl start openwook@3000 openwook@3001 openwook@3002 openwook@3003
+sudo systemctl start caddy-openwook
+
+# 开机自启
+sudo systemctl enable openwook@3000 openwook@3001 openwook@3002 openwook@3003 caddy-openwook
+
+# 查看状态
+sudo systemctl status openwook@3000 openwook@3001 openwook@3002 openwook@3003 caddy-openwook
+
+# 查看日志
+sudo journalctl -u openwook@3000 -u openwook@3001 -u openwook@3002 -u openwook@3003 -u caddy-openwook -f
+```
+
+也可以用仓库脚本一次完成复制模板、构建、启动多实例和重载 Caddy：
+
+```bash
+sudo OPENWOOK_PORTS=3000,3001,3002,3003 scripts/deploy/openwook-systemd.sh
+```
+
+上线或变更实例数后，先验证 Caddy 配置，再平滑重载：
+
+```bash
+sudo caddy validate --config /etc/caddy/Caddyfile.openwook --adapter caddyfile
+sudo systemctl reload caddy-openwook
+```
+
+> 注意：每个 Next.js 实例都会创建自己的 PostgreSQL 连接池。多实例部署时建议显式设置 `POSTGRES_POOL_MAX=5..8` 起步；4 个实例约等于最多 20-32 条应用侧数据库连接。若数据库 `max_connections` 较小或还有 worker/运维连接，应降低 `POSTGRES_POOL_MAX` 或引入 PgBouncer。
 
 ## SSL 证书配置
 
@@ -178,9 +232,9 @@ yourdomain.com {
 Caddy (端口 80/443)
     ├── 静态文件 → 直接响应 (public/)
     ├── API 请求 → 添加 CORS 头
-    └── 其他请求 → 反向代理
+    └── 其他请求 → 反向代理 + 轮询负载均衡
             ↓
-    Next.js (端口 3000)
+    Next.js (端口 3000 / 3001 / 3002 / 3003)
             ↓
     PostgreSQL (端口 5432)
 ```
@@ -203,6 +257,31 @@ encode zstd gzip
 
 Next.js 会自动复用数据库连接 (pg Pool)。
 
+多实例部署时要按实例数计算数据库连接上限：
+
+```text
+总连接上限 ≈ Next.js 实例数 × POSTGRES_POOL_MAX
+```
+
+例如 4 个实例且 `POSTGRES_POOL_MAX=8` 时，应用侧最多可能占用约 32 条 PostgreSQL 连接。压测发现数据库排队或连接耗尽时，优先调整 `POSTGRES_POOL_MAX`、优化慢查询或在应用与 PostgreSQL 之间增加 PgBouncer。
+
+### 4. 多 upstream 负载均衡
+
+`Caddyfile.openwook` 已配置 4 个本地 upstream：
+
+```caddy
+reverse_proxy 127.0.0.1:3000 127.0.0.1:3001 127.0.0.1:3002 127.0.0.1:3003 {
+    lb_policy round_robin
+    health_uri /api/health/ready
+}
+```
+
+含义：
+
+- `round_robin`：请求按顺序分配给多个 Next.js 实例，避免单个 Node.js 进程吃满 CPU。
+- `health_uri /api/health/ready`：Caddy 定期探活，异常实例会被临时摘除。
+- `fail_duration` / `max_fails`：短时间失败过多的 upstream 会被熔断一段时间，减少请求打到故障实例。
+
 ## 故障排除
 
 ### 端口权限问题
@@ -215,9 +294,9 @@ sudo setcap cap_net_bind_service=+ep /usr/bin/caddy
 ### Caddy 无法连接 Next.js
 
 ```bash
-# 检查 Next.js 是否以生产模式运行在 3000 端口
-lsof -i :3000
-ps -fp $(lsof -ti :3000)
+# 检查 Next.js 是否以生产模式运行在 3000-3003 端口
+lsof -i :3000 -i :3001 -i :3002 -i :3003
+ps -fp $(lsof -ti :3000 -ti :3001 -ti :3002 -ti :3003)
 
 # 线上 HTML 不应包含 HMR/development 资源
 curl -fsSL https://openwook.cloud/ | grep -E 'webpack-hmr|/_next/static/development' && echo 'ERROR: still running next dev' || echo 'OK: no HMR artifacts' 
@@ -230,7 +309,7 @@ caddy validate --config /etc/caddy/Caddyfile.openwook
 
 ```bash
 # Caddy 访问日志
-tail -f /var/log/caddy/access.log
+tail -f /var/log/caddy/openwook-access.log
 
 # Caddy 运行日志
 tail -f /var/log/caddy/caddy.out
@@ -248,6 +327,7 @@ Caddy 和 Next.js 配置互补：
 ```env
 NEXT_PUBLIC_APP_URL=https://openwook.cloud
 NODE_ENV=production
+OPENWOOK_HOST=127.0.0.1
 ```
 
 生产进程应通过 `pnpm start` / `next start` 启动；`pnpm dev` 只用于本地开发。
@@ -258,11 +338,11 @@ NODE_ENV=production
 2. **限制 API CORS** 为特定域名，不要使用 `*`
 3. **启用 HSTS** (已在生产配置中包含)
 4. **定期更新 Caddy** 获取安全补丁
-5. **配置防火墙** 只开放 80/443，关闭 3000
+5. **配置防火墙** 只开放 80/443，关闭 3000-3003
 
 ```bash
 # UFW 示例
 sudo ufw allow 80/tcp
 sudo ufw allow 443/tcp
-sudo ufw deny 3000/tcp
+sudo ufw deny 3000:3003/tcp
 ```

@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { redirect } from 'next/navigation';
 import { clearSession, comparePasswords, getUserPasswordByLogin, hashPassword, setSession } from '@/lib/openwook/auth';
 import { sql } from '@/lib/openwook/db';
+import { errorToLog, logger } from '@/lib/openwook/logger';
 import { assertSameOriginFromHeaders } from '@/lib/openwook/server-action-origin';
 
 export type ActionState = {
@@ -70,7 +71,7 @@ export async function signUp(_prevState: ActionState, formData: FormData): Promi
     `;
     await setSession(rows[0].id);
   } catch (error) {
-    console.error(error);
+    logger.warn({ ...errorToLog(error), action: 'signUp' }, 'sign up failed');
     return {
       error: '账号创建失败，用户名或邮箱可能已存在。',
       email: parsed.data.email || '',

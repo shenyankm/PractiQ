@@ -3,6 +3,7 @@ import { hashPassword, requireUser } from '@/lib/openwook/auth';
 import { ApiError, created, handleApiError, noContent, ok, parseId, readJson } from '@/lib/openwook/api';
 import { streamImportEvents, type ImportEventPayload } from '@/lib/openwook/import-events';
 import { assertSameOriginRequest } from '@/lib/openwook/request-origin';
+import { withApiObservability } from '@/lib/openwook/observability';
 import {
   addImportJobFile,
   addImportJobUploadedFile,
@@ -228,7 +229,8 @@ async function objectStorageHandlers() {
 }
 
 export async function GET(request: Request, ctx: Ctx) {
-  try {
+  return withApiObservability(request, '/api/v1/[[...path]]', async () => {
+    try {
     const parts = await partsFrom(ctx);
     const url = new URL(request.url);
 
@@ -303,13 +305,15 @@ export async function GET(request: Request, ctx: Ctx) {
     if (parts[0] === 'analytics' && parts[1] === 'imports' && parts[2]) return ok(await getImportAnalytics(user, parseId(parts[2], 'jobId')));
 
     throw new ApiError(404, 'NOT_FOUND', 'Endpoint not found');
-  } catch (error) {
-    return handleApiError(error);
-  }
+    } catch (error) {
+      return handleApiError(error);
+    }
+  });
 }
 
 export async function POST(request: Request, ctx: Ctx) {
-  try {
+  return withApiObservability(request, '/api/v1/[[...path]]', async () => {
+    try {
     const parts = await partsFrom(ctx);
 
     assertSameOriginRequest(request);
@@ -434,13 +438,15 @@ export async function POST(request: Request, ctx: Ctx) {
     }
 
     throw new ApiError(404, 'NOT_FOUND', 'Endpoint not found');
-  } catch (error) {
-    return handleApiError(error);
-  }
+    } catch (error) {
+      return handleApiError(error);
+    }
+  });
 }
 
 export async function PATCH(request: Request, ctx: Ctx) {
-  try {
+  return withApiObservability(request, '/api/v1/[[...path]]', async () => {
+    try {
     assertSameOriginRequest(request);
     const parts = await partsFrom(ctx);
     const user = await requireUser();
@@ -527,13 +533,15 @@ export async function PATCH(request: Request, ctx: Ctx) {
     }
 
     throw new ApiError(404, 'NOT_FOUND', 'Endpoint not found');
-  } catch (error) {
-    return handleApiError(error);
-  }
+    } catch (error) {
+      return handleApiError(error);
+    }
+  });
 }
 
 export async function PUT(request: Request, ctx: Ctx) {
-  try {
+  return withApiObservability(request, '/api/v1/[[...path]]', async () => {
+    try {
     assertSameOriginRequest(request);
     const parts = await partsFrom(ctx);
     const user = await requireUser();
@@ -554,13 +562,15 @@ export async function PUT(request: Request, ctx: Ctx) {
     }
 
     throw new ApiError(404, 'NOT_FOUND', 'Endpoint not found');
-  } catch (error) {
-    return handleApiError(error);
-  }
+    } catch (error) {
+      return handleApiError(error);
+    }
+  });
 }
 
 export async function DELETE(request: Request, ctx: Ctx) {
-  try {
+  return withApiObservability(request, '/api/v1/[[...path]]', async () => {
+    try {
     assertSameOriginRequest(request);
     const parts = await partsFrom(ctx);
     const user = await requireUser();
@@ -590,7 +600,8 @@ export async function DELETE(request: Request, ctx: Ctx) {
     }
 
     throw new ApiError(404, 'NOT_FOUND', 'Endpoint not found');
-  } catch (error) {
-    return handleApiError(error);
-  }
+    } catch (error) {
+      return handleApiError(error);
+    }
+  });
 }

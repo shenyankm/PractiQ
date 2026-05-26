@@ -2,6 +2,7 @@ import 'server-only';
 
 import { sql } from './db';
 import { ApiError } from './api';
+import { errorToLog, logger } from './logger';
 import { invalidateUserCache } from './auth';
 import { publishImportEvent } from './import-events';
 import { requireAdminRole, requireImportSourceType, requirePlusEntitlement } from './permissions';
@@ -39,6 +40,8 @@ const shortCacheTtl = Number(process.env.OPENWOOK_SHORT_CACHE_TTL_SECONDS || 60)
 const referenceCacheTtl = Number(process.env.OPENWOOK_REFERENCE_CACHE_TTL_SECONDS || 3600);
 const practiceQueueTtl = Number(process.env.PRACTICE_QUEUE_TTL_SECONDS || 7 * 24 * 60 * 60);
 const maxPracticeQuestions = Number(process.env.PRACTICE_MAX_QUESTIONS || 500);
+const practiceProgressFullLimit = Number(process.env.PRACTICE_PROGRESS_FULL_LIMIT || 120);
+const practiceProgressWindowRadius = Number(process.env.PRACTICE_PROGRESS_WINDOW_RADIUS || 30);
 
 function toJsonValue(value: unknown): JsonValue {
   return JSON.parse(JSON.stringify(value ?? null)) as JsonValue;
@@ -51,6 +54,11 @@ function practiceQuestionQueueKey(sessionId: number) {
 function answerKeyCacheKey(questionId: number) {
   return redisKey('cache', 'answer-key', questionId);
 }
+
+type BankQuestionIdentity = Pick<
+  BankQuestionItem,
+  'bank_id' | 'group_id' | 'question_id' | 'item_scope' | 'bank_sort_order' | 'group_sort_order' | 'question_no' | 'bank_link_status'
+>;
 
 async function cacheVersion(scope: string, id?: number | string | null) {
   return await redisGetText(redisKey('cache-version', scope, id ?? 'global')) ?? '0';
@@ -112,26 +120,40 @@ async function loadPracticeQuestionIds(
   const typeFilter = mode === 'by_type' ? options.questionTypeId?.trim() || null : null;
 
   const rows = await sql<Array<{ question_id: number }>>`
-    SELECT v.question_id
-    FROM v_bank_question_items v
+    WITH active_question_ids AS (
+      SELECT bql.question_id, bql.sort_order AS bank_sort_order, NULL::integer AS group_sort_order
+      FROM bank_question_links bql
+      WHERE bql.bank_id = ${bankId}
+        AND bql.status = 'active'
+
+      UNION ALL
+
+      SELECT gql.question_id, bgl.sort_order AS bank_sort_order, gql.sort_order AS group_sort_order
+      FROM bank_group_links bgl
+      JOIN group_question_links gql ON gql.group_id = bgl.group_id
+      WHERE bgl.bank_id = ${bankId}
+        AND bgl.status = 'active'
+    )
+    SELECT ids.question_id
+    FROM active_question_ids ids
+    JOIN questions q ON q.id = ids.question_id
     LEFT JOIN user_question_stats uqs
-      ON uqs.question_id = v.question_id
+      ON uqs.question_id = ids.question_id
      AND uqs.user_id = ${user.id}
-    WHERE v.bank_id = ${bankId}
-      AND v.bank_link_status = 'active'
-      AND v.question_status = 'active'
-      AND (${typeFilter ?? null}::text IS NULL OR v.question_type_id = ${typeFilter ?? null})
+    WHERE q.status = 'active'
+      AND (${typeFilter ?? null}::text IS NULL OR q.question_type_id = ${typeFilter ?? null})
       AND (
         ${mode} <> 'wrong'
         OR COALESCE(uqs.wrong_count, 0) > 0
         OR uqs.last_is_correct IS FALSE
       )
+    GROUP BY ids.question_id, ids.bank_sort_order, ids.group_sort_order, uqs.wrong_count, uqs.last_is_correct
     ORDER BY
       CASE WHEN ${mode} = 'wrong' THEN COALESCE(uqs.wrong_count, 0) ELSE 0 END DESC,
-      CASE WHEN ${mode} = 'exam' THEN md5(v.question_id::text || ${user.id}::text || CURRENT_DATE::text) ELSE NULL END,
-      v.bank_sort_order,
-      v.group_sort_order NULLS FIRST,
-      v.question_id
+      CASE WHEN ${mode} = 'exam' THEN md5(ids.question_id::text || ${user.id}::text || CURRENT_DATE::text) ELSE NULL END,
+      ids.bank_sort_order,
+      ids.group_sort_order NULLS FIRST,
+      ids.question_id
     LIMIT ${count}
   `;
   return rows.map((row) => Number(row.question_id));
@@ -148,6 +170,317 @@ async function getExistingPracticeAnswer(userId: number, sessionId: number, ques
     LIMIT 1
   `;
   return rows[0] ?? null;
+}
+
+async function loadBankQuestionIdentities(
+  bankId: number,
+  options: {
+    status?: string | null;
+    type?: string | null;
+    activeOnly?: boolean;
+    questionIds?: number[];
+    offset?: number;
+    limit?: number;
+  } = {}
+) {
+  const questionIds = options.questionIds?.map(Number).filter(Number.isFinite) ?? [];
+  const ids = sql.array(questionIds);
+  const limit = options.limit ?? 100;
+  const offset = options.offset ?? 0;
+  const hasQuestionFilter = questionIds.length > 0;
+  const status = options.status ?? null;
+  const type = options.type ?? null;
+  const activeOnly = options.activeOnly ?? false;
+
+  if (hasQuestionFilter && !type) {
+    return sql<BankQuestionIdentity[]>`
+      WITH requested_ids AS (
+        SELECT id, ord
+        FROM unnest(${ids}::bigint[]) WITH ORDINALITY AS requested(id, ord)
+      ),
+      matched_items AS (
+        SELECT
+          bql.bank_id,
+          NULL::bigint AS group_id,
+          bql.question_id,
+          'standalone'::text AS item_scope,
+          bql.sort_order AS bank_sort_order,
+          NULL::integer AS group_sort_order,
+          bql.question_no,
+          bql.status AS bank_link_status,
+          requested_ids.ord
+        FROM requested_ids
+        JOIN bank_question_links bql ON bql.question_id = requested_ids.id
+        WHERE bql.bank_id = ${bankId}
+          AND (${status}::text IS NULL OR bql.status = ${status})
+          AND (${activeOnly}::boolean = false OR bql.status = 'active')
+
+        UNION ALL
+
+        SELECT
+          bgl.bank_id,
+          bgl.group_id,
+          gql.question_id,
+          'grouped'::text AS item_scope,
+          bgl.sort_order AS bank_sort_order,
+          gql.sort_order AS group_sort_order,
+          gql.question_no,
+          bgl.status AS bank_link_status,
+          requested_ids.ord
+        FROM requested_ids
+        JOIN group_question_links gql ON gql.question_id = requested_ids.id
+        JOIN bank_group_links bgl ON bgl.group_id = gql.group_id
+        WHERE bgl.bank_id = ${bankId}
+          AND (${status}::text IS NULL OR bgl.status = ${status})
+          AND (${activeOnly}::boolean = false OR bgl.status = 'active')
+      )
+      SELECT bank_id, group_id, question_id, item_scope, bank_sort_order, group_sort_order, question_no, bank_link_status
+      FROM matched_items
+      ORDER BY ord
+      LIMIT ${limit}
+    `;
+  }
+
+  if (hasQuestionFilter) {
+    return sql<BankQuestionIdentity[]>`
+      WITH requested_ids AS (
+        SELECT id, ord
+        FROM unnest(${ids}::bigint[]) WITH ORDINALITY AS requested(id, ord)
+      ),
+      matched_items AS (
+        SELECT
+          bql.bank_id,
+          NULL::bigint AS group_id,
+          bql.question_id,
+          'standalone'::text AS item_scope,
+          bql.sort_order AS bank_sort_order,
+          NULL::integer AS group_sort_order,
+          bql.question_no,
+          bql.status AS bank_link_status,
+          requested_ids.ord
+        FROM requested_ids
+        JOIN bank_question_links bql ON bql.question_id = requested_ids.id
+        JOIN questions q_filter ON q_filter.id = bql.question_id
+        WHERE bql.bank_id = ${bankId}
+          AND (${status}::text IS NULL OR bql.status = ${status})
+          AND (${activeOnly}::boolean = false OR bql.status = 'active')
+          AND q_filter.question_type_id = ${type}
+
+        UNION ALL
+
+        SELECT
+          bgl.bank_id,
+          bgl.group_id,
+          gql.question_id,
+          'grouped'::text AS item_scope,
+          bgl.sort_order AS bank_sort_order,
+          gql.sort_order AS group_sort_order,
+          gql.question_no,
+          bgl.status AS bank_link_status,
+          requested_ids.ord
+        FROM requested_ids
+        JOIN group_question_links gql ON gql.question_id = requested_ids.id
+        JOIN bank_group_links bgl ON bgl.group_id = gql.group_id
+        JOIN questions q_filter ON q_filter.id = gql.question_id
+        WHERE bgl.bank_id = ${bankId}
+          AND (${status}::text IS NULL OR bgl.status = ${status})
+          AND (${activeOnly}::boolean = false OR bgl.status = 'active')
+          AND q_filter.question_type_id = ${type}
+      )
+      SELECT bank_id, group_id, question_id, item_scope, bank_sort_order, group_sort_order, question_no, bank_link_status
+      FROM matched_items
+      ORDER BY ord
+      LIMIT ${limit}
+    `;
+  }
+
+  if (!type) {
+    return sql<BankQuestionIdentity[]>`
+      WITH bank_item_ids AS (
+        SELECT
+          bql.bank_id,
+          NULL::bigint AS group_id,
+          bql.question_id,
+          'standalone'::text AS item_scope,
+          bql.sort_order AS bank_sort_order,
+          NULL::integer AS group_sort_order,
+          bql.question_no,
+          bql.status AS bank_link_status
+        FROM bank_question_links bql
+        WHERE bql.bank_id = ${bankId}
+          AND (${status}::text IS NULL OR bql.status = ${status})
+          AND (${activeOnly}::boolean = false OR bql.status = 'active')
+
+        UNION ALL
+
+        SELECT
+          bgl.bank_id,
+          bgl.group_id,
+          gql.question_id,
+          'grouped'::text AS item_scope,
+          bgl.sort_order AS bank_sort_order,
+          gql.sort_order AS group_sort_order,
+          gql.question_no,
+          bgl.status AS bank_link_status
+        FROM bank_group_links bgl
+        JOIN group_question_links gql ON gql.group_id = bgl.group_id
+        WHERE bgl.bank_id = ${bankId}
+          AND (${status}::text IS NULL OR bgl.status = ${status})
+          AND (${activeOnly}::boolean = false OR bgl.status = 'active')
+      )
+      SELECT bank_id, group_id, question_id, item_scope, bank_sort_order, group_sort_order, question_no, bank_link_status
+      FROM bank_item_ids
+      ORDER BY bank_sort_order, group_sort_order NULLS FIRST, question_id
+      OFFSET ${offset}
+      LIMIT ${limit}
+    `;
+  }
+
+  return sql<BankQuestionIdentity[]>`
+    WITH bank_item_ids AS (
+      SELECT
+        bql.bank_id,
+        NULL::bigint AS group_id,
+        bql.question_id,
+        'standalone'::text AS item_scope,
+        bql.sort_order AS bank_sort_order,
+        NULL::integer AS group_sort_order,
+        bql.question_no,
+        bql.status AS bank_link_status
+      FROM bank_question_links bql
+      JOIN questions q_filter ON q_filter.id = bql.question_id
+      WHERE bql.bank_id = ${bankId}
+        AND (${status}::text IS NULL OR bql.status = ${status})
+        AND (${activeOnly}::boolean = false OR bql.status = 'active')
+        AND q_filter.question_type_id = ${type}
+
+      UNION ALL
+
+      SELECT
+        bgl.bank_id,
+        bgl.group_id,
+        gql.question_id,
+        'grouped'::text AS item_scope,
+        bgl.sort_order AS bank_sort_order,
+        gql.sort_order AS group_sort_order,
+        gql.question_no,
+        bgl.status AS bank_link_status
+      FROM bank_group_links bgl
+      JOIN group_question_links gql ON gql.group_id = bgl.group_id
+      JOIN questions q_filter ON q_filter.id = gql.question_id
+      WHERE bgl.bank_id = ${bankId}
+        AND (${status}::text IS NULL OR bgl.status = ${status})
+        AND (${activeOnly}::boolean = false OR bgl.status = 'active')
+        AND q_filter.question_type_id = ${type}
+    )
+    SELECT bank_id, group_id, question_id, item_scope, bank_sort_order, group_sort_order, question_no, bank_link_status
+    FROM bank_item_ids
+    ORDER BY bank_sort_order, group_sort_order NULLS FIRST, question_id
+    OFFSET ${offset}
+    LIMIT ${limit}
+  `;
+}
+
+async function loadBankQuestionDetails(identities: BankQuestionIdentity[]) {
+  if (identities.length === 0) return [];
+
+  const questionIds = [...new Set(identities.map((item) => Number(item.question_id)))];
+  const groupIds = [...new Set(
+    identities
+      .map((item) => item.group_id == null ? null : Number(item.group_id))
+      .filter((id): id is number => id !== null && Number.isFinite(id))
+  )];
+  const questionIdArray = sql.array(questionIds);
+  const groupIdArray = sql.array(groupIds);
+
+  const [questions, groups, options] = await Promise.all([
+    sql<Array<{
+      question_id: number;
+      business_type: string;
+      subject_id: string;
+      question_type_id: string;
+      answer_mode: AnswerMode;
+      choice_variant: 'single' | 'multiple' | null;
+      content_mode: string | null;
+      stem: string;
+      analysis: string | null;
+      question_status: 'draft' | 'active' | 'archived';
+    }>>`
+      SELECT
+        q.id AS question_id,
+        q.business_type,
+        q.subject_id,
+        q.question_type_id,
+        q.answer_mode,
+        q.choice_variant,
+        q.content_mode,
+        q.stem,
+        q.analysis,
+        q.status AS question_status
+      FROM questions q
+      WHERE q.id = ANY(${questionIdArray}::bigint[])
+    `,
+    groupIds.length
+      ? sql<Array<{ group_id: number; group_title: string | null; group_instructions: string | null }>>`
+          SELECT id AS group_id, title AS group_title, instructions AS group_instructions
+          FROM question_groups
+          WHERE id = ANY(${groupIdArray}::bigint[])
+        `
+      : Promise.resolve([]),
+    sql<Array<{ question_id: number; options: BankQuestionItem['options'] }>>`
+      SELECT
+        qo.question_id,
+        json_agg(
+          json_build_object(
+            'id', qo.id,
+            'option_label', qo.option_label,
+            'content', qo.content,
+            'is_correct', qo.is_correct
+          )
+          ORDER BY qo.sort_order
+        ) AS options
+      FROM question_options qo
+      WHERE qo.question_id = ANY(${questionIdArray}::bigint[])
+      GROUP BY qo.question_id
+    `
+  ]);
+
+  const questionById = new Map(questions.map((question) => [Number(question.question_id), question]));
+  const groupById = new Map(groups.map((group) => [Number(group.group_id), group]));
+  const optionsByQuestionId = new Map(options.map((row) => [Number(row.question_id), row.options ?? []]));
+
+  return identities.flatMap((identity) => {
+    const question = questionById.get(Number(identity.question_id));
+    if (!question) return [];
+    const group = identity.group_id == null ? null : groupById.get(Number(identity.group_id));
+
+    return [{
+      ...identity,
+      ...question,
+      item_scope: identity.item_scope as BankQuestionItem['item_scope'],
+      bank_link_status: identity.bank_link_status as BankQuestionItem['bank_link_status'],
+      question_status: question.question_status,
+      group_title: group?.group_title ?? null,
+      group_instructions: group?.group_instructions ?? null,
+      options: optionsByQuestionId.get(Number(identity.question_id)) ?? []
+    } satisfies BankQuestionItem];
+  });
+}
+
+async function loadBankQuestionItems(
+  bankId: number,
+  options: {
+    status?: string | null;
+    type?: string | null;
+    activeOnly?: boolean;
+    questionIds?: number[];
+    offset?: number;
+    limit?: number;
+  } = {}
+) {
+  const identities = await loadBankQuestionIdentities(bankId, options);
+  const items = await loadBankQuestionDetails(identities);
+  return options.limit ? items.slice(0, options.limit) : items;
 }
 
 export function normalizePracticeModeForTest(mode?: PracticeMode | null, sessionType?: 'practice' | 'review' | 'exam') {
@@ -615,25 +948,7 @@ async function listBankItemsForBank(user: User, bankId: number, params: URLSearc
   return redisGetOrSetJson<BankQuestionItem[]>(
     redisKey('cache', 'bank-items', bankId, 'user', user.id, version, hashKey({ status, type, limit })),
     shortCacheTtl,
-    () => sql<BankQuestionItem[]>`
-      SELECT
-        v.*,
-        COALESCE(
-          (
-            SELECT json_agg(qo.* ORDER BY qo.sort_order)
-            FROM question_options qo
-            WHERE qo.question_id = v.question_id
-          ),
-          '[]'
-        ) AS options
-      FROM v_bank_question_items
-        v
-      WHERE bank_id = ${bankId}
-        AND (${status ?? null}::text IS NULL OR bank_link_status = ${status ?? null})
-        AND (${type ?? null}::text IS NULL OR question_type_id = ${type ?? null})
-      ORDER BY bank_sort_order, group_sort_order NULLS FIRST, question_id
-      LIMIT ${limit}
-    `
+    () => loadBankQuestionItems(bankId, { status, type, limit })
   );
 }
 
@@ -665,15 +980,28 @@ export async function getBankPracticeSummary(user: User, bankId: number) {
         mode_counts: unknown;
       }>>`
         WITH active_questions AS (
-          SELECT DISTINCT ON (v.question_id)
-            v.question_id,
-            v.question_type_id,
-            v.answer_mode
-          FROM v_bank_question_items v
-          WHERE v.bank_id = ${bankId}
-            AND v.bank_link_status = 'active'
-            AND v.question_status = 'active'
-          ORDER BY v.question_id
+          SELECT
+            q.id AS question_id,
+            q.question_type_id,
+            q.answer_mode
+          FROM bank_question_links bql
+          JOIN questions q ON q.id = bql.question_id
+          WHERE bql.bank_id = ${bankId}
+            AND bql.status = 'active'
+            AND q.status = 'active'
+
+          UNION
+
+          SELECT
+            q.id AS question_id,
+            q.question_type_id,
+            q.answer_mode
+          FROM bank_group_links bgl
+          JOIN group_question_links gql ON gql.group_id = bgl.group_id
+          JOIN questions q ON q.id = gql.question_id
+          WHERE bgl.bank_id = ${bankId}
+            AND bgl.status = 'active'
+            AND q.status = 'active'
         )
         SELECT
           (SELECT COUNT(*)::int FROM active_questions) AS active_count,
@@ -1352,13 +1680,25 @@ async function ensurePracticeQuestionQueue(session: PracticeSession) {
   if (cachedQuestionIds?.length) return cachedQuestionIds.map(Number).slice(0, session.question_count);
 
   const rows = await sql<Array<{ question_id: number }>>`
-    SELECT v.question_id
-    FROM v_bank_question_items
-      v
-    WHERE v.bank_id = ${session.bank_id}
-      AND v.bank_link_status = 'active'
-      AND v.question_status = 'active'
-    ORDER BY bank_sort_order, question_id
+    WITH active_question_ids AS (
+      SELECT bql.question_id, bql.sort_order AS bank_sort_order, NULL::integer AS group_sort_order
+      FROM bank_question_links bql
+      WHERE bql.bank_id = ${session.bank_id}
+        AND bql.status = 'active'
+
+      UNION ALL
+
+      SELECT gql.question_id, bgl.sort_order AS bank_sort_order, gql.sort_order AS group_sort_order
+      FROM bank_group_links bgl
+      JOIN group_question_links gql ON gql.group_id = bgl.group_id
+      WHERE bgl.bank_id = ${session.bank_id}
+        AND bgl.status = 'active'
+    )
+    SELECT ids.question_id
+    FROM active_question_ids ids
+    JOIN questions q ON q.id = ids.question_id
+    WHERE q.status = 'active'
+    ORDER BY ids.bank_sort_order, ids.group_sort_order NULLS FIRST, ids.question_id
     LIMIT ${session.question_count}
   `;
   const questionIds = rows.map((row) => Number(row.question_id));
@@ -1370,25 +1710,15 @@ async function loadPracticeQuestionRows(session: PracticeSession, questionIds: n
   if (!session.bank_id || questionIds.length === 0) return [];
   const slice = questionIds.slice(offset, offset + limit);
   if (slice.length === 0) return [];
-  const ids = sql.array(slice);
-  return sql<BankQuestionItem[]>`
-    SELECT
-      v.*,
-      COALESCE(
-        (
-          SELECT json_agg(qo.* ORDER BY qo.sort_order)
-          FROM question_options qo
-          WHERE qo.question_id = v.question_id
-        ),
-        '[]'
-      ) AS options
-    FROM v_bank_question_items
-      v
-    WHERE v.bank_id = ${session.bank_id}
-      AND v.question_id = ANY(${ids}::bigint[])
-    ORDER BY array_position(${ids}::bigint[], v.question_id)
-    LIMIT ${slice.length}
-  `;
+  const orderedItems = await loadBankQuestionItems(session.bank_id, {
+    questionIds: slice,
+    activeOnly: true,
+    limit: slice.length
+  });
+  const orderByQuestionId = new Map(slice.map((questionId, index) => [Number(questionId), index]));
+  return orderedItems.sort(
+    (left, right) => (orderByQuestionId.get(Number(left.question_id)) ?? 0) - (orderByQuestionId.get(Number(right.question_id)) ?? 0)
+  );
 }
 
 export async function getPracticeQuestions(user: User, sessionId: number) {
@@ -1400,16 +1730,16 @@ export async function getPracticeQuestions(user: User, sessionId: number) {
 export async function getPracticeQuestionPage(user: User, sessionId: number, params?: URLSearchParams) {
   const session = await getPracticeSession(user, sessionId);
   const questionIds = await ensurePracticeQuestionQueue(session);
-  const answeredRows = await sql<PracticeAnswer[]>`
-    SELECT *
+  const answeredSummaryRows = await sql<Array<Pick<PracticeAnswer, 'question_id' | 'is_correct'>>>`
+    SELECT question_id, is_correct
     FROM user_question_answers
     WHERE user_id = ${user.id}
       AND session_id = ${sessionId}
     ORDER BY answered_at, id
   `;
-  const answered = new Map(answeredRows.map((answer) => [Number(answer.question_id), answer]));
+  const answeredSummary = new Map(answeredSummaryRows.map((answer) => [Number(answer.question_id), answer]));
   const requestedIndex = Number(params?.get('index'));
-  const firstUnansweredIndex = questionIds.findIndex((questionId) => !answered.has(questionId));
+  const firstUnansweredIndex = questionIds.findIndex((questionId) => !answeredSummary.has(questionId));
   const fallbackIndex = firstUnansweredIndex >= 0 ? firstUnansweredIndex : 0;
   const currentIndex = Number.isInteger(requestedIndex)
     ? Math.max(0, Math.min(requestedIndex, Math.max(questionIds.length - 1, 0)))
@@ -1417,25 +1747,54 @@ export async function getPracticeQuestionPage(user: User, sessionId: number, par
   const rows = await loadPracticeQuestionRows(session, questionIds, currentIndex, 1);
   const question = rows[0] ?? null;
   const questionId = question ? Number(question.question_id) : null;
+  const result = questionId ? await getExistingPracticeAnswer(user.id, sessionId, questionId) as PracticeAnswer | null : null;
+  const progress = buildPracticeProgress(questionIds, answeredSummary, currentIndex);
 
   return {
     session,
     question,
     questionIndex: question ? currentIndex : 0,
     total: questionIds.length,
-    result: questionId ? answered.get(questionId) ?? null : null,
-    progress: questionIds.map((questionId, index) => {
-      const result = answered.get(questionId);
-      return {
-        questionId,
-        index,
-        isAnswered: Boolean(result),
-        isCorrect: result?.is_correct ?? null
-      };
-    }),
+    answeredCount: answeredSummary.size,
+    progress,
+    progressTruncated: progress.length < questionIds.length,
+    result,
     previousIndex: currentIndex > 0 ? currentIndex - 1 : null,
     nextIndex: currentIndex < questionIds.length - 1 ? currentIndex + 1 : null
   };
+}
+
+function buildPracticeProgress(
+  questionIds: number[],
+  answered: Map<number, Pick<PracticeAnswer, 'question_id' | 'is_correct'>>,
+  currentIndex: number
+) {
+  const total = questionIds.length;
+  const indexes = total <= practiceProgressFullLimit
+    ? questionIds.map((_, index) => index)
+    : windowedProgressIndexes(total, currentIndex, practiceProgressWindowRadius);
+
+  return indexes.map((index) => {
+    const questionId = questionIds[index];
+    const result = answered.get(Number(questionId));
+    return {
+      questionId,
+      index,
+      isAnswered: Boolean(result),
+      isCorrect: result?.is_correct ?? null
+    };
+  });
+}
+
+function windowedProgressIndexes(total: number, currentIndex: number, radius: number) {
+  const normalizedRadius = Math.max(1, Math.min(radius, Math.max(total - 1, 1)));
+  const indexes = new Set<number>([0, total - 1, currentIndex]);
+  const start = Math.max(0, currentIndex - normalizedRadius);
+  const end = Math.min(total - 1, currentIndex + normalizedRadius);
+  for (let index = start; index <= end; index += 1) {
+    indexes.add(index);
+  }
+  return [...indexes].sort((left, right) => left - right);
 }
 
 export async function listPracticeSessions(user: User, params: URLSearchParams) {
@@ -1454,15 +1813,30 @@ export async function listPracticeSessions(user: User, params: URLSearchParams) 
 export async function getBankWrongQuestionCount(user: User, bankId: number) {
   await getBank(user, bankId);
   const rows = await sql<Array<{ count: number }>>`
-    SELECT COUNT(DISTINCT v.question_id)::int AS count
-    FROM v_bank_question_items v
+    WITH active_question_ids AS (
+      SELECT bql.question_id
+      FROM bank_question_links bql
+      JOIN questions q ON q.id = bql.question_id
+      WHERE bql.bank_id = ${bankId}
+        AND bql.status = 'active'
+        AND q.status = 'active'
+
+      UNION
+
+      SELECT gql.question_id
+      FROM bank_group_links bgl
+      JOIN group_question_links gql ON gql.group_id = bgl.group_id
+      JOIN questions q ON q.id = gql.question_id
+      WHERE bgl.bank_id = ${bankId}
+        AND bgl.status = 'active'
+        AND q.status = 'active'
+    )
+    SELECT COUNT(DISTINCT ids.question_id)::int AS count
+    FROM active_question_ids ids
     JOIN user_question_stats uqs
-      ON uqs.question_id = v.question_id
+      ON uqs.question_id = ids.question_id
      AND uqs.user_id = ${user.id}
-    WHERE v.bank_id = ${bankId}
-      AND v.bank_link_status = 'active'
-      AND v.question_status = 'active'
-      AND (uqs.wrong_count > 0 OR uqs.last_is_correct IS FALSE)
+    WHERE uqs.wrong_count > 0 OR uqs.last_is_correct IS FALSE
   `;
   return rows[0]?.count ?? 0;
 }
@@ -1507,16 +1881,25 @@ export async function submitAnswer(
       }
     );
     const questionRows = await sql<Array<{ answer_mode: AnswerMode }>>`
-      SELECT answer_mode
-      FROM questions
-      WHERE id = ${data.questionId}
+      SELECT q.answer_mode
+      FROM questions q
+      WHERE q.id = ${data.questionId}
+        AND q.status = 'active'
         AND EXISTS (
           SELECT 1
-          FROM v_bank_question_items v
-          WHERE v.bank_id = ${session.bank_id}
-            AND v.question_id = questions.id
-            AND v.bank_link_status = 'active'
-            AND v.question_status = 'active'
+          FROM bank_question_links bql
+          WHERE bql.bank_id = ${session.bank_id}
+            AND bql.question_id = q.id
+            AND bql.status = 'active'
+
+          UNION ALL
+
+          SELECT 1
+          FROM bank_group_links bgl
+          JOIN group_question_links gql ON gql.group_id = bgl.group_id
+          WHERE bgl.bank_id = ${session.bank_id}
+            AND gql.question_id = q.id
+            AND bgl.status = 'active'
         )
       LIMIT 1
     `;
@@ -1782,7 +2165,7 @@ export async function updateImportJobStatus(user: User, jobId: number, action: '
   }
   const values =
     action === 'cancel'
-      ? { status: 'failed', stage: 'failed', lastError: 'cancelled', completed: true }
+      ? { status: 'failed', stage: 'failed', lastError: '任务已取消。', completed: true }
       : { status: 'queued', stage: 'queued', lastError: null, completed: false };
   const rows = await sql.begin(async (tx) => {
     const updated = await tx<ImportJob[]>`
@@ -1872,7 +2255,9 @@ export async function queueImportJobForUser(
 }
 
 export async function recordImportJobFailure(jobId: number, error: unknown) {
-  const message = error instanceof Error ? error.message : String(error);
+  const internalMessage = error instanceof Error ? error.message : String(error);
+  logger.error({ ...errorToLog(error), jobId }, 'import job reached terminal failure');
+  const message = '导入失败，请稍后重试或联系管理员。';
   const rows = await sql.begin(async (tx) => {
     const event = await tx`
       INSERT INTO question_import_job_events (
@@ -1888,6 +2273,7 @@ export async function recordImportJobFailure(jobId: number, error: unknown) {
         stage = 'failed',
         last_error = ${message},
         last_error_code = 'IMPORT_WORKER_FAILED',
+        metadata_json = COALESCE(metadata_json, '{}'::jsonb) || jsonb_build_object('last_internal_error', ${internalMessage}),
         overall_progress_percent = 100,
         step_progress_percent = 100,
         last_event_id = ${event[0].id},
@@ -2028,36 +2414,80 @@ export async function linkOptionMedia(
 
 export async function search(user: User, target: string, params: URLSearchParams) {
   const q = params.get('q') || '';
+  const normalizedQuery = q.trim() || null;
   if (target === 'banks') {
     return listBanks(user, new URLSearchParams({ scope: params.get('scope') || 'all', q }));
   }
   if (target === 'questions') {
     const bankId = params.get('bankId');
+    const parsedBankId = bankId ? Number(bankId) : null;
+    const type = params.get('type');
+    const status = params.get('status');
     return sql`
-      SELECT q.*
-      FROM questions q
-      WHERE EXISTS (
-        SELECT 1
-        FROM bank_question_links bql
-        JOIN question_banks b ON b.id = bql.bank_id
-        LEFT JOIN user_bank_links ubl ON ubl.bank_id = b.id AND ubl.user_id = ${user.id}
-        WHERE bql.question_id = q.id
-          AND (b.is_public = true OR ubl.id IS NOT NULL)
-          AND (${bankId ?? null}::bigint IS NULL OR b.id = ${bankId ? Number(bankId) : null})
+      WITH visible_question_ids AS MATERIALIZED (
+        ${parsedBankId
+          ? sql`
+              SELECT bql.question_id
+              FROM bank_question_links bql
+              JOIN question_banks b ON b.id = bql.bank_id
+              LEFT JOIN user_bank_links ubl ON ubl.bank_id = b.id AND ubl.user_id = ${user.id}
+              WHERE bql.bank_id = ${parsedBankId}
+                AND (b.is_public = true OR ubl.id IS NOT NULL)
+
+              UNION
+
+              SELECT gql.question_id
+              FROM bank_group_links bgl
+              JOIN question_banks b ON b.id = bgl.bank_id
+              LEFT JOIN user_bank_links ubl ON ubl.bank_id = b.id AND ubl.user_id = ${user.id}
+              JOIN group_question_links gql ON gql.group_id = bgl.group_id
+              WHERE bgl.bank_id = ${parsedBankId}
+                AND (b.is_public = true OR ubl.id IS NOT NULL)
+            `
+          : sql`
+              SELECT bql.question_id
+              FROM bank_question_links bql
+              JOIN question_banks b ON b.id = bql.bank_id
+              LEFT JOIN user_bank_links ubl ON ubl.bank_id = b.id AND ubl.user_id = ${user.id}
+              WHERE b.is_public = true OR ubl.id IS NOT NULL
+
+              UNION
+
+              SELECT gql.question_id
+              FROM bank_group_links bgl
+              JOIN question_banks b ON b.id = bgl.bank_id
+              LEFT JOIN user_bank_links ubl ON ubl.bank_id = b.id AND ubl.user_id = ${user.id}
+              JOIN group_question_links gql ON gql.group_id = bgl.group_id
+              WHERE b.is_public = true OR ubl.id IS NOT NULL
+            `}
+      ),
+      searchable_questions AS MATERIALIZED (
+        SELECT q.*
+        FROM visible_question_ids vq
+        JOIN questions q ON q.id = vq.question_id
+        WHERE (${type ?? null}::text IS NULL OR q.question_type_id = ${type ?? null})
+          AND (${status ?? null}::text IS NULL OR q.status = ${status ?? null})
+      ),
+      query AS (
+        SELECT
+          ${normalizedQuery}::text AS term,
+          CASE
+            WHEN ${normalizedQuery}::text IS NULL THEN NULL
+            ELSE plainto_tsquery('simple', ${normalizedQuery}::text)
+          END AS tsq
       )
-        AND (
-          ${q || null}::text IS NULL
-          OR q.stem ILIKE ${q ? `%${q}%` : null}
-          OR to_tsvector('simple', q.stem) @@ plainto_tsquery('simple', ${q})
-        )
-        AND (${params.get('type') ?? null}::text IS NULL OR q.question_type_id = ${params.get('type') ?? null})
-        AND (${params.get('status') ?? null}::text IS NULL OR q.status = ${params.get('status') ?? null})
+      SELECT sq.*
+      FROM searchable_questions sq
+      CROSS JOIN query
+      WHERE query.term IS NULL
+         OR sq.stem ILIKE '%' || query.term || '%'
+         OR to_tsvector('simple', COALESCE(sq.stem, '')) @@ query.tsq
       ORDER BY
         CASE
-          WHEN ${q || null}::text IS NULL THEN 0
-          ELSE ts_rank_cd(to_tsvector('simple', q.stem), plainto_tsquery('simple', ${q}))
+          WHEN query.tsq IS NULL THEN 0
+          ELSE ts_rank_cd(to_tsvector('simple', COALESCE(sq.stem, '')), query.tsq)
         END DESC,
-        q.updated_at DESC
+        sq.updated_at DESC
       LIMIT 50
     `;
   }

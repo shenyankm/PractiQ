@@ -10,15 +10,21 @@ User=ubuntu
 Group=ubuntu
 WorkingDirectory=/home/ubuntu/projects/openwook
 Environment=NODE_ENV=production
-Environment=HOSTNAME=127.0.0.1
+Environment=LOG_LEVEL=info
+Environment=OTEL_SERVICE_NAME=openwook-web
+Environment=OPENWOOK_HOST=127.0.0.1
 Environment=PORT=3000
+Environment=POSTGRES_POOL_MAX=8
+Environment=UV_THREADPOOL_SIZE=16
 Environment=PATH=/home/ubuntu/.nvm/versions/node/v24.16.0/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 EnvironmentFile=-/home/ubuntu/projects/openwook/.env.local
-ExecStart=/usr/bin/env pnpm start:prod
+ExecStart=/usr/bin/env NODE_ENV=production OPENWOOK_HOST=127.0.0.1 PORT=3000 pnpm start:prod
 Restart=always
 RestartSec=5
 KillSignal=SIGTERM
 TimeoutStopSec=30
+StandardOutput=journal
+StandardError=journal
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=full

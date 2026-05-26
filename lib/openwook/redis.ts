@@ -1,8 +1,13 @@
 import { createHash, randomUUID } from 'node:crypto';
 import Redis, { type RedisOptions } from 'ioredis';
+import { trace } from '@opentelemetry/api';
+import { errorToLog, logger } from './logger';
+import { recordDependencyDuration, recordRedisCacheEvent } from './metrics';
 
 const redisUrl = process.env.REDIS_URL;
 const keyPrefix = process.env.REDIS_KEY_PREFIX || 'openwook';
+
+const redisTracer = trace.getTracer('openwook-redis');
 
 let sharedRedis: Redis | null | undefined;
 const jsonLoadInflight = new Map<string, Promise<unknown>>();
@@ -41,7 +46,7 @@ export function createRedisConnection(role: string, options?: RedisOptions) {
     ...options
   });
   redis.on('error', (error) => {
-    console.error(`[redis:${role}]`, error.message);
+    logger.warn({ ...errorToLog(error), dependency: 'redis', role }, 'redis connection error');
   });
   return redis;
 }
@@ -51,7 +56,7 @@ export function getRedis() {
   if (sharedRedis === undefined) {
     sharedRedis = new Redis(redisUrl, cacheRedisOptions('app'));
     sharedRedis.on('error', (error) => {
-      console.error('[redis:app]', error.message);
+      logger.warn({ ...errorToLog(error), dependency: 'redis', role: 'app' }, 'redis connection error');
     });
   }
   return sharedRedis;
@@ -65,6 +70,22 @@ export function hashKey(value: unknown) {
   return createHash('sha256').update(JSON.stringify(value)).digest('hex').slice(0, 24);
 }
 
+async function observeRedisOperation<T>(operation: string, run: () => Promise<T>): Promise<T> {
+  const span = redisTracer.startSpan(`redis ${operation}`);
+  span.setAttributes({ 'db.system': 'redis', 'db.operation': operation });
+  try {
+    const value = await run();
+    span.setAttribute('openwook.status', 'ok');
+    return value;
+  } catch (error) {
+    span.setAttribute('openwook.status', 'error');
+    span.recordException(error as Error);
+    throw error;
+  } finally {
+    span.end();
+  }
+}
+
 export async function pingRedis() {
   const redis = getRedis();
   if (!redis) {
@@ -72,25 +93,38 @@ export async function pingRedis() {
   }
   const started = Date.now();
   try {
-    const pong = await redis.ping();
-    return { configured: true, ok: pong === 'PONG', latencyMs: Date.now() - started };
+    const pong = await observeRedisOperation('ping', () => redis.ping());
+    const latencyMs = Date.now() - started;
+    recordDependencyDuration({ dependency: 'redis', operation: 'ping', status: pong === 'PONG' ? 'ok' : 'error' }, latencyMs);
+    return { configured: true, ok: pong === 'PONG', latencyMs };
   } catch (error) {
+    const latencyMs = Date.now() - started;
+    recordDependencyDuration({ dependency: 'redis', operation: 'ping', status: 'error' }, latencyMs);
+    logger.warn({ ...errorToLog(error), dependency: 'redis', operation: 'ping', latencyMs }, 'redis ping failed');
     return {
       configured: true,
       ok: false,
-      latencyMs: Date.now() - started,
-      error: error instanceof Error ? error.message : String(error)
+      latencyMs
     };
   }
 }
 
 export async function redisGetJson<T>(key: string): Promise<T | null> {
   const redis = getRedis();
-  if (!redis) return null;
+  if (!redis) {
+    recordRedisCacheEvent('disabled');
+    return null;
+  }
+  const started = Date.now();
   try {
-    const value = await redis.get(key);
+    const value = await observeRedisOperation('get', () => redis.get(key));
+    recordDependencyDuration({ dependency: 'redis', operation: 'get_json', status: 'ok' }, Date.now() - started);
+    recordRedisCacheEvent(value ? 'hit' : 'miss');
     return value ? JSON.parse(value) as T : null;
-  } catch {
+  } catch (error) {
+    recordDependencyDuration({ dependency: 'redis', operation: 'get_json', status: 'error' }, Date.now() - started);
+    recordRedisCacheEvent('error');
+    logger.warn({ ...errorToLog(error), dependency: 'redis', operation: 'get_json' }, 'redis get json failed');
     return null;
   }
 }
@@ -98,20 +132,35 @@ export async function redisGetJson<T>(key: string): Promise<T | null> {
 export async function redisSetJson(key: string, value: unknown, ttlSeconds: number) {
   const redis = getRedis();
   if (!redis) return false;
+  const started = Date.now();
   try {
-    await redis.set(key, JSON.stringify(value), 'EX', ttlSeconds);
+    await observeRedisOperation('set', () => redis.set(key, JSON.stringify(value), 'EX', ttlSeconds));
+    recordDependencyDuration({ dependency: 'redis', operation: 'set_json', status: 'ok' }, Date.now() - started);
     return true;
-  } catch {
+  } catch (error) {
+    recordDependencyDuration({ dependency: 'redis', operation: 'set_json', status: 'error' }, Date.now() - started);
+    recordRedisCacheEvent('set_error');
+    logger.warn({ ...errorToLog(error), dependency: 'redis', operation: 'set_json' }, 'redis set json failed');
     return false;
   }
 }
 
 export async function redisGetText(key: string): Promise<string | null> {
   const redis = getRedis();
-  if (!redis) return null;
+  if (!redis) {
+    recordRedisCacheEvent('disabled');
+    return null;
+  }
+  const started = Date.now();
   try {
-    return await redis.get(key);
-  } catch {
+    const value = await observeRedisOperation('get', () => redis.get(key));
+    recordDependencyDuration({ dependency: 'redis', operation: 'get_text', status: 'ok' }, Date.now() - started);
+    recordRedisCacheEvent(value ? 'hit' : 'miss');
+    return value;
+  } catch (error) {
+    recordDependencyDuration({ dependency: 'redis', operation: 'get_text', status: 'error' }, Date.now() - started);
+    recordRedisCacheEvent('error');
+    logger.warn({ ...errorToLog(error), dependency: 'redis', operation: 'get_text' }, 'redis get text failed');
     return null;
   }
 }
@@ -119,9 +168,14 @@ export async function redisGetText(key: string): Promise<string | null> {
 export async function redisIncr(key: string) {
   const redis = getRedis();
   if (!redis) return 0;
+  const started = Date.now();
   try {
-    return await redis.incr(key);
-  } catch {
+    const value = await observeRedisOperation('incr', () => redis.incr(key));
+    recordDependencyDuration({ dependency: 'redis', operation: 'incr', status: 'ok' }, Date.now() - started);
+    return value;
+  } catch (error) {
+    recordDependencyDuration({ dependency: 'redis', operation: 'incr', status: 'error' }, Date.now() - started);
+    logger.warn({ ...errorToLog(error), dependency: 'redis', operation: 'incr' }, 'redis incr failed');
     return 0;
   }
 }
@@ -159,9 +213,14 @@ export async function redisGetOrSetJson<T>(
 export async function redisDel(...keys: string[]) {
   const redis = getRedis();
   if (!redis || keys.length === 0) return 0;
+  const started = Date.now();
   try {
-    return await redis.unlink(...keys);
-  } catch {
+    const deleted = await observeRedisOperation('unlink', () => redis.unlink(...keys));
+    recordDependencyDuration({ dependency: 'redis', operation: 'del', status: 'ok' }, Date.now() - started);
+    return deleted;
+  } catch (error) {
+    recordDependencyDuration({ dependency: 'redis', operation: 'del', status: 'error' }, Date.now() - started);
+    logger.warn({ ...errorToLog(error), dependency: 'redis', operation: 'del' }, 'redis del failed');
     return 0;
   }
 }
@@ -173,11 +232,12 @@ export async function redisDelByPattern(pattern: string) {
   let deleted = 0;
   try {
     do {
-      const [nextCursor, keys] = await redis.scan(cursor, 'MATCH', pattern, 'COUNT', 100);
+      const [nextCursor, keys] = await observeRedisOperation('scan', () => redis.scan(cursor, 'MATCH', pattern, 'COUNT', 100));
       cursor = nextCursor;
-      if (keys.length) deleted += await redis.unlink(...keys);
+      if (keys.length) deleted += await observeRedisOperation('unlink', () => redis.unlink(...keys));
     } while (cursor !== '0');
-  } catch {
+  } catch (error) {
+    logger.warn({ ...errorToLog(error), dependency: 'redis', operation: 'del_pattern' }, 'redis delete by pattern failed');
     return deleted;
   }
   return deleted;
@@ -203,22 +263,23 @@ export async function acquireRedisLock(key: string, ttlMs: number): Promise<Redi
   }
 
   try {
-    const result = await redis.set(key, token, 'PX', ttlMs, 'NX');
+    const result = await observeRedisOperation('set_lock', () => redis.set(key, token, 'PX', ttlMs, 'NX'));
     const release = async () => {
       try {
-        const released = await redis.eval(
+        const released = await observeRedisOperation('release_lock', () => redis.eval(
           "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
           1,
           key,
           token
-        );
+        ));
         return released === 1;
       } catch {
         return false;
       }
     };
     return { acquired: result === 'OK', key, token, release };
-  } catch {
+  } catch (error) {
+    logger.warn({ ...errorToLog(error), dependency: 'redis', operation: 'acquire_lock' }, 'redis lock failed open');
     return {
       acquired: true,
       key,
@@ -246,16 +307,17 @@ export async function incrementRateLimit(key: string, limit: number, windowSecon
   }
 
   try {
-    const count = await redis.incr(key);
-    if (count === 1) await redis.expire(key, windowSeconds);
-    const ttl = await redis.ttl(key);
+    const count = await observeRedisOperation('rate_limit_incr', () => redis.incr(key));
+    if (count === 1) await observeRedisOperation('expire', () => redis.expire(key, windowSeconds));
+    const ttl = await observeRedisOperation('ttl', () => redis.ttl(key));
     return {
       allowed: count <= limit,
       count,
       remaining: Math.max(limit - count, 0),
       resetSeconds: ttl > 0 ? ttl : windowSeconds
     };
-  } catch {
+  } catch (error) {
+    logger.warn({ ...errorToLog(error), dependency: 'redis', operation: 'rate_limit' }, 'redis rate limit failed open');
     return { allowed: true, count: 0, remaining: limit, resetSeconds: windowSeconds };
   }
 }
@@ -263,10 +325,14 @@ export async function incrementRateLimit(key: string, limit: number, windowSecon
 export async function publishJson(channel: string, payload: unknown) {
   const redis = getRedis();
   if (!redis) return false;
+  const started = Date.now();
   try {
-    await redis.publish(channel, JSON.stringify(payload));
+    await observeRedisOperation('publish', () => redis.publish(channel, JSON.stringify(payload)));
+    recordDependencyDuration({ dependency: 'redis', operation: 'publish', status: 'ok' }, Date.now() - started);
     return true;
-  } catch {
+  } catch (error) {
+    recordDependencyDuration({ dependency: 'redis', operation: 'publish', status: 'error' }, Date.now() - started);
+    logger.warn({ ...errorToLog(error), dependency: 'redis', operation: 'publish' }, 'redis publish failed');
     return false;
   }
 }
@@ -274,10 +340,14 @@ export async function publishJson(channel: string, payload: unknown) {
 export async function appendStreamJson(streamKey: string, payload: unknown, maxLen = 500) {
   const redis = getRedis();
   if (!redis) return false;
+  const started = Date.now();
   try {
-    await redis.xadd(streamKey, 'MAXLEN', '~', maxLen, '*', 'payload', JSON.stringify(payload));
+    await observeRedisOperation('xadd', () => redis.xadd(streamKey, 'MAXLEN', '~', maxLen, '*', 'payload', JSON.stringify(payload)));
+    recordDependencyDuration({ dependency: 'redis', operation: 'xadd', status: 'ok' }, Date.now() - started);
     return true;
-  } catch {
+  } catch (error) {
+    recordDependencyDuration({ dependency: 'redis', operation: 'xadd', status: 'error' }, Date.now() - started);
+    logger.warn({ ...errorToLog(error), dependency: 'redis', operation: 'xadd' }, 'redis stream append failed');
     return false;
   }
 }

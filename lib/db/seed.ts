@@ -1,4 +1,4 @@
-import { hash } from 'bcryptjs';
+import { hash } from '@node-rs/bcrypt';
 import { config } from 'dotenv';
 import postgres from 'postgres';
 

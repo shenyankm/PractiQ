@@ -179,9 +179,14 @@ If `OSS_PUBLIC_BASE_URL` is set, user avatars are stored in PostgreSQL as browse
 
 ## Environment Variables
 
+Copy `.env.example` to `.env.local` for local development and replace all placeholder secrets before deployment.
+
 | Variable | Description |
 |----------|-------------|
 | `DATABASE_URL` | PostgreSQL connection string |
+| `POSTGRES_POOL_MAX` | Maximum PostgreSQL connections per Next.js or worker process; tune lower when running multiple web instances |
+| `POSTGRES_IDLE_TIMEOUT_SECONDS` | Idle timeout for postgres.js connections |
+| `POSTGRES_CONNECT_TIMEOUT_SECONDS` | Connection timeout for postgres.js connections |
 | `REDIS_URL` | Redis connection string for cache, rate limits, queue, locks, and SSE |
 | `REDIS_KEY_PREFIX` | Optional Redis key namespace prefix |
 | `IMPORT_WORKER_CONCURRENCY` | Number of import jobs processed per worker |
@@ -206,6 +211,59 @@ If `OSS_PUBLIC_BASE_URL` is set, user avatars are stored in PostgreSQL as browse
 | `IMPORT_SOURCE_MAX_BYTES` | Max uploaded TXT/DOCX source size in bytes |
 | `NEXT_PUBLIC_APP_URL` | Public app URL |
 | `API_SECRET_KEY` | API authentication key |
+| `LOG_LEVEL` | Structured application log level; defaults to `info` in production |
+| `SLOW_QUERY_MS` | PostgreSQL slow-operation warning threshold in milliseconds |
+| `HEALTH_CHECK_TIMEOUT_MS` | Per-dependency health-check timeout in milliseconds |
+| `METRICS_TOKEN` | Bearer token required for `/api/metrics` in production |
+| `OTEL_SERVICE_NAME` | OpenTelemetry service name used by `instrumentation.ts` |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP collector endpoint for traces/metrics export |
+| `OTEL_EXPORTER_OTLP_PROTOCOL` | OTLP protocol, for example `http/protobuf` |
+| `OPENWOOK_SHORT_CACHE_TTL_SECONDS` | TTL for short-lived hot-path caches such as bank item pages |
+| `OPENWOOK_REFERENCE_CACHE_TTL_SECONDS` | TTL for reference data caches |
+| `PRACTICE_MAX_QUESTIONS` | Upper bound for questions selected in one practice session |
+| `PRACTICE_PROGRESS_FULL_LIMIT` | Full progress-grid render limit; larger sessions return a windowed progress grid |
+| `PRACTICE_PROGRESS_WINDOW_RADIUS` | Number of nearby questions kept on each side of the current practice question |
+
+## Observability and Operations
+
+OpenWook includes a production observability baseline:
+
+- Structured JSON application logs through `pino`, with redaction for passwords, cookies, authorization headers, tokens, API keys, private keys, and uploaded `fileBase64` payloads.
+- Request correlation with `x-request-id`; API JSON envelopes include `meta.requestId` or `error.requestId`.
+- Hardened health checks: `/api/health` and `/api/health/ready` verify PostgreSQL and Redis with sanitized dependency status, while `/api/health/live` only verifies process liveness.
+- Prometheus metrics at `/api/metrics`; production scrapes must send `Authorization: Bearer $METRICS_TOKEN`.
+- OpenTelemetry startup in `instrumentation.ts` using `@vercel/otel`. Configure an OTLP collector with `OTEL_EXPORTER_OTLP_ENDPOINT`.
+- Database, Redis, HTTP route, and import-worker metrics for latency, errors, cache hit/miss, queue depth, job lifecycle, and slow query warnings.
+
+Recommended production stack:
+
+1. Scrape `/api/metrics` with Prometheus.
+2. Run `node_exporter`, `postgres_exporter`, and `redis_exporter` beside the app.
+3. Forward systemd stdout/stderr JSON logs and Caddy access logs to Loki, Elastic, CloudWatch, Datadog, or another centralized store.
+4. Export traces from Next.js to an OpenTelemetry Collector, then to Tempo, Jaeger, Honeycomb, Datadog, or another APM backend.
+5. Alert on health failures, 5xx rate, p95 latency, DB slow queries, Redis errors, BullMQ failed/stalled jobs, high CPU/memory/disk, and repeated process restarts.
+
+Sample Prometheus, alerting, OpenTelemetry Collector, and Fluent Bit configs live in `ops/observability/`.
+
+`Caddyfile.openwook` keeps rotated JSON edge access logs in `/var/log/caddy/openwook-access.log`; app and worker logs are intended for journald/stdout collection. `.omx/` is local agent runtime state and is ignored by git; do not use it as application monitoring data.
+
+## Performance Operations
+
+The Caddy config is ready for four local Next.js upstreams (`3000`-`3003`). For production concurrency, run the systemd template instead of a single `openwook.service`:
+
+```bash
+sudo OPENWOOK_PORTS=3000,3001,3002,3003 scripts/deploy/openwook-systemd.sh
+```
+
+Each web process owns its own PostgreSQL pool, so keep `instances × POSTGRES_POOL_MAX` comfortably below PostgreSQL `max_connections`, or place PgBouncer between OpenWook and PostgreSQL. A safe starting point for four local instances is `POSTGRES_POOL_MAX=5..8`.
+
+Performance regression commands:
+
+```bash
+pnpm perf:prepare
+PERF_BASE_URL=https://openwook.cloud PERF_BANK_ID=<bank-id> pnpm perf:quick
+PERF_BASE_URL=https://openwook.cloud PERF_BANK_ID=<bank-id> pnpm perf:suite
+```
 
 ## Features
 

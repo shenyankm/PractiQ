@@ -1,7 +1,7 @@
 import 'server-only';
 
 import { randomUUID } from 'node:crypto';
-import { compare, hash } from 'bcryptjs';
+import { compare, hash } from '@node-rs/bcrypt';
 import { cookies } from 'next/headers';
 import { cache } from 'react';
 import { sql } from './db';

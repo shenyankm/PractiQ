@@ -16,6 +16,7 @@ import {
   mastraModelSettings,
   mastraProviderOptions
 } from './mastra';
+import { errorToLog, logger } from './logger';
 import { requireImportSourceType, requirePlusEntitlement } from './permissions';
 import {
   createQuestion,
@@ -885,7 +886,7 @@ async function runStructuredAgent<T>({
       modelName: getMastraModelName()
     };
   } catch (error) {
-    console.error(`Mastra ${type} failed with primary provider; trying configured fallbacks`, error);
+    logger.warn({ ...errorToLog(error), provider: 'primary', taskType: type }, 'mastra primary provider failed; trying configured fallbacks');
   }
 
   for (const fallbackAgent of mastraAgentFallbacks) {
@@ -895,10 +896,7 @@ async function runStructuredAgent<T>({
         modelName: fallbackAgent.config.modelName
       };
     } catch (error) {
-      console.error(
-        `Mastra ${type} failed with ${fallbackAgent.config.providerName}; trying next fallback`,
-        error
-      );
+      logger.warn({ ...errorToLog(error), provider: fallbackAgent.config.providerName, taskType: type }, 'mastra fallback provider failed; trying next fallback');
     }
   }
 
@@ -908,7 +906,7 @@ async function runStructuredAgent<T>({
       modelName: 'deterministic'
     };
   } catch (error) {
-    console.error(`Mastra ${type} deterministic fallback failed`, error);
+    logger.error({ ...errorToLog(error), provider: 'deterministic', taskType: type }, 'mastra deterministic fallback failed');
     throw error;
   }
 }

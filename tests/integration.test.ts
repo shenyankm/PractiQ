@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { hash } from 'bcryptjs';
+import { hash } from '@node-rs/bcrypt';
 import { sql } from '@/lib/openwook/db';
 import { ApiError } from '@/lib/openwook/api';
 import { redisDelByPattern, redisKey } from '@/lib/openwook/redis';
@@ -17,6 +17,7 @@ import {
   getPracticeSession,
   listImportJobChildren,
   resolveQuestionTypeIdForSubject,
+  search,
   setQuestionStatus,
   startPracticeSession,
   submitAnswer,
@@ -135,6 +136,10 @@ describeIntegration('OpenWook database integration', () => {
     expect(firstPage.question?.question_id).toBeTruthy();
     expect(firstPage.progress.length).toBe(2);
     expect(firstPage.total).toBe(2);
+    expect(firstPage.answeredCount).toBe(0);
+    expect(firstPage.progressTruncated).toBe(false);
+    const searchResults = await search(user, 'questions', new URLSearchParams({ bankId: String(bank.id), q: '1 + 1' })) as unknown as Array<{ id: number; stem: string }>;
+    expect(searchResults.some((question) => Number(question.id) === Number(questionA.id))).toBe(true);
 
     const typeSession = await startPracticeSession(user, {
       bankId: bank.id,

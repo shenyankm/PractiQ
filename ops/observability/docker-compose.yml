@@ -1,0 +1,45 @@
+services:
+  prometheus:
+    image: prom/prometheus:v3.0.1
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --web.enable-lifecycle
+    environment:
+      METRICS_TOKEN: ${METRICS_TOKEN:?set METRICS_TOKEN}
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./alerts.yml:/etc/prometheus/alerts.yml:ro
+    ports:
+      - '9090:9090'
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.115.1
+    command: ['--config=/etc/otelcol/config.yml']
+    volumes:
+      - ./otel-collector.yml:/etc/otelcol/config.yml:ro
+    ports:
+      - '4317:4317'
+      - '4318:4318'
+
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    network_mode: host
+    pid: host
+    command:
+      - --path.rootfs=/host
+    volumes:
+      - /:/host:ro,rslave
+
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.67.0
+    environment:
+      REDIS_ADDR: ${REDIS_ADDR:-redis://127.0.0.1:6379}
+    ports:
+      - '9121:9121'
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    environment:
+      DATA_SOURCE_NAME: ${POSTGRES_EXPORTER_DATA_SOURCE_NAME:?set POSTGRES_EXPORTER_DATA_SOURCE_NAME}
+    ports:
+      - '9187:9187'

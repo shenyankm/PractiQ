@@ -102,9 +102,11 @@ async function main() {
   await sql`CREATE INDEX IF NOT EXISTS idx_question_import_jobs_user_status_created ON question_import_jobs (created_by, status, created_at DESC)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_questions_status_type ON questions (status, question_type_id, id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_bank_question_links_bank_active ON bank_question_links (bank_id, sort_order, question_id) WHERE status = 'active'`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_bank_question_links_bank_status_sort ON bank_question_links (bank_id, status, sort_order, question_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_bank_group_links_bank_active ON bank_group_links (bank_id, sort_order, group_id) WHERE status = 'active'`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_bank_group_links_bank_status_sort ON bank_group_links (bank_id, status, sort_order, group_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_group_question_links_group_question_sort ON group_question_links (group_id, question_id, sort_order)`;
-  await sql`CREATE INDEX IF NOT EXISTS idx_questions_stem_fts ON questions USING GIN (to_tsvector('simple', stem))`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_questions_stem_fts ON questions USING GIN (to_tsvector('simple', COALESCE(stem, '')))`;
   await sql`CREATE INDEX IF NOT EXISTS idx_user_question_answers_user_session_question ON user_question_answers (user_id, session_id, question_id, answered_at)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_user_question_stats_user_mastery ON user_question_stats (user_id, mastery_score, wrong_count DESC, last_answered_at DESC)`;
   await sql`

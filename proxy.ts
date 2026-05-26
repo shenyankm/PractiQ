@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { errorToLog, logger } from '@/lib/openwook/logger';
 import { signSessionToken, verifySessionToken } from '@/lib/openwook/session';
 
 const protectedRoutes = ['/dashboard', '/banks', '/imports', '/practice', '/questions', '/settings'];
@@ -46,7 +47,7 @@ export async function proxy(request: NextRequest) {
         });
       }
     } catch (error) {
-      console.error('Error updating session:', error);
+      logger.warn({ ...errorToLog(error), path: pathname }, 'session renewal failed');
       res.cookies.delete('session');
       if (isProtectedRoute) {
         return NextResponse.redirect(new URL('/sign-in', request.url));

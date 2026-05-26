@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { hashPassword, setSession } from '@/lib/openwook/auth';
 import { ApiError, created, handleApiError, readJson } from '@/lib/openwook/api';
 import { sql } from '@/lib/openwook/db';
+import { withApiObservability } from '@/lib/openwook/observability';
 import { incrementRateLimit, redisKey } from '@/lib/openwook/redis';
 import { assertSameOriginRequest } from '@/lib/openwook/request-origin';
 
@@ -14,21 +15,23 @@ const registerSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  try {
-    assertSameOriginRequest(request);
-    await enforceRateLimit(`auth:register:ip:${clientIp(request)}`, 10, 3600);
-    const body = registerSchema.parse(await readJson(request));
-    const passwordHash = await hashPassword(body.password);
-    const rows = await sql`
-      INSERT INTO users (username, email, password, role, membership, plus_trial_ends_at)
-      VALUES (${body.username}, ${body.email ?? null}, ${passwordHash}, 'user', 'free', NOW() + INTERVAL '3 days')
-      RETURNING id, username, email, avatar_url, is_active, role, membership, plus_trial_ends_at, plus_expires_at, created_at, updated_at
-    `;
-    await setSession(rows[0].id);
-    return created(rows[0]);
-  } catch (error) {
-    return handleApiError(error);
-  }
+  return withApiObservability(request, '/api/v1/auth/register', async () => {
+    try {
+      assertSameOriginRequest(request);
+      await enforceRateLimit(`auth:register:ip:${clientIp(request)}`, 10, 3600);
+      const body = registerSchema.parse(await readJson(request));
+      const passwordHash = await hashPassword(body.password);
+      const rows = await sql`
+        INSERT INTO users (username, email, password, role, membership, plus_trial_ends_at)
+        VALUES (${body.username}, ${body.email ?? null}, ${passwordHash}, 'user', 'free', NOW() + INTERVAL '3 days')
+        RETURNING id, username, email, avatar_url, is_active, role, membership, plus_trial_ends_at, plus_expires_at, created_at, updated_at
+      `;
+      await setSession(rows[0].id);
+      return created(rows[0]);
+    } catch (error) {
+      return handleApiError(error);
+    }
+  });
 }
 
 function clientIp(request: Request) {

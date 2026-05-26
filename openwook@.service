@@ -1,0 +1,34 @@
+[Unit]
+Description=OpenWook Next.js Application instance on port %i
+Documentation=https://nextjs.org/docs/app/building-your-application/deploying
+After=network.target network-online.target
+Requires=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/projects/openwook
+Environment=NODE_ENV=production
+Environment=LOG_LEVEL=info
+Environment=OTEL_SERVICE_NAME=openwook-web
+Environment=OPENWOOK_HOST=127.0.0.1
+Environment=PORT=%i
+Environment=POSTGRES_POOL_MAX=8
+Environment=UV_THREADPOOL_SIZE=16
+Environment=PATH=/home/ubuntu/.nvm/versions/node/v24.16.0/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+EnvironmentFile=-/home/ubuntu/projects/openwook/.env.local
+ExecStart=/usr/bin/env NODE_ENV=production OPENWOOK_HOST=127.0.0.1 PORT=%i pnpm start:prod
+Restart=always
+RestartSec=5
+KillSignal=SIGTERM
+TimeoutStopSec=30
+StandardOutput=journal
+StandardError=journal
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/home/ubuntu/projects/openwook /tmp
+
+[Install]
+WantedBy=multi-user.target

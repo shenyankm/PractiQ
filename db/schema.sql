@@ -5,6 +5,8 @@
 -- 00_functions.sql
 -- ============================================================
 
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
 CREATE OR REPLACE FUNCTION set_updated_at()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -821,7 +823,8 @@ CREATE INDEX idx_questions_source_ref ON questions (source_type, source_ref);
 CREATE INDEX idx_questions_source_job ON questions (source_job_id);
 CREATE INDEX idx_questions_imported_by ON questions (imported_by);
 CREATE INDEX idx_questions_chapter ON questions (chapter_ref, chapter_order);
-CREATE INDEX idx_questions_stem_fts ON questions USING GIN (to_tsvector('simple', stem));
+CREATE INDEX idx_questions_stem_trgm ON questions USING GIN (stem gin_trgm_ops);
+CREATE INDEX idx_questions_stem_fts ON questions USING GIN (to_tsvector('simple', COALESCE(stem, '')));
 
 ALTER TABLE question_groups
     ADD COLUMN source_job_id BIGINT REFERENCES question_import_jobs(id) ON DELETE SET NULL;
@@ -865,6 +868,8 @@ CREATE INDEX idx_bank_question_links_bank_sort ON bank_question_links (bank_id, 
 CREATE INDEX idx_bank_question_links_bank_active
     ON bank_question_links (bank_id, sort_order, question_id)
     WHERE status = 'active';
+CREATE INDEX idx_bank_question_links_bank_status_sort
+    ON bank_question_links (bank_id, status, sort_order, question_id);
 CREATE INDEX idx_bank_question_links_question_id ON bank_question_links (question_id);
 CREATE UNIQUE INDEX uq_bank_question_links_id_question
     ON bank_question_links (id, question_id);
@@ -909,6 +914,8 @@ CREATE INDEX idx_bank_group_links_bank_sort ON bank_group_links (bank_id, sort_o
 CREATE INDEX idx_bank_group_links_bank_active
     ON bank_group_links (bank_id, sort_order, group_id)
     WHERE status = 'active';
+CREATE INDEX idx_bank_group_links_bank_status_sort
+    ON bank_group_links (bank_id, status, sort_order, group_id);
 CREATE INDEX idx_bank_group_links_group_id ON bank_group_links (group_id);
 CREATE UNIQUE INDEX uq_bank_group_links_id_group
     ON bank_group_links (id, group_id);

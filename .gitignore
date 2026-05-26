@@ -1,48 +1,73 @@
 # ================================================
 # OpenWook .gitignore
-# Next.js + PostgreSQL + Drizzle + Stripe + Caddy
+# Next.js + PostgreSQL + Drizzle + Alipay + Caddy
 # ================================================
 
 # -----------------------------------------------
 # Dependencies
 # -----------------------------------------------
-/node_modules
+/node_modules/
 /.pnp
-.pnp.js
-.yarn/install-state.gz
+.pnp.*
+
+# Package manager caches / metadata
+/.npm/
+/.pnpm-store/
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
 
 # -----------------------------------------------
-# Next.js Build Output
+# Next.js / Build Output
 # -----------------------------------------------
 /.next/
 /out/
-/build
+/build/
+/dist/
+/.turbo/
 
 # -----------------------------------------------
-# Testing
+# Testing / Coverage / Reports
 # -----------------------------------------------
-/coverage
+/coverage/
+/test-results/
+/playwright-report/
+/blob-report/
+/reports/
+*.lcov
 
 # -----------------------------------------------
 # Environment Variables
 # -----------------------------------------------
 .env
-.env.local
-.env.*.local
+.env.*
 !.env.example
+!.env.*.example
 
 # -----------------------------------------------
 # OS Generated Files
 # -----------------------------------------------
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+Desktop.ini
 *.pem
 
 # -----------------------------------------------
 # Debug / Logs
 # -----------------------------------------------
+/logs/
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
 .pnpm-debug.log*
 
 # -----------------------------------------------
@@ -54,13 +79,26 @@ next-env.d.ts
 # -----------------------------------------------
 # IDE / Editor
 # -----------------------------------------------
-.vscode
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/launch.json
+!.vscode/tasks.json
 .idea/
+*.swp
+*.swo
+*~
 
 # -----------------------------------------------
 # Vercel / Deployment
 # -----------------------------------------------
-.vercel
+.vercel/
+.netlify/
+
+# -----------------------------------------------
+# Local Agent / Tool State
+# -----------------------------------------------
+.omx/
 
 # -----------------------------------------------
 # Caddy
@@ -91,6 +129,8 @@ postgres_data/
 *.backup
 *.sqlite
 *.sqlite3
+*.db
+*.db-journal
 
 # -----------------------------------------------
 # Docker
@@ -99,7 +139,7 @@ docker_volumes/
 docker-compose.override.yml
 
 # -----------------------------------------------
-# Temporary Files
+# Temporary Files / Local Uploads
 # -----------------------------------------------
 *.tmp
 *.temp

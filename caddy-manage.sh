@@ -77,7 +77,7 @@ status() {
         echo "访问: http://localhost"
         echo ""
         echo "最近日志:"
-        tail -n 5 "$LOG_DIR/access.log" 2>/dev/null || echo "暂无访问日志"
+        tail -n 5 "$LOG_DIR/openwook-access.log" 2>/dev/null || echo "暂无访问日志"
     else
         echo "Caddy 未运行"
     fi
@@ -100,7 +100,7 @@ reload() {
 # 查看日志
 logs() {
     echo "=== Caddy 访问日志 (按 Ctrl+C 退出) ==="
-    tail -f "$LOG_DIR/access.log" 2>/dev/null || echo "日志文件不存在"
+    tail -f "$LOG_DIR/openwook-access.log" 2>/dev/null || echo "日志文件不存在"
 }
 
 # 验证配置
@@ -151,7 +151,7 @@ case "${1:-}" in
         echo "  validate  验证配置文件"
         echo ""
         echo "前提条件:"
-        echo "  1. Next.js 应用运行在 localhost:3000"
+        echo "  1. Next.js 应用运行在 127.0.0.1:3000，可选多实例 3001-3003"
         echo "  2. Caddy 已安装"
         echo ""
         echo "安装 Caddy:"

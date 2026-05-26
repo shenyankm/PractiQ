@@ -5,6 +5,7 @@ import {
   publishJson,
   redisKey
 } from './redis';
+import { errorToLog, logger } from './logger';
 
 export type ImportEventPayload = {
   id?: number;
@@ -86,13 +87,15 @@ export function streamImportEvents(
         try {
           const event = JSON.parse(message) as ImportEventPayload;
           enqueue(encodeSse('import-event', event, event.id));
-        } catch {
-          enqueue(encodeSse('import-event', { job_id: jobId, raw: message }));
+        } catch (error) {
+          logger.warn({ ...errorToLog(error), jobId }, 'failed to parse import event payload');
+          enqueue(encodeSse('import-event', { job_id: jobId, status: 'warning', message: 'Import event payload was unavailable.' }));
         }
       });
 
       subscriber.subscribe(importEventChannel(jobId)).catch((error) => {
-        enqueue(encodeSse('stream-error', { message: error instanceof Error ? error.message : String(error) }));
+        logger.warn({ ...errorToLog(error), jobId }, 'import event stream subscription failed');
+        enqueue(encodeSse('stream-error', { message: 'Import event stream is temporarily unavailable.' }));
       });
 
       keepAlive = setInterval(() => enqueue(': keepalive\n\n'), 15000);

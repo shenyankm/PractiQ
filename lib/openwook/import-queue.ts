@@ -1,4 +1,6 @@
 import { Queue, type JobsOptions } from 'bullmq';
+import { errorToLog, logger } from './logger';
+import { setImportQueueCounts } from './metrics';
 import { createRedisConnection, isRedisConfigured, redisKey } from './redis';
 
 export const IMPORT_QUEUE_NAME = process.env.IMPORT_QUEUE_NAME || redisKey('queue', 'imports');
@@ -67,4 +69,17 @@ export async function removeQueuedImportJob(jobId: number) {
     return true;
   }
   return false;
+}
+
+export async function refreshImportQueueMetrics() {
+  const queue = getImportQueue();
+  if (!queue) return null;
+  try {
+    const counts = await queue.getJobCounts('waiting', 'active', 'completed', 'failed', 'delayed', 'paused', 'prioritized', 'waiting-children');
+    setImportQueueCounts(IMPORT_QUEUE_NAME, counts);
+    return counts;
+  } catch (error) {
+    logger.warn({ ...errorToLog(error), queue: IMPORT_QUEUE_NAME }, 'failed to refresh import queue metrics');
+    return null;
+  }
 }
