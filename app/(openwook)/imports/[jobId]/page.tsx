@@ -94,10 +94,10 @@ export default async function ImportDetailPage({ params }: { params: Promise<{ j
             {reviewItems.length === 0 ? (
               <p className="text-sm text-muted-foreground">暂无复核项。</p>
             ) : reviewRows.map((item) => (
-              <div key={item.id} className="rounded-md border p-3">
+              <div key={item.id} className="rounded-md border border-border/70 bg-background/35 p-3">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2 font-medium">
-                    <AlertTriangle className="size-4 text-primary" />
+                    <AlertTriangle className="size-4 text-foreground" />
                     {item.code}
                   </div>
                   <Badge variant={item.status === 'open' ? 'default' : 'secondary'}>{item.status}</Badge>

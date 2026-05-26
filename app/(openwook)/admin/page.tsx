@@ -69,7 +69,7 @@ export default async function AdminPage() {
         <Card>
           <CardContent className="flex items-center justify-between gap-4 p-4">
             <div className="flex items-center gap-2 text-sm">
-              <FileWarning className="size-4 text-primary" />
+              <FileWarning className="size-4 text-foreground" />
               当前有 {overview.open_review_items} 个导入复核项待处理。
             </div>
             <Button asChild size="sm" variant="outline">
@@ -90,7 +90,7 @@ function Metric({ title, value, icon: Icon }: { title: string; value: string | n
           <div className="text-sm text-muted-foreground">{title}</div>
           <div className="mt-1 text-2xl font-semibold">{value}</div>
         </div>
-        <Icon className="size-5 text-primary" />
+        <Icon className="size-5 text-muted-foreground" />
       </CardContent>
     </Card>
   );

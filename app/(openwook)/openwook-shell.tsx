@@ -70,8 +70,8 @@ function UserShell({
   const visibleNavItems = navItems.filter((item) => !item.adminOnly || user.role === 'admin');
 
   return (
-    <div className="min-h-screen bg-muted/30 text-foreground">
-      <header className="sticky top-0 z-20 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgb(0_0_0_/_0.06),transparent_28rem),radial-gradient(circle_at_bottom_right,rgb(0_0_0_/_0.04),transparent_24rem),var(--background)] text-foreground dark:bg-[radial-gradient(circle_at_top_left,rgb(255_255_255_/_0.08),transparent_28rem),radial-gradient(circle_at_bottom_right,rgb(255_255_255_/_0.05),transparent_24rem),var(--background)]">
+      <header className="sticky top-0 z-20 border-b border-border/70 bg-background/80 shadow-sm backdrop-blur-xl supports-[backdrop-filter]:bg-background/60">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 lg:px-8">
           <Link href="/dashboard" className="flex min-w-0 items-center">
             <span className="truncate text-lg font-semibold">OpenWook</span>
@@ -107,7 +107,7 @@ function UserShell({
           aria-hidden={!mobileNavOpen}
           inert={!mobileNavOpen}
           className={cn(
-            'mx-auto grid max-w-7xl border-t px-4 transition-[grid-template-rows,opacity] duration-200 ease-out md:hidden motion-reduce:transition-none',
+            'mx-auto grid max-w-7xl border-t border-border/70 px-4 transition-[grid-template-rows,opacity] duration-200 ease-out md:hidden motion-reduce:transition-none',
             mobileNavOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
           )}
         >
@@ -119,7 +119,7 @@ function UserShell({
         </nav>
       </header>
 
-      <main className="mx-auto max-w-7xl px-4 py-6 lg:px-8">
+      <main className="mx-auto max-w-7xl px-4 py-6 lg:px-8 lg:py-8">
         <div
           key={pathname}
           data-testid="route-transition"
@@ -148,9 +148,9 @@ function TopNavLink({
       href={item.href}
       aria-current={isActive ? 'page' : undefined}
       className={cn(
-        'inline-flex h-9 shrink-0 items-center gap-2 rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors duration-200 hover:bg-accent hover:text-accent-foreground motion-reduce:transition-none',
-        isActive && 'bg-primary/10 text-primary',
-        compact && 'h-8'
+        'inline-flex h-10 shrink-0 items-center gap-2 rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors duration-200 hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/35 motion-reduce:transition-none',
+        isActive && 'bg-foreground/10 text-foreground shadow-xs',
+        compact && 'h-9'
       )}
     >
       <item.icon className="size-4" />
@@ -167,7 +167,7 @@ function UserActions({ user }: { user: ShellUser }) {
       <div className="hidden items-center gap-2 sm:flex">
         <Avatar className="size-8">
           {avatarUrl ? <AvatarImage src={avatarUrl} alt={user.username} /> : null}
-          <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
+          <AvatarFallback className="bg-foreground/10 text-xs font-semibold text-foreground">
             {user.username.slice(0, 2).toUpperCase()}
           </AvatarFallback>
         </Avatar>
@@ -196,7 +196,7 @@ function UserActions({ user }: { user: ShellUser }) {
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
             <form action={signOut}>
-              <AlertDialogAction type="submit" className="w-full bg-destructive text-white hover:bg-destructive/90 sm:w-auto">
+              <AlertDialogAction type="submit" className="w-full bg-destructive text-destructive-foreground hover:bg-destructive/90 sm:w-auto">
                 确认退出
               </AlertDialogAction>
             </form>

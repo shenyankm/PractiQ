@@ -43,7 +43,8 @@ start() {
     
     if kill -0 "$(cat $CADDY_PID_FILE)" 2>/dev/null; then
         echo "Caddy 启动成功 (PID: $(cat $CADDY_PID_FILE))"
-        echo "访问: http://localhost"
+        echo "访问: https://openwook.cloud"
+        echo "本机验证: curl -k --resolve openwook.cloud:443:127.0.0.1 https://openwook.cloud/api/health/ready"
     else
         echo "Caddy 启动失败，查看日志: $LOG_DIR/caddy.out"
         rm -f "$CADDY_PID_FILE"
@@ -74,7 +75,8 @@ status() {
     if [ -f "$CADDY_PID_FILE" ] && kill -0 "$(cat $CADDY_PID_FILE)" 2>/dev/null; then
         echo "Caddy 运行中 (PID: $(cat $CADDY_PID_FILE))"
         echo "配置: $CADDYFILE"
-        echo "访问: http://localhost"
+        echo "访问: https://openwook.cloud"
+        echo "本机验证: curl -k --resolve openwook.cloud:443:127.0.0.1 https://openwook.cloud/api/health/ready"
         echo ""
         echo "最近日志:"
         tail -n 5 "$LOG_DIR/openwook-access.log" 2>/dev/null || echo "暂无访问日志"
@@ -151,7 +153,7 @@ case "${1:-}" in
         echo "  validate  验证配置文件"
         echo ""
         echo "前提条件:"
-        echo "  1. Next.js 应用运行在 127.0.0.1:3000，可选多实例 3001-3003"
+        echo "  1. Next.js 生产实例运行在 127.0.0.1:3000-3003（推荐 openwook@.service 多实例）"
         echo "  2. Caddy 已安装"
         echo ""
         echo "安装 Caddy:"

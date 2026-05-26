@@ -13,7 +13,7 @@ export async function proxy(request: NextRequest) {
   const isProtectedRoute = protectedRoutes.some((route) => pathname.startsWith(route));
 
   if (isProtectedRoute && !sessionCookie) {
-    return NextResponse.redirect(new URL('/sign-in', request.url));
+    return redirectToSignIn(request);
   }
 
   const res = NextResponse.next();
@@ -27,7 +27,7 @@ export async function proxy(request: NextRequest) {
       if (!Number.isFinite(currentExpiresAt) || currentExpiresAt <= now) {
         res.cookies.delete('session');
         if (isProtectedRoute) {
-          return NextResponse.redirect(new URL('/sign-in', request.url));
+          return redirectToSignIn(request);
         }
       } else if (currentExpiresAt - now <= sessionRenewWindowMs) {
         const renewedExpiresAt = new Date(now + sessionTtlMs);
@@ -50,12 +50,32 @@ export async function proxy(request: NextRequest) {
       logger.warn({ ...errorToLog(error), path: pathname }, 'session renewal failed');
       res.cookies.delete('session');
       if (isProtectedRoute) {
-        return NextResponse.redirect(new URL('/sign-in', request.url));
+        return redirectToSignIn(request);
       }
     }
   }
 
   return res;
+}
+
+function redirectToSignIn(request: NextRequest) {
+  return NextResponse.redirect(publicUrlFor(request, '/sign-in'));
+}
+
+function publicUrlFor(request: NextRequest, pathname: string) {
+  const currentUrl = request.nextUrl;
+  const host = firstHeaderValue(request.headers.get('x-forwarded-host'))
+    ?? firstHeaderValue(request.headers.get('host'))
+    ?? currentUrl.host;
+  const proto = firstHeaderValue(request.headers.get('x-forwarded-proto'))
+    ?? currentUrl.protocol.replace(':', '')
+    ?? 'https';
+
+  return new URL(pathname, `${proto.replace(/:$/, '')}://${host}`);
+}
+
+function firstHeaderValue(value: string | null) {
+  return value?.split(',')[0]?.trim() || undefined;
 }
 
 export const config = {

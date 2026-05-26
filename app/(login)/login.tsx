@@ -43,10 +43,10 @@ export function Login({ mode = 'signin', redirect, priceId, inviteId }: LoginPro
   });
 
   return (
-    <div className="flex min-h-[100dvh] flex-col justify-center bg-background px-4 py-12 sm:px-6 lg:px-8">
+    <div className="flex min-h-[100dvh] flex-col justify-center bg-[radial-gradient(circle_at_top,rgb(0_0_0_/_0.06),transparent_28rem),var(--background)] px-4 py-12 sm:px-6 lg:px-8 dark:bg-[radial-gradient(circle_at_top,rgb(255_255_255_/_0.08),transparent_28rem),var(--background)]">
       <div className="motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-top-2 motion-safe:duration-500 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center">
-          <BookOpen className="size-12 text-primary" />
+          <BookOpen className="size-12 text-foreground" />
         </div>
       </div>
 

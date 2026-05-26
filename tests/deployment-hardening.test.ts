@@ -2,12 +2,14 @@ import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 describe('deployment hardening', () => {
-  it('forwards canonical host and protocol headers from Caddy to Next', () => {
+  it('keeps only non-default proxy headers explicit in Caddy', () => {
     const caddyfile = readFileSync('Caddyfile.openwook', 'utf8');
 
-    expect(caddyfile).toContain('header_up X-Forwarded-For {remote_host}');
-    expect(caddyfile).toContain('header_up X-Forwarded-Host {host}');
-    expect(caddyfile).toContain('header_up X-Forwarded-Proto {scheme}');
+    expect(caddyfile).toContain('header_up Host {host}');
+    expect(caddyfile).toContain('header_up X-Real-IP {remote_host}');
+    expect(caddyfile).not.toContain('header_up X-Forwarded-For {remote_host}');
+    expect(caddyfile).not.toContain('header_up X-Forwarded-Host {host}');
+    expect(caddyfile).not.toContain('header_up X-Forwarded-Proto {scheme}');
   });
 
   it('load balances Caddy traffic across multiple local Next.js upstreams', () => {
@@ -61,6 +63,9 @@ describe('deployment hardening', () => {
     const packageJson = JSON.parse(readFileSync('package.json', 'utf8'));
 
     expect(deployScript).toContain('OPENWOOK_PORTS:-3000,3001,3002,3003');
+    expect(deployScript).toContain('OPENWOOK_START_SERVICES:-1');
+    expect(deployScript).toContain('OPENWOOK_PORTS must match Caddyfile.openwook upstream ports');
+    expect(deployScript).toContain('systemctl disable --now openwook.service');
     expect(deployScript).toContain('openwook@$port');
     expect(envExample).toContain('POSTGRES_POOL_MAX=8');
     expect(readme).toContain('instances × POSTGRES_POOL_MAX');

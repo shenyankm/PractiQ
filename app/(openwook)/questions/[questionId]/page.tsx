@@ -53,8 +53,8 @@ export default async function QuestionDetailPage({ params }: { params: Promise<{
           {options.length > 0 && (
             <div className="grid gap-2">
               {options.map((option) => (
-                <div key={option.id} className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
-                  {option.is_correct && <CheckCircle2 className="size-4 text-primary" />}
+                <div key={option.id} className="flex items-center gap-2 rounded-md border border-border/70 bg-background/35 px-3 py-2 text-sm">
+                  {option.is_correct && <CheckCircle2 className="size-4 text-foreground" />}
                   <Badge variant="secondary">{option.option_label}</Badge>
                   <span>{option.content}</span>
                 </div>

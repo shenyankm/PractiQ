@@ -67,14 +67,14 @@ export default async function PracticeSessionPage({
                 key={item.questionId}
                 href={`/practice/${id}?index=${item.index}`}
                 className={cn(
-                  'flex h-10 items-center justify-center rounded-md border text-xs hover:bg-accent focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
-                  item.index === questionIndex && 'border-primary bg-primary/10'
+                  'flex h-10 items-center justify-center rounded-md border border-border/70 bg-background/35 text-xs hover:bg-accent focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/35',
+                  item.index === questionIndex && 'border-ring bg-foreground/10 text-foreground'
                 )}
                 aria-current={item.index === questionIndex ? 'step' : undefined}
                 aria-label={`第 ${item.index + 1} 题，${progressLabel(item, item.index === questionIndex)}`}
               >
                 {item.isAnswered ? (
-                  item.isCorrect ? <CheckCircle2 className="size-4 text-primary" /> : <XCircle className="size-4 text-destructive" />
+                  item.isCorrect ? <CheckCircle2 className="size-4 text-foreground" /> : <XCircle className="size-4 text-destructive" />
                 ) : (
                   <Circle className="size-4 text-muted-foreground" />
                 )}
@@ -141,7 +141,7 @@ export default async function PracticeSessionPage({
               <div className="text-lg font-semibold">{session.answered_count}</div>
               <div className="text-muted-foreground">已答</div>
             </div>
-            <div className="rounded-md bg-primary/10 p-3 text-primary">
+            <div className="rounded-md bg-foreground/10 p-3 text-foreground">
               <div className="text-lg font-semibold">{session.correct_count}</div>
               <div>正确</div>
             </div>

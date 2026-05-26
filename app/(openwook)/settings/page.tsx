@@ -45,9 +45,9 @@ export default async function SettingsPage() {
                 <form action={updateProfileAction}>
                   <FieldGroup className="gap-4">
                     <div className="flex items-center gap-4">
-                      <Avatar className="size-16 border">
+                      <Avatar className="size-16 border border-border/70">
                         {avatarUrl ? <AvatarImage src={avatarUrl} alt={user.username} /> : null}
-                        <AvatarFallback className="bg-primary/10 text-base font-semibold text-primary">
+                        <AvatarFallback className="bg-foreground/10 text-base font-semibold text-foreground">
                           {user.username.slice(0, 2).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
