@@ -24,13 +24,13 @@ function question(query: string): Promise<string> {
 async function getPostgresURL(): Promise<string> {
   console.log('Step 1: Setting up Postgres');
   const dbChoice = await question(
-    'Do you want to use a local Postgres instance with Docker (L) or a remote Postgres instance (R)? (L/R): '
+    'Use local Postgres with Podman + Quadlet (L) or a remote Postgres instance (R)? (L/R): '
   );
 
   if (dbChoice.toLowerCase() === 'l') {
-    console.log('Setting up local Postgres instance with Docker...');
+    console.log('Setting up local Postgres with Podman + Quadlet...');
     await setupLocalPostgres();
-    return 'postgres://postgres:postgres@localhost:54322/postgres';
+    return 'postgres://openwook:openwook@localhost:54322/openwook';
   } else {
     console.log(
       'You can find Postgres databases at: https://vercel.com/marketplace?category=databases'
@@ -40,53 +40,22 @@ async function getPostgresURL(): Promise<string> {
 }
 
 async function setupLocalPostgres() {
-  console.log('Checking if Docker is installed...');
+  console.log('Checking if Podman is installed...');
   try {
-    await execAsync('docker --version');
-    console.log('Docker is installed.');
+    await execAsync('podman --version');
+    await execAsync('systemctl --user --version');
   } catch {
-    console.error(
-      'Docker is not installed. Please install Docker and try again.'
-    );
-    console.log(
-      'To install Docker, visit: https://docs.docker.com/get-docker/'
-    );
+    console.error('Podman and user systemd are required for the local database.');
+    console.log('Install Podman, then retry or use a remote Postgres URL.');
     process.exit(1);
   }
 
-  console.log('Creating docker-compose.yml file...');
-  const dockerComposeContent = `
-services:
-  postgres:
-    image: postgres:16.4-alpine
-    container_name: next_saas_starter_postgres
-    environment:
-      POSTGRES_DB: postgres
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    ports:
-      - "54322:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
-volumes:
-  postgres_data:
-`;
-
-  await fs.writeFile(
-    path.join(process.cwd(), 'docker-compose.yml'),
-    dockerComposeContent
-  );
-  console.log('docker-compose.yml file created.');
-
-  console.log('Starting Docker container with `docker compose up -d`...');
   try {
-    await execAsync('docker compose up -d');
-    console.log('Docker container started successfully.');
+    await execAsync('bash scripts/podman-db.sh up');
+    console.log('Podman Quadlet Postgres started on localhost:54322.');
   } catch {
-    console.error(
-      'Failed to start Docker container. Please check your Docker installation and try again.'
-    );
+    console.error('Failed to start the Podman Quadlet Postgres container.');
+    console.log('Run `./scripts/podman-db.sh status` for details.');
     process.exit(1);
   }
 }
@@ -112,8 +81,9 @@ async function main() {
   const AUTH_SECRET = generateAuthSecret();
 
   await writeEnvFile({
+    DATABASE_URL: POSTGRES_URL,
     POSTGRES_URL,
-    BASE_URL,
+    NEXT_PUBLIC_APP_URL: BASE_URL,
     AUTH_SECRET,
   });
 

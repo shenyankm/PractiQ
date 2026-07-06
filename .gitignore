@@ -1,6 +1,6 @@
 # ================================================
 # OpenWook .gitignore
-# Next.js + PostgreSQL + Drizzle + Alipay + Caddy
+# Next.js + PostgreSQL + Drizzle + Alipay
 # ================================================
 
 # -----------------------------------------------
@@ -99,15 +99,6 @@ next-env.d.ts
 # Local Agent / Tool State
 # -----------------------------------------------
 .omx/
-
-# -----------------------------------------------
-# Caddy
-# -----------------------------------------------
-Caddyfile.autosave
-caddy_data/
-caddy_config/
-*.pid
-xcaddy/
 
 # -----------------------------------------------
 # SSL / Certificates
