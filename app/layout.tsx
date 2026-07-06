@@ -1,8 +1,5 @@
 import './globals.css';
 import type { Metadata, Viewport } from 'next';
-import { Manrope } from 'next/font/google';
-import { Toaster } from '@/components/ui/sonner';
-import { TooltipProvider } from '@/components/ui/tooltip';
 
 export const metadata: Metadata = {
   title: 'OpenWook',
@@ -14,8 +11,6 @@ export const viewport: Viewport = {
   initialScale: 1
 };
 
-const manrope = Manrope({ subsets: ['latin'] });
-
 export default function RootLayout({
   children
 }: {
@@ -25,13 +20,10 @@ export default function RootLayout({
     <html
       lang="zh-CN"
       suppressHydrationWarning
-      className={`bg-background text-foreground ${manrope.className}`}
+      className="bg-background text-foreground"
     >
       <body className="min-h-[100dvh] bg-background">
-        <TooltipProvider>
-          {children}
-          <Toaster richColors />
-        </TooltipProvider>
+        {children}
       </body>
     </html>
   );

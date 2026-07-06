@@ -2,19 +2,8 @@
 
 import { useId, useState } from 'react';
 import { Play } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Button, Description, FieldGroup, Input, Label } from '@heroui/react';
+
 
 type PracticeMode = 'all' | 'wrong' | 'by_type' | 'exam';
 
@@ -40,45 +29,54 @@ export function PracticeSetupForm({
   return (
     <form action={action} className="flex flex-col gap-4">
       <FieldGroup className="gap-4">
-        <Field>
-          <FieldLabel id={`${formId}-mode-label`}>模式</FieldLabel>
-          <ToggleGroup
-            type="single"
-            value={mode}
-            onValueChange={(value) => {
-              if (isPracticeMode(value)) setMode(value);
-            }}
-            className="grid w-full grid-cols-2 md:grid-cols-4"
-            variant="outline"
+        <div>
+          <Label id={`${formId}-mode-label`}>模式</Label>
+          <div
+            role="radiogroup"
             aria-labelledby={`${formId}-mode-label`}
+            className="grid w-full grid-cols-2 gap-2 md:grid-cols-4"
           >
-            <ToggleGroupItem value="all" aria-label="全量练习">全量</ToggleGroupItem>
-            <ToggleGroupItem value="wrong" aria-label="错题集练习">错题</ToggleGroupItem>
-            <ToggleGroupItem value="by_type" aria-label="按题型练习">按题型</ToggleGroupItem>
-            <ToggleGroupItem value="exam" aria-label="自测模考">模考</ToggleGroupItem>
-          </ToggleGroup>
+            {practiceModeOptions.map((option) => (
+              <label
+                key={option.value}
+                className="flex cursor-pointer items-center justify-center rounded-md border border-border/70 px-3 py-2 text-sm data-[checked=true]:bg-foreground/10 data-[checked=true]:text-foreground"
+                data-checked={mode === option.value}
+              >
+                <input
+                  type="radio"
+                  className="sr-only"
+                  aria-label={option.ariaLabel}
+                  checked={mode === option.value}
+                  onChange={() => setMode(option.value)}
+                />
+                {option.label}
+              </label>
+            ))}
+          </div>
           <input type="hidden" name="mode" value={mode} />
-          <FieldDescription>{modeDescriptions[mode]}</FieldDescription>
-        </Field>
+          <Description>{modeDescriptions[mode]}</Description>
+        </div>
 
         <div className="grid gap-4 md:grid-cols-2">
-          <Field data-disabled={allQuestionsDisabled}>
+          <div data-disabled={allQuestionsDisabled}>
             <div className="flex items-center gap-3 rounded-md border px-3 py-2">
-              <Checkbox
+              <input
                 id={`${formId}-allQuestions`}
                 name="allQuestions"
+                type="checkbox"
+                className="size-4 rounded border border-border"
                 defaultChecked
                 disabled={allQuestionsDisabled}
               />
-              <FieldLabel htmlFor={`${formId}-allQuestions`} className="font-normal">
+              <Label htmlFor={`${formId}-allQuestions`} className="font-normal">
                 使用全部题目
-              </FieldLabel>
+              </Label>
             </div>
-            <FieldDescription>仅全量练习启用。取消后按下方题目数量抽题。</FieldDescription>
-          </Field>
+            <Description>仅全量练习启用。取消后按下方题目数量抽题。</Description>
+          </div>
 
-          <Field>
-            <FieldLabel htmlFor={`${formId}-questionCount`}>题目数量</FieldLabel>
+          <div>
+            <Label htmlFor={`${formId}-questionCount`}>题目数量</Label>
             <Input
               id={`${formId}-questionCount`}
               name="questionCount"
@@ -87,32 +85,25 @@ export function PracticeSetupForm({
               max={questionCountMax}
               defaultValue={activeCount || 10}
             />
-            <FieldDescription>错题、按题型和模考都会按此数量抽题。</FieldDescription>
-          </Field>
+            <Description>错题、按题型和模考都会按此数量抽题。</Description>
+          </div>
         </div>
 
-        <Field data-disabled={typeDisabled}>
-          <FieldLabel htmlFor={`${formId}-questionTypeId`}>题型</FieldLabel>
-          <Select name="questionTypeId" defaultValue="all" disabled={typeDisabled}>
-            <SelectTrigger id={`${formId}-questionTypeId`} className="w-full">
-              <SelectValue placeholder="选择题型" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                <SelectItem value="all">全部题型</SelectItem>
+        <div data-disabled={typeDisabled}>
+          <Label htmlFor={`${formId}-questionTypeId`}>题型</Label>
+          <select id={`${formId}-questionTypeId`} className="w-full" name="questionTypeId" defaultValue="all" disabled={typeDisabled}>
+<option value="all">全部题型</option>
                 {Object.entries(typeCounts).map(([typeId, count]) => (
-                  <SelectItem key={typeId} value={typeId}>{typeId} ({count})</SelectItem>
+                  <option key={typeId} value={typeId}>{typeId} ({count})</option>
                 ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-          <FieldDescription>仅按题型练习启用。</FieldDescription>
-        </Field>
+</select>
+          <Description>仅按题型练习启用。</Description>
+        </div>
       </FieldGroup>
 
       <input type="hidden" name="sessionType" value="practice" />
       <div className="rounded-md border px-3 py-2 text-sm text-muted-foreground">错题集：{wrongCount} 题</div>
-      <Button type="submit" disabled={activeCount === 0}>
+      <Button type="submit" isDisabled={activeCount === 0}>
         <Play className="size-4" />
         开始
       </Button>
@@ -120,9 +111,6 @@ export function PracticeSetupForm({
   );
 }
 
-function isPracticeMode(value: string): value is PracticeMode {
-  return value === 'all' || value === 'wrong' || value === 'by_type' || value === 'exam';
-}
 
 const modeDescriptions: Record<PracticeMode, string> = {
   all: '从当前题库全部可练习题目中抽取。',
@@ -130,3 +118,10 @@ const modeDescriptions: Record<PracticeMode, string> = {
   by_type: '按指定题型抽题，适合集中训练薄弱类型。',
   exam: '使用模考会话记录结果，适合阶段自测。'
 };
+
+const practiceModeOptions: Array<{ value: PracticeMode; label: string; ariaLabel: string }> = [
+  { value: 'all', label: '全量', ariaLabel: '全量练习' },
+  { value: 'wrong', label: '错题', ariaLabel: '错题集练习' },
+  { value: 'by_type', label: '按题型', ariaLabel: '按题型练习' },
+  { value: 'exam', label: '模考', ariaLabel: '自测模考' }
+];

@@ -1,31 +1,12 @@
-import Link from 'next/link';
-import { notFound } from 'next/navigation';
 import { CheckCircle2, ChevronLeft, ChevronRight, Circle, Flag, XCircle } from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger
-} from '@/components/ui/alert-dialog';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Textarea } from '@/components/ui/textarea';
+import { notFound } from 'next/navigation';
+import Link from 'next/link';
 import { getCurrentUser } from '@/lib/openwook/auth';
 import { getPracticeQuestionPage } from '@/lib/openwook/services';
-import { cn } from '@/lib/utils';
 import { abandonPracticeAction, completePracticeAction, submitPracticeAnswerAction } from '../../banks/actions';
 import { AnswerForm } from './answer-form';
 import type { BankQuestionItem } from '@/lib/openwook/types';
+import { Alert, AlertDescription, AlertDialog, Badge, Button, Card, CardContent, CardHeader, CardTitle, Label, TextArea } from '@heroui/react';
 
 export default async function PracticeSessionPage({
   params,
@@ -66,10 +47,10 @@ export default async function PracticeSessionPage({
               <Link
                 key={item.questionId}
                 href={`/practice/${id}?index=${item.index}`}
-                className={cn(
+                className={[
                   'flex h-10 items-center justify-center rounded-md border border-border/70 bg-background/35 text-xs hover:bg-accent focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/35',
-                  item.index === questionIndex && 'border-ring bg-foreground/10 text-foreground'
-                )}
+                  item.index === questionIndex ? 'border-ring bg-foreground/10 text-foreground' : ''
+                ].filter(Boolean).join(' ')}
                 aria-current={item.index === questionIndex ? 'step' : undefined}
                 aria-label={`第 ${item.index + 1} 题，${progressLabel(item, item.index === questionIndex)}`}
               >
@@ -106,25 +87,21 @@ export default async function PracticeSessionPage({
             />
             <div className="flex items-center justify-between gap-3">
               {previousIndex === null ? (
-                <Button variant="outline" disabled><ChevronLeft className="size-4" />上一题</Button>
+                <Button variant="outline" isDisabled><ChevronLeft className="size-4" />上一题</Button>
               ) : (
-                <Button asChild variant="outline">
-                  <Link href={`/practice/${id}?index=${previousIndex}`}>
-                    <ChevronLeft className="size-4" />
-                    上一题
-                  </Link>
-                </Button>
+                <Link href={`/practice/${id}?index=${previousIndex}`} className="button button--outline">
+                  <ChevronLeft className="size-4" />
+                  上一题
+                </Link>
               )}
               <span className="text-sm text-muted-foreground">第 {questionIndex + 1} / {total} 题</span>
               {nextIndex === null ? (
-                <Button variant="outline" disabled>下一题<ChevronRight className="size-4" /></Button>
+                <Button variant="outline" isDisabled>下一题<ChevronRight className="size-4" /></Button>
               ) : (
-                <Button asChild variant={result ? 'default' : 'outline'}>
-                  <Link href={`/practice/${id}?index=${nextIndex}`}>
-                    下一题
-                    <ChevronRight className="size-4" />
-                  </Link>
-                </Button>
+                <Link href={`/practice/${id}?index=${nextIndex}`} className="button button--primary">
+                  下一题
+                  <ChevronRight className="size-4" />
+                </Link>
               )}
             </div>
           </>
@@ -151,56 +128,60 @@ export default async function PracticeSessionPage({
             </div>
           </div>
           <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button className="w-full" disabled={session.status !== 'active'}>
-                <Flag className="size-4" />
-                完成会话
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>确认完成会话</AlertDialogTitle>
-                <AlertDialogDescription>
-                  完成后会锁定本次练习结果，你仍然可以返回题库重新开始新的练习。
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>继续答题</AlertDialogCancel>
-                <form action={completeAction}>
-                  <AlertDialogAction type="submit" className="w-full sm:w-auto">
-                    确认完成
-                  </AlertDialogAction>
-                </form>
-              </AlertDialogFooter>
-            </AlertDialogContent>
+            <Button className="w-full" isDisabled={session.status !== 'active'}>
+              <Flag className="size-4" />
+              完成会话
+            </Button>
+            <AlertDialog.Backdrop>
+              <AlertDialog.Container>
+                <AlertDialog.Dialog>
+                  <AlertDialog.Header>
+                    <AlertDialog.Heading>确认完成会话</AlertDialog.Heading>
+                  </AlertDialog.Header>
+                  <AlertDialog.Body>
+                    <p>完成后会锁定本次练习结果，你仍然可以返回题库重新开始新的练习。</p>
+                  </AlertDialog.Body>
+                  <AlertDialog.Footer>
+                    <Button slot="close" variant="tertiary">继续答题</Button>
+                    <form action={completeAction}>
+                      <Button type="submit" className="w-full sm:w-auto">
+                        确认完成
+                      </Button>
+                    </form>
+                  </AlertDialog.Footer>
+                </AlertDialog.Dialog>
+              </AlertDialog.Container>
+            </AlertDialog.Backdrop>
           </AlertDialog>
           <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button className="w-full" variant="outline" disabled={session.status !== 'active'}>
-                放弃并返回
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>确认放弃练习</AlertDialogTitle>
-                <AlertDialogDescription>
-                  放弃后会结束当前会话并返回仪表板，已提交的答题记录仍会保留。
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>继续答题</AlertDialogCancel>
-                <form action={abandonAction}>
-                  <AlertDialogAction type="submit" className="w-full sm:w-auto">
-                    确认放弃
-                  </AlertDialogAction>
-                </form>
-              </AlertDialogFooter>
-            </AlertDialogContent>
+            <Button className="w-full" variant="outline" isDisabled={session.status !== 'active'}>
+              放弃并返回
+            </Button>
+            <AlertDialog.Backdrop>
+              <AlertDialog.Container>
+                <AlertDialog.Dialog>
+                  <AlertDialog.Header>
+                    <AlertDialog.Heading>确认放弃练习</AlertDialog.Heading>
+                  </AlertDialog.Header>
+                  <AlertDialog.Body>
+                    <p>放弃后会结束当前会话并返回仪表板，已提交的答题记录仍会保留。</p>
+                  </AlertDialog.Body>
+                  <AlertDialog.Footer>
+                    <Button slot="close" variant="tertiary">继续答题</Button>
+                    <form action={abandonAction}>
+                      <Button type="submit" className="w-full sm:w-auto">
+                        确认放弃
+                      </Button>
+                    </form>
+                  </AlertDialog.Footer>
+                </AlertDialog.Dialog>
+              </AlertDialog.Container>
+            </AlertDialog.Backdrop>
           </AlertDialog>
           {session.status !== 'active' && (
-            <Button asChild variant="outline" className="w-full">
-              <Link href={session.bank_id ? `/banks/${session.bank_id}` : '/dashboard'}>返回题库</Link>
-            </Button>
+            <Link href={session.bank_id ? `/banks/${session.bank_id}` : '/dashboard'} className="button button--outline w-full">
+              返回题库
+            </Link>
           )}
           {nextIndex !== null && (
             <Link href={`/practice/${id}?index=${nextIndex}`} className="block text-center text-sm text-muted-foreground hover:underline">跳到下一题</Link>
@@ -239,7 +220,7 @@ function QuestionPanel({
           {renderAnswerInput(question)}
         </AnswerForm>
         {result && (
-          <Alert variant={result.is_correct === false ? 'destructive' : 'default'}>
+          <Alert status={result.is_correct === false ? 'danger' : 'success'}>
             <AlertDescription>
               {result.is_correct === null ? '已提交，简答题等待人工或规则判分。' : result.is_correct ? '回答正确。' : '回答错误。'}
               {question.analysis && <div className="mt-2">解析：{question.analysis}</div>}
@@ -264,7 +245,13 @@ function renderAnswerInput(question: BankQuestionItem) {
 
             return (
               <div key={option.label} className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
-                <Checkbox id={id} name="selected" value={option.label} />
+                <input
+                  id={id}
+                  name="selected"
+                  type="checkbox"
+                  value={option.label}
+                  className="size-4 rounded border border-border"
+                />
                 <Label htmlFor={id} className="flex flex-1 gap-2 font-normal">
                   <span className="font-medium">{option.label}.</span>
                   <span>{option.content}</span>
@@ -277,13 +264,20 @@ function renderAnswerInput(question: BankQuestionItem) {
     }
 
     return (
-      <RadioGroup name="selected" required className="grid gap-2 sm:grid-cols-2">
+      <div role="radiogroup" className="grid gap-2 sm:grid-cols-2">
         {options.map((option) => {
           const id = `selected-${question.question_id}-${option.label}`;
 
           return (
             <div key={option.label} className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
-              <RadioGroupItem id={id} value={option.label} />
+              <input
+                id={id}
+                name="selected"
+                type="radio"
+                value={option.label}
+                required
+                className="size-4 rounded-full border border-border"
+              />
               <Label htmlFor={id} className="flex flex-1 gap-2 font-normal">
                 <span className="font-medium">{option.label}.</span>
                 <span>{option.content}</span>
@@ -291,24 +285,38 @@ function renderAnswerInput(question: BankQuestionItem) {
             </div>
           );
         })}
-      </RadioGroup>
+      </div>
     );
   }
   if (question.answer_mode === 'true_false') {
     return (
-      <RadioGroup name="value" required className="grid grid-cols-2 gap-2">
+      <div role="radiogroup" className="grid grid-cols-2 gap-2">
         <div className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
-          <RadioGroupItem id={`value-${question.question_id}-true`} value="true" />
+          <input
+            id={`value-${question.question_id}-true`}
+            name="value"
+            type="radio"
+            value="true"
+            required
+            className="size-4 rounded-full border border-border"
+          />
           <Label htmlFor={`value-${question.question_id}-true`} className="font-normal">正确</Label>
         </div>
         <div className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
-          <RadioGroupItem id={`value-${question.question_id}-false`} value="false" />
+          <input
+            id={`value-${question.question_id}-false`}
+            name="value"
+            type="radio"
+            value="false"
+            required
+            className="size-4 rounded-full border border-border"
+          />
           <Label htmlFor={`value-${question.question_id}-false`} className="font-normal">错误</Label>
         </div>
-      </RadioGroup>
+      </div>
     );
   }
-  return <Textarea name="value" rows={4} required placeholder="输入答案" />;
+  return <TextArea name="value" rows={4} required placeholder="输入答案" />;
 }
 
 function sessionTitle(type: string) {

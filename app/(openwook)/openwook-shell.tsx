@@ -1,34 +1,11 @@
 'use client';
-
-import Link from 'next/link';
+import { signOut } from '@/app/(login)/actions';
+import { Database, FileUp, LayoutDashboard, LogOut, Menu, Settings, Shield, UserRound, X } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
-import {
-  Database,
-  FileUp,
-  LayoutDashboard,
-  LogOut,
-  Menu,
-  Shield,
-  X,
-  Settings,
-  UserRound
-} from 'lucide-react';
-import { signOut } from '@/app/(login)/actions';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger
-} from '@/components/ui/alert-dialog';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+
+import Link from 'next/link';
+import { AlertDialog, Avatar, AvatarFallback, AvatarImage, Button } from '@heroui/react';
 
 type ShellUser = {
   username: string;
@@ -87,12 +64,12 @@ function UserShell({
             <Button
               type="button"
               variant="ghost"
-              size="icon"
+              isIconOnly
               className="md:hidden"
               aria-controls="mobile-navigation"
               aria-expanded={mobileNavOpen}
               aria-label={mobileNavOpen ? '关闭导航菜单' : '打开导航菜单'}
-              onClick={() => setMobileNavOpen((open) => !open)}
+              onPress={() => setMobileNavOpen((open) => !open)}
             >
               {mobileNavOpen ? <X className="size-4" /> : <Menu className="size-4" />}
             </Button>
@@ -106,10 +83,10 @@ function UserShell({
           data-state={mobileNavOpen ? 'open' : 'closed'}
           aria-hidden={!mobileNavOpen}
           inert={!mobileNavOpen}
-          className={cn(
+          className={[
             'mx-auto grid max-w-7xl border-t border-border/70 px-4 transition-[grid-template-rows,opacity] duration-200 ease-out md:hidden motion-reduce:transition-none',
             mobileNavOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
-          )}
+          ].join(' ')}
         >
           <div className="flex min-h-0 gap-1 overflow-hidden overflow-x-auto py-2">
             {visibleNavItems.map((item) => (
@@ -147,11 +124,11 @@ function TopNavLink({
     <Link
       href={item.href}
       aria-current={isActive ? 'page' : undefined}
-      className={cn(
+      className={[
         'inline-flex h-10 shrink-0 items-center gap-2 rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors duration-200 hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/35 motion-reduce:transition-none',
-        isActive && 'bg-foreground/10 text-foreground shadow-xs',
-        compact && 'h-9'
-      )}
+        isActive ? 'bg-foreground/10 text-foreground shadow-xs' : '',
+        compact ? 'h-9' : ''
+      ].filter(Boolean).join(' ')}
     >
       <item.icon className="size-4" />
       {item.label}
@@ -180,28 +157,30 @@ function UserActions({ user }: { user: ShellUser }) {
         </div>
       </div>
       <AlertDialog>
-        <AlertDialogTrigger asChild>
-          <Button type="button" variant="outline" size="sm">
-            <LogOut className="size-4" />
-            退出
-          </Button>
-        </AlertDialogTrigger>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>确认退出登录</AlertDialogTitle>
-            <AlertDialogDescription>
-              退出后需要重新登录才能继续管理题库、导入任务和练习记录。
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
-            <form action={signOut}>
-              <AlertDialogAction type="submit" className="w-full bg-destructive text-destructive-foreground hover:bg-destructive/90 sm:w-auto">
-                确认退出
-              </AlertDialogAction>
-            </form>
-          </AlertDialogFooter>
-        </AlertDialogContent>
+        <Button type="button" variant="outline" size="sm">
+          <LogOut className="size-4" />
+          退出
+        </Button>
+        <AlertDialog.Backdrop>
+          <AlertDialog.Container>
+            <AlertDialog.Dialog className="data-[entering]:fade-in-0 data-[entering]:zoom-in-95 data-[entering]:slide-in-from-top-2">
+              <AlertDialog.Header>
+                <AlertDialog.Heading>确认退出登录</AlertDialog.Heading>
+              </AlertDialog.Header>
+              <AlertDialog.Body>
+                <p>退出后需要重新登录才能继续管理题库、导入任务和练习记录。</p>
+              </AlertDialog.Body>
+              <AlertDialog.Footer>
+                <Button slot="close" variant="tertiary">取消</Button>
+                <form action={signOut}>
+                  <Button type="submit" variant="danger" className="w-full sm:w-auto">
+                    确认退出
+                  </Button>
+                </form>
+              </AlertDialog.Footer>
+            </AlertDialog.Dialog>
+          </AlertDialog.Container>
+        </AlertDialog.Backdrop>
       </AlertDialog>
     </div>
   );

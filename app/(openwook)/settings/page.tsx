@@ -1,15 +1,10 @@
 import { KeyRound, UserRound } from 'lucide-react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getCurrentUser } from '@/lib/openwook/auth';
 import { getAlipayBillingSummary } from '@/lib/openwook/alipay';
 import { getAnalyticsSummary } from '@/lib/openwook/services';
 import { updatePasswordAction, updateProfileAction } from '../banks/actions';
 import { AlipayCheckoutButton } from './alipay-checkout-button';
+import { Avatar, AvatarFallback, AvatarImage, Button, Card, CardContent, CardHeader, CardTitle, Description, FieldGroup, Input, Label, Tabs, TabPanel, TabList, Tab } from '@heroui/react';
 
 export default async function SettingsPage() {
   const user = await getCurrentUser();
@@ -27,16 +22,16 @@ export default async function SettingsPage() {
         <p className="text-sm text-muted-foreground">维护账号资料、密码、会员信息和数据导出。</p>
       </div>
 
-      <Tabs defaultValue="profile" className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <Tabs defaultSelectedKey="profile" className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="flex flex-col gap-4">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="profile">资料</TabsTrigger>
-            <TabsTrigger value="security">安全</TabsTrigger>
-            <TabsTrigger value="billing">会员</TabsTrigger>
-            <TabsTrigger value="data">数据</TabsTrigger>
-          </TabsList>
+          <TabList className="grid w-full grid-cols-4">
+            <Tab id="profile">资料</Tab>
+            <Tab id="security">安全</Tab>
+            <Tab id="billing">会员</Tab>
+            <Tab id="data">数据</Tab>
+          </TabList>
 
-          <TabsContent value="profile" className="m-0">
+          <TabPanel id="profile" className="m-0">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><UserRound className="size-4" />个人资料</CardTitle>
@@ -51,30 +46,30 @@ export default async function SettingsPage() {
                           {user.username.slice(0, 2).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
-                      <Field className="min-w-0 flex-1">
-                        <FieldLabel htmlFor="avatar">头像</FieldLabel>
+                      <div className="min-w-0 flex-1">
+                        <Label htmlFor="avatar">头像</Label>
                         <Input id="avatar" name="avatar" type="file" accept="image/png,image/jpeg,image/webp,image/gif" />
-                        <FieldDescription>支持 PNG、JPEG、WebP 和 GIF。</FieldDescription>
-                      </Field>
+                        <Description>支持 PNG、JPEG、WebP 和 GIF。</Description>
+                      </div>
                     </div>
                     <div className="grid gap-4 md:grid-cols-2">
-                      <Field>
-                        <FieldLabel htmlFor="username">用户名</FieldLabel>
+                      <div>
+                        <Label htmlFor="username">用户名</Label>
                         <Input id="username" name="username" defaultValue={user.username} required maxLength={32} />
-                      </Field>
-                      <Field>
-                        <FieldLabel htmlFor="email">邮箱</FieldLabel>
+                      </div>
+                      <div>
+                        <Label htmlFor="email">邮箱</Label>
                         <Input id="email" name="email" type="email" defaultValue={user.email ?? ''} />
-                      </Field>
+                      </div>
                     </div>
                     <Button type="submit">保存设置</Button>
                   </FieldGroup>
                 </form>
               </CardContent>
             </Card>
-          </TabsContent>
+          </TabPanel>
 
-          <TabsContent value="security" className="m-0">
+          <TabPanel id="security" className="m-0">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><KeyRound className="size-4" />安全</CardTitle>
@@ -82,27 +77,27 @@ export default async function SettingsPage() {
               <CardContent>
                 <form action={updatePasswordAction}>
                   <FieldGroup className="gap-4">
-                    <Field>
-                      <FieldLabel htmlFor="currentPassword">当前密码</FieldLabel>
+                    <div>
+                      <Label htmlFor="currentPassword">当前密码</Label>
                       <Input id="currentPassword" name="currentPassword" type="password" autoComplete="current-password" required />
-                    </Field>
-                    <Field>
-                      <FieldLabel htmlFor="password">新密码</FieldLabel>
+                    </div>
+                    <div>
+                      <Label htmlFor="password">新密码</Label>
                       <Input id="password" name="password" type="password" minLength={8} maxLength={100} autoComplete="new-password" required />
-                      <FieldDescription>至少 8 位。保存后请使用新密码登录。</FieldDescription>
-                    </Field>
-                    <Field>
-                      <FieldLabel htmlFor="confirmPassword">确认新密码</FieldLabel>
+                      <Description>至少 8 位。保存后请使用新密码登录。</Description>
+                    </div>
+                    <div>
+                      <Label htmlFor="confirmPassword">确认新密码</Label>
                       <Input id="confirmPassword" name="confirmPassword" type="password" minLength={8} maxLength={100} autoComplete="new-password" required />
-                    </Field>
+                    </div>
                     <Button type="submit">更新密码</Button>
                   </FieldGroup>
                 </form>
               </CardContent>
             </Card>
-          </TabsContent>
+          </TabPanel>
 
-          <TabsContent value="billing" className="m-0">
+          <TabPanel id="billing" className="m-0">
             <Card>
               <CardHeader>
                 <CardTitle>月付套餐</CardTitle>
@@ -122,22 +117,25 @@ export default async function SettingsPage() {
                 ) : null}
               </CardContent>
             </Card>
-          </TabsContent>
+          </TabPanel>
 
-          <TabsContent value="data" className="m-0">
+          <TabPanel id="data" className="m-0">
             <Card>
               <CardHeader>
                 <CardTitle>数据</CardTitle>
               </CardHeader>
               <CardContent className="flex flex-col gap-3 text-sm text-muted-foreground">
-                <Button asChild variant="outline" size="sm" className="w-fit">
-                  <a href="/api/v1/exports/me/summary.pdf">导出 PDF</a>
-                </Button>
+                <a
+                  className="button button--outline button--sm w-fit"
+                  href="/api/v1/exports/me/summary.pdf"
+                >
+                  导出 PDF
+                </a>
                 <p>当前版本保留本地账号和题库数据。</p>
                 <p>导出和删除账号会走独立审批流程，避免误删题库和练习记录。</p>
               </CardContent>
             </Card>
-          </TabsContent>
+          </TabPanel>
         </div>
 
         <div className="flex flex-col gap-4">

@@ -1,14 +1,11 @@
-import Link from 'next/link';
-import { notFound } from 'next/navigation';
 import { AlertTriangle, CheckCircle2, Play, RotateCcw, XCircle } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
+import { notFound } from 'next/navigation';
+import Link from 'next/link';
 import { getCurrentUser } from '@/lib/openwook/auth';
 import { getImportJobDetail } from '@/lib/openwook/services';
 import { resolveReviewItemAction, updateImportStatusAction } from '../../banks/actions';
 import { ImportLivePanel } from './import-live-panel';
+import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Input } from '@heroui/react';
 
 type ReviewItemRow = {
   id: number;
@@ -63,13 +60,13 @@ export default async function ImportDetailPage({ params }: { params: Promise<{ j
         </div>
         <div className="flex flex-wrap gap-2">
           <form action={updateImportStatusAction.bind(null, id, 'start')}>
-            <Button size="sm" disabled={job.status === 'processing' || job.status === 'completed'}><Play className="size-4" />开始</Button>
+            <Button size="sm" isDisabled={job.status === 'processing' || job.status === 'completed'}><Play className="size-4" />开始</Button>
           </form>
           <form action={updateImportStatusAction.bind(null, id, 'retry')}>
-            <Button size="sm" variant="outline" disabled={job.status === 'processing'}><RotateCcw className="size-4" />重试</Button>
+            <Button size="sm" variant="outline" isDisabled={job.status === 'processing'}><RotateCcw className="size-4" />重试</Button>
           </form>
           <form action={updateImportStatusAction.bind(null, id, 'cancel')}>
-            <Button size="sm" variant="outline" disabled={job.status === 'completed' || job.status === 'failed'}><XCircle className="size-4" />取消</Button>
+            <Button size="sm" variant="outline" isDisabled={job.status === 'completed' || job.status === 'failed'}><XCircle className="size-4" />取消</Button>
           </form>
         </div>
       </div>
@@ -100,7 +97,7 @@ export default async function ImportDetailPage({ params }: { params: Promise<{ j
                     <AlertTriangle className="size-4 text-foreground" />
                     {item.code}
                   </div>
-                  <Badge variant={item.status === 'open' ? 'default' : 'secondary'}>{item.status}</Badge>
+                  <Badge variant={item.status === 'open' ? 'primary' : 'secondary'}>{item.status}</Badge>
                 </div>
                 <pre className="mt-2 max-h-28 overflow-auto rounded bg-muted p-2 text-xs text-muted-foreground">{item.payload_json}</pre>
                 {item.status === 'open' && (

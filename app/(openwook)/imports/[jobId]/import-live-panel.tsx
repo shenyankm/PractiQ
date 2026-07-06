@@ -1,11 +1,9 @@
 'use client';
-
-import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
+import { useEffect, useState } from 'react';
+
 import type { ImportJob } from '@/lib/openwook/types';
+import { Alert, AlertDescription, Card, CardContent, CardHeader, CardTitle, ProgressBar } from '@heroui/react';
 
 type EventRow = {
   id: number;
@@ -63,7 +61,7 @@ export function ImportLivePanel({ job, events: initialEvents, metrics }: Props) 
           <CardTitle>进度</CardTitle>
         </CardHeader>
         <CardContent>
-          <Progress value={liveJob.overall_progress_percent ?? 0} />
+          <ProgressBar value={liveJob.overall_progress_percent ?? 0} />
           <div className="mt-3 grid gap-3 text-sm md:grid-cols-4">
             <Metric label="页数" value={metrics.pages} />
             <Metric label="区块" value={metrics.blocks} />
@@ -72,7 +70,7 @@ export function ImportLivePanel({ job, events: initialEvents, metrics }: Props) 
           </div>
           <div className="mt-3 text-sm text-muted-foreground">{liveJob.status} · {liveJob.stage}</div>
           {liveJob.last_error && (
-            <Alert className="mt-4" variant="destructive">
+            <Alert className="mt-4" status="danger">
               <AlertDescription>{liveJob.last_error}</AlertDescription>
             </Alert>
           )}

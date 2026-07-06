@@ -1,21 +1,10 @@
-import Link from 'next/link';
-import { notFound } from 'next/navigation';
 import { BookOpen } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator
-} from '@/components/ui/breadcrumb';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
+import { notFound } from 'next/navigation';
+import Link from 'next/link';
 import { getCurrentUser } from '@/lib/openwook/auth';
 import { getBankWithItems } from '@/lib/openwook/services';
 import { favoriteBankAction } from '../actions';
+import { Badge, Button, Card, CardContent, CardHeader, CardTitle, EmptyState } from '@heroui/react';
 
 export default async function BankDetailPage({ params }: { params: Promise<{ bankId: string }> }) {
   const user = await getCurrentUser();
@@ -27,19 +16,13 @@ export default async function BankDetailPage({ params }: { params: Promise<{ ban
 
   return (
     <div className="flex flex-col gap-6">
-      <Breadcrumb>
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbLink asChild>
-              <Link href="/banks">题库</Link>
-            </BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
-          <BreadcrumbItem>
-            <BreadcrumbPage>{bank.name}</BreadcrumbPage>
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
+      <nav aria-label="面包屑">
+        <ol className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+          <li><Link href="/banks" className="hover:text-foreground">题库</Link></li>
+          <li aria-hidden="true">/</li>
+          <li aria-current="page" className="text-foreground">{bank.name}</li>
+        </ol>
+      </nav>
 
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
@@ -47,17 +30,23 @@ export default async function BankDetailPage({ params }: { params: Promise<{ ban
           <p className="mt-1 text-sm text-muted-foreground">{bank.description || '暂无描述'}</p>
           <div className="mt-3 flex gap-2">
             <Badge variant="secondary">{bank.subject}</Badge>
-            <Badge variant="outline">{bank.is_public ? '公开' : '私有'}</Badge>
-            <Badge variant="outline">{bank.total_count} 题</Badge>
+            <Badge variant="soft">{bank.is_public ? '公开' : '私有'}</Badge>
+            <Badge variant="soft">{bank.total_count} 题</Badge>
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
           <form action={favoriteBankAction.bind(null, id, !bank.is_favorite)}>
             <Button variant="outline" type="submit">{bank.is_favorite ? '取消收藏' : '收藏'}</Button>
           </form>
-          <Button asChild><Link href={`/banks/${id}/practice`}>开始练习</Link></Button>
-          {bank.is_owner && <Button asChild variant="outline"><Link href={`/banks/${id}/manage`}>管理题目</Link></Button>}
-          {bank.is_owner && <Button asChild variant="outline"><Link href={`/imports?bankId=${id}`}>导入题目</Link></Button>}
+          <Link href={`/banks/${id} /practice`} className="button button--primary">
+  开始练习
+</Link>
+          {bank.is_owner && <Link href={`/banks/${id} /manage`} className="button button--outline">
+  管理题目
+</Link>}
+          {bank.is_owner && <Link href={`/imports?bankId=${id} `} className="button button--outline">
+  导入题目
+</Link>}
         </div>
       </div>
 
@@ -67,27 +56,27 @@ export default async function BankDetailPage({ params }: { params: Promise<{ ban
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
           {items.length === 0 ? (
-            <Empty>
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
+            <EmptyState>
+              <div className="flex flex-col items-center gap-2 text-center">
+                <div className="mx-auto flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground [&_svg]:size-5">
                   <BookOpen />
-                </EmptyMedia>
-                <EmptyTitle>题库暂无题目</EmptyTitle>
-                <EmptyDescription>导入题目或进入管理页手动新增题目后即可开始练习。</EmptyDescription>
-              </EmptyHeader>
+                </div>
+                <h3 className="text-base font-semibold">题库暂无题目</h3>
+                <p className="text-sm text-muted-foreground">导入题目或进入管理页手动新增题目后即可开始练习。</p>
+              </div>
               {bank.is_owner ? (
-                <EmptyContent>
+                <div className="mt-4 flex justify-center">
                   <div className="flex flex-wrap justify-center gap-2">
-                    <Button asChild>
-                      <Link href={`/imports?bankId=${id}`}>导入题目</Link>
-                    </Button>
-                    <Button asChild variant="outline">
-                      <Link href={`/banks/${id}/manage`}>手动新增</Link>
-                    </Button>
+                    <Link href={`/imports?bankId=${id} `} className="button button--primary">
+  导入题目
+</Link>
+                    <Link href={`/banks/${id} /manage`} className="button button--outline">
+  手动新增
+</Link>
                   </div>
-                </EmptyContent>
+                </div>
               ) : null}
-            </Empty>
+            </EmptyState>
           ) : items.map((item) => (
             <Link key={`${item.item_scope}-${item.group_id ?? 'q'}-${item.question_id}`} href={`/questions/${item.question_id}`} className="block rounded-md border p-3 hover:bg-accent">
               <div className="flex items-start justify-between gap-4">

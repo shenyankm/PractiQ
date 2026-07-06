@@ -1,28 +1,11 @@
 'use client';
+import { useActionState } from 'react';
 
 import Link from 'next/link';
-import { useActionState } from 'react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle
-} from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import {
-  Field,
-  FieldDescription,
-  FieldGroup,
-  FieldLabel
-} from '@/components/ui/field';
-import { Separator } from '@/components/ui/separator';
 import { BookOpen, Loader2 } from 'lucide-react';
 import { signIn, signUp } from './actions';
 import type { ActionState } from './actions';
+import { Alert, AlertDescription, Button, Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle, Description, FieldGroup, Input, Label, Separator } from '@heroui/react';
 
 type LoginProps = {
   mode?: 'signin' | 'signup';
@@ -66,8 +49,8 @@ export function Login({ mode = 'signin', redirect, priceId, inviteId }: LoginPro
             <input type="hidden" name="inviteId" value={inviteId || ''} />
             <FieldGroup className="gap-4">
               {mode === 'signup' && (
-                <Field>
-                  <FieldLabel htmlFor="username">用户名</FieldLabel>
+                <div>
+                  <Label htmlFor="username">用户名</Label>
                   <Input
                     id="username"
                     name="username"
@@ -78,12 +61,12 @@ export function Login({ mode = 'signin', redirect, priceId, inviteId }: LoginPro
                     maxLength={32}
                     placeholder="例如 alice"
                   />
-                </Field>
+                </div>
               )}
-              <Field>
-                <FieldLabel htmlFor="email">
+              <div>
+                <Label htmlFor="email">
                   {mode === 'signin' ? '用户名或邮箱' : '邮箱'}
-                </FieldLabel>
+                </Label>
                 <Input
                   id="email"
                   name="email"
@@ -94,10 +77,10 @@ export function Login({ mode = 'signin', redirect, priceId, inviteId }: LoginPro
                   maxLength={50}
                   placeholder={mode === 'signin' ? '用户名或邮箱' : '邮箱'}
                 />
-              </Field>
+              </div>
 
-              <Field>
-                <FieldLabel htmlFor="password">密码</FieldLabel>
+              <div>
+                <Label htmlFor="password">密码</Label>
                 <Input
                   id="password"
                   name="password"
@@ -111,13 +94,13 @@ export function Login({ mode = 'signin', redirect, priceId, inviteId }: LoginPro
                   placeholder="至少 8 位"
                 />
                 {mode === 'signup' ? (
-                  <FieldDescription>至少 8 位，建议包含字母和数字。</FieldDescription>
+                  <Description>至少 8 位，建议包含字母和数字。</Description>
                 ) : null}
-              </Field>
+              </div>
             </FieldGroup>
 
             {state?.error && (
-              <Alert variant="destructive">
+              <Alert status="danger">
                 <AlertDescription>{state.error}</AlertDescription>
               </Alert>
             )}
@@ -125,7 +108,7 @@ export function Login({ mode = 'signin', redirect, priceId, inviteId }: LoginPro
             <Button
               type="submit"
               className="w-full"
-              disabled={pending}
+              isDisabled={pending}
               aria-busy={pending}
             >
               {pending ? (
@@ -147,11 +130,9 @@ export function Login({ mode = 'signin', redirect, priceId, inviteId }: LoginPro
             <span>{mode === 'signin' ? '还没有账号？' : '已经有账号？'}</span>
             <Separator className="flex-1" />
           </div>
-          <Button asChild variant="outline" className="w-full">
-            <Link href={switchHref}>
-              {mode === 'signin' ? '创建账号' : '登录已有账号'}
-            </Link>
-          </Button>
+          <Link href={switchHref} className="button button--outline w-full">
+  {mode === 'signin' ? '创建账号' : '登录已有账号'}
+</Link>
         </CardFooter>
       </Card>
     </div>

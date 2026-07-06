@@ -1,12 +1,10 @@
+import { BookOpen, CheckCircle2, FileWarning, Plus, TrendingUp } from 'lucide-react';
 import { Suspense } from 'react';
 import Link from 'next/link';
-import { BookOpen, CheckCircle2, FileWarning, Plus, TrendingUp } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
 import { getCurrentUser } from '@/lib/openwook/auth';
 import { getAnalyticsSummary, listBanks, listImportJobs } from '@/lib/openwook/services';
 import type { User } from '@/lib/openwook/types';
+import { Card, CardContent, CardHeader, CardTitle, Skeleton } from '@heroui/react';
 
 export default async function DashboardPage() {
   const user = await getCurrentUser();
@@ -19,9 +17,9 @@ export default async function DashboardPage() {
           <h1 className="text-2xl font-semibold tracking-tight">仪表板</h1>
           <p className="text-sm text-muted-foreground">管理题库、导入任务和练习表现。</p>
         </div>
-        <Button asChild>
-          <Link href="/banks">进入题库</Link>
-        </Button>
+        <Link href="/banks" className="button button--primary">
+  进入题库
+</Link>
       </div>
 
       <Suspense fallback={<MetricGridSkeleton />}>
@@ -61,9 +59,9 @@ async function RecentBanks({ user }: { user: User }) {
     <Card className="motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-300">
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>最近题库</CardTitle>
-        <Button asChild size="sm" variant="outline">
-          <Link href="/banks"><Plus className="size-4" />新建</Link>
-        </Button>
+        <Link href="/banks" className="button button--outline button--sm">
+  <Plus className="size-4" />新建
+</Link>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         {banks.length === 0 ? (

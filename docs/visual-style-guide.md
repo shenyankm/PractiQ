@@ -25,7 +25,7 @@ Reusable utilities:
 
 ## Component Patterns
 
-- Buttons use semantic variants from `components/ui/button.tsx`; page code should choose variants, not override colors.
+- Buttons use HeroUI semantic variants or the shared HeroUI `.button` classes; page code should choose variants, not override colors.
 - Cards are glass surfaces by default and should be composed with `CardHeader`, `CardTitle`, `CardContent`, and `CardFooter`.
 - Inputs, selects, textareas, and toggles use translucent neutral backgrounds with a visible ring focus state.
 - Dialogs, popovers, dropdowns, selects, and tooltips use blur/elevation for depth and keep titles/labels accessible.
@@ -36,7 +36,7 @@ Reusable utilities:
 
 - Avoid page-level `bg-primary`, `text-primary`, and `border-primary`; use `text-foreground`, `text-muted-foreground`, `bg-foreground/10`, `border-ring`, or component variants.
 - Avoid raw `blue-*`, `emerald-*`, `slate-*`, and `gray-*` utilities in app routes.
-- Use `Card`, `Alert`, `Empty`, `Separator`, `Skeleton`, and form primitives instead of bespoke visible UI markup.
+- Use HeroUI `Card`, `Alert`, `EmptyState`, dialog, and form primitives where they fit; keep any native HTML controls accessible and semantically labeled.
 - Maintain responsive spacing: `px-4`, `py-6`, `lg:px-8`, `lg:py-8`, card content `p-4 sm:p-6`.
 - Keep motion behind `motion-safe` / `motion-reduce` patterns.
 

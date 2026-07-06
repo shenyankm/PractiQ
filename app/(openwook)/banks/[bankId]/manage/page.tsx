@@ -1,18 +1,11 @@
-import Link from 'next/link';
-import { notFound } from 'next/navigation';
 import { ExternalLink, FileQuestion } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from '@/components/ui/tooltip';
+import { notFound } from 'next/navigation';
+import Link from 'next/link';
 import { getCurrentUser } from '@/lib/openwook/auth';
 import { getBankWithItems, listQuestionTypes } from '@/lib/openwook/services';
 import { createQuestionAction } from '../../actions';
 import { NewQuestionForm } from './new-question-form';
+import { Card, CardContent, CardHeader, CardTitle, EmptyState, Tooltip } from '@heroui/react';
 
 export default async function BankManagePage({ params }: { params: Promise<{ bankId: string }> }) {
   const user = await getCurrentUser();
@@ -39,15 +32,15 @@ export default async function BankManagePage({ params }: { params: Promise<{ ban
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
             {items.length === 0 ? (
-              <Empty>
-                <EmptyHeader>
-                  <EmptyMedia variant="icon">
+              <EmptyState>
+                <div className="flex flex-col items-center gap-2 text-center">
+                  <div className="mx-auto flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground [&_svg]:size-5">
                     <FileQuestion />
-                  </EmptyMedia>
-                  <EmptyTitle>暂无题目</EmptyTitle>
-                  <EmptyDescription>在右侧新增题目，或回到题库详情页导入现有资料。</EmptyDescription>
-                </EmptyHeader>
-              </Empty>
+                  </div>
+                  <h3 className="text-base font-semibold">暂无题目</h3>
+                  <p className="text-sm text-muted-foreground">在右侧新增题目，或回到题库详情页导入现有资料。</p>
+                </div>
+              </EmptyState>
             ) : items.map((item) => (
               <div key={`${item.item_scope}-${item.question_id}`} className="rounded-md border p-3">
                 <div className="flex items-start justify-between gap-3">
@@ -56,14 +49,10 @@ export default async function BankManagePage({ params }: { params: Promise<{ ban
                     <div className="mt-1 text-sm text-muted-foreground">{item.question_type_id} · {item.answer_mode} · {item.question_status}</div>
                   </div>
                   <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button asChild size="icon" variant="ghost">
-                        <Link href={`/questions/${item.question_id}`} aria-label="查看题目">
-                          <ExternalLink className="size-4" />
-                        </Link>
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>查看题目</TooltipContent>
+                    <Link href={`/questions/${item.question_id}`} aria-label="查看题目" className="button button--ghost button--icon">
+                      <ExternalLink className="size-4" />
+                    </Link>
+                    <Tooltip.Content>查看题目</Tooltip.Content>
                   </Tooltip>
                 </div>
               </div>

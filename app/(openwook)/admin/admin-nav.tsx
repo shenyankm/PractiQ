@@ -1,7 +1,6 @@
-import Link from 'next/link';
 import { BookOpen, FileWarning, Tags, UsersRound } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import Link from 'next/link';
+import { Card, CardContent } from '@heroui/react';
 
 const adminLinks = [
   { href: '/admin/users', label: '用户', icon: UsersRound },
@@ -15,12 +14,10 @@ export function AdminNav() {
     <Card>
       <CardContent className="flex flex-wrap gap-2 p-3">
         {adminLinks.map((item) => (
-          <Button key={item.href} asChild variant="ghost" size="sm">
-            <Link href={item.href}>
-              <item.icon className="size-4" />
+          <Link key={item.href} href={item.href} className="button button--ghost button--sm">
+  <item.icon className="size-4" />
               {item.label}
-            </Link>
-          </Button>
+</Link>
         ))}
       </CardContent>
     </Card>

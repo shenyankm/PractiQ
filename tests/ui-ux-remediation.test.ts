@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 describe('UI/UX remediation guardrails', () => {
@@ -17,10 +17,13 @@ describe('UI/UX remediation guardrails', () => {
     expect(globals).not.toMatch(/--background:\s*0 0% 100%/);
   });
 
-  it('installs the shadcn primitives needed for the redesigned flows', () => {
-    for (const component of ['breadcrumb', 'empty', 'field', 'sonner', 'table', 'tabs', 'tooltip']) {
-      expect(existsSync(`components/ui/${component}.tsx`), component).toBe(true);
-    }
+  it('uses HeroUI styles without keeping the removed shadcn component layer', () => {
+    const globals = readFileSync('app/globals.css', 'utf8');
+    const pkg = readFileSync('package.json', 'utf8');
+
+    expect(globals).toContain('@import "@heroui/styles"');
+    expect(pkg).toContain('"@heroui/react"');
+    expect(pkg).not.toContain('"radix-ui"');
   });
 
   it('gives filter search fields accessible names instead of placeholder-only labels', () => {

@@ -1,6 +1,6 @@
 # OpenWook - Full-Stack Next.js Application
 
-A complete full-stack application built with Next.js 16, PostgreSQL, and shadcn/ui.
+A complete full-stack application built with Next.js, PostgreSQL, HeroUI, and Tailwind CSS.
 
 ## Product Design
 
@@ -8,10 +8,10 @@ The question-bank product design based on `db/schema.sql` is documented in [docs
 
 ## Tech Stack
 
-- **Framework**: Next.js 16.2.6 (App Router)
+- **Framework**: Next.js 15.6.0-canary.59 (App Router)
 - **Language**: TypeScript
-- **Database**: PostgreSQL (via `pg` driver)
-- **UI**: shadcn/ui + Tailwind CSS v4
+- **Database**: PostgreSQL (via `postgres` driver)
+- **UI**: HeroUI + Tailwind CSS v4
 - **Styling**: CSS Variables + oklch color system
 
 ## Quick Start
@@ -24,16 +24,23 @@ pnpm install
 
 ### 2. Set Up Database
 
-Create a `.env.local` file (or modify the existing one):
-
-```env
-DATABASE_URL=postgresql://username:password@localhost:5432/openwook
-```
-
-Then run the initialization script:
+Start the local PostgreSQL container with Podman + Quadlet:
 
 ```bash
-psql $DATABASE_URL -f scripts/init-db.sql
+./scripts/podman-db.sh up
+```
+
+Create a `.env.local` file (or copy `.env.example`):
+
+```env
+DATABASE_URL=postgres://openwook:openwook@localhost:54322/openwook
+POSTGRES_URL=postgres://openwook:openwook@localhost:54322/openwook
+```
+
+Apply migrations:
+
+```bash
+pnpm db:migrate
 ```
 
 ### 3. Run Development Server
@@ -44,52 +51,24 @@ pnpm dev
 
 Open [http://localhost:3000](http://localhost:3000)
 
-## API Endpoints
+## Application Surface
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/health` | Health check with DB status |
-| GET | `/api/users` | List all users |
-| POST | `/api/users` | Create a new user |
-| GET | `/api/users/:id` | Get user by ID |
-| PUT | `/api/users/:id` | Update user |
-| DELETE | `/api/users/:id` | Delete user |
-
-## Project Structure
-
-```
-├── app/                    # Next.js App Router
-│   ├── api/               # API Routes
-│   │   ├── health/        # Health check endpoint
-│   │   └── users/         # CRUD user endpoints
-│   ├── globals.css        # Global styles + shadcn theme
-│   ├── layout.tsx         # Root layout
-│   └── page.tsx           # Home page
-├── components/            # React Components
-│   ├── ui/               # shadcn/ui components
-│   ├── health-status.tsx # Health check component
-│   ├── user-form.tsx     # User creation form
-│   ├── user-list.tsx     # User list display
-│   └── user-client.tsx   # Client-side wrappers
-├── lib/                   # Utilities & Config
-│   ├── db.ts             # PostgreSQL connection pool
-│   ├── types.ts          # TypeScript interfaces
-│   └── utils.ts          # Helper functions (cn)
-├── scripts/
-│   └── init-db.sql       # Database schema
-├── .env.local            # Environment variables
-├── next.config.ts        # Next.js configuration
-└── components.json       # shadcn/ui configuration
-```
+OpenWook uses the App Router under `app/`, API routes under `app/api`, HeroUI components directly in app screens, domain services under `lib/openwook`, and Drizzle schema/migrations under `lib/db`. See `docs/system-design.md` for the current product/API design.
 
 ## Database Configuration
 
-The database connection uses a singleton pattern with connection pooling:
+Local PostgreSQL is managed by rootless Podman Quadlet units in `containers/quadlet/`:
 
-- **Max connections**: 20
-- **Idle timeout**: 30s
-- **Connection timeout**: 2s
-- **Transactions**: Supported via `transaction()` helper
+```bash
+./scripts/podman-db.sh up       # install/update Quadlet files and start Postgres
+./scripts/podman-db.sh status   # show systemd and container status
+./scripts/podman-db.sh down     # stop the database service
+./scripts/podman-db.sh logs     # follow database logs
+```
+
+The container publishes Postgres on `127.0.0.1:54322` to avoid conflicts with a host Postgres on `5432`.
+
+The database connection uses connection pooling configured by `POSTGRES_POOL_MAX`, `POSTGRES_IDLE_TIMEOUT_SECONDS`, and `POSTGRES_CONNECT_TIMEOUT_SECONDS`.
 
 ## Redis, Caching, and Import Workers
 
@@ -108,7 +87,7 @@ Redis-backed features:
 Start Redis locally:
 
 ```bash
-docker run --name openwook-redis -p 6379:6379 -d redis:7-alpine redis-server --appendonly yes
+podman run --name openwook-redis -p 6379:6379 -d docker.io/library/redis:7-alpine redis-server --appendonly yes
 ```
 
 Set environment variables:
@@ -150,8 +129,6 @@ Run the Next.js app and the import worker in separate processes:
 pnpm dev
 pnpm worker:imports
 ```
-
-Production deployments should run the worker as a separate process. A systemd template is provided at `openwook-import-worker.service`.
 
 Health check:
 
@@ -210,7 +187,6 @@ Copy `.env.example` to `.env.local` for local development and replace all placeh
 | `AVATAR_MAX_BYTES` | Max uploaded avatar size in bytes |
 | `IMPORT_SOURCE_MAX_BYTES` | Max uploaded TXT/DOCX source size in bytes |
 | `NEXT_PUBLIC_APP_URL` | Public app URL |
-| `API_SECRET_KEY` | API authentication key |
 | `LOG_LEVEL` | Structured application log level; defaults to `info` in production |
 | `SLOW_QUERY_MS` | PostgreSQL slow-operation warning threshold in milliseconds |
 | `HEALTH_CHECK_TIMEOUT_MS` | Per-dependency health-check timeout in milliseconds |
@@ -235,35 +211,7 @@ OpenWook includes a production observability baseline:
 - OpenTelemetry startup in `instrumentation.ts` using `@vercel/otel`. Configure an OTLP collector with `OTEL_EXPORTER_OTLP_ENDPOINT`.
 - Database, Redis, HTTP route, and import-worker metrics for latency, errors, cache hit/miss, queue depth, job lifecycle, and slow query warnings.
 
-Recommended production stack:
-
-1. Scrape `/api/metrics` with Prometheus.
-2. Run `node_exporter`, `postgres_exporter`, and `redis_exporter` beside the app.
-3. Forward systemd stdout/stderr JSON logs and Caddy access logs to Loki, Elastic, CloudWatch, Datadog, or another centralized store.
-4. Export traces from Next.js to an OpenTelemetry Collector, then to Tempo, Jaeger, Honeycomb, Datadog, or another APM backend.
-5. Alert on health failures, 5xx rate, p95 latency, DB slow queries, Redis errors, BullMQ failed/stalled jobs, high CPU/memory/disk, and repeated process restarts.
-
-Sample Prometheus, alerting, OpenTelemetry Collector, and Fluent Bit configs live in `ops/observability/`.
-
-`Caddyfile.openwook` keeps rotated JSON edge access logs in `/var/log/caddy/openwook-access.log`; app and worker logs are intended for journald/stdout collection. `.omx/` is local agent runtime state and is ignored by git; do not use it as application monitoring data.
-
-## Performance Operations
-
-The Caddy config is ready for four local Next.js upstreams (`3000`-`3003`). For production concurrency, run the systemd template instead of a single `openwook.service`:
-
-```bash
-sudo OPENWOOK_PORTS=3000,3001,3002,3003 scripts/deploy/openwook-systemd.sh
-```
-
-Each web process owns its own PostgreSQL pool, so keep `instances × POSTGRES_POOL_MAX` comfortably below PostgreSQL `max_connections`, or place PgBouncer between OpenWook and PostgreSQL. A safe starting point for four local instances is `POSTGRES_POOL_MAX=5..8`.
-
-Performance regression commands:
-
-```bash
-pnpm perf:prepare
-PERF_BASE_URL=https://openwook.cloud PERF_BANK_ID=<bank-id> pnpm perf:quick
-PERF_BASE_URL=https://openwook.cloud PERF_BANK_ID=<bank-id> pnpm perf:suite
-```
+App and worker logs go to stdout. `.omx/` is local agent runtime state and is ignored by git; do not use it as application monitoring data.
 
 ## Features
 
@@ -274,7 +222,7 @@ PERF_BASE_URL=https://openwook.cloud PERF_BANK_ID=<bank-id> pnpm perf:suite
 - **Health Checks**: Real-time system status monitoring
 - **Database Pooling**: Efficient connection management
 - **CORS Headers**: Configured for API routes
-- **shadcn/ui Theme**: Light/dark mode support
+- **HeroUI Theme**: Light/dark mode support
 
 ## License
 

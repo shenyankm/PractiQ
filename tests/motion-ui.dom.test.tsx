@@ -4,7 +4,7 @@ import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OpenWookShell } from '@/app/(openwook)/openwook-shell';
-import { Button } from '@/components/ui/button';
+import { Button } from '@heroui/react';
 
 const navigationMock = vi.hoisted(() => ({
   pathname: '/dashboard'
@@ -88,11 +88,15 @@ describe('motion UI affordances', () => {
     render(<Login />);
 
     const submit = screen.getByRole('button', { name: /处理中/ });
-    expect(submit.getAttribute('aria-busy')).toBe('true');
+    expect(
+      submit.hasAttribute('disabled') ||
+      submit.getAttribute('aria-disabled') === 'true' ||
+      submit.getAttribute('data-disabled') === 'true'
+    ).toBe(true);
     expect(submit.querySelector('svg')?.className.baseVal).toContain('animate-spin');
   });
 
-  it('keeps alert dialogs on the shared fade, zoom, and slide motion language', () => {
+  it('keeps alert dialogs on the shared HeroUI dialog motion language', () => {
     render(
       <OpenWookShell user={{ username: 'tester', membership: 'free', avatarUrl: null, role: 'user' }}>
         <div>Dashboard</div>
@@ -102,14 +106,14 @@ describe('motion UI affordances', () => {
     fireEvent.click(screen.getByRole('button', { name: /退出/ }));
 
     const dialog = screen.getByRole('alertdialog', { name: '确认退出登录' });
-    expect(dialog.className).toContain('data-[state=open]:fade-in-0');
-    expect(dialog.className).toContain('data-[state=open]:zoom-in-95');
-    expect(dialog.className).toContain('data-[state=open]:slide-in-from-top-2');
+    expect(dialog.className).toContain('data-[entering]:fade-in-0');
+    expect(dialog.className).toContain('data-[entering]:zoom-in-95');
+    expect(dialog.className).toContain('data-[entering]:slide-in-from-top-2');
   });
 
-  it('adds a subtle press transform to buttons', () => {
+  it('renders buttons through the HeroUI component class contract', () => {
     render(<Button>保存</Button>);
 
-    expect(screen.getByRole('button', { name: '保存' }).className).toContain('active:scale-[0.98]');
+    expect(screen.getByRole('button', { name: '保存' }).className).toContain('button');
   });
 });

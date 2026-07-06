@@ -27,7 +27,7 @@ describe('same-origin write request guard', () => {
     expect(() => assertSameOriginRequest(request)).toThrow(ApiError);
   });
 
-  it('falls back to forwarded host and proto behind Caddy', () => {
+  it('falls back to forwarded host and proto behind a reverse proxy', () => {
     const request = new Request('http://127.0.0.1:3000/api/v1/auth/logout', {
       method: 'POST',
       headers: {

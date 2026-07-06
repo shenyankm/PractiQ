@@ -1,24 +1,11 @@
+import { FileUp, Play } from 'lucide-react';
 import { Suspense } from 'react';
 import Link from 'next/link';
-import { FileUp, Play } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Progress } from '@/components/ui/progress';
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select';
 import { getCurrentUser } from '@/lib/openwook/auth';
 import { listBanks, listImportJobs } from '@/lib/openwook/services';
 import type { ImportJob, QuestionBank } from '@/lib/openwook/types';
 import { createImportJobAction } from '../banks/actions';
+import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Input, Label, ProgressBar } from '@heroui/react';
 
 export default async function ImportsPage() {
   const user = await getCurrentUser();
@@ -63,9 +50,9 @@ async function ImportJobsList({ jobsPromise }: { jobsPromise: Promise<ImportJob[
                 <div className="font-medium">{job.file_name || `任务 #${job.id}`}</div>
                 <div className="mt-1 text-sm text-muted-foreground">{job.source_type || 'unknown'} · {job.status} · {job.stage}</div>
               </div>
-              <Badge variant={statusVariant(job.status)}>{job.risk_level}</Badge>
+              <Badge variant="secondary" color={statusColor(job.status)}>{job.risk_level}</Badge>
             </div>
-            <Progress className="mt-3" value={job.overall_progress_percent ?? 0} />
+            <ProgressBar className="mt-3" value={job.overall_progress_percent ?? 0} />
           </Link>
         ))}
       </CardContent>
@@ -85,20 +72,13 @@ async function NewImportForm({ banksPromise }: { banksPromise: Promise<QuestionB
         <form action={createImportJobAction} className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
             <Label htmlFor="bankId">目标题库</Label>
-            <Select name="bankId" defaultValue={banks[0] ? String(banks[0].id) : undefined} required disabled={banks.length === 0}>
-              <SelectTrigger id="bankId" className="w-full">
-                <SelectValue placeholder="选择题库" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  {banks.map((bank) => (
-                    <SelectItem key={bank.id} value={String(bank.id)}>
+            <select id="bankId" className="w-full" name="bankId" defaultValue={banks[0] ? String(banks[0].id) : undefined} required disabled={banks.length === 0}>
+{banks.map((bank) => (
+                    <option key={bank.id} value={String(bank.id)}>
                       {bank.name}
-                    </SelectItem>
+                    </option>
                   ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
+</select>
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="sourceFile">原件</Label>
@@ -117,35 +97,21 @@ async function NewImportForm({ banksPromise }: { banksPromise: Promise<QuestionB
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
               <Label htmlFor="sourceType">来源类型</Label>
-              <Select name="sourceType" defaultValue="txt">
-                <SelectTrigger id="sourceType" className="w-full">
-                  <SelectValue placeholder="来源类型" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectItem value="txt">TXT</SelectItem>
-                    <SelectItem value="docx">DOCX（Plus）</SelectItem>
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
+              <select id="sourceType" className="w-full" name="sourceType" defaultValue="txt">
+<option value="txt">TXT</option>
+                    <option value="docx">DOCX（Plus）</option>
+</select>
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="parseMode">解析方式</Label>
-              <Select name="parseMode" defaultValue="layout">
-                <SelectTrigger id="parseMode" className="w-full">
-                  <SelectValue placeholder="解析方式" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectItem value="layout">版面解析</SelectItem>
-                    <SelectItem value="text">文本解析</SelectItem>
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
+              <select id="parseMode" className="w-full" name="parseMode" defaultValue="layout">
+<option value="layout">版面解析</option>
+                    <option value="text">文本解析</option>
+</select>
             </div>
           </div>
           <Input name="defaultQuestionTypeId" placeholder="默认题型 ID，可选" />
-          <Button type="submit" disabled={banks.length === 0}>
+          <Button type="submit" isDisabled={banks.length === 0}>
             <Play className="size-4" />
             创建任务
           </Button>
@@ -189,8 +155,9 @@ function NewImportSkeleton() {
   );
 }
 
-function statusVariant(status: string) {
-  if (status === 'failed') return 'destructive';
-  if (status === 'processing') return 'default';
-  return 'secondary';
+function statusColor(status: string) {
+  if (status === 'failed') return 'danger';
+  if (status === 'completed') return 'success';
+  if (status === 'processing') return 'accent';
+  return 'default';
 }

@@ -68,7 +68,7 @@ describe('visual style guide documentation', () => {
     const guide = readFileSync('docs/visual-style-guide.md', 'utf8');
 
     expect(guide).toContain('ow-glass');
-    expect(guide).toContain('components/ui/button.tsx');
+    expect(guide).toContain('HeroUI semantic variants');
     expect(guide).toContain('Avoid page-level `bg-primary`, `text-primary`, and `border-primary`');
   });
 });

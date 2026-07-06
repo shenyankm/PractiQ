@@ -1,19 +1,6 @@
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
 import { listSubjects } from '@/lib/openwook/services';
 import { createBankAction } from '../actions';
+import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label, TextArea } from '@heroui/react';
 
 export default async function NewBankPage() {
   const subjects = await listSubjects();
@@ -36,27 +23,25 @@ export default async function NewBankPage() {
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="description">描述</Label>
-              <Textarea id="description" name="description" rows={4} />
+              <TextArea id="description" name="description" rows={4} />
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="subject">学科</Label>
-              <Select name="subject" defaultValue={subjects[0]?.subject_id}>
-                <SelectTrigger id="subject" className="w-full">
-                  <SelectValue placeholder="选择学科" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    {subjects.map((subject) => (
-                      <SelectItem key={subject.subject_id} value={subject.subject_id}>
+              <select id="subject" className="w-full" name="subject" defaultValue={subjects[0]?.subject_id}>
+{subjects.map((subject) => (
+                      <option key={subject.subject_id} value={subject.subject_id}>
                         {subject.display_name}
-                      </SelectItem>
+                      </option>
                     ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
+</select>
             </div>
             <div className="flex items-center gap-2">
-              <Checkbox id="isPublic" name="isPublic" />
+              <input
+                id="isPublic"
+                name="isPublic"
+                type="checkbox"
+                className="size-4 rounded border border-border"
+              />
               <Label htmlFor="isPublic" className="font-normal">
               公开题库
               </Label>

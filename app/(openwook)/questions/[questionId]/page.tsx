@@ -1,11 +1,9 @@
-import Link from 'next/link';
-import { notFound } from 'next/navigation';
 import { ArrowLeft, CheckCircle2 } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { notFound } from 'next/navigation';
+import Link from 'next/link';
 import { getCurrentUser } from '@/lib/openwook/auth';
 import { getQuestion } from '@/lib/openwook/services';
+import { Badge, Card, CardContent, CardHeader, CardTitle } from '@heroui/react';
 
 type QuestionOptionRow = {
   id: number;
@@ -39,9 +37,9 @@ export default async function QuestionDetailPage({ params }: { params: Promise<{
           <h1 className="text-2xl font-semibold tracking-tight">题目 #{question.id}</h1>
           <p className="text-sm text-muted-foreground">{question.question_type_id} · {question.answer_mode} · {question.status}</p>
         </div>
-        <Button asChild variant="outline">
-          <Link href="/banks"><ArrowLeft className="size-4" />返回题库</Link>
-        </Button>
+        <Link href="/banks" className="button button--outline">
+  <ArrowLeft className="size-4" />返回题库
+</Link>
       </div>
 
       <Card>

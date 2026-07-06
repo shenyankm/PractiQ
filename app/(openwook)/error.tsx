@@ -1,8 +1,8 @@
 'use client';
 
 import { AlertTriangle, RotateCcw } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button, Card, CardContent, CardHeader, CardTitle } from '@heroui/react';
+
 
 export default function OpenWookError({
   error,

@@ -1,20 +1,11 @@
-import Link from 'next/link';
-import { notFound } from 'next/navigation';
 import { SlidersHorizontal } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator
-} from '@/components/ui/breadcrumb';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { notFound } from 'next/navigation';
+import Link from 'next/link';
 import { getCurrentUser } from '@/lib/openwook/auth';
 import { getBankPracticeSummary } from '@/lib/openwook/services';
 import { startPracticeAction } from '../../actions';
 import { PracticeSetupForm } from './practice-setup-form';
+import { Badge, Card, CardContent, CardHeader, CardTitle } from '@heroui/react';
 
 export { PracticeSetupForm };
 
@@ -30,25 +21,15 @@ export default async function PracticeSetupPage({ params }: { params: Promise<{ 
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-6">
-      <Breadcrumb>
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbLink asChild>
-              <Link href="/banks">题库</Link>
-            </BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
-          <BreadcrumbItem>
-            <BreadcrumbLink asChild>
-              <Link href={`/banks/${id}`}>{bank.name}</Link>
-            </BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
-          <BreadcrumbItem>
-            <BreadcrumbPage>练习配置</BreadcrumbPage>
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
+      <nav aria-label="面包屑">
+        <ol className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+          <li><Link href="/banks" className="hover:text-foreground">题库</Link></li>
+          <li aria-hidden="true">/</li>
+          <li><Link href={`/banks/${id}`} className="hover:text-foreground">{bank.name}</Link></li>
+          <li aria-hidden="true">/</li>
+          <li aria-current="page" className="text-foreground">练习配置</li>
+        </ol>
+      </nav>
 
       <div className="flex items-start justify-between gap-4">
         <div>

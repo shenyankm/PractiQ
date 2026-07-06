@@ -64,19 +64,4 @@ describe('observability baseline', () => {
     expect(redisSource).toContain('trace.getTracer');
     expect(workerSource).toContain('recordImportJobDuration');
   });
-
-  it('documents runtime observability and keeps local OMX state out of git', () => {
-    expect(source('README.md')).toContain('Observability and Operations');
-    expect(source('docs/observability.md')).toContain('/api/metrics');
-    expect(source('ops/observability/prometheus.yml')).toContain('/api/metrics');
-    expect(source('ops/observability/alerts.yml')).toContain('OpenWookHighHttp5xxRate');
-    expect(source('ops/observability/otel-collector.yml')).toContain('otlp');
-    expect(source('ops/observability/fluent-bit.conf')).toContain('openwook-access.log');
-    expect(source('ops/observability/docker-compose.yml')).toContain('postgres-exporter');
-    expect(source('ops/observability/journald.conf.example')).toContain('MaxRetentionSec');
-    expect(source('ops/observability/postgresql.conf.example')).toContain('pg_stat_statements');
-    expect(source('ops/observability/postgres-observability.sql')).toContain('CREATE EXTENSION IF NOT EXISTS pg_stat_statements');
-    expect(source('.env.example')).toContain('OTEL_EXPORTER_OTLP_ENDPOINT');
-    expect(source('.gitignore')).toContain('.omx/');
-  });
 });

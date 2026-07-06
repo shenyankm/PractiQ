@@ -1,21 +1,9 @@
 'use client';
-
-import { useId, useState } from 'react';
 import { Save } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { useId, useState } from 'react';
+
 import type { AnswerMode, QuestionType } from '@/lib/openwook/types';
+import { Button, Description, FieldGroup, Input, Label, TextArea } from '@heroui/react';
 
 type NewQuestionFormProps = {
   action: (formData: FormData) => void | Promise<void>;
@@ -29,50 +17,50 @@ export function NewQuestionForm({ action, types }: NewQuestionFormProps) {
   return (
     <form action={action} className="flex flex-col gap-4">
       <FieldGroup className="gap-4">
-        <Field>
-          <FieldLabel htmlFor={`${formId}-questionTypeId`}>题型</FieldLabel>
-          <Select name="questionTypeId" defaultValue={types[0]?.type_id}>
-            <SelectTrigger id={`${formId}-questionTypeId`} className="w-full">
-              <SelectValue placeholder="选择题型" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                {types.map((type) => (
-                  <SelectItem key={type.type_id} value={type.type_id}>
+        <div>
+          <Label htmlFor={`${formId}-questionTypeId`}>题型</Label>
+          <select id={`${formId}-questionTypeId`} className="w-full" name="questionTypeId" defaultValue={types[0]?.type_id}>
+{types.map((type) => (
+                  <option key={type.type_id} value={type.type_id}>
                     {type.display_name}
-                  </SelectItem>
+                  </option>
                 ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-          {types.length === 0 ? <FieldDescription>当前学科暂无题型配置。</FieldDescription> : null}
-        </Field>
+</select>
+          {types.length === 0 ? <Description>当前学科暂无题型配置。</Description> : null}
+        </div>
 
-        <Field>
-          <FieldLabel id={`${formId}-answerModeLabel`}>答题模式</FieldLabel>
-          <ToggleGroup
-            type="single"
-            value={answerMode}
-            onValueChange={(value) => {
-              if (isAnswerMode(value)) setAnswerMode(value);
-            }}
-            className="grid w-full grid-cols-2"
-            variant="outline"
+        <div>
+          <Label id={`${formId}-answerModeLabel`}>答题模式</Label>
+          <div
+            role="radiogroup"
             aria-labelledby={`${formId}-answerModeLabel`}
+            className="grid w-full grid-cols-2 gap-2"
           >
-            <ToggleGroupItem value="choice" aria-label="选择题">选择</ToggleGroupItem>
-            <ToggleGroupItem value="true_false" aria-label="判断题">判断</ToggleGroupItem>
-            <ToggleGroupItem value="fill_blank" aria-label="填空题">填空</ToggleGroupItem>
-            <ToggleGroupItem value="short_answer" aria-label="简答题">简答</ToggleGroupItem>
-          </ToggleGroup>
+            {answerModeOptions.map((option) => (
+              <label
+                key={option.value}
+                className="flex cursor-pointer items-center justify-center rounded-md border border-border/70 px-3 py-2 text-sm data-[checked=true]:bg-foreground/10 data-[checked=true]:text-foreground"
+                data-checked={answerMode === option.value}
+              >
+                <input
+                  type="radio"
+                  className="sr-only"
+                  aria-label={option.ariaLabel}
+                  checked={answerMode === option.value}
+                  onChange={() => setAnswerMode(option.value)}
+                />
+                {option.label}
+              </label>
+            ))}
+          </div>
           <input type="hidden" name="answerMode" value={answerMode} />
-          <FieldDescription>{answerModeDescriptions[answerMode]}</FieldDescription>
-        </Field>
+          <Description>{answerModeDescriptions[answerMode]}</Description>
+        </div>
 
-        <Field>
-          <FieldLabel htmlFor={`${formId}-stem`}>题干</FieldLabel>
-          <Textarea id={`${formId}-stem`} name="stem" rows={5} required />
-        </Field>
+        <div>
+          <Label htmlFor={`${formId}-stem`}>题干</Label>
+          <TextArea id={`${formId}-stem`} name="stem" rows={5} required />
+        </div>
 
         {answerMode === 'choice' ? (
           <ChoiceAnswerFields formId={formId} />
@@ -82,26 +70,19 @@ export function NewQuestionForm({ action, types }: NewQuestionFormProps) {
           <TextAnswerFields formId={formId} answerMode={answerMode} />
         )}
 
-        <Field>
-          <FieldLabel htmlFor={`${formId}-analysis`}>解析</FieldLabel>
-          <Textarea id={`${formId}-analysis`} name="analysis" rows={3} />
-        </Field>
+        <div>
+          <Label htmlFor={`${formId}-analysis`}>解析</Label>
+          <TextArea id={`${formId}-analysis`} name="analysis" rows={3} />
+        </div>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <Field className="sm:w-36">
-            <FieldLabel htmlFor={`${formId}-status`}>状态</FieldLabel>
-            <Select name="status" defaultValue="draft">
-              <SelectTrigger id={`${formId}-status`} className="w-full">
-                <SelectValue placeholder="状态" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  <SelectItem value="draft">草稿</SelectItem>
-                  <SelectItem value="active">发布</SelectItem>
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-          </Field>
+          <div className="sm:w-36">
+            <Label htmlFor={`${formId}-status`}>状态</Label>
+            <select id={`${formId}-status`} className="w-full" name="status" defaultValue="draft">
+<option value="draft">草稿</option>
+                  <option value="active">发布</option>
+</select>
+          </div>
           <Button type="submit" className="sm:mb-0.5">
             <Save className="size-4" />
             保存题目
@@ -117,48 +98,34 @@ function ChoiceAnswerFields({ formId }: { formId: string }) {
     <>
       <div className="grid gap-3 md:grid-cols-2">
         {['A', 'B', 'C', 'D'].map((label) => (
-          <Field key={label}>
-            <FieldLabel htmlFor={`${formId}-option${label}`}>选项 {label}</FieldLabel>
+          <div key={label}>
+            <Label htmlFor={`${formId}-option${label}`}>选项 {label}</Label>
             <Input id={`${formId}-option${label}`} name={`option${label}`} required={label === 'A' || label === 'B'} />
-          </Field>
+          </div>
         ))}
       </div>
-      <Field>
-        <FieldLabel htmlFor={`${formId}-correctOption`}>正确选项</FieldLabel>
-        <Select name="correctOption" defaultValue="A">
-          <SelectTrigger id={`${formId}-correctOption`} className="w-full">
-            <SelectValue placeholder="选择正确选项" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              <SelectItem value="A">A</SelectItem>
-              <SelectItem value="B">B</SelectItem>
-              <SelectItem value="C">C</SelectItem>
-              <SelectItem value="D">D</SelectItem>
-            </SelectGroup>
-          </SelectContent>
-        </Select>
-      </Field>
+      <div>
+        <Label htmlFor={`${formId}-correctOption`}>正确选项</Label>
+        <select id={`${formId}-correctOption`} className="w-full" name="correctOption" defaultValue="A">
+<option value="A">A</option>
+              <option value="B">B</option>
+              <option value="C">C</option>
+              <option value="D">D</option>
+</select>
+      </div>
     </>
   );
 }
 
 function TrueFalseAnswerFields({ formId }: { formId: string }) {
   return (
-    <Field>
-      <FieldLabel htmlFor={`${formId}-answer`}>正确答案</FieldLabel>
-      <Select name="answer" defaultValue="true">
-        <SelectTrigger id={`${formId}-answer`} className="w-full">
-          <SelectValue placeholder="选择正确答案" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectGroup>
-            <SelectItem value="true">正确</SelectItem>
-            <SelectItem value="false">错误</SelectItem>
-          </SelectGroup>
-        </SelectContent>
-      </Select>
-    </Field>
+    <div>
+      <Label htmlFor={`${formId}-answer`}>正确答案</Label>
+      <select id={`${formId}-answer`} className="w-full" name="answer" defaultValue="true">
+<option value="true">正确</option>
+            <option value="false">错误</option>
+</select>
+    </div>
   );
 }
 
@@ -170,21 +137,18 @@ function TextAnswerFields({
   answerMode: Exclude<AnswerMode, 'choice' | 'true_false'>;
 }) {
   return (
-    <Field>
-      <FieldLabel htmlFor={`${formId}-answer`}>{answerMode === 'fill_blank' ? '标准答案' : '参考答案'}</FieldLabel>
-      <Textarea
+    <div>
+      <Label htmlFor={`${formId}-answer`}>{answerMode === 'fill_blank' ? '标准答案' : '参考答案'}</Label>
+      <TextArea
         id={`${formId}-answer`}
         name="answer"
         rows={answerMode === 'fill_blank' ? 2 : 4}
         placeholder={answerMode === 'fill_blank' ? '填写可判定的标准答案' : '填写评分参考或示例答案'}
       />
-    </Field>
+    </div>
   );
 }
 
-function isAnswerMode(value: string): value is AnswerMode {
-  return value === 'choice' || value === 'true_false' || value === 'fill_blank' || value === 'short_answer';
-}
 
 const answerModeDescriptions: Record<AnswerMode, string> = {
   choice: '展示选项和正确选项字段。',
@@ -192,3 +156,10 @@ const answerModeDescriptions: Record<AnswerMode, string> = {
   fill_blank: '填写可自动比对的标准答案。',
   short_answer: '填写人工复核或自评用的参考答案。'
 };
+
+const answerModeOptions: Array<{ value: AnswerMode; label: string; ariaLabel: string }> = [
+  { value: 'choice', label: '选择', ariaLabel: '选择题' },
+  { value: 'true_false', label: '判断', ariaLabel: '判断题' },
+  { value: 'fill_blank', label: '填空', ariaLabel: '填空题' },
+  { value: 'short_answer', label: '简答', ariaLabel: '简答题' }
+];

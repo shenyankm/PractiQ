@@ -1,7 +1,6 @@
-import Link from 'next/link';
 import { CircleIcon } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import Link from 'next/link';
+import { Card, CardContent } from '@heroui/react';
 
 export default function NotFound() {
   return (
@@ -18,9 +17,9 @@ export default function NotFound() {
           The page you are looking for might have been removed, had its name
           changed, or is temporarily unavailable.
         </p>
-        <Button asChild variant="outline">
-          <Link href="/">Back to Home</Link>
-        </Button>
+        <Link href="/" className="button button--outline">
+  Back to Home
+</Link>
         </CardContent>
       </Card>
     </div>

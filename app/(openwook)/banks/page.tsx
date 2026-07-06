@@ -1,34 +1,10 @@
+import { BookOpen, Plus, Search } from 'lucide-react';
 import { Suspense } from 'react';
 import Link from 'next/link';
-import { BookOpen, Plus, Search } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle
-} from '@/components/ui/empty';
-import {
-  Field,
-  FieldGroup,
-  FieldLabel
-} from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select';
 import { getCurrentUser } from '@/lib/openwook/auth';
 import { listBanks, listSubjects } from '@/lib/openwook/services';
 import type { Subject } from '@/lib/openwook/types';
+import { Badge, Button, Card, CardContent, CardHeader, CardTitle, EmptyState, FieldGroup, Input, Label } from '@heroui/react';
 
 export default async function BanksPage({
   searchParams
@@ -51,9 +27,9 @@ export default async function BanksPage({
           <h1 className="text-2xl font-semibold tracking-tight">题库</h1>
           <p className="text-sm text-muted-foreground">创建、收藏、搜索和维护题库。</p>
         </div>
-        <Button asChild>
-          <Link href="/banks/new"><Plus className="size-4" />新建题库</Link>
-        </Button>
+        <Link href="/banks/new" className="button button--primary">
+  <Plus className="size-4" />新建题库
+</Link>
       </div>
 
       <Suspense fallback={<BankFiltersSkeleton />}>
@@ -100,51 +76,37 @@ async function BankFilters({
     <Card>
       <CardContent className="p-4">
         <form className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px_140px_auto_auto] md:items-end">
-          <Field className="gap-2">
-            <FieldLabel htmlFor="bank-search" className="sr-only">搜索题库</FieldLabel>
+          <div className="gap-2">
+            <Label htmlFor="bank-search" className="sr-only">搜索题库</Label>
             <div className="relative">
               <Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
               <Input id="bank-search" name="q" placeholder="搜索题库名称" defaultValue={q} className="pl-9" />
             </div>
-          </Field>
-          <Field className="gap-2">
-            <FieldLabel htmlFor="bank-subject" className="sr-only">学科</FieldLabel>
-            <Select name="subject" defaultValue={subjectValue}>
-              <SelectTrigger id="bank-subject" className="w-full">
-                <SelectValue placeholder="全部学科" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  <SelectItem value="all">全部学科</SelectItem>
+          </div>
+          <div className="gap-2">
+            <Label htmlFor="bank-subject" className="sr-only">学科</Label>
+            <select id="bank-subject" className="w-full" name="subject" defaultValue={subjectValue}>
+<option value="all">全部学科</option>
                   {subjects.map((subject) => (
-                    <SelectItem key={subject.subject_id} value={subject.subject_id}>
+                    <option key={subject.subject_id} value={subject.subject_id}>
                       {subject.display_name}
-                    </SelectItem>
+                    </option>
                   ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-          </Field>
-          <Field className="gap-2">
-            <FieldLabel htmlFor="bank-scope" className="sr-only">范围</FieldLabel>
-            <Select name="scope" defaultValue={scopeValue}>
-              <SelectTrigger id="bank-scope" className="w-full">
-                <SelectValue placeholder="全部可见" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  <SelectItem value="all">全部可见</SelectItem>
-                  <SelectItem value="mine">我的</SelectItem>
-                  <SelectItem value="favorites">收藏</SelectItem>
-                  <SelectItem value="public">公开</SelectItem>
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-          </Field>
+</select>
+          </div>
+          <div className="gap-2">
+            <Label htmlFor="bank-scope" className="sr-only">范围</Label>
+            <select id="bank-scope" className="w-full" name="scope" defaultValue={scopeValue}>
+<option value="all">全部可见</option>
+                  <option value="mine">我的</option>
+                  <option value="favorites">收藏</option>
+                  <option value="public">公开</option>
+</select>
+          </div>
           <Button type="submit" variant="outline">筛选</Button>
-          <Button asChild variant="ghost">
-            <Link href="/banks">重置</Link>
-          </Button>
+          <Link href="/banks" className="button button--ghost">
+  重置
+</Link>
         </form>
       </CardContent>
     </Card>
@@ -156,27 +118,27 @@ async function BankGrid({ banksPromise }: { banksPromise: ReturnType<typeof list
 
   if (banks.length === 0) {
     return (
-      <Empty className="border">
-        <EmptyHeader>
-          <EmptyMedia variant="icon">
+      <EmptyState className="border">
+        <div className="flex flex-col items-center gap-2 text-center">
+          <div className="mx-auto flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground [&_svg]:size-5">
             <BookOpen />
-          </EmptyMedia>
-          <EmptyTitle>没有匹配的题库</EmptyTitle>
-          <EmptyDescription>
+          </div>
+          <h3 className="text-base font-semibold">没有匹配的题库</h3>
+          <p className="text-sm text-muted-foreground">
             调整搜索或筛选条件，或创建一个新的题库开始整理题目。
-          </EmptyDescription>
-        </EmptyHeader>
-        <EmptyContent>
+          </p>
+        </div>
+        <div className="mt-4 flex justify-center">
           <FieldGroup className="gap-3">
-            <Button asChild>
-              <Link href="/banks/new">新建题库</Link>
-            </Button>
-            <Button asChild variant="outline">
-              <Link href="/banks">清除筛选</Link>
-            </Button>
+            <Link href="/banks/new" className="button button--primary">
+  新建题库
+</Link>
+            <Link href="/banks" className="button button--outline">
+  清除筛选
+</Link>
           </FieldGroup>
-        </EmptyContent>
-      </Empty>
+        </div>
+      </EmptyState>
     );
   }
 
@@ -194,11 +156,15 @@ async function BankGrid({ banksPromise }: { banksPromise: ReturnType<typeof list
             <p className="line-clamp-2 min-h-10 text-sm text-muted-foreground">{bank.description || '暂无描述'}</p>
             <div className="flex items-center justify-between text-sm">
               <span>{bank.total_count} 题</span>
-              <Badge variant="outline">{bank.is_public ? '公开' : '私有'}</Badge>
+              <Badge variant="soft">{bank.is_public ? '公开' : '私有'}</Badge>
             </div>
             <div className="flex gap-2">
-              <Button asChild size="sm" variant="outline"><Link href={`/banks/${bank.id}/practice`}>练习</Link></Button>
-              {bank.is_owner && <Button asChild size="sm"><Link href={`/banks/${bank.id}/manage`}>管理</Link></Button>}
+              <Link href={`/banks/${bank.id} /practice`} className="button button--outline button--sm">
+  练习
+</Link>
+              {bank.is_owner && <Link href={`/banks/${bank.id} /manage`} className="button button--primary button--sm">
+  管理
+</Link>}
             </div>
           </CardContent>
         </Card>

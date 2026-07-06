@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from 'react';
 import { CreditCard, Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@heroui/react';
+
 
 type CheckoutResponse = {
   data?: {
@@ -53,7 +54,7 @@ export function AlipayCheckoutButton({ disabled = false }: { disabled?: boolean 
       <Button
         type="button"
         onClick={startCheckout}
-        disabled={disabled || isPending}
+        isDisabled={disabled || isPending}
         aria-busy={isPending}
         className="w-full"
       >

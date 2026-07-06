@@ -1,9 +1,9 @@
 'use client';
+import { Loader2 } from 'lucide-react';
+import { useFormStatus } from 'react-dom';
 
 import React, { useEffect, useRef } from 'react';
-import { useFormStatus } from 'react-dom';
-import { Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@heroui/react';
 
 type AnswerFormProps = {
   action: (formData: FormData) => void | Promise<void>;
@@ -60,7 +60,7 @@ function SubmitButton({ disabled }: { disabled: boolean }) {
   const { pending } = useFormStatus();
 
   return (
-    <Button type="submit" disabled={disabled || pending} aria-busy={pending}>
+    <Button type="submit" isDisabled={disabled || pending} aria-busy={pending}>
       {pending ? (
         <>
           <Loader2 className="animate-spin" />
