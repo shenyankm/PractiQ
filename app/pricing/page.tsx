@@ -4,7 +4,6 @@ import { getCurrentUser } from '@/lib/openwook/auth';
 import { getBillingConfig } from '@/lib/openwook/billing';
 import { BillingPanel } from '@/app/(openwook)/settings/billing-panel';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@heroui/react/card';
-import { Button } from '@heroui/react/button';
 import { Badge } from '@heroui/react/badge';
 
 export const metadata: Metadata = {
@@ -64,9 +63,9 @@ export default async function PricingPage() {
       </div>
 
       <div className="flex justify-center">
-        <Button asChild variant="ghost">
-          <Link href="/sign-in?redirect=/pricing">已有账号？登录后直接开通</Link>
-        </Button>
+        <Link href="/sign-in?redirect=/pricing" className="button button--ghost">
+          已有账号？登录后直接开通
+        </Link>
       </div>
     </div>
   );
