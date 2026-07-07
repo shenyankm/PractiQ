@@ -1,0 +1,42 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Run non-DB tests
+        run: OPENWOOK_SKIP_DB_TESTS=1 pnpm test
+
+      - name: Build
+        env:
+          AUTH_SECRET: ci-auth-secret-ci-auth-secret-ci-auth-secret
+          NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
+          DATABASE_URL: postgres://ci:ci@127.0.0.1:5432/openwook_ci
+          POSTGRES_URL: postgres://ci:ci@127.0.0.1:5432/openwook_ci
+        run: pnpm build

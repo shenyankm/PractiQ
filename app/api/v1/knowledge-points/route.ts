@@ -4,6 +4,8 @@ import { requireUser } from '@/lib/openwook/auth';
 import { withApiObservability } from '@/lib/openwook/observability';
 import { assertSameOriginRequest } from '@/lib/openwook/request-origin';
 import { createKnowledgePoint, listKnowledgePoints } from '@/lib/openwook/services';
+const PUBLIC_CACHE_CONTROL = 'public, max-age=0, s-maxage=300, stale-while-revalidate=60';
+
 
 const knowledgePointSchema = z.object({
   subjectId: z.string().min(1).max(32),
@@ -18,7 +20,9 @@ export async function GET(request: Request) {
     try {
       const url = new URL(request.url);
       const parentId = url.searchParams.get('parentId');
-      return ok(await listKnowledgePoints(url.searchParams.get('subject') ?? undefined, parentId ? Number(parentId) : undefined));
+      const response = ok(await listKnowledgePoints(url.searchParams.get('subject') ?? undefined, parentId ? Number(parentId) : undefined));
+      response.headers.set('Cache-Control', PUBLIC_CACHE_CONTROL);
+      return response;
     } catch (error) {
       return handleApiError(error);
     }

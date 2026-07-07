@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
 
-import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import SettingsPage from '@/app/(openwook)/settings/page';

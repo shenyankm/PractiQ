@@ -42,3 +42,18 @@ GROUP BY
     ubs.completed_count,
     ubs.wrong_count,
     ubs.last_practiced_at;
+
+
+CREATE OR REPLACE FUNCTION study_group_member_bank_learning_stats_for_bank(
+    p_group_id BIGINT,
+    p_bank_id BIGINT
+)
+RETURNS SETOF study_group_member_bank_learning_stats
+LANGUAGE sql
+STABLE
+AS $$
+    SELECT *
+    FROM study_group_member_bank_learning_stats
+    WHERE group_id = p_group_id
+      AND bank_id = p_bank_id;
+$$;

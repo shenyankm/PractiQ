@@ -3,9 +3,9 @@ import { hash } from '@node-rs/bcrypt';
 import { sql } from '@/lib/openwook/db';
 import { ApiError } from '@/lib/openwook/api';
 import { redisDelByPattern, redisKey } from '@/lib/openwook/redis';
+import { addImportJobUploadedFile } from '@/lib/openwook/services/imports-upload';
 import {
   addImportJobFile,
-  addImportJobUploadedFile,
   createBank,
   createImportJob,
   createQuestion,

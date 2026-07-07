@@ -51,7 +51,7 @@ describe('motion UI affordances', () => {
 
   it('wraps authenticated page content in a route transition surface', () => {
     render(
-      <OpenWookShell user={{ username: 'tester', membership: 'free', avatarUrl: null, role: 'user' }}>
+      <OpenWookShell user={{ username: 'tester', membership: 'free', avatarUrl: null, avatarOptimized: false, role: 'user' }}>
         <div>Dashboard</div>
       </OpenWookShell>
     );
@@ -62,7 +62,7 @@ describe('motion UI affordances', () => {
 
   it('animates mobile navigation expand and collapse state', () => {
     render(
-      <OpenWookShell user={{ username: 'tester', membership: 'free', avatarUrl: null, role: 'user' }}>
+      <OpenWookShell user={{ username: 'tester', membership: 'free', avatarUrl: null, avatarOptimized: false, role: 'user' }}>
         <div>Dashboard</div>
       </OpenWookShell>
     );
@@ -98,7 +98,7 @@ describe('motion UI affordances', () => {
 
   it('keeps alert dialogs on the shared HeroUI dialog motion language', () => {
     render(
-      <OpenWookShell user={{ username: 'tester', membership: 'free', avatarUrl: null, role: 'user' }}>
+      <OpenWookShell user={{ username: 'tester', membership: 'free', avatarUrl: null, avatarOptimized: false, role: 'user' }}>
         <div>Dashboard</div>
       </OpenWookShell>
     );

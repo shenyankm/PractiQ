@@ -1,9 +1,9 @@
 import './globals.css';
 import type { Metadata, Viewport } from 'next';
-import { env } from '@/lib/openwook/env';
+import { publicEnv } from '@/lib/openwook/env.public';
 
 export const metadata: Metadata = {
-  metadataBase: new URL(env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
+  metadataBase: new URL(publicEnv.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
   title: {
     default: 'OpenWook',
     template: '%s · OpenWook'

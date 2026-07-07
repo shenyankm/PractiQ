@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
 
-import React from 'react';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { render, screen } from '@testing-library/react';

@@ -19,6 +19,7 @@ const rawSql = postgres(connectionString, {
   idle_timeout: Number(env.POSTGRES_IDLE_TIMEOUT_SECONDS || 30),
   connect_timeout: Number(env.POSTGRES_CONNECT_TIMEOUT_SECONDS || 10)
 });
+export const postgresClient = rawSql;
 
 const slowQueryMs = Number(env.SLOW_QUERY_MS || 500);
 

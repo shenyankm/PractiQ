@@ -40,4 +40,11 @@ describe('study group schema', () => {
     expect(schema).toContain('LEFT JOIN user_question_stats uqs');
     expect(schema).toContain('avg_mastery_score');
   });
+
+  it('adds a filtered helper for per-group bank learning analytics lookups', () => {
+    expect(schema).toContain('CREATE OR REPLACE FUNCTION study_group_member_bank_learning_stats_for_bank(');
+    expect(schema).toContain('RETURNS SETOF study_group_member_bank_learning_stats');
+    expect(schema).toContain('WHERE group_id = p_group_id');
+    expect(schema).toContain('AND bank_id = p_bank_id');
+  });
 });

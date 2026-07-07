@@ -39,10 +39,13 @@ POSTGRES_URL=postgres://openwook:openwook@localhost:54322/openwook
 REDIS_URL=redis://localhost:6379
 ```
 
-Apply migrations:
+The authoritative product schema lives in the split SQL files under `db/*/*.sql`, applied in filename order with your PostgreSQL runner or deployment pipeline. OpenWook intentionally has no product `drizzle-kit generate/migrate/studio` path.
+
+After the base schema exists, use the repo helpers only for local bootstrap extras:
 
 ```bash
-pnpm db:migrate
+pnpm db:ensure
+pnpm db:seed
 ```
 
 ### 3. Run Development Server
@@ -55,7 +58,7 @@ Open [http://localhost:3000](http://localhost:3000)
 
 ## Application Surface
 
-OpenWook uses the App Router under `app/`, API routes under `app/api`, HeroUI components directly in app screens, domain services under `lib/openwook`, and Drizzle schema/migrations under `lib/db`. See `docs/system-design.md` for the current product/API design.
+OpenWook uses the App Router under `app/`, API routes under `app/api`, HeroUI components directly in app screens, domain services under `lib/openwook`, and raw PostgreSQL bootstrap helpers under `lib/db`. The authoritative product schema is `db/*/*.sql`. See `docs/system-design.md` for the current product/API design.
 
 ## Database Configuration
 

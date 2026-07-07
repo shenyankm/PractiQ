@@ -13,7 +13,7 @@ export async function proxy(request: NextRequest) {
   const isProtectedRoute = protectedRoutes.some((route) => pathname.startsWith(route));
 
   if (isProtectedRoute && !sessionCookie) {
-    return redirectToSignIn(request);
+    return redirectToSignIn();
   }
 
   const res = NextResponse.next();
@@ -27,7 +27,7 @@ export async function proxy(request: NextRequest) {
       if (!Number.isFinite(currentExpiresAt) || currentExpiresAt <= now) {
         res.cookies.delete('session');
         if (isProtectedRoute) {
-          return redirectToSignIn(request);
+          return redirectToSignIn();
         }
       } else if (currentExpiresAt - now <= sessionRenewWindowMs) {
         const renewedExpiresAt = new Date(now + sessionTtlMs);
@@ -50,7 +50,7 @@ export async function proxy(request: NextRequest) {
       logger.warn({ ...errorToLog(error), path: pathname }, 'session renewal failed');
       res.cookies.delete('session');
       if (isProtectedRoute) {
-        return redirectToSignIn(request);
+        return redirectToSignIn();
       }
     }
   }
@@ -58,24 +58,25 @@ export async function proxy(request: NextRequest) {
   return res;
 }
 
-function redirectToSignIn(request: NextRequest) {
-  return NextResponse.redirect(publicUrlFor(request, '/sign-in'));
+function redirectToSignIn() {
+  const origin = normalizedOrigin(process.env.NEXT_PUBLIC_APP_URL)
+    ?? normalizedOrigin(process.env.BASE_URL);
+
+  if (!origin) {
+    return new NextResponse('Application origin is not configured', { status: 500 });
+  }
+
+  return NextResponse.redirect(new URL('/sign-in', origin));
 }
 
-function publicUrlFor(request: NextRequest, pathname: string) {
-  const currentUrl = request.nextUrl;
-  const host = firstHeaderValue(request.headers.get('x-forwarded-host'))
-    ?? firstHeaderValue(request.headers.get('host'))
-    ?? currentUrl.host;
-  const proto = firstHeaderValue(request.headers.get('x-forwarded-proto'))
-    ?? currentUrl.protocol.replace(':', '')
-    ?? 'https';
+function normalizedOrigin(value: string | undefined) {
+  if (!value) return undefined;
 
-  return new URL(pathname, `${proto.replace(/:$/, '')}://${host}`);
-}
-
-function firstHeaderValue(value: string | null) {
-  return value?.split(',')[0]?.trim() || undefined;
+  try {
+    return new URL(value).origin;
+  } catch {
+    return undefined;
+  }
 }
 
 export const config = {

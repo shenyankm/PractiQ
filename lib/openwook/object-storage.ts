@@ -7,7 +7,8 @@ import path from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { ApiError } from './api';
-import { env } from './env';
+import { publicEnv } from './env.public';
+import { env } from './env.server';
 
 const defaultMountDir = '/lhcos-data';
 const avatarMaxBytes = Number(env.AVATAR_MAX_BYTES || 5 * 1024 * 1024);
@@ -92,11 +93,11 @@ export function relativePathFromObjectUrl(objectUrl: string | null | undefined) 
 }
 
 function objectStorageMountDir() {
-  return path.resolve(env.OBJECT_STORAGE_MOUNT_DIR || env.OSS_MOUNT_DIR || defaultMountDir);
+  const mountDir = env.OBJECT_STORAGE_MOUNT_DIR || env.OSS_MOUNT_DIR || defaultMountDir;
+  return path.resolve(/* turbopackIgnore: true */ mountDir);
 }
-
 function objectStoragePublicBaseUrl() {
-  return trimTrailingSlash(env.OSS_PUBLIC_BASE_URL || env.OBJECT_STORAGE_PUBLIC_BASE_URL || '');
+  return trimTrailingSlash(publicEnv.OSS_PUBLIC_BASE_URL || publicEnv.OBJECT_STORAGE_PUBLIC_BASE_URL || '');
 }
 
 function objectStorageUrlPrefix() {
@@ -200,7 +201,7 @@ function objectUrlForRelativePath(relativePath: string) {
 
 function resolveStoragePath(relativePath: string) {
   const mountDir = objectStorageMountDir();
-  const absolutePath = path.resolve(mountDir, safeRelativePath(relativePath));
+  const absolutePath = path.resolve(/* turbopackIgnore: true */ mountDir, safeRelativePath(relativePath));
   if (absolutePath !== mountDir && !absolutePath.startsWith(`${mountDir}${path.sep}`)) {
     throw new ApiError(400, 'INVALID_STORAGE_PATH', 'Invalid object storage path');
   }

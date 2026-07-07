@@ -2,7 +2,7 @@
 
 This document designs the application services, UI pages, and core modules from the authoritative split PostgreSQL schema files in `db/*/*.sql`.
 
-The current Next.js project still contains starter SaaS/team code in `lib/db/schema.ts` and several dashboard pages. Treat the business-area SQL files under `db/` as the product data model for the question-bank system; the Drizzle schema and existing routes should be replaced or regenerated before implementation.
+The starter Drizzle/team layer has been explicitly retired. Treat the business-area SQL files under `db/` as the product data model for the question-bank system, and do not reintroduce a parallel ORM schema until it is generated from or proven equivalent to those SQL files.
 
 ## 中文摘要
 
@@ -13,7 +13,7 @@ The current Next.js project still contains starter SaaS/team code in `lib/db/sch
 - 核心模块：认证授权、题库权限、题型渲染与判分、导入流水线、媒体管理、统计分析。
 - 工程约束：数据关联、事务边界、参数校验、错误模型、状态生命周期和性能策略。
 
-当前代码仍保留部分 Next.js SaaS 模板实现；正式开发时应以 `db/` 下的业务 SQL 文件和本文档为准替换旧的 team/dashboard 业务。
+当前仓库已移除旧的 Drizzle/team schema；正式开发仍应以 `db/` 下的业务 SQL 文件和本文档为准，并继续替换遗留的 team/dashboard 页面与路由。
 
 ## Redis Integration
 
@@ -854,7 +854,7 @@ Recommended additional implementation practices:
 
 ### Phase 1: Align Data Layer
 
-- Replace `lib/db/schema.ts` starter team schema with generated/handwritten mappings for the split SQL files under `db/*/*.sql`.
+- Keep `db/*/*.sql` as the only product schema source of truth; do not reintroduce the retired starter ORM layer or a parallel Drizzle migration path unless it is regenerated from the SQL files.
 - Replace old team/SaaS dashboard routes with OpenWook domain routes.
 - Add shared API response/error helpers.
 - Add auth session guards.
@@ -893,7 +893,6 @@ Recommended additional implementation practices:
 
 The current worktree still contains:
 
-- SaaS/team Drizzle schema in `lib/db/schema.ts`.
 - Team/pricing/activity dashboard pages.
 
-These are not aligned with the split product schema under `db/*/*.sql`. To make the project actually run as the designed question-bank product, the next implementation step is to replace the starter Drizzle schema, API routes, dashboard pages, and auth helpers with the modules described above.
+The starter Drizzle/team data layer is intentionally retired. To make the project actually run as the designed question-bank product, the next implementation step is to replace the remaining starter pages and API routes with the modules described above while keeping `db/*/*.sql` as the schema authority.

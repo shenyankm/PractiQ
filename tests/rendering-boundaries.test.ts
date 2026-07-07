@@ -2,10 +2,10 @@ import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 describe('App Router rendering boundaries', () => {
-  it('keeps authentication at the route-group boundary', () => {
+  it('keeps the authenticated route group request-bound at the group boundary', () => {
     const layout = readFileSync('app/(openwook)/layout.tsx', 'utf8');
 
-    expect(layout).toContain('getCurrentUser');
+    expect(layout).toContain('getCurrentUser()');
     expect(layout).toContain("redirect('/sign-in')");
   });
 
