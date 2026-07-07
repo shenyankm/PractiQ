@@ -1,12 +1,11 @@
 import { config } from 'dotenv';
 import postgres from 'postgres';
-import { env } from '../openwook/env.ts';
 
 config({ path: '.env.local' });
 config();
 
 async function main() {
-  const databaseUrl = env.POSTGRES_URL || env.DATABASE_URL;
+  const databaseUrl = process.env.POSTGRES_URL || process.env.DATABASE_URL;
   if (!databaseUrl) throw new Error('POSTGRES_URL or DATABASE_URL is required');
 
   const sql = postgres(databaseUrl, { max: 1 });
