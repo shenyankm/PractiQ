@@ -18,17 +18,22 @@ export function isSameOriginRequest(request: Request) {
 
   if (!origin && !referer) return true;
 
-  const requestOrigin = forwardedOrigin(request);
+  const requestOrigin = normalizedOrigin(process.env.NEXT_PUBLIC_APP_URL)
+    ?? normalizedOrigin(process.env.BASE_URL)
+    ?? new URL(request.url).origin;
+
   if (origin) return sameOrigin(origin, requestOrigin);
   return referer ? sameOrigin(referer, requestOrigin) : true;
 }
 
-function forwardedOrigin(request: Request) {
-  const url = new URL(request.url);
-  const host = request.headers.get('x-forwarded-host') ?? request.headers.get('host') ?? url.host;
-  const proto = request.headers.get('x-forwarded-proto') ?? url.protocol.replace(':', '');
+function normalizedOrigin(value: string | undefined) {
+  if (!value) return undefined;
 
-  return `${proto}://${host}`;
+  try {
+    return new URL(value).origin;
+  } catch {
+    return undefined;
+  }
 }
 
 function sameOrigin(value: string, expectedOrigin: string) {

@@ -59,23 +59,21 @@ export async function proxy(request: NextRequest) {
 }
 
 function redirectToSignIn(request: NextRequest) {
-  return NextResponse.redirect(publicUrlFor(request, '/sign-in'));
+  const origin = normalizedOrigin(process.env.NEXT_PUBLIC_APP_URL)
+    ?? normalizedOrigin(process.env.BASE_URL)
+    ?? request.nextUrl.origin;
+
+  return NextResponse.redirect(new URL('/sign-in', origin));
 }
 
-function publicUrlFor(request: NextRequest, pathname: string) {
-  const currentUrl = request.nextUrl;
-  const host = firstHeaderValue(request.headers.get('x-forwarded-host'))
-    ?? firstHeaderValue(request.headers.get('host'))
-    ?? currentUrl.host;
-  const proto = firstHeaderValue(request.headers.get('x-forwarded-proto'))
-    ?? currentUrl.protocol.replace(':', '')
-    ?? 'https';
+function normalizedOrigin(value: string | undefined) {
+  if (!value) return undefined;
 
-  return new URL(pathname, `${proto.replace(/:$/, '')}://${host}`);
-}
-
-function firstHeaderValue(value: string | null) {
-  return value?.split(',')[0]?.trim() || undefined;
+  try {
+    return new URL(value).origin;
+  } catch {
+    return undefined;
+  }
 }
 
 export const config = {
