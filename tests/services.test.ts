@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { ApiError } from '@/lib/openwook/api';
+import * as serviceBarrel from '@/lib/openwook/services';
 import {
   gradeAnswerForTest,
   hasUsableAnswerPayloadForTest,
@@ -9,6 +10,18 @@ import {
   validateQuestionPayloadForTest,
   validateSubmittedAnswerForTest
 } from '@/lib/openwook/services';
+
+describe('service barrel', () => {
+  it('keeps representative exports available from the top-level module', () => {
+    expect(serviceBarrel.createBank).toBeTypeOf('function');
+    expect(serviceBarrel.getQuestion).toBeTypeOf('function');
+    expect(serviceBarrel.startPracticeSession).toBeTypeOf('function');
+    expect(serviceBarrel.getImportJob).toBeTypeOf('function');
+    expect(serviceBarrel.getAnalyticsSummary).toBeTypeOf('function');
+    expect(serviceBarrel.updateCurrentUser).toBeTypeOf('function');
+    expect(serviceBarrel.linkQuestionMedia).toBeTypeOf('function');
+  });
+});
 
 describe('practice mode helpers', () => {
   it('maps review and exam modes to their dedicated selection behavior', () => {
@@ -26,10 +39,10 @@ describe('practice mode helpers', () => {
 
 describe('practice page performance guardrails', () => {
   it('limits full progress rendering for large sessions by default', () => {
-    const source = readFileSync('lib/openwook/services.ts', 'utf8');
+    const source = readFileSync('lib/openwook/services/practice.ts', 'utf8');
     const page = readFileSync('app/(openwook)/practice/[sessionId]/page.tsx', 'utf8');
 
-    expect(source).toContain('PRACTICE_PROGRESS_FULL_LIMIT');
+    expect(source).toContain('practiceProgressFullLimit');
     expect(source).toContain('windowedProgressIndexes');
     expect(source).toContain('progressTruncated');
     expect(source).toContain('answeredCount: answeredSummary.size');
@@ -40,7 +53,7 @@ describe('practice page performance guardrails', () => {
 
 describe('search performance guardrails', () => {
   it('narrows question search to visible bank IDs before text matching', () => {
-    const source = readFileSync('lib/openwook/services.ts', 'utf8');
+    const source = readFileSync('lib/openwook/services/search.ts', 'utf8');
     const visibleIndex = source.indexOf('visible_question_ids AS MATERIALIZED');
     const searchableIndex = source.indexOf('searchable_questions AS MATERIALIZED');
     const textMatchIndex = source.indexOf("sq.stem ILIKE '%' || query.term || '%'");
