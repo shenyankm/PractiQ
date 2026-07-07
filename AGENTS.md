@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-OpenWook is a Next.js App Router application. Route groups and pages live in `app/`, with product screens under `app/(openwook)` and login flows under `app/(login)`. API routes are in `app/api`. UI should use HeroUI components directly, while domain logic, auth, Redis, object storage, import workers, and services are in `lib/openwook`. Drizzle schema, queries, and migrations are in `lib/db`; the SQL reference schema is in `db/schema.sql`. Tests are in `tests/`, assets in `public/`, and architecture notes in `docs/`.
+OpenWook is a Next.js App Router application. Route groups and pages live in `app/`, with product screens under `app/(openwook)` and login flows under `app/(login)`. API routes are in `app/api`. UI should use HeroUI components directly, while domain logic, auth, Redis, object storage, import workers, and services are in `lib/openwook`. `lib/db` now contains raw PostgreSQL bootstrap/seed helpers plus targeted SQL patches, while the authoritative product schema lives in the split files under `db/*/*.sql`. Tests are in `tests/`, assets in `public/`, and architecture notes in `docs/`.
 
 ## Build, Test, and Development Commands
 
@@ -12,7 +12,7 @@ OpenWook is a Next.js App Router application. Route groups and pages live in `ap
 - `pnpm start`: serve the built application.
 - `pnpm lint`: run ESLint using the Next core-web-vitals and TypeScript rules.
 - `pnpm test`: run the Vitest suite once.
-- `pnpm db:generate`, `pnpm db:migrate`, `pnpm db:studio`: manage Drizzle migrations and inspect the database.
+- `pnpm db:setup`, `pnpm db:ensure`, `pnpm db:seed`: bootstrap local environment variables, apply runtime compatibility SQL, and load local sample data after the split SQL schema has been installed.
 - `pnpm worker:imports`: run the background import worker; use a separate terminal from `pnpm dev`.
 
 ## Coding Style & Naming Conventions

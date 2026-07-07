@@ -1,56 +1,64 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { join } from 'node:path';
+import { describe, expect, it } from 'vitest';
 
-const mocks = vi.hoisted(() => {
-  const sharedClient = { kind: 'shared-postgres-client' };
+const retiredFiles = [
+  'drizzle.config.ts',
+  'lib/db/drizzle.ts',
+  'lib/db/schema.ts',
+  'lib/db/queries.ts',
+  'lib/auth/session.ts',
+  'lib/auth/middleware.ts'
+];
 
-  return {
-    db: { kind: 'drizzle-db' },
-    dotenvConfig: vi.fn(),
-    drizzle: vi.fn(() => ({ kind: 'drizzle-db' })),
-    postgres: vi.fn(() => ({ kind: 'local-postgres-client' })),
-    sharedClient
-  };
-});
+const retiredReferences = [
+  'drizzle.config.ts',
+  'lib/db/drizzle.ts',
+  'lib/db/schema.ts',
+  'lib/db/queries.ts',
+  'lib/auth/session.ts',
+  'lib/auth/middleware.ts',
+  '@/lib/db/drizzle',
+  '@/lib/db/schema',
+  '@/lib/db/queries',
+  '@/lib/auth/session',
+  '@/lib/auth/middleware'
+];
 
-vi.mock('dotenv', () => ({
-  default: {
-    config: mocks.dotenvConfig
-  }
-}));
+describe('starter Drizzle/team retirement contract', () => {
+  it('removes the retired starter files and migration entrypoints', () => {
+    for (const file of retiredFiles) {
+      expect(existsSync(file), `${file} should be gone`).toBe(false);
+    }
 
-vi.mock('drizzle-orm/postgres-js', () => ({
-  drizzle: mocks.drizzle
-}));
+    const pkg = JSON.parse(readFileSync('package.json', 'utf8')) as {
+      scripts?: Record<string, string>;
+    };
 
-vi.mock('postgres', () => ({
-  default: mocks.postgres
-}));
-
-vi.mock('@/lib/openwook/db', () => ({
-  postgresClient: mocks.sharedClient
-}));
-
-describe('drizzle postgres client wiring', () => {
-  beforeEach(() => {
-    vi.resetModules();
-    mocks.dotenvConfig.mockReset();
-    mocks.drizzle.mockReset();
-    mocks.postgres.mockReset();
-    mocks.drizzle.mockReturnValue(mocks.db);
-    mocks.postgres.mockReturnValue({ kind: 'local-postgres-client' });
+    expect(pkg.scripts).not.toHaveProperty('db:generate');
+    expect(pkg.scripts).not.toHaveProperty('db:migrate');
+    expect(pkg.scripts).not.toHaveProperty('db:studio');
   });
 
-  it('reuses the shared OpenWook postgres client for the exported drizzle bindings', async () => {
-    // Static import cannot work here because this regression test verifies lib/db/drizzle module initialization under mocked boundaries.
-    const drizzleModule = await import('@/lib/db/drizzle');
+  it('does not leave source, tests, or docs pointing at the retired starter layer', () => {
+    const offenders = ['app', 'lib', 'tests', 'docs', 'README.md']
+      .flatMap((path) => walk(path))
+      .filter((file) => file !== 'tests/drizzle-client-reuse.test.ts')
+      .flatMap((file) => {
+        const source = readFileSync(file, 'utf8');
+        const hits = retiredReferences.filter((reference) => source.includes(reference));
+        return hits.length > 0 ? [`${file}: ${hits.join(', ')}`] : [];
+      });
 
-    expect(mocks.dotenvConfig).not.toHaveBeenCalled();
-    expect(mocks.postgres).not.toHaveBeenCalled();
-    expect(drizzleModule.client).toBe(mocks.sharedClient);
-    expect(mocks.drizzle).toHaveBeenCalledWith(
-      mocks.sharedClient,
-      expect.objectContaining({ schema: expect.any(Object) })
-    );
-    expect(drizzleModule.db).toBe(mocks.db);
+    expect(offenders).toEqual([]);
   });
 });
+
+function walk(path: string): string[] {
+  if (!existsSync(path)) return [];
+  const stats = statSync(path);
+
+  if (!stats.isDirectory()) return /\.(?:ts|tsx|md)$/.test(path) ? [path] : [];
+
+  return readdirSync(path).flatMap((entry) => walk(join(path, entry)));
+}
