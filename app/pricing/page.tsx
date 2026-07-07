@@ -1,18 +1,64 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getCurrentUser } from '@/lib/openwook/auth';
-import { getBillingConfig } from '@/lib/openwook/billing';
 import { BillingPanel } from '@/app/(openwook)/settings/billing-panel';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@heroui/react/card';
-import { Button } from '@heroui/react/button';
 import { Badge } from '@heroui/react/badge';
 
 export const metadata: Metadata = {
   title: '定价'
 };
 
+const PUBLIC_PLANS = [
+  {
+    title: 'Free',
+    price: '¥0',
+    description: '基础账号与练习功能',
+    highlights: [
+      '基础题库与练习流程',
+      '本地账号资料管理',
+      '适合轻量体验'
+    ],
+    cta: {
+      href: '/sign-up',
+      label: '免费开始',
+      className: 'button button--outline w-full justify-center'
+    }
+  },
+  {
+    title: 'Plus',
+    price: '登录后查看当前价格',
+    description: '适合个人升级',
+    highlights: [
+      '付费会员能力解锁',
+      '通过 Paddle Checkout 支付',
+      '支持续费与订阅同步'
+    ],
+    cta: {
+      href: '/sign-in?redirect=/pricing',
+      label: '登录后购买',
+      className: 'button button--primary w-full justify-center'
+    }
+  },
+  {
+    title: 'Enterprise',
+    price: '登录后查看当前价格',
+    description: '适合团队与高频使用',
+    highlights: [
+      '企业档会员模型',
+      '通过 Paddle Checkout 支付',
+      '适合更高阶与团队场景'
+    ],
+    cta: {
+      href: '/sign-in?redirect=/pricing',
+      label: '登录后购买',
+      className: 'button button--primary w-full justify-center'
+    }
+  }
+] as const;
+
 export default async function PricingPage() {
-  const [user, billing] = await Promise.all([getCurrentUser(), Promise.resolve(getBillingConfig())]);
+  const user = await getCurrentUser();
 
   if (user) {
     return (
@@ -35,38 +81,22 @@ export default async function PricingPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <PlanCard
-          title="Free"
-          price="¥0"
-          description="基础账号与练习功能"
-          highlights={[
-            '基础题库与练习流程',
-            '本地账号资料管理',
-            '适合轻量体验'
-          ]}
-          footer={<Link href="/sign-up" className="button button--outline w-full justify-center">免费开始</Link>}
-        />
-
-        {billing.plans.map((plan) => (
+        {PUBLIC_PLANS.map((plan) => (
           <PlanCard
-            key={plan.planKey}
-            title={plan.label}
-            price={`${formatMoney(plan.amountCents, plan.currencyCode)} / ${plan.interval === 'year' ? '年' : '月'}`}
-            description={plan.planKey === 'plus' ? '适合个人升级' : '适合团队与高频使用'}
-            highlights={plan.planKey === 'plus'
-              ? ['付费会员能力解锁', '通过 Paddle Checkout 支付', '支持续费与订阅同步']
-              : ['企业档会员模型', '通过 Paddle Checkout 支付', '适合更高阶与团队场景']}
-            footer={billing.configured
-              ? <Link href="/sign-in?redirect=/pricing" className="button button--primary w-full justify-center">登录后购买</Link>
-              : <div className="text-xs text-muted-foreground">尚未配置 Paddle 价格 ID</div>}
+            key={plan.title}
+            title={plan.title}
+            price={plan.price}
+            description={plan.description}
+            highlights={plan.highlights}
+            footer={<Link href={plan.cta.href} className={plan.cta.className}>{plan.cta.label}</Link>}
           />
         ))}
       </div>
 
       <div className="flex justify-center">
-        <Button asChild variant="ghost">
-          <Link href="/sign-in?redirect=/pricing">已有账号？登录后直接开通</Link>
-        </Button>
+        <Link href="/sign-in?redirect=/pricing" className="button button--ghost">
+          已有账号？登录后直接开通
+        </Link>
       </div>
     </div>
   );
@@ -82,7 +112,7 @@ function PlanCard({
   title: string;
   price: string;
   description: string;
-  highlights: string[];
+  highlights: readonly string[];
   footer: React.ReactNode;
 }) {
   return (
@@ -102,13 +132,4 @@ function PlanCard({
       </CardContent>
     </Card>
   );
-}
-
-function formatMoney(amountCents: number, currencyCode: string) {
-  return new Intl.NumberFormat('zh-CN', {
-    style: 'currency',
-    currency: currencyCode,
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2
-  }).format(amountCents / 100);
 }

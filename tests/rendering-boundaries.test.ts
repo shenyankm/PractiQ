@@ -2,10 +2,11 @@ import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 describe('App Router rendering boundaries', () => {
-  it('keeps the authenticated route group dynamic at the group boundary', () => {
+  it('keeps authentication at the route-group boundary', () => {
     const layout = readFileSync('app/(openwook)/layout.tsx', 'utf8');
 
-    expect(layout).toContain("export const dynamic = 'force-dynamic'");
+    expect(layout).toContain('getCurrentUser');
+    expect(layout).toContain("redirect('/sign-in')");
   });
 
   it('provides explicit loading and error boundaries for authenticated routes', () => {
