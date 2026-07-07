@@ -22,12 +22,13 @@ The question-bank product design based on `db/schema.sql` is documented in [docs
 pnpm install
 ```
 
-### 2. Set Up Database
+### 2. Set Up Database and Redis
 
-Start the local PostgreSQL container with Podman + Quadlet:
+Start the local PostgreSQL and Redis containers with Podman + Quadlet:
 
 ```bash
 ./scripts/podman-db.sh up
+./scripts/podman-redis.sh up
 ```
 
 Create a `.env.local` file (or copy `.env.example`):
@@ -35,6 +36,7 @@ Create a `.env.local` file (or copy `.env.example`):
 ```env
 DATABASE_URL=postgres://openwook:openwook@localhost:54322/openwook
 POSTGRES_URL=postgres://openwook:openwook@localhost:54322/openwook
+REDIS_URL=redis://localhost:6379
 ```
 
 Apply migrations:
@@ -84,11 +86,16 @@ Redis-backed features:
 - Redis Pub/Sub + SSE for live import progress events.
 - AI result de-duplication cache, bank leaderboard cache, and analytics snapshot cache.
 
-Start Redis locally:
+Local Redis is managed by rootless Podman Quadlet units in `containers/quadlet/`, matching PostgreSQL:
 
 ```bash
-podman run --name openwook-redis -p 6379:6379 -d docker.io/library/redis:7-alpine redis-server --appendonly yes
+./scripts/podman-redis.sh up       # install/update Quadlet files and start Redis
+./scripts/podman-redis.sh status   # show systemd and container status
+./scripts/podman-redis.sh down     # stop the Redis service
+./scripts/podman-redis.sh logs     # follow Redis logs
 ```
+
+The Redis container publishes on `127.0.0.1:6379`. BullMQ uses this same Redis service as its queue backend, so there is no separate local broker container to run.
 
 Set environment variables:
 
