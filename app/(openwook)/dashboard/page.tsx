@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { BookOpen, CheckCircle2, FileWarning, Plus, TrendingUp } from 'lucide-react';
 import { Suspense } from 'react';
 import Link from 'next/link';
@@ -6,6 +7,10 @@ import { getAnalyticsSummary, listBanks, listImportJobs } from '@/lib/openwook/s
 import type { User } from '@/lib/openwook/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@heroui/react/card';
 import { Skeleton } from '@heroui/react/skeleton';
+
+export const metadata: Metadata = {
+  title: '仪表板'
+};
 
 export default async function DashboardPage() {
   const user = await getCurrentUser();

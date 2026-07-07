@@ -99,6 +99,7 @@ next-env.d.ts
 # Local Agent / Tool State
 # -----------------------------------------------
 .omx/
+.worktrees/
 
 # -----------------------------------------------
 # SSL / Certificates

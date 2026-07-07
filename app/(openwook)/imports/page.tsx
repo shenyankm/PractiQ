@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { FileUp, Play } from 'lucide-react';
 import { Suspense } from 'react';
 import Link from 'next/link';
@@ -12,6 +13,10 @@ import { Input } from '@heroui/react/input';
 import { Label } from '@heroui/react/label';
 import { ProgressBar } from '@heroui/react/progress-bar';
 
+
+export const metadata: Metadata = {
+  title: '导入任务'
+};
 export default async function ImportsPage() {
   const user = await getCurrentUser();
   if (!user) return null;

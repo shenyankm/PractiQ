@@ -1,6 +1,11 @@
+import type { Metadata } from 'next';
 import { Login } from '../login';
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+
+export const metadata: Metadata = {
+  title: '登录'
+};
 
 export default async function SignInPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;

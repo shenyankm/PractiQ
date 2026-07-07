@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { BookOpen, Plus, Search } from 'lucide-react';
 import { Suspense } from 'react';
 import Link from 'next/link';
@@ -11,6 +12,10 @@ import { EmptyState } from '@heroui/react/empty-state';
 import { FieldGroup } from '@heroui/react/fieldset';
 import { Input } from '@heroui/react/input';
 import { Label } from '@heroui/react/label';
+
+export const metadata: Metadata = {
+  title: '题库'
+};
 
 export default async function BanksPage({
   searchParams

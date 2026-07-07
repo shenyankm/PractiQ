@@ -1,8 +1,13 @@
 import './globals.css';
 import type { Metadata, Viewport } from 'next';
+import { env } from '@/lib/openwook/env';
 
 export const metadata: Metadata = {
-  title: 'OpenWook',
+  metadataBase: new URL(env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
+  title: {
+    default: 'OpenWook',
+    template: '%s · OpenWook'
+  },
   description: 'Question banks, practice sessions, and import workflows.'
 };
 
