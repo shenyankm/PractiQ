@@ -2,10 +2,10 @@ import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 describe('App Router rendering boundaries', () => {
-  it('keeps the authenticated route group dynamic through cookies instead of force-dynamic', () => {
+  it('keeps the authenticated route group dynamic at the group boundary', () => {
     const layout = readFileSync('app/(openwook)/layout.tsx', 'utf8');
 
-    expect(layout).not.toContain("export const dynamic = 'force-dynamic'");
+    expect(layout).toContain("export const dynamic = 'force-dynamic'");
   });
 
   it('provides explicit loading and error boundaries for authenticated routes', () => {
