@@ -58,10 +58,13 @@ export async function proxy(request: NextRequest) {
   return res;
 }
 
-function redirectToSignIn(request: NextRequest) {
+function redirectToSignIn(_request: NextRequest) {
   const origin = normalizedOrigin(process.env.NEXT_PUBLIC_APP_URL)
-    ?? normalizedOrigin(process.env.BASE_URL)
-    ?? request.nextUrl.origin;
+    ?? normalizedOrigin(process.env.BASE_URL);
+
+  if (!origin) {
+    return new NextResponse('Application origin is not configured', { status: 500 });
+  }
 
   return NextResponse.redirect(new URL('/sign-in', origin));
 }

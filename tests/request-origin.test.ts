@@ -20,7 +20,7 @@ describe('same-origin write request guard', () => {
     expect(isSameOriginRequest(request)).toBe(true);
     expect(() => assertSameOriginRequest(request)).not.toThrow();
   });
-  it('falls back to the request URL origin when no canonical public origin is configured', () => {
+  it('rejects protected write requests with origin headers when no canonical public origin is configured', () => {
     vi.stubEnv('NEXT_PUBLIC_APP_URL', '');
     vi.stubEnv('BASE_URL', '');
     const request = new Request('http://127.0.0.1:3000/api/v1/auth/logout', {
@@ -30,8 +30,8 @@ describe('same-origin write request guard', () => {
       }
     });
 
-    expect(isSameOriginRequest(request)).toBe(true);
-    expect(() => assertSameOriginRequest(request)).not.toThrow();
+    expect(isSameOriginRequest(request)).toBe(false);
+    expect(() => assertSameOriginRequest(request)).toThrow(ApiError);
   });
 
   it('rejects cross-site requests that can carry session cookies', () => {

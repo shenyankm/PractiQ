@@ -20,8 +20,9 @@ export function isSameOriginRequest(request: Request) {
   if (!origin && !referer) return true;
 
   const requestOrigin = normalizedOrigin(env.NEXT_PUBLIC_APP_URL)
-    ?? normalizedOrigin(env.BASE_URL)
-    ?? new URL(request.url).origin;
+    ?? normalizedOrigin(env.BASE_URL);
+
+  if (!requestOrigin) return false;
 
   if (origin) return sameOrigin(origin, requestOrigin);
   return referer ? sameOrigin(referer, requestOrigin) : true;

@@ -24,7 +24,7 @@ describe('OpenWook proxy redirects', () => {
     expect(response.headers.get('location')).toBe('https://openwook.cloud/sign-in');
   });
 
-  it('falls back to the request URL origin when no canonical public origin is configured', async () => {
+  it('fails closed for unauthenticated protected routes when no canonical public origin is configured', async () => {
     vi.stubEnv('NEXT_PUBLIC_APP_URL', '');
     vi.stubEnv('BASE_URL', '');
     const request = new NextRequest('http://127.0.0.1:3001/settings', {
@@ -37,7 +37,7 @@ describe('OpenWook proxy redirects', () => {
 
     const response = await proxy(request);
 
-    expect(response.status).toBe(307);
-    expect(response.headers.get('location')).toBe(`${request.nextUrl.origin}/sign-in`);
+    expect(response.status).toBe(500);
+    expect(response.headers.get('location')).toBeNull();
   });
 });
