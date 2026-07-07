@@ -29,6 +29,52 @@ describe('API route structure', () => {
     expect(catchAll).not.toContain("parts[0] === 'knowledge-points'");
   });
 
+  it('requires the moved resource families to have dedicated route files', () => {
+    const expectedRoutes = [
+      'app/api/v1/banks/route.ts',
+      'app/api/v1/banks/[bankId]/route.ts',
+      'app/api/v1/questions/[questionId]/route.ts',
+      'app/api/v1/groups/[groupId]/route.ts',
+      'app/api/v1/practice-sessions/route.ts',
+      'app/api/v1/practice-sessions/[sessionId]/route.ts',
+      'app/api/v1/import-jobs/route.ts',
+      'app/api/v1/import-jobs/[jobId]/route.ts',
+      'app/api/v1/media/route.ts',
+      'app/api/v1/media/[mediaId]/route.ts',
+      'app/api/v1/analytics/me/summary/route.ts',
+      'app/api/v1/analytics/me/snapshot/route.ts',
+      'app/api/v1/analytics/banks/[bankId]/route.ts',
+      'app/api/v1/analytics/banks/[bankId]/leaderboard/route.ts',
+      'app/api/v1/analytics/imports/[jobId]/route.ts',
+      'app/api/v1/ai/artifacts/route.ts',
+      'app/api/v1/ai/parse-document/route.ts',
+      'app/api/v1/ai/generate-answer/route.ts',
+      'app/api/v1/ai/learning-report/route.ts',
+      'app/api/v1/users/me/route.ts',
+      'app/api/v1/users/[userId]/status/route.ts'
+    ];
+
+    expect(expectedRoutes.filter((route) => !existsSync(route))).toEqual([]);
+
+    const catchAll = readFileSync('app/api/v1/[[...path]]/route.ts', 'utf8');
+    const movedRouteMarkers = [
+      "parts[0] === 'banks'",
+      "parts[0] === 'questions'",
+      "parts[0] === 'groups'",
+      "parts[0] === 'practice-sessions'",
+      "parts[0] === 'import-jobs'",
+      "parts[0] === 'media'",
+      "parts[0] === 'analytics'",
+      "parts[0] === 'ai'",
+      "parts[0] === 'users'",
+      "parts.join('/') === 'analytics/me/summary'",
+      "parts.join('/') === 'analytics/me/snapshot'",
+      "parts.join('/') === 'users/me'"
+    ];
+
+    expect(movedRouteMarkers.filter((marker) => catchAll.includes(marker))).toEqual([]);
+  });
+
   it('removes the legacy user route in favor of versioned endpoints', () => {
     expect(existsSync('app/api/user/route.ts')).toBe(false);
   });
