@@ -76,6 +76,29 @@ it('routes safe public env reads through a dedicated public env module', () => {
 
     expect(allowed.status).toBe(0);
   });
+  it('clears REDIS_URL by default but preserves it for the explicit Redis lane', () => {
+    const redisUrl = 'redis://127.0.0.1:6379/9';
+    const defaultPath = runSetupSnapshot({
+      REDIS_URL: redisUrl,
+      OPENWOOK_REDIS_TESTS: ''
+    });
+    const redisLane = runSetupSnapshot({
+      REDIS_URL: redisUrl,
+      OPENWOOK_REDIS_TESTS: '1'
+    });
+
+    expect(defaultPath.status).toBe(0);
+    expect(defaultPath.env.REDIS_URL).toBe('');
+    expect(redisLane.status).toBe(0);
+    expect(redisLane.env.REDIS_URL).toBe(redisUrl);
+  });
+
+  it('exposes an explicit Redis-backed test lane from package.json', () => {
+    const scripts = readPackageJson().scripts ?? {};
+
+    expect(typeof scripts['test:redis']).toBe('string');
+    expect(scripts['test:redis']).toMatch(/OPENWOOK_REDIS_TESTS=1/);
+  });
 
   it('only keeps next-themes installed when the app imports it', () => {
     const pkg = readPackageJson();
@@ -162,6 +185,32 @@ it('routes safe public env reads through a dedicated public env module', () => {
 
 function readPackageJson() {
   return JSON.parse(readFileSync('package.json', 'utf8')) as PackageManifest;
+}
+
+function runSetupSnapshot(env: Record<string, string>) {
+  const result = spawnSync(
+    process.execPath,
+    [
+      '--import',
+      'tsx/esm',
+      '--eval',
+      "import('./tests/setup.ts').then(() => process.stdout.write(JSON.stringify({ REDIS_URL: process.env.REDIS_URL ?? '' })))"
+    ],
+    {
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        NODE_ENV: 'test',
+        ...env
+      },
+      encoding: 'utf8'
+    }
+  );
+
+  return {
+    ...result,
+    env: result.status === 0 ? JSON.parse(result.stdout || '{}') as { REDIS_URL?: string } : {}
+  };
 }
 
 function runSetupWithEnv(env: Record<string, string>) {

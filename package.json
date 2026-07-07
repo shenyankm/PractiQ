@@ -9,6 +9,7 @@
     "prepare": "git rev-parse --git-dir >/dev/null 2>&1 && git config core.hooksPath .githooks || true",
     "lint": "eslint",
     "test": "vitest run",
+    "test:redis": "OPENWOOK_REDIS_TESTS=1 vitest run tests/redis-contract.test.ts",
     "test:e2e": "playwright test",
     "verify": "pnpm lint && OPENWOOK_SKIP_DB_TESTS=1 pnpm test && pnpm build",
     "db:setup": "node --experimental-strip-types lib/db/setup.ts",

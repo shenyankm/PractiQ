@@ -30,7 +30,7 @@ if (
   throw new Error('tests/setup.ts requires a test database URL unless OPENWOOK_ALLOW_INTEGRATION_TESTS=1 is set for explicit integration testing.');
 }
 
-delete process.env.REDIS_URL;
+if (process.env.OPENWOOK_REDIS_TESTS !== '1') delete process.env.REDIS_URL;
 process.env.POSTGRES_URL ||= configuredDatabaseUrl || 'postgres://test:test@localhost:5432/openwook_test';
 process.env.AUTH_SECRET ||= 'test-auth-secret-for-vitest-only';
 process.env.OBJECT_STORAGE_MOUNT_DIR = join(tmpdir(), `openwook-vitest-storage-${process.pid}`);
