@@ -4,8 +4,9 @@ import postgres from 'postgres';
 import { trace } from '@opentelemetry/api';
 import { errorToLog, logger } from './logger';
 import { recordDependencyDuration } from './metrics';
+import { env } from './env';
 
-const connectionString = process.env.POSTGRES_URL || process.env.DATABASE_URL;
+const connectionString = env.POSTGRES_URL || env.DATABASE_URL;
 
 if (!connectionString) {
   throw new Error('POSTGRES_URL or DATABASE_URL environment variable is required');
@@ -14,12 +15,12 @@ if (!connectionString) {
 const dbTracer = trace.getTracer('openwook-postgres');
 
 const rawSql = postgres(connectionString, {
-  max: Number(process.env.POSTGRES_POOL_MAX || process.env.DATABASE_POOL_MAX || 10),
-  idle_timeout: Number(process.env.POSTGRES_IDLE_TIMEOUT_SECONDS || 30),
-  connect_timeout: Number(process.env.POSTGRES_CONNECT_TIMEOUT_SECONDS || 10)
+  max: Number(env.POSTGRES_POOL_MAX || env.DATABASE_POOL_MAX || 10),
+  idle_timeout: Number(env.POSTGRES_IDLE_TIMEOUT_SECONDS || 30),
+  connect_timeout: Number(env.POSTGRES_CONNECT_TIMEOUT_SECONDS || 10)
 });
 
-const slowQueryMs = Number(process.env.SLOW_QUERY_MS || 500);
+const slowQueryMs = Number(env.SLOW_QUERY_MS || 500);
 
 type QueryLike = {
   then: (onFulfilled?: (...args: never[]) => unknown, onRejected?: (...args: never[]) => unknown) => unknown;

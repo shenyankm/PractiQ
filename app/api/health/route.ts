@@ -2,6 +2,7 @@ import { sql } from '@/lib/openwook/db';
 import { errorToLog, logger } from '@/lib/openwook/logger';
 import { withApiObservability } from '@/lib/openwook/observability';
 import { pingRedis } from '@/lib/openwook/redis';
+import { env } from '@/lib/openwook/env';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,7 +12,7 @@ type HealthService = {
   configured?: boolean;
 };
 
-const healthTimeoutMs = Number(process.env.HEALTH_CHECK_TIMEOUT_MS || 1500);
+const healthTimeoutMs = Number(env.HEALTH_CHECK_TIMEOUT_MS || 1500);
 
 async function withTimeout<T>(operation: Promise<T>, timeoutMs: number): Promise<T> {
   let timeout: NodeJS.Timeout | undefined;

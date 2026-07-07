@@ -26,6 +26,14 @@ const questionStatuses = ['draft', 'active', 'archived'] as const;
 const sessionTypes = ['practice', 'review', 'exam'] as const;
 const practiceModes = ['all', 'wrong', 'by_type', 'exam'] as const;
 
+export type SettingsActionState = {
+  error?: string;
+  success?: string;
+  email?: string;
+  username?: string;
+};
+
+
 export async function createBankAction(formData: FormData) {
   const user = await requireServerActionUser();
 
@@ -181,42 +189,59 @@ export async function resolveReviewItemAction(jobId: number, itemId: number, for
   revalidatePath(`/imports/${jobId}`);
 }
 
-export async function updateProfileAction(formData: FormData) {
+export async function updateProfileAction(_prevState: SettingsActionState, formData: FormData): Promise<SettingsActionState> {
   const user = await requireServerActionUser();
-  const avatarFile = formData.get('avatar');
-  const avatarUrl = isUploadedFile(avatarFile)
-    ? (await storeAvatarFile(user.id, avatarFile)).objectUrl
-    : undefined;
-  await updateCurrentUser(user, {
-    username: String(formData.get('username') || '') || undefined,
-    email: String(formData.get('email') || '') || null,
-    avatarUrl
-  });
-  revalidatePath('/settings');
+  const username = String(formData.get('username') || '') || undefined;
+  const email = String(formData.get('email') || '') || null;
+
+  try {
+    const avatarFile = formData.get('avatar');
+    const avatarUrl = isUploadedFile(avatarFile)
+      ? (await storeAvatarFile(user.id, avatarFile)).objectUrl
+      : undefined;
+    await updateCurrentUser(user, {
+      username,
+      email,
+      avatarUrl
+    });
+    revalidatePath('/settings');
+    return {
+      success: '设置已保存。',
+      email: email ?? '',
+      username: username ?? user.username
+    };
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : '保存失败，请稍后重试。',
+      email: email ?? '',
+      username: username ?? user.username
+    };
+  }
 }
 
-export async function updatePasswordAction(formData: FormData) {
+export async function updatePasswordAction(_prevState: SettingsActionState, formData: FormData): Promise<SettingsActionState> {
   const user = await requireServerActionUser();
   const currentPassword = String(formData.get('currentPassword') || '');
   const password = String(formData.get('password') || '');
   const confirmPassword = String(formData.get('confirmPassword') || '');
 
   if (password.length < 8 || password.length > 100) {
-    throw new Error('新密码长度必须在 8 到 100 位之间。');
+    return { error: '新密码长度必须在 8 到 100 位之间。' };
   }
   if (password !== confirmPassword) {
-    throw new Error('两次输入的新密码不一致。');
+    return { error: '两次输入的新密码不一致。' };
   }
 
   const found = await getUserPasswordById(user.id);
   if (!found?.password || !(await comparePasswords(currentPassword, found.password))) {
-    throw new Error('当前密码不正确。');
+    return { error: '当前密码不正确。' };
   }
 
   await updateCurrentUser(user, {
     passwordHash: await hashPassword(password)
   });
   revalidatePath('/settings');
+  return { success: '密码已更新。' };
 }
 
 function pickEnum<T extends readonly string[]>(value: FormDataEntryValue | null, allowed: T, fallback: T[number]) {

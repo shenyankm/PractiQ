@@ -4,9 +4,10 @@ import { Database, FileUp, LayoutDashboard, LogOut, Menu, Settings, Shield, User
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { AlertDialog } from '@heroui/react/alert-dialog';
-import { Avatar, AvatarFallback, AvatarImage } from '@heroui/react/avatar';
+import { Avatar, AvatarFallback } from '@heroui/react/avatar';
 import { Button } from '@heroui/react/button';
 
 type ShellUser = {
@@ -14,6 +15,7 @@ type ShellUser = {
   membership: 'free' | 'plus';
   role: 'admin' | 'user';
   avatarUrl: string | null;
+  avatarOptimized: boolean;
 };
 
 const navItems: Array<{ href: string; label: string; icon: React.ElementType; adminOnly?: boolean }> = [
@@ -144,8 +146,8 @@ function UserActions({ user }: { user: ShellUser }) {
   return (
     <div className="flex shrink-0 items-center gap-3">
       <div className="hidden items-center gap-2 sm:flex">
-        <Avatar className="size-8">
-          {avatarUrl ? <AvatarImage src={avatarUrl} alt={user.username} /> : null}
+        <Avatar className="size-8 overflow-hidden">
+          {avatarUrl ? <Image src={avatarUrl} alt={user.username} width={32} height={32} sizes="32px" unoptimized={!user.avatarOptimized} className="size-full object-cover" /> : null}
           <AvatarFallback className="bg-foreground/10 text-xs font-semibold text-foreground">
             {user.username.slice(0, 2).toUpperCase()}
           </AvatarFallback>

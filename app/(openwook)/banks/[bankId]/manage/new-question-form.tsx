@@ -36,6 +36,7 @@ export function NewQuestionForm({ action, types }: NewQuestionFormProps) {
 
         <div>
           <Label id={`${formId}-answerModeLabel`}>答题模式</Label>
+          <input type="hidden" name="answerMode" value={answerMode} />
           <div
             role="radiogroup"
             aria-labelledby={`${formId}-answerModeLabel`}
@@ -44,11 +45,13 @@ export function NewQuestionForm({ action, types }: NewQuestionFormProps) {
             {answerModeOptions.map((option) => (
               <label
                 key={option.value}
-                className="flex cursor-pointer items-center justify-center rounded-md border border-border/70 px-3 py-2 text-sm data-[checked=true]:bg-foreground/10 data-[checked=true]:text-foreground"
+                className="flex cursor-pointer items-center justify-center rounded-md border border-border/70 px-3 py-2 text-sm data-[checked=true]:bg-foreground/10 data-[checked=true]:text-foreground has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-ring/35"
                 data-checked={answerMode === option.value}
               >
                 <input
                   type="radio"
+                  name="answerMode"
+                  value={option.value}
                   className="sr-only"
                   aria-label={option.ariaLabel}
                   checked={answerMode === option.value}
@@ -58,7 +61,6 @@ export function NewQuestionForm({ action, types }: NewQuestionFormProps) {
               </label>
             ))}
           </div>
-          <input type="hidden" name="answerMode" value={answerMode} />
           <Description>{answerModeDescriptions[answerMode]}</Description>
         </div>
 

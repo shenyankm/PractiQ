@@ -3,6 +3,7 @@ import type { Job } from 'bullmq';
 import { trace } from '@opentelemetry/api';
 import type { ImportJobQueueData } from './import-queue';
 import type { User } from './types';
+import { env } from './env';
 
 config({ path: '.env.local' });
 config();
@@ -50,7 +51,7 @@ const worker = new Worker<ImportJobQueueData>(
 
     const lock = await acquireRedisLock(
       redisKey('lock', 'import', job.data.jobId, 'parse'),
-      Number(process.env.IMPORT_JOB_LOCK_TTL_MS || 30 * 60 * 1000)
+      Number(env.IMPORT_JOB_LOCK_TTL_MS || 30 * 60 * 1000)
     );
     if (!lock.acquired) {
       const error = new Error(`Import job ${job.data.jobId} is already being processed`);
@@ -77,7 +78,7 @@ const worker = new Worker<ImportJobQueueData>(
   }),
   {
     connection: workerConnection,
-    concurrency: Number(process.env.IMPORT_WORKER_CONCURRENCY || 2)
+    concurrency: Number(env.IMPORT_WORKER_CONCURRENCY || 2)
   }
 );
 

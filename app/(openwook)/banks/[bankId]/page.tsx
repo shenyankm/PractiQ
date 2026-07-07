@@ -41,13 +41,13 @@ export default async function BankDetailPage({ params }: { params: Promise<{ ban
           <form action={favoriteBankAction.bind(null, id, !bank.is_favorite)}>
             <Button variant="outline" type="submit">{bank.is_favorite ? '取消收藏' : '收藏'}</Button>
           </form>
-          <Link href={`/banks/${id} /practice`} className="button button--primary">
+          <Link href={`/banks/${id}/practice`} className="button button--primary">
   开始练习
 </Link>
-          {bank.is_owner && <Link href={`/banks/${id} /manage`} className="button button--outline">
+          {bank.is_owner && <Link href={`/banks/${id}/manage`} className="button button--outline">
   管理题目
 </Link>}
-          {bank.is_owner && <Link href={`/imports?bankId=${id} `} className="button button--outline">
+          {bank.is_owner && <Link href={`/imports?bankId=${id}`} className="button button--outline">
   导入题目
 </Link>}
         </div>
@@ -70,10 +70,10 @@ export default async function BankDetailPage({ params }: { params: Promise<{ ban
               {bank.is_owner ? (
                 <div className="mt-4 flex justify-center">
                   <div className="flex flex-wrap justify-center gap-2">
-                    <Link href={`/imports?bankId=${id} `} className="button button--primary">
+                    <Link href={`/imports?bankId=${id}`} className="button button--primary">
   导入题目
 </Link>
-                    <Link href={`/banks/${id} /manage`} className="button button--outline">
+                    <Link href={`/banks/${id}/manage`} className="button button--outline">
   手动新增
 </Link>
                   </div>

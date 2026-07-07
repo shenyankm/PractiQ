@@ -1,9 +1,9 @@
 import { z } from 'zod';
 import { hashPassword, setSession } from '@/lib/openwook/auth';
-import { ApiError, created, handleApiError, readJson } from '@/lib/openwook/api';
+import { created, handleApiError, readJson } from '@/lib/openwook/api';
 import { sql } from '@/lib/openwook/db';
+import { enforceRegisterRateLimit, clientIpFromRequest } from '@/lib/openwook/auth-rate-limit';
 import { withApiObservability } from '@/lib/openwook/observability';
-import { incrementRateLimit, redisKey } from '@/lib/openwook/redis';
 import { assertSameOriginRequest } from '@/lib/openwook/request-origin';
 
 export const dynamic = 'force-dynamic';
@@ -18,7 +18,7 @@ export async function POST(request: Request) {
   return withApiObservability(request, '/api/v1/auth/register', async () => {
     try {
       assertSameOriginRequest(request);
-      await enforceRateLimit(`auth:register:ip:${clientIp(request)}`, 10, 3600);
+      await enforceRegisterRateLimit(clientIpFromRequest(request));
       const body = registerSchema.parse(await readJson(request));
       const passwordHash = await hashPassword(body.password);
       const rows = await sql`
@@ -34,15 +34,3 @@ export async function POST(request: Request) {
   });
 }
 
-function clientIp(request: Request) {
-  return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-    || request.headers.get('x-real-ip')
-    || 'unknown';
-}
-
-async function enforceRateLimit(key: string, limit: number, windowSeconds: number) {
-  const result = await incrementRateLimit(redisKey('rate-limit', key), limit, windowSeconds);
-  if (!result.allowed) {
-    throw new ApiError(429, 'RATE_LIMITED', `Too many requests. Try again in ${result.resetSeconds}s`);
-  }
-}

@@ -2,8 +2,9 @@ import { Queue, type JobsOptions } from 'bullmq';
 import { errorToLog, logger } from './logger';
 import { setImportQueueCounts } from './metrics';
 import { createRedisConnection, isRedisConfigured, redisKey } from './redis';
+import { env } from './env';
 
-export const IMPORT_QUEUE_NAME = process.env.IMPORT_QUEUE_NAME || redisKey('queue', 'imports');
+export const IMPORT_QUEUE_NAME = env.IMPORT_QUEUE_NAME || redisKey('queue', 'imports');
 
 export type ImportJobQueueData = {
   jobId: number;
@@ -40,18 +41,18 @@ export async function enqueueImportJob(data: Omit<ImportJobQueueData, 'requested
     },
     {
       jobId: String(data.jobId),
-      attempts: Number(process.env.IMPORT_QUEUE_ATTEMPTS || 3),
+      attempts: Number(env.IMPORT_QUEUE_ATTEMPTS || 3),
       backoff: {
         type: 'exponential',
-        delay: Number(process.env.IMPORT_QUEUE_BACKOFF_MS || 5000)
+        delay: Number(env.IMPORT_QUEUE_BACKOFF_MS || 5000)
       },
       removeOnComplete: {
-        age: Number(process.env.IMPORT_QUEUE_COMPLETE_TTL_SECONDS || 86400),
-        count: Number(process.env.IMPORT_QUEUE_COMPLETE_COUNT || 1000)
+        age: Number(env.IMPORT_QUEUE_COMPLETE_TTL_SECONDS || 86400),
+        count: Number(env.IMPORT_QUEUE_COMPLETE_COUNT || 1000)
       },
       removeOnFail: {
-        age: Number(process.env.IMPORT_QUEUE_FAIL_TTL_SECONDS || 604800),
-        count: Number(process.env.IMPORT_QUEUE_FAIL_COUNT || 1000)
+        age: Number(env.IMPORT_QUEUE_FAIL_TTL_SECONDS || 604800),
+        count: Number(env.IMPORT_QUEUE_FAIL_COUNT || 1000)
       },
       ...options
     }

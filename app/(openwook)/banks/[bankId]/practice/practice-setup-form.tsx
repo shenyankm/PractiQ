@@ -35,6 +35,7 @@ export function PracticeSetupForm({
       <FieldGroup className="gap-4">
         <div>
           <Label id={`${formId}-mode-label`}>模式</Label>
+          <input type="hidden" name="mode" value={mode} />
           <div
             role="radiogroup"
             aria-labelledby={`${formId}-mode-label`}
@@ -43,11 +44,13 @@ export function PracticeSetupForm({
             {practiceModeOptions.map((option) => (
               <label
                 key={option.value}
-                className="flex cursor-pointer items-center justify-center rounded-md border border-border/70 px-3 py-2 text-sm data-[checked=true]:bg-foreground/10 data-[checked=true]:text-foreground"
+                className="flex cursor-pointer items-center justify-center rounded-md border border-border/70 px-3 py-2 text-sm data-[checked=true]:bg-foreground/10 data-[checked=true]:text-foreground has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-ring/35"
                 data-checked={mode === option.value}
               >
                 <input
                   type="radio"
+                  name="mode"
+                  value={option.value}
                   className="sr-only"
                   aria-label={option.ariaLabel}
                   checked={mode === option.value}
@@ -57,7 +60,6 @@ export function PracticeSetupForm({
               </label>
             ))}
           </div>
-          <input type="hidden" name="mode" value={mode} />
           <Description>{modeDescriptions[mode]}</Description>
         </div>
 

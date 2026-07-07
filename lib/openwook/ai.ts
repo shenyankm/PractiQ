@@ -28,6 +28,7 @@ import {
   upsertAnswerKey
 } from './services';
 import type { User } from './types';
+import { env } from './env';
 
 export type DocumentParseRequest = {
   importJobId?: number | null;
@@ -187,7 +188,7 @@ export async function parseDocumentWithMastra(user: User, request: DocumentParse
   });
   const result = cached ?? generation?.result;
   if (!result) throw new Error('Document parse generation failed');
-  if (!cached) await redisSetJson(cacheKey, result, Number(process.env.AI_CACHE_TTL_SECONDS || 24 * 60 * 60));
+  if (!cached) await redisSetJson(cacheKey, result, Number(env.AI_CACHE_TTL_SECONDS || 24 * 60 * 60));
   result.warnings = [...document.warnings, ...result.warnings];
 
   await persistAiArtifact(user, {
@@ -275,7 +276,7 @@ export async function generateAnswerWithMastra(user: User, request: AnswerGenera
   });
   const result = cached ?? generation?.result;
   if (!result) throw new Error('Answer generation failed');
-  if (!cached) await redisSetJson(cacheKey, result, Number(process.env.AI_CACHE_TTL_SECONDS || 24 * 60 * 60));
+  if (!cached) await redisSetJson(cacheKey, result, Number(env.AI_CACHE_TTL_SECONDS || 24 * 60 * 60));
 
   await persistAiArtifact(user, {
     artifactType: 'answer_generation',
@@ -304,7 +305,7 @@ export async function generateQuestionAnswerWithMastra(user: User, questionId: n
   });
 
   if (options?.apply !== false) {
-    if (result.confidence < Number(process.env.AI_APPLY_MIN_CONFIDENCE || 0.7)) {
+    if (result.confidence < Number(env.AI_APPLY_MIN_CONFIDENCE || 0.7)) {
       throw new Error('AI generated answer confidence is too low to apply automatically');
     }
     if (!hasUsableParsedAnswer(question.answer_mode, result.answerPayload)) {
@@ -356,7 +357,7 @@ export async function generateLearningReportWithMastra(user: User, request: Lear
   });
   const result = cached ?? generation?.result;
   if (!result) throw new Error('Learning report generation failed');
-  if (!cached) await redisSetJson(cacheKey, result, Number(process.env.AI_REPORT_CACHE_TTL_SECONDS || 3600));
+  if (!cached) await redisSetJson(cacheKey, result, Number(env.AI_REPORT_CACHE_TTL_SECONDS || 3600));
 
   await persistAiArtifact(user, {
     artifactType: 'learning_report',

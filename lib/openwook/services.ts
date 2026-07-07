@@ -17,6 +17,7 @@ import {
   redisKey,
   redisSetJson
 } from './redis';
+import { env } from './env';
 import type {
   AnswerMode,
   BankQuestionItem,
@@ -36,12 +37,12 @@ import type {
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
-const shortCacheTtl = Number(process.env.OPENWOOK_SHORT_CACHE_TTL_SECONDS || 60);
-const referenceCacheTtl = Number(process.env.OPENWOOK_REFERENCE_CACHE_TTL_SECONDS || 3600);
-const practiceQueueTtl = Number(process.env.PRACTICE_QUEUE_TTL_SECONDS || 7 * 24 * 60 * 60);
-const maxPracticeQuestions = Number(process.env.PRACTICE_MAX_QUESTIONS || 500);
-const practiceProgressFullLimit = Number(process.env.PRACTICE_PROGRESS_FULL_LIMIT || 120);
-const practiceProgressWindowRadius = Number(process.env.PRACTICE_PROGRESS_WINDOW_RADIUS || 30);
+const shortCacheTtl = Number(env.OPENWOOK_SHORT_CACHE_TTL_SECONDS || 60);
+const referenceCacheTtl = Number(env.OPENWOOK_REFERENCE_CACHE_TTL_SECONDS || 3600);
+const practiceQueueTtl = Number(env.PRACTICE_QUEUE_TTL_SECONDS || 7 * 24 * 60 * 60);
+const maxPracticeQuestions = Number(env.PRACTICE_MAX_QUESTIONS || 500);
+const practiceProgressFullLimit = Number(env.PRACTICE_PROGRESS_FULL_LIMIT || 120);
+const practiceProgressWindowRadius = Number(env.PRACTICE_PROGRESS_WINDOW_RADIUS || 30);
 
 function toJsonValue(value: unknown): JsonValue {
   return JSON.parse(JSON.stringify(value ?? null)) as JsonValue;
@@ -1868,7 +1869,7 @@ export async function submitAnswer(
 
     const answerKey = await redisGetOrSetJson<{ id: number; answer_payload: string; score_payload: string } | null>(
       answerKeyCacheKey(data.questionId),
-      Number(process.env.ANSWER_KEY_CACHE_TTL_SECONDS || 300),
+      Number(env.ANSWER_KEY_CACHE_TTL_SECONDS || 300),
       async () => {
         const answerKeyRows = await sql<Array<{ id: number; answer_payload: string; score_payload: string }>>`
           SELECT id, answer_payload, score_payload
@@ -2498,7 +2499,7 @@ export async function getAnalyticsSummary(user: User) {
   const version = await cacheVersion('analytics', user.id);
   return redisGetOrSetJson(
     redisKey('cache', 'analytics', 'user', user.id, version, 'summary'),
-    Number(process.env.ANALYTICS_CACHE_TTL_SECONDS || 30),
+    Number(env.ANALYTICS_CACHE_TTL_SECONDS || 30),
     async () => {
       const rows = await sql<Array<{
         owned_banks: number;
@@ -2553,7 +2554,7 @@ export async function getBankLeaderboard(user: User, bankId: number, limit = 20)
   const version = await cacheVersion('leaderboard', bankId);
   return redisGetOrSetJson(
     redisKey('cache', 'leaderboard', 'bank', bankId, version, hashKey({ limit: safeLimit })),
-    Number(process.env.LEADERBOARD_CACHE_TTL_SECONDS || 60),
+    Number(env.LEADERBOARD_CACHE_TTL_SECONDS || 60),
     () => sql`
       SELECT
         u.id AS user_id,
@@ -2579,7 +2580,7 @@ export async function getUserStatsSnapshot(user: User) {
   const version = await cacheVersion('analytics', user.id);
   return redisGetOrSetJson(
     redisKey('cache', 'analytics', 'user', user.id, version, 'snapshot'),
-    Number(process.env.ANALYTICS_CACHE_TTL_SECONDS || 30),
+    Number(env.ANALYTICS_CACHE_TTL_SECONDS || 30),
     async () => {
       const [summary, recentSessions, weakQuestions] = await Promise.all([
         getAnalyticsSummary(user),

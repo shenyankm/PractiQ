@@ -9,8 +9,11 @@ import { ApiError } from './api';
 import { signSessionToken, verifySessionToken, type SessionPayload } from './session';
 import { redisDel, redisGetJson, redisGetOrSetJson, redisKey, redisSetJson } from './redis';
 import type { User } from './types';
+import { env } from './env';
 
 const saltRounds = 10;
+export const dummyPasswordHash = '$2y$10$bPkUrUZqKDqmW.xkPE5LBuqH6HB/QoOS4dYH42xQxevBJQMStTE0W';
+
 
 export async function hashPassword(password: string) {
   return hash(password, saltRounds);
@@ -38,7 +41,7 @@ export async function setSession(userId: number) {
 
   (await cookies()).set('session', token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: env.NODE_ENV === 'production',
     sameSite: 'lax',
     expires,
     path: '/'
@@ -79,7 +82,7 @@ const getUserForSessionToken = cache(async (token: string): Promise<User | null>
 
     return await redisGetOrSetJson<User | null>(
       userCacheKey(session.user.id),
-      Number(process.env.USER_CACHE_TTL_SECONDS || 60),
+      Number(env.USER_CACHE_TTL_SECONDS || 60),
       async () => {
         const rows = await sql<User[]>`
           SELECT id, username, email, avatar_url, is_active, role, membership, plus_trial_ends_at, plus_expires_at, created_at, updated_at

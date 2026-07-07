@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { Counter, Gauge, Histogram, Registry, collectDefaultMetrics } from 'prom-client';
+import { env } from './env';
 
 const globalForMetrics = globalThis as typeof globalThis & {
   __openwookMetrics?: OpenWookMetrics;
@@ -19,7 +20,7 @@ type OpenWookMetrics = ReturnType<typeof createMetrics>;
 
 function createMetrics() {
   const registry = new Registry();
-  const serviceName = process.env.OTEL_SERVICE_NAME || 'openwook';
+  const serviceName = env.OTEL_SERVICE_NAME || 'openwook';
   registry.setDefaultLabels({ service: serviceName });
   collectDefaultMetrics({ register: registry, prefix: 'openwook_' });
 

@@ -1,17 +1,17 @@
-import { KeyRound, UserRound } from 'lucide-react';
+import type { Metadata } from 'next';
+import { KeyRound } from 'lucide-react';
 import { getCurrentUser } from '@/lib/openwook/auth';
 import { getAlipayBillingSummary } from '@/lib/openwook/alipay';
+import { isConfiguredRemoteImageUrl } from '@/lib/openwook/remote-images';
 import { getAnalyticsSummary } from '@/lib/openwook/services';
-import { updatePasswordAction, updateProfileAction } from '../banks/actions';
 import { AlipayCheckoutButton } from './alipay-checkout-button';
-import { Avatar, AvatarFallback, AvatarImage } from '@heroui/react/avatar';
-import { Button } from '@heroui/react/button';
+import { PasswordSettingsCard, ProfileSettingsCard } from './settings-forms';
 import { Card, CardContent, CardHeader, CardTitle } from '@heroui/react/card';
-import { Description } from '@heroui/react/description';
-import { FieldGroup } from '@heroui/react/fieldset';
-import { Input } from '@heroui/react/input';
-import { Label } from '@heroui/react/label';
 import { Tab, TabList, TabPanel, Tabs } from '@heroui/react/tabs';
+
+export const metadata: Metadata = {
+  title: '设置'
+};
 
 export default async function SettingsPage() {
   const user = await getCurrentUser();
@@ -21,6 +21,7 @@ export default async function SettingsPage() {
     getAlipayBillingSummary(user)
   ]);
   const avatarUrl = httpUrlOrNull(user.avatar_url);
+  const avatarOptimized = isConfiguredRemoteImageUrl(avatarUrl);
 
   return (
     <div className="flex flex-col gap-6">
@@ -39,69 +40,16 @@ export default async function SettingsPage() {
           </TabList>
 
           <TabPanel id="profile" className="m-0">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2"><UserRound className="size-4" />个人资料</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <form action={updateProfileAction}>
-                  <FieldGroup className="gap-4">
-                    <div className="flex items-center gap-4">
-                      <Avatar className="size-16 border border-border/70">
-                        {avatarUrl ? <AvatarImage src={avatarUrl} alt={user.username} /> : null}
-                        <AvatarFallback className="bg-foreground/10 text-base font-semibold text-foreground">
-                          {user.username.slice(0, 2).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="min-w-0 flex-1">
-                        <Label htmlFor="avatar">头像</Label>
-                        <Input id="avatar" name="avatar" type="file" accept="image/png,image/jpeg,image/webp,image/gif" />
-                        <Description>支持 PNG、JPEG、WebP 和 GIF。</Description>
-                      </div>
-                    </div>
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div>
-                        <Label htmlFor="username">用户名</Label>
-                        <Input id="username" name="username" defaultValue={user.username} required maxLength={32} />
-                      </div>
-                      <div>
-                        <Label htmlFor="email">邮箱</Label>
-                        <Input id="email" name="email" type="email" defaultValue={user.email ?? ''} />
-                      </div>
-                    </div>
-                    <Button type="submit">保存设置</Button>
-                  </FieldGroup>
-                </form>
-              </CardContent>
-            </Card>
+            <ProfileSettingsCard
+              avatarOptimized={avatarOptimized}
+              avatarUrl={avatarUrl}
+              email={user.email}
+              username={user.username}
+            />
           </TabPanel>
 
           <TabPanel id="security" className="m-0">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2"><KeyRound className="size-4" />安全</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <form action={updatePasswordAction}>
-                  <FieldGroup className="gap-4">
-                    <div>
-                      <Label htmlFor="currentPassword">当前密码</Label>
-                      <Input id="currentPassword" name="currentPassword" type="password" autoComplete="current-password" required />
-                    </div>
-                    <div>
-                      <Label htmlFor="password">新密码</Label>
-                      <Input id="password" name="password" type="password" minLength={8} maxLength={100} autoComplete="new-password" required />
-                      <Description>至少 8 位。保存后请使用新密码登录。</Description>
-                    </div>
-                    <div>
-                      <Label htmlFor="confirmPassword">确认新密码</Label>
-                      <Input id="confirmPassword" name="confirmPassword" type="password" minLength={8} maxLength={100} autoComplete="new-password" required />
-                    </div>
-                    <Button type="submit">更新密码</Button>
-                  </FieldGroup>
-                </form>
-              </CardContent>
-            </Card>
+            <PasswordSettingsCard />
           </TabPanel>
 
           <TabPanel id="billing" className="m-0">
@@ -167,7 +115,7 @@ export default async function SettingsPage() {
   );
 }
 
-function Row({ label, value }: { label: string; value: string | number }) {
+function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between rounded-md border px-3 py-2">
       <span className="text-muted-foreground">{label}</span>

@@ -7,10 +7,11 @@ import path from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { ApiError } from './api';
+import { env } from './env';
 
 const defaultMountDir = '/lhcos-data';
-const avatarMaxBytes = Number(process.env.AVATAR_MAX_BYTES || 5 * 1024 * 1024);
-const importSourceMaxBytes = Number(process.env.IMPORT_SOURCE_MAX_BYTES || 25 * 1024 * 1024);
+const avatarMaxBytes = Number(env.AVATAR_MAX_BYTES || 5 * 1024 * 1024);
+const importSourceMaxBytes = Number(env.IMPORT_SOURCE_MAX_BYTES || 25 * 1024 * 1024);
 const docxMimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 const genericUploadMimeTypes = new Set(['application/octet-stream', 'binary/octet-stream']);
 const signatureBytes = 4096;
@@ -91,15 +92,15 @@ export function relativePathFromObjectUrl(objectUrl: string | null | undefined) 
 }
 
 function objectStorageMountDir() {
-  return path.resolve(process.env.OBJECT_STORAGE_MOUNT_DIR || process.env.OSS_MOUNT_DIR || defaultMountDir);
+  return path.resolve(env.OBJECT_STORAGE_MOUNT_DIR || env.OSS_MOUNT_DIR || defaultMountDir);
 }
 
 function objectStoragePublicBaseUrl() {
-  return trimTrailingSlash(process.env.OSS_PUBLIC_BASE_URL || process.env.OBJECT_STORAGE_PUBLIC_BASE_URL || '');
+  return trimTrailingSlash(env.OSS_PUBLIC_BASE_URL || env.OBJECT_STORAGE_PUBLIC_BASE_URL || '');
 }
 
 function objectStorageUrlPrefix() {
-  return trimTrailingSlash(process.env.OSS_URL_PREFIX || process.env.OBJECT_STORAGE_URL_PREFIX || 'oss://openwook');
+  return trimTrailingSlash(env.OSS_URL_PREFIX || env.OBJECT_STORAGE_URL_PREFIX || 'oss://openwook');
 }
 
 async function storeObjectFromFile(

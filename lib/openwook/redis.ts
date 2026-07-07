@@ -3,9 +3,10 @@ import Redis, { type RedisOptions } from 'ioredis';
 import { trace } from '@opentelemetry/api';
 import { errorToLog, logger } from './logger';
 import { recordDependencyDuration, recordRedisCacheEvent } from './metrics';
+import { env } from './env';
 
-const redisUrl = process.env.REDIS_URL;
-const keyPrefix = process.env.REDIS_KEY_PREFIX || 'openwook';
+const redisUrl = env.REDIS_URL;
+const keyPrefix = env.REDIS_KEY_PREFIX || 'openwook';
 
 const redisTracer = trace.getTracer('openwook-redis');
 

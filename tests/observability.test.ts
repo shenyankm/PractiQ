@@ -10,7 +10,7 @@ describe('observability baseline', () => {
     const loggerSource = source('lib/openwook/logger.ts');
 
     expect(loggerSource).toContain('pino');
-    expect(loggerSource).toContain('process.env.LOG_LEVEL');
+    expect(loggerSource).toContain('env.LOG_LEVEL');
     for (const sensitiveField of ['password', 'passwordHash', 'headers.authorization', 'headers.cookie', 'fileBase64', 'apiKey', 'privateKey']) {
       expect(loggerSource).toContain(sensitiveField);
     }

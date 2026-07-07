@@ -1,6 +1,7 @@
 import 'server-only';
 
 import pino, { type Logger, type LoggerOptions } from 'pino';
+import { env } from './env';
 
 const redactPaths = [
   'password',
@@ -30,10 +31,10 @@ const redactPaths = [
 ];
 
 const loggerOptions: LoggerOptions = {
-  level: process.env.LOG_LEVEL || (process.env.NODE_ENV === 'production' ? 'info' : 'debug'),
+  level: env.LOG_LEVEL || (env.NODE_ENV === 'production' ? 'info' : 'debug'),
   base: {
-    service: process.env.OTEL_SERVICE_NAME || 'openwook',
-    env: process.env.NODE_ENV || 'development'
+    service: env.OTEL_SERVICE_NAME || 'openwook',
+    env: env.NODE_ENV || 'development'
   },
   timestamp: pino.stdTimeFunctions.isoTime,
   redact: {

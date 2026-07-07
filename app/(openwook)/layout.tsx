@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/openwook/auth';
+import { isConfiguredRemoteImageUrl } from '@/lib/openwook/remote-images';
 import { OpenWookShell } from './openwook-shell';
 
 export const metadata: Metadata = {
@@ -22,7 +23,8 @@ export default async function OpenWookLayout({ children }: { children: React.Rea
         username: user.username,
         membership: user.membership,
         role: user.role,
-        avatarUrl: user.avatar_url
+        avatarUrl: user.avatar_url,
+        avatarOptimized: isConfiguredRemoteImageUrl(user.avatar_url)
       }}
     >
       {children}

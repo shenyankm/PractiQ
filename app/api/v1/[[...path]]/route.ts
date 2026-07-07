@@ -12,7 +12,6 @@ import {
   createBank,
   createGroup,
   createImportJob,
-  createKnowledgePoint,
   createMediaAsset,
   createOption,
   createQuestion,
@@ -41,10 +40,7 @@ import {
   listBanks,
   listImportJobChildren,
   listImportJobs,
-  listKnowledgePoints,
   listPracticeSessions,
-  listQuestionTypes,
-  listSubjects,
   queueImportJobForUser,
   reorderBankItems,
   replaceQuestionContentBlocks,
@@ -62,7 +58,6 @@ import {
   updateCurrentUser,
   updateGroup,
   updateImportJobStatus,
-  updateKnowledgePoint,
   updateOption,
   updateQuestion,
   upsertAnswerKey,
@@ -81,13 +76,6 @@ const bankSchema = z.object({
   isPublic: z.boolean().optional()
 });
 
-const knowledgePointSchema = z.object({
-  subjectId: z.string().min(1).max(32),
-  code: z.string().min(1).max(128),
-  displayName: z.string().min(1).max(256),
-  parentId: z.number().int().positive().optional().nullable(),
-  metadata: z.record(z.unknown()).optional()
-});
 
 const groupSchema = z.object({
   title: z.string().min(1),
@@ -234,14 +222,7 @@ export async function GET(request: Request, ctx: Ctx) {
     const parts = await partsFrom(ctx);
     const url = new URL(request.url);
 
-    if (parts[0] === 'subjects') return ok(await listSubjects());
-    if (parts[0] === 'question-types') {
-      return ok(await listQuestionTypes(url.searchParams.get('subject') ?? undefined, url.searchParams.get('scope') ?? undefined));
-    }
-    if (parts[0] === 'knowledge-points') {
-      const parentId = url.searchParams.get('parentId');
-      return ok(await listKnowledgePoints(url.searchParams.get('subject') ?? undefined, parentId ? Number(parentId) : undefined));
-    }
+    
 
     const user = await requireUser();
 
@@ -320,9 +301,6 @@ export async function POST(request: Request, ctx: Ctx) {
 
     const user = await requireUser();
 
-    if (parts[0] === 'knowledge-points' && parts.length === 1) {
-      return created(await createKnowledgePoint(user, knowledgePointSchema.parse(await readJson(request))));
-    }
 
     if (parts[0] === 'banks' && parts.length === 1) return created(await createBank(user, bankSchema.parse(await readJson(request))));
     if (parts[0] === 'banks' && parts[1]) {
@@ -482,9 +460,6 @@ export async function PATCH(request: Request, ctx: Ctx) {
       return ok(await setUserStatus(user, parseId(parts[1], 'userId'), body.isActive));
     }
 
-    if (parts[0] === 'knowledge-points' && parts[1]) {
-      return ok(await updateKnowledgePoint(user, parseId(parts[1], 'knowledgePointId'), knowledgePointSchema.partial().parse(await readJson(request))));
-    }
 
     if (parts[0] === 'banks' && parts[1]) {
       if (parts[2] === 'items' && parts[3] === 'reorder') {

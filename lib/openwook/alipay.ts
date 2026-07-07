@@ -7,8 +7,9 @@ import { ApiError } from './api';
 import { invalidateUserCache } from './auth';
 import { sql } from './db';
 import type { User } from './types';
+import { env } from './env';
 
-const alipayGateway = process.env.ALIPAY_GATEWAY || 'https://openapi-sandbox.dl.alipaydev.com/gateway.do';
+const alipayGateway = env.ALIPAY_GATEWAY || 'https://openapi-sandbox.dl.alipaydev.com/gateway.do';
 const paidTradeStatuses = new Set(['TRADE_SUCCESS', 'TRADE_FINISHED']);
 
 type AlipayOrderRow = {
@@ -32,14 +33,14 @@ type AlipayOrderRow = {
 type AlipayNotifyParams = Record<string, string>;
 
 export function getPlusMonthlyPlan() {
-  const amountCents = Number(process.env.ALIPAY_PLUS_MONTHLY_AMOUNT_CENTS || 1900);
+  const amountCents = Number(env.ALIPAY_PLUS_MONTHLY_AMOUNT_CENTS || 1900);
   if (!Number.isInteger(amountCents) || amountCents <= 0) {
     throw new ApiError(500, 'ALIPAY_PLAN_INVALID', 'ALIPAY_PLUS_MONTHLY_AMOUNT_CENTS must be a positive integer');
   }
 
   return {
     productCode: 'openwook_plus_monthly',
-    subject: process.env.ALIPAY_PLUS_MONTHLY_SUBJECT || 'OpenWook Plus 月付套餐',
+    subject: env.ALIPAY_PLUS_MONTHLY_SUBJECT || 'OpenWook Plus 月付套餐',
     amountCents,
     amount: formatCnyAmount(amountCents),
     durationMonths: 1
@@ -48,9 +49,9 @@ export function getPlusMonthlyPlan() {
 
 export function isAlipayConfigured() {
   return Boolean(
-    process.env.ALIPAY_APP_ID
-      && process.env.ALIPAY_PRIVATE_KEY
-      && process.env.ALIPAY_PUBLIC_KEY
+    env.ALIPAY_APP_ID
+      && env.ALIPAY_PRIVATE_KEY
+      && env.ALIPAY_PUBLIC_KEY
   );
 }
 
@@ -356,9 +357,9 @@ function getAlipaySdk() {
 }
 
 function getAlipayConfig() {
-  const appId = process.env.ALIPAY_APP_ID;
-  const privateKey = process.env.ALIPAY_PRIVATE_KEY;
-  const alipayPublicKey = process.env.ALIPAY_PUBLIC_KEY;
+  const appId = env.ALIPAY_APP_ID;
+  const privateKey = env.ALIPAY_PRIVATE_KEY;
+  const alipayPublicKey = env.ALIPAY_PUBLIC_KEY;
   if (!appId || !privateKey || !alipayPublicKey) {
     throw new ApiError(500, 'ALIPAY_NOT_CONFIGURED', 'Alipay environment variables are not configured');
   }
@@ -368,12 +369,12 @@ function getAlipayConfig() {
     privateKey,
     alipayPublicKey,
     gateway: alipayGateway,
-    pid: process.env.ALIPAY_PID || null
+    pid: env.ALIPAY_PID || null
   };
 }
 
 function getAppUrl() {
-  const value = process.env.NEXT_PUBLIC_APP_URL || process.env.BASE_URL;
+  const value = env.NEXT_PUBLIC_APP_URL || env.BASE_URL;
   if (!value) {
     throw new ApiError(500, 'APP_URL_NOT_CONFIGURED', 'NEXT_PUBLIC_APP_URL or BASE_URL is required for Alipay callbacks');
   }

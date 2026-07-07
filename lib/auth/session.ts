@@ -2,8 +2,9 @@ import { compare, hash } from '@node-rs/bcrypt';
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 import { NewUser } from '@/lib/db/schema';
+import { env } from '@/lib/openwook/env';
 
-const key = new TextEncoder().encode(process.env.AUTH_SECRET);
+const key = new TextEncoder().encode(env.AUTH_SECRET || '');
 const SALT_ROUNDS = 10;
 
 export async function hashPassword(password: string) {

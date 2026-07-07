@@ -3,6 +3,7 @@ import 'server-only';
 import { Agent } from '@mastra/core/agent';
 import { Mastra } from '@mastra/core/mastra';
 import { createOpenAI } from '@ai-sdk/openai';
+import { env } from './env';
 import {
   type MastraProviderConfig,
   resolveMastraProviderChain,
@@ -21,8 +22,8 @@ const {
   maxTokens
 } = resolveMastraProviderConfig();
 const providerChain = resolveMastraProviderChain();
-const thinkingType = process.env.KIMI_THINKING_TYPE || (process.env.KIMI_THINKING_ENABLED === 'false' ? 'disabled' : 'enabled');
-const thinkingKeep = process.env.KIMI_THINKING_KEEP;
+const thinkingType = env.KIMI_THINKING_TYPE || (env.KIMI_THINKING_ENABLED === 'false' ? 'disabled' : 'enabled');
+const thinkingKeep = env.KIMI_THINKING_KEEP;
 
 export const kimiThinkingOptions = {
   type: thinkingType,

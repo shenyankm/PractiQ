@@ -4,6 +4,8 @@ import { z } from 'zod';
 import { redirect } from 'next/navigation';
 import { clearSession, comparePasswords, getUserPasswordByLogin, hashPassword, setSession } from '@/lib/openwook/auth';
 import { sql } from '@/lib/openwook/db';
+import { ApiError } from '@/lib/openwook/api';
+import { enforceLoginRateLimitFromHeaders, enforceRegisterRateLimitFromHeaders } from '@/lib/openwook/auth-rate-limit';
 import { errorToLog, logger } from '@/lib/openwook/logger';
 import { assertSameOriginFromHeaders } from '@/lib/openwook/server-action-origin';
 
@@ -26,6 +28,8 @@ const signUpSchema = z.object({
   password: z.string().min(8).max(100)
 });
 
+const dummyPasswordHash = '$2y$10$bPkUrUZqKDqmW.xkPE5LBuqH6HB/QoOS4dYH42xQxevBJQMStTE0W';
+
 function safeRedirect(value: FormDataEntryValue | null) {
   const target = String(value || '/dashboard');
   if (!target.startsWith('/') || target.startsWith('//')) return '/dashboard';
@@ -43,9 +47,19 @@ export async function signIn(_prevState: ActionState, formData: FormData): Promi
   await assertSameOriginFromHeaders();
   const parsed = signInSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.errors[0].message };
+  try {
+    await enforceLoginRateLimitFromHeaders(parsed.data.email);
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 429) {
+      return { error: error.message, email: parsed.data.email };
+    }
+    throw error;
+  }
+
 
   const found = await getUserPasswordByLogin(parsed.data.email);
-  if (!found?.password || !(await comparePasswords(parsed.data.password, found.password))) {
+  const passwordMatches = await comparePasswords(parsed.data.password, found?.password ?? dummyPasswordHash);
+  if (!found?.password || !passwordMatches) {
     return {
       error: '用户名/邮箱或密码错误。',
       email: parsed.data.email
@@ -60,6 +74,19 @@ export async function signUp(_prevState: ActionState, formData: FormData): Promi
   await assertSameOriginFromHeaders();
   const parsed = signUpSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.errors[0].message };
+  try {
+    await enforceRegisterRateLimitFromHeaders();
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 429) {
+      return {
+        error: error.message,
+        email: parsed.data.email || '',
+        username: parsed.data.username
+      };
+    }
+    throw error;
+  }
+
 
   const passwordHash = await hashPassword(parsed.data.password);
 

@@ -2,22 +2,34 @@
 import { Loader2 } from 'lucide-react';
 import { useFormStatus } from 'react-dom';
 
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { Button } from '@heroui/react/button';
 
 type AnswerFormProps = {
   action: (formData: FormData) => void | Promise<void>;
   disabled: boolean;
-  children: React.ReactNode;
+  children: ReactNode;
 };
 
 export function AnswerForm({ action, disabled, children }: AnswerFormProps) {
   const startedAt = useRef<number | null>(null);
+  const fieldsetRef = useRef<HTMLFieldSetElement>(null);
   const durationInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     startedAt.current = Date.now();
   }, []);
+
+  useEffect(() => {
+    const fieldset = fieldsetRef.current;
+    if (!fieldset) return;
+
+    fieldset.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | HTMLButtonElement>('input, textarea, select, button')
+      .forEach((element) => {
+        element.disabled = disabled;
+      });
+  }, [disabled]);
+
 
   return (
     <form
@@ -29,32 +41,15 @@ export function AnswerForm({ action, disabled, children }: AnswerFormProps) {
         }
       }}
     >
-      {disableNativeControls(children, disabled)}
+      <fieldset ref={fieldsetRef} disabled={disabled} className="contents">
+        {children}
+        <SubmitButton disabled={disabled} />
+      </fieldset>
       <input ref={durationInputRef} type="hidden" name="durationMs" defaultValue="0" />
-      <SubmitButton disabled={disabled} />
     </form>
   );
 }
 
-function disableNativeControls(children: React.ReactNode, disabled: boolean): React.ReactNode {
-  if (!disabled) return children;
-
-  return React.Children.map(children, (child) => {
-    if (!React.isValidElement(child)) return child;
-
-    const props = child.props as { children?: React.ReactNode };
-    const shouldDisable = typeof child.type === 'string'
-      && ['button', 'input', 'select', 'textarea'].includes(child.type);
-
-    return React.cloneElement(
-      child as React.ReactElement<Record<string, unknown>>,
-      {
-        ...(shouldDisable ? { disabled: true } : {}),
-        ...(props.children ? { children: disableNativeControls(props.children, disabled) } : {})
-      }
-    );
-  });
-}
 
 function SubmitButton({ disabled }: { disabled: boolean }) {
   const { pending } = useFormStatus();

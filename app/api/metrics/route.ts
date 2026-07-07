@@ -1,12 +1,13 @@
 import { refreshImportQueueMetrics } from '@/lib/openwook/import-queue';
 import { metrics } from '@/lib/openwook/metrics';
 import { withApiObservability } from '@/lib/openwook/observability';
+import { env } from '@/lib/openwook/env';
 
 export const dynamic = 'force-dynamic';
 
 function isAuthorized(request: Request) {
-  const token = process.env.METRICS_TOKEN;
-  if (!token) return process.env.NODE_ENV !== 'production';
+  const token = env.METRICS_TOKEN;
+  if (!token) return env.NODE_ENV !== 'production';
   const authorization = request.headers.get('Authorization') ?? request.headers.get('authorization');
   return authorization === `Bearer ${token}`;
 }
