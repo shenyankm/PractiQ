@@ -15,6 +15,7 @@ import {
   fillBlankValues,
   getExistingPracticeAnswer,
   hasNonEmptyText,
+  invalidateBankAnalytics,
   invalidateBankLeaderboard,
   invalidatePracticeSummaryCaches,
   invalidateUserAnalytics,
@@ -334,6 +335,7 @@ export async function submitAnswer(
       RETURNING *
     `;
     await invalidateUserAnalytics(user.id);
+    await invalidateBankAnalytics(session.bank_id);
     await invalidateBankLeaderboard(session.bank_id);
     await invalidatePracticeSummaryCaches(user.id, session.bank_id);
     return rows[0];

@@ -4,8 +4,6 @@ import { sql } from '../db';
 import { ApiError } from '../api';
 import {
   redisDel,
-  redisGetJson,
-  redisGetOrSetJson,
   redisGetText,
   redisIncr,
   redisKey
@@ -14,7 +12,6 @@ import { env } from '../env';
 import type {
   AnswerMode,
   BankQuestionItem,
-  PracticeAnswer,
   PracticeMode,
   PracticeSessionOptions,
   User
@@ -56,6 +53,10 @@ async function invalidateUserBankLists(userId?: number) {
 
 export async function invalidateUserAnalytics(userId: number) {
   await redisIncr(redisKey('cache-version', 'analytics', userId));
+}
+
+export async function invalidateBankAnalytics(bankId: number | null | undefined) {
+  if (bankId) await redisIncr(redisKey('cache-version', 'bank-analytics', bankId));
 }
 
 export async function invalidateBankLeaderboard(bankId: number | null | undefined) {

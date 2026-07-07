@@ -45,20 +45,27 @@ export async function getAnalyticsSummary(user: User) {
 
 export async function getBankAnalytics(user: User, bankId: number) {
   await getBank(user, bankId);
-  const rows = await sql<Array<{ completed_count: number; wrong_count: number; practiced_users: number; answer_count: number }>>`
-    SELECT
-      COALESCE(SUM(completed_count), 0)::int AS completed_count,
-      COALESCE(SUM(wrong_count), 0)::int AS wrong_count,
-      COUNT(*)::int AS practiced_users,
-      (
-        SELECT COUNT(*)::int
-        FROM user_question_answers
+  const version = await cacheVersion('bank-analytics', bankId);
+  return redisGetOrSetJson(
+    redisKey('cache', 'bank-analytics', 'bank', bankId, version),
+    Number(env.ANALYTICS_CACHE_TTL_SECONDS || 30),
+    async () => {
+      const rows = await sql<Array<{ completed_count: number; wrong_count: number; practiced_users: number; answer_count: number }>>`
+        SELECT
+          COALESCE(SUM(completed_count), 0)::int AS completed_count,
+          COALESCE(SUM(wrong_count), 0)::int AS wrong_count,
+          COUNT(*)::int AS practiced_users,
+          (
+            SELECT COUNT(*)::int
+            FROM user_question_answers
+            WHERE bank_id = ${bankId}
+          ) AS answer_count
+        FROM user_bank_stats
         WHERE bank_id = ${bankId}
-      ) AS answer_count
-    FROM user_bank_stats
-    WHERE bank_id = ${bankId}
-  `;
-  return rows[0];
+      `;
+      return rows[0];
+    }
+  );
 }
 
 export async function getBankLeaderboard(user: User, bankId: number, limit = 20) {
