@@ -4,8 +4,11 @@ import nextConfig from '@/next.config';
 import { config as proxyConfig } from '@/proxy';
 
 describe('Next.js hardening', () => {
-  it('keeps PPR incremental so routes opt in explicitly', () => {
-    expect(nextConfig.experimental?.ppr).toBe('incremental');
+  it('does not enable cacheComponents or legacy experimental PPR flags', () => {
+    const experimental = nextConfig.experimental as Record<string, unknown> | undefined;
+    expect(nextConfig.cacheComponents).toBeUndefined();
+    expect(experimental?.ppr).toBeUndefined();
+    expect(experimental?.clientSegmentCache).toBeUndefined();
   });
 
   it('uses the proxy file convention instead of deprecated middleware', () => {

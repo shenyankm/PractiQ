@@ -1,6 +1,5 @@
 import { withApiObservability } from '@/lib/openwook/observability';
 
-export const dynamic = 'force-dynamic';
 
 async function liveResponse() {
   return Response.json(

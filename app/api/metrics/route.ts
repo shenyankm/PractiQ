@@ -3,7 +3,6 @@ import { metrics } from '@/lib/openwook/metrics';
 import { withApiObservability } from '@/lib/openwook/observability';
 import { env } from '@/lib/openwook/env';
 
-export const dynamic = 'force-dynamic';
 
 function isAuthorized(request: Request) {
   const token = env.METRICS_TOKEN;

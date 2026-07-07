@@ -6,10 +6,6 @@ const publicImageUrls = [process.env.NEXT_PUBLIC_APP_URL, process.env.OSS_PUBLIC
   .map((value) => new URL(value));
 
 const nextConfig: NextConfig = {
-  experimental: {
-    ppr: 'incremental',
-    clientSegmentCache: true
-  },
   images: {
     remotePatterns: publicImageUrls.map((url) => ({
       protocol: url.protocol.replace(':', '') as 'http' | 'https',

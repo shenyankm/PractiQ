@@ -64,7 +64,6 @@ import {
   upsertQuestionMetadata
 } from '@/lib/openwook/services';
 
-export const dynamic = 'force-dynamic';
 
 type Ctx = { params: Promise<{ path?: string[] }> };
 type ImportChildKind = 'events' | 'pages' | 'blocks' | 'review-items' | 'outputs' | 'artifacts';

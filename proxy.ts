@@ -79,6 +79,5 @@ function firstHeaderValue(value: string | null) {
 }
 
 export const config = {
-  matcher: ['/((?!api|_next/data|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)'],
-  runtime: 'nodejs'
+  matcher: ['/((?!api|_next/data|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)']
 };

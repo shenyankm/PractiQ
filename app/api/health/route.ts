@@ -4,7 +4,6 @@ import { withApiObservability } from '@/lib/openwook/observability';
 import { pingRedis } from '@/lib/openwook/redis';
 import { env } from '@/lib/openwook/env';
 
-export const dynamic = 'force-dynamic';
 
 type HealthService = {
   ok: boolean;
