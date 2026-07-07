@@ -6,7 +6,15 @@ export type SessionPayload = {
   jti?: string;
 };
 
-const secret = process.env.AUTH_SECRET || 'development-secret';
+function sessionSecret() {
+  if (process.env.AUTH_SECRET) return process.env.AUTH_SECRET;
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('AUTH_SECRET environment variable is required in production');
+  }
+  return 'development-secret';
+}
+
+const secret = sessionSecret();
 const key = new TextEncoder().encode(secret);
 
 export async function signSessionToken(payload: SessionPayload, expirationTime = '7 days') {
