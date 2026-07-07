@@ -42,6 +42,20 @@ describe('config and tooling hardening', () => {
     expect(offenders).toEqual([]);
   });
 
+it('routes safe public env reads through a dedicated public env module', () => {
+  expect(existsSync('lib/openwook/env.public.ts')).toBe(true);
+
+  const publicEnvSource = readFileSync('lib/openwook/env.public.ts', 'utf8');
+  expect(publicEnvSource).not.toContain("import 'server-only'");
+  expect(publicEnvSource).toContain('NEXT_PUBLIC_APP_URL');
+  expect(publicEnvSource).toContain('OSS_PUBLIC_BASE_URL');
+  expect(publicEnvSource).toContain('OBJECT_STORAGE_PUBLIC_BASE_URL');
+
+  expect(readFileSync('app/layout.tsx', 'utf8')).toContain("from '@/lib/openwook/env.public'");
+  expect(readFileSync('lib/openwook/remote-images.ts', 'utf8')).toContain("from './env.public'");
+  expect(readFileSync('lib/openwook/object-storage.ts', 'utf8')).toContain("from './env.public'");
+});
+
   it('refuses non-test database URLs during test setup by default', () => {
     const blocked = runSetupWithEnv({
       DATABASE_URL: 'postgres://prod:secret@db.example.com/openwook',
