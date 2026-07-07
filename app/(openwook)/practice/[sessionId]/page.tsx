@@ -6,7 +6,13 @@ import { getPracticeQuestionPage } from '@/lib/openwook/services';
 import { abandonPracticeAction, completePracticeAction, submitPracticeAnswerAction } from '../../banks/actions';
 import { AnswerForm } from './answer-form';
 import type { BankQuestionItem } from '@/lib/openwook/types';
-import { Alert, AlertDescription, AlertDialog, Badge, Button, Card, CardContent, CardHeader, CardTitle, Label, TextArea } from '@heroui/react';
+import { Alert, AlertDescription } from '@heroui/react/alert';
+import { AlertDialog } from '@heroui/react/alert-dialog';
+import { Badge } from '@heroui/react/badge';
+import { Button } from '@heroui/react/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@heroui/react/card';
+import { Label } from '@heroui/react/label';
+import { TextArea } from '@heroui/react/textarea';
 
 export default async function PracticeSessionPage({
   params,

@@ -1,4 +1,5 @@
-import { Card, CardContent, CardHeader, Skeleton } from '@heroui/react';
+import { Card, CardContent, CardHeader } from '@heroui/react/card';
+import { Skeleton } from '@heroui/react/skeleton';
 
 export default function OpenWookLoading() {
   return (

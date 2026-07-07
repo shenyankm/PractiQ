@@ -4,7 +4,13 @@ import { listAdminUsers } from '@/lib/openwook/services';
 import { requireAdminPage } from '../admin-auth';
 import { AdminNav } from '../admin-nav';
 import { setUserStatusAction, updateUserAccessAction } from '../actions';
-import { AlertDialog, Badge, Button, Card, CardContent, CardHeader, CardTitle, EmptyState, Input, Label } from '@heroui/react';
+import { AlertDialog } from '@heroui/react/alert-dialog';
+import { Badge } from '@heroui/react/badge';
+import { Button } from '@heroui/react/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@heroui/react/card';
+import { EmptyState } from '@heroui/react/empty-state';
+import { Input } from '@heroui/react/input';
+import { Label } from '@heroui/react/label';
 
 export default async function AdminUsersPage({
   searchParams

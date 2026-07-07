@@ -4,7 +4,13 @@ import Link from 'next/link';
 import { getCurrentUser } from '@/lib/openwook/auth';
 import { listBanks, listSubjects } from '@/lib/openwook/services';
 import type { Subject } from '@/lib/openwook/types';
-import { Badge, Button, Card, CardContent, CardHeader, CardTitle, EmptyState, FieldGroup, Input, Label } from '@heroui/react';
+import { Badge } from '@heroui/react/badge';
+import { Button } from '@heroui/react/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@heroui/react/card';
+import { EmptyState } from '@heroui/react/empty-state';
+import { FieldGroup } from '@heroui/react/fieldset';
+import { Input } from '@heroui/react/input';
+import { Label } from '@heroui/react/label';
 
 export default async function BanksPage({
   searchParams

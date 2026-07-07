@@ -5,7 +5,9 @@ import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 
 import Link from 'next/link';
-import { AlertDialog, Avatar, AvatarFallback, AvatarImage, Button } from '@heroui/react';
+import { AlertDialog } from '@heroui/react/alert-dialog';
+import { Avatar, AvatarFallback, AvatarImage } from '@heroui/react/avatar';
+import { Button } from '@heroui/react/button';
 
 type ShellUser = {
   username: string;

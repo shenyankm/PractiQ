@@ -3,7 +3,7 @@ import { Loader2 } from 'lucide-react';
 import { useFormStatus } from 'react-dom';
 
 import React, { useEffect, useRef } from 'react';
-import { Button } from '@heroui/react';
+import { Button } from '@heroui/react/button';
 
 type AnswerFormProps = {
   action: (formData: FormData) => void | Promise<void>;

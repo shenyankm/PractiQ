@@ -3,7 +3,12 @@ import { Save } from 'lucide-react';
 import { useId, useState } from 'react';
 
 import type { AnswerMode, QuestionType } from '@/lib/openwook/types';
-import { Button, Description, FieldGroup, Input, Label, TextArea } from '@heroui/react';
+import { Button } from '@heroui/react/button';
+import { Description } from '@heroui/react/description';
+import { FieldGroup } from '@heroui/react/fieldset';
+import { Input } from '@heroui/react/input';
+import { Label } from '@heroui/react/label';
+import { TextArea } from '@heroui/react/textarea';
 
 type NewQuestionFormProps = {
   action: (formData: FormData) => void | Promise<void>;

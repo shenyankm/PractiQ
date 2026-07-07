@@ -1,6 +1,10 @@
 import { listSubjects } from '@/lib/openwook/services';
 import { createBankAction } from '../actions';
-import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label, TextArea } from '@heroui/react';
+import { Button } from '@heroui/react/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@heroui/react/card';
+import { Input } from '@heroui/react/input';
+import { Label } from '@heroui/react/label';
+import { TextArea } from '@heroui/react/textarea';
 
 export default async function NewBankPage() {
   const subjects = await listSubjects();

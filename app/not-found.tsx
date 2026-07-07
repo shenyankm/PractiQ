@@ -1,6 +1,6 @@
 import { CircleIcon } from 'lucide-react';
 import Link from 'next/link';
-import { Card, CardContent } from '@heroui/react';
+import { Card, CardContent } from '@heroui/react/card';
 
 export default function NotFound() {
   return (

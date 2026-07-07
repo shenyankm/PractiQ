@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { getCurrentUser } from '@/lib/openwook/auth';
 import { getAnalyticsSummary, listBanks, listImportJobs } from '@/lib/openwook/services';
 import type { User } from '@/lib/openwook/types';
-import { Card, CardContent, CardHeader, CardTitle, Skeleton } from '@heroui/react';
+import { Card, CardContent, CardHeader, CardTitle } from '@heroui/react/card';
+import { Skeleton } from '@heroui/react/skeleton';
 
 export default async function DashboardPage() {
   const user = await getCurrentUser();

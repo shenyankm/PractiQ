@@ -3,7 +3,8 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getCurrentUser } from '@/lib/openwook/auth';
 import { getQuestion } from '@/lib/openwook/services';
-import { Badge, Card, CardContent, CardHeader, CardTitle } from '@heroui/react';
+import { Badge } from '@heroui/react/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@heroui/react/card';
 
 type QuestionOptionRow = {
   id: number;

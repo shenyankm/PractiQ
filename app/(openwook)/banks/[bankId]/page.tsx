@@ -4,7 +4,10 @@ import Link from 'next/link';
 import { getCurrentUser } from '@/lib/openwook/auth';
 import { getBankWithItems } from '@/lib/openwook/services';
 import { favoriteBankAction } from '../actions';
-import { Badge, Button, Card, CardContent, CardHeader, CardTitle, EmptyState } from '@heroui/react';
+import { Badge } from '@heroui/react/badge';
+import { Button } from '@heroui/react/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@heroui/react/card';
+import { EmptyState } from '@heroui/react/empty-state';
 
 export default async function BankDetailPage({ params }: { params: Promise<{ bankId: string }> }) {
   const user = await getCurrentUser();

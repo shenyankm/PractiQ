@@ -5,7 +5,9 @@ import { getCurrentUser } from '@/lib/openwook/auth';
 import { getBankWithItems, listQuestionTypes } from '@/lib/openwook/services';
 import { createQuestionAction } from '../../actions';
 import { NewQuestionForm } from './new-question-form';
-import { Card, CardContent, CardHeader, CardTitle, EmptyState, Tooltip } from '@heroui/react';
+import { Card, CardContent, CardHeader, CardTitle } from '@heroui/react/card';
+import { EmptyState } from '@heroui/react/empty-state';
+import { Tooltip } from '@heroui/react/tooltip';
 
 export default async function BankManagePage({ params }: { params: Promise<{ bankId: string }> }) {
   const user = await getCurrentUser();

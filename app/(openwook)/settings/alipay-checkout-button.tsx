@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { CreditCard, Loader2 } from 'lucide-react';
-import { Button } from '@heroui/react';
+import { Button } from '@heroui/react/button';
 
 
 type CheckoutResponse = {

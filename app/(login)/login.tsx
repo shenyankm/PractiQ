@@ -5,7 +5,14 @@ import Link from 'next/link';
 import { BookOpen, Loader2 } from 'lucide-react';
 import { signIn, signUp } from './actions';
 import type { ActionState } from './actions';
-import { Alert, AlertDescription, Button, Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle, Description, FieldGroup, Input, Label, Separator } from '@heroui/react';
+import { Alert, AlertDescription } from '@heroui/react/alert';
+import { Button } from '@heroui/react/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@heroui/react/card';
+import { Description } from '@heroui/react/description';
+import { FieldGroup } from '@heroui/react/fieldset';
+import { Input } from '@heroui/react/input';
+import { Label } from '@heroui/react/label';
+import { Separator } from '@heroui/react/separator';
 
 type LoginProps = {
   mode?: 'signin' | 'signup';

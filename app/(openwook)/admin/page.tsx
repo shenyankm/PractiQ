@@ -3,7 +3,8 @@ import Link from 'next/link';
 import { getAdminOverview } from '@/lib/openwook/services';
 import { AdminNav } from './admin-nav';
 import { requireAdminPage } from './admin-auth';
-import { Badge, Card, CardContent, CardHeader, CardTitle } from '@heroui/react';
+import { Badge } from '@heroui/react/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@heroui/react/card';
 
 export default async function AdminPage() {
   const user = await requireAdminPage();

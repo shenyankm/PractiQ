@@ -5,7 +5,10 @@ import { getCurrentUser } from '@/lib/openwook/auth';
 import { getImportJobDetail } from '@/lib/openwook/services';
 import { resolveReviewItemAction, updateImportStatusAction } from '../../banks/actions';
 import { ImportLivePanel } from './import-live-panel';
-import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Input } from '@heroui/react';
+import { Badge } from '@heroui/react/badge';
+import { Button } from '@heroui/react/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@heroui/react/card';
+import { Input } from '@heroui/react/input';
 
 type ReviewItemRow = {
   id: number;

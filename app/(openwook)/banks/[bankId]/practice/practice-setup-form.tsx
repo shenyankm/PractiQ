@@ -2,7 +2,11 @@
 
 import { useId, useState } from 'react';
 import { Play } from 'lucide-react';
-import { Button, Description, FieldGroup, Input, Label } from '@heroui/react';
+import { Button } from '@heroui/react/button';
+import { Description } from '@heroui/react/description';
+import { FieldGroup } from '@heroui/react/fieldset';
+import { Input } from '@heroui/react/input';
+import { Label } from '@heroui/react/label';
 
 
 type PracticeMode = 'all' | 'wrong' | 'by_type' | 'exam';

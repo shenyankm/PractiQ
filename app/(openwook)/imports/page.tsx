@@ -5,7 +5,12 @@ import { getCurrentUser } from '@/lib/openwook/auth';
 import { listBanks, listImportJobs } from '@/lib/openwook/services';
 import type { ImportJob, QuestionBank } from '@/lib/openwook/types';
 import { createImportJobAction } from '../banks/actions';
-import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Input, Label, ProgressBar } from '@heroui/react';
+import { Badge } from '@heroui/react/badge';
+import { Button } from '@heroui/react/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@heroui/react/card';
+import { Input } from '@heroui/react/input';
+import { Label } from '@heroui/react/label';
+import { ProgressBar } from '@heroui/react/progress-bar';
 
 export default async function ImportsPage() {
   const user = await getCurrentUser();

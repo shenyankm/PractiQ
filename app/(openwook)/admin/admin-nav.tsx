@@ -1,6 +1,6 @@
 import { BookOpen, FileWarning, Tags, UsersRound } from 'lucide-react';
 import Link from 'next/link';
-import { Card, CardContent } from '@heroui/react';
+import { Card, CardContent } from '@heroui/react/card';
 
 const adminLinks = [
   { href: '/admin/users', label: '用户', icon: UsersRound },

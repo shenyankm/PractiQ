@@ -4,7 +4,14 @@ import { getAlipayBillingSummary } from '@/lib/openwook/alipay';
 import { getAnalyticsSummary } from '@/lib/openwook/services';
 import { updatePasswordAction, updateProfileAction } from '../banks/actions';
 import { AlipayCheckoutButton } from './alipay-checkout-button';
-import { Avatar, AvatarFallback, AvatarImage, Button, Card, CardContent, CardHeader, CardTitle, Description, FieldGroup, Input, Label, Tabs, TabPanel, TabList, Tab } from '@heroui/react';
+import { Avatar, AvatarFallback, AvatarImage } from '@heroui/react/avatar';
+import { Button } from '@heroui/react/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@heroui/react/card';
+import { Description } from '@heroui/react/description';
+import { FieldGroup } from '@heroui/react/fieldset';
+import { Input } from '@heroui/react/input';
+import { Label } from '@heroui/react/label';
+import { Tab, TabList, TabPanel, Tabs } from '@heroui/react/tabs';
 
 export default async function SettingsPage() {
   const user = await getCurrentUser();
