@@ -14,6 +14,15 @@ const nextConfig: NextConfig = {
       pathname: '/**'
     }))
   },
+  turbopack: {
+    ignoreIssue: [
+      {
+        path: '**/next.config.ts',
+        title: 'Encountered unexpected file in NFT list',
+        description: /whole project was traced unintentionally/
+      }
+    ]
+  },
   async headers() {
     const contentSecurityPolicy = [
       "default-src 'self'",

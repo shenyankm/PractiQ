@@ -6,8 +6,8 @@ import { comparePasswords, getUserPasswordById, hashPassword } from '@/lib/openw
 import { requireServerActionUser } from '@/lib/openwook/server-action-auth';
 import { inferImportSourceType, isUploadedFile, storeAvatarFile } from '@/lib/openwook/object-storage';
 import type { AnswerMode } from '@/lib/openwook/types';
+import { addImportJobUploadedFile } from '@/lib/openwook/services/imports-upload';
 import {
-  addImportJobUploadedFile,
   completePracticeSession,
   createBank,
   createImportJob,

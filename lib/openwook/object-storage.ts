@@ -92,7 +92,8 @@ export function relativePathFromObjectUrl(objectUrl: string | null | undefined) 
 }
 
 function objectStorageMountDir() {
-  return path.resolve(env.OBJECT_STORAGE_MOUNT_DIR || env.OSS_MOUNT_DIR || defaultMountDir);
+  const mountDir = env.OBJECT_STORAGE_MOUNT_DIR || env.OSS_MOUNT_DIR || defaultMountDir;
+  return path.resolve(/* turbopackIgnore: true */ mountDir);
 }
 
 function objectStoragePublicBaseUrl() {
@@ -200,7 +201,7 @@ function objectUrlForRelativePath(relativePath: string) {
 
 function resolveStoragePath(relativePath: string) {
   const mountDir = objectStorageMountDir();
-  const absolutePath = path.resolve(mountDir, safeRelativePath(relativePath));
+  const absolutePath = path.resolve(/* turbopackIgnore: true */ mountDir, safeRelativePath(relativePath));
   if (absolutePath !== mountDir && !absolutePath.startsWith(`${mountDir}${path.sep}`)) {
     throw new ApiError(400, 'INVALID_STORAGE_PATH', 'Invalid object storage path');
   }

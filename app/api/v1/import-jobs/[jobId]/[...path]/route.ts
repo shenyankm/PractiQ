@@ -1,10 +1,10 @@
 import { requireUser } from '@/lib/openwook/auth';
-import { created, ok, parseId, readJson, ApiError } from '@/lib/openwook/api';
+import { ok, parseId, readJson, ApiError } from '@/lib/openwook/api';
 import { streamImportEvents, type ImportEventPayload } from '@/lib/openwook/import-events';
 import { assertSameOriginRequest } from '@/lib/openwook/request-origin';
-import { addImportJobFile, addImportJobUploadedFile, listImportJobChildren, queueImportJobForUser, resolveImportReviewItem, updateImportJobStatus } from '@/lib/openwook/services';
-import { handleObservedRoute, isImportChildKind, isMultipartFormRequest } from '@/app/api/v1/_shared/route-handler';
-import { importJobFileSchema, importJobParseSchema, importReviewResolveSchema } from '@/app/api/v1/_shared/schemas';
+import { listImportJobChildren, queueImportJobForUser, resolveImportReviewItem, updateImportJobStatus } from '@/lib/openwook/services';
+import { handleObservedRoute, isImportChildKind } from '@/app/api/v1/_shared/route-handler';
+import { importJobParseSchema, importReviewResolveSchema } from '@/app/api/v1/_shared/schemas';
 
 type RouteContext = { params: Promise<{ jobId: string; path: string[] }> };
 
@@ -31,13 +31,6 @@ export async function POST(request: Request, ctx: RouteContext) {
     const { jobId, path } = await ctx.params;
     const parsedJobId = parseId(jobId, 'jobId');
 
-    if (path[0] == 'file') {
-      if (isMultipartFormRequest(request)) {
-        const formData = await request.formData();
-        return created(await addImportJobUploadedFile(user, parsedJobId, formData.get('file')));
-      }
-      return created(await addImportJobFile(user, parsedJobId, importJobFileSchema.parse(await readJson(request))));
-    }
     if (path[0] == 'parse') {
       const body = importJobParseSchema.parse(await readJson(request));
       return ok(await queueImportJobForUser(user, parsedJobId, { persistQuestions: body.persistQuestions ?? true }));

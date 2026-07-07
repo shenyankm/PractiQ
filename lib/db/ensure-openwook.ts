@@ -19,7 +19,7 @@ async function main() {
 
   const relations = await sql<Array<{ name: string; present: string | null }>>`
     SELECT relation_name AS name, to_regclass('public.' || relation_name)::text AS present
-    FROM unnest(${sql.array(requiredTables, 'text')}) AS required_relations(relation_name)
+    FROM unnest(${sql.array(requiredTables)}::text[]) AS required_relations(relation_name)
   `;
   const missingTables = relations
     .filter(({ present }) => present === null)
@@ -29,7 +29,7 @@ async function main() {
     SELECT table_name, column_name
     FROM information_schema.columns
     WHERE table_schema = 'public'
-      AND table_name = ANY(${sql.array(requiredTables, 'text')})
+      AND table_name = ANY(${sql.array(requiredTables)}::text[])
   `;
   const columnsByTable = new Map<string, Set<string>>();
 

@@ -21,6 +21,14 @@ describe('service barrel', () => {
     expect(serviceBarrel.updateCurrentUser).toBeTypeOf('function');
     expect(serviceBarrel.linkQuestionMedia).toBeTypeOf('function');
   });
+
+  it('keeps import job reads out of the object-storage module graph', () => {
+    const importsSource = readFileSync('lib/openwook/services/imports.ts', 'utf8');
+    const barrelSource = readFileSync('lib/openwook/services.ts', 'utf8');
+
+    expect(importsSource).not.toContain("from '../object-storage'");
+    expect(barrelSource).not.toContain("export * from './services/imports-upload'");
+  });
 });
 
 describe('practice mode helpers', () => {

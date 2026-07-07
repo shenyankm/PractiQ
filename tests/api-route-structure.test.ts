@@ -39,7 +39,7 @@ describe('API route structure', () => {
       'app/api/v1/practice-sessions/[sessionId]/route.ts',
       'app/api/v1/import-jobs/route.ts',
       'app/api/v1/import-jobs/[jobId]/route.ts',
-      'app/api/v1/media/route.ts',
+      'app/api/v1/import-jobs/[jobId]/file/route.ts',
       'app/api/v1/media/[mediaId]/route.ts',
       'app/api/v1/analytics/me/summary/route.ts',
       'app/api/v1/analytics/me/snapshot/route.ts',
@@ -73,6 +73,14 @@ describe('API route structure', () => {
     ];
 
     expect(movedRouteMarkers.filter((marker) => catchAll.includes(marker))).toEqual([]);
+  });
+
+  it('keeps import file uploads on a dedicated route so other import job handlers stay storage-free', () => {
+    expect(existsSync('app/api/v1/import-jobs/[jobId]/file/route.ts')).toBe(true);
+
+    const catchAll = readFileSync('app/api/v1/import-jobs/[jobId]/[...path]/route.ts', 'utf8');
+    expect(catchAll).not.toContain("path[0] == 'file'");
+    expect(catchAll).not.toContain('addImportJobUploadedFile');
   });
 
   it('removes the legacy user route in favor of versioned endpoints', () => {

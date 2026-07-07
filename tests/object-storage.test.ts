@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { ApiError } from '@/lib/openwook/api';
 import { readObjectBuffer, storeImportSourceFile, validateFileSignatureForTest } from '@/lib/openwook/object-storage';
@@ -30,5 +31,17 @@ describe('import file signature validation', () => {
     const file = new File([payload], 'binary.txt', { type: 'text/plain' });
 
     await expect(storeImportSourceFile(1, 1, file)).rejects.toMatchObject({ code: 'UNSUPPORTED_FILE_TYPE' });
+  });
+
+  it('marks the external mount path as a Turbopack tracing boundary', () => {
+    const source = readFileSync('lib/openwook/object-storage.ts', 'utf8');
+    expect(source).toContain('turbopackIgnore');
+  });
+
+  it('suppresses the remaining NFT warning only at the Next config boundary', () => {
+    const source = readFileSync('next.config.ts', 'utf8');
+
+    expect(source).toContain('ignoreIssue');
+    expect(source).toContain('Encountered unexpected file in NFT list');
   });
 });
