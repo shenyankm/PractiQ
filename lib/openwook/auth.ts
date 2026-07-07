@@ -118,8 +118,8 @@ export async function requireUser() {
 }
 
 export async function getUserPasswordByLogin(login: string) {
-  const rows = await sql<Array<{ id: number; password: string | null }>>`
-    SELECT id, password
+  const rows = await sql<Array<{ id: number; passwordHash: string | null }>>`
+    SELECT id, password_hash
     FROM users
     WHERE lower(username) = lower(${login})
        OR lower(email) = lower(${login})
@@ -129,8 +129,8 @@ export async function getUserPasswordByLogin(login: string) {
 }
 
 export async function getUserPasswordById(userId: number) {
-  const rows = await sql<Array<{ id: number; password: string | null }>>`
-    SELECT id, password
+  const rows = await sql<Array<{ id: number; passwordHash: string | null }>>`
+    SELECT id, password_hash
     FROM users
     WHERE id = ${userId}
     LIMIT 1

@@ -233,7 +233,7 @@ export async function updatePasswordAction(_prevState: SettingsActionState, form
   }
 
   const found = await getUserPasswordById(user.id);
-  if (!found?.password || !(await comparePasswords(currentPassword, found.password))) {
+  if (!found?.passwordHash || !(await comparePasswords(currentPassword, found.passwordHash))) {
     return { error: '当前密码不正确。' };
   }
 

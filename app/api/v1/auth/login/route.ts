@@ -5,7 +5,6 @@ import { enforceLoginRateLimit, clientIpFromRequest } from '@/lib/openwook/auth-
 import { withApiObservability } from '@/lib/openwook/observability';
 import { assertSameOriginRequest } from '@/lib/openwook/request-origin';
 
-export const dynamic = 'force-dynamic';
 
 const loginSchema = z.object({
   login: z.string().min(1),
@@ -19,8 +18,8 @@ export async function POST(request: Request) {
       const body = loginSchema.parse(await readJson(request));
       await enforceLoginRateLimit(body.login, clientIpFromRequest(request));
       const found = await getUserPasswordByLogin(body.login);
-      const passwordMatches = await comparePasswords(body.password, found?.password ?? dummyPasswordHash);
-      if (!found?.password || !passwordMatches) {
+      const passwordMatches = await comparePasswords(body.password, found?.passwordHash ?? dummyPasswordHash);
+      if (!found?.passwordHash || !passwordMatches) {
         throw new ApiError(401, 'INVALID_CREDENTIALS', 'Invalid login or password');
       }
       await setSession(found.id);

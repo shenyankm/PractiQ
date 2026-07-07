@@ -58,8 +58,8 @@ export async function signIn(_prevState: ActionState, formData: FormData): Promi
 
 
   const found = await getUserPasswordByLogin(parsed.data.email);
-  const passwordMatches = await comparePasswords(parsed.data.password, found?.password ?? dummyPasswordHash);
-  if (!found?.password || !passwordMatches) {
+  const passwordMatches = await comparePasswords(parsed.data.password, found?.passwordHash ?? dummyPasswordHash);
+  if (!found?.passwordHash || !passwordMatches) {
     return {
       error: '用户名/邮箱或密码错误。',
       email: parsed.data.email
@@ -92,7 +92,7 @@ export async function signUp(_prevState: ActionState, formData: FormData): Promi
 
   try {
     const rows = await sql<Array<{ id: number }>>`
-      INSERT INTO users (username, email, password, role, membership, plus_trial_ends_at)
+      INSERT INTO users (username, email, password_hash, role, membership, plus_trial_ends_at)
       VALUES (${parsed.data.username}, ${parsed.data.email || null}, ${passwordHash}, 'user', 'free', NOW() + INTERVAL '3 days')
       RETURNING id
     `;

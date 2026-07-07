@@ -70,7 +70,7 @@ async function seed() {
     await tx`CREATE INDEX IF NOT EXISTS idx_ai_artifacts_user ON ai_artifacts (user_id, artifact_type, created_at DESC)`;
 
     const users = await tx<Array<{ id: number }>>`
-      INSERT INTO users (username, email, password, role, membership)
+      INSERT INTO users (username, email, password_hash, role, membership)
       VALUES ('admin', 'admin@openwook.local', ${passwordHash}, 'admin', 'plus')
       ON CONFLICT (LOWER(username)) DO UPDATE
       SET email = EXCLUDED.email,

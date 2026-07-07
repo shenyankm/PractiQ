@@ -36,7 +36,7 @@ const bankIds: number[] = [];
 async function createTestUser(suffix: string, overrides: Partial<User> = {}) {
   const password = await hash('openwook123', 4);
   const rows = await sql<User[]>`
-    INSERT INTO users (username, email, password, role, membership, plus_trial_ends_at, plus_expires_at)
+    INSERT INTO users (username, email, password_hash, role, membership, plus_trial_ends_at, plus_expires_at)
     VALUES (
       ${`${unique}_${suffix}`},
       ${`${unique}_${suffix}@example.test`},
