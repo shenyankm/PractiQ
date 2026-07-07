@@ -31,7 +31,7 @@ const sqlMock = vi.hoisted(() => {
   const fn = vi.fn((strings: TemplateStringsArray, ...values: unknown[]) => {
     sqlState.queries.push(normalizeSql(renderSql(strings, values)));
     return Promise.resolve(sqlState.queryResults.shift() ?? []);
-  }) as {
+  }) as unknown as {
     (strings: TemplateStringsArray, ...values: unknown[]): Promise<unknown[]>;
     begin: (handler: (tx: typeof fn) => Promise<unknown>) => Promise<unknown>;
     json: (value: unknown) => unknown;
@@ -41,7 +41,7 @@ const sqlMock = vi.hoisted(() => {
     const tx = vi.fn((strings: TemplateStringsArray, ...values: unknown[]) => {
       sqlState.txQueries.push(normalizeSql(renderSql(strings, values)));
       return Promise.resolve([]);
-    }) as typeof fn;
+    }) as unknown as typeof fn;
     tx.json = (value: unknown) => value as never;
     return handler(tx);
   };

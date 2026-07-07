@@ -34,7 +34,7 @@ describe('OpenWookShell', () => {
     navigationMock.pathname = '/dashboard';
 
     render(
-      <OpenWookShell user={{ username: 'tester', membership: 'free', avatarUrl: null, role: 'user' }}>
+      <OpenWookShell user={{ username: 'tester', membership: 'free', avatarUrl: null, avatarOptimized: false, role: 'user' }}>
         <div>Dashboard</div>
       </OpenWookShell>
     );
@@ -48,7 +48,7 @@ describe('OpenWookShell', () => {
     navigationMock.pathname = '/banks';
 
     const { container } = render(
-      <OpenWookShell user={{ username: 'tester', membership: 'free', avatarUrl: null, role: 'user' }}>
+      <OpenWookShell user={{ username: 'tester', membership: 'free', avatarUrl: null, avatarOptimized: false, role: 'user' }}>
         <div>Bank list</div>
       </OpenWookShell>
     );
@@ -61,7 +61,7 @@ describe('OpenWookShell', () => {
     navigationMock.pathname = '/banks';
 
     render(
-      <OpenWookShell user={{ username: 'tester', membership: 'free', avatarUrl: null, role: 'user' }}>
+      <OpenWookShell user={{ username: 'tester', membership: 'free', avatarUrl: null, avatarOptimized: false, role: 'user' }}>
         <div>Bank list</div>
       </OpenWookShell>
     );
@@ -78,7 +78,7 @@ describe('OpenWookShell', () => {
     navigationMock.pathname = '/dashboard';
 
     render(
-      <OpenWookShell user={{ username: 'tester', membership: 'free', avatarUrl: null, role: 'user' }}>
+      <OpenWookShell user={{ username: 'tester', membership: 'free', avatarUrl: null, avatarOptimized: false, role: 'user' }}>
         <div>Dashboard</div>
       </OpenWookShell>
     );
@@ -94,7 +94,7 @@ describe('OpenWookShell', () => {
     navigationMock.pathname = '/dashboard';
 
     const { rerender } = render(
-      <OpenWookShell user={{ username: 'tester', membership: 'free', avatarUrl: null, role: 'user' }}>
+      <OpenWookShell user={{ username: 'tester', membership: 'free', avatarUrl: null, avatarOptimized: false, role: 'user' }}>
         <div>Dashboard</div>
       </OpenWookShell>
     );
@@ -102,7 +102,7 @@ describe('OpenWookShell', () => {
     expect(screen.queryByRole('link', { name: /后台/ })).toBeNull();
 
     rerender(
-      <OpenWookShell user={{ username: 'admin', membership: 'plus', avatarUrl: null, role: 'admin' }}>
+      <OpenWookShell user={{ username: 'admin', membership: 'plus', avatarUrl: null, avatarOptimized: false, role: 'admin' }}>
         <div>Dashboard</div>
       </OpenWookShell>
     );
