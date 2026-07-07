@@ -89,5 +89,6 @@ export async function signOut() {
 }
 
 export async function updatePassword() {
+  await assertSameOriginFromHeaders();
   return { error: '密码更新接口将在设置页接入。' };
 }

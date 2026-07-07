@@ -2,7 +2,8 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { comparePasswords, getCurrentUser, getUserPasswordById, hashPassword } from '@/lib/openwook/auth';
+import { comparePasswords, getUserPasswordById, hashPassword } from '@/lib/openwook/auth';
+import { requireServerActionUser } from '@/lib/openwook/server-action-auth';
 import { inferImportSourceType, isUploadedFile, storeAvatarFile } from '@/lib/openwook/object-storage';
 import type { AnswerMode } from '@/lib/openwook/types';
 import {
@@ -26,8 +27,7 @@ const sessionTypes = ['practice', 'review', 'exam'] as const;
 const practiceModes = ['all', 'wrong', 'by_type', 'exam'] as const;
 
 export async function createBankAction(formData: FormData) {
-  const user = await getCurrentUser();
-  if (!user) redirect('/sign-in');
+  const user = await requireServerActionUser();
 
   const bank = await createBank(user, {
     name: String(formData.get('name') || ''),
@@ -39,8 +39,7 @@ export async function createBankAction(formData: FormData) {
 }
 
 export async function createQuestionAction(bankId: number, formData: FormData) {
-  const user = await getCurrentUser();
-  if (!user) redirect('/sign-in');
+  const user = await requireServerActionUser();
 
   const answerMode = pickEnum(formData.get('answerMode'), answerModes, 'short_answer');
   const optionA = String(formData.get('optionA') || '');
@@ -77,8 +76,7 @@ function buildAnswerPayload(answerMode: AnswerMode, correct: string, formData: F
 }
 
 export async function updateQuestionAction(bankId: number, questionId: number, formData: FormData) {
-  const user = await getCurrentUser();
-  if (!user) redirect('/sign-in');
+  const user = await requireServerActionUser();
 
   await updateQuestion(user, questionId, {
     stem: String(formData.get('stem') || ''),
@@ -89,16 +87,14 @@ export async function updateQuestionAction(bankId: number, questionId: number, f
 }
 
 export async function favoriteBankAction(bankId: number, favorite: boolean) {
-  const user = await getCurrentUser();
-  if (!user) redirect('/sign-in');
+  const user = await requireServerActionUser();
   await setFavorite(user, bankId, favorite);
   revalidatePath(`/banks/${bankId}`);
   revalidatePath('/banks');
 }
 
 export async function startPracticeAction(bankId: number, formData: FormData) {
-  const user = await getCurrentUser();
-  if (!user) redirect('/sign-in');
+  const user = await requireServerActionUser();
   const mode = pickEnum(formData.get('mode'), practiceModes, 'all');
   const allQuestions = formData.get('allQuestions') === 'on' || mode === 'all' && !formData.get('questionCount');
   const questionTypeId = String(formData.get('questionTypeId') || '');
@@ -114,8 +110,7 @@ export async function startPracticeAction(bankId: number, formData: FormData) {
 }
 
 export async function submitPracticeAnswerAction(sessionId: number, questionId: number, answerMode: string, formData: FormData) {
-  const user = await getCurrentUser();
-  if (!user) redirect('/sign-in');
+  const user = await requireServerActionUser();
 
   await submitAnswer(user, sessionId, {
     questionId,
@@ -135,22 +130,19 @@ function buildSubmittedAnswer(answerMode: string, formData: FormData) {
 }
 
 export async function completePracticeAction(sessionId: number) {
-  const user = await getCurrentUser();
-  if (!user) redirect('/sign-in');
+  const user = await requireServerActionUser();
   await completePracticeSession(user, sessionId, 'completed');
   revalidatePath(`/practice/${sessionId}`);
 }
 
 export async function abandonPracticeAction(sessionId: number) {
-  const user = await getCurrentUser();
-  if (!user) redirect('/sign-in');
+  const user = await requireServerActionUser();
   await completePracticeSession(user, sessionId, 'abandoned');
   redirect('/dashboard');
 }
 
 export async function createImportJobAction(formData: FormData) {
-  const user = await getCurrentUser();
-  if (!user) redirect('/sign-in');
+  const user = await requireServerActionUser();
   const bankIdValue = String(formData.get('bankId') || '');
   const sourceFile = formData.get('sourceFile');
   const hasSourceFile = isUploadedFile(sourceFile);
@@ -177,23 +169,20 @@ export async function createImportJobAction(formData: FormData) {
 }
 
 export async function updateImportStatusAction(jobId: number, action: 'start' | 'retry' | 'cancel') {
-  const user = await getCurrentUser();
-  if (!user) redirect('/sign-in');
+  const user = await requireServerActionUser();
   await updateImportJobStatus(user, jobId, action);
   revalidatePath(`/imports/${jobId}`);
   revalidatePath('/imports');
 }
 
 export async function resolveReviewItemAction(jobId: number, itemId: number, formData: FormData) {
-  const user = await getCurrentUser();
-  if (!user) redirect('/sign-in');
+  const user = await requireServerActionUser();
   await resolveImportReviewItem(user, jobId, itemId, String(formData.get('note') || '') || null);
   revalidatePath(`/imports/${jobId}`);
 }
 
 export async function updateProfileAction(formData: FormData) {
-  const user = await getCurrentUser();
-  if (!user) redirect('/sign-in');
+  const user = await requireServerActionUser();
   const avatarFile = formData.get('avatar');
   const avatarUrl = isUploadedFile(avatarFile)
     ? (await storeAvatarFile(user.id, avatarFile)).objectUrl
@@ -207,8 +196,7 @@ export async function updateProfileAction(formData: FormData) {
 }
 
 export async function updatePasswordAction(formData: FormData) {
-  const user = await getCurrentUser();
-  if (!user) redirect('/sign-in');
+  const user = await requireServerActionUser();
   const currentPassword = String(formData.get('currentPassword') || '');
   const password = String(formData.get('password') || '');
   const confirmPassword = String(formData.get('confirmPassword') || '');

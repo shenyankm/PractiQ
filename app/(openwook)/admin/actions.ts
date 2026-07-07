@@ -1,8 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { redirect } from 'next/navigation';
-import { getCurrentUser } from '@/lib/openwook/auth';
+import { requireServerActionUser } from '@/lib/openwook/server-action-auth';
 import {
   createKnowledgePoint,
   setUserStatus,
@@ -11,8 +10,7 @@ import {
 } from '@/lib/openwook/services';
 
 async function requireAdminAction() {
-  const user = await getCurrentUser();
-  if (!user) redirect('/sign-in');
+  const user = await requireServerActionUser();
   if (user.role !== 'admin') {
     throw new Error('Administrator privileges required');
   }
