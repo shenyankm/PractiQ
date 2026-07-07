@@ -188,10 +188,10 @@ function BankFiltersSkeleton() {
   return (
     <Card>
       <CardContent className="grid gap-3 p-4 md:grid-cols-[1fr_180px_140px_auto]">
-        <div className="h-9 rounded-md bg-accent" />
-        <div className="h-9 rounded-md bg-accent" />
-        <div className="h-9 rounded-md bg-accent" />
-        <div className="h-9 rounded-md bg-accent" />
+        <div className="h-9 rounded-md bg-secondary" />
+        <div className="h-9 rounded-md bg-secondary" />
+        <div className="h-9 rounded-md bg-secondary" />
+        <div className="h-9 rounded-md bg-secondary" />
       </CardContent>
     </Card>
   );
@@ -203,12 +203,12 @@ function BankGridSkeleton() {
       {Array.from({ length: 6 }).map((_, index) => (
         <Card key={index} className="gap-4">
           <CardHeader>
-            <div className="h-5 w-40 rounded-md bg-accent" />
+            <div className="h-5 w-40 rounded-md bg-secondary" />
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
-            <div className="h-10 rounded-md bg-accent" />
-            <div className="h-4 w-28 rounded-md bg-accent" />
-            <div className="h-8 w-32 rounded-md bg-accent" />
+            <div className="h-10 rounded-md bg-secondary" />
+            <div className="h-4 w-28 rounded-md bg-secondary" />
+            <div className="h-8 w-32 rounded-md bg-secondary" />
           </CardContent>
         </Card>
       ))}

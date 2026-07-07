@@ -54,7 +54,7 @@ async function ImportJobsList({ jobsPromise }: { jobsPromise: Promise<ImportJob[
         {jobs.length === 0 ? (
           <p className="text-sm text-muted-foreground">暂无导入任务。</p>
         ) : jobs.map((job) => (
-          <Link key={job.id} href={`/imports/${job.id}`} className="block rounded-md border p-4 hover:bg-accent">
+          <Link key={job.id} href={`/imports/${job.id}`} className="block rounded-md border p-4 hover:bg-secondary">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className="font-medium">{job.file_name || `任务 #${job.id}`}</div>
@@ -109,7 +109,7 @@ async function NewImportForm({ banksPromise }: { banksPromise: Promise<QuestionB
               <Label htmlFor="sourceType">来源类型</Label>
               <select id="sourceType" className="w-full" name="sourceType" defaultValue="txt">
 <option value="txt">TXT</option>
-                    <option value="docx">DOCX（Plus）</option>
+                    <option value="docx">DOCX（Plus / Enterprise）</option>
 </select>
             </div>
             <div className="flex flex-col gap-2">
@@ -140,9 +140,9 @@ function ImportJobsSkeleton() {
       <CardContent className="flex flex-col gap-3">
         {Array.from({ length: 4 }).map((_, index) => (
           <div key={index} className="rounded-md border p-4">
-            <div className="h-4 w-40 rounded-md bg-accent" />
-            <div className="mt-2 h-3 w-28 rounded-md bg-accent" />
-            <div className="mt-3 h-2 rounded-md bg-accent" />
+            <div className="h-4 w-40 rounded-md bg-secondary" />
+            <div className="mt-2 h-3 w-28 rounded-md bg-secondary" />
+            <div className="mt-3 h-2 rounded-md bg-secondary" />
           </div>
         ))}
       </CardContent>
@@ -158,7 +158,7 @@ function NewImportSkeleton() {
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {Array.from({ length: 6 }).map((_, index) => (
-          <div key={index} className="h-10 rounded-md bg-accent" />
+          <div key={index} className="h-10 rounded-md bg-secondary" />
         ))}
       </CardContent>
     </Card>

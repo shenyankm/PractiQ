@@ -73,7 +73,7 @@ async function RecentBanks({ user }: { user: User }) {
         {banks.length === 0 ? (
           <p className="text-sm text-muted-foreground">还没有题库。</p>
         ) : banks.map((bank) => (
-          <Link key={bank.id} href={`/banks/${bank.id}`} className="block rounded-md border border-border/70 bg-background/35 p-3 transition-[background-color,transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:bg-accent/70 hover:shadow-sm motion-reduce:transition-none motion-reduce:hover:translate-y-0">
+          <Link key={bank.id} href={`/banks/${bank.id}`} className="block rounded-md border border-border/70 bg-background/35 p-3 transition-[background-color,transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:bg-secondary/70 hover:shadow-sm motion-reduce:transition-none motion-reduce:hover:translate-y-0">
             <div className="font-medium">{bank.name}</div>
             <div className="text-sm text-muted-foreground">{bank.subject} · {bank.total_count} 题</div>
           </Link>
@@ -95,7 +95,7 @@ async function ImportAttentionList({ user }: { user: User }) {
         {imports.length === 0 ? (
           <p className="text-sm text-muted-foreground">当前没有需要关注的导入任务。</p>
         ) : imports.slice(0, 6).map((job) => (
-          <Link key={job.id} href={`/imports/${job.id}`} className="flex items-center gap-3 rounded-md border border-border/70 bg-background/35 p-3 transition-[background-color,transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:bg-accent/70 hover:shadow-sm motion-reduce:transition-none motion-reduce:hover:translate-y-0">
+          <Link key={job.id} href={`/imports/${job.id}`} className="flex items-center gap-3 rounded-md border border-border/70 bg-background/35 p-3 transition-[background-color,transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:bg-secondary/70 hover:shadow-sm motion-reduce:transition-none motion-reduce:hover:translate-y-0">
             <FileWarning className="size-4 text-foreground" />
             <div>
               <div className="font-medium">{job.file_name || `任务 #${job.id}`}</div>

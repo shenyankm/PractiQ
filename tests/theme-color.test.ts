@@ -25,14 +25,15 @@ describe('brand color system', () => {
     expect(offenders).toEqual([]);
   });
 
-  it('uses grayscale glass theme tokens and utilities for the global visual system', () => {
+  it('uses HeroUI default semantic theme tokens for the global visual system', () => {
     const globals = readFileSync('app/globals.css', 'utf8');
 
-    expect(globals).toContain('--glass-bg:');
-    expect(globals).toContain('--glass-border:');
-    expect(globals).toContain('.ow-glass');
-    expect(globals).toMatch(/--primary:\s*hsl\(0 0% 9%\)/);
-    expect(globals).not.toMatch(/--primary:\s*hsl\(2(?:17|21)\./);
+    expect(globals).toContain('--surface: var(--white);');
+    expect(globals).toContain('--overlay: var(--white);');
+    expect(globals).toContain('--default: oklch(94% 0.001 286.375);');
+    expect(globals).toContain('--accent: oklch(0.6204 0.195 253.83);');
+    expect(globals).toContain('--background: oklch(12% 0.005 285.823);');
+    expect(globals).not.toMatch(/--primary:\s*hsl\(0 0% 9%\)/);
   });
 
   it('keeps page-level primary emphasis out of app routes', () => {

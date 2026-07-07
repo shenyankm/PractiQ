@@ -54,7 +54,7 @@ export default async function PracticeSessionPage({
                 key={item.questionId}
                 href={`/practice/${id}?index=${item.index}`}
                 className={[
-                  'flex h-10 items-center justify-center rounded-md border border-border/70 bg-background/35 text-xs hover:bg-accent focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/35',
+                  'flex h-10 items-center justify-center rounded-md border border-border/70 bg-background/35 text-xs hover:bg-secondary focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/35',
                   item.index === questionIndex ? 'border-ring bg-foreground/10 text-foreground' : ''
                 ].filter(Boolean).join(' ')}
                 aria-current={item.index === questionIndex ? 'step' : undefined}

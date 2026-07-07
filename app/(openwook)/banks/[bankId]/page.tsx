@@ -81,7 +81,7 @@ export default async function BankDetailPage({ params }: { params: Promise<{ ban
               ) : null}
             </EmptyState>
           ) : items.map((item) => (
-            <Link key={`${item.item_scope}-${item.group_id ?? 'q'}-${item.question_id}`} href={`/questions/${item.question_id}`} className="block rounded-md border p-3 hover:bg-accent">
+            <Link key={`${item.item_scope}-${item.group_id ?? 'q'}-${item.question_id}`} href={`/questions/${item.question_id}`} className="block rounded-md border p-3 hover:bg-secondary">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <div className="font-medium">{item.question_no ? `${item.question_no}. ` : ''}{item.stem}</div>

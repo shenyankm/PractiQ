@@ -12,7 +12,7 @@ import { Button } from '@heroui/react/button';
 
 type ShellUser = {
   username: string;
-  membership: 'free' | 'plus';
+  membership: 'free' | 'plus' | 'enterprise';
   role: 'admin' | 'user';
   avatarUrl: string | null;
   avatarOptimized: boolean;
@@ -129,7 +129,7 @@ function TopNavLink({
       href={item.href}
       aria-current={isActive ? 'page' : undefined}
       className={[
-        'inline-flex h-10 shrink-0 items-center gap-2 rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors duration-200 hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/35 motion-reduce:transition-none',
+        'inline-flex h-10 shrink-0 items-center gap-2 rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors duration-200 hover:bg-secondary hover:text-secondary-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/35 motion-reduce:transition-none',
         isActive ? 'bg-foreground/10 text-foreground shadow-xs' : '',
         compact ? 'h-9' : ''
       ].filter(Boolean).join(' ')}
