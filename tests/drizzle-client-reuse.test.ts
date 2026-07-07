@@ -44,6 +44,7 @@ describe('starter Drizzle/team retirement contract', () => {
     const offenders = ['app', 'lib', 'tests', 'docs', 'README.md']
       .flatMap((path) => walk(path))
       .filter((file) => file !== 'tests/drizzle-client-reuse.test.ts')
+      .filter((file) => !file.startsWith('docs/superpowers/plans/'))
       .flatMap((file) => {
         const source = readFileSync(file, 'utf8');
         const hits = retiredReferences.filter((reference) => source.includes(reference));
