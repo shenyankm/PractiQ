@@ -13,7 +13,7 @@ export async function proxy(request: NextRequest) {
   const isProtectedRoute = protectedRoutes.some((route) => pathname.startsWith(route));
 
   if (isProtectedRoute && !sessionCookie) {
-    return redirectToSignIn(request);
+    return redirectToSignIn();
   }
 
   const res = NextResponse.next();
@@ -27,7 +27,7 @@ export async function proxy(request: NextRequest) {
       if (!Number.isFinite(currentExpiresAt) || currentExpiresAt <= now) {
         res.cookies.delete('session');
         if (isProtectedRoute) {
-          return redirectToSignIn(request);
+          return redirectToSignIn();
         }
       } else if (currentExpiresAt - now <= sessionRenewWindowMs) {
         const renewedExpiresAt = new Date(now + sessionTtlMs);
@@ -50,7 +50,7 @@ export async function proxy(request: NextRequest) {
       logger.warn({ ...errorToLog(error), path: pathname }, 'session renewal failed');
       res.cookies.delete('session');
       if (isProtectedRoute) {
-        return redirectToSignIn(request);
+        return redirectToSignIn();
       }
     }
   }
@@ -58,7 +58,7 @@ export async function proxy(request: NextRequest) {
   return res;
 }
 
-function redirectToSignIn(_request: NextRequest) {
+function redirectToSignIn() {
   const origin = normalizedOrigin(process.env.NEXT_PUBLIC_APP_URL)
     ?? normalizedOrigin(process.env.BASE_URL);
 
