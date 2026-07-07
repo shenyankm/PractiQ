@@ -165,10 +165,10 @@ async function BankGrid({ banksPromise }: { banksPromise: ReturnType<typeof list
               <Badge variant="soft">{bank.is_public ? '公开' : '私有'}</Badge>
             </div>
             <div className="flex gap-2">
-              <Link href={`/banks/${bank.id} /practice`} className="button button--outline button--sm">
+              <Link href={`/banks/${bank.id}/practice`} className="button button--outline button--sm">
   练习
 </Link>
-              {bank.is_owner && <Link href={`/banks/${bank.id} /manage`} className="button button--primary button--sm">
+              {bank.is_owner && <Link href={`/banks/${bank.id}/manage`} className="button button--primary button--sm">
   管理
 </Link>}
             </div>
