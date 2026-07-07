@@ -2157,11 +2157,11 @@ export async function getImportJob(user: User, jobId: number) {
 export async function updateImportJobStatus(user: User, jobId: number, action: 'start' | 'retry' | 'cancel') {
   await getImportJob(user, jobId);
   const queue = await importQueueHandlers();
-  if ((action === 'start' || action === 'retry') && !queue.isImportQueueConfigured()) {
-    throw new ApiError(503, 'IMPORT_QUEUE_UNAVAILABLE', 'Redis import queue is not configured');
-  }
   if (action === 'start' || action === 'retry') {
     await ensureImportJobHasSourceArtifact(jobId);
+    if (!queue.isImportQueueConfigured()) {
+      throw new ApiError(503, 'IMPORT_QUEUE_UNAVAILABLE', 'Redis import queue is not configured');
+    }
   }
   const values =
     action === 'cancel'
@@ -2214,10 +2214,10 @@ export async function queueImportJobForUser(
 ) {
   await getImportJob(user, jobId);
   const queue = await importQueueHandlers();
+  await ensureImportJobHasSourceArtifact(jobId);
   if (!queue.isImportQueueConfigured()) {
     throw new ApiError(503, 'IMPORT_QUEUE_UNAVAILABLE', 'Redis import queue is not configured');
   }
-  await ensureImportJobHasSourceArtifact(jobId);
 
   const rows = await sql.begin(async (tx) => {
     const updated = await tx<ImportJob[]>`

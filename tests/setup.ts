@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 config({ path: '.env.local' });
 config();
 
+delete process.env.REDIS_URL;
 process.env.POSTGRES_URL ||= process.env.DATABASE_URL || 'postgres://test:test@localhost:5432/openwook_test';
 process.env.AUTH_SECRET ||= 'test-auth-secret-for-vitest-only';
 process.env.OBJECT_STORAGE_MOUNT_DIR = join(tmpdir(), `openwook-vitest-storage-${process.pid}`);
