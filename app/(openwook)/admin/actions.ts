@@ -29,7 +29,7 @@ export async function updateUserAccessAction(targetUserId: number, formData: For
   const user = await requireAdminAction();
   await updateUserAccess(user, targetUserId, {
     role: pickEnum(formData.get('role'), ['admin', 'user'] as const),
-    membership: pickEnum(formData.get('membership'), ['free', 'plus'] as const)
+    membership: pickEnum(formData.get('membership'), ['free', 'plus', 'enterprise'] as const)
   });
   revalidatePath('/admin/users');
   revalidatePath('/admin');

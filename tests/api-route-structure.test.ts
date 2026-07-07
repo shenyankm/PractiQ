@@ -8,10 +8,9 @@ describe('API route structure', () => {
       'app/api/v1/auth/register/route.ts',
       'app/api/v1/auth/login/route.ts',
       'app/api/v1/auth/logout/route.ts',
-      'app/api/v1/billing/alipay/checkout/route.ts',
-      'app/api/v1/billing/alipay/notify/route.ts',
-      'app/api/v1/billing/alipay/return/route.ts',
-      'app/api/v1/billing/alipay/summary/route.ts',
+      'app/api/v1/billing/checkout/route.ts',
+      'app/api/v1/billing/summary/route.ts',
+      'app/api/v1/billing/webhook/route.ts',
       'app/api/v1/subjects/route.ts',
       'app/api/v1/question-types/route.ts',
       'app/api/v1/knowledge-points/route.ts'
@@ -24,7 +23,7 @@ describe('API route structure', () => {
     expect(catchAll).not.toContain('auth/login');
     expect(catchAll).not.toContain('auth/logout');
     expect(catchAll).not.toContain('auth/me');
-    expect(catchAll).not.toContain('billing/alipay');
+    expect(catchAll).not.toContain('billing/checkout');
     expect(catchAll).not.toContain("parts[0] === 'subjects'");
     expect(catchAll).not.toContain("parts[0] === 'question-types'");
     expect(catchAll).not.toContain("parts[0] === 'knowledge-points'");

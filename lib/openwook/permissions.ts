@@ -5,7 +5,7 @@ type EntitlementUser = Pick<User, 'role' | 'membership' | 'plus_trial_ends_at' |
 
 export function hasPlusEntitlement(user: EntitlementUser, now = new Date()) {
   if (user.role === 'admin') return true;
-  if (user.membership === 'plus') {
+  if (user.membership === 'plus' || user.membership === 'enterprise') {
     if (!user.plus_expires_at) return true;
     return new Date(user.plus_expires_at).getTime() > now.getTime();
   }
@@ -15,7 +15,7 @@ export function hasPlusEntitlement(user: EntitlementUser, now = new Date()) {
 
 export function requirePlusEntitlement(user: EntitlementUser, feature = 'This feature') {
   if (!hasPlusEntitlement(user)) {
-    throw new ApiError(403, 'PLUS_REQUIRED', `${feature} requires Plus membership`);
+    throw new ApiError(403, 'PLUS_REQUIRED', `${feature} requires Plus or Enterprise membership`);
   }
 }
 

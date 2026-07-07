@@ -192,7 +192,7 @@ function hasAny(paths: string[]) {
 function findSensitiveEnvReads(file: string) {
   const source = readFileSync(file, 'utf8');
   const matches = Array.from(
-    source.matchAll(/process\.env\.(AUTH_SECRET|DATABASE_URL|POSTGRES_URL|METRICS_TOKEN|MOONSHOT_API_KEY|DEEPSEEK_API_KEY|OPENAI_API_KEY|ALIPAY_APP_ID|ALIPAY_PRIVATE_KEY|ALIPAY_PUBLIC_KEY|ALIPAY_PID|ALIPAY_GATEWAY|NEXT_PUBLIC_APP_URL|BASE_URL|OSS_PUBLIC_BASE_URL|OBJECT_STORAGE_PUBLIC_BASE_URL)\b/g)
+    source.matchAll(/process\.env\.(AUTH_SECRET|DATABASE_URL|POSTGRES_URL|METRICS_TOKEN|MOONSHOT_API_KEY|DEEPSEEK_API_KEY|OPENAI_API_KEY|PADDLE_API_KEY|PADDLE_CLIENT_TOKEN|PADDLE_WEBHOOK_SECRET|NEXT_PUBLIC_APP_URL|BASE_URL|OSS_PUBLIC_BASE_URL|OBJECT_STORAGE_PUBLIC_BASE_URL)\b/g)
   );
 
   return matches.map((match) => `${file}:${lineNumber(source, match.index ?? 0)}:${match[0]}`);

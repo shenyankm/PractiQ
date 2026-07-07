@@ -24,7 +24,9 @@ const redactPaths = [
   'apiKey',
   'secret',
   'privateKey',
-  'alipayPrivateKey',
+  'PADDLE_API_KEY',
+  'PADDLE_CLIENT_TOKEN',
+  'PADDLE_WEBHOOK_SECRET',
   'MOONSHOT_API_KEY',
   'DEEPSEEK_API_KEY',
   'OPENAI_API_KEY'

@@ -1,15 +1,13 @@
 import { requireUser } from '@/lib/openwook/auth';
 import { handleApiError, ok } from '@/lib/openwook/api';
-import { getAlipayBillingSummary } from '@/lib/openwook/alipay';
+import { getBillingSummary } from '@/lib/openwook/billing';
 import { withApiObservability } from '@/lib/openwook/observability';
 
-export const dynamic = 'force-dynamic';
-
 export async function GET(request: Request) {
-  return withApiObservability(request, '/api/v1/billing/alipay/summary', async () => {
+  return withApiObservability(request, '/api/v1/billing/summary', async () => {
     try {
       const user = await requireUser();
-      return ok(await getAlipayBillingSummary(user));
+      return ok(await getBillingSummary(user));
     } catch (error) {
       return handleApiError(error);
     }

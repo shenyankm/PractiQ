@@ -5,7 +5,7 @@ export type User = {
   avatar_url: string | null;
   is_active: boolean;
   role: 'admin' | 'user';
-  membership: 'free' | 'plus';
+  membership: 'free' | 'plus' | 'enterprise';
   plus_trial_ends_at: string | null;
   plus_expires_at: string | null;
   created_at: string;

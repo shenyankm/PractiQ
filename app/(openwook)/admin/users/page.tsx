@@ -134,6 +134,7 @@ export default async function AdminUsersPage({
                           <select id={`membership-${item.id}`} className="w-full" name="membership" defaultValue={item.membership}>
 <option value="free">free</option>
                                 <option value="plus">plus</option>
+                                <option value="enterprise">enterprise</option>
 </select>
                         </div>
                         <Button type="submit" size="sm" variant="outline">保存</Button>

@@ -29,7 +29,7 @@ export default async function AdminPage() {
         <Metric title="用户" value={`${overview.active_users}/${overview.total_users}`} icon={UsersRound} />
         <Metric title="题库" value={overview.total_banks} icon={Database} />
         <Metric title="题目" value={overview.total_questions} icon={BookOpen} />
-        <Metric title="Plus 用户" value={overview.plus_users} icon={Shield} />
+        <Metric title="付费用户" value={overview.plus_users} icon={Shield} />
         <Metric title="导入任务" value={overview.import_jobs} icon={FileWarning} />
         <Metric title="知识点" value={overview.knowledge_points} icon={Tags} />
       </div>

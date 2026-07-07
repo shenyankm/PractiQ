@@ -670,7 +670,7 @@ export async function getAdminOverview(user: User) {
       (SELECT COUNT(*)::int FROM users) AS total_users,
       (SELECT COUNT(*)::int FROM users WHERE is_active = true) AS active_users,
       (SELECT COUNT(*)::int FROM users WHERE role = 'admin') AS admin_users,
-      (SELECT COUNT(*)::int FROM users WHERE membership = 'plus') AS plus_users,
+      (SELECT COUNT(*)::int FROM users WHERE membership IN ('plus', 'enterprise')) AS plus_users,
       (SELECT COUNT(*)::int FROM question_banks) AS total_banks,
       (SELECT COUNT(*)::int FROM questions) AS total_questions,
       (SELECT COUNT(*)::int FROM question_import_jobs) AS import_jobs,
@@ -2636,7 +2636,7 @@ export async function updateCurrentUser(
     SET
       username = COALESCE(${data.username ?? null}, username),
       email = COALESCE(${data.email ?? null}, email),
-      password = COALESCE(${data.passwordHash ?? null}, password),
+      password_hash = COALESCE(${data.passwordHash ?? null}, password_hash),
       avatar_url = CASE
         WHEN ${data.avatarUrl === undefined} THEN avatar_url
         ELSE ${data.avatarUrl ?? null}
@@ -2736,7 +2736,7 @@ export async function setUserStatus(user: User, targetUserId: number, isActive: 
 export async function updateUserAccess(
   user: User,
   targetUserId: number,
-  data: { role?: 'admin' | 'user'; membership?: 'free' | 'plus' }
+  data: { role?: 'admin' | 'user'; membership?: 'free' | 'plus' | 'enterprise' }
 ) {
   requireAdminRole(user);
   if (user.id === targetUserId && data.role === 'user') {
