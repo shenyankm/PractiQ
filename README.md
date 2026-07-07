@@ -4,7 +4,7 @@ A complete full-stack application built with Next.js, PostgreSQL, HeroUI, and Ta
 
 ## Product Design
 
-The question-bank product design based on `db/schema.sql` is documented in [docs/system-design.md](docs/system-design.md). It covers the REST API surface, frontend pages, core modules, data flows, validation, errors, and implementation roadmap.
+The question-bank product design based on the split PostgreSQL schema files in `db/*/*.sql` is documented in [docs/system-design.md](docs/system-design.md). It covers the REST API surface, frontend pages, core modules, data flows, validation, errors, and implementation roadmap.
 
 ## Tech Stack
 

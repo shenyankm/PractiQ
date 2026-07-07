@@ -1,19 +1,19 @@
 # OpenWook System Design
 
-This document designs the application services, UI pages, and core modules from the authoritative database model in `db/schema.sql`.
+This document designs the application services, UI pages, and core modules from the authoritative split PostgreSQL schema files in `db/*/*.sql`.
 
-The current Next.js project still contains starter SaaS/team code in `lib/db/schema.ts` and several dashboard pages. Treat `db/schema.sql` as the product data model for the question-bank system; the Drizzle schema and existing routes should be replaced or regenerated before implementation.
+The current Next.js project still contains starter SaaS/team code in `lib/db/schema.ts` and several dashboard pages. Treat the business-area SQL files under `db/` as the product data model for the question-bank system; the Drizzle schema and existing routes should be replaced or regenerated before implementation.
 
 ## 中文摘要
 
-本文档基于 `db/schema.sql` 设计 OpenWook 题库系统的完整产品形态，覆盖：
+本文档基于 `db/*/*.sql` 中按业务拆分的 PostgreSQL schema 设计 OpenWook 题库系统的完整产品形态，覆盖：
 
 - 后端 REST API：用户认证、题库、题目、题组、练习会话、导入任务、媒体资源、统计分析。
 - 前端页面：登录注册、仪表板、题库列表和详情、题目管理、练习作答、文件导入、用户设置。
 - 核心模块：认证授权、题库权限、题型渲染与判分、导入流水线、媒体管理、统计分析。
 - 工程约束：数据关联、事务边界、参数校验、错误模型、状态生命周期和性能策略。
 
-当前代码仍保留部分 Next.js SaaS 模板实现；正式开发时应以 `db/schema.sql` 和本文档为准替换旧的 team/dashboard 业务。
+当前代码仍保留部分 Next.js SaaS 模板实现；正式开发时应以 `db/` 下的业务 SQL 文件和本文档为准替换旧的 team/dashboard 业务。
 
 ## Redis Integration
 
@@ -854,7 +854,7 @@ Recommended additional implementation practices:
 
 ### Phase 1: Align Data Layer
 
-- Replace `lib/db/schema.ts` starter team schema with generated/handwritten mappings for `db/schema.sql`.
+- Replace `lib/db/schema.ts` starter team schema with generated/handwritten mappings for the split SQL files under `db/*/*.sql`.
 - Replace old team/SaaS dashboard routes with OpenWook domain routes.
 - Add shared API response/error helpers.
 - Add auth session guards.
@@ -896,4 +896,4 @@ The current worktree still contains:
 - SaaS/team Drizzle schema in `lib/db/schema.ts`.
 - Team/pricing/activity dashboard pages.
 
-These are not aligned with `db/schema.sql`. To make the project actually run as the designed question-bank product, the next implementation step is to replace the starter Drizzle schema, API routes, dashboard pages, and auth helpers with the modules described above.
+These are not aligned with the split product schema under `db/*/*.sql`. To make the project actually run as the designed question-bank product, the next implementation step is to replace the starter Drizzle schema, API routes, dashboard pages, and auth helpers with the modules described above.
