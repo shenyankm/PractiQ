@@ -15,6 +15,7 @@ type Config struct {
 	AIServiceURL   string
 	AIServiceToken string
 	OpenWookHost   string
+	AppOrigin      string
 	Port           int
 }
 
@@ -35,6 +36,7 @@ func Load() (Config, error) {
 		AIServiceURL:   get(values, "AI_SERVICE_URL", "http://127.0.0.1:8001"),
 		AIServiceToken: values["AI_SERVICE_TOKEN"],
 		OpenWookHost:   get(values, "OPENWOOK_HOST", "127.0.0.1"),
+		AppOrigin:      first(values["APP_ORIGIN"], values["BASE_URL"]),
 		Port:           3000,
 	}
 	if rawPort := strings.TrimSpace(values["PORT"]); rawPort != "" {

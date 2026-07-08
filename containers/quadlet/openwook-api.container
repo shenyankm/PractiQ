@@ -15,7 +15,7 @@ Environment=AI_SERVICE_TOKEN
 Environment=AUTH_SECRET
 Environment=OPENWOOK_HOST=0.0.0.0
 Environment=PORT=3000
-Environment=NEXT_PUBLIC_APP_URL=http://127.0.0.1:3000
+Environment=APP_ORIGIN=http://127.0.0.1:3000
 Pull=never
 
 [Service]

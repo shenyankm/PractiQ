@@ -5,7 +5,6 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"os"
 	"strconv"
 	"time"
 
@@ -31,7 +30,7 @@ func main() {
 
 	startedAt := time.Now()
 	addr := net.JoinHostPort(cfg.OpenWookHost, strconv.Itoa(cfg.Port))
-	appOrigin := os.Getenv("NEXT_PUBLIC_APP_URL")
+	appOrigin := cfg.AppOrigin
 	if appOrigin == "" {
 		appOrigin = "http://" + addr
 	}
@@ -40,7 +39,7 @@ func main() {
 	handler := httpserver.NewServer(httpserver.ServerConfig{
 		NodeEnv:   cfg.NodeEnv,
 		AppOrigin: appOrigin,
-		DistDir:   "dist",
+		DistDir:   "frontend/dist",
 	}, httpserver.ServerDependencies{
 		CheckPostgres: func(ctx context.Context) error {
 			return db.CheckPostgres(ctx, pool)
@@ -53,15 +52,15 @@ func main() {
 		UptimeSeconds: func() int64 {
 			return int64(time.Since(startedAt).Seconds())
 		},
-		CurrentUser: currentUser,
-		Reference:   httpserver.BuildReferenceHandlers(pool),
-		Content:     httpserver.BuildContentHandlers(pool, currentUser),
-		Practice:    httpserver.BuildPracticeHandlers(pool, currentUser),
-		Analytics:   httpserver.BuildAnalyticsHandlers(pool, currentUser),
-		Search:      httpserver.BuildSearchHandlers(pool, currentUser),
-		Auth:        httpserver.BuildAuthHandlers(pool),
-		Admin:       httpserver.BuildAdminHandlers(pool),
-		Media:       httpserver.BuildMediaHandlers(pool),
+		CurrentUser:      currentUser,
+		Reference:        httpserver.BuildReferenceHandlers(pool),
+		Content:          httpserver.BuildContentHandlers(pool, currentUser),
+		Practice:         httpserver.BuildPracticeHandlers(pool, currentUser),
+		Analytics:        httpserver.BuildAnalyticsHandlers(pool, currentUser),
+		Search:           httpserver.BuildSearchHandlers(pool, currentUser),
+		Auth:             httpserver.BuildAuthHandlers(pool),
+		Admin:            httpserver.BuildAdminHandlers(pool),
+		Media:            httpserver.BuildMediaHandlers(pool),
 		ImportsBillingAI: httpserver.BuildImportsBillingAIHandlers(pool, currentUser, aiclient.New(cfg)),
 	})
 

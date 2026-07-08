@@ -18,6 +18,7 @@ func TestLoadAppliesDotenvPrecedenceEnvLocalThenEnvThenProcessEnv(t *testing.T) 
 	writeFile(t, dir, ".env", strings.Join([]string{
 		"OPENWOOK_HOST=env-host",
 		"AI_SERVICE_URL=http://env-file:8001",
+		"BASE_URL=http://env-origin:3000",
 	}, "\n")+"\n")
 	writeFile(t, dir, ".env.local", strings.Join([]string{
 		"AI_SERVICE_URL=http://env-local:8001",
@@ -33,6 +34,9 @@ func TestLoadAppliesDotenvPrecedenceEnvLocalThenEnvThenProcessEnv(t *testing.T) 
 	}
 	if cfg.OpenWookHost != "env-host" {
 		t.Fatalf("OpenWookHost = %q, want %q", cfg.OpenWookHost, "env-host")
+	}
+	if cfg.AppOrigin != "http://env-origin:3000" {
+		t.Fatalf("AppOrigin = %q, want %q", cfg.AppOrigin, "http://env-origin:3000")
 	}
 	if got := fmt.Sprint(cfg.Port); got != "4011" {
 		t.Fatalf("Port = %s, want %s", got, "4011")
@@ -141,6 +145,8 @@ func resetConfigEnv(t *testing.T) {
 		"OPENWOOK_HOST",
 		"PORT",
 		"POSTGRES_URL",
+		"APP_ORIGIN",
+		"BASE_URL",
 	} {
 		unsetEnv(t, key)
 	}
