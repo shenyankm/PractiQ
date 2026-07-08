@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import sys
 from importlib import import_module
 from pathlib import Path
-import sys
 from typing import Any
 
 from fastapi import FastAPI
@@ -25,12 +25,7 @@ def clear_ai_env(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def clear_ai_modules() -> None:
-    for name in (
-        "openwook_ai.main",
-        "openwook_ai.routes",
-        "openwook_ai.config",
-    ):
-        sys.modules.pop(name, None)
+    sys.modules.pop("openwook_ai.main", None)
 
 
 def require_module(name: str) -> Any:
@@ -40,7 +35,9 @@ def require_module(name: str) -> Any:
         pytest.fail(f"Migration contract missing module {name}: {exc}")
 
 
-def require_fastapi_app(monkeypatch: pytest.MonkeyPatch, *, token: str | None) -> FastAPI:
+def require_fastapi_app(
+    monkeypatch: pytest.MonkeyPatch, *, token: str | None
+) -> FastAPI:
     if token is None:
         monkeypatch.delenv("AI_SERVICE_TOKEN", raising=False)
     else:
@@ -50,15 +47,21 @@ def require_fastapi_app(monkeypatch: pytest.MonkeyPatch, *, token: str | None) -
     module = require_module("openwook_ai.main")
 
     try:
-        app = getattr(module, "app")
+        app = module.app
     except AttributeError:
-        pytest.fail("Migration contract missing FastAPI app named app in openwook_ai.main")
+        pytest.fail(
+            "Migration contract missing FastAPI app named app in openwook_ai.main"
+        )
 
-    assert isinstance(app, FastAPI), "openwook_ai.main.app must be a FastAPI application"
+    assert isinstance(app, FastAPI), (
+        "openwook_ai.main.app must be a FastAPI application"
+    )
     return app
 
 
-def make_client(monkeypatch: pytest.MonkeyPatch, *, token: str | None = None) -> TestClient:
+def make_client(
+    monkeypatch: pytest.MonkeyPatch, *, token: str | None = None
+) -> TestClient:
     return TestClient(require_fastapi_app(monkeypatch, token=token))
 
 
@@ -67,9 +70,13 @@ def require_schema_model(name: str) -> type[BaseModel]:
     try:
         model = getattr(module, name)
     except AttributeError:
-        pytest.fail(f"Migration contract missing schema model {name} in openwook_ai.schemas")
+        pytest.fail(
+            f"Migration contract missing schema model {name} in openwook_ai.schemas"
+        )
 
-    assert isinstance(model, type) and issubclass(model, BaseModel), f"{name} must be a Pydantic model"
+    assert isinstance(model, type) and issubclass(model, BaseModel), (
+        f"{name} must be a Pydantic model"
+    )
     return model
 
 
@@ -107,7 +114,9 @@ def make_learning_report_request() -> dict[str, Any]:
 
 
 @pytest.mark.parametrize("path", ("/internal/health/live", "/internal/health/ready"))
-def test_health_routes_return_ok_json(monkeypatch: pytest.MonkeyPatch, path: str) -> None:
+def test_health_routes_return_ok_json(
+    monkeypatch: pytest.MonkeyPatch, path: str
+) -> None:
     client = make_client(monkeypatch)
 
     response = client.get(path)
@@ -132,7 +141,9 @@ def test_internal_ai_routes_require_bearer_token_when_configured(
     client = make_client(monkeypatch, token=TOKEN)
 
     missing = client.post(path, json=payload)
-    wrong = client.post(path, json=payload, headers={"Authorization": "Bearer wrong-token"})
+    wrong = client.post(
+        path, json=payload, headers={"Authorization": "Bearer wrong-token"}
+    )
 
     assert missing.status_code == 401
     assert wrong.status_code == 401
@@ -141,9 +152,21 @@ def test_internal_ai_routes_require_bearer_token_when_configured(
 @pytest.mark.parametrize(
     ("path", "payload", "result_model_name"),
     (
-        ("/internal/ai/parse-document", make_document_parse_request(), "DocumentParseResult"),
-        ("/internal/ai/generate-answer", make_answer_generation_request(), "AnswerGenerationResult"),
-        ("/internal/ai/learning-report", make_learning_report_request(), "LearningReportResult"),
+        (
+            "/internal/ai/parse-document",
+            make_document_parse_request(),
+            "DocumentParseResult",
+        ),
+        (
+            "/internal/ai/generate-answer",
+            make_answer_generation_request(),
+            "AnswerGenerationResult",
+        ),
+        (
+            "/internal/ai/learning-report",
+            make_learning_report_request(),
+            "LearningReportResult",
+        ),
     ),
 )
 def test_internal_ai_routes_accept_authorized_schema_payloads(
@@ -155,7 +178,9 @@ def test_internal_ai_routes_accept_authorized_schema_payloads(
     client = make_client(monkeypatch, token=TOKEN)
     result_model = require_schema_model(result_model_name)
 
-    response = client.post(path, json=payload, headers={"Authorization": f"Bearer {TOKEN}"})
+    response = client.post(
+        path, json=payload, headers={"Authorization": f"Bearer {TOKEN}"}
+    )
 
     assert response.status_code == 200
     result_model.model_validate(response.json())
