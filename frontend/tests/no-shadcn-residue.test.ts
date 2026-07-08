@@ -23,7 +23,7 @@ describe('no shadcn/radix component layer residue', () => {
   });
 
   it('does not import the removed shadcn component or cn utility paths', () => {
-    const offenders = sourceFiles(['app', 'lib', 'tests', 'docs', 'README.md', 'AGENTS.md'])
+    const offenders = sourceFiles(['src', 'tests', '../docs', '../README.md', '../AGENTS.md'])
       .filter((file) => file !== 'tests/no-shadcn-residue.test.ts')
       .flatMap((file) => {
         const source = readFileSync(file, 'utf8');

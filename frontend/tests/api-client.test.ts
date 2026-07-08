@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ApiClientError, apiRequest } from '@/src/lib/api';
+import { ApiClientError, apiRequest } from '@/lib/api';
 
 const fetchMock = vi.hoisted(() => vi.fn());
 const originalFetch = globalThis.fetch;

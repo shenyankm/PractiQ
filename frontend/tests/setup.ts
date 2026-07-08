@@ -24,8 +24,8 @@ function readEnvFile(path: string): Record<string, string> {
   return parsed;
 }
 
-const dotenvLocal = readEnvFile('.env.local');
-const dotenvDefault = readEnvFile('.env');
+const dotenvLocal = readEnvFile(join('..', '.env.local'));
+const dotenvDefault = readEnvFile(join('..', '.env'));
 const configuredDatabaseUrl = process.env.POSTGRES_URL
   || process.env.DATABASE_URL
   || dotenvLocal.POSTGRES_URL

@@ -2,7 +2,7 @@
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { BillingPanel } from '@/src/pages/settings/BillingPanel';
+import { BillingPanel } from '@/pages/settings/BillingPanel';
 
 const fetchMock = vi.hoisted(() => vi.fn());
 const originalFetch = globalThis.fetch;

@@ -1,12 +1,13 @@
 # ================================================
 # OpenWook .gitignore
-# Next.js + PostgreSQL + Drizzle + Alipay
+# OpenWook split-stack app
 # ================================================
 
 # -----------------------------------------------
 # Dependencies
 # -----------------------------------------------
 /node_modules/
+/frontend/node_modules/
 /.pnp
 .pnp.*
 
@@ -21,12 +22,12 @@
 !.yarn/versions
 
 # -----------------------------------------------
-# Next.js / Build Output
+# Vite / Build Output
 # -----------------------------------------------
-/.next/
 /out/
 /build/
 /dist/
+/frontend/dist/
 /.turbo/
 
 # -----------------------------------------------
@@ -39,7 +40,9 @@ __pycache__/
 # -----------------------------------------------
 /coverage/
 /test-results/
+/frontend/test-results/
 /playwright-report/
+/frontend/playwright-report/
 /blob-report/
 /reports/
 *.lcov
@@ -79,7 +82,6 @@ pnpm-debug.log*
 # TypeScript
 # -----------------------------------------------
 *.tsbuildinfo
-next-env.d.ts
 
 # -----------------------------------------------
 # IDE / Editor

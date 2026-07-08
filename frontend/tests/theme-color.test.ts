@@ -52,7 +52,7 @@ function lineNumber(source: string, index: number) {
 
 describe('visual style guide documentation', () => {
   it('documents HeroUI-only component and variant rules', () => {
-    const guide = readFileSync('docs/visual-style-guide.md', 'utf8');
+    const guide = readFileSync('../docs/visual-style-guide.md', 'utf8');
     expect(guide).toContain('HeroUI semantic variants');
     expect(guide).toContain('Import standard components directly from `@heroui/react`.');
     expect(guide).toContain('Avoid page-level `bg-primary`, `text-primary`, and `border-primary`');

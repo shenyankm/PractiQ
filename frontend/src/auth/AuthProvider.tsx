@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { api } from '@/src/lib/api';
+import { api } from '@/lib/api';
 
 export type AuthUser = {
   username: string;
@@ -20,6 +20,15 @@ const AuthContext = createContext<AuthContextValue>({
   isLoading: true,
   isAuthenticated: false
 });
+type AuthMeResponse = { user?: AuthUser | null } | AuthUser | null;
+
+function normalizeAuthUser(data: AuthMeResponse): AuthUser | null {
+  if (!data) return null;
+  if (Object.prototype.hasOwnProperty.call(data, 'user')) {
+    return (data as { user?: AuthUser | null }).user ?? null;
+  }
+  return data as AuthUser;
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -29,7 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     api.me().then((data) => {
       if (cancelled) return;
-      setUser((data as { user?: AuthUser | null } | AuthUser | null)?.user ?? (data as AuthUser | null) ?? null);
+      setUser(normalizeAuthUser(data as AuthMeResponse));
       setIsLoading(false);
     }).catch(() => {
       if (cancelled) return;

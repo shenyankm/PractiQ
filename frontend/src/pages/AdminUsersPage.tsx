@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Button, Link } from '@heroui/react';
-import { apiRequest } from '@/src/lib/api';
+import { apiRequest } from '@/lib/api';
 
 type AdminUser = {
   id: number;

@@ -2,7 +2,7 @@
 
 import { render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ImportLivePanel } from '@/src/pages/imports/ImportLivePanel';
+import { ImportLivePanel } from '@/pages/imports/ImportLivePanel';
 
 type ImportEventPayload = {
   id: number;

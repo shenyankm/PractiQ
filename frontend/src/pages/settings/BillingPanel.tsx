@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@heroui/react';
-import { apiRequest } from '@/src/lib/api';
+import { apiRequest } from '@/lib/api';
 
 type BillingPlan = {
   planKey: string;

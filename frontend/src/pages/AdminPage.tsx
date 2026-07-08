@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from '@heroui/react';
-import { apiRequest } from '@/src/lib/api';
+import { apiRequest } from '@/lib/api';
 
 type Overview = {
   total_users: number;

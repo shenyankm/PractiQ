@@ -1,10 +1,11 @@
 import { useState, type ReactNode } from 'react';
 import { Link, Button } from '@heroui/react';
 import { useLocation } from 'react-router-dom';
-import { api } from '@/src/lib/api';
-import type { AuthUser } from '@/src/auth/AuthProvider';
+import { api } from '@/lib/api';
+import type { AuthUser } from '@/auth/AuthProvider';
 
-const navItems = [
+type NavItem = { href: string; label: string; adminOnly?: boolean };
+const navItems: NavItem[] = [
   { href: '/dashboard', label: '仪表板' },
   { href: '/banks', label: '题库' },
   { href: '/imports', label: '导入' },

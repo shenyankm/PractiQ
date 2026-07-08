@@ -7,7 +7,7 @@ type Violation = `${string}:${number}:${string}` | `${string}:${string}`;
 const SELF_PATH = 'tests/heroui-policy.test.ts';
 const SRC_TSX_FILES = projectFiles(['src'], isTsxFile);
 const TEST_TSX_FILES = projectFiles(['tests'], (path) => isTsxFile(path) && path !== SELF_PATH);
-const POLICY_TEXT_FILES = projectFiles(['src', 'tests', 'docs', 'package.json'], isPolicyTextFile)
+const POLICY_TEXT_FILES = projectFiles(['src', 'tests', '../docs', 'package.json'], isPolicyTextFile)
   .filter((path) => path !== SELF_PATH);
 
 const FORBIDDEN_UI_PACKAGES = [
@@ -68,12 +68,14 @@ describe('HeroUI-only policy guardrails', () => {
 });
 
 function forbiddenDependencyViolations(): Violation[] {
-  const pkg = JSON.parse(readFileSync('package.json', 'utf8')) as {
-    dependencies?: Record<string, string>;
-    devDependencies?: Record<string, string>;
-  };
+  let pkg: { dependencies?: Record<string, string>; devDependencies?: Record<string, string> };
+  try {
+    pkg = JSON.parse(readFileSync('package.json', 'utf8')) as typeof pkg;
+  } catch (error) {
+    return [`package.json:${error instanceof Error ? error.message : 'unreadable'}`];
+  }
   const installed = new Set([...Object.keys(pkg.dependencies ?? {}), ...Object.keys(pkg.devDependencies ?? {})]);
-  return FORBIDDEN_DEPENDENCIES.filter((name) => installed.has(name)).map((name) => `package.json:${name}` as const);
+  return FORBIDDEN_DEPENDENCIES.flatMap((name) => installed.has(name) ? [`package.json:${name}` as const] : []);
 }
 
 function sourceImportViolations(files: string[]): Violation[] {
@@ -112,7 +114,7 @@ function matchLines(file: string, pattern: RegExp): Violation[] {
 }
 
 function matchSource(file: string, source: string, pattern: RegExp): Violation[] {
-  return Array.from(source.matchAll(pattern), (match) => `${file}:${lineNumber(source, match.index ?? 0)}:${match[0]}`);
+  return Array.from(source.matchAll(pattern), (match) => `${file}:${lineNumber(source, match.index ?? 0)}:${match[0]}` as Violation);
 }
 
 function lineNumber(source: string, index: number) {

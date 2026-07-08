@@ -5,7 +5,7 @@ import {
   createBankFlow,
   startPracticeFlow,
   toggleBankFavoriteFlow
-} from '@/src/lib/bank-flows';
+} from '@/lib/bank-flows';
 
 const originalFetch = globalThis.fetch;
 

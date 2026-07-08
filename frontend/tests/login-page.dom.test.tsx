@@ -3,7 +3,7 @@
 import type { AnchorHTMLAttributes, ReactNode } from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { LoginPage } from '@/src/pages/LoginPage';
+import { LoginPage } from '@/pages/LoginPage';
 
 const routerState = vi.hoisted(() => ({
   navigate: vi.fn(),

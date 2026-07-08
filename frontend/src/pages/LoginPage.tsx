@@ -1,7 +1,7 @@
-import { useState, type FormEvent } from 'react';
+import { useState, type ChangeEvent, type FormEvent } from 'react';
 import { Button, Input, Label, Link } from '@heroui/react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { apiRequest } from '@/src/lib/api';
+import { apiRequest } from '@/lib/api';
 
 export type LoginPageProps = {
   mode?: 'signin' | 'signup';
@@ -49,16 +49,16 @@ export function LoginPage({ mode = 'signin' }: LoginPageProps) {
       {mode === 'signup' ? (
         <div>
           <Label htmlFor="username">用户名</Label>
-          <Input id="username" value={username} onChange={(event) => setUsername(event.target.value)} />
+          <Input id="username" value={username} onChange={(event: ChangeEvent<HTMLInputElement>) => setUsername(event.target.value)} />
         </div>
       ) : null}
       <div>
         <Label htmlFor="email">{mode === 'signin' ? '用户名或邮箱' : '邮箱'}</Label>
-        <Input id="email" value={emailOrLogin} onChange={(event) => setEmailOrLogin(event.target.value)} />
+        <Input id="email" value={emailOrLogin} onChange={(event: ChangeEvent<HTMLInputElement>) => setEmailOrLogin(event.target.value)} />
       </div>
       <div>
         <Label htmlFor="password">密码</Label>
-        <Input id="password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
+        <Input id="password" type="password" value={password} onChange={(event: ChangeEvent<HTMLInputElement>) => setPassword(event.target.value)} />
       </div>
       <Button type="submit" isDisabled={pending}>{mode === 'signin' ? '登录' : '注册'}</Button>
       <Link href={mode === 'signin' ? '/sign-up' : '/sign-in'}>{mode === 'signin' ? '创建账号' : '登录已有账号'}</Link>

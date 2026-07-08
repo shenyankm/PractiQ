@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ChangeEvent } from 'react';
 import { Button, Input, Label, Link } from '@heroui/react';
-import { apiRequest } from '@/src/lib/api';
+import { apiRequest } from '@/lib/api';
 
 type Subject = { subject_id: string; display_name: string };
 type KnowledgePoint = { id: number; display_name: string };
@@ -26,11 +26,11 @@ export default function AdminKnowledgePointsPage() {
       {points.map((point) => <div key={point.id}>{point.display_name}</div>)}
       <div>
         <Label htmlFor="code">编码</Label>
-        <Input id="code" value={code} onChange={(event) => setCode(event.target.value)} />
+        <Input id="code" value={code} onChange={(event: ChangeEvent<HTMLInputElement>) => setCode(event.target.value)} />
       </div>
       <div>
         <Label htmlFor="name">名称</Label>
-        <Input id="name" value={name} onChange={(event) => setName(event.target.value)} />
+        <Input id="name" value={name} onChange={(event: ChangeEvent<HTMLInputElement>) => setName(event.target.value)} />
       </div>
       <Button
         type="button"

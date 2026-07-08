@@ -2,9 +2,9 @@
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import AdminPage from '@/src/pages/AdminPage';
-import AdminUsersPage from '@/src/pages/AdminUsersPage';
-import AdminKnowledgePointsPage from '@/src/pages/AdminKnowledgePointsPage';
+import AdminPage from '@/pages/AdminPage';
+import AdminUsersPage from '@/pages/AdminUsersPage';
+import AdminKnowledgePointsPage from '@/pages/AdminKnowledgePointsPage';
 
 const mocks = vi.hoisted(() => ({
   fetch: vi.fn()
