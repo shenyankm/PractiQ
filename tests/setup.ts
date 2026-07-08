@@ -1,15 +1,42 @@
-import { config } from 'dotenv';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
-const dotenvLocal = config({ path: '.env.local' });
-const dotenvDefault = config();
+function readEnvFile(path: string): Record<string, string> {
+  if (!existsSync(path)) return {};
+  const parsed: Record<string, string> = {};
+  for (const line of readFileSync(path, 'utf8').split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const index = trimmed.indexOf('=');
+    if (index < 0) continue;
+    const key = trimmed.slice(0, index).trim();
+    if (!key || key in parsed) continue;
+    let value = trimmed.slice(index + 1).trim();
+    if (value.length >= 2) {
+      const quote = value[0];
+      if ((quote === '"' || quote === '\'') && value[value.length - 1] === quote) {
+        value = value.slice(1, -1);
+      }
+    }
+    parsed[key] = value;
+  }
+  return parsed;
+}
 
-const configuredDatabaseUrl = process.env.POSTGRES_URL || process.env.DATABASE_URL;
-const defaultDatabaseUrl = dotenvLocal.parsed?.POSTGRES_URL
-  || dotenvLocal.parsed?.DATABASE_URL
-  || dotenvDefault.parsed?.POSTGRES_URL
-  || dotenvDefault.parsed?.DATABASE_URL
+const dotenvLocal = readEnvFile('.env.local');
+const dotenvDefault = readEnvFile('.env');
+const configuredDatabaseUrl = process.env.POSTGRES_URL
+  || process.env.DATABASE_URL
+  || dotenvLocal.POSTGRES_URL
+  || dotenvLocal.DATABASE_URL
+  || dotenvDefault.POSTGRES_URL
+  || dotenvDefault.DATABASE_URL
+  || '';
+const defaultDatabaseUrl = dotenvLocal.POSTGRES_URL
+  || dotenvLocal.DATABASE_URL
+  || dotenvDefault.POSTGRES_URL
+  || dotenvDefault.DATABASE_URL
   || '';
 const localDatabaseHost = (() => {
   if (!configuredDatabaseUrl) return false;
