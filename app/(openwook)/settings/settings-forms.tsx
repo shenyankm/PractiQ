@@ -2,14 +2,21 @@
 
 import Image from 'next/image';
 import { useActionState } from 'react';
-import { Avatar, AvatarFallback } from '@heroui/react/avatar';
-import { Alert, AlertDescription } from '@heroui/react/alert';
-import { Button } from '@heroui/react/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@heroui/react/card';
-import { Description } from '@heroui/react/description';
-import { FieldGroup } from '@heroui/react/fieldset';
-import { Input } from '@heroui/react/input';
-import { Label } from '@heroui/react/label';
+import {
+  Avatar,
+  AvatarFallback,
+  Alert,
+  AlertDescription,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Description,
+  FieldGroup,
+  Input,
+  Label
+} from '@heroui/react';
 import { KeyRound, UserRound } from 'lucide-react';
 import { updatePasswordAction, updateProfileAction, type SettingsActionState } from '../banks/actions';
 

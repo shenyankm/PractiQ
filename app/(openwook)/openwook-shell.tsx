@@ -5,10 +5,13 @@ import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 
 import Image from 'next/image';
-import Link from 'next/link';
-import { AlertDialog } from '@heroui/react/alert-dialog';
-import { Avatar, AvatarFallback } from '@heroui/react/avatar';
-import { Button } from '@heroui/react/button';
+import {
+  Link,
+  AlertDialog,
+  Avatar,
+  AvatarFallback,
+  Button
+} from '@heroui/react';
 
 type ShellUser = {
   username: string;
@@ -104,7 +107,6 @@ function UserShell({
         <div
           key={pathname}
           data-testid="route-transition"
-          className="motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-300"
         >
           {children}
         </div>
@@ -167,7 +169,7 @@ function UserActions({ user }: { user: ShellUser }) {
         </Button>
         <AlertDialog.Backdrop>
           <AlertDialog.Container>
-            <AlertDialog.Dialog className="data-[entering]:fade-in-0 data-[entering]:zoom-in-95 data-[entering]:slide-in-from-top-2">
+            <AlertDialog.Dialog>
               <AlertDialog.Header>
                 <AlertDialog.Heading>确认退出登录</AlertDialog.Heading>
               </AlertDialog.Header>
@@ -177,7 +179,7 @@ function UserActions({ user }: { user: ShellUser }) {
               <AlertDialog.Footer>
                 <Button slot="close" variant="tertiary">取消</Button>
                 <form action={signOut}>
-                  <Button type="submit" variant="danger" className="w-full sm:w-auto">
+                  <Button type="submit" variant="danger" fullWidth>
                     确认退出
                   </Button>
                 </form>

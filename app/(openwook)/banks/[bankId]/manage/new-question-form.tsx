@@ -3,12 +3,18 @@ import { Save } from 'lucide-react';
 import { useId, useState } from 'react';
 
 import type { AnswerMode, QuestionType } from '@/lib/openwook/types';
-import { Button } from '@heroui/react/button';
-import { Description } from '@heroui/react/description';
-import { FieldGroup } from '@heroui/react/fieldset';
-import { Input } from '@heroui/react/input';
-import { Label } from '@heroui/react/label';
-import { TextArea } from '@heroui/react/textarea';
+import {
+  Button,
+  Description,
+  FieldGroup,
+  Input,
+  Label,
+  TextArea,
+  Select,
+  ListBox,
+  RadioGroup,
+  Radio
+} from '@heroui/react';
 
 type NewQuestionFormProps = {
   action: (formData: FormData) => void | Promise<void>;
@@ -23,44 +29,38 @@ export function NewQuestionForm({ action, types }: NewQuestionFormProps) {
     <form action={action} className="flex flex-col gap-4">
       <FieldGroup className="gap-4">
         <div>
-          <Label htmlFor={`${formId}-questionTypeId`}>题型</Label>
-          <select id={`${formId}-questionTypeId`} className="w-full" name="questionTypeId" defaultValue={types[0]?.type_id}>
-{types.map((type) => (
-                  <option key={type.type_id} value={type.type_id}>
+          <Select name="questionTypeId" defaultSelectedKey={types[0]?.type_id}>
+            <Label>题型</Label>
+            <Select.Trigger>
+              <Select.Value />
+              <Select.Indicator />
+            </Select.Trigger>
+            <Select.Popover>
+              <ListBox>
+                {types.map((type) => (
+                  <ListBox.Item key={type.type_id} id={type.type_id}>
                     {type.display_name}
-                  </option>
+                  </ListBox.Item>
                 ))}
-</select>
+              </ListBox>
+            </Select.Popover>
+          </Select>
           {types.length === 0 ? <Description>当前学科暂无题型配置。</Description> : null}
         </div>
 
         <div>
-          <Label id={`${formId}-answerModeLabel`}>答题模式</Label>
           <input type="hidden" name="answerMode" value={answerMode} />
-          <div
-            role="radiogroup"
-            aria-labelledby={`${formId}-answerModeLabel`}
-            className="grid w-full grid-cols-2 gap-2"
-          >
+          <RadioGroup name="answerMode" value={answerMode} onChange={(value) => setAnswerMode(value as AnswerMode)}>
+            <Label>答题模式</Label>
             {answerModeOptions.map((option) => (
-              <label
-                key={option.value}
-                className="flex cursor-pointer items-center justify-center rounded-md border border-border/70 px-3 py-2 text-sm data-[checked=true]:bg-foreground/10 data-[checked=true]:text-foreground has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-ring/35"
-                data-checked={answerMode === option.value}
-              >
-                <input
-                  type="radio"
-                  name="answerMode"
-                  value={option.value}
-                  className="sr-only"
-                  aria-label={option.ariaLabel}
-                  checked={answerMode === option.value}
-                  onChange={() => setAnswerMode(option.value)}
-                />
-                {option.label}
-              </label>
+              <Radio key={option.value} value={option.value}>
+                <Radio.Content>
+                  <Radio.Control><Radio.Indicator /></Radio.Control>
+                  <Label>{option.ariaLabel}</Label>
+                </Radio.Content>
+              </Radio>
             ))}
-          </div>
+          </RadioGroup>
           <Description>{answerModeDescriptions[answerMode]}</Description>
         </div>
 
@@ -72,7 +72,7 @@ export function NewQuestionForm({ action, types }: NewQuestionFormProps) {
         {answerMode === 'choice' ? (
           <ChoiceAnswerFields formId={formId} />
         ) : answerMode === 'true_false' ? (
-          <TrueFalseAnswerFields formId={formId} />
+          <TrueFalseAnswerFields />
         ) : (
           <TextAnswerFields formId={formId} answerMode={answerMode} />
         )}
@@ -84,13 +84,21 @@ export function NewQuestionForm({ action, types }: NewQuestionFormProps) {
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <div className="sm:w-36">
-            <Label htmlFor={`${formId}-status`}>状态</Label>
-            <select id={`${formId}-status`} className="w-full" name="status" defaultValue="draft">
-<option value="draft">草稿</option>
-                  <option value="active">发布</option>
-</select>
+            <Select name="status" defaultSelectedKey="draft">
+              <Label>状态</Label>
+              <Select.Trigger>
+                <Select.Value />
+                <Select.Indicator />
+              </Select.Trigger>
+              <Select.Popover>
+                <ListBox>
+                  <ListBox.Item id="draft">草稿</ListBox.Item>
+                  <ListBox.Item id="active">发布</ListBox.Item>
+                </ListBox>
+              </Select.Popover>
+            </Select>
           </div>
-          <Button type="submit" className="sm:mb-0.5">
+          <Button type="submit">
             <Save className="size-4" />
             保存题目
           </Button>
@@ -112,26 +120,42 @@ function ChoiceAnswerFields({ formId }: { formId: string }) {
         ))}
       </div>
       <div>
-        <Label htmlFor={`${formId}-correctOption`}>正确选项</Label>
-        <select id={`${formId}-correctOption`} className="w-full" name="correctOption" defaultValue="A">
-<option value="A">A</option>
-              <option value="B">B</option>
-              <option value="C">C</option>
-              <option value="D">D</option>
-</select>
+        <Select name="correctOption" defaultSelectedKey="A">
+          <Label>正确选项</Label>
+          <Select.Trigger>
+            <Select.Value />
+            <Select.Indicator />
+          </Select.Trigger>
+          <Select.Popover>
+            <ListBox>
+              <ListBox.Item id="A">A</ListBox.Item>
+              <ListBox.Item id="B">B</ListBox.Item>
+              <ListBox.Item id="C">C</ListBox.Item>
+              <ListBox.Item id="D">D</ListBox.Item>
+            </ListBox>
+          </Select.Popover>
+        </Select>
       </div>
     </>
   );
 }
 
-function TrueFalseAnswerFields({ formId }: { formId: string }) {
+function TrueFalseAnswerFields() {
   return (
     <div>
-      <Label htmlFor={`${formId}-answer`}>正确答案</Label>
-      <select id={`${formId}-answer`} className="w-full" name="answer" defaultValue="true">
-<option value="true">正确</option>
-            <option value="false">错误</option>
-</select>
+      <Select name="answer" defaultSelectedKey="true">
+        <Label>正确答案</Label>
+        <Select.Trigger>
+          <Select.Value />
+          <Select.Indicator />
+        </Select.Trigger>
+        <Select.Popover>
+          <ListBox>
+            <ListBox.Item id="true">正确</ListBox.Item>
+            <ListBox.Item id="false">错误</ListBox.Item>
+          </ListBox>
+        </Select.Popover>
+      </Select>
     </div>
   );
 }

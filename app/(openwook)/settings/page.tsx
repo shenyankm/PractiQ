@@ -5,8 +5,17 @@ import { isConfiguredRemoteImageUrl } from '@/lib/openwook/remote-images';
 import { getAnalyticsSummary } from '@/lib/openwook/services';
 import { BillingPanel } from './billing-panel';
 import { PasswordSettingsCard, ProfileSettingsCard } from './settings-forms';
-import { Card, CardContent, CardHeader, CardTitle } from '@heroui/react/card';
-import { Tab, TabList, TabPanel, Tabs } from '@heroui/react/tabs';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Tab,
+  TabList,
+  TabPanel,
+  Tabs
+} from '@heroui/react';
+import { buttonVariants } from '@heroui/styles';
 
 export const metadata: Metadata = {
   title: '设置'
@@ -59,7 +68,7 @@ export default async function SettingsPage() {
               </CardHeader>
               <CardContent className="flex flex-col gap-3 text-sm text-muted-foreground">
                 <a
-                  className="button button--outline button--sm w-fit"
+                  className={buttonVariants({ variant: 'outline', size: 'sm' })}
                   href="/api/v1/exports/me/summary.pdf"
                 >
                   导出 PDF

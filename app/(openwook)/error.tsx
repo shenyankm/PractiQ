@@ -1,8 +1,13 @@
 'use client';
 
 import { AlertTriangle, RotateCcw } from 'lucide-react';
-import { Button } from '@heroui/react/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@heroui/react/card';
+import {
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle
+} from '@heroui/react';
 
 
 export default function OpenWookError({
@@ -24,7 +29,7 @@ export default function OpenWookError({
         <p className="text-sm text-muted-foreground">
           {error.message || '请稍后重试，或返回上一页。'}
         </p>
-        <Button type="button" className="w-fit" onClick={reset}>
+        <Button type="button" onPress={reset}>
           <RotateCcw className="size-4" />
           重新加载
         </Button>

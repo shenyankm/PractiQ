@@ -1,13 +1,19 @@
 import { BookOpen } from 'lucide-react';
 import { notFound } from 'next/navigation';
-import Link from 'next/link';
+import {
+  Link,
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  EmptyState
+} from '@heroui/react';
 import { getCurrentUser } from '@/lib/openwook/auth';
 import { getBankWithItems } from '@/lib/openwook/services';
 import { favoriteBankAction } from '../actions';
-import { Badge } from '@heroui/react/badge';
-import { Button } from '@heroui/react/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@heroui/react/card';
-import { EmptyState } from '@heroui/react/empty-state';
+import { buttonVariants } from '@heroui/styles';
 
 export default async function BankDetailPage({ params }: { params: Promise<{ bankId: string }> }) {
   const user = await getCurrentUser();
@@ -41,13 +47,13 @@ export default async function BankDetailPage({ params }: { params: Promise<{ ban
           <form action={favoriteBankAction.bind(null, id, !bank.is_favorite)}>
             <Button variant="outline" type="submit">{bank.is_favorite ? '取消收藏' : '收藏'}</Button>
           </form>
-          <Link href={`/banks/${id}/practice`} className="button button--primary">
+          <Link href={`/banks/${id}/practice`} className={buttonVariants({ variant: 'primary' })}>
   开始练习
 </Link>
-          {bank.is_owner && <Link href={`/banks/${id}/manage`} className="button button--outline">
+          {bank.is_owner && <Link href={`/banks/${id}/manage`} className={buttonVariants({ variant: 'outline' })}>
   管理题目
 </Link>}
-          {bank.is_owner && <Link href={`/imports?bankId=${id}`} className="button button--outline">
+          {bank.is_owner && <Link href={`/imports?bankId=${id}`} className={buttonVariants({ variant: 'outline' })}>
   导入题目
 </Link>}
         </div>
@@ -70,10 +76,10 @@ export default async function BankDetailPage({ params }: { params: Promise<{ ban
               {bank.is_owner ? (
                 <div className="mt-4 flex justify-center">
                   <div className="flex flex-wrap justify-center gap-2">
-                    <Link href={`/imports?bankId=${id}`} className="button button--primary">
+                    <Link href={`/imports?bankId=${id}`} className={buttonVariants({ variant: 'primary' })}>
   导入题目
 </Link>
-                    <Link href={`/banks/${id}/manage`} className="button button--outline">
+                    <Link href={`/banks/${id}/manage`} className={buttonVariants({ variant: 'outline' })}>
   手动新增
 </Link>
                   </div>

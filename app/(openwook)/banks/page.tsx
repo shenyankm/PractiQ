@@ -1,17 +1,25 @@
 import type { Metadata } from 'next';
-import { BookOpen, Plus, Search } from 'lucide-react';
+import { BookOpen, Plus } from 'lucide-react';
 import { Suspense } from 'react';
-import Link from 'next/link';
+import {
+  Link,
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  EmptyState,
+  FieldGroup,
+  Input,
+  Label,
+  Select,
+  ListBox
+} from '@heroui/react';
 import { getCurrentUser } from '@/lib/openwook/auth';
 import { listBanks, listSubjects } from '@/lib/openwook/services';
 import type { Subject } from '@/lib/openwook/types';
-import { Badge } from '@heroui/react/badge';
-import { Button } from '@heroui/react/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@heroui/react/card';
-import { EmptyState } from '@heroui/react/empty-state';
-import { FieldGroup } from '@heroui/react/fieldset';
-import { Input } from '@heroui/react/input';
-import { Label } from '@heroui/react/label';
+import { buttonVariants } from '@heroui/styles';
 
 export const metadata: Metadata = {
   title: '题库'
@@ -38,7 +46,7 @@ export default async function BanksPage({
           <h1 className="text-2xl font-semibold tracking-tight">题库</h1>
           <p className="text-sm text-muted-foreground">创建、收藏、搜索和维护题库。</p>
         </div>
-        <Link href="/banks/new" className="button button--primary">
+        <Link href="/banks/new" className={buttonVariants({ variant: 'primary' })}>
   <Plus className="size-4" />新建题库
 </Link>
       </div>
@@ -89,33 +97,48 @@ async function BankFilters({
         <form className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px_140px_auto_auto] md:items-end">
           <div className="gap-2">
             <Label htmlFor="bank-search" className="sr-only">搜索题库</Label>
-            <div className="relative">
-              <Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
-              <Input id="bank-search" name="q" placeholder="搜索题库名称" defaultValue={q} className="pl-9" />
-            </div>
+            <Input id="bank-search" name="q" placeholder="搜索题库名称" defaultValue={q} />
           </div>
           <div className="gap-2">
             <Label htmlFor="bank-subject" className="sr-only">学科</Label>
-            <select id="bank-subject" className="w-full" name="subject" defaultValue={subjectValue}>
-<option value="all">全部学科</option>
+            <Select name="subject" defaultSelectedKey={subjectValue}>
+              <Label>学科</Label>
+              <Select.Trigger>
+                <Select.Value />
+                <Select.Indicator />
+              </Select.Trigger>
+              <Select.Popover>
+                <ListBox>
+                  <ListBox.Item id="all">全部学科</ListBox.Item>
                   {subjects.map((subject) => (
-                    <option key={subject.subject_id} value={subject.subject_id}>
+                    <ListBox.Item key={subject.subject_id} id={subject.subject_id}>
                       {subject.display_name}
-                    </option>
+                    </ListBox.Item>
                   ))}
-</select>
+                </ListBox>
+              </Select.Popover>
+            </Select>
           </div>
           <div className="gap-2">
             <Label htmlFor="bank-scope" className="sr-only">范围</Label>
-            <select id="bank-scope" className="w-full" name="scope" defaultValue={scopeValue}>
-<option value="all">全部可见</option>
-                  <option value="mine">我的</option>
-                  <option value="favorites">收藏</option>
-                  <option value="public">公开</option>
-</select>
+            <Select name="scope" defaultSelectedKey={scopeValue}>
+              <Label>范围</Label>
+              <Select.Trigger>
+                <Select.Value />
+                <Select.Indicator />
+              </Select.Trigger>
+              <Select.Popover>
+                <ListBox>
+                  <ListBox.Item id="all">全部可见</ListBox.Item>
+                  <ListBox.Item id="mine">我的</ListBox.Item>
+                  <ListBox.Item id="favorites">收藏</ListBox.Item>
+                  <ListBox.Item id="public">公开</ListBox.Item>
+                </ListBox>
+              </Select.Popover>
+            </Select>
           </div>
           <Button type="submit" variant="outline">筛选</Button>
-          <Link href="/banks" className="button button--ghost">
+          <Link href="/banks" className={buttonVariants({ variant: 'ghost' })}>
   重置
 </Link>
         </form>
@@ -141,10 +164,10 @@ async function BankGrid({ banksPromise }: { banksPromise: ReturnType<typeof list
         </div>
         <div className="mt-4 flex justify-center">
           <FieldGroup className="gap-3">
-            <Link href="/banks/new" className="button button--primary">
+            <Link href="/banks/new" className={buttonVariants({ variant: 'primary' })}>
   新建题库
 </Link>
-            <Link href="/banks" className="button button--outline">
+            <Link href="/banks" className={buttonVariants({ variant: 'outline' })}>
   清除筛选
 </Link>
           </FieldGroup>
@@ -170,10 +193,10 @@ async function BankGrid({ banksPromise }: { banksPromise: ReturnType<typeof list
               <Badge variant="soft">{bank.is_public ? '公开' : '私有'}</Badge>
             </div>
             <div className="flex gap-2">
-              <Link href={`/banks/${bank.id}/practice`} className="button button--outline button--sm">
+              <Link href={`/banks/${bank.id}/practice`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
   练习
 </Link>
-              {bank.is_owner && <Link href={`/banks/${bank.id}/manage`} className="button button--primary button--sm">
+              {bank.is_owner && <Link href={`/banks/${bank.id}/manage`} className={buttonVariants({ variant: 'primary', size: 'sm' })}>
   管理
 </Link>}
             </div>

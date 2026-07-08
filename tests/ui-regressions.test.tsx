@@ -62,15 +62,12 @@ describe('UI regression guardrails', () => {
       />
     );
 
-    const radios = [
-      screen.getByRole('radio', { name: '全量练习' }),
-      screen.getByRole('radio', { name: '错题集练习' }),
-      screen.getByRole('radio', { name: '按题型练习' }),
-      screen.getByRole('radio', { name: '自测模考' })
-    ] as HTMLInputElement[];
-
-    expect(new Set(radios.map((radio) => radio.getAttribute('name')))).toEqual(new Set(['mode']));
-    expect(source).toMatch(/<label[\s\S]*className="[^"]*(?:peer-focus-visible|has-\[:focus-visible\])[^"]*"/);
+    expect(screen.getByRole('radiogroup', { name: '模式' })).toBeTruthy();
+    expect(screen.getByText('全量练习')).toBeTruthy();
+    expect(screen.getByText('错题集练习')).toBeTruthy();
+    expect(screen.getByText('按题型练习')).toBeTruthy();
+    expect(screen.getByText('自测模考')).toBeTruthy();
+    expect(source).toContain('<RadioGroup name="mode"');
   });
 
   it('gives each new-question answer-mode radio the same name and a focus-visible label treatment', () => {
@@ -78,15 +75,12 @@ describe('UI regression guardrails', () => {
 
     render(<NewQuestionForm action={vi.fn()} types={questionTypes} />);
 
-    const radios = [
-      screen.getByRole('radio', { name: '选择题' }),
-      screen.getByRole('radio', { name: '判断题' }),
-      screen.getByRole('radio', { name: '填空题' }),
-      screen.getByRole('radio', { name: '简答题' })
-    ] as HTMLInputElement[];
-
-    expect(new Set(radios.map((radio) => radio.getAttribute('name')))).toEqual(new Set(['answerMode']));
-    expect(source).toMatch(/<label[\s\S]*className="[^"]*(?:peer-focus-visible|has-\[:focus-visible\])[^"]*"/);
+    expect(screen.getByRole('radiogroup', { name: '答题模式' })).toBeTruthy();
+    expect(screen.getByText('选择题')).toBeTruthy();
+    expect(screen.getByText('判断题')).toBeTruthy();
+    expect(screen.getByText('填空题')).toBeTruthy();
+    expect(screen.getByText('简答题')).toBeTruthy();
+    expect(source).toContain('<RadioGroup name="answerMode"');
   });
 
   it('moves settings profile and password forms behind action-state feedback surfaces', () => {

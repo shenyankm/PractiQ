@@ -2,11 +2,18 @@
 
 import { useId, useState } from 'react';
 import { Play } from 'lucide-react';
-import { Button } from '@heroui/react/button';
-import { Description } from '@heroui/react/description';
-import { FieldGroup } from '@heroui/react/fieldset';
-import { Input } from '@heroui/react/input';
-import { Label } from '@heroui/react/label';
+import {
+  Button,
+  Description,
+  FieldGroup,
+  Input,
+  Label,
+  Select,
+  ListBox,
+  RadioGroup,
+  Radio,
+  Checkbox
+} from '@heroui/react';
 
 
 type PracticeMode = 'all' | 'wrong' | 'by_type' | 'exam';
@@ -34,50 +41,29 @@ export function PracticeSetupForm({
     <form action={action} className="flex flex-col gap-4">
       <FieldGroup className="gap-4">
         <div>
-          <Label id={`${formId}-mode-label`}>模式</Label>
           <input type="hidden" name="mode" value={mode} />
-          <div
-            role="radiogroup"
-            aria-labelledby={`${formId}-mode-label`}
-            className="grid w-full grid-cols-2 gap-2 md:grid-cols-4"
-          >
+          <RadioGroup name="mode" value={mode} onChange={(value) => setMode(value as PracticeMode)}>
+            <Label>模式</Label>
             {practiceModeOptions.map((option) => (
-              <label
-                key={option.value}
-                className="flex cursor-pointer items-center justify-center rounded-md border border-border/70 px-3 py-2 text-sm data-[checked=true]:bg-foreground/10 data-[checked=true]:text-foreground has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-ring/35"
-                data-checked={mode === option.value}
-              >
-                <input
-                  type="radio"
-                  name="mode"
-                  value={option.value}
-                  className="sr-only"
-                  aria-label={option.ariaLabel}
-                  checked={mode === option.value}
-                  onChange={() => setMode(option.value)}
-                />
-                {option.label}
-              </label>
+              <Radio key={option.value} value={option.value}>
+                <Radio.Content>
+                  <Radio.Control><Radio.Indicator /></Radio.Control>
+                  <Label>{option.ariaLabel}</Label>
+                </Radio.Content>
+              </Radio>
             ))}
-          </div>
+          </RadioGroup>
           <Description>{modeDescriptions[mode]}</Description>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
           <div data-disabled={allQuestionsDisabled}>
-            <div className="flex items-center gap-3 rounded-md border px-3 py-2">
-              <input
-                id={`${formId}-allQuestions`}
-                name="allQuestions"
-                type="checkbox"
-                className="size-4 rounded border border-border"
-                defaultChecked
-                disabled={allQuestionsDisabled}
-              />
-              <Label htmlFor={`${formId}-allQuestions`} className="font-normal">
-                使用全部题目
-              </Label>
-            </div>
+            <Checkbox name="allQuestions" defaultSelected isDisabled={allQuestionsDisabled}>
+              <Checkbox.Content>
+                <Checkbox.Control><Checkbox.Indicator /></Checkbox.Control>
+                <Label>使用全部题目</Label>
+              </Checkbox.Content>
+            </Checkbox>
             <Description>仅全量练习启用。取消后按下方题目数量抽题。</Description>
           </div>
 
@@ -96,13 +82,21 @@ export function PracticeSetupForm({
         </div>
 
         <div data-disabled={typeDisabled}>
-          <Label htmlFor={`${formId}-questionTypeId`}>题型</Label>
-          <select id={`${formId}-questionTypeId`} className="w-full" name="questionTypeId" defaultValue="all" disabled={typeDisabled}>
-<option value="all">全部题型</option>
+          <Select name="questionTypeId" defaultSelectedKey="all" isDisabled={typeDisabled}>
+            <Label>题型</Label>
+            <Select.Trigger>
+              <Select.Value />
+              <Select.Indicator />
+            </Select.Trigger>
+            <Select.Popover>
+              <ListBox>
+                <ListBox.Item id="all">全部题型</ListBox.Item>
                 {Object.entries(typeCounts).map(([typeId, count]) => (
-                  <option key={typeId} value={typeId}>{typeId} ({count})</option>
+                  <ListBox.Item key={typeId} id={typeId}>{typeId} ({count})</ListBox.Item>
                 ))}
-</select>
+              </ListBox>
+            </Select.Popover>
+          </Select>
           <Description>仅按题型练习启用。</Description>
         </div>
       </FieldGroup>

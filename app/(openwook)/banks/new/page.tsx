@@ -1,10 +1,18 @@
 import { listSubjects } from '@/lib/openwook/services';
 import { createBankAction } from '../actions';
-import { Button } from '@heroui/react/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@heroui/react/card';
-import { Input } from '@heroui/react/input';
-import { Label } from '@heroui/react/label';
-import { TextArea } from '@heroui/react/textarea';
+import {
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Input,
+  Label,
+  TextArea,
+  Select,
+  ListBox,
+  Checkbox
+} from '@heroui/react';
 
 export default async function NewBankPage() {
   const subjects = await listSubjects();
@@ -31,25 +39,29 @@ export default async function NewBankPage() {
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="subject">学科</Label>
-              <select id="subject" className="w-full" name="subject" defaultValue={subjects[0]?.subject_id}>
-{subjects.map((subject) => (
-                      <option key={subject.subject_id} value={subject.subject_id}>
+              <Select name="subject" defaultSelectedKey={subjects[0]?.subject_id}>
+                <Label>学科</Label>
+                <Select.Trigger>
+                  <Select.Value />
+                  <Select.Indicator />
+                </Select.Trigger>
+                <Select.Popover>
+                  <ListBox>
+                    {subjects.map((subject) => (
+                      <ListBox.Item key={subject.subject_id} id={subject.subject_id}>
                         {subject.display_name}
-                      </option>
+                      </ListBox.Item>
                     ))}
-</select>
+                  </ListBox>
+                </Select.Popover>
+              </Select>
             </div>
-            <div className="flex items-center gap-2">
-              <input
-                id="isPublic"
-                name="isPublic"
-                type="checkbox"
-                className="size-4 rounded border border-border"
-              />
-              <Label htmlFor="isPublic" className="font-normal">
-              公开题库
-              </Label>
-            </div>
+                        <Checkbox name="isPublic">
+              <Checkbox.Content>
+                <Checkbox.Control><Checkbox.Indicator /></Checkbox.Control>
+                <Label>公开题库</Label>
+              </Checkbox.Content>
+            </Checkbox>
             <Button type="submit">创建题库</Button>
           </form>
         </CardContent>

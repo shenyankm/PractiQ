@@ -1,10 +1,16 @@
 import { ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { notFound } from 'next/navigation';
-import Link from 'next/link';
+import {
+  Link,
+  Badge,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle
+} from '@heroui/react';
 import { getCurrentUser } from '@/lib/openwook/auth';
 import { getQuestion } from '@/lib/openwook/services';
-import { Badge } from '@heroui/react/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@heroui/react/card';
+import { buttonVariants } from '@heroui/styles';
 
 type QuestionOptionRow = {
   id: number;
@@ -38,7 +44,7 @@ export default async function QuestionDetailPage({ params }: { params: Promise<{
           <h1 className="text-2xl font-semibold tracking-tight">题目 #{question.id}</h1>
           <p className="text-sm text-muted-foreground">{question.question_type_id} · {question.answer_mode} · {question.status}</p>
         </div>
-        <Link href="/banks" className="button button--outline">
+        <Link href="/banks" className={buttonVariants({ variant: 'outline' })}>
   <ArrowLeft className="size-4" />返回题库
 </Link>
       </div>

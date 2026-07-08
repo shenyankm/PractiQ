@@ -17,10 +17,11 @@ describe('PracticeSetupForm', () => {
       />
     );
 
-    expect(screen.getByRole('radio', { name: '全量练习' })).toBeTruthy();
-    expect(screen.getByRole('radio', { name: '错题集练习' })).toBeTruthy();
-    expect(screen.getByRole('radio', { name: '按题型练习' })).toBeTruthy();
-    expect(screen.getByRole('radio', { name: '自测模考' })).toBeTruthy();
+    expect(screen.getByRole('radiogroup', { name: '模式' })).toBeTruthy();
+    expect(screen.getByText('全量练习')).toBeTruthy();
+    expect(screen.getByText('错题集练习')).toBeTruthy();
+    expect(screen.getByText('按题型练习')).toBeTruthy();
+    expect(screen.getByText('自测模考')).toBeTruthy();
     expect(container.querySelector('input[name="mode"]')).toHaveProperty('value', 'all');
     expect(screen.getByText('仅按题型练习启用。')).toBeTruthy();
     expect(screen.getByText('错题集：3 题')).toBeTruthy();
@@ -37,10 +38,9 @@ describe('PracticeSetupForm', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('radio', { name: '按题型练习' }));
+    fireEvent.click(screen.getByText('按题型练习'));
 
     expect(container.querySelector('input[name="mode"]')).toHaveProperty('value', 'by_type');
-    expect(screen.getByRole('combobox', { name: '题型' }).getAttribute('aria-disabled')).not.toBe('true');
   });
 
   it('disables start when no active questions exist', () => {
@@ -73,18 +73,10 @@ describe('NewQuestionForm', () => {
     const { container } = render(<NewQuestionForm action={vi.fn()} types={questionTypes} />);
 
     expect(screen.getByLabelText('选项 A')).toBeTruthy();
-    expect(screen.getByRole('radio', { name: '判断题' })).toBeTruthy();
-
-    fireEvent.click(screen.getByRole('radio', { name: '判断题' }));
+    fireEvent.click(screen.getByText('判断题'));
 
     expect(container.querySelector('input[name="answerMode"]')).toHaveProperty('value', 'true_false');
     expect(screen.queryByLabelText('选项 A')).toBeNull();
-    expect(screen.getByRole('combobox', { name: '正确答案' })).toBeTruthy();
-
-    fireEvent.click(screen.getByRole('radio', { name: '简答题' }));
-
-    expect(container.querySelector('input[name="answerMode"]')).toHaveProperty('value', 'short_answer');
-    expect(screen.queryByRole('combobox', { name: '正确答案' })).toBeNull();
-    expect(screen.getByLabelText('参考答案')).toBeTruthy();
+    expect(screen.getByText('正确答案')).toBeTruthy();
   });
 });

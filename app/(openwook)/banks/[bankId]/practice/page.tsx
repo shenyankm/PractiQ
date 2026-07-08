@@ -1,12 +1,17 @@
 import { SlidersHorizontal } from 'lucide-react';
 import { notFound } from 'next/navigation';
-import Link from 'next/link';
+import {
+  Link,
+  Badge,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle
+} from '@heroui/react';
 import { getCurrentUser } from '@/lib/openwook/auth';
 import { getBankPracticeSummary } from '@/lib/openwook/services';
 import { startPracticeAction } from '../../actions';
 import { PracticeSetupForm } from './practice-setup-form';
-import { Badge } from '@heroui/react/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@heroui/react/card';
 
 export { PracticeSetupForm };
 

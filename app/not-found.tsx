@@ -1,6 +1,6 @@
 import { CircleIcon } from 'lucide-react';
-import Link from 'next/link';
-import { Card, CardContent } from '@heroui/react/card';
+import { Link, Card, CardContent } from '@heroui/react';
+import { buttonVariants } from '@heroui/styles';
 
 export default function NotFound() {
   return (
@@ -17,7 +17,7 @@ export default function NotFound() {
           The page you are looking for might have been removed, had its name
           changed, or is temporarily unavailable.
         </p>
-        <Link href="/" className="button button--outline">
+        <Link href="/" className={buttonVariants({ variant: 'outline' })}>
   Back to Home
 </Link>
         </CardContent>

@@ -1,17 +1,24 @@
 import type { Metadata } from 'next';
 import { FileUp, Play } from 'lucide-react';
 import { Suspense } from 'react';
-import Link from 'next/link';
+import {
+  Link,
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Input,
+  Label,
+  ProgressBar,
+  Select,
+  ListBox
+} from '@heroui/react';
 import { getCurrentUser } from '@/lib/openwook/auth';
 import { listBanks, listImportJobs } from '@/lib/openwook/services';
 import type { ImportJob, QuestionBank } from '@/lib/openwook/types';
 import { createImportJobAction } from '../banks/actions';
-import { Badge } from '@heroui/react/badge';
-import { Button } from '@heroui/react/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@heroui/react/card';
-import { Input } from '@heroui/react/input';
-import { Label } from '@heroui/react/label';
-import { ProgressBar } from '@heroui/react/progress-bar';
 
 
 export const metadata: Metadata = {
@@ -82,13 +89,22 @@ async function NewImportForm({ banksPromise }: { banksPromise: Promise<QuestionB
         <form action={createImportJobAction} className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
             <Label htmlFor="bankId">目标题库</Label>
-            <select id="bankId" className="w-full" name="bankId" defaultValue={banks[0] ? String(banks[0].id) : undefined} required disabled={banks.length === 0}>
-{banks.map((bank) => (
-                    <option key={bank.id} value={String(bank.id)}>
+            <Select name="bankId" defaultSelectedKey={banks[0] ? String(banks[0].id) : undefined} isRequired isDisabled={banks.length === 0}>
+              <Label>目标题库</Label>
+              <Select.Trigger>
+                <Select.Value />
+                <Select.Indicator />
+              </Select.Trigger>
+              <Select.Popover>
+                <ListBox>
+                  {banks.map((bank) => (
+                    <ListBox.Item key={bank.id} id={String(bank.id)}>
                       {bank.name}
-                    </option>
+                    </ListBox.Item>
                   ))}
-</select>
+                </ListBox>
+              </Select.Popover>
+            </Select>
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="sourceFile">原件</Label>
@@ -107,17 +123,35 @@ async function NewImportForm({ banksPromise }: { banksPromise: Promise<QuestionB
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
               <Label htmlFor="sourceType">来源类型</Label>
-              <select id="sourceType" className="w-full" name="sourceType" defaultValue="txt">
-<option value="txt">TXT</option>
-                    <option value="docx">DOCX（Plus / Enterprise）</option>
-</select>
+              <Select name="sourceType" defaultSelectedKey="txt">
+                <Label>来源类型</Label>
+                <Select.Trigger>
+                  <Select.Value />
+                  <Select.Indicator />
+                </Select.Trigger>
+                <Select.Popover>
+                  <ListBox>
+                    <ListBox.Item id="txt">TXT</ListBox.Item>
+                    <ListBox.Item id="docx">DOCX（Plus / Enterprise）</ListBox.Item>
+                  </ListBox>
+                </Select.Popover>
+              </Select>
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="parseMode">解析方式</Label>
-              <select id="parseMode" className="w-full" name="parseMode" defaultValue="layout">
-<option value="layout">版面解析</option>
-                    <option value="text">文本解析</option>
-</select>
+              <Select name="parseMode" defaultSelectedKey="layout">
+                <Label>解析方式</Label>
+                <Select.Trigger>
+                  <Select.Value />
+                  <Select.Indicator />
+                </Select.Trigger>
+                <Select.Popover>
+                  <ListBox>
+                    <ListBox.Item id="layout">版面解析</ListBox.Item>
+                    <ListBox.Item id="text">文本解析</ListBox.Item>
+                  </ListBox>
+                </Select.Popover>
+              </Select>
             </div>
           </div>
           <Input name="defaultQuestionTypeId" placeholder="默认题型 ID，可选" />

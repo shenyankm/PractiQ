@@ -1,10 +1,16 @@
 import { BookOpen, Database, FileWarning, Shield, Tags, UsersRound } from 'lucide-react';
-import Link from 'next/link';
+import {
+  Link,
+  Badge,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle
+} from '@heroui/react';
 import { getAdminOverview } from '@/lib/openwook/services';
 import { AdminNav } from './admin-nav';
 import { requireAdminPage } from './admin-auth';
-import { Badge } from '@heroui/react/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@heroui/react/card';
+import { buttonVariants } from '@heroui/styles';
 
 export default async function AdminPage() {
   const user = await requireAdminPage();
@@ -43,7 +49,7 @@ export default async function AdminPage() {
             <p className="text-sm text-muted-foreground">
               查看用户角色、会员、题库和导入使用情况，启用或停用账号。
             </p>
-            <Link href="/admin/users" className="button button--primary w-fit">
+            <Link href="/admin/users" className={buttonVariants({ variant: 'primary' })}>
   进入用户管理
 </Link>
           </CardContent>
@@ -57,7 +63,7 @@ export default async function AdminPage() {
             <p className="text-sm text-muted-foreground">
               维护学科知识点编码、名称、父级关系和结构化元数据。
             </p>
-            <Link href="/admin/knowledge-points" className="button button--primary w-fit">
+            <Link href="/admin/knowledge-points" className={buttonVariants({ variant: 'primary' })}>
   进入知识点管理
 </Link>
           </CardContent>
@@ -71,7 +77,7 @@ export default async function AdminPage() {
               <FileWarning className="size-4 text-foreground" />
               当前有 {overview.open_review_items} 个导入复核项待处理。
             </div>
-            <Link href="/imports" className="button button--outline button--sm">
+            <Link href="/imports" className={buttonVariants({ variant: 'outline', size: 'sm' })}>
   查看导入任务
 </Link>
           </CardContent>
