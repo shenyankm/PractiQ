@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -113,8 +114,8 @@ func EncodeImportEvent(event ImportEvent) string {
 }
 
 func envInt(name string, fallback int) int {
-	var value int
-	if _, err := fmt.Sscanf(strings.TrimSpace(os.Getenv(name)), "%d", &value); err != nil || value <= 0 {
+	value, err := strconv.Atoi(strings.TrimSpace(os.Getenv(name)))
+	if err != nil || value <= 0 {
 		return fallback
 	}
 	return value
