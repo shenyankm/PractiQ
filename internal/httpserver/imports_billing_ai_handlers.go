@@ -1,12 +1,11 @@
 package httpserver
 
 import (
+	"bytes"
 	"context"
-	"crypto/hmac"
-	"crypto/sha256"
-	"crypto/subtle"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -15,6 +14,8 @@ import (
 	"strings"
 	"time"
 
+	paddle "github.com/PaddleHQ/paddle-go-sdk/v5"
+	paddleerr "github.com/PaddleHQ/paddle-go-sdk/v5/pkg/paddleerr"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"openwook/internal/aiclient"
@@ -958,49 +959,81 @@ func billingPlanByKey(plans []billing.Plan, key string) (billing.Plan, bool) {
 	return billing.Plan{}, false
 }
 
+type paddleTransactionCreator interface {
+	CreateTransaction(context.Context, *paddle.CreateTransactionRequest) (*paddle.Transaction, error)
+}
+
 func createPaddleTransaction(ctx context.Context, plan billing.Plan, user auth.User) (string, *string, map[string]any, error) {
 	apiKey := strings.TrimSpace(os.Getenv("PADDLE_API_KEY"))
 	if apiKey == "" {
 		return "", nil, nil, api.NewError(http.StatusInternalServerError, "BILLING_NOT_CONFIGURED", "Paddle API key is not configured", nil)
 	}
-	payload := map[string]any{
-		"items":           []map[string]any{{"price_id": plan.PriceID, "quantity": 1}},
-		"collection_mode": "automatic",
-		"custom_data":     map[string]any{"userId": user.ID, "planKey": plan.PlanKey},
-	}
-	body, err := json.Marshal(payload)
+
+	client, err := newPaddleClient(apiKey, os.Getenv("PADDLE_ENVIRONMENT"))
 	if err != nil {
-		return "", nil, nil, err
+		return "", nil, nil, api.NewError(http.StatusInternalServerError, "PADDLE_CLIENT_INIT_FAILED", "Unable to initialize Paddle client", map[string]any{"error": err.Error()})
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://api.paddle.com/transactions", strings.NewReader(string(body)))
+	return createPaddleTransactionWithClient(ctx, client, plan, user)
+}
+
+func newPaddleClient(apiKey string, environment string) (*paddle.SDK, error) {
+	if strings.TrimSpace(environment) == "production" {
+		return paddle.New(apiKey)
+	}
+	return paddle.NewSandbox(apiKey)
+}
+
+func createPaddleTransactionWithClient(ctx context.Context, client paddleTransactionCreator, plan billing.Plan, user auth.User) (string, *string, map[string]any, error) {
+	transaction, err := client.CreateTransaction(ctx, &paddle.CreateTransactionRequest{
+		Items: []paddle.CreateTransactionItems{
+			*paddle.NewCreateTransactionItemsTransactionItemFromCatalog(&paddle.TransactionItemFromCatalog{
+				PriceID:  plan.PriceID,
+				Quantity: 1,
+			}),
+		},
+		CollectionMode: paddle.PtrTo(paddle.CollectionModeAutomatic),
+		CustomData:     paddle.CustomData{"userId": user.ID, "planKey": plan.PlanKey},
+	})
 	if err != nil {
-		return "", nil, nil, err
+		return "", nil, nil, paddleCheckoutError(err)
 	}
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return "", nil, nil, err
-	}
-	defer resp.Body.Close()
-	responseBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", nil, nil, err
-	}
-	var decoded map[string]any
-	if err := json.Unmarshal(responseBody, &decoded); err != nil {
-		return "", nil, nil, api.NewError(http.StatusBadGateway, "PADDLE_RESPONSE_INVALID", "Paddle returned invalid JSON", nil)
-	}
-	if resp.StatusCode >= 400 {
-		return "", nil, nil, api.NewError(http.StatusBadGateway, "PADDLE_REQUEST_FAILED", "Paddle checkout request failed", decoded)
-	}
-	data := mapValue(decoded, "data")
-	transactionID := stringValue(data, "id")
-	if transactionID == "" {
+	if transaction == nil || strings.TrimSpace(transaction.ID) == "" {
 		return "", nil, nil, api.NewError(http.StatusBadGateway, "PADDLE_RESPONSE_INVALID", "Paddle transaction response is missing id", nil)
 	}
-	customerID := stringPtrValueAny(data, "customer_id", "customerId")
-	return transactionID, customerID, data, nil
+	rawPayload, err := paddleTransactionPayload(transaction)
+	if err != nil {
+		return "", nil, nil, api.NewError(http.StatusBadGateway, "PADDLE_RESPONSE_INVALID", "Paddle returned invalid transaction data", map[string]any{"error": err.Error()})
+	}
+	return transaction.ID, transaction.CustomerID, rawPayload, nil
+}
+
+func paddleCheckoutError(err error) error {
+	var paddleErr *paddleerr.Error
+	if errors.As(err, &paddleErr) {
+		details := map[string]any{
+			"type":    paddleErr.Type,
+			"code":    paddleErr.Code,
+			"detail":  paddleErr.Detail,
+			"status":  paddleErr.Status,
+			"errors":  paddleErr.Errors,
+			"extra":   paddleErr.Extra,
+			"docsUrl": paddleErr.DocumentationURL,
+		}
+		return api.NewError(http.StatusBadGateway, "PADDLE_REQUEST_FAILED", "Paddle checkout request failed", details)
+	}
+	return api.NewError(http.StatusBadGateway, "PADDLE_REQUEST_FAILED", "Paddle checkout request failed", map[string]any{"error": err.Error()})
+}
+
+func paddleTransactionPayload(transaction *paddle.Transaction) (map[string]any, error) {
+	body, err := json.Marshal(transaction)
+	if err != nil {
+		return nil, err
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return nil, err
+	}
+	return payload, nil
 }
 
 func upsertCheckoutBillingState(ctx context.Context, pool *pgxpool.Pool, userID int, plan billing.Plan, transactionID string, customerID *string, rawPayload map[string]any) error {
@@ -1113,37 +1146,22 @@ func upsertTransactionBillingState(ctx context.Context, pool *pgxpool.Pool, payl
 }
 
 func verifyPaddleWebhookSignature(rawBody []byte, header string, secret string) error {
-	parts := parseSignatureParts(header)
-	ts := parts["ts"]
-	h1 := parts["h1"]
-	if ts == "" || h1 == "" {
-		return api.NewError(http.StatusUnauthorized, "PADDLE_SIGNATURE_INVALID", "Invalid paddle-signature header", nil)
+	req, err := http.NewRequest(http.MethodPost, "https://webhook.paddle.local", bytes.NewReader(rawBody))
+	if err != nil {
+		return err
 	}
-	mac := hmac.New(sha256.New, []byte(secret))
-	mac.Write([]byte(ts))
-	mac.Write([]byte(":"))
-	mac.Write(rawBody)
-	expected := []byte(fmt.Sprintf("%x", mac.Sum(nil)))
-	if subtle.ConstantTimeCompare(expected, []byte(strings.ToLower(h1))) != 1 {
+	req.Header.Set("Paddle-Signature", header)
+	ok, err := paddle.NewWebhookVerifier(secret).Verify(req)
+	if err != nil {
+		if errors.Is(err, paddle.ErrMissingSignature) || errors.Is(err, paddle.ErrInvalidSignatureFormat) || errors.Is(err, paddle.ErrReplayAttack) {
+			return api.NewError(http.StatusUnauthorized, "PADDLE_SIGNATURE_INVALID", "Invalid paddle-signature header", nil)
+		}
+		return err
+	}
+	if !ok {
 		return api.NewError(http.StatusUnauthorized, "PADDLE_SIGNATURE_INVALID", "Invalid paddle-signature header", nil)
 	}
 	return nil
-}
-
-func parseSignatureParts(header string) map[string]string {
-	out := map[string]string{}
-	for _, part := range strings.Split(header, ";") {
-		part = strings.TrimSpace(part)
-		if part == "" {
-			continue
-		}
-		key, value, ok := strings.Cut(part, "=")
-		if !ok {
-			continue
-		}
-		out[strings.ToLower(strings.TrimSpace(key))] = strings.TrimSpace(value)
-	}
-	return out
 }
 
 func decodePaddleWebhook(rawBody []byte) (string, map[string]any, error) {
