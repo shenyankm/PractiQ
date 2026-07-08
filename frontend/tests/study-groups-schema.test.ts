@@ -2,8 +2,8 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 const schema = [
-  '../db/study-groups/30_study_groups.sql',
-  '../db/study-groups/80_study_group_analytics.sql'
+  '../backend/db/study-groups/30_study_groups.sql',
+  '../backend/db/study-groups/80_study_group_analytics.sql'
 ].map((file) => readFileSync(file, 'utf8')).join('\n');
 
 function expectTable(name: string) {

@@ -20,28 +20,28 @@ GO_API_URL="${GO_API_URL:-http://$OPENWOOK_HOST:$PORT}"
 
 pids=()
 cleanup() {
-  for pid in "${pids[@]:-}"; do
-    kill "$pid" 2>/dev/null || true
-  done
-  wait 2>/dev/null || true
+	for pid in "${pids[@]:-}"; do
+		kill "$pid" 2>/dev/null || true
+	done
+	wait 2>/dev/null || true
 }
 trap cleanup EXIT INT TERM
 
 AI_SERVICE_TOKEN="$AI_SERVICE_TOKEN" python -m uvicorn openwook_ai.main:app --app-dir ai --host "$AI_HOST" --port "$AI_PORT" &
 pids+=("$!")
-AI_SERVICE_TOKEN="$AI_SERVICE_TOKEN" AUTH_SECRET="${AUTH_SECRET:-development-secret}" AI_SERVICE_URL="$AI_SERVICE_URL" APP_ORIGIN="$APP_ORIGIN" OPENWOOK_HOST="$OPENWOOK_HOST" PORT="$PORT" POSTGRES_URL="$POSTGRES_URL" DATABASE_URL="$DATABASE_URL" REDIS_URL="$REDIS_URL" go run ./cmd/openwook-api &
+(cd backend && AI_SERVICE_TOKEN="$AI_SERVICE_TOKEN" AUTH_SECRET="${AUTH_SECRET:-development-secret}" AI_SERVICE_URL="$AI_SERVICE_URL" APP_ORIGIN="$APP_ORIGIN" OPENWOOK_HOST="$OPENWOOK_HOST" PORT="$PORT" POSTGRES_URL="$POSTGRES_URL" DATABASE_URL="$DATABASE_URL" REDIS_URL="$REDIS_URL" go run ./cmd/openwook-api) &
 pids+=("$!")
-AI_SERVICE_TOKEN="$AI_SERVICE_TOKEN" AI_SERVICE_URL="$AI_SERVICE_URL" POSTGRES_URL="$POSTGRES_URL" DATABASE_URL="$DATABASE_URL" REDIS_URL="$REDIS_URL" go run ./cmd/openwook-worker &
+(cd backend && AI_SERVICE_TOKEN="$AI_SERVICE_TOKEN" AI_SERVICE_URL="$AI_SERVICE_URL" POSTGRES_URL="$POSTGRES_URL" DATABASE_URL="$DATABASE_URL" REDIS_URL="$REDIS_URL" go run ./cmd/openwook-worker) &
 pids+=("$!")
-GO_API_URL="$GO_API_URL" pnpm dev --host "$VITE_HOST" --port "$VITE_PORT" &
+GO_API_URL="$GO_API_URL" pnpm --dir frontend dev --host "$VITE_HOST" --port "$VITE_PORT" &
 pids+=("$!")
 
 for _ in $(seq 1 120); do
-  if curl -fsS "http://$VITE_HOST:$VITE_PORT" >/dev/null 2>&1; then
-    wait
-    exit 0
-  fi
-  sleep 1
+	if curl -fsS "http://$VITE_HOST:$VITE_PORT" >/dev/null 2>&1; then
+		wait
+		exit 0
+	fi
+	sleep 1
 done
 
 echo "Timed out waiting for Vite dev server" >&2

@@ -2,15 +2,15 @@ import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 const splitFiles = [
-  '../db/core/00_functions.sql',
-  '../db/users/10_users.sql',
-  '../db/banks/20_question_banks.sql',
-  '../db/study-groups/30_study_groups.sql',
-  '../db/imports/40_question_import_jobs.sql',
-  '../db/questions/50_questions.sql',
-  '../db/media/60_media.sql',
-  '../db/practice/70_user_answers.sql',
-  '../db/study-groups/80_study_group_analytics.sql'
+  '../backend/db/core/00_functions.sql',
+  '../backend/db/users/10_users.sql',
+  '../backend/db/banks/20_question_banks.sql',
+  '../backend/db/study-groups/30_study_groups.sql',
+  '../backend/db/imports/40_question_import_jobs.sql',
+  '../backend/db/questions/50_questions.sql',
+  '../backend/db/media/60_media.sql',
+  '../backend/db/practice/70_user_answers.sql',
+  '../backend/db/study-groups/80_study_group_analytics.sql'
 ];
 
 function splitSchema() {
@@ -44,7 +44,7 @@ describe('db schema file structure', () => {
   });
 
   it('does not keep a duplicate aggregate schema file', () => {
-    expect(existsSync('../db/schema.sql')).toBe(false);
+    expect(existsSync('../backend/db/schema.sql')).toBe(false);
   });
 
   it('uses PostgreSQL syntax without duplicate object declarations', () => {
