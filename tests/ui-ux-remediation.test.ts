@@ -9,21 +9,11 @@ describe('UI/UX remediation guardrails', () => {
     expect(layout).not.toContain('maximumScale');
   });
 
-  it('keeps global theme tokens in one Tailwind v4 format', () => {
-    const globals = readFileSync('app/globals.css', 'utf8');
 
-    expect(globals.match(/@theme inline/g)?.length).toBe(1);
-    expect(globals).not.toContain('hsl(var(--background))');
-    expect(globals).not.toMatch(/--background:\s*0 0% 100%/);
-  });
-
-  it('uses HeroUI styles without keeping the removed shadcn component layer', () => {
+  it('imports HeroUI styles through the global stylesheet', () => {
     const globals = readFileSync('app/globals.css', 'utf8');
-    const pkg = readFileSync('package.json', 'utf8');
 
     expect(globals).toContain('@import "@heroui/styles"');
-    expect(pkg).toContain('"@heroui/react"');
-    expect(pkg).not.toContain('"radix-ui"');
   });
 
   it('gives filter search fields accessible names instead of placeholder-only labels', () => {

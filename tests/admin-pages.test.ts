@@ -18,13 +18,6 @@ describe('admin management pages', () => {
     expect(knowledgePoints).toContain('requireAdminPage');
   });
 
-  it('exposes an admin navigation item only for admin users', () => {
-    const shell = readFileSync('app/(openwook)/openwook-shell.tsx', 'utf8');
-
-    expect(shell).toContain("role: 'admin' | 'user'");
-    expect(shell).toContain("href: '/admin'");
-    expect(shell).toContain("user.role === 'admin'");
-  });
 
   it('lets administrators manage user status, role, and membership from the users page', () => {
     const users = readFileSync('app/(openwook)/admin/users/page.tsx', 'utf8');

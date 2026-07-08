@@ -28,6 +28,9 @@ describe('brand color system', () => {
   it('uses HeroUI default semantic theme tokens for the global visual system', () => {
     const globals = readFileSync('app/globals.css', 'utf8');
 
+    expect(globals.match(/@theme inline/g)?.length).toBe(1);
+    expect(globals).not.toContain('hsl(var(--background))');
+    expect(globals).not.toMatch(/--background:\s*0 0% 100%/);
     expect(globals).toContain('--surface: var(--white);');
     expect(globals).toContain('--overlay: var(--white);');
     expect(globals).toContain('--default: oklch(94% 0.001 286.375);');

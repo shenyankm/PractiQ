@@ -8,6 +8,8 @@ describe('HeroUI integration', () => {
   it('renders a HeroUI component', () => {
     render(<Button variant="tertiary">HeroUI ready</Button>);
 
-    expect(screen.getByRole('button', { name: 'HeroUI ready' })).toBeTruthy();
+    const button = screen.getByRole('button', { name: 'HeroUI ready' });
+    expect(button).toBeTruthy();
+    expect(button.className).toContain('button');
   });
 });

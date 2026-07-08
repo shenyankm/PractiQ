@@ -89,6 +89,18 @@ describe('OpenWookShell', () => {
     expect(screen.getByRole('button', { name: '取消' })).toBeTruthy();
     expect(screen.getByRole('button', { name: '确认退出' })).toBeTruthy();
   });
+  it('renders enterprise membership text in the shared shell', () => {
+    navigationMock.pathname = '/settings';
+
+    render(
+      <OpenWookShell user={{ username: 'enterprise-user', membership: 'enterprise', avatarUrl: null, avatarOptimized: false, role: 'user' }}>
+        <div>Settings</div>
+      </OpenWookShell>
+    );
+
+    expect(screen.getByText('enterprise')).toBeTruthy();
+  });
+
 
   it('shows the admin navigation entry only to administrators', () => {
     navigationMock.pathname = '/dashboard';

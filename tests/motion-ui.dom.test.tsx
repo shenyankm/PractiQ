@@ -4,7 +4,6 @@ import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OpenWookShell } from '@/app/(openwook)/openwook-shell';
-import { Button } from '@heroui/react/button';
 
 const navigationMock = vi.hoisted(() => ({
   pathname: '/dashboard'
@@ -111,9 +110,4 @@ describe('motion UI affordances', () => {
     expect(dialog.className).toContain('data-[entering]:slide-in-from-top-2');
   });
 
-  it('renders buttons through the HeroUI component class contract', () => {
-    render(<Button>保存</Button>);
-
-    expect(screen.getByRole('button', { name: '保存' }).className).toContain('button');
-  });
 });

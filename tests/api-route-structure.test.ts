@@ -24,9 +24,9 @@ describe('API route structure', () => {
     expect(catchAll).not.toContain('auth/logout');
     expect(catchAll).not.toContain('auth/me');
     expect(catchAll).not.toContain('billing/checkout');
-    expect(catchAll).not.toContain("parts[0] === 'subjects'");
-    expect(catchAll).not.toContain("parts[0] === 'question-types'");
-    expect(catchAll).not.toContain("parts[0] === 'knowledge-points'");
+    expect(catchAll).not.toContain("path[0] === 'subjects'");
+    expect(catchAll).not.toContain("path[0] === 'question-types'");
+    expect(catchAll).not.toContain("path[0] === 'knowledge-points'");
   });
 
   it('requires the moved resource families to have dedicated route files', () => {
@@ -58,18 +58,18 @@ describe('API route structure', () => {
 
     const catchAll = readFileSync('app/api/v1/[[...path]]/route.ts', 'utf8');
     const movedRouteMarkers = [
-      "parts[0] === 'banks'",
-      "parts[0] === 'questions'",
-      "parts[0] === 'groups'",
-      "parts[0] === 'practice-sessions'",
-      "parts[0] === 'import-jobs'",
-      "parts[0] === 'media'",
-      "parts[0] === 'analytics'",
-      "parts[0] === 'ai'",
-      "parts[0] === 'users'",
-      "parts.join('/') === 'analytics/me/summary'",
-      "parts.join('/') === 'analytics/me/snapshot'",
-      "parts.join('/') === 'users/me'"
+      "path[0] === 'banks'",
+      "path[0] === 'questions'",
+      "path[0] === 'groups'",
+      "path[0] === 'practice-sessions'",
+      "path[0] === 'import-jobs'",
+      "path[0] === 'media'",
+      "path[0] === 'analytics'",
+      "path[0] === 'ai'",
+      "path[0] === 'users'",
+      "path.join('/') === 'analytics/me/summary'",
+      "path.join('/') === 'analytics/me/snapshot'",
+      "path.join('/') === 'users/me'"
     ];
 
     expect(movedRouteMarkers.filter((marker) => catchAll.includes(marker))).toEqual([]);

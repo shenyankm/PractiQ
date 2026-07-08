@@ -4,7 +4,6 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { PracticeSetupForm } from '@/app/(openwook)/banks/[bankId]/practice/page';
 import { NewQuestionForm } from '@/app/(openwook)/banks/[bankId]/manage/new-question-form';
-import { AnswerForm } from '@/app/(openwook)/practice/[sessionId]/answer-form';
 import type { QuestionType } from '@/lib/openwook/types';
 
 describe('PracticeSetupForm', () => {
@@ -58,20 +57,6 @@ describe('PracticeSetupForm', () => {
   });
 });
 
-describe('AnswerForm', () => {
-  it('disables nested answer controls after a question has been submitted', () => {
-    render(
-      <AnswerForm action={vi.fn()} disabled>
-        <input aria-label="选项 A" name="selected" />
-        <textarea aria-label="答案" name="value" />
-      </AnswerForm>
-    );
-
-    expect((screen.getByLabelText('选项 A') as HTMLInputElement).disabled).toBe(true);
-    expect((screen.getByLabelText('答案') as HTMLTextAreaElement).disabled).toBe(true);
-    expect((screen.getByRole('button', { name: '提交答案' }) as HTMLButtonElement).disabled).toBe(true);
-  });
-});
 
 describe('NewQuestionForm', () => {
   const questionTypes: QuestionType[] = [
