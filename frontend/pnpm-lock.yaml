@@ -6,9 +6,7 @@ settings:
 
 importers:
 
-  .: {}
-
-  frontend:
+  .:
     dependencies:
       '@heroui/react':
         specifier: ^3.2.1
