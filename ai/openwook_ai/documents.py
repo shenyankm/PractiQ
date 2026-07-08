@@ -4,6 +4,7 @@ import base64
 import re
 from dataclasses import dataclass
 from io import BytesIO
+from typing import cast
 from zipfile import ZipFile
 
 import mammoth
@@ -38,10 +39,10 @@ def normalize_document(request: DocumentParseRequest) -> NormalizedDocument:
         ooxml = extract_docx_hints(file_bytes)
         warnings.extend([f'docx html: {message.message}' for message in html_result.messages])
         warnings.extend([f'docx text: {message.message}' for message in raw_text.messages])
-        visual_hints.extend(ooxml['visual_hints'])
+        visual_hints.extend(cast(list[str], ooxml['visual_hints']))
         metadata['mammothMessages'] = [message.message for message in [*html_result.messages, *raw_text.messages]]
         metadata['ooxml'] = {
-            **ooxml['metadata'],
+            **cast(dict[str, object], ooxml['metadata']),
             'chartSummaries': ooxml['chart_summaries'],
             'chemistryLikeText': ooxml['chemistry_like_text'],
         }

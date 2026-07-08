@@ -117,3 +117,4 @@ See `.env.example` for the full set. The most important groups are:
 - Product schema lives in `backend/db/*/*.sql`
 - Runtime/bootstrap helpers live in `backend/internal/db`
 - Product/API design notes live in `docs/system-design.md`
+- Static-analysis orphan warning review lives in `docs/shazam-orphan-review.md`
