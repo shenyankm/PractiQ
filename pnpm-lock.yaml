@@ -6,7 +6,9 @@ settings:
 
 importers:
 
-  .:
+  .: {}
+
+  frontend:
     dependencies:
       '@heroui/react':
         specifier: ^3.2.1
@@ -2720,7 +2722,7 @@ snapshots:
     dependencies:
       '@swc/helpers': 0.5.15
       react: 19.1.0
-      react-aria: 3.49.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      react-aria: 3.50.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       react-dom: 19.1.0(react@19.1.0)
 
   '@react-aria/i18n@3.13.1(react-dom@19.1.0(react@19.1.0))(react@19.1.0)':
@@ -2730,21 +2732,21 @@ snapshots:
       '@internationalized/string': 3.2.9
       '@swc/helpers': 0.5.15
       react: 19.1.0
-      react-aria: 3.49.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      react-aria: 3.50.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       react-dom: 19.1.0(react@19.1.0)
 
   '@react-aria/ssr@3.10.1(react-dom@19.1.0(react@19.1.0))(react@19.1.0)':
     dependencies:
       '@swc/helpers': 0.5.15
       react: 19.1.0
-      react-aria: 3.49.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      react-aria: 3.50.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       react-dom: 19.1.0(react@19.1.0)
 
   '@react-aria/utils@3.34.1(react-dom@19.1.0(react@19.1.0))(react@19.1.0)':
     dependencies:
       '@swc/helpers': 0.5.15
       react: 19.1.0
-      react-aria: 3.49.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      react-aria: 3.50.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       react-dom: 19.1.0(react@19.1.0)
       react-stately: 3.48.0(react@19.1.0)
 
@@ -3835,7 +3837,7 @@ snapshots:
   react-aria-components@1.18.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0):
     dependencies:
       '@internationalized/date': 3.12.2
-      '@react-types/shared': 3.35.0(react@19.1.0)
+      '@react-types/shared': 3.36.0(react@19.1.0)
       '@swc/helpers': 0.5.15
       client-only: 0.0.1
       react: 19.1.0
@@ -3859,7 +3861,7 @@ snapshots:
       '@internationalized/date': 3.12.2
       '@internationalized/number': 3.6.7
       '@internationalized/string': 3.2.9
-      '@react-types/shared': 3.35.0(react@19.1.0)
+      '@react-types/shared': 3.36.0(react@19.1.0)
       '@swc/helpers': 0.5.15
       aria-hidden: 1.2.6
       clsx: 2.1.1
@@ -3912,7 +3914,7 @@ snapshots:
       '@internationalized/date': 3.12.2
       '@internationalized/number': 3.6.7
       '@internationalized/string': 3.2.9
-      '@react-types/shared': 3.35.0(react@19.1.0)
+      '@react-types/shared': 3.36.0(react@19.1.0)
       '@swc/helpers': 0.5.15
       react: 19.1.0
       use-sync-external-store: 1.6.0(react@19.1.0)

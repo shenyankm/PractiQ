@@ -1,5 +1,8 @@
+packages:
+  - frontend
+
 allowBuilds:
-  '@tailwindcss/oxide': true
+  "@tailwindcss/oxide": true
   esbuild: true
   msgpackr-extract: true
   sharp: true
