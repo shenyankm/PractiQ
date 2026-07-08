@@ -1,23 +1,10 @@
 import { createBrowserRouter, Navigate, Outlet, RouterProvider, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/auth/AuthProvider';
 import { OpenWookShell } from '@/layout/OpenWookShell';
-import PricingPage from '@/pages/PricingPage';
 import LoginPage from '@/pages/LoginPage';
-import DashboardPage from '@/pages/DashboardPage';
-import BanksPage from '@/pages/BanksPage';
-import NewBankPage from '@/pages/NewBankPage';
-import BankDetailPage from '@/pages/BankDetailPage';
-import BankManagePage from '@/pages/BankManagePage';
-import PracticeSetupPage from '@/pages/PracticeSetupPage';
-import PracticeSessionPage from '@/pages/PracticeSessionPage';
-import ImportsPage from '@/pages/ImportsPage';
-import ImportDetailPage from '@/pages/ImportDetailPage';
-import QuestionDetailPage from '@/pages/QuestionDetailPage';
-import SettingsPage from '@/pages/SettingsPage';
 import AdminPage from '@/pages/AdminPage';
 import AdminKnowledgePointsPage from '@/pages/AdminKnowledgePointsPage';
 import AdminUsersPage from '@/pages/AdminUsersPage';
-import NotFoundPage from '@/pages/NotFoundPage';
 
 function ProtectedLayout() {
   const { user, isLoading, isAuthenticated } = useAuth();
@@ -30,32 +17,36 @@ function ProtectedLayout() {
   return <OpenWookShell user={user}><Outlet /></OpenWookShell>;
 }
 
+function Page({ title }: { title: string }) {
+  return <h1>{title}</h1>;
+}
+
 function AdminOnly() {
   const { user } = useAuth();
-  if (!user || user.role !== 'admin') return <NotFoundPage />;
+  if (!user || user.role !== 'admin') return <Page title="Not found page" />;
   return <Outlet />;
 }
 
 export function AppRouter() {
   const router = createBrowserRouter([
     { path: '/', element: <Navigate to="/dashboard" replace /> },
-    { path: '/pricing', element: <PricingPage /> },
+    { path: '/pricing', element: <Page title="Pricing page" /> },
     { path: '/sign-in', element: <LoginPage mode="signin" /> },
     { path: '/sign-up', element: <LoginPage mode="signup" /> },
     {
       element: <ProtectedLayout />,
       children: [
-        { path: '/dashboard', element: <DashboardPage /> },
-        { path: '/banks', element: <BanksPage /> },
-        { path: '/banks/new', element: <NewBankPage /> },
-        { path: '/banks/:bankId', element: <BankDetailPage /> },
-        { path: '/banks/:bankId/manage', element: <BankManagePage /> },
-        { path: '/banks/:bankId/practice', element: <PracticeSetupPage /> },
-        { path: '/practice/:sessionId', element: <PracticeSessionPage /> },
-        { path: '/imports', element: <ImportsPage /> },
-        { path: '/imports/:jobId', element: <ImportDetailPage /> },
-        { path: '/questions/:questionId', element: <QuestionDetailPage /> },
-        { path: '/settings', element: <SettingsPage /> },
+        { path: '/dashboard', element: <Page title="Dashboard page" /> },
+        { path: '/banks', element: <Page title="Banks page" /> },
+        { path: '/banks/new', element: <Page title="New bank page" /> },
+        { path: '/banks/:bankId', element: <Page title="Bank detail page" /> },
+        { path: '/banks/:bankId/manage', element: <Page title="Bank manage page" /> },
+        { path: '/banks/:bankId/practice', element: <Page title="Practice setup page" /> },
+        { path: '/practice/:sessionId', element: <Page title="Practice session page" /> },
+        { path: '/imports', element: <Page title="Imports page" /> },
+        { path: '/imports/:jobId', element: <Page title="Import detail page" /> },
+        { path: '/questions/:questionId', element: <Page title="Question detail page" /> },
+        { path: '/settings', element: <Page title="Settings page" /> },
         {
           element: <AdminOnly />,
           children: [
@@ -66,7 +57,7 @@ export function AppRouter() {
         }
       ]
     },
-    { path: '*', element: <NotFoundPage /> }
+    { path: '*', element: <Page title="Not found page" /> }
   ]);
 
   return (

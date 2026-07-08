@@ -31,28 +31,13 @@ vi.mock('@/auth/AuthProvider', () => ({
 }));
 
 vi.mock('@/lib/api', () => ({
-  api: {
-    logout: vi.fn().mockResolvedValue(undefined)
-  }
+  apiRequest: vi.fn().mockResolvedValue(undefined)
 }));
 
-vi.mock('@/pages/PricingPage', () => ({ default: stubPage('Pricing page') }));
 vi.mock('@/pages/LoginPage', () => ({ default: stubPage('Login page') }));
-vi.mock('@/pages/DashboardPage', () => ({ default: stubPage('Dashboard page') }));
-vi.mock('@/pages/BanksPage', () => ({ default: stubPage('Banks page') }));
-vi.mock('@/pages/NewBankPage', () => ({ default: stubPage('New bank page') }));
-vi.mock('@/pages/BankDetailPage', () => ({ default: stubPage('Bank detail page') }));
-vi.mock('@/pages/BankManagePage', () => ({ default: stubPage('Bank manage page') }));
-vi.mock('@/pages/PracticeSetupPage', () => ({ default: stubPage('Practice setup page') }));
-vi.mock('@/pages/PracticeSessionPage', () => ({ default: stubPage('Practice session page') }));
-vi.mock('@/pages/ImportsPage', () => ({ default: stubPage('Imports page') }));
-vi.mock('@/pages/ImportDetailPage', () => ({ default: stubPage('Import detail page') }));
-vi.mock('@/pages/QuestionDetailPage', () => ({ default: stubPage('Question detail page') }));
-vi.mock('@/pages/SettingsPage', () => ({ default: stubPage('Settings page') }));
 vi.mock('@/pages/AdminPage', () => ({ default: stubPage('Admin page') }));
 vi.mock('@/pages/AdminKnowledgePointsPage', () => ({ default: stubPage('Admin knowledge points page') }));
 vi.mock('@/pages/AdminUsersPage', () => ({ default: stubPage('Admin users page') }));
-vi.mock('@/pages/NotFoundPage', () => ({ default: stubPage('Not found page') }));
 
 import { AppRouter } from '@/routes';
 
