@@ -360,20 +360,28 @@ Video policy:
 
 ## 3. Frontend Pages
 
-Use Next.js App Router route groups:
+Use the React + Vite app under `frontend/` with React Router routes:
 
 ```text
-app/(auth)/sign-in
-app/(auth)/sign-up
-app/(app)/dashboard
-app/(app)/banks
-app/(app)/banks/[bankId]
-app/(app)/banks/[bankId]/manage
-app/(app)/banks/[bankId]/practice
-app/(app)/practice/[sessionId]
-app/(app)/imports
-app/(app)/imports/[jobId]
-app/(app)/settings
+frontend/src/routes.tsx
+/
+/pricing
+/sign-in
+/sign-up
+/dashboard
+/banks
+/banks/new
+/banks/:bankId
+/banks/:bankId/manage
+/banks/:bankId/practice
+/practice/:sessionId
+/imports
+/imports/:jobId
+/questions/:questionId
+/settings
+/admin
+/admin/knowledge-points
+/admin/users
 ```
 
 ### Login and Registration

@@ -106,7 +106,7 @@ This manages five services:
 See `.env.example` for the full set. The most important groups are:
 
 - Database/cache: `POSTGRES_URL`, `DATABASE_URL`, `REDIS_URL`
-- Host/origin: `OPENWOOK_HOST`, `PORT`, `NEXT_PUBLIC_APP_URL`, `BASE_URL`
+- Host/origin: `OPENWOOK_HOST`, `PORT`, `APP_ORIGIN`, `BASE_URL`
 - Auth/session: `AUTH_SECRET`, `SESSION_TTL_MS`, `SESSION_RENEW_WINDOW_MS`
 - AI service: `AI_SERVICE_URL`, `AI_SERVICE_TOKEN`
 - Billing: `PADDLE_*`

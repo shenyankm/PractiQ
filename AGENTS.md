@@ -2,15 +2,15 @@
 
 ## Project Structure & Module Organization
 
-OpenWook is a Next.js App Router application. Route groups and pages live in `app/`, with product screens under `app/(openwook)` and login flows under `app/(login)`. API routes are in `app/api`. UI should use HeroUI components directly, while domain logic, auth, Redis, object storage, import workers, and services are in `lib/openwook`. `lib/db` now contains raw PostgreSQL bootstrap/seed helpers plus targeted SQL patches, while the authoritative product schema lives in the split files under `db/*/*.sql`. Tests are in `tests/`, assets in `public/`, and architecture notes in `docs/`.
+OpenWook is a split-stack application. The React + Vite frontend lives in `frontend/`, with browser source in `frontend/src`, static assets in `frontend/public`, and frontend tests in `frontend/tests`. Go API routes, auth, Redis, object storage, import workers, billing, and services live under `cmd/` and `internal/`. The authoritative product schema lives in the split SQL files under `db/*/*.sql`, AI service code lives in `ai/`, and architecture notes live in `docs/`.
 
 ## Build, Test, and Development Commands
 
 - `pnpm install`: install dependencies and configure Git hooks through `prepare`.
-- `pnpm dev`: run the local Next.js dev server with Turbopack.
+- `pnpm dev`: run the Vite frontend dev server from `frontend/`.
 - `pnpm build`: create a production build.
 - `pnpm start`: serve the built application.
-- `pnpm lint`: run ESLint using the Next core-web-vitals and TypeScript rules.
+- `pnpm lint`: run the frontend ESLint and TypeScript rules.
 - `pnpm test`: run the Vitest suite once.
 - `pnpm db:setup`, `pnpm db:ensure`, `pnpm db:seed`: bootstrap local environment variables, apply runtime compatibility SQL, and load local sample data after the split SQL schema has been installed.
 - `pnpm worker:imports`: run the background import worker; use a separate terminal from `pnpm dev`.
@@ -21,7 +21,7 @@ Use TypeScript with strict mode and the `@/*` path alias. Follow existing format
 
 ## Testing Guidelines
 
-Vitest is configured in `vitest.config.ts` with `tests/setup.ts` and matches `tests/**/*.test.ts` and `tests/**/*.test.tsx`. Add tests beside the existing suite using descriptive names such as `services.test.ts` or `practice-page.dom.test.tsx`. Use DOM/React Testing Library patterns for TSX behavior and focused service tests for backend logic. Run `pnpm test` before opening a PR.
+Vitest is configured in `frontend/vitest.config.ts` with `frontend/tests/setup.ts` and matches `frontend/tests/**/*.test.ts` and `frontend/tests/**/*.test.tsx`. Add tests beside the existing suite using descriptive names such as `services.test.ts` or `practice-page.dom.test.tsx`. Use DOM/React Testing Library patterns for TSX behavior and focused service tests for backend logic. Run `pnpm test` before opening a PR.
 
 ## Commit & Pull Request Guidelines
 
