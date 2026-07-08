@@ -49,9 +49,3 @@ export async function apiRequest<T>(url: string, options: ApiRequestOptions = {}
   return payload?.data as T;
 }
 
-export const api = {
-  logout: async () => {
-    await apiRequest('/api/v1/auth/logout', { method: 'POST' });
-  },
-  me: () => apiRequest('/api/v1/auth/me')
-};

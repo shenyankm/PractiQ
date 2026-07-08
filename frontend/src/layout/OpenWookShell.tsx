@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { Link, Button } from '@heroui/react';
 import { useLocation } from 'react-router-dom';
-import { api } from '@/lib/api';
+import { apiRequest } from '@/lib/api';
 import type { AuthUser } from '@/auth/AuthProvider';
 
 type NavItem = { href: string; label: string; adminOnly?: boolean };
@@ -35,7 +35,7 @@ export function OpenWookShell({ children, user }: { children: ReactNode; user: A
           onPress={async () => {
             setLoggingOut(true);
             try {
-              await api.logout();
+              await apiRequest('/api/v1/auth/logout', { method: 'POST' });
               window.location.assign('/sign-in');
             } finally {
               setLoggingOut(false);

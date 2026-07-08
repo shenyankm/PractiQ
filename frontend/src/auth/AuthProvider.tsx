@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { api } from '@/lib/api';
+import { apiRequest } from '@/lib/api';
 
 export type AuthUser = {
   username: string;
@@ -36,7 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
-    api.me().then((data) => {
+    apiRequest('/api/v1/auth/me').then((data) => {
       if (cancelled) return;
       setUser(normalizeAuthUser(data as AuthMeResponse));
       setIsLoading(false);
