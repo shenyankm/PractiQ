@@ -107,6 +107,14 @@ next-env.d.ts
 /.codegraph/
 .worktrees/
 
+# Project-local installed agent skills
+/.agents/skills/paddle-*/
+/.pi/skills/paddle-*
+/.claude/skills/paddle-*
+/.qwen/skills/paddle-*
+/.qoder/skills/paddle-*
+/skills-lock.json
+
 # -----------------------------------------------
 # SSL / Certificates
 # -----------------------------------------------
