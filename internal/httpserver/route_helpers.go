@@ -8,10 +8,25 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/go-chi/chi/v5"
 	"openwook/internal/api"
 	"openwook/internal/auth"
 )
 
+func withStdPathValues(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		routeContext := chi.RouteContext(r.Context())
+		if routeContext != nil {
+			for index, key := range routeContext.URLParams.Keys {
+				if key == "" || key == "*" || index >= len(routeContext.URLParams.Values) {
+					continue
+				}
+				r.SetPathValue(key, routeContext.URLParams.Values[index])
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
+}
 func decodeJSONBodyStrict[T any](r *http.Request) (T, error) {
 	var body T
 	decoder := json.NewDecoder(r.Body)

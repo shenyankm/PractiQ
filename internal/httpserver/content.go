@@ -13,13 +13,37 @@ import (
 	"openwook/internal/services"
 )
 
-
 func BuildContentHandlers(pool *pgxpool.Pool, currentUser auth.CurrentUserResolver) ContentHandlers {
 	return ContentHandlers{
-		Banks:           http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleBanks(w, r, pool, currentUser) }),
-		BankSubtree:     http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleBankSubtree(w, r, pool, currentUser) }),
-		QuestionSubtree: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleQuestionSubtree(w, r, pool, currentUser) }),
-		GroupSubtree:    http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleGroupSubtree(w, r, pool, currentUser) }),
+		Banks:                    http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleBanks(w, r, pool, currentUser) }),
+		BankSubtree:              http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleBankSubtree(w, r, pool, currentUser) }),
+		BankGet:                  http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleBankGet(w, r, pool, currentUser) }),
+		BankUpdate:               http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleBankUpdate(w, r, pool, currentUser) }),
+		BankDelete:               http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleBankDelete(w, r, pool, currentUser) }),
+		BankItems:                http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleBankItems(w, r, pool, currentUser) }),
+		BankItemsReorder:         http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleBankItemsReorder(w, r, pool, currentUser) }),
+		BankFavoriteCreate:       http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleBankFavoriteCreate(w, r, pool, currentUser) }),
+		BankFavoriteDelete:       http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleBankFavoriteDelete(w, r, pool, currentUser) }),
+		BankQuestionCreate:       http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleBankQuestionCreate(w, r, pool, currentUser) }),
+		BankGroupCreate:          http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleBankGroupCreate(w, r, pool, currentUser) }),
+		QuestionSubtree:          http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleQuestionSubtree(w, r, pool, currentUser) }),
+		QuestionGet:              http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleQuestionGet(w, r, pool, currentUser) }),
+		QuestionUpdate:           http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleQuestionUpdate(w, r, pool, currentUser) }),
+		QuestionDelete:           http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleQuestionDelete(w, r, pool, currentUser) }),
+		QuestionPublish:          http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleQuestionPublish(w, r, pool, currentUser) }),
+		QuestionArchive:          http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleQuestionArchive(w, r, pool, currentUser) }),
+		QuestionOptionCreate:     http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleQuestionOptionCreate(w, r, pool, currentUser) }),
+		QuestionOptionUpdate:     http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleQuestionOptionUpdate(w, r, pool, currentUser) }),
+		QuestionAnswerKeyPut:     http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleQuestionAnswerKeyPut(w, r, pool, currentUser) }),
+		QuestionMetadataPut:      http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleQuestionMetadataPut(w, r, pool, currentUser) }),
+		QuestionKnowledgePut:     http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleQuestionKnowledgePut(w, r, pool, currentUser) }),
+		QuestionContentBlocksPut: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleQuestionContentBlocksPut(w, r, pool, currentUser) }),
+		GroupSubtree:             http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleGroupSubtree(w, r, pool, currentUser) }),
+		GroupGet:                 http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleGroupGet(w, r, pool, currentUser) }),
+		GroupUpdate:              http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleGroupUpdate(w, r, pool, currentUser) }),
+		GroupQuestionCreate:      http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleGroupQuestionCreate(w, r, pool, currentUser) }),
+		GroupQuestionsReorder:    http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleGroupQuestionsReorder(w, r, pool, currentUser) }),
+		GroupQuestionDelete:      http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleGroupQuestionDelete(w, r, pool, currentUser) }),
 	}
 }
 
@@ -199,12 +223,12 @@ func handleBankSubtree(w http.ResponseWriter, r *http.Request, pool *pgxpool.Poo
 			return
 		}
 		var body struct {
-			QuestionTypeID string `json:"questionTypeId"`
-			AnswerMode     string `json:"answerMode"`
-			Stem           string `json:"stem"`
+			QuestionTypeID string  `json:"questionTypeId"`
+			AnswerMode     string  `json:"answerMode"`
+			Stem           string  `json:"stem"`
 			Analysis       *string `json:"analysis"`
 			ChoiceVariant  *string `json:"choiceVariant"`
-			Status         string `json:"status"`
+			Status         string  `json:"status"`
 			Options        []struct {
 				Label     string `json:"label"`
 				Content   string `json:"content"`

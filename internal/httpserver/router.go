@@ -1,0 +1,67 @@
+package httpserver
+
+import (
+	"net/http"
+	"strings"
+
+	"github.com/go-chi/chi/v5"
+	"openwook/internal/api"
+)
+
+func NewServer(cfg ServerConfig, deps ServerDependencies) http.Handler {
+	router := chi.NewRouter()
+	router.NotFound(notFoundHandler(cfg))
+	router.MethodNotAllowed(notFoundHandler(cfg))
+
+	router.Get("/api/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		api.OK(w, r, readinessData(r.Context(), deps), nil)
+	})
+	router.Get("/api/health/ready", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		api.OK(w, r, readinessData(r.Context(), deps), nil)
+	})
+	router.Get("/api/health/live", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		api.OK(w, r, map[string]any{"ok": true, "uptimeSeconds": deps.UptimeSeconds()}, nil)
+	})
+	router.Handle("/api/metrics", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		if metricsUnauthorized(cfg, r) {
+			api.HandleError(w, r, api.NewError(http.StatusUnauthorized, "UNAUTHORIZED", "Metrics endpoint requires authorization", nil))
+			return
+		}
+		deps.MetricsHandler.ServeHTTP(w, r)
+	}))
+
+	registerMethodRoute(router, http.MethodPost, "/api/v1/auth/register", deps.Auth.Register)
+	registerMethodRoute(router, http.MethodPost, "/api/v1/auth/login", deps.Auth.Login)
+	registerMethodRoute(router, http.MethodPost, "/api/v1/auth/logout", deps.Auth.Logout)
+	registerMethodRoute(router, http.MethodGet, "/api/v1/auth/me", deps.Auth.Me)
+	registerMethodRoute(router, http.MethodGet, "/api/v1/subjects", deps.Reference.Subjects)
+	registerMethodRoute(router, http.MethodGet, "/api/v1/question-types", deps.Reference.QuestionTypes)
+	registerMethodRoute(router, http.MethodGet, "/api/v1/knowledge-points", deps.Reference.KnowledgePoints)
+	registerAdminRoutes(router, deps.Admin)
+	registerMediaRoutes(router, deps.Media)
+	registerContentRoutes(router, deps.Content)
+	registerImportsBillingAIRoutes(router, deps.ImportsBillingAI)
+	registerPracticeAnalyticsSearchRoutes(router, deps.Practice, deps.Analytics, deps.Search)
+
+	middlewareCfg := Config{NodeEnv: cfg.NodeEnv, AppOrigin: cfg.AppOrigin}
+	handler := http.Handler(router)
+	handler = SPAGuardWithResolver(middlewareCfg, deps.CurrentUser, handler)
+	handler = SameOriginProtection(middlewareCfg, handler)
+	handler = RequestID(handler)
+	return SecurityHeaders(middlewareCfg, handler)
+}
+
+func notFoundHandler(cfg ServerConfig) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/api/") {
+			w.Header().Set("Cache-Control", "no-store")
+			api.HandleError(w, r, api.NewError(http.StatusNotFound, "NOT_FOUND", "Endpoint not found", nil))
+			return
+		}
+		serveStaticOrSPA(w, r, cfg.DistDir)
+	}
+}
