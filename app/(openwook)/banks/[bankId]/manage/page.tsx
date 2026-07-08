@@ -1,13 +1,19 @@
 import { ExternalLink, FileQuestion } from 'lucide-react';
 import { notFound } from 'next/navigation';
-import Link from 'next/link';
+import {
+  Link,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  EmptyState,
+  Tooltip
+} from '@heroui/react';
 import { getCurrentUser } from '@/lib/openwook/auth';
 import { getBankWithItems, listQuestionTypes } from '@/lib/openwook/services';
 import { createQuestionAction } from '../../actions';
 import { NewQuestionForm } from './new-question-form';
-import { Card, CardContent, CardHeader, CardTitle } from '@heroui/react/card';
-import { EmptyState } from '@heroui/react/empty-state';
-import { Tooltip } from '@heroui/react/tooltip';
+import { buttonVariants } from '@heroui/styles';
 
 export default async function BankManagePage({ params }: { params: Promise<{ bankId: string }> }) {
   const user = await getCurrentUser();
@@ -51,7 +57,7 @@ export default async function BankManagePage({ params }: { params: Promise<{ ban
                     <div className="mt-1 text-sm text-muted-foreground">{item.question_type_id} · {item.answer_mode} · {item.question_status}</div>
                   </div>
                   <Tooltip>
-                    <Link href={`/questions/${item.question_id}`} aria-label="查看题目" className="button button--ghost button--icon">
+                    <Link href={`/questions/${item.question_id}`} aria-label="查看题目" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
                       <ExternalLink className="size-4" />
                     </Link>
                     <Tooltip.Content>查看题目</Tooltip.Content>

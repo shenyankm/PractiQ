@@ -4,7 +4,7 @@ import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OpenWookShell } from '@/app/(openwook)/openwook-shell';
-import { Button } from '@heroui/react/button';
+import { Button } from '@heroui/react';
 
 const navigationMock = vi.hoisted(() => ({
   pathname: '/dashboard'
@@ -56,8 +56,9 @@ describe('motion UI affordances', () => {
       </OpenWookShell>
     );
 
-    expect(screen.getByTestId('route-transition').className).toContain('motion-safe:animate-in');
-    expect(screen.getByTestId('route-transition').textContent).toContain('Dashboard');
+    const transition = screen.getByTestId('route-transition');
+    expect(transition).toBeTruthy();
+    expect(transition.textContent).toContain('Dashboard');
   });
 
   it('animates mobile navigation expand and collapse state', () => {
@@ -96,7 +97,7 @@ describe('motion UI affordances', () => {
     expect(submit.querySelector('svg')?.className.baseVal).toContain('animate-spin');
   });
 
-  it('keeps alert dialogs on the shared HeroUI dialog motion language', () => {
+  it('opens the sign-out alert dialog with an accessible name', () => {
     render(
       <OpenWookShell user={{ username: 'tester', membership: 'free', avatarUrl: null, avatarOptimized: false, role: 'user' }}>
         <div>Dashboard</div>
@@ -105,10 +106,7 @@ describe('motion UI affordances', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /退出/ }));
 
-    const dialog = screen.getByRole('alertdialog', { name: '确认退出登录' });
-    expect(dialog.className).toContain('data-[entering]:fade-in-0');
-    expect(dialog.className).toContain('data-[entering]:zoom-in-95');
-    expect(dialog.className).toContain('data-[entering]:slide-in-from-top-2');
+    expect(screen.getByRole('alertdialog', { name: '确认退出登录' })).toBeTruthy();
   });
 
   it('renders buttons through the HeroUI component class contract', () => {

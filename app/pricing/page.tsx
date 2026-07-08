@@ -1,9 +1,16 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
+import {
+  Link,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  Badge
+} from '@heroui/react';
 import { getCurrentUser } from '@/lib/openwook/auth';
 import { BillingPanel } from '@/app/(openwook)/settings/billing-panel';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@heroui/react/card';
-import { Badge } from '@heroui/react/badge';
+import { buttonVariants } from '@heroui/styles';
 
 export const metadata: Metadata = {
   title: '定价'
@@ -22,7 +29,7 @@ const PUBLIC_PLANS = [
     cta: {
       href: '/sign-up',
       label: '免费开始',
-      className: 'button button--outline w-full justify-center'
+      variant: 'outline'
     }
   },
   {
@@ -37,7 +44,7 @@ const PUBLIC_PLANS = [
     cta: {
       href: '/sign-in?redirect=/pricing',
       label: '登录后购买',
-      className: 'button button--primary w-full justify-center'
+      variant: 'primary'
     }
   },
   {
@@ -52,7 +59,7 @@ const PUBLIC_PLANS = [
     cta: {
       href: '/sign-in?redirect=/pricing',
       label: '登录后购买',
-      className: 'button button--primary w-full justify-center'
+      variant: 'primary'
     }
   }
 ] as const;
@@ -88,13 +95,13 @@ export default async function PricingPage() {
             price={plan.price}
             description={plan.description}
             highlights={plan.highlights}
-            footer={<Link href={plan.cta.href} className={plan.cta.className}>{plan.cta.label}</Link>}
+            footer={<Link href={plan.cta.href} className={buttonVariants({ variant: plan.cta.variant })}>{plan.cta.label}</Link>}
           />
         ))}
       </div>
 
       <div className="flex justify-center">
-        <Link href="/sign-in?redirect=/pricing" className="button button--ghost">
+        <Link href="/sign-in?redirect=/pricing" className={buttonVariants({ variant: 'ghost' })}>
           已有账号？登录后直接开通
         </Link>
       </div>

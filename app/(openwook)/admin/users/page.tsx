@@ -1,16 +1,24 @@
-import { Search, Shield, UserRound, UsersRound } from 'lucide-react';
-import Link from 'next/link';
+import { Shield, UserRound, UsersRound } from 'lucide-react';
+import {
+  Link,
+  AlertDialog,
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  EmptyState,
+  Input,
+  Label,
+  Select,
+  ListBox
+} from '@heroui/react';
 import { listAdminUsers } from '@/lib/openwook/services';
 import { requireAdminPage } from '../admin-auth';
 import { AdminNav } from '../admin-nav';
 import { setUserStatusAction, updateUserAccessAction } from '../actions';
-import { AlertDialog } from '@heroui/react/alert-dialog';
-import { Badge } from '@heroui/react/badge';
-import { Button } from '@heroui/react/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@heroui/react/card';
-import { EmptyState } from '@heroui/react/empty-state';
-import { Input } from '@heroui/react/input';
-import { Label } from '@heroui/react/label';
+import { buttonVariants } from '@heroui/styles';
 
 export default async function AdminUsersPage({
   searchParams
@@ -28,7 +36,7 @@ export default async function AdminUsersPage({
           <h1 className="text-2xl font-semibold tracking-tight">用户管理</h1>
           <p className="text-sm text-muted-foreground">查看用户状态、角色、会员和使用情况。</p>
         </div>
-        <Link href="/admin" className="button button--outline">
+        <Link href="/admin" className={buttonVariants({ variant: 'outline' })}>
   返回后台
 </Link>
       </div>
@@ -40,29 +48,44 @@ export default async function AdminUsersPage({
           <form className="grid gap-3 md:grid-cols-[minmax(0,1fr)_160px_160px_auto_auto] md:items-end">
             <div className="gap-2">
               <Label htmlFor="admin-user-search" className="sr-only">搜索用户</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
-                <Input id="admin-user-search" name="q" placeholder="搜索用户名或邮箱" defaultValue={params.get('q') ?? ''} className="pl-9" />
-              </div>
+              <Input id="admin-user-search" name="q" placeholder="搜索用户名或邮箱" defaultValue={params.get('q') ?? ''} />
             </div>
             <div className="gap-2">
               <Label htmlFor="admin-user-status" className="sr-only">状态</Label>
-              <select id="admin-user-status" className="w-full" name="status" defaultValue={params.get('status') ?? 'all'}>
-<option value="all">全部状态</option>
-                    <option value="active">启用</option>
-                    <option value="inactive">停用</option>
-</select>
+              <Select name="status" defaultSelectedKey={params.get('status') ?? 'all'}>
+                <Label>状态</Label>
+                <Select.Trigger>
+                  <Select.Value />
+                  <Select.Indicator />
+                </Select.Trigger>
+                <Select.Popover>
+                  <ListBox>
+                    <ListBox.Item id="all">全部状态</ListBox.Item>
+                    <ListBox.Item id="active">启用</ListBox.Item>
+                    <ListBox.Item id="inactive">停用</ListBox.Item>
+                  </ListBox>
+                </Select.Popover>
+              </Select>
             </div>
             <div className="gap-2">
               <Label htmlFor="admin-user-role" className="sr-only">角色</Label>
-              <select id="admin-user-role" className="w-full" name="role" defaultValue={params.get('role') ?? 'all'}>
-<option value="all">全部角色</option>
-                    <option value="admin">管理员</option>
-                    <option value="user">用户</option>
-</select>
+              <Select name="role" defaultSelectedKey={params.get('role') ?? 'all'}>
+                <Label>角色</Label>
+                <Select.Trigger>
+                  <Select.Value />
+                  <Select.Indicator />
+                </Select.Trigger>
+                <Select.Popover>
+                  <ListBox>
+                    <ListBox.Item id="all">全部角色</ListBox.Item>
+                    <ListBox.Item id="admin">管理员</ListBox.Item>
+                    <ListBox.Item id="user">用户</ListBox.Item>
+                  </ListBox>
+                </Select.Popover>
+              </Select>
             </div>
             <Button type="submit" variant="outline">筛选</Button>
-            <Link href="/admin/users" className="button button--ghost">
+            <Link href="/admin/users" className={buttonVariants({ variant: 'ghost' })}>
   重置
 </Link>
           </form>
@@ -124,18 +147,36 @@ export default async function AdminUsersPage({
                       <form action={updateUserAccessAction.bind(null, item.id)} className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
                         <div>
                           <Label htmlFor={`role-${item.id}`} className="sr-only">角色</Label>
-                          <select id={`role-${item.id}`} className="w-full" name="role" defaultValue={item.role} disabled={item.id === user.id}>
-<option value="user">用户</option>
-                                <option value="admin">管理员</option>
-</select>
+                          <Select name="role" defaultSelectedKey={item.role} isDisabled={item.id === user.id}>
+                            <Label>角色</Label>
+                            <Select.Trigger>
+                              <Select.Value />
+                              <Select.Indicator />
+                            </Select.Trigger>
+                            <Select.Popover>
+                              <ListBox>
+                                <ListBox.Item id="user">用户</ListBox.Item>
+                                <ListBox.Item id="admin">管理员</ListBox.Item>
+                              </ListBox>
+                            </Select.Popover>
+                          </Select>
                         </div>
                         <div>
                           <Label htmlFor={`membership-${item.id}`} className="sr-only">会员</Label>
-                          <select id={`membership-${item.id}`} className="w-full" name="membership" defaultValue={item.membership}>
-<option value="free">free</option>
-                                <option value="plus">plus</option>
-                                <option value="enterprise">enterprise</option>
-</select>
+                          <Select name="membership" defaultSelectedKey={item.membership}>
+                            <Label>会员</Label>
+                            <Select.Trigger>
+                              <Select.Value />
+                              <Select.Indicator />
+                            </Select.Trigger>
+                            <Select.Popover>
+                              <ListBox>
+                                <ListBox.Item id="free">free</ListBox.Item>
+                                <ListBox.Item id="plus">plus</ListBox.Item>
+                                <ListBox.Item id="enterprise">enterprise</ListBox.Item>
+                              </ListBox>
+                            </Select.Popover>
+                          </Select>
                         </div>
                         <Button type="submit" size="sm" variant="outline">保存</Button>
                       </form>
@@ -166,7 +207,7 @@ export default async function AdminUsersPage({
                               <AlertDialog.Footer>
                                 <Button slot="close" variant="tertiary">取消</Button>
                                 <form action={setUserStatusAction.bind(null, item.id, !item.is_active)}>
-                                  <Button type="submit" className="w-full sm:w-auto">
+                                  <Button type="submit" fullWidth>
                                     {item.is_active ? '确认停用' : '确认启用'}
                                   </Button>
                                 </form>

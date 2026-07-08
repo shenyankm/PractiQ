@@ -1,15 +1,23 @@
-import { Search, Tags } from 'lucide-react';
-import Link from 'next/link';
+import { Tags } from 'lucide-react';
+import {
+  Link,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  EmptyState,
+  FieldGroup,
+  Input,
+  Label,
+  Select,
+  ListBox
+} from '@heroui/react';
 import { listAdminKnowledgePoints, listSubjects } from '@/lib/openwook/services';
 import { requireAdminPage } from '../admin-auth';
 import { AdminNav } from '../admin-nav';
 import { createKnowledgePointAction, updateKnowledgePointAction } from '../actions';
-import { Button } from '@heroui/react/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@heroui/react/card';
-import { EmptyState } from '@heroui/react/empty-state';
-import { FieldGroup } from '@heroui/react/fieldset';
-import { Input } from '@heroui/react/input';
-import { Label } from '@heroui/react/label';
+import { buttonVariants } from '@heroui/styles';
 
 export default async function AdminKnowledgePointsPage({
   searchParams
@@ -32,7 +40,7 @@ export default async function AdminKnowledgePointsPage({
             <h1 className="text-2xl font-semibold tracking-tight">知识点管理</h1>
             <p className="text-sm text-muted-foreground">维护学科知识点编码、名称和元数据。</p>
           </div>
-          <Link href="/admin" className="button button--outline">
+          <Link href="/admin" className={buttonVariants({ variant: 'outline' })}>
   返回后台
 </Link>
         </div>
@@ -44,22 +52,28 @@ export default async function AdminKnowledgePointsPage({
             <form className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px_auto_auto] md:items-end">
               <div className="gap-2">
                 <Label htmlFor="knowledge-point-search" className="sr-only">搜索知识点</Label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
-                  <Input id="knowledge-point-search" name="q" placeholder="搜索编码或名称" defaultValue={params.get('q') ?? ''} className="pl-9" />
-                </div>
+                <Input id="knowledge-point-search" name="q" placeholder="搜索编码或名称" defaultValue={params.get('q') ?? ''} />
               </div>
               <div className="gap-2">
                 <Label htmlFor="knowledge-point-subject" className="sr-only">学科</Label>
-                <select id="knowledge-point-subject" className="w-full" name="subject" defaultValue={subjectValue}>
-<option value="all">全部学科</option>
+                <Select name="subject" defaultSelectedKey={subjectValue}>
+                  <Label>学科</Label>
+                  <Select.Trigger>
+                    <Select.Value />
+                    <Select.Indicator />
+                  </Select.Trigger>
+                  <Select.Popover>
+                    <ListBox>
+                      <ListBox.Item id="all">全部学科</ListBox.Item>
                       {subjects.map((subject) => (
-                        <option key={subject.subject_id} value={subject.subject_id}>{subject.display_name}</option>
+                        <ListBox.Item key={subject.subject_id} id={subject.subject_id}>{subject.display_name}</ListBox.Item>
                       ))}
-</select>
+                    </ListBox>
+                  </Select.Popover>
+                </Select>
               </div>
               <Button type="submit" variant="outline">筛选</Button>
-              <Link href="/admin/knowledge-points" className="button button--ghost">
+              <Link href="/admin/knowledge-points" className={buttonVariants({ variant: 'ghost' })}>
   重置
 </Link>
             </form>
@@ -111,11 +125,20 @@ export default async function AdminKnowledgePointsPage({
             <FieldGroup className="gap-4">
               <div>
                 <Label htmlFor="subjectId">学科</Label>
-                <select id="subjectId" className="w-full" name="subjectId" defaultValue={subjects[0]?.subject_id}>
-{subjects.map((subject) => (
-                        <option key={subject.subject_id} value={subject.subject_id}>{subject.display_name}</option>
+                <Select name="subjectId" defaultSelectedKey={subjects[0]?.subject_id}>
+                  <Label>学科</Label>
+                  <Select.Trigger>
+                    <Select.Value />
+                    <Select.Indicator />
+                  </Select.Trigger>
+                  <Select.Popover>
+                    <ListBox>
+                      {subjects.map((subject) => (
+                        <ListBox.Item key={subject.subject_id} id={subject.subject_id}>{subject.display_name}</ListBox.Item>
                       ))}
-</select>
+                    </ListBox>
+                  </Select.Popover>
+                </Select>
               </div>
               <div>
                 <Label htmlFor="code">编码</Label>

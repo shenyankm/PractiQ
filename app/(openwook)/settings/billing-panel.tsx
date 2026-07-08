@@ -2,9 +2,14 @@
 
 import { useEffect, useState, useTransition } from 'react';
 import { CreditCard, Loader2 } from 'lucide-react';
-import { Badge } from '@heroui/react/badge';
-import { Button } from '@heroui/react/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@heroui/react/card';
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle
+} from '@heroui/react';
 import { openPaddleCheckout, type PaddleCheckoutSession, type PaddleEnvironment } from './paddle-checkout';
 
 type PlanKey = 'plus' | 'enterprise';
@@ -219,10 +224,10 @@ export function BillingPanel() {
                     action={
                       <Button
                         type="button"
-                        onClick={() => startCheckout(plan.planKey)}
+                        onPress={() => startCheckout(plan.planKey)}
                         isDisabled={!billing.configured || isCurrent || isBusy}
                         aria-busy={isBusy}
-                        className="w-full"
+                        fullWidth
                       >
                         {isBusy ? <Loader2 className="size-4 animate-spin" /> : <CreditCard className="size-4" />}
                         {isCurrent ? `${plan.label} 已开通` : `升级到 ${plan.label}`}

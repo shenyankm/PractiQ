@@ -1,18 +1,27 @@
 'use client';
 import { useActionState } from 'react';
 
-import Link from 'next/link';
+import {
+  Link,
+  Alert,
+  AlertDescription,
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+  Description,
+  FieldGroup,
+  Input,
+  Label,
+  Separator
+} from '@heroui/react';
 import { BookOpen, Loader2 } from 'lucide-react';
 import { signIn, signUp } from './actions';
 import type { ActionState } from './actions';
-import { Alert, AlertDescription } from '@heroui/react/alert';
-import { Button } from '@heroui/react/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@heroui/react/card';
-import { Description } from '@heroui/react/description';
-import { FieldGroup } from '@heroui/react/fieldset';
-import { Input } from '@heroui/react/input';
-import { Label } from '@heroui/react/label';
-import { Separator } from '@heroui/react/separator';
+import { buttonVariants } from '@heroui/styles';
 
 type LoginProps = {
   mode?: 'signin' | 'signup';
@@ -34,13 +43,13 @@ export function Login({ mode = 'signin', redirect, priceId, inviteId }: LoginPro
 
   return (
     <div className="flex min-h-[100dvh] flex-col justify-center bg-[radial-gradient(circle_at_top,rgb(0_0_0_/_0.06),transparent_28rem),var(--background)] px-4 py-12 sm:px-6 lg:px-8 dark:bg-[radial-gradient(circle_at_top,rgb(255_255_255_/_0.08),transparent_28rem),var(--background)]">
-      <div className="motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-top-2 motion-safe:duration-500 sm:mx-auto sm:w-full sm:max-w-md">
+      <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center">
           <BookOpen className="size-12 text-foreground" />
         </div>
       </div>
 
-      <Card className="mt-8 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-3 motion-safe:duration-500 sm:mx-auto sm:w-full sm:max-w-md">
+      <Card className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">
             {mode === 'signin' ? '登录 OpenWook' : '创建 OpenWook 账号'}
@@ -114,7 +123,7 @@ export function Login({ mode = 'signin', redirect, priceId, inviteId }: LoginPro
 
             <Button
               type="submit"
-              className="w-full"
+              fullWidth
               isDisabled={pending}
               aria-busy={pending}
             >
@@ -137,7 +146,7 @@ export function Login({ mode = 'signin', redirect, priceId, inviteId }: LoginPro
             <span>{mode === 'signin' ? '还没有账号？' : '已经有账号？'}</span>
             <Separator className="flex-1" />
           </div>
-          <Link href={switchHref} className="button button--outline w-full">
+          <Link href={switchHref} className={buttonVariants({ variant: 'outline' })}>
   {mode === 'signin' ? '创建账号' : '登录已有账号'}
 </Link>
         </CardFooter>

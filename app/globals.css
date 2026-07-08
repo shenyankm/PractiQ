@@ -1,6 +1,5 @@
 @import "tailwindcss";
 @import "@heroui/styles";
-@import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
 @variant dark (&:is(.dark *));
@@ -80,9 +79,6 @@
   --sidebar-accent-foreground: var(--foreground);
   --sidebar-border: var(--border);
   --sidebar-ring: var(--focus);
-  --glass-bg: color-mix(in oklab, var(--overlay) 76%, transparent);
-  --glass-border: color-mix(in oklab, var(--border) 72%, transparent);
-  --glass-shadow: var(--overlay-shadow);
   --line-subtle: var(--separator);
 }
 
@@ -152,9 +148,6 @@
   --sidebar-accent-foreground: var(--foreground);
   --sidebar-border: var(--border);
   --sidebar-ring: var(--focus);
-  --glass-bg: color-mix(in oklab, var(--overlay) 66%, transparent);
-  --glass-border: color-mix(in oklab, var(--border) 74%, transparent);
-  --glass-shadow: var(--overlay-shadow);
   --line-subtle: var(--separator);
 }
 
@@ -222,24 +215,3 @@
   }
 }
 
-@layer utilities {
-  .ow-glass {
-    border: 1px solid var(--glass-border);
-    background: var(--glass-bg);
-    box-shadow: var(--glass-shadow);
-    backdrop-filter: blur(18px) saturate(140%);
-    -webkit-backdrop-filter: blur(18px) saturate(140%);
-  }
-
-  .ow-surface {
-    @apply border-border/70 bg-card text-card-foreground shadow-sm;
-  }
-
-  .ow-hairline {
-    border-color: var(--line-subtle);
-  }
-
-  .ow-focus {
-    @apply focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/35 focus-visible:outline-none;
-  }
-}

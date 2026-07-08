@@ -1,18 +1,28 @@
 import { CheckCircle2, ChevronLeft, ChevronRight, Circle, Flag, XCircle } from 'lucide-react';
 import { notFound } from 'next/navigation';
-import Link from 'next/link';
+import {
+  Link,
+  Alert,
+  AlertDescription,
+  AlertDialog,
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Label,
+  TextArea,
+  Checkbox,
+  RadioGroup,
+  Radio
+} from '@heroui/react';
 import { getCurrentUser } from '@/lib/openwook/auth';
 import { getPracticeQuestionPage } from '@/lib/openwook/services';
 import { abandonPracticeAction, completePracticeAction, submitPracticeAnswerAction } from '../../banks/actions';
 import { AnswerForm } from './answer-form';
 import type { BankQuestionItem } from '@/lib/openwook/types';
-import { Alert, AlertDescription } from '@heroui/react/alert';
-import { AlertDialog } from '@heroui/react/alert-dialog';
-import { Badge } from '@heroui/react/badge';
-import { Button } from '@heroui/react/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@heroui/react/card';
-import { Label } from '@heroui/react/label';
-import { TextArea } from '@heroui/react/textarea';
+import { buttonVariants } from '@heroui/styles';
 
 export default async function PracticeSessionPage({
   params,
@@ -95,7 +105,7 @@ export default async function PracticeSessionPage({
               {previousIndex === null ? (
                 <Button variant="outline" isDisabled><ChevronLeft className="size-4" />上一题</Button>
               ) : (
-                <Link href={`/practice/${id}?index=${previousIndex}`} className="button button--outline">
+                <Link href={`/practice/${id}?index=${previousIndex}`} className={buttonVariants({ variant: 'outline' })}>
                   <ChevronLeft className="size-4" />
                   上一题
                 </Link>
@@ -104,7 +114,7 @@ export default async function PracticeSessionPage({
               {nextIndex === null ? (
                 <Button variant="outline" isDisabled>下一题<ChevronRight className="size-4" /></Button>
               ) : (
-                <Link href={`/practice/${id}?index=${nextIndex}`} className="button button--primary">
+                <Link href={`/practice/${id}?index=${nextIndex}`} className={buttonVariants({ variant: 'primary' })}>
                   下一题
                   <ChevronRight className="size-4" />
                 </Link>
@@ -134,7 +144,7 @@ export default async function PracticeSessionPage({
             </div>
           </div>
           <AlertDialog>
-            <Button className="w-full" isDisabled={session.status !== 'active'}>
+            <Button fullWidth isDisabled={session.status !== 'active'}>
               <Flag className="size-4" />
               完成会话
             </Button>
@@ -150,7 +160,7 @@ export default async function PracticeSessionPage({
                   <AlertDialog.Footer>
                     <Button slot="close" variant="tertiary">继续答题</Button>
                     <form action={completeAction}>
-                      <Button type="submit" className="w-full sm:w-auto">
+                      <Button type="submit" fullWidth>
                         确认完成
                       </Button>
                     </form>
@@ -160,7 +170,7 @@ export default async function PracticeSessionPage({
             </AlertDialog.Backdrop>
           </AlertDialog>
           <AlertDialog>
-            <Button className="w-full" variant="outline" isDisabled={session.status !== 'active'}>
+            <Button fullWidth variant="outline" isDisabled={session.status !== 'active'}>
               放弃并返回
             </Button>
             <AlertDialog.Backdrop>
@@ -175,7 +185,7 @@ export default async function PracticeSessionPage({
                   <AlertDialog.Footer>
                     <Button slot="close" variant="tertiary">继续答题</Button>
                     <form action={abandonAction}>
-                      <Button type="submit" className="w-full sm:w-auto">
+                      <Button type="submit" fullWidth>
                         确认放弃
                       </Button>
                     </form>
@@ -185,7 +195,7 @@ export default async function PracticeSessionPage({
             </AlertDialog.Backdrop>
           </AlertDialog>
           {session.status !== 'active' && (
-            <Link href={session.bank_id ? `/banks/${session.bank_id}` : '/dashboard'} className="button button--outline w-full">
+            <Link href={session.bank_id ? `/banks/${session.bank_id}` : '/dashboard'} className={buttonVariants({ variant: 'outline' })}>
               返回题库
             </Link>
           )}
@@ -246,80 +256,47 @@ function renderAnswerInput(question: BankQuestionItem) {
     if (question.choice_variant === 'multiple') {
       return (
         <div className="grid gap-2 sm:grid-cols-2">
-          {options.map((option) => {
-            const id = `selected-${question.question_id}-${option.label}`;
-
-            return (
-              <div key={option.label} className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
-                <input
-                  id={id}
-                  name="selected"
-                  type="checkbox"
-                  value={option.label}
-                  className="size-4 rounded border border-border"
-                />
-                <Label htmlFor={id} className="flex flex-1 gap-2 font-normal">
-                  <span className="font-medium">{option.label}.</span>
-                  <span>{option.content}</span>
-                </Label>
-              </div>
-            );
-          })}
+          {options.map((option) => (
+            <Checkbox key={option.label} name="selected" value={option.label}>
+              <Checkbox.Content>
+                <Checkbox.Control><Checkbox.Indicator /></Checkbox.Control>
+                <Label>{option.label}. {option.content}</Label>
+              </Checkbox.Content>
+            </Checkbox>
+          ))}
         </div>
       );
     }
 
     return (
-      <div role="radiogroup" className="grid gap-2 sm:grid-cols-2">
-        {options.map((option) => {
-          const id = `selected-${question.question_id}-${option.label}`;
-
-          return (
-            <div key={option.label} className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
-              <input
-                id={id}
-                name="selected"
-                type="radio"
-                value={option.label}
-                required
-                className="size-4 rounded-full border border-border"
-              />
-              <Label htmlFor={id} className="flex flex-1 gap-2 font-normal">
-                <span className="font-medium">{option.label}.</span>
-                <span>{option.content}</span>
-              </Label>
-            </div>
-          );
-        })}
-      </div>
+      <RadioGroup name="selected" isRequired>
+        {options.map((option) => (
+          <Radio key={option.label} value={option.label}>
+            <Radio.Content>
+              <Radio.Control><Radio.Indicator /></Radio.Control>
+              <Label>{option.label}. {option.content}</Label>
+            </Radio.Content>
+          </Radio>
+        ))}
+      </RadioGroup>
     );
   }
   if (question.answer_mode === 'true_false') {
     return (
-      <div role="radiogroup" className="grid grid-cols-2 gap-2">
-        <div className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
-          <input
-            id={`value-${question.question_id}-true`}
-            name="value"
-            type="radio"
-            value="true"
-            required
-            className="size-4 rounded-full border border-border"
-          />
-          <Label htmlFor={`value-${question.question_id}-true`} className="font-normal">正确</Label>
-        </div>
-        <div className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
-          <input
-            id={`value-${question.question_id}-false`}
-            name="value"
-            type="radio"
-            value="false"
-            required
-            className="size-4 rounded-full border border-border"
-          />
-          <Label htmlFor={`value-${question.question_id}-false`} className="font-normal">错误</Label>
-        </div>
-      </div>
+      <RadioGroup name="value" isRequired>
+        <Radio value="true">
+          <Radio.Content>
+            <Radio.Control><Radio.Indicator /></Radio.Control>
+            <Label>正确</Label>
+          </Radio.Content>
+        </Radio>
+        <Radio value="false">
+          <Radio.Content>
+            <Radio.Control><Radio.Indicator /></Radio.Control>
+            <Label>错误</Label>
+          </Radio.Content>
+        </Radio>
+      </RadioGroup>
     );
   }
   return <TextArea name="value" rows={4} required placeholder="输入答案" />;

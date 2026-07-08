@@ -1,12 +1,18 @@
 import type { Metadata } from 'next';
 import { BookOpen, CheckCircle2, FileWarning, Plus, TrendingUp } from 'lucide-react';
 import { Suspense } from 'react';
-import Link from 'next/link';
+import {
+  Link,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Skeleton
+} from '@heroui/react';
 import { getCurrentUser } from '@/lib/openwook/auth';
 import { getAnalyticsSummary, listBanks, listImportJobs } from '@/lib/openwook/services';
 import type { User } from '@/lib/openwook/types';
-import { Card, CardContent, CardHeader, CardTitle } from '@heroui/react/card';
-import { Skeleton } from '@heroui/react/skeleton';
+import { buttonVariants } from '@heroui/styles';
 
 export const metadata: Metadata = {
   title: '仪表板'
@@ -18,12 +24,12 @@ export default async function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-300 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">仪表板</h1>
           <p className="text-sm text-muted-foreground">管理题库、导入任务和练习表现。</p>
         </div>
-        <Link href="/banks" className="button button--primary">
+        <Link href="/banks" className={buttonVariants({ variant: 'primary' })}>
   进入题库
 </Link>
       </div>
@@ -62,10 +68,10 @@ async function RecentBanks({ user }: { user: User }) {
   const banks = await listBanks(user, new URLSearchParams({ scope: 'mine', limit: '5' }));
 
   return (
-    <Card className="motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-300">
+    <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>最近题库</CardTitle>
-        <Link href="/banks" className="button button--outline button--sm">
+        <Link href="/banks" className={buttonVariants({ variant: 'outline', size: 'sm' })}>
   <Plus className="size-4" />新建
 </Link>
       </CardHeader>
@@ -87,7 +93,7 @@ async function ImportAttentionList({ user }: { user: User }) {
   const imports = await listImportJobs(user, new URLSearchParams({ status: 'queued,processing,failed' }));
 
   return (
-    <Card className="motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-300">
+    <Card>
       <CardHeader>
         <CardTitle>导入任务</CardTitle>
       </CardHeader>
@@ -110,7 +116,7 @@ async function ImportAttentionList({ user }: { user: User }) {
 
 function Metric({ title, value, icon: Icon }: { title: string; value: string | number; icon: React.ElementType }) {
   return (
-    <Card className="motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-300">
+    <Card>
       <CardContent className="flex items-center justify-between p-5">
         <div>
           <div className="text-sm text-muted-foreground">{title}</div>

@@ -2,48 +2,27 @@
 
 ## Direction
 
-OpenWook uses a minimalist, grayscale-first interface with subtle glassmorphism for depth. The design system should preserve clarity for content-heavy education workflows: surfaces are quiet, type hierarchy is explicit, and color is reserved for semantic state only.
+OpenWook uses HeroUI v3 as the only frontend UI component system. Pages should compose standard components from `@heroui/react` and keep HeroUI's native layout, spacing, color, focus, and motion behavior.
 
 ## Tokens
 
-The source of truth is `app/globals.css`. Use semantic Tailwind tokens rather than raw palette utilities.
+The source of truth is `app/globals.css`, which imports Tailwind CSS v4 followed by `@heroui/styles`. Use HeroUI semantic variants and existing theme variables rather than raw palette utilities or local component classes.
 
-- Background: `--background` / `--foreground`
-- Surfaces: `--card`, `--popover`, `--muted`, `--accent`
-- Actions: `--primary` is grayscale black/white, not brand blue
-- Lines: `--border`, `--input`, `--line-subtle`
-- Focus: `--ring`
-- Glass: `--glass-bg`, `--glass-border`, `--glass-shadow`
-- Radius: `--radius: 0.75rem`
-
-Reusable utilities:
-
-- `ow-glass`: translucent surface, border, shadow, blur, and saturation
-- `ow-surface`: semantic card-like neutral surface
-- `ow-hairline`: subtle separator/border color
-- `ow-focus`: shared accessible focus ring
+- Use `primary`, `secondary`, `tertiary`, `danger`, `ghost`, and `outline` variants according to action intent.
+- Use `--background`, `--foreground`, `--card`, `--popover`, `--primary`, `--secondary`, `--muted`, `--border`, `--input`, and `--ring` through HeroUI/Tailwind theme integration.
+- Do not add project-specific component utility classes for buttons, cards, form controls, dialogs, or focus rings.
 
 ## Component Patterns
 
-- Buttons use HeroUI semantic variants or the shared HeroUI `.button` classes; page code should choose variants, not override colors.
-- Cards are glass surfaces by default and should be composed with `CardHeader`, `CardTitle`, `CardContent`, and `CardFooter`.
-- Inputs, selects, textareas, and toggles use translucent neutral backgrounds with a visible ring focus state.
-- Dialogs, popovers, dropdowns, selects, and tooltips use blur/elevation for depth and keep titles/labels accessible.
-- Tables and list rows use low-contrast hairlines, hover via `accent`, and typography for hierarchy.
-- Status treatment is grayscale by default. Keep destructive red only for destructive/error states.
-
-## Page Rules
-
-- Avoid page-level `bg-primary`, `text-primary`, and `border-primary`; use `text-foreground`, `text-muted-foreground`, `bg-foreground/10`, `border-ring`, or component variants.
+- Import standard components directly from `@heroui/react`.
+- Use HeroUI `Button`, `Link`, `Card`, `Alert`, `EmptyState`, `Select`, `RadioGroup`, `Checkbox`, `Input`, `TextArea`, `Tabs`, dialog, and form primitives where applicable.
+- Keep native hidden inputs when required for server actions, but visible form controls should use HeroUI components.
+- Avoid page-level `bg-primary`, `text-primary`, and `border-primary`; prefer component variants and semantic theme tokens.
 - Avoid raw `blue-*`, `emerald-*`, `slate-*`, and `gray-*` utilities in app routes.
-- Use HeroUI `Card`, `Alert`, `EmptyState`, dialog, and form primitives where they fit; keep any native HTML controls accessible and semantically labeled.
-- Maintain responsive spacing: `px-4`, `py-6`, `lg:px-8`, `lg:py-8`, card content `p-4 sm:p-6`.
-- Keep motion behind `motion-safe` / `motion-reduce` patterns.
 
 ## Accessibility
 
 - Use visible labels for form fields; placeholders are examples only.
-- Preserve focus rings on every interactive element.
+- Prefer HeroUI interaction props such as `onPress` for HeroUI buttons.
 - Do not rely on color alone for state; combine icon, text, label, or `aria-current`.
-- Keep touch targets at least 24px; core actions use 40px+ heights.
-- Ensure glass surfaces remain readable by pairing translucency with enough opacity and foreground contrast.
+- Preserve keyboard navigation and accessible names for every interactive element.

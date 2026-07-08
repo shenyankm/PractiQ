@@ -3,9 +3,15 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 import type { ImportJob } from '@/lib/openwook/types';
-import { Alert, AlertDescription } from '@heroui/react/alert';
-import { Card, CardContent, CardHeader, CardTitle } from '@heroui/react/card';
-import { ProgressBar } from '@heroui/react/progress-bar';
+import {
+  Alert,
+  AlertDescription,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  ProgressBar
+} from '@heroui/react';
 
 type EventRow = {
   id: number;
