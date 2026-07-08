@@ -1,0 +1,6 @@
+[Unit]
+Description=OpenWook local Podman network
+
+[Network]
+NetworkName=openwook
+Driver=bridge

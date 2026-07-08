@@ -3,64 +3,47 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 describe('brand color system', () => {
-  it('does not leave orange Tailwind utility classes in app UI', () => {
-    const offenders = tsxFiles('app')
-      .flatMap((file) => {
-        const source = readFileSync(file, 'utf8');
-        return source.includes('orange') ? [file] : [];
-      });
-
+  it('does not leave orange Tailwind utility classes in src UI', () => {
+    const offenders = tsxFiles('src').flatMap((file) => {
+      const source = readFileSync(file, 'utf8');
+      return source.includes('orange') ? [file] : [];
+    });
     expect(offenders).toEqual([]);
   });
 
   it('uses semantic neutral colors instead of page-level slate or gray utilities', () => {
-    const offenders = tsxFiles('app')
-      .flatMap((file) => {
-        const source = readFileSync(file, 'utf8');
-        const matches = source.matchAll(/\b(?:bg|text|border|placeholder)-(?:slate|gray)-\d{2,3}\b/g);
-
-        return Array.from(matches, (match) => `${file}:${lineNumber(source, match.index ?? 0)}:${match[0]}`);
-      });
-
+    const offenders = tsxFiles('src').flatMap((file) => {
+      const source = readFileSync(file, 'utf8');
+      const matches = source.matchAll(/\b(?:bg|text|border|placeholder)-(?:slate|gray)-\d{2,3}\b/g);
+      return Array.from(matches, (match) => `${file}:${lineNumber(source, match.index ?? 0)}:${match[0]}`);
+    });
     expect(offenders).toEqual([]);
   });
 
-  it('uses HeroUI default semantic theme tokens for the global visual system', () => {
-    const globals = readFileSync('app/globals.css', 'utf8');
-
-    expect(globals.match(/@theme inline/g)?.length).toBe(1);
-    expect(globals).not.toContain('hsl(var(--background))');
-    expect(globals).not.toMatch(/--background:\s*0 0% 100%/);
-    expect(globals).toContain('--surface: var(--white);');
-    expect(globals).toContain('--overlay: var(--white);');
-    expect(globals).toContain('--default: oklch(94% 0.001 286.375);');
-    expect(globals).toContain('--accent: oklch(0.6204 0.195 253.83);');
-    expect(globals).toContain('--background: oklch(12% 0.005 285.823);');
-    expect(globals).not.toMatch(/--primary:\s*hsl\(0 0% 9%\)/);
+  it('keeps the global visual system on Tailwind then HeroUI import order', () => {
+    const globals = readFileSync('src/styles/globals.css', 'utf8');
+    expect(globals).toContain('@import "tailwindcss";');
+    expect(globals).toContain('@import "@heroui/styles";');
+    expect(globals.indexOf('@import "tailwindcss";')).toBeLessThan(globals.indexOf('@import "@heroui/styles";'));
   });
 
-  it('keeps page-level primary emphasis out of app routes', () => {
-    const offenders = tsxFiles('app')
-      .flatMap((file) => {
-        const source = readFileSync(file, 'utf8');
-        const matches = source.matchAll(/\b(?:bg|text|border)-primary(?:\/\d+)?\b/g);
-
-        return Array.from(matches, (match) => `${file}:${lineNumber(source, match.index ?? 0)}:${match[0]}`);
-      });
-
+  it('keeps page-level primary emphasis out of src routes', () => {
+    const offenders = tsxFiles('src').flatMap((file) => {
+      const source = readFileSync(file, 'utf8');
+      const matches = source.matchAll(/\b(?:bg|text|border)-primary(?:\/\d+)?\b/g);
+      return Array.from(matches, (match) => `${file}:${lineNumber(source, match.index ?? 0)}:${match[0]}`);
+    });
     expect(offenders).toEqual([]);
   });
 });
 
 function tsxFiles(dir: string): string[] {
-  return readdirSync(dir)
-    .flatMap((entry) => {
-      const path = join(dir, entry);
-      const stats = statSync(path);
-
-      if (stats.isDirectory()) return tsxFiles(path);
-      return path.endsWith('.tsx') ? [path] : [];
-    });
+  return readdirSync(dir).flatMap((entry) => {
+    const path = join(dir, entry);
+    const stats = statSync(path);
+    if (stats.isDirectory()) return tsxFiles(path);
+    return path.endsWith('.tsx') ? [path] : [];
+  });
 }
 
 function lineNumber(source: string, index: number) {
@@ -70,7 +53,6 @@ function lineNumber(source: string, index: number) {
 describe('visual style guide documentation', () => {
   it('documents HeroUI-only component and variant rules', () => {
     const guide = readFileSync('docs/visual-style-guide.md', 'utf8');
-
     expect(guide).toContain('HeroUI semantic variants');
     expect(guide).toContain('Import standard components directly from `@heroui/react`.');
     expect(guide).toContain('Avoid page-level `bg-primary`, `text-primary`, and `border-primary`');

@@ -1,0 +1,27 @@
+[Unit]
+Description=OpenWook API and static frontend server
+
+[Container]
+Image=localhost/openwook-api:latest
+ContainerName=openwook-api
+Network=openwook.network
+NetworkAlias=openwook-api
+PublishPort=127.0.0.1:3000:3000
+Environment=POSTGRES_URL=postgres://openwook:openwook@openwook-postgres:5432/openwook_app
+Environment=DATABASE_URL=postgres://openwook:openwook@openwook-postgres:5432/openwook_app
+Environment=REDIS_URL=redis://openwook-redis:6379
+Environment=AI_SERVICE_URL=http://openwook-ai:8001
+Environment=AI_SERVICE_TOKEN
+Environment=AUTH_SECRET
+Environment=OPENWOOK_HOST=0.0.0.0
+Environment=PORT=3000
+Environment=NEXT_PUBLIC_APP_URL=http://127.0.0.1:3000
+Pull=never
+
+[Service]
+EnvironmentFile=-%h/.config/openwook/openwook-stack.env
+Restart=on-failure
+TimeoutStartSec=900
+
+[Install]
+WantedBy=default.target

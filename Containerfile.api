@@ -1,0 +1,26 @@
+FROM node:22-bookworm AS web
+WORKDIR /app
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json vite.config.ts index.html /app/
+COPY src /app/src
+COPY public /app/public
+RUN corepack enable && pnpm install --frozen-lockfile && pnpm build
+
+FROM golang:1.26-bookworm AS go-build
+WORKDIR /app
+COPY go.mod go.sum* /app/
+RUN go mod download
+COPY cmd /app/cmd
+COPY internal /app/internal
+COPY db /app/db
+RUN go build -o /out/openwook-api ./cmd/openwook-api && go build -o /out/openwook-worker ./cmd/openwook-worker && go build -o /out/openwook-admin ./cmd/openwook-admin
+
+FROM debian:bookworm-slim
+WORKDIR /app
+COPY --from=go-build /out/openwook-api /usr/local/bin/openwook-api
+COPY --from=go-build /out/openwook-worker /usr/local/bin/openwook-worker
+COPY --from=go-build /out/openwook-admin /usr/local/bin/openwook-admin
+COPY --from=web /app/dist /app/dist
+COPY public /app/public
+COPY db /app/db
+EXPOSE 3000
+CMD ["/usr/local/bin/openwook-api"]

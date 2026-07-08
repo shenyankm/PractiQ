@@ -1,0 +1,36 @@
+package redisx
+
+import (
+	"fmt"
+	"os"
+	"strings"
+)
+
+const ReleaseLockScript = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end"
+
+func RedisKey(parts ...any) string {
+	prefix := os.Getenv("REDIS_KEY_PREFIX")
+	if strings.TrimSpace(prefix) == "" {
+		prefix = "openwook"
+	}
+	values := []string{prefix}
+	for _, part := range parts {
+		if part == nil {
+			continue
+		}
+		value := strings.TrimSpace(fmt.Sprint(part))
+		if value == "" {
+			continue
+		}
+		values = append(values, value)
+	}
+	return strings.Join(values, ":")
+}
+
+func ImportEventChannel(jobID int64) string {
+	return RedisKey("import", jobID, "events")
+}
+
+func ImportEventStreamKey(jobID int64) string {
+	return RedisKey("stream", "import", jobID, "events")
+}

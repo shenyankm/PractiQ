@@ -2,25 +2,35 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+QUADLET_DIR="${HOME}/.config/containers/systemd"
 UNITS=(
+  "$ROOT/containers/quadlet/openwook.network"
   "$ROOT/containers/quadlet/openwook-redis.volume"
   "$ROOT/containers/quadlet/openwook-redis.container"
 )
 SERVICE=openwook-redis.service
 
+install_units() {
+  mkdir -p "$QUADLET_DIR"
+  for unit in "${UNITS[@]}"; do
+    cp "$unit" "$QUADLET_DIR/"
+  done
+  systemctl --user daemon-reload
+}
+
 case "${1:-up}" in
   install)
-    podman quadlet install --replace "${UNITS[@]}"
+    install_units
     ;;
   up)
-    podman quadlet install --replace "${UNITS[@]}"
+    install_units
     systemctl --user start "$SERVICE"
     ;;
   down)
     systemctl --user stop "$SERVICE"
     ;;
   restart)
-    podman quadlet install --replace "${UNITS[@]}"
+    install_units
     systemctl --user restart "$SERVICE"
     ;;
   status)
@@ -32,7 +42,8 @@ case "${1:-up}" in
     ;;
   uninstall)
     systemctl --user stop "$SERVICE" 2>/dev/null || true
-    podman quadlet rm --ignore openwook-redis.container openwook-redis.volume
+    rm -f "$QUADLET_DIR/openwook.network" "$QUADLET_DIR/openwook-redis.volume" "$QUADLET_DIR/openwook-redis.container"
+    systemctl --user daemon-reload
     ;;
   *)
     echo "Usage: $0 {install|up|down|restart|status|logs|uninstall}" >&2

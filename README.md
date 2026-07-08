@@ -1,239 +1,119 @@
-# OpenWook - Full-Stack Next.js Application
+# OpenWook
 
-A complete full-stack application built with Next.js, PostgreSQL, HeroUI, and Tailwind CSS.
+OpenWook now runs as a split-stack application:
 
-## Product Design
+- Go serves the HTTP API, auth/session handling, PostgreSQL access, Redis-backed queues/caches, and the built frontend.
+- Python serves the internal AI/document-processing endpoints.
+- Vite + React + HeroUI provide the browser frontend.
+- `db/*/*.sql` remains the schema authority.
 
-The question-bank product design based on the split PostgreSQL schema files in `db/*/*.sql` is documented in [docs/system-design.md](docs/system-design.md). It covers the REST API surface, frontend pages, core modules, data flows, validation, errors, and implementation roadmap.
+## Tech stack
 
-## Tech Stack
+- Frontend: Vite, React 19, React Router, HeroUI v3, Tailwind CSS v4, SWR
+- API/runtime: Go 1.26, pgxpool, go-redis, standard `net/http`
+- AI service: Python 3.14, FastAPI, Pydantic, Mammoth
+- Local infra: Podman Quadlet for Postgres and Redis
 
-- **Framework**: Next.js 15.6.0-canary.59 (App Router)
-- **Language**: TypeScript
-- **Database**: PostgreSQL (via `postgres` driver)
-- **UI**: HeroUI + Tailwind CSS v4
-- **Styling**: CSS Variables + oklch color system
+## Local setup
 
-## Quick Start
-
-### 1. Install Dependencies
+1. Install dependencies and toolchains:
 
 ```bash
 pnpm install
+go version
+python --version
+python -m pip install -e 'ai[dev]'
 ```
 
-### 2. Set Up Database and Redis
-
-Start the local PostgreSQL and Redis containers with Podman + Quadlet:
+2. Start local Postgres and Redis:
 
 ```bash
 ./scripts/podman-db.sh up
 ./scripts/podman-redis.sh up
 ```
 
-Create a `.env.local` file (or copy `.env.example`):
+The Podman helper scripts ensure the isolated `openwook_app` database exists inside the shared local PostgreSQL volume so an older `openwook` database does not collide with this stack.
 
-```env
-DATABASE_URL=postgres://openwook:openwook@localhost:54322/openwook
-POSTGRES_URL=postgres://openwook:openwook@localhost:54322/openwook
-REDIS_URL=redis://localhost:6379
-```
-
-The authoritative product schema lives in the split SQL files under `db/*/*.sql`, applied in filename order with your PostgreSQL runner or deployment pipeline. OpenWook intentionally has no product `drizzle-kit generate/migrate/studio` path.
-
-After the base schema exists, use the repo helpers only for local bootstrap extras:
+3. Copy environment defaults:
 
 ```bash
+cp .env.example .env.local
+```
+
+4. Apply schema helpers to your local database:
+
+```bash
+pnpm db:apply
 pnpm db:ensure
 pnpm db:seed
 ```
 
-### 3. Run Development Server
+## Development commands
 
 ```bash
-pnpm dev
+pnpm dev             # Vite frontend on 127.0.0.1:3000
+pnpm api:dev         # Go API on 127.0.0.1:8080 by default
+pnpm ai:dev          # FastAPI AI service on 127.0.0.1:8001
+pnpm worker:imports  # Go import worker
 ```
 
-Open [http://localhost:3000](http://localhost:3000)
+Set `GO_API_URL=http://127.0.0.1:8080` when running `pnpm dev` against a non-default API URL.
 
-## Application Surface
-
-OpenWook uses the App Router under `app/`, API routes under `app/api`, HeroUI components directly in app screens, domain services under `lib/openwook`, and raw PostgreSQL bootstrap helpers under `lib/db`. The authoritative product schema is `db/*/*.sql`. See `docs/system-design.md` for the current product/API design.
-
-## Database Configuration
-
-Local PostgreSQL is managed by rootless Podman Quadlet units in `containers/quadlet/`:
+## Test and verification commands
 
 ```bash
-./scripts/podman-db.sh up       # install/update Quadlet files and start Postgres
-./scripts/podman-db.sh status   # show systemd and container status
-./scripts/podman-db.sh down     # stop the database service
-./scripts/podman-db.sh logs     # follow database logs
+pnpm lint
+pnpm test
+pnpm test:go
+pnpm test:ai
+pnpm test:e2e
+pnpm build
+pnpm verify
 ```
 
-The container publishes Postgres on `127.0.0.1:54322` to avoid conflicts with a host Postgres on `5432`.
+## API/runtime notes
 
-The database connection uses connection pooling configured by `POSTGRES_POOL_MAX`, `POSTGRES_IDLE_TIMEOUT_SECONDS`, and `POSTGRES_CONNECT_TIMEOUT_SECONDS`.
+- Health endpoints: `/api/health`, `/api/health/ready`, `/api/health/live`
+- Metrics endpoint: `/api/metrics` (Bearer token required when configured)
+- Session cookie name: `session`
+- Redis remains the queue backend; there is no separate RabbitMQ/NATS/Kafka service
+- AI routes exposed to the browser stay under `/api/v1/ai/*`; Go talks to Python over `AI_SERVICE_URL`
 
-## Redis, Caching, and Import Workers
+## Podman stack
 
-OpenWook uses PostgreSQL as the source of truth and Redis as an optional acceleration and coordination layer.
-
-Redis-backed features:
-
-- Short-TTL cache for reference data, user profiles, bank lists/items, question detail, answer keys, and analytics summaries.
-- JWT session revocation on logout through `jti` blacklist keys.
-- Login/register rate limiting.
-- Stable practice-session question queues and duplicate answer submission protection.
-- BullMQ import queue for long-running document parsing jobs.
-- Redis Pub/Sub + SSE for live import progress events.
-- AI result de-duplication cache, bank leaderboard cache, and analytics snapshot cache.
-
-Local Redis is managed by rootless Podman Quadlet units in `containers/quadlet/`, matching PostgreSQL:
+The full local stack can be built and managed with one script:
 
 ```bash
-./scripts/podman-redis.sh up       # install/update Quadlet files and start Redis
-./scripts/podman-redis.sh status   # show systemd and container status
-./scripts/podman-redis.sh down     # stop the Redis service
-./scripts/podman-redis.sh logs     # follow Redis logs
+./scripts/podman-stack.sh build
+./scripts/podman-stack.sh up
+./scripts/podman-stack.sh status
+./scripts/podman-stack.sh logs
+./scripts/podman-stack.sh down
 ```
 
-The Redis container publishes on `127.0.0.1:6379`. BullMQ uses this same Redis service as its queue backend, so there is no separate local broker container to run.
+`up`/`restart` ensure the isolated `openwook_app` database exists before the API and worker start, and create `~/.config/openwook/openwook-stack.env` with random local `AUTH_SECRET` and `AI_SERVICE_TOKEN` values on first use. You still need to run the schema/seed commands once per fresh database. Edit that env file if you want to rotate the generated local secrets.
 
-Set environment variables:
+This manages five services:
 
-```env
-REDIS_URL=redis://localhost:6379
-REDIS_KEY_PREFIX=openwook
-IMPORT_WORKER_CONCURRENCY=2
-IMPORT_QUEUE_ATTEMPTS=3
-AI_CACHE_TTL_SECONDS=86400
-LEADERBOARD_CACHE_TTL_SECONDS=60
-```
+- `openwook-postgres`
+- `openwook-redis`
+- `openwook-ai`
+- `openwook-api`
+- `openwook-worker`
 
-AI model calls use the Mastra OpenAI-compatible client. Configure at least one provider; the runtime fallback order is Kimi/Moonshot, then DeepSeek, then an OpenAI-compatible fallback:
+## Environment variables
 
-```env
-MOONSHOT_API_KEY=sk-...
-# Optional, defaults to https://api.moonshot.cn/v1 and kimi-k2.6
-MOONSHOT_BASE_URL=https://api.moonshot.cn/v1
+See `.env.example` for the full set. The most important groups are:
 
-# Tried when Kimi is not configured or the primary provider call fails.
-DEEPSEEK_API_KEY=sk-...
-# Optional, defaults to https://api.deepseek.com and deepseek-v4-flash
-DEEPSEEK_BASE_URL=https://api.deepseek.com
-DEEPSEEK_MODEL=deepseek-v4-flash
+- Database/cache: `POSTGRES_URL`, `DATABASE_URL`, `REDIS_URL`
+- Host/origin: `OPENWOOK_HOST`, `PORT`, `NEXT_PUBLIC_APP_URL`, `BASE_URL`
+- Auth/session: `AUTH_SECRET`, `SESSION_TTL_MS`, `SESSION_RENEW_WINDOW_MS`
+- AI service: `AI_SERVICE_URL`, `AI_SERVICE_TOKEN`
+- Billing: `PADDLE_*`
+- Object storage: `OBJECT_STORAGE_MOUNT_DIR`, `OSS_PUBLIC_BASE_URL`, `OSS_URL_PREFIX`
 
-# Optional generic OpenAI-compatible fallback.
-OPENAI_API_KEY=sk-...
-OPENAI_BASE_URL=https://api.openai.com/v1
-OPENAI_MODEL=gpt-4o-mini
-MASTRA_MODEL=
-MASTRA_TEMPERATURE=
-MASTRA_MAX_TOKENS=
-```
+## Schema and architecture
 
-Run the Next.js app and the import worker in separate processes:
-
-```bash
-pnpm dev
-pnpm worker:imports
-```
-
-Health check:
-
-```text
-GET /api/health
-```
-
-Redis cache failures degrade to PostgreSQL reads. Queue, lock, and live-progress features require `REDIS_URL`.
-
-## Object Storage
-
-OpenWook stores uploaded avatars and import source files through a mounted object-storage directory. PostgreSQL keeps the object URL, while the mounted path is used only by the server to write or read the original file.
-
-Set environment variables:
-
-```env
-OBJECT_STORAGE_MOUNT_DIR=/lhcos-data
-OSS_PUBLIC_BASE_URL=https://<bucket>.cos.<region>.myqcloud.com
-OSS_URL_PREFIX=oss://openwook
-AVATAR_MAX_BYTES=5242880
-IMPORT_SOURCE_MAX_BYTES=26214400
-```
-
-If `OSS_PUBLIC_BASE_URL` is set, user avatars are stored in PostgreSQL as browser-usable HTTPS object URLs. If it is omitted, OpenWook stores `OSS_URL_PREFIX` URLs such as `oss://openwook/avatars/...`.
-
-## Environment Variables
-
-Copy `.env.example` to `.env.local` for local development and replace all placeholder secrets before deployment.
-
-| Variable | Description |
-|----------|-------------|
-| `DATABASE_URL` | PostgreSQL connection string |
-| `POSTGRES_POOL_MAX` | Maximum PostgreSQL connections per Next.js or worker process; tune lower when running multiple web instances |
-| `POSTGRES_IDLE_TIMEOUT_SECONDS` | Idle timeout for postgres.js connections |
-| `POSTGRES_CONNECT_TIMEOUT_SECONDS` | Connection timeout for postgres.js connections |
-| `REDIS_URL` | Redis connection string for cache, rate limits, queue, locks, and SSE |
-| `REDIS_KEY_PREFIX` | Optional Redis key namespace prefix |
-| `IMPORT_WORKER_CONCURRENCY` | Number of import jobs processed per worker |
-| `IMPORT_QUEUE_ATTEMPTS` | BullMQ retry attempts for import jobs |
-| `AI_CACHE_TTL_SECONDS` | TTL for repeated AI parse/answer cache entries |
-| `MOONSHOT_API_KEY` | Kimi/Moonshot API key; primary Mastra model provider |
-| `MOONSHOT_BASE_URL` | Optional Kimi-compatible base URL; defaults to `https://api.moonshot.cn/v1` |
-| `DEEPSEEK_API_KEY` | DeepSeek API key; fallback after Kimi or primary provider failure |
-| `DEEPSEEK_BASE_URL` | Optional DeepSeek OpenAI-compatible base URL; defaults to `https://api.deepseek.com` |
-| `DEEPSEEK_MODEL` | Optional DeepSeek model override; defaults to `deepseek-v4-flash` |
-| `OPENAI_API_KEY` | Optional OpenAI-compatible fallback API key |
-| `OPENAI_BASE_URL` | Optional OpenAI-compatible fallback base URL |
-| `OPENAI_MODEL` | Optional OpenAI-compatible fallback model |
-| `MASTRA_MODEL` | Optional global model override for the selected provider |
-| `MASTRA_TEMPERATURE` | Optional global model temperature override |
-| `MASTRA_MAX_TOKENS` | Optional global max token override |
-| `LEADERBOARD_CACHE_TTL_SECONDS` | TTL for bank leaderboard cache entries |
-| `OBJECT_STORAGE_MOUNT_DIR` | Local mount path for the object-storage bucket |
-| `OSS_PUBLIC_BASE_URL` | Public bucket URL used for persisted avatar and source-file URLs |
-| `OSS_URL_PREFIX` | Fallback object URL prefix when no public bucket URL is configured |
-| `AVATAR_MAX_BYTES` | Max uploaded avatar size in bytes |
-| `IMPORT_SOURCE_MAX_BYTES` | Max uploaded TXT/DOCX source size in bytes |
-| `NEXT_PUBLIC_APP_URL` | Public app URL |
-| `LOG_LEVEL` | Structured application log level; defaults to `info` in production |
-| `SLOW_QUERY_MS` | PostgreSQL slow-operation warning threshold in milliseconds |
-| `HEALTH_CHECK_TIMEOUT_MS` | Per-dependency health-check timeout in milliseconds |
-| `METRICS_TOKEN` | Bearer token required for `/api/metrics` in production |
-| `OTEL_SERVICE_NAME` | OpenTelemetry service name used by `instrumentation.ts` |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP collector endpoint for traces/metrics export |
-| `OTEL_EXPORTER_OTLP_PROTOCOL` | OTLP protocol, for example `http/protobuf` |
-| `OPENWOOK_SHORT_CACHE_TTL_SECONDS` | TTL for short-lived hot-path caches such as bank item pages |
-| `OPENWOOK_REFERENCE_CACHE_TTL_SECONDS` | TTL for reference data caches |
-| `PRACTICE_MAX_QUESTIONS` | Upper bound for questions selected in one practice session |
-| `PRACTICE_PROGRESS_FULL_LIMIT` | Full progress-grid render limit; larger sessions return a windowed progress grid |
-| `PRACTICE_PROGRESS_WINDOW_RADIUS` | Number of nearby questions kept on each side of the current practice question |
-
-## Observability and Operations
-
-OpenWook includes a production observability baseline:
-
-- Structured JSON application logs through `pino`, with redaction for passwords, cookies, authorization headers, tokens, API keys, private keys, and uploaded `fileBase64` payloads.
-- Request correlation with `x-request-id`; API JSON envelopes include `meta.requestId` or `error.requestId`.
-- Hardened health checks: `/api/health` and `/api/health/ready` verify PostgreSQL and Redis with sanitized dependency status, while `/api/health/live` only verifies process liveness.
-- Prometheus metrics at `/api/metrics`; production scrapes must send `Authorization: Bearer $METRICS_TOKEN`.
-- OpenTelemetry startup in `instrumentation.ts` using `@vercel/otel`. Configure an OTLP collector with `OTEL_EXPORTER_OTLP_ENDPOINT`.
-- Database, Redis, HTTP route, and import-worker metrics for latency, errors, cache hit/miss, queue depth, job lifecycle, and slow query warnings.
-
-App and worker logs go to stdout. `.omx/` is local agent runtime state and is ignored by git; do not use it as application monitoring data.
-
-## Features
-
-- **Server Components**: Data fetching on the server
-- **Client Components**: Interactive UI with React hooks
-- **API Routes**: RESTful endpoints with proper error handling
-- **Type Safety**: Full TypeScript coverage
-- **Health Checks**: Real-time system status monitoring
-- **Database Pooling**: Efficient connection management
-- **CORS Headers**: Configured for API routes
-- **HeroUI Theme**: Light/dark mode support
-
-## License
-
-MIT
+- Product schema lives in `db/*/*.sql`
+- Runtime/bootstrap helpers live in `internal/db`
+- Product/API design notes live in `docs/system-design.md`

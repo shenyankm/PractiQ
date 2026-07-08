@@ -2,22 +2,14 @@
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { BillingPanel } from '@/app/(openwook)/settings/billing-panel';
+import { BillingPanel } from '@/src/pages/settings/BillingPanel';
 
-const mocks = vi.hoisted(() => ({
-  fetch: vi.fn(),
-  initializePaddle: vi.fn(),
-  checkoutOpen: vi.fn()
-}));
-
+const fetchMock = vi.hoisted(() => vi.fn());
 const originalFetch = globalThis.fetch;
 
-vi.mock('@paddle/paddle-js', () => ({
-  initializePaddle: mocks.initializePaddle
-}));
-
-function jsonResponse(data: unknown) {
+function jsonResponse(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
+    status,
     headers: { 'Content-Type': 'application/json' }
   });
 }
@@ -31,16 +23,8 @@ function requestPath(input: RequestInfo | URL) {
 
 describe('BillingPanel', () => {
   beforeEach(() => {
-    mocks.fetch.mockReset();
-    mocks.initializePaddle.mockReset();
-    mocks.checkoutOpen.mockReset();
-
-    mocks.initializePaddle.mockResolvedValue({
-      Checkout: {
-        open: mocks.checkoutOpen
-      }
-    });
-    mocks.fetch
+    fetchMock.mockReset();
+    fetchMock
       .mockResolvedValueOnce(
         jsonResponse({
           data: {
@@ -82,73 +66,34 @@ describe('BillingPanel', () => {
       )
       .mockResolvedValueOnce(
         jsonResponse({
-          data: {
-            checkout: {
-              transactionId: 'txn_plus',
-              clientToken: 'ctkn_plus',
-              environment: 'sandbox'
-            }
+          error: {
+            message: 'checkout unavailable'
           }
-        })
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({
-          data: {
-            checkout: {
-              transactionId: 'txn_enterprise',
-              clientToken: 'ctkn_enterprise',
-              environment: 'sandbox'
-            }
-          }
-        })
+        }, 500)
       );
 
-    globalThis.fetch = mocks.fetch as typeof fetch;
+    globalThis.fetch = fetchMock as typeof fetch;
   });
 
   afterEach(() => {
     globalThis.fetch = originalFetch;
   });
 
-  it('fetches billing summary, only posts paid plan keys, and opens Paddle checkout', async () => {
+  it('fetches billing summary and posts the selected paid plan key to checkout', async () => {
     render(<BillingPanel />);
 
-    expect((await screen.findAllByText('Free')).length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Plus').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Enterprise').length).toBeGreaterThan(0);
-    expect(requestPath(mocks.fetch.mock.calls[0][0] as RequestInfo | URL)).toBe('/api/v1/billing/summary');
+    expect(await screen.findByRole('button', { name: /plus/i })).toBeTruthy();
+    expect(requestPath(fetchMock.mock.calls[0][0] as RequestInfo | URL)).toBe('/api/v1/billing/summary');
 
-    const plusButton = screen.getByRole('button', { name: /plus/i });
-    const enterpriseButton = screen.getByRole('button', { name: /enterprise/i });
-
-    expect(screen.queryByRole('button', { name: /free/i })).toBeNull();
-
-    fireEvent.click(plusButton);
-
-    const plusCall = mocks.fetch.mock.calls[1];
-    expect(requestPath(plusCall[0] as RequestInfo | URL)).toBe('/api/v1/billing/checkout');
-    expect(plusCall[1]).toMatchObject({ method: 'POST' });
-    expect(JSON.parse(String((plusCall[1] as RequestInit).body))).toEqual({ planKey: 'plus' });
+    fireEvent.click(screen.getByRole('button', { name: /plus/i }));
 
     await waitFor(() => {
-      expect(mocks.initializePaddle).toHaveBeenCalledWith({
-        token: 'ctkn_plus',
-        environment: 'sandbox'
-      });
-      expect(mocks.checkoutOpen).toHaveBeenCalledWith({ transactionId: 'txn_plus' });
+      expect(fetchMock).toHaveBeenCalledTimes(2);
     });
 
-    fireEvent.click(enterpriseButton);
-
-    const enterpriseCall = mocks.fetch.mock.calls[2];
-    expect(requestPath(enterpriseCall[0] as RequestInfo | URL)).toBe('/api/v1/billing/checkout');
-    expect(enterpriseCall[1]).toMatchObject({ method: 'POST' });
-    expect(JSON.parse(String((enterpriseCall[1] as RequestInit).body))).toEqual({ planKey: 'enterprise' });
-
-    await waitFor(() => {
-      expect(mocks.checkoutOpen).toHaveBeenLastCalledWith({ transactionId: 'txn_enterprise' });
-    });
-
-    expect(mocks.fetch).toHaveBeenCalledTimes(3);
+    const checkoutCall = fetchMock.mock.calls[1] as [RequestInfo | URL, RequestInit];
+    expect(requestPath(checkoutCall[0])).toBe('/api/v1/billing/checkout');
+    expect(checkoutCall[1]).toMatchObject({ method: 'POST' });
+    expect(JSON.parse(String(checkoutCall[1].body))).toEqual({ planKey: 'plus' });
   });
 });

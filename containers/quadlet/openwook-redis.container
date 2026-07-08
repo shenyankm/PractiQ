@@ -1,8 +1,11 @@
 [Unit]
-Description=OpenWook local Redis cache and BullMQ backend
+Description=OpenWook local Redis cache and queue backend
 
 [Container]
 Image=docker.io/library/redis:7-alpine
+ContainerName=openwook-redis
+Network=openwook.network
+NetworkAlias=openwook-redis
 PublishPort=127.0.0.1:6379:6379
 Volume=openwook-redis.volume:/data:Z
 Exec=redis-server --appendonly yes --save 60 1000 --maxmemory-policy noeviction

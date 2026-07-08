@@ -1,0 +1,23 @@
+[Unit]
+Description=OpenWook import worker
+
+[Container]
+Image=localhost/openwook-api:latest
+ContainerName=openwook-worker
+Network=openwook.network
+NetworkAlias=openwook-worker
+Environment=POSTGRES_URL=postgres://openwook:openwook@openwook-postgres:5432/openwook_app
+Environment=DATABASE_URL=postgres://openwook:openwook@openwook-postgres:5432/openwook_app
+Environment=REDIS_URL=redis://openwook-redis:6379
+Environment=AI_SERVICE_URL=http://openwook-ai:8001
+Environment=AI_SERVICE_TOKEN
+Exec=/usr/local/bin/openwook-worker
+Pull=never
+
+[Service]
+EnvironmentFile=-%h/.config/openwook/openwook-stack.env
+Restart=on-failure
+TimeoutStartSec=900
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,7 @@
+FROM python:3.14-slim
+WORKDIR /app
+COPY ai/pyproject.toml /app/ai/pyproject.toml
+COPY ai/openwook_ai /app/ai/openwook_ai
+RUN python -m pip install --no-cache-dir /app/ai
+EXPOSE 8001
+CMD ["python", "-m", "uvicorn", "openwook_ai.main:app", "--app-dir", "ai", "--host", "0.0.0.0", "--port", "8001"]
