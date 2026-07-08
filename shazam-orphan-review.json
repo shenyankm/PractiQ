@@ -1,0 +1,5 @@
+{
+  "suppressReviewedOrphans": true,
+  "reviewDocument": "docs/shazam-orphan-review.md",
+  "reviewedReason": "Existing orphan symbols are reviewed framework entrypoints, JSON/reflection DTOs, CLI internals, or external API shapes; do not treat as deletion candidates without the documented checks."
+}
