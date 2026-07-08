@@ -2,18 +2,18 @@
 
 ## Project Structure & Module Organization
 
-OpenWook is a split-stack application. The React + Vite frontend lives in `frontend/`, with browser source in `frontend/src`, static assets in `frontend/public`, and frontend tests in `frontend/tests`. Go API routes, auth, Redis, object storage, import workers, billing, and services live under `cmd/` and `internal/`. The authoritative product schema lives in the split SQL files under `db/*/*.sql`, AI service code lives in `ai/`, and architecture notes live in `docs/`.
+OpenWook is a split-stack application. The React + Vite frontend lives in `frontend/`, with browser source in `frontend/src`, static assets in `frontend/public`, and frontend tests in `frontend/tests`. The Go + Chi backend lives in `backend/`, with executables under `backend/cmd`, internal API/router/auth/config/db/services packages under `backend/internal`, and SQL schema files under `backend/db/*/*.sql`. AI service code lives in `ai/`, and architecture notes live in `docs/`.
 
 ## Build, Test, and Development Commands
 
-- `pnpm install`: install dependencies and configure Git hooks through `prepare`.
-- `pnpm dev`: run the Vite frontend dev server from `frontend/`.
-- `pnpm build`: create a production build.
-- `pnpm start`: serve the built application.
-- `pnpm lint`: run the frontend ESLint and TypeScript rules.
-- `pnpm test`: run the Vitest suite once.
-- `pnpm db:setup`, `pnpm db:ensure`, `pnpm db:seed`: bootstrap local environment variables, apply runtime compatibility SQL, and load local sample data after the split SQL schema has been installed.
-- `pnpm worker:imports`: run the background import worker; use a separate terminal from `pnpm dev`.
+- `make install`: install frontend dependencies from `frontend/pnpm-lock.yaml` and configure Git hooks.
+- `make dev`: run the Vite frontend dev server from `frontend/`.
+- `make build`: create a production frontend build.
+- `make start`: serve the built frontend application.
+- `make lint`: run the frontend ESLint and TypeScript rules.
+- `make test`: run the Vitest suite once.
+- `make db-apply`, `make db-ensure`, `make db-seed`: apply SQL schema, runtime compatibility checks, and local sample data from `backend/`.
+- `make worker-imports`: run the Go background import worker; use a separate terminal from `make dev`.
 
 ## Coding Style & Naming Conventions
 
@@ -21,7 +21,7 @@ Use TypeScript with strict mode and the `@/*` path alias. Follow existing format
 
 ## Testing Guidelines
 
-Vitest is configured in `frontend/vitest.config.ts` with `frontend/tests/setup.ts` and matches `frontend/tests/**/*.test.ts` and `frontend/tests/**/*.test.tsx`. Add tests beside the existing suite using descriptive names such as `services.test.ts` or `practice-page.dom.test.tsx`. Use DOM/React Testing Library patterns for TSX behavior and focused service tests for backend logic. Run `pnpm test` before opening a PR.
+Vitest is configured in `frontend/vitest.config.ts` with `frontend/tests/setup.ts` and matches `frontend/tests/**/*.test.ts` and `frontend/tests/**/*.test.tsx`. Add tests beside the existing suite using descriptive names such as `services.test.ts` or `practice-page.dom.test.tsx`. Use DOM/React Testing Library patterns for TSX behavior and focused service tests for backend logic. Run `make test` before opening a PR.
 
 ## Commit & Pull Request Guidelines
 

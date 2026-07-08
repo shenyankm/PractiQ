@@ -1,19 +1,19 @@
 # OpenWook System Design
 
-This document designs the application services, UI pages, and core modules from the authoritative split PostgreSQL schema files in `db/*/*.sql`.
+This document designs the application services, UI pages, and core modules from the authoritative split PostgreSQL schema files in `backend/db/*/*.sql`.
 
-The starter Drizzle/team layer has been explicitly retired. Treat the business-area SQL files under `db/` as the product data model for the question-bank system, and do not reintroduce a parallel ORM schema until it is generated from or proven equivalent to those SQL files.
+The starter Drizzle/team layer has been explicitly retired. Treat the business-area SQL files under `backend/db/` as the product data model for the question-bank system, and do not reintroduce a parallel ORM schema until it is generated from or proven equivalent to those SQL files.
 
 ## 中文摘要
 
-本文档基于 `db/*/*.sql` 中按业务拆分的 PostgreSQL schema 设计 OpenWook 题库系统的完整产品形态，覆盖：
+本文档基于 `backend/db/*/*.sql` 中按业务拆分的 PostgreSQL schema 设计 OpenWook 题库系统的完整产品形态，覆盖：
 
 - 后端 REST API：用户认证、题库、题目、题组、练习会话、导入任务、媒体资源、统计分析。
 - 前端页面：登录注册、仪表板、题库列表和详情、题目管理、练习作答、文件导入、用户设置。
 - 核心模块：认证授权、题库权限、题型渲染与判分、导入流水线、媒体管理、统计分析。
 - 工程约束：数据关联、事务边界、参数校验、错误模型、状态生命周期和性能策略。
 
-当前仓库已移除旧的 Drizzle/team schema；正式开发仍应以 `db/` 下的业务 SQL 文件和本文档为准，并继续替换遗留的 team/dashboard 页面与路由。
+当前仓库已移除旧的 Drizzle/team schema；正式开发仍应以 `backend/db/` 下的业务 SQL 文件和本文档为准，并继续替换遗留的 team/dashboard 页面与路由。
 
 ## Redis Integration
 
@@ -855,15 +855,15 @@ Recommended additional implementation practices:
 - Wrap multi-table writes in transactions.
 - Batch insert import blocks/attempts.
 - Cache subject/type lists.
-- Use server-side rendering for dashboards, client-side SWR for live import progress.
+- Use React Router views with SWR/client-side fetching for dashboards and live import progress.
 - Avoid loading full question content blocks for list views.
 
 ## 9. Implementation Roadmap
 
 ### Phase 1: Align Data Layer
 
-- Keep `db/*/*.sql` as the only product schema source of truth; do not reintroduce the retired starter ORM layer or a parallel Drizzle migration path unless it is regenerated from the SQL files.
-- Replace old team/SaaS dashboard routes with OpenWook domain routes.
+- Keep `backend/db/*/*.sql` as the only product schema source of truth; do not reintroduce the retired starter ORM layer or a parallel Drizzle migration path unless it is regenerated from the SQL files.
+- Keep React Router OpenWook domain routes aligned with the Go + Chi API routes.
 - Add shared API response/error helpers.
 - Add auth session guards.
 
@@ -897,10 +897,12 @@ Recommended additional implementation practices:
 - Content block editor.
 - Markdown/formula/table rendering.
 
-## 10. Current Repository Gap
+## 10. Current Repository Status
 
-The current worktree still contains:
+The repository is now organized around the current split-stack implementation:
 
-- Team/pricing/activity dashboard pages.
+- `frontend/` contains the React + Vite + React Router browser app and frontend tests.
+- `backend/` contains the Go + Chi API, admin/worker binaries, internal services, and product SQL schema.
+- `ai/` contains the Python FastAPI AI/document-processing service.
 
-The starter Drizzle/team data layer is intentionally retired. To make the project actually run as the designed question-bank product, the next implementation step is to replace the remaining starter pages and API routes with the modules described above while keeping `db/*/*.sql` as the schema authority.
+The retired starter Drizzle/team data layer is no longer the implementation baseline. Continue evolving the question-bank product against `backend/db/*/*.sql`, the Go services in `backend/internal`, and the routes documented above.

@@ -6,7 +6,7 @@ OpenWook uses HeroUI v3 as the only frontend UI component system. Pages should c
 
 ## Tokens
 
-The source of truth is `app/globals.css`, which imports Tailwind CSS v4 followed by `@heroui/styles`. Use HeroUI semantic variants and existing theme variables rather than raw palette utilities or local component classes.
+The source of truth is `frontend/src/styles/globals.css`, which imports Tailwind CSS v4 followed by `@heroui/styles`. Use HeroUI semantic variants and existing theme variables rather than raw palette utilities or local component classes.
 
 - Use `primary`, `secondary`, `tertiary`, `danger`, `ghost`, and `outline` variants according to action intent.
 - Use `--background`, `--foreground`, `--card`, `--popover`, `--primary`, `--secondary`, `--muted`, `--border`, `--input`, and `--ring` through HeroUI/Tailwind theme integration.
@@ -16,9 +16,9 @@ The source of truth is `app/globals.css`, which imports Tailwind CSS v4 followed
 
 - Import standard components directly from `@heroui/react`.
 - Use HeroUI `Button`, `Link`, `Card`, `Alert`, `EmptyState`, `Select`, `RadioGroup`, `Checkbox`, `Input`, `TextArea`, `Tabs`, dialog, and form primitives where applicable.
-- Keep native hidden inputs when required for server actions, but visible form controls should use HeroUI components.
+Keep native hidden inputs when required for forms, but visible form controls should use HeroUI components.
 - Avoid page-level `bg-primary`, `text-primary`, and `border-primary`; prefer component variants and semantic theme tokens.
-- Avoid raw `blue-*`, `emerald-*`, `slate-*`, and `gray-*` utilities in app routes.
+Avoid raw `blue-*`, `emerald-*`, `slate-*`, and `gray-*` utilities in frontend routes.
 
 ## Accessibility
 
