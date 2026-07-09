@@ -23,6 +23,10 @@ Use TypeScript with strict mode and the `@/*` path alias. Follow existing format
 
 Vitest is configured in `frontend/vitest.config.ts` with `frontend/tests/setup.ts` and matches `frontend/tests/**/*.test.ts` and `frontend/tests/**/*.test.tsx`. Add tests beside the existing suite using descriptive names such as `services.test.ts` or `practice-page.dom.test.tsx`. Use DOM/React Testing Library patterns for TSX behavior and focused service tests for backend logic. Run `make test` before opening a PR.
 
+## Documentation Guidelines
+
+After every code, schema, configuration, or workflow change, update the related documentation in the same change. Keep `README.md`, `docs/`, and feature-specific notes aligned with the current behavior.
+
 ## Commit & Pull Request Guidelines
 
 Recent history uses Conventional Commit-style prefixes with scopes, for example `fix(session): ...`, `style(ui): ...`, `chore(config): ...`, and `refactor(db): ...`. Keep commits focused and imperative. Pull requests should include a clear summary, linked issue when applicable, database or environment changes, screenshots for UI changes, and verification commands run.

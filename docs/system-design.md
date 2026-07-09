@@ -403,6 +403,7 @@ UI states:
 - Field-level validation.
 - Invalid credentials.
 - Session expired.
+- Centered responsive card layout for sign-in and sign-up forms.
 
 ### Dashboard
 
