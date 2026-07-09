@@ -1,6 +1,6 @@
 import { useState, type ChangeEvent, type FormEvent } from 'react';
 import { Button, Card, Input, Label, Link, TextField } from '@heroui/react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { apiRequest } from '@/lib/api';
 
 export type LoginPageProps = {
@@ -14,7 +14,6 @@ function safeRedirect(value: string | null) {
 }
 
 export function LoginPage({ mode = 'signin' }: LoginPageProps) {
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [username, setUsername] = useState('');
   const [emailOrLogin, setEmailOrLogin] = useState('');
@@ -37,7 +36,6 @@ export function LoginPage({ mode = 'signin' }: LoginPageProps) {
           json: { username, email: emailOrLogin, password }
         });
       }
-      navigate(redirect);
       window.location.assign(redirect);
     } finally {
       setPending(false);

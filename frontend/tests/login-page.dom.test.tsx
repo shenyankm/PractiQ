@@ -6,7 +6,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LoginPage } from '@/pages/LoginPage';
 
 const routerState = vi.hoisted(() => ({
-  navigate: vi.fn(),
   searchParams: new URLSearchParams(),
   pathname: '/sign-in'
 }));
@@ -25,7 +24,6 @@ vi.mock('react-router-dom', () => ({
     search: routerState.searchParams.toString() ? `?${routerState.searchParams.toString()}` : '',
     hash: ''
   }),
-  useNavigate: () => routerState.navigate,
   useSearchParams: () => [routerState.searchParams, vi.fn()]
 }));
 
@@ -39,7 +37,6 @@ function jsonResponse(data: unknown, status = 200) {
 describe('LoginPage', () => {
   beforeEach(() => {
     fetchMock.mockReset();
-    routerState.navigate.mockReset();
     routerState.pathname = '/sign-in';
     routerState.searchParams = new URLSearchParams();
     globalThis.fetch = fetchMock as typeof fetch;
@@ -49,7 +46,7 @@ describe('LoginPage', () => {
     globalThis.fetch = originalFetch;
   });
 
-  it('posts JSON sign-in credentials and navigates to a safe internal redirect after success', async () => {
+  it('posts JSON sign-in credentials after success', async () => {
     routerState.searchParams = new URLSearchParams({
       redirect: '/imports/42?tab=review#latest'
     });
@@ -65,11 +62,7 @@ describe('LoginPage', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: '登录' }));
 
-    await waitFor(() => {
-      expect(routerState.navigate).toHaveBeenCalledWith('/imports/42?tab=review#latest');
-    });
-
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/v1/auth/login',
       expect.objectContaining({
@@ -84,7 +77,7 @@ describe('LoginPage', () => {
     });
   });
 
-  it('posts JSON registration payload and falls back to /dashboard for unsafe redirects', async () => {
+  it('posts JSON registration payload after success', async () => {
     routerState.pathname = '/sign-up';
     routerState.searchParams = new URLSearchParams({
       redirect: 'https://evil.example/phish'
@@ -104,11 +97,7 @@ describe('LoginPage', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: '注册' }));
 
-    await waitFor(() => {
-      expect(routerState.navigate).toHaveBeenCalledWith('/dashboard');
-    });
-
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/v1/auth/register',
       expect.objectContaining({

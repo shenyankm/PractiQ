@@ -15,15 +15,7 @@ function jsonResponse(data: unknown, status = 200, headers?: HeadersInit) {
 }
 
 function headerValue(headers: RequestInit['headers'] | undefined, name: string) {
-  if (!headers) return null;
-  if (headers instanceof Headers) return headers.get(name);
-  if (Array.isArray(headers)) {
-    const match = headers.find(([key]) => key.toLowerCase() === name.toLowerCase());
-    return match?.[1] ?? null;
-  }
-
-  const found = Object.entries(headers).find(([key]) => key.toLowerCase() === name.toLowerCase());
-  return found?.[1] ?? null;
+	return new Headers(headers).get(name);
 }
 
 describe('apiRequest', () => {
