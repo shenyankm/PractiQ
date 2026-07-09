@@ -1,8 +1,7 @@
-.PHONY: install dev build start preview lint test test-go test-ai test-e2e verify api-dev ai-dev db-apply db-ensure db-seed worker-imports
+.PHONY: install dev build start lint test test-go test-ai test-e2e verify api-dev ai-dev db-apply db-ensure db-seed worker-imports
 
 install:
 	pnpm --dir frontend install
-	git rev-parse --git-dir >/dev/null 2>&1 && git config core.hooksPath .githooks || true
 
 dev:
 	pnpm --dir frontend dev
@@ -12,9 +11,6 @@ build:
 
 start:
 	pnpm --dir frontend start
-
-preview:
-	pnpm --dir frontend preview
 
 lint:
 	pnpm --dir frontend lint

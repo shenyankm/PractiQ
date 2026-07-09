@@ -5,9 +5,8 @@ description = "OpenWook internal AI service"
 requires-python = ">=3.14"
 dependencies = [
   "fastapi>=0.120",
-  "uvicorn[standard]>=0.35",
+  "uvicorn>=0.35",
   "pydantic>=2.12",
-  "httpx>=0.28",
   "mammoth>=1.12",
 ]
 
