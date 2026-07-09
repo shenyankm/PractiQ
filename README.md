@@ -73,6 +73,10 @@ make verify
 
 `make build` runs the frontend TypeScript check before the Vite production build.
 
+## Agent skills
+
+Paddle integration skills are configured for opencode at `.opencode/opencode.json` using Paddle's agent-skills discovery index.
+
 ## API/runtime notes
 
 - Health endpoints: `/api/health`, `/api/health/ready`, `/api/health/live`
