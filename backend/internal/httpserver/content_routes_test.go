@@ -18,14 +18,14 @@ func TestNewServerRegistersContentRoutes(t *testing.T) {
 		Banks: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			api.OK(w, r, map[string]any{"route": "banks"}, nil)
 		}),
-		BankSubtree: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			api.OK(w, r, map[string]any{"route": "bank-subtree", "path": r.URL.Path}, nil)
+		BankItems: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			api.OK(w, r, map[string]any{"route": "bank-items", "bankId": r.PathValue("bankId")}, nil)
 		}),
-		QuestionSubtree: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			api.OK(w, r, map[string]any{"route": "question-subtree", "path": r.URL.Path}, nil)
+		QuestionGet: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			api.OK(w, r, map[string]any{"route": "question-get", "questionId": r.PathValue("questionId")}, nil)
 		}),
-		GroupSubtree: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			api.OK(w, r, map[string]any{"route": "group-subtree", "path": r.URL.Path}, nil)
+		GroupQuestionDelete: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			api.OK(w, r, map[string]any{"route": "group-question-delete", "groupId": r.PathValue("groupId"), "questionId": r.PathValue("questionId")}, nil)
 		}),
 	})
 
@@ -36,9 +36,9 @@ func TestNewServerRegistersContentRoutes(t *testing.T) {
 		wantRoute string
 	}{
 		{name: "banks root", method: http.MethodGet, target: "/api/v1/banks", wantRoute: "banks"},
-		{name: "bank subtree", method: http.MethodGet, target: "/api/v1/banks/12/items", wantRoute: "bank-subtree"},
-		{name: "question subtree", method: http.MethodGet, target: "/api/v1/questions/7", wantRoute: "question-subtree"},
-		{name: "group subtree", method: http.MethodDelete, target: "/api/v1/groups/9/questions/10", wantRoute: "group-subtree"},
+		{name: "bank items", method: http.MethodGet, target: "/api/v1/banks/12/items", wantRoute: "bank-items"},
+		{name: "question get", method: http.MethodGet, target: "/api/v1/questions/7", wantRoute: "question-get"},
+		{name: "group question delete", method: http.MethodDelete, target: "/api/v1/groups/9/questions/10", wantRoute: "group-question-delete"},
 	}
 
 	for _, tt := range tests {

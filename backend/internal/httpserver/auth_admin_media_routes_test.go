@@ -22,7 +22,7 @@ func TestNewServerRegistersAuthAdminAndMediaRoutes(t *testing.T) {
 	}{
 		{
 			name:       "auth register",
-			deps:       ServerDependencies{Auth: AuthHandlers{Register: routeSliceStubHandler(http.StatusCreated, "auth-register")}},
+			deps:       ServerDependencies{Auth: AuthHandlers{Register: routeStubHandler(http.StatusCreated, "auth-register")}},
 			method:     http.MethodPost,
 			target:     "/api/v1/auth/register",
 			wantStatus: http.StatusCreated,
@@ -30,7 +30,7 @@ func TestNewServerRegistersAuthAdminAndMediaRoutes(t *testing.T) {
 		},
 		{
 			name:       "auth login",
-			deps:       ServerDependencies{Auth: AuthHandlers{Login: routeSliceStubHandler(http.StatusOK, "auth-login")}},
+			deps:       ServerDependencies{Auth: AuthHandlers{Login: routeStubHandler(http.StatusOK, "auth-login")}},
 			method:     http.MethodPost,
 			target:     "/api/v1/auth/login",
 			wantStatus: http.StatusOK,
@@ -38,14 +38,14 @@ func TestNewServerRegistersAuthAdminAndMediaRoutes(t *testing.T) {
 		},
 		{
 			name:       "auth logout",
-			deps:       ServerDependencies{Auth: AuthHandlers{Logout: routeSliceStubHandler(http.StatusNoContent, "")}},
+			deps:       ServerDependencies{Auth: AuthHandlers{Logout: routeStubHandler(http.StatusNoContent, "")}},
 			method:     http.MethodPost,
 			target:     "/api/v1/auth/logout",
 			wantStatus: http.StatusNoContent,
 		},
 		{
 			name:       "auth me",
-			deps:       ServerDependencies{Auth: AuthHandlers{Me: routeSliceStubHandler(http.StatusOK, "auth-me")}},
+			deps:       ServerDependencies{Auth: AuthHandlers{Me: routeStubHandler(http.StatusOK, "auth-me")}},
 			method:     http.MethodGet,
 			target:     "/api/v1/auth/me",
 			wantStatus: http.StatusOK,
@@ -53,7 +53,7 @@ func TestNewServerRegistersAuthAdminAndMediaRoutes(t *testing.T) {
 		},
 		{
 			name:       "admin overview",
-			deps:       ServerDependencies{Admin: AdminHandlers{Overview: routeSliceStubHandler(http.StatusOK, "admin-overview")}},
+			deps:       ServerDependencies{Admin: AdminHandlers{Overview: routeStubHandler(http.StatusOK, "admin-overview")}},
 			method:     http.MethodGet,
 			target:     "/api/v1/admin/overview",
 			wantStatus: http.StatusOK,
@@ -61,7 +61,7 @@ func TestNewServerRegistersAuthAdminAndMediaRoutes(t *testing.T) {
 		},
 		{
 			name:       "admin users",
-			deps:       ServerDependencies{Admin: AdminHandlers{Users: routeSliceStubHandler(http.StatusOK, "admin-users")}},
+			deps:       ServerDependencies{Admin: AdminHandlers{Users: routeStubHandler(http.StatusOK, "admin-users")}},
 			method:     http.MethodGet,
 			target:     "/api/v1/admin/users",
 			wantStatus: http.StatusOK,
@@ -69,7 +69,7 @@ func TestNewServerRegistersAuthAdminAndMediaRoutes(t *testing.T) {
 		},
 		{
 			name:       "admin knowledge points",
-			deps:       ServerDependencies{Admin: AdminHandlers{KnowledgePoints: routeSliceStubHandler(http.StatusOK, "admin-knowledge-points")}},
+			deps:       ServerDependencies{Admin: AdminHandlers{KnowledgePoints: routeStubHandler(http.StatusOK, "admin-knowledge-points")}},
 			method:     http.MethodGet,
 			target:     "/api/v1/admin/knowledge-points",
 			wantStatus: http.StatusOK,
@@ -77,7 +77,7 @@ func TestNewServerRegistersAuthAdminAndMediaRoutes(t *testing.T) {
 		},
 		{
 			name:       "user status",
-			deps:       ServerDependencies{Admin: AdminHandlers{SetUserStatus: routeSliceStubHandler(http.StatusOK, "user-status")}},
+			deps:       ServerDependencies{Admin: AdminHandlers{SetUserStatus: routeStubHandler(http.StatusOK, "user-status")}},
 			method:     http.MethodPatch,
 			target:     "/api/v1/users/17/status",
 			wantStatus: http.StatusOK,
@@ -85,7 +85,7 @@ func TestNewServerRegistersAuthAdminAndMediaRoutes(t *testing.T) {
 		},
 		{
 			name:       "user access",
-			deps:       ServerDependencies{Admin: AdminHandlers{UpdateUserAccess: routeSliceStubHandler(http.StatusOK, "user-access")}},
+			deps:       ServerDependencies{Admin: AdminHandlers{UpdateUserAccess: routeStubHandler(http.StatusOK, "user-access")}},
 			method:     http.MethodPatch,
 			target:     "/api/v1/users/17/access",
 			wantStatus: http.StatusOK,
@@ -93,7 +93,7 @@ func TestNewServerRegistersAuthAdminAndMediaRoutes(t *testing.T) {
 		},
 		{
 			name:       "knowledge point create",
-			deps:       ServerDependencies{Admin: AdminHandlers{CreateKnowledgePoint: routeSliceStubHandler(http.StatusCreated, "knowledge-point-create")}},
+			deps:       ServerDependencies{Admin: AdminHandlers{CreateKnowledgePoint: routeStubHandler(http.StatusCreated, "knowledge-point-create")}},
 			method:     http.MethodPost,
 			target:     "/api/v1/knowledge-points",
 			wantStatus: http.StatusCreated,
@@ -101,7 +101,7 @@ func TestNewServerRegistersAuthAdminAndMediaRoutes(t *testing.T) {
 		},
 		{
 			name:       "knowledge point update",
-			deps:       ServerDependencies{Admin: AdminHandlers{UpdateKnowledgePoint: routeSliceStubHandler(http.StatusOK, "knowledge-point-update")}},
+			deps:       ServerDependencies{Admin: AdminHandlers{UpdateKnowledgePoint: routeStubHandler(http.StatusOK, "knowledge-point-update")}},
 			method:     http.MethodPatch,
 			target:     "/api/v1/knowledge-points/9",
 			wantStatus: http.StatusOK,
@@ -109,7 +109,7 @@ func TestNewServerRegistersAuthAdminAndMediaRoutes(t *testing.T) {
 		},
 		{
 			name:       "media create",
-			deps:       ServerDependencies{Media: MediaHandlers{Create: routeSliceStubHandler(http.StatusCreated, "media-create")}},
+			deps:       ServerDependencies{Media: MediaHandlers{Create: routeStubHandler(http.StatusCreated, "media-create")}},
 			method:     http.MethodPost,
 			target:     "/api/v1/media",
 			wantStatus: http.StatusCreated,
@@ -117,7 +117,7 @@ func TestNewServerRegistersAuthAdminAndMediaRoutes(t *testing.T) {
 		},
 		{
 			name:       "media get",
-			deps:       ServerDependencies{Media: MediaHandlers{Get: routeSliceStubHandler(http.StatusOK, "media-get")}},
+			deps:       ServerDependencies{Media: MediaHandlers{Get: routeStubHandler(http.StatusOK, "media-get")}},
 			method:     http.MethodGet,
 			target:     "/api/v1/media/11",
 			wantStatus: http.StatusOK,
@@ -125,14 +125,14 @@ func TestNewServerRegistersAuthAdminAndMediaRoutes(t *testing.T) {
 		},
 		{
 			name:       "media delete",
-			deps:       ServerDependencies{Media: MediaHandlers{Delete: routeSliceStubHandler(http.StatusNoContent, "")}},
+			deps:       ServerDependencies{Media: MediaHandlers{Delete: routeStubHandler(http.StatusNoContent, "")}},
 			method:     http.MethodDelete,
 			target:     "/api/v1/media/11",
 			wantStatus: http.StatusNoContent,
 		},
 		{
 			name:       "question media link",
-			deps:       ServerDependencies{Media: MediaHandlers{LinkQuestion: routeSliceStubHandler(http.StatusCreated, "question-media-link")}},
+			deps:       ServerDependencies{Media: MediaHandlers{LinkQuestion: routeStubHandler(http.StatusCreated, "question-media-link")}},
 			method:     http.MethodPost,
 			target:     "/api/v1/questions/3/media-links",
 			wantStatus: http.StatusCreated,
@@ -140,7 +140,7 @@ func TestNewServerRegistersAuthAdminAndMediaRoutes(t *testing.T) {
 		},
 		{
 			name:       "group media link",
-			deps:       ServerDependencies{Media: MediaHandlers{LinkGroup: routeSliceStubHandler(http.StatusCreated, "group-media-link")}},
+			deps:       ServerDependencies{Media: MediaHandlers{LinkGroup: routeStubHandler(http.StatusCreated, "group-media-link")}},
 			method:     http.MethodPost,
 			target:     "/api/v1/groups/4/media-links",
 			wantStatus: http.StatusCreated,
@@ -148,7 +148,7 @@ func TestNewServerRegistersAuthAdminAndMediaRoutes(t *testing.T) {
 		},
 		{
 			name:       "option media link",
-			deps:       ServerDependencies{Media: MediaHandlers{LinkOption: routeSliceStubHandler(http.StatusCreated, "option-media-link")}},
+			deps:       ServerDependencies{Media: MediaHandlers{LinkOption: routeStubHandler(http.StatusCreated, "option-media-link")}},
 			method:     http.MethodPost,
 			target:     "/api/v1/options/5/media-links",
 			wantStatus: http.StatusCreated,
@@ -158,7 +158,7 @@ func TestNewServerRegistersAuthAdminAndMediaRoutes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			handler := newRouteSliceServerUnderTest(t, tt.deps)
+			handler := newRoutesServerUnderTest(t, tt.deps)
 
 			rr := httptest.NewRecorder()
 			req := httptest.NewRequest(tt.method, "https://app.example.test"+tt.target, nil)
@@ -176,15 +176,15 @@ func TestNewServerRegistersAuthAdminAndMediaRoutes(t *testing.T) {
 }
 
 func TestNewServerUsesMethodSpecificRouteRegistrationForSharedPaths(t *testing.T) {
-	handler := newRouteSliceServerUnderTest(t, ServerDependencies{
+	handler := newRoutesServerUnderTest(t, ServerDependencies{
 		Reference: ReferenceHandlers{
-			KnowledgePoints: routeSliceStubHandler(http.StatusOK, "reference-knowledge-points"),
+			KnowledgePoints: routeStubHandler(http.StatusOK, "reference-knowledge-points"),
 		},
 		Admin: AdminHandlers{
-			CreateKnowledgePoint: routeSliceStubHandler(http.StatusCreated, "admin-create-knowledge-point"),
+			CreateKnowledgePoint: routeStubHandler(http.StatusCreated, "admin-create-knowledge-point"),
 		},
 		Media: MediaHandlers{
-			Get: routeSliceStubHandler(http.StatusOK, "media-get"),
+			Get: routeStubHandler(http.StatusOK, "media-get"),
 		},
 	})
 
@@ -285,7 +285,7 @@ func TestBuildAdminAndMediaHandlersKeepValidationTight(t *testing.T) {
 	})
 }
 
-func newRouteSliceServerUnderTest(t *testing.T, deps ServerDependencies) http.Handler {
+func newRoutesServerUnderTest(t *testing.T, deps ServerDependencies) http.Handler {
 	t.Helper()
 
 	distDir := t.TempDir()
@@ -305,7 +305,7 @@ func newRouteSliceServerUnderTest(t *testing.T, deps ServerDependencies) http.Ha
 	}, deps)
 }
 
-func routeSliceStubHandler(status int, body string) http.Handler {
+func routeStubHandler(status int, body string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(status)
 		_, _ = w.Write([]byte(body))
