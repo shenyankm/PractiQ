@@ -17,12 +17,12 @@ type ImportHandlers struct {
 }
 
 func registerImportRoutes(router chi.Router, handlers ImportHandlers) {
-	registerMethodRoute(router, http.MethodGet, "/api/v1/import-jobs", handlers.ImportJobs)
-	registerMethodRoute(router, http.MethodPost, "/api/v1/import-jobs", handlers.ImportJobs)
-	registerMethodRoute(router, http.MethodGet, "/api/v1/import-jobs/{jobId}", handlers.ImportJob)
-	registerMethodRoute(router, http.MethodPost, "/api/v1/import-jobs/{jobId}/file", handlers.ImportJobFile)
-	registerMethodRoute(router, http.MethodPost, "/api/v1/import-jobs/{jobId}/{action}", handlers.ImportJobAction)
-	registerMethodRoute(router, http.MethodGet, "/api/v1/import-jobs/{jobId}/{kind}", handlers.ImportJobChildren)
-	registerMethodRoute(router, http.MethodGet, "/api/v1/import-jobs/{jobId}/events/stream", handlers.ImportJobEventStream)
-	registerMethodRoute(router, http.MethodPost, "/api/v1/import-jobs/{jobId}/review-items/{itemId}/resolve", handlers.ImportJobReviewResolve)
+	registerMethodRoute(router, http.MethodGet, "/import-jobs", handlers.ImportJobs)
+	registerMethodRoute(router, http.MethodPost, "/import-jobs", handlers.ImportJobs)
+	registerMethodRoute(router, http.MethodGet, "/import-jobs/{jobId}", handlers.ImportJob)
+	registerMethodRoute(router, http.MethodPost, "/import-jobs/{jobId}/file", handlers.ImportJobFile)
+	registerMethodRoute(router, http.MethodPost, "/import-jobs/{jobId}/{action}", handlers.ImportJobAction)
+	registerMethodRoute(router, http.MethodGet, "/import-jobs/{jobId}/{kind}", handlers.ImportJobChildren)
+	registerMethodRoute(router, http.MethodGet, "/import-jobs/{jobId}/events/stream", handlers.ImportJobEventStream)
+	registerMethodRoute(router, http.MethodPost, "/import-jobs/{jobId}/review-items/{itemId}/resolve", handlers.ImportJobReviewResolve)
 }

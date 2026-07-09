@@ -4,6 +4,8 @@ This document designs the application services, UI pages, and core modules from 
 
 The starter Drizzle/team layer has been explicitly retired. Treat the business-area SQL files under `backend/db/` as the product data model for the question-bank system, and do not reintroduce a parallel ORM schema until it is generated from or proven equivalent to those SQL files.
 
+The files under `backend/db/*/*.sql` are bootstrap schema fragments for fresh local, test, or reset environments. They are not a reversible production migration history; production data-preserving schema changes should be added as explicit versioned migrations before rollout.
+
 ## 中文摘要
 
 本文档基于 `backend/db/*/*.sql` 中按业务拆分的 PostgreSQL schema 设计 OpenWook 题库系统的完整产品形态，覆盖：

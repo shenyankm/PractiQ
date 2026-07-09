@@ -17,11 +17,11 @@ type AdminHandlers struct {
 }
 
 func registerAdminRoutes(router chi.Router, handlers AdminHandlers) {
-	registerMethodRoute(router, http.MethodGet, "/api/v1/admin/overview", handlers.Overview)
-	registerMethodRoute(router, http.MethodGet, "/api/v1/admin/users", handlers.Users)
-	registerMethodRoute(router, http.MethodGet, "/api/v1/admin/knowledge-points", handlers.KnowledgePoints)
-	registerMethodRoute(router, http.MethodPatch, "/api/v1/users/{userId}/status", handlers.SetUserStatus)
-	registerMethodRoute(router, http.MethodPatch, "/api/v1/users/{userId}/access", handlers.UpdateUserAccess)
-	registerMethodRoute(router, http.MethodPost, "/api/v1/knowledge-points", handlers.CreateKnowledgePoint)
-	registerMethodRoute(router, http.MethodPatch, "/api/v1/knowledge-points/{knowledgePointId}", handlers.UpdateKnowledgePoint)
+	registerMethodRoute(router, http.MethodGet, "/admin/overview", handlers.Overview)
+	registerMethodRoute(router, http.MethodGet, "/admin/users", handlers.Users)
+	registerMethodRoute(router, http.MethodGet, "/admin/knowledge-points", handlers.KnowledgePoints)
+	registerMethodRoute(router, http.MethodPatch, "/users/{userId}/status", handlers.SetUserStatus)
+	registerMethodRoute(router, http.MethodPatch, "/users/{userId}/access", handlers.UpdateUserAccess)
+	registerMethodRoute(router, http.MethodPost, "/knowledge-points", handlers.CreateKnowledgePoint)
+	registerMethodRoute(router, http.MethodPatch, "/knowledge-points/{knowledgePointId}", handlers.UpdateKnowledgePoint)
 }

@@ -14,8 +14,8 @@ type AIHandlers struct {
 }
 
 func registerAIRoutes(router chi.Router, handlers AIHandlers) {
-	registerMethodRoute(router, http.MethodPost, "/api/v1/ai/parse-document", handlers.AIParseDocument)
-	registerMethodRoute(router, http.MethodPost, "/api/v1/ai/generate-answer", handlers.AIGenerateAnswer)
-	registerMethodRoute(router, http.MethodPost, "/api/v1/ai/learning-report", handlers.AILearningReport)
-	registerMethodRoute(router, http.MethodPost, "/api/v1/questions/{questionId}/generate-answer", handlers.QuestionGenerateAnswer)
+	registerMethodRoute(router, http.MethodPost, "/ai/parse-document", handlers.AIParseDocument)
+	registerMethodRoute(router, http.MethodPost, "/ai/generate-answer", handlers.AIGenerateAnswer)
+	registerMethodRoute(router, http.MethodPost, "/ai/learning-report", handlers.AILearningReport)
+	registerMethodRoute(router, http.MethodPost, "/questions/{questionId}/generate-answer", handlers.QuestionGenerateAnswer)
 }
