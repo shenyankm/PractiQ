@@ -15,18 +15,32 @@ import (
 
 func TestNewServerRegistersContentRoutes(t *testing.T) {
 	handler := newContentServerUnderTest(t, ContentHandlers{
-		Banks: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			api.OK(w, r, map[string]any{"route": "banks"}, nil)
-		}),
-		BankItems: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			api.OK(w, r, map[string]any{"route": "bank-items", "bankId": r.PathValue("bankId")}, nil)
-		}),
-		QuestionGet: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			api.OK(w, r, map[string]any{"route": "question-get", "questionId": r.PathValue("questionId")}, nil)
-		}),
-		GroupQuestionDelete: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			api.OK(w, r, map[string]any{"route": "group-question-delete", "groupId": r.PathValue("groupId"), "questionId": r.PathValue("questionId")}, nil)
-		}),
+		Banks:                    contentRouteHandler("banks"),
+		BankGet:                  contentRouteHandler("bank-get", "bankId"),
+		BankUpdate:               contentRouteHandler("bank-update", "bankId"),
+		BankDelete:               contentRouteHandler("bank-delete", "bankId"),
+		BankItems:                contentRouteHandler("bank-items", "bankId"),
+		BankItemsReorder:         contentRouteHandler("bank-items-reorder", "bankId"),
+		BankFavoriteCreate:       contentRouteHandler("bank-favorite-create", "bankId"),
+		BankFavoriteDelete:       contentRouteHandler("bank-favorite-delete", "bankId"),
+		BankQuestionCreate:       contentRouteHandler("bank-question-create", "bankId"),
+		BankGroupCreate:          contentRouteHandler("bank-group-create", "bankId"),
+		QuestionGet:              contentRouteHandler("question-get", "questionId"),
+		QuestionUpdate:           contentRouteHandler("question-update", "questionId"),
+		QuestionDelete:           contentRouteHandler("question-delete", "questionId"),
+		QuestionPublish:          contentRouteHandler("question-publish", "questionId"),
+		QuestionArchive:          contentRouteHandler("question-archive", "questionId"),
+		QuestionOptionCreate:     contentRouteHandler("question-option-create", "questionId"),
+		QuestionOptionUpdate:     contentRouteHandler("question-option-update", "questionId", "optionId"),
+		QuestionAnswerKeyPut:     contentRouteHandler("question-answer-key-put", "questionId"),
+		QuestionMetadataPut:      contentRouteHandler("question-metadata-put", "questionId"),
+		QuestionKnowledgePut:     contentRouteHandler("question-knowledge-put", "questionId"),
+		QuestionContentBlocksPut: contentRouteHandler("question-content-blocks-put", "questionId"),
+		GroupGet:                 contentRouteHandler("group-get", "groupId"),
+		GroupUpdate:              contentRouteHandler("group-update", "groupId"),
+		GroupQuestionCreate:      contentRouteHandler("group-question-create", "groupId"),
+		GroupQuestionsReorder:    contentRouteHandler("group-questions-reorder", "groupId"),
+		GroupQuestionDelete:      contentRouteHandler("group-question-delete", "groupId", "questionId"),
 	})
 
 	tests := []struct {
@@ -36,8 +50,30 @@ func TestNewServerRegistersContentRoutes(t *testing.T) {
 		wantRoute string
 	}{
 		{name: "banks root", method: http.MethodGet, target: "/api/v1/banks", wantRoute: "banks"},
+		{name: "bank get", method: http.MethodGet, target: "/api/v1/banks/12", wantRoute: "bank-get"},
+		{name: "bank update", method: http.MethodPatch, target: "/api/v1/banks/12", wantRoute: "bank-update"},
+		{name: "bank delete", method: http.MethodDelete, target: "/api/v1/banks/12", wantRoute: "bank-delete"},
 		{name: "bank items", method: http.MethodGet, target: "/api/v1/banks/12/items", wantRoute: "bank-items"},
+		{name: "bank items reorder", method: http.MethodPatch, target: "/api/v1/banks/12/items/reorder", wantRoute: "bank-items-reorder"},
+		{name: "bank favorite create", method: http.MethodPost, target: "/api/v1/banks/12/favorite", wantRoute: "bank-favorite-create"},
+		{name: "bank favorite delete", method: http.MethodDelete, target: "/api/v1/banks/12/favorite", wantRoute: "bank-favorite-delete"},
+		{name: "bank question create", method: http.MethodPost, target: "/api/v1/banks/12/questions", wantRoute: "bank-question-create"},
+		{name: "bank group create", method: http.MethodPost, target: "/api/v1/banks/12/groups", wantRoute: "bank-group-create"},
 		{name: "question get", method: http.MethodGet, target: "/api/v1/questions/7", wantRoute: "question-get"},
+		{name: "question update", method: http.MethodPatch, target: "/api/v1/questions/7", wantRoute: "question-update"},
+		{name: "question delete", method: http.MethodDelete, target: "/api/v1/questions/7", wantRoute: "question-delete"},
+		{name: "question publish", method: http.MethodPost, target: "/api/v1/questions/7/publish", wantRoute: "question-publish"},
+		{name: "question archive", method: http.MethodPost, target: "/api/v1/questions/7/archive", wantRoute: "question-archive"},
+		{name: "question option create", method: http.MethodPost, target: "/api/v1/questions/7/options", wantRoute: "question-option-create"},
+		{name: "question option update", method: http.MethodPatch, target: "/api/v1/questions/7/options/8", wantRoute: "question-option-update"},
+		{name: "question answer key put", method: http.MethodPut, target: "/api/v1/questions/7/answer-key", wantRoute: "question-answer-key-put"},
+		{name: "question metadata put", method: http.MethodPut, target: "/api/v1/questions/7/metadata", wantRoute: "question-metadata-put"},
+		{name: "question knowledge put", method: http.MethodPut, target: "/api/v1/questions/7/knowledge-points", wantRoute: "question-knowledge-put"},
+		{name: "question content blocks put", method: http.MethodPut, target: "/api/v1/questions/7/content-blocks", wantRoute: "question-content-blocks-put"},
+		{name: "group get", method: http.MethodGet, target: "/api/v1/groups/9", wantRoute: "group-get"},
+		{name: "group update", method: http.MethodPatch, target: "/api/v1/groups/9", wantRoute: "group-update"},
+		{name: "group question create", method: http.MethodPost, target: "/api/v1/groups/9/questions", wantRoute: "group-question-create"},
+		{name: "group questions reorder", method: http.MethodPatch, target: "/api/v1/groups/9/questions/reorder", wantRoute: "group-questions-reorder"},
 		{name: "group question delete", method: http.MethodDelete, target: "/api/v1/groups/9/questions/10", wantRoute: "group-question-delete"},
 	}
 
@@ -105,6 +141,16 @@ func TestBuildContentHandlersKeepsErrorEnvelopeForPathParsing(t *testing.T) {
 			}
 		})
 	}
+}
+
+func contentRouteHandler(route string, pathValueNames ...string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		data := map[string]any{"route": route}
+		for _, name := range pathValueNames {
+			data[name] = r.PathValue(name)
+		}
+		api.OK(w, r, data, nil)
+	})
 }
 
 func newContentServerUnderTest(t *testing.T, handlers ContentHandlers) http.Handler {
