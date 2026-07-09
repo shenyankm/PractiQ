@@ -1,5 +1,5 @@
 import { useState, type ChangeEvent, type FormEvent } from 'react';
-import { Button, Link } from '@heroui/react';
+import { Button, Card, Input, Label, Link, TextField } from '@heroui/react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { apiRequest } from '@/lib/api';
 
@@ -46,63 +46,40 @@ export function LoginPage({ mode = 'signin' }: LoginPageProps) {
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-default-50 px-4">
-      <form
-        className="w-full max-w-sm space-y-4 rounded-2xl bg-content1 p-6 shadow-small"
-        onSubmit={onSubmit}
-      >
-        <div>
-          <h1 className="text-xl font-semibold">
-            {mode === 'signin' ? '登录 OpenWook' : '创建 OpenWook 账号'}
-          </h1>
-          <p className="mt-1 text-sm text-default-500">
-            {mode === 'signin' ? '使用用户名或邮箱继续。' : '填写信息后即可开始使用。'}
-          </p>
-        </div>
-        {mode === 'signup' ? (
-          <div className="space-y-1">
-            <label className="text-sm font-medium" htmlFor="username">
-              用户名
-            </label>
-            <input
-              className="w-full rounded-xl border border-default-200 px-3 py-2 outline-none focus:border-default-400"
-              id="username"
-              value={username}
-              onChange={(event: ChangeEvent<HTMLInputElement>) => setUsername(event.target.value)}
-            />
+      <Card className="w-full max-w-sm">
+        <form className="space-y-4 p-6" onSubmit={onSubmit}>
+          <div>
+            <h1 className="text-xl font-semibold">
+              {mode === 'signin' ? '登录 OpenWook' : '创建 OpenWook 账号'}
+            </h1>
+            <p className="mt-1 text-sm text-default-500">
+              {mode === 'signin' ? '使用用户名或邮箱继续。' : '填写信息后即可开始使用。'}
+            </p>
           </div>
-        ) : null}
-        <div className="space-y-1">
-          <label className="text-sm font-medium" htmlFor="email">
-            {mode === 'signin' ? '用户名或邮箱' : '邮箱'}
-          </label>
-          <input
-            className="w-full rounded-xl border border-default-200 px-3 py-2 outline-none focus:border-default-400"
-            id="email"
-            value={emailOrLogin}
-            onChange={(event: ChangeEvent<HTMLInputElement>) => setEmailOrLogin(event.target.value)}
-          />
-        </div>
-        <div className="space-y-1">
-          <label className="text-sm font-medium" htmlFor="password">
-            密码
-          </label>
-          <input
-            className="w-full rounded-xl border border-default-200 px-3 py-2 outline-none focus:border-default-400"
-            id="password"
-            type="password"
-            value={password}
-            onChange={(event: ChangeEvent<HTMLInputElement>) => setPassword(event.target.value)}
-          />
-        </div>
-        <div className="flex items-center gap-3">
-          <Button color="primary" type="submit" isDisabled={pending} isLoading={pending}>
-            {mode === 'signin' ? '登录' : '注册'}
-          </Button>
-          <Link href={mode === 'signin' ? '/sign-up' : '/sign-in'} size="sm">
-            {mode === 'signin' ? '创建账号' : '登录已有账号'}
-          </Link>
-        </div>
-      </form>
+          {mode === 'signup' ? (
+            <TextField fullWidth>
+              <Label>用户名</Label>
+              <Input value={username} onChange={(event: ChangeEvent<HTMLInputElement>) => setUsername(event.target.value)} />
+            </TextField>
+          ) : null}
+          <TextField fullWidth>
+            <Label>{mode === 'signin' ? '用户名或邮箱' : '邮箱'}</Label>
+            <Input value={emailOrLogin} onChange={(event: ChangeEvent<HTMLInputElement>) => setEmailOrLogin(event.target.value)} />
+          </TextField>
+          <TextField fullWidth>
+            <Label>密码</Label>
+            <Input type="password" value={password} onChange={(event: ChangeEvent<HTMLInputElement>) => setPassword(event.target.value)} />
+          </TextField>
+          <div className="flex items-center gap-3">
+            <Button variant="primary" type="submit" isDisabled={pending}>
+              {mode === 'signin' ? '登录' : '注册'}
+            </Button>
+            <Link href={mode === 'signin' ? '/sign-up' : '/sign-in'}>
+              {mode === 'signin' ? '创建账号' : '登录已有账号'}
+            </Link>
+          </div>
+        </form>
+      </Card>
     </main>
   );
 }

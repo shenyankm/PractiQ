@@ -15,7 +15,7 @@ The source of truth is `frontend/src/styles/globals.css`, which imports Tailwind
 ## Component Patterns
 
 - Import standard components directly from `@heroui/react`.
-- Use HeroUI `Button`, `Link`, `Card`, `Alert`, `EmptyState`, `Select`, `RadioGroup`, `Checkbox`, `Input`, `TextArea`, `Tabs`, dialog, and form primitives where applicable.
+- Use HeroUI `Button`, `Link`, `Card`, `Alert`, `EmptyState`, `Select`, `RadioGroup`, `Checkbox`, `Input`, `TextField`, `TextArea`, `Tabs`, dialog, and form primitives where applicable.
 Keep native hidden inputs when required for forms, but visible form controls should use HeroUI components.
 - Avoid page-level `bg-primary`, `text-primary`, and `border-primary`; prefer component variants and semantic theme tokens.
 Avoid raw `blue-*`, `emerald-*`, `slate-*`, and `gray-*` utilities in frontend routes.
@@ -23,6 +23,7 @@ Avoid raw `blue-*`, `emerald-*`, `slate-*`, and `gray-*` utilities in frontend r
 ## Accessibility
 
 - Use visible labels for form fields; placeholders are examples only.
+- Give progress indicators a visible label or `aria-label`.
 - Prefer HeroUI interaction props such as `onPress` for HeroUI buttons.
 - Do not rely on color alone for state; combine icon, text, label, or `aria-current`.
 - Preserve keyboard navigation and accessible names for every interactive element.

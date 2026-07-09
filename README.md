@@ -71,6 +71,8 @@ make build
 make verify
 ```
 
+`make build` runs the frontend TypeScript check before the Vite production build.
+
 ## API/runtime notes
 
 - Health endpoints: `/api/health`, `/api/health/ready`, `/api/health/live`

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ImportLivePanel } from '@/pages/imports/ImportLivePanel';
 
@@ -61,7 +61,7 @@ describe('ImportLivePanel', () => {
   });
 
   it('subscribes to the job event stream and renders import-event payloads', async () => {
-    render(
+    const { unmount } = render(
       <ImportLivePanel
         job={{
           id: 42,
@@ -85,15 +85,17 @@ describe('ImportLivePanel', () => {
     expect(FakeEventSource.instances).toHaveLength(1);
     expect(FakeEventSource.instances[0]?.url).toBe('/api/v1/import-jobs/42/events/stream');
 
-    FakeEventSource.instances[0]?.emit('import-event', {
-      id: 7,
-      step_label: '解析完成',
-      step_code: 'parse',
-      stage: 'parsing',
-      status: 'processing',
-      message: '收到一条新事件',
-      overall_progress_percent: 40,
-      step_progress_percent: 80
+    act(() => {
+      FakeEventSource.instances[0]?.emit('import-event', {
+        id: 7,
+        step_label: '解析完成',
+        step_code: 'parse',
+        stage: 'parsing',
+        status: 'processing',
+        message: '收到一条新事件',
+        overall_progress_percent: 40,
+        step_progress_percent: 80
+      });
     });
 
     await waitFor(() => {
@@ -102,5 +104,7 @@ describe('ImportLivePanel', () => {
 
     expect(screen.getByText('解析完成 · processing')).toBeTruthy();
     expect(screen.getByText('收到一条新事件')).toBeTruthy();
+    unmount();
+    expect(FakeEventSource.instances[0]?.close).toHaveBeenCalledTimes(1);
   });
 });

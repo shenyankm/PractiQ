@@ -46,7 +46,7 @@ export function ImportLivePanel({ job, events: initialEvents, metrics }: { job: 
       <Card>
         <CardHeader><CardTitle>进度</CardTitle></CardHeader>
         <CardContent>
-          <ProgressBar value={liveJob.overall_progress_percent ?? 0} />
+          <ProgressBar aria-label="导入进度" value={liveJob.overall_progress_percent ?? 0} />
           <div>{metrics.pages}/{metrics.blocks}/{metrics.imported}/{metrics.reviewItems}</div>
         </CardContent>
       </Card>

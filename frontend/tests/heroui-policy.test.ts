@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 type Violation = `${string}:${number}:${string}` | `${string}:${string}`;
 
 const SELF_PATH = 'tests/heroui-policy.test.ts';
+const SRC_TS_FILES = projectFiles(['src'], isTsFile);
 const SRC_TSX_FILES = projectFiles(['src'], isTsxFile);
 const TEST_TSX_FILES = projectFiles(['tests'], (path) => isTsxFile(path) && path !== SELF_PATH);
 const POLICY_TEXT_FILES = projectFiles(['src', 'tests', '../docs', 'package.json'], isPolicyTextFile)
@@ -58,6 +59,32 @@ describe('HeroUI-only policy guardrails', () => {
     expect(offenders).toEqual([]);
   });
 
+  it('does not shadow official HeroUI package types', () => {
+    const violations = SRC_TS_FILES.flatMap((file) => matchLines(file, /declare\s+module\s+['"]@heroui\/react['"]/g));
+    expect(violations).toEqual([]);
+  });
+
+  it('keeps visible form controls on HeroUI components', () => {
+    const rawControls = /<(?:label|select|textarea)\b|<input\b(?![^>]*\btype=['"]hidden['"])/g;
+    const violations = SRC_TSX_FILES.flatMap((file) => matchLines(file, rawControls));
+    expect(violations).toEqual([]);
+  });
+
+  it('uses HeroUI semantic variants instead of legacy Button color props', () => {
+    const violations = SRC_TSX_FILES.flatMap((file) => matchLines(file, /<Button\b[^>\n]*\bcolor=/g));
+    expect(violations).toEqual([]);
+  });
+
+  it('gives progress bars an accessible name', () => {
+    const violations = SRC_TSX_FILES.flatMap((file) => matchLines(file, /<ProgressBar\b(?![^>\n]*(?:aria-label|aria-labelledby))/g));
+    expect(violations).toEqual([]);
+  });
+
+  it('typechecks before Vite production builds', () => {
+    const pkg = JSON.parse(readFileSync('package.json', 'utf8')) as { scripts?: Record<string, string> };
+    expect(pkg.scripts?.build).toMatch(/tsc\s+--noEmit\s+&&\s+vite build/);
+  });
+
   it('keeps old visual residue out of source and policy text', () => {
     const residue = OLD_VISUAL_RESIDUE.flatMap((token) => {
       const pattern = new RegExp(`\\b${escapeRegex(token)}\\b`, 'g');
@@ -103,6 +130,10 @@ function walk(path: string, include: (path: string) => boolean): string[] {
 
 function isTsxFile(path: string) {
   return path.endsWith('.tsx');
+}
+
+function isTsFile(path: string) {
+  return path.endsWith('.ts') || path.endsWith('.tsx');
 }
 
 function isPolicyTextFile(path: string) {
