@@ -163,6 +163,42 @@ func TestBuildPracticeAnalyticsAndSearchHandlersKeepErrorEnvelope(t *testing.T) 
 	}
 }
 
+func TestBuildPracticeAnalyticsAndSearchHandlersRejectUnauthenticatedAndInvalidRoutes(t *testing.T) {
+	t.Run("search requires authentication before service", func(t *testing.T) {
+		handler := newPracticeAnalyticsSearchServerUnderTest(
+			t,
+			PracticeHandlers{},
+			AnalyticsHandlers{},
+			BuildSearchHandlers(nil, func(*http.Request) (*auth.User, error) { return nil, nil }),
+		)
+
+		rr := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "https://app.example.test/api/v1/search/questions?q=algebra", nil)
+
+		handler.ServeHTTP(rr, req)
+
+		assertErrorEnvelope(t, rr, http.StatusUnauthorized, "UNAUTHENTICATED", "Authentication required")
+	})
+
+	t.Run("practice complete invalid session id", func(t *testing.T) {
+		handler := newPracticeAnalyticsSearchServerUnderTest(
+			t,
+			BuildPracticeHandlers(nil, func(*http.Request) (*auth.User, error) {
+				return &auth.User{ID: 7, Username: "alice", IsActive: true, Membership: "free"}, nil
+			}),
+			AnalyticsHandlers{},
+			SearchHandlers{},
+		)
+
+		rr := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, "https://app.example.test/api/v1/practice-sessions/nope/complete", strings.NewReader(`{}`))
+
+		handler.ServeHTTP(rr, req)
+
+		assertErrorEnvelope(t, rr, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "Invalid sessionId")
+	})
+}
+
 func newPracticeAnalyticsSearchServerUnderTest(t *testing.T, practice PracticeHandlers, analytics AnalyticsHandlers, search SearchHandlers) http.Handler {
 	t.Helper()
 

@@ -5,9 +5,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"strings"
 	"testing"
 
 	"openwook/internal/api"
+	"openwook/internal/auth"
 )
 
 func TestNewServerRegistersImportsRoutes(t *testing.T) {
@@ -180,6 +182,120 @@ func TestNewServerRegistersBillingRoutes(t *testing.T) {
 	})
 }
 
+func TestBuildImportHandlersRejectInvalidRequestsBeforeService(t *testing.T) {
+	resolver := func(*http.Request) (*auth.User, error) {
+		return &auth.User{ID: 7, Username: "alice", IsActive: true}, nil
+	}
+	handlers := BuildImportHandlers(nil, resolver)
+
+	tests := []struct {
+		name       string
+		handler    http.Handler
+		method     string
+		target     string
+		body       string
+		pathValues map[string]string
+		wantStatus int
+		wantCode   string
+		wantMsg    string
+	}{
+		{name: "create job invalid json", handler: handlers.ImportJobs, method: http.MethodPost, target: "/api/v1/import-jobs", body: `{`, wantStatus: http.StatusBadRequest, wantCode: "INVALID_JSON", wantMsg: "Request body must be valid JSON"},
+		{name: "create job invalid bank id", handler: handlers.ImportJobs, method: http.MethodPost, target: "/api/v1/import-jobs", body: `{"bankId":0}`, wantStatus: http.StatusUnprocessableEntity, wantCode: "VALIDATION_ERROR", wantMsg: "Invalid request"},
+		{name: "get job invalid id", handler: handlers.ImportJob, method: http.MethodGet, target: "/api/v1/import-jobs/nope", pathValues: map[string]string{"jobId": "nope"}, wantStatus: http.StatusUnprocessableEntity, wantCode: "VALIDATION_ERROR", wantMsg: "Invalid jobId"},
+		{name: "unknown job action", handler: handlers.ImportJobAction, method: http.MethodPost, target: "/api/v1/import-jobs/42/nope", pathValues: map[string]string{"jobId": "42", "action": "nope"}, wantStatus: http.StatusNotFound, wantCode: "NOT_FOUND", wantMsg: "Endpoint not found"},
+		{name: "invalid child kind", handler: handlers.ImportJobChildren, method: http.MethodGet, target: "/api/v1/import-jobs/42/nope", pathValues: map[string]string{"jobId": "42", "kind": "nope"}, wantStatus: http.StatusUnprocessableEntity, wantCode: "VALIDATION_ERROR", wantMsg: "Invalid request"},
+		{name: "review resolve invalid item id", handler: handlers.ImportJobReviewResolve, method: http.MethodPost, target: "/api/v1/import-jobs/42/review-items/nope/resolve", body: `{}`, pathValues: map[string]string{"jobId": "42", "itemId": "nope"}, wantStatus: http.StatusUnprocessableEntity, wantCode: "VALIDATION_ERROR", wantMsg: "Invalid itemId"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rr := httptest.NewRecorder()
+			req := httptest.NewRequest(tt.method, "https://app.example.test"+tt.target, strings.NewReader(tt.body))
+			for key, value := range tt.pathValues {
+				req.SetPathValue(key, value)
+			}
+
+			RequestID(tt.handler).ServeHTTP(rr, req)
+
+			assertErrorEnvelope(t, rr, tt.wantStatus, tt.wantCode, tt.wantMsg)
+		})
+	}
+}
+
+func TestBuildAIHandlersRejectUnauthenticatedAndInvalidPayloads(t *testing.T) {
+	t.Run("route requires authentication before AI client", func(t *testing.T) {
+		handler := BuildAIHandlers(nil, func(*http.Request) (*auth.User, error) { return nil, nil }, nil).AIGenerateAnswer
+
+		rr := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, "https://app.example.test/api/v1/ai/generate-answer", strings.NewReader(`{}`))
+
+		RequestID(handler).ServeHTTP(rr, req)
+
+		assertErrorEnvelope(t, rr, http.StatusUnauthorized, "UNAUTHENTICATED", "Authentication required")
+	})
+
+	t.Run("answer generation payload validation", func(t *testing.T) {
+		_, err := decodeAIAnswerRequest([]byte(`{"questionId":0,"stem":"","answerMode":"essay"}`))
+		assertAPIValidation(t, err, "stem", "answerMode", "questionId")
+	})
+
+	t.Run("learning report payload validation", func(t *testing.T) {
+		_, err := decodeAILearningReportRequest([]byte(`{"scope":"team","userId":0,"bankId":-1,"practiceSessionId":0}`))
+		assertAPIValidation(t, err, "scope", "userId", "bankId", "practiceSessionId")
+	})
+}
+
+func TestBuildBillingHandlersRejectInvalidRequestsBeforeExternalCalls(t *testing.T) {
+	clearPaddleEnv(t)
+
+	t.Run("checkout requires authentication", func(t *testing.T) {
+		handler := BuildBillingHandlers(nil, func(*http.Request) (*auth.User, error) { return nil, nil }).BillingCheckout
+
+		rr := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, "https://app.example.test/api/v1/billing/checkout", strings.NewReader(`{"planKey":"plus"}`))
+
+		RequestID(handler).ServeHTTP(rr, req)
+
+		assertErrorEnvelope(t, rr, http.StatusUnauthorized, "UNAUTHENTICATED", "Authentication required")
+	})
+
+	t.Run("checkout rejects when paddle is not configured", func(t *testing.T) {
+		handler := BuildBillingHandlers(nil, func(*http.Request) (*auth.User, error) {
+			return &auth.User{ID: 7, Username: "alice", IsActive: true}, nil
+		}).BillingCheckout
+
+		rr := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, "https://app.example.test/api/v1/billing/checkout", strings.NewReader(`{"planKey":"plus"}`))
+
+		RequestID(handler).ServeHTTP(rr, req)
+
+		assertErrorEnvelope(t, rr, http.StatusServiceUnavailable, "BILLING_NOT_CONFIGURED", "Paddle billing is not configured")
+	})
+
+	t.Run("webhook requires signature", func(t *testing.T) {
+		handler := BuildBillingHandlers(nil, nil).BillingWebhook
+
+		rr := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, "https://app.example.test/api/v1/billing/webhook", strings.NewReader(`{}`))
+
+		RequestID(handler).ServeHTTP(rr, req)
+
+		assertErrorEnvelope(t, rr, http.StatusBadRequest, "PADDLE_SIGNATURE_MISSING", "Missing paddle-signature header")
+	})
+
+	t.Run("webhook requires configured secret", func(t *testing.T) {
+		handler := BuildBillingHandlers(nil, nil).BillingWebhook
+
+		rr := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, "https://app.example.test/api/v1/billing/webhook", strings.NewReader(`{}`))
+		req.Header.Set("Paddle-Signature", "ts=1;h1=abc")
+
+		RequestID(handler).ServeHTTP(rr, req)
+
+		assertErrorEnvelope(t, rr, http.StatusInternalServerError, "BILLING_NOT_CONFIGURED", "Paddle webhook secret is not configured")
+	})
+}
+
 func newImportsAIAndBillingServerUnderTest(t *testing.T, imports ImportHandlers, ai AIHandlers, billing BillingHandlers) http.Handler {
 	t.Helper()
 
@@ -207,4 +323,53 @@ func newImportsAIAndBillingServerUnderTest(t *testing.T, imports ImportHandlers,
 		AI:      ai,
 		Billing: billing,
 	})
+}
+
+func assertErrorEnvelope(t *testing.T, rr *httptest.ResponseRecorder, wantStatus int, wantCode string, wantMsg string) {
+	t.Helper()
+	if rr.Code != wantStatus {
+		t.Fatalf("status = %d, want %d", rr.Code, wantStatus)
+	}
+	requestID := rr.Header().Get("X-Request-ID")
+	if requestID == "" {
+		t.Fatal("X-Request-ID header missing")
+	}
+	body := decodeJSONBody(t, rr.Body.Bytes())
+	errorBody := mustObject(t, body["error"], "error")
+	if got := errorBody["code"]; got != wantCode {
+		t.Fatalf("error.code = %#v, want %q", got, wantCode)
+	}
+	if got := errorBody["message"]; got != wantMsg {
+		t.Fatalf("error.message = %#v, want %q", got, wantMsg)
+	}
+	if got := errorBody["requestId"]; got != requestID {
+		t.Fatalf("error.requestId = %#v, want %q", got, requestID)
+	}
+}
+
+func assertAPIValidation(t *testing.T, err error, fields ...string) {
+	t.Helper()
+	status, code, _, details := api.ValidationErrorEnvelope(err)
+	if status != http.StatusUnprocessableEntity || code != "VALIDATION_ERROR" {
+		t.Fatalf("validation error = (%d, %s), want 422 VALIDATION_ERROR", status, code)
+	}
+	for _, field := range fields {
+		found := false
+		for _, detail := range details {
+			if detail["field"] == field {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("details = %#v, want field %q", details, field)
+		}
+	}
+}
+
+func clearPaddleEnv(t *testing.T) {
+	t.Helper()
+	for _, key := range []string{"PADDLE_API_KEY", "PADDLE_CLIENT_TOKEN", "PADDLE_WEBHOOK_SECRET", "PADDLE_PLUS_PRICE_ID", "PADDLE_ENTERPRISE_PRICE_ID"} {
+		t.Setenv(key, "")
+	}
 }

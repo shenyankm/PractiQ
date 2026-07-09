@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"openwook/internal/api"
@@ -139,6 +140,38 @@ func TestBuildContentHandlersKeepsErrorEnvelopeForPathParsing(t *testing.T) {
 			if got := errorBody["requestId"]; got != requestID {
 				t.Fatalf("error.requestId = %#v, want %q", got, requestID)
 			}
+		})
+	}
+}
+
+func TestBuildContentHandlersRejectInvalidMutationPayloadsBeforeService(t *testing.T) {
+	handler := newContentServerUnderTest(t, BuildContentHandlers(nil, func(*http.Request) (*auth.User, error) {
+		return &auth.User{ID: 7, Username: "alice", IsActive: true, Membership: "free"}, nil
+	}))
+
+	tests := []struct {
+		name       string
+		method     string
+		target     string
+		body       string
+		wantStatus int
+		wantCode   string
+		wantMsg    string
+	}{
+		{name: "bank create validation", method: http.MethodPost, target: "/api/v1/banks", body: `{}`, wantStatus: http.StatusUnprocessableEntity, wantCode: "VALIDATION_ERROR", wantMsg: "Invalid request"},
+		{name: "bank reorder validation", method: http.MethodPatch, target: "/api/v1/banks/12/items/reorder", body: `{"items":[{"sortOrder":0}]}`, wantStatus: http.StatusUnprocessableEntity, wantCode: "VALIDATION_ERROR", wantMsg: "Invalid request"},
+		{name: "question knowledge validation", method: http.MethodPut, target: "/api/v1/questions/7/knowledge-points", body: `{"knowledgePointIds":[1,0]}`, wantStatus: http.StatusUnprocessableEntity, wantCode: "VALIDATION_ERROR", wantMsg: "Invalid request"},
+		{name: "group reorder validation", method: http.MethodPatch, target: "/api/v1/groups/9/questions/reorder", body: `{"items":[{"questionId":0,"sortOrder":1}]}`, wantStatus: http.StatusUnprocessableEntity, wantCode: "VALIDATION_ERROR", wantMsg: "Invalid request"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rr := httptest.NewRecorder()
+			req := httptest.NewRequest(tt.method, "https://app.example.test"+tt.target, strings.NewReader(tt.body))
+
+			handler.ServeHTTP(rr, req)
+
+			assertErrorEnvelope(t, rr, tt.wantStatus, tt.wantCode, tt.wantMsg)
 		})
 	}
 }

@@ -173,6 +173,58 @@ func TestLoginReturnsUSERINACTIVEWhenAuthenticatedUserIsDisabled(t *testing.T) {
 	}
 }
 
+func TestAuthHandlersReturnErrorEnvelopeForBadJSONAndSessionFailures(t *testing.T) {
+	t.Run("register invalid json", func(t *testing.T) {
+		handler := Register(HandlerDependencies{
+			RegisterUser: func(context.Context, string, *string, string) (*User, error) {
+				t.Fatal("RegisterUser should not be called")
+				return nil, nil
+			},
+		})
+
+		rr := httptest.NewRecorder()
+		req := authRequestWithID(t, http.MethodPost, "/api/v1/auth/register", `{`, "req-register-bad-json")
+
+		handler.ServeHTTP(rr, req)
+
+		assertAuthErrorEnvelope(t, rr, http.StatusBadRequest, "INVALID_JSON", "Request body must be valid JSON", "req-register-bad-json")
+	})
+
+	t.Run("login invalid json", func(t *testing.T) {
+		handler := Login(HandlerDependencies{
+			AuthenticateUser: func(context.Context, string, string) (*User, error) {
+				t.Fatal("AuthenticateUser should not be called")
+				return nil, nil
+			},
+		})
+
+		rr := httptest.NewRecorder()
+		req := authRequestWithID(t, http.MethodPost, "/api/v1/auth/login", `{`, "req-login-bad-json")
+
+		handler.ServeHTTP(rr, req)
+
+		assertAuthErrorEnvelope(t, rr, http.StatusBadRequest, "INVALID_JSON", "Request body must be valid JSON", "req-login-bad-json")
+	})
+
+	t.Run("register set session failure", func(t *testing.T) {
+		handler := Register(HandlerDependencies{
+			RegisterUser: func(context.Context, string, *string, string) (*User, error) {
+				return &User{ID: 41, Username: "alice", IsActive: true, Membership: "free"}, nil
+			},
+			SetSession: func(http.ResponseWriter, int) error {
+				return api.NewError(http.StatusInternalServerError, "SESSION_ERROR", "Could not create session", nil)
+			},
+		})
+
+		rr := httptest.NewRecorder()
+		req := authRequestWithID(t, http.MethodPost, "/api/v1/auth/register", `{"username":"alice","password":"correct horse battery staple"}`, "req-register-session-error")
+
+		handler.ServeHTTP(rr, req)
+
+		assertAuthErrorEnvelope(t, rr, http.StatusInternalServerError, "SESSION_ERROR", "Could not create session", "req-register-session-error")
+	})
+}
+
 func TestLogoutClearsSessionCookieAndReturnsNoContent(t *testing.T) {
 	clearCalled := false
 
@@ -388,4 +440,25 @@ func assertCookieContains(t *testing.T, rr *httptest.ResponseRecorder, want stri
 		}
 	}
 	t.Fatalf("set-cookie headers = %#v, want entry containing %q", rr.Result().Header.Values("Set-Cookie"), want)
+}
+
+func assertAuthErrorEnvelope(t *testing.T, rr *httptest.ResponseRecorder, wantStatus int, wantCode string, wantMsg string, wantRequestID string) {
+	t.Helper()
+	if rr.Code != wantStatus {
+		t.Fatalf("status = %d, want %d", rr.Code, wantStatus)
+	}
+	body := decodeAuthJSONBody(t, rr.Body.Bytes())
+	errorBody, ok := body["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("error = %#v, want object", body["error"])
+	}
+	if got := errorBody["code"]; got != wantCode {
+		t.Fatalf("error.code = %#v, want %q", got, wantCode)
+	}
+	if got := errorBody["message"]; got != wantMsg {
+		t.Fatalf("error.message = %#v, want %q", got, wantMsg)
+	}
+	if got := errorBody["requestId"]; got != wantRequestID {
+		t.Fatalf("error.requestId = %#v, want %q", got, wantRequestID)
+	}
 }
