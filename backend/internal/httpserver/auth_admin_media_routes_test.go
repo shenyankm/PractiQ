@@ -293,9 +293,6 @@ func newRoutesServerUnderTest(t *testing.T, deps ServerDependencies) http.Handle
 
 	deps.CheckPostgres = func(context.Context) error { return nil }
 	deps.CheckRedis = func(context.Context) (bool, error) { return true, nil }
-	deps.MetricsHandler = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusNoContent)
-	})
 	deps.UptimeSeconds = func() int64 { return 1 }
 
 	return NewServer(ServerConfig{

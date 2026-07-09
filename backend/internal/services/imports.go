@@ -56,15 +56,6 @@ type ImportJob struct {
 	CompletedAt            *string  `json:"completed_at"`
 }
 
-type ImportJobDetail struct {
-	Job         ImportJob        `json:"job"`
-	Events      []map[string]any `json:"events"`
-	Pages       []map[string]any `json:"pages"`
-	Blocks      []map[string]any `json:"blocks"`
-	ReviewItems []map[string]any `json:"reviewItems"`
-	Outputs     []map[string]any `json:"outputs"`
-}
-
 type CreateImportJobInput struct {
 	BankID         *int64
 	FileName       *string
@@ -437,34 +428,6 @@ func ListImportJobChildren(ctx context.Context, pool *pgxpool.Pool, user auth.Us
 		return nil, err
 	}
 	return listImportJobChildrenForJob(ctx, pool, jobID, kind)
-}
-
-func GetImportJobDetail(ctx context.Context, pool *pgxpool.Pool, user auth.User, jobID int64) (ImportJobDetail, error) {
-	job, err := GetImportJob(ctx, pool, user, jobID)
-	if err != nil {
-		return ImportJobDetail{}, err
-	}
-	events, err := listImportJobChildrenForJob(ctx, pool, jobID, ImportJobChildrenEvents)
-	if err != nil {
-		return ImportJobDetail{}, err
-	}
-	pages, err := listImportJobChildrenForJob(ctx, pool, jobID, ImportJobChildrenPages)
-	if err != nil {
-		return ImportJobDetail{}, err
-	}
-	blocks, err := listImportJobChildrenForJob(ctx, pool, jobID, ImportJobChildrenBlocks)
-	if err != nil {
-		return ImportJobDetail{}, err
-	}
-	reviewItems, err := listImportJobChildrenForJob(ctx, pool, jobID, ImportJobChildrenReviewItems)
-	if err != nil {
-		return ImportJobDetail{}, err
-	}
-	outputs, err := listImportJobChildrenForJob(ctx, pool, jobID, ImportJobChildrenOutputs)
-	if err != nil {
-		return ImportJobDetail{}, err
-	}
-	return ImportJobDetail{Job: job, Events: events, Pages: pages, Blocks: blocks, ReviewItems: reviewItems, Outputs: outputs}, nil
 }
 
 func ensureImportJobHasSourceArtifact(ctx context.Context, pool *pgxpool.Pool, jobID int64) error {

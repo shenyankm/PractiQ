@@ -9,7 +9,7 @@ OpenWook now runs as a split-stack application:
 
 ## Tech stack
 
-- Frontend: Vite, React 19, React Router, HeroUI v3, Tailwind CSS v4, SWR
+- Frontend: Vite, React 19, React Router, HeroUI v3, Tailwind CSS v4
 - API/runtime: Go 1.26, Chi, pgxpool, go-redis
 - AI service: Python 3.14, FastAPI, Pydantic, Mammoth
 - Local infra: Podman Quadlet for Postgres and Redis
@@ -25,14 +25,13 @@ python --version
 python -m pip install -e 'ai[dev]'
 ```
 
-1. Start local Postgres and Redis:
+1. Start the local Podman stack:
 
 ```bash
-./scripts/podman-db.sh up
-./scripts/podman-redis.sh up
+./scripts/podman-stack.sh up
 ```
 
-The Podman helper scripts ensure the isolated `openwook_app` database exists inside the shared local PostgreSQL volume so an older `openwook` database does not collide with this stack.
+The Podman helper script ensures the isolated `openwook_app` database exists inside the shared local PostgreSQL volume so an older `openwook` database does not collide with this stack.
 
 1. Copy environment defaults:
 
@@ -73,14 +72,9 @@ make verify
 
 `make build` runs the frontend TypeScript check before the Vite production build.
 
-## Agent skills
-
-Paddle integration skills are configured for opencode at `.opencode/opencode.json` using Paddle's agent-skills discovery index.
-
 ## API/runtime notes
 
 - Health endpoints: `/api/health`, `/api/health/ready`, `/api/health/live`
-- Metrics endpoint: `/api/metrics` (Bearer token required when configured)
 - Session cookie name: `session`
 - Redis remains the queue backend; there is no separate RabbitMQ/NATS/Kafka service
 - AI routes exposed to the browser stay under `/api/v1/ai/*`; Go talks to Python over `AI_SERVICE_URL`
@@ -111,8 +105,8 @@ This manages five services:
 
 See `.env.example` for the full set. The most important groups are:
 
-- Database/cache: `POSTGRES_URL`, `DATABASE_URL`, `REDIS_URL`
-- Host/origin: `OPENWOOK_HOST`, `PORT`, `APP_ORIGIN`, `BASE_URL`
+- Database/cache: `POSTGRES_URL`, `REDIS_URL`
+- Host/origin: `OPENWOOK_HOST`, `PORT`, `APP_ORIGIN`
 - Auth/session: `AUTH_SECRET`, `SESSION_TTL_MS`, `SESSION_RENEW_WINDOW_MS`
 - AI service: `AI_SERVICE_URL`, `AI_SERVICE_TOKEN`
 - Billing: `PADDLE_*`

@@ -74,34 +74,6 @@ func TestUpdateUserAccessRejectsSelfDemotion(t *testing.T) {
 	}
 }
 
-func TestUpdateCurrentUserUsesPasswordHashAndAvatarSemantics(t *testing.T) {
-	now := time.Date(2026, 7, 8, 12, 0, 0, 0, time.UTC)
-	db := &recordingServiceDB{
-		queryResults: []serviceQueryResult{{rows: &fakeServiceRows{values: [][]any{{
-			int64(9), "alice", strPtr("alice@example.com"), nil, true,
-			"user", "free", ptrTime(now.Add(24 * time.Hour)), nil, now, now,
-		}}}}},
-	}
-	username := "alice-2"
-	passwordHash := "$2y$10$updatedHash"
-	_, err := UpdateCurrentUser(context.Background(), db, auth.User{ID: 9}, UserUpdateInput{
-		Username:     &username,
-		PasswordHash: &passwordHash,
-		AvatarURLSet: true,
-	})
-	if err != nil {
-		t.Fatalf("UpdateCurrentUser returned error: %v", err)
-	}
-	if len(db.queryCalls) != 1 {
-		t.Fatalf("query calls = %d, want 1", len(db.queryCalls))
-	}
-	assertServiceSQLContainsAll(t, db.queryCalls[0].sql,
-		"password_hash = COALESCE($3, password_hash)",
-		"WHEN $4::boolean THEN $5",
-		"ELSE avatar_url",
-	)
-}
-
 func TestSearchQuestionsUsesVisibilityAndTermRanking(t *testing.T) {
 	now := time.Date(2026, 7, 8, 12, 0, 0, 0, time.UTC)
 	db := &recordingServiceDB{
@@ -144,17 +116,6 @@ func TestLinkOptionMediaRejectsMissingOption(t *testing.T) {
 	if status != 404 || code != "NOT_FOUND" || message != "Option not found" {
 		t.Fatalf("error = (%d, %s, %s), want 404 NOT_FOUND Option not found", status, code, message)
 	}
-}
-
-func TestBuildSimplePDFEscapesControlCharacters(t *testing.T) {
-	pdf := buildSimplePDF([]string{"Open(Wook)\\Export", "第二行"}, time.Date(2026, 7, 8, 12, 34, 56, 0, time.UTC))
-	text := string(pdf)
-	assertServiceSQLContainsAll(t, text,
-		"%PDF-1.4",
-		"Open\\(Wook\\)\\\\Export",
-		"?",
-		"%%EOF",
-	)
 }
 
 type recordingServiceDB struct {

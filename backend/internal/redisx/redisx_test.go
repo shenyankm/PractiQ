@@ -627,15 +627,14 @@ func newFakeRedisHarness(t *testing.T) (*redis.Client, *fakeRedisState) {
 	go serveFakeRedis(listener, state)
 
 	oldClient := client
-	oldOnce := clientOnce
+	oldClientURL := clientURL
 	redisClient := redis.NewClient(&redis.Options{Addr: listener.Addr().String(), Protocol: 2})
 	client = redisClient
-	clientOnce = sync.Once{}
-	clientOnce.Do(func() {})
+	clientURL = ""
 	t.Cleanup(func() {
 		_ = redisClient.Close()
 		client = oldClient
-		clientOnce = oldOnce
+		clientURL = oldClientURL
 	})
 
 	return redisClient, state

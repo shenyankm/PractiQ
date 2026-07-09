@@ -32,11 +32,11 @@ func Load() (Config, error) {
 
 	cfg := Config{
 		NodeEnv:        get(values, "NODE_ENV", "development"),
-		DatabaseURL:    first(values["POSTGRES_URL"], values["DATABASE_URL"]),
+		DatabaseURL:    values["POSTGRES_URL"],
 		AIServiceURL:   get(values, "AI_SERVICE_URL", "http://127.0.0.1:8001"),
 		AIServiceToken: values["AI_SERVICE_TOKEN"],
 		OpenWookHost:   get(values, "OPENWOOK_HOST", "127.0.0.1"),
-		AppOrigin:      first(values["APP_ORIGIN"], values["BASE_URL"]),
+		AppOrigin:      values["APP_ORIGIN"],
 		Port:           3000,
 	}
 	if rawPort := strings.TrimSpace(values["PORT"]); rawPort != "" {
@@ -95,15 +95,6 @@ func get(values map[string]string, key string, fallback string) string {
 		return value
 	}
 	return fallback
-}
-
-func first(values ...string) string {
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			return value
-		}
-	}
-	return ""
 }
 
 func isLocalURL(raw string) bool {

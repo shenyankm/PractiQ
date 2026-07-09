@@ -11,10 +11,9 @@ import (
 )
 
 var (
-	clientOnce sync.Once
-	clientMu   sync.Mutex
-	clientURL  string
-	client     *redis.Client
+	clientMu  sync.Mutex
+	clientURL string
+	client    *redis.Client
 )
 
 func Client() *redis.Client {

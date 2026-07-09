@@ -18,7 +18,7 @@ func TestLoadAppliesDotenvPrecedenceEnvLocalThenEnvThenProcessEnv(t *testing.T) 
 	writeFile(t, dir, ".env", strings.Join([]string{
 		"OPENWOOK_HOST=env-host",
 		"AI_SERVICE_URL=http://env-file:8001",
-		"BASE_URL=http://env-origin:3000",
+		"APP_ORIGIN=http://env-origin:3000",
 	}, "\n")+"\n")
 	writeFile(t, dir, ".env.local", strings.Join([]string{
 		"AI_SERVICE_URL=http://env-local:8001",
@@ -40,24 +40,6 @@ func TestLoadAppliesDotenvPrecedenceEnvLocalThenEnvThenProcessEnv(t *testing.T) 
 	}
 	if got := fmt.Sprint(cfg.Port); got != "4011" {
 		t.Fatalf("Port = %s, want %s", got, "4011")
-	}
-}
-
-func TestLoadPrefersPostgresURLOverDatabaseURL(t *testing.T) {
-	resetConfigEnv(t)
-	t.Setenv("DATABASE_URL", "postgres://database:database@localhost:5432/from_database_url")
-	t.Setenv("POSTGRES_URL", "postgres://postgres:postgres@localhost:5432/from_postgres_url")
-
-	dir := t.TempDir()
-	t.Chdir(dir)
-
-	cfg, err := Load()
-	if err != nil {
-		t.Fatalf("Load returned error: %v", err)
-	}
-
-	if cfg.DatabaseURL != "postgres://postgres:postgres@localhost:5432/from_postgres_url" {
-		t.Fatalf("DatabaseURL = %q, want POSTGRES_URL value", cfg.DatabaseURL)
 	}
 }
 
@@ -140,13 +122,11 @@ func resetConfigEnv(t *testing.T) {
 	for _, key := range []string{
 		"AI_SERVICE_TOKEN",
 		"AI_SERVICE_URL",
-		"DATABASE_URL",
 		"NODE_ENV",
 		"OPENWOOK_HOST",
 		"PORT",
 		"POSTGRES_URL",
 		"APP_ORIGIN",
-		"BASE_URL",
 	} {
 		unsetEnv(t, key)
 	}

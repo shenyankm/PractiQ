@@ -45,10 +45,6 @@ func main() {
 			return db.CheckPostgres(ctx, pool)
 		},
 		CheckRedis: redisx.CheckRedis,
-		MetricsHandler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "text/plain; version=0.0.4")
-			_, _ = w.Write([]byte("# no metrics configured\n"))
-		}),
 		UptimeSeconds: func() int64 {
 			return int64(time.Since(startedAt).Seconds())
 		},

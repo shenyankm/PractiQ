@@ -25,14 +25,6 @@ func NewServer(cfg ServerConfig, deps ServerDependencies) http.Handler {
 		w.Header().Set("Cache-Control", "no-store")
 		api.OK(w, r, map[string]any{"ok": true, "uptimeSeconds": deps.UptimeSeconds()}, nil)
 	})
-	router.Handle("/api/metrics", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Cache-Control", "no-store")
-		if metricsUnauthorized(cfg, r) {
-			api.HandleError(w, r, api.NewError(http.StatusUnauthorized, "UNAUTHORIZED", "Metrics endpoint requires authorization", nil))
-			return
-		}
-		deps.MetricsHandler.ServeHTTP(w, r)
-	}))
 
 	router.Route("/api/v1", func(v1 chi.Router) {
 		registerMethodRoute(v1, http.MethodPost, "/auth/register", deps.Auth.Register)

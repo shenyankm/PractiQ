@@ -219,12 +219,12 @@ func resolveStoragePath(relativePath string) (string, error) {
 }
 
 func objectURLForRelativePath(relativePath string) string {
-	base := strings.TrimRight(strings.TrimSpace(firstNonEmpty(os.Getenv("OSS_PUBLIC_BASE_URL"), os.Getenv("OBJECT_STORAGE_PUBLIC_BASE_URL"))), "/")
+	base := strings.TrimRight(strings.TrimSpace(os.Getenv("OSS_PUBLIC_BASE_URL")), "/")
 	cleanRelative := cleanStorageRelativePath(relativePath)
 	if base != "" {
 		return base + "/" + cleanRelative
 	}
-	prefix := strings.TrimRight(strings.TrimSpace(firstNonEmpty(os.Getenv("OSS_URL_PREFIX"), os.Getenv("OBJECT_STORAGE_URL_PREFIX"), defaultObjectStoragePrefix)), "/")
+	prefix := strings.TrimRight(strings.TrimSpace(firstNonEmpty(os.Getenv("OSS_URL_PREFIX"), defaultObjectStoragePrefix)), "/")
 	return prefix + "/" + cleanRelative
 }
 

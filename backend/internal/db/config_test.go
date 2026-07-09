@@ -98,7 +98,6 @@ func resetDBEnv(t *testing.T) {
 	t.Helper()
 	for _, key := range []string{
 		"DATABASE_POOL_MAX",
-		"DATABASE_URL",
 		"POSTGRES_CONNECT_TIMEOUT_SECONDS",
 		"POSTGRES_IDLE_TIMEOUT_SECONDS",
 		"POSTGRES_POOL_MAX",

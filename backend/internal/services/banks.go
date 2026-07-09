@@ -74,19 +74,6 @@ type ListBankItemsParams struct {
 	Limit  int
 }
 
-type BankWithItems struct {
-	Bank  *QuestionBank      `json:"bank"`
-	Items []BankQuestionItem `json:"items"`
-}
-
-type BankPracticeSummary struct {
-	Bank        *QuestionBank  `json:"bank"`
-	ActiveCount int            `json:"activeCount"`
-	WrongCount  int            `json:"wrongCount"`
-	TypeCounts  map[string]int `json:"typeCounts"`
-	ModeCounts  map[string]int `json:"modeCounts"`
-}
-
 type ReorderBankItem struct {
 	QuestionID *int64
 	GroupID    *int64
@@ -290,98 +277,6 @@ func ListBankItems(ctx context.Context, db *pgxpool.Pool, user *auth.User, bankI
 		return nil, err
 	}
 	return listBankItemsForBank(ctx, db, bankID, params)
-}
-
-func GetBankWithItems(ctx context.Context, db *pgxpool.Pool, user *auth.User, bankID int64, params ListBankItemsParams) (*BankWithItems, error) {
-	bank, err := GetBank(ctx, db, user, bankID)
-	if err != nil {
-		return nil, err
-	}
-	items, err := listBankItemsForBank(ctx, db, bankID, params)
-	if err != nil {
-		return nil, err
-	}
-	return &BankWithItems{Bank: bank, Items: items}, nil
-}
-
-func GetBankPracticeSummary(ctx context.Context, db *pgxpool.Pool, user *auth.User, bankID int64) (*BankPracticeSummary, error) {
-	bank, err := GetBank(ctx, db, user, bankID)
-	if err != nil {
-		return nil, err
-	}
-
-	var activeCount int
-	var wrongCount int
-	var typeCountsRaw []byte
-	var modeCountsRaw []byte
-	if err := db.QueryRow(ctx, `
-		WITH active_questions AS (
-			SELECT
-				q.id AS question_id,
-				q.question_type_id,
-				q.answer_mode
-			FROM bank_question_links bql
-			JOIN questions q ON q.id = bql.question_id
-			WHERE bql.bank_id = $1
-			  AND bql.status = 'active'
-			  AND q.status = 'active'
-
-			UNION
-
-			SELECT
-				q.id AS question_id,
-				q.question_type_id,
-				q.answer_mode
-			FROM bank_group_links bgl
-			JOIN group_question_links gql ON gql.group_id = bgl.group_id
-			JOIN questions q ON q.id = gql.question_id
-			WHERE bgl.bank_id = $1
-			  AND bgl.status = 'active'
-			  AND q.status = 'active'
-		)
-		SELECT
-			(SELECT COUNT(*)::int FROM active_questions) AS active_count,
-			COALESCE(
-				(
-					SELECT jsonb_object_agg(question_type_id, total)
-					FROM (
-						SELECT question_type_id, COUNT(*)::int AS total
-						FROM active_questions
-						GROUP BY question_type_id
-					) type_counts
-				),
-				'{}'::jsonb
-			) AS type_counts,
-			COALESCE(
-				(
-					SELECT jsonb_object_agg(answer_mode, total)
-					FROM (
-						SELECT answer_mode, COUNT(*)::int AS total
-						FROM active_questions
-						GROUP BY answer_mode
-					) mode_counts
-				),
-				'{}'::jsonb
-			) AS mode_counts,
-			(
-				SELECT COUNT(*)::int
-				FROM active_questions aq
-				JOIN user_question_stats uqs
-				  ON uqs.question_id = aq.question_id
-				 AND uqs.user_id = $2
-				WHERE uqs.wrong_count > 0 OR uqs.last_is_correct IS FALSE
-			) AS wrong_count
-	`, bankID, user.ID).Scan(&activeCount, &typeCountsRaw, &modeCountsRaw, &wrongCount); err != nil {
-		return nil, err
-	}
-
-	return &BankPracticeSummary{
-		Bank:        bank,
-		ActiveCount: activeCount,
-		WrongCount:  wrongCount,
-		TypeCounts:  countMapFromDB(typeCountsRaw),
-		ModeCounts:  countMapFromDB(modeCountsRaw),
-	}, nil
 }
 
 func ReorderBankItems(ctx context.Context, db *pgxpool.Pool, user *auth.User, bankID int64, items []ReorderBankItem) error {
@@ -623,46 +518,4 @@ func clampPositive(value, fallback, max int) int {
 		return max
 	}
 	return value
-}
-
-func countMapFromDB(value any) map[string]int {
-	if value == nil {
-		return map[string]int{}
-	}
-	switch raw := value.(type) {
-	case []byte:
-		return decodeCountMap(raw)
-	case string:
-		return decodeCountMap([]byte(raw))
-	default:
-		encoded, err := json.Marshal(raw)
-		if err != nil {
-			return map[string]int{}
-		}
-		return decodeCountMap(encoded)
-	}
-}
-
-func decodeCountMap(raw []byte) map[string]int {
-	if len(raw) == 0 {
-		return map[string]int{}
-	}
-	var decoded map[string]any
-	if err := json.Unmarshal(raw, &decoded); err != nil {
-		return map[string]int{}
-	}
-	result := make(map[string]int, len(decoded))
-	for key, value := range decoded {
-		switch count := value.(type) {
-		case float64:
-			result[key] = int(count)
-		case int:
-			result[key] = count
-		case int32:
-			result[key] = int(count)
-		case int64:
-			result[key] = int(count)
-		}
-	}
-	return result
 }

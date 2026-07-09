@@ -155,112 +155,6 @@ func TestNewServerLivenessEndpointReturnsEnvelopeWithoutDependencyChecks(t *test
 	}
 }
 
-func TestNewServerMetricsEndpointRequiresBearerTokenInProductionOrWhenConfigured(t *testing.T) {
-	metricsBody := "# HELP openwook_requests_total total requests\nopenwook_requests_total 1\n"
-
-	tests := []struct {
-		name         string
-		nodeEnv      string
-		metricsToken string
-		authHeader   string
-		wantStatus   int
-		wantBody     string
-	}{
-		{
-			name:       "development allows scrapes when no token is configured",
-			nodeEnv:    "development",
-			wantStatus: http.StatusOK,
-			wantBody:   metricsBody,
-		},
-		{
-			name:         "configured token requires bearer header outside production",
-			nodeEnv:      "development",
-			metricsToken: "metrics-secret",
-			wantStatus:   http.StatusUnauthorized,
-		},
-		{
-			name:         "configured token accepts matching bearer header",
-			nodeEnv:      "development",
-			metricsToken: "metrics-secret",
-			authHeader:   "Bearer metrics-secret",
-			wantStatus:   http.StatusOK,
-			wantBody:     metricsBody,
-		},
-		{
-			name:       "production requires authorization even when token is unset",
-			nodeEnv:    "production",
-			wantStatus: http.StatusUnauthorized,
-		},
-		{
-			name:         "production rejects wrong bearer token",
-			nodeEnv:      "production",
-			metricsToken: "metrics-secret",
-			authHeader:   "Bearer wrong-secret",
-			wantStatus:   http.StatusUnauthorized,
-		},
-		{
-			name:         "production accepts matching bearer token",
-			nodeEnv:      "production",
-			metricsToken: "metrics-secret",
-			authHeader:   "Bearer metrics-secret",
-			wantStatus:   http.StatusOK,
-			wantBody:     metricsBody,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			handler := newServerUnderTest(t, serverTestOptions{
-				nodeEnv:      tt.nodeEnv,
-				metricsToken: tt.metricsToken,
-				metricsBody:  metricsBody,
-			})
-
-			rr := httptest.NewRecorder()
-			req := httptest.NewRequest(http.MethodGet, "https://app.example.test/api/metrics", nil)
-			if tt.authHeader != "" {
-				req.Header.Set("Authorization", tt.authHeader)
-			}
-
-			handler.ServeHTTP(rr, req)
-
-			if rr.Code != tt.wantStatus {
-				t.Fatalf("status = %d, want %d", rr.Code, tt.wantStatus)
-			}
-			if got := rr.Header().Get("Cache-Control"); got != "no-store" {
-				t.Fatalf("Cache-Control = %q, want no-store", got)
-			}
-
-			if tt.wantStatus == http.StatusOK {
-				if got := rr.Header().Get("Content-Type"); got != "text/plain; version=0.0.4" {
-					t.Fatalf("Content-Type = %q, want text/plain; version=0.0.4", got)
-				}
-				if got := rr.Body.String(); got != tt.wantBody {
-					t.Fatalf("metrics body = %q, want %q", got, tt.wantBody)
-				}
-				return
-			}
-
-			requestID := rr.Header().Get("X-Request-ID")
-			if !looksLikeUUID(requestID) {
-				t.Fatalf("X-Request-ID = %q, want generated UUID", requestID)
-			}
-
-			body := decodeJSONBody(t, rr.Body.Bytes())
-			errorBody := mustObject(t, body["error"], "error")
-			if got := errorBody["code"]; got != "UNAUTHORIZED" {
-				t.Fatalf("error.code = %#v, want UNAUTHORIZED", got)
-			}
-			if got := errorBody["message"]; got != "Metrics endpoint requires authorization" {
-				t.Fatalf("error.message = %#v, want Metrics endpoint requires authorization", got)
-			}
-			if got := errorBody["requestId"]; got != requestID {
-				t.Fatalf("error.requestId = %#v, want %q", got, requestID)
-			}
-		})
-	}
-}
-
 func TestNewServerRejectsCrossSiteMutationRoutes(t *testing.T) {
 	distDir := t.TempDir()
 	writeServerTestFile(t, distDir, "index.html", "<!doctype html><html><body>placeholder</body></html>")
@@ -273,9 +167,6 @@ func TestNewServerRejectsCrossSiteMutationRoutes(t *testing.T) {
 	}, ServerDependencies{
 		CheckPostgres: func(context.Context) error { return nil },
 		CheckRedis:    func(context.Context) (bool, error) { return true, nil },
-		MetricsHandler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusNoContent)
-		}),
 		UptimeSeconds: func() int64 { return 1 },
 		Auth: AuthHandlers{
 			Logout: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -319,9 +210,6 @@ func TestNewServerRedirectsProtectedSPARoutesWithInvalidSessionCookie(t *testing
 	}, ServerDependencies{
 		CheckPostgres: func(context.Context) error { return nil },
 		CheckRedis:    func(context.Context) (bool, error) { return true, nil },
-		MetricsHandler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusNoContent)
-		}),
 		UptimeSeconds: func() int64 { return 1 },
 	})
 
@@ -342,8 +230,6 @@ func TestNewServerRedirectsProtectedSPARoutesWithInvalidSessionCookie(t *testing
 type serverTestOptions struct {
 	nodeEnv       string
 	distDir       string
-	metricsToken  string
-	metricsBody   string
 	uptimeSeconds int64
 }
 
@@ -361,21 +247,15 @@ func newServerUnderTest(t *testing.T, opts serverTestOptions) http.Handler {
 		nodeEnv = "test"
 	}
 
-	metricsBody := opts.metricsBody
-	if metricsBody == "" {
-		metricsBody = "# HELP placeholder placeholder\nplaceholder 1\n"
-	}
-
 	uptimeSeconds := opts.uptimeSeconds
 	if uptimeSeconds == 0 {
 		uptimeSeconds = 123
 	}
 
 	return NewServer(ServerConfig{
-		NodeEnv:      nodeEnv,
-		AppOrigin:    "https://app.example.test",
-		DistDir:      distDir,
-		MetricsToken: opts.metricsToken,
+		NodeEnv:   nodeEnv,
+		AppOrigin: "https://app.example.test",
+		DistDir:   distDir,
 	}, ServerDependencies{
 		CheckPostgres: func(context.Context) error {
 			return nil
@@ -383,10 +263,6 @@ func newServerUnderTest(t *testing.T, opts serverTestOptions) http.Handler {
 		CheckRedis: func(context.Context) (bool, error) {
 			return true, nil
 		},
-		MetricsHandler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "text/plain; version=0.0.4")
-			_, _ = w.Write([]byte(metricsBody))
-		}),
 		UptimeSeconds: func() int64 {
 			return uptimeSeconds
 		},

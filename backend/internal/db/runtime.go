@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"sort"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -263,12 +264,12 @@ func checkSchemaPrerequisites(ctx context.Context, db interface {
 
 	details := make([]string, 0, 2)
 	if len(missingTables) > 0 {
-		details = append(details, "missing tables: "+joinComma(missingTables))
+		details = append(details, "missing tables: "+strings.Join(missingTables, ", "))
 	}
 	if len(missingColumns) > 0 {
-		details = append(details, "missing columns: "+joinComma(missingColumns))
+		details = append(details, "missing columns: "+strings.Join(missingColumns, ", "))
 	}
-	return fmt.Errorf("%s (%s).", prefix, joinSemicolon(details))
+	return fmt.Errorf("%s (%s).", prefix, strings.Join(details, "; "))
 }
 
 func sortedTableNames(requiredColumns map[string][]string) []string {
@@ -278,25 +279,6 @@ func sortedTableNames(requiredColumns map[string][]string) []string {
 	}
 	sort.Strings(names)
 	return names
-}
-
-func joinComma(values []string) string {
-	return joinStrings(values, ", ")
-}
-
-func joinSemicolon(values []string) string {
-	return joinStrings(values, "; ")
-}
-
-func joinStrings(values []string, separator string) string {
-	if len(values) == 0 {
-		return ""
-	}
-	result := values[0]
-	for _, value := range values[1:] {
-		result += separator + value
-	}
-	return result
 }
 
 type poolRuntime struct {

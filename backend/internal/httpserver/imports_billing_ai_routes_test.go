@@ -313,9 +313,6 @@ func newImportsAIAndBillingServerUnderTest(t *testing.T, imports ImportHandlers,
 		CheckRedis: func(context.Context) (bool, error) {
 			return true, nil
 		},
-		MetricsHandler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			w.WriteHeader(http.StatusNoContent)
-		}),
 		UptimeSeconds: func() int64 {
 			return 1
 		},

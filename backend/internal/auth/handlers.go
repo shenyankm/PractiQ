@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"net/http"
 
@@ -54,24 +53,6 @@ func HashPassword(password string) (string, error) {
 		return "", err
 	}
 	return string(hash), nil
-}
-
-func LookupUserPasswordByLogin(ctx context.Context, db *sql.DB, login string) (*PasswordRow, error) {
-	row := db.QueryRowContext(ctx, `
-		SELECT id, password_hash
-		FROM users
-		WHERE lower(username) = lower($1)
-		   OR lower(email) = lower($1)
-		LIMIT 1
-	`, login)
-	var result PasswordRow
-	if err := row.Scan(&result.ID, &result.PasswordHash); err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return &result, nil
 }
 
 func Register(deps HandlerDependencies) http.Handler {
