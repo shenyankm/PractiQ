@@ -52,16 +52,18 @@ func main() {
 		UptimeSeconds: func() int64 {
 			return int64(time.Since(startedAt).Seconds())
 		},
-		CurrentUser:      currentUser,
-		Reference:        httpserver.BuildReferenceHandlers(pool),
-		Content:          httpserver.BuildContentHandlers(pool, currentUser),
-		Practice:         httpserver.BuildPracticeHandlers(pool, currentUser),
-		Analytics:        httpserver.BuildAnalyticsHandlers(pool, currentUser),
-		Search:           httpserver.BuildSearchHandlers(pool, currentUser),
-		Auth:             httpserver.BuildAuthHandlers(pool),
-		Admin:            httpserver.BuildAdminHandlers(pool),
-		Media:            httpserver.BuildMediaHandlers(pool),
-		ImportsBillingAI: httpserver.BuildImportsBillingAIHandlers(pool, currentUser, aiclient.New(cfg)),
+		CurrentUser: currentUser,
+		Reference:   httpserver.BuildReferenceHandlers(pool),
+		Content:     httpserver.BuildContentHandlers(pool, currentUser),
+		Practice:    httpserver.BuildPracticeHandlers(pool, currentUser),
+		Analytics:   httpserver.BuildAnalyticsHandlers(pool, currentUser),
+		Search:      httpserver.BuildSearchHandlers(pool, currentUser),
+		Auth:        httpserver.BuildAuthHandlers(pool),
+		Admin:       httpserver.BuildAdminHandlers(pool),
+		Media:       httpserver.BuildMediaHandlers(pool),
+		Imports:     httpserver.BuildImportHandlers(pool, currentUser),
+		AI:          httpserver.BuildAIHandlers(pool, currentUser, aiclient.New(cfg)),
+		Billing:     httpserver.BuildBillingHandlers(pool, currentUser),
 	})
 
 	log.Fatal(http.ListenAndServe(addr, handler))

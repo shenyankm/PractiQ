@@ -44,7 +44,9 @@ func NewServer(cfg ServerConfig, deps ServerDependencies) http.Handler {
 	registerAdminRoutes(router, deps.Admin)
 	registerMediaRoutes(router, deps.Media)
 	registerContentRoutes(router, deps.Content)
-	registerImportsBillingAIRoutes(router, deps.ImportsBillingAI)
+	registerImportRoutes(router, deps.Imports)
+	registerAIRoutes(router, deps.AI)
+	registerBillingRoutes(router, deps.Billing)
 	registerPracticeAnalyticsSearchRoutes(router, deps.Practice, deps.Analytics, deps.Search)
 
 	middlewareCfg := Config{NodeEnv: cfg.NodeEnv, AppOrigin: cfg.AppOrigin}

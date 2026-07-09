@@ -72,8 +72,8 @@ type paddleEnvelope struct {
 	Data      map[string]any `json:"data"`
 }
 
-func BuildImportsBillingAIHandlers(pool *pgxpool.Pool, currentUser auth.CurrentUserResolver, client *aiclient.Client) ImportsBillingAIHandlers {
-	return ImportsBillingAIHandlers{
+func BuildImportHandlers(pool *pgxpool.Pool, currentUser auth.CurrentUserResolver) ImportHandlers {
+	return ImportHandlers{
 		ImportJobs:             buildImportJobsHandler(pool, currentUser),
 		ImportJob:              buildImportJobHandler(pool, currentUser),
 		ImportJobFile:          buildImportJobFileHandler(pool, currentUser),
@@ -81,13 +81,23 @@ func BuildImportsBillingAIHandlers(pool *pgxpool.Pool, currentUser auth.CurrentU
 		ImportJobChildren:      buildImportJobChildrenHandler(pool, currentUser),
 		ImportJobEventStream:   buildImportJobEventStreamHandler(pool, currentUser),
 		ImportJobReviewResolve: buildImportJobReviewResolveHandler(pool, currentUser),
+	}
+}
+
+func BuildAIHandlers(pool *pgxpool.Pool, currentUser auth.CurrentUserResolver, client *aiclient.Client) AIHandlers {
+	return AIHandlers{
 		AIParseDocument:        buildAIParseDocumentHandler(pool, currentUser, client),
 		AIGenerateAnswer:       buildAIGenerateAnswerHandler(pool, currentUser, client),
 		AILearningReport:       buildAILearningReportHandler(pool, currentUser, client),
 		QuestionGenerateAnswer: buildQuestionGenerateAnswerHandler(pool, currentUser, client),
-		BillingSummary:         buildBillingSummaryHandler(pool, currentUser),
-		BillingCheckout:        buildBillingCheckoutHandler(pool, currentUser),
-		BillingWebhook:         buildBillingWebhookHandler(pool),
+	}
+}
+
+func BuildBillingHandlers(pool *pgxpool.Pool, currentUser auth.CurrentUserResolver) BillingHandlers {
+	return BillingHandlers{
+		BillingSummary:  buildBillingSummaryHandler(pool, currentUser),
+		BillingCheckout: buildBillingCheckoutHandler(pool, currentUser),
+		BillingWebhook:  buildBillingWebhookHandler(pool),
 	}
 }
 

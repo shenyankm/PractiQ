@@ -11,7 +11,7 @@ import (
 )
 
 func TestNewServerRegistersImportsRoutes(t *testing.T) {
-	handlers := ImportsBillingAIHandlers{
+	handlers := ImportHandlers{
 		ImportJobs: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			api.OK(w, r, map[string]any{"method": r.Method, "route": "jobs"}, nil)
 		}),
@@ -26,6 +26,9 @@ func TestNewServerRegistersImportsRoutes(t *testing.T) {
 		}),
 		ImportJobChildren: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			api.OK(w, r, map[string]any{"jobId": r.PathValue("jobId"), "kind": r.PathValue("kind")}, nil)
+		}),
+		ImportJobEventStream: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			api.OK(w, r, map[string]any{"jobId": r.PathValue("jobId"), "route": "events-stream"}, nil)
 		}),
 		ImportJobReviewResolve: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			api.OK(w, r, map[string]any{"jobId": r.PathValue("jobId"), "itemId": r.PathValue("itemId")}, nil)
@@ -44,10 +47,11 @@ func TestNewServerRegistersImportsRoutes(t *testing.T) {
 		{name: "upload file", method: http.MethodPost, target: "/api/v1/import-jobs/42/file", wantStatus: http.StatusCreated, wantData: map[string]any{"jobId": "42"}},
 		{name: "job action", method: http.MethodPost, target: "/api/v1/import-jobs/42/start", wantStatus: http.StatusOK, wantData: map[string]any{"jobId": "42", "action": "start"}},
 		{name: "job child list", method: http.MethodGet, target: "/api/v1/import-jobs/42/review-items", wantStatus: http.StatusOK, wantData: map[string]any{"jobId": "42", "kind": "review-items"}},
+		{name: "event stream", method: http.MethodGet, target: "/api/v1/import-jobs/42/events/stream", wantStatus: http.StatusOK, wantData: map[string]any{"jobId": "42", "route": "events-stream"}},
 		{name: "review resolve", method: http.MethodPost, target: "/api/v1/import-jobs/42/review-items/7/resolve", wantStatus: http.StatusOK, wantData: map[string]any{"jobId": "42", "itemId": "7"}},
 	}
 
-	handler := newImportsBillingAIServerUnderTest(t, handlers)
+	handler := newImportsAIAndBillingServerUnderTest(t, handlers, AIHandlers{}, BillingHandlers{})
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			rr := httptest.NewRecorder()
@@ -67,7 +71,7 @@ func TestNewServerRegistersImportsRoutes(t *testing.T) {
 }
 
 func TestNewServerRegistersAIPublicRoutes(t *testing.T) {
-	handlers := ImportsBillingAIHandlers{
+	handlers := AIHandlers{
 		AIParseDocument: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			api.OK(w, r, map[string]any{"route": "parse-document"}, nil)
 		}),
@@ -93,7 +97,7 @@ func TestNewServerRegistersAIPublicRoutes(t *testing.T) {
 		{name: "question generate answer", target: "/api/v1/questions/91/generate-answer", want: map[string]any{"questionId": "91"}},
 	}
 
-	handler := newImportsBillingAIServerUnderTest(t, handlers)
+	handler := newImportsAIAndBillingServerUnderTest(t, ImportHandlers{}, handlers, BillingHandlers{})
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			rr := httptest.NewRecorder()
@@ -113,7 +117,7 @@ func TestNewServerRegistersAIPublicRoutes(t *testing.T) {
 }
 
 func TestNewServerRegistersBillingRoutes(t *testing.T) {
-	handlers := ImportsBillingAIHandlers{
+	handlers := BillingHandlers{
 		BillingSummary: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			api.OK(w, r, map[string]any{"route": "summary"}, nil)
 		}),
@@ -126,7 +130,7 @@ func TestNewServerRegistersBillingRoutes(t *testing.T) {
 		}),
 	}
 
-	handler := newImportsBillingAIServerUnderTest(t, handlers)
+	handler := newImportsAIAndBillingServerUnderTest(t, ImportHandlers{}, AIHandlers{}, handlers)
 
 	t.Run("summary", func(t *testing.T) {
 		rr := httptest.NewRecorder()
@@ -176,7 +180,7 @@ func TestNewServerRegistersBillingRoutes(t *testing.T) {
 	})
 }
 
-func newImportsBillingAIServerUnderTest(t *testing.T, handlers ImportsBillingAIHandlers) http.Handler {
+func newImportsAIAndBillingServerUnderTest(t *testing.T, imports ImportHandlers, ai AIHandlers, billing BillingHandlers) http.Handler {
 	t.Helper()
 
 	distDir := t.TempDir()
@@ -199,6 +203,8 @@ func newImportsBillingAIServerUnderTest(t *testing.T, handlers ImportsBillingAIH
 		UptimeSeconds: func() int64 {
 			return 1
 		},
-		ImportsBillingAI: handlers,
+		Imports: imports,
+		AI:      ai,
+		Billing: billing,
 	})
 }

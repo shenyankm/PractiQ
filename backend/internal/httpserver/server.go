@@ -26,20 +26,22 @@ type AuthHandlers struct {
 }
 
 type ServerDependencies struct {
-	CheckPostgres    func(context.Context) error
-	CheckRedis       func(context.Context) (bool, error)
-	MetricsHandler   http.Handler
-	UptimeSeconds    func() int64
-	CurrentUser      auth.CurrentUserResolver
-	Auth             AuthHandlers
-	Reference        ReferenceHandlers
-	Admin            AdminHandlers
-	Media            MediaHandlers
-	Content          ContentHandlers
-	ImportsBillingAI ImportsBillingAIHandlers
-	Practice         PracticeHandlers
-	Analytics        AnalyticsHandlers
-	Search           SearchHandlers
+	CheckPostgres  func(context.Context) error
+	CheckRedis     func(context.Context) (bool, error)
+	MetricsHandler http.Handler
+	UptimeSeconds  func() int64
+	CurrentUser    auth.CurrentUserResolver
+	Auth           AuthHandlers
+	Reference      ReferenceHandlers
+	Admin          AdminHandlers
+	Media          MediaHandlers
+	Content        ContentHandlers
+	Imports        ImportHandlers
+	AI             AIHandlers
+	Billing        BillingHandlers
+	Practice       PracticeHandlers
+	Analytics      AnalyticsHandlers
+	Search         SearchHandlers
 }
 
 func readinessData(ctx context.Context, deps ServerDependencies) map[string]any {
