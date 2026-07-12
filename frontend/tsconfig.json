@@ -22,10 +22,9 @@
     "incremental": true,
     "paths": {
       "@/*": [
-        "src/*"
+        "./src/*"
       ]
-    },
-    "baseUrl": "."
+    }
   },
   "include": [
     "src",
