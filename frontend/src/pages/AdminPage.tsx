@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from '@heroui/react';
+import { Link, Typography } from '@heroui/react';
 import { apiRequest } from '@/lib/api';
 
 type Overview = {
@@ -20,7 +20,7 @@ export default function AdminPage() {
   }, []);
   return (
     <div>
-      <h1>后台管理</h1>
+      <Typography.Heading level={1}>后台管理</Typography.Heading>
       <nav>
         <Link href="/admin/users">用户</Link>
         <Link href="/admin/knowledge-points">知识点</Link>

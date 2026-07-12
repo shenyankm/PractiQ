@@ -1,4 +1,5 @@
 import { createBrowserRouter, Navigate, Outlet, RouterProvider, useLocation } from 'react-router-dom';
+import { Typography } from '@heroui/react';
 import { AuthProvider, useAuth } from '@/auth/AuthProvider';
 import { OpenWookShell } from '@/layout/OpenWookShell';
 import LoginPage from '@/pages/LoginPage';
@@ -18,7 +19,7 @@ function ProtectedLayout() {
 }
 
 function Page({ title }: { title: string }) {
-  return <h1>{title}</h1>;
+  return <Typography.Heading level={1}>{title}</Typography.Heading>;
 }
 
 function AdminOnly() {
