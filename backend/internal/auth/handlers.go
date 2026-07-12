@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"net/mail"
+	"strings"
+	"unicode/utf8"
 
 	"golang.org/x/crypto/bcrypt"
 	"openwook/internal/api"
@@ -37,9 +40,9 @@ type HandlerDependencies struct {
 }
 
 type registerRequest struct {
-	Username string  `json:"username"`
-	Email    *string `json:"email"`
-	Password string  `json:"password"`
+	Username      string  `json:"username"`
+	Email         *string `json:"email"`
+	Password      string  `json:"password"`
 }
 
 type loginRequest struct {
@@ -62,6 +65,10 @@ func Register(deps HandlerDependencies) http.Handler {
 			api.HandleError(w, r, api.NewError(http.StatusBadRequest, "INVALID_JSON", "Request body must be valid JSON", nil))
 			return
 		}
+		if err := validateRegisterRequest(&body); err != nil {
+			api.HandleError(w, r, err)
+			return
+		}
 		user, err := deps.RegisterUser(r.Context(), body.Username, body.Email, body.Password)
 		if err != nil {
 			api.HandleError(w, r, err)
@@ -75,6 +82,41 @@ func Register(deps HandlerDependencies) http.Handler {
 		}
 		api.Created(w, r, user, nil)
 	})
+}
+
+func validateRegisterRequest(body *registerRequest) error {
+	details := make([]api.ValidationDetail, 0, 4)
+
+	if len(body.Username) < 3 || len(body.Username) > 20 {
+		details = append(details, api.ValidationDetail{Field: "username", Message: "Must be 3-20 letters, numbers, or underscores"})
+	} else {
+		for _, character := range body.Username {
+			if character != '_' && (character < '0' || character > '9') && (character < 'A' || character > 'Z') && (character < 'a' || character > 'z') {
+				details = append(details, api.ValidationDetail{Field: "username", Message: "Must be 3-20 letters, numbers, or underscores"})
+				break
+			}
+		}
+	}
+
+	if body.Email == nil {
+		details = append(details, api.ValidationDetail{Field: "email", Message: "Must be a valid email address"})
+	} else {
+		email := strings.TrimSpace(*body.Email)
+		parsed, err := mail.ParseAddress(email)
+		if err != nil || utf8.RuneCountInString(email) > 254 || parsed.Address != email {
+			details = append(details, api.ValidationDetail{Field: "email", Message: "Must be a valid email address"})
+		} else {
+			body.Email = &email
+		}
+	}
+
+	if len(body.Password) < 8 || len(body.Password) > 72 {
+		details = append(details, api.ValidationDetail{Field: "password", Message: "Must be 8-72 bytes"})
+	}
+	if len(details) > 0 {
+		return api.ValidationError(details)
+	}
+	return nil
 }
 
 func Login(deps HandlerDependencies) http.Handler {

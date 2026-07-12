@@ -74,6 +74,48 @@ func TestRegisterCreatesUserSetsSessionCookieAndReturnsCreatedEnvelope(t *testin
 	assertMetaRequestID(t, body, "req-register-123")
 }
 
+func TestRegisterRejectsInvalidRegistrationDetails(t *testing.T) {
+	cases := []struct {
+		name string
+		body string
+	}{
+		{name: "invalid username", body: `{"username":"a!","email":"alice@example.com","password":"correct horse battery staple"}`},
+		{name: "invalid email", body: `{"username":"alice","email":"not-an-email","password":"correct horse battery staple"}`},
+		{name: "email over limit", body: `{"username":"alice","email":"` + strings.Repeat("a", 243) + `@example.com","password":"correct horse battery staple"}`},
+		{name: "short password", body: `{"username":"alice","email":"alice@example.com","password":"short"}`},
+		{name: "password over byte limit", body: `{"username":"alice","email":"alice@example.com","password":"` + strings.Repeat("中", 25) + `"}`},
+	}
+
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			handler := Register(HandlerDependencies{
+				RegisterUser: func(context.Context, string, *string, string) (*User, error) {
+					t.Fatal("RegisterUser should not be called")
+					return nil, nil
+				},
+			})
+
+			rr := httptest.NewRecorder()
+			req := authRequestWithID(t, http.MethodPost, "/api/v1/auth/register", testCase.body, "req-register-validation")
+
+			handler.ServeHTTP(rr, req)
+
+			assertAuthErrorEnvelope(t, rr, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "Invalid request", "req-register-validation")
+		})
+	}
+}
+
+func TestValidateRegisterRequestAccepts72BytePassword(t *testing.T) {
+	email := "alice@example.com"
+	if err := validateRegisterRequest(&registerRequest{
+		Username: "alice",
+		Email:    &email,
+		Password: strings.Repeat("中", 24),
+	}); err != nil {
+		t.Fatalf("validateRegisterRequest() error = %v, want nil", err)
+	}
+}
+
 func TestLoginSetsSessionCookieAndReturnsUserEnvelope(t *testing.T) {
 	email := "alice@example.com"
 	loggedInUser := &User{
@@ -217,7 +259,7 @@ func TestAuthHandlersReturnErrorEnvelopeForBadJSONAndSessionFailures(t *testing.
 		})
 
 		rr := httptest.NewRecorder()
-		req := authRequestWithID(t, http.MethodPost, "/api/v1/auth/register", `{"username":"alice","password":"correct horse battery staple"}`, "req-register-session-error")
+		req := authRequestWithID(t, http.MethodPost, "/api/v1/auth/register", `{"username":"alice","email":"alice@example.com","password":"correct horse battery staple"}`, "req-register-session-error")
 
 		handler.ServeHTTP(rr, req)
 

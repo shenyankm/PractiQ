@@ -97,7 +97,7 @@ Use cookie-based sessions for web UI and bearer tokens only for service-to-servi
 
 | Method | Route | Auth | Description |
 | --- | --- | --- | --- |
-| `POST` | `/api/v1/auth/register` | Public | Create `users` row. Hash password. |
+| `POST` | `/api/v1/auth/register` | Public | Validate local registration details, create `users` row, and hash password. |
 | `POST` | `/api/v1/auth/login` | Public | Verify username/email + password, set session cookie. |
 | `POST` | `/api/v1/auth/logout` | User | Clear session cookie. |
 | `GET` | `/api/v1/auth/me` | User | Return current user profile and capability flags. |
@@ -113,6 +113,8 @@ Register body:
   "password": "minimum-12-chars"
 }
 ```
+
+Registration requires a 3-20 character ASCII username containing only letters, numbers, and underscores; an email address of at most 254 characters; and an 8-72 byte password.
 
 Authorization checks:
 
