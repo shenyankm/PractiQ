@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 
-import type { AnchorHTMLAttributes, ReactNode } from 'react';
+import { act, type AnchorHTMLAttributes, type ReactNode } from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { LoginPage } from '@/pages/LoginPage';
+import { LoginPage, safeRedirect } from '@/pages/LoginPage';
 
 const routerState = vi.hoisted(() => ({
   searchParams: new URLSearchParams(),
@@ -95,6 +95,9 @@ describe('LoginPage', () => {
     fireEvent.change(screen.getByLabelText('密码'), {
       target: { value: 'password123' }
     });
+    fireEvent.change(screen.getByLabelText('确认密码'), {
+      target: { value: 'password123' }
+    });
     fireEvent.click(screen.getByRole('button', { name: '注册' }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
@@ -111,5 +114,73 @@ describe('LoginPage', () => {
       email: 'alice@example.com',
       password: 'password123'
     });
+  });
+
+  it('does not submit registration when passwords do not match', async () => {
+    render(<LoginPage mode="signup" />);
+
+    fireEvent.change(screen.getByLabelText('用户名'), { target: { value: 'alice' } });
+    fireEvent.change(screen.getByLabelText('邮箱'), { target: { value: 'alice@example.com' } });
+    fireEvent.change(screen.getByLabelText('密码'), { target: { value: 'password123' } });
+    fireEvent.change(screen.getByLabelText('确认密码'), { target: { value: 'different-password' } });
+    fireEvent.click(screen.getByRole('button', { name: '注册' }));
+
+    await waitFor(() => expect(fetchMock).not.toHaveBeenCalled());
+  });
+
+  it('accepts multibyte passwords that meet the byte minimum', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ data: { id: 7 } }, 201));
+
+    render(<LoginPage mode="signup" />);
+
+    fireEvent.change(screen.getByLabelText('用户名'), { target: { value: 'alice' } });
+    fireEvent.change(screen.getByLabelText('邮箱'), { target: { value: 'alice@example.com' } });
+    fireEvent.change(screen.getByLabelText('密码'), { target: { value: '中中中' } });
+    fireEvent.change(screen.getByLabelText('确认密码'), { target: { value: '中中中' } });
+    fireEvent.click(screen.getByRole('button', { name: '注册' }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+  });
+
+  it('keeps password focus after toggling visibility', () => {
+    render(<LoginPage mode="signin" />);
+
+    const passwordInput = screen.getByLabelText('密码');
+    const toggle = screen.getByRole('button', { name: '显示密码' });
+    act(() => {
+      passwordInput.focus();
+      fireEvent.pointerDown(toggle);
+      fireEvent.click(toggle);
+    });
+
+    expect(document.activeElement).toBe(passwordInput);
+    expect(passwordInput.getAttribute('type')).toBe('text');
+  });
+
+  it('shows backend validation errors', async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Invalid request',
+          details: [{ field: 'email', message: '请输入有效的邮箱地址。' }]
+        }
+      }, 422)
+    );
+
+    render(<LoginPage mode="signup" />);
+
+    fireEvent.change(screen.getByLabelText('用户名'), { target: { value: 'alice' } });
+    fireEvent.change(screen.getByLabelText('邮箱'), { target: { value: 'alice@example.com' } });
+    fireEvent.change(screen.getByLabelText('密码'), { target: { value: 'password123' } });
+    fireEvent.change(screen.getByLabelText('确认密码'), { target: { value: 'password123' } });
+    fireEvent.click(screen.getByRole('button', { name: '注册' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('请输入有效的邮箱地址。');
+  });
+
+  it('rejects backslash-based external redirects', () => {
+    expect(safeRedirect('/\\attacker.example')).toBe('/dashboard');
   });
 });
