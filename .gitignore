@@ -112,6 +112,7 @@ pnpm-debug.log*
 
 # Project-local installed agent skills
 /.agents/skills/paddle-*/
+/.agents/skills/heroui-*/
 /.pi/skills/paddle-*
 /.claude/skills/paddle-*
 /.qwen/skills/paddle-*
