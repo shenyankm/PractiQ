@@ -11,7 +11,7 @@ OpenWook now runs as a split-stack application:
 
 - Frontend: Vite, React 19, React Router, HeroUI v3, Tailwind CSS v4
 - API/runtime: Go 1.26, Chi, pgxpool, go-redis
-- AI service: Python 3.14, FastAPI, Pydantic, Mammoth
+- AI service: Python 3.14, FastAPI, LangGraph, Pydantic, Mammoth
 - Local infra: Podman Quadlet for Postgres and Redis
 
 ## Local setup
@@ -72,12 +72,15 @@ make verify
 
 `make build` runs the frontend TypeScript check before the Vite production build.
 
+Direct dependencies are kept on current stable releases in `frontend/package.json`, `backend/go.mod`, and `ai/pyproject.toml`. Tooling versions must also satisfy peer ranges; for example, TypeScript stays on the newest stable version supported by `typescript-eslint`.
+
 ## API/runtime notes
 
 - Health endpoints: `/api/health`, `/api/health/ready`, `/api/health/live`
 - Session cookie name: `session`
 - Redis remains the queue backend; there is no separate RabbitMQ/NATS/Kafka service
 - AI routes exposed to the browser stay under `/api/v1/ai/*`; Go talks to Python over `AI_SERVICE_URL`
+- The Python AI service routes document parsing, answer generation, and learning reports through one compiled LangGraph workflow.
 
 ## Podman stack
 

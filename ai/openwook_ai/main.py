@@ -5,8 +5,8 @@ from typing import Annotated, Any
 
 from fastapi import Depends, FastAPI, Header, HTTPException
 
-from .fallbacks import fallback_generate_answer, fallback_learning_report, fallback_parse_document
 from .schemas import DocumentParseRequest
+from .workflows import invoke_workflow
 
 app = FastAPI()
 
@@ -31,14 +31,14 @@ def ready() -> dict[str, bool]:
 
 @app.post('/internal/ai/parse-document', dependencies=[Depends(_require_token)])
 def parse_document(payload: DocumentParseRequest) -> dict[str, Any]:
-    return fallback_parse_document(payload).model_dump()
+    return invoke_workflow('parse_document', payload).model_dump()
 
 
 @app.post('/internal/ai/generate-answer', dependencies=[Depends(_require_token)])
 def generate_answer(payload: dict[str, Any]) -> dict[str, Any]:
-    return fallback_generate_answer(payload).model_dump()
+    return invoke_workflow('generate_answer', payload).model_dump()
 
 
 @app.post('/internal/ai/learning-report', dependencies=[Depends(_require_token)])
 def learning_report(payload: dict[str, Any]) -> dict[str, Any]:
-    return fallback_learning_report(payload).model_dump()
+    return invoke_workflow('learning_report', payload).model_dump()

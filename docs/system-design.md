@@ -661,6 +661,10 @@ Worker: questions/groups/links/outputs/provenance
 Worker: completed or failed
 ```
 
+### AI Workflow
+
+The Python AI service uses one compiled LangGraph `StateGraph` to route document parsing, answer generation, and learning-report requests. The graph currently executes the deterministic fallback nodes; provider-backed nodes can replace them without changing the Go-to-Python HTTP contract.
+
 ### Media Module
 
 Responsibilities:
@@ -906,6 +910,6 @@ The repository is now organized around the current split-stack implementation:
 
 - `frontend/` contains the React + Vite + React Router browser app and frontend tests.
 - `backend/` contains the Go + Chi API, admin/worker binaries, internal services, and product SQL schema.
-- `ai/` contains the Python FastAPI AI/document-processing service.
+- `ai/` contains the Python FastAPI AI/document-processing service and its LangGraph workflow.
 
 The retired starter Drizzle/team data layer is no longer the implementation baseline. Continue evolving the question-bank product against `backend/db/*/*.sql`, the Go services in `backend/internal`, and the routes documented above.
