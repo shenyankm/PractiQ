@@ -105,7 +105,8 @@ pnpm-debug.log*
 # -----------------------------------------------
 # Local Agent / Tool State
 # -----------------------------------------------
-.opencode/
+.opencode/*
+!.opencode/opencode.json
 .omx/
 /.codegraph/
 .worktrees/

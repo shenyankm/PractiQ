@@ -72,6 +72,10 @@ make verify
 
 `make build` runs the frontend TypeScript check before the Vite production build.
 
+## OpenCode
+
+The project-level `.opencode/opencode.json` configures the HeroUI React MCP server. Restart OpenCode after cloning or after changing this configuration; OpenCode starts the server on demand through `npx`.
+
 Direct dependencies are kept on current stable releases in `frontend/package.json`, `backend/go.mod`, and `ai/pyproject.toml`. Tooling versions must also satisfy peer ranges; for example, TypeScript stays on the newest stable version supported by `typescript-eslint`.
 
 ## API/runtime notes
