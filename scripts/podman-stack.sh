@@ -37,14 +37,34 @@ random_hex() {
 
 ensure_stack_env_file() {
   mkdir -p "$STACK_ENV_DIR"
-  if [[ -f "$STACK_ENV_FILE" ]]; then
-    return
-  fi
-  cat >"$STACK_ENV_FILE" <<EOF
+  if [[ ! -f "$STACK_ENV_FILE" ]]; then
+    cat >"$STACK_ENV_FILE" <<EOF
 AUTH_SECRET=$(random_hex 32)
 AI_SERVICE_TOKEN=ai-$(random_hex 24)
 EOF
+  fi
+
+  if [[ -z "$(read_stack_env_value AI_POSTGRES_URL)" ]]; then
+    local ai_db_password
+    ai_db_password="$(random_hex 24)"
+    cat >>"$STACK_ENV_FILE" <<EOF
+AI_DB_PASSWORD=$ai_db_password
+AI_POSTGRES_URL=postgres://openwook_ai:$ai_db_password@openwook-postgres:5432/openwook_app
+EOF
+  fi
   chmod 600 "$STACK_ENV_FILE"
+}
+
+read_stack_env_value() {
+  local wanted="$1"
+  local key value found=""
+  [[ -f "$STACK_ENV_FILE" ]] || return 0
+  while IFS='=' read -r key value; do
+    if [[ "$key" == "$wanted" ]]; then
+      found="$value"
+    fi
+  done <"$STACK_ENV_FILE"
+  printf '%s' "$found"
 }
 
 install_units() {
@@ -80,10 +100,44 @@ ensure_app_database() {
   fi
 }
 
+ensure_ai_database_role() {
+  local password
+  password="$(read_stack_env_value AI_DB_PASSWORD)"
+  if [[ -z "$password" ]]; then
+    return
+  fi
+
+  podman exec -i openwook-postgres psql \
+    -v ON_ERROR_STOP=1 \
+    -v ai_password="$password" \
+    -U openwook \
+    -d "$APP_DB_NAME" <<'SQL'
+SELECT 'CREATE ROLE openwook_ai LOGIN'
+WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'openwook_ai')
+\gexec
+SELECT format('ALTER ROLE openwook_ai LOGIN PASSWORD %L', :'ai_password')
+\gexec
+DO $$
+BEGIN
+  EXECUTE format('GRANT CONNECT ON DATABASE %I TO openwook_ai', current_database());
+  GRANT USAGE ON SCHEMA public TO openwook_ai;
+  IF to_regclass('public.question_import_jobs') IS NOT NULL THEN
+    GRANT SELECT (id, created_by, bank_id) ON question_import_jobs TO openwook_ai;
+  END IF;
+  IF to_regclass('public.ai_artifacts') IS NOT NULL THEN
+    GRANT INSERT, SELECT (id) ON ai_artifacts TO openwook_ai;
+    GRANT USAGE, SELECT ON SEQUENCE ai_artifacts_id_seq TO openwook_ai;
+  END IF;
+END
+$$;
+SQL
+}
+
 start_stack() {
   systemctl --user start "${INFRA_SERVICES[@]}"
   wait_for_postgres
   ensure_app_database
+  ensure_ai_database_role
   systemctl --user reset-failed "${APP_SERVICES[@]}" >/dev/null 2>&1 || true
   systemctl --user start "${APP_SERVICES[@]}"
 }

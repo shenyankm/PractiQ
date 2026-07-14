@@ -635,3 +635,15 @@ CREATE INDEX idx_ai_artifacts_import_job
     ON ai_artifacts (import_job_id, artifact_type, created_at DESC);
 CREATE INDEX idx_ai_artifacts_user
     ON ai_artifacts (user_id, artifact_type, created_at DESC);
+
+DO $$
+BEGIN
+    IF EXISTS (SELECT FROM pg_roles WHERE rolname = 'openwook_ai') THEN
+        EXECUTE format('GRANT CONNECT ON DATABASE %I TO openwook_ai', current_database());
+        GRANT USAGE ON SCHEMA public TO openwook_ai;
+        GRANT SELECT (id, created_by, bank_id) ON question_import_jobs TO openwook_ai;
+        GRANT INSERT, SELECT (id) ON ai_artifacts TO openwook_ai;
+        GRANT USAGE, SELECT ON SEQUENCE ai_artifacts_id_seq TO openwook_ai;
+    END IF;
+END
+$$;

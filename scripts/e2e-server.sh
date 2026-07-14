@@ -26,7 +26,7 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-AI_SERVICE_TOKEN="$AI_SERVICE_TOKEN" python -m uvicorn openwook_ai.main:app --app-dir ai --host "$AI_HOST" --port "$AI_PORT" &
+AI_SERVICE_TOKEN="$AI_SERVICE_TOKEN" AI_POSTGRES_URL="${AI_POSTGRES_URL:-$POSTGRES_URL}" python -m uvicorn openwook_ai.main:app --app-dir ai --host "$AI_HOST" --port "$AI_PORT" &
 pids+=("$!")
 (cd backend && AI_SERVICE_TOKEN="$AI_SERVICE_TOKEN" AUTH_SECRET="${AUTH_SECRET:-development-secret}" AI_SERVICE_URL="$AI_SERVICE_URL" APP_ORIGIN="$APP_ORIGIN" OPENWOOK_HOST="$OPENWOOK_HOST" PORT="$PORT" POSTGRES_URL="$POSTGRES_URL" REDIS_URL="$REDIS_URL" go run ./cmd/openwook-api) &
 pids+=("$!")
