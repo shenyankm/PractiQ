@@ -113,16 +113,27 @@ def make_learning_report_request() -> dict[str, Any]:
     }
 
 
-@pytest.mark.parametrize("path", ("/internal/health/live", "/internal/health/ready"))
-def test_health_routes_return_ok_json(
-    monkeypatch: pytest.MonkeyPatch, path: str
-) -> None:
+def test_live_health_route_returns_ok_json(monkeypatch: pytest.MonkeyPatch) -> None:
     client = make_client(monkeypatch)
 
-    response = client.get(path)
+    response = client.get("/internal/health/live")
 
     assert response.status_code == 200
     assert response.json() == {"ok": True}
+
+
+def test_ready_health_route_requires_service_authentication_configuration(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = make_client(monkeypatch)
+
+    unavailable = client.get("/internal/health/ready")
+    monkeypatch.setenv("AI_SERVICE_TOKEN", TOKEN)
+    ready = client.get("/internal/health/ready")
+
+    assert unavailable.status_code == 503
+    assert ready.status_code == 200
+    assert ready.json() == {"ok": True}
 
 
 @pytest.mark.parametrize(

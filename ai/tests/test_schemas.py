@@ -203,6 +203,22 @@ def test_parsed_question_rejects_renamed_nested_fields() -> None:
     assert_validation_error(model, invalid_content_block_payload, "partType")
 
 
+def test_parsed_question_normalizes_and_validates_correct_option_labels() -> None:
+    model = require_schema_model("ParsedQuestion")
+    payload = make_parsed_question()
+    payload["options"][0]["label"] = " A "
+    payload["answerPayload"] = {"correctOption": " A "}
+
+    validated = model.model_validate(payload)
+    dumped = validated.model_dump()
+
+    assert dumped["options"][0]["label"] == "A"
+    assert dumped["answerPayload"] == {"correctOption": "A"}
+
+    payload["answerPayload"] = {"correctOption": "B"}
+    assert_validation_error(model, payload, "correctOption")
+
+
 def test_document_parse_result_requires_exact_top_level_and_nested_fields() -> None:
     model = require_schema_model("DocumentParseResult")
 
@@ -250,6 +266,42 @@ def test_document_parse_result_requires_exact_top_level_and_nested_fields() -> N
         "qualityScore": 75,
     }
     assert_validation_error(model, invalid_visual_payload, "kind")
+
+    empty_question_payload = {
+        "questions": [{**make_parsed_question(), "stem": ""}],
+        "groups": [],
+        "visualElements": [],
+        "warnings": [],
+        "qualityScore": 75,
+    }
+    assert_validation_error(model, empty_question_payload, "stem")
+
+    invalid_choice_payload = {
+        "questions": [{**make_parsed_question(), "options": []}],
+        "groups": [],
+        "visualElements": [],
+        "warnings": [],
+        "qualityScore": 75,
+    }
+    assert_validation_error(model, invalid_choice_payload, "options")
+
+    invalid_group_index_payload = {
+        "questions": [make_parsed_question()],
+        "groups": [{**make_group(), "questionIndexes": [-1]}],
+        "visualElements": [],
+        "warnings": [],
+        "qualityScore": 75,
+    }
+    assert_validation_error(model, invalid_group_index_payload, "questionIndexes")
+
+    whitespace_identifier_payload = {
+        "questions": [{**make_parsed_question(), "questionTypeId": "   "}],
+        "groups": [],
+        "visualElements": [],
+        "warnings": [],
+        "qualityScore": 75,
+    }
+    assert_validation_error(model, whitespace_identifier_payload, "questionTypeId")
 
 
 def test_answer_generation_result_contract() -> None:
