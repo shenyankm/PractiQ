@@ -665,7 +665,17 @@ Worker: completed or failed
 
 ### AI Workflow
 
-The Python AI service uses one compiled LangGraph `StateGraph` to route document parsing, answer generation, and learning-report requests. The graph currently executes the deterministic fallback nodes; provider-backed nodes can replace them without changing the Go-to-Python HTTP contract.
+The Python AI service uses one compiled LangGraph `StateGraph` to route document parsing, answer generation, and learning-report requests. Document uploads follow `preprocess -> parse -> persist`: TXT is decoded as UTF-8, while DOCX/PDF/images use the external MinerU `/file_parse` API; the normalized Markdown is sent to an OpenAI-compatible agent when configured and otherwise uses the deterministic fallback. The final payload is validated as `DocumentParseResult` and inserted into `ai_artifacts` without storing raw upload bytes.
+
+Internal upload routes fail closed unless the same `AI_SERVICE_TOKEN` bearer token as the existing AI routes is configured. The service rejects oversized request bodies before multipart parsing and rejects normalized documents larger than 120,000 characters instead of returning partial results:
+
+| Method | Route | Accepted files | MinerU mode |
+| --- | --- | --- | --- |
+| `POST` | `/internal/ai/upload-text` | TXT | Local UTF-8 decode |
+| `POST` | `/internal/ai/upload-document` | DOCX, PDF | `auto` |
+| `POST` | `/internal/ai/upload-scan` | PDF, JPG, PNG, GIF, WebP, BMP, TIFF | `ocr` |
+
+MinerU runs as a separate service because its current Python requirement excludes Python 3.14. `MINERU_API_URL` selects that service; `OPENAI_BASE_URL`, `OPENAI_MODEL`, and optional `OPENAI_API_KEY` select the parsing agent. `AI_POSTGRES_URL` must use a role limited to reading import-job ownership and inserting `ai_artifacts`; the AI container does not receive `POSTGRES_URL`.
 
 ### Media Module
 
