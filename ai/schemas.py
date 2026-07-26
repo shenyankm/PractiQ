@@ -6,12 +6,11 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 
 AnswerMode = Literal['choice', 'true_false', 'fill_blank', 'short_answer']
-DocumentSourceType = Literal['docx', 'txt', 'text']
-UploadSourceType = Literal['txt', 'docx', 'pdf', 'image']
-ParseMethod = Literal['auto', 'ocr']
+DocumentSourceType = Literal['docx', 'txt', 'text', 'pdf', 'xlsx']
 ContentPartType = Literal['text', 'formula', 'image', 'table', 'list', 'html', 'markdown', 'chart', 'diagram', 'qr_code']
 VisualKind = Literal['image', 'table', 'chart', 'diagram', 'qr_code']
 RiskLevel = Literal['low', 'medium', 'high']
+ReportScope = Literal['individual', 'class', 'bank']
 
 
 class StrictModel(BaseModel):
@@ -26,16 +25,6 @@ class DocumentParseRequest(StrictModel):
     text: str | None = None
     fileBase64: str | None = None
     mimeType: str | None = Field(default=None, max_length=255)
-
-
-class FileUploadWorkflowRequest(StrictModel):
-    importJobId: int | None = Field(default=None, gt=0)
-    bankId: int | None = Field(default=None, gt=0)
-    sourceType: UploadSourceType
-    fileName: str = Field(min_length=1, max_length=255)
-    fileBytes: bytes = Field(min_length=1, repr=False)
-    mimeType: str = Field(min_length=1, max_length=255)
-    parseMethod: ParseMethod = 'auto'
 
 
 class ParsedOption(StrictModel):
@@ -111,6 +100,9 @@ class VisualElement(StrictModel):
     label: str | None = Field(default=None, max_length=1_000)
     description: str = Field(min_length=1, max_length=20_000)
     extractedText: str | None = Field(default=None, max_length=100_000)
+    page: int | None = Field(default=None, ge=0)
+    bbox: list[float] | None = Field(default=None, min_length=4, max_length=4)
+    imageBase64: str | None = Field(default=None, max_length=400_000)
 
     @field_validator('description')
     @classmethod
@@ -142,6 +134,23 @@ def _non_blank(value: str) -> str:
     if not stripped:
         raise ValueError('must not be blank')
     return stripped
+
+
+class AnswerGenerationRequest(StrictModel):
+    # 字段镜像 backend/internal/aiclient/types.go 的 AnswerGenerationRequest
+    questionId: int | None = None
+    stem: str = Field(min_length=1, max_length=120_000)
+    answerMode: AnswerMode
+    options: list[ParsedOption] = Field(default_factory=list, max_length=100)
+    analysis: str | None = Field(default=None, max_length=100_000)
+
+
+class LearningReportRequest(StrictModel):
+    # 字段镜像 backend/internal/aiclient/types.go 的 LearningReportRequest
+    userId: int | None = None
+    bankId: int | None = None
+    practiceSessionId: int | None = None
+    scope: ReportScope = 'individual'
 
 
 class AnswerGenerationResult(StrictModel):

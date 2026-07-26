@@ -1,1 +1,0 @@
-"""OpenWook internal AI service."""

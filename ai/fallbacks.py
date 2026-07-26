@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .schemas import (
+from schemas import (
     AnswerGenerationResult,
     DocumentParseRequest,
     DocumentParseResult,

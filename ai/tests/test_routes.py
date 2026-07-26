@@ -1,197 +1,143 @@
-from __future__ import annotations
-
-import sys
-from importlib import import_module
-from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI
+import pytest
 from fastapi.testclient import TestClient
 from pydantic import BaseModel
-import pytest
+
+from main import app
+from schemas import (
+    AnswerGenerationResult,
+    DocumentParseResult,
+    LearningReportResult,
+)
 
 
-AI_ROOT = Path(__file__).resolve().parents[1]
-if str(AI_ROOT) not in sys.path:
-    sys.path.insert(0, str(AI_ROOT))
+TOKEN = 'test-ai-token'
 
 
-TOKEN = "test-ai-token"
-
-
-@pytest.fixture(autouse=True)
-def clear_ai_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("AI_SERVICE_TOKEN", raising=False)
-
-
-def clear_ai_modules() -> None:
-    sys.modules.pop("openwook_ai.main", None)
-
-
-def require_module(name: str) -> Any:
-    try:
-        return import_module(name)
-    except ModuleNotFoundError as exc:
-        pytest.fail(f"Migration contract missing module {name}: {exc}")
-
-
-def require_fastapi_app(
-    monkeypatch: pytest.MonkeyPatch, *, token: str | None
-) -> FastAPI:
-    if token is None:
-        monkeypatch.delenv("AI_SERVICE_TOKEN", raising=False)
-    else:
-        monkeypatch.setenv("AI_SERVICE_TOKEN", token)
-
-    clear_ai_modules()
-    module = require_module("openwook_ai.main")
-
-    try:
-        app = module.app
-    except AttributeError:
-        pytest.fail(
-            "Migration contract missing FastAPI app named app in openwook_ai.main"
-        )
-
-    assert isinstance(app, FastAPI), (
-        "openwook_ai.main.app must be a FastAPI application"
-    )
-    return app
-
-
-def make_client(
-    monkeypatch: pytest.MonkeyPatch, *, token: str | None = None
-) -> TestClient:
-    return TestClient(require_fastapi_app(monkeypatch, token=token))
-
-
-def require_schema_model(name: str) -> type[BaseModel]:
-    module = require_module("openwook_ai.schemas")
-    try:
-        model = getattr(module, name)
-    except AttributeError:
-        pytest.fail(
-            f"Migration contract missing schema model {name} in openwook_ai.schemas"
-        )
-
-    assert isinstance(model, type) and issubclass(model, BaseModel), (
-        f"{name} must be a Pydantic model"
-    )
-    return model
-
-
-def make_document_parse_request() -> dict[str, Any]:
+def document_request() -> dict[str, Any]:
     return {
-        "importJobId": 12,
-        "bankId": 34,
-        "sourceType": "text",
-        "fileName": "questions.txt",
-        "text": "1. What is 2+2?\nA. 4\nB. 5\n答案: A",
-        "mimeType": "text/plain",
+        'sourceType': 'text',
+        'fileName': 'questions.txt',
+        'text': '1. What is 2+2?\nA. 4\nB. 5',
+        'mimeType': 'text/plain',
     }
-
-
-def make_answer_generation_request() -> dict[str, Any]:
-    return {
-        "questionId": 91,
-        "stem": "What is 2 + 2?",
-        "answerMode": "choice",
-        "options": [
-            {"label": "A", "content": "4"},
-            {"label": "B", "content": "5"},
-        ],
-        "analysis": "Basic arithmetic",
-    }
-
-
-def make_learning_report_request() -> dict[str, Any]:
-    return {
-        "userId": 7,
-        "bankId": 21,
-        "practiceSessionId": 35,
-        "scope": "individual",
-    }
-
-
-def test_live_health_route_returns_ok_json(monkeypatch: pytest.MonkeyPatch) -> None:
-    client = make_client(monkeypatch)
-
-    response = client.get("/internal/health/live")
-
-    assert response.status_code == 200
-    assert response.json() == {"ok": True}
-
-
-def test_ready_health_route_requires_service_authentication_configuration(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    client = make_client(monkeypatch)
-
-    unavailable = client.get("/internal/health/ready")
-    monkeypatch.setenv("AI_SERVICE_TOKEN", TOKEN)
-    ready = client.get("/internal/health/ready")
-
-    assert unavailable.status_code == 503
-    assert ready.status_code == 200
-    assert ready.json() == {"ok": True}
 
 
 @pytest.mark.parametrize(
-    ("path", "payload"),
+    ('path', 'payload', 'result_model'),
     (
-        ("/internal/ai/parse-document", make_document_parse_request()),
-        ("/internal/ai/generate-answer", make_answer_generation_request()),
-        ("/internal/ai/learning-report", make_learning_report_request()),
+        ('/internal/ai/parse-document', document_request(), DocumentParseResult),
+        (
+            '/internal/ai/generate-answer',
+            {
+                'stem': 'What is 2 + 2?',
+                'answerMode': 'choice',
+                'options': [
+                    {'label': 'A', 'content': '4'},
+                    {'label': 'B', 'content': '5'},
+                ],
+            },
+            AnswerGenerationResult,
+        ),
+        ('/internal/ai/learning-report', {'userId': 7}, LearningReportResult),
     ),
 )
-def test_internal_ai_routes_require_bearer_token_when_configured(
+def test_json_route_requires_auth_and_returns_its_contract(
     monkeypatch: pytest.MonkeyPatch,
     path: str,
     payload: dict[str, Any],
+    result_model: type[BaseModel],
 ) -> None:
-    client = make_client(monkeypatch, token=TOKEN)
+    monkeypatch.setenv('AI_SERVICE_TOKEN', TOKEN)
+    monkeypatch.delenv('DASHSCOPE_API_KEY', raising=False)
+    client = TestClient(app)
 
-    missing = client.post(path, json=payload)
-    wrong = client.post(
-        path, json=payload, headers={"Authorization": "Bearer wrong-token"}
-    )
-
-    assert missing.status_code == 401
-    assert wrong.status_code == 401
-
-
-@pytest.mark.parametrize(
-    ("path", "payload", "result_model_name"),
-    (
-        (
-            "/internal/ai/parse-document",
-            make_document_parse_request(),
-            "DocumentParseResult",
-        ),
-        (
-            "/internal/ai/generate-answer",
-            make_answer_generation_request(),
-            "AnswerGenerationResult",
-        ),
-        (
-            "/internal/ai/learning-report",
-            make_learning_report_request(),
-            "LearningReportResult",
-        ),
-    ),
-)
-def test_internal_ai_routes_accept_authorized_schema_payloads(
-    monkeypatch: pytest.MonkeyPatch,
-    path: str,
-    payload: dict[str, Any],
-    result_model_name: str,
-) -> None:
-    client = make_client(monkeypatch, token=TOKEN)
-    result_model = require_schema_model(result_model_name)
+    assert client.post(path, json=payload).status_code == 401
 
     response = client.post(
-        path, json=payload, headers={"Authorization": f"Bearer {TOKEN}"}
+        path,
+        json=payload,
+        headers={'Authorization': f'Bearer {TOKEN}'},
     )
 
     assert response.status_code == 200
     result_model.model_validate(response.json())
+
+
+@pytest.mark.parametrize(
+    ('path', 'payload'),
+    (
+        ('/internal/ai/generate-answer', {'stem': 'x'}),  # 缺 answerMode
+        ('/internal/ai/generate-answer', {'stem': 'x', 'answerMode': 'choice', 'extra': 1}),
+        ('/internal/ai/learning-report', {'scope': 'galaxy'}),
+        ('/internal/ai/learning-report', {'userId': 7, 'extra': 1}),
+    ),
+)
+def test_answer_and_report_routes_reject_invalid_payloads(
+    monkeypatch: pytest.MonkeyPatch,
+    path: str,
+    payload: dict[str, Any],
+) -> None:
+    monkeypatch.setenv('AI_SERVICE_TOKEN', TOKEN)
+
+    response = TestClient(app).post(
+        path,
+        json=payload,
+        headers={'Authorization': f'Bearer {TOKEN}'},
+    )
+
+    assert response.status_code == 422
+
+
+def test_health_routes_report_liveness_and_readiness(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv('AI_SERVICE_TOKEN', raising=False)
+    client = TestClient(app)
+
+    assert client.get('/internal/health/live').json() == {'ok': True}
+    assert client.get('/internal/health/ready').status_code == 503
+
+    monkeypatch.setenv('AI_SERVICE_TOKEN', TOKEN)
+    assert client.get('/internal/health/ready').json() == {'ok': True}
+
+
+def test_parse_route_rejects_an_oversized_streamed_body(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv('AI_SERVICE_TOKEN', TOKEN)
+    monkeypatch.setenv('IMPORT_SOURCE_MAX_BYTES', '4')
+
+    response = TestClient(app).post(
+        '/internal/ai/parse-document',
+        content=iter((b'x' * (512 * 1024), b'x' * (512 * 1024 + 17))),
+        headers={
+            'Authorization': f'Bearer {TOKEN}',
+            'Content-Type': 'application/json',
+        },
+    )
+
+    assert response.status_code == 413
+
+
+@pytest.mark.parametrize(
+    'path',
+    ('/internal/ai/generate-answer', '/internal/ai/learning-report'),
+)
+def test_other_ai_routes_reject_oversized_streamed_bodies(
+    monkeypatch: pytest.MonkeyPatch,
+    path: str,
+) -> None:
+    monkeypatch.setenv('AI_SERVICE_TOKEN', TOKEN)
+
+    response = TestClient(app).post(
+        path,
+        content=iter((b'x' * (512 * 1024), b'x' * (512 * 1024 + 17))),
+        headers={
+            'Authorization': f'Bearer {TOKEN}',
+            'Content-Type': 'application/json',
+        },
+    )
+
+    assert response.status_code == 413

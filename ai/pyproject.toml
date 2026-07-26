@@ -8,18 +8,33 @@ dependencies = [
   "uvicorn==0.51.0",
   "pydantic==2.13.4",
   "mammoth==1.12.0",
-  "langgraph==1.2.9",
   "httpx==0.28.1",
-  "python-multipart==0.0.32",
-  "psycopg[binary]==3.3.4",
+  "agentscope==2.0.5",
+  "pypdf==6.14.2",
+  "pypdfium2==5.12.1",
+  "pillow==12.3.0",
+  "openpyxl==3.1.5",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest==9.1.1", "pytest-asyncio==1.4.0"]
+dev = ["pytest==9.1.1"]
 
 [build-system]
 requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["openwook_ai"]
+# ponytail: 顶层模块名装进 site-packages 仅限专用容器；将来若需发布 wheel 再恢复包名
+only-include = [
+  "main.py",
+  "routes.py",
+  "schemas.py",
+  "workflows.py",
+  "fallbacks.py",
+  "chunking.py",
+  "extractors",
+  "agents",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
