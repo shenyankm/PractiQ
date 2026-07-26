@@ -1,8 +1,6 @@
 package httpserver
 
 import (
-	"encoding/json"
-	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -33,8 +31,6 @@ func BuildContentHandlers(pool *pgxpool.Pool, currentUser auth.CurrentUserResolv
 		QuestionOptionCreate:     http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleQuestionOptionCreate(w, r, pool, currentUser) }),
 		QuestionOptionUpdate:     http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleQuestionOptionUpdate(w, r, pool, currentUser) }),
 		QuestionAnswerKeyPut:     http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleQuestionAnswerKeyPut(w, r, pool, currentUser) }),
-		QuestionMetadataPut:      http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleQuestionMetadataPut(w, r, pool, currentUser) }),
-		QuestionKnowledgePut:     http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleQuestionKnowledgePut(w, r, pool, currentUser) }),
 		QuestionContentBlocksPut: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleQuestionContentBlocksPut(w, r, pool, currentUser) }),
 		GroupGet:                 http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleGroupGet(w, r, pool, currentUser) }),
 		GroupUpdate:              http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleGroupUpdate(w, r, pool, currentUser) }),
@@ -69,13 +65,13 @@ func handleBanks(w http.ResponseWriter, r *http.Request, pool *pgxpool.Pool, cur
 			api.HandleError(w, r, err)
 			return
 		}
-		var body struct {
+		body, err := decodeJSONBodyStrict[struct {
 			Name        string  `json:"name"`
 			Description *string `json:"description"`
 			Subject     string  `json:"subject"`
 			IsPublic    bool    `json:"isPublic"`
-		}
-		if err := readJSONBody(r, &body); err != nil {
+		}](r)
+		if err != nil {
 			api.HandleError(w, r, err)
 			return
 		}
@@ -104,25 +100,6 @@ func handleBanks(w http.ResponseWriter, r *http.Request, pool *pgxpool.Pool, cur
 	default:
 		api.HandleError(w, r, api.NewError(http.StatusNotFound, "NOT_FOUND", "Endpoint not found", nil))
 	}
-}
-
-func readJSONBody(r *http.Request, target any) error {
-	decoder := json.NewDecoder(r.Body)
-	if err := decoder.Decode(target); err != nil {
-		return api.NewError(http.StatusBadRequest, "INVALID_JSON", "Request body must be valid JSON", nil)
-	}
-	return nil
-}
-
-func readRawBody(r *http.Request) ([]byte, error) {
-	raw, err := io.ReadAll(r.Body)
-	if err != nil {
-		return nil, err
-	}
-	if len(raw) == 0 {
-		return []byte("{}"), nil
-	}
-	return raw, nil
 }
 
 func queryInt(r *http.Request, key string) int {

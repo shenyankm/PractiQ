@@ -325,7 +325,7 @@ func EnsureGroupEditable(ctx context.Context, db *pgxpool.Pool, user *auth.User,
 	return err
 }
 
-func scanQuestionGroup(row rowScanner) (QuestionGroup, error) {
+func scanQuestionGroup(row pgx.Row) (QuestionGroup, error) {
 	var group QuestionGroup
 	err := row.Scan(
 		&group.ID,
@@ -351,7 +351,7 @@ func scanQuestionGroup(row rowScanner) (QuestionGroup, error) {
 	return group, err
 }
 
-func scanGroupQuestionLink(row rowScanner) (GroupQuestionLink, error) {
+func scanGroupQuestionLink(row pgx.Row) (GroupQuestionLink, error) {
 	var link GroupQuestionLink
 	err := row.Scan(&link.ID, &link.GroupID, &link.QuestionID, &link.GroupSubjectID, &link.QuestionSubjectID, &link.SortOrder, &link.QuestionNo, &link.CreatedAt, &link.UpdatedAt)
 	return link, err

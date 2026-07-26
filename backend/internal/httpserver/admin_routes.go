@@ -1,9 +1,7 @@
 package httpserver
 
 import (
-	"context"
 	"net/http"
-	"net/url"
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -11,17 +9,6 @@ import (
 	"openwook/internal/auth"
 	"openwook/internal/services"
 )
-
-type adminRouteDependencies struct {
-	currentUser          auth.CurrentUserResolver
-	getAdminOverview     func(context.Context, auth.User) (*services.AdminOverview, error)
-	listAdminUsers       func(context.Context, auth.User, url.Values) ([]services.AdminUser, error)
-	listKnowledgePoints  func(context.Context, auth.User, url.Values) ([]services.KnowledgePoint, error)
-	createKnowledgePoint func(context.Context, auth.User, services.KnowledgePointInput) (*services.KnowledgePoint, error)
-	updateKnowledgePoint func(context.Context, auth.User, int64, services.KnowledgePointUpdate) (*services.KnowledgePoint, error)
-	setUserStatus        func(context.Context, auth.User, int64, bool) (*services.UserRecord, error)
-	updateUserAccess     func(context.Context, auth.User, int64, services.UserAccessUpdate) (*services.UserRecord, error)
-}
 
 type knowledgePointCreateRequest struct {
 	SubjectID   string         `json:"subjectId"`
@@ -49,41 +36,15 @@ type userAccessRequest struct {
 }
 
 func BuildAdminHandlers(pool *pgxpool.Pool) AdminHandlers {
-	return buildAdminHandlers(adminRouteDependencies{
-		currentUser: auth.CurrentUserFromRequest(pool),
-		getAdminOverview: func(ctx context.Context, user auth.User) (*services.AdminOverview, error) {
-			return services.GetAdminOverview(ctx, pool, user)
-		},
-		listAdminUsers: func(ctx context.Context, user auth.User, params url.Values) ([]services.AdminUser, error) {
-			return services.ListAdminUsers(ctx, pool, user, params)
-		},
-		listKnowledgePoints: func(ctx context.Context, user auth.User, params url.Values) ([]services.KnowledgePoint, error) {
-			return services.ListAdminKnowledgePoints(ctx, pool, user, params)
-		},
-		createKnowledgePoint: func(ctx context.Context, user auth.User, input services.KnowledgePointInput) (*services.KnowledgePoint, error) {
-			return services.CreateKnowledgePoint(ctx, pool, user, input)
-		},
-		updateKnowledgePoint: func(ctx context.Context, user auth.User, id int64, input services.KnowledgePointUpdate) (*services.KnowledgePoint, error) {
-			return services.UpdateKnowledgePoint(ctx, pool, user, id, input)
-		},
-		setUserStatus: func(ctx context.Context, user auth.User, targetUserID int64, isActive bool) (*services.UserRecord, error) {
-			return services.SetUserStatus(ctx, pool, user, targetUserID, isActive)
-		},
-		updateUserAccess: func(ctx context.Context, user auth.User, targetUserID int64, input services.UserAccessUpdate) (*services.UserRecord, error) {
-			return services.UpdateUserAccess(ctx, pool, user, targetUserID, input)
-		},
-	})
-}
-
-func buildAdminHandlers(deps adminRouteDependencies) AdminHandlers {
+	currentUser := auth.CurrentUserFromRequest(pool)
 	return AdminHandlers{
 		Overview: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			user, err := requireCurrentUser(r, deps.currentUser)
+			user, err := requireCurrentUser(r, currentUser)
 			if err != nil {
 				api.HandleError(w, r, err)
 				return
 			}
-			data, err := deps.getAdminOverview(r.Context(), user)
+			data, err := services.GetAdminOverview(r.Context(), pool, user)
 			if err != nil {
 				api.HandleError(w, r, err)
 				return
@@ -91,12 +52,12 @@ func buildAdminHandlers(deps adminRouteDependencies) AdminHandlers {
 			api.OK(w, r, data, nil)
 		}),
 		Users: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			user, err := requireCurrentUser(r, deps.currentUser)
+			user, err := requireCurrentUser(r, currentUser)
 			if err != nil {
 				api.HandleError(w, r, err)
 				return
 			}
-			data, err := deps.listAdminUsers(r.Context(), user, r.URL.Query())
+			data, err := services.ListAdminUsers(r.Context(), pool, user, r.URL.Query())
 			if err != nil {
 				api.HandleError(w, r, err)
 				return
@@ -104,12 +65,12 @@ func buildAdminHandlers(deps adminRouteDependencies) AdminHandlers {
 			api.OK(w, r, data, nil)
 		}),
 		KnowledgePoints: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			user, err := requireCurrentUser(r, deps.currentUser)
+			user, err := requireCurrentUser(r, currentUser)
 			if err != nil {
 				api.HandleError(w, r, err)
 				return
 			}
-			data, err := deps.listKnowledgePoints(r.Context(), user, r.URL.Query())
+			data, err := services.ListAdminKnowledgePoints(r.Context(), pool, user, r.URL.Query())
 			if err != nil {
 				api.HandleError(w, r, err)
 				return
@@ -127,12 +88,12 @@ func buildAdminHandlers(deps adminRouteDependencies) AdminHandlers {
 				api.HandleError(w, r, err)
 				return
 			}
-			user, err := requireCurrentUser(r, deps.currentUser)
+			user, err := requireCurrentUser(r, currentUser)
 			if err != nil {
 				api.HandleError(w, r, err)
 				return
 			}
-			data, err := deps.createKnowledgePoint(r.Context(), user, input)
+			data, err := services.CreateKnowledgePoint(r.Context(), pool, user, input)
 			if err != nil {
 				api.HandleError(w, r, err)
 				return
@@ -155,12 +116,12 @@ func buildAdminHandlers(deps adminRouteDependencies) AdminHandlers {
 				api.HandleError(w, r, err)
 				return
 			}
-			user, err := requireCurrentUser(r, deps.currentUser)
+			user, err := requireCurrentUser(r, currentUser)
 			if err != nil {
 				api.HandleError(w, r, err)
 				return
 			}
-			data, err := deps.updateKnowledgePoint(r.Context(), user, knowledgePointID, input)
+			data, err := services.UpdateKnowledgePoint(r.Context(), pool, user, knowledgePointID, input)
 			if err != nil {
 				api.HandleError(w, r, err)
 				return
@@ -183,12 +144,12 @@ func buildAdminHandlers(deps adminRouteDependencies) AdminHandlers {
 				api.HandleError(w, r, err)
 				return
 			}
-			user, err := requireCurrentUser(r, deps.currentUser)
+			user, err := requireCurrentUser(r, currentUser)
 			if err != nil {
 				api.HandleError(w, r, err)
 				return
 			}
-			data, err := deps.setUserStatus(r.Context(), user, userID, isActive)
+			data, err := services.SetUserStatus(r.Context(), pool, user, userID, isActive)
 			if err != nil {
 				api.HandleError(w, r, err)
 				return
@@ -211,12 +172,12 @@ func buildAdminHandlers(deps adminRouteDependencies) AdminHandlers {
 				api.HandleError(w, r, err)
 				return
 			}
-			user, err := requireCurrentUser(r, deps.currentUser)
+			user, err := requireCurrentUser(r, currentUser)
 			if err != nil {
 				api.HandleError(w, r, err)
 				return
 			}
-			data, err := deps.updateUserAccess(r.Context(), user, userID, input)
+			data, err := services.UpdateUserAccess(r.Context(), pool, user, userID, input)
 			if err != nil {
 				api.HandleError(w, r, err)
 				return

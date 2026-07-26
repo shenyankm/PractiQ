@@ -48,6 +48,10 @@ func Created(w http.ResponseWriter, r *http.Request, data any, meta map[string]a
 	writeEnvelope(w, r, http.StatusCreated, data, meta)
 }
 
+func Status(w http.ResponseWriter, r *http.Request, status int, data any, meta map[string]any) {
+	writeEnvelope(w, r, status, data, meta)
+}
+
 func NoContent(w http.ResponseWriter, r *http.Request) {
 	if requestID := RequestID(r.Context()); requestID != "" {
 		w.Header().Set("x-request-id", requestID)
@@ -57,7 +61,10 @@ func NoContent(w http.ResponseWriter, r *http.Request) {
 
 func HandleError(w http.ResponseWriter, r *http.Request, err error) {
 	var apiErr *Error
-	if !errors.As(err, &apiErr) {
+	var tooLarge *http.MaxBytesError
+	if errors.As(err, &tooLarge) {
+		apiErr = NewError(http.StatusRequestEntityTooLarge, "REQUEST_TOO_LARGE", "Request body is too large", nil)
+	} else if !errors.As(err, &apiErr) {
 		apiErr = NewError(http.StatusInternalServerError, "INTERNAL_ERROR", "Unexpected server error", nil)
 	}
 	requestID := RequestID(r.Context())

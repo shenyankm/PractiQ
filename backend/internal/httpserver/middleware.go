@@ -3,13 +3,22 @@ package httpserver
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"log/slog"
+	"net"
 	"net/http"
 	"net/url"
+	"runtime/debug"
 	"strings"
+	"time"
 
 	"openwook/internal/api"
 	"openwook/internal/auth"
+	"openwook/internal/redisx"
 )
+
+const apiRateLimit = 300
+
+var apiRateLimitWindow = time.Minute
 
 type Config struct {
 	NodeEnv   string
@@ -22,6 +31,67 @@ func SecurityHeaders(cfg Config, next http.Handler) http.Handler {
 		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("X-Frame-Options", "DENY")
+		next.ServeHTTP(w, r)
+	})
+}
+
+func Recovery(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			recovered := recover()
+			if recovered == nil {
+				return
+			}
+			if recovered == http.ErrAbortHandler {
+				panic(recovered)
+			}
+			slog.Error("panic recovered", "panic", recovered, "method", r.Method, "path", r.URL.Path, "requestId", api.RequestID(r.Context()), "stack", string(debug.Stack()))
+			api.HandleError(w, r, api.NewError(http.StatusInternalServerError, "INTERNAL_ERROR", "Unexpected server error", nil))
+		}()
+		next.ServeHTTP(w, r)
+	})
+}
+
+type statusRecorder struct {
+	http.ResponseWriter
+	status int
+}
+
+func (rec *statusRecorder) WriteHeader(status int) {
+	rec.status = status
+	rec.ResponseWriter.WriteHeader(status)
+}
+
+func RequestLog(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		started := time.Now()
+		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
+		next.ServeHTTP(rec, r)
+		slog.Info("http request", "method", r.Method, "path", r.URL.Path, "status", rec.status, "durationMs", time.Since(started).Milliseconds(), "requestId", api.RequestID(r.Context()))
+	})
+}
+
+func RateLimit(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(r.URL.Path, "/api/health") {
+			next.ServeHTTP(w, r)
+			return
+		}
+		rdb := redisx.Client()
+		if rdb == nil {
+			// ponytail: Redis 缺失时放行（fail-open），认证端点仍由自身 fail-closed 限流兜底
+			next.ServeHTTP(w, r)
+			return
+		}
+		address := r.RemoteAddr
+		if host, _, err := net.SplitHostPort(address); err == nil {
+			address = host
+		}
+		result, err := redisx.IncrementRateLimit(r.Context(), rdb, redisx.RedisKey("rate-limit", "api", "ip", address), apiRateLimit, apiRateLimitWindow)
+		if err == nil && !result.Allowed {
+			api.HandleError(w, r, api.NewError(http.StatusTooManyRequests, "RATE_LIMITED", "Too many requests", nil))
+			return
+		}
 		next.ServeHTTP(w, r)
 	})
 }
@@ -60,10 +130,6 @@ func SameOriginProtection(cfg Config, next http.Handler) http.Handler {
 		}
 		api.HandleError(w, r, api.NewError(http.StatusForbidden, "INVALID_ORIGIN", "Cross-site requests are not allowed", nil))
 	})
-}
-
-func SPAGuard(cfg Config, next http.Handler) http.Handler {
-	return spaGuard(cfg, nil, next)
 }
 
 func SPAGuardWithResolver(cfg Config, currentUser auth.CurrentUserResolver, next http.Handler) http.Handler {

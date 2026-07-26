@@ -19,7 +19,6 @@ type AdminOverview struct {
 	TotalBanks      int `json:"total_banks"`
 	TotalQuestions  int `json:"total_questions"`
 	ImportJobs      int `json:"import_jobs"`
-	OpenReviewItems int `json:"open_review_items"`
 	KnowledgePoints int `json:"knowledge_points"`
 }
 
@@ -64,7 +63,6 @@ func GetAdminOverview(ctx context.Context, db queryer, user auth.User) (*AdminOv
 		  (SELECT COUNT(*)::int FROM question_banks) AS total_banks,
 		  (SELECT COUNT(*)::int FROM questions) AS total_questions,
 		  (SELECT COUNT(*)::int FROM question_import_jobs) AS import_jobs,
-		  (SELECT COUNT(*)::int FROM question_import_job_review_items WHERE status = 'open') AS open_review_items,
 		  (SELECT COUNT(*)::int FROM knowledge_points) AS knowledge_points
 	`)
 	if err != nil {
@@ -83,7 +81,6 @@ func GetAdminOverview(ctx context.Context, db queryer, user auth.User) (*AdminOv
 		&item.TotalBanks,
 		&item.TotalQuestions,
 		&item.ImportJobs,
-		&item.OpenReviewItems,
 		&item.KnowledgePoints,
 	); err != nil {
 		return nil, err

@@ -29,20 +29,20 @@ func TestNormalizeQuestionCountSupportsAllQuestionsAndServerCap(t *testing.T) {
 	}
 }
 
-func TestBuildPracticeProgressWindowsLargeSessions(t *testing.T) {
-	ids := make([]int64, practiceProgressFullLimit+5)
+func TestBuildPracticeProgressReturnsFullLargeSession(t *testing.T) {
+	ids := make([]int64, maxPracticeQuestions)
 	for i := range ids {
 		ids[i] = int64(i + 1)
 	}
 
-	answered := map[int64]PracticeAnswerResult{
-		1:  {QuestionID: 1, IsCorrect: new(true)},
-		64: {QuestionID: 64, IsCorrect: new(false)},
+	answered := map[int64]*bool{
+		1:   new(true),
+		250: new(false),
 	}
 
-	progress := buildPracticeProgress(ids, answered, 63)
-	if len(progress) >= len(ids) {
-		t.Fatalf("len(progress) = %d, want truncated window smaller than %d", len(progress), len(ids))
+	progress := buildPracticeProgress(ids, answered)
+	if len(progress) != len(ids) {
+		t.Fatalf("len(progress) = %d, want %d", len(progress), len(ids))
 	}
 	if progress[0].Index != 0 {
 		t.Fatalf("first progress index = %d, want 0", progress[0].Index)
@@ -50,22 +50,11 @@ func TestBuildPracticeProgressWindowsLargeSessions(t *testing.T) {
 	if progress[len(progress)-1].Index != len(ids)-1 {
 		t.Fatalf("last progress index = %d, want %d", progress[len(progress)-1].Index, len(ids)-1)
 	}
-	if progress[1].Index > 63-practiceProgressWindowRadius {
-		t.Fatalf("window start = %d, want <= %d", progress[1].Index, 63-practiceProgressWindowRadius)
+	item := progress[249]
+	if !item.IsAnswered {
+		t.Fatal("answered progress item should be marked answered")
 	}
-	foundCurrent := false
-	for _, item := range progress {
-		if item.Index == 63 {
-			foundCurrent = true
-			if !item.IsAnswered {
-				t.Fatalf("current progress item should be marked answered")
-			}
-			if item.IsCorrect == nil || *item.IsCorrect {
-				t.Fatalf("current progress correctness = %#v, want false", item.IsCorrect)
-			}
-		}
-	}
-	if !foundCurrent {
-		t.Fatalf("current index missing from progress window")
+	if item.IsCorrect == nil || *item.IsCorrect {
+		t.Fatalf("progress correctness = %#v, want false", item.IsCorrect)
 	}
 }

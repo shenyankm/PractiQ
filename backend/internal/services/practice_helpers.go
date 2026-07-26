@@ -6,16 +6,8 @@ const (
 	PracticeModeByType = "by_type"
 	PracticeModeExam   = "exam"
 
-	maxPracticeQuestions         = 500
-	practiceProgressFullLimit    = 120
-	practiceProgressWindowRadius = 30
+	maxPracticeQuestions = 500
 )
-
-type PracticeAnswerResult struct {
-	QuestionID int64
-	IsCorrect  *bool
-	IsAnswered bool
-}
 
 type PracticeProgressItem struct {
 	Index      int
@@ -50,33 +42,11 @@ func normalizeQuestionCount(questionCount int, allQuestions bool) int {
 	return questionCount
 }
 
-func buildPracticeProgress(questionIDs []int64, answered map[int64]PracticeAnswerResult, currentIndex int) []PracticeProgressItem {
-	if len(questionIDs) <= practiceProgressFullLimit {
-		items := make([]PracticeProgressItem, 0, len(questionIDs))
-		for index, questionID := range questionIDs {
-			result, ok := answered[questionID]
-			items = append(items, PracticeProgressItem{Index: index, QuestionID: questionID, IsAnswered: ok, IsCorrect: result.IsCorrect})
-		}
-		return items
+func buildPracticeProgress(questionIDs []int64, answered map[int64]*bool) []PracticeProgressItem {
+	items := make([]PracticeProgressItem, 0, len(questionIDs))
+	for index, questionID := range questionIDs {
+		isCorrect, ok := answered[questionID]
+		items = append(items, PracticeProgressItem{Index: index, QuestionID: questionID, IsAnswered: ok, IsCorrect: isCorrect})
 	}
-
-	start := currentIndex - practiceProgressWindowRadius
-	if start < 1 {
-		start = 1
-	}
-	end := currentIndex + practiceProgressWindowRadius
-	if end > len(questionIDs)-2 {
-		end = len(questionIDs) - 2
-	}
-	items := []PracticeProgressItem{{Index: 0, QuestionID: questionIDs[0], IsAnswered: answered[questionIDs[0]].QuestionID != 0, IsCorrect: answered[questionIDs[0]].IsCorrect}}
-	for index := start; index <= end; index++ {
-		questionID := questionIDs[index]
-		result, ok := answered[questionID]
-		items = append(items, PracticeProgressItem{Index: index, QuestionID: questionID, IsAnswered: ok, IsCorrect: result.IsCorrect})
-	}
-	lastIndex := len(questionIDs) - 1
-	questionID := questionIDs[lastIndex]
-	result, ok := answered[questionID]
-	items = append(items, PracticeProgressItem{Index: lastIndex, QuestionID: questionID, IsAnswered: ok, IsCorrect: result.IsCorrect})
 	return items
 }

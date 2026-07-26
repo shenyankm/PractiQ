@@ -2,18 +2,30 @@ package auth
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
+	"io"
+	"net"
 	"net/http"
 	"net/mail"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"golang.org/x/crypto/bcrypt"
 	"openwook/internal/api"
+	"openwook/internal/redisx"
 )
 
 const DummyPasswordHash = "$2y$10$bPkUrUZqKDqmW.xkPE5LBuqH6HB/QoOS4dYH42xQxevBJQMStTE0W"
 const bcryptCost = 10
+const maxAuthJSONBodyBytes int64 = 16 * 1024
+const authRateLimit = 10
+const authIPRateLimit = 100
+
+var authRateLimitWindow = time.Minute
 
 type User struct {
 	ID         int     `json:"id"`
@@ -40,9 +52,9 @@ type HandlerDependencies struct {
 }
 
 type registerRequest struct {
-	Username      string  `json:"username"`
-	Email         *string `json:"email"`
-	Password      string  `json:"password"`
+	Username string  `json:"username"`
+	Email    *string `json:"email"`
+	Password string  `json:"password"`
 }
 
 type loginRequest struct {
@@ -61,11 +73,15 @@ func HashPassword(password string) (string, error) {
 func Register(deps HandlerDependencies) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body registerRequest
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			api.HandleError(w, r, api.NewError(http.StatusBadRequest, "INVALID_JSON", "Request body must be valid JSON", nil))
+		if err := decodeAuthRequest(w, r, &body); err != nil {
+			api.HandleError(w, r, err)
 			return
 		}
 		if err := validateRegisterRequest(&body); err != nil {
+			api.HandleError(w, r, err)
+			return
+		}
+		if err := rateLimitAuth(r, ""); err != nil {
 			api.HandleError(w, r, err)
 			return
 		}
@@ -122,8 +138,12 @@ func validateRegisterRequest(body *registerRequest) error {
 func Login(deps HandlerDependencies) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body loginRequest
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			api.HandleError(w, r, api.NewError(http.StatusBadRequest, "INVALID_JSON", "Request body must be valid JSON", nil))
+		if err := decodeAuthRequest(w, r, &body); err != nil {
+			api.HandleError(w, r, err)
+			return
+		}
+		if err := rateLimitAuth(r, body.Login); err != nil {
+			api.HandleError(w, r, err)
 			return
 		}
 		user, err := deps.AuthenticateUser(r.Context(), body.Login, body.Password)
@@ -139,6 +159,68 @@ func Login(deps HandlerDependencies) http.Handler {
 		}
 		api.OK(w, r, user, nil)
 	})
+}
+
+func decodeAuthRequest(w http.ResponseWriter, r *http.Request, body any) error {
+	r.Body = http.MaxBytesReader(w, r.Body, maxAuthJSONBodyBytes)
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(body); err != nil {
+		return authJSONError(err)
+	}
+	var extra struct{}
+	if err := decoder.Decode(&extra); err != io.EOF {
+		return authJSONError(err)
+	}
+	return nil
+}
+
+func authJSONError(err error) error {
+	var maxBytesErr *http.MaxBytesError
+	if errors.As(err, &maxBytesErr) {
+		return api.NewError(http.StatusRequestEntityTooLarge, "REQUEST_TOO_LARGE", "Request body is too large", nil)
+	}
+	return api.NewError(http.StatusBadRequest, "INVALID_JSON", "Request body must be valid JSON", nil)
+}
+
+func rateLimitAuth(r *http.Request, identity string) error {
+	rdb := redisx.Client()
+	if rdb == nil {
+		return authRateLimitUnavailable()
+	}
+	address := r.RemoteAddr
+	if host, _, err := net.SplitHostPort(address); err == nil {
+		address = host
+	}
+	if address == "" {
+		address = "unknown"
+	}
+	normalizedIdentity := strings.ToLower(strings.TrimSpace(identity))
+	ipLimit := int64(authIPRateLimit)
+	if normalizedIdentity == "" {
+		ipLimit = authRateLimit
+	}
+	result, err := redisx.IncrementRateLimit(r.Context(), rdb, redisx.RedisKey("rate-limit", "auth", r.URL.Path, "ip", address), ipLimit, authRateLimitWindow)
+	if err != nil {
+		return authRateLimitUnavailable()
+	}
+	if !result.Allowed {
+		return api.NewError(http.StatusTooManyRequests, "RATE_LIMITED", "Too many authentication attempts", nil)
+	}
+	if normalizedIdentity != "" {
+		digest := sha256.Sum256([]byte(normalizedIdentity))
+		result, err = redisx.IncrementRateLimit(r.Context(), rdb, redisx.RedisKey("rate-limit", "auth", r.URL.Path, "identity", hex.EncodeToString(digest[:])), authRateLimit, authRateLimitWindow)
+		if err != nil {
+			return authRateLimitUnavailable()
+		}
+		if !result.Allowed {
+			return api.NewError(http.StatusTooManyRequests, "RATE_LIMITED", "Too many authentication attempts", nil)
+		}
+	}
+	return nil
+}
+
+func authRateLimitUnavailable() *api.Error {
+	return api.NewError(http.StatusServiceUnavailable, "AUTH_RATE_LIMIT_UNAVAILABLE", "Authentication service is temporarily unavailable", nil)
 }
 
 func Logout(deps HandlerDependencies) http.Handler {

@@ -6,10 +6,15 @@ import (
 	"os"
 	"strings"
 
+	"openwook/internal/config"
 	"openwook/internal/db"
 )
 
 func main() {
+	if _, err := config.Load(); err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		os.Exit(1)
+	}
 	root, err := os.Getwd()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
@@ -35,7 +40,7 @@ func dispatchTarget(args []string) (string, error) {
 	if len(args) >= 2 && args[0] == "db" {
 		subcommand := strings.TrimSpace(args[1])
 		switch subcommand {
-		case "apply", "ensure", "seed":
+		case "apply", "seed":
 			return "db " + subcommand, nil
 		}
 	}

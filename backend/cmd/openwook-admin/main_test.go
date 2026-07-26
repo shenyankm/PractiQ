@@ -14,11 +14,6 @@ func TestDispatchTargetRecognizesDBCommands(t *testing.T) {
 			want: "db apply",
 		},
 		{
-			name: "ensure",
-			args: []string{"db", "ensure"},
-			want: "db ensure",
-		},
-		{
 			name: "seed",
 			args: []string{"db", "seed"},
 			want: "db seed",

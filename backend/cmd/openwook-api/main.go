@@ -59,7 +59,6 @@ func main() {
 		Media:       httpserver.BuildMediaHandlers(pool),
 		Imports:     httpserver.BuildImportHandlers(pool, currentUser),
 		AI:          httpserver.BuildAIHandlers(pool, currentUser, aiclient.New(cfg)),
-		Billing:     httpserver.BuildBillingHandlers(pool, currentUser),
 	})
 
 	log.Fatal(http.ListenAndServe(addr, handler))

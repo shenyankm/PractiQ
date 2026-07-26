@@ -3,24 +3,22 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"os/signal"
 	"syscall"
+	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/redis/go-redis/v9"
 	"openwook/internal/aiclient"
 	"openwook/internal/config"
 	"openwook/internal/db"
 	importqueue "openwook/internal/imports"
-	"openwook/internal/redisx"
 	"openwook/internal/services"
 )
 
 type workerApp struct {
-	config config.Config
-	queue  importqueue.WorkerConfig
-	redis  *redis.Client
 	pool   *pgxpool.Pool
 	client *aiclient.Client
 }
@@ -45,15 +43,15 @@ func newWorkerApp() (*workerApp, error) {
 	if err != nil {
 		return nil, err
 	}
-	rdb := redisx.Client()
-	if rdb == nil {
-		return nil, errors.New("REDIS_URL is required to run the import worker")
-	}
 	pool, err := db.OpenPool(context.Background())
 	if err != nil {
 		return nil, err
 	}
-	return &workerApp{config: cfg, queue: importqueue.LoadWorkerConfig(), redis: rdb, pool: pool, client: aiclient.New(cfg)}, nil
+	if err := db.CheckPostgres(context.Background(), pool); err != nil {
+		pool.Close()
+		return nil, err
+	}
+	return &workerApp{pool: pool, client: aiclient.New(cfg)}, nil
 }
 
 func (app *workerApp) Close() {
@@ -63,25 +61,94 @@ func (app *workerApp) Close() {
 }
 
 func (app *workerApp) Run(ctx context.Context) error {
-	runtime, err := importqueue.NewQueueRuntime(app.redis, app.queue)
-	if err != nil {
-		return err
+	if app.pool == nil {
+		return fmt.Errorf("PostgreSQL pool is required")
 	}
-	maxAttempts := app.queue.MaxAttempts
-	if maxAttempts <= 0 {
-		maxAttempts = 3
+	if app.client == nil {
+		return fmt.Errorf("AI client is required")
 	}
-	return runtime.Run(ctx, func(jobCtx context.Context, payload importqueue.QueuePayload) error {
-		err := processQueuedJob(jobCtx, app.pool, app.client, payload)
-		if err == nil {
+
+	for {
+		if ctx.Err() != nil {
 			return nil
 		}
-		if payload.Attempt < maxAttempts {
+		job, err := importqueue.ClaimNextJob(ctx, app.pool)
+		if errors.Is(err, pgx.ErrNoRows) {
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-time.After(importqueue.PollInterval):
+				continue
+			}
+		}
+		if err != nil {
+			if errors.Is(err, context.Canceled) {
+				return nil
+			}
 			return err
 		}
-		if _, recordErr := services.RecordImportJobFailure(jobCtx, app.pool, int64(payload.JobID), err); recordErr != nil {
+
+		if job.PersistenceStarted {
+			if err := app.recordFailure(ctx, job, services.ImportPersistenceInterruptedCode, errors.New("worker claim expired after persistence started")); err != nil {
+				return err
+			}
+			continue
+		}
+		if job.AttemptsExhausted {
+			if err := app.recordFailure(ctx, job, services.ImportAttemptsExhaustedCode, errors.New("import retry limit reached")); err != nil {
+				return err
+			}
+			continue
+		}
+
+		persistenceStarted, err := processQueuedJob(ctx, app.pool, app.client, job)
+		if err == nil {
+			continue
+		}
+		if errors.Is(err, importqueue.ErrClaimLost) {
+			continue
+		}
+		if ctx.Err() != nil {
+			cleanupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			var cleanupErr error
+			if persistenceStarted {
+				cleanupErr = app.recordFailure(cleanupCtx, job, services.ImportPersistenceInterruptedCode, err)
+			} else {
+				cleanupErr = importqueue.ReleaseJob(cleanupCtx, app.pool, job.ID, job.ClaimVersion)
+				if errors.Is(cleanupErr, importqueue.ErrClaimLost) {
+					cleanupErr = nil
+				}
+			}
+			cancel()
+			return cleanupErr
+		}
+		if shouldRequeue(job.Attempt, persistenceStarted) {
+			if retryErr := importqueue.RequeueJob(ctx, app.pool, job.ID, job.ClaimVersion, importqueue.RetryBackoff(job.Attempt)); retryErr != nil {
+				if errors.Is(retryErr, importqueue.ErrClaimLost) {
+					continue
+				}
+				return errors.Join(err, retryErr)
+			}
+			continue
+		}
+		errorCode := services.ImportAttemptsExhaustedCode
+		if persistenceStarted {
+			errorCode = services.ImportPersistenceInterruptedCode
+		}
+		if recordErr := app.recordFailure(ctx, job, errorCode, err); recordErr != nil {
 			return errors.Join(err, recordErr)
 		}
+	}
+}
+
+func shouldRequeue(attempt int, persistenceStarted bool) bool {
+	return !persistenceStarted && attempt < importqueue.MaxAttempts
+}
+
+func (app *workerApp) recordFailure(ctx context.Context, job importqueue.ClaimedJob, code string, cause error) error {
+	_, err := services.RecordImportJobFailure(ctx, app.pool, job.ID, job.ClaimVersion, code, cause)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return nil
-	})
+	}
+	return err
 }

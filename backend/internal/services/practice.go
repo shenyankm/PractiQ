@@ -57,16 +57,15 @@ type PracticeAnswerInput struct {
 }
 
 type PracticeQuestionPage struct {
-	Session           PracticeSession        `json:"session"`
-	Question          *BankQuestionItem      `json:"question"`
-	QuestionIndex     int                    `json:"questionIndex"`
-	Total             int                    `json:"total"`
-	AnsweredCount     int                    `json:"answeredCount"`
-	Progress          []PracticeProgressItem `json:"progress"`
-	ProgressTruncated bool                   `json:"progressTruncated"`
-	Result            *PracticeAnswer        `json:"result"`
-	PreviousIndex     *int                   `json:"previousIndex"`
-	NextIndex         *int                   `json:"nextIndex"`
+	Session       PracticeSession        `json:"session"`
+	Question      *BankQuestionItem      `json:"question"`
+	QuestionIndex int                    `json:"questionIndex"`
+	Total         int                    `json:"total"`
+	AnsweredCount int                    `json:"answeredCount"`
+	Progress      []PracticeProgressItem `json:"progress"`
+	Result        *PracticeAnswer        `json:"result"`
+	PreviousIndex *int                   `json:"previousIndex"`
+	NextIndex     *int                   `json:"nextIndex"`
 }
 
 type PracticeResult struct {
@@ -174,18 +173,18 @@ func GetPracticeQuestionPage(ctx context.Context, db *pgxpool.Pool, user *auth.U
 	}
 	defer rows.Close()
 
-	answered := make(map[int64]PracticeAnswerResult, len(questionIDs))
+	answered := make(map[int64]*bool, len(questionIDs))
 	for rows.Next() {
 		var questionID int64
 		var correct sql.NullBool
 		if err := rows.Scan(&questionID, &correct); err != nil {
 			return nil, err
 		}
-		item := PracticeAnswerResult{QuestionID: questionID, IsAnswered: true}
 		if correct.Valid {
-			item.IsCorrect = new(correct.Bool)
+			answered[questionID] = new(correct.Bool)
+		} else {
+			answered[questionID] = nil
 		}
-		answered[questionID] = item
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -230,10 +229,9 @@ func GetPracticeQuestionPage(ctx context.Context, db *pgxpool.Pool, user *auth.U
 		Question:      question,
 		Total:         len(questionIDs),
 		AnsweredCount: len(answered),
-		Progress:      buildPracticeProgress(questionIDs, answered, currentIndex),
+		Progress:      buildPracticeProgress(questionIDs, answered),
 		Result:        result,
 	}
-	page.ProgressTruncated = len(page.Progress) < len(questionIDs)
 	if question != nil {
 		page.QuestionIndex = currentIndex
 		if currentIndex > 0 {
@@ -279,53 +277,7 @@ func ListPracticeSessions(ctx context.Context, db *pgxpool.Pool, user *auth.User
 	return sessions, rows.Err()
 }
 
-func GetBankWrongQuestionCount(ctx context.Context, db *pgxpool.Pool, user *auth.User, bankID int64) (int, error) {
-	if _, err := GetBank(ctx, db, user, bankID); err != nil {
-		return 0, err
-	}
-	var count int
-	err := db.QueryRow(ctx, `
-		WITH active_question_ids AS (
-			SELECT bql.question_id
-			FROM bank_question_links bql
-			JOIN questions q ON q.id = bql.question_id
-			WHERE bql.bank_id = $1
-			  AND bql.status = 'active'
-			  AND q.status = 'active'
-
-			UNION
-
-			SELECT gql.question_id
-			FROM bank_group_links bgl
-			JOIN group_question_links gql ON gql.group_id = bgl.group_id
-			JOIN questions q ON q.id = gql.question_id
-			WHERE bgl.bank_id = $1
-			  AND bgl.status = 'active'
-			  AND q.status = 'active'
-		)
-		SELECT COUNT(DISTINCT ids.question_id)::int AS count
-		FROM active_question_ids ids
-		JOIN user_question_stats uqs
-		  ON uqs.question_id = ids.question_id
-		 AND uqs.user_id = $2
-		WHERE uqs.wrong_count > 0 OR uqs.last_is_correct IS FALSE
-	`, bankID, user.ID).Scan(&count)
-	return count, err
-}
-
 func SubmitAnswer(ctx context.Context, db *pgxpool.Pool, user *auth.User, sessionID int64, input PracticeAnswerInput) (*PracticeAnswer, error) {
-	if rdb := redisx.Client(); rdb != nil {
-		lock := redisx.AcquireLock(ctx, rdb, redisx.RedisKey("practice", sessionID, "question", input.QuestionID, "submit"), 10*time.Second)
-		if !lock.Acquired {
-			existing, err := getExistingPracticeAnswer(ctx, db, int64(user.ID), sessionID, input.QuestionID)
-			if err == nil && existing != nil {
-				return existing, nil
-			}
-			return nil, api.NewError(409, "DUPLICATE_SUBMISSION", "Answer submission is already in progress", nil)
-		}
-		defer lock.Release(ctx)
-	}
-
 	existing, err := getExistingPracticeAnswer(ctx, db, int64(user.ID), sessionID, input.QuestionID)
 	if err != nil {
 		return nil, err
@@ -353,26 +305,12 @@ func SubmitAnswer(ctx context.Context, db *pgxpool.Pool, user *auth.User, sessio
 	}
 	var answerMode string
 	err = db.QueryRow(ctx, `
-		SELECT q.answer_mode
-		FROM questions q
-		WHERE q.id = $1
-		  AND q.status = 'active'
-		  AND EXISTS (
-			SELECT 1
-			FROM bank_question_links bql
-			WHERE bql.bank_id = $2
-			  AND bql.question_id = q.id
-			  AND bql.status = 'active'
-
-			UNION ALL
-
-			SELECT 1
-			FROM bank_group_links bgl
-			JOIN group_question_links gql ON gql.group_id = bgl.group_id
-			WHERE bgl.bank_id = $2
-			  AND gql.question_id = q.id
-			  AND bgl.status = 'active'
-		)
+		SELECT answer_mode
+		FROM v_bank_question_items
+		WHERE question_id = $1
+		  AND bank_id = $2
+		  AND question_status = 'active'
+		  AND bank_link_status = 'active'
 		LIMIT 1
 	`, input.QuestionID, nullableInt64Pointer(session.BankID)).Scan(&answerMode)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -408,9 +346,19 @@ func SubmitAnswer(ctx context.Context, db *pgxpool.Pool, user *auth.User, sessio
 			answer_payload, is_correct, score, max_score, duration_ms
 		)
 		VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10)
+		ON CONFLICT (user_id, session_id, question_id) DO NOTHING
 		RETURNING id, user_id, session_id, bank_id, question_id, answer_key_id, answer_payload, is_correct, score, max_score, duration_ms, answered_at
 	`, user.ID, sessionID, nullableInt64Pointer(session.BankID), input.QuestionID, nullableQuestionAnswerKeyID(answerKey), string(payloadJSON), isCorrect, score, maxScore, input.DurationMS)
 	answer, err := scanPracticeAnswerRow(row)
+	if errors.Is(err, pgx.ErrNoRows) {
+		existing, lookupErr := getExistingPracticeAnswer(ctx, db, int64(user.ID), sessionID, input.QuestionID)
+		if lookupErr != nil {
+			return nil, lookupErr
+		}
+		if existing != nil {
+			return existing, nil
+		}
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -419,7 +367,6 @@ func SubmitAnswer(ctx context.Context, db *pgxpool.Pool, user *auth.User, sessio
 		bumpSliceCacheVersion(ctx, "bank-analytics", *session.BankID)
 		bumpSliceCacheVersion(ctx, "leaderboard", *session.BankID)
 	}
-	bumpSliceCacheVersion(ctx, "practice-summary", user.ID)
 	return &answer, nil
 }
 
@@ -508,25 +455,12 @@ func ensurePracticeQuestionQueue(ctx context.Context, db *pgxpool.Pool, session 
 		}
 	}
 	rows, err := db.Query(ctx, `
-		WITH active_question_ids AS (
-			SELECT bql.question_id, bql.sort_order AS bank_sort_order, NULL::integer AS group_sort_order
-			FROM bank_question_links bql
-			WHERE bql.bank_id = $1
-			  AND bql.status = 'active'
-
-			UNION ALL
-
-			SELECT gql.question_id, bgl.sort_order AS bank_sort_order, gql.sort_order AS group_sort_order
-			FROM bank_group_links bgl
-			JOIN group_question_links gql ON gql.group_id = bgl.group_id
-			WHERE bgl.bank_id = $1
-			  AND bgl.status = 'active'
-		)
-		SELECT ids.question_id
-		FROM active_question_ids ids
-		JOIN questions q ON q.id = ids.question_id
-		WHERE q.status = 'active'
-		ORDER BY ids.bank_sort_order, ids.group_sort_order NULLS FIRST, ids.question_id
+		SELECT question_id
+		FROM v_bank_question_items
+		WHERE bank_id = $1
+		  AND bank_link_status = 'active'
+		  AND question_status = 'active'
+		ORDER BY bank_sort_order, group_sort_order NULLS FIRST, question_id
 		LIMIT $2
 	`, *session.BankID, session.QuestionCount)
 	if err != nil {
@@ -573,61 +507,27 @@ func loadPracticeQuestionRows(ctx context.Context, db *pgxpool.Pool, session *Pr
 		WITH requested_ids AS (
 			SELECT id, ord
 			FROM unnest($2::bigint[]) WITH ORDINALITY AS requested(id, ord)
-		),
-		matched_items AS (
-			SELECT
-				bql.bank_id,
-				NULL::bigint AS group_id,
-				bql.question_id,
-				'standalone'::text AS item_scope,
-				bql.sort_order AS bank_sort_order,
-				NULL::integer AS group_sort_order,
-				bql.question_no,
-				bql.status AS bank_link_status,
-				requested_ids.ord
-			FROM requested_ids
-			JOIN bank_question_links bql ON bql.question_id = requested_ids.id
-			WHERE bql.bank_id = $1
-			  AND bql.status = 'active'
-
-			UNION ALL
-
-			SELECT
-				bgl.bank_id,
-				bgl.group_id,
-				gql.question_id,
-				'grouped'::text AS item_scope,
-				bgl.sort_order AS bank_sort_order,
-				gql.sort_order AS group_sort_order,
-				gql.question_no,
-				bgl.status AS bank_link_status,
-				requested_ids.ord
-			FROM requested_ids
-			JOIN group_question_links gql ON gql.question_id = requested_ids.id
-			JOIN bank_group_links bgl ON bgl.group_id = gql.group_id
-			WHERE bgl.bank_id = $1
-			  AND bgl.status = 'active'
 		)
 		SELECT
-			mi.bank_id,
-			mi.group_id,
-			mi.question_id,
-			mi.item_scope,
-			mi.bank_sort_order,
-			mi.group_sort_order,
-			mi.question_no,
-			mi.bank_link_status,
-			q.business_type,
-			q.subject_id,
-			q.question_type_id,
-			q.answer_mode,
-			q.choice_variant,
-			q.content_mode,
-			q.stem,
-			q.analysis,
-			q.status AS question_status,
-			g.title AS group_title,
-			g.instructions AS group_instructions,
+			item.bank_id,
+			item.group_id,
+			item.question_id,
+			item.item_scope,
+			item.bank_sort_order,
+			item.group_sort_order,
+			item.question_no,
+			item.bank_link_status,
+			item.business_type,
+			item.subject_id,
+			item.question_type_id,
+			item.answer_mode,
+			item.choice_variant,
+			item.content_mode,
+			item.stem,
+			item.analysis,
+			item.question_status,
+			item.group_title,
+			item.group_instructions,
 			COALESCE(
 				(
 					SELECT json_agg(
@@ -644,14 +544,15 @@ func loadPracticeQuestionRows(ctx context.Context, db *pgxpool.Pool, session *Pr
 						ORDER BY qo.sort_order
 					)
 					FROM question_options qo
-					WHERE qo.question_id = mi.question_id
+					WHERE qo.question_id = item.question_id
 				),
 				'[]'::json
 			) AS options
-		FROM matched_items mi
-		JOIN questions q ON q.id = mi.question_id
-		LEFT JOIN question_groups g ON g.id = mi.group_id
-		ORDER BY mi.ord
+		FROM requested_ids
+		JOIN v_bank_question_items item ON item.question_id = requested_ids.id
+		WHERE item.bank_id = $1
+		  AND item.bank_link_status = 'active'
+		ORDER BY requested_ids.ord
 	`, *session.BankID, slice)
 	if err != nil {
 		return nil, err
@@ -700,40 +601,27 @@ func loadPracticeQuestionIDs(ctx context.Context, db *pgxpool.Pool, user *auth.U
 		typeFilter = nil
 	}
 	rows, err := db.Query(ctx, `
-		WITH active_question_ids AS (
-			SELECT bql.question_id, bql.sort_order AS bank_sort_order, NULL::integer AS group_sort_order
-			FROM bank_question_links bql
-			WHERE bql.bank_id = $1
-			  AND bql.status = 'active'
-
-			UNION ALL
-
-			SELECT gql.question_id, bgl.sort_order AS bank_sort_order, gql.sort_order AS group_sort_order
-			FROM bank_group_links bgl
-			JOIN group_question_links gql ON gql.group_id = bgl.group_id
-			WHERE bgl.bank_id = $1
-			  AND bgl.status = 'active'
-		)
-		SELECT ids.question_id
-		FROM active_question_ids ids
-		JOIN questions q ON q.id = ids.question_id
+		SELECT item.question_id
+		FROM v_bank_question_items item
 		LEFT JOIN user_question_stats uqs
-		  ON uqs.question_id = ids.question_id
+		  ON uqs.question_id = item.question_id
 		 AND uqs.user_id = $2
-		WHERE q.status = 'active'
-		  AND ($4::text IS NULL OR q.question_type_id = $4)
+		WHERE item.bank_id = $1
+		  AND item.bank_link_status = 'active'
+		  AND item.question_status = 'active'
+		  AND ($4::text IS NULL OR item.question_type_id = $4)
 		  AND (
 			$3 <> 'wrong'
 			OR COALESCE(uqs.wrong_count, 0) > 0
 			OR uqs.last_is_correct IS FALSE
 		  )
-		GROUP BY ids.question_id, ids.bank_sort_order, ids.group_sort_order, uqs.wrong_count, uqs.last_is_correct
+		GROUP BY item.question_id, item.bank_sort_order, item.group_sort_order, uqs.wrong_count, uqs.last_is_correct
 		ORDER BY
 			CASE WHEN $3 = 'wrong' THEN COALESCE(uqs.wrong_count, 0) ELSE 0 END DESC,
-			CASE WHEN $3 = 'exam' THEN md5(ids.question_id::text || $2::text || CURRENT_DATE::text) ELSE NULL END,
-			ids.bank_sort_order,
-			ids.group_sort_order NULLS FIRST,
-			ids.question_id
+			CASE WHEN $3 = 'exam' THEN md5(item.question_id::text || $2::text || CURRENT_DATE::text) ELSE NULL END,
+			item.bank_sort_order,
+			item.group_sort_order NULLS FIRST,
+			item.question_id
 		LIMIT $5
 	`, bankID, user.ID, mode, typeFilter, count)
 	if err != nil {
@@ -879,7 +767,7 @@ func nullableQuestionAnswerKeyID(answerKey *QuestionAnswerKey) any {
 	return answerKey.ID
 }
 
-func scanPracticeAnswerRow(row rowScanner) (PracticeAnswer, error) {
+func scanPracticeAnswerRow(row pgx.Row) (PracticeAnswer, error) {
 	var answer PracticeAnswer
 	var sessionID sql.NullInt64
 	var bankID sql.NullInt64

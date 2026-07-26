@@ -59,6 +59,9 @@ func invalidateUserCache(ctx context.Context, userID int64) {
 }
 
 func bumpSliceCacheVersion(ctx context.Context, scope string, id ...any) {
+	if scope != "analytics" && scope != "bank-analytics" && scope != "leaderboard" {
+		return
+	}
 	if rdb := redisx.Client(); rdb != nil {
 		parts := append([]any{"cache-version", scope}, id...)
 		_ = rdb.Incr(ctx, redisx.RedisKey(parts...)).Err()

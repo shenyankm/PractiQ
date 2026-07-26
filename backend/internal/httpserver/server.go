@@ -36,7 +36,6 @@ type ServerDependencies struct {
 	Content       ContentHandlers
 	Imports       ImportHandlers
 	AI            AIHandlers
-	Billing       BillingHandlers
 	Practice      PracticeHandlers
 	Analytics     AnalyticsHandlers
 	Search        SearchHandlers
@@ -58,7 +57,7 @@ func readinessData(ctx context.Context, deps ServerDependencies) map[string]any 
 	}
 
 	return map[string]any{
-		"ok":            postgresErr == nil && redisErr == nil,
+		"ok":            postgresErr == nil && redisConfigured && redisErr == nil,
 		"uptimeSeconds": deps.UptimeSeconds(),
 		"latencyMs":     latencyMs,
 		"services": map[string]any{

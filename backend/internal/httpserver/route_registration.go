@@ -1,14 +1,13 @@
 package httpserver
 
-import (
-	"net/http"
+import "net/http"
 
-	"github.com/go-chi/chi/v5"
-)
-
-func registerMethodRoute(router chi.Router, method string, pattern string, handler http.Handler) {
+func registerMethodRoute(router *http.ServeMux, method string, pattern string, handler http.Handler) {
 	if handler == nil {
 		return
 	}
-	router.Method(method, pattern, withStdPathValues(handler))
+	router.Handle(method+" "+pattern, handler)
+	if method == http.MethodGet {
+		router.HandleFunc(http.MethodHead+" "+pattern, apiNotFound)
+	}
 }

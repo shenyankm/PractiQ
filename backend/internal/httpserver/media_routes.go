@@ -1,7 +1,6 @@
 package httpserver
 
 import (
-	"context"
 	"net/http"
 	"strings"
 
@@ -10,16 +9,6 @@ import (
 	"openwook/internal/auth"
 	"openwook/internal/services"
 )
-
-type mediaRouteDependencies struct {
-	currentUser      auth.CurrentUserResolver
-	createMediaAsset func(context.Context, services.CreateMediaAssetInput) (*services.MediaAsset, error)
-	getMediaAsset    func(context.Context, auth.User, int64) (*services.MediaAsset, error)
-	deleteMediaAsset func(context.Context, auth.User, int64) error
-	linkQuestion     func(context.Context, auth.User, int64, services.MediaLinkInput) (*services.QuestionMediaLink, error)
-	linkGroup        func(context.Context, auth.User, int64, services.MediaLinkInput) (*services.GroupMediaLink, error)
-	linkOption       func(context.Context, auth.User, int64, services.MediaLinkInput) (*services.OptionMediaLink, error)
-}
 
 type mediaCreateRequest struct {
 	StoragePath  string  `json:"storagePath"`
@@ -36,30 +25,7 @@ type mediaLinkRequest struct {
 }
 
 func BuildMediaHandlers(pool *pgxpool.Pool) MediaHandlers {
-	return buildMediaHandlers(mediaRouteDependencies{
-		currentUser: auth.CurrentUserFromRequest(pool),
-		createMediaAsset: func(ctx context.Context, input services.CreateMediaAssetInput) (*services.MediaAsset, error) {
-			return services.CreateMediaAsset(ctx, pool, input)
-		},
-		getMediaAsset: func(ctx context.Context, user auth.User, mediaID int64) (*services.MediaAsset, error) {
-			return services.GetMediaAsset(ctx, pool, user, mediaID)
-		},
-		deleteMediaAsset: func(ctx context.Context, user auth.User, mediaID int64) error {
-			return services.DeleteMediaAsset(ctx, pool, user, mediaID)
-		},
-		linkQuestion: func(ctx context.Context, user auth.User, questionID int64, input services.MediaLinkInput) (*services.QuestionMediaLink, error) {
-			return services.LinkQuestionMedia(ctx, pool, user, questionID, input)
-		},
-		linkGroup: func(ctx context.Context, user auth.User, groupID int64, input services.MediaLinkInput) (*services.GroupMediaLink, error) {
-			return services.LinkGroupMedia(ctx, pool, user, groupID, input)
-		},
-		linkOption: func(ctx context.Context, user auth.User, optionID int64, input services.MediaLinkInput) (*services.OptionMediaLink, error) {
-			return services.LinkOptionMedia(ctx, pool, user, optionID, input)
-		},
-	})
-}
-
-func buildMediaHandlers(deps mediaRouteDependencies) MediaHandlers {
+	currentUser := auth.CurrentUserFromRequest(pool)
 	return MediaHandlers{
 		Create: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			body, err := decodeJSONBodyStrict[mediaCreateRequest](r)
@@ -72,11 +38,11 @@ func buildMediaHandlers(deps mediaRouteDependencies) MediaHandlers {
 				api.HandleError(w, r, err)
 				return
 			}
-			if _, err := requireCurrentUser(r, deps.currentUser); err != nil {
+			if _, err := requireCurrentUser(r, currentUser); err != nil {
 				api.HandleError(w, r, err)
 				return
 			}
-			data, err := deps.createMediaAsset(r.Context(), input)
+			data, err := services.CreateMediaAsset(r.Context(), pool, input)
 			if err != nil {
 				api.HandleError(w, r, err)
 				return
@@ -89,12 +55,12 @@ func buildMediaHandlers(deps mediaRouteDependencies) MediaHandlers {
 				api.HandleError(w, r, err)
 				return
 			}
-			user, err := requireCurrentUser(r, deps.currentUser)
+			user, err := requireCurrentUser(r, currentUser)
 			if err != nil {
 				api.HandleError(w, r, err)
 				return
 			}
-			data, err := deps.getMediaAsset(r.Context(), user, mediaID)
+			data, err := services.GetMediaAsset(r.Context(), pool, user, mediaID)
 			if err != nil {
 				api.HandleError(w, r, err)
 				return
@@ -107,12 +73,12 @@ func buildMediaHandlers(deps mediaRouteDependencies) MediaHandlers {
 				api.HandleError(w, r, err)
 				return
 			}
-			user, err := requireCurrentUser(r, deps.currentUser)
+			user, err := requireCurrentUser(r, currentUser)
 			if err != nil {
 				api.HandleError(w, r, err)
 				return
 			}
-			if err := deps.deleteMediaAsset(r.Context(), user, mediaID); err != nil {
+			if err := services.DeleteMediaAsset(r.Context(), pool, user, mediaID); err != nil {
 				api.HandleError(w, r, err)
 				return
 			}
@@ -134,12 +100,12 @@ func buildMediaHandlers(deps mediaRouteDependencies) MediaHandlers {
 				api.HandleError(w, r, err)
 				return
 			}
-			user, err := requireCurrentUser(r, deps.currentUser)
+			user, err := requireCurrentUser(r, currentUser)
 			if err != nil {
 				api.HandleError(w, r, err)
 				return
 			}
-			data, err := deps.linkQuestion(r.Context(), user, questionID, input)
+			data, err := services.LinkQuestionMedia(r.Context(), pool, user, questionID, input)
 			if err != nil {
 				api.HandleError(w, r, err)
 				return
@@ -162,12 +128,12 @@ func buildMediaHandlers(deps mediaRouteDependencies) MediaHandlers {
 				api.HandleError(w, r, err)
 				return
 			}
-			user, err := requireCurrentUser(r, deps.currentUser)
+			user, err := requireCurrentUser(r, currentUser)
 			if err != nil {
 				api.HandleError(w, r, err)
 				return
 			}
-			data, err := deps.linkGroup(r.Context(), user, groupID, input)
+			data, err := services.LinkGroupMedia(r.Context(), pool, user, groupID, input)
 			if err != nil {
 				api.HandleError(w, r, err)
 				return
@@ -190,12 +156,12 @@ func buildMediaHandlers(deps mediaRouteDependencies) MediaHandlers {
 				api.HandleError(w, r, err)
 				return
 			}
-			user, err := requireCurrentUser(r, deps.currentUser)
+			user, err := requireCurrentUser(r, currentUser)
 			if err != nil {
 				api.HandleError(w, r, err)
 				return
 			}
-			data, err := deps.linkOption(r.Context(), user, optionID, input)
+			data, err := services.LinkOptionMedia(r.Context(), pool, user, optionID, input)
 			if err != nil {
 				api.HandleError(w, r, err)
 				return

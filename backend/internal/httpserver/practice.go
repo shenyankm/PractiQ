@@ -1,8 +1,8 @@
 package httpserver
 
 import (
-	"encoding/json"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -12,6 +12,21 @@ import (
 	"openwook/internal/auth"
 	"openwook/internal/services"
 )
+
+type practiceStartRequest struct {
+	BankID         *int64  `json:"bankId"`
+	SessionType    *string `json:"sessionType"`
+	QuestionCount  *int    `json:"questionCount"`
+	Mode           *string `json:"mode"`
+	QuestionTypeID *string `json:"questionTypeId"`
+	AllQuestions   *bool   `json:"allQuestions"`
+}
+
+type practiceAnswerRequest struct {
+	QuestionID    *int64         `json:"questionId"`
+	AnswerPayload map[string]any `json:"answerPayload"`
+	DurationMS    *int           `json:"durationMs"`
+}
 
 func BuildPracticeHandlers(pool *pgxpool.Pool, resolve auth.CurrentUserResolver) PracticeHandlers {
 	return PracticeHandlers{
@@ -38,7 +53,7 @@ func BuildPracticeHandlers(pool *pgxpool.Pool, resolve auth.CurrentUserResolver)
 				api.HandleError(w, r, err)
 				return
 			}
-			body, err := decodeJSONBodyStrict[map[string]json.RawMessage](r)
+			body, err := decodeJSONBodyStrict[practiceStartRequest](r)
 			if err != nil {
 				api.HandleError(w, r, err)
 				return
@@ -144,7 +159,7 @@ func BuildPracticeHandlers(pool *pgxpool.Pool, resolve auth.CurrentUserResolver)
 				api.HandleError(w, r, err)
 				return
 			}
-			body, err := decodeJSONBodyStrict[map[string]json.RawMessage](r)
+			body, err := decodeJSONBodyStrict[practiceAnswerRequest](r)
 			if err != nil {
 				api.HandleError(w, r, err)
 				return
@@ -189,18 +204,37 @@ func handlePracticeTerminalState(w http.ResponseWriter, r *http.Request, resolve
 	api.OK(w, r, data, nil)
 }
 
-func parsePracticeStartInput(body map[string]json.RawMessage) (services.PracticeSessionInput, error) {
+func parsePracticeStartInput(body practiceStartRequest) (services.PracticeSessionInput, error) {
 	var details []api.ValidationDetail
 	var input services.PracticeSessionInput
 
-	input.BankID = parseRequiredPositiveInt64(body, "bankId", &details)
-	input.SessionType = parseOptionalEnumString(body, "sessionType", []string{"practice", "review", "exam"}, &details)
-	if questionCount, ok := parseOptionalPositiveInt(body, "questionCount", 500, &details); ok {
-		input.QuestionCount = questionCount
+	if body.BankID == nil {
+		details = append(details, api.ValidationDetail{Field: "bankId", Message: "is required"})
+	} else if *body.BankID <= 0 {
+		details = append(details, api.ValidationDetail{Field: "bankId", Message: "must be a positive integer"})
+	} else {
+		input.BankID = *body.BankID
 	}
-	input.Mode = parseOptionalEnumString(body, "mode", []string{"all", "wrong", "by_type", "exam"}, &details)
-	input.QuestionTypeID = parseOptionalNullableString(body, "questionTypeId", 64, &details)
-	input.AllQuestions = parseOptionalBool(body, "allQuestions", &details)
+	input.SessionType = parseOptionalPracticeEnum(body.SessionType, "sessionType", []string{"practice", "review", "exam"}, &details)
+	if body.QuestionCount != nil {
+		if *body.QuestionCount <= 0 || *body.QuestionCount > 500 {
+			details = append(details, api.ValidationDetail{Field: "questionCount", Message: "must be a positive integer no greater than 500"})
+		} else {
+			input.QuestionCount = *body.QuestionCount
+		}
+	}
+	input.Mode = parseOptionalPracticeEnum(body.Mode, "mode", []string{"all", "wrong", "by_type", "exam"}, &details)
+	if body.QuestionTypeID != nil {
+		questionTypeID := strings.TrimSpace(*body.QuestionTypeID)
+		if questionTypeID == "" || len(questionTypeID) > 64 {
+			details = append(details, api.ValidationDetail{Field: "questionTypeId", Message: "must be a non-empty string"})
+		} else {
+			input.QuestionTypeID = &questionTypeID
+		}
+	}
+	if body.AllQuestions != nil {
+		input.AllQuestions = *body.AllQuestions
+	}
 
 	if len(details) > 0 {
 		return services.PracticeSessionInput{}, api.ValidationError(details)
@@ -208,14 +242,21 @@ func parsePracticeStartInput(body map[string]json.RawMessage) (services.Practice
 	return input, nil
 }
 
-func parsePracticeAnswerInput(body map[string]json.RawMessage) (services.PracticeAnswerInput, error) {
+func parsePracticeAnswerInput(body practiceAnswerRequest) (services.PracticeAnswerInput, error) {
 	var details []api.ValidationDetail
-	var input services.PracticeAnswerInput
-
-	input.QuestionID = parseRequiredPositiveInt64(body, "questionId", &details)
-	input.AnswerPayload = parseRequiredObject(body, "answerPayload", &details)
-	if durationMS, ok := parseOptionalNonNegativeInt(body, "durationMs", &details); ok {
-		input.DurationMS = &durationMS
+	input := services.PracticeAnswerInput{AnswerPayload: body.AnswerPayload, DurationMS: body.DurationMS}
+	if body.QuestionID == nil {
+		details = append(details, api.ValidationDetail{Field: "questionId", Message: "is required"})
+	} else if *body.QuestionID <= 0 {
+		details = append(details, api.ValidationDetail{Field: "questionId", Message: "must be a positive integer"})
+	} else {
+		input.QuestionID = *body.QuestionID
+	}
+	if body.AnswerPayload == nil {
+		details = append(details, api.ValidationDetail{Field: "answerPayload", Message: "is required"})
+	}
+	if body.DurationMS != nil && *body.DurationMS < 0 {
+		details = append(details, api.ValidationDetail{Field: "durationMs", Message: "must be a non-negative integer"})
 	}
 
 	if len(details) > 0 {
@@ -224,110 +265,14 @@ func parsePracticeAnswerInput(body map[string]json.RawMessage) (services.Practic
 	return input, nil
 }
 
-func parseRequiredPositiveInt64(body map[string]json.RawMessage, field string, details *[]api.ValidationDetail) int64 {
-	raw, ok := body[field]
-	if !ok || string(raw) == "null" {
-		*details = append(*details, api.ValidationDetail{Field: field, Message: "is required"})
-		return 0
-	}
-	var value int64
-	if err := json.Unmarshal(raw, &value); err != nil || value <= 0 {
-		*details = append(*details, api.ValidationDetail{Field: field, Message: "must be a positive integer"})
-		return 0
-	}
-	return value
-}
-
-func parseOptionalPositiveInt(body map[string]json.RawMessage, field string, max int, details *[]api.ValidationDetail) (int, bool) {
-	raw, ok := body[field]
-	if !ok || string(raw) == "null" {
-		return 0, false
-	}
-	var value int
-	if err := json.Unmarshal(raw, &value); err != nil || value <= 0 || value > max {
-		*details = append(*details, api.ValidationDetail{Field: field, Message: "must be a positive integer no greater than 500"})
-		return 0, false
-	}
-	return value, true
-}
-
-func parseOptionalNonNegativeInt(body map[string]json.RawMessage, field string, details *[]api.ValidationDetail) (int, bool) {
-	raw, ok := body[field]
-	if !ok || string(raw) == "null" {
-		return 0, false
-	}
-	var value int
-	if err := json.Unmarshal(raw, &value); err != nil || value < 0 {
-		*details = append(*details, api.ValidationDetail{Field: field, Message: "must be a non-negative integer"})
-		return 0, false
-	}
-	return value, true
-}
-
-func parseOptionalEnumString(body map[string]json.RawMessage, field string, allowed []string, details *[]api.ValidationDetail) string {
-	raw, ok := body[field]
-	if !ok || string(raw) == "null" {
+func parseOptionalPracticeEnum(value *string, field string, allowed []string, details *[]api.ValidationDetail) string {
+	if value == nil {
 		return ""
 	}
-	var value string
-	if err := json.Unmarshal(raw, &value); err != nil {
-		*details = append(*details, api.ValidationDetail{Field: field, Message: "must be a string"})
-		return ""
-	}
-	value = strings.TrimSpace(value)
-	for _, candidate := range allowed {
-		if value == candidate {
-			return value
-		}
+	trimmed := strings.TrimSpace(*value)
+	if slices.Contains(allowed, trimmed) {
+		return trimmed
 	}
 	*details = append(*details, api.ValidationDetail{Field: field, Message: "has an invalid value"})
 	return ""
-}
-
-func parseOptionalNullableString(body map[string]json.RawMessage, field string, maxLen int, details *[]api.ValidationDetail) *string {
-	raw, ok := body[field]
-	if !ok {
-		return nil
-	}
-	if string(raw) == "null" {
-		return nil
-	}
-	var value string
-	if err := json.Unmarshal(raw, &value); err != nil {
-		*details = append(*details, api.ValidationDetail{Field: field, Message: "must be a string"})
-		return nil
-	}
-	value = strings.TrimSpace(value)
-	if value == "" || len(value) > maxLen {
-		*details = append(*details, api.ValidationDetail{Field: field, Message: "must be a non-empty string"})
-		return nil
-	}
-	return &value
-}
-
-func parseOptionalBool(body map[string]json.RawMessage, field string, details *[]api.ValidationDetail) bool {
-	raw, ok := body[field]
-	if !ok || string(raw) == "null" {
-		return false
-	}
-	var value bool
-	if err := json.Unmarshal(raw, &value); err != nil {
-		*details = append(*details, api.ValidationDetail{Field: field, Message: "must be a boolean"})
-		return false
-	}
-	return value
-}
-
-func parseRequiredObject(body map[string]json.RawMessage, field string, details *[]api.ValidationDetail) map[string]any {
-	raw, ok := body[field]
-	if !ok || string(raw) == "null" {
-		*details = append(*details, api.ValidationDetail{Field: field, Message: "is required"})
-		return nil
-	}
-	var value map[string]any
-	if err := json.Unmarshal(raw, &value); err != nil || value == nil {
-		*details = append(*details, api.ValidationDetail{Field: field, Message: "must be an object"})
-		return nil
-	}
-	return value
 }

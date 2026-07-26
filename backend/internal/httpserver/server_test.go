@@ -116,6 +116,63 @@ func TestNewServerReadinessEndpointsReturnEnvelopeWithDependencyChecks(t *testin
 	}
 }
 
+func TestNewServerKeepsHealthDataAndMarksReadinessUnavailableForFailedDependencies(t *testing.T) {
+	tests := []struct {
+		name          string
+		checkPostgres func(context.Context) error
+		checkRedis    func(context.Context) (bool, error)
+	}{
+		{
+			name: "postgres unavailable",
+			checkPostgres: func(context.Context) error {
+				return context.DeadlineExceeded
+			},
+			checkRedis: func(context.Context) (bool, error) {
+				return true, nil
+			},
+		},
+		{
+			name: "redis not configured",
+			checkPostgres: func(context.Context) error {
+				return nil
+			},
+			checkRedis: func(context.Context) (bool, error) {
+				return false, context.Canceled
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			handler := newServerUnderTest(t, serverTestOptions{
+				checkPostgres: tt.checkPostgres,
+				checkRedis:    tt.checkRedis,
+			})
+
+			for _, endpoint := range []struct {
+				path       string
+				wantStatus int
+			}{
+				{path: "/api/health", wantStatus: http.StatusOK},
+				{path: "/api/health/ready", wantStatus: http.StatusServiceUnavailable},
+			} {
+				rr := httptest.NewRecorder()
+				req := httptest.NewRequest(http.MethodGet, "https://app.example.test"+endpoint.path, nil)
+				handler.ServeHTTP(rr, req)
+
+				if rr.Code != endpoint.wantStatus {
+					t.Fatalf("%s status = %d, want %d", endpoint.path, rr.Code, endpoint.wantStatus)
+				}
+				body := decodeJSONBody(t, rr.Body.Bytes())
+				data := mustObject(t, body["data"], "data")
+				if got := data["ok"]; got != false {
+					t.Fatalf("%s data.ok = %#v, want false", endpoint.path, got)
+				}
+			}
+		})
+	}
+}
+
 func TestNewServerLivenessEndpointReturnsEnvelopeWithoutDependencyChecks(t *testing.T) {
 	handler := newServerUnderTest(t, serverTestOptions{
 		uptimeSeconds: 99,
@@ -231,6 +288,8 @@ type serverTestOptions struct {
 	nodeEnv       string
 	distDir       string
 	uptimeSeconds int64
+	checkPostgres func(context.Context) error
+	checkRedis    func(context.Context) (bool, error)
 }
 
 func newServerUnderTest(t *testing.T, opts serverTestOptions) http.Handler {
@@ -252,17 +311,22 @@ func newServerUnderTest(t *testing.T, opts serverTestOptions) http.Handler {
 		uptimeSeconds = 123
 	}
 
+	checkPostgres := opts.checkPostgres
+	if checkPostgres == nil {
+		checkPostgres = func(context.Context) error { return nil }
+	}
+	checkRedis := opts.checkRedis
+	if checkRedis == nil {
+		checkRedis = func(context.Context) (bool, error) { return true, nil }
+	}
+
 	return NewServer(ServerConfig{
 		NodeEnv:   nodeEnv,
 		AppOrigin: "https://app.example.test",
 		DistDir:   distDir,
 	}, ServerDependencies{
-		CheckPostgres: func(context.Context) error {
-			return nil
-		},
-		CheckRedis: func(context.Context) (bool, error) {
-			return true, nil
-		},
+		CheckPostgres: checkPostgres,
+		CheckRedis:    checkRedis,
 		UptimeSeconds: func() int64 {
 			return uptimeSeconds
 		},

@@ -1,10 +1,6 @@
 package httpserver
 
-import (
-	"net/http"
-
-	"github.com/go-chi/chi/v5"
-)
+import "net/http"
 
 type AIHandlers struct {
 	AIParseDocument        http.Handler
@@ -13,9 +9,9 @@ type AIHandlers struct {
 	QuestionGenerateAnswer http.Handler
 }
 
-func registerAIRoutes(router chi.Router, handlers AIHandlers) {
-	registerMethodRoute(router, http.MethodPost, "/ai/parse-document", handlers.AIParseDocument)
-	registerMethodRoute(router, http.MethodPost, "/ai/generate-answer", handlers.AIGenerateAnswer)
-	registerMethodRoute(router, http.MethodPost, "/ai/learning-report", handlers.AILearningReport)
-	registerMethodRoute(router, http.MethodPost, "/questions/{questionId}/generate-answer", handlers.QuestionGenerateAnswer)
+func registerAIRoutes(router *http.ServeMux, handlers AIHandlers) {
+	registerMethodRoute(router, http.MethodPost, "/api/v1/ai/parse-document", handlers.AIParseDocument)
+	registerMethodRoute(router, http.MethodPost, "/api/v1/ai/generate-answer", handlers.AIGenerateAnswer)
+	registerMethodRoute(router, http.MethodPost, "/api/v1/ai/learning-report", handlers.AILearningReport)
+	registerMethodRoute(router, http.MethodPost, "/api/v1/questions/{questionId}/generate-answer", handlers.QuestionGenerateAnswer)
 }

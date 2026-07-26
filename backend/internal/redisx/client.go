@@ -2,6 +2,7 @@ package redisx
 
 import (
 	"context"
+	"errors"
 	"os"
 	"strings"
 	"sync"
@@ -23,14 +24,7 @@ func Client() *redis.Client {
 	defer clientMu.Unlock()
 
 	if url == "" {
-		if client != nil && clientURL == "" {
-			return client
-		}
-		if client != nil {
-			_ = client.Close()
-		}
-		client = nil
-		clientURL = ""
+		resetClient()
 		return nil
 	}
 	if client != nil && clientURL == url {
@@ -38,20 +32,30 @@ func Client() *redis.Client {
 	}
 	options, err := redis.ParseURL(url)
 	if err != nil {
+		resetClient()
 		return nil
 	}
-	if client != nil {
-		_ = client.Close()
-	}
+	resetClient()
 	client = redis.NewClient(options)
 	clientURL = url
 	return client
 }
 
+func resetClient() {
+	if client != nil {
+		_ = client.Close()
+	}
+	client = nil
+	clientURL = ""
+}
+
 func CheckRedis(ctx context.Context) (bool, error) {
+	if strings.TrimSpace(os.Getenv("REDIS_URL")) == "" {
+		return false, errors.New("REDIS_URL is required")
+	}
 	rdb := Client()
 	if rdb == nil {
-		return false, nil
+		return false, errors.New("REDIS_URL is invalid")
 	}
 	started := time.Now()
 	_, err := rdb.Ping(ctx).Result()

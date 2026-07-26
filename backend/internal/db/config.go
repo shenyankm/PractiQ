@@ -10,20 +10,18 @@ import (
 )
 
 type Config struct {
-	DatabaseURL        string
-	MaxConns           int32
-	IdleTimeout        time.Duration
-	ConnectTimeout     time.Duration
-	SlowQueryThreshold time.Duration
+	DatabaseURL    string
+	MaxConns       int32
+	IdleTimeout    time.Duration
+	ConnectTimeout time.Duration
 }
 
 func LoadConfig() (Config, error) {
 	cfg := Config{
-		DatabaseURL:        strings.TrimSpace(os.Getenv("POSTGRES_URL")),
-		MaxConns:           int32(intFromEnv(firstNonEmpty(os.Getenv("POSTGRES_POOL_MAX"), os.Getenv("DATABASE_POOL_MAX")), 8)),
-		IdleTimeout:        time.Duration(intFromEnv(os.Getenv("POSTGRES_IDLE_TIMEOUT_SECONDS"), 30)) * time.Second,
-		ConnectTimeout:     time.Duration(intFromEnv(os.Getenv("POSTGRES_CONNECT_TIMEOUT_SECONDS"), 10)) * time.Second,
-		SlowQueryThreshold: time.Duration(intFromEnv(os.Getenv("SLOW_QUERY_MS"), 500)) * time.Millisecond,
+		DatabaseURL:    strings.TrimSpace(os.Getenv("POSTGRES_URL")),
+		MaxConns:       int32(intFromEnv(firstNonEmpty(os.Getenv("POSTGRES_POOL_MAX"), os.Getenv("DATABASE_POOL_MAX")), 8)),
+		IdleTimeout:    time.Duration(intFromEnv(os.Getenv("POSTGRES_IDLE_TIMEOUT_SECONDS"), 30)) * time.Second,
+		ConnectTimeout: time.Duration(intFromEnv(os.Getenv("POSTGRES_CONNECT_TIMEOUT_SECONDS"), 10)) * time.Second,
 	}
 	if strings.TrimSpace(cfg.DatabaseURL) == "" {
 		return Config{}, fmt.Errorf("POSTGRES_URL is required")

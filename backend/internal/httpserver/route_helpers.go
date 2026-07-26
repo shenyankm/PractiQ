@@ -2,47 +2,51 @@ package httpserver
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 
-	"github.com/go-chi/chi/v5"
 	"openwook/internal/api"
 	"openwook/internal/auth"
 )
 
-func withStdPathValues(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		routeContext := chi.RouteContext(r.Context())
-		if routeContext != nil {
-			for index, key := range routeContext.URLParams.Keys {
-				if key == "" || key == "*" || index >= len(routeContext.URLParams.Values) {
-					continue
-				}
-				r.SetPathValue(key, routeContext.URLParams.Values[index])
-			}
-		}
-		next.ServeHTTP(w, r)
-	})
+const maxJSONBodyBytes int64 = 1024 * 1024
+
+func decodeJSONBodyStrict[T any](r *http.Request, allowEmpty ...bool) (T, error) {
+	return decodeJSONBodyStrictLimit[T](r, maxJSONBodyBytes, allowEmpty...)
 }
-func decodeJSONBodyStrict[T any](r *http.Request) (T, error) {
+
+func decodeJSONBodyStrictLimit[T any](r *http.Request, maxBytes int64, allowEmpty ...bool) (T, error) {
 	var body T
+	r.Body = http.MaxBytesReader(nil, r.Body, maxBytes)
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&body); err != nil {
-		return body, api.NewError(http.StatusBadRequest, "INVALID_JSON", "Request body must be valid JSON", nil)
+		if err == io.EOF && len(allowEmpty) > 0 && allowEmpty[0] {
+			return body, nil
+		}
+		return body, strictJSONError(err)
 	}
-	var extra any
+	var extra struct{}
 	if err := decoder.Decode(&extra); err != io.EOF {
-		return body, api.NewError(http.StatusBadRequest, "INVALID_JSON", "Request body must be valid JSON", nil)
+		return body, strictJSONError(err)
 	}
 	return body, nil
 }
 
+func strictJSONError(err error) error {
+	var tooLarge *http.MaxBytesError
+	if errors.As(err, &tooLarge) {
+		return err
+	}
+	return api.NewError(http.StatusBadRequest, "INVALID_JSON", "Request body must be valid JSON", nil)
+}
+
 func parsePathID(r *http.Request, name string) (int64, error) {
-	id, err := strconv.ParseInt(r.PathValue(name), 10, 64)
+	id, err := strconv.ParseInt(strings.TrimSpace(r.PathValue(name)), 10, 64)
 	if err != nil || id <= 0 {
 		return 0, api.NewError(http.StatusUnprocessableEntity, "VALIDATION_ERROR", "Invalid "+name, nil)
 	}

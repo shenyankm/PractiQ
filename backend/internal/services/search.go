@@ -56,39 +56,27 @@ func Search(ctx context.Context, db queryer, user auth.User, target string, para
 }
 
 func searchBanks(ctx context.Context, db queryer, user auth.User, scope string, q string) ([]SearchBank, error) {
-	resolvedScope := normalizeSearchScope(scope)
-	rows, err := db.Query(ctx, `
-		SELECT
-		  b.id, b.name, b.description, b.subject, b.total_count, b.created_by, b.is_public, b.created_at, b.updated_at,
-		  COALESCE(ubl.is_owner, false) AS is_owner,
-		  COALESCE(ubl.is_favorite, false) AS is_favorite
-		FROM question_banks b
-		LEFT JOIN user_bank_links ubl
-		  ON ubl.bank_id = b.id
-		 AND ubl.user_id = $1
-		WHERE (
-		    $2 = 'public' AND b.is_public = true
-		    OR $2 = 'favorites' AND ubl.is_favorite = true
-		    OR $2 = 'mine' AND COALESCE(ubl.is_owner, false) = true
-		    OR $2 = 'all' AND (b.is_public = true OR ubl.id IS NOT NULL)
-		  )
-		  AND ($3::text IS NULL OR b.name ILIKE $3)
-		ORDER BY b.updated_at DESC, b.id DESC
-		LIMIT 30
-	`, user.ID, resolvedScope, ilikeOrNil(q))
+	banks, err := ListBanks(ctx, db, &user, ListBanksParams{Scope: normalizeSearchScope(scope), Query: q, Limit: 30})
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-	items := make([]SearchBank, 0)
-	for rows.Next() {
-		item, err := scanSearchBank(rows)
-		if err != nil {
-			return nil, err
+	items := make([]SearchBank, len(banks))
+	for index, bank := range banks {
+		items[index] = SearchBank{
+			ID:          bank.ID,
+			Name:        bank.Name,
+			Description: bank.Description,
+			Subject:     bank.Subject,
+			TotalCount:  bank.TotalCount,
+			CreatedBy:   bank.CreatedBy,
+			IsPublic:    bank.IsPublic,
+			CreatedAt:   formatTimestamp(bank.CreatedAt),
+			UpdatedAt:   formatTimestamp(bank.UpdatedAt),
+			IsOwner:     bank.IsOwner,
+			IsFavorite:  bank.IsFavorite,
 		}
-		items = append(items, item)
 	}
-	return items, rows.Err()
+	return items, nil
 }
 
 func searchQuestions(ctx context.Context, db queryer, user auth.User, params url.Values, normalizedQuery string) ([]SearchQuestion, error) {
@@ -101,21 +89,11 @@ func searchQuestions(ctx context.Context, db queryer, user auth.User, params url
 	term := trimmedStringOrNil(normalizedQuery)
 	rows, err := db.Query(ctx, `
 		WITH visible_question_ids AS MATERIALIZED (
-		  SELECT bql.question_id
-		  FROM bank_question_links bql
-		  JOIN question_banks b ON b.id = bql.bank_id
+		  SELECT DISTINCT item.question_id
+		  FROM v_bank_question_items item
+		  JOIN question_banks b ON b.id = item.bank_id
 		  LEFT JOIN user_bank_links ubl ON ubl.bank_id = b.id AND ubl.user_id = $1
-		  WHERE ($2::bigint IS NULL OR bql.bank_id = $2)
-		    AND (b.is_public = true OR ubl.id IS NOT NULL)
-		
-		  UNION
-		
-		  SELECT gql.question_id
-		  FROM bank_group_links bgl
-		  JOIN question_banks b ON b.id = bgl.bank_id
-		  LEFT JOIN user_bank_links ubl ON ubl.bank_id = b.id AND ubl.user_id = $1
-		  JOIN group_question_links gql ON gql.group_id = bgl.group_id
-		  WHERE ($2::bigint IS NULL OR bgl.bank_id = $2)
+		  WHERE ($2::bigint IS NULL OR item.bank_id = $2)
 		    AND (b.is_public = true OR ubl.id IS NOT NULL)
 		),
 		searchable_questions AS MATERIALIZED (
@@ -191,28 +169,4 @@ func normalizeSearchScope(scope string) string {
 	default:
 		return "all"
 	}
-}
-
-func scanSearchBank(row interface{ Scan(...any) error }) (SearchBank, error) {
-	var item SearchBank
-	var createdAt time.Time
-	var updatedAt time.Time
-	if err := row.Scan(
-		&item.ID,
-		&item.Name,
-		&item.Description,
-		&item.Subject,
-		&item.TotalCount,
-		&item.CreatedBy,
-		&item.IsPublic,
-		&createdAt,
-		&updatedAt,
-		&item.IsOwner,
-		&item.IsFavorite,
-	); err != nil {
-		return SearchBank{}, err
-	}
-	item.CreatedAt = formatTimestamp(createdAt)
-	item.UpdatedAt = formatTimestamp(updatedAt)
-	return item, nil
 }

@@ -1,10 +1,6 @@
 package httpserver
 
-import (
-	"net/http"
-
-	"github.com/go-chi/chi/v5"
-)
+import "net/http"
 
 type PracticeHandlers struct {
 	List         http.Handler
@@ -30,20 +26,20 @@ type SearchHandlers struct {
 	Kind http.Handler
 }
 
-func registerPracticeAnalyticsSearchRoutes(router chi.Router, practice PracticeHandlers, analytics AnalyticsHandlers, search SearchHandlers) {
-	registerMethodRoute(router, http.MethodGet, "/practice-sessions", practice.List)
-	registerMethodRoute(router, http.MethodPost, "/practice-sessions", practice.Start)
-	registerMethodRoute(router, http.MethodGet, "/practice-sessions/{sessionId}", practice.Get)
-	registerMethodRoute(router, http.MethodGet, "/practice-sessions/{sessionId}/question-page", practice.QuestionPage)
-	registerMethodRoute(router, http.MethodGet, "/practice-sessions/{sessionId}/questions", practice.Questions)
-	registerMethodRoute(router, http.MethodGet, "/practice-sessions/{sessionId}/results", practice.Results)
-	registerMethodRoute(router, http.MethodPost, "/practice-sessions/{sessionId}/answers", practice.SubmitAnswer)
-	registerMethodRoute(router, http.MethodPost, "/practice-sessions/{sessionId}/complete", practice.Complete)
-	registerMethodRoute(router, http.MethodPost, "/practice-sessions/{sessionId}/abandon", practice.Abandon)
-	registerMethodRoute(router, http.MethodGet, "/analytics/me/summary", analytics.MeSummary)
-	registerMethodRoute(router, http.MethodGet, "/analytics/me/snapshot", analytics.MeSnapshot)
-	registerMethodRoute(router, http.MethodGet, "/analytics/banks/{bankId}", analytics.Bank)
-	registerMethodRoute(router, http.MethodGet, "/analytics/banks/{bankId}/leaderboard", analytics.BankLeaderboard)
-	registerMethodRoute(router, http.MethodGet, "/analytics/imports/{jobId}", analytics.Import)
-	registerMethodRoute(router, http.MethodGet, "/search/{kind}", search.Kind)
+func registerPracticeAnalyticsSearchRoutes(router *http.ServeMux, practice PracticeHandlers, analytics AnalyticsHandlers, search SearchHandlers) {
+	registerMethodRoute(router, http.MethodGet, "/api/v1/practice-sessions", practice.List)
+	registerMethodRoute(router, http.MethodPost, "/api/v1/practice-sessions", practice.Start)
+	registerMethodRoute(router, http.MethodGet, "/api/v1/practice-sessions/{sessionId}", practice.Get)
+	registerMethodRoute(router, http.MethodGet, "/api/v1/practice-sessions/{sessionId}/question-page", practice.QuestionPage)
+	registerMethodRoute(router, http.MethodGet, "/api/v1/practice-sessions/{sessionId}/questions", practice.Questions)
+	registerMethodRoute(router, http.MethodGet, "/api/v1/practice-sessions/{sessionId}/results", practice.Results)
+	registerMethodRoute(router, http.MethodPost, "/api/v1/practice-sessions/{sessionId}/answers", practice.SubmitAnswer)
+	registerMethodRoute(router, http.MethodPost, "/api/v1/practice-sessions/{sessionId}/complete", practice.Complete)
+	registerMethodRoute(router, http.MethodPost, "/api/v1/practice-sessions/{sessionId}/abandon", practice.Abandon)
+	registerMethodRoute(router, http.MethodGet, "/api/v1/analytics/me/summary", analytics.MeSummary)
+	registerMethodRoute(router, http.MethodGet, "/api/v1/analytics/me/snapshot", analytics.MeSnapshot)
+	registerMethodRoute(router, http.MethodGet, "/api/v1/analytics/banks/{bankId}", analytics.Bank)
+	registerMethodRoute(router, http.MethodGet, "/api/v1/analytics/banks/{bankId}/leaderboard", analytics.BankLeaderboard)
+	registerMethodRoute(router, http.MethodGet, "/api/v1/analytics/imports/{jobId}", analytics.Import)
+	registerMethodRoute(router, http.MethodGet, "/api/v1/search/{kind}", search.Kind)
 }

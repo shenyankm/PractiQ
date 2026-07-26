@@ -3,7 +3,6 @@ package services
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"math"
 	"os"
@@ -69,31 +68,20 @@ type ImportAnalytics struct {
 	BankID                 *int64     `json:"bank_id"`
 	Status                 string     `json:"status"`
 	Stage                  string     `json:"stage"`
+	AvailableAt            *time.Time `json:"available_at"`
+	PersistQuestions       bool       `json:"persist_questions"`
 	RequestPayload         string     `json:"request_payload"`
 	RawResultJSON          *string    `json:"raw_result_json"`
 	WarningMessages        string     `json:"warning_messages"`
 	TotalQuestions         int        `json:"total_questions"`
+	ImportedQuestions      int        `json:"imported_questions"`
 	FileName               *string    `json:"file_name"`
 	SourceType             *string    `json:"source_type"`
-	PageCount              int        `json:"page_count"`
-	WaveCount              int        `json:"wave_count"`
-	FailedBlockCount       int        `json:"failed_block_count"`
-	BlockCount             int        `json:"block_count"`
-	CompletedBlockCount    int        `json:"completed_block_count"`
 	RetryCount             int        `json:"retry_count"`
-	CoveragePercent        float64    `json:"coverage_percent"`
 	QualityScore           float64    `json:"quality_score"`
-	HighRiskBlockCount     int        `json:"high_risk_block_count"`
-	ImportedQuestions      int        `json:"imported_questions"`
-	ReviewItemCount        int        `json:"review_item_count"`
 	OverallProgressPercent *float64   `json:"overall_progress_percent"`
 	StepProgressPercent    *float64   `json:"step_progress_percent"`
-	CurrentStepCode        *string    `json:"current_step_code"`
-	CurrentStepLabel       *string    `json:"current_step_label"`
-	CurrentTargetKind      *string    `json:"current_target_kind"`
-	CurrentTargetName      *string    `json:"current_target_name"`
 	LastErrorCode          *string    `json:"last_error_code"`
-	RiskLevel              string     `json:"risk_level"`
 	LastError              *string    `json:"last_error"`
 	LastEventID            *int64     `json:"last_event_id"`
 	LastEventAt            *time.Time `json:"last_event_at"`
@@ -101,7 +89,6 @@ type ImportAnalytics struct {
 	UpdatedAt              time.Time  `json:"updated_at"`
 	CompletedAt            *time.Time `json:"completed_at"`
 	Events                 int        `json:"events"`
-	ReviewOpen             int        `json:"review_open"`
 	Outputs                int        `json:"outputs"`
 }
 
@@ -290,15 +277,12 @@ func GetImportAnalytics(ctx context.Context, db *pgxpool.Pool, user *auth.User, 
 	}
 	var item ImportAnalytics
 	var bankID sql.NullInt64
+	var availableAt sql.NullTime
 	var rawResultJSON sql.NullString
 	var fileName sql.NullString
 	var sourceType sql.NullString
 	var overallProgress sql.NullFloat64
 	var stepProgress sql.NullFloat64
-	var currentStepCode sql.NullString
-	var currentStepLabel sql.NullString
-	var currentTargetKind sql.NullString
-	var currentTargetName sql.NullString
 	var lastErrorCode sql.NullString
 	var lastError sql.NullString
 	var lastEventID sql.NullInt64
@@ -307,9 +291,32 @@ func GetImportAnalytics(ctx context.Context, db *pgxpool.Pool, user *auth.User, 
 
 	err := db.QueryRow(ctx, `
 		SELECT
-			qij.*,
+			qij.id,
+			qij.created_by,
+			qij.bank_id,
+			qij.status,
+			qij.stage,
+			qij.available_at,
+			qij.persist_questions,
+			qij.request_payload,
+			qij.raw_result_json,
+			qij.warning_messages,
+			qij.total_questions,
+			qij.imported_questions,
+			qij.file_name,
+			qij.source_type,
+			qij.retry_count,
+			qij.quality_score,
+			qij.last_error_code,
+			qij.last_error,
+			qij.overall_progress_percent,
+			qij.step_progress_percent,
+			qij.last_event_id,
+			qij.last_event_at,
+			qij.created_at,
+			qij.updated_at,
+			qij.completed_at,
 			(SELECT COUNT(*)::int FROM question_import_job_events WHERE job_id = qij.id) AS events,
-			(SELECT COUNT(*)::int FROM question_import_job_review_items WHERE job_id = qij.id AND status = 'open') AS review_open,
 			(SELECT COUNT(*)::int FROM question_import_job_outputs WHERE job_id = qij.id) AS outputs
 		FROM question_import_jobs qij
 		WHERE qij.id = $1 AND qij.created_by = $2
@@ -320,39 +327,27 @@ func GetImportAnalytics(ctx context.Context, db *pgxpool.Pool, user *auth.User, 
 		&bankID,
 		&item.Status,
 		&item.Stage,
+		&availableAt,
+		&item.PersistQuestions,
 		&item.RequestPayload,
 		&rawResultJSON,
 		&item.WarningMessages,
 		&item.TotalQuestions,
+		&item.ImportedQuestions,
 		&fileName,
 		&sourceType,
-		&item.PageCount,
-		&item.WaveCount,
-		&item.FailedBlockCount,
-		&item.BlockCount,
-		&item.CompletedBlockCount,
 		&item.RetryCount,
-		&item.CoveragePercent,
 		&item.QualityScore,
-		&item.HighRiskBlockCount,
-		&item.ImportedQuestions,
-		&item.ReviewItemCount,
+		&lastErrorCode,
+		&lastError,
 		&overallProgress,
 		&stepProgress,
-		&currentStepCode,
-		&currentStepLabel,
-		&currentTargetKind,
-		&currentTargetName,
-		&lastErrorCode,
-		&item.RiskLevel,
-		&lastError,
 		&lastEventID,
 		&lastEventAt,
 		&item.CreatedAt,
 		&item.UpdatedAt,
 		&completedAt,
 		&item.Events,
-		&item.ReviewOpen,
 		&item.Outputs,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -363,15 +358,12 @@ func GetImportAnalytics(ctx context.Context, db *pgxpool.Pool, user *auth.User, 
 	}
 
 	item.BankID = analyticsNullableInt64(bankID)
+	item.AvailableAt = analyticsNullableTime(availableAt)
 	item.RawResultJSON = analyticsNullableString(rawResultJSON)
 	item.FileName = analyticsNullableString(fileName)
 	item.SourceType = analyticsNullableString(sourceType)
 	item.OverallProgressPercent = analyticsNullableFloat64(overallProgress)
 	item.StepProgressPercent = analyticsNullableFloat64(stepProgress)
-	item.CurrentStepCode = analyticsNullableString(currentStepCode)
-	item.CurrentStepLabel = analyticsNullableString(currentStepLabel)
-	item.CurrentTargetKind = analyticsNullableString(currentTargetKind)
-	item.CurrentTargetName = analyticsNullableString(currentTargetName)
 	item.LastErrorCode = analyticsNullableString(lastErrorCode)
 	item.LastError = analyticsNullableString(lastError)
 	item.LastEventID = analyticsNullableInt64(lastEventID)
@@ -456,9 +448,4 @@ func analyticsNullableTime(value sql.NullTime) *time.Time {
 		return nil
 	}
 	return new(value.Time)
-}
-
-func (s UserStatsSnapshot) MarshalJSON() ([]byte, error) {
-	type alias UserStatsSnapshot
-	return json.Marshal(alias(s))
 }

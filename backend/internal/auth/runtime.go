@@ -11,9 +11,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
 	"openwook/internal/api"
+	"openwook/internal/config"
 	"openwook/internal/redisx"
 )
 
@@ -67,7 +70,11 @@ func AuthenticateUser(ctx context.Context, pool *pgxpool.Pool, login string, pas
 }
 
 func SetSession(w http.ResponseWriter, userID int) error {
-	expires := time.Now().UTC().Add(7 * 24 * time.Hour)
+	ttl, err := config.SessionTTL()
+	if err != nil {
+		return err
+	}
+	expires := time.Now().UTC().Add(ttl)
 	token, err := SignSessionToken(SessionPayload{User: SessionUser{ID: userID}, Expires: expires.Format(time.RFC3339), JTI: newSessionJTI()})
 	if err != nil {
 		return err
@@ -79,10 +86,14 @@ func SetSession(w http.ResponseWriter, userID int) error {
 func ClearSession(w http.ResponseWriter, r *http.Request) error {
 	if cookie, err := r.Cookie("session"); err == nil {
 		if payload, verifyErr := VerifySessionToken(cookie.Value); verifyErr == nil && payload.JTI != "" {
-			if rdb := redisx.Client(); rdb != nil {
-				ttl := time.Until(parseExpiry(payload.Expires))
-				if ttl > 0 {
-					_ = redisx.SetJSON(r.Context(), rdb, sessionRevocationKey(payload.JTI), true, ttl)
+			ttl := time.Until(parseExpiry(payload.Expires))
+			if ttl > 0 {
+				rdb := redisx.Client()
+				if rdb == nil {
+					return sessionStoreUnavailable()
+				}
+				if err := rdb.Set(r.Context(), sessionRevocationKey(payload.JTI), "true", ttl).Err(); err != nil {
+					return sessionStoreUnavailable()
 				}
 			}
 		}
@@ -128,12 +139,19 @@ func CurrentUserFromRequest(pool *pgxpool.Pool) CurrentUserResolver {
 		if err != nil {
 			return nil, nil
 		}
-		if payload.JTI != "" {
-			if rdb := redisx.Client(); rdb != nil {
-				if revoked, ok := redisx.GetJSON[bool](r.Context(), rdb, sessionRevocationKey(payload.JTI)); ok && revoked {
-					return nil, nil
-				}
-			}
+		if payload.JTI == "" {
+			return nil, nil
+		}
+		rdb := redisx.Client()
+		if rdb == nil {
+			return nil, sessionStoreUnavailable()
+		}
+		revoked, err := sessionRevoked(r.Context(), rdb, payload.JTI)
+		if err != nil {
+			return nil, sessionStoreUnavailable()
+		}
+		if revoked {
+			return nil, nil
 		}
 		return CurrentUserByID(r.Context(), pool, payload.User.ID)
 	}
@@ -149,7 +167,7 @@ func LookupUserPasswordByLoginPGX(ctx context.Context, pool *pgxpool.Pool, login
 	`, login)
 	var result PasswordRow
 	if err := row.Scan(&result.ID, &result.PasswordHash); err != nil {
-		if strings.Contains(err.Error(), "no rows") {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, err
@@ -157,13 +175,11 @@ func LookupUserPasswordByLoginPGX(ctx context.Context, pool *pgxpool.Pool, login
 	return &result, nil
 }
 
-type rowScanner interface{ Scan(...any) error }
-
-func scanUser(row rowScanner) (*User, error) {
+func scanUser(row pgx.Row) (*User, error) {
 	var user User
 	var email *string
 	if err := row.Scan(&user.ID, &user.Username, &email, &user.IsActive, &user.Role, &user.Membership); err != nil {
-		if strings.Contains(err.Error(), "no rows") {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, err
@@ -185,6 +201,18 @@ func userCacheKey(userID int) string {
 
 func sessionRevocationKey(jti string) string {
 	return redisx.RedisKey("session", "revoked", jti)
+}
+
+func sessionRevoked(ctx context.Context, rdb *redis.Client, jti string) (bool, error) {
+	exists, err := rdb.Exists(ctx, sessionRevocationKey(jti)).Result()
+	if err != nil {
+		return false, err
+	}
+	return exists > 0, nil
+}
+
+func sessionStoreUnavailable() *api.Error {
+	return api.NewError(http.StatusServiceUnavailable, "SESSION_STORE_UNAVAILABLE", "Session service is temporarily unavailable", nil)
 }
 
 func cacheUser(ctx context.Context, user User) {

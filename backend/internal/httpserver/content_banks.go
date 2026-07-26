@@ -1,7 +1,6 @@
 package httpserver
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
 	"strings"
@@ -30,12 +29,12 @@ func handleBankUpdate(w http.ResponseWriter, r *http.Request, pool *pgxpool.Pool
 	if !ok {
 		return
 	}
-	var body struct {
+	body, err := decodeJSONBodyStrict[struct {
 		Name        *string `json:"name"`
 		Description *string `json:"description"`
 		IsPublic    *bool   `json:"isPublic"`
-	}
-	if err := readJSONBody(r, &body); err != nil {
+	}](r)
+	if err != nil {
 		api.HandleError(w, r, err)
 		return
 	}
@@ -85,14 +84,14 @@ func handleBankItemsReorder(w http.ResponseWriter, r *http.Request, pool *pgxpoo
 	if !ok {
 		return
 	}
-	var body struct {
+	body, err := decodeJSONBodyStrict[struct {
 		Items []struct {
 			QuestionID *int64 `json:"questionId"`
 			GroupID    *int64 `json:"groupId"`
 			SortOrder  int    `json:"sortOrder"`
 		} `json:"items"`
-	}
-	if err := readJSONBody(r, &body); err != nil {
+	}](r)
+	if err != nil {
 		api.HandleError(w, r, err)
 		return
 	}
@@ -140,16 +139,7 @@ func handleBankQuestionCreate(w http.ResponseWriter, r *http.Request, pool *pgxp
 	if !ok {
 		return
 	}
-	raw, err := readRawBody(r)
-	if err != nil {
-		api.HandleError(w, r, err)
-		return
-	}
-	if err := api.ValidateQuestionPayload(raw); err != nil {
-		api.HandleError(w, r, err)
-		return
-	}
-	var body struct {
+	body, err := decodeJSONBodyStrict[struct {
 		QuestionTypeID string  `json:"questionTypeId"`
 		AnswerMode     string  `json:"answerMode"`
 		Stem           string  `json:"stem"`
@@ -162,9 +152,9 @@ func handleBankQuestionCreate(w http.ResponseWriter, r *http.Request, pool *pgxp
 			IsCorrect bool   `json:"isCorrect"`
 		} `json:"options"`
 		AnswerPayload map[string]any `json:"answerPayload"`
-	}
-	if err := json.Unmarshal(raw, &body); err != nil {
-		api.HandleError(w, r, api.NewError(http.StatusBadRequest, "INVALID_JSON", "Request body must be valid JSON", nil))
+	}](r)
+	if err != nil {
+		api.HandleError(w, r, err)
 		return
 	}
 	options := make([]services.QuestionOptionInput, 0, len(body.Options))
@@ -180,7 +170,7 @@ func handleBankQuestionCreate(w http.ResponseWriter, r *http.Request, pool *pgxp
 		Status:         body.Status,
 		Options:        options,
 		AnswerPayload:  body.AnswerPayload,
-	}, nil)
+	})
 	if err != nil {
 		api.HandleError(w, r, err)
 		return
@@ -193,14 +183,14 @@ func handleBankGroupCreate(w http.ResponseWriter, r *http.Request, pool *pgxpool
 	if !ok {
 		return
 	}
-	var body struct {
+	body, err := decodeJSONBodyStrict[struct {
 		Title        string  `json:"title"`
 		Instructions *string `json:"instructions"`
 		GroupTypeID  *string `json:"groupTypeId"`
 		ContentMode  *string `json:"contentMode"`
 		Status       string  `json:"status"`
-	}
-	if err := readJSONBody(r, &body); err != nil {
+	}](r)
+	if err != nil {
 		api.HandleError(w, r, err)
 		return
 	}

@@ -2,180 +2,16 @@ package httpserver
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
-	"openwook/internal/auth"
-	"openwook/internal/services"
+	"openwook/internal/api"
 )
 
-func TestNewServerRegistersAuthAdminAndMediaRoutes(t *testing.T) {
-	tests := []struct {
-		name       string
-		deps       ServerDependencies
-		method     string
-		target     string
-		wantStatus int
-		wantBody   string
-	}{
-		{
-			name:       "auth register",
-			deps:       ServerDependencies{Auth: AuthHandlers{Register: routeStubHandler(http.StatusCreated, "auth-register")}},
-			method:     http.MethodPost,
-			target:     "/api/v1/auth/register",
-			wantStatus: http.StatusCreated,
-			wantBody:   "auth-register",
-		},
-		{
-			name:       "auth login",
-			deps:       ServerDependencies{Auth: AuthHandlers{Login: routeStubHandler(http.StatusOK, "auth-login")}},
-			method:     http.MethodPost,
-			target:     "/api/v1/auth/login",
-			wantStatus: http.StatusOK,
-			wantBody:   "auth-login",
-		},
-		{
-			name:       "auth logout",
-			deps:       ServerDependencies{Auth: AuthHandlers{Logout: routeStubHandler(http.StatusNoContent, "")}},
-			method:     http.MethodPost,
-			target:     "/api/v1/auth/logout",
-			wantStatus: http.StatusNoContent,
-		},
-		{
-			name:       "auth me",
-			deps:       ServerDependencies{Auth: AuthHandlers{Me: routeStubHandler(http.StatusOK, "auth-me")}},
-			method:     http.MethodGet,
-			target:     "/api/v1/auth/me",
-			wantStatus: http.StatusOK,
-			wantBody:   "auth-me",
-		},
-		{
-			name:       "admin overview",
-			deps:       ServerDependencies{Admin: AdminHandlers{Overview: routeStubHandler(http.StatusOK, "admin-overview")}},
-			method:     http.MethodGet,
-			target:     "/api/v1/admin/overview",
-			wantStatus: http.StatusOK,
-			wantBody:   "admin-overview",
-		},
-		{
-			name:       "admin users",
-			deps:       ServerDependencies{Admin: AdminHandlers{Users: routeStubHandler(http.StatusOK, "admin-users")}},
-			method:     http.MethodGet,
-			target:     "/api/v1/admin/users",
-			wantStatus: http.StatusOK,
-			wantBody:   "admin-users",
-		},
-		{
-			name:       "admin knowledge points",
-			deps:       ServerDependencies{Admin: AdminHandlers{KnowledgePoints: routeStubHandler(http.StatusOK, "admin-knowledge-points")}},
-			method:     http.MethodGet,
-			target:     "/api/v1/admin/knowledge-points",
-			wantStatus: http.StatusOK,
-			wantBody:   "admin-knowledge-points",
-		},
-		{
-			name:       "user status",
-			deps:       ServerDependencies{Admin: AdminHandlers{SetUserStatus: routeStubHandler(http.StatusOK, "user-status")}},
-			method:     http.MethodPatch,
-			target:     "/api/v1/users/17/status",
-			wantStatus: http.StatusOK,
-			wantBody:   "user-status",
-		},
-		{
-			name:       "user access",
-			deps:       ServerDependencies{Admin: AdminHandlers{UpdateUserAccess: routeStubHandler(http.StatusOK, "user-access")}},
-			method:     http.MethodPatch,
-			target:     "/api/v1/users/17/access",
-			wantStatus: http.StatusOK,
-			wantBody:   "user-access",
-		},
-		{
-			name:       "knowledge point create",
-			deps:       ServerDependencies{Admin: AdminHandlers{CreateKnowledgePoint: routeStubHandler(http.StatusCreated, "knowledge-point-create")}},
-			method:     http.MethodPost,
-			target:     "/api/v1/knowledge-points",
-			wantStatus: http.StatusCreated,
-			wantBody:   "knowledge-point-create",
-		},
-		{
-			name:       "knowledge point update",
-			deps:       ServerDependencies{Admin: AdminHandlers{UpdateKnowledgePoint: routeStubHandler(http.StatusOK, "knowledge-point-update")}},
-			method:     http.MethodPatch,
-			target:     "/api/v1/knowledge-points/9",
-			wantStatus: http.StatusOK,
-			wantBody:   "knowledge-point-update",
-		},
-		{
-			name:       "media create",
-			deps:       ServerDependencies{Media: MediaHandlers{Create: routeStubHandler(http.StatusCreated, "media-create")}},
-			method:     http.MethodPost,
-			target:     "/api/v1/media",
-			wantStatus: http.StatusCreated,
-			wantBody:   "media-create",
-		},
-		{
-			name:       "media get",
-			deps:       ServerDependencies{Media: MediaHandlers{Get: routeStubHandler(http.StatusOK, "media-get")}},
-			method:     http.MethodGet,
-			target:     "/api/v1/media/11",
-			wantStatus: http.StatusOK,
-			wantBody:   "media-get",
-		},
-		{
-			name:       "media delete",
-			deps:       ServerDependencies{Media: MediaHandlers{Delete: routeStubHandler(http.StatusNoContent, "")}},
-			method:     http.MethodDelete,
-			target:     "/api/v1/media/11",
-			wantStatus: http.StatusNoContent,
-		},
-		{
-			name:       "question media link",
-			deps:       ServerDependencies{Media: MediaHandlers{LinkQuestion: routeStubHandler(http.StatusCreated, "question-media-link")}},
-			method:     http.MethodPost,
-			target:     "/api/v1/questions/3/media-links",
-			wantStatus: http.StatusCreated,
-			wantBody:   "question-media-link",
-		},
-		{
-			name:       "group media link",
-			deps:       ServerDependencies{Media: MediaHandlers{LinkGroup: routeStubHandler(http.StatusCreated, "group-media-link")}},
-			method:     http.MethodPost,
-			target:     "/api/v1/groups/4/media-links",
-			wantStatus: http.StatusCreated,
-			wantBody:   "group-media-link",
-		},
-		{
-			name:       "option media link",
-			deps:       ServerDependencies{Media: MediaHandlers{LinkOption: routeStubHandler(http.StatusCreated, "option-media-link")}},
-			method:     http.MethodPost,
-			target:     "/api/v1/options/5/media-links",
-			wantStatus: http.StatusCreated,
-			wantBody:   "option-media-link",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			handler := newRoutesServerUnderTest(t, tt.deps)
-
-			rr := httptest.NewRecorder()
-			req := httptest.NewRequest(tt.method, "https://app.example.test"+tt.target, nil)
-
-			handler.ServeHTTP(rr, req)
-
-			if rr.Code != tt.wantStatus {
-				t.Fatalf("status = %d, want %d", rr.Code, tt.wantStatus)
-			}
-			if got := rr.Body.String(); got != tt.wantBody {
-				t.Fatalf("body = %q, want %q", got, tt.wantBody)
-			}
-		})
-	}
-}
-
-func TestNewServerUsesMethodSpecificRouteRegistrationForSharedPaths(t *testing.T) {
+func TestNewServerRoutesSharedPathsPathValuesAndUnknownMethods(t *testing.T) {
 	handler := newRoutesServerUnderTest(t, ServerDependencies{
 		Reference: ReferenceHandlers{
 			KnowledgePoints: routeStubHandler(http.StatusOK, "reference-knowledge-points"),
@@ -184,7 +20,9 @@ func TestNewServerUsesMethodSpecificRouteRegistrationForSharedPaths(t *testing.T
 			CreateKnowledgePoint: routeStubHandler(http.StatusCreated, "admin-create-knowledge-point"),
 		},
 		Media: MediaHandlers{
-			Get: routeStubHandler(http.StatusOK, "media-get"),
+			Get: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				_, _ = w.Write([]byte(r.PathValue("mediaId")))
+			}),
 		},
 	})
 
@@ -216,73 +54,61 @@ func TestNewServerUsesMethodSpecificRouteRegistrationForSharedPaths(t *testing.T
 		}
 	})
 
+	t.Run("native path value reaches handler", func(t *testing.T) {
+		rr := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "https://app.example.test/api/v1/media/11", nil)
+
+		handler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK || rr.Body.String() != "11" {
+			t.Fatalf("response = (%d, %q), want (200, %q)", rr.Code, rr.Body.String(), "11")
+		}
+	})
+
 	t.Run("unsupported method falls through to api not found", func(t *testing.T) {
 		rr := httptest.NewRecorder()
 		req := httptest.NewRequest(http.MethodPost, "https://app.example.test/api/v1/media/11", nil)
 
 		handler.ServeHTTP(rr, req)
 
-		if rr.Code != http.StatusNotFound {
-			t.Fatalf("status = %d, want %d", rr.Code, http.StatusNotFound)
+		assertErrorEnvelope(t, rr, http.StatusNotFound, "NOT_FOUND", "Endpoint not found")
+		if got := rr.Header().Get("Cache-Control"); got != "no-store" {
+			t.Fatalf("Cache-Control = %q, want no-store", got)
 		}
 	})
 }
 
-func TestBuildAdminAndMediaHandlersKeepValidationTight(t *testing.T) {
-	t.Run("set user status rejects invalid path ids before calling service", func(t *testing.T) {
-		handler := RequestID(buildAdminHandlers(adminRouteDependencies{
-			currentUser: func(*http.Request) (*auth.User, error) {
-				return &auth.User{ID: 7, Username: "alice", IsActive: true, Role: "admin"}, nil
-			},
-			setUserStatus: func(context.Context, auth.User, int64, bool) (*services.UserRecord, error) {
-				t.Fatal("setUserStatus should not be called")
-				return nil, nil
-			},
-		}).SetUserStatus)
+func TestDecodeJSONBodyStrictRejectsOversizedBody(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/media", strings.NewReader(`{"storagePath":"`+strings.Repeat("x", 2*1024*1024)+`"}`))
+	req = req.WithContext(api.WithRequestID(req.Context(), "req-json-limit"))
 
-		rr := httptest.NewRecorder()
-		req := httptest.NewRequest(http.MethodPatch, "https://app.example.test/api/v1/users/nope/status", strings.NewReader(`{"isActive":true}`))
+	_, err := decodeJSONBodyStrict[mediaCreateRequest](req)
+	if err == nil {
+		t.Fatal("decodeJSONBodyStrict error = nil, want body size error")
+	}
+	var tooLarge *http.MaxBytesError
+	if !errors.As(err, &tooLarge) {
+		t.Fatalf("decodeJSONBodyStrict error = %T, want *http.MaxBytesError", err)
+	}
 
-		handler.ServeHTTP(rr, req)
+	rr := httptest.NewRecorder()
+	api.HandleError(rr, req, err)
+	assertErrorEnvelope(t, rr, http.StatusRequestEntityTooLarge, "REQUEST_TOO_LARGE", "Request body is too large")
+}
 
-		if rr.Code != http.StatusUnprocessableEntity {
-			t.Fatalf("status = %d, want %d", rr.Code, http.StatusUnprocessableEntity)
-		}
-		body := decodeJSONBody(t, rr.Body.Bytes())
-		errorBody := mustObject(t, body["error"], "error")
-		if got := errorBody["code"]; got != "VALIDATION_ERROR" {
-			t.Fatalf("error.code = %#v, want %q", got, "VALIDATION_ERROR")
-		}
-		if got := errorBody["message"]; got != "Invalid userId" {
-			t.Fatalf("error.message = %#v, want %q", got, "Invalid userId")
-		}
-	})
+func TestDecodeJSONBodyStrictLimitAllowsExplicitLargerLimit(t *testing.T) {
+	value := strings.Repeat("x", 2*1024*1024)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/import-jobs/1/file", strings.NewReader(`{"value":"`+value+`"}`))
 
-	t.Run("media create rejects unknown JSON fields", func(t *testing.T) {
-		handler := RequestID(buildMediaHandlers(mediaRouteDependencies{
-			currentUser: func(*http.Request) (*auth.User, error) {
-				return &auth.User{ID: 7, Username: "alice", IsActive: true}, nil
-			},
-			createMediaAsset: func(context.Context, services.CreateMediaAssetInput) (*services.MediaAsset, error) {
-				t.Fatal("createMediaAsset should not be called")
-				return nil, nil
-			},
-		}).Create)
-
-		rr := httptest.NewRecorder()
-		req := httptest.NewRequest(http.MethodPost, "https://app.example.test/api/v1/media", strings.NewReader(`{"storagePath":"oss://media/1","extra":true}`))
-
-		handler.ServeHTTP(rr, req)
-
-		if rr.Code != http.StatusBadRequest {
-			t.Fatalf("status = %d, want %d", rr.Code, http.StatusBadRequest)
-		}
-		body := decodeJSONBody(t, rr.Body.Bytes())
-		errorBody := mustObject(t, body["error"], "error")
-		if got := errorBody["code"]; got != "INVALID_JSON" {
-			t.Fatalf("error.code = %#v, want %q", got, "INVALID_JSON")
-		}
-	})
+	body, err := decodeJSONBodyStrictLimit[struct {
+		Value string `json:"value"`
+	}](req, 3*1024*1024)
+	if err != nil {
+		t.Fatalf("decodeJSONBodyStrictLimit returned error: %v", err)
+	}
+	if body.Value != value {
+		t.Fatalf("decoded value length = %d, want %d", len(body.Value), len(value))
+	}
 }
 
 func newRoutesServerUnderTest(t *testing.T, deps ServerDependencies) http.Handler {

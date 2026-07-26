@@ -20,6 +20,7 @@ type importJobRecord struct {
 	BankID     *int64
 	FileName   *string
 	SourceType *string
+	Status     string
 }
 
 type importArtifactRecord struct {
@@ -27,31 +28,44 @@ type importArtifactRecord struct {
 	ContentJSON *string
 }
 
-func processQueuedJob(ctx context.Context, pool *pgxpool.Pool, client *aiclient.Client, payload importqueue.QueuePayload) error {
-	job, err := loadImportJob(ctx, pool, int64(payload.JobID))
+func processQueuedJob(ctx context.Context, pool *pgxpool.Pool, client *aiclient.Client, claimed importqueue.ClaimedJob) (bool, error) {
+	job, err := loadImportJob(ctx, pool, claimed.ID)
 	if err != nil {
-		return err
+		return false, err
+	}
+	if job.Status != "processing" {
+		return false, nil
 	}
 	user, err := auth.CurrentUserByID(ctx, pool, int(job.CreatedBy))
 	if err != nil {
-		return err
+		return false, err
 	}
 	if user == nil {
-		return fmt.Errorf("import worker user %d not found", job.CreatedBy)
+		return false, fmt.Errorf("import worker user %d not found", job.CreatedBy)
+	}
+	if !user.IsActive {
+		return false, fmt.Errorf("import worker user %d is inactive", job.CreatedBy)
 	}
 	if err := recordImportEvent(ctx, pool, job.ID, "processing", "parse", "处理中", "processing", nil, 10, 10); err != nil {
-		return err
+		return false, err
 	}
 	request, err := buildParseRequest(ctx, pool, job)
 	if err != nil {
-		return err
+		return false, err
 	}
 	result, err := client.ParseDocument(ctx, request)
 	if err != nil {
-		return err
+		return false, err
 	}
 	createdCount := 0
-	if payload.PersistQuestions && job.BankID != nil {
+	persistenceStarted := false
+	if claimed.PersistQuestions && job.BankID != nil {
+		if len(result.Questions) > 0 {
+			if err := importqueue.BeginPersistence(ctx, pool, job.ID, claimed.ClaimVersion); err != nil {
+				return false, err
+			}
+			persistenceStarted = true
+		}
 		for _, parsed := range result.Questions {
 			input := services.CreateQuestionInput{
 				QuestionTypeID: parsed.QuestionTypeID,
@@ -69,36 +83,34 @@ func processQueuedJob(ctx context.Context, pool *pgxpool.Pool, client *aiclient.
 				}
 				input.ChoiceVariant = &variant
 			}
-			question, err := services.CreateQuestion(ctx, pool, user, *job.BankID, input, nil)
-			if err != nil {
-				return err
-			}
-			if len(parsed.ContentBlocks) > 0 {
-				if err := services.ReplaceQuestionContentBlocks(ctx, pool, user, question.ID, mapContentBlocks(parsed.ContentBlocks)); err != nil {
-					return err
-				}
-			}
-			if err := insertOutputRow(ctx, pool, job.ID, question.ID, parsed.Confidence, parsed); err != nil {
-				return err
+			if _, err := services.PersistImportedQuestion(ctx, pool, user, *job.BankID, services.PersistImportedQuestionInput{
+				JobID:          job.ID,
+				ClaimVersion:   claimed.ClaimVersion,
+				Question:       input,
+				ContentBlocks:  mapContentBlocks(parsed.ContentBlocks),
+				Confidence:     parsed.Confidence,
+				OutputMetadata: map[string]any{"sourceText": parsed.SourceText, "needsReview": parsed.NeedsReview},
+			}); err != nil {
+				return persistenceStarted, err
 			}
 			createdCount++
 		}
 	}
-	if err := completeImportJob(ctx, pool, job.ID, createdCount, result); err != nil {
-		return err
+	if err := completeImportJob(ctx, pool, job.ID, claimed.ClaimVersion, createdCount, result); err != nil {
+		return persistenceStarted, err
 	}
-	return recordImportEvent(ctx, pool, job.ID, "completed", "complete", "导入完成", "completed", nil, 100, 100)
+	return persistenceStarted, recordImportEvent(ctx, pool, job.ID, "completed", "complete", "导入完成", "completed", nil, 100, 100)
 }
 
 func loadImportJob(ctx context.Context, pool *pgxpool.Pool, jobID int64) (*importJobRecord, error) {
 	row := pool.QueryRow(ctx, `
-		SELECT id, created_by, bank_id, file_name, source_type
+		SELECT id, created_by, bank_id, file_name, source_type, status
 		FROM question_import_jobs
 		WHERE id = $1
 		LIMIT 1
 	`, jobID)
 	var job importJobRecord
-	if err := row.Scan(&job.ID, &job.CreatedBy, &job.BankID, &job.FileName, &job.SourceType); err != nil {
+	if err := row.Scan(&job.ID, &job.CreatedBy, &job.BankID, &job.FileName, &job.SourceType, &job.Status); err != nil {
 		return nil, err
 	}
 	return &job, nil
@@ -108,8 +120,9 @@ func buildParseRequest(ctx context.Context, pool *pgxpool.Pool, job *importJobRe
 	rows, err := pool.Query(ctx, `
 		SELECT storage_path, content_json
 		FROM question_import_job_artifacts
-		WHERE job_id = $1
-		ORDER BY id
+		WHERE job_id = $1 AND artifact_type = 'source_file'
+		ORDER BY id DESC
+		LIMIT 1
 	`, job.ID)
 	if err != nil {
 		return aiclient.DocumentParseRequest{}, err
@@ -155,7 +168,7 @@ func buildParseRequest(ctx context.Context, pool *pgxpool.Pool, job *importJobRe
 	return request, rows.Err()
 }
 
-func completeImportJob(ctx context.Context, pool *pgxpool.Pool, jobID int64, importedQuestions int, result *aiclient.DocumentParseResult) error {
+func completeImportJob(ctx context.Context, pool *pgxpool.Pool, jobID, claimVersion int64, importedQuestions int, result *aiclient.DocumentParseResult) error {
 	rawResult, err := json.Marshal(result)
 	if err != nil {
 		return err
@@ -164,7 +177,7 @@ func completeImportJob(ctx context.Context, pool *pgxpool.Pool, jobID int64, imp
 	if err != nil {
 		return err
 	}
-	_, err = pool.Exec(ctx, `
+	tag, err := pool.Exec(ctx, `
 		UPDATE question_import_jobs
 		SET status = 'completed',
 		    stage = 'completed',
@@ -176,23 +189,18 @@ func completeImportJob(ctx context.Context, pool *pgxpool.Pool, jobID int64, imp
 		    overall_progress_percent = 100,
 		    step_progress_percent = 100,
 		    completed_at = NOW(),
+		    available_at = NULL,
 		    last_error = NULL,
 		    last_error_code = NULL
-		WHERE id = $1
-	`, jobID, len(result.Questions), importedQuestions, string(rawResult), string(warnings), result.QualityScore)
-	return err
-}
-
-func insertOutputRow(ctx context.Context, pool *pgxpool.Pool, jobID int64, questionID int64, confidence float64, parsed aiclient.ParsedQuestion) error {
-	metadata, err := json.Marshal(map[string]any{"sourceText": parsed.SourceText, "needsReview": parsed.NeedsReview})
+		WHERE id = $1 AND status = 'processing' AND claim_version = $7
+	`, jobID, len(result.Questions), importedQuestions, string(rawResult), string(warnings), result.QualityScore, claimVersion)
 	if err != nil {
 		return err
 	}
-	_, err = pool.Exec(ctx, `
-		INSERT INTO question_import_job_outputs (job_id, output_kind, question_id, confidence, metadata_json)
-		VALUES ($1, 'question', $2, $3, $4)
-	`, jobID, questionID, confidence, string(metadata))
-	return err
+	if tag.RowsAffected() == 0 {
+		return importqueue.ErrClaimLost
+	}
+	return nil
 }
 
 func recordImportEvent(ctx context.Context, pool *pgxpool.Pool, jobID int64, stage, stepCode, stepLabel, status string, message *string, overall, step int) error {
@@ -207,7 +215,6 @@ func recordImportEvent(ctx context.Context, pool *pgxpool.Pool, jobID int64, sta
 	_, _ = pool.Exec(ctx, `UPDATE question_import_jobs SET last_event_id = $2, last_event_at = NOW() WHERE id = $1`, jobID, eventID)
 	payload := map[string]any{"id": eventID, "job_id": jobID, "stage": stage, "step_code": stepCode, "step_label": stepLabel, "status": status, "message": derefString(message), "overall_progress_percent": overall, "step_progress_percent": step}
 	if rdb := redisx.Client(); rdb != nil {
-		_ = redisx.AppendStreamJSON(ctx, rdb, redisx.ImportEventStreamKey(jobID), payload)
 		_ = redisx.PublishJSON(ctx, rdb, redisx.ImportEventChannel(jobID), payload)
 	}
 	return nil

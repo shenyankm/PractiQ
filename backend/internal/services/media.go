@@ -6,7 +6,6 @@ import (
 
 	"openwook/internal/api"
 	"openwook/internal/auth"
-	"openwook/internal/redisx"
 )
 
 type MediaAsset struct {
@@ -105,7 +104,10 @@ func GetMediaAsset(ctx context.Context, db queryer, _ auth.User, mediaID int64) 
 	return &item, rows.Err()
 }
 
-func DeleteMediaAsset(ctx context.Context, db execer, _ auth.User, mediaID int64) error {
+func DeleteMediaAsset(ctx context.Context, db execer, user auth.User, mediaID int64) error {
+	if err := requireAdminRole(user); err != nil {
+		return err
+	}
 	_, err := db.Exec(ctx, `DELETE FROM media_assets WHERE id = $1`, mediaID)
 	return err
 }
@@ -130,7 +132,6 @@ func LinkQuestionMedia(ctx context.Context, db queryer, user auth.User, question
 	if err != nil {
 		return nil, err
 	}
-	invalidateQuestionCachesForMedia(ctx, db, questionID)
 	return &item, rows.Err()
 }
 
@@ -154,7 +155,6 @@ func LinkGroupMedia(ctx context.Context, db queryer, user auth.User, groupID int
 	if err != nil {
 		return nil, err
 	}
-	invalidateGroupBankCaches(ctx, db, groupID)
 	return &item, rows.Err()
 }
 
@@ -182,7 +182,6 @@ func LinkOptionMedia(ctx context.Context, db queryer, user auth.User, optionID i
 	if err != nil {
 		return nil, err
 	}
-	invalidateQuestionCachesForMedia(ctx, db, questionID)
 	return &item, rows.Err()
 }
 
@@ -287,49 +286,6 @@ func optionQuestionID(ctx context.Context, db queryer, optionID int64) (int64, e
 		return 0, err
 	}
 	return questionID, rows.Err()
-}
-
-func invalidateQuestionCachesForMedia(ctx context.Context, db queryer, questionID int64) {
-	if rdb := redisx.Client(); rdb != nil {
-		redisx.Delete(ctx, rdb, redisx.RedisKey("cache", "answer-key", questionID))
-	}
-	bumpSliceCacheVersion(ctx, "question", questionID)
-	rows, err := db.Query(ctx, `
-		SELECT bank_id FROM bank_question_links WHERE question_id = $1
-		UNION
-		SELECT bgl.bank_id
-		FROM bank_group_links bgl
-		JOIN group_question_links gql ON gql.group_id = bgl.group_id
-		WHERE gql.question_id = $1
-	`, questionID)
-	if err != nil {
-		return
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var bankID int64
-		if err := rows.Scan(&bankID); err == nil {
-			bumpSliceCacheVersion(ctx, "bank", bankID)
-			bumpSliceCacheVersion(ctx, "bank-items", bankID)
-			bumpSliceCacheVersion(ctx, "bank-practice-summary", bankID)
-		}
-	}
-}
-
-func invalidateGroupBankCaches(ctx context.Context, db queryer, groupID int64) {
-	rows, err := db.Query(ctx, `SELECT bank_id FROM bank_group_links WHERE group_id = $1`, groupID)
-	if err != nil {
-		return
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var bankID int64
-		if err := rows.Scan(&bankID); err == nil {
-			bumpSliceCacheVersion(ctx, "bank", bankID)
-			bumpSliceCacheVersion(ctx, "bank-items", bankID)
-			bumpSliceCacheVersion(ctx, "bank-practice-summary", bankID)
-		}
-	}
 }
 
 func linkSortOrder(value *int) int {

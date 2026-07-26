@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"openwook/internal/api"
 	"openwook/internal/auth"
+	importqueue "openwook/internal/imports"
 )
 
 const questionColumns = `
@@ -36,6 +38,16 @@ const questionColumns = `
 	imported_by,
 	created_at,
 	updated_at
+`
+
+const persistImportedQuestionClaimSQL = `
+	UPDATE question_import_jobs
+	SET updated_at = NOW()
+	WHERE id = $1
+	  AND status = 'processing'
+	  AND stage = 'persisting'
+	  AND claim_version = $2
+	RETURNING id
 `
 
 type Question struct {
@@ -92,7 +104,6 @@ type QuestionContentBlock struct {
 	QuestionID    *int64    `json:"question_id"`
 	GroupID       *int64    `json:"group_id"`
 	OptionID      *int64    `json:"option_id"`
-	SubquestionID *int64    `json:"subquestion_id"`
 	MediaID       *int64    `json:"media_id"`
 	OwnerKind     string    `json:"owner_kind"`
 	Role          *string   `json:"role"`
@@ -133,11 +144,6 @@ type CreateQuestionInput struct {
 	AnswerPayload  map[string]any
 }
 
-type CreateQuestionOptions struct {
-	InvalidateCaches    *bool
-	ResolveQuestionType *bool
-}
-
 type UpdateQuestionInput struct {
 	Stem     *string
 	Analysis *string
@@ -171,18 +177,6 @@ type UpdateOptionInput struct {
 	SortOrder *int
 }
 
-type UpsertQuestionMetadataInput struct {
-	DifficultyLevel    *string
-	DifficultyScore    *float64
-	GradeLevel         *string
-	ExamType           *string
-	CurriculumStandard *string
-	TextbookVersion    *string
-	KnowledgeTags      []string
-	SkillTags          []string
-	Metadata           map[string]any
-}
-
 type QuestionContentBlockInput struct {
 	OwnerKind     *string
 	Role          *string
@@ -197,6 +191,15 @@ type QuestionContentBlockInput struct {
 	MarkdownValue *string
 	JSONValue     any
 	MediaID       *int64
+}
+
+type PersistImportedQuestionInput struct {
+	JobID          int64
+	ClaimVersion   int64
+	Question       CreateQuestionInput
+	ContentBlocks  []QuestionContentBlockInput
+	Confidence     float64
+	OutputMetadata map[string]any
 }
 
 func GetQuestion(ctx context.Context, db *pgxpool.Pool, user *auth.User, questionID int64) (*QuestionDetail, error) {
@@ -303,43 +306,89 @@ func GetQuestion(ctx context.Context, db *pgxpool.Pool, user *auth.User, questio
 	return detail, nil
 }
 
-func CreateQuestion(ctx context.Context, db *pgxpool.Pool, user *auth.User, bankID int64, input CreateQuestionInput, options *CreateQuestionOptions) (*Question, error) {
-	bank, err := RequireBankOwner(ctx, db, user, bankID)
+func CreateQuestion(ctx context.Context, db *pgxpool.Pool, user *auth.User, bankID int64, input CreateQuestionInput) (*Question, error) {
+	bank, questionTypeID, status, err := prepareQuestionCreate(ctx, db, user, bankID, input)
 	if err != nil {
 		return nil, err
 	}
-	if err := validateQuestionPayload(input.AnswerMode, input.Status, input.Options, input.AnswerPayload); err != nil {
+	return withTx(ctx, db, func(tx pgx.Tx) (*Question, error) {
+		return createQuestionTx(ctx, tx, user, bankID, bank.Subject, questionTypeID, status, input)
+	})
+}
+
+func PersistImportedQuestion(ctx context.Context, db *pgxpool.Pool, user *auth.User, bankID int64, input PersistImportedQuestionInput) (*Question, error) {
+	bank, questionTypeID, status, err := prepareQuestionCreate(ctx, db, user, bankID, input.Question)
+	if err != nil {
 		return nil, err
 	}
-
-	questionTypeID := strings.TrimSpace(input.QuestionTypeID)
-	if boolValue(options, func(v *CreateQuestionOptions) *bool { return v.ResolveQuestionType }, true) {
-		mode := strings.TrimSpace(input.AnswerMode)
-		resolved, err := ResolveQuestionTypeIDForSubject(ctx, db, bank.Subject, questionTypeID, &mode, "question")
+	metadata, err := json.Marshal(input.OutputMetadata)
+	if err != nil {
+		return nil, err
+	}
+	return withTx(ctx, db, func(tx pgx.Tx) (*Question, error) {
+		var jobID int64
+		if err := tx.QueryRow(ctx, persistImportedQuestionClaimSQL, input.JobID, input.ClaimVersion).Scan(&jobID); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return nil, importqueue.ErrClaimLost
+			}
+			return nil, err
+		}
+		question, err := createQuestionTx(ctx, tx, user, bankID, bank.Subject, questionTypeID, status, input.Question)
 		if err != nil {
 			return nil, err
 		}
-		questionTypeID = resolved
+		if err := replaceQuestionContentBlocksTx(ctx, tx, question.ID, input.ContentBlocks); err != nil {
+			return nil, err
+		}
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO question_import_job_outputs (job_id, output_kind, question_id, confidence, metadata_json)
+			VALUES ($1, 'question', $2, $3, $4)
+		`, jobID, question.ID, input.Confidence, string(metadata)); err != nil {
+			return nil, err
+		}
+		return question, nil
+	})
+}
+
+func prepareQuestionCreate(ctx context.Context, db *pgxpool.Pool, user *auth.User, bankID int64, input CreateQuestionInput) (*BankOwner, string, string, error) {
+	if err := validateCreateQuestionInput(input); err != nil {
+		return nil, "", "", err
 	}
+	bank, err := RequireBankOwner(ctx, db, user, bankID)
+	if err != nil {
+		return nil, "", "", err
+	}
+	if err := validateQuestionPayload(input.AnswerMode, input.Status, input.Options, input.AnswerPayload); err != nil {
+		return nil, "", "", err
+	}
+	questionTypeID := strings.TrimSpace(input.QuestionTypeID)
+	mode := strings.TrimSpace(input.AnswerMode)
+	resolved, err := ResolveQuestionTypeIDForSubject(ctx, db, bank.Subject, questionTypeID, &mode, "question")
+	if err != nil {
+		return nil, "", "", err
+	}
+	questionTypeID = resolved
 	status, err := normalizeQuestionStatusOrDefault(input.Status, "draft")
 	if err != nil {
+		return nil, "", "", err
+	}
+	return bank, questionTypeID, status, nil
+}
+
+func createQuestionTx(ctx context.Context, tx pgx.Tx, user *auth.User, bankID int64, subject, questionTypeID, status string, input CreateQuestionInput) (*Question, error) {
+	if _, err := tx.Exec(ctx, `SELECT id FROM question_banks WHERE id = $1 FOR UPDATE`, bankID); err != nil {
+		return nil, err
+	}
+	var nextSort int
+	if err := tx.QueryRow(ctx, `
+		SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_sort
+		FROM bank_question_links
+		WHERE bank_id = $1
+	`, bankID).Scan(&nextSort); err != nil {
 		return nil, err
 	}
 
-	question, err := withTx(ctx, db, func(tx pgx.Tx) (*Question, error) {
-		if _, err := tx.Exec(ctx, `SELECT id FROM question_banks WHERE id = $1 FOR UPDATE`, bankID); err != nil {
-			return nil, err
-		}
-		var nextSort int
-		if err := tx.QueryRow(ctx, `
-			SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_sort
-			FROM bank_question_links
-			WHERE bank_id = $1
-		`, bankID).Scan(&nextSort); err != nil {
-			return nil, err
-		}
-
-		row := tx.QueryRow(ctx, `
+	row := tx.QueryRow(ctx, `
 			INSERT INTO questions (
 				subject_id,
 				question_type_id,
@@ -353,93 +402,63 @@ func CreateQuestion(ctx context.Context, db *pgxpool.Pool, user *auth.User, bank
 			)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, 'manual', $8)
 			RETURNING `+questionColumns+`
-		`, bank.Subject, questionTypeID, strings.TrimSpace(input.AnswerMode), input.ChoiceVariant, strings.TrimSpace(input.Stem), input.Analysis, status, user.ID)
-		created, err := scanQuestion(row)
-		if err != nil {
-			return nil, err
-		}
-
-		if _, err := tx.Exec(ctx, `
-			INSERT INTO question_answer_keys (question_id, answer_mode, answer_payload)
-			VALUES ($1, $2, $3)
-		`, created.ID, created.AnswerMode, marshalJSONObject(input.AnswerPayload)); err != nil {
-			return nil, err
-		}
-
-		switch created.AnswerMode {
-		case "choice":
-			selectionMode := "single"
-			if input.ChoiceVariant != nil && strings.TrimSpace(*input.ChoiceVariant) != "" {
-				selectionMode = strings.TrimSpace(*input.ChoiceVariant)
-			}
-			if _, err := tx.Exec(ctx, `
-				INSERT INTO question_choice_details (question_id, selection_mode)
-				VALUES ($1, $2)
-			`, created.ID, selectionMode); err != nil {
-				return nil, err
-			}
-			for index, option := range input.Options {
-				if _, err := tx.Exec(ctx, `
-					INSERT INTO question_options (question_id, option_label, sort_order, content, is_correct)
-					VALUES ($1, $2, $3, $4, $5)
-				`, created.ID, strings.TrimSpace(option.Label), index+1, option.Content, option.IsCorrect); err != nil {
-					return nil, err
-				}
-			}
-		case "true_false":
-			var answer any
-			if value, ok := input.AnswerPayload["value"].(bool); ok {
-				answer = value
-			}
-			if _, err := tx.Exec(ctx, `
-				INSERT INTO question_true_false_details (question_id, correct_answer)
-				VALUES ($1, $2)
-			`, created.ID, answer); err != nil {
-				return nil, err
-			}
-		case "fill_blank":
-			if _, err := tx.Exec(ctx, `
-				INSERT INTO question_fill_blank_details (question_id, correct_answer)
-				VALUES ($1, $2)
-			`, created.ID, marshalJSONObject(input.AnswerPayload)); err != nil {
-				return nil, err
-			}
-		default:
-			var answer any
-			if value, ok := input.AnswerPayload["value"].(string); ok {
-				trimmed := strings.TrimSpace(value)
-				if trimmed != "" {
-					answer = trimmed
-				}
-			}
-			if _, err := tx.Exec(ctx, `
-				INSERT INTO question_short_answer_details (question_id, correct_answer)
-				VALUES ($1, $2)
-			`, created.ID, answer); err != nil {
-				return nil, err
-			}
-		}
-
-		if _, err := tx.Exec(ctx, `
-			INSERT INTO bank_question_links (bank_id, question_id, sort_order, status, added_by)
-			VALUES ($1, $2, $3, $4, $5)
-		`, bankID, created.ID, nextSort, status, user.ID); err != nil {
-			return nil, err
-		}
-		if _, err := tx.Exec(ctx, `
-			UPDATE question_banks
-			SET total_count = total_count + 1
-			WHERE id = $1
-		`, bankID); err != nil {
-			return nil, err
-		}
-		return &created, nil
-	})
+		`, subject, questionTypeID, strings.TrimSpace(input.AnswerMode), input.ChoiceVariant, strings.TrimSpace(input.Stem), input.Analysis, status, user.ID)
+	created, err := scanQuestion(row)
 	if err != nil {
 		return nil, err
 	}
-	_ = boolValue(options, func(v *CreateQuestionOptions) *bool { return v.InvalidateCaches }, true)
-	return question, nil
+
+	if _, err := tx.Exec(ctx, `
+			INSERT INTO question_answer_keys (question_id, answer_mode, answer_payload)
+			VALUES ($1, $2, $3)
+	`, created.ID, created.AnswerMode, marshalJSONObject(input.AnswerPayload)); err != nil {
+		return nil, err
+	}
+
+	if created.AnswerMode == "choice" {
+		for index, option := range input.Options {
+			if _, err := tx.Exec(ctx, `
+					INSERT INTO question_options (question_id, option_label, sort_order, content, is_correct)
+					VALUES ($1, $2, $3, $4, $5)
+			`, created.ID, strings.TrimSpace(option.Label), index+1, option.Content, option.IsCorrect); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	if _, err := tx.Exec(ctx, `
+			INSERT INTO bank_question_links (bank_id, question_id, sort_order, status, added_by)
+			VALUES ($1, $2, $3, $4, $5)
+	`, bankID, created.ID, nextSort, status, user.ID); err != nil {
+		return nil, err
+	}
+	if _, err := tx.Exec(ctx, `
+			UPDATE question_banks
+			SET total_count = total_count + 1
+			WHERE id = $1
+	`, bankID); err != nil {
+		return nil, err
+	}
+	return &created, nil
+}
+
+func validateCreateQuestionInput(input CreateQuestionInput) error {
+	details := make([]api.ValidationDetail, 0, 3)
+	if strings.TrimSpace(input.QuestionTypeID) == "" {
+		details = append(details, api.ValidationDetail{Field: "questionTypeId", Message: "is required"})
+	}
+	switch strings.TrimSpace(input.AnswerMode) {
+	case "choice", "true_false", "fill_blank", "short_answer":
+	default:
+		details = append(details, api.ValidationDetail{Field: "answerMode", Message: "must be one of choice, true_false, fill_blank, short_answer"})
+	}
+	if strings.TrimSpace(input.Stem) == "" {
+		details = append(details, api.ValidationDetail{Field: "stem", Message: "is required"})
+	}
+	if len(details) > 0 {
+		return api.ValidationError(details)
+	}
+	return nil
 }
 
 func UpdateQuestion(ctx context.Context, db *pgxpool.Pool, user *auth.User, questionID int64, input UpdateQuestionInput) (*Question, error) {
@@ -649,114 +668,34 @@ func UpdateOption(ctx context.Context, db *pgxpool.Pool, user *auth.User, questi
 	return &option, nil
 }
 
-func UpsertQuestionMetadata(ctx context.Context, db *pgxpool.Pool, user *auth.User, questionID int64, input UpsertQuestionMetadataInput) (map[string]any, error) {
-	if err := EnsureQuestionEditable(ctx, db, user, questionID); err != nil {
-		return nil, err
-	}
-	row := db.QueryRow(ctx, `
-		INSERT INTO question_educational_metadata (
-			question_id,
-			difficulty_level,
-			difficulty_score,
-			grade_level,
-			exam_type,
-			curriculum_standard,
-			textbook_version,
-			knowledge_tags_json,
-			skill_tags_json,
-			metadata_json
-		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-		ON CONFLICT (question_id)
-		DO UPDATE SET
-			difficulty_level = EXCLUDED.difficulty_level,
-			difficulty_score = EXCLUDED.difficulty_score,
-			grade_level = EXCLUDED.grade_level,
-			exam_type = EXCLUDED.exam_type,
-			curriculum_standard = EXCLUDED.curriculum_standard,
-			textbook_version = EXCLUDED.textbook_version,
-			knowledge_tags_json = EXCLUDED.knowledge_tags_json,
-			skill_tags_json = EXCLUDED.skill_tags_json,
-			metadata_json = EXCLUDED.metadata_json
-		RETURNING question_id, difficulty_level, difficulty_score, grade_level, exam_type, curriculum_standard, textbook_version, knowledge_tags_json, skill_tags_json, metadata_json, created_at, updated_at
-	`, questionID, input.DifficultyLevel, input.DifficultyScore, input.GradeLevel, input.ExamType, input.CurriculumStandard, input.TextbookVersion, marshalJSONArray(input.KnowledgeTags), marshalJSONArray(input.SkillTags), marshalJSONObject(input.Metadata))
-
-	var out struct {
-		QuestionID         int64
-		DifficultyLevel    *string
-		DifficultyScore    *float64
-		GradeLevel         *string
-		ExamType           *string
-		CurriculumStandard *string
-		TextbookVersion    *string
-		KnowledgeTagsJSON  string
-		SkillTagsJSON      string
-		MetadataJSON       string
-		CreatedAt          time.Time
-		UpdatedAt          time.Time
-	}
-	if err := row.Scan(&out.QuestionID, &out.DifficultyLevel, &out.DifficultyScore, &out.GradeLevel, &out.ExamType, &out.CurriculumStandard, &out.TextbookVersion, &out.KnowledgeTagsJSON, &out.SkillTagsJSON, &out.MetadataJSON, &out.CreatedAt, &out.UpdatedAt); err != nil {
-		return nil, err
-	}
-	return map[string]any{
-		"question_id":         out.QuestionID,
-		"difficulty_level":    out.DifficultyLevel,
-		"difficulty_score":    out.DifficultyScore,
-		"grade_level":         out.GradeLevel,
-		"exam_type":           out.ExamType,
-		"curriculum_standard": out.CurriculumStandard,
-		"textbook_version":    out.TextbookVersion,
-		"knowledge_tags_json": out.KnowledgeTagsJSON,
-		"skill_tags_json":     out.SkillTagsJSON,
-		"metadata_json":       out.MetadataJSON,
-		"created_at":          out.CreatedAt,
-		"updated_at":          out.UpdatedAt,
-	}, nil
-}
-
-func ReplaceQuestionKnowledgePoints(ctx context.Context, db *pgxpool.Pool, user *auth.User, questionID int64, knowledgePointIDs []int64) error {
-	if err := EnsureQuestionEditable(ctx, db, user, questionID); err != nil {
-		return err
-	}
-	_, err := withTx(ctx, db, func(tx pgx.Tx) (struct{}, error) {
-		if _, err := tx.Exec(ctx, `DELETE FROM question_knowledge_point_links WHERE question_id = $1`, questionID); err != nil {
-			return struct{}{}, err
-		}
-		for _, knowledgePointID := range knowledgePointIDs {
-			if _, err := tx.Exec(ctx, `
-				INSERT INTO question_knowledge_point_links (question_id, knowledge_point_id, source_type)
-				VALUES ($1, $2, 'manual')
-			`, questionID, knowledgePointID); err != nil {
-				return struct{}{}, err
-			}
-		}
-		return struct{}{}, nil
-	})
-	return err
-}
-
 func ReplaceQuestionContentBlocks(ctx context.Context, db *pgxpool.Pool, user *auth.User, questionID int64, blocks []QuestionContentBlockInput) error {
 	if err := EnsureQuestionEditable(ctx, db, user, questionID); err != nil {
 		return err
 	}
 	_, err := withTx(ctx, db, func(tx pgx.Tx) (struct{}, error) {
-		if _, err := tx.Exec(ctx, `DELETE FROM question_content_blocks WHERE question_id = $1`, questionID); err != nil {
-			return struct{}{}, err
+		return struct{}{}, replaceQuestionContentBlocksTx(ctx, tx, questionID, blocks)
+	})
+	return err
+}
+
+func replaceQuestionContentBlocksTx(ctx context.Context, tx pgx.Tx, questionID int64, blocks []QuestionContentBlockInput) error {
+	if _, err := tx.Exec(ctx, `DELETE FROM question_content_blocks WHERE question_id = $1`, questionID); err != nil {
+		return err
+	}
+	for index, block := range blocks {
+		ownerKind := "question"
+		if block.OwnerKind != nil && strings.TrimSpace(*block.OwnerKind) != "" {
+			ownerKind = strings.TrimSpace(*block.OwnerKind)
 		}
-		for index, block := range blocks {
-			ownerKind := "question"
-			if block.OwnerKind != nil && strings.TrimSpace(*block.OwnerKind) != "" {
-				ownerKind = strings.TrimSpace(*block.OwnerKind)
-			}
-			sequence := index + 1
-			if block.Sequence != nil && *block.Sequence > 0 {
-				sequence = *block.Sequence
-			}
-			jsonValue, err := normalizeJSONValue(block.JSONValue)
-			if err != nil {
-				return struct{}{}, err
-			}
-			if _, err := tx.Exec(ctx, `
+		sequence := index + 1
+		if block.Sequence != nil && *block.Sequence > 0 {
+			sequence = *block.Sequence
+		}
+		jsonValue, err := normalizeJSONValue(block.JSONValue)
+		if err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `
 				INSERT INTO question_content_blocks (
 					question_id,
 					owner_kind,
@@ -774,13 +713,11 @@ func ReplaceQuestionContentBlocks(ctx context.Context, db *pgxpool.Pool, user *a
 					media_id
 				)
 				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-			`, questionID, ownerKind, block.Role, strings.TrimSpace(block.PartType), sequence, block.ContentMode, block.TextFormat, block.TextValue, block.LatexValue, block.MathMLValue, block.HTMLValue, block.MarkdownValue, jsonValue, block.MediaID); err != nil {
-				return struct{}{}, err
-			}
+		`, questionID, ownerKind, block.Role, strings.TrimSpace(block.PartType), sequence, block.ContentMode, block.TextFormat, block.TextValue, block.LatexValue, block.MathMLValue, block.HTMLValue, block.MarkdownValue, jsonValue, block.MediaID); err != nil {
+			return err
 		}
-		return struct{}{}, nil
-	})
-	return err
+	}
+	return nil
 }
 
 func EnsureQuestionEditable(ctx context.Context, db *pgxpool.Pool, user *auth.User, questionID int64) error {
@@ -1008,7 +945,7 @@ func normalizeQuestionStatusOrDefault(status string, fallback string) (string, e
 	}
 }
 
-func scanQuestion(row rowScanner) (Question, error) {
+func scanQuestion(row pgx.Row) (Question, error) {
 	var question Question
 	err := row.Scan(
 		&question.ID,
@@ -1037,13 +974,13 @@ func scanQuestion(row rowScanner) (Question, error) {
 	return question, err
 }
 
-func scanQuestionOption(row rowScanner) (QuestionOptionRecord, error) {
+func scanQuestionOption(row pgx.Row) (QuestionOptionRecord, error) {
 	var option QuestionOptionRecord
 	err := row.Scan(&option.ID, &option.QuestionID, &option.OptionLabel, &option.SortOrder, &option.Content, &option.IsCorrect, &option.CreatedAt, &option.UpdatedAt)
 	return option, err
 }
 
-func scanQuestionAnswerKey(row rowScanner) (QuestionAnswerKey, error) {
+func scanQuestionAnswerKey(row pgx.Row) (QuestionAnswerKey, error) {
 	var answerKey QuestionAnswerKey
 	err := row.Scan(&answerKey.ID, &answerKey.QuestionID, &answerKey.AnswerMode, &answerKey.Version, &answerKey.IsPrimary, &answerKey.AnswerPayload, &answerKey.ExplanationPayload, &answerKey.ScorePayload, &answerKey.CreatedAt, &answerKey.UpdatedAt)
 	return answerKey, err
@@ -1067,17 +1004,6 @@ func marshalJSONObject(value map[string]any) string {
 	return string(encoded)
 }
 
-func marshalJSONArray[T any](value []T) string {
-	if len(value) == 0 {
-		return "[]"
-	}
-	encoded, err := json.Marshal(value)
-	if err != nil {
-		return "[]"
-	}
-	return string(encoded)
-}
-
 func normalizeJSONValue(value any) (*string, error) {
 	switch typed := value.(type) {
 	case nil:
@@ -1092,15 +1018,4 @@ func normalizeJSONValue(value any) (*string, error) {
 		text := string(encoded)
 		return &text, nil
 	}
-}
-
-func boolValue[T any](value *T, pick func(*T) *bool, fallback bool) bool {
-	if value == nil {
-		return fallback
-	}
-	selected := pick(value)
-	if selected == nil {
-		return fallback
-	}
-	return *selected
 }

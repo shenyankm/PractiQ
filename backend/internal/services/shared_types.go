@@ -1,6 +1,10 @@
 package services
 
-import "time"
+import (
+	"time"
+
+	"github.com/jackc/pgx/v5"
+)
 
 type BankQuestionItem struct {
 	BankID            int64                  `json:"bank_id"`
@@ -40,7 +44,7 @@ type PracticeSession struct {
 	CompletedAt   *time.Time `json:"completed_at"`
 }
 
-func scanPracticeSessionRows(row rowScanner) (PracticeSession, error) {
+func scanPracticeSessionRows(row pgx.Row) (PracticeSession, error) {
 	var session PracticeSession
 	err := row.Scan(
 		&session.ID,

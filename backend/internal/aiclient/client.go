@@ -18,7 +18,11 @@ type Client struct {
 }
 
 func New(cfg config.Config) *Client {
-	return &Client{baseURL: strings.TrimRight(cfg.AIServiceURL, "/"), token: cfg.AIServiceToken, httpClient: http.DefaultClient}
+	timeout := cfg.AIServiceTimeout
+	if timeout <= 0 {
+		timeout = config.DefaultAIServiceTimeout
+	}
+	return &Client{baseURL: strings.TrimRight(cfg.AIServiceURL, "/"), token: cfg.AIServiceToken, httpClient: &http.Client{Timeout: timeout}}
 }
 
 func (c *Client) ParseDocument(ctx context.Context, payload DocumentParseRequest) (*DocumentParseResult, error) {

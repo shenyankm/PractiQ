@@ -4,12 +4,15 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode/utf8"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"openwook/internal/api"
 	"openwook/internal/auth"
@@ -41,10 +44,8 @@ func AddImportJobUploadedFile(ctx context.Context, pool *pgxpool.Pool, user auth
 	if strings.TrimSpace(file.Name) == "" {
 		return nil, api.NewError(400, "FILE_REQUIRED", "Upload file is required", nil)
 	}
-
-	stored, payload, err := storeImportSourceFile(user.ID, jobID, file)
-	if err != nil {
-		return nil, err
+	if len(file.Name) > 255 {
+		return nil, api.NewError(400, "INVALID_FILE_NAME", "Upload file name exceeds 255 characters", nil)
 	}
 	inferredSourceType := inferUploadedSourceType(file)
 	jobSourceType := ""
@@ -58,6 +59,19 @@ func AddImportJobUploadedFile(ctx context.Context, pool *pgxpool.Pool, user auth
 	if err != nil {
 		return nil, err
 	}
+	stored, payload, err := storeImportSourceFile(user.ID, jobID, file)
+	if err != nil {
+		return nil, err
+	}
+	storedFileCommitted := false
+	defer func() {
+		if storedFileCommitted {
+			return
+		}
+		if path, pathErr := resolveStoragePath(stored.RelativePath); pathErr == nil {
+			_ = os.Remove(path)
+		}
+	}()
 	content := buildImportSourceArtifactContent(stored, sourceType, payload)
 	rawContent, err := marshalJSONString(content)
 	if err != nil {
@@ -82,14 +96,10 @@ func AddImportJobUploadedFile(ctx context.Context, pool *pgxpool.Pool, user auth
 		return nil, err
 	}
 
-	artifact, err := queryJSONMapTx(ctx, tx, `
-		WITH inserted AS (
-			INSERT INTO question_import_job_artifacts (job_id, artifact_type, storage_path, content_json)
-			VALUES ($1, 'source_file', $2, $3)
-			RETURNING *
-		)
-		SELECT row_to_json(inserted)::text FROM inserted
-	`, jobID, stored.ObjectURL, rawContent)
+	artifact, err := queryJSONMapTx(ctx, tx, insertSourceArtifactSQL, jobID, "source_file", stored.ObjectURL, rawContent)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, api.NewError(409, "IMPORT_SOURCE_EXISTS", "Import job already has a source file", nil)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -97,6 +107,7 @@ func AddImportJobUploadedFile(ctx context.Context, pool *pgxpool.Pool, user auth
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
+	storedFileCommitted = true
 	return artifact, nil
 }
 
@@ -183,10 +194,16 @@ func validateImportSourcePayload(extension string, contentType string, payload [
 		}
 	}
 	if extension == ".txt" {
+		if !utf8.Valid(payload) {
+			return api.NewError(400, "INVALID_FILE_CONTENT", "TXT files must use UTF-8 encoding", nil)
+		}
 		for _, value := range payload {
 			if value == 0 {
 				return api.NewError(400, "UNSUPPORTED_FILE_TYPE", "TXT files must be plain text", nil)
 			}
+		}
+		if strings.TrimSpace(strings.TrimPrefix(string(payload), "\ufeff")) == "" {
+			return api.NewError(400, "EMPTY_FILE", "TXT files must contain non-whitespace text", nil)
 		}
 		return nil
 	}

@@ -3,15 +3,18 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	"github.com/alicebob/miniredis/v2"
 	"openwook/internal/api"
 )
 
 func TestRegisterCreatesUserSetsSessionCookieAndReturnsCreatedEnvelope(t *testing.T) {
+	useAuthRateLimitRedis(t)
 	email := "alice@example.com"
 	createdUser := &User{
 		ID:         41,
@@ -117,6 +120,7 @@ func TestValidateRegisterRequestAccepts72BytePassword(t *testing.T) {
 }
 
 func TestLoginSetsSessionCookieAndReturnsUserEnvelope(t *testing.T) {
+	useAuthRateLimitRedis(t)
 	email := "alice@example.com"
 	loggedInUser := &User{
 		ID:         7,
@@ -175,6 +179,7 @@ func TestLoginSetsSessionCookieAndReturnsUserEnvelope(t *testing.T) {
 }
 
 func TestLoginReturnsUSERINACTIVEWhenAuthenticatedUserIsDisabled(t *testing.T) {
+	useAuthRateLimitRedis(t)
 	setSessionCalled := false
 
 	handler := Login(HandlerDependencies{
@@ -249,6 +254,7 @@ func TestAuthHandlersReturnErrorEnvelopeForBadJSONAndSessionFailures(t *testing.
 	})
 
 	t.Run("register set session failure", func(t *testing.T) {
+		useAuthRateLimitRedis(t)
 		handler := Register(HandlerDependencies{
 			RegisterUser: func(context.Context, string, *string, string) (*User, error) {
 				return &User{ID: 41, Username: "alice", IsActive: true, Membership: "free"}, nil
@@ -265,6 +271,204 @@ func TestAuthHandlersReturnErrorEnvelopeForBadJSONAndSessionFailures(t *testing.
 
 		assertAuthErrorEnvelope(t, rr, http.StatusInternalServerError, "SESSION_ERROR", "Could not create session", "req-register-session-error")
 	})
+}
+
+func TestAuthHandlersRejectOversizedJSONBodies(t *testing.T) {
+	tests := []struct {
+		name    string
+		handler http.Handler
+		body    string
+	}{
+		{
+			name: "register",
+			handler: Register(HandlerDependencies{
+				RegisterUser: func(context.Context, string, *string, string) (*User, error) {
+					t.Fatal("RegisterUser should not be called")
+					return nil, nil
+				},
+			}),
+			body: `{"username":"alice","email":"alice@example.com","password":"correct horse battery staple","padding":"` + strings.Repeat("x", 32*1024) + `"}`,
+		},
+		{
+			name: "login",
+			handler: Login(HandlerDependencies{
+				AuthenticateUser: func(context.Context, string, string) (*User, error) {
+					t.Fatal("AuthenticateUser should not be called")
+					return nil, nil
+				},
+			}),
+			body: `{"login":"alice","password":"correct horse battery staple","padding":"` + strings.Repeat("x", 32*1024) + `"}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rr := httptest.NewRecorder()
+			req := authRequestWithID(t, http.MethodPost, "/api/v1/auth/"+tt.name, tt.body, "req-oversized-"+tt.name)
+
+			tt.handler.ServeHTTP(rr, req)
+
+			assertAuthErrorEnvelope(t, rr, http.StatusRequestEntityTooLarge, "REQUEST_TOO_LARGE", "Request body is too large", "req-oversized-"+tt.name)
+		})
+	}
+}
+
+func TestAuthHandlersRejectTrailingJSON(t *testing.T) {
+	useAuthRateLimitRedis(t)
+	handler := Login(HandlerDependencies{
+		AuthenticateUser: func(context.Context, string, string) (*User, error) {
+			return &User{ID: 7, Username: "alice", IsActive: true, Membership: "free"}, nil
+		},
+	})
+
+	for _, tt := range []struct {
+		name       string
+		trailing   string
+		wantStatus int
+		wantCode   string
+	}{
+		{name: "second value", trailing: `{}`, wantStatus: http.StatusBadRequest, wantCode: "INVALID_JSON"},
+		{name: "oversized second value", trailing: `"` + strings.Repeat("x", 32*1024) + `"`, wantStatus: http.StatusRequestEntityTooLarge, wantCode: "REQUEST_TOO_LARGE"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			rr := httptest.NewRecorder()
+			req := authRequestWithID(t, http.MethodPost, "/api/v1/auth/login", `{"login":"alice","password":"correct horse battery staple"}`+tt.trailing, "req-trailing-json")
+
+			handler.ServeHTTP(rr, req)
+
+			assertAuthErrorEnvelope(t, rr, tt.wantStatus, tt.wantCode, map[int]string{
+				http.StatusBadRequest:            "Request body must be valid JSON",
+				http.StatusRequestEntityTooLarge: "Request body is too large",
+			}[tt.wantStatus], "req-trailing-json")
+		})
+	}
+}
+
+func TestAuthHandlersFailClosedWhenRateLimitRedisIsUnavailable(t *testing.T) {
+	server := useAuthRateLimitRedis(t)
+	server.SetError("ERR unavailable")
+	tests := []struct {
+		name    string
+		handler http.Handler
+		body    string
+	}{
+		{
+			name: "register",
+			handler: Register(HandlerDependencies{
+				RegisterUser: func(context.Context, string, *string, string) (*User, error) {
+					t.Fatal("RegisterUser should not be called")
+					return nil, nil
+				},
+			}),
+			body: `{"username":"alice","email":"alice@example.com","password":"correct horse battery staple"}`,
+		},
+		{
+			name: "login",
+			handler: Login(HandlerDependencies{
+				AuthenticateUser: func(context.Context, string, string) (*User, error) {
+					t.Fatal("AuthenticateUser should not be called")
+					return nil, nil
+				},
+			}),
+			body: `{"login":"alice","password":"correct horse battery staple"}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rr := httptest.NewRecorder()
+			req := authRequestWithID(t, http.MethodPost, "/api/v1/auth/"+tt.name, tt.body, "req-rate-limit-"+tt.name)
+
+			tt.handler.ServeHTTP(rr, req)
+
+			assertAuthErrorEnvelope(t, rr, http.StatusServiceUnavailable, "AUTH_RATE_LIMIT_UNAVAILABLE", "Authentication service is temporarily unavailable", "req-rate-limit-"+tt.name)
+		})
+	}
+}
+
+func TestLoginRateLimitsRequestsWithRedis(t *testing.T) {
+	useAuthRateLimitRedis(t)
+	handler := Login(HandlerDependencies{
+		AuthenticateUser: func(context.Context, string, string) (*User, error) {
+			return &User{ID: 7, Username: "alice", IsActive: true, Membership: "free"}, nil
+		},
+	})
+
+	for range 10 {
+		rr := httptest.NewRecorder()
+		req := authRequestWithID(t, http.MethodPost, "/api/v1/auth/login", `{"login":"alice","password":"correct horse battery staple"}`, "req-rate-limit-ok")
+		req.RemoteAddr = "192.0.2.1:1234"
+		handler.ServeHTTP(rr, req)
+		if rr.Code != http.StatusOK {
+			t.Fatalf("status = %d before limit, want %d", rr.Code, http.StatusOK)
+		}
+	}
+
+	rr := httptest.NewRecorder()
+	req := authRequestWithID(t, http.MethodPost, "/api/v1/auth/login", `{"login":"alice","password":"correct horse battery staple"}`, "req-rate-limit-blocked")
+	req.RemoteAddr = "192.0.2.1:1234"
+	handler.ServeHTTP(rr, req)
+	assertAuthErrorEnvelope(t, rr, http.StatusTooManyRequests, "RATE_LIMITED", "Too many authentication attempts", "req-rate-limit-blocked")
+}
+
+func TestLoginRateLimitDoesNotShareBudgetAcrossAccounts(t *testing.T) {
+	useAuthRateLimitRedis(t)
+	handler := Login(HandlerDependencies{
+		AuthenticateUser: func(_ context.Context, login string, _ string) (*User, error) {
+			return &User{ID: 7, Username: login, IsActive: true, Membership: "free"}, nil
+		},
+	})
+
+	for range 10 {
+		rr := httptest.NewRecorder()
+		req := authRequestWithID(t, http.MethodPost, "/api/v1/auth/login", `{"login":"alice","password":"correct horse battery staple"}`, "req-rate-limit-alice")
+		req.RemoteAddr = "192.0.2.1:1234"
+		handler.ServeHTTP(rr, req)
+		if rr.Code != http.StatusOK {
+			t.Fatalf("alice status = %d before limit, want %d", rr.Code, http.StatusOK)
+		}
+	}
+
+	rr := httptest.NewRecorder()
+	req := authRequestWithID(t, http.MethodPost, "/api/v1/auth/login", `{"login":"bob","password":"correct horse battery staple"}`, "req-rate-limit-bob")
+	req.RemoteAddr = "192.0.2.1:1234"
+	handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("bob status = %d, want independent account budget status %d", rr.Code, http.StatusOK)
+	}
+}
+
+func TestLoginRateLimitCapsRotatingIdentitiesPerAddress(t *testing.T) {
+	useAuthRateLimitRedis(t)
+	handler := Login(HandlerDependencies{
+		AuthenticateUser: func(_ context.Context, login string, _ string) (*User, error) {
+			return &User{ID: 7, Username: login, IsActive: true, Membership: "free"}, nil
+		},
+	})
+
+	for index := range 100 {
+		rr := httptest.NewRecorder()
+		body := fmt.Sprintf(`{"login":"user-%d","password":"correct horse battery staple"}`, index)
+		req := authRequestWithID(t, http.MethodPost, "/api/v1/auth/login", body, "req-rate-limit-rotating")
+		req.RemoteAddr = "192.0.2.1:1234"
+		handler.ServeHTTP(rr, req)
+		if rr.Code != http.StatusOK {
+			t.Fatalf("request %d status = %d before address limit, want %d", index+1, rr.Code, http.StatusOK)
+		}
+	}
+
+	rr := httptest.NewRecorder()
+	req := authRequestWithID(t, http.MethodPost, "/api/v1/auth/login", `{"login":"another-user","password":"correct horse battery staple"}`, "req-rate-limit-rotating-blocked")
+	req.RemoteAddr = "192.0.2.1:1234"
+	handler.ServeHTTP(rr, req)
+	assertAuthErrorEnvelope(t, rr, http.StatusTooManyRequests, "RATE_LIMITED", "Too many authentication attempts", "req-rate-limit-rotating-blocked")
+}
+
+func useAuthRateLimitRedis(t *testing.T) *miniredis.Miniredis {
+	t.Helper()
+	server := miniredis.RunT(t)
+	t.Setenv("REDIS_URL", "redis://"+server.Addr()+"/0")
+	return server
 }
 
 func TestLogoutClearsSessionCookieAndReturnsNoContent(t *testing.T) {

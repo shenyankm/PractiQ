@@ -28,12 +28,12 @@ func handleGroupUpdate(w http.ResponseWriter, r *http.Request, pool *pgxpool.Poo
 	if !ok {
 		return
 	}
-	var body struct {
+	body, err := decodeJSONBodyStrict[struct {
 		Title        *string `json:"title"`
 		Instructions *string `json:"instructions"`
 		ContentMode  *string `json:"contentMode"`
-	}
-	if err := readJSONBody(r, &body); err != nil {
+	}](r)
+	if err != nil {
 		api.HandleError(w, r, err)
 		return
 	}
@@ -50,11 +50,11 @@ func handleGroupQuestionCreate(w http.ResponseWriter, r *http.Request, pool *pgx
 	if !ok {
 		return
 	}
-	var body struct {
+	body, err := decodeJSONBodyStrict[struct {
 		QuestionID int64 `json:"questionId"`
 		SortOrder  *int  `json:"sortOrder"`
-	}
-	if err := readJSONBody(r, &body); err != nil {
+	}](r)
+	if err != nil {
 		api.HandleError(w, r, err)
 		return
 	}
@@ -75,13 +75,13 @@ func handleGroupQuestionsReorder(w http.ResponseWriter, r *http.Request, pool *p
 	if !ok {
 		return
 	}
-	var body struct {
+	body, err := decodeJSONBodyStrict[struct {
 		Items []struct {
 			QuestionID int64 `json:"questionId"`
 			SortOrder  int   `json:"sortOrder"`
 		} `json:"items"`
-	}
-	if err := readJSONBody(r, &body); err != nil {
+	}](r)
+	if err != nil {
 		api.HandleError(w, r, err)
 		return
 	}

@@ -11,15 +11,15 @@ import (
 	"time"
 )
 
-func TestSignSessionTokenUsesHS256PayloadShapeAndSevenDayDefaultExpiry(t *testing.T) {
+func TestSignSessionTokenUsesHS256PayloadShapeAndConfiguredDefaultExpiry(t *testing.T) {
 	t.Setenv("NODE_ENV", "test")
 	t.Setenv("AUTH_SECRET", "contract-secret")
+	t.Setenv("SESSION_TTL_MS", "120000")
 
 	before := time.Now().UTC()
 	payload := SessionPayload{
-		User:    SessionUser{ID: 42},
-		Expires: before.Add(7 * 24 * time.Hour).Format(time.RFC3339),
-		JTI:     "session-jti",
+		User: SessionUser{ID: 42},
+		JTI:  "session-jti",
 	}
 
 	token, err := SignSessionToken(payload)
@@ -51,13 +51,10 @@ func TestSignSessionTokenUsesHS256PayloadShapeAndSevenDayDefaultExpiry(t *testin
 		t.Fatalf("expires claim %q is not RFC3339: %v", expiresRaw, err)
 	}
 
-	wantMin := before.Add(7 * 24 * time.Hour)
-	wantMax := after.Add(7 * 24 * time.Hour)
+	wantMin := before.Add(2 * time.Minute)
+	wantMax := after.Add(2 * time.Minute)
 	if expiresAt.Before(wantMin.Add(-2*time.Second)) || expiresAt.After(wantMax.Add(2*time.Second)) {
-		t.Fatalf("expires = %s, want about 7 days from now between %s and %s", expiresAt.Format(time.RFC3339), wantMin.Format(time.RFC3339), wantMax.Format(time.RFC3339))
-	}
-	if expiresRaw != payload.Expires {
-		t.Fatalf("expires claim = %q, want payload value %q", expiresRaw, payload.Expires)
+		t.Fatalf("expires = %s, want about 2 minutes from now between %s and %s", expiresAt.Format(time.RFC3339), wantMin.Format(time.RFC3339), wantMax.Format(time.RFC3339))
 	}
 
 	jti, ok := claims["jti"].(string)
@@ -81,8 +78,8 @@ func TestSignSessionTokenUsesHS256PayloadShapeAndSevenDayDefaultExpiry(t *testin
 	if verified.User.ID != 42 {
 		t.Fatalf("verified user id = %d, want 42", verified.User.ID)
 	}
-	if verified.Expires != payload.Expires {
-		t.Fatalf("verified expires = %q, want %q", verified.Expires, payload.Expires)
+	if verified.Expires != expiresRaw {
+		t.Fatalf("verified expires = %q, want %q", verified.Expires, expiresRaw)
 	}
 }
 
@@ -126,8 +123,8 @@ func TestSessionCookieUsesSessionNameHttpOnlyLaxAndProductionSecure(t *testing.T
 	})
 }
 
-func TestVerifySessionTokenUsesConfiguredSecretOrDevelopmentFallback(t *testing.T) {
-	future := time.Date(2026, 7, 15, 12, 0, 0, 0, time.UTC)
+func TestVerifySessionTokenRequiresConfiguredSecret(t *testing.T) {
+	future := time.Now().UTC().Add(time.Hour).Truncate(time.Second)
 
 	t.Run("configured AUTH_SECRET", func(t *testing.T) {
 		t.Setenv("NODE_ENV", "production")
@@ -151,7 +148,7 @@ func TestVerifySessionTokenUsesConfiguredSecretOrDevelopmentFallback(t *testing.
 		}
 	})
 
-	t.Run("development-secret fallback outside production", func(t *testing.T) {
+	t.Run("does not fall back outside production", func(t *testing.T) {
 		t.Setenv("NODE_ENV", "test")
 		t.Setenv("AUTH_SECRET", "")
 
@@ -160,12 +157,8 @@ func TestVerifySessionTokenUsesConfiguredSecretOrDevelopmentFallback(t *testing.
 			"expires": future.Format(time.RFC3339),
 		}, future)
 
-		payload, err := VerifySessionToken(token)
-		if err != nil {
-			t.Fatalf("VerifySessionToken returned error: %v", err)
-		}
-		if payload.User.ID != 19 {
-			t.Fatalf("payload user id = %d, want 19", payload.User.ID)
+		if _, err := VerifySessionToken(token); err == nil {
+			t.Fatal("VerifySessionToken unexpectedly accepted a token without AUTH_SECRET")
 		}
 	})
 
@@ -183,7 +176,7 @@ func TestVerifySessionTokenUsesConfiguredSecretOrDevelopmentFallback(t *testing.
 		}
 	})
 
-	t.Run("production does not fall back to development secret", func(t *testing.T) {
+	t.Run("does not fall back in production", func(t *testing.T) {
 		t.Setenv("NODE_ENV", "production")
 		t.Setenv("AUTH_SECRET", "")
 
@@ -198,17 +191,21 @@ func TestVerifySessionTokenUsesConfiguredSecretOrDevelopmentFallback(t *testing.
 	})
 }
 
-func TestSignSessionTokenRequiresAuthSecretInProduction(t *testing.T) {
-	t.Setenv("NODE_ENV", "production")
-	t.Setenv("AUTH_SECRET", "")
+func TestSignSessionTokenRequiresAuthSecretInEveryEnvironment(t *testing.T) {
+	for _, nodeEnv := range []string{"development", "test", "production"} {
+		t.Run(nodeEnv, func(t *testing.T) {
+			t.Setenv("NODE_ENV", nodeEnv)
+			t.Setenv("AUTH_SECRET", "")
 
-	payload := SessionPayload{
-		User:    SessionUser{ID: 88},
-		Expires: time.Date(2026, 7, 15, 12, 0, 0, 0, time.UTC).Format(time.RFC3339),
-	}
+			payload := SessionPayload{
+				User:    SessionUser{ID: 88},
+				Expires: time.Date(2026, 7, 15, 12, 0, 0, 0, time.UTC).Format(time.RFC3339),
+			}
 
-	if _, err := SignSessionToken(payload); err == nil {
-		t.Fatal("SignSessionToken unexpectedly succeeded without AUTH_SECRET in production")
+			if _, err := SignSessionToken(payload); err == nil {
+				t.Fatalf("SignSessionToken unexpectedly succeeded without AUTH_SECRET in %s", nodeEnv)
+			}
+		})
 	}
 }
 
@@ -230,10 +227,11 @@ func TestVerifySessionTokenRejectsExpiredMalformedAndSchemaInvalidTokens(t *test
 		t.Fatal("VerifySessionToken unexpectedly accepted malformed token")
 	}
 
+	notExpired := time.Now().UTC().Add(time.Hour).Truncate(time.Second)
 	invalidShape := signedSessionToken(t, "verify-secret", map[string]any{
 		"user":    map[string]any{"id": "5"},
-		"expires": time.Date(2026, 7, 9, 12, 0, 0, 0, time.UTC).Format(time.RFC3339),
-	}, time.Date(2026, 7, 9, 12, 0, 0, 0, time.UTC))
+		"expires": notExpired.Format(time.RFC3339),
+	}, notExpired)
 	if _, err := VerifySessionToken(invalidShape); err == nil {
 		t.Fatal("VerifySessionToken unexpectedly accepted token with non-numeric user.id")
 	}

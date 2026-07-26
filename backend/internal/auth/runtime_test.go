@@ -1,23 +1,22 @@
 package auth
 
 import (
-	"bufio"
-	"fmt"
-	"io"
-	"net"
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	"sync"
 	"testing"
+	"time"
+
+	"github.com/alicebob/miniredis/v2"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"openwook/internal/api"
 )
 
 func TestSetSessionIssuesRevocableJTIAndClearSessionRevokesIt(t *testing.T) {
 	t.Setenv("NODE_ENV", "test")
 	t.Setenv("AUTH_SECRET", "runtime-secret")
-
-	redisURL, store := startFakeRedisForAuthTest(t)
-	t.Setenv("REDIS_URL", redisURL)
+	server := useAuthRedis(t)
 
 	setRecorder := httptest.NewRecorder()
 	if err := SetSession(setRecorder, 41); err != nil {
@@ -47,14 +46,130 @@ func TestSetSessionIssuesRevocableJTIAndClearSessionRevokesIt(t *testing.T) {
 	if got := clearRecorder.Header().Get("Set-Cookie"); !strings.Contains(got, "Max-Age=0") {
 		t.Fatalf("Set-Cookie = %q, want Max-Age=0", got)
 	}
-	if raw, ok := store.get(sessionRevocationKey(payload.JTI)); !ok || raw != "true" {
-		t.Fatalf("revocation entry = (%q, %t), want (true, true)", raw, ok)
+
+	key := sessionRevocationKey(payload.JTI)
+	if raw, err := server.Get(key); err != nil || raw != "true" {
+		t.Fatalf("revocation entry = (%q, %v), want (true, nil)", raw, err)
 	}
+	ttl := server.TTL(key)
+	if remaining := time.Until(parseExpiry(payload.Expires)); ttl <= 0 || ttl > remaining+time.Second {
+		t.Fatalf("revocation TTL = %s, want positive and bounded by token lifetime %s", ttl, remaining)
+	}
+	server.FastForward(ttl + time.Nanosecond)
+	if server.Exists(key) {
+		t.Fatalf("revocation entry %q outlived its TTL", key)
+	}
+}
+
+func TestSetSessionUsesConfiguredTTLForCookieAndToken(t *testing.T) {
+	t.Setenv("NODE_ENV", "test")
+	t.Setenv("AUTH_SECRET", "runtime-secret")
+	t.Setenv("SESSION_TTL_MS", "120000")
+
+	before := time.Now().UTC()
+	recorder := httptest.NewRecorder()
+	if err := SetSession(recorder, 41); err != nil {
+		t.Fatalf("SetSession returned error: %v", err)
+	}
+	after := time.Now().UTC()
+
+	cookie := findSessionCookie(t, recorder.Result().Cookies())
+	payload, err := VerifySessionToken(cookie.Value)
+	if err != nil {
+		t.Fatalf("VerifySessionToken returned error: %v", err)
+	}
+	expiresAt, err := time.Parse(time.RFC3339, payload.Expires)
+	if err != nil {
+		t.Fatalf("Parse(%q) returned error: %v", payload.Expires, err)
+	}
+	wantMin := before.Add(2 * time.Minute)
+	wantMax := after.Add(2 * time.Minute)
+	if expiresAt.Before(wantMin.Add(-2*time.Second)) || expiresAt.After(wantMax.Add(2*time.Second)) {
+		t.Fatalf("token expiry = %s, want about 2 minutes from now", expiresAt)
+	}
+	if !cookie.Expires.Equal(expiresAt) {
+		t.Fatalf("cookie expiry = %s, want token expiry %s", cookie.Expires, expiresAt)
+	}
+}
+
+func TestClearSessionKeepsCookieWhenRevocationCannotBeStored(t *testing.T) {
+	t.Setenv("NODE_ENV", "test")
+	t.Setenv("AUTH_SECRET", "runtime-secret")
+	server := useAuthRedis(t)
+
+	setRecorder := httptest.NewRecorder()
+	if err := SetSession(setRecorder, 41); err != nil {
+		t.Fatalf("SetSession returned error: %v", err)
+	}
+	server.SetError("ERR unavailable")
+
+	clearRecorder := httptest.NewRecorder()
+	clearRequest := httptest.NewRequest(http.MethodPost, "https://app.example.test/api/v1/auth/logout", nil)
+	clearRequest.AddCookie(findSessionCookie(t, setRecorder.Result().Cookies()))
+	err := ClearSession(clearRecorder, clearRequest)
+	assertSessionStoreUnavailable(t, err)
+	if cookies := clearRecorder.Result().Cookies(); len(cookies) != 0 {
+		t.Fatalf("ClearSession emitted cookies %#v after failed revocation", cookies)
+	}
+}
+
+func TestCurrentUserFromRequestFailsClosedWhenRevocationCheckFails(t *testing.T) {
+	t.Setenv("NODE_ENV", "test")
+	t.Setenv("AUTH_SECRET", "runtime-secret")
+	server := useAuthRedis(t)
+	server.SetError("ERR unavailable")
+
+	token, err := SignSessionToken(SessionPayload{
+		User:    SessionUser{ID: 41},
+		Expires: time.Now().UTC().Add(time.Hour).Format(time.RFC3339),
+		JTI:     "session-jti",
+	})
+	if err != nil {
+		t.Fatalf("SignSessionToken returned error: %v", err)
+	}
+	req := httptest.NewRequest(http.MethodGet, "https://app.example.test/api/v1/auth/me", nil)
+	req.AddCookie(&http.Cookie{Name: "session", Value: token})
+
+	user, err := CurrentUserFromRequest(closedPoolForAuthTest(t))(req)
+	if user != nil {
+		t.Fatalf("CurrentUserFromRequest returned user %#v, want nil", user)
+	}
+	assertSessionStoreUnavailable(t, err)
+}
+
+func useAuthRedis(t *testing.T) *miniredis.Miniredis {
+	t.Helper()
+	server := miniredis.RunT(t)
+	t.Setenv("REDIS_URL", "redis://"+server.Addr()+"/0")
+	return server
+}
+
+func assertSessionStoreUnavailable(t *testing.T, err error) {
+	t.Helper()
+	apiErr, ok := err.(*api.Error)
+	if !ok {
+		t.Fatalf("error = %T (%v), want session-store API error", err, err)
+	}
+	if apiErr.Status != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want %d", apiErr.Status, http.StatusServiceUnavailable)
+	}
+	if apiErr.Code != "SESSION_STORE_UNAVAILABLE" {
+		t.Fatalf("code = %q, want SESSION_STORE_UNAVAILABLE", apiErr.Code)
+	}
+}
+
+func closedPoolForAuthTest(t *testing.T) *pgxpool.Pool {
+	t.Helper()
+	pool, err := pgxpool.New(context.Background(), "postgres://localhost:5432/openwook")
+	if err != nil {
+		t.Fatalf("pgxpool.New returned error: %v", err)
+	}
+	pool.Close()
+	return pool
 }
 
 func findSessionCookie(t *testing.T, cookies []*http.Cookie) *http.Cookie {
 	t.Helper()
-
 	for _, cookie := range cookies {
 		if cookie.Name == "session" {
 			return cookie
@@ -62,134 +177,4 @@ func findSessionCookie(t *testing.T, cookies []*http.Cookie) *http.Cookie {
 	}
 	t.Fatal("session cookie not found")
 	return nil
-}
-
-var (
-	fakeAuthRedisOnce  sync.Once
-	fakeAuthRedisURL   string
-	fakeAuthRedisStore = &fakeAuthRedisState{values: make(map[string]string)}
-)
-
-type fakeAuthRedisState struct {
-	mu     sync.Mutex
-	values map[string]string
-}
-
-func (s *fakeAuthRedisState) reset() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.values = make(map[string]string)
-}
-
-func (s *fakeAuthRedisState) set(key, value string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.values == nil {
-		s.values = make(map[string]string)
-	}
-	s.values[key] = value
-}
-
-func (s *fakeAuthRedisState) get(key string) (string, bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	value, ok := s.values[key]
-	return value, ok
-}
-
-func startFakeRedisForAuthTest(t *testing.T) (string, *fakeAuthRedisState) {
-	t.Helper()
-
-	fakeAuthRedisOnce.Do(func() {
-		listener, err := net.Listen("tcp", "127.0.0.1:0")
-		if err != nil {
-			t.Fatalf("listen fake redis: %v", err)
-		}
-		fakeAuthRedisURL = "redis://" + listener.Addr().String() + "/0"
-		go serveFakeAuthRedis(listener, fakeAuthRedisStore)
-	})
-	fakeAuthRedisStore.reset()
-	return fakeAuthRedisURL, fakeAuthRedisStore
-}
-
-func serveFakeAuthRedis(listener net.Listener, state *fakeAuthRedisState) {
-	for {
-		conn, err := listener.Accept()
-		if err != nil {
-			return
-		}
-		go serveFakeAuthRedisConn(conn, state)
-	}
-}
-
-func serveFakeAuthRedisConn(conn net.Conn, state *fakeAuthRedisState) {
-	defer conn.Close()
-
-	reader := bufio.NewReader(conn)
-	for {
-		command, err := readFakeAuthRESPArray(reader)
-		if err != nil {
-			return
-		}
-		if len(command) == 0 {
-			_, _ = conn.Write([]byte("+OK\r\n"))
-			continue
-		}
-		switch strings.ToUpper(command[0]) {
-		case "HELLO":
-			_, _ = conn.Write([]byte("*14\r\n$6\r\nserver\r\n$5\r\nredis\r\n$7\r\nversion\r\n$5\r\n7.0.0\r\n$5\r\nproto\r\n:2\r\n$2\r\nid\r\n:1\r\n$4\r\nmode\r\n$10\r\nstandalone\r\n$4\r\nrole\r\n$6\r\nmaster\r\n$7\r\nmodules\r\n*0\r\n"))
-		case "SET":
-			if len(command) >= 3 {
-				state.set(command[1], command[2])
-			}
-			_, _ = conn.Write([]byte("+OK\r\n"))
-		case "PING":
-			_, _ = conn.Write([]byte("+PONG\r\n"))
-		default:
-			_, _ = conn.Write([]byte("+OK\r\n"))
-		}
-	}
-}
-
-func readFakeAuthRESPArray(reader *bufio.Reader) ([]string, error) {
-	prefix, err := reader.ReadByte()
-	if err != nil {
-		return nil, err
-	}
-	if prefix != '*' {
-		return nil, fmt.Errorf("unsupported resp prefix %q", prefix)
-	}
-
-	line, err := reader.ReadString('\n')
-	if err != nil {
-		return nil, err
-	}
-	var count int
-	if _, err := fmt.Sscanf(line, "%d\r\n", &count); err != nil {
-		return nil, err
-	}
-
-	parts := make([]string, 0, count)
-	for range count {
-		if prefix, err = reader.ReadByte(); err != nil {
-			return nil, err
-		}
-		if prefix != '$' {
-			return nil, fmt.Errorf("unsupported resp bulk prefix %q", prefix)
-		}
-		line, err = reader.ReadString('\n')
-		if err != nil {
-			return nil, err
-		}
-		var size int
-		if _, err := fmt.Sscanf(line, "%d\r\n", &size); err != nil {
-			return nil, err
-		}
-		buf := make([]byte, size+2)
-		if _, err := io.ReadFull(reader, buf); err != nil {
-			return nil, err
-		}
-		parts = append(parts, string(buf[:size]))
-	}
-	return parts, nil
 }

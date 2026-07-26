@@ -24,12 +24,11 @@ func TestLoadConfigPrefersPostgresPoolMaxOverDatabasePoolMax(t *testing.T) {
 	}
 }
 
-func TestLoadConfigAcceptsPoolTimeoutsAndSlowQueryThreshold(t *testing.T) {
+func TestLoadConfigAcceptsPoolTimeouts(t *testing.T) {
 	resetDBEnv(t)
 	t.Setenv("POSTGRES_URL", "postgres://postgres:postgres@localhost:5432/openwook_test")
 	t.Setenv("POSTGRES_IDLE_TIMEOUT_SECONDS", "45")
 	t.Setenv("POSTGRES_CONNECT_TIMEOUT_SECONDS", "12")
-	t.Setenv("SLOW_QUERY_MS", "750")
 
 	cfg, err := LoadConfig()
 	if err != nil {
@@ -41,9 +40,6 @@ func TestLoadConfigAcceptsPoolTimeoutsAndSlowQueryThreshold(t *testing.T) {
 	}
 	if cfg.ConnectTimeout != 12*time.Second {
 		t.Fatalf("ConnectTimeout = %s, want %s", cfg.ConnectTimeout, 12*time.Second)
-	}
-	if cfg.SlowQueryThreshold != 750*time.Millisecond {
-		t.Fatalf("SlowQueryThreshold = %s, want %s", cfg.SlowQueryThreshold, 750*time.Millisecond)
 	}
 }
 
@@ -102,7 +98,6 @@ func resetDBEnv(t *testing.T) {
 		"POSTGRES_IDLE_TIMEOUT_SECONDS",
 		"POSTGRES_POOL_MAX",
 		"POSTGRES_URL",
-		"SLOW_QUERY_MS",
 	} {
 		unsetEnv(t, key)
 	}

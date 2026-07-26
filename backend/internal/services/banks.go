@@ -25,9 +25,17 @@ const bankColumns = `
 	updated_at
 `
 
-type rowScanner interface {
-	Scan(...any) error
-}
+const bankSelectColumns = `
+	b.id,
+	b.name,
+	b.description,
+	b.subject,
+	b.total_count,
+	b.created_by,
+	b.is_public,
+	b.created_at,
+	b.updated_at
+`
 
 type QuestionBank struct {
 	ID          int64     `json:"id"`
@@ -98,7 +106,7 @@ func withTx[T any](ctx context.Context, db *pgxpool.Pool, fn func(pgx.Tx) (T, er
 	return value, nil
 }
 
-func ListBanks(ctx context.Context, db *pgxpool.Pool, user *auth.User, params ListBanksParams) ([]QuestionBank, error) {
+func ListBanks(ctx context.Context, db queryer, user *auth.User, params ListBanksParams) ([]QuestionBank, error) {
 	scope := normalizeBankScope(params.Scope)
 	subject := trimmedOrNil(params.Subject)
 	query := nullableILike(params.Query)
@@ -106,7 +114,7 @@ func ListBanks(ctx context.Context, db *pgxpool.Pool, user *auth.User, params Li
 
 	rows, err := db.Query(ctx, `
 		SELECT
-			`+bankColumns+`,
+			`+bankSelectColumns+`,
 			COALESCE(ubl.is_owner, false) AS is_owner,
 			COALESCE(ubl.is_favorite, false) AS is_favorite
 		FROM question_banks b
@@ -144,7 +152,7 @@ func ListBanks(ctx context.Context, db *pgxpool.Pool, user *auth.User, params Li
 func GetBank(ctx context.Context, db *pgxpool.Pool, user *auth.User, bankID int64) (*QuestionBank, error) {
 	row := db.QueryRow(ctx, `
 		SELECT
-			`+bankColumns+`,
+			`+bankSelectColumns+`,
 			COALESCE(ubl.is_owner, false) AS is_owner,
 			COALESCE(ubl.is_favorite, false) AS is_favorite
 		FROM question_banks b
@@ -333,25 +341,25 @@ func listBankItemsForBank(ctx context.Context, db *pgxpool.Pool, bankID int64, p
 
 	rows, err := db.Query(ctx, `
 		SELECT
-			ids.bank_id,
-			ids.group_id,
-			ids.question_id,
-			ids.item_scope,
-			ids.bank_sort_order,
-			ids.group_sort_order,
-			ids.question_no,
-			ids.bank_link_status,
-			q.business_type,
-			q.subject_id,
-			q.question_type_id,
-			q.answer_mode,
-			q.choice_variant,
-			q.content_mode,
-			q.stem,
-			q.analysis,
-			q.status AS question_status,
-			g.title AS group_title,
-			g.instructions AS group_instructions,
+			item.bank_id,
+			item.group_id,
+			item.question_id,
+			item.item_scope,
+			item.bank_sort_order,
+			item.group_sort_order,
+			item.question_no,
+			item.bank_link_status,
+			item.business_type,
+			item.subject_id,
+			item.question_type_id,
+			item.answer_mode,
+			item.choice_variant,
+			item.content_mode,
+			item.stem,
+			item.analysis,
+			item.question_status,
+			item.group_title,
+			item.group_instructions,
 			COALESCE(
 				(
 					SELECT json_agg(
@@ -368,44 +376,15 @@ func listBankItemsForBank(ctx context.Context, db *pgxpool.Pool, bankID int64, p
 						ORDER BY qo.sort_order
 					)
 					FROM question_options qo
-					WHERE qo.question_id = ids.question_id
+					WHERE qo.question_id = item.question_id
 				),
 				'[]'::json
 			) AS options
-		FROM (
-			SELECT
-				bql.bank_id,
-				NULL::bigint AS group_id,
-				bql.question_id,
-				'standalone'::text AS item_scope,
-				bql.sort_order AS bank_sort_order,
-				NULL::integer AS group_sort_order,
-				bql.question_no,
-				bql.status AS bank_link_status
-			FROM bank_question_links bql
-			WHERE bql.bank_id = $1
-			  AND ($2::text IS NULL OR bql.status = $2)
-
-			UNION ALL
-
-			SELECT
-				bgl.bank_id,
-				bgl.group_id,
-				gql.question_id,
-				'grouped'::text AS item_scope,
-				bgl.sort_order AS bank_sort_order,
-				gql.sort_order AS group_sort_order,
-				gql.question_no,
-				bgl.status AS bank_link_status
-			FROM bank_group_links bgl
-			JOIN group_question_links gql ON gql.group_id = bgl.group_id
-			WHERE bgl.bank_id = $1
-			  AND ($2::text IS NULL OR bgl.status = $2)
-		) ids
-		JOIN questions q ON q.id = ids.question_id
-		LEFT JOIN question_groups g ON g.id = ids.group_id
-		WHERE ($3::text IS NULL OR q.question_type_id = $3)
-		ORDER BY ids.bank_sort_order, ids.group_sort_order NULLS FIRST, ids.question_id
+		FROM v_bank_question_items item
+		WHERE item.bank_id = $1
+		  AND ($2::text IS NULL OR item.bank_link_status = $2)
+		  AND ($3::text IS NULL OR item.question_type_id = $3)
+		ORDER BY item.bank_sort_order, item.group_sort_order NULLS FIRST, item.question_id
 		LIMIT $4
 	`, bankID, status, questionTypeID, limit)
 	if err != nil {
@@ -449,7 +428,7 @@ func listBankItemsForBank(ctx context.Context, db *pgxpool.Pool, bankID int64, p
 	return items, rows.Err()
 }
 
-func scanQuestionBank(row rowScanner) (QuestionBank, error) {
+func scanQuestionBank(row pgx.Row) (QuestionBank, error) {
 	var item QuestionBank
 	err := row.Scan(
 		&item.ID,
@@ -465,7 +444,7 @@ func scanQuestionBank(row rowScanner) (QuestionBank, error) {
 	return item, err
 }
 
-func scanQuestionBankWithFlags(row rowScanner) (QuestionBank, error) {
+func scanQuestionBankWithFlags(row pgx.Row) (QuestionBank, error) {
 	var item QuestionBank
 	err := row.Scan(
 		&item.ID,

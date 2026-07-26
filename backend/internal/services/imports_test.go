@@ -1,14 +1,38 @@
 package services
 
 import (
+	"encoding/base64"
 	"errors"
 	"net/http"
 	"reflect"
+	"strings"
 	"testing"
 
 	"openwook/internal/api"
 	"openwook/internal/auth"
 )
+
+func TestInsertSourceArtifactSQLRejectsDuplicatesWithoutReplacingThem(t *testing.T) {
+	query := strings.ToUpper(strings.Join(strings.Fields(insertSourceArtifactSQL), " "))
+	for _, fragment := range []string{
+		"ON CONFLICT (JOB_ID)",
+		"WHERE ARTIFACT_TYPE = 'SOURCE_FILE'",
+		"DO NOTHING",
+	} {
+		if !strings.Contains(query, fragment) {
+			t.Fatalf("source artifact SQL missing %q: %s", fragment, query)
+		}
+	}
+}
+
+func TestListImportJobEventsAfterSQLUsesAscendingCursorOrder(t *testing.T) {
+	query := strings.ToUpper(strings.Join(strings.Fields(listImportJobEventsAfterSQL), " "))
+	for _, fragment := range []string{"ID > $2", "ORDER BY ID", "LIMIT 1000"} {
+		if !strings.Contains(query, fragment) {
+			t.Fatalf("event backlog SQL missing %q: %s", fragment, query)
+		}
+	}
+}
 
 func TestExtractSourceTypeFromArtifactPrefersContentThenFallsBackToPath(t *testing.T) {
 	tests := []struct {
@@ -44,8 +68,19 @@ func TestNormalizeImportSourceTypeMapsTextAndChecksEntitlement(t *testing.T) {
 		t.Fatalf("normalizeImportSourceType(docx) = (%q, %v), want (%q, nil)", got, err, "docx")
 	}
 
-	_, err := normalizeImportSourceType(freeUser, "pdf")
+	if got, err := normalizeImportSourceType(plusUser, "pdf"); err != nil || got != "pdf" {
+		t.Fatalf("normalizeImportSourceType(pdf) = (%q, %v), want (%q, nil)", got, err, "pdf")
+	}
+
+	if got, err := normalizeImportSourceType(plusUser, "xlsx"); err != nil || got != "xlsx" {
+		t.Fatalf("normalizeImportSourceType(xlsx) = (%q, %v), want (%q, nil)", got, err, "xlsx")
+	}
+
+	_, err := normalizeImportSourceType(freeUser, "xls")
 	assertAPIError(t, err, http.StatusBadRequest, "UNSUPPORTED_SOURCE_TYPE")
+
+	_, err = normalizeImportSourceType(freeUser, "pdf")
+	assertAPIError(t, err, http.StatusForbidden, "PLUS_REQUIRED")
 
 	_, err = normalizeImportSourceType(freeUser, "docx")
 	assertAPIError(t, err, http.StatusForbidden, "PLUS_REQUIRED")
@@ -59,36 +94,38 @@ func TestQueueTransitionSpecMatchesImportStatusActions(t *testing.T) {
 		{
 			action: "start",
 			want: importQueueTransition{
-				status:         "queued",
-				stage:          "queued",
-				stepCode:       "start",
-				stepLabel:      "加入导入队列",
-				eventStatus:    "queued",
-				retryIncrement: 0,
+				status:           "queued",
+				stage:            "queued",
+				stepCode:         "start",
+				stepLabel:        "加入导入队列",
+				eventStatus:      "queued",
+				available:        true,
+				resetAttempts:    true,
+				persistQuestions: new(true),
 			},
 		},
 		{
 			action: "retry",
 			want: importQueueTransition{
-				status:         "queued",
-				stage:          "queued",
-				stepCode:       "retry",
-				stepLabel:      "重新排队",
-				eventStatus:    "queued",
-				retryIncrement: 1,
+				status:        "queued",
+				stage:         "queued",
+				stepCode:      "retry",
+				stepLabel:     "重新排队",
+				eventStatus:   "queued",
+				available:     true,
+				resetAttempts: true,
 			},
 		},
 		{
 			action: "cancel",
 			want: importQueueTransition{
-				status:         "failed",
-				stage:          "failed",
-				stepCode:       "cancel",
-				stepLabel:      "取消任务",
-				eventStatus:    "failed",
-				message:        new("任务已取消。"),
-				retryIncrement: 0,
-				completed:      true,
+				status:      "failed",
+				stage:       "failed",
+				stepCode:    "cancel",
+				stepLabel:   "取消任务",
+				eventStatus: "failed",
+				message:     new("任务已取消。"),
+				completed:   true,
 			},
 		},
 	}
@@ -101,6 +138,40 @@ func TestQueueTransitionSpecMatchesImportStatusActions(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Fatalf("queueTransitionForAction(%q) = %#v, want %#v", tt.action, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestParseQueueTransitionStoresPersistQuestions(t *testing.T) {
+	for _, persist := range []bool{false, true} {
+		got := queueTransitionForParse(persist)
+		if !got.available || !got.resetAttempts || got.persistQuestions == nil || *got.persistQuestions != persist {
+			t.Fatalf("queueTransitionForParse(%t) = %#v", persist, got)
+		}
+	}
+}
+
+func TestImportJobActionValidationRejectsUnsafeTransitions(t *testing.T) {
+	for _, tt := range []struct {
+		name   string
+		job    ImportJob
+		action string
+		code   string
+	}{
+		{name: "cancel processing", job: ImportJob{Status: "processing"}, action: "cancel", code: "IMPORT_CANCEL_NOT_ALLOWED"},
+		{name: "cancel completed", job: ImportJob{Status: "completed"}, action: "cancel", code: "IMPORT_ALREADY_COMPLETED"},
+		{name: "start failed", job: ImportJob{Status: "failed"}, action: "start", code: "IMPORT_START_NOT_ALLOWED"},
+		{name: "retry queued", job: ImportJob{Status: "queued"}, action: "retry", code: "IMPORT_RETRY_NOT_ALLOWED"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ensureImportJobQueueActionAllowed(tt.job, tt.action)
+			if err == nil {
+				t.Fatal("error = nil")
+			}
+			_, code, _, _ := api.ValidationErrorEnvelope(err)
+			if code != tt.code {
+				t.Fatalf("error code = %q, want %q", code, tt.code)
 			}
 		})
 	}
@@ -128,6 +199,58 @@ func TestBuildImportSourceArtifactContentStripsUTF8BOMForTXT(t *testing.T) {
 	}
 	if got["sourceType"] != "txt" {
 		t.Fatalf("artifact content sourceType = %#v, want txt", got["sourceType"])
+	}
+}
+
+func TestBuildImportSourceArtifactContentStoresDOCXBase64(t *testing.T) {
+	payload := []byte("PK\x03\x04docx")
+	got := buildImportSourceArtifactContent(storedImportSource{
+		RelativePath: "imports/7/11/source.docx",
+		ObjectURL:    "oss://openwook/imports/7/11/source.docx",
+		OriginalName: "source.docx",
+		MimeType:     docxMimeType,
+		SizeBytes:    int64(len(payload)),
+	}, "docx", payload)
+
+	if got["fileBase64"] != base64.StdEncoding.EncodeToString(payload) {
+		t.Fatalf("artifact fileBase64 = %#v, want encoded DOCX bytes", got["fileBase64"])
+	}
+	if _, exists := got["text"]; exists {
+		t.Fatalf("DOCX artifact unexpectedly contains text: %#v", got)
+	}
+}
+
+func TestDecodeBoundedImportBase64RejectsInvalidAndOversizedContent(t *testing.T) {
+	if _, err := decodeBoundedImportBase64("not-base64", 10); err == nil {
+		t.Fatal("invalid base64 error = nil")
+	}
+	if _, err := decodeBoundedImportBase64(base64.StdEncoding.EncodeToString([]byte("12345")), 4); err == nil {
+		t.Fatal("oversized decoded payload error = nil")
+	}
+}
+
+func TestValidateImportArtifactContentRequiresConsumableDOCXBytes(t *testing.T) {
+	err := validateImportArtifactContent("docx", map[string]any{"mimeType": docxMimeType})
+	assertAPIError(t, err, http.StatusBadRequest, "FILE_REQUIRED")
+
+	err = validateImportArtifactContent("docx", map[string]any{
+		"fileBase64": base64.StdEncoding.EncodeToString([]byte("PK\x03\x04docx")),
+		"mimeType":   docxMimeType,
+	})
+	if err != nil {
+		t.Fatalf("valid DOCX artifact error = %v", err)
+	}
+}
+
+func TestValidateImportArtifactContentRejectsUnusableTXT(t *testing.T) {
+	for _, content := range []map[string]any{
+		{"text": " \n\t "},
+		{"text": "\ufeff"},
+		{"fileBase64": base64.StdEncoding.EncodeToString([]byte{0xff, 0xfe})},
+	} {
+		if err := validateImportArtifactContent("txt", content); err == nil {
+			t.Fatalf("validateImportArtifactContent(txt, %#v) error = nil", content)
+		}
 	}
 }
 

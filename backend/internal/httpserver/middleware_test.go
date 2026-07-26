@@ -7,6 +7,8 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+
+	"github.com/alicebob/miniredis/v2"
 )
 
 func TestSecurityHeadersApplyCurrentCSPAndBrowserPolicies(t *testing.T) {
@@ -188,9 +190,9 @@ func TestSPAGuardRedirectsUnauthenticatedProtectedRoutesToConfiguredSignIn(t *te
 			rr := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodGet, "https://ignored.example"+path, nil)
 
-			SPAGuard(Config{
+			SPAGuardWithResolver(Config{
 				AppOrigin: "https://app.example.test",
-			}, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			}, nil, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				t.Fatal("next handler must not run for unauthenticated protected SPA route")
 			})).ServeHTTP(rr, req)
 
@@ -202,6 +204,87 @@ func TestSPAGuardRedirectsUnauthenticatedProtectedRoutesToConfiguredSignIn(t *te
 				t.Fatalf("Location = %q, want %q", got, wantLocation)
 			}
 		})
+	}
+}
+
+func TestRecoveryConvertsPanicsToInternalError(t *testing.T) {
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "https://app.example.test/api/v1/banks", nil)
+
+	Recovery(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		panic("boom")
+	})).ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want %d", rr.Code, http.StatusInternalServerError)
+	}
+	body := decodeJSONBody(t, rr.Body.Bytes())
+	errorBody, ok := body["error"].(map[string]any)
+	if !ok || errorBody["code"] != "INTERNAL_ERROR" {
+		t.Fatalf("error body = %#v, want code INTERNAL_ERROR", body["error"])
+	}
+}
+
+func TestRequestLogPreservesHandlerStatus(t *testing.T) {
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "https://app.example.test/api/health", nil)
+
+	RequestLog(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusTeapot)
+	})).ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusTeapot {
+		t.Fatalf("status = %d, want %d", rr.Code, http.StatusTeapot)
+	}
+}
+
+func TestRateLimitFailsOpenWithoutRedisAndSkipsHealth(t *testing.T) {
+	t.Setenv("REDIS_URL", "")
+
+	for _, path := range []string{"/api/v1/banks", "/api/health", "/dashboard"} {
+		rr := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "https://app.example.test"+path, nil)
+
+		RateLimit(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusNoContent)
+		})).ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusNoContent {
+			t.Fatalf("path %s: status = %d, want %d", path, rr.Code, http.StatusNoContent)
+		}
+	}
+}
+
+func TestRateLimitRejectsRequestsBeyondLimit(t *testing.T) {
+	mr := miniredis.RunT(t)
+	t.Setenv("REDIS_URL", "redis://"+mr.Addr())
+
+	handler := RateLimit(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+
+	for i := int64(1); i <= apiRateLimit+1; i++ {
+		rr := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "https://app.example.test/api/v1/banks", nil)
+		req.RemoteAddr = "203.0.113.7:1234"
+		handler.ServeHTTP(rr, req)
+
+		want := http.StatusNoContent
+		if i > apiRateLimit {
+			want = http.StatusTooManyRequests
+		}
+		if rr.Code != want {
+			t.Fatalf("request %d: status = %d, want %d", i, rr.Code, want)
+		}
+	}
+
+	// 另一个 IP 不受影响
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "https://app.example.test/api/v1/banks", nil)
+	req.RemoteAddr = "203.0.113.8:1234"
+	handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusNoContent {
+		t.Fatalf("other ip: status = %d, want %d", rr.Code, http.StatusNoContent)
 	}
 }
 

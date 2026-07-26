@@ -9,9 +9,17 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"openwook/internal/config"
 )
+
+func TestNewConfiguresBoundedRequestTimeout(t *testing.T) {
+	client := New(config.Config{})
+	if client.httpClient.Timeout != 5*time.Minute {
+		t.Fatalf("HTTP timeout = %s, want %s", client.httpClient.Timeout, 5*time.Minute)
+	}
+}
 
 func TestClientPostsJSONToInternalAIEndpointsAndDecodesResponses(t *testing.T) {
 	tests := []struct {

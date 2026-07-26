@@ -11,6 +11,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"openwook/internal/config"
 )
 
 type SessionUser struct {
@@ -32,7 +34,11 @@ func SignSessionToken(payload SessionPayload) (string, error) {
 		return "", errors.New("session user id must be positive")
 	}
 	if payload.Expires == "" {
-		payload.Expires = time.Now().UTC().Add(7 * 24 * time.Hour).Format(time.RFC3339)
+		ttl, err := config.SessionTTL()
+		if err != nil {
+			return "", err
+		}
+		payload.Expires = time.Now().UTC().Add(ttl).Format(time.RFC3339)
 	}
 	expiresAt, err := time.Parse(time.RFC3339, payload.Expires)
 	if err != nil {
@@ -118,13 +124,10 @@ func SessionCookie(token string, expires time.Time) *http.Cookie {
 }
 
 func sessionSecret() (string, error) {
-	if secret := os.Getenv("AUTH_SECRET"); secret != "" {
+	if secret := strings.TrimSpace(os.Getenv("AUTH_SECRET")); secret != "" {
 		return secret, nil
 	}
-	if os.Getenv("NODE_ENV") == "production" {
-		return "", errors.New("AUTH_SECRET environment variable is required in production")
-	}
-	return "development-secret", nil
+	return "", errors.New("AUTH_SECRET environment variable is required")
 }
 
 func signJWT(header map[string]any, claims map[string]any, secret string) (string, error) {
