@@ -19,25 +19,23 @@ The files under `backend/db/*/*.sql` are bootstrap schema fragments for fresh lo
 
 ## Redis Integration
 
-Redis is an acceleration and coordination layer, not the system of record. PostgreSQL remains authoritative for users, question banks, questions, import jobs, events, answers, and statistics.
+Redis is an acceleration and live-event layer, not the system of record. PostgreSQL remains authoritative for users, question banks, questions, import jobs, events, answers, and statistics.
 
 Current Redis responsibilities:
 
-- Cache-aside reads for reference data, user profiles, visible bank lists, bank items, question detail, answer keys, and analytics summaries.
-- Short-lived distributed locks for import parsing and answer submission.
+- Cache-aside reads for user profiles, practice question queues, and analytics summaries.
 - Rate limit counters for authentication endpoints.
-- BullMQ queue for import parsing jobs; `question_import_jobs` keeps durable state.
-- Redis Pub/Sub and SSE for live import progress; `question_import_job_events` keeps durable history.
-- Practice-session question queues to keep active sessions stable after bank changes.
-- AI result de-duplication cache for repeated document parsing, answer generation, and report generation inputs.
+- Session revocation records.
+- Redis Pub/Sub for live import progress; `question_import_job_events` keeps durable history and PostgreSQL queues import jobs.
 - Cached leaderboard and analytics snapshot endpoints for higher-cost reporting views.
 - PostgreSQL full-text search enhancement for question search, with `ILIKE` fallback behavior.
 
 Failure policy:
 
 - Cache misses or Redis cache errors fall back to PostgreSQL.
-- Queue and SSE features require Redis and should report `IMPORT_QUEUE_UNAVAILABLE` if Redis is not configured.
-- Redis queue deployments should enable AOF persistence and avoid eviction policies that can delete BullMQ keys.
+- Session validation, session revocation on logout, and authentication rate limits require Redis. Those paths fail closed with `503` when Redis is unavailable.
+- Import processing continues from PostgreSQL without Redis; live SSE updates require Redis after the durable event backlog is sent.
+- Redis deployments should enable persistence and avoid evicting active session-revocation keys.
 
 ## 1. Domain Model
 
@@ -46,13 +44,12 @@ Failure policy:
 | Domain | Tables | Purpose |
 | --- | --- | --- |
 | Identity | `users` | Local username/email/password user accounts, active flag, membership tier |
-| Taxonomy | `subjects`, `question_types`, `knowledge_points`, `question_tags` | Subject/type classification, knowledge hierarchy, free-form tags |
+| Taxonomy | `subjects`, `question_types`, `knowledge_points` | Subject/type classification and knowledge hierarchy |
 | Question banks | `question_banks`, `user_bank_links`, `user_bank_stats` | User-owned public/private banks, favorites, per-user bank stats |
 | Questions | `questions`, `question_groups`, `bank_question_links`, `bank_group_links`, `group_question_links`, `v_bank_question_items` | Standalone and grouped questions inside banks |
-| Answer models | `question_choice_details`, `question_true_false_details`, `question_fill_blank_details`, `question_short_answer_details`, `question_options`, `question_answer_keys`, `question_fill_blank_slots`, `question_rubric_items` | Type-specific answer data, answer versions, scoring rubric |
-| Enrichment | `question_educational_metadata`, `question_knowledge_point_links`, `question_provenance` | Difficulty, curriculum metadata, knowledge mapping, import/source trace |
-| Import pipeline | `question_import_jobs`, `question_import_job_batches`, `question_import_job_pages`, `question_import_job_blocks`, `question_import_job_block_attempts`, `question_import_job_review_items`, `question_import_job_events`, `question_import_outbox_events`, `question_import_job_artifacts`, `question_import_job_outputs` | File import orchestration, block parsing, attempts, review, events, outputs |
-| Media | `media_assets`, `question_media_links`, `question_option_media_links`, `question_subquestion_media_links`, `question_group_media_links`, `question_content_blocks` | Images, videos, QR codes, diagrams, rich content blocks |
+| Answer models | `question_options`, `question_answer_keys` | Choice options and canonical answer payloads |
+| Import pipeline | `question_import_jobs`, `question_import_job_events`, `question_import_job_artifacts`, `question_import_job_outputs` | File import orchestration, source artifacts, events, and generated-question links |
+| Media | `media_assets`, `question_media_links`, `question_option_media_links`, `question_group_media_links`, `question_content_blocks` | Images, videos, QR codes, diagrams, rich content blocks |
 | Practice | `user_practice_sessions`, `user_question_answers`, `user_question_stats` | Practice sessions, submitted answers, per-question user stats |
 
 ### Important Invariants
@@ -60,7 +57,7 @@ Failure policy:
 - `questions.subject_id` and `question_type_id` must match an existing `(subject_id, type_id)` in `question_types`.
 - Bank links carry trigger-filled subject fields so a bank can only contain same-subject questions/groups.
 - Group-question links also carry trigger-filled subject fields so a group cannot contain cross-subject questions.
-- Import outputs connect parsing attempts to generated questions or groups.
+- Import outputs connect source jobs to generated questions.
 - Answer submissions update `user_question_stats`, `user_bank_stats`, and `user_practice_sessions` through database triggers.
 - `question_answer_keys` allows only one primary answer key per question.
 
@@ -99,7 +96,7 @@ Use cookie-based sessions for web UI and bearer tokens only for service-to-servi
 | --- | --- | --- | --- |
 | `POST` | `/api/v1/auth/register` | Public | Validate local registration details, create `users` row, and hash password. |
 | `POST` | `/api/v1/auth/login` | Public | Verify username/email + password, set session cookie. |
-| `POST` | `/api/v1/auth/logout` | User | Clear session cookie. |
+| `POST` | `/api/v1/auth/logout` | User | Persist Redis session revocation, then clear the session cookie. |
 | `GET` | `/api/v1/auth/me` | User | Return current user profile and capability flags. |
 | `PATCH` | `/api/v1/users/me` | User | Update username/email/password. |
 | `PATCH` | `/api/v1/users/:id/status` | Admin | Set `is_active`. |
@@ -177,47 +174,30 @@ GET /api/v1/banks/12/items?status=active&type=math_calculation&cursor=...
 | `PUT` | `/api/v1/questions/:questionId/answer-key` | Owner/editor | Upsert primary answer key. |
 | `POST` | `/api/v1/questions/:questionId/options` | Owner/editor | Add choice option. |
 | `PATCH` | `/api/v1/questions/:questionId/options/:optionId` | Owner/editor | Update option content/correctness. |
-| `PUT` | `/api/v1/questions/:questionId/metadata` | Owner/editor | Upsert educational metadata. |
-| `PUT` | `/api/v1/questions/:questionId/knowledge-points` | Owner/editor | Replace knowledge point links. |
 | `PUT` | `/api/v1/questions/:questionId/content-blocks` | Owner/editor | Replace structured content. |
 
 Question create body:
 
 ```json
 {
-  "subjectId": "math",
   "questionTypeId": "math_calculation",
   "answerMode": "fill_blank",
   "stem": "Solve 2x + 3 = 9.",
   "analysis": "Move 3, then divide by 2.",
   "status": "draft",
-  "detailPayload": {},
-  "fillBlankSlots": [
-    {
-      "blankRef": "x",
-      "blankIndex": 1,
-      "correctAnswer": "3",
-      "acceptedAnswers": ["3", "3.0"]
-    }
-  ],
-  "answerKey": {
-    "answerPayload": { "slots": [{ "blankRef": "x", "answers": ["3"] }] },
-    "scorePayload": { "maxScore": 1 }
-  }
+  "answerPayload": { "slots": [{ "blankRef": "x", "answers": ["3"] }] }
 }
 ```
 
 Choice question answer model:
 
-- `question_choice_details.selection_mode`: `single` or `multiple`.
+- `questions.choice_variant`: `single` or `multiple`.
 - `question_options`: labels, content, sort order, correctness.
 - `question_answer_keys.answer_payload`: canonical answer, used by graders.
 
 Fill blank answer model:
 
-- `question_fill_blank_details.correct_answer`: legacy/simple JSON array text.
-- `question_fill_blank_slots`: normalized slot model.
-- `question_answer_keys`: versioned canonical answer payload.
+- `question_answer_keys.answer_payload`: canonical slot and accepted-answer data.
 
 ### Question Groups
 
@@ -302,15 +282,14 @@ Implementation notes:
 | --- | --- | --- | --- |
 | `POST` | `/api/v1/import-jobs` | Bank editor | Create upload/import job. |
 | `POST` | `/api/v1/import-jobs/:jobId/file` | Job owner | Upload source file. |
-| `POST` | `/api/v1/import-jobs/:jobId/start` | Job owner | Move from queued to processing. |
+| `POST` | `/api/v1/import-jobs/:jobId/start` | Job owner | Schedule a queued job for processing. |
+| `POST` | `/api/v1/import-jobs/:jobId/parse` | Job owner | Schedule parsing with optional persistence. |
 | `GET` | `/api/v1/import-jobs/:jobId` | Job owner | Job summary and progress. |
-| `GET` | `/api/v1/import-jobs/:jobId/events` | Job owner | Incremental event stream, cursor by event id. |
-| `GET` | `/api/v1/import-jobs/:jobId/pages` | Job owner | Page analysis status. |
-| `GET` | `/api/v1/import-jobs/:jobId/blocks` | Job owner | Block status, retries, selected attempts. |
-| `GET` | `/api/v1/import-jobs/:jobId/review-items` | Job owner | Items needing manual review. |
-| `POST` | `/api/v1/import-jobs/:jobId/review-items/:itemId/resolve` | Job owner | Resolve review item. |
-| `GET` | `/api/v1/import-jobs/:jobId/outputs` | Job owner | Generated questions/groups from `question_import_job_outputs`. |
-| `POST` | `/api/v1/import-jobs/:jobId/retry` | Job owner | Retry failed blocks/job. |
+| `GET` | `/api/v1/import-jobs/:jobId/events` | Job owner | Recent durable events. |
+| `GET` | `/api/v1/import-jobs/:jobId/events/stream` | Job owner | Durable event backlog followed by live SSE events. |
+| `GET` | `/api/v1/import-jobs/:jobId/artifacts` | Job owner | Source artifacts. |
+| `GET` | `/api/v1/import-jobs/:jobId/outputs` | Job owner | Generated questions from `question_import_job_outputs`. |
+| `POST` | `/api/v1/import-jobs/:jobId/retry` | Job owner | Retry a failed job. |
 | `POST` | `/api/v1/import-jobs/:jobId/cancel` | Job owner | Mark job failed/cancelled; schema currently uses `failed`, so use error code `cancelled`. |
 
 Create body:
@@ -318,12 +297,11 @@ Create body:
 ```json
 {
   "bankId": 12,
-  "fileName": "algebra.pdf",
-  "sourceType": "pdf",
+  "fileName": "algebra.docx",
+  "sourceType": "docx",
   "requestPayload": {
     "subject": "math",
-    "defaultQuestionTypeId": "math_calculation",
-    "parseMode": "layout"
+    "defaultQuestionTypeId": "math_calculation"
   }
 }
 ```
@@ -331,24 +309,20 @@ Create body:
 Import worker flow:
 
 1. Insert `question_import_jobs(status='queued', stage='queued')`.
-2. Store uploaded file as `question_import_job_artifacts`.
-3. Create `question_import_job_pages` and `question_import_job_blocks`.
-4. For each block, create `question_import_job_block_attempts`.
-5. Select best attempt by setting `question_import_job_blocks.selected_attempt_id`.
-6. Create `questions` and optionally `question_groups`.
-7. Create `bank_question_links` or `bank_group_links`.
-8. Insert `question_import_job_outputs` for generated entities.
-9. Insert `question_provenance`.
-10. Emit `question_import_job_events` and `question_import_outbox_events`.
-11. Update job counters and terminal status.
+2. Store one TXT or DOCX source as `question_import_job_artifacts`.
+3. Schedule the job by setting `available_at`.
+4. Claim it atomically with `FOR UPDATE SKIP LOCKED` and mark it `processing`.
+5. Ask the internal AI service to parse the document.
+6. Create each question and bank link transactionally, then record its output link.
+7. Emit `question_import_job_events` and update counters and terminal status.
 
 ### Media
 
 | Method | Route | Auth | Description |
 | --- | --- | --- | --- |
 | `POST` | `/api/v1/media` | User | Upload image/diagram/QR/table asset. |
-| `GET` | `/api/v1/media/:mediaId` | Owner/linked resource reader | Metadata. |
-| `DELETE` | `/api/v1/media/:mediaId` | Owner/editor | Delete if not used, or soft-hide in storage layer. |
+| `GET` | `/api/v1/media/:mediaId` | Authenticated user | Metadata. |
+| `DELETE` | `/api/v1/media/:mediaId` | Admin | Permanently delete the asset and cascading links. |
 | `POST` | `/api/v1/questions/:questionId/media-links` | Owner/editor | Link media to question. |
 | `POST` | `/api/v1/groups/:groupId/media-links` | Owner/editor | Link media to group. |
 | `POST` | `/api/v1/options/:optionId/media-links` | Owner/editor | Link media to option. |
@@ -500,7 +474,7 @@ Question type components:
 
 - `ChoiceAnswer`: radio/checkbox depending on `choice_variant` or selection mode.
 - `TrueFalseAnswer`: segmented true/false control.
-- `FillBlankAnswer`: one input per `question_fill_blank_slots`.
+- `FillBlankAnswer`: one input per slot in the canonical answer payload.
 - `ShortAnswer`: textarea plus optional rubric after submit.
 
 ### Import Pages
@@ -646,36 +620,34 @@ Grading strategy:
 Responsibilities:
 
 - File ingestion and artifact persistence.
-- Page/block extraction.
-- Parser attempt orchestration.
-- Review item creation.
-- Output creation and provenance mapping.
-- Event and outbox publication.
+- PostgreSQL job claiming and retry scheduling.
+- AI parser orchestration.
+- Question and output persistence.
+- Durable event persistence and live Redis publication.
 
 Worker boundaries:
 
 ```text
 Upload API -> import job queued
 Worker: queued -> processing
-Worker: artifacts/pages/blocks
-Worker: attempts/review
-Worker: questions/groups/links/outputs/provenance
+Worker: parse source through internal AI service
+Worker: questions/links/outputs
 Worker: completed or failed
 ```
 
 ### AI Workflow
 
-The Python AI service uses one compiled LangGraph `StateGraph` to route document parsing, answer generation, and learning-report requests. Document uploads follow `preprocess -> parse -> persist`: TXT is decoded as UTF-8, while DOCX/PDF/images use the external MinerU `/file_parse` API; the normalized Markdown is sent to an OpenAI-compatible agent when configured and otherwise uses the deterministic fallback. The final payload is validated as `DocumentParseResult` and inserted into `ai_artifacts` without storing raw upload bytes.
+The Python AI service exposes document parsing, answer generation, and learning-report operations, built on AgentScope 2.x with DashScope models. TXT is decoded as UTF-8, DOCX is extracted locally with Mammoth plus bounded archive inspection (including embedded images and OMML formula passthrough), PDF text is extracted with pypdf (scanned pages are rendered via pypdfium2 and OCR'd by the vision model, which also detects figures and returns bounding-box crops), and XLSX sheets are flattened with openpyxl. Long documents are split on question boundaries into chunks; each chunk goes through one structured-output call with validation-feedback retries, and the results are merged and deduplicated. When no `DASHSCOPE_API_KEY` is configured the deterministic fallbacks answer instead. Go owns all PostgreSQL persistence.
 
-Internal upload routes fail closed unless the same `AI_SERVICE_TOKEN` bearer token as the existing AI routes is configured. The service rejects oversized request bodies before multipart parsing and rejects normalized documents larger than 120,000 characters instead of returning partial results:
+Internal routes fail closed unless `AI_SERVICE_TOKEN` bearer authentication is configured. The document middleware authenticates before buffering and rejects oversized JSON bodies:
 
-| Method | Route | Accepted files | MinerU mode |
-| --- | --- | --- | --- |
-| `POST` | `/internal/ai/upload-text` | TXT | Local UTF-8 decode |
-| `POST` | `/internal/ai/upload-document` | DOCX, PDF | `auto` |
-| `POST` | `/internal/ai/upload-scan` | PDF, JPG, PNG, GIF, WebP, BMP, TIFF | `ocr` |
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `POST` | `/internal/ai/parse-document` | Parse TXT, DOCX, PDF, or XLSX content. |
+| `POST` | `/internal/ai/generate-answer` | Generate an answer and explanation. |
+| `POST` | `/internal/ai/learning-report` | Generate a learning report. |
 
-MinerU runs as a separate service because its current Python requirement excludes Python 3.14. `MINERU_API_URL` selects that service; `OPENAI_BASE_URL`, `OPENAI_MODEL`, and optional `OPENAI_API_KEY` select the parsing agent. `AI_POSTGRES_URL` must use a role limited to reading import-job ownership and inserting `ai_artifacts`; the AI container does not receive `POSTGRES_URL`.
+`DASHSCOPE_API_KEY` enables the AgentScope-backed models; `AI_TEXT_MODEL` and `AI_VL_MODEL` select them (defaults `qwen-max` and `qwen-vl-max`). `AI_AGENT_*` settings bound tokens and timeouts, `AI_MAX_OCR_PAGES` caps scanned-PDF OCR, and the Go side honors `AI_SERVICE_TIMEOUT` (Go duration, default 5m) for long-running parses.
 
 ### Media Module
 
@@ -684,7 +656,7 @@ Responsibilities:
 - Upload validation.
 - Storage abstraction.
 - `media_assets` metadata persistence.
-- Link media to questions, groups, options, subquestions.
+- Link media to questions, groups, and options.
 - Structured content block editing.
 - Image/video metadata extraction.
 
@@ -746,10 +718,10 @@ Transaction required.
 POST /import-jobs
  -> question_import_jobs queued
  -> upload artifact
- -> worker creates pages/blocks/attempts
- -> worker creates questions/groups/links
+ -> schedule with available_at
+ -> worker claims job and calls internal AI parser
+ -> worker creates questions/links
  -> question_import_job_outputs connects source to generated objects
- -> question_provenance captures source page/block/text
  -> job completed
 ```
 
@@ -794,6 +766,8 @@ Validation categories:
 | `INVALID_STATE` | 409 | Operation not allowed in current lifecycle state |
 | `IMPORT_FAILED` | 500 | Import worker failure |
 | `RATE_LIMITED` | 429 | Quota or abuse protection |
+| `SESSION_STORE_UNAVAILABLE` | 503 | Redis cannot verify or revoke a session |
+| `AUTH_RATE_LIMIT_UNAVAILABLE` | 503 | Redis cannot enforce authentication rate limits |
 
 ### Constraint Mapping
 
@@ -829,17 +803,15 @@ Question and link statuses both matter: a bank item is practice-eligible only wh
 ```text
 queued -> processing -> completed
 queued -> processing -> failed
-failed -> queued (retry creates new events and increments retry_count)
+queued -> processing -> persisting -> completed
+queued -> processing -> persisting -> failed (terminal; no automatic retry)
+failed -> queued (retry creates a new event and resets the attempt count)
 ```
 
 Stage values should be standardized in service code:
 
 - `queued`
-- `uploading`
-- `page_analysis`
-- `block_detection`
-- `parsing`
-- `review`
+- `processing`
 - `persisting`
 - `completed`
 - `failed`
@@ -857,14 +829,14 @@ Answers accepted only while active.
 
 API pagination:
 
-- Cursor pagination for banks, bank items, import events, blocks, answers.
+- Cursor pagination for banks, bank items, import events, and answers.
 - Use `id` or `(created_at, id)` cursors.
 
 Indexes already helpful:
 
 - `idx_question_banks_subject`
 - `idx_question_import_jobs_status_stage`
-- `idx_question_import_job_blocks_job_status`
+- `idx_question_import_jobs_ready`
 - `idx_questions_subject_type`
 - `idx_user_question_answers_user_question_answered_at`
 - `idx_user_practice_sessions_user_started`
@@ -872,7 +844,7 @@ Indexes already helpful:
 Recommended additional implementation practices:
 
 - Wrap multi-table writes in transactions.
-- Batch insert import blocks/attempts.
+- Batch insert parsed questions.
 - Cache subject/type lists.
 - Use React Router views with SWR/client-side fetching for dashboards and live import progress.
 - Avoid loading full question content blocks for list views.
@@ -882,7 +854,7 @@ Recommended additional implementation practices:
 ### Phase 1: Align Data Layer
 
 - Keep `backend/db/*/*.sql` as the only product schema source of truth; do not reintroduce the retired starter ORM layer or a parallel Drizzle migration path unless it is regenerated from the SQL files.
-- Keep React Router OpenWook domain routes aligned with the Go + Chi API routes.
+- Keep React Router OpenWook domain routes aligned with the Go `net/http` API routes.
 - Add shared API response/error helpers.
 - Add auth session guards.
 
@@ -905,8 +877,7 @@ Recommended additional implementation practices:
 
 - Upload endpoint and storage.
 - Job creation/progress.
-- Worker abstraction.
-- Review UI.
+- PostgreSQL worker claiming and retries.
 - Output inspection and publish flow.
 
 ### Phase 5: Media and Rich Content
@@ -921,7 +892,7 @@ Recommended additional implementation practices:
 The repository is now organized around the current split-stack implementation:
 
 - `frontend/` contains the React + Vite + React Router browser app and frontend tests.
-- `backend/` contains the Go + Chi API, admin/worker binaries, internal services, and product SQL schema.
-- `ai/` contains the Python FastAPI AI/document-processing service and its LangGraph workflow.
+- `backend/` contains the Go `net/http` API, admin/worker binaries, internal services, and product SQL schema.
+- `ai/` contains the Python FastAPI AI/document-processing service.
 
 The retired starter Drizzle/team data layer is no longer the implementation baseline. Continue evolving the question-bank product against `backend/db/*/*.sql`, the Go services in `backend/internal`, and the routes documented above.

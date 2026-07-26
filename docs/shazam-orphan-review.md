@@ -6,15 +6,15 @@
 
 ### FastAPI dynamic entrypoints
 
-Files such as `ai/openwook_ai/main.py` define route functions registered by FastAPI decorators, for example health checks and internal AI endpoints. They are invoked by the ASGI router rather than by direct source-code calls. Route behavior is covered by `ai/tests/test_routes.py`.
+Files such as `ai/main.py` and `ai/routes.py` define route functions registered by FastAPI decorators, for example health checks and internal AI endpoints. They are invoked by the ASGI router rather than by direct source-code calls. Route behavior is covered by `ai/tests/test_routes.py`.
 
 ### Pydantic schema models
 
-`ai/openwook_ai/schemas.py` contains request/response models consumed by FastAPI, fallback providers, and tests. Pydantic model use is partly dynamic and may not create symbol-level graph edges. Schema behavior is covered by `ai/tests/test_schemas.py`, `ai/tests/test_documents.py`, and route tests.
+`ai/schemas.py` contains request/response models consumed by FastAPI, fallback providers, and tests. Pydantic model use is partly dynamic and may not create symbol-level graph edges. Schema behavior is covered by `ai/tests/test_schemas.py`, `ai/tests/test_documents.py`, and route tests.
 
 ### Go HTTP/API DTOs and handler dependency structs
 
-The Go backend contains many request/response DTO structs under `backend/internal/httpserver`, `backend/internal/services`, `backend/internal/billing`, and related packages. These are used through Chi handlers, JSON encode/decode paths, pgx scanning, and service boundaries. Reflection, generic decoding, and struct literal usage are under-counted by the graph. HTTP behavior is covered by route tests in `backend/internal/httpserver/*_test.go`.
+The Go backend contains many request/response DTO structs under `backend/internal/httpserver`, `backend/internal/services`, and related packages. These are used through `net/http` handlers, JSON encode/decode paths, pgx scanning, and service boundaries. Reflection, generic decoding, and struct literal usage are under-counted by the graph. HTTP behavior is covered by route tests in `backend/internal/httpserver/*_test.go`.
 
 ### Go CLI and worker internals
 

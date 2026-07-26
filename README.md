@@ -2,7 +2,7 @@
 
 OpenWook now runs as a split-stack application:
 
-- Go serves the HTTP API, auth/session handling, PostgreSQL access, Redis-backed queues/caches, and the built frontend.
+- Go serves the HTTP API, auth/session handling, PostgreSQL-backed import queue, Redis caches/events, and the built frontend.
 - Python serves the internal AI/document-processing endpoints.
 - Vite + React + HeroUI provide the browser frontend.
 - `backend/db/*/*.sql` remains the schema authority.
@@ -10,8 +10,8 @@ OpenWook now runs as a split-stack application:
 ## Tech stack
 
 - Frontend: Vite, React 19, React Router, HeroUI v3, Tailwind CSS v4
-- API/runtime: Go 1.26, Chi, pgxpool, go-redis
-- AI service: Python 3.14, FastAPI, LangGraph, Pydantic, Mammoth, external MinerU
+- API/runtime: Go 1.26, `net/http`, pgxpool, go-redis
+- AI service: Python 3.14, FastAPI, Pydantic, AgentScope (DashScope models), Mammoth, pypdf, pypdfium2, Pillow, openpyxl
 - Local infra: Podman Quadlet for Postgres and Redis
 
 ## Local setup
@@ -39,11 +39,14 @@ The Podman helper script ensures the isolated `openwook_app` database exists ins
 cp .env.example .env.local
 ```
 
+Set unique `AUTH_SECRET` and `AI_SERVICE_TOKEN` values in `.env.local` before starting the services. Keep `.env.local` uncommitted.
+
+The development, database, and worker targets load the repository-root `.env.local`. Go commands use `config.Load`; `make ai-dev` exports the file before starting Uvicorn. Existing shell environment variables take precedence for Go commands.
+
 1. Apply schema helpers to your local database:
 
 ```bash
 make db-apply
-make db-ensure
 make db-seed
 ```
 
@@ -82,11 +85,13 @@ Direct dependencies are kept on current stable releases in `frontend/package.jso
 
 - Health endpoints: `/api/health`, `/api/health/ready`, `/api/health/live`
 - Session cookie name: `session`
-- Redis remains the queue backend; there is no separate RabbitMQ/NATS/Kafka service
+- `/api/health/ready` returns `503` until both PostgreSQL and Redis are configured and reachable; `/api/health` continues to return dependency status data.
+- Redis is required for active-session revocation checks, logout revocation writes, and login/register rate limits. Cache reads and writes remain best-effort.
+- PostgreSQL is the durable import queue; Redis Pub/Sub carries live import events.
 - AI routes exposed to the browser stay under `/api/v1/ai/*`; Go talks to Python over `AI_SERVICE_URL`
-- The Python AI service routes document parsing, answer generation, and learning reports through one compiled LangGraph workflow. Internal multipart routes are `/internal/ai/upload-text`, `/internal/ai/upload-document`, and `/internal/ai/upload-scan`; all use the existing `AI_SERVICE_TOKEN` bearer authentication.
-- TXT is decoded locally because MinerU does not accept text files. DOCX, PDF, and images are sent to the MinerU `/file_parse` API configured by `MINERU_API_URL`; the scan route forces OCR mode.
-- Multipart upload results are validated as `DocumentParseResult` and stored in `ai_artifacts`; `AI_SERVICE_TOKEN` and a restricted `AI_POSTGRES_URL` are required for these routes. The AI container does not receive the application database credential. Set `OPENAI_BASE_URL` and `OPENAI_MODEL` to use an OpenAI-compatible parsing agent; otherwise the existing deterministic fallback remains active.
+- Internal AI routes are `/internal/ai/parse-document`, `/internal/ai/generate-answer`, and `/internal/ai/learning-report`; all require `AI_SERVICE_TOKEN` bearer authentication.
+- TXT, DOCX, PDF, and XLSX preprocessing run locally. Set `DASHSCOPE_API_KEY` to enable AgentScope-backed parsing, answer generation, and learning reports (`AI_TEXT_MODEL`/`AI_VL_MODEL` override the default `qwen-max`/`qwen-vl-max`); otherwise the deterministic fallback remains active. Scanned PDF pages are rendered and OCR'd through the vision model, including figure detection with bounding-box crops.
+- Membership tiers are admin-managed; billing checkout and webhook routes are not active.
 
 ## Podman stack
 
@@ -100,7 +105,7 @@ The full local stack can be built and managed with one script:
 ./scripts/podman-stack.sh down
 ```
 
-`up`/`restart` ensure the isolated `openwook_app` database exists before the API and worker start, and create `~/.config/openwook/openwook-stack.env` with random local `AUTH_SECRET`, `AI_SERVICE_TOKEN`, and restricted AI database credentials. You still need to run the schema/seed commands once per fresh database; schema application grants the AI role only the import-job reads and artifact inserts it needs. Edit that env file if you want to rotate the generated local secrets.
+`up`/`restart` ensure the isolated `openwook_app` database exists before the API and worker start, and create `~/.config/openwook/openwook-stack.env` with random local `AUTH_SECRET` and `AI_SERVICE_TOKEN` values. You still need to run the schema/seed commands once per fresh database. Edit that env file if you want to rotate the generated local secrets.
 
 This manages five services:
 
@@ -114,12 +119,13 @@ This manages five services:
 
 See `.env.example` for the full set. The most important groups are:
 
-- Database/cache: `POSTGRES_URL`, optional restricted `AI_POSTGRES_URL`, `REDIS_URL`
+- Database/cache: `POSTGRES_URL`, `REDIS_URL`
 - Host/origin: `OPENWOOK_HOST`, `PORT`, `APP_ORIGIN`
-- Auth/session: `AUTH_SECRET`, `SESSION_TTL_MS`, `SESSION_RENEW_WINDOW_MS`
-- AI service: `AI_SERVICE_URL`, `AI_SERVICE_TOKEN`, `OPENAI_*`, `MINERU_*`, `AI_AGENT_*`
-- Billing: `PADDLE_*`
+- Auth/session: required `AUTH_SECRET`, `SESSION_TTL_MS`, optional `SEED_ADMIN_PASSWORD` (password for the seeded `admin` user; defaults to the local dev value, set it on any shared environment)
+- AI service: `AI_SERVICE_URL`, `AI_SERVICE_TOKEN`, `AI_SERVICE_TIMEOUT`, `DASHSCOPE_API_KEY`, `AI_TEXT_MODEL`, `AI_VL_MODEL`, `AI_AGENT_*`, `AI_MAX_OCR_PAGES`
 - Object storage: `OBJECT_STORAGE_MOUNT_DIR`, `OSS_PUBLIC_BASE_URL`, `OSS_URL_PREFIX`
+
+`AUTH_SECRET` is required in every environment and must be an unpredictable value. `SESSION_TTL_MS` controls both the signed session expiry and cookie expiry; it defaults to seven days when omitted. Session renewal is not implemented, so there is no renewal-window setting.
 
 ## Schema and architecture
 
@@ -127,5 +133,3 @@ See `.env.example` for the full set. The most important groups are:
 - Runtime/bootstrap helpers live in `backend/internal/db`
 - Product/API design notes live in `docs/system-design.md`
 - Static-analysis orphan warning review lives in `docs/shazam-orphan-review.md`
-
-MinerU currently requires Python earlier than 3.14, so run `mineru-api` in a separate Python 3.10-3.13 environment or service and point `MINERU_API_URL` at it. Do not install MinerU into the OpenWook AI container.

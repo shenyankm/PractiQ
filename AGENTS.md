@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-OpenWook is a split-stack application. The React + Vite frontend lives in `frontend/`, with browser source in `frontend/src`, static assets in `frontend/public`, and frontend tests in `frontend/tests`. The Go + Chi backend lives in `backend/`, with executables under `backend/cmd`, internal API/router/auth/config/db/services packages under `backend/internal`, and SQL schema files under `backend/db/*/*.sql`. AI service code lives in `ai/`, and architecture notes live in `docs/`.
+OpenWook is a split-stack application. The React + Vite frontend lives in `frontend/`, with browser source in `frontend/src`, static assets in `frontend/public`, and frontend tests in `frontend/tests`. The Go `net/http` backend lives in `backend/`, with executables under `backend/cmd`, internal API/router/auth/config/db/services packages under `backend/internal`, and SQL schema files under `backend/db/*/*.sql`. AI service code lives in `ai/`, and architecture notes live in `docs/`.
 
 ## Build, Test, and Development Commands
 
@@ -12,7 +12,7 @@ OpenWook is a split-stack application. The React + Vite frontend lives in `front
 - `make start`: serve the built frontend application.
 - `make lint`: run the frontend ESLint and TypeScript rules.
 - `make test`: run the Vitest suite once.
-- `make db-apply`, `make db-ensure`, `make db-seed`: apply SQL schema, runtime compatibility checks, and local sample data from `backend/`.
+- `make db-apply`, `make db-seed`: apply the SQL schema and local sample data from `backend/`.
 - `make worker-imports`: run the Go background import worker; use a separate terminal from `make dev`.
 
 ## Coding Style & Naming Conventions
@@ -33,4 +33,4 @@ Recent history uses Conventional Commit-style prefixes with scopes, for example 
 
 ## Security & Configuration Tips
 
-Do not commit `.env.local` or secrets. Document new environment variables in `README.md` and keep sensitive work in server-side modules. Redis-backed queues, object storage, Alipay, and database features depend on local environment configuration; note required services in PRs that touch them.
+Do not commit `.env.local` or secrets. Document new environment variables in `README.md` and keep sensitive work in server-side modules. Redis-backed auth/events/caches, object storage, AI, and database features depend on local environment configuration; note required services in PRs that touch them.
