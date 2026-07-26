@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 3000",
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc && vite build",
     "start": "vite preview --host 127.0.0.1 --port 3000",
     "lint": "eslint .",
     "test": "vitest run",
@@ -30,7 +30,6 @@
     "eslint": "^10.7.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.3",
-    "globals": "^17.7.0",
     "jsdom": "^29.1.1",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.63.0",

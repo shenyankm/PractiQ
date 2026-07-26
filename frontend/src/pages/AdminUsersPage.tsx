@@ -6,7 +6,6 @@ type AdminUser = {
   id: number;
   username: string;
   email: string;
-  is_active: boolean;
 };
 
 export default function AdminUsersPage() {
@@ -19,7 +18,6 @@ export default function AdminUsersPage() {
   return (
     <div>
       <Link href="/admin">返回后台</Link>
-      <Button type="button">保存</Button>
       {users.map((user) => (
         <div key={user.id}>
           <div>{user.username}</div>

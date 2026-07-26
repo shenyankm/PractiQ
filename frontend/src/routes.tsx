@@ -8,10 +8,10 @@ import AdminKnowledgePointsPage from '@/pages/AdminKnowledgePointsPage';
 import AdminUsersPage from '@/pages/AdminUsersPage';
 
 function ProtectedLayout() {
-  const { user, isLoading, isAuthenticated } = useAuth();
+  const user = useAuth();
   const location = useLocation();
-  if (isLoading) return null;
-  if (!isAuthenticated || !user) {
+  if (user === undefined) return null;
+  if (!user) {
     const redirect = location.pathname + location.search + location.hash;
     return <Navigate to={`/sign-in?redirect=${encodeURIComponent(redirect)}`} replace />;
   }
@@ -23,7 +23,7 @@ function Page({ title }: { title: string }) {
 }
 
 function AdminOnly() {
-  const { user } = useAuth();
+  const user = useAuth();
   if (!user || user.role !== 'admin') return <Page title="Not found page" />;
   return <Outlet />;
 }

@@ -7,10 +7,6 @@ type Overview = {
   active_users: number;
   total_banks: number;
   total_questions: number;
-  plus_users: number;
-  import_jobs: number;
-  knowledge_points: number;
-  open_review_items: number;
 };
 
 export default function AdminPage() {

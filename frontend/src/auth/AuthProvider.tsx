@@ -2,55 +2,30 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { apiRequest } from '@/lib/api';
 
 export type AuthUser = {
-  username: string;
-  membership: 'free' | 'plus' | 'enterprise';
   role: 'admin' | 'user';
-  avatarUrl: string | null;
-  avatarOptimized: boolean;
 };
 
-type AuthContextValue = {
-  user: AuthUser | null;
-  isLoading: boolean;
-  isAuthenticated: boolean;
-};
-
-const AuthContext = createContext<AuthContextValue>({
-  user: null,
-  isLoading: true,
-  isAuthenticated: false
-});
-type AuthMeResponse = { user?: AuthUser | null } | AuthUser | null;
-
-function normalizeAuthUser(data: AuthMeResponse): AuthUser | null {
-  if (!data) return null;
-  if (Object.prototype.hasOwnProperty.call(data, 'user')) {
-    return (data as { user?: AuthUser | null }).user ?? null;
-  }
-  return data as AuthUser;
-}
+const AuthContext = createContext<AuthUser | null | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState<AuthUser | null>();
 
   useEffect(() => {
-    let cancelled = false;
-    apiRequest('/api/v1/auth/me').then((data) => {
-      if (cancelled) return;
-      setUser(normalizeAuthUser(data as AuthMeResponse));
-      setIsLoading(false);
-    }).catch(() => {
-      if (cancelled) return;
-      setUser(null);
-      setIsLoading(false);
-    });
+    let active = true;
+    apiRequest<AuthUser | null>('/api/v1/auth/me').then(
+      (currentUser) => {
+        if (active) setUser(currentUser);
+      },
+      () => {
+        if (active) setUser(null);
+      }
+    );
     return () => {
-      cancelled = true;
+      active = false;
     };
   }, []);
 
-  return <AuthContext.Provider value={{ user, isLoading, isAuthenticated: Boolean(user) }}>{children}</AuthContext.Provider>;
+  return <AuthContext value={user}>{children}</AuthContext>;
 }
 
 // eslint-disable-next-line react-refresh/only-export-components

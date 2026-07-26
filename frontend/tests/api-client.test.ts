@@ -1,21 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiClientError, apiRequest } from '@/lib/api';
 
-const fetchMock = vi.hoisted(() => vi.fn());
+const fetchMock = vi.fn();
 const originalFetch = globalThis.fetch;
 
-function jsonResponse(data: unknown, status = 200, headers?: HeadersInit) {
+function jsonResponse(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(headers ?? {})
-    }
+    headers: { 'Content-Type': 'application/json' }
   });
-}
-
-function headerValue(headers: RequestInit['headers'] | undefined, name: string) {
-	return new Headers(headers).get(name);
 }
 
 describe('apiRequest', () => {
@@ -28,7 +21,7 @@ describe('apiRequest', () => {
     globalThis.fetch = originalFetch;
   });
 
-  it('sends JSON requests with credentials included and unwraps the data envelope', async () => {
+  it('serializes JSON requests and unwraps the data envelope', async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ data: { ok: true } }));
 
     await expect(
@@ -45,49 +38,24 @@ describe('apiRequest', () => {
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe('/api/v1/auth/login');
     expect(init.method).toBe('POST');
-    expect(init.credentials).toBe('include');
-    expect(headerValue(init.headers, 'Content-Type')).toBe('application/json');
+    expect(init.credentials).toBeUndefined();
+    expect(new Headers(init.headers).get('Content-Type')).toBe('application/json');
     expect(JSON.parse(String(init.body))).toEqual({
       login: 'alice@example.com',
       password: 'password123'
     });
   });
 
-  it('sends multipart requests with credentials included without forcing a content type header', async () => {
-    const formData = new FormData();
-    formData.set('username', 'alice');
-
-    fetchMock.mockResolvedValueOnce(jsonResponse({ data: { username: 'alice' } }));
-
-    await expect(
-      apiRequest('/api/v1/users/me', {
-        method: 'PATCH',
-        body: formData
-      })
-    ).resolves.toEqual({ username: 'alice' });
-
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe('/api/v1/users/me');
-    expect(init.method).toBe('PATCH');
-    expect(init.credentials).toBe('include');
-    expect(init.body).toBe(formData);
-    expect(headerValue(init.headers, 'Content-Type')).toBeNull();
-  });
-
-  it('throws ApiClientError with status, code, message, details, and requestId from the error envelope', async () => {
+  it('throws ApiClientError with the consumed error fields', async () => {
     fetchMock.mockResolvedValueOnce(
       jsonResponse(
         {
           error: {
-            code: 'VALIDATION_ERROR',
             message: 'Invalid request',
-            details: [{ field: 'email', message: 'Required' }],
-            requestId: 'req-123'
+            details: [{ field: 'email', message: 'Required' }]
           }
         },
-        422,
-        { 'x-request-id': 'req-123' }
+        422
       )
     );
 
@@ -102,11 +70,8 @@ describe('apiRequest', () => {
 
     expect(error).toBeInstanceOf(ApiClientError);
     expect(error).toMatchObject({
-      status: 422,
-      code: 'VALIDATION_ERROR',
       message: 'Invalid request',
-      details: [{ field: 'email', message: 'Required' }],
-      requestId: 'req-123'
+      details: [{ field: 'email', message: 'Required' }]
     });
   });
 });

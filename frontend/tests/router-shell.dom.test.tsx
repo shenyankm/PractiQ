@@ -6,13 +6,8 @@ import type { ReactNode } from 'react';
 
 const authState = vi.hoisted(() => ({
   user: null as null | {
-    username: string;
-    membership: 'free' | 'plus' | 'enterprise';
     role: 'admin' | 'user';
-    avatarUrl: string | null;
-    avatarOptimized: boolean;
-  },
-  isLoading: false
+  } | undefined
 }));
 
 function stubPage(label: string) {
@@ -23,11 +18,7 @@ function stubPage(label: string) {
 
 vi.mock('@/auth/AuthProvider', () => ({
   AuthProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
-  useAuth: () => ({
-    user: authState.user,
-    isLoading: authState.isLoading,
-    isAuthenticated: Boolean(authState.user)
-  })
+  useAuth: () => authState.user
 }));
 
 vi.mock('@/lib/api', () => ({
@@ -42,19 +33,11 @@ vi.mock('@/pages/AdminUsersPage', () => ({ default: stubPage('Admin users page')
 import { AppRouter } from '@/routes';
 
 const standardUser = {
-  username: 'tester',
-  membership: 'free' as const,
-  role: 'user' as const,
-  avatarUrl: null,
-  avatarOptimized: false
+  role: 'user' as const
 };
 
 const adminUser = {
-  username: 'admin',
-  membership: 'plus' as const,
-  role: 'admin' as const,
-  avatarUrl: null,
-  avatarOptimized: false
+  role: 'admin' as const
 };
 
 function renderAt(pathname: string) {
@@ -65,7 +48,6 @@ function renderAt(pathname: string) {
 describe('Vite React router and shell', () => {
   beforeEach(() => {
     authState.user = null;
-    authState.isLoading = false;
     window.history.replaceState({}, '', '/');
   });
 
@@ -80,6 +62,15 @@ describe('Vite React router and shell', () => {
 
     await screen.findByRole('heading', { name: 'Dashboard page' });
     await waitFor(() => expect(window.location.pathname).toBe('/dashboard'));
+  });
+
+  it('waits for authentication before routing protected pages', () => {
+    authState.user = undefined;
+
+    renderAt('/dashboard');
+
+    expect(screen.queryByRole('heading')).toBeNull();
+    expect(window.location.pathname).toBe('/dashboard');
   });
 
   it('redirects unauthenticated protected routes to sign-in with the original path', async () => {

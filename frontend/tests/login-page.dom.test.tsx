@@ -1,56 +1,48 @@
 // @vitest-environment jsdom
 
-import { act, type AnchorHTMLAttributes, type ReactNode } from 'react';
+import { act } from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { ApiClientError } from '@/lib/api';
 import { LoginPage, safeRedirect } from '@/pages/LoginPage';
 
 const routerState = vi.hoisted(() => ({
-  searchParams: new URLSearchParams(),
-  pathname: '/sign-in'
+  searchParams: new URLSearchParams()
 }));
 
-const fetchMock = vi.hoisted(() => vi.fn());
-const originalFetch = globalThis.fetch;
+const mocks = vi.hoisted(() => ({
+  apiRequest: vi.fn()
+}));
 
 vi.mock('react-router-dom', () => ({
-  Link: ({ children, to, ...props }: { children: ReactNode; to: string } & AnchorHTMLAttributes<HTMLAnchorElement>) => (
-    <a href={to} {...props}>
-      {children}
-    </a>
-  ),
-  useLocation: () => ({
-    pathname: routerState.pathname,
-    search: routerState.searchParams.toString() ? `?${routerState.searchParams.toString()}` : '',
-    hash: ''
-  }),
   useSearchParams: () => [routerState.searchParams, vi.fn()]
 }));
 
-function jsonResponse(data: unknown, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { 'Content-Type': 'application/json' }
-  });
+vi.mock('@/lib/api', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@/lib/api')>(),
+  apiRequest: mocks.apiRequest
+}));
+
+function submitRegistration(password = 'password123', confirmPassword = password) {
+  render(<LoginPage mode="signup" />);
+  fireEvent.change(screen.getByLabelText('用户名'), { target: { value: 'alice' } });
+  fireEvent.change(screen.getByLabelText('邮箱'), { target: { value: 'alice@example.com' } });
+  fireEvent.change(screen.getByLabelText('密码'), { target: { value: password } });
+  fireEvent.change(screen.getByLabelText('确认密码'), { target: { value: confirmPassword } });
+  fireEvent.click(screen.getByRole('button', { name: '注册' }));
 }
 
 describe('LoginPage', () => {
   beforeEach(() => {
-    fetchMock.mockReset();
-    routerState.pathname = '/sign-in';
+    vi.resetAllMocks();
     routerState.searchParams = new URLSearchParams();
-    globalThis.fetch = fetchMock as typeof fetch;
   });
 
-  afterEach(() => {
-    globalThis.fetch = originalFetch;
-  });
-
-  it('posts JSON sign-in credentials after success', async () => {
+  it('submits sign-in credentials', async () => {
     routerState.searchParams = new URLSearchParams({
       redirect: '/imports/42?tab=review#latest'
     });
-    fetchMock.mockResolvedValueOnce(jsonResponse({ data: { user: { id: 42 } } }));
+    mocks.apiRequest.mockResolvedValueOnce({ id: 42 });
 
     render(<LoginPage mode="signin" />);
 
@@ -62,84 +54,46 @@ describe('LoginPage', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: '登录' }));
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
-    expect(fetchMock).toHaveBeenCalledWith(
+    await waitFor(() => expect(mocks.apiRequest).toHaveBeenCalledTimes(1));
+    expect(mocks.apiRequest).toHaveBeenCalledWith(
       '/api/v1/auth/login',
-      expect.objectContaining({
-        method: 'POST'
-      })
+      {
+        method: 'POST',
+        json: { login: 'alice@example.com', password: 'password123' }
+      }
     );
-
-    const request = fetchMock.mock.calls[0]?.[1] as RequestInit;
-    expect(JSON.parse(String(request.body))).toEqual({
-      login: 'alice@example.com',
-      password: 'password123'
-    });
   });
 
-  it('posts JSON registration payload after success', async () => {
-    routerState.pathname = '/sign-up';
+  it('submits registration details', async () => {
     routerState.searchParams = new URLSearchParams({
       redirect: 'https://evil.example/phish'
     });
-    fetchMock.mockResolvedValueOnce(jsonResponse({ data: { id: 7 } }, 201));
+    mocks.apiRequest.mockResolvedValueOnce({ id: 7 });
 
-    render(<LoginPage mode="signup" />);
+    submitRegistration();
 
-    fireEvent.change(screen.getByLabelText('用户名'), {
-      target: { value: 'alice' }
-    });
-    fireEvent.change(screen.getByLabelText('邮箱'), {
-      target: { value: 'alice@example.com' }
-    });
-    fireEvent.change(screen.getByLabelText('密码'), {
-      target: { value: 'password123' }
-    });
-    fireEvent.change(screen.getByLabelText('确认密码'), {
-      target: { value: 'password123' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: '注册' }));
-
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
-    expect(fetchMock).toHaveBeenCalledWith(
+    await waitFor(() => expect(mocks.apiRequest).toHaveBeenCalledTimes(1));
+    expect(mocks.apiRequest).toHaveBeenCalledWith(
       '/api/v1/auth/register',
-      expect.objectContaining({
-        method: 'POST'
-      })
+      {
+        method: 'POST',
+        json: { username: 'alice', email: 'alice@example.com', password: 'password123' }
+      }
     );
-
-    const request = fetchMock.mock.calls[0]?.[1] as RequestInit;
-    expect(JSON.parse(String(request.body))).toEqual({
-      username: 'alice',
-      email: 'alice@example.com',
-      password: 'password123'
-    });
   });
 
-  it('does not submit registration when passwords do not match', async () => {
-    render(<LoginPage mode="signup" />);
+  it('does not submit registration when passwords do not match', () => {
+    submitRegistration('password123', 'different-password');
 
-    fireEvent.change(screen.getByLabelText('用户名'), { target: { value: 'alice' } });
-    fireEvent.change(screen.getByLabelText('邮箱'), { target: { value: 'alice@example.com' } });
-    fireEvent.change(screen.getByLabelText('密码'), { target: { value: 'password123' } });
-    fireEvent.change(screen.getByLabelText('确认密码'), { target: { value: 'different-password' } });
-    fireEvent.click(screen.getByRole('button', { name: '注册' }));
-
-    await waitFor(() => expect(fetchMock).not.toHaveBeenCalled());
+    expect(mocks.apiRequest).not.toHaveBeenCalled();
   });
 
   it('accepts multibyte passwords that meet the byte minimum', async () => {
-    fetchMock.mockResolvedValueOnce(jsonResponse({ data: { id: 7 } }, 201));
+    mocks.apiRequest.mockResolvedValueOnce({ id: 7 });
 
-    render(<LoginPage mode="signup" />);
+    submitRegistration('中中中');
 
-    fireEvent.change(screen.getByLabelText('用户名'), { target: { value: 'alice' } });
-    fireEvent.change(screen.getByLabelText('邮箱'), { target: { value: 'alice@example.com' } });
-    fireEvent.change(screen.getByLabelText('密码'), { target: { value: '中中中' } });
-    fireEvent.change(screen.getByLabelText('确认密码'), { target: { value: '中中中' } });
-    fireEvent.click(screen.getByRole('button', { name: '注册' }));
-
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mocks.apiRequest).toHaveBeenCalledTimes(1));
   });
 
   it('keeps password focus after toggling visibility', () => {
@@ -158,23 +112,11 @@ describe('LoginPage', () => {
   });
 
   it('shows backend validation errors', async () => {
-    fetchMock.mockResolvedValueOnce(
-      jsonResponse({
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Invalid request',
-          details: [{ field: 'email', message: '请输入有效的邮箱地址。' }]
-        }
-      }, 422)
+    mocks.apiRequest.mockRejectedValueOnce(
+      new ApiClientError('Invalid request', [{ field: 'email', message: '请输入有效的邮箱地址。' }])
     );
 
-    render(<LoginPage mode="signup" />);
-
-    fireEvent.change(screen.getByLabelText('用户名'), { target: { value: 'alice' } });
-    fireEvent.change(screen.getByLabelText('邮箱'), { target: { value: 'alice@example.com' } });
-    fireEvent.change(screen.getByLabelText('密码'), { target: { value: 'password123' } });
-    fireEvent.change(screen.getByLabelText('确认密码'), { target: { value: 'password123' } });
-    fireEvent.click(screen.getByRole('button', { name: '注册' }));
+    submitRegistration();
 
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toContain('请输入有效的邮箱地址。');
