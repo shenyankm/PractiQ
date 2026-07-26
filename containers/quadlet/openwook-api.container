@@ -8,10 +8,10 @@ Network=openwook.network
 NetworkAlias=openwook-api
 PublishPort=127.0.0.1:3000:3000
 Environment=POSTGRES_URL=postgres://openwook:openwook@openwook-postgres:5432/openwook_app
-Environment=POSTGRES_URL=postgres://openwook:openwook@openwook-postgres:5432/openwook_app
 Environment=REDIS_URL=redis://openwook-redis:6379
 Environment=AI_SERVICE_URL=http://openwook-ai:8001
 Environment=AI_SERVICE_TOKEN
+Environment=AI_SERVICE_TIMEOUT
 Environment=AUTH_SECRET
 Environment=OPENWOOK_HOST=0.0.0.0
 Environment=PORT=3000

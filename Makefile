@@ -1,4 +1,4 @@
-.PHONY: install dev build start lint test test-go test-ai test-e2e verify api-dev ai-dev db-apply db-ensure db-seed worker-imports
+.PHONY: install dev build start lint test test-go test-ai test-e2e verify api-dev ai-dev db-apply db-seed worker-imports
 
 install:
 	pnpm --dir frontend install
@@ -33,13 +33,10 @@ api-dev:
 	cd backend && go run ./cmd/openwook-api
 
 ai-dev:
-	python -m uvicorn openwook_ai.main:app --app-dir ai --host 127.0.0.1 --port 8001
+	set -a; [ ! -f .env.local ] || . ./.env.local; set +a; python -m uvicorn main:app --app-dir ai --host 127.0.0.1 --port 8001
 
 db-apply:
 	cd backend && go run ./cmd/openwook-admin db apply
-
-db-ensure:
-	cd backend && go run ./cmd/openwook-admin db ensure
 
 db-seed:
 	cd backend && go run ./cmd/openwook-admin db seed
