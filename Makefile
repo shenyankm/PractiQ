@@ -1,7 +1,8 @@
-.PHONY: install dev build start lint test test-go test-ai test-e2e verify api-dev ai-dev db-apply db-seed worker-imports
+.PHONY: install dev build start lint test test-go test-ai test-e2e verify api-dev ai-dev db-apply db-seed worker-imports mobile-install mobile-dev mobile-android mobile-ios mobile-lint mobile-test
 
 install:
 	pnpm --dir frontend install
+	npm --prefix mobile ci
 
 dev:
 	pnpm --dir frontend dev
@@ -14,9 +15,12 @@ start:
 
 lint:
 	pnpm --dir frontend lint
+	npm --prefix mobile run lint
 
 test:
 	pnpm --dir frontend test
+	npm --prefix mobile run typecheck
+	npm --prefix mobile test
 
 test-go:
 	cd backend && go test ./internal/... ./cmd/openwook-admin ./cmd/openwook-api ./cmd/openwook-worker
@@ -43,3 +47,22 @@ db-seed:
 
 worker-imports:
 	cd backend && go run ./cmd/openwook-worker
+
+mobile-install:
+	npm --prefix mobile ci
+
+mobile-dev:
+	npm --prefix mobile start
+
+mobile-android:
+	npm --prefix mobile run android
+
+mobile-ios:
+	npm --prefix mobile run ios
+
+mobile-lint:
+	npm --prefix mobile run lint
+
+mobile-test:
+	npm --prefix mobile run typecheck
+	npm --prefix mobile test

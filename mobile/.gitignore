@@ -1,0 +1,60 @@
+# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+
+# dependencies
+node_modules/
+
+# environment and secrets
+.env
+.env.*
+!.env.example
+/credentials.json
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native
+.kotlin/
+*.apk
+*.aab
+*.ipa
+*.xcarchive
+*.orig.*
+*.jks
+*.keystore
+*.p8
+*.p12
+*.pfx
+*.key
+*.mobileprovision
+*.practiq.zip
+
+# Metro
+.metro-health-check*
+
+# debug
+npm-debug.*
+*.log
+
+# tests
+coverage/
+
+# editors
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+Thumbs.db
+*.pem
+
+# typescript
+*.tsbuildinfo
+
+# generated native folders
+/ios
+/android
