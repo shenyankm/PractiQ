@@ -2,7 +2,7 @@
 
 ## 1. Product Overview
 
-OpenWook 是一个面向教师和教育机构的题库管理与智能练习平台。用户可创建和管理学科题库、手动或 AI 批量导入试题、组织练习与考试会话，并获取多维度的学习分析报告。系统采用分栈架构，Go 提供 REST API，Python 提供 AI 文档解析服务，React 提供前端界面。
+OpenWook 是一个面向教师和教育机构的题库管理与智能练习平台。用户可创建和管理学科题库、手动或 AI 批量导入试题、组织练习与考试会话，并获取多维度的学习分析报告。系统采用分栈架构，Go 提供 REST API，Python 提供 AI 文档解析服务，React 提供 Web 前端，PractiQ/Expo 提供 Android 与 iOS 客户端。
 
 ## 2. 目标用户
 
@@ -95,6 +95,16 @@ OpenWook 是一个面向教师和教育机构的题库管理与智能练习平�
 | F8.2 试题搜索 | 基于 stem 的全文本搜索（PostgreSQL tsvector + 拼音/trigram） |
 | F8.3 知识点搜索 | 按名称或学科检索知识树节点 |
 
+### F9: 移动端与离线
+
+| 功能 | 需求 |
+|------|------|
+| F9.1 多端数据 | Web 与移动端共用 PostgreSQL 权威数据 |
+| F9.2 离线读取 | 移动端缓存最近访问的题库、试题、练习与分析 |
+| F9.3 离线写入 | 待同步操作按创建顺序重放，并使用幂等键去重 |
+| F9.4 离线练习 | 缓存题库可完成离线练习，联网后一次性上传 |
+| F9.5 冲突规则 | 服务端按请求接收顺序处理，后到写入覆盖先到写入 |
+
 ## 4. 页面与路由
 
 ### 公开页
@@ -108,17 +118,17 @@ OpenWook 是一个面向教师和教育机构的题库管理与智能练习平�
 ### 受保护页（需登录）
 | 路由 | 页面 | 状态 |
 |------|------|------|
-| `/dashboard` | 仪表板概览 | 占位 |
-| `/banks` | 题库列表 | 占位 |
-| `/banks/new` | 创建题库 | 占位 |
-| `/banks/:bankId` | 题库详情 | 占位 |
-| `/banks/:bankId/manage` | 题库管理（题目编辑） | 占位 |
-| `/banks/:bankId/practice` | 练习配置 | 占位 |
-| `/practice/:sessionId` | 正在练习 | 占位 |
-| `/imports` | 导入任务列表 | 占位 |
-| `/imports/:jobId` | 导入详情 | 占位 |
-| `/questions/:questionId` | 题目详情 | 占位 |
-| `/settings` | 用户设置 | 占位 |
+| `/dashboard` | 仪表板概览 | 已实现 |
+| `/banks` | 题库列表 | 已实现 |
+| `/banks/new` | 创建题库 | 已实现 |
+| `/banks/:bankId` | 题库详情 | 已实现 |
+| `/banks/:bankId/manage` | 题库管理（题目编辑） | 已实现 |
+| `/banks/:bankId/practice` | 练习配置 | 已实现 |
+| `/practice/:sessionId` | 正在练习 | 已实现 |
+| `/imports` | 导入任务列表 | 已实现 |
+| `/imports/:jobId` | 导入详情 | 已实现 |
+| `/questions/:questionId` | 题目详情 | 已实现 |
+| `/settings` | 用户设置 | 已实现 |
 
 ### 管理员页
 | 路由 | 页面 | 状态 |
@@ -137,15 +147,16 @@ OpenWook 是一个面向教师和教育机构的题库管理与智能练习平�
 | NFR4 可用性 | SQL + Redis 双依赖健康检查 `/api/health` |
 | NFR5 安全 | HMAC session 签名、bcrypt 密码、CSRF SameOrigin 保护、速率限制 |
 | NFR6 可扩展 | 导入 worker 独立进程，PostgreSQL `FOR UPDATE SKIP LOCKED` 任务竞争 |
-| NFR7 持久化 | PostgreSQL 为唯一权威存储，Redis 故障降级至 SQL 读取 |
+| NFR7 持久化 | PostgreSQL 为唯一权威存储；Redis 故障时普通读取降级至 SQL，幂等写入失败关闭 |
 | NFR8 国际化 | 前端保留 i18n 架构潜力，当前内容以中文为主 |
+| NFR9 离线同步 | 移动端 SQLite 缓存与 outbox；幂等重放避免响应丢失造成重复写入 |
 
 ## 6. 技术架构
 
 ```
-Browser (React + Vite + HeroUI)
-        │ HTTP / JSON
-        ▼
+Browser (React + Vite) ─┐
+PractiQ (Expo / RN) ────┴─ HTTP / JSON
+                         ▼
 Go API (net/http, pgxpool, go-redis)
         │              │
         ├── PostgreSQL ─┤ (schema: backend/db/*/*.sql)
@@ -180,16 +191,15 @@ Go API (net/http, pgxpool, go-redis)
 
 ## 8. 当前开发阶段
 
-- **已实现**: 认证登录/注册、后端全部 REST API（参考、题库、试题、练习、导入、媒体、分析、搜索、AI、管理）、数据层（7 个 SQL schema + 触发器）、AI 文档解析服务（文档规范化 + OpenAI 智能解析 + 确定性 fallback）、导入 worker（PostgreSQL 竞争领取 + Redis SSE）
-- **待完成 - 前端**: 仅登录页和管理员 3 页已完成；核心用户页面（仪表板、题库 CRUD、练习作答、导入流程、设置）均为占位符，需对接现有 API
+- **已实现**: 认证登录/注册、后端全部 REST API（参考、题库、试题、练习、导入、媒体、分析、搜索、AI、管理）、Web 核心学习页面与管理员页面、PractiQ Android/iOS 客户端、移动端离线缓存/outbox、数据层（7 个 SQL schema + 触发器）、AI 文档解析服务、导入 worker
 - **待完成 - 功能**: 计费/结账的 webhook 未激活、generate-answer 和 learning-report 的 AI agent 调用尚未接入（目前走 fallback）、study-groups schema 目录预留未填充
 
 ## 9. 路线图
 
 | 阶段 | 内容 |
 |------|------|
-| Phase 1 | 前端核心页面开发（Dashboard、题库列表/详情/管理、练习界面、导入流程） |
+| Phase 1 | Web 与移动端核心页面开发（已完成） |
 | Phase 2 | 计费集成、会员权益实现 |
 | Phase 3 | AI 全面接入（generate-answer 和 learning-report agent 集成） |
 | Phase 4 | 国际化、学习小组（study-groups）、更多题型扩展 |
-| Phase 5 | 移动端适配、离线练习、协作功能 |
+| Phase 5 | 协作功能与更细粒度的跨设备冲突提示 |

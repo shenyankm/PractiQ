@@ -2,16 +2,17 @@
 
 ## Project Structure & Module Organization
 
-OpenWook is a split-stack application. The React + Vite frontend lives in `frontend/`, with browser source in `frontend/src`, static assets in `frontend/public`, and frontend tests in `frontend/tests`. The Go `net/http` backend lives in `backend/`, with executables under `backend/cmd`, internal API/router/auth/config/db/services packages under `backend/internal`, and SQL schema files under `backend/db/*/*.sql`. AI service code lives in `ai/`, and architecture notes live in `docs/`.
+OpenWook is a split-stack application. The React + Vite browser frontend lives in `frontend/`; the Expo/React Native mobile client lives in `mobile/`. The Go `net/http` backend lives in `backend/`, with executables under `backend/cmd`, internal API/router/auth/config/db/services packages under `backend/internal`, and SQL schema files under `backend/db/*/*.sql`. AI service code lives in `ai/`, and architecture notes live in `docs/`.
 
 ## Build, Test, and Development Commands
 
-- `make install`: install frontend dependencies from `frontend/pnpm-lock.yaml` and configure Git hooks.
+- `make install`: install browser and mobile dependencies from their lockfiles.
 - `make dev`: run the Vite frontend dev server from `frontend/`.
+- `make mobile-dev`, `make mobile-android`, `make mobile-ios`: start or run the Expo client.
 - `make build`: create a production frontend build.
 - `make start`: serve the built frontend application.
-- `make lint`: run the frontend ESLint and TypeScript rules.
-- `make test`: run the Vitest suite once.
+- `make lint`: lint both browser and mobile frontends.
+- `make test`: run browser tests plus mobile type checking and tests.
 - `make db-apply`, `make db-seed`: apply the SQL schema and local sample data from `backend/`.
 - `make worker-imports`: run the Go background import worker; use a separate terminal from `make dev`.
 

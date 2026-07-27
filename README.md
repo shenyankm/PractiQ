@@ -5,11 +5,13 @@ OpenWook now runs as a split-stack application:
 - Go serves the HTTP API, auth/session handling, PostgreSQL-backed import queue, Redis caches/events, and the built frontend.
 - Python serves the internal AI/document-processing endpoints.
 - Vite + React + HeroUI provide the browser frontend.
+- Expo + React Native provide the PractiQ-branded Android/iOS client under `mobile/`.
 - `backend/db/*/*.sql` remains the schema authority.
 
 ## Tech stack
 
 - Frontend: Vite, React 19, React Router, HeroUI v3, Tailwind CSS v4
+- Mobile: Expo SDK 57, React Native, Expo Router, HeroUI Native, SQLite offline cache/outbox
 - API/runtime: Go 1.26, `net/http`, pgxpool, go-redis
 - AI service: Python 3.14, FastAPI, Pydantic, AgentScope (DashScope models), Mammoth, pypdf, pypdfium2, Pillow, openpyxl
 - Local infra: Podman Quadlet for Postgres and Redis
@@ -54,12 +56,16 @@ make db-seed
 
 ```bash
 make dev             # Vite frontend on 127.0.0.1:3000
+make mobile-dev      # Expo development server
+make mobile-android  # Android development build
+make mobile-ios      # iOS development build (macOS only)
 make api-dev         # Go API on 127.0.0.1:8080 by default
 make ai-dev          # FastAPI AI service on 127.0.0.1:8001
 make worker-imports  # Go import worker
 ```
 
 Set `GO_API_URL=http://127.0.0.1:8080` when running `make dev` against a non-default API URL.
+For mobile development, copy `mobile/.env.example` to `mobile/.env` and set `EXPO_PUBLIC_API_URL` to an API address reachable from the emulator or device.
 
 ## Test and verification commands
 
@@ -69,11 +75,12 @@ make test
 make test-go
 make test-ai
 make test-e2e
+make mobile-test
 make build
 make verify
 ```
 
-`make build` runs the frontend TypeScript check before the Vite production build.
+`make lint` and `make test` cover both frontends; `make build` runs the browser TypeScript check before the Vite production build.
 
 ## OpenCode
 
@@ -88,6 +95,7 @@ Direct dependencies are kept on current stable releases in `frontend/package.jso
 - `/api/health/ready` returns `503` until both PostgreSQL and Redis are configured and reachable; `/api/health` continues to return dependency status data.
 - Redis is required for active-session revocation checks, logout revocation writes, and login/register rate limits. Cache reads and writes remain best-effort.
 - PostgreSQL is the durable import queue; Redis Pub/Sub carries live import events.
+- Mobile writes carry `Idempotency-Key`; Redis stores successful replays for 24 hours. Cached mobile reads remain available offline, and queued writes replay in order after reconnection.
 - AI routes exposed to the browser stay under `/api/v1/ai/*`; Go talks to Python over `AI_SERVICE_URL`
 - Internal AI routes are `/internal/ai/parse-document`, `/internal/ai/generate-answer`, and `/internal/ai/learning-report`; all require `AI_SERVICE_TOKEN` bearer authentication.
 - TXT, DOCX, PDF, and XLSX preprocessing run locally. Set `DASHSCOPE_API_KEY` to enable AgentScope-backed parsing, answer generation, and learning reports (`AI_TEXT_MODEL`/`AI_VL_MODEL` override the default `qwen-max`/`qwen-vl-max`); otherwise the deterministic fallback remains active. Scanned PDF pages are rendered and OCR'd through the vision model, including figure detection with bounding-box crops.
@@ -121,6 +129,7 @@ See `.env.example` for the full set. The most important groups are:
 
 - Database/cache: `POSTGRES_URL`, `REDIS_URL`
 - Host/origin: `OPENWOOK_HOST`, `PORT`, `APP_ORIGIN`
+- Mobile build-time API endpoint: `EXPO_PUBLIC_API_URL` in `mobile/.env`
 - Auth/session: required `AUTH_SECRET`, `SESSION_TTL_MS`, optional `SEED_ADMIN_PASSWORD` (password for the seeded `admin` user; defaults to the local dev value, set it on any shared environment)
 - AI service: `AI_SERVICE_URL`, `AI_SERVICE_TOKEN`, `AI_SERVICE_TIMEOUT`, `DASHSCOPE_API_KEY`, `AI_TEXT_MODEL`, `AI_VL_MODEL`, `AI_AGENT_*`, `AI_MAX_OCR_PAGES`
 - Object storage: `OBJECT_STORAGE_MOUNT_DIR`, `OSS_PUBLIC_BASE_URL`, `OSS_URL_PREFIX`
@@ -131,5 +140,5 @@ See `.env.example` for the full set. The most important groups are:
 
 - Product schema lives in `backend/db/*/*.sql`
 - Runtime/bootstrap helpers live in `backend/internal/db`
+- Browser and mobile clients live in `frontend/` and `mobile/`; PostgreSQL remains authoritative for both.
 - Product/API design notes live in `docs/system-design.md`
-- Static-analysis orphan warning review lives in `docs/shazam-orphan-review.md`

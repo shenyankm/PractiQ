@@ -28,12 +28,14 @@ Current Redis responsibilities:
 - Session revocation records.
 - Redis Pub/Sub for live import progress; `question_import_job_events` keeps durable history and PostgreSQL queues import jobs.
 - Cached leaderboard and analytics snapshot endpoints for higher-cost reporting views.
+- Successful responses for mobile mutations carrying `Idempotency-Key`, retained for 24 hours.
 - PostgreSQL full-text search enhancement for question search, with `ILIKE` fallback behavior.
 
 Failure policy:
 
 - Cache misses or Redis cache errors fall back to PostgreSQL.
 - Session validation, session revocation on logout, and authentication rate limits require Redis. Those paths fail closed with `503` when Redis is unavailable.
+- Requests carrying `Idempotency-Key` also fail closed with `503` when Redis is unavailable so a retry cannot create duplicate writes.
 - Import processing continues from PostgreSQL without Redis; live SSE updates require Redis after the durable event backlog is sent.
 - Redis deployments should enable persistence and avoid evicting active session-revocation keys.
 
@@ -90,7 +92,7 @@ Errors:
 
 ### Authentication
 
-Use cookie-based sessions for web UI and bearer tokens only for service-to-service or future mobile clients.
+Use cookie-based sessions for web UI and bearer tokens only for service-to-service or mobile clients. Mobile clients send the session JWT (returned as `token`/`expiresAt` in login and register responses alongside the cookie) as `Authorization: Bearer <token>`; the resolver prefers the cookie and falls back to the bearer header, and logout revokes whichever token was presented.
 
 | Method | Route | Auth | Description |
 | --- | --- | --- | --- |
@@ -220,6 +222,7 @@ Fill blank answer model:
 | `POST` | `/api/v1/practice-sessions/:sessionId/complete` | Owner | Complete session and finalize score. |
 | `POST` | `/api/v1/practice-sessions/:sessionId/abandon` | Owner | Abandon active session. |
 | `GET` | `/api/v1/practice-sessions/:sessionId/results` | Owner | Detailed results and explanations. |
+| `POST` | `/api/v1/offline-practice` | User | Idempotently create, answer, and complete one cached offline practice session. |
 
 Start body:
 
@@ -361,6 +364,8 @@ frontend/src/routes.tsx
 /admin/knowledge-points
 /admin/users
 ```
+
+The PractiQ-branded Expo client lives under `mobile/` and exposes the same non-admin learning flows through Expo Router. It authenticates with the bearer form of the session token, reads cached REST resources first, and revalidates them when focused. Offline mutations are stored in `openwook-cache.db`, replayed in creation order with a stable `Idempotency-Key`, and removed only after a successful response. PostgreSQL remains authoritative; the retained PractiQ local database is not migrated or uploaded automatically.
 
 ### Login and Registration
 
@@ -892,6 +897,7 @@ Recommended additional implementation practices:
 The repository is now organized around the current split-stack implementation:
 
 - `frontend/` contains the React + Vite + React Router browser app and frontend tests.
+- `mobile/` contains the PractiQ-branded Expo Android/iOS client, SQLite cache/outbox, and mobile tests.
 - `backend/` contains the Go `net/http` API, admin/worker binaries, internal services, and product SQL schema.
 - `ai/` contains the Python FastAPI AI/document-processing service.
 
