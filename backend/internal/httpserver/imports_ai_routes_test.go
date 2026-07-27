@@ -23,9 +23,6 @@ func TestNewServerRoutesImportMethodsAndPathValues(t *testing.T) {
 		ImportJobChildren: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			_, _ = w.Write([]byte(r.PathValue("jobId") + ":" + r.PathValue("kind")))
 		}),
-		ImportJobEventStream: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			_, _ = w.Write([]byte(r.PathValue("jobId") + ":stream"))
-		}),
 	}
 
 	tests := []struct {
@@ -37,7 +34,6 @@ func TestNewServerRoutesImportMethodsAndPathValues(t *testing.T) {
 		{method: http.MethodPost, target: "/api/v1/import-jobs", want: http.MethodPost},
 		{method: http.MethodPost, target: "/api/v1/import-jobs/42/start", want: "42:start"},
 		{method: http.MethodGet, target: "/api/v1/import-jobs/42/outputs", want: "42:outputs"},
-		{method: http.MethodGet, target: "/api/v1/import-jobs/42/events/stream", want: "42:stream"},
 	}
 
 	handler := newImportsAIAndServerUnderTest(t, handlers, AIHandlers{})
@@ -52,20 +48,6 @@ func TestNewServerRoutesImportMethodsAndPathValues(t *testing.T) {
 				t.Fatalf("response = (%d, %q), want (200, %q)", rr.Code, rr.Body.String(), tt.want)
 			}
 		})
-	}
-}
-
-func TestImportEventStreamLimiterCapsPerUser(t *testing.T) {
-	userID := 987654
-	for range maxImportEventStreamsPerUser {
-		if !acquireImportEventStream(userID) {
-			t.Fatal("acquireImportEventStream rejected a slot before the per-user limit")
-		}
-		defer releaseImportEventStream(userID)
-	}
-	if acquireImportEventStream(userID) {
-		releaseImportEventStream(userID)
-		t.Fatal("acquireImportEventStream accepted a slot beyond the per-user limit")
 	}
 }
 

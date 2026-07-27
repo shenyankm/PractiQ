@@ -29,6 +29,7 @@ type PracticeSessionInput struct {
 type PracticeSessionListOptions struct {
 	Limit  int
 	Status string
+	Cursor string
 }
 
 type PracticeQuestionPageOptions struct {
@@ -222,14 +223,30 @@ func GetPracticeQuestionPage(ctx context.Context, db *pgxpool.Pool, user *auth.U
 		if err != nil {
 			return nil, err
 		}
+		result = practiceAnswerForSession(result, session)
+		if shouldRevealPracticeFeedback(session, result) {
+			var analysis sql.NullString
+			if err := db.QueryRow(ctx, `SELECT analysis FROM questions WHERE id = $1`, question.QuestionID).Scan(&analysis); err != nil {
+				return nil, err
+			}
+			if analysis.Valid {
+				question.Analysis = new(analysis.String)
+			}
+		}
 	}
 
+	progress := buildPracticeProgress(questionIDs, answered)
+	if session.SessionType == "exam" && session.Status == "active" {
+		for index := range progress {
+			progress[index].IsCorrect = nil
+		}
+	}
 	page := &PracticeQuestionPage{
 		Session:       *session,
 		Question:      question,
 		Total:         len(questionIDs),
 		AnsweredCount: len(answered),
-		Progress:      buildPracticeProgress(questionIDs, answered),
+		Progress:      progress,
 		Result:        result,
 	}
 	if question != nil {
@@ -244,7 +261,7 @@ func GetPracticeQuestionPage(ctx context.Context, db *pgxpool.Pool, user *auth.U
 	return page, nil
 }
 
-func ListPracticeSessions(ctx context.Context, db *pgxpool.Pool, user *auth.User, options PracticeSessionListOptions) ([]PracticeSession, error) {
+func ListPracticeSessions(ctx context.Context, db *pgxpool.Pool, user *auth.User, options PracticeSessionListOptions) (Page[PracticeSession], error) {
 	limit := options.Limit
 	if limit < 1 {
 		limit = 20
@@ -252,17 +269,26 @@ func ListPracticeSessions(ctx context.Context, db *pgxpool.Pool, user *auth.User
 	if limit > 100 {
 		limit = 100
 	}
+	offset, err := parsePageCursor(options.Cursor)
+	if err != nil {
+		return Page[PracticeSession]{}, err
+	}
 	status := strings.TrimSpace(options.Status)
+	switch status {
+	case "", "active", "completed", "abandoned":
+	default:
+		return Page[PracticeSession]{}, api.ValidationError([]api.ValidationDetail{{Field: "status", Message: "must be one of active, completed, abandoned"}})
+	}
 	rows, err := db.Query(ctx, `
 		SELECT id, user_id, bank_id, session_type, status, question_count, answered_count, correct_count, wrong_count, score, started_at, completed_at
 		FROM user_practice_sessions
 		WHERE user_id = $1
 		  AND ($2::text = '' OR status = $2)
 		ORDER BY started_at DESC, id DESC
-		LIMIT $3
-	`, user.ID, status, limit)
+		LIMIT $3 OFFSET $4
+	`, user.ID, status, limit+1, offset)
 	if err != nil {
-		return nil, err
+		return Page[PracticeSession]{}, err
 	}
 	defer rows.Close()
 
@@ -270,25 +296,27 @@ func ListPracticeSessions(ctx context.Context, db *pgxpool.Pool, user *auth.User
 	for rows.Next() {
 		session, scanErr := scanPracticeSessionRows(rows)
 		if scanErr != nil {
-			return nil, scanErr
+			return Page[PracticeSession]{}, scanErr
 		}
 		sessions = append(sessions, session)
 	}
-	return sessions, rows.Err()
+	if err := rows.Err(); err != nil {
+		return Page[PracticeSession]{}, err
+	}
+	return buildPage(sessions, limit, offset), nil
 }
 
 func SubmitAnswer(ctx context.Context, db *pgxpool.Pool, user *auth.User, sessionID int64, input PracticeAnswerInput) (*PracticeAnswer, error) {
+	session, err := GetPracticeSession(ctx, db, user, sessionID)
+	if err != nil {
+		return nil, err
+	}
 	existing, err := getExistingPracticeAnswer(ctx, db, int64(user.ID), sessionID, input.QuestionID)
 	if err != nil {
 		return nil, err
 	}
 	if existing != nil {
-		return existing, nil
-	}
-
-	session, err := GetPracticeSession(ctx, db, user, sessionID)
-	if err != nil {
-		return nil, err
+		return practiceAnswerForSession(existing, session), nil
 	}
 	if session.Status != "active" {
 		return nil, api.NewError(409, "INVALID_STATE", "Practice session is not active", nil)
@@ -356,7 +384,7 @@ func SubmitAnswer(ctx context.Context, db *pgxpool.Pool, user *auth.User, sessio
 			return nil, lookupErr
 		}
 		if existing != nil {
-			return existing, nil
+			return practiceAnswerForSession(existing, session), nil
 		}
 	}
 	if err != nil {
@@ -367,7 +395,7 @@ func SubmitAnswer(ctx context.Context, db *pgxpool.Pool, user *auth.User, sessio
 		bumpSliceCacheVersion(ctx, "bank-analytics", *session.BankID)
 		bumpSliceCacheVersion(ctx, "leaderboard", *session.BankID)
 	}
-	return &answer, nil
+	return practiceAnswerForSession(&answer, session), nil
 }
 
 func CompletePracticeSession(ctx context.Context, db *pgxpool.Pool, user *auth.User, sessionID int64, status string) (*PracticeSession, error) {
@@ -391,8 +419,12 @@ func CompletePracticeSession(ctx context.Context, db *pgxpool.Pool, user *auth.U
 }
 
 func GetPracticeResults(ctx context.Context, db *pgxpool.Pool, user *auth.User, sessionID int64) ([]PracticeResult, error) {
-	if _, err := GetPracticeSession(ctx, db, user, sessionID); err != nil {
+	session, err := GetPracticeSession(ctx, db, user, sessionID)
+	if err != nil {
 		return nil, err
+	}
+	if session.Status == "active" {
+		return nil, api.NewError(409, "INVALID_STATE", "Complete the practice session before viewing results", nil)
 	}
 	rows, err := db.Query(ctx, `
 		SELECT
@@ -439,6 +471,22 @@ func GetPracticeResults(ctx context.Context, db *pgxpool.Pool, user *auth.User, 
 		results = append(results, result)
 	}
 	return results, rows.Err()
+}
+
+func practiceAnswerForSession(answer *PracticeAnswer, session *PracticeSession) *PracticeAnswer {
+	if answer == nil || session == nil || session.SessionType != "exam" || session.Status != "active" {
+		return answer
+	}
+	safe := *answer
+	safe.AnswerKeyID = nil
+	safe.IsCorrect = nil
+	safe.Score = nil
+	safe.MaxScore = nil
+	return &safe
+}
+
+func shouldRevealPracticeFeedback(session *PracticeSession, answer *PracticeAnswer) bool {
+	return session != nil && answer != nil && (session.SessionType != "exam" || session.Status != "active")
 }
 
 func ensurePracticeQuestionQueue(ctx context.Context, db *pgxpool.Pool, session *PracticeSession) ([]int64, error) {
@@ -524,20 +572,19 @@ func loadPracticeQuestionRows(ctx context.Context, db *pgxpool.Pool, session *Pr
 			item.choice_variant,
 			item.content_mode,
 			item.stem,
-			item.analysis,
+			NULL::text AS analysis,
 			item.question_status,
 			item.group_title,
 			item.group_instructions,
 			COALESCE(
 				(
-					SELECT json_agg(
-						json_build_object(
+					SELECT jsonb_agg(
+						jsonb_build_object(
 							'id', qo.id,
 							'question_id', qo.question_id,
 							'option_label', qo.option_label,
 							'sort_order', qo.sort_order,
 							'content', qo.content,
-							'is_correct', qo.is_correct,
 							'created_at', qo.created_at,
 							'updated_at', qo.updated_at
 						)
@@ -552,6 +599,7 @@ func loadPracticeQuestionRows(ctx context.Context, db *pgxpool.Pool, session *Pr
 		JOIN v_bank_question_items item ON item.question_id = requested_ids.id
 		WHERE item.bank_id = $1
 		  AND item.bank_link_status = 'active'
+		  AND item.question_status = 'active'
 		ORDER BY requested_ids.ord
 	`, *session.BankID, slice)
 	if err != nil {

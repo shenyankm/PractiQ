@@ -22,6 +22,7 @@ type AuthHandlers struct {
 	Login    http.Handler
 	Logout   http.Handler
 	Me       http.Handler
+	UpdateMe http.Handler
 }
 
 type ServerDependencies struct {

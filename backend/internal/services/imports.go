@@ -93,7 +93,25 @@ const listImportJobEventsAfterSQL = `
 	) item
 `
 
-func ListImportJobs(ctx context.Context, pool *pgxpool.Pool, user auth.User, status string) ([]ImportJob, error) {
+func ListImportJobs(ctx context.Context, pool *pgxpool.Pool, user auth.User, status, cursor string, requestedLimit int) (Page[ImportJob], error) {
+	statuses := strings.Split(strings.TrimSpace(status), ",")
+	allowedStatuses := map[string]bool{"queued": true, "processing": true, "completed": true, "failed": true, "cancelled": true}
+	if strings.TrimSpace(status) == "" {
+		status = ""
+	} else {
+		for index := range statuses {
+			statuses[index] = strings.TrimSpace(statuses[index])
+			if !allowedStatuses[statuses[index]] {
+				return Page[ImportJob]{}, api.ValidationError([]api.ValidationDetail{{Field: "status", Message: "must contain only queued, processing, completed, failed, cancelled"}})
+			}
+		}
+		status = strings.Join(statuses, ",")
+	}
+	limit := clampPositive(requestedLimit, 30, 100)
+	offset, err := parsePageCursor(cursor)
+	if err != nil {
+		return Page[ImportJob]{}, err
+	}
 	rows, err := pool.Query(ctx, `
 		SELECT row_to_json(job)::text
 		FROM (
@@ -102,11 +120,11 @@ func ListImportJobs(ctx context.Context, pool *pgxpool.Pool, user auth.User, sta
 			WHERE created_by = $1
 			  AND ($2::text IS NULL OR status = ANY(string_to_array($2, ',')))
 			ORDER BY created_at DESC
-			LIMIT 50
+			LIMIT $3 OFFSET $4
 		) job
-	`, user.ID, nullableTrimmed(status))
+	`, user.ID, nullableTrimmed(status), limit+1, offset)
 	if err != nil {
-		return nil, err
+		return Page[ImportJob]{}, err
 	}
 	defer rows.Close()
 
@@ -114,11 +132,14 @@ func ListImportJobs(ctx context.Context, pool *pgxpool.Pool, user auth.User, sta
 	for rows.Next() {
 		job, err := scanImportJobJSON(rows)
 		if err != nil {
-			return nil, err
+			return Page[ImportJob]{}, err
 		}
 		jobs = append(jobs, job)
 	}
-	return jobs, rows.Err()
+	if err := rows.Err(); err != nil {
+		return Page[ImportJob]{}, err
+	}
+	return buildPage(jobs, limit, offset), nil
 }
 
 func CreateImportJob(ctx context.Context, pool *pgxpool.Pool, user auth.User, input CreateImportJobInput) (ImportJob, error) {
@@ -310,11 +331,8 @@ func ensureImportJobQueueActionAllowed(job ImportJob, action string) error {
 	if job.Status == "completed" {
 		return api.NewError(409, "IMPORT_ALREADY_COMPLETED", "Completed import jobs cannot be queued again", nil)
 	}
-	if action == "cancel" && job.Status != "queued" {
-		return api.NewError(409, "IMPORT_CANCEL_NOT_ALLOWED", "Only queued import jobs can be cancelled", nil)
-	}
-	if action == "start" && job.Status != "queued" {
-		return api.NewError(409, "IMPORT_START_NOT_ALLOWED", "Only new queued import jobs can be started", nil)
+	if action == "cancel" && job.Status != "queued" && job.Status != "processing" {
+		return api.NewError(409, "IMPORT_CANCEL_NOT_ALLOWED", "Only queued or processing import jobs can be cancelled", nil)
 	}
 	if action == "retry" && job.Status != "failed" {
 		return api.NewError(409, "IMPORT_RETRY_NOT_ALLOWED", "Only failed import jobs can be retried", nil)
@@ -483,7 +501,7 @@ func applyImportQueueTransition(ctx context.Context, pool *pgxpool.Pool, job Imp
 				status = $1,
 				stage = $2,
 				last_error = $3,
-				last_error_code = CASE WHEN $3::text IS NULL THEN NULL ELSE 'IMPORT_CANCELLED' END,
+					last_error_code = CASE WHEN $3::text IS NULL THEN NULL ELSE 'IMPORT_CANCELLED' END,
 				error_payload = CASE WHEN $3::text IS NULL THEN NULL ELSE error_payload END,
 				persist_questions = COALESCE($4::boolean, persist_questions),
 				retry_count = CASE WHEN $5 THEN 0 ELSE retry_count END,

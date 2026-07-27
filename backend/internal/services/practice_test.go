@@ -58,3 +58,16 @@ func TestBuildPracticeProgressReturnsFullLargeSession(t *testing.T) {
 		t.Fatalf("progress correctness = %#v, want false", item.IsCorrect)
 	}
 }
+
+func TestPracticeFeedbackIsWithheldUntilActiveExamEnds(t *testing.T) {
+	answer := &PracticeAnswer{ID: 1}
+	if shouldRevealPracticeFeedback(&PracticeSession{SessionType: "exam", Status: "active"}, answer) {
+		t.Fatal("active exam must withhold feedback")
+	}
+	if !shouldRevealPracticeFeedback(&PracticeSession{SessionType: "practice", Status: "active"}, answer) {
+		t.Fatal("practice mode should reveal feedback after answering")
+	}
+	if !shouldRevealPracticeFeedback(&PracticeSession{SessionType: "exam", Status: "completed"}, answer) {
+		t.Fatal("completed exam should reveal feedback")
+	}
+}

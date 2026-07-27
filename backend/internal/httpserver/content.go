@@ -2,8 +2,8 @@ package httpserver
 
 import (
 	"net/http"
-	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"openwook/internal/api"
@@ -22,6 +22,7 @@ func BuildContentHandlers(pool *pgxpool.Pool, currentUser auth.CurrentUserResolv
 		BankFavoriteCreate:       http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleBankFavoriteCreate(w, r, pool, currentUser) }),
 		BankFavoriteDelete:       http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleBankFavoriteDelete(w, r, pool, currentUser) }),
 		BankQuestionCreate:       http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleBankQuestionCreate(w, r, pool, currentUser) }),
+		BankGroups:               http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleBankGroups(w, r, pool, currentUser) }),
 		BankGroupCreate:          http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleBankGroupCreate(w, r, pool, currentUser) }),
 		QuestionGet:              http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleQuestionGet(w, r, pool, currentUser) }),
 		QuestionUpdate:           http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleQuestionUpdate(w, r, pool, currentUser) }),
@@ -30,10 +31,14 @@ func BuildContentHandlers(pool *pgxpool.Pool, currentUser auth.CurrentUserResolv
 		QuestionArchive:          http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleQuestionArchive(w, r, pool, currentUser) }),
 		QuestionOptionCreate:     http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleQuestionOptionCreate(w, r, pool, currentUser) }),
 		QuestionOptionUpdate:     http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleQuestionOptionUpdate(w, r, pool, currentUser) }),
+		QuestionOptionDelete:     http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleQuestionOptionDelete(w, r, pool, currentUser) }),
 		QuestionAnswerKeyPut:     http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleQuestionAnswerKeyPut(w, r, pool, currentUser) }),
 		QuestionContentBlocksPut: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleQuestionContentBlocksPut(w, r, pool, currentUser) }),
 		GroupGet:                 http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleGroupGet(w, r, pool, currentUser) }),
 		GroupUpdate:              http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleGroupUpdate(w, r, pool, currentUser) }),
+		GroupDelete:              http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleGroupDelete(w, r, pool, currentUser) }),
+		GroupPublish:             http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleGroupStatus(w, r, pool, currentUser, "active") }),
+		GroupArchive:             http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleGroupStatus(w, r, pool, currentUser, "archived") }),
 		GroupQuestionCreate:      http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleGroupQuestionCreate(w, r, pool, currentUser) }),
 		GroupQuestionsReorder:    http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleGroupQuestionsReorder(w, r, pool, currentUser) }),
 		GroupQuestionDelete:      http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handleGroupQuestionDelete(w, r, pool, currentUser) }),
@@ -48,17 +53,23 @@ func handleBanks(w http.ResponseWriter, r *http.Request, pool *pgxpool.Pool, cur
 			api.HandleError(w, r, err)
 			return
 		}
+		limit, err := queryPageLimit(r, 100)
+		if err != nil {
+			api.HandleError(w, r, err)
+			return
+		}
 		data, err := services.ListBanks(r.Context(), pool, user, services.ListBanksParams{
 			Scope:   r.URL.Query().Get("scope"),
 			Subject: r.URL.Query().Get("subject"),
 			Query:   r.URL.Query().Get("q"),
-			Limit:   queryInt(r, "limit"),
+			Limit:   limit,
+			Cursor:  r.URL.Query().Get("cursor"),
 		})
 		if err != nil {
 			api.HandleError(w, r, err)
 			return
 		}
-		api.OK(w, r, data, nil)
+		api.OK(w, r, data.Items, paginationMeta(data.PageInfo))
 	case http.MethodPost:
 		user, err := auth.RequireUser(r, currentUser)
 		if err != nil {
@@ -76,8 +87,16 @@ func handleBanks(w http.ResponseWriter, r *http.Request, pool *pgxpool.Pool, cur
 			return
 		}
 		var details []api.ValidationDetail
-		if strings.TrimSpace(body.Name) == "" {
-			details = append(details, api.ValidationDetail{Field: "name", Message: "is required"})
+		body.Name = strings.TrimSpace(body.Name)
+		if body.Name == "" || utf8.RuneCountInString(body.Name) > 100 {
+			details = append(details, api.ValidationDetail{Field: "name", Message: "must be 1-100 characters"})
+		}
+		if body.Description != nil {
+			description := strings.TrimSpace(*body.Description)
+			body.Description = &description
+			if utf8.RuneCountInString(description) > 500 {
+				details = append(details, api.ValidationDetail{Field: "description", Message: "must be no more than 500 characters"})
+			}
 		}
 		if strings.TrimSpace(body.Subject) == "" {
 			details = append(details, api.ValidationDetail{Field: "subject", Message: "is required"})
@@ -100,18 +119,6 @@ func handleBanks(w http.ResponseWriter, r *http.Request, pool *pgxpool.Pool, cur
 	default:
 		api.HandleError(w, r, api.NewError(http.StatusNotFound, "NOT_FOUND", "Endpoint not found", nil))
 	}
-}
-
-func queryInt(r *http.Request, key string) int {
-	value := strings.TrimSpace(r.URL.Query().Get(key))
-	if value == "" {
-		return 0
-	}
-	parsed, err := strconv.Atoi(value)
-	if err != nil {
-		return 0
-	}
-	return parsed
 }
 
 func trimmedString(value *string) string {

@@ -41,6 +41,7 @@ type KnowledgePointUpdate struct {
 	Code        *string        `json:"code"`
 	DisplayName *string        `json:"display_name"`
 	ParentID    *int64         `json:"parent_id"`
+	ParentIDSet bool           `json:"-"`
 	Metadata    map[string]any `json:"metadata"`
 	MetadataSet bool           `json:"-"`
 }
@@ -88,18 +89,32 @@ func GetAdminOverview(ctx context.Context, db queryer, user auth.User) (*AdminOv
 	return &item, rows.Err()
 }
 
-func ListAdminUsers(ctx context.Context, db queryer, user auth.User, params url.Values) ([]AdminUser, error) {
+func ListAdminUsers(ctx context.Context, db queryer, user auth.User, params url.Values) (Page[AdminUser], error) {
 	if err := requireAdminRole(user); err != nil {
-		return nil, err
+		return Page[AdminUser]{}, err
+	}
+	limit, err := parsePageLimit(params.Get("limit"), 30, 100)
+	if err != nil {
+		return Page[AdminUser]{}, err
+	}
+	offset, err := parsePageCursor(params.Get("cursor"))
+	if err != nil {
+		return Page[AdminUser]{}, err
 	}
 	q := strings.TrimSpace(params.Get("q"))
 	status := params.Get("status")
 	if status == "" {
 		status = "all"
 	}
+	if status != "all" && status != "active" && status != "inactive" {
+		return Page[AdminUser]{}, api.ValidationError([]api.ValidationDetail{{Field: "status", Message: "must be one of all, active, inactive"}})
+	}
 	role := params.Get("role")
 	if role == "" {
 		role = "all"
+	}
+	if role != "all" && role != "admin" && role != "user" {
+		return Page[AdminUser]{}, api.ValidationError([]api.ValidationDetail{{Field: "role", Message: "must be one of all, admin, user"}})
 	}
 	rows, err := db.Query(ctx, `
 		SELECT
@@ -130,10 +145,10 @@ func ListAdminUsers(ctx context.Context, db queryer, user auth.User, params url.
 		  AND ($3 = 'all' OR ($3 = 'active' AND u.is_active = true) OR ($3 = 'inactive' AND u.is_active = false))
 		  AND ($4 = 'all' OR u.role = $4)
 		ORDER BY u.created_at DESC, u.id DESC
-		LIMIT 100
-	`, trimmedStringOrNil(q), ilikeOrNil(q), status, role)
+		LIMIT $5 OFFSET $6
+	`, trimmedStringOrNil(q), ilikeOrNil(q), status, role, limit+1, offset)
 	if err != nil {
-		return nil, err
+		return Page[AdminUser]{}, err
 	}
 	defer rows.Close()
 	items := make([]AdminUser, 0)
@@ -159,7 +174,7 @@ func ListAdminUsers(ctx context.Context, db queryer, user auth.User, params url.
 			&item.ImportJobCount,
 			&item.PracticeSessionCount,
 		); err != nil {
-			return nil, err
+			return Page[AdminUser]{}, err
 		}
 		item.PlusTrialEndsAt = formatNullableTimestamp(plusTrialEndsAt)
 		item.PlusExpiresAt = formatNullableTimestamp(plusExpiresAt)
@@ -167,12 +182,23 @@ func ListAdminUsers(ctx context.Context, db queryer, user auth.User, params url.
 		item.UpdatedAt = formatTimestamp(updatedAt)
 		items = append(items, item)
 	}
-	return items, rows.Err()
+	if err := rows.Err(); err != nil {
+		return Page[AdminUser]{}, err
+	}
+	return buildPage(items, limit, offset), nil
 }
 
-func ListAdminKnowledgePoints(ctx context.Context, db queryer, user auth.User, params url.Values) ([]KnowledgePoint, error) {
+func ListAdminKnowledgePoints(ctx context.Context, db queryer, user auth.User, params url.Values) (Page[KnowledgePoint], error) {
 	if err := requireAdminRole(user); err != nil {
-		return nil, err
+		return Page[KnowledgePoint]{}, err
+	}
+	limit, err := parsePageLimit(params.Get("limit"), 50, 200)
+	if err != nil {
+		return Page[KnowledgePoint]{}, err
+	}
+	offset, err := parsePageCursor(params.Get("cursor"))
+	if err != nil {
+		return Page[KnowledgePoint]{}, err
 	}
 	subject := strings.TrimSpace(params.Get("subject"))
 	q := strings.TrimSpace(params.Get("q"))
@@ -183,21 +209,24 @@ func ListAdminKnowledgePoints(ctx context.Context, db queryer, user auth.User, p
 		  ($1::text IS NULL OR subject_id = $1)
 		  AND ($2::text IS NULL OR code ILIKE $3 OR display_name ILIKE $3)
 		ORDER BY subject_id, code
-		LIMIT 200
-	`, trimmedStringOrNil(subject), trimmedStringOrNil(q), ilikeOrNil(q))
+		LIMIT $4 OFFSET $5
+	`, trimmedStringOrNil(subject), trimmedStringOrNil(q), ilikeOrNil(q), limit+1, offset)
 	if err != nil {
-		return nil, err
+		return Page[KnowledgePoint]{}, err
 	}
 	defer rows.Close()
 	items := make([]KnowledgePoint, 0)
 	for rows.Next() {
 		item, err := scanKnowledgePoint(rows)
 		if err != nil {
-			return nil, err
+			return Page[KnowledgePoint]{}, err
 		}
 		items = append(items, item)
 	}
-	return items, rows.Err()
+	if err := rows.Err(); err != nil {
+		return Page[KnowledgePoint]{}, err
+	}
+	return buildPage(items, limit, offset), nil
 }
 
 func CreateKnowledgePoint(ctx context.Context, db queryer, user auth.User, input KnowledgePointInput) (*KnowledgePoint, error) {
@@ -251,11 +280,11 @@ func UpdateKnowledgePoint(ctx context.Context, db queryer, user auth.User, id in
 		SET
 		  code = COALESCE($1, code),
 		  display_name = COALESCE($2, display_name),
-		  parent_id = COALESCE($3, parent_id),
-		  metadata_json = COALESCE($4, metadata_json)
-		WHERE id = $5
+		  parent_id = CASE WHEN $4 THEN $3 ELSE parent_id END,
+		  metadata_json = COALESCE($5, metadata_json)
+		WHERE id = $6
 		RETURNING id, subject_id, code, display_name, parent_id, metadata_json, created_at, updated_at
-	`, nullableStringPointer(input.Code), nullableStringPointer(input.DisplayName), nullableInt64Pointer(input.ParentID), metadata, id)
+	`, nullableStringPointer(input.Code), nullableStringPointer(input.DisplayName), nullableInt64Pointer(input.ParentID), input.ParentIDSet, metadata, id)
 	if err != nil {
 		return nil, err
 	}

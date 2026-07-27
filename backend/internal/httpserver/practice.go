@@ -45,16 +45,22 @@ func BuildPracticeHandlers(pool *pgxpool.Pool, resolve auth.CurrentUserResolver)
 				api.HandleError(w, r, err)
 				return
 			}
-			options := services.PracticeSessionListOptions{Status: strings.TrimSpace(r.URL.Query().Get("status"))}
-			if limit, err := strconv.Atoi(strings.TrimSpace(r.URL.Query().Get("limit"))); err == nil {
-				options.Limit = limit
+			limit, err := queryPageLimit(r, 100)
+			if err != nil {
+				api.HandleError(w, r, err)
+				return
+			}
+			options := services.PracticeSessionListOptions{
+				Status: strings.TrimSpace(r.URL.Query().Get("status")),
+				Cursor: r.URL.Query().Get("cursor"),
+				Limit:  limit,
 			}
 			data, err := services.ListPracticeSessions(r.Context(), pool, user, options)
 			if err != nil {
 				api.HandleError(w, r, err)
 				return
 			}
-			api.OK(w, r, data, nil)
+			api.OK(w, r, data.Items, paginationMeta(data.PageInfo))
 		}),
 		Start: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			user, err := auth.RequireUser(r, resolve)

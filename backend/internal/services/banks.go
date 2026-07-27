@@ -61,6 +61,7 @@ type ListBanksParams struct {
 	Subject string
 	Query   string
 	Limit   int
+	Cursor  string
 }
 
 type CreateBankInput struct {
@@ -71,15 +72,18 @@ type CreateBankInput struct {
 }
 
 type UpdateBankInput struct {
-	Name        *string
-	Description *string
-	IsPublic    *bool
+	Name           *string
+	Description    *string
+	DescriptionSet bool
+	IsPublic       *bool
 }
 
 type ListBankItemsParams struct {
-	Status string
-	Type   string
-	Limit  int
+	Status         string
+	Type           string
+	Limit          int
+	IncludeAnswers bool
+	Cursor         string
 }
 
 type ReorderBankItem struct {
@@ -106,11 +110,18 @@ func withTx[T any](ctx context.Context, db *pgxpool.Pool, fn func(pgx.Tx) (T, er
 	return value, nil
 }
 
-func ListBanks(ctx context.Context, db queryer, user *auth.User, params ListBanksParams) ([]QuestionBank, error) {
-	scope := normalizeBankScope(params.Scope)
+func ListBanks(ctx context.Context, db queryer, user *auth.User, params ListBanksParams) (Page[QuestionBank], error) {
+	scope, err := normalizeBankScope(params.Scope)
+	if err != nil {
+		return Page[QuestionBank]{}, err
+	}
 	subject := trimmedOrNil(params.Subject)
 	query := nullableILike(params.Query)
 	limit := clampPositive(params.Limit, 30, 100)
+	offset, err := parsePageCursor(params.Cursor)
+	if err != nil {
+		return Page[QuestionBank]{}, err
+	}
 
 	rows, err := db.Query(ctx, `
 		SELECT
@@ -131,10 +142,10 @@ func ListBanks(ctx context.Context, db queryer, user *auth.User, params ListBank
 			AND ($3::text IS NULL OR b.subject = $3)
 			AND ($4::text IS NULL OR b.name ILIKE $4)
 		ORDER BY b.updated_at DESC, b.id DESC
-		LIMIT $5
-	`, user.ID, scope, subject, query, limit)
+		LIMIT $5 OFFSET $6
+	`, user.ID, scope, subject, query, limit+1, offset)
 	if err != nil {
-		return nil, err
+		return Page[QuestionBank]{}, err
 	}
 	defer rows.Close()
 
@@ -142,11 +153,14 @@ func ListBanks(ctx context.Context, db queryer, user *auth.User, params ListBank
 	for rows.Next() {
 		item, err := scanQuestionBankWithFlags(rows)
 		if err != nil {
-			return nil, err
+			return Page[QuestionBank]{}, err
 		}
 		items = append(items, item)
 	}
-	return items, rows.Err()
+	if err := rows.Err(); err != nil {
+		return Page[QuestionBank]{}, err
+	}
+	return buildPage(items, limit, offset), nil
 }
 
 func GetBank(ctx context.Context, db *pgxpool.Pool, user *auth.User, bankID int64) (*QuestionBank, error) {
@@ -221,6 +235,9 @@ func CreateBank(ctx context.Context, db *pgxpool.Pool, user *auth.User, input Cr
 }
 
 func UpdateBank(ctx context.Context, db *pgxpool.Pool, user *auth.User, bankID int64, input UpdateBankInput) (*QuestionBank, error) {
+	if input.Name == nil && !input.DescriptionSet && input.IsPublic == nil {
+		return nil, api.ValidationError([]api.ValidationDetail{{Field: "body", Message: "must include a field to update"}})
+	}
 	if _, err := RequireBankOwner(ctx, db, user, bankID); err != nil {
 		return nil, err
 	}
@@ -228,11 +245,11 @@ func UpdateBank(ctx context.Context, db *pgxpool.Pool, user *auth.User, bankID i
 		UPDATE question_banks
 		SET
 			name = COALESCE($2, name),
-			description = COALESCE($3, description),
-			is_public = COALESCE($4, is_public)
+			description = CASE WHEN $4 THEN $3 ELSE description END,
+			is_public = COALESCE($5, is_public)
 		WHERE id = $1
 		RETURNING `+bankColumns+`
-	`, bankID, input.Name, input.Description, input.IsPublic)
+	`, bankID, input.Name, input.Description, input.DescriptionSet, input.IsPublic)
 
 	bank, err := scanQuestionBank(row)
 	if err != nil {
@@ -280,11 +297,12 @@ func SetFavorite(ctx context.Context, db *pgxpool.Pool, user *auth.User, bankID 
 	return err
 }
 
-func ListBankItems(ctx context.Context, db *pgxpool.Pool, user *auth.User, bankID int64, params ListBankItemsParams) ([]BankQuestionItem, error) {
-	if _, err := GetBank(ctx, db, user, bankID); err != nil {
-		return nil, err
+func ListBankItems(ctx context.Context, db *pgxpool.Pool, user *auth.User, bankID int64, params ListBankItemsParams) (Page[BankQuestionItem], error) {
+	bank, err := GetBank(ctx, db, user, bankID)
+	if err != nil {
+		return Page[BankQuestionItem]{}, err
 	}
-	return listBankItemsForBank(ctx, db, bankID, params)
+	return listBankItemsForBank(ctx, db, bankID, params, bank.IsOwner, bank.IsOwner && params.IncludeAnswers)
 }
 
 func ReorderBankItems(ctx context.Context, db *pgxpool.Pool, user *auth.User, bankID int64, items []ReorderBankItem) error {
@@ -292,6 +310,17 @@ func ReorderBankItems(ctx context.Context, db *pgxpool.Pool, user *auth.User, ba
 		return err
 	}
 	_, err := withTx(ctx, db, func(tx pgx.Tx) (struct{}, error) {
+		var total int
+		if err := tx.QueryRow(ctx, `
+			SELECT
+				(SELECT COUNT(*) FROM bank_question_links WHERE bank_id = $1)
+				+ (SELECT COUNT(*) FROM bank_group_links WHERE bank_id = $1)
+		`, bankID).Scan(&total); err != nil {
+			return struct{}{}, err
+		}
+		if total != len(items) {
+			return struct{}{}, api.ValidationError([]api.ValidationDetail{{Field: "items", Message: "must include every bank item exactly once"}})
+		}
 		var offset int
 		if err := tx.QueryRow(ctx, `
 			SELECT COALESCE(MAX(sort_order), 0) + 1000 AS offset_value
@@ -311,21 +340,29 @@ func ReorderBankItems(ctx context.Context, db *pgxpool.Pool, user *auth.User, ba
 		}
 		for _, item := range items {
 			if item.QuestionID != nil {
-				if _, err := tx.Exec(ctx, `
+				result, err := tx.Exec(ctx, `
 					UPDATE bank_question_links
 					SET sort_order = $3
 					WHERE bank_id = $1 AND question_id = $2
-				`, bankID, *item.QuestionID, item.SortOrder); err != nil {
+				`, bankID, *item.QuestionID, item.SortOrder)
+				if err != nil {
 					return struct{}{}, err
+				}
+				if result.RowsAffected() != 1 {
+					return struct{}{}, api.ValidationError([]api.ValidationDetail{{Field: "items", Message: "contains an unknown question"}})
 				}
 			}
 			if item.GroupID != nil {
-				if _, err := tx.Exec(ctx, `
+				result, err := tx.Exec(ctx, `
 					UPDATE bank_group_links
 					SET sort_order = $3
 					WHERE bank_id = $1 AND group_id = $2
-				`, bankID, *item.GroupID, item.SortOrder); err != nil {
+				`, bankID, *item.GroupID, item.SortOrder)
+				if err != nil {
 					return struct{}{}, err
+				}
+				if result.RowsAffected() != 1 {
+					return struct{}{}, api.ValidationError([]api.ValidationDetail{{Field: "items", Message: "contains an unknown group"}})
 				}
 			}
 		}
@@ -334,10 +371,18 @@ func ReorderBankItems(ctx context.Context, db *pgxpool.Pool, user *auth.User, ba
 	return err
 }
 
-func listBankItemsForBank(ctx context.Context, db *pgxpool.Pool, bankID int64, params ListBankItemsParams) ([]BankQuestionItem, error) {
-	status := trimmedOrNil(params.Status)
+func listBankItemsForBank(ctx context.Context, db *pgxpool.Pool, bankID int64, params ListBankItemsParams, canEdit, includeAnswers bool) (Page[BankQuestionItem], error) {
+	statusValue := strings.TrimSpace(params.Status)
+	if statusValue != "" && statusValue != "draft" && statusValue != "active" && statusValue != "archived" {
+		return Page[BankQuestionItem]{}, api.ValidationError([]api.ValidationDetail{{Field: "status", Message: "must be one of draft, active, archived"}})
+	}
+	status := trimmedOrNil(statusValue)
 	questionTypeID := trimmedOrNil(params.Type)
 	limit := clampPositive(params.Limit, 50, 100)
+	offset, err := parsePageCursor(params.Cursor)
+	if err != nil {
+		return Page[BankQuestionItem]{}, err
+	}
 
 	rows, err := db.Query(ctx, `
 		SELECT
@@ -356,23 +401,23 @@ func listBankItemsForBank(ctx context.Context, db *pgxpool.Pool, bankID int64, p
 			item.choice_variant,
 			item.content_mode,
 			item.stem,
-			item.analysis,
+			CASE WHEN $5 THEN item.analysis ELSE NULL END,
 			item.question_status,
 			item.group_title,
 			item.group_instructions,
 			COALESCE(
 				(
-					SELECT json_agg(
-						json_build_object(
+					SELECT jsonb_agg(
+						jsonb_strip_nulls(jsonb_build_object(
 							'id', qo.id,
 							'question_id', qo.question_id,
 							'option_label', qo.option_label,
 							'sort_order', qo.sort_order,
 							'content', qo.content,
-							'is_correct', qo.is_correct,
+							'is_correct', CASE WHEN $6 THEN qo.is_correct ELSE NULL END,
 							'created_at', qo.created_at,
 							'updated_at', qo.updated_at
-						)
+						))
 						ORDER BY qo.sort_order
 					)
 					FROM question_options qo
@@ -384,11 +429,12 @@ func listBankItemsForBank(ctx context.Context, db *pgxpool.Pool, bankID int64, p
 		WHERE item.bank_id = $1
 		  AND ($2::text IS NULL OR item.bank_link_status = $2)
 		  AND ($3::text IS NULL OR item.question_type_id = $3)
+		  AND ($5 OR (item.bank_link_status = 'active' AND item.question_status = 'active'))
 		ORDER BY item.bank_sort_order, item.group_sort_order NULLS FIRST, item.question_id
-		LIMIT $4
-	`, bankID, status, questionTypeID, limit)
+		LIMIT $4 OFFSET $7
+	`, bankID, status, questionTypeID, limit+1, canEdit, includeAnswers, offset)
 	if err != nil {
-		return nil, err
+		return Page[BankQuestionItem]{}, err
 	}
 	defer rows.Close()
 
@@ -418,14 +464,17 @@ func listBankItemsForBank(ctx context.Context, db *pgxpool.Pool, bankID int64, p
 			&item.GroupInstructions,
 			&optionsRaw,
 		); err != nil {
-			return nil, err
+			return Page[BankQuestionItem]{}, err
 		}
 		if err := json.Unmarshal(optionsRaw, &item.Options); err != nil {
-			return nil, fmt.Errorf("decode bank item options: %w", err)
+			return Page[BankQuestionItem]{}, fmt.Errorf("decode bank item options: %w", err)
 		}
 		items = append(items, item)
 	}
-	return items, rows.Err()
+	if err := rows.Err(); err != nil {
+		return Page[BankQuestionItem]{}, err
+	}
+	return buildPage(items, limit, offset), nil
 }
 
 func scanQuestionBank(row pgx.Row) (QuestionBank, error) {
@@ -462,14 +511,14 @@ func scanQuestionBankWithFlags(row pgx.Row) (QuestionBank, error) {
 	return item, err
 }
 
-func normalizeBankScope(scope string) string {
+func normalizeBankScope(scope string) (string, error) {
 	switch strings.TrimSpace(scope) {
 	case "public", "favorites", "all":
-		return strings.TrimSpace(scope)
+		return strings.TrimSpace(scope), nil
 	case "mine", "":
-		return "mine"
+		return "mine", nil
 	default:
-		return strings.TrimSpace(scope)
+		return "", api.ValidationError([]api.ValidationDetail{{Field: "scope", Message: "must be one of mine, public, favorites, all"}})
 	}
 }
 

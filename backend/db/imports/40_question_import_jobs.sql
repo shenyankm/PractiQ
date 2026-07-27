@@ -29,7 +29,7 @@ CREATE TABLE question_import_jobs (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     completed_at TIMESTAMPTZ,
-    CONSTRAINT chk_question_import_jobs_status CHECK (status IN ('queued', 'processing', 'completed', 'failed')),
+    CONSTRAINT chk_question_import_jobs_status CHECK (status IN ('queued', 'processing', 'completed', 'failed', 'cancelled')),
     CONSTRAINT chk_question_import_jobs_counts CHECK (
         total_questions >= 0
         AND imported_questions >= 0
@@ -46,7 +46,7 @@ CREATE TABLE question_import_jobs (
         status = 'queued' OR available_at IS NULL
     ),
     CONSTRAINT chk_question_import_jobs_completed_at CHECK (
-        (status IN ('completed', 'failed') AND completed_at IS NOT NULL)
+        (status IN ('completed', 'failed', 'cancelled') AND completed_at IS NOT NULL)
         OR (status IN ('queued', 'processing') AND completed_at IS NULL)
     )
 );
@@ -96,7 +96,7 @@ CREATE TABLE question_import_job_events (
     payload_json TEXT NOT NULL DEFAULT '{}',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT chk_question_import_job_events_status CHECK (
-        status IN ('queued', 'processing', 'completed', 'failed', 'warning', 'info')
+        status IN ('queued', 'processing', 'completed', 'failed', 'cancelled', 'warning', 'info')
     ),
     CONSTRAINT chk_question_import_job_events_progress CHECK (
         (overall_progress_percent IS NULL OR overall_progress_percent BETWEEN 0 AND 100)

@@ -1,7 +1,6 @@
 package httpserver
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,17 +9,12 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"sync"
-	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/redis/go-redis/v9"
 
 	"openwook/internal/aiclient"
 	"openwook/internal/api"
 	"openwook/internal/auth"
-	importqueue "openwook/internal/imports"
-	"openwook/internal/redisx"
 	"openwook/internal/services"
 )
 
@@ -28,16 +22,7 @@ const (
 	maxImportUploadBytes           = 25 * 1024 * 1024
 	maxImportMultipartRequestBytes = maxImportUploadBytes + 1024*1024
 	maxImportArtifactJSONBytes     = maxImportUploadBytes*4/3 + 1024*1024
-	maxImportEventStreamsPerUser   = 5
-	maxImportEventStreamsGlobal    = 100
-	maxImportEventStreamLifetime   = 30 * time.Minute
 )
-
-var importEventStreams = struct {
-	sync.Mutex
-	total  int
-	byUser map[int]int
-}{byUser: map[int]int{}}
 
 type importJobRequest struct {
 	BankID         *int64         `json:"bankId"`
@@ -71,12 +56,11 @@ type aiQuestionGenerateRequest struct {
 
 func BuildImportHandlers(pool *pgxpool.Pool, currentUser auth.CurrentUserResolver) ImportHandlers {
 	return ImportHandlers{
-		ImportJobs:           buildImportJobsHandler(pool, currentUser),
-		ImportJob:            buildImportJobHandler(pool, currentUser),
-		ImportJobFile:        buildImportJobFileHandler(pool, currentUser),
-		ImportJobAction:      buildImportJobActionHandler(pool, currentUser),
-		ImportJobChildren:    buildImportJobChildrenHandler(pool, currentUser),
-		ImportJobEventStream: buildImportJobEventStreamHandler(pool, currentUser),
+		ImportJobs:        buildImportJobsHandler(pool, currentUser),
+		ImportJob:         buildImportJobHandler(pool, currentUser),
+		ImportJobFile:     buildImportJobFileHandler(pool, currentUser),
+		ImportJobAction:   buildImportJobActionHandler(pool, currentUser),
+		ImportJobChildren: buildImportJobChildrenHandler(pool, currentUser),
 	}
 }
 
@@ -98,12 +82,24 @@ func buildImportJobsHandler(pool *pgxpool.Pool, currentUser auth.CurrentUserReso
 
 		switch r.Method {
 		case http.MethodGet:
-			jobs, err := services.ListImportJobs(r.Context(), pool, user, strings.TrimSpace(r.URL.Query().Get("status")))
+			limit, err := queryPageLimit(r, 100)
 			if err != nil {
 				api.HandleError(w, r, err)
 				return
 			}
-			api.OK(w, r, jobs, nil)
+			jobs, err := services.ListImportJobs(
+				r.Context(),
+				pool,
+				user,
+				strings.TrimSpace(r.URL.Query().Get("status")),
+				r.URL.Query().Get("cursor"),
+				limit,
+			)
+			if err != nil {
+				api.HandleError(w, r, err)
+				return
+			}
+			api.OK(w, r, jobs.Items, paginationMeta(jobs.PageInfo))
 		case http.MethodPost:
 			payload, err := decodeJSONBodyStrict[importJobRequest](r)
 			if err != nil {
@@ -204,7 +200,7 @@ func buildImportJobActionHandler(pool *pgxpool.Pool, currentUser auth.CurrentUse
 			return
 		}
 		switch r.PathValue("action") {
-		case "start", "retry", "cancel":
+		case "retry", "cancel":
 			job, err := services.UpdateImportJobStatus(r.Context(), pool, user, jobID, r.PathValue("action"))
 			if err != nil {
 				api.HandleError(w, r, err)
@@ -255,145 +251,6 @@ func buildImportJobChildrenHandler(pool *pgxpool.Pool, currentUser auth.CurrentU
 		api.OK(w, r, items, nil)
 	})
 }
-func buildImportJobEventStreamHandler(pool *pgxpool.Pool, currentUser auth.CurrentUserResolver) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		user, ok := requireUserHandler(w, r, currentUser)
-		if !ok {
-			return
-		}
-		jobID, err := parsePathID(r, "jobId")
-		if err != nil {
-			api.HandleError(w, r, err)
-			return
-		}
-		if _, err := services.GetImportJob(r.Context(), pool, user, jobID); err != nil {
-			api.HandleError(w, r, err)
-			return
-		}
-		flusher, ok := w.(http.Flusher)
-		if !ok {
-			api.HandleError(w, r, api.NewError(http.StatusInternalServerError, "STREAM_UNSUPPORTED", "Streaming is not supported", nil))
-			return
-		}
-		if !acquireImportEventStream(user.ID) {
-			api.HandleError(w, r, api.NewError(http.StatusTooManyRequests, "STREAM_LIMIT_REACHED", "Too many active import event streams", nil))
-			return
-		}
-		defer releaseImportEventStream(user.ID)
-		streamCtx, cancel := context.WithTimeout(r.Context(), maxImportEventStreamLifetime)
-		defer cancel()
-		afterID, _ := strconv.ParseInt(strings.TrimSpace(r.Header.Get("Last-Event-ID")), 10, 64)
-		if afterID < 0 {
-			afterID = 0
-		}
-		var messages <-chan *redis.Message
-		if rdb := redisx.Client(); rdb != nil {
-			pubsub := rdb.Subscribe(streamCtx, redisx.ImportEventChannel(jobID))
-			if _, err := pubsub.Receive(streamCtx); err == nil {
-				defer pubsub.Close()
-				messages = pubsub.Channel()
-			} else {
-				_ = pubsub.Close()
-			}
-		}
-		items, err := services.ListImportJobEventsAfter(streamCtx, pool, user, jobID, afterID)
-		if err != nil {
-			api.HandleError(w, r, err)
-			return
-		}
-		importqueue.WriteEventStreamHeaders(w.Header())
-		w.WriteHeader(http.StatusOK)
-		for _, item := range items {
-			event := importEventFromMap(item)
-			if event.ID <= afterID {
-				continue
-			}
-			if _, err := io.WriteString(w, importqueue.EncodeImportEvent(event)); err != nil {
-				return
-			}
-			afterID = event.ID
-		}
-		flusher.Flush()
-		if messages == nil {
-			return
-		}
-		ticker := time.NewTicker(15 * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-streamCtx.Done():
-				return
-			case <-ticker.C:
-				if _, err := io.WriteString(w, ": keepalive\n\n"); err != nil {
-					return
-				}
-				flusher.Flush()
-			case msg, ok := <-messages:
-				if !ok {
-					return
-				}
-				var payload importqueue.ImportEvent
-				if err := json.Unmarshal([]byte(msg.Payload), &payload); err != nil {
-					continue
-				}
-				if payload.ID <= afterID {
-					continue
-				}
-				if _, err := io.WriteString(w, importqueue.EncodeImportEvent(payload)); err != nil {
-					return
-				}
-				afterID = payload.ID
-				flusher.Flush()
-			}
-		}
-	})
-}
-
-func acquireImportEventStream(userID int) bool {
-	importEventStreams.Lock()
-	defer importEventStreams.Unlock()
-	if importEventStreams.total >= maxImportEventStreamsGlobal || importEventStreams.byUser[userID] >= maxImportEventStreamsPerUser {
-		return false
-	}
-	importEventStreams.total++
-	importEventStreams.byUser[userID]++
-	return true
-}
-
-func releaseImportEventStream(userID int) {
-	importEventStreams.Lock()
-	defer importEventStreams.Unlock()
-	if importEventStreams.byUser[userID] == 0 {
-		return
-	}
-	importEventStreams.total--
-	importEventStreams.byUser[userID]--
-	if importEventStreams.byUser[userID] == 0 {
-		delete(importEventStreams.byUser, userID)
-	}
-}
-
-func importEventFromMap(item map[string]any) importqueue.ImportEvent {
-	event := importqueue.ImportEvent{
-		ID:        int64Value(item, "id"),
-		JobID:     int(int64Value(item, "job_id")),
-		Stage:     stringValue(item, "stage"),
-		StepCode:  stringValue(item, "step_code"),
-		StepLabel: stringValue(item, "step_label"),
-		Status:    stringValue(item, "status"),
-		Message:   stringValue(item, "message"),
-	}
-	if value, ok := item["overall_progress_percent"].(float64); ok {
-		progress := int(value)
-		event.OverallProgressPercent = &progress
-	}
-	if value, ok := item["step_progress_percent"].(float64); ok {
-		progress := int(value)
-		event.StepProgressPercent = &progress
-	}
-	return event
-}
-
 func buildAIParseDocumentHandler(pool *pgxpool.Pool, currentUser auth.CurrentUserResolver, client *aiclient.Client) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user, ok := requireUserHandler(w, r, currentUser)
@@ -504,7 +361,7 @@ func buildQuestionGenerateAnswerHandler(pool *pgxpool.Pool, currentUser auth.Cur
 			api.HandleError(w, r, err)
 			return
 		}
-		detail, err := services.GetQuestion(r.Context(), pool, &user, questionID)
+		detail, err := services.GetQuestionForEditor(r.Context(), pool, &user, questionID)
 		if err != nil {
 			api.HandleError(w, r, err)
 			return
@@ -722,19 +579,4 @@ func stringValue(values map[string]any, key string) string {
 		}
 	}
 	return ""
-}
-func int64Value(values map[string]any, key string) int64 {
-	if values == nil {
-		return 0
-	}
-	switch value := values[key].(type) {
-	case int64:
-		return value
-	case int:
-		return int64(value)
-	case float64:
-		return int64(value)
-	default:
-		return 0
-	}
 }

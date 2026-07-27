@@ -87,8 +87,8 @@ func TestClientPostsJSONToInternalAIEndpointsAndDecodesResponses(t *testing.T) {
 				if got := len(result.Groups); got != 1 {
 					t.Fatalf("len(result.Groups) = %d, want 1", got)
 				}
-				if got := result.Groups[0]["title"]; got != "Section 1" {
-					t.Fatalf("result.Groups[0][title] = %#v, want %q", got, "Section 1")
+				if got := result.Groups[0].Title; got != "Section 1" {
+					t.Fatalf("result.Groups[0].Title = %#v, want %q", got, "Section 1")
 				}
 				if got := len(result.VisualElements); got != 1 {
 					t.Fatalf("len(result.VisualElements) = %d, want 1", got)

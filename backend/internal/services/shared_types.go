@@ -22,7 +22,7 @@ type BankQuestionItem struct {
 	ChoiceVariant     *string                `json:"choice_variant"`
 	ContentMode       *string                `json:"content_mode"`
 	Stem              string                 `json:"stem"`
-	Analysis          *string                `json:"analysis"`
+	Analysis          *string                `json:"analysis,omitempty"`
 	QuestionStatus    string                 `json:"question_status"`
 	GroupTitle        *string                `json:"group_title"`
 	GroupInstructions *string                `json:"group_instructions"`

@@ -23,7 +23,7 @@ func BuildSearchHandlers(pool *pgxpool.Pool, resolve auth.CurrentUserResolver) S
 				api.HandleError(w, r, err)
 				return
 			}
-			api.OK(w, r, data, nil)
+			api.OK(w, r, data.Items, paginationMeta(data.PageInfo))
 		}),
 	}
 }

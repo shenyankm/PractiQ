@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -81,7 +82,7 @@ type QuestionOptionRecord struct {
 	OptionLabel string    `json:"option_label"`
 	SortOrder   int       `json:"sort_order"`
 	Content     string    `json:"content"`
-	IsCorrect   bool      `json:"is_correct"`
+	IsCorrect   *bool     `json:"is_correct,omitempty"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }
@@ -131,6 +132,31 @@ type QuestionDetail struct {
 	AnswerKeys    []QuestionAnswerKey    `json:"answer_keys"`
 	ContentBlocks []QuestionContentBlock `json:"content_blocks"`
 	MediaLinks    []QuestionMediaLink    `json:"media_links"`
+	CanEdit       bool                   `json:"can_edit"`
+}
+
+type LearnerQuestionOption struct {
+	ID          int64  `json:"id"`
+	QuestionID  int64  `json:"question_id"`
+	OptionLabel string `json:"option_label"`
+	SortOrder   int    `json:"sort_order"`
+	Content     string `json:"content"`
+}
+
+type LearnerQuestionDetail struct {
+	ID             int64                   `json:"id"`
+	BusinessType   string                  `json:"business_type"`
+	SubjectID      string                  `json:"subject_id"`
+	QuestionTypeID string                  `json:"question_type_id"`
+	AnswerMode     string                  `json:"answer_mode"`
+	ChoiceVariant  *string                 `json:"choice_variant"`
+	ContentMode    *string                 `json:"content_mode"`
+	Stem           string                  `json:"stem"`
+	Status         string                  `json:"status"`
+	Options        []LearnerQuestionOption `json:"options"`
+	ContentBlocks  []QuestionContentBlock  `json:"content_blocks"`
+	MediaLinks     []QuestionMediaLink     `json:"media_links"`
+	CanEdit        bool                    `json:"can_edit"`
 }
 
 type CreateQuestionInput struct {
@@ -145,9 +171,9 @@ type CreateQuestionInput struct {
 }
 
 type UpdateQuestionInput struct {
-	Stem     *string
-	Analysis *string
-	Status   *string
+	Stem        *string
+	Analysis    *string
+	AnalysisSet bool
 }
 
 type UpsertAnswerKeyInput struct {
@@ -202,12 +228,36 @@ type PersistImportedQuestionInput struct {
 	OutputMetadata map[string]any
 }
 
-func GetQuestion(ctx context.Context, db *pgxpool.Pool, user *auth.User, questionID int64) (*QuestionDetail, error) {
+func GetQuestion(ctx context.Context, db *pgxpool.Pool, user *auth.User, questionID int64) (any, error) {
+	detail, err := loadQuestionDetail(ctx, db, user, questionID)
+	if err != nil {
+		return nil, err
+	}
+	if detail.CanEdit {
+		return detail, nil
+	}
+	return learnerQuestionDetail(detail), nil
+}
+
+func GetQuestionForEditor(ctx context.Context, db *pgxpool.Pool, user *auth.User, questionID int64) (*QuestionDetail, error) {
+	if err := EnsureQuestionEditable(ctx, db, user, questionID); err != nil {
+		return nil, err
+	}
+	detail, err := loadQuestionDetail(ctx, db, user, questionID)
+	if err != nil {
+		return nil, err
+	}
+	detail.CanEdit = true
+	return detail, nil
+}
+
+func loadQuestionDetail(ctx context.Context, db *pgxpool.Pool, user *auth.User, questionID int64) (*QuestionDetail, error) {
 	var question Question
 	var optionsRaw []byte
 	var answerKeysRaw []byte
 	var contentBlocksRaw []byte
 	var mediaLinksRaw []byte
+	var canEdit bool
 
 	err := db.QueryRow(ctx, `
 		SELECT
@@ -243,16 +293,32 @@ func GetQuestion(ctx context.Context, db *pgxpool.Pool, user *auth.User, questio
 					WHERE qml.question_id = q.id
 				),
 				'[]'::json
-			) AS media_links
+			) AS media_links,
+			EXISTS (
+				SELECT 1
+				FROM v_bank_question_items owner_item
+				JOIN user_bank_links owner_link ON owner_link.bank_id = owner_item.bank_id
+				WHERE owner_item.question_id = q.id
+				  AND owner_link.user_id = $2
+				  AND owner_link.is_owner = true
+			) AS can_edit
 		FROM questions q
 		WHERE q.id = $1
 		  AND EXISTS (
 			SELECT 1
-			FROM bank_question_links bql
-			JOIN question_banks b ON b.id = bql.bank_id
+			FROM v_bank_question_items item
+			JOIN question_banks b ON b.id = item.bank_id
 			LEFT JOIN user_bank_links ubl ON ubl.bank_id = b.id AND ubl.user_id = $2
-			WHERE bql.question_id = q.id
-			  AND (b.is_public = true OR ubl.id IS NOT NULL)
+			WHERE item.question_id = q.id
+			  AND (
+				ubl.is_owner = true
+				OR (
+					(b.is_public = true OR ubl.id IS NOT NULL)
+					AND q.status = 'active'
+					AND item.question_status = 'active'
+					AND item.bank_link_status = 'active'
+				)
+			  )
 		  )
 		LIMIT 1
 	`, questionID, user.ID).Scan(
@@ -282,6 +348,7 @@ func GetQuestion(ctx context.Context, db *pgxpool.Pool, user *auth.User, questio
 		&answerKeysRaw,
 		&contentBlocksRaw,
 		&mediaLinksRaw,
+		&canEdit,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -290,7 +357,7 @@ func GetQuestion(ctx context.Context, db *pgxpool.Pool, user *auth.User, questio
 		return nil, err
 	}
 
-	detail := &QuestionDetail{Question: question}
+	detail := &QuestionDetail{Question: question, CanEdit: canEdit}
 	if err := decodeJSON(optionsRaw, &detail.Options); err != nil {
 		return nil, fmt.Errorf("decode question options: %w", err)
 	}
@@ -304,6 +371,40 @@ func GetQuestion(ctx context.Context, db *pgxpool.Pool, user *auth.User, questio
 		return nil, fmt.Errorf("decode media links: %w", err)
 	}
 	return detail, nil
+}
+
+func learnerQuestionDetail(detail *QuestionDetail) LearnerQuestionDetail {
+	options := make([]LearnerQuestionOption, 0, len(detail.Options))
+	for _, option := range detail.Options {
+		options = append(options, LearnerQuestionOption{
+			ID:          option.ID,
+			QuestionID:  option.QuestionID,
+			OptionLabel: option.OptionLabel,
+			SortOrder:   option.SortOrder,
+			Content:     option.Content,
+		})
+	}
+	blocks := make([]QuestionContentBlock, 0, len(detail.ContentBlocks))
+	for _, block := range detail.ContentBlocks {
+		if block.OwnerKind == "question" || block.OwnerKind == "stem" {
+			blocks = append(blocks, block)
+		}
+	}
+	return LearnerQuestionDetail{
+		ID:             detail.ID,
+		BusinessType:   detail.BusinessType,
+		SubjectID:      detail.SubjectID,
+		QuestionTypeID: detail.QuestionTypeID,
+		AnswerMode:     detail.AnswerMode,
+		ChoiceVariant:  detail.ChoiceVariant,
+		ContentMode:    detail.ContentMode,
+		Stem:           detail.Stem,
+		Status:         detail.Status,
+		Options:        options,
+		ContentBlocks:  blocks,
+		MediaLinks:     detail.MediaLinks,
+		CanEdit:        false,
+	}
 }
 
 func CreateQuestion(ctx context.Context, db *pgxpool.Pool, user *auth.User, bankID int64, input CreateQuestionInput) (*Question, error) {
@@ -337,6 +438,15 @@ func PersistImportedQuestion(ctx context.Context, db *pgxpool.Pool, user *auth.U
 		if err != nil {
 			return nil, err
 		}
+		if _, err := tx.Exec(ctx, `
+			UPDATE questions
+			SET source_type = 'imported', source_job_id = $2
+			WHERE id = $1
+		`, question.ID, input.JobID); err != nil {
+			return nil, err
+		}
+		question.SourceType = "imported"
+		question.SourceJobID = &input.JobID
 		if err := replaceQuestionContentBlocksTx(ctx, tx, question.ID, input.ContentBlocks); err != nil {
 			return nil, err
 		}
@@ -388,6 +498,11 @@ func createQuestionTx(ctx context.Context, tx pgx.Tx, user *auth.User, bankID in
 		return nil, err
 	}
 
+	var choiceVariant *string
+	if input.ChoiceVariant != nil {
+		trimmed := strings.TrimSpace(*input.ChoiceVariant)
+		choiceVariant = &trimmed
+	}
 	row := tx.QueryRow(ctx, `
 			INSERT INTO questions (
 				subject_id,
@@ -402,25 +517,38 @@ func createQuestionTx(ctx context.Context, tx pgx.Tx, user *auth.User, bankID in
 			)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, 'manual', $8)
 			RETURNING `+questionColumns+`
-		`, subject, questionTypeID, strings.TrimSpace(input.AnswerMode), input.ChoiceVariant, strings.TrimSpace(input.Stem), input.Analysis, status, user.ID)
+		`, subject, questionTypeID, strings.TrimSpace(input.AnswerMode), choiceVariant, strings.TrimSpace(input.Stem), input.Analysis, status, user.ID)
 	created, err := scanQuestion(row)
 	if err != nil {
 		return nil, err
 	}
 
+	answerPayload := input.AnswerPayload
+	correctLabels := selectedAnswerValues(answerPayload)
+	if created.AnswerMode == "choice" {
+		if len(correctLabels) == 0 {
+			for _, option := range input.Options {
+				if option.IsCorrect {
+					correctLabels = append(correctLabels, strings.TrimSpace(option.Label))
+				}
+			}
+		}
+		answerPayload = canonicalChoiceAnswerPayload(answerPayload, correctLabels)
+	}
 	if _, err := tx.Exec(ctx, `
 			INSERT INTO question_answer_keys (question_id, answer_mode, answer_payload)
 			VALUES ($1, $2, $3)
-	`, created.ID, created.AnswerMode, marshalJSONObject(input.AnswerPayload)); err != nil {
+	`, created.ID, created.AnswerMode, marshalJSONObject(answerPayload)); err != nil {
 		return nil, err
 	}
 
 	if created.AnswerMode == "choice" {
+		correct := stringSet(correctLabels)
 		for index, option := range input.Options {
 			if _, err := tx.Exec(ctx, `
 					INSERT INTO question_options (question_id, option_label, sort_order, content, is_correct)
 					VALUES ($1, $2, $3, $4, $5)
-			`, created.ID, strings.TrimSpace(option.Label), index+1, option.Content, option.IsCorrect); err != nil {
+			`, created.ID, strings.TrimSpace(option.Label), index+1, strings.TrimSpace(option.Content), correct[strings.TrimSpace(option.Label)]); err != nil {
 				return nil, err
 			}
 		}
@@ -455,6 +583,12 @@ func validateCreateQuestionInput(input CreateQuestionInput) error {
 	if strings.TrimSpace(input.Stem) == "" {
 		details = append(details, api.ValidationDetail{Field: "stem", Message: "is required"})
 	}
+	if input.ChoiceVariant != nil {
+		variant := strings.TrimSpace(*input.ChoiceVariant)
+		if strings.TrimSpace(input.AnswerMode) != "choice" || (variant != "single" && variant != "multiple") {
+			details = append(details, api.ValidationDetail{Field: "choiceVariant", Message: "must be single or multiple for choice questions"})
+		}
+	}
 	if len(details) > 0 {
 		return api.ValidationError(details)
 	}
@@ -462,41 +596,35 @@ func validateCreateQuestionInput(input CreateQuestionInput) error {
 }
 
 func UpdateQuestion(ctx context.Context, db *pgxpool.Pool, user *auth.User, questionID int64, input UpdateQuestionInput) (*Question, error) {
+	if input.Stem == nil && !input.AnalysisSet {
+		return nil, api.ValidationError([]api.ValidationDetail{{Field: "body", Message: "must include stem or analysis"}})
+	}
+	if input.Stem != nil {
+		stem := strings.TrimSpace(*input.Stem)
+		if stem == "" {
+			return nil, api.ValidationError([]api.ValidationDetail{{Field: "stem", Message: "is required"}})
+		}
+		input.Stem = &stem
+	}
+	if input.AnalysisSet && input.Analysis != nil {
+		analysis := strings.TrimSpace(*input.Analysis)
+		input.Analysis = &analysis
+	}
 	if err := EnsureQuestionEditable(ctx, db, user, questionID); err != nil {
 		return nil, err
 	}
-	status, err := normalizeQuestionStatusPointer(input.Status)
-	if err != nil {
-		return nil, err
-	}
-	if status != nil && *status == "active" {
-		if err := assertQuestionPublishable(ctx, db, user, questionID); err != nil {
-			return nil, err
-		}
-	}
-
 	question, err := withTx(ctx, db, func(tx pgx.Tx) (*Question, error) {
 		row := tx.QueryRow(ctx, `
 			UPDATE questions
 			SET
 				stem = COALESCE($2, stem),
-				analysis = COALESCE($3, analysis),
-				status = COALESCE($4, status)
+				analysis = CASE WHEN $4 THEN $3 ELSE analysis END
 			WHERE id = $1
 			RETURNING `+questionColumns+`
-		`, questionID, input.Stem, input.Analysis, status)
+		`, questionID, input.Stem, input.Analysis, input.AnalysisSet)
 		updated, err := scanQuestion(row)
 		if err != nil {
 			return nil, err
-		}
-		if status != nil {
-			if _, err := tx.Exec(ctx, `
-				UPDATE bank_question_links
-				SET status = $2
-				WHERE question_id = $1
-			`, questionID, *status); err != nil {
-				return nil, err
-			}
 		}
 		return &updated, nil
 	})
@@ -512,8 +640,8 @@ func DeleteQuestion(ctx context.Context, db *pgxpool.Pool, user *auth.User, ques
 	}
 	_, err := withTx(ctx, db, func(tx pgx.Tx) (struct{}, error) {
 		rows, err := tx.Query(ctx, `
-			SELECT bank_id
-			FROM bank_question_links
+			SELECT DISTINCT bank_id
+			FROM v_bank_question_items
 			WHERE question_id = $1
 		`, questionID)
 		if err != nil {
@@ -591,86 +719,169 @@ func UpsertAnswerKey(ctx context.Context, db *pgxpool.Pool, user *auth.User, que
 	if err := EnsureQuestionEditable(ctx, db, user, questionID); err != nil {
 		return nil, err
 	}
-	row := db.QueryRow(ctx, `
-		INSERT INTO question_answer_keys (
-			question_id,
-			answer_mode,
-			version,
-			is_primary,
-			answer_payload,
-			explanation_payload,
-			score_payload
-		)
-		VALUES ($1, $2, 1, true, $3, $4, $5)
-		ON CONFLICT (question_id) WHERE is_primary
-		DO UPDATE SET
-			answer_mode = EXCLUDED.answer_mode,
-			answer_payload = EXCLUDED.answer_payload,
-			explanation_payload = EXCLUDED.explanation_payload,
-			score_payload = EXCLUDED.score_payload
-		RETURNING id, question_id, answer_mode, version, is_primary, answer_payload, explanation_payload, score_payload, created_at, updated_at
-	`, questionID, strings.TrimSpace(input.AnswerMode), marshalJSONObject(input.AnswerPayload), marshalJSONObject(input.ExplanationPayload), marshalJSONObject(input.ScorePayload))
-	answerKey, err := scanQuestionAnswerKey(row)
-	if err != nil {
-		return nil, err
-	}
-	return &answerKey, nil
+	mode := strings.TrimSpace(input.AnswerMode)
+	return withTx(ctx, db, func(tx pgx.Tx) (*QuestionAnswerKey, error) {
+		var questionMode string
+		if err := tx.QueryRow(ctx, `SELECT answer_mode FROM questions WHERE id = $1 FOR UPDATE`, questionID).Scan(&questionMode); err != nil {
+			return nil, err
+		}
+		if mode != questionMode {
+			return nil, api.ValidationError([]api.ValidationDetail{{Field: "answerMode", Message: "must match the question answer mode"}})
+		}
+		if mode == "choice" {
+			rows, err := tx.Query(ctx, `SELECT option_label FROM question_options WHERE question_id = $1`, questionID)
+			if err != nil {
+				return nil, err
+			}
+			defer rows.Close()
+			labels := map[string]struct{}{}
+			for rows.Next() {
+				var label string
+				if err := rows.Scan(&label); err != nil {
+					return nil, err
+				}
+				labels[label] = struct{}{}
+			}
+			if err := rows.Err(); err != nil {
+				return nil, err
+			}
+			for _, label := range selectedAnswerValues(input.AnswerPayload) {
+				if _, ok := labels[label]; !ok {
+					return nil, api.ValidationError([]api.ValidationDetail{{Field: "answerPayload", Message: "must reference existing option labels"}})
+				}
+			}
+		}
+		row := tx.QueryRow(ctx, `
+			INSERT INTO question_answer_keys (
+				question_id,
+				answer_mode,
+				version,
+				is_primary,
+				answer_payload,
+				explanation_payload,
+				score_payload
+			)
+			VALUES ($1, $2, 1, true, $3, $4, $5)
+			ON CONFLICT (question_id) WHERE is_primary
+			DO UPDATE SET
+				answer_mode = EXCLUDED.answer_mode,
+				answer_payload = EXCLUDED.answer_payload,
+				explanation_payload = EXCLUDED.explanation_payload,
+				score_payload = EXCLUDED.score_payload
+			RETURNING id, question_id, answer_mode, version, is_primary, answer_payload, explanation_payload, score_payload, created_at, updated_at
+		`, questionID, mode, marshalJSONObject(input.AnswerPayload), marshalJSONObject(input.ExplanationPayload), marshalJSONObject(input.ScorePayload))
+		answerKey, err := scanQuestionAnswerKey(row)
+		if err != nil {
+			return nil, err
+		}
+		if mode == "choice" {
+			selected := selectedAnswerValues(input.AnswerPayload)
+			if _, err := tx.Exec(ctx, `
+				UPDATE question_options
+				SET is_correct = option_label = ANY($2::text[])
+				WHERE question_id = $1
+			`, questionID, selected); err != nil {
+				return nil, err
+			}
+		}
+		return &answerKey, nil
+	})
 }
 
 func CreateOption(ctx context.Context, db *pgxpool.Pool, user *auth.User, questionID int64, input CreateOptionInput) (*QuestionOptionRecord, error) {
+	if err := validateCreateOptionInput(&input); err != nil {
+		return nil, err
+	}
 	if err := EnsureQuestionEditable(ctx, db, user, questionID); err != nil {
 		return nil, err
 	}
-	sortOrder := 0
-	if input.SortOrder != nil {
-		sortOrder = *input.SortOrder
-	} else if err := db.QueryRow(ctx, `
-		SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_sort
-		FROM question_options
-		WHERE question_id = $1
-	`, questionID).Scan(&sortOrder); err != nil {
-		return nil, err
-	}
-	row := db.QueryRow(ctx, `
-		INSERT INTO question_options (question_id, option_label, sort_order, content, is_correct)
-		VALUES ($1, $2, $3, $4, $5)
-		RETURNING id, question_id, option_label, sort_order, content, is_correct, created_at, updated_at
-	`, questionID, strings.TrimSpace(input.Label), sortOrder, input.Content, input.IsCorrect)
-	option, err := scanQuestionOption(row)
-	if err != nil {
-		return nil, err
-	}
-	return &option, nil
+	return withTx(ctx, db, func(tx pgx.Tx) (*QuestionOptionRecord, error) {
+		sortOrder := 0
+		if input.SortOrder != nil {
+			sortOrder = *input.SortOrder
+		} else if err := tx.QueryRow(ctx, `
+			SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_sort
+			FROM question_options
+			WHERE question_id = $1
+		`, questionID).Scan(&sortOrder); err != nil {
+			return nil, err
+		}
+		row := tx.QueryRow(ctx, `
+			INSERT INTO question_options (question_id, option_label, sort_order, content, is_correct)
+			VALUES ($1, $2, $3, $4, $5)
+			RETURNING id, question_id, option_label, sort_order, content, is_correct, created_at, updated_at
+		`, questionID, input.Label, sortOrder, input.Content, input.IsCorrect)
+		option, err := scanQuestionOption(row)
+		if err != nil {
+			return nil, err
+		}
+		if err := syncChoiceAnswerKeyFromOptions(ctx, tx, questionID); err != nil {
+			return nil, err
+		}
+		return &option, nil
+	})
 }
 
 func UpdateOption(ctx context.Context, db *pgxpool.Pool, user *auth.User, questionID int64, optionID int64, input UpdateOptionInput) (*QuestionOptionRecord, error) {
+	if err := validateUpdateOptionInput(&input); err != nil {
+		return nil, err
+	}
 	if err := EnsureQuestionEditable(ctx, db, user, questionID); err != nil {
 		return nil, err
 	}
-	row := db.QueryRow(ctx, `
-		UPDATE question_options
-		SET
-			option_label = COALESCE($3, option_label),
-			content = COALESCE($4, content),
-			is_correct = COALESCE($5, is_correct),
-			sort_order = COALESCE($6, sort_order)
-		WHERE id = $1
-		  AND question_id = $2
-		RETURNING id, question_id, option_label, sort_order, content, is_correct, created_at, updated_at
-	`, optionID, questionID, input.Label, input.Content, input.IsCorrect, input.SortOrder)
-	option, err := scanQuestionOption(row)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, api.NewError(404, "NOT_FOUND", "Option not found", nil)
+	return withTx(ctx, db, func(tx pgx.Tx) (*QuestionOptionRecord, error) {
+		row := tx.QueryRow(ctx, `
+			UPDATE question_options
+			SET
+				option_label = COALESCE($3, option_label),
+				content = COALESCE($4, content),
+				is_correct = COALESCE($5, is_correct),
+				sort_order = COALESCE($6, sort_order)
+			WHERE id = $1
+			  AND question_id = $2
+			RETURNING id, question_id, option_label, sort_order, content, is_correct, created_at, updated_at
+		`, optionID, questionID, input.Label, input.Content, input.IsCorrect, input.SortOrder)
+		option, err := scanQuestionOption(row)
+		if err != nil {
+			if err == pgx.ErrNoRows {
+				return nil, api.NewError(404, "NOT_FOUND", "Option not found", nil)
+			}
+			return nil, err
 		}
-		return nil, err
+		if err := syncChoiceAnswerKeyFromOptions(ctx, tx, questionID); err != nil {
+			return nil, err
+		}
+		return &option, nil
+	})
+}
+
+func DeleteOption(ctx context.Context, db *pgxpool.Pool, user *auth.User, questionID int64, optionID int64) error {
+	if err := EnsureQuestionEditable(ctx, db, user, questionID); err != nil {
+		return err
 	}
-	return &option, nil
+	_, err := withTx(ctx, db, func(tx pgx.Tx) (struct{}, error) {
+		result, err := tx.Exec(ctx, `DELETE FROM question_options WHERE id = $1 AND question_id = $2`, optionID, questionID)
+		if err != nil {
+			return struct{}{}, err
+		}
+		if result.RowsAffected() == 0 {
+			return struct{}{}, api.NewError(404, "NOT_FOUND", "Option not found", nil)
+		}
+		return struct{}{}, syncChoiceAnswerKeyFromOptions(ctx, tx, questionID)
+	})
+	return err
 }
 
 func ReplaceQuestionContentBlocks(ctx context.Context, db *pgxpool.Pool, user *auth.User, questionID int64, blocks []QuestionContentBlockInput) error {
 	if err := EnsureQuestionEditable(ctx, db, user, questionID); err != nil {
 		return err
+	}
+	for _, block := range blocks {
+		if block.MediaID != nil {
+			if err := ensureMediaOwned(ctx, db, *user, *block.MediaID); err != nil {
+				return err
+			}
+		}
 	}
 	_, err := withTx(ctx, db, func(tx pgx.Tx) (struct{}, error) {
 		return struct{}{}, replaceQuestionContentBlocksTx(ctx, tx, questionID, blocks)
@@ -679,6 +890,9 @@ func ReplaceQuestionContentBlocks(ctx context.Context, db *pgxpool.Pool, user *a
 }
 
 func replaceQuestionContentBlocksTx(ctx context.Context, tx pgx.Tx, questionID int64, blocks []QuestionContentBlockInput) error {
+	if err := validateQuestionContentBlocks(blocks); err != nil {
+		return err
+	}
 	if _, err := tx.Exec(ctx, `DELETE FROM question_content_blocks WHERE question_id = $1`, questionID); err != nil {
 		return err
 	}
@@ -716,6 +930,56 @@ func replaceQuestionContentBlocksTx(ctx context.Context, tx pgx.Tx, questionID i
 		`, questionID, ownerKind, block.Role, strings.TrimSpace(block.PartType), sequence, block.ContentMode, block.TextFormat, block.TextValue, block.LatexValue, block.MathMLValue, block.HTMLValue, block.MarkdownValue, jsonValue, block.MediaID); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func validateQuestionContentBlocks(blocks []QuestionContentBlockInput) error {
+	if len(blocks) > 1000 {
+		return api.ValidationError([]api.ValidationDetail{{Field: "blocks", Message: "must contain no more than 1000 items"}})
+	}
+	var details []api.ValidationDetail
+	for index := range blocks {
+		block := &blocks[index]
+		prefix := fmt.Sprintf("blocks.%d.", index)
+		ownerKind := "question"
+		if block.OwnerKind != nil {
+			ownerKind = strings.TrimSpace(*block.OwnerKind)
+			block.OwnerKind = &ownerKind
+		}
+		switch ownerKind {
+		case "question", "stem", "answer_key", "analysis", "explanation":
+		default:
+			details = append(details, api.ValidationDetail{Field: prefix + "ownerKind", Message: "is invalid for a question block"})
+		}
+		block.PartType = strings.TrimSpace(block.PartType)
+		switch block.PartType {
+		case "text", "formula", "image", "table", "list", "html", "markdown", "chart", "diagram", "qr_code":
+		default:
+			details = append(details, api.ValidationDetail{Field: prefix + "partType", Message: "is invalid"})
+		}
+		if block.Sequence != nil && *block.Sequence <= 0 {
+			details = append(details, api.ValidationDetail{Field: prefix + "sequence", Message: "must be positive"})
+		}
+		if block.ContentMode != nil {
+			mode := strings.TrimSpace(*block.ContentMode)
+			block.ContentMode = &mode
+			if mode != "text_only" && mode != "mixed_media" && mode != "structured_rich" {
+				details = append(details, api.ValidationDetail{Field: prefix + "contentMode", Message: "is invalid"})
+			}
+		}
+		if block.Role != nil && utf8.RuneCountInString(*block.Role) > 64 {
+			details = append(details, api.ValidationDetail{Field: prefix + "role", Message: "must be no more than 64 characters"})
+		}
+		if block.TextFormat != nil && utf8.RuneCountInString(*block.TextFormat) > 32 {
+			details = append(details, api.ValidationDetail{Field: prefix + "textFormat", Message: "must be no more than 32 characters"})
+		}
+		if block.MediaID != nil && *block.MediaID <= 0 {
+			details = append(details, api.ValidationDetail{Field: prefix + "mediaId", Message: "must be positive"})
+		}
+	}
+	if len(details) > 0 {
+		return api.ValidationError(details)
 	}
 	return nil
 }
@@ -789,10 +1053,13 @@ func validateQuestionPayload(answerMode string, status string, options []Questio
 	}
 	if mode == "choice" {
 		labels := map[string]struct{}{}
+		if len(options) > 32767 {
+			return api.ValidationError([]api.ValidationDetail{{Field: "options", Message: "must contain no more than 32767 items"}})
+		}
 		for _, option := range options {
 			label := strings.TrimSpace(option.Label)
-			if label == "" {
-				return api.NewError(422, "VALIDATION_ERROR", "Choice option labels must be unique and non-empty", nil)
+			if label == "" || utf8.RuneCountInString(label) > 16 || strings.TrimSpace(option.Content) == "" {
+				return api.NewError(422, "VALIDATION_ERROR", "Choice options require a label of at most 16 characters and non-empty content", nil)
 			}
 			if _, exists := labels[label]; exists {
 				return api.NewError(422, "VALIDATION_ERROR", "Choice option labels must be unique and non-empty", nil)
@@ -806,16 +1073,19 @@ func validateQuestionPayload(answerMode string, status string, options []Questio
 		}
 	}
 	if strings.TrimSpace(status) == "active" {
-		if !hasUsableAnswerPayload(mode, answerPayload) {
+		hasAnswer := hasUsableAnswerPayload(mode, answerPayload)
+		if mode == "choice" && !hasAnswer {
+			for _, option := range options {
+				hasAnswer = hasAnswer || option.IsCorrect
+			}
+		}
+		if !hasAnswer {
 			return api.NewError(409, "INVALID_STATE", "Active questions require a usable answer payload", nil)
 		}
 		if mode == "choice" {
-			correct := false
+			correct := len(selectedAnswerValues(answerPayload)) > 0
 			for _, option := range options {
-				if option.IsCorrect {
-					correct = true
-					break
-				}
+				correct = correct || option.IsCorrect
 			}
 			if len(options) < 2 || !correct {
 				return api.NewError(409, "INVALID_STATE", "Active choice questions require at least two options and one correct option", nil)
@@ -848,7 +1118,129 @@ func hasUsableAnswerPayload(mode string, payload map[string]any) bool {
 }
 
 func selectedAnswerValues(payload map[string]any) []string {
-	return normalizeQuestionStringArray(questionObjectValue(payload, "selected"))
+	for _, key := range []string{"selected", "correctOptions", "correctOption"} {
+		if values := normalizeQuestionStringArray(questionObjectValue(payload, key)); len(values) > 0 {
+			return values
+		}
+	}
+	return nil
+}
+
+func canonicalChoiceAnswerPayload(payload map[string]any, selected []string) map[string]any {
+	result := make(map[string]any, len(payload)+1)
+	for key, value := range payload {
+		result[key] = value
+	}
+	delete(result, "correctOption")
+	delete(result, "correctOptions")
+	result["selected"] = selected
+	return result
+}
+
+func stringSet(values []string) map[string]bool {
+	result := make(map[string]bool, len(values))
+	for _, value := range values {
+		result[value] = true
+	}
+	return result
+}
+
+func syncChoiceAnswerKeyFromOptions(ctx context.Context, tx pgx.Tx, questionID int64) error {
+	var mode string
+	var raw *string
+	if err := tx.QueryRow(ctx, `
+		SELECT
+			q.answer_mode,
+			(SELECT answer_payload FROM question_answer_keys WHERE question_id = q.id AND is_primary = true LIMIT 1)
+		FROM questions q
+		WHERE q.id = $1
+	`, questionID).Scan(&mode, &raw); err != nil {
+		return err
+	}
+	if mode != "choice" || raw == nil {
+		return nil
+	}
+	rows, err := tx.Query(ctx, `
+		SELECT option_label
+		FROM question_options
+		WHERE question_id = $1 AND is_correct = true
+		ORDER BY sort_order, id
+	`, questionID)
+	if err != nil {
+		return err
+	}
+	selected := []string{}
+	for rows.Next() {
+		var label string
+		if err := rows.Scan(&label); err != nil {
+			rows.Close()
+			return err
+		}
+		selected = append(selected, label)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	payload := map[string]any{}
+	if strings.TrimSpace(*raw) != "" {
+		if err := json.Unmarshal([]byte(*raw), &payload); err != nil {
+			return fmt.Errorf("decode answer payload: %w", err)
+		}
+	}
+	_, err = tx.Exec(ctx, `
+		UPDATE question_answer_keys
+		SET answer_payload = $2
+		WHERE question_id = $1 AND is_primary = true
+	`, questionID, marshalJSONObject(canonicalChoiceAnswerPayload(payload, selected)))
+	return err
+}
+
+func validateCreateOptionInput(input *CreateOptionInput) error {
+	input.Label = strings.TrimSpace(input.Label)
+	input.Content = strings.TrimSpace(input.Content)
+	var details []api.ValidationDetail
+	if input.Label == "" || utf8.RuneCountInString(input.Label) > 16 {
+		details = append(details, api.ValidationDetail{Field: "label", Message: "must be 1-16 characters"})
+	}
+	if input.Content == "" {
+		details = append(details, api.ValidationDetail{Field: "content", Message: "is required"})
+	}
+	if input.SortOrder != nil && (*input.SortOrder < 1 || *input.SortOrder > 32767) {
+		details = append(details, api.ValidationDetail{Field: "sortOrder", Message: "must be between 1 and 32767"})
+	}
+	if len(details) > 0 {
+		return api.ValidationError(details)
+	}
+	return nil
+}
+
+func validateUpdateOptionInput(input *UpdateOptionInput) error {
+	if input.Label == nil && input.Content == nil && input.IsCorrect == nil && input.SortOrder == nil {
+		return api.ValidationError([]api.ValidationDetail{{Field: "body", Message: "must include a field to update"}})
+	}
+	var details []api.ValidationDetail
+	if input.Label != nil {
+		label := strings.TrimSpace(*input.Label)
+		input.Label = &label
+		if label == "" || utf8.RuneCountInString(label) > 16 {
+			details = append(details, api.ValidationDetail{Field: "label", Message: "must be 1-16 characters"})
+		}
+	}
+	if input.Content != nil {
+		content := strings.TrimSpace(*input.Content)
+		input.Content = &content
+		if content == "" {
+			details = append(details, api.ValidationDetail{Field: "content", Message: "is required"})
+		}
+	}
+	if input.SortOrder != nil && (*input.SortOrder < 1 || *input.SortOrder > 32767) {
+		details = append(details, api.ValidationDetail{Field: "sortOrder", Message: "must be between 1 and 32767"})
+	}
+	if len(details) > 0 {
+		return api.ValidationError(details)
+	}
+	return nil
 }
 
 func questionFillBlankValues(payload map[string]any) []string {
@@ -921,17 +1313,6 @@ func normalizeQuestionText(value any) string {
 	return strings.Join(strings.Fields(text), " ")
 }
 
-func normalizeQuestionStatusPointer(status *string) (*string, error) {
-	if status == nil {
-		return nil, nil
-	}
-	normalized, err := normalizeQuestionStatusOrDefault(*status, "")
-	if err != nil {
-		return nil, err
-	}
-	return &normalized, nil
-}
-
 func normalizeQuestionStatusOrDefault(status string, fallback string) (string, error) {
 	status = strings.TrimSpace(status)
 	if status == "" {
@@ -976,7 +1357,9 @@ func scanQuestion(row pgx.Row) (Question, error) {
 
 func scanQuestionOption(row pgx.Row) (QuestionOptionRecord, error) {
 	var option QuestionOptionRecord
-	err := row.Scan(&option.ID, &option.QuestionID, &option.OptionLabel, &option.SortOrder, &option.Content, &option.IsCorrect, &option.CreatedAt, &option.UpdatedAt)
+	var isCorrect bool
+	err := row.Scan(&option.ID, &option.QuestionID, &option.OptionLabel, &option.SortOrder, &option.Content, &isCorrect, &option.CreatedAt, &option.UpdatedAt)
+	option.IsCorrect = new(isCorrect)
 	return option, err
 }
 

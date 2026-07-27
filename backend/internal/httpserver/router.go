@@ -32,6 +32,7 @@ func NewServer(cfg ServerConfig, deps ServerDependencies) http.Handler {
 	registerMethodRoute(router, http.MethodPost, "/api/v1/auth/login", deps.Auth.Login)
 	registerMethodRoute(router, http.MethodPost, "/api/v1/auth/logout", deps.Auth.Logout)
 	registerMethodRoute(router, http.MethodGet, "/api/v1/auth/me", deps.Auth.Me)
+	registerMethodRoute(router, http.MethodPatch, "/api/v1/users/me", deps.Auth.UpdateMe)
 	registerMethodRoute(router, http.MethodGet, "/api/v1/subjects", deps.Reference.Subjects)
 	registerMethodRoute(router, http.MethodGet, "/api/v1/question-types", deps.Reference.QuestionTypes)
 	registerMethodRoute(router, http.MethodGet, "/api/v1/knowledge-points", deps.Reference.KnowledgePoints)

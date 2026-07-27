@@ -38,9 +38,15 @@ type ParsedQuestion struct {
 	NeedsReview    bool           `json:"needsReview"`
 }
 
+type ParsedGroup struct {
+	Title           string  `json:"title"`
+	Instructions    *string `json:"instructions,omitempty"`
+	QuestionIndexes []int   `json:"questionIndexes"`
+}
+
 type DocumentParseResult struct {
 	Questions      []ParsedQuestion `json:"questions"`
-	Groups         []map[string]any `json:"groups"`
+	Groups         []ParsedGroup    `json:"groups"`
 	VisualElements []map[string]any `json:"visualElements"`
 	Warnings       []string         `json:"warnings"`
 	QualityScore   float64          `json:"qualityScore"`

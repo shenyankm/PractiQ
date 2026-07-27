@@ -3,6 +3,7 @@ package httpserver
 import (
 	"net/http"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"openwook/internal/api"
@@ -19,11 +20,10 @@ type knowledgePointCreateRequest struct {
 }
 
 type knowledgePointUpdateRequest struct {
-	SubjectID   *string        `json:"subjectId"`
-	Code        *string        `json:"code"`
-	DisplayName *string        `json:"displayName"`
-	ParentID    *int64         `json:"parentId"`
-	Metadata    map[string]any `json:"metadata"`
+	Code        *string                   `json:"code"`
+	DisplayName *string                   `json:"displayName"`
+	ParentID    optionalJSONField[*int64] `json:"parentId"`
+	Metadata    map[string]any            `json:"metadata"`
 }
 
 type userStatusRequest struct {
@@ -62,7 +62,7 @@ func BuildAdminHandlers(pool *pgxpool.Pool) AdminHandlers {
 				api.HandleError(w, r, err)
 				return
 			}
-			api.OK(w, r, data, nil)
+			api.OK(w, r, data.Items, paginationMeta(data.PageInfo))
 		}),
 		KnowledgePoints: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			user, err := requireCurrentUser(r, currentUser)
@@ -75,7 +75,7 @@ func BuildAdminHandlers(pool *pgxpool.Pool) AdminHandlers {
 				api.HandleError(w, r, err)
 				return
 			}
-			api.OK(w, r, data, nil)
+			api.OK(w, r, data.Items, paginationMeta(data.PageInfo))
 		}),
 		CreateKnowledgePoint: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			body, err := decodeJSONBodyStrict[knowledgePointCreateRequest](r)
@@ -192,13 +192,13 @@ func validateKnowledgePointCreate(body knowledgePointCreateRequest) (services.Kn
 	subjectID := strings.TrimSpace(body.SubjectID)
 	code := strings.TrimSpace(body.Code)
 	displayName := strings.TrimSpace(body.DisplayName)
-	if len(subjectID) == 0 || len(subjectID) > 32 {
+	if utf8.RuneCountInString(subjectID) == 0 || utf8.RuneCountInString(subjectID) > 32 {
 		details = append(details, api.ValidationDetail{Field: "subjectId", Message: "must be 1-32 characters"})
 	}
-	if len(code) == 0 || len(code) > 128 {
+	if utf8.RuneCountInString(code) == 0 || utf8.RuneCountInString(code) > 128 {
 		details = append(details, api.ValidationDetail{Field: "code", Message: "must be 1-128 characters"})
 	}
-	if len(displayName) == 0 || len(displayName) > 256 {
+	if utf8.RuneCountInString(displayName) == 0 || utf8.RuneCountInString(displayName) > 256 {
 		details = append(details, api.ValidationDetail{Field: "displayName", Message: "must be 1-256 characters"})
 	}
 	if body.ParentID != nil && *body.ParentID <= 0 {
@@ -215,7 +215,7 @@ func validateKnowledgePointUpdate(body knowledgePointUpdateRequest) (services.Kn
 	var code *string
 	if body.Code != nil {
 		trimmed := strings.TrimSpace(*body.Code)
-		if len(trimmed) == 0 || len(trimmed) > 128 {
+		if utf8.RuneCountInString(trimmed) == 0 || utf8.RuneCountInString(trimmed) > 128 {
 			details = append(details, api.ValidationDetail{Field: "code", Message: "must be 1-128 characters"})
 		} else {
 			code = &trimmed
@@ -224,25 +224,29 @@ func validateKnowledgePointUpdate(body knowledgePointUpdateRequest) (services.Kn
 	var displayName *string
 	if body.DisplayName != nil {
 		trimmed := strings.TrimSpace(*body.DisplayName)
-		if len(trimmed) == 0 || len(trimmed) > 256 {
+		if utf8.RuneCountInString(trimmed) == 0 || utf8.RuneCountInString(trimmed) > 256 {
 			details = append(details, api.ValidationDetail{Field: "displayName", Message: "must be 1-256 characters"})
 		} else {
 			displayName = &trimmed
 		}
 	}
-	if body.SubjectID != nil {
-		trimmed := strings.TrimSpace(*body.SubjectID)
-		if len(trimmed) == 0 || len(trimmed) > 32 {
-			details = append(details, api.ValidationDetail{Field: "subjectId", Message: "must be 1-32 characters"})
-		}
-	}
-	if body.ParentID != nil && *body.ParentID <= 0 {
+	if body.ParentID.Value != nil && *body.ParentID.Value <= 0 {
 		details = append(details, api.ValidationDetail{Field: "parentId", Message: "must be a positive integer"})
+	}
+	if body.Code == nil && body.DisplayName == nil && !body.ParentID.Set && body.Metadata == nil {
+		details = append(details, api.ValidationDetail{Field: "body", Message: "must include a field to update"})
 	}
 	if len(details) > 0 {
 		return services.KnowledgePointUpdate{}, api.ValidationError(details)
 	}
-	return services.KnowledgePointUpdate{Code: code, DisplayName: displayName, ParentID: body.ParentID, Metadata: body.Metadata, MetadataSet: body.Metadata != nil}, nil
+	return services.KnowledgePointUpdate{
+		Code:        code,
+		DisplayName: displayName,
+		ParentID:    body.ParentID.Value,
+		ParentIDSet: body.ParentID.Set,
+		Metadata:    body.Metadata,
+		MetadataSet: body.Metadata != nil,
+	}, nil
 }
 
 func validateUserStatus(body userStatusRequest) (bool, error) {
@@ -256,6 +260,9 @@ func validateUserAccess(body userAccessRequest) (services.UserAccessUpdate, erro
 	details := make([]api.ValidationDetail, 0, 2)
 	role := trimmedOrNil(body.Role)
 	membership := trimmedOrNil(body.Membership)
+	if role == nil && membership == nil {
+		details = append(details, api.ValidationDetail{Field: "body", Message: "must include role or membership"})
+	}
 	if role != nil && *role != "admin" && *role != "user" {
 		details = append(details, api.ValidationDetail{Field: "role", Message: "must be one of admin, user"})
 	}

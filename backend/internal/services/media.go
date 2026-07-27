@@ -2,17 +2,29 @@ package services
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"openwook/internal/api"
 	"openwook/internal/auth"
 )
 
 type MediaAsset struct {
 	ID           int64   `json:"id"`
-	StoragePath  string  `json:"storage_path"`
-	StorageDisk  string  `json:"storage_disk"`
+	CreatedBy    int64   `json:"created_by"`
+	StoragePath  string  `json:"-"`
+	StorageDisk  string  `json:"-"`
 	ExternalURL  *string `json:"external_url"`
+	ContentURL   string  `json:"content_url"`
 	OriginalName *string `json:"original_name"`
 	MimeType     *string `json:"mime_type"`
 	Width        *int64  `json:"width"`
@@ -22,12 +34,9 @@ type MediaAsset struct {
 	CreatedAt    string  `json:"created_at"`
 }
 
-type CreateMediaAssetInput struct {
-	StoragePath  string  `json:"storage_path"`
-	ExternalURL  *string `json:"external_url"`
-	OriginalName *string `json:"original_name"`
-	MimeType     *string `json:"mime_type"`
-	SizeBytes    *int64  `json:"size_bytes"`
+type UploadedMediaFile struct {
+	Name    string
+	Content []byte
 }
 
 type MediaLinkInput struct {
@@ -63,12 +72,61 @@ type OptionMediaLink struct {
 	CreatedAt string `json:"created_at"`
 }
 
-func CreateMediaAsset(ctx context.Context, db queryer, input CreateMediaAssetInput) (*MediaAsset, error) {
+const maxMediaUploadBytes = 10 * 1024 * 1024
+
+var mediaTypes = map[string]string{
+	"image/gif":  ".gif",
+	"image/jpeg": ".jpg",
+	"image/png":  ".png",
+	"image/webp": ".webp",
+}
+
+func CreateUploadedMedia(ctx context.Context, db queryer, user auth.User, file UploadedMediaFile) (*MediaAsset, error) {
+	if len(file.Content) == 0 {
+		return nil, api.NewError(400, "EMPTY_FILE", "Upload file is empty", nil)
+	}
+	if len(file.Content) > maxMediaUploadBytes {
+		return nil, api.NewError(413, "FILE_TOO_LARGE", "Media file exceeds 10 MiB", nil)
+	}
+	name := strings.TrimSpace(filepath.Base(file.Name))
+	if name == "" || len(name) > 255 {
+		return nil, api.NewError(400, "INVALID_FILE_NAME", "Media file name must be 1-255 bytes", nil)
+	}
+	mimeType := http.DetectContentType(file.Content)
+	extension, ok := mediaTypes[mimeType]
+	if !ok {
+		return nil, api.NewError(400, "UNSUPPORTED_FILE_TYPE", "Only PNG, JPEG, GIF, and WebP images are supported", nil)
+	}
+	random := make([]byte, 12)
+	if _, err := rand.Read(random); err != nil {
+		return nil, err
+	}
+	relativePath := filepath.ToSlash(filepath.Join("media", fmt.Sprint(user.ID), hex.EncodeToString(random)+extension))
+	absolutePath, err := resolveStoragePath(relativePath)
+	if err != nil {
+		return nil, err
+	}
+	if err := os.MkdirAll(filepath.Dir(absolutePath), 0o755); err != nil {
+		return nil, err
+	}
+	if err := os.WriteFile(absolutePath, file.Content, 0o600); err != nil {
+		return nil, err
+	}
+	size := int64(len(file.Content))
+	asset, err := createMediaAsset(ctx, db, user, relativePath, name, mimeType, size)
+	if err != nil {
+		_ = os.Remove(absolutePath)
+		return nil, err
+	}
+	return asset, nil
+}
+
+func createMediaAsset(ctx context.Context, db queryer, user auth.User, storagePath, originalName, mimeType string, sizeBytes int64) (*MediaAsset, error) {
 	rows, err := db.Query(ctx, `
-		INSERT INTO media_assets (storage_path, external_url, original_name, mime_type, size_bytes)
+		INSERT INTO media_assets (created_by, storage_path, original_name, mime_type, size_bytes)
 		VALUES ($1, $2, $3, $4, $5)
-		RETURNING id, storage_path, storage_disk, external_url, original_name, mime_type, width, height, size_bytes, duration_ms, created_at
-	`, input.StoragePath, nullableStringPointer(input.ExternalURL), nullableStringPointer(input.OriginalName), nullableStringPointer(input.MimeType), nullableInt64Pointer(input.SizeBytes))
+		RETURNING id, created_by, storage_path, storage_disk, external_url, original_name, mime_type, width, height, size_bytes, duration_ms, created_at
+	`, user.ID, storagePath, originalName, mimeType, sizeBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -83,13 +141,40 @@ func CreateMediaAsset(ctx context.Context, db queryer, input CreateMediaAssetInp
 	return &item, rows.Err()
 }
 
-func GetMediaAsset(ctx context.Context, db queryer, _ auth.User, mediaID int64) (*MediaAsset, error) {
+func GetMediaAsset(ctx context.Context, db queryer, user auth.User, mediaID int64) (*MediaAsset, error) {
 	rows, err := db.Query(ctx, `
-		SELECT id, storage_path, storage_disk, external_url, original_name, mime_type, width, height, size_bytes, duration_ms, created_at
-		FROM media_assets
-		WHERE id = $1
+		WITH accessible_questions AS (
+			SELECT DISTINCT item.question_id
+			FROM v_bank_question_items item
+			JOIN question_banks b ON b.id = item.bank_id
+			LEFT JOIN user_bank_links ubl ON ubl.bank_id = b.id AND ubl.user_id = $2
+			WHERE COALESCE(ubl.is_owner, false)
+			   OR ((b.is_public OR ubl.id IS NOT NULL) AND item.bank_link_status = 'active' AND item.question_status = 'active')
+		),
+		accessible_groups AS (
+			SELECT DISTINCT bgl.group_id
+			FROM bank_group_links bgl
+			JOIN question_banks b ON b.id = bgl.bank_id
+			LEFT JOIN user_bank_links ubl ON ubl.bank_id = b.id AND ubl.user_id = $2
+			WHERE COALESCE(ubl.is_owner, false)
+			   OR ((b.is_public OR ubl.id IS NOT NULL) AND bgl.status = 'active')
+		)
+		SELECT m.id, m.created_by, m.storage_path, m.storage_disk, m.external_url, m.original_name, m.mime_type,
+		       m.width, m.height, m.size_bytes, m.duration_ms, m.created_at
+		FROM media_assets m
+		WHERE m.id = $1
+		  AND (
+		    m.created_by = $2
+		    OR $3 = 'admin'
+		    OR EXISTS (SELECT 1 FROM question_media_links l JOIN accessible_questions q ON q.question_id = l.question_id WHERE l.media_id = m.id)
+		    OR EXISTS (SELECT 1 FROM question_option_media_links l JOIN question_options o ON o.id = l.option_id JOIN accessible_questions q ON q.question_id = o.question_id WHERE l.media_id = m.id)
+		    OR EXISTS (SELECT 1 FROM question_group_media_links l JOIN accessible_groups g ON g.group_id = l.group_id WHERE l.media_id = m.id)
+		    OR EXISTS (SELECT 1 FROM question_content_blocks b JOIN accessible_questions q ON q.question_id = b.question_id WHERE b.media_id = m.id)
+		    OR EXISTS (SELECT 1 FROM question_content_blocks b JOIN accessible_groups g ON g.group_id = b.group_id WHERE b.media_id = m.id)
+		    OR EXISTS (SELECT 1 FROM question_content_blocks b JOIN question_options o ON o.id = b.option_id JOIN accessible_questions q ON q.question_id = o.question_id WHERE b.media_id = m.id)
+		  )
 		LIMIT 1
-	`, mediaID)
+	`, mediaID, user.ID, user.Role)
 	if err != nil {
 		return nil, err
 	}
@@ -104,16 +189,51 @@ func GetMediaAsset(ctx context.Context, db queryer, _ auth.User, mediaID int64) 
 	return &item, rows.Err()
 }
 
-func DeleteMediaAsset(ctx context.Context, db execer, user auth.User, mediaID int64) error {
+func ReadMediaAssetContent(ctx context.Context, db queryer, user auth.User, mediaID int64) (*MediaAsset, []byte, error) {
+	asset, err := GetMediaAsset(ctx, db, user, mediaID)
+	if err != nil {
+		return nil, nil, err
+	}
+	absolutePath, err := resolveStoragePath(asset.StoragePath)
+	if err != nil {
+		return nil, nil, err
+	}
+	content, err := os.ReadFile(absolutePath)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, nil, api.NewError(404, "MEDIA_CONTENT_NOT_FOUND", "Media content not found", nil)
+	}
+	if err != nil {
+		return nil, nil, err
+	}
+	return asset, content, nil
+}
+
+func DeleteMediaAsset(ctx context.Context, db *pgxpool.Pool, user auth.User, mediaID int64) error {
 	if err := requireAdminRole(user); err != nil {
 		return err
 	}
-	_, err := db.Exec(ctx, `DELETE FROM media_assets WHERE id = $1`, mediaID)
-	return err
+	var storagePath string
+	if err := db.QueryRow(ctx, `DELETE FROM media_assets WHERE id = $1 RETURNING storage_path`, mediaID).Scan(&storagePath); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return api.NewError(404, "NOT_FOUND", "Media asset not found", nil)
+		}
+		return err
+	}
+	absolutePath, err := resolveStoragePath(storagePath)
+	if err != nil {
+		return err
+	}
+	if err := os.Remove(absolutePath); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	return nil
 }
 
 func LinkQuestionMedia(ctx context.Context, db queryer, user auth.User, questionID int64, input MediaLinkInput) (*QuestionMediaLink, error) {
 	if err := ensureQuestionEditableForMedia(ctx, db, user, questionID); err != nil {
+		return nil, err
+	}
+	if err := ensureMediaOwned(ctx, db, user, input.MediaID); err != nil {
 		return nil, err
 	}
 	rows, err := db.Query(ctx, `
@@ -137,6 +257,9 @@ func LinkQuestionMedia(ctx context.Context, db queryer, user auth.User, question
 
 func LinkGroupMedia(ctx context.Context, db queryer, user auth.User, groupID int64, input MediaLinkInput) (*GroupMediaLink, error) {
 	if err := ensureGroupEditableForMedia(ctx, db, user, groupID); err != nil {
+		return nil, err
+	}
+	if err := ensureMediaOwned(ctx, db, user, input.MediaID); err != nil {
 		return nil, err
 	}
 	rows, err := db.Query(ctx, `
@@ -166,6 +289,9 @@ func LinkOptionMedia(ctx context.Context, db queryer, user auth.User, optionID i
 	if err := ensureQuestionEditableForMedia(ctx, db, user, questionID); err != nil {
 		return nil, err
 	}
+	if err := ensureMediaOwned(ctx, db, user, input.MediaID); err != nil {
+		return nil, err
+	}
 	rows, err := db.Query(ctx, `
 		INSERT INTO question_option_media_links (option_id, media_id, media_kind, sort_order)
 		VALUES ($1, $2, $3, $4)
@@ -188,11 +314,60 @@ func LinkOptionMedia(ctx context.Context, db queryer, user auth.User, optionID i
 func scanMediaAsset(row interface{ Scan(...any) error }) (MediaAsset, error) {
 	var item MediaAsset
 	var createdAt time.Time
-	if err := row.Scan(&item.ID, &item.StoragePath, &item.StorageDisk, &item.ExternalURL, &item.OriginalName, &item.MimeType, &item.Width, &item.Height, &item.SizeBytes, &item.DurationMS, &createdAt); err != nil {
+	if err := row.Scan(&item.ID, &item.CreatedBy, &item.StoragePath, &item.StorageDisk, &item.ExternalURL, &item.OriginalName, &item.MimeType, &item.Width, &item.Height, &item.SizeBytes, &item.DurationMS, &createdAt); err != nil {
 		return MediaAsset{}, err
 	}
 	item.CreatedAt = formatTimestamp(createdAt)
+	item.ContentURL = fmt.Sprintf("/api/v1/media/%d/content", item.ID)
 	return item, nil
+}
+
+func ensureMediaOwned(ctx context.Context, db queryer, user auth.User, mediaID int64) error {
+	rows, err := db.Query(ctx, `SELECT id FROM media_assets WHERE id = $1 AND (created_by = $2 OR $3 = 'admin') LIMIT 1`, mediaID, user.ID, user.Role)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	if !rows.Next() {
+		return api.NewError(403, "FORBIDDEN", "Media owner access required", nil)
+	}
+	return rows.Err()
+}
+
+func UnlinkQuestionMedia(ctx context.Context, db execer, authDB queryer, user auth.User, questionID, mediaID int64) error {
+	if err := ensureQuestionEditableForMedia(ctx, authDB, user, questionID); err != nil {
+		return err
+	}
+	return deleteMediaLink(ctx, db, `DELETE FROM question_media_links WHERE question_id = $1 AND media_id = $2`, questionID, mediaID)
+}
+
+func UnlinkGroupMedia(ctx context.Context, db execer, authDB queryer, user auth.User, groupID, mediaID int64) error {
+	if err := ensureGroupEditableForMedia(ctx, authDB, user, groupID); err != nil {
+		return err
+	}
+	return deleteMediaLink(ctx, db, `DELETE FROM question_group_media_links WHERE group_id = $1 AND media_id = $2`, groupID, mediaID)
+}
+
+func UnlinkOptionMedia(ctx context.Context, db execer, authDB queryer, user auth.User, optionID, mediaID int64) error {
+	questionID, err := optionQuestionID(ctx, authDB, optionID)
+	if err != nil {
+		return err
+	}
+	if err := ensureQuestionEditableForMedia(ctx, authDB, user, questionID); err != nil {
+		return err
+	}
+	return deleteMediaLink(ctx, db, `DELETE FROM question_option_media_links WHERE option_id = $1 AND media_id = $2`, optionID, mediaID)
+}
+
+func deleteMediaLink(ctx context.Context, db execer, statement string, ownerID, mediaID int64) error {
+	result, err := db.Exec(ctx, statement, ownerID, mediaID)
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected() == 0 {
+		return api.NewError(404, "NOT_FOUND", "Media link not found", nil)
+	}
+	return nil
 }
 
 func scanQuestionMediaLink(row interface{ Scan(...any) error }) (QuestionMediaLink, error) {

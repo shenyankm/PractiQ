@@ -12,6 +12,7 @@ type ContentHandlers struct {
 	BankFavoriteCreate       http.Handler
 	BankFavoriteDelete       http.Handler
 	BankQuestionCreate       http.Handler
+	BankGroups               http.Handler
 	BankGroupCreate          http.Handler
 	QuestionGet              http.Handler
 	QuestionUpdate           http.Handler
@@ -20,10 +21,14 @@ type ContentHandlers struct {
 	QuestionArchive          http.Handler
 	QuestionOptionCreate     http.Handler
 	QuestionOptionUpdate     http.Handler
+	QuestionOptionDelete     http.Handler
 	QuestionAnswerKeyPut     http.Handler
 	QuestionContentBlocksPut http.Handler
 	GroupGet                 http.Handler
 	GroupUpdate              http.Handler
+	GroupDelete              http.Handler
+	GroupPublish             http.Handler
+	GroupArchive             http.Handler
 	GroupQuestionCreate      http.Handler
 	GroupQuestionsReorder    http.Handler
 	GroupQuestionDelete      http.Handler
@@ -40,6 +45,7 @@ func registerContentRoutes(router *http.ServeMux, handlers ContentHandlers) {
 	registerMethodRoute(router, http.MethodPost, "/api/v1/banks/{bankId}/favorite", handlers.BankFavoriteCreate)
 	registerMethodRoute(router, http.MethodDelete, "/api/v1/banks/{bankId}/favorite", handlers.BankFavoriteDelete)
 	registerMethodRoute(router, http.MethodPost, "/api/v1/banks/{bankId}/questions", handlers.BankQuestionCreate)
+	registerMethodRoute(router, http.MethodGet, "/api/v1/banks/{bankId}/groups", handlers.BankGroups)
 	registerMethodRoute(router, http.MethodPost, "/api/v1/banks/{bankId}/groups", handlers.BankGroupCreate)
 	registerMethodRoute(router, http.MethodGet, "/api/v1/questions/{questionId}", handlers.QuestionGet)
 	registerMethodRoute(router, http.MethodPatch, "/api/v1/questions/{questionId}", handlers.QuestionUpdate)
@@ -48,10 +54,14 @@ func registerContentRoutes(router *http.ServeMux, handlers ContentHandlers) {
 	registerMethodRoute(router, http.MethodPost, "/api/v1/questions/{questionId}/archive", handlers.QuestionArchive)
 	registerMethodRoute(router, http.MethodPost, "/api/v1/questions/{questionId}/options", handlers.QuestionOptionCreate)
 	registerMethodRoute(router, http.MethodPatch, "/api/v1/questions/{questionId}/options/{optionId}", handlers.QuestionOptionUpdate)
+	registerMethodRoute(router, http.MethodDelete, "/api/v1/questions/{questionId}/options/{optionId}", handlers.QuestionOptionDelete)
 	registerMethodRoute(router, http.MethodPut, "/api/v1/questions/{questionId}/answer-key", handlers.QuestionAnswerKeyPut)
 	registerMethodRoute(router, http.MethodPut, "/api/v1/questions/{questionId}/content-blocks", handlers.QuestionContentBlocksPut)
 	registerMethodRoute(router, http.MethodGet, "/api/v1/groups/{groupId}", handlers.GroupGet)
 	registerMethodRoute(router, http.MethodPatch, "/api/v1/groups/{groupId}", handlers.GroupUpdate)
+	registerMethodRoute(router, http.MethodDelete, "/api/v1/groups/{groupId}", handlers.GroupDelete)
+	registerMethodRoute(router, http.MethodPost, "/api/v1/groups/{groupId}/publish", handlers.GroupPublish)
+	registerMethodRoute(router, http.MethodPost, "/api/v1/groups/{groupId}/archive", handlers.GroupArchive)
 	registerMethodRoute(router, http.MethodPost, "/api/v1/groups/{groupId}/questions", handlers.GroupQuestionCreate)
 	registerMethodRoute(router, http.MethodPatch, "/api/v1/groups/{groupId}/questions/reorder", handlers.GroupQuestionsReorder)
 	registerMethodRoute(router, http.MethodDelete, "/api/v1/groups/{groupId}/questions/{questionId}", handlers.GroupQuestionDelete)

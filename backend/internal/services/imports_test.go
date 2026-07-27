@@ -92,19 +92,6 @@ func TestQueueTransitionSpecMatchesImportStatusActions(t *testing.T) {
 		want   importQueueTransition
 	}{
 		{
-			action: "start",
-			want: importQueueTransition{
-				status:           "queued",
-				stage:            "queued",
-				stepCode:         "start",
-				stepLabel:        "加入导入队列",
-				eventStatus:      "queued",
-				available:        true,
-				resetAttempts:    true,
-				persistQuestions: new(true),
-			},
-		},
-		{
 			action: "retry",
 			want: importQueueTransition{
 				status:        "queued",
@@ -119,11 +106,11 @@ func TestQueueTransitionSpecMatchesImportStatusActions(t *testing.T) {
 		{
 			action: "cancel",
 			want: importQueueTransition{
-				status:      "failed",
-				stage:       "failed",
+				status:      "cancelled",
+				stage:       "cancelled",
 				stepCode:    "cancel",
 				stepLabel:   "取消任务",
-				eventStatus: "failed",
+				eventStatus: "cancelled",
 				message:     new("任务已取消。"),
 				completed:   true,
 			},
@@ -159,9 +146,7 @@ func TestImportJobActionValidationRejectsUnsafeTransitions(t *testing.T) {
 		action string
 		code   string
 	}{
-		{name: "cancel processing", job: ImportJob{Status: "processing"}, action: "cancel", code: "IMPORT_CANCEL_NOT_ALLOWED"},
 		{name: "cancel completed", job: ImportJob{Status: "completed"}, action: "cancel", code: "IMPORT_ALREADY_COMPLETED"},
-		{name: "start failed", job: ImportJob{Status: "failed"}, action: "start", code: "IMPORT_START_NOT_ALLOWED"},
 		{name: "retry queued", job: ImportJob{Status: "queued"}, action: "retry", code: "IMPORT_RETRY_NOT_ALLOWED"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -174,6 +159,9 @@ func TestImportJobActionValidationRejectsUnsafeTransitions(t *testing.T) {
 				t.Fatalf("error code = %q, want %q", code, tt.code)
 			}
 		})
+	}
+	if err := ensureImportJobQueueActionAllowed(ImportJob{Status: "processing"}, "cancel"); err != nil {
+		t.Fatalf("processing cancel returned error: %v", err)
 	}
 }
 

@@ -34,22 +34,35 @@ func BuildReferenceHandlers(pool *pgxpool.Pool) ReferenceHandlers {
 		}),
 		KnowledgePoints: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			query := r.URL.Query()
+			limit, err := queryPageLimit(r, 200)
+			if err != nil {
+				api.HandleError(w, r, err)
+				return
+			}
 			var parentID *int64
 			if raw := query.Get("parentId"); raw != "" {
-				parsed, err := strconv.ParseInt(raw, 10, 64)
-				if err != nil {
+				parsed, parseErr := strconv.ParseInt(raw, 10, 64)
+				if parseErr != nil || parsed <= 0 {
 					api.HandleError(w, r, api.NewError(http.StatusUnprocessableEntity, "VALIDATION_ERROR", "Invalid parentId", nil))
 					return
 				}
 				parentID = &parsed
 			}
-			data, err := services.ListKnowledgePoints(r.Context(), pool, query.Get("subject"), parentID)
+			data, err := services.ListKnowledgePoints(
+				r.Context(),
+				pool,
+				query.Get("subject"),
+				parentID,
+				query.Get("q"),
+				query.Get("cursor"),
+				limit,
+			)
 			if err != nil {
 				api.HandleError(w, r, err)
 				return
 			}
 			w.Header().Set("Cache-Control", publicCacheControl)
-			api.OK(w, r, data, nil)
+			api.OK(w, r, data.Items, paginationMeta(data.PageInfo))
 		}),
 	}
 }

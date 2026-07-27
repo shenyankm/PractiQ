@@ -79,10 +79,12 @@ func TestNewServerRoutesSharedPathsPathValuesAndUnknownMethods(t *testing.T) {
 }
 
 func TestDecodeJSONBodyStrictRejectsOversizedBody(t *testing.T) {
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/media", strings.NewReader(`{"storagePath":"`+strings.Repeat("x", 2*1024*1024)+`"}`))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/test", strings.NewReader(`{"value":"`+strings.Repeat("x", 2*1024*1024)+`"}`))
 	req = req.WithContext(api.WithRequestID(req.Context(), "req-json-limit"))
 
-	_, err := decodeJSONBodyStrict[mediaCreateRequest](req)
+	_, err := decodeJSONBodyStrict[struct {
+		Value string `json:"value"`
+	}](req)
 	if err == nil {
 		t.Fatal("decodeJSONBodyStrict error = nil, want body size error")
 	}
@@ -108,6 +110,30 @@ func TestDecodeJSONBodyStrictLimitAllowsExplicitLargerLimit(t *testing.T) {
 	}
 	if body.Value != value {
 		t.Fatalf("decoded value length = %d, want %d", len(body.Value), len(value))
+	}
+}
+
+func TestOptionalJSONFieldDistinguishesOmittedAndNull(t *testing.T) {
+	type request struct {
+		Value optionalJSONField[*string] `json:"value"`
+	}
+	omitted, err := decodeJSONBodyStrict[request](httptest.NewRequest(http.MethodPatch, "/", strings.NewReader(`{}`)))
+	if err != nil || omitted.Value.Set {
+		t.Fatalf("omitted field = %#v, error = %v; want unset", omitted.Value, err)
+	}
+	nullValue, err := decodeJSONBodyStrict[request](httptest.NewRequest(http.MethodPatch, "/", strings.NewReader(`{"value":null}`)))
+	if err != nil || !nullValue.Value.Set || nullValue.Value.Value != nil {
+		t.Fatalf("null field = %#v, error = %v; want set nil", nullValue.Value, err)
+	}
+}
+
+func TestValidateMediaLinkRejectsDatabaseOverflow(t *testing.T) {
+	mediaID := int64(1)
+	sortOrder := 32768
+	_, err := validateMediaLink(mediaLinkRequest{MediaID: &mediaID, MediaKind: strings.Repeat("x", 65), SortOrder: &sortOrder})
+	status, code, _, details := api.ValidationErrorEnvelope(err)
+	if status != http.StatusUnprocessableEntity || code != "VALIDATION_ERROR" || len(details) != 2 {
+		t.Fatalf("error = (%d, %s, %#v), want two validation details", status, code, details)
 	}
 }
 

@@ -46,6 +46,7 @@ type CurrentUserResolver func(*http.Request) (*User, error)
 type HandlerDependencies struct {
 	RegisterUser     func(context.Context, string, *string, string) (*User, error)
 	AuthenticateUser func(context.Context, string, string) (*User, error)
+	UpdateUser       func(context.Context, int, UpdateUserInput) (*User, error)
 	SetSession       func(http.ResponseWriter, int) error
 	ClearSession     func(http.ResponseWriter, *http.Request) error
 	CurrentUser      CurrentUserResolver
@@ -60,6 +61,13 @@ type registerRequest struct {
 type loginRequest struct {
 	Login    string `json:"login"`
 	Password string `json:"password"`
+}
+
+type updateMeRequest struct {
+	Username        *string         `json:"username"`
+	Email           json.RawMessage `json:"email"`
+	CurrentPassword *string         `json:"currentPassword"`
+	NewPassword     *string         `json:"newPassword"`
 }
 
 // sessionResponse extends the user payload with the session JWT so mobile
@@ -126,34 +134,54 @@ func Register(deps HandlerDependencies) http.Handler {
 func validateRegisterRequest(body *registerRequest) error {
 	details := make([]api.ValidationDetail, 0, 4)
 
-	if len(body.Username) < 3 || len(body.Username) > 20 {
-		details = append(details, api.ValidationDetail{Field: "username", Message: "Must be 3-20 letters, numbers, or underscores"})
-	} else {
-		for _, character := range body.Username {
-			if character != '_' && (character < '0' || character > '9') && (character < 'A' || character > 'Z') && (character < 'a' || character > 'z') {
-				details = append(details, api.ValidationDetail{Field: "username", Message: "Must be 3-20 letters, numbers, or underscores"})
-				break
-			}
-		}
+	if detail := usernameValidationDetail(body.Username); detail != nil {
+		details = append(details, *detail)
 	}
 
-	if body.Email == nil {
-		details = append(details, api.ValidationDetail{Field: "email", Message: "Must be a valid email address"})
-	} else {
-		email := strings.TrimSpace(*body.Email)
-		parsed, err := mail.ParseAddress(email)
-		if err != nil || utf8.RuneCountInString(email) > 254 || parsed.Address != email {
-			details = append(details, api.ValidationDetail{Field: "email", Message: "Must be a valid email address"})
-		} else {
-			body.Email = &email
-		}
+	if detail := normalizeEmail(&body.Email, true); detail != nil {
+		details = append(details, *detail)
 	}
 
-	if len(body.Password) < 8 || len(body.Password) > 72 {
-		details = append(details, api.ValidationDetail{Field: "password", Message: "Must be 8-72 bytes"})
+	if detail := passwordValidationDetail("password", body.Password); detail != nil {
+		details = append(details, *detail)
 	}
 	if len(details) > 0 {
 		return api.ValidationError(details)
+	}
+	return nil
+}
+
+func usernameValidationDetail(username string) *api.ValidationDetail {
+	if len(username) < 3 || len(username) > 20 {
+		return &api.ValidationDetail{Field: "username", Message: "Must be 3-20 letters, numbers, or underscores"}
+	}
+	for _, character := range username {
+		if character != '_' && (character < '0' || character > '9') && (character < 'A' || character > 'Z') && (character < 'a' || character > 'z') {
+			return &api.ValidationDetail{Field: "username", Message: "Must be 3-20 letters, numbers, or underscores"}
+		}
+	}
+	return nil
+}
+
+func normalizeEmail(email **string, required bool) *api.ValidationDetail {
+	if *email == nil {
+		if required {
+			return &api.ValidationDetail{Field: "email", Message: "Must be a valid email address"}
+		}
+		return nil
+	}
+	trimmed := strings.TrimSpace(**email)
+	parsed, err := mail.ParseAddress(trimmed)
+	if err != nil || utf8.RuneCountInString(trimmed) > 254 || parsed.Address != trimmed {
+		return &api.ValidationDetail{Field: "email", Message: "Must be a valid email address"}
+	}
+	*email = &trimmed
+	return nil
+}
+
+func passwordValidationDetail(field, password string) *api.ValidationDetail {
+	if len(password) < 8 || len(password) > 72 {
+		return &api.ValidationDetail{Field: field, Message: "Must be 8-72 bytes"}
 	}
 	return nil
 }
@@ -187,6 +215,7 @@ func Login(deps HandlerDependencies) http.Handler {
 func decodeAuthRequest(w http.ResponseWriter, r *http.Request, body any) error {
 	r.Body = http.MaxBytesReader(w, r.Body, maxAuthJSONBodyBytes)
 	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(body); err != nil {
 		return authJSONError(err)
 	}
@@ -260,13 +289,77 @@ func Logout(deps HandlerDependencies) http.Handler {
 
 func Me(deps HandlerDependencies) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		user, err := deps.CurrentUser(r)
+		user, err := RequireUser(r, deps.CurrentUser)
 		if err != nil {
 			api.HandleError(w, r, err)
 			return
 		}
 		api.OK(w, r, user, nil)
 	})
+}
+
+func UpdateMe(deps HandlerDependencies) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user, err := RequireUser(r, deps.CurrentUser)
+		if err != nil {
+			api.HandleError(w, r, err)
+			return
+		}
+		var body updateMeRequest
+		if err := decodeAuthRequest(w, r, &body); err != nil {
+			api.HandleError(w, r, err)
+			return
+		}
+		input, err := validateUpdateMeRequest(body)
+		if err != nil {
+			api.HandleError(w, r, err)
+			return
+		}
+		updated, err := deps.UpdateUser(r.Context(), user.ID, input)
+		if err != nil {
+			api.HandleError(w, r, err)
+			return
+		}
+		api.OK(w, r, updated, nil)
+	})
+}
+
+func validateUpdateMeRequest(body updateMeRequest) (UpdateUserInput, error) {
+	input := UpdateUserInput{Username: body.Username, CurrentPassword: body.CurrentPassword, NewPassword: body.NewPassword}
+	details := make([]api.ValidationDetail, 0, 3)
+	if body.Username != nil {
+		trimmed := strings.TrimSpace(*body.Username)
+		input.Username = &trimmed
+		if detail := usernameValidationDetail(trimmed); detail != nil {
+			details = append(details, *detail)
+		}
+	}
+	if body.Email != nil {
+		input.EmailSet = true
+		if strings.TrimSpace(string(body.Email)) != "null" {
+			if err := json.Unmarshal(body.Email, &input.Email); err != nil {
+				return UpdateUserInput{}, api.NewError(http.StatusBadRequest, "INVALID_JSON", "Request body must be valid JSON", nil)
+			}
+			if detail := normalizeEmail(&input.Email, false); detail != nil {
+				details = append(details, *detail)
+			}
+		}
+	}
+	if body.NewPassword != nil {
+		if detail := passwordValidationDetail("newPassword", *body.NewPassword); detail != nil {
+			details = append(details, *detail)
+		}
+		if body.CurrentPassword == nil || *body.CurrentPassword == "" {
+			details = append(details, api.ValidationDetail{Field: "currentPassword", Message: "is required to change the password"})
+		}
+	}
+	if input.Username == nil && !input.EmailSet && input.NewPassword == nil {
+		details = append(details, api.ValidationDetail{Field: "body", Message: "username, email, or newPassword is required"})
+	}
+	if len(details) > 0 {
+		return UpdateUserInput{}, api.ValidationError(details)
+	}
+	return input, nil
 }
 
 func RequireUser(r *http.Request, resolve CurrentUserResolver) (*User, error) {

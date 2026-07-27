@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"openwook/internal/api"
 	"openwook/internal/auth"
 )
@@ -45,14 +44,21 @@ func TestLinkOptionMediaRejectsMissingOption(t *testing.T) {
 }
 
 func TestDeleteMediaAssetRequiresAdmin(t *testing.T) {
-	db := &recordingExecer{}
-	err := DeleteMediaAsset(context.Background(), db, auth.User{ID: 5, Role: "user"}, 99)
+	err := DeleteMediaAsset(context.Background(), nil, auth.User{ID: 5, Role: "user"}, 99)
 	status, code, _, _ := api.ValidationErrorEnvelope(err)
 	if status != 403 || code != "ADMIN_REQUIRED" {
 		t.Fatalf("DeleteMediaAsset error = (%d, %s), want 403 ADMIN_REQUIRED", status, code)
 	}
-	if db.called {
-		t.Fatal("DeleteMediaAsset executed DELETE for non-admin user")
+}
+
+func TestCreateUploadedMediaRejectsNonImageContentBeforeStorage(t *testing.T) {
+	_, err := CreateUploadedMedia(context.Background(), nil, auth.User{ID: 5}, UploadedMediaFile{
+		Name:    "answer.txt",
+		Content: []byte("not an image"),
+	})
+	status, code, _, _ := api.ValidationErrorEnvelope(err)
+	if status != 400 || code != "UNSUPPORTED_FILE_TYPE" {
+		t.Fatalf("CreateUploadedMedia error = (%d, %s), want 400 UNSUPPORTED_FILE_TYPE", status, code)
 	}
 }
 
@@ -64,6 +70,25 @@ func TestValidateCreateQuestionInputRequiresCoreFields(t *testing.T) {
 	}
 	if len(details) != 3 {
 		t.Fatalf("validation details = %#v, want questionTypeId, answerMode, and stem", details)
+	}
+}
+
+func TestSelectedAnswerValuesAcceptsAIAndClientPayloads(t *testing.T) {
+	for name, payload := range map[string]map[string]any{
+		"client":      {"selected": []any{"A", "C"}},
+		"ai-single":   {"correctOption": "B"},
+		"ai-multiple": {"correctOptions": []any{"B", "D"}},
+	} {
+		if got := selectedAnswerValues(payload); len(got) == 0 {
+			t.Fatalf("%s selectedAnswerValues(%#v) = %#v, want values", name, payload, got)
+		}
+	}
+}
+
+func TestValidateUpdateOptionRejectsEmptyPatch(t *testing.T) {
+	status, code, _, _ := api.ValidationErrorEnvelope(validateUpdateOptionInput(&UpdateOptionInput{}))
+	if status != 422 || code != "VALIDATION_ERROR" {
+		t.Fatalf("validateUpdateOptionInput error = (%d, %s), want 422 VALIDATION_ERROR", status, code)
 	}
 }
 
@@ -81,15 +106,6 @@ func TestPersistImportedQuestionClaimSQLFencesPersistence(t *testing.T) {
 			t.Fatalf("import persistence claim SQL missing %q: %s", fragment, query)
 		}
 	}
-}
-
-type recordingExecer struct {
-	called bool
-}
-
-func (db *recordingExecer) Exec(context.Context, string, ...any) (pgconn.CommandTag, error) {
-	db.called = true
-	return pgconn.NewCommandTag("DELETE 1"), nil
 }
 
 type emptyQueryer struct{}

@@ -101,7 +101,7 @@ func ListSubjects(ctx context.Context, db queryer) ([]Subject, error) {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Subject
+	items := make([]Subject, 0)
 	for rows.Next() {
 		var item Subject
 		if err := rows.Scan(&item.SubjectID, &item.DisplayName); err != nil {
@@ -124,7 +124,7 @@ func ListQuestionTypes(ctx context.Context, db queryer, subject string, scope st
 		return nil, err
 	}
 	defer rows.Close()
-	var items []QuestionType
+	items := make([]QuestionType, 0)
 	for rows.Next() {
 		var item QuestionType
 		if err := rows.Scan(&item.TypeID, &item.SubjectID, &item.DisplayName, &item.Scope, &item.DefaultAnswerMode); err != nil {
@@ -135,31 +135,41 @@ func ListQuestionTypes(ctx context.Context, db queryer, subject string, scope st
 	return items, rows.Err()
 }
 
-func ListKnowledgePoints(ctx context.Context, db queryer, subject string, parentID *int64) ([]KnowledgePoint, error) {
+func ListKnowledgePoints(ctx context.Context, db queryer, subject string, parentID *int64, query, cursor string, requestedLimit int) (Page[KnowledgePoint], error) {
 	var parent any
 	if parentID != nil {
 		parent = *parentID
+	}
+	limit := clampPositive(requestedLimit, 50, 200)
+	offset, err := parsePageCursor(cursor)
+	if err != nil {
+		return Page[KnowledgePoint]{}, err
 	}
 	rows, err := db.Query(ctx, `
 		SELECT id, subject_id, code, display_name, parent_id, metadata_json, created_at, updated_at
 		FROM knowledge_points
 		WHERE ($1::text IS NULL OR subject_id = $1)
 		  AND (($2::bigint IS NULL AND parent_id IS NULL) OR parent_id = $2)
-		ORDER BY display_name
-	`, nullableStringArg(subject), parent)
+		  AND ($3::text IS NULL OR code ILIKE $3 OR display_name ILIKE $3)
+		ORDER BY display_name, id
+		LIMIT $4 OFFSET $5
+	`, nullableStringArg(subject), parent, nullableILike(query), limit+1, offset)
 	if err != nil {
-		return nil, err
+		return Page[KnowledgePoint]{}, err
 	}
 	defer rows.Close()
-	var items []KnowledgePoint
+	items := make([]KnowledgePoint, 0)
 	for rows.Next() {
 		var item KnowledgePoint
 		if err := rows.Scan(&item.ID, &item.SubjectID, &item.Code, &item.DisplayName, &item.ParentID, &item.MetadataJSON, &item.CreatedAt, &item.UpdatedAt); err != nil {
-			return nil, err
+			return Page[KnowledgePoint]{}, err
 		}
 		items = append(items, item)
 	}
-	return items, rows.Err()
+	if err := rows.Err(); err != nil {
+		return Page[KnowledgePoint]{}, err
+	}
+	return buildPage(items, limit, offset), nil
 }
 
 func nullableStringArg(value string) any {

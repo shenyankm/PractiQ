@@ -23,5 +23,11 @@ func BuildAuthHandlers(pool *pgxpool.Pool) AuthHandlers {
 		}),
 		Logout: auth.Logout(auth.HandlerDependencies{ClearSession: auth.ClearSession}),
 		Me:     auth.Me(auth.HandlerDependencies{CurrentUser: auth.CurrentUserFromRequest(pool)}),
+		UpdateMe: auth.UpdateMe(auth.HandlerDependencies{
+			CurrentUser: auth.CurrentUserFromRequest(pool),
+			UpdateUser: func(ctx context.Context, userID int, input auth.UpdateUserInput) (*auth.User, error) {
+				return auth.UpdateUser(ctx, pool, userID, input)
+			},
+		}),
 	}
 }

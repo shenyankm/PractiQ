@@ -10,10 +10,10 @@ const (
 )
 
 type PracticeProgressItem struct {
-	Index      int
-	QuestionID int64
-	IsAnswered bool
-	IsCorrect  *bool
+	Index      int   `json:"index"`
+	QuestionID int64 `json:"questionId"`
+	IsAnswered bool  `json:"isAnswered"`
+	IsCorrect  *bool `json:"isCorrect"`
 }
 
 func normalizePracticeMode(mode string, sessionType string) string {

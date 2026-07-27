@@ -61,12 +61,10 @@ func normalizeImportSourceType(user auth.User, value string) (string, error) {
 
 func queueTransitionForAction(action string) (importQueueTransition, error) {
 	switch action {
-	case "start":
-		return importQueueTransition{status: "queued", stage: "queued", stepCode: "start", stepLabel: "加入导入队列", eventStatus: "queued", available: true, resetAttempts: true, persistQuestions: new(true)}, nil
 	case "retry":
 		return importQueueTransition{status: "queued", stage: "queued", stepCode: "retry", stepLabel: "重新排队", eventStatus: "queued", available: true, resetAttempts: true}, nil
 	case "cancel":
-		return importQueueTransition{status: "failed", stage: "failed", stepCode: "cancel", stepLabel: "取消任务", eventStatus: "failed", message: new("任务已取消。"), completed: true}, nil
+		return importQueueTransition{status: "cancelled", stage: "cancelled", stepCode: "cancel", stepLabel: "取消任务", eventStatus: "cancelled", message: new("任务已取消。"), completed: true}, nil
 	default:
 		return importQueueTransition{}, api.NewError(400, "INVALID_IMPORT_ACTION", "Unsupported import action", nil)
 	}

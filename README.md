@@ -94,8 +94,10 @@ Direct dependencies are kept on current stable releases in `frontend/package.jso
 - Session cookie name: `session`
 - `/api/health/ready` returns `503` until both PostgreSQL and Redis are configured and reachable; `/api/health` continues to return dependency status data.
 - Redis is required for active-session revocation checks, logout revocation writes, and login/register rate limits. Cache reads and writes remain best-effort.
-- PostgreSQL is the durable import queue; Redis Pub/Sub carries live import events.
+- PostgreSQL is the durable import queue and event history; Web and mobile poll job/event endpoints for progress.
 - Mobile writes carry `Idempotency-Key`; Redis stores successful replays for 24 hours. Cached mobile reads remain available offline, and queued writes replay in order after reconnection.
+- Media uploads currently accept content-sniffed PNG, JPEG, GIF, and WebP files up to 10 MiB under `OBJECT_STORAGE_MOUNT_DIR`.
+- Fresh schema installs include `media_assets.created_by` ownership and the terminal import status `cancelled`; apply the current schema before running these flows.
 - AI routes exposed to the browser stay under `/api/v1/ai/*`; Go talks to Python over `AI_SERVICE_URL`
 - Internal AI routes are `/internal/ai/parse-document`, `/internal/ai/generate-answer`, and `/internal/ai/learning-report`; all require `AI_SERVICE_TOKEN` bearer authentication.
 - TXT, DOCX, PDF, and XLSX preprocessing run locally. Set `DASHSCOPE_API_KEY` to enable AgentScope-backed parsing, answer generation, and learning reports (`AI_TEXT_MODEL`/`AI_VL_MODEL` override the default `qwen-max`/`qwen-vl-max`); otherwise the deterministic fallback remains active. Scanned PDF pages are rendered and OCR'd through the vision model, including figure detection with bounding-box crops.

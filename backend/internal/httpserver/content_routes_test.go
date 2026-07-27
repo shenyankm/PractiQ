@@ -24,6 +24,7 @@ func TestBuildContentHandlersKeepsErrorEnvelopeForPathParsing(t *testing.T) {
 		wantMsg    string
 	}{
 		{name: "invalid bank id", method: http.MethodGet, target: "/api/v1/banks/nope", wantStatus: http.StatusUnprocessableEntity, wantCode: "VALIDATION_ERROR", wantMsg: "Invalid bankId"},
+		{name: "invalid page limit", method: http.MethodGet, target: "/api/v1/banks?limit=nope", wantStatus: http.StatusUnprocessableEntity, wantCode: "VALIDATION_ERROR", wantMsg: "Invalid request"},
 		{name: "unknown question subpath", method: http.MethodPost, target: "/api/v1/questions/7/unknown", wantStatus: http.StatusNotFound, wantCode: "NOT_FOUND", wantMsg: "Endpoint not found"},
 		{name: "invalid group question id", method: http.MethodDelete, target: "/api/v1/groups/5/questions/nope", wantStatus: http.StatusUnprocessableEntity, wantCode: "VALIDATION_ERROR", wantMsg: "Invalid questionId"},
 	}

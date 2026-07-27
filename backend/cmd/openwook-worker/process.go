@@ -66,6 +66,7 @@ func processQueuedJob(ctx context.Context, pool *pgxpool.Pool, client *aiclient.
 			}
 			persistenceStarted = true
 		}
+		questionIDs := make([]int64, 0, len(result.Questions))
 		for _, parsed := range result.Questions {
 			input := services.CreateQuestionInput{
 				QuestionTypeID: parsed.QuestionTypeID,
@@ -83,17 +84,35 @@ func processQueuedJob(ctx context.Context, pool *pgxpool.Pool, client *aiclient.
 				}
 				input.ChoiceVariant = &variant
 			}
-			if _, err := services.PersistImportedQuestion(ctx, pool, user, *job.BankID, services.PersistImportedQuestionInput{
+			question, err := services.PersistImportedQuestion(ctx, pool, user, *job.BankID, services.PersistImportedQuestionInput{
 				JobID:          job.ID,
 				ClaimVersion:   claimed.ClaimVersion,
 				Question:       input,
 				ContentBlocks:  mapContentBlocks(parsed.ContentBlocks),
 				Confidence:     parsed.Confidence,
 				OutputMetadata: map[string]any{"sourceText": parsed.SourceText, "needsReview": parsed.NeedsReview},
-			}); err != nil {
+			})
+			if err != nil {
 				return persistenceStarted, err
 			}
+			questionIDs = append(questionIDs, question.ID)
 			createdCount++
+		}
+		for _, parsed := range result.Groups {
+			group, err := services.CreateGroup(ctx, pool, user, *job.BankID, services.CreateGroupInput{
+				Title:        parsed.Title,
+				Instructions: parsed.Instructions,
+				Status:       "draft",
+				SourceJobID:  &job.ID,
+			})
+			if err != nil {
+				return persistenceStarted, err
+			}
+			for _, index := range parsed.QuestionIndexes {
+				if _, err := services.AddQuestionToGroup(ctx, pool, user, group.ID, questionIDs[index], nil); err != nil {
+					return persistenceStarted, err
+				}
+			}
 		}
 	}
 	if err := completeImportJob(ctx, pool, job.ID, claimed.ClaimVersion, createdCount, result); err != nil {

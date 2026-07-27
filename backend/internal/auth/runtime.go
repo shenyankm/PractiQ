@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
@@ -19,6 +20,14 @@ import (
 	"openwook/internal/config"
 	"openwook/internal/redisx"
 )
+
+type UpdateUserInput struct {
+	Username        *string
+	Email           *string
+	EmailSet        bool
+	CurrentPassword *string
+	NewPassword     *string
+}
 
 func ComparePassword(password string, passwordHash string) bool {
 	return bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte(password)) == nil
@@ -36,12 +45,64 @@ func RegisterUser(ctx context.Context, pool *pgxpool.Pool, username string, emai
 	`, username, nullableString(email), hash)
 	user, err := scanUser(row)
 	if err != nil {
-		return nil, err
+		return nil, userConflictError(err)
 	}
 	if user != nil {
 		cacheUser(ctx, *user)
 	}
 	return user, nil
+}
+
+func UpdateUser(ctx context.Context, pool *pgxpool.Pool, userID int, input UpdateUserInput) (*User, error) {
+	var passwordHash *string
+	if input.NewPassword != nil {
+		var currentHash string
+		if err := pool.QueryRow(ctx, `SELECT password_hash FROM users WHERE id = $1`, userID).Scan(&currentHash); err != nil {
+			return nil, err
+		}
+		if input.CurrentPassword == nil || !ComparePassword(*input.CurrentPassword, currentHash) {
+			return nil, api.ValidationError([]api.ValidationDetail{{Field: "currentPassword", Message: "is incorrect"}})
+		}
+		hash, err := HashPassword(*input.NewPassword)
+		if err != nil {
+			return nil, err
+		}
+		passwordHash = &hash
+	}
+	row := pool.QueryRow(ctx, `
+		UPDATE users
+		SET
+			username = COALESCE($2, username),
+			email = CASE WHEN $3 THEN $4 ELSE email END,
+			password_hash = COALESCE($5, password_hash)
+		WHERE id = $1
+		RETURNING id, username, email, is_active, role, membership
+	`, userID, nullableString(input.Username), input.EmailSet, nullableString(input.Email), nullableString(passwordHash))
+	user, err := scanUser(row)
+	if err != nil {
+		return nil, userConflictError(err)
+	}
+	if user == nil {
+		return nil, api.NewError(http.StatusNotFound, "NOT_FOUND", "User not found", nil)
+	}
+	invalidateUserCache(ctx, userID)
+	cacheUser(ctx, *user)
+	return user, nil
+}
+
+func userConflictError(err error) error {
+	var pgErr *pgconn.PgError
+	if !errors.As(err, &pgErr) || pgErr.Code != "23505" {
+		return err
+	}
+	switch pgErr.ConstraintName {
+	case "uq_users_username_lower":
+		return api.NewError(http.StatusConflict, "USERNAME_TAKEN", "Username is already in use", nil)
+	case "uq_users_email_lower":
+		return api.NewError(http.StatusConflict, "EMAIL_TAKEN", "Email is already in use", nil)
+	default:
+		return api.NewError(http.StatusConflict, "USER_CONFLICT", "User details conflict with an existing account", nil)
+	}
 }
 
 func AuthenticateUser(ctx context.Context, pool *pgxpool.Pool, login string, password string) (*User, error) {
@@ -230,6 +291,12 @@ func cacheUser(ctx context.Context, user User) {
 		return
 	}
 	_ = redisx.SetJSON(ctx, rdb, userCacheKey(user.ID), user, cacheTTL())
+}
+
+func invalidateUserCache(ctx context.Context, userID int) {
+	if rdb := redisx.Client(); rdb != nil {
+		_ = rdb.Del(ctx, userCacheKey(userID)).Err()
+	}
 }
 
 func cacheTTL() time.Duration {

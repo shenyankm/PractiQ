@@ -91,6 +91,16 @@ func validateDocumentParseResult(result DocumentParseResult) error {
 			return fmt.Errorf("document parse response contains incomplete question")
 		}
 	}
+	for _, group := range result.Groups {
+		if strings.TrimSpace(group.Title) == "" {
+			return fmt.Errorf("document parse response contains incomplete group")
+		}
+		for _, index := range group.QuestionIndexes {
+			if index < 0 || index >= len(result.Questions) {
+				return fmt.Errorf("document parse response group references an invalid question")
+			}
+		}
+	}
 	return nil
 }
 

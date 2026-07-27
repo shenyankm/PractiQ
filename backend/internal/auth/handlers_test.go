@@ -526,12 +526,13 @@ func TestLogoutClearsSessionCookieAndReturnsNoContent(t *testing.T) {
 	}
 }
 
-func TestMeReturnsCurrentUserEnvelopeOrNull(t *testing.T) {
+func TestMeReturnsCurrentUserOrAuthenticationError(t *testing.T) {
 	email := "alice@example.com"
 	tests := []struct {
 		name        string
 		currentUser func(*http.Request) (*User, error)
 		wantData    any
+		wantStatus  int
 	}{
 		{
 			name: "current user",
@@ -552,13 +553,14 @@ func TestMeReturnsCurrentUserEnvelopeOrNull(t *testing.T) {
 				"is_active":  true,
 				"membership": "enterprise",
 			},
+			wantStatus: http.StatusOK,
 		},
 		{
-			name: "null user",
+			name: "missing user",
 			currentUser: func(*http.Request) (*User, error) {
 				return nil, nil
 			},
-			wantData: nil,
+			wantStatus: http.StatusUnauthorized,
 		},
 	}
 
@@ -571,23 +573,51 @@ func TestMeReturnsCurrentUserEnvelopeOrNull(t *testing.T) {
 
 			handler.ServeHTTP(rr, req)
 
-			if rr.Code != http.StatusOK {
-				t.Fatalf("status = %d, want %d", rr.Code, http.StatusOK)
+			if rr.Code != tt.wantStatus {
+				t.Fatalf("status = %d, want %d", rr.Code, tt.wantStatus)
 			}
 
 			body := decodeAuthJSONBody(t, rr.Body.Bytes())
 			if tt.wantData == nil {
-				if _, ok := body["data"]; !ok {
-					t.Fatalf("body = %#v, want data key", body)
+				errorBody, ok := body["error"].(map[string]any)
+				if !ok || errorBody["code"] != "UNAUTHENTICATED" {
+					t.Fatalf("body = %#v, want UNAUTHENTICATED error", body)
 				}
-				if body["data"] != nil {
-					t.Fatalf("data = %#v, want null", body["data"])
+				if errorBody["requestId"] != "req-me-321" {
+					t.Fatalf("error.requestId = %#v, want req-me-321", errorBody["requestId"])
 				}
 			} else {
 				assertEnvelopeUser(t, body, tt.wantData.(map[string]any))
+				assertMetaRequestID(t, body, "req-me-321")
 			}
-			assertMetaRequestID(t, body, "req-me-321")
 		})
+	}
+}
+
+func TestAuthHandlersRejectUnknownFields(t *testing.T) {
+	handler := Login(HandlerDependencies{
+		AuthenticateUser: func(context.Context, string, string) (*User, error) {
+			t.Fatal("AuthenticateUser should not be called")
+			return nil, nil
+		},
+	})
+	rr := httptest.NewRecorder()
+	req := authRequestWithID(t, http.MethodPost, "/api/v1/auth/login", `{"login":"alice","password":"correct horse battery staple","admin":true}`, "req-unknown-field")
+
+	handler.ServeHTTP(rr, req)
+
+	assertAuthErrorEnvelope(t, rr, http.StatusBadRequest, "INVALID_JSON", "Request body must be valid JSON", "req-unknown-field")
+}
+
+func TestValidateUpdateMeRequestPreservesNullableEmail(t *testing.T) {
+	input, err := validateUpdateMeRequest(updateMeRequest{Email: json.RawMessage("null")})
+	if err != nil || !input.EmailSet || input.Email != nil {
+		t.Fatalf("input = %#v, error = %v; want explicitly cleared email", input, err)
+	}
+	_, err = validateUpdateMeRequest(updateMeRequest{})
+	status, code, _, _ := api.ValidationErrorEnvelope(err)
+	if status != http.StatusUnprocessableEntity || code != "VALIDATION_ERROR" {
+		t.Fatalf("empty update error = (%d, %s), want 422 VALIDATION_ERROR", status, code)
 	}
 }
 

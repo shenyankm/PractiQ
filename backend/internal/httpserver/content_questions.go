@@ -30,15 +30,18 @@ func handleQuestionUpdate(w http.ResponseWriter, r *http.Request, pool *pgxpool.
 		return
 	}
 	body, err := decodeJSONBodyStrict[struct {
-		Stem     *string `json:"stem"`
-		Analysis *string `json:"analysis"`
-		Status   *string `json:"status"`
+		Stem     *string                    `json:"stem"`
+		Analysis optionalJSONField[*string] `json:"analysis"`
 	}](r)
 	if err != nil {
 		api.HandleError(w, r, err)
 		return
 	}
-	data, err := services.UpdateQuestion(r.Context(), pool, user, questionID, services.UpdateQuestionInput{Stem: body.Stem, Analysis: body.Analysis, Status: body.Status})
+	data, err := services.UpdateQuestion(r.Context(), pool, user, questionID, services.UpdateQuestionInput{
+		Stem:        body.Stem,
+		Analysis:    body.Analysis.Value,
+		AnalysisSet: body.Analysis.Set,
+	})
 	if err != nil {
 		api.HandleError(w, r, err)
 		return
@@ -132,6 +135,23 @@ func handleQuestionOptionUpdate(w http.ResponseWriter, r *http.Request, pool *pg
 		return
 	}
 	api.OK(w, r, data, nil)
+}
+
+func handleQuestionOptionDelete(w http.ResponseWriter, r *http.Request, pool *pgxpool.Pool, currentUser auth.CurrentUserResolver) {
+	user, questionID, ok := requireUserAndQuestionID(w, r, currentUser)
+	if !ok {
+		return
+	}
+	optionID, err := parsePathID(r, "optionId")
+	if err != nil {
+		api.HandleError(w, r, err)
+		return
+	}
+	if err := services.DeleteOption(r.Context(), pool, user, questionID, optionID); err != nil {
+		api.HandleError(w, r, err)
+		return
+	}
+	api.NoContent(w, r)
 }
 
 func handleQuestionAnswerKeyPut(w http.ResponseWriter, r *http.Request, pool *pgxpool.Pool, currentUser auth.CurrentUserResolver) {

@@ -26,7 +26,7 @@ Current Redis responsibilities:
 - Cache-aside reads for user profiles, practice question queues, and analytics summaries.
 - Rate limit counters for authentication endpoints.
 - Session revocation records.
-- Redis Pub/Sub for live import progress; `question_import_job_events` keeps durable history and PostgreSQL queues import jobs.
+- Best-effort Redis Pub/Sub import notifications; clients read the durable `question_import_job_events` history by polling.
 - Cached leaderboard and analytics snapshot endpoints for higher-cost reporting views.
 - Successful responses for mobile mutations carrying `Idempotency-Key`, retained for 24 hours.
 - PostgreSQL full-text search enhancement for question search, with `ILIKE` fallback behavior.
@@ -36,7 +36,7 @@ Failure policy:
 - Cache misses or Redis cache errors fall back to PostgreSQL.
 - Session validation, session revocation on logout, and authentication rate limits require Redis. Those paths fail closed with `503` when Redis is unavailable.
 - Requests carrying `Idempotency-Key` also fail closed with `503` when Redis is unavailable so a retry cannot create duplicate writes.
-- Import processing continues from PostgreSQL without Redis; live SSE updates require Redis after the durable event backlog is sent.
+- Import processing and client progress polling continue from PostgreSQL without Redis.
 - Redis deployments should enable persistence and avoid evicting active session-revocation keys.
 
 ## 1. Domain Model
@@ -51,7 +51,7 @@ Failure policy:
 | Questions | `questions`, `question_groups`, `bank_question_links`, `bank_group_links`, `group_question_links`, `v_bank_question_items` | Standalone and grouped questions inside banks |
 | Answer models | `question_options`, `question_answer_keys` | Choice options and canonical answer payloads |
 | Import pipeline | `question_import_jobs`, `question_import_job_events`, `question_import_job_artifacts`, `question_import_job_outputs` | File import orchestration, source artifacts, events, and generated-question links |
-| Media | `media_assets`, `question_media_links`, `question_option_media_links`, `question_group_media_links`, `question_content_blocks` | Images, videos, QR codes, diagrams, rich content blocks |
+| Media | `media_assets`, `question_media_links`, `question_option_media_links`, `question_group_media_links`, `question_content_blocks` | Uploaded images and schema-supported rich content blocks |
 | Practice | `user_practice_sessions`, `user_question_answers`, `user_question_stats` | Practice sessions, submitted answers, per-question user stats |
 
 ### Important Invariants
@@ -62,6 +62,8 @@ Failure policy:
 - Import outputs connect source jobs to generated questions.
 - Answer submissions update `user_question_stats`, `user_bank_stats`, and `user_practice_sessions` through database triggers.
 - `question_answer_keys` allows only one primary answer key per question.
+- `media_assets.created_by` owns every uploaded asset; the fresh schema requires it and media reads still follow bank visibility.
+- Import jobs use the terminal `cancelled` status directly.
 
 ## 2. API Design
 
@@ -115,6 +117,8 @@ Register body:
 
 Registration requires a 3-20 character ASCII username containing only letters, numbers, and underscores; an email address of at most 254 characters; and an 8-72 byte password.
 
+`GET /api/v1/auth/me` returns `401 UNAUTHENTICATED` when no valid session exists. Profile updates accept explicit `email: null`; password changes require the current password.
+
 Authorization checks:
 
 - `is_active=false` blocks all mutating routes and practice start.
@@ -144,6 +148,7 @@ Authorization checks:
 | `DELETE` | `/api/v1/banks/:bankId/favorite` | User | Remove favorite or clear favorite flag. |
 | `GET` | `/api/v1/banks/:bankId/items` | Bank reader | Read `v_bank_question_items` with filters. |
 | `POST` | `/api/v1/banks/:bankId/questions` | Bank editor | Create standalone question and link. |
+| `GET` | `/api/v1/banks/:bankId/groups` | Bank reader | List visible groups and question counts. |
 | `POST` | `/api/v1/banks/:bankId/groups` | Bank editor | Create question group and link. |
 | `PATCH` | `/api/v1/banks/:bankId/items/reorder` | Bank editor | Reorder standalone/group bank items. |
 
@@ -161,8 +166,10 @@ Bank create body:
 Bank item list query:
 
 ```text
-GET /api/v1/banks/12/items?status=active&type=math_calculation&cursor=...
+GET /api/v1/banks/12/items?status=active&type=math_calculation&limit=50&cursor=...
 ```
+
+Owners may add `includeAnswers=true` to receive option correctness. Other readers never receive option correctness, answer keys, or drafts. List endpoints return the next opaque cursor under `meta.pagination`.
 
 ### Questions
 
@@ -196,6 +203,7 @@ Choice question answer model:
 - `questions.choice_variant`: `single` or `multiple`.
 - `question_options`: labels, content, sort order, correctness.
 - `question_answer_keys.answer_payload`: canonical answer, used by graders.
+- Choice answer payloads accept client `selected` and AI `correctOption`/`correctOptions` input. The service keeps the primary answer key and option correctness flags synchronized.
 
 Fill blank answer model:
 
@@ -207,6 +215,9 @@ Fill blank answer model:
 | --- | --- | --- | --- |
 | `GET` | `/api/v1/groups/:groupId` | Bank reader | Group detail with questions. |
 | `PATCH` | `/api/v1/groups/:groupId` | Owner/editor | Update title/instructions/content. |
+| `POST` | `/api/v1/groups/:groupId/publish` | Owner/editor | Publish after every child question is active. |
+| `POST` | `/api/v1/groups/:groupId/archive` | Owner/editor | Archive the bank group link. |
+| `DELETE` | `/api/v1/groups/:groupId` | Owner/editor | Delete the group while retaining its questions as standalone bank items. |
 | `POST` | `/api/v1/groups/:groupId/questions` | Owner/editor | Add question to group. |
 | `PATCH` | `/api/v1/groups/:groupId/questions/reorder` | Owner/editor | Reorder group questions. |
 | `DELETE` | `/api/v1/groups/:groupId/questions/:questionId` | Owner/editor | Remove question from group. |
@@ -285,15 +296,13 @@ Implementation notes:
 | --- | --- | --- | --- |
 | `POST` | `/api/v1/import-jobs` | Bank editor | Create upload/import job. |
 | `POST` | `/api/v1/import-jobs/:jobId/file` | Job owner | Upload source file. |
-| `POST` | `/api/v1/import-jobs/:jobId/start` | Job owner | Schedule a queued job for processing. |
 | `POST` | `/api/v1/import-jobs/:jobId/parse` | Job owner | Schedule parsing with optional persistence. |
 | `GET` | `/api/v1/import-jobs/:jobId` | Job owner | Job summary and progress. |
 | `GET` | `/api/v1/import-jobs/:jobId/events` | Job owner | Recent durable events. |
-| `GET` | `/api/v1/import-jobs/:jobId/events/stream` | Job owner | Durable event backlog followed by live SSE events. |
 | `GET` | `/api/v1/import-jobs/:jobId/artifacts` | Job owner | Source artifacts. |
 | `GET` | `/api/v1/import-jobs/:jobId/outputs` | Job owner | Generated questions from `question_import_job_outputs`. |
 | `POST` | `/api/v1/import-jobs/:jobId/retry` | Job owner | Retry a failed job. |
-| `POST` | `/api/v1/import-jobs/:jobId/cancel` | Job owner | Mark job failed/cancelled; schema currently uses `failed`, so use error code `cancelled`. |
+| `POST` | `/api/v1/import-jobs/:jobId/cancel` | Job owner | Move a queued or processing job to terminal `cancelled`. |
 
 Create body:
 
@@ -316,8 +325,8 @@ Import worker flow:
 3. Schedule the job by setting `available_at`.
 4. Claim it atomically with `FOR UPDATE SKIP LOCKED` and mark it `processing`.
 5. Ask the internal AI service to parse the document.
-6. Create each question and bank link transactionally, then record its output link.
-7. Emit `question_import_job_events` and update counters and terminal status.
+6. Create each question, answer, content block, and output link; then persist parsed groups using their question indexes.
+7. Emit durable `question_import_job_events` and update counters and terminal status. Web and mobile poll the job/event endpoints.
 
 ### Media
 
@@ -325,19 +334,16 @@ Import worker flow:
 | --- | --- | --- | --- |
 | `POST` | `/api/v1/media` | User | Upload image/diagram/QR/table asset. |
 | `GET` | `/api/v1/media/:mediaId` | Authenticated user | Metadata. |
+| `GET` | `/api/v1/media/:mediaId/content` | Bank reader or owner | Read the protected image bytes. |
 | `DELETE` | `/api/v1/media/:mediaId` | Admin | Permanently delete the asset and cascading links. |
 | `POST` | `/api/v1/questions/:questionId/media-links` | Owner/editor | Link media to question. |
 | `POST` | `/api/v1/groups/:groupId/media-links` | Owner/editor | Link media to group. |
 | `POST` | `/api/v1/options/:optionId/media-links` | Owner/editor | Link media to option. |
+| `DELETE` | `/api/v1/questions/:questionId/media-links/:mediaId` | Owner/editor | Unlink question media. |
+| `DELETE` | `/api/v1/groups/:groupId/media-links/:mediaId` | Owner/editor | Unlink group media. |
+| `DELETE` | `/api/v1/options/:optionId/media-links/:mediaId` | Owner/editor | Unlink option media. |
 
-Supported `part_type` excludes audio. The UI should allow image, table, formula, HTML/Markdown, chart, diagram, and QR code content blocks.
-
-Video policy:
-
-- `media_assets` can store video metadata through `mime_type`, `duration_ms`, `storage_path`, and `external_url`.
-- Video can be linked through the generic media link tables with `media_kind='video'`.
-- `question_content_blocks.part_type` currently has no `video` enum, so video should render from media links, not structured content blocks, unless the schema is extended later.
-- Audio upload and listening-specific UI remain out of scope because audio fields and listening tables were intentionally removed.
+Uploads are limited to PNG, JPEG, GIF, and WebP images up to 10 MiB and are content-sniffed before storage. `part_type` supports text, formula, image, table, list, HTML/Markdown, chart, diagram, and QR code; video, audio, and unsanitized SVG uploads are not implemented.
 
 ## 3. Frontend Pages
 
@@ -365,7 +371,7 @@ frontend/src/routes.tsx
 /admin/users
 ```
 
-The PractiQ-branded Expo client lives under `mobile/` and exposes the same non-admin learning flows through Expo Router. It authenticates with the bearer form of the session token, reads cached REST resources first, and revalidates them when focused. Offline mutations are stored in `openwook-cache.db`, replayed in creation order with a stable `Idempotency-Key`, and removed only after a successful response. PostgreSQL remains authoritative; the retained PractiQ local database is not migrated or uploaded automatically.
+The PractiQ-branded Expo client lives under `mobile/` and exposes the same non-admin learning flows through Expo Router. It authenticates with the bearer form of the session token, validates API payloads with Zod, reads cached REST resources first, and revalidates them when focused. Offline mutations are stored in `openwook-cache.db`, replayed in creation order with a stable `Idempotency-Key`, and removed only after a successful response. PostgreSQL remains authoritative; the retired legacy local question database is not initialized or uploaded.
 
 ### Login and Registration
 
@@ -510,8 +516,7 @@ Job detail sections:
 
 Realtime:
 
-- Start with polling every 2s.
-- Upgrade to SSE endpoint later: `/api/v1/import-jobs/:jobId/events/stream`.
+- Poll the durable job and event endpoints. There is no public SSE route.
 
 ### Settings
 
@@ -659,17 +664,16 @@ Internal routes fail closed unless `AI_SERVICE_TOKEN` bearer authentication is c
 Responsibilities:
 
 - Upload validation.
-- Storage abstraction.
+- Local object-storage mount persistence.
 - `media_assets` metadata persistence.
 - Link media to questions, groups, and options.
 - Structured content block editing.
-- Image/video metadata extraction.
+- Protected image download.
 
 Validation:
 
-- Reject audio for question content because schema removed audio part type.
-- Allow images and videos in `media_assets`; restrict direct content blocks to schema-supported part types.
-- Restrict MIME types to image, video, SVG when sanitized, PDF-derived images, JSON chart payloads where applicable.
+- Accept only content-sniffed PNG, JPEG, GIF, and WebP uploads up to 10 MiB.
+- Restrict content blocks to the schema owner, part-type, sequence, content-mode, and media-reference constraints.
 
 ### Analytics Module
 
@@ -834,8 +838,8 @@ Answers accepted only while active.
 
 API pagination:
 
-- Cursor pagination for banks, bank items, import events, and answers.
-- Use `id` or `(created_at, id)` cursors.
+- Opaque cursor pagination for banks, bank items, bank groups, import jobs, practice sessions, knowledge points, admin lists, and question search.
+- Current cursors encode an offset; switch individual deep-list queries to keyset cursors only when profiling justifies it.
 
 Indexes already helpful:
 
