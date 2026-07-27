@@ -54,7 +54,7 @@ func ilikeOrNil(value string) any {
 
 func invalidateUserCache(ctx context.Context, userID int64) {
 	if rdb := redisx.Client(); rdb != nil {
-		redisx.Delete(ctx, rdb, redisx.RedisKey("cache", "user", userID))
+		_ = rdb.Unlink(ctx, redisx.RedisKey("cache", "user", userID)).Err()
 	}
 }
 

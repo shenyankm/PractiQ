@@ -650,6 +650,11 @@ func validateAILearningReportRequest(payload aiclient.LearningReportRequest) (ai
 	if payload.PracticeSessionID != nil && *payload.PracticeSessionID <= 0 {
 		details = append(details, api.ValidationDetail{Field: "practiceSessionId", Message: "must be a positive integer"})
 	}
+	if payload.Stats != nil {
+		if encoded, err := json.Marshal(payload.Stats); err != nil || len(encoded) > 100_000 {
+			details = append(details, api.ValidationDetail{Field: "stats", Message: "must be a JSON object of at most 100,000 bytes"})
+		}
+	}
 	if len(details) > 0 {
 		return aiclient.LearningReportRequest{}, api.ValidationError(details)
 	}

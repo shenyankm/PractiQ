@@ -19,7 +19,7 @@ type Config struct {
 func LoadConfig() (Config, error) {
 	cfg := Config{
 		DatabaseURL:    strings.TrimSpace(os.Getenv("POSTGRES_URL")),
-		MaxConns:       int32(intFromEnv(firstNonEmpty(os.Getenv("POSTGRES_POOL_MAX"), os.Getenv("DATABASE_POOL_MAX")), 8)),
+		MaxConns:       int32(intFromEnv(os.Getenv("POSTGRES_POOL_MAX"), 8)),
 		IdleTimeout:    time.Duration(intFromEnv(os.Getenv("POSTGRES_IDLE_TIMEOUT_SECONDS"), 30)) * time.Second,
 		ConnectTimeout: time.Duration(intFromEnv(os.Getenv("POSTGRES_CONNECT_TIMEOUT_SECONDS"), 10)) * time.Second,
 	}
@@ -67,13 +67,4 @@ func intFromEnv(raw string, fallback int) int {
 		return fallback
 	}
 	return value
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			return value
-		}
-	}
-	return ""
 }

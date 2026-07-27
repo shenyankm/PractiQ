@@ -190,7 +190,7 @@ func TestSPAGuardRedirectsUnauthenticatedProtectedRoutesToConfiguredSignIn(t *te
 			rr := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodGet, "https://ignored.example"+path, nil)
 
-			SPAGuardWithResolver(Config{
+			SPAGuard(Config{
 				AppOrigin: "https://app.example.test",
 			}, nil, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				t.Fatal("next handler must not run for unauthenticated protected SPA route")
@@ -285,6 +285,50 @@ func TestRateLimitRejectsRequestsBeyondLimit(t *testing.T) {
 	handler.ServeHTTP(rr, req)
 	if rr.Code != http.StatusNoContent {
 		t.Fatalf("other ip: status = %d, want %d", rr.Code, http.StatusNoContent)
+	}
+}
+
+func TestIdempotencyReplaysSuccessfulMobileMutation(t *testing.T) {
+	mr := miniredis.RunT(t)
+	t.Setenv("REDIS_URL", "redis://"+mr.Addr())
+	calls := 0
+	handler := Idempotency(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"data":{"id":42}}`))
+	}))
+
+	for range 2 {
+		rr := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, "https://app.example.test/api/v1/banks", strings.NewReader(`{"name":"offline"}`))
+		req.Header.Set("Authorization", "Bearer mobile-session")
+		req.Header.Set("Idempotency-Key", "device-1-mutation-7")
+		handler.ServeHTTP(rr, req)
+		if rr.Code != http.StatusCreated {
+			t.Fatalf("status = %d, want %d", rr.Code, http.StatusCreated)
+		}
+		if got := rr.Body.String(); got != `{"data":{"id":42}}` {
+			t.Fatalf("body = %q", got)
+		}
+	}
+	if calls != 1 {
+		t.Fatalf("handler calls = %d, want 1", calls)
+	}
+}
+
+func TestIdempotencyFailsClosedWhenReplayStoreIsUnavailable(t *testing.T) {
+	t.Setenv("REDIS_URL", "")
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "https://app.example.test/api/v1/banks", strings.NewReader(`{}`))
+	req.Header.Set("Idempotency-Key", "offline-mutation")
+
+	Idempotency(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatal("mutation must not execute without its replay store")
+	})).ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want %d", rr.Code, http.StatusServiceUnavailable)
 	}
 }
 

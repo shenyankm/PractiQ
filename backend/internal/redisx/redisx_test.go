@@ -85,8 +85,8 @@ func TestJSONAndTextHelpersRoundTrip(t *testing.T) {
 	}
 
 	textKey := RedisKey("cache-version", "questions")
-	if ok := SetText(ctx, rdb, textKey, "3", 30*time.Second); !ok {
-		t.Fatal("SetText(...) = false, want true")
+	if err := rdb.Set(ctx, textKey, "3", 30*time.Second).Err(); err != nil {
+		t.Fatalf("Set(%q) error = %v", textKey, err)
 	}
 	if ttl := server.TTL(textKey); ttl != 30*time.Second {
 		t.Fatalf("text TTL = %s, want %s", ttl, 30*time.Second)
@@ -94,26 +94,6 @@ func TestJSONAndTextHelpersRoundTrip(t *testing.T) {
 	text, ok := GetText(ctx, rdb, textKey)
 	if !ok || text != "3" {
 		t.Fatalf("GetText(...) = (%q, %t), want (3, true)", text, ok)
-	}
-}
-
-func TestDeleteRemovesExistingKeys(t *testing.T) {
-	ctx := context.Background()
-	server, rdb := newRedisTestClient(t)
-	userKey := RedisKey("cache", "user", 1)
-	bankKey := RedisKey("cache", "bank", 3)
-
-	mustSetText(t, ctx, rdb, userKey, "alice", time.Minute)
-	mustSetText(t, ctx, rdb, bankKey, "chemistry", time.Minute)
-
-	if deleted := Delete(ctx, rdb, userKey, RedisKey("cache", "missing")); deleted != 1 {
-		t.Fatalf("Delete(...) = %d, want 1", deleted)
-	}
-	if server.Exists(userKey) {
-		t.Fatalf("Delete(...) left %q behind", userKey)
-	}
-	if !server.Exists(bankKey) {
-		t.Fatalf("Delete(...) removed unrelated key %q", bankKey)
 	}
 }
 
@@ -218,13 +198,6 @@ func newRedisTestClient(t *testing.T) (*miniredis.Miniredis, *redis.Client) {
 	rdb := redis.NewClient(&redis.Options{Addr: server.Addr(), Protocol: 2})
 	t.Cleanup(func() { _ = rdb.Close() })
 	return server, rdb
-}
-
-func mustSetText(t *testing.T, ctx context.Context, rdb *redis.Client, key, value string, ttl time.Duration) {
-	t.Helper()
-	if ok := SetText(ctx, rdb, key, value, ttl); !ok {
-		t.Fatalf("SetText(%q) = false, want true", key)
-	}
 }
 
 func assertJSONEqual(t *testing.T, raw string, want any) {

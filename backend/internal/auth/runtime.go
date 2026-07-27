@@ -75,7 +75,7 @@ func SetSession(w http.ResponseWriter, userID int) error {
 		return err
 	}
 	expires := time.Now().UTC().Add(ttl)
-	token, err := SignSessionToken(SessionPayload{User: SessionUser{ID: userID}, Expires: expires.Format(time.RFC3339), JTI: newSessionJTI()})
+	token, err := SignSessionToken(SessionPayload{User: SessionUser{ID: userID}, Expires: expires.Format(time.RFC3339), JTI: NewUUID()})
 	if err != nil {
 		return err
 	}
@@ -84,8 +84,8 @@ func SetSession(w http.ResponseWriter, userID int) error {
 }
 
 func ClearSession(w http.ResponseWriter, r *http.Request) error {
-	if cookie, err := r.Cookie("session"); err == nil {
-		if payload, verifyErr := VerifySessionToken(cookie.Value); verifyErr == nil && payload.JTI != "" {
+	if token := sessionTokenFromRequest(r); token != "" {
+		if payload, verifyErr := VerifySessionToken(token); verifyErr == nil && payload.JTI != "" {
 			ttl := time.Until(parseExpiry(payload.Expires))
 			if ttl > 0 {
 				rdb := redisx.Client()
@@ -126,16 +126,25 @@ func CurrentUserByID(ctx context.Context, pool *pgxpool.Pool, userID int) (*User
 	return user, nil
 }
 
+// sessionTokenFromRequest reads the session JWT from the session cookie or,
+// for mobile clients that cannot use cookies, from an Authorization bearer header.
+func sessionTokenFromRequest(r *http.Request) string {
+	if cookie, err := r.Cookie("session"); err == nil && cookie.Value != "" {
+		return cookie.Value
+	}
+	if token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer "); ok {
+		return strings.TrimSpace(token)
+	}
+	return ""
+}
+
 func CurrentUserFromRequest(pool *pgxpool.Pool) CurrentUserResolver {
 	return func(r *http.Request) (*User, error) {
-		cookie, err := r.Cookie("session")
-		if err != nil {
-			if errors.Is(err, http.ErrNoCookie) {
-				return nil, nil
-			}
-			return nil, err
+		token := sessionTokenFromRequest(r)
+		if token == "" {
+			return nil, nil
 		}
-		payload, err := VerifySessionToken(cookie.Value)
+		payload, err := VerifySessionToken(token)
 		if err != nil {
 			return nil, nil
 		}
@@ -239,7 +248,7 @@ func parseExpiry(raw string) time.Time {
 	return expiresAt
 }
 
-func newSessionJTI() string {
+func NewUUID() string {
 	var b [16]byte
 	if _, err := rand.Read(b[:]); err != nil {
 		return strconv.FormatInt(time.Now().UTC().UnixNano(), 10)

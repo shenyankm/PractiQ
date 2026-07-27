@@ -6,7 +6,6 @@ import (
 	"os"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/redis/go-redis/v9"
 )
@@ -57,8 +56,5 @@ func CheckRedis(ctx context.Context) (bool, error) {
 	if rdb == nil {
 		return false, errors.New("REDIS_URL is invalid")
 	}
-	started := time.Now()
-	_, err := rdb.Ping(ctx).Result()
-	_ = started
-	return true, err
+	return true, rdb.Ping(ctx).Err()
 }

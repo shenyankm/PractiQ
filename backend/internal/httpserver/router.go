@@ -45,7 +45,8 @@ func NewServer(cfg ServerConfig, deps ServerDependencies) http.Handler {
 
 	middlewareCfg := Config{NodeEnv: cfg.NodeEnv, AppOrigin: cfg.AppOrigin}
 	handler := http.Handler(router)
-	handler = SPAGuardWithResolver(middlewareCfg, deps.CurrentUser, handler)
+	handler = SPAGuard(middlewareCfg, deps.CurrentUser, handler)
+	handler = Idempotency(handler)
 	handler = SameOriginProtection(middlewareCfg, handler)
 	handler = RateLimit(handler)
 	handler = Recovery(handler)

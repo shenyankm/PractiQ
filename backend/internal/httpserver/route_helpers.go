@@ -5,7 +5,6 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
 
@@ -59,11 +58,6 @@ func requireCurrentUser(r *http.Request, resolve auth.CurrentUserResolver) (auth
 		return auth.User{}, err
 	}
 	return *user, nil
-}
-
-func validateURLString(raw string) bool {
-	_, err := url.ParseRequestURI(raw)
-	return err == nil
 }
 
 func trimmedOrNil(value *string) *string {

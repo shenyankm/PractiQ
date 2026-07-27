@@ -8,19 +8,18 @@ import (
 	"time"
 )
 
-func TestLoadConfigPrefersPostgresPoolMaxOverDatabasePoolMax(t *testing.T) {
+func TestLoadConfigReadsPoolMax(t *testing.T) {
 	resetDBEnv(t)
 	t.Setenv("POSTGRES_URL", "postgres://postgres:postgres@localhost:5432/openwook_test")
-	t.Setenv("DATABASE_POOL_MAX", "3")
-	t.Setenv("POSTGRES_POOL_MAX", "8")
+	t.Setenv("POSTGRES_POOL_MAX", "3")
 
 	cfg, err := LoadConfig()
 	if err != nil {
 		t.Fatalf("LoadConfig returned error: %v", err)
 	}
 
-	if got := int(cfg.MaxConns); got != 8 {
-		t.Fatalf("MaxConns = %d, want POSTGRES_POOL_MAX value %d", got, 8)
+	if got := int(cfg.MaxConns); got != 3 {
+		t.Fatalf("MaxConns = %d, want POSTGRES_POOL_MAX value %d", got, 3)
 	}
 }
 
@@ -93,7 +92,6 @@ func writeSQLFixture(t *testing.T, root string, relative string) {
 func resetDBEnv(t *testing.T) {
 	t.Helper()
 	for _, key := range []string{
-		"DATABASE_POOL_MAX",
 		"POSTGRES_CONNECT_TIMEOUT_SECONDS",
 		"POSTGRES_IDLE_TIMEOUT_SECONDS",
 		"POSTGRES_POOL_MAX",

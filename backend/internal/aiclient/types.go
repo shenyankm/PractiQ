@@ -68,6 +68,9 @@ type LearningReportRequest struct {
 	BankID            *int   `json:"bankId,omitempty"`
 	PracticeSessionID *int   `json:"practiceSessionId,omitempty"`
 	Scope             string `json:"scope"`
+	// Stats carries client-supplied aggregate learning statistics for
+	// local-first mobile clients whose practice data is not on the server.
+	Stats map[string]any `json:"stats,omitempty"`
 }
 
 type LearningReportResult struct {

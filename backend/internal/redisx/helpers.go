@@ -46,24 +46,12 @@ func GetJSON[T any](ctx context.Context, rdb *redis.Client, key string) (T, bool
 	return zero, true
 }
 
-func SetText(ctx context.Context, rdb *redis.Client, key, value string, ttl time.Duration) bool {
-	return rdb.Set(ctx, key, value, ttl).Err() == nil
-}
-
 func GetText(ctx context.Context, rdb *redis.Client, key string) (string, bool) {
 	value, err := rdb.Get(ctx, key).Result()
 	if err != nil {
 		return "", false
 	}
 	return value, true
-}
-
-func Delete(ctx context.Context, rdb *redis.Client, keys ...string) int64 {
-	deleted, err := rdb.Unlink(ctx, keys...).Result()
-	if err != nil {
-		return 0
-	}
-	return deleted
 }
 
 func IncrementRateLimit(ctx context.Context, rdb *redis.Client, key string, limit int64, window time.Duration) (RateLimitResult, error) {

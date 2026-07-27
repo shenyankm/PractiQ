@@ -175,7 +175,3 @@ func stringValue(value *string) string {
 	}
 	return *value
 }
-
-func derefString(value *string) string {
-	return stringValue(value)
-}

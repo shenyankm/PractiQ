@@ -1,7 +1,8 @@
 package httpserver
 
 import (
-	"crypto/rand"
+	"bytes"
+	"crypto/sha256"
 	"encoding/hex"
 	"log/slog"
 	"net"
@@ -19,6 +20,7 @@ import (
 const apiRateLimit = 300
 
 var apiRateLimitWindow = time.Minute
+var idempotencyTTL = 24 * time.Hour
 
 type Config struct {
 	NodeEnv   string
@@ -96,11 +98,111 @@ func RateLimit(next http.Handler) http.Handler {
 	})
 }
 
+type idempotentResponse struct {
+	Status int                 `json:"status"`
+	Header map[string][]string `json:"header"`
+	Body   []byte              `json:"body"`
+}
+
+type bufferedResponseWriter struct {
+	header http.Header
+	status int
+	body   bytes.Buffer
+}
+
+func (w *bufferedResponseWriter) Header() http.Header {
+	return w.header
+}
+
+func (w *bufferedResponseWriter) WriteHeader(status int) {
+	if w.status == 0 {
+		w.status = status
+	}
+}
+
+func (w *bufferedResponseWriter) Write(body []byte) (int, error) {
+	if w.status == 0 {
+		w.status = http.StatusOK
+	}
+	return w.body.Write(body)
+}
+
+// Idempotency makes mobile outbox retries safe without changing existing REST
+// handlers. Requests without Idempotency-Key take the original fast path.
+func Idempotency(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		key := strings.TrimSpace(r.Header.Get("Idempotency-Key"))
+		if key == "" || r.Method == http.MethodGet || strings.HasPrefix(r.URL.Path, "/api/v1/auth/") ||
+			strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if len(key) > 128 || strings.ContainsAny(key, "\r\n") {
+			api.HandleError(w, r, api.ValidationError([]api.ValidationDetail{{Field: "Idempotency-Key", Message: "must be at most 128 characters"}}))
+			return
+		}
+		rdb := redisx.Client()
+		if rdb == nil {
+			api.HandleError(w, r, api.NewError(http.StatusServiceUnavailable, "IDEMPOTENCY_UNAVAILABLE", "Idempotent writes are temporarily unavailable", nil))
+			return
+		}
+		digest := sha256.Sum256([]byte(requestSessionIdentity(r) + "\x00" + r.Method + "\x00" + r.URL.Path + "\x00" + key))
+		cacheKey := redisx.RedisKey("idempotency", hex.EncodeToString(digest[:]))
+		if cached, ok := redisx.GetJSON[idempotentResponse](r.Context(), rdb, cacheKey); ok {
+			writeIdempotentResponse(w, cached)
+			return
+		}
+		lockKey := cacheKey + ":lock"
+		locked, err := rdb.SetNX(r.Context(), lockKey, "1", 30*time.Second).Result()
+		if err != nil {
+			api.HandleError(w, r, api.NewError(http.StatusServiceUnavailable, "IDEMPOTENCY_UNAVAILABLE", "Idempotent writes are temporarily unavailable", nil))
+			return
+		}
+		if !locked {
+			api.HandleError(w, r, api.NewError(http.StatusConflict, "REQUEST_IN_PROGRESS", "An identical request is already in progress", nil))
+			return
+		}
+		defer rdb.Del(r.Context(), lockKey)
+
+		buffered := &bufferedResponseWriter{header: make(http.Header)}
+		next.ServeHTTP(buffered, r)
+		response := idempotentResponse{
+			Status: buffered.status,
+			Header: map[string][]string(buffered.header),
+			Body:   buffered.body.Bytes(),
+		}
+		if response.Status == 0 {
+			response.Status = http.StatusOK
+		}
+		if response.Status >= http.StatusOK && response.Status < http.StatusBadRequest {
+			_ = redisx.SetJSON(r.Context(), rdb, cacheKey, response, idempotencyTTL)
+		}
+		writeIdempotentResponse(w, response)
+	})
+}
+
+func requestSessionIdentity(r *http.Request) string {
+	if cookie, err := r.Cookie("session"); err == nil {
+		return cookie.Value
+	}
+	return r.Header.Get("Authorization")
+}
+
+func writeIdempotentResponse(w http.ResponseWriter, response idempotentResponse) {
+	for name, values := range response.Header {
+		for _, value := range values {
+			w.Header().Add(name, value)
+		}
+	}
+	w.WriteHeader(response.Status)
+	_, _ = w.Write(response.Body)
+}
+
 func RequestID(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requestID := r.Header.Get("X-Request-ID")
 		if strings.TrimSpace(requestID) == "" || len(requestID) > 128 {
-			requestID = newUUID()
+			requestID = auth.NewUUID()
 		}
 		w.Header().Set("X-Request-ID", requestID)
 		next.ServeHTTP(w, r.WithContext(api.WithRequestID(r.Context(), requestID)))
@@ -132,11 +234,7 @@ func SameOriginProtection(cfg Config, next http.Handler) http.Handler {
 	})
 }
 
-func SPAGuardWithResolver(cfg Config, currentUser auth.CurrentUserResolver, next http.Handler) http.Handler {
-	return spaGuard(cfg, currentUser, next)
-}
-
-func spaGuard(cfg Config, currentUser auth.CurrentUserResolver, next http.Handler) http.Handler {
+func SPAGuard(cfg Config, currentUser auth.CurrentUserResolver, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet && isProtectedPath(r.URL.Path) && !hasValidSPASession(r, currentUser) {
 			http.Redirect(w, r, signInRedirectURL(cfg, r), http.StatusTemporaryRedirect)
@@ -201,16 +299,4 @@ func isProtectedPath(path string) bool {
 		}
 	}
 	return false
-}
-
-func newUUID() string {
-	var b [16]byte
-	if _, err := rand.Read(b[:]); err != nil {
-		return "00000000-0000-4000-8000-000000000000"
-	}
-	b[6] = (b[6] & 0x0f) | 0x40
-	b[8] = (b[8] & 0x3f) | 0x80
-	encoded := make([]byte, 32)
-	hex.Encode(encoded, b[:])
-	return string(encoded[0:8]) + "-" + string(encoded[8:12]) + "-" + string(encoded[12:16]) + "-" + string(encoded[16:20]) + "-" + string(encoded[20:32])
 }

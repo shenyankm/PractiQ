@@ -36,6 +36,7 @@ func TestBuildPracticeAnalyticsAndSearchHandlersKeepErrorEnvelope(t *testing.T) 
 		{name: "practice answer validation", method: http.MethodPost, target: "/api/v1/practice-sessions/4/answers", body: `{}`, wantStatus: http.StatusUnprocessableEntity, wantCode: "VALIDATION_ERROR", wantMsg: "Invalid request"},
 		{name: "practice unknown field", method: http.MethodPost, target: "/api/v1/practice-sessions", body: `{"bankId":1,"extra":true}`, wantStatus: http.StatusBadRequest, wantCode: "INVALID_JSON", wantMsg: "Request body must be valid JSON"},
 		{name: "practice trailing json", method: http.MethodPost, target: "/api/v1/practice-sessions/4/answers", body: `{"questionId":1,"answerPayload":{}} {}`, wantStatus: http.StatusBadRequest, wantCode: "INVALID_JSON", wantMsg: "Request body must be valid JSON"},
+		{name: "offline practice requires idempotency key", method: http.MethodPost, target: "/api/v1/offline-practice", body: `{"bankId":1,"answers":[{"questionId":2,"answerPayload":{"value":"x"}}]}`, wantStatus: http.StatusUnprocessableEntity, wantCode: "VALIDATION_ERROR", wantMsg: "Invalid request"},
 		{name: "analytics bank invalid id", method: http.MethodGet, target: "/api/v1/analytics/banks/nope", wantStatus: http.StatusUnprocessableEntity, wantCode: "VALIDATION_ERROR", wantMsg: "Invalid bankId"},
 		{name: "analytics import invalid id", method: http.MethodGet, target: "/api/v1/analytics/imports/nope", wantStatus: http.StatusUnprocessableEntity, wantCode: "VALIDATION_ERROR", wantMsg: "Invalid jobId"},
 	}

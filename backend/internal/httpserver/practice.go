@@ -10,6 +10,7 @@ import (
 
 	"openwook/internal/api"
 	"openwook/internal/auth"
+	"openwook/internal/redisx"
 	"openwook/internal/services"
 )
 
@@ -26,6 +27,14 @@ type practiceAnswerRequest struct {
 	QuestionID    *int64         `json:"questionId"`
 	AnswerPayload map[string]any `json:"answerPayload"`
 	DurationMS    *int           `json:"durationMs"`
+}
+
+type offlinePracticeRequest struct {
+	BankID  *int64 `json:"bankId"`
+	Answers []struct {
+		QuestionID    *int64         `json:"questionId"`
+		AnswerPayload map[string]any `json:"answerPayload"`
+	} `json:"answers"`
 }
 
 func BuildPracticeHandlers(pool *pgxpool.Pool, resolve auth.CurrentUserResolver) PracticeHandlers {
@@ -182,7 +191,88 @@ func BuildPracticeHandlers(pool *pgxpool.Pool, resolve auth.CurrentUserResolver)
 		Abandon: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			handlePracticeTerminalState(w, r, resolve, pool, "abandoned")
 		}),
+		OfflineUpload: buildOfflinePracticeHandler(pool, resolve),
 	}
+}
+
+func buildOfflinePracticeHandler(pool *pgxpool.Pool, resolve auth.CurrentUserResolver) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user, err := auth.RequireUser(r, resolve)
+		if err != nil {
+			api.HandleError(w, r, err)
+			return
+		}
+		body, err := decodeJSONBodyStrict[offlinePracticeRequest](r)
+		if err != nil {
+			api.HandleError(w, r, err)
+			return
+		}
+		if body.BankID == nil || *body.BankID < 1 || len(body.Answers) < 1 || len(body.Answers) > 500 {
+			api.HandleError(w, r, api.ValidationError([]api.ValidationDetail{{Field: "answers", Message: "bankId and 1-500 answers are required"}}))
+			return
+		}
+		questionIDs := make(map[int64]struct{}, len(body.Answers))
+		for index, answer := range body.Answers {
+			if answer.QuestionID == nil || *answer.QuestionID < 1 {
+				api.HandleError(w, r, api.ValidationError([]api.ValidationDetail{{Field: "answers." + strconv.Itoa(index) + ".questionId", Message: "must be positive"}}))
+				return
+			}
+			if _, duplicate := questionIDs[*answer.QuestionID]; duplicate {
+				api.HandleError(w, r, api.ValidationError([]api.ValidationDetail{{Field: "answers." + strconv.Itoa(index) + ".questionId", Message: "must be unique"}}))
+				return
+			}
+			questionIDs[*answer.QuestionID] = struct{}{}
+		}
+		idempotencyKey := strings.TrimSpace(r.Header.Get("Idempotency-Key"))
+		if idempotencyKey == "" {
+			api.HandleError(w, r, api.ValidationError([]api.ValidationDetail{{Field: "Idempotency-Key", Message: "is required"}}))
+			return
+		}
+		rdb := redisx.Client()
+		if rdb == nil {
+			api.HandleError(w, r, api.NewError(http.StatusServiceUnavailable, "IDEMPOTENCY_UNAVAILABLE", "Offline practice upload is temporarily unavailable", nil))
+			return
+		}
+		sessionKey := redisx.RedisKey("offline-practice", user.ID, idempotencyKey)
+		sessionID, _ := rdb.Get(r.Context(), sessionKey).Int64()
+		var session *services.PracticeSession
+		if sessionID > 0 {
+			session, err = services.GetPracticeSession(r.Context(), pool, user, sessionID)
+		} else {
+			session, err = services.StartPracticeSession(r.Context(), pool, user, services.PracticeSessionInput{
+				BankID:        *body.BankID,
+				SessionType:   "practice",
+				QuestionCount: len(body.Answers),
+				Mode:          "all",
+			})
+			if err == nil {
+				sessionID = session.ID
+				err = rdb.Set(r.Context(), sessionKey, sessionID, idempotencyTTL).Err()
+			}
+		}
+		if err != nil {
+			api.HandleError(w, r, err)
+			return
+		}
+		for _, answer := range body.Answers {
+			if _, err := services.SubmitAnswer(r.Context(), pool, user, sessionID, services.PracticeAnswerInput{
+				QuestionID:    *answer.QuestionID,
+				AnswerPayload: answer.AnswerPayload,
+			}); err != nil {
+				api.HandleError(w, r, err)
+				return
+			}
+		}
+		session, err = services.GetPracticeSession(r.Context(), pool, user, sessionID)
+		if err == nil && session.Status == "active" {
+			session, err = services.CompletePracticeSession(r.Context(), pool, user, sessionID, "completed")
+		}
+		if err != nil {
+			api.HandleError(w, r, err)
+			return
+		}
+		api.OK(w, r, session, nil)
+	})
 }
 
 func handlePracticeTerminalState(w http.ResponseWriter, r *http.Request, resolve auth.CurrentUserResolver, pool *pgxpool.Pool, status string) {

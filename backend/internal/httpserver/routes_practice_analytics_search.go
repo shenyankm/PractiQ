@@ -3,15 +3,16 @@ package httpserver
 import "net/http"
 
 type PracticeHandlers struct {
-	List         http.Handler
-	Start        http.Handler
-	Get          http.Handler
-	QuestionPage http.Handler
-	Questions    http.Handler
-	Results      http.Handler
-	SubmitAnswer http.Handler
-	Complete     http.Handler
-	Abandon      http.Handler
+	List          http.Handler
+	Start         http.Handler
+	Get           http.Handler
+	QuestionPage  http.Handler
+	Questions     http.Handler
+	Results       http.Handler
+	SubmitAnswer  http.Handler
+	Complete      http.Handler
+	Abandon       http.Handler
+	OfflineUpload http.Handler
 }
 
 type AnalyticsHandlers struct {
@@ -36,6 +37,7 @@ func registerPracticeAnalyticsSearchRoutes(router *http.ServeMux, practice Pract
 	registerMethodRoute(router, http.MethodPost, "/api/v1/practice-sessions/{sessionId}/answers", practice.SubmitAnswer)
 	registerMethodRoute(router, http.MethodPost, "/api/v1/practice-sessions/{sessionId}/complete", practice.Complete)
 	registerMethodRoute(router, http.MethodPost, "/api/v1/practice-sessions/{sessionId}/abandon", practice.Abandon)
+	registerMethodRoute(router, http.MethodPost, "/api/v1/offline-practice", practice.OfflineUpload)
 	registerMethodRoute(router, http.MethodGet, "/api/v1/analytics/me/summary", analytics.MeSummary)
 	registerMethodRoute(router, http.MethodGet, "/api/v1/analytics/me/snapshot", analytics.MeSnapshot)
 	registerMethodRoute(router, http.MethodGet, "/api/v1/analytics/banks/{bankId}", analytics.Bank)

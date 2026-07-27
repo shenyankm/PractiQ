@@ -62,6 +62,29 @@ type loginRequest struct {
 	Password string `json:"password"`
 }
 
+// sessionResponse extends the user payload with the session JWT so mobile
+// clients can authenticate with a bearer header instead of the cookie.
+type sessionResponse struct {
+	*User
+	Token     string `json:"token,omitempty"`
+	ExpiresAt string `json:"expiresAt,omitempty"`
+}
+
+func issuedSessionResponse(w http.ResponseWriter, user *User) sessionResponse {
+	response := sessionResponse{User: user}
+	for _, raw := range w.Header().Values("Set-Cookie") {
+		cookie, err := http.ParseSetCookie(raw)
+		if err != nil || cookie.Name != "session" || cookie.Value == "" {
+			continue
+		}
+		response.Token = cookie.Value
+		if !cookie.Expires.IsZero() {
+			response.ExpiresAt = cookie.Expires.UTC().Format(time.RFC3339)
+		}
+	}
+	return response
+}
+
 func HashPassword(password string) (string, error) {
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcryptCost)
 	if err != nil {
@@ -96,7 +119,7 @@ func Register(deps HandlerDependencies) http.Handler {
 				return
 			}
 		}
-		api.Created(w, r, user, nil)
+		api.Created(w, r, issuedSessionResponse(w, user), nil)
 	})
 }
 
@@ -157,7 +180,7 @@ func Login(deps HandlerDependencies) http.Handler {
 				return
 			}
 		}
-		api.OK(w, r, user, nil)
+		api.OK(w, r, issuedSessionResponse(w, user), nil)
 	})
 }
 

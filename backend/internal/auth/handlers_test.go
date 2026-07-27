@@ -73,6 +73,7 @@ func TestRegisterCreatesUserSetsSessionCookieAndReturnsCreatedEnvelope(t *testin
 		"email":      email,
 		"is_active":  true,
 		"membership": createdUser.Membership,
+		"token":      "registered-token",
 	})
 	assertMetaRequestID(t, body, "req-register-123")
 }
@@ -174,8 +175,30 @@ func TestLoginSetsSessionCookieAndReturnsUserEnvelope(t *testing.T) {
 		"email":      email,
 		"is_active":  true,
 		"membership": loggedInUser.Membership,
+		"token":      "login-token",
 	})
 	assertMetaRequestID(t, body, "req-login-456")
+}
+
+func TestSessionTokenFromRequestPrefersCookieAndFallsBackToBearer(t *testing.T) {
+	bearerOnly := httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil)
+	bearerOnly.Header.Set("Authorization", "Bearer mobile-token")
+	if got := sessionTokenFromRequest(bearerOnly); got != "mobile-token" {
+		t.Fatalf("bearer token = %q, want %q", got, "mobile-token")
+	}
+
+	both := httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil)
+	both.AddCookie(&http.Cookie{Name: "session", Value: "cookie-token"})
+	both.Header.Set("Authorization", "Bearer mobile-token")
+	if got := sessionTokenFromRequest(both); got != "cookie-token" {
+		t.Fatalf("token = %q, want cookie to win", got)
+	}
+
+	neither := httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil)
+	neither.Header.Set("Authorization", "Basic something")
+	if got := sessionTokenFromRequest(neither); got != "" {
+		t.Fatalf("token = %q, want empty", got)
+	}
 }
 
 func TestLoginReturnsUSERINACTIVEWhenAuthenticatedUserIsDisabled(t *testing.T) {

@@ -2,6 +2,7 @@ package httpserver
 
 import (
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -178,8 +179,10 @@ func validateMediaCreate(body mediaCreateRequest) (services.CreateMediaAssetInpu
 		details = append(details, api.ValidationDetail{Field: "storagePath", Message: "is required"})
 	}
 	externalURL := trimmedOrNil(body.ExternalURL)
-	if externalURL != nil && !validateURLString(*externalURL) {
-		details = append(details, api.ValidationDetail{Field: "externalUrl", Message: "must be a valid URL"})
+	if externalURL != nil {
+		if _, err := url.ParseRequestURI(*externalURL); err != nil {
+			details = append(details, api.ValidationDetail{Field: "externalUrl", Message: "must be a valid URL"})
+		}
 	}
 	if body.SizeBytes != nil && *body.SizeBytes < 0 {
 		details = append(details, api.ValidationDetail{Field: "sizeBytes", Message: "must be non-negative"})

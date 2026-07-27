@@ -136,6 +136,18 @@ func TestBuildAIHandlersRejectUnauthenticatedAndInvalidPayloads(t *testing.T) {
 		assertAPIValidation(t, err, "scope", "userId", "bankId", "practiceSessionId")
 	})
 
+	t.Run("learning report accepts bounded client stats", func(t *testing.T) {
+		payload, err := validateAILearningReportRequest(aiclient.LearningReportRequest{Stats: map[string]any{"answers": 12}})
+		if err != nil {
+			t.Fatalf("validate stats: %v", err)
+		}
+		if payload.Stats["answers"] != 12 {
+			t.Fatalf("stats = %#v, want passthrough", payload.Stats)
+		}
+		_, err = validateAILearningReportRequest(aiclient.LearningReportRequest{Stats: map[string]any{"blob": strings.Repeat("x", 100_001)}})
+		assertAPIValidation(t, err, "stats")
+	})
+
 	t.Run("document payload validation", func(t *testing.T) {
 		err := validateAIDocumentParseRequest(aiclient.DocumentParseRequest{SourceType: "xls"})
 		assertAPIValidation(t, err, "sourceType", "text")
