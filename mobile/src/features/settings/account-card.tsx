@@ -38,8 +38,9 @@ export function AccountCard({ tr }: { tr: Tr }) {
       return setError(tr('Usernames are 3-20 letters, numbers, or underscores.', '用户名为 3-20 个字母、数字或下划线。'));
     }
     if (mode === 'register' && !email.trim()) return setError(tr('Enter an email address.', '请输入邮箱。'));
-    if (password.length < 8 || password.length > 72) {
-      return setError(tr('Passwords are 8-72 characters.', '密码为 8-72 个字符。'));
+    const passwordBytes = new TextEncoder().encode(password).length;
+    if (passwordBytes < 8 || passwordBytes > 72) {
+      return setError(tr('Passwords are 8-72 bytes.', '密码为 8-72 字节。'));
     }
     setBusy(true);
     setError('');

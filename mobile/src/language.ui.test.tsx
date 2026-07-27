@@ -4,13 +4,11 @@ import { Typography } from 'heroui-native/text';
 
 import { LanguageProvider, useLanguage } from './language';
 
-const mockGetFirstAsync = jest.fn();
+const mockReadResource = jest.fn();
 
-jest.mock('expo-sqlite', () => ({
-  useSQLiteContext: () => ({
-    getFirstAsync: mockGetFirstAsync,
-    runAsync: jest.fn(),
-  }),
+jest.mock('./openwook/cache', () => ({
+  readResource: (...args: unknown[]) => mockReadResource(...args),
+  writeResource: jest.fn(),
 }));
 
 // Pin the system-derived default so the test does not depend on the host locale.
@@ -25,8 +23,8 @@ function LanguageProbe() {
 
 describe('LanguageProvider', () => {
   it('renders content immediately and reconciles to the persisted language', async () => {
-    let resolveLanguage: (row: { value: string }) => void = () => undefined;
-    mockGetFirstAsync.mockReturnValue(new Promise((resolve) => {
+    let resolveLanguage: (value: string) => void = () => undefined;
+    mockReadResource.mockReturnValue(new Promise((resolve) => {
       resolveLanguage = resolve;
     }));
     const screen = await render(
@@ -37,12 +35,12 @@ describe('LanguageProvider', () => {
       </HeroUINativeProvider>,
     );
 
-    // Startup no longer blocks on the database read: content renders with the
+    // Startup no longer blocks on the cache read: content renders with the
     // system-derived default before the persisted language resolves.
     screen.getByText('en');
     expect(screen.queryByText('zh-CN')).toBeNull();
 
-    await act(async () => resolveLanguage({ value: 'zh-CN' }));
+    await act(async () => resolveLanguage('zh-CN'));
 
     await screen.findByText('zh-CN');
     expect(screen.queryByText('en')).toBeNull();

@@ -21,6 +21,7 @@ export default function SignInScreen() {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const passwordBytes = new TextEncoder().encode(password).length;
 
   async function submit() {
     setBusy(true);
@@ -61,7 +62,7 @@ export default function SignInScreen() {
           <Label>{tr('Password', '密码')}</Label>
           <Input value={password} onChangeText={setPassword} secureTextEntry maxLength={72} />
         </TextField>
-        <Button isDisabled={busy || !name.trim() || password.length < 8} onPress={() => void submit()}>
+        <Button isDisabled={busy || !name.trim() || passwordBytes < 8 || passwordBytes > 72} onPress={() => void submit()}>
           {busy ? tr('Working…', '处理中…') : registering ? tr('Create account', '创建账号') : tr('Sign in', '登录')}
         </Button>
         <Button variant="ghost" isDisabled={busy} onPress={() => setRegistering((value) => !value)}>

@@ -2,9 +2,8 @@ import { SplashScreen } from '@/splash';
 
 import '../global.css';
 import { router, Stack, type ErrorBoundaryProps, useSegments } from 'expo-router';
-import * as SQLite from 'expo-sqlite';
-import { Suspense, useEffect, useState } from 'react';
-import { Alert as NativeAlert, Platform, StatusBar } from 'react-native';
+import { Suspense, useEffect } from 'react';
+import { Platform, StatusBar } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useReducedMotion } from 'react-native-reanimated';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,61 +17,23 @@ import { Surface } from 'heroui-native/surface';
 import { Typography } from 'heroui-native/text';
 import { useUniwind } from 'uniwind';
 
-import { DATABASE_NAME, SQLITE_OPEN_OPTIONS } from '@/database';
-import { migrateDatabase } from '@/database/migrations';
 import { LanguageProvider, useLanguage } from '@/language';
 import { CONTENT_MAX_WIDTH } from '@/layout';
 import { CloudAuthProvider, useCloudAuth } from '@/openwook/auth';
 
 export const unstable_settings = { initialRouteName: '(tabs)' };
 
-const DATABASE_OPTIONS = SQLITE_OPEN_OPTIONS;
-
 export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
-  const [busy, setBusy] = useState(false);
-  const [restoreError, setRestoreError] = useState('');
-
-  const confirmRestore = () => NativeAlert.alert(
-    'Restore from backup?',
-    'Use this only if retrying still cannot start the app. The selected backup will replace the unavailable local database and files.',
-    [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Choose backup',
-        style: 'destructive',
-        onPress: () => void (async () => {
-          setBusy(true);
-          setRestoreError('');
-          let db: SQLite.SQLiteDatabase | null = null;
-          try {
-            const { restoreDatabase } = await import('@/files/backup');
-            db = await SQLite.openDatabaseAsync(DATABASE_NAME, DATABASE_OPTIONS);
-            const restored = await restoreDatabase(db, { recoveryMode: true });
-            if (!restored) return;
-            retry();
-          } catch {
-            setRestoreError('Restore failed. Current data was not replaced.');
-          } finally {
-            await db?.closeAsync().catch(() => undefined);
-            setBusy(false);
-          }
-        })(),
-      },
-    ],
-  );
-
   return (
     <GestureHandlerRootView>
       <HeroUINativeProvider>
         <Surface className="gap-3" onLayout={() => SplashScreen.hide()}>
           <Typography.Heading>PractiQ could not start</Typography.Heading>
-          <Typography>The local database failed a version or integrity check. Retry first; if it still fails, restore a complete backup.</Typography>
           <Alert status="danger">
             <Alert.Indicator />
-            <Alert.Content><Alert.Title>{restoreError || error.message}</Alert.Title></Alert.Content>
+            <Alert.Content><Alert.Title>{error.message}</Alert.Title></Alert.Content>
           </Alert>
-          <Button isDisabled={busy} onPress={retry}>Retry</Button>
-          <Button isDisabled={busy} onPress={confirmRestore} variant="secondary">{busy ? 'Working...' : 'Restore backup'}</Button>
+          <Button onPress={retry}>Retry</Button>
         </Surface>
       </HeroUINativeProvider>
     </GestureHandlerRootView>
@@ -85,19 +46,12 @@ export default function RootLayout() {
       <HeroUINativeProvider>
         <SafeAreaProvider>
           <Suspense fallback={<StartupFallback />}>
-            <SQLite.SQLiteProvider
-              databaseName={DATABASE_NAME}
-              onInit={migrateDatabase}
-              options={DATABASE_OPTIONS}
-              useSuspense
-            >
-              <LanguageProvider>
-                <CloudAuthProvider>
-                  <ThemedStatusBar />
-                  <AppNavigator />
-                </CloudAuthProvider>
-              </LanguageProvider>
-            </SQLite.SQLiteProvider>
+            <LanguageProvider>
+              <CloudAuthProvider>
+                <ThemedStatusBar />
+                <AppNavigator />
+              </CloudAuthProvider>
+            </LanguageProvider>
           </Suspense>
         </SafeAreaProvider>
       </HeroUINativeProvider>
@@ -170,10 +124,10 @@ function ThemedStatusBar() {
 
 function StartupFallback() {
   return (
-    <Surface accessibilityRole="progressbar" accessibilityLabel="Preparing local database">
+    <Surface accessibilityRole="progressbar" accessibilityLabel="Preparing PractiQ">
       <Typography.Heading>PractiQ</Typography.Heading>
       <Spinner />
-      <Typography color="muted">Checking local data...</Typography>
+      <Typography color="muted">Loading...</Typography>
     </Surface>
   );
 }

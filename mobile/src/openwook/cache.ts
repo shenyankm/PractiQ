@@ -35,6 +35,10 @@ async function database() {
       );
       CREATE INDEX IF NOT EXISTS outbox_pending ON outbox(state, id);
     `);
+    const version = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
+    if ((version?.user_version ?? 0) < 1) {
+      await db.execAsync('DELETE FROM resources; PRAGMA user_version = 1;');
+    }
     return db;
   });
   return databasePromise;
@@ -112,7 +116,7 @@ export async function retryFailedMutations() {
 
 export async function clearCloudCache() {
   const db = await database();
-  await db.execAsync('DELETE FROM resources; DELETE FROM outbox;');
+  await db.execAsync("DELETE FROM resources WHERE key <> 'setting:language'; DELETE FROM outbox;");
   const imports = new Directory(Paths.document, 'cloud-imports');
   if (imports.exists) imports.delete();
 }

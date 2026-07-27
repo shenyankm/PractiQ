@@ -4,7 +4,7 @@ import { AppState } from 'react-native';
 import { loadSession, login, logout, register, type CloudSession } from '@/cloud';
 import { ApiError, apiRequest, flushOutbox, setUnauthorizedHandler } from './api';
 import { clearCloudCache, outboxCounts, retryFailedMutations } from './cache';
-import type { CloudUser } from './types';
+import { cloudUserSchema, type CloudUser } from './types';
 
 type AuthState = {
   loading: boolean;
@@ -13,6 +13,7 @@ type AuthState = {
   sync: { running: boolean; pending: number; failed: number };
   signIn: (name: string, password: string) => Promise<void>;
   signUp: (name: string, email: string, password: string) => Promise<void>;
+  updateProfile: (input: { username: string; email: string | null; currentPassword?: string; newPassword?: string }) => Promise<void>;
   signOut: () => Promise<void>;
   synchronize: (retryFailed?: boolean) => Promise<void>;
 };
@@ -59,7 +60,7 @@ export function CloudAuthProvider({ children }: PropsWithChildren) {
       if (!active || !saved) return;
       setSession(saved);
       try {
-        setUser(await apiRequest<CloudUser>('/api/v1/auth/me', { token: saved.token }));
+        setUser(await apiRequest<CloudUser>('/api/v1/auth/me', { token: saved.token, schema: cloudUserSchema }));
       } catch (error) {
         if (error instanceof ApiError && error.status === 401) {
           if (active) {
@@ -67,9 +68,7 @@ export function CloudAuthProvider({ children }: PropsWithChildren) {
             setSession(null);
             setUser(null);
           }
-        } else if (active) {
-          setUser({ username: saved.username });
-        }
+        } else if (active) setUser(null);
       }
     }).finally(() => {
       if (active) setLoading(false);
@@ -88,8 +87,8 @@ export function CloudAuthProvider({ children }: PropsWithChildren) {
 
   const authenticate = useCallback(async (action: () => Promise<CloudSession>) => {
     const next = await action();
-    const nextUser = await apiRequest<CloudUser>('/api/v1/auth/me', { token: next.token }).catch(async (error) => {
-      if (error instanceof ApiError && error.status === 0) return { username: next.username };
+    const nextUser = await apiRequest<CloudUser>('/api/v1/auth/me', { token: next.token, schema: cloudUserSchema }).catch(async (error) => {
+      if (error instanceof ApiError && error.status === 0) return null;
       await logout();
       throw error;
     });
@@ -106,6 +105,9 @@ export function CloudAuthProvider({ children }: PropsWithChildren) {
     sync,
     signIn: (name, password) => authenticate(() => login(name, password)),
     signUp: (name, email, password) => authenticate(() => register(name, email, password)),
+    updateProfile: async (input) => {
+      setUser(await apiRequest<CloudUser>('/api/v1/users/me', { method: 'PATCH', body: input, schema: cloudUserSchema }));
+    },
     signOut: async () => {
       await logout();
       await clearCloudCache();

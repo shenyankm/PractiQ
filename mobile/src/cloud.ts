@@ -7,12 +7,21 @@ import type { ParsedQuestion, QuestionType } from './types';
 // only sends plain HTTPS requests and renders the results.
 export const CLOUD_API_URL =
   process.env.EXPO_PUBLIC_API_URL?.replace(/\/+$/, '') || 'https://api.practiq.app';
+if (process.env.NODE_ENV === 'production' && !CLOUD_API_URL.startsWith('https://')) {
+  throw new Error('EXPO_PUBLIC_API_URL must use HTTPS in production.');
+}
 export const CLOUD_PROVIDER_NAME = 'PractiQ 云端服务';
 
 const SESSION_KEY = 'practiq.cloud.session';
 
 export class CloudError extends Error {
-  constructor(message: string) {
+  constructor(
+    message: string,
+    readonly status = 0,
+    readonly code = '',
+    readonly details: unknown = null,
+    readonly requestId = '',
+  ) {
     super(message);
     this.name = 'CloudError';
   }
@@ -21,11 +30,21 @@ export class CloudError extends Error {
 export interface CloudSession {
   token: string;
   username: string;
+  expiresAt: string;
 }
 
 export interface CloudRequestOptions {
   abortSignal?: AbortSignal;
   timeoutMs?: number;
+}
+
+export interface CloudHTTPRequestOptions extends CloudRequestOptions {
+  method?: string;
+  token?: string;
+  json?: unknown;
+  body?: BodyInit;
+  headers?: HeadersInit;
+  idempotencyKey?: string;
 }
 
 // --- Restore guard -----------------------------------------------------------
@@ -68,7 +87,11 @@ async function secureStore() {
   return { SecureStore, options };
 }
 
-const sessionSchema = z.object({ token: z.string().min(1), username: z.string() });
+const sessionSchema = z.object({
+  token: z.string().min(1),
+  username: z.string().min(1),
+  expiresAt: z.iso.datetime({ offset: true }),
+});
 
 export async function loadSession(): Promise<CloudSession | null> {
   try {
@@ -76,7 +99,11 @@ export async function loadSession(): Promise<CloudSession | null> {
     const raw = await SecureStore.getItemAsync(SESSION_KEY, options);
     if (!raw) return null;
     const parsed = sessionSchema.safeParse(JSON.parse(raw));
-    return parsed.success ? parsed.data : null;
+    if (!parsed.success || Date.parse(parsed.data.expiresAt) <= Date.now()) {
+      await SecureStore.deleteItemAsync(SESSION_KEY, options);
+      return null;
+    }
+    return parsed.data;
   } catch {
     return null;
   }
@@ -103,85 +130,142 @@ export async function clearSession() {
 // --- HTTP --------------------------------------------------------------------
 
 const errorEnvelopeSchema = z.object({
-  error: z.object({ code: z.string(), message: z.string() }).loose(),
+  error: z.object({
+    code: z.string(),
+    message: z.string(),
+    details: z.unknown().optional(),
+    requestId: z.string().optional(),
+  }).loose(),
 }).loose();
+const successEnvelopeSchema = z.object({
+  data: z.unknown(),
+  meta: z.record(z.string(), z.unknown()).optional(),
+}).loose();
+
+export type CloudEnvelope<T> = {
+  data: T;
+  meta: Record<string, unknown>;
+};
 
 export function cloudErrorFromResponse(status: number, body: unknown): CloudError {
   const parsed = errorEnvelopeSchema.safeParse(body);
   const code = parsed.success ? parsed.data.error.code : '';
-  if (status === 401) return new CloudError('登录已过期，请重新登录云端账户。');
-  if (code === 'PLUS_REQUIRED') return new CloudError('此 AI 功能需要 Plus 会员，请联系管理员开通。');
-  if (code === 'USER_INACTIVE') return new CloudError('该账户已被停用，请联系管理员。');
+  const details = parsed.success ? parsed.data.error.details ?? null : null;
+  const requestId = parsed.success ? parsed.data.error.requestId ?? '' : '';
+  if (status === 401) return new CloudError('登录已过期，请重新登录云端账户。', status, code, details, requestId);
+  if (code === 'PLUS_REQUIRED') return new CloudError('此 AI 功能需要 Plus 会员，请联系管理员开通。', status, code, details, requestId);
+  if (code === 'USER_INACTIVE') return new CloudError('该账户已被停用，请联系管理员。', status, code, details, requestId);
   if (code === 'VALIDATION_ERROR' || status === 422 || status === 400) {
-    return new CloudError(parsed.success ? `请求无效：${parsed.data.error.message}` : '请求无效，请检查输入。');
+    return new CloudError(
+      parsed.success ? `请求无效：${parsed.data.error.message}` : '请求无效，请检查输入。',
+      status,
+      code,
+      details,
+      requestId,
+    );
   }
-  if (status === 429) return new CloudError('云端服务当前请求过多，请稍后重试。');
-  if (status >= 500) return new CloudError('云端服务暂时不可用，请稍后重试。');
-  return new CloudError(parsed.success ? parsed.data.error.message : '云端请求失败，请稍后重试。');
+  if (status === 429) return new CloudError('云端服务当前请求过多，请稍后重试。', status, code, details, requestId);
+  if (status >= 500) return new CloudError('云端服务暂时不可用，请稍后重试。', status, code, details, requestId);
+  return new CloudError(
+    parsed.success ? parsed.data.error.message : '云端请求失败，请稍后重试。',
+    status,
+    code,
+    details,
+    requestId,
+  );
 }
 
-async function request(
+export async function cloudRequestEnvelope<T = unknown>(
   path: string,
-  body: unknown,
-  options?: CloudRequestOptions & { token?: string },
-): Promise<unknown> {
-  if (cloudQuiescing) throw new CloudError('本地数据正在恢复，云端请求已取消。');
+  options: CloudHTTPRequestOptions = {},
+): Promise<CloudEnvelope<T>> {
+  if (cloudQuiescing) throw new CloudError('本地数据正在恢复，云端请求已取消。', 0, 'CANCELLED');
   const controller = new AbortController();
   const abort = () => controller.abort();
-  if (options?.abortSignal?.aborted) abort();
-  else options?.abortSignal?.addEventListener('abort', abort, { once: true });
-  const timeout = setTimeout(abort, options?.timeoutMs ?? 120_000);
+  if (options.abortSignal?.aborted) abort();
+  else options.abortSignal?.addEventListener('abort', abort, { once: true });
+  const timeout = setTimeout(abort, options.timeoutMs ?? 120_000);
   let finish!: () => void;
   activeRequests.set(controller, new Promise((resolve) => { finish = resolve; }));
   try {
+    const headers = new Headers(options.headers);
+    if (options.json !== undefined) headers.set('Content-Type', 'application/json');
+    if (options.token) headers.set('Authorization', `Bearer ${options.token}`);
+    if (options.idempotencyKey) headers.set('Idempotency-Key', options.idempotencyKey);
     let response: Response;
     try {
       response = await fetch(`${CLOUD_API_URL}${path}`, {
-        method: 'POST',
+        method: options.method,
         redirect: 'error',
         signal: controller.signal,
-        headers: {
-          'Content-Type': 'application/json',
-          ...(options?.token ? { Authorization: `Bearer ${options.token}` } : {}),
-        },
-        body: JSON.stringify(body),
+        headers,
+        body: options.json === undefined ? options.body : JSON.stringify(options.json),
       });
     } catch {
-      if (options?.abortSignal?.aborted) throw new CloudError('云端请求已取消。');
-      if (controller.signal.aborted) throw new CloudError('云端请求超时，请检查网络后重试。');
-      throw new CloudError('无法连接云端服务，请检查网络。');
+      if (options.abortSignal?.aborted) throw new CloudError('云端请求已取消。', 0, 'CANCELLED');
+      if (controller.signal.aborted) throw new CloudError('云端请求超时，请检查网络后重试。', 0, 'TIMEOUT');
+      throw new CloudError('无法连接云端服务，请检查网络。', 0, 'OFFLINE');
     }
-    const payload: unknown = await response.json().catch(() => null);
+    const payload: unknown = response.status === 204 ? null : await response.json().catch(() => null);
     if (!response.ok) {
-      if (response.status === 401) await clearSession();
-      throw cloudErrorFromResponse(response.status, payload);
+      const error = cloudErrorFromResponse(response.status, payload);
+      if (response.status === 401 || error.code === 'USER_INACTIVE') await clearSession();
+      throw error;
     }
-    if (typeof payload !== 'object' || payload === null || !('data' in payload)) {
-      throw new CloudError('云端服务返回的数据格式无效。');
-    }
-    return (payload as { data: unknown }).data;
+    if (response.status === 204) return { data: undefined as T, meta: {} };
+    const parsed = successEnvelopeSchema.safeParse(payload);
+    if (!parsed.success) throw new CloudError('云端服务返回的数据格式无效。', response.status, 'INVALID_RESPONSE');
+    return { data: parsed.data.data as T, meta: parsed.data.meta || {} };
   } finally {
     clearTimeout(timeout);
-    options?.abortSignal?.removeEventListener('abort', abort);
+    options.abortSignal?.removeEventListener('abort', abort);
     activeRequests.delete(controller);
     finish();
   }
 }
 
+export async function cloudRequest<T = unknown>(
+  path: string,
+  options: CloudHTTPRequestOptions = {},
+): Promise<T> {
+  return (await cloudRequestEnvelope<T>(path, options)).data;
+}
+
+function request(
+  path: string,
+  body: unknown,
+  options?: CloudRequestOptions & { token?: string },
+) {
+  return cloudRequest(path, { ...options, method: 'POST', json: body });
+}
+
 async function authorizedRequest(path: string, body: unknown, options?: CloudRequestOptions) {
   const session = await loadSession();
-  if (!session) throw new CloudError('请先在设置中登录 PractiQ 云端账户。');
+  if (!session) throw new CloudError('请先在设置中登录 PractiQ 云端账户。', 401, 'UNAUTHENTICATED');
   return request(path, body, { ...options, token: session.token });
 }
 
 // --- Auth --------------------------------------------------------------------
 
-const authDataSchema = z.object({ username: z.string(), token: z.string().min(1) }).loose();
+const authDataSchema = z.object({
+  id: z.number().int().positive(),
+  username: z.string().min(1),
+  email: z.string().email().nullable(),
+  is_active: z.boolean(),
+  role: z.enum(['admin', 'user']),
+  membership: z.enum(['free', 'plus', 'enterprise']),
+  token: z.string().min(1),
+  expiresAt: z.iso.datetime({ offset: true }),
+}).loose();
 
 async function authenticate(path: string, body: unknown): Promise<CloudSession> {
   const data = authDataSchema.safeParse(await request(path, body, { timeoutMs: 30_000 }));
   if (!data.success) throw new CloudError('云端服务未返回会话令牌，请稍后重试。');
-  const session = { token: data.data.token, username: data.data.username };
+  const session = {
+    token: data.data.token,
+    username: data.data.username,
+    expiresAt: data.data.expiresAt,
+  };
   await saveSession(session);
   return session;
 }

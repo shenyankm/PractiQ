@@ -1,6 +1,7 @@
 import { File } from 'expo-file-system';
+import type { ZodType } from 'zod';
 
-import { clearSession, CLOUD_API_URL, loadSession } from '@/cloud';
+import { CloudError, cloudRequestEnvelope, loadSession, type CloudEnvelope } from '@/cloud';
 import {
   completeMutation,
   createMutationKey,
@@ -9,25 +10,31 @@ import {
   pendingMutations,
 } from './cache';
 import { shouldFailPermanently, shouldQueueAfterFailure } from './sync-policy';
+import { importJobSchema, type ImportJob } from './types';
 
-export class ApiError extends Error {
-  constructor(message: string, readonly status: number, readonly code = '') {
-    super(message);
-    this.name = 'ApiError';
-  }
-}
+export { CloudError as ApiError };
 
 type RequestOptions = {
   method?: string;
   body?: unknown;
+  rawBody?: BodyInit;
+  headers?: HeadersInit;
   token?: string;
   idempotencyKey?: string;
   signal?: AbortSignal;
+  schema?: ZodType;
 };
 
 export type PendingImport = {
   bankId: number;
   file: { uri: string; name: string; type: string };
+};
+
+export type ApiPage<T> = {
+  data: T;
+  cursor: string;
+  hasMore: boolean;
+  limit: number;
 };
 
 let unauthorizedHandler: (() => void) | null = null;
@@ -39,52 +46,77 @@ export function setUnauthorizedHandler(handler: (() => void) | null) {
   };
 }
 
-export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+async function requestEnvelope(path: string, options: RequestOptions): Promise<CloudEnvelope<unknown>> {
   const session = options.token ? null : await loadSession();
   const token = options.token || session?.token;
-  let response: Response;
   try {
-    response = await fetch(`${CLOUD_API_URL}${path}`, {
+    return await cloudRequestEnvelope(path, {
       method: options.method,
-      redirect: 'error',
-      signal: options.signal,
-      headers: {
-        ...(options.body === undefined ? {} : { 'Content-Type': 'application/json' }),
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...(options.idempotencyKey ? { 'Idempotency-Key': options.idempotencyKey } : {}),
-      },
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      token,
+      json: options.body,
+      body: options.rawBody,
+      headers: options.headers,
+      idempotencyKey: options.idempotencyKey,
+      abortSignal: options.signal,
     });
-  } catch {
-    throw new ApiError('当前处于离线状态。', 0, 'OFFLINE');
-  }
-  const payload: unknown = await response.json().catch(() => null);
-  if (!response.ok) {
-    const envelope = payload && typeof payload === 'object' && 'error' in payload
-      ? (payload as { error?: { code?: string; message?: string } }).error
-      : undefined;
-    if (response.status === 401) {
-      await clearSession();
+  } catch (error) {
+    if (error instanceof CloudError && (error.status === 401 || error.code === 'USER_INACTIVE')) {
       unauthorizedHandler?.();
     }
-    throw new ApiError(envelope?.message || `HTTP ${response.status}`, response.status, envelope?.code || '');
+    throw error;
   }
-  if (response.status === 204) return undefined as T;
-  if (!payload || typeof payload !== 'object' || !('data' in payload)) {
-    throw new ApiError('服务端返回的数据格式无效。', response.status, 'INVALID_RESPONSE');
-  }
-  return (payload as { data: T }).data;
 }
 
-export async function mutateOrQueue<T>(path: string, method: string, body?: unknown) {
+function validateData<T>(data: unknown, schema?: ZodType): T {
+  if (!schema) return data as T;
+  const parsed = schema.safeParse(data);
+  if (!parsed.success) {
+    throw new CloudError(
+      '云端服务返回的数据格式无效。',
+      200,
+      'INVALID_RESPONSE',
+      parsed.error.flatten(),
+    );
+  }
+  return parsed.data as T;
+}
+
+export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const envelope = await requestEnvelope(path, options);
+  return validateData<T>(envelope.data, options.schema);
+}
+
+export async function apiRequestPage<T>(path: string, options: RequestOptions = {}): Promise<ApiPage<T>> {
+  const envelope = await requestEnvelope(path, options);
+  const pagination = objectValue(envelope.meta, 'pagination');
+  return {
+    data: validateData<T>(envelope.data, options.schema),
+    cursor: stringValue(pagination, 'cursor'),
+    hasMore: pagination?.hasMore === true,
+    limit: typeof pagination?.limit === 'number' ? pagination.limit : 0,
+  };
+}
+
+function objectValue(value: unknown, key: string): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object') return null;
+  const nested = (value as Record<string, unknown>)[key];
+  return nested && typeof nested === 'object' ? nested as Record<string, unknown> : null;
+}
+
+function stringValue(value: Record<string, unknown> | null, key: string) {
+  const nested = value?.[key];
+  return typeof nested === 'string' ? nested : '';
+}
+
+export async function mutateOrQueue<T>(path: string, method: string, body?: unknown, schema?: ZodType<T>) {
   const mutationKey = createMutationKey();
   try {
     return {
-      data: await apiRequest<T>(path, { method, body, idempotencyKey: mutationKey }),
+      data: await apiRequest<T>(path, { method, body, idempotencyKey: mutationKey, schema }),
       queued: false,
     };
   } catch (error) {
-    if (!(error instanceof ApiError) || !shouldQueueAfterFailure(error.status, error.code)) throw error;
+    if (!(error instanceof CloudError) || !shouldQueueAfterFailure(error.status, error.code)) throw error;
     await enqueueMutation(method, path, body, mutationKey);
     return { data: null, queued: true };
   }
@@ -108,7 +140,7 @@ export async function flushOutbox() {
       }
       await completeMutation(mutation.id);
     } catch (error) {
-      if (error instanceof ApiError && shouldFailPermanently(error.status)) {
+      if (error instanceof CloudError && shouldFailPermanently(error.status, error.code)) {
         await failMutation(mutation.id, error.message);
         continue;
       }
@@ -119,7 +151,7 @@ export async function flushOutbox() {
 
 export async function uploadImport(input: PendingImport, idempotencyKey?: string) {
   const extension = input.file.name.split('.').pop()?.toLowerCase() || 'txt';
-  const job = await apiRequest<{ id: number }>('/api/v1/import-jobs', {
+  const job = await apiRequest<ImportJob>('/api/v1/import-jobs', {
     method: 'POST',
     idempotencyKey: idempotencyKey ? `${idempotencyKey}-job` : undefined,
     body: {
@@ -128,21 +160,15 @@ export async function uploadImport(input: PendingImport, idempotencyKey?: string
       sourceType: extension,
       requestPayload: {},
     },
+    schema: importJobSchema,
   });
-  const session = await loadSession();
   const form = new FormData();
-  form.append('file', input.file as unknown as Blob);
-  let response: Response;
-  try {
-    response = await fetch(`${CLOUD_API_URL}/api/v1/import-jobs/${job.id}/file`, {
-      method: 'POST',
-      headers: session ? { Authorization: `Bearer ${session.token}` } : {},
-      body: form,
-    });
-  } catch {
-    throw new ApiError('当前处于离线状态。', 0, 'OFFLINE');
-  }
-  if (!response.ok) throw new ApiError(`上传失败（HTTP ${response.status}）`, response.status);
+  form.append('file', new File(input.file.uri));
+  await apiRequest(`/api/v1/import-jobs/${job.id}/file`, {
+    method: 'POST',
+    rawBody: form,
+    idempotencyKey: idempotencyKey ? `${idempotencyKey}-file` : undefined,
+  });
   await apiRequest(`/api/v1/import-jobs/${job.id}/parse`, {
     method: 'POST',
     body: { persistQuestions: true },

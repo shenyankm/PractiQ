@@ -1,4 +1,3 @@
-import { useSQLiteContext } from 'expo-sqlite';
 import {
   createContext,
   useCallback,
@@ -10,8 +9,8 @@ import {
   type PropsWithChildren,
 } from 'react';
 
-import { writeTransaction } from './database';
 import { normalizeLanguage, systemLanguage, translate, type Language } from './i18n';
+import { readResource, writeResource } from './openwook/cache';
 
 interface LanguageContextValue {
   language: Language;
@@ -28,7 +27,6 @@ const LanguageContext = createContext<LanguageContextValue | null>(null);
 const LanguageActionsContext = createContext<LanguageActionsContextValue | null>(null);
 
 export function LanguageProvider({ children }: PropsWithChildren) {
-  const db = useSQLiteContext();
   const [language, setLanguageState] = useState<Language>(() => systemLanguage());
   const [languageSaving, setLanguageSaving] = useState(false);
   const languageRef = useRef<Language>(language);
@@ -42,10 +40,10 @@ export function LanguageProvider({ children }: PropsWithChildren) {
 
   const reloadLanguage = useCallback(async () => {
     const operation = ++operationRef.current;
-    const row = await db.getFirstAsync<{ value: string }>('SELECT value FROM app_settings WHERE key = ?', 'language');
+    const value = await readResource<string>('setting:language');
     if (operation !== operationRef.current) return;
-    applyLanguage(row ? normalizeLanguage(row.value) : systemLanguage());
-  }, [applyLanguage, db]);
+    applyLanguage(value ? normalizeLanguage(value) : systemLanguage());
+  }, [applyLanguage]);
 
   useEffect(() => {
     void reloadLanguage().catch(() => undefined);
@@ -60,11 +58,7 @@ export function LanguageProvider({ children }: PropsWithChildren) {
     setLanguageSaving(true);
     applyLanguage(nextLanguage);
     try {
-      await writeTransaction(db, ['app_settings'], (transaction) => transaction.runAsync(
-        `INSERT INTO app_settings(key, value, updated_at) VALUES ('language', ?, CURRENT_TIMESTAMP)
-         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP`,
-        nextLanguage,
-      ));
+      await writeResource('setting:language', nextLanguage);
     } catch (error) {
       if (operation === operationRef.current) applyLanguage(previousLanguage);
       throw error;
@@ -72,7 +66,7 @@ export function LanguageProvider({ children }: PropsWithChildren) {
       savingRef.current = false;
       setLanguageSaving(false);
     }
-  }, [applyLanguage, db]);
+  }, [applyLanguage]);
 
   const tr = useCallback(
     (english: string, simplifiedChinese: string) => translate(language, english, simplifiedChinese),
