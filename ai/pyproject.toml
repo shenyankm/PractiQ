@@ -8,7 +8,6 @@ dependencies = [
   "uvicorn==0.51.0",
   "pydantic==2.13.4",
   "mammoth==1.12.0",
-  "httpx==0.28.1",
   "agentscope==2.0.5",
   "pypdf==6.14.2",
   "pypdfium2==5.12.1",
@@ -17,7 +16,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest==9.1.1"]
+dev = ["pytest==9.1.1", "httpx==0.28.1"]
 
 [build-system]
 requires = ["hatchling>=1.27"]

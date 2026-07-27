@@ -40,7 +40,7 @@ def document_request() -> dict[str, Any]:
             },
             AnswerGenerationResult,
         ),
-        ('/internal/ai/learning-report', {'userId': 7}, LearningReportResult),
+        ('/internal/ai/learning-report', {'userId': 7, 'stats': {'answers': 3}}, LearningReportResult),
     ),
 )
 def test_json_route_requires_auth_and_returns_its_contract(

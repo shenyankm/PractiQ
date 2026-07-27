@@ -151,6 +151,7 @@ class LearningReportRequest(StrictModel):
     bankId: int | None = None
     practiceSessionId: int | None = None
     scope: ReportScope = 'individual'
+    stats: dict[str, Any] | None = None
 
 
 class AnswerGenerationResult(StrictModel):
