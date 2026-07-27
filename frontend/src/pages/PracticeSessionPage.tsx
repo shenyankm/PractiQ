@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Alert, Button, Card, Link, Typography } from '@heroui/react';
 import { useParams } from 'react-router-dom';
 import { PageState } from '@/components/PageState';
@@ -12,6 +12,7 @@ type PracticePage = {
   questionIndex: number;
   total: number;
   answeredCount: number;
+  progress: Array<{ index: number; questionId: number; isAnswered: boolean; isCorrect: boolean | null }>;
   result?: { is_correct?: boolean | null } | null;
   previousIndex?: number | null;
   nextIndex?: number | null;
@@ -33,7 +34,19 @@ export default function PracticeSessionPage() {
   const [answer, setAnswer] = useState('');
   const [selected, setSelected] = useState<string[]>([]);
   const [error, setError] = useState('');
+  const [feedback, setFeedback] = useState('');
   const [results, setResults] = useState<PracticeResult[] | null>(null);
+
+  useEffect(() => {
+    if (!page.data.session || page.data.session.status === 'active') return;
+    const controller = new AbortController();
+    apiRequest<PracticeResult[]>(`/api/v1/practice-sessions/${sessionId}/results`, { signal: controller.signal })
+      .then(setResults)
+      .catch((reason) => {
+        if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : '无法加载练习结果');
+      });
+    return () => controller.abort();
+  }, [page.data.session, sessionId]);
 
   function payload() {
     switch (page.data.question?.answer_mode) {
@@ -47,15 +60,16 @@ export default function PracticeSessionPage() {
   async function submit() {
     if (!page.data.question) return;
     setError('');
+    setFeedback('');
     try {
-      await apiRequest(`/api/v1/practice-sessions/${sessionId}/answers`, {
+      const result = await apiRequest<{ is_correct: boolean | null }>(`/api/v1/practice-sessions/${sessionId}/answers`, {
         method: 'POST',
         json: { questionId: page.data.question.question_id, answerPayload: payload() }
       });
       setAnswer('');
       setSelected([]);
-      if (page.data.nextIndex !== null && page.data.nextIndex !== undefined) setIndex(page.data.nextIndex);
-      else await page.reload();
+      setFeedback(result.is_correct === true ? '回答正确。' : result.is_correct === false ? '回答错误，请查看解析。' : '答案已提交，考试结束后显示结果。');
+      await page.reload();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : '提交失败');
     }
@@ -68,6 +82,16 @@ export default function PracticeSessionPage() {
       setResults(await apiRequest<PracticeResult[]>(`/api/v1/practice-sessions/${sessionId}/results`));
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : '完成练习失败');
+    }
+  }
+
+  async function abandon() {
+    setError('');
+    try {
+      await apiRequest(`/api/v1/practice-sessions/${sessionId}/abandon`, { method: 'POST' });
+      window.location.assign('/dashboard');
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : '放弃练习失败');
     }
   }
 
@@ -99,6 +123,21 @@ export default function PracticeSessionPage() {
         <Card>
           <Card.Header><p>第 {page.data.questionIndex + 1} / {page.data.total} 题</p></Card.Header>
           <Card.Content className="grid gap-4">
+            <div className="flex flex-wrap gap-2" aria-label="答题进度">
+              {page.data.progress.map((item) => (
+                <Button
+                  key={item.questionId}
+                  size="sm"
+                  variant={item.index === page.data.questionIndex ? 'primary' : 'secondary'}
+                  onPress={() => {
+                    setFeedback('');
+                    setIndex(item.index);
+                  }}
+                >
+                  {item.index + 1}{item.isAnswered ? ' ✓' : ''}
+                </Button>
+              ))}
+            </div>
             <Typography.Heading level={2}>{question.stem}</Typography.Heading>
             {question.answer_mode === 'choice' ? question.options?.map((option) => (
               <label key={option.id} className="flex gap-2">
@@ -129,13 +168,21 @@ export default function PracticeSessionPage() {
                 onChange={(event) => setAnswer(event.target.value)}
               />
             )}
-            {page.data.result ? <Alert status="success"><Alert.Content><Alert.Description>本题已提交。</Alert.Description></Alert.Content></Alert> : null}
+            {feedback ? <Alert status="success"><Alert.Content><Alert.Description>{feedback}</Alert.Description></Alert.Content></Alert> : null}
+            {question.analysis ? <p>解析：{question.analysis}</p> : null}
             <div className="flex flex-wrap gap-2">
-              <Button isDisabled={page.data.previousIndex === null || page.data.previousIndex === undefined} onPress={() => setIndex(page.data.previousIndex || 0)}>上一题</Button>
-              <Button variant="primary" onPress={() => void submit()}>提交答案</Button>
+              <Button isDisabled={page.data.previousIndex === null || page.data.previousIndex === undefined} onPress={() => {
+                setFeedback('');
+                setIndex(page.data.previousIndex || 0);
+              }}>上一题</Button>
+              <Button variant="primary" isDisabled={Boolean(page.data.result)} onPress={() => void submit()}>提交答案</Button>
               {page.data.nextIndex !== null && page.data.nextIndex !== undefined
-                ? <Button onPress={() => setIndex(page.data.nextIndex!)}>下一题</Button>
+                ? <Button onPress={() => {
+                  setFeedback('');
+                  setIndex(page.data.nextIndex!);
+                }}>下一题</Button>
                 : page.data.result ? <Button onPress={() => void complete()}>完成练习</Button> : null}
+              <Button variant="danger" onPress={() => void abandon()}>放弃练习</Button>
             </div>
           </Card.Content>
         </Card>

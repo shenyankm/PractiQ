@@ -67,6 +67,7 @@ export default function BankDetailPage() {
               </Card>
             ))}
             {!items.data.length ? <p>题库中还没有题目。</p> : null}
+            {items.hasMore ? <Button isDisabled={items.loadingMore} onPress={() => void items.loadMore()}>{items.loadingMore ? '加载中…' : '加载更多题目'}</Button> : null}
           </div>
         </>
       ) : null}

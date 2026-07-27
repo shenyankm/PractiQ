@@ -35,6 +35,7 @@ export default function BanksPage() {
           </Card>
         ))}
       </div>
+      {banks.hasMore ? <Button isDisabled={banks.loadingMore} onPress={() => void banks.loadMore()}>{banks.loadingMore ? '加载中…' : '加载更多'}</Button> : null}
       {!banks.loading && !banks.data.length ? <p>没有匹配的题库。</p> : null}
     </section>
   );

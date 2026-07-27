@@ -10,7 +10,15 @@ const mocks = vi.hoisted(() => ({
   apiRequest: vi.fn()
 }));
 
-vi.mock('@/lib/api', () => ({ apiRequest: mocks.apiRequest }));
+vi.mock('@/lib/api', () => ({
+  apiRequest: mocks.apiRequest,
+  apiRequestPage: async (...args: unknown[]) => ({
+    data: await mocks.apiRequest(...args),
+    cursor: '',
+    hasMore: false,
+    limit: 0
+  })
+}));
 
 describe('Vite admin pages', () => {
   beforeEach(() => {
@@ -45,7 +53,17 @@ describe('Vite admin pages', () => {
     window.history.pushState({}, '', '/admin/users?q=alice&status=inactive&role=user');
 
     mocks.apiRequest
-      .mockResolvedValueOnce([{ id: 7, username: 'alice', email: 'alice@example.test' }])
+      .mockResolvedValueOnce([{
+        id: 7,
+        username: 'alice',
+        email: 'alice@example.test',
+        is_active: true,
+        role: 'user',
+        membership: 'free',
+        bank_count: 0,
+        import_job_count: 0,
+        practice_session_count: 0
+      }])
       .mockResolvedValueOnce({ id: 7 });
 
     render(<AdminUsersPage />);
@@ -53,7 +71,11 @@ describe('Vite admin pages', () => {
     expect(await screen.findByText('alice')).toBeTruthy();
     expect(screen.getByText('alice@example.test')).toBeTruthy();
     expect(screen.getByRole('link', { name: '返回后台' }).getAttribute('href')).toBe('/admin');
-    expect(mocks.apiRequest).toHaveBeenNthCalledWith(1, '/api/v1/admin/users?q=alice&status=inactive&role=user');
+    expect(mocks.apiRequest).toHaveBeenNthCalledWith(
+      1,
+      '/api/v1/admin/users?q=alice&status=inactive&role=user',
+      expect.objectContaining({ signal: expect.anything() })
+    );
 
     fireEvent.click(screen.getByRole('button', { name: '停用' }));
     fireEvent.click(await screen.findByRole('button', { name: '确认停用' }));
@@ -72,16 +94,32 @@ describe('Vite admin pages', () => {
 
     mocks.apiRequest
       .mockResolvedValueOnce([{ subject_id: 'math', display_name: '数学' }])
-      .mockResolvedValueOnce([{ id: 11, display_name: '一次函数' }])
-      .mockResolvedValueOnce({ id: 12 });
+      .mockResolvedValueOnce([{
+        id: 11,
+        subject_id: 'math',
+        code: 'math.functions.linear',
+        display_name: '一次函数',
+        parent_id: null
+      }])
+      .mockResolvedValueOnce({
+        id: 12,
+        subject_id: 'math',
+        code: 'math.functions.quadratic',
+        display_name: '二次函数',
+        parent_id: null
+      });
 
     render(<AdminKnowledgePointsPage />);
 
-    expect(await screen.findByText('一次函数')).toBeTruthy();
+    expect(await screen.findByText(/一次函数/)).toBeTruthy();
     expect(screen.getByRole('link', { name: '返回后台' }).getAttribute('href')).toBe('/admin');
     expect(screen.getByRole('link', { name: '用户' }).getAttribute('href')).toBe('/admin/users');
     expect(mocks.apiRequest).toHaveBeenNthCalledWith(1, '/api/v1/subjects');
-    expect(mocks.apiRequest).toHaveBeenNthCalledWith(2, '/api/v1/admin/knowledge-points?q=%E4%B8%80%E6%AC%A1%E5%87%BD%E6%95%B0&subject=math');
+    expect(mocks.apiRequest).toHaveBeenNthCalledWith(
+      2,
+      '/api/v1/admin/knowledge-points?q=%E4%B8%80%E6%AC%A1%E5%87%BD%E6%95%B0&subject=math',
+      expect.objectContaining({ signal: expect.anything() })
+    );
 
     fireEvent.change(screen.getByLabelText('编码'), { target: { value: 'math.functions.quadratic' } });
     fireEvent.change(screen.getByLabelText('名称'), { target: { value: '二次函数' } });

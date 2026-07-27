@@ -1,15 +1,16 @@
 export type AuthUser = {
   id: number;
   username: string;
-  email?: string | null;
+  email: string | null;
+  is_active: boolean;
   role: 'admin' | 'user';
-  membership: string;
+  membership: 'free' | 'plus' | 'enterprise';
 };
 
 export type Bank = {
   id: number;
   name: string;
-  description?: string | null;
+  description: string | null;
   subject: string;
   total_count: number;
   is_public: boolean;
@@ -28,15 +29,38 @@ export type BankItem = {
   stem: string;
   analysis?: string | null;
   question_status: 'draft' | 'active' | 'archived';
+  bank_link_status: 'draft' | 'active' | 'archived';
+  group_title?: string | null;
+  group_instructions?: string | null;
   options?: QuestionOption[];
+};
+
+export type BankGroup = {
+  id: number;
+  group_type_id: string;
+  title: string | null;
+  instructions: string | null;
+  content_mode: 'text_only' | 'mixed_media' | 'structured_rich' | null;
+  status: 'draft' | 'active' | 'archived';
+  sort_order: number;
+  question_count: number;
+  can_edit: boolean;
 };
 
 export type QuestionOption = {
   id: number;
   option_label: string;
   content: string;
-  is_correct: boolean;
+  is_correct?: boolean;
   sort_order: number;
+};
+
+export type QuestionType = {
+  type_id: string;
+  subject_id: string;
+  display_name: string;
+  scope: string;
+  default_answer_mode: BankItem['answer_mode'] | null;
 };
 
 export type Question = {
@@ -48,7 +72,9 @@ export type Question = {
   question_type_id: string;
   status: 'draft' | 'active' | 'archived';
   options: QuestionOption[];
-  answer_keys: Array<{ answer_payload: string; explanation_payload: string }>;
+  answer_keys?: Array<{ answer_payload: string; explanation_payload: string }>;
+  media_links: Array<{ id: number; media_id: number; media_kind: string; sort_order: number }>;
+  can_edit: boolean;
 };
 
 export type PracticeSession = {
@@ -66,14 +92,14 @@ export type PracticeSession = {
 export type ImportJob = {
   id: number;
   bank_id: number | null;
-  status: string;
+  status: 'queued' | 'processing' | 'completed' | 'failed' | 'cancelled';
   stage: string;
-  file_name?: string | null;
-  source_type?: string | null;
+  file_name: string | null;
+  source_type: string | null;
   imported_questions: number;
   total_questions: number;
-  overall_progress_percent?: number | null;
-  last_error?: string | null;
+  overall_progress_percent: number | null;
+  last_error: string | null;
   created_at: string;
 };
 

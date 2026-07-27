@@ -11,7 +11,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let active = true;
-    apiRequest<AuthUser | null>('/api/v1/auth/me').then(
+    apiRequest<AuthUser>('/api/v1/auth/me').then(
       (currentUser) => {
         if (active) setUser(currentUser);
       },

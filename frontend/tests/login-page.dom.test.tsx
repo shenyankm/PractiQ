@@ -113,7 +113,7 @@ describe('LoginPage', () => {
 
   it('shows backend validation errors', async () => {
     mocks.apiRequest.mockRejectedValueOnce(
-      new ApiClientError('Invalid request', [{ field: 'email', message: '请输入有效的邮箱地址。' }])
+      new ApiClientError('Invalid request', 422, 'VALIDATION_ERROR', [{ field: 'email', message: '请输入有效的邮箱地址。' }])
     );
 
     submitRegistration();

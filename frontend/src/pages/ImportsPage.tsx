@@ -48,6 +48,7 @@ export default function ImportsPage() {
               <option value="">请选择</option>
               {banks.data.map((bank) => <option key={bank.id} value={bank.id}>{bank.name}</option>)}
             </select>
+            {banks.hasMore ? <Button type="button" variant="secondary" isDisabled={banks.loadingMore} onPress={() => void banks.loadMore()}>加载更多题库</Button> : null}
             <Label htmlFor="import-file">TXT、DOCX、PDF 或 XLSX</Label>
             <input id="import-file" required type="file" accept=".txt,.docx,.pdf,.xlsx" onChange={(event) => setFile(event.target.files?.[0] || null)} />
             <Button type="submit" variant="primary" isDisabled={pending || !file || !bankId}>{pending ? '上传中…' : '上传并解析'}</Button>
@@ -67,6 +68,7 @@ export default function ImportsPage() {
           </Card>
         ))}
         {!jobs.loading && !jobs.data.length ? <p>还没有导入任务。</p> : null}
+        {jobs.hasMore ? <Button isDisabled={jobs.loadingMore} onPress={() => void jobs.loadMore()}>{jobs.loadingMore ? '加载中…' : '加载更多任务'}</Button> : null}
       </div>
     </section>
   );

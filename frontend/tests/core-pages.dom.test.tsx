@@ -6,7 +6,15 @@ import BanksPage from '@/pages/BanksPage';
 
 const mocks = vi.hoisted(() => ({ apiRequest: vi.fn() }));
 
-vi.mock('@/lib/api', () => ({ apiRequest: mocks.apiRequest }));
+vi.mock('@/lib/api', () => ({
+  apiRequest: mocks.apiRequest,
+  apiRequestPage: async (...args: unknown[]) => ({
+    data: await mocks.apiRequest(...args),
+    cursor: '',
+    hasMore: false,
+    limit: 0
+  })
+}));
 
 beforeEach(() => {
   mocks.apiRequest.mockReset();

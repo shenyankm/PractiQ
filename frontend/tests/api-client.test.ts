@@ -51,8 +51,10 @@ describe('apiRequest', () => {
       jsonResponse(
         {
           error: {
+            code: 'VALIDATION_ERROR',
             message: 'Invalid request',
-            details: [{ field: 'email', message: 'Required' }]
+            details: [{ field: 'email', message: 'Required' }],
+            requestId: 'req-1'
           }
         },
         422
@@ -71,7 +73,18 @@ describe('apiRequest', () => {
     expect(error).toBeInstanceOf(ApiClientError);
     expect(error).toMatchObject({
       message: 'Invalid request',
-      details: [{ field: 'email', message: 'Required' }]
+      status: 422,
+      code: 'VALIDATION_ERROR',
+      details: [{ field: 'email', message: 'Required' }],
+      requestId: 'req-1'
+    });
+  });
+
+  it('rejects malformed success envelopes', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ ok: true }));
+    await expect(apiRequest('/api/v1/subjects')).rejects.toMatchObject({
+      status: 200,
+      code: 'INVALID_RESPONSE'
     });
   });
 });

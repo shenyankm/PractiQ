@@ -19,7 +19,7 @@ export default function ImportDetailPage() {
   const reloadOutputs = outputs.reload;
 
   useEffect(() => {
-    if (!job.data.status || ['completed', 'failed'].includes(job.data.status)) return;
+    if (!job.data.status || ['completed', 'failed', 'cancelled'].includes(job.data.status)) return;
     const timer = window.setInterval(() => {
       void reloadJob();
       void reloadEvents();
