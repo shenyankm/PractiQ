@@ -6,6 +6,17 @@ import LoginPage from '@/pages/LoginPage';
 import AdminPage from '@/pages/AdminPage';
 import AdminKnowledgePointsPage from '@/pages/AdminKnowledgePointsPage';
 import AdminUsersPage from '@/pages/AdminUsersPage';
+import DashboardPage from '@/pages/DashboardPage';
+import BanksPage from '@/pages/BanksPage';
+import NewBankPage from '@/pages/NewBankPage';
+import BankDetailPage from '@/pages/BankDetailPage';
+import ManageBankPage from '@/pages/ManageBankPage';
+import PracticeSetupPage from '@/pages/PracticeSetupPage';
+import PracticeSessionPage from '@/pages/PracticeSessionPage';
+import ImportsPage from '@/pages/ImportsPage';
+import ImportDetailPage from '@/pages/ImportDetailPage';
+import QuestionPage from '@/pages/QuestionPage';
+import SettingsPage from '@/pages/SettingsPage';
 
 function ProtectedLayout() {
   const user = useAuth();
@@ -37,17 +48,17 @@ export function AppRouter() {
     {
       element: <ProtectedLayout />,
       children: [
-        { path: '/dashboard', element: <Page title="Dashboard page" /> },
-        { path: '/banks', element: <Page title="Banks page" /> },
-        { path: '/banks/new', element: <Page title="New bank page" /> },
-        { path: '/banks/:bankId', element: <Page title="Bank detail page" /> },
-        { path: '/banks/:bankId/manage', element: <Page title="Bank manage page" /> },
-        { path: '/banks/:bankId/practice', element: <Page title="Practice setup page" /> },
-        { path: '/practice/:sessionId', element: <Page title="Practice session page" /> },
-        { path: '/imports', element: <Page title="Imports page" /> },
-        { path: '/imports/:jobId', element: <Page title="Import detail page" /> },
-        { path: '/questions/:questionId', element: <Page title="Question detail page" /> },
-        { path: '/settings', element: <Page title="Settings page" /> },
+        { path: '/dashboard', element: <DashboardPage /> },
+        { path: '/banks', element: <BanksPage /> },
+        { path: '/banks/new', element: <NewBankPage /> },
+        { path: '/banks/:bankId', element: <BankDetailPage /> },
+        { path: '/banks/:bankId/manage', element: <ManageBankPage /> },
+        { path: '/banks/:bankId/practice', element: <PracticeSetupPage /> },
+        { path: '/practice/:sessionId', element: <PracticeSessionPage /> },
+        { path: '/imports', element: <ImportsPage /> },
+        { path: '/imports/:jobId', element: <ImportDetailPage /> },
+        { path: '/questions/:questionId', element: <QuestionPage /> },
+        { path: '/settings', element: <SettingsPage /> },
         {
           element: <AdminOnly />,
           children: [

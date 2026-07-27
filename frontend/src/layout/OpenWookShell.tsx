@@ -19,10 +19,11 @@ export function OpenWookShell({ children, user }: { children: ReactNode; user: A
   const visibleNav = navItems.filter((item) => !item.adminOnly || user.role === 'admin');
 
   return (
-    <div>
-      <header>
-        <nav>
-          <Link href="/dashboard">OpenWook</Link>
+    <div className="min-h-screen bg-background">
+      <header className="sticky top-0 z-20 border-b bg-background/95 px-4 py-3 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
+        <nav className="flex flex-wrap items-center gap-4">
+          <Link className="font-semibold" href="/dashboard">OpenWook</Link>
           {visibleNav.map((item) => (
             <Link key={item.href} href={item.href} aria-current={pathname === item.href || pathname.startsWith(item.href + '/') ? 'page' : undefined}>
               {item.label}
@@ -44,8 +45,9 @@ export function OpenWookShell({ children, user }: { children: ReactNode; user: A
         >
           退出
         </Button>
+        </div>
       </header>
-      <main>{children}</main>
+      <main className="mx-auto max-w-7xl p-4 sm:p-6 lg:p-8">{children}</main>
     </div>
   );
 }

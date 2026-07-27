@@ -7,13 +7,19 @@ export class ApiClientError extends Error {
 type ApiRequestOptions = {
   method?: string;
   json?: unknown;
+  body?: BodyInit;
+  headers?: HeadersInit;
+  signal?: AbortSignal;
 };
 
 export async function apiRequest<T>(url: string, options: ApiRequestOptions = {}): Promise<T> {
   const response = await fetch(url, {
     method: options.method,
-    headers: options.json === undefined ? undefined : { 'Content-Type': 'application/json' },
-    body: options.json === undefined ? undefined : JSON.stringify(options.json)
+    headers: options.json === undefined
+      ? options.headers
+      : { ...options.headers, 'Content-Type': 'application/json' },
+    body: options.json === undefined ? options.body : JSON.stringify(options.json),
+    signal: options.signal
   });
 
   const payload = await response.json().catch(() => null);

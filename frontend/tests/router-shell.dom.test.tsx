@@ -29,6 +29,7 @@ vi.mock('@/pages/LoginPage', () => ({ default: stubPage('Login page') }));
 vi.mock('@/pages/AdminPage', () => ({ default: stubPage('Admin page') }));
 vi.mock('@/pages/AdminKnowledgePointsPage', () => ({ default: stubPage('Admin knowledge points page') }));
 vi.mock('@/pages/AdminUsersPage', () => ({ default: stubPage('Admin users page') }));
+vi.mock('@/pages/DashboardPage', () => ({ default: stubPage('学习概览') }));
 
 import { AppRouter } from '@/routes';
 
@@ -60,7 +61,7 @@ describe('Vite React router and shell', () => {
 
     renderAt('/');
 
-    await screen.findByRole('heading', { name: 'Dashboard page' });
+    await screen.findByRole('heading', { name: '学习概览' });
     await waitFor(() => expect(window.location.pathname).toBe('/dashboard'));
   });
 
@@ -94,7 +95,7 @@ describe('Vite React router and shell', () => {
 
     renderAt('/dashboard');
 
-    await screen.findByRole('heading', { name: 'Dashboard page' });
+    await screen.findByRole('heading', { name: '学习概览' });
 
     const hrefs = screen.getAllByRole('link').map((link) => link.getAttribute('href'));
     expect(hrefs).toEqual(expect.arrayContaining(['/dashboard', '/banks', '/imports', '/settings']));
@@ -106,7 +107,7 @@ describe('Vite React router and shell', () => {
 
     renderAt('/dashboard');
 
-    await screen.findByRole('heading', { name: 'Dashboard page' });
+    await screen.findByRole('heading', { name: '学习概览' });
 
     const hrefs = screen.getAllByRole('link').map((link) => link.getAttribute('href'));
     expect(hrefs).toContain('/admin');

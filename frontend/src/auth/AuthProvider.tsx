@@ -1,9 +1,8 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { apiRequest } from '@/lib/api';
+import type { AuthUser } from '@/lib/types';
 
-export type AuthUser = {
-  role: 'admin' | 'user';
-};
+export type { AuthUser } from '@/lib/types';
 
 const AuthContext = createContext<AuthUser | null | undefined>(undefined);
 
