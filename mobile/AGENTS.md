@@ -10,10 +10,10 @@
 ## Application Boundaries
 
 - Preserve `index.ts` import order: `src/polyfills` must load before `expo-router/entry`.
-- Expo Router routes and startup live in `app/`; OpenWook mobile behavior lives in `src/openwook/`.
-- PostgreSQL through the OpenWook REST API is authoritative. `openwook-cache.db` contains only cached responses and the mutation outbox.
+- Expo Router routes and startup live in `app/`; PractiQ mobile behavior lives in `src/practiq/`.
+- PostgreSQL through the PractiQ REST API is authoritative. `practiq-cache.db` contains only cached responses and the mutation outbox.
 - Route replayable writes through `mutateOrQueue`; keep outbox replay sequential and preserve its `Idempotency-Key`.
-- The retained PractiQ database is not uploaded or migrated into OpenWook automatically.
+- The retained PractiQ database is not uploaded or migrated into PractiQ automatically.
 - Use HeroUI Native and keep `global.css`, `metro.config.js`, and the root provider aligned.
 
 ## Security and Native Builds

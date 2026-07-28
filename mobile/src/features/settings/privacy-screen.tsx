@@ -14,8 +14,8 @@ export default function PrivacyPage() {
       <Card className="gap-3">
         <Card.Title>{tr('Cloud data', '云端数据')}</Card.Title>
         <Typography>{tr(
-          'Your OpenWook account, banks, questions, imports, practice answers, and learning statistics are stored by the OpenWook service. PostgreSQL is the authoritative copy so the same data is available on mobile and Web.',
-          '你的 OpenWook 账号、题库、试题、导入任务、练习答案和学习统计由 OpenWook 服务保存。PostgreSQL 是权威副本，因此移动端和 Web 端可以访问同一份数据。',
+          'Your PractiQ account, banks, questions, imports, practice answers, and learning statistics are stored by the PractiQ service. PostgreSQL is the authoritative copy so the same data is available on mobile and Web.',
+          '你的 PractiQ 账号、题库、试题、导入任务、练习答案和学习统计由 PractiQ 服务保存。PostgreSQL 是权威副本，因此移动端和 Web 端可以访问同一份数据。',
         )}</Typography>
       </Card>
       <Card className="gap-3">
@@ -39,8 +39,8 @@ export default function PrivacyPage() {
       <Card className="gap-3">
         <Card.Title>{tr('Tracking and control', '跟踪与控制')}</Card.Title>
         <Typography>{tr(
-          'PractiQ contains no advertising or third-party analytics SDK. You can sign out to remove the local token and cache; server-side deletion requests are handled through the OpenWook service operator.',
-          'PractiQ 不包含广告或第三方分析 SDK。你可以退出登录以移除本地令牌和缓存；云端数据删除请求由 OpenWook 服务运营方处理。',
+          'PractiQ contains no advertising or third-party analytics SDK. You can sign out to remove the local token and cache; server-side deletion requests are handled through the PractiQ service operator.',
+          'PractiQ 不包含广告或第三方分析 SDK。你可以退出登录以移除本地令牌和缓存；云端数据删除请求由 PractiQ 服务运营方处理。',
         )}</Typography>
       </Card>
     </ScreenState>

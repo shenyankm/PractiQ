@@ -1,7 +1,7 @@
 import * as SQLite from 'expo-sqlite';
 import { Directory, Paths } from 'expo-file-system';
 
-const CACHE_DATABASE = 'openwook-cache.db';
+const CACHE_DATABASE = 'practiq-cache.db';
 let databasePromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
 export type QueuedMutation = {

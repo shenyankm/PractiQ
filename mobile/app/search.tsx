@@ -1,1 +1,1 @@
-export { SearchScreen as default } from '@/openwook/screens';
+export { SearchScreen as default } from '@/practiq/screens';

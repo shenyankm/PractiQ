@@ -6,7 +6,7 @@ import { LanguageProvider, useLanguage } from './language';
 
 const mockReadResource = jest.fn();
 
-jest.mock('./openwook/cache', () => ({
+jest.mock('./practiq/cache', () => ({
   readResource: (...args: unknown[]) => mockReadResource(...args),
   writeResource: jest.fn(),
 }));

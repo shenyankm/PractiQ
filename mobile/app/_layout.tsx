@@ -19,7 +19,7 @@ import { useUniwind } from 'uniwind';
 
 import { LanguageProvider, useLanguage } from '@/language';
 import { CONTENT_MAX_WIDTH } from '@/layout';
-import { CloudAuthProvider, useCloudAuth } from '@/openwook/auth';
+import { CloudAuthProvider, useCloudAuth } from '@/practiq/auth';
 
 export const unstable_settings = { initialRouteName: '(tabs)' };
 

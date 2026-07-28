@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { shouldFailPermanently, shouldQueueAfterFailure } from './openwook/sync-policy';
+import { shouldFailPermanently, shouldQueueAfterFailure } from './practiq/sync-policy';
 
 test('sync retries offline, conflicts, and server failures but parks invalid writes', () => {
   assert.equal(shouldFailPermanently(0), false);

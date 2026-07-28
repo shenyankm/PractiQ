@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { validateQuestion } from './logic';
 import type { ParsedQuestion, QuestionType } from './types';
 
-// PractiQ cloud (openwook) API. All AI processing happens server-side; the app
+// PractiQ cloud (practiq) API. All AI processing happens server-side; the app
 // only sends plain HTTPS requests and renders the results.
 export const CLOUD_API_URL =
   process.env.EXPO_PUBLIC_API_URL?.replace(/\/+$/, '') || 'https://api.practiq.app';

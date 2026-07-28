@@ -1,6 +1,6 @@
 # PractiQ Mobile
 
-PractiQ 是 OpenWook 的 Expo SDK 57 移动端，保留原有品牌与原生包标识，支持 Android、iPhone 和 iPad。PostgreSQL/OpenWook REST API 是权威数据源；SQLite 保存离线缓存和待同步操作。
+PractiQ 是 PractiQ 的 Expo SDK 57 移动端，保留原有品牌与原生包标识，支持 Android、iPhone 和 iPad。PostgreSQL/PractiQ REST API 是权威数据源；SQLite 保存离线缓存和待同步操作。
 
 ## 功能
 
@@ -11,7 +11,7 @@ PractiQ 是 OpenWook 的 Expo SDK 57 移动端，保留原有品牌与原生包�
 - 缓存优先读取、顺序重放待同步操作、服务端幂等去重
 - English 与简体中文界面
 
-管理员功能只在 OpenWook Web 端提供。
+管理员功能只在 PractiQ Web 端提供。
 
 ## 本地开发
 
@@ -42,10 +42,10 @@ npm start
 
 ```text
 app/                  Expo Router 薄路由与根布局
-src/openwook/         REST 客户端、认证、缓存、同步队列和云端页面
+src/practiq/         REST 客户端、认证、缓存、同步队列和云端页面
 src/features/         从 PractiQ 保留的领域模块
 src/database/         保留的本地数据库与迁移
 assets/               PractiQ 品牌和应用商店资源
 ```
 
-旧 PractiQ 本地题库不会自动上传或迁移；新移动端只同步用户在 OpenWook 账户下创建或读取的数据。会话令牌仅保存在 Expo Secure Store，不写入 SQLite、备份或日志。
+旧 PractiQ 本地题库不会自动上传或迁移；新移动端只同步用户在 PractiQ 账户下创建或读取的数据。会话令牌仅保存在 Expo Secure Store，不写入 SQLite、备份或日志。

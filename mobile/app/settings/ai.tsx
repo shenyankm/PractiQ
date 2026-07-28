@@ -1,1 +1,1 @@
-export { SettingsScreen as default } from '@/openwook/screens';
+export { SettingsScreen as default } from '@/practiq/screens';

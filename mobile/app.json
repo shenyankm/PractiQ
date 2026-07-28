@@ -13,7 +13,7 @@
     "ios": {
       "supportsTablet": true,
       "deploymentTarget": "16.4",
-      "bundleIdentifier": "com.practiq.app",
+      "bundleIdentifier": "com.shenyankm.practiq",
       "buildNumber": "1",
       "infoPlist": {
         "NSAppTransportSecurity": {
@@ -49,7 +49,7 @@
       }
     },
     "android": {
-      "package": "com.practiq.app",
+      "package": "com.shenyankm.practiq",
       "versionCode": 1,
       "allowBackup": false,
       "blockedPermissions": [

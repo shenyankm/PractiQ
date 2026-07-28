@@ -1,1 +1,1 @@
-export { QuestionScreen as default } from '@/openwook/screens';
+export { QuestionScreen as default } from '@/practiq/screens';

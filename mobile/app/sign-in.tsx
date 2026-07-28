@@ -1,1 +1,1 @@
-export { default } from '@/openwook/sign-in-screen';
+export { default } from '@/practiq/sign-in-screen';

@@ -1,1 +1,1 @@
-export { NewBankScreen as default } from '@/openwook/screens';
+export { NewBankScreen as default } from '@/practiq/screens';

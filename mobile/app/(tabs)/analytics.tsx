@@ -1,1 +1,1 @@
-export { AnalyticsScreen as default } from '@/openwook/screens';
+export { AnalyticsScreen as default } from '@/practiq/screens';

@@ -10,7 +10,7 @@ import {
 } from 'react';
 
 import { normalizeLanguage, systemLanguage, translate, type Language } from './i18n';
-import { readResource, writeResource } from './openwook/cache';
+import { readResource, writeResource } from './practiq/cache';
 
 interface LanguageContextValue {
   language: Language;
