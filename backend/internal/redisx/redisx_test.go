@@ -23,11 +23,11 @@ func TestRedisKeyUsesConfiguredPrefixAndSkipsNilOrEmptyParts(t *testing.T) {
 	}
 }
 
-func TestRedisKeyFallsBackToOpenWookPrefix(t *testing.T) {
+func TestRedisKeyFallsBackToPractiQPrefix(t *testing.T) {
 	t.Setenv("REDIS_KEY_PREFIX", "")
 
 	got := RedisKey("", nil, "session", "revoked", "jti-123")
-	want := "openwook:session:revoked:jti-123"
+	want := "practiq:session:revoked:jti-123"
 
 	if got != want {
 		t.Fatalf("RedisKey(...) = %q, want %q", got, want)
@@ -35,9 +35,9 @@ func TestRedisKeyFallsBackToOpenWookPrefix(t *testing.T) {
 }
 
 func TestImportEventChannelMatchesExistingShape(t *testing.T) {
-	t.Setenv("REDIS_KEY_PREFIX", "openwook")
+	t.Setenv("REDIS_KEY_PREFIX", "practiq")
 
-	if got, want := ImportEventChannel(123), "openwook:import:123:events"; got != want {
+	if got, want := ImportEventChannel(123), "practiq:import:123:events"; got != want {
 		t.Fatalf("ImportEventChannel(123) = %q, want %q", got, want)
 	}
 }

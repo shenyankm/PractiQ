@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"openwook/internal/auth"
+	"practiq/internal/auth"
 )
 
 type ServerConfig struct {

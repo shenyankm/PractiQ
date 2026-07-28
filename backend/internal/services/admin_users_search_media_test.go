@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5"
-	"openwook/internal/api"
-	"openwook/internal/auth"
+	"practiq/internal/api"
+	"practiq/internal/auth"
 )
 
 func TestSetUserStatusRejectsSelfDisable(t *testing.T) {

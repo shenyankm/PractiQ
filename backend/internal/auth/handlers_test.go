@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/alicebob/miniredis/v2"
-	"openwook/internal/api"
+	"practiq/internal/api"
 )
 
 func TestRegisterCreatesUserSetsSessionCookieAndReturnsCreatedEnvelope(t *testing.T) {

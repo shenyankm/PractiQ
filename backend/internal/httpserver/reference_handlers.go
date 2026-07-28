@@ -5,8 +5,8 @@ import (
 	"strconv"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"openwook/internal/api"
-	"openwook/internal/services"
+	"practiq/internal/api"
+	"practiq/internal/services"
 )
 
 const publicCacheControl = "public, max-age=0, s-maxage=300, stale-while-revalidate=60"

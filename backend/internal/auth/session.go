@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"openwook/internal/config"
+	"practiq/internal/config"
 )
 
 type SessionUser struct {

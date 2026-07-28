@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"openwook/internal/auth"
+	"practiq/internal/auth"
 )
 
 func BuildAuthHandlers(pool *pgxpool.Pool) AuthHandlers {

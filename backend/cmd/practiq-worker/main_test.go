@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"openwook/internal/aiclient"
+	"practiq/internal/aiclient"
 )
 
 func TestWorkerRunRequiresPostgresAndAIClient(t *testing.T) {

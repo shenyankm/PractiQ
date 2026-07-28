@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 
-	"openwook/internal/api"
-	"openwook/internal/auth"
+	"practiq/internal/api"
+	"practiq/internal/auth"
 )
 
 type SearchQuestion struct {

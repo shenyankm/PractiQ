@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"openwook/internal/auth"
+	"practiq/internal/auth"
 )
 
 func TestBuildPracticeAnalyticsAndSearchHandlersKeepErrorEnvelope(t *testing.T) {

@@ -7,11 +7,11 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"openwook/internal/aiclient"
-	"openwook/internal/auth"
-	importqueue "openwook/internal/imports"
-	"openwook/internal/redisx"
-	"openwook/internal/services"
+	"practiq/internal/aiclient"
+	"practiq/internal/auth"
+	importqueue "practiq/internal/imports"
+	"practiq/internal/redisx"
+	"practiq/internal/services"
 )
 
 type importJobRecord struct {

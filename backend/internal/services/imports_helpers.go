@@ -4,8 +4,8 @@ import (
 	"encoding/base64"
 	"strings"
 
-	"openwook/internal/api"
-	"openwook/internal/auth"
+	"practiq/internal/api"
+	"practiq/internal/auth"
 )
 
 type storedImportSource struct {

@@ -11,11 +11,11 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"openwook/internal/aiclient"
-	"openwook/internal/config"
-	"openwook/internal/db"
-	importqueue "openwook/internal/imports"
-	"openwook/internal/services"
+	"practiq/internal/aiclient"
+	"practiq/internal/config"
+	"practiq/internal/db"
+	importqueue "practiq/internal/imports"
+	"practiq/internal/services"
 )
 
 type workerApp struct {

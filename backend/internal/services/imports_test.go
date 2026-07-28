@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"openwook/internal/api"
-	"openwook/internal/auth"
+	"practiq/internal/api"
+	"practiq/internal/auth"
 )
 
 func TestInsertSourceArtifactSQLRejectsDuplicatesWithoutReplacingThem(t *testing.T) {
@@ -41,10 +41,10 @@ func TestExtractSourceTypeFromArtifactPrefersContentThenFallsBackToPath(t *testi
 		content     map[string]any
 		want        string
 	}{
-		{name: "explicit source type wins", storagePath: "oss://openwook/questions.docx", content: map[string]any{"sourceType": "txt"}, want: "txt"},
+		{name: "explicit source type wins", storagePath: "oss://practiq/questions.docx", content: map[string]any{"sourceType": "txt"}, want: "txt"},
 		{name: "original name docx", content: map[string]any{"originalName": "source.docx"}, want: "docx"},
-		{name: "storage path txt", storagePath: "oss://openwook/questions.txt", want: "txt"},
-		{name: "unknown when neither hints match", storagePath: "oss://openwook/questions.bin", want: ""},
+		{name: "storage path txt", storagePath: "oss://practiq/questions.txt", want: "txt"},
+		{name: "unknown when neither hints match", storagePath: "oss://practiq/questions.bin", want: ""},
 	}
 
 	for _, tt := range tests {
@@ -168,7 +168,7 @@ func TestImportJobActionValidationRejectsUnsafeTransitions(t *testing.T) {
 func TestBuildImportSourceArtifactContentStripsUTF8BOMForTXT(t *testing.T) {
 	stored := storedImportSource{
 		RelativePath: "imports/7/11/source.txt",
-		ObjectURL:    "oss://openwook/imports/7/11/source.txt",
+		ObjectURL:    "oss://practiq/imports/7/11/source.txt",
 		OriginalName: "source.txt",
 		MimeType:     "text/plain",
 		SizeBytes:    26,
@@ -194,7 +194,7 @@ func TestBuildImportSourceArtifactContentStoresDOCXBase64(t *testing.T) {
 	payload := []byte("PK\x03\x04docx")
 	got := buildImportSourceArtifactContent(storedImportSource{
 		RelativePath: "imports/7/11/source.docx",
-		ObjectURL:    "oss://openwook/imports/7/11/source.docx",
+		ObjectURL:    "oss://practiq/imports/7/11/source.docx",
 		OriginalName: "source.docx",
 		MimeType:     docxMimeType,
 		SizeBytes:    int64(len(payload)),

@@ -14,13 +14,13 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"openwook/internal/api"
-	"openwook/internal/auth"
+	"practiq/internal/api"
+	"practiq/internal/auth"
 )
 
 const (
 	defaultObjectStorageMountDir = "/lhcos-data"
-	defaultObjectStoragePrefix   = "oss://openwook"
+	defaultObjectStoragePrefix   = "oss://practiq"
 	importSourceMaxBytes         = 25 * 1024 * 1024
 	docxMimeType                 = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 )

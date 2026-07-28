@@ -5,9 +5,9 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"openwook/internal/api"
-	"openwook/internal/auth"
-	"openwook/internal/services"
+	"practiq/internal/api"
+	"practiq/internal/auth"
+	"practiq/internal/services"
 )
 
 func BuildSearchHandlers(pool *pgxpool.Pool, resolve auth.CurrentUserResolver) SearchHandlers {

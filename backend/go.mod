@@ -1,4 +1,4 @@
-module openwook
+module practiq
 
 go 1.26
 

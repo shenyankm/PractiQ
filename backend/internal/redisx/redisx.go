@@ -9,7 +9,7 @@ import (
 func RedisKey(parts ...any) string {
 	prefix := os.Getenv("REDIS_KEY_PREFIX")
 	if strings.TrimSpace(prefix) == "" {
-		prefix = "openwook"
+		prefix = "practiq"
 	}
 	values := []string{prefix}
 	for _, part := range parts {

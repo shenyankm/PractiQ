@@ -1,7 +1,7 @@
 [project]
-name = "openwook-ai"
+name = "practiq-ai"
 version = "0.1.0"
-description = "OpenWook internal AI service"
+description = "PractiQ internal AI service"
 requires-python = ">=3.14"
 dependencies = [
   "fastapi==0.139.0",

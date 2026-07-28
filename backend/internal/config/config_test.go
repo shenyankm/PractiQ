@@ -11,7 +11,7 @@ import (
 
 func TestLoadAppliesDotenvPrecedenceEnvLocalThenEnvThenProcessEnv(t *testing.T) {
 	resetConfigEnv(t)
-	t.Setenv("POSTGRES_URL", "postgres://process:process@localhost:5432/openwook_test")
+	t.Setenv("POSTGRES_URL", "postgres://process:process@localhost:5432/practiq_test")
 	t.Setenv("PORT", "4011")
 	t.Setenv("AUTH_SECRET", "test-auth-secret")
 	t.Setenv("AI_SERVICE_TOKEN", "test-ai-token")
@@ -19,7 +19,7 @@ func TestLoadAppliesDotenvPrecedenceEnvLocalThenEnvThenProcessEnv(t *testing.T) 
 	dir := t.TempDir()
 	t.Chdir(dir)
 	writeFile(t, dir, ".env", strings.Join([]string{
-		"OPENWOOK_HOST=env-host",
+		"PRACTIQ_HOST=env-host",
 		"AI_SERVICE_URL=http://env-file:8001",
 		"APP_ORIGIN=http://env-origin:3000",
 	}, "\n")+"\n")
@@ -35,8 +35,8 @@ func TestLoadAppliesDotenvPrecedenceEnvLocalThenEnvThenProcessEnv(t *testing.T) 
 	if cfg.AIServiceURL != "http://env-local:8001" {
 		t.Fatalf("AIServiceURL = %q, want %q", cfg.AIServiceURL, "http://env-local:8001")
 	}
-	if cfg.OpenWookHost != "env-host" {
-		t.Fatalf("OpenWookHost = %q, want %q", cfg.OpenWookHost, "env-host")
+	if cfg.PractiQHost != "env-host" {
+		t.Fatalf("PractiQHost = %q, want %q", cfg.PractiQHost, "env-host")
 	}
 	if cfg.AppOrigin != "http://env-origin:3000" {
 		t.Fatalf("AppOrigin = %q, want %q", cfg.AppOrigin, "http://env-origin:3000")
@@ -48,7 +48,7 @@ func TestLoadAppliesDotenvPrecedenceEnvLocalThenEnvThenProcessEnv(t *testing.T) 
 
 func TestLoadUsesDefaultsForNewVariablesAndAllowsLocalDevelopmentWithoutAIToken(t *testing.T) {
 	resetConfigEnv(t)
-	t.Setenv("POSTGRES_URL", "postgres://process:process@localhost:5432/openwook_test")
+	t.Setenv("POSTGRES_URL", "postgres://process:process@localhost:5432/practiq_test")
 	t.Setenv("NODE_ENV", "development")
 	t.Setenv("AUTH_SECRET", "test-auth-secret")
 
@@ -63,8 +63,8 @@ func TestLoadUsesDefaultsForNewVariablesAndAllowsLocalDevelopmentWithoutAIToken(
 	if cfg.AIServiceURL != "http://127.0.0.1:8001" {
 		t.Fatalf("AIServiceURL = %q, want %q", cfg.AIServiceURL, "http://127.0.0.1:8001")
 	}
-	if cfg.OpenWookHost != "127.0.0.1" {
-		t.Fatalf("OpenWookHost = %q, want %q", cfg.OpenWookHost, "127.0.0.1")
+	if cfg.PractiQHost != "127.0.0.1" {
+		t.Fatalf("PractiQHost = %q, want %q", cfg.PractiQHost, "127.0.0.1")
 	}
 	if got := fmt.Sprint(cfg.Port); got != "8080" {
 		t.Fatalf("Port = %s, want %s", got, "8080")
@@ -79,7 +79,7 @@ func TestLoadUsesDefaultsForNewVariablesAndAllowsLocalDevelopmentWithoutAIToken(
 
 func TestLoadParsesAIServiceTimeout(t *testing.T) {
 	resetConfigEnv(t)
-	t.Setenv("POSTGRES_URL", "postgres://process:process@localhost:5432/openwook_test")
+	t.Setenv("POSTGRES_URL", "postgres://process:process@localhost:5432/practiq_test")
 	t.Setenv("AUTH_SECRET", "test-auth-secret")
 	t.Setenv("AI_SERVICE_TIMEOUT", "30m")
 
@@ -114,7 +114,7 @@ func TestLoadRequiresAIServiceTokenOutsideLocalDevelopment(t *testing.T) {
 		{
 			name:         "production",
 			nodeEnv:      "production",
-			aiServiceURL: "http://openwook-ai:8001",
+			aiServiceURL: "http://practiq-ai:8001",
 		},
 		{
 			name:         "development remote service",
@@ -126,7 +126,7 @@ func TestLoadRequiresAIServiceTokenOutsideLocalDevelopment(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			resetConfigEnv(t)
-			t.Setenv("POSTGRES_URL", "postgres://process:process@localhost:5432/openwook_test")
+			t.Setenv("POSTGRES_URL", "postgres://process:process@localhost:5432/practiq_test")
 			t.Setenv("NODE_ENV", tt.nodeEnv)
 			t.Setenv("AI_SERVICE_URL", tt.aiServiceURL)
 			t.Setenv("AUTH_SECRET", "test-auth-secret")
@@ -147,9 +147,9 @@ func TestLoadRequiresAIServiceTokenOutsideLocalDevelopment(t *testing.T) {
 
 func TestLoadFindsRootDotenvSyncsProcessEnvironmentAndKeepsProcessOverrides(t *testing.T) {
 	resetConfigEnv(t)
-	t.Setenv("POSTGRES_URL", "postgres://process:process@localhost:5432/openwook_test")
+	t.Setenv("POSTGRES_URL", "postgres://process:process@localhost:5432/practiq_test")
 
-	root := filepath.Join(t.TempDir(), "openwook")
+	root := filepath.Join(t.TempDir(), "practiq")
 	backendDir := filepath.Join(root, "backend")
 	if err := os.MkdirAll(backendDir, 0o755); err != nil {
 		t.Fatalf("MkdirAll(%q) returned error: %v", backendDir, err)
@@ -158,7 +158,7 @@ func TestLoadFindsRootDotenvSyncsProcessEnvironmentAndKeepsProcessOverrides(t *t
 		t.Fatalf("Mkdir(%q) returned error: %v", filepath.Join(root, ".git"), err)
 	}
 	writeFile(t, root, ".env.local", strings.Join([]string{
-		"POSTGRES_URL=postgres://dotenv:dotenv@localhost:5432/openwook",
+		"POSTGRES_URL=postgres://dotenv:dotenv@localhost:5432/practiq",
 		"REDIS_URL=redis://127.0.0.1:6379/0",
 		"AUTH_SECRET=dotenv-auth-secret",
 		"SESSION_TTL_MS=120000",
@@ -175,7 +175,7 @@ func TestLoadFindsRootDotenvSyncsProcessEnvironmentAndKeepsProcessOverrides(t *t
 		t.Fatalf("Port = %d, want root dotenv value 8099", cfg.Port)
 	}
 	for key, want := range map[string]string{
-		"POSTGRES_URL":   "postgres://process:process@localhost:5432/openwook_test",
+		"POSTGRES_URL":   "postgres://process:process@localhost:5432/practiq_test",
 		"REDIS_URL":      "redis://127.0.0.1:6379/0",
 		"AUTH_SECRET":    "dotenv-auth-secret",
 		"SESSION_TTL_MS": "120000",
@@ -214,7 +214,7 @@ func resetConfigEnv(t *testing.T) {
 		"AI_SERVICE_URL",
 		"AI_SERVICE_TIMEOUT",
 		"NODE_ENV",
-		"OPENWOOK_HOST",
+		"PRACTIQ_HOST",
 		"PORT",
 		"POSTGRES_URL",
 		"REDIS_URL",

@@ -16,9 +16,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
-	"openwook/internal/api"
-	"openwook/internal/config"
-	"openwook/internal/redisx"
+	"practiq/internal/api"
+	"practiq/internal/config"
+	"practiq/internal/redisx"
 )
 
 type UpdateUserInput struct {

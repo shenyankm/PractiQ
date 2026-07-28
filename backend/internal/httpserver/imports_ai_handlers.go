@@ -12,10 +12,10 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"openwook/internal/aiclient"
-	"openwook/internal/api"
-	"openwook/internal/auth"
-	"openwook/internal/services"
+	"practiq/internal/aiclient"
+	"practiq/internal/api"
+	"practiq/internal/auth"
+	"practiq/internal/services"
 )
 
 const (

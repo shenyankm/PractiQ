@@ -10,7 +10,7 @@ import (
 
 func TestLoadConfigReadsPoolMax(t *testing.T) {
 	resetDBEnv(t)
-	t.Setenv("POSTGRES_URL", "postgres://postgres:postgres@localhost:5432/openwook_test")
+	t.Setenv("POSTGRES_URL", "postgres://postgres:postgres@localhost:5432/practiq_test")
 	t.Setenv("POSTGRES_POOL_MAX", "3")
 
 	cfg, err := LoadConfig()
@@ -25,7 +25,7 @@ func TestLoadConfigReadsPoolMax(t *testing.T) {
 
 func TestLoadConfigAcceptsPoolTimeouts(t *testing.T) {
 	resetDBEnv(t)
-	t.Setenv("POSTGRES_URL", "postgres://postgres:postgres@localhost:5432/openwook_test")
+	t.Setenv("POSTGRES_URL", "postgres://postgres:postgres@localhost:5432/practiq_test")
 	t.Setenv("POSTGRES_IDLE_TIMEOUT_SECONDS", "45")
 	t.Setenv("POSTGRES_CONNECT_TIMEOUT_SECONDS", "12")
 

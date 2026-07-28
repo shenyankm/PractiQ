@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"openwook/internal/aiclient"
-	"openwook/internal/api"
-	"openwook/internal/auth"
+	"practiq/internal/aiclient"
+	"practiq/internal/api"
+	"practiq/internal/auth"
 )
 
 func TestNewServerRoutesImportMethodsAndPathValues(t *testing.T) {

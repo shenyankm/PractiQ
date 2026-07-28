@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
-	"openwook/internal/api"
-	"openwook/internal/auth"
-	"openwook/internal/redisx"
+	"practiq/internal/api"
+	"practiq/internal/auth"
+	"practiq/internal/redisx"
 )
 
 type execer interface {

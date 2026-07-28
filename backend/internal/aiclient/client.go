@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"strings"
 
-	"openwook/internal/config"
+	"practiq/internal/config"
 )
 
 type Client struct {

@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"strings"
 
-	"openwook/internal/api"
-	"openwook/internal/auth"
-	"openwook/internal/services"
+	"practiq/internal/api"
+	"practiq/internal/auth"
+	"practiq/internal/services"
 )
 
 const maxJSONBodyBytes int64 = 1024 * 1024

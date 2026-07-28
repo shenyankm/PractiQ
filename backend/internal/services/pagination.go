@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"openwook/internal/api"
+	"practiq/internal/api"
 )
 
 type PageInfo struct {

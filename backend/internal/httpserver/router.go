@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"openwook/internal/api"
+	"practiq/internal/api"
 )
 
 func NewServer(cfg ServerConfig, deps ServerDependencies) http.Handler {

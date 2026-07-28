@@ -15,8 +15,8 @@ import (
 	"unicode/utf8"
 
 	"golang.org/x/crypto/bcrypt"
-	"openwook/internal/api"
-	"openwook/internal/redisx"
+	"practiq/internal/api"
+	"practiq/internal/redisx"
 )
 
 const DummyPasswordHash = "$2y$10$bPkUrUZqKDqmW.xkPE5LBuqH6HB/QoOS4dYH42xQxevBJQMStTE0W"

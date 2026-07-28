@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"openwook/internal/auth"
+	"practiq/internal/auth"
 )
 
 func TestBuildContentHandlersKeepsErrorEnvelopeForPathParsing(t *testing.T) {

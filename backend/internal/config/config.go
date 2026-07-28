@@ -16,7 +16,7 @@ type Config struct {
 	AIServiceURL     string
 	AIServiceToken   string
 	AIServiceTimeout time.Duration
-	OpenWookHost     string
+	PractiQHost     string
 	AppOrigin        string
 	Port             int
 }
@@ -53,7 +53,7 @@ func Load() (Config, error) {
 		AIServiceURL:     get(values, "AI_SERVICE_URL", "http://127.0.0.1:8001"),
 		AIServiceToken:   values["AI_SERVICE_TOKEN"],
 		AIServiceTimeout: DefaultAIServiceTimeout,
-		OpenWookHost:     get(values, "OPENWOOK_HOST", "127.0.0.1"),
+		PractiQHost:     get(values, "PRACTIQ_HOST", "127.0.0.1"),
 		AppOrigin:        values["APP_ORIGIN"],
 		Port:             8080,
 	}

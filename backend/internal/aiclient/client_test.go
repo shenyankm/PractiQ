@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"openwook/internal/config"
+	"practiq/internal/config"
 )
 
 func TestNewConfiguresBoundedRequestTimeout(t *testing.T) {

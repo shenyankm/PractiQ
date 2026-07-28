@@ -6,8 +6,8 @@ import (
 	"os"
 	"strings"
 
-	"openwook/internal/config"
-	"openwook/internal/db"
+	"practiq/internal/config"
+	"practiq/internal/db"
 )
 
 func main() {

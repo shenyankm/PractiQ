@@ -12,8 +12,8 @@ import (
 
 func TestNewServerServesStaticAssetsAndSPAIndexFallback(t *testing.T) {
 	distDir := t.TempDir()
-	indexHTML := "<!doctype html><html><body>openwook spa</body></html>"
-	assetJS := "console.log('openwook');\n"
+	indexHTML := "<!doctype html><html><body>practiq spa</body></html>"
+	assetJS := "console.log('practiq');\n"
 	writeServerTestFile(t, distDir, "index.html", indexHTML)
 	writeServerTestFile(t, distDir, "assets/app.js", assetJS)
 

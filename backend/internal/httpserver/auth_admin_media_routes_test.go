@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"openwook/internal/api"
+	"practiq/internal/api"
 )
 
 func TestNewServerRoutesSharedPathsPathValuesAndUnknownMethods(t *testing.T) {

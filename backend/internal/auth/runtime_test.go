@@ -10,7 +10,7 @@ import (
 
 	"github.com/alicebob/miniredis/v2"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"openwook/internal/api"
+	"practiq/internal/api"
 )
 
 func TestSetSessionIssuesRevocableJTIAndClearSessionRevokesIt(t *testing.T) {
@@ -160,7 +160,7 @@ func assertSessionStoreUnavailable(t *testing.T, err error) {
 
 func closedPoolForAuthTest(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	pool, err := pgxpool.New(context.Background(), "postgres://localhost:5432/openwook")
+	pool, err := pgxpool.New(context.Background(), "postgres://localhost:5432/practiq")
 	if err != nil {
 		t.Fatalf("pgxpool.New returned error: %v", err)
 	}

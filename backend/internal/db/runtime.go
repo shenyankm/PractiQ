@@ -11,14 +11,14 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"openwook/internal/auth"
+	"practiq/internal/auth"
 )
 
 const (
 	seedAdminUsername   = "admin"
-	seedAdminEmail      = "admin@openwook.local"
-	defaultSeedPassword = "OpenWook123"
-	seedBankName        = "OpenWook 示例题库"
+	seedAdminEmail      = "admin@practiq.local"
+	defaultSeedPassword = "PractiQ123"
+	seedBankName        = "PractiQ 示例题库"
 	seedBankDescription = "用于本地验证题库、题目、练习闭环。"
 	seedBankSubject     = "general"
 )
@@ -53,7 +53,7 @@ func Execute(ctx context.Context, target string, root string, stdout io.Writer) 
 		if err := runSeed(ctx, pool); err != nil {
 			return err
 		}
-		_, err = fmt.Fprintf(stdout, "OpenWook seed complete. User: %s (password from SEED_ADMIN_PASSWORD or the local default).\n", seedAdminUsername)
+		_, err = fmt.Fprintf(stdout, "PractiQ seed complete. User: %s (password from SEED_ADMIN_PASSWORD or the local default).\n", seedAdminUsername)
 		return err
 	default:
 		return fmt.Errorf("unsupported target %q", target)

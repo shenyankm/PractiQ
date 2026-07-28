@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5"
-	"openwook/internal/api"
+	"practiq/internal/api"
 )
 
 type Subject struct {

@@ -8,12 +8,12 @@ import (
 	"strconv"
 	"time"
 
-	"openwook/internal/aiclient"
-	"openwook/internal/auth"
-	"openwook/internal/config"
-	"openwook/internal/db"
-	"openwook/internal/httpserver"
-	"openwook/internal/redisx"
+	"practiq/internal/aiclient"
+	"practiq/internal/auth"
+	"practiq/internal/config"
+	"practiq/internal/db"
+	"practiq/internal/httpserver"
+	"practiq/internal/redisx"
 )
 
 func main() {
@@ -29,7 +29,7 @@ func main() {
 	defer pool.Close()
 
 	startedAt := time.Now()
-	addr := net.JoinHostPort(cfg.OpenWookHost, strconv.Itoa(cfg.Port))
+	addr := net.JoinHostPort(cfg.PractiQHost, strconv.Itoa(cfg.Port))
 	appOrigin := cfg.AppOrigin
 	if appOrigin == "" {
 		appOrigin = "http://" + addr

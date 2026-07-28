@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	"openwook/internal/aiclient"
+	"practiq/internal/aiclient"
 )
 
 func TestMapOptionsPreservesOrderAndCorrectness(t *testing.T) {

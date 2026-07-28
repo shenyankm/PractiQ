@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
-	"openwook/internal/api"
-	"openwook/internal/auth"
-	"openwook/internal/redisx"
+	"practiq/internal/api"
+	"practiq/internal/auth"
+	"practiq/internal/redisx"
 )
 
 const apiRateLimit = 300

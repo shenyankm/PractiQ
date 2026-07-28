@@ -11,9 +11,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"openwook/internal/api"
-	"openwook/internal/auth"
-	importqueue "openwook/internal/imports"
+	"practiq/internal/api"
+	"practiq/internal/auth"
+	importqueue "practiq/internal/imports"
 )
 
 const questionColumns = `

@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"openwook/internal/api"
-	"openwook/internal/auth"
+	"practiq/internal/api"
+	"practiq/internal/auth"
 )
 
 type AdminOverview struct {
