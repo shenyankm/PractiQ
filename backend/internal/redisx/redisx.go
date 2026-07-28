@@ -24,7 +24,3 @@ func RedisKey(parts ...any) string {
 	}
 	return strings.Join(values, ":")
 }
-
-func ImportEventChannel(jobID int64) string {
-	return RedisKey("import", jobID, "events")
-}

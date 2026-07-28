@@ -10,7 +10,6 @@ import (
 	"practiq/internal/aiclient"
 	"practiq/internal/auth"
 	importqueue "practiq/internal/imports"
-	"practiq/internal/redisx"
 	"practiq/internal/services"
 )
 
@@ -232,10 +231,6 @@ func recordImportEvent(ctx context.Context, pool *pgxpool.Pool, jobID int64, sta
 		return err
 	}
 	_, _ = pool.Exec(ctx, `UPDATE question_import_jobs SET last_event_id = $2, last_event_at = NOW() WHERE id = $1`, jobID, eventID)
-	payload := map[string]any{"id": eventID, "job_id": jobID, "stage": stage, "step_code": stepCode, "step_label": stepLabel, "status": status, "message": derefString(message), "overall_progress_percent": overall, "step_progress_percent": step}
-	if rdb := redisx.Client(); rdb != nil {
-		_ = redisx.PublishJSON(ctx, rdb, redisx.ImportEventChannel(jobID), payload)
-	}
 	return nil
 }
 
@@ -290,13 +285,6 @@ func valueOrDefault(value *string, fallback string) string {
 func nullableString(value *string) any {
 	if value == nil {
 		return nil
-	}
-	return *value
-}
-
-func derefString(value *string) string {
-	if value == nil {
-		return ""
 	}
 	return *value
 }

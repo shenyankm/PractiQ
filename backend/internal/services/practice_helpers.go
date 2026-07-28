@@ -33,13 +33,7 @@ func normalizeQuestionCount(questionCount int, allQuestions bool) int {
 	if allQuestions {
 		return maxPracticeQuestions
 	}
-	if questionCount < 1 {
-		return 1
-	}
-	if questionCount > maxPracticeQuestions {
-		return maxPracticeQuestions
-	}
-	return questionCount
+	return min(max(questionCount, 1), maxPracticeQuestions)
 }
 
 func buildPracticeProgress(questionIDs []int64, answered map[int64]*bool) []PracticeProgressItem {

@@ -72,7 +72,7 @@ func ResolveQuestionTypeIDForSubject(ctx context.Context, db queryer, subject st
 			CASE WHEN scope = $3 THEN 0 WHEN scope = 'hybrid' THEN 1 ELSE 2 END,
 			type_id
 		LIMIT 1
-	`, subject, nullableStringArg(strings.TrimSpace(stringValue(answerMode))), strings.TrimSpace(preferredScope))
+	`, subject, trimmedStringOrNil(stringValue(answerMode)), strings.TrimSpace(preferredScope))
 	if err != nil {
 		return "", err
 	}
@@ -119,7 +119,7 @@ func ListQuestionTypes(ctx context.Context, db queryer, subject string, scope st
 		WHERE ($1::text IS NULL OR subject_id = $1)
 		  AND ($2::text IS NULL OR scope = $2)
 		ORDER BY subject_id, display_name
-	`, nullableStringArg(subject), nullableStringArg(scope))
+	`, trimmedStringOrNil(subject), trimmedStringOrNil(scope))
 	if err != nil {
 		return nil, err
 	}
@@ -153,7 +153,7 @@ func ListKnowledgePoints(ctx context.Context, db queryer, subject string, parent
 		  AND ($3::text IS NULL OR code ILIKE $3 OR display_name ILIKE $3)
 		ORDER BY display_name, id
 		LIMIT $4 OFFSET $5
-	`, nullableStringArg(subject), parent, nullableILike(query), limit+1, offset)
+	`, trimmedStringOrNil(subject), parent, ilikeOrNil(query), limit+1, offset)
 	if err != nil {
 		return Page[KnowledgePoint]{}, err
 	}
@@ -170,13 +170,6 @@ func ListKnowledgePoints(ctx context.Context, db queryer, subject string, parent
 		return Page[KnowledgePoint]{}, err
 	}
 	return buildPage(items, limit, offset), nil
-}
-
-func nullableStringArg(value string) any {
-	if value == "" {
-		return nil
-	}
-	return value
 }
 
 func stringValue(value *string) string {

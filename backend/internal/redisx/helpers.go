@@ -69,21 +69,7 @@ func IncrementRateLimit(ctx context.Context, rdb *redis.Client, key string, limi
 		return RateLimitResult{}, errors.New("unexpected rate-limit script result")
 	}
 	count, ttlMilliseconds := values[0], values[1]
-	remaining := limit - count
-	if remaining < 0 {
-		remaining = 0
-	}
-	resetSeconds := (ttlMilliseconds + 999) / 1000
-	if resetSeconds < 1 {
-		resetSeconds = 1
-	}
+	remaining := max(limit-count, 0)
+	resetSeconds := max((ttlMilliseconds+999)/1000, 1)
 	return RateLimitResult{Allowed: count <= limit, Count: count, Remaining: remaining, ResetSeconds: resetSeconds}, nil
-}
-
-func PublishJSON(ctx context.Context, rdb *redis.Client, channel string, payload any) bool {
-	raw, err := json.Marshal(payload)
-	if err != nil {
-		return false
-	}
-	return rdb.Publish(ctx, channel, string(raw)).Err() == nil
 }

@@ -115,8 +115,8 @@ func ListBanks(ctx context.Context, db queryer, user *auth.User, params ListBank
 	if err != nil {
 		return Page[QuestionBank]{}, err
 	}
-	subject := trimmedOrNil(params.Subject)
-	query := nullableILike(params.Query)
+	subject := trimmedStringOrNil(params.Subject)
+	query := ilikeOrNil(params.Query)
 	limit := clampPositive(params.Limit, 30, 100)
 	offset, err := parsePageCursor(params.Cursor)
 	if err != nil {
@@ -376,8 +376,8 @@ func listBankItemsForBank(ctx context.Context, db *pgxpool.Pool, bankID int64, p
 	if statusValue != "" && statusValue != "draft" && statusValue != "active" && statusValue != "archived" {
 		return Page[BankQuestionItem]{}, api.ValidationError([]api.ValidationDetail{{Field: "status", Message: "must be one of draft, active, archived"}})
 	}
-	status := trimmedOrNil(statusValue)
-	questionTypeID := trimmedOrNil(params.Type)
+	status := trimmedStringOrNil(statusValue)
+	questionTypeID := trimmedStringOrNil(params.Type)
 	limit := clampPositive(params.Limit, 50, 100)
 	offset, err := parsePageCursor(params.Cursor)
 	if err != nil {
@@ -520,22 +520,6 @@ func normalizeBankScope(scope string) (string, error) {
 	default:
 		return "", api.ValidationError([]api.ValidationDetail{{Field: "scope", Message: "must be one of mine, public, favorites, all"}})
 	}
-}
-
-func trimmedOrNil(value string) any {
-	value = strings.TrimSpace(value)
-	if value == "" {
-		return nil
-	}
-	return value
-}
-
-func nullableILike(value string) any {
-	value = strings.TrimSpace(value)
-	if value == "" {
-		return nil
-	}
-	return "%" + value + "%"
 }
 
 func clampPositive(value, fallback, max int) int {

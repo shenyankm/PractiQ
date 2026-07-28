@@ -25,15 +25,6 @@ func TestInsertSourceArtifactSQLRejectsDuplicatesWithoutReplacingThem(t *testing
 	}
 }
 
-func TestListImportJobEventsAfterSQLUsesAscendingCursorOrder(t *testing.T) {
-	query := strings.ToUpper(strings.Join(strings.Fields(listImportJobEventsAfterSQL), " "))
-	for _, fragment := range []string{"ID > $2", "ORDER BY ID", "LIMIT 1000"} {
-		if !strings.Contains(query, fragment) {
-			t.Fatalf("event backlog SQL missing %q: %s", fragment, query)
-		}
-	}
-}
-
 func TestExtractSourceTypeFromArtifactPrefersContentThenFallsBackToPath(t *testing.T) {
 	tests := []struct {
 		name        string

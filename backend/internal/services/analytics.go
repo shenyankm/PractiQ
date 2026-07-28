@@ -157,7 +157,7 @@ func GetBankLeaderboard(ctx context.Context, db *pgxpool.Pool, user *auth.User, 
 	if _, err := GetBank(ctx, db, user, bankID); err != nil {
 		return nil, err
 	}
-	safeLimit := normalizeLeaderboardLimit(limit)
+	safeLimit := min(max(limit, 1), 100)
 	version := analyticsCacheVersion(ctx, "leaderboard", bankID)
 	return loadAnalyticsCachedJSON(ctx, redisx.RedisKey("cache", "leaderboard", "bank", bankID, version, "limit", safeLimit), leaderboardCacheTTL(), func() ([]BankLeaderboardEntry, error) {
 		rows, err := db.Query(ctx, `

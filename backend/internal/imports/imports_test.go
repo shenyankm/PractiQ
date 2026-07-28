@@ -1,7 +1,6 @@
 package imports
 
 import (
-	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -73,43 +72,5 @@ func TestRetryBackoffUsesFixedThreeAttemptSchedule(t *testing.T) {
 		if got := RetryBackoff(attempt); got != want {
 			t.Fatalf("RetryBackoff(%d) = %s, want %s", attempt, got, want)
 		}
-	}
-}
-
-func TestWriteEventStreamHeadersUsesSSEContract(t *testing.T) {
-	headers := http.Header{}
-	WriteEventStreamHeaders(headers)
-
-	if got := headers.Get("Cache-Control"); got != "no-cache, no-transform" {
-		t.Fatalf("Cache-Control = %q, want no-cache, no-transform", got)
-	}
-	if got := headers.Get("Connection"); got != "keep-alive" {
-		t.Fatalf("Connection = %q, want keep-alive", got)
-	}
-	if got := headers.Get("Content-Type"); !strings.HasPrefix(got, "text/event-stream") {
-		t.Fatalf("Content-Type = %q, want text/event-stream", got)
-	}
-}
-
-func TestEncodeImportEventUsesImportEventNameAndIDFrame(t *testing.T) {
-	encoded := EncodeImportEvent(ImportEvent{
-		ID:      77,
-		JobID:   123,
-		Stage:   "queued",
-		Status:  "queued",
-		Message: "joined import queue",
-	})
-
-	if !strings.Contains(encoded, "id: 77\n") {
-		t.Fatalf("encoded event missing id line: %q", encoded)
-	}
-	if !strings.Contains(encoded, "event: import-event\n") {
-		t.Fatalf("encoded event missing import-event name: %q", encoded)
-	}
-	if !strings.Contains(encoded, `"job_id":123`) {
-		t.Fatalf("encoded event missing job_id payload: %q", encoded)
-	}
-	if !strings.HasSuffix(encoded, "\n\n") {
-		t.Fatalf("encoded event must end with a blank line, got %q", encoded)
 	}
 }

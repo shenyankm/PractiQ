@@ -2,10 +2,7 @@ package imports
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"fmt"
-	"net/http"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -143,27 +140,4 @@ func RetryBackoff(attempt int) time.Duration {
 		attempt = 1
 	}
 	return time.Second * time.Duration(1<<(attempt-1))
-}
-
-type ImportEvent struct {
-	ID                     int64  `json:"id"`
-	JobID                  int    `json:"job_id"`
-	Stage                  string `json:"stage"`
-	StepCode               string `json:"step_code,omitempty"`
-	StepLabel              string `json:"step_label,omitempty"`
-	Status                 string `json:"status"`
-	Message                string `json:"message,omitempty"`
-	OverallProgressPercent *int   `json:"overall_progress_percent,omitempty"`
-	StepProgressPercent    *int   `json:"step_progress_percent,omitempty"`
-}
-
-func WriteEventStreamHeaders(headers http.Header) {
-	headers.Set("Cache-Control", "no-cache, no-transform")
-	headers.Set("Connection", "keep-alive")
-	headers.Set("Content-Type", "text/event-stream; charset=utf-8")
-}
-
-func EncodeImportEvent(event ImportEvent) string {
-	payload, _ := json.Marshal(event)
-	return fmt.Sprintf("id: %d\nevent: import-event\ndata: %s\n\n", event.ID, payload)
 }

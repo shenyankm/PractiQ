@@ -3,7 +3,6 @@ package httpserver
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -564,19 +563,4 @@ func aiApplyMinConfidence() float64 {
 		return 0.7
 	}
 	return threshold
-}
-
-func stringValue(values map[string]any, key string) string {
-	if values == nil {
-		return ""
-	}
-	if raw, ok := values[key]; ok {
-		switch typed := raw.(type) {
-		case string:
-			return typed
-		case fmt.Stringer:
-			return typed.String()
-		}
-	}
-	return ""
 }

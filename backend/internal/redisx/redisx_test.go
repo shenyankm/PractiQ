@@ -34,14 +34,6 @@ func TestRedisKeyFallsBackToPractiQPrefix(t *testing.T) {
 	}
 }
 
-func TestImportEventChannelMatchesExistingShape(t *testing.T) {
-	t.Setenv("REDIS_KEY_PREFIX", "practiq")
-
-	if got, want := ImportEventChannel(123), "practiq:import:123:events"; got != want {
-		t.Fatalf("ImportEventChannel(123) = %q, want %q", got, want)
-	}
-}
-
 func TestCheckRedisRejectsMissingAndInvalidURLs(t *testing.T) {
 	for _, redisURL := range []string{"", "not-a-redis-url"} {
 		t.Run(strconv.Quote(redisURL), func(t *testing.T) {
@@ -165,31 +157,6 @@ func TestIncrementRateLimitReturnsRedisErrors(t *testing.T) {
 	if _, err := IncrementRateLimit(context.Background(), rdb, RedisKey("rate-limit", "auth", "login"), 10, time.Minute); err == nil {
 		t.Fatal("IncrementRateLimit error = nil, want Redis failure")
 	}
-}
-
-func TestPublishJSONDeliversPayloadOnExpectedChannel(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-	_, rdb := newRedisTestClient(t)
-	channel := ImportEventChannel(44)
-	pubsub := rdb.Subscribe(ctx, channel)
-	defer pubsub.Close()
-	if _, err := pubsub.Receive(ctx); err != nil {
-		t.Fatalf("subscribe to %q: %v", channel, err)
-	}
-
-	payload := map[string]any{"job_id": 44, "status": "queued", "message": "ready"}
-	if ok := PublishJSON(ctx, rdb, channel, payload); !ok {
-		t.Fatal("PublishJSON(...) = false, want true")
-	}
-	message, err := pubsub.ReceiveMessage(ctx)
-	if err != nil {
-		t.Fatalf("receive published message: %v", err)
-	}
-	if message.Channel != channel {
-		t.Fatalf("published channel = %q, want %q", message.Channel, channel)
-	}
-	assertJSONEqual(t, message.Payload, payload)
 }
 
 func newRedisTestClient(t *testing.T) (*miniredis.Miniredis, *redis.Client) {

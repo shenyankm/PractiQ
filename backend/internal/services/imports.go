@@ -82,17 +82,6 @@ const insertSourceArtifactSQL = `
 	SELECT row_to_json(inserted)::text FROM inserted
 `
 
-const listImportJobEventsAfterSQL = `
-	SELECT row_to_json(item)::text
-	FROM (
-		SELECT *
-		FROM question_import_job_events
-		WHERE job_id = $1 AND id > $2
-		ORDER BY id
-		LIMIT 1000
-	) item
-`
-
 func ListImportJobs(ctx context.Context, pool *pgxpool.Pool, user auth.User, status, cursor string, requestedLimit int) (Page[ImportJob], error) {
 	statuses := strings.Split(strings.TrimSpace(status), ",")
 	allowedStatuses := map[string]bool{"queued": true, "processing": true, "completed": true, "failed": true, "cancelled": true}
@@ -188,7 +177,7 @@ func AddImportJobFile(ctx context.Context, pool *pgxpool.Pool, user auth.User, j
 	}
 	sourceHint := strings.TrimSpace(input.SourceType)
 	if sourceHint == "" {
-		sourceHint = extractSourceTypeFromArtifact(valueOrEmpty(input.StoragePath), input.Content)
+		sourceHint = extractSourceTypeFromArtifact(stringValue(input.StoragePath), input.Content)
 	}
 	if sourceHint == "" {
 		sourceHint = jobSourceType
@@ -271,11 +260,10 @@ func UpdateImportJobStatus(ctx context.Context, pool *pgxpool.Pool, user auth.Us
 	}
 
 	if action == "cancel" {
-		updated, event, err := applyImportQueueTransition(ctx, pool, job, transition)
+		updated, err := applyImportQueueTransition(ctx, pool, job, transition)
 		if err != nil {
 			return ImportJob{}, err
 		}
-		publishImportEvent(ctx, jobID, event)
 		invalidateUserAnalytics(ctx, user.ID)
 		return updated, nil
 	}
@@ -286,11 +274,10 @@ func UpdateImportJobStatus(ctx context.Context, pool *pgxpool.Pool, user auth.Us
 		return job, nil
 	}
 
-	updated, event, err := applyImportQueueTransition(ctx, pool, job, transition)
+	updated, err := applyImportQueueTransition(ctx, pool, job, transition)
 	if err != nil {
 		return ImportJob{}, err
 	}
-	publishImportEvent(ctx, jobID, event)
 	invalidateUserAnalytics(ctx, user.ID)
 	return updated, nil
 }
@@ -315,17 +302,16 @@ func QueueImportJobForUser(ctx context.Context, pool *pgxpool.Pool, user auth.Us
 		persistQuestions = *options.PersistQuestions
 	}
 	transition := queueTransitionForParse(persistQuestions)
-	updated, event, err := applyImportQueueTransition(ctx, pool, job, transition)
+	updated, err := applyImportQueueTransition(ctx, pool, job, transition)
 	if err != nil {
 		return ImportJob{}, err
 	}
-	publishImportEvent(ctx, jobID, event)
 	invalidateUserAnalytics(ctx, user.ID)
 	return updated, nil
 }
 
 func ensureImportJobQueueActionAllowed(job ImportJob, action string) error {
-	if (action == "retry" || action == "parse") && valueOrEmpty(job.LastErrorCode) == ImportPersistenceInterruptedCode {
+	if (action == "retry" || action == "parse") && stringValue(job.LastErrorCode) == ImportPersistenceInterruptedCode {
 		return api.NewError(409, "IMPORT_RETRY_UNSAFE", "Import persistence was interrupted and cannot be retried automatically", nil)
 	}
 	if job.Status == "completed" {
@@ -405,7 +391,6 @@ func RecordImportJobFailure(ctx context.Context, pool *pgxpool.Pool, jobID, clai
 	if err := tx.Commit(ctx); err != nil {
 		return ImportJob{}, err
 	}
-	publishImportEvent(ctx, jobID, event)
 	return updated, nil
 }
 
@@ -414,26 +399,6 @@ func ListImportJobChildren(ctx context.Context, pool *pgxpool.Pool, user auth.Us
 		return nil, err
 	}
 	return listImportJobChildrenForJob(ctx, pool, jobID, kind)
-}
-
-func ListImportJobEventsAfter(ctx context.Context, pool *pgxpool.Pool, user auth.User, jobID, afterID int64) ([]map[string]any, error) {
-	if _, err := GetImportJob(ctx, pool, user, jobID); err != nil {
-		return nil, err
-	}
-	rows, err := pool.Query(ctx, listImportJobEventsAfterSQL, jobID, afterID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := make([]map[string]any, 0, 8)
-	for rows.Next() {
-		item, err := scanJSONMap(rows)
-		if err != nil {
-			return nil, err
-		}
-		items = append(items, item)
-	}
-	return items, rows.Err()
 }
 
 func ensureImportJobHasSourceArtifact(ctx context.Context, pool *pgxpool.Pool, jobID int64) error {
@@ -487,10 +452,10 @@ func importJobChildrenQuery(kind ImportJobChildKind) (string, error) {
 	}
 }
 
-func applyImportQueueTransition(ctx context.Context, pool *pgxpool.Pool, job ImportJob, transition importQueueTransition) (ImportJob, map[string]any, error) {
+func applyImportQueueTransition(ctx context.Context, pool *pgxpool.Pool, job ImportJob, transition importQueueTransition) (ImportJob, error) {
 	tx, err := pool.Begin(ctx)
 	if err != nil {
-		return ImportJob{}, nil, err
+		return ImportJob{}, err
 	}
 	defer tx.Rollback(ctx)
 
@@ -517,36 +482,24 @@ func applyImportQueueTransition(ctx context.Context, pool *pgxpool.Pool, job Imp
 		SELECT row_to_json(updated)::text FROM updated
 	`, transition.status, transition.stage, nullableStringPtr(transition.message), nullableBoolPtr(transition.persistQuestions), transition.resetAttempts, transition.available, transition.completed, job.ID, job.Status)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return ImportJob{}, nil, api.NewError(409, "IMPORT_STATE_CHANGED", "Import job state changed; refresh and try again", nil)
+		return ImportJob{}, api.NewError(409, "IMPORT_STATE_CHANGED", "Import job state changed; refresh and try again", nil)
 	}
 	if err != nil {
-		return ImportJob{}, nil, err
+		return ImportJob{}, err
 	}
 
-	event, err := queryJSONMapTx(ctx, tx, `
-		WITH inserted AS (
-			INSERT INTO question_import_job_events (job_id, stage, step_code, step_label, status, message, overall_progress_percent)
-			VALUES ($1, $2, $3, $4, $5, $6, $7)
-			RETURNING *
-		)
-		SELECT row_to_json(inserted)::text FROM inserted
+	_, err = tx.Exec(ctx, `
+		INSERT INTO question_import_job_events (job_id, stage, step_code, step_label, status, message, overall_progress_percent)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 	`, job.ID, transition.stage, transition.stepCode, transition.stepLabel, transition.eventStatus, nullableStringPtr(transition.message), updated.OverallProgressPercent)
 	if err != nil {
-		return ImportJob{}, nil, err
+		return ImportJob{}, err
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return ImportJob{}, nil, err
+		return ImportJob{}, err
 	}
-	return updated, event, nil
-}
-
-func publishImportEvent(ctx context.Context, jobID int64, event map[string]any) {
-	rdb := redisx.Client()
-	if rdb == nil {
-		return
-	}
-	_ = redisx.PublishJSON(ctx, rdb, redisx.ImportEventChannel(jobID), event)
+	return updated, nil
 }
 
 func invalidateUserAnalytics(ctx context.Context, userID int) {
@@ -691,13 +644,6 @@ func nullableStringPtr(value *string) any {
 func nullableBoolPtr(value *bool) any {
 	if value == nil {
 		return nil
-	}
-	return *value
-}
-
-func valueOrEmpty(value *string) string {
-	if value == nil {
-		return ""
 	}
 	return *value
 }
