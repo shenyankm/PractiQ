@@ -1,6 +1,6 @@
 [Unit]
-Description=OpenWook local Podman network
+Description=PractiQ local Podman network
 
 [Network]
-NetworkName=openwook
+NetworkName=practiq
 Driver=bridge

@@ -1,18 +1,18 @@
 [Unit]
-Description=OpenWook local PostgreSQL database
+Description=PractiQ local PostgreSQL database
 
 [Container]
 Image=docker.io/library/postgres:16-alpine
-ContainerName=openwook-postgres
-Network=openwook.network
-NetworkAlias=openwook-postgres
+ContainerName=practiq-postgres
+Network=practiq.network
+NetworkAlias=practiq-postgres
 PublishPort=127.0.0.1:54322:5432
-Volume=openwook-postgres.volume:/var/lib/postgresql/data:Z
-Environment=POSTGRES_DB=openwook_app
-Environment=POSTGRES_USER=openwook
-Environment=POSTGRES_PASSWORD=openwook
+Volume=practiq-postgres.volume:/var/lib/postgresql/data:Z
+Environment=POSTGRES_DB=practiq_app
+Environment=POSTGRES_USER=practiq
+Environment=POSTGRES_PASSWORD=practiq
 Environment=PGDATA=/var/lib/postgresql/data/pgdata
-HealthCmd=pg_isready -U openwook -d openwook_app
+HealthCmd=pg_isready -U practiq -d practiq_app
 HealthInterval=10s
 HealthRetries=6
 HealthStartupInterval=2s

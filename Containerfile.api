@@ -13,14 +13,14 @@ RUN go mod download
 COPY backend/cmd /app/backend/cmd
 COPY backend/internal /app/backend/internal
 COPY backend/db /app/backend/db
-RUN go build -o /out/openwook-api ./cmd/openwook-api && go build -o /out/openwook-worker ./cmd/openwook-worker && go build -o /out/openwook-admin ./cmd/openwook-admin
+RUN go build -o /out/practiq-api ./cmd/practiq-api && go build -o /out/practiq-worker ./cmd/practiq-worker && go build -o /out/practiq-admin ./cmd/practiq-admin
 
 FROM debian:bookworm-slim
 WORKDIR /app/backend
-COPY --from=go-build /out/openwook-api /usr/local/bin/openwook-api
-COPY --from=go-build /out/openwook-worker /usr/local/bin/openwook-worker
-COPY --from=go-build /out/openwook-admin /usr/local/bin/openwook-admin
+COPY --from=go-build /out/practiq-api /usr/local/bin/practiq-api
+COPY --from=go-build /out/practiq-worker /usr/local/bin/practiq-worker
+COPY --from=go-build /out/practiq-admin /usr/local/bin/practiq-admin
 COPY --from=web /app/frontend/dist /app/frontend/dist
 COPY backend/db /app/backend/db
 EXPOSE 3000
-CMD ["/usr/local/bin/openwook-api"]
+CMD ["/usr/local/bin/practiq-api"]

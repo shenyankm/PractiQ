@@ -1,11 +1,11 @@
 [Unit]
-Description=OpenWook internal AI service
+Description=PractiQ internal AI service
 
 [Container]
-Image=localhost/openwook-ai:latest
-ContainerName=openwook-ai
-Network=openwook.network
-NetworkAlias=openwook-ai
+Image=localhost/practiq-ai:latest
+ContainerName=practiq-ai
+Network=practiq.network
+NetworkAlias=practiq-ai
 PublishPort=127.0.0.1:8001:8001
 Environment=AI_SERVICE_TOKEN
 Environment=IMPORT_SOURCE_MAX_BYTES
@@ -19,7 +19,7 @@ HealthCmd=python -c "import urllib.request; urllib.request.urlopen('http://127.0
 Pull=never
 
 [Service]
-EnvironmentFile=-%h/.config/openwook/openwook-stack.env
+EnvironmentFile=-%h/.config/practiq/practiq-stack.env
 Restart=on-failure
 TimeoutStartSec=900
 

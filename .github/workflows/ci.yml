@@ -37,15 +37,15 @@ jobs:
         run: make lint
 
       - name: Run non-DB tests
-        run: OPENWOOK_SKIP_DB_TESTS=1 make test
+        run: PRACTIQ_SKIP_DB_TESTS=1 make test
 
       - name: Run Go tests
-        run: OPENWOOK_SKIP_DB_TESTS=1 make test-go
+        run: PRACTIQ_SKIP_DB_TESTS=1 make test-go
 
       - name: Build
         env:
           AUTH_SECRET: ci-auth-secret-ci-auth-secret-ci-auth-secret
           APP_ORIGIN: http://127.0.0.1:3000
-          DATABASE_URL: postgres://ci:ci@127.0.0.1:5432/openwook_ci
-          POSTGRES_URL: postgres://ci:ci@127.0.0.1:5432/openwook_ci
+          DATABASE_URL: postgres://ci:ci@127.0.0.1:5432/practiq_ci
+          POSTGRES_URL: postgres://ci:ci@127.0.0.1:5432/practiq_ci
         run: make build

@@ -1,25 +1,25 @@
 [Unit]
-Description=OpenWook API and static frontend server
+Description=PractiQ API and static frontend server
 
 [Container]
-Image=localhost/openwook-api:latest
-ContainerName=openwook-api
-Network=openwook.network
-NetworkAlias=openwook-api
+Image=localhost/practiq-api:latest
+ContainerName=practiq-api
+Network=practiq.network
+NetworkAlias=practiq-api
 PublishPort=127.0.0.1:3000:3000
-Environment=POSTGRES_URL=postgres://openwook:openwook@openwook-postgres:5432/openwook_app
-Environment=REDIS_URL=redis://openwook-redis:6379
-Environment=AI_SERVICE_URL=http://openwook-ai:8001
+Environment=POSTGRES_URL=postgres://practiq:practiq@practiq-postgres:5432/practiq_app
+Environment=REDIS_URL=redis://practiq-redis:6379
+Environment=AI_SERVICE_URL=http://practiq-ai:8001
 Environment=AI_SERVICE_TOKEN
 Environment=AI_SERVICE_TIMEOUT
 Environment=AUTH_SECRET
-Environment=OPENWOOK_HOST=0.0.0.0
+Environment=PRACTIQ_HOST=0.0.0.0
 Environment=PORT=3000
 Environment=APP_ORIGIN=http://127.0.0.1:3000
 Pull=never
 
 [Service]
-EnvironmentFile=-%h/.config/openwook/openwook-stack.env
+EnvironmentFile=-%h/.config/practiq/practiq-stack.env
 Restart=on-failure
 TimeoutStartSec=900
 

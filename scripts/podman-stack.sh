@@ -3,31 +3,31 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 QUADLET_DIR="${HOME}/.config/containers/systemd"
-STACK_ENV_DIR="${HOME}/.config/openwook"
-STACK_ENV_FILE="${STACK_ENV_DIR}/openwook-stack.env"
-APP_DB_NAME=openwook_app
+STACK_ENV_DIR="${HOME}/.config/practiq"
+STACK_ENV_FILE="${STACK_ENV_DIR}/practiq-stack.env"
+APP_DB_NAME=practiq_app
 INFRA_SERVICES=(
-  openwook-postgres.service
-  openwook-redis.service
-  openwook-ai.service
+  practiq-postgres.service
+  practiq-redis.service
+  practiq-ai.service
 )
 APP_SERVICES=(
-  openwook-api.service
-  openwook-worker.service
+  practiq-api.service
+  practiq-worker.service
 )
 SERVICES=(
   "${INFRA_SERVICES[@]}"
   "${APP_SERVICES[@]}"
 )
 UNITS=(
-  "$ROOT/containers/quadlet/openwook.network"
-  "$ROOT/containers/quadlet/openwook-postgres.volume"
-  "$ROOT/containers/quadlet/openwook-postgres.container"
-  "$ROOT/containers/quadlet/openwook-redis.volume"
-  "$ROOT/containers/quadlet/openwook-redis.container"
-  "$ROOT/containers/quadlet/openwook-ai.container"
-  "$ROOT/containers/quadlet/openwook-api.container"
-  "$ROOT/containers/quadlet/openwook-worker.container"
+  "$ROOT/containers/quadlet/practiq.network"
+  "$ROOT/containers/quadlet/practiq-postgres.volume"
+  "$ROOT/containers/quadlet/practiq-postgres.container"
+  "$ROOT/containers/quadlet/practiq-redis.volume"
+  "$ROOT/containers/quadlet/practiq-redis.container"
+  "$ROOT/containers/quadlet/practiq-ai.container"
+  "$ROOT/containers/quadlet/practiq-api.container"
+  "$ROOT/containers/quadlet/practiq-worker.container"
 )
 
 random_hex() {
@@ -56,13 +56,13 @@ install_units() {
 }
 
 build_images() {
-  podman build -f "$ROOT/Containerfile.ai" -t localhost/openwook-ai:latest "$ROOT"
-  podman build -f "$ROOT/Containerfile.api" -t localhost/openwook-api:latest "$ROOT"
+  podman build -f "$ROOT/Containerfile.ai" -t localhost/practiq-ai:latest "$ROOT"
+  podman build -f "$ROOT/Containerfile.api" -t localhost/practiq-api:latest "$ROOT"
 }
 
 wait_for_postgres() {
   for _ in $(seq 1 60); do
-    if podman exec openwook-postgres pg_isready -U openwook -d postgres >/dev/null 2>&1; then
+    if podman exec practiq-postgres pg_isready -U practiq -d postgres >/dev/null 2>&1; then
       return 0
     fi
     sleep 1
@@ -73,9 +73,9 @@ wait_for_postgres() {
 
 ensure_app_database() {
   local exists
-  exists="$(podman exec openwook-postgres psql -U openwook -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname = '${APP_DB_NAME}'")"
+  exists="$(podman exec practiq-postgres psql -U practiq -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname = '${APP_DB_NAME}'")"
   if [[ "${exists//[[:space:]]/}" != "1" ]]; then
-    podman exec openwook-postgres psql -U openwook -d postgres -c "CREATE DATABASE ${APP_DB_NAME};"
+    podman exec practiq-postgres psql -U practiq -d postgres -c "CREATE DATABASE ${APP_DB_NAME};"
   fi
 }
 
@@ -110,22 +110,22 @@ case "${1:-status}" in
     ;;
   status)
     systemctl --user status "${SERVICES[@]}" --no-pager || true
-    podman ps -a --filter name=openwook
+    podman ps -a --filter name=practiq
     ;;
   logs)
-    journalctl --user -u openwook-api.service -u openwook-worker.service -u openwook-ai.service -u openwook-postgres.service -u openwook-redis.service -f
+    journalctl --user -u practiq-api.service -u practiq-worker.service -u practiq-ai.service -u practiq-postgres.service -u practiq-redis.service -f
     ;;
   uninstall)
     systemctl --user stop "${SERVICES[@]}" 2>/dev/null || true
     rm -f \
-      "$QUADLET_DIR/openwook.network" \
-      "$QUADLET_DIR/openwook-postgres.volume" \
-      "$QUADLET_DIR/openwook-postgres.container" \
-      "$QUADLET_DIR/openwook-redis.volume" \
-      "$QUADLET_DIR/openwook-redis.container" \
-      "$QUADLET_DIR/openwook-ai.container" \
-      "$QUADLET_DIR/openwook-api.container" \
-      "$QUADLET_DIR/openwook-worker.container"
+      "$QUADLET_DIR/practiq.network" \
+      "$QUADLET_DIR/practiq-postgres.volume" \
+      "$QUADLET_DIR/practiq-postgres.container" \
+      "$QUADLET_DIR/practiq-redis.volume" \
+      "$QUADLET_DIR/practiq-redis.container" \
+      "$QUADLET_DIR/practiq-ai.container" \
+      "$QUADLET_DIR/practiq-api.container" \
+      "$QUADLET_DIR/practiq-worker.container"
     systemctl --user daemon-reload
     ;;
   *)

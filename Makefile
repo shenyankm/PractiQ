@@ -23,7 +23,7 @@ test:
 	npm --prefix mobile test
 
 test-go:
-	cd backend && go test ./internal/... ./cmd/openwook-admin ./cmd/openwook-api ./cmd/openwook-worker
+	cd backend && go test ./internal/... ./cmd/practiq-admin ./cmd/practiq-api ./cmd/practiq-worker
 
 test-ai:
 	python -m pytest ai/tests
@@ -34,19 +34,19 @@ test-e2e:
 verify: lint test test-go test-ai build
 
 api-dev:
-	cd backend && go run ./cmd/openwook-api
+	cd backend && go run ./cmd/practiq-api
 
 ai-dev:
 	set -a; [ ! -f .env.local ] || . ./.env.local; set +a; python -m uvicorn main:app --app-dir ai --host 127.0.0.1 --port 8001
 
 db-apply:
-	cd backend && go run ./cmd/openwook-admin db apply
+	cd backend && go run ./cmd/practiq-admin db apply
 
 db-seed:
-	cd backend && go run ./cmd/openwook-admin db seed
+	cd backend && go run ./cmd/practiq-admin db seed
 
 worker-imports:
-	cd backend && go run ./cmd/openwook-worker
+	cd backend && go run ./cmd/practiq-worker
 
 mobile-install:
 	npm --prefix mobile ci

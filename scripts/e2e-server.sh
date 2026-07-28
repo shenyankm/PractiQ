@@ -6,17 +6,17 @@ cd "$ROOT"
 
 AI_HOST="${AI_HOST:-127.0.0.1}"
 AI_PORT="${AI_PORT:-8001}"
-OPENWOOK_HOST="${OPENWOOK_HOST:-127.0.0.1}"
+PRACTIQ_HOST="${PRACTIQ_HOST:-127.0.0.1}"
 PORT="${PORT:-8080}"
 VITE_HOST="${VITE_HOST:-127.0.0.1}"
 VITE_PORT="${VITE_PORT:-3000}"
-POSTGRES_URL="${POSTGRES_URL:-postgres://openwook:openwook@localhost:54322/openwook_app}"
+POSTGRES_URL="${POSTGRES_URL:-postgres://practiq:practiq@localhost:54322/practiq_app}"
 REDIS_URL="${REDIS_URL:-redis://localhost:6379}"
 AI_SERVICE_URL="${AI_SERVICE_URL:-http://$AI_HOST:$AI_PORT}"
 AI_SERVICE_TOKEN="${AI_SERVICE_TOKEN:-dev-ai-token}"
 AUTH_SECRET="${AUTH_SECRET:-development-secret}"
 APP_ORIGIN="${APP_ORIGIN:-http://$VITE_HOST:$VITE_PORT}"
-GO_API_URL="${GO_API_URL:-http://$OPENWOOK_HOST:$PORT}"
+GO_API_URL="${GO_API_URL:-http://$PRACTIQ_HOST:$PORT}"
 
 pids=()
 cleanup() {
@@ -29,9 +29,9 @@ trap cleanup EXIT INT TERM
 
 AI_SERVICE_TOKEN="$AI_SERVICE_TOKEN" python -m uvicorn main:app --app-dir ai --host "$AI_HOST" --port "$AI_PORT" &
 pids+=("$!")
-(cd backend && AI_SERVICE_TOKEN="$AI_SERVICE_TOKEN" AUTH_SECRET="$AUTH_SECRET" AI_SERVICE_URL="$AI_SERVICE_URL" APP_ORIGIN="$APP_ORIGIN" OPENWOOK_HOST="$OPENWOOK_HOST" PORT="$PORT" POSTGRES_URL="$POSTGRES_URL" REDIS_URL="$REDIS_URL" go run ./cmd/openwook-api) &
+(cd backend && AI_SERVICE_TOKEN="$AI_SERVICE_TOKEN" AUTH_SECRET="$AUTH_SECRET" AI_SERVICE_URL="$AI_SERVICE_URL" APP_ORIGIN="$APP_ORIGIN" PRACTIQ_HOST="$PRACTIQ_HOST" PORT="$PORT" POSTGRES_URL="$POSTGRES_URL" REDIS_URL="$REDIS_URL" go run ./cmd/practiq-api) &
 pids+=("$!")
-(cd backend && AI_SERVICE_TOKEN="$AI_SERVICE_TOKEN" AUTH_SECRET="$AUTH_SECRET" AI_SERVICE_URL="$AI_SERVICE_URL" POSTGRES_URL="$POSTGRES_URL" REDIS_URL="$REDIS_URL" go run ./cmd/openwook-worker) &
+(cd backend && AI_SERVICE_TOKEN="$AI_SERVICE_TOKEN" AUTH_SECRET="$AUTH_SECRET" AI_SERVICE_URL="$AI_SERVICE_URL" POSTGRES_URL="$POSTGRES_URL" REDIS_URL="$REDIS_URL" go run ./cmd/practiq-worker) &
 pids+=("$!")
 GO_API_URL="$GO_API_URL" pnpm --dir frontend dev --host "$VITE_HOST" --port "$VITE_PORT" &
 pids+=("$!")
