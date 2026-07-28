@@ -1,4 +1,44 @@
-export type Language = 'en' | 'zh-CN';
+import * as OpenCC from 'opencc-js/cn2t';
+
+export type Language = 'en' | 'zh-CN' | 'zh-TW' | 'ja';
+
+const LANGUAGES: readonly Language[] = ['en', 'zh-CN', 'zh-TW', 'ja'];
+
+// ponytail: zh-TW is derived from zh-CN at runtime (character/variant level, no
+// Taiwan vocabulary swaps); add an override dictionary if wording complaints show up.
+const toTraditional = OpenCC.Converter({ from: 'cn', to: 'tw' });
+
+// ponytail: Japanese is looked up by the English source string and falls back to
+// English for anything untranslated; grow this dictionary as strings get translated.
+const JAPANESE: Record<string, string> = {
+  'Single choice': '単一選択',
+  'Multiple choice': '複数選択',
+  'True or false': '正誤問題',
+  'Fill in the blank': '穴埋め問題',
+  'Short answer': '記述式',
+  Queued: '待機中',
+  Processing: '処理中',
+  'Waiting to retry': '再試行待ち',
+  Completed: '完了',
+  Failed: '失敗',
+  Cancelled: 'キャンセル済み',
+  Waiting: '待機中',
+  'Waiting for AI parsing': 'AI 解析待ち',
+  'Validating sandbox file': 'サンドボックスファイルを検証中',
+  'Extracting DOCX content': 'DOCX の内容を抽出中',
+  'Reading TXT content': 'TXT の内容を読み込み中',
+  'Waiting for the AI service': 'AI サービスの応答を待機中',
+  'Identifying question structure': '問題構造を認識中',
+  'Import failed': 'インポート失敗',
+  'Waiting for manual retry': '手動再試行待ち',
+  'Interrupted when the app last exited': '前回終了時にアプリが中断されました',
+  'AI transfer must be confirmed again after restore': '復元後は AI への送信を再確認してください',
+  'The app exited during import. Try again.': 'インポート中にアプリが終了しました。もう一度お試しください。',
+  'Retry manually and confirm the recipient and content after restoring a backup.':
+    'バックアップ復元後は手動で再試行し、送信先と内容を再確認してください。',
+  'Import failed. Check the source file and try again.':
+    'インポートに失敗しました。元のファイルを確認して再試行してください。',
+};
 
 const englishDateFormatter = new Intl.DateTimeFormat('en', {
   month: 'short',
@@ -10,21 +50,30 @@ const englishDayFormatter = new Intl.DateTimeFormat('en', {
   month: 'numeric',
   day: 'numeric',
 });
-const percentFormatters: Record<Language, Intl.NumberFormat> = {
-  en: new Intl.NumberFormat('en', { style: 'percent', maximumFractionDigits: 0 }),
-  'zh-CN': new Intl.NumberFormat('zh-CN', { style: 'percent', maximumFractionDigits: 0 }),
+const percentFormatter = new Intl.NumberFormat('en', { style: 'percent', maximumFractionDigits: 0 });
+
+export const languageLabels: Record<Language, string> = {
+  en: 'English',
+  'zh-CN': '简体中文',
+  'zh-TW': '繁體中文',
+  ja: '日本語',
 };
 
 export function normalizeLanguage(value: unknown): Language {
-  return value === 'zh-CN' ? 'zh-CN' : 'en';
+  return LANGUAGES.includes(value as Language) ? (value as Language) : 'en';
 }
 
 export function systemLanguage(locale = Intl.DateTimeFormat().resolvedOptions().locale): Language {
-  return /^zh(?:-|_|$)/i.test(locale) ? 'zh-CN' : 'en';
+  if (/^ja(?:-|_|$)/i.test(locale)) return 'ja';
+  if (!/^zh(?:-|_|$)/i.test(locale)) return 'en';
+  return /hant|tw|hk|mo/i.test(locale) ? 'zh-TW' : 'zh-CN';
 }
 
 export function translate(language: Language, english: string, simplifiedChinese: string) {
-  return language === 'zh-CN' ? simplifiedChinese : english;
+  if (language === 'zh-CN') return simplifiedChinese;
+  if (language === 'zh-TW') return toTraditional(simplifiedChinese);
+  if (language === 'ja') return JAPANESE[english] ?? english;
+  return english;
 }
 
 export const formatDate = (value: string | number | Date, language: Language) => {
@@ -33,7 +82,7 @@ export const formatDate = (value: string | number | Date, language: Language) =>
     : value;
   const date = new Date(normalized);
   if (Number.isNaN(date.getTime())) return '—';
-  if (language === 'zh-CN') {
+  if (language !== 'en') {
     const hour = String(date.getHours()).padStart(2, '0');
     const minute = String(date.getMinutes()).padStart(2, '0');
     return `${date.getMonth() + 1}月${date.getDate()}日 ${hour}:${minute}`;
@@ -41,13 +90,13 @@ export const formatDate = (value: string | number | Date, language: Language) =>
   return englishDateFormatter.format(date);
 };
 
-export const formatPercent = (value: number, language: Language) =>
-  percentFormatters[language].format(Number.isFinite(value) ? value : 0);
+export const formatPercent = (value: number, _language: Language) =>
+  percentFormatter.format(Number.isFinite(value) ? value : 0);
 
 export const formatDay = (value: string, language: Language) => {
   const [year, month, day] = value.split('-').map(Number);
   if (!year || !month || !day) return '—';
-  return language === 'zh-CN'
+  return language !== 'en'
     ? `${month}月${day}日`
     : englishDayFormatter.format(new Date(year, month - 1, day));
 };
@@ -118,6 +167,9 @@ export function importStatusText(value: string, language: Language): string {
     );
   }
   if (language === 'zh-CN') return value;
-  if (/\p{Script=Han}/u.test(value)) return 'Import failed. Check the source file and try again.';
+  if (language === 'zh-TW') return toTraditional(value);
+  if (/\p{Script=Han}/u.test(value)) {
+    return translate(language, 'Import failed. Check the source file and try again.', value);
+  }
   return value;
 }

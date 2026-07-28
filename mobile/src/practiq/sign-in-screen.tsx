@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { router } from 'expo-router';
+import * as Google from 'expo-auth-session/providers/google';
+import * as WebBrowser from 'expo-web-browser';
 import { Alert } from 'heroui-native/alert';
 import { Button } from 'heroui-native/button';
 import { Card } from 'heroui-native/card';
@@ -9,8 +11,13 @@ import { TextField } from 'heroui-native/text-field';
 import { Typography } from 'heroui-native/text';
 
 import { ScreenState } from '@/components/screen-state';
+import { sendEmailCode } from '@/cloud';
 import { useLanguage } from '@/language';
 import { useCloudAuth } from './auth';
+
+WebBrowser.maybeCompleteAuthSession();
+
+const GOOGLE_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID;
 
 export default function SignInScreen() {
   const auth = useCloudAuth();
@@ -18,16 +25,51 @@ export default function SignInScreen() {
   const [registering, setRegistering] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [code, setCode] = useState('');
+  const [codeCountdown, setCodeCountdown] = useState(0);
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const passwordBytes = new TextEncoder().encode(password).length;
+  const [, googleResponse, promptGoogle] = Google.useIdTokenAuthRequest({
+    clientId: GOOGLE_CLIENT_ID || 'unconfigured.apps.googleusercontent.com',
+    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
+    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+  });
+
+  useEffect(() => {
+    if (codeCountdown <= 0) return;
+    const timer = setTimeout(() => setCodeCountdown((value) => value - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [codeCountdown]);
+
+  useEffect(() => {
+    const idToken = googleResponse?.type === 'success' ? googleResponse.params.id_token : null;
+    if (!idToken) return;
+    setBusy(true);
+    setError('');
+    auth.signInWithGoogle(idToken)
+      .then(() => router.replace('/'))
+      .catch((reason) => setError(reason instanceof Error ? reason.message : tr('Sign in failed.', '登录失败。')))
+      .finally(() => setBusy(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run only when Google responds
+  }, [googleResponse]);
+
+  async function sendCode() {
+    setError('');
+    try {
+      await sendEmailCode(email.trim());
+      setCodeCountdown(60);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : tr('Could not send the code.', '验证码发送失败。'));
+    }
+  }
 
   async function submit() {
     setBusy(true);
     setError('');
     try {
-      if (registering) await auth.signUp(name.trim(), email.trim(), password);
+      if (registering) await auth.signUp(name.trim(), email.trim(), password, code.trim());
       else await auth.signIn(name.trim(), password);
       router.replace('/');
     } catch (reason) {
@@ -53,18 +95,34 @@ export default function SignInScreen() {
           <Input value={name} onChangeText={setName} autoCapitalize="none" autoCorrect={false} />
         </TextField>
         {registering ? (
-          <TextField isDisabled={busy}>
-            <Label>{tr('Email', '邮箱')}</Label>
-            <Input value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" />
-          </TextField>
+          <>
+            <TextField isDisabled={busy}>
+              <Label>{tr('Email', '邮箱')}</Label>
+              <Input value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" />
+            </TextField>
+            <TextField isDisabled={busy}>
+              <Label>{tr('Email verification code', '邮箱验证码')}</Label>
+              <Input value={code} onChangeText={setCode} keyboardType="number-pad" maxLength={6} />
+            </TextField>
+            <Button variant="ghost" isDisabled={busy || codeCountdown > 0 || !email.trim()} onPress={() => void sendCode()}>
+              {codeCountdown > 0
+                ? tr(`Retry in ${codeCountdown}s`, `${codeCountdown} 秒后重试`)
+                : tr('Send code', '发送验证码')}
+            </Button>
+          </>
         ) : null}
         <TextField isDisabled={busy}>
           <Label>{tr('Password', '密码')}</Label>
           <Input value={password} onChangeText={setPassword} secureTextEntry maxLength={72} />
         </TextField>
-        <Button isDisabled={busy || !name.trim() || passwordBytes < 8 || passwordBytes > 72} onPress={() => void submit()}>
+        <Button isDisabled={busy || !name.trim() || passwordBytes < 8 || passwordBytes > 72 || (registering && code.trim().length !== 6)} onPress={() => void submit()}>
           {busy ? tr('Working…', '处理中…') : registering ? tr('Create account', '创建账号') : tr('Sign in', '登录')}
         </Button>
+        {GOOGLE_CLIENT_ID ? (
+          <Button variant="secondary" isDisabled={busy} onPress={() => void promptGoogle()}>
+            {tr('Sign in with Google', '使用 Google 登录')}
+          </Button>
+        ) : null}
         <Button variant="ghost" isDisabled={busy} onPress={() => setRegistering((value) => !value)}>
           {registering ? tr('Already have an account? Sign in', '已有账号？登录') : tr('Need an account? Register', '没有账号？注册')}
         </Button>

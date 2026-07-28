@@ -8,7 +8,7 @@ import { Label } from 'heroui-native/label';
 import { Spinner } from 'heroui-native/spinner';
 import { TextField } from 'heroui-native/text-field';
 
-import { CLOUD_API_URL, loadSession, login, logout, register } from '@/cloud';
+import { CLOUD_API_URL, loadSession, login, logout, register, sendEmailCode } from '@/cloud';
 import { useLanguage } from '@/language';
 
 type Tr = ReturnType<typeof useLanguage>['tr'];
@@ -18,6 +18,8 @@ export function AccountCard({ tr }: { tr: Tr }) {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [loginName, setLoginName] = useState('');
   const [email, setEmail] = useState('');
+  const [code, setCode] = useState('');
+  const [codeCountdown, setCodeCountdown] = useState(0);
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -31,6 +33,22 @@ export function AccountCard({ tr }: { tr: Tr }) {
     return () => { active = false; };
   }, []);
 
+  useEffect(() => {
+    if (codeCountdown <= 0) return;
+    const timer = setTimeout(() => setCodeCountdown((value) => value - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [codeCountdown]);
+
+  const sendCode = async () => {
+    setError('');
+    try {
+      await sendEmailCode(email.trim());
+      setCodeCountdown(60);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : tr('Could not send the code.', '验证码发送失败。'));
+    }
+  };
+
   const submit = async () => {
     const name = loginName.trim();
     if (!name) return setError(tr('Enter a username or email.', '请输入用户名或邮箱。'));
@@ -38,6 +56,9 @@ export function AccountCard({ tr }: { tr: Tr }) {
       return setError(tr('Usernames are 3-20 letters, numbers, or underscores.', '用户名为 3-20 个字母、数字或下划线。'));
     }
     if (mode === 'register' && !email.trim()) return setError(tr('Enter an email address.', '请输入邮箱。'));
+    if (mode === 'register' && code.trim().length !== 6) {
+      return setError(tr('Enter the 6-digit email verification code.', '请输入 6 位邮箱验证码。'));
+    }
     const passwordBytes = new TextEncoder().encode(password).length;
     if (passwordBytes < 8 || passwordBytes > 72) {
       return setError(tr('Passwords are 8-72 bytes.', '密码为 8-72 字节。'));
@@ -47,7 +68,7 @@ export function AccountCard({ tr }: { tr: Tr }) {
     try {
       const session = mode === 'login'
         ? await login(name, password)
-        : await register(name, email.trim(), password);
+        : await register(name, email.trim(), password, code.trim());
       setUsername(session.username);
       setPassword('');
     } catch (reason) {
@@ -114,18 +135,35 @@ export function AccountCard({ tr }: { tr: Tr }) {
             />
           </TextField>
           {mode === 'register' ? (
-            <TextField isDisabled={busy}>
-              <Label>{tr('Email', '邮箱')}</Label>
-              <Input
-                accessibilityLabel={tr('Email', '邮箱')}
-                value={email}
-                onChangeText={setEmail}
-                autoCapitalize="none"
-                autoCorrect={false}
-                keyboardType="email-address"
-                maxLength={254}
-              />
-            </TextField>
+            <>
+              <TextField isDisabled={busy}>
+                <Label>{tr('Email', '邮箱')}</Label>
+                <Input
+                  accessibilityLabel={tr('Email', '邮箱')}
+                  value={email}
+                  onChangeText={setEmail}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="email-address"
+                  maxLength={254}
+                />
+              </TextField>
+              <TextField isDisabled={busy}>
+                <Label>{tr('Email verification code', '邮箱验证码')}</Label>
+                <Input
+                  accessibilityLabel={tr('Email verification code', '邮箱验证码')}
+                  value={code}
+                  onChangeText={setCode}
+                  keyboardType="number-pad"
+                  maxLength={6}
+                />
+              </TextField>
+              <Button variant="ghost" isDisabled={busy || codeCountdown > 0 || !email.trim()} onPress={() => void sendCode()}>
+                {codeCountdown > 0
+                  ? tr(`Retry in ${codeCountdown}s`, `${codeCountdown} 秒后重试`)
+                  : tr('Send code', '发送验证码')}
+              </Button>
+            </>
           ) : null}
           <TextField isDisabled={busy}>
             <Label>{tr('Password', '密码')}</Label>

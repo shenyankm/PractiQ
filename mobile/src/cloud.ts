@@ -274,8 +274,16 @@ export function login(loginName: string, password: string) {
   return authenticate('/api/v1/auth/login', { login: loginName, password });
 }
 
-export function register(username: string, email: string, password: string) {
-  return authenticate('/api/v1/auth/register', { username, email, password });
+export function register(username: string, email: string, password: string, code: string) {
+  return authenticate('/api/v1/auth/register', { username, email, password, code });
+}
+
+export function sendEmailCode(email: string) {
+  return cloudRequest('/api/v1/auth/email-code', { method: 'POST', json: { email }, timeoutMs: 30_000 });
+}
+
+export function loginWithGoogle(idToken: string) {
+  return authenticate('/api/v1/auth/google/token', { idToken });
 }
 
 export async function logout() {

@@ -13,6 +13,7 @@ import { Typography } from 'heroui-native/text';
 import { ScreenState } from '@/components/screen-state';
 import { DATABASE_VERSION } from '@/database/migrations';
 import { exportDatabase, restoreDatabase } from '@/files/backup';
+import { languageLabels, type Language } from '@/i18n';
 import { useLanguage, useLanguageActions } from '@/language';
 
 import { AccountCard } from './account-card';
@@ -22,7 +23,7 @@ export default function SettingsPage() {
   const { languageSaving, setLanguage } = useLanguageActions();
   const [error, setError] = useState('');
 
-  const changeLanguage = async (nextLanguage: 'en' | 'zh-CN') => {
+  const changeLanguage = async (nextLanguage: Language) => {
     setError('');
     try {
       await setLanguage(nextLanguage);
@@ -46,10 +47,10 @@ export default function SettingsPage() {
           <Card.Title>{tr('Display language', '显示语言')}</Card.Title>
           <Select
             className="ml-auto w-40"
-            value={{ value: language, label: language === 'en' ? 'English' : '简体中文' }}
+            value={{ value: language, label: languageLabels[language] }}
             isDisabled={languageSaving}
             onValueChange={(option) => {
-              if (option) void changeLanguage(option.value as 'en' | 'zh-CN');
+              if (option) void changeLanguage(option.value as Language);
             }}
           >
             <Select.Trigger accessibilityLabel={tr('Display language', '显示语言')}>
@@ -59,8 +60,9 @@ export default function SettingsPage() {
             <Select.Portal>
               <Select.Overlay />
               <Select.Content presentation="popover" width="trigger">
-                <Select.Item value="en" label="English" />
-                <Select.Item value="zh-CN" label="简体中文" />
+                {(Object.keys(languageLabels) as Language[]).map((code) => (
+                  <Select.Item key={code} value={code} label={languageLabels[code]} />
+                ))}
               </Select.Content>
             </Select.Portal>
           </Select>

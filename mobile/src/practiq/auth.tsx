@@ -1,7 +1,7 @@
 import { createContext, use, useCallback, useEffect, useMemo, useRef, useState, type PropsWithChildren } from 'react';
 import { AppState } from 'react-native';
 
-import { loadSession, login, logout, register, type CloudSession } from '@/cloud';
+import { loadSession, login, loginWithGoogle, logout, register, type CloudSession } from '@/cloud';
 import { ApiError, apiRequest, flushOutbox, setUnauthorizedHandler } from './api';
 import { clearCloudCache, outboxCounts, retryFailedMutations } from './cache';
 import { cloudUserSchema, type CloudUser } from './types';
@@ -12,7 +12,8 @@ type AuthState = {
   user: CloudUser | null;
   sync: { running: boolean; pending: number; failed: number };
   signIn: (name: string, password: string) => Promise<void>;
-  signUp: (name: string, email: string, password: string) => Promise<void>;
+  signUp: (name: string, email: string, password: string, code: string) => Promise<void>;
+  signInWithGoogle: (idToken: string) => Promise<void>;
   updateProfile: (input: { username: string; email: string | null; currentPassword?: string; newPassword?: string }) => Promise<void>;
   signOut: () => Promise<void>;
   synchronize: (retryFailed?: boolean) => Promise<void>;
@@ -104,7 +105,8 @@ export function CloudAuthProvider({ children }: PropsWithChildren) {
     user,
     sync,
     signIn: (name, password) => authenticate(() => login(name, password)),
-    signUp: (name, email, password) => authenticate(() => register(name, email, password)),
+    signUp: (name, email, password, code) => authenticate(() => register(name, email, password, code)),
+    signInWithGoogle: (idToken) => authenticate(() => loginWithGoogle(idToken)),
     updateProfile: async (input) => {
       setUser(await apiRequest<CloudUser>('/api/v1/users/me', { method: 'PATCH', body: input, schema: cloudUserSchema }));
     },

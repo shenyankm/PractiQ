@@ -17,6 +17,7 @@ import { Typography } from 'heroui-native/text';
 import { ScreenState } from '@/components/screen-state';
 import { Section } from '@/components/section';
 import { StatCard } from '@/components/stat-card';
+import { languageLabels, type Language } from '@/i18n';
 import { useLanguage, useLanguageActions } from '@/language';
 import { CLOUD_API_URL } from '@/cloud';
 import { ApiError, apiRequest, mutateOrQueue, uploadImport, type PendingImport } from './api';
@@ -897,9 +898,10 @@ export function SettingsScreen() {
       </Card>
       <Card className="gap-3">
         <Card.Title>{tr('Language', '语言')}</Card.Title>
-        <Surface className="flex-row gap-2 rounded-none p-0" variant="transparent">
-          <Button className="flex-1" variant={language === 'en' ? 'primary' : 'secondary'} onPress={() => void setLanguage('en')}>English</Button>
-          <Button className="flex-1" variant={language === 'zh-CN' ? 'primary' : 'secondary'} onPress={() => void setLanguage('zh-CN')}>简体中文</Button>
+        <Surface className="flex-row flex-wrap gap-2 rounded-none p-0" variant="transparent">
+          {(Object.keys(languageLabels) as Language[]).map((code) => (
+            <Button key={code} className="flex-1" variant={language === code ? 'primary' : 'secondary'} onPress={() => void setLanguage(code)}>{languageLabels[code]}</Button>
+          ))}
         </Surface>
       </Card>
       <Button variant="ghost" onPress={() => router.push('/privacy')}>{tr('Privacy policy', '隐私政策')}</Button>
