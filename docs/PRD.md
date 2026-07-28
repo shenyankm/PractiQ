@@ -53,7 +53,7 @@ PractiQ 是一个面向教师和教育机构的题库管理与智能练习平台
 |------|------|
 | F4.1 文件上传 | 支持 TXT、DOCX 源文件上传 |
 | F4.2 AI 解析 | Python 服务通过 OpenAI 兼容 API 解析文档为结构化试题 |
-| F4.3 本地解析 | 无 AI 配置时走确定性 fallback 解析 |
+| F4.3 未配置降级 | 无 AI 配置时 AI 接口返回 503，不产出占位数据 |
 | F4.4 进度与事件 | PostgreSQL 持久化事件，Web/移动端轮询任务与事件接口 |
 | F4.5 产物管理 | 追踪导入产出的试题及其 confidence、review 标记 |
 | F4.6 重试与取消 | 失败任务可重试（指数退避），可取消进行中的任务 |
@@ -192,7 +192,7 @@ Go API (net/http, pgxpool, go-redis)
 ## 8. 当前开发阶段
 
 - **已实现**: 认证登录/注册、后端全部 REST API（参考、题库、试题、练习、导入、媒体、分析、搜索、AI、管理）、Web 核心学习页面与管理员页面、PractiQ Android/iOS 客户端、移动端离线缓存/outbox、数据层（7 个 SQL schema + 触发器）、AI 文档解析服务、导入 worker
-- **待完成 - 功能**: 计费/结账的 webhook 未激活、未配置模型供应商时 AI 功能仍使用确定性 fallback、study-groups schema 目录预留未填充
+- **待完成 - 功能**: 计费/结账的 webhook 未激活、study-groups schema 目录预留未填充
 
 ## 9. 路线图
 

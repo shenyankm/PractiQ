@@ -1,13 +1,11 @@
 import base64
 from io import BytesIO
-from types import SimpleNamespace
 from zipfile import ZipFile
 
 import pytest
 
 import extractors
 from extractors import DocumentProcessingError, extract
-from extractors import docx as docx_extractor
 from extractors import pdf as pdf_extractor
 from schemas import DocumentParseRequest
 
@@ -68,18 +66,7 @@ def test_extract_txt_combines_text_and_base64() -> None:
     assert document.page_images == []
 
 
-def test_extract_docx_text_warnings_hints_and_images(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(
-        docx_extractor.mammoth,
-        'extract_raw_text',
-        lambda _stream: SimpleNamespace(
-            value='Raw docx text',
-            messages=[SimpleNamespace(message='text warning')],
-        ),
-    )
-
+def test_extract_docx_text_warnings_hints_and_images() -> None:
     document = extract(
         DocumentParseRequest(
             sourceType='docx',
@@ -88,12 +75,11 @@ def test_extract_docx_text_warnings_hints_and_images(
         )
     )
 
-    assert document.warnings == ['docx text: text warning']
-    assert document.text.startswith('Prompt context\n\nRaw docx text')
+    assert document.warnings == []
+    assert document.text.startswith('Prompt context\n\nH2 + O2 → H2O')
     assert '[docx formulas detected: 1]' in document.text
     assert '[docx tables detected: 1]' in document.text
     assert 'Scores & totals' in document.text
-    assert 'H2 + O2 → H2O' in document.text
     assert document.embedded_images == [b'\x89PNG fake image bytes']
 
 
@@ -120,18 +106,14 @@ def test_extract_enforces_base64_upload_limits(
 def test_extract_pdf_with_embedded_text_skips_ocr(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    pages = [
-        SimpleNamespace(extract_text=lambda: '1. What is 2+2? A. 4 B. 5'),
-        SimpleNamespace(extract_text=lambda: '2. What is 3+3? A. 6 B. 7'),
-    ]
-    monkeypatch.setattr(
-        pdf_extractor,
-        'PdfReader',
-        lambda _stream: SimpleNamespace(pages=pages),
-    )
+    texts = iter(['1. What is 2+2? A. 4 B. 5', '2. What is 3+3? A. 6 B. 7'])
+    monkeypatch.setattr(pdf_extractor, 'page_text', lambda _page: next(texts))
 
     document = extract(
-        DocumentParseRequest(sourceType='pdf', fileBase64=base64.b64encode(b'%PDF').decode())
+        DocumentParseRequest(
+            sourceType='pdf',
+            fileBase64=base64.b64encode(make_blank_pdf(pages=2)).decode(),
+        )
     )
 
     assert '1. What is 2+2?' in document.text

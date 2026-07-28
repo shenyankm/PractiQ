@@ -13,7 +13,7 @@ PractiQ now runs as a split-stack application:
 - Frontend: Vite, React 19, React Router, HeroUI v3, Tailwind CSS v4
 - Mobile: Expo SDK 57, React Native, Expo Router, HeroUI Native, SQLite offline cache/outbox
 - API/runtime: Go 1.26, `net/http`, pgxpool, go-redis
-- AI service: Python 3.14, FastAPI, Pydantic, AgentScope (DashScope models), Mammoth, pypdf, pypdfium2, Pillow, openpyxl
+- AI service: Python 3.14, FastAPI, Pydantic, AgentScope (DashScope models), pypdfium2, Pillow, openpyxl
 - Local infra: Podman Quadlet for Postgres and Redis
 
 ## Local setup
@@ -102,7 +102,7 @@ Direct dependencies are kept on current stable releases in `frontend/package.jso
 - Fresh schema installs include `media_assets.created_by` ownership, the terminal import status `cancelled`, and `users.google_sub`; apply the current schema before running these flows. Existing databases need `ALTER TABLE users ADD COLUMN google_sub TEXT;` and `CREATE UNIQUE INDEX uq_users_google_sub ON users (google_sub) WHERE google_sub IS NOT NULL;`.
 - AI routes exposed to the browser stay under `/api/v1/ai/*`; Go talks to Python over `AI_SERVICE_URL`
 - Internal AI routes are `/internal/ai/parse-document`, `/internal/ai/generate-answer`, and `/internal/ai/learning-report`; all require `AI_SERVICE_TOKEN` bearer authentication.
-- TXT, DOCX, PDF, and XLSX preprocessing run locally. Set `DASHSCOPE_API_KEY` to enable AgentScope-backed parsing, answer generation, and learning reports (`AI_TEXT_MODEL`/`AI_VL_MODEL` override the default `qwen-max`/`qwen-vl-max`); otherwise the deterministic fallback remains active. Scanned PDF pages are rendered and OCR'd through the vision model, including figure detection with bounding-box crops.
+- TXT, DOCX, PDF, and XLSX preprocessing run locally. Set `DASHSCOPE_API_KEY` to enable AgentScope-backed parsing, answer generation, and learning reports (`AI_TEXT_MODEL`/`AI_VL_MODEL` override the default `qwen-max`/`qwen-vl-max`); without it AI routes return 503. Scanned PDF pages are rendered and OCR'd through the vision model, including figure detection with bounding-box crops.
 - Membership tiers are admin-managed; billing checkout and webhook routes are not active.
 
 ## Podman stack

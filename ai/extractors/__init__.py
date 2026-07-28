@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import base64
-import binascii
 import os
 from dataclasses import dataclass, field
 
@@ -25,12 +24,16 @@ class ExtractedDocument:
     embedded_images: list[bytes] = field(default_factory=list)
 
 
-def get_upload_max_bytes() -> int:
+def positive_env[NumberT: (int, float)](name: str, default: NumberT, cast: type[NumberT] = int) -> NumberT:
     try:
-        value = int(os.getenv('IMPORT_SOURCE_MAX_BYTES', str(DEFAULT_UPLOAD_MAX_BYTES)))
+        value = cast(os.getenv(name, str(default)))
     except ValueError:
-        return DEFAULT_UPLOAD_MAX_BYTES
-    return value if value > 0 else DEFAULT_UPLOAD_MAX_BYTES
+        return default
+    return value if value > 0 else default
+
+
+def get_upload_max_bytes() -> int:
+    return positive_env('IMPORT_SOURCE_MAX_BYTES', DEFAULT_UPLOAD_MAX_BYTES)
 
 
 def decode_uploaded_base64(value: str) -> bytes:
@@ -39,7 +42,7 @@ def decode_uploaded_base64(value: str) -> bytes:
         raise DocumentProcessingError(413, 'Uploaded file is too large')
     try:
         decoded = base64.b64decode(value, validate=True)
-    except (binascii.Error, ValueError) as exc:
+    except ValueError as exc:  # binascii.Error 是 ValueError 的子类
         raise DocumentProcessingError(400, 'fileBase64 must contain valid base64') from exc
     if len(decoded) > max_bytes:
         raise DocumentProcessingError(413, 'Uploaded file is too large')

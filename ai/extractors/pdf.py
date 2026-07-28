@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-import os
 from io import BytesIO
 
-from pypdf import PdfReader
+import pypdfium2 as pdfium
 
-from . import DocumentProcessingError, ExtractedDocument
+from . import DocumentProcessingError, ExtractedDocument, positive_env
 
 DEFAULT_MAX_OCR_PAGES = 1000
 SCANNED_PAGE_TEXT_THRESHOLD = 20
@@ -13,11 +12,15 @@ RENDER_SCALE = 200 / 72  # ~200dpi
 
 
 def get_max_ocr_pages() -> int:
+    return positive_env('AI_MAX_OCR_PAGES', DEFAULT_MAX_OCR_PAGES)
+
+
+def page_text(page: pdfium.PdfPage) -> str:
+    textpage = page.get_textpage()
     try:
-        value = int(os.getenv('AI_MAX_OCR_PAGES', str(DEFAULT_MAX_OCR_PAGES)))
-    except ValueError:
-        return DEFAULT_MAX_OCR_PAGES
-    return value if value > 0 else DEFAULT_MAX_OCR_PAGES
+        return textpage.get_text_range().strip()
+    finally:
+        textpage.close()
 
 
 def extract(base_text: str, file_bytes: bytes | None) -> ExtractedDocument:
@@ -25,16 +28,24 @@ def extract(base_text: str, file_bytes: bytes | None) -> ExtractedDocument:
         return ExtractedDocument(text=base_text)
 
     try:
-        reader = PdfReader(BytesIO(file_bytes))
-        page_texts = [(page.extract_text() or '').strip() for page in reader.pages]
+        document = pdfium.PdfDocument(file_bytes)
+    except Exception as exc:
+        raise DocumentProcessingError(400, 'PDF preprocessing failed') from exc
+    try:
+        max_pages = get_max_ocr_pages()
+        if len(document) > max_pages:
+            raise DocumentProcessingError(413, f'PDF exceeds the {max_pages}-page limit')
+        page_texts = []
+        for index in range(len(document)):
+            page = document[index]
+            page_texts.append(page_text(page))
+            page.close()
     except DocumentProcessingError:
         raise
     except Exception as exc:
         raise DocumentProcessingError(400, 'PDF preprocessing failed') from exc
-
-    max_pages = get_max_ocr_pages()
-    if len(page_texts) > max_pages:
-        raise DocumentProcessingError(413, f'PDF exceeds the {max_pages}-page limit')
+    finally:
+        document.close()
 
     scanned_indexes = [
         index
@@ -55,8 +66,6 @@ def extract(base_text: str, file_bytes: bytes | None) -> ExtractedDocument:
 
 
 def render_pages(file_bytes: bytes, indexes: list[int]) -> list[bytes]:
-    import pypdfium2 as pdfium
-
     images: list[bytes] = []
     document = pdfium.PdfDocument(file_bytes)
     try:

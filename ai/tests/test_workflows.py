@@ -7,7 +7,6 @@ import pytest
 import agents.generator as generator
 import agents.parser as parser
 import agents.vision as vision
-import workflows
 from extractors import DocumentProcessingError
 from schemas import (
     AnswerGenerationResult,
@@ -46,23 +45,19 @@ def parse_request(text: str = '1. What is 2+2?') -> DocumentParseRequest:
     return DocumentParseRequest(sourceType='text', text=text)
 
 
-def test_dispatch_uses_fallbacks_without_provider(
+def test_routes_raise_503_without_provider(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.delenv('DASHSCOPE_API_KEY', raising=False)
 
-    parsed = asyncio.run(workflows.invoke_workflow('parse_document', parse_request()))
-    answer = asyncio.run(
-        workflows.invoke_workflow(
-            'generate_answer', {'options': [{'label': 'A', 'content': '4'}]}
-        )
-    )
-    report = asyncio.run(workflows.invoke_workflow('learning_report', {'userId': 7}))
-
-    assert isinstance(parsed, DocumentParseResult)
-    assert 'Deterministic fallback parser was used.' in parsed.warnings
-    assert isinstance(answer, AnswerGenerationResult)
-    assert isinstance(report, LearningReportResult)
+    for call in (
+        parser.parse_document(parse_request()),
+        generator.generate_answer({'options': [{'label': 'A', 'content': '4'}]}),
+        generator.learning_report({'userId': 7}),
+    ):
+        with pytest.raises(DocumentProcessingError) as exc_info:
+            asyncio.run(call)
+        assert exc_info.value.status_code == 503
 
 
 def test_parse_merges_chunks_and_computes_quality(
@@ -78,7 +73,7 @@ def test_parse_merges_chunks_and_computes_quality(
     monkeypatch.setattr(parser, 'get_vl_model', lambda: None)
     monkeypatch.setattr(parser, 'split_into_chunks', lambda _text: ['chunk a', 'chunk b'])
 
-    result = asyncio.run(workflows.invoke_workflow('parse_document', parse_request()))
+    result = asyncio.run(parser.parse_document(parse_request()))
 
     assert isinstance(result, DocumentParseResult)
     assert [q.stem for q in result.questions] == ['1. First', '2. Second', '3. Third']
@@ -98,7 +93,7 @@ def test_parse_retries_on_validation_error_with_feedback(
     monkeypatch.setattr(parser, 'get_text_model', lambda: fake)
     monkeypatch.setattr(parser, 'get_vl_model', lambda: None)
 
-    result = asyncio.run(workflows.invoke_workflow('parse_document', parse_request()))
+    result = asyncio.run(parser.parse_document(parse_request()))
 
     assert isinstance(result, DocumentParseResult)
     assert result.questions[0].stem == '1. Fixed'
@@ -121,7 +116,7 @@ def test_parse_skips_exhausted_chunk_but_keeps_others(
     monkeypatch.setattr(parser, 'get_vl_model', lambda: None)
     monkeypatch.setattr(parser, 'split_into_chunks', lambda _text: ['chunk a', 'chunk b'])
 
-    result = asyncio.run(workflows.invoke_workflow('parse_document', parse_request()))
+    result = asyncio.run(parser.parse_document(parse_request()))
 
     assert isinstance(result, DocumentParseResult)
     assert [q.stem for q in result.questions] == ['2. Works']
@@ -135,7 +130,7 @@ def test_parse_fails_when_all_chunks_fail(monkeypatch: pytest.MonkeyPatch) -> No
     monkeypatch.setattr(parser, 'get_vl_model', lambda: None)
 
     with pytest.raises(DocumentProcessingError) as exc_info:
-        asyncio.run(workflows.invoke_workflow('parse_document', parse_request()))
+        asyncio.run(parser.parse_document(parse_request()))
 
     assert exc_info.value.status_code == 502
 
@@ -146,7 +141,7 @@ def test_parse_maps_transport_errors_to_502(monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.setattr(parser, 'get_vl_model', lambda: None)
 
     with pytest.raises(DocumentProcessingError) as exc_info:
-        asyncio.run(workflows.invoke_workflow('parse_document', parse_request()))
+        asyncio.run(parser.parse_document(parse_request()))
 
     assert exc_info.value.status_code == 502
     assert exc_info.value.detail == 'AI agent request failed'
@@ -170,13 +165,10 @@ def test_generate_answer_and_report_use_the_model(
         'riskLevel': 'low',
     }
     fake = FakeModel([answer_payload, report_payload])
-    monkeypatch.setattr(workflows.agents, 'get_text_model', lambda: fake)
     monkeypatch.setattr(generator, 'get_text_model', lambda: fake)
 
-    answer = asyncio.run(
-        workflows.invoke_workflow('generate_answer', {'stem': 'What is 2+2?'})
-    )
-    report = asyncio.run(workflows.invoke_workflow('learning_report', {'userId': 7}))
+    answer = asyncio.run(generator.generate_answer({'stem': 'What is 2+2?'}))
+    report = asyncio.run(generator.learning_report({'userId': 7}))
 
     assert isinstance(answer, AnswerGenerationResult)
     assert answer.canonicalAnswer == '4'

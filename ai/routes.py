@@ -2,17 +2,17 @@ from __future__ import annotations
 
 import hmac
 import os
-from typing import Annotated, Any
+from typing import Any, Awaitable
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, HTTPException
 
+import agents
 from extractors import DocumentProcessingError
 from schemas import (
     AnswerGenerationRequest,
     DocumentParseRequest,
     LearningReportRequest,
 )
-from workflows import invoke_workflow
 
 router = APIRouter()
 
@@ -26,17 +26,6 @@ def authentication_error(authorization: str | None) -> tuple[int, str] | None:
     ):
         return 401, 'Unauthorized'
     return None
-
-
-def _require_token(authorization: Annotated[str | None, Header()] = None) -> None:
-    error = authentication_error(authorization)
-    if error:
-        status_code, detail = error
-        raise HTTPException(
-            status_code=status_code,
-            detail=detail,
-            headers={'WWW-Authenticate': 'Bearer'} if status_code == 401 else None,
-        )
 
 
 @router.get('/internal/health/live')
@@ -54,27 +43,28 @@ def ready() -> dict[str, bool]:
     return {'ok': True}
 
 
-@router.post('/internal/ai/parse-document', dependencies=[Depends(_require_token)])
+# 认证由 main.DocumentGuardMiddleware 在读取请求体之前统一拦截。
+@router.post('/internal/ai/parse-document')
 async def parse_document(payload: DocumentParseRequest) -> dict[str, Any]:
-    return (await _invoke('parse_document', payload)).model_dump()
+    return (await _invoke(agents.parse_document(payload))).model_dump()
 
 
-@router.post('/internal/ai/generate-answer', dependencies=[Depends(_require_token)])
+@router.post('/internal/ai/generate-answer')
 async def generate_answer(payload: AnswerGenerationRequest) -> dict[str, Any]:
     return (
-        await _invoke('generate_answer', payload.model_dump(exclude_none=True))
+        await _invoke(agents.generate_answer(payload.model_dump(exclude_none=True)))
     ).model_dump()
 
 
-@router.post('/internal/ai/learning-report', dependencies=[Depends(_require_token)])
+@router.post('/internal/ai/learning-report')
 async def learning_report(payload: LearningReportRequest) -> dict[str, Any]:
     return (
-        await _invoke('learning_report', payload.model_dump(exclude_none=True))
+        await _invoke(agents.learning_report(payload.model_dump(exclude_none=True)))
     ).model_dump()
 
 
-async def _invoke(operation: Any, payload: Any) -> Any:
+async def _invoke[ResultT](call: Awaitable[ResultT]) -> ResultT:
     try:
-        return await invoke_workflow(operation, payload)
+        return await call
     except DocumentProcessingError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc

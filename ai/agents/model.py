@@ -9,7 +9,7 @@ from agentscope.message import AssistantMsg, Msg, UserMsg
 from agentscope.model import DashScopeChatModel
 from pydantic import BaseModel, ValidationError
 
-from extractors import DocumentProcessingError
+from extractors import DocumentProcessingError, positive_env
 
 DEFAULT_TEXT_MODEL = 'qwen-max'
 DEFAULT_VL_MODEL = 'qwen-vl-max'
@@ -23,10 +23,6 @@ def get_vl_model() -> DashScopeChatModel | None:
     return _configured_model('AI_VL_MODEL', DEFAULT_VL_MODEL)
 
 
-def reset_model_cache() -> None:
-    _build_model.cache_clear()
-
-
 def _configured_model(env_name: str, default: str) -> DashScopeChatModel | None:
     api_key = os.getenv('DASHSCOPE_API_KEY', '').strip()
     if not api_key:
@@ -34,8 +30,8 @@ def _configured_model(env_name: str, default: str) -> DashScopeChatModel | None:
     return _build_model(
         api_key,
         os.getenv(env_name, default).strip() or default,
-        _positive_int_env('AI_AGENT_MAX_TOKENS', 16_384),
-        _positive_float_env('AI_AGENT_TIMEOUT_SECONDS', 180),
+        positive_env('AI_AGENT_MAX_TOKENS', 16_384),
+        positive_env('AI_AGENT_TIMEOUT_SECONDS', 180, float),
     )
 
 
@@ -60,24 +56,8 @@ def _build_model(
     )
 
 
-def _positive_float_env(name: str, default: float) -> float:
-    try:
-        value = float(os.getenv(name, str(default)))
-    except ValueError:
-        return default
-    return value if value > 0 else default
-
-
-def _positive_int_env(name: str, default: int) -> int:
-    try:
-        value = int(os.getenv(name, str(default)))
-    except ValueError:
-        return default
-    return value if value > 0 else default
-
-
 async def structured_call[ResultT: BaseModel](
-    model: DashScopeChatModel,
+    model: DashScopeChatModel | None,
     messages: list[Msg],
     schema: type[ResultT],
     validation_retries: int,
@@ -86,6 +66,8 @@ async def structured_call[ResultT: BaseModel](
 
     返回 None 表示重试耗尽仍未通过校验；传输层异常直接抛 502。
     """
+    if model is None:
+        raise DocumentProcessingError(503, 'AI provider is not configured')
     for attempt in range(validation_retries + 1):
         try:
             response = await model.generate_structured_output(

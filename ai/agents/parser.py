@@ -5,7 +5,6 @@ from pydantic import BaseModel, Field
 
 from chunking import merge_chunk_results, split_into_chunks
 from extractors import DocumentProcessingError, extract
-from fallbacks import fallback_parse_document
 from schemas import (
     DocumentParseRequest,
     DocumentParseResult,
@@ -41,12 +40,6 @@ async def parse_document(request: DocumentParseRequest) -> DocumentParseResult:
     warnings = list(document.warnings)
 
     text_model = get_text_model()
-    if text_model is None:
-        result = fallback_parse_document(
-            request.model_copy(update={'text': document.text, 'fileBase64': None})
-        )
-        return _with_warnings(result, [*warnings, *result.warnings])
-
     text = document.text
     visual_elements: list[VisualElement] = []
     vl_model = get_vl_model()
@@ -127,6 +120,4 @@ def _with_warnings(
 ) -> DocumentParseResult:
     if len(warnings) > 1_000:
         raise DocumentProcessingError(422, 'Document preprocessing returned too many warnings')
-    return DocumentParseResult.model_validate(
-        {**result.model_dump(), 'warnings': warnings}
-    )
+    return result.model_copy(update={'warnings': warnings})

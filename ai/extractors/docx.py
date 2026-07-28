@@ -5,8 +5,6 @@ import re
 from io import BytesIO
 from zipfile import BadZipFile, ZipFile
 
-import mammoth
-
 from . import DocumentProcessingError, ExtractedDocument
 
 TEXT_NODE_PATTERN = re.compile(r"<[^>]*:t[^>]*>(.*?)</[^>]*:t>")
@@ -26,16 +24,17 @@ def extract(base_text: str, file_bytes: bytes | None) -> ExtractedDocument:
     warnings: list[str] = []
     try:
         _validate_docx_archive(file_bytes)
-        raw_text = mammoth.extract_raw_text(BytesIO(file_bytes))
+        with ZipFile(BytesIO(file_bytes)) as archive:
+            document_xml = archive.read('word/document.xml').decode('utf-8', errors='ignore')
+        raw_text = '\n'.join(extract_xml_text(document_xml))
         hints = extract_docx_hints(file_bytes)
         images = _extract_embedded_images(file_bytes, warnings)
     except DocumentProcessingError:
         raise
     except Exception as exc:
         raise DocumentProcessingError(400, 'DOCX preprocessing failed') from exc
-    warnings.extend(f"docx text: {message.message}" for message in raw_text.messages)
     text = "\n\n".join(
-        part for part in [base_text, raw_text.value.strip(), hints] if part
+        part for part in [base_text, raw_text, hints] if part
     )
     return ExtractedDocument(text=text, warnings=warnings, embedded_images=images)
 
@@ -86,13 +85,6 @@ def extract_docx_hints(file_bytes: bytes) -> str:
         table_count = document_xml.count("<w:tbl")
         formula_count = document_xml.count("<m:oMath")
         formulas = OMATH_PATTERN.findall(document_xml)
-        chemistry_like_text = [
-            text
-            for text in extract_xml_text(document_xml)
-            if "→" in text
-            or "⇌" in text
-            or ("+" in text and any(char.isdigit() for char in text))
-        ]
         chart_summaries = []
         for file_name in chart_files[:8]:
             xml = archive.read(file_name).decode("utf-8", errors="ignore")
@@ -110,7 +102,6 @@ def extract_docx_hints(file_bytes: bytes) -> str:
         *(f"[docx formula OMML] {formula}" for formula in formulas[:200]),
         *([f"[docx tables detected: {table_count}]"] if table_count else []),
         *([f"[docx charts] {chart_summaries}"] if chart_summaries else []),
-        *chemistry_like_text,
     ]
     return "\n".join(summary_parts)
 

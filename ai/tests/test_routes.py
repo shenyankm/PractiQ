@@ -2,14 +2,8 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from pydantic import BaseModel
 
 from main import app
-from schemas import (
-    AnswerGenerationResult,
-    DocumentParseResult,
-    LearningReportResult,
-)
 
 
 TOKEN = 'test-ai-token'
@@ -25,9 +19,9 @@ def document_request() -> dict[str, Any]:
 
 
 @pytest.mark.parametrize(
-    ('path', 'payload', 'result_model'),
+    ('path', 'payload'),
     (
-        ('/internal/ai/parse-document', document_request(), DocumentParseResult),
+        ('/internal/ai/parse-document', document_request()),
         (
             '/internal/ai/generate-answer',
             {
@@ -38,16 +32,14 @@ def document_request() -> dict[str, Any]:
                     {'label': 'B', 'content': '5'},
                 ],
             },
-            AnswerGenerationResult,
         ),
-        ('/internal/ai/learning-report', {'userId': 7, 'stats': {'answers': 3}}, LearningReportResult),
+        ('/internal/ai/learning-report', {'userId': 7, 'stats': {'answers': 3}}),
     ),
 )
-def test_json_route_requires_auth_and_returns_its_contract(
+def test_json_route_requires_auth_and_provider(
     monkeypatch: pytest.MonkeyPatch,
     path: str,
     payload: dict[str, Any],
-    result_model: type[BaseModel],
 ) -> None:
     monkeypatch.setenv('AI_SERVICE_TOKEN', TOKEN)
     monkeypatch.delenv('DASHSCOPE_API_KEY', raising=False)
@@ -55,14 +47,14 @@ def test_json_route_requires_auth_and_returns_its_contract(
 
     assert client.post(path, json=payload).status_code == 401
 
+    # 未配置模型提供商时明确返回 503，而不是编造假数据。
     response = client.post(
         path,
         json=payload,
         headers={'Authorization': f'Bearer {TOKEN}'},
     )
 
-    assert response.status_code == 200
-    result_model.model_validate(response.json())
+    assert response.status_code == 503
 
 
 @pytest.mark.parametrize(
