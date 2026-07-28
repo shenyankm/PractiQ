@@ -1,4 +1,4 @@
-import { useState, type ChangeEvent, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { Alert, Avatar, Button, Card, Description, FieldError, Fieldset, Form, InputGroup, Label, Link, TextField, Typography } from '@heroui/react';
 import { useSearchParams } from 'react-router-dom';
 import { ApiClientError, apiRequest } from '@/lib/api';
@@ -34,11 +34,33 @@ export function LoginPage({ mode = 'signin' }: LoginPageProps) {
   const [emailOrLogin, setEmailOrLogin] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [codeCountdown, setCodeCountdown] = useState(0);
+  const countdownRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [pending, setPending] = useState(false);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const redirect = safeRedirect(searchParams.get('redirect'));
   const isSignUp = mode === 'signup';
+
+  useEffect(() => {
+    if (codeCountdown <= 0) return;
+    countdownRef.current = setTimeout(() => setCodeCountdown(codeCountdown - 1), 1000);
+    return () => clearTimeout(countdownRef.current);
+  }, [codeCountdown]);
+
+  async function onSendCode() {
+    setSubmissionError(null);
+    try {
+      await apiRequest('/api/v1/auth/email-code', {
+        method: 'POST',
+        json: { email: emailOrLogin }
+      });
+      setCodeCountdown(60);
+    } catch (error) {
+      setSubmissionError(submissionErrorMessage(error));
+    }
+  }
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -54,7 +76,7 @@ export function LoginPage({ mode = 'signin' }: LoginPageProps) {
       } else {
         await apiRequest('/api/v1/auth/register', {
           method: 'POST',
-          json: { username, email: emailOrLogin, password }
+          json: { username, email: emailOrLogin, password, code: verificationCode }
         });
       }
       window.location.assign(redirect);
@@ -128,6 +150,36 @@ export function LoginPage({ mode = 'signin' }: LoginPageProps) {
                     </InputGroup>
                     <FieldError />
                   </TextField>
+                  {isSignUp ? (
+                    <TextField isRequired name="code" fullWidth>
+                      <Label>邮箱验证码</Label>
+                      <InputGroup fullWidth>
+                        <InputGroup.Input
+                          autoComplete="one-time-code"
+                          inputMode="numeric"
+                          maxLength={6}
+                          minLength={6}
+                          pattern="[0-9]{6}"
+                          placeholder="输入 6 位验证码"
+                          value={verificationCode}
+                          onChange={(event: ChangeEvent<HTMLInputElement>) => setVerificationCode(event.target.value)}
+                        />
+                        <InputGroup.Suffix>
+                          <Button
+                            size="sm"
+                            type="button"
+                            variant="ghost"
+                            isDisabled={codeCountdown > 0 || !emailOrLogin}
+                            onPress={onSendCode}
+                          >
+                            {codeCountdown > 0 ? `${codeCountdown} 秒后重试` : '发送验证码'}
+                          </Button>
+                        </InputGroup.Suffix>
+                      </InputGroup>
+                      <Description>验证码将发送到上方邮箱，10 分钟内有效。</Description>
+                      <FieldError />
+                    </TextField>
+                  ) : null}
                   <TextField
                     isRequired
                     name="password"
@@ -192,6 +244,14 @@ export function LoginPage({ mode = 'signin' }: LoginPageProps) {
               <div className="flex w-full flex-col gap-4">
                 <Button fullWidth variant="primary" type="submit" isDisabled={pending}>
                   {isSignUp ? '注册' : '登录'}
+                </Button>
+                <Button
+                  fullWidth
+                  variant="secondary"
+                  type="button"
+                  onPress={() => window.location.assign('/api/v1/auth/google/start')}
+                >
+                  使用 Google 登录
                 </Button>
                 <Typography.Paragraph align="center" color="muted" size="sm">
                   {isSignUp ? '已有账号？' : '还没有账号？'}{' '}

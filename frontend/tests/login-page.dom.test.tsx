@@ -27,6 +27,7 @@ function submitRegistration(password = 'password123', confirmPassword = password
   render(<LoginPage mode="signup" />);
   fireEvent.change(screen.getByLabelText('用户名'), { target: { value: 'alice' } });
   fireEvent.change(screen.getByLabelText('邮箱'), { target: { value: 'alice@example.com' } });
+  fireEvent.change(screen.getByLabelText('邮箱验证码'), { target: { value: '123456' } });
   fireEvent.change(screen.getByLabelText('密码'), { target: { value: password } });
   fireEvent.change(screen.getByLabelText('确认密码'), { target: { value: confirmPassword } });
   fireEvent.click(screen.getByRole('button', { name: '注册' }));
@@ -77,9 +78,34 @@ describe('LoginPage', () => {
       '/api/v1/auth/register',
       {
         method: 'POST',
-        json: { username: 'alice', email: 'alice@example.com', password: 'password123' }
+        json: { username: 'alice', email: 'alice@example.com', password: 'password123', code: '123456' }
       }
     );
+  });
+
+  it('sends the email verification code and starts a countdown', async () => {
+    mocks.apiRequest.mockResolvedValueOnce(undefined);
+
+    render(<LoginPage mode="signup" />);
+    fireEvent.change(screen.getByLabelText('邮箱'), { target: { value: 'alice@example.com' } });
+    fireEvent.click(screen.getByRole('button', { name: '发送验证码' }));
+
+    await waitFor(() => expect(mocks.apiRequest).toHaveBeenCalledWith(
+      '/api/v1/auth/email-code',
+      { method: 'POST', json: { email: 'alice@example.com' } }
+    ));
+    expect(await screen.findByRole('button', { name: '60 秒后重试' })).toBeDefined();
+  });
+
+  it('starts the Google sign-in flow from the login card', () => {
+    render(<LoginPage mode="signin" />);
+
+    const assign = vi.fn();
+    vi.stubGlobal('location', { ...window.location, assign });
+    fireEvent.click(screen.getByRole('button', { name: '使用 Google 登录' }));
+    vi.unstubAllGlobals();
+
+    expect(assign).toHaveBeenCalledWith('/api/v1/auth/google/start');
   });
 
   it('does not submit registration when passwords do not match', () => {
