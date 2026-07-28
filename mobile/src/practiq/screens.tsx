@@ -18,7 +18,7 @@ import { ScreenState } from '@/components/screen-state';
 import { Section } from '@/components/section';
 import { StatCard } from '@/components/stat-card';
 import { languageLabels, type Language } from '@/i18n';
-import { useLanguage, useLanguageActions } from '@/language';
+import { useLanguage } from '@/language';
 import { CLOUD_API_URL } from '@/cloud';
 import { ApiError, apiRequest, mutateOrQueue, uploadImport, type PendingImport } from './api';
 import { createMutationKey, enqueueMutation, readResource, writeResource } from './cache';
@@ -828,8 +828,7 @@ export function AnalyticsScreen() {
 }
 
 export function SettingsScreen() {
-  const { tr, language } = useLanguage();
-  const { setLanguage } = useLanguageActions();
+  const { tr, language, setLanguage } = useLanguage();
   const auth = useCloudAuth();
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');

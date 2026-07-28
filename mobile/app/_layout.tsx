@@ -1,4 +1,4 @@
-import { SplashScreen } from '@/splash';
+import * as SplashScreen from 'expo-splash-screen';
 
 import '../global.css';
 import { router, Stack, type ErrorBoundaryProps, useSegments } from 'expo-router';
@@ -20,6 +20,8 @@ import { useUniwind } from 'uniwind';
 import { LanguageProvider, useLanguage } from '@/language';
 import { CONTENT_MAX_WIDTH } from '@/layout';
 import { CloudAuthProvider, useCloudAuth } from '@/practiq/auth';
+
+void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 export const unstable_settings = { initialRouteName: '(tabs)' };
 

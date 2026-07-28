@@ -43,9 +43,7 @@ npm start
 ```text
 app/                  Expo Router 薄路由与根布局
 src/practiq/         REST 客户端、认证、缓存、同步队列和云端页面
-src/features/         从 PractiQ 保留的领域模块
-src/database/         保留的本地数据库与迁移
 assets/               PractiQ 品牌和应用商店资源
 ```
 
-旧 PractiQ 本地题库不会自动上传或迁移；新移动端只同步用户在 PractiQ 账户下创建或读取的数据。会话令牌仅保存在 Expo Secure Store，不写入 SQLite、备份或日志。
+旧 PractiQ 本地题库栈已移除；移动端只同步用户在 PractiQ 账户下创建或读取的数据。会话令牌仅保存在 Expo Secure Store，不写入 SQLite、备份或日志。

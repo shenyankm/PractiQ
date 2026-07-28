@@ -97,7 +97,6 @@
           "resizeMode": "contain"
         }
       ],
-      "expo-image",
       "expo-web-browser"
     ],
     "experiments": {

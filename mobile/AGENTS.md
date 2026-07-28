@@ -9,11 +9,10 @@
 
 ## Application Boundaries
 
-- Preserve `index.ts` import order: `src/polyfills` must load before `expo-router/entry`.
+- Keep `import 'expo'` as the first import in `index.ts`, before `expo-router/entry`.
 - Expo Router routes and startup live in `app/`; PractiQ mobile behavior lives in `src/practiq/`.
 - PostgreSQL through the PractiQ REST API is authoritative. `practiq-cache.db` contains only cached responses and the mutation outbox.
 - Route replayable writes through `mutateOrQueue`; keep outbox replay sequential and preserve its `Idempotency-Key`.
-- The retained PractiQ database is not uploaded or migrated into PractiQ automatically.
 - Use HeroUI Native and keep `global.css`, `metro.config.js`, and the root provider aligned.
 
 ## Security and Native Builds
