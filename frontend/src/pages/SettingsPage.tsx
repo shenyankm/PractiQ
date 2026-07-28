@@ -63,7 +63,7 @@ export default function SettingsPage() {
       <Card>
         <Card.Header><Typography.Heading level={2}>数据说明</Typography.Heading></Card.Header>
         <Card.Content>
-          <p>OpenWook 以云端 PostgreSQL 为权威数据源。PractiQ 移动端会保留离线副本，并在联网后同步。</p>
+          <p>PractiQ 以云端 PostgreSQL 为权威数据源。PractiQ 移动端会保留离线副本，并在联网后同步。</p>
         </Card.Content>
       </Card>
     </section>

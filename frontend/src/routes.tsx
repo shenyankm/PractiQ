@@ -1,7 +1,7 @@
 import { createBrowserRouter, Navigate, Outlet, RouterProvider, useLocation } from 'react-router-dom';
 import { Typography } from '@heroui/react';
 import { AuthProvider, useAuth } from '@/auth/AuthProvider';
-import { OpenWookShell } from '@/layout/OpenWookShell';
+import { PractiQShell } from '@/layout/PractiQShell';
 import LoginPage from '@/pages/LoginPage';
 import AdminPage from '@/pages/AdminPage';
 import AdminKnowledgePointsPage from '@/pages/AdminKnowledgePointsPage';
@@ -26,7 +26,7 @@ function ProtectedLayout() {
     const redirect = location.pathname + location.search + location.hash;
     return <Navigate to={`/sign-in?redirect=${encodeURIComponent(redirect)}`} replace />;
   }
-  return <OpenWookShell user={user}><Outlet /></OpenWookShell>;
+  return <PractiQShell user={user}><Outlet /></PractiQShell>;
 }
 
 function Page({ title }: { title: string }) {

@@ -13,7 +13,7 @@ const navItems: NavItem[] = [
   { href: '/admin', label: '后台', adminOnly: true }
 ] as const;
 
-export function OpenWookShell({ children, user }: { children: ReactNode; user: AuthUser }) {
+export function PractiQShell({ children, user }: { children: ReactNode; user: AuthUser }) {
   const { pathname } = useLocation();
   const [loggingOut, setLoggingOut] = useState(false);
   const visibleNav = navItems.filter((item) => !item.adminOnly || user.role === 'admin');
@@ -23,7 +23,7 @@ export function OpenWookShell({ children, user }: { children: ReactNode; user: A
       <header className="sticky top-0 z-20 border-b bg-background/95 px-4 py-3 backdrop-blur">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
         <nav className="flex flex-wrap items-center gap-4">
-          <Link className="font-semibold" href="/dashboard">OpenWook</Link>
+          <Link className="font-semibold" href="/dashboard">PractiQ</Link>
           {visibleNav.map((item) => (
             <Link key={item.href} href={item.href} aria-current={pathname === item.href || pathname.startsWith(item.href + '/') ? 'page' : undefined}>
               {item.label}

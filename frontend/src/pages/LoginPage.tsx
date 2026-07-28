@@ -79,7 +79,7 @@ export function LoginPage({ mode = 'signin' }: LoginPageProps) {
                   {isSignUp ? '创建账号' : '欢迎回来'}
                 </Typography.Heading>
                 <Typography.Paragraph align="center" color="muted">
-                  {isSignUp ? '加入 OpenWook，开始你的学习之旅。' : '登录以继续使用 OpenWook。'}
+                  {isSignUp ? '加入 PractiQ，开始你的学习之旅。' : '登录以继续使用 PractiQ。'}
                 </Typography.Paragraph>
               </div>
             </Card.Header>
