@@ -114,6 +114,11 @@ func AuthenticateUser(ctx context.Context, pool *pgxpool.Pool, login string, pas
 		_ = bcrypt.CompareHashAndPassword([]byte(DummyPasswordHash), []byte(password))
 		return nil, api.NewError(http.StatusUnauthorized, "UNAUTHENTICATED", "Authentication required", nil)
 	}
+	// Google-only accounts have no password hash; keep timing consistent and reject.
+	if row.PasswordHash == "" {
+		_ = bcrypt.CompareHashAndPassword([]byte(DummyPasswordHash), []byte(password))
+		return nil, api.NewError(http.StatusUnauthorized, "UNAUTHENTICATED", "Authentication required", nil)
+	}
 	if !ComparePassword(password, row.PasswordHash) {
 		return nil, api.NewError(http.StatusUnauthorized, "UNAUTHENTICATED", "Authentication required", nil)
 	}
@@ -229,7 +234,7 @@ func CurrentUserFromRequest(pool *pgxpool.Pool) CurrentUserResolver {
 
 func LookupUserPasswordByLoginPGX(ctx context.Context, pool *pgxpool.Pool, login string) (*PasswordRow, error) {
 	row := pool.QueryRow(ctx, `
-		SELECT id, password_hash
+		SELECT id, COALESCE(password_hash, '')
 		FROM users
 		WHERE lower(username) = lower($1)
 		   OR lower(email) = lower($1)

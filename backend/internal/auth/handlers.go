@@ -47,6 +47,7 @@ type HandlerDependencies struct {
 	RegisterUser     func(context.Context, string, *string, string) (*User, error)
 	AuthenticateUser func(context.Context, string, string) (*User, error)
 	UpdateUser       func(context.Context, int, UpdateUserInput) (*User, error)
+	GoogleUser       func(context.Context, GoogleClaims) (*User, error)
 	SetSession       func(http.ResponseWriter, int) error
 	ClearSession     func(http.ResponseWriter, *http.Request) error
 	CurrentUser      CurrentUserResolver
@@ -56,6 +57,7 @@ type registerRequest struct {
 	Username string  `json:"username"`
 	Email    *string `json:"email"`
 	Password string  `json:"password"`
+	Code     string  `json:"code"`
 }
 
 type loginRequest struct {
@@ -113,6 +115,10 @@ func Register(deps HandlerDependencies) http.Handler {
 			return
 		}
 		if err := rateLimitAuth(r, ""); err != nil {
+			api.HandleError(w, r, err)
+			return
+		}
+		if err := VerifyEmailCode(r, *body.Email, body.Code); err != nil {
 			api.HandleError(w, r, err)
 			return
 		}

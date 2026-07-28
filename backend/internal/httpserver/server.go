@@ -18,11 +18,15 @@ type ServerConfig struct {
 }
 
 type AuthHandlers struct {
-	Register http.Handler
-	Login    http.Handler
-	Logout   http.Handler
-	Me       http.Handler
-	UpdateMe http.Handler
+	Register       http.Handler
+	Login          http.Handler
+	Logout         http.Handler
+	Me             http.Handler
+	UpdateMe       http.Handler
+	EmailCode      http.Handler
+	GoogleStart    http.Handler
+	GoogleCallback http.Handler
+	GoogleToken    http.Handler
 }
 
 type ServerDependencies struct {

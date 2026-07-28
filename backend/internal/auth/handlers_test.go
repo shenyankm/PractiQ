@@ -14,7 +14,8 @@ import (
 )
 
 func TestRegisterCreatesUserSetsSessionCookieAndReturnsCreatedEnvelope(t *testing.T) {
-	useAuthRateLimitRedis(t)
+	server := useAuthRateLimitRedis(t)
+	seedEmailCode(t, server, "alice@example.com", "123456")
 	email := "alice@example.com"
 	createdUser := &User{
 		ID:         41,
@@ -45,7 +46,7 @@ func TestRegisterCreatesUserSetsSessionCookieAndReturnsCreatedEnvelope(t *testin
 	})
 
 	rr := httptest.NewRecorder()
-	req := authRequestWithID(t, http.MethodPost, "/api/v1/auth/register", `{"username":"alice","email":"alice@example.com","password":"correct horse battery staple"}`, "req-register-123")
+	req := authRequestWithID(t, http.MethodPost, "/api/v1/auth/register", `{"username":"alice","email":"alice@example.com","password":"correct horse battery staple","code":"123456"}`, "req-register-123")
 
 	handler.ServeHTTP(rr, req)
 
@@ -277,7 +278,8 @@ func TestAuthHandlersReturnErrorEnvelopeForBadJSONAndSessionFailures(t *testing.
 	})
 
 	t.Run("register set session failure", func(t *testing.T) {
-		useAuthRateLimitRedis(t)
+		server := useAuthRateLimitRedis(t)
+		seedEmailCode(t, server, "alice@example.com", "123456")
 		handler := Register(HandlerDependencies{
 			RegisterUser: func(context.Context, string, *string, string) (*User, error) {
 				return &User{ID: 41, Username: "alice", IsActive: true, Membership: "free"}, nil
@@ -288,7 +290,7 @@ func TestAuthHandlersReturnErrorEnvelopeForBadJSONAndSessionFailures(t *testing.
 		})
 
 		rr := httptest.NewRecorder()
-		req := authRequestWithID(t, http.MethodPost, "/api/v1/auth/register", `{"username":"alice","email":"alice@example.com","password":"correct horse battery staple"}`, "req-register-session-error")
+		req := authRequestWithID(t, http.MethodPost, "/api/v1/auth/register", `{"username":"alice","email":"alice@example.com","password":"correct horse battery staple","code":"123456"}`, "req-register-session-error")
 
 		handler.ServeHTTP(rr, req)
 
@@ -492,6 +494,13 @@ func useAuthRateLimitRedis(t *testing.T) *miniredis.Miniredis {
 	server := miniredis.RunT(t)
 	t.Setenv("REDIS_URL", "redis://"+server.Addr()+"/0")
 	return server
+}
+
+func seedEmailCode(t *testing.T, server *miniredis.Miniredis, email string, code string) {
+	t.Helper()
+	if err := server.Set(emailCodeKey(email), code); err != nil {
+		t.Fatalf("seed email code: %v", err)
+	}
 }
 
 func TestLogoutClearsSessionCookieAndReturnsNoContent(t *testing.T) {

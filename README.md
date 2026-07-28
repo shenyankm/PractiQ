@@ -92,12 +92,14 @@ Direct dependencies are kept on current stable releases in `frontend/package.jso
 
 - Health endpoints: `/api/health`, `/api/health/ready`, `/api/health/live`
 - Session cookie name: `session`
+- Registration requires a 6-digit email verification code from `POST /api/v1/auth/email-code` (stored in Redis for 10 minutes, single-use). Codes are emailed through SMTP; with `SMTP_HOST` unset the code is logged instead (local development only).
+- Google sign-in: `GET /api/v1/auth/google/start` + `GET /api/v1/auth/google/callback` (browser authorization-code flow) and `POST /api/v1/auth/google/token` (mobile ID-token exchange). All three return 404 until `GOOGLE_CLIENT_ID` is configured. Accounts match by Google subject, then link by verified email, then a new user is created without a password.
 - `/api/health/ready` returns `503` until both PostgreSQL and Redis are configured and reachable; `/api/health` continues to return dependency status data.
 - Redis is required for active-session revocation checks, logout revocation writes, and login/register rate limits. Cache reads and writes remain best-effort.
 - PostgreSQL is the durable import queue and event history; Web and mobile poll job/event endpoints for progress.
 - Mobile writes carry `Idempotency-Key`; Redis stores successful replays for 24 hours. Cached mobile reads remain available offline, and queued writes replay in order after reconnection.
 - Media uploads currently accept content-sniffed PNG, JPEG, GIF, and WebP files up to 10 MiB under `OBJECT_STORAGE_MOUNT_DIR`.
-- Fresh schema installs include `media_assets.created_by` ownership and the terminal import status `cancelled`; apply the current schema before running these flows.
+- Fresh schema installs include `media_assets.created_by` ownership, the terminal import status `cancelled`, and `users.google_sub`; apply the current schema before running these flows. Existing databases need `ALTER TABLE users ADD COLUMN google_sub TEXT;` and `CREATE UNIQUE INDEX uq_users_google_sub ON users (google_sub) WHERE google_sub IS NOT NULL;`.
 - AI routes exposed to the browser stay under `/api/v1/ai/*`; Go talks to Python over `AI_SERVICE_URL`
 - Internal AI routes are `/internal/ai/parse-document`, `/internal/ai/generate-answer`, and `/internal/ai/learning-report`; all require `AI_SERVICE_TOKEN` bearer authentication.
 - TXT, DOCX, PDF, and XLSX preprocessing run locally. Set `DASHSCOPE_API_KEY` to enable AgentScope-backed parsing, answer generation, and learning reports (`AI_TEXT_MODEL`/`AI_VL_MODEL` override the default `qwen-max`/`qwen-vl-max`); otherwise the deterministic fallback remains active. Scanned PDF pages are rendered and OCR'd through the vision model, including figure detection with bounding-box crops.
@@ -133,6 +135,8 @@ See `.env.example` for the full set. The most important groups are:
 - Host/origin: `PRACTIQ_HOST`, `PORT`, `APP_ORIGIN`
 - Mobile build-time API endpoint: `EXPO_PUBLIC_API_URL` in `mobile/.env`
 - Auth/session: required `AUTH_SECRET`, `SESSION_TTL_MS`, optional `SEED_ADMIN_PASSWORD` (password for the seeded `admin` user; defaults to the local dev value, set it on any shared environment)
+- Registration email codes: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`
+- Google sign-in: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_MOBILE_CLIENT_IDS`; mobile builds also need `EXPO_PUBLIC_GOOGLE_CLIENT_ID` (plus optional Android/iOS client IDs) in `mobile/.env`. The OAuth redirect URI is `{APP_ORIGIN}/api/v1/auth/google/callback`.
 - AI service: `AI_SERVICE_URL`, `AI_SERVICE_TOKEN`, `AI_SERVICE_TIMEOUT`, `DASHSCOPE_API_KEY`, `AI_TEXT_MODEL`, `AI_VL_MODEL`, `AI_AGENT_*`, `AI_MAX_OCR_PAGES`
 - Object storage: `OBJECT_STORAGE_MOUNT_DIR`, `OSS_PUBLIC_BASE_URL`, `OSS_URL_PREFIX`
 

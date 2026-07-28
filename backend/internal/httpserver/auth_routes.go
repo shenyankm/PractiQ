@@ -29,5 +29,18 @@ func BuildAuthHandlers(pool *pgxpool.Pool) AuthHandlers {
 				return auth.UpdateUser(ctx, pool, userID, input)
 			},
 		}),
+		EmailCode:      auth.EmailCode(),
+		GoogleStart:    auth.GoogleStart(),
+		GoogleCallback: auth.GoogleCallback(googleDeps(pool)),
+		GoogleToken:    auth.GoogleToken(googleDeps(pool)),
+	}
+}
+
+func googleDeps(pool *pgxpool.Pool) auth.HandlerDependencies {
+	return auth.HandlerDependencies{
+		GoogleUser: func(ctx context.Context, claims auth.GoogleClaims) (*auth.User, error) {
+			return auth.FindOrCreateGoogleUser(ctx, pool, claims)
+		},
+		SetSession: auth.SetSession,
 	}
 }
