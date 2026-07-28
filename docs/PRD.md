@@ -1,8 +1,8 @@
-# OpenWook PRD
+# PractiQ PRD
 
 ## 1. Product Overview
 
-OpenWook 是一个面向教师和教育机构的题库管理与智能练习平台。用户可创建和管理学科题库、手动或 AI 批量导入试题、组织练习与考试会话，并获取多维度的学习分析报告。系统采用分栈架构，Go 提供 REST API，Python 提供 AI 文档解析服务，React 提供 Web 前端，PractiQ/Expo 提供 Android 与 iOS 客户端。
+PractiQ 是一个面向教师和教育机构的题库管理与智能练习平台。用户可创建和管理学科题库、手动或 AI 批量导入试题、组织练习与考试会话，并获取多维度的学习分析报告。系统采用分栈架构，Go 提供 REST API，Python 提供 AI 文档解析服务，React 提供 Web 前端，PractiQ/Expo 提供 Android 与 iOS 客户端。
 
 ## 2. 目标用户
 

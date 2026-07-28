@@ -1,4 +1,4 @@
-# OpenWook System Design
+# PractiQ System Design
 
 This document designs the application services, UI pages, and core modules from the authoritative split PostgreSQL schema files in `backend/db/*/*.sql`.
 
@@ -8,7 +8,7 @@ The files under `backend/db/*/*.sql` are bootstrap schema fragments for fresh lo
 
 ## 中文摘要
 
-本文档基于 `backend/db/*/*.sql` 中按业务拆分的 PostgreSQL schema 设计 OpenWook 题库系统的完整产品形态，覆盖：
+本文档基于 `backend/db/*/*.sql` 中按业务拆分的 PostgreSQL schema 设计 PractiQ 题库系统的完整产品形态，覆盖：
 
 - 后端 REST API：用户认证、题库、题目、题组、练习会话、导入任务、媒体资源、统计分析。
 - 前端页面：登录注册、仪表板、题库列表和详情、题目管理、练习作答、文件导入、用户设置。
@@ -371,7 +371,7 @@ frontend/src/routes.tsx
 /admin/users
 ```
 
-The PractiQ-branded Expo client lives under `mobile/` and exposes the same non-admin learning flows through Expo Router. It authenticates with the bearer form of the session token, validates API payloads with Zod, reads cached REST resources first, and revalidates them when focused. Offline mutations are stored in `openwook-cache.db`, replayed in creation order with a stable `Idempotency-Key`, and removed only after a successful response. PostgreSQL remains authoritative; the retired legacy local question database is not initialized or uploaded.
+The PractiQ-branded Expo client lives under `mobile/` and exposes the same non-admin learning flows through Expo Router. It authenticates with the bearer form of the session token, validates API payloads with Zod, reads cached REST resources first, and revalidates them when focused. Offline mutations are stored in `practiq-cache.db`, replayed in creation order with a stable `Idempotency-Key`, and removed only after a successful response. PostgreSQL remains authoritative; the retired legacy local question database is not initialized or uploaded.
 
 ### Login and Registration
 
@@ -863,7 +863,7 @@ Recommended additional implementation practices:
 ### Phase 1: Align Data Layer
 
 - Keep `backend/db/*/*.sql` as the only product schema source of truth; do not reintroduce the retired starter ORM layer or a parallel Drizzle migration path unless it is regenerated from the SQL files.
-- Keep React Router OpenWook domain routes aligned with the Go `net/http` API routes.
+- Keep React Router PractiQ domain routes aligned with the Go `net/http` API routes.
 - Add shared API response/error helpers.
 - Add auth session guards.
 

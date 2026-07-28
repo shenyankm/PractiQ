@@ -1,6 +1,6 @@
-# OpenWook
+# PractiQ
 
-OpenWook now runs as a split-stack application:
+PractiQ now runs as a split-stack application:
 
 - Go serves the HTTP API, auth/session handling, PostgreSQL-backed import queue, Redis caches/events, and the built frontend.
 - Python serves the internal AI/document-processing endpoints.
@@ -33,7 +33,7 @@ python -m pip install -e 'ai[dev]'
 ./scripts/podman-stack.sh up
 ```
 
-The Podman helper script ensures the isolated `openwook_app` database exists inside the shared local PostgreSQL volume so an older `openwook` database does not collide with this stack.
+The Podman helper script ensures the isolated `practiq_app` database exists inside the shared local PostgreSQL volume so an older `practiq` database does not collide with this stack.
 
 1. Copy environment defaults:
 
@@ -115,22 +115,22 @@ The full local stack can be built and managed with one script:
 ./scripts/podman-stack.sh down
 ```
 
-`up`/`restart` ensure the isolated `openwook_app` database exists before the API and worker start, and create `~/.config/openwook/openwook-stack.env` with random local `AUTH_SECRET` and `AI_SERVICE_TOKEN` values. You still need to run the schema/seed commands once per fresh database. Edit that env file if you want to rotate the generated local secrets.
+`up`/`restart` ensure the isolated `practiq_app` database exists before the API and worker start, and create `~/.config/practiq/practiq-stack.env` with random local `AUTH_SECRET` and `AI_SERVICE_TOKEN` values. You still need to run the schema/seed commands once per fresh database. Edit that env file if you want to rotate the generated local secrets.
 
 This manages five services:
 
-- `openwook-postgres`
-- `openwook-redis`
-- `openwook-ai`
-- `openwook-api`
-- `openwook-worker`
+- `practiq-postgres`
+- `practiq-redis`
+- `practiq-ai`
+- `practiq-api`
+- `practiq-worker`
 
 ## Environment variables
 
 See `.env.example` for the full set. The most important groups are:
 
 - Database/cache: `POSTGRES_URL`, `REDIS_URL`
-- Host/origin: `OPENWOOK_HOST`, `PORT`, `APP_ORIGIN`
+- Host/origin: `PRACTIQ_HOST`, `PORT`, `APP_ORIGIN`
 - Mobile build-time API endpoint: `EXPO_PUBLIC_API_URL` in `mobile/.env`
 - Auth/session: required `AUTH_SECRET`, `SESSION_TTL_MS`, optional `SEED_ADMIN_PASSWORD` (password for the seeded `admin` user; defaults to the local dev value, set it on any shared environment)
 - AI service: `AI_SERVICE_URL`, `AI_SERVICE_TOKEN`, `AI_SERVICE_TIMEOUT`, `DASHSCOPE_API_KEY`, `AI_TEXT_MODEL`, `AI_VL_MODEL`, `AI_AGENT_*`, `AI_MAX_OCR_PAGES`

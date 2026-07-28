@@ -1,8 +1,8 @@
-# OpenWook Visual Style Guide
+# PractiQ Visual Style Guide
 
 ## Direction
 
-OpenWook uses HeroUI v3 as the only frontend UI component system. Pages must compose standard components from `@heroui/react` and preserve HeroUI's native layout, spacing, color, focus, and motion behavior.
+PractiQ uses HeroUI v3 as the only frontend UI component system. Pages must compose standard components from `@heroui/react` and preserve HeroUI's native layout, spacing, color, focus, and motion behavior.
 
 ## Tokens
 

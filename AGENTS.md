@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-OpenWook is a split-stack application. The React + Vite browser frontend lives in `frontend/`; the Expo/React Native mobile client lives in `mobile/`. The Go `net/http` backend lives in `backend/`, with executables under `backend/cmd`, internal API/router/auth/config/db/services packages under `backend/internal`, and SQL schema files under `backend/db/*/*.sql`. AI service code lives in `ai/`, and architecture notes live in `docs/`.
+PractiQ is a split-stack application. The React + Vite browser frontend lives in `frontend/`; the Expo/React Native mobile client lives in `mobile/`. The Go `net/http` backend lives in `backend/`, with executables under `backend/cmd`, internal API/router/auth/config/db/services packages under `backend/internal`, and SQL schema files under `backend/db/*/*.sql`. AI service code lives in `ai/`, and architecture notes live in `docs/`.
 
 ## Build, Test, and Development Commands
 
