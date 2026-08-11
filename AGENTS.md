@@ -6,13 +6,10 @@ PractiQ is a unified-stack application. The React + Vite browser frontend lives 
 
 ## Build, Test, and Development Commands
 
-- `make install`: install browser and mobile dependencies from their lockfiles.
-- `make dev`: run the Vite frontend dev server from `frontend/`.
+- `make install`: install mobile dependencies from the lockfile.
 - `make mobile-dev`, `make mobile-android`, `make mobile-ios`: start or run the Expo client.
-- `make build`: create a production frontend build.
-- `make start`: serve the built frontend application.
-- `make lint`: lint both browser and mobile frontends.
-- `make test`: run browser tests plus mobile type checking and tests.
+- `make lint`: lint the mobile client.
+- `make test`: run mobile type checking and tests.
 - `make db-apply`, `make db-seed`: apply the SQL schema and local sample data from `db/`.
 - `make server-dev`: run the unified FastAPI server; `make worker-imports`: run the import queue worker in a separate terminal.
 - `make test-server`: run the server pytest suite from `server/`.
@@ -23,7 +20,7 @@ Use TypeScript with strict mode and the `@/*` path alias. Follow existing format
 
 ## Testing Guidelines
 
-Vitest is configured in `frontend/vitest.config.ts` with `frontend/tests/setup.ts` and matches `frontend/tests/**/*.test.ts` and `frontend/tests/**/*.test.tsx`. Add tests beside the existing suite using descriptive names such as `services.test.ts` or `practice-page.dom.test.tsx`. Use DOM/React Testing Library patterns for TSX behavior and focused service tests for backend logic. Run `make test` before opening a PR.
+The server pytest suite lives in `server/tests/` and runs via `make test-server`. Mobile tests and type checking run via `make mobile-test` (also covered by `make test`). Run `make verify` before opening a PR.
 
 ## Documentation Guidelines
 

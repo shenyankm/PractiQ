@@ -24,13 +24,15 @@ python --version  # 3.14+
 cd server && uv sync --extra dev
 ```
 
-1. Start the local Podman stack:
+1. Start the local Podman stack (Postgres and Redis run as Quadlet units):
 
 ```bash
-./scripts/podman-stack.sh up
+cp containers/quadlet/* ~/.config/containers/systemd/
+systemctl --user daemon-reload
+systemctl --user start practiq-postgres practiq-redis
 ```
 
-The Podman helper script ensures the isolated `practiq_app` database exists inside the shared local PostgreSQL volume so an older `practiq` database does not collide with this stack.
+The `practiq-postgres` unit creates the isolated `practiq_app` database on first start so an older `practiq` database does not collide with this stack.
 
 1. Copy environment defaults:
 
@@ -52,7 +54,6 @@ make db-seed
 ## Development commands
 
 ```bash
-make dev             # Vite frontend on 127.0.0.1:3000
 make mobile-dev      # Expo development server
 make mobile-android  # Android development build
 make mobile-ios      # iOS development build (macOS only)
@@ -60,7 +61,6 @@ make server-dev      # unified FastAPI server on 127.0.0.1:8080 by default
 make worker-imports  # import queue worker (python -m server.worker)
 ```
 
-Set `GO_API_URL=http://127.0.0.1:8080` when running `make dev` against a non-default API URL.
 For mobile development, copy `mobile/.env.example` to `mobile/.env` and set `EXPO_PUBLIC_API_URL` to an API address reachable from the emulator or device.
 
 ## Test and verification commands
@@ -69,19 +69,17 @@ For mobile development, copy `mobile/.env.example` to `mobile/.env` and set `EXP
 make lint
 make test
 make test-server
-make test-e2e
 make mobile-test
-make build
 make verify
 ```
 
-`make lint` and `make test` cover both frontends; `make build` runs the browser TypeScript check before the Vite production build.
+`make lint` and `make test` cover the mobile client; `make test-server` runs the Python server suite.
 
 ## OpenCode
 
 The project-level `.opencode/opencode.json` configures the HeroUI React MCP server. Restart OpenCode after cloning or after changing this configuration; OpenCode starts the server on demand through `npx`.
 
-Direct dependencies are kept on current stable releases in `frontend/package.json` and `server/pyproject.toml`. Tooling versions must also satisfy peer ranges; for example, TypeScript stays on the newest stable version supported by `typescript-eslint`.
+Direct dependencies are kept on current stable releases in `mobile/package.json` and `server/pyproject.toml`. Tooling versions must also satisfy peer ranges; for example, TypeScript stays on the newest stable version supported by `typescript-eslint`.
 
 ## API/runtime notes
 
@@ -101,17 +99,16 @@ Direct dependencies are kept on current stable releases in `frontend/package.jso
 
 ## Podman stack
 
-The full local stack can be built and managed with one script:
+The full local stack runs as Podman Quadlet units from `containers/quadlet/`:
 
 ```bash
-./scripts/podman-stack.sh build
-./scripts/podman-stack.sh up
-./scripts/podman-stack.sh status
-./scripts/podman-stack.sh logs
-./scripts/podman-stack.sh down
+podman build -f Containerfile.server -t localhost/practiq-server:latest .
+cp containers/quadlet/* ~/.config/containers/systemd/
+systemctl --user daemon-reload
+systemctl --user start practiq-postgres practiq-redis practiq-server practiq-worker
 ```
 
-`up`/`restart` ensure the isolated `practiq_app` database exists before the server and worker start, and create `~/.config/practiq/practiq-stack.env` with a random local `AUTH_SECRET` value. You still need to run the schema/seed commands once per fresh database. Edit that env file if you want to rotate the generated local secrets.
+The server and worker units read optional secrets from `~/.config/practiq/practiq-stack.env`; create it with a random local `AUTH_SECRET` value (edit the same file to rotate local secrets). The `practiq-postgres` unit creates the isolated `practiq_app` database on first start, and you still need to run the schema/seed commands once per fresh database.
 
 This manages four services:
 
