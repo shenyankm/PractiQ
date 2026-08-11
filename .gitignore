@@ -38,6 +38,7 @@ __pycache__/
 # Testing / Coverage / Reports
 # -----------------------------------------------
 /coverage/
+.coverage
 /test-results/
 /blob-report/
 /reports/
