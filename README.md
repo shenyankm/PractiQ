@@ -71,7 +71,14 @@ make mobile-test
 make verify
 ```
 
-`make lint` and `make test` cover the mobile client; `make test-server` runs the Python server suite.
+`make lint` and `make test` cover the mobile client; `make test-server` runs the Python server suite. Coverage reports:
+
+```bash
+cd server && uv run pytest tests --cov=server --cov-report=term  # server
+npm --prefix mobile run test:coverage                             # mobile (jest + node:test merged)
+```
+
+Both suites target 80% statement coverage (`npm run test:coverage` prints a merged per-file report; node >= 23 removed the built-in lcov reporter, so the node:test coverage flows through `mobile/scripts/lcov-reporter.mjs`).
 
 ## OpenCode
 
