@@ -1,4 +1,4 @@
-.PHONY: install dev build start lint test test-go test-ai test-e2e verify api-dev ai-dev db-apply db-seed worker-imports mobile-install mobile-dev mobile-android mobile-ios mobile-lint mobile-test
+.PHONY: install dev build start lint test test-server test-e2e verify server-dev db-apply db-seed worker-imports mobile-install mobile-dev mobile-android mobile-ios mobile-lint mobile-test
 
 install:
 	pnpm --dir frontend install
@@ -22,31 +22,25 @@ test:
 	npm --prefix mobile run typecheck
 	npm --prefix mobile test
 
-test-go:
-	cd backend && go test ./internal/... ./cmd/practiq-admin ./cmd/practiq-api ./cmd/practiq-worker
-
-test-ai:
-	python -m pytest ai/tests
+test-server:
+	cd server && uv run pytest tests
 
 test-e2e:
 	pnpm --dir frontend test:e2e
 
-verify: lint test test-go test-ai build
+verify: lint test test-server build
 
-api-dev:
-	cd backend && go run ./cmd/practiq-api
-
-ai-dev:
-	set -a; [ ! -f .env.local ] || . ./.env.local; set +a; python -m uvicorn main:app --app-dir ai --host 127.0.0.1 --port 8001
+server-dev:
+	uv run --project server python -m server
 
 db-apply:
-	cd backend && go run ./cmd/practiq-admin db apply
+	uv run --project server python -m server.admin db apply
 
 db-seed:
-	cd backend && go run ./cmd/practiq-admin db seed
+	uv run --project server python -m server.admin db seed
 
 worker-imports:
-	cd backend && go run ./cmd/practiq-worker
+	uv run --project server python -m server.worker
 
 mobile-install:
 	npm --prefix mobile ci
