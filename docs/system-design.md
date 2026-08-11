@@ -103,7 +103,6 @@ Use cookie-based sessions for web UI and bearer tokens only for service-to-servi
 | `POST` | `/api/v1/auth/logout` | User | Persist Redis session revocation, then clear the session cookie. |
 | `GET` | `/api/v1/auth/me` | User | Return current user profile and capability flags. |
 | `PATCH` | `/api/v1/users/me` | User | Update username/email/password. |
-| `PATCH` | `/api/v1/users/:id/status` | Admin | Set `is_active`. |
 
 Register body:
 
@@ -132,14 +131,12 @@ Authorization checks:
 | `GET` | `/api/v1/subjects` | Public/User | List subjects. |
 | `GET` | `/api/v1/question-types?subject=math&scope=question` | Public/User | List supported question types. |
 | `GET` | `/api/v1/knowledge-points?subject=math&parentId=...` | User | Browse knowledge tree. |
-| `POST` | `/api/v1/knowledge-points` | Admin | Create knowledge point. |
-| `PATCH` | `/api/v1/knowledge-points/:id` | Admin | Update knowledge point. |
 
 ### Question Banks
 
 | Method | Route | Auth | Description |
 | --- | --- | --- | --- |
-| `GET` | `/api/v1/banks` | User | List owned, favorited, and public banks. |
+| `GET` | `/api/v1/banks` | User | List owned, favorited, and public banks; accepts `updated_since` (ISO 8601) for incremental sync. |
 | `POST` | `/api/v1/banks` | User | Create bank and `user_bank_links(is_owner=true)`. |
 | `GET` | `/api/v1/banks/:bankId` | Bank reader | Bank detail with stats and permissions. |
 | `PATCH` | `/api/v1/banks/:bankId` | Bank owner | Update name, description, public flag. |
@@ -226,6 +223,7 @@ Fill blank answer model:
 
 | Method | Route | Auth | Description |
 | --- | --- | --- | --- |
+| `GET` | `/api/v1/practice-sessions` | User | List own sessions; accepts `updated_since` (ISO 8601) for incremental sync. |
 | `POST` | `/api/v1/practice-sessions` | User | Start practice from bank/filter. |
 | `GET` | `/api/v1/practice-sessions/:sessionId` | Owner | Session state and current summary. |
 | `GET` | `/api/v1/practice-sessions/:sessionId/questions` | Owner | Ordered practice queue. |
@@ -321,7 +319,7 @@ Create body:
 Import worker flow:
 
 1. Insert `question_import_jobs(status='queued', stage='queued')`.
-2. Store one TXT or DOCX source as `question_import_job_artifacts`.
+2. Store one TXT, DOCX, PDF, or XLSX source as `question_import_job_artifacts`.
 3. Schedule the job by setting `available_at`.
 4. Claim it atomically with `FOR UPDATE SKIP LOCKED` and mark it `processing`.
 5. Ask the internal AI service to parse the document.
@@ -365,12 +363,9 @@ Client apps expose these routes:
 /imports/:jobId
 /questions/:questionId
 /settings
-/admin
-/admin/knowledge-points
-/admin/users
 ```
 
-The PractiQ-branded Expo client lives under `mobile/` and exposes the same non-admin learning flows through Expo Router. It authenticates with the bearer form of the session token, validates API payloads with Zod, reads cached REST resources first, and revalidates them when focused. Offline mutations are stored in `practiq-cache.db`, replayed in creation order with a stable `Idempotency-Key`, and removed only after a successful response. PostgreSQL remains authoritative; the retired legacy local question database is not initialized or uploaded.
+The PractiQ-branded Expo client lives under `mobile/` and exposes the same non-admin learning flows through Expo Router. It authenticates with the bearer form of the session token, validates API payloads with Zod, and keeps a structured mirror of server content in `practiq-cache.db`: banks, groups, questions, options, answer keys, media links, and practice sessions are stored in per-entity SQLite tables (`mobile/src/practiq/mirror-schema.ts`) that mirror the PostgreSQL columns delivered by the API, so screens read and write bank/question data at row granularity instead of opaque blobs. Residual blob caches (`resources` table) remain for analytics snapshots, import jobs, and offline practice snapshots. Offline mutations are stored in the `outbox` table, replayed in creation order with a stable `Idempotency-Key`, and removed only after a successful response. On app start and foreground return the client pushes the outbox first, then pulls global deltas via `updated_since` on `/api/v1/banks` and `/api/v1/practice-sessions` (per-scope anchors in `sync_state`); bank contents are refreshed per bank on focus with delete reconciliation. PostgreSQL remains authoritative; the retired legacy local question database is not initialized or uploaded.
 
 ### Login and Registration
 
@@ -837,7 +832,7 @@ Answers accepted only while active.
 
 API pagination:
 
-- Opaque cursor pagination for banks, bank items, bank groups, import jobs, practice sessions, knowledge points, admin lists, and question search.
+- Opaque cursor pagination for banks, bank items, bank groups, import jobs, practice sessions, knowledge points, and question search.
 - Current cursors encode an offset; switch individual deep-list queries to keyset cursors only when profiling justifies it.
 
 Indexes already helpful:

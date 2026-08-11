@@ -93,7 +93,7 @@ Direct dependencies are kept on current stable releases in `mobile/package.json`
 - Fresh schema installs include `media_assets.created_by` ownership, the terminal import status `cancelled`, and `users.google_sub`; apply the current schema before running these flows. Existing databases need `ALTER TABLE users ADD COLUMN google_sub TEXT;` and `CREATE UNIQUE INDEX uq_users_google_sub ON users (google_sub) WHERE google_sub IS NOT NULL;`.
 - AI routes stay under `/api/v1/ai/*`; the server calls agentscope in-process (no internal HTTP hop).
 - TXT, DOCX, PDF, and XLSX preprocessing run locally. Set `DASHSCOPE_API_KEY` to enable AgentScope-backed parsing, answer generation, and learning reports (`AI_TEXT_MODEL`/`AI_VL_MODEL` override the default `qwen-max`/`qwen-vl-max`); without it AI routes return 503. Scanned PDF pages are rendered and OCR'd through the vision model, including figure detection with bounding-box crops.
-- Membership tiers are admin-managed; billing checkout and webhook routes are not active.
+- Membership tiers are managed with direct SQL updates (the admin back-office was removed); billing checkout and webhook routes are not active.
 
 ## Podman stack
 
