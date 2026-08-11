@@ -12,9 +12,22 @@ export const cloudUserSchema = z.object({
   email: z.string().email().nullable(),
   is_active: z.boolean(),
   role: z.enum(['admin', 'user']),
-  membership: z.enum(['free', 'plus', 'enterprise']),
+  membership: z.enum(['free', 'pro']),
+  revenuecat_app_user_id: z.uuid(),
 }).loose();
 export type CloudUser = z.infer<typeof cloudUserSchema>;
+
+export const llmProviderSchema = z.enum([
+  'anthropic', 'dashscope', 'deepseek', 'gemini', 'moonshot', 'openai', 'xai',
+]);
+export const llmConfigSchema = z.object({
+  provider: llmProviderSchema.nullable(),
+  textModel: z.string().nullable(),
+  visionModel: z.string().nullable(),
+  configured: z.boolean(),
+});
+export type LLMProvider = z.infer<typeof llmProviderSchema>;
+export type LLMConfig = z.infer<typeof llmConfigSchema>;
 
 export const bankSchema = z.object({
   id,

@@ -1,1 +1,1 @@
-export { SettingsScreen as default } from '@/practiq/screens';
+export { AISettingsScreen as default } from '@/practiq/screens';

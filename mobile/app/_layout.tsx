@@ -110,7 +110,7 @@ function AppNavigator() {
       }}>
         <Stack.Screen name="sign-in" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false, contentStyle: { backgroundColor } }} />
-        <Stack.Screen name="settings/ai" options={{ title: tr('Cloud account', '云端账户') }} />
+        <Stack.Screen name="settings/ai" options={{ title: tr('Cloud AI', '云端 AI') }} />
         <Stack.Screen name="settings/data" options={{ title: tr('Local data', '本地数据') }} />
         <Stack.Screen name="imports/index" options={{ title: tr('Document imports', '文档导入') }} />
         <Stack.Screen name="search" options={{ title: tr('Search', '搜索') }} />

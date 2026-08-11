@@ -45,6 +45,7 @@ import {
   importJobSchema,
   importJobsSchema,
   importOutputsSchema,
+  llmConfigSchema,
   mediaAssetSchema,
   practicePageSchema,
   practiceAnswerSchema,
@@ -63,6 +64,8 @@ import {
   type ImportJob,
   type ImportEvent,
   type ImportOutput,
+  type LLMConfig,
+  type LLMProvider,
   type MediaAsset,
   type PracticePage,
   type PracticeResult,
@@ -166,7 +169,8 @@ export function OverviewScreen() {
 
 export function BanksScreen() {
   const { tr } = useLanguage();
-  const { user } = useCloudAuth();
+  const auth = useCloudAuth();
+  const { user } = auth;
   const [scope, setScope] = useState<'mine' | 'favorites' | 'public'>('mine');
   const banks = useCachedResource<Bank[]>(`banks:${scope}`, `/api/v1/banks?scope=${scope}&limit=100`, [], banksSchema, true, banksResourceMirror(scope, user?.id ?? null));
 
@@ -187,7 +191,13 @@ export function BanksScreen() {
       </Surface>
       <Surface className="flex-row gap-2 rounded-none p-0" variant="transparent">
         <Button className="flex-1" onPress={() => router.push('/banks/new')}>{tr('New bank', '新建题库')}</Button>
-        <Button className="flex-1" variant="secondary" onPress={() => router.push('/imports')}>{tr('Import', '导入')}</Button>
+        <Button
+          className="flex-1"
+          variant="secondary"
+          onPress={() => auth.hasPro ? router.push('/imports') : router.push('/settings')}
+        >
+          {auth.hasPro ? tr('Import', '导入') : tr('PRO import', 'PRO 导入')}
+        </Button>
       </Surface>
       <ResourceState loading={banks.loading} error={banks.error} />
       {banks.data.map((bank) => (
@@ -692,6 +702,14 @@ export function QuestionScreen() {
   }
 
   async function generateAnswer() {
+    if (!auth.hasPro) {
+      try {
+        await auth.purchasePro();
+      } catch (reason) {
+        setMessage(reason instanceof Error ? reason.message : tr('Purchase failed.', '购买失败。'));
+      }
+      return;
+    }
     setBusy(true);
     setMessage('');
     try {
@@ -703,6 +721,9 @@ export function QuestionScreen() {
       await question.reload();
       setMessage(tr('AI answer applied.', 'AI 答案已应用。'));
     } catch (reason) {
+      if (reason instanceof ApiError && reason.code === 'LLM_CONFIG_REQUIRED') {
+        router.push('/settings/ai');
+      }
       setMessage(reason instanceof Error ? reason.message : tr('AI answer generation failed.', 'AI 答案生成失败。'));
     } finally {
       setBusy(false);
@@ -885,6 +906,46 @@ export function SettingsScreen() {
     <ScreenState>
       <Typography.Heading type="h1">{tr('Settings', '设置')}</Typography.Heading>
       <Card className="gap-3">
+        <Card.Title>{tr('Membership', '会员')}</Card.Title>
+        <Typography.Heading type="h3">{auth.hasPro ? 'PRO' : 'FREE'}</Typography.Heading>
+        <Typography color="muted">
+          {auth.hasPro
+            ? tr('No ads and cloud AI with your own API key.', '无广告，可使用自有 API Key 调用云端 AI。')
+            : tr('Basic features with promotions; cloud AI is unavailable.', '基础功能可用，包含推广，不可使用云端 AI。')}
+        </Typography>
+        <Button
+          isDisabled={busy}
+          onPress={() => void (async () => {
+            setBusy(true);
+            setMessage('');
+            try {
+              if (auth.hasPro) await auth.manageSubscription();
+              else await auth.purchasePro();
+            } catch (reason) {
+              setMessage(reason instanceof Error ? reason.message : tr('Billing action failed.', '付费操作失败。'));
+            } finally {
+              setBusy(false);
+            }
+          })()}
+        >
+          {auth.hasPro ? tr('Manage subscription', '管理订阅') : tr('Upgrade to PRO', '升级为 PRO')}
+        </Button>
+        <Button
+          isDisabled={busy}
+          variant="secondary"
+          onPress={() => void auth.restorePurchases().catch((reason) => {
+            setMessage(reason instanceof Error ? reason.message : tr('Restore failed.', '恢复购买失败。'));
+          })}
+        >
+          {tr('Restore purchases', '恢复购买')}
+        </Button>
+        <Button variant="secondary" onPress={() => router.push('/settings/ai')}>
+          {auth.hasPro
+            ? tr('Configure LLM API key', '配置 LLM API Key')
+            : tr('Cloud AI settings', '云端 AI 设置')}
+        </Button>
+      </Card>
+      <Card className="gap-3">
         <Card.Title>{tr('Account', '账号')}</Card.Title>
         {message ? <Alert status="default"><Alert.Indicator /><Alert.Content><Alert.Title>{message}</Alert.Title></Alert.Content></Alert> : null}
         <TextField isDisabled={busy}>
@@ -928,9 +989,149 @@ export function SettingsScreen() {
   );
 }
 
+const llmProviders: LLMProvider[] = [
+  'anthropic', 'dashscope', 'deepseek', 'gemini', 'moonshot', 'openai', 'xai',
+];
+
+export function AISettingsScreen() {
+  const { tr } = useLanguage();
+  const auth = useCloudAuth();
+  const [provider, setProvider] = useState<LLMProvider>('dashscope');
+  const [apiKey, setApiKey] = useState('');
+  const [textModel, setTextModel] = useState('');
+  const [visionModel, setVisionModel] = useState('');
+  const [configured, setConfigured] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    void apiRequest<LLMConfig>('/api/v1/users/me/llm-config', { schema: llmConfigSchema })
+      .then((value) => {
+        if (!active) return;
+        if (value.provider) setProvider(value.provider);
+        setTextModel(value.textModel || '');
+        setVisionModel(value.visionModel || '');
+        setConfigured(value.configured);
+      })
+      .catch((reason) => {
+        if (active) setMessage(reason instanceof Error ? reason.message : tr('Load failed.', '加载失败。'));
+      });
+    return () => { active = false; };
+  }, [tr]);
+
+  async function save() {
+    setBusy(true);
+    setMessage('');
+    try {
+      const saved = await apiRequest<LLMConfig>('/api/v1/users/me/llm-config', {
+        method: 'PUT',
+        body: { provider, apiKey, textModel, visionModel: visionModel || null },
+        schema: llmConfigSchema,
+      });
+      setConfigured(saved.configured);
+      setApiKey('');
+      setMessage(tr('LLM configuration saved.', 'LLM 配置已保存。'));
+    } catch (reason) {
+      setMessage(reason instanceof Error ? reason.message : tr('Save failed.', '保存失败。'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove() {
+    setBusy(true);
+    setMessage('');
+    try {
+      await apiRequest('/api/v1/users/me/llm-config', { method: 'DELETE' });
+      setConfigured(false);
+      setApiKey('');
+      setTextModel('');
+      setVisionModel('');
+      setMessage(tr('LLM configuration deleted.', 'LLM 配置已删除。'));
+    } catch (reason) {
+      setMessage(reason instanceof Error ? reason.message : tr('Delete failed.', '删除失败。'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!auth.hasPro) {
+    return (
+      <ScreenState>
+        <Typography.Heading type="h1">{tr('Cloud AI', '云端 AI')}</Typography.Heading>
+        {message ? <Alert status="danger"><Alert.Indicator /><Alert.Content><Alert.Title>{message}</Alert.Title></Alert.Content></Alert> : null}
+        <Card className="gap-3">
+          <Card.Title>{tr('PRO required', '需要 PRO')}</Card.Title>
+          <Typography>{tr('Upgrade to host your own LLM API key.', '升级后可托管自有 LLM API Key。')}</Typography>
+          <Button
+            isDisabled={busy}
+            onPress={() => void (async () => {
+              setBusy(true);
+              setMessage('');
+              try {
+                await auth.purchasePro();
+              } catch (reason) {
+                setMessage(reason instanceof Error ? reason.message : tr('Purchase failed.', '购买失败。'));
+              } finally {
+                setBusy(false);
+              }
+            })()}
+          >
+            {tr('Upgrade to PRO', '升级为 PRO')}
+          </Button>
+          {configured ? (
+            <Button isDisabled={busy} variant="danger" onPress={() => void remove()}>
+              {tr('Delete stored LLM configuration', '删除已托管的 LLM 配置')}
+            </Button>
+          ) : null}
+        </Card>
+      </ScreenState>
+    );
+  }
+
+  return (
+    <ScreenState>
+      <Typography.Heading type="h1">{tr('Cloud AI', '云端 AI')}</Typography.Heading>
+      {message ? <Alert status="default"><Alert.Indicator /><Alert.Content><Alert.Title>{message}</Alert.Title></Alert.Content></Alert> : null}
+      <Card className="gap-3">
+        <Card.Title>{configured ? tr('Configured', '已配置') : tr('Not configured', '未配置')}</Card.Title>
+        <Label>{tr('Provider', '提供方')}</Label>
+        <Surface className="flex-row flex-wrap gap-2 rounded-none p-0" variant="transparent">
+          {llmProviders.map((value) => (
+            <Button key={value} variant={provider === value ? 'primary' : 'secondary'} onPress={() => setProvider(value)}>
+              {value}
+            </Button>
+          ))}
+        </Surface>
+        <TextField isDisabled={busy}>
+          <Label>API Key</Label>
+          <Input value={apiKey} onChangeText={setApiKey} secureTextEntry autoCapitalize="none" />
+        </TextField>
+        <TextField isDisabled={busy}>
+          <Label>{tr('Text model', '文本模型')}</Label>
+          <Input value={textModel} onChangeText={setTextModel} autoCapitalize="none" />
+        </TextField>
+        <TextField isDisabled={busy}>
+          <Label>{tr('Vision model (optional)', '视觉模型（可选）')}</Label>
+          <Input value={visionModel} onChangeText={setVisionModel} autoCapitalize="none" />
+        </TextField>
+        <Typography color="muted">
+          {tr('The API endpoint is fixed to the provider official service. The key is encrypted on the server and is never returned.', 'API 地址固定为提供方官方服务；Key 在服务端加密且不会返回。')}
+        </Typography>
+        <Button isDisabled={busy || !apiKey.trim() || !textModel.trim()} onPress={() => void save()}>
+          {busy ? tr('Saving…', '保存中…') : tr('Save configuration', '保存配置')}
+        </Button>
+        {configured ? <Button isDisabled={busy} variant="danger" onPress={() => void remove()}>{tr('Delete configuration', '删除配置')}</Button> : null}
+      </Card>
+    </ScreenState>
+  );
+}
+
 export function ImportsScreen() {
   const { tr } = useLanguage();
-  const { user } = useCloudAuth();
+  const auth = useCloudAuth();
+  const { user } = auth;
   const jobs = useCachedResource<ImportJob[]>('imports', '/api/v1/import-jobs', [], importJobsSchema);
   const banks = useCachedResource<Bank[]>('banks:mine', '/api/v1/banks?scope=mine&limit=100', [], banksSchema, true, banksResourceMirror('mine', user?.id ?? null));
   const [bankId, setBankId] = useState<number | null>(null);
@@ -938,6 +1139,14 @@ export function ImportsScreen() {
   const [message, setMessage] = useState('');
 
   async function pick() {
+    if (!auth.hasPro) {
+      try {
+        await auth.purchasePro();
+      } catch (reason) {
+        setMessage(reason instanceof Error ? reason.message : tr('Purchase failed.', '购买失败。'));
+      }
+      return;
+    }
     if (!bankId) return setMessage(tr('Choose a bank first.', '请先选择题库。'));
     const result = await DocumentPicker.getDocumentAsync({
       type: [
@@ -1005,7 +1214,11 @@ export function ImportsScreen() {
             </Button>
           ) : null}
         </Surface>
-        <Button isDisabled={busy || !bankId} onPress={() => void pick()}>{busy ? tr('Working…', '处理中…') : tr('Choose file', '选择文件')}</Button>
+        <Button isDisabled={busy || (auth.hasPro && !bankId)} onPress={() => void pick()}>
+          {auth.hasPro
+            ? (busy ? tr('Working…', '处理中…') : tr('Choose file', '选择文件'))
+            : tr('Upgrade to PRO to import', '升级 PRO 以使用导入')}
+        </Button>
       </Card>
       <Section title={tr('Jobs', '任务')}>
         {jobs.data.map((job) => (
