@@ -22,6 +22,9 @@ from .imports import (
     DOCX_MIME_TYPE,
     IMPORT_SOURCE_MAX_BYTES,
     INSERT_SOURCE_ARTIFACT_SQL,
+    PDF_MIME_TYPE,
+    SOURCE_EXTENSION_MIME_TYPES,
+    XLSX_MIME_TYPE,
     _decode_map,
     _marshal_json_string,
     _source_type_from_name,
@@ -118,6 +121,10 @@ def _infer_uploaded_source_type(file: UploadedImportFile) -> str:
     content_type = file.content_type.strip().lower()
     if content_type == DOCX_MIME_TYPE:
         return 'docx'
+    if content_type == PDF_MIME_TYPE:
+        return 'pdf'
+    if content_type == XLSX_MIME_TYPE:
+        return 'xlsx'
     if content_type == 'text/plain':
         return 'txt'
     return ''
@@ -125,11 +132,15 @@ def _infer_uploaded_source_type(file: UploadedImportFile) -> str:
 
 def _resolve_import_file_extension(name: str, content_type: str) -> str:
     extension = Path(name.strip()).suffix.lower()
-    if extension in ('.txt', '.docx'):
+    if extension in ('.txt', '.docx', '.pdf', '.xlsx'):
         return extension
     content_type = content_type.strip().lower()
     if content_type == DOCX_MIME_TYPE:
         return '.docx'
+    if content_type == PDF_MIME_TYPE:
+        return '.pdf'
+    if content_type == XLSX_MIME_TYPE:
+        return '.xlsx'
     if content_type == 'text/plain':
         return '.txt'
     raise envelope.new_error(400, 'UNSUPPORTED_FILE_TYPE', f'Unsupported file type: {name.strip()}')
@@ -138,7 +149,7 @@ def _resolve_import_file_extension(name: str, content_type: str) -> str:
 def _normalize_import_mime_type(extension: str, content_type: str) -> str:
     if content_type.strip():
         return content_type.strip()
-    return DOCX_MIME_TYPE if extension == '.docx' else 'text/plain'
+    return SOURCE_EXTENSION_MIME_TYPES.get(extension, 'text/plain')
 
 
 def _store_import_source_file(user_id: int, job_id: int, file: UploadedImportFile) -> tuple[_StoredImportSource, bytes]:
@@ -182,7 +193,7 @@ def _build_import_source_artifact_content(stored: _StoredImportSource, source_ty
     }
     if source_type in ('txt', 'text'):
         content['text'] = payload.decode('utf-8').removeprefix('﻿')
-    elif source_type == 'docx':
+    elif source_type in ('docx', 'pdf', 'xlsx'):
         content['fileBase64'] = base64.b64encode(payload).decode()
     return content
 

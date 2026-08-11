@@ -98,12 +98,23 @@ def decode_bounded_import_base64(raw: str, max_bytes: int) -> bytes:
     return payload
 
 
+DOCX_MIME_TYPE = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+PDF_MIME_TYPE = 'application/pdf'
+XLSX_MIME_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+
+SOURCE_EXTENSION_MIME_TYPES = {
+    '.txt': 'text/plain',
+    '.docx': DOCX_MIME_TYPE,
+    '.pdf': PDF_MIME_TYPE,
+    '.xlsx': XLSX_MIME_TYPE,
+}
+
+
 def validate_import_source_payload(extension: str, content_type: str, payload: bytes, original_name: str) -> None:
     mime = content_type.strip().lower()
     if mime and mime not in ('application/octet-stream', 'binary/octet-stream'):
-        if extension == '.txt' and mime != 'text/plain':
-            raise envelope.new_error(400, 'UNSUPPORTED_FILE_TYPE', f'Unsupported file type: {original_name}')
-        if extension == '.docx' and mime != DOCX_MIME_TYPE:
+        expected_mime = SOURCE_EXTENSION_MIME_TYPES.get(extension)
+        if expected_mime is not None and mime != expected_mime:
             raise envelope.new_error(400, 'UNSUPPORTED_FILE_TYPE', f'Unsupported file type: {original_name}')
     if extension == '.txt':
         try:
@@ -115,24 +126,27 @@ def validate_import_source_payload(extension: str, content_type: str, payload: b
         if not text.removeprefix('﻿').strip():
             raise envelope.new_error(400, 'EMPTY_FILE', 'TXT files must contain non-whitespace text')
         return
+    if extension == '.pdf':
+        if len(payload) < 5 or payload[:5] != b'%PDF-':
+            raise envelope.new_error(400, 'UNSUPPORTED_FILE_TYPE', 'PDF files must be valid PDF documents')
+        return
     if len(payload) < 2 or payload[:2] != b'PK':
+        label = extension.lstrip('.').upper() or 'DOCX'
         raise envelope.new_error(
-            400, 'UNSUPPORTED_FILE_TYPE', 'DOCX files must be valid Office Open XML documents'
+            400, 'UNSUPPORTED_FILE_TYPE', f'{label} files must be valid Office Open XML documents'
         )
 
 
-DOCX_MIME_TYPE = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-
-
 def _validate_import_artifact_content(source_type: str, content: dict) -> None:
-    if source_type == 'docx':
+    if source_type in ('docx', 'pdf', 'xlsx'):
         raw = content.get('fileBase64')
         if not isinstance(raw, str) or not raw.strip():
-            raise envelope.new_error(400, 'FILE_REQUIRED', 'DOCX artifacts require fileBase64')
+            raise envelope.new_error(400, 'FILE_REQUIRED', f'{source_type.upper()} artifacts require fileBase64')
         payload = decode_bounded_import_base64(raw, IMPORT_SOURCE_MAX_BYTES)
         mime = content.get('mimeType') if isinstance(content.get('mimeType'), str) else ''
-        name = content.get('originalName') if isinstance(content.get('originalName'), str) else 'source.docx'
-        validate_import_source_payload('.docx', mime, payload, name or 'source.docx')
+        fallback_name = f'source.{source_type}'
+        name = content.get('originalName') if isinstance(content.get('originalName'), str) else fallback_name
+        validate_import_source_payload(f'.{source_type}', mime, payload, name.strip() or fallback_name)
         return
 
     total_bytes = 0
@@ -361,7 +375,7 @@ async def _ensure_import_job_has_source_artifact(pool: AsyncConnectionPool, job_
         if await cursor.fetchone() is None:
             raise envelope.new_error(
                 409, 'SOURCE_FILE_REQUIRED',
-                'Import job requires an uploaded TXT or DOCX source file before parsing',
+                'Import job requires an uploaded TXT, DOCX, PDF or XLSX source file before parsing',
             )
 
 

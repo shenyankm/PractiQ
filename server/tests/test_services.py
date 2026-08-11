@@ -12,6 +12,7 @@ import pytest
 from server import envelope
 from server.auth.runtime import User
 from server.services import imports as imports_svc
+from server.services import imports_upload
 from server.services import media as media_svc
 from server.services.practice import grade_practice_answer
 
@@ -101,6 +102,64 @@ def test_validate_docx_payload():
     with pytest.raises(envelope.APIError) as exc_info:
         imports_svc.validate_import_source_payload('.docx', imports_svc.DOCX_MIME_TYPE, b'not-a-zip', 'a.docx')
     assert exc_info.value.code == 'UNSUPPORTED_FILE_TYPE'
+
+
+def test_validate_pdf_payload():
+    imports_svc.validate_import_source_payload('.pdf', imports_svc.PDF_MIME_TYPE, b'%PDF-1.7 body', 'a.pdf')
+    with pytest.raises(envelope.APIError) as exc_info:
+        imports_svc.validate_import_source_payload('.pdf', imports_svc.PDF_MIME_TYPE, b'not-a-pdf', 'a.pdf')
+    assert exc_info.value.code == 'UNSUPPORTED_FILE_TYPE'
+    with pytest.raises(envelope.APIError) as exc_info:
+        imports_svc.validate_import_source_payload('.pdf', 'text/plain', b'%PDF-1.7 body', 'a.pdf')
+    assert exc_info.value.code == 'UNSUPPORTED_FILE_TYPE'
+
+
+def test_validate_xlsx_payload():
+    imports_svc.validate_import_source_payload('.xlsx', imports_svc.XLSX_MIME_TYPE, b'PK\x03\x04rest', 'a.xlsx')
+    with pytest.raises(envelope.APIError) as exc_info:
+        imports_svc.validate_import_source_payload('.xlsx', imports_svc.XLSX_MIME_TYPE, b'not-a-zip', 'a.xlsx')
+    assert exc_info.value.code == 'UNSUPPORTED_FILE_TYPE'
+    with pytest.raises(envelope.APIError) as exc_info:
+        imports_svc.validate_import_source_payload('.xlsx', imports_svc.DOCX_MIME_TYPE, b'PK\x03\x04rest', 'a.xlsx')
+    assert exc_info.value.code == 'UNSUPPORTED_FILE_TYPE'
+
+
+def test_validate_import_artifact_content_pdf_xlsx():
+    pdf_b64 = base64.b64encode(b'%PDF-1.7 body').decode()
+    imports_svc._validate_import_artifact_content(
+        'pdf', {'fileBase64': pdf_b64, 'mimeType': imports_svc.PDF_MIME_TYPE}
+    )
+    xlsx_b64 = base64.b64encode(b'PK\x03\x04rest').decode()
+    imports_svc._validate_import_artifact_content('xlsx', {'fileBase64': xlsx_b64})
+    with pytest.raises(envelope.APIError) as exc_info:
+        imports_svc._validate_import_artifact_content('pdf', {})
+    assert exc_info.value.code == 'FILE_REQUIRED'
+    with pytest.raises(envelope.APIError) as exc_info:
+        imports_svc._validate_import_artifact_content('xlsx', {'fileBase64': pdf_b64})
+    assert exc_info.value.code == 'UNSUPPORTED_FILE_TYPE'
+
+
+def test_resolve_import_file_extension_pdf_xlsx():
+    assert imports_upload._resolve_import_file_extension('a.pdf', '') == '.pdf'
+    assert imports_upload._resolve_import_file_extension('a.xlsx', '') == '.xlsx'
+    assert imports_upload._resolve_import_file_extension('blob', imports_svc.PDF_MIME_TYPE) == '.pdf'
+    assert imports_upload._resolve_import_file_extension('blob', imports_svc.XLSX_MIME_TYPE) == '.xlsx'
+    with pytest.raises(envelope.APIError) as exc_info:
+        imports_upload._resolve_import_file_extension('a.csv', '')
+    assert exc_info.value.code == 'UNSUPPORTED_FILE_TYPE'
+
+
+def test_build_import_source_artifact_content_binary_types():
+    stored = imports_upload._StoredImportSource(
+        relative_path='imports/1/2/source.pdf',
+        object_url='oss://practiq/imports/1/2/source.pdf',
+        original_name='a.pdf',
+        mime_type=imports_svc.PDF_MIME_TYPE,
+        size_bytes=12,
+    )
+    content = imports_upload._build_import_source_artifact_content(stored, 'pdf', b'%PDF-1.7body')
+    assert base64.b64decode(content['fileBase64']) == b'%PDF-1.7body'
+    assert 'text' not in content
 
 
 # ------------------------------------------------------------ media sniffing
