@@ -157,18 +157,18 @@ PractiQ 是一个面向教师和教育机构的题库管理与智能练习平台
 Browser (React + Vite) ─┐
 PractiQ (Expo / RN) ────┴─ HTTP / JSON
                          ▼
-Go API (net/http, pgxpool, go-redis)
+Unified server (Python FastAPI, psycopg, redis-py, AgentScope in-process)
         │              │
-        ├── PostgreSQL ─┤ (schema: backend/db/*/*.sql)
+        ├── PostgreSQL ─┤ (schema: db/*/*.sql)
         │              │
         ├── Redis ─────┤ (session, cache, rate-limit, idempotency)
         │
         ├── Serve SPA (frontend/dist)
         │
-        └── Python AI service (FastAPI + Mammoth + OpenAI-compatible)
-                ├── POST /internal/ai/parse-document
-                ├── POST /internal/ai/generate-answer
-                └── POST /internal/ai/learning-report
+        └── AI (agentscope + DashScope, in-process)
+                ├── POST /api/v1/ai/parse-document
+                ├── POST /api/v1/ai/generate-answer
+                └── POST /api/v1/ai/learning-report
 ```
 
 ### 数据流关键路径

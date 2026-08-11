@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-PractiQ is a split-stack application. The React + Vite browser frontend lives in `frontend/`; the Expo/React Native mobile client lives in `mobile/`. The Go `net/http` backend lives in `backend/`, with executables under `backend/cmd`, internal API/router/auth/config/db/services packages under `backend/internal`, and SQL schema files under `backend/db/*/*.sql`. AI service code lives in `ai/`, and architecture notes live in `docs/`.
+PractiQ is a unified-stack application. The React + Vite browser frontend lives in `frontend/`; the Expo/React Native mobile client lives in `mobile/`. The unified Python FastAPI backend lives in `server/`, with the app entry at `server/app.py`, routes under `server/routes/`, business services under `server/services/`, auth under `server/auth/`, AI agents under `server/agents/` + `server/extractors/`, the import worker at `server/worker.py` (`python -m server.worker`), and the admin CLI at `server/admin.py` (`python -m server.admin db apply|seed`). SQL schema files under `db/*/*.sql` remain the schema authority, and architecture notes live in `docs/`.
 
 ## Build, Test, and Development Commands
 
@@ -13,8 +13,9 @@ PractiQ is a split-stack application. The React + Vite browser frontend lives in
 - `make start`: serve the built frontend application.
 - `make lint`: lint both browser and mobile frontends.
 - `make test`: run browser tests plus mobile type checking and tests.
-- `make db-apply`, `make db-seed`: apply the SQL schema and local sample data from `backend/`.
-- `make worker-imports`: run the Go background import worker; use a separate terminal from `make dev`.
+- `make db-apply`, `make db-seed`: apply the SQL schema and local sample data from `db/`.
+- `make server-dev`: run the unified FastAPI server; `make worker-imports`: run the import queue worker in a separate terminal.
+- `make test-server`: run the server pytest suite from `server/`.
 
 ## Coding Style & Naming Conventions
 

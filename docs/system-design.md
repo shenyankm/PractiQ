@@ -1,21 +1,21 @@
 # PractiQ System Design
 
-This document designs the application services, UI pages, and core modules from the authoritative split PostgreSQL schema files in `backend/db/*/*.sql`.
+This document designs the application services, UI pages, and core modules from the authoritative split PostgreSQL schema files in `db/*/*.sql`.
 
-The starter Drizzle/team layer has been explicitly retired. Treat the business-area SQL files under `backend/db/` as the product data model for the question-bank system, and do not reintroduce a parallel ORM schema until it is generated from or proven equivalent to those SQL files.
+The starter Drizzle/team layer has been explicitly retired. Treat the business-area SQL files under `db/` as the product data model for the question-bank system, and do not reintroduce a parallel ORM schema until it is generated from or proven equivalent to those SQL files.
 
-The files under `backend/db/*/*.sql` are bootstrap schema fragments for fresh local, test, or reset environments. They are not a reversible production migration history; production data-preserving schema changes should be added as explicit versioned migrations before rollout.
+The files under `db/*/*.sql` are bootstrap schema fragments for fresh local, test, or reset environments. They are not a reversible production migration history; production data-preserving schema changes should be added as explicit versioned migrations before rollout.
 
 ## 中文摘要
 
-本文档基于 `backend/db/*/*.sql` 中按业务拆分的 PostgreSQL schema 设计 PractiQ 题库系统的完整产品形态，覆盖：
+本文档基于 `db/*/*.sql` 中按业务拆分的 PostgreSQL schema 设计 PractiQ 题库系统的完整产品形态，覆盖：
 
 - 后端 REST API：用户认证、题库、题目、题组、练习会话、导入任务、媒体资源、统计分析。
 - 前端页面：登录注册、仪表板、题库列表和详情、题目管理、练习作答、文件导入、用户设置。
 - 核心模块：认证授权、题库权限、题型渲染与判分、导入流水线、媒体管理、统计分析。
 - 工程约束：数据关联、事务边界、参数校验、错误模型、状态生命周期和性能策略。
 
-当前仓库已移除旧的 Drizzle/team schema；正式开发仍应以 `backend/db/` 下的业务 SQL 文件和本文档为准，并继续替换遗留的 team/dashboard 页面与路由。
+当前仓库已移除旧的 Drizzle/team schema；正式开发仍应以 `db/` 下的业务 SQL 文件和本文档为准，并继续替换遗留的 team/dashboard 页面与路由。
 
 ## Redis Integration
 
@@ -647,17 +647,17 @@ Worker: completed or failed
 
 ### AI Workflow
 
-The Python AI service exposes document parsing, answer generation, and learning-report operations, built on AgentScope 2.x with DashScope models. TXT is decoded as UTF-8, DOCX text is pulled from `word/document.xml` with bounded archive inspection (including embedded images and OMML formula passthrough), PDF text is extracted with pypdfium2 (scanned pages are rendered via pypdfium2 and OCR'd by the vision model, which also detects figures and returns bounding-box crops), and XLSX sheets are flattened with openpyxl. Long documents are split on question boundaries into chunks; each chunk goes through one structured-output call with validation-feedback retries, and the results are merged and deduplicated. When no `DASHSCOPE_API_KEY` is configured the AI routes return 503. Go owns all PostgreSQL persistence.
+The unified Python server exposes document parsing, answer generation, and learning-report operations, built on AgentScope 2.x with DashScope models. TXT is decoded as UTF-8, DOCX text is pulled from `word/document.xml` with bounded archive inspection (including embedded images and OMML formula passthrough), PDF text is extracted with pypdfium2 (scanned pages are rendered via pypdfium2 and OCR'd by the vision model, which also detects figures and returns bounding-box crops), and XLSX sheets are flattened with openpyxl. Long documents are split on question boundaries into chunks; each chunk goes through one structured-output call with validation-feedback retries, and the results are merged and deduplicated. When no `DASHSCOPE_API_KEY` is configured the AI routes return 503.
 
-Internal routes fail closed unless `AI_SERVICE_TOKEN` bearer authentication is configured. The document middleware authenticates before buffering and rejects oversized JSON bodies:
+AI capabilities are called in-process behind user-facing routes (session auth + Plus entitlement); there is no internal HTTP hop:
 
 | Method | Route | Purpose |
 | --- | --- | --- |
-| `POST` | `/internal/ai/parse-document` | Parse TXT, DOCX, PDF, or XLSX content. |
-| `POST` | `/internal/ai/generate-answer` | Generate an answer and explanation. |
-| `POST` | `/internal/ai/learning-report` | Generate a learning report. |
+| `POST` | `/api/v1/ai/parse-document` | Parse TXT, DOCX, PDF, or XLSX content. |
+| `POST` | `/api/v1/ai/generate-answer` | Generate an answer and explanation. |
+| `POST` | `/api/v1/ai/learning-report` | Generate a learning report. |
 
-`DASHSCOPE_API_KEY` enables the AgentScope-backed models; `AI_TEXT_MODEL` and `AI_VL_MODEL` select them (defaults `qwen-max` and `qwen-vl-max`). `AI_AGENT_*` settings bound tokens and timeouts, `AI_MAX_OCR_PAGES` caps scanned-PDF OCR, and the Go side honors `AI_SERVICE_TIMEOUT` (Go duration, default 5m) for long-running parses.
+`DASHSCOPE_API_KEY` enables the AgentScope-backed models; `AI_TEXT_MODEL` and `AI_VL_MODEL` select them (defaults `qwen-max` and `qwen-vl-max`). `AI_AGENT_*` settings bound tokens and timeouts, and `AI_MAX_OCR_PAGES` caps scanned-PDF OCR.
 
 ### Media Module
 
@@ -862,8 +862,8 @@ Recommended additional implementation practices:
 
 ### Phase 1: Align Data Layer
 
-- Keep `backend/db/*/*.sql` as the only product schema source of truth; do not reintroduce the retired starter ORM layer or a parallel Drizzle migration path unless it is regenerated from the SQL files.
-- Keep React Router PractiQ domain routes aligned with the Go `net/http` API routes.
+- Keep `db/*/*.sql` as the only product schema source of truth; do not reintroduce the retired starter ORM layer or a parallel Drizzle migration path unless it is regenerated from the SQL files.
+- Keep React Router PractiQ domain routes aligned with the FastAPI server routes.
 - Add shared API response/error helpers.
 - Add auth session guards.
 
@@ -898,11 +898,11 @@ Recommended additional implementation practices:
 
 ## 10. Current Repository Status
 
-The repository is now organized around the current split-stack implementation:
+The repository is now organized around the current unified-stack implementation:
 
 - `frontend/` contains the React + Vite + React Router browser app and frontend tests.
 - `mobile/` contains the PractiQ-branded Expo Android/iOS client, SQLite cache/outbox, and mobile tests.
-- `backend/` contains the Go `net/http` API, admin/worker binaries, internal services, and product SQL schema.
-- `ai/` contains the Python FastAPI AI/document-processing service.
+- `server/` contains the unified Python FastAPI service (API + AI + import worker + admin CLI).
+- `db/` contains the product SQL schema (source of truth).
 
-The retired starter Drizzle/team data layer is no longer the implementation baseline. Continue evolving the question-bank product against `backend/db/*/*.sql`, the Go services in `backend/internal`, and the routes documented above.
+The retired starter Drizzle/team data layer is no longer the implementation baseline. Continue evolving the question-bank product against `db/*/*.sql`, the services in `server/services`, and the routes documented above.

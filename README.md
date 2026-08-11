@@ -1,19 +1,17 @@
 # PractiQ
 
-PractiQ now runs as a split-stack application:
+PractiQ runs as a unified-stack application:
 
-- Go serves the HTTP API, auth/session handling, PostgreSQL-backed import queue, Redis caches/events, and the built frontend.
-- Python serves the internal AI/document-processing endpoints.
+- A single Python FastAPI service (`server/`) serves the HTTP API, auth/session handling, PostgreSQL-backed import queue, Redis caches/events, AI/document processing (agentscope, in-process), and the built frontend.
 - Vite + React + HeroUI provide the browser frontend.
 - Expo + React Native provide the PractiQ-branded Android/iOS client under `mobile/`.
-- `backend/db/*/*.sql` remains the schema authority.
+- `db/*/*.sql` remains the schema authority.
 
 ## Tech stack
 
 - Frontend: Vite, React 19, React Router, HeroUI v3, Tailwind CSS v4
 - Mobile: Expo SDK 57, React Native, Expo Router, HeroUI Native, SQLite offline cache/outbox
-- API/runtime: Go 1.26, `net/http`, pgxpool, go-redis
-- AI service: Python 3.14, FastAPI, Pydantic, AgentScope (DashScope models), pypdfium2, Pillow, openpyxl
+- Server: Python 3.14, FastAPI, Pydantic, psycopg (async pool), redis-py, AgentScope (DashScope models), pypdfium2, Pillow, openpyxl
 - Local infra: Podman Quadlet for Postgres and Redis
 
 ## Local setup
@@ -22,9 +20,8 @@ PractiQ now runs as a split-stack application:
 
 ```bash
 make install
-go version
-python --version
-python -m pip install -e 'ai[dev]'
+python --version  # 3.14+
+cd server && uv sync --extra dev
 ```
 
 1. Start the local Podman stack:
@@ -41,9 +38,9 @@ The Podman helper script ensures the isolated `practiq_app` database exists insi
 cp .env.example .env.local
 ```
 
-Set unique `AUTH_SECRET` and `AI_SERVICE_TOKEN` values in `.env.local` before starting the services. Keep `.env.local` uncommitted.
+Set a unique `AUTH_SECRET` value in `.env.local` before starting the service. Keep `.env.local` uncommitted.
 
-The development, database, and worker targets load the repository-root `.env.local`. Go commands use `config.Load`; `make ai-dev` exports the file before starting Uvicorn. Existing shell environment variables take precedence for Go commands.
+The development, database, and worker targets load the repository-root `.env.local` (via `server/config.py`); existing shell environment variables take precedence.
 
 1. Apply schema helpers to your local database:
 
@@ -59,9 +56,8 @@ make dev             # Vite frontend on 127.0.0.1:3000
 make mobile-dev      # Expo development server
 make mobile-android  # Android development build
 make mobile-ios      # iOS development build (macOS only)
-make api-dev         # Go API on 127.0.0.1:8080 by default
-make ai-dev          # FastAPI AI service on 127.0.0.1:8001
-make worker-imports  # Go import worker
+make server-dev      # unified FastAPI server on 127.0.0.1:8080 by default
+make worker-imports  # import queue worker (python -m server.worker)
 ```
 
 Set `GO_API_URL=http://127.0.0.1:8080` when running `make dev` against a non-default API URL.
@@ -72,8 +68,7 @@ For mobile development, copy `mobile/.env.example` to `mobile/.env` and set `EXP
 ```bash
 make lint
 make test
-make test-go
-make test-ai
+make test-server
 make test-e2e
 make mobile-test
 make build
@@ -86,7 +81,7 @@ make verify
 
 The project-level `.opencode/opencode.json` configures the HeroUI React MCP server. Restart OpenCode after cloning or after changing this configuration; OpenCode starts the server on demand through `npx`.
 
-Direct dependencies are kept on current stable releases in `frontend/package.json`, `backend/go.mod`, and `ai/pyproject.toml`. Tooling versions must also satisfy peer ranges; for example, TypeScript stays on the newest stable version supported by `typescript-eslint`.
+Direct dependencies are kept on current stable releases in `frontend/package.json` and `server/pyproject.toml`. Tooling versions must also satisfy peer ranges; for example, TypeScript stays on the newest stable version supported by `typescript-eslint`.
 
 ## API/runtime notes
 
@@ -100,8 +95,7 @@ Direct dependencies are kept on current stable releases in `frontend/package.jso
 - Mobile writes carry `Idempotency-Key`; Redis stores successful replays for 24 hours. Cached mobile reads remain available offline, and queued writes replay in order after reconnection.
 - Media uploads currently accept content-sniffed PNG, JPEG, GIF, and WebP files up to 10 MiB under `OBJECT_STORAGE_MOUNT_DIR`.
 - Fresh schema installs include `media_assets.created_by` ownership, the terminal import status `cancelled`, and `users.google_sub`; apply the current schema before running these flows. Existing databases need `ALTER TABLE users ADD COLUMN google_sub TEXT;` and `CREATE UNIQUE INDEX uq_users_google_sub ON users (google_sub) WHERE google_sub IS NOT NULL;`.
-- AI routes exposed to the browser stay under `/api/v1/ai/*`; Go talks to Python over `AI_SERVICE_URL`
-- Internal AI routes are `/internal/ai/parse-document`, `/internal/ai/generate-answer`, and `/internal/ai/learning-report`; all require `AI_SERVICE_TOKEN` bearer authentication.
+- AI routes exposed to the browser stay under `/api/v1/ai/*`; the server calls agentscope in-process (no internal HTTP hop).
 - TXT, DOCX, PDF, and XLSX preprocessing run locally. Set `DASHSCOPE_API_KEY` to enable AgentScope-backed parsing, answer generation, and learning reports (`AI_TEXT_MODEL`/`AI_VL_MODEL` override the default `qwen-max`/`qwen-vl-max`); without it AI routes return 503. Scanned PDF pages are rendered and OCR'd through the vision model, including figure detection with bounding-box crops.
 - Membership tiers are admin-managed; billing checkout and webhook routes are not active.
 
@@ -117,14 +111,13 @@ The full local stack can be built and managed with one script:
 ./scripts/podman-stack.sh down
 ```
 
-`up`/`restart` ensure the isolated `practiq_app` database exists before the API and worker start, and create `~/.config/practiq/practiq-stack.env` with random local `AUTH_SECRET` and `AI_SERVICE_TOKEN` values. You still need to run the schema/seed commands once per fresh database. Edit that env file if you want to rotate the generated local secrets.
+`up`/`restart` ensure the isolated `practiq_app` database exists before the server and worker start, and create `~/.config/practiq/practiq-stack.env` with a random local `AUTH_SECRET` value. You still need to run the schema/seed commands once per fresh database. Edit that env file if you want to rotate the generated local secrets.
 
-This manages five services:
+This manages four services:
 
 - `practiq-postgres`
 - `practiq-redis`
-- `practiq-ai`
-- `practiq-api`
+- `practiq-server`
 - `practiq-worker`
 
 ## Environment variables
@@ -137,14 +130,14 @@ See `.env.example` for the full set. The most important groups are:
 - Auth/session: required `AUTH_SECRET`, `SESSION_TTL_MS`, optional `SEED_ADMIN_PASSWORD` (password for the seeded `admin` user; defaults to the local dev value, set it on any shared environment)
 - Registration email codes: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`
 - Google sign-in: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_MOBILE_CLIENT_IDS`; mobile builds also need `EXPO_PUBLIC_GOOGLE_CLIENT_ID` (plus optional Android/iOS client IDs) in `mobile/.env`. The OAuth redirect URI is `{APP_ORIGIN}/api/v1/auth/google/callback`.
-- AI service: `AI_SERVICE_URL`, `AI_SERVICE_TOKEN`, `AI_SERVICE_TIMEOUT`, `DASHSCOPE_API_KEY`, `AI_TEXT_MODEL`, `AI_VL_MODEL`, `AI_AGENT_*`, `AI_MAX_OCR_PAGES`
+- AI providers: `DASHSCOPE_API_KEY`, `AI_TEXT_MODEL`, `AI_VL_MODEL`, `AI_AGENT_*`, `AI_MAX_OCR_PAGES`, `AI_APPLY_MIN_CONFIDENCE`
 - Object storage: `OBJECT_STORAGE_MOUNT_DIR`, `OSS_PUBLIC_BASE_URL`, `OSS_URL_PREFIX`
 
 `AUTH_SECRET` is required in every environment and must be an unpredictable value. `SESSION_TTL_MS` controls both the signed session expiry and cookie expiry; it defaults to seven days when omitted. Session renewal is not implemented, so there is no renewal-window setting.
 
 ## Schema and architecture
 
-- Product schema lives in `backend/db/*/*.sql`
-- Runtime/bootstrap helpers live in `backend/internal/db`
+- Product schema lives in `db/*/*.sql`
+- The unified server lives in `server/` (API + AI + worker + admin CLI)
 - Browser and mobile clients live in `frontend/` and `mobile/`; PostgreSQL remains authoritative for both.
 - Product/API design notes live in `docs/system-design.md`
