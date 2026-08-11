@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-PractiQ is a unified-stack application. The React + Vite browser frontend lives in `frontend/`; the Expo/React Native mobile client lives in `mobile/`. The unified Python FastAPI backend lives in `server/`, with the app entry at `server/app.py`, routes under `server/routes/`, business services under `server/services/`, auth under `server/auth/`, AI agents under `server/agents/` + `server/extractors/`, the import worker at `server/worker.py` (`python -m server.worker`), and the admin CLI at `server/admin.py` (`python -m server.admin db apply|seed`). SQL schema files under `db/*/*.sql` remain the schema authority, and architecture notes live in `docs/`.
+PractiQ is a unified-stack application. The Expo/React Native mobile client lives in `mobile/`. The unified Python FastAPI backend lives in `server/`, with the app entry at `server/app.py`, routes under `server/routes/`, business services under `server/services/`, auth under `server/auth/`, AI agents under `server/agents/` + `server/extractors/`, the import worker at `server/worker.py` (`python -m server.worker`), and the admin CLI at `server/admin.py` (`python -m server.admin db apply|seed`). SQL schema files under `db/*/*.sql` remain the schema authority, and architecture notes live in `docs/`.
 
 ## Build, Test, and Development Commands
 

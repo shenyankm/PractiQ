@@ -345,12 +345,11 @@ Import worker flow:
 
 Uploads are limited to PNG, JPEG, GIF, and WebP images up to 10 MiB and are content-sniffed before storage. `part_type` supports text, formula, image, table, list, HTML/Markdown, chart, diagram, and QR code; video, audio, and unsanitized SVG uploads are not implemented.
 
-## 3. Frontend Pages
+## 3. Client Pages
 
-Use the React + Vite app under `frontend/` with React Router routes:
+Client apps expose these routes:
 
 ```text
-frontend/src/routes.tsx
 /
 /pricing
 /sign-in
@@ -855,7 +854,7 @@ Recommended additional implementation practices:
 - Wrap multi-table writes in transactions.
 - Batch insert parsed questions.
 - Cache subject/type lists.
-- Use React Router views with SWR/client-side fetching for dashboards and live import progress.
+- Use client-side fetching for dashboards and live import progress.
 - Avoid loading full question content blocks for list views.
 
 ## 9. Implementation Roadmap
@@ -863,7 +862,7 @@ Recommended additional implementation practices:
 ### Phase 1: Align Data Layer
 
 - Keep `db/*/*.sql` as the only product schema source of truth; do not reintroduce the retired starter ORM layer or a parallel Drizzle migration path unless it is regenerated from the SQL files.
-- Keep React Router PractiQ domain routes aligned with the FastAPI server routes.
+- Keep client domain routes aligned with the FastAPI server routes.
 - Add shared API response/error helpers.
 - Add auth session guards.
 
@@ -900,7 +899,6 @@ Recommended additional implementation practices:
 
 The repository is now organized around the current unified-stack implementation:
 
-- `frontend/` contains the React + Vite + React Router browser app and frontend tests.
 - `mobile/` contains the PractiQ-branded Expo Android/iOS client, SQLite cache/outbox, and mobile tests.
 - `server/` contains the unified Python FastAPI service (API + AI + import worker + admin CLI).
 - `db/` contains the product SQL schema (source of truth).

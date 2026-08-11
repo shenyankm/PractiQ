@@ -154,16 +154,13 @@ PractiQ 是一个面向教师和教育机构的题库管理与智能练习平台
 ## 6. 技术架构
 
 ```
-Browser (React + Vite) ─┐
-PractiQ (Expo / RN) ────┴─ HTTP / JSON
-                         ▼
+PractiQ (Expo / RN) ───── HTTP / JSON
+                          ▼
 Unified server (Python FastAPI, psycopg, redis-py, AgentScope in-process)
         │              │
         ├── PostgreSQL ─┤ (schema: db/*/*.sql)
         │              │
         ├── Redis ─────┤ (session, cache, rate-limit, idempotency)
-        │
-        ├── Serve SPA (frontend/dist)
         │
         └── AI (agentscope + DashScope, in-process)
                 ├── POST /api/v1/ai/parse-document

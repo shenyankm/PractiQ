@@ -2,14 +2,12 @@
 
 PractiQ runs as a unified-stack application:
 
-- A single Python FastAPI service (`server/`) serves the HTTP API, auth/session handling, PostgreSQL-backed import queue, Redis caches/events, AI/document processing (agentscope, in-process), and the built frontend.
-- Vite + React + HeroUI provide the browser frontend.
+- A single Python FastAPI service (`server/`) serves the HTTP API, auth/session handling, PostgreSQL-backed import queue, Redis caches/events, and AI/document processing (agentscope, in-process).
 - Expo + React Native provide the PractiQ-branded Android/iOS client under `mobile/`.
 - `db/*/*.sql` remains the schema authority.
 
 ## Tech stack
 
-- Frontend: Vite, React 19, React Router, HeroUI v3, Tailwind CSS v4
 - Mobile: Expo SDK 57, React Native, Expo Router, HeroUI Native, SQLite offline cache/outbox
 - Server: Python 3.14, FastAPI, Pydantic, psycopg (async pool), redis-py, AgentScope (DashScope models), pypdfium2, Pillow, openpyxl
 - Local infra: Podman Quadlet for Postgres and Redis
@@ -93,7 +91,7 @@ Direct dependencies are kept on current stable releases in `mobile/package.json`
 - Mobile writes carry `Idempotency-Key`; Redis stores successful replays for 24 hours. Cached mobile reads remain available offline, and queued writes replay in order after reconnection.
 - Media uploads currently accept content-sniffed PNG, JPEG, GIF, and WebP files up to 10 MiB under `OBJECT_STORAGE_MOUNT_DIR`.
 - Fresh schema installs include `media_assets.created_by` ownership, the terminal import status `cancelled`, and `users.google_sub`; apply the current schema before running these flows. Existing databases need `ALTER TABLE users ADD COLUMN google_sub TEXT;` and `CREATE UNIQUE INDEX uq_users_google_sub ON users (google_sub) WHERE google_sub IS NOT NULL;`.
-- AI routes exposed to the browser stay under `/api/v1/ai/*`; the server calls agentscope in-process (no internal HTTP hop).
+- AI routes stay under `/api/v1/ai/*`; the server calls agentscope in-process (no internal HTTP hop).
 - TXT, DOCX, PDF, and XLSX preprocessing run locally. Set `DASHSCOPE_API_KEY` to enable AgentScope-backed parsing, answer generation, and learning reports (`AI_TEXT_MODEL`/`AI_VL_MODEL` override the default `qwen-max`/`qwen-vl-max`); without it AI routes return 503. Scanned PDF pages are rendered and OCR'd through the vision model, including figure detection with bounding-box crops.
 - Membership tiers are admin-managed; billing checkout and webhook routes are not active.
 
@@ -136,5 +134,5 @@ See `.env.example` for the full set. The most important groups are:
 
 - Product schema lives in `db/*/*.sql`
 - The unified server lives in `server/` (API + AI + worker + admin CLI)
-- Browser and mobile clients live in `frontend/` and `mobile/`; PostgreSQL remains authoritative for both.
+- The mobile client lives in `mobile/`; PostgreSQL remains authoritative.
 - Product/API design notes live in `docs/system-design.md`

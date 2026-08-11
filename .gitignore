@@ -7,7 +7,6 @@
 # Dependencies
 # -----------------------------------------------
 /node_modules/
-/frontend/node_modules/
 /.pnp
 .pnp.*
 
@@ -22,12 +21,11 @@
 !.yarn/versions
 
 # -----------------------------------------------
-# Vite / Build Output
+# Build Output
 # -----------------------------------------------
 /out/
 /build/
 /dist/
-/frontend/dist/
 /.turbo/
 
 # -----------------------------------------------
@@ -41,9 +39,6 @@ __pycache__/
 # -----------------------------------------------
 /coverage/
 /test-results/
-/frontend/test-results/
-/playwright-report/
-/frontend/playwright-report/
 /blob-report/
 /reports/
 *.lcov

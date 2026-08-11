@@ -1,5 +1,5 @@
 [Unit]
-Description=PractiQ unified server (API + AI) and static frontend
+Description=PractiQ unified server (API + AI)
 
 [Container]
 Image=localhost/practiq-server:latest
