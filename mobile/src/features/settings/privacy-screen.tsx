@@ -10,7 +10,7 @@ export default function PrivacyPage() {
   return (
     <ScreenState>
       <Stack.Screen options={{ title: tr('Privacy Policy', '隐私政策') }} />
-      <Typography color="muted">{tr('Effective date: July 27, 2026', '生效日期：2026 年 7 月 27 日')}</Typography>
+      <Typography color="muted">{tr('Effective date: August 11, 2026', '生效日期：2026 年 8 月 11 日')}</Typography>
       <Card className="gap-3">
         <Card.Title>{tr('Cloud data', '云端数据')}</Card.Title>
         <Typography>{tr(
@@ -35,12 +35,16 @@ export default function PrivacyPage() {
           'The session token is stored only in the platform secure store, never in SQLite, backups, app configuration, or logs. Production traffic uses HTTPS.',
           '会话令牌只保存在平台安全存储中，不写入 SQLite、备份、应用配置或日志；生产环境网络传输使用 HTTPS。',
         )}</Typography>
+        <Typography>{tr(
+          'PRO users may store an LLM API key. It is encrypted in PostgreSQL, used only for requested AI operations, never returned by the service, and can be deleted from Cloud AI settings after a downgrade.',
+          'PRO 用户可托管 LLM API Key。Key 在 PostgreSQL 中加密，仅用于用户发起的 AI 操作，不会由服务返回；降级后仍可在云端 AI 设置中删除。',
+        )}</Typography>
       </Card>
       <Card className="gap-3">
         <Card.Title>{tr('Tracking and control', '跟踪与控制')}</Card.Title>
         <Typography>{tr(
-          'PractiQ contains no advertising or third-party analytics SDK. You can sign out to remove the local token and cache; server-side deletion requests are handled through the PractiQ service operator.',
-          'PractiQ 不包含广告或第三方分析 SDK。你可以退出登录以移除本地令牌和缓存；云端数据删除请求由 PractiQ 服务运营方处理。',
+          'FREE shows an internal upgrade promotion; no advertising or third-party analytics SDK is included. RevenueCat and the platform store process subscription identity and purchases. You can sign out to remove the local token and cache.',
+          'FREE 会显示内部升级推广；应用不包含广告或第三方分析 SDK。RevenueCat 与平台商店会处理订阅身份与购买。你可退出登录以移除本地令牌和缓存。',
         )}</Typography>
       </Card>
     </ScreenState>

@@ -120,7 +120,9 @@ export function cloudErrorFromResponse(status: number, body: unknown): CloudErro
   const details = parsed.success ? parsed.data.error.details ?? null : null;
   const requestId = parsed.success ? parsed.data.error.requestId ?? '' : '';
   if (status === 401) return new CloudError('登录已过期，请重新登录云端账户。', status, code, details, requestId);
-  if (code === 'PLUS_REQUIRED') return new CloudError('此 AI 功能需要 Plus 会员，请联系管理员开通。', status, code, details, requestId);
+  if (code === 'PRO_REQUIRED') return new CloudError('此云端 AI 功能需要 PRO 订阅。', status, code, details, requestId);
+  if (code === 'LLM_CONFIG_REQUIRED') return new CloudError('请先在设置中配置你的 LLM API Key。', status, code, details, requestId);
+  if (code === 'VISION_MODEL_REQUIRED') return new CloudError('此文档需要配置视觉模型。', status, code, details, requestId);
   if (code === 'USER_INACTIVE') return new CloudError('该账户已被停用，请联系管理员。', status, code, details, requestId);
   if (code === 'VALIDATION_ERROR' || status === 422 || status === 400) {
     return new CloudError(
@@ -209,7 +211,8 @@ const authDataSchema = z.object({
   email: z.string().email().nullable(),
   is_active: z.boolean(),
   role: z.enum(['admin', 'user']),
-  membership: z.enum(['free', 'plus', 'enterprise']),
+  membership: z.enum(['free', 'pro']),
+  revenuecat_app_user_id: z.uuid(),
   token: z.string().min(1),
   expiresAt: z.iso.datetime({ offset: true }),
 }).loose();

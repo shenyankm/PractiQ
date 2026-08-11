@@ -1,5 +1,6 @@
 import { Tabs as RouterTabs } from 'expo-router';
 import type { ComponentProps } from 'react';
+import { Button } from 'heroui-native/button';
 import { useThemeColor } from 'heroui-native/hooks';
 import { Surface } from 'heroui-native/surface';
 import { Tabs } from 'heroui-native/tabs';
@@ -8,6 +9,8 @@ import { ChartNoAxesColumnIncreasing, House, LibraryBig, Settings } from 'lucide
 import { useReducedMotion } from 'react-native-reanimated';
 
 import { TAB_BAR_MAX_WIDTH } from '@/layout';
+import { useLanguage } from '@/language';
+import { useCloudAuth } from '@/practiq/auth';
 
 type PrimaryTab = 'index' | 'banks' | 'analytics' | 'settings';
 type PrimaryTabsProps = Parameters<NonNullable<ComponentProps<typeof RouterTabs>['tabBar']>>[0];
@@ -26,10 +29,24 @@ function isPrimaryTab(value: string): value is PrimaryTab {
 export function PrimaryTabs({ state, descriptors, navigation, insets }: PrimaryTabsProps) {
   const [selectedColor, mutedColor] = useThemeColor(['segment-foreground', 'muted']);
   const reducedMotion = useReducedMotion();
+  const auth = useCloudAuth();
+  const { tr } = useLanguage();
   const routes = state.routes.filter((route) => isPrimaryTab(route.name));
   const selectedRoute = state.routes[state.index];
 
   return (
+    <Surface className="w-full rounded-none bg-background p-0">
+      {!auth.hasPro ? (
+        <Button
+          accessibilityLabel={tr('Upgrade to PRO and remove this promotion', '升级 PRO 并移除此推广')}
+          className="mx-3 mt-2"
+          size="sm"
+          variant="secondary"
+          onPress={() => navigation.navigate('settings')}
+        >
+          {tr('FREE · Upgrade to PRO for cloud AI and no ads', 'FREE · 升级 PRO，解锁云端 AI 并移除广告')}
+        </Button>
+      ) : null}
     <Tabs
       className="w-full px-2 pt-2"
       style={{
@@ -83,5 +100,6 @@ export function PrimaryTabs({ state, descriptors, navigation, insets }: PrimaryT
         })}
       </Tabs.List>
     </Tabs>
+    </Surface>
   );
 }

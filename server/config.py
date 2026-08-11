@@ -108,6 +108,11 @@ class Config:
     host: str
     port: int
     app_origin: str
+    revenuecat_project_id: str
+    revenuecat_secret_api_key: str
+    revenuecat_pro_entitlement_id: str
+    revenuecat_webhook_authorization: str
+    llm_key_encryption_secret: str
 
 
 def load() -> Config:
@@ -123,6 +128,16 @@ def load() -> Config:
             raise ValueError('PORT must be a positive integer')
     if not values.get('AUTH_SECRET', '').strip():
         raise ValueError('AUTH_SECRET is required')
+    required = (
+        'REVENUECAT_PROJECT_ID',
+        'REVENUECAT_SECRET_API_KEY',
+        'REVENUECAT_PRO_ENTITLEMENT_ID',
+        'REVENUECAT_WEBHOOK_AUTHORIZATION',
+        'LLM_KEY_ENCRYPTION_SECRET',
+    )
+    missing = next((key for key in required if not values.get(key, '').strip()), None)
+    if missing:
+        raise ValueError(f'{missing} is required')
     session_ttl_seconds()  # validate eagerly, mirroring config.Load
     host = _get(values, 'PRACTIQ_HOST', '127.0.0.1')
     app_origin = values.get('APP_ORIGIN', '').strip() or f'http://{host}:{port}'
@@ -131,6 +146,11 @@ def load() -> Config:
         host=host,
         port=port,
         app_origin=app_origin,
+        revenuecat_project_id=values['REVENUECAT_PROJECT_ID'].strip(),
+        revenuecat_secret_api_key=values['REVENUECAT_SECRET_API_KEY'].strip(),
+        revenuecat_pro_entitlement_id=values['REVENUECAT_PRO_ENTITLEMENT_ID'].strip(),
+        revenuecat_webhook_authorization=values['REVENUECAT_WEBHOOK_AUTHORIZATION'].strip(),
+        llm_key_encryption_secret=values['LLM_KEY_ENCRYPTION_SECRET'].strip(),
     )
 
 
