@@ -1,9 +1,0 @@
-FROM python:3.14-slim
-WORKDIR /app
-COPY ai/pyproject.toml /app/ai/pyproject.toml
-COPY ai/main.py ai/routes.py ai/schemas.py ai/workflows.py ai/fallbacks.py ai/chunking.py /app/ai/
-COPY ai/extractors /app/ai/extractors
-COPY ai/agents /app/ai/agents
-RUN python -m pip install --no-cache-dir /app/ai
-EXPOSE 8001
-CMD ["python", "-m", "uvicorn", "main:app", "--app-dir", "ai", "--host", "0.0.0.0", "--port", "8001"]

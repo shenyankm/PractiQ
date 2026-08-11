@@ -1,0 +1,17 @@
+FROM node:22-bookworm AS web
+WORKDIR /app/frontend
+COPY frontend/package.json frontend/pnpm-lock.yaml /app/frontend/
+COPY frontend/tsconfig.json frontend/vite.config.ts frontend/index.html /app/frontend/
+COPY frontend/src /app/frontend/src
+COPY frontend/public /app/frontend/public
+RUN corepack enable && pnpm install --frozen-lockfile && pnpm build
+
+FROM python:3.14-slim
+WORKDIR /app
+COPY server/pyproject.toml /app/server/pyproject.toml
+COPY server /app/server
+RUN python -m pip install --no-cache-dir /app/server
+COPY db /app/db
+COPY --from=web /app/frontend/dist /app/frontend/dist
+EXPOSE 3000
+CMD ["python", "-m", "server"]
