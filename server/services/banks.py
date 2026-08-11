@@ -55,6 +55,7 @@ class ListBanksParams:
     query: str = ''
     limit: int = 0
     cursor: str = ''
+    updated_since: str = ''
 
 
 async def list_banks(pool: AsyncConnectionPool, user: User, params: ListBanksParams) -> Page[dict]:
@@ -83,10 +84,15 @@ async def list_banks(pool: AsyncConnectionPool, user: User, params: ListBanksPar
                 )
                 AND (%s::text IS NULL OR b.subject = %s)
                 AND (%s::text IS NULL OR b.name ILIKE %s)
+                AND (%s::timestamptz IS NULL OR GREATEST(b.updated_at, COALESCE(ubl.updated_at, b.updated_at)) >= %s::timestamptz)
             ORDER BY b.updated_at DESC, b.id DESC
             LIMIT %s OFFSET %s
             """,
-            (user.id, scope, scope, scope, scope, subject, subject, query, query, limit + 1, offset),
+            (
+                user.id, scope, scope, scope, scope, subject, subject, query, query,
+                params.updated_since.strip() or None, params.updated_since.strip() or None,
+                limit + 1, offset,
+            ),
         )
         items = [_scan_bank_with_flags(row) for row in await cursor.fetchall()]
     return build_page(items, limit, offset)

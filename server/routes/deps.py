@@ -6,6 +6,7 @@ Mirrors backend/internal/httpserver/route_helpers.go.
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from typing import Any
 
 from fastapi import Request
@@ -69,3 +70,16 @@ def query_page_limit(request: Request, maximum: int) -> int:
             [envelope.ValidationDetail('limit', f'must be between 1 and {maximum}')]
         )
     return limit
+
+
+def query_updated_since(request: Request) -> str:
+    raw = request.query_params.get('updated_since', '').strip()
+    if not raw:
+        return ''
+    try:
+        datetime.fromisoformat(raw.replace('Z', '+00:00'))
+    except ValueError as exc:
+        raise envelope.validation_error(
+            [envelope.ValidationDetail('updated_since', 'must be an ISO 8601 timestamp')]
+        ) from exc
+    return raw

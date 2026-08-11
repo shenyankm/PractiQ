@@ -31,6 +31,7 @@ async def list_banks(request: Request):
             query=request.query_params.get('q', ''),
             limit=limit,
             cursor=request.query_params.get('cursor', ''),
+            updated_since=deps.query_updated_since(request),
         ),
     )
     return envelope.ok(request, data.items, data.page_info.as_meta())

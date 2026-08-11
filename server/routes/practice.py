@@ -27,6 +27,7 @@ async def list_sessions(request: Request):
     data = await practice_svc.list_practice_sessions(
         deps.pool(request), user, limit,
         request.query_params.get('status', ''), request.query_params.get('cursor', ''),
+        deps.query_updated_since(request),
     )
     return envelope.ok(request, data.items, data.page_info.as_meta())
 

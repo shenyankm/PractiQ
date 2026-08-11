@@ -26,6 +26,10 @@ export const bankSchema = z.object({
   is_owner: z.boolean().optional(),
   is_favorite: z.boolean().optional(),
   pending: z.boolean().optional(),
+  // 镜像层需要的交付字段(服务端实际返回,声明以获得类型)
+  created_by: id.nullable().optional(),
+  created_at: z.string().optional(),
+  updated_at: z.string().optional(),
 }).loose();
 export const banksSchema = z.array(bankSchema);
 export type Bank = z.infer<typeof bankSchema>;
@@ -36,6 +40,9 @@ export const questionOptionSchema = z.object({
   sort_order: z.number().int(),
   content: z.string(),
   is_correct: z.boolean().optional(),
+  question_id: id.optional(),
+  created_at: z.string().optional(),
+  updated_at: z.string().optional(),
 }).loose();
 export type QuestionOption = z.infer<typeof questionOptionSchema>;
 
@@ -52,6 +59,15 @@ export const bankItemSchema = z.object({
   group_title: nullableString.optional(),
   group_instructions: nullableString.optional(),
   options: z.array(questionOptionSchema).optional(),
+  // 镜像层需要的交付字段(服务端实际返回,声明以获得类型)
+  bank_id: id.optional(),
+  item_scope: z.string().optional(),
+  bank_sort_order: z.number().int().optional(),
+  group_sort_order: z.number().int().nullable().optional(),
+  question_no: nullableString.optional(),
+  business_type: z.string().optional(),
+  subject_id: z.string().optional(),
+  content_mode: z.string().nullable().optional(),
 }).loose();
 export const bankItemsSchema = z.array(bankItemSchema);
 export type BankItem = z.infer<typeof bankItemSchema>;
@@ -78,14 +94,35 @@ export const questionDetailSchema = z.object({
   question_type_id: z.string(),
   status: z.enum(['draft', 'active', 'archived']),
   options: z.array(questionOptionSchema),
-  answer_keys: z.array(z.object({ answer_payload: z.string() }).loose()).optional(),
+  answer_keys: z.array(z.object({
+    answer_payload: z.string(),
+    id: id.optional(),
+    question_id: id.optional(),
+    answer_mode: answerModeSchema.optional(),
+    version: z.number().int().optional(),
+    is_primary: z.boolean().optional(),
+    explanation_payload: z.string().optional(),
+    score_payload: z.string().optional(),
+    created_at: z.string().optional(),
+    updated_at: z.string().optional(),
+  }).loose()).optional(),
   media_links: z.array(z.object({
     id,
     media_id: id,
     media_kind: z.string(),
     sort_order: z.number().int(),
+    question_id: id.optional(),
+    created_at: z.string().optional(),
   }).loose()),
   can_edit: z.boolean(),
+  // 镜像层需要的交付字段(服务端实际返回,声明以获得类型)
+  business_type: z.string().optional(),
+  subject_id: z.string().optional(),
+  choice_variant: choiceVariantSchema.optional(),
+  content_mode: z.string().nullable().optional(),
+  detail_payload: z.string().optional(),
+  created_at: z.string().optional(),
+  updated_at: z.string().optional(),
 }).loose();
 export type QuestionDetail = z.infer<typeof questionDetailSchema>;
 
@@ -95,6 +132,13 @@ export const mediaAssetSchema = z.object({
   original_name: nullableString,
   mime_type: nullableString,
   size_bytes: z.number().int().nonnegative().nullable(),
+  // 镜像层需要的交付字段(服务端实际返回,声明以获得类型)
+  created_by: id.nullable().optional(),
+  external_url: nullableString.optional(),
+  width: z.number().int().nullable().optional(),
+  height: z.number().int().nullable().optional(),
+  duration_ms: z.number().int().nullable().optional(),
+  created_at: z.string().optional(),
 }).loose();
 export type MediaAsset = z.infer<typeof mediaAssetSchema>;
 
@@ -108,6 +152,10 @@ export const practiceSessionSchema = z.object({
   correct_count: z.number().int().nonnegative(),
   wrong_count: z.number().int().nonnegative(),
   score: z.number().nullable(),
+  // 镜像层需要的交付字段(服务端实际返回,声明以获得类型)
+  user_id: id.optional(),
+  started_at: z.string().optional(),
+  completed_at: nullableString.optional(),
 }).loose();
 export const practiceSessionsSchema = z.array(practiceSessionSchema);
 export type PracticeSession = z.infer<typeof practiceSessionSchema>;

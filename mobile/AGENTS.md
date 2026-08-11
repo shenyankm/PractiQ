@@ -11,7 +11,7 @@
 
 - Keep `import 'expo'` as the first import in `index.ts`, before `expo-router/entry`.
 - Expo Router routes and startup live in `app/`; PractiQ mobile behavior lives in `src/practiq/`.
-- PostgreSQL through the PractiQ REST API is authoritative. `practiq-cache.db` contains only cached responses and the mutation outbox.
+- PostgreSQL through the PractiQ REST API is authoritative. `practiq-cache.db` holds structured mirror tables (banking/practice content, see `src/practiq/mirror-schema.ts` for the column list), the mutation outbox, and residual blob caches (`resources`: analytics snapshots, import jobs, offline practice snapshots).
 - Route replayable writes through `mutateOrQueue`; keep outbox replay sequential and preserve its `Idempotency-Key`.
 - Use HeroUI Native and keep `global.css`, `metro.config.js`, and the root provider aligned.
 

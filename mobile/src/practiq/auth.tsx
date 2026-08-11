@@ -4,6 +4,7 @@ import { AppState } from 'react-native';
 import { loadSession, login, loginWithGoogle, logout, register, type CloudSession } from '@/cloud';
 import { ApiError, apiRequest, flushOutbox, setUnauthorizedHandler } from './api';
 import { clearCloudCache, outboxCounts, retryFailedMutations } from './cache';
+import { pullGlobalUpdates } from './sync';
 import { cloudUserSchema, type CloudUser } from './types';
 
 type AuthState = {
@@ -47,13 +48,16 @@ export function CloudAuthProvider({ children }: PropsWithChildren) {
     setSync((current) => ({ ...current, running: true }));
     try {
       if (retryFailed) await retryFailedMutations();
+      // 先推后拉:outbox 回放完再拉服务端增量,避免拉回自己刚写一半的状态
       await flushOutbox();
+      // user 未加载(未登录或 /auth/me 进行中)时跳过拉取,下次触发再补
+      if (user?.id) await pullGlobalUpdates(user.id);
       await refreshCounts();
     } finally {
       synchronizing.current = false;
       setSync((current) => ({ ...current, running: false }));
     }
-  }, [refreshCounts, session]);
+  }, [refreshCounts, session, user?.id]);
 
   useEffect(() => {
     let active = true;

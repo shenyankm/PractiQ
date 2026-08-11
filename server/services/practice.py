@@ -253,7 +253,7 @@ async def get_practice_question_page(
 
 
 async def list_practice_sessions(
-    pool: AsyncConnectionPool, user: User, limit: int, status: str, cursor_str: str
+    pool: AsyncConnectionPool, user: User, limit: int, status: str, cursor_str: str, updated_since: str = ''
 ) -> Page[dict]:
     limit = min(max(limit, 1), 100) if limit >= 1 else 20
     offset = parse_page_cursor(cursor_str)
@@ -269,10 +269,15 @@ async def list_practice_sessions(
             FROM user_practice_sessions
             WHERE user_id = %s
               AND (%s::text = '' OR status = %s)
+              AND (%s::timestamptz IS NULL OR updated_at >= %s::timestamptz)
             ORDER BY started_at DESC, id DESC
             LIMIT %s OFFSET %s
             """,
-            (user.id, status, status, limit + 1, offset),
+            (
+                user.id, status, status,
+                updated_since.strip() or None, updated_since.strip() or None,
+                limit + 1, offset,
+            ),
         )
         sessions = [_scan_session(row) for row in await cursor.fetchall()]
     return build_page(sessions, limit, offset)

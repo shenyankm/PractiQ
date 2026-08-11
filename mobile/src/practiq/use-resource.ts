@@ -1,10 +1,25 @@
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ZodType } from 'zod';
 import { apiRequestPage } from './api';
 import { readResource, writeResource } from './cache';
 
-export function useCachedResource<T>(key: string, path: string, initial: T, schema: ZodType<T>, persist = true) {
+// 结构化镜像读写通道:有 mirror 时替代 resources blob 缓存。
+// write 的 reconcile 标记:仅当本次写入来自第一页完整拉取(hasMore=false)时为 true,
+// 供镜像层做删除传播;分页合并写永远为 false。
+export type ResourceMirror<T> = {
+  read: () => Promise<T | null>;
+  write: (value: T, options?: { reconcile: boolean }) => Promise<void>;
+};
+
+export function useCachedResource<T>(
+  key: string,
+  path: string,
+  initial: T,
+  schema: ZodType<T>,
+  persist = true,
+  mirror?: ResourceMirror<T>,
+) {
   const [data, setData] = useState(initial);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -13,10 +28,21 @@ export function useCachedResource<T>(key: string, path: string, initial: T, sche
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
 
+  // mirror 描述符随渲染重建,用 ref 供回调取最新值,避免它进入 reload 依赖导致反复拉取。
+  // 该 effect 声明在 useFocusEffect 之前,保证 focus 触发 reload 时 ref 已更新。
+  const mirrorRef = useRef(mirror);
+  useEffect(() => {
+    mirrorRef.current = mirror;
+  });
+
   const reload = useCallback(async () => {
     setRefreshing(true);
     setError('');
-    const cached = schema.safeParse(persist ? await readResource<unknown>(key) : null);
+    const current = mirrorRef.current;
+    // 镜像读取失败(DB 异常)按缓存未命中处理,不阻断网络拉取
+    const cached = schema.safeParse(
+      current ? await current.read().catch(() => null) : persist ? await readResource<unknown>(key) : null,
+    );
     if (cached.success) {
       setData(cached.data);
       setLoading(false);
@@ -26,7 +52,8 @@ export function useCachedResource<T>(key: string, path: string, initial: T, sche
       setData(page.data);
       setCursor(page.cursor);
       setHasMore(page.hasMore);
-      if (persist) await writeResource(key, page.data);
+      if (mirrorRef.current) await mirrorRef.current.write(page.data, { reconcile: !page.hasMore });
+      else if (persist) await writeResource(key, page.data);
     } catch (reason) {
       if (!cached.success) setError(reason instanceof Error ? reason.message : '读取失败');
     } finally {
@@ -41,7 +68,8 @@ export function useCachedResource<T>(key: string, path: string, initial: T, sche
 
   const update = useCallback(async (value: T) => {
     setData(value);
-    if (persist) await writeResource(key, value);
+    if (mirrorRef.current) await mirrorRef.current.write(value, { reconcile: false });
+    else if (persist) await writeResource(key, value);
   }, [key, persist]);
 
   const loadMore = useCallback(async () => {
@@ -57,7 +85,8 @@ export function useCachedResource<T>(key: string, path: string, initial: T, sche
       setData(merged);
       setCursor(page.cursor);
       setHasMore(page.hasMore);
-      if (persist) await writeResource(key, merged);
+      if (mirrorRef.current) await mirrorRef.current.write(merged, { reconcile: false });
+      else if (persist) await writeResource(key, merged);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : '读取失败');
     } finally {

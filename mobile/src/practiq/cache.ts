@@ -1,8 +1,7 @@
-import * as SQLite from 'expo-sqlite';
 import { Directory, Paths } from 'expo-file-system';
 
-const CACHE_DATABASE = 'practiq-cache.db';
-let databasePromise: Promise<SQLite.SQLiteDatabase> | null = null;
+import { getDb } from './db';
+import { MIRROR_TABLES } from './mirror-schema';
 
 export type QueuedMutation = {
   id: number;
@@ -14,38 +13,8 @@ export type QueuedMutation = {
   last_error: string | null;
 };
 
-async function database() {
-  databasePromise ??= SQLite.openDatabaseAsync(CACHE_DATABASE).then(async (db) => {
-    await db.execAsync(`
-      PRAGMA journal_mode = WAL;
-      CREATE TABLE IF NOT EXISTS resources (
-        key TEXT PRIMARY KEY,
-        payload TEXT NOT NULL,
-        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
-      CREATE TABLE IF NOT EXISTS outbox (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        mutation_key TEXT NOT NULL UNIQUE,
-        method TEXT NOT NULL,
-        path TEXT NOT NULL,
-        body_json TEXT,
-        state TEXT NOT NULL DEFAULT 'pending' CHECK (state IN ('pending','failed')),
-        last_error TEXT,
-        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
-      CREATE INDEX IF NOT EXISTS outbox_pending ON outbox(state, id);
-    `);
-    const version = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
-    if ((version?.user_version ?? 0) < 1) {
-      await db.execAsync('DELETE FROM resources; PRAGMA user_version = 1;');
-    }
-    return db;
-  });
-  return databasePromise;
-}
-
 export async function readResource<T>(key: string): Promise<T | null> {
-  const row = await (await database()).getFirstAsync<{ payload: string }>(
+  const row = await (await getDb()).getFirstAsync<{ payload: string }>(
     'SELECT payload FROM resources WHERE key = ?',
     key,
   );
@@ -58,7 +27,7 @@ export async function readResource<T>(key: string): Promise<T | null> {
 }
 
 export async function writeResource(key: string, value: unknown) {
-  await (await database()).runAsync(
+  await (await getDb()).runAsync(
     `INSERT INTO resources(key, payload) VALUES (?, ?)
      ON CONFLICT(key) DO UPDATE SET payload = excluded.payload, updated_at = CURRENT_TIMESTAMP`,
     key,
@@ -72,7 +41,7 @@ export function createMutationKey() {
 }
 
 export async function enqueueMutation(method: string, path: string, body: unknown, mutationKey = createMutationKey()) {
-  await (await database()).runAsync(
+  await (await getDb()).runAsync(
     'INSERT OR IGNORE INTO outbox(mutation_key, method, path, body_json) VALUES (?, ?, ?, ?)',
     mutationKey,
     method,
@@ -83,13 +52,13 @@ export async function enqueueMutation(method: string, path: string, body: unknow
 }
 
 export async function pendingMutations() {
-  return (await database()).getAllAsync<QueuedMutation>(
+  return (await getDb()).getAllAsync<QueuedMutation>(
     "SELECT id, mutation_key, method, path, body_json, state, last_error FROM outbox WHERE state = 'pending' ORDER BY id",
   );
 }
 
 export async function outboxCounts() {
-  const rows = await (await database()).getAllAsync<{ state: string; count: number }>(
+  const rows = await (await getDb()).getAllAsync<{ state: string; count: number }>(
     'SELECT state, COUNT(*) AS count FROM outbox GROUP BY state',
   );
   return {
@@ -99,11 +68,11 @@ export async function outboxCounts() {
 }
 
 export async function completeMutation(id: number) {
-  await (await database()).runAsync('DELETE FROM outbox WHERE id = ?', id);
+  await (await getDb()).runAsync('DELETE FROM outbox WHERE id = ?', id);
 }
 
 export async function failMutation(id: number, message: string) {
-  await (await database()).runAsync(
+  await (await getDb()).runAsync(
     "UPDATE outbox SET state = 'failed', last_error = ? WHERE id = ?",
     message,
     id,
@@ -111,12 +80,16 @@ export async function failMutation(id: number, message: string) {
 }
 
 export async function retryFailedMutations() {
-  await (await database()).runAsync("UPDATE outbox SET state = 'pending', last_error = NULL WHERE state = 'failed'");
+  await (await getDb()).runAsync("UPDATE outbox SET state = 'pending', last_error = NULL WHERE state = 'failed'");
 }
 
 export async function clearCloudCache() {
-  const db = await database();
-  await db.execAsync("DELETE FROM resources WHERE key <> 'setting:language'; DELETE FROM outbox;");
+  const db = await getDb();
+  await db.execAsync(`
+    DELETE FROM resources WHERE key <> 'setting:language';
+    DELETE FROM outbox;
+    ${MIRROR_TABLES.map((table) => `DELETE FROM ${table};`).join('\n    ')}
+  `);
   const imports = new Directory(Paths.document, 'cloud-imports');
   if (imports.exists) imports.delete();
 }

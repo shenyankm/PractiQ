@@ -24,6 +24,17 @@ import { ApiError, apiRequest, mutateOrQueue, uploadImport, type PendingImport }
 import { createMutationKey, enqueueMutation, readResource, writeResource } from './cache';
 import { useCloudAuth } from './auth';
 import {
+  bankGroupsResourceMirror,
+  bankItemsResourceMirror,
+  bankResourceMirror,
+  banksResourceMirror,
+  questionDetailResourceMirror,
+  questionTypesResourceMirror,
+  sessionsResourceMirror,
+  subjectsResourceMirror,
+  upsertMediaAsset,
+} from './mirror';
+import {
   analyticsSnapshotSchema,
   analyticsSummarySchema,
   bankGroupsSchema,
@@ -114,9 +125,10 @@ function RefreshableScreen({
 
 export function OverviewScreen() {
   const { tr } = useLanguage();
+  const { user } = useCloudAuth();
   const summary = useCachedResource('analytics:summary', '/api/v1/analytics/me/summary', emptySummary, analyticsSummarySchema);
-  const banks = useCachedResource<Bank[]>('banks:mine', '/api/v1/banks?scope=mine&limit=5', [], banksSchema);
-  const sessions = useCachedResource<PracticeSession[]>('practice:recent', '/api/v1/practice-sessions?limit=5', [], practiceSessionsSchema);
+  const banks = useCachedResource<Bank[]>('banks:mine', '/api/v1/banks?scope=mine&limit=5', [], banksSchema, true, banksResourceMirror('mine', user?.id ?? null, 5));
+  const sessions = useCachedResource<PracticeSession[]>('practice:recent', '/api/v1/practice-sessions?limit=5', [], practiceSessionsSchema, true, sessionsResourceMirror(user?.id ?? null, 5));
   const reload = () => Promise.all([summary.reload(), banks.reload(), sessions.reload()]);
 
   return (
@@ -154,8 +166,9 @@ export function OverviewScreen() {
 
 export function BanksScreen() {
   const { tr } = useLanguage();
+  const { user } = useCloudAuth();
   const [scope, setScope] = useState<'mine' | 'favorites' | 'public'>('mine');
-  const banks = useCachedResource<Bank[]>(`banks:${scope}`, `/api/v1/banks?scope=${scope}&limit=100`, [], banksSchema);
+  const banks = useCachedResource<Bank[]>(`banks:${scope}`, `/api/v1/banks?scope=${scope}&limit=100`, [], banksSchema, true, banksResourceMirror(scope, user?.id ?? null));
 
   return (
     <RefreshableScreen refreshing={banks.refreshing} reload={banks.reload}>
@@ -201,8 +214,9 @@ export function BanksScreen() {
 
 export function NewBankScreen() {
   const { tr } = useLanguage();
-  const banks = useCachedResource<Bank[]>('banks:mine', '/api/v1/banks?scope=mine&limit=100', [], banksSchema);
-  const subjects = useCachedResource<{ subject_id: string; display_name: string }[]>('subjects', '/api/v1/subjects', [], subjectsSchema);
+  const { user } = useCloudAuth();
+  const banks = useCachedResource<Bank[]>('banks:mine', '/api/v1/banks?scope=mine&limit=100', [], banksSchema, true, banksResourceMirror('mine', user?.id ?? null));
+  const subjects = useCachedResource<{ subject_id: string; display_name: string }[]>('subjects', '/api/v1/subjects', [], subjectsSchema, true, subjectsResourceMirror());
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [subject, setSubject] = useState('general');
@@ -273,8 +287,9 @@ export function NewBankScreen() {
 export function BankDetailScreen() {
   const { bankId = '' } = useLocalSearchParams<{ bankId: string }>();
   const { tr } = useLanguage();
-  const bank = useCachedResource<Bank>(`bank:${bankId}`, `/api/v1/banks/${bankId}`, {} as Bank, bankSchema);
-  const items = useCachedResource<BankItem[]>(`bank:${bankId}:items`, `/api/v1/banks/${bankId}/items?limit=100`, [], bankItemsSchema);
+  const { user } = useCloudAuth();
+  const bank = useCachedResource<Bank>(`bank:${bankId}`, `/api/v1/banks/${bankId}`, {} as Bank, bankSchema, true, bankResourceMirror(Number(bankId), user?.id ?? null));
+  const items = useCachedResource<BankItem[]>(`bank:${bankId}:items`, `/api/v1/banks/${bankId}/items?limit=100`, [], bankItemsSchema, true, bankItemsResourceMirror(Number(bankId)));
   const [message, setMessage] = useState('');
 
   async function favorite() {
@@ -320,14 +335,17 @@ export function BankDetailScreen() {
 export function ManageBankScreen() {
   const { bankId = '' } = useLocalSearchParams<{ bankId: string }>();
   const { tr } = useLanguage();
-  const bank = useCachedResource<Bank>(`bank:${bankId}`, `/api/v1/banks/${bankId}`, {} as Bank, bankSchema);
-  const items = useCachedResource<BankItem[]>(`bank:${bankId}:manage-items`, `/api/v1/banks/${bankId}/items?limit=100&includeAnswers=true`, [], bankItemsSchema);
-  const groups = useCachedResource<BankGroup[]>(`bank:${bankId}:groups`, `/api/v1/banks/${bankId}/groups?limit=100`, [], bankGroupsSchema);
-  const types = useCachedResource<{ type_id: string; display_name: string; default_answer_mode?: string | null }[]>(
+  const { user } = useCloudAuth();
+  const bank = useCachedResource<Bank>(`bank:${bankId}`, `/api/v1/banks/${bankId}`, {} as Bank, bankSchema, true, bankResourceMirror(Number(bankId), user?.id ?? null));
+  const items = useCachedResource<BankItem[]>(`bank:${bankId}:manage-items`, `/api/v1/banks/${bankId}/items?limit=100&includeAnswers=true`, [], bankItemsSchema, true, bankItemsResourceMirror(Number(bankId)));
+  const groups = useCachedResource<BankGroup[]>(`bank:${bankId}:groups`, `/api/v1/banks/${bankId}/groups?limit=100`, [], bankGroupsSchema, true, bankGroupsResourceMirror(Number(bankId), user?.id ?? null));
+  const types = useCachedResource<QuestionType[]>(
     `types:${bank.data.subject || 'general'}`,
     `/api/v1/question-types?subject=${bank.data.subject || 'general'}&scope=question`,
     [],
     questionTypesSchema,
+    true,
+    questionTypesResourceMirror(bank.data.subject || 'general'),
   );
   const [stem, setStem] = useState('');
   const [bankName, setBankName] = useState('');
@@ -640,6 +658,7 @@ export function QuestionScreen() {
     {} as QuestionDetail,
     questionDetailSchema,
     false,
+    questionDetailResourceMirror(Number(questionId), auth.user?.id ?? null),
   );
   const [stem, setStem] = useState('');
   const [analysis, setAnalysis] = useState('');
@@ -709,6 +728,7 @@ export function QuestionScreen() {
         idempotencyKey: createMutationKey(),
         schema: mediaAssetSchema,
       });
+      await upsertMediaAsset(media);
       await apiRequest(`/api/v1/questions/${questionId}/media-links`, {
         method: 'POST',
         body: {
@@ -910,8 +930,9 @@ export function SettingsScreen() {
 
 export function ImportsScreen() {
   const { tr } = useLanguage();
+  const { user } = useCloudAuth();
   const jobs = useCachedResource<ImportJob[]>('imports', '/api/v1/import-jobs', [], importJobsSchema);
-  const banks = useCachedResource<Bank[]>('banks:mine', '/api/v1/banks?scope=mine&limit=100', [], banksSchema);
+  const banks = useCachedResource<Bank[]>('banks:mine', '/api/v1/banks?scope=mine&limit=100', [], banksSchema, true, banksResourceMirror('mine', user?.id ?? null));
   const [bankId, setBankId] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -1091,13 +1112,17 @@ type OfflinePractice = {
 export function PracticeSetupScreen() {
   const { bankId = '' } = useLocalSearchParams<{ bankId: string }>();
   const { tr } = useLanguage();
-  const bank = useCachedResource<Bank>(`bank:${bankId}`, `/api/v1/banks/${bankId}`, {} as Bank, bankSchema);
-  const items = useCachedResource<BankItem[]>(`bank:${bankId}:items`, `/api/v1/banks/${bankId}/items?status=active&limit=100`, [], bankItemsSchema);
+  const { user } = useCloudAuth();
+  const bank = useCachedResource<Bank>(`bank:${bankId}`, `/api/v1/banks/${bankId}`, {} as Bank, bankSchema, true, bankResourceMirror(Number(bankId), user?.id ?? null));
+  // status=active 过滤拉取不是完整集合,禁用 reconcile(只做 upsert,不删除传播)
+  const items = useCachedResource<BankItem[]>(`bank:${bankId}:items`, `/api/v1/banks/${bankId}/items?status=active&limit=100`, [], bankItemsSchema, true, bankItemsResourceMirror(Number(bankId), { reconcile: false }));
   const types = useCachedResource<QuestionType[]>(
     `types:${bank.data.subject || 'general'}`,
     `/api/v1/question-types?subject=${bank.data.subject || 'general'}&scope=question`,
     [],
     questionTypesSchema,
+    true,
+    questionTypesResourceMirror(bank.data.subject || 'general'),
   );
   const [mode, setMode] = useState<'all' | 'wrong' | 'by_type' | 'exam'>('all');
   const [typeId, setTypeId] = useState('');
