@@ -92,7 +92,7 @@ async def run_seed(pool: AsyncConnectionPool, seed_password: str) -> None:
                     membership = EXCLUDED.membership
                 RETURNING id
                 """,
-                (SEED_ADMIN_USERNAME, SEED_ADMIN_EMAIL, password_hash, 'admin', 'plus'),
+                (SEED_ADMIN_USERNAME, SEED_ADMIN_EMAIL, password_hash, 'admin', 'free'),
             )
             row = await cursor.fetchone()
             user_id = row[0]

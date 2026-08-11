@@ -4,11 +4,12 @@ import json
 from typing import Any
 
 from agentscope.message import SystemMsg, UserMsg
+from agentscope.model import ChatModelBase
 
 from ..extractors import DocumentProcessingError
 from ..ai_schemas import AnswerGenerationResult, LearningReportResult
 
-from .model import get_text_model, structured_call
+from .model import structured_call
 
 VALIDATION_RETRIES = 1
 
@@ -25,18 +26,17 @@ REPORT_PROMPT = (
 )
 
 
-async def generate_answer(payload: dict[str, Any]) -> AnswerGenerationResult:
-    return await _generate(ANSWER_PROMPT, payload, AnswerGenerationResult)
+async def generate_answer(model: ChatModelBase, payload: dict[str, Any]) -> AnswerGenerationResult:
+    return await _generate(model, ANSWER_PROMPT, payload, AnswerGenerationResult)
 
 
-async def learning_report(payload: dict[str, Any]) -> LearningReportResult:
-    return await _generate(REPORT_PROMPT, payload, LearningReportResult)
+async def learning_report(model: ChatModelBase, payload: dict[str, Any]) -> LearningReportResult:
+    return await _generate(model, REPORT_PROMPT, payload, LearningReportResult)
 
 
 async def _generate[ResultT](
-    prompt: str, payload: dict[str, Any], schema: type[ResultT]
+    model: ChatModelBase, prompt: str, payload: dict[str, Any], schema: type[ResultT]
 ) -> ResultT:
-    model = get_text_model()
     result = await structured_call(
         model,
         [

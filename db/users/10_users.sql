@@ -11,18 +11,38 @@ CREATE TABLE users (
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     role TEXT NOT NULL DEFAULT 'user',
     membership TEXT NOT NULL DEFAULT 'free',
-    plus_trial_ends_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '3 days'),
-    plus_expires_at TIMESTAMPTZ,
+    revenuecat_app_user_id UUID NOT NULL DEFAULT gen_random_uuid(),
+    llm_provider TEXT,
+    llm_api_key_ciphertext BYTEA,
+    llm_text_model TEXT,
+    llm_vision_model TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT chk_users_username_not_blank CHECK (btrim(username) <> ''),
     CONSTRAINT chk_users_role CHECK (role IN ('admin', 'user')),
-    CONSTRAINT chk_users_membership CHECK (membership IN ('free', 'plus', 'enterprise'))
+    CONSTRAINT chk_users_membership CHECK (membership IN ('free', 'pro')),
+    CONSTRAINT chk_users_llm_provider CHECK (
+        llm_provider IS NULL OR llm_provider IN (
+            'anthropic', 'dashscope', 'deepseek', 'gemini', 'moonshot', 'openai', 'xai'
+        )
+    ),
+    CONSTRAINT chk_users_llm_config CHECK (
+        (llm_provider IS NULL AND llm_api_key_ciphertext IS NULL AND llm_text_model IS NULL AND llm_vision_model IS NULL)
+        OR
+        (
+            llm_provider IS NOT NULL
+            AND llm_api_key_ciphertext IS NOT NULL
+            AND llm_text_model IS NOT NULL
+            AND btrim(llm_text_model) <> ''
+            AND (llm_vision_model IS NULL OR btrim(llm_vision_model) <> '')
+        )
+    )
 );
 
 CREATE UNIQUE INDEX uq_users_username_lower ON users (LOWER(username));
 CREATE UNIQUE INDEX uq_users_email_lower ON users (LOWER(email)) WHERE email IS NOT NULL;
 CREATE UNIQUE INDEX uq_users_google_sub ON users (google_sub) WHERE google_sub IS NOT NULL;
+CREATE UNIQUE INDEX uq_users_revenuecat_app_user_id ON users (revenuecat_app_user_id);
 
 CREATE TRIGGER trg_users_set_updated_at
 BEFORE UPDATE ON users
@@ -37,6 +57,6 @@ COMMENT ON COLUMN users.avatar_url IS '头像对象存储地址';
 COMMENT ON COLUMN users.password_hash IS '密码哈希';
 COMMENT ON COLUMN users.is_active IS '是否启用';
 COMMENT ON COLUMN users.role IS '系统角色，admin / user';
-COMMENT ON COLUMN users.membership IS '会员类型，free / plus / enterprise';
-COMMENT ON COLUMN users.plus_trial_ends_at IS 'Plus 试用到期时间，新注册用户默认 3 天';
-COMMENT ON COLUMN users.plus_expires_at IS '付费会员到期时间，空值表示长期有效的付费会员';
+COMMENT ON COLUMN users.membership IS 'RevenueCat 权益投影，free / pro';
+COMMENT ON COLUMN users.revenuecat_app_user_id IS 'RevenueCat 不可猜测的 App User ID';
+COMMENT ON COLUMN users.llm_api_key_ciphertext IS '用户 LLM API Key 的 pgcrypto 密文';

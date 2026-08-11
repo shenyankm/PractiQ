@@ -18,6 +18,7 @@ from .auth import runtime as auth_runtime
 from .services import groups as groups_svc
 from .services import imports as imports_svc
 from .services import questions as questions_svc
+from .services import users as users_svc
 
 logger = logging.getLogger('practiq.worker')
 
@@ -158,7 +159,7 @@ def _non_empty(value: str | None) -> str | None:
 
 
 async def process_queued_job(
-    pool: AsyncConnectionPool, claimed: imports_queue.ClaimedJob
+    pool: AsyncConnectionPool, claimed: imports_queue.ClaimedJob, encryption_secret: str
 ) -> bool:
     """Returns persistence_started (for requeue/failure decisions)."""
     job = await _load_import_job(pool, claimed.id)
@@ -169,9 +170,13 @@ async def process_queued_job(
         raise RuntimeError(f"import worker user {job['created_by']} not found")
     if not user.is_active:
         raise RuntimeError(f"import worker user {job['created_by']} is inactive")
+    llm_config = await users_svc.require_llm_config(
+        pool, user, encryption_secret, 'AI document imports'
+    )
+    text_model, vision_model = agents.build_models(llm_config)
     await _record_import_event(pool, job['id'], 'processing', 'parse', '处理中', 'processing', None, 10, 10)
     request = await _build_parse_request(pool, job)
-    result = await agents.parse_document(request)
+    result = await agents.parse_document(text_model, vision_model, request)
 
     created_count = 0
     persistence_started = False
@@ -253,7 +258,7 @@ async def _record_failure(pool: AsyncConnectionPool, job: imports_queue.ClaimedJ
         pass
 
 
-async def run_worker(pool: AsyncConnectionPool, stop: asyncio.Event) -> None:
+async def run_worker(pool: AsyncConnectionPool, stop: asyncio.Event, encryption_secret: str) -> None:
     while not stop.is_set():
         job = await imports_queue.claim_next_job(pool)
         if job is None:
@@ -278,7 +283,7 @@ async def run_worker(pool: AsyncConnectionPool, stop: asyncio.Event) -> None:
 
         persistence_started = False
         try:
-            persistence_started = await process_queued_job(pool, job)
+            persistence_started = await process_queued_job(pool, job, encryption_secret)
         except imports_queue.ClaimLostError:
             continue
         except Exception as err:
@@ -311,7 +316,7 @@ async def run_worker(pool: AsyncConnectionPool, stop: asyncio.Event) -> None:
 
 def main() -> None:
     logging.basicConfig(level=logging.INFO)
-    config.load_env()
+    cfg = config.load()
     pool = db_mod.open_pool()
 
     async def _run() -> None:
@@ -321,7 +326,7 @@ def main() -> None:
         for sig in (signal.SIGINT, signal.SIGTERM):
             loop.add_signal_handler(sig, stop.set)
         try:
-            await run_worker(pool, stop)
+            await run_worker(pool, stop, cfg.llm_key_encryption_secret)
         finally:
             await db_mod.close_pool()
 

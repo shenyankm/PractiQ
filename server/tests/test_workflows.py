@@ -5,6 +5,7 @@ from typing import Any
 import pytest
 
 import server.agents.generator as generator
+import server.agents.model as model_factory
 import server.agents.parser as parser
 import server.agents.vision as vision
 from server.extractors import DocumentProcessingError
@@ -14,6 +15,7 @@ from server.ai_schemas import (
     DocumentParseResult,
     LearningReportResult,
 )
+from server.services.users import LLMConfig
 
 
 class FakeModel:
@@ -27,6 +29,18 @@ class FakeModel:
         if isinstance(item, Exception):
             raise item
         return SimpleNamespace(content=item)
+
+
+@pytest.mark.parametrize(
+    'provider',
+    ('anthropic', 'dashscope', 'deepseek', 'gemini', 'moonshot', 'openai', 'xai'),
+)
+def test_builds_every_supported_provider(provider: str) -> None:
+    text, vision_model = model_factory.build_models(
+        LLMConfig(provider, 'test-key', 'text-model', None)
+    )
+    assert text is not None
+    assert vision_model is None
 
 
 def question_dict(stem: str) -> dict[str, Any]:
@@ -45,21 +59,6 @@ def parse_request(text: str = '1. What is 2+2?') -> DocumentParseRequest:
     return DocumentParseRequest(sourceType='text', text=text)
 
 
-def test_routes_raise_503_without_provider(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.delenv('DASHSCOPE_API_KEY', raising=False)
-
-    for call in (
-        parser.parse_document(parse_request()),
-        generator.generate_answer({'options': [{'label': 'A', 'content': '4'}]}),
-        generator.learning_report({'userId': 7}),
-    ):
-        with pytest.raises(DocumentProcessingError) as exc_info:
-            asyncio.run(call)
-        assert exc_info.value.status_code == 503
-
-
 def test_parse_merges_chunks_and_computes_quality(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -69,11 +68,9 @@ def test_parse_merges_chunks_and_computes_quality(
             {'questions': [question_dict('2. Second'), question_dict('3. Third')], 'groups': []},
         ]
     )
-    monkeypatch.setattr(parser, 'get_text_model', lambda: fake)
-    monkeypatch.setattr(parser, 'get_vl_model', lambda: None)
     monkeypatch.setattr(parser, 'split_into_chunks', lambda _text: ['chunk a', 'chunk b'])
 
-    result = asyncio.run(parser.parse_document(parse_request()))
+    result = asyncio.run(parser.parse_document(fake, None, parse_request()))
 
     assert isinstance(result, DocumentParseResult)
     assert [q.stem for q in result.questions] == ['1. First', '2. Second', '3. Third']
@@ -90,10 +87,7 @@ def test_parse_retries_on_validation_error_with_feedback(
             {'questions': [question_dict('1. Fixed')], 'groups': []},
         ]
     )
-    monkeypatch.setattr(parser, 'get_text_model', lambda: fake)
-    monkeypatch.setattr(parser, 'get_vl_model', lambda: None)
-
-    result = asyncio.run(parser.parse_document(parse_request()))
+    result = asyncio.run(parser.parse_document(fake, None, parse_request()))
 
     assert isinstance(result, DocumentParseResult)
     assert result.questions[0].stem == '1. Fixed'
@@ -112,11 +106,9 @@ def test_parse_skips_exhausted_chunk_but_keeps_others(
             {'questions': [question_dict('2. Works')], 'groups': []},
         ]
     )
-    monkeypatch.setattr(parser, 'get_text_model', lambda: fake)
-    monkeypatch.setattr(parser, 'get_vl_model', lambda: None)
     monkeypatch.setattr(parser, 'split_into_chunks', lambda _text: ['chunk a', 'chunk b'])
 
-    result = asyncio.run(parser.parse_document(parse_request()))
+    result = asyncio.run(parser.parse_document(fake, None, parse_request()))
 
     assert isinstance(result, DocumentParseResult)
     assert [q.stem for q in result.questions] == ['2. Works']
@@ -126,22 +118,16 @@ def test_parse_skips_exhausted_chunk_but_keeps_others(
 def test_parse_fails_when_all_chunks_fail(monkeypatch: pytest.MonkeyPatch) -> None:
     bad = {'questions': [{'stem': ''}], 'groups': []}
     fake = FakeModel([bad, bad, bad])
-    monkeypatch.setattr(parser, 'get_text_model', lambda: fake)
-    monkeypatch.setattr(parser, 'get_vl_model', lambda: None)
-
     with pytest.raises(DocumentProcessingError) as exc_info:
-        asyncio.run(parser.parse_document(parse_request()))
+        asyncio.run(parser.parse_document(fake, None, parse_request()))
 
     assert exc_info.value.status_code == 502
 
 
 def test_parse_maps_transport_errors_to_502(monkeypatch: pytest.MonkeyPatch) -> None:
     fake = FakeModel([RuntimeError('connection reset')])
-    monkeypatch.setattr(parser, 'get_text_model', lambda: fake)
-    monkeypatch.setattr(parser, 'get_vl_model', lambda: None)
-
     with pytest.raises(DocumentProcessingError) as exc_info:
-        asyncio.run(parser.parse_document(parse_request()))
+        asyncio.run(parser.parse_document(fake, None, parse_request()))
 
     assert exc_info.value.status_code == 502
     assert exc_info.value.detail == 'AI agent request failed'
@@ -165,10 +151,8 @@ def test_generate_answer_and_report_use_the_model(
         'riskLevel': 'low',
     }
     fake = FakeModel([answer_payload, report_payload])
-    monkeypatch.setattr(generator, 'get_text_model', lambda: fake)
-
-    answer = asyncio.run(generator.generate_answer({'stem': 'What is 2+2?'}))
-    report = asyncio.run(generator.learning_report({'userId': 7}))
+    answer = asyncio.run(generator.generate_answer(fake, {'stem': 'What is 2+2?'}))
+    report = asyncio.run(generator.learning_report(fake, {'userId': 7}))
 
     assert isinstance(answer, AnswerGenerationResult)
     assert answer.canonicalAnswer == '4'

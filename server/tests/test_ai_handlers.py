@@ -1,6 +1,6 @@
 """AI route tests mirroring ai/tests/test_routes.py, adapted to /api/v1/ai/*.
 
-Session auth + Plus entitlement replace the old AI_SERVICE_TOKEN bearer check.
+Session auth + PRO entitlement replace the old AI_SERVICE_TOKEN bearer check.
 """
 
 from __future__ import annotations
@@ -16,7 +16,15 @@ from server.auth.runtime import User
 from server.routes import ai as ai_routes
 from server.routes import deps
 
-PLUS_USER = User(id=7, username='plus', email=None, is_active=True, role='user', membership='plus')
+PRO_USER = User(
+    id=7, username='pro', email=None, is_active=True, role='user', membership='pro',
+    revenuecat_app_user_id='e9758391-ca02-4c51-a543-858b536e3f74',
+)
+
+
+class FailingModel:
+    async def generate_structured_output(self, messages, structured_model):
+        raise RuntimeError('provider unavailable')
 
 
 def document_request() -> dict[str, Any]:
@@ -32,16 +40,15 @@ def document_request() -> dict[str, Any]:
 def app(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv('AUTH_SECRET', 'test-secret')
     monkeypatch.setenv('POSTGRES_URL', 'postgres://localhost:1/nope')
-    monkeypatch.delenv('DASHSCOPE_API_KEY', raising=False)
 
     async def fake_current_user(request):
-        return PLUS_USER
+        return PRO_USER
 
-    async def fake_require_plus(request, user, feature):
-        return None
+    async def fake_models(request, user, feature):
+        return FailingModel(), None
 
     monkeypatch.setattr(deps, 'current_user', fake_current_user)
-    monkeypatch.setattr(ai_routes, '_require_plus', fake_require_plus)
+    monkeypatch.setattr(ai_routes, '_models', fake_models)
     return create_app()
 
 
@@ -69,10 +76,9 @@ async def client(app):
         ('/api/v1/ai/learning-report', {'userId': 7, 'stats': {'answers': 3}}),
     ),
 )
-async def test_ai_routes_return_503_without_provider(client: AsyncClient, path: str, payload: dict):
-    # 未配置 DASHSCOPE_API_KEY 时明确返回 503，而不是编造假数据。
+async def test_ai_routes_map_provider_failure(client: AsyncClient, path: str, payload: dict):
     response = await client.post(path, json=payload)
-    assert response.status_code == 503
+    assert response.status_code == 502
 
 
 @pytest.mark.parametrize(

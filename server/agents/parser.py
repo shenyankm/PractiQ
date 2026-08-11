@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from agentscope.message import SystemMsg, UserMsg
+from agentscope.model import ChatModelBase
 from pydantic import BaseModel, Field
 
 from ..chunking import merge_chunk_results, split_into_chunks
@@ -14,7 +15,7 @@ from ..ai_schemas import (
 )
 
 from . import vision
-from .model import get_text_model, get_vl_model, structured_call
+from .model import structured_call
 
 CHUNK_VALIDATION_RETRIES = 2
 # ponytail: 全文级硬上限，超大文档直接截断；需要完整解析百万字级文档时再做流式分页
@@ -35,14 +36,16 @@ class ChunkParseResult(BaseModel):
     groups: list[ParsedGroup] = Field(default_factory=list, max_length=1_000)
 
 
-async def parse_document(request: DocumentParseRequest) -> DocumentParseResult:
+async def parse_document(
+    text_model: ChatModelBase,
+    vl_model: ChatModelBase | None,
+    request: DocumentParseRequest,
+) -> DocumentParseResult:
     document = extract(request)
     warnings = list(document.warnings)
 
-    text_model = get_text_model()
     text = document.text
     visual_elements: list[VisualElement] = []
-    vl_model = get_vl_model()
     if document.page_images and vl_model is not None:
         ocr_text, ocr_visuals, ocr_warnings = await vision.ocr_pages(
             vl_model, document.page_images
@@ -60,6 +63,10 @@ async def parse_document(request: DocumentParseRequest) -> DocumentParseResult:
             f'Document text exceeds {MAX_TOTAL_INPUT_CHARS} characters and was truncated.'
         )
         text = text[:MAX_TOTAL_INPUT_CHARS]
+    if not text.strip() and vl_model is None and (document.page_images or document.embedded_images):
+        raise DocumentProcessingError(
+            409, 'Configure a vision model to parse image-only documents', 'VISION_MODEL_REQUIRED'
+        )
     if not text.strip():
         raise DocumentProcessingError(422, 'Document contains no extractable text')
 

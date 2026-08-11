@@ -2,6 +2,7 @@
 -- PostgreSQL-only schema fragment. Apply after earlier numbered fragments in db/*/*.sql order.
 
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 CREATE OR REPLACE FUNCTION set_updated_at()
 RETURNS TRIGGER

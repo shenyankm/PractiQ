@@ -208,7 +208,7 @@ async def _find_or_create_google_user_once(pool: AsyncConnectionPool, claims: Go
     async with pool.connection() as conn:
         cursor = await conn.execute(
             """
-            SELECT id, username, email, is_active, role, membership
+            SELECT id, username, email, is_active, role, membership, revenuecat_app_user_id
             FROM users
             WHERE google_sub = %s
             LIMIT 1
@@ -223,7 +223,7 @@ async def _find_or_create_google_user_once(pool: AsyncConnectionPool, claims: Go
                 UPDATE users
                 SET google_sub = %s
                 WHERE lower(email) = lower(%s) AND google_sub IS NULL
-                RETURNING id, username, email, is_active, role, membership
+                RETURNING id, username, email, is_active, role, membership, revenuecat_app_user_id
                 """,
                 (claims.sub, claims.email),
             )
@@ -240,7 +240,7 @@ async def _find_or_create_google_user_once(pool: AsyncConnectionPool, claims: Go
                 """
                 INSERT INTO users (username, email, google_sub, role, membership)
                 VALUES (%s, %s, %s, 'user', 'free')
-                RETURNING id, username, email, is_active, role, membership
+                RETURNING id, username, email, is_active, role, membership, revenuecat_app_user_id
                 """,
                 (_google_username(claims.email), claims.email, claims.sub),
             )

@@ -17,7 +17,7 @@ from psycopg_pool import AsyncConnectionPool
 
 from .. import envelope
 from ..auth.runtime import User
-from . import helpers
+from . import helpers, users as users_svc
 from .imports import (
     DOCX_MIME_TYPE,
     IMPORT_SOURCE_MAX_BYTES,
@@ -202,12 +202,14 @@ async def add_import_job_uploaded_file(
     pool: AsyncConnectionPool, user: User, job_id: int, file: UploadedImportFile
 ) -> dict:
     job = await get_import_job(pool, user, job_id)
+    async with pool.connection() as conn:
+        await users_svc.require_pro_entitlement(conn, user, 'AI document imports')
     if not file.name.strip():
         raise envelope.new_error(400, 'FILE_REQUIRED', 'Upload file is required')
     if len(file.name) > 255:
         raise envelope.new_error(400, 'INVALID_FILE_NAME', 'Upload file name exceeds 255 characters')
     inferred = _infer_uploaded_source_type(file) or (job.get('source_type') or '')
-    source_type = normalize_import_source_type(user, inferred)
+    source_type = normalize_import_source_type(inferred)
     stored, payload = _store_import_source_file(user.id, job_id, file)
     committed = False
     try:

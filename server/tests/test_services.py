@@ -14,11 +14,38 @@ from server.auth.runtime import User
 from server.services import imports as imports_svc
 from server.services import imports_upload
 from server.services import media as media_svc
+from server.services import users as users_svc
 from server.services.practice import grade_practice_answer
 
 
 def _user(membership: str = 'free', role: str = 'user') -> User:
     return User(id=1, username='u', email=None, is_active=True, role=role, membership=membership)
+
+
+class _MembershipCursor:
+    def __init__(self, membership: str):
+        self.membership = membership
+
+    async def fetchone(self):
+        return (self.membership,)
+
+
+class _MembershipConnection:
+    def __init__(self, membership: str):
+        self.membership = membership
+
+    async def execute(self, *_args):
+        return _MembershipCursor(self.membership)
+
+
+async def test_pro_entitlement_has_no_role_bypass():
+    await users_svc.require_pro_entitlement(_MembershipConnection('pro'), _user('pro'), 'AI')
+    for role in ('user', 'admin'):
+        with pytest.raises(envelope.APIError) as exc_info:
+            await users_svc.require_pro_entitlement(
+                _MembershipConnection('free'), _user('free', role), 'AI'
+            )
+        assert exc_info.value.code == 'PRO_REQUIRED'
 
 
 # ---------------------------------------------------------- practice grading
@@ -58,16 +85,13 @@ def test_grade_without_key_returns_none():
 
 
 def test_normalize_import_source_type():
-    assert imports_svc.normalize_import_source_type(_user(), 'TXT') == 'txt'
-    assert imports_svc.normalize_import_source_type(_user(), 'text') == 'txt'
-    assert imports_svc.normalize_import_source_type(_user(), '') == 'txt'
+    assert imports_svc.normalize_import_source_type('TXT') == 'txt'
+    assert imports_svc.normalize_import_source_type('text') == 'txt'
+    assert imports_svc.normalize_import_source_type('') == 'txt'
+    assert imports_svc.normalize_import_source_type('docx') == 'docx'
+    assert imports_svc.normalize_import_source_type('pdf') == 'pdf'
     with pytest.raises(envelope.APIError) as exc_info:
-        imports_svc.normalize_import_source_type(_user(), 'docx')
-    assert exc_info.value.code == 'PLUS_REQUIRED'
-    assert imports_svc.normalize_import_source_type(_user(membership='plus'), 'docx') == 'docx'
-    assert imports_svc.normalize_import_source_type(_user(role='admin'), 'pdf') == 'pdf'
-    with pytest.raises(envelope.APIError) as exc_info:
-        imports_svc.normalize_import_source_type(_user(membership='enterprise'), 'csv')
+        imports_svc.normalize_import_source_type('csv')
     assert exc_info.value.code == 'UNSUPPORTED_SOURCE_TYPE'
 
 

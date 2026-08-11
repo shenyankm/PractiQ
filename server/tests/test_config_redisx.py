@@ -58,6 +58,14 @@ def test_load_defaults(monkeypatch):
     assert cfg.app_origin == 'http://127.0.0.1:8080'
 
 
+def test_load_requires_billing_secrets(monkeypatch):
+    monkeypatch.setenv('AUTH_SECRET', 'secret')
+    monkeypatch.delenv('LLM_KEY_ENCRYPTION_SECRET', raising=False)
+    monkeypatch.setattr(config, '_dotenv_paths', lambda name: [])
+    with pytest.raises(ValueError, match='LLM_KEY_ENCRYPTION_SECRET'):
+        config.load()
+
+
 def test_load_db_config_requires_url(monkeypatch):
     monkeypatch.delenv('POSTGRES_URL', raising=False)
     with pytest.raises(ValueError, match='POSTGRES_URL'):

@@ -5,7 +5,7 @@ from io import BytesIO
 from typing import Literal
 
 from agentscope.message import Base64Source, DataBlock, Msg, TextBlock, UserMsg
-from agentscope.model import DashScopeChatModel
+from agentscope.model import ChatModelBase
 from pydantic import BaseModel, Field
 
 from ..ai_schemas import VisualElement
@@ -45,7 +45,7 @@ class ImageDescription(BaseModel):
 
 
 async def ocr_pages(
-    vl_model: DashScopeChatModel,
+    vl_model: ChatModelBase,
     page_images: list[bytes],
 ) -> tuple[str, list[VisualElement], list[str]]:
     texts: list[str] = []
@@ -86,7 +86,7 @@ async def ocr_pages(
 
 
 async def describe_images(
-    vl_model: DashScopeChatModel,
+    vl_model: ChatModelBase,
     images: list[bytes],
 ) -> list[VisualElement]:
     visual_elements: list[VisualElement] = []

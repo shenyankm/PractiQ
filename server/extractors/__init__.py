@@ -10,10 +10,11 @@ DEFAULT_UPLOAD_MAX_BYTES = 25 * 1024 * 1024
 
 
 class DocumentProcessingError(RuntimeError):
-    def __init__(self, status_code: int, detail: str) -> None:
+    def __init__(self, status_code: int, detail: str, code: str = 'DOCUMENT_PROCESSING_FAILED') -> None:
         super().__init__(detail)
         self.status_code = status_code
         self.detail = detail
+        self.code = code
 
 
 @dataclass

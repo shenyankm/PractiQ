@@ -31,6 +31,7 @@ class User:
     is_active: bool
     role: str
     membership: str
+    revenuecat_app_user_id: str = ''
 
     def as_dict(self) -> dict:
         return {
@@ -40,6 +41,7 @@ class User:
             'is_active': self.is_active,
             'role': self.role,
             'membership': self.membership,
+            'revenuecat_app_user_id': self.revenuecat_app_user_id,
         }
 
 
@@ -72,7 +74,10 @@ def _user_conflict_error(exc: Exception) -> Exception:
 def _scan_user(row: tuple | None) -> User | None:
     if row is None:
         return None
-    return User(id=row[0], username=row[1], email=row[2], is_active=row[3], role=row[4], membership=row[5])
+    return User(
+        id=row[0], username=row[1], email=row[2], is_active=row[3], role=row[4],
+        membership=row[5], revenuecat_app_user_id=str(row[6]),
+    )
 
 
 async def register_user(
@@ -85,7 +90,7 @@ async def register_user(
                 """
                 INSERT INTO users (username, email, password_hash, role, membership)
                 VALUES (%s, %s, %s, 'user', 'free')
-                RETURNING id, username, email, is_active, role, membership
+                RETURNING id, username, email, is_active, role, membership, revenuecat_app_user_id
                 """,
                 (username, email, password_hash),
             )
@@ -130,7 +135,7 @@ async def update_user(pool: AsyncConnectionPool, user_id: int, input: UpdateUser
                     email = CASE WHEN %s THEN %s ELSE email END,
                     password_hash = COALESCE(%s, password_hash)
                 WHERE id = %s
-                RETURNING id, username, email, is_active, role, membership
+                RETURNING id, username, email, is_active, role, membership, revenuecat_app_user_id
                 """,
                 (input.username, input.email_set, input.email, password_hash, user_id),
             )
@@ -227,15 +232,16 @@ async def current_user_by_id(pool: AsyncConnectionPool, user_id: int) -> User | 
     rdb = redisx.client()
     if rdb is not None:
         cached = await redisx.get_json(rdb, _user_cache_key(user_id))
-        if isinstance(cached, dict):
+        if isinstance(cached, dict) and cached.get('revenuecat_app_user_id'):
             return User(
                 id=cached['id'], username=cached['username'], email=cached.get('email'),
                 is_active=cached['is_active'], role=cached['role'], membership=cached['membership'],
+                revenuecat_app_user_id=cached['revenuecat_app_user_id'],
             )
     async with pool.connection() as conn:
         cursor = await conn.execute(
             """
-            SELECT id, username, email, is_active, role, membership
+            SELECT id, username, email, is_active, role, membership, revenuecat_app_user_id
             FROM users
             WHERE id = %s
             LIMIT 1

@@ -105,13 +105,17 @@ async def job_action(request: Request, job_id: str, action: str):
     user = await deps.current_user(request)
     parsed_job_id = deps.parse_path_id(job_id, 'jobId')
     if action in ('retry', 'cancel'):
-        job = await imports_svc.update_import_job_status(deps.pool(request), user, parsed_job_id, action)
+        job = await imports_svc.update_import_job_status(
+            deps.pool(request), user, parsed_job_id, action,
+            request.app.state.config.llm_key_encryption_secret,
+        )
         return envelope.ok(request, job)
     if action == 'parse':
         body = await deps.decode_json_body(request, {'persistQuestions'}, allow_empty=True)
         persist = body.get('persistQuestions') if isinstance(body.get('persistQuestions'), bool) else None
         job = await imports_svc.queue_import_job_for_user(
-            deps.pool(request), user, parsed_job_id, persist
+            deps.pool(request), user, parsed_job_id, persist,
+            request.app.state.config.llm_key_encryption_secret,
         )
         return envelope.ok(request, job)
     raise envelope.new_error(404, 'NOT_FOUND', 'Endpoint not found')

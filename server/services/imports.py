@@ -11,7 +11,7 @@ from psycopg_pool import AsyncConnectionPool
 
 from .. import envelope, redisx
 from ..auth.runtime import User
-from . import helpers
+from . import helpers, users as users_svc
 from .pagination import Page, build_page, clamp_positive, parse_page_cursor
 
 IMPORT_WORKER_FAILED_CODE = 'IMPORT_WORKER_FAILED'
@@ -49,16 +49,12 @@ def _marshal_json_string(value) -> str:
     return json.dumps(value if value is not None else {}, separators=(',', ':'))
 
 
-def normalize_import_source_type(user: User, value: str) -> str:
+def normalize_import_source_type(value: str) -> str:
     normalized = value.strip().lower() or 'txt'
     if normalized in ('text', 'txt'):
         return 'txt'
     if normalized in ('docx', 'pdf', 'xlsx'):
-        if user.membership in ('plus', 'enterprise') or user.role == 'admin':
-            return normalized
-        raise envelope.new_error(
-            403, 'PLUS_REQUIRED', 'DOCX, PDF, and XLSX uploads require Plus or Enterprise membership'
-        )
+        return normalized
     raise envelope.new_error(
         400, 'UNSUPPORTED_SOURCE_TYPE', 'Only txt, docx, pdf, and xlsx imports are supported'
     )
@@ -213,10 +209,11 @@ async def create_import_job(
     bank_id: int | None, file_name: str | None, source_type: str, request_payload: dict | None,
 ) -> dict:
     async with pool.connection() as conn:
+        await users_svc.require_pro_entitlement(conn, user, 'AI document imports')
         if bank_id is not None:
             from .banks import require_bank_owner
             await require_bank_owner(conn, user, bank_id)
-        normalized = normalize_import_source_type(user, source_type)
+        normalized = normalize_import_source_type(source_type)
         cursor = await conn.execute(
             """
             WITH inserted AS (
@@ -276,7 +273,9 @@ async def add_import_job_file(
     source_hint = input.source_type.strip() or _extract_source_type_from_artifact(
         input.storage_path or '', content
     ) or job_source_type
-    source_type = normalize_import_source_type(user, source_hint)
+    async with pool.connection() as conn:
+        await users_svc.require_pro_entitlement(conn, user, 'AI document imports')
+    source_type = normalize_import_source_type(source_hint)
 
     _validate_import_artifact_content(source_type, content)
     content['sourceType'] = source_type
@@ -439,7 +438,7 @@ async def _invalidate_user_analytics(user_id: int) -> None:
 
 
 async def update_import_job_status(
-    pool: AsyncConnectionPool, user: User, job_id: int, action: str
+    pool: AsyncConnectionPool, user: User, job_id: int, action: str, encryption_secret: str
 ) -> dict:
     job = await get_import_job(pool, user, job_id)
     transition = _queue_transition_for_action(action)
@@ -448,6 +447,9 @@ async def update_import_job_status(
         updated = await _apply_import_queue_transition(pool, job, transition)
         await _invalidate_user_analytics(user.id)
         return updated
+    await users_svc.require_llm_config(
+        pool, user, encryption_secret, 'AI document imports'
+    )
     await _ensure_import_job_has_source_artifact(pool, job_id)
     if _import_job_already_scheduled(job):
         return job
@@ -457,8 +459,12 @@ async def update_import_job_status(
 
 
 async def queue_import_job_for_user(
-    pool: AsyncConnectionPool, user: User, job_id: int, persist_questions: bool | None
+    pool: AsyncConnectionPool, user: User, job_id: int, persist_questions: bool | None,
+    encryption_secret: str,
 ) -> dict:
+    await users_svc.require_llm_config(
+        pool, user, encryption_secret, 'AI document imports'
+    )
     job = await get_import_job(pool, user, job_id)
     _ensure_import_job_queue_action_allowed(job, 'parse')
     await _ensure_import_job_has_source_artifact(pool, job_id)

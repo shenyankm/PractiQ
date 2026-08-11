@@ -1,4 +1,4 @@
-"""AI routes: in-process agentscope calls behind user session + Plus entitlement.
+"""AI routes: in-process AgentScope calls behind user session + PRO entitlement.
 
 Mirrors the AI half of imports_ai_handlers.go (aiclient HTTP hop removed).
 """
@@ -43,9 +43,11 @@ def _pydantic_details(exc: PydanticValidationError) -> list[dict]:
     ]
 
 
-async def _require_plus(request: Request, user, feature: str) -> None:
-    async with deps.pool(request).connection() as conn:
-        await users_svc.require_plus_entitlement(conn, user, feature)
+async def _models(request: Request, user, feature: str):
+    llm_config = await users_svc.require_llm_config(
+        deps.pool(request), user, request.app.state.config.llm_key_encryption_secret, feature
+    )
+    return agents.build_models(llm_config)
 
 
 async def _decode_ai_json(request: Request) -> dict:
@@ -64,7 +66,7 @@ async def _decode_ai_json(request: Request) -> dict:
 @router.post('/api/v1/ai/parse-document')
 async def parse_document(request: Request):
     user = await deps.current_user(request)
-    await _require_plus(request, user, 'AI document parsing')
+    text_model, vision_model = await _models(request, user, 'AI document parsing')
     body = await _decode_ai_json(request)
     try:
         payload = DocumentParseRequest.model_validate(body)
@@ -75,16 +77,16 @@ async def parse_document(request: Request):
             [envelope.ValidationDetail('text', 'text or fileBase64 is required')]
         )
     try:
-        result = await agents.parse_document(payload)
+        result = await agents.parse_document(text_model, vision_model, payload)
     except DocumentProcessingError as exc:
-        raise envelope.new_error(exc.status_code, 'DOCUMENT_PROCESSING_FAILED', exc.detail) from exc
+        raise envelope.new_error(exc.status_code, exc.code, exc.detail) from exc
     return envelope.ok(request, result.model_dump())
 
 
 @router.post('/api/v1/ai/generate-answer')
 async def generate_answer(request: Request):
     user = await deps.current_user(request)
-    await _require_plus(request, user, 'AI answer generation')
+    text_model, _ = await _models(request, user, 'AI answer generation')
     body = await _decode_ai_json(request)
     details: list[envelope.ValidationDetail] = []
     if not isinstance(body.get('stem'), str) or not body['stem'].strip():
@@ -103,16 +105,16 @@ async def generate_answer(request: Request):
     except PydanticValidationError as exc:
         raise envelope.new_error(422, 'VALIDATION_ERROR', 'Invalid request', _pydantic_details(exc)) from exc
     try:
-        result = await agents.generate_answer(payload.model_dump(exclude_none=True))
+        result = await agents.generate_answer(text_model, payload.model_dump(exclude_none=True))
     except DocumentProcessingError as exc:
-        raise envelope.new_error(exc.status_code, 'DOCUMENT_PROCESSING_FAILED', exc.detail) from exc
+        raise envelope.new_error(exc.status_code, exc.code, exc.detail) from exc
     return envelope.ok(request, result.model_dump())
 
 
 @router.post('/api/v1/ai/learning-report')
 async def learning_report(request: Request):
     user = await deps.current_user(request)
-    await _require_plus(request, user, 'AI learning reports')
+    text_model, _ = await _models(request, user, 'AI learning reports')
     body = await _decode_ai_json(request)
     details: list[envelope.ValidationDetail] = []
     scope = body.get('scope') or 'individual'
@@ -143,16 +145,16 @@ async def learning_report(request: Request):
             403, 'FORBIDDEN', 'Administrator privileges required to generate reports for other users'
         )
     try:
-        result = await agents.learning_report(payload.model_dump(exclude_none=True))
+        result = await agents.learning_report(text_model, payload.model_dump(exclude_none=True))
     except DocumentProcessingError as exc:
-        raise envelope.new_error(exc.status_code, 'DOCUMENT_PROCESSING_FAILED', exc.detail) from exc
+        raise envelope.new_error(exc.status_code, exc.code, exc.detail) from exc
     return envelope.ok(request, result.model_dump())
 
 
 @router.post('/api/v1/questions/{question_id}/generate-answer')
 async def question_generate_answer(request: Request, question_id: str):
     user = await deps.current_user(request)
-    await _require_plus(request, user, 'AI answer generation')
+    text_model, _ = await _models(request, user, 'AI answer generation')
     parsed_question_id = deps.parse_path_id(question_id, 'questionId')
     body = await deps.decode_json_body(request, {'apply'})
     pool = deps.pool(request)
@@ -168,9 +170,9 @@ async def question_generate_answer(request: Request, question_id: str):
         ],
     )
     try:
-        result = await agents.generate_answer(payload.model_dump(exclude_none=True))
+        result = await agents.generate_answer(text_model, payload.model_dump(exclude_none=True))
     except DocumentProcessingError as exc:
-        raise envelope.new_error(exc.status_code, 'DOCUMENT_PROCESSING_FAILED', exc.detail) from exc
+        raise envelope.new_error(exc.status_code, exc.code, exc.detail) from exc
     apply = body.get('apply') if isinstance(body.get('apply'), bool) else True
     if apply:
         if result.confidence < _ai_apply_min_confidence():
