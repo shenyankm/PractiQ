@@ -4,11 +4,24 @@ import { Typography } from 'heroui-native/text';
 
 import { LanguageProvider, useLanguage } from './language';
 
-const mockReadResource = jest.fn();
+// heroui-native ships ESM modules that fail to load under
+// --experimental-vm-modules; stub the two subpaths this test touches.
+jest.mock('heroui-native/provider', () => ({
+  HeroUINativeProvider: ({ children }: { children: unknown }) => children,
+}));
+
+jest.mock('heroui-native/text', () => {
+  const { Text } = require('react-native');
+  const Typography: any = ({ children }: any) => <Text>{children}</Text>;
+  Typography.Heading = Typography;
+  return { Typography };
+});
+
+const mockReadResource = jest.fn<any, any[]>();
 
 jest.mock('./practiq/cache', () => ({
   readResource: (...args: unknown[]) => mockReadResource(...args),
-  writeResource: jest.fn(),
+  writeResource: jest.fn<any, any[]>(),
 }));
 
 // Pin the system-derived default so the test does not depend on the host locale.

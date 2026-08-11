@@ -61,8 +61,9 @@
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
     "test": "npm run test:unit && npm run test:ui",
-    "test:unit": "tsx --test src/*.test.ts",
-    "test:ui": "jest --config jest.config.js --runInBand"
+    "test:unit": "tsx --test src/cloud.test.ts src/i18n.test.ts src/mirror.test.ts src/practiq-sync.test.ts",
+    "test:ui": "NODE_OPTIONS=--experimental-vm-modules jest --config jest.config.js --runInBand",
+    "test:coverage": "rm -rf /tmp/jest-cov && NODE_OPTIONS=--experimental-vm-modules jest --config jest.config.js --runInBand --coverage --coverageReporters=lcov --coverageDirectory=/tmp/jest-cov --collectCoverageFrom='src/**/*.{ts,tsx}' --collectCoverageFrom='!src/**/*.test.*' --collectCoverageFrom='!src/test-utils/**' && tsx --test --experimental-test-coverage --test-reporter=./scripts/lcov-reporter.mjs --test-reporter-destination=/tmp/unit.lcov src/cloud.test.ts src/i18n.test.ts src/mirror.test.ts src/practiq-sync.test.ts && node scripts/merge-lcov.mjs /tmp/jest-cov/lcov.info /tmp/unit.lcov"
   },
   "packageManager": "npm@11.16.0",
   "private": true
