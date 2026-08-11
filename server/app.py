@@ -13,7 +13,7 @@ from psycopg_pool import AsyncConnectionPool
 
 from . import config, db as db_mod, envelope, middleware
 from .auth import runtime as auth_runtime
-from .routes import admin, ai, auth, content, health, imports, media, practice, reference, spa
+from .routes import ai, auth, content, health, imports, media, practice, reference, spa
 
 
 def create_app(
@@ -83,7 +83,6 @@ def create_app(
     app.include_router(health.router)
     app.include_router(auth.router)
     app.include_router(reference.router)
-    app.include_router(admin.router)
     app.include_router(media.router)
     app.include_router(content.router)
     app.include_router(imports.router)

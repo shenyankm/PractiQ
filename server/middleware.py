@@ -25,7 +25,7 @@ logger = logging.getLogger('practiq.http')
 API_RATE_LIMIT = 300
 API_RATE_LIMIT_WINDOW_SECONDS = 60
 IDEMPOTENCY_TTL_SECONDS = 24 * 3600
-PROTECTED_SPA_PREFIXES = ('/dashboard', '/banks', '/imports', '/practice', '/questions', '/settings', '/admin')
+PROTECTED_SPA_PREFIXES = ('/dashboard', '/banks', '/imports', '/practice', '/questions', '/settings')
 
 
 def content_security_policy(node_env: str) -> str:
