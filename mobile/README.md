@@ -9,6 +9,7 @@ PractiQ 是 PractiQ 的 Expo SDK 57 移动端，保留原有品牌与原生包�
 - 在线练习、离线练习、答题同步与学习分析
 - TXT、DOCX、PDF、XLSX 文档导入，离线时保留文件等待上传
 - 缓存优先读取、顺序重放待同步操作、服务端幂等去重
+- RevenueCat FREE/PRO 订阅、恢复购买与订阅管理；PRO 可托管自有 LLM API Key
 - English、简体中文、繁體中文（由简体自动转换）与日本語（未翻译文案回退英文）界面
 
 管理员功能只在 PractiQ Web 端提供。
@@ -23,11 +24,13 @@ npm ci
 npm start
 ```
 
-按运行环境设置 `EXPO_PUBLIC_API_URL`：
+按运行环境设置 `EXPO_PUBLIC_API_URL`，并配置 iOS/Android RevenueCat public SDK Key：
 
 - Android Emulator：`http://10.0.2.2:8080`
 - iOS Simulator 或 Web：`http://127.0.0.1:8080`
 - 真机：使用可从设备访问的 HTTPS API 地址
+
+真实购买需要 `npm run ios` / `npm run android` 生成的原生开发构建；Expo Go 只用于 RevenueCat Preview API 预览。
 
 | 命令 | 用途 |
 | --- | --- |

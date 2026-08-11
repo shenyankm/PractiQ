@@ -45,7 +45,7 @@ Failure policy:
 
 | Domain | Tables | Purpose |
 | --- | --- | --- |
-| Identity | `users` | Local username/email/password user accounts, active flag, membership tier |
+| Identity | `users` | Local accounts, RevenueCat identity/free-pro projection, encrypted user LLM configuration |
 | Taxonomy | `subjects`, `question_types`, `knowledge_points` | Subject/type classification and knowledge hierarchy |
 | Question banks | `question_banks`, `user_bank_links`, `user_bank_stats` | User-owned public/private banks, favorites, per-user bank stats |
 | Questions | `questions`, `question_groups`, `bank_question_links`, `bank_group_links`, `group_question_links`, `v_bank_question_items` | Standalone and grouped questions inside banks |
@@ -121,7 +121,7 @@ Registration requires a 3-20 character ASCII username containing only letters, n
 Authorization checks:
 
 - `is_active=false` blocks all mutating routes and practice start.
-- `membership` gates quotas such as max private banks, import file size, and concurrent import jobs.
+- `membership=pro` is a RevenueCat projection and gates every cloud-AI route and import parse; roles do not bypass it.
 - There is no OAuth table; only local credentials are supported by this schema.
 
 ### Subjects and Question Types
@@ -520,7 +520,7 @@ Sections:
 
 - Profile: username/email.
 - Security: change password, active sessions.
-- Membership: free/plus status and limits.
+- Membership: RevenueCat FREE/PRO status, purchase/restore/management, and LLM configuration.
 - Data: export/delete account flow.
 
 ## 4. Core Modules
@@ -641,9 +641,9 @@ Worker: completed or failed
 
 ### AI Workflow
 
-The unified Python server exposes document parsing, answer generation, and learning-report operations, built on AgentScope 2.x with DashScope models. TXT is decoded as UTF-8, DOCX text is pulled from `word/document.xml` with bounded archive inspection (including embedded images and OMML formula passthrough), PDF text is extracted with pypdfium2 (scanned pages are rendered via pypdfium2 and OCR'd by the vision model, which also detects figures and returns bounding-box crops), and XLSX sheets are flattened with openpyxl. Long documents are split on question boundaries into chunks; each chunk goes through one structured-output call with validation-feedback retries, and the results are merged and deduplicated. When no `DASHSCOPE_API_KEY` is configured the AI routes return 503.
+The unified Python server exposes document parsing, answer generation, and learning-report operations through AgentScope 2.x. Each PRO user supplies one encrypted provider key plus a text model and optional vision model; supported native cloud adapters are Anthropic, DashScope, DeepSeek, Gemini, Moonshot, OpenAI, and xAI. TXT is decoded as UTF-8, DOCX text is pulled from `word/document.xml` with bounded archive inspection (including embedded images and OMML formula passthrough), PDF text is extracted with pypdfium2 (scanned pages are rendered and OCR'd by the vision model, including figure detection with bounding-box crops), and XLSX sheets are flattened with openpyxl. Long documents are split on question boundaries, validated with feedback retries, merged, and deduplicated. Image-only documents fail explicitly when the user has no vision model.
 
-AI capabilities are called in-process behind user-facing routes (session auth + Plus entitlement); there is no internal HTTP hop:
+AI capabilities are called in-process behind session auth, current PRO membership, and per-user LLM configuration; there is no internal HTTP hop:
 
 | Method | Route | Purpose |
 | --- | --- | --- |
@@ -651,7 +651,11 @@ AI capabilities are called in-process behind user-facing routes (session auth + 
 | `POST` | `/api/v1/ai/generate-answer` | Generate an answer and explanation. |
 | `POST` | `/api/v1/ai/learning-report` | Generate a learning report. |
 
-`DASHSCOPE_API_KEY` enables the AgentScope-backed models; `AI_TEXT_MODEL` and `AI_VL_MODEL` select them (defaults `qwen-max` and `qwen-vl-max`). `AI_AGENT_*` settings bound tokens and timeouts, and `AI_MAX_OCR_PAGES` caps scanned-PDF OCR.
+Provider endpoints are fixed to AgentScope defaults; users may change model names but not base URLs. PostgreSQL `pgcrypto` encrypts keys using `LLM_KEY_ENCRYPTION_SECRET`, and no API returns key material. `AI_AGENT_*` bounds tokens and timeouts, while `AI_MAX_OCR_PAGES` caps scanned-PDF OCR.
+
+### RevenueCat Billing
+
+The mobile SDK uses the server-generated `revenuecat_app_user_id` and RevenueCat's `pro` lookup key for paywalls, purchases, restore, and Customer Center. Client `CustomerInfo` only controls immediate presentation. Login, foreground resume, purchase, and restore actively call `POST /api/v1/billing/sync`; the authorized RevenueCat webhook provides lifecycle synchronization. Both paths query the v2 active-entitlements endpoint, update `users.membership`, and invalidate the existing Redis user cache. Duplicate or out-of-order webhook events are safe because event payloads are never treated as current entitlement state.
 
 ### Media Module
 

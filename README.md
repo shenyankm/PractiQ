@@ -90,10 +90,11 @@ Direct dependencies are kept on current stable releases in `mobile/package.json`
 - PostgreSQL is the durable import queue and event history; Web and mobile poll job/event endpoints for progress.
 - Mobile writes carry `Idempotency-Key`; Redis stores successful replays for 24 hours. Cached mobile reads remain available offline, and queued writes replay in order after reconnection.
 - Media uploads currently accept content-sniffed PNG, JPEG, GIF, and WebP files up to 10 MiB under `OBJECT_STORAGE_MOUNT_DIR`.
-- Fresh schema installs include `media_assets.created_by` ownership, the terminal import status `cancelled`, and `users.google_sub`; apply the current schema before running these flows. Existing databases need `ALTER TABLE users ADD COLUMN google_sub TEXT;` and `CREATE UNIQUE INDEX uq_users_google_sub ON users (google_sub) WHERE google_sub IS NOT NULL;`.
+- The schema is intentionally destructive across this billing refactor. Recreate the database, then run `make db-apply` and `make db-seed`; the fresh schema contains RevenueCat identities, `free`/`pro` membership, encrypted per-user LLM configuration, media ownership, and the terminal import status `cancelled`.
 - AI routes stay under `/api/v1/ai/*`; the server calls agentscope in-process (no internal HTTP hop).
-- TXT, DOCX, PDF, and XLSX preprocessing run locally. Set `DASHSCOPE_API_KEY` to enable AgentScope-backed parsing, answer generation, and learning reports (`AI_TEXT_MODEL`/`AI_VL_MODEL` override the default `qwen-max`/`qwen-vl-max`); without it AI routes return 503. Scanned PDF pages are rendered and OCR'd through the vision model, including figure detection with bounding-box crops.
-- Membership tiers are managed with direct SQL updates (the admin back-office was removed); billing checkout and webhook routes are not active.
+- FREE users retain basic learning features and see an internal upgrade promotion. PRO is projected from RevenueCat and removes the promotion; only PRO users may store an encrypted LLM API key and call cloud AI. Supported AgentScope providers are Anthropic, DashScope, DeepSeek, Gemini, Moonshot, OpenAI, and xAI.
+- RevenueCat purchases/restores run in the mobile SDK. The authenticated `/api/v1/billing/sync` route and authorized RevenueCat webhook re-read current v2 active entitlements before updating server authorization; client entitlement state is never trusted for AI access.
+- TXT, DOCX, PDF, and XLSX preprocessing run in-process. PRO users select their own text model and optional vision model; image-only documents require a vision model. `AI_AGENT_*` bounds tokens/timeouts and `AI_MAX_OCR_PAGES` caps scanned-PDF OCR.
 
 ## Podman stack
 
@@ -125,10 +126,14 @@ See `.env.example` for the full set. The most important groups are:
 - Auth/session: required `AUTH_SECRET`, `SESSION_TTL_MS`, optional `SEED_ADMIN_PASSWORD` (password for the seeded `admin` user; defaults to the local dev value, set it on any shared environment)
 - Registration email codes: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`
 - Google sign-in: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_MOBILE_CLIENT_IDS`; mobile builds also need `EXPO_PUBLIC_GOOGLE_CLIENT_ID` (plus optional Android/iOS client IDs) in `mobile/.env`. The OAuth redirect URI is `{APP_ORIGIN}/api/v1/auth/google/callback`.
-- AI providers: `DASHSCOPE_API_KEY`, `AI_TEXT_MODEL`, `AI_VL_MODEL`, `AI_AGENT_*`, `AI_MAX_OCR_PAGES`, `AI_APPLY_MIN_CONFIDENCE`
+- RevenueCat server: required `REVENUECAT_PROJECT_ID`, v2 `REVENUECAT_SECRET_API_KEY`, internal `REVENUECAT_PRO_ENTITLEMENT_ID`, and exact `REVENUECAT_WEBHOOK_AUTHORIZATION` header value
+- RevenueCat mobile: `EXPO_PUBLIC_REVENUECAT_IOS_API_KEY`, `EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY`, and entitlement lookup key `EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID=pro`
+- AI: required `LLM_KEY_ENCRYPTION_SECRET`, plus `AI_AGENT_*`, `AI_MAX_OCR_PAGES`, and `AI_APPLY_MIN_CONFIDENCE`
 - Object storage: `OBJECT_STORAGE_MOUNT_DIR`, `OSS_PUBLIC_BASE_URL`, `OSS_URL_PREFIX`
 
 `AUTH_SECRET` is required in every environment and must be an unpredictable value. `SESSION_TTL_MS` controls both the signed session expiry and cookie expiry; it defaults to seven days when omitted. Session renewal is not implemented, so there is no renewal-window setting.
+
+In RevenueCat, create the `pro` entitlement, attach the store products to an offering/paywall, and use a v2 secret key with `customer_information:customers:read`. Configure the webhook URL as `{APP_ORIGIN}/api/v1/billing/revenuecat/webhook`, set its Authorization header to the exact server value, and choose **Keep with original App User ID** for restore behavior. The backend entitlement variable is RevenueCat's internal `entl…` resource ID, not the mobile lookup key. Keep `LLM_KEY_ENCRYPTION_SECRET` stable: changing it makes stored user keys unreadable.
 
 ## Schema and architecture
 
