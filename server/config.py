@@ -11,7 +11,9 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-DEFAULT_SESSION_TTL_SECONDS = 7 * 24 * 3600
+DEFAULT_ACCESS_TOKEN_TTL_SECONDS = 10 * 60
+DEFAULT_REFRESH_TOKEN_TTL_SECONDS = 30 * 24 * 3600
+DEFAULT_SESSION_ABSOLUTE_TTL_SECONDS = 90 * 24 * 3600
 DEFAULT_AI_AGENT_TIMEOUT_SECONDS = 300
 
 
@@ -85,21 +87,33 @@ def _int_from_env(raw: str, fallback: int) -> int:
     return value if value > 0 else fallback
 
 
-def session_ttl_seconds() -> int:
-    raw = os.environ.get('SESSION_TTL_MS', '').strip()
+def _ttl_seconds(name: str, default: int) -> int:
+    raw = os.environ.get(name, '').strip()
     if not raw:
-        return DEFAULT_SESSION_TTL_SECONDS
+        return default
     try:
         milliseconds = int(raw)
     except ValueError as exc:
         raise ValueError(
-            'SESSION_TTL_MS must be a positive integer within the supported duration range'
+            f'{name} must be a positive integer within the supported duration range'
         ) from exc
     if milliseconds <= 0 or milliseconds > (2**63 - 1) // 1_000_000:
         raise ValueError(
-            'SESSION_TTL_MS must be a positive integer within the supported duration range'
+            f'{name} must be a positive integer within the supported duration range'
         )
     return milliseconds // 1000 or 1
+
+
+def access_token_ttl_seconds() -> int:
+    return _ttl_seconds('ACCESS_TOKEN_TTL_MS', DEFAULT_ACCESS_TOKEN_TTL_SECONDS)
+
+
+def refresh_token_ttl_seconds() -> int:
+    return _ttl_seconds('REFRESH_TOKEN_TTL_MS', DEFAULT_REFRESH_TOKEN_TTL_SECONDS)
+
+
+def session_absolute_ttl_seconds() -> int:
+    return _ttl_seconds('SESSION_ABSOLUTE_TTL_MS', DEFAULT_SESSION_ABSOLUTE_TTL_SECONDS)
 
 
 @dataclass(frozen=True)
@@ -138,7 +152,9 @@ def load() -> Config:
     missing = next((key for key in required if not values.get(key, '').strip()), None)
     if missing:
         raise ValueError(f'{missing} is required')
-    session_ttl_seconds()  # validate eagerly, mirroring config.Load
+    access_token_ttl_seconds()
+    refresh_token_ttl_seconds()
+    session_absolute_ttl_seconds()
     host = _get(values, 'PRACTIQ_HOST', '127.0.0.1')
     app_origin = values.get('APP_ORIGIN', '').strip() or f'http://{host}:{port}'
     return Config(

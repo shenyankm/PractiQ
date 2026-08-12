@@ -16,6 +16,7 @@ dependencies = [
   "pypdfium2==5.12.1",
   "pillow==12.3.0",
   "openpyxl==3.1.5",
+  "google-auth==2.56.3",
 ]
 
 [project.optional-dependencies]

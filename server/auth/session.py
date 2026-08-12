@@ -1,7 +1,4 @@
-"""HS256 JWT session tokens and the session cookie.
-
-Mirrors backend/internal/auth/session.go using only the stdlib.
-"""
+"""Short-lived HS256 access tokens and browser cookie helpers."""
 
 from __future__ import annotations
 
@@ -17,12 +14,16 @@ from datetime import datetime, timezone
 from .. import config
 
 SESSION_COOKIE_NAME = 'session'
+REFRESH_COOKIE_NAME = 'refresh_token'
+ACCESS_TOKEN_ISSUER = 'practiq-api'
+ACCESS_TOKEN_AUDIENCE = 'practiq-mobile'
 
 
 @dataclass
 class SessionPayload:
     user_id: int
     expires: str  # RFC3339
+    session_id: str
     jti: str = ''
 
 
@@ -55,14 +56,19 @@ def sign_session_token(payload: SessionPayload) -> str:
     if payload.user_id <= 0:
         raise ValueError('session user id must be positive')
     if not payload.expires:
-        ttl = config.session_ttl_seconds()
+        ttl = config.access_token_ttl_seconds()
         payload.expires = _format_rfc3339(datetime.fromtimestamp(time.time() + ttl, timezone.utc))
+    if not payload.session_id:
+        raise ValueError('session id is required')
     expires_at = _parse_rfc3339(payload.expires)
 
     header = {'alg': 'HS256', 'typ': 'JWT'}
     claims: dict = {
-        'user': {'id': payload.user_id},
-        'expires': payload.expires,
+        'iss': ACCESS_TOKEN_ISSUER,
+        'aud': ACCESS_TOKEN_AUDIENCE,
+        'sub': str(payload.user_id),
+        'sid': payload.session_id,
+        'typ': 'at+jwt',
         'iat': int(time.time()),
         'exp': int(expires_at.timestamp()),
     }
@@ -97,30 +103,24 @@ def verify_session_token(token: str) -> SessionPayload:
     except Exception as exc:
         raise ValueError('invalid session token') from exc
 
-    user = raw.get('user')
-    if not isinstance(user, dict):
-        raise ValueError('session user is required')
-    user_id = user.get('id')
-    if not isinstance(user_id, (int, float)) or user_id <= 0 or int(user_id) != user_id:
+    if raw.get('iss') != ACCESS_TOKEN_ISSUER or raw.get('aud') != ACCESS_TOKEN_AUDIENCE:
+        raise ValueError('invalid session token claims')
+    user_id = raw.get('sub')
+    if not isinstance(user_id, str) or not user_id.isdigit() or int(user_id) <= 0:
         raise ValueError('session user id must be a positive integer')
-    expires = raw.get('expires')
-    if not isinstance(expires, str) or not expires:
-        raise ValueError('session expires is required')
+    session_id = raw.get('sid')
+    if not isinstance(session_id, str) or not session_id:
+        raise ValueError('session id is required')
     jti = raw.get('jti', '')
     if not isinstance(jti, str):
         raise ValueError('session jti must be a string')
 
-    try:
-        expires_at = _parse_rfc3339(expires)
-    except ValueError as exc:
-        raise ValueError('invalid session token') from exc
     now = datetime.now(timezone.utc)
-    if expires_at <= now:
-        raise ValueError('session token expired')
     exp = raw.get('exp')
-    if isinstance(exp, (int, float)) and datetime.fromtimestamp(exp, timezone.utc) <= now:
+    if not isinstance(exp, (int, float)) or datetime.fromtimestamp(exp, timezone.utc) <= now:
         raise ValueError('session token expired')
-    return SessionPayload(user_id=int(user_id), expires=expires, jti=jti)
+    expires = _format_rfc3339(datetime.fromtimestamp(exp, timezone.utc))
+    return SessionPayload(user_id=int(user_id), expires=expires, session_id=session_id, jti=jti)
 
 
 def session_cookie_params(token: str, expires: datetime) -> dict:
@@ -128,6 +128,18 @@ def session_cookie_params(token: str, expires: datetime) -> dict:
         'key': SESSION_COOKIE_NAME,
         'value': token,
         'path': '/',
+        'expires': expires.strftime('%a, %d %b %Y %H:%M:%S GMT'),
+        'httponly': True,
+        'samesite': 'lax',
+        'secure': os.environ.get('NODE_ENV') == 'production',
+    }
+
+
+def refresh_cookie_params(token: str, expires: datetime) -> dict:
+    return {
+        'key': REFRESH_COOKIE_NAME,
+        'value': token,
+        'path': '/api/v1/auth',
         'expires': expires.strftime('%a, %d %b %Y %H:%M:%S GMT'),
         'httponly': True,
         'samesite': 'lax',

@@ -6,10 +6,11 @@ Mirrors backend/internal/auth/runtime.go.
 from __future__ import annotations
 
 import os
-import time
 import uuid
+from hashlib import sha256
+import secrets
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import bcrypt
 from fastapi import Request, Response
@@ -43,6 +44,23 @@ class User:
             'membership': self.membership,
             'revenuecat_app_user_id': self.revenuecat_app_user_id,
         }
+
+
+@dataclass(frozen=True)
+class SessionTokens:
+    access_token: str
+    refresh_token: str
+    access_expires_at: datetime
+    refresh_expires_at: datetime
+
+
+def _new_refresh_token() -> tuple[str, bytes]:
+    raw = secrets.token_urlsafe(48)
+    return raw, sha256(raw.encode()).digest()
+
+
+def _refresh_token_hash(raw: str) -> bytes:
+    return sha256(raw.encode()).digest()
 
 
 def new_uuid() -> str:
@@ -144,6 +162,8 @@ async def update_user(pool: AsyncConnectionPool, user_id: int, input: UpdateUser
         raise _user_conflict_error(exc) from exc
     if user is None:
         raise envelope.new_error(404, 'NOT_FOUND', 'User not found')
+    if password_hash is not None:
+        await revoke_user_sessions(pool, user_id, 'password_changed')
     await invalidate_user_cache(user_id)
     await _cache_user(user)
     return user
@@ -180,40 +200,67 @@ async def authenticate_user(pool: AsyncConnectionPool, login: str, password: str
     return user
 
 
-async def issue_session(user_id: int) -> tuple[str, datetime]:
-    ttl = config.session_ttl_seconds()
-    expires = datetime.fromtimestamp(time.time() + ttl, timezone.utc)
-    token = session_mod.sign_session_token(
+def _issue_access_token(user_id: int, session_id: str, now: datetime) -> tuple[str, datetime]:
+    expires = now + timedelta(seconds=config.access_token_ttl_seconds())
+    return session_mod.sign_session_token(
         session_mod.SessionPayload(
             user_id=user_id,
             expires=session_mod._format_rfc3339(expires),
+            session_id=session_id,
             jti=new_uuid(),
         )
+    ), expires
+
+
+async def issue_session(pool: AsyncConnectionPool, user_id: int) -> SessionTokens:
+    now = datetime.now(timezone.utc)
+    absolute_expires = now + timedelta(seconds=config.session_absolute_ttl_seconds())
+    refresh_expires = min(
+        now + timedelta(seconds=config.refresh_token_ttl_seconds()), absolute_expires
     )
-    return token, expires
+    raw_refresh, refresh_hash = _new_refresh_token()
+    async with pool.connection() as conn:
+        async with conn.transaction():
+            cursor = await conn.execute(
+                """
+                INSERT INTO auth_sessions (user_id, absolute_expires_at)
+                VALUES (%s, %s)
+                RETURNING id
+                """,
+                (user_id, absolute_expires),
+            )
+            row = await cursor.fetchone()
+            if row is None:
+                raise RuntimeError('could not create auth session')
+            session_id = str(row[0])
+            await conn.execute(
+                """
+                INSERT INTO refresh_tokens (session_id, token_hash, expires_at)
+                VALUES (%s, %s, %s)
+                """,
+                (session_id, refresh_hash, refresh_expires),
+            )
+    access_token, access_expires = _issue_access_token(user_id, session_id, now)
+    return SessionTokens(access_token, raw_refresh, access_expires, refresh_expires)
 
 
 def set_session_cookie(response: Response, token: str, expires: datetime) -> None:
     response.set_cookie(**session_mod.session_cookie_params(token, expires))
 
 
-async def revoke_session(request: Request) -> None:
+def set_refresh_cookie(response: Response, token: str, expires: datetime) -> None:
+    response.set_cookie(**session_mod.refresh_cookie_params(token, expires))
+
+
+async def revoke_session(request: Request, pool: AsyncConnectionPool) -> None:
     token = session_token_from_request(request)
     if token:
         try:
             payload = session_mod.verify_session_token(token)
         except ValueError:
             payload = None
-        if payload is not None and payload.jti:
-            ttl = session_mod._parse_rfc3339(payload.expires).timestamp() - time.time()
-            if ttl > 0:
-                rdb = redisx.client()
-                if rdb is None:
-                    raise session_store_unavailable()
-                try:
-                    await rdb.set(_session_revocation_key(payload.jti), 'true', ex=max(int(ttl), 1))
-                except Exception as exc:
-                    raise session_store_unavailable() from exc
+        if payload is not None:
+            await revoke_session_id(pool, payload.session_id, 'logout')
 
 
 def clear_session_cookie(response: Response) -> None:
@@ -226,6 +273,107 @@ def clear_session_cookie(response: Response) -> None:
         samesite='lax',
         secure=os.environ.get('NODE_ENV') == 'production',
     )
+
+
+def clear_refresh_cookie(response: Response) -> None:
+    response.set_cookie(
+        key=session_mod.REFRESH_COOKIE_NAME,
+        value='',
+        path='/api/v1/auth',
+        max_age=-1,
+        httponly=True,
+        samesite='lax',
+        secure=os.environ.get('NODE_ENV') == 'production',
+    )
+
+
+async def revoke_session_id(pool: AsyncConnectionPool, session_id: str, reason: str) -> None:
+    async with pool.connection() as conn:
+        await conn.execute(
+            """
+            UPDATE auth_sessions
+            SET revoked_at = COALESCE(revoked_at, NOW()), revoke_reason = COALESCE(revoke_reason, %s)
+            WHERE id = %s
+            """,
+            (reason, session_id),
+        )
+
+
+async def revoke_user_sessions(pool: AsyncConnectionPool, user_id: int, reason: str) -> None:
+    async with pool.connection() as conn:
+        await conn.execute(
+            """
+            UPDATE auth_sessions
+            SET revoked_at = COALESCE(revoked_at, NOW()), revoke_reason = COALESCE(revoke_reason, %s)
+            WHERE user_id = %s AND revoked_at IS NULL
+            """,
+            (reason, user_id),
+        )
+
+
+async def rotate_refresh_token(pool: AsyncConnectionPool, raw_refresh_token: str) -> SessionTokens:
+    now = datetime.now(timezone.utc)
+    refresh_hash = _refresh_token_hash(raw_refresh_token)
+    replay_detected = False
+    result: tuple[int, str, str, datetime] | None = None
+    async with pool.connection() as conn:
+        async with conn.transaction():
+            cursor = await conn.execute(
+                """
+                SELECT rt.id, rt.session_id, session.user_id, session.absolute_expires_at,
+                       rt.expires_at, rt.used_at, rt.revoked_at, session.revoked_at
+                FROM refresh_tokens AS rt
+                JOIN auth_sessions AS session ON session.id = rt.session_id
+                WHERE rt.token_hash = %s
+                FOR UPDATE OF rt, session
+                """,
+                (refresh_hash,),
+            )
+            row = await cursor.fetchone()
+            if row is None:
+                raise envelope.new_error(401, 'INVALID_REFRESH_TOKEN', 'Invalid refresh token')
+            token_id, session_id, user_id, absolute_expires, token_expires, used_at, token_revoked_at, session_revoked_at = row
+            if session_revoked_at is not None or absolute_expires <= now or token_expires <= now:
+                raise envelope.new_error(401, 'INVALID_REFRESH_TOKEN', 'Invalid refresh token')
+            if used_at is not None or token_revoked_at is not None:
+                await conn.execute(
+                    """
+                    UPDATE auth_sessions
+                    SET revoked_at = %s, revoke_reason = 'refresh_token_reuse'
+                    WHERE id = %s AND revoked_at IS NULL
+                    """,
+                    (now, session_id),
+                )
+                replay_detected = True
+            else:
+                new_raw, new_hash = _new_refresh_token()
+                new_expires = min(
+                    now + timedelta(seconds=config.refresh_token_ttl_seconds()), absolute_expires
+                )
+                await conn.execute('UPDATE refresh_tokens SET used_at = %s WHERE id = %s', (now, token_id))
+                cursor = await conn.execute(
+                    """
+                    INSERT INTO refresh_tokens (session_id, token_hash, parent_token_id, expires_at)
+                    VALUES (%s, %s, %s, %s)
+                    RETURNING id
+                    """,
+                    (session_id, new_hash, token_id, new_expires),
+                )
+                new_row = await cursor.fetchone()
+                if new_row is None:
+                    raise RuntimeError('could not rotate refresh token')
+                await conn.execute(
+                    'UPDATE refresh_tokens SET replaced_by_token_id = %s WHERE id = %s',
+                    (new_row[0], token_id),
+                )
+                result = (int(user_id), str(session_id), new_raw, new_expires)
+    if replay_detected:
+        raise envelope.new_error(401, 'REFRESH_TOKEN_REUSE', 'Refresh token reuse detected')
+    if result is None:
+        raise RuntimeError('could not rotate refresh token')
+    user_id, session_id, new_raw, refresh_expires = result
+    access_token, access_expires = _issue_access_token(user_id, session_id, now)
+    return SessionTokens(access_token, new_raw, access_expires, refresh_expires)
 
 
 async def current_user_by_id(pool: AsyncConnectionPool, user_id: int) -> User | None:
@@ -269,17 +417,16 @@ async def _resolve_session_token(pool: AsyncConnectionPool, token: str) -> User 
         payload = session_mod.verify_session_token(token)
     except ValueError:
         return None
-    if not payload.jti:
-        return None
-    rdb = redisx.client()
-    if rdb is None:
-        raise session_store_unavailable()
-    try:
-        revoked = await rdb.exists(_session_revocation_key(payload.jti))
-    except Exception as exc:
-        raise session_store_unavailable() from exc
-    if revoked:
-        return None
+    async with pool.connection() as conn:
+        cursor = await conn.execute(
+            """
+            SELECT 1 FROM auth_sessions
+            WHERE id = %s AND user_id = %s AND revoked_at IS NULL AND absolute_expires_at > NOW()
+            """,
+            (payload.session_id, payload.user_id),
+        )
+        if await cursor.fetchone() is None:
+            return None
     return await current_user_by_id(pool, payload.user_id)
 
 
@@ -307,15 +454,12 @@ async def require_user(request: Request, pool: AsyncConnectionPool) -> User:
 
 
 def session_store_unavailable() -> envelope.APIError:
-    return envelope.new_error(503, 'SESSION_STORE_UNAVAILABLE', 'Session service is temporarily unavailable')
+    """Compatibility error for Redis-backed auth controls such as email codes."""
+    return envelope.new_error(503, 'SESSION_STORE_UNAVAILABLE', 'Authentication service is temporarily unavailable')
 
 
 def _user_cache_key(user_id: int) -> str:
     return redisx.redis_key('cache', 'user', user_id)
-
-
-def _session_revocation_key(jti: str) -> str:
-    return redisx.redis_key('session', 'revoked', jti)
 
 
 def _cache_ttl_seconds() -> int:

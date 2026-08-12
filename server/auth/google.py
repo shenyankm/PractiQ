@@ -5,26 +5,33 @@ Mirrors backend/internal/auth/google.go (httpx instead of net/http).
 
 from __future__ import annotations
 
+import asyncio
+import base64
+import hashlib
+import hmac
+import json
 import os
-import time
+import secrets
 from dataclasses import dataclass
 from urllib.parse import urlencode
 
 import httpx
 from fastapi import Request, Response
+from google.auth.transport import requests as google_requests
+from google.oauth2 import id_token as google_id_token
 from psycopg import errors as pg_errors
 from psycopg_pool import AsyncConnectionPool
 
-from .. import envelope
+from .. import envelope, redisx
 from . import runtime
 
 GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
 GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
-GOOGLE_USERINFO_URL = 'https://openidconnect.googleapis.com/v1/userinfo'
-GOOGLE_TOKENINFO_URL = 'https://oauth2.googleapis.com/tokeninfo'
 GOOGLE_STATE_COOKIE_NAME = 'google_oauth_state'
+GOOGLE_OAUTH_TTL_SECONDS = 600
 
 _http_client: httpx.AsyncClient | None = None
+_google_request = google_requests.Request()
 
 
 def _http() -> httpx.AsyncClient:
@@ -69,17 +76,43 @@ def set_state_cookie(response: Response, state: str) -> None:
     )
 
 
-def google_start_params() -> tuple[str, str]:
+def _random_token() -> str:
+    return secrets.token_urlsafe(32)
+
+
+def _pkce_challenge(verifier: str) -> str:
+    return base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b'=').decode()
+
+
+def _oauth_state_key(state: str) -> str:
+    return redisx.redis_key('oauth', 'google', hashlib.sha256(state.encode()).hexdigest())
+
+
+async def google_start_params() -> tuple[str, str]:
     client_id = _google_client_id()
     if not client_id:
         raise _google_auth_disabled()
-    state = runtime.new_uuid()
+    state, nonce, code_verifier = _random_token(), _random_token(), _random_token()
+    rdb = redisx.client()
+    if rdb is None:
+        raise envelope.new_error(503, 'OAUTH_STATE_UNAVAILABLE', 'Authentication service is temporarily unavailable')
+    try:
+        await rdb.set(
+            _oauth_state_key(state),
+            json.dumps({'nonce': nonce, 'code_verifier': code_verifier}),
+            ex=GOOGLE_OAUTH_TTL_SECONDS,
+        )
+    except Exception as exc:
+        raise envelope.new_error(503, 'OAUTH_STATE_UNAVAILABLE', 'Authentication service is temporarily unavailable') from exc
     params = urlencode({
         'client_id': client_id,
         'redirect_uri': _google_redirect_url(),
         'response_type': 'code',
         'scope': 'openid email profile',
         'state': state,
+        'nonce': nonce,
+        'code_challenge': _pkce_challenge(code_verifier),
+        'code_challenge_method': 'S256',
     })
     return f'{GOOGLE_AUTH_URL}?{params}', state
 
@@ -92,6 +125,7 @@ def _expire_state_cookie(response: Response) -> None:
         max_age=-1,
         httponly=True,
         samesite='lax',
+        secure=os.environ.get('NODE_ENV') == 'production',
     )
 
 
@@ -102,24 +136,41 @@ async def google_callback(request: Request, response: Response, pool: AsyncConne
     _expire_state_cookie(response)
     state_cookie = request.cookies.get(GOOGLE_STATE_COOKIE_NAME, '')
     state = request.query_params.get('state', '')
-    if not state_cookie or not state or state_cookie != state:
+    if not state_cookie or not state or not hmac.compare_digest(state_cookie, state):
         raise _google_auth_failed()
     code = request.query_params.get('code', '')
     if not code:
         raise _google_auth_failed()
-    claims = await _exchange_google_code(client_id, code)
+    transaction = await _consume_oauth_transaction(state)
+    claims = await _exchange_google_code(client_id, code, transaction['code_verifier'], transaction['nonce'])
     return await find_or_create_google_user(pool, claims)
 
 
-async def verify_google_id_token(id_token: str) -> GoogleClaims:
+async def _consume_oauth_transaction(state: str) -> dict[str, str]:
+    rdb = redisx.client()
+    if rdb is None:
+        raise envelope.new_error(503, 'OAUTH_STATE_UNAVAILABLE', 'Authentication service is temporarily unavailable')
     try:
-        resp = await _http().get(GOOGLE_TOKENINFO_URL, params={'id_token': id_token})
-    except httpx.HTTPError as exc:
-        raise _google_auth_failed() from exc
-    if resp.status_code != 200:
+        raw = await rdb.getdel(_oauth_state_key(state))
+    except Exception as exc:
+        raise envelope.new_error(503, 'OAUTH_STATE_UNAVAILABLE', 'Authentication service is temporarily unavailable') from exc
+    if raw is None:
         raise _google_auth_failed()
     try:
-        info = resp.json()
+        data = json.loads(raw)
+    except (TypeError, ValueError) as exc:
+        raise _google_auth_failed() from exc
+    nonce, code_verifier = data.get('nonce'), data.get('code_verifier')
+    if not isinstance(nonce, str) or not isinstance(code_verifier, str) or not nonce or not code_verifier:
+        raise _google_auth_failed()
+    return {'nonce': nonce, 'code_verifier': code_verifier}
+
+
+async def verify_google_id_token(raw_id_token: str, nonce: str | None = None) -> GoogleClaims:
+    try:
+        info = await asyncio.to_thread(
+            google_id_token.verify_oauth2_token, raw_id_token, _google_request
+        )
     except ValueError as exc:
         raise _google_auth_failed() from exc
     sub = info.get('sub', '')
@@ -128,26 +179,25 @@ async def verify_google_id_token(id_token: str) -> GoogleClaims:
         raise _google_auth_failed()
     if not _google_audience_allowed(info.get('aud', '')):
         raise _google_auth_failed()
-    try:
-        exp = int(info.get('exp', '0'))
-    except (TypeError, ValueError) as exc:
-        raise _google_auth_failed() from exc
-    if exp <= int(time.time()):
+    if nonce is not None and not hmac.compare_digest(str(info.get('nonce', '')), nonce):
         raise _google_auth_failed()
     return GoogleClaims(
         sub=sub,
         email=info.get('email', ''),
-        email_verified=info.get('email_verified') == 'true',
+        email_verified=info.get('email_verified') is True or info.get('email_verified') == 'true',
     )
 
 
-async def _exchange_google_code(client_id: str, code: str) -> GoogleClaims:
+async def _exchange_google_code(
+    client_id: str, code: str, code_verifier: str, nonce: str
+) -> GoogleClaims:
     form = {
         'code': code,
         'client_id': client_id,
         'client_secret': os.environ.get('GOOGLE_CLIENT_SECRET', ''),
         'redirect_uri': _google_redirect_url(),
         'grant_type': 'authorization_code',
+        'code_verifier': code_verifier,
     }
     try:
         token_resp = await _http().post(GOOGLE_TOKEN_URL, data=form)
@@ -155,26 +205,13 @@ async def _exchange_google_code(client_id: str, code: str) -> GoogleClaims:
         raise _google_auth_failed() from exc
     if token_resp.status_code != 200:
         raise _google_auth_failed()
-    access_token = token_resp.json().get('access_token', '')
-    if not access_token:
-        raise _google_auth_failed()
-
     try:
-        userinfo_resp = await _http().get(
-            GOOGLE_USERINFO_URL, headers={'Authorization': f'Bearer {access_token}'}
-        )
-    except httpx.HTTPError as exc:
+        id_token = token_resp.json().get('id_token', '')
+    except ValueError as exc:
         raise _google_auth_failed() from exc
-    if userinfo_resp.status_code != 200:
+    if not id_token:
         raise _google_auth_failed()
-    userinfo = userinfo_resp.json()
-    if not userinfo.get('sub'):
-        raise _google_auth_failed()
-    return GoogleClaims(
-        sub=userinfo['sub'],
-        email=userinfo.get('email', ''),
-        email_verified=bool(userinfo.get('email_verified')),
-    )
+    return await verify_google_id_token(id_token, nonce)
 
 
 def _google_audience_allowed(aud: str) -> bool:
@@ -220,16 +257,17 @@ async def _find_or_create_google_user_once(pool: AsyncConnectionPool, claims: Go
         if user is None and claims.email and claims.email_verified:
             cursor = await conn.execute(
                 """
-                UPDATE users
-                SET google_sub = %s
-                WHERE lower(email) = lower(%s) AND google_sub IS NULL
-                RETURNING id, username, email, is_active, role, membership, revenuecat_app_user_id
+                SELECT 1 FROM users
+                WHERE lower(email) = lower(%s)
+                LIMIT 1
                 """,
-                (claims.sub, claims.email),
+                (claims.email,),
             )
-            user = runtime._scan_user(await cursor.fetchone())
-            if user is not None:
-                await runtime.invalidate_user_cache(user.id)
+            if await cursor.fetchone() is not None:
+                raise envelope.new_error(
+                    409, 'ACCOUNT_LINK_REQUIRED',
+                    'Sign in with the existing account before linking Google',
+                )
 
         if user is None:
             if not claims.email or not claims.email_verified:

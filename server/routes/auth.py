@@ -23,9 +23,10 @@ async def register(request: Request):
     user = await runtime.register_user(
         deps.pool(request), register_body.username, register_body.email, register_body.password
     )
-    token, expires = await runtime.issue_session(user.id)
-    response = envelope.created(request, handlers.issued_session_response(user, token, expires))
-    runtime.set_session_cookie(response, token, expires)
+    tokens = await runtime.issue_session(deps.pool(request), user.id)
+    response = envelope.created(request, handlers.issued_session_response(user, tokens))
+    runtime.set_session_cookie(response, tokens.access_token, tokens.access_expires_at)
+    runtime.set_refresh_cookie(response, tokens.refresh_token, tokens.refresh_expires_at)
     return response
 
 
@@ -35,17 +36,19 @@ async def login(request: Request):
     login_name, password = handlers.validate_login_request(body)
     await handlers.rate_limit_auth(request, login_name)
     user = await runtime.authenticate_user(deps.pool(request), login_name, password)
-    token, expires = await runtime.issue_session(user.id)
-    response = envelope.ok(request, handlers.issued_session_response(user, token, expires))
-    runtime.set_session_cookie(response, token, expires)
+    tokens = await runtime.issue_session(deps.pool(request), user.id)
+    response = envelope.ok(request, handlers.issued_session_response(user, tokens))
+    runtime.set_session_cookie(response, tokens.access_token, tokens.access_expires_at)
+    runtime.set_refresh_cookie(response, tokens.refresh_token, tokens.refresh_expires_at)
     return response
 
 
 @router.post('/api/v1/auth/logout')
 async def logout(request: Request):
-    await runtime.revoke_session(request)
+    await runtime.revoke_session(request, deps.pool(request))
     response = envelope.no_content(request)
     runtime.clear_session_cookie(response)
+    runtime.clear_refresh_cookie(response)
     return response
 
 
@@ -78,9 +81,25 @@ async def send_email_code(request: Request):
     return envelope.no_content(request)
 
 
+@router.post('/api/v1/auth/refresh')
+async def refresh(request: Request):
+    body = await handlers.decode_auth_request(request)
+    if any(key != 'refreshToken' for key in body):
+        raise envelope.invalid_json()
+    raw_refresh = body.get('refreshToken') if isinstance(body.get('refreshToken'), str) else ''
+    raw_refresh = raw_refresh or request.cookies.get('refresh_token', '')
+    if not raw_refresh:
+        raise envelope.new_error(401, 'INVALID_REFRESH_TOKEN', 'Invalid refresh token')
+    tokens = await runtime.rotate_refresh_token(deps.pool(request), raw_refresh)
+    response = envelope.ok(request, {'tokens': handlers.session_tokens_response(tokens)})
+    runtime.set_session_cookie(response, tokens.access_token, tokens.access_expires_at)
+    runtime.set_refresh_cookie(response, tokens.refresh_token, tokens.refresh_expires_at)
+    return response
+
+
 @router.get('/api/v1/auth/google/start')
 async def google_start():
-    url, state = google.google_start_params()
+    url, state = await google.google_start_params()
     response = RedirectResponse(url=url, status_code=302)
     google.set_state_cookie(response, state)
     return response
@@ -90,8 +109,9 @@ async def google_start():
 async def google_callback(request: Request):
     response = RedirectResponse(url=os.environ.get('APP_ORIGIN', '').strip() or '/', status_code=302)
     user = await google.google_callback(request, response, deps.pool(request))
-    token, expires = await runtime.issue_session(user.id)
-    runtime.set_session_cookie(response, token, expires)
+    tokens = await runtime.issue_session(deps.pool(request), user.id)
+    runtime.set_session_cookie(response, tokens.access_token, tokens.access_expires_at)
+    runtime.set_refresh_cookie(response, tokens.refresh_token, tokens.refresh_expires_at)
     return response
 
 
@@ -108,7 +128,8 @@ async def google_token(request: Request, response: Response):
     await handlers.rate_limit_auth(request, '')
     claims = await google.verify_google_id_token(id_token)
     user = await google.find_or_create_google_user(deps.pool(request), claims)
-    token, expires = await runtime.issue_session(user.id)
-    response = envelope.ok(request, handlers.issued_session_response(user, token, expires))
-    runtime.set_session_cookie(response, token, expires)
+    tokens = await runtime.issue_session(deps.pool(request), user.id)
+    response = envelope.ok(request, handlers.issued_session_response(user, tokens))
+    runtime.set_session_cookie(response, tokens.access_token, tokens.access_expires_at)
+    runtime.set_refresh_cookie(response, tokens.refresh_token, tokens.refresh_expires_at)
     return response

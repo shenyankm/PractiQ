@@ -119,10 +119,19 @@ async def require_user(request: Request, pool: AsyncConnectionPool) -> runtime.U
     return user
 
 
-def issued_session_response(user: runtime.User, token: str, expires) -> dict[str, Any]:
+def session_tokens_response(tokens: runtime.SessionTokens) -> dict[str, Any]:
+    return {
+        'accessToken': tokens.access_token,
+        'refreshToken': tokens.refresh_token,
+        'expiresAt': tokens.access_expires_at.strftime('%Y-%m-%dT%H:%M:%SZ'),
+        'refreshExpiresAt': tokens.refresh_expires_at.strftime('%Y-%m-%dT%H:%M:%SZ'),
+        'tokenType': 'Bearer',
+    }
+
+
+def issued_session_response(user: runtime.User, tokens: runtime.SessionTokens) -> dict[str, Any]:
     response = user.as_dict()
-    response['token'] = token
-    response['expiresAt'] = expires.strftime('%Y-%m-%dT%H:%M:%SZ')
+    response['tokens'] = session_tokens_response(tokens)
     return response
 
 

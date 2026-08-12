@@ -18,23 +18,26 @@ from server import imports_queue
 # ------------------------------------------------------------------ config
 
 
-def test_session_ttl_default(monkeypatch):
-    monkeypatch.delenv('SESSION_TTL_MS', raising=False)
-    assert config.session_ttl_seconds() == 7 * 24 * 3600
+def test_auth_ttl_defaults(monkeypatch):
+    for name in ('ACCESS_TOKEN_TTL_MS', 'REFRESH_TOKEN_TTL_MS', 'SESSION_ABSOLUTE_TTL_MS'):
+        monkeypatch.delenv(name, raising=False)
+    assert config.access_token_ttl_seconds() == 10 * 60
+    assert config.refresh_token_ttl_seconds() == 30 * 24 * 3600
+    assert config.session_absolute_ttl_seconds() == 90 * 24 * 3600
 
 
-def test_session_ttl_from_env(monkeypatch):
-    monkeypatch.setenv('SESSION_TTL_MS', '120000')
-    assert config.session_ttl_seconds() == 120
+def test_access_token_ttl_from_env(monkeypatch):
+    monkeypatch.setenv('ACCESS_TOKEN_TTL_MS', '120000')
+    assert config.access_token_ttl_seconds() == 120
 
 
-def test_session_ttl_invalid(monkeypatch):
-    monkeypatch.setenv('SESSION_TTL_MS', 'not-a-number')
+def test_access_token_ttl_invalid(monkeypatch):
+    monkeypatch.setenv('ACCESS_TOKEN_TTL_MS', 'not-a-number')
     with pytest.raises(ValueError):
-        config.session_ttl_seconds()
-    monkeypatch.setenv('SESSION_TTL_MS', '-5')
+        config.access_token_ttl_seconds()
+    monkeypatch.setenv('ACCESS_TOKEN_TTL_MS', '-5')
     with pytest.raises(ValueError):
-        config.session_ttl_seconds()
+        config.access_token_ttl_seconds()
 
 
 def test_load_requires_auth_secret(monkeypatch):
@@ -49,7 +52,7 @@ def test_load_defaults(monkeypatch):
     monkeypatch.delenv('PORT', raising=False)
     monkeypatch.delenv('PRACTIQ_HOST', raising=False)
     monkeypatch.delenv('APP_ORIGIN', raising=False)
-    monkeypatch.delenv('SESSION_TTL_MS', raising=False)
+    monkeypatch.delenv('ACCESS_TOKEN_TTL_MS', raising=False)
     monkeypatch.setattr(config, '_dotenv_paths', lambda name: [])
     cfg = config.load()
     assert cfg.port == 8080
