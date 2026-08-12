@@ -83,7 +83,11 @@ const mockReadResource = jest.fn<any, any[]>();
 const mockWriteResource = jest.fn<any, any[]>();
 const mockUseCloudAuth = jest.fn<any, any[]>();
 const mockSendEmailCode = jest.fn<any, any[]>();
-const mockGoogleUseIdTokenAuthRequest = jest.fn<any, any[]>();
+const mockGoogleConfigure = jest.fn<any, any[]>();
+const mockGoogleCheckPlayServices = jest.fn<any, any[]>(async () => undefined);
+const mockGoogleSignIn = jest.fn<any, any[]>(async () => ({ type: 'cancelled' }));
+const mockGoogleCreateAccount = jest.fn<any, any[]>();
+const mockGooglePresentExplicitSignIn = jest.fn<any, any[]>();
 const mockUseLanguage = jest.fn<any, any[]>(() => ({
   tr: (_en: string, zh: string) => zh ?? _en,
   language: 'zh-CN',
@@ -108,11 +112,16 @@ jest.mock('expo-router', () => ({
     useEffect(callback, [callback]);
   },
 }));
-jest.mock('expo-auth-session/providers/google', () => ({
-  useIdTokenAuthRequest: (...args: unknown[]) => mockGoogleUseIdTokenAuthRequest(...args),
-}));
-jest.mock('expo-web-browser', () => ({
-  maybeCompleteAuthSession: jest.fn<any, any[]>(),
+jest.mock('react-native-nitro-google-signin', () => ({
+  GoogleOneTapSignIn: {
+    configure: (...args: unknown[]) => mockGoogleConfigure(...args),
+    checkPlayServices: (...args: unknown[]) => mockGoogleCheckPlayServices(...args),
+    signIn: (...args: unknown[]) => mockGoogleSignIn(...args),
+    createAccount: (...args: unknown[]) => mockGoogleCreateAccount(...args),
+    presentExplicitSignIn: (...args: unknown[]) => mockGooglePresentExplicitSignIn(...args),
+  },
+  isNoSavedCredentialFoundResponse: (result: { type?: string }) => result.type === 'noSavedCredentialFound',
+  isSuccessResponse: (result: { type?: string }) => result.type === 'success',
 }));
 
 import { useEffect } from 'react';
@@ -138,7 +147,11 @@ beforeEach(() => {
     sync: { running: false, pending: 0, failed: 0 },
   });
   mockSendEmailCode.mockReset();
-  mockGoogleUseIdTokenAuthRequest.mockReturnValue([null, null, jest.fn<any, any[]>()]);
+  mockGoogleConfigure.mockReset();
+  mockGoogleCheckPlayServices.mockResolvedValue(undefined);
+  mockGoogleSignIn.mockResolvedValue({ type: 'cancelled' });
+  mockGoogleCreateAccount.mockReset();
+  mockGooglePresentExplicitSignIn.mockReset();
   mockUseLanguage.mockReturnValue({
     tr: (_en: string, zh: string) => zh ?? _en,
     language: 'zh-CN',
@@ -281,25 +294,67 @@ describe('SignInScreen', () => {
   it('signs in with Google when the response succeeds', async () => {
     const signInWithGoogle = jest.fn<any, any[]>(async () => undefined);
     mockUseCloudAuth.mockReturnValue({ user: null, session: null, hasPro: true, signIn: jest.fn<any, any[]>(), signUp: jest.fn<any, any[]>(), signInWithGoogle, sync: { running: false, pending: 0, failed: 0 } });
-    const promptGoogle = jest.fn<any, any[]>();
-    mockGoogleUseIdTokenAuthRequest.mockReturnValue([null, null, promptGoogle]);
+    mockGoogleSignIn.mockResolvedValue({ type: 'success', data: { idToken: 'id-token' } });
     const view = await render(<SignInScreen />);
     expect(view.getByText('使用 Google 登录')).toBeTruthy();
     await act(async () => {
       await fireEvent.press(view.getByText('使用 Google 登录'));
     });
-    expect(promptGoogle).toHaveBeenCalled();
-    // simulate the Google redirect response
-    mockGoogleUseIdTokenAuthRequest.mockReturnValue([
-      null,
-      { type: 'success', params: { id_token: 'id-token' } },
-      promptGoogle,
-    ]);
-    await act(async () => {
-      view.rerender(<SignInScreen />);
-    });
     await waitFor(() => expect(signInWithGoogle).toHaveBeenCalledWith('id-token'));
+    expect(mockGoogleConfigure).toHaveBeenCalledWith(expect.objectContaining({ webClientId: 'google-client', offlineAccess: false }));
     expect(router().replace).toHaveBeenCalledWith('/');
+  });
+
+  it('falls back from saved credentials to account creation and explicit sign-in', async () => {
+    const signInWithGoogle = jest.fn<any, any[]>(async () => undefined);
+    mockUseCloudAuth.mockReturnValue({ user: null, session: null, hasPro: true, signIn: jest.fn<any, any[]>(), signUp: jest.fn<any, any[]>(), signInWithGoogle, sync: { running: false, pending: 0, failed: 0 } });
+    mockGoogleSignIn.mockResolvedValue({ type: 'noSavedCredentialFound' });
+    mockGoogleCreateAccount.mockResolvedValue({ type: 'noSavedCredentialFound' });
+    mockGooglePresentExplicitSignIn.mockResolvedValue({ type: 'success', data: { idToken: 'explicit-token' } });
+    const view = await render(<SignInScreen />);
+    await act(async () => {
+      await fireEvent.press(view.getByText('使用 Google 登录'));
+    });
+    expect(mockGoogleCreateAccount).toHaveBeenCalledTimes(1);
+    expect(mockGooglePresentExplicitSignIn).toHaveBeenCalledTimes(1);
+    expect(signInWithGoogle).toHaveBeenCalledWith('explicit-token');
+  });
+
+  it('does not authenticate after Google cancellation or a missing ID token', async () => {
+    const signInWithGoogle = jest.fn<any, any[]>(async () => undefined);
+    mockUseCloudAuth.mockReturnValue({ user: null, session: null, hasPro: true, signIn: jest.fn<any, any[]>(), signUp: jest.fn<any, any[]>(), signInWithGoogle, sync: { running: false, pending: 0, failed: 0 } });
+    const view = await render(<SignInScreen />);
+    await act(async () => {
+      await fireEvent.press(view.getByText('使用 Google 登录'));
+    });
+    expect(signInWithGoogle).not.toHaveBeenCalled();
+    expect(router().replace).not.toHaveBeenCalled();
+
+    mockGoogleSignIn.mockResolvedValue({ type: 'success', data: { idToken: '   ' } });
+    await act(async () => {
+      await fireEvent.press(view.getByText('使用 Google 登录'));
+    });
+    expect(signInWithGoogle).not.toHaveBeenCalled();
+    expect(view.getByText('Google 未返回 ID token。')).toBeTruthy();
+  });
+
+  it('shows native and backend Google failures without navigating', async () => {
+    const signInWithGoogle = jest.fn<any, any[]>(async () => { throw new Error('backend rejected token'); });
+    mockUseCloudAuth.mockReturnValue({ user: null, session: null, hasPro: true, signIn: jest.fn<any, any[]>(), signUp: jest.fn<any, any[]>(), signInWithGoogle, sync: { running: false, pending: 0, failed: 0 } });
+    mockGoogleCheckPlayServices.mockRejectedValueOnce(new Error('Play Services unavailable'));
+    const view = await render(<SignInScreen />);
+    await act(async () => {
+      await fireEvent.press(view.getByText('使用 Google 登录'));
+    });
+    expect(view.getByText('Play Services unavailable')).toBeTruthy();
+    expect(signInWithGoogle).not.toHaveBeenCalled();
+
+    mockGoogleSignIn.mockResolvedValue({ type: 'success', data: { idToken: 'id-token' } });
+    await act(async () => {
+      await fireEvent.press(view.getByText('使用 Google 登录'));
+    });
+    expect(view.getByText('backend rejected token')).toBeTruthy();
+    expect(router().replace).not.toHaveBeenCalled();
   });
 
 });

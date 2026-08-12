@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
 import { router } from 'expo-router';
-import * as Google from 'expo-auth-session/providers/google';
-import * as WebBrowser from 'expo-web-browser';
+import {
+  GoogleOneTapSignIn,
+  isNoSavedCredentialFoundResponse,
+  isSuccessResponse,
+} from 'react-native-nitro-google-signin';
 import { Alert } from 'heroui-native/alert';
 import { Button } from 'heroui-native/button';
 import { Card } from 'heroui-native/card';
@@ -14,8 +17,6 @@ import { ScreenState } from '@/components/screen-state';
 import { sendEmailCode } from '@/cloud';
 import { useLanguage } from '@/language';
 import { useCloudAuth } from './auth';
-
-WebBrowser.maybeCompleteAuthSession();
 
 const GOOGLE_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID;
 
@@ -31,29 +32,37 @@ export default function SignInScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const passwordBytes = new TextEncoder().encode(password).length;
-  const [, googleResponse, promptGoogle] = Google.useIdTokenAuthRequest({
-    clientId: GOOGLE_CLIENT_ID || 'unconfigured.apps.googleusercontent.com',
-    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
-    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-  });
-
   useEffect(() => {
     if (codeCountdown <= 0) return;
     const timer = setTimeout(() => setCodeCountdown((value) => value - 1), 1000);
     return () => clearTimeout(timer);
   }, [codeCountdown]);
 
-  useEffect(() => {
-    const idToken = googleResponse?.type === 'success' ? googleResponse.params.id_token : null;
-    if (!idToken) return;
+  async function signInWithGoogle() {
+    if (!GOOGLE_CLIENT_ID) return;
     setBusy(true);
     setError('');
-    auth.signInWithGoogle(idToken)
-      .then(() => router.replace('/'))
-      .catch((reason) => setError(reason instanceof Error ? reason.message : tr('Sign in failed.', '登录失败。')))
-      .finally(() => setBusy(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- run only when Google responds
-  }, [googleResponse]);
+    try {
+      GoogleOneTapSignIn.configure({
+        webClientId: GOOGLE_CLIENT_ID,
+        iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+        offlineAccess: false,
+      });
+      await GoogleOneTapSignIn.checkPlayServices();
+      let result = await GoogleOneTapSignIn.signIn();
+      if (isNoSavedCredentialFoundResponse(result)) result = await GoogleOneTapSignIn.createAccount();
+      if (isNoSavedCredentialFoundResponse(result)) result = await GoogleOneTapSignIn.presentExplicitSignIn();
+      if (!isSuccessResponse(result)) return;
+      const idToken = result.data.idToken?.trim();
+      if (!idToken) throw new Error(tr('Google did not return an ID token.', 'Google 未返回 ID token。'));
+      await auth.signInWithGoogle(idToken);
+      router.replace('/');
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : tr('Sign in failed.', '登录失败。'));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function sendCode() {
     setError('');
@@ -119,7 +128,7 @@ export default function SignInScreen() {
           {busy ? tr('Working…', '处理中…') : registering ? tr('Create account', '创建账号') : tr('Sign in', '登录')}
         </Button>
         {GOOGLE_CLIENT_ID ? (
-          <Button variant="secondary" isDisabled={busy} onPress={() => void promptGoogle()}>
+          <Button variant="secondary" isDisabled={busy} onPress={() => void signInWithGoogle()}>
             {tr('Sign in with Google', '使用 Google 登录')}
           </Button>
         ) : null}

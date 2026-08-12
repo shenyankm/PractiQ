@@ -1,7 +1,13 @@
 import { File } from 'expo-file-system';
 import type { ZodType } from 'zod';
 
-import { CloudError, cloudRequestEnvelope, loadSession, type CloudEnvelope } from '@/cloud';
+import {
+  CloudError,
+  cloudRequestEnvelope,
+  currentSession,
+  refreshStoredSession,
+  type CloudEnvelope,
+} from '@/cloud';
 import {
   completeMutation,
   createMutationKey,
@@ -47,19 +53,28 @@ export function setUnauthorizedHandler(handler: (() => void) | null) {
 }
 
 async function requestEnvelope(path: string, options: RequestOptions): Promise<CloudEnvelope<unknown>> {
-  const session = options.token ? null : await loadSession();
-  const token = options.token || session?.token;
+  const session = await currentSession();
+  const token = session?.accessToken || options.token;
+  const send = (accessToken: string | undefined) => cloudRequestEnvelope(path, {
+    method: options.method,
+    token: accessToken,
+    json: options.body,
+    body: options.rawBody,
+    headers: options.headers,
+    idempotencyKey: options.idempotencyKey,
+    abortSignal: options.signal,
+  });
   try {
-    return await cloudRequestEnvelope(path, {
-      method: options.method,
-      token,
-      json: options.body,
-      body: options.rawBody,
-      headers: options.headers,
-      idempotencyKey: options.idempotencyKey,
-      abortSignal: options.signal,
-    });
+    return await send(token);
   } catch (error) {
+    if (error instanceof CloudError && error.status === 401 && token) {
+      try {
+        const refreshed = await refreshStoredSession(true);
+        if (refreshed?.accessToken && refreshed.accessToken !== token) return await send(refreshed.accessToken);
+      } catch {
+        // The unauthenticated handler below clears React state after the refresh failure.
+      }
+    }
     if (error instanceof CloudError && (error.status === 401 || error.code === 'USER_INACTIVE')) {
       unauthorizedHandler?.();
     }

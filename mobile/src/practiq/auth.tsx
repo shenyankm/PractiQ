@@ -1,7 +1,7 @@
 import { createContext, use, useCallback, useEffect, useMemo, useRef, useState, type PropsWithChildren } from 'react';
 import { AppState } from 'react-native';
 
-import { loadSession, login, loginWithGoogle, logout, register, type CloudSession } from '@/cloud';
+import { currentSession, login, loginWithGoogle, logout, refreshStoredSession, register, type CloudSession } from '@/cloud';
 import { ApiError, apiRequest, flushOutbox, setUnauthorizedHandler } from './api';
 import { clearCloudCache, outboxCounts, retryFailedMutations } from './cache';
 import { pullGlobalUpdates } from './sync';
@@ -42,7 +42,7 @@ export function CloudAuthProvider({ children }: PropsWithChildren) {
   const [revenuecatPro, setRevenuecatPro] = useState(false);
   const [sync, setSync] = useState({ running: false, pending: 0, failed: 0 });
   const synchronizing = useRef(false);
-  const sessionToken = session?.token;
+  const sessionToken = session?.accessToken;
   const revenuecatAppUserID = user?.revenuecat_app_user_id;
 
   const refreshCounts = useCallback(async () => {
@@ -105,11 +105,11 @@ export function CloudAuthProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     let active = true;
-    loadSession().then(async (saved) => {
+    currentSession().then(async (saved) => {
       if (!active || !saved) return;
       setSession(saved);
       try {
-        setUser(await apiRequest<CloudUser>('/api/v1/auth/me', { token: saved.token, schema: cloudUserSchema }));
+        setUser(await apiRequest<CloudUser>('/api/v1/auth/me', { token: saved.accessToken, schema: cloudUserSchema }));
       } catch (error) {
         if (error instanceof ApiError && error.status === 401) {
           if (active) {
@@ -130,12 +130,27 @@ export function CloudAuthProvider({ children }: PropsWithChildren) {
     void synchronize();
     const subscription = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
+        void refreshStoredSession().then((next) => {
+          if (next) setSession(next);
+        }).catch(() => undefined);
         void refreshRevenueCat().then(syncBilling).catch(() => undefined);
         void synchronize();
       }
     });
     return () => subscription.remove();
   }, [refreshRevenueCat, session, syncBilling, synchronize]);
+
+  useEffect(() => {
+    if (!session) return;
+    const delay = Math.max(0, Date.parse(session.expiresAt) - Date.now() - 60_000);
+    if (delay > 2_147_483_647) return;
+    const timer = setTimeout(() => {
+      void refreshStoredSession(true).then((next) => {
+        if (next) setSession(next);
+      }).catch(() => undefined);
+    }, delay);
+    return () => clearTimeout(timer);
+  }, [session]);
 
   useEffect(() => {
     if (!revenuecatAppUserID) return;
@@ -156,7 +171,7 @@ export function CloudAuthProvider({ children }: PropsWithChildren) {
 
   const authenticate = useCallback(async (action: () => Promise<CloudSession>) => {
     const next = await action();
-    const nextUser = await apiRequest<CloudUser>('/api/v1/auth/me', { token: next.token, schema: cloudUserSchema }).catch(async (error) => {
+    const nextUser = await apiRequest<CloudUser>('/api/v1/auth/me', { token: next.accessToken, schema: cloudUserSchema }).catch(async (error) => {
       if (error instanceof ApiError && error.status === 0) return null;
       await logout();
       throw error;

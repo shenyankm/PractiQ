@@ -25,9 +25,11 @@ export class CloudError extends Error {
 }
 
 export interface CloudSession {
-  token: string;
+  accessToken: string;
+  refreshToken: string;
   username: string;
   expiresAt: string;
+  refreshExpiresAt: string;
 }
 
 export interface CloudRequestOptions {
@@ -59,9 +61,11 @@ async function secureStore() {
 }
 
 const sessionSchema = z.object({
-  token: z.string().min(1),
+  accessToken: z.string().min(1),
+  refreshToken: z.string().min(1),
   username: z.string().min(1),
   expiresAt: z.iso.datetime({ offset: true }),
+  refreshExpiresAt: z.iso.datetime({ offset: true }),
 });
 
 export async function loadSession(): Promise<CloudSession | null> {
@@ -70,7 +74,7 @@ export async function loadSession(): Promise<CloudSession | null> {
     const raw = await SecureStore.getItemAsync(SESSION_KEY, options);
     if (!raw) return null;
     const parsed = sessionSchema.safeParse(JSON.parse(raw));
-    if (!parsed.success || Date.parse(parsed.data.expiresAt) <= Date.now()) {
+    if (!parsed.success || Date.parse(parsed.data.refreshExpiresAt) <= Date.now()) {
       await SecureStore.deleteItemAsync(SESSION_KEY, options);
       return null;
     }
@@ -83,6 +87,39 @@ export async function loadSession(): Promise<CloudSession | null> {
 async function saveSession(session: CloudSession) {
   const { SecureStore, options } = await secureStore();
   await SecureStore.setItemAsync(SESSION_KEY, JSON.stringify(session), options);
+}
+
+const tokenSchema = z.object({
+  accessToken: z.string().min(1),
+  refreshToken: z.string().min(1),
+  expiresAt: z.iso.datetime({ offset: true }),
+  refreshExpiresAt: z.iso.datetime({ offset: true }),
+  tokenType: z.literal('Bearer'),
+});
+
+let refreshInFlight: Promise<CloudSession | null> | null = null;
+
+export async function refreshStoredSession(force = false): Promise<CloudSession | null> {
+  const saved = await loadSession();
+  if (!saved) return null;
+  if (!force && Date.parse(saved.expiresAt) > Date.now() + 60_000) return saved;
+  if (refreshInFlight) return refreshInFlight;
+  refreshInFlight = (async () => {
+    const payload = tokenSchema.safeParse(await cloudRequest('/api/v1/auth/refresh', {
+      method: 'POST',
+      json: { refreshToken: saved.refreshToken },
+      timeoutMs: 30_000,
+    }));
+    if (!payload.success) throw new CloudError('云端服务未返回更新后的会话令牌。');
+    const session = { ...saved, ...payload.data };
+    await saveSession(session);
+    return session;
+  })().finally(() => { refreshInFlight = null; });
+  return refreshInFlight;
+}
+
+export function currentSession() {
+  return refreshStoredSession();
 }
 
 export async function clearSession() {
@@ -213,17 +250,15 @@ const authDataSchema = z.object({
   role: z.enum(['admin', 'user']),
   membership: z.enum(['free', 'pro']),
   revenuecat_app_user_id: z.uuid(),
-  token: z.string().min(1),
-  expiresAt: z.iso.datetime({ offset: true }),
+  tokens: tokenSchema,
 }).loose();
 
 async function authenticate(path: string, body: unknown): Promise<CloudSession> {
   const data = authDataSchema.safeParse(await request(path, body, { timeoutMs: 30_000 }));
   if (!data.success) throw new CloudError('云端服务未返回会话令牌，请稍后重试。');
   const session = {
-    token: data.data.token,
+    ...data.data.tokens,
     username: data.data.username,
-    expiresAt: data.data.expiresAt,
   };
   await saveSession(session);
   return session;
@@ -249,7 +284,7 @@ export async function logout() {
   const session = await loadSession();
   if (session) {
     // Best effort: revoke server-side, but always drop the local token.
-    await request('/api/v1/auth/logout', {}, { token: session.token, timeoutMs: 15_000 }).catch(() => undefined);
+    await request('/api/v1/auth/logout', {}, { token: session.accessToken, timeoutMs: 15_000 }).catch(() => undefined);
   }
   await clearSession();
 }

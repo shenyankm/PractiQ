@@ -6,6 +6,8 @@ import { AppState, Text } from 'react-native';
 import type { AppStateStatus } from 'react-native';
 
 const mockLoadSession = jest.fn<any, any[]>(async () => null);
+const mockCurrentSession = jest.fn<any, any[]>(async () => null);
+const mockRefreshStoredSession = jest.fn<any, any[]>(async () => null);
 const mockLogin = jest.fn<any, any[]>();
 const mockLoginWithGoogle = jest.fn<any, any[]>();
 const mockLogout = jest.fn<any, any[]>();
@@ -26,6 +28,8 @@ const mockRestoreRevenueCatPurchases = jest.fn<any, any[]>(async () => ({ entitl
 
 jest.mock('./cloud', () => ({
   loadSession: (...args: unknown[]) => mockLoadSession(...args),
+  currentSession: (...args: unknown[]) => mockCurrentSession(...args),
+  refreshStoredSession: (...args: unknown[]) => mockRefreshStoredSession(...args),
   login: (...args: unknown[]) => mockLogin(...args),
   loginWithGoogle: (...args: unknown[]) => mockLoginWithGoogle(...args),
   logout: (...args: unknown[]) => mockLogout(...args),
@@ -74,6 +78,14 @@ const userData = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
+const session = (accessToken = 'tok', username = 'alice') => ({
+  accessToken,
+  refreshToken: 'refresh-token',
+  username,
+  expiresAt: '2030-01-01T00:00:00Z',
+  refreshExpiresAt: '2030-02-01T00:00:00Z',
+});
+
 // probeRef lets tests drive the provider context after render.
 const probeRef: { current: ReturnType<typeof useCloudAuth> | null } = { current: null };
 
@@ -111,10 +123,11 @@ beforeEach(() => {
     remove: jest.fn<any, any[]>(),
   }));
   mockLoadSession.mockResolvedValue(null);
-  mockLogin.mockResolvedValue({ token: 'tok', username: 'alice' });
-  mockLoginWithGoogle.mockResolvedValue({ token: 'tok', username: 'alice' });
+  mockCurrentSession.mockResolvedValue(null);
+  mockLogin.mockResolvedValue(session());
+  mockLoginWithGoogle.mockResolvedValue(session());
   mockLogout.mockReset();
-  mockRegister.mockResolvedValue({ token: 'tok', username: 'bob' });
+  mockRegister.mockResolvedValue(session('tok', 'bob'));
   mockApiRequest.mockImplementation(defaultApiRequest);
   mockFlushOutbox.mockReset();
   mockSetUnauthorizedHandler.mockReset();
@@ -133,12 +146,12 @@ describe('CloudAuthProvider', () => {
   it('starts signed out when no session is stored', async () => {
     const view = await renderProvider();
     await waitFor(() => expect(view.getByText('signed-out')).toBeTruthy());
-    expect(mockLoadSession).toHaveBeenCalled();
+    expect(mockCurrentSession).toHaveBeenCalled();
     expect(mockFlushOutbox).not.toHaveBeenCalled();
   });
 
   it('restores a valid session, refreshes the user and syncs on mount', async () => {
-    mockLoadSession.mockResolvedValue({ token: 'tok', username: 'alice' });
+    mockCurrentSession.mockResolvedValue(session());
     const view = await renderProvider();
     await waitFor(() => expect(view.getByText('session:alice')).toBeTruthy());
     expect(mockApiRequest).toHaveBeenCalledWith('/api/v1/auth/me', expect.objectContaining({ token: 'tok' }));
@@ -148,14 +161,14 @@ describe('CloudAuthProvider', () => {
   });
 
   it('clears an expired session on a 401', async () => {
-    mockLoadSession.mockResolvedValue({ token: 'old', username: 'alice' });
+    mockCurrentSession.mockResolvedValue(session('old'));
     mockApiRequest.mockRejectedValue(new (jest.requireMock('./practiq/api').ApiError)('expired', '', 401));
     const view = await renderProvider();
     await waitFor(() => expect(view.getByText('signed-out')).toBeTruthy());
   });
 
   it('keeps the session but drops the user when the fetch fails without a 401', async () => {
-    mockLoadSession.mockResolvedValue({ token: 'old', username: 'alice' });
+    mockCurrentSession.mockResolvedValue(session('old'));
     mockApiRequest.mockRejectedValue(new Error('network'));
     const view = await renderProvider();
     await waitFor(() => expect(view.getByText('session:no-user')).toBeTruthy());
@@ -294,7 +307,7 @@ describe('CloudAuthProvider', () => {
     mockLogin.mockRejectedValue(new Error('bad credentials'));
     await expect(ctx.signIn('alice', 'password')).rejects.toThrow('bad credentials');
 
-    mockLogin.mockResolvedValue({ token: 'tok', username: 'alice' });
+    mockLogin.mockResolvedValue(session());
     await act(async () => {
       await ctx.signIn('alice', 'password');
     });

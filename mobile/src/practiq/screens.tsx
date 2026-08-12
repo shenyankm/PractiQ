@@ -794,7 +794,7 @@ export function QuestionScreen() {
                   accessibilityLabel={tr('Question attachment', '题目附件')}
                   source={{
                     uri: `${CLOUD_API_URL}/api/v1/media/${link.media_id}/content`,
-                    headers: auth.session ? { Authorization: `Bearer ${auth.session.token}` } : undefined,
+                    headers: auth.session ? { Authorization: `Bearer ${auth.session.accessToken}` } : undefined,
                   }}
                   style={{ height: 240, width: '100%', resizeMode: 'contain' }}
                 />
@@ -821,7 +821,7 @@ export function QuestionScreen() {
                 accessibilityLabel={tr('Question attachment', '题目附件')}
                 source={{
                   uri: `${CLOUD_API_URL}/api/v1/media/${link.media_id}/content`,
-                  headers: auth.session ? { Authorization: `Bearer ${auth.session.token}` } : undefined,
+                  headers: auth.session ? { Authorization: `Bearer ${auth.session.accessToken}` } : undefined,
                 }}
                 style={{ height: 240, width: '100%', resizeMode: 'contain' }}
               />
