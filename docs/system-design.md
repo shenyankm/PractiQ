@@ -25,7 +25,7 @@ Current Redis responsibilities:
 
 - Cache-aside reads for user profiles, practice question queues, and analytics summaries.
 - Rate limit counters for authentication endpoints.
-- Session revocation records.
+- One-time Google OAuth transaction records (PKCE verifier and nonce).
 - Best-effort Redis Pub/Sub import notifications; clients read the durable `question_import_job_events` history by polling.
 - Cached leaderboard and analytics snapshot endpoints for higher-cost reporting views.
 - Successful responses for mobile mutations carrying `Idempotency-Key`, retained for 24 hours.
@@ -34,7 +34,7 @@ Current Redis responsibilities:
 Failure policy:
 
 - Cache misses or Redis cache errors fall back to PostgreSQL.
-- Session validation, session revocation on logout, and authentication rate limits require Redis. Those paths fail closed with `503` when Redis is unavailable.
+- Google OAuth transaction storage and authentication rate limits require Redis. Those paths fail closed with `503` when Redis is unavailable. Session validation and logout use PostgreSQL.
 - Requests carrying `Idempotency-Key` also fail closed with `503` when Redis is unavailable so a retry cannot create duplicate writes.
 - Import processing and client progress polling continue from PostgreSQL without Redis.
 - Redis deployments should enable persistence and avoid evicting active session-revocation keys.
@@ -94,13 +94,14 @@ Errors:
 
 ### Authentication
 
-Use cookie-based sessions for web UI and bearer tokens only for service-to-service or mobile clients. Mobile clients send the session JWT (returned as `token`/`expiresAt` in login and register responses alongside the cookie) as `Authorization: Bearer <token>`; the resolver prefers the cookie and falls back to the bearer header, and logout revokes whichever token was presented.
+Use short-lived access JWTs for browser cookies and mobile bearer requests. Login/register responses contain `tokens.accessToken`, `tokens.refreshToken`, `tokens.expiresAt`, and `tokens.refreshExpiresAt`; the mobile client stores them in Secure Store. Browser refresh tokens are HttpOnly cookies. PostgreSQL stores the device session plus only the SHA-256 hash of each refresh token; refresh tokens are single-use and rotated. Reuse revokes the whole device session. The resolver accepts the `session` cookie first and then the bearer header.
 
 | Method | Route | Auth | Description |
 | --- | --- | --- | --- |
 | `POST` | `/api/v1/auth/register` | Public | Validate local registration details, create `users` row, and hash password. |
 | `POST` | `/api/v1/auth/login` | Public | Verify username/email + password, set session cookie. |
-| `POST` | `/api/v1/auth/logout` | User | Persist Redis session revocation, then clear the session cookie. |
+| `POST` | `/api/v1/auth/refresh` | Public | Rotate a refresh token and return/set fresh access and refresh tokens. |
+| `POST` | `/api/v1/auth/logout` | User | Revoke the PostgreSQL device session and clear both cookies. |
 | `GET` | `/api/v1/auth/me` | User | Return current user profile and capability flags. |
 | `PATCH` | `/api/v1/users/me` | User | Update username/email/password. |
 
@@ -116,13 +117,13 @@ Register body:
 
 Registration requires a 3-20 character ASCII username containing only letters, numbers, and underscores; an email address of at most 254 characters; and an 8-72 byte password.
 
-`GET /api/v1/auth/me` returns `401 UNAUTHENTICATED` when no valid session exists. Profile updates accept explicit `email: null`; password changes require the current password.
+`GET /api/v1/auth/me` returns `401 UNAUTHENTICATED` when no valid access token and unrevoked device session exists. Profile updates accept explicit `email: null`; password changes require the current password and revoke all existing sessions.
 
 Authorization checks:
 
 - `is_active=false` blocks all mutating routes and practice start.
 - `membership=pro` is a RevenueCat projection and gates every cloud-AI route and import parse; roles do not bypass it.
-- There is no OAuth table; only local credentials are supported by this schema.
+- Google identities use the verified Google `sub` in `users.google_sub`; browser OAuth uses PKCE S256, nonce, and a one-time Redis transaction. A verified-email collision is never auto-linked and returns `ACCOUNT_LINK_REQUIRED`.
 
 ### Subjects and Question Types
 

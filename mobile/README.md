@@ -30,7 +30,13 @@ npm start
 - iOS Simulator 或 Web：`http://127.0.0.1:8080`
 - 真机：使用可从设备访问的 HTTPS API 地址
 
-真实购买需要 `npm run ios` / `npm run android` 生成的原生开发构建；Expo Go 只用于 RevenueCat Preview API 预览。
+真实购买和 Google 登录都需要 `npm run ios` / `npm run android` 生成的原生开发构建；Expo Go 只用于 RevenueCat Preview API 预览。Android Google 登录使用 Credential Manager，不打开浏览器 OAuth。
+
+Google 登录同时配置 `EXPO_PUBLIC_GOOGLE_CLIENT_ID`、`EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` 和 `EXPO_PUBLIC_GOOGLE_IOS_REVERSED_CLIENT_ID`；Google Cloud Console 中的 Android OAuth 客户端必须匹配应用包名 `com.shenyankm.practiq` 和签名证书 SHA-1。
+
+### Android Google 登录冒烟
+
+使用已配置 Google 账号的 AVD 或真机，执行 `npm run android`。在登录页点“使用 Google 登录”，确认 Credential Manager 显示账号选择器；选择账号后应进入首页。分别验证新 Google 账号创建和已绑定账号登录；本地账号同邮箱应显示 `ACCOUNT_LINK_REQUIRED`，不得自动绑定。
 
 | 命令 | 用途 |
 | --- | --- |
@@ -49,4 +55,4 @@ src/practiq/         REST 客户端、认证、缓存、同步队列和云端页
 assets/               PractiQ 品牌和应用商店资源
 ```
 
-旧 PractiQ 本地题库栈已移除；移动端只同步用户在 PractiQ 账户下创建或读取的数据。会话令牌仅保存在 Expo Secure Store，不写入 SQLite、备份或日志。
+旧 PractiQ 本地题库栈已移除；移动端只同步用户在 PractiQ 账户下创建或读取的数据。会话令牌仅保存在 Expo Secure Store，不写入 SQLite、备份或日志。access token 默认 10 分钟，refresh token 每次使用后轮换；客户端在到期前刷新。

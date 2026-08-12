@@ -89,11 +89,11 @@ Direct dependencies are kept on current stable releases in `mobile/package.json`
 ## API/runtime notes
 
 - Health endpoints: `/api/health`, `/api/health/ready`, `/api/health/live`
-- Session cookie name: `session`
+- Session cookies: short-lived `session` access token plus HttpOnly `refresh_token`; mobile receives the same values only through its login/refresh JSON responses and keeps them in Secure Store.
 - Registration requires a 6-digit email verification code from `POST /api/v1/auth/email-code` (stored in Redis for 10 minutes, single-use). Codes are emailed through SMTP; with `SMTP_HOST` unset the code is logged instead (local development only).
-- Google sign-in: `GET /api/v1/auth/google/start` + `GET /api/v1/auth/google/callback` (browser authorization-code flow) and `POST /api/v1/auth/google/token` (mobile ID-token exchange). All three return 404 until `GOOGLE_CLIENT_ID` is configured. Accounts match by Google subject, then link by verified email, then a new user is created without a password.
+- Google sign-in: `GET /api/v1/auth/google/start` + `GET /api/v1/auth/google/callback` use an authorization-code flow with PKCE, nonce, and a one-time Redis transaction; `POST /api/v1/auth/google/token` verifies a native mobile ID token cryptographically. All return 404 until `GOOGLE_CLIENT_ID` is configured. Accounts match Google subject only; a verified-email collision returns `409 ACCOUNT_LINK_REQUIRED` rather than linking accounts automatically.
 - `/api/health/ready` returns `503` until both PostgreSQL and Redis are configured and reachable; `/api/health` continues to return dependency status data.
-- Redis is required for active-session revocation checks, logout revocation writes, and login/register rate limits. Cache reads and writes remain best-effort.
+- PostgreSQL stores active sessions, hashed refresh tokens, and revocations. Redis is required for OAuth transaction state and login/register rate limits; cache reads and writes remain best-effort.
 - PostgreSQL is the durable import queue and event history; Web and mobile poll job/event endpoints for progress.
 - Mobile writes carry `Idempotency-Key`; Redis stores successful replays for 24 hours. Cached mobile reads remain available offline, and queued writes replay in order after reconnection.
 - Media uploads currently accept content-sniffed PNG, JPEG, GIF, and WebP files up to 10 MiB under `OBJECT_STORAGE_MOUNT_DIR`.
@@ -130,15 +130,15 @@ See `.env.example` for the full set. The most important groups are:
 - Database/cache: `POSTGRES_URL`, `REDIS_URL`
 - Host/origin: `PRACTIQ_HOST`, `PORT`, `APP_ORIGIN`
 - Mobile build-time API endpoint: `EXPO_PUBLIC_API_URL` in `mobile/.env`
-- Auth/session: required `AUTH_SECRET`, `SESSION_TTL_MS`, optional `SEED_ADMIN_PASSWORD` (password for the seeded `admin` user; defaults to the local dev value, set it on any shared environment)
+- Auth/session: required `AUTH_SECRET`, `ACCESS_TOKEN_TTL_MS`, `REFRESH_TOKEN_TTL_MS`, `SESSION_ABSOLUTE_TTL_MS`, optional `SEED_ADMIN_PASSWORD` (password for the seeded `admin` user; defaults to the local dev value, set it on any shared environment)
 - Registration email codes: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`
-- Google sign-in: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_MOBILE_CLIENT_IDS`; mobile builds also need `EXPO_PUBLIC_GOOGLE_CLIENT_ID` (plus optional Android/iOS client IDs) in `mobile/.env`. The OAuth redirect URI is `{APP_ORIGIN}/api/v1/auth/google/callback`.
+- Google sign-in: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_MOBILE_CLIENT_IDS`; mobile builds also need `EXPO_PUBLIC_GOOGLE_CLIENT_ID`, `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`, and `EXPO_PUBLIC_GOOGLE_IOS_REVERSED_CLIENT_ID` in `mobile/.env`. The OAuth redirect URI is `{APP_ORIGIN}/api/v1/auth/google/callback`.
 - RevenueCat server: required `REVENUECAT_PROJECT_ID`, v2 `REVENUECAT_SECRET_API_KEY`, internal `REVENUECAT_PRO_ENTITLEMENT_ID`, and exact `REVENUECAT_WEBHOOK_AUTHORIZATION` header value
 - RevenueCat mobile: `EXPO_PUBLIC_REVENUECAT_IOS_API_KEY`, `EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY`, and entitlement lookup key `EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID=pro`
 - AI: required `LLM_KEY_ENCRYPTION_SECRET`, plus `AI_AGENT_*`, `AI_MAX_OCR_PAGES`, and `AI_APPLY_MIN_CONFIDENCE`
 - Object storage: `OBJECT_STORAGE_MOUNT_DIR`, `OSS_PUBLIC_BASE_URL`, `OSS_URL_PREFIX`
 
-`AUTH_SECRET` is required in every environment and must be an unpredictable value. `SESSION_TTL_MS` controls both the signed session expiry and cookie expiry; it defaults to seven days when omitted. Session renewal is not implemented, so there is no renewal-window setting.
+`AUTH_SECRET` is required in every environment and must be an unpredictable value. Access JWTs default to 10 minutes; refresh tokens default to 30 days and rotate after each use; the device session has a 90-day absolute limit. Refresh tokens are stored only as SHA-256 hashes in PostgreSQL. `POST /api/v1/auth/refresh` accepts the mobile JSON refresh token or the HttpOnly refresh cookie. Changing a password revokes all of that user's sessions.
 
 In RevenueCat, create the `pro` entitlement, attach the store products to an offering/paywall, and use a v2 secret key with `customer_information:customers:read`. Configure the webhook URL as `{APP_ORIGIN}/api/v1/billing/revenuecat/webhook`, set its Authorization header to the exact server value, and choose **Keep with original App User ID** for restore behavior. The backend entitlement variable is RevenueCat's internal `entl…` resource ID, not the mobile lookup key. Keep `LLM_KEY_ENCRYPTION_SECRET` stable: changing it makes stored user keys unreadable.
 

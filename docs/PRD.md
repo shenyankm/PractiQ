@@ -138,7 +138,7 @@ PractiQ 是一个面向教师和教育机构的题库管理与智能练习平台
 | NFR2 缓存 | Redis cache-aside 用户资料、题目队列、分析摘要 |
 | NFR3 实时性 | 导入进度通过持久化事件轮询展示；Redis Pub/Sub 仅作内部可选通知 |
 | NFR4 可用性 | SQL + Redis 双依赖健康检查 `/api/health` |
-| NFR5 安全 | HMAC session 签名、bcrypt 密码、CSRF SameOrigin 保护、速率限制 |
+| NFR5 安全 | 短效 HMAC access JWT、轮换 refresh token、bcrypt 密码、PKCE/nonce Google OAuth、CSRF SameOrigin 保护、速率限制 |
 | NFR6 可扩展 | 导入 worker 独立进程，PostgreSQL `FOR UPDATE SKIP LOCKED` 任务竞争 |
 | NFR7 持久化 | PostgreSQL 为唯一权威存储；Redis 故障时普通读取降级至 SQL，幂等写入失败关闭 |
 | NFR8 国际化 | 前端保留 i18n 架构潜力，当前内容以中文为主 |
@@ -153,7 +153,7 @@ Unified server (Python FastAPI, psycopg, redis-py, AgentScope in-process)
         │              │
         ├── PostgreSQL ─┤ (schema: db/*/*.sql)
         │              │
-        ├── Redis ─────┤ (session, cache, rate-limit, idempotency)
+        ├── Redis ─────┤ (OAuth state, cache, rate-limit, idempotency)
         │
         └── AI (agentscope + DashScope, in-process)
                 ├── POST /api/v1/ai/parse-document
@@ -165,13 +165,13 @@ Unified server (Python FastAPI, psycopg, redis-py, AgentScope in-process)
 
 - **练习答题**: 提交 → 加载答案 key → 判分 → 写入 `user_question_answers` → 触发器更新 `user_question_stats` / `user_bank_stats` / session 计数器
 - **文档导入**: 上传 → 创建 job(queued) → 存储 artifact → worker 用 `FOR UPDATE SKIP LOCKED` 领取 → 调用 AI 解析 → 写入试题与组合题 → 客户端轮询持久化事件
-- **登录**: POST 凭证 → 验证密码 → 生成 HMAC session token（含 JTI）→ 设置 cookie → Redis 记录活跃
+- **登录**: POST 凭证 → 验证密码 → 创建 PostgreSQL device session 和 refresh-token hash → 返回 10 分钟 access JWT 与单次 refresh token
 
 ## 7. 数据模型要点
 
 | 领域 | 核心表 |
 |------|--------|
-| 用户 | `users`（role, membership, bcrypt hash） |
+| 用户 | `users`（role, membership, bcrypt hash）与 `auth_sessions`/`refresh_tokens`（设备会话、轮换 refresh hash） |
 | 分类 | `subjects`, `question_types`, `knowledge_points` |
 | 题库 | `question_banks`, `user_bank_links`, `bank_question_links`, `bank_group_links` |
 | 试题 | `questions`, `question_options`, `question_answer_keys`（版本化）, `question_groups`, `group_question_links` |
