@@ -1,15 +1,10 @@
-"""Import job service. Mirrors backend/internal/services/imports.go + imports_helpers.go."""
-
-from __future__ import annotations
 
 import base64
 import json
 from dataclasses import dataclass
-from typing import Any
-
 from psycopg_pool import AsyncConnectionPool
 
-from .. import envelope, redisx
+from .. import envelope
 from ..auth.runtime import User
 from . import helpers, users as users_svc
 from .pagination import Page, build_page, clamp_positive, parse_page_cursor
@@ -34,9 +29,9 @@ ALLOWED_STATUSES = {'queued', 'processing', 'completed', 'failed', 'cancelled'}
 
 
 def _decode_job(raw) -> dict:
-    if isinstance(raw, str):
-        return json.loads(raw)
-    return dict(raw)
+    job = json.loads(raw) if isinstance(raw, str) else dict(raw)
+    job.pop('error_payload', None)
+    return job
 
 
 def _decode_map(raw) -> dict:
@@ -53,19 +48,18 @@ def normalize_import_source_type(value: str) -> str:
     normalized = value.strip().lower() or 'txt'
     if normalized in ('text', 'txt'):
         return 'txt'
-    if normalized in ('docx', 'pdf', 'xlsx'):
+    if normalized in ('csv', 'docx', 'image', 'md', 'pdf', 'xlsx'):
         return normalized
     raise envelope.new_error(
-        400, 'UNSUPPORTED_SOURCE_TYPE', 'Only txt, docx, pdf, and xlsx imports are supported'
+        400, 'UNSUPPORTED_SOURCE_TYPE', 'Only txt, md, csv, docx, pdf, xlsx, and image imports are supported'
     )
 
 
 def _source_type_from_name(value: str) -> str:
-    lower = value.lower()
-    for kind in ('docx', 'pdf', 'xlsx', 'txt'):
-        if lower.endswith('.' + kind):
-            return kind
-    return ''
+    extension = value.lower().rsplit('.', 1)[-1] if '.' in value else ''
+    if extension in {'png', 'jpg', 'jpeg', 'gif', 'webp'}:
+        return 'image'
+    return extension if extension in {'csv', 'docx', 'md', 'pdf', 'txt', 'xlsx'} else ''
 
 
 def _extract_source_type_from_artifact(storage_path: str, content: dict) -> str:
@@ -97,12 +91,19 @@ def decode_bounded_import_base64(raw: str, max_bytes: int) -> bytes:
 DOCX_MIME_TYPE = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 PDF_MIME_TYPE = 'application/pdf'
 XLSX_MIME_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+IMAGE_EXTENSION_MIME_TYPES = {
+    '.gif': 'image/gif', '.jpeg': 'image/jpeg', '.jpg': 'image/jpeg',
+    '.png': 'image/png', '.webp': 'image/webp',
+}
 
 SOURCE_EXTENSION_MIME_TYPES = {
-    '.txt': 'text/plain',
+    '.csv': 'text/csv',
     '.docx': DOCX_MIME_TYPE,
+    '.md': 'text/markdown',
     '.pdf': PDF_MIME_TYPE,
+    '.txt': 'text/plain',
     '.xlsx': XLSX_MIME_TYPE,
+    **IMAGE_EXTENSION_MIME_TYPES,
 }
 
 
@@ -112,19 +113,24 @@ def validate_import_source_payload(extension: str, content_type: str, payload: b
         expected_mime = SOURCE_EXTENSION_MIME_TYPES.get(extension)
         if expected_mime is not None and mime != expected_mime:
             raise envelope.new_error(400, 'UNSUPPORTED_FILE_TYPE', f'Unsupported file type: {original_name}')
-    if extension == '.txt':
+    if extension in {'.csv', '.md', '.txt'}:
         try:
             text = payload.decode('utf-8')
         except UnicodeDecodeError as exc:
-            raise envelope.new_error(400, 'INVALID_FILE_CONTENT', 'TXT files must use UTF-8 encoding') from exc
+            raise envelope.new_error(400, 'INVALID_FILE_CONTENT', f'{extension[1:].upper()} files must use UTF-8 encoding') from exc
         if b'\x00' in payload:
-            raise envelope.new_error(400, 'UNSUPPORTED_FILE_TYPE', 'TXT files must be plain text')
+            raise envelope.new_error(400, 'UNSUPPORTED_FILE_TYPE', f'{extension[1:].upper()} files must be plain text')
         if not text.removeprefix('﻿').strip():
-            raise envelope.new_error(400, 'EMPTY_FILE', 'TXT files must contain non-whitespace text')
+            raise envelope.new_error(400, 'EMPTY_FILE', f'{extension[1:].upper()} files must contain non-whitespace text')
         return
     if extension == '.pdf':
         if len(payload) < 5 or payload[:5] != b'%PDF-':
             raise envelope.new_error(400, 'UNSUPPORTED_FILE_TYPE', 'PDF files must be valid PDF documents')
+        return
+    if extension in IMAGE_EXTENSION_MIME_TYPES:
+        detected = _detect_image_mime_type(payload)
+        if detected != IMAGE_EXTENSION_MIME_TYPES[extension]:
+            raise envelope.new_error(400, 'UNSUPPORTED_FILE_TYPE', 'Image content does not match its file type')
         return
     if len(payload) < 2 or payload[:2] != b'PK':
         label = extension.lstrip('.').upper() or 'DOCX'
@@ -133,18 +139,37 @@ def validate_import_source_payload(extension: str, content_type: str, payload: b
         )
 
 
+def _detect_image_mime_type(payload: bytes) -> str:
+    if payload.startswith(b'\x89PNG\r\n\x1a\n'):
+        return 'image/png'
+    if payload.startswith(b'\xff\xd8\xff'):
+        return 'image/jpeg'
+    if payload[:6] in (b'GIF87a', b'GIF89a'):
+        return 'image/gif'
+    if len(payload) >= 12 and payload[:4] == b'RIFF' and payload[8:12] == b'WEBP':
+        return 'image/webp'
+    return ''
+
+
 def _validate_import_artifact_content(source_type: str, content: dict) -> None:
-    if source_type in ('docx', 'pdf', 'xlsx'):
+    if source_type in ('docx', 'image', 'pdf', 'xlsx'):
         raw = content.get('fileBase64')
         if not isinstance(raw, str) or not raw.strip():
             raise envelope.new_error(400, 'FILE_REQUIRED', f'{source_type.upper()} artifacts require fileBase64')
         payload = decode_bounded_import_base64(raw, IMPORT_SOURCE_MAX_BYTES)
-        mime = content.get('mimeType') if isinstance(content.get('mimeType'), str) else ''
-        fallback_name = f'source.{source_type}'
-        name = content.get('originalName') if isinstance(content.get('originalName'), str) else fallback_name
-        validate_import_source_payload(f'.{source_type}', mime, payload, name.strip() or fallback_name)
+        raw_mime = content.get('mimeType')
+        mime = raw_mime if isinstance(raw_mime, str) else ''
+        raw_name = content.get('originalName')
+        name = raw_name.strip() if isinstance(raw_name, str) else ''
+        if source_type == 'image':
+            detected = _detect_image_mime_type(payload)
+            extension = next((ext for ext, value in IMAGE_EXTENSION_MIME_TYPES.items() if value == detected), '.image')
+        else:
+            extension = f'.{source_type}'
+        validate_import_source_payload(extension, mime, payload, name or f'source{extension}')
         return
 
+    extension = f'.{source_type}' if source_type in ('csv', 'md', 'txt') else '.txt'
     total_bytes = 0
     found = False
     if 'text' in content:
@@ -153,7 +178,7 @@ def _validate_import_artifact_content(source_type: str, content: dict) -> None:
             raise envelope.new_error(400, 'INVALID_FILE_CONTENT', 'text must be a string')
         if len(text.encode()) > IMPORT_SOURCE_MAX_BYTES:
             raise envelope.new_error(413, 'FILE_TOO_LARGE', 'Import content exceeds the 25 MiB limit')
-        validate_import_source_payload('.txt', 'text/plain', text.encode(), 'source.txt')
+        validate_import_source_payload(extension, SOURCE_EXTENSION_MIME_TYPES.get(extension, 'text/plain'), text.encode(), f'source{extension}')
         total_bytes += len(text.encode())
         found = True
     if 'fileBase64' in content:
@@ -161,11 +186,11 @@ def _validate_import_artifact_content(source_type: str, content: dict) -> None:
         if not isinstance(raw, str):
             raise envelope.new_error(400, 'INVALID_FILE_CONTENT', 'fileBase64 must be a string')
         payload = decode_bounded_import_base64(raw, IMPORT_SOURCE_MAX_BYTES)
-        validate_import_source_payload('.txt', 'text/plain', payload, 'source.txt')
+        validate_import_source_payload(extension, SOURCE_EXTENSION_MIME_TYPES.get(extension, 'text/plain'), payload, f'source{extension}')
         total_bytes += len(payload)
         found = True
     if not found:
-        raise envelope.new_error(400, 'FILE_REQUIRED', 'TXT artifacts require text or fileBase64')
+        raise envelope.new_error(400, 'FILE_REQUIRED', f'{source_type.upper()} artifacts require text or fileBase64')
     if total_bytes > IMPORT_SOURCE_MAX_BYTES:
         raise envelope.new_error(413, 'FILE_TOO_LARGE', 'Import content exceeds the 25 MiB limit')
 
@@ -350,6 +375,12 @@ def _ensure_import_job_queue_action_allowed(job: dict, action: str) -> None:
         raise envelope.new_error(
             409, 'IMPORT_CANCEL_NOT_ALLOWED', 'Only queued or processing import jobs can be cancelled'
         )
+    if action == 'cancel' and job.get('stage') == 'persisting':
+        raise envelope.new_error(
+            409,
+            'IMPORT_CANCEL_NOT_ALLOWED',
+            'Import jobs cannot be cancelled after persistence starts',
+        )
     if action == 'retry' and job['status'] != 'failed':
         raise envelope.new_error(409, 'IMPORT_RETRY_NOT_ALLOWED', 'Only failed import jobs can be retried')
 
@@ -402,6 +433,7 @@ async def _apply_import_queue_transition(
                     WHERE id = %s
                       AND status = %s
                       AND (NOT %s::boolean OR available_at IS NULL)
+                      AND (NOT %s::boolean OR stage <> 'persisting')
                     RETURNING *
                 )
                 SELECT row_to_json(updated)::text FROM updated
@@ -412,6 +444,7 @@ async def _apply_import_queue_transition(
                     transition.persist_questions, transition.reset_attempts,
                     transition.available, transition.available, transition.available,
                     transition.completed, job['id'], job['status'], transition.available,
+                    transition.status == 'cancelled',
                 ),
             )
             row = await cursor.fetchone()
@@ -430,6 +463,12 @@ async def _apply_import_queue_transition(
                     transition.event_status, transition.message, updated.get('overall_progress_percent'),
                 ),
             )
+            if transition.status in ('queued', 'cancelled'):
+                thread_id = f'import:{job["id"]}'
+                for table in ('checkpoint_writes', 'checkpoint_blobs', 'checkpoints'):
+                    await conn.execute(
+                        f'DELETE FROM {table} WHERE thread_id = %s', (thread_id,)
+                    )
             return updated
 
 
@@ -482,7 +521,11 @@ async def record_import_job_failure(
     message = '导入失败，请稍后重试或联系管理员。'
     error_code = error_code.strip() or IMPORT_WORKER_FAILED_CODE
     internal_payload = _marshal_json_string(
-        {'last_internal_error': str(import_err) if import_err else ''}
+        {
+            'last_internal_error_type': (
+                type(import_err).__name__ if import_err else ''
+            )
+        }
     )
     async with pool.connection() as conn:
         async with conn.transaction():
@@ -551,3 +594,34 @@ async def list_import_job_children(
     async with pool.connection() as conn:
         cursor = await conn.execute(query, (job_id,))
         return [_decode_map(row[0]) for row in await cursor.fetchall()]
+
+
+async def list_import_job_events_after(
+    pool: AsyncConnectionPool, job_id: int, after_id: int
+) -> list[dict]:
+    async with pool.connection() as conn:
+        cursor = await conn.execute(
+            """
+            SELECT row_to_json(item)::text
+            FROM (
+                SELECT *
+                FROM question_import_job_events
+                WHERE job_id = %s AND id > %s
+                ORDER BY id
+                LIMIT 100
+            ) item
+            """,
+            (job_id, after_id),
+        )
+        return [_decode_map(row[0]) for row in await cursor.fetchall()]
+
+
+async def import_job_event_exists(
+    pool: AsyncConnectionPool, job_id: int, event_id: int
+) -> bool:
+    async with pool.connection() as conn:
+        cursor = await conn.execute(
+            'SELECT 1 FROM question_import_job_events WHERE job_id = %s AND id = %s',
+            (job_id, event_id),
+        )
+        return await cursor.fetchone() is not None

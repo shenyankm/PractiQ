@@ -3,14 +3,12 @@
 Session auth + PRO entitlement replace the old AI_SERVICE_TOKEN bearer check.
 """
 
-from __future__ import annotations
-
 from typing import Any
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from server import envelope
+from server import envelope, middleware
 from server.app import create_app
 from server.auth.runtime import User
 from server.routes import ai as ai_routes
@@ -82,18 +80,22 @@ async def test_ai_routes_map_provider_failure(client: AsyncClient, path: str, pa
 
 
 @pytest.mark.parametrize(
-    ('path', 'payload'),
+    ('path', 'payload', 'status'),
     (
-        ('/api/v1/ai/generate-answer', {'stem': 'x'}),  # 缺 answerMode
-        ('/api/v1/ai/generate-answer', {'stem': 'x', 'answerMode': 'choice', 'extra': 1}),
-        ('/api/v1/ai/learning-report', {'scope': 'galaxy'}),
-        ('/api/v1/ai/learning-report', {'userId': 7, 'extra': 1}),
+        ('/api/v1/ai/generate-answer', {'stem': 'x'}, 422),  # 缺 answerMode
+        ('/api/v1/ai/generate-answer', {'stem': 'x', 'answerMode': 'choice', 'extra': 1}, 400),
+        ('/api/v1/ai/learning-report', {'scope': 'galaxy'}, 422),
+        ('/api/v1/ai/learning-report', {'userId': 7, 'extra': 1}, 400),
     ),
 )
-async def test_ai_routes_reject_invalid_payloads(client: AsyncClient, path: str, payload: dict):
+async def test_ai_routes_reject_invalid_payloads(
+    client: AsyncClient, path: str, payload: dict, status: int
+):
     response = await client.post(path, json=payload)
-    assert response.status_code == 422
-    assert response.json()['error']['code'] == 'VALIDATION_ERROR'
+    assert response.status_code == status
+    assert response.json()['error']['code'] == (
+        'INVALID_JSON' if status == 400 else 'VALIDATION_ERROR'
+    )
 
 
 async def test_parse_document_requires_text_or_file(client: AsyncClient):
@@ -127,7 +129,7 @@ async def test_ai_routes_require_authentication(app):
 async def test_parse_route_rejects_oversized_body(client: AsyncClient):
     response = await client.post(
         '/api/v1/ai/parse-document',
-        content=b'x' * (ai_routes.MAX_AI_JSON_BODY_BYTES + 1),
+        content=b'x' * (middleware.AI_JSON_BODY_BYTES + 1),
         headers={'Content-Type': 'application/json'},
     )
     assert response.status_code == 413

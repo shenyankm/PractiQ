@@ -66,6 +66,7 @@ const mockUseCachedResource = jest.fn<any, any[]>();
 const mockUseCloudAuth = jest.fn<any, any[]>();
 const mockApiRequest = jest.fn<any, any[]>();
 const mockMutateOrQueue = jest.fn<any, any[]>();
+const mockStreamImportJobEvents = jest.fn<any, any[]>();
 const mockUploadImport = jest.fn<any, any[]>();
 const mockCreateMutationKey = jest.fn<any, any[]>(() => 'mutation-key');
 const mockEnqueueMutation = jest.fn<any, any[]>();
@@ -110,6 +111,7 @@ jest.mock('./practiq/api', () => ({
   },
   apiRequest: (...args: unknown[]) => mockApiRequest(...args),
   mutateOrQueue: (...args: unknown[]) => mockMutateOrQueue(...args),
+  streamImportJobEvents: (...args: unknown[]) => mockStreamImportJobEvents(...args),
   uploadImport: (...args: unknown[]) => mockUploadImport(...args),
 }));
 jest.mock('./practiq/cache', () => ({
@@ -238,6 +240,8 @@ beforeEach(() => {
   mockApiRequest.mockReset();
   mockApiRequest.mockResolvedValue({ provider: '', textModel: '', visionModel: null, configured: false });
   mockMutateOrQueue.mockReset();
+  mockStreamImportJobEvents.mockReset();
+  mockStreamImportJobEvents.mockResolvedValue(undefined);
   mockUploadImport.mockReset();
   mockCreateMutationKey.mockReturnValue('mutation-key');
   mockEnqueueMutation.mockReset();
@@ -447,6 +451,31 @@ describe('AISettingsScreen', () => {
     });
     expect(mockApiRequest).toHaveBeenCalledWith('/api/v1/users/me/llm-config', { method: 'DELETE' });
     expect(view.getByText('LLM 配置已删除。')).toBeTruthy();
+  });
+
+  it('only offers supported providers and clears vision for DeepSeek', async () => {
+    mockUseCloudAuth.mockReturnValue(defaultAuth({ hasPro: true }));
+    mockApiRequest.mockResolvedValue({ provider: 'dashscope', textModel: 'qwen', visionModel: 'qwen-vl', configured: true });
+    const view = await render(<AISettingsScreen />);
+    await waitFor(() => expect(view.getByText('deepseek')).toBeTruthy());
+    expect(view.queryByText('openai')).toBeNull();
+    expect(view.queryByText('anthropic')).toBeNull();
+    await act(async () => {
+      await fireEvent.press(view.getByText('deepseek'));
+    });
+    expect(view.getByText('DeepSeek does not support vision models. / DeepSeek 不支持视觉模型。')).toBeTruthy();
+    const inputs = view.container.queryAll((node: any) => node.type === 'TextInput');
+    expect(inputs[2].props.value).toBe('');
+    await act(async () => {
+      await fireEvent.changeText(inputs[0], 'sk-test');
+    });
+    await act(async () => {
+      await fireEvent.press(view.getByText('保存配置'));
+    });
+    expect(mockApiRequest).toHaveBeenLastCalledWith('/api/v1/users/me/llm-config', expect.objectContaining({
+      method: 'PUT',
+      body: expect.objectContaining({ provider: 'deepseek', visionModel: null }),
+    }));
   });
 });
 

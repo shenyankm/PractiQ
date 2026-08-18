@@ -1,9 +1,4 @@
-"""Import source file upload + object storage paths.
-
-Mirrors backend/internal/services/imports_upload.go.
-"""
-
-from __future__ import annotations
+"""Import source file upload + object storage paths."""
 
 import base64
 import os
@@ -17,7 +12,7 @@ from psycopg_pool import AsyncConnectionPool
 
 from .. import envelope
 from ..auth.runtime import User
-from . import helpers, users as users_svc
+from . import users as users_svc
 from .imports import (
     DOCX_MIME_TYPE,
     IMPORT_SOURCE_MAX_BYTES,
@@ -125,6 +120,12 @@ def _infer_uploaded_source_type(file: UploadedImportFile) -> str:
         return 'pdf'
     if content_type == XLSX_MIME_TYPE:
         return 'xlsx'
+    if content_type == 'text/csv':
+        return 'csv'
+    if content_type in ('text/markdown', 'text/x-markdown'):
+        return 'md'
+    if content_type in SOURCE_EXTENSION_MIME_TYPES.values() and content_type.startswith('image/'):
+        return 'image'
     if content_type == 'text/plain':
         return 'txt'
     return ''
@@ -132,7 +133,7 @@ def _infer_uploaded_source_type(file: UploadedImportFile) -> str:
 
 def _resolve_import_file_extension(name: str, content_type: str) -> str:
     extension = Path(name.strip()).suffix.lower()
-    if extension in ('.txt', '.docx', '.pdf', '.xlsx'):
+    if extension in SOURCE_EXTENSION_MIME_TYPES:
         return extension
     content_type = content_type.strip().lower()
     if content_type == DOCX_MIME_TYPE:
@@ -141,6 +142,12 @@ def _resolve_import_file_extension(name: str, content_type: str) -> str:
         return '.pdf'
     if content_type == XLSX_MIME_TYPE:
         return '.xlsx'
+    if content_type == 'text/csv':
+        return '.csv'
+    if content_type in ('text/markdown', 'text/x-markdown'):
+        return '.md'
+    if content_type in SOURCE_EXTENSION_MIME_TYPES.values() and content_type.startswith('image/'):
+        return next(extension for extension, mime in SOURCE_EXTENSION_MIME_TYPES.items() if mime == content_type)
     if content_type == 'text/plain':
         return '.txt'
     raise envelope.new_error(400, 'UNSUPPORTED_FILE_TYPE', f'Unsupported file type: {name.strip()}')
@@ -191,9 +198,9 @@ def _build_import_source_artifact_content(stored: _StoredImportSource, source_ty
         'sizeBytes': stored.size_bytes,
         'sourceType': source_type,
     }
-    if source_type in ('txt', 'text'):
+    if source_type in ('csv', 'md', 'txt', 'text'):
         content['text'] = payload.decode('utf-8').removeprefix('﻿')
-    elif source_type in ('docx', 'pdf', 'xlsx'):
+    elif source_type in ('docx', 'image', 'pdf', 'xlsx'):
         content['fileBase64'] = base64.b64encode(payload).decode()
     return content
 

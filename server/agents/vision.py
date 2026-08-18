@@ -1,11 +1,9 @@
-from __future__ import annotations
-
 import base64
 from io import BytesIO
 from typing import Literal
 
-from agentscope.message import Base64Source, DataBlock, Msg, TextBlock, UserMsg
-from agentscope.model import ChatModelBase
+from langchain_core.language_models.chat_models import BaseChatModel
+from langchain_core.messages import HumanMessage
 from pydantic import BaseModel, Field
 
 from ..ai_schemas import VisualElement
@@ -44,80 +42,88 @@ class ImageDescription(BaseModel):
     extractedText: str | None = None
 
 
+async def ocr_page(
+    vl_model: BaseChatModel, image: bytes, page_index: int
+) -> tuple[str, list[VisualElement]]:
+    page = await vl_model.with_structured_output(
+        PageOcrResult, method='function_calling'
+    ).ainvoke([_image_message(OCR_PROMPT, image, 'image/png')])
+    return page.text.strip(), [
+        VisualElement(
+            kind=figure.kind,
+            label=figure.label,
+            description=figure.description,
+            page=page_index,
+            bbox=_clamped_bbox(figure.bbox),
+            imageBase64=_crop_figure(image, figure.bbox),
+        )
+        for figure in page.figures
+    ]
+
+
+async def describe_image(vl_model: BaseChatModel, image: bytes) -> VisualElement:
+    described = await vl_model.with_structured_output(
+        ImageDescription, method='function_calling'
+    ).ainvoke([_image_message(DESCRIBE_PROMPT, image, _media_type(image))])
+    return VisualElement(
+        kind='image',
+        description=described.description,
+        extractedText=described.extractedText,
+    )
+
+
 async def ocr_pages(
-    vl_model: ChatModelBase,
+    vl_model: BaseChatModel,
     page_images: list[bytes],
 ) -> tuple[str, list[VisualElement], list[str]]:
-    texts: list[str] = []
-    visual_elements: list[VisualElement] = []
-    warnings: list[str] = []
-    crop_count = 0
-
-    for page_index, image in enumerate(page_images):
-        response = await vl_model.generate_structured_output(
-            messages=[_image_message(OCR_PROMPT, image, 'image/png')],
-            structured_model=PageOcrResult,
-        )
-        page = PageOcrResult.model_validate(response.content)
-        if page.text.strip():
-            texts.append(page.text.strip())
-        for figure in page.figures:
-            crop = None
-            if crop_count < MAX_CROPS:
-                crop = _crop_figure(image, figure.bbox)
-                crop_count += 1
-            elif crop_count == MAX_CROPS:
-                warnings.append(
-                    f'Figure crop limit of {MAX_CROPS} reached; remaining '
-                    'figures include descriptions only.'
-                )
-                crop_count += 1
-            visual_elements.append(
-                VisualElement(
-                    kind=figure.kind,
-                    label=figure.label,
-                    description=figure.description,
-                    page=page_index,
-                    bbox=_clamped_bbox(figure.bbox),
-                    imageBase64=crop,
-                )
-            )
-    return '\n\n'.join(texts), visual_elements, warnings
+    results = [
+        await ocr_page(vl_model, image, index)
+        for index, image in enumerate(page_images)
+    ]
+    texts = [text for text, _ in results if text]
+    visuals = [item for _, items in results for item in items]
+    warnings = _limit_crops(visuals)
+    return '\n\n'.join(texts), visuals, warnings
 
 
 async def describe_images(
-    vl_model: ChatModelBase,
+    vl_model: BaseChatModel,
     images: list[bytes],
 ) -> list[VisualElement]:
-    visual_elements: list[VisualElement] = []
-    for image in images:
-        response = await vl_model.generate_structured_output(
-            messages=[_image_message(DESCRIBE_PROMPT, image, _media_type(image))],
-            structured_model=ImageDescription,
-        )
-        described = ImageDescription.model_validate(response.content)
-        visual_elements.append(
-            VisualElement(
-                kind='image',
-                description=described.description,
-                extractedText=described.extractedText,
-            )
-        )
-    return visual_elements
+    return [await describe_image(vl_model, image) for image in images]
 
 
-def _image_message(prompt: str, image: bytes, media_type: str) -> Msg:
-    return UserMsg(
-        name='user',
+def _limit_crops(visuals: list[VisualElement]) -> list[str]:
+    figures = 0
+    limited = False
+    for index, item in enumerate(visuals):
+        if item.bbox is None:
+            continue
+        figures += 1
+        if figures > MAX_CROPS:
+            visuals[index] = item.model_copy(update={'imageBase64': None})
+            limited = True
+    return (
+        [
+            f'Figure crop limit of {MAX_CROPS} reached; remaining figures '
+            'include descriptions only.'
+        ]
+        if limited
+        else []
+    )
+
+
+def _image_message(prompt: str, image: bytes, media_type: str) -> HumanMessage:
+    return HumanMessage(
         content=[
-            TextBlock(type='text', text=prompt),
-            DataBlock(
-                source=Base64Source(
-                    data=base64.b64encode(image).decode(),
-                    media_type=media_type,
-                )
-            ),
-        ],
+            {'type': 'text', 'text': prompt},
+            {
+                'type': 'image_url',
+                'image_url': {
+                    'url': f'data:{media_type};base64,{base64.b64encode(image).decode()}'
+                },
+            },
+        ]
     )
 
 
@@ -150,7 +156,6 @@ def _crop_figure(page_image: bytes, bbox: list[float]) -> str | None:
                 int(y1 * image.height),
             )
         )
-    # 逐步降尺寸直到 ≤200KB，保证响应体有界
     while True:
         buffer = BytesIO()
         cropped.save(buffer, format='JPEG', quality=80)

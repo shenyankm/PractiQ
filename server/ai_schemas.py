@@ -1,12 +1,10 @@
-from __future__ import annotations
-
 from typing import Any, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 AnswerMode = Literal['choice', 'true_false', 'fill_blank', 'short_answer']
-DocumentSourceType = Literal['docx', 'txt', 'text', 'pdf', 'xlsx']
+DocumentSourceType = Literal['csv', 'docx', 'image', 'md', 'txt', 'text', 'pdf', 'xlsx']
 ContentPartType = Literal['text', 'formula', 'image', 'table', 'list', 'html', 'markdown', 'chart', 'diagram', 'qr_code']
 VisualKind = Literal['image', 'table', 'chart', 'diagram', 'qr_code']
 RiskLevel = Literal['low', 'medium', 'high']
@@ -137,19 +135,22 @@ def _non_blank(value: str) -> str:
 
 
 class AnswerGenerationRequest(StrictModel):
-    # 字段镜像 backend/internal/aiclient/types.go 的 AnswerGenerationRequest
-    questionId: int | None = None
+    questionId: int | None = Field(default=None, gt=0)
     stem: str = Field(min_length=1, max_length=120_000)
     answerMode: AnswerMode
     options: list[ParsedOption] = Field(default_factory=list, max_length=100)
     analysis: str | None = Field(default=None, max_length=100_000)
 
+    @field_validator('stem')
+    @classmethod
+    def reject_blank_stem(cls, value: str) -> str:
+        return _non_blank(value)
+
 
 class LearningReportRequest(StrictModel):
-    # 字段镜像 backend/internal/aiclient/types.go 的 LearningReportRequest
-    userId: int | None = None
-    bankId: int | None = None
-    practiceSessionId: int | None = None
+    userId: int | None = Field(default=None, gt=0)
+    bankId: int | None = Field(default=None, gt=0)
+    practiceSessionId: int | None = Field(default=None, gt=0)
     scope: ReportScope = 'individual'
     stats: dict[str, Any] | None = None
 

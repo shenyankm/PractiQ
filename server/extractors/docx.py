@@ -1,11 +1,9 @@
-from __future__ import annotations
-
 import html
 import re
 from io import BytesIO
 from zipfile import BadZipFile, ZipFile
 
-from . import DocumentProcessingError, ExtractedDocument
+from . import DocumentProcessingError, ExtractedDocument, enforce_vision_bytes, get_vision_max_bytes
 
 TEXT_NODE_PATTERN = re.compile(r"<[^>]*:t[^>]*>(.*?)</[^>]*:t>")
 XML_TAG_PATTERN = re.compile(r"<[^>]+>")
@@ -53,6 +51,8 @@ def _validate_docx_archive(file_bytes: bytes) -> None:
 
 def _extract_embedded_images(file_bytes: bytes, warnings: list[str]) -> list[bytes]:
     images: list[bytes] = []
+    total_bytes = 0
+    max_bytes = get_vision_max_bytes()
     with ZipFile(BytesIO(file_bytes)) as archive:
         media_names = [
             name
@@ -60,7 +60,11 @@ def _extract_embedded_images(file_bytes: bytes, warnings: list[str]) -> list[byt
             if name.startswith('word/media/') and name.lower().endswith(IMAGE_SUFFIXES)
         ]
         for name in media_names[:MAX_EMBEDDED_IMAGES]:
-            images.append(archive.read(name))
+            with archive.open(name) as image_file:
+                image = image_file.read(max_bytes - total_bytes + 1)
+            total_bytes += len(image)
+            enforce_vision_bytes(total_bytes)
+            images.append(image)
         if len(media_names) > MAX_EMBEDDED_IMAGES:
             warnings.append(
                 f'docx contains {len(media_names)} images; only the first '

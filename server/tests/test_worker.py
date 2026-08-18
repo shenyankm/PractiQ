@@ -1,9 +1,8 @@
 """Import worker tests with fake pools and patched agents (no database required)."""
 
-from __future__ import annotations
-
 import asyncio
 import json
+from types import SimpleNamespace
 
 import pytest
 
@@ -92,15 +91,45 @@ async def test_build_parse_request_skips_bad_content():
 async def test_record_import_event():
     pool = FakePool([
         ('INSERT INTO question_import_job_events', FakeCursor([(42,)])),
-        ('UPDATE question_import_jobs SET last_event_id', FakeCursor()),
+        ('UPDATE question_import_jobs', FakeCursor(rowcount=1)),
     ])
-    await worker._record_import_event(pool, 99, 'processing', 'parse', '处理中', 'processing', None, 10, 10)
+    await worker._record_import_event(
+        pool, 99, 'processing', 'parse', '处理中', 'processing', None,
+        110, -1, 7,
+    )
     assert len(pool.record) == 2
+    assert "'{}'" in pool.record[0][0]
+    assert pool.record[1][1][1:3] == (100, 0)
+    assert pool.record[1][1][-2:] == (7, 7)
+
+
+async def test_record_import_event_fences_lost_claim():
+    pool = FakePool([
+        ('INSERT INTO question_import_job_events', FakeCursor([(42,)])),
+        ('UPDATE question_import_jobs', FakeCursor(rowcount=0)),
+    ])
+    with pytest.raises(imports_queue.ClaimLostError):
+        await worker._record_import_event(
+            pool, 99, 'processing', 'chunk', '解析分片', 'processing',
+            None, 50, 50, 8,
+        )
+
+
+async def test_heartbeat_fences_lost_claim():
+    pool = FakePool([('SET updated_at = NOW()', FakeCursor(rowcount=0))])
+    with pytest.raises(imports_queue.ClaimLostError):
+        await imports_queue.heartbeat_job(pool, 99, 7)
+    assert "status = 'processing'" in pool.record[0][0]
+    assert pool.record[0][1] == (99, 7)
 
 
 async def test_complete_import_job_and_claim_lost():
     result = _parse_result()
-    pool = FakePool([("SET status = 'completed'", FakeCursor(rowcount=1))])
+    pool = FakePool([
+        ("SET status = 'completed'", FakeCursor(rowcount=1)),
+        ('INSERT INTO question_import_job_events', FakeCursor([(42,)])),
+        ('SET last_event_id', FakeCursor(rowcount=1)),
+    ])
     await worker._complete_import_job(pool, 99, 1, 1, result)
     pool2 = FakePool([("SET status = 'completed'", FakeCursor(rowcount=0))])
     with pytest.raises(imports_queue.ClaimLostError):
@@ -167,7 +196,9 @@ async def test_process_queued_job_missing_or_inactive_user(monkeypatch):
         await worker.process_queued_job(FakePool(), _claimed(), 'secret')
 
 
-async def _patch_full_flow(monkeypatch, persist: bool = True) -> dict:
+async def _patch_full_flow(
+    monkeypatch, persist: bool = True
+) -> tuple[dict, imports_queue.ClaimedJob]:
     """Patch every worker dependency; returns recorded calls."""
     job = {'id': 99, 'created_by': 1, 'bank_id': 1, 'file_name': 'a.txt', 'source_type': 'txt', 'status': 'processing'}
     monkeypatch.setattr(worker, '_load_import_job', _async(job))
@@ -202,6 +233,147 @@ def _async(value, sink=None, called=None):
     return _fn
 
 
+class _Graph:
+    def __init__(self, snapshots, updates=()):
+        self.snapshots = list(snapshots)
+        self.updates = list(updates)
+        self.inputs = []
+        self.kwargs = []
+
+    async def aget_state(self, _config):
+        return SimpleNamespace(values=self.snapshots.pop(0))
+
+    async def astream(self, graph_input, _config, **kwargs):
+        self.inputs.append(graph_input)
+        self.kwargs.append(kwargs)
+        for update in self.updates:
+            yield update
+
+
+class _Saver:
+    def __init__(self):
+        self.deleted = []
+
+    async def adelete_thread(self, thread_id):
+        self.deleted.append(thread_id)
+
+
+class _FailSaver:
+    async def adelete_thread(self, _thread_id):
+        raise RuntimeError('checkpoint delete failed')
+
+
+async def test_graph_first_run_streams_progress_in_order(monkeypatch):
+    result = _parse_result().model_dump(mode='json')
+    graph = _Graph(
+        [{}, {'result': result}],
+        [
+            {'extract': {'page_images': [b'x'], 'embedded_images': []}},
+            {'vision': {'vision_results': []}},
+            {'assemble_split': {'chunks': ['a', 'b']}},
+            {'chunk': {'chunk_results': []}},
+            {'chunk': {'chunk_results': []}},
+            {'merge_finalize': {'result': result}},
+        ],
+    )
+    events = []
+
+    async def record(*args):
+        events.append(args)
+
+    monkeypatch.setattr(worker, '_record_import_event', record)
+    parsed = await worker._run_parse_graph(
+        FakePool(), _claimed(), graph, object(), None,
+        worker.DocumentParseRequest(sourceType='text', text='Q'),
+    )
+
+    assert parsed.questions[0].stem == 'Q1'
+    assert graph.inputs[0]['request']['text'] == 'Q'
+    assert graph.kwargs[0]['stream_mode'] == 'updates'
+    assert graph.kwargs[0]['durability'] == 'sync'
+    assert [event[3] for event in events] == [
+        'extract', 'vision', 'split', 'chunk', 'chunk', 'merge'
+    ]
+    assert all(0 <= event[7] <= 100 and 0 <= event[8] <= 100 for event in events)
+
+
+async def test_graph_resume_uses_none_and_final_snapshot(monkeypatch):
+    result = _parse_result().model_dump(mode='json')
+    graph = _Graph(
+        [{'request': {'sourceType': 'text'}}, {'result': result}],
+        [],
+    )
+    monkeypatch.setattr(worker, '_record_import_event', _async(None))
+
+    parsed = await worker._run_parse_graph(
+        FakePool(), _claimed(), graph, object(), None,
+        worker.DocumentParseRequest(sourceType='text', text='Q'),
+    )
+
+    assert graph.inputs == [None]
+    assert parsed.questions[0].stem == 'Q1'
+
+
+async def test_process_graph_success_deletes_checkpoint(monkeypatch):
+    calls, claimed = await _patch_full_flow(monkeypatch, persist=False)
+    request = worker.DocumentParseRequest(sourceType='text', text='Q')
+    monkeypatch.setattr(worker, '_build_parse_request', _async(request))
+    result = _parse_result().model_dump(mode='json')
+    graph = _Graph([{}], [{'merge_finalize': {'result': result}}])
+    saver = _Saver()
+
+    assert await worker.process_queued_job(
+        FakePool(), claimed, 'secret', graph, saver
+    ) is False
+    assert calls['completed'] == [0]
+    assert saver.deleted == ['import:99']
+
+
+async def test_graph_checkpoint_delete_is_strict_before_persistence(monkeypatch):
+    _, claimed = await _patch_full_flow(monkeypatch)
+    request = worker.DocumentParseRequest(sourceType='text', text='Q')
+    monkeypatch.setattr(worker, '_build_parse_request', _async(request))
+    result = _parse_result().model_dump(mode='json')
+    graph = _Graph([{}], [{'merge_finalize': {'result': result}}])
+    began = []
+    monkeypatch.setattr(
+        worker.imports_queue, 'begin_persistence', _async(None, began)
+    )
+
+    with pytest.raises(RuntimeError, match='checkpoint delete failed'):
+        await worker.process_queued_job(
+            FakePool(), claimed, 'secret', graph, _FailSaver()
+        )
+    assert began == []
+
+
+async def test_claim_loss_keeps_checkpoint_owned_by_new_worker():
+    saver = _Saver()
+    pool = FakePool([
+        ('SELECT status, claim_version', FakeCursor([('processing', 2)])),
+    ])
+    await worker._delete_checkpoint_after_claim_loss(pool, saver, _claimed())
+    assert saver.deleted == []
+
+    terminal_pool = FakePool([
+        ('SELECT status, claim_version', FakeCursor([('cancelled', 1)])),
+    ])
+    await worker._delete_checkpoint_after_claim_loss(
+        terminal_pool, saver, _claimed()
+    )
+    assert saver.deleted == ['import:99']
+
+
+async def test_checkpoint_schema_version_is_verified():
+    await worker._check_checkpoint_schema(
+        FakePool([('SELECT MAX(v)', FakeCursor([{'max': 9}]))])
+    )
+    with pytest.raises(RuntimeError, match='checkpoint schema'):
+        await worker._check_checkpoint_schema(
+            FakePool([('SELECT MAX(v)', FakeCursor([{'max': 8}]))])
+        )
+
+
 async def test_process_queued_job_full_flow(monkeypatch):
     calls, claimed = await _patch_full_flow(monkeypatch)
     result = await worker.process_queued_job(FakePool(), claimed, 'secret')
@@ -213,6 +385,17 @@ async def test_process_queued_job_full_flow(monkeypatch):
     assert question_input.answer_mode == 'choice'
     assert question_input.choice_variant == 'single'
     assert question_input.answer_payload == {'correctOption': 'A'}
+
+
+async def test_question_claim_loss_is_converted(monkeypatch):
+    _, claimed = await _patch_full_flow(monkeypatch)
+
+    async def lost(*_args, **_kwargs):
+        raise worker.questions_svc.ClaimLostError()
+
+    monkeypatch.setattr(worker.questions_svc, 'persist_imported_question', lost)
+    with pytest.raises(imports_queue.ClaimLostError):
+        await worker.process_queued_job(FakePool(), claimed, 'secret')
 
 
 async def test_process_queued_job_without_persistence(monkeypatch):
@@ -239,8 +422,6 @@ async def test_process_queued_job_multiple_correct_options():
     async def parse(*_a):
         return result
 
-    import types
-
     monkeypatch = pytest.MonkeyPatch()
     monkeypatch.setattr(worker, '_load_import_job', _async(
         {'id': 99, 'created_by': 1, 'bank_id': 1, 'file_name': 'a', 'source_type': 'txt', 'status': 'processing'}
@@ -263,6 +444,50 @@ async def test_process_queued_job_multiple_correct_options():
 
 
 # -------------------------------------------------------------- run_worker
+
+
+async def test_advisory_lock_commits_acquire_and_release():
+    pool = FakePool()
+    async with pool.connection() as conn:
+        await worker._acquire_job_lock(conn, 99)
+        await worker._release_job_lock(conn, 99)
+    assert 'pg_advisory_lock' in pool.record[0][0]
+    assert 'pg_advisory_unlock' in pool.record[1][0]
+    assert pool.commits == [None, None]
+
+
+async def test_heartbeat_claim_loss_cancels_processing_task(monkeypatch):
+    stop = asyncio.Event()
+    claims = [_claimed(), None]
+    started = asyncio.Event()
+    cancelled = asyncio.Event()
+
+    async def claim(_pool):
+        value = claims.pop(0)
+        if value is None:
+            stop.set()
+        return value
+
+    async def process(*_args):
+        started.set()
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            cancelled.set()
+            raise
+
+    async def heartbeat(*_args):
+        await started.wait()
+        raise imports_queue.ClaimLostError()
+
+    monkeypatch.setattr(worker.imports_queue, 'claim_next_job', claim)
+    monkeypatch.setattr(worker, 'process_queued_job', process)
+    monkeypatch.setattr(worker.imports_queue, 'heartbeat_job', heartbeat)
+    monkeypatch.setattr(worker.imports_queue, 'HEARTBEAT_INTERVAL_SECONDS', 0)
+    monkeypatch.setattr(worker, '_delete_checkpoint_after_claim_loss', _async(None))
+
+    await worker.run_worker(FakePool(), stop, 'secret')
+    assert cancelled.is_set()
 
 
 async def test_run_worker_requeues_transient_failure_then_stops(monkeypatch):
@@ -288,9 +513,11 @@ async def test_run_worker_requeues_transient_failure_then_stops(monkeypatch):
         requeued.append((job_id, claim_version, delay))
 
     monkeypatch.setattr(worker.imports_queue, 'requeue_job', fake_requeue)
-    await worker.run_worker(FakePool(), stop, 'secret')
+    saver = _Saver()
+    await worker.run_worker(FakePool(), stop, 'secret', object(), saver)
     assert len(requeued) == 1
     assert requeued[0][2] == imports_queue.retry_backoff_seconds(1)
+    assert saver.deleted == []
 
 
 async def test_run_worker_records_persistence_interrupted(monkeypatch):
@@ -354,8 +581,10 @@ async def test_run_worker_claim_lost_continues(monkeypatch):
         raise imports_queue.ClaimLostError()
 
     monkeypatch.setattr(worker, 'process_queued_job', fake_process)
-    await worker.run_worker(FakePool(), stop, 'secret')
+    saver = _Saver()
+    await worker.run_worker(FakePool(), stop, 'secret', object(), saver)
     assert calls['n'] == 2
+    assert saver.deleted == ['import:99']
 
 
 async def test_run_worker_records_final_failure_when_no_requeue(monkeypatch):
@@ -382,8 +611,10 @@ async def test_run_worker_records_final_failure_when_no_requeue(monkeypatch):
         failures.append(code)
 
     monkeypatch.setattr(worker, '_record_failure', fake_record_failure)
-    await worker.run_worker(FakePool(), stop, 'secret')
+    saver = _Saver()
+    await worker.run_worker(FakePool(), stop, 'secret', object(), saver)
     assert failures == [worker.imports_svc.IMPORT_ATTEMPTS_EXHAUSTED_CODE]
+    assert saver.deleted == ['import:99']
 
 
 async def test_run_worker_shutdown_releases_and_raises(monkeypatch):

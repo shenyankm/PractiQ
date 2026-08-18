@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import base64
 import os
 from dataclasses import dataclass, field
@@ -7,6 +5,8 @@ from dataclasses import dataclass, field
 from ..ai_schemas import DocumentParseRequest
 
 DEFAULT_UPLOAD_MAX_BYTES = 25 * 1024 * 1024
+DEFAULT_VISION_MAX_BYTES = 50 * 1024 * 1024
+VISION_BYTES_LIMIT_DETAIL = 'Document visual content exceeds the configured limit'
 
 
 class DocumentProcessingError(RuntimeError):
@@ -37,6 +37,15 @@ def get_upload_max_bytes() -> int:
     return positive_env('IMPORT_SOURCE_MAX_BYTES', DEFAULT_UPLOAD_MAX_BYTES)
 
 
+def get_vision_max_bytes() -> int:
+    return positive_env('AI_MAX_VISION_BYTES', DEFAULT_VISION_MAX_BYTES)
+
+
+def enforce_vision_bytes(total: int) -> None:
+    if total > get_vision_max_bytes():
+        raise DocumentProcessingError(413, VISION_BYTES_LIMIT_DETAIL)
+
+
 def decode_uploaded_base64(value: str) -> bytes:
     max_bytes = get_upload_max_bytes()
     if len(value) > ((max_bytes + 2) // 3) * 4 + 4:
@@ -51,14 +60,22 @@ def decode_uploaded_base64(value: str) -> bytes:
 
 
 def extract(request: DocumentParseRequest) -> ExtractedDocument:
-    from . import docx, pdf, txt, xlsx
+    from .csv import extract as extract_csv
+    from .docx import extract as extract_docx
+    from .image import extract as extract_image
+    from .pdf import extract as extract_pdf
+    from .txt import extract as extract_txt
+    from .xlsx import extract as extract_xlsx
 
     extractors = {
-        'docx': docx.extract,
-        'pdf': pdf.extract,
-        'xlsx': xlsx.extract,
-        'txt': txt.extract,
-        'text': txt.extract,
+        'csv': extract_csv,
+        'docx': extract_docx,
+        'image': extract_image,
+        'md': extract_txt,
+        'pdf': extract_pdf,
+        'xlsx': extract_xlsx,
+        'txt': extract_txt,
+        'text': extract_txt,
     }
     extractor = extractors.get(request.sourceType)
     if extractor is None:

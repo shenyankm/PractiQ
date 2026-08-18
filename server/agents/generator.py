@@ -1,15 +1,16 @@
-from __future__ import annotations
-
 import json
-from typing import Any
+from dataclasses import dataclass
+from typing import Any, TypedDict
 
-from agentscope.message import SystemMsg, UserMsg
-from agentscope.model import ChatModelBase
+from langchain_core.language_models.chat_models import BaseChatModel
+from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
+from langgraph.graph import END, START, StateGraph
+from langgraph.runtime import Runtime
+from pydantic import BaseModel
 
-from ..extractors import DocumentProcessingError
 from ..ai_schemas import AnswerGenerationResult, LearningReportResult
-
-from .model import structured_call
+from ..extractors import DocumentProcessingError
+from .model import TRANSPORT_RETRY_POLICY, graph_config, structured_attempt
 
 VALIDATION_RETRIES = 1
 
@@ -26,26 +27,87 @@ REPORT_PROMPT = (
 )
 
 
-async def generate_answer(model: ChatModelBase, payload: dict[str, Any]) -> AnswerGenerationResult:
+@dataclass(frozen=True)
+class GenerationContext:
+    model: BaseChatModel
+    prompt: str
+    schema: type[BaseModel]
+
+
+class GenerationState(TypedDict, total=False):
+    payload: dict[str, Any]
+    messages: list[BaseMessage]
+    attempts: int
+    result: BaseModel | None
+
+
+async def _call(
+    state: GenerationState, runtime: Runtime[GenerationContext]
+) -> dict[str, Any]:
+    messages = state.get('messages') or [
+        SystemMessage(content=runtime.context.prompt),
+        HumanMessage(content=json.dumps(state['payload'], ensure_ascii=False)),
+    ]
+    result, messages = await structured_attempt(
+        runtime.context.model, messages, runtime.context.schema
+    )
+    return {
+        'result': result,
+        'messages': messages,
+        'attempts': state.get('attempts', 0) + 1,
+    }
+
+
+def _route(state: GenerationState) -> str:
+    if state.get('result') is not None:
+        return 'done'
+    return 'invalid' if state['attempts'] > VALIDATION_RETRIES else 'call'
+
+
+def _done(state: GenerationState) -> GenerationState:
+    return state
+
+
+_builder = StateGraph(GenerationState, context_schema=GenerationContext)
+_builder.add_node('call', _call, retry_policy=TRANSPORT_RETRY_POLICY)
+_builder.add_node('done', _done)
+_builder.add_node('invalid', _done)
+_builder.add_edge(START, 'call')
+_builder.add_conditional_edges('call', _route)
+_builder.add_edge('done', END)
+_builder.add_edge('invalid', END)
+_graph = _builder.compile(name='structured_generator')
+
+
+async def generate_answer(
+    model: BaseChatModel, payload: dict[str, Any]
+) -> AnswerGenerationResult:
     return await _generate(model, ANSWER_PROMPT, payload, AnswerGenerationResult)
 
 
-async def learning_report(model: ChatModelBase, payload: dict[str, Any]) -> LearningReportResult:
+async def learning_report(
+    model: BaseChatModel, payload: dict[str, Any]
+) -> LearningReportResult:
     return await _generate(model, REPORT_PROMPT, payload, LearningReportResult)
 
 
-async def _generate[ResultT](
-    model: ChatModelBase, prompt: str, payload: dict[str, Any], schema: type[ResultT]
+async def _generate[ResultT: BaseModel](
+    model: BaseChatModel,
+    prompt: str,
+    payload: dict[str, Any],
+    schema: type[ResultT],
 ) -> ResultT:
-    result = await structured_call(
-        model,
-        [
-            SystemMsg(name='system', content=prompt),
-            UserMsg(name='user', content=json.dumps(payload, ensure_ascii=False)),
-        ],
-        schema,
-        VALIDATION_RETRIES,
-    )
+    try:
+        output = await _graph.ainvoke(
+            {'payload': payload},
+            graph_config(),
+            context=GenerationContext(model, prompt, schema),
+        )
+    except DocumentProcessingError:
+        raise
+    except Exception as exc:
+        raise DocumentProcessingError(502, 'AI agent request failed') from exc
+    result = output.get('result')
     if result is None:
         raise DocumentProcessingError(502, 'AI agent returned invalid JSON')
     return result

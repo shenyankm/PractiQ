@@ -1,6 +1,3 @@
-"""Import job queue claim/requeue/release. Mirrors backend/internal/imports/imports.go."""
-
-from __future__ import annotations
 
 from dataclasses import dataclass
 
@@ -9,6 +6,7 @@ from psycopg_pool import AsyncConnectionPool
 MAX_ATTEMPTS = 3
 POLL_INTERVAL_SECONDS = 0.5
 CLAIM_TIMEOUT_SECONDS = 30 * 60
+HEARTBEAT_INTERVAL_SECONDS = 60
 
 
 class ClaimLostError(Exception):
@@ -89,6 +87,14 @@ RELEASE_JOB_SQL = """
       AND claim_version = %s
 """
 
+HEARTBEAT_JOB_SQL = """
+    UPDATE question_import_jobs
+    SET updated_at = NOW()
+    WHERE id = %s
+      AND status = 'processing'
+      AND claim_version = %s
+"""
+
 
 @dataclass
 class ClaimedJob:
@@ -135,6 +141,10 @@ async def requeue_job(pool: AsyncConnectionPool, job_id: int, claim_version: int
 
 async def release_job(pool: AsyncConnectionPool, job_id: int, claim_version: int) -> None:
     await _exec_claim_mutation(pool, RELEASE_JOB_SQL, job_id, claim_version)
+
+
+async def heartbeat_job(pool: AsyncConnectionPool, job_id: int, claim_version: int) -> None:
+    await _exec_claim_mutation(pool, HEARTBEAT_JOB_SQL, job_id, claim_version)
 
 
 def retry_backoff_seconds(attempt: int) -> int:

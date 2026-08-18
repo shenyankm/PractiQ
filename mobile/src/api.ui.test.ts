@@ -1,6 +1,7 @@
 // api.ts + cloud.ts tests over a mocked global fetch and in-memory secure store.
+import * as cloudModule from './cloud';
 import { CloudError, cloudRequestEnvelope, loadSession, login, logout, sendEmailCode } from './cloud';
-import { apiRequest, apiRequestPage, flushOutbox, mutateOrQueue, setUnauthorizedHandler, uploadImport } from './practiq/api';
+import { apiRequest, apiRequestPage, flushOutbox, mutateOrQueue, setUnauthorizedHandler, streamImportJobEvents, uploadImport } from './practiq/api';
 
 const mockSecureStore = new Map<string, string>();
 
@@ -155,6 +156,81 @@ describe('uploadImport', () => {
     expect(String(calls[1][1].headers.get('Idempotency-Key'))).toBe('mk-file');
     expect(String(calls[2][1].headers.get('Idempotency-Key'))).toBe('mk-parse');
     expect(calls[1][1].body).toBeInstanceOf(FormData);
+  });
+});
+
+describe('streamImportJobEvents', () => {
+  const encoder = new TextEncoder();
+  const event = (id: number, status: string) => ({
+    id,
+    job_id: 99,
+    stage: status,
+    step_code: `step-${id}`,
+    step_label: null,
+    status,
+    message: null,
+    overall_progress_percent: status === 'completed' ? 100 : 25,
+    step_progress_percent: null,
+    target_kind: null,
+    target_name: null,
+    payload_json: '{}',
+    created_at: '2026-08-18T00:00:00Z',
+  });
+  const response = (chunks: string[], cancel?: () => void) => new Response(new ReadableStream<Uint8Array>({
+    start(controller) {
+      for (const chunk of chunks) controller.enqueue(encoder.encode(chunk));
+      if (chunks.length) controller.close();
+    },
+    cancel,
+  }), { headers: { 'content-type': 'text/event-stream; charset=utf-8' } });
+
+  beforeEach(() => {
+    jest.spyOn(cloudModule, 'currentSession').mockResolvedValue({
+      accessToken: 'access-token',
+      refreshToken: 'refresh-token',
+      username: 'u',
+      expiresAt: '2099-01-01T00:00:00Z',
+      refreshExpiresAt: '2099-02-01T00:00:00Z',
+    });
+  });
+
+  afterEach(() => jest.restoreAllMocks());
+
+  it('parses split chunks, ignores heartbeats, deduplicates, and reconnects with its cursor', async () => {
+    const first = `: heartbeat\r\n\r\nid: 1\r\ndata: ${JSON.stringify(event(1, 'processing'))}\r\n\r\n`;
+    const second = `id: 1\ndata: ${JSON.stringify(event(1, 'processing'))}\n\nid: 2\ndata: ${JSON.stringify(event(2, 'completed'))}\n\n`;
+    (global.fetch as jest.Mock)
+      .mockResolvedValueOnce(response([first.slice(0, 17), first.slice(17, 61), first.slice(61)]))
+      .mockResolvedValueOnce(response([second]));
+    const received: number[] = [];
+
+    await streamImportJobEvents(99, { onEvent: (value) => { received.push(value.id); } });
+
+    expect(received).toEqual([1, 2]);
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+    const firstHeaders = (global.fetch as jest.Mock).mock.calls[0][1].headers as Headers;
+    const reconnectHeaders = (global.fetch as jest.Mock).mock.calls[1][1].headers as Headers;
+    expect(firstHeaders.get('Authorization')).toBe('Bearer access-token');
+    expect(firstHeaders.get('Accept')).toBe('text/event-stream');
+    expect(reconnectHeaders.get('Last-Event-ID')).toBe('1');
+  });
+
+  it('rejects malformed event data through the import event schema', async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce(response(['id: 1\ndata: {"id":"bad"}\n\n']));
+    await expect(streamImportJobEvents(99, { onEvent: jest.fn() }))
+      .rejects.toMatchObject({ code: 'INVALID_RESPONSE' });
+  });
+
+  it('cancels a pending stream through AbortSignal', async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce(response([]));
+    const controller = new AbortController();
+    const pending = streamImportJobEvents(99, { signal: controller.signal, onEvent: jest.fn() });
+    const rejection = expect(pending).rejects.toMatchObject({ code: 'CANCELLED' });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    controller.abort();
+
+    await rejection;
+    expect((global.fetch as jest.Mock).mock.calls[0][1].signal).toBe(controller.signal);
   });
 });
 

@@ -10,7 +10,7 @@ from server.extractors import pdf as pdf_extractor
 from server.ai_schemas import DocumentParseRequest
 
 
-def make_docx(with_image: bool = False) -> bytes:
+def make_docx(with_image: bool = False, image_count: int = 1) -> bytes:
     buffer = BytesIO()
     with ZipFile(buffer, 'w') as archive:
         archive.writestr(
@@ -23,16 +23,19 @@ def make_docx(with_image: bool = False) -> bytes:
             '<c:chart><a:t>Scores &amp; totals</a:t><c:pt/><c:pt/></c:chart>',
         )
         if with_image:
-            archive.writestr('word/media/image1.png', b'\x89PNG fake image bytes')
+            for index in range(image_count):
+                archive.writestr(
+                    f'word/media/image{index + 1}.png', b'\x89PNG fake image bytes'
+                )
     return buffer.getvalue()
 
 
-def make_blank_pdf(pages: int) -> bytes:
+def make_blank_pdf(pages: int, size: int = 200) -> bytes:
     import pypdfium2 as pdfium
 
     document = pdfium.PdfDocument.new()
     for _ in range(pages):
-        document.new_page(200, 200)
+        document.new_page(size, size)
     buffer = BytesIO()
     document.save(buffer)
     document.close()
@@ -44,12 +47,32 @@ def make_xlsx() -> bytes:
 
     workbook = Workbook()
     sheet = workbook.active
+    assert sheet is not None
     sheet.title = 'Quiz'
     sheet.append(['1. What is 2+2?', 'A. 4', 'B. 5'])
     sheet.append(['Answer', 'A', None])
     buffer = BytesIO()
     workbook.save(buffer)
     return buffer.getvalue()
+
+
+def test_extract_csv_md_and_image() -> None:
+    from PIL import Image
+
+    csv_document = extract(
+        DocumentParseRequest(
+            sourceType='csv', fileBase64=base64.b64encode(b'question,answer\n"2 + 2",4').decode()
+        )
+    )
+    image_buffer = BytesIO()
+    Image.new('RGB', (1, 1)).save(image_buffer, format='PNG')
+    image_document = extract(
+        DocumentParseRequest(sourceType='image', fileBase64=base64.b64encode(image_buffer.getvalue()).decode())
+    )
+
+    assert csv_document.text == 'question\tanswer\n2 + 2\t4'
+    assert extract(DocumentParseRequest(sourceType='md', text='# Quiz')).text == '# Quiz'
+    assert image_document.page_images == [image_buffer.getvalue()]
 
 
 def test_extract_txt_combines_text_and_base64() -> None:
@@ -147,6 +170,58 @@ def test_extract_pdf_enforces_page_limit(monkeypatch: pytest.MonkeyPatch) -> Non
         )
 
     assert exc_info.value.status_code == 413
+
+
+def test_extract_pdf_enforces_rendered_image_byte_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv('AI_MAX_VISION_BYTES', '1')
+
+    with pytest.raises(DocumentProcessingError) as exc_info:
+        extract(
+            DocumentParseRequest(
+                sourceType='pdf',
+                fileBase64=base64.b64encode(make_blank_pdf(pages=1)).decode(),
+            )
+        )
+
+    assert exc_info.value.status_code == 413
+    assert exc_info.value.detail == extractors.VISION_BYTES_LIMIT_DETAIL
+
+
+def test_extract_pdf_rejects_oversized_page_before_render(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv('AI_MAX_VISION_PAGE_PIXELS', '100')
+
+    with pytest.raises(DocumentProcessingError) as exc_info:
+        extract(
+            DocumentParseRequest(
+                sourceType='pdf',
+                fileBase64=base64.b64encode(make_blank_pdf(pages=1)).decode(),
+            )
+        )
+
+    assert exc_info.value.status_code == 413
+
+
+def test_extract_docx_enforces_cumulative_image_byte_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv('AI_MAX_VISION_BYTES', '30')
+
+    with pytest.raises(DocumentProcessingError) as exc_info:
+        extract(
+            DocumentParseRequest(
+                sourceType='docx',
+                fileBase64=base64.b64encode(
+                    make_docx(with_image=True, image_count=2)
+                ).decode(),
+            )
+        )
+
+    assert exc_info.value.status_code == 413
+    assert exc_info.value.detail == extractors.VISION_BYTES_LIMIT_DETAIL
 
 
 def test_extract_xlsx_produces_tabbed_sheet_text() -> None:
