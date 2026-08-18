@@ -116,8 +116,9 @@ async def register_user(
             user = _scan_user(await cursor.fetchone())
     except Exception as exc:
         raise _user_conflict_error(exc) from exc
-    if user is not None:
-        await _cache_user(user)
+    if user is None:
+        raise RuntimeError('could not create user')
+    await _cache_user(user)
     return user
 
 
@@ -187,7 +188,7 @@ async def authenticate_user(pool: AsyncConnectionPool, login: str, password: str
         compare_password(password, DUMMY_PASSWORD_HASH)
         raise envelope.new_error(401, 'UNAUTHENTICATED', 'Authentication required')
     user_id, password_hash = row[0], row[1]
-    # Google-only accounts have no password hash; keep timing consistent and reject.
+    # Keep timing consistent if legacy data contains an account without a password.
     if not password_hash:
         compare_password(password, DUMMY_PASSWORD_HASH)
         raise envelope.new_error(401, 'UNAUTHENTICATED', 'Authentication required')
@@ -367,7 +368,10 @@ async def rotate_refresh_token(pool: AsyncConnectionPool, raw_refresh_token: str
                     'UPDATE refresh_tokens SET replaced_by_token_id = %s WHERE id = %s',
                     (new_row[0], token_id),
                 )
-                result = (int(user_id), str(session_id), new_raw, new_expires)
+                try:
+                    result = (int(user_id), str(session_id), new_raw, new_expires)
+                except (TypeError, ValueError) as exc:
+                    raise RuntimeError('invalid session row') from exc
     if replay_detected:
         raise envelope.new_error(401, 'REFRESH_TOKEN_REUSE', 'Refresh token reuse detected')
     if result is None:

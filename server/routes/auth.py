@@ -1,19 +1,15 @@
 """Authentication routes."""
 
-import os
-from typing import Annotated, Self
+from typing import Self
 
 from fastapi import APIRouter, Body, Request
-from fastapi.responses import RedirectResponse
-from pydantic import StringConstraints, field_validator, model_validator
+from pydantic import field_validator, model_validator
 
 from .. import envelope
-from ..auth import email_code, google, handlers, runtime
+from ..auth import email_code, handlers, runtime
 from . import deps
 
 router = APIRouter()
-
-NonBlank = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
 
 def _username(value: str) -> str:
@@ -119,10 +115,6 @@ class RefreshBody(deps.RequestBody):
     refresh_token: str = ''
 
 
-class GoogleTokenBody(deps.RequestBody):
-    id_token: NonBlank
-
-
 @router.post('/api/v1/auth/register')
 async def register(request: Request, body: RegisterBody):
     await handlers.rate_limit_auth(request, '')
@@ -199,46 +191,6 @@ async def refresh(
     response = envelope.ok(
         request, {'tokens': handlers.session_tokens_response(tokens)}
     )
-    runtime.set_session_cookie(response, tokens.access_token, tokens.access_expires_at)
-    runtime.set_refresh_cookie(
-        response, tokens.refresh_token, tokens.refresh_expires_at
-    )
-    return response
-
-
-@router.get('/api/v1/auth/google/start')
-async def google_start():
-    url, state = await google.google_start_params()
-    response = RedirectResponse(url=url, status_code=302)
-    google.set_state_cookie(response, state)
-    return response
-
-
-@router.get('/api/v1/auth/google/callback')
-async def google_callback(request: Request):
-    response = RedirectResponse(
-        url=os.environ.get('APP_ORIGIN', '').strip() or '/', status_code=302
-    )
-    user = await google.google_callback(request, response, deps.pool(request))
-    tokens = await runtime.issue_session(deps.pool(request), user.id)
-    runtime.set_session_cookie(response, tokens.access_token, tokens.access_expires_at)
-    runtime.set_refresh_cookie(
-        response, tokens.refresh_token, tokens.refresh_expires_at
-    )
-    return response
-
-
-@router.post('/api/v1/auth/google/token')
-async def google_token(request: Request, body: GoogleTokenBody):
-    if not os.environ.get('GOOGLE_CLIENT_ID', '').strip():
-        raise envelope.new_error(
-            404, 'GOOGLE_AUTH_DISABLED', 'Google sign-in is not configured'
-        )
-    await handlers.rate_limit_auth(request, '')
-    claims = await google.verify_google_id_token(body.id_token)
-    user = await google.find_or_create_google_user(deps.pool(request), claims)
-    tokens = await runtime.issue_session(deps.pool(request), user.id)
-    response = envelope.ok(request, handlers.issued_session_response(user, tokens))
     runtime.set_session_cookie(response, tokens.access_token, tokens.access_expires_at)
     runtime.set_refresh_cookie(
         response, tokens.refresh_token, tokens.refresh_expires_at
