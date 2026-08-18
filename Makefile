@@ -16,16 +16,16 @@ test-server:
 verify: lint test test-server
 
 server-dev:
-	uv run --project server python -m server
+	uv run --env-file .env.local --project server python -m server
 
 db-apply:
-	uv run --project server python -m server.admin db apply
+	uv run --env-file .env.local --project server python -m server.admin db apply
 
 db-seed:
-	uv run --project server python -m server.admin db seed
+	uv run --env-file .env.local --project server python -m server.admin db seed
 
 worker-imports:
-	uv run --project server python -m server.worker
+	uv run --env-file .env.local --project server python -m server.worker
 
 mobile-install:
 	npm --prefix mobile ci
