@@ -1,0 +1,32 @@
+.page {
+  min-height: 100vh;
+  padding: 96px 48px;
+  background: #f4f7f6;
+}
+
+.eyebrow,
+.title,
+.body {
+  display: block;
+}
+
+.eyebrow {
+  color: #0b5f4b;
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.title {
+  margin-top: 28px;
+  color: #15332c;
+  font-size: 52px;
+  font-weight: 700;
+  line-height: 64px;
+}
+
+.body {
+  margin-top: 24px;
+  color: #4d635d;
+  font-size: 30px;
+  line-height: 48px;
+}

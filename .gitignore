@@ -6,7 +6,7 @@
 # -----------------------------------------------
 # Dependencies
 # -----------------------------------------------
-/node_modules/
+node_modules/
 /.pnp
 .pnp.*
 
@@ -27,6 +27,10 @@
 /build/
 /dist/
 /.turbo/
+
+# Taro
+/taro/dist/
+/taro/.swc/
 
 # -----------------------------------------------
 # Python
@@ -106,6 +110,7 @@ pnpm-debug.log*
 !.opencode/opencode.json
 .omx/
 /.codegraph/
+.pi-lens/
 .worktrees/
 
 # Project-local installed agent skills

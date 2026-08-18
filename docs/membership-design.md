@@ -5,7 +5,7 @@
 ## 1. 概述与术语
 
 | 术语 | 含义 |
-|------|------|
+| ------ | ------ |
 | membership | `users.membership`，RevenueCat 权益在数据库中的投影，取值 `free` / `pro` / `organization`，仅由计费同步（`/api/v1/billing/sync` 与 RevenueCat webhook）改写，不含试用状态 |
 | effectiveMembership | 有效等级，由 membership 与 `trial_ends_at` 计算得出的实际生效等级，是所有权益门控的唯一判定依据 |
 | trial | 新用户 3 天 Pro 试用，以 `users.trial_ends_at` 时间列表达；试用内有效等级视为 pro，不产生 organization |
@@ -20,7 +20,7 @@
 ## 2. 会员等级与权益矩阵
 
 | 权益 | free | pro | organization |
-|------|------|-----|--------------|
+| ------ | ------ | ----- | -------------- |
 | 题库 / 练习 / 分析 / 搜索（现有全部基础功能） | ✓ | ✓ | ✓ |
 | 内部升级推广（「广告」） | 显示 | 免 | 免 |
 | 公共题库下载（`POST /api/v1/banks/{bankId}/clone` 克隆副本） | – | ✓ | ✓ |
@@ -42,7 +42,7 @@
 trial_ends_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '3 days')
 ```
 
-试用截止时间由数据库默认值在 INSERT 时自动写入，密码注册与 Google 注册两处入口的 INSERT 语句均零改动。试用状态不进 `membership` 列，因此 RevenueCat 同步可以随时覆盖 membership 而不影响试用。
+试用截止时间由数据库默认值在密码注册 INSERT 时自动写入。试用状态不进 `membership` 列，因此 RevenueCat 同步可以随时覆盖 membership 而不影响试用。
 
 ### 3.2 有效等级判定规则
 
@@ -90,7 +90,7 @@ def tier_at_least(membership, minimum):
 `study_groups` — 学习小组主表：
 
 | 列 | 类型 | 说明 |
-|----|------|------|
+| ---- | ------ | ------ |
 | `id` | BIGINT IDENTITY PK | 小组 ID |
 | `name` | VARCHAR(100) NOT NULL | 小组名称（非空白 CHECK） |
 | `description` | VARCHAR(500) | 小组简介 |
@@ -100,7 +100,7 @@ def tier_at_least(membership, minimum):
 `study_group_members` — 成员表：
 
 | 列 | 类型 | 说明 |
-|----|------|------|
+| ---- | ------ | ------ |
 | `id` | BIGINT IDENTITY PK | 成员行 ID |
 | `group_id` | BIGINT NOT NULL → `study_groups(id)` ON DELETE CASCADE | 所属小组 |
 | `user_id` | BIGINT NOT NULL → `users(id)` ON DELETE CASCADE | 成员用户 |
@@ -112,7 +112,7 @@ def tier_at_least(membership, minimum):
 `study_group_banks` — 小组关联题库表：
 
 | 列 | 类型 | 说明 |
-|----|------|------|
+| ---- | ------ | ------ |
 | `id` | BIGINT IDENTITY PK | 关联行 ID |
 | `group_id` | BIGINT NOT NULL → `study_groups(id)` ON DELETE CASCADE | 所属小组 |
 | `bank_id` | BIGINT NOT NULL → `question_banks(id)` ON DELETE CASCADE | 关联题库 |
@@ -135,7 +135,7 @@ def tier_at_least(membership, minimum):
 ### 错误码
 
 | 错误码 | HTTP | 含义 |
-|--------|------|------|
+| -------- | ------ | ------ |
 | `PRO_REQUIRED` | 403 | 该功能需要有效等级 ≥ pro（含试用内） |
 | `ORGANIZATION_REQUIRED` | 403 | 该功能需要 organization 会员（试用不含） |
 | `STUDY_GROUP_NOT_FOUND` | 404 | 小组不存在或对当前用户不可见 |
@@ -158,7 +158,7 @@ def tier_at_least(membership, minimum):
 ### 学习小组（`/api/v1/study-groups`）
 
 | Method | Route | 权益 | 说明 |
-|--------|-------|------|------|
+| -------- | ------- | ------ | ------ |
 | `GET` | `/api/v1/study-groups` | User | 列出我拥有的与我加入的小组 |
 | `POST` | `/api/v1/study-groups` | organization | 创建小组，同事务写入 owner 成员行 |
 | `GET` | `/api/v1/study-groups/{groupId}` | 小组成员 | 小组详情：基本信息 + 成员列表 + 题库列表 |
@@ -177,7 +177,7 @@ def tier_at_least(membership, minimum):
 ## 7. RevenueCat 映射
 
 | 项 | 说明 |
-|----|------|
+| ---- | ------ |
 | pro entitlement | 已有，`REVENUECAT_PRO_ENTITLEMENT_ID`（v2 资源 ID `entl…`） |
 | organization entitlement | 服务端 env `REVENUECAT_ORGANIZATION_ENTITLEMENT_ID`，默认 `'organization'`；移动端从服务端的 `effectiveMembership` 获取 organization 权益，不维护第二个 entitlement lookup key |
 | 判定顺序 | 查询 v2 active-entitlements 后**先判 organization 再判 pro**（org rank 更高）；未配置 org entitlement 时跳过该判定，行为与现状一致 |
@@ -252,7 +252,7 @@ EXECUTE FUNCTION set_updated_at();
 ## 10. 边界情形
 
 | 情形 | 行为 |
-|------|------|
+| ------ | ------ |
 | owner 降级为 pro/free | 小组数据（小组、成员、题库关联）全部保留；owner 的管理操作（改/删小组、增删成员、关联题库、查看成员学情）返回 `403 ORGANIZATION_REQUIRED`；成员仍可读小组关联题库 |
 | 克隆题库引用原题 | 克隆复制链接而不深拷题目行：源题库被删除后题目行仍在，克隆副本不受影响；但若源题目被其作者删除，克隆副本中的对应题目同步消失 |
 | 试用与 RC 订阅叠加 | paid tier 优先：试用内购买 pro/organization 即按付费等级生效；订阅到期回落后，若试用仍未过期则继续按试用 pro 生效 |

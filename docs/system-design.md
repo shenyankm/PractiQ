@@ -1,6 +1,6 @@
 # PractiQ System Design
 
-This document describes the current Expo mobile client, unified FastAPI service, worker, and PostgreSQL data model. The split schema files under `db/*/*.sql` are the product schema authority.
+This document describes the Taro frontend baseline, unified FastAPI service, worker, and PostgreSQL data model. The split schema files under `db/*/*.sql` are the product schema authority.
 
 The files under `db/*/*.sql` are bootstrap schema fragments for fresh local, test, or reset environments. They are not a reversible production migration history; production data-preserving schema changes should be added as explicit versioned migrations before rollout.
 
@@ -13,7 +13,7 @@ The files under `db/*/*.sql` are bootstrap schema fragments for fresh local, tes
 - 核心模块：认证授权、题库权限、题型渲染与判分、导入流水线、媒体管理、统计分析。
 - 工程约束：数据关联、事务边界、参数校验、错误模型、状态生命周期和性能策略。
 
-当前仓库包含 `mobile/` Expo 客户端、`server/` FastAPI 服务及 worker，以及 `db/` SQL schema；仓库不包含 Web 前端。
+当前仓库包含 `taro/` 微信小程序前端基线、`server/` FastAPI 服务及 worker，以及 `db/` SQL schema；不包含其他前端。
 
 ## Redis Integration
 
@@ -23,17 +23,16 @@ Current Redis responsibilities:
 
 - Cache-aside reads for user profiles, practice question queues, and analytics summaries.
 - Rate limit counters for authentication endpoints.
-- One-time Google OAuth transaction records (PKCE verifier and nonce).
 - Cached leaderboard and analytics snapshot endpoints for higher-cost reporting views.
-- Successful responses for mobile mutations carrying `Idempotency-Key`, retained for 24 hours.
+- Successful responses for client mutations carrying `Idempotency-Key`, retained for 24 hours.
 
 Failure policy:
 
 - Cache misses or Redis cache errors fall back to PostgreSQL.
-- Google OAuth transaction storage and authentication rate limits require Redis. Those paths fail closed with `503` when Redis is unavailable. Session validation and logout use PostgreSQL.
+- Authentication rate limits require Redis and fail closed with `503` when Redis is unavailable. Session validation and logout use PostgreSQL.
 - Requests carrying `Idempotency-Key` also fail closed with `503` when Redis is unavailable so a retry cannot create duplicate writes.
-- Import processing and authenticated SSE progress continue from PostgreSQL without Redis; the mobile client retains polling as a fallback.
-- Redis deployments should avoid evicting live OAuth transaction, rate-limit, and idempotency keys.
+- Import processing and authenticated SSE progress continue from PostgreSQL without Redis; clients can retain polling as a fallback.
+- Redis deployments should avoid evicting live rate-limit and idempotency keys.
 
 ## 1. Domain Model
 
@@ -41,7 +40,7 @@ Failure policy:
 
 | Domain | Tables | Purpose |
 | --- | --- | --- |
-| Identity | `users` | Local/Google accounts, system role, RevenueCat membership projection, Pro trial, encrypted user LLM configuration |
+| Identity | `users` | Local accounts, system role, RevenueCat membership projection, Pro trial, encrypted user LLM configuration |
 | Taxonomy | `subjects`, `question_types`, `knowledge_points` | Subject/type classification and knowledge hierarchy |
 | Question banks | `question_banks`, `user_bank_links`, `user_bank_stats` | User-owned public/private banks, favorites, per-user bank stats |
 | Questions | `questions`, `question_groups`, `bank_question_links`, `bank_group_links`, `group_question_links`, `v_bank_question_items` | Standalone and grouped questions inside banks |
@@ -93,7 +92,7 @@ Errors:
 
 ### Authentication
 
-Use short-lived access JWTs and rotating refresh tokens. The bundled mobile client uses bearer tokens stored in Secure Store; the server also supports HttpOnly cookie transport for external browser clients. Login/register responses contain `tokens.accessToken`, `tokens.refreshToken`, `tokens.expiresAt`, and `tokens.refreshExpiresAt`. PostgreSQL stores the device session plus only the SHA-256 hash of each refresh token; refresh-token reuse revokes the whole device session.
+Use short-lived access JWTs and rotating refresh tokens. Native clients receive bearer tokens only after target-appropriate secure storage is implemented; the server also supports HttpOnly cookie transport for external browser clients. Login/register responses contain `tokens.accessToken`, `tokens.refreshToken`, `tokens.expiresAt`, and `tokens.refreshExpiresAt`. PostgreSQL stores the device session plus only the SHA-256 hash of each refresh token; refresh-token reuse revokes the whole device session.
 
 | Method | Route | Auth | Description |
 | --- | --- | --- | --- |
@@ -104,9 +103,6 @@ Use short-lived access JWTs and rotating refresh tokens. The bundled mobile clie
 | `POST` | `/api/v1/auth/logout` | User | Revoke the PostgreSQL device session and clear both cookies. |
 | `GET` | `/api/v1/auth/me` | User | Return current user profile and capability flags. |
 | `PATCH` | `/api/v1/users/me` | User | Update username/email/password. |
-| `POST` | `/api/v1/auth/google/token` | Public | Verify a native Google ID token and issue a session. |
-| `GET` | `/api/v1/auth/google/start` | Public | Start the optional browser OAuth flow. |
-| `GET` | `/api/v1/auth/google/callback` | Public | Complete the browser OAuth flow. |
 
 Register body:
 
@@ -127,7 +123,6 @@ Authorization checks:
 
 - `is_active=false` blocks all mutating routes and practice start.
 - Effective membership is ordered `free < pro < organization`; a new `free` user is treated as `pro` until `trial_ends_at`. Effective Pro gates cloud AI, import, LLM configuration, and public-bank cloning; organization additionally gates study-group creation. System roles do not bypass these checks.
-- Google identities use the verified Google `sub` in `users.google_sub`; browser OAuth uses PKCE S256, nonce, and a one-time Redis transaction. A verified-email collision is never auto-linked and returns `ACCOUNT_LINK_REQUIRED`.
 
 ### Subjects and Question Types
 
@@ -351,7 +346,7 @@ Import worker flow:
 5. Run the LangGraph parser: extract, fan out vision work, split, fan out chunks, and merge. PostgreSQL checkpoints successful AI nodes under `thread_id=import:{jobId}`.
 6. Stream node progress into durable `question_import_job_events`; automatic worker retries resume unfinished AI nodes.
 7. Delete the AI checkpoint before entering persistence, then create each question, answer, content block, output link, and parsed group under the existing claim fencing rules.
-8. Update counters and terminal status atomically with the terminal event. The mobile client uses SSE and falls back to polling.
+8. Update counters and terminal status atomically with the terminal event. Clients can use SSE and fall back to polling.
 
 ### Media
 
@@ -370,45 +365,19 @@ Import worker flow:
 
 Uploads are limited to PNG, JPEG, GIF, and WebP images up to 10 MiB and are content-sniffed before storage. `part_type` supports text, formula, image, table, list, HTML/Markdown, chart, diagram, and QR code; video, audio, and unsanitized SVG uploads are not implemented.
 
-## 3. Mobile Client
+## 3. Taro Client
 
-The repository-bundled client lives under `mobile/` and uses Expo Router. There is no bundled Web frontend; the server exposes API routes only, while retaining HttpOnly cookie transport for browser-based API clients.
+The repository-bundled frontend lives under `taro/` and uses Taro 4.2 with React 18. It targets WeChat Mini Program only.
 
-Current routes:
+The current frontend is a compile/run baseline only: it has one status page and does not yet persist sessions or call business APIs. Features will be restored vertically in this order:
 
-```text
-/sign-in
-/
-/banks
-/analytics
-/settings
-/banks/new
-/banks/:bankId
-/banks/:bankId/manage
-/banks/:bankId/practice
-/practice/:sessionId
-/imports
-/imports/:jobId
-/questions/:questionId
-/search
-/settings/ai
-/settings/data
-/privacy
-```
+1. Password/email-code auth and validated API envelopes.
+2. Overview, banks, question detail, and online practice.
+3. Bank management, search, analytics, settings, and i18n.
+4. Imports and authenticated media.
+5. Offline cache, outbox replay, and payments.
 
-`/sign-in` contains both password login and email-code registration, plus native Google sign-in when configured. Authenticated users land on `/`, whose tab shell exposes the overview, banks, analytics, and settings screens.
-
-The client validates API payloads with Zod and stores bearer tokens only in Expo Secure Store. `practiq-cache.db` mirrors banks, groups, questions, options, answer keys, media links, and practice sessions in structured SQLite tables. Residual resource blobs cover analytics snapshots, import jobs, and offline practice snapshots. Replayable mutations enter the `outbox`, retain a stable `Idempotency-Key`, and replay sequentially before pull synchronization. PostgreSQL remains authoritative.
-
-Implemented mobile flows:
-
-- Browse owned, favorite, and public banks; create banks and manage questions.
-- Configure and complete online practice; complete cached all-question practice offline and upload it later.
-- Create TXT, Markdown, CSV, DOCX, PDF, XLSX, or PNG/JPEG/GIF/WebP document-import jobs, keep selected files while offline, and stream durable job events and outputs with polling fallback.
-- Search banks, questions, and knowledge points; view learning analytics.
-- Update account details, manage RevenueCat purchases, configure a Pro-gated LLM key, inspect sync state, and select language.
-
-Study-group schema and APIs are implemented on the server; the mobile client does not yet expose study-group routes.
+PostgreSQL remains authoritative. Response schema validation, HTTPS, secure token storage, and stable `Idempotency-Key` values remain required as each flow returns. The previous Expo client and iOS target have been removed by product decision. H5 is also out of scope. See `docs/taro-migration.md` for acceptance gates and release blockers.
 
 ## 4. Core Modules
 
@@ -419,7 +388,7 @@ Responsibilities:
 - Password hashing and verification.
 - Access-token validation, refresh-token rotation, and device-session revocation.
 - Current-user lookup.
-- Email-code registration and Google identity verification.
+- Email-code registration.
 
 Current files:
 
@@ -427,7 +396,6 @@ Current files:
 server/auth/runtime.py
 server/auth/handlers.py
 server/auth/email_code.py
-server/auth/google.py
 server/routes/deps.py
 ```
 
@@ -547,7 +515,7 @@ Provider endpoints remain fixed to the previous native defaults; users may chang
 
 ### RevenueCat Billing
 
-The mobile SDK uses the server-generated `revenuecat_app_user_id` and RevenueCat lookup keys for paywalls, purchases, restore, and Customer Center. Client `CustomerInfo` only controls immediate presentation. Login, foreground resume, purchase, and restore actively call `POST /api/v1/billing/sync`; the authorized RevenueCat webhook provides lifecycle synchronization. Both paths query the v2 active-entitlements endpoint, project `free`/`pro`/`organization` into `users.membership`, and invalidate the Redis user cache. `trial_ends_at` remains independent of that projection and grants effective Pro while active. Duplicate or out-of-order webhook events are safe because event payloads are never treated as current entitlement state.
+A future Taro purchase adapter will use the server-generated `revenuecat_app_user_id` and RevenueCat lookup keys. Client entitlement state must control presentation only. The authorized RevenueCat webhook already provides lifecycle synchronization, and future login, foreground resume, purchase, and restore flows must call `POST /api/v1/billing/sync`. Both paths query the v2 active-entitlements endpoint, project `free`/`pro`/`organization` into `users.membership`, and invalidate the Redis user cache. `trial_ends_at` remains independent of that projection and grants effective Pro while active. Duplicate or out-of-order webhook events are safe because event payloads are never treated as current entitlement state.
 
 ### Media Module
 
@@ -642,7 +610,7 @@ POST /practice-sessions/:id/answers
 
 ### Request Validation
 
-Use FastAPI/Pydantic request models at server route boundaries. The mobile client validates received API payloads with Zod before caching them.
+Use FastAPI/Pydantic request models at server route boundaries. Restored Taro flows must validate received API payloads with Zod before caching them.
 
 Validation categories:
 
@@ -747,12 +715,12 @@ Recommended additional implementation practices:
 - Wrap multi-table writes in transactions.
 - Batch insert parsed questions.
 - Cache subject/type lists.
-- Keep mobile overview reads cacheable and open the import SSE stream only while a job is active; retain polling fallback.
+- Keep overview reads cacheable and open the import SSE stream only while a job is active; retain polling fallback.
 - Avoid loading full question content blocks for list views.
 
 ## 9. Current Repository Boundaries
 
-- `mobile/` contains the PractiQ-branded Expo Android/iOS client, SQLite cache/outbox, and mobile tests.
+- `taro/` contains the WeChat Mini Program baseline; `docs/taro-migration.md` defines its staged rollout.
 - `server/` contains the unified Python FastAPI service (API + AI + import worker + admin CLI).
 - `db/` contains bootstrap product SQL and is the schema source of truth; it is not a versioned production migration history.
 - `docs/membership-design.md` is authoritative for effective membership, public-bank cloning, and study groups.

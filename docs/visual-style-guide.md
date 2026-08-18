@@ -1,29 +1,28 @@
-# PractiQ Mobile Visual Style Guide
+# PractiQ Taro Visual Style Guide
 
 ## Direction
 
-PractiQ uses HeroUI Native for visible controls and Uniwind utilities for React Native layout. Reuse the shared components under `mobile/src/components/` before introducing a page-local wrapper.
+Use `@tarojs/components` and plain CSS for the WeChat Mini Program. Do not add a component library or theme layer until a migrated feature proves Taro primitives insufficient.
 
 ## Sources of Truth
 
-- `mobile/global.css` imports Tailwind CSS, Uniwind, and `heroui-native/styles`.
-- `mobile/app/_layout.tsx` owns the root `HeroUINativeProvider`, safe-area handling, theme colors, reduced-motion behavior, and navigation shell.
-- `mobile/src/components/` contains shared screen, section, tab, and statistic-card patterns.
+- `taro/src/app.css` contains app-wide styles.
+- `taro/src/pages/` contains page-level JSX, config, and CSS.
+- `taro/src/app.config.ts` owns global window and navigation settings.
 
-Use semantic classes such as `bg-background` and HeroUI Native variants instead of hard-coded palette colors. Use `className` for layout and spacing; use component props for interaction state and intent.
+Keep platform checks out of visual components unless Taro lacks a unified API. Extract a shared component only after the same interaction appears in more than one migrated flow.
 
 ## Component Patterns
 
-- Import HeroUI Native components from their package subpaths, for example `heroui-native/button` and `heroui-native/card`.
-- Use `Surface` for layout containers, `Typography` for visible text, and HeroUI Native form controls for input.
-- Prefer existing `ScreenState`, `Section`, `PrimaryTabs`, and `StatCard` components when their current behavior fits.
-- Center the sign-in content vertically while keeping its scroll behavior for registration and small screens.
-- Keep route files under `mobile/app/` thin; reusable screen behavior belongs under `mobile/src/`.
-- Do not add another component library or a second theme layer.
+- Use Taro `View`, `Text`, `Button`, `Input`, `Image`, and list primitives.
+- Keep page config next to each page.
+- Keep loading, empty, error, and disabled states visible and consistent.
+- Prefer CSS sizing and layout supported by the WeChat Mini Program.
+- Preserve the PractiQ green palette already used by the status page.
 
 ## Accessibility
 
-- Give inputs visible `Label` components; placeholders are examples, not labels.
-- Give icon-only buttons, spinners, and non-text controls an `accessibilityLabel`.
-- Do not rely on color alone for state; pair it with text, icons, or selected-state semantics.
-- Preserve safe areas, scalable text, minimum touch targets, screen-reader names, and reduced-motion behavior.
+- Give inputs visible labels; placeholders are examples, not labels.
+- Give icon-only and non-text controls descriptive accessibility names.
+- Do not rely on color alone for state.
+- Preserve scalable text, minimum touch targets, screen-reader names, safe areas, and reduced-motion behavior.

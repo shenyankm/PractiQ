@@ -1,19 +1,13 @@
-.PHONY: install lint test test-server verify server-dev db-apply db-seed worker-imports mobile-install mobile-dev mobile-android mobile-ios mobile-lint mobile-test
+.PHONY: install test test-server verify server-dev db-apply db-seed worker-imports taro-install taro-weapp taro-test
 
-install:
-	npm --prefix mobile ci
+install: taro-install
 
-lint:
-	npm --prefix mobile run lint
-
-test:
-	npm --prefix mobile run typecheck
-	npm --prefix mobile test
+test: taro-test
 
 test-server:
-	cd server && uv run pytest tests
+	cd server && uv run --extra dev pytest tests
 
-verify: lint test test-server
+verify: test test-server
 
 server-dev:
 	uv run --env-file .env.local --project server python -m server
@@ -27,21 +21,11 @@ db-seed:
 worker-imports:
 	uv run --env-file .env.local --project server python -m server.worker
 
-mobile-install:
-	npm --prefix mobile ci
+taro-install:
+	npm --prefix taro ci
 
-mobile-dev:
-	npm --prefix mobile start
+taro-weapp:
+	npm --prefix taro run dev:weapp
 
-mobile-android:
-	npm --prefix mobile run android
-
-mobile-ios:
-	npm --prefix mobile run ios
-
-mobile-lint:
-	npm --prefix mobile run lint
-
-mobile-test:
-	npm --prefix mobile run typecheck
-	npm --prefix mobile test
+taro-test:
+	npm --prefix taro run verify
