@@ -1,0 +1,9 @@
+{
+  "serverOverrides": {
+    "python": {
+      "initializationOptions": {
+        "pythonPath": ".venv/bin/python"
+      }
+    }
+  }
+}
