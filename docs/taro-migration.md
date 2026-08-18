@@ -2,7 +2,7 @@
 
 ## 目标与边界
 
-以 `taro/` 逐步恢复微信小程序功能；不保留其他平台的配置或占位实现。PostgreSQL/FastAPI 继续是唯一权威数据源。
+以 `taro/` 逐步恢复微信小程序功能；不保留其他平台的配置或占位实现。Java 产品 API 与 PostgreSQL 继续是唯一权威数据源。
 
 基线固定为 Taro 4.2.1 与 React 18。`taro/` 使用独立 `package.json`、lockfile 和微信开发者工具配置。
 

@@ -1,3 +1,6 @@
+# Pyright cannot model LangGraph's partial TypedDict state transitions.
+# pyright: reportTypedDictNotRequiredAccess=false
+
 import json
 from dataclasses import dataclass
 from typing import Any, TypedDict

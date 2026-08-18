@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import BaseMessage, HumanMessage
@@ -10,7 +10,6 @@ from openai import APIConnectionError, APIStatusError, APITimeoutError, RateLimi
 from pydantic import BaseModel
 
 from ..extractors import positive_env
-from ..services.users import LLMConfig
 
 BASE_URLS = {
     'dashscope': 'https://dashscope.aliyuncs.com/compatible-mode/v1',
@@ -25,22 +24,24 @@ class AgentContext:
     vision_model: BaseChatModel | None = None
 
 
-def build_models(config: LLMConfig) -> tuple[BaseChatModel, BaseChatModel | None]:
-    if config.provider not in BASE_URLS:
-        raise ValueError(f'Unsupported LLM provider: {config.provider}')
-    if config.provider == 'deepseek' and config.vision_model:
+def build_models(
+    provider: str, api_key: str, text_model: str, vision_model: str | None = None,
+) -> tuple[BaseChatModel, BaseChatModel | None]:
+    if provider not in BASE_URLS:
+        raise ValueError(f'Unsupported LLM provider: {provider}')
+    if provider == 'deepseek' and vision_model:
         raise ValueError('DeepSeek does not support vision models')
-    return _build_model(config, config.text_model), (
-        _build_model(config, config.vision_model) if config.vision_model else None
+    return _build_model(provider, api_key, text_model), (
+        _build_model(provider, api_key, vision_model) if vision_model else None
     )
 
 
-def _build_model(config: LLMConfig, model_name: str) -> ChatOpenAI:
+def _build_model(provider: str, api_key: str, model_name: str) -> ChatOpenAI:
     return ChatOpenAI(
         model=model_name,
-        api_key=config.api_key,
-        base_url=BASE_URLS[config.provider],
-        max_tokens=positive_env('AI_AGENT_MAX_TOKENS', 16_384),
+        api_key=cast(Any, api_key),
+        base_url=BASE_URLS[provider],
+        **cast(dict[str, Any], {'max_tokens': positive_env('AI_AGENT_MAX_TOKENS', 16_384)}),
         timeout=positive_env('AI_AGENT_TIMEOUT_SECONDS', 180, float),
         max_retries=0,
     )
@@ -74,11 +75,11 @@ async def structured_attempt[ResultT: BaseModel](
     messages: list[BaseMessage],
     schema: type[ResultT],
 ) -> tuple[ResultT | None, list[BaseMessage]]:
-    response: dict[str, Any] = await model.with_structured_output(
+    response = cast(dict[str, Any], await model.with_structured_output(
         schema,
         method='function_calling',
         include_raw=True,
-    ).ainvoke(messages)
+    ).ainvoke(messages))
     if parsed := response['parsed']:
         return parsed, messages
     error = response['parsing_error']

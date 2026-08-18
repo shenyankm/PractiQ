@@ -118,7 +118,7 @@ def test_extract_enforces_base64_upload_limits(
     encoded: str,
     status_code: int,
 ) -> None:
-    monkeypatch.setenv('IMPORT_SOURCE_MAX_BYTES', '4')
+    monkeypatch.setenv('AI_SOURCE_MAX_BYTES', '4')
 
     with pytest.raises(DocumentProcessingError) as exc_info:
         extract(DocumentParseRequest(sourceType='txt', fileBase64=encoded))
@@ -237,6 +237,27 @@ def test_extract_xlsx_produces_tabbed_sheet_text() -> None:
     assert 'Answer\tA' in document.text
 
 
+def test_extract_xlsx_rejects_oversized_expanded_archive(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import server.extractors.xlsx as xlsx_extractor
+
+    payload = BytesIO()
+    with ZipFile(payload, 'w') as archive:
+        archive.writestr('xl/workbook.xml', b'x' * 11)
+    monkeypatch.setattr(xlsx_extractor, 'MAX_XLSX_EXPANDED_BYTES', 10)
+
+    with pytest.raises(DocumentProcessingError) as exc_info:
+        extract(
+            DocumentParseRequest(
+                sourceType='xlsx',
+                fileBase64=base64.b64encode(payload.getvalue()).decode(),
+            )
+        )
+
+    assert exc_info.value.status_code == 413
+
+
 def test_extract_rejects_corrupt_docx_and_xlsx() -> None:
     for source_type in ('docx', 'xlsx'):
         with pytest.raises(DocumentProcessingError) as exc_info:
@@ -252,5 +273,5 @@ def test_extract_rejects_corrupt_docx_and_xlsx() -> None:
 def test_get_upload_max_bytes_falls_back_on_bad_values(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv('IMPORT_SOURCE_MAX_BYTES', 'nonsense')
+    monkeypatch.setenv('AI_SOURCE_MAX_BYTES', 'nonsense')
     assert extractors.get_upload_max_bytes() == extractors.DEFAULT_UPLOAD_MAX_BYTES

@@ -1,27 +1,25 @@
 [project]
-name = "practiq-server"
+name = "practiq-ai-service"
 version = "0.1.0"
-description = "PractiQ unified backend service (API + AI)"
+description = "PractiQ internal AI document-processing service"
 requires-python = ">=3.14"
 dependencies = [
   "fastapi==0.139.0",
   "uvicorn==0.51.0",
   "pydantic==2.13.4",
-  "psycopg[binary,pool]==3.2.13",
-  "redis==7.1.0",
-  "bcrypt==5.0.0",
-  "httpx==0.28.1",
-  "python-multipart==0.0.21",
   "pypdfium2==5.12.1",
   "pillow==12.3.0",
   "openpyxl==3.1.5",
   "langgraph==1.2.11",
-  "langgraph-checkpoint-postgres==3.1.2",
   "langchain-openai==1.5.1",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest==9.1.1", "pytest-asyncio==1.3.0", "fakeredis[lua]==2.32.1"]
+dev = [
+  "httpx==0.28.1",
+  "pytest==9.1.1",
+  "pytest-asyncio==1.3.0",
+]
 
 [build-system]
 requires = ["hatchling>=1.27"]
@@ -35,8 +33,3 @@ pythonpath = ["."]
 testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
-
-[dependency-groups]
-dev = [
-    "pytest-cov>=7.1.0",
-]

@@ -1,17 +1,17 @@
 import asyncio
 import json
 from io import BytesIO
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
-from langchain_core.runnables import RunnableLambda
+from langchain_core.runnables import RunnableConfig, RunnableLambda
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import InMemorySaver
 from PIL import Image
-from pydantic import Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError
 
 import server.agents.generator as generator
 import server.agents.model as model_factory
@@ -24,7 +24,6 @@ from server.ai_schemas import (
     LearningReportResult,
 )
 from server.extractors import DocumentProcessingError, ExtractedDocument
-from server.services.users import LLMConfig
 
 
 class FakeModel(BaseChatModel):
@@ -39,7 +38,7 @@ class FakeModel(BaseChatModel):
         return ChatResult(generations=[ChatGeneration(message=AIMessage(content=''))])
 
     def with_structured_output(
-        self, schema, *, include_raw=False, **kwargs
+        self, schema: Any, *, include_raw=False, **kwargs
     ) -> RunnableLambda:
         async def invoke(messages):
             self.calls.append(list(messages))
@@ -53,7 +52,7 @@ class FakeModel(BaseChatModel):
                 raise item
             raw = AIMessage(content=json.dumps(item))
             try:
-                parsed = schema.model_validate(item)
+                parsed = cast(type[BaseModel], schema).model_validate(item)
                 error = None
             except ValidationError as exc:
                 parsed, error = None, exc
@@ -71,26 +70,24 @@ class FakeModel(BaseChatModel):
     model_factory.BASE_URLS.items(),
 )
 def test_builds_supported_provider(provider: str, base_url: str) -> None:
-    text, vision_model = model_factory.build_models(
-        LLMConfig(provider, 'test-key', 'text-model', None)
-    )
+    text, vision_model = model_factory.build_models(provider, 'test-key', 'text-model')
     assert isinstance(text, ChatOpenAI)
     assert text.openai_api_base == base_url
-    assert text.openai_api_key.get_secret_value() == 'test-key'
+    assert cast(Any, text.openai_api_key).get_secret_value() == 'test-key'
     assert text.max_retries == 0
     assert vision_model is None
 
 
 def test_factory_rejects_unsupported_provider_and_deepseek_vision() -> None:
     with pytest.raises(ValueError, match='Unsupported'):
-        model_factory.build_models(LLMConfig('openai', 'key', 'text', None))
+        model_factory.build_models('openai', 'key', 'text')
     with pytest.raises(ValueError, match='does not support vision'):
-        model_factory.build_models(LLMConfig('deepseek', 'key', 'text', 'vision'))
+        model_factory.build_models('deepseek', 'key', 'text', 'vision')
 
 
 def test_graph_config_uses_environment_concurrency(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv('AI_AGENT_MAX_CONCURRENCY', '7')
-    assert model_factory.graph_config()['max_concurrency'] == 7
+    assert model_factory.graph_config().get('max_concurrency') == 7
 
 
 def question_dict(stem: str) -> dict[str, Any]:
@@ -205,7 +202,7 @@ def test_checkpoint_state_excludes_runtime_model() -> None:
         responses=[{'questions': [question_dict('1. Stored')], 'groups': []}]
     )
     graph = parser.build_parse_graph(InMemorySaver())
-    config = {'configurable': {'thread_id': 'import-1'}}
+    config = cast(RunnableConfig, {'configurable': {'thread_id': 'import-1'}})
     asyncio.run(
         parser.run_parse_graph(fake, None, parse_request(), graph=graph, config=config)
     )
@@ -231,7 +228,7 @@ def test_generate_answer_and_report_and_validation_retry() -> None:
     }
     fake = FakeModel(responses=[{'bad': True}, answer_payload, report_payload])
     answer = asyncio.run(generator.generate_answer(fake, {'stem': 'What is 2+2?'}))
-    report = asyncio.run(generator.learning_report(fake, {'userId': 7}))
+    report = asyncio.run(generator.learning_report(fake, {'stats': {'answers': 7}}))
 
     assert isinstance(answer, AnswerGenerationResult)
     assert answer.canonicalAnswer == '4'

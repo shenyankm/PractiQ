@@ -1,4 +1,4 @@
-"""python -m server → uvicorn serving the unified PractiQ API."""
+"""python -m server → uvicorn serving the internal PractiQ AI service."""
 
 import logging
 

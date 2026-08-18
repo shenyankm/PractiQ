@@ -1,3 +1,6 @@
+# LangGraph passes partial state between nodes; Pyright cannot infer edge ordering.
+# pyright: reportTypedDictNotRequiredAccess=false
+
 import operator
 from typing import Annotated, Any, TypedDict
 
@@ -306,12 +309,16 @@ def parse_graph_input(request: DocumentParseRequest) -> ParseState:
 
 def build_parse_graph(
     checkpointer: BaseCheckpointSaver | None = None,
-) -> CompiledStateGraph:
+) -> CompiledStateGraph[ParseState, AgentContext, ParseState, ParseState]:
     builder = StateGraph(ParseState, context_schema=AgentContext)
     builder.add_node('extract', _extract)
-    builder.add_node('vision', _vision, retry_policy=TRANSPORT_RETRY_POLICY)
+    builder.add_node(
+        'vision',
+        _vision,  # pyright: ignore[reportArgumentType]
+        retry_policy=TRANSPORT_RETRY_POLICY,
+    )
     builder.add_node('assemble_split', _assemble_split)
-    builder.add_node('chunk', _chunk)
+    builder.add_node('chunk', _chunk)  # pyright: ignore[reportArgumentType]
     builder.add_node('merge_finalize', _merge_finalize)
     builder.add_edge(START, 'extract')
     builder.add_conditional_edges(
@@ -329,7 +336,7 @@ async def run_parse_graph(
     vl_model: BaseChatModel | None,
     request: DocumentParseRequest,
     *,
-    graph: CompiledStateGraph | None = None,
+    graph: CompiledStateGraph[ParseState, AgentContext, ParseState, ParseState] | None = None,
     config: RunnableConfig | None = None,
 ) -> DocumentParseResult:
     try:

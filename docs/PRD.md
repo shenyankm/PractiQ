@@ -2,7 +2,7 @@
 
 ## 1. Product Overview
 
-PractiQ 是一个面向教师、学习者和教育机构的题库管理与智能练习平台。用户可创建和管理学科题库、手动或 AI 批量导入试题、组织练习与考试会话，并获取多维度的学习分析报告。当前产品由 Taro 微信小程序前端基线和统一 Python FastAPI 服务组成；FastAPI 直接承载 REST API、认证、AI 文档处理与导入任务，PostgreSQL 是权威数据源。前端业务流程正按 `docs/taro-migration.md` 恢复。
+PractiQ 是一个面向教师、学习者和教育机构的题库管理与智能练习平台。用户可创建和管理学科题库、手动或 AI 批量导入试题、组织练习与考试会话，并获取多维度的学习分析报告。当前产品由 Taro 微信小程序前端基线、Java 产品 API 与内部 Python AI 服务组成；Java 承载 REST API、认证和产品数据，Python 仅承载 AI 文档处理。前端业务流程正按 `docs/taro-migration.md` 恢复。
 
 ## 2. 目标用户
 
@@ -153,7 +153,7 @@ PractiQ 是一个面向教师、学习者和教育机构的题库管理与智能
 | NFR3 实时性 | 导入进度通过 PostgreSQL 持久事件和认证 SSE 展示，断线后按事件 ID 续传并可降级轮询 |
 | NFR4 可用性 | SQL + Redis 双依赖健康检查 `/api/health` |
 | NFR5 安全 | 短效 HMAC access JWT、轮换 refresh token、bcrypt 密码、CSRF SameOrigin 保护、速率限制 |
-| NFR6 可扩展 | 导入 worker 独立进程，PostgreSQL `FOR UPDATE SKIP LOCKED` 任务竞争 |
+| NFR6 可扩展 | Java 产品 API 编排可重试的导入与私有 AI 服务调用 |
 | NFR7 持久化 | PostgreSQL 为唯一权威存储；Redis 故障时普通读取降级至 SQL，幂等写入失败关闭 |
 | NFR8 国际化 | Taro 客户端目标支持 English、简体中文、繁體中文和日本語回退 |
 | NFR9 离线同步 | 计划按平台恢复缓存与 outbox；幂等重放避免响应丢失造成重复写入 |
@@ -163,13 +163,13 @@ PractiQ 是一个面向教师、学习者和教育机构的题库管理与智能
 ```
 PractiQ (Taro WeChat Mini Program) ── HTTP / JSON
                           ▼
-Unified server (Python FastAPI, psycopg, redis-py, LangGraph in-process)
+Java product API; the private Python FastAPI/LangGraph AI integration is pending
         │              │
         ├── PostgreSQL ─┤ (schema: db/*/*.sql)
         │              │
         ├── Redis ─────┤ (email codes, cache, rate-limit, idempotency)
         │
-        └── AI (LangGraph + DashScope/DeepSeek/Moonshot, in-process)
+        └── Internal AI service (LangGraph + DashScope/DeepSeek/Moonshot, pending Java integration)
                 ├── POST /api/v1/ai/parse-document
                 ├── POST /api/v1/ai/generate-answer
                 └── POST /api/v1/ai/learning-report
@@ -178,7 +178,7 @@ Unified server (Python FastAPI, psycopg, redis-py, LangGraph in-process)
 ### 数据流关键路径
 
 - **练习答题**: 提交 → 加载答案 key → 判分 → 写入 `user_question_answers` → 触发器更新 `user_question_stats` / `user_bank_stats` / session 计数器
-- **文档导入**: 上传 → 创建 job(queued) → 存储 artifact → worker 用 `FOR UPDATE SKIP LOCKED` 领取 → LangGraph 并发解析并 checkpoint → 写入试题与组合题 → 客户端 SSE 接收持久化事件
+- **文档导入**: 上传 → Java 创建任务与存储 artifact → Java 编排 AI 服务调用并写入试题与组合题 → 客户端接收产品 API 状态
 - **登录**: POST 凭证 → 验证密码 → 创建 PostgreSQL device session 和 refresh-token hash → 返回 10 分钟 access JWT 与单次 refresh token
 
 ## 7. 数据模型要点
@@ -196,7 +196,7 @@ Unified server (Python FastAPI, psycopg, redis-py, LangGraph in-process)
 
 ## 8. 当前开发阶段
 
-- **已实现**: 登录注册、题库和试题 REST API、练习、导入、媒体、分析、搜索与 AI API、7 个 SQL schema 领域及触发器、AI 文档解析、导入 worker、RevenueCat 计费同步、三级会员体系（含 3 天 Pro 试用和公共题库克隆）以及学习小组服务端 API
+- **已实现**: Java 产品 API、题库和试题 REST API、练习、导入、媒体、分析、搜索、SQL schema 与会员/学习小组能力；Python AI 服务保留文档解析与生成工作流，Java 客户端集成待完成
 - **前端现状**: Taro 微信小程序编译与运行基线已建立；业务页面、认证、离线缓存/outbox 和购买待迁移。仓库不包含其他前端。
 
 ## 9. 后续重点

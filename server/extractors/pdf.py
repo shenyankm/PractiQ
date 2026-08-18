@@ -1,5 +1,6 @@
 from io import BytesIO
 from math import ceil
+from typing import Any, cast
 
 import pypdfium2 as pdfium
 
@@ -94,7 +95,7 @@ def render_pages(file_bytes: bytes, indexes: list[int]) -> list[bytes]:
                     raise DocumentProcessingError(
                         413, 'PDF page exceeds the configured visual pixel limit'
                     )
-                bitmap = page.render(scale=RENDER_SCALE)
+                bitmap = page.render(scale=cast(Any, RENDER_SCALE))
                 try:
                     image = bitmap.to_pil()
                     try:

@@ -1,8 +1,7 @@
-FROM python:3.14-slim
+FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim
 WORKDIR /app
-COPY server/pyproject.toml /app/server/pyproject.toml
 COPY server /app/server
-RUN python -m pip install --no-cache-dir /app/server
-COPY db /app/db
-EXPOSE 3000
+RUN uv sync --frozen --no-dev --project /app/server
+ENV PATH="/app/server/.venv/bin:$PATH"
+EXPOSE 8080
 CMD ["python", "-m", "server"]

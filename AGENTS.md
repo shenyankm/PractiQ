@@ -1,34 +1,29 @@
 # Repository Guidelines
 
-## Project Structure & Module Organization
+## Project Structure
 
-PractiQ is a unified-stack application. The Taro frontend lives in `taro/` and targets WeChat Mini Program only. The unified Python FastAPI backend lives in `server/`, with routes under `server/routes/`, services under `server/services/`, auth under `server/auth/`, AI under `server/agents/` + `server/extractors/`, the import worker at `server/worker.py`, and the admin CLI at `server/admin.py`. SQL under `db/*/*.sql` remains the schema authority; architecture notes live in `docs/`.
+`backend/` is the Java product API and owns users, authorization, billing, question banks, imports, persistence, retries, and product API contracts. `server/` is a private FastAPI AI service: HTTP handlers in `server/routes/`, orchestration in `server/services/ai.py`, workflows in `server/agents/`, document extraction in `server/extractors/`, and strict integration DTOs in `server/ai_schemas.py`. `taro/` is the WeChat Mini Program. SQL under `db/` remains the product schema authority.
 
-## Build, Test, and Development Commands
+## Commands
 
-- `make install`: install Taro dependencies from the lockfile.
-- `make taro-weapp`: start the WeChat Mini Program watcher.
-- `make test`: type-check and build the WeChat Mini Program.
-- `make test-server`: run the server pytest suite.
-- `make db-apply`, `make db-seed`: apply and seed the SQL schema.
-- `make server-dev`, `make worker-imports`: run the API and import worker.
+- `make backend-test`: test the Java product API.
+- `make test-server`: test the Python AI service.
+- `make server-dev`: run the internal AI service.
+- `make backend-dev`: run the Java API locally.
+- `make test`: verify the Taro application.
 
-## Coding Style & Naming Conventions
+## Coding Style
 
-Use strict TypeScript, Taro components, and plain CSS. Keep WeChat-specific code at storage, files, payments, and authentication boundaries. Follow existing formatting and use PascalCase for React components. Do not add abstractions or dependencies before a migrated feature needs them.
+Use Java/Spring conventions in `backend/`, strict Pydantic DTOs in `server/`, and strict TypeScript/Taro conventions in `taro/`. Keep WeChat-specific code at platform boundaries. Avoid new abstractions or dependencies until needed by a concrete feature.
 
-## Testing Guidelines
+## Testing
 
-Run `make test` for Taro changes and `make test-server` for server changes. Run `make verify` before opening a PR. Each migrated feature must compare request payloads, states, and visible results against the behavior recorded in `docs/taro-migration.md`.
+Run `make backend-test` for Java changes, `make test-server` for AI changes, and `make test` for Taro changes. Run `make verify` before opening a PR when changes span layers.
 
-## Documentation Guidelines
+## Boundaries
 
-After every code, schema, configuration, or workflow change, update related documentation in the same change. Keep `README.md`, `docs/`, and feature notes aligned with current behavior.
+Keep Python AI-only. Do not add product persistence, authentication, billing, import queues, or Java business rules to `server/`. The bearer-token contract for a future Java-to-Python integration is defined by `AI_SERVICE_TOKEN`; Java client integration is not yet implemented. AI DTOs must exclude user, bank, question, session, and import resource IDs, while retaining semantic classification keys such as `questionTypeId`.
 
-## Commit & Pull Request Guidelines
+## Documentation, Commits, and Security
 
-Use focused Conventional Commit-style subjects such as `fix(session): ...` or `chore(config): ...`. PRs should include a clear summary, linked issue when applicable, environment changes, screenshots for UI changes, and verification commands.
-
-## Security & Configuration Tips
-
-Do not commit `.env.local` or secrets. Production traffic must use HTTPS. Keep tokens out of logs and ordinary storage, and configure the production WeChat appid and legal request domains outside committed secrets.
+Update relevant docs with code/configuration changes. Use focused Conventional Commit subjects. Do not commit `.env.local` or secrets. Production traffic must use HTTPS and the internal AI service must not be publicly exposed.

@@ -16,8 +16,6 @@ class StrictModel(BaseModel):
 
 
 class DocumentParseRequest(StrictModel):
-    importJobId: int | None = None
-    bankId: int | None = None
     sourceType: DocumentSourceType
     fileName: str | None = Field(default=None, max_length=255)
     text: str | None = None
@@ -135,7 +133,6 @@ def _non_blank(value: str) -> str:
 
 
 class AnswerGenerationRequest(StrictModel):
-    questionId: int | None = Field(default=None, gt=0)
     stem: str = Field(min_length=1, max_length=120_000)
     answerMode: AnswerMode
     options: list[ParsedOption] = Field(default_factory=list, max_length=100)
@@ -148,9 +145,6 @@ class AnswerGenerationRequest(StrictModel):
 
 
 class LearningReportRequest(StrictModel):
-    userId: int | None = Field(default=None, gt=0)
-    bankId: int | None = Field(default=None, gt=0)
-    practiceSessionId: int | None = Field(default=None, gt=0)
     scope: ReportScope = 'individual'
     stats: dict[str, Any] | None = None
 

@@ -1,10 +1,13 @@
 from io import BytesIO
+from zipfile import BadZipFile, ZipFile
 
 from openpyxl import load_workbook
 
 from . import DocumentProcessingError, ExtractedDocument
 
 MAX_ROWS_PER_SHEET = 10_000
+MAX_XLSX_ENTRIES = 5_000
+MAX_XLSX_EXPANDED_BYTES = 100 * 1024 * 1024
 
 
 def extract(base_text: str, file_bytes: bytes | None) -> ExtractedDocument:
@@ -13,7 +16,10 @@ def extract(base_text: str, file_bytes: bytes | None) -> ExtractedDocument:
 
     warnings: list[str] = []
     try:
+        _validate_archive(file_bytes)
         workbook = load_workbook(BytesIO(file_bytes), read_only=True, data_only=True)
+    except DocumentProcessingError:
+        raise
     except Exception as exc:
         raise DocumentProcessingError(400, 'XLSX preprocessing failed') from exc
 
@@ -38,3 +44,19 @@ def extract(base_text: str, file_bytes: bytes | None) -> ExtractedDocument:
 
     text = '\n\n'.join(part for part in [base_text, *parts] if part)
     return ExtractedDocument(text=text, warnings=warnings)
+
+
+def _validate_archive(file_bytes: bytes) -> None:
+    try:
+        with ZipFile(BytesIO(file_bytes)) as archive:
+            infos = archive.infolist()
+            names = {info.filename for info in infos}
+            if 'xl/workbook.xml' not in names:
+                raise DocumentProcessingError(400, 'Uploaded file is not an XLSX document')
+            if (
+                len(infos) > MAX_XLSX_ENTRIES
+                or sum(info.file_size for info in infos) > MAX_XLSX_EXPANDED_BYTES
+            ):
+                raise DocumentProcessingError(413, 'XLSX expanded content is too large')
+    except BadZipFile as exc:
+        raise DocumentProcessingError(400, 'Uploaded file is not a valid XLSX document') from exc

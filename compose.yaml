@@ -43,8 +43,8 @@ services:
       start_period: 10s
     restart: on-failure
 
-  server:
-    image: practiq-server:latest
+  ai:
+    image: practiq-ai:latest
     build:
       context: .
       dockerfile: Dockerfile.server
@@ -52,49 +52,22 @@ services:
       - path: .env.local
         required: false
     environment:
-      POSTGRES_URL: postgresql://practiq:practiq@postgres:5432/practiq_app
-      REDIS_URL: redis://redis:6379
-      PRACTIQ_HOST: 0.0.0.0
-      PORT: 3000
-      APP_ORIGIN: http://127.0.0.1:3000
+      AI_HOST: 0.0.0.0
+      AI_PORT: 8080
     ports:
-      - "127.0.0.1:3000:3000"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      - "127.0.0.1:8081:8080"
     healthcheck:
       test:
         [
           "CMD",
           "python",
           "-c",
-          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:3000/api/health/live').read()",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/api/health/live').read()",
         ]
       interval: 10s
       timeout: 5s
       retries: 6
       start_period: 30s
-    restart: on-failure
-
-  worker:
-    image: practiq-server:latest
-    build:
-      context: .
-      dockerfile: Dockerfile.server
-    command: ["python", "-m", "server.worker"]
-    env_file:
-      - path: .env.local
-        required: false
-    environment:
-      POSTGRES_URL: postgresql://practiq:practiq@postgres:5432/practiq_app
-      REDIS_URL: redis://redis:6379
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
     restart: on-failure
 
 volumes:

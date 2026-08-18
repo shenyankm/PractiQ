@@ -1,6 +1,6 @@
 # PractiQ 会员体系设计
 
-本文档是 PractiQ 会员体系的权威设计说明，覆盖三级会员（free / pro / organization）、新用户 3 天 Pro 试用、公共题库下载（克隆）与学习小组。数据模型以 `db/*/*.sql` 为准，服务端实现以 `server/` 为准。
+本文档是 PractiQ 会员体系的权威设计说明，覆盖三级会员（free / pro / organization）、新用户 3 天 Pro 试用、公共题库下载（克隆）与学习小组。数据模型以 `db/*/*.sql` 为准，产品服务端实现以 `backend/` 为准。
 
 ## 1. 概述与术语
 
@@ -51,7 +51,7 @@ trial_ends_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '3 days')
 - 试用只给 pro，永不给 organization。
 - 其余情况有效等级为 `free`。
 
-伪代码（对应 `server/membership.py` 的 `effective_membership`）：
+伪代码（由 Java 产品 API 的会员授权层实现）：
 
 ```python
 TIER_RANK = {'free': 0, 'pro': 1, 'organization': 2}
@@ -72,7 +72,7 @@ def tier_at_least(membership, minimum):
 - 有效等级回落为 `free`：全部 PRO 门控入口（AI 路由、导入任务创建/上传/解析/重试、公共题库克隆、LLM Key 托管）开始返回 `403 PRO_REQUIRED`。
 - 已配置的用户 LLM Key 保留在库（加密存储），重新获得 pro 后可直接复用。
 - 试用期间已克隆的题库、已导入的题目、已生成的内容全部保留，仅新操作被门控。
-- 边界：试用期间创建的导入任务若在过期后仍处于进行中，worker 复检权益时同样按有效等级判定并拒绝；对失败任务发起 retry 也会被 `403 PRO_REQUIRED` 拒绝。
+- 边界：试用期间创建的导入任务若在过期后仍处于进行中，Java 导入编排在重试或继续前按有效等级复检并拒绝；失败任务 retry 同样返回 `403 PRO_REQUIRED`。
 
 ## 4. 数据模型
 
@@ -121,16 +121,15 @@ def tier_at_least(membership, minimum):
 
 约束：`UNIQUE (group_id, bank_id)`。索引：`idx_study_group_banks_bank (bank_id)`、`idx_study_groups_created_by (created_by)`。
 
-级联规则：删除用户级联删除其创建的小组、成员行与关联行；删除小组级联删除其成员与题库关联；删除题库级联删除小组关联。小组成员获得小组关联题库的读权限（视同公开题库：仅 active 题目、剥离答案），该读权限在 `server/services/banks.py` 的 `get_bank` 读权限谓词中扩展，题库详情、题目列表、练习启动共用此一处判定。
+级联规则：删除用户级联删除其创建的小组、成员行与关联行；删除小组级联删除其成员与题库关联；删除题库级联删除小组关联。小组成员获得小组关联题库的读权限（视同公开题库：仅 active 题目、剥离答案），该读权限由 Java 产品 API 的题库授权谓词统一执行，题库详情、题目列表和练习启动共用该判定。
 
 ## 5. 服务端判定入口
 
 | 位置 | 内容 |
 |------|------|
-| `server/membership.py` | `TIER_RANK`、`effective_membership(membership, trial_ends_at)`、`tier_at_least(membership, minimum)` — 有效等级单点计算 |
-| `server/services/users.py` | `require_pro_entitlement(conn, user, feature)`（有效等级 ≥ pro，否则 `403 PRO_REQUIRED`）；`require_organization_entitlement(conn, user, feature)`（有效等级 = organization，否则 `403 ORGANIZATION_REQUIRED`） |
+| Java 产品 API | 有效等级计算及 Pro/组织权限校验的唯一实现。 |
 
-`require_pro_entitlement` 保持函数名与 `PRO_REQUIRED` 错误码不变，既有 AI/导入/LLM Key 调用点零改动；organization 因 rank 更高而天然放行全部 PRO 门控。
+Java 产品 API 保持 `PRO_REQUIRED` 与 `ORGANIZATION_REQUIRED` 错误语义，并在 AI/导入/LLM Key 调用前执行门控；organization 因 rank 更高而天然放行全部 PRO 门控。
 
 ### 错误码
 
@@ -191,7 +190,7 @@ membership 的写入入口仍然只有两个：已认证的 `/api/v1/billing/syn
 
 ## 9. 存量数据库迁移
 
-`python -m server.admin db apply` 顺序执行 `db/*/*.sql`，面向全新库，**非幂等**。对已存在的数据库，执行以下幂等迁移：
+产品数据库部署顺序执行 `db/*/*.sql`，面向全新库，**非幂等**。对已存在的数据库，执行以下幂等迁移：
 
 ```sql
 -- users：新增试用列（新行默认 3 天试用）
@@ -256,6 +255,6 @@ EXECUTE FUNCTION set_updated_at();
 | owner 降级为 pro/free | 小组数据（小组、成员、题库关联）全部保留；owner 的管理操作（改/删小组、增删成员、关联题库、查看成员学情）返回 `403 ORGANIZATION_REQUIRED`；成员仍可读小组关联题库 |
 | 克隆题库引用原题 | 克隆复制链接而不深拷题目行：源题库被删除后题目行仍在，克隆副本不受影响；但若源题目被其作者删除，克隆副本中的对应题目同步消失 |
 | 试用与 RC 订阅叠加 | paid tier 优先：试用内购买 pro/organization 即按付费等级生效；订阅到期回落后，若试用仍未过期则继续按试用 pro 生效 |
-| 试用过期时进行中的导入 | worker 复检与 retry 均按有效等级重新判定，过期后拒绝（`403 PRO_REQUIRED`）；已产出的题目保留 |
+| 试用过期时进行中的导入 | Java 导入编排在继续或 retry 前均按有效等级重新判定，过期后拒绝（`403 PRO_REQUIRED`）；已产出的题目保留 |
 | admin 系统角色 | 不绕过付费权益：admin 使用 AI / 克隆 / 学习小组管理同样需要相应有效等级 |
 | organization 判定的防御行为 | 未配置 `REVENUECAT_ORGANIZATION_ENTITLEMENT_ID` 时按默认 `'organization'` 匹配，计费链路保持可运行 |

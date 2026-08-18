@@ -1,6 +1,6 @@
 import base64
 from io import BytesIO
-from typing import Literal
+from typing import Literal, cast
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import HumanMessage
@@ -45,9 +45,12 @@ class ImageDescription(BaseModel):
 async def ocr_page(
     vl_model: BaseChatModel, image: bytes, page_index: int
 ) -> tuple[str, list[VisualElement]]:
-    page = await vl_model.with_structured_output(
-        PageOcrResult, method='function_calling'
-    ).ainvoke([_image_message(OCR_PROMPT, image, 'image/png')])
+    page = cast(
+        PageOcrResult,
+        await vl_model.with_structured_output(
+            PageOcrResult, method='function_calling'
+        ).ainvoke([_image_message(OCR_PROMPT, image, 'image/png')]),
+    )
     return page.text.strip(), [
         VisualElement(
             kind=figure.kind,
@@ -62,9 +65,12 @@ async def ocr_page(
 
 
 async def describe_image(vl_model: BaseChatModel, image: bytes) -> VisualElement:
-    described = await vl_model.with_structured_output(
-        ImageDescription, method='function_calling'
-    ).ainvoke([_image_message(DESCRIBE_PROMPT, image, _media_type(image))])
+    described = cast(
+        ImageDescription,
+        await vl_model.with_structured_output(
+            ImageDescription, method='function_calling'
+        ).ainvoke([_image_message(DESCRIBE_PROMPT, image, _media_type(image))]),
+    )
     return VisualElement(
         kind='image',
         description=described.description,
@@ -148,14 +154,16 @@ def _crop_figure(page_image: bytes, bbox: list[float]) -> str | None:
     if x1 <= x0 or y1 <= y0:
         return None
     with Image.open(BytesIO(page_image)) as image:
-        cropped = image.convert('RGB').crop(
-            (
+        try:
+            box = (
                 int(x0 * image.width),
                 int(y0 * image.height),
                 int(x1 * image.width),
                 int(y1 * image.height),
             )
-        )
+        except (OverflowError, ValueError):
+            return None
+        cropped = image.convert('RGB').crop(box)
     while True:
         buffer = BytesIO()
         cropped.save(buffer, format='JPEG', quality=80)

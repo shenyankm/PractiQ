@@ -34,7 +34,7 @@ def positive_env[NumberT: (int, float)](name: str, default: NumberT, cast: type[
 
 
 def get_upload_max_bytes() -> int:
-    return positive_env('IMPORT_SOURCE_MAX_BYTES', DEFAULT_UPLOAD_MAX_BYTES)
+    return positive_env('AI_SOURCE_MAX_BYTES', DEFAULT_UPLOAD_MAX_BYTES)
 
 
 def get_vision_max_bytes() -> int:

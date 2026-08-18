@@ -2,8 +2,6 @@
 !Dockerfile.server
 !server/
 !server/**
-!db/
-!db/**
 server/.venv/
 server/.pytest_cache/
 server/**/__pycache__/
