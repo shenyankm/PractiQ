@@ -7,8 +7,6 @@ export const CLOUD_API_URL =
 if (process.env.NODE_ENV === 'production' && !CLOUD_API_URL.startsWith('https://')) {
   throw new Error('EXPO_PUBLIC_API_URL must use HTTPS in production.');
 }
-export const CLOUD_PROVIDER_NAME = 'PractiQ 云端服务';
-
 const SESSION_KEY = 'practiq.cloud.session';
 
 export class CloudError extends Error {
@@ -158,6 +156,7 @@ export function cloudErrorFromResponse(status: number, body: unknown): CloudErro
   const requestId = parsed.success ? parsed.data.error.requestId ?? '' : '';
   if (status === 401) return new CloudError('登录已过期，请重新登录云端账户。', status, code, details, requestId);
   if (code === 'PRO_REQUIRED') return new CloudError('此云端 AI 功能需要 PRO 订阅。', status, code, details, requestId);
+  if (code === 'ORGANIZATION_REQUIRED') return new CloudError('此功能需要 Organization 订阅。', status, code, details, requestId);
   if (code === 'LLM_CONFIG_REQUIRED') return new CloudError('请先在设置中配置你的 LLM API Key。', status, code, details, requestId);
   if (code === 'VISION_MODEL_REQUIRED') return new CloudError('此文档需要配置视觉模型。', status, code, details, requestId);
   if (code === 'USER_INACTIVE') return new CloudError('该账户已被停用，请联系管理员。', status, code, details, requestId);
@@ -248,7 +247,9 @@ const authDataSchema = z.object({
   email: z.string().email().nullable(),
   is_active: z.boolean(),
   role: z.enum(['admin', 'user']),
-  membership: z.enum(['free', 'pro']),
+  membership: z.enum(['free', 'pro', 'organization']),
+  trialEndsAt: z.string().nullable().optional(),
+  effectiveMembership: z.enum(['free', 'pro', 'organization']).optional(),
   revenuecat_app_user_id: z.uuid(),
   tokens: tokenSchema,
 }).loose();

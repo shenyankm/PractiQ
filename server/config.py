@@ -1,74 +1,12 @@
-"""Environment configuration loading.
-
-Mirrors backend/internal/config/config.go + backend/internal/db/config.go:
-.env.local -> .env -> process environment (process env wins), walking up from
-cwd to the directory containing .git.
-"""
-
-from __future__ import annotations
+"""Environment configuration."""
 
 import os
 from dataclasses import dataclass
-from pathlib import Path
 
 DEFAULT_ACCESS_TOKEN_TTL_SECONDS = 10 * 60
 DEFAULT_REFRESH_TOKEN_TTL_SECONDS = 30 * 24 * 3600
 DEFAULT_SESSION_ABSOLUTE_TTL_SECONDS = 90 * 24 * 3600
 DEFAULT_AI_AGENT_TIMEOUT_SECONDS = 300
-
-
-def _dotenv_paths(name: str) -> list[Path]:
-    try:
-        directory = Path.cwd()
-    except OSError:
-        return []
-    paths: list[Path] = []
-    while True:
-        paths.append(directory / name)
-        if (directory / '.git').exists():
-            return paths
-        parent = directory.parent
-        if parent == directory:
-            return paths
-        directory = parent
-
-
-def _trim_env_value(value: str) -> str:
-    value = value.strip()
-    if len(value) >= 2 and value[0] in ('\'', '"') and value[-1] == value[0]:
-        return value[1:-1]
-    return value
-
-
-def _load_dotenv(values: dict[str, str], path: Path) -> None:
-    try:
-        lines = path.read_text().splitlines()
-    except OSError:
-        return
-    for line in lines:
-        line = line.strip()
-        if not line or line.startswith('#') or '=' not in line:
-            continue
-        key, _, value = line.partition('=')
-        key = key.strip()
-        if not key or key in values:
-            continue
-        values[key] = _trim_env_value(value)
-
-
-def load_env() -> dict[str, str]:
-    """Load dotenv files, overlay process env, and backfill os.environ."""
-    values: dict[str, str] = {}
-    for path in _dotenv_paths('.env.local'):
-        _load_dotenv(values, path)
-    for path in _dotenv_paths('.env'):
-        _load_dotenv(values, path)
-    dotenv_values = dict(values)
-    values.update(os.environ)
-    for key, value in dotenv_values.items():
-        if key not in os.environ:
-            os.environ[key] = value
-    return values
 
 
 def _get(values: dict[str, str], key: str, fallback: str) -> str:
@@ -125,12 +63,13 @@ class Config:
     revenuecat_project_id: str
     revenuecat_secret_api_key: str
     revenuecat_pro_entitlement_id: str
+    revenuecat_organization_entitlement_id: str
     revenuecat_webhook_authorization: str
     llm_key_encryption_secret: str
 
 
 def load() -> Config:
-    values = load_env()
+    values = dict(os.environ)
     port = 8080
     raw_port = values.get('PORT', '').strip()
     if raw_port:
@@ -165,6 +104,9 @@ def load() -> Config:
         revenuecat_project_id=values['REVENUECAT_PROJECT_ID'].strip(),
         revenuecat_secret_api_key=values['REVENUECAT_SECRET_API_KEY'].strip(),
         revenuecat_pro_entitlement_id=values['REVENUECAT_PRO_ENTITLEMENT_ID'].strip(),
+        revenuecat_organization_entitlement_id=(
+            values.get('REVENUECAT_ORGANIZATION_ENTITLEMENT_ID', '').strip() or 'organization'
+        ),
         revenuecat_webhook_authorization=values['REVENUECAT_WEBHOOK_AUTHORIZATION'].strip(),
         llm_key_encryption_secret=values['LLM_KEY_ENCRYPTION_SECRET'].strip(),
     )

@@ -1,7 +1,5 @@
 """RevenueCat entitlement synchronization."""
 
-from __future__ import annotations
-
 from urllib.parse import quote
 
 import httpx
@@ -45,10 +43,16 @@ async def _membership(client: httpx.AsyncClient, cfg: config.Config, app_user_id
         raise envelope.new_error(
             502, 'REVENUECAT_INVALID_RESPONSE', 'Subscription verification returned invalid data'
         )
-    return 'pro' if any(
-        isinstance(item, dict) and item.get('entitlement_id') == cfg.revenuecat_pro_entitlement_id
+    entitlement_ids = {
+        item.get('entitlement_id')
         for item in items
-    ) else 'free'
+        if isinstance(item, dict) and isinstance(item.get('entitlement_id'), str)
+    }
+    if cfg.revenuecat_organization_entitlement_id in entitlement_ids:
+        return 'organization'
+    if cfg.revenuecat_pro_entitlement_id in entitlement_ids:
+        return 'pro'
+    return 'free'
 
 
 async def sync_user(

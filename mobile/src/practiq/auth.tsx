@@ -187,7 +187,7 @@ export function CloudAuthProvider({ children }: PropsWithChildren) {
     loading,
     session,
     user,
-    hasPro: revenuecatPro || user?.membership === 'pro',
+    hasPro: revenuecatPro || (user != null && (user.effectiveMembership ?? user.membership) !== 'free'),
     sync,
     signIn: (name, password) => authenticate(() => login(name, password)),
     signUp: (name, email, password, code) => authenticate(() => register(name, email, password, code)),

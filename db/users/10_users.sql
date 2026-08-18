@@ -11,6 +11,7 @@ CREATE TABLE users (
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     role TEXT NOT NULL DEFAULT 'user',
     membership TEXT NOT NULL DEFAULT 'free',
+    trial_ends_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '3 days'),
     revenuecat_app_user_id UUID NOT NULL DEFAULT gen_random_uuid(),
     llm_provider TEXT,
     llm_api_key_ciphertext BYTEA,
@@ -20,10 +21,10 @@ CREATE TABLE users (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT chk_users_username_not_blank CHECK (btrim(username) <> ''),
     CONSTRAINT chk_users_role CHECK (role IN ('admin', 'user')),
-    CONSTRAINT chk_users_membership CHECK (membership IN ('free', 'pro')),
+    CONSTRAINT chk_users_membership CHECK (membership IN ('free', 'pro', 'organization')),
     CONSTRAINT chk_users_llm_provider CHECK (
         llm_provider IS NULL OR llm_provider IN (
-            'anthropic', 'dashscope', 'deepseek', 'gemini', 'moonshot', 'openai', 'xai'
+            'dashscope', 'deepseek', 'moonshot'
         )
     ),
     CONSTRAINT chk_users_llm_config CHECK (
@@ -35,6 +36,7 @@ CREATE TABLE users (
             AND llm_text_model IS NOT NULL
             AND btrim(llm_text_model) <> ''
             AND (llm_vision_model IS NULL OR btrim(llm_vision_model) <> '')
+            AND (llm_vision_model IS NULL OR llm_provider IN ('dashscope', 'moonshot'))
         )
     )
 );
@@ -57,6 +59,7 @@ COMMENT ON COLUMN users.avatar_url IS '头像对象存储地址';
 COMMENT ON COLUMN users.password_hash IS '密码哈希';
 COMMENT ON COLUMN users.is_active IS '是否启用';
 COMMENT ON COLUMN users.role IS '系统角色，admin / user';
-COMMENT ON COLUMN users.membership IS 'RevenueCat 权益投影，free / pro';
+COMMENT ON COLUMN users.membership IS 'RevenueCat 权益投影，free / pro / organization（不含试用，试用见 trial_ends_at）';
+COMMENT ON COLUMN users.trial_ends_at IS '新用户 Pro 试用截止时间；试用内有效等级视为 pro';
 COMMENT ON COLUMN users.revenuecat_app_user_id IS 'RevenueCat 不可猜测的 App User ID';
 COMMENT ON COLUMN users.llm_api_key_ciphertext IS '用户 LLM API Key 的 pgcrypto 密文';

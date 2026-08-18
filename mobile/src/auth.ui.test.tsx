@@ -271,7 +271,10 @@ describe('CloudAuthProvider', () => {
     expect(mockPresentCustomerCenter).toHaveBeenCalled();
   });
 
-  it('exposes pro from the server membership and reacts to app foregrounding', async () => {
+  it.each([
+    ['trial', { membership: 'free', effectiveMembership: 'pro' }],
+    ['organization', { membership: 'organization', effectiveMembership: 'organization' }],
+  ])('exposes pro from %s server membership and reacts to app foregrounding', async (_tier, user) => {
     const handlerSpy = jest.spyOn(AppState, 'addEventListener');
     let appStateHandler: ((state: AppStateStatus) => void) | null = null;
     handlerSpy.mockImplementation((_type: string, handler: (state: AppStateStatus) => void) => {
@@ -283,8 +286,8 @@ describe('CloudAuthProvider', () => {
     const ctx = probeRef.current!;
 
     mockApiRequest.mockImplementation((path: string) => {
-      if (path === '/api/v1/auth/me') return Promise.resolve(userData({ membership: 'pro' }));
-      if (path === '/api/v1/billing/sync') return Promise.resolve({ membership: 'pro' });
+      if (path === '/api/v1/auth/me') return Promise.resolve(userData(user));
+      if (path === '/api/v1/billing/sync') return Promise.resolve(user);
       return Promise.resolve(null);
     });
     await act(async () => {

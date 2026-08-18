@@ -6,20 +6,23 @@ const nullableString = z.string().nullable();
 export const answerModeSchema = z.enum(['choice', 'true_false', 'fill_blank', 'short_answer']);
 export const choiceVariantSchema = z.enum(['single', 'multiple']).nullable();
 
+export const membershipSchema = z.enum(['free', 'pro', 'organization']);
+export type Membership = z.infer<typeof membershipSchema>;
+
 export const cloudUserSchema = z.object({
   id,
   username: z.string().min(1),
   email: z.string().email().nullable(),
   is_active: z.boolean(),
   role: z.enum(['admin', 'user']),
-  membership: z.enum(['free', 'pro']),
+  membership: membershipSchema,
+  trialEndsAt: z.string().nullable().optional(),
+  effectiveMembership: membershipSchema.optional(),
   revenuecat_app_user_id: z.uuid(),
 }).loose();
 export type CloudUser = z.infer<typeof cloudUserSchema>;
 
-export const llmProviderSchema = z.enum([
-  'anthropic', 'dashscope', 'deepseek', 'gemini', 'moonshot', 'openai', 'xai',
-]);
+export const llmProviderSchema = z.enum(['dashscope', 'deepseek', 'moonshot']);
 export const llmConfigSchema = z.object({
   provider: llmProviderSchema.nullable(),
   textModel: z.string().nullable(),
@@ -224,8 +227,18 @@ export type ImportJob = z.infer<typeof importJobSchema>;
 
 export const importEventSchema = z.object({
   id,
+  job_id: id,
+  stage: z.string(),
+  step_code: z.string(),
+  step_label: nullableString,
   status: z.string(),
-  message: z.string().nullable().optional(),
+  message: nullableString,
+  overall_progress_percent: z.number().nullable(),
+  step_progress_percent: z.number().nullable(),
+  target_kind: nullableString,
+  target_name: nullableString,
+  payload_json: z.string(),
+  created_at: z.string(),
 }).loose();
 export const importEventsSchema = z.array(importEventSchema);
 export type ImportEvent = z.infer<typeof importEventSchema>;

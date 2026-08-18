@@ -1,7 +1,5 @@
 """Bank + group service tests with fake pools (no database required)."""
 
-from __future__ import annotations
-
 from datetime import datetime, timezone
 
 import pytest

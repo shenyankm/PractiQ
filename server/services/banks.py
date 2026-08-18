@@ -1,6 +1,3 @@
-"""Question bank service. Mirrors backend/internal/services/banks.go."""
-
-from __future__ import annotations
 
 import json
 from dataclasses import dataclass
@@ -10,6 +7,7 @@ from psycopg_pool import AsyncConnectionPool
 from .. import envelope
 from ..auth.runtime import User
 from . import helpers
+from . import users as users_svc
 from .pagination import Page, build_page, clamp_positive, parse_page_cursor
 
 BANK_COLUMNS = 'id, name, description, subject, total_count, created_by, is_public, created_at, updated_at'
@@ -111,10 +109,18 @@ async def get_bank(pool: AsyncConnectionPool, user: User, bank_id: int) -> dict:
                 ON ubl.bank_id = b.id
                AND ubl.user_id = %s
             WHERE b.id = %s
-              AND (b.is_public = true OR ubl.id IS NOT NULL)
+              AND (
+                  b.is_public = true OR ubl.id IS NOT NULL
+                  OR EXISTS (
+                      SELECT 1
+                      FROM study_group_banks sgb
+                      JOIN study_group_members sgm ON sgm.group_id = sgb.group_id
+                      WHERE sgb.bank_id = b.id AND sgm.user_id = %s
+                  )
+              )
             LIMIT 1
             """,
-            (user.id, bank_id),
+            (user.id, bank_id, user.id),
         )
         row = await cursor.fetchone()
     if row is None:
@@ -222,6 +228,107 @@ async def set_favorite(pool: AsyncConnectionPool, user: User, bank_id: int, favo
             """,
             (user.id, bank_id),
         )
+
+
+CLONE_NAME_SUFFIX = '（副本）'
+
+
+async def clone_public_bank(pool: AsyncConnectionPool, user: User, bank_id: int) -> dict:
+    async with pool.connection() as conn:
+        await users_svc.require_pro_entitlement(conn, user, 'Public bank downloads')
+        cursor = await conn.execute(
+            """
+            SELECT name, description, subject, total_count, is_public
+            FROM question_banks
+            WHERE id = %s
+            LIMIT 1
+            """,
+            (bank_id,),
+        )
+        source = await cursor.fetchone()
+        if source is None or not source[4]:
+            raise envelope.new_error(404, 'BANK_NOT_FOUND', 'Question bank not found')
+        base_name = source[0]
+        if len(base_name) + len(CLONE_NAME_SUFFIX) > 100:
+            base_name = base_name[:100 - len(CLONE_NAME_SUFFIX)]
+        async with conn.transaction():
+            cursor = await conn.execute(
+                f"""
+                INSERT INTO question_banks (name, description, subject, total_count, created_by, is_public)
+                VALUES (%s, %s, %s, %s, %s, false)
+                RETURNING {BANK_COLUMNS}
+                """,
+                (base_name + CLONE_NAME_SUFFIX, source[1], source[2], source[3], user.id),
+            )
+            created = _scan_bank(await cursor.fetchone())
+            new_bank_id = created['id']
+            await conn.execute(
+                'INSERT INTO user_bank_links (user_id, bank_id, is_owner) VALUES (%s, %s, true)',
+                (user.id, new_bank_id),
+            )
+            await conn.execute(
+                """
+                INSERT INTO bank_question_links (bank_id, question_id, sort_order, question_no, status, added_by)
+                SELECT %s, question_id, sort_order, question_no, status, %s
+                FROM bank_question_links
+                WHERE bank_id = %s
+                """,
+                (new_bank_id, user.id, bank_id),
+            )
+            cursor = await conn.execute(
+                """
+                SELECT
+                    g.id, g.business_type, g.subject_id, g.group_type_id, g.parent_group_id,
+                    g.hierarchy_level, g.hierarchy_path, g.chapter_ref, g.chapter_title, g.chapter_order,
+                    g.title, g.instructions, g.source_ref, g.content_mode, g.detail_payload
+                FROM bank_group_links bgl
+                JOIN question_groups g ON g.id = bgl.group_id
+                WHERE bgl.bank_id = %s
+                ORDER BY g.hierarchy_level, g.id
+                """,
+                (bank_id,),
+            )
+            group_id_map: dict[int, int] = {}
+            for group in await cursor.fetchall():
+                old_group_id = group[0]
+                cursor = await conn.execute(
+                    """
+                    INSERT INTO question_groups (
+                        business_type, subject_id, group_type_id, parent_group_id, hierarchy_level,
+                        hierarchy_path, chapter_ref, chapter_title, chapter_order, title,
+                        instructions, source_ref, content_mode, detail_payload, imported_by
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id
+                    """,
+                    (
+                        group[1], group[2], group[3],
+                        group_id_map.get(group[4]) if group[4] is not None else None,
+                        group[5], group[6], group[7], group[8], group[9], group[10],
+                        group[11], group[12], group[13], group[14], user.id,
+                    ),
+                )
+                new_group_id = (await cursor.fetchone())[0]
+                group_id_map[old_group_id] = new_group_id
+                await conn.execute(
+                    """
+                    INSERT INTO bank_group_links (bank_id, group_id, sort_order, status, added_by)
+                    SELECT %s, %s, sort_order, status, %s
+                    FROM bank_group_links
+                    WHERE bank_id = %s AND group_id = %s
+                    """,
+                    (new_bank_id, new_group_id, user.id, bank_id, old_group_id),
+                )
+                await conn.execute(
+                    """
+                    INSERT INTO group_question_links (group_id, question_id, sort_order, question_no)
+                    SELECT %s, question_id, sort_order, question_no
+                    FROM group_question_links
+                    WHERE group_id = %s
+                    """,
+                    (new_group_id, old_group_id),
+                )
+    return created
 
 
 @dataclass

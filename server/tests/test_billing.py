@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import pytest
 from httpx import ASGITransport, AsyncClient
 
@@ -14,6 +12,7 @@ def _config() -> config.Config:
         node_env='test', host='127.0.0.1', port=8080, app_origin='http://test',
         revenuecat_project_id='proj_test', revenuecat_secret_api_key='sk_test',
         revenuecat_pro_entitlement_id='entl_pro',
+        revenuecat_organization_entitlement_id='entl_org',
         revenuecat_webhook_authorization='Bearer webhook-test',
         llm_key_encryption_secret='encrypt-test',
     )
