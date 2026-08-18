@@ -1,8 +1,6 @@
 # PractiQ System Design
 
-This document designs the application services, UI pages, and core modules from the authoritative split PostgreSQL schema files in `db/*/*.sql`.
-
-The starter Drizzle/team layer has been explicitly retired. Treat the business-area SQL files under `db/` as the product data model for the question-bank system, and do not reintroduce a parallel ORM schema until it is generated from or proven equivalent to those SQL files.
+This document describes the current Expo mobile client, unified FastAPI service, worker, and PostgreSQL data model. The split schema files under `db/*/*.sql` are the product schema authority.
 
 The files under `db/*/*.sql` are bootstrap schema fragments for fresh local, test, or reset environments. They are not a reversible production migration history; production data-preserving schema changes should be added as explicit versioned migrations before rollout.
 
@@ -11,11 +9,11 @@ The files under `db/*/*.sql` are bootstrap schema fragments for fresh local, tes
 本文档基于 `db/*/*.sql` 中按业务拆分的 PostgreSQL schema 设计 PractiQ 题库系统的完整产品形态，覆盖：
 
 - 后端 REST API：用户认证、题库、题目、题组、练习会话、导入任务、媒体资源、统计分析。
-- 前端页面：登录注册、仪表板、题库列表和详情、题目管理、练习作答、文件导入、用户设置。
+- 移动端页面：登录注册、学习概览、题库列表和详情、题目管理、练习作答、文件导入、学习分析与用户设置。
 - 核心模块：认证授权、题库权限、题型渲染与判分、导入流水线、媒体管理、统计分析。
 - 工程约束：数据关联、事务边界、参数校验、错误模型、状态生命周期和性能策略。
 
-当前仓库已移除旧的 Drizzle/team schema；正式开发仍应以 `db/` 下的业务 SQL 文件和本文档为准，并继续替换遗留的 team/dashboard 页面与路由。
+当前仓库包含 `mobile/` Expo 客户端、`server/` FastAPI 服务及 worker，以及 `db/` SQL schema；仓库不包含 Web 前端。
 
 ## Redis Integration
 
@@ -26,18 +24,16 @@ Current Redis responsibilities:
 - Cache-aside reads for user profiles, practice question queues, and analytics summaries.
 - Rate limit counters for authentication endpoints.
 - One-time Google OAuth transaction records (PKCE verifier and nonce).
-- Best-effort Redis Pub/Sub import notifications; clients read the durable `question_import_job_events` history by polling.
 - Cached leaderboard and analytics snapshot endpoints for higher-cost reporting views.
 - Successful responses for mobile mutations carrying `Idempotency-Key`, retained for 24 hours.
-- PostgreSQL full-text search enhancement for question search, with `ILIKE` fallback behavior.
 
 Failure policy:
 
 - Cache misses or Redis cache errors fall back to PostgreSQL.
 - Google OAuth transaction storage and authentication rate limits require Redis. Those paths fail closed with `503` when Redis is unavailable. Session validation and logout use PostgreSQL.
 - Requests carrying `Idempotency-Key` also fail closed with `503` when Redis is unavailable so a retry cannot create duplicate writes.
-- Import processing and client progress polling continue from PostgreSQL without Redis.
-- Redis deployments should enable persistence and avoid evicting active session-revocation keys.
+- Import processing and authenticated SSE progress continue from PostgreSQL without Redis; the mobile client retains polling as a fallback.
+- Redis deployments should avoid evicting live OAuth transaction, rate-limit, and idempotency keys.
 
 ## 1. Domain Model
 
@@ -45,14 +41,15 @@ Failure policy:
 
 | Domain | Tables | Purpose |
 | --- | --- | --- |
-| Identity | `users` | Local accounts, RevenueCat identity/free-pro projection, encrypted user LLM configuration |
+| Identity | `users` | Local/Google accounts, system role, RevenueCat membership projection, Pro trial, encrypted user LLM configuration |
 | Taxonomy | `subjects`, `question_types`, `knowledge_points` | Subject/type classification and knowledge hierarchy |
 | Question banks | `question_banks`, `user_bank_links`, `user_bank_stats` | User-owned public/private banks, favorites, per-user bank stats |
 | Questions | `questions`, `question_groups`, `bank_question_links`, `bank_group_links`, `group_question_links`, `v_bank_question_items` | Standalone and grouped questions inside banks |
 | Answer models | `question_options`, `question_answer_keys` | Choice options and canonical answer payloads |
-| Import pipeline | `question_import_jobs`, `question_import_job_events`, `question_import_job_artifacts`, `question_import_job_outputs` | File import orchestration, source artifacts, events, and generated-question links |
+| Import pipeline | `question_import_jobs`, `question_import_job_events`, `question_import_job_artifacts`, `question_import_job_outputs`, `checkpoints`, `checkpoint_blobs`, `checkpoint_writes` | File import orchestration, source artifacts, events, AI-phase checkpoints, and generated-question links |
 | Media | `media_assets`, `question_media_links`, `question_option_media_links`, `question_group_media_links`, `question_content_blocks` | Uploaded images and schema-supported rich content blocks |
 | Practice | `user_practice_sessions`, `user_question_answers`, `user_question_stats` | Practice sessions, submitted answers, per-question user stats |
+| Study groups | `study_groups`, `study_group_members`, `study_group_banks` | Organization-owned groups, members, shared banks, and member analytics access |
 
 ### Important Invariants
 
@@ -64,6 +61,8 @@ Failure policy:
 - `question_answer_keys` allows only one primary answer key per question.
 - `media_assets.created_by` owns every uploaded asset; the fresh schema requires it and media reads still follow bank visibility.
 - Import jobs use the terminal `cancelled` status directly.
+- Effective membership is derived from the RevenueCat `membership` projection plus `trial_ends_at`; system roles do not bypass paid entitlements.
+- Study-group owners manage membership and bank links; group members receive read access to linked banks.
 
 ## 2. API Design
 
@@ -94,16 +93,20 @@ Errors:
 
 ### Authentication
 
-Use short-lived access JWTs for browser cookies and mobile bearer requests. Login/register responses contain `tokens.accessToken`, `tokens.refreshToken`, `tokens.expiresAt`, and `tokens.refreshExpiresAt`; the mobile client stores them in Secure Store. Browser refresh tokens are HttpOnly cookies. PostgreSQL stores the device session plus only the SHA-256 hash of each refresh token; refresh tokens are single-use and rotated. Reuse revokes the whole device session. The resolver accepts the `session` cookie first and then the bearer header.
+Use short-lived access JWTs and rotating refresh tokens. The bundled mobile client uses bearer tokens stored in Secure Store; the server also supports HttpOnly cookie transport for external browser clients. Login/register responses contain `tokens.accessToken`, `tokens.refreshToken`, `tokens.expiresAt`, and `tokens.refreshExpiresAt`. PostgreSQL stores the device session plus only the SHA-256 hash of each refresh token; refresh-token reuse revokes the whole device session.
 
 | Method | Route | Auth | Description |
 | --- | --- | --- | --- |
 | `POST` | `/api/v1/auth/register` | Public | Validate local registration details, create `users` row, and hash password. |
 | `POST` | `/api/v1/auth/login` | Public | Verify username/email + password, set session cookie. |
+| `POST` | `/api/v1/auth/email-code` | Public | Send a single-use six-digit registration code. |
 | `POST` | `/api/v1/auth/refresh` | Public | Rotate a refresh token and return/set fresh access and refresh tokens. |
 | `POST` | `/api/v1/auth/logout` | User | Revoke the PostgreSQL device session and clear both cookies. |
 | `GET` | `/api/v1/auth/me` | User | Return current user profile and capability flags. |
 | `PATCH` | `/api/v1/users/me` | User | Update username/email/password. |
+| `POST` | `/api/v1/auth/google/token` | Public | Verify a native Google ID token and issue a session. |
+| `GET` | `/api/v1/auth/google/start` | Public | Start the optional browser OAuth flow. |
+| `GET` | `/api/v1/auth/google/callback` | Public | Complete the browser OAuth flow. |
 
 Register body:
 
@@ -111,7 +114,8 @@ Register body:
 {
   "username": "alice",
   "email": "alice@example.com",
-  "password": "minimum-12-chars"
+  "password": "minimum-8-bytes",
+  "code": "123456"
 }
 ```
 
@@ -122,7 +126,7 @@ Registration requires a 3-20 character ASCII username containing only letters, n
 Authorization checks:
 
 - `is_active=false` blocks all mutating routes and practice start.
-- `membership=pro` is a RevenueCat projection and gates every cloud-AI route and import parse; roles do not bypass it.
+- Effective membership is ordered `free < pro < organization`; a new `free` user is treated as `pro` until `trial_ends_at`. Effective Pro gates cloud AI, import, LLM configuration, and public-bank cloning; organization additionally gates study-group creation. System roles do not bypass these checks.
 - Google identities use the verified Google `sub` in `users.google_sub`; browser OAuth uses PKCE S256, nonce, and a one-time Redis transaction. A verified-email collision is never auto-linked and returns `ACCOUNT_LINK_REQUIRED`.
 
 ### Subjects and Question Types
@@ -144,6 +148,7 @@ Authorization checks:
 | `DELETE` | `/api/v1/banks/:bankId` | Bank owner | Delete bank and cascading links. |
 | `POST` | `/api/v1/banks/:bankId/favorite` | User | Add/update `user_bank_links(is_favorite=true)`. |
 | `DELETE` | `/api/v1/banks/:bankId/favorite` | User | Remove favorite or clear favorite flag. |
+| `POST` | `/api/v1/banks/:bankId/clone` | Pro | Clone a public bank into a private bank owned by the caller. |
 | `GET` | `/api/v1/banks/:bankId/items` | Bank reader | Read `v_bank_question_items` with filters. |
 | `POST` | `/api/v1/banks/:bankId/questions` | Bank editor | Create standalone question and link. |
 | `GET` | `/api/v1/banks/:bankId/groups` | Bank reader | List visible groups and question counts. |
@@ -168,6 +173,25 @@ GET /api/v1/banks/12/items?status=active&type=math_calculation&limit=50&cursor=.
 ```
 
 Owners may add `includeAnswers=true` to receive option correctness. Other readers never receive option correctness, answer keys, or drafts. List endpoints return the next opaque cursor under `meta.pagination`.
+
+### Membership and Study Groups
+
+RevenueCat synchronization updates the stored membership projection; authorization uses the effective membership described in `docs/membership-design.md`.
+
+| Method | Route | Auth | Description |
+| --- | --- | --- | --- |
+| `POST` | `/api/v1/billing/sync` | User | Re-read active RevenueCat entitlements and update the user projection. |
+| `POST` | `/api/v1/billing/revenuecat/webhook` | RevenueCat | Re-read current entitlements after a lifecycle event. |
+| `GET` | `/api/v1/study-groups` | User | List groups owned by or joined by the caller. |
+| `POST` | `/api/v1/study-groups` | Organization | Create a group and its owner membership. |
+| `GET` | `/api/v1/study-groups/:groupId` | Group member | Read group, member, and linked-bank details. |
+| `PATCH` | `/api/v1/study-groups/:groupId` | Group owner | Update group metadata. |
+| `DELETE` | `/api/v1/study-groups/:groupId` | Group owner | Delete the group and cascading links. |
+| `POST` | `/api/v1/study-groups/:groupId/members` | Group owner | Add a member by username. |
+| `DELETE` | `/api/v1/study-groups/:groupId/members/:userId` | Group owner | Remove a non-owner member. |
+| `PUT` | `/api/v1/study-groups/:groupId/banks/:bankId` | Group owner | Link a bank owned by the group owner. |
+| `DELETE` | `/api/v1/study-groups/:groupId/banks/:bankId` | Group owner | Unlink a bank. |
+| `GET` | `/api/v1/study-groups/:groupId/members/:userId/stats` | Group owner | Read a member analytics snapshot. |
 
 ### Questions
 
@@ -298,10 +322,11 @@ Implementation notes:
 | `POST` | `/api/v1/import-jobs/:jobId/parse` | Job owner | Schedule parsing with optional persistence. |
 | `GET` | `/api/v1/import-jobs/:jobId` | Job owner | Job summary and progress. |
 | `GET` | `/api/v1/import-jobs/:jobId/events` | Job owner | Recent durable events. |
+| `GET` | `/api/v1/import-jobs/:jobId/stream` | Job owner | Authenticated SSE progress with `Last-Event-ID` resume. |
 | `GET` | `/api/v1/import-jobs/:jobId/artifacts` | Job owner | Source artifacts. |
 | `GET` | `/api/v1/import-jobs/:jobId/outputs` | Job owner | Generated questions from `question_import_job_outputs`. |
 | `POST` | `/api/v1/import-jobs/:jobId/retry` | Job owner | Retry a failed job. |
-| `POST` | `/api/v1/import-jobs/:jobId/cancel` | Job owner | Move a queued or processing job to terminal `cancelled`. |
+| `POST` | `/api/v1/import-jobs/:jobId/cancel` | Job owner | Cancel a queued job or a job still in its AI phase; persistence cannot be cancelled safely. |
 
 Create body:
 
@@ -320,12 +345,13 @@ Create body:
 Import worker flow:
 
 1. Insert `question_import_jobs(status='queued', stage='queued')`.
-2. Store one TXT, DOCX, PDF, or XLSX source as `question_import_job_artifacts`.
+2. Store one TXT, Markdown, CSV, DOCX, PDF, XLSX, or PNG/JPEG/GIF/WebP image source as `question_import_job_artifacts`.
 3. Schedule the job by setting `available_at`.
 4. Claim it atomically with `FOR UPDATE SKIP LOCKED` and mark it `processing`.
-5. Ask the internal AI service to parse the document.
-6. Create each question, answer, content block, and output link; then persist parsed groups using their question indexes.
-7. Emit durable `question_import_job_events` and update counters and terminal status. Web and mobile poll the job/event endpoints.
+5. Run the LangGraph parser: extract, fan out vision work, split, fan out chunks, and merge. PostgreSQL checkpoints successful AI nodes under `thread_id=import:{jobId}`.
+6. Stream node progress into durable `question_import_job_events`; automatic worker retries resume unfinished AI nodes.
+7. Delete the AI checkpoint before entering persistence, then create each question, answer, content block, output link, and parsed group under the existing claim fencing rules.
+8. Update counters and terminal status atomically with the terminal event. The mobile client uses SSE and falls back to polling.
 
 ### Media
 
@@ -344,17 +370,18 @@ Import worker flow:
 
 Uploads are limited to PNG, JPEG, GIF, and WebP images up to 10 MiB and are content-sniffed before storage. `part_type` supports text, formula, image, table, list, HTML/Markdown, chart, diagram, and QR code; video, audio, and unsanitized SVG uploads are not implemented.
 
-## 3. Client Pages
+## 3. Mobile Client
 
-Client apps expose these routes:
+The repository-bundled client lives under `mobile/` and uses Expo Router. There is no bundled Web frontend; the server exposes API routes only, while retaining HttpOnly cookie transport for browser-based API clients.
+
+Current routes:
 
 ```text
-/
-/pricing
 /sign-in
-/sign-up
-/dashboard
+/
 /banks
+/analytics
+/settings
 /banks/new
 /banks/:bankId
 /banks/:bankId/manage
@@ -363,166 +390,25 @@ Client apps expose these routes:
 /imports
 /imports/:jobId
 /questions/:questionId
-/settings
+/search
+/settings/ai
+/settings/data
+/privacy
 ```
 
-The PractiQ-branded Expo client lives under `mobile/` and exposes the same non-admin learning flows through Expo Router. It authenticates with the bearer form of the session token, validates API payloads with Zod, and keeps a structured mirror of server content in `practiq-cache.db`: banks, groups, questions, options, answer keys, media links, and practice sessions are stored in per-entity SQLite tables (`mobile/src/practiq/mirror-schema.ts`) that mirror the PostgreSQL columns delivered by the API, so screens read and write bank/question data at row granularity instead of opaque blobs. Residual blob caches (`resources` table) remain for analytics snapshots, import jobs, and offline practice snapshots. Offline mutations are stored in the `outbox` table, replayed in creation order with a stable `Idempotency-Key`, and removed only after a successful response. On app start and foreground return the client pushes the outbox first, then pulls global deltas via `updated_since` on `/api/v1/banks` and `/api/v1/practice-sessions` (per-scope anchors in `sync_state`); bank contents are refreshed per bank on focus with delete reconciliation. PostgreSQL remains authoritative; the retired legacy local question database is not initialized or uploaded.
+`/sign-in` contains both password login and email-code registration, plus native Google sign-in when configured. Authenticated users land on `/`, whose tab shell exposes the overview, banks, analytics, and settings screens.
 
-### Login and Registration
+The client validates API payloads with Zod and stores bearer tokens only in Expo Secure Store. `practiq-cache.db` mirrors banks, groups, questions, options, answer keys, media links, and practice sessions in structured SQLite tables. Residual resource blobs cover analytics snapshots, import jobs, and offline practice snapshots. Replayable mutations enter the `outbox`, retain a stable `Idempotency-Key`, and replay sequentially before pull synchronization. PostgreSQL remains authoritative.
 
-Pages:
+Implemented mobile flows:
 
-- `/sign-in`
-- `/sign-up`
+- Browse owned, favorite, and public banks; create banks and manage questions.
+- Configure and complete online practice; complete cached all-question practice offline and upload it later.
+- Create TXT, Markdown, CSV, DOCX, PDF, XLSX, or PNG/JPEG/GIF/WebP document-import jobs, keep selected files while offline, and stream durable job events and outputs with polling fallback.
+- Search banks, questions, and knowledge points; view learning analytics.
+- Update account details, manage RevenueCat purchases, configure a Pro-gated LLM key, inspect sync state, and select language.
 
-Interactions:
-
-- Validate username/email/password on client and server.
-- On login, redirect to `/dashboard`.
-- Show account inactive errors distinctly.
-
-UI states:
-
-- Loading submit button.
-- Field-level validation.
-- Invalid credentials.
-- Session expired.
-- Centered responsive card layout for sign-in and sign-up forms.
-
-### Dashboard
-
-Route: `/dashboard`
-
-Widgets:
-
-- Owned banks count.
-- Favorite/public banks.
-- Recent practice sessions.
-- Accuracy trend from `user_question_stats`.
-- Import jobs requiring review.
-- Recently edited banks/questions.
-
-Primary calls:
-
-- `GET /api/v1/auth/me`
-- `GET /api/v1/banks?scope=mine&limit=5`
-- `GET /api/v1/practice-sessions?limit=5`
-- `GET /api/v1/import-jobs?status=processing,failed&limit=5`
-- `GET /api/v1/analytics/me/summary`
-
-### Bank List
-
-Route: `/banks`
-
-Controls:
-
-- Tabs: My banks, Favorites, Public.
-- Filters: subject, keyword, visibility.
-- Sort: recently updated, name, last practiced.
-- Create bank dialog.
-
-Cards/table columns:
-
-- Name, subject, total count, visibility, owner, last practiced, actions.
-
-### Bank Detail
-
-Route: `/banks/[bankId]`
-
-Views:
-
-- Overview: description, stats, subject, actions.
-- Items: unified `v_bank_question_items`.
-- Practice launcher.
-- Import status panel.
-
-Interactions:
-
-- Start practice.
-- Favorite/unfavorite.
-- Owner: edit bank, delete bank, manage questions, import file.
-
-### Question Management
-
-Route: `/banks/[bankId]/manage`
-
-Layout:
-
-- Left: bank item list with filters/status.
-- Main: question editor.
-- Right: answer key, metadata, knowledge points, media/content blocks.
-
-Editor behavior:
-
-- Type selector constrained by bank subject.
-- Answer mode controls detail editor.
-- Choice editor manages options and correctness.
-- Fill blank editor manages slots.
-- Short answer editor manages rubric and answer key.
-- Publish action checks required answer data before `active`.
-
-### Practice Page
-
-Routes:
-
-- `/banks/[bankId]/practice` to configure session.
-- `/practice/[sessionId]` to answer.
-
-Practice UI:
-
-- Stable question navigation sidebar.
-- Question stem and content blocks.
-- Type-specific answer component.
-- Submit button with immediate feedback in practice mode.
-- Result drawer: correctness, explanation, score, next question.
-
-Question type components:
-
-- `ChoiceAnswer`: radio/checkbox depending on `choice_variant` or selection mode.
-- `TrueFalseAnswer`: segmented true/false control.
-- `FillBlankAnswer`: one input per slot in the canonical answer payload.
-- `ShortAnswer`: textarea plus optional rubric after submit.
-
-### Import Pages
-
-Routes:
-
-- `/imports`
-- `/imports/[jobId]`
-
-Upload workflow:
-
-1. Select target bank.
-2. Upload file.
-3. Configure import request.
-4. Start job.
-5. Watch progress timeline.
-6. Review flagged items.
-7. Inspect outputs and publish/edit generated questions.
-
-Job detail sections:
-
-- Overall progress and current step.
-- Pages coverage.
-- Blocks list with status/risk.
-- Review queue.
-- Output questions/groups.
-- Event log.
-
-Realtime:
-
-- Poll the durable job and event endpoints. There is no public SSE route.
-
-### Settings
-
-Route: `/settings`
-
-Sections:
-
-- Profile: username/email.
-- Security: change password, active sessions.
-- Membership: RevenueCat FREE/PRO status, purchase/restore/management, and LLM configuration.
-- Data: export/delete account flow.
+Study-group schema and APIs are implemented on the server; the mobile client does not yet expose study-group routes.
 
 ## 4. Core Modules
 
@@ -531,16 +417,18 @@ Sections:
 Responsibilities:
 
 - Password hashing and verification.
-- Session cookie creation and validation.
+- Access-token validation, refresh-token rotation, and device-session revocation.
 - Current-user lookup.
-- `requireUser`, `requireActiveUser`, `requireAdmin` helpers.
+- Email-code registration and Google identity verification.
 
-Recommended files:
+Current files:
 
 ```text
-lib/server/auth/password.ts
-lib/server/auth/session.ts
-lib/server/auth/guards.ts
+server/auth/runtime.py
+server/auth/handlers.py
+server/auth/email_code.py
+server/auth/google.py
+server/routes/deps.py
 ```
 
 ### Authorization Module
@@ -548,20 +436,23 @@ lib/server/auth/guards.ts
 Responsibilities:
 
 - Resolve bank access: owner, favorite, public reader.
+- Extend bank read access to members of linked study groups.
 - Enforce editor operations for bank owners.
 - Ensure import job belongs to requesting user or target bank owner.
 - Ensure practice session belongs to current user.
+- Enforce effective membership and study-group owner/member roles.
 
 Access matrix:
 
 | Resource | Read | Write |
 | --- | --- | --- |
 | Public bank | Any active user | Owner |
-| Private bank | Owner or linked user | Owner |
+| Private bank | Owner, existing user-bank link, or linked study-group member | Owner |
 | Question | Reader of any linked bank | Owner/editor of linked bank |
 | Import job | Creator / bank owner | Creator / bank owner |
 | Practice session | Session owner | Session owner |
 | Media | Linked resource reader | Linked resource owner/editor |
+| Study group | Group member | Group owner |
 
 ### Bank Module
 
@@ -576,18 +467,18 @@ Responsibilities:
 
 Responsibilities:
 
-- Search banks by name, subject, visibility, ownership, and last activity.
-- Search questions by stem keyword, subject, question type, status, chapter, tags, knowledge points, and difficulty.
-- Provide saved UI filters for bank management and practice setup.
+- Filter banks by name, subject, and ownership/public scope.
+- Search questions by stem keyword with optional bank, question-type, and status filters.
+- Filter knowledge points by name/code, subject, and parent.
 - Keep list queries backed by existing indexes and cursor pagination.
 
-Suggested endpoints:
+Current endpoints:
 
 | Method | Route | Description |
 | --- | --- | --- |
-| `GET` | `/api/v1/search/banks?q=&subject=&scope=` | Search visible banks |
+| `GET` | `/api/v1/banks?q=&subject=&scope=` | Search visible banks |
 | `GET` | `/api/v1/search/questions?q=&bankId=&type=&status=` | Search editable/readable questions |
-| `GET` | `/api/v1/search/knowledge-points?q=&subject=` | Search knowledge tree |
+| `GET` | `/api/v1/knowledge-points?q=&subject=&parentId=` | Search knowledge tree |
 
 ### Question Module
 
@@ -628,35 +519,35 @@ Responsibilities:
 - PostgreSQL job claiming and retry scheduling.
 - AI parser orchestration.
 - Question and output persistence.
-- Durable event persistence and live Redis publication.
+- Durable event persistence and authenticated SSE delivery.
 
 Worker boundaries:
 
 ```text
 Upload API -> import job queued
 Worker: queued -> processing
-Worker: parse source through internal AI service
+Worker: resume or run the LangGraph AI workflow
 Worker: questions/links/outputs
 Worker: completed or failed
 ```
 
 ### AI Workflow
 
-The unified Python server exposes document parsing, answer generation, and learning-report operations through AgentScope 2.x. Each PRO user supplies one encrypted provider key plus a text model and optional vision model; supported native cloud adapters are Anthropic, DashScope, DeepSeek, Gemini, Moonshot, OpenAI, and xAI. TXT is decoded as UTF-8, DOCX text is pulled from `word/document.xml` with bounded archive inspection (including embedded images and OMML formula passthrough), PDF text is extracted with pypdfium2 (scanned pages are rendered and OCR'd by the vision model, including figure detection with bounding-box crops), and XLSX sheets are flattened with openpyxl. Long documents are split on question boundaries, validated with feedback retries, merged, and deduplicated. Image-only documents fail explicitly when the user has no vision model.
+The unified Python server exposes document parsing, answer generation, and learning-report operations through LangGraph `StateGraph` workflows. Each user with effective Pro-or-higher membership supplies one encrypted provider key plus a text model and, for DashScope or Moonshot, an optional vision model. The supported OpenAI-compatible providers are DashScope, DeepSeek, and Moonshot; DeepSeek is text-only. TXT and Markdown are decoded as UTF-8, CSV is normalized to tab-separated rows, DOCX text is pulled from `word/document.xml` with bounded archive inspection (including embedded images and OMML formula passthrough), PDF text is extracted with pypdfium2 (scanned pages are rendered and OCR'd by the vision model, including figure detection with bounding-box crops), and XLSX sheets are flattened with openpyxl. PNG, JPEG, GIF, and WebP imports enter the same vision/OCR path. Vision inputs and text chunks fan out through bounded `Send` nodes, then merge in source order. Structured outputs use Pydantic validation with feedback loops, and image-only documents fail explicitly when the user has no vision model.
 
-AI capabilities are called in-process behind session auth, current PRO membership, and per-user LLM configuration; there is no internal HTTP hop:
+AI capabilities are called in-process behind session auth, effective Pro-or-higher membership, and per-user LLM configuration; there is no internal HTTP hop:
 
 | Method | Route | Purpose |
 | --- | --- | --- |
-| `POST` | `/api/v1/ai/parse-document` | Parse TXT, DOCX, PDF, or XLSX content. |
+| `POST` | `/api/v1/ai/parse-document` | Parse TXT, Markdown, CSV, DOCX, PDF, XLSX, or PNG/JPEG/GIF/WebP content. |
 | `POST` | `/api/v1/ai/generate-answer` | Generate an answer and explanation. |
 | `POST` | `/api/v1/ai/learning-report` | Generate a learning report. |
 
-Provider endpoints are fixed to AgentScope defaults; users may change model names but not base URLs. PostgreSQL `pgcrypto` encrypts keys using `LLM_KEY_ENCRYPTION_SECRET`, and no API returns key material. `AI_AGENT_*` bounds tokens and timeouts, while `AI_MAX_OCR_PAGES` caps scanned-PDF OCR.
+Provider endpoints remain fixed to the previous native defaults; users may change model names but not base URLs. PostgreSQL `pgcrypto` encrypts keys using `LLM_KEY_ENCRYPTION_SECRET`, and model objects/API keys are run-scoped LangGraph context rather than checkpoint state. `AI_AGENT_*` bounds tokens, timeouts, and per-worker concurrency, while `AI_MAX_OCR_PAGES`, `AI_MAX_VISION_BYTES`, and `AI_MAX_VISION_PAGE_PIXELS` cap scanned-PDF OCR, checkpointed visual bytes, and pre-compression bitmap allocation. `langgraph-checkpoint-postgres` stores only the AI phase; checkpoints must be deleted before question persistence, preserving the existing non-retryable persistence boundary.
 
 ### RevenueCat Billing
 
-The mobile SDK uses the server-generated `revenuecat_app_user_id` and RevenueCat's `pro` lookup key for paywalls, purchases, restore, and Customer Center. Client `CustomerInfo` only controls immediate presentation. Login, foreground resume, purchase, and restore actively call `POST /api/v1/billing/sync`; the authorized RevenueCat webhook provides lifecycle synchronization. Both paths query the v2 active-entitlements endpoint, update `users.membership`, and invalidate the existing Redis user cache. Duplicate or out-of-order webhook events are safe because event payloads are never treated as current entitlement state.
+The mobile SDK uses the server-generated `revenuecat_app_user_id` and RevenueCat lookup keys for paywalls, purchases, restore, and Customer Center. Client `CustomerInfo` only controls immediate presentation. Login, foreground resume, purchase, and restore actively call `POST /api/v1/billing/sync`; the authorized RevenueCat webhook provides lifecycle synchronization. Both paths query the v2 active-entitlements endpoint, project `free`/`pro`/`organization` into `users.membership`, and invalidate the Redis user cache. `trial_ends_at` remains independent of that projection and grants effective Pro while active. Duplicate or out-of-order webhook events are safe because event payloads are never treated as current entitlement state.
 
 ### Media Module
 
@@ -678,7 +569,7 @@ Validation:
 
 Responsibilities:
 
-- User dashboard metrics from `user_question_stats`, `user_bank_stats`, `user_practice_sessions`.
+- User overview metrics from `user_question_stats`, `user_bank_stats`, `user_practice_sessions`.
 - Bank-level metrics from link counts and user stats.
 - Import metrics from job counters and events.
 
@@ -751,7 +642,7 @@ POST /practice-sessions/:id/answers
 
 ### Request Validation
 
-Use Zod schemas at route boundaries.
+Use FastAPI/Pydantic request models at server route boundaries. The mobile client validates received API payloads with Zod before caching them.
 
 Validation categories:
 
@@ -770,11 +661,13 @@ Validation categories:
 | `FORBIDDEN` | 403 | User lacks resource permission |
 | `NOT_FOUND` | 404 | Resource missing or hidden |
 | `VALIDATION_ERROR` | 422 | Request failed schema validation |
+| `INVALID_JSON` | 400 | Body is malformed JSON or contains unknown fields |
+| `REQUEST_TOO_LARGE` | 413 | JSON body exceeds the route-family limit |
 | `CONFLICT` | 409 | Unique constraint/order/status conflict |
 | `INVALID_STATE` | 409 | Operation not allowed in current lifecycle state |
 | `IMPORT_FAILED` | 500 | Import worker failure |
 | `RATE_LIMITED` | 429 | Quota or abuse protection |
-| `SESSION_STORE_UNAVAILABLE` | 503 | Redis cannot verify or revoke a session |
+| `SESSION_STORE_UNAVAILABLE` | 503 | Redis-backed authentication state is unavailable |
 | `AUTH_RATE_LIMIT_UNAVAILABLE` | 503 | Redis cannot enforce authentication rate limits |
 
 ### Constraint Mapping
@@ -854,53 +747,13 @@ Recommended additional implementation practices:
 - Wrap multi-table writes in transactions.
 - Batch insert parsed questions.
 - Cache subject/type lists.
-- Use client-side fetching for dashboards and live import progress.
+- Keep mobile overview reads cacheable and open the import SSE stream only while a job is active; retain polling fallback.
 - Avoid loading full question content blocks for list views.
 
-## 9. Implementation Roadmap
-
-### Phase 1: Align Data Layer
-
-- Keep `db/*/*.sql` as the only product schema source of truth; do not reintroduce the retired starter ORM layer or a parallel Drizzle migration path unless it is regenerated from the SQL files.
-- Keep client domain routes aligned with the FastAPI server routes.
-- Add shared API response/error helpers.
-- Add auth session guards.
-
-### Phase 2: Core CRUD
-
-- Users/auth.
-- Subjects and question types.
-- Bank list/detail/create/edit/delete.
-- Question create/edit/publish/archive.
-- Bank item list through `v_bank_question_items`.
-
-### Phase 3: Practice
-
-- Practice session creation.
-- Question queue loading.
-- Answer grading.
-- Results and analytics pages.
-
-### Phase 4: Import
-
-- Upload endpoint and storage.
-- Job creation/progress.
-- PostgreSQL worker claiming and retries.
-- Output inspection and publish flow.
-
-### Phase 5: Media and Rich Content
-
-- Media upload.
-- Link editors.
-- Content block editor.
-- Markdown/formula/table rendering.
-
-## 10. Current Repository Status
-
-The repository is now organized around the current unified-stack implementation:
+## 9. Current Repository Boundaries
 
 - `mobile/` contains the PractiQ-branded Expo Android/iOS client, SQLite cache/outbox, and mobile tests.
 - `server/` contains the unified Python FastAPI service (API + AI + import worker + admin CLI).
-- `db/` contains the product SQL schema (source of truth).
-
-The retired starter Drizzle/team data layer is no longer the implementation baseline. Continue evolving the question-bank product against `db/*/*.sql`, the services in `server/services`, and the routes documented above.
+- `db/` contains bootstrap product SQL and is the schema source of truth; it is not a versioned production migration history.
+- `docs/membership-design.md` is authoritative for effective membership, public-bank cloning, and study groups.
+- No Web client or static bundle server ships in this repository; unmatched `/api/*` routes return the structured API `NOT_FOUND` envelope.

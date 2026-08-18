@@ -1,6 +1,6 @@
 # PractiQ Mobile
 
-PractiQ 是 PractiQ 的 Expo SDK 57 移动端，保留原有品牌与原生包标识，支持 Android、iPhone 和 iPad。PostgreSQL/PractiQ REST API 是权威数据源；SQLite 保存离线缓存和待同步操作。
+PractiQ Mobile 是基于 Expo SDK 57 的 Android、iPhone 和 iPad 客户端。PostgreSQL/PractiQ REST API 是权威数据源；SQLite 保存离线缓存和待同步操作。
 
 ## 功能
 
@@ -9,10 +9,8 @@ PractiQ 是 PractiQ 的 Expo SDK 57 移动端，保留原有品牌与原生包�
 - 在线练习、离线练习、答题同步与学习分析
 - TXT、DOCX、PDF、XLSX 文档导入，离线时保留文件等待上传
 - 缓存优先读取、顺序重放待同步操作、服务端幂等去重
-- RevenueCat FREE/PRO 订阅、恢复购买与订阅管理；PRO 可托管自有 LLM API Key
+- RevenueCat Pro 购买、恢复与订阅管理；服务端用户模型支持 free/pro/organization 和 3 天 Pro 试用，organization 学习小组暂未提供移动端页面
 - English、简体中文、繁體中文（由简体自动转换）与日本語（未翻译文案回退英文）界面
-
-管理员功能只在 PractiQ Web 端提供。
 
 ## 本地开发
 
@@ -27,7 +25,7 @@ npm start
 按运行环境设置 `EXPO_PUBLIC_API_URL`，并配置 iOS/Android RevenueCat public SDK Key：
 
 - Android Emulator：`http://10.0.2.2:8080`
-- iOS Simulator 或 Web：`http://127.0.0.1:8080`
+- iOS Simulator：`http://127.0.0.1:8080`
 - 真机：使用可从设备访问的 HTTPS API 地址
 
 真实购买和 Google 登录都需要 `npm run ios` / `npm run android` 生成的原生开发构建；Expo Go 只用于 RevenueCat Preview API 预览。Android Google 登录使用 Credential Manager，不打开浏览器 OAuth。
@@ -45,7 +43,7 @@ Google 登录同时配置 `EXPO_PUBLIC_GOOGLE_CLIENT_ID`、`EXPO_PUBLIC_GOOGLE_I
 | `npm run ios` | 生成并运行 iOS 开发构建（仅 macOS） |
 | `npm run lint` | 执行 Expo ESLint |
 | `npm run typecheck` | 执行 TypeScript 类型检查 |
-| `npm test` | 运行单元与 UI 测试 |
+| `npm test` | 通过 Jest 运行全部单元与 UI 测试 |
 
 ## 目录
 
@@ -55,4 +53,4 @@ src/practiq/         REST 客户端、认证、缓存、同步队列和云端页
 assets/               PractiQ 品牌和应用商店资源
 ```
 
-旧 PractiQ 本地题库栈已移除；移动端只同步用户在 PractiQ 账户下创建或读取的数据。会话令牌仅保存在 Expo Secure Store，不写入 SQLite、备份或日志。access token 默认 10 分钟，refresh token 每次使用后轮换；客户端在到期前刷新。
+移动端只同步用户在 PractiQ 账户下创建或读取的数据。会话令牌仅保存在 Expo Secure Store，不写入 SQLite、备份或日志。access token 默认 10 分钟，refresh token 每次使用后轮换；客户端在到期前刷新。

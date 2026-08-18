@@ -1,31 +1,29 @@
-# PractiQ Visual Style Guide
+# PractiQ Mobile Visual Style Guide
 
 ## Direction
 
-PractiQ uses HeroUI v3 as the only frontend UI component system. Pages must compose standard components from `@heroui/react` and preserve HeroUI's native layout, spacing, color, focus, and motion behavior.
+PractiQ uses HeroUI Native for visible controls and Uniwind utilities for React Native layout. Reuse the shared components under `mobile/src/components/` before introducing a page-local wrapper.
 
-## Tokens
+## Sources of Truth
 
-The source of truth is `frontend/src/styles/globals.css`, which imports Tailwind CSS v4 followed by `@heroui/styles`. Use HeroUI semantic variants and existing theme tokens instead of raw palette utilities or local component classes.
+- `mobile/global.css` imports Tailwind CSS, Uniwind, and `heroui-native/styles`.
+- `mobile/app/_layout.tsx` owns the root `HeroUINativeProvider`, safe-area handling, theme colors, reduced-motion behavior, and navigation shell.
+- `mobile/src/components/` contains shared screen, section, tab, and statistic-card patterns.
 
-- Use `primary`, `secondary`, `tertiary`, `danger`, `ghost`, and `outline` variants according to action intent.
-- Use `--background`, `--foreground`, `--card`, `--popover`, `--primary`, `--secondary`, `--muted`, `--border`, `--input`, and `--ring` through HeroUI/Tailwind theme integration.
-- Do not add project-specific component utility classes for buttons, cards, form controls, dialogs, focus rings, or typography.
+Use semantic classes such as `bg-background` and HeroUI Native variants instead of hard-coded palette colors. Use `className` for layout and spacing; use component props for interaction state and intent.
 
 ## Component Patterns
 
-- Import standard components directly from `@heroui/react`.
-- Use HeroUI `Avatar`, `Button`, `Checkbox`, `FieldGroup`, `InputGroup`, `Link`, `Card`, `Alert`, `EmptyState`, `Select`, `RadioGroup`, `Input`, `TextField`, `TextArea`, `Tabs`, dialog, and form primitives where applicable.
-- Use HeroUI Typography for visible headings and paragraphs, and HeroUI Card compound components for card content.
-- Do not pass `className`, `style`, or other style-override props to HeroUI components. Use documented semantic props, variants, and compound components instead.
-- Native elements may provide structural page layout only. Keep native hidden inputs when required for forms; all visible form controls must use HeroUI components.
-- Do not use page-level `bg-primary`, `text-primary`, or `border-primary`; prefer component variants and semantic theme tokens.
-- Do not use raw `blue-*`, `emerald-*`, `slate-*`, or `gray-*` utilities anywhere in `frontend/src`.
+- Import HeroUI Native components from their package subpaths, for example `heroui-native/button` and `heroui-native/card`.
+- Use `Surface` for layout containers, `Typography` for visible text, and HeroUI Native form controls for input.
+- Prefer existing `ScreenState`, `Section`, `PrimaryTabs`, and `StatCard` components when their current behavior fits.
+- Center the sign-in content vertically while keeping its scroll behavior for registration and small screens.
+- Keep route files under `mobile/app/` thin; reusable screen behavior belongs under `mobile/src/`.
+- Do not add another component library or a second theme layer.
 
 ## Accessibility
 
-- Use visible labels for form fields; placeholders are examples only.
-- Give progress indicators a visible label or `aria-label`.
-- Prefer HeroUI interaction props such as `onPress` for HeroUI buttons.
-- Do not rely on color alone for state; combine icon, text, label, or `aria-current`.
-- Preserve keyboard navigation and accessible names for every interactive element.
+- Give inputs visible `Label` components; placeholders are examples, not labels.
+- Give icon-only buttons, spinners, and non-text controls an `accessibilityLabel`.
+- Do not rely on color alone for state; pair it with text, icons, or selected-state semantics.
+- Preserve safe areas, scalable text, minimum touch targets, screen-reader names, and reduced-motion behavior.

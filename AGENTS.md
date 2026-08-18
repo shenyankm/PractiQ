@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-PractiQ is a unified-stack application. The Expo/React Native mobile client lives in `mobile/`. The unified Python FastAPI backend lives in `server/`, with the app entry at `server/app.py`, routes under `server/routes/`, business services under `server/services/`, auth under `server/auth/`, AI agents under `server/agents/` + `server/extractors/`, the import worker at `server/worker.py` (`python -m server.worker`), and the admin CLI at `server/admin.py` (`python -m server.admin db apply|seed`). SQL schema files under `db/*/*.sql` remain the schema authority, and architecture notes live in `docs/`.
+PractiQ is a unified-stack application. The Expo/React Native mobile client lives in `mobile/`. The unified Python FastAPI backend lives in `server/`, with the app entry at `server/app.py`, routes under `server/routes/`, business services under `server/services/`, auth under `server/auth/`, AI agents under `server/agents/` + `server/extractors/`, the import worker at `server/worker.py` (`python -m server.worker`), and the admin CLI at `server/admin.py` (`python -m server.admin db apply|seed`). SQL schema files under `db/*/*.sql` remain the schema authority, and architecture notes live in `docs/`. The three-tier membership system (free/pro/organization + 3-day Pro trial, public-bank clone, study groups) is documented in `docs/membership-design.md`; it adds `server/routes/study_groups.py` + `server/services/study_groups.py` and the `db/users/60_study_groups.sql` schema fragment.
 
 ## Build, Test, and Development Commands
 
@@ -16,7 +16,7 @@ PractiQ is a unified-stack application. The Expo/React Native mobile client live
 
 ## Coding Style & Naming Conventions
 
-Use TypeScript with strict mode and the `@/*` path alias. Follow existing formatting: two-space indentation in JSON, semicolons, single quotes in TypeScript/TSX, and PascalCase for React components. Keep server-only code in server modules and preserve `import 'server-only'` where present. Prefer HeroUI components and existing project CSS tokens over adding local UI wrapper layers.
+Use TypeScript with strict mode and the `@/*` path alias. Follow existing formatting: two-space indentation in JSON, semicolons, single quotes in TypeScript/TSX, and PascalCase for React components. Prefer HeroUI Native, Uniwind, and the shared components under `mobile/src/components/` over adding local UI wrapper layers.
 
 ## Testing Guidelines
 

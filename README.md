@@ -2,14 +2,14 @@
 
 PractiQ runs as a unified-stack application:
 
-- A single Python FastAPI service (`server/`) serves the HTTP API, auth/session handling, PostgreSQL-backed import queue, Redis caches/events, and AI/document processing (agentscope, in-process).
+- A single Python FastAPI service (`server/`) serves the HTTP API, auth/session handling, PostgreSQL-backed import queue and events, Redis caches/guards, and in-process LangGraph AI/document workflows.
 - Expo + React Native provide the PractiQ-branded Android/iOS client under `mobile/`.
 - `db/*/*.sql` remains the schema authority.
 
 ## Tech stack
 
 - Mobile: Expo SDK 57, React Native, Expo Router, HeroUI Native, SQLite offline cache/outbox
-- Server: Python 3.14, FastAPI, Pydantic, psycopg (async pool), redis-py, AgentScope (DashScope models), pypdfium2, Pillow, openpyxl
+- Server: Python 3.14, FastAPI, Pydantic, psycopg (async pool), redis-py, LangGraph + LangChain OpenAI-compatible models (DashScope, DeepSeek, Moonshot), pypdfium2, Pillow, openpyxl
 - Local infra: Podman Quadlet for Postgres and Redis
 
 ## Local setup
@@ -40,7 +40,7 @@ cp .env.example .env.local
 
 Set a unique `AUTH_SECRET` value in `.env.local` before starting the service. Keep `.env.local` uncommitted.
 
-The development, database, and worker targets load the repository-root `.env.local` (via `server/config.py`); existing shell environment variables take precedence.
+The development, database, and worker targets pass the repository-root `.env.local` to `uv run --env-file`; existing shell environment variables take precedence.
 
 1. Apply schema helpers to your local database:
 
@@ -75,14 +75,10 @@ make verify
 
 ```bash
 cd server && uv run pytest tests --cov=server --cov-report=term  # server
-npm --prefix mobile run test:coverage                             # mobile (jest + node:test merged)
+npm --prefix mobile run test:coverage                             # mobile Jest suite
 ```
 
-Both suites target 80% statement coverage (`npm run test:coverage` prints a merged per-file report; node >= 23 removed the built-in lcov reporter, so the node:test coverage flows through `mobile/scripts/lcov-reporter.mjs`).
-
-## OpenCode
-
-The project-level `.opencode/opencode.json` configures the HeroUI React MCP server. Restart OpenCode after cloning or after changing this configuration; OpenCode starts the server on demand through `npx`.
+Both suites target 80% statement coverage. The mobile coverage command runs the same Jest unit and UI suites as `npm test`.
 
 Direct dependencies are kept on current stable releases in `mobile/package.json` and `server/pyproject.toml`. Tooling versions must also satisfy peer ranges; for example, TypeScript stays on the newest stable version supported by `typescript-eslint`.
 
@@ -94,14 +90,17 @@ Direct dependencies are kept on current stable releases in `mobile/package.json`
 - Google sign-in: `GET /api/v1/auth/google/start` + `GET /api/v1/auth/google/callback` use an authorization-code flow with PKCE, nonce, and a one-time Redis transaction; `POST /api/v1/auth/google/token` verifies a native mobile ID token cryptographically. All return 404 until `GOOGLE_CLIENT_ID` is configured. Accounts match Google subject only; a verified-email collision returns `409 ACCOUNT_LINK_REQUIRED` rather than linking accounts automatically.
 - `/api/health/ready` returns `503` until both PostgreSQL and Redis are configured and reachable; `/api/health` continues to return dependency status data.
 - PostgreSQL stores active sessions, hashed refresh tokens, and revocations. Redis is required for OAuth transaction state and login/register rate limits; cache reads and writes remain best-effort.
-- PostgreSQL is the durable import queue and event history; Web and mobile poll job/event endpoints for progress.
+- PostgreSQL is the durable import queue, LangGraph checkpoint store, and event history. The mobile client consumes authenticated SSE progress with polling as a fallback.
 - Mobile writes carry `Idempotency-Key`; Redis stores successful replays for 24 hours. Cached mobile reads remain available offline, and queued writes replay in order after reconnection.
 - Media uploads currently accept content-sniffed PNG, JPEG, GIF, and WebP files up to 10 MiB under `OBJECT_STORAGE_MOUNT_DIR`.
-- The schema is intentionally destructive across this billing refactor. Recreate the database, then run `make db-apply` and `make db-seed`; the fresh schema contains RevenueCat identities, `free`/`pro` membership, encrypted per-user LLM configuration, media ownership, and the terminal import status `cancelled`.
-- AI routes stay under `/api/v1/ai/*`; the server calls agentscope in-process (no internal HTTP hop).
-- FREE users retain basic learning features and see an internal upgrade promotion. PRO is projected from RevenueCat and removes the promotion; only PRO users may store an encrypted LLM API key and call cloud AI. Supported AgentScope providers are Anthropic, DashScope, DeepSeek, Gemini, Moonshot, OpenAI, and xAI.
+- `db/*/*.sql` contains bootstrap schema fragments for fresh or reset environments, not a versioned production migration history. For a fresh local database, run `make db-apply` and `make db-seed`; the schema includes RevenueCat identities, `free`/`pro`/`organization` membership with a 3-day Pro trial, study groups, encrypted per-user LLM configuration, LangGraph checkpoints, media ownership, and the terminal import status `cancelled`.
+- AI routes stay under `/api/v1/ai/*`; the server runs LangGraph workflows in-process with no internal HTTP hop. Import workers checkpoint only the AI phase and retain the existing non-retryable persistence boundary.
+- Free users retain basic learning features and see an internal upgrade promotion. Effective Pro-or-higher membership, including the 3-day trial, removes the promotion and permits encrypted LLM-key storage and cloud AI. Supported providers are DashScope, DeepSeek, and Moonshot; DeepSeek is text-only.
+- Membership has three tiers (`free`/`pro`/`organization`) plus a 3-day Pro trial for new users; see `docs/membership-design.md`. Effective Pro-or-higher users may clone public banks via `POST /api/v1/banks/{bankId}/clone`; organization users manage study groups under `/api/v1/study-groups/*` (members, linked banks, member stats).
 - RevenueCat purchases/restores run in the mobile SDK. The authenticated `/api/v1/billing/sync` route and authorized RevenueCat webhook re-read current v2 active entitlements before updating server authorization; client entitlement state is never trusted for AI access.
-- TXT, DOCX, PDF, and XLSX preprocessing run in-process. PRO users select their own text model and optional vision model; image-only documents require a vision model. `AI_AGENT_*` bounds tokens/timeouts and `AI_MAX_OCR_PAGES` caps scanned-PDF OCR.
+- TXT, Markdown, CSV, DOCX, PDF, XLSX, and PNG/JPEG/GIF/WebP image preprocessing run in-process. Users with effective Pro-or-higher membership select their own text model and, for DashScope or Moonshot, an optional vision model. Image imports and image-only documents require a vision model. `AI_AGENT_*` bounds tokens, timeouts, and per-worker graph concurrency; `AI_MAX_OCR_PAGES`, `AI_MAX_VISION_BYTES`, and `AI_MAX_VISION_PAGE_PIXELS` bound scanned-PDF/embedded-image work and checkpoint size.
+
+For an existing database, apply `db/users/11_supported_llm_providers.sql` and `db/imports/45_langgraph_checkpoints.sql` before deploying the LangGraph worker. The provider migration clears unsupported stored keys and DeepSeek vision settings by design.
 
 ## Podman stack
 
@@ -133,14 +132,14 @@ See `.env.example` for the full set. The most important groups are:
 - Auth/session: required `AUTH_SECRET`, `ACCESS_TOKEN_TTL_MS`, `REFRESH_TOKEN_TTL_MS`, `SESSION_ABSOLUTE_TTL_MS`, optional `SEED_ADMIN_PASSWORD` (password for the seeded `admin` user; defaults to the local dev value, set it on any shared environment)
 - Registration email codes: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`
 - Google sign-in: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_MOBILE_CLIENT_IDS`; mobile builds also need `EXPO_PUBLIC_GOOGLE_CLIENT_ID`, `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`, and `EXPO_PUBLIC_GOOGLE_IOS_REVERSED_CLIENT_ID` in `mobile/.env`. The OAuth redirect URI is `{APP_ORIGIN}/api/v1/auth/google/callback`.
-- RevenueCat server: required `REVENUECAT_PROJECT_ID`, v2 `REVENUECAT_SECRET_API_KEY`, internal `REVENUECAT_PRO_ENTITLEMENT_ID`, and exact `REVENUECAT_WEBHOOK_AUTHORIZATION` header value
-- RevenueCat mobile: `EXPO_PUBLIC_REVENUECAT_IOS_API_KEY`, `EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY`, and entitlement lookup key `EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID=pro`
+- RevenueCat server: required `REVENUECAT_PROJECT_ID`, v2 `REVENUECAT_SECRET_API_KEY`, internal `REVENUECAT_PRO_ENTITLEMENT_ID`, organization-tier `REVENUECAT_ORGANIZATION_ENTITLEMENT_ID` (defaults to `organization`), and exact `REVENUECAT_WEBHOOK_AUTHORIZATION` header value
+- RevenueCat mobile: `EXPO_PUBLIC_REVENUECAT_IOS_API_KEY`, `EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY`, and the Pro lookup key `EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID=pro`; organization membership is projected by the server
 - AI: required `LLM_KEY_ENCRYPTION_SECRET`, plus `AI_AGENT_*`, `AI_MAX_OCR_PAGES`, and `AI_APPLY_MIN_CONFIDENCE`
 - Object storage: `OBJECT_STORAGE_MOUNT_DIR`, `OSS_PUBLIC_BASE_URL`, `OSS_URL_PREFIX`
 
 `AUTH_SECRET` is required in every environment and must be an unpredictable value. Access JWTs default to 10 minutes; refresh tokens default to 30 days and rotate after each use; the device session has a 90-day absolute limit. Refresh tokens are stored only as SHA-256 hashes in PostgreSQL. `POST /api/v1/auth/refresh` accepts the mobile JSON refresh token or the HttpOnly refresh cookie. Changing a password revokes all of that user's sessions.
 
-In RevenueCat, create the `pro` entitlement, attach the store products to an offering/paywall, and use a v2 secret key with `customer_information:customers:read`. Configure the webhook URL as `{APP_ORIGIN}/api/v1/billing/revenuecat/webhook`, set its Authorization header to the exact server value, and choose **Keep with original App User ID** for restore behavior. The backend entitlement variable is RevenueCat's internal `entl…` resource ID, not the mobile lookup key. Keep `LLM_KEY_ENCRYPTION_SECRET` stable: changing it makes stored user keys unreadable.
+In RevenueCat, create the `pro` and `organization` entitlements, attach store products to offerings/paywalls, and use a v2 secret key with `customer_information:customers:read`. Configure the webhook URL as `{APP_ORIGIN}/api/v1/billing/revenuecat/webhook`, set its Authorization header to the exact server value, and choose **Keep with original App User ID** for restore behavior. Server entitlement variables use RevenueCat's internal `entl…` resource IDs; the mobile Pro paywall uses its lookup key. Keep `LLM_KEY_ENCRYPTION_SECRET` stable: changing it makes stored user keys unreadable.
 
 ## Schema and architecture
 
