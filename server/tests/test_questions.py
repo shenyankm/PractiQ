@@ -1,8 +1,5 @@
 """Question service tests: pure helpers + fake-pool DB paths (no database required)."""
 
-from __future__ import annotations
-
-import json
 from datetime import datetime, timezone
 
 import pytest

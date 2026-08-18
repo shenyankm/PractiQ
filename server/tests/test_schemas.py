@@ -25,7 +25,7 @@ def question() -> dict:
 
 
 def test_document_request_accepts_only_active_source_types() -> None:
-    for source_type in ('docx', 'txt', 'text', 'pdf', 'xlsx'):
+    for source_type in ('csv', 'docx', 'image', 'md', 'txt', 'text', 'pdf', 'xlsx'):
         assert DocumentParseRequest.model_validate(
             {'sourceType': source_type}
         ).sourceType == source_type

@@ -1,6 +1,3 @@
-"""Media asset service. Mirrors backend/internal/services/media.go."""
-
-from __future__ import annotations
 
 import secrets
 from dataclasses import dataclass

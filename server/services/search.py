@@ -1,6 +1,3 @@
-"""Question search service. Mirrors backend/internal/services/search.go."""
-
-from __future__ import annotations
 
 from .. import envelope
 from ..auth.runtime import User

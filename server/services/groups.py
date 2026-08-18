@@ -1,6 +1,3 @@
-"""Question group service. Mirrors backend/internal/services/groups.go."""
-
-from __future__ import annotations
 
 import json
 from dataclasses import dataclass

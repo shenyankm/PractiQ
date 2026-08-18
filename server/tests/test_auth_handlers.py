@@ -1,9 +1,4 @@
-"""Auth handler validation + rate limit tests.
-
-Mirrors backend/internal/auth/handlers_test.go and passwords_test.go.
-"""
-
-from __future__ import annotations
+"""Auth handler validation + rate limit tests."""
 
 import fakeredis.aioredis
 import pytest
@@ -11,6 +6,7 @@ from starlette.requests import Request
 
 from server import envelope, redisx
 from server.auth import handlers, runtime
+from server.routes import auth as auth_routes
 
 
 def _request(body: bytes = b'', path: str = '/api/v1/auth/login') -> Request:
@@ -75,36 +71,24 @@ def test_password_validation():
     assert handlers.password_validation_detail('password', 'eight+chars') is None
 
 
-async def test_decode_auth_request_rejects_unknown_and_bad_json():
-    with pytest.raises(envelope.APIError) as exc_info:
-        await handlers.decode_auth_request(_request(b'{bad json'))
-    assert exc_info.value.code == 'INVALID_JSON'
-    with pytest.raises(envelope.APIError) as exc_info:
-        await handlers.decode_auth_request(_request(b'x' * (handlers.MAX_AUTH_JSON_BODY_BYTES + 1)))
-    assert exc_info.value.code == 'REQUEST_TOO_LARGE'
-
-
 def test_validate_register_request():
     body = {'username': 'valid_name', 'email': 'u@example.com', 'password': 'password123', 'code': '123456'}
-    parsed = handlers.validate_register_request(body)
+    parsed = auth_routes.RegisterBody.model_validate(body)
     assert parsed.username == 'valid_name'
-    with pytest.raises(envelope.APIError) as exc_info:
-        handlers.validate_register_request({**body, 'extra': 1})
-    assert exc_info.value.code == 'INVALID_JSON'
-    with pytest.raises(envelope.APIError) as exc_info:
-        handlers.validate_register_request({**body, 'username': 'no'})
-    assert exc_info.value.code == 'VALIDATION_ERROR'
+    with pytest.raises(ValueError):
+        auth_routes.RegisterBody.model_validate({**body, 'extra': 1})
+    with pytest.raises(ValueError):
+        auth_routes.RegisterBody.model_validate({**body, 'username': 'no'})
 
 
 def test_validate_update_me_request():
-    with pytest.raises(envelope.APIError):
-        handlers.validate_update_me_request({})
-    input = handlers.validate_update_me_request({'username': 'new_name'})
+    with pytest.raises(ValueError):
+        auth_routes.UpdateProfileBody.model_validate({})
+    input = auth_routes.UpdateProfileBody.model_validate({'username': 'new_name'}).as_input()
     assert input.username == 'new_name'
-    with pytest.raises(envelope.APIError) as exc_info:
-        handlers.validate_update_me_request({'newPassword': 'password123'})
-    assert exc_info.value.code == 'VALIDATION_ERROR'
-    input = handlers.validate_update_me_request({'email': None})
+    with pytest.raises(ValueError):
+        auth_routes.UpdateProfileBody.model_validate({'newPassword': 'password123'})
+    input = auth_routes.UpdateProfileBody.model_validate({'email': None}).as_input()
     assert input.email_set is True and input.email is None
 
 

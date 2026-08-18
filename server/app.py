@@ -1,33 +1,25 @@
-"""FastAPI application assembly. Mirrors backend/cmd/practiq-api/main.go."""
-
-from __future__ import annotations
+"""FastAPI application assembly."""
 
 import logging
 import time
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from psycopg_pool import AsyncConnectionPool
 
 from . import config, db as db_mod, envelope, middleware
-from .auth import runtime as auth_runtime
-from .routes import ai, auth, billing, content, health, imports, media, practice, reference, spa
+from .routes import ai, auth, billing, content, health, imports, media, not_found, practice, reference, study_groups
 
 
 def create_app(
     cfg: config.Config | None = None,
     pool: AsyncConnectionPool | None = None,
-    dist_dir: Path | None = None,
 ) -> FastAPI:
     if cfg is None:
         cfg = config.load()
     if pool is None:
         pool = db_mod.open_pool()
-    if dist_dir is None:
-        dist_dir = Path('../frontend/dist')
-
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         await pool.open()
@@ -37,7 +29,6 @@ def create_app(
     app = FastAPI(lifespan=lifespan)
     app.state.pool = pool
     app.state.started_at = time.time()
-    app.state.dist_dir = dist_dir
     app.state.config = cfg
 
     @app.exception_handler(envelope.APIError)
@@ -46,9 +37,29 @@ def create_app(
 
     @app.exception_handler(RequestValidationError)
     async def validation_error_handler(request: Request, exc: RequestValidationError):
+        errors = exc.errors()
+        invalid_json_types = {'extra_forbidden', 'json_invalid', 'model_attributes_type'}
+        missing_body = any(
+            error['type'] == 'missing' and tuple(error['loc']) == ('body',)
+            for error in errors
+        )
+        if missing_body or any(error['type'] in invalid_json_types for error in errors):
+            return envelope.error_response(request, envelope.invalid_json())
+
+        def field_name(error: dict) -> str:
+            parts = []
+            for part in error['loc']:
+                if part == 'body':
+                    continue
+                if isinstance(part, str) and '_' in part:
+                    head, *tail = part.split('_')
+                    part = head + ''.join(value.capitalize() for value in tail)
+                parts.append(str(part))
+            return '.'.join(parts)
+
         details = [
-            {'field': '.'.join(str(part) for part in error['loc'] if part != 'body'), 'message': error['msg']}
-            for error in exc.errors()
+            {'field': field_name(error), 'message': error['msg']}
+            for error in errors
         ]
         return envelope.error_response(
             request, envelope.new_error(422, 'VALIDATION_ERROR', 'Invalid request', details)
@@ -62,20 +73,12 @@ def create_app(
         )
         return envelope.error_response(request, exc)
 
-    async def verify_spa_session(token: str) -> bool:
-        try:
-            user = await auth_runtime.current_user_from_request_token(token, pool)
-        except Exception:
-            return False
-        return user is not None and user.is_active
-
     # Middleware order (outermost added last): SecurityHeaders -> RequestID ->
-    # RequestLog -> Recovery -> RateLimit -> SameOriginProtection -> Idempotency -> SPAGuard.
-    app.add_middleware(middleware.SPAGuardMiddleware, app_origin=cfg.app_origin, verify_session=verify_spa_session)
+    # RequestLog -> RateLimit -> SameOriginProtection -> Idempotency -> JSON body limit.
+    app.add_middleware(middleware.JsonBodyLimitMiddleware)
     app.add_middleware(middleware.IdempotencyMiddleware)
     app.add_middleware(middleware.SameOriginProtectionMiddleware, app_origin=cfg.app_origin)
     app.add_middleware(middleware.RateLimitMiddleware)
-    app.add_middleware(middleware.RecoveryMiddleware)
     app.add_middleware(middleware.RequestLogMiddleware)
     app.add_middleware(middleware.RequestIDMiddleware)
     app.add_middleware(middleware.SecurityHeadersMiddleware, node_env=cfg.node_env)
@@ -89,5 +92,6 @@ def create_app(
     app.include_router(imports.router)
     app.include_router(ai.router)
     app.include_router(practice.router)
-    app.include_router(spa.router)  # catch-all last
+    app.include_router(study_groups.router)
+    app.include_router(not_found.router)  # catch-all last
     return app

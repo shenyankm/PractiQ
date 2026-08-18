@@ -1,10 +1,6 @@
-"""Redis client singleton, key prefixing, JSON helpers, rate-limit Lua script.
+"""Redis client singleton, key prefixing, JSON helpers, rate-limit Lua script."""
 
-Mirrors backend/internal/redisx/{client,helpers,redisx}.go (async redis-py).
-"""
-
-from __future__ import annotations
-
+import asyncio
 import json
 import os
 from dataclasses import dataclass
@@ -39,17 +35,12 @@ def client() -> aioredis.Redis | None:
 def _reset() -> None:
     global _client, _client_url
     if _client is not None:
-        # fire-and-forget close; redis-py tolerates closing from any task
         try:
-            _client.close()
-        except Exception:
-            pass
+            asyncio.get_running_loop().create_task(_client.aclose())
+        except RuntimeError:
+            asyncio.run(_client.aclose())
     _client = None
     _client_url = None
-
-
-def reset_for_tests() -> None:
-    _reset()
 
 
 async def check_redis() -> tuple[bool, Exception | None]:

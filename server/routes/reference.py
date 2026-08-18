@@ -1,8 +1,8 @@
-"""Reference data routes. Mirrors reference_handlers.go."""
+"""Reference-data routes."""
 
-from __future__ import annotations
+from typing import Annotated
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Query, Request
 
 from .. import envelope
 from ..services import reference as reference_svc
@@ -23,38 +23,26 @@ async def subjects(request: Request):
 
 
 @router.get('/api/v1/question-types')
-async def question_types(request: Request):
+async def question_types(request: Request, subject: str = '', scope: str = ''):
     async with deps.pool(request).connection() as conn:
-        data = await reference_svc.list_question_types(
-            conn,
-            request.query_params.get('subject', ''),
-            request.query_params.get('scope', ''),
-        )
+        data = await reference_svc.list_question_types(conn, subject, scope)
     response = envelope.ok(request, data)
     response.headers['Cache-Control'] = PUBLIC_CACHE_CONTROL
     return response
 
 
 @router.get('/api/v1/knowledge-points')
-async def knowledge_points(request: Request):
-    limit = deps.query_page_limit(request, 200)
-    parent_id = None
-    raw_parent = request.query_params.get('parentId', '')
-    if raw_parent:
-        try:
-            parent_id = int(raw_parent)
-        except ValueError as exc:
-            raise envelope.new_error(422, 'VALIDATION_ERROR', 'Invalid parentId') from exc
-        if parent_id <= 0:
-            raise envelope.new_error(422, 'VALIDATION_ERROR', 'Invalid parentId')
+async def knowledge_points(
+    request: Request,
+    subject: str = '',
+    parent_id: Annotated[int | None, Query(alias='parentId', gt=0)] = None,
+    q: str = '',
+    cursor: str = '',
+    limit: deps.PageLimit200 = None,
+):
     async with deps.pool(request).connection() as conn:
         data = await reference_svc.list_knowledge_points(
-            conn,
-            request.query_params.get('subject', ''),
-            parent_id,
-            request.query_params.get('q', ''),
-            request.query_params.get('cursor', ''),
-            limit,
+            conn, subject, parent_id, q, cursor, limit or 0
         )
     response = envelope.ok(request, data.items, data.page_info.as_meta())
     response.headers['Cache-Control'] = PUBLIC_CACHE_CONTROL

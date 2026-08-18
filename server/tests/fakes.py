@@ -5,8 +5,6 @@ pool can back any number of execute() calls per connection. Every call is
 recorded as (sql, params) for assertions.
 """
 
-from __future__ import annotations
-
 
 class FakeCursor:
     def __init__(self, rows=(), rowcount: int | None = None):
@@ -26,9 +24,10 @@ class FakeCursor:
 
 
 class FakeConn:
-    def __init__(self, responses=(), record=None):
+    def __init__(self, responses=(), record=None, commits=None):
         self.responses = list(responses)
         self.executed = [] if record is None else record
+        self.commits = [] if commits is None else commits
 
     async def execute(self, sql, params=None):
         self.executed.append((sql, params))
@@ -44,6 +43,9 @@ class FakeConn:
 
     def transaction(self):
         return _Transaction()
+
+    async def commit(self):
+        self.commits.append(None)
 
     async def __aenter__(self):
         return self
@@ -64,6 +66,7 @@ class FakePool:
     def __init__(self, responses=(), record=None):
         self.responses = responses
         self.record = [] if record is None else record
+        self.commits = []
 
     def connection(self):
-        return FakeConn(self.responses, self.record)
+        return FakeConn(self.responses, self.record, self.commits)

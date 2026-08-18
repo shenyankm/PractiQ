@@ -1,7 +1,5 @@
 """python -m server → uvicorn serving the unified PractiQ API."""
 
-from __future__ import annotations
-
 import logging
 
 

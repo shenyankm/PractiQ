@@ -1,20 +1,17 @@
-"""ASGI middleware stack mirroring backend/internal/httpserver/middleware.go.
+"""ASGI middleware stack.
 
 Order (outermost first): SecurityHeaders -> RequestID -> RequestLog ->
-Recovery -> RateLimit -> SameOriginProtection -> Idempotency -> SPAGuard.
+RateLimit -> SameOriginProtection -> Idempotency -> JsonBodyLimit.
 """
-
-from __future__ import annotations
 
 import hashlib
 import logging
 import time
 import uuid as uuidlib
-from typing import Any, Awaitable, Callable
-from urllib.parse import quote, urlparse
+from typing import Any
+from urllib.parse import urlparse
 
 from fastapi import Request, Response
-from fastapi.responses import RedirectResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
@@ -25,7 +22,70 @@ logger = logging.getLogger('practiq.http')
 API_RATE_LIMIT = 300
 API_RATE_LIMIT_WINDOW_SECONDS = 60
 IDEMPOTENCY_TTL_SECONDS = 24 * 3600
-PROTECTED_SPA_PREFIXES = ('/dashboard', '/banks', '/imports', '/practice', '/questions', '/settings')
+DEFAULT_JSON_BODY_BYTES = 1024 * 1024
+AUTH_JSON_BODY_BYTES = 16 * 1024
+AI_JSON_BODY_BYTES = 25 * 1024 * 1024 * 4 // 3 + 1024 * 1024
+IMPORT_JSON_BODY_BYTES = AI_JSON_BODY_BYTES
+WEBHOOK_JSON_BODY_BYTES = 256 * 1024
+
+
+class _BodyTooLarge(Exception):
+    pass
+
+
+class JsonBodyLimitMiddleware:
+    """Reject oversized JSON before request-model parsing."""
+
+    def __init__(self, app: ASGIApp):
+        self.app = app
+
+    @staticmethod
+    def maximum(path: str) -> int:
+        if path.startswith('/api/v1/auth/'):
+            return AUTH_JSON_BODY_BYTES
+        if path.startswith('/api/v1/ai/'):
+            return AI_JSON_BODY_BYTES
+        if path.startswith('/api/v1/import-jobs/') and path.endswith('/file'):
+            return IMPORT_JSON_BODY_BYTES
+        if path == '/api/v1/billing/revenuecat/webhook':
+            return WEBHOOK_JSON_BODY_BYTES
+        return DEFAULT_JSON_BODY_BYTES
+
+    async def __call__(self, scope, receive, send):
+        if scope['type'] != 'http':
+            await self.app(scope, receive, send)
+            return
+        headers = {key.lower(): value for key, value in scope.get('headers', [])}
+        content_type = headers.get(b'content-type', b'').lower().split(b';', 1)[0].strip()
+        if content_type != b'application/json' and not content_type.endswith(b'+json'):
+            await self.app(scope, receive, send)
+            return
+        maximum = self.maximum(scope.get('path', ''))
+        content_length = headers.get(b'content-length', b'')
+        if content_length.isdigit() and int(content_length) > maximum:
+            response = envelope.error_response(
+                Request(scope), envelope.request_too_large()
+            )
+            await response(scope, receive, send)
+            return
+        received = 0
+
+        async def limited_receive():
+            nonlocal received
+            message = await receive()
+            if message['type'] == 'http.request':
+                received += len(message.get('body', b''))
+                if received > maximum:
+                    raise _BodyTooLarge
+            return message
+
+        try:
+            await self.app(scope, limited_receive, send)
+        except _BodyTooLarge:
+            response = envelope.error_response(
+                Request(scope), envelope.request_too_large()
+            )
+            await response(scope, receive, send)
 
 
 def content_security_policy(node_env: str) -> str:
@@ -78,22 +138,6 @@ class RequestLogMiddleware(BaseHTTPMiddleware):
             envelope.request_id(request),
         )
         return response
-
-
-class RecoveryMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        try:
-            return await call_next(request)
-        except Exception:
-            logger.exception(
-                'panic recovered method=%s path=%s requestId=%s',
-                request.method,
-                request.url.path,
-                envelope.request_id(request),
-            )
-            return envelope.error_response(
-                request, envelope.new_error(500, 'INTERNAL_ERROR', 'Unexpected server error')
-            )
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
@@ -227,33 +271,3 @@ def _replay_cached(cached: dict[str, Any]) -> Response:
         status_code=int(cached.get('status', 200)),
         headers={k: v for k, v in headers.items() if k.lower() not in ('content-length', 'transfer-encoding')},
     )
-
-
-def is_protected_spa_path(path: str) -> bool:
-    for prefix in PROTECTED_SPA_PREFIXES:
-        if path == prefix or path.startswith(prefix + '/'):
-            return True
-    return False
-
-
-class SPAGuardMiddleware(BaseHTTPMiddleware):
-    """Redirects unauthenticated GETs on protected SPA paths to /sign-in."""
-
-    def __init__(self, app: ASGIApp, app_origin: str, verify_session: Callable[[str], Awaitable[bool]]):
-        super().__init__(app)
-        self.app_origin = app_origin
-        self.verify_session = verify_session
-
-    async def dispatch(self, request: Request, call_next):
-        if request.method == 'GET' and is_protected_spa_path(request.url.path):
-            token = request.cookies.get('session', '')
-            valid = bool(token) and await self.verify_session(token)
-            if not valid:
-                redirect_target = request.url.path
-                if request.url.query:
-                    redirect_target += '?' + request.url.query
-                target = self.app_origin.rstrip('/') + '/sign-in'
-                return RedirectResponse(
-                    url=f'{target}?redirect={quote(redirect_target)}', status_code=307
-                )
-        return await call_next(request)

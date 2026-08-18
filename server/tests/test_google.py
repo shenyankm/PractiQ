@@ -1,6 +1,3 @@
-"""Google OAuth tests mirroring backend/internal/auth/google_test.go."""
-
-from __future__ import annotations
 
 import time
 import json
@@ -9,7 +6,7 @@ from urllib.parse import parse_qs, urlencode, urlparse
 
 import fakeredis.aioredis
 import pytest
-from fastapi import Request, Response
+from fastapi import Request
 from httpx import ASGITransport, AsyncClient
 from fastapi.responses import RedirectResponse
 
@@ -67,7 +64,7 @@ async def test_google_callback_rejects_state_mismatch(client: AsyncClient, monke
     monkeypatch.setenv('GOOGLE_CLIENT_ID', 'web-client-id')
     response = await client.get(
         '/api/v1/auth/google/callback?state=forged&code=abc',
-        cookies={google.GOOGLE_STATE_COOKIE_NAME: 'expected'},
+        headers={'cookie': f'{google.GOOGLE_STATE_COOKIE_NAME}=expected'},
         follow_redirects=False,
     )
     assert response.status_code == 401
@@ -211,7 +208,7 @@ async def test_google_user_creation_and_existing_account_paths(monkeypatch: pyte
     created_pool = FakePool([
         ('WHERE google_sub', FakeCursor([])),
         ('SELECT 1 FROM users', FakeCursor([])),
-        ('INSERT INTO users', FakeCursor([(7, 'alice_123456', 'alice@example.com', True, 'user', 'free', 'rc-id')])),
+        ('INSERT INTO users', FakeCursor([(7, 'alice_123456', 'alice@example.com', True, 'user', 'free', None, 'rc-id')])),
     ])
     created = await google.find_or_create_google_user(
         created_pool, GoogleClaims('new-google-sub', 'alice@example.com', True)
@@ -222,7 +219,7 @@ async def test_google_user_creation_and_existing_account_paths(monkeypatch: pyte
 
     existing_pool = FakePool([(
         'WHERE google_sub',
-        FakeCursor([(8, 'alice', 'alice@example.com', True, 'user', 'free', 'rc-id')]),
+        FakeCursor([(8, 'alice', 'alice@example.com', True, 'user', 'free', None, 'rc-id')]),
     )])
     existing = await google.find_or_create_google_user(
         existing_pool, GoogleClaims('known-google-sub', 'ignored@example.com', True)
@@ -238,7 +235,7 @@ async def test_google_user_rejects_unverified_or_inactive_accounts(monkeypatch: 
 
     inactive_pool = FakePool([(
         'WHERE google_sub',
-        FakeCursor([(8, 'alice', 'alice@example.com', False, 'user', 'free', 'rc-id')]),
+        FakeCursor([(8, 'alice', 'alice@example.com', False, 'user', 'free', None, 'rc-id')]),
     )])
     with pytest.raises(envelope.APIError) as exc_info:
         await google.find_or_create_google_user(inactive_pool, GoogleClaims('known-sub', 'alice@example.com', True))
@@ -273,8 +270,7 @@ async def test_google_routes_issue_rotating_session_tokens(monkeypatch: pytest.M
         'type': 'http', 'method': 'POST', 'path': '/api/v1/auth/google/token',
         'headers': [(b'content-type', b'application/json')], 'query_string': b'', 'client': ('127.0.0.1', 1),
     })
-    request._body = b'{"idToken":"native-id-token"}'
-    response = await auth.google_token(request, Response())
+    response = await auth.google_token(request, auth.GoogleTokenBody(id_token='native-id-token'))
     body = json.loads(response.body)
     assert body['data']['username'] == 'alice'
     assert body['data']['tokens']['accessToken'] == 'access-token'

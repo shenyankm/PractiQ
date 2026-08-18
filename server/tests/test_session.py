@@ -1,12 +1,8 @@
-"""Session token tests mirroring backend/internal/auth/session_test.go."""
-
-from __future__ import annotations
 
 import base64
 import hashlib
 import hmac
 import json
-import time
 from datetime import datetime, timedelta, timezone
 
 import pytest

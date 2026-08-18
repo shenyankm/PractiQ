@@ -1,9 +1,4 @@
-"""User CRUD, session issuance/revocation, user cache.
-
-Mirrors backend/internal/auth/runtime.go.
-"""
-
-from __future__ import annotations
+"""User CRUD, session issuance/revocation, user cache."""
 
 import os
 import uuid
@@ -17,7 +12,7 @@ from fastapi import Request, Response
 from psycopg import errors as pg_errors
 from psycopg_pool import AsyncConnectionPool
 
-from .. import config, envelope, redisx
+from .. import config, envelope, membership, redisx
 from . import session as session_mod
 
 DUMMY_PASSWORD_HASH = '$2b$10$bPkUrUZqKDqmW.xkPE5LBuqH6HB/QoOS4dYH42xQxevBJQMStTE0W'
@@ -33,6 +28,7 @@ class User:
     role: str
     membership: str
     revenuecat_app_user_id: str = ''
+    trial_ends_at: datetime | None = None
 
     def as_dict(self) -> dict:
         return {
@@ -43,6 +39,11 @@ class User:
             'role': self.role,
             'membership': self.membership,
             'revenuecat_app_user_id': self.revenuecat_app_user_id,
+            'trial_ends_at': self.trial_ends_at.isoformat() if self.trial_ends_at else None,
+            'trialEndsAt': self.trial_ends_at.isoformat() if self.trial_ends_at else None,
+            'effectiveMembership': membership.effective_membership(
+                self.membership, self.trial_ends_at
+            ),
         }
 
 
@@ -94,7 +95,7 @@ def _scan_user(row: tuple | None) -> User | None:
         return None
     return User(
         id=row[0], username=row[1], email=row[2], is_active=row[3], role=row[4],
-        membership=row[5], revenuecat_app_user_id=str(row[6]),
+        membership=row[5], trial_ends_at=row[6], revenuecat_app_user_id=str(row[7]),
     )
 
 
@@ -108,7 +109,7 @@ async def register_user(
                 """
                 INSERT INTO users (username, email, password_hash, role, membership)
                 VALUES (%s, %s, %s, 'user', 'free')
-                RETURNING id, username, email, is_active, role, membership, revenuecat_app_user_id
+                RETURNING id, username, email, is_active, role, membership, trial_ends_at, revenuecat_app_user_id
                 """,
                 (username, email, password_hash),
             )
@@ -153,7 +154,7 @@ async def update_user(pool: AsyncConnectionPool, user_id: int, input: UpdateUser
                     email = CASE WHEN %s THEN %s ELSE email END,
                     password_hash = COALESCE(%s, password_hash)
                 WHERE id = %s
-                RETURNING id, username, email, is_active, role, membership, revenuecat_app_user_id
+                RETURNING id, username, email, is_active, role, membership, trial_ends_at, revenuecat_app_user_id
                 """,
                 (input.username, input.email_set, input.email, password_hash, user_id),
             )
@@ -381,15 +382,23 @@ async def current_user_by_id(pool: AsyncConnectionPool, user_id: int) -> User | 
     if rdb is not None:
         cached = await redisx.get_json(rdb, _user_cache_key(user_id))
         if isinstance(cached, dict) and cached.get('revenuecat_app_user_id'):
+            trial_raw = cached.get('trial_ends_at')
+            trial_ends_at = None
+            if isinstance(trial_raw, str) and trial_raw:
+                try:
+                    trial_ends_at = datetime.fromisoformat(trial_raw)
+                except ValueError:
+                    trial_ends_at = None
             return User(
                 id=cached['id'], username=cached['username'], email=cached.get('email'),
                 is_active=cached['is_active'], role=cached['role'], membership=cached['membership'],
                 revenuecat_app_user_id=cached['revenuecat_app_user_id'],
+                trial_ends_at=trial_ends_at,
             )
     async with pool.connection() as conn:
         cursor = await conn.execute(
             """
-            SELECT id, username, email, is_active, role, membership, revenuecat_app_user_id
+            SELECT id, username, email, is_active, role, membership, trial_ends_at, revenuecat_app_user_id
             FROM users
             WHERE id = %s
             LIMIT 1
@@ -428,13 +437,6 @@ async def _resolve_session_token(pool: AsyncConnectionPool, token: str) -> User 
         if await cursor.fetchone() is None:
             return None
     return await current_user_by_id(pool, payload.user_id)
-
-
-async def current_user_from_request_token(pool: AsyncConnectionPool, token: str) -> User | None:
-    """Token-based resolution used by the SPA guard (cookie value already extracted)."""
-    if not token:
-        return None
-    return await _resolve_session_token(pool, token)
 
 
 async def current_user_from_request(request: Request, pool: AsyncConnectionPool) -> User | None:

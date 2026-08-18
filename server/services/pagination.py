@@ -1,6 +1,3 @@
-"""Offset cursor pagination. Mirrors backend/internal/services/pagination.go."""
-
-from __future__ import annotations
 
 import base64
 from dataclasses import dataclass, field

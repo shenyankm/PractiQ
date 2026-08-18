@@ -1,9 +1,4 @@
-"""Email verification codes for registration (Redis + SMTP).
-
-Mirrors backend/internal/auth/email_code.go.
-"""
-
-from __future__ import annotations
+"""Email verification codes for registration (Redis + SMTP)."""
 
 import hashlib
 import hmac

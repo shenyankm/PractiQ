@@ -1,11 +1,11 @@
-"""Auth routes. Mirrors auth handlers + router.go auth registrations."""
-
-from __future__ import annotations
+"""Authentication routes."""
 
 import os
+from typing import Annotated, Self
 
-from fastapi import APIRouter, Request, Response
+from fastapi import APIRouter, Body, Request
 from fastapi.responses import RedirectResponse
+from pydantic import StringConstraints, field_validator, model_validator
 
 from .. import envelope
 from ..auth import email_code, google, handlers, runtime
@@ -13,33 +13,146 @@ from . import deps
 
 router = APIRouter()
 
+NonBlank = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+
+
+def _username(value: str) -> str:
+    value = value.strip()
+    if detail := handlers.username_validation_detail(value):
+        raise ValueError(detail.message)
+    return value
+
+
+def _email(value: str) -> str:
+    email, detail = handlers.normalize_email(value, True)
+    if detail:
+        raise ValueError(detail.message)
+    return email or ''
+
+
+def _password(field: str, value: str) -> str:
+    if detail := handlers.password_validation_detail(field, value):
+        raise ValueError(detail.message)
+    return value
+
+
+class RegisterBody(deps.RequestBody):
+    username: str
+    email: str
+    password: str
+    code: str = ''
+
+    @field_validator('username')
+    @classmethod
+    def validate_username(cls, value: str) -> str:
+        return _username(value)
+
+    @field_validator('email')
+    @classmethod
+    def validate_email(cls, value: str) -> str:
+        return _email(value)
+
+    @field_validator('password')
+    @classmethod
+    def validate_password(cls, value: str) -> str:
+        return _password('password', value)
+
+
+class LoginBody(deps.RequestBody):
+    login: str = ''
+    password: str = ''
+
+
+class UpdateProfileBody(deps.RequestBody):
+    username: str | None = None
+    email: str | None = None
+    current_password: str | None = None
+    new_password: str | None = None
+
+    @field_validator('username')
+    @classmethod
+    def validate_username(cls, value: str | None) -> str | None:
+        return _username(value) if value is not None else None
+
+    @field_validator('email')
+    @classmethod
+    def validate_email(cls, value: str | None) -> str | None:
+        return _email(value) if value is not None else None
+
+    @field_validator('new_password')
+    @classmethod
+    def validate_new_password(cls, value: str | None) -> str | None:
+        return _password('newPassword', value) if value is not None else None
+
+    @model_validator(mode='after')
+    def validate_update(self) -> Self:
+        if self.new_password is not None and not self.current_password:
+            raise ValueError('currentPassword is required to change the password')
+        if (
+            self.username is None
+            and 'email' not in self.model_fields_set
+            and self.new_password is None
+        ):
+            raise ValueError('username, email, or newPassword is required')
+        return self
+
+    def as_input(self) -> runtime.UpdateUserInput:
+        return runtime.UpdateUserInput(
+            username=self.username,
+            email=self.email,
+            email_set='email' in self.model_fields_set,
+            current_password=self.current_password,
+            new_password=self.new_password,
+        )
+
+
+class EmailCodeBody(deps.RequestBody):
+    email: str
+
+    @field_validator('email')
+    @classmethod
+    def validate_email(cls, value: str) -> str:
+        return _email(value)
+
+
+class RefreshBody(deps.RequestBody):
+    refresh_token: str = ''
+
+
+class GoogleTokenBody(deps.RequestBody):
+    id_token: NonBlank
+
 
 @router.post('/api/v1/auth/register')
-async def register(request: Request):
-    body = await handlers.decode_auth_request(request)
-    register_body = handlers.validate_register_request(body)
+async def register(request: Request, body: RegisterBody):
     await handlers.rate_limit_auth(request, '')
-    await email_code.verify_email_code(register_body.email, register_body.code)
+    await email_code.verify_email_code(body.email, body.code)
     user = await runtime.register_user(
-        deps.pool(request), register_body.username, register_body.email, register_body.password
+        deps.pool(request), body.username, body.email, body.password
     )
     tokens = await runtime.issue_session(deps.pool(request), user.id)
-    response = envelope.created(request, handlers.issued_session_response(user, tokens))
+    response = envelope.created(
+        request, handlers.issued_session_response(user, tokens)
+    )
     runtime.set_session_cookie(response, tokens.access_token, tokens.access_expires_at)
-    runtime.set_refresh_cookie(response, tokens.refresh_token, tokens.refresh_expires_at)
+    runtime.set_refresh_cookie(
+        response, tokens.refresh_token, tokens.refresh_expires_at
+    )
     return response
 
 
 @router.post('/api/v1/auth/login')
-async def login(request: Request):
-    body = await handlers.decode_auth_request(request)
-    login_name, password = handlers.validate_login_request(body)
-    await handlers.rate_limit_auth(request, login_name)
-    user = await runtime.authenticate_user(deps.pool(request), login_name, password)
+async def login(request: Request, body: LoginBody):
+    await handlers.rate_limit_auth(request, body.login)
+    user = await runtime.authenticate_user(
+        deps.pool(request), body.login, body.password
+    )
     tokens = await runtime.issue_session(deps.pool(request), user.id)
     response = envelope.ok(request, handlers.issued_session_response(user, tokens))
     runtime.set_session_cookie(response, tokens.access_token, tokens.access_expires_at)
-    runtime.set_refresh_cookie(response, tokens.refresh_token, tokens.refresh_expires_at)
+    runtime.set_refresh_cookie(
+        response, tokens.refresh_token, tokens.refresh_expires_at
+    )
     return response
 
 
@@ -54,46 +167,42 @@ async def logout(request: Request):
 
 @router.get('/api/v1/auth/me')
 async def me(request: Request):
-    user = await deps.current_user(request)
-    return envelope.ok(request, user.as_dict())
+    return envelope.ok(request, (await deps.current_user(request)).as_dict())
 
 
 @router.patch('/api/v1/users/me')
-async def update_me(request: Request):
+async def update_me(request: Request, body: UpdateProfileBody):
     user = await deps.current_user(request)
-    body = await handlers.decode_auth_request(request)
-    input = handlers.validate_update_me_request(body)
-    updated = await runtime.update_user(deps.pool(request), user.id, input)
+    updated = await runtime.update_user(deps.pool(request), user.id, body.as_input())
     return envelope.ok(request, updated.as_dict())
 
 
 @router.post('/api/v1/auth/email-code')
-async def send_email_code(request: Request):
-    body = await handlers.decode_auth_request(request)
-    if any(key != 'email' for key in body):
-        raise envelope.invalid_json()
-    email_raw = body.get('email') if isinstance(body.get('email'), str) else None
-    email, detail = handlers.normalize_email(email_raw, True)
-    if detail:
-        raise envelope.validation_error([detail])
-    await handlers.rate_limit_auth(request, email or '')
-    await email_code.send_code(email or '')
+async def send_email_code(request: Request, body: EmailCodeBody):
+    await handlers.rate_limit_auth(request, body.email)
+    await email_code.send_code(body.email)
     return envelope.no_content(request)
 
 
 @router.post('/api/v1/auth/refresh')
-async def refresh(request: Request):
-    body = await handlers.decode_auth_request(request)
-    if any(key != 'refreshToken' for key in body):
-        raise envelope.invalid_json()
-    raw_refresh = body.get('refreshToken') if isinstance(body.get('refreshToken'), str) else ''
-    raw_refresh = raw_refresh or request.cookies.get('refresh_token', '')
+async def refresh(
+    request: Request, body: RefreshBody | None = Body(default=None)
+):
+    raw_refresh = (body.refresh_token if body else '') or request.cookies.get(
+        'refresh_token', ''
+    )
     if not raw_refresh:
-        raise envelope.new_error(401, 'INVALID_REFRESH_TOKEN', 'Invalid refresh token')
+        raise envelope.new_error(
+            401, 'INVALID_REFRESH_TOKEN', 'Invalid refresh token'
+        )
     tokens = await runtime.rotate_refresh_token(deps.pool(request), raw_refresh)
-    response = envelope.ok(request, {'tokens': handlers.session_tokens_response(tokens)})
+    response = envelope.ok(
+        request, {'tokens': handlers.session_tokens_response(tokens)}
+    )
     runtime.set_session_cookie(response, tokens.access_token, tokens.access_expires_at)
-    runtime.set_refresh_cookie(response, tokens.refresh_token, tokens.refresh_expires_at)
+    runtime.set_refresh_cookie(
+        response, tokens.refresh_token, tokens.refresh_expires_at
+    )
     return response
 
 
@@ -107,29 +216,31 @@ async def google_start():
 
 @router.get('/api/v1/auth/google/callback')
 async def google_callback(request: Request):
-    response = RedirectResponse(url=os.environ.get('APP_ORIGIN', '').strip() or '/', status_code=302)
+    response = RedirectResponse(
+        url=os.environ.get('APP_ORIGIN', '').strip() or '/', status_code=302
+    )
     user = await google.google_callback(request, response, deps.pool(request))
     tokens = await runtime.issue_session(deps.pool(request), user.id)
     runtime.set_session_cookie(response, tokens.access_token, tokens.access_expires_at)
-    runtime.set_refresh_cookie(response, tokens.refresh_token, tokens.refresh_expires_at)
+    runtime.set_refresh_cookie(
+        response, tokens.refresh_token, tokens.refresh_expires_at
+    )
     return response
 
 
 @router.post('/api/v1/auth/google/token')
-async def google_token(request: Request, response: Response):
+async def google_token(request: Request, body: GoogleTokenBody):
     if not os.environ.get('GOOGLE_CLIENT_ID', '').strip():
-        raise envelope.new_error(404, 'GOOGLE_AUTH_DISABLED', 'Google sign-in is not configured')
-    body = await handlers.decode_auth_request(request)
-    if any(key != 'idToken' for key in body):
-        raise envelope.invalid_json()
-    id_token = body.get('idToken') if isinstance(body.get('idToken'), str) else ''
-    if not id_token.strip():
-        raise envelope.validation_error([envelope.ValidationDetail('idToken', 'is required')])
+        raise envelope.new_error(
+            404, 'GOOGLE_AUTH_DISABLED', 'Google sign-in is not configured'
+        )
     await handlers.rate_limit_auth(request, '')
-    claims = await google.verify_google_id_token(id_token)
+    claims = await google.verify_google_id_token(body.id_token)
     user = await google.find_or_create_google_user(deps.pool(request), claims)
     tokens = await runtime.issue_session(deps.pool(request), user.id)
     response = envelope.ok(request, handlers.issued_session_response(user, tokens))
     runtime.set_session_cookie(response, tokens.access_token, tokens.access_expires_at)
-    runtime.set_refresh_cookie(response, tokens.refresh_token, tokens.refresh_expires_at)
+    runtime.set_refresh_cookie(
+        response, tokens.refresh_token, tokens.refresh_expires_at
+    )
     return response

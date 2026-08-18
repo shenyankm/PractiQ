@@ -1,6 +1,3 @@
-"""Practice session service. Mirrors backend/internal/services/practice.go + practice_helpers.go."""
-
-from __future__ import annotations
 
 import json
 import os

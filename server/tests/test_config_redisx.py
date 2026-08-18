@@ -1,9 +1,4 @@
-"""Config + redisx + pagination + imports_queue unit tests.
-
-Mirrors config_test.go / redisx_test.go / pagination_test.go / imports_test.go.
-"""
-
-from __future__ import annotations
+"""Config + redisx + pagination + imports_queue unit tests."""
 
 import base64
 
@@ -42,7 +37,6 @@ def test_access_token_ttl_invalid(monkeypatch):
 
 def test_load_requires_auth_secret(monkeypatch):
     monkeypatch.delenv('AUTH_SECRET', raising=False)
-    monkeypatch.setattr(config, '_dotenv_paths', lambda name: [])
     with pytest.raises(ValueError, match='AUTH_SECRET'):
         config.load()
 
@@ -53,7 +47,6 @@ def test_load_defaults(monkeypatch):
     monkeypatch.delenv('PRACTIQ_HOST', raising=False)
     monkeypatch.delenv('APP_ORIGIN', raising=False)
     monkeypatch.delenv('ACCESS_TOKEN_TTL_MS', raising=False)
-    monkeypatch.setattr(config, '_dotenv_paths', lambda name: [])
     cfg = config.load()
     assert cfg.port == 8080
     assert cfg.host == '127.0.0.1'
@@ -64,7 +57,6 @@ def test_load_defaults(monkeypatch):
 def test_load_requires_billing_secrets(monkeypatch):
     monkeypatch.setenv('AUTH_SECRET', 'secret')
     monkeypatch.delenv('LLM_KEY_ENCRYPTION_SECRET', raising=False)
-    monkeypatch.setattr(config, '_dotenv_paths', lambda name: [])
     with pytest.raises(ValueError, match='LLM_KEY_ENCRYPTION_SECRET'):
         config.load()
 

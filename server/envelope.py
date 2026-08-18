@@ -1,11 +1,6 @@
-"""Response envelope: {data, meta} on success, {error} on failure.
+"""Response envelope: {data, meta} on success, {error} on failure."""
 
-Mirrors backend/internal/api/envelope.go.
-"""
-
-from __future__ import annotations
-
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from fastapi import Request, Response

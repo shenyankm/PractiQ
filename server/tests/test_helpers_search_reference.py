@@ -1,7 +1,5 @@
 """helpers + search + reference service tests (no database required)."""
 
-from __future__ import annotations
-
 import pytest
 from datetime import datetime, timezone
 

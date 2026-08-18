@@ -1,6 +1,3 @@
-"""Envelope tests mirroring backend/internal/api/envelope_test.go."""
-
-from __future__ import annotations
 
 import json
 

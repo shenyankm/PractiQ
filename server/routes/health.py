@@ -1,6 +1,3 @@
-"""Health endpoints. Mirrors the /api/health* routes in router.go + server.go."""
-
-from __future__ import annotations
 
 import time
 

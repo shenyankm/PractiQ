@@ -1,15 +1,10 @@
-"""Admin CLI: python -m server.admin db apply|seed.
-
-Mirrors backend/cmd/practiq-admin + backend/internal/db/runtime.go.
-"""
-
-from __future__ import annotations
+"""Admin CLI: python -m server.admin db apply|seed."""
 
 import os
 import sys
 from pathlib import Path
 
-from . import config, db as db_mod
+from . import db as db_mod
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -18,11 +13,7 @@ def main(argv: list[str] | None = None) -> int:
     if target not in ('db apply', 'db seed'):
         print('usage: python -m server.admin db apply|seed', file=sys.stderr)
         return 2
-    config.load_env()
-    # SQL schema files live in backend/db (shared with the Go schema source of truth).
     root = Path(__file__).resolve().parent.parent
-    if not (root / 'db').is_dir() and (root / 'backend' / 'db').is_dir():
-        root = root / 'backend'
     seed_password = os.environ.get('SEED_ADMIN_PASSWORD', '').strip() or db_mod.DEFAULT_SEED_PASSWORD
     try:
         message = db_mod.execute_sync(target, root, seed_password)

@@ -1,9 +1,4 @@
-"""Reference data: subjects, question types, knowledge points.
-
-Mirrors backend/internal/services/reference.go.
-"""
-
-from __future__ import annotations
+"""Reference data: subjects, question types, knowledge points."""
 
 from .. import envelope
 from . import helpers

@@ -1,9 +1,4 @@
-"""PostgreSQL pool and schema apply/seed.
-
-Mirrors backend/internal/db/{pool,config,runtime}.go using psycopg v3 async pool.
-"""
-
-from __future__ import annotations
+"""PostgreSQL pool and schema apply/seed."""
 
 import asyncio
 import re
@@ -27,6 +22,7 @@ def open_pool() -> AsyncConnectionPool:
         max_size=cfg.max_conns,
         max_idle=cfg.idle_timeout_seconds,
         timeout=cfg.connect_timeout_seconds,
+        kwargs={'connect_timeout': cfg.connect_timeout_seconds},
         open=False,
     )
     return _pool

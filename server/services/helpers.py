@@ -1,6 +1,3 @@
-"""Shared service helpers. Mirrors backend/internal/services/helpers.go."""
-
-from __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import Any

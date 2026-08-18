@@ -1,10 +1,8 @@
-"""Middleware tests mirroring backend/internal/httpserver/middleware_test.go."""
-
-from __future__ import annotations
+"""Middleware tests."""
 
 import fakeredis.aioredis
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from httpx import ASGITransport, AsyncClient
 
 from server import middleware, redisx
@@ -13,14 +11,10 @@ from server import middleware, redisx
 def _app(node_env: str = 'development', app_origin: str = 'http://localhost:8080') -> FastAPI:
     app = FastAPI()
 
-    async def verify_session(token: str) -> bool:
-        return token == 'valid'
-
-    app.add_middleware(middleware.SPAGuardMiddleware, app_origin=app_origin, verify_session=verify_session)
+    app.add_middleware(middleware.JsonBodyLimitMiddleware)
     app.add_middleware(middleware.IdempotencyMiddleware)
     app.add_middleware(middleware.SameOriginProtectionMiddleware, app_origin=app_origin)
     app.add_middleware(middleware.RateLimitMiddleware)
-    app.add_middleware(middleware.RecoveryMiddleware)
     app.add_middleware(middleware.RequestIDMiddleware)
     app.add_middleware(middleware.SecurityHeadersMiddleware, node_env=node_env)
 
@@ -36,13 +30,10 @@ def _app(node_env: str = 'development', app_origin: str = 'http://localhost:8080
     async def create_bank():
         return {'id': 1}
 
-    @app.get('/banks/1')
-    async def bank_page():
-        return {'page': True}
-
-    @app.get('/boom')
-    async def boom():
-        raise RuntimeError('boom')
+    @app.post('/api/v1/auth/login')
+    async def login(request: Request):
+        await request.body()
+        return {'ok': True}
 
     return app
 
@@ -91,13 +82,6 @@ async def test_request_id_passthrough_and_generation(no_redis):
         assert generated and generated != 'x' * 200
 
 
-async def test_recovery_returns_internal_error_envelope(no_redis):
-    async with AsyncClient(transport=ASGITransport(app=_app()), base_url='http://localhost:8080') as client:
-        response = await client.get('/boom')
-    assert response.status_code == 500
-    assert response.json()['error']['code'] == 'INTERNAL_ERROR'
-
-
 async def test_same_origin_protection(no_redis):
     async with AsyncClient(transport=ASGITransport(app=_app()), base_url='http://localhost:8080') as client:
         # No Origin/Referer: allowed (non-browser clients).
@@ -113,6 +97,46 @@ async def test_same_origin_protection(no_redis):
         # GET is not protected.
         response = await client.get('/api/v1/banks', headers={'Origin': 'https://evil.example'})
         assert response.status_code == 200
+
+
+@pytest.mark.parametrize(
+    ('path', 'size'),
+    [
+        ('/api/v1/banks', middleware.DEFAULT_JSON_BODY_BYTES + 1),
+        ('/api/v1/auth/login', middleware.AUTH_JSON_BODY_BYTES + 1),
+    ],
+)
+async def test_json_body_size_limit(no_redis, path, size):
+    async with AsyncClient(transport=ASGITransport(app=_app()), base_url='http://localhost:8080') as client:
+        response = await client.post(
+            path,
+            content=b'"' + b'x' * size + b'"',
+            headers={'content-type': 'application/json'},
+        )
+    assert response.status_code == 413
+    assert response.json()['error']['code'] == 'REQUEST_TOO_LARGE'
+
+
+async def test_chunked_json_body_size_limit(no_redis):
+    async def chunks():
+        yield b'"'
+        yield b'x' * (middleware.AUTH_JSON_BODY_BYTES + 1)
+
+    async with AsyncClient(transport=ASGITransport(app=_app()), base_url='http://localhost:8080') as client:
+        response = await client.post(
+            '/api/v1/auth/login',
+            content=chunks(),
+            headers={'content-type': 'application/problem+json'},
+        )
+    assert response.status_code == 413
+    assert response.json()['error']['code'] == 'REQUEST_TOO_LARGE'
+
+
+def test_import_artifact_uses_large_json_limit():
+    assert (
+        middleware.JsonBodyLimitMiddleware.maximum('/api/v1/import-jobs/1/file')
+        == middleware.IMPORT_JSON_BODY_BYTES
+    )
 
 
 async def test_api_rate_limit_fail_open_without_redis(no_redis):
@@ -155,16 +179,3 @@ async def test_idempotency_key_validation(fake_redis):
         response = await client.post('/api/v1/banks', json={}, headers={'Idempotency-Key': 'x' * 129})
     assert response.status_code == 422
     assert response.json()['error']['code'] == 'VALIDATION_ERROR'
-
-
-async def test_spa_guard_redirects_unauthenticated(no_redis):
-    async with AsyncClient(transport=ASGITransport(app=_app()), base_url='http://localhost:8080') as client:
-        response = await client.get('/banks/1', follow_redirects=False)
-        assert response.status_code == 307
-        assert response.headers['location'].startswith('http://localhost:8080/sign-in?redirect=')
-        # With a valid session cookie the page is served.
-        response = await client.get('/banks/1', cookies={'session': 'valid'})
-        assert response.status_code == 200
-        # API paths are never redirected.
-        response = await client.get('/api/v1/banks')
-        assert response.status_code == 200
