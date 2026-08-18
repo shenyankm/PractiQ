@@ -10,7 +10,7 @@ PractiQ runs as a unified-stack application:
 
 - Mobile: Expo SDK 57, React Native, Expo Router, HeroUI Native, SQLite offline cache/outbox
 - Server: Python 3.14, FastAPI, Pydantic, psycopg (async pool), redis-py, LangGraph + LangChain OpenAI-compatible models (DashScope, DeepSeek, Moonshot), pypdfium2, Pillow, openpyxl
-- Local infra: Podman Quadlet for Postgres and Redis
+- Local infra: Docker Engine + Docker Compose for Postgres and Redis
 
 ## Local setup
 
@@ -22,15 +22,22 @@ python --version  # 3.14+
 cd server && uv sync --extra dev
 ```
 
-1. Start the local Podman stack (Postgres and Redis run as Quadlet units):
+1. Install Docker Engine and the Compose plugin (Ubuntu), then sign out and back in once so group membership applies:
 
 ```bash
-cp containers/quadlet/* ~/.config/containers/systemd/
-systemctl --user daemon-reload
-systemctl --user start practiq-postgres practiq-redis
+sudo apt update
+sudo apt install docker.io docker-compose-v2 docker-buildx
+sudo systemctl enable --now docker
+sudo usermod -aG docker "$USER"
 ```
 
-The `practiq-postgres` unit creates the isolated `practiq_app` database on first start so an older `practiq` database does not collide with this stack.
+1. Start PostgreSQL and Redis:
+
+```bash
+docker compose up -d postgres redis
+```
+
+The PostgreSQL container creates the isolated `practiq_app` database on first start so an older `practiq` database does not collide with this stack.
 
 1. Copy environment defaults:
 
@@ -102,25 +109,18 @@ Direct dependencies are kept on current stable releases in `mobile/package.json`
 
 For an existing database, apply `db/users/11_supported_llm_providers.sql` and `db/imports/45_langgraph_checkpoints.sql` before deploying the LangGraph worker. The provider migration clears unsupported stored keys and DeepSeek vision settings by design.
 
-## Podman stack
+## Docker stack
 
-The full local stack runs as Podman Quadlet units from `containers/quadlet/`:
+The full local stack is defined in `compose.yaml`:
 
 ```bash
-podman build -f Containerfile.server -t localhost/practiq-server:latest .
-cp containers/quadlet/* ~/.config/containers/systemd/
-systemctl --user daemon-reload
-systemctl --user start practiq-postgres practiq-redis practiq-server practiq-worker
+docker compose up -d --build
+docker compose ps
 ```
 
-The server and worker units read optional secrets from `~/.config/practiq/practiq-stack.env`; create it with a random local `AUTH_SECRET` value (edit the same file to rotate local secrets). The `practiq-postgres` unit creates the isolated `practiq_app` database on first start, and you still need to run the schema/seed commands once per fresh database.
+The server and worker read repository-root `.env.local` when present. Set its required values, including a random local `AUTH_SECRET`, before starting the full stack. PostgreSQL creates the isolated `practiq_app` database on first start, and you still need to run the schema/seed commands once per fresh database.
 
-This manages four services:
-
-- `practiq-postgres`
-- `practiq-redis`
-- `practiq-server`
-- `practiq-worker`
+Docker Compose manages four services: `postgres`, `redis`, `server`, and `worker`. Stop them with `docker compose down`; named PostgreSQL and Redis volumes remain until explicitly removed.
 
 ## Environment variables
 

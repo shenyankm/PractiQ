@@ -1,6 +1,0 @@
-[Unit]
-Description=PractiQ local Podman network
-
-[Network]
-NetworkName=practiq
-Driver=bridge

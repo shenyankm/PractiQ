@@ -1,0 +1,102 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: practiq_app
+      POSTGRES_USER: practiq
+      POSTGRES_PASSWORD: practiq
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "127.0.0.1:54322:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+    restart: on-failure
+
+  redis:
+    image: redis:7-alpine
+    command:
+      [
+        "redis-server",
+        "--appendonly",
+        "yes",
+        "--save",
+        "60",
+        "1000",
+        "--maxmemory-policy",
+        "noeviction",
+      ]
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    restart: on-failure
+
+  server:
+    image: practiq-server:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    env_file:
+      - path: .env.local
+        required: false
+    environment:
+      POSTGRES_URL: postgresql://practiq:practiq@postgres:5432/practiq_app
+      REDIS_URL: redis://redis:6379
+      PRACTIQ_HOST: 0.0.0.0
+      PORT: 3000
+      APP_ORIGIN: http://127.0.0.1:3000
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:3000/api/health/live').read()",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+    restart: on-failure
+
+  worker:
+    image: practiq-server:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    command: ["python", "-m", "server.worker"]
+    env_file:
+      - path: .env.local
+        required: false
+    environment:
+      POSTGRES_URL: postgresql://practiq:practiq@postgres:5432/practiq_app
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: on-failure
+
+volumes:
+  postgres-data:
+  redis-data:

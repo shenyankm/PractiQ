@@ -47,7 +47,7 @@ This document covers the L1 system context and L2 containers. Component/code vie
 | DB schema surface: users/banks/questions/imports/media/practice | [db/](../../db/) (`10_users.sql` … `70_user_answers.sql`) | high |
 | Redis responsibilities (cache, rate limit, OAuth, idempotency) | [redisx.py](../../server/redisx.py), [middleware.py](../../server/middleware.py), [system-design.md](../system-design.md#redis-integration) | high |
 | Mobile: Expo Router screens, SQLite mirror, outbox, RevenueCat SDK | [mobile/app/](../../mobile/app/), [mobile/src/practiq/](../../mobile/src/practiq/) (`mirror-schema.ts`, `sync.ts`, `revenuecat.ts`, `api.ts`) | high |
-| Deployment units: server/worker/postgres/redis containers on one network | [containers/quadlet/](../../containers/quadlet/) | high |
+| Deployment units: server/worker/postgres/redis containers on one network | [compose.yaml](../../compose.yaml) | high |
 
 ## Reading Order
 
