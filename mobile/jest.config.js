@@ -5,7 +5,7 @@ module.exports = {
   preset: 'jest-expo',
   clearMocks: true,
   resolver: 'react-native-worklets/jest/resolver',
-  testMatch: ['<rootDir>/src/**/*.ui.test.{ts,tsx}'],
+  testMatch: ['<rootDir>/src/**/*.test.{ts,tsx}'],
   moduleNameMapper: {
     '^expo-sqlite$': '<rootDir>/src/test-utils/sqlite-mock.ts',
   },

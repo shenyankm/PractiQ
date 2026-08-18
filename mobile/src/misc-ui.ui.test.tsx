@@ -54,7 +54,7 @@ jest.mock('heroui-native/text-field', () => {
 jest.mock('heroui-native/tabs', () => {
   const { Pressable, View } = require('react-native');
   let onChange: ((name: string) => void) | undefined;
-  const Tabs: any = ({ value, onValueChange, children }: any) => {
+  const Tabs: any = ({ onValueChange, children }: any) => {
     onChange = onValueChange;
     return <View>{children}</View>;
   };

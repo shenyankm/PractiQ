@@ -20,7 +20,7 @@ import { StatCard } from '@/components/stat-card';
 import { languageLabels, type Language } from '@/i18n';
 import { useLanguage } from '@/language';
 import { CLOUD_API_URL } from '@/cloud';
-import { ApiError, apiRequest, mutateOrQueue, uploadImport, type PendingImport } from './api';
+import { ApiError, apiRequest, mutateOrQueue, streamImportJobEvents, uploadImport, type PendingImport } from './api';
 import { createMutationKey, enqueueMutation, readResource, writeResource } from './cache';
 import { useCloudAuth } from './auth';
 import {
@@ -989,9 +989,7 @@ export function SettingsScreen() {
   );
 }
 
-const llmProviders: LLMProvider[] = [
-  'anthropic', 'dashscope', 'deepseek', 'gemini', 'moonshot', 'openai', 'xai',
-];
+const llmProviders: LLMProvider[] = ['dashscope', 'deepseek', 'moonshot'];
 
 export function AISettingsScreen() {
   const { tr } = useLanguage();
@@ -1011,7 +1009,7 @@ export function AISettingsScreen() {
         if (!active) return;
         if (value.provider) setProvider(value.provider);
         setTextModel(value.textModel || '');
-        setVisionModel(value.visionModel || '');
+        setVisionModel(value.provider === 'deepseek' ? '' : value.visionModel || '');
         setConfigured(value.configured);
       })
       .catch((reason) => {
@@ -1026,7 +1024,7 @@ export function AISettingsScreen() {
     try {
       const saved = await apiRequest<LLMConfig>('/api/v1/users/me/llm-config', {
         method: 'PUT',
-        body: { provider, apiKey, textModel, visionModel: visionModel || null },
+        body: { provider, apiKey, textModel, visionModel: provider === 'deepseek' ? null : visionModel || null },
         schema: llmConfigSchema,
       });
       setConfigured(saved.configured);
@@ -1099,7 +1097,14 @@ export function AISettingsScreen() {
         <Label>{tr('Provider', '提供方')}</Label>
         <Surface className="flex-row flex-wrap gap-2 rounded-none p-0" variant="transparent">
           {llmProviders.map((value) => (
-            <Button key={value} variant={provider === value ? 'primary' : 'secondary'} onPress={() => setProvider(value)}>
+            <Button
+              key={value}
+              variant={provider === value ? 'primary' : 'secondary'}
+              onPress={() => {
+                setProvider(value);
+                if (value === 'deepseek') setVisionModel('');
+              }}
+            >
               {value}
             </Button>
           ))}
@@ -1112,10 +1117,13 @@ export function AISettingsScreen() {
           <Label>{tr('Text model', '文本模型')}</Label>
           <Input value={textModel} onChangeText={setTextModel} autoCapitalize="none" />
         </TextField>
-        <TextField isDisabled={busy}>
+        <TextField isDisabled={busy || provider === 'deepseek'}>
           <Label>{tr('Vision model (optional)', '视觉模型（可选）')}</Label>
           <Input value={visionModel} onChangeText={setVisionModel} autoCapitalize="none" />
         </TextField>
+        {provider === 'deepseek' ? (
+          <Typography color="muted">DeepSeek does not support vision models. / DeepSeek 不支持视觉模型。</Typography>
+        ) : null}
         <Typography color="muted">
           {tr('The API endpoint is fixed to the provider official service. The key is encrypted on the server and is never returned.', 'API 地址固定为提供方官方服务；Key 在服务端加密且不会返回。')}
         </Typography>
@@ -1151,9 +1159,15 @@ export function ImportsScreen() {
     const result = await DocumentPicker.getDocumentAsync({
       type: [
         'text/plain',
+        'text/markdown',
+        'text/csv',
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         'application/pdf',
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'image/png',
+        'image/jpeg',
+        'image/gif',
+        'image/webp',
       ],
       copyToCacheDirectory: true,
       multiple: false,
@@ -1259,16 +1273,39 @@ export function ImportDetailScreen() {
   const reloadOutputs = outputs.reload;
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const isImportRunning = Boolean(job.data.status)
+    && !['completed', 'failed', 'cancelled'].includes(job.data.status);
 
   useEffect(() => {
-    if (!job.data.status || ['completed', 'failed', 'cancelled'].includes(job.data.status)) return;
-    const timer = setInterval(() => {
-      void reloadJob();
-      void reloadEvents();
-      void reloadOutputs();
-    }, 3_000);
-    return () => clearInterval(timer);
-  }, [job.data.status, reloadEvents, reloadJob, reloadOutputs]);
+    if (!isImportRunning) return;
+    let active = true;
+    let timer: ReturnType<typeof setInterval> | undefined;
+    const controller = new AbortController();
+    void streamImportJobEvents(jobId, {
+      signal: controller.signal,
+      onEvent: async (event) => {
+        if (!active) return;
+        await Promise.all([
+          reloadJob(),
+          reloadEvents(),
+          ...(['completed', 'failed', 'cancelled'].includes(event.status) ? [reloadOutputs()] : []),
+        ]);
+      },
+    }).catch(() => {
+      if (!active || controller.signal.aborted) return;
+      timer = setInterval(() => {
+        if (!active) return;
+        void reloadJob();
+        void reloadEvents();
+        void reloadOutputs();
+      }, 3_000);
+    });
+    return () => {
+      active = false;
+      controller.abort();
+      if (timer) clearInterval(timer);
+    };
+  }, [isImportRunning, jobId, reloadEvents, reloadJob, reloadOutputs]);
 
   async function run(action: 'retry' | 'cancel') {
     setBusy(true);
@@ -1298,7 +1335,7 @@ export function ImportDetailScreen() {
         <Typography>{tr('Stage', '阶段')}：{job.data.stage}</Typography>
         <Typography>{tr('Progress', '进度')}：{Math.round(job.data.overall_progress_percent || 0)}%</Typography>
         {job.data.status === 'failed' ? <Button isDisabled={busy} onPress={() => void run('retry')}>{tr('Retry', '重试')}</Button> : null}
-        {['queued', 'processing'].includes(job.data.status) ? <Button isDisabled={busy} variant="danger" onPress={() => void run('cancel')}>{tr('Cancel', '取消')}</Button> : null}
+        {['queued', 'processing'].includes(job.data.status) && job.data.stage !== 'persisting' ? <Button isDisabled={busy} variant="danger" onPress={() => void run('cancel')}>{tr('Cancel', '取消')}</Button> : null}
       </Card>
       <Section title={tr('Events', '事件')}>
         {events.data.map((event) => <Typography key={event.id}>{event.status} · {event.message || ''}</Typography>)}

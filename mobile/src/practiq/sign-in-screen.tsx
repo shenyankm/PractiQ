@@ -89,7 +89,7 @@ export default function SignInScreen() {
   }
 
   return (
-    <ScreenState className="gap-5 rounded-none">
+    <ScreenState className="gap-5 rounded-none" contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}>
       <Typography.Heading type="h1">PractiQ</Typography.Heading>
       <Typography color="muted">{tr('Use your PractiQ account to sync learning data with the Web app.', '登录 PractiQ 云端账号，在手机与 Web 间同步学习数据。')}</Typography>
       <Card className="gap-4">

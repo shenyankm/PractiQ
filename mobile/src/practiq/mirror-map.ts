@@ -1,5 +1,5 @@
-// 镜像仓储的纯映射层:API JSON ↔ SQLite 行参数/记录。
-// 不 import expo-sqlite,可在 node:test 中运行(见 src/mirror.test.ts)。
+// 镜像仓储的纯映射层：API JSON ↔ SQLite 行参数/记录。
+// 不 import expo-sqlite，可在 Jest 中直接运行（见 src/mirror.test.ts）。
 import type {
   Bank,
   BankGroup,
@@ -13,10 +13,6 @@ import type {
 export function boolToInt(value: boolean | null | undefined): number | null {
   if (value === null || value === undefined) return null;
   return value ? 1 : 0;
-}
-
-export function intToBool(value: number | null | undefined): boolean {
-  return value === 1;
 }
 
 // ---------- banks ----------

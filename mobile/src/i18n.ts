@@ -50,7 +50,6 @@ const englishDayFormatter = new Intl.DateTimeFormat('en', {
   month: 'numeric',
   day: 'numeric',
 });
-const percentFormatter = new Intl.NumberFormat('en', { style: 'percent', maximumFractionDigits: 0 });
 
 export const languageLabels: Record<Language, string> = {
   en: 'English',
@@ -89,9 +88,6 @@ export const formatDate = (value: string | number | Date, language: Language) =>
   }
   return englishDateFormatter.format(date);
 };
-
-export const formatPercent = (value: number, _language: Language) =>
-  percentFormatter.format(Number.isFinite(value) ? value : 0);
 
 export const formatDay = (value: string, language: Language) => {
   const [year, month, day] = value.split('-').map(Number);

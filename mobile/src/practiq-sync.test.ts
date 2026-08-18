@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
 
 import { shouldFailPermanently, shouldQueueAfterFailure } from './practiq/sync-policy';
 
