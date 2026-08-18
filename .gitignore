@@ -32,6 +32,10 @@ node_modules/
 /taro/dist/
 /taro/.swc/
 
+# Java / Maven backend
+/backend/target/
+/backend/**/*.class
+
 # -----------------------------------------------
 # Python
 # -----------------------------------------------

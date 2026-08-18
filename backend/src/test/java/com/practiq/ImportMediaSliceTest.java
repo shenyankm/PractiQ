@@ -1,0 +1,9 @@
+package com.practiq;
+import static org.junit.jupiter.api.Assertions.*; import com.practiq.common.ApiException; import com.practiq.service.UploadSupport; import com.practiq.web.ImportController; import com.practiq.web.MediaController; import java.nio.file.*; import java.util.*; import org.junit.jupiter.api.Test;
+class ImportMediaSliceTest {
+ @Test void sniffsSupportedImagesAndRejectsMismatch(){assertEquals("image/png",UploadSupport.imageMime(new byte[]{(byte)137,80,78,71,13,10,26,10}));assertThrows(ApiException.class,()->UploadSupport.validateImport(".png","image/png","not-image".getBytes(),"x.png"));}
+ @Test void validatesTextAndOfficeMagic(){UploadSupport.validateImport(".txt","text/plain","ready".getBytes(),"x.txt");assertThrows(ApiException.class,()->UploadSupport.validateImport(".docx","",new byte[]{1,2},"x.docx"));}
+ @Test void storagePathStaysUnderMount()throws Exception{Path root=Files.createTempDirectory("practiq-test");assertTrue(UploadSupport.path(root.toString(),"imports/1/source.txt").startsWith(root));assertThrows(ApiException.class,()->UploadSupport.path(root.toString(),"../secret"));}
+ @Test void sourceTypesCoverEveryUploadFormat(){assertEquals("image",UploadSupport.sourceType(".webp"));assertEquals("xlsx",UploadSupport.sourceType(".xlsx"));assertThrows(ApiException.class,()->UploadSupport.extension("x.exe","application/octet-stream"));}
+ @Test void routeSliceHasNoFallbackAndExposesBothUploadForms(){Set<String> media=Arrays.stream(MediaController.class.getDeclaredMethods()).map(x->x.getName()).collect(java.util.stream.Collectors.toSet());assertTrue(media.containsAll(Set.of("upload","get","content","delete","linkQ","linkG","linkO","unQ","unG","unO")));Set<String> jobs=Arrays.stream(ImportController.class.getDeclaredMethods()).map(x->x.getName()).collect(java.util.stream.Collectors.toSet());assertTrue(jobs.containsAll(Set.of("list","create","get","file","legacy","action","children","stream")));}
+}
