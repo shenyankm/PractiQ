@@ -1,0 +1,15 @@
+{
+  "miniprogramRoot": "./",
+  "projectname": "practiq-weapp"
+  "description": "PractiQ 微信小程序",
+  "appid": "touristappid",
+  "setting": {
+    "urlCheck": true,
+    "es6": true,
+    "enhance": true,
+    "compileHotReLoad": false,
+    "postcss": true,
+    "minified": true
+  },
+  "compileType": "miniprogram"
+}

@@ -1,0 +1,4 @@
+/** app.wxss - PractiQ 全局样式 */
+page {
+  background-color: #F4F7F6;
+}

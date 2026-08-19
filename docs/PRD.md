@@ -2,7 +2,7 @@
 
 ## 1. Product Overview
 
-PractiQ 是一个面向教师、学习者和教育机构的题库管理与智能练习平台。用户可创建和管理学科题库、手动或 AI 批量导入试题、组织练习与考试会话，并获取多维度的学习分析报告。当前产品由 Taro 微信小程序前端基线、Java 产品 API 与内部 Python AI 服务组成；Java 承载 REST API、认证和产品数据，Python 仅承载 AI 文档处理。前端业务流程正按 `docs/taro-migration.md` 恢复。
+PractiQ 是一个面向教师、学习者和教育机构的题库管理与智能练习平台。用户可创建和管理学科题库、手动或 AI 批量导入试题、组织练习与考试会话，并获取多维度的学习分析报告。当前产品由微信小程序前端、Java 产品 API 与内部 Python AI 服务组成；Java 承载 REST API、认证和产品数据，Python 仅承载 AI 文档处理。前端业务流程正按 `docs/weapp-migration.md` 恢复。
 
 ## 2. 目标用户
 
@@ -115,7 +115,7 @@ PractiQ 是一个面向教师、学习者和教育机构的题库管理与智能
 | F10.4 成员学情 | owner 查看任一成员的学情快照 |
 | F10.5 小组题库 | 小组成员获得关联题库的只读权限（视同公开题库） |
 
-## 4. Taro 目标页面与路由
+## 4. 目标页面与路由
 
 ### 公开页面
 
@@ -155,13 +155,13 @@ PractiQ 是一个面向教师、学习者和教育机构的题库管理与智能
 | NFR5 安全 | 短效 HMAC access JWT、轮换 refresh token、bcrypt 密码、CSRF SameOrigin 保护、速率限制 |
 | NFR6 可扩展 | Java 产品 API 编排可重试的导入与私有 AI 服务调用 |
 | NFR7 持久化 | PostgreSQL 为唯一权威存储；Redis 故障时普通读取降级至 SQL，幂等写入失败关闭 |
-| NFR8 国际化 | Taro 客户端目标支持 English、简体中文、繁體中文和日本語回退 |
+| NFR8 国际化 | 微信小程序目标支持 English、简体中文、繁體中文和日本語回退 |
 | NFR9 离线同步 | 计划按平台恢复缓存与 outbox；幂等重放避免响应丢失造成重复写入 |
 
 ## 6. 技术架构
 
 ```
-PractiQ (Taro WeChat Mini Program) ── HTTP / JSON
+PractiQ (WeChat Mini Program) ── HTTP / JSON
                           ▼
 Java product API; the private Python FastAPI/LangGraph AI integration is pending
         │              │
@@ -197,7 +197,7 @@ Java product API; the private Python FastAPI/LangGraph AI integration is pending
 ## 8. 当前开发阶段
 
 - **已实现**: Java 产品 API、题库和试题 REST API、练习、导入、媒体、分析、搜索、SQL schema 与会员/学习小组能力；Python AI 服务保留文档解析与生成工作流，Java 客户端集成待完成
-- **前端现状**: Taro 微信小程序编译与运行基线已建立；业务页面、认证、离线缓存/outbox 和购买待迁移。仓库不包含其他前端。
+- **前端现状**: 原生微信小程序开发基线已建立；业务页面、认证、离线缓存/outbox 和购买待迁移。仓库不包含其他前端。
 
 ## 9. 后续重点
 

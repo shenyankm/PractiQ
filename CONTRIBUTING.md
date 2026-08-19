@@ -9,7 +9,7 @@ Read these files before changing code:
 - [`AGENTS.md`](./AGENTS.md) for repository rules and service boundaries
 - [`README.md`](./README.md) for local setup
 - [`docs/PRD.md`](./docs/PRD.md) for product behavior
-- [`docs/taro-migration.md`](./docs/taro-migration.md) for the Mini Program migration order
+- [`docs/weapp-migration.md`](./docs/weapp-migration.md) for the Mini Program migration order
 - [`docs/system-design.md`](./docs/system-design.md) for the private AI service contract
 
 Open an issue before starting a feature, architecture change, new dependency, or cross-service change. Small bug fixes and documentation corrections can go directly to a pull request when the scope is clear.
@@ -24,7 +24,7 @@ PractiQ has three application boundaries and one schema authority:
 | --- | --- |
 | `backend/` | Public Java product API, authentication, billing, product rules, persistence, retries, and API contracts |
 | `server/` | Private FastAPI service for document parsing and AI generation |
-| `taro/` | Taro and React WeChat Mini Program |
+| `weapp/` | WeChat Mini Program |
 | `db/` | PostgreSQL schema authority |
 
 Preserve these boundaries:
@@ -33,7 +33,7 @@ Preserve these boundaries:
 - Keep `server/` stateless and AI-only
 - Do not send user, bank, question, session, or import resource IDs to the AI service
 - Keep semantic keys such as `questionTypeId` when the AI workflow needs classification context
-- Keep WeChat-specific APIs at Taro or backend integration boundaries
+- Keep WeChat-specific APIs at backend integration boundaries
 - Do not expose the private AI service to public traffic
 
 Reuse existing code and installed dependencies before adding an abstraction or package. Add dependencies only when the pull request demonstrates a concrete need.
@@ -59,7 +59,6 @@ Clone your fork and configure the local environment:
 git clone https://github.com/your_username_here/PractiQ.git
 cd PractiQ
 cp .env.example .env.local
-npm --prefix taro ci
 uv sync --project server --extra dev
 ```
 
@@ -67,7 +66,7 @@ Set only the variables required by the component you run:
 
 - Set `AUTH_SECRET` for the Java API
 - Set `AI_SERVICE_TOKEN`, `LLM_PROVIDER`, `LLM_API_KEY`, and `LLM_TEXT_MODEL` for the AI service
-- Set `TARO_APP_API_URL` for the Mini Program API target
+- Set `WEAPP_API_URL` for the Mini Program API target
 
 Never commit `.env.local`, credentials, tokens, private keys, or production data.
 
@@ -97,11 +96,7 @@ make server-dev
 
 ### WeChat Mini Program
 
-```bash
-make taro-weapp
-```
-
-Import `taro/dist/` into WeChat Developer Tools for platform testing. Do not commit generated output from `taro/dist/` or `backend/target/`.
+Open `weapp/` in WeChat Developer Tools for platform testing. Do not commit generated output from `backend/target/`.
 
 ## Follow coding conventions
 
@@ -122,9 +117,9 @@ Import `taro/dist/` into WeChat Developer Tools for platform testing. Do not com
 - Keep document handling in `server/extractors/`
 - Do not add product persistence or Java business rules
 
-### Taro Mini Program
+### WeChat Mini Program
 
-- Use strict TypeScript, Taro components, and plain CSS
+- Use plain CSS
 - Follow [`docs/visual-style-guide.md`](./docs/visual-style-guide.md)
 - Keep platform APIs behind the smallest practical boundary
 - Include loading, empty, error, expired-session, and offline states where applicable
@@ -149,10 +144,10 @@ Run the checks for every area you changed:
 | --- | --- |
 | `backend/` | `make backend-test` |
 | `server/` | `make test-server` |
-| `taro/` | `make test` |
+| `weapp/` | `make test` |
 | Multiple application layers | `make verify` |
 
-`make test` validates only the Taro application. Use `make verify` for cross-layer changes.
+`make test` validates only the WeChat Mini Program. Use `make verify` for cross-layer changes.
 
 Add the smallest test that fails before your fix and passes after it. For database changes, also exercise the affected query or workflow against PostgreSQL.
 
@@ -167,7 +162,7 @@ Update documentation in the same pull request when you change:
 - AI service boundaries or supported providers
 - Setup, build, or test commands
 
-Keep `docs/PRD.md` and `docs/taro-migration.md` aligned with implemented product status. Do not mark a feature complete until its end-to-end flow and error states are testable.
+Keep `docs/PRD.md` and `docs/weapp-migration.md` aligned with implemented product status. Do not mark a feature complete until its end-to-end flow and error states are testable.
 
 ## Write commits
 
@@ -177,7 +172,7 @@ Use focused [Conventional Commit](https://www.conventionalcommits.org/) subjects
 feat(backend): add WeChat login exchange
 fix(server): reject oversized image payloads
 docs: clarify database setup
-refactor(taro): isolate API request handling
+refactor(weapp): isolate API request handling
 ```
 
 Avoid mixing formatting, refactoring, generated files, and product behavior in one commit.

@@ -1,23 +1,20 @@
-# Taro 微信小程序迁移计划
+# 微信小程序迁移计划
 
 ## 目标与边界
 
-以 `taro/` 逐步恢复微信小程序功能；不保留其他平台的配置或占位实现。Java 产品 API 与 PostgreSQL 继续是唯一权威数据源。
+以 `weapp/` 逐步恢复微信小程序功能；不保留其他平台的配置或占位实现。Java 产品 API 与 PostgreSQL 继续是唯一权威数据源。
 
-基线固定为 Taro 4.2.1 与 React 18。`taro/` 使用独立 `package.json`、lockfile 和微信开发者工具配置。
+基线固定为原生微信小程序开发模式。`weapp/` 使用独立 `project.config.json` 和微信开发者工具配置。
 
 ## 已建立的目录
 
 ```text
-taro/
-├── config/                 微信小程序编译配置
-├── src/
-│   ├── app.tsx             应用入口
-│   ├── app.config.ts       页面与窗口配置
-│   └── pages/index/        迁移状态页
-├── types/                  Taro 环境类型
-├── project.config.json     微信开发者工具配置
-└── package.json            独立依赖和命令
+weapp/
+├── app.js                 应用入口
+├── app.json               页面与窗口配置
+├── app.wxss               全局样式
+├── project.config.json    微信开发者工具配置
+└── pages/index/           首页
 ```
 
 只创建当前能运行的文件。`features/`、`services/`、`platform/` 等目录在首个对应模块迁移时再创建。
@@ -34,11 +31,11 @@ taro/
 
 ### 阶段 0：编译与运行基线（已完成）
 
-- 固定 Taro/React 兼容版本，建立独立 lockfile。
+- 固定原生微信小程序开发模式，使用微信开发者工具直接开发。
 - 接入类型检查和微信小程序构建。
-- 保留一个无业务状态页验证 JSX/CSS 编译。
+- 保留一个无业务状态页验证 WXML/WXSS/JS 开发。
 
-**门禁：** `npm run verify` 通过，微信开发者工具能打开状态页；当前状态页不得发布。
+**门禁：** 微信开发者工具能打开状态页；当前状态页不得发布。
 
 ### 阶段 1：认证与公共数据层（P0）
 
@@ -51,7 +48,7 @@ taro/
 
 ### 阶段 2：高频学习主链路（P0）
 
-依次迁移概览、题库列表和详情、题目详情、在线练习与结果。每个 feature 内聚页面、业务组件和请求 hook；通用 UI 只使用 Taro 组件与 CSS，重复出现后再提取。
+依次迁移概览、题库列表和详情、题目详情、在线练习与结果。每个 feature 内聚页面、业务组件和请求 hook；通用 UI 只使用原生组件与 WXSS，重复出现后再提取。
 
 **门禁：** 列表数量、排序、题目内容、答题 payload、进度和结果与服务端 contract 一致。
 

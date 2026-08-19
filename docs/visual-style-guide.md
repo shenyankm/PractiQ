@@ -1,20 +1,20 @@
-# PractiQ Taro Visual Style Guide
+# PractiQ WeChat Mini Program Visual Style Guide
 
 ## Direction
 
-Use `@tarojs/components` and plain CSS for the WeChat Mini Program. Do not add a component library or theme layer until a migrated feature proves Taro primitives insufficient.
+Use plain CSS for the WeChat Mini Program. Do not add a component library or theme layer until a migrated feature proves native components insufficient.
 
 ## Sources of Truth
 
-- `taro/src/app.css` contains app-wide styles.
-- `taro/src/pages/` contains page-level JSX, config, and CSS.
-- `taro/src/app.config.ts` owns global window and navigation settings.
+- `weapp/app.wxss` contains app-wide styles.
+- `weapp/pages/` contains page-level WXML, JSON, WXSS, and JS.
+- `weapp/app.json` owns global window and navigation settings.
 
-Keep platform checks out of visual components unless Taro lacks a unified API. Extract a shared component only after the same interaction appears in more than one migrated flow.
+Keep platform checks out of visual components unless native components lack a unified API. Extract a shared component only after the same interaction appears in more than one migrated flow.
 
 ## Component Patterns
 
-- Use Taro `View`, `Text`, `Button`, `Input`, `Image`, and list primitives.
+- Use native `view`, `text`, `button`, `input`, `image`, and list components.
 - Keep page config next to each page.
 - Keep loading, empty, error, and disabled states visible and consistent.
 - Prefer CSS sizing and layout supported by the WeChat Mini Program.

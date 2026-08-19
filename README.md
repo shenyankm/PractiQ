@@ -23,13 +23,12 @@ The stable Java-to-Python integration DTOs are in `server/ai_schemas.py`. Python
 ```bash
 cp .env.example .env.local
 # Set AUTH_SECRET and the required AI provider/token variables.
-npm --prefix taro ci
 cd server && uv sync --extra dev && cd ..
 docker compose up -d
 make backend-dev
 ```
 
-Docker Compose starts PostgreSQL, Redis, and the internal AI service on host port 8081. Run the Java API separately with `make backend-dev`; use `make taro-weapp` for the Mini Program watcher. Do not expose the AI port outside the trusted backend network in production.
+Docker Compose starts PostgreSQL, Redis, and the internal AI service on host port 8081. Run the Java API separately with `make backend-dev`. Do not expose the AI port outside the trusted backend network in production.
 
 ## Development
 

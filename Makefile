@@ -1,8 +1,8 @@
-.PHONY: install test test-server verify server-dev backend-test backend-package backend-dev taro-install taro-weapp taro-test
+.PHONY: install test test-server verify server-dev backend-test backend-package backend-dev
 
-install: taro-install
+install: backend-install
 
-test: taro-test
+test: backend-test
 
 test-server:
 	uv run --project server --extra dev pytest server/tests
@@ -21,11 +21,4 @@ backend-dev:
 server-dev:
 	uv run --env-file .env.local --project server python -m server
 
-taro-install:
-	npm --prefix taro ci
 
-taro-weapp:
-	npm --prefix taro run dev:weapp
-
-taro-test:
-	npm --prefix taro run verify
