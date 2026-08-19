@@ -45,10 +45,9 @@ async def test_ai_routes_map_service_failure(client: AsyncClient, path: str, pay
     assert response.status_code == 502
 
 
-async def test_health_routes_stay_public(client: AsyncClient):
-    for path in ('/api/health/live', '/api/health/ready'):
-        response = await client.get(path)
-        assert response.status_code == 200
+async def test_health_route_stays_public(client: AsyncClient):
+    response = await client.get('/api/health/live')
+    assert response.status_code == 200
 
 
 async def test_ai_routes_require_service_token(client: AsyncClient):

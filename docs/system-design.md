@@ -8,7 +8,7 @@
 | POST | `/api/v1/ai/generate-answer` | Generate a canonical answer and explanation. |
 | POST | `/api/v1/ai/learning-report` | Generate a report from caller-supplied statistics. |
 
-`/api/health/live` and `/api/health/ready` are public. Other `/api/*` paths return the standard `NOT_FOUND` envelope.
+`/api/health/live` is public. Other `/api/*` paths return the standard `NOT_FOUND` envelope.
 
 ## Boundary
 

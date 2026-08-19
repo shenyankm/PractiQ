@@ -18,10 +18,3 @@ async def live(request: Request):
     response = envelope.ok(request, {'ok': True, 'uptimeSeconds': uptime})
     response.headers.update({'Cache-Control': 'no-store'})
     return response
-
-
-@router.get('/api/health/ready')
-async def ready(request: Request):
-    response = envelope.ok(request, {'ok': True})
-    response.headers.update({'Cache-Control': 'no-store'})
-    return response

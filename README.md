@@ -10,7 +10,7 @@ PractiQ is a question-bank and smart-practice platform: teachers build question 
 
 ## AI service contract
 
-The pending Java-to-Python integration uses `Authorization: Bearer $AI_SERVICE_TOKEN` on every `/api/v1/ai/*` operation; `/api/health/live` and `/api/health/ready` are public for probes. Stable integration DTOs live in `server/ai_schemas.py`. Supported providers: DashScope, DeepSeek (text only), and Moonshot. Document parsing supports TXT, Markdown, CSV, DOCX, PDF, XLSX, and images.
+The pending Java-to-Python integration uses `Authorization: Bearer $AI_SERVICE_TOKEN` on every `/api/v1/ai/*` operation; `/api/health/live` is public for probes. Stable integration DTOs live in `server/ai_schemas.py`. Supported providers: DashScope, DeepSeek (text only), and Moonshot. Document parsing supports TXT, Markdown, CSV, DOCX, PDF, XLSX, and images.
 
 ## Local setup
 
