@@ -4,7 +4,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 
 AnswerMode = Literal['choice', 'true_false', 'fill_blank', 'short_answer']
-DocumentSourceType = Literal['csv', 'docx', 'image', 'md', 'txt', 'text', 'pdf', 'xlsx']
+DocumentSourceType = Literal['csv', 'docx', 'image', 'text', 'pdf', 'xlsx']
 ContentPartType = Literal['text', 'formula', 'image', 'table', 'list', 'html', 'markdown', 'chart', 'diagram', 'qr_code']
 VisualKind = Literal['image', 'table', 'chart', 'diagram', 'qr_code']
 RiskLevel = Literal['low', 'medium', 'high']
@@ -21,6 +21,17 @@ class DocumentParseRequest(StrictModel):
     text: str | None = None
     fileBase64: str | None = None
     mimeType: str | None = Field(default=None, max_length=255)
+
+    @model_validator(mode='after')
+    def validate_content(self) -> Self:
+        if self.sourceType == 'text':
+            if not self.text or not self.text.strip():
+                raise ValueError('text is required for text sources')
+            if self.fileBase64 is not None:
+                raise ValueError('fileBase64 is not allowed for text sources')
+        elif not self.fileBase64:
+            raise ValueError('fileBase64 is required for binary sources')
+        return self
 
 
 class ParsedOption(StrictModel):

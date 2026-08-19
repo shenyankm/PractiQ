@@ -10,6 +10,16 @@
 
 `/api/health/live` is public. Other `/api/*` paths return the standard `NOT_FOUND` envelope.
 
+## Document request contract
+
+The pending Java AI client will send TXT, Markdown, and direct text to `/api/v1/ai/parse-document` as normalized text. `UploadSupport.toAiDocumentRequest()` defines this boundary mapping without changing the stored source artifact. Markdown content is passed unchanged except for an optional UTF-8 BOM:
+
+```json
+{"sourceType":"text","fileName":"questions.md","text":"# Section 1\n\n1. Calculate 2 + 2"}
+```
+
+Python does not accept `txt` or `md` source types, or `fileBase64` with `sourceType: text`. CSV, PDF, DOCX, XLSX, and images continue to use their own source type with `fileBase64`; CSV remains outside text normalization until its structured preprocessing contract is defined.
+
 ## Boundary
 
 Java owns public callers, entitlement, product relationships, persistence, retries, and audit/import state. The pending Java-to-Python integration will use `Authorization: Bearer $AI_SERVICE_TOKEN`; Python compares it in constant time. Python never accepts user, question, bank, session, or import-job IDs, while `questionTypeId` remains a semantic classification key.

@@ -8,8 +8,10 @@ from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse, Response
 
-AI_JSON_BODY_BYTES = 35 * 1024 * 1024
+from .extractors import get_upload_max_bytes
+
 DEFAULT_JSON_BODY_BYTES = 1 * 1024 * 1024
+AI_JSON_BODY_BYTES = 6 * get_upload_max_bytes() + DEFAULT_JSON_BODY_BYTES
 
 
 class _BodyTooLarge(Exception):
@@ -35,7 +37,11 @@ class JsonBodyLimitMiddleware:
         if scope['type'] != 'http' or scope['method'] not in {'POST', 'PUT', 'PATCH'}:
             await self.app(scope, receive, send)
             return
-        maximum = AI_JSON_BODY_BYTES if scope['path'].startswith('/api/v1/ai/') else self.maximum
+        maximum = (
+            AI_JSON_BODY_BYTES
+            if scope['path'] in ('/api/v1/ai/parse-document', '/api/v1/ai/parse-document/')
+            else self.maximum
+        )
         try:
             headers = dict(scope['headers'])
             if int(headers.get(b'content-length', b'0')) > maximum:

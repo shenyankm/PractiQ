@@ -24,18 +24,25 @@ def question() -> dict:
     }
 
 
-def test_document_request_accepts_only_active_source_types() -> None:
-    for source_type in ('csv', 'docx', 'image', 'md', 'txt', 'text', 'pdf', 'xlsx'):
+def test_document_request_accepts_only_normalized_sources() -> None:
+    for source_type in ('csv', 'docx', 'image', 'pdf', 'xlsx'):
         assert DocumentParseRequest.model_validate(
-            {'sourceType': source_type}
+            {'sourceType': source_type, 'fileBase64': 'eA=='}
         ).sourceType == source_type
+    assert DocumentParseRequest(sourceType='text', text='# Quiz').sourceType == 'text'
 
-    with pytest.raises(ValidationError):
-        DocumentParseRequest.model_validate({'sourceType': 'xls'})
-    with pytest.raises(ValidationError):
-        DocumentParseRequest.model_validate(
-            {'sourceType': 'text', 'unexpected': True}
-        )
+    for payload in (
+        {'sourceType': 'txt', 'text': 'Quiz'},
+        {'sourceType': 'md', 'text': '# Quiz'},
+        {'sourceType': 'text'},
+        {'sourceType': 'text', 'text': '   '},
+        {'sourceType': 'text', 'text': 'Quiz', 'fileBase64': 'eA=='},
+        {'sourceType': 'pdf'},
+        {'sourceType': 'xls', 'fileBase64': 'eA=='},
+        {'sourceType': 'text', 'text': 'Quiz', 'unexpected': True},
+    ):
+        with pytest.raises(ValidationError):
+            DocumentParseRequest.model_validate(payload)
 
 
 def test_document_result_validates_nested_references_and_labels() -> None:

@@ -35,10 +35,6 @@ def _service(request: Request) -> AIService:
 async def parse_document(
     request: Request, payload: DocumentParseRequest, service: AIService = Depends(_service),
 ):
-    if not payload.text and not payload.fileBase64:
-        raise envelope.validation_error(
-            [envelope.ValidationDetail('text', 'text or fileBase64 is required')]
-        )
     try:
         result = await service.parse_document(payload)
     except DocumentProcessingError as exc:
