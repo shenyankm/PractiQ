@@ -37,7 +37,11 @@ class JsonBodyLimitMiddleware:
         if scope['type'] != 'http' or scope['method'] not in {'POST', 'PUT', 'PATCH'}:
             await self.app(scope, receive, send)
             return
-        maximum = AI_JSON_BODY_BYTES if scope['path'] == '/api/v1/ai/parse-document' else self.maximum
+        maximum = (
+            AI_JSON_BODY_BYTES
+            if scope['path'] in ('/api/v1/ai/parse-document', '/api/v1/ai/parse-document/')
+            else self.maximum
+        )
         try:
             headers = dict(scope['headers'])
             if int(headers.get(b'content-length', b'0')) > maximum:

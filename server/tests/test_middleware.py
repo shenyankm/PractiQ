@@ -86,6 +86,8 @@ async def test_body_limits_apply_to_every_mutation_content_type():
         assert response.status_code == 413
         response = await client.post('/api/v1/ai/parse-document', content=default_oversized)
         assert response.status_code == 200
+        response = await client.post('/api/v1/ai/parse-document/', content=default_oversized)
+        assert response.status_code == 307
         response = await client.post(
             '/api/v1/ai/parse-document',
             content=b'x' * (middleware.AI_JSON_BODY_BYTES + 1),
