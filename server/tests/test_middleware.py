@@ -62,7 +62,10 @@ async def test_unhandled_errors_keep_security_headers():
         response = await client.post(
             '/api/v1/ai/generate-answer',
             json={'stem': 'x', 'answerMode': 'choice'},
-            headers={'Authorization': 'Bearer token'},
+            headers={
+                'Authorization': 'Bearer token',
+                'X-AI-Operation-ID': '11111111-1111-4111-8111-111111111111',
+            },
         )
     assert response.status_code == 500
     _assert_security_headers(response)

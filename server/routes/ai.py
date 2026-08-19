@@ -1,14 +1,13 @@
 """Private AI HTTP operations; product authorization is owned by Java."""
 
-import json
 import secrets
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Header, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from .. import envelope
 from ..ai_schemas import AnswerGenerationRequest, DocumentParseRequest, LearningReportRequest
-from ..extractors import DocumentProcessingError
+from ..operations import OperationManager, operation_id
 from ..services.ai import AIService
 
 _bearer = HTTPBearer(auto_error=False)
@@ -31,38 +30,58 @@ def _service(request: Request) -> AIService:
     return request.app.state.ai_service
 
 
+def _manager(request: Request) -> OperationManager:
+    return request.app.state.operation_manager
+
+
+def _operation_id(
+    value: str | None = Header(default=None, alias='X-AI-Operation-ID'),
+) -> str:
+    return operation_id(value)
+
+
 @router.post('/parse-document')
 async def parse_document(
-    request: Request, payload: DocumentParseRequest, service: AIService = Depends(_service),
+    request: Request,
+    payload: DocumentParseRequest,
+    service: AIService = Depends(_service),
+    manager: OperationManager = Depends(_manager),
+    operation: str = Depends(_operation_id),
 ):
-    try:
-        result = await service.parse_document(payload)
-    except DocumentProcessingError as exc:
-        raise envelope.new_error(exc.status_code, exc.code, exc.detail) from exc
-    return envelope.ok(request, result.model_dump())
+    result, usage = await manager.run(operation, lambda: service.parse_document(payload))
+    return envelope.ok(request, result.model_dump(), {'usage': usage})
 
 
 @router.post('/generate-answer')
 async def generate_answer(
-    request: Request, payload: AnswerGenerationRequest, service: AIService = Depends(_service),
+    request: Request,
+    payload: AnswerGenerationRequest,
+    service: AIService = Depends(_service),
+    manager: OperationManager = Depends(_manager),
+    operation: str = Depends(_operation_id),
 ):
-    try:
-        result = await service.generate_answer(payload)
-    except DocumentProcessingError as exc:
-        raise envelope.new_error(exc.status_code, exc.code, exc.detail) from exc
-    return envelope.ok(request, result.model_dump())
+    result, usage = await manager.run(operation, lambda: service.generate_answer(payload))
+    return envelope.ok(request, result.model_dump(), {'usage': usage})
 
 
 @router.post('/learning-report')
 async def learning_report(
-    request: Request, payload: LearningReportRequest, service: AIService = Depends(_service),
+    request: Request,
+    payload: LearningReportRequest,
+    service: AIService = Depends(_service),
+    manager: OperationManager = Depends(_manager),
+    operation: str = Depends(_operation_id),
 ):
-    if payload.stats is not None and len(json.dumps(payload.stats)) > 100_000:
-        raise envelope.validation_error(
-            [envelope.ValidationDetail('stats', 'must be a JSON object of at most 100,000 bytes')]
-        )
-    try:
-        result = await service.learning_report(payload)
-    except DocumentProcessingError as exc:
-        raise envelope.new_error(exc.status_code, exc.code, exc.detail) from exc
-    return envelope.ok(request, result.model_dump())
+    result, usage = await manager.run(operation, lambda: service.learning_report(payload))
+    return envelope.ok(request, result.model_dump(), {'usage': usage})
+
+
+@router.post('/operations/{operation}/cancel')
+async def cancel_operation(
+    request: Request,
+    operation: str,
+    manager: OperationManager = Depends(_manager),
+):
+    resolved = operation_id(operation)
+    await manager.cancel(resolved)
+    return envelope.ok(request, {'operationId': resolved, 'cancelRequested': True})

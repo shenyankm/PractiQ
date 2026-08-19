@@ -6,6 +6,8 @@ import pytest
 
 import server.extractors as extractors
 from server.extractors import DocumentProcessingError, extract
+from server.extractors.csv import extract as extract_csv
+from server.extractors.image import extract as extract_image
 from server.extractors import pdf as pdf_extractor
 from server.ai_schemas import DocumentParseRequest
 
@@ -59,18 +61,12 @@ def make_xlsx() -> bytes:
 def test_extract_csv_text_and_image() -> None:
     from PIL import Image
 
-    csv_document = extract(
-        DocumentParseRequest(
-            sourceType='csv', fileBase64=base64.b64encode(b'question,answer\n"2 + 2",4').decode()
-        )
-    )
+    csv_document = extract_csv('', b'question,answer\n"2 + 2",4')
     markdown = '  # Quiz\n\n    indented code\n'
     text_document = extract(DocumentParseRequest(sourceType='text', text=markdown))
     image_buffer = BytesIO()
     Image.new('RGB', (1, 1)).save(image_buffer, format='PNG')
-    image_document = extract(
-        DocumentParseRequest(sourceType='image', fileBase64=base64.b64encode(image_buffer.getvalue()).decode())
-    )
+    image_document = extract_image('', image_buffer.getvalue())
 
     assert csv_document.text == 'question\tanswer\n2 + 2\t4'
     assert text_document.text == markdown

@@ -35,3 +35,18 @@ def test_load_requires_service_token(monkeypatch: pytest.MonkeyPatch):
     _env(monkeypatch, AI_SERVICE_TOKEN='')
     with pytest.raises(ValueError, match='AI_SERVICE_TOKEN'):
         config.load()
+
+
+def test_loads_and_validates_operation_limits(monkeypatch: pytest.MonkeyPatch):
+    _env(
+        monkeypatch,
+        AI_OPERATION_TIMEOUT_SECONDS='12.5',
+        AI_GLOBAL_MAX_CONCURRENCY='3',
+    )
+    loaded = config.load()
+    assert loaded.operation_timeout_seconds == 12.5
+    assert loaded.max_concurrency == 3
+
+    monkeypatch.setenv('AI_GLOBAL_MAX_CONCURRENCY', '0')
+    with pytest.raises(ValueError, match='positive'):
+        config.load()

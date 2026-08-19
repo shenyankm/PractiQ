@@ -1,10 +1,11 @@
-from typing import Any, Literal, Self
+from datetime import datetime
+from typing import Annotated, Any, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 AnswerMode = Literal['choice', 'true_false', 'fill_blank', 'short_answer']
-DocumentSourceType = Literal['csv', 'docx', 'image', 'text', 'pdf', 'xlsx']
+DocumentSourceType = Literal['docx', 'text', 'pdf', 'xlsx']
 ContentPartType = Literal['text', 'formula', 'image', 'table', 'list', 'html', 'markdown', 'chart', 'diagram', 'qr_code']
 VisualKind = Literal['image', 'table', 'chart', 'diagram', 'qr_code']
 RiskLevel = Literal['low', 'medium', 'high']
@@ -155,9 +156,109 @@ class AnswerGenerationRequest(StrictModel):
         return _non_blank(value)
 
 
-class LearningReportRequest(StrictModel):
-    scope: ReportScope = 'individual'
-    stats: dict[str, Any] | None = None
+class KnowledgePointPerformance(StrictModel):
+    label: str = Field(min_length=1, max_length=256)
+    attempts: int = Field(gt=0)
+    correct: int = Field(ge=0)
+
+    @field_validator('label')
+    @classmethod
+    def reject_blank_label(cls, value: str) -> str:
+        return _non_blank(value)
+
+    @model_validator(mode='after')
+    def validate_correct(self) -> Self:
+        if self.correct > self.attempts:
+            raise ValueError('correct must not exceed attempts')
+        return self
+
+
+class AccuracyTrendPoint(StrictModel):
+    periodStart: datetime
+    periodEnd: datetime
+    attemptCount: int = Field(gt=0)
+    correctCount: int = Field(ge=0)
+    accuracy: float = Field(ge=0, le=1)
+
+    @model_validator(mode='after')
+    def validate_evidence(self) -> Self:
+        _validate_period(self.periodStart, self.periodEnd)
+        if self.correctCount > self.attemptCount:
+            raise ValueError('correctCount must not exceed attemptCount')
+        return self
+
+
+class DistributionItem(StrictModel):
+    label: str = Field(min_length=1, max_length=256)
+    count: int = Field(ge=0)
+
+    @field_validator('label')
+    @classmethod
+    def reject_blank_label(cls, value: str) -> str:
+        return _non_blank(value)
+
+
+class CommonLearningStats(StrictModel):
+    attemptCount: int = Field(gt=0)
+    correctCount: int = Field(ge=0)
+    accuracy: float = Field(ge=0, le=1)
+    periodStart: datetime
+    periodEnd: datetime
+    knowledgePointMastery: list[KnowledgePointPerformance] = Field(
+        min_length=1, max_length=1_000
+    )
+
+    @model_validator(mode='after')
+    def validate_evidence(self) -> Self:
+        _validate_period(self.periodStart, self.periodEnd)
+        if self.correctCount > self.attemptCount:
+            raise ValueError('correctCount must not exceed attemptCount')
+        return self
+
+
+class IndividualLearningStats(CommonLearningStats):
+    accuracyTrend: list[AccuracyTrendPoint] = Field(min_length=1, max_length=366)
+    weakKnowledgePoints: list[str] = Field(min_length=1, max_length=1_000)
+
+    @field_validator('weakKnowledgePoints')
+    @classmethod
+    def validate_weak_labels(cls, values: list[str]) -> list[str]:
+        return [_non_blank(value) for value in values]
+
+
+class BankLearningStats(CommonLearningStats):
+    questionCount: int = Field(gt=0)
+    questionTypeDistribution: list[DistributionItem] = Field(
+        min_length=1, max_length=100
+    )
+
+
+class ClassLearningStats(CommonLearningStats):
+    learnerCount: int = Field(gt=0)
+    scoreDistribution: list[DistributionItem] = Field(min_length=1, max_length=100)
+
+
+class IndividualLearningReportRequest(StrictModel):
+    scope: Literal['individual']
+    stats: IndividualLearningStats
+
+
+class BankLearningReportRequest(StrictModel):
+    scope: Literal['bank']
+    stats: BankLearningStats
+
+
+class ClassLearningReportRequest(StrictModel):
+    scope: Literal['class']
+    stats: ClassLearningStats
+
+
+LearningReportRequest = Annotated[
+    IndividualLearningReportRequest
+    | BankLearningReportRequest
+    | ClassLearningReportRequest,
+    Field(discriminator='scope'),
+]
 
 
 class AnswerGenerationResult(StrictModel):
@@ -187,3 +288,10 @@ class LearningReportResult(StrictModel):
     weakPoints: list[WeakPoint]
     recommendations: list[str]
     riskLevel: RiskLevel
+
+
+def _validate_period(start: datetime, end: datetime) -> None:
+    if start.tzinfo is None or end.tzinfo is None:
+        raise ValueError('period timestamps must include a timezone')
+    if end <= start:
+        raise ValueError('periodEnd must be after periodStart')

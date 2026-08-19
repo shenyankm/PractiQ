@@ -1,11 +1,12 @@
 import asyncio
 import json
+import uuid
 from io import BytesIO
 from typing import Any, cast
 
 import pytest
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.messages import AIMessage
+from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
 from langchain_core.runnables import RunnableConfig, RunnableLambda
 from langchain_openai import ChatOpenAI
@@ -24,6 +25,7 @@ from server.ai_schemas import (
     LearningReportResult,
 )
 from server.extractors import DocumentProcessingError, ExtractedDocument
+from server.operations import OperationManager
 
 
 class FakeModel(BaseChatModel):
@@ -50,7 +52,14 @@ class FakeModel(BaseChatModel):
                 await asyncio.sleep(delay)
             if isinstance(item, Exception):
                 raise item
-            raw = AIMessage(content=json.dumps(item))
+            raw = AIMessage(
+                content=json.dumps(item),
+                usage_metadata={
+                    'input_tokens': 10,
+                    'output_tokens': 5,
+                    'total_tokens': 15,
+                },
+            )
             try:
                 parsed = cast(type[BaseModel], schema).model_validate(item)
                 error = None
@@ -195,6 +204,38 @@ def test_parse_maps_provider_errors_to_502() -> None:
         )
     assert exc_info.value.status_code == 502
     assert exc_info.value.detail == 'AI agent request failed'
+
+
+def test_transport_retry_records_each_provider_attempt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class RetryResult(BaseModel):
+        value: str
+
+    fake = FakeModel(responses=[RuntimeError('temporary'), {'value': 'ok'}])
+    monkeypatch.setattr(model_factory, '_retryable_openai_error', lambda _exc: True)
+
+    async def scenario():
+        manager = OperationManager(timeout_seconds=5, max_concurrency=1)
+        return await manager.run(
+            str(uuid.uuid4()),
+            lambda: model_factory.structured_attempt(
+                fake,
+                [HumanMessage(content='retry')],
+                RetryResult,
+                stage='transport_retry',
+            ),
+        )
+
+    (result, _messages), usage = asyncio.run(scenario())
+
+    assert result == RetryResult(value='ok')
+    assert [call['attempt'] for call in usage['calls']] == [1, 2]
+    assert [call['status'] for call in usage['calls']] == [
+        'provider_error',
+        'succeeded',
+    ]
+    assert usage['complete'] is False
 
 
 def test_checkpoint_state_excludes_runtime_model() -> None:

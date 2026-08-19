@@ -8,6 +8,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 
 from . import config, envelope, middleware
+from .operations import OperationManager
 from .routes.ai import router as ai_router
 from .routes.health import router as health_router
 from .routes.not_found import router as not_found_router
@@ -20,6 +21,9 @@ def create_app(cfg: config.Config | None = None, service: Any = None) -> FastAPI
     app.state.started_at = time.time()
     app.state.config = cfg
     app.state.ai_service = service or AIService(cfg)
+    app.state.operation_manager = OperationManager(
+        cfg.operation_timeout_seconds, cfg.max_concurrency
+    )
 
     @app.exception_handler(envelope.APIError)
     async def api_error_handler(request: Request, exc: envelope.APIError):

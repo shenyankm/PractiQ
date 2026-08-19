@@ -19,16 +19,31 @@ class ValidationDetail:
 
 
 class APIError(Exception):
-    def __init__(self, status: int, code: str, message: str, details: Any = None):
+    def __init__(
+        self,
+        status: int,
+        code: str,
+        message: str,
+        details: Any = None,
+        meta: dict[str, Any] | None = None,
+    ):
         super().__init__(message)
         self.status = status
         self.code = code
         self.message = message
         self.details = details
+        self.meta = dict(meta or {})
 
 
-def new_error(status: int, code: str, message: str, details: Any = None) -> APIError:
-    return APIError(status, code, message, details)
+def new_error(
+    status: int,
+    code: str,
+    message: str,
+    details: Any = None,
+    *,
+    meta: dict[str, Any] | None = None,
+) -> APIError:
+    return APIError(status, code, message, details, meta)
 
 
 def validation_error(details: list[ValidationDetail]) -> APIError:
@@ -89,7 +104,10 @@ def error_response(request: Request, err: Exception) -> JSONResponse:
     if rid:
         error_body['requestId'] = rid
     headers = {REQUEST_ID_HEADER: rid} if rid else {}
-    return JSONResponse({'error': error_body}, status_code=api_err.status, headers=headers)
+    body: dict[str, Any] = {'error': error_body}
+    if api_err.meta:
+        body['meta'] = _meta(request, api_err.meta)
+    return JSONResponse(body, status_code=api_err.status, headers=headers)
 
 
 def request_too_large() -> APIError:

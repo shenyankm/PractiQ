@@ -1,3 +1,4 @@
+import asyncio
 from dataclasses import dataclass
 from typing import Any, cast
 
@@ -5,11 +6,11 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import BaseMessage, HumanMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_openai import ChatOpenAI
-from langgraph.types import RetryPolicy
 from openai import APIConnectionError, APIStatusError, APITimeoutError, RateLimitError
 from pydantic import BaseModel
 
 from ..extractors import positive_env
+from ..operations import ensure_active, record_model_call, termination_status
 
 BASE_URLS = {
     'dashscope': 'https://dashscope.aliyuncs.com/compatible-mode/v1',
@@ -37,7 +38,7 @@ def build_models(
 
 
 def _build_model(provider: str, api_key: str, model_name: str) -> ChatOpenAI:
-    return ChatOpenAI(
+    model = ChatOpenAI(
         model=model_name,
         api_key=cast(Any, api_key),
         base_url=BASE_URLS[provider],
@@ -45,6 +46,8 @@ def _build_model(provider: str, api_key: str, model_name: str) -> ChatOpenAI:
         timeout=positive_env('AI_AGENT_TIMEOUT_SECONDS', 180, float),
         max_retries=0,
     )
+    object.__setattr__(model, 'practiq_provider', provider)
+    return model
 
 
 def graph_config(config: RunnableConfig | None = None) -> RunnableConfig:
@@ -62,24 +65,34 @@ def _retryable_openai_error(exc: Exception) -> bool:
     return exc.status_code in {408, 409, 429} or exc.status_code >= 500
 
 
-# Preserve the previous one initial request plus three transport retries.
-TRANSPORT_RETRY_POLICY = RetryPolicy(
-    initial_interval=1.0,
-    max_attempts=4,
-    retry_on=_retryable_openai_error,
-)
-
-
 async def structured_attempt[ResultT: BaseModel](
     model: BaseChatModel,
     messages: list[BaseMessage],
     schema: type[ResultT],
+    *,
+    stage: str,
 ) -> tuple[ResultT | None, list[BaseMessage]]:
-    response = cast(dict[str, Any], await model.with_structured_output(
-        schema,
-        method='function_calling',
-        include_raw=True,
-    ).ainvoke(messages))
+    response: dict[str, Any] | None = None
+    for attempt in range(1, 5):
+        ensure_active()
+        try:
+            response = cast(dict[str, Any], await model.with_structured_output(
+                schema,
+                method='function_calling',
+                include_raw=True,
+            ).ainvoke(messages))
+        except asyncio.CancelledError:
+            record_model_call(model, stage, termination_status())
+            raise
+        except Exception as exc:
+            record_model_call(model, stage, 'provider_error')
+            if attempt == 4 or not _retryable_openai_error(exc):
+                raise
+            await asyncio.sleep(2 ** (attempt - 1))
+            continue
+        record_model_call(model, stage, 'succeeded', response.get('raw'))
+        break
+    assert response is not None
     if parsed := response['parsed']:
         return parsed, messages
     error = response['parsing_error']

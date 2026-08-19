@@ -7,6 +7,8 @@ from langchain_core.messages import HumanMessage
 from pydantic import BaseModel, Field
 
 from ..ai_schemas import VisualElement
+from ..extractors import DocumentProcessingError
+from .model import structured_attempt
 
 MAX_CROPS = 50
 MAX_CROP_BYTES = 200 * 1024
@@ -45,12 +47,14 @@ class ImageDescription(BaseModel):
 async def ocr_page(
     vl_model: BaseChatModel, image: bytes, page_index: int
 ) -> tuple[str, list[VisualElement]]:
-    page = cast(
+    page, _ = await structured_attempt(
+        vl_model,
+        [_image_message(OCR_PROMPT, image, 'image/png')],
         PageOcrResult,
-        await vl_model.with_structured_output(
-            PageOcrResult, method='function_calling'
-        ).ainvoke([_image_message(OCR_PROMPT, image, 'image/png')]),
+        stage='vision_ocr',
     )
+    if page is None:
+        raise DocumentProcessingError(502, 'AI vision response failed validation')
     return page.text.strip(), [
         VisualElement(
             kind=figure.kind,
@@ -65,12 +69,14 @@ async def ocr_page(
 
 
 async def describe_image(vl_model: BaseChatModel, image: bytes) -> VisualElement:
-    described = cast(
+    described, _ = await structured_attempt(
+        vl_model,
+        [_image_message(DESCRIBE_PROMPT, image, _media_type(image))],
         ImageDescription,
-        await vl_model.with_structured_output(
-            ImageDescription, method='function_calling'
-        ).ainvoke([_image_message(DESCRIBE_PROMPT, image, _media_type(image))]),
+        stage='vision_describe',
     )
+    if described is None:
+        raise DocumentProcessingError(502, 'AI vision response failed validation')
     return VisualElement(
         kind='image',
         description=described.description,

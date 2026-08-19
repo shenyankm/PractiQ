@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 from ..ai_schemas import AnswerGenerationResult, LearningReportResult
 from ..extractors import DocumentProcessingError
-from .model import TRANSPORT_RETRY_POLICY, graph_config, structured_attempt
+from .model import graph_config, structured_attempt
 
 VALIDATION_RETRIES = 1
 
@@ -35,6 +35,7 @@ class GenerationContext:
     model: BaseChatModel
     prompt: str
     schema: type[BaseModel]
+    stage: str
 
 
 class GenerationState(TypedDict, total=False):
@@ -52,7 +53,10 @@ async def _call(
         HumanMessage(content=json.dumps(state['payload'], ensure_ascii=False)),
     ]
     result, messages = await structured_attempt(
-        runtime.context.model, messages, runtime.context.schema
+        runtime.context.model,
+        messages,
+        runtime.context.schema,
+        stage=runtime.context.stage,
     )
     return {
         'result': result,
@@ -72,7 +76,7 @@ def _done(state: GenerationState) -> GenerationState:
 
 
 _builder = StateGraph(GenerationState, context_schema=GenerationContext)
-_builder.add_node('call', _call, retry_policy=TRANSPORT_RETRY_POLICY)
+_builder.add_node('call', _call)
 _builder.add_node('done', _done)
 _builder.add_node('invalid', _done)
 _builder.add_edge(START, 'call')
@@ -85,13 +89,17 @@ _graph = _builder.compile(name='structured_generator')
 async def generate_answer(
     model: BaseChatModel, payload: dict[str, Any]
 ) -> AnswerGenerationResult:
-    return await _generate(model, ANSWER_PROMPT, payload, AnswerGenerationResult)
+    return await _generate(
+        model, ANSWER_PROMPT, payload, AnswerGenerationResult, 'answer_generation'
+    )
 
 
 async def learning_report(
     model: BaseChatModel, payload: dict[str, Any]
 ) -> LearningReportResult:
-    return await _generate(model, REPORT_PROMPT, payload, LearningReportResult)
+    return await _generate(
+        model, REPORT_PROMPT, payload, LearningReportResult, 'learning_report'
+    )
 
 
 async def _generate[ResultT: BaseModel](
@@ -99,12 +107,13 @@ async def _generate[ResultT: BaseModel](
     prompt: str,
     payload: dict[str, Any],
     schema: type[ResultT],
+    stage: str,
 ) -> ResultT:
     try:
         output = await _graph.ainvoke(
             {'payload': payload},
             graph_config(),
-            context=GenerationContext(model, prompt, schema),
+            context=GenerationContext(model, prompt, schema, stage),
         )
     except DocumentProcessingError:
         raise

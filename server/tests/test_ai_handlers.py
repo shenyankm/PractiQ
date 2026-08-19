@@ -1,4 +1,5 @@
 from typing import Any
+import uuid
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -32,17 +33,47 @@ async def client(app):
 
 
 def _headers(token: str = 'test-token') -> dict[str, str]:
-    return {'Authorization': f'Bearer {token}'}
+    return {
+        'Authorization': f'Bearer {token}',
+        'X-AI-Operation-ID': str(uuid.uuid4()),
+    }
+
+
+def _learning_payload() -> dict[str, Any]:
+    return {
+        'scope': 'individual',
+        'stats': {
+            'attemptCount': 3,
+            'correctCount': 2,
+            'accuracy': 2 / 3,
+            'periodStart': '2026-08-01T00:00:00Z',
+            'periodEnd': '2026-08-19T00:00:00Z',
+            'knowledgePointMastery': [
+                {'label': 'Addition', 'attempts': 3, 'correct': 2}
+            ],
+            'accuracyTrend': [
+                {
+                    'periodStart': '2026-08-01T00:00:00Z',
+                    'periodEnd': '2026-08-19T00:00:00Z',
+                    'attemptCount': 3,
+                    'correctCount': 2,
+                    'accuracy': 2 / 3,
+                }
+            ],
+            'weakKnowledgePoints': ['Fractions'],
+        },
+    }
 
 
 @pytest.mark.parametrize(('path', 'payload'), (
     ('/api/v1/ai/parse-document', {'sourceType': 'text', 'text': '1. What is 2+2?'}),
     ('/api/v1/ai/generate-answer', {'stem': 'What is 2 + 2?', 'answerMode': 'choice'}),
-    ('/api/v1/ai/learning-report', {'stats': {'answers': 3}}),
+    ('/api/v1/ai/learning-report', _learning_payload()),
 ))
 async def test_ai_routes_map_service_failure(client: AsyncClient, path: str, payload: dict[str, Any]):
     response = await client.post(path, json=payload, headers=_headers())
     assert response.status_code == 502
+    assert response.json()['meta']['usage'] == {'calls': [], 'complete': True}
 
 
 async def test_health_route_stays_public(client: AsyncClient):
@@ -53,6 +84,16 @@ async def test_health_route_stays_public(client: AsyncClient):
 async def test_ai_routes_require_service_token(client: AsyncClient):
     response = await client.post('/api/v1/ai/generate-answer', json={'stem': 'x', 'answerMode': 'choice'})
     assert response.status_code == 401
+
+
+async def test_ai_routes_require_uuid_operation_id(client: AsyncClient):
+    response = await client.post(
+        '/api/v1/ai/generate-answer',
+        json={'stem': 'x', 'answerMode': 'choice'},
+        headers={'Authorization': 'Bearer test-token'},
+    )
+    assert response.status_code == 422
+    assert response.json()['error']['code'] == 'AI_OPERATION_ID_INVALID'
     response = await client.post('/api/v1/ai/generate-answer', json={'stem': 'x', 'answerMode': 'choice'}, headers=_headers('wrong'))
     assert response.status_code == 401
 
@@ -64,7 +105,7 @@ async def test_ai_routes_require_service_token(client: AsyncClient):
         ('/api/v1/ai/generate-answer', {'stem': 'x', 'answerMode': 'choice', 'extra': 1}, 400),
         ('/api/v1/ai/generate-answer', {'stem': 'x', 'answerMode': 'choice', 'questionId': 1}, 400),
         ('/api/v1/ai/learning-report', {'scope': 'galaxy'}, 422),
-        ('/api/v1/ai/learning-report', {'userId': 7, 'extra': 1}, 400),
+        ('/api/v1/ai/learning-report', {**_learning_payload(), 'userId': 7}, 400),
         ('/api/v1/ai/parse-document', {'sourceType': 'text'}, 422),
         ('/api/v1/ai/parse-document', {'sourceType': 'md', 'text': '# Quiz'}, 422),
         ('/api/v1/ai/parse-document', {'sourceType': 'text', 'text': '# Quiz', 'fileBase64': 'eA=='}, 422),

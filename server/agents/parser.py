@@ -24,12 +24,7 @@ from ..ai_schemas import (
 from ..chunking import merge_chunk_results, split_into_chunks
 from ..extractors import DocumentProcessingError, enforce_vision_bytes, extract
 from . import vision
-from .model import (
-    AgentContext,
-    TRANSPORT_RETRY_POLICY,
-    graph_config,
-    structured_attempt,
-)
+from .model import AgentContext, graph_config, structured_attempt
 
 CHUNK_VALIDATION_RETRIES = 2
 # ponytail: 全文级硬上限，超大文档直接截断；需要完整解析百万字级文档时再做流式分页
@@ -212,7 +207,7 @@ async def _chunk_call(
         ),
     ]
     parsed, messages = await structured_attempt(
-        runtime.context.text_model, messages, ChunkParseResult
+        runtime.context.text_model, messages, ChunkParseResult, stage='parse_chunk'
     )
     return {
         'messages': messages,
@@ -232,7 +227,7 @@ def _chunk_done(state: ChunkState) -> ChunkState:
 
 
 _chunk_builder = StateGraph(ChunkState, context_schema=AgentContext)
-_chunk_builder.add_node('call', _chunk_call, retry_policy=TRANSPORT_RETRY_POLICY)
+_chunk_builder.add_node('call', _chunk_call)
 _chunk_builder.add_node('done', _chunk_done)
 _chunk_builder.add_node('failed', _chunk_done)
 _chunk_builder.add_edge(START, 'call')
@@ -312,11 +307,7 @@ def build_parse_graph(
 ) -> CompiledStateGraph[ParseState, AgentContext, ParseState, ParseState]:
     builder = StateGraph(ParseState, context_schema=AgentContext)
     builder.add_node('extract', _extract)
-    builder.add_node(
-        'vision',
-        _vision,  # pyright: ignore[reportArgumentType]
-        retry_policy=TRANSPORT_RETRY_POLICY,
-    )
+    builder.add_node('vision', _vision)  # pyright: ignore[reportArgumentType]
     builder.add_node('assemble_split', _assemble_split)
     builder.add_node('chunk', _chunk)  # pyright: ignore[reportArgumentType]
     builder.add_node('merge_finalize', _merge_finalize)

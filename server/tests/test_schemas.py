@@ -1,10 +1,11 @@
 import pytest
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 
 from server.ai_schemas import (
     AnswerGenerationResult,
     DocumentParseRequest,
     DocumentParseResult,
+    LearningReportRequest,
     LearningReportResult,
 )
 
@@ -25,7 +26,7 @@ def question() -> dict:
 
 
 def test_document_request_accepts_only_normalized_sources() -> None:
-    for source_type in ('csv', 'docx', 'image', 'pdf', 'xlsx'):
+    for source_type in ('docx', 'pdf', 'xlsx'):
         assert DocumentParseRequest.model_validate(
             {'sourceType': source_type, 'fileBase64': 'eA=='}
         ).sourceType == source_type
@@ -34,6 +35,8 @@ def test_document_request_accepts_only_normalized_sources() -> None:
     for payload in (
         {'sourceType': 'txt', 'text': 'Quiz'},
         {'sourceType': 'md', 'text': '# Quiz'},
+        {'sourceType': 'csv', 'fileBase64': 'eA=='},
+        {'sourceType': 'image', 'fileBase64': 'eA=='},
         {'sourceType': 'text'},
         {'sourceType': 'text', 'text': '   '},
         {'sourceType': 'text', 'text': 'Quiz', 'fileBase64': 'eA=='},
@@ -43,6 +46,69 @@ def test_document_request_accepts_only_normalized_sources() -> None:
     ):
         with pytest.raises(ValidationError):
             DocumentParseRequest.model_validate(payload)
+
+
+def _common_learning_stats() -> dict:
+    return {
+        'attemptCount': 3,
+        'correctCount': 2,
+        'accuracy': 2 / 3,
+        'periodStart': '2026-08-01T00:00:00Z',
+        'periodEnd': '2026-08-19T00:00:00Z',
+        'knowledgePointMastery': [
+            {'label': 'Addition', 'attempts': 3, 'correct': 2}
+        ],
+    }
+
+
+def test_learning_report_request_is_scope_discriminated_and_strict() -> None:
+    adapter = TypeAdapter(LearningReportRequest)
+    individual = adapter.validate_python({
+        'scope': 'individual',
+        'stats': {
+            **_common_learning_stats(),
+            'accuracyTrend': [{
+                'periodStart': '2026-08-01T00:00:00Z',
+                'periodEnd': '2026-08-19T00:00:00Z',
+                'attemptCount': 3,
+                'correctCount': 2,
+                'accuracy': 2 / 3,
+            }],
+            'weakKnowledgePoints': ['Fractions'],
+        },
+    })
+    assert individual.scope == 'individual'
+
+    for payload in (
+        {'scope': 'individual', 'stats': _common_learning_stats()},
+        {
+            'scope': 'bank',
+            'stats': {
+                **_common_learning_stats(),
+                'questionCount': 10,
+                'questionTypeDistribution': [{'label': 'Choice', 'count': 10}],
+                'bankId': 7,
+            },
+        },
+        {
+            'scope': 'class',
+            'stats': {
+                **_common_learning_stats(),
+                'learnerCount': 2,
+                'scoreDistribution': [],
+            },
+        },
+        {
+            'scope': 'bank',
+            'stats': {
+                **_common_learning_stats(),
+                'questionCount': 0,
+                'questionTypeDistribution': [{'label': 'Choice', 'count': 1}],
+            },
+        },
+    ):
+        with pytest.raises(ValidationError):
+            adapter.validate_python(payload)
 
 
 def test_document_result_validates_nested_references_and_labels() -> None:
