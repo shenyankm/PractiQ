@@ -114,6 +114,15 @@ def test_extract_enforces_base64_upload_limits(
     assert exc_info.value.status_code == status_code
 
 
+def test_extract_enforces_utf8_text_upload_limit(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv('AI_SOURCE_MAX_BYTES', '4')
+
+    with pytest.raises(DocumentProcessingError) as exc_info:
+        extract(DocumentParseRequest(sourceType='text', text='你好'))
+
+    assert exc_info.value.status_code == 413
+
+
 def test_extract_pdf_with_embedded_text_skips_ocr(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

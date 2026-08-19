@@ -61,7 +61,10 @@ def decode_uploaded_base64(value: str) -> bytes:
 
 def extract(request: DocumentParseRequest) -> ExtractedDocument:
     if request.sourceType == 'text':
-        return ExtractedDocument(text=request.text or '')
+        text = request.text or ''
+        if len(text.encode()) > get_upload_max_bytes():
+            raise DocumentProcessingError(413, 'Uploaded file is too large')
+        return ExtractedDocument(text=text)
 
     from .csv import extract as extract_csv
     from .docx import extract as extract_docx

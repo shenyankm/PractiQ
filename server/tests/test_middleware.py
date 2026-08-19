@@ -16,6 +16,10 @@ def _app() -> FastAPI:
     async def ai_test():
         return {'ok': True}
 
+    @app.post('/api/v1/ai/parse-document')
+    async def parse_document():
+        return {'ok': True}
+
     @app.post('/api/v1/ai/value-error')
     async def value_error():
         raise ValueError('downstream failure')
@@ -65,17 +69,25 @@ async def test_unhandled_errors_keep_security_headers():
 
 
 async def test_body_limits_apply_to_every_mutation_content_type():
+    default_oversized = b'x' * (middleware.DEFAULT_JSON_BODY_BYTES + 1)
     async with AsyncClient(transport=ASGITransport(_app()), base_url='http://test') as client:
         for method in ('post', 'put', 'patch'):
             response = await getattr(client, method)(
                 '/api/v1/ai/test',
-                content=b'x' * (middleware.AI_JSON_BODY_BYTES + 1),
+                content=default_oversized,
                 headers={'Content-Type': 'text/plain'},
             )
             assert response.status_code == 413
         response = await client.post(
             '/api/v1/ai/test',
-            content=b'x' * (middleware.AI_JSON_BODY_BYTES + 1),
+            content=default_oversized,
             headers={'Content-Type': 'application/problem+json'},
+        )
+        assert response.status_code == 413
+        response = await client.post('/api/v1/ai/parse-document', content=default_oversized)
+        assert response.status_code == 200
+        response = await client.post(
+            '/api/v1/ai/parse-document',
+            content=b'x' * (middleware.AI_JSON_BODY_BYTES + 1),
         )
     assert response.status_code == 413
