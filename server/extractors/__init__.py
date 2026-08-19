@@ -60,10 +60,14 @@ def decode_uploaded_base64(value: str) -> bytes:
 
 
 def extract(request: DocumentParseRequest) -> ExtractedDocument:
+    text = request.text or ''
+    try:
+        text_bytes = len(text.encode())
+    except UnicodeEncodeError as exc:
+        raise DocumentProcessingError(400, 'text must contain valid Unicode') from exc
+    if text_bytes > get_upload_max_bytes():
+        raise DocumentProcessingError(413, 'Uploaded file is too large')
     if request.sourceType == 'text':
-        text = request.text or ''
-        if len(text.encode()) > get_upload_max_bytes():
-            raise DocumentProcessingError(413, 'Uploaded file is too large')
         return ExtractedDocument(text=text)
 
     from .csv import extract as extract_csv

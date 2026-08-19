@@ -114,13 +114,34 @@ def test_extract_enforces_base64_upload_limits(
     assert exc_info.value.status_code == status_code
 
 
-def test_extract_enforces_utf8_text_upload_limit(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize(
+    'payload',
+    (
+        DocumentParseRequest(sourceType='text', text='你好'),
+        DocumentParseRequest(
+            sourceType='pdf',
+            text='你好',
+            fileBase64=base64.b64encode(b'x').decode(),
+        ),
+    ),
+)
+def test_extract_enforces_utf8_text_upload_limit(
+    monkeypatch: pytest.MonkeyPatch,
+    payload: DocumentParseRequest,
+) -> None:
     monkeypatch.setenv('AI_SOURCE_MAX_BYTES', '4')
 
     with pytest.raises(DocumentProcessingError) as exc_info:
-        extract(DocumentParseRequest(sourceType='text', text='你好'))
+        extract(payload)
 
     assert exc_info.value.status_code == 413
+
+
+def test_extract_rejects_invalid_unicode_text() -> None:
+    with pytest.raises(DocumentProcessingError) as exc_info:
+        extract(DocumentParseRequest(sourceType='text', text='\ud800'))
+
+    assert exc_info.value.status_code == 400
 
 
 def test_extract_pdf_with_embedded_text_skips_ocr(
