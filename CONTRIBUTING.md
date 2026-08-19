@@ -14,6 +14,8 @@ Read these files before changing code:
 
 Open an issue before starting a feature, architecture change, new dependency, or cross-service change. Small bug fixes and documentation corrections can go directly to a pull request when the scope is clear.
 
+所有 Issue 和 Pull Request 的标题与正文必须使用简体中文撰写；代码标识符、命令、日志和无法准确翻译的专有名词可以保留原文。
+
 Keep each pull request focused on one concern. Use a draft pull request when you need early feedback.
 
 ## Understand the architecture
