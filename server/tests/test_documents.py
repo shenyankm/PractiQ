@@ -56,7 +56,7 @@ def make_xlsx() -> bytes:
     return buffer.getvalue()
 
 
-def test_extract_csv_md_and_image() -> None:
+def test_extract_csv_text_and_image() -> None:
     from PIL import Image
 
     csv_document = extract(
@@ -64,6 +64,8 @@ def test_extract_csv_md_and_image() -> None:
             sourceType='csv', fileBase64=base64.b64encode(b'question,answer\n"2 + 2",4').decode()
         )
     )
+    markdown = '  # Quiz\n\n    indented code\n'
+    text_document = extract(DocumentParseRequest(sourceType='text', text=markdown))
     image_buffer = BytesIO()
     Image.new('RGB', (1, 1)).save(image_buffer, format='PNG')
     image_document = extract(
@@ -71,22 +73,8 @@ def test_extract_csv_md_and_image() -> None:
     )
 
     assert csv_document.text == 'question\tanswer\n2 + 2\t4'
-    assert extract(DocumentParseRequest(sourceType='md', text='# Quiz')).text == '# Quiz'
+    assert text_document.text == markdown
     assert image_document.page_images == [image_buffer.getvalue()]
-
-
-def test_extract_txt_combines_text_and_base64() -> None:
-    document = extract(
-        DocumentParseRequest(
-            sourceType='txt',
-            text='\ufeffTyped instructions',
-            fileBase64=base64.b64encode(b'\xef\xbb\xbfUploaded text').decode(),
-        )
-    )
-
-    assert document.text == 'Typed instructions\n\nUploaded text'
-    assert document.warnings == []
-    assert document.page_images == []
 
 
 def test_extract_docx_text_warnings_hints_and_images() -> None:
@@ -121,7 +109,7 @@ def test_extract_enforces_base64_upload_limits(
     monkeypatch.setenv('AI_SOURCE_MAX_BYTES', '4')
 
     with pytest.raises(DocumentProcessingError) as exc_info:
-        extract(DocumentParseRequest(sourceType='txt', fileBase64=encoded))
+        extract(DocumentParseRequest(sourceType='pdf', fileBase64=encoded))
 
     assert exc_info.value.status_code == status_code
 

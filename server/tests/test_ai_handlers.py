@@ -66,6 +66,8 @@ async def test_ai_routes_require_service_token(client: AsyncClient):
         ('/api/v1/ai/learning-report', {'scope': 'galaxy'}, 422),
         ('/api/v1/ai/learning-report', {'userId': 7, 'extra': 1}, 400),
         ('/api/v1/ai/parse-document', {'sourceType': 'text'}, 422),
+        ('/api/v1/ai/parse-document', {'sourceType': 'md', 'text': '# Quiz'}, 422),
+        ('/api/v1/ai/parse-document', {'sourceType': 'text', 'text': '# Quiz', 'fileBase64': 'eA=='}, 422),
         ('/api/v1/ai/parse-document', None, 400),
     ),
 )

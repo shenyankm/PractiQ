@@ -5,7 +5,10 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.security.SecureRandom;
+import java.util.Base64;
+import java.util.LinkedHashMap;
 import java.util.Locale;
+import java.util.Map;
 
 /** File validation and mount-bound storage shared by media and import endpoints. */
 public final class UploadSupport {
@@ -33,6 +36,15 @@ public final class UploadSupport {
     };
   }
   public static String sourceType(String ext) { return switch(ext) { case ".txt" -> "txt"; case ".md" -> "md"; case ".csv" -> "csv"; case ".pdf" -> "pdf"; case ".docx" -> "docx"; case ".xlsx" -> "xlsx"; case ".png", ".jpg", ".jpeg", ".gif", ".webp" -> "image"; default -> throw ApiException.of(400,"UNSUPPORTED_SOURCE_TYPE","Only txt, md, csv, docx, pdf, xlsx, and image imports are supported");}; }
+  public static Map<String,Object> toAiDocumentRequest(String sourceType,String fileName,String mimeType,byte[] bytes) {
+    boolean text=switch(sourceType){case "text","txt","md"->true;case "csv","pdf","docx","xlsx","image"->false;default->throw ApiException.of(400,"UNSUPPORTED_SOURCE_TYPE","Unsupported AI document source type");};
+    var request=new LinkedHashMap<String,Object>();
+    request.put("sourceType",text?"text":sourceType);
+    request.put("fileName",fileName);
+    if(mimeType!=null&&!mimeType.isBlank())request.put("mimeType",mimeType);
+    if(text){String value=new String(bytes,StandardCharsets.UTF_8);request.put("text",value.startsWith("\ufeff")?value.substring(1):value);}else request.put("fileBase64",Base64.getEncoder().encodeToString(bytes));
+    return request;
+  }
   public static void validateImport(String ext, String contentType, byte[] b, String name) {
     if (b == null || b.length == 0) throw ApiException.of(400,"EMPTY_FILE","Uploaded file is empty");
     if (b.length > IMPORT_MAX) throw ApiException.of(413,"FILE_TOO_LARGE","Import content exceeds the 25 MiB limit");
