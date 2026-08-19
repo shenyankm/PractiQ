@@ -1,0 +1,78 @@
+name: Feature request
+description: Propose a product or engineering improvement for PractiQ
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Search [existing issues](https://github.com/shenyankm/PractiQ/issues) and review the relevant product documents before proposing a feature. Describe the need before prescribing an implementation.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues and found no duplicate.
+          required: true
+        - label: I reviewed the relevant sections of `docs/PRD.md` and architecture documentation.
+          required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Primary area
+      options:
+        - Java product API (`backend/`)
+        - Python AI service (`server/`)
+        - WeChat Mini Program (`taro/`)
+        - PostgreSQL schema (`db/`)
+        - Documentation
+        - Build or development tooling
+        - Cross-layer feature
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem should this solve?
+      description: Describe who is affected, the current limitation, and why it matters.
+    validations:
+      required: true
+
+  - type: textarea
+    id: outcome
+    attributes:
+      label: What outcome do you want?
+      description: Describe observable behavior and acceptance criteria without assuming a specific implementation.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed approach
+      description: Describe an implementation only if you have one. Keep product persistence and public API rules in `backend/`, and keep `server/` stateless and AI-only.
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Scope and impact
+      description: Note API, database, migration, security, privacy, configuration, deployment, offline, or WeChat platform implications.
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: List existing behavior, workarounds, or smaller options you considered.
+
+  - type: dropdown
+    id: contribution
+    attributes:
+      label: Are you willing to implement this?
+      options:
+        - "Yes"
+        - "No"
+        - I can help with part of it
