@@ -8,8 +8,10 @@ from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse, Response
 
-AI_JSON_BODY_BYTES = 35 * 1024 * 1024
+from .extractors import get_upload_max_bytes
+
 DEFAULT_JSON_BODY_BYTES = 1 * 1024 * 1024
+AI_JSON_BODY_BYTES = 6 * get_upload_max_bytes() + DEFAULT_JSON_BODY_BYTES
 
 
 class _BodyTooLarge(Exception):

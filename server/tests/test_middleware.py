@@ -27,6 +27,10 @@ def _app() -> FastAPI:
     return app
 
 
+def test_ai_body_limit_covers_worst_case_json_escaping():
+    assert middleware.AI_JSON_BODY_BYTES >= 6 * middleware.get_upload_max_bytes()
+
+
 def _assert_security_headers(response):
     assert response.headers['x-content-type-options'] == 'nosniff'
     assert response.headers['x-frame-options'] == 'DENY'
