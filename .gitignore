@@ -91,6 +91,9 @@ pnpm-debug.log*
 # -----------------------------------------------
 # IDE / Editor
 # -----------------------------------------------
+.classpath
+.project
+.settings/
 .vscode/
 !.vscode/extensions.json
 !.vscode/settings.json
