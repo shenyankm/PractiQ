@@ -2,15 +2,14 @@
 
 ## 1. Product Overview
 
-PractiQ 是一个面向教师、学习者和教育机构的题库管理与智能练习平台。用户可创建和管理学科题库、手动或 AI 批量导入试题、组织练习与考试会话，并获取多维度的学习分析报告。当前产品由微信小程序前端、Java 产品 API 与内部 Python AI 服务组成；Java 承载 REST API、认证和产品数据，Python 仅承载 AI 文档处理。前端业务流程正按 `docs/weapp-migration.md` 恢复。
+PractiQ 是一个面向内容创建者和练习者的题库管理与智能练习平台。用户可创建和管理学科题库、手动或 AI 批量导入试题、组织练习与考试会话，并获取多维度的学习分析报告。当前产品由微信小程序前端、Java 产品 API 与内部 Python AI 服务组成；Java 承载 REST API、认证和产品数据，Python 仅承载 AI 文档处理。微信小程序业务页面按本 PRD 实现。
 
 ## 2. 目标用户
 
 | 角色 | 描述 | 核心需求 |
 | ------ | ------ | ---------- |
-| 教师 / 内容创建者 | 创建维护题库、编辑试题、导入文档 | 题库 CRUD、批量导入、媒体管理、题组编排 |
-| 学生 / 练习者 | 通过题库进行练习或考试 | 练习/考试会话、自动判分、答题反馈、学习统计 |
-| 管理员 | 管理系统用户、知识点体系 | 用户管理、知识树维护、系统概览 |
+| 内容创建者 | 创建维护题库、编辑试题、导入文档 | 题库 CRUD、批量导入、媒体管理、题组编排 |
+| 练习者 | 通过题库进行练习或考试 | 练习/考试会话、自动判分、答题反馈、学习统计 |
 
 ## 3. 核心功能
 
@@ -18,22 +17,23 @@ PractiQ 是一个面向教师、学习者和教育机构的题库管理与智能
 
 | 功能 | 需求 |
 | ------ | ------ |
-| F1.1 注册 | 用户名、邮箱、密码和单次邮箱验证码注册，bcrypt 哈希存储 |
-| F1.2 登录 | 用户名或邮箱 + 密码，签发短效 access JWT 和轮换 refresh token |
-| F1.3 登出 | 撤销 PostgreSQL 设备会话并清除 cookie 或小程序令牌 |
-| F1.4 个人信息 | 查看/更新用户名、邮箱、密码 |
-| F1.5 会员体系 | RevenueCat 管理 free / pro / organization 三级，新用户享 3 天 Pro 试用；pro 免广告、可用自有 Key 调用云端 AI、可下载公共题库；organization 另含学习小组（详见 docs/membership-design.md） |
-| F1.6 管理员操作 | 停用/启用用户与修改系统角色；系统角色不绕过付费权益 |
+| F1.1 微信登录与自动注册 | 用户主动触发 `wx.login()`，Java API 使用临时 `code` 调用微信 `code2Session`；首次登录自动创建本地账号，后续登录复用同一微信身份 |
+| F1.2 会话恢复 | 后端签发短效 access JWT 并持久化可撤销会话；小程序冷启动或令牌失效时受控地重新登录，不在普通 storage 中长期保存 refresh token |
+| F1.3 登出 | 撤销 PostgreSQL 会话并清除小程序内存中的令牌 |
+| F1.4 个人信息 | 查看个人资料；昵称和头像在登录后单独征得用户授权，不作为登录前提 |
+| F1.5 会员体系 | 新用户享 3 天 Pro 试用（不包括 AI 导入）；通过微信支付一次性支付 29.9 元可永久解锁 Pro 权益，首次付费激活赠送 200 credits（等效 200 页习题）；Pro 免广告、可使用 AI 功能并下载公共题库 |
 
 ### F2: 题库管理
 
 | 功能 | 需求 |
 | ------ | ------ |
-| F2.1 题库 CRUD | 按学科创建、编辑、删除题库（公开/私有） |
-| F2.2 题库列表 | 我的/收藏/公开 三个维度的题库列表，支持筛选排序 |
+| F2.1 题库 CRUD | 按学科创建、编辑、删除题库，可维护描述和自定义标签；状态字段取值为 `private`、`public` 或 `banned` |
+| F2.2 题库列表 | 仅区分我的/收藏两个维度，支持筛选排序；题库状态不作为列表维度 |
 | F2.3 题库收藏 | 用户收藏/取消收藏题库 |
-| F2.4 权限模型 | 所有者可编辑/删除；公开题库所有活跃用户可读 |
-| F2.5 公共题库下载 | PRO 会员可将公开题库克隆为我的私有题库副本（`POST /api/v1/banks/{bankId}/clone`） |
+| F2.4 权限模型 | 私有题库仅所有者可读写；公开题库所有活跃用户可读、仅所有者可写；封禁题库不可访问 |
+| F2.5 状态流转 | 私有题库可发布为公开题库，公开后不可降级为私有；题库被封禁后，所有者需联系管理员解禁 |
+| F2.6 公共题库下载 | PRO 会员可将公开题库克隆为我的私有题库副本（`POST /api/v1/banks/{bankId}/clone`） |
+| F2.7 题库子集 | 题库内可建立章、节、小节等多级子集；每个子集可继续包含子集和题目，并支持自定义名称、排序及按子集浏览 |
 
 ### F3: 试题管理
 
@@ -52,8 +52,8 @@ PractiQ 是一个面向教师、学习者和教育机构的题库管理与智能
 | 功能 | 需求 |
 | ------ | ------ |
 | F4.1 文件上传 | 支持 TXT、DOCX、PDF、XLSX 源文件上传 |
-| F4.2 AI 解析 | PRO 用户使用自有 DashScope、DeepSeek 或 Moonshot Key，通过 LangGraph 将文档解析为结构化试题 |
-| F4.3 未配置降级 | FREE 或未配置 Key 时明确拒绝，不产出占位数据 |
+| F4.2 AI 解析 | 已付费激活的 Pro 用户使用 credits 调用平台 AI 服务，通过 LangGraph 将文档解析为结构化试题；每解析 1 页消耗 1 credit |
+| F4.3 额度不足 | 未付费激活 Pro 或 credits 不足时明确拒绝，不产出占位数据 |
 | F4.4 进度与事件 | PostgreSQL 持久化事件，客户端通过认证 SSE 实时接收并以轮询降级 |
 | F4.5 产物管理 | 追踪导入产出的试题及其 confidence、review 标记 |
 | F4.6 重试与取消 | AI 阶段失败任务可断点重试（指数退避），进入数据库持久化前可取消 |
@@ -69,6 +69,7 @@ PractiQ 是一个面向教师、学习者和教育机构的题库管理与智能
 | F5.4 答题反馈 | 正确/错误结果，解析、得分、下一题引导 |
 | F5.5 会话完结 | 完成/放弃会话，统计答卷数、正确/错误数、得分 |
 | F5.6 结果查看 | 详细结果页含各题答案校对与解析 |
+| F5.7 重置练习 | 用户确认后可清除本人在指定题库中的全部练习会话、作答记录、错题与统计数据，不影响题库内容及其他用户数据 |
 
 ### F6: 学习分析
 
@@ -76,15 +77,14 @@ PractiQ 是一个面向教师、学习者和教育机构的题库管理与智能
 | ------ | ------ |
 | F6.1 用户概览 | 练习量、正确率趋势、薄弱知识点、活跃题库 |
 | F6.2 题库分析 | 每题库练习统计、排行榜 |
-| F6.3 导入质量 | 导入任务的质量评分、风险统计 |
 | F6.4 AI 学习报告 | PRO 用户可生成学习报告（掌握度、薄弱点、建议） |
 
 ### F7: 媒体管理
 
 | 功能 | 需求 |
 | ------ | ------ |
-| F7.1 上传 | 当前支持 PNG/JPEG/GIF/WebP 图片上传（最大 10 MiB） |
-| F7.2 关联 | 媒体可链接至试题、选项、题组，支持排序 |
+| F7.1 上传 | 支持 PNG/JPEG/GIF/WebP 图片及音频文件上传（单文件最大 10 MiB） |
+| F7.2 关联 | 图片和音频可链接至试题、选项、题组，支持排序 |
 | F7.3 内容块 | 结构化内容块编排，支持多渲染格式（LaTeX, MathML, HTML, Markdown） |
 
 ### F8: 搜索
@@ -105,106 +105,110 @@ PractiQ 是一个面向教师、学习者和教育机构的题库管理与智能
 | F9.4 离线练习 | 缓存题库可完成离线练习，联网后一次性上传 |
 | F9.5 冲突规则 | 服务端按请求接收顺序处理，后到写入覆盖先到写入 |
 
-### F10: 学习小组
+### F10: 学习小组（未来功能）
+
+学习小组不属于当前版本交付范围，现有后端基础能力不代表该功能已对用户开放；待核心学习链路稳定后再评审和实现客户端体验。
 
 | 功能 | 需求 |
 | ------ | ------ |
-| F10.1 创建小组 | organization 会员创建学习小组并成为 owner |
-| F10.2 成员管理 | owner 按用户名添加/移除小组成员 |
+| F10.1 创建小组 | Pro 会员创建学习小组并成为 owner |
+| F10.2 成员管理 | owner 通过小程序邀请成员加入或移除成员 |
 | F10.3 关联题库 | owner 关联/解关联自己拥有的多个题库 |
 | F10.4 成员学情 | owner 查看任一成员的学情快照 |
 | F10.5 小组题库 | 小组成员获得关联题库的只读权限（视同公开题库） |
 
 ## 4. 目标页面与路由
 
+页面使用原生微信小程序路径，路径主体在 `weapp/app.json` 中注册，表中的 query 参数用于页面导航。除登录和隐私页面外，页面均需有效会话，失效后统一跳转至登录页。
+
 ### 公开页面
 
-| 路由 | 页面 | 状态 |
-|------|------|------|
-| `/sign-in` | 登录与注册 | 待迁移 |
+| 路由 | 页面 | 覆盖需求 | 状态 |
+| ------ | ------ | ------ | ------ |
+| `pages/login/index` | 微信登录与自动注册 | F1.1–F1.3 | 待实现 |
+| `pages/privacy/index` | 隐私政策 | 微信身份、媒体和 AI 数据说明 | 待实现 |
 
 ### 受保护页面
 
-| 路由 | 页面 | 状态 |
-| ------ | ------ | ------ |
-| `/` | 学习概览 | 待迁移 |
-| `/banks` | 我的、收藏和公开题库 | 待迁移 |
-| `/analytics` | 学习分析 | 待迁移 |
-| `/settings` | 账号、会员、同步与语言设置 | 待迁移 |
-| `/banks/new` | 创建题库 | 待迁移 |
-| `/banks/:bankId` | 题库详情 | 待迁移 |
-| `/banks/:bankId/manage` | 题库与题目管理 | 待迁移 |
-| `/banks/:bankId/practice` | 练习配置 | 待迁移 |
-| `/practice/:sessionId` | 在线或离线练习 | 待迁移 |
-| `/imports` | 导入任务列表 | 待迁移 |
-| `/imports/:jobId` | 导入详情 | 待迁移 |
-| `/questions/:questionId` | 题目详情 | 待迁移 |
-| `/search` | 题目搜索 | 待迁移 |
-| `/settings/ai` | LLM 配置 | 待迁移 |
-| `/settings/data` | 本地数据设置 | 待迁移 |
-| `/privacy` | 隐私政策 | 待迁移 |
+| 路由 | 页面 | 覆盖需求 | 状态 |
+| ------ | ------ | ------ | ------ |
+| `pages/home/index` | 学习概览 | F6 学习分析入口 | 待实现 |
+| `pages/banks/index` | 我的题库与收藏题库 | F2.1–F2.3 | 待实现 |
+| `pages/banks/detail/index?bankId={bankId}` | 题库详情、状态、子集与题目 | F2.4–F2.7 | 待实现 |
+| `pages/banks/edit/index?bankId={bankId}` | 创建或编辑题库、描述、标签和子集 | F2.1、F2.7 | 待实现 |
+| `pages/questions/detail/index?questionId={questionId}` | 题目详情与答案解析 | F3.1–F3.7 | 待实现 |
+| `pages/questions/edit/index?questionId={questionId}` | 创建或编辑题目、题组和媒体 | F3、F7 | 待实现 |
+| `pages/imports/index` | AI 导入任务列表 | F4.1、F4.4–F4.6 | 待实现 |
+| `pages/imports/create/index` | 上传文档并确认 credits 消耗 | F4.1–F4.3、F4.7 | 待实现 |
+| `pages/imports/detail/index?jobId={jobId}` | 导入进度、结果、重试与取消 | F4.4–F4.6 | 待实现 |
+| `pages/practice/setup/index?bankId={bankId}` | 练习模式选择与练习数据重置 | F5.1、F5.7 | 待实现 |
+| `pages/practice/session/index?sessionId={sessionId}` | 在线或离线答题 | F5.2–F5.5、F9.4 | 待实现 |
+| `pages/practice/results/index?sessionId={sessionId}` | 练习结果 | F5.6 | 待实现 |
+| `pages/analytics/index` | 个人学习分析 | F6.1 | 待实现 |
+| `pages/analytics/bank/index?bankId={bankId}` | 题库学习分析 | F6.2、F6.4 | 待实现 |
+| `pages/search/index` | 题库、试题与知识点搜索 | F8 | 待实现 |
+| `pages/profile/index` | 个人资料、Pro 权益与 credits | F1.4–F1.5 | 待实现 |
+| `pages/settings/sync/index` | 离线缓存与同步管理 | F9.1–F9.5 | 待实现 |
+
+图片和音频选择、上传及关联嵌入题库、题目和导入流程，不单独设置媒体页面。
+
+### 未来页面
+
+| 路由 | 页面 | 覆盖需求 | 状态 |
+| ------ | ------ | ------ | ------ |
+| `pages/groups/index` | 学习小组列表与创建 | F10.1 | 未来功能 |
+| `pages/groups/detail/index?groupId={groupId}` | 成员、题库与成员学情管理 | F10.2–F10.5 | 未来功能 |
 
 ## 5. 非功能需求
 
 | 属性 | 要求 |
 | ------ | ------ |
-| NFR1 性能 | 游标分页；题库/题目列表响应 < 200ms |
-| NFR2 缓存 | Redis cache-aside 用户资料、题目队列、分析摘要 |
-| NFR3 实时性 | 导入进度通过 PostgreSQL 持久事件和认证 SSE 展示，断线后按事件 ID 续传并可降级轮询 |
-| NFR4 可用性 | SQL + Redis 双依赖健康检查 `/api/health` |
-| NFR5 安全 | 短效 HMAC access JWT、轮换 refresh token、bcrypt 密码、CSRF SameOrigin 保护、速率限制 |
-| NFR6 可扩展 | Java 产品 API 编排可重试的导入与私有 AI 服务调用 |
-| NFR7 持久化 | PostgreSQL 为唯一权威存储；Redis 故障时普通读取降级至 SQL，幂等写入失败关闭 |
-| NFR8 国际化 | 微信小程序目标支持 English、简体中文、繁體中文和日本語回退 |
-| NFR9 离线同步 | 计划按平台恢复缓存与 outbox；幂等重放避免响应丢失造成重复写入 |
+| NFR1 性能 | 题库、题目和练习列表使用游标分页，常规读取响应目标 < 200ms |
+| NFR2 身份安全 | 微信临时 `code` 仅由 Java API 换取可信身份；AppSecret、`session_key`、`openid` 和令牌不得进入客户端响应或普通日志；会话可撤销并受速率限制 |
+| NFR3 支付与 credits | 仅信任验签成功的微信支付通知；29.9 元订单幂等地永久激活 Pro，首次付费激活只赠送一次 200 credits；credits 扣减必须原子且重试不重复计费 |
+| NFR4 数据一致性 | PostgreSQL 是用户、会员、credits、题库、练习和导入状态的唯一权威数据源；公开题库不得回退为私有，封禁与解禁仅允许受控操作 |
+| NFR5 AI 边界 | Java API 校验 Pro 与 credits、编排任务并持久化结果；私有 Python AI 服务只处理 AI 输入输出，不接收产品资源 ID，不持久化产品数据 |
+| NFR6 可用性 | 普通读取在 Redis 故障时回退 PostgreSQL；支付、credits 和幂等写入在依赖不可用时失败关闭；服务提供存活与依赖健康检查 |
+| NFR7 文件与隐私 | 上传格式和内容类型由服务端校验，图片与音频单文件不超过 10 MiB；原始文档、图片、音频及 AI 内容不得写入普通日志 |
+| NFR8 离线同步 | 缓存数据和离线练习最终同步至 PostgreSQL；写入按创建顺序携带稳定幂等键重放，重置操作不得影响其他用户或题库内容 |
 
 ## 6. 技术架构
 
+```text
+WeChat Mini Program
+        │  HTTPS / JSON / multipart
+        ▼
+Java Product API（唯一公开业务边界）
+        ├── WeChat Platform（code2Session、支付下单与签名通知）
+        ├── PostgreSQL（用户、Pro、credits、题库、练习、导入）
+        ├── Redis（缓存、速率限制）
+        ├── File Storage（文档、图片、音频）
+        └── Private Python AI Service（LangGraph、平台模型凭据）
+                ├── 文档解析
+                ├── 答案生成
+                └── 学习报告
 ```
-PractiQ (WeChat Mini Program) ── HTTP / JSON
-                          ▼
-Java product API; the private Python FastAPI/LangGraph AI integration is pending
-        │              │
-        ├── PostgreSQL ─┤ (schema: db/*/*.sql)
-        │              │
-        ├── Redis ─────┤ (email codes, cache, rate-limit, idempotency)
-        │
-        └── Internal AI service (LangGraph + DashScope/DeepSeek/Moonshot, pending Java integration)
-                ├── POST /api/v1/ai/parse-document
-                ├── POST /api/v1/ai/generate-answer
-                └── POST /api/v1/ai/learning-report
-```
+
+Java API 负责身份、支付、credits、权限、幂等性和全部产品持久化。Python 服务保持无产品状态，不直接处理微信身份、支付或用户资源 ID。
 
 ### 数据流关键路径
 
-- **练习答题**: 提交 → 加载答案 key → 判分 → 写入 `user_question_answers` → 触发器更新 `user_question_stats` / `user_bank_stats` / session 计数器
-- **文档导入**: 上传 → Java 创建任务与存储 artifact → Java 编排 AI 服务调用并写入试题与组合题 → 客户端接收产品 API 状态
-- **登录**: POST 凭证 → 验证密码 → 创建 PostgreSQL device session 和 refresh-token hash → 返回 10 分钟 access JWT 与单次 refresh token
+- **微信登录**: 用户触发 `wx.login()` → Java 使用临时 `code` 调用 `code2Session` → 按可信 `openid` 查询或自动创建账号 → 创建可撤销会话 → 小程序调用 `/auth/me`
+- **Pro 激活**: Java 创建 29.9 元订单 → 小程序发起微信支付 → Java 验签支付通知 → 幂等永久激活 Pro → 首次付费激活赠送 200 credits
+- **AI 导入**: 上传文档 → Java 校验已付费 Pro、页数和 credits → 原子预留 credits → Python 解析 → 成功后按 1 credit/页结算并保存试题，失败则释放预留
+- **题库状态**: 创建私有题库 → 所有者发布为公开 → 公开状态不可回退；违规题库由受控管理操作封禁或解禁
+- **练习与重置**: 提交答案 → 判分并更新个人统计；用户确认重置后，仅删除本人在指定题库中的练习数据
 
 ## 7. 数据模型要点
 
-| 领域 | 核心表 |
-| ------ | -------- |
-| 用户 | `users`（role, membership, bcrypt hash）与 `auth_sessions`/`refresh_tokens`（设备会话、轮换 refresh hash） |
-| 分类 | `subjects`, `question_types`, `knowledge_points` |
-| 题库 | `question_banks`, `user_bank_links`, `bank_question_links`, `bank_group_links` |
-| 试题 | `questions`, `question_options`, `question_answer_keys`（版本化）, `question_groups`, `group_question_links` |
-| 内容 | `question_content_blocks`（多态富内容）, `media_assets` + 关联表 |
-| 导入 | `question_import_jobs`, `artifacts`, `events`, `outputs` |
-| 练习 | `user_practice_sessions`, `user_question_answers`, `user_question_stats` |
-| 学习小组 | `study_groups`, `study_group_members`, `study_group_banks` |
-
-## 8. 当前开发阶段
-
-- **已实现**: Java 产品 API、题库和试题 REST API、练习、导入、媒体、分析、搜索、SQL schema 与会员/学习小组能力；Python AI 服务保留文档解析与生成工作流，Java 客户端集成待完成
-- **前端现状**: 原生微信小程序开发基线已建立；业务页面、认证、离线缓存/outbox 和购买待迁移。仓库不包含其他前端。
-
-## 9. 后续重点
-
-| 优先级 | 内容 |
+| 领域 | 核心实体与约束 |
 | ------ | ------ |
-| P0 | 恢复认证、概览、题库、题目与练习主链路 |
-| P1 | 恢复题库管理、搜索、分析、导入与媒体 |
-| P2 | 恢复离线同步、微信支付与小程序登录 |
-| P3 | 为学习小组补充客户端页面 |
-| P4 | 实现管理员入口、生产级版本化迁移与冲突提示 |
+| 用户与会话 | `users` 保存个人资料和永久 Pro 状态；`wechat_identities` 唯一映射可信 `openid`；`auth_sessions` 支持撤销 |
+| 支付与 credits | 微信支付订单保存唯一商户单号、微信交易号、金额和状态；credits 账户与流水记录赠送、预留、结算和释放，首次激活赠送必须唯一 |
+| 分类 | `subjects`、`question_types`、`knowledge_points` 提供学科、题型和知识点体系 |
+| 题库 | `question_banks` 保存名称、描述、`private/public/banned` 状态；标签独立关联；题库子集使用父子关系表达章、节、小节并保存同级排序 |
+| 试题 | `questions`、选项、版本化答案、题组及题库/子集关联支持结构化试题与组合题 |
+| 内容与媒体 | 内容块和媒体资源支持文本、公式、图片、表格及音频；媒体关联记录所属试题、选项或题组及排序 |
+| 导入 | 导入任务记录源文件、页数、credits 预留/结算、进度事件、重试、取消和生成结果 |
+| 练习 | 练习会话、作答记录、错题和用户题库统计均关联用户与题库；重置按用户和题库范围事务删除 |
+| 搜索与分析 | 题库名称、描述、标签及题干建立检索索引；分析数据由练习事实派生，不作为独立权威数据源 |
