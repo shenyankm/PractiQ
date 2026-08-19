@@ -30,5 +30,6 @@ Do not expose the AI port outside the trusted backend network in production.
 ```bash
 make backend-test   # Java API
 make test-server    # Python AI service
+make schema-check   # PostgreSQL 16 schema and critical constraints
 make verify         # everything
 ```

@@ -1,4 +1,4 @@
-.PHONY: install test test-server verify server-dev backend-test backend-package backend-dev
+.PHONY: install test test-server verify server-dev backend-test backend-package backend-dev schema-check
 
 install: backend-install
 
@@ -7,7 +7,7 @@ test: backend-test
 test-server:
 	uv run --project server --extra dev pytest server/tests
 
-verify: test test-server backend-test
+verify: test test-server schema-check
 
 backend-test:
 	mvn -f backend/pom.xml test
@@ -20,5 +20,8 @@ backend-dev:
 
 server-dev:
 	uv run --env-file .env.local --project server python -m server
+
+schema-check:
+	bash db/schema_check.sh
 
 
