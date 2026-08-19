@@ -26,7 +26,7 @@ PractiQ 是一个面向内容创建者和练习者的题库管理与智能练习
 | F1.4 个人信息 | 查看个人资料；昵称和头像在登录后单独征得用户授权，不作为登录前提 |
 | F1.5 会员体系 | 新用户享 3 天 Pro 试用（不包括 AI 功能）；通过微信支付一次性支付 29.9 元可永久解锁 Pro 权益，首次付费激活赠送 200 credits；Pro 免广告、可使用 credits 调用 AI 功能并下载公共题库 |
 | F1.6 credits 购买 | 仅已付费 Pro 用户可通过微信支付单独购买 credits，固定价格为 100 credits / 10 元；free 和试用 Pro 不可创建 credits 订单 |
-| F1.7 管理员操作 | 仅管理员可通过受保护的管理操作封禁或解禁题库、停用或恢复用户，并 CRUD 或批量导入知识点体系；停用用户必须在同一事务中撤销其全部会话和 refresh token，后续所有鉴权均拒绝 inactive 用户 |
+| F1.7 管理员操作 | 首位管理员只能由部署环境中的一次性 CLI 按可信微信 `openid` 提升，该命令在已有管理员时拒绝且不暴露 HTTP 接口；之后仅 active 管理员可通过受保护操作授予或撤销管理员角色、封禁或解禁题库、停用或恢复用户，并 CRUD 或批量导入知识点体系；不得降级或停用最后一名 active 管理员；停用用户必须在同一事务中撤销其全部会话和 refresh token，后续所有鉴权均拒绝 inactive 用户 |
 
 ### F2: 题库管理
 
@@ -45,7 +45,7 @@ PractiQ 是一个面向内容创建者和练习者的题库管理与智能练习
 | 功能 | 需求 |
 | ------ | ------ |
 | F3.1 题型支持 | 选择题（单选/多选）、判断题、填空题、简答题 |
-| F3.2 试题 CRUD | 创建试题必须指定目标 `bankId`，编辑已有试题使用 `questionId`；题库所有者通过独立的管理接口读取并维护题干、解析、全部答案版本、选项和内容块，该管理响应不受练习会话的答案隐藏规则影响 |
+| F3.2 试题 CRUD | 创建试题必须指定创建者本人拥有的目标 `bankId`，新题 `owner_user_id` 为创建者，编辑已有试题使用 `questionId`；每道试题只有一个所有者，仅试题所有者可通过独立管理接口读取并维护题干、解析、全部答案版本、选项和内容块；把试题加入其他用户拥有的题库前必须深拷贝为该题库所有者的新试题，禁止通过题库关系修改他人试题；管理响应不受练习会话的答案隐藏规则影响 |
 | F3.3 题组（Group） | 组合题支持（如阅读理解、实验题），题内多子题 |
 | F3.4 科目与知识点 | 试题挂载学科、知识点体系、题型分类；知识点由管理员 CRUD 或批量导入，父子节点必须属于同一学科且无环 |
 | F3.5 状态生命周期 | draft → active → archived 三态流转，发布前校验答案完整性 |
@@ -111,7 +111,7 @@ PractiQ 是一个面向内容创建者和练习者的题库管理与智能练习
 | F9.3 缓存清理 | 登出或切换账号时清除当前用户的全部本地业务缓存 |
 | F9.4 在线写入 | 所有答题和数据修改必须联网，不提供离线答题或待同步 outbox |
 | F9.5 权限缓存 | 非本人题库的缓存内容展示前必须联网重新校验访问权；成员被移除、题库被封禁或接口返回 `403`/`404` 时立即清除对应题库、试题、媒体和分析缓存，未联网时不展示 |
-| F9.6 在线重试 | 所有可重放写入必须携带客户端生成且稳定的 `Idempotency-Key`；响应丢失后的重试在 24 小时内复用相同 key、用户、路由和请求体并返回原结果，相同 key 携带不同请求体时拒绝 |
+| F9.6 在线重试 | 所有可重放写入必须携带客户端生成且稳定的 `Idempotency-Key`；一般写入在 24 小时内复用相同 key、用户、路由和请求体并返回原结果，相同 key 携带不同请求体时拒绝；支付订单创建结果仅缓存至该订单 30 分钟到期，到期即清除响应缓存并允许相同 key 重新进入 NFR3 的查单与替换流程，支付履约仍永久按商户订单号幂等 |
 
 ### F10: 学习小组（未来功能）
 
@@ -145,7 +145,8 @@ PractiQ 是一个面向内容创建者和练习者的题库管理与智能练习
 | `pages/banks/detail/index?bankId={bankId}` | 题库详情、状态、子集与题目 | F2.4–F2.7 | 待实现 |
 | `pages/banks/edit/index` | 创建题库、描述、标签和子集 | F2.1、F2.7 | 待实现 |
 | `pages/banks/edit/index?bankId={bankId}` | 编辑指定题库、描述、标签和子集 | F2.1、F2.7 | 待实现 |
-| `pages/questions/detail/index?questionId={questionId}&sessionId={sessionId}` | 题目详情，答案与解析按会话答题模式展示 | F3.1–F3.8、F5.4 | 待实现 |
+| `pages/questions/detail/index?questionId={questionId}` | 无会话题目详情，不返回答案或解析 | F2.4、F3、F5.4 | 待实现 |
+| `pages/questions/detail/index?questionId={questionId}&sessionId={sessionId}` | 会话内题目详情，答案与解析按答题模式展示 | F3.1–F3.8、F5.4 | 待实现 |
 | `pages/questions/edit/index?bankId={bankId}` | 在指定题库创建试题 | F3、F7 | 待实现 |
 | `pages/questions/edit/index?bankId={bankId}&questionId={questionId}` | 编辑指定试题并读取完整答案与解析 | F3、F7 | 待实现 |
 | `pages/imports/index` | AI 导入任务列表 | F4.1、F4.4–F4.6 | 待实现 |
@@ -159,6 +160,7 @@ PractiQ 是一个面向内容创建者和练习者的题库管理与智能练习
 | `pages/search/index` | 题库、试题与知识点搜索 | F8 | 待实现 |
 | `pages/profile/index` | 个人资料、Pro 权益、credits 余额与购买 | F1.4–F1.6 | 待实现 |
 | `pages/settings/storage/index` | 本地缓存管理 | F9.1–F9.6 | 待实现 |
+| `pages/admin/users/index` | 管理员维护用户状态和管理员角色 | F1.7 | 待实现 |
 | `pages/admin/knowledge-points/index` | 管理员维护和批量导入知识点体系 | F1.7、F3.4 | 待实现 |
 
 图片和音频选择、上传及关联嵌入题库、题目和导入流程，不单独设置媒体页面。
@@ -176,7 +178,7 @@ PractiQ 是一个面向内容创建者和练习者的题库管理与智能练习
 | ------ | ------ |
 | NFR1 性能 | 题库、题目和练习列表使用游标分页，常规读取响应目标 < 200ms |
 | NFR2 身份安全 | 微信临时 `code` 仅由 Java API 换取可信身份；AppSecret、`session_key`、`openid` 和令牌不得进入客户端响应或普通日志；每次 access/refresh 鉴权均校验用户仍为 active，管理员停用用户时原子撤销其全部会话和 refresh token；会话受速率限制 |
-| NFR3 支付与 credits | 支付通知或主动查单结果仅在商户订单号、AppID、商户号、支付成功状态、金额和币种均与 PostgreSQL 未履约订单完全匹配时生效；Pro 订单创建必须携带幂等键，同一用户复用 30 分钟内有效的待支付订单，过期前先向微信查单，确认未支付后关闭微信及本地订单并原子替换，永久 Pro 已激活时拒绝新建；客户端支付返回时主动查单，后台恢复任务每 5 分钟核对所有 pending/expired 未履约订单直至微信终态；迟到通知或查单确认已支付时仍幂等履约；credits 订单仅允许已付费 Pro 创建 |
+| NFR3 支付与 credits | 支付通知或主动查单结果仅在商户订单号、AppID、商户号、支付成功状态、金额和币种均与 PostgreSQL 未履约订单完全匹配时生效；Pro 订单创建必须携带幂等键，同一用户复用 30 分钟内有效的待支付订单，支付创建响应的幂等缓存与订单同时到期；到期前先向微信查单，确认未支付后关闭微信及本地订单、清除旧响应缓存并原子替换，永久 Pro 已激活时拒绝新建；客户端支付返回时主动查单，后台恢复任务每 5 分钟核对所有 pending/expired 未履约订单直至微信终态；迟到通知或查单确认已支付时仍幂等履约；credits 订单仅允许已付费 Pro 创建 |
 | NFR4 credits 计费 | 100 credits = 10 元，即 1 credit = 0.10 元；Java 在任务创建时锁定各模型以人民币/千 token 表示的输入、输出价格快照，任务内所有调用按 `输入 token / 1000 × 输入单价 + 输出 token / 1000 × 输出单价` 求和，再除以 0.10 折算 credits，向上舍入到 0.01 credit；价格快照、实际 token、扣减和失败退回必须留痕且幂等 |
 | NFR5 数据一致性 | PostgreSQL 是用户、会员、credits、题库、练习和 AI 任务状态的唯一权威数据源；公开题库不得回退为私有，只有公开题库可被管理员封禁且解禁后恢复公开 |
 | NFR6 AI 边界 | Java 调用私有 Python AI 路由时必须通过 HTTPS 发送 `Authorization: Bearer $AI_SERVICE_TOKEN`，Python 以常量时间校验；仅 `/api/health/live` 公开，其余 AI 路由均要求该 token。Java API 校验已付费 Pro、credits 和单用户 AI 任务互斥，负责计费、编排并持久化结果；Python 只处理 AI 输入输出，不接收产品资源 ID，不持久化产品数据；所有成功及终态错误 DTO 均返回逐模型调用 usage，Java 按锁定价格快照结算并对账 |
@@ -205,9 +207,21 @@ Java Product API（唯一公开业务边界）
 
 Java API 负责身份、支付、credits、权限、幂等性和全部产品持久化。Python 服务保持无产品状态，不直接处理微信身份、支付或用户资源 ID。
 
+### Java → Python 集成契约
+
+所有请求均使用严格 DTO，拒绝额外字段和产品资源 ID：
+
+| Method / Path | 请求映射 | 响应 |
+| ------ | ------ | ------ |
+| `POST /api/v1/ai/parse-document` | TXT 或直接文本使用 `sourceType: "text"` 和 `text`，不得发送 `fileBase64` 或 `sourceType: "txt"`；DOCX/PDF/XLSX 分别使用 `sourceType: "docx"/"pdf"/"xlsx"` 和 Base64 编码的 `fileBase64`，可附 `fileName`、`mimeType` | `DocumentParseResult` + usage |
+| `POST /api/v1/ai/generate-answer` | `stem`、`answerMode`、`options`，可选 `analysis` | `AnswerGenerationResult` + usage |
+| `POST /api/v1/ai/learning-report` | `scope`（`individual/class/bank`）及可选 `stats` | `LearningReportResult` + usage |
+
+仅 `GET /api/health/live` 无需认证；上述三条路由按 NFR6 使用 Bearer Token。
+
 ### 开发阶段破坏性切换
 
-- 启用微信自动注册前删除开发环境中的用户名/邮箱密码账号及其产品数据，不提供旧账号绑定；上线后只按可信微信身份创建账号。
+- 启用微信自动注册前删除开发环境中的用户名/邮箱密码账号及其产品数据，不提供旧账号绑定；上线后只按可信微信身份创建账号。首位微信用户注册后，由部署人员运行仅限服务器环境的一次性 CLI 按 `openid` 提升为管理员；CLI 拒绝覆盖已有管理员并写入审计记录。
 - 切换永久 Pro 前停止并移除 RevenueCat 同步、webhook 和凭据，清空开发会员投影；切换后拒绝 RevenueCat 事件，后续到期或退款不会改变 Pro。
 - 切换平台 AI 前安全擦除全部 `users.llm_api_key_ciphertext` 及相关配置和日志残留，再删除该字段；上线后仅使用服务端平台模型凭据。
 
@@ -225,12 +239,12 @@ Java API 负责身份、支付、credits、权限、幂等性和全部产品持�
 
 | 领域 | 核心实体与约束 |
 | ------ | ------ |
-| 用户与会话 | `users` 保存个人资料、永久 Pro 状态和 active 状态；`wechat_identities` 唯一映射可信 `openid`；管理员停用用户时原子撤销全部 `auth_sessions` 和 refresh token，所有鉴权路径复检 active 状态 |
+| 用户与会话 | `users` 保存个人资料、永久 Pro 状态、active 状态和系统角色；首位管理员由无 HTTP 暴露的一次性 CLI 按可信 `openid` 提升，之后角色变更仅限 active 管理员并留审计记录，最后一名 active 管理员不得被降级或停用；`wechat_identities` 唯一映射 `openid`；管理员停用用户时原子撤销全部 `auth_sessions` 和 refresh token，所有鉴权路径复检 active 状态 |
 | 支付与 credits | 微信支付订单保存创建幂等键、唯一商户单号、微信交易号、AppID、商户号、金额、币种、微信/本地状态、`expires_at`、`fulfilled_at` 和最后查单时间；每个用户最多一个未过期的待支付 Pro 订单，30 分钟到期先查单，确认未支付后关闭并替换；pending/expired 未履约订单持续对账至微信终态，履约唯一；永久 Pro 用户不得创建 Pro 订单，credits 订单仅允许已付费 Pro；credits 使用定点小数账户与流水记录购买、赠送、扣减和失败退回，首次激活赠送必须唯一 |
 | AI 任务 | 导入、答案生成和学习报告共用用户级唯一运行任务约束；任务记录模型价格快照、每次可计费调用的模型标识与输入/输出 token、credits 扣减/退回、180 秒端到端期限、进度、重试、取消、timeout 和结果 |
 | 分类 | `subjects`、`question_types`、`knowledge_points` 提供学科、题型和知识点体系；管理员可 CRUD/批量导入知识点，父子节点同学科且无环 |
 | 题库 | `question_banks` 保存名称、描述、`private/public/banned` 状态；标签独立关联；最多三级的子集树保持同一题库且无环；克隆仅深拷贝来源中公开可读的 active 内容形成独立快照 |
-| 试题 | `questions`、选项、版本化答案、题组及题库/子集关联支持结构化试题与组合题；所有者管理读取与练习者读取使用独立授权和响应字段 |
+| 试题 | `questions.owner_user_id` 为单一内容所有者；选项、版本化答案、题组及题库/子集关联支持结构化试题与组合题；跨所有者题库关联前深拷贝试题及依赖记录，所有者管理读取与练习者读取使用独立授权和响应字段 |
 | 内容与媒体 | 内容块和媒体资源支持文本、公式、图片、表格及音频；媒体关联记录所属试题、选项或题组及排序 |
 | 导入 | 导入任务记录源文件、`retry_expires_at` 及删除时间；失败任务仅在源文件存在且未超过重试期限时可重试，源文件删除后保留不含原文的审计元数据和生成结果 |
 | 练习 | 练习会话保存答题模式；答案和解析按模式规定的提交边界返回；`user_question_stats` 和错题状态以 `(user_id, bank_id, question_id)` 唯一，作答和题库统计同样关联用户与题库，重置仅事务删除指定用户与题库范围 |
