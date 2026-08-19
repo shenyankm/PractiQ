@@ -26,4 +26,4 @@ Keep Python AI-only. Do not add product persistence, authentication, billing, im
 
 ## Documentation, Commits, and Security
 
-Update relevant docs with code/configuration changes. Use focused Conventional Commit subjects. Do not commit `.env.local` or secrets. Production traffic must use HTTPS and the internal AI service must not be publicly exposed.
+Update relevant docs with code/configuration changes. Follow `CONTRIBUTING.md` when creating issues or pull requests. Use focused Conventional Commit subjects. Do not commit `.env.local` or secrets. Production traffic must use HTTPS and the internal AI service must not be publicly exposed.
