@@ -1,0 +1,9 @@
+.login {
+  display: flex;
+  flex-direction: column;
+  gap: 32rpx;
+  padding: 240rpx 64rpx 0;
+  text-align: center;
+}
+.title { font-size: 48rpx; font-weight: 600; color: #0b5f4b; }
+.error { color: #b42318; }

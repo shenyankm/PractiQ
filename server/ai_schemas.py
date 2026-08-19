@@ -1,18 +1,38 @@
 from typing import Any, Literal, Self
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
-AnswerMode = Literal['choice', 'true_false', 'fill_blank', 'short_answer']
-DocumentSourceType = Literal['csv', 'docx', 'image', 'text', 'pdf', 'xlsx']
-ContentPartType = Literal['text', 'formula', 'image', 'table', 'list', 'html', 'markdown', 'chart', 'diagram', 'qr_code']
-VisualKind = Literal['image', 'table', 'chart', 'diagram', 'qr_code']
-RiskLevel = Literal['low', 'medium', 'high']
-ReportScope = Literal['individual', 'class', 'bank']
+AnswerMode = Literal["choice", "true_false", "fill_blank", "short_answer"]
+DocumentSourceType = Literal["csv", "docx", "image", "text", "pdf", "xlsx"]
+ContentPartType = Literal[
+    "text",
+    "formula",
+    "image",
+    "table",
+    "list",
+    "html",
+    "markdown",
+    "chart",
+    "diagram",
+    "qr_code",
+]
+VisualKind = Literal["image", "table", "chart", "diagram", "qr_code"]
+RiskLevel = Literal["low", "medium", "high"]
+ReportScope = Literal["individual", "class", "bank"]
 
 
 class StrictModel(BaseModel):
-    model_config = ConfigDict(extra='forbid')
+    model_config = ConfigDict(extra="forbid")
+
+
+class ModelCallUsage(StrictModel):
+    callKey: UUID
+    modelId: str = Field(min_length=1, max_length=255)
+    inputTokens: int = Field(ge=0)
+    outputTokens: int = Field(ge=0)
+    callKind: str = Field(min_length=1, max_length=64)
 
 
 class DocumentParseRequest(StrictModel):
@@ -22,15 +42,15 @@ class DocumentParseRequest(StrictModel):
     fileBase64: str | None = None
     mimeType: str | None = Field(default=None, max_length=255)
 
-    @model_validator(mode='after')
+    @model_validator(mode="after")
     def validate_content(self) -> Self:
-        if self.sourceType == 'text':
+        if self.sourceType == "text":
             if not self.text or not self.text.strip():
-                raise ValueError('text is required for text sources')
+                raise ValueError("text is required for text sources")
             if self.fileBase64 is not None:
-                raise ValueError('fileBase64 is not allowed for text sources')
+                raise ValueError("fileBase64 is not allowed for text sources")
         elif not self.fileBase64:
-            raise ValueError('fileBase64 is required for binary sources')
+            raise ValueError("fileBase64 is required for binary sources")
         return self
 
 
@@ -39,7 +59,7 @@ class ParsedOption(StrictModel):
     content: str = Field(min_length=1, max_length=20_000)
     isCorrect: bool | None = None
 
-    @field_validator('label', 'content')
+    @field_validator("label", "content")
     @classmethod
     def reject_blank_values(cls, value: str) -> str:
         return _non_blank(value)
@@ -66,28 +86,30 @@ class ParsedQuestion(StrictModel):
     confidence: float = Field(ge=0, le=1)
     needsReview: bool
 
-    @field_validator('stem', 'questionTypeId')
+    @field_validator("stem", "questionTypeId")
     @classmethod
     def reject_blank_values(cls, value: str) -> str:
         return _non_blank(value)
 
-    @model_validator(mode='after')
+    @model_validator(mode="after")
     def validate_options(self) -> Self:
-        if self.answerMode == 'choice' and not self.options:
-            raise ValueError('options are required for choice questions')
+        if self.answerMode == "choice" and not self.options:
+            raise ValueError("options are required for choice questions")
         labels = [option.label.casefold() for option in self.options]
         if len(labels) != len(set(labels)):
-            raise ValueError('option labels must be unique')
+            raise ValueError("option labels must be unique")
         answer_payload = self.answerPayload or {}
-        correct_option = answer_payload.get('correctOption')
-        if self.answerMode == 'choice' and correct_option is not None:
+        correct_option = answer_payload.get("correctOption")
+        if self.answerMode == "choice" and correct_option is not None:
             if not isinstance(correct_option, str):
-                raise ValueError('correctOption must be an option label')
-            labels_by_key = {option.label.casefold(): option.label for option in self.options}
+                raise ValueError("correctOption must be an option label")
+            labels_by_key = {
+                option.label.casefold(): option.label for option in self.options
+            }
             canonical_label = labels_by_key.get(_non_blank(correct_option).casefold())
             if canonical_label is None:
-                raise ValueError('correctOption must reference an option label')
-            self.answerPayload = {**answer_payload, 'correctOption': canonical_label}
+                raise ValueError("correctOption must reference an option label")
+            self.answerPayload = {**answer_payload, "correctOption": canonical_label}
         return self
 
 
@@ -96,7 +118,7 @@ class ParsedGroup(StrictModel):
     instructions: str | None = Field(default=None, max_length=20_000)
     questionIndexes: list[int] = Field(max_length=1_000)
 
-    @field_validator('title')
+    @field_validator("title")
     @classmethod
     def reject_blank_title(cls, value: str) -> str:
         return _non_blank(value)
@@ -111,7 +133,7 @@ class VisualElement(StrictModel):
     bbox: list[float] | None = Field(default=None, min_length=4, max_length=4)
     imageBase64: str | None = Field(default=None, max_length=400_000)
 
-    @field_validator('description')
+    @field_validator("description")
     @classmethod
     def reject_blank_description(cls, value: str) -> str:
         return _non_blank(value)
@@ -124,7 +146,7 @@ class DocumentParseResult(StrictModel):
     warnings: list[str] = Field(max_length=1_000)
     qualityScore: float = Field(ge=0, le=100)
 
-    @model_validator(mode='after')
+    @model_validator(mode="after")
     def validate_group_indexes(self) -> Self:
         question_count = len(self.questions)
         if any(
@@ -132,14 +154,14 @@ class DocumentParseResult(StrictModel):
             for group in self.groups
             for index in group.questionIndexes
         ):
-            raise ValueError('questionIndexes must reference a parsed question')
+            raise ValueError("questionIndexes must reference a parsed question")
         return self
 
 
 def _non_blank(value: str) -> str:
     stripped = value.strip()
     if not stripped:
-        raise ValueError('must not be blank')
+        raise ValueError("must not be blank")
     return stripped
 
 
@@ -149,15 +171,15 @@ class AnswerGenerationRequest(StrictModel):
     options: list[ParsedOption] = Field(default_factory=list, max_length=100)
     analysis: str | None = Field(default=None, max_length=100_000)
 
-    @field_validator('stem')
+    @field_validator("stem")
     @classmethod
     def reject_blank_stem(cls, value: str) -> str:
         return _non_blank(value)
 
 
 class LearningReportRequest(StrictModel):
-    scope: ReportScope = 'individual'
-    stats: dict[str, Any] | None = None
+    scope: ReportScope = "individual"
+    stats: dict[str, Any] = Field(min_length=1)
 
 
 class AnswerGenerationResult(StrictModel):

@@ -6,7 +6,7 @@ from typing import Any
 from fastapi import Request, Response
 from fastapi.responses import JSONResponse
 
-REQUEST_ID_HEADER = 'x-request-id'
+REQUEST_ID_HEADER = "x-request-id"
 
 
 @dataclass
@@ -15,45 +15,61 @@ class ValidationDetail:
     message: str
 
     def as_dict(self) -> dict[str, str]:
-        return {'field': self.field, 'message': self.message}
+        return {"field": self.field, "message": self.message}
 
 
 class APIError(Exception):
-    def __init__(self, status: int, code: str, message: str, details: Any = None):
+    def __init__(
+        self,
+        status: int,
+        code: str,
+        message: str,
+        details: Any = None,
+        meta: dict[str, Any] | None = None,
+    ):
         super().__init__(message)
         self.status = status
         self.code = code
         self.message = message
         self.details = details
+        self.meta = meta
 
 
-def new_error(status: int, code: str, message: str, details: Any = None) -> APIError:
-    return APIError(status, code, message, details)
+def new_error(
+    status: int,
+    code: str,
+    message: str,
+    details: Any = None,
+    meta: dict[str, Any] | None = None,
+) -> APIError:
+    return APIError(status, code, message, details, meta)
 
 
 def validation_error(details: list[ValidationDetail]) -> APIError:
     return APIError(
-        422, 'VALIDATION_ERROR', 'Invalid request', [d.as_dict() for d in details]
+        422, "VALIDATION_ERROR", "Invalid request", [d.as_dict() for d in details]
     )
 
 
 def request_id(request: Request) -> str:
-    return getattr(request.state, 'request_id', '') or ''
+    return getattr(request.state, "request_id", "") or ""
 
 
 def _meta(request: Request, meta: dict[str, Any] | None) -> dict[str, Any]:
     resolved = dict(meta or {})
     rid = request_id(request)
     if rid:
-        resolved['requestId'] = rid
+        resolved["requestId"] = rid
     return resolved
 
 
-def envelope(request: Request, status: int, data: Any, meta: dict[str, Any] | None = None) -> JSONResponse:
+def envelope(
+    request: Request, status: int, data: Any, meta: dict[str, Any] | None = None
+) -> JSONResponse:
     resolved_meta = _meta(request, meta)
-    body: dict[str, Any] = {'data': data}
+    body: dict[str, Any] = {"data": data}
     if resolved_meta:
-        body['meta'] = resolved_meta
+        body["meta"] = resolved_meta
     headers = {}
     rid = request_id(request)
     if rid:
@@ -65,7 +81,9 @@ def ok(request: Request, data: Any, meta: dict[str, Any] | None = None) -> JSONR
     return envelope(request, 200, data, meta)
 
 
-def created(request: Request, data: Any, meta: dict[str, Any] | None = None) -> JSONResponse:
+def created(
+    request: Request, data: Any, meta: dict[str, Any] | None = None
+) -> JSONResponse:
     return envelope(request, 201, data, meta)
 
 
@@ -81,20 +99,23 @@ def error_response(request: Request, err: Exception) -> JSONResponse:
     if isinstance(err, APIError):
         api_err = err
     else:
-        api_err = APIError(500, 'INTERNAL_ERROR', 'Unexpected server error')
-    error_body: dict[str, Any] = {'code': api_err.code, 'message': api_err.message}
+        api_err = APIError(500, "INTERNAL_ERROR", "Unexpected server error")
+    error_body: dict[str, Any] = {"code": api_err.code, "message": api_err.message}
     if api_err.details is not None:
-        error_body['details'] = api_err.details
+        error_body["details"] = api_err.details
     rid = request_id(request)
     if rid:
-        error_body['requestId'] = rid
+        error_body["requestId"] = rid
     headers = {REQUEST_ID_HEADER: rid} if rid else {}
-    return JSONResponse({'error': error_body}, status_code=api_err.status, headers=headers)
+    body = {"error": error_body}
+    if api_err.meta:
+        body["meta"] = api_err.meta
+    return JSONResponse(body, status_code=api_err.status, headers=headers)
 
 
 def request_too_large() -> APIError:
-    return APIError(413, 'REQUEST_TOO_LARGE', 'Request body is too large')
+    return APIError(413, "REQUEST_TOO_LARGE", "Request body is too large")
 
 
 def invalid_json() -> APIError:
-    return APIError(400, 'INVALID_JSON', 'Request body must be valid JSON')
+    return APIError(400, "INVALID_JSON", "Request body must be valid JSON")

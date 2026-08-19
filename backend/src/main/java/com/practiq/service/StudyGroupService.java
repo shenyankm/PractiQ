@@ -9,10 +9,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service public class StudyGroupService {
- private final JdbcTemplate db; private final MembershipService membership;
- public StudyGroupService(JdbcTemplate db,MembershipService membership){this.db=db;this.membership=membership;}
+ private final JdbcTemplate db;
+ public StudyGroupService(JdbcTemplate db){this.db=db;}
  private Map<String,Object> row(ResultSet r,int n)throws java.sql.SQLException{var m=new LinkedHashMap<String,Object>();for(int i=1;i<=r.getMetaData().getColumnCount();i++)m.put(r.getMetaData().getColumnLabel(i),r.getObject(i));return m;}
- private void organization(long user,String feature){var x=db.query("select membership,trial_ends_at from users where id=?",(r,n)->new Object[]{r.getString(1),r.getObject(2,OffsetDateTime.class)},user);if(x.isEmpty())throw ApiException.of(404,"NOT_FOUND","User not found");if(!membership.atLeast(membership.effective((String)x.getFirst()[0],(OffsetDateTime)x.getFirst()[1]),"organization"))throw ApiException.of(403,"ORGANIZATION_REQUIRED",feature+" requires ORGANIZATION membership");}
+ private void organization(long user,String feature){var paid=db.queryForList("select paid_pro_at from users where id=? and status='active'",OffsetDateTime.class,user);if(paid.isEmpty())throw ApiException.of(404,"NOT_FOUND","User not found");if(paid.getFirst()==null)throw ApiException.of(403,"PAID_PRO_REQUIRED",feature+" requires paid Pro");}
  private String role(long group,long user){var x=db.queryForList("select role from study_group_members where group_id=? and user_id=?",String.class,group,user);return x.isEmpty()?null:x.getFirst();}
  private void member(long group,long user){if(role(group,user)==null)throw ApiException.of(404,"STUDY_GROUP_NOT_FOUND","Study group not found");}
  private void owner(long group,long user){String r=role(group,user);if(r==null)throw ApiException.of(404,"STUDY_GROUP_NOT_FOUND","Study group not found");if(!"owner".equals(r))throw ApiException.of(403,"FORBIDDEN","Study group owner access required");organization(user,"Study group management");}

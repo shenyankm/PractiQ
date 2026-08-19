@@ -78,6 +78,7 @@ CREATE TABLE payment_orders (
 );
 CREATE UNIQUE INDEX uq_payment_orders_live_idempotency ON payment_orders(user_id, kind, idempotency_key) WHERE status='pending';
 CREATE UNIQUE INDEX uq_payment_orders_one_pending_kind ON payment_orders(user_id, kind) WHERE status='pending';
+CREATE UNIQUE INDEX uq_payment_orders_one_paid_pro ON payment_orders(user_id) WHERE kind='pro' AND status='paid';
 CREATE INDEX idx_payment_orders_reconcile ON payment_orders(status, last_reconciled_at) WHERE status IN ('pending','expired');
 CREATE TABLE wechat_notification_replays (id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, notification_id text NOT NULL UNIQUE, nonce text NOT NULL UNIQUE, received_at timestamptz NOT NULL DEFAULT now());
 CREATE TABLE payment_refunds (
@@ -112,13 +113,14 @@ CREATE TABLE question_banks (
   subject_id varchar(32) NOT NULL REFERENCES subjects(id), name varchar(100) NOT NULL CHECK (btrim(name)<>''), description text,
   status text NOT NULL DEFAULT 'private' CHECK (status IN ('private','public','banned')),
   cloned_from_bank_id bigint REFERENCES question_banks(id) ON DELETE SET NULL, cloned_at timestamptz,
+  deleted_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(),
-  CHECK ((cloned_from_bank_id IS NULL) = (cloned_at IS NULL))
+  CHECK (cloned_from_bank_id IS NULL OR cloned_at IS NOT NULL)
 );
 CREATE UNIQUE INDEX uq_question_banks_id_owner ON question_banks(id,owner_user_id);
 CREATE UNIQUE INDEX uq_question_banks_id_owner_subject ON question_banks(id,owner_user_id,subject_id);
 CREATE INDEX idx_question_banks_owner_created ON question_banks(owner_user_id,created_at DESC);
-CREATE INDEX idx_question_banks_public_search ON question_banks USING gin (to_tsvector('simple', name || ' ' || coalesce(description,''))) WHERE status='public';
+CREATE INDEX idx_question_banks_public_search ON question_banks USING gin (to_tsvector('simple', name || ' ' || coalesce(description,''))) WHERE status='public' AND deleted_at IS NULL;
 CREATE TABLE user_bank_favorites (user_id bigint NOT NULL REFERENCES users(id) ON DELETE CASCADE, bank_id bigint NOT NULL REFERENCES question_banks(id) ON DELETE CASCADE, created_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY(user_id,bank_id));
 CREATE INDEX idx_user_bank_favorites_bank ON user_bank_favorites(bank_id);
 CREATE TABLE bank_tags (bank_id bigint NOT NULL REFERENCES question_banks(id) ON DELETE CASCADE, tag varchar(64) NOT NULL CHECK (btrim(tag)<>''), PRIMARY KEY(bank_id,tag));
@@ -188,13 +190,13 @@ CREATE INDEX idx_question_content_blocks_option ON question_content_blocks(optio
 
 -- All billable AI operations share this task table so the partial unique index
 -- enforces one queued/running task per user across imports, answers, and reports.
-CREATE TABLE ai_tasks (id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, user_id bigint NOT NULL REFERENCES users(id) ON DELETE RESTRICT, kind text NOT NULL CHECK(kind IN ('import','answer_generation','learning_report')), status text NOT NULL DEFAULT 'queued' CHECK(status IN ('queued','running','succeeded','failed','cancelled','timed_out')), deadline_at timestamptz NOT NULL, price_snapshot jsonb NOT NULL, estimated_credits numeric(14,2) NOT NULL CHECK(estimated_credits>=0), reserved_credits numeric(14,2) NOT NULL DEFAULT 0 CHECK(reserved_credits>=0), settled_credits numeric(14,2) NOT NULL DEFAULT 0 CHECK(settled_credits>=0), refunded_credits numeric(14,2) NOT NULL DEFAULT 0 CHECK(refunded_credits>=0), result jsonb, error jsonb, created_at timestamptz NOT NULL DEFAULT now(), started_at timestamptz, finished_at timestamptz, updated_at timestamptz NOT NULL DEFAULT now(), UNIQUE(id,user_id), CHECK(deadline_at>created_at AND deadline_at<=created_at+interval '180 seconds'), CHECK((status='queued') = (started_at IS NULL AND finished_at IS NULL)), CHECK((status='running') = (started_at IS NOT NULL AND finished_at IS NULL)), CHECK((status IN ('succeeded','failed','cancelled','timed_out')) = (finished_at IS NOT NULL)));
+CREATE TABLE ai_tasks (id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, user_id bigint NOT NULL REFERENCES users(id) ON DELETE RESTRICT, kind text NOT NULL CHECK(kind IN ('import','answer_generation','learning_report')), status text NOT NULL DEFAULT 'queued' CHECK(status IN ('queued','running','succeeded','failed','cancelled','timed_out')), attempt_started_at timestamptz NOT NULL DEFAULT now(), deadline_at timestamptz NOT NULL, price_snapshot jsonb NOT NULL, estimated_credits numeric(14,2) NOT NULL CHECK(estimated_credits>=0), reserved_credits numeric(14,2) NOT NULL DEFAULT 0 CHECK(reserved_credits>=0), settled_credits numeric(14,2) NOT NULL DEFAULT 0 CHECK(settled_credits>=0), refunded_credits numeric(14,2) NOT NULL DEFAULT 0 CHECK(refunded_credits>=0), result jsonb, error jsonb, created_at timestamptz NOT NULL DEFAULT now(), started_at timestamptz, finished_at timestamptz, updated_at timestamptz NOT NULL DEFAULT now(), UNIQUE(id,user_id), CHECK(attempt_started_at>=created_at AND deadline_at>attempt_started_at AND deadline_at<=attempt_started_at+interval '180 seconds'), CHECK((status='queued') = (started_at IS NULL AND finished_at IS NULL)), CHECK((status='running') = (started_at IS NOT NULL AND finished_at IS NULL)), CHECK((status IN ('succeeded','failed','cancelled','timed_out')) = (finished_at IS NOT NULL)));
 CREATE UNIQUE INDEX uq_ai_tasks_one_active_user ON ai_tasks(user_id) WHERE status IN ('queued','running');
-CREATE TABLE ai_task_calls (id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, task_id bigint NOT NULL REFERENCES ai_tasks(id) ON DELETE CASCADE, model_id text NOT NULL CHECK(btrim(model_id)<>''), input_tokens integer NOT NULL CHECK(input_tokens>=0), output_tokens integer NOT NULL CHECK(output_tokens>=0), input_price_per_1k numeric(14,6) NOT NULL CHECK(input_price_per_1k>=0), output_price_per_1k numeric(14,6) NOT NULL CHECK(output_price_per_1k>=0), call_kind text NOT NULL, created_at timestamptz NOT NULL DEFAULT now());
-CREATE INDEX idx_ai_task_calls_task ON ai_task_calls(task_id);
+CREATE TABLE ai_task_calls (id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, task_id bigint NOT NULL REFERENCES ai_tasks(id) ON DELETE CASCADE, call_key uuid NOT NULL, model_id text NOT NULL CHECK(btrim(model_id)<>''), input_tokens integer NOT NULL CHECK(input_tokens>=0), output_tokens integer NOT NULL CHECK(output_tokens>=0), input_price_per_1k numeric(14,6) NOT NULL CHECK(input_price_per_1k>=0), output_price_per_1k numeric(14,6) NOT NULL CHECK(output_price_per_1k>=0), call_kind text NOT NULL CHECK(btrim(call_kind)<>''), created_at timestamptz NOT NULL DEFAULT now(), UNIQUE(task_id,call_key));
 ALTER TABLE credit_ledger ADD CONSTRAINT fk_credit_ledger_order_user FOREIGN KEY(order_id,user_id) REFERENCES payment_orders(id,user_id) ON DELETE RESTRICT;
 ALTER TABLE credit_ledger ADD CONSTRAINT fk_credit_ledger_task_user FOREIGN KEY(ai_task_id,user_id) REFERENCES ai_tasks(id,user_id) ON DELETE RESTRICT;
 CREATE UNIQUE INDEX uq_credit_ledger_order_derived ON credit_ledger(order_id,kind) WHERE order_id IS NOT NULL AND kind IN ('purchase','bonus','payment_refund');
+CREATE UNIQUE INDEX uq_credit_ledger_first_pro_bonus ON credit_ledger(user_id) WHERE kind='bonus';
 CREATE INDEX idx_credit_ledger_task ON credit_ledger(ai_task_id) WHERE ai_task_id IS NOT NULL;
 
 -- Import rows retain source lifecycle metadata but never embed original document bytes.
@@ -231,7 +233,7 @@ CREATE TABLE practice_sessions (id bigint GENERATED ALWAYS AS IDENTITY PRIMARY K
 CREATE INDEX idx_practice_sessions_user_bank ON practice_sessions(user_id,bank_id,started_at DESC);
 CREATE TABLE practice_session_questions (session_id bigint NOT NULL REFERENCES practice_sessions(id) ON DELETE CASCADE, question_id bigint NOT NULL REFERENCES questions(id) ON DELETE RESTRICT, position integer NOT NULL CHECK(position>0), PRIMARY KEY(session_id,question_id), UNIQUE(session_id,position));
 CREATE INDEX idx_practice_session_questions_question ON practice_session_questions(question_id);
-CREATE TABLE practice_answers (id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, session_id bigint NOT NULL, user_id bigint NOT NULL, bank_id bigint NOT NULL, question_id bigint NOT NULL, answer_payload jsonb NOT NULL CHECK(jsonb_typeof(answer_payload)='object'), is_correct boolean, score numeric(10,2) CHECK(score>=0), max_score numeric(10,2) CHECK(max_score>=0 AND (score IS NULL OR score<=max_score)), answered_at timestamptz NOT NULL DEFAULT now(), UNIQUE(session_id,question_id), FOREIGN KEY(session_id,user_id,bank_id) REFERENCES practice_sessions(id,user_id,bank_id) ON DELETE CASCADE, FOREIGN KEY(session_id,question_id) REFERENCES practice_session_questions(session_id,question_id) ON DELETE RESTRICT, UNIQUE(id,user_id,bank_id,question_id));
+CREATE TABLE practice_answers (id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, session_id bigint NOT NULL, user_id bigint NOT NULL, bank_id bigint NOT NULL, question_id bigint NOT NULL, answer_key_id bigint NOT NULL, answer_payload jsonb NOT NULL CHECK(jsonb_typeof(answer_payload)='object'), is_correct boolean, score numeric(10,2) CHECK(score>=0), max_score numeric(10,2) CHECK(max_score>=0 AND (score IS NULL OR score<=max_score)), answered_at timestamptz NOT NULL DEFAULT now(), UNIQUE(session_id,question_id), FOREIGN KEY(session_id,user_id,bank_id) REFERENCES practice_sessions(id,user_id,bank_id) ON DELETE CASCADE, FOREIGN KEY(session_id,question_id) REFERENCES practice_session_questions(session_id,question_id) ON DELETE RESTRICT, FOREIGN KEY(answer_key_id,question_id) REFERENCES question_answer_keys(id,question_id) ON DELETE RESTRICT, UNIQUE(id,user_id,bank_id,question_id));
 CREATE TABLE user_question_stats (user_id bigint NOT NULL REFERENCES users(id) ON DELETE CASCADE, bank_id bigint NOT NULL REFERENCES question_banks(id) ON DELETE CASCADE, question_id bigint NOT NULL REFERENCES questions(id) ON DELETE CASCADE, attempt_count integer NOT NULL DEFAULT 0 CHECK(attempt_count>=0), correct_count integer NOT NULL DEFAULT 0 CHECK(correct_count>=0 AND correct_count<=attempt_count), wrong_count integer NOT NULL DEFAULT 0 CHECK(wrong_count>=0 AND wrong_count<=attempt_count), last_answer_id bigint, last_answered_at timestamptz, PRIMARY KEY(user_id,bank_id,question_id), FOREIGN KEY(last_answer_id,user_id,bank_id,question_id) REFERENCES practice_answers(id,user_id,bank_id,question_id));
 
 -- Future study-group persistence. Invitations store only one-use token hashes.
@@ -251,7 +253,12 @@ INSERT INTO checkpoint_migrations(v) SELECT generate_series(0,9);
 -- Business constraint functions. Tree validators take transaction advisory locks
 -- before recursive checks so concurrent reparenting cannot create cycles.
 CREATE FUNCTION validate_bank_state() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
- IF (TG_OP='INSERT' AND NEW.status<>'private') OR (TG_OP='UPDATE' AND (NEW.owner_user_id<>OLD.owner_user_id OR NEW.subject_id<>OLD.subject_id OR (NEW.status<>OLD.status AND NOT ((OLD.status='private' AND NEW.status='public') OR (OLD.status='public' AND NEW.status='banned') OR (OLD.status='banned' AND NEW.status='public'))))) THEN RAISE EXCEPTION 'invalid bank change' USING ERRCODE='23514'; END IF; RETURN NEW; END $$;
+ IF (TG_OP='INSERT' AND (NEW.status<>'private' OR NEW.deleted_at IS NOT NULL))
+    OR (TG_OP='UPDATE' AND (
+      NEW.owner_user_id<>OLD.owner_user_id OR NEW.subject_id<>OLD.subject_id
+      OR (NEW.status<>OLD.status AND NOT ((OLD.status='private' AND NEW.status='public') OR (OLD.status='public' AND NEW.status='banned') OR (OLD.status='banned' AND NEW.status='public')))
+      OR (OLD.deleted_at IS NOT NULL AND (NEW.name IS DISTINCT FROM OLD.name OR NEW.description IS DISTINCT FROM OLD.description OR NEW.status<>OLD.status OR NEW.cloned_from_bank_id IS DISTINCT FROM OLD.cloned_from_bank_id OR NEW.cloned_at IS DISTINCT FROM OLD.cloned_at OR NEW.deleted_at IS DISTINCT FROM OLD.deleted_at))
+    )) THEN RAISE EXCEPTION 'invalid bank change' USING ERRCODE='23514'; END IF; RETURN NEW; END $$;
 CREATE FUNCTION validate_subset_tree() RETURNS trigger LANGUAGE plpgsql AS $$ DECLARE parent_depth integer := 0; subtree_depth integer; BEGIN
  PERFORM pg_advisory_xact_lock(hashtextextended('bank-subset:' || NEW.bank_id::text, 0));
  IF TG_OP='UPDATE' AND NEW.bank_id<>OLD.bank_id THEN RAISE EXCEPTION 'subset bank is immutable' USING ERRCODE='23514'; END IF;
@@ -267,9 +274,9 @@ CREATE FUNCTION validate_knowledge_tree() RETURNS trigger LANGUAGE plpgsql AS $$
  IF TG_OP='UPDATE' AND NEW.subject_id<>OLD.subject_id THEN RAISE EXCEPTION 'knowledge point subject is immutable' USING ERRCODE='23514'; END IF;
  IF NEW.parent_id IS NOT NULL AND EXISTS(WITH RECURSIVE tree(id,parent_id) AS (SELECT id,parent_id FROM knowledge_points WHERE id=NEW.parent_id UNION ALL SELECT k.id,k.parent_id FROM knowledge_points k JOIN tree t ON k.id=t.parent_id) SELECT 1 FROM tree WHERE id=NEW.id) THEN RAISE EXCEPTION 'knowledge point cycle' USING ERRCODE='23514'; END IF; RETURN NEW; END $$;
 CREATE FUNCTION validate_bank_question_owner() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
- IF EXISTS(SELECT 1 FROM question_banks b JOIN questions q ON q.id=NEW.question_id WHERE b.id=NEW.bank_id AND (b.owner_user_id<>q.owner_user_id OR b.subject_id<>q.subject_id)) THEN RAISE EXCEPTION 'question owner and subject must match bank' USING ERRCODE='23514'; END IF; RETURN NEW; END $$;
+ IF EXISTS(SELECT 1 FROM question_banks b JOIN questions q ON q.id=NEW.question_id WHERE b.id=NEW.bank_id AND (b.deleted_at IS NOT NULL OR b.owner_user_id<>q.owner_user_id OR b.subject_id<>q.subject_id)) THEN RAISE EXCEPTION 'question owner and subject must match live bank' USING ERRCODE='23514'; END IF; RETURN NEW; END $$;
 CREATE FUNCTION validate_bank_group_owner() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
- IF EXISTS(SELECT 1 FROM question_banks b JOIN question_groups g ON g.id=NEW.group_id WHERE b.id=NEW.bank_id AND (b.owner_user_id<>g.owner_user_id OR b.subject_id<>g.subject_id)) THEN RAISE EXCEPTION 'group owner and subject must match bank' USING ERRCODE='23514'; END IF; RETURN NEW; END $$;
+ IF EXISTS(SELECT 1 FROM question_banks b JOIN question_groups g ON g.id=NEW.group_id WHERE b.id=NEW.bank_id AND (b.deleted_at IS NOT NULL OR b.owner_user_id<>g.owner_user_id OR b.subject_id<>g.subject_id)) THEN RAISE EXCEPTION 'group owner and subject must match live bank' USING ERRCODE='23514'; END IF; RETURN NEW; END $$;
 CREATE FUNCTION validate_group_question_owner() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
  IF EXISTS(SELECT 1 FROM question_groups g JOIN questions q ON q.id=NEW.question_id WHERE g.id=NEW.group_id AND (g.owner_user_id<>q.owner_user_id OR g.subject_id<>q.subject_id)) THEN RAISE EXCEPTION 'question owner and subject must match group' USING ERRCODE='23514'; END IF; RETURN NEW; END $$;
 CREATE FUNCTION assert_question_publishable(qid bigint) RETURNS void LANGUAGE plpgsql AS $$
@@ -323,17 +330,21 @@ CREATE FUNCTION validate_credit_ledger() RETURNS trigger LANGUAGE plpgsql AS $$ 
     OR (NEW.kind IN ('reserve','settle','release','failure_refund') AND NEW.ai_task_id IS NULL)
     OR (NEW.kind='purchase' AND NOT EXISTS(SELECT 1 FROM payment_orders WHERE id=NEW.order_id AND kind='credits' AND status='paid' AND NEW.amount=credits_amount))
     OR (NEW.kind='bonus' AND NOT EXISTS(SELECT 1 FROM payment_orders WHERE id=NEW.order_id AND kind='pro' AND status='paid' AND NEW.amount=200))
-    OR (NEW.kind='payment_refund' AND NOT EXISTS(SELECT 1 FROM payment_orders WHERE id=NEW.order_id AND status='refunded' AND NEW.amount=CASE kind WHEN 'pro' THEN -200 ELSE -credits_amount END))
+    OR (NEW.kind='payment_refund' AND NOT EXISTS(SELECT 1 FROM payment_orders o WHERE o.id=NEW.order_id AND o.status='refunded' AND NEW.amount=CASE o.kind WHEN 'pro' THEN -200 ELSE -o.credits_amount END AND (o.kind='credits' OR EXISTS(SELECT 1 FROM credit_ledger b WHERE b.order_id=o.id AND b.kind='bonus'))))
  THEN RAISE EXCEPTION 'invalid credit ledger direction or reference' USING ERRCODE='23514'; END IF; RETURN NEW; END $$;
 CREATE FUNCTION validate_import_task() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
- IF NOT EXISTS(SELECT 1 FROM ai_tasks WHERE id=NEW.ai_task_id AND kind='import') THEN RAISE EXCEPTION 'import job requires import AI task' USING ERRCODE='23514'; END IF; RETURN NEW; END $$;
-CREATE FUNCTION validate_ai_task_change() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
- IF (OLD.status IN ('succeeded','failed','cancelled','timed_out') AND NOT (
-      OLD.status='failed' AND NEW.status='queued' AND OLD.kind='import'
-      AND NEW.result IS NULL AND NEW.error IS NULL
-      AND EXISTS(SELECT 1 FROM question_import_jobs j WHERE j.ai_task_id=OLD.id AND j.status='failed'
-                 AND j.source_deleted_at IS NULL AND j.source_storage_path IS NOT NULL AND j.retry_expires_at>now())))
-    OR NEW.user_id<>OLD.user_id OR NEW.kind<>OLD.kind OR NEW.deadline_at<>OLD.deadline_at
+ IF NOT EXISTS(SELECT 1 FROM ai_tasks t JOIN question_banks b ON b.id=NEW.bank_id WHERE t.id=NEW.ai_task_id AND t.kind='import' AND b.deleted_at IS NULL) THEN RAISE EXCEPTION 'import job requires import AI task and live bank' USING ERRCODE='23514'; END IF; RETURN NEW; END $$;
+CREATE FUNCTION validate_ai_task_change() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE retrying boolean;
+BEGIN
+ retrying := OLD.status='failed' AND NEW.status='queued' AND OLD.kind='import'
+   AND NEW.result IS NULL AND NEW.error IS NULL
+   AND EXISTS(SELECT 1 FROM question_import_jobs j WHERE j.ai_task_id=OLD.id AND j.status='failed'
+              AND j.source_deleted_at IS NULL AND j.source_storage_path IS NOT NULL AND j.retry_expires_at>now());
+ IF (OLD.status IN ('succeeded','failed','cancelled','timed_out') AND NOT retrying)
+    OR NEW.user_id<>OLD.user_id OR NEW.kind<>OLD.kind
+    OR ((NEW.deadline_at IS DISTINCT FROM OLD.deadline_at OR NEW.attempt_started_at IS DISTINCT FROM OLD.attempt_started_at) AND NOT retrying)
+    OR (retrying AND (NEW.deadline_at<=OLD.deadline_at OR NEW.attempt_started_at<=OLD.attempt_started_at OR NEW.attempt_started_at>clock_timestamp() OR NEW.deadline_at<=clock_timestamp() OR NEW.deadline_at>clock_timestamp()+interval '180 seconds'))
     OR NEW.price_snapshot IS DISTINCT FROM OLD.price_snapshot OR NEW.estimated_credits<>OLD.estimated_credits
     OR NEW.created_at<>OLD.created_at
     OR (OLD.status='queued' AND NEW.status NOT IN ('queued','running','failed','cancelled','timed_out'))
@@ -366,15 +377,16 @@ DECLARE o payment_orders%ROWTYPE;
 BEGIN
  SELECT * INTO o FROM payment_orders WHERE id=NEW.id;
  IF o.status IN ('paid','refunded') THEN
-  IF o.kind='pro' AND (NOT EXISTS(SELECT 1 FROM credit_ledger WHERE order_id=o.id AND kind='bonus' AND amount=200)
-     OR (o.status='paid' AND NOT EXISTS(SELECT 1 FROM users WHERE id=o.user_id AND paid_pro_at IS NOT NULL))) THEN
-   RAISE EXCEPTION 'paid Pro order requires entitlement and bonus' USING ERRCODE='23514';
+  IF o.kind='pro' AND ((o.status='paid' AND NOT EXISTS(SELECT 1 FROM users WHERE id=o.user_id AND paid_pro_at IS NOT NULL))
+     OR NOT EXISTS(SELECT 1 FROM credit_ledger WHERE user_id=o.user_id AND kind='bonus' AND amount=200)) THEN
+   RAISE EXCEPTION 'paid Pro order requires entitlement and first bonus' USING ERRCODE='23514';
   ELSIF o.kind='credits' AND NOT EXISTS(SELECT 1 FROM credit_ledger WHERE order_id=o.id AND kind='purchase' AND amount=o.credits_amount) THEN
    RAISE EXCEPTION 'paid credits order requires purchase ledger' USING ERRCODE='23514';
   END IF;
  END IF;
  IF o.status='refunded' AND (NOT EXISTS(SELECT 1 FROM payment_refunds WHERE order_id=o.id AND status='succeeded')
-    OR NOT EXISTS(SELECT 1 FROM credit_ledger WHERE order_id=o.id AND kind='payment_refund' AND amount=CASE o.kind WHEN 'pro' THEN -200 ELSE -o.credits_amount END)
+    OR (o.kind='credits' AND NOT EXISTS(SELECT 1 FROM credit_ledger WHERE order_id=o.id AND kind='payment_refund' AND amount=-o.credits_amount))
+    OR (o.kind='pro' AND EXISTS(SELECT 1 FROM credit_ledger WHERE order_id=o.id AND kind='bonus') AND NOT EXISTS(SELECT 1 FROM credit_ledger WHERE order_id=o.id AND kind='payment_refund' AND amount=-200))
     OR (o.kind='pro' AND EXISTS(SELECT 1 FROM users WHERE id=o.user_id AND paid_pro_at IS NOT NULL))) THEN
   RAISE EXCEPTION 'refunded order requires entitlement and credit reversal' USING ERRCODE='23514';
  END IF;
@@ -388,12 +400,34 @@ CREATE FUNCTION validate_refund_fulfillment() RETURNS trigger LANGUAGE plpgsql A
 CREATE FUNCTION validate_study_group_owner() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
  IF NOT EXISTS(SELECT 1 FROM users WHERE id=NEW.owner_user_id AND paid_pro_at IS NOT NULL AND status='active') THEN RAISE EXCEPTION 'paid Pro owner required' USING ERRCODE='23514'; END IF; RETURN NEW; END $$;
 CREATE FUNCTION validate_study_group_bank() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
- IF NOT EXISTS(SELECT 1 FROM study_groups g JOIN question_banks b ON b.id=NEW.bank_id WHERE g.id=NEW.group_id AND g.owner_user_id=b.owner_user_id AND NEW.linked_by=g.owner_user_id) THEN RAISE EXCEPTION 'group owner may link only owned banks' USING ERRCODE='23514'; END IF; RETURN NEW; END $$;
+ IF NOT EXISTS(SELECT 1 FROM study_groups g JOIN question_banks b ON b.id=NEW.bank_id WHERE g.id=NEW.group_id AND g.owner_user_id=b.owner_user_id AND NEW.linked_by=g.owner_user_id AND b.deleted_at IS NULL) THEN RAISE EXCEPTION 'group owner may link only owned live banks' USING ERRCODE='23514'; END IF; RETURN NEW; END $$;
 CREATE FUNCTION validate_question_dependents() RETURNS trigger LANGUAGE plpgsql AS $$ DECLARE qid bigint; BEGIN
  qid := CASE WHEN TG_OP='DELETE' THEN OLD.question_id ELSE NEW.question_id END;
  IF TG_OP='UPDATE' AND OLD.question_id<>NEW.question_id THEN PERFORM assert_question_publishable(OLD.question_id); END IF;
  PERFORM assert_question_publishable(qid);
  RETURN CASE WHEN TG_OP='DELETE' THEN OLD ELSE NEW END; END $$;
+CREATE FUNCTION validate_answer_key_change() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+ IF NEW.question_id<>OLD.question_id OR NEW.answer_mode<>OLD.answer_mode OR NEW.version<>OLD.version
+    OR NEW.answer_payload IS DISTINCT FROM OLD.answer_payload OR NEW.explanation_payload IS DISTINCT FROM OLD.explanation_payload
+    OR NEW.created_at<>OLD.created_at THEN RAISE EXCEPTION 'answer key version is immutable' USING ERRCODE='55000'; END IF;
+ RETURN NEW; END $$;
+CREATE FUNCTION validate_practice_session_bank() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+ IF NOT EXISTS(SELECT 1 FROM question_banks WHERE id=NEW.bank_id AND deleted_at IS NULL) THEN RAISE EXCEPTION 'practice session requires live bank' USING ERRCODE='23514'; END IF;
+ RETURN NEW; END $$;
+CREATE FUNCTION validate_ai_task_call() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE task_status text; existing ai_task_calls%ROWTYPE;
+BEGIN
+ SELECT status INTO task_status FROM ai_tasks WHERE id=NEW.task_id FOR UPDATE;
+ SELECT * INTO existing FROM ai_task_calls WHERE task_id=NEW.task_id AND call_key=NEW.call_key;
+ IF FOUND THEN
+  IF existing.model_id IS DISTINCT FROM NEW.model_id OR existing.input_tokens<>NEW.input_tokens OR existing.output_tokens<>NEW.output_tokens
+     OR existing.input_price_per_1k<>NEW.input_price_per_1k OR existing.output_price_per_1k<>NEW.output_price_per_1k
+     OR existing.call_kind IS DISTINCT FROM NEW.call_kind THEN RAISE EXCEPTION 'AI call key payload conflict' USING ERRCODE='23514'; END IF;
+  RETURN NULL;
+ END IF;
+ IF task_status IS DISTINCT FROM 'running' THEN RAISE EXCEPTION 'AI calls require running task' USING ERRCODE='23514'; END IF;
+ RETURN NEW;
+END $$;
 -- Audit and financial facts are append-only; practice answers permit scoped reset
 -- deletion but reject mutation after submission.
 CREATE FUNCTION reject_immutable_mutation() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION '% is immutable', TG_TABLE_NAME USING ERRCODE='55000'; END $$;
@@ -421,6 +455,7 @@ CREATE CONSTRAINT TRIGGER questions_active AFTER INSERT OR UPDATE OF status,answ
 CREATE TRIGGER bql_owner BEFORE INSERT OR UPDATE ON bank_question_links FOR EACH ROW EXECUTE FUNCTION validate_bank_question_owner();
 CREATE TRIGGER bgl_owner BEFORE INSERT OR UPDATE ON bank_group_links FOR EACH ROW EXECUTE FUNCTION validate_bank_group_owner();
 CREATE TRIGGER gql_owner BEFORE INSERT OR UPDATE ON group_question_links FOR EACH ROW EXECUTE FUNCTION validate_group_question_owner();
+CREATE TRIGGER keys_version BEFORE UPDATE ON question_answer_keys FOR EACH ROW EXECUTE FUNCTION validate_answer_key_change();
 CREATE TRIGGER keys_updated BEFORE UPDATE ON question_answer_keys FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE CONSTRAINT TRIGGER keys_active AFTER INSERT OR UPDATE OR DELETE ON question_answer_keys DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION validate_question_dependents();
 CREATE CONSTRAINT TRIGGER options_active AFTER INSERT OR UPDATE OR DELETE ON question_options DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION validate_question_dependents();
@@ -436,11 +471,13 @@ CREATE TRIGGER refund_immutable BEFORE DELETE ON payment_refunds FOR EACH ROW EX
 CREATE TRIGGER ai_tasks_valid BEFORE UPDATE ON ai_tasks FOR EACH ROW EXECUTE FUNCTION validate_ai_task_change();
 CREATE TRIGGER task_updated BEFORE UPDATE ON ai_tasks FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE CONSTRAINT TRIGGER import_retry_alignment AFTER UPDATE OF status ON ai_tasks DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION validate_import_retry_alignment();
+CREATE TRIGGER ai_task_calls_valid BEFORE INSERT ON ai_task_calls FOR EACH ROW EXECUTE FUNCTION validate_ai_task_call();
 CREATE TRIGGER ai_task_calls_immutable BEFORE UPDATE OR DELETE ON ai_task_calls FOR EACH ROW EXECUTE FUNCTION reject_immutable_mutation();
 CREATE TRIGGER imports_updated BEFORE UPDATE ON question_import_jobs FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER imports_valid BEFORE UPDATE ON question_import_jobs FOR EACH ROW EXECUTE FUNCTION validate_import_job_change();
 CREATE TRIGGER imports_task BEFORE INSERT OR UPDATE OF ai_task_id ON question_import_jobs FOR EACH ROW EXECUTE FUNCTION validate_import_task();
 CREATE TRIGGER import_events_immutable BEFORE UPDATE OR DELETE ON question_import_job_events FOR EACH ROW EXECUTE FUNCTION reject_immutable_mutation();
+CREATE TRIGGER sessions_live_bank BEFORE INSERT OR UPDATE OF bank_id ON practice_sessions FOR EACH ROW EXECUTE FUNCTION validate_practice_session_bank();
 CREATE TRIGGER sessions_updated BEFORE UPDATE ON practice_sessions FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER answer_stats AFTER INSERT ON practice_answers FOR EACH ROW EXECUTE FUNCTION apply_practice_stats();
 CREATE TRIGGER answers_immutable BEFORE UPDATE ON practice_answers FOR EACH ROW EXECUTE FUNCTION reject_immutable_mutation();

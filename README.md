@@ -10,13 +10,14 @@ PractiQ is a question-bank and smart-practice platform: teachers build question 
 
 ## AI service contract
 
-The pending Java-to-Python integration uses `Authorization: Bearer $AI_SERVICE_TOKEN` on every `/api/v1/ai/*` operation; `/api/health/live` is public for probes. Stable integration DTOs live in `server/ai_schemas.py`. Supported providers: DashScope, DeepSeek (text only), and Moonshot. Document parsing supports TXT, Markdown, CSV, DOCX, PDF, XLSX, and images.
+The pending Java-to-Python integration uses `Authorization: Bearer $AI_SERVICE_TOKEN` on every `/api/v1/ai/*` operation; `/api/health/live` is public for probes. Stable integration DTOs live in `server/ai_schemas.py`, and every successful or terminal AI response includes idempotent per-call token usage. Supported providers: DashScope, DeepSeek (text only), and Moonshot. Document parsing supports TXT, Markdown, CSV, DOCX, PDF, XLSX, and images.
 
 ## Local setup
 
 ```bash
 cp .env.example .env.local
-# Set AUTH_SECRET, AI_SERVICE_TOKEN, LLM_PROVIDER, LLM_API_KEY, and LLM_TEXT_MODEL.
+# Set AUTH_SECRET, WECHAT_APP_ID, WECHAT_APP_SECRET, AI_SERVICE_TOKEN, LLM_PROVIDER, LLM_API_KEY, and LLM_TEXT_MODEL.
+# Set SECURE_COOKIES=false only for local HTTP cookie testing.
 cd server && uv sync --extra dev && cd ..
 docker compose up -d      # PostgreSQL, Redis, AI service (host port 8081)
 make backend-dev          # Java API

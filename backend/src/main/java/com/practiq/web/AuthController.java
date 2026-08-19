@@ -1,17 +1,180 @@
 package com.practiq.web;
-import com.practiq.auth.AuthService; import com.practiq.common.*; import jakarta.servlet.http.*; import java.nio.charset.StandardCharsets; import java.security.*; import java.time.Duration; import java.util.*; import org.slf4j.Logger; import org.slf4j.LoggerFactory; import org.springframework.beans.factory.annotation.Value; import org.springframework.data.redis.core.StringRedisTemplate; import org.springframework.http.*; import org.springframework.jdbc.core.JdbcTemplate; import org.springframework.web.bind.annotation.*;
-@RestController @RequestMapping("/api/v1") public class AuthController { static final Logger log=LoggerFactory.getLogger(AuthController.class); final AuthService auth;final StringRedisTemplate redis;final JdbcTemplate jdbc; final String prefix; final boolean production;
- public AuthController(AuthService a,StringRedisTemplate r,JdbcTemplate j,@Value("${practiq.redis-key-prefix:practiq}")String p,@Value("${spring.profiles.active:}")String profile){auth=a;redis=r;jdbc=j;prefix=p;production="production".equals(profile);}
- record Register(String username,String email,String password,String code){} record Login(String login,String password){} record Refresh(String refreshToken){} record EmailCode(String email){} record Profile(String username,String email,String currentPassword,String newPassword){}
- @PostMapping("/auth/register") ResponseEntity<ApiResponse<?>> register(@RequestBody Register b,HttpServletResponse r){String email=normalEmail(b.email());rate("register","");String key=codeKey(email);String value;try{value=redis.opsForValue().get(key);}catch(Exception e){throw unavailable("AUTH_RATE_LIMIT_UNAVAILABLE","Authentication service is temporarily unavailable");}if(b.code()==null||value==null||!MessageDigest.isEqual(value.getBytes(StandardCharsets.UTF_8),b.code().getBytes(StandardCharsets.UTF_8)))throw invalidCode();try{redis.delete(key);}catch(Exception ignored){}return issued(auth.register(b.username(),email,b.password()),HttpStatus.CREATED,r);}
- @PostMapping("/auth/login") ResponseEntity<ApiResponse<?>> login(@RequestBody Login b,HttpServletResponse r){rate("login",b.login());return issued(auth.login(b.login(),b.password()),HttpStatus.OK,r);}
- @PostMapping("/auth/email-code") ResponseEntity<Void> code(@RequestBody EmailCode b){String email=normalEmail(b.email());rate("email-code",email);String code=String.format("%06d",new SecureRandom().nextInt(1_000_000));try{redis.opsForValue().set(codeKey(email),code,Duration.ofMinutes(10));}catch(Exception e){throw unavailable("AUTH_RATE_LIMIT_UNAVAILABLE","Authentication service is temporarily unavailable");} if(System.getenv("SMTP_HOST")==null||System.getenv("SMTP_HOST").isBlank())log.info("SMTP_HOST is not configured; verification code for {} is {}",email,code); else log.warn("SMTP delivery is not configured in this Java runtime"); return ResponseEntity.noContent().build();}
- @PostMapping("/auth/refresh") ResponseEntity<ApiResponse<?>> refresh(@RequestBody(required=false) Refresh b,HttpServletRequest q,HttpServletResponse r){String raw=b==null?null:b.refreshToken();if(raw==null||raw.isBlank())raw=cookie(q,"refresh_token");if(raw==null||raw.isBlank())throw ApiException.of(401,"INVALID_REFRESH_TOKEN","Invalid refresh token");return issued(auth.refresh(raw),HttpStatus.OK,r);}
- @GetMapping("/auth/me") ApiResponse<?> me(@RequestHeader(value="Authorization",required=false)String h){return ApiResponse.ok(auth.user(auth.require(h)));}
- @PostMapping("/auth/logout") ResponseEntity<Void> logout(@RequestHeader(value="Authorization",required=false)String h,HttpServletResponse r){long id=auth.require(h);jdbc.update("update auth_sessions set revoked_at=now(),revoke_reason='logout' where user_id=? and revoked_at is null",id);clear(r,"session","/");clear(r,"refresh_token","/api/v1/auth");return ResponseEntity.noContent().build();}
- @PatchMapping("/users/me") ApiResponse<?> update(@RequestHeader(value="Authorization",required=false)String h,@RequestBody Profile b){long id=auth.require(h);boolean emailSet=b.email()!=null;return ApiResponse.ok(auth.update(id,b.username(),emailSet,b.email(),b.currentPassword(),b.newPassword()));}
- private ResponseEntity<ApiResponse<?>> issued(Map<String,Object> v,HttpStatus s,HttpServletResponse r){@SuppressWarnings("unchecked")var t=(Map<String,Object>)v.get("tokens");cookie(r,"session",(String)t.get("accessToken"),"/",Duration.ofMinutes(10));cookie(r,"refresh_token",(String)t.get("refreshToken"),"/api/v1/auth",Duration.ofDays(30));return ResponseEntity.status(s).body(ApiResponse.ok(v));}
- private void cookie(HttpServletResponse r,String n,String v,String path,Duration age){ResponseCookie c=ResponseCookie.from(n,v).path(path).httpOnly(true).sameSite("Lax").secure(production).maxAge(age).build();r.addHeader(HttpHeaders.SET_COOKIE,c.toString());} private void clear(HttpServletResponse r,String n,String p){r.addHeader(HttpHeaders.SET_COOKIE,ResponseCookie.from(n,"").path(p).httpOnly(true).sameSite("Lax").secure(production).maxAge(Duration.ZERO).build().toString());}
- private String cookie(HttpServletRequest r,String name){if(r.getCookies()!=null)for(Cookie c:r.getCookies())if(name.equals(c.getName()))return c.getValue();return "";} private String normalEmail(String e){if(e==null||e.trim().length()>254||!e.trim().matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"))throw ApiException.of(422,"VALIDATION_ERROR","Invalid request",List.of(Map.of("field","email","message","Must be a valid email address")));return e.trim();} private String codeKey(String email){return prefix+":email-verify:"+hex(email.toLowerCase(Locale.ROOT));} private String hex(String s){try{return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(s.getBytes(StandardCharsets.UTF_8)));}catch(Exception e){throw new IllegalStateException(e);}}
- private void rate(String action,String identity){try{String ip="unknown";inc(prefix+":rate-limit:auth:/api/v1/auth/"+action+":ip:"+ip,identity.isBlank()?10:100);if(!identity.isBlank())inc(prefix+":rate-limit:auth:/api/v1/auth/"+action+":identity:"+hex(identity.toLowerCase(Locale.ROOT)),10);}catch(ApiException e){throw e;}catch(Exception e){throw unavailable("AUTH_RATE_LIMIT_UNAVAILABLE","Authentication service is temporarily unavailable");}} private void inc(String k,int max){Long n=redis.opsForValue().increment(k);if(n!=null&&n==1)redis.expire(k,Duration.ofMinutes(1));if(n!=null&&n>max)throw ApiException.of(429,"RATE_LIMITED","Too many authentication attempts");} private ApiException invalidCode(){return ApiException.of(422,"VALIDATION_ERROR","Invalid request",List.of(Map.of("field","code","message","Verification code is invalid or expired")));} private ApiException unavailable(String c,String m){return ApiException.of(503,c,m);}
+
+import com.practiq.auth.AuthService;
+import com.practiq.auth.WeChatClient;
+import com.practiq.common.ApiException;
+import com.practiq.common.ApiResponse;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.time.Duration;
+import java.util.HexFormat;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/api/v1")
+public class AuthController {
+  private final AuthService auth;
+  private final WeChatClient wechat;
+  private final StringRedisTemplate redis;
+  private final String prefix;
+  private final boolean secureCookies;
+
+  public AuthController(
+      AuthService auth,
+      WeChatClient wechat,
+      StringRedisTemplate redis,
+      @Value("${practiq.redis-key-prefix:practiq}") String prefix,
+      @Value("${practiq.secure-cookies:true}") boolean secureCookies) {
+    this.auth = auth;
+    this.wechat = wechat;
+    this.redis = redis;
+    this.prefix = prefix;
+    this.secureCookies = secureCookies;
+  }
+
+  record WeChatLogin(@NotBlank String code) {}
+  record Refresh(String refreshToken) {}
+  record Profile(String displayName, String avatarUrl) {}
+
+  @PostMapping("/auth/wechat-login")
+  ResponseEntity<ApiResponse<?>> login(
+      @Valid @RequestBody WeChatLogin body,
+      HttpServletRequest request,
+      HttpServletResponse response) {
+    rate(request.getRemoteAddr());
+    return issued(auth.login(wechat.exchange(body.code())), HttpStatus.OK, response);
+  }
+
+  @PostMapping("/auth/refresh")
+  ResponseEntity<ApiResponse<?>> refresh(
+      @RequestBody(required = false) Refresh body,
+      HttpServletRequest request,
+      HttpServletResponse response) {
+    String raw = body == null ? null : body.refreshToken();
+    if (raw == null || raw.isBlank()) {
+      raw = cookie(request, "refresh_token");
+    }
+    if (raw == null || raw.isBlank()) {
+      throw ApiException.of(401, "INVALID_REFRESH_TOKEN", "Invalid refresh token");
+    }
+    return issued(auth.refresh(raw), HttpStatus.OK, response);
+  }
+
+  @GetMapping("/auth/me")
+  ApiResponse<?> me(@RequestHeader(value = "Authorization", required = false) String header) {
+    return ApiResponse.ok(auth.user(auth.require(header)));
+  }
+
+  @PostMapping("/auth/logout")
+  ResponseEntity<Void> logout(
+      @RequestHeader(value = "Authorization", required = false) String header,
+      HttpServletResponse response) {
+    auth.logout(auth.require(header));
+    clear(response, "session", "/");
+    clear(response, "refresh_token", "/api/v1/auth");
+    return ResponseEntity.noContent().build();
+  }
+
+  @PatchMapping("/users/me")
+  ApiResponse<?> update(
+      @RequestHeader(value = "Authorization", required = false) String header,
+      @RequestBody Profile body) {
+    return ApiResponse.ok(auth.update(auth.require(header), body.displayName(), body.avatarUrl()));
+  }
+
+  private ResponseEntity<ApiResponse<?>> issued(
+      java.util.Map<String, Object> value, HttpStatus status, HttpServletResponse response) {
+    @SuppressWarnings("unchecked")
+    var tokens = (java.util.Map<String, Object>) value.get("tokens");
+    cookie(response, "session", (String) tokens.get("accessToken"), "/", Duration.ofMinutes(10));
+    cookie(
+        response,
+        "refresh_token",
+        (String) tokens.get("refreshToken"),
+        "/api/v1/auth",
+        Duration.ofDays(30));
+    return ResponseEntity.status(status).body(ApiResponse.ok(value));
+  }
+
+  private void cookie(
+      HttpServletResponse response, String name, String value, String path, Duration age) {
+    ResponseCookie cookie = ResponseCookie.from(name, value)
+        .path(path)
+        .httpOnly(true)
+        .sameSite("Lax")
+        .secure(secureCookies)
+        .maxAge(age)
+        .build();
+    response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+  }
+
+  private void clear(HttpServletResponse response, String name, String path) {
+    response.addHeader(
+        HttpHeaders.SET_COOKIE,
+        ResponseCookie.from(name, "")
+            .path(path)
+            .httpOnly(true)
+            .sameSite("Lax")
+            .secure(secureCookies)
+            .maxAge(Duration.ZERO)
+            .build()
+            .toString());
+  }
+
+  private String cookie(HttpServletRequest request, String name) {
+    if (request.getCookies() != null) {
+      for (Cookie cookie : request.getCookies()) {
+        if (name.equals(cookie.getName())) {
+          return cookie.getValue();
+        }
+      }
+    }
+    return "";
+  }
+
+  private void rate(String address) {
+    try {
+      String key = prefix + ":rate-limit:auth:wechat-login:ip:" + hash(address == null ? "unknown" : address);
+      Long count = redis.opsForValue().increment(key);
+      if (count != null) {
+        redis.expire(key, Duration.ofMinutes(1));
+      }
+      if (count != null && count > 20) {
+        throw ApiException.of(429, "RATE_LIMITED", "Too many authentication attempts");
+      }
+    } catch (ApiException e) {
+      throw e;
+    } catch (Exception e) {
+      throw ApiException.of(
+          503,
+          "AUTH_RATE_LIMIT_UNAVAILABLE",
+          "Authentication service is temporarily unavailable");
+    }
+  }
+
+  private String hash(String value) {
+    try {
+      return HexFormat.of().formatHex(
+          MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));
+    } catch (Exception e) {
+      throw new IllegalStateException(e);
+    }
+  }
 }

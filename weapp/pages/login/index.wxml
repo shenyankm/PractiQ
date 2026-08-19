@@ -1,0 +1,5 @@
+<view class="login">
+  <text class="title">PractiQ</text>
+  <button type="primary" loading="{{loading}}" disabled="{{loading}}" bindtap="login">微信登录</button>
+  <text wx:if="{{error}}" class="error">{{error}}</text>
+</view>

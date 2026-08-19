@@ -1,6 +1,6 @@
 {
   "miniprogramRoot": "./",
-  "projectname": "practiq-weapp"
+  "projectname": "practiq-weapp",
   "description": "PractiQ 微信小程序",
   "appid": "touristappid",
   "setting": {

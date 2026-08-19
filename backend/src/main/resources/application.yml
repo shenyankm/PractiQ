@@ -22,10 +22,8 @@ practiq:
   auth-secret: "${AUTH_SECRET:?AUTH_SECRET is required}"
   app-origin: "${APP_ORIGIN:http://127.0.0.1:3000}"
   redis-key-prefix: "${REDIS_KEY_PREFIX:practiq}"
+  secure-cookies: "${SECURE_COOKIES:true}"
   object-storage-mount-dir: "${OBJECT_STORAGE_MOUNT_DIR:/tmp/practiq-media}"
-  revenuecat:
-    project-id: "${REVENUECAT_PROJECT_ID:}"
-    secret-api-key: "${REVENUECAT_SECRET_API_KEY:}"
-    pro-entitlement-id: "${REVENUECAT_PRO_ENTITLEMENT_ID:}"
-    organization-entitlement-id: "${REVENUECAT_ORGANIZATION_ENTITLEMENT_ID:organization}"
-    webhook-authorization: "${REVENUECAT_WEBHOOK_AUTHORIZATION:}"
+  wechat:
+    app-id: "${WECHAT_APP_ID:}"
+    app-secret: "${WECHAT_APP_SECRET:}"

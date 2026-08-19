@@ -1,3 +1,5 @@
 <view class="container">
   <text class="title">PractiQ</text>
+  <text wx:if="{{user}}">{{user.displayName || '微信用户'}}</text>
+  <button size="mini" bindtap="logout">退出登录</button>
 </view>

@@ -1,5 +1,5 @@
 {
-  "pages": ["pages/index/index"],
+  "pages": ["pages/login/index", "pages/index/index"],
   "window": {
     "navigationBarTitleText": "PractiQ",
     "navigationBarBackgroundColor": "#0B5F4B",

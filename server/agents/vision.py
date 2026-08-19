@@ -1,32 +1,34 @@
 import base64
 from io import BytesIO
-from typing import Literal, cast
+from typing import Any, Literal, cast
+from uuid import uuid4
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import HumanMessage
 from pydantic import BaseModel, Field
 
 from ..ai_schemas import VisualElement
+from .model import record_usage
 
 MAX_CROPS = 50
 MAX_CROP_BYTES = 200 * 1024
 
 OCR_PROMPT = (
-    'You are an OCR engine for assessment documents. Transcribe all text on '
-    'this page in reading order. Convert every mathematical or chemical '
-    'formula to LaTeX. Convert every table to a markdown table. List every '
-    'figure (illustration, chart, diagram, QR code) with a short description '
-    'and its bounding box as relative coordinates [x0, y0, x1, y1] in the '
-    'range 0..1.'
+    "You are an OCR engine for assessment documents. Transcribe all text on "
+    "this page in reading order. Convert every mathematical or chemical "
+    "formula to LaTeX. Convert every table to a markdown table. List every "
+    "figure (illustration, chart, diagram, QR code) with a short description "
+    "and its bounding box as relative coordinates [x0, y0, x1, y1] in the "
+    "range 0..1."
 )
 DESCRIBE_PROMPT = (
-    'Describe this image from an assessment document in one or two sentences. '
-    'Transcribe any text it contains.'
+    "Describe this image from an assessment document in one or two sentences. "
+    "Transcribe any text it contains."
 )
 
 
 class OcrFigure(BaseModel):
-    kind: Literal['image', 'table', 'chart', 'diagram', 'qr_code'] = 'image'
+    kind: Literal["image", "table", "chart", "diagram", "qr_code"] = "image"
     label: str | None = None
     description: str
     bbox: list[float] = Field(min_length=4, max_length=4)
@@ -45,12 +47,17 @@ class ImageDescription(BaseModel):
 async def ocr_page(
     vl_model: BaseChatModel, image: bytes, page_index: int
 ) -> tuple[str, list[VisualElement]]:
-    page = cast(
-        PageOcrResult,
+    call_key = uuid4()
+    response = cast(
+        dict[str, Any],
         await vl_model.with_structured_output(
-            PageOcrResult, method='function_calling'
-        ).ainvoke([_image_message(OCR_PROMPT, image, 'image/png')]),
+            PageOcrResult, method="function_calling", include_raw=True
+        ).ainvoke([_image_message(OCR_PROMPT, image, "image/png")]),
     )
+    record_usage(vl_model, response["raw"], "vision_ocr", call_key)
+    if response["parsed"] is None:
+        raise response["parsing_error"]
+    page = cast(PageOcrResult, response["parsed"])
     return page.text.strip(), [
         VisualElement(
             kind=figure.kind,
@@ -65,14 +72,19 @@ async def ocr_page(
 
 
 async def describe_image(vl_model: BaseChatModel, image: bytes) -> VisualElement:
-    described = cast(
-        ImageDescription,
+    call_key = uuid4()
+    response = cast(
+        dict[str, Any],
         await vl_model.with_structured_output(
-            ImageDescription, method='function_calling'
+            ImageDescription, method="function_calling", include_raw=True
         ).ainvoke([_image_message(DESCRIBE_PROMPT, image, _media_type(image))]),
     )
+    record_usage(vl_model, response["raw"], "vision_describe", call_key)
+    if response["parsed"] is None:
+        raise response["parsing_error"]
+    described = cast(ImageDescription, response["parsed"])
     return VisualElement(
-        kind='image',
+        kind="image",
         description=described.description,
         extractedText=described.extractedText,
     )
@@ -89,7 +101,7 @@ async def ocr_pages(
     texts = [text for text, _ in results if text]
     visuals = [item for _, items in results for item in items]
     warnings = _limit_crops(visuals)
-    return '\n\n'.join(texts), visuals, warnings
+    return "\n\n".join(texts), visuals, warnings
 
 
 async def describe_images(
@@ -107,12 +119,12 @@ def _limit_crops(visuals: list[VisualElement]) -> list[str]:
             continue
         figures += 1
         if figures > MAX_CROPS:
-            visuals[index] = item.model_copy(update={'imageBase64': None})
+            visuals[index] = item.model_copy(update={"imageBase64": None})
             limited = True
     return (
         [
-            f'Figure crop limit of {MAX_CROPS} reached; remaining figures '
-            'include descriptions only.'
+            f"Figure crop limit of {MAX_CROPS} reached; remaining figures "
+            "include descriptions only."
         ]
         if limited
         else []
@@ -122,11 +134,11 @@ def _limit_crops(visuals: list[VisualElement]) -> list[str]:
 def _image_message(prompt: str, image: bytes, media_type: str) -> HumanMessage:
     return HumanMessage(
         content=[
-            {'type': 'text', 'text': prompt},
+            {"type": "text", "text": prompt},
             {
-                'type': 'image_url',
-                'image_url': {
-                    'url': f'data:{media_type};base64,{base64.b64encode(image).decode()}'
+                "type": "image_url",
+                "image_url": {
+                    "url": f"data:{media_type};base64,{base64.b64encode(image).decode()}"
                 },
             },
         ]
@@ -134,13 +146,13 @@ def _image_message(prompt: str, image: bytes, media_type: str) -> HumanMessage:
 
 
 def _media_type(image: bytes) -> str:
-    if image.startswith(b'\x89PNG'):
-        return 'image/png'
-    if image.startswith(b'GIF8'):
-        return 'image/gif'
-    if image.startswith(b'RIFF') and image[8:12] == b'WEBP':
-        return 'image/webp'
-    return 'image/jpeg'
+    if image.startswith(b"\x89PNG"):
+        return "image/png"
+    if image.startswith(b"GIF8"):
+        return "image/gif"
+    if image.startswith(b"RIFF") and image[8:12] == b"WEBP":
+        return "image/webp"
+    return "image/jpeg"
 
 
 def _clamped_bbox(bbox: list[float]) -> list[float]:
@@ -161,12 +173,12 @@ def _crop_figure(page_image: bytes, bbox: list[float]) -> str | None:
                 int(x1 * image.width),
                 int(y1 * image.height),
             )
-        except (OverflowError, ValueError):
+        except OverflowError, ValueError:
             return None
-        cropped = image.convert('RGB').crop(box)
+        cropped = image.convert("RGB").crop(box)
     while True:
         buffer = BytesIO()
-        cropped.save(buffer, format='JPEG', quality=80)
+        cropped.save(buffer, format="JPEG", quality=80)
         if buffer.tell() <= MAX_CROP_BYTES:
             return base64.b64encode(buffer.getvalue()).decode()
         if cropped.width < 64 or cropped.height < 64:
