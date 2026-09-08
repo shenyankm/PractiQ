@@ -1,30 +1,33 @@
 import asyncio
+import hashlib
 import json
+from collections import Counter
 from io import BytesIO
+from types import SimpleNamespace
 from typing import Any, cast
 from uuid import uuid4
 
+import httpx2
 import pytest
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.messages import AIMessage
+from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
 from langchain_core.runnables import RunnableConfig, RunnableLambda
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import InMemorySaver
+from openai import APIConnectionError, APIStatusError, APITimeoutError, RateLimitError
 from PIL import Image
 from pydantic import BaseModel, Field, ValidationError
 
-import server.agents.generator as generator
-import server.agents.model as model_factory
-import server.agents.parser as parser
-import server.agents.vision as vision
-from server.ai_schemas import (
-    AnswerGenerationResult,
-    DocumentParseRequest,
-    DocumentParseResult,
-    LearningReportResult,
+from practiq_ai import llm
+from practiq_ai.contracts import (
+    ArtifactReference,
+    DocumentReference,
+    VisualElement,
 )
-from server.extractors import DocumentProcessingError, ExtractedDocument
+from practiq_ai.errors import DocumentProcessingError
+from practiq_ai.extractors import ExtractedDocument
+from practiq_ai.graphs import document, vision
 
 
 class FakeModel(BaseChatModel):
@@ -38,9 +41,7 @@ class FakeModel(BaseChatModel):
     def _generate(self, messages, stop=None, run_manager=None, **kwargs) -> ChatResult:
         return ChatResult(generations=[ChatGeneration(message=AIMessage(content=""))])
 
-    def with_structured_output(
-        self, schema: Any, *, include_raw=False, **kwargs
-    ) -> RunnableLambda:
+    def with_structured_output(self, schema: Any, *, include_raw=False, **kwargs):
         async def invoke(messages):
             self.calls.append(list(messages))
             item = self.responses.pop(0)
@@ -64,43 +65,52 @@ class FakeModel(BaseChatModel):
                 error = None
             except ValidationError as exc:
                 parsed, error = None, exc
-            if include_raw:
-                return {"raw": raw, "parsed": parsed, "parsing_error": error}
-            if error:
-                raise error
-            return parsed
+            return {"raw": raw, "parsed": parsed, "parsing_error": error}
 
         return RunnableLambda(invoke)
 
 
-@pytest.mark.parametrize(
-    ("provider", "base_url"),
-    model_factory.BASE_URLS.items(),
-)
-def test_builds_supported_provider(provider: str, base_url: str) -> None:
-    text, vision_model = model_factory.build_models(provider, "test-key", "text-model")
-    assert isinstance(text, ChatOpenAI)
-    assert text.openai_api_base == base_url
-    assert cast(Any, text.openai_api_key).get_secret_value() == "test-key"
-    assert text.max_retries == 0
-    assert vision_model is None
+class FakeObjectStore:
+    def __init__(self, blobs: dict[str, bytes]):
+        self.blobs = blobs
+        self.put_kinds: list[str] = []
+
+    async def get_verified(self, reference):
+        payload = self.blobs[reference.objectKey]
+        if len(payload) != reference.sizeBytes:
+            raise DocumentProcessingError(
+                409, "Stored document size does not match", "DOCUMENT_SIZE_MISMATCH"
+            )
+        if hashlib.sha256(payload).hexdigest() != reference.sha256:
+            raise DocumentProcessingError(
+                409,
+                "Stored document checksum does not match",
+                "DOCUMENT_CHECKSUM_MISMATCH",
+            )
+        return payload
+
+    async def put_artifact(
+        self,
+        payload: bytes,
+        *,
+        source_sha256: str,
+        kind: str,
+        index: int,
+        media_type: str,
+    ):
+        digest = hashlib.sha256(payload).hexdigest()
+        key = f"artifact/{source_sha256}/{kind}/{index}/{digest}"
+        self.blobs[key] = payload
+        self.put_kinds.append(kind)
+        return ArtifactReference(
+            objectKey=key,
+            sha256=digest,
+            mediaType=media_type,
+            sizeBytes=len(payload),
+        )
 
 
-def test_factory_rejects_unsupported_provider_and_deepseek_vision() -> None:
-    with pytest.raises(ValueError, match="Unsupported"):
-        model_factory.build_models("openai", "key", "text")
-    with pytest.raises(ValueError, match="does not support vision"):
-        model_factory.build_models("deepseek", "key", "text", "vision")
-
-
-def test_graph_config_uses_environment_concurrency(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setenv("AI_AGENT_MAX_CONCURRENCY", "7")
-    assert model_factory.graph_config().get("max_concurrency") == 7
-
-
-def question_dict(stem: str) -> dict[str, Any]:
+def question(stem: str) -> dict[str, Any]:
     return {
         "stem": stem,
         "answerMode": "short_answer",
@@ -112,165 +122,336 @@ def question_dict(stem: str) -> dict[str, Any]:
     }
 
 
-def parse_request(text: str = "1. What is 2+2?") -> DocumentParseRequest:
-    return DocumentParseRequest(sourceType="text", text=text)
-
-
-def test_extract_node_enforces_combined_visual_byte_limit(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setenv("AI_MAX_VISION_BYTES", "3")
-    monkeypatch.setattr(
-        parser,
-        "extract",
-        lambda _request: ExtractedDocument(
-            text="question", page_images=[b"12"], embedded_images=[b"34"]
-        ),
+def source(text: str) -> tuple[FakeObjectStore, dict[str, Any]]:
+    payload = text.encode()
+    digest = hashlib.sha256(payload).hexdigest()
+    key = f"practiq-agent/sources/{digest}/source.txt"
+    reference = DocumentReference(
+        objectKey=key,
+        sha256=digest,
+        mediaType="text/plain",
+        sizeBytes=len(payload),
+        sourceType="text",
+        fileName="quiz.txt",
     )
+    return FakeObjectStore({key: payload}), reference.model_dump(mode="json")
 
-    with pytest.raises(DocumentProcessingError) as exc_info:
-        parser._extract(parser.parse_graph_input(parse_request()))
 
-    assert exc_info.value.status_code == 413
-    assert (
-        exc_info.value.detail == "Document visual content exceeds the configured limit"
+def run_config(thread: str = "thread-1") -> RunnableConfig:
+    return cast(
+        RunnableConfig,
+        {"configurable": {"thread_id": thread}, "run_id": uuid4()},
     )
 
 
-def test_parse_concurrent_results_are_stably_merged(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    fake = FakeModel(
+def assert_json_value(value: Any) -> None:
+    if isinstance(value, dict):
+        for key, item in value.items():
+            assert isinstance(key, str)
+            assert_json_value(item)
+    elif isinstance(value, list):
+        for item in value:
+            assert_json_value(item)
+    else:
+        assert value is None or type(value) in {bool, int, float, str}
+
+
+@pytest.mark.parametrize(("provider", "base_url"), llm.BASE_URLS.items())
+def test_builds_supported_provider(provider: str, base_url: str) -> None:
+    text, image = llm.build_models(provider, "test-key", "text-model")
+    assert isinstance(text, ChatOpenAI)
+    assert text.openai_api_base == base_url
+    assert image is None
+
+
+def test_builds_deepseek_vision_model() -> None:
+    _, image = llm.build_models("deepseek", "test-key", "text-model", "vision-model")
+    assert isinstance(image, ChatOpenAI)
+
+
+def test_document_graph_merges_parallel_chunks_and_keeps_checkpoint_small(monkeypatch):
+    fake_store, reference = source("1. First\n2. Second\n3. Third")
+    model = FakeModel(
         responses=[
             (
-                0.03,
+                0.02,
                 {
-                    "questions": [
-                        question_dict("1. First"),
-                        question_dict("2. Second"),
-                    ],
+                    "questions": [question("1. First"), question("2. Second")],
                     "groups": [],
                 },
             ),
-            (
-                0,
-                {
-                    "questions": [
-                        question_dict("2. Second"),
-                        question_dict("3. Third"),
-                    ],
-                    "groups": [],
-                },
-            ),
+            {
+                "questions": [question("2. Second"), question("3. Third")],
+                "groups": [],
+            },
         ]
     )
+    monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
+    monkeypatch.setattr(document, "get_models", lambda: (model, None))
     monkeypatch.setattr(
-        parser, "split_into_chunks", lambda _text: ["chunk a", "chunk b"]
+        document, "split_into_chunks", lambda _: ["chunk one", "chunk two"]
     )
+    saver = InMemorySaver()
+    graph = document.build_document_graph(saver)
+    config = run_config()
 
-    with model_factory.collect_usage() as usage:
-        result = asyncio.run(parser.parse_document(fake, None, parse_request()))
-
-    assert len(usage) == 2
-    assert len({call.callKey for call in usage}) == 2
-    assert isinstance(result, DocumentParseResult)
-    assert [q.stem for q in result.questions] == ["1. First", "2. Second", "3. Third"]
-    assert result.qualityScore == 80.0
-    assert "Fragment 1 of 2" in fake.calls[0][1].text
-
-
-def test_parse_retries_validation_with_feedback() -> None:
-    fake = FakeModel(
-        responses=[
-            {"questions": [{"stem": ""}], "groups": []},
-            {"questions": [question_dict("1. Fixed")], "groups": []},
-        ]
-    )
-    result = asyncio.run(parser.parse_document(fake, None, parse_request()))
-
-    assert result.questions[0].stem == "1. Fixed"
-    assert len(fake.calls) == 2
-    assert "failed validation" in fake.calls[1][-1].text
-
-
-def test_parse_skips_exhausted_chunk_but_keeps_others(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    bad = {"questions": [{"stem": ""}], "groups": []}
-    fake = FakeModel(
-        responses=[
-            (0.01, bad),
-            {"questions": [question_dict("2. Works")], "groups": []},
-            bad,
-            bad,
-        ]
-    )
-    monkeypatch.setattr(
-        parser, "split_into_chunks", lambda _text: ["chunk a", "chunk b"]
-    )
-
-    result = asyncio.run(parser.parse_document(fake, None, parse_request()))
-
-    assert [q.stem for q in result.questions] == ["2. Works"]
-    assert any("failed validation" in warning for warning in result.warnings)
-
-
-def test_parse_fails_when_all_chunks_fail() -> None:
-    bad = {"questions": [{"stem": ""}], "groups": []}
-    with pytest.raises(DocumentProcessingError) as exc_info:
-        asyncio.run(
-            parser.parse_document(
-                FakeModel(responses=[bad, bad, bad]), None, parse_request()
-            )
-        )
-    assert exc_info.value.status_code == 502
-    assert exc_info.value.detail == "AI agent returned invalid JSON"
-
-
-def test_parse_maps_provider_errors_to_502() -> None:
-    with pytest.raises(DocumentProcessingError) as exc_info:
-        asyncio.run(
-            parser.parse_document(
-                FakeModel(responses=[RuntimeError("connection reset")]),
-                None,
-                parse_request(),
-            )
-        )
-    assert exc_info.value.status_code == 502
-    assert exc_info.value.detail == "AI agent request failed"
-
-
-def test_checkpoint_state_excludes_runtime_model() -> None:
-    fake = FakeModel(
-        responses=[{"questions": [question_dict("1. Stored")], "groups": []}]
-    )
-    graph = parser.build_parse_graph(InMemorySaver())
-    config = cast(RunnableConfig, {"configurable": {"thread_id": "import-1"}})
-    asyncio.run(
-        parser.run_parse_graph(fake, None, parse_request(), graph=graph, config=config)
+    output = asyncio.run(
+        graph.ainvoke({"document": reference}, config)
     )
     snapshot = asyncio.run(graph.aget_state(config))
+
+    assert output["status"] == "SUCCEEDED"
+    assert [item["stem"] for item in output["result"]["questions"]] == [
+        "1. First",
+        "2. Second",
+        "3. Third",
+    ]
+    assert output["processing"]["chunks"] == {
+        "total": 2,
+        "succeeded": 2,
+        "skipped": 0,
+    }
+    assert len(output["usage"]) == 2
+    assert "memory" not in snapshot.values
     assert "FakeModel" not in repr(snapshot.values)
-    assert all(
-        not isinstance(value, BaseChatModel) for value in snapshot.values.values()
+    assert_json_value(snapshot.values)
+
+
+def test_document_graph_repairs_invalid_chunk_with_shared_budget(monkeypatch):
+    fake_store, reference = source("1. Fixed")
+    model = FakeModel(
+        responses=[
+            {"questions": [{"stem": ""}], "groups": []},
+            {"questions": [question("1. Fixed")], "groups": []},
+        ]
+    )
+    monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
+    monkeypatch.setattr(document, "get_models", lambda: (model, None))
+    graph = document.build_document_graph(InMemorySaver())
+
+    output = asyncio.run(
+        graph.ainvoke(
+            {"document": reference}, run_config()
+        )
     )
 
+    assert output["result"]["questions"][0]["stem"] == "1. Fixed"
+    assert len(output["usage"]) == 2
+    assert "failed validation" in model.calls[1][-1].text
 
-def test_validation_retries_report_distinct_billable_calls() -> None:
-    payload = {
-        "answerPayload": {"correctOption": "A"},
-        "canonicalAnswer": "4",
-        "explanation": "Two plus two equals four.",
-        "steps": ["Add the operands"],
-        "confidence": 0.95,
-    }
-    fake = FakeModel(responses=[{"bad": True}, payload])
-    with model_factory.collect_usage() as usage:
-        asyncio.run(generator.generate_answer(fake, {"stem": "What is 2+2?"}))
-    assert len(usage) == 2
-    assert len({call.callKey for call in usage}) == 2
-    assert {call.callKind for call in usage} == {"answer_generation"}
-    assert all(call.inputTokens == 10 and call.outputTokens == 5 for call in usage)
+
+def test_document_graph_returns_partial_for_one_failed_chunk(monkeypatch):
+    fake_store, reference = source("1. First\n2. Second")
+    monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
+    monkeypatch.setattr(
+        document, "get_models", lambda: (FakeModel(responses=[]), None)
+    )
+    monkeypatch.setattr(
+        document, "split_into_chunks", lambda _: ["chunk one", "chunk two"]
+    )
+
+    async def partial_chunk(task, runtime):
+        parsed = (
+            {"questions": [question("1. First")], "groups": []}
+            if task["index"] == 0
+            else None
+        )
+        return {
+            "chunkResults": [
+                {
+                    "index": task["index"],
+                    "parsed": parsed,
+                    "failureCode": None if parsed else "OUTPUT_INVALID",
+                }
+            ],
+            "usage": [],
+        }
+
+    monkeypatch.setattr(document, "_chunk", partial_chunk)
+    graph = document.build_document_graph(InMemorySaver())
+    output = asyncio.run(
+        graph.ainvoke(
+            {"document": reference}, run_config()
+        )
+    )
+
+    assert output["status"] == "PARTIAL"
+    assert output["processing"]["chunks"]["succeeded"] == 1
+    assert output["processing"]["failures"] == [
+        {
+            "stage": "document_parse",
+            "index": 1,
+            "code": "OUTPUT_INVALID",
+            "retryable": True,
+        }
+    ]
+
+
+def test_document_graph_raises_when_all_chunks_fail(monkeypatch):
+    fake_store, reference = source("1. First")
+    monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
+    monkeypatch.setattr(
+        document, "get_models", lambda: (FakeModel(responses=[]), None)
+    )
+
+    async def failed_chunk(task, runtime):
+        return {
+            "chunkResults": [
+                {
+                    "index": task["index"],
+                    "parsed": None,
+                    "failureCode": "OUTPUT_INVALID",
+                }
+            ],
+            "usage": [],
+        }
+
+    monkeypatch.setattr(document, "_chunk", failed_chunk)
+    graph = document.build_document_graph(InMemorySaver())
+
+    with pytest.raises(DocumentProcessingError) as exc:
+        asyncio.run(
+            graph.ainvoke(
+                {"document": reference}, run_config()
+            )
+        )
+    assert exc.value.code == "DOCUMENT_PARSE_FAILED"
+
+
+def test_document_graph_resumes_without_repeating_completed_chunk(monkeypatch):
+    fake_store, reference = source("1. First\n2. Second")
+    model = FakeModel(
+        responses=[
+            {"questions": [question("1. First")], "groups": []},
+            {"questions": [question("2. Second")], "groups": []},
+        ]
+    )
+    calls: Counter[int] = Counter()
+    interrupted = True
+    original_chunk = document._chunk
+
+    async def unstable_chunk(task, runtime):
+        nonlocal interrupted
+        calls[task["index"]] += 1
+        if task["index"] == 1 and interrupted:
+            await asyncio.sleep(0.02)
+            raise RuntimeError("worker interrupted")
+        return await original_chunk(task, runtime)
+
+    monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
+    monkeypatch.setattr(document, "get_models", lambda: (model, None))
+    monkeypatch.setattr(
+        document, "split_into_chunks", lambda _: ["chunk one", "chunk two"]
+    )
+    monkeypatch.setattr(document, "_chunk", unstable_chunk)
+    graph = document.build_document_graph(InMemorySaver())
+    config = run_config()
+
+    with pytest.raises(RuntimeError, match="worker interrupted"):
+        asyncio.run(
+            graph.ainvoke(
+                {"document": reference}, config
+            )
+        )
+    interrupted = False
+    output = asyncio.run(graph.ainvoke(None, config))
+
+    assert calls == Counter({1: 2, 0: 1})
+    assert [item["stem"] for item in output["result"]["questions"]] == [
+        "1. First",
+        "2. Second",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "code"),
+    (
+        ("sha256", "0" * 64, "DOCUMENT_CHECKSUM_MISMATCH"),
+        ("sizeBytes", 1, "DOCUMENT_SIZE_MISMATCH"),
+    ),
+)
+def test_document_integrity_fails_before_model_call(
+    monkeypatch, field: str, value: Any, code: str
+):
+    fake_store, reference = source("question")
+    reference[field] = value
+    if field == "sha256":
+        key = f"practiq-agent/sources/{value}/source.txt"
+        fake_store.blobs[key] = fake_store.blobs[reference["objectKey"]]
+        reference["objectKey"] = key
+    model = FakeModel(responses=[])
+    monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
+    monkeypatch.setattr(document, "get_models", lambda: (model, None))
+    graph = document.build_document_graph(InMemorySaver())
+
+    with pytest.raises(DocumentProcessingError) as exc:
+        asyncio.run(
+            graph.ainvoke(
+                {"document": reference}, run_config()
+            )
+        )
+    assert exc.value.code == code
+    assert model.calls == []
+
+
+def test_checkpoint_update_cannot_bypass_document_reference_validation(monkeypatch):
+    _, reference = source("question")
+    reference["objectKey"] = "https://example.com/question.txt"
+
+    class UnreachedStore:
+        async def get_verified(self, _reference):
+            raise AssertionError("unmanaged reference reached storage")
+
+    monkeypatch.setattr(document, "get_object_store", lambda: UnreachedStore())
+    graph = document.build_document_graph(InMemorySaver())
+    config = run_config("checkpoint-input-boundary")
+
+    async def resume_from_forged_state():
+        await graph.aupdate_state(
+            config, {"document": reference}, as_node="load_context"
+        )
+        await graph.ainvoke(None, config)
+
+    with pytest.raises(ValidationError, match="managed OSS source object"):
+        asyncio.run(resume_from_forged_state())
+
+
+def test_structured_call_uses_at_most_four_total_attempts(monkeypatch):
+    model = FakeModel(responses=[RuntimeError("retry")] * 5)
+    monkeypatch.setattr(llm, "_retryable_openai_error", lambda _exc: True)
+    monkeypatch.setattr(llm, "_retry_delay", lambda _attempt: 0)
+
+    parsed, usage, failure = asyncio.run(
+        llm.structured_call(
+            model,
+            [HumanMessage(content="test")],
+            document.ChunkParseResult,
+            "document_chunk",
+        )
+    )
+
+    assert parsed is None
+    assert usage == []
+    assert failure == "AI_PROVIDER_UNAVAILABLE"
+    assert len(model.calls) == 4
+
+
+def test_structured_call_does_not_retry_permanent_errors(monkeypatch):
+    model = FakeModel(responses=[RuntimeError("permanent")])
+    monkeypatch.setattr(llm, "_retryable_openai_error", lambda _exc: False)
+
+    with pytest.raises(DocumentProcessingError) as exc:
+        asyncio.run(
+            llm.structured_call(
+                model,
+                [HumanMessage(content="test")],
+                document.ChunkParseResult,
+                "document_chunk",
+            )
+        )
+
+    assert exc.value.code == "AI_PROVIDER_ERROR"
+    assert len(model.calls) == 1
 
 
 def test_usage_rejects_non_integral_provider_tokens() -> None:
@@ -280,51 +461,28 @@ def test_usage_rejects_non_integral_provider_tokens() -> None:
             "token_usage": {"prompt_tokens": 1.5, "completion_tokens": True}
         },
     )
-    with model_factory.collect_usage():
-        with pytest.raises(DocumentProcessingError) as exc_info:
-            model_factory.record_usage(
-                FakeModel(responses=[]), raw, "answer_generation", uuid4()
-            )
-    assert exc_info.value.code == "AI_USAGE_INVALID"
+    with pytest.raises(DocumentProcessingError) as exc:
+        llm.usage_from_response(
+            FakeModel(responses=[]), raw, "document_chunk", None, 1
+        )
+    assert exc.value.code == "AI_USAGE_INVALID"
 
 
-def test_generate_answer_and_report_and_validation_retry() -> None:
-    answer_payload = {
-        "answerPayload": {"correctOption": "A"},
-        "canonicalAnswer": "4",
-        "explanation": "Two plus two equals four.",
-        "steps": ["Add the operands"],
-        "confidence": 0.95,
-    }
-    report_payload = {
-        "summary": "Limited context report.",
-        "mastery": [],
-        "weakPoints": [],
-        "recommendations": ["Practice more"],
-        "riskLevel": "low",
-    }
-    fake = FakeModel(responses=[{"bad": True}, answer_payload, report_payload])
-    answer = asyncio.run(generator.generate_answer(fake, {"stem": "What is 2+2?"}))
-    report = asyncio.run(generator.learning_report(fake, {"stats": {"answers": 7}}))
-
-    assert isinstance(answer, AnswerGenerationResult)
-    assert answer.canonicalAnswer == "4"
-    assert isinstance(report, LearningReportResult)
-    assert report.riskLevel == "low"
-    assert "failed validation" in fake.calls[1][-1].text
-
-
-def test_vision_ocr_uses_base64_image_url_and_crops() -> None:
+def make_image() -> bytes:
     buffer = BytesIO()
     Image.new("RGB", (200, 200), "white").save(buffer, format="PNG")
-    fake_vl = FakeModel(
+    return buffer.getvalue()
+
+
+def test_vision_returns_descriptions_without_eager_crops() -> None:
+    model = FakeModel(
         responses=[
             {
-                "text": "OCR text with $x^2$",
+                "text": "OCR text",
                 "figures": [
                     {
                         "kind": "chart",
-                        "description": "A bar chart",
+                        "description": "A chart",
                         "bbox": [0.1, 0.1, 0.6, 0.6],
                     }
                 ],
@@ -332,25 +490,476 @@ def test_vision_ocr_uses_base64_image_url_and_crops() -> None:
         ]
     )
 
-    text, visual_elements, warnings = asyncio.run(
-        vision.ocr_pages(fake_vl, [buffer.getvalue()])
+    text, visuals, usage, failure = asyncio.run(
+        vision.ocr_page(model, make_image(), 0)
     )
 
-    assert text == "OCR text with $x^2$"
-    assert warnings == []
-    assert visual_elements[0].imageBase64
-    image_part = fake_vl.calls[0][0].content[1]
-    assert image_part["type"] == "image_url"
-    assert image_part["image_url"]["url"].startswith("data:image/png;base64,")
+    assert text == "OCR text"
+    assert visuals[0].imageRef is None
+    assert len(usage) == 1
+    assert failure is None
+    assert model.calls[0][0].content[1]["image_url"]["url"].startswith(
+        "data:image/png;base64,"
+    )
 
 
-def test_crop_limit_removes_excess_payloads() -> None:
-    items = [
-        vision.VisualElement(
-            kind="image", description="x", bbox=[0, 0, 1, 1], imageBase64="eA=="
+def test_crop_uploads_never_exceed_global_limit(monkeypatch):
+    image = make_image()
+    digest = hashlib.sha256(image).hexdigest()
+    page_ref = ArtifactReference(
+        objectKey="page-0.png",
+        sha256=digest,
+        mediaType="image/png",
+        sizeBytes=len(image),
+    )
+    fake_store, reference = source("1. Question")
+    page_ref_2 = page_ref.model_copy(update={"objectKey": "page-1.png"})
+    fake_store.blobs["page-0.png"] = image
+    fake_store.blobs["page-1.png"] = image
+    visuals = [
+        VisualElement(
+            kind="chart",
+            description=f"Chart {index}",
+            page=index // 30,
+            bbox=[0.1, 0.1, 0.6, 0.6],
         )
-        for _ in range(vision.MAX_CROPS + 1)
+        for index in range(60)
     ]
-    warnings = vision._limit_crops(items)
-    assert items[-1].imageBase64 is None
-    assert warnings
+    monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
+
+    cropped, failures, truncated = asyncio.run(
+        document._crop_visuals(
+            {
+                "document": reference,
+                "visionResults": [
+                    {
+                        "kind": "page",
+                        "index": 0,
+                        "artifact": page_ref.model_dump(mode="json"),
+                        "visuals": [],
+                    },
+                    {
+                        "kind": "page",
+                        "index": 1,
+                        "artifact": page_ref_2.model_dump(mode="json"),
+                        "visuals": [],
+                    },
+                ],
+            },
+            visuals,
+        )
+    )
+
+    assert sum(item.imageRef is not None for item in cropped) == 50
+    assert sum(kind.startswith("crop-") for kind in fake_store.put_kinds) == 50
+    assert failures == []
+    assert truncated
+
+
+def test_oss_work_is_bounded_by_configuration(monkeypatch):
+    monkeypatch.setenv("AI_OSS_CONCURRENCY", "2")
+    active = 0
+    peak = 0
+
+    async def work(item: int) -> int:
+        nonlocal active, peak
+        active += 1
+        peak = max(peak, active)
+        await asyncio.sleep(0)
+        active -= 1
+        return item
+
+    assert asyncio.run(document._bounded_map(list(range(10)), work)) == list(
+        range(10)
+    )
+    assert peak == 2
+
+
+def test_visuals_without_model_make_text_result_partial(monkeypatch):
+    fake_store, reference = source("1. Question")
+    model = FakeModel(
+        responses=[{"questions": [question("1. Question")], "groups": []}]
+    )
+    monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
+    monkeypatch.setattr(document, "get_models", lambda: (model, None))
+    monkeypatch.setattr(
+        document,
+        "extract",
+        lambda *_args: ExtractedDocument(
+            text="1. Question", page_images=[make_image()]
+        ),
+    )
+    graph = document.build_document_graph(InMemorySaver())
+    output = asyncio.run(
+        graph.ainvoke(
+            {"document": reference}, run_config()
+        )
+    )
+
+    assert output["status"] == "PARTIAL"
+    assert output["processing"]["visuals"] == {
+        "total": 1,
+        "succeeded": 0,
+        "skipped": 1,
+    }
+
+
+def test_extractor_truncation_makes_result_partial(monkeypatch):
+    fake_store, reference = source("1. Question")
+    model = FakeModel(
+        responses=[{"questions": [question("1. Question")], "groups": []}]
+    )
+    monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
+    monkeypatch.setattr(document, "get_models", lambda: (model, None))
+    monkeypatch.setattr(
+        document,
+        "extract",
+        lambda *_args: ExtractedDocument(text="1. Question", truncated=True),
+    )
+    graph = document.build_document_graph(InMemorySaver())
+    output = asyncio.run(
+        graph.ainvoke(
+            {"document": reference}, run_config()
+        )
+    )
+
+    assert output["status"] == "PARTIAL"
+    assert output["processing"]["truncated"] is True
+
+
+def test_visual_unit_failure_returns_partial(monkeypatch):
+    fake_store, reference = source("1. Question")
+    image = make_image()
+    model = FakeModel(
+        responses=[
+            {"invalid": True},
+            {"invalid": True},
+            {"invalid": True},
+            {"invalid": True},
+            {"questions": [question("1. Question")], "groups": []},
+        ]
+    )
+    monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
+    monkeypatch.setattr(document, "get_models", lambda: (model, model))
+    monkeypatch.setattr(
+        document,
+        "extract",
+        lambda *_args: ExtractedDocument(
+            text="1. Question", page_images=[image]
+        ),
+    )
+    graph = document.build_document_graph(InMemorySaver())
+    output = asyncio.run(
+        graph.ainvoke(
+            {"document": reference}, run_config()
+        )
+    )
+
+    assert output["status"] == "PARTIAL"
+    assert output["processing"]["visuals"] == {
+        "total": 1,
+        "succeeded": 0,
+        "skipped": 0,
+    }
+    assert output["processing"]["failures"][0]["stage"] == "vision_ocr"
+
+
+def test_document_graph_runs_successful_ocr_and_crop(monkeypatch):
+    fake_store, reference = source("")
+    image = make_image()
+    model = FakeModel(
+        responses=[
+            {
+                "text": "1. OCR question",
+                "figures": [
+                    {
+                        "kind": "chart",
+                        "description": "A chart",
+                        "bbox": [0.1, 0.1, 0.6, 0.6],
+                    }
+                ],
+            },
+            {"questions": [question("1. OCR question")], "groups": []},
+        ]
+    )
+    monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
+    monkeypatch.setattr(document, "get_models", lambda: (model, model))
+    monkeypatch.setattr(
+        document,
+        "extract",
+        lambda *_args: ExtractedDocument(text="", page_images=[image]),
+    )
+
+    output = asyncio.run(
+        document.build_document_graph(InMemorySaver()).ainvoke(
+            {"document": reference}, run_config()
+        )
+    )
+
+    assert output["status"] == "SUCCEEDED"
+    assert output["result"]["visualElements"][0]["imageRef"] is not None
+    assert output["processing"]["visuals"]["succeeded"] == 1
+
+
+def test_document_graph_describes_embedded_images(monkeypatch):
+    fake_store, reference = source("1. Question")
+    model = FakeModel(
+        responses=[
+            {"description": "An embedded diagram", "extractedText": "x = 1"},
+            {"questions": [question("1. Question")], "groups": []},
+        ]
+    )
+    monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
+    monkeypatch.setattr(document, "get_models", lambda: (model, model))
+    monkeypatch.setattr(
+        document,
+        "extract",
+        lambda *_args: ExtractedDocument(
+            text="1. Question", embedded_images=[make_image()]
+        ),
+    )
+
+    output = asyncio.run(
+        document.build_document_graph(InMemorySaver()).ainvoke(
+            {"document": reference}, run_config()
+        )
+    )
+
+    visual = output["result"]["visualElements"][0]
+    assert visual["description"] == "An embedded diagram"
+    assert visual["extractedText"] == "x = 1"
+
+
+@pytest.mark.parametrize(
+    ("with_visual", "with_model", "code"),
+    (
+        (True, False, "VISION_MODEL_REQUIRED"),
+        (False, False, "DOCUMENT_PROCESSING_FAILED"),
+    ),
+)
+def test_document_graph_rejects_documents_without_text(
+    monkeypatch, with_visual: bool, with_model: bool, code: str
+):
+    fake_store, reference = source("")
+    model = FakeModel(responses=[])
+    monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
+    monkeypatch.setattr(document, "get_models", lambda: (model, model if with_model else None))
+    monkeypatch.setattr(
+        document,
+        "extract",
+        lambda *_args: ExtractedDocument(
+            text="", page_images=[make_image()] if with_visual else []
+        ),
+    )
+
+    with pytest.raises(DocumentProcessingError) as exc:
+        asyncio.run(
+            document.build_document_graph(InMemorySaver()).ainvoke(
+                {"document": reference}, run_config()
+            )
+        )
+    assert exc.value.code == code
+    assert exc.value.status_code in {409, 422}
+
+
+def test_document_graph_rejects_empty_vision_output(monkeypatch):
+    fake_store, reference = source("")
+    model = FakeModel(responses=[{"invalid": True}] * 4)
+    monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
+    monkeypatch.setattr(document, "get_models", lambda: (model, model))
+    monkeypatch.setattr(
+        document,
+        "extract",
+        lambda *_args: ExtractedDocument(text="", page_images=[make_image()]),
+    )
+
+    with pytest.raises(DocumentProcessingError) as exc:
+        asyncio.run(
+            document.build_document_graph(InMemorySaver()).ainvoke(
+                {"document": reference}, run_config()
+            )
+        )
+    assert exc.value.code == "VISION_OUTPUT_EMPTY"
+
+
+def test_document_graph_marks_text_truncation_and_rejects_no_questions(monkeypatch):
+    fake_store, reference = source("1. A long question")
+    model = FakeModel(
+        responses=[
+            {"questions": [question("1. A")], "groups": []},
+            {"questions": [], "groups": []},
+        ]
+    )
+    monkeypatch.setenv("AI_MAX_TOTAL_INPUT_CHARS", "6")
+    monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
+    monkeypatch.setattr(document, "get_models", lambda: (model, None))
+    graph = document.build_document_graph(InMemorySaver())
+
+    output = asyncio.run(
+        graph.ainvoke(
+            {"document": reference}, run_config("truncate")
+        )
+    )
+    assert output["status"] == "PARTIAL"
+    assert output["processing"]["truncated"] is True
+    assert any("truncated" in warning for warning in output["result"]["warnings"])
+
+    with pytest.raises(DocumentProcessingError) as exc:
+        asyncio.run(
+            graph.ainvoke(
+                {"document": reference},
+                run_config("no-questions"),
+            )
+        )
+    assert exc.value.code == "NO_QUESTIONS_FOUND"
+
+
+def test_crop_failures_are_reported(monkeypatch):
+    image = make_image()
+    digest = hashlib.sha256(image).hexdigest()
+    page_ref = ArtifactReference(
+        objectKey="page.png",
+        sha256=digest,
+        mediaType="image/png",
+        sizeBytes=len(image),
+    )
+    fake_store, reference = source("1. Question")
+    fake_store.blobs[page_ref.objectKey] = image
+    monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
+    monkeypatch.setattr(vision, "crop_figure", lambda *_args: None)
+
+    visuals, failures, _ = asyncio.run(
+        document._crop_visuals(
+            {
+                "document": reference,
+                "visionResults": [
+                    {
+                        "kind": "page",
+                        "index": 0,
+                        "artifact": page_ref.model_dump(mode="json"),
+                        "visuals": [],
+                    }
+                ],
+            },
+            [
+                VisualElement(
+                    kind="chart",
+                    description="Chart",
+                    page=0,
+                    bbox=[0.1, 0.1, 0.6, 0.6],
+                )
+            ],
+        )
+    )
+    assert visuals[0].imageRef is None
+    assert failures[0].code == "CROP_FAILED"
+
+
+def test_vision_helpers_cover_media_and_crop_failures(monkeypatch):
+    assert vision._media_type(b"GIF89a") == "image/gif"
+    assert vision._media_type(b"RIFFxxxxWEBP") == "image/webp"
+    assert vision._media_type(b"jpeg") == "image/jpeg"
+    assert vision.crop_figure(make_image(), [0, 0, float("inf"), 1]) is None
+
+    monkeypatch.setattr(vision, "MAX_CROP_BYTES", 1)
+    assert vision.crop_figure(make_image(), [0, 0, 1, 1]) is None
+
+
+def test_describe_image_returns_failure_after_invalid_outputs() -> None:
+    described, usage, failure = asyncio.run(
+        vision.describe_image(FakeModel(responses=[{"invalid": True}] * 4), make_image())
+    )
+    assert described is None
+    assert len(usage) == 4
+    assert failure == "OUTPUT_INVALID"
+
+
+def _status_error(status: int) -> APIStatusError:
+    response = httpx2.Response(
+        status, request=httpx2.Request("POST", "https://example.invalid")
+    )
+    error_type = RateLimitError if status == 429 else APIStatusError
+    return error_type("failed", response=response, body=None)
+
+
+@pytest.mark.parametrize(
+    ("error", "retryable"),
+    (
+        (
+            APIConnectionError(
+                request=httpx2.Request("POST", "https://example.invalid")
+            ),
+            True,
+        ),
+        (APITimeoutError(httpx2.Request("POST", "https://example.invalid")), True),
+        (_status_error(408), True),
+        (_status_error(409), True),
+        (_status_error(429), True),
+        (_status_error(500), True),
+        (_status_error(400), False),
+    ),
+)
+def test_openai_retry_classification(error: Exception, retryable: bool) -> None:
+    assert llm._retryable_openai_error(error) is retryable
+
+
+def test_retry_delay_is_bounded(monkeypatch):
+    monkeypatch.setattr(llm.random, "uniform", lambda *_args: 0)
+    assert llm._retry_delay(1) == 1
+    assert llm._retry_delay(10) == 8
+
+
+def test_usage_requires_metadata_and_uses_stable_runtime_key() -> None:
+    model = FakeModel(responses=[])
+    with pytest.raises(DocumentProcessingError) as missing:
+        llm.usage_from_response(model, AIMessage(content=""), "test", None, 1)
+    assert missing.value.code == "AI_USAGE_MISSING"
+
+    raw = AIMessage(
+        content="",
+        response_metadata={
+            "token_usage": {"prompt_tokens": 2, "completion_tokens": 3}
+        },
+    )
+    runtime = SimpleNamespace(
+        execution_info=SimpleNamespace(
+            run_id="run", task_id="task", node_attempt=1
+        )
+    )
+    first = llm.usage_from_response(model, raw, "test", cast(Any, runtime), 1)
+    second = llm.usage_from_response(model, raw, "test", cast(Any, runtime), 1)
+    assert first.callKey == second.callKey
+    assert (first.inputTokens, first.outputTokens) == (2, 3)
+
+
+def test_structured_call_preserves_processing_errors(monkeypatch):
+    expected = DocumentProcessingError(502, "missing", "AI_USAGE_MISSING")
+
+    async def fail(*_args, **_kwargs):
+        raise expected
+
+    monkeypatch.setattr(llm, "structured_attempt", fail)
+    with pytest.raises(DocumentProcessingError) as exc:
+        asyncio.run(
+            llm.structured_call(
+                FakeModel(responses=[]),
+                [HumanMessage(content="test")],
+                document.ChunkParseResult,
+                "document_chunk",
+            )
+        )
+    assert exc.value is expected
+@pytest.mark.parametrize("provider", ["unknown", "openai"])
+def test_model_builder_rejects_invalid_provider(provider: str) -> None:
+    with pytest.raises(ValueError, match="Unsupported"):
+        llm.build_models(provider, "key", "text")
+
+
+def test_chunk_result_rejects_invalid_group_indexes() -> None:
+    with pytest.raises(ValidationError, match="fragment question"):
+        document.ChunkParseResult.model_validate(
+            {
+                "questions": [question("1. Question")],
+                "groups": [{"title": "Bad", "questionIndexes": [1]}],
+            }
+        )

@@ -1,0 +1,7 @@
+Practice questions (the source deliberately contains no answers).
+
+1. What is the capital of France?
+
+2. Which number is even?
+A. 3
+B. 4

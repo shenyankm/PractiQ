@@ -2,7 +2,15 @@
 !Dockerfile.server
 !server/
 !server/**
+server/.env
+server/.env.*
+!server/.env.example
 server/.venv/
 server/.pytest_cache/
+server/.ruff_cache/
+server/.langgraph_api/
+server/.git/
+server/dist/
 server/**/__pycache__/
 server/**/*.pyc
+server/.coverage

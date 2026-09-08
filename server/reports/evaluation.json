@@ -1,0 +1,295 @@
+{
+  "schemaVersion": 1,
+  "status": "FAILED",
+  "generatedAt": "2026-09-04T07:07:05.561053+00:00",
+  "gitCommit": "e6d4243c1831031239b30b1213968a2cc43cfd79",
+  "environment": "local-real-services",
+  "models": {
+    "provider": "dashscope",
+    "text": "qwen3.7-flash",
+    "vision": "qwen3.7-flash"
+  },
+  "documentParser": {
+    "completedCases": 0,
+    "totalCases": 12,
+    "structuredSuccessRate": 0.0,
+    "questionPrecision": 0.0,
+    "questionRecall": 0.0,
+    "answerModeAccuracy": 0.0,
+    "optionsAccuracy": 0.0,
+    "parsedAnswerAccuracy": 0.0,
+    "latencyP50Ms": 0.0,
+    "latencyP95Ms": 0.0
+  },
+  "modelUsage": {
+    "responses": 0,
+    "inputTokens": 0,
+    "outputTokens": 0
+  },
+  "cases": [
+    {
+      "id": "text-basic",
+      "sourceType": "text",
+      "status": "ERROR",
+      "latencyMs": 5651.1,
+      "score": {
+        "expected": 2,
+        "predicted": 0,
+        "matched": 0,
+        "modeCorrect": 0,
+        "optionsCorrect": 0,
+        "answerCorrect": 0
+      },
+      "groupsMatched": 0,
+      "groupsExpected": 0,
+      "visualsMatched": 0,
+      "visualsExpected": 0,
+      "error": {
+        "type": "DocumentProcessingError",
+        "code": "AI_PROVIDER_ERROR"
+      }
+    },
+    {
+      "id": "text-grouped",
+      "sourceType": "text",
+      "status": "ERROR",
+      "latencyMs": 3953.6,
+      "score": {
+        "expected": 2,
+        "predicted": 0,
+        "matched": 0,
+        "modeCorrect": 0,
+        "optionsCorrect": 0,
+        "answerCorrect": 0
+      },
+      "groupsMatched": 0,
+      "groupsExpected": 1,
+      "visualsMatched": 0,
+      "visualsExpected": 0,
+      "error": {
+        "type": "DocumentProcessingError",
+        "code": "AI_PROVIDER_ERROR"
+      }
+    },
+    {
+      "id": "csv-basic",
+      "sourceType": "csv",
+      "status": "ERROR",
+      "latencyMs": 4100.5,
+      "score": {
+        "expected": 2,
+        "predicted": 0,
+        "matched": 0,
+        "modeCorrect": 0,
+        "optionsCorrect": 0,
+        "answerCorrect": 0
+      },
+      "groupsMatched": 0,
+      "groupsExpected": 0,
+      "visualsMatched": 0,
+      "visualsExpected": 0,
+      "error": {
+        "type": "DocumentProcessingError",
+        "code": "AI_PROVIDER_ERROR"
+      }
+    },
+    {
+      "id": "csv-quoted",
+      "sourceType": "csv",
+      "status": "ERROR",
+      "latencyMs": 3977.2,
+      "score": {
+        "expected": 2,
+        "predicted": 0,
+        "matched": 0,
+        "modeCorrect": 0,
+        "optionsCorrect": 0,
+        "answerCorrect": 0
+      },
+      "groupsMatched": 0,
+      "groupsExpected": 0,
+      "visualsMatched": 0,
+      "visualsExpected": 0,
+      "error": {
+        "type": "DocumentProcessingError",
+        "code": "AI_PROVIDER_ERROR"
+      }
+    },
+    {
+      "id": "xlsx-single-sheet",
+      "sourceType": "xlsx",
+      "status": "ERROR",
+      "latencyMs": 4071.0,
+      "score": {
+        "expected": 2,
+        "predicted": 0,
+        "matched": 0,
+        "modeCorrect": 0,
+        "optionsCorrect": 0,
+        "answerCorrect": 0
+      },
+      "groupsMatched": 0,
+      "groupsExpected": 0,
+      "visualsMatched": 0,
+      "visualsExpected": 0,
+      "error": {
+        "type": "DocumentProcessingError",
+        "code": "AI_PROVIDER_ERROR"
+      }
+    },
+    {
+      "id": "xlsx-multi-sheet",
+      "sourceType": "xlsx",
+      "status": "ERROR",
+      "latencyMs": 3885.5,
+      "score": {
+        "expected": 2,
+        "predicted": 0,
+        "matched": 0,
+        "modeCorrect": 0,
+        "optionsCorrect": 0,
+        "answerCorrect": 0
+      },
+      "groupsMatched": 0,
+      "groupsExpected": 2,
+      "visualsMatched": 0,
+      "visualsExpected": 0,
+      "error": {
+        "type": "DocumentProcessingError",
+        "code": "AI_PROVIDER_ERROR"
+      }
+    },
+    {
+      "id": "docx-table",
+      "sourceType": "docx",
+      "status": "ERROR",
+      "latencyMs": 3978.2,
+      "score": {
+        "expected": 2,
+        "predicted": 0,
+        "matched": 0,
+        "modeCorrect": 0,
+        "optionsCorrect": 0,
+        "answerCorrect": 0
+      },
+      "groupsMatched": 0,
+      "groupsExpected": 0,
+      "visualsMatched": 0,
+      "visualsExpected": 0,
+      "error": {
+        "type": "DocumentProcessingError",
+        "code": "AI_PROVIDER_ERROR"
+      }
+    },
+    {
+      "id": "docx-formula-image",
+      "sourceType": "docx",
+      "status": "ERROR",
+      "latencyMs": 3273.7,
+      "score": {
+        "expected": 2,
+        "predicted": 0,
+        "matched": 0,
+        "modeCorrect": 0,
+        "optionsCorrect": 0,
+        "answerCorrect": 0
+      },
+      "groupsMatched": 0,
+      "groupsExpected": 0,
+      "visualsMatched": 0,
+      "visualsExpected": 1,
+      "error": {
+        "type": "DocumentProcessingError",
+        "code": "AI_PROVIDER_ERROR"
+      }
+    },
+    {
+      "id": "pdf-text-layer",
+      "sourceType": "pdf",
+      "status": "ERROR",
+      "latencyMs": 4143.9,
+      "score": {
+        "expected": 2,
+        "predicted": 0,
+        "matched": 0,
+        "modeCorrect": 0,
+        "optionsCorrect": 0,
+        "answerCorrect": 0
+      },
+      "groupsMatched": 0,
+      "groupsExpected": 0,
+      "visualsMatched": 0,
+      "visualsExpected": 0,
+      "error": {
+        "type": "DocumentProcessingError",
+        "code": "AI_PROVIDER_ERROR"
+      }
+    },
+    {
+      "id": "pdf-scanned",
+      "sourceType": "pdf",
+      "status": "ERROR",
+      "latencyMs": 3901.8,
+      "score": {
+        "expected": 2,
+        "predicted": 0,
+        "matched": 0,
+        "modeCorrect": 0,
+        "optionsCorrect": 0,
+        "answerCorrect": 0
+      },
+      "groupsMatched": 0,
+      "groupsExpected": 0,
+      "visualsMatched": 0,
+      "visualsExpected": 0,
+      "error": {
+        "type": "DocumentProcessingError",
+        "code": "AI_PROVIDER_ERROR"
+      }
+    },
+    {
+      "id": "image-clean",
+      "sourceType": "image",
+      "status": "ERROR",
+      "latencyMs": 2835.0,
+      "score": {
+        "expected": 2,
+        "predicted": 0,
+        "matched": 0,
+        "modeCorrect": 0,
+        "optionsCorrect": 0,
+        "answerCorrect": 0
+      },
+      "groupsMatched": 0,
+      "groupsExpected": 0,
+      "visualsMatched": 0,
+      "visualsExpected": 0,
+      "error": {
+        "type": "DocumentProcessingError",
+        "code": "AI_PROVIDER_ERROR"
+      }
+    },
+    {
+      "id": "image-two-column",
+      "sourceType": "image",
+      "status": "ERROR",
+      "latencyMs": 2715.2,
+      "score": {
+        "expected": 2,
+        "predicted": 0,
+        "matched": 0,
+        "modeCorrect": 0,
+        "optionsCorrect": 0,
+        "answerCorrect": 0
+      },
+      "groupsMatched": 0,
+      "groupsExpected": 0,
+      "visualsMatched": 0,
+      "visualsExpected": 1,
+      "error": {
+        "type": "DocumentProcessingError",
+        "code": "AI_PROVIDER_ERROR"
+      }
+    }
+  ]
+}

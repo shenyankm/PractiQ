@@ -1,7 +1,17 @@
-FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim
-WORKDIR /app
-COPY server /app/server
-RUN uv sync --frozen --no-dev --project /app/server
-ENV PATH="/app/server/.venv/bin:$PATH"
-EXPOSE 8080
-CMD ["python", "-m", "server"]
+# Agent Server provides native graph/run APIs as well as Java compatibility routes.
+FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim AS lock
+WORKDIR /lock
+COPY server/pyproject.toml server/uv.lock ./
+RUN uv export --frozen --no-dev --no-emit-project --no-hashes -o requirements.txt
+
+FROM langchain/langgraph-api:3.14
+COPY server /deps/server
+COPY --from=lock /lock/requirements.txt /deps/requirements.txt
+RUN PYTHONDONTWRITEBYTECODE=1 uv pip install --system --no-cache-dir -c /api/constraints.txt -r /deps/requirements.txt \
+    && uv pip install --system --no-cache-dir --no-deps -e /deps/server
+ENV LANGGRAPH_AUTH='{"path": "/deps/server/src/practiq_ai/auth.py:auth"}'
+ENV LANGGRAPH_HTTP='{"app": "/deps/server/src/practiq_ai/webapp.py:app", "enable_custom_route_auth": true}'
+ENV LANGGRAPH_CHECKPOINTER='{"ttl": {"strategy": "delete", "sweep_interval_minutes": 60, "default_ttl": 259200}}'
+ENV LANGSERVE_GRAPHS='{"document_parser": "/deps/server/src/practiq_ai/graphs/document.py:graph", "text_csv_parser": "/deps/server/src/practiq_ai/graphs/formats.py:text_csv_parser", "pdf_parser": "/deps/server/src/practiq_ai/graphs/formats.py:pdf_parser", "docx_parser": "/deps/server/src/practiq_ai/graphs/formats.py:docx_parser", "excel_parser": "/deps/server/src/practiq_ai/graphs/formats.py:excel_parser"}'
+WORKDIR /deps/server
+EXPOSE 8000

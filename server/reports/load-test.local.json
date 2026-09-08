@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "status": "FAILED",
+  "generatedAt": "2026-09-04T06:43:30.131377+00:00",
+  "gitCommit": "314d36424e43b633e45faa3e6cddd9f88ad33e9d",
+  "environment": "local-langgraph-dev",
+  "parameters": {
+    "total": 20,
+    "submitConcurrency": 5,
+    "maxRunning": 8,
+    "graphConcurrency": 2
+  },
+  "results": {
+    "runs": {
+      "error": 20
+    },
+    "runCreateP95Ms": 11.2,
+    "healthP95Ms": 2.9,
+    "peakPendingRuns": null,
+    "peakRunningRuns": 1.0,
+    "observedWorkerMaximum": 1.0,
+    "minimumAvailableWorkers": 0.0,
+    "peakRssBytes": 252317696,
+    "configuredModelConcurrencyCeiling": 16
+  },
+  "failures": [
+    "not all runs succeeded: {'error': 20}"
+  ]
+}

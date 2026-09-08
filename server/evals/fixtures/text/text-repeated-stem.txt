@@ -1,0 +1,7 @@
+Independent records; retain both numbered questions.
+
+1. What label is recorded?
+Answer: alpha
+
+2. What label is recorded?
+Answer: beta

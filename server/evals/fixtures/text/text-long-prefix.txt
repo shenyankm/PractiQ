@@ -1,0 +1,5 @@
+1. Read the following description carefully. Both records describe identical equipment, identical operators, and identical test conditions. The labels on the records are different, and only the final sentence identifies the record under consideration. What label is printed on the first record?
+Answer: alpha
+
+2. Read the following description carefully. Both records describe identical equipment, identical operators, and identical test conditions. The labels on the records are different, and only the final sentence identifies the record under consideration. What label is printed on the second record?
+Answer: beta

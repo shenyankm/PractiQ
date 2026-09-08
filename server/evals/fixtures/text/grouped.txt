@@ -1,0 +1,8 @@
+Section: Arithmetic
+Instructions: Answer both questions.
+
+1. Fill in the blank: 6 × 7 = ____.
+Answer: 42
+
+2. Short answer: What is the square root of 81?
+Answer: 9

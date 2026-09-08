@@ -1,0 +1,2961 @@
+{
+  "schemaVersion": 2,
+  "kind": "evaluation",
+  "runId": "b66d5814-eea3-439b-9117-e2243a8bcc9c",
+  "generatedAt": "2026-09-05T08:28:12.920635+00:00",
+  "environment": "local-real-services",
+  "scorerVersion": "2.0.0",
+  "repetitions": 1,
+  "caseIds": [
+    "text-basic",
+    "text-grouped",
+    "csv-basic",
+    "csv-quoted",
+    "xlsx-single-sheet",
+    "xlsx-multi-sheet",
+    "docx-table",
+    "docx-formula-image",
+    "pdf-text-layer",
+    "pdf-scanned",
+    "image-clean",
+    "image-two-column",
+    "text-chinese",
+    "text-no-answer",
+    "text-long-prefix",
+    "text-repeated-stem",
+    "text-multi-chunk",
+    "text-no-questions",
+    "docx-corrupt"
+  ],
+  "datasetHash": "aa98d627197b045a80ccd185dbf874aba6869eb1cc8d8a780067527956134469",
+  "gitCommit": "c0e1eb7f9600f88892ccc3e335cc295de90d9edc",
+  "dirty": true,
+  "codeHash": "3949a5e0ff9228b921828f3e33ca7ebab769fa95045b87fb44b3bebbe09e568a",
+  "models": {
+    "provider": "dashscope",
+    "text": "qwen3.7-flash",
+    "vision": "qwen3.7-flash"
+  },
+  "settings": {
+    "source_max_bytes": 26214400,
+    "vision_max_bytes": 52428800,
+    "max_document_pages": 100,
+    "max_vision_page_pixels": 25000000,
+    "max_total_input_chars": 2000000,
+    "graph_max_concurrency": 2,
+    "oss_concurrency": 4,
+    "oss_timeout_seconds": 30.0,
+    "model_timeout_seconds": 180.0,
+    "model_max_tokens": 16384
+  },
+  "promptHash": "768d9391b3455ce2749706369c386b19f99aaec7c635fd737e62ed0ede254be7",
+  "cases": [
+    {
+      "id": "text-basic",
+      "sourceType": "text",
+      "tags": [
+        "synthetic",
+        "smoke",
+        "text"
+      ],
+      "critical": false,
+      "repetition": 1,
+      "status": "SUCCEEDED",
+      "latencyMs": 20970.752146997256,
+      "expectedError": null,
+      "outcomeMatched": true,
+      "blocked": false,
+      "error": null,
+      "processing": {
+        "chunks": {
+          "total": 1,
+          "succeeded": 1,
+          "skipped": 0
+        },
+        "visuals": {
+          "total": 0,
+          "succeeded": 0,
+          "skipped": 0
+        },
+        "truncated": false,
+        "failures": []
+      },
+      "score": {
+        "expected": 2,
+        "predicted": 2,
+        "matched": 0,
+        "modeCorrect": 0,
+        "optionsExpected": 1,
+        "optionsCorrect": 0,
+        "answerCorrect": 0,
+        "inventedAnswers": 0,
+        "questions": [
+          {
+            "expectedIndex": 0,
+            "predictedIndex": null,
+            "answerMode": "choice",
+            "expected": {
+              "stem": "What is 2 + 3?",
+              "answerMode": "choice",
+              "options": [
+                {
+                  "label": "A",
+                  "content": "4"
+                },
+                {
+                  "label": "B",
+                  "content": "5"
+                },
+                {
+                  "label": "C",
+                  "content": "6"
+                }
+              ],
+              "answerPayload": {
+                "correctOption": "B"
+              }
+            },
+            "predicted": null,
+            "matched": false,
+            "correct": {
+              "answerMode": false,
+              "options": false,
+              "answerPayload": false
+            },
+            "inventedAnswer": false,
+            "differences": [
+              "missing"
+            ]
+          },
+          {
+            "expectedIndex": 1,
+            "predictedIndex": null,
+            "answerMode": "true_false",
+            "expected": {
+              "stem": "Pure water freezes at 0 degrees Celsius under standard atmospheric pressure.",
+              "answerMode": "true_false",
+              "options": [],
+              "answerPayload": {
+                "value": true
+              }
+            },
+            "predicted": null,
+            "matched": false,
+            "correct": {
+              "answerMode": false,
+              "options": false,
+              "answerPayload": false
+            },
+            "inventedAnswer": false,
+            "differences": [
+              "missing"
+            ]
+          },
+          {
+            "expectedIndex": null,
+            "predictedIndex": 0,
+            "answerMode": "choice",
+            "expected": null,
+            "predicted": {
+              "stem": "1. Multiple choice: What is 2 + 3?",
+              "answerMode": "choice",
+              "options": [
+                {
+                  "label": "A",
+                  "content": "4"
+                },
+                {
+                  "label": "B",
+                  "content": "5"
+                },
+                {
+                  "label": "C",
+                  "content": "6"
+                }
+              ],
+              "answerPayload": {
+                "correctOption": "B"
+              }
+            },
+            "matched": false,
+            "correct": {},
+            "inventedAnswer": false,
+            "differences": [
+              "extra"
+            ]
+          },
+          {
+            "expectedIndex": null,
+            "predictedIndex": 1,
+            "answerMode": "true_false",
+            "expected": null,
+            "predicted": {
+              "stem": "2. True or false: Pure water freezes at 0 degrees Celsius under standard atmospheric pressure.",
+              "answerMode": "true_false",
+              "options": [],
+              "answerPayload": {
+                "value": true
+              }
+            },
+            "matched": false,
+            "correct": {},
+            "inventedAnswer": false,
+            "differences": [
+              "extra"
+            ]
+          }
+        ],
+        "groups": null,
+        "visuals": {
+          "expected": 0,
+          "predicted": 0,
+          "matched": 0,
+          "missing": [],
+          "extra": []
+        }
+      },
+      "modelCalls": [
+        {
+          "callId": "01a070ae-e4e2-7671-874e-025859d07f61",
+          "node": "chunk",
+          "status": "RETURNED",
+          "inputTokens": 1370,
+          "outputTokens": 787
+        }
+      ]
+    },
+    {
+      "id": "text-grouped",
+      "sourceType": "text",
+      "tags": [
+        "synthetic",
+        "smoke",
+        "text"
+      ],
+      "critical": false,
+      "repetition": 1,
+      "status": "SUCCEEDED",
+      "latencyMs": 10826.594005979132,
+      "expectedError": null,
+      "outcomeMatched": true,
+      "blocked": false,
+      "error": null,
+      "processing": {
+        "chunks": {
+          "total": 1,
+          "succeeded": 1,
+          "skipped": 0
+        },
+        "visuals": {
+          "total": 0,
+          "succeeded": 0,
+          "skipped": 0
+        },
+        "truncated": false,
+        "failures": []
+      },
+      "score": {
+        "expected": 2,
+        "predicted": 2,
+        "matched": 1,
+        "modeCorrect": 1,
+        "optionsExpected": 0,
+        "optionsCorrect": 0,
+        "answerCorrect": 1,
+        "inventedAnswers": 0,
+        "questions": [
+          {
+            "expectedIndex": 0,
+            "predictedIndex": null,
+            "answerMode": "fill_blank",
+            "expected": {
+              "stem": "6 × 7 = ____.",
+              "answerMode": "fill_blank",
+              "options": [],
+              "answerPayload": {
+                "answers": [
+                  "42"
+                ]
+              }
+            },
+            "predicted": null,
+            "matched": false,
+            "correct": {
+              "answerMode": false,
+              "options": false,
+              "answerPayload": false
+            },
+            "inventedAnswer": false,
+            "differences": [
+              "missing"
+            ]
+          },
+          {
+            "expectedIndex": 1,
+            "predictedIndex": 1,
+            "answerMode": "short_answer",
+            "expected": {
+              "stem": "What is the square root of 81?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": {
+                "text": "9"
+              }
+            },
+            "predicted": {
+              "stem": "What is the square root of 81?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": {
+                "text": "9"
+              }
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": true
+            },
+            "inventedAnswer": false,
+            "differences": []
+          },
+          {
+            "expectedIndex": null,
+            "predictedIndex": 0,
+            "answerMode": "fill_blank",
+            "expected": null,
+            "predicted": {
+              "stem": "Fill in the blank: 6 × 7 = ____.",
+              "answerMode": "fill_blank",
+              "options": [],
+              "answerPayload": {
+                "answers": [
+                  "42"
+                ]
+              }
+            },
+            "matched": false,
+            "correct": {},
+            "inventedAnswer": false,
+            "differences": [
+              "extra"
+            ]
+          }
+        ],
+        "groups": {
+          "expected": 1,
+          "predicted": 1,
+          "matched": 0,
+          "missing": [
+            [
+              "Arithmetic",
+              [
+                0,
+                1
+              ]
+            ]
+          ],
+          "extra": [
+            [
+              "Arithmetic",
+              [
+                -1,
+                1
+              ]
+            ]
+          ]
+        },
+        "visuals": {
+          "expected": 0,
+          "predicted": 0,
+          "matched": 0,
+          "missing": [],
+          "extra": []
+        }
+      },
+      "modelCalls": [
+        {
+          "callId": "01a070af-1f41-7db1-9e0a-f766f3e9b854",
+          "node": "chunk",
+          "status": "RETURNED",
+          "inputTokens": 1362,
+          "outputTokens": 768
+        }
+      ]
+    },
+    {
+      "id": "csv-basic",
+      "sourceType": "csv",
+      "tags": [
+        "synthetic",
+        "smoke",
+        "csv"
+      ],
+      "critical": false,
+      "repetition": 1,
+      "status": "ERROR",
+      "latencyMs": 11048.562799987849,
+      "expectedError": null,
+      "outcomeMatched": false,
+      "blocked": false,
+      "error": {
+        "type": "DocumentProcessingError",
+        "code": "NO_QUESTIONS_FOUND",
+        "statusCode": 422
+      },
+      "processing": {
+        "chunks": {
+          "total": 1,
+          "succeeded": 1,
+          "skipped": 0
+        },
+        "visuals": {
+          "total": 0,
+          "succeeded": 0,
+          "skipped": 0
+        },
+        "truncated": false,
+        "failures": []
+      },
+      "score": {
+        "expected": 2,
+        "predicted": 0,
+        "matched": 0,
+        "modeCorrect": 0,
+        "optionsExpected": 1,
+        "optionsCorrect": 0,
+        "answerCorrect": 0,
+        "inventedAnswers": 0,
+        "questions": [
+          {
+            "expectedIndex": 0,
+            "predictedIndex": null,
+            "answerMode": "choice",
+            "expected": {
+              "stem": "What is 10 - 4?",
+              "answerMode": "choice",
+              "options": [
+                {
+                  "label": "A",
+                  "content": "5"
+                },
+                {
+                  "label": "B",
+                  "content": "6"
+                },
+                {
+                  "label": "C",
+                  "content": "7"
+                }
+              ],
+              "answerPayload": {
+                "correctOption": "B"
+              }
+            },
+            "predicted": null,
+            "matched": false,
+            "correct": {
+              "answerMode": false,
+              "options": false,
+              "answerPayload": false
+            },
+            "inventedAnswer": false,
+            "differences": [
+              "missing"
+            ]
+          },
+          {
+            "expectedIndex": 1,
+            "predictedIndex": null,
+            "answerMode": "true_false",
+            "expected": {
+              "stem": "Mammals are warm-blooded.",
+              "answerMode": "true_false",
+              "options": [],
+              "answerPayload": {
+                "value": true
+              }
+            },
+            "predicted": null,
+            "matched": false,
+            "correct": {
+              "answerMode": false,
+              "options": false,
+              "answerPayload": false
+            },
+            "inventedAnswer": false,
+            "differences": [
+              "missing"
+            ]
+          }
+        ],
+        "groups": null,
+        "visuals": {
+          "expected": 0,
+          "predicted": 0,
+          "matched": 0,
+          "missing": [],
+          "extra": []
+        }
+      },
+      "modelCalls": [
+        {
+          "callId": "01a070af-4a90-77d1-b5b9-d92d8ae51d63",
+          "node": "chunk",
+          "status": "RETURNED",
+          "inputTokens": 1356,
+          "outputTokens": 511
+        }
+      ]
+    },
+    {
+      "id": "csv-quoted",
+      "sourceType": "csv",
+      "tags": [
+        "synthetic",
+        "smoke",
+        "csv"
+      ],
+      "critical": false,
+      "repetition": 1,
+      "status": "SUCCEEDED",
+      "latencyMs": 7991.57270998694,
+      "expectedError": null,
+      "outcomeMatched": true,
+      "blocked": false,
+      "error": null,
+      "processing": {
+        "chunks": {
+          "total": 1,
+          "succeeded": 1,
+          "skipped": 0
+        },
+        "visuals": {
+          "total": 0,
+          "succeeded": 0,
+          "skipped": 0
+        },
+        "truncated": false,
+        "failures": []
+      },
+      "score": {
+        "expected": 2,
+        "predicted": 2,
+        "matched": 2,
+        "modeCorrect": 2,
+        "optionsExpected": 0,
+        "optionsCorrect": 0,
+        "answerCorrect": 2,
+        "inventedAnswers": 0,
+        "questions": [
+          {
+            "expectedIndex": 0,
+            "predictedIndex": 0,
+            "answerMode": "fill_blank",
+            "expected": {
+              "stem": "The freezing point of water, in degrees Celsius, is ____.",
+              "answerMode": "fill_blank",
+              "options": [],
+              "answerPayload": {
+                "answers": [
+                  "0"
+                ]
+              }
+            },
+            "predicted": {
+              "stem": "The freezing point of water, in degrees Celsius, is ____.",
+              "answerMode": "fill_blank",
+              "options": [],
+              "answerPayload": {
+                "answers": [
+                  "0"
+                ]
+              }
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": true
+            },
+            "inventedAnswer": false,
+            "differences": []
+          },
+          {
+            "expectedIndex": 1,
+            "predictedIndex": 1,
+            "answerMode": "short_answer",
+            "expected": {
+              "stem": "What is 12 + 8?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": {
+                "text": "20"
+              }
+            },
+            "predicted": {
+              "stem": "What is 12 + 8?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": {
+                "text": "20"
+              }
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": true
+            },
+            "inventedAnswer": false,
+            "differences": []
+          }
+        ],
+        "groups": null,
+        "visuals": {
+          "expected": 0,
+          "predicted": 0,
+          "matched": 0,
+          "missing": [],
+          "extra": []
+        }
+      },
+      "modelCalls": [
+        {
+          "callId": "01a070af-74f4-7972-955e-6679f622ad5f",
+          "node": "chunk",
+          "status": "RETURNED",
+          "inputTokens": 1350,
+          "outputTokens": 240
+        }
+      ]
+    },
+    {
+      "id": "xlsx-single-sheet",
+      "sourceType": "xlsx",
+      "tags": [
+        "synthetic",
+        "smoke",
+        "xlsx"
+      ],
+      "critical": false,
+      "repetition": 1,
+      "status": "SUCCEEDED",
+      "latencyMs": 25217.31993200956,
+      "expectedError": null,
+      "outcomeMatched": true,
+      "blocked": false,
+      "error": null,
+      "processing": {
+        "chunks": {
+          "total": 1,
+          "succeeded": 1,
+          "skipped": 0
+        },
+        "visuals": {
+          "total": 0,
+          "succeeded": 0,
+          "skipped": 0
+        },
+        "truncated": false,
+        "failures": []
+      },
+      "score": {
+        "expected": 2,
+        "predicted": 2,
+        "matched": 2,
+        "modeCorrect": 2,
+        "optionsExpected": 1,
+        "optionsCorrect": 1,
+        "answerCorrect": 1,
+        "inventedAnswers": 0,
+        "questions": [
+          {
+            "expectedIndex": 0,
+            "predictedIndex": 0,
+            "answerMode": "choice",
+            "expected": {
+              "stem": "What is the capital of France?",
+              "answerMode": "choice",
+              "options": [
+                {
+                  "label": "A",
+                  "content": "Berlin"
+                },
+                {
+                  "label": "B",
+                  "content": "Paris"
+                },
+                {
+                  "label": "C",
+                  "content": "Rome"
+                }
+              ],
+              "answerPayload": {
+                "correctOption": "B"
+              }
+            },
+            "predicted": {
+              "stem": "What is the capital of France?",
+              "answerMode": "choice",
+              "options": [
+                {
+                  "label": "A",
+                  "content": "Berlin"
+                },
+                {
+                  "label": "B",
+                  "content": "Paris"
+                },
+                {
+                  "label": "C",
+                  "content": "Rome"
+                }
+              ],
+              "answerPayload": {
+                "correctOption": "B"
+              }
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": true
+            },
+            "inventedAnswer": false,
+            "differences": []
+          },
+          {
+            "expectedIndex": 1,
+            "predictedIndex": 1,
+            "answerMode": "fill_blank",
+            "expected": {
+              "stem": "The chemical symbol for sodium is ____.",
+              "answerMode": "fill_blank",
+              "options": [],
+              "answerPayload": {
+                "answers": [
+                  "Na"
+                ]
+              }
+            },
+            "predicted": {
+              "stem": "The chemical symbol for sodium is ____.",
+              "answerMode": "fill_blank",
+              "options": [],
+              "answerPayload": {
+                "answers": [
+                  "\\mathrm{Na}"
+                ]
+              }
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": false
+            },
+            "inventedAnswer": false,
+            "differences": [
+              "answerPayload"
+            ]
+          }
+        ],
+        "groups": null,
+        "visuals": {
+          "expected": 0,
+          "predicted": 0,
+          "matched": 0,
+          "missing": [],
+          "extra": []
+        }
+      },
+      "modelCalls": [
+        {
+          "callId": "01a070af-9361-76d3-b7f8-a785f4cd9b33",
+          "node": "chunk",
+          "status": "RETURNED",
+          "inputTokens": 1356,
+          "outputTokens": 1813
+        },
+        {
+          "callId": "01a070af-d075-7ae3-818b-7857d4dea39d",
+          "node": "chunk",
+          "status": "RETURNED",
+          "inputTokens": 1754,
+          "outputTokens": 507
+        }
+      ]
+    },
+    {
+      "id": "xlsx-multi-sheet",
+      "sourceType": "xlsx",
+      "tags": [
+        "synthetic",
+        "smoke",
+        "xlsx"
+      ],
+      "critical": false,
+      "repetition": 1,
+      "status": "SUCCEEDED",
+      "latencyMs": 8033.00377598498,
+      "expectedError": null,
+      "outcomeMatched": true,
+      "blocked": false,
+      "error": null,
+      "processing": {
+        "chunks": {
+          "total": 1,
+          "succeeded": 1,
+          "skipped": 0
+        },
+        "visuals": {
+          "total": 0,
+          "succeeded": 0,
+          "skipped": 0
+        },
+        "truncated": false,
+        "failures": []
+      },
+      "score": {
+        "expected": 2,
+        "predicted": 2,
+        "matched": 2,
+        "modeCorrect": 2,
+        "optionsExpected": 0,
+        "optionsCorrect": 0,
+        "answerCorrect": 0,
+        "inventedAnswers": 0,
+        "questions": [
+          {
+            "expectedIndex": 0,
+            "predictedIndex": 0,
+            "answerMode": "true_false",
+            "expected": {
+              "stem": "Earth orbits the Sun.",
+              "answerMode": "true_false",
+              "options": [],
+              "answerPayload": {
+                "value": true
+              }
+            },
+            "predicted": {
+              "stem": "Earth orbits the Sun.",
+              "answerMode": "true_false",
+              "options": [],
+              "answerPayload": null
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": false
+            },
+            "inventedAnswer": false,
+            "differences": [
+              "answerPayload"
+            ]
+          },
+          {
+            "expectedIndex": 1,
+            "predictedIndex": 1,
+            "answerMode": "short_answer",
+            "expected": {
+              "stem": "What is 15 ÷ 3?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": {
+                "text": "5"
+              }
+            },
+            "predicted": {
+              "stem": "What is 15 ÷ 3?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": null
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": false
+            },
+            "inventedAnswer": false,
+            "differences": [
+              "answerPayload"
+            ]
+          }
+        ],
+        "groups": {
+          "expected": 2,
+          "predicted": 2,
+          "matched": 2,
+          "missing": [],
+          "extra": []
+        },
+        "visuals": {
+          "expected": 0,
+          "predicted": 0,
+          "matched": 0,
+          "missing": [],
+          "extra": []
+        }
+      },
+      "modelCalls": [
+        {
+          "callId": "01a070af-f751-77a1-ab93-9ff72b6566b0",
+          "node": "chunk",
+          "status": "RETURNED",
+          "inputTokens": 1354,
+          "outputTokens": 244
+        }
+      ]
+    },
+    {
+      "id": "docx-table",
+      "sourceType": "docx",
+      "tags": [
+        "synthetic",
+        "smoke",
+        "docx"
+      ],
+      "critical": false,
+      "repetition": 1,
+      "status": "SUCCEEDED",
+      "latencyMs": 10990.999055997236,
+      "expectedError": null,
+      "outcomeMatched": true,
+      "blocked": false,
+      "error": null,
+      "processing": {
+        "chunks": {
+          "total": 1,
+          "succeeded": 1,
+          "skipped": 0
+        },
+        "visuals": {
+          "total": 0,
+          "succeeded": 0,
+          "skipped": 0
+        },
+        "truncated": false,
+        "failures": []
+      },
+      "score": {
+        "expected": 2,
+        "predicted": 2,
+        "matched": 2,
+        "modeCorrect": 2,
+        "optionsExpected": 1,
+        "optionsCorrect": 1,
+        "answerCorrect": 2,
+        "inventedAnswers": 0,
+        "questions": [
+          {
+            "expectedIndex": 0,
+            "predictedIndex": 0,
+            "answerMode": "choice",
+            "expected": {
+              "stem": "Which planet is the largest in the Solar System?",
+              "answerMode": "choice",
+              "options": [
+                {
+                  "label": "A",
+                  "content": "Earth"
+                },
+                {
+                  "label": "B",
+                  "content": "Mars"
+                },
+                {
+                  "label": "C",
+                  "content": "Jupiter"
+                }
+              ],
+              "answerPayload": {
+                "correctOption": "C"
+              }
+            },
+            "predicted": {
+              "stem": "Which planet is the largest in the Solar System?",
+              "answerMode": "choice",
+              "options": [
+                {
+                  "label": "A",
+                  "content": "Earth"
+                },
+                {
+                  "label": "B",
+                  "content": "Mars"
+                },
+                {
+                  "label": "C",
+                  "content": "Jupiter"
+                }
+              ],
+              "answerPayload": {
+                "correctOption": "C"
+              }
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": true
+            },
+            "inventedAnswer": false,
+            "differences": []
+          },
+          {
+            "expectedIndex": 1,
+            "predictedIndex": 1,
+            "answerMode": "fill_blank",
+            "expected": {
+              "stem": "The chemical formula for water is ____.",
+              "answerMode": "fill_blank",
+              "options": [],
+              "answerPayload": {
+                "answers": [
+                  "H2O"
+                ]
+              }
+            },
+            "predicted": {
+              "stem": "The chemical formula for water is ____.",
+              "answerMode": "fill_blank",
+              "options": [],
+              "answerPayload": {
+                "answers": [
+                  "H2O"
+                ]
+              }
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": true
+            },
+            "inventedAnswer": false,
+            "differences": []
+          }
+        ],
+        "groups": null,
+        "visuals": {
+          "expected": 0,
+          "predicted": 0,
+          "matched": 0,
+          "missing": [],
+          "extra": []
+        }
+      },
+      "modelCalls": [
+        {
+          "callId": "01a070b0-1561-7140-878e-83db58b7b70b",
+          "node": "chunk",
+          "status": "RETURNED",
+          "inputTokens": 1368,
+          "outputTokens": 748
+        }
+      ]
+    },
+    {
+      "id": "docx-formula-image",
+      "sourceType": "docx",
+      "tags": [
+        "synthetic",
+        "smoke",
+        "docx"
+      ],
+      "critical": false,
+      "repetition": 1,
+      "status": "PARTIAL",
+      "latencyMs": 55104.08869900857,
+      "expectedError": null,
+      "outcomeMatched": false,
+      "blocked": false,
+      "error": null,
+      "processing": {
+        "chunks": {
+          "total": 1,
+          "succeeded": 1,
+          "skipped": 0
+        },
+        "visuals": {
+          "total": 1,
+          "succeeded": 0,
+          "skipped": 0
+        },
+        "truncated": false,
+        "failures": [
+          {
+            "stage": "vision_describe",
+            "index": 0,
+            "code": "OUTPUT_INVALID",
+            "retryable": true
+          }
+        ]
+      },
+      "score": {
+        "expected": 2,
+        "predicted": 2,
+        "matched": 2,
+        "modeCorrect": 2,
+        "optionsExpected": 0,
+        "optionsCorrect": 0,
+        "answerCorrect": 0,
+        "inventedAnswers": 0,
+        "questions": [
+          {
+            "expectedIndex": 0,
+            "predictedIndex": 0,
+            "answerMode": "short_answer",
+            "expected": {
+              "stem": "A right triangle has legs of length 3 and 4. What is the hypotenuse length?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": {
+                "text": "5"
+              }
+            },
+            "predicted": {
+              "stem": "A right triangle has legs of length 3 and 4. What is the hypotenuse length?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": null
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": false
+            },
+            "inventedAnswer": false,
+            "differences": [
+              "answerPayload"
+            ]
+          },
+          {
+            "expectedIndex": 1,
+            "predictedIndex": 1,
+            "answerMode": "true_false",
+            "expected": {
+              "stem": "A right angle measures 90 degrees.",
+              "answerMode": "true_false",
+              "options": [],
+              "answerPayload": {
+                "value": true
+              }
+            },
+            "predicted": {
+              "stem": "A right angle measures 90 degrees.",
+              "answerMode": "true_false",
+              "options": [],
+              "answerPayload": null
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": false
+            },
+            "inventedAnswer": false,
+            "differences": [
+              "answerPayload"
+            ]
+          }
+        ],
+        "groups": null,
+        "visuals": {
+          "expected": 1,
+          "predicted": 0,
+          "matched": 0,
+          "missing": [
+            "image"
+          ],
+          "extra": []
+        }
+      },
+      "modelCalls": [
+        {
+          "callId": "01a070b0-3de4-71f1-b1b2-b148eec46fd9",
+          "node": "vision",
+          "status": "RETURNED",
+          "inputTokens": 1883,
+          "outputTokens": 574
+        },
+        {
+          "callId": "01a070b0-534b-78b0-bfe9-3cab8515e892",
+          "node": "vision",
+          "status": "RETURNED",
+          "inputTokens": 1990,
+          "outputTokens": 1233
+        },
+        {
+          "callId": "01a070b0-880e-7912-ba73-e4cb030b088a",
+          "node": "vision",
+          "status": "RETURNED",
+          "inputTokens": 2086,
+          "outputTokens": 1287
+        },
+        {
+          "callId": "01a070b0-bf4f-7563-8d09-11e0cb83c547",
+          "node": "vision",
+          "status": "RETURNED",
+          "inputTokens": 2186,
+          "outputTokens": 563
+        },
+        {
+          "callId": "01a070b0-e5ac-7361-9589-9c78affa6727",
+          "node": "chunk",
+          "status": "RETURNED",
+          "inputTokens": 1365,
+          "outputTokens": 456
+        },
+        {
+          "callId": "01a070b0-f2c6-7992-a684-389019cfc958",
+          "node": "chunk",
+          "status": "RETURNED",
+          "inputTokens": 1511,
+          "outputTokens": 543
+        }
+      ]
+    },
+    {
+      "id": "pdf-text-layer",
+      "sourceType": "pdf",
+      "tags": [
+        "synthetic",
+        "smoke",
+        "pdf"
+      ],
+      "critical": false,
+      "repetition": 1,
+      "status": "SUCCEEDED",
+      "latencyMs": 13091.028423019452,
+      "expectedError": null,
+      "outcomeMatched": true,
+      "blocked": false,
+      "error": null,
+      "processing": {
+        "chunks": {
+          "total": 1,
+          "succeeded": 1,
+          "skipped": 0
+        },
+        "visuals": {
+          "total": 0,
+          "succeeded": 0,
+          "skipped": 0
+        },
+        "truncated": false,
+        "failures": []
+      },
+      "score": {
+        "expected": 2,
+        "predicted": 2,
+        "matched": 0,
+        "modeCorrect": 0,
+        "optionsExpected": 1,
+        "optionsCorrect": 0,
+        "answerCorrect": 0,
+        "inventedAnswers": 0,
+        "questions": [
+          {
+            "expectedIndex": 0,
+            "predictedIndex": null,
+            "answerMode": "choice",
+            "expected": {
+              "stem": "Which number is prime?",
+              "answerMode": "choice",
+              "options": [
+                {
+                  "label": "A",
+                  "content": "9"
+                },
+                {
+                  "label": "B",
+                  "content": "11"
+                },
+                {
+                  "label": "C",
+                  "content": "15"
+                }
+              ],
+              "answerPayload": {
+                "correctOption": "B"
+              }
+            },
+            "predicted": null,
+            "matched": false,
+            "correct": {
+              "answerMode": false,
+              "options": false,
+              "answerPayload": false
+            },
+            "inventedAnswer": false,
+            "differences": [
+              "missing"
+            ]
+          },
+          {
+            "expectedIndex": 1,
+            "predictedIndex": null,
+            "answerMode": "short_answer",
+            "expected": {
+              "stem": "What is 7 squared?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": {
+                "text": "49"
+              }
+            },
+            "predicted": null,
+            "matched": false,
+            "correct": {
+              "answerMode": false,
+              "options": false,
+              "answerPayload": false
+            },
+            "inventedAnswer": false,
+            "differences": [
+              "missing"
+            ]
+          },
+          {
+            "expectedIndex": null,
+            "predictedIndex": 0,
+            "answerMode": "choice",
+            "expected": null,
+            "predicted": {
+              "stem": "1. Multiple choice: Which number is prime?",
+              "answerMode": "choice",
+              "options": [
+                {
+                  "label": "A",
+                  "content": "9"
+                },
+                {
+                  "label": "B",
+                  "content": "11"
+                },
+                {
+                  "label": "C",
+                  "content": "15"
+                }
+              ],
+              "answerPayload": {
+                "correctOption": "B"
+              }
+            },
+            "matched": false,
+            "correct": {},
+            "inventedAnswer": false,
+            "differences": [
+              "extra"
+            ]
+          },
+          {
+            "expectedIndex": null,
+            "predictedIndex": 1,
+            "answerMode": "short_answer",
+            "expected": null,
+            "predicted": {
+              "stem": "2. Short answer: What is 7 squared?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": {
+                "text": "49"
+              }
+            },
+            "matched": false,
+            "correct": {},
+            "inventedAnswer": false,
+            "differences": [
+              "extra"
+            ]
+          }
+        ],
+        "groups": null,
+        "visuals": {
+          "expected": 0,
+          "predicted": 0,
+          "matched": 0,
+          "missing": [],
+          "extra": []
+        }
+      },
+      "modelCalls": [
+        {
+          "callId": "01a070b1-1a6f-7200-b83d-4ed6ebc98b48",
+          "node": "chunk",
+          "status": "RETURNED",
+          "inputTokens": 1396,
+          "outputTokens": 863
+        }
+      ]
+    },
+    {
+      "id": "pdf-scanned",
+      "sourceType": "pdf",
+      "tags": [
+        "synthetic",
+        "smoke",
+        "pdf"
+      ],
+      "critical": false,
+      "repetition": 1,
+      "status": "SUCCEEDED",
+      "latencyMs": 19457.066473987652,
+      "expectedError": null,
+      "outcomeMatched": true,
+      "blocked": false,
+      "error": null,
+      "processing": {
+        "chunks": {
+          "total": 1,
+          "succeeded": 1,
+          "skipped": 0
+        },
+        "visuals": {
+          "total": 1,
+          "succeeded": 1,
+          "skipped": 0
+        },
+        "truncated": false,
+        "failures": []
+      },
+      "score": {
+        "expected": 2,
+        "predicted": 2,
+        "matched": 0,
+        "modeCorrect": 0,
+        "optionsExpected": 0,
+        "optionsCorrect": 0,
+        "answerCorrect": 0,
+        "inventedAnswers": 0,
+        "questions": [
+          {
+            "expectedIndex": 0,
+            "predictedIndex": null,
+            "answerMode": "fill_blank",
+            "expected": {
+              "stem": "100 ÷ 4 = ____.",
+              "answerMode": "fill_blank",
+              "options": [],
+              "answerPayload": {
+                "answers": [
+                  "25"
+                ]
+              }
+            },
+            "predicted": null,
+            "matched": false,
+            "correct": {
+              "answerMode": false,
+              "options": false,
+              "answerPayload": false
+            },
+            "inventedAnswer": false,
+            "differences": [
+              "missing"
+            ]
+          },
+          {
+            "expectedIndex": 1,
+            "predictedIndex": null,
+            "answerMode": "true_false",
+            "expected": {
+              "stem": "The number 5 is even.",
+              "answerMode": "true_false",
+              "options": [],
+              "answerPayload": {
+                "value": false
+              }
+            },
+            "predicted": null,
+            "matched": false,
+            "correct": {
+              "answerMode": false,
+              "options": false,
+              "answerPayload": false
+            },
+            "inventedAnswer": false,
+            "differences": [
+              "missing"
+            ]
+          },
+          {
+            "expectedIndex": null,
+            "predictedIndex": 0,
+            "answerMode": "fill_blank",
+            "expected": null,
+            "predicted": {
+              "stem": "Fill in the blank: 100 ÷ 4 = ___.",
+              "answerMode": "fill_blank",
+              "options": [],
+              "answerPayload": null
+            },
+            "matched": false,
+            "correct": {},
+            "inventedAnswer": false,
+            "differences": [
+              "extra"
+            ]
+          },
+          {
+            "expectedIndex": null,
+            "predictedIndex": 1,
+            "answerMode": "true_false",
+            "expected": null,
+            "predicted": {
+              "stem": "True or false: The number 5 is even.",
+              "answerMode": "true_false",
+              "options": [],
+              "answerPayload": null
+            },
+            "matched": false,
+            "correct": {},
+            "inventedAnswer": false,
+            "differences": [
+              "extra"
+            ]
+          }
+        ],
+        "groups": null,
+        "visuals": {
+          "expected": 0,
+          "predicted": 0,
+          "matched": 0,
+          "missing": [],
+          "extra": []
+        }
+      },
+      "modelCalls": [
+        {
+          "callId": "01a070b1-4ba6-7d61-b5d3-8865b4c2c5d8",
+          "node": "vision",
+          "status": "RETURNED",
+          "inputTokens": 2998,
+          "outputTokens": 220
+        },
+        {
+          "callId": "01a070b1-6e0f-7c41-84a0-a16ed5a2f020",
+          "node": "chunk",
+          "status": "RETURNED",
+          "inputTokens": 1355,
+          "outputTokens": 581
+        }
+      ]
+    },
+    {
+      "id": "image-clean",
+      "sourceType": "image",
+      "tags": [
+        "synthetic",
+        "smoke",
+        "image"
+      ],
+      "critical": false,
+      "repetition": 1,
+      "status": "SUCCEEDED",
+      "latencyMs": 17307.1631170169,
+      "expectedError": null,
+      "outcomeMatched": true,
+      "blocked": false,
+      "error": null,
+      "processing": {
+        "chunks": {
+          "total": 1,
+          "succeeded": 1,
+          "skipped": 0
+        },
+        "visuals": {
+          "total": 1,
+          "succeeded": 1,
+          "skipped": 0
+        },
+        "truncated": false,
+        "failures": []
+      },
+      "score": {
+        "expected": 2,
+        "predicted": 2,
+        "matched": 0,
+        "modeCorrect": 0,
+        "optionsExpected": 1,
+        "optionsCorrect": 0,
+        "answerCorrect": 0,
+        "inventedAnswers": 0,
+        "questions": [
+          {
+            "expectedIndex": 0,
+            "predictedIndex": null,
+            "answerMode": "choice",
+            "expected": {
+              "stem": "Which color is made by mixing red and blue?",
+              "answerMode": "choice",
+              "options": [
+                {
+                  "label": "A",
+                  "content": "Green"
+                },
+                {
+                  "label": "B",
+                  "content": "Purple"
+                },
+                {
+                  "label": "C",
+                  "content": "Orange"
+                }
+              ],
+              "answerPayload": {
+                "correctOption": "B"
+              }
+            },
+            "predicted": null,
+            "matched": false,
+            "correct": {
+              "answerMode": false,
+              "options": false,
+              "answerPayload": false
+            },
+            "inventedAnswer": false,
+            "differences": [
+              "missing"
+            ]
+          },
+          {
+            "expectedIndex": 1,
+            "predictedIndex": null,
+            "answerMode": "fill_blank",
+            "expected": {
+              "stem": "9 + 10 = ____.",
+              "answerMode": "fill_blank",
+              "options": [],
+              "answerPayload": {
+                "answers": [
+                  "19"
+                ]
+              }
+            },
+            "predicted": null,
+            "matched": false,
+            "correct": {
+              "answerMode": false,
+              "options": false,
+              "answerPayload": false
+            },
+            "inventedAnswer": false,
+            "differences": [
+              "missing"
+            ]
+          },
+          {
+            "expectedIndex": null,
+            "predictedIndex": 0,
+            "answerMode": "choice",
+            "expected": null,
+            "predicted": {
+              "stem": "1. Multiple choice: Which color is made by mixing red and blue?",
+              "answerMode": "choice",
+              "options": [
+                {
+                  "label": "A",
+                  "content": "Green"
+                },
+                {
+                  "label": "B",
+                  "content": "Purple"
+                },
+                {
+                  "label": "C",
+                  "content": "Orange"
+                }
+              ],
+              "answerPayload": {
+                "correctOption": "B"
+              }
+            },
+            "matched": false,
+            "correct": {},
+            "inventedAnswer": false,
+            "differences": [
+              "extra"
+            ]
+          },
+          {
+            "expectedIndex": null,
+            "predictedIndex": 1,
+            "answerMode": "fill_blank",
+            "expected": null,
+            "predicted": {
+              "stem": "2. Fill in the blank: 9 + 10 = ___.",
+              "answerMode": "fill_blank",
+              "options": [],
+              "answerPayload": {
+                "answers": [
+                  "19"
+                ]
+              }
+            },
+            "matched": false,
+            "correct": {},
+            "inventedAnswer": false,
+            "differences": [
+              "extra"
+            ]
+          }
+        ],
+        "groups": null,
+        "visuals": {
+          "expected": 0,
+          "predicted": 0,
+          "matched": 0,
+          "missing": [],
+          "extra": []
+        }
+      },
+      "modelCalls": [
+        {
+          "callId": "01a070b1-919e-7093-907a-a4b00018ce7d",
+          "node": "vision",
+          "status": "RETURNED",
+          "inputTokens": 2028,
+          "outputTokens": 267
+        },
+        {
+          "callId": "01a070b1-abbb-7b80-8612-4db1076f40b7",
+          "node": "chunk",
+          "status": "RETURNED",
+          "inputTokens": 1367,
+          "outputTokens": 863
+        }
+      ]
+    },
+    {
+      "id": "image-two-column",
+      "sourceType": "image",
+      "tags": [
+        "synthetic",
+        "smoke",
+        "image"
+      ],
+      "critical": false,
+      "repetition": 1,
+      "status": "SUCCEEDED",
+      "latencyMs": 38777.473429974634,
+      "expectedError": null,
+      "outcomeMatched": true,
+      "blocked": false,
+      "error": null,
+      "processing": {
+        "chunks": {
+          "total": 1,
+          "succeeded": 1,
+          "skipped": 0
+        },
+        "visuals": {
+          "total": 1,
+          "succeeded": 1,
+          "skipped": 0
+        },
+        "truncated": false,
+        "failures": []
+      },
+      "score": {
+        "expected": 2,
+        "predicted": 2,
+        "matched": 2,
+        "modeCorrect": 2,
+        "optionsExpected": 0,
+        "optionsCorrect": 0,
+        "answerCorrect": 2,
+        "inventedAnswers": 0,
+        "questions": [
+          {
+            "expectedIndex": 0,
+            "predictedIndex": 0,
+            "answerMode": "short_answer",
+            "expected": {
+              "stem": "How many days are in one week?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": {
+                "text": "7"
+              }
+            },
+            "predicted": {
+              "stem": "How many days are in one week?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": {
+                "text": "7"
+              }
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": true
+            },
+            "inventedAnswer": false,
+            "differences": []
+          },
+          {
+            "expectedIndex": 1,
+            "predictedIndex": 1,
+            "answerMode": "true_false",
+            "expected": {
+              "stem": "The Moon is a star.",
+              "answerMode": "true_false",
+              "options": [],
+              "answerPayload": {
+                "value": false
+              }
+            },
+            "predicted": {
+              "stem": "The Moon is a star.",
+              "answerMode": "true_false",
+              "options": [],
+              "answerPayload": {
+                "value": false
+              }
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": true
+            },
+            "inventedAnswer": false,
+            "differences": []
+          }
+        ],
+        "groups": null,
+        "visuals": {
+          "expected": 1,
+          "predicted": 1,
+          "matched": 1,
+          "missing": [],
+          "extra": []
+        }
+      },
+      "modelCalls": [
+        {
+          "callId": "01a070b1-d6bd-73f1-a422-56afe8fb085a",
+          "node": "vision",
+          "status": "RETURNED",
+          "inputTokens": 2028,
+          "outputTokens": 439
+        },
+        {
+          "callId": "01a070b1-e50c-7773-811e-5fe075c9b907",
+          "node": "vision",
+          "status": "RETURNED",
+          "inputTokens": 2351,
+          "outputTokens": 1651
+        },
+        {
+          "callId": "01a070b2-1304-7981-861a-6a349a0f6954",
+          "node": "vision",
+          "status": "RETURNED",
+          "inputTokens": 2609,
+          "outputTokens": 936
+        },
+        {
+          "callId": "01a070b2-3b2c-76b2-94aa-bb3b71477b87",
+          "node": "chunk",
+          "status": "RETURNED",
+          "inputTokens": 1355,
+          "outputTokens": 596
+        }
+      ]
+    },
+    {
+      "id": "text-chinese",
+      "sourceType": "text",
+      "tags": [
+        "synthetic",
+        "regression",
+        "chinese"
+      ],
+      "critical": true,
+      "repetition": 1,
+      "status": "SUCCEEDED",
+      "latencyMs": 16620.38712701178,
+      "expectedError": null,
+      "outcomeMatched": true,
+      "blocked": false,
+      "error": null,
+      "processing": {
+        "chunks": {
+          "total": 1,
+          "succeeded": 1,
+          "skipped": 0
+        },
+        "visuals": {
+          "total": 0,
+          "succeeded": 0,
+          "skipped": 0
+        },
+        "truncated": false,
+        "failures": []
+      },
+      "score": {
+        "expected": 2,
+        "predicted": 2,
+        "matched": 2,
+        "modeCorrect": 2,
+        "optionsExpected": 1,
+        "optionsCorrect": 1,
+        "answerCorrect": 2,
+        "inventedAnswers": 0,
+        "questions": [
+          {
+            "expectedIndex": 0,
+            "predictedIndex": 0,
+            "answerMode": "choice",
+            "expected": {
+              "stem": "中国的首都是哪座城市？",
+              "answerMode": "choice",
+              "options": [
+                {
+                  "label": "A",
+                  "content": "北京"
+                },
+                {
+                  "label": "B",
+                  "content": "上海"
+                }
+              ],
+              "answerPayload": {
+                "correctOption": "A"
+              }
+            },
+            "predicted": {
+              "stem": "中国的首都是哪座城市？",
+              "answerMode": "choice",
+              "options": [
+                {
+                  "label": "A",
+                  "content": "北京"
+                },
+                {
+                  "label": "B",
+                  "content": "上海"
+                }
+              ],
+              "answerPayload": {
+                "correctOption": "A"
+              }
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": true
+            },
+            "inventedAnswer": false,
+            "differences": []
+          },
+          {
+            "expectedIndex": 1,
+            "predictedIndex": 1,
+            "answerMode": "true_false",
+            "expected": {
+              "stem": "地球绕太阳公转。",
+              "answerMode": "true_false",
+              "options": [],
+              "answerPayload": {
+                "value": true
+              }
+            },
+            "predicted": {
+              "stem": "地球绕太阳公转。",
+              "answerMode": "true_false",
+              "options": [],
+              "answerPayload": {
+                "value": true
+              }
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": true
+            },
+            "inventedAnswer": false,
+            "differences": []
+          }
+        ],
+        "groups": null,
+        "visuals": {
+          "expected": 0,
+          "predicted": 0,
+          "matched": 0,
+          "missing": [],
+          "extra": []
+        }
+      },
+      "modelCalls": [
+        {
+          "callId": "01a070b2-7dc0-7982-96bc-b0060bdb6ac9",
+          "node": "chunk",
+          "status": "RETURNED",
+          "inputTokens": 1352,
+          "outputTokens": 637
+        }
+      ]
+    },
+    {
+      "id": "text-no-answer",
+      "sourceType": "text",
+      "tags": [
+        "synthetic",
+        "regression",
+        "no-source-answer"
+      ],
+      "critical": true,
+      "repetition": 1,
+      "status": "SUCCEEDED",
+      "latencyMs": 14101.787728024647,
+      "expectedError": null,
+      "outcomeMatched": true,
+      "blocked": false,
+      "error": null,
+      "processing": {
+        "chunks": {
+          "total": 1,
+          "succeeded": 1,
+          "skipped": 0
+        },
+        "visuals": {
+          "total": 0,
+          "succeeded": 0,
+          "skipped": 0
+        },
+        "truncated": false,
+        "failures": []
+      },
+      "score": {
+        "expected": 2,
+        "predicted": 2,
+        "matched": 2,
+        "modeCorrect": 2,
+        "optionsExpected": 1,
+        "optionsCorrect": 1,
+        "answerCorrect": 2,
+        "inventedAnswers": 0,
+        "questions": [
+          {
+            "expectedIndex": 0,
+            "predictedIndex": 0,
+            "answerMode": "short_answer",
+            "expected": {
+              "stem": "What is the capital of France?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": null
+            },
+            "predicted": {
+              "stem": "What is the capital of France?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": null
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": true
+            },
+            "inventedAnswer": false,
+            "differences": []
+          },
+          {
+            "expectedIndex": 1,
+            "predictedIndex": 1,
+            "answerMode": "choice",
+            "expected": {
+              "stem": "Which number is even?",
+              "answerMode": "choice",
+              "options": [
+                {
+                  "label": "A",
+                  "content": "3"
+                },
+                {
+                  "label": "B",
+                  "content": "4"
+                }
+              ],
+              "answerPayload": null
+            },
+            "predicted": {
+              "stem": "Which number is even?",
+              "answerMode": "choice",
+              "options": [
+                {
+                  "label": "A",
+                  "content": "3"
+                },
+                {
+                  "label": "B",
+                  "content": "4"
+                }
+              ],
+              "answerPayload": null
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": true
+            },
+            "inventedAnswer": false,
+            "differences": []
+          }
+        ],
+        "groups": null,
+        "visuals": {
+          "expected": 0,
+          "predicted": 0,
+          "matched": 0,
+          "missing": [],
+          "extra": []
+        }
+      },
+      "modelCalls": [
+        {
+          "callId": "01a070b2-bd7e-7381-bc57-5bf493bf7e00",
+          "node": "chunk",
+          "status": "RETURNED",
+          "inputTokens": 1349,
+          "outputTokens": 648
+        }
+      ]
+    },
+    {
+      "id": "text-long-prefix",
+      "sourceType": "text",
+      "tags": [
+        "synthetic",
+        "regression",
+        "long-stem"
+      ],
+      "critical": true,
+      "repetition": 1,
+      "status": "SUCCEEDED",
+      "latencyMs": 13750.740999996196,
+      "expectedError": null,
+      "outcomeMatched": true,
+      "blocked": false,
+      "error": null,
+      "processing": {
+        "chunks": {
+          "total": 1,
+          "succeeded": 1,
+          "skipped": 0
+        },
+        "visuals": {
+          "total": 0,
+          "succeeded": 0,
+          "skipped": 0
+        },
+        "truncated": false,
+        "failures": []
+      },
+      "score": {
+        "expected": 2,
+        "predicted": 2,
+        "matched": 2,
+        "modeCorrect": 0,
+        "optionsExpected": 0,
+        "optionsCorrect": 0,
+        "answerCorrect": 0,
+        "inventedAnswers": 0,
+        "questions": [
+          {
+            "expectedIndex": 0,
+            "predictedIndex": 0,
+            "answerMode": "short_answer",
+            "expected": {
+              "stem": "Read the following description carefully. Both records describe identical equipment, identical operators, and identical test conditions. The labels on the records are different, and only the final sentence identifies the record under consideration. What label is printed on the first record?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": {
+                "text": "alpha"
+              }
+            },
+            "predicted": {
+              "stem": "1. Read the following description carefully. Both records describe identical equipment, identical operators, and identical test conditions. The labels on the records are different, and only the final sentence identifies the record under consideration. What label is printed on the first record?",
+              "answerMode": "fill_blank",
+              "options": [],
+              "answerPayload": {
+                "answers": [
+                  "alpha"
+                ]
+              }
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": false,
+              "options": true,
+              "answerPayload": false
+            },
+            "inventedAnswer": false,
+            "differences": [
+              "answerMode",
+              "answerPayload"
+            ]
+          },
+          {
+            "expectedIndex": 1,
+            "predictedIndex": 1,
+            "answerMode": "short_answer",
+            "expected": {
+              "stem": "Read the following description carefully. Both records describe identical equipment, identical operators, and identical test conditions. The labels on the records are different, and only the final sentence identifies the record under consideration. What label is printed on the second record?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": {
+                "text": "beta"
+              }
+            },
+            "predicted": {
+              "stem": "2. Read the following description carefully. Both records describe identical equipment, identical operators, and identical test conditions. The labels on the records are different, and only the final sentence identifies the record under consideration. What label is printed on the second record?",
+              "answerMode": "fill_blank",
+              "options": [],
+              "answerPayload": {
+                "answers": [
+                  "beta"
+                ]
+              }
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": false,
+              "options": true,
+              "answerPayload": false
+            },
+            "inventedAnswer": false,
+            "differences": [
+              "answerMode",
+              "answerPayload"
+            ]
+          }
+        ],
+        "groups": null,
+        "visuals": {
+          "expected": 0,
+          "predicted": 0,
+          "matched": 0,
+          "missing": [],
+          "extra": []
+        }
+      },
+      "modelCalls": [
+        {
+          "callId": "01a070b2-f2f4-7222-b75c-db011695c111",
+          "node": "chunk",
+          "status": "RETURNED",
+          "inputTokens": 1420,
+          "outputTokens": 858
+        }
+      ]
+    },
+    {
+      "id": "text-repeated-stem",
+      "sourceType": "text",
+      "tags": [
+        "synthetic",
+        "regression",
+        "repeated-stem"
+      ],
+      "critical": true,
+      "repetition": 1,
+      "status": "SUCCEEDED",
+      "latencyMs": 14950.303758989321,
+      "expectedError": null,
+      "outcomeMatched": true,
+      "blocked": false,
+      "error": null,
+      "processing": {
+        "chunks": {
+          "total": 1,
+          "succeeded": 1,
+          "skipped": 0
+        },
+        "visuals": {
+          "total": 0,
+          "succeeded": 0,
+          "skipped": 0
+        },
+        "truncated": false,
+        "failures": []
+      },
+      "score": {
+        "expected": 2,
+        "predicted": 2,
+        "matched": 2,
+        "modeCorrect": 0,
+        "optionsExpected": 0,
+        "optionsCorrect": 0,
+        "answerCorrect": 0,
+        "inventedAnswers": 0,
+        "questions": [
+          {
+            "expectedIndex": 0,
+            "predictedIndex": 0,
+            "answerMode": "short_answer",
+            "expected": {
+              "stem": "What label is recorded?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": {
+                "text": "alpha"
+              }
+            },
+            "predicted": {
+              "stem": "What label is recorded?",
+              "answerMode": "fill_blank",
+              "options": [],
+              "answerPayload": null
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": false,
+              "options": true,
+              "answerPayload": false
+            },
+            "inventedAnswer": false,
+            "differences": [
+              "answerMode",
+              "answerPayload"
+            ]
+          },
+          {
+            "expectedIndex": 1,
+            "predictedIndex": 1,
+            "answerMode": "short_answer",
+            "expected": {
+              "stem": "What label is recorded?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": {
+                "text": "beta"
+              }
+            },
+            "predicted": {
+              "stem": "What label is recorded?",
+              "answerMode": "fill_blank",
+              "options": [],
+              "answerPayload": null
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": false,
+              "options": true,
+              "answerPayload": false
+            },
+            "inventedAnswer": false,
+            "differences": [
+              "answerMode",
+              "answerPayload"
+            ]
+          }
+        ],
+        "groups": null,
+        "visuals": {
+          "expected": 0,
+          "predicted": 0,
+          "matched": 0,
+          "missing": [],
+          "extra": []
+        }
+      },
+      "modelCalls": [
+        {
+          "callId": "01a070b3-3398-7f71-9039-2b1e594c4100",
+          "node": "chunk",
+          "status": "RETURNED",
+          "inputTokens": 1345,
+          "outputTokens": 394
+        }
+      ]
+    },
+    {
+      "id": "text-multi-chunk",
+      "sourceType": "text",
+      "tags": [
+        "synthetic",
+        "regression",
+        "chunk-boundary"
+      ],
+      "critical": true,
+      "repetition": 1,
+      "status": "SUCCEEDED",
+      "latencyMs": 20655.70326099987,
+      "expectedError": null,
+      "outcomeMatched": true,
+      "blocked": false,
+      "error": null,
+      "processing": {
+        "chunks": {
+          "total": 2,
+          "succeeded": 2,
+          "skipped": 0
+        },
+        "visuals": {
+          "total": 0,
+          "succeeded": 0,
+          "skipped": 0
+        },
+        "truncated": false,
+        "failures": []
+      },
+      "score": {
+        "expected": 3,
+        "predicted": 3,
+        "matched": 3,
+        "modeCorrect": 1,
+        "optionsExpected": 0,
+        "optionsCorrect": 0,
+        "answerCorrect": 1,
+        "inventedAnswers": 0,
+        "questions": [
+          {
+            "expectedIndex": 0,
+            "predictedIndex": 0,
+            "answerMode": "short_answer",
+            "expected": {
+              "stem": "Which color is named in record one?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": {
+                "text": "red"
+              }
+            },
+            "predicted": {
+              "stem": "Which color is named in record one?",
+              "answerMode": "fill_blank",
+              "options": [],
+              "answerPayload": {
+                "answers": [
+                  "red"
+                ]
+              }
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": false,
+              "options": true,
+              "answerPayload": false
+            },
+            "inventedAnswer": false,
+            "differences": [
+              "answerMode",
+              "answerPayload"
+            ]
+          },
+          {
+            "expectedIndex": 1,
+            "predictedIndex": 1,
+            "answerMode": "short_answer",
+            "expected": {
+              "stem": "Which color is named in record two?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": {
+                "text": "blue"
+              }
+            },
+            "predicted": {
+              "stem": "Which color is named in record two?",
+              "answerMode": "fill_blank",
+              "options": [],
+              "answerPayload": {
+                "answers": [
+                  "blue"
+                ]
+              }
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": false,
+              "options": true,
+              "answerPayload": false
+            },
+            "inventedAnswer": false,
+            "differences": [
+              "answerMode",
+              "answerPayload"
+            ]
+          },
+          {
+            "expectedIndex": 2,
+            "predictedIndex": 2,
+            "answerMode": "short_answer",
+            "expected": {
+              "stem": "Which color is named in record three?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": {
+                "text": "green"
+              }
+            },
+            "predicted": {
+              "stem": "3. Which color is named in record three?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": {
+                "text": "green"
+              }
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": true
+            },
+            "inventedAnswer": false,
+            "differences": []
+          }
+        ],
+        "groups": null,
+        "visuals": {
+          "expected": 0,
+          "predicted": 0,
+          "matched": 0,
+          "missing": [],
+          "extra": []
+        }
+      },
+      "modelCalls": [
+        {
+          "callId": "01a070b3-7042-73b2-b65c-b15baaab22da",
+          "node": "chunk",
+          "status": "RETURNED",
+          "inputTokens": 4859,
+          "outputTokens": 583
+        },
+        {
+          "callId": "01a070b3-725b-7393-bc88-7b5eca7e9811",
+          "node": "chunk",
+          "status": "RETURNED",
+          "inputTokens": 8377,
+          "outputTokens": 652
+        }
+      ]
+    },
+    {
+      "id": "text-no-questions",
+      "sourceType": "text",
+      "tags": [
+        "synthetic",
+        "regression",
+        "no-questions"
+      ],
+      "critical": true,
+      "repetition": 1,
+      "status": "ERROR",
+      "latencyMs": 12628.976039006375,
+      "expectedError": {
+        "code": "NO_QUESTIONS_FOUND",
+        "statusCode": 422
+      },
+      "outcomeMatched": true,
+      "blocked": false,
+      "error": {
+        "type": "DocumentProcessingError",
+        "code": "NO_QUESTIONS_FOUND",
+        "statusCode": 422
+      },
+      "processing": {
+        "chunks": {
+          "total": 1,
+          "succeeded": 1,
+          "skipped": 0
+        },
+        "visuals": {
+          "total": 0,
+          "succeeded": 0,
+          "skipped": 0
+        },
+        "truncated": false,
+        "failures": []
+      },
+      "score": {
+        "expected": 0,
+        "predicted": 0,
+        "matched": 0,
+        "modeCorrect": 0,
+        "optionsExpected": 0,
+        "optionsCorrect": 0,
+        "answerCorrect": 0,
+        "inventedAnswers": 0,
+        "questions": [],
+        "groups": null,
+        "visuals": null
+      },
+      "modelCalls": [
+        {
+          "callId": "01a070b3-af77-7e00-8542-2255f999d4b0",
+          "node": "chunk",
+          "status": "RETURNED",
+          "inputTokens": 1331,
+          "outputTokens": 425
+        }
+      ]
+    },
+    {
+      "id": "docx-corrupt",
+      "sourceType": "docx",
+      "tags": [
+        "synthetic",
+        "regression",
+        "corrupt-input"
+      ],
+      "critical": true,
+      "repetition": 1,
+      "status": "ERROR",
+      "latencyMs": 4956.243444990832,
+      "expectedError": {
+        "code": "DOCUMENT_PROCESSING_FAILED",
+        "statusCode": 400
+      },
+      "outcomeMatched": true,
+      "blocked": false,
+      "error": {
+        "type": "DocumentProcessingError",
+        "code": "DOCUMENT_PROCESSING_FAILED",
+        "statusCode": 400
+      },
+      "processing": {
+        "chunks": {
+          "total": 0,
+          "succeeded": 0,
+          "skipped": 0
+        },
+        "visuals": {
+          "total": 0,
+          "succeeded": 0,
+          "skipped": 0
+        },
+        "truncated": false,
+        "failures": []
+      },
+      "score": {
+        "expected": 0,
+        "predicted": 0,
+        "matched": 0,
+        "modeCorrect": 0,
+        "optionsExpected": 0,
+        "optionsCorrect": 0,
+        "answerCorrect": 0,
+        "inventedAnswers": 0,
+        "questions": [],
+        "groups": null,
+        "visuals": null
+      },
+      "modelCalls": []
+    }
+  ],
+  "status": "FAILED",
+  "gateReasons": [
+    "BELOW_TARGET:questionPrecision",
+    "BELOW_TARGET:questionRecall",
+    "BELOW_TARGET:answerModeAccuracy",
+    "BELOW_TARGET:optionsAccuracy",
+    "BELOW_TARGET:parsedAnswerAccuracy",
+    "BELOW_TARGET:groupF1",
+    "BELOW_TARGET:visualF1",
+    "OUTCOME_MISMATCH:csv-basic:1",
+    "OUTCOME_MISMATCH:docx-formula-image:1",
+    "CRITICAL_CASE_FAILED:text-long-prefix:1",
+    "CRITICAL_CASE_FAILED:text-repeated-stem:1",
+    "CRITICAL_CASE_FAILED:text-multi-chunk:1"
+  ],
+  "documentParser": {
+    "questionPrecision": 72.72727272727273,
+    "questionRecall": 68.57142857142857,
+    "answerModeAccuracy": 51.42857142857142,
+    "optionsAccuracy": 50.0,
+    "parsedAnswerAccuracy": 37.142857142857146,
+    "groupF1": 66.66666666666666,
+    "visualF1": 66.66666666666666
+  },
+  "outcomes": {
+    "SUCCEEDED": 15,
+    "ERROR": 3,
+    "PARTIAL": 1
+  },
+  "slices": {
+    "sourceType": {
+      "csv": {
+        "questionPrecision": 100.0,
+        "questionRecall": 50.0,
+        "answerModeAccuracy": 50.0,
+        "optionsAccuracy": 0.0,
+        "parsedAnswerAccuracy": 50.0,
+        "groupF1": null,
+        "visualF1": 100.0
+      },
+      "docx": {
+        "questionPrecision": 100.0,
+        "questionRecall": 100.0,
+        "answerModeAccuracy": 100.0,
+        "optionsAccuracy": 100.0,
+        "parsedAnswerAccuracy": 50.0,
+        "groupF1": null,
+        "visualF1": 0.0
+      },
+      "image": {
+        "questionPrecision": 50.0,
+        "questionRecall": 50.0,
+        "answerModeAccuracy": 50.0,
+        "optionsAccuracy": 0.0,
+        "parsedAnswerAccuracy": 50.0,
+        "groupF1": null,
+        "visualF1": 100.0
+      },
+      "pdf": {
+        "questionPrecision": 0.0,
+        "questionRecall": 0.0,
+        "answerModeAccuracy": 0.0,
+        "optionsAccuracy": 0.0,
+        "parsedAnswerAccuracy": 0.0,
+        "groupF1": null,
+        "visualF1": 100.0
+      },
+      "text": {
+        "questionPrecision": 80.0,
+        "questionRecall": 80.0,
+        "answerModeAccuracy": 40.0,
+        "optionsAccuracy": 66.66666666666666,
+        "parsedAnswerAccuracy": 40.0,
+        "groupF1": 0.0,
+        "visualF1": 100.0
+      },
+      "xlsx": {
+        "questionPrecision": 100.0,
+        "questionRecall": 100.0,
+        "answerModeAccuracy": 100.0,
+        "optionsAccuracy": 100.0,
+        "parsedAnswerAccuracy": 25.0,
+        "groupF1": 100.0,
+        "visualF1": 100.0
+      }
+    },
+    "answerMode": {
+      "choice": {
+        "questionPrecision": 57.14285714285714,
+        "questionRecall": 50.0,
+        "answerModeAccuracy": 50.0,
+        "optionsAccuracy": 50.0,
+        "parsedAnswerAccuracy": 50.0,
+        "groupF1": null,
+        "visualF1": null
+      },
+      "fill_blank": {
+        "questionPrecision": 50.0,
+        "questionRecall": 50.0,
+        "answerModeAccuracy": 50.0,
+        "optionsAccuracy": null,
+        "parsedAnswerAccuracy": 33.33333333333333,
+        "groupF1": null,
+        "visualF1": null
+      },
+      "short_answer": {
+        "questionPrecision": 92.85714285714286,
+        "questionRecall": 92.85714285714286,
+        "answerModeAccuracy": 50.0,
+        "optionsAccuracy": null,
+        "parsedAnswerAccuracy": 35.714285714285715,
+        "groupF1": null,
+        "visualF1": null
+      },
+      "true_false": {
+        "questionPrecision": 66.66666666666666,
+        "questionRecall": 57.14285714285714,
+        "answerModeAccuracy": 57.14285714285714,
+        "optionsAccuracy": null,
+        "parsedAnswerAccuracy": 28.57142857142857,
+        "groupF1": null,
+        "visualF1": null
+      }
+    },
+    "tag": {
+      "chinese": {
+        "questionPrecision": 100.0,
+        "questionRecall": 100.0,
+        "answerModeAccuracy": 100.0,
+        "optionsAccuracy": 100.0,
+        "parsedAnswerAccuracy": 100.0,
+        "groupF1": null,
+        "visualF1": 100.0
+      },
+      "chunk-boundary": {
+        "questionPrecision": 100.0,
+        "questionRecall": 100.0,
+        "answerModeAccuracy": 33.33333333333333,
+        "optionsAccuracy": null,
+        "parsedAnswerAccuracy": 33.33333333333333,
+        "groupF1": null,
+        "visualF1": 100.0
+      },
+      "corrupt-input": {
+        "questionPrecision": null,
+        "questionRecall": null,
+        "answerModeAccuracy": null,
+        "optionsAccuracy": null,
+        "parsedAnswerAccuracy": null,
+        "groupF1": null,
+        "visualF1": null
+      },
+      "csv": {
+        "questionPrecision": 100.0,
+        "questionRecall": 50.0,
+        "answerModeAccuracy": 50.0,
+        "optionsAccuracy": 0.0,
+        "parsedAnswerAccuracy": 50.0,
+        "groupF1": null,
+        "visualF1": 100.0
+      },
+      "docx": {
+        "questionPrecision": 100.0,
+        "questionRecall": 100.0,
+        "answerModeAccuracy": 100.0,
+        "optionsAccuracy": 100.0,
+        "parsedAnswerAccuracy": 50.0,
+        "groupF1": null,
+        "visualF1": 0.0
+      },
+      "image": {
+        "questionPrecision": 50.0,
+        "questionRecall": 50.0,
+        "answerModeAccuracy": 50.0,
+        "optionsAccuracy": 0.0,
+        "parsedAnswerAccuracy": 50.0,
+        "groupF1": null,
+        "visualF1": 100.0
+      },
+      "long-stem": {
+        "questionPrecision": 100.0,
+        "questionRecall": 100.0,
+        "answerModeAccuracy": 0.0,
+        "optionsAccuracy": null,
+        "parsedAnswerAccuracy": 0.0,
+        "groupF1": null,
+        "visualF1": 100.0
+      },
+      "no-questions": {
+        "questionPrecision": null,
+        "questionRecall": null,
+        "answerModeAccuracy": null,
+        "optionsAccuracy": null,
+        "parsedAnswerAccuracy": null,
+        "groupF1": null,
+        "visualF1": null
+      },
+      "no-source-answer": {
+        "questionPrecision": 100.0,
+        "questionRecall": 100.0,
+        "answerModeAccuracy": 100.0,
+        "optionsAccuracy": 100.0,
+        "parsedAnswerAccuracy": 100.0,
+        "groupF1": null,
+        "visualF1": 100.0
+      },
+      "pdf": {
+        "questionPrecision": 0.0,
+        "questionRecall": 0.0,
+        "answerModeAccuracy": 0.0,
+        "optionsAccuracy": 0.0,
+        "parsedAnswerAccuracy": 0.0,
+        "groupF1": null,
+        "visualF1": 100.0
+      },
+      "regression": {
+        "questionPrecision": 100.0,
+        "questionRecall": 100.0,
+        "answerModeAccuracy": 45.45454545454545,
+        "optionsAccuracy": 100.0,
+        "parsedAnswerAccuracy": 45.45454545454545,
+        "groupF1": null,
+        "visualF1": 100.0
+      },
+      "repeated-stem": {
+        "questionPrecision": 100.0,
+        "questionRecall": 100.0,
+        "answerModeAccuracy": 0.0,
+        "optionsAccuracy": null,
+        "parsedAnswerAccuracy": 0.0,
+        "groupF1": null,
+        "visualF1": 100.0
+      },
+      "smoke": {
+        "questionPrecision": 59.09090909090909,
+        "questionRecall": 54.166666666666664,
+        "answerModeAccuracy": 54.166666666666664,
+        "optionsAccuracy": 33.33333333333333,
+        "parsedAnswerAccuracy": 33.33333333333333,
+        "groupF1": 66.66666666666666,
+        "visualF1": 66.66666666666666
+      },
+      "synthetic": {
+        "questionPrecision": 72.72727272727273,
+        "questionRecall": 68.57142857142857,
+        "answerModeAccuracy": 51.42857142857142,
+        "optionsAccuracy": 50.0,
+        "parsedAnswerAccuracy": 37.142857142857146,
+        "groupF1": 66.66666666666666,
+        "visualF1": 66.66666666666666
+      },
+      "text": {
+        "questionPrecision": 25.0,
+        "questionRecall": 25.0,
+        "answerModeAccuracy": 25.0,
+        "optionsAccuracy": 0.0,
+        "parsedAnswerAccuracy": 25.0,
+        "groupF1": 0.0,
+        "visualF1": 100.0
+      },
+      "xlsx": {
+        "questionPrecision": 100.0,
+        "questionRecall": 100.0,
+        "answerModeAccuracy": 100.0,
+        "optionsAccuracy": 100.0,
+        "parsedAnswerAccuracy": 25.0,
+        "groupF1": 100.0,
+        "visualF1": 100.0
+      }
+    }
+  },
+  "latency": {
+    "all": {
+      "count": 19,
+      "p50Ms": 14101.787728024647,
+      "p95Ms": 40410.13495687803
+    },
+    "success": {
+      "count": 15,
+      "p50Ms": 14950.303758989321,
+      "p95Ms": 29285.36598139908
+    },
+    "failure": {
+      "count": 4,
+      "p50Ms": 11838.769419497112,
+      "p95Ms": 48732.82180000824
+    }
+  },
+  "modelUsage": {
+    "calls": 30,
+    "responses": 30,
+    "failedCalls": 0,
+    "inputTokens": 59811,
+    "outputTokens": 20887,
+    "complete": true,
+    "missingUsageCalls": 0
+  }
+}

@@ -1,0 +1,714 @@
+{
+  "schemaVersion": 2,
+  "cases": [
+    {
+      "id": "text-basic",
+      "sourceType": "text",
+      "path": "fixtures/text/basic.txt",
+      "expectedQuestions": [
+        {
+          "stem": "What is 2 + 3?",
+          "answerMode": "choice",
+          "options": [
+            {
+              "label": "A",
+              "content": "4"
+            },
+            {
+              "label": "B",
+              "content": "5"
+            },
+            {
+              "label": "C",
+              "content": "6"
+            }
+          ],
+          "answerPayload": {
+            "correctOption": "B"
+          }
+        },
+        {
+          "stem": "Pure water freezes at 0 degrees Celsius under standard atmospheric pressure.",
+          "answerMode": "true_false",
+          "options": [],
+          "answerPayload": {
+            "value": true
+          }
+        }
+      ],
+      "tags": [
+        "synthetic",
+        "smoke",
+        "text"
+      ],
+      "critical": false,
+      "expectedVisualKinds": []
+    },
+    {
+      "id": "text-grouped",
+      "sourceType": "text",
+      "path": "fixtures/text/grouped.txt",
+      "expectedQuestions": [
+        {
+          "stem": "6 × 7 = ____.",
+          "answerMode": "fill_blank",
+          "options": [],
+          "answerPayload": {
+            "answers": [
+              "42"
+            ]
+          },
+          "stemAliases": [
+            "6 \\times 7 = ____.",
+            "$6 \\times 7 = ____$."
+          ]
+        },
+        {
+          "stem": "What is the square root of 81?",
+          "answerMode": "short_answer",
+          "options": [],
+          "answerPayload": {
+            "text": "9"
+          }
+        }
+      ],
+      "tags": [
+        "synthetic",
+        "smoke",
+        "text"
+      ],
+      "critical": false,
+      "expectedGroups": [
+        {
+          "title": "Arithmetic",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ],
+      "expectedVisualKinds": []
+    },
+    {
+      "id": "csv-basic",
+      "sourceType": "csv",
+      "path": "fixtures/csv/basic.csv",
+      "expectedQuestions": [
+        {
+          "stem": "What is 10 - 4?",
+          "answerMode": "choice",
+          "options": [
+            {
+              "label": "A",
+              "content": "5"
+            },
+            {
+              "label": "B",
+              "content": "6"
+            },
+            {
+              "label": "C",
+              "content": "7"
+            }
+          ],
+          "answerPayload": {
+            "correctOption": "B"
+          }
+        },
+        {
+          "stem": "Mammals are warm-blooded.",
+          "answerMode": "true_false",
+          "options": [],
+          "answerPayload": {
+            "value": true
+          }
+        }
+      ],
+      "tags": [
+        "synthetic",
+        "smoke",
+        "csv"
+      ],
+      "critical": false,
+      "expectedVisualKinds": []
+    },
+    {
+      "id": "csv-quoted",
+      "sourceType": "csv",
+      "path": "fixtures/csv/quoted.csv",
+      "expectedQuestions": [
+        {
+          "stem": "The freezing point of water, in degrees Celsius, is ____.",
+          "answerMode": "fill_blank",
+          "options": [],
+          "answerPayload": {
+            "answers": [
+              "0"
+            ]
+          }
+        },
+        {
+          "stem": "What is 12 + 8?",
+          "answerMode": "short_answer",
+          "options": [],
+          "answerPayload": {
+            "text": "20"
+          }
+        }
+      ],
+      "tags": [
+        "synthetic",
+        "smoke",
+        "csv"
+      ],
+      "critical": false,
+      "expectedVisualKinds": []
+    },
+    {
+      "id": "xlsx-single-sheet",
+      "sourceType": "xlsx",
+      "path": "fixtures/xlsx/single-sheet.xlsx",
+      "expectedQuestions": [
+        {
+          "stem": "What is the capital of France?",
+          "answerMode": "choice",
+          "options": [
+            {
+              "label": "A",
+              "content": "Berlin"
+            },
+            {
+              "label": "B",
+              "content": "Paris"
+            },
+            {
+              "label": "C",
+              "content": "Rome"
+            }
+          ],
+          "answerPayload": {
+            "correctOption": "B"
+          }
+        },
+        {
+          "stem": "The chemical symbol for sodium is ____.",
+          "answerMode": "fill_blank",
+          "options": [],
+          "answerPayload": {
+            "answers": [
+              "Na"
+            ]
+          }
+        }
+      ],
+      "tags": [
+        "synthetic",
+        "smoke",
+        "xlsx"
+      ],
+      "critical": false,
+      "expectedVisualKinds": []
+    },
+    {
+      "id": "xlsx-multi-sheet",
+      "sourceType": "xlsx",
+      "path": "fixtures/xlsx/multi-sheet.xlsx",
+      "expectedQuestions": [
+        {
+          "stem": "Earth orbits the Sun.",
+          "answerMode": "true_false",
+          "options": [],
+          "answerPayload": {
+            "value": true
+          }
+        },
+        {
+          "stem": "What is 15 ÷ 3?",
+          "answerMode": "short_answer",
+          "options": [],
+          "answerPayload": {
+            "text": "5"
+          },
+          "stemAliases": [
+            "What is $15 \\div 3$?",
+            "What is 15 \\div 3?"
+          ]
+        }
+      ],
+      "tags": [
+        "synthetic",
+        "smoke",
+        "xlsx"
+      ],
+      "critical": false,
+      "expectedGroups": [
+        {
+          "title": "Science",
+          "questionIndexes": [
+            0
+          ]
+        },
+        {
+          "title": "Math",
+          "questionIndexes": [
+            1
+          ]
+        }
+      ],
+      "expectedVisualKinds": []
+    },
+    {
+      "id": "docx-table",
+      "sourceType": "docx",
+      "path": "fixtures/docx/table.docx",
+      "expectedQuestions": [
+        {
+          "stem": "Which planet is the largest in the Solar System?",
+          "answerMode": "choice",
+          "options": [
+            {
+              "label": "A",
+              "content": "Earth"
+            },
+            {
+              "label": "B",
+              "content": "Mars"
+            },
+            {
+              "label": "C",
+              "content": "Jupiter"
+            }
+          ],
+          "answerPayload": {
+            "correctOption": "C"
+          }
+        },
+        {
+          "stem": "The chemical formula for water is ____.",
+          "answerMode": "fill_blank",
+          "options": [],
+          "answerPayload": {
+            "answers": [
+              "H2O"
+            ]
+          },
+          "answerAliases": [
+            {
+              "answers": [
+                "H_2O"
+              ]
+            },
+            {
+              "answers": [
+                "$H_2O$"
+              ]
+            },
+            {
+              "answers": [
+                "\\mathrm{H_2O}"
+              ]
+            },
+            {
+              "answers": [
+                "$\\mathrm{H_2O}$"
+              ]
+            }
+          ]
+        }
+      ],
+      "tags": [
+        "synthetic",
+        "smoke",
+        "docx"
+      ],
+      "critical": false,
+      "expectedVisualKinds": []
+    },
+    {
+      "id": "docx-formula-image",
+      "sourceType": "docx",
+      "path": "fixtures/docx/formula-image.docx",
+      "expectedVisualKinds": [
+        "image"
+      ],
+      "expectedQuestions": [
+        {
+          "stem": "A right triangle has legs of length 3 and 4. What is the hypotenuse length?",
+          "answerMode": "short_answer",
+          "options": [],
+          "answerPayload": {
+            "text": "5"
+          }
+        },
+        {
+          "stem": "A right angle measures 90 degrees.",
+          "answerMode": "true_false",
+          "options": [],
+          "answerPayload": {
+            "value": true
+          }
+        }
+      ],
+      "tags": [
+        "synthetic",
+        "smoke",
+        "docx"
+      ],
+      "critical": false
+    },
+    {
+      "id": "pdf-text-layer",
+      "sourceType": "pdf",
+      "path": "fixtures/pdf/text-layer.pdf",
+      "expectedQuestions": [
+        {
+          "stem": "Which number is prime?",
+          "answerMode": "choice",
+          "options": [
+            {
+              "label": "A",
+              "content": "9"
+            },
+            {
+              "label": "B",
+              "content": "11"
+            },
+            {
+              "label": "C",
+              "content": "15"
+            }
+          ],
+          "answerPayload": {
+            "correctOption": "B"
+          }
+        },
+        {
+          "stem": "What is 7 squared?",
+          "answerMode": "short_answer",
+          "options": [],
+          "answerPayload": {
+            "text": "49"
+          }
+        }
+      ],
+      "tags": [
+        "synthetic",
+        "smoke",
+        "pdf"
+      ],
+      "critical": false,
+      "expectedVisualKinds": []
+    },
+    {
+      "id": "pdf-scanned",
+      "sourceType": "pdf",
+      "path": "fixtures/pdf/scanned.pdf",
+      "expectedQuestions": [
+        {
+          "stem": "100 ÷ 4 = ____.",
+          "answerMode": "fill_blank",
+          "options": [],
+          "answerPayload": {
+            "answers": [
+              "25"
+            ]
+          }
+        },
+        {
+          "stem": "The number 5 is even.",
+          "answerMode": "true_false",
+          "options": [],
+          "answerPayload": {
+            "value": false
+          }
+        }
+      ],
+      "tags": [
+        "synthetic",
+        "smoke",
+        "pdf"
+      ],
+      "critical": false,
+      "expectedVisualKinds": []
+    },
+    {
+      "id": "image-clean",
+      "sourceType": "image",
+      "path": "fixtures/image/clean.png",
+      "expectedQuestions": [
+        {
+          "stem": "Which color is made by mixing red and blue?",
+          "answerMode": "choice",
+          "options": [
+            {
+              "label": "A",
+              "content": "Green"
+            },
+            {
+              "label": "B",
+              "content": "Purple"
+            },
+            {
+              "label": "C",
+              "content": "Orange"
+            }
+          ],
+          "answerPayload": {
+            "correctOption": "B"
+          }
+        },
+        {
+          "stem": "9 + 10 = ____.",
+          "answerMode": "fill_blank",
+          "options": [],
+          "answerPayload": {
+            "answers": [
+              "19"
+            ]
+          }
+        }
+      ],
+      "tags": [
+        "synthetic",
+        "smoke",
+        "image"
+      ],
+      "critical": false,
+      "expectedVisualKinds": []
+    },
+    {
+      "id": "image-two-column",
+      "sourceType": "image",
+      "path": "fixtures/image/two-column.png",
+      "expectedVisualKinds": [
+        "diagram"
+      ],
+      "expectedQuestions": [
+        {
+          "stem": "How many days are in one week?",
+          "answerMode": "short_answer",
+          "options": [],
+          "answerPayload": {
+            "text": "7"
+          }
+        },
+        {
+          "stem": "The Moon is a star.",
+          "answerMode": "true_false",
+          "options": [],
+          "answerPayload": {
+            "value": false
+          }
+        }
+      ],
+      "tags": [
+        "synthetic",
+        "smoke",
+        "image"
+      ],
+      "critical": false
+    },
+    {
+      "id": "text-chinese",
+      "sourceType": "text",
+      "path": "fixtures/text/text-chinese.txt",
+      "tags": [
+        "synthetic",
+        "regression",
+        "chinese"
+      ],
+      "critical": true,
+      "expectedQuestions": [
+        {
+          "stem": "中国的首都是哪座城市？",
+          "answerMode": "choice",
+          "options": [
+            {
+              "label": "A",
+              "content": "北京"
+            },
+            {
+              "label": "B",
+              "content": "上海"
+            }
+          ],
+          "answerPayload": {
+            "correctOption": "A"
+          }
+        },
+        {
+          "stem": "地球绕太阳公转。",
+          "answerMode": "true_false",
+          "options": [],
+          "answerPayload": {
+            "value": true
+          }
+        }
+      ],
+      "expectedVisualKinds": []
+    },
+    {
+      "id": "text-no-answer",
+      "sourceType": "text",
+      "path": "fixtures/text/text-no-answer.txt",
+      "tags": [
+        "synthetic",
+        "regression",
+        "no-source-answer"
+      ],
+      "critical": true,
+      "expectedQuestions": [
+        {
+          "stem": "What is the capital of France?",
+          "answerMode": "short_answer",
+          "options": [],
+          "answerPayload": null
+        },
+        {
+          "stem": "Which number is even?",
+          "answerMode": "choice",
+          "options": [
+            {
+              "label": "A",
+              "content": "3"
+            },
+            {
+              "label": "B",
+              "content": "4"
+            }
+          ],
+          "answerPayload": null
+        }
+      ],
+      "expectedVisualKinds": []
+    },
+    {
+      "id": "text-long-prefix",
+      "sourceType": "text",
+      "path": "fixtures/text/text-long-prefix.txt",
+      "tags": [
+        "synthetic",
+        "regression",
+        "long-stem"
+      ],
+      "critical": true,
+      "expectedQuestions": [
+        {
+          "stem": "Read the following description carefully. Both records describe identical equipment, identical operators, and identical test conditions. The labels on the records are different, and only the final sentence identifies the record under consideration. What label is printed on the first record?",
+          "answerMode": "short_answer",
+          "options": [],
+          "answerPayload": {
+            "text": "alpha"
+          }
+        },
+        {
+          "stem": "Read the following description carefully. Both records describe identical equipment, identical operators, and identical test conditions. The labels on the records are different, and only the final sentence identifies the record under consideration. What label is printed on the second record?",
+          "answerMode": "short_answer",
+          "options": [],
+          "answerPayload": {
+            "text": "beta"
+          }
+        }
+      ],
+      "expectedVisualKinds": []
+    },
+    {
+      "id": "text-repeated-stem",
+      "sourceType": "text",
+      "path": "fixtures/text/text-repeated-stem.txt",
+      "tags": [
+        "synthetic",
+        "regression",
+        "repeated-stem"
+      ],
+      "critical": true,
+      "expectedQuestions": [
+        {
+          "stem": "What label is recorded?",
+          "answerMode": "short_answer",
+          "options": [],
+          "answerPayload": {
+            "text": "alpha"
+          }
+        },
+        {
+          "stem": "What label is recorded?",
+          "answerMode": "short_answer",
+          "options": [],
+          "answerPayload": {
+            "text": "beta"
+          }
+        }
+      ],
+      "expectedVisualKinds": []
+    },
+    {
+      "id": "text-multi-chunk",
+      "sourceType": "text",
+      "path": "fixtures/text/text-multi-chunk.txt",
+      "tags": [
+        "synthetic",
+        "regression",
+        "chunk-boundary"
+      ],
+      "critical": true,
+      "expectedQuestions": [
+        {
+          "stem": "Which color is named in record one?",
+          "answerMode": "short_answer",
+          "options": [],
+          "answerPayload": {
+            "text": "red"
+          }
+        },
+        {
+          "stem": "Which color is named in record two?",
+          "answerMode": "short_answer",
+          "options": [],
+          "answerPayload": {
+            "text": "blue"
+          }
+        },
+        {
+          "stem": "Which color is named in record three?",
+          "answerMode": "short_answer",
+          "options": [],
+          "answerPayload": {
+            "text": "green"
+          }
+        }
+      ],
+      "expectedVisualKinds": []
+    },
+    {
+      "id": "text-no-questions",
+      "sourceType": "text",
+      "path": "fixtures/text/text-no-questions.txt",
+      "tags": [
+        "synthetic",
+        "regression",
+        "no-questions"
+      ],
+      "critical": true,
+      "expectedError": {
+        "code": "NO_QUESTIONS_FOUND",
+        "statusCode": 422
+      }
+    },
+    {
+      "id": "docx-corrupt",
+      "sourceType": "docx",
+      "path": "fixtures/docx/docx-corrupt.docx",
+      "tags": [
+        "synthetic",
+        "regression",
+        "corrupt-input"
+      ],
+      "critical": true,
+      "expectedError": {
+        "code": "DOCUMENT_PROCESSING_FAILED",
+        "statusCode": 400
+      }
+    }
+  ]
+}

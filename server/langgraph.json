@@ -1,0 +1,26 @@
+{
+  "python_version": "3.14",
+  "dependencies": ["."],
+  "graphs": {
+    "document_parser": "./src/practiq_ai/graphs/document.py:graph",
+    "text_csv_parser": "./src/practiq_ai/graphs/formats.py:text_csv_parser",
+    "pdf_parser": "./src/practiq_ai/graphs/formats.py:pdf_parser",
+    "docx_parser": "./src/practiq_ai/graphs/formats.py:docx_parser",
+    "excel_parser": "./src/practiq_ai/graphs/formats.py:excel_parser"
+  },
+  "env": ".env",
+  "auth": {
+    "path": "./src/practiq_ai/auth.py:auth"
+  },
+  "http": {
+    "app": "./src/practiq_ai/webapp.py:app",
+    "enable_custom_route_auth": true
+  },
+  "checkpointer": {
+    "ttl": {
+      "strategy": "delete",
+      "sweep_interval_minutes": 60,
+      "default_ttl": 259200
+    }
+  }
+}

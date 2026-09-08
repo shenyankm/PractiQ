@@ -1,13 +1,14 @@
 import pytest
 from pydantic import ValidationError
 
-from server.ai_schemas import (
-    AnswerGenerationResult,
-    DocumentParseRequest,
+from practiq_ai.contracts import (
+    DocumentParseInput,
     DocumentParseResult,
-    LearningReportRequest,
-    LearningReportResult,
+    DocumentUploadRequest,
     ModelCallUsage,
+    ParsedQuestion,
+    UnitCounts,
+    VisualElement,
 )
 
 
@@ -26,28 +27,96 @@ def question() -> dict:
     }
 
 
-def test_document_request_accepts_only_normalized_sources() -> None:
-    for source_type in ("csv", "docx", "image", "pdf", "xlsx"):
-        assert (
-            DocumentParseRequest.model_validate(
-                {"sourceType": source_type, "fileBase64": "eA=="}
-            ).sourceType
-            == source_type
-        )
-    assert DocumentParseRequest(sourceType="text", text="# Quiz").sourceType == "text"
+def test_upload_request_accepts_file_metadata_only() -> None:
+    text = DocumentUploadRequest(
+        sourceType="text",
+        fileName="quiz.txt",
+        mediaType="text/plain",
+        sizeBytes=6,
+        sha256="b" * 64,
+    )
+    binary = DocumentUploadRequest(
+        sourceType="pdf",
+        fileName="quiz.pdf",
+        mediaType="application/pdf",
+        sizeBytes=123,
+        sha256="a" * 64,
+    )
 
+    assert text.sourceType == "text"
+    assert binary.sizeBytes == 123
     for payload in (
-        {"sourceType": "txt", "text": "Quiz"},
-        {"sourceType": "md", "text": "# Quiz"},
         {"sourceType": "text"},
-        {"sourceType": "text", "text": "   "},
-        {"sourceType": "text", "text": "Quiz", "fileBase64": "eA=="},
-        {"sourceType": "pdf"},
-        {"sourceType": "xls", "fileBase64": "eA=="},
-        {"sourceType": "text", "text": "Quiz", "unexpected": True},
+        {"sourceType": "text", "text": "ZmlsZSBjb250ZW50"},
+        {"sourceType": "text", "url": "https://example.com/quiz.txt"},
+        {"sourceType": "text", "base64": "ZmlsZSBjb250ZW50"},
+        {"sourceType": "text", "contextText": "inline document text"},
+        {"sourceType": "pdf", "fileName": "quiz.pdf"},
+        {
+            "sourceType": "pdf",
+            "fileName": "quiz.pdf",
+            "mediaType": "application/pdf",
+            "sizeBytes": 1,
+            "sha256": "bad",
+        },
+        {
+            "sourceType": "pdf",
+            "fileName": "quiz.pdf",
+            "mediaType": "image/png",
+            "sizeBytes": 1,
+            "sha256": "a" * 64,
+        },
     ):
         with pytest.raises(ValidationError):
-            DocumentParseRequest.model_validate(payload)
+            DocumentUploadRequest.model_validate(payload)
+
+
+def test_document_parse_input_accepts_only_managed_oss_references() -> None:
+    digest = "a" * 64
+    valid = {
+        "objectKey": f"practiq-agent/sources/{digest}/source.pdf",
+        "sha256": digest,
+        "mediaType": "application/pdf",
+        "sizeBytes": 1,
+        "sourceType": "pdf",
+    }
+    assert (
+        DocumentParseInput.model_validate({"document": valid}).document.objectKey
+        == valid["objectKey"]
+    )
+
+    for object_key in (
+        "https://example.com/quiz.pdf",
+        "file:///tmp/quiz.pdf",
+        "data:application/pdf;base64,AAAA",
+        "/tmp/quiz.pdf",
+        "../quiz.pdf",
+        "other-prefix/source.pdf",
+    ):
+        with pytest.raises(ValidationError, match="managed OSS source object"):
+            DocumentParseInput.model_validate(
+                {"document": {**valid, "objectKey": object_key}}
+            )
+
+    with pytest.raises(ValidationError, match="mediaType does not match"):
+        DocumentParseInput.model_validate(
+            {"document": {**valid, "mediaType": "image/png"}}
+        )
+
+    with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+        DocumentParseInput.model_validate(
+            {
+                "document": {
+                    **valid,
+                    "contextRef": {
+                        "objectKey": "https://example.com/context.txt",
+                        "sha256": "b" * 64,
+                        "mediaType": "text/plain",
+                        "sizeBytes": 1,
+                    },
+                },
+            }
+        )
 
 
 def test_document_result_validates_nested_references_and_labels() -> None:
@@ -57,13 +126,13 @@ def test_document_result_validates_nested_references_and_labels() -> None:
             "groups": [{"title": "Section 1", "questionIndexes": [0]}],
             "visualElements": [],
             "warnings": [],
-            "qualityScore": 91,
+            "confidenceScore": 91,
         }
     )
 
     assert result.questions[0].options[0].label == "A"
-    assert result.questions[0].answerPayload == {"correctOption": "A"}
-
+    assert result.questions[0].answerPayload is not None
+    assert result.questions[0].answerPayload.model_dump() == {"correctOption": "A"}
     with pytest.raises(ValidationError):
         DocumentParseResult.model_validate(
             {
@@ -71,6 +140,43 @@ def test_document_result_validates_nested_references_and_labels() -> None:
                 "groups": [{"title": "Section 1", "questionIndexes": [1]}],
             }
         )
+
+
+def test_content_blocks_and_bboxes_cannot_be_empty_or_invalid() -> None:
+    for block in (
+        {"partType": "text"},
+        {"partType": "text", "textValue": "   "},
+    ):
+        invalid = question()
+        invalid["contentBlocks"] = [block]
+        with pytest.raises(ValidationError):
+            DocumentParseResult.model_validate(
+                {
+                    "questions": [invalid],
+                    "groups": [],
+                    "visualElements": [],
+                    "warnings": [],
+                    "confidenceScore": 90,
+                }
+            )
+
+    for bbox in ([0.5, 0, 0.4, 1], [0, 0, float("nan"), 1]):
+        with pytest.raises(ValidationError):
+            DocumentParseResult.model_validate(
+                {
+                    "questions": [question()],
+                    "groups": [],
+                    "visualElements": [
+                        {
+                            "kind": "chart",
+                            "description": "bad box",
+                            "bbox": bbox,
+                        }
+                    ],
+                    "warnings": [],
+                    "confidenceScore": 90,
+                }
+            )
 
 
 def test_usage_contract_rejects_product_ids_and_negative_tokens() -> None:
@@ -87,39 +193,45 @@ def test_usage_contract_rejects_product_ids_and_negative_tokens() -> None:
             ModelCallUsage.model_validate(invalid)
 
 
-def test_learning_report_requires_non_empty_stats() -> None:
-    with pytest.raises(ValidationError):
-        LearningReportRequest.model_validate({"stats": {}})
-    assert LearningReportRequest.model_validate({"stats": {"answers": 1}}).stats
+def test_cross_field_contract_invariants() -> None:
+    with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+        DocumentUploadRequest.model_validate(
+            {
+                "sourceType": "pdf",
+                "fileName": "quiz.pdf",
+                "mediaType": "application/pdf",
+                "sizeBytes": 1,
+                "sha256": "a" * 64,
+                "text": "unexpected",
+            }
+        )
+    assert DocumentUploadRequest(
+        sourceType="image",
+        fileName="quiz.png",
+        mediaType="image/png",
+        sizeBytes=1,
+        sha256="a" * 64,
+    ).mediaType == "image/png"
 
-
-def test_answer_and_learning_report_result_contracts() -> None:
-    answer = AnswerGenerationResult.model_validate(
+    base = question()
+    invalid_questions = (
+        {**base, "answerMode": "short_answer"},
         {
-            "answerPayload": {"correctOption": "A"},
-            "canonicalAnswer": "4",
-            "explanation": "Adding two and two gives four.",
-            "steps": ["Add the operands"],
-            "confidence": 0.9,
-        }
-    )
-    report = LearningReportResult.model_validate(
-        {
-            "summary": "Solid arithmetic fundamentals.",
-            "mastery": [
-                {"label": "Addition", "score": 0.9, "evidence": "Recent answers"}
+            **base,
+            "options": [
+                {"label": "A", "content": "4"},
+                {"label": "a", "content": "four"},
             ],
-            "weakPoints": [
-                {
-                    "label": "Fractions",
-                    "reason": "Missed items",
-                    "suggestedAction": "Practice fractions",
-                }
-            ],
-            "recommendations": ["Review fractions"],
-            "riskLevel": "medium",
-        }
+        },
+        {**base, "answerPayload": {"text": "4"}},
+        {**base, "answerPayload": {"correctOption": "B"}},
     )
+    for payload in invalid_questions:
+        with pytest.raises(ValidationError):
+            ParsedQuestion.model_validate(payload)
 
-    assert answer.canonicalAnswer == "4"
-    assert report.riskLevel == "medium"
+    with pytest.raises(ValidationError, match="must not exceed total"):
+        UnitCounts(total=1, succeeded=1, skipped=1)
+    assert VisualElement(
+        kind="image", description="No location", bbox=None
+    ).bbox is None
