@@ -27,7 +27,7 @@ Run the checks for every area changed:
 | --- | --- |
 | `backend/` | `make backend-test` |
 | `server/` | `make test-server` |
-| `weapp/` | `make test` |
+| `taro/` | `make test` |
 | Multiple application layers | `make verify` |
 
 Database changes must also be exercised against PostgreSQL and include rollout and rollback notes when existing data may be affected.

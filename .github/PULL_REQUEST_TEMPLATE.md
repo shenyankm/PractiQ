@@ -12,7 +12,7 @@
 
 - [ ] Java product API (`backend/`)
 - [ ] Python AI service (`server/`)
-- [ ] WeChat Mini Program (`weapp/`)
+- [ ] WeChat Mini Program (`taro/`)
 - [ ] PostgreSQL schema (`db/`)
 - [ ] Documentation or tooling
 

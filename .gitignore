@@ -59,6 +59,7 @@ __pycache__/
 .env.*
 !.env.example
 !.env.*.example
+!/taro/.env.test
 
 # -----------------------------------------------
 # OS Generated Files
@@ -164,3 +165,12 @@ postgres_data/
 uploads/
 tmp/
 temp/
+
+# Migrated AI development/build state (fixtures and historical reports are versioned)
+.pytest_cache/
+.ruff_cache/
+.langgraph_api/
+*.egg-info/
+/server/dist/
+/server/.codex/
+/server/.qoder/
