@@ -1,0 +1,57 @@
+{
+  "name": "@practiq/taro-client",
+  "version": "0.2.0",
+  "private": true,
+  "description": "PractiQ WeChat Mini Program client",
+  "engines": {
+    "node": ">=24.18.0"
+  },
+  "scripts": {
+    "dev:weapp": "node --env-file-if-exists=../.env.local node_modules/@tarojs/cli/bin/taro build --type weapp --watch --mode development",
+    "dev:h5": "node --env-file-if-exists=../.env.local node_modules/@tarojs/cli/bin/taro build --type h5 --watch --mode development",
+    "build:weapp": "node --env-file-if-exists=../.env.local node_modules/@tarojs/cli/bin/taro build --type weapp",
+    "build:h5": "node --env-file-if-exists=../.env.local node_modules/@tarojs/cli/bin/taro build --type h5",
+    "upload:weapp": "npm run build:weapp && node --env-file-if-exists=../.env.local scripts/upload-weapp.mjs",
+    "build:weapp:test": "node node_modules/@tarojs/cli/bin/taro build --type weapp --mode test",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts",
+    "verify": "npm run test && npm run typecheck && npm run build:weapp:test"
+  },
+  "dependencies": {
+    "@babel/runtime": "^7.28.4",
+    "@taroify/core": "1.0.6",
+    "@taroify/icons": "1.0.6",
+    "@tarojs/components": "4.2.1",
+    "@tarojs/helper": "4.2.1",
+    "@tarojs/plugin-framework-react": "4.2.1",
+    "@tarojs/plugin-platform-weapp": "4.2.1",
+    "@tarojs/react": "4.2.1",
+    "@tarojs/runtime": "4.2.1",
+    "@tarojs/shared": "4.2.1",
+    "@tarojs/taro": "4.2.1",
+    "react": "18.2.0",
+    "react-dom": "18.2.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.28.4",
+    "@babel/preset-react": "^7.24.1",
+    "@taroify/cli": "1.0.6",
+    "@tarojs/cli": "4.2.1",
+    "@tarojs/plugin-platform-h5": "4.2.1",
+    "@tarojs/vite-runner": "4.2.1",
+    "@types/node": "^24.10.1",
+    "@types/react": "^18.3.24",
+    "@vitejs/plugin-react": "^4.3.4",
+    "babel-preset-taro": "4.2.1",
+    "consola": "3.4.2",
+    "miniprogram-ci": "^2.1.31",
+    "postcss": "^8.5.6",
+    "react-refresh": "^0.14.0",
+    "terser": "^5.44.0",
+    "tsx": "^4.20.6",
+    "typescript": "~5.9.3",
+    "vite": "^4.5.14",
+    "vite-plugin-style-import": "2.0.0"
+  },
+  "packageManager": "npm@11.16.0"
+}
