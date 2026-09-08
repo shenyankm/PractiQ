@@ -43,60 +43,8 @@ services:
       start_period: 10s
     restart: on-failure
 
-  ai:
-    profiles: [ai]
-    image: practiq-ai:latest
-    build:
-      context: .
-      dockerfile: Dockerfile.server
-    env_file:
-      - path: server/.env
-        required: false
-      - path: .env.local
-        required: false
-    environment:
-      DATABASE_URI: postgres://practiq:practiq@ai-postgres:5432/practiq_agent
-      REDIS_URI: redis://redis:6379/1
-      N_JOBS_PER_WORKER: ${N_JOBS_PER_WORKER:-8}
-      AI_GRAPH_MAX_CONCURRENCY: ${AI_GRAPH_MAX_CONCURRENCY:-2}
-    depends_on:
-      ai-postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    ports:
-      - "127.0.0.1:8090:8000"
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "python",
-          "-c",
-          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ok').read()",
-        ]
-      interval: 10s
-      timeout: 5s
-      retries: 6
-      start_period: 30s
-    restart: on-failure
-
-  ai-postgres:
-    profiles: [ai]
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_DB: practiq_agent
-      POSTGRES_USER: practiq
-      POSTGRES_PASSWORD: practiq
-    volumes:
-      - ai-postgres-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U practiq -d practiq_agent"]
-      interval: 10s
-      timeout: 5s
-      retries: 6
-    restart: on-failure
-
+# Run AI locally in the langgragh Conda environment: make server-dev.
+# langgraph dev does not use PostgreSQL/Redis for production persistence.
 volumes:
-  ai-postgres-data:
   postgres-data:
   redis-data:

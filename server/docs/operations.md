@@ -1,5 +1,13 @@
 # PractiQ server 运维手册
 
+## 本机开发（默认）
+
+仓库 `compose.yaml` 仅启动一个 PostgreSQL（54322）和 Redis（6379），不启动 AI 容器或 AI 专用 PostgreSQL。
+激活本机 Miniconda 的 `langgragh`（Python 3.14）环境后执行 `make server-install`、`make server-dev`（仓库根目录）。
+已有环境直接复用；新机器才执行 `conda create -n langgragh python=3.14`。不要创建项目 `.venv`。
+`langgraph dev` 不使用 `DATABASE_URI`/`REDIS_URI` 提供生产级持久化，不承诺 PostgreSQL 任务与 checkpoint 恢复。
+下述生产部署、许可证和恢复要求不适用于该开发模式。
+
 ## 生产基线
 
 - 单应用容器：8 vCPU / 16 GB；外部 PostgreSQL 和 Redis。
@@ -46,7 +54,7 @@ OSS URL 会阻止启动。密钥只通过部署平台 secret 注入，不写入�
 ## 部署
 
 1. 运行 CI 的 lock、Ruff、Pyright、分支覆盖率和构建门禁。
-2. 从仓库根目录执行 `docker build -f Dockerfile.server -t practiq-ai:候选版本 .`，通过验收后按镜像 digest 部署。`docker compose --profile ai up -d` 仅为本地独立 Agent Server 示例；生产使用受管数据服务和注入的许可密钥。
+2. 从仓库根目录执行 `docker build -f Dockerfile.server -t practiq-ai:候选版本 .`，通过验收后按镜像 digest 部署。仓库 Compose 不再提供 AI profile；生产独立部署使用受管数据服务和注入的许可密钥，不使用本机 `langgraph dev` 替代。
 3. 预发布按下节完成容量测试与故障演练。
 4. 部署候选镜像，并观察 30 分钟后恢复正常发布节奏。
 
