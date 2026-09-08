@@ -190,7 +190,7 @@ CREATE INDEX idx_question_content_blocks_option ON question_content_blocks(optio
 
 -- All billable AI operations share this task table so the partial unique index
 -- enforces one queued/running task per user across imports, answers, and reports.
-CREATE TABLE ai_tasks (id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, user_id bigint NOT NULL REFERENCES users(id) ON DELETE RESTRICT, kind text NOT NULL CHECK(kind IN ('import','answer_generation','learning_report')), status text NOT NULL DEFAULT 'queued' CHECK(status IN ('queued','running','succeeded','failed','cancelled','timed_out')), attempt_started_at timestamptz NOT NULL DEFAULT now(), deadline_at timestamptz NOT NULL, price_snapshot jsonb NOT NULL, estimated_credits numeric(14,2) NOT NULL CHECK(estimated_credits>=0), reserved_credits numeric(14,2) NOT NULL DEFAULT 0 CHECK(reserved_credits>=0), settled_credits numeric(14,2) NOT NULL DEFAULT 0 CHECK(settled_credits>=0), refunded_credits numeric(14,2) NOT NULL DEFAULT 0 CHECK(refunded_credits>=0), result jsonb, error jsonb, created_at timestamptz NOT NULL DEFAULT now(), started_at timestamptz, finished_at timestamptz, updated_at timestamptz NOT NULL DEFAULT now(), UNIQUE(id,user_id), CHECK(attempt_started_at>=created_at AND deadline_at>attempt_started_at AND deadline_at<=attempt_started_at+interval '180 seconds'), CHECK((status='queued') = (started_at IS NULL AND finished_at IS NULL)), CHECK((status='running') = (started_at IS NOT NULL AND finished_at IS NULL)), CHECK((status IN ('succeeded','failed','cancelled','timed_out')) = (finished_at IS NOT NULL)));
+CREATE TABLE ai_tasks (id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, user_id bigint NOT NULL REFERENCES users(id) ON DELETE RESTRICT, kind text NOT NULL CHECK(kind IN ('import','answer_generation','learning_report')), status text NOT NULL DEFAULT 'queued' CHECK(status IN ('queued','running','succeeded','failed','cancelled','timed_out')), attempt_started_at timestamptz NOT NULL DEFAULT now(), deadline_at timestamptz NOT NULL, price_snapshot jsonb NOT NULL, request_payload jsonb NOT NULL DEFAULT '{}', estimated_credits numeric(14,2) NOT NULL CHECK(estimated_credits>=0), reserved_credits numeric(14,2) NOT NULL DEFAULT 0 CHECK(reserved_credits>=0), settled_credits numeric(14,2) NOT NULL DEFAULT 0 CHECK(settled_credits>=0), refunded_credits numeric(14,2) NOT NULL DEFAULT 0 CHECK(refunded_credits>=0), result jsonb, error jsonb, worker_id uuid, worker_lease_until timestamptz, created_at timestamptz NOT NULL DEFAULT now(), started_at timestamptz, finished_at timestamptz, updated_at timestamptz NOT NULL DEFAULT now(), UNIQUE(id,user_id), CHECK(attempt_started_at>=created_at AND deadline_at>attempt_started_at AND deadline_at<=attempt_started_at+interval '180 seconds'), CHECK((status='queued') = (started_at IS NULL AND finished_at IS NULL)), CHECK((status='running') = (started_at IS NOT NULL AND finished_at IS NULL)), CHECK((status IN ('succeeded','failed','cancelled','timed_out')) = (finished_at IS NOT NULL)));
 CREATE UNIQUE INDEX uq_ai_tasks_one_active_user ON ai_tasks(user_id) WHERE status IN ('queued','running');
 CREATE TABLE ai_task_calls (id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, task_id bigint NOT NULL REFERENCES ai_tasks(id) ON DELETE CASCADE, call_key uuid NOT NULL, model_id text NOT NULL CHECK(btrim(model_id)<>''), input_tokens integer NOT NULL CHECK(input_tokens>=0), output_tokens integer NOT NULL CHECK(output_tokens>=0), input_price_per_1k numeric(14,6) NOT NULL CHECK(input_price_per_1k>=0), output_price_per_1k numeric(14,6) NOT NULL CHECK(output_price_per_1k>=0), call_kind text NOT NULL CHECK(btrim(call_kind)<>''), created_at timestamptz NOT NULL DEFAULT now(), UNIQUE(task_id,call_key));
 ALTER TABLE credit_ledger ADD CONSTRAINT fk_credit_ledger_order_user FOREIGN KEY(order_id,user_id) REFERENCES payment_orders(id,user_id) ON DELETE RESTRICT;
@@ -345,7 +345,7 @@ BEGIN
     OR NEW.user_id<>OLD.user_id OR NEW.kind<>OLD.kind
     OR ((NEW.deadline_at IS DISTINCT FROM OLD.deadline_at OR NEW.attempt_started_at IS DISTINCT FROM OLD.attempt_started_at) AND NOT retrying)
     OR (retrying AND (NEW.deadline_at<=OLD.deadline_at OR NEW.attempt_started_at<=OLD.attempt_started_at OR NEW.attempt_started_at>clock_timestamp() OR NEW.deadline_at<=clock_timestamp() OR NEW.deadline_at>clock_timestamp()+interval '180 seconds'))
-    OR NEW.price_snapshot IS DISTINCT FROM OLD.price_snapshot OR NEW.estimated_credits<>OLD.estimated_credits
+    OR NEW.price_snapshot IS DISTINCT FROM OLD.price_snapshot OR NEW.request_payload IS DISTINCT FROM OLD.request_payload OR NEW.estimated_credits<>OLD.estimated_credits
     OR NEW.created_at<>OLD.created_at
     OR (OLD.status='queued' AND NEW.status NOT IN ('queued','running','failed','cancelled','timed_out'))
     OR (OLD.status='running' AND NEW.status NOT IN ('running','succeeded','failed','cancelled','timed_out'))
@@ -353,8 +353,10 @@ BEGIN
  THEN RAISE EXCEPTION 'invalid AI task change' USING ERRCODE='23514'; END IF; RETURN NEW; END $$;
 CREATE FUNCTION validate_import_job_change() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
  IF NEW.ai_task_id<>OLD.ai_task_id OR NEW.created_by<>OLD.created_by OR NEW.bank_id<>OLD.bank_id
-    OR NEW.source_type<>OLD.source_type OR NEW.source_file_name IS DISTINCT FROM OLD.source_file_name
-    OR NEW.source_storage_path IS DISTINCT FROM OLD.source_storage_path OR NEW.source_size_bytes IS DISTINCT FROM OLD.source_size_bytes
+    OR ((NEW.source_type<>OLD.source_type OR NEW.source_file_name IS DISTINCT FROM OLD.source_file_name
+      OR NEW.source_storage_path IS DISTINCT FROM OLD.source_storage_path OR NEW.source_size_bytes IS DISTINCT FROM OLD.source_size_bytes)
+      AND NOT (OLD.status='queued' AND OLD.source_storage_path IS NULL AND NEW.source_file_name IS NOT NULL
+        AND NEW.source_storage_path IS NOT NULL AND NEW.source_size_bytes IS NOT NULL))
     OR (OLD.status='queued' AND NEW.status NOT IN ('queued','processing','cancelled'))
     OR (OLD.status='processing' AND NEW.status NOT IN ('processing','completed','failed','cancelled','timed_out'))
     OR (OLD.status='failed' AND NEW.status NOT IN ('failed','queued'))

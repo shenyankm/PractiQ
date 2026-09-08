@@ -11,6 +11,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Set;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -22,6 +23,7 @@ public class HttpWeChatClient implements WeChatClient {
   private final String appId;
   private final String appSecret;
 
+  @Autowired
   public HttpWeChatClient(
       ObjectMapper json,
       @Value("${practiq.wechat.app-id:}") String appId,

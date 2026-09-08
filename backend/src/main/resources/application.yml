@@ -27,3 +27,18 @@ practiq:
   wechat:
     app-id: "${WECHAT_APP_ID:}"
     app-secret: "${WECHAT_APP_SECRET:}"
+    pay:
+      mch-id: "${WECHAT_MCH_ID:}"
+      merchant-serial-number: "${WECHAT_MERCHANT_SERIAL_NUMBER:}"
+      merchant-private-key-path: "${WECHAT_MERCHANT_PRIVATE_KEY_PATH:}"
+      api-v3-key: "${WECHAT_API_V3_KEY:}"
+      notify-url: "${WECHAT_PAYMENT_NOTIFY_URL:}"
+      refund-notify-url: "${WECHAT_REFUND_NOTIFY_URL:}"
+  ai:
+    base-url: "${AI_SERVICE_URL:http://127.0.0.1:8090}"
+    service-token: "${AI_SERVICE_TOKEN:}"
+    enabled: "${AI_ENABLED:true}"
+    input-price-per-1k: "${AI_INPUT_PRICE_PER_1K:0.010000}"
+    output-price-per-1k: "${AI_OUTPUT_PRICE_PER_1K:0.030000}"
+    answer-estimated-credits: "${AI_ANSWER_ESTIMATED_CREDITS:1.00}"
+    report-estimated-credits: "${AI_REPORT_ESTIMATED_CREDITS:2.00}"

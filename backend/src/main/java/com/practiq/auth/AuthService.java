@@ -54,37 +54,29 @@ public class AuthService {
 
   @Transactional
   public Map<String, Object> login(WeChatClient.Session identity) {
-    jdbc.query(
+    var locks = new java.util.TreeSet<String>();
+    locks.add("wechat:openid:" + identity.openid());
+    if (identity.unionid() != null) locks.add("wechat:unionid:" + identity.unionid());
+    for (String lock : locks) jdbc.query(
         "select pg_advisory_xact_lock(hashtextextended(?,0))",
-        ps -> ps.setString(1, "wechat:" + identity.openid()),
-        rs -> null);
-    var users = jdbc.query(
-        "select u.id,u.status from wechat_identities w join users u on u.id=w.user_id where w.openid=?",
-        (rs, n) -> new Object[] {rs.getLong(1), rs.getString(2)},
-        identity.openid());
+        ps -> ps.setString(1, lock), rs -> null);
+    var users = identity.unionid() == null
+        ? jdbc.query("select u.id,u.status,w.openid,w.unionid from wechat_identities w join users u on u.id=w.user_id where w.openid=?", (rs, n) -> new Object[] {rs.getLong(1), rs.getString(2), rs.getString(3), rs.getString(4)}, identity.openid())
+        : jdbc.query("select u.id,u.status,w.openid,w.unionid from wechat_identities w join users u on u.id=w.user_id where w.openid=? or w.unionid=?", (rs, n) -> new Object[] {rs.getLong(1), rs.getString(2), rs.getString(3), rs.getString(4)}, identity.openid(), identity.unionid());
+    if (users.size() > 1) throw ApiException.of(409, "IDENTITY_CONFLICT", "WeChat identities belong to different users");
     long id;
     String status;
     if (users.isEmpty()) {
       id = jdbc.queryForObject("insert into users default values returning id", Long.class);
-      jdbc.update(
-          "insert into wechat_identities(user_id,openid,unionid) values(?,?,?)",
-          id,
-          identity.openid(),
-          identity.unionid());
+      jdbc.update("insert into wechat_identities(user_id,openid,unionid) values(?,?,?)", id, identity.openid(), identity.unionid());
       status = "active";
     } else {
-      id = (Long) users.getFirst()[0];
-      status = (String) users.getFirst()[1];
-      if (identity.unionid() != null) {
-        jdbc.update(
-            "update wechat_identities set unionid=coalesce(unionid,?) where user_id=?",
-            identity.unionid(),
-            id);
-      }
+      Object[] user = users.getFirst(); id = (Long) user[0]; status = (String) user[1];
+      if (identity.unionid() != null) jdbc.update(
+          "update wechat_identities set openid=?,unionid=coalesce(unionid,?) where user_id=?",
+          identity.openid(), identity.unionid(), id);
     }
-    if (!"active".equals(status)) {
-      throw ApiException.of(403, "USER_INACTIVE", "User account is disabled");
-    }
+    if (!"active".equals(status)) throw ApiException.of(403, "USER_INACTIVE", "User account is disabled");
     revokeSessions(id, "new_login");
     return issued(id, newSession(id));
   }
@@ -184,7 +176,7 @@ public class AuthService {
 
   public Map<String, Object> user(long id) {
     var users = jdbc.query(
-        "select id,display_name,avatar_url,status,role,trial_ends_at,paid_pro_at from users where id=?",
+        "select u.id,u.display_name,u.avatar_url,u.status,u.role,u.trial_ends_at,u.paid_pro_at,coalesce(c.balance,0) from users u left join credit_accounts c on c.user_id=u.id where u.id=?",
         (rs, n) -> {
           var trial = rs.getObject(6, OffsetDateTime.class);
           var paid = rs.getObject(7, OffsetDateTime.class);
@@ -198,6 +190,7 @@ public class AuthService {
           value.put("paidPro", membership.paidPro(paid));
           value.put("trialEndsAt", trial == null ? null : trial.toString());
           value.put("paidProAt", paid == null ? null : paid.toString());
+          value.put("creditBalance", rs.getBigDecimal(8));
           return value;
         },
         id);

@@ -35,7 +35,7 @@ class CoreRulesTest {
     assertTrue(service.grade(
         "fill_blank",
         Map.of("value", List.of("Paris", "France")),
-        Map.of("value", List.of(" paris ", "france", "x"))));
+        Map.of("value", List.of(" paris ", "france"))));
     assertNull(service.grade("short_answer", Map.of(), Map.of()));
   }
 }

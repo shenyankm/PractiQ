@@ -11,7 +11,7 @@ docker run -d --name "$container" \
  postgres:16 >/dev/null
 
 for attempt in $(seq 1 60); do
- if docker exec "$container" pg_isready -q -U postgres -d practiq; then
+ if docker exec "$container" psql -q -U postgres -d practiq -c 'select 1' >/dev/null 2>&1; then
   break
  fi
  if [[ $attempt == 60 ]]; then
@@ -112,6 +112,42 @@ DO $$ BEGIN
   RAISE EXCEPTION 'AI call replay was duplicated';
  END IF;
 END $$;
+
+DO $$
+DECLARE owner_id bigint; member_id bigint; v_group_id bigint; v_invitation_id bigint; invitation_hash bytea;
+BEGIN
+ SELECT id INTO owner_id FROM users WHERE display_name='Schema Creator';
+ INSERT INTO users(display_name) VALUES('Schema Group Member') RETURNING id INTO member_id;
+ INSERT INTO study_groups(owner_user_id,name) VALUES(owner_id,'Schema Study Group') RETURNING id INTO v_group_id;
+ INSERT INTO study_group_members(group_id,user_id) VALUES(v_group_id,owner_id);
+ invitation_hash := digest('one-use-schema-token','sha256');
+ INSERT INTO study_group_invitations(group_id,created_by,token_hash) VALUES(v_group_id,owner_id,invitation_hash) RETURNING id INTO v_invitation_id;
+ INSERT INTO study_group_members(group_id,user_id) VALUES(v_group_id,member_id);
+ UPDATE study_group_invitations SET status='accepted',accepted_by=member_id,used_at=now() WHERE id=v_invitation_id AND status='pending';
+ IF NOT EXISTS(SELECT 1 FROM study_group_members WHERE group_id=v_group_id AND user_id=member_id AND status='accepted')
+    OR EXISTS(SELECT 1 FROM study_group_invitations WHERE id=v_invitation_id AND status='pending') THEN
+   RAISE EXCEPTION 'study group invitation was not consumed atomically';
+ END IF;
+ IF (SELECT count(*) FROM study_group_invitations WHERE token_hash=invitation_hash AND status='pending')<>0 THEN
+   RAISE EXCEPTION 'study group invitation can be reused';
+ END IF;
+END $$;
+
+INSERT INTO users(display_name) VALUES ('Schema Queue User');
+INSERT INTO ai_tasks(user_id,kind,status,deadline_at,price_snapshot,request_payload,estimated_credits,reserved_credits)
+SELECT id,'answer_generation','queued',now()+interval '180 seconds','{}','{}',1,1
+FROM users WHERE display_name='Schema Queue User';
+BEGIN;
+SELECT t.id
+FROM ai_tasks t
+LEFT JOIN question_import_jobs j ON j.ai_task_id=t.id
+WHERE t.status='queued'
+  AND t.deadline_at>now()
+  AND (t.kind<>'import' OR j.status='processing')
+ORDER BY t.created_at,t.id
+FOR UPDATE OF t SKIP LOCKED
+LIMIT 1;
+ROLLBACK;
 SQL
 
 expect_failure() {

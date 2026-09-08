@@ -47,10 +47,10 @@ public class WebFilters extends OncePerRequestFilter implements Ordered {
     request.setAttribute("requestId", requestId);
     securityHeaders(response, requestId);
     if (write(request) && !sameOrigin(request)) { error(response, 403, "INVALID_ORIGIN", "Cross-site requests are not allowed", null, requestId); return; }
-    if (jsonRequest(request) && request.getContentLengthLong() > maximum(request)) { error(response, 413, "REQUEST_TOO_LARGE", "Request body is too large", null, requestId); return; }
+    if ((jsonRequest(request) || wechatCallback(request)) && request.getContentLengthLong() > maximum(request)) { error(response, 413, "REQUEST_TOO_LARGE", "Request body is too large", null, requestId); return; }
     if (request.getRequestURI().startsWith("/api/") && !request.getRequestURI().startsWith("/api/health") && !rate(request)) { error(response, 429, "RATE_LIMITED", "Too many requests", null, requestId); return; }
 
-    HttpServletRequest wrapped = cookieAuth(jsonRequest(request) ? new LimitedRequest(request, maximum(request)) : request);
+    HttpServletRequest wrapped = cookieAuth((jsonRequest(request) || wechatCallback(request)) ? new LimitedRequest(request, maximum(request)) : request);
     try {
       idempotent(wrapped, response, chain, requestId);
     } catch (BodyTooLargeException ex) {
@@ -60,7 +60,7 @@ public class WebFilters extends OncePerRequestFilter implements Ordered {
 
   private void idempotent(HttpServletRequest request, HttpServletResponse response, FilterChain chain, String requestId) throws IOException, ServletException {
     String key = Optional.ofNullable(request.getHeader("Idempotency-Key")).orElse("").trim();
-    if (key.isEmpty() || "GET".equals(request.getMethod()) || request.getRequestURI().startsWith("/api/v1/auth/")) { chain.doFilter(request, response); return; }
+    if (key.isEmpty() || "GET".equals(request.getMethod()) || request.getRequestURI().startsWith("/api/v1/auth/") || ("POST".equals(request.getMethod()) && "/api/v1/payment-orders".equals(request.getRequestURI()))) { chain.doFilter(request, response); return; }
     if (key.length() > 128 || key.indexOf('\r') >= 0 || key.indexOf('\n') >= 0) { error(response, 422, "VALIDATION_ERROR", "Invalid request", List.of(Map.of("field", "Idempotency-Key", "message", "must be at most 128 characters")), requestId); return; }
     String cacheKey = prefix + ":idempotency:" + sha(identity(request) + "\0" + request.getMethod() + "\0" + request.getRequestURI() + "\0" + key);
     String lockKey = cacheKey + ":lock";
@@ -109,7 +109,8 @@ public class WebFilters extends OncePerRequestFilter implements Ordered {
 
   private boolean write(HttpServletRequest request) { return Set.of("POST", "PUT", "PATCH", "DELETE").contains(request.getMethod()); }
   private boolean jsonRequest(HttpServletRequest request) { String type = Optional.ofNullable(request.getContentType()).orElse("").toLowerCase(); return type.startsWith("application/json") || type.matches(".*\\+json(?:;.*)?"); }
-  private long maximum(HttpServletRequest request) { String path = request.getRequestURI(); if (path.startsWith("/api/v1/auth/")) return 16 * 1024L; if (path.startsWith("/api/v1/import-jobs/") && path.endsWith("/file")) return 25L * 1024 * 1024 * 4 / 3 + 1024 * 1024; return 1024 * 1024L; }
+  private boolean wechatCallback(HttpServletRequest request) { return request.getRequestURI().equals("/api/v1/payments/wechat/notify") || request.getRequestURI().equals("/api/v1/payments/wechat/refund-notify"); }
+  private long maximum(HttpServletRequest request) { String path = request.getRequestURI(); if (wechatCallback(request)) return 1024 * 1024L; if (path.startsWith("/api/v1/auth/")) return 16 * 1024L; if (path.startsWith("/api/v1/import-jobs/") && path.endsWith("/file")) return 25L * 1024 * 1024 * 4 / 3 + 1024 * 1024; return 1024 * 1024L; }
   private String identity(HttpServletRequest request) { Cookie[] cookies = request.getCookies(); if (cookies != null) for (Cookie c : cookies) if ("session".equals(c.getName())) return c.getValue(); return Optional.ofNullable(request.getHeader("Authorization")).orElse(""); }
   private boolean sameOrigin(HttpServletRequest request) { String supplied = Optional.ofNullable(request.getHeader("Origin")).orElse(request.getHeader("Referer")); if (supplied == null || supplied.isBlank()) return true; try { var actual = java.net.URI.create(supplied); var expected = java.net.URI.create(origin); return actual.getScheme().equals(expected.getScheme()) && actual.getAuthority().equals(expected.getAuthority()); } catch (Exception ex) { return false; } }
   private boolean rate(HttpServletRequest request) { try { String key = prefix + ":rate-limit:api:ip:" + Optional.ofNullable(request.getRemoteAddr()).orElse("unknown"); Long value = redis.opsForValue().increment(key); if (value != null && value == 1) redis.expire(key, Duration.ofMinutes(1)); return value == null || value <= 300; } catch (Exception ex) { return true; } }
