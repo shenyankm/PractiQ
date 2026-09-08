@@ -57,7 +57,7 @@ public class BankManagementController {
     if (count == null || count == 0) throw ApiException.of(404, "NOT_FOUND", "Question bank not found");
   }
   private void owner(long user, long bank) {
-    Integer count = db.queryForObject("select count(*) from question_banks where id=? and owner_user_id=? and deleted_at is null", Integer.class, bank, user);
+    Integer count = db.queryForObject("select count(*) from question_banks where id=? and owner_user_id=? and deleted_at is null and status<>'banned'", Integer.class, bank, user);
     if (count == null || count == 0) throw ApiException.of(403, "FORBIDDEN", "Question bank owner access required");
   }
 

@@ -161,7 +161,12 @@ class SchemaIntegrationSmokeTest {
       String type = "contract-short-" + suffix;
       db.update("insert into question_types(id,subject_id,display_name,answer_mode) values(?,'general','Contract short','short_answer')", type);
       long question = db.queryForObject("insert into questions(owner_user_id,subject_id,question_type_id,answer_mode,stem) values(?,'general',?,'short_answer','Review this question') returning id", Long.class, user, type);
-      db.update("insert into user_question_stats(user_id,bank_id,question_id,attempt_count,correct_count,wrong_count,last_answered_at) values(?,?,?,3,1,2,now())", user, ownedA, question);
+      db.update("insert into question_answer_keys(question_id,answer_mode,answer_payload) values(?,'short_answer','{\"answer\":\"Reference\"}')", question);
+      db.update("update questions set status='active' where id=?", question);
+      db.update("insert into bank_question_links(bank_id,question_id,sort_order,status) values(?,?,1,'active')", ownedA, question);
+      var practice = new PracticeService(db, mock(StringRedisTemplate.class), new ObjectMapper(), new GradingService());
+      long session = ((Number) practice.start(user, ownedA, "practice", 1, "all", null, false).get("id")).longValue();
+      practice.submit(user, session, question, Map.of("value", "answer"), null);
       db.update("insert into practice_sessions(user_id,bank_id,mode) values(?,?,'all')", user, ownedA);
 
       var auth = mock(AuthService.class);
@@ -190,9 +195,9 @@ class SchemaIntegrationSmokeTest {
       assertEquals(java.util.Set.of("summary", "recentSessions", "weakQuestions"), snapshot.keySet());
       var summary = (Map<?, ?>) snapshot.get("summary");
       assertEquals(java.util.Set.of("owned_banks", "favorite_banks", "attempts", "correct", "wrong", "sessions", "active_sessions", "active_imports", "accuracy"), summary.keySet());
-      assertEquals(3L, ((Number) summary.get("attempts")).longValue());
+      assertEquals(1L, ((Number) summary.get("attempts")).longValue());
       assertEquals(java.util.Set.of("id", "user_id", "bank_id", "session_type", "status", "question_count", "answered_count", "correct_count", "wrong_count", "started_at", "completed_at"), ((Map<?, ?>) ((List<?>) snapshot.get("recentSessions")).getFirst()).keySet());
-      assertEquals(java.util.Set.of("question_id", "attempt_count", "correct_count", "wrong_count", "mastery_score", "stem", "question_type_id"), ((Map<?, ?>) ((List<?>) snapshot.get("weakQuestions")).getFirst()).keySet());
+      assertEquals(java.util.Set.of("bank_id", "question_id", "attempt_count", "correct_count", "wrong_count", "mastery_score", "stem", "question_type_id"), ((Map<?, ?>) ((List<?>) snapshot.get("weakQuestions")).getFirst()).keySet());
     });
   }
 

@@ -35,8 +35,7 @@ public class PracticeService {
   }
   private static int limit(Integer value, int fallback) { return Math.min(MAX, Math.max(1, value == null ? fallback : value)); }
   private void visibleBank(long user, long bank) {
-    Integer count = db.queryForObject("select count(*) from question_banks b where b.id=? and b.deleted_at is null and b.status<>'banned' and (b.owner_user_id=? or b.status='public' or exists(select 1 from study_group_banks gb join study_group_members gm on gm.group_id=gb.group_id where gb.bank_id=b.id and gm.user_id=? and gm.status='accepted'))", Integer.class, bank, user, user);
-    if (count == null || count == 0) throw ApiException.of(404, "NOT_FOUND", "Question bank not found");
+    new ContentAccess(db).bank(user, bank);
   }
   private static String sessions() {
     return "select s.id,s.user_id,s.bank_id,s.mode session_type,s.status," +
@@ -47,9 +46,10 @@ public class PracticeService {
         "(select coalesce(sum(score),0) from practice_answers a where a.session_id=s.id) score,s.started_at,s.completed_at,s.updated_at from practice_sessions s";
   }
   private Map<String, Object> session(long user, long id) {
+    new ContentAccess(db).session(user, id);
     var rows = db.query(sessions() + " where s.id=? and s.user_id=?", this::row, id, user);
     if (rows.isEmpty()) throw ApiException.of(404, "NOT_FOUND", "Practice session not found");
-    return rows.getFirst();
+    return hideSummary(rows.getFirst());
   }
   public Map<String, Object> get(long user, long sessionId) { return session(user, sessionId); }
 
@@ -74,7 +74,8 @@ public class PracticeService {
     if (status == null) status = "";
     if (!Set.of("", "active", "completed", "abandoned").contains(status)) throw bad("status must be one of active, completed, abandoned");
     int size = Math.min(100, Math.max(1, requested == null ? 20 : requested)), offset = PageSupport.cursor(cursor);
-    var rows = db.query(sessions() + " where s.user_id=? and (?='' or s.status=?) and (?='' or s.updated_at>=?::timestamptz) order by s.started_at desc,s.id desc limit ? offset ?", this::row, user, status, status, updated == null ? "" : updated, updated == null ? "" : updated, size + 1, offset);
+    var rows = db.query(sessions() + " where s.user_id=? and exists(select 1 from question_banks b where b.id=s.bank_id and " + ContentAccess.bankVisible("b", user) + ") and not exists(select 1 from practice_session_questions sq where sq.session_id=s.id and not (" + ContentAccess.questionInBank("s.bank_id", "sq.question_id", user, true) + ")) and (?='' or s.status=?) and (?='' or s.updated_at>=?::timestamptz) order by s.started_at desc,s.id desc limit ? offset ?", this::row, user, status, status, updated == null ? "" : updated, updated == null ? "" : updated, size + 1, offset);
+    rows.forEach(PracticeService::hideSummary);
     return page(rows, offset, size);
   }
   private Map<String, Object> page(List<Map<String, Object>> rows, int offset, int size) {
@@ -89,35 +90,46 @@ public class PracticeService {
     int index = requested == null ? 0 : Math.max(0, Math.min(requested, Math.max(0, ids.size() - 1)));
     if (requested == null) for (int i = 0; i < ids.size(); i++) if (!answered.contains(ids.get(i))) { index = i; break; }
     var rows = questionRows(value, ids, index, 1); Map<String, Object> answer = rows.isEmpty() ? null : answer(user, id, ids.get(index));
-    if (answer != null && (!"exam".equals(value.get("session_type")) || !"active".equals(value.get("status")))) rows.getFirst().put("analysis", answer.get("analysis"));
-    if ("exam".equals(value.get("session_type")) && "active".equals(value.get("status")) && answer != null) { answer = new LinkedHashMap<>(answer); answer.put("answer_key_id", null); answer.put("is_correct", null); answer.put("score", null); answer.put("max_score", null); answer.put("answer_key_payload", null); answer.put("explanation_payload", null); answer.put("analysis", null); }
+    if (answer != null && (!"exam".equals(value.get("session_type")) || "completed".equals(value.get("status")))) rows.getFirst().put("analysis", answer.get("analysis"));
+    answer = feedback(value, answer);
     var progress = new ArrayList<Map<String, Object>>();
-    for (int i = 0; i < ids.size(); i++) { Long question = ids.get(i); Object correct = null; for (var submitted : answers) if (submitted.get("id").equals(question)) { correct = submitted.get("correct"); break; } if ("exam".equals(value.get("session_type")) && "active".equals(value.get("status"))) correct = null; var item = new LinkedHashMap<String, Object>(); item.put("index", i); item.put("questionId", question); item.put("isAnswered", answered.contains(question)); item.put("isCorrect", correct); progress.add(item); }
+    for (int i = 0; i < ids.size(); i++) { Long question = ids.get(i); Object correct = null; for (var submitted : answers) if (submitted.get("id").equals(question)) { correct = submitted.get("correct"); break; } if (hiddenExam(value)) correct = null; var item = new LinkedHashMap<String, Object>(); item.put("index", i); item.put("questionId", question); item.put("isAnswered", answered.contains(question)); item.put("isCorrect", correct); progress.add(item); }
     var out = new LinkedHashMap<String, Object>(); out.put("session", value); out.put("question", rows.isEmpty() ? null : rows.getFirst()); out.put("questionIndex", rows.isEmpty() ? 0 : index); out.put("total", ids.size()); out.put("answeredCount", answers.size()); out.put("progress", progress); out.put("result", answer); out.put("previousIndex", index > 0 ? index - 1 : null); out.put("nextIndex", index < ids.size() - 1 ? index + 1 : null); return out;
   }
   private List<Map<String, Object>> questionRows(Map<String, Object> session, List<Long> ids, int offset, int take) {
     if (ids.isEmpty() || offset >= ids.size()) return List.of(); var wanted = ids.subList(offset, Math.min(ids.size(), offset + take));
     var rows = db.query("select q.id question_id,q.subject_id,q.question_type_id,q.answer_mode,q.choice_variant,q.stem,null::text analysis,q.status question_status from questions q where q.id=any(?::bigint[])", this::row, (Object) wanted.toArray(Long[]::new));
-    var byId = new HashMap<Long, Map<String, Object>>(); for (var row : rows) { long question = ((Number) row.get("question_id")).longValue(); row.put("options", db.query("select id,question_id,option_label,sort_order,content from question_options where question_id=? order by sort_order", this::row, question)); byId.put(question, row); }
+    var byId = new HashMap<Long, Map<String, Object>>(); for (var row : rows) { long question = ((Number) row.get("question_id")).longValue(); row.put("options", db.query("select id,question_id,option_label,sort_order,content from question_options where question_id=? order by sort_order", this::row, question)); var submitted = feedback(session, answer(((Number) session.get("user_id")).longValue(), ((Number) session.get("id")).longValue(), question)); if (submitted != null) { row.put("analysis", submitted.get("analysis")); row.put("result", submitted); } byId.put(question, row); }
     return wanted.stream().map(byId::get).filter(Objects::nonNull).toList();
   }
   private Map<String, Object> answer(long user, long session, long question) { var rows = db.query("select a.id,a.user_id,a.session_id,a.bank_id,a.question_id,a.answer_key_id,a.answer_payload,a.is_correct,a.score,a.max_score,a.answered_at,k.answer_payload answer_key_payload,k.explanation_payload explanation_payload,q.analysis from practice_answers a join question_answer_keys k on k.id=a.answer_key_id join questions q on q.id=a.question_id where a.user_id=? and a.session_id=? and a.question_id=?", this::row, user, session, question); return rows.isEmpty() ? null : rows.getFirst(); }
   @Transactional
   public Map<String, Object> submit(long user, long session, long question, Map<String, Object> payload, Integer duration) {
-    if (duration != null && duration < 0) throw bad("durationMs must be non-negative"); var value = this.session(user, session); var old = answer(user, session, question); if (old != null) return old;
+    if (duration != null && duration < 0) throw bad("durationMs must be non-negative"); var value = this.session(user, session); var old = answer(user, session, question); if (old != null) return feedback(value, old);
     if (!"active".equals(value.get("status"))) throw state("Practice session is not active"); if (!queue(session).contains(question)) throw ApiException.of(404, "NOT_FOUND", "Question is not part of this practice session");
     var modes = db.query("select answer_mode from questions where id=?", (r, n) -> r.getString(1), question); if (modes.isEmpty()) throw ApiException.of(404, "NOT_FOUND", "Question is not part of this practice session");
     validate(modes.getFirst(), payload); var keys = db.query("select id,answer_payload from question_answer_keys where question_id=? and is_primary", this::row, question); if (keys.isEmpty()) throw state("Question has no primary answer key");
     Boolean correct = grader.grade(modes.getFirst(), map(keys.getFirst().get("answer_payload")), payload); String body = encode(payload);
     var inserted = db.query("insert into practice_answers(session_id,user_id,bank_id,question_id,answer_key_id,answer_payload,is_correct,score,max_score) values(?,?,?,?,?,?::jsonb,?,?,?) on conflict(session_id,question_id) do nothing returning id,user_id,session_id,bank_id,question_id,answer_key_id,answer_payload,is_correct,score,max_score,answered_at", this::row, session, user, value.get("bank_id"), question, keys.getFirst().get("id"), body, correct, correct == null ? null : (correct ? 1d : 0d), 1d);
-    if (inserted.isEmpty()) return answer(user, session, question); bump(user, ((Number) value.get("bank_id")).longValue()); return answer(user, session, question);
+    if (!inserted.isEmpty()) bump(user, ((Number) value.get("bank_id")).longValue()); return feedback(value, answer(user, session, question));
+  }
+  public static boolean hiddenExam(Map<String, Object> session) { return "exam".equals(session.get("session_type")) && !"completed".equals(session.get("status")); }
+  public static Map<String, Object> hideSummary(Map<String, Object> session) {
+    if (hiddenExam(session)) for (String field : List.of("correct_count", "wrong_count", "score")) if (session.containsKey(field)) session.put(field, null);
+    return session;
+  }
+  private static Map<String, Object> feedback(Map<String, Object> session, Map<String, Object> answer) {
+    if (answer == null || !hiddenExam(session)) return answer;
+    var hidden = new LinkedHashMap<>(answer);
+    for (String field : List.of("answer_key_id", "is_correct", "score", "max_score", "answer_key_payload", "explanation_payload", "analysis")) hidden.put(field, null);
+    return hidden;
   }
   private void validate(String mode, Map<String, Object> payload) { Object value = payload == null ? null : payload.get("value"); if ("choice".equals(mode) && selected(payload).isEmpty()) throw bad("Select at least one option before submitting"); if ("true_false".equals(mode) && !(value instanceof Boolean)) throw bad("Select true or false before submitting"); if ("fill_blank".equals(mode) && values(payload).isEmpty()) throw bad("Fill at least one blank before submitting"); if ("short_answer".equals(mode) && (!(value instanceof String) || ((String) value).trim().isEmpty())) throw bad("Answer text is required before submitting"); }
   private List<String> selected(Map<String, Object> payload) { Object value = payload == null ? null : payload.get("selected"); if (value instanceof Collection<?> items) return items.stream().map(Object::toString).map(String::trim).filter(v -> !v.isEmpty()).toList(); return value == null ? List.of() : List.of(value.toString().trim()); }
   private List<String> values(Map<String, Object> payload) { Object value = payload == null ? null : payload.get("value"); if (value instanceof Collection<?> items) return items.stream().map(Object::toString).map(v -> v.trim().toLowerCase().replaceAll("\\s+", " ")).filter(v -> !v.isEmpty()).toList(); return value == null ? List.of() : List.of(value.toString().trim().toLowerCase()); }
   @SuppressWarnings("unchecked") private Map<String, Object> map(Object value) { try { return value instanceof Map<?, ?> map ? (Map<String, Object>) map : json.readValue(String.valueOf(value), new TypeReference<Map<String, Object>>() {}); } catch (Exception error) { return Map.of(); } }
   private String encode(Object value) { try { return json.writeValueAsString(value == null ? Map.of() : value); } catch (Exception error) { throw bad("Invalid answer payload"); } }
-  @Transactional public Map<String, Object> complete(long user, long id, String status) { var rows = db.query("update practice_sessions set status=?,completed_at=now() where id=? and user_id=? and status='active' returning id", this::row, status, id, user); if (rows.isEmpty()) throw ApiException.of(404, "NOT_FOUND", "Active practice session not found"); var value = session(user, id); bump(user, ((Number) value.get("bank_id")).longValue()); return value; }
-  public List<Map<String, Object>> results(long user, long id) { var value = session(user, id); if ("active".equals(value.get("status"))) throw state("Complete the practice session before viewing results"); return db.query("select a.*,q.stem,q.answer_mode,q.analysis,k.answer_payload answer_key_payload,k.explanation_payload explanation_payload from practice_answers a join questions q on q.id=a.question_id join question_answer_keys k on k.id=a.answer_key_id where a.user_id=? and a.session_id=? order by a.answered_at,a.id", this::row, user, id); }
+  @Transactional public Map<String, Object> complete(long user, long id, String status) { session(user, id); var rows = db.query("update practice_sessions set status=?,completed_at=now() where id=? and user_id=? and status='active' returning id", this::row, status, id, user); if (rows.isEmpty()) throw ApiException.of(404, "NOT_FOUND", "Active practice session not found"); var value = session(user, id); bump(user, ((Number) value.get("bank_id")).longValue()); return value; }
+  public List<Map<String, Object>> results(long user, long id) { var value = session(user, id); if ("active".equals(value.get("status"))) throw state("Complete the practice session before viewing results"); var rows = db.query("select a.*,q.stem,q.answer_mode,q.analysis,k.answer_payload answer_key_payload,k.explanation_payload explanation_payload from practice_answers a join questions q on q.id=a.question_id join question_answer_keys k on k.id=a.answer_key_id where a.user_id=? and a.session_id=? order by a.answered_at,a.id", this::row, user, id); return rows.stream().map(answer -> feedback(value, answer)).toList(); }
   public void bump(long user, long bank) { try { redis.opsForValue().increment("practiq:cache-version:analytics:" + user); redis.opsForValue().increment("practiq:cache-version:bank-analytics:" + bank); } catch (Exception ignored) {} }
 }

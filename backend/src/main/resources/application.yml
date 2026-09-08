@@ -3,6 +3,9 @@ spring:
     name: practiq-backend
   datasource:
     url: "${POSTGRES_URL:jdbc:postgresql://localhost:54322/practiq_app}"
+    hikari:
+      maximum-pool-size: 10
+      connection-timeout: 30000
     username: "${POSTGRES_USER:practiq}"
     password: "${POSTGRES_PASSWORD:practiq}"
   data:
