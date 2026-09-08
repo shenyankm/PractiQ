@@ -1,8 +1,8 @@
+import { protectedPage, usePageLoad, usePageApi, usePageClient } from "../../auth/protected-page";
 import { Button } from "@taroify/core";
 import { Input, Text, View } from "@tarojs/components";
-import Taro, { useDidShow } from "@tarojs/taro";
+import Taro from "@tarojs/taro";
 import { useState } from "react";
-import { api, apiClient } from "../../api";
 import type { CapabilitySet } from "../../api/modules";
 import { errorMessage } from "../../api/message";
 import { sessionStore } from "../../auth/session";
@@ -10,13 +10,15 @@ import { BrandMark, ErrorNotice, MetricCard, Page, PageHeader, Section, confirmD
 import { openPage } from "../../navigation";
 import { pendingPaymentOrder, recoverPayment, startPayment } from "../../payments/runtime";
 
-export default function ProfilePage(): JSX.Element {
+function ProfilePage(): JSX.Element {
+  const api = usePageApi();
+  const apiClient = usePageClient();
   const snapshot = sessionStore.getSnapshot(); const [name, setName] = useState(snapshot?.user.displayName ?? ""); const [capabilities, setCapabilities] = useState<CapabilitySet | null>(null); const [message, setMessage] = useState(""); const [saving, setSaving] = useState(false);
-  useDidShow(() => { void api.capabilities().then(setCapabilities).catch(() => setCapabilities(null)); });
+  usePageLoad(async () => { await api.capabilities().then(setCapabilities).catch(() => setCapabilities(null)); });
   if (!snapshot) { void Taro.reLaunch({ url: "/pages/login/index" }); return <Page />; }
   const user = snapshot.user;
   const save = async () => { setSaving(true); setMessage(""); try { const next = await api.auth.updateProfile({ displayName: name }); sessionStore.updateUser(next); setMessage("资料已保存"); } catch (error) { setMessage(errorMessage(error)); } finally { setSaving(false); } };
-  const logout = async () => { if (await confirmDanger("退出登录", "将清除内存中的登录状态，本地业务缓存会保留到你主动清理。", "退出")) await apiClient.logout(); };
+  const logout = async () => { if (await confirmDanger("退出登录", "将清除内存中的登录状态，并清除当前账号全部本地业务缓存和待恢复支付状态。", "退出")) await apiClient.logout(); };
   const pay = async (kind: "pro" | "credits") => { setMessage(""); try { const intent = await startPayment(kind); setMessage(intent.order.status === "paid" ? "支付成功，权益已更新" : `订单状态：${intent.order.status}`); const next = await api.auth.me(); sessionStore.updateUser(next); } catch (error) { setMessage(errorMessage(error)); } };
   const recover = async () => { try { const intent = await recoverPayment(); setMessage(`订单状态：${intent.order.status}`); const next = await api.auth.me(); sessionStore.updateUser(next); } catch (error) { setMessage(errorMessage(error)); } };
   return <Page tab><PageHeader eyebrow="我的" title={user.displayName || "PractiQ 学习者"} subtitle={`${user.effectiveMembership === "pro" ? "Pro 会员" : "基础会员"} · ${user.role === "admin" ? "管理员" : "普通用户"}`} action={<BrandMark compact />} /><View className="stat-grid"><MetricCard label="Credits" value={String(user.creditBalance)} /><MetricCard label="会员" value={user.paidPro ? "Pro" : "Free"} tone={user.paidPro ? "success" : "primary"} /></View>
@@ -27,3 +29,5 @@ export default function ProfilePage(): JSX.Element {
     <Section title="账号与隐私"><View className="button-row"><Button onClick={() => void Taro.navigateTo({ url: "/pages/privacy/index" })}>隐私政策</Button><Button color="danger" variant="outlined" onClick={() => void logout()}>退出登录</Button></View></Section></Page>;
 }
 function Nav({ title, path }: { title: string; path: string }): JSX.Element { return <View className="nav-card" role="button" onClick={() => void openPage(path)}><Text className="nav-card-title">{title}</Text><Text className="nav-card-detail">进入查看与管理</Text></View>; }
+
+export default protectedPage(ProfilePage);

@@ -1,4 +1,5 @@
-import { Image, RichText, Text, View } from "@tarojs/components";
+import { Text, View } from "@tarojs/components";
+import { ProtectedImage } from "./ProtectedImage";
 import type { ContentBlock, QuestionOption, QuestionRecord } from "../api/modules";
 
 export function QuestionContent({ question, revealAnswer = false }: { question: Pick<QuestionRecord, "stem" | "options" | "analysis" | "content_blocks">; revealAnswer?: boolean }): JSX.Element {
@@ -11,8 +12,8 @@ function Option({ option, reveal }: { option: QuestionOption; reveal: boolean })
 
 function Block({ block }: { block: ContentBlock }): JSX.Element {
   const payload = block.payload;
-  if (block.part_type === "image" && typeof payload.url === "string") return <Image src={payload.url} mode="widthFix" style={{ width: "100%" }} />;
-  if (block.part_type === "html" && typeof payload.html === "string") return <RichText nodes={payload.html} />;
+  if (block.part_type === "image" && typeof payload.url === "string") return <ProtectedImage url={payload.url} />;
+  if (block.part_type === "html" && typeof payload.html === "string") return <View><Text className="app-muted">HTML 安全预览（不加载外部资源）</Text><Text>{payload.html}</Text></View>;
   const text = typeof payload.text === "string" ? payload.text : typeof payload.content === "string" ? payload.content : JSON.stringify(payload);
   return <Text className={block.part_type === "formula" ? "app-number" : "app-muted"}>{text}</Text>;
 }

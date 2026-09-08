@@ -61,13 +61,14 @@ export interface RecentSession {
   status: string;
   question_count: number;
   answered_count: number;
-  correct_count: number;
-  wrong_count: number;
+  correct_count?: number | null;
+  wrong_count?: number | null;
   started_at: string;
   completed_at: string | null;
 }
 
 export interface WeakQuestion {
+  bank_id: number;
   question_id: number;
   attempt_count: number;
   correct_count: number;

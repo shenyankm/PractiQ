@@ -1,5 +1,7 @@
-import { useDidHide, useDidShow } from "@tarojs/taro";
+import { useDidHide } from "@tarojs/taro";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { usePageLoad } from "../auth/protected-page";
+import { viewAccess } from "../auth/view-access";
 import type { AiTask } from "../api/modules";
 import { TERMINAL_AI_STATUSES, taskPollDelay } from "../polling";
 
@@ -16,9 +18,11 @@ export function useTaskPolling(taskId: number | null, getTask: (id: number) => P
   }, []);
 
   const poll = useCallback(async () => {
+    stop();
     if (!taskId || !active.current) return;
     try {
       const next = await getTask(taskId);
+      if (!active.current) return;
       setTask(next);
       setError(null);
       failures.current = 0;
@@ -30,10 +34,12 @@ export function useTaskPolling(taskId: number | null, getTask: (id: number) => P
     }
   }, [getTask, taskId]);
 
-  useDidShow(() => { active.current = true; void poll(); });
+  usePageLoad(async () => { active.current = true; await poll(); });
+  useEffect(() => viewAccess.subscribe((event) => { if (event !== "revalidate") { active.current = false; stop(); setTask(null); } }), [stop]);
   useDidHide(() => { active.current = false; stop(); });
   useEffect(() => {
     active.current = true;
+    setTask(null);
     void poll();
     return () => { active.current = false; stop(); };
   }, [poll, stop]);
