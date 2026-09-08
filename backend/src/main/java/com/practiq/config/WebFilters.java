@@ -1,7 +1,7 @@
 package com.practiq.config;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 import com.practiq.common.ApiError;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ReadListener;

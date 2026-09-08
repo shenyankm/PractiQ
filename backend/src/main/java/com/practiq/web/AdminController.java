@@ -1,5 +1,6 @@
 package com.practiq.web;
 
+import tools.jackson.databind.ObjectMapper;
 import com.practiq.auth.AuthService;
 import com.practiq.common.ApiException;
 import com.practiq.common.ApiResponse;
@@ -41,8 +42,8 @@ import org.springframework.web.multipart.MultipartFile;
 @RestController
 @RequestMapping("/api/v1/admin")
 public class AdminController {
-  private final JdbcTemplate db; private final AuthService auth; private final MembershipService membership;
-  AdminController(JdbcTemplate db, AuthService auth, MembershipService membership) { this.db = db; this.auth = auth; this.membership = membership; }
+  private final JdbcTemplate db; private final AuthService auth; private final MembershipService membership; private final ObjectMapper json;
+  AdminController(JdbcTemplate db, AuthService auth, MembershipService membership, ObjectMapper json) { this.db = db; this.auth = auth; this.membership = membership; this.json = json; }
 
   record UserPatch(String status, String role) {}
   record KnowledgeIn(@NotBlank String subjectId, @NotBlank @Size(max = 128) String code, @NotBlank @Size(max = 256) String displayName, Long parentId) {}
@@ -101,7 +102,7 @@ public class AdminController {
 
   private void validateParent(String subject, Long parent) { if (parent != null && db.queryForObject("select count(*) from knowledge_points where id=? and subject_id=?", Integer.class, parent, subject) == 0) throw invalid("parentId must belong to the same subject"); }
   private void audit(long actor, Long target, String action, Map<String, Object> details) { db.update("insert into admin_audits(actor_user_id,target_user_id,action,details) values(?,?,?,?::jsonb)", actor, target, action, json(details)); }
-  private String json(Map<String, Object> value) { try { return new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(value); } catch (Exception error) { throw new IllegalStateException(error); } }
+  private String json(Map<String, Object> value) { try { return json.writeValueAsString(value); } catch (Exception error) { throw new IllegalStateException(error); } }
   private List<List<String>> csv(MultipartFile file) { try { if (file == null || file.isEmpty() || file.getSize() > 5_000_000) throw invalid("CSV file is required and must be at most 5 MB"); var decoder = StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT).onUnmappableCharacter(CodingErrorAction.REPORT); String text = decoder.decode(ByteBuffer.wrap(file.getBytes())).toString(); var rows = new ArrayList<List<String>>(); try (var reader = new java.io.BufferedReader(new InputStreamReader(new ByteArrayInputStream(text.getBytes(StandardCharsets.UTF_8)), StandardCharsets.UTF_8))) { String line; while ((line = reader.readLine()) != null) { if (!line.isBlank()) rows.add(csvLine(line)); } } return rows; } catch (ApiException error) { throw error; } catch (Exception error) { throw invalid("CSV must be valid UTF-8"); } }
   private List<String> csvLine(String line) { var values = new ArrayList<String>(); var value = new StringBuilder(); boolean quoted = false; for (int index = 0; index < line.length(); index++) { char current = line.charAt(index); if (current == '"') { if (quoted && index + 1 < line.length() && line.charAt(index + 1) == '"') { value.append('"'); index++; } else quoted = !quoted; } else if (current == ',' && !quoted) { values.add(value.toString()); value.setLength(0); } else value.append(current); } if (quoted) throw invalid("Invalid quoted CSV value"); values.add(value.toString()); return values; }
 }

@@ -4,8 +4,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpServer;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
@@ -52,8 +52,9 @@ class InternalAiMigrationTest {
       var client = client(server);
       new AiTaskWorker(tasks, client, json, mount.toString()).work();
       assertEquals("Bearer test-token", authorization.get());
-      assertEquals("Synthetic quiz", request.get().path("text").asText());
-      assertFalse(request.get().has("userId"));
+      assertEquals(json.readTree("""
+          {"sourceType":"text","fileName":"source.txt","text":"Synthetic quiz"}
+          """), request.get());
       var order = inOrder(tasks);
       order.verify(tasks).recordUsage(eq(1L), argThat(calls -> calls.size() == 1 && calls.getFirst().inputTokens() == 10));
       order.verify(tasks).completeImport(1, payload, false);
@@ -66,12 +67,17 @@ class InternalAiMigrationTest {
   @Test void timeoutEnvelopeRetainsUsageAndLocalSourceForExistingFailureRules() throws Exception {
     Files.writeString(mount.resolve("source.txt"), "Synthetic quiz");
     var request = new AtomicReference<JsonNode>();
-    var server = server(504, "{\"error\":{\"code\":\"AI_TIMEOUT\",\"message\":\"Deadline exceeded\"},\"meta\":{\"usage\":[" + USAGE + "]}}", request, new AtomicReference<>());
+    var authorization = new AtomicReference<String>();
+    var server = server(504, "{\"error\":{\"code\":\"AI_TIMEOUT\",\"message\":\"Deadline exceeded\"},\"meta\":{\"usage\":[" + USAGE + "]}}", request, authorization);
     try {
       var tasks = mock(AiTaskService.class);
       when(tasks.claim(any())).thenReturn(new AiTaskService.Claim(1, 2, "import", json.createObjectNode(), OffsetDateTime.now().plusMinutes(2)));
       when(tasks.importSource(1)).thenReturn(Map.of("source_type", "text", "source_file_name", "source.txt", "source_storage_path", "source.txt"));
       new AiTaskWorker(tasks, client(server), json, mount.toString()).work();
+      assertEquals("Bearer test-token", authorization.get());
+      assertEquals(json.readTree("""
+          {"sourceType":"text","fileName":"source.txt","text":"Synthetic quiz"}
+          """), request.get());
       var order = inOrder(tasks);
       order.verify(tasks).recordUsage(eq(1L), argThat(calls -> calls.size() == 1 && calls.getFirst().outputTokens() == 5));
       order.verify(tasks).fail(eq(1L), argThat(error -> error.path("code").asText().equals("AI_TIMEOUT")), eq(true));

@@ -1,6 +1,6 @@
 package com.practiq.web;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.practiq.auth.AuthService;
 import com.practiq.common.*;
 import jakarta.validation.Valid;

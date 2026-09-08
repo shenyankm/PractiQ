@@ -1,7 +1,7 @@
 package com.practiq.service;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 import com.practiq.common.ApiException;
 import com.practiq.common.PageSupport;
 import java.sql.ResultSet;

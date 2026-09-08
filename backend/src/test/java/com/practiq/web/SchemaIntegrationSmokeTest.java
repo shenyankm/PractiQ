@@ -2,7 +2,7 @@ package com.practiq.web;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.practiq.auth.AuthService;
 import com.practiq.auth.FirstAdminBootstrapService;
 import com.practiq.auth.WeChatClient;

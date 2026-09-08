@@ -1,7 +1,8 @@
 package com.practiq.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -23,7 +24,7 @@ public class AiTaskWorker {
   public void work() {
     tasks.expireOverdue(); if (!client.available()) return; AiTaskService.Claim claim = tasks.claim(worker); if (claim == null) return;
     try {
-      ObjectNode request; String operation;
+      JsonNode request; String operation;
       if ("import".equals(claim.kind())) { request = importRequest(tasks.importSource(claim.id())); operation = "parse-document"; }
       else { request = claim.requestPayload().deepCopy(); operation = "answer_generation".equals(claim.kind()) ? "generate-answer" : "learning-report"; }
       InternalAiClient.Result result = client.call(operation, request); tasks.recordUsage(claim.id(), result.usage());

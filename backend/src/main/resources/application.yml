@@ -9,6 +9,8 @@ spring:
     redis:
       url: "${REDIS_URL:redis://localhost:6379}"
   jackson:
+    # Keep existing wire/storage defaults while using Jackson 3.
+    use-jackson2-defaults: true
     property-naming-strategy: LOWER_CAMEL_CASE
     default-property-inclusion: non_null
     deserialization:
