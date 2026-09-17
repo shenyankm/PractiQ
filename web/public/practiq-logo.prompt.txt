@@ -1,0 +1,8 @@
+Use case: logo-brand
+Asset type: PractiQ project logo, transparent PNG.
+Primary request: Create one polished original logo for PractiQ, a personal question-bank and learning application for importing study materials, practicing questions, grading answers and reviewing learning insights.
+Subject: A single compact distinctive Q-inspired symbol that subtly integrates a practice check mark, expressing learning and mastery. Symbol only, no wordmark.
+Style/medium: Minimal professional flat graphic logo, bold clean silhouette, restrained simple geometry, crisp edges, recognizable at small app-header sizes.
+Composition/framing: Square canvas, one centered mark with balanced modest padding.
+Scene/backdrop: Actual transparent background with alpha channel, including negative spaces within the mark.
+Constraints: Output PNG with genuine transparency. No background plate, no checkerboard drawn into image, no mockup, no shadows, no 3D, no texture, no slogan, no watermark. Produce a single finished logo, not a sheet of alternatives.

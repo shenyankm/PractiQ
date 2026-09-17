@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="web/public/practiq-logo.png" width="160" alt="PractiQ logo">
+</p>
+
 # PractiQ
 
 本机运行的单用户题库与学习工具：管理题目、导入资料、练习判分、查看学习分析和 AI 报告。无需登录，没有会员、积分或支付功能。
