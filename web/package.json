@@ -1,0 +1,6 @@
+{
+ "name":"@practiq/web","version":"1.0.0","private":true,"type":"module",
+ "scripts":{"dev":"vite --host 127.0.0.1","build":"tsc --noEmit && vite build","typecheck":"tsc --noEmit","test":"node --import tsx --test tests/*.test.ts","styles":"node scripts/check-styles.mjs","verify":"npm run styles && npm test && npm run build"},
+ "dependencies":{"@heroui/react":"^3.0.0","@heroui/styles":"^3.0.0","react":"^19.0.0","react-dom":"^19.0.0","react-router-dom":"^7.0.0"},
+ "devDependencies":{"@tailwindcss/vite":"^4.0.0","tailwindcss":"^4.0.0","@types/react":"^19.0.0","@types/react-dom":"^19.0.0","@types/node":"^22.0.0","@vitejs/plugin-react":"^5.0.0","vite":"^7.0.0","typescript":"~5.9.3","tsx":"^4.20.6","@playwright/test":"^1.55.0"}
+}
