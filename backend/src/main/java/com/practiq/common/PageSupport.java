@@ -1,3 +1,0 @@
-package com.practiq.common;
-import java.nio.charset.StandardCharsets; import java.util.*;
-public final class PageSupport { private PageSupport(){} public static int cursor(String value){if(value==null||value.isBlank())return 0;try{int n=Integer.parseInt(new String(Base64.getUrlDecoder().decode(value+"=".repeat((4-value.length()%4)%4)),StandardCharsets.UTF_8));if(n<0)throw new Exception();return n;}catch(Exception e){throw ApiException.of(422,"VALIDATION_ERROR","Invalid request");}} public static String next(int offset,int limit){return Base64.getUrlEncoder().withoutPadding().encodeToString(Integer.toString(offset+limit).getBytes(StandardCharsets.UTF_8));} }
