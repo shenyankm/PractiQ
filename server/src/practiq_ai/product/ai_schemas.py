@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Literal, Self
+from typing import Annotated, Any, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -303,3 +303,12 @@ class LearningReportResult(StrictModel):
     weakPoints: list[WeakPoint]
     recommendations: list[str]
     riskLevel: RiskLevel
+
+
+class BankMetadataRequest(StrictModel):
+    name: str = Field(min_length=1, max_length=100, pattern=r"\S")
+
+
+class BankMetadataResult(StrictModel):
+    description: str = Field(min_length=1, max_length=500, pattern=r"\S")
+    tags: list[Annotated[str, Field(min_length=1, max_length=64, pattern=r"\S")]] = Field(min_length=1, max_length=30)

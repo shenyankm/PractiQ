@@ -10,6 +10,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from .. import envelope
 from ..ai_schemas import (
     AnswerGenerationRequest,
+    BankMetadataRequest,
     DocumentParseRequest,
     LearningReportRequest,
 )
@@ -108,3 +109,15 @@ async def learning_report(
         result.model_dump(),
         {"usage": [call.model_dump(mode="json") for call in usage]},
     )
+
+
+@router.post("/bank-metadata")
+async def bank_metadata(request: Request, payload: BankMetadataRequest,
+                        service: Annotated[AIService, Depends(_service)]):
+    try:
+        result, usage = await service.bank_metadata(payload)
+    except DocumentProcessingError as exc:
+        raise envelope.new_error(exc.status_code, exc.code, exc.detail,
+            meta={"usage": [call.model_dump(mode="json") for call in exc.usage]}) from exc
+    return envelope.ok(request, result.model_dump(),
+        {"usage": [call.model_dump(mode="json") for call in usage]})

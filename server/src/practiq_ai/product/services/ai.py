@@ -9,6 +9,8 @@ from .. import agents
 from ..ai_schemas import (
     AnswerGenerationRequest,
     AnswerGenerationResult,
+    BankMetadataRequest,
+    BankMetadataResult,
     DocumentParseRequest,
     DocumentParseResult,
     LearningReportRequest,
@@ -73,3 +75,7 @@ class AIService:
                 self._text_model, request.model_dump(mode="json", exclude_none=True)
             )
         )
+
+
+    async def bank_metadata(self, request: BankMetadataRequest) -> tuple[BankMetadataResult, list[ModelCallUsage]]:
+        return await self._run(lambda: agents.bank_metadata(self._text_model, request.model_dump()))

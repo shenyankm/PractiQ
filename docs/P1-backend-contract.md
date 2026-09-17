@@ -35,3 +35,12 @@ Run `python -m practiq_backend.worker`. It claims PostgreSQL rows with `FOR UPDA
 Imports persist all validated questions and output identities atomically. Output keys are `(job_id,item_index)`; failures roll back partial content. Draft imports may lack a key; publishing requires a valid key. Sources use checksums and safe local paths; failures retain a 24-hour retry window. Cleanup is a worker responsibility.
 
 `AI_SERVICE_TOKEN` authenticates product-to-AI calls. `/api/v1/ai/parse-document`, `generate-answer`, `learning-report` retain their existing semantic-only DTOs, error envelopes and `meta.usage`. Product resource IDs are not passed to AI. The browser never accesses the AI service directly.
+
+
+## Import form and metadata suggestions
+
+`POST /api/v1/import-jobs` accepts `{name, description?, tags?, fileName, sourceType}` to create a new general-subject bank, tags and import job in one idempotent transaction. Name is required (100 characters), description is optional (500), tags are optional (30 items, 64 characters each). Existing integrations may instead send `bankId` without the new-bank fields. Upload and parse/retry/cancel endpoints remain unchanged.
+
+`POST /api/v1/bank-metadata-tasks` accepts `{name}` and returns a durable `bank_metadata` task. Poll `/ai-tasks/{id}`; a successful result contains `{description, tags}`. The private AI endpoint is `/api/v1/ai/bank-metadata`. Suggestions are based only on the name, never claim file inspection, and require explicit adoption in the Web form. Calls retain usage accounting and existing cancellation/lease fencing.
+
+Fresh databases use `db/00_schema.sql`. Existing **single-user** databases must run `db/migrations/001_bank_metadata_tasks.sql` before restarting API/worker. This only extends the task-kind constraint; no rows or legacy databases are removed. Rollback requires waiting for or cancelling metadata tasks and retaining this additive constraint so their history remains readable.

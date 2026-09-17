@@ -101,7 +101,7 @@ CREATE TABLE practice_answers (
  FOREIGN KEY(answer_key_id,question_id) REFERENCES question_answer_keys(id,question_id), CHECK(score>=0 AND score<=max_score)
 );
 CREATE TABLE ai_tasks (
- id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, kind text NOT NULL CHECK(kind IN ('import','answer_generation','learning_report')),
+ id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, kind text NOT NULL CHECK(kind IN ('import','answer_generation','learning_report','bank_metadata')),
  status text NOT NULL DEFAULT 'queued' CHECK(status IN ('queued','running','succeeded','failed','cancelled','timed_out')),
  source_question_id bigint REFERENCES questions, request_payload jsonb NOT NULL DEFAULT '{}', result jsonb, error jsonb,
  attempt integer NOT NULL DEFAULT 1 CHECK(attempt>0), worker_id uuid, worker_lease_until timestamptz,

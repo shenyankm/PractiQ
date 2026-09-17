@@ -14,7 +14,7 @@ from psycopg.types.json import Jsonb
 from .content import QuestionIn, create_question
 from .core import Error, Settings, bank, one, pool_for
 from .media import safe_path
-from .tasks import event
+from .tasks import BankMetadataResult, event
 
 log = logging.getLogger(__name__)
 
@@ -69,7 +69,7 @@ def heartbeat(pool, task, stop):
 def request_for(pool, settings, task):
     if task["kind"] != "import":
         return (
-            "generate-answer" if task["kind"] == "answer_generation" else "learning-report",
+            {"answer_generation": "generate-answer", "learning_report": "learning-report", "bank_metadata": "bank-metadata"}[task["kind"]],
             task["request_payload"],
         )
     with pool.connection() as db:
@@ -206,6 +206,8 @@ def complete(pool, task, result, usage, error=None):
             with db.transaction():
                 if not isinstance(result, dict):
                     raise ValueError("AI response must contain an object")
+                if task["kind"] == "bank_metadata":
+                    result = BankMetadataResult.model_validate(result).model_dump()
                 if task["kind"] == "import":
                     persist_import(db, task, result)
                 elif task["kind"] == "answer_generation" and not isinstance(

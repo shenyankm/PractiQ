@@ -4,10 +4,10 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, File, Request, UploadFile
 from psycopg.types.json import Jsonb
-from pydantic import Field
+from pydantic import Field, model_validator
 
-from .content import details
-from .core import DB, Error, Input, Page, Positive, bank, ok, one, question
+from .content import BankIn, Tags, add_bank, details, set_tags
+from .core import DB, Error, Input, Name, Page, Positive, bank, ok, one, question
 from .media import source_bytes, write_file
 from .practice import VISIBLE_ANSWERS
 
@@ -41,20 +41,56 @@ def ai_enabled(request):
 
 
 class ImportIn(Input):
-    bankId: Positive
+    bankId: Positive | None = None
+    name: Name | None = None
+    description: Annotated[str, Field(max_length=500)] = ""
+    tags: Annotated[list[Annotated[str, Field(min_length=1, max_length=64)]], Field(max_length=30)] = Field(default_factory=list)
     fileName: Annotated[str, Field(min_length=1, max_length=255)]
     sourceType: Literal["text", "csv", "pdf", "docx", "xlsx", "image"]
 
 
+    @model_validator(mode="after")
+    def target(self):
+        if (self.bankId is None) == (self.name is None):
+            raise ValueError("Provide either a new bank name or an existing bankId")
+        if self.name is not None and not self.name.strip():
+            raise ValueError("Name must not be blank")
+        if self.bankId is not None and (self.description or self.tags):
+            raise ValueError("Metadata belongs to a new bank")
+        return self
+
+
+class BankMetadataIn(Input):
+    name: Annotated[str, Field(min_length=1, max_length=100, pattern=r"\S")]
+
+
+class BankMetadataResult(Tags):
+    description: Annotated[str, Field(min_length=1, max_length=500)]
+
+
+@router.post("/bank-metadata-tasks", status_code=201)
+def metadata_task(body: BankMetadataIn, request: Request, db: DB):
+    ai_enabled(request)
+    return ok(public_task(one(db,
+        "insert into ai_tasks(kind,request_payload) values('bank_metadata',%s) returning *",
+        (Jsonb({"name": body.name.strip()}),))))
+
+
 @router.post("/import-jobs", status_code=201)
 def create_import(body: ImportIn, db: DB):
-    bank(db, body.bankId)
+    if body.bankId is None:
+        created = add_bank(BankIn(name=body.name.strip(), description=body.description), db)["data"]
+        bank_id = created["id"]
+        set_tags(bank_id, Tags(tags=body.tags), db)
+    else:
+        bank(db, body.bankId)
+        bank_id = body.bankId
     return ok(
         public_job(
             one(
                 db,
                 "insert into question_import_jobs(bank_id,file_name,source_type) values(%s,%s,%s) returning *",
-                (body.bankId, Path(body.fileName).name, body.sourceType),
+                (bank_id, Path(body.fileName).name, body.sourceType),
             )
         )
     )

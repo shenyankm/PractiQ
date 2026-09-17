@@ -342,3 +342,47 @@ def test_answer_and_report_use_semantic_payloads(client, app, content):
         assert payload["stats"]["accuracy"] == 1
     assert write(client, "DELETE", f"/banks/{b['id']}/practice-data").status_code == 204
     assert client.get(f"/api/v1/ai-tasks/{report.json()['data']['id']}").status_code == 410
+
+
+def test_import_creates_bank_metadata_atomically_and_replays(client, app, monkeypatch):
+    body = {"name": "期末复习", "description": "数学复习资料", "tags": ["数学", "考试"],
+            "sourceType": "pdf", "fileName": "exam.pdf"}
+    key = str(uuid.uuid4())
+    first = write(client, "POST", "/import-jobs", body, key=key)
+    assert first.status_code == 201, first.text
+    assert write(client, "POST", "/import-jobs", body, key=key).json() == first.json()
+    bank_id = first.json()["data"]["bank_id"]
+    assert client.get(f"/api/v1/banks/{bank_id}").json()["data"]["description"] == body["description"]
+    assert set(client.get(f"/api/v1/banks/{bank_id}/tags").json()["data"]) == set(body["tags"])
+    assert write(client, "POST", "/import-jobs", {**body, "name": "changed"}, key=key).status_code == 409
+    assert write(client, "POST", "/import-jobs", {**body, "name": " "}).status_code == 422
+    from practiq_backend import tasks
+    def invalid_tag(bank_id, body, db):
+        db.execute("insert into bank_tags values(%s,%s)", (bank_id, "duplicate"))
+        db.execute("insert into bank_tags values(%s,%s)", (bank_id, "duplicate"))
+    monkeypatch.setattr(tasks, "set_tags", invalid_tag)
+    before = len(client.get('/api/v1/banks').json()['data'])
+    assert write(client, "POST", "/import-jobs", {**body, "name": "rolled back"}).status_code == 409
+    assert len(client.get('/api/v1/banks').json()['data']) == before
+
+
+def test_metadata_worker_validation_usage_and_cancel(client, app):
+    payload = {"description": "数学复习建议", "tags": ["数学", "复习"]}
+    def respond(request):
+        assert request.url.path == '/api/v1/ai/bank-metadata'
+        assert request.read() == b'{"name":"Math"}'
+        return httpx.Response(200, json={"data": payload, "meta": {"usage": [{"callId": "metadata"}]}})
+    created = write(client, 'POST', '/bank-metadata-tasks', {"name": "Math"})
+    assert created.status_code == 201
+    with httpx.Client(transport=httpx.MockTransport(respond)) as ai:
+        assert run_once(app.state.pool, app.state.settings, ai)
+    task = client.get(f"/api/v1/ai-tasks/{created.json()['data']['id']}").json()['data']
+    assert task['status'] == 'succeeded' and task['result'] == payload
+    assert len(task['usage']) == 1
+    write(client, 'POST', '/bank-metadata-tasks', {"name": "Math"})
+    running = claim(app.state.pool, uuid.uuid4())
+    assert not complete(app.state.pool, running, {"description": "x", "tags": ["x" * 65]}, [{"callId": "invalid"}])
+    write(client, 'POST', '/bank-metadata-tasks', {"name": "Math"})
+    running = claim(app.state.pool, uuid.uuid4())
+    assert write(client, 'POST', f"/ai-tasks/{running['id']}/cancel").status_code == 200
+    assert not complete(app.state.pool, running, payload, [{"callId": "late"}])
