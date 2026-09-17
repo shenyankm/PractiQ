@@ -171,3 +171,6 @@ temp/
 /server/dist/
 /server/.codex/
 /server/.qoder/
+
+# Local agent workspace data
+.workbuddy/
