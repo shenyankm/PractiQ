@@ -59,6 +59,9 @@ test('loading errors retry and file upload recovery survives refresh', async ({ 
   await page.goto('/banks');
   await page.getByRole('link', { name: '打开题库', exact: true }).first().click();
   await page.getByRole('link', { name: '导入题目', exact: true }).click();
+  // 「名称」在题库详情页与导入页都存在，必须先等新页面完成渲染，避免 fill 命中旧页面。
+  await expect(page.getByRole('heading', { name: '新建导入', exact: true })).toBeVisible();
+  await page.getByLabel('名称', { exact: true }).fill('浏览器导入恢复验证');
   await page.locator('input[type=file]').setInputFiles({ name: 'browser-import.txt', mimeType: 'text/plain', buffer: Buffer.from('Question: 1 + 1? Answer: 2') });
   // A failing submission must retain the job/file identity without fabricating success.
   await page.route('**/api/v1/import-jobs/*/parse', route => route.fulfill({ status: 503, json: { error: { code: 'AI_UNAVAILABLE', message: 'AI 尚未配置' } } }));
