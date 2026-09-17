@@ -1,3 +1,5 @@
+> 当前单用户版本：Java 产品 API 已由 `backend/` 的 Python FastAPI 替代。下文历史迁移中的 Java 指原调用方；AI 接口与解析图保持兼容。
+
 # Monorepo AI migration and Java compatibility
 
 ## Ownership and execution
@@ -14,7 +16,7 @@ That end-to-end regression exposed an existing Java blocker: PostgreSQL `ResultS
 
 All AI routes require the shared bearer token (the existing `GET /api/health/live` liveness probe remains public):
 
-- `POST /api/v1/ai/parse-document`: retains `{sourceType,fileName?,text?,fileBase64?,mimeType?}`. Text is UTF-8; binary Base64 is strictly decoded and bounded. File MIME is normalized by source type because Java uses `application/octet-stream` for some imports. Files are written into the native content-addressed OSS namespace and then verified by the same graph as native requests.
+- `POST /api/v1/ai/parse-document`: retains `{sourceType,fileName?,text?,fileBase64?,mimeType?}`. Text is UTF-8; binary Base64 is strictly decoded and bounded. File MIME is normalized by source type because Java uses `application/octet-stream` for some imports. Files are written into the native content-addressed local storage namespace and then verified by the same graph as native requests.
 - `POST /api/v1/ai/generate-answer`: existing answer request/result and usage envelope.
 - `POST /api/v1/ai/learning-report`: existing strict scope/statistics request/result and usage envelope.
 
@@ -42,7 +44,7 @@ All-fragment failure, empty output, storage/checksum failure and deadline expiry
 
 ## Native APIs and image access
 
-The same Agent Server still registers `document_parser`, `text_csv_parser`, `pdf_parser`, `docx_parser`, and `excel_parser` with native OSS references, state/checkpoint/resumption and `SUCCEEDED`/`PARTIAL` outputs. `POST /api/uploads` retains its typed signed-PUT metadata contract. The graph never stores Base64 sources in state.
+The same Agent Server still registers `document_parser`, `text_csv_parser`, `pdf_parser`, `docx_parser`, and `excel_parser` with native local-file references, state/checkpoint/resumption and `SUCCEEDED`/`PARTIAL` outputs. `POST /api/uploads` retains its typed authenticated local-PUT metadata contract. The graph never stores Base64 sources in state.
 
 `POST /api/artifacts/read` accepts an `ArtifactReference` and returns size/SHA-256 verified bytes with `Cache-Control: no-store`, under service-token authentication. It rejects arbitrary object namespaces. This route is backend-only: do not disclose service credentials to the Mini Program. Java owner-authorized task results include non-expiring inline previews; larger originals remain available to trusted integrations using `imageRef`. Embedded document visuals now also retain their source artifact reference. No public bucket ACL, permanent public URL or product persistence was added to Python.
 
@@ -63,8 +65,8 @@ Not carried from the source working tree:
 
 The ignored source `.env` is copied byte-for-byte to `server/.env` with mode 0600. Root `.env.local` retains all existing bytes; only a missing shared `AI_SERVICE_TOKEN` was appended from local source configuration. Secret values are never included in this document, versioned source, or image. Neither environment file is overwritten by setup commands. Keep shared root/server token/model values consistent when editing them.
 
-The pre-existing ignored `server/.venv` is not used or recreated. `make server-install`, `make server-dev`, and `make test-server` use `/home/sheny/miniconda3/envs/langgragh/bin/python` (override `AI_PYTHON` if necessary). CI/container environments use the lockfile independently. Run local native and Java APIs on port 8090; `AI_SERVICE_URL` must match.
+The legacy ignored `server/.venv` has been moved out of the project; do not recreate it. Local runtime and development dependencies are installed into the existing Miniconda `langgragh` environment with `make server-install`, not project-mode `uv sync` or `uv run`. `make server-install`, `make server-dev`, and `make test-server` use `/home/sheny/miniconda3/envs/langgragh/bin/python` (override `AI_PYTHON` if necessary). CI/container environments use the lockfile independently. Run local native and Java APIs on port 8090; `AI_SERVICE_URL` must match.
 
 ## Validation boundary
 
-Tests and migration smoke checks use fake LLM/OSS/payment integrations only. Historical evaluation reports remain preserved failed/historical evidence; they are not a claim of improved model quality. Production Agent Server startup/licensing, real model quality, real OSS permissions/lifecycle, and combined native/Java load must be validated separately in an authorized deployment. See [operations](operations.md) for those requirements.
+Tests and migration smoke checks use fake LLM/payment integrations only. Historical evaluation reports remain preserved failed/historical evidence; they are not a claim of improved model quality. Production Agent Server startup/licensing, real model quality, local storage permissions/backups, and combined native/Java load must be validated separately in an authorized deployment. See [operations](operations.md) for those requirements.

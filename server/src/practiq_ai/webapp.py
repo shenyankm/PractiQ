@@ -3,12 +3,14 @@
 import secrets
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from typing import Annotated
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Response
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response
 
 from practiq_ai.config import load, service_token
 from practiq_ai.contracts import (
     ArtifactReference,
+    DocumentReference,
     DocumentUploadRequest,
     DocumentUploadResponse,
 )
@@ -59,3 +61,21 @@ async def read_artifact(reference: ArtifactReference) -> Response:
         raise HTTPException(exc.status_code, {"code": exc.code, "message": exc.detail}) from exc
     return Response(payload, media_type=reference.mediaType,
                     headers={"Cache-Control": "no-store"})
+
+
+@app.put("/api/uploads/content", dependencies=[Depends(authorize)])
+async def upload_content(request: Request, metadata: Annotated[DocumentUploadRequest, Query()]) -> DocumentReference:
+    """Private, bounded binary upload; references never expose filesystem paths."""
+    try:
+        store = get_object_store()
+        await store.prepare_document(metadata)
+        assert metadata.sizeBytes is not None
+        payload = bytearray()
+        async for chunk in request.stream():
+            if len(payload) + len(chunk) > metadata.sizeBytes:
+                raise DocumentProcessingError(413, "Uploaded file exceeds declared size", "DOCUMENT_TOO_LARGE")
+            payload.extend(chunk)
+        document = await store.put_document(bytes(payload), metadata)
+        return document
+    except DocumentProcessingError as exc:
+        raise HTTPException(exc.status_code, {"code": exc.code, "message": exc.detail}) from exc

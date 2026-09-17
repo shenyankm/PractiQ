@@ -11,7 +11,7 @@ PractiQ AI Server 是一个基于 LangGraph 的文档理解服务。它读取文
 ## 使用流程
 
 ```text
-申请上传凭证 → 文件直传 OSS → 按格式选择 Graph → 获取结构化结果
+申请文件引用 → 经鉴权接口上传至本地目录 → 按格式选择 Graph → 获取结构化结果
 ```
 
 仓库注册四个格式专用 Graph，以及一个兼容入口：
@@ -24,7 +24,7 @@ PractiQ AI Server 是一个基于 LangGraph 的文档理解服务。它读取文
 | `excel_parser` | `xlsx`（不支持旧版 `.xls`） |
 | `document_parser` | 原有全部格式，包括 `image`；兼容已有调用 |
 
-各入口共用提取、视觉处理、分片与合并逻辑。专用入口在读取 OSS 前校验格式，
+各入口共用提取、视觉处理、分片与合并逻辑。专用入口在读取本地文件 前校验格式，
 不匹配时抛出 `DOCUMENT_SOURCE_TYPE_MISMATCH`；从 checkpoint 恢复到读取节点时也会校验。
 这些 Graph 仍共享当前部署的 worker 与并发设置，不提供独立资源隔离。
 
@@ -32,9 +32,10 @@ PractiQ AI Server 是一个基于 LangGraph 的文档理解服务。它读取文
 
 ```mermaid
 graph TD
-    User["业务客户端"] -->|"申请上传凭证"| Upload["FastAPI: POST /api/uploads"]
-    Upload -->|"返回预签名 PUT URL"| User
-    User -->|"直传文件"| OSS[("阿里云 OSS")]
+    User["业务客户端"] -->|"申请文件引用"| Upload["FastAPI: POST /api/uploads"]
+    Upload -->|"返回本服务 PUT 路径"| User
+    User -->|"鉴权 PUT 文件"| Content["FastAPI: PUT /api/uploads/content"]
+    Content --> Storage[("本地目录 AI_STORAGE_DIR")]
     User -->|"提交 DocumentReference"| Server["LangGraph Agent Server"]
     Server --> Parser["text_csv / pdf / docx / excel_parser<br/>兼容入口 document_parser"]
     Parser --> Extract["PDF / 图片 / DOCX / XLSX / CSV / 文本提取"]
@@ -42,7 +43,7 @@ graph TD
     Extract --> Chunk["文本分片解析"]
     Vision --> Merge["稳定合并与校验"]
     Chunk --> Merge
-    Parser -->|"读取源文件、写入衍生素材"| OSS
+    Parser -->|"读取源文件、写入衍生素材"| Storage
     Parser -->|"结构化调用"| Model["DashScope / DeepSeek 模型"]
     Server --> PG[("系统 PostgreSQL: run 与 checkpoint")]
     Server --> Redis[("Redis: 队列与流")]
@@ -50,12 +51,12 @@ graph TD
 
 ## 核心边界
 
-- 原生 API 源文件经预签名地址直传 OSS；Java 兼容入口将内联文件写入相同命名空间。解析前均校验大小和 SHA-256。
+- 原生 API 源文件经服务令牌鉴权的 PUT 接口写入本地目录；产品兼容入口将内联文件写入相同命名空间。解析前均校验大小和 SHA-256。
 - DOCX 仅通过确定性类型路由调用内部字节工具；正文由 `python-docx` 提取，复杂部件按需由 `docx2python` 补充。
 - PDF 页图和文档内嵌图片可并行识别；单个视觉或文本分片失败会保留明细并返回 `PARTIAL`。
 - Graph State 只保存对象引用和结构化结果，不保存文件 Base64。
 - 模型输出经过 Pydantic 校验；失败调用受统一重试与并发上限约束。
-- `product/` 保留 Java 的答案生成与学习报告接口；题库导入队列、持久化、计费和重试仍仅由 Java 管理。
+- `product/` 保留产品后端调用的答案生成与学习报告接口；题库 CRUD、导入队列、持久化和重试由 `backend/` 中的 Python FastAPI 产品后端管理。单用户版不再计费。
 
 ## 快速开始
 
@@ -72,7 +73,7 @@ langgraph dev --no-browser --port 8090
 # Or from repository root: make server-dev (also loads root .env.local)
 ```
 
-请求需携带 `Authorization: Bearer $AI_SERVICE_TOKEN`。文件先通过 `POST /api/uploads` 获取预签名信息并直传 OSS，再把返回的 `DocumentReference` 交给对应 Graph。原生 Graph 不接受内联文本、URL、Base64 或服务端本地路径。Java `/api/v1/ai/parse-document` 兼容入口仍接受原来的内联 DTO，由 `product/document_parser.py` 转为 OSS 引用，运行同一个 Graph。
+请求需携带 `Authorization: Bearer $AI_SERVICE_TOKEN`。文件先通过 `POST /api/uploads` 获取本服务的相对 PUT 路径（`upload.url`），使用相同服务令牌和返回的 Content-Type 上传原始二进制，再把返回的 `DocumentReference` 交给对应 Graph。原生 Graph 不接受内联文本、URL、Base64 或服务端本地路径。产品 `/api/v1/ai/parse-document` 兼容入口仍接受原来的内联 DTO，由 `product/document_parser.py` 转为本地文件引用，运行同一个 Graph。
 
 例如，上传 PDF 后，向 `POST /threads/{thread_id}/runs` 提交以下请求；
 `input.document` 使用上传接口实际返回的引用（下面的占位值需替换）：
@@ -137,7 +138,7 @@ python -m dotenv -f .env run -- python scripts/load_test.py \
   --output reports/load-test.local.json
 ```
 
-评测覆盖公开合成小样本、单次运行配置的模型和真实 OSS，直接调用本地 Graph；压测调用本地 `langgraph dev`。`confidence` 未校准。
+评测覆盖公开合成小样本、单次运行配置的模型和本地文件存储，直接调用本地 Graph；压测调用本地 `langgraph dev`。`confidence` 未校准。
 
 ## 开发与质量检查
 
@@ -157,3 +158,11 @@ uv build
 See [migration/Java contract](docs/migration.md) for the preserved API, answer-key mapping, partial results, image access and billing behavior. This directory is self-contained: package, tests, fixtures, evals, historical reports, assets, scripts, graph configuration and lockfile all live here. Source repository deletion does not change imports or commands. Run `make test-server` at the repository root, or `python -m pytest` here in Conda.
 
 `POST /api/artifacts/read` accepts an `ArtifactReference` and returns checksum-verified bytes under service-token authentication. Keep this private. Java task results also retain bounded `imageBase64` previews and original `imageRef`; no client needs a service token to read its authorized task result. For local development, use the host Miniconda `langgragh` environment and `make server-dev`; root Compose contains only PostgreSQL and Redis, with no AI profile. This mode does not provide production PostgreSQL-backed task/checkpoint recovery. The root `Dockerfile.server` remains a standalone production reference; see `docs/operations.md` for its separate licensing and persistence requirements.
+
+## 本地文件存储
+
+`AI_STORAGE_DIR` 默认 `.local/ai`，相对路径始终以仓库根目录解析，也支持绝对路径。
+源文件存于 `practiq-agent/sources/`，派生文本与图片存于 `practiq-agent/artifacts/`；引用继续使用相对 `objectKey`，不会返回服务器绝对路径。
+上传地址不是预签名 URL，不含凭证、无需 `expiresAt`；PUT 必须携带服务令牌。浏览器仍只访问产品后端，不能获得此令牌。
+产品媒体目录 `MEDIA_DIR`（默认 `.local/media`）与 AI 存储分开。两处目录都需要持久保存并随数据库备份；容器部署请把 `AI_STORAGE_DIR` 设置为持久挂载的绝对路径。
+不再需要 OSS SDK、bucket、endpoint 或访问密钥；旧云端对象未被读取、迁移或删除。已有 checkpoint 如引用云端文件，需要将对应对象保留原 `objectKey` 复制到此目录后才能恢复。

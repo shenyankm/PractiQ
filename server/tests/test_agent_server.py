@@ -28,10 +28,6 @@ def test_agent_server_mounts_auth_routes_and_graphs() -> None:
         "LLM_PROVIDER": "dashscope",
         "LLM_API_KEY": "dummy",
         "LLM_TEXT_MODEL": "dummy",
-        "AI_OSS_ENDPOINT": "https://example.invalid",
-        "AI_OSS_BUCKET": "dummy",
-        "AI_OSS_ACCESS_KEY_ID": "dummy",
-        "AI_OSS_ACCESS_KEY_SECRET": "dummy",
         "N_JOBS_PER_WORKER": "1",
         "AI_GRAPH_MAX_CONCURRENCY": "1",
     }
@@ -105,7 +101,7 @@ def test_agent_server_mounts_auth_routes_and_graphs() -> None:
                 response.raise_for_status()
                 assistants = response.json()
                 assert {item["graph_id"] for item in assistants} == GRAPH_IDS
-                # Real native SSE execution, rejected before any OSS/LLM call.
+                # Real native SSE execution, rejected before any storage/LLM call.
                 with client.stream("POST", "/runs/stream", headers=headers, json={
                     "assistant_id": "pdf_parser",
                     "input": {"document": {

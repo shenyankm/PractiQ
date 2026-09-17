@@ -2,7 +2,7 @@
 
 import os
 from dataclasses import dataclass
-from urllib.parse import urlparse
+from pathlib import Path
 
 MIB = 1024 * 1024
 
@@ -13,18 +13,15 @@ class Config:
     api_key: str
     text_model: str
     vision_model: str | None
-    oss_endpoint: str
-    oss_bucket: str
-    oss_access_key_id: str
-    oss_access_key_secret: str
+    storage_dir: Path
     source_max_bytes: int
     vision_max_bytes: int
     max_document_pages: int
     max_vision_page_pixels: int
     max_total_input_chars: int
     graph_max_concurrency: int
-    oss_concurrency: int
-    oss_timeout_seconds: float
+    storage_concurrency: int
+    storage_timeout_seconds: float
     model_timeout_seconds: float
     model_max_tokens: int
 
@@ -68,10 +65,9 @@ def load() -> Config:
     provider = _required(values, "LLM_PROVIDER")
     if provider not in {"dashscope", "deepseek", "moonshot"}:
         raise ValueError(f"Unsupported LLM_PROVIDER: {provider}")
-    endpoint = _required(values, "AI_OSS_ENDPOINT")
-    parsed_endpoint = urlparse(endpoint)
-    if parsed_endpoint.scheme not in {"http", "https"} or not parsed_endpoint.netloc:
-        raise ValueError("AI_OSS_ENDPOINT must be an absolute HTTP(S) URL")
+    storage_dir = values.get("AI_STORAGE_DIR", ".local/ai").strip()
+    if not storage_dir:
+        raise ValueError("AI_STORAGE_DIR must not be empty")
     vision_model = values.get("LLM_VISION_MODEL", "").strip() or None
     _required(values, "N_JOBS_PER_WORKER")
     jobs_per_worker = _positive_int(values, "N_JOBS_PER_WORKER", 8)
@@ -85,10 +81,7 @@ def load() -> Config:
         api_key=_required(values, "LLM_API_KEY"),
         text_model=_required(values, "LLM_TEXT_MODEL"),
         vision_model=vision_model,
-        oss_endpoint=endpoint,
-        oss_bucket=_required(values, "AI_OSS_BUCKET"),
-        oss_access_key_id=_required(values, "AI_OSS_ACCESS_KEY_ID"),
-        oss_access_key_secret=_required(values, "AI_OSS_ACCESS_KEY_SECRET"),
+        storage_dir=(Path(__file__).resolve().parents[3] / storage_dir).resolve(),
         source_max_bytes=_positive_int(values, "AI_SOURCE_MAX_BYTES", 25 * MIB),
         vision_max_bytes=_positive_int(values, "AI_MAX_VISION_BYTES", 50 * MIB),
         max_document_pages=_positive_int(values, "AI_MAX_DOCUMENT_PAGES", 100),
@@ -99,8 +92,8 @@ def load() -> Config:
             values, "AI_MAX_TOTAL_INPUT_CHARS", 2_000_000
         ),
         graph_max_concurrency=graph_max_concurrency,
-        oss_concurrency=_positive_int(values, "AI_OSS_CONCURRENCY", 4),
-        oss_timeout_seconds=_positive_float(values, "AI_OSS_TIMEOUT_SECONDS", 30),
+        storage_concurrency=_positive_int(values, "AI_STORAGE_CONCURRENCY", 4),
+        storage_timeout_seconds=_positive_float(values, "AI_STORAGE_TIMEOUT_SECONDS", 30),
         model_timeout_seconds=_positive_float(values, "AI_AGENT_TIMEOUT_SECONDS", 180),
         model_max_tokens=_positive_int(values, "AI_AGENT_MAX_TOKENS", 16_384),
     )

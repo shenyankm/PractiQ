@@ -2,7 +2,7 @@
 
 以下本地命令需先执行 `conda activate langgragh`（初始化步骤见 README）。
 
-评测沿用真实的 OSS 上传和 `document_parser`，在本地直接调用 Graph，使用内存 checkpoint。
+评测沿用真实的本地文件写入和 `document_parser`，在本地直接调用 Graph，使用内存 checkpoint。
 它评估文档中题目与原文答案的提取质量；Agent Server HTTP、持久恢复和容量由现有工程测试及压测负责。
 本评测不接入 LangSmith，不使用 LLM 裁判，也不自动修改提示词或发布版本。
 
@@ -63,7 +63,7 @@ CI 同时检查六种格式、四种题型、七类难例，以及每个 fixture
 |---|---|
 | PASSED / 0 | 本次门禁通过；指定有效基线时也没有指标回退 |
 | FAILED / 1 | 质量、预期状态、关键案例或不回退门禁失败 |
-| BLOCKED / 2 | 配置缺失、模型/OSS 不可用、输入无效或基线不可比较 |
+| BLOCKED / 2 | 配置缺失、模型/本地存储 不可用、输入无效或基线不可比较 |
 
 外部失败不会被当作“模型答案得分为零”的有效基线。
 报告仍保留已取得的结果与失败耗时。Token 是回调观察到的已返回用量，
@@ -83,7 +83,7 @@ python -m dotenv -f .env run -- python scripts/evaluate.py --repetitions 3
 python -m dotenv -f .env run -- python scripts/evaluate.py --repetitions 3 \
   --baseline 'reports/evaluations/<baseline-run-id>/report.json'
 
-# 比较已有报告，不需要 .env，不会调用模型或 OSS。
+# 比较已有报告，不需要 .env，不会调用模型或本地存储。
 python scripts/evaluate.py --compare \
   'reports/evaluations/<baseline-run-id>/report.json' \
   'reports/evaluations/<candidate-run-id>/report.json'
@@ -111,7 +111,7 @@ python scripts/evaluate.py --compare \
 5. 人工复核差异，通过后记录新的报告路径作为后续基线；保留旧报告和回归样本，不自动替换基线。
 
 PR 中记录修改原因、案例 ID、工程测试命令、实跑报告路径及基线差异。
-CI 不调用真实模型或 OSS，不能证明提示词改动后的语义质量；此部分证据由本地实跑提供。
+CI 不调用真实模型，不能证明提示词改动后的语义质量；此部分证据由本地实跑提供。
 合成小样本通过也不代表生产质量或泛化效果达标。
 
 ## 首轮实跑复核入口

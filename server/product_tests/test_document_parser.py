@@ -1,6 +1,6 @@
-"""Actual Java HTTP contract -> managed OSS -> migrated graph regressions.
+"""Product HTTP contract -> local directory -> document graph regressions.
 
-Only the provider and OSS bucket are fake. Extraction, graph, storage validation,
+Only the model provider is fake; storage uses a temporary directory. Extraction, graph, storage validation,
 HTTP envelopes, usage collection and Java answer-key mapping are real.
 """
 
@@ -21,15 +21,15 @@ from practiq_ai.product import document_parser
 from practiq_ai.product.app import create_app
 from practiq_ai.product.config import load
 from practiq_ai.product.services import ai
-from tests.test_storage import Bucket, object_store
+from tests.test_storage import object_store
 from tests.test_workflows import FakeModel, question
 
 HEADERS = {"Authorization": "Bearer test-token"}
 
 
 @pytest.fixture
-def setup(monkeypatch):
-    store = object_store(Bucket())
+def setup(monkeypatch, tmp_path):
+    store = object_store(tmp_path)
     model = FakeModel(responses=[])
     monkeypatch.setattr(document_parser, "get_object_store", lambda: store)
     monkeypatch.setattr(document, "get_object_store", lambda: store)
@@ -64,7 +64,7 @@ async def test_java_answer_keys_and_usage(setup, mode, native, expected):
     assert data["processing"]["chunks"] == {"total": 1, "succeeded": 1, "skipped": 0}
     usage = response.json()["meta"]["usage"]
     assert len(usage) == 1 and usage[0]["inputTokens"] == 10
-    assert any(key.startswith("practiq-agent/sources/") for key in store._bucket.blobs)
+    assert list((store.root / "practiq-agent/sources").rglob("source.*"))
 
 
 @pytest.mark.parametrize(("kind", "fixture"), [
@@ -161,8 +161,9 @@ async def test_inline_ingestion_verifies_existing_source_and_upload_metadata(set
         await store.put_document(b"oops", request)
     reference = await store.put_document(b"quiz", request)
     assert await store.get_verified(reference) == b"quiz"
-    store._bucket.blobs[reference.objectKey] = b"oops"
-    await store.put_document(b"quiz", request)
+    (store.root / reference.objectKey).write_bytes(b"oops")
+    with pytest.raises(DocumentProcessingError, match="checksum"):
+        await store.put_document(b"quiz", request)
     with pytest.raises(DocumentProcessingError, match="checksum"):
         await store.get_verified(reference)
 

@@ -63,8 +63,8 @@ FORBIDDEN_REPORT_KEYS = {
 }
 SETTING_NAMES = (
     "source_max_bytes", "vision_max_bytes", "max_document_pages", "max_vision_page_pixels",
-    "max_total_input_chars", "graph_max_concurrency", "oss_concurrency",
-    "oss_timeout_seconds", "model_timeout_seconds", "model_max_tokens",
+    "max_total_input_chars", "graph_max_concurrency", "storage_concurrency",
+    "storage_timeout_seconds", "model_timeout_seconds", "model_max_tokens",
 )
 
 
@@ -342,12 +342,8 @@ async def prepare_document(case: dict[str, Any], manifest_path: Path) -> dict[st
         sourceType=case["sourceType"], fileName=path.name, mediaType=MEDIA_TYPES[case["sourceType"]],
         sizeBytes=len(payload), sha256=hashlib.sha256(payload).hexdigest(),
     )
-    prepared = await get_object_store().prepare_document(request)
-    if prepared.upload:
-        async with httpx.AsyncClient(timeout=load().oss_timeout_seconds) as client:
-            response = await client.put(prepared.upload.url, headers=prepared.upload.headers, content=payload)
-            response.raise_for_status()
-    return prepared.document.model_dump(mode="json")
+    document = await get_object_store().put_document(payload, request)
+    return document.model_dump(mode="json")
 
 
 def _digest(value: Any) -> str:

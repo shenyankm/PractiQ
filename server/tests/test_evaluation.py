@@ -269,6 +269,9 @@ class CallbackModel(BaseChatModel):
 
 
 class EvaluationStore(FakeObjectStore):
+    async def put_document(self, payload, request):
+        return (await self.prepare_document(request)).document
+
     async def prepare_document(self, request):
         return DocumentUploadResponse(document=DocumentReference(
             objectKey=document_source_key(request.sourceType, request.sha256), sha256=request.sha256,

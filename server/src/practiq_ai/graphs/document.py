@@ -104,7 +104,7 @@ async def _bounded_map[ItemT, ResultT](
     items: list[ItemT],
     function: Callable[[ItemT], Awaitable[ResultT]],
 ) -> list[ResultT]:
-    semaphore = asyncio.Semaphore(load().oss_concurrency)
+    semaphore = asyncio.Semaphore(load().storage_concurrency)
 
     async def run(item: ItemT) -> ResultT:
         async with semaphore:

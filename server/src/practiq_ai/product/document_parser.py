@@ -1,4 +1,4 @@
-"""Java inline/envelope compatibility over the sole OSS-backed document graph.
+"""Product inline/envelope compatibility over the sole local-storage document graph.
 
 No extraction or question parsing lives here. Native references and graph output
 remain unchanged; only the product boundary uses Java's answer-key spelling.
@@ -84,8 +84,7 @@ async def parse_document(request: DocumentParseRequest) -> DocumentParseResult:
     for visual in result["visualElements"]:
         if visual.get("imageRef"):
             image = await store.get_verified(ArtifactReference.model_validate(visual["imageRef"]))
-            # Keep original OSS reference and a bounded inline preview for Java's
-            # owner-authorized task result. No public OSS ACL or expiring URL.
+            # Keep the local reference and a bounded preview; never expose disk paths.
             if len(image) > 300_000:
                 image = await asyncio.to_thread(crop_figure, image, [0, 0, 1, 1])
             if image is None:

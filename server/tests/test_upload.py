@@ -112,3 +112,21 @@ async def test_lifespan_validates_configuration(monkeypatch: pytest.MonkeyPatch)
     with pytest.raises(ValueError, match="invalid configuration"):
         async with webapp.lifespan(app):
             pass
+
+
+async def test_private_local_put_validates_body_and_token(tmp_path, monkeypatch):
+    from tests.test_storage import object_store, upload
+    store = object_store(tmp_path)
+    monkeypatch.setattr(webapp, "get_object_store", lambda: store)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        headers = {"Authorization": "Bearer test-token"}
+        prepared = await client.post('/api/uploads', json=upload().model_dump(), headers=headers)
+        url = prepared.json()['upload']['url']
+        assert (await client.put(url, content=b'quiz')).status_code == 401
+        assert (await client.put(url, content=b'quizzes', headers=headers)).status_code == 413
+        assert (await client.put(url, content=b'oops', headers=headers)).status_code == 409
+        assert (await client.put(url, content=b'q', headers=headers)).status_code == 409
+        response = await client.put(url, content=b'quiz', headers=headers)
+        assert response.status_code == 200, response.text
+        assert response.json() == prepared.json()['document']
+        assert (await client.post('/api/uploads', json=upload().model_dump(), headers=headers)).json()['upload'] is None

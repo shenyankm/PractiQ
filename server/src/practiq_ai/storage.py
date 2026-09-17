@@ -1,13 +1,14 @@
-"""Content-addressed Aliyun OSS storage for source and derived artifacts."""
+"""Content-addressed local storage for source and derived artifacts."""
 
 import asyncio
 import hashlib
+import os
 import re
-from datetime import UTC, datetime, timedelta
+import tempfile
 from functools import lru_cache
-from typing import Any, cast
-
-import oss2
+from pathlib import Path
+from typing import Any
+from urllib.parse import urlencode
 
 from .config import Config, load
 from .contracts import (
@@ -15,12 +16,11 @@ from .contracts import (
     DocumentReference,
     DocumentUploadRequest,
     DocumentUploadResponse,
-    SignedUpload,
+    LocalUpload,
     document_source_key,
 )
 from .errors import DocumentProcessingError
 
-UPLOAD_URL_TTL_SECONDS = 600
 SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 ARTIFACT_KEY_PATTERN = re.compile(
     r"^practiq-agent/artifacts/[0-9a-f]{64}/[a-z][a-z0-9_-]{0,63}/"
@@ -31,12 +31,7 @@ ARTIFACT_KEY_PATTERN = re.compile(
 class ObjectStore:
     def __init__(self, config: Config):
         self._config = config
-        self._bucket = oss2.Bucket(
-            oss2.Auth(config.oss_access_key_id, config.oss_access_key_secret),
-            config.oss_endpoint,
-            config.oss_bucket,
-            connect_timeout=config.oss_timeout_seconds,
-        )
+        self.root = config.storage_dir.resolve()
 
     async def prepare_document(
         self, request: DocumentUploadRequest
@@ -65,20 +60,11 @@ class ObjectStore:
         )
         if existing_size is not None:
             return DocumentUploadResponse(document=document, upload=None)
-        headers = {"Content-Type": request.mediaType}
-        try:
-            url = self._bucket.sign_url(
-                "PUT", key, UPLOAD_URL_TTL_SECONDS, headers=headers
-            )
-        except Exception as exc:
-            raise self._unavailable() from exc
         return DocumentUploadResponse(
             document=document,
-            upload=SignedUpload(
-                url=url,
-                headers=headers,
-                expiresAt=datetime.now(UTC)
-                + timedelta(seconds=UPLOAD_URL_TTL_SECONDS),
+            upload=LocalUpload(
+                url="/api/uploads/content?" + urlencode(request.model_dump(exclude_none=True)),
+                headers={"Content-Type": request.mediaType},
             ),
         )
 
@@ -89,8 +75,8 @@ class ObjectStore:
         if hashlib.sha256(payload).hexdigest() != prepared.document.sha256 or len(payload) != prepared.document.sizeBytes:
             raise DocumentProcessingError(409, "Source does not match metadata", "DOCUMENT_CHECKSUM_MISMATCH")
         if prepared.upload is not None:
-            await self._call(self._bucket.put_object, prepared.document.objectKey, payload)
-        # The graph re-verifies even when the object already existed.
+            await self._call(self._write, prepared.document.objectKey, payload)
+        await self.get_verified(prepared.document)
         return prepared.document
 
     async def put_artifact(
@@ -111,7 +97,7 @@ class ObjectStore:
         digest = (await asyncio.to_thread(hashlib.sha256, payload)).hexdigest()
         suffix = _suffix(media_type)
         key = f"practiq-agent/artifacts/{source_sha256}/{kind}/{index}-{digest}.{suffix}"
-        await self._call(self._bucket.put_object, key, payload)
+        await self._call(self._write, key, payload)
         return ArtifactReference(
             objectKey=key,
             sha256=digest,
@@ -148,13 +134,7 @@ class ObjectStore:
             )
         if isinstance(reference, DocumentReference):
             self._validate_source_size(size)
-        result = await self._call(self._bucket.get_object, reference.objectKey)
-        try:
-            payload = cast(bytes, await self._call(result.read))
-        finally:
-            close = getattr(result, "close", None)
-            if close is not None:
-                await asyncio.to_thread(close)
+        payload = await self._call(self._read, reference.objectKey, reference.sizeBytes)
         if len(payload) != reference.sizeBytes:
             raise DocumentProcessingError(
                 409,
@@ -176,24 +156,51 @@ class ObjectStore:
                 413, "Uploaded file is too large", "DOCUMENT_TOO_LARGE"
             )
 
-    async def _head_size(self, key: str) -> int | None:
+    def _path(self, key: str) -> Path:
+        path = self.root / key
+        if path.is_absolute() and not path.is_relative_to(self.root):
+            raise _invalid_reference()
+        if ".." in Path(key).parts or any(part.is_symlink() for part in (path, *path.parents) if part != self.root and part.is_relative_to(self.root)):
+            raise _invalid_reference()
+        return path
+
+    def _write(self, key: str, payload: bytes) -> None:
+        path = self._path(key)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        # Same-directory replacement keeps readers from observing partial files.
+        name = None
         try:
-            result = await asyncio.wait_for(
-                asyncio.to_thread(self._bucket.head_object, key),
-                timeout=self._config.oss_timeout_seconds,
-            )
-        except oss2.exceptions.NotFound:
+            with tempfile.NamedTemporaryFile(dir=path.parent, delete=False) as target:
+                name = target.name
+                target.write(payload)
+                target.flush()
+                os.fsync(target.fileno())
+            os.replace(name, path)
+        finally:
+            if name is not None:
+                Path(name).unlink(missing_ok=True)
+
+    def _read(self, key: str, size: int) -> bytes:
+        with self._path(key).open("rb") as source:
+            return source.read(size + 1)
+
+    def _size(self, key: str) -> int | None:
+        try:
+            return self._path(key).stat().st_size
+        except FileNotFoundError:
             return None
-        except Exception as exc:
-            raise self._unavailable() from exc
-        return int(result.content_length)
+
+    async def _head_size(self, key: str) -> int | None:
+        return await self._call(self._size, key)
 
     async def _call(self, function: Any, *args: Any) -> Any:
         try:
             return await asyncio.wait_for(
                 asyncio.to_thread(function, *args),
-                timeout=self._config.oss_timeout_seconds,
+                timeout=self._config.storage_timeout_seconds,
             )
+        except DocumentProcessingError:
+            raise
         except Exception as exc:
             raise self._unavailable() from exc
 
@@ -220,6 +227,6 @@ def _suffix(media_type: str) -> str:
 def _invalid_reference() -> DocumentProcessingError:
     return DocumentProcessingError(
         422,
-        "Object reference is outside the managed OSS namespace",
+        "Object reference is outside the managed storage namespace",
         "INVALID_OBJECT_REFERENCE",
     )

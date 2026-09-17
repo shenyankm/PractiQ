@@ -71,7 +71,7 @@ def test_upload_request_accepts_file_metadata_only() -> None:
             DocumentUploadRequest.model_validate(payload)
 
 
-def test_document_parse_input_accepts_only_managed_oss_references() -> None:
+def test_document_parse_input_accepts_only_managed_storage_references() -> None:
     digest = "a" * 64
     valid = {
         "objectKey": f"practiq-agent/sources/{digest}/source.pdf",
@@ -93,7 +93,7 @@ def test_document_parse_input_accepts_only_managed_oss_references() -> None:
         "../quiz.pdf",
         "other-prefix/source.pdf",
     ):
-        with pytest.raises(ValidationError, match="managed OSS source object"):
+        with pytest.raises(ValidationError, match="managed storage source object"):
             DocumentParseInput.model_validate(
                 {"document": {**valid, "objectKey": object_key}}
             )

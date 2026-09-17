@@ -1,6 +1,5 @@
 """Strict public contracts for PractiQ."""
 
-from datetime import datetime
 from math import isfinite
 from typing import Any, Literal, Self
 from uuid import UUID
@@ -31,9 +30,7 @@ ContentPartType = Literal[
 VisualKind = Literal["image", "table", "chart", "diagram", "qr_code"]
 DOCUMENT_MEDIA_TYPES = {
     "csv": {"text/csv"},
-    "docx": {
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    },
+    "docx": {"application/vnd.openxmlformats-officedocument.wordprocessingml.document"},
     "pdf": {"application/pdf"},
     "text": {"text/plain"},
     "xlsx": {"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"},
@@ -87,9 +84,7 @@ class DocumentUploadRequest(StrictModel):
     @model_validator(mode="after")
     def validate_content(self) -> Self:
         if not all((self.fileName, self.mediaType, self.sizeBytes, self.sha256)):
-            raise ValueError(
-                "fileName, mediaType, sizeBytes, and sha256 are required"
-            )
+            raise ValueError("fileName, mediaType, sizeBytes, and sha256 are required")
         assert self.mediaType is not None
         if not _media_type_matches(self.sourceType, self.mediaType):
             raise ValueError("mediaType does not match sourceType")
@@ -235,16 +230,15 @@ class DocumentReference(ArtifactReference):
     fileName: str | None = Field(default=None, max_length=255)
 
 
-class SignedUpload(StrictModel):
+class LocalUpload(StrictModel):
     method: Literal["PUT"] = "PUT"
     url: str = Field(min_length=1)
     headers: dict[str, str]
-    expiresAt: datetime
 
 
 class DocumentUploadResponse(StrictModel):
     document: DocumentReference
-    upload: SignedUpload | None
+    upload: LocalUpload | None
 
 
 class VisualElement(StrictModel):
@@ -323,11 +317,11 @@ class DocumentParseInput(StrictModel):
     document: DocumentReference
 
     @model_validator(mode="after")
-    def require_managed_oss_reference(self) -> Self:
+    def require_managed_storage_reference(self) -> Self:
         document = self.document
         expected_key = document_source_key(document.sourceType, document.sha256)
         if document.objectKey != expected_key:
-            raise ValueError("document must reference a managed OSS source object")
+            raise ValueError("document must reference a managed storage source object")
         if not _media_type_matches(document.sourceType, document.mediaType):
             raise ValueError("document mediaType does not match sourceType")
         return self

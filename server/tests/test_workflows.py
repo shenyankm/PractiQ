@@ -412,7 +412,7 @@ def test_checkpoint_update_cannot_bypass_document_reference_validation(monkeypat
         )
         await graph.ainvoke(None, config)
 
-    with pytest.raises(ValidationError, match="managed OSS source object"):
+    with pytest.raises(ValidationError, match="managed storage source object"):
         asyncio.run(resume_from_forged_state())
 
 
@@ -556,8 +556,8 @@ def test_crop_uploads_never_exceed_global_limit(monkeypatch):
     assert truncated
 
 
-def test_oss_work_is_bounded_by_configuration(monkeypatch):
-    monkeypatch.setenv("AI_OSS_CONCURRENCY", "2")
+def test_storage_work_is_bounded_by_configuration(monkeypatch):
+    monkeypatch.setenv("AI_STORAGE_CONCURRENCY", "2")
     active = 0
     peak = 0
 
