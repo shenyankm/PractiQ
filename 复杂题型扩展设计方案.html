@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PractiQ 复杂题型扩展设计方案</title>
+<style>
+  :root { --ink:#1a2332; --sub:#5a6a80; --line:#e3e9f1; --accent:#1d6fd8; --accent-soft:#eaf2fc; --ok:#1a8a4a; --ok-soft:#e8f6ee; --warn:#b0700a; --warn-soft:#fdf3e3; --bad:#c0392b; --bad-soft:#fdecea; --code-bg:#f4f7fb; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; color: var(--ink); background:#fff; line-height:1.75; font-size:15px; }
+  .wrap { max-width: 1020px; margin: 0 auto; padding: 48px 32px 80px; }
+  header.doc { border-bottom: 3px solid var(--accent); padding-bottom: 20px; margin-bottom: 28px; }
+  h1 { font-size: 26px; letter-spacing: .5px; }
+  header.doc .meta { color: var(--sub); font-size: 13px; margin-top: 8px; }
+  h2 { font-size: 20px; margin: 42px 0 14px; padding-left: 12px; border-left: 4px solid var(--accent); }
+  h3 { font-size: 16.5px; margin: 26px 0 10px; color:#20344f; }
+  h4 { font-size: 15px; margin: 18px 0 8px; color:#33465f; }
+  p { margin: 8px 0; }
+  ul, ol { padding-left: 24px; margin: 8px 0; }
+  li { margin: 4px 0; }
+  code { background: var(--code-bg); border:1px solid var(--line); border-radius: 4px; padding: 1px 6px; font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 13px; color:#0f3a6d; }
+  pre { background: var(--code-bg); border:1px solid var(--line); border-radius: 8px; padding: 16px 18px; overflow-x: auto; margin: 12px 0; }
+  pre code { background: none; border: none; padding: 0; font-size: 12.5px; line-height: 1.6; color:#173a5e; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 13.5px; }
+  th { background: #f2f6fb; text-align: left; font-weight: 600; }
+  th, td { border: 1px solid var(--line); padding: 8px 12px; vertical-align: top; }
+  td code, th code { white-space: nowrap; }
+  .tag { display:inline-block; border-radius: 20px; padding: 1px 10px; font-size: 12px; font-weight: 600; white-space:nowrap; }
+  .t-ok { background: var(--ok-soft); color: var(--ok); }
+  .t-part { background: var(--warn-soft); color: var(--warn); }
+  .t-no { background: var(--bad-soft); color: var(--bad); }
+  .t-new { background: var(--accent-soft); color: var(--accent); }
+  .callout { border:1px solid var(--line); border-left:4px solid var(--accent); background:#f8fbff; border-radius: 6px; padding: 12px 16px; margin: 14px 0; font-size: 14px; }
+  .callout.warn { border-left-color: var(--warn); background:#fffaf1; }
+  .callout.ok { border-left-color: var(--ok); background:#f4fbf7; }
+  .summary-grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(230px,1fr)); gap:12px; margin: 18px 0; }
+  .s-card { border:1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .s-card b { display:block; font-size: 14px; margin-bottom: 4px; }
+  .s-card span { font-size: 13px; color: var(--sub); }
+  .toc { columns:2; font-size: 14px; margin: 10px 0 6px; }
+  .toc a { color: var(--accent); text-decoration: none; }
+  .klist li { margin: 8px 0; }
+  .small { font-size: 12.5px; color: var(--sub); }
+  .num { display:inline-block; min-width: 22px; color: var(--accent); font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="doc">
+  <h1>PractiQ 复杂题型扩展设计方案</h1>
+  <div class="meta">范围：数据库表结构 · 前后端接口契约 · 前端配合调整 · 权衡与注意事项 ｜ 基线：db/00_schema.sql + backend/practiq_backend + web/src（2026-09-17）</div>
+</header>
+
+<div class="callout ok">
+<b>结论先行：</b>现有系统已端到端支持<b>单选、多选（choice_variant='multiple'）、判断、填空、简答</b>五类，且材料题分组容器（question_groups + content_blocks + media）已存在。本方案的净新增是：<b>排序题、连线题</b>两个 answer_mode 的完整链路，<b>填空每空多可接受答案与部分得分</b>、<b>简答关键词判分与自评回写</b>、<b>组合题练习呈现与组维度视图</b>三项增强。所有 DDL 均为<b>加法式变更</b>（新增表、新增可空列、扩 CHECK 枚举），不修改、不移动任何既有列，旧数据与旧 payload 形状全部保持合法。
+</div>
+
+<div class="summary-grid">
+  <div class="s-card"><b>DB 变更</b><span>2 张新子表 · 2 个新 answer_mode · 2 个可空列 · 1 个部分索引 · 迁移文件 002</span></div>
+  <div class="s-card"><b>API 变更</b><span>新增 2 个端点 · 扩展 5 个端点的请求/响应 · 判分函数 6 分支</span></div>
+  <div class="s-card"><b>前端变更</b><span>api.ts 类型与 payload 封装 · 2 个新练习渲染器 · 4 个录入编辑器 · 结果按题型渲染</span></div>
+  <div class="s-card"><b>兼容性</b><span>既有数据零迁移 · 既有 payload 形状继续合法 · 既有端点签名不变</span></div>
+</div>
+
+<nav class="toc">
+  1. <a href="#s1">现状与差距盘点</a><br>
+  2. <a href="#s2">数据库表结构设计</a><br>
+  3. <a href="#s3">前后端接口设计</a><br>
+  4. <a href="#s4">前端配合调整</a><br>
+  5. <a href="#s5">关键权衡与注意事项</a><br>
+  6. <a href="#s6">实施顺序与验证</a><br>
+  附A. <a href="#sa">可选扩展：条目级媒体</a>
+</nav>
+
+<!-- ============================== 1 ============================== -->
+<h2 id="s1">1. 现状与差距盘点</h2>
+
+<p>以下为逐题型核对后的现状（依据 <code>db/00_schema.sql</code>、<code>backend/src/practiq_backend/content.py</code> 的 <code>normalize_key/validate_key</code>、<code>practice.py</code> 的 <code>grade()</code>、<code>web/src/pages-practice.tsx</code> 的渲染分支）：</p>
+
+<table>
+  <tr><th style="width:15%">题型</th><th style="width:12%">现状</th><th>说明与缺口</th></tr>
+  <tr><td>单选题</td><td><span class="tag t-ok">已支持</span></td><td><code>choice + choice_variant='single'</code>，选项表、答案键、自动判分、练习渲染（RadioGroup）全链路可用。<b>无需改动。</b></td></tr>
+  <tr><td>多选题</td><td><span class="tag t-ok">已支持</span></td><td><code>choice_variant='multiple'</code> 集合判分（全对才得分）、前端 Checkbox 渲染均已在位。<b>无需改动</b>（仅结果页渲染可优化，见 §4）。</td></tr>
+  <tr><td>判断题</td><td><span class="tag t-ok">已支持</span></td><td><code>true_false</code>，键 <code>{"answer":bool}</code>，作答 <code>{"value":bool}</code>。无需改动。</td></tr>
+  <tr><td>填空题</td><td><span class="tag t-part">部分</span></td><td>支持多空（键/作答均为有序列表，按行一一对应）。缺口：<b>每空仅一个可接受答案</b>（无同义/别写）、<b>只有全对/全错</b>（无按空部分得分）。</td></tr>
+  <tr><td>简答题</td><td><span class="tag t-part">部分</span></td><td>仅存参考答案，<code>grade()</code> 对其恒返回 <code>NULL</code>（未判分）。缺口：<b>无关键词自动判分</b>、练习页<b>无自评回写入口</b>（只提示"请对照参考答案自查"）。</td></tr>
+  <tr><td>排序题</td><td><span class="tag t-no">缺失</span></td><td>无 answer_mode、无条目存储、无判分。</td></tr>
+  <tr><td>连线题</td><td><span class="tag t-no">缺失</span></td><td>同上。</td></tr>
+  <tr><td>组合题 / 材料题</td><td><span class="tag t-part">部分</span></td><td><code>question_groups</code>（材料、说明、状态、目录、排序）+ <code>question_content_blocks/media</code> 组级富内容 + <code>questions.group_id</code> 已在位，管理端可建组、挂题。缺口：<b>练习页不呈现组材料</b>；开启练习时<b>子题不保证连续出现</b>；无<b>组维度详情/列表筛选</b>；无组维度成绩聚合视图。</td></tr>
+</table>
+
+<div class="callout">
+<b>扩展机制的本体在哪里？</b>题型的唯一硬门闩是 <code>question_types.answer_mode</code> 上的 CHECK 枚举；<code>questions.answer_mode</code> 通过复合外键 <code>(subject_id, question_type_id, answer_mode)</code> 被注册表间接约束。答案结构不走列，而走 <code>question_answer_keys.answer_payload</code> / <code>practice_answers.answer_payload</code> 两个 <b>jsonb</b> 字段，且答案键<b>按版本不可变</b>（<code>immutable_answer</code> 触发器）。因此扩展题型 = <b>扩 CHECK + 注册新题型行 + （可选）建结构子表 + 判分函数加分支</b>，天然具备"新增题型不动存量"的特性。
+</div>
+
+<!-- ============================== 2 ============================== -->
+<h2 id="s2">2. 数据库表结构设计</h2>
+
+<h3>2.1 设计原则</h3>
+<ol class="klist">
+  <li><span class="num">1</span><b>加法式迁移：</b>只新增表、新增可空列、扩 CHECK 枚举，不改不删既有列；现有库走增量迁移 <code>db/migrations/002_complex_question_types.sql</code>，全新库直接更新 <code>db/00_schema.sql</code>（两份内容等价，<code>00_schema.sql</code> 仍是新库唯一权威）。</li>
+  <li><span class="num">2</span><b>结构进表、配置进 jsonb：</b>排序/连线的条目（有唯一性、排序、外键诉求）落独立子表；判分策略、部分得分开关等低频配置放答案键 payload 内的 <code>grading</code> 块，避免为每个策略加列。</li>
+  <li><span class="num">3</span><b>镜像既有模式：</b>连线题变体 <code>matching_variant</code> 完全镜像 <code>choice_variant</code> 的列 + 形状 CHECK 模式，保持"题表一行 = 一种题型形态"的既有直觉。</li>
+  <li><span class="num">4</span><b>判分口径向后兼容：</b><code>grade()</code> 对旧形状 payload（扁平填空串、无 grading 块的简答键）行为与现在完全一致。</li>
+</ol>
+
+<h3>2.2 迁移 DDL（可直接执行）</h3>
+<pre><code>-- db/migrations/002_complex_question_types.sql   （作用于现有个人库；00_schema.sql 同步等价内容用于新库）
+BEGIN;
+
+-- 1) 放宽题型注册表门闩，注册新题型 ------------------------------------------
+ALTER TABLE question_types DROP CONSTRAINT question_types_answer_mode_check;
+ALTER TABLE question_types ADD CONSTRAINT question_types_answer_mode_check
+  CHECK (answer_mode IN ('choice','true_false','fill_blank','short_answer','ordering','matching'));
+
+INSERT INTO question_types (id, subject_id, display_name, answer_mode) VALUES
+  ('ordering', 'general', '排序题', 'ordering'),
+  ('matching', 'general', '连线题', 'matching');
+-- questions.answer_mode 无自身 CHECK，经复合外键 (subject_id,question_type_id,answer_mode)
+-- 引用注册表，注册行落地后题目即可引用；既有 4 行与既有题目外键不受影响。
+
+-- 2) 排序题条目表 -------------------------------------------------------------
+CREATE TABLE question_ordering_items (
+  id          bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  question_id bigint  NOT NULL REFERENCES questions,          -- 所属题目（级联删随 questions 无需声明，个人库按现有惯例不加 ON DELETE）
+  content     text    NOT NULL CHECK (btrim(content) &lt;&gt; ''),  -- 条目文本（纯文本；图片走附录A扩展）
+  sort_order  integer NOT NULL CHECK (sort_order &gt; 0),        -- 展示次序
+  UNIQUE (question_id, sort_order)                            -- 同题内次序唯一；判分引用 id，与内容解耦
+);
+-- 说明：不约束 (question_id, content) 唯一——重复文本条目在排序题中合法但易混淆，
+-- 由录入端 UI 提示，不在库层禁止。
+
+-- 3) 连线题条目表（左右统一存一张表，side 区分）--------------------------------
+CREATE TABLE question_matching_items (
+  id          bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  question_id bigint  NOT NULL REFERENCES questions,
+  side        text    NOT NULL CHECK (side IN ('left','right')),
+  content     text    NOT NULL CHECK (btrim(content) &lt;&gt; ''),
+  sort_order  integer NOT NULL CHECK (sort_order &gt; 0),
+  UNIQUE (question_id, side, sort_order)
+);
+
+-- 4) 连线题变体列（镜像 choice_variant 模式）-----------------------------------
+ALTER TABLE questions ADD COLUMN matching_variant text
+  CHECK (matching_variant IN ('one_to_one','many_to_one'));
+ALTER TABLE questions ADD CONSTRAINT questions_matching_variant_shape
+  CHECK ((answer_mode = 'matching') = (matching_variant IS NOT NULL));
+-- one_to_one：每个右项恰被一题左项选中（经典一一连线，要求左右数量相等，应用层校验）
+-- many_to_one：右项可被多个左项复用（分类/归组式连线）
+-- 既有 CHECK (answer_mode='choice')=(choice_variant IS NOT NULL) 不受影响（ordering/matching 两态与其互斥成立）
+
+-- 5) 自评回写时间戳 ------------------------------------------------------------
+ALTER TABLE practice_answers ADD COLUMN reviewed_at timestamptz;  -- NULL=未自评；简答自评后回填
+
+-- 6) 组合题支撑索引 --------------------------------------------------------------
+CREATE INDEX questions_group ON questions (group_id)
+  WHERE deleted_at IS NULL AND group_id IS NOT NULL;   -- 组详情列子题、?groupId= 筛选
+
+COMMIT;</code></pre>
+
+<div class="callout warn">
+<b>执行约束：</b>PG 不能原地修改 CHECK，须 DROP 再 ADD（瞬时 ACCESS EXCLUSIVE 锁；个人库数据量下可忽略）。该迁移<b>一次性执行、禁止重放</b>（重放会在 ALTER 处报错，属预期保护，与"never reset an existing database"的项目红线一致）。
+</div>
+
+<h3>2.3 新增/变更对象的字段与约束说明</h3>
+
+<h4>question_ordering_items（新增）</h4>
+<table>
+  <tr><th>字段</th><th>类型</th><th>约束</th><th>说明</th></tr>
+  <tr><td><code>id</code></td><td>bigint IDENTITY</td><td>PK</td><td>条目稳定标识；答案键与作答均引用它</td></tr>
+  <tr><td><code>question_id</code></td><td>bigint</td><td>NOT NULL, FK → questions(id)</td><td>所属题目</td></tr>
+  <tr><td><code>content</code></td><td>text</td><td>NOT NULL, CHECK 非空白</td><td>条目文本</td></tr>
+  <tr><td><code>sort_order</code></td><td>integer</td><td>NOT NULL, CHECK &gt;0, UNIQUE(question_id, sort_order)</td><td>展示次序（正确顺序由答案键表达，二者解耦）</td></tr>
+</table>
+
+<h4>question_matching_items（新增）</h4>
+<table>
+  <tr><th>字段</th><th>类型</th><th>约束</th><th>说明</th></tr>
+  <tr><td><code>id</code></td><td>bigint IDENTITY</td><td>PK</td><td>左/右条目统一标识</td></tr>
+  <tr><td><code>question_id</code></td><td>bigint</td><td>NOT NULL, FK → questions(id)</td><td>所属题目</td></tr>
+  <tr><td><code>side</code></td><td>text</td><td>NOT NULL, CHECK IN ('left','right')</td><td>左项=题面，右项=被选目标</td></tr>
+  <tr><td><code>content</code></td><td>text</td><td>NOT NULL, CHECK 非空白</td><td>条目文本</td></tr>
+  <tr><td><code>sort_order</code></td><td>integer</td><td>NOT NULL, CHECK &gt;0, UNIQUE(question_id, side, sort_order)</td><td>同侧展示次序</td></tr>
+</table>
+
+<h4>questions（变更：加 1 列 + 1 形状约束）</h4>
+<table>
+  <tr><th>字段</th><th>类型</th><th>约束</th><th>说明</th></tr>
+  <tr><td><code>matching_variant</code></td><td>text</td><td>NULLable, CHECK IN ('one_to_one','many_to_one')</td><td>仅 matching 题型非空；<code>questions_matching_variant_shape</code> 保证 (answer_mode='matching') ⇔ 非空</td></tr>
+</table>
+
+<h4>practice_answers（变更：加 1 列）</h4>
+<table>
+  <tr><th>字段</th><th>类型</th><th>约束</th><th>说明</th></tr>
+  <tr><td><code>reviewed_at</code></td><td>timestamptz</td><td>NULLable</td><td>自评回写时间；<code>is_correct</code> 已有值时不得自评（应用层校验，409）</td></tr>
+</table>
+
+<h4>索引清单</h4>
+<table>
+  <tr><th>索引</th><th>类型</th><th>服务场景</th></tr>
+  <tr><td><code>question_ordering_items UNIQUE(question_id, sort_order)</code></td><td>唯一约束</td><td>按题取条目（首列 question_id 同时承担查询）、次序防重</td></tr>
+  <tr><td><code>question_matching_items UNIQUE(question_id, side, sort_order)</code></td><td>唯一约束</td><td>按题按侧取条目</td></tr>
+  <tr><td><code>questions_group (group_id) WHERE deleted_at IS NULL AND group_id IS NOT NULL</code></td><td>部分索引</td><td>组详情列子题、列表 <code>?groupId=</code> 筛选（免全表扫）</td></tr>
+  <tr><td>既有 <code>questions_bank / practice_answers UNIQUE(session_id,question_id) / answer 键唯一(部分)索引</code></td><td>不变</td><td>判分回查、防重复作答、主键唯一均沿用</td></tr>
+</table>
+
+<h3>2.4 各题型 answer_payload / 作答形态与判分规则（核心契约）</h3>
+<p>本表是前后端共同的"题型协议"，<b>键</b> = <code>question_answer_keys.answer_payload</code>（版本化、不可变），<b>答</b> = 作答请求体中的 <code>answerPayload</code> 与落库的 <code>practice_answers.answer_payload</code>：</p>
+
+<table>
+  <tr><th style="width:13%">answer_mode</th><th style="width:30%">答案键形态（v1 现状 → v2 扩展）</th><th style="width:24%">作答形态</th><th>判分规则（grade() 分支）</th></tr>
+  <tr>
+    <td><code>choice</code><br><span class="small">单选/多选</span></td>
+    <td><code>{"correct":["A","B"]}</code>（现状）</td>
+    <td><code>{"selected":["A","B"]}</code></td>
+    <td>集合相等 → 1 分，否则 0。<b>不变。</b>校验：labels 合法、无重复、single 恰 1 个。</td>
+  </tr>
+  <tr>
+    <td><code>true_false</code></td>
+    <td><code>{"answer":true}</code>（现状）</td>
+    <td><code>{"value":true}</code></td>
+    <td>布尔相等 → 1/0。<b>不变。</b></td>
+  </tr>
+  <tr>
+    <td><code>fill_blank</code></td>
+    <td>v1：<code>{"answers":["2"]}</code><br>v2：允许<b>每空多可接受答案</b> <code>{"answers":[["2","two","二"]]}</code>（字符串元素=单答案，数组元素=可接受集合，二者混用合法）；可选 <code>{"grading":{"mode":"blank_ratio"}}</code></td>
+    <td><code>{"value":["2"]}</code>（按空有序）</td>
+    <td>逐空归一化（casefold + 空白折叠）比对，实际值 ∈ 该空可接受集合即该空正确。默认<b>全对得 1、否则 0</b>（与现状一致）；<code>blank_ratio</code> 时 score = 正确空数/总空数，is_correct = 全对。</td>
+  </tr>
+  <tr>
+    <td><code>short_answer</code></td>
+    <td>v1：<code>{"answer":"参考"}</code><br>v2：可选 <code>{"answer":"参考","grading":{"type":"keyword","keywords":[{"text":"导数","weight":2}],"threshold":0.6}}</code></td>
+    <td><code>{"value":"文本"}</code></td>
+    <td>无 grading 块 → <code>is_correct=NULL</code>（<b>现行行为不变</b>）；keyword → score = 命中关键词权重和/总权重，is_correct = score ≥ threshold（默认 0.6）；随后可自评覆盖（仅当 is_correct 为 NULL）。</td>
+  </tr>
+  <tr>
+    <td><code>ordering</code><br><span class="tag t-new">新增</span></td>
+    <td><code>{"order":[item_id,…]}</code>（正确顺序的条目 id 序列）；可选 <code>{"grading":{"mode":"position_ratio"}}</code></td>
+    <td><code>{"order":[item_id,…]}</code>（用户排列）</td>
+    <td>exact（默认）：序列全等 → 1/0；<code>position_ratio</code>：score = 对位条目数/n，is_correct = 全对。校验：作答必须是该题条目 id 的<b>完整排列</b>。</td>
+  </tr>
+  <tr>
+    <td><code>matching</code><br><span class="tag t-new">新增</span></td>
+    <td><code>{"matches":[{"left":id,"right":id},…]}</code>（覆盖全部左项、恰各一次）；可选 <code>{"grading":{"mode":"pair_ratio"}}</code></td>
+    <td><code>{"matches":[{"left":id,"right":id},…]}</code></td>
+    <td>exact（默认）：全部配对正确 → 1/0；<code>pair_ratio</code>：score = 正确对数/左项数，is_correct = 全对。校验：left 覆盖全且不重复、right 存在且属于本题、one_to_one 时 right 不重复。</td>
+  </tr>
+</table>
+
+<div class="callout">
+<b>得分语义统一：</b><code>score</code> ∈ [0, max_score]（max_score 默认 1，沿用既有 CHECK），ratio 模式写入小数比率；<code>is_correct</code> 保持"布尔正确"语义——exact 全对为 true，ratio 模式<b>默认仅全对记 true</b>（保证 accuracy / weakQuestions 统计口径不被部分得分污染）。将来若要"达到阈值即算对"，在键中加 <code>"passThreshold":0.6</code> 即可，grade() 按钮一个分支消化，无需再动表。
+</div>
+
+<h3>2.5 兼容性论证（逐条）</h3>
+<ol class="klist">
+  <li><span class="num">1</span><code>question_types</code> 既有 4 行原样保留，既有题目三元外键不受 CHECK 扩列影响（新枚举只放宽、不收紧）。</li>
+  <li><span class="num">2</span>两张新子表均为独立新表，questions/practice_answers 只加<b>可空列</b>，任何既有行读写在迁移前后等价。</li>
+  <li><span class="num">3</span><code>grade()</code> 对旧键形状完全兼容：fill_blank 旧扁平字符串按"单可接受答案"处理（str 与 [str] 两种元素等价）；简答键无 grading 块即维持 NULL 行为。</li>
+  <li><span class="num">4</span>既有端点的路径、方法、必填字段全部不变，新增字段均为可选（items / matchingVariant / groupId / review 端点），旧调用方零感知。</li>
+  <li><span class="num">5</span>考试模式答案屏蔽（exam 未交卷不下发 answer_key_payload / is_correct 等）逻辑与新题型正交，实现时把 items 相关键一并纳入屏蔽字段即可（见 §5-9）。</li>
+</ol>
+
+<h3>2.6 扩展性预留</h3>
+<ul>
+  <li><b>再增新题型的固定套路：</b>扩 CHECK 枚举 → 注册 question_types 行 → 按需建 <code>question_&lt;mode&gt;_items</code> 风格子表 → normalize_key / validate_key / grade 三个函数各加一个分支 → 前端渲染器加一个分支。四处皆为本方案已验证的模式复制。</li>
+  <li><b>判分策略演进不锁死：</b>策略全部走键内 <code>grading</code> 块（JSON），新增策略只改 grade() 分支；键按版本不可变，策略随键版本演进，历史作答可复现当时的判分依据。</li>
+  <li><b>按 subject 定制题型：</b>question_types 的 UNIQUE(subject_id, id, answer_mode) 允许某学科注册专属题型行（如 'ordering' 的数学变体），前端题型选择器由 <code>GET /question-types</code> 驱动，零代码即可出现新项。</li>
+  <li><b>完形/阅读理解类复合题：</b>可复用 content_blocks（组级材料）+ 子题组，不需要新表；若未来需要"子题间共享作答状态"，再评估组级会话结构，当前刻意不做（见 §5-8）。</li>
+</ul>
+
+<!-- ============================== 3 ============================== -->
+<h2 id="s3">3. 前后端接口设计</h2>
+
+<h3>3.1 通用约定（沿用现行机制，新端点自动继承）</h3>
+<ul>
+  <li><b>包络：</b>成功 <code>{"data": …, "meta": {"pagination": {"cursor","limit","hasMore"}}}</code>；204 返回 <code>{"data":null}</code>。</li>
+  <li><b>幂等：</b>所有写请求（POST/PATCH/PUT/DELETE）必须携带 <code>Idempotency-Key</code> 头，缺失 422；同键同体重放返回缓存响应（<code>request_idempotency</code> 表）。</li>
+  <li><b>命名：</b>请求体 camelCase（Pydantic 严格模式 <code>extra="forbid"</code>），响应为数据库行 snake_case，题目页局部 camelCase（questionIndex/nextIndex 等）——与现状一致。</li>
+  <li><b>错误：</b>422 VALIDATION（形状/枚举/排列非法）、409 INVALID_STATE（状态机冲突，如发布无键、重复自评）、404 标准不存在。</li>
+</ul>
+
+<h3>3.2 端点总览</h3>
+<table>
+  <tr><th style="width:34%">端点</th><th style="width:10%">方法</th><th style="width:12%">状态</th><th>变更要点</th></tr>
+  <tr><td><code>/question-types</code></td><td>GET</td><td><span class="tag t-ok">不变</span></td><td>注册表扩列后自动返回 ordering/matching，前端选择器零改动出现新题型</td></tr>
+  <tr><td><code>/banks/{bank_id}/questions</code></td><td>POST</td><td><span class="tag t-new">扩展</span></td><td>QuestionIn 增加 <code>items</code>、<code>matchingVariant</code>；normalize_key 增加 ordering/matching 归一化</td></tr>
+  <tr><td><code>/banks/{bank_id}/questions/{qid}</code></td><td>PATCH</td><td><span class="tag t-new">扩展</span></td><td>支持 <code>items</code> 全量替换 + 同请求 <code>answerPayload</code> 原子出新键版本（见 §3.3②）</td></tr>
+  <tr><td><code>/banks/{bank_id}/questions/{qid}/answer-keys</code></td><td>POST</td><td><span class="tag t-new">扩展</span></td><td>KeyIn normalize 规则同步扩展（新题型 + grading 块）</td></tr>
+  <tr><td><code>/questions/{qid}</code></td><td>GET</td><td><span class="tag t-new">扩展</span></td><td>details() 增加返回 <code>items</code>（ordering/matching 条目）</td></tr>
+  <tr><td><code>/banks/{bank_id}/questions</code></td><td>GET</td><td><span class="tag t-new">扩展</span></td><td>新增查询参数 <code>groupId</code>（组合题子题筛选）</td></tr>
+  <tr><td><code>/banks/{bank_id}/groups/{gid}</code></td><td>GET</td><td><span class="tag t-new">新增</span></td><td>组详情：组 + content_blocks + media + 组内题目列表（材料题工作台数据源）</td></tr>
+  <tr><td><code>/practice-sessions</code></td><td>POST</td><td><span class="tag t-ok">签名不变</span></td><td>选题 SQL 排序改为 <b>组优先</b>：同组子题连续（g.sort_order → q.sort_order → q.id）</td></tr>
+  <tr><td><code>/practice-sessions/{sid}/question-page</code></td><td>GET</td><td><span class="tag t-ok">签名不变</span></td><td>question 内含 items/group（details 已扩展），前端据此渲染</td></tr>
+  <tr><td><code>/practice-sessions/{sid}/answers</code></td><td>POST</td><td><span class="tag t-new">扩展</span></td><td>answerPayload 校验 + grade() 新分支（ordering/matching/fill 增强/简答关键词）</td></tr>
+  <tr><td><code>/practice-sessions/{sid}/answers/{qid}/review</code></td><td>POST</td><td><span class="tag t-new">新增</span></td><td>未判分题（is_correct=NULL）人工自评回写</td></tr>
+  <tr><td><code>/practice-sessions/{sid}/results</code> 等其余</td><td>—</td><td><span class="tag t-ok">不变</span></td><td>行为随 details()/grade() 自动受益</td></tr>
+</table>
+
+<h3>3.3 场景详解</h3>
+
+<h4>① 创建题目（排序题 / 连线题示例）</h4>
+<p><b>排序题</b>——<code>items</code> 数组顺序即正确顺序，省略 answerPayload 时服务端按数组顺序生成键（插入拿到条目 id 后归一化为 <code>{"order":[id,…]}</code>）；也可传 0 基下标的显式顺序：</p>
+<pre><code>POST /api/v1/banks/3/questions        Idempotency-Key: create-q-001
+{
+  "questionTypeId": "ordering",
+  "answerMode": "ordering",
+  "stem": "将下列阶段按软件生命周期先后排序",
+  "items": [
+    {"content": "需求分析"}, {"content": "系统设计"},
+    {"content": "编码实现"}, {"content": "测试验收"}
+  ],
+  "answerPayload": {},                 // 省略=按 items 顺序；或 {"order":[2,0,1,3]} 用下标表达
+  "status": "active"
+}
+
+201 → {"data": { "id": 45, "answer_mode": "ordering",
+        "items": [{"id":101,"content":"需求分析","sort_order":1}, …],
+        "answer_keys": [{"version":1,"is_primary":true,"answer_payload":{"order":[101,102,103,104]}}], … }}</code></pre>
+
+<p><b>连线题</b>——<code>items</code> 用 side 区分左右；<code>answerPayload.matches</code> 用 <b>0 基数组下标</b>表达配对，服务端归一化为条目 id：</p>
+<pre><code>POST /api/v1/banks/3/questions        Idempotency-Key: create-q-002
+{
+  "questionTypeId": "matching",
+  "answerMode": "matching",
+  "matchingVariant": "one_to_one",
+  "stem": "将国家与对应首都连线",
+  "items": [
+    {"side":"left","content":"中国"}, {"side":"left","content":"法国"},
+    {"side":"right","content":"巴黎"}, {"side":"right","content":"北京"}
+  ],
+  "answerPayload": {"matches":[{"left":0,"right":1},{"left":1,"right":0}]}
+}
+
+201 → { "data": { "id": 46, "matching_variant": "one_to_one",
+         "items": [{"id":110,"side":"left","content":"中国"}, …],
+         "answer_keys": [{"answer_payload":{"matches":[{"left":110,"right":113},{"left":111,"right":112}]}}] } }</code></pre>
+
+<p><b>创建期校验（QuestionIn.model_validator 扩展）：</b>ordering ≥2 个条目；matching 左右各 ≥2 条，one_to_one 要求左右数量相等、每个左项恰配一次且右项不重复，many_to_one 允许右项复用；choice 既有校验（仅 choice 有 options）保持并扩展为"仅 ordering/matching 有 items"。</p>
+
+<h4>② 编辑题目</h4>
+<p><code>PATCH /banks/{bank_id}/questions/{qid}</code> 传入 <code>items</code> 时<b>全量替换</b>（同侧删除后按传入顺序重建 sort_order），并在<b>同一请求内</b>携带 <code>answerPayload</code>（0 基下标，相对新 items 数组）——服务端替换条目后立即据此创建<b>新版本答案键</b>（原子完成，避免出现键悬空的中间态；新键继承旧键的解析说明）。若主键已存在而请求未带 <code>answerPayload</code> → <code>409 INVALID_STATE</code>。仅改答案不改条目时仍走 <code>answer-keys</code> 端点（此时按条目 id 引用）。答案键受 <code>immutable_answer</code> 触发器保护不可变，历史作答仍指向旧键版本，可复现当时的判分依据。</p>
+
+<h4>③ 详情查询 / 列表筛选</h4>
+<pre><code>GET /api/v1/questions/46
+→ { "data": { …, "answer_mode":"matching", "matching_variant":"one_to_one",
+      "items":[{"id":110,"side":"left","content":"中国","sort_order":1}, …],
+      "options": [], "content_blocks": […], "media": […], "group": {…} } }
+
+GET /api/v1/banks/3/questions?groupId=7&amp;status=active   // 新增 groupId 筛选
+GET /api/v1/banks/3/groups/7                            // 新增：组详情
+→ { "data": { "id":7, "title":"阅读下面材料", "instructions":"…", "status":"active",
+      "content_blocks":[…], "media":[…],
+      "questions":[{"id":45,"stem":"…","question_type_id":"choice","sort_order":1}, …] } }</code></pre>
+
+<h4>④ 答题提交与判分</h4>
+<pre><code>POST /api/v1/practice-sessions/12/answers        Idempotency-Key: ans-045
+{"questionId": 45, "answerPayload": {"order": [103,101,102,104]}, "durationMs": 8200}
+// 排序：order 必须为该题条目 id 的完整排列（等长、无重复、id 均存在），否则 422
+
+POST /api/v1/practice-sessions/12/answers        Idempotency-Key: ans-046
+{"questionId": 46, "answerPayload": {"matches":[{"left":110,"right":113},{"left":111,"right":112}]}}
+// 连线：left 覆盖全部左项且各一次；right 属于本题；one_to_one 时 right 不重复
+
+201 → { "data": { "answer_payload": {"order":[103,101,102,104]},
+        "is_correct": false, "score": 0.5, "max_score": 1,          // position_ratio 示例：2/4 对位
+        "answer_key_payload": null | {"order":[…]},                 // 考试未交卷时屏蔽（现行 hidden() 机制）
+        "duration_ms": 8200, "answered_at": "…" } }</code></pre>
+
+<h4>⑤ 简答题自评回写（新端点）</h4>
+<pre><code>POST /api/v1/practice-sessions/12/answers/45/review    Idempotency-Key: review-045
+{"isCorrect": true}
+
+200 → { "data": { "is_correct": true, "score": 1, "reviewed_at": "…", … } }
+// 409 REVIEW_NOT_ALLOWED：该题已自动判分（is_correct 非 NULL）时拒绝
+// 422：isCorrect 非 boolean</code></pre>
+<p>自评把"机器不擅长判的题"交还学习者本人：答后练习页展示参考答案 + 「记为正确 / 记为错误」两个动作；回写后 weakQuestions、accuracy 等统计自动纳入该题。字段上只复用既有 is_correct/score + 新增 reviewed_at，不引入新表。</p>
+
+<h4>⑥ 组合题在练习中的数据流</h4>
+<ol>
+  <li>开启练习：选题 SQL 追加 <code>LEFT JOIN question_groups g</code>，排序键改为 <code>COALESCE(g.sort_order, 2147483647), q.sort_order, q.id</code> —— 同材料子题连续入卷（无组题目排在组后）。</li>
+  <li>作答页：question-page 返回的 <code>question.group</code>（含组级 content_blocks/media）已由 details() 提供，前端在题干上方渲染材料面板，<b>相邻同组题不重复渲染材料</b>（按 questionIndex 前后题的 group_id 判断）。</li>
+  <li>结果页：按 group_id 分组呈现，组得分 = 子题 score 求和（纯展示层聚合，不落库）。</li>
+</ol>
+
+<h3>3.4 文档同步义务</h3>
+<p><code>docs/openapi.json</code> 与实现保持同步（现行已验证一致）：新增 2 端点、5 端点的请求/响应 schema、Mode 枚举扩列、新错误码 <code>REVIEW_NOT_ALLOWED</code>。集成测试套件（<code>db/check_schema.py</code>）补充新表/新约束断言。</p>
+
+<!-- ============================== 4 ============================== -->
+<h2 id="s4">4. 前端配合调整</h2>
+
+<p>项目硬约束：HeroUI v3 组件默认外观 + 仅布局类工具类（无自定义 CSS/拖拽库）。因此交互形态选择上：<b>排序用上移/下移按钮</b>（而非拖拽，无障碍与约束双达标）、<b>连线用左项固定 + 右项下拉选择</b>（HeroUI 原生组件可拼装）。</p>
+
+<table>
+  <tr><th style="width:22%">文件</th><th style="width:28%">改动</th><th>说明</th></tr>
+  <tr>
+    <td><code>web/src/api.ts</code></td>
+    <td>类型 + payload 封装</td>
+    <td><code>Mode</code> 联合加 <code>'ordering' | 'matching'</code>；新增 <code>Item</code> 接口（id/side/content/sort_order）；<code>Question</code> 加 <code>items?: Item[]</code>、<code>matching_variant</code>；<code>answerPayload()</code> 加两个分支（ordering 由条目数组顺序生成 <code>{order}</code>，matching 由左右选择生成 <code>{matches}</code>）；AnswerResult 渲染辅助函数（把键/作答翻译为人话）。</td>
+  </tr>
+  <tr>
+    <td><code>pages-practice.tsx</code><br><span class="small">练习页</span></td>
+    <td>2 个新作答渲染器 + 组材料面板 + 自评</td>
+    <td>ordering：条目列表 + 上移/下移按钮（提交时按当前顺序生成 id 数组）；matching：左项列表，每项配右项 <code>Choice</code> 下拉（one_to_one 禁用已选右项）；<b>组合题</b>：当 <code>q.group</code> 存在且与上一题同组时，题干上方渲染材料面板（content_blocks/media），不同组则完整渲染；<b>自评</b>：结果为 <code>is_correct === null</code> 的题显示「记为正确 / 记为错误」按钮调用 review 端点；填空从单 textarea 改为<b>按空数渲染多个单行输入</b>（空数 = 键 answers 长度）。</td>
+  </tr>
+  <tr>
+    <td><code>pages-content.tsx</code><br><span class="small">录入/编辑页</span></td>
+    <td>4 个新编辑器 + 列表筛选</td>
+    <td>排序条目编辑器（增删 + 上下移）；连线编辑器（左/右两组条目 + 配对关系设置 + 变体选择）；填空编辑器（每空多个可接受答案的标签式输入）；简答编辑器（参考答案 + 可选关键词权重列表 + 阈值）；题目列表的题型 Chip 自动纳入新题型（<code>question-types</code> 驱动，仅文案兜底）。</td>
+  </tr>
+  <tr>
+    <td>结果页<br><span class="small">ResultsPage</span></td>
+    <td>按题型渲染答案</td>
+    <td>替换现有 <code>JSON.stringify</code> 直出：ordering 显示"正确顺序 → 你的顺序"逐位对错；matching 显示左右配对表（对/错着色语义用 Chip 文案）；填空逐空对错；多选显示正确集合与所选集合。键数据来自 answer_key_payload（非考试屏蔽场景）。</td>
+  </tr>
+  <tr>
+    <td>题库分析 / 学情</td>
+    <td>部分得分展示</td>
+    <td>score 出现小数比率：结果与分析卡按 <code>score/max_score</code> 显示（如 0.5 → 50%）；is_correct 口径不变，正确率无需调整。</td>
+  </tr>
+</table>
+
+<!-- ============================== 5 ============================== -->
+<h2 id="s5">5. 关键权衡与注意事项</h2>
+<ol class="klist">
+  <li><span class="num">1</span><b>独立子表 vs 通用 parts 表。</b>选独立子表：强外键、唯一约束、排序约束在库层挡脏数据，查询直白，与项目"严格 Pydantic + 显式 SQL + 显式约束"哲学一致。通用 <code>question_parts(kind, payload jsonb)</code> 可零 DDL 加题型，但类型安全全部让位给应用层，长期看约束形同虚设。折中即本方案：<b>结构进子表，判分配置进 jsonb</b>。</li>
+  <li><span class="num">2</span><b>判分放应用层而非 PG 函数。</b>沿用 grade()：单测好写、与现行实现一致、错误信息可读。代价是判分变更需发版；个人库无并发与性能压力，可接受。不建议把判分塞进 SQL/触发器（难测试、难表达集合/排列逻辑）。</li>
+  <li><span class="num">3</span><b>部分得分与统计口径。</b>坚持 is_correct = 布尔"全对"，部分得分只进 score：accuracy、weakQuestions、按对错复习（mode='wrong'）的语义都不被稀释。若把 ratio≥0.6 记为"正确"，错题复习会漏掉半对题。可选 passThreshold 留在键里按需启用。</li>
+  <li><span class="num">4</span><b>答案键引用条目 id 的编辑联动。</b>键不可变 + 条目可编辑，两者相遇必然出现"键悬空"。方案是编辑条目前置校验并要求先出新键版本（与选项删除的现行行为同构）。备选"用稳定 token 代替 id"被否：两套标识徒增对账复杂度，id + 版本化键已足够。</li>
+  <li><span class="num">5</span><b>归一化判分的误判风险。</b>casefold + 空白折叠对英文友好，对中文同义表述、错别字无能为力——所以填空给"每空多可接受答案"由人工维护，简答关键词判分阈值默认 0.6 且<b>永远保留自评兜底</b>。自动判分是加速器不是裁判，这一立场写进产品文案与编辑器提示。</li>
+  <li><span class="num">6</span><b>CHECK 扩列的运维细节。</b>DROP + ADD 瞬时持 ACCESS EXCLUSIVE 锁，个人库毫秒级完成；迁移一次性执行失败即回滚（BEGIN/COMMIT 包裹），不产生半迁移状态。新库走更新后的 00_schema.sql，两份 DDL 必须保持等价（建议 check_schema.py 加断言防漂移）。</li>
+  <li><span class="num">7</span><b>matching 变体建模。</b>镜像 choice_variant 用一列 + 形状 CHECK，而不是拆两张表或再造 answer_mode：保持"一行一形态"直觉，且 many_to_one（分类题）无需新题型即被覆盖。one_to_one 的"左右数量相等"无法用库级 CHECK 跨行表达，落在应用层校验——这是有意的取舍（库层只挡行内/行间局部事实）。</li>
+  <li><span class="num">8</span><b>组合题刻意不做组级答案与组级判分。</b>"每题一答一键一判"是练习/统计全链路的不变量（practice_answers UNIQUE(session_id, question_id)、错题、掌握度都建立在单题粒度上）。组只做材料容器 + 呈现顺序 + 展示层聚合；引入组级分数会同时破坏幂等作答、考试屏蔽、错题推导三处逻辑。</li>
+  <li><span class="num">9</span><b>考试模式屏蔽必须覆盖新字段。</b>hidden() 现屏蔽 6 个判分相关字段；实现时 answer_key_payload 天然包含条目 id 顺序/配对（等于答案本体），务必沿用既有屏蔽路径，不要在 items 渲染时绕过（前端仅渲染条目 content，绝不渲染键）。</li>
+  <li><span class="num">10</span><b>AI 导入与生成链路是后续项。</b>本方案只覆盖产品 API/DB/前端；<code>server/src/practiq_ai</code> 的文档抽取器与题目生成工作流需要另行支持排序/连线的识别与产出（含 answerPayload 归一化对齐），建议作为独立迭代，先让手工录入链路跑通。</li>
+  <li><span class="num">11</span><b>幂等与媒体约束自动沿用。</b>新端点走既有 request_idempotency（route+key+request_hash）；条目暂为纯文本，若需图片走附录 A 的 media_links 扩列，媒体 10MiB 上限、checksum 去重机制原样复用。</li>
+  <li><span class="num">12</span><b>避免过度设计。</b>不为"未来可能的题型"预建列/表；answer_mode 枚举 + jsonb + 固定套路已经把边际成本压到"一次 DDL + 三个分支"，足够敏捷。</li>
+</ol>
+
+<!-- ============================== 6 ============================== -->
+<h2 id="s6">6. 实施顺序与验证</h2>
+<table>
+  <tr><th style="width:16%">阶段</th><th style="width:42%">内容</th><th>验证</th></tr>
+  <tr><td>P1 库表</td><td><code>db/migrations/002_*.sql</code> + 同步 <code>00_schema.sql</code> + <code>check_schema.py</code> 断言</td><td><code>make backend-test</code>（一次性 PostgreSQL 真实建库）</td></tr>
+  <tr><td>P2 后端核心</td><td>Mode Literal、normalize_key / validate_key / grade 分支、QuestionIn/Patch/KeyIn、details() 返回 items</td><td>backend 集成测试新增用例：6 题型创建/发布/判分/编辑联动 409/自评 409</td></tr>
+  <tr><td>P3 接口层</td><td>组详情端点、review 端点、groupId 筛选、练习排序调整、<code>docs/openapi.json</code> 再生成</td><td>在线冒烟（沿用 52 项脚本模式扩展）+ 全链路手工核验</td></tr>
+  <tr><td>P4 前端</td><td>api.ts 类型 → 录入编辑器 → 练习渲染 → 结果渲染</td><td><code>npm --prefix web run verify</code>（样式政策 + 单测 + tsc + 构建）</td></tr>
+  <tr><td>P5 e2e</td><td>新增 spec：建库 → 录排序/连线/组合题 → 发布 → 练习 → 判分 → 结果 → 自评</td><td><code>npx playwright test</code>（含 375/768/1440 无横向溢出断言）</td></tr>
+</table>
+
+<!-- ============================== A ============================== -->
+<h2 id="sa">附录 A：可选扩展——条目级媒体（Phase 2）</h2>
+<p>排序/连线条目常需配图。既有 media_links 已支持 question/group/option 三类挂载点（<code>num_nonnulls=1</code> CHECK），扩展时同步加列并放宽约束：</p>
+<pre><code>ALTER TABLE media_links
+  ADD COLUMN ordering_item_id bigint REFERENCES question_ordering_items,
+  ADD COLUMN matching_item_id  bigint REFERENCES question_matching_items;
+ALTER TABLE media_links DROP CONSTRAINT media_links_check;
+ALTER TABLE media_links ADD CONSTRAINT media_links_check
+  CHECK (num_nonnulls(question_id, group_id, option_id, ordering_item_id, matching_item_id) = 1);
+-- UNIQUE NULLS NOT DISTINCT (media_id, question_id, group_id, option_id) 同步补入两新列防重复挂载</code></pre>
+<p class="small">本方案正文坚持条目纯文本以控制迁移面；此附录为图片条目需求的既定路径。</p>
+
+<footer class="small" style="margin-top:48px; border-top:1px solid var(--line); padding-top:12px;">
+PractiQ · 复杂题型扩展设计方案 · 基于仓库现状（db/00_schema.sql / backend / web）逐项核对后编写 · 2026-09-17
+</footer>
+
+</div>
+</body>
+</html>
