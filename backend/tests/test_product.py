@@ -386,3 +386,127 @@ def test_metadata_worker_validation_usage_and_cancel(client, app):
     running = claim(app.state.pool, uuid.uuid4())
     assert write(client, 'POST', f"/ai-tasks/{running['id']}/cancel").status_code == 200
     assert not complete(app.state.pool, running, payload, [{"callId": "late"}])
+
+
+def test_complex_question_types_grading_review_and_groups(client, content):
+    b, choice_q = content
+
+    def create(payload, expect=201):
+        r = write(client, "POST", f"/banks/{b['id']}/questions", payload)
+        assert r.status_code == expect, r.text
+        return r.json()["data"] if expect == 201 else None
+
+    # 排序题：下标创建 + 缺省顺序 + 形状校验
+    oq = create({
+        "questionTypeId": "ordering", "answerMode": "ordering", "stem": "按顺序排列", "status": "active",
+        "items": [{"content": "甲"}, {"content": "乙"}, {"content": "丙"}],
+        "answerPayload": {"order": [2, 0, 1]},
+    })
+    ids = [i["id"] for i in oq["items"]]
+    assert oq["answer_keys"][0]["answer_payload"]["order"] == [ids[2], ids[0], ids[1]]
+    default_q = create({
+        "questionTypeId": "ordering", "answerMode": "ordering", "stem": "默认顺序", "status": "active",
+        "items": [{"content": "一"}, {"content": "二"}],
+    })
+    assert default_q["answer_keys"][0]["answer_payload"]["order"] == [i["id"] for i in default_q["items"]]
+    create({"questionTypeId": "ordering", "answerMode": "ordering", "stem": "太少", "items": [{"content": "甲"}]}, 422)
+
+    # 连线题 one_to_one：缺 variant / 数量不等 → 422；下标配对归一化为 id
+    create({
+        "questionTypeId": "matching", "answerMode": "matching", "stem": "缺变体", "status": "active",
+        "items": [{"side": "left", "content": "a"}, {"side": "left", "content": "b"}, {"side": "right", "content": "x"}, {"side": "right", "content": "y"}],
+    }, 422)
+    mq = create({
+        "questionTypeId": "matching", "answerMode": "matching", "matchingVariant": "one_to_one",
+        "stem": "国家-首都", "status": "active",
+        "items": [
+            {"side": "left", "content": "中国"}, {"side": "left", "content": "法国"},
+            {"side": "right", "content": "巴黎"}, {"side": "right", "content": "北京"},
+        ],
+        "answerPayload": {"matches": [{"left": 0, "right": 1}, {"left": 1, "right": 0}]},
+    })
+    lefts = [i["id"] for i in mq["items"] if i["side"] == "left"]
+    rights = [i["id"] for i in mq["items"] if i["side"] == "right"]
+    assert mq["answer_keys"][0]["answer_payload"]["matches"] == [
+        {"left": lefts[0], "right": rights[1]}, {"left": lefts[1], "right": rights[0]},
+    ]
+
+    # 填空题：每空多可接受答案 + blank_count
+    fq = create({
+        "questionTypeId": "fill_blank", "answerMode": "fill_blank", "stem": "2 读作___，3 读作___", "status": "active",
+        "answerPayload": {"answers": [["2", "two"], "三"]},
+    })
+    assert client.get(f"/api/v1/questions/{fq['id']}").json()["data"]["blank_count"] == 2
+
+    # 简答题：关键词判分（部分得分）与人工判分（自评）
+    kq_ok = create({
+        "questionTypeId": "short_answer", "answerMode": "short_answer", "stem": "说明导数与积分", "status": "active",
+        "answerPayload": {"answer": "导数是变化率", "grading": {"type": "keyword", "keywords": [{"text": "导数", "weight": 1}, {"text": "积分", "weight": 3}], "threshold": 0.5}},
+    })
+    kq_low = create({
+        "questionTypeId": "short_answer", "answerMode": "short_answer", "stem": "再说明一次", "status": "active",
+        "answerPayload": {"answer": "导数是变化率", "grading": {"type": "keyword", "keywords": [{"text": "导数", "weight": 1}, {"text": "积分", "weight": 3}], "threshold": 0.5}},
+    })
+    manual_q = create({
+        "questionTypeId": "short_answer", "answerMode": "short_answer", "stem": "简述方法", "status": "active",
+        "answerPayload": {"answer": "略"},
+    })
+
+    # 分组 + groupId 筛选 + 组详情
+    g = write(client, "POST", f"/banks/{b['id']}/groups", {"title": "材料组", "sortOrder": 1}).json()["data"]
+    assert write(client, "PATCH", f"/questions/{choice_q['id']}", {"groupId": g["id"]}).status_code == 200
+    assert write(client, "PATCH", f"/questions/{mq['id']}", {"groupId": g["id"]}).status_code == 200
+    listed = client.get(f"/api/v1/banks/{b['id']}/items?groupId={g['id']}").json()["data"]
+    assert [q["question_id"] for q in listed] == [choice_q["id"], mq["id"]]
+    group_detail = client.get(f"/api/v1/groups/{g['id']}").json()["data"]
+    assert len(group_detail["questions"]) == 2 and "content_blocks" in group_detail and "media" in group_detail
+
+    # 会话：组优先排序 + 逐题判分
+    s = write(client, "POST", "/practice-sessions", {"bankId": b["id"], "mode": "all"}).json()["data"]
+    assert s["question_count"] == 8
+    ordered = [q["id"] for q in client.get(f"/api/v1/practice-sessions/{s['id']}/questions").json()["data"]]
+    assert ordered[:2] == [choice_q["id"], mq["id"]]
+
+    def answer(qid, payload, expect=201):
+        r = write(client, "POST", f"/practice-sessions/{s['id']}/answers", {"questionId": qid, "answerPayload": payload})
+        assert r.status_code == expect, r.text
+        return r.json()["data"] if expect == 201 else None
+
+    assert answer(choice_q["id"], {"selected": ["A"]})["is_correct"] is True
+    answer(mq["id"], {"matches": [{"left": lefts[0], "right": rights[0]}, {"left": lefts[1], "right": rights[0]}]}, 422)
+    assert answer(mq["id"], {"matches": [{"left": lefts[0], "right": rights[1]}, {"left": lefts[1], "right": rights[0]}]})["score"] == 1
+    assert answer(oq["id"], {"order": [ids[0], ids[1], ids[2]]})["is_correct"] is False
+    answer(fq["id"], {"value": ["2"]}, 422)
+    assert answer(fq["id"], {"value": ["Two", "三"]})["is_correct"] is True
+    assert answer(kq_ok["id"], {"value": "导数和积分都重要"})["is_correct"] is True
+    low = answer(kq_low["id"], {"value": "导数"})
+    assert low["is_correct"] is False and low["score"] == 0.25
+    manual = answer(manual_q["id"], {"value": "自评作答"})
+    assert manual["is_correct"] is None and manual["score"] is None
+
+    # 自评：未判分可回写、重复回写 409、已判分 409、未作答 404
+    rv = write(client, "POST", f"/practice-sessions/{s['id']}/answers/{manual_q['id']}/review", {"isCorrect": True})
+    assert rv.status_code == 200, rv.text
+    assert rv.json()["data"]["is_correct"] is True and rv.json()["data"]["score"] == 1
+    assert write(client, "POST", f"/practice-sessions/{s['id']}/answers/{manual_q['id']}/review", {"isCorrect": False}).status_code == 409
+    assert write(client, "POST", f"/practice-sessions/{s['id']}/answers/{kq_ok['id']}/review", {"isCorrect": True}).status_code == 409
+    assert write(client, "POST", f"/practice-sessions/{s['id']}/answers/{default_q['id']}/review", {"isCorrect": True}).status_code == 404
+
+    # 条目替换：缺 answerPayload → 409；带下标 answerPayload → 原子出新键版本
+    assert write(client, "PATCH", f"/questions/{oq['id']}", {"items": [{"content": "丙"}, {"content": "甲"}, {"content": "乙"}]}).status_code == 409
+    edited = write(
+        client,
+        "PATCH",
+        f"/questions/{oq['id']}",
+        {"items": [{"content": "丙"}, {"content": "甲"}, {"content": "乙"}], "answerPayload": {"order": [0, 1, 2]}},
+    )
+    assert edited.status_code == 200, edited.text
+    edited = edited.json()["data"]
+    new_ids = [i["id"] for i in edited["items"]]
+    assert edited["answer_keys"][-1]["is_primary"] and edited["answer_keys"][-1]["answer_payload"]["order"] == new_ids
+
+    # 交卷后结果与部分得分
+    write(client, "POST", f"/practice-sessions/{s['id']}/complete")
+    by_id = {q["id"]: q["result"] for q in client.get(f"/api/v1/practice-sessions/{s['id']}/results").json()["data"]}
+    assert by_id[kq_low["id"]]["is_correct"] is False and by_id[kq_low["id"]]["score"] == 0.25
+    assert by_id[manual_q["id"]]["is_correct"] is True

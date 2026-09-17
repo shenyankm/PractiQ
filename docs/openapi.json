@@ -234,6 +234,23 @@
             }
           },
           {
+            "name": "groupId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "exclusiveMinimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Groupid"
+            }
+          },
+          {
             "name": "cursor",
             "in": "query",
             "required": false,
@@ -2417,6 +2434,64 @@
         }
       }
     },
+    "/api/v1/practice-sessions/{sid}/answers/{qid}/review": {
+      "post": {
+        "summary": "Review",
+        "operationId": "review_api_v1_practice_sessions__sid__answers__qid__review_post",
+        "parameters": [
+          {
+            "name": "sid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "title": "Sid"
+            }
+          },
+          {
+            "name": "qid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "title": "Qid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Review"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/practice-sessions/{sid}/{action}": {
       "post": {
         "summary": "Finish",
@@ -2589,6 +2664,42 @@
         ],
         "responses": {
           "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/bank-metadata-tasks": {
+      "post": {
+        "summary": "Metadata Task",
+        "operationId": "metadata_task_api_v1_bank_metadata_tasks_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BankMetadataIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
             "description": "Successful Response",
             "content": {
               "application/json": {
@@ -3537,6 +3648,23 @@
         ],
         "title": "BankIn"
       },
+      "BankMetadataIn": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Name"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "BankMetadataIn"
+      },
       "BankPatch": {
         "properties": {
           "name": {
@@ -3733,9 +3861,45 @@
       "ImportIn": {
         "properties": {
           "bankId": {
-            "type": "integer",
-            "exclusiveMinimum": 0.0,
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Bankid"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 500,
+            "title": "Description",
+            "default": ""
+          },
+          "tags": {
+            "items": {
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 30,
+            "title": "Tags"
           },
           "fileName": {
             "type": "string",
@@ -3759,11 +3923,41 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "bankId",
           "fileName",
           "sourceType"
         ],
         "title": "ImportIn"
+      },
+      "ItemIn": {
+        "properties": {
+          "side": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "left",
+                  "right"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Side"
+          },
+          "content": {
+            "type": "string",
+            "maxLength": 20000,
+            "minLength": 1,
+            "title": "Content"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "content"
+        ],
+        "title": "ItemIn"
       },
       "KeyIn": {
         "properties": {
@@ -3773,7 +3967,9 @@
               "choice",
               "true_false",
               "fill_blank",
-              "short_answer"
+              "short_answer",
+              "ordering",
+              "matching"
             ],
             "title": "Answermode"
           },
@@ -3934,7 +4130,9 @@
               "choice",
               "true_false",
               "fill_blank",
-              "short_answer"
+              "short_answer",
+              "ordering",
+              "matching"
             ],
             "title": "Answermode"
           },
@@ -3965,6 +4163,21 @@
             ],
             "title": "Choicevariant"
           },
+          "matchingVariant": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "one_to_one",
+                  "many_to_one"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Matchingvariant"
+          },
           "status": {
             "type": "string",
             "enum": [
@@ -3982,6 +4195,14 @@
             "type": "array",
             "maxItems": 100,
             "title": "Options"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ItemIn"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Items"
           },
           "answerPayload": {
             "additionalProperties": true,
@@ -4053,6 +4274,48 @@
               }
             ],
             "title": "Options"
+          },
+          "items": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ItemIn"
+                },
+                "type": "array",
+                "maxItems": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Items"
+          },
+          "matchingVariant": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "one_to_one",
+                  "many_to_one"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Matchingvariant"
+          },
+          "answerPayload": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Answerpayload"
           },
           "stem": {
             "anyOf": [
@@ -4165,6 +4428,20 @@
           "sortOrder"
         ],
         "title": "ReorderItem"
+      },
+      "Review": {
+        "properties": {
+          "isCorrect": {
+            "type": "boolean",
+            "title": "Iscorrect"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "isCorrect"
+        ],
+        "title": "Review"
       },
       "Start": {
         "properties": {

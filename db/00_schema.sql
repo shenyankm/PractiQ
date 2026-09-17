@@ -4,10 +4,10 @@ CREATE TABLE subjects (id varchar(32) PRIMARY KEY, display_name varchar(64) NOT 
 INSERT INTO subjects VALUES ('general','通用');
 CREATE TABLE question_types (
  id varchar(64) PRIMARY KEY, subject_id varchar(32) NOT NULL REFERENCES subjects,
- display_name varchar(128) NOT NULL, answer_mode text NOT NULL CHECK(answer_mode IN ('choice','true_false','fill_blank','short_answer')),
+ display_name varchar(128) NOT NULL, answer_mode text NOT NULL CHECK(answer_mode IN ('choice','true_false','fill_blank','short_answer','ordering','matching')),
  UNIQUE(subject_id,id,answer_mode)
 );
-INSERT INTO question_types VALUES ('choice','general','选择题','choice'),('true_false','general','判断题','true_false'),('fill_blank','general','填空题','fill_blank'),('short_answer','general','简答题','short_answer');
+INSERT INTO question_types VALUES ('choice','general','选择题','choice'),('true_false','general','判断题','true_false'),('fill_blank','general','填空题','fill_blank'),('short_answer','general','简答题','short_answer'),('ordering','general','排序题','ordering'),('matching','general','连线题','matching');
 CREATE TABLE question_banks (
  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, subject_id varchar(32) NOT NULL REFERENCES subjects,
  name varchar(100) NOT NULL CHECK(btrim(name)<>''), description varchar(500),
@@ -30,7 +30,8 @@ CREATE TABLE question_groups (
 CREATE TABLE questions (
  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, bank_id bigint NOT NULL, subject_id varchar(32) NOT NULL,
  question_type_id varchar(64) NOT NULL, answer_mode text NOT NULL,
- choice_variant text CHECK(choice_variant IN ('single','multiple')), stem text NOT NULL CHECK(btrim(stem)<>''), analysis text,
+ choice_variant text CHECK(choice_variant IN ('single','multiple')), matching_variant text CHECK(matching_variant IN ('one_to_one','many_to_one')),
+ stem text NOT NULL CHECK(btrim(stem)<>''), analysis text,
  status text NOT NULL DEFAULT 'draft' CHECK(status IN ('draft','active','archived')), group_id bigint, subset_id bigint,
  sort_order integer NOT NULL DEFAULT 1 CHECK(sort_order>0), deleted_at timestamptz,
  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(),
@@ -38,13 +39,25 @@ CREATE TABLE questions (
  FOREIGN KEY(subject_id,question_type_id,answer_mode) REFERENCES question_types(subject_id,id,answer_mode),
  FOREIGN KEY(group_id,bank_id) REFERENCES question_groups(id,bank_id),
  FOREIGN KEY(subset_id,bank_id) REFERENCES bank_subsets(id,bank_id),
- CHECK((answer_mode='choice')=(choice_variant IS NOT NULL)), UNIQUE(id,bank_id), UNIQUE(id,subject_id)
+ CHECK((answer_mode='choice')=(choice_variant IS NOT NULL)), CHECK((answer_mode='matching')=(matching_variant IS NOT NULL)),
+ UNIQUE(id,bank_id), UNIQUE(id,subject_id)
 );
 CREATE INDEX questions_bank ON questions(bank_id,sort_order,id) WHERE deleted_at IS NULL;
+CREATE INDEX questions_group ON questions(group_id) WHERE deleted_at IS NULL AND group_id IS NOT NULL;
 CREATE TABLE question_options (
  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, question_id bigint NOT NULL REFERENCES questions,
  option_label varchar(16) NOT NULL CHECK(btrim(option_label)<>''), content text NOT NULL CHECK(btrim(content)<>''),
  sort_order integer NOT NULL CHECK(sort_order>0), UNIQUE(question_id,option_label), UNIQUE(question_id,sort_order)
+);
+CREATE TABLE question_ordering_items (
+ id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, question_id bigint NOT NULL REFERENCES questions,
+ content text NOT NULL CHECK(btrim(content)<>''), sort_order integer NOT NULL CHECK(sort_order>0),
+ UNIQUE(question_id,sort_order)
+);
+CREATE TABLE question_matching_items (
+ id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, question_id bigint NOT NULL REFERENCES questions,
+ side text NOT NULL CHECK(side IN ('left','right')), content text NOT NULL CHECK(btrim(content)<>''),
+ sort_order integer NOT NULL CHECK(sort_order>0), UNIQUE(question_id,side,sort_order)
 );
 CREATE TABLE question_answer_keys (
  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, question_id bigint NOT NULL REFERENCES questions,
@@ -96,7 +109,7 @@ CREATE TABLE practice_session_questions (
 CREATE TABLE practice_answers (
  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, session_id bigint NOT NULL, question_id bigint NOT NULL,
  answer_key_id bigint NOT NULL, answer_payload jsonb NOT NULL, is_correct boolean, score numeric, max_score numeric NOT NULL DEFAULT 1,
- duration_ms integer CHECK(duration_ms>=0), answered_at timestamptz NOT NULL DEFAULT now(), UNIQUE(session_id,question_id),
+ duration_ms integer CHECK(duration_ms>=0), answered_at timestamptz NOT NULL DEFAULT now(), reviewed_at timestamptz, UNIQUE(session_id,question_id),
  FOREIGN KEY(session_id,question_id) REFERENCES practice_session_questions(session_id,question_id) ON DELETE CASCADE,
  FOREIGN KEY(answer_key_id,question_id) REFERENCES question_answer_keys(id,question_id), CHECK(score>=0 AND score<=max_score)
 );

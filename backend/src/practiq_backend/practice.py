@@ -11,17 +11,70 @@ router = APIRouter(prefix="/api/v1")
 
 
 def grade(mode, expected, actual):
+    """Returns (is_correct, score); score is a 0..max_score ratio, None when ungradable."""
+    policy = expected.get("grading") if isinstance(expected.get("grading"), dict) else {}
+
+    def ratio(hits, total):
+        if total <= 0:
+            return 0.0
+        value = round(hits / total, 4)
+        return value
+
+    def judge(hits, total, default_pass=1.0):
+        score = ratio(hits, total)
+        threshold = policy.get("passThreshold", default_pass)
+        return score >= threshold, score
+
     if mode == "choice":
-        return set(expected["correct"]) == set(actual["selected"])
+        ok = set(expected["correct"]) == set(actual["selected"])
+        return ok, 1.0 if ok else 0.0
     if mode == "true_false":
-        return expected["answer"] == actual["value"]
+        ok = expected["answer"] == actual["value"]
+        return ok, 1.0 if ok else 0.0
     if mode == "fill_blank":
 
         def normalize(text):
             return " ".join(text.casefold().split())
 
-        return [normalize(v) for v in expected["answers"]] == [normalize(v) for v in actual["value"]]
-    return None
+        blanks = expected["answers"]
+        answers = actual["value"]
+        hits = sum(
+            1
+            for e, a in zip(blanks, answers)
+            if normalize(a) in {normalize(x) for x in (e if isinstance(e, list) else [e])}
+        )
+        if policy.get("mode") == "blank_ratio":
+            return judge(hits, len(blanks))
+        ok = len(answers) == len(blanks) and hits == len(blanks)
+        return ok, 1.0 if ok else 0.0
+    if mode == "ordering":
+        expected_order, actual_order = expected["order"], actual["order"]
+        if policy.get("mode") == "position_ratio":
+            hits = sum(1 for e, a in zip(expected_order, actual_order) if e == a)
+            return judge(hits, len(expected_order))
+        ok = actual_order == expected_order
+        return ok, 1.0 if ok else 0.0
+    if mode == "matching":
+        exp = {p["left"]: p["right"] for p in expected["matches"]}
+        act = {p["left"]: p["right"] for p in actual["matches"]}
+        hits = sum(1 for left, right in exp.items() if act.get(left) == right)
+        if policy.get("mode") == "pair_ratio":
+            return judge(hits, len(exp))
+        ok = hits == len(exp) and len(act) == len(exp)
+        return ok, 1.0 if ok else 0.0
+    if mode == "short_answer":
+        if policy.get("type") == "keyword":
+            text = " ".join(str(actual.get("value", "")).casefold().split())
+            keywords = policy.get("keywords") or []
+            weights = [k.get("weight", 1) for k in keywords]
+            total = sum(weights)
+            if total <= 0:
+                return None, None
+            hits = sum(w for k, w in zip(keywords, weights) if str(k.get("text", "")).casefold() in text)
+            score = ratio(hits, total)
+            return score >= policy.get("threshold", 0.6), score
+        return None, None
+    return None, None
 
 
 def session(db, sid, lock=False):
@@ -82,13 +135,15 @@ def start(body: Start, db: DB):
     if body.mode == "by_type" and not body.questionTypeId:
         invalid("Choose a question type")
     rows = db.execute(
-        """select q.id,k.id key_id from questions q join question_answer_keys k on k.question_id=q.id and k.is_primary
+        """select q.id,k.id key_id from questions q
+        left join question_groups g on g.id=q.group_id
+        join question_answer_keys k on k.question_id=q.id and k.is_primary
         where q.bank_id=%s and q.status='active' and q.deleted_at is null
-        and (q.group_id is null or exists(select 1 from question_groups g where g.id=q.group_id and g.status='active'))
+        and (q.group_id is null or exists(select 1 from question_groups g2 where g2.id=q.group_id and g2.status='active'))
         and (%s<>'by_type' or q.question_type_id=%s)
         and (%s<>'wrong' or exists(select 1 from practice_answers a join practice_sessions s on s.id=a.session_id
              where a.question_id=q.id and a.is_correct=false and (s.mode<>'exam' or s.status='completed')))
-        order by case when %s='exam' then random() else 0 end,q.sort_order,q.id limit %s""",
+        order by case when %s='exam' then random() else 0 end,coalesce(g.sort_order,2147483647),q.sort_order,q.id limit %s""",
         (
             body.bankId,
             body.mode,
@@ -230,9 +285,44 @@ def submit(sid: Positive, body: Answer, db: DB):
         v = payload.get("value")
         if not isinstance(v, list) or not v or any(not isinstance(x, str) or not x.strip() for x in v):
             invalid("Fill the blanks")
+        if len(v) != len(q["expected"].get("answers") or []):
+            invalid("Fill every blank")
+    elif mode == "ordering":
+        ids = {
+            r["id"]
+            for r in db.execute("select id from question_ordering_items where question_id=%s", (body.questionId,))
+        }
+        order = payload.get("order")
+        if (
+            not isinstance(order, list)
+            or len(order) != len(ids)
+            or any(isinstance(x, bool) or not isinstance(x, int) for x in order)
+            or set(order) != ids
+        ):
+            invalid("Arrange every item exactly once")
+    elif mode == "matching":
+        rows = db.execute(
+            "select id,side from question_matching_items where question_id=%s", (body.questionId,)
+        ).fetchall()
+        lefts = {r["id"] for r in rows if r["side"] == "left"}
+        rights = {r["id"] for r in rows if r["side"] == "right"}
+        matches = payload.get("matches")
+        shaped = isinstance(matches, list) and all(
+            isinstance(m, dict)
+            and set(m) == {"left", "right"}
+            and not isinstance(m["left"], bool)
+            and isinstance(m["left"], int)
+            and not isinstance(m["right"], bool)
+            and isinstance(m["right"], int)
+            for m in matches
+        )
+        if not shaped or {m["left"] for m in matches} != lefts or any(m["right"] not in rights for m in matches):
+            invalid("Match every left item to a right option")
+        if q["matching_variant"] == "one_to_one" and len({m["right"] for m in matches}) != len(matches):
+            invalid("Each right item can only be used once")
     elif not isinstance(payload.get("value"), str) or not payload["value"].strip():
         invalid("Enter an answer")
-    result = grade(mode, q["expected"], payload)
+    is_correct, score = grade(mode, q["expected"], payload)
     db.execute(
         "insert into practice_answers(session_id,question_id,answer_key_id,answer_payload,is_correct,score,duration_ms) values(%s,%s,%s,%s,%s,%s,%s)",
         (
@@ -240,13 +330,35 @@ def submit(sid: Positive, body: Answer, db: DB):
             body.questionId,
             q["key_id"],
             Jsonb(payload),
-            result,
-            None if result is None else int(result),
+            is_correct,
+            score,
             body.durationMs,
         ),
     )
     db.execute("update practice_sessions set updated_at=now() where id=%s", (sid,))
     return ok(answer(db, s, body.questionId))
+
+
+class Review(Input):
+    isCorrect: bool
+
+
+@router.post("/practice-sessions/{sid}/answers/{qid}/review")
+def review(sid: Positive, qid: Positive, body: Review, db: DB):
+    s = session(db, sid, True)
+    a = answer(db, s, qid)
+    if a is None:
+        raise Error(404, "NOT_FOUND", "Answer not found")
+    if hidden(s):
+        raise Error(409, "INVALID_STATE", "Finish the exam before reviewing")
+    if a["is_correct"] is not None:
+        raise Error(409, "REVIEW_NOT_ALLOWED", "This answer has already been graded")
+    db.execute(
+        "update practice_answers set is_correct=%s,score=%s,reviewed_at=now() where id=%s",
+        (body.isCorrect, a["max_score"] if body.isCorrect else 0, a["id"]),
+    )
+    db.execute("update practice_sessions set updated_at=now() where id=%s", (sid,))
+    return ok(answer(db, s, qid))
 
 
 @router.post("/practice-sessions/{sid}/{action}")
