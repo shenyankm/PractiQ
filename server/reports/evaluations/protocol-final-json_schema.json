@@ -1,0 +1,274 @@
+{
+  "method": "json_schema",
+  "model": "qwen3.7-flash",
+  "thinking": false,
+  "maxTokens": 4096,
+  "timeoutSeconds": 60,
+  "repetitions": 2,
+  "concurrency": 2,
+  "cases": [
+    {
+      "case": "answer",
+      "repetition": 1,
+      "passed": true,
+      "usage": {
+        "callKey": "26d87d2d-1d44-4f4f-bcb9-bb5100de5cdb",
+        "modelId": "qwen3.7-flash",
+        "inputTokens": 382,
+        "outputTokens": 86,
+        "callKind": "answer"
+      },
+      "finishReason": "stop",
+      "result": {
+        "answerPayload": {
+          "correctOption": "B"
+        },
+        "canonicalAnswer": "5",
+        "explanation": "2 加 3 等于 5。",
+        "steps": [
+          "计算 2 + 3",
+          "结果为 5",
+          "对应选项 B"
+        ],
+        "confidence": 1.0,
+        "educationalValue": null
+      },
+      "seconds": 1.383
+    },
+    {
+      "case": "metadata",
+      "repetition": 1,
+      "passed": true,
+      "usage": {
+        "callKey": "cebdafed-9070-41fc-a187-bfd2f569cae3",
+        "modelId": "qwen3.7-flash",
+        "inputTokens": 130,
+        "outputTokens": 111,
+        "callKind": "metadata"
+      },
+      "finishReason": "stop",
+      "result": {
+        "description": "本题库涵盖高等数学核心知识点，包括函数与极限、一元及多元微积分、级数、常微分方程等内容。旨在通过系统化的题目训练，帮助学习者掌握微积分基础理论与计算方法，提升解题技巧与逻辑思维能力，适用于高校学生复习备考及数学爱好者巩固基础。",
+        "tags": [
+          "高等数学",
+          "微积分",
+          "考研数学",
+          "大学数学",
+          "数学基础"
+        ]
+      },
+      "seconds": 2.07
+    },
+    {
+      "case": "report",
+      "repetition": 1,
+      "passed": true,
+      "usage": {
+        "callKey": "09b1a41f-7772-4d9e-9127-9200f965bd71",
+        "modelId": "qwen3.7-flash",
+        "inputTokens": 234,
+        "outputTokens": 269,
+        "callKind": "report"
+      },
+      "finishReason": "stop",
+      "result": {
+        "summary": "根据提供的统计数据，该学习者在本次练习中总共进行了4次尝试，其中正确回答1次，准确率为25%。",
+        "mastery": [
+          {
+            "label": "加法",
+            "score": 0.25,
+            "evidence": "1/4 次作答正确；仅反映已提供的练习记录。"
+          }
+        ],
+        "weakPoints": [
+          {
+            "label": "加法",
+            "reason": "该标签出现在stats.weakKnowledgePoints列表中，且stats.mastery数据显示其正确率仅为25%（1/4），表明存在明显的困难迹象。",
+            "suggestedAction": "建议针对'加法'知识点进行额外的针对性练习和巩固。"
+          }
+        ],
+        "recommendations": [
+          "鉴于准确率较低，建议回顾加法的基本概念和运算规则。",
+          "增加相关练习题的数量，以积累更多有效数据并提升熟练度。"
+        ],
+        "riskLevel": "low"
+      },
+      "seconds": 4.113
+    },
+    {
+      "case": "document",
+      "repetition": 1,
+      "passed": false,
+      "usage": {
+        "callKey": "8c14c525-b931-4999-8ca2-a5946190293b",
+        "modelId": "qwen3.7-flash",
+        "inputTokens": 735,
+        "outputTokens": 397,
+        "callKind": "document"
+      },
+      "finishReason": "stop",
+      "errorType": "ValidationError",
+      "errors": [
+        {
+          "type": "value_error",
+          "loc": [
+            "questions",
+            0
+          ],
+          "msg": "Value error, answerPayload does not match answerMode"
+        }
+      ],
+      "statusCode": null,
+      "seconds": 4.64
+    },
+    {
+      "case": "ocr",
+      "repetition": 1,
+      "passed": false,
+      "usage": {
+        "callKey": "fce0ad25-0cf0-4ce7-b340-31c49b3b7e67",
+        "modelId": "qwen3.7-flash",
+        "inputTokens": 2004,
+        "outputTokens": 20,
+        "callKind": "ocr"
+      },
+      "finishReason": "stop",
+      "result": {
+        "text": "Synthetic Assessment",
+        "figures": []
+      },
+      "seconds": 0.71
+    },
+    {
+      "case": "answer",
+      "repetition": 2,
+      "passed": true,
+      "usage": {
+        "callKey": "8f36f326-e1bb-4979-9267-c18a9de7e978",
+        "modelId": "qwen3.7-flash",
+        "inputTokens": 382,
+        "outputTokens": 140,
+        "callKind": "answer"
+      },
+      "finishReason": "stop",
+      "result": {
+        "answerPayload": {
+          "correctOption": "B"
+        },
+        "canonicalAnswer": "5",
+        "explanation": "2 加 3 等于 5。因此，选项 B 是正确的答案。",
+        "steps": [
+          "识别问题：计算 2 + 3 的值。",
+          "执行加法运算：2 + 3 = 5。",
+          "对比选项：选项 A 为 4，选项 B 为 5。",
+          "确定正确选项：因为结果是 5，所以选择选项 B。"
+        ],
+        "confidence": 1.0,
+        "educationalValue": null
+      },
+      "seconds": 1.836
+    },
+    {
+      "case": "metadata",
+      "repetition": 2,
+      "passed": true,
+      "usage": {
+        "callKey": "4e96faf9-f456-4aa6-b40e-7fcb88d07a3e",
+        "modelId": "qwen3.7-flash",
+        "inputTokens": 130,
+        "outputTokens": 90,
+        "callKind": "metadata"
+      },
+      "finishReason": "stop",
+      "result": {
+        "description": "涵盖微积分、线性代数及概率统计等核心内容的基础数学题库。适合理工科学生备考期末、考研或自学巩固，包含概念辨析与计算题。",
+        "tags": [
+          "高等数学",
+          "微积分",
+          "大学数学",
+          "理工科",
+          "考研基础",
+          "期末复习"
+        ]
+      },
+      "seconds": 1.588
+    },
+    {
+      "case": "report",
+      "repetition": 2,
+      "passed": true,
+      "usage": {
+        "callKey": "da22ec3e-913b-457e-8563-06c159cc779f",
+        "modelId": "qwen3.7-flash",
+        "inputTokens": 234,
+        "outputTokens": 310,
+        "callKind": "report"
+      },
+      "finishReason": "stop",
+      "result": {
+        "summary": "本次学习分析基于提供的统计数据，显示总尝试次数为4次，正确次数为1次，整体准确率为25%。",
+        "mastery": [
+          {
+            "label": "加法",
+            "score": 0.25,
+            "evidence": "1/4 次作答正确；仅反映已提供的练习记录。"
+          }
+        ],
+        "weakPoints": [
+          {
+            "label": "加法",
+            "reason": "根据 stats.mastery 数据显示，“加法”的正确率仅为25%，且被明确列为 stats.weakKnowledgePoints 中的弱点，表明在该特定统计周期内存在明显的困难表现。",
+            "suggestedAction": "建议针对“加法”进行更多针对性练习以巩固基础。请注意，目前的建议仅为改进方向的提示，并非对最终考试结果的保证。"
+          }
+        ],
+        "recommendations": [
+          "鉴于“加法”知识点的准确率较低，建议回顾相关基础概念并增加练习频次。",
+          "由于当前数据样本量较小（N=4），后续应积累更多数据以获得更稳定的能力评估。"
+        ],
+        "riskLevel": "medium"
+      },
+      "seconds": 4.667
+    },
+    {
+      "case": "document",
+      "repetition": 2,
+      "passed": false,
+      "usage": {
+        "callKey": "8a5a0ce9-3c5d-41fe-9439-562ccf013487",
+        "modelId": "qwen3.7-flash",
+        "inputTokens": 735,
+        "outputTokens": 54,
+        "callKind": "document"
+      },
+      "finishReason": "stop",
+      "errorType": "ValidationError",
+      "errors": [
+        {
+          "type": "value_error",
+          "loc": [],
+          "msg": "Value error, questionIndexes must reference a fragment question"
+        }
+      ],
+      "statusCode": null,
+      "seconds": 1.148
+    },
+    {
+      "case": "ocr",
+      "repetition": 2,
+      "passed": false,
+      "usage": {
+        "callKey": "4a13acea-f185-4afe-b1d5-d7757ab5ddc5",
+        "modelId": "qwen3.7-flash",
+        "inputTokens": 2004,
+        "outputTokens": 20,
+        "callKind": "ocr"
+      },
+      "finishReason": "stop",
+      "result": {
+        "text": "Synthetic Assessment",
+        "figures": []
+      },
+      "seconds": 1.477
+    }
+  ]
+}

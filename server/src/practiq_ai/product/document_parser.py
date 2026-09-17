@@ -73,12 +73,6 @@ async def parse_document(request: DocumentParseRequest) -> DocumentParseResult:
     result["status"] = output["status"]
     result["processing"] = output["processing"]
     for question in result["questions"]:
-        answer = question.get("answerPayload")
-        if answer is not None:
-            if question["answerMode"] == "true_false":
-                question["answerPayload"] = {"answer": answer["value"]}
-            elif question["answerMode"] == "short_answer":
-                question["answerPayload"] = {"answer": answer["text"]}
         if output["status"] == "PARTIAL":
             question["needsReview"] = True
     for visual in result["visualElements"]:

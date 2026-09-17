@@ -1,0 +1,83 @@
+{
+  "kind": "generation-smoke",
+  "repetitions": 1,
+  "promptHash": "306ca081c347693febc5a14385b8ed9a218b9cc8c7109eafad85bde743d8ef13",
+  "cases": [
+    {
+      "case": "choice",
+      "passed": false,
+      "errorType": "DocumentProcessingError"
+    },
+    {
+      "case": "true_false",
+      "passed": false,
+      "errorType": "DocumentProcessingError"
+    },
+    {
+      "case": "fill_blank",
+      "passed": false,
+      "errorType": "DocumentProcessingError"
+    },
+    {
+      "case": "short_answer",
+      "passed": false,
+      "errorType": "DocumentProcessingError"
+    },
+    {
+      "case": "learning_report",
+      "passed": true,
+      "result": {
+        "summary": "在本次学习时段内，用户共进行了4次尝试，正确1次，准确率为25%。主要涉及“加法”知识点，且在弱知识点中也标记了“加法”。整体表现存在较大困难，准确率较低。",
+        "mastery": [
+          {
+            "label": "加法",
+            "score": 0.25,
+            "evidence": "1/4 次作答正确；仅反映已提供的练习记录。"
+          }
+        ],
+        "weakPoints": [
+          {
+            "label": "加法",
+            "reason": "数据显示在4次尝试中仅有1次正确，准确率仅为25%，且被系统识别为弱知识点。",
+            "suggestedAction": "建议复习加法的基本概念和运算规则，增加针对性练习以巩固基础。"
+          }
+        ],
+        "recommendations": [
+          "鉴于样本量较小（仅4次尝试），建议积累更多数据以获得更稳定的能力评估。",
+          "重点突破“加法”这一薄弱环节，通过错题回顾加强理解。"
+        ],
+        "riskLevel": "high"
+      },
+      "usage": [
+        {
+          "callKey": "11371486-a960-4339-85fc-1944f02c0ce0",
+          "modelId": "qwen3.7-flash",
+          "inputTokens": 774,
+          "outputTokens": 1328,
+          "callKind": "learning_report"
+        }
+      ]
+    },
+    {
+      "case": "bank_metadata",
+      "passed": true,
+      "result": {
+        "description": "本\n",
+        "tags": [
+          "高",
+          "微",
+          "积"
+        ]
+      },
+      "usage": [
+        {
+          "callKey": "44395d92-5573-4f40-b793-41d39bd39086",
+          "modelId": "qwen3.7-flash",
+          "inputTokens": 456,
+          "outputTokens": 861,
+          "callKind": "bank_metadata"
+        }
+      ]
+    }
+  ]
+}

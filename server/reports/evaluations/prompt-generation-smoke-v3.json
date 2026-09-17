@@ -1,0 +1,156 @@
+{
+  "kind": "generation-smoke",
+  "repetitions": 1,
+  "promptHash": "004841191925bccafb2f2bf9e6a81e5d02b91c7be29cf41222cc6ea07cb0c205",
+  "cases": [
+    {
+      "case": "choice",
+      "passed": true,
+      "expected": {
+        "correctOption": "B"
+      },
+      "actual": {
+        "correctOption": "B"
+      },
+      "usage": [
+        {
+          "callKey": "492709ad-5e85-419e-8719-fda67c4cb933",
+          "modelId": "qwen3.7-flash",
+          "inputTokens": 771,
+          "outputTokens": 588,
+          "callKind": "answer_generation"
+        }
+      ],
+      "seconds": 7.054118540982017
+    },
+    {
+      "case": "true_false",
+      "passed": true,
+      "expected": {
+        "value": true
+      },
+      "actual": {
+        "value": true
+      },
+      "usage": [
+        {
+          "callKey": "2c995ea0-2fd6-44f1-9c3b-368b727d75f1",
+          "modelId": "qwen3.7-flash",
+          "inputTokens": 735,
+          "outputTokens": 1810,
+          "callKind": "answer_generation"
+        }
+      ],
+      "seconds": 22.14416116697248
+    },
+    {
+      "case": "fill_blank",
+      "passed": true,
+      "expected": {
+        "answers": [
+          "5"
+        ]
+      },
+      "actual": {
+        "answers": [
+          "5"
+        ]
+      },
+      "usage": [
+        {
+          "callKey": "e400e94a-a80b-4657-8bef-2fb561a920bd",
+          "modelId": "qwen3.7-flash",
+          "inputTokens": 759,
+          "outputTokens": 1167,
+          "callKind": "answer_generation"
+        }
+      ],
+      "seconds": 13.55994887498673
+    },
+    {
+      "case": "short_answer",
+      "passed": true,
+      "expected": {
+        "text": "5"
+      },
+      "actual": {
+        "text": "5"
+      },
+      "usage": [
+        {
+          "callKey": "8b420d8e-cbea-4faa-accc-a99166d3fe0c",
+          "modelId": "qwen3.7-flash",
+          "inputTokens": 754,
+          "outputTokens": 552,
+          "callKind": "answer_generation"
+        }
+      ],
+      "seconds": 6.177197332988726
+    },
+    {
+      "case": "learning_report",
+      "passed": true,
+      "result": {
+        "summary": "根据统计数据显示，用户在学习周期内（2026-01-01 00:00:00Z 至 01:00:00Z）总尝试次数为 4 次，其中正确次数为 1 次，整体准确率为 0.25。准确率趋势显示今天（标签：今天）的准确率为 0.25。在掌握度指标中，“加法”标签的尝试次数为 4 次，正确次数为 1 次。弱知识_points 列表中包含“加法”。由于样本量较小（仅 4 次尝试），数据代表性有限。",
+        "mastery": [
+          {
+            "label": "加法",
+            "score": 0.25,
+            "evidence": "1/4 次作答正确；仅反映已提供的练习记录。"
+          }
+        ],
+        "weakPoints": [
+          {
+            "label": "加法",
+            "reason": "在“加法”学习中，4 次尝试仅 1 次正确，准确率低；且被系统列为 weakKnowledgePoints",
+            "suggestedAction": "建议重新复习加法基本概念，增加基础练习题量以巩固理解，并检查是否存在计算错误原因"
+          }
+        ],
+        "recommendations": [
+          "鉴于准确率较低，建议针对“加法”内容进行专项强化训练",
+          "分析这 3 次错误的具体原因（如概念不清、粗心等），以便针对性改进",
+          "考虑到尝试次数较少，建议在完成更多练习后再次评估掌握程度"
+        ],
+        "riskLevel": "high"
+      },
+      "usage": [
+        {
+          "callKey": "10d8395c-f21f-4499-af37-eeedf2e655b2",
+          "modelId": "qwen3.7-flash",
+          "inputTokens": 774,
+          "outputTokens": 1773,
+          "callKind": "learning_report"
+        }
+      ]
+    },
+    {
+      "case": "bank_metadata",
+      "passed": true,
+      "result": {
+        "description": "本\n",
+        "tags": [
+          "高",
+          "微",
+          "积",
+          "分"
+        ]
+      },
+      "usage": [
+        {
+          "callKey": "99013ab5-62e7-4db4-88c8-03987abf4b3b",
+          "modelId": "qwen3.7-flash",
+          "inputTokens": 456,
+          "outputTokens": 1436,
+          "callKind": "bank_metadata"
+        }
+      ]
+    }
+  ],
+  "generatedAt": "2026-09-17T15:19:44.559139+00:00",
+  "scope": "One real-model run per synthetic case; not a statistical quality benchmark. Report checks label and computed score; metadata checks schema constraints.",
+  "sourceHashes": {
+    "server/src/practiq_ai/product/agents/generator.py": "c2b2b2c0f39a57d45d53260bb97c6db76e17d8bec347d71e1599892fd3855653",
+    "server/src/practiq_ai/product/agents/model.py": "1bdd2ac53a63b469c0cfa67c7a23806ad93973596774c91b25a525ad07d69352",
+    "server/src/practiq_ai/product/ai_schemas.py": "47ed7eba15b2c08414a3da2ea7748bec3601ffc7c0d72423a7a9a63fb766917e"
+  }
+}

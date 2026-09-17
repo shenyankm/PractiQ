@@ -1,0 +1,67 @@
+{
+  "model": "qwen3.7-flash",
+  "protocol": "function_calling",
+  "passed": false,
+  "cases": [
+    {
+      "name": "partial-choice",
+      "source": "单选题：以下哪项正确？\nA. 0\nB.",
+      "result": {
+        "questions": [
+          {
+            "stem": "以下哪项正确？",
+            "answerMode": null,
+            "questionTypeId": null,
+            "choiceVariant": null,
+            "matchingVariant": null,
+            "items": [],
+            "options": [],
+            "answerPayload": null,
+            "analysis": null,
+            "contentBlocks": [],
+            "sourceText": "单选题：以下哪项正确？\nA. 0\nB.",
+            "confidence": 0.3,
+            "needsReview": true,
+            "missingFields": [
+              "questionTypeId",
+              "answerMode",
+              "answerPayload",
+              "analysis"
+            ]
+          }
+        ],
+        "groups": []
+      },
+      "error": null,
+      "passed": false,
+      "usage": [
+        {
+          "callKey": "2c7a3ea0-917d-4e67-80bf-3a99bd72058a",
+          "modelId": "qwen3.7-flash",
+          "inputTokens": 2658,
+          "outputTokens": 120,
+          "callKind": "document_parse"
+        }
+      ]
+    },
+    {
+      "name": "no-question",
+      "source": "材料：今日学习内容为整数的大小比较。",
+      "result": {
+        "questions": [],
+        "groups": []
+      },
+      "error": null,
+      "passed": true,
+      "usage": [
+        {
+          "callKey": "2d256eaa-16ee-4600-9429-deead42aaedf",
+          "modelId": "qwen3.7-flash",
+          "inputTokens": 2653,
+          "outputTokens": 39,
+          "callKind": "document_parse"
+        }
+      ]
+    }
+  ]
+}

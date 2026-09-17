@@ -61,6 +61,7 @@ def merge_chunk_results(
                 local_index == 0
                 and previous_chunk_index is not None
                 and chunk_index == previous_chunk_index + 1
+                and bool(key)
                 and previous_last_key == key
                 and previous_last_index is not None
             ):
@@ -112,7 +113,7 @@ def merge_chunk_results(
     return questions, groups, warnings, truncated
 
 
-def _normalize_stem(stem: str) -> str:
+def _normalize_stem(stem: str | None) -> str:
     # 去掉行首题号与空白后取前 200 字符作为去重键
-    stripped = QUESTION_BOUNDARY_PATTERN.sub('', stem.strip(), count=1)
+    stripped = QUESTION_BOUNDARY_PATTERN.sub('', (stem or '').strip(), count=1)
     return re.sub(r'\s+', '', stripped)[:200].casefold()

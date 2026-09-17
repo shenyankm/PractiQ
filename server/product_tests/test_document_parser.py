@@ -12,7 +12,6 @@ from pathlib import Path
 import pytest
 from httpx import ASGITransport, AsyncClient
 from langchain_openai import ChatOpenAI
-
 from practiq_ai import llm, webapp
 from practiq_ai.contracts import DocumentUploadRequest
 from practiq_ai.errors import DocumentProcessingError
@@ -45,13 +44,13 @@ async def post(payload):
 
 @pytest.mark.parametrize(("mode", "native", "expected"), [
     ("choice", {"correctOption": "a"}, {"correctOption": "A"}),
-    ("true_false", {"value": False}, {"answer": False}),
+    ("true_false", {"value": False}, {"value": False}),
     ("fill_blank", {"answers": ["four"]}, {"answers": ["four"]}),
-    ("short_answer", {"text": "four"}, {"answer": "four"}),
+    ("short_answer", {"text": "four"}, {"text": "four"}),
 ])
 async def test_java_answer_keys_and_usage(setup, mode, native, expected):
     store, model = setup
-    item = {**question("What is 2+2?"), "answerMode": mode, "answerPayload": native}
+    item = {**question("What is 2+2?"), "answerMode": mode, "choiceVariant": "single" if mode == "choice" else None, "answerPayload": native}
     if mode == "choice":
         item["options"] = [{"label": "A", "content": "four"}]
     model.responses = [{"questions": [item], "groups": []}]
@@ -204,7 +203,7 @@ async def test_real_generation_service_and_http_routes_remain_available(setup, m
     monkeypatch.setattr(ai.agents, "build_models", lambda *_: (model, None))
     answer = {"answerPayload": {"correctOption": "A"}, "canonicalAnswer": "A",
               "explanation": "Because", "steps": ["Solve"], "confidence": 1}
-    report = {"summary": "Limited evidence", "mastery": [], "weakPoints": [],
+    report = {"summary": "Limited evidence", "mastery": [{"label": "Math", "score": 1, "evidence": "1/1 次作答正确；仅反映已提供的练习记录。"}], "weakPoints": [],
               "recommendations": ["Practice"], "riskLevel": "low"}
     model.responses = [answer, report]
     stats = {"attemptCount": 1, "correctCount": 1, "accuracy": 1,
@@ -214,7 +213,7 @@ async def test_real_generation_service_and_http_routes_remain_available(setup, m
              "weakKnowledgePoints": ["Math"]}
     async with AsyncClient(transport=ASGITransport(app=create_app(load())), base_url="http://test") as client:
         first = await client.post("/api/v1/ai/generate-answer", headers=HEADERS,
-                                  json={"stem": "Question", "answerMode": "choice"})
+                                  json={"stem": "Question", "answerMode": "choice", "choiceVariant": "single", "options": [{"label": "A", "content": "Answer"}, {"label": "B", "content": "Other"}]})
         second = await client.post("/api/v1/ai/learning-report", headers=HEADERS,
                                    json={"scope": "individual", "stats": stats})
     assert first.status_code == second.status_code == 200

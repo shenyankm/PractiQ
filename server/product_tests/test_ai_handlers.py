@@ -2,7 +2,7 @@ from uuid import UUID
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-
+from practiq_ai.contracts import ChoiceAnswerPayload
 from practiq_ai.product import envelope, middleware
 from practiq_ai.product.ai_schemas import AnswerGenerationResult, ModelCallUsage
 from practiq_ai.product.app import create_app
@@ -29,7 +29,7 @@ class FailingService:
 class SuccessfulUsageService:
     async def generate_answer(self, payload):
         return AnswerGenerationResult(
-            answerPayload={"correctOption": "A"},
+            answerPayload=ChoiceAnswerPayload(correctOption="A"),
             canonicalAnswer="A",
             explanation="Because.",
             steps=["Solve it"],
@@ -139,7 +139,7 @@ async def test_ai_routes_require_service_token(client: AsyncClient):
 @pytest.mark.parametrize(
     ("path", "payload", "status"),
     (
-        ("/api/v1/ai/generate-answer", {"stem": "x"}, 422),
+        ("/api/v1/ai/generate-answer", {"stem": 12}, 422),
         (
             "/api/v1/ai/generate-answer",
             {"stem": "x", "answerMode": "choice", "extra": 1},

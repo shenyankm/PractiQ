@@ -1,0 +1,259 @@
+{
+  "method": "json_schema",
+  "model": "qwen3.7-flash",
+  "thinking": false,
+  "maxTokens": 4096,
+  "timeoutSeconds": 60,
+  "repetitions": 2,
+  "concurrency": 2,
+  "cases": [
+    {
+      "case": "answer",
+      "repetition": 1,
+      "passed": true,
+      "usage": {
+        "callKey": "8baf697b-5810-4b28-a3c8-bb960b0dfb45",
+        "modelId": "qwen3.7-flash",
+        "inputTokens": 382,
+        "outputTokens": 127,
+        "callKind": "answer"
+      },
+      "finishReason": "stop",
+      "result": {
+        "answerPayload": {
+          "correctOption": "B"
+        },
+        "canonicalAnswer": "5",
+        "explanation": "2 加 3 等于 5。在提供的选项中，选项 B 的内容是 5。",
+        "steps": [
+          "识别算式：2 + 3",
+          "执行加法运算：2 + 3 = 5",
+          "对比选项：A 为 4，B 为 5",
+          "确定正确选项为 B"
+        ],
+        "confidence": 1.0,
+        "educationalValue": null
+      },
+      "seconds": 2.056
+    },
+    {
+      "case": "metadata",
+      "repetition": 1,
+      "passed": true,
+      "usage": {
+        "callKey": "2ac54717-068f-40a4-8192-d43b716f1e21",
+        "modelId": "qwen3.7-flash",
+        "inputTokens": 130,
+        "outputTokens": 53,
+        "callKind": "metadata"
+      },
+      "finishReason": "stop",
+      "result": {
+        "description": "本",
+        "tags": [
+          "微",
+          "线",
+          "积",
+          "数",
+          "理",
+          "大"
+        ]
+      },
+      "seconds": 1.022
+    },
+    {
+      "case": "report",
+      "repetition": 1,
+      "passed": true,
+      "usage": {
+        "callKey": "43c4a2d3-315f-415c-ba0a-34453ccf0aeb",
+        "modelId": "qwen3.7-flash",
+        "inputTokens": 234,
+        "outputTokens": 255,
+        "callKind": "report"
+      },
+      "finishReason": "stop",
+      "result": {
+        "summary": "基于提供的统计数据，本次学习分析显示整体表现较弱。总尝试次数为4次，正确次数为1次，准确率为0.25（即25%）。",
+        "mastery": [
+          {
+            "label": "加法",
+            "score": 0.25,
+            "evidence": "1/4 次作答正确；仅反映已提供的练习记录。"
+          }
+        ],
+        "weakPoints": [
+          {
+            "label": "加法",
+            "reason": "该标签出现在stats.weakKnowledgePoints列表中，且stats.mastery数据显示其正确率仅为25%，符合困难点特征。",
+            "suggestedAction": "建议针对“加法”进行更多练习以巩固基础。"
+          }
+        ],
+        "recommendations": [
+          "鉴于“加法”知识点的掌握情况不佳，建议增加相关练习题的数量和多样性。",
+          "回顾错误案例，分析具体错误原因，以便更有针对性地改进。"
+        ],
+        "riskLevel": "medium"
+      },
+      "seconds": 3.472
+    },
+    {
+      "case": "document",
+      "repetition": 1,
+      "passed": false,
+      "usage": {
+        "callKey": "218f84d8-1a83-4b60-8afe-0cf8dda06fa6",
+        "modelId": "qwen3.7-flash",
+        "inputTokens": 735,
+        "outputTokens": 549,
+        "callKind": "document"
+      },
+      "finishReason": "stop",
+      "errorType": "ValidationError",
+      "statusCode": null,
+      "seconds": 5.887
+    },
+    {
+      "case": "ocr",
+      "repetition": 1,
+      "passed": true,
+      "usage": {
+        "callKey": "fa7ba170-2fa8-4513-8eb8-d4c46a2920ad",
+        "modelId": "qwen3.7-flash",
+        "inputTokens": 2004,
+        "outputTokens": 65,
+        "callKind": "ocr"
+      },
+      "finishReason": "stop",
+      "result": {
+        "text": "Synthetic Assessment1. Multiple choice: Which color is made by mixing red and blue?A. Green B. Purple C. OrangeAnswer: B2. Fill in the blank: 9 + 10 = ____.Answer: 19",
+        "figures": []
+      },
+      "seconds": 3.71
+    },
+    {
+      "case": "answer",
+      "repetition": 2,
+      "passed": true,
+      "usage": {
+        "callKey": "7dfd43a3-86c3-4d06-b7a5-4b32eb1722c1",
+        "modelId": "qwen3.7-flash",
+        "inputTokens": 382,
+        "outputTokens": 131,
+        "callKind": "answer"
+      },
+      "finishReason": "stop",
+      "result": {
+        "answerPayload": {
+          "correctOption": "B"
+        },
+        "canonicalAnswer": "5",
+        "explanation": "2 加 3 等于 5。在提供的选项中，B 选项的内容是 5。",
+        "steps": [
+          "识别问题：计算 2 + 3。",
+          "执行加法运算：2 + 3 = 5。",
+          "对比选项：A 为 4，B 为 5。",
+          "确定正确答案为 B。"
+        ],
+        "confidence": 1.0,
+        "educationalValue": null
+      },
+      "seconds": 2.121
+    },
+    {
+      "case": "metadata",
+      "repetition": 2,
+      "passed": true,
+      "usage": {
+        "callKey": "b852a8f5-f463-494f-862b-3fc2044042c9",
+        "modelId": "qwen3.7-flash",
+        "inputTokens": 130,
+        "outputTokens": 52,
+        "callKind": "metadata"
+      },
+      "finishReason": "stop",
+      "result": {
+        "description": "本",
+        "tags": [
+          "高",
+          "微",
+          "积",
+          "线",
+          "数",
+          "学"
+        ]
+      },
+      "seconds": 0.95
+    },
+    {
+      "case": "report",
+      "repetition": 2,
+      "passed": true,
+      "usage": {
+        "callKey": "bfaf9e2e-3e92-4e54-af8c-a2c02175c18a",
+        "modelId": "qwen3.7-flash",
+        "inputTokens": 234,
+        "outputTokens": 270,
+        "callKind": "report"
+      },
+      "finishReason": "stop",
+      "result": {
+        "summary": "本次学习分析基于提供的统计数据，显示学生在“加法”这一知识点上表现不佳。总体尝试次数为4次，正确次数为1次，准确率为25%。",
+        "mastery": [
+          {
+            "label": "加法",
+            "score": 0.25,
+            "evidence": "1/4 次作答正确；仅反映已提供的练习记录。"
+          }
+        ],
+        "weakPoints": [
+          {
+            "label": "加法",
+            "reason": "该标签出现在stats.mastery中且准确率极低（25%），同时明确列于stats.weakKnowledgePoints中，表明存在明显的掌握困难。",
+            "suggestedAction": "建议针对“加法”概念进行专项练习，重点回顾基础运算规则，并增加尝试次数以验证掌握程度。"
+          }
+        ],
+        "recommendations": [
+          "鉴于样本量较小（仅4次尝试），建议增加练习频次以获得更稳定的评估结果。",
+          "可考虑使用可视化教具或分步引导法辅助理解加法逻辑。"
+        ],
+        "riskLevel": "medium"
+      },
+      "seconds": 3.733
+    },
+    {
+      "case": "document",
+      "repetition": 2,
+      "passed": false,
+      "usage": {
+        "callKey": "eed2dd59-0965-4ca2-9675-5cdbcb916f17",
+        "modelId": "qwen3.7-flash",
+        "inputTokens": 735,
+        "outputTokens": 357,
+        "callKind": "document"
+      },
+      "finishReason": "stop",
+      "errorType": "ValidationError",
+      "statusCode": null,
+      "seconds": 3.902
+    },
+    {
+      "case": "ocr",
+      "repetition": 2,
+      "passed": true,
+      "usage": {
+        "callKey": "e0ac3e09-aee1-41f4-bb6b-5ef8419d39cb",
+        "modelId": "qwen3.7-flash",
+        "inputTokens": 2004,
+        "outputTokens": 67,
+        "callKind": "ocr"
+      },
+      "finishReason": "stop",
+      "result": {
+        "text": "Synthetic Assessment 1. Multiple choice: Which color is made by mixing red and blue? A. Green B. Purple C. Orange Answer: B 2. Fill in the blank: 9 + 10 = ____. Answer: 19",
+        "figures": []
+      },
+      "seconds": 3.238
+    }
+  ]
+}

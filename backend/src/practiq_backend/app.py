@@ -54,7 +54,7 @@ def create_app(settings: Settings | None = None):
 
     @app.exception_handler(Error)
     async def business_error(request, exc):
-        return error_response(request, exc.status, exc.code, exc.message)
+        return error_response(request, exc.status, exc.code, exc.message, exc.details)
 
     @app.exception_handler(RequestValidationError)
     async def validation(request, exc):
@@ -118,7 +118,7 @@ def create_app(settings: Settings | None = None):
             else:
                 response = await call_next(request)
         except Error as exc:
-            response = error_response(request, exc.status, exc.code, exc.message)
+            response = error_response(request, exc.status, exc.code, exc.message, exc.details)
         except (OperationalError, IntegrityError, PoolTimeout):
             response = error_response(
                 request, 503, "WRITE_FAILED", "Transaction did not commit; retry with the same request key"

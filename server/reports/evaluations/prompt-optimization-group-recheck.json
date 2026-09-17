@@ -1,0 +1,1327 @@
+{
+  "schemaVersion": 2,
+  "kind": "evaluation",
+  "runId": "40857b2b-93e6-40a4-9f34-778848ff4214",
+  "generatedAt": "2026-09-17T15:47:56.569597+00:00",
+  "environment": "local-real-services",
+  "scorerVersion": "2.0.0",
+  "repetitions": 3,
+  "caseIds": [
+    "text-grouped",
+    "xlsx-multi-sheet",
+    "text-repeated-stem"
+  ],
+  "datasetHash": "2f2279e85238d25b7420ba69c6966838f22029f18d1e27cca0de8db2afdd64d0",
+  "gitCommit": "9bc073134c7f947d8e7f6c4ccac4bf45249a1636",
+  "dirty": true,
+  "codeHash": "f656c0bf9c152b3737bf597e3be7db5d778d0033f04ebe5cab741d02865e5d10",
+  "models": {
+    "provider": "dashscope",
+    "text": "qwen3.7-flash",
+    "vision": "qwen3.7-flash"
+  },
+  "settings": {
+    "source_max_bytes": 26214400,
+    "vision_max_bytes": 52428800,
+    "max_document_pages": 100,
+    "max_vision_page_pixels": 25000000,
+    "max_total_input_chars": 2000000,
+    "graph_max_concurrency": 2,
+    "storage_concurrency": 4,
+    "storage_timeout_seconds": 30.0,
+    "model_timeout_seconds": 180.0,
+    "model_max_tokens": 16384
+  },
+  "promptHash": "93ce1704f7fa56a3404d5c1260495f48042611212f3fd020814b35cc6b7dbd94",
+  "cases": [
+    {
+      "id": "text-grouped",
+      "sourceType": "text",
+      "tags": [
+        "synthetic",
+        "smoke",
+        "text"
+      ],
+      "critical": false,
+      "repetition": 1,
+      "status": "ERROR",
+      "latencyMs": 142774.59920800175,
+      "expectedError": null,
+      "outcomeMatched": false,
+      "blocked": false,
+      "error": {
+        "type": "DocumentProcessingError",
+        "code": "DOCUMENT_PARSE_FAILED",
+        "statusCode": 502
+      },
+      "processing": {
+        "chunks": {
+          "total": 1,
+          "succeeded": 0,
+          "skipped": 0
+        },
+        "visuals": {
+          "total": 0,
+          "succeeded": 0,
+          "skipped": 0
+        },
+        "truncated": false,
+        "failures": [
+          {
+            "stage": "document_parse",
+            "index": 0,
+            "code": "OUTPUT_INVALID",
+            "retryable": true
+          }
+        ]
+      },
+      "score": {
+        "expected": 2,
+        "predicted": 0,
+        "matched": 0,
+        "modeCorrect": 0,
+        "optionsExpected": 0,
+        "optionsCorrect": 0,
+        "answerCorrect": 0,
+        "inventedAnswers": 0,
+        "questions": [
+          {
+            "expectedIndex": 0,
+            "predictedIndex": null,
+            "answerMode": "fill_blank",
+            "expected": {
+              "stem": "6 × 7 = ____.",
+              "answerMode": "fill_blank",
+              "options": [],
+              "answerPayload": {
+                "answers": [
+                  "42"
+                ]
+              }
+            },
+            "predicted": null,
+            "matched": false,
+            "correct": {
+              "answerMode": false,
+              "options": false,
+              "answerPayload": false
+            },
+            "inventedAnswer": false,
+            "differences": [
+              "missing"
+            ]
+          },
+          {
+            "expectedIndex": 1,
+            "predictedIndex": null,
+            "answerMode": "short_answer",
+            "expected": {
+              "stem": "What is the square root of 81?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": {
+                "text": "9"
+              }
+            },
+            "predicted": null,
+            "matched": false,
+            "correct": {
+              "answerMode": false,
+              "options": false,
+              "answerPayload": false
+            },
+            "inventedAnswer": false,
+            "differences": [
+              "missing"
+            ]
+          }
+        ],
+        "groups": {
+          "expected": 1,
+          "predicted": 0,
+          "matched": 0,
+          "missing": [
+            [
+              "Arithmetic",
+              [
+                0,
+                1
+              ]
+            ]
+          ],
+          "extra": []
+        },
+        "visuals": {
+          "expected": 0,
+          "predicted": 0,
+          "matched": 0,
+          "missing": [],
+          "extra": []
+        }
+      },
+      "modelCalls": [
+        {
+          "callId": "01a0b00d-9bfb-7103-8def-644e239f3dfc",
+          "node": "chunk",
+          "status": "RETURNED",
+          "inputTokens": 1979,
+          "outputTokens": 4432
+        },
+        {
+          "callId": "01a0b00e-7ce1-7561-8a76-cd1d26be78f4",
+          "node": "chunk",
+          "status": "RETURNED",
+          "inputTokens": 2306,
+          "outputTokens": 2918
+        },
+        {
+          "callId": "01a0b00e-e869-72b2-b1e7-80e845464f74",
+          "node": "chunk",
+          "status": "RETURNED",
+          "inputTokens": 2623,
+          "outputTokens": 3082
+        },
+        {
+          "callId": "01a0b00f-5341-7523-9c3d-9030ada4361f",
+          "node": "chunk",
+          "status": "RETURNED",
+          "inputTokens": 2950,
+          "outputTokens": 3232
+        }
+      ]
+    },
+    {
+      "id": "xlsx-multi-sheet",
+      "sourceType": "xlsx",
+      "tags": [
+        "synthetic",
+        "smoke",
+        "xlsx"
+      ],
+      "critical": false,
+      "repetition": 1,
+      "status": "SUCCEEDED",
+      "latencyMs": 35784.056791017065,
+      "expectedError": null,
+      "outcomeMatched": true,
+      "blocked": false,
+      "error": null,
+      "processing": {
+        "chunks": {
+          "total": 1,
+          "succeeded": 1,
+          "skipped": 0
+        },
+        "visuals": {
+          "total": 0,
+          "succeeded": 0,
+          "skipped": 0
+        },
+        "truncated": false,
+        "failures": []
+      },
+      "score": {
+        "expected": 2,
+        "predicted": 2,
+        "matched": 2,
+        "modeCorrect": 2,
+        "optionsExpected": 0,
+        "optionsCorrect": 0,
+        "answerCorrect": 0,
+        "inventedAnswers": 0,
+        "questions": [
+          {
+            "expectedIndex": 0,
+            "predictedIndex": 0,
+            "answerMode": "true_false",
+            "expected": {
+              "stem": "Earth orbits the Sun.",
+              "answerMode": "true_false",
+              "options": [],
+              "answerPayload": {
+                "value": true
+              }
+            },
+            "predicted": {
+              "stem": "Earth orbits the Sun.",
+              "answerMode": "true_false",
+              "options": [],
+              "answerPayload": null
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": false
+            },
+            "inventedAnswer": false,
+            "differences": [
+              "answerPayload"
+            ]
+          },
+          {
+            "expectedIndex": 1,
+            "predictedIndex": 1,
+            "answerMode": "short_answer",
+            "expected": {
+              "stem": "What is 15 ÷ 3?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": {
+                "text": "5"
+              }
+            },
+            "predicted": {
+              "stem": "What is 15 ÷ 3?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": null
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": false
+            },
+            "inventedAnswer": false,
+            "differences": [
+              "answerPayload"
+            ]
+          }
+        ],
+        "groups": {
+          "expected": 2,
+          "predicted": 2,
+          "matched": 2,
+          "missing": [],
+          "extra": []
+        },
+        "visuals": {
+          "expected": 0,
+          "predicted": 0,
+          "matched": 0,
+          "missing": [],
+          "extra": []
+        }
+      },
+      "modelCalls": [
+        {
+          "callId": "01a0b00f-c9a6-7e10-8345-960193890bc6",
+          "node": "chunk",
+          "status": "RETURNED",
+          "inputTokens": 1971,
+          "outputTokens": 3357
+        }
+      ]
+    },
+    {
+      "id": "text-repeated-stem",
+      "sourceType": "text",
+      "tags": [
+        "synthetic",
+        "regression",
+        "repeated-stem"
+      ],
+      "critical": true,
+      "repetition": 1,
+      "status": "SUCCEEDED",
+      "latencyMs": 28304.515541007277,
+      "expectedError": null,
+      "outcomeMatched": true,
+      "blocked": false,
+      "error": null,
+      "processing": {
+        "chunks": {
+          "total": 1,
+          "succeeded": 1,
+          "skipped": 0
+        },
+        "visuals": {
+          "total": 0,
+          "succeeded": 0,
+          "skipped": 0
+        },
+        "truncated": false,
+        "failures": []
+      },
+      "score": {
+        "expected": 2,
+        "predicted": 2,
+        "matched": 2,
+        "modeCorrect": 2,
+        "optionsExpected": 0,
+        "optionsCorrect": 0,
+        "answerCorrect": 2,
+        "inventedAnswers": 0,
+        "questions": [
+          {
+            "expectedIndex": 0,
+            "predictedIndex": 0,
+            "answerMode": "short_answer",
+            "expected": {
+              "stem": "What label is recorded?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": {
+                "text": "alpha"
+              }
+            },
+            "predicted": {
+              "stem": "What label is recorded?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": {
+                "text": "alpha"
+              }
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": true
+            },
+            "inventedAnswer": false,
+            "differences": []
+          },
+          {
+            "expectedIndex": 1,
+            "predictedIndex": 1,
+            "answerMode": "short_answer",
+            "expected": {
+              "stem": "What label is recorded?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": {
+                "text": "beta"
+              }
+            },
+            "predicted": {
+              "stem": "What label is recorded?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": {
+                "text": "beta"
+              }
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": true
+            },
+            "inventedAnswer": false,
+            "differences": []
+          }
+        ],
+        "groups": null,
+        "visuals": {
+          "expected": 0,
+          "predicted": 0,
+          "matched": 0,
+          "missing": [],
+          "extra": []
+        }
+      },
+      "modelCalls": [
+        {
+          "callId": "01a0b010-54e2-7961-99f3-7458f31d973c",
+          "node": "chunk",
+          "status": "RETURNED",
+          "inputTokens": 1962,
+          "outputTokens": 2644
+        }
+      ]
+    },
+    {
+      "id": "text-grouped",
+      "sourceType": "text",
+      "tags": [
+        "synthetic",
+        "smoke",
+        "text"
+      ],
+      "critical": false,
+      "repetition": 2,
+      "status": "SUCCEEDED",
+      "latencyMs": 23816.33212498855,
+      "expectedError": null,
+      "outcomeMatched": true,
+      "blocked": false,
+      "error": null,
+      "processing": {
+        "chunks": {
+          "total": 1,
+          "succeeded": 1,
+          "skipped": 0
+        },
+        "visuals": {
+          "total": 0,
+          "succeeded": 0,
+          "skipped": 0
+        },
+        "truncated": false,
+        "failures": []
+      },
+      "score": {
+        "expected": 2,
+        "predicted": 2,
+        "matched": 2,
+        "modeCorrect": 2,
+        "optionsExpected": 0,
+        "optionsCorrect": 0,
+        "answerCorrect": 2,
+        "inventedAnswers": 0,
+        "questions": [
+          {
+            "expectedIndex": 0,
+            "predictedIndex": 0,
+            "answerMode": "fill_blank",
+            "expected": {
+              "stem": "6 × 7 = ____.",
+              "answerMode": "fill_blank",
+              "options": [],
+              "answerPayload": {
+                "answers": [
+                  "42"
+                ]
+              }
+            },
+            "predicted": {
+              "stem": "6 × 7 = ____.",
+              "answerMode": "fill_blank",
+              "options": [],
+              "answerPayload": {
+                "answers": [
+                  "42"
+                ]
+              }
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": true
+            },
+            "inventedAnswer": false,
+            "differences": []
+          },
+          {
+            "expectedIndex": 1,
+            "predictedIndex": 1,
+            "answerMode": "short_answer",
+            "expected": {
+              "stem": "What is the square root of 81?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": {
+                "text": "9"
+              }
+            },
+            "predicted": {
+              "stem": "What is the square root of 81?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": {
+                "text": "9"
+              }
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": true
+            },
+            "inventedAnswer": false,
+            "differences": []
+          }
+        ],
+        "groups": {
+          "expected": 1,
+          "predicted": 1,
+          "matched": 1,
+          "missing": [],
+          "extra": []
+        },
+        "visuals": {
+          "expected": 0,
+          "predicted": 0,
+          "matched": 0,
+          "missing": [],
+          "extra": []
+        }
+      },
+      "modelCalls": [
+        {
+          "callId": "01a0b010-c375-7ab2-9b10-89da63cb3671",
+          "node": "chunk",
+          "status": "RETURNED",
+          "inputTokens": 1979,
+          "outputTokens": 2653
+        }
+      ]
+    },
+    {
+      "id": "xlsx-multi-sheet",
+      "sourceType": "xlsx",
+      "tags": [
+        "synthetic",
+        "smoke",
+        "xlsx"
+      ],
+      "critical": false,
+      "repetition": 2,
+      "status": "SUCCEEDED",
+      "latencyMs": 30535.443959000986,
+      "expectedError": null,
+      "outcomeMatched": true,
+      "blocked": false,
+      "error": null,
+      "processing": {
+        "chunks": {
+          "total": 1,
+          "succeeded": 1,
+          "skipped": 0
+        },
+        "visuals": {
+          "total": 0,
+          "succeeded": 0,
+          "skipped": 0
+        },
+        "truncated": false,
+        "failures": []
+      },
+      "score": {
+        "expected": 2,
+        "predicted": 2,
+        "matched": 2,
+        "modeCorrect": 2,
+        "optionsExpected": 0,
+        "optionsCorrect": 0,
+        "answerCorrect": 2,
+        "inventedAnswers": 0,
+        "questions": [
+          {
+            "expectedIndex": 0,
+            "predictedIndex": 0,
+            "answerMode": "true_false",
+            "expected": {
+              "stem": "Earth orbits the Sun.",
+              "answerMode": "true_false",
+              "options": [],
+              "answerPayload": {
+                "value": true
+              }
+            },
+            "predicted": {
+              "stem": "Earth orbits the Sun.",
+              "answerMode": "true_false",
+              "options": [],
+              "answerPayload": {
+                "value": true
+              }
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": true
+            },
+            "inventedAnswer": false,
+            "differences": []
+          },
+          {
+            "expectedIndex": 1,
+            "predictedIndex": 1,
+            "answerMode": "short_answer",
+            "expected": {
+              "stem": "What is 15 ÷ 3?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": {
+                "text": "5"
+              }
+            },
+            "predicted": {
+              "stem": "What is 15 ÷ 3?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": {
+                "text": "5"
+              }
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": true
+            },
+            "inventedAnswer": false,
+            "differences": []
+          }
+        ],
+        "groups": {
+          "expected": 2,
+          "predicted": 2,
+          "matched": 2,
+          "missing": [],
+          "extra": []
+        },
+        "visuals": {
+          "expected": 0,
+          "predicted": 0,
+          "matched": 0,
+          "missing": [],
+          "extra": []
+        }
+      },
+      "modelCalls": [
+        {
+          "callId": "01a0b011-208b-7590-b3ce-6307879a1967",
+          "node": "chunk",
+          "status": "RETURNED",
+          "inputTokens": 1971,
+          "outputTokens": 2870
+        }
+      ]
+    },
+    {
+      "id": "text-repeated-stem",
+      "sourceType": "text",
+      "tags": [
+        "synthetic",
+        "regression",
+        "repeated-stem"
+      ],
+      "critical": true,
+      "repetition": 2,
+      "status": "SUCCEEDED",
+      "latencyMs": 29180.985167011386,
+      "expectedError": null,
+      "outcomeMatched": true,
+      "blocked": false,
+      "error": null,
+      "processing": {
+        "chunks": {
+          "total": 1,
+          "succeeded": 1,
+          "skipped": 0
+        },
+        "visuals": {
+          "total": 0,
+          "succeeded": 0,
+          "skipped": 0
+        },
+        "truncated": false,
+        "failures": []
+      },
+      "score": {
+        "expected": 2,
+        "predicted": 2,
+        "matched": 2,
+        "modeCorrect": 2,
+        "optionsExpected": 0,
+        "optionsCorrect": 0,
+        "answerCorrect": 2,
+        "inventedAnswers": 0,
+        "questions": [
+          {
+            "expectedIndex": 0,
+            "predictedIndex": 0,
+            "answerMode": "short_answer",
+            "expected": {
+              "stem": "What label is recorded?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": {
+                "text": "alpha"
+              }
+            },
+            "predicted": {
+              "stem": "What label is recorded?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": {
+                "text": "alpha"
+              }
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": true
+            },
+            "inventedAnswer": false,
+            "differences": []
+          },
+          {
+            "expectedIndex": 1,
+            "predictedIndex": 1,
+            "answerMode": "short_answer",
+            "expected": {
+              "stem": "What label is recorded?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": {
+                "text": "beta"
+              }
+            },
+            "predicted": {
+              "stem": "What label is recorded?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": {
+                "text": "beta"
+              }
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": true
+            },
+            "inventedAnswer": false,
+            "differences": []
+          }
+        ],
+        "groups": null,
+        "visuals": {
+          "expected": 0,
+          "predicted": 0,
+          "matched": 0,
+          "missing": [],
+          "extra": []
+        }
+      },
+      "modelCalls": [
+        {
+          "callId": "01a0b011-97c8-7d71-92e5-9f0e2089d27f",
+          "node": "chunk",
+          "status": "RETURNED",
+          "inputTokens": 1962,
+          "outputTokens": 3192
+        }
+      ]
+    },
+    {
+      "id": "text-grouped",
+      "sourceType": "text",
+      "tags": [
+        "synthetic",
+        "smoke",
+        "text"
+      ],
+      "critical": false,
+      "repetition": 3,
+      "status": "SUCCEEDED",
+      "latencyMs": 24298.2999580272,
+      "expectedError": null,
+      "outcomeMatched": true,
+      "blocked": false,
+      "error": null,
+      "processing": {
+        "chunks": {
+          "total": 1,
+          "succeeded": 1,
+          "skipped": 0
+        },
+        "visuals": {
+          "total": 0,
+          "succeeded": 0,
+          "skipped": 0
+        },
+        "truncated": false,
+        "failures": []
+      },
+      "score": {
+        "expected": 2,
+        "predicted": 2,
+        "matched": 2,
+        "modeCorrect": 2,
+        "optionsExpected": 0,
+        "optionsCorrect": 0,
+        "answerCorrect": 0,
+        "inventedAnswers": 0,
+        "questions": [
+          {
+            "expectedIndex": 0,
+            "predictedIndex": 0,
+            "answerMode": "fill_blank",
+            "expected": {
+              "stem": "6 × 7 = ____.",
+              "answerMode": "fill_blank",
+              "options": [],
+              "answerPayload": {
+                "answers": [
+                  "42"
+                ]
+              }
+            },
+            "predicted": {
+              "stem": "6 × 7 = ____.",
+              "answerMode": "fill_blank",
+              "options": [],
+              "answerPayload": null
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": false
+            },
+            "inventedAnswer": false,
+            "differences": [
+              "answerPayload"
+            ]
+          },
+          {
+            "expectedIndex": 1,
+            "predictedIndex": 1,
+            "answerMode": "short_answer",
+            "expected": {
+              "stem": "What is the square root of 81?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": {
+                "text": "9"
+              }
+            },
+            "predicted": {
+              "stem": "What is the square root of 81?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": null
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": false
+            },
+            "inventedAnswer": false,
+            "differences": [
+              "answerPayload"
+            ]
+          }
+        ],
+        "groups": {
+          "expected": 1,
+          "predicted": 1,
+          "matched": 1,
+          "missing": [],
+          "extra": []
+        },
+        "visuals": {
+          "expected": 0,
+          "predicted": 0,
+          "matched": 0,
+          "missing": [],
+          "extra": []
+        }
+      },
+      "modelCalls": [
+        {
+          "callId": "01a0b012-09c9-7df1-882f-4766d462eb62",
+          "node": "chunk",
+          "status": "RETURNED",
+          "inputTokens": 1979,
+          "outputTokens": 1854
+        }
+      ]
+    },
+    {
+      "id": "xlsx-multi-sheet",
+      "sourceType": "xlsx",
+      "tags": [
+        "synthetic",
+        "smoke",
+        "xlsx"
+      ],
+      "critical": false,
+      "repetition": 3,
+      "status": "SUCCEEDED",
+      "latencyMs": 23937.234125012765,
+      "expectedError": null,
+      "outcomeMatched": true,
+      "blocked": false,
+      "error": null,
+      "processing": {
+        "chunks": {
+          "total": 1,
+          "succeeded": 1,
+          "skipped": 0
+        },
+        "visuals": {
+          "total": 0,
+          "succeeded": 0,
+          "skipped": 0
+        },
+        "truncated": false,
+        "failures": []
+      },
+      "score": {
+        "expected": 2,
+        "predicted": 2,
+        "matched": 2,
+        "modeCorrect": 2,
+        "optionsExpected": 0,
+        "optionsCorrect": 0,
+        "answerCorrect": 2,
+        "inventedAnswers": 0,
+        "questions": [
+          {
+            "expectedIndex": 0,
+            "predictedIndex": 0,
+            "answerMode": "true_false",
+            "expected": {
+              "stem": "Earth orbits the Sun.",
+              "answerMode": "true_false",
+              "options": [],
+              "answerPayload": {
+                "value": true
+              }
+            },
+            "predicted": {
+              "stem": "Earth orbits the Sun.",
+              "answerMode": "true_false",
+              "options": [],
+              "answerPayload": {
+                "value": true
+              }
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": true
+            },
+            "inventedAnswer": false,
+            "differences": []
+          },
+          {
+            "expectedIndex": 1,
+            "predictedIndex": 1,
+            "answerMode": "short_answer",
+            "expected": {
+              "stem": "What is 15 ÷ 3?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": {
+                "text": "5"
+              }
+            },
+            "predicted": {
+              "stem": "What is 15 ÷ 3?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": {
+                "text": "5"
+              }
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": true
+            },
+            "inventedAnswer": false,
+            "differences": []
+          }
+        ],
+        "groups": {
+          "expected": 2,
+          "predicted": 2,
+          "matched": 2,
+          "missing": [],
+          "extra": []
+        },
+        "visuals": {
+          "expected": 0,
+          "predicted": 0,
+          "matched": 0,
+          "missing": [],
+          "extra": []
+        }
+      },
+      "modelCalls": [
+        {
+          "callId": "01a0b012-68b5-7363-9f27-2a65f41e32ca",
+          "node": "chunk",
+          "status": "RETURNED",
+          "inputTokens": 1971,
+          "outputTokens": 2215
+        }
+      ]
+    },
+    {
+      "id": "text-repeated-stem",
+      "sourceType": "text",
+      "tags": [
+        "synthetic",
+        "regression",
+        "repeated-stem"
+      ],
+      "critical": true,
+      "repetition": 3,
+      "status": "SUCCEEDED",
+      "latencyMs": 18371.519375010394,
+      "expectedError": null,
+      "outcomeMatched": true,
+      "blocked": false,
+      "error": null,
+      "processing": {
+        "chunks": {
+          "total": 1,
+          "succeeded": 1,
+          "skipped": 0
+        },
+        "visuals": {
+          "total": 0,
+          "succeeded": 0,
+          "skipped": 0
+        },
+        "truncated": false,
+        "failures": []
+      },
+      "score": {
+        "expected": 2,
+        "predicted": 2,
+        "matched": 2,
+        "modeCorrect": 2,
+        "optionsExpected": 0,
+        "optionsCorrect": 0,
+        "answerCorrect": 2,
+        "inventedAnswers": 0,
+        "questions": [
+          {
+            "expectedIndex": 0,
+            "predictedIndex": 0,
+            "answerMode": "short_answer",
+            "expected": {
+              "stem": "What label is recorded?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": {
+                "text": "alpha"
+              }
+            },
+            "predicted": {
+              "stem": "What label is recorded?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": {
+                "text": "alpha"
+              }
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": true
+            },
+            "inventedAnswer": false,
+            "differences": []
+          },
+          {
+            "expectedIndex": 1,
+            "predictedIndex": 1,
+            "answerMode": "short_answer",
+            "expected": {
+              "stem": "What label is recorded?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": {
+                "text": "beta"
+              }
+            },
+            "predicted": {
+              "stem": "What label is recorded?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": {
+                "text": "beta"
+              }
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": true
+            },
+            "inventedAnswer": false,
+            "differences": []
+          }
+        ],
+        "groups": null,
+        "visuals": {
+          "expected": 0,
+          "predicted": 0,
+          "matched": 0,
+          "missing": [],
+          "extra": []
+        }
+      },
+      "modelCalls": [
+        {
+          "callId": "01a0b012-c632-76f2-b614-4f2046cbb575",
+          "node": "chunk",
+          "status": "RETURNED",
+          "inputTokens": 1962,
+          "outputTokens": 1896
+        }
+      ]
+    }
+  ],
+  "status": "FAILED",
+  "gateReasons": [
+    "BELOW_TARGET:questionRecall",
+    "BELOW_TARGET:answerModeAccuracy",
+    "BELOW_TARGET:parsedAnswerAccuracy",
+    "OUTCOME_MISMATCH:text-grouped:1"
+  ],
+  "documentParser": {
+    "questionPrecision": 100.0,
+    "questionRecall": 88.88888888888889,
+    "answerModeAccuracy": 88.88888888888889,
+    "optionsAccuracy": null,
+    "parsedAnswerAccuracy": 66.66666666666666,
+    "groupF1": 94.11764705882352,
+    "visualF1": 100.0
+  },
+  "outcomes": {
+    "ERROR": 1,
+    "SUCCEEDED": 8
+  },
+  "slices": {
+    "sourceType": {
+      "text": {
+        "questionPrecision": 100.0,
+        "questionRecall": 83.33333333333334,
+        "answerModeAccuracy": 83.33333333333334,
+        "optionsAccuracy": null,
+        "parsedAnswerAccuracy": 66.66666666666666,
+        "groupF1": 80.0,
+        "visualF1": 100.0
+      },
+      "xlsx": {
+        "questionPrecision": 100.0,
+        "questionRecall": 100.0,
+        "answerModeAccuracy": 100.0,
+        "optionsAccuracy": null,
+        "parsedAnswerAccuracy": 66.66666666666666,
+        "groupF1": 100.0,
+        "visualF1": 100.0
+      }
+    },
+    "answerMode": {
+      "fill_blank": {
+        "questionPrecision": 100.0,
+        "questionRecall": 66.66666666666666,
+        "answerModeAccuracy": 66.66666666666666,
+        "optionsAccuracy": null,
+        "parsedAnswerAccuracy": 33.33333333333333,
+        "groupF1": null,
+        "visualF1": null
+      },
+      "short_answer": {
+        "questionPrecision": 100.0,
+        "questionRecall": 91.66666666666666,
+        "answerModeAccuracy": 91.66666666666666,
+        "optionsAccuracy": null,
+        "parsedAnswerAccuracy": 75.0,
+        "groupF1": null,
+        "visualF1": null
+      },
+      "true_false": {
+        "questionPrecision": 100.0,
+        "questionRecall": 100.0,
+        "answerModeAccuracy": 100.0,
+        "optionsAccuracy": null,
+        "parsedAnswerAccuracy": 66.66666666666666,
+        "groupF1": null,
+        "visualF1": null
+      }
+    },
+    "tag": {
+      "regression": {
+        "questionPrecision": 100.0,
+        "questionRecall": 100.0,
+        "answerModeAccuracy": 100.0,
+        "optionsAccuracy": null,
+        "parsedAnswerAccuracy": 100.0,
+        "groupF1": null,
+        "visualF1": 100.0
+      },
+      "repeated-stem": {
+        "questionPrecision": 100.0,
+        "questionRecall": 100.0,
+        "answerModeAccuracy": 100.0,
+        "optionsAccuracy": null,
+        "parsedAnswerAccuracy": 100.0,
+        "groupF1": null,
+        "visualF1": 100.0
+      },
+      "smoke": {
+        "questionPrecision": 100.0,
+        "questionRecall": 83.33333333333334,
+        "answerModeAccuracy": 83.33333333333334,
+        "optionsAccuracy": null,
+        "parsedAnswerAccuracy": 50.0,
+        "groupF1": 94.11764705882352,
+        "visualF1": 100.0
+      },
+      "synthetic": {
+        "questionPrecision": 100.0,
+        "questionRecall": 88.88888888888889,
+        "answerModeAccuracy": 88.88888888888889,
+        "optionsAccuracy": null,
+        "parsedAnswerAccuracy": 66.66666666666666,
+        "groupF1": 94.11764705882352,
+        "visualF1": 100.0
+      },
+      "text": {
+        "questionPrecision": 100.0,
+        "questionRecall": 66.66666666666666,
+        "answerModeAccuracy": 66.66666666666666,
+        "optionsAccuracy": null,
+        "parsedAnswerAccuracy": 33.33333333333333,
+        "groupF1": 80.0,
+        "visualF1": 100.0
+      },
+      "xlsx": {
+        "questionPrecision": 100.0,
+        "questionRecall": 100.0,
+        "answerModeAccuracy": 100.0,
+        "optionsAccuracy": null,
+        "parsedAnswerAccuracy": 66.66666666666666,
+        "groupF1": 100.0,
+        "visualF1": 100.0
+      }
+    }
+  },
+  "latency": {
+    "all": {
+      "count": 9,
+      "p50Ms": 28304.515541007277,
+      "p95Ms": 99978.38224120786
+    },
+    "success": {
+      "count": 8,
+      "p50Ms": 26301.40774951724,
+      "p95Ms": 33947.04229981144
+    },
+    "failure": {
+      "count": 1,
+      "p50Ms": 142774.59920800175,
+      "p95Ms": 142774.59920800175
+    }
+  },
+  "modelUsage": {
+    "calls": 12,
+    "responses": 12,
+    "failedCalls": 0,
+    "inputTokens": 25615,
+    "outputTokens": 34345,
+    "complete": true,
+    "missingUsageCalls": 0
+  }
+}

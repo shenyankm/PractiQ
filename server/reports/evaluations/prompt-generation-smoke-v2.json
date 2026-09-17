@@ -1,0 +1,83 @@
+{
+  "kind": "generation-smoke",
+  "repetitions": 1,
+  "promptHash": "004841191925bccafb2f2bf9e6a81e5d02b91c7be29cf41222cc6ea07cb0c205",
+  "cases": [
+    {
+      "case": "choice",
+      "passed": false,
+      "errorType": "DocumentProcessingError"
+    },
+    {
+      "case": "true_false",
+      "passed": false,
+      "errorType": "DocumentProcessingError"
+    },
+    {
+      "case": "fill_blank",
+      "passed": false,
+      "errorType": "DocumentProcessingError"
+    },
+    {
+      "case": "short_answer",
+      "passed": false,
+      "errorType": "DocumentProcessingError"
+    },
+    {
+      "case": "learning_report",
+      "passed": true,
+      "result": {
+        "summary": "该学习者在一小时的学习周期内完成了4次练习，总正确率为25%。数据主要围绕“加法”这一知识点展开，表现整体较弱，且样本量较小，结论仅供参考。",
+        "mastery": [
+          {
+            "label": "加法",
+            "score": 0.25,
+            "evidence": "1/4 次作答正确；仅反映已提供的练习记录。"
+          }
+        ],
+        "weakPoints": [
+          {
+            "label": "加法",
+            "reason": "在4次尝试中仅正确1次，准确率为0.25，显示对该知识点掌握程度较低。",
+            "suggestedAction": "建议复习加法基础概念，并进行针对性专项练习以提高准确率。"
+          }
+        ],
+        "recommendations": [
+          "鉴于尝试次数较少（4次），建议增加练习量以获得更稳定的评估结果。",
+          "针对加法知识点进行错题分析和重复训练，重点突破薄弱环节。"
+        ],
+        "riskLevel": "high"
+      },
+      "usage": [
+        {
+          "callKey": "eac3d0a7-4174-4cf3-83a1-16685793da04",
+          "modelId": "qwen3.7-flash",
+          "inputTokens": 774,
+          "outputTokens": 2047,
+          "callKind": "learning_report"
+        }
+      ]
+    },
+    {
+      "case": "bank_metadata",
+      "passed": true,
+      "result": {
+        "description": "高",
+        "tags": [
+          "高",
+          "数",
+          "微"
+        ]
+      },
+      "usage": [
+        {
+          "callKey": "b9ef9ccf-7e11-499c-bdd8-a43653127efa",
+          "modelId": "qwen3.7-flash",
+          "inputTokens": 456,
+          "outputTokens": 694,
+          "callKind": "bank_metadata"
+        }
+      ]
+    }
+  ]
+}

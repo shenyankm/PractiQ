@@ -1,0 +1,120 @@
+{
+  "createdAt": "2026-09-17T16:56:45.279317+00:00",
+  "model": "qwen3.7-flash",
+  "protocol": "function_calling",
+  "cases": [
+    {
+      "name": "known-missing",
+      "input": {
+        "stem": null,
+        "answerMode": "short_answer",
+        "questionTypeId": "short_answer"
+      },
+      "result": {
+        "answerPayload": null,
+        "canonicalAnswer": null,
+        "explanation": null,
+        "steps": [],
+        "confidence": 0.0,
+        "educationalValue": null,
+        "missingFields": [
+          "stem",
+          "answerPayload",
+          "analysis",
+          "sourceText"
+        ]
+      },
+      "passed": true,
+      "usage": []
+    },
+    {
+      "name": "missing-image",
+      "input": {
+        "stem": "根据下图求阴影部分的面积。",
+        "answerMode": "short_answer",
+        "questionTypeId": "short_answer",
+        "sourceText": "根据下图求阴影部分的面积。"
+      },
+      "result": {
+        "answerPayload": null,
+        "canonicalAnswer": null,
+        "explanation": "题目要求根据图片计算阴影部分的面积，但并未提供具体的图片内容。因此无法确定图形的形状、尺寸以及阴影部分的具体构成，无法进行计算。",
+        "steps": [],
+        "confidence": 0.0,
+        "educationalValue": null,
+        "missingFields": [
+          "answerPayload",
+          "media"
+        ]
+      },
+      "passed": true,
+      "usage": [
+        {
+          "callKey": "7bff7432-1fb1-42f6-96d2-72cc1925893a",
+          "modelId": "qwen3.7-flash",
+          "inputTokens": 1092,
+          "outputTokens": 140,
+          "callKind": "answer_generation"
+        }
+      ]
+    },
+    {
+      "name": "missing-material",
+      "input": {
+        "stem": "根据上述阅读材料，说明作者的主要观点。",
+        "answerMode": "short_answer",
+        "questionTypeId": "short_answer",
+        "sourceText": "根据上述阅读材料，说明作者的主要观点。"
+      },
+      "result": {
+        "answerPayload": null,
+        "canonicalAnswer": null,
+        "explanation": "题目要求根据“上述阅读材料”说明作者的主要观点，但提供的 sourceText 仅重复了问题本身，并未提供实际的阅读材料内容。因此无法确定作者的观点。",
+        "steps": [],
+        "confidence": 0.0,
+        "educationalValue": null,
+        "missingFields": [
+          "answerPayload",
+          "material"
+        ]
+      },
+      "passed": true,
+      "usage": [
+        {
+          "callKey": "1386bc80-2396-4a88-aeba-acb92a0ea32d",
+          "modelId": "qwen3.7-flash",
+          "inputTokens": 1098,
+          "outputTokens": 143,
+          "callKind": "answer_generation"
+        }
+      ]
+    },
+    {
+      "name": "valid-false",
+      "passed": false,
+      "errorType": "DocumentProcessingError",
+      "usage": [
+        {
+          "callKey": "4e90bc4f-151d-4bbf-a08c-647d24406b02",
+          "modelId": "qwen3.7-flash",
+          "inputTokens": 1077,
+          "outputTokens": 168,
+          "callKind": "answer_generation"
+        },
+        {
+          "callKey": "5c7cd4d4-dd53-4711-818a-2a6a062c2bcb",
+          "modelId": "qwen3.7-flash",
+          "inputTokens": 1301,
+          "outputTokens": 168,
+          "callKind": "answer_generation"
+        }
+      ]
+    }
+  ],
+  "passed": false,
+  "scope": "Focused missing-content smoke; does not replace the document semantic quality gate.",
+  "limitations": [
+    "The true_false control returned a JSON-encoded string under answerPayload instead of an object in the provider function call. Both bounded attempts were rejected and usage was retained. The format/type gate was not relaxed.",
+    "This focused smoke is not a passing full-document semantic evaluation."
+  ]
+}

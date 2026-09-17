@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 2,
+  "kind": "comparison",
+  "runId": "ca9a3856-d08d-4d8b-96b6-d3a9c4bfcaf0",
+  "generatedAt": "2026-09-17T15:45:43.754214+00:00",
+  "status": "BLOCKED",
+  "gateReasons": [
+    "BASELINE_NOT_PASSED"
+  ],
+  "metricDeltas": {},
+  "comparison": {
+    "status": "BLOCKED",
+    "gateReasons": [
+      "BASELINE_NOT_PASSED"
+    ],
+    "metricDeltas": {}
+  }
+}

@@ -1,0 +1,123 @@
+{
+  "createdAt": "2026-09-17T16:54:09.313958+00:00",
+  "model": "qwen3.7-flash",
+  "protocol": "function_calling",
+  "cases": [
+    {
+      "name": "known-missing",
+      "input": {
+        "stem": null,
+        "answerMode": "short_answer",
+        "questionTypeId": "short_answer"
+      },
+      "result": {
+        "answerPayload": null,
+        "canonicalAnswer": null,
+        "explanation": null,
+        "steps": [],
+        "confidence": 0.0,
+        "educationalValue": null,
+        "missingFields": [
+          "stem",
+          "answerPayload",
+          "analysis",
+          "sourceText"
+        ]
+      },
+      "passed": true,
+      "usage": []
+    },
+    {
+      "name": "missing-image",
+      "input": {
+        "stem": "根据下图求阴影部分的面积。",
+        "answerMode": "short_answer",
+        "questionTypeId": "short_answer",
+        "sourceText": "根据下图求阴影部分的面积。"
+      },
+      "result": {
+        "answerPayload": null,
+        "canonicalAnswer": null,
+        "explanation": "题目要求根据图片求阴影部分的面积，但提供的输入中并未包含任何图片信息。没有图形、尺寸或几何关系的数据，无法进行计算。",
+        "steps": [
+          "缺失关键信息：题目依赖‘下图’提供几何图形的形状和尺寸数据。",
+          "由于缺少图像，无法确定阴影部分的几何特征（如半径、边长、角度等）。",
+          "因此，无法计算阴影部分的面积。"
+        ],
+        "confidence": 0.0,
+        "educationalValue": "此题强调了在解决几何问题时，准确获取图形信息的重要性。",
+        "missingFields": [
+          "answerPayload",
+          "media"
+        ]
+      },
+      "passed": true,
+      "usage": [
+        {
+          "callKey": "148e88cd-4767-4694-86f8-2b70725df5ca",
+          "modelId": "qwen3.7-flash",
+          "inputTokens": 947,
+          "outputTokens": 202,
+          "callKind": "answer_generation"
+        }
+      ]
+    },
+    {
+      "name": "missing-material",
+      "input": {
+        "stem": "根据上述阅读材料，说明作者的主要观点。",
+        "answerMode": "short_answer",
+        "questionTypeId": "short_answer",
+        "sourceText": "根据上述阅读材料，说明作者的主要观点。"
+      },
+      "result": {
+        "answerPayload": null,
+        "canonicalAnswer": null,
+        "explanation": "题目要求根据“上述阅读材料”说明作者的主要观点，但提供的 sourceText 仅重复了问题本身，并未包含实际的阅读材料内容。因此，无法确定作者的观点。",
+        "steps": [
+          "识别题目要求分析阅读材料中的主要观点。",
+          "检查提供的 sourceText，发现其仅为问题文本，缺乏实质性的阅读材料内容。",
+          "由于缺少关键信息（阅读材料），无法作答。"
+        ],
+        "confidence": 0.0,
+        "educationalValue": null,
+        "missingFields": [
+          "answerPayload"
+        ]
+      },
+      "passed": false,
+      "usage": [
+        {
+          "callKey": "63138f1f-912f-4615-818e-94ee8802777c",
+          "modelId": "qwen3.7-flash",
+          "inputTokens": 953,
+          "outputTokens": 189,
+          "callKind": "answer_generation"
+        }
+      ]
+    },
+    {
+      "name": "valid-false",
+      "passed": false,
+      "errorType": "DocumentProcessingError",
+      "usage": [
+        {
+          "callKey": "b2ad0d82-6bb3-4fae-9032-84b4e6d7f878",
+          "modelId": "qwen3.7-flash",
+          "inputTokens": 932,
+          "outputTokens": 168,
+          "callKind": "answer_generation"
+        },
+        {
+          "callKey": "ecb5028d-b280-43ea-8d1f-d4d45a0869c3",
+          "modelId": "qwen3.7-flash",
+          "inputTokens": 1174,
+          "outputTokens": 168,
+          "callKind": "answer_generation"
+        }
+      ]
+    }
+  ],
+  "passed": false,
+  "scope": "Focused missing-content smoke; does not replace the document semantic quality gate."
+}

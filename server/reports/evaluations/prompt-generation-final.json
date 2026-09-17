@@ -1,0 +1,151 @@
+{
+  "kind": "generation-smoke",
+  "repetitions": 1,
+  "promptHash": "004841191925bccafb2f2bf9e6a81e5d02b91c7be29cf41222cc6ea07cb0c205",
+  "cases": [
+    {
+      "case": "choice",
+      "passed": true,
+      "expected": {
+        "correctOption": "B"
+      },
+      "actual": {
+        "correctOption": "B"
+      },
+      "usage": [
+        {
+          "callKey": "7648289b-b0e7-4b8d-8760-d65b9177c533",
+          "modelId": "qwen3.7-flash",
+          "inputTokens": 773,
+          "outputTokens": 123,
+          "callKind": "answer_generation"
+        }
+      ],
+      "seconds": 1.523779791983543
+    },
+    {
+      "case": "true_false",
+      "passed": true,
+      "expected": {
+        "value": true
+      },
+      "actual": {
+        "value": true
+      },
+      "usage": [
+        {
+          "callKey": "2f7a30e3-97f4-4270-ac45-148b6f366054",
+          "modelId": "qwen3.7-flash",
+          "inputTokens": 737,
+          "outputTokens": 161,
+          "callKind": "answer_generation"
+        }
+      ],
+      "seconds": 2.037999291991582
+    },
+    {
+      "case": "fill_blank",
+      "passed": true,
+      "expected": {
+        "answers": [
+          "5"
+        ]
+      },
+      "actual": {
+        "answers": [
+          "5"
+        ]
+      },
+      "usage": [
+        {
+          "callKey": "156b6bbd-ef9e-498b-8684-cbdc2d680520",
+          "modelId": "qwen3.7-flash",
+          "inputTokens": 761,
+          "outputTokens": 134,
+          "callKind": "answer_generation"
+        }
+      ],
+      "seconds": 1.7083302499959245
+    },
+    {
+      "case": "short_answer",
+      "passed": true,
+      "expected": {
+        "text": "5"
+      },
+      "actual": {
+        "text": "5"
+      },
+      "usage": [
+        {
+          "callKey": "da3b4133-cc3e-4229-b031-e8485a22e3e5",
+          "modelId": "qwen3.7-flash",
+          "inputTokens": 756,
+          "outputTokens": 120,
+          "callKind": "answer_generation"
+        }
+      ],
+      "seconds": 1.6635649999952875
+    },
+    {
+      "case": "learning_report",
+      "passed": true,
+      "result": {
+        "summary": "该用户在2026-01-01进行的单次学习会话中，共尝试了4次，正确1次，整体准确率为0.25。在“加法”这一知识点上表现不佳，且被系统标记为薄弱知识领域。由于样本量较小（仅4次尝试），结果可能存在波动，但当前数据显示该用户在此知识点上存在明显的掌握困难。",
+        "mastery": [
+          {
+            "label": "加法",
+            "score": 0.25,
+            "evidence": "1/4 次作答正确；仅反映已提供的练习记录。"
+          }
+        ],
+        "weakPoints": [
+          {
+            "label": "加法",
+            "reason": "在该知识点上的准确率仅为0.25（1/4），远低于及格线，且被系统明确列为弱知识项",
+            "suggestedAction": "建议重新复习加法的基础概念和运算规则，并进行针对性练习以提高准确率"
+          }
+        ],
+        "recommendations": [
+          "针对‘加法’知识点进行专项强化训练",
+          "检查是否存在基础概念理解偏差",
+          "增加练习频次以积累更多有效数据点"
+        ],
+        "riskLevel": "high"
+      },
+      "usage": [
+        {
+          "callKey": "3bdddfe8-f7b7-488e-9f20-a527ccf25de7",
+          "modelId": "qwen3.7-flash",
+          "inputTokens": 776,
+          "outputTokens": 290,
+          "callKind": "learning_report"
+        }
+      ]
+    },
+    {
+      "case": "bank_metadata",
+      "passed": true,
+      "result": {
+        "description": "涵盖微积分、线性代数等核心内容的高等数学试题库，适用于高校学生复习备考及教师出题参考。",
+        "tags": [
+          "高等数学",
+          "微积分",
+          "线性代数",
+          "大学数学",
+          "考研数学",
+          "期末复习"
+        ]
+      },
+      "usage": [
+        {
+          "callKey": "dba89984-5f42-485e-a3f6-3b3b0ed9d88c",
+          "modelId": "qwen3.7-flash",
+          "inputTokens": 482,
+          "outputTokens": 85,
+          "callKind": "bank_metadata"
+        }
+      ]
+    }
+  ]
+}

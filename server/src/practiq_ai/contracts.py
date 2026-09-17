@@ -9,11 +9,13 @@ from pydantic import (
     ConfigDict,
     Field,
     StrictBool,
+    StrictInt,
+    TypeAdapter,
     field_validator,
     model_validator,
 )
 
-AnswerMode = Literal["choice", "true_false", "fill_blank", "short_answer"]
+AnswerMode = Literal["choice", "true_false", "fill_blank", "short_answer", "ordering", "matching"]
 DocumentSourceType = Literal["csv", "docx", "image", "text", "pdf", "xlsx"]
 ContentPartType = Literal[
     "text",
@@ -92,14 +94,14 @@ class DocumentUploadRequest(StrictModel):
 
 
 class ParsedOption(StrictModel):
-    label: str = Field(min_length=1, max_length=32)
-    content: str = Field(min_length=1, max_length=20_000)
+    label: str | None = Field(default=None, max_length=32)
+    content: str | None = Field(default=None, max_length=20_000)
     isCorrect: bool | None = None
 
-    @field_validator("label", "content")
+    @field_validator("label", "content", mode="before")
     @classmethod
-    def reject_blank_values(cls, value: str) -> str:
-        return _non_blank(value)
+    def normalize_blank(cls, value):
+        return (value.strip() or None) if isinstance(value, str) else value
 
 
 class ChoiceAnswerPayload(StrictModel):
@@ -133,12 +135,161 @@ class ShortAnswerPayload(StrictModel):
         return _non_blank(value)
 
 
+class OrderingAnswerPayload(StrictModel):
+    order: list[StrictInt] = Field(min_length=1, max_length=100)
+
+
+class MatchPair(StrictModel):
+    left: StrictInt
+    right: StrictInt
+
+
+class MatchingAnswerPayload(StrictModel):
+    matches: list[MatchPair] = Field(min_length=1, max_length=100)
+
+
+class MultipleChoiceAnswerPayload(StrictModel):
+    correct: list[str] = Field(min_length=1, max_length=100)
+
+
+class ParsedItem(StrictModel):
+    id: StrictInt | None = None
+    side: Literal["left", "right"] | None = None
+    content: str | None = Field(default=None, max_length=20_000)
+
+    @field_validator("content", mode="before")
+    @classmethod
+    def blank_to_null(cls, value):
+        return (value.strip() or None) if isinstance(value, str) else value
+
+
 AnswerPayload = (
     ChoiceAnswerPayload
     | TrueFalseAnswerPayload
     | FillBlankAnswerPayload
     | ShortAnswerPayload
+    | OrderingAnswerPayload
+    | MatchingAnswerPayload
+    | MultipleChoiceAnswerPayload
 )
+
+
+MissingField = Literal["stem", "questionTypeId", "answerMode", "choiceVariant", "matchingVariant", "options", "items", "answerPayload", "analysis", "sourceText", "media", "material"]
+ANSWER_TYPES = {"choice": ChoiceAnswerPayload, "true_false": TrueFalseAnswerPayload,
+                "fill_blank": FillBlankAnswerPayload, "short_answer": ShortAnswerPayload, "ordering": OrderingAnswerPayload, "matching": MatchingAnswerPayload}
+
+
+def normalize_missing_values(value):
+    if isinstance(value, str):
+        return value.strip() or None
+    if isinstance(value, list):
+        return [normalize_missing_values(item) for item in value]
+    if isinstance(value, dict):
+        return {key: normalize_missing_values(item) for key, item in value.items()}
+    return value
+
+
+def normalize_answer(mode, payload, variant=None):
+    if isinstance(payload, BaseModel):
+        payload = payload.model_dump()
+    payload = normalize_missing_values(payload)
+    if payload is None or payload == {}:
+        return None
+    if not isinstance(payload, dict):
+        raise ValueError("answerPayload must be an object")  # noqa: TRY004 - Pydantic validation boundary
+    if mode is None:
+        return payload
+    schema = MultipleChoiceAnswerPayload if mode == "choice" and variant == "multiple" else ANSWER_TYPES[mode]
+    if set(payload) - set(schema.model_fields):
+        raise ValueError("answerPayload does not match answerMode")
+    partial = False
+    for key, field in schema.model_fields.items():
+        value = payload.get(key)
+        if value is None or isinstance(value, str) and not value.strip() or value == []:
+            partial = True
+            continue
+        if isinstance(value, list):
+            for entry in value:
+                if entry is None or isinstance(entry, str) and not entry.strip():
+                    partial = True
+                    continue
+                if mode == "matching":
+                    if not isinstance(entry, dict) or set(entry) - {"left", "right"}:
+                        raise ValueError("matches must contain left/right pairs")
+                    for side in ("left", "right"):
+                        if entry.get(side) is None:
+                            partial = True
+                        else:
+                            TypeAdapter(StrictInt).validate_python(entry[side], strict=True)
+                else:
+                    TypeAdapter(StrictInt if mode == "ordering" else str).validate_python(entry, strict=True)
+        else:
+            TypeAdapter(field.annotation).validate_python(value, strict=True)
+    return payload if partial else schema.model_validate(payload)
+
+
+def answer_references_missing(mode, answer, data):
+    if answer is None:
+        return True
+    partial = isinstance(answer, dict)
+    payload = answer if partial else answer.model_dump()
+    if mode == "choice":
+        selected = payload.get("correct") or [payload.get("correctOption")]
+        selected = [v for v in selected if v is not None]
+        labels = {o["label"].casefold(): o["label"] for o in data.get("options", []) if o.get("label")}
+        if len({v.casefold() for v in selected}) != len(selected):
+            raise ValueError("correct options must be unique")
+        if labels and any(v.casefold() not in labels for v in selected):
+            raise ValueError("correctOption must reference an option label")
+        if isinstance(answer, MultipleChoiceAnswerPayload) and labels:
+            answer.correct = [labels[v.casefold()] for v in selected]
+    items = data.get("items") or []
+    if mode == "ordering" and items:
+        ids = [i.get("id") if i.get("id") is not None else n for n, i in enumerate(items)]
+        order = [v for v in payload.get("order") or [] if v is not None]
+        if len(set(order)) != len(order) or not set(order) <= set(ids):
+            raise ValueError("order must reference distinct supplied items")
+        return partial or len(order) != len(ids)
+    if mode == "matching" and items:
+        sides = {side: [i for i in items if i.get("side") == side] for side in ("left", "right")}
+        ids = {side: [i.get("id") if i.get("id") is not None else n for n, i in enumerate(values)] for side, values in sides.items()}
+        matches = [m for m in payload.get("matches") or [] if m is not None]
+        left = [m["left"] for m in matches if m.get("left") is not None]
+        right = [m["right"] for m in matches if m.get("right") is not None]
+        if len(set(left)) != len(left) or not set(left) <= set(ids["left"]) or not set(right) <= set(ids["right"]):
+            raise ValueError("matches must reference supplied left/right items once")
+        if data.get("matchingVariant") == "one_to_one" and len(set(right)) != len(right):
+            raise ValueError("one-to-one matches require distinct right items")
+        return partial or len(left) != len(ids["left"])
+    return partial
+
+
+def question_missing_fields(data):
+    missing = []
+    for field in ("stem", "questionTypeId", "answerMode"):
+        if not data.get(field):
+            missing.append(field)
+    mode = data.get("answerMode")
+    if mode == "choice":
+        if not data.get("choiceVariant"):
+            missing.append("choiceVariant")
+        options = data.get("options") or []
+        if len(options) < 2 or any(not o.get("label") or not o.get("content") for o in options):
+            missing.append("options")
+    if mode in {"ordering", "matching"}:
+        items = data.get("items") or []
+        if mode == "matching" and not data.get("matchingVariant"):
+            missing.append("matchingVariant")
+        if len(items)<2 or any(not item.get("content") for item in items) or mode == "matching" and (any(i.get("side") is None for i in items) or sum(i.get("side")=="left" for i in items)<2 or sum(i.get("side")=="right" for i in items)<2):
+            missing.append("items")
+    answer = normalize_answer(mode, data.get("answerPayload"), data.get("choiceVariant"))
+    if answer_references_missing(mode, answer, data):
+        missing.append("answerPayload")
+    for field in ("analysis", "sourceText"):
+        if not data.get(field):
+            missing.append(field)
+    missing.extend(field for field in ("media", "material") if field in data.get("missingFields", []))
+    return missing
 
 
 class ContentBlock(StrictModel):
@@ -161,49 +312,56 @@ class ContentBlock(StrictModel):
 
 
 class ParsedQuestion(StrictModel):
-    stem: str = Field(min_length=1, max_length=120_000)
-    answerMode: AnswerMode
-    questionTypeId: str = Field(min_length=1, max_length=128)
-    options: list[ParsedOption] = Field(max_length=100)
-    answerPayload: AnswerPayload | None = None
+    stem: str | None = Field(default=None, max_length=120_000)
+    answerMode: AnswerMode | None = None
+    questionTypeId: str | None = Field(default=None, max_length=128)
+    choiceVariant: Literal["single", "multiple"] | None = None
+    matchingVariant: Literal["one_to_one", "many_to_one"] | None = None
+    items: list[ParsedItem] = Field(default_factory=list, max_length=100)
+    options: list[ParsedOption] = Field(default_factory=list, max_length=100)
+    answerPayload: AnswerPayload | dict[str, Any] | None = None
     analysis: str | None = Field(default=None, max_length=100_000)
-    contentBlocks: list[ContentBlock] = Field(min_length=1, max_length=1_000)
+    contentBlocks: list[ContentBlock] = Field(default_factory=list, max_length=1_000)
     sourceText: str | None = Field(default=None, max_length=120_000)
-    confidence: float = Field(ge=0, le=1)
-    needsReview: bool
+    confidence: float = Field(default=0, ge=0, le=1)
+    needsReview: bool = True
+    missingFields: list[MissingField] = Field(default_factory=list)
 
-    @field_validator("stem", "questionTypeId")
+    @field_validator("options", "items", "contentBlocks", "missingFields", mode="before")
     @classmethod
-    def reject_blank_values(cls, value: str) -> str:
-        return _non_blank(value)
+    def absent_list(cls, value):
+        return [] if value is None else value
+
+    @field_validator("stem", "questionTypeId", "answerMode", "choiceVariant", "matchingVariant", "analysis", "sourceText", mode="before")
+    @classmethod
+    def blank_to_null(cls, value):
+        return (value.strip() or None) if isinstance(value, str) else value
 
     @model_validator(mode="after")
     def validate_answer(self) -> Self:
-        if self.answerMode == "choice" and not self.options:
-            raise ValueError("options are required for choice questions")
-        if self.answerMode != "choice" and self.options:
+        if self.answerMode is not None and self.answerMode != "choice" and (self.options or self.choiceVariant):
             raise ValueError("options are only allowed for choice questions")
-        labels = [option.label.casefold() for option in self.options]
+        if self.answerMode is not None and self.answerMode not in {"ordering", "matching"} and self.items:
+            raise ValueError("items require ordering or matching mode")
+        if self.answerMode is not None and self.answerMode != "matching" and self.matchingVariant:
+            raise ValueError("matchingVariant requires matching mode")
+        if self.answerMode == "ordering" and any(i.side is not None for i in self.items):
+            raise ValueError("Ordering items must be sideless")
+        labels = [o.label.casefold() for o in self.options if o.label]
         if len(labels) != len(set(labels)):
             raise ValueError("option labels must be unique")
-        expected = {
-            "choice": ChoiceAnswerPayload,
-            "true_false": TrueFalseAnswerPayload,
-            "fill_blank": FillBlankAnswerPayload,
-            "short_answer": ShortAnswerPayload,
-        }[self.answerMode]
-        if self.answerPayload is not None and not isinstance(
-            self.answerPayload, expected
-        ):
-            raise ValueError("answerPayload does not match answerMode")
-        if isinstance(self.answerPayload, ChoiceAnswerPayload):
-            labels_by_key = {
-                option.label.casefold(): option.label for option in self.options
-            }
-            canonical = labels_by_key.get(self.answerPayload.correctOption.casefold())
+        self.answerPayload = normalize_answer(self.answerMode, self.answerPayload, self.choiceVariant)
+        if isinstance(self.answerPayload, ChoiceAnswerPayload) and labels:
+            canonical = {o.label.casefold(): o.label for o in self.options if o.label}.get(self.answerPayload.correctOption.casefold())
             if canonical is None:
                 raise ValueError("correctOption must reference an option label")
             self.answerPayload = ChoiceAnswerPayload(correctOption=canonical)
+        answer_references_missing(self.answerMode, self.answerPayload, self.model_dump())
+        self.missingFields = question_missing_fields(self.model_dump())
+        if self.missingFields:
+            self.needsReview = True
+        if not any((self.stem, self.sourceText, self.options, self.items, self.contentBlocks, self.answerPayload, self.analysis)):
+            raise ValueError("An empty object is not an identifiable question")
         return self
 
 

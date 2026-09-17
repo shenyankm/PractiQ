@@ -114,37 +114,32 @@ def persist_import(db, task, result):
         if old:
             ids.append(old["question_id"])
             continue
-        mode = q["answerMode"]
-        # AI semantic labels may be richer than local categories; choose an existing matching type.
+        mode = q.get("answerMode")
+        # Resolve only known types; preserve unknown classification as a missing field.
         found = db.execute(
-            "select id from question_types where subject_id=%s and answer_mode=%s order by (id=%s) desc,id limit 1",
-            (b["subject_id"], mode, q.get("questionTypeId", "")),
+            "select id from question_types where subject_id=%s and id=%s and (%s::text is null or answer_mode=%s)",
+            (b["subject_id"], q.get("questionTypeId"), mode, mode),
         ).fetchone()
-        if not found:
-            raise ValueError("No local question type matches the parser answer mode")
-        payload = q.get("answerPayload") or {}
+        payload = q.get("answerPayload")
         options = [
-            {"label": o["label"], "content": o["content"], "isCorrect": bool(o.get("isCorrect"))}
-            for o in q.get("options", [])
+            {"label": o.get("label"), "content": o.get("content"), "isCorrect": False if o.get("isCorrect") is None else o["isCorrect"]}
+            for o in ([] if q.get("options") is None else q["options"])
         ]
-        if mode == "choice":
-            selected = payload.get("correct", payload.get("selected", payload.get("correctOption", [])))
-            count = len(selected) if isinstance(selected, list) else int(bool(selected))
-            count = count or sum(o["isCorrect"] for o in options)
-            variant = "multiple" if count > 1 else "single"
-        else:
-            variant = None
+        variant = q.get("choiceVariant")
         body = QuestionIn(
-            questionTypeId=found["id"],
+            questionTypeId=found["id"] if found and q.get("questionTypeId") else None,
             answerMode=mode,
-            stem=q["stem"],
-            analysis=q.get("analysis") or "",
+            stem=q.get("stem"),
+            analysis=q.get("analysis"),
+            sourceText=q.get("sourceText"),
             choiceVariant=variant,
+            matchingVariant=q.get("matchingVariant"),
+            items=[{"side": i.get("side"), "content": i.get("content")} for i in ([] if q.get("items") is None else q["items"])],
             status="draft",
             options=options,
             answerPayload=payload,
         )
-        created = create_question(db, j["bank_id"], body)
+        created = create_question(db, j["bank_id"], body, dependencies=[f for f in ("media", "material") if f in q.get("missingFields", [])])
         ids.append(created["id"])
         blocks = q.get("contentBlocks", [])
         if not isinstance(blocks, list) or len(blocks) > 1000:
@@ -210,10 +205,15 @@ def complete(pool, task, result, usage, error=None):
                     result = BankMetadataResult.model_validate(result).model_dump()
                 if task["kind"] == "import":
                     persist_import(db, task, result)
-                elif task["kind"] == "answer_generation" and not isinstance(
-                    result.get("answerPayload"), dict
-                ):
-                    raise ValueError("AI response is missing an answer")
+                elif task["kind"] == "answer_generation":
+                    if not isinstance(result.get("answerPayload"), (dict, type(None))):
+                        raise ValueError("AI answer must be an object or null")
+                    missing = result.get("missingFields", [])
+                    if not isinstance(missing, list) or any(not isinstance(field, str) for field in missing):
+                        raise ValueError("missingFields must be a list of field names")
+                    dependencies = [field for field in ("media", "material") if field in missing]
+                    if dependencies:
+                        db.execute("update questions set missing_dependencies=ARRAY(select distinct unnest(missing_dependencies || %s::text[])) where id=%s and stem is not distinct from %s and answer_mode is not distinct from %s", (dependencies, task["source_question_id"], task["request_payload"].get("stem"), task["request_payload"].get("answerMode")))
                 elif task["kind"] == "learning_report" and not isinstance(result.get("summary"), str):
                     raise ValueError("AI response is missing a report summary")
                 db.execute(

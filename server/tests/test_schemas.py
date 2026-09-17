@@ -132,7 +132,7 @@ def test_document_result_validates_nested_references_and_labels() -> None:
 
     assert result.questions[0].options[0].label == "A"
     assert result.questions[0].answerPayload is not None
-    assert result.questions[0].answerPayload.model_dump() == {"correctOption": "A"}
+    assert result.questions[0].model_dump()["answerPayload"] == {"correctOption": "A"}
     with pytest.raises(ValidationError):
         DocumentParseResult.model_validate(
             {

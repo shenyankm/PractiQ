@@ -8,19 +8,14 @@ from uuid import UUID, uuid4
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import BaseMessage, HumanMessage
 from langchain_core.runnables import RunnableConfig
-from langchain_openai import ChatOpenAI
 from langgraph.types import RetryPolicy
 from openai import APIConnectionError, APIStatusError, APITimeoutError, RateLimitError
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
+from ...llm import BASE_URLS, structured_output, validate_response
+from ...llm import build_models as build_shared_models
 from ..ai_schemas import ModelCallUsage
 from ..support import DocumentProcessingError, positive_env
-
-BASE_URLS = {
-    "dashscope": "https://dashscope.aliyuncs.com/compatible-mode/v1",
-    "deepseek": "https://api.deepseek.com",
-    "moonshot": "https://api.moonshot.cn/v1",
-}
 
 
 @dataclass(frozen=True)
@@ -39,21 +34,13 @@ def build_models(
         raise ValueError(f"Unsupported LLM provider: {provider}")
     if provider == "deepseek" and vision_model:
         raise ValueError("DeepSeek does not support vision models")
-    return _build_model(provider, api_key, text_model), (
-        _build_model(provider, api_key, vision_model) if vision_model else None
-    )
-
-
-def _build_model(provider: str, api_key: str, model_name: str) -> ChatOpenAI:
-    return ChatOpenAI(
-        model=model_name,
-        api_key=cast(Any, api_key),
-        base_url=BASE_URLS[provider],
-        **cast(
-            dict[str, Any], {"max_tokens": positive_env("AI_AGENT_MAX_TOKENS", 16_384)}
-        ),
+    return build_shared_models(
+        provider,
+        api_key,
+        text_model,
+        vision_model,
+        max_tokens=positive_env("AI_AGENT_MAX_TOKENS", 16_384),
         timeout=positive_env("AI_AGENT_TIMEOUT_SECONDS", 180, float),
-        max_retries=0,
     )
 
 
@@ -140,27 +127,32 @@ async def structured_attempt[ResultT: BaseModel](
     messages: list[BaseMessage],
     schema: type[ResultT],
     call_kind: str,
+    *,
+    context: dict[str, Any] | None = None,
 ) -> tuple[ResultT | None, list[BaseMessage]]:
     call_key = uuid4()
     response = cast(
         dict[str, Any],
-        await model.with_structured_output(
-            schema,
-            method="function_calling",
-            include_raw=True,
-        ).ainvoke(messages),
+        await structured_output(model, schema).ainvoke(messages),
     )
     record_usage(model, response["raw"], call_kind, call_key)
-    if parsed := response["parsed"]:
-        return parsed, messages
     error = response["parsing_error"]
+    try:
+        return validate_response(response, schema, context=context), messages
+    except ValueError as exc:
+        error = exc
+    if isinstance(error, ValidationError):
+        error = "; ".join(
+            f"{'.'.join(map(str, item['loc'])) or 'result'}: {item['msg']}"
+            for item in error.errors(include_input=False, include_url=False)
+        )
     return None, [
         *messages,
         response["raw"],
         HumanMessage(
             content=(
                 "Your previous output failed validation with these errors:\n"
-                f"{error}\nReturn a corrected result."
+                f"{error}\nReturn a complete corrected result. Follow the original task rules; never invent facts to pass validation."
             )
         ),
     ]

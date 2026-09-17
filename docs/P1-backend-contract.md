@@ -2,6 +2,8 @@
 
 The product API is now Python/FastAPI under `backend/`. The private AI service remains `server/`. The runtime OpenAPI document at `/openapi.json` describes strict request models. `docs/openapi.json` is a checked-in snapshot.
 
+题目缺字段、草稿答案、发布门禁和现有库迁移见 [题目完整性](question-completeness.md)。
+
 ## HTTP
 
 - Base: `/api/v1`. Success: `{ "data": ..., "meta": { "pagination": ... } }` where pagination applies. Error: `{ "error": { "code", "message", "details", "requestId" } }`.

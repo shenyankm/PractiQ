@@ -4,6 +4,7 @@ from fastapi import APIRouter, Query, Response
 from psycopg.types.json import Jsonb
 from pydantic import Field
 
+from .completeness import require_complete
 from .content import details
 from .core import DB, Error, Input, Page, Positive, bank, invalid, ok, one
 
@@ -138,7 +139,7 @@ def start(body: Start, db: DB):
         """select q.id,k.id key_id from questions q
         left join question_groups g on g.id=q.group_id
         join question_answer_keys k on k.question_id=q.id and k.is_primary
-        where q.bank_id=%s and q.status='active' and q.deleted_at is null
+        where q.bank_id=%s and q.status='active' and cardinality(q.missing_fields)=0 and q.deleted_at is null
         and (q.group_id is null or exists(select 1 from question_groups g2 where g2.id=q.group_id and g2.status='active'))
         and (%s<>'by_type' or q.question_type_id=%s)
         and (%s<>'wrong' or exists(select 1 from practice_answers a join practice_sessions s on s.id=a.session_id
@@ -184,6 +185,8 @@ def get_session(sid: Positive, db: DB):
 
 def practice_question(db, s, qid):
     q = details(db, qid)
+    if s["status"] == "active":
+        require_complete(q)
     a = answer(db, s, qid)
     if a and not hidden(s):
         q["result"] = a
@@ -259,6 +262,7 @@ def submit(sid: Positive, body: Answer, db: DB):
         "select q.*,k.id key_id,k.answer_payload expected from practice_session_questions sq join questions q on q.id=sq.question_id join question_answer_keys k on k.id=sq.answer_key_id where sq.session_id=%s and sq.question_id=%s",
         (sid, body.questionId),
     )
+    require_complete(q)
     payload = body.answerPayload
     mode = q["answer_mode"]
     if mode == "choice":

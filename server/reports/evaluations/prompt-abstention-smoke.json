@@ -1,0 +1,7 @@
+{
+  "passed": true,
+  "statusCode": 502,
+  "code": "DOCUMENT_PROCESSING_FAILED",
+  "detail": "AI agent returned an invalid structured result",
+  "calls": 2
+}

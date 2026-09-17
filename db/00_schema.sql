@@ -29,9 +29,10 @@ CREATE TABLE question_groups (
 );
 CREATE TABLE questions (
  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, bank_id bigint NOT NULL, subject_id varchar(32) NOT NULL,
- question_type_id varchar(64) NOT NULL, answer_mode text NOT NULL,
+ question_type_id varchar(64), answer_mode text CHECK(answer_mode IN ('choice','true_false','fill_blank','short_answer','ordering','matching')),
  choice_variant text CHECK(choice_variant IN ('single','multiple')), matching_variant text CHECK(matching_variant IN ('one_to_one','many_to_one')),
- stem text NOT NULL CHECK(btrim(stem)<>''), analysis text,
+ stem text CHECK(btrim(stem)<>''), analysis text, source_text text, draft_answer_payload jsonb, draft_items jsonb NOT NULL DEFAULT '[]',
+ missing_fields text[] NOT NULL DEFAULT '{}', missing_dependencies text[] NOT NULL DEFAULT '{}' CHECK(missing_dependencies <@ ARRAY['media','material']::text[]),
  status text NOT NULL DEFAULT 'draft' CHECK(status IN ('draft','active','archived')), group_id bigint, subset_id bigint,
  sort_order integer NOT NULL DEFAULT 1 CHECK(sort_order>0), deleted_at timestamptz,
  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(),
@@ -39,24 +40,24 @@ CREATE TABLE questions (
  FOREIGN KEY(subject_id,question_type_id,answer_mode) REFERENCES question_types(subject_id,id,answer_mode),
  FOREIGN KEY(group_id,bank_id) REFERENCES question_groups(id,bank_id),
  FOREIGN KEY(subset_id,bank_id) REFERENCES bank_subsets(id,bank_id),
- CHECK((answer_mode='choice')=(choice_variant IS NOT NULL)), CHECK((answer_mode='matching')=(matching_variant IS NOT NULL)),
+ CHECK(choice_variant IS NULL OR answer_mode IS NULL OR answer_mode='choice'), CHECK(matching_variant IS NULL OR answer_mode IS NULL OR answer_mode='matching'),
  UNIQUE(id,bank_id), UNIQUE(id,subject_id)
 );
 CREATE INDEX questions_bank ON questions(bank_id,sort_order,id) WHERE deleted_at IS NULL;
 CREATE INDEX questions_group ON questions(group_id) WHERE deleted_at IS NULL AND group_id IS NOT NULL;
 CREATE TABLE question_options (
  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, question_id bigint NOT NULL REFERENCES questions,
- option_label varchar(16) NOT NULL CHECK(btrim(option_label)<>''), content text NOT NULL CHECK(btrim(content)<>''),
+ option_label varchar(16) CHECK(btrim(option_label)<>''), content text CHECK(btrim(content)<>''),
  sort_order integer NOT NULL CHECK(sort_order>0), UNIQUE(question_id,option_label), UNIQUE(question_id,sort_order)
 );
 CREATE TABLE question_ordering_items (
  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, question_id bigint NOT NULL REFERENCES questions,
- content text NOT NULL CHECK(btrim(content)<>''), sort_order integer NOT NULL CHECK(sort_order>0),
+ content text CHECK(btrim(content)<>''), sort_order integer NOT NULL CHECK(sort_order>0),
  UNIQUE(question_id,sort_order)
 );
 CREATE TABLE question_matching_items (
  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, question_id bigint NOT NULL REFERENCES questions,
- side text NOT NULL CHECK(side IN ('left','right')), content text NOT NULL CHECK(btrim(content)<>''),
+ side text CHECK(side IN ('left','right')), content text CHECK(btrim(content)<>''),
  sort_order integer NOT NULL CHECK(sort_order>0), UNIQUE(question_id,side,sort_order)
 );
 CREATE TABLE question_answer_keys (
@@ -164,4 +165,61 @@ BEGIN
  RAISE EXCEPTION 'Create a new answer version' USING ERRCODE='23514'; END IF; RETURN NEW;
 END $$;
 CREATE TRIGGER answer_version BEFORE UPDATE ON question_answer_keys FOR EACH ROW EXECUTE FUNCTION immutable_answer();
+
+-- Completeness is derived inside the same transaction as every content mutation.
+CREATE FUNCTION question_missing_fields(q questions) RETURNS text[] LANGUAGE plpgsql AS $$
+DECLARE missing text[] := '{}'; mode text := q.answer_mode;
+BEGIN
+ IF nullif(btrim(q.stem),'') IS NULL THEN missing := array_append(missing,'stem'); END IF;
+ IF q.question_type_id IS NULL THEN missing := array_append(missing,'questionTypeId'); END IF;
+ IF mode IS NULL THEN missing := array_append(missing,'answerMode'); END IF;
+ IF mode='choice' THEN
+  IF q.choice_variant IS NULL THEN missing := array_append(missing,'choiceVariant'); END IF;
+  IF (SELECT count(*) FROM question_options WHERE question_id=q.id)<2 OR EXISTS(SELECT 1 FROM question_options WHERE question_id=q.id AND (option_label IS NULL OR content IS NULL)) THEN missing := array_append(missing,'options'); END IF;
+ ELSIF mode='ordering' THEN
+  IF (SELECT count(*) FROM question_ordering_items WHERE question_id=q.id)<2 OR EXISTS(SELECT 1 FROM question_ordering_items WHERE question_id=q.id AND content IS NULL) THEN missing := array_append(missing,'items'); END IF;
+ ELSIF mode='matching' THEN
+  IF q.matching_variant IS NULL THEN missing := array_append(missing,'matchingVariant'); END IF;
+  IF (SELECT count(*) FROM question_matching_items WHERE question_id=q.id AND side='left')<2 OR (SELECT count(*) FROM question_matching_items WHERE question_id=q.id AND side='right')<2 OR EXISTS(SELECT 1 FROM question_matching_items WHERE question_id=q.id AND (side IS NULL OR content IS NULL)) THEN missing := array_append(missing,'items'); END IF;
+ END IF;
+ IF q.draft_answer_payload IS NOT NULL OR mode IS NULL OR NOT EXISTS(SELECT 1 FROM question_answer_keys WHERE question_id=q.id AND is_primary) THEN missing := array_append(missing,'answerPayload'); END IF;
+ IF nullif(btrim(q.analysis),'') IS NULL THEN missing := array_append(missing,'analysis'); END IF;
+ IF nullif(btrim(q.source_text),'') IS NULL THEN missing := array_append(missing,'sourceText'); END IF;
+ IF 'media'=ANY(q.missing_dependencies) AND NOT EXISTS(
+  SELECT 1 FROM media_links l JOIN media_assets a ON a.id=l.media_id
+  WHERE a.deleted_at IS NULL AND a.media_type='image' AND (l.question_id=q.id OR l.group_id=q.group_id OR l.option_id IN (SELECT id FROM question_options WHERE question_id=q.id))
+ ) THEN missing := array_append(missing,'media'); END IF;
+ IF 'material'=ANY(q.missing_dependencies) AND NOT EXISTS(
+  SELECT 1 FROM question_groups g WHERE g.id=q.group_id AND
+  (nullif(btrim(g.instructions),'') IS NOT NULL OR EXISTS(SELECT 1 FROM question_content_blocks WHERE group_id=g.id))
+ ) THEN missing := array_append(missing,'material'); END IF;
+ RETURN missing;
+END $$;
+CREATE FUNCTION maintain_question_completeness() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+ NEW.missing_fields := question_missing_fields(NEW);
+ IF cardinality(NEW.missing_fields)>0 AND NEW.status='active' THEN NEW.status := 'draft'; END IF;
+ RETURN NEW;
+END $$;
+CREATE TRIGGER question_completeness BEFORE INSERT OR UPDATE ON questions FOR EACH ROW EXECUTE FUNCTION maintain_question_completeness();
+
+CREATE FUNCTION refresh_related_question_completeness() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE before_row jsonb := CASE WHEN TG_OP='INSERT' THEN '{}'::jsonb ELSE to_jsonb(OLD) END;
+ after_row jsonb := CASE WHEN TG_OP='DELETE' THEN '{}'::jsonb ELSE to_jsonb(NEW) END;
+BEGIN
+ UPDATE questions SET updated_at=now() WHERE id IN (
+  SELECT (v->>'question_id')::bigint FROM (VALUES(before_row),(after_row)) AS t(v)
+  UNION SELECT id FROM questions WHERE group_id IN ((before_row->>'group_id')::bigint,(after_row->>'group_id')::bigint)
+  UNION SELECT question_id FROM question_options WHERE id IN ((before_row->>'option_id')::bigint,(after_row->>'option_id')::bigint)
+  UNION SELECT id FROM questions WHERE TG_TABLE_NAME='question_groups' AND group_id IN ((before_row->>'id')::bigint,(after_row->>'id')::bigint)
+ );
+ RETURN NULL;
+END $$;
+CREATE TRIGGER option_completeness AFTER INSERT OR UPDATE OR DELETE ON question_options FOR EACH ROW EXECUTE FUNCTION refresh_related_question_completeness();
+CREATE TRIGGER ordering_completeness AFTER INSERT OR UPDATE OR DELETE ON question_ordering_items FOR EACH ROW EXECUTE FUNCTION refresh_related_question_completeness();
+CREATE TRIGGER matching_completeness AFTER INSERT OR UPDATE OR DELETE ON question_matching_items FOR EACH ROW EXECUTE FUNCTION refresh_related_question_completeness();
+CREATE TRIGGER answer_completeness AFTER INSERT OR UPDATE OR DELETE ON question_answer_keys FOR EACH ROW EXECUTE FUNCTION refresh_related_question_completeness();
+CREATE TRIGGER material_completeness AFTER INSERT OR UPDATE OR DELETE ON question_groups FOR EACH ROW EXECUTE FUNCTION refresh_related_question_completeness();
+CREATE TRIGGER block_completeness AFTER INSERT OR UPDATE OR DELETE ON question_content_blocks FOR EACH ROW EXECUTE FUNCTION refresh_related_question_completeness();
+CREATE TRIGGER media_completeness AFTER INSERT OR UPDATE OR DELETE ON media_links FOR EACH ROW EXECUTE FUNCTION refresh_related_question_completeness();
 COMMIT;

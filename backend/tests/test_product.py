@@ -210,7 +210,7 @@ def test_invalid_import_rolls_back_all_questions(client, app, content):
     j = make_import(client, content[0]["id"])
     t = claim(app.state.pool, uuid.uuid4())
     result = parsed()
-    result["questions"].append({**result["questions"][0], "stem": ""})
+    result["questions"].append({**result["questions"][0], "stem": 123})
     assert complete(app.state.pool, t, result, [{"callId": "invalid"}]) is False
     assert client.get(f"/api/v1/import-jobs/{j['id']}").json()["data"]["status"] == "failed"
     assert client.get(f"/api/v1/import-jobs/{j['id']}/outputs").json()["data"] == []
@@ -392,7 +392,7 @@ def test_complex_question_types_grading_review_and_groups(client, content):
     b, choice_q = content
 
     def create(payload, expect=201):
-        r = write(client, "POST", f"/banks/{b['id']}/questions", payload)
+        r = write(client, "POST", f"/banks/{b['id']}/questions", {"analysis": "解析", "sourceText": "真实测试材料", **payload})
         assert r.status_code == expect, r.text
         return r.json()["data"] if expect == 201 else None
 
@@ -406,16 +406,17 @@ def test_complex_question_types_grading_review_and_groups(client, content):
     assert oq["answer_keys"][0]["answer_payload"]["order"] == [ids[2], ids[0], ids[1]]
     default_q = create({
         "questionTypeId": "ordering", "answerMode": "ordering", "stem": "默认顺序", "status": "active",
+        "answerPayload": {"order": [0, 1]},
         "items": [{"content": "一"}, {"content": "二"}],
     })
     assert default_q["answer_keys"][0]["answer_payload"]["order"] == [i["id"] for i in default_q["items"]]
-    create({"questionTypeId": "ordering", "answerMode": "ordering", "stem": "太少", "items": [{"content": "甲"}]}, 422)
+    create({"questionTypeId": "ordering", "answerMode": "ordering", "stem": "太少", "items": [{"content": "甲"}]})
 
     # 连线题 one_to_one：缺 variant / 数量不等 → 422；下标配对归一化为 id
     create({
         "questionTypeId": "matching", "answerMode": "matching", "stem": "缺变体", "status": "active",
         "items": [{"side": "left", "content": "a"}, {"side": "left", "content": "b"}, {"side": "right", "content": "x"}, {"side": "right", "content": "y"}],
-    }, 422)
+    }, 409)
     mq = create({
         "questionTypeId": "matching", "answerMode": "matching", "matchingVariant": "one_to_one",
         "stem": "国家-首都", "status": "active",

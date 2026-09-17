@@ -1,0 +1,369 @@
+{
+  "method": "function_calling",
+  "model": "qwen3.7-flash",
+  "thinking": false,
+  "maxTokens": 4096,
+  "timeoutSeconds": 60,
+  "repetitions": 2,
+  "concurrency": 2,
+  "cases": [
+    {
+      "case": "answer",
+      "repetition": 1,
+      "passed": true,
+      "usage": {
+        "callKey": "d07fede5-1857-4736-b8b1-dfe316fa8355",
+        "modelId": "qwen3.7-flash",
+        "inputTokens": 772,
+        "outputTokens": 125,
+        "callKind": "answer"
+      },
+      "finishReason": "stop",
+      "result": {
+        "answerPayload": {
+          "correctOption": "B"
+        },
+        "canonicalAnswer": "5",
+        "explanation": "2 加 3 等于 5。",
+        "steps": [
+          "将 2 与 3 相加",
+          "得到结果 5"
+        ],
+        "confidence": 1.0,
+        "educationalValue": "基础加法运算"
+      },
+      "seconds": 1.468
+    },
+    {
+      "case": "metadata",
+      "repetition": 1,
+      "passed": true,
+      "usage": {
+        "callKey": "096f4a5d-6c55-43a2-8b1d-e6c744c8af89",
+        "modelId": "qwen3.7-flash",
+        "inputTokens": 482,
+        "outputTokens": 96,
+        "callKind": "metadata"
+      },
+      "finishReason": "stop",
+      "result": {
+        "description": "涵盖高等数学核心知识点的题库，包括微积分、线性代数、空间解析几何等内容。适用于高校学生复习备考及基础巩固，提供典型习题与解题思路。",
+        "tags": [
+          "高等数学",
+          "微积分",
+          "线性代数",
+          "大学数学",
+          "考研数学",
+          "期末考试"
+        ]
+      },
+      "seconds": 1.515
+    },
+    {
+      "case": "report",
+      "repetition": 1,
+      "passed": true,
+      "usage": {
+        "callKey": "a1771167-0d6b-495c-9d1d-2809d37a2309",
+        "modelId": "qwen3.7-flash",
+        "inputTokens": 697,
+        "outputTokens": 318,
+        "callKind": "report"
+      },
+      "finishReason": "stop",
+      "result": {
+        "summary": "根据提供的统计数据，该学生在“加法”这一知识点上表现出明显的掌握不足。总尝试次数为4次，其中正确次数仅为1次，准确率为0.25（25%）。系统识别出“加法”为薄弱知识点的唯一领域。鉴于样本量较小（仅4次尝试），数据可能存在波动，但当前的低准确率表明需要重点关注该领域的练习。",
+        "mastery": [
+          {
+            "label": "加法",
+            "score": 0.25,
+            "evidence": "1/4 次作答正确；仅反映已提供的练习记录。"
+          }
+        ],
+        "weakPoints": [
+          {
+            "label": "加法",
+            "reason": "数据显示该学生在“加法”上的正确率较低（1/4），且被系统明确标记为弱知识项。",
+            "suggestedAction": "建议增加针对基础加法运算的专项练习题，重点巩固基本概念和计算规则，以提高准确率。"
+          }
+        ],
+        "recommendations": [
+          "建议回顾加法的基本定义和运算法则，确保概念清晰。",
+          "进行少量多次的针对性练习，避免一次性大量刷题导致疲劳或错误累积。",
+          "检查每次错误的原因，是计算失误、概念混淆还是审题不清，以便精准改进。"
+        ],
+        "riskLevel": "high"
+      },
+      "seconds": 4.772
+    },
+    {
+      "case": "document",
+      "repetition": 1,
+      "passed": true,
+      "usage": {
+        "callKey": "56aa9478-0147-44f8-8570-3231ac1f2f35",
+        "modelId": "qwen3.7-flash",
+        "inputTokens": 1964,
+        "outputTokens": 288,
+        "callKind": "document"
+      },
+      "finishReason": "stop",
+      "result": {
+        "questions": [
+          {
+            "stem": "6 × 7 = ____.",
+            "answerMode": "fill_blank",
+            "questionTypeId": "fill_blank",
+            "options": [],
+            "answerPayload": {
+              "answers": [
+                "42"
+              ]
+            },
+            "analysis": null,
+            "contentBlocks": [
+              {
+                "partType": "text",
+                "role": null,
+                "textValue": "6 × 7 = ____.",
+                "markdownValue": null,
+                "latexValue": null,
+                "jsonValue": null
+              }
+            ],
+            "sourceText": "1. Fill in the blank: 6 × 7 = ____. Answer: 42",
+            "confidence": 1.0,
+            "needsReview": false
+          },
+          {
+            "stem": "What is the square root of 81?",
+            "answerMode": "short_answer",
+            "questionTypeId": "short_answer",
+            "options": [],
+            "answerPayload": {
+              "text": "9"
+            },
+            "analysis": null,
+            "contentBlocks": [
+              {
+                "partType": "text",
+                "role": null,
+                "textValue": "What is the square root of 81?",
+                "markdownValue": null,
+                "latexValue": null,
+                "jsonValue": null
+              }
+            ],
+            "sourceText": "2. Short answer: What is the square root of 81? Answer: 9",
+            "confidence": 1.0,
+            "needsReview": false
+          }
+        ],
+        "groups": [
+          {
+            "title": "Arithmetic",
+            "instructions": "Answer both questions.",
+            "questionIndexes": [
+              0,
+              1
+            ]
+          }
+        ]
+      },
+      "seconds": 2.843
+    },
+    {
+      "case": "ocr",
+      "repetition": 1,
+      "passed": true,
+      "usage": {
+        "callKey": "4a3fabf4-a777-43a7-8494-d491419232a3",
+        "modelId": "qwen3.7-flash",
+        "inputTokens": 2136,
+        "outputTokens": 88,
+        "callKind": "ocr"
+      },
+      "finishReason": "stop",
+      "result": {
+        "text": "Synthetic Assessment\n\n1. Multiple choice: Which color is made by mixing red and blue?\nA. Green    B. Purple    C. Orange\nAnswer: B\n\n2. Fill in the blank: 9 + 10 = ____.\nAnswer: 19",
+        "figures": []
+      },
+      "seconds": 1.617
+    },
+    {
+      "case": "answer",
+      "repetition": 2,
+      "passed": true,
+      "usage": {
+        "callKey": "5355f606-cfe6-4fba-ae87-d26711e0df95",
+        "modelId": "qwen3.7-flash",
+        "inputTokens": 772,
+        "outputTokens": 123,
+        "callKind": "answer"
+      },
+      "finishReason": "stop",
+      "result": {
+        "answerPayload": {
+          "correctOption": "B"
+        },
+        "canonicalAnswer": "5",
+        "explanation": "2 加 3 等于 5。",
+        "steps": [
+          "将 2 与 3 相加",
+          "得到结果 5"
+        ],
+        "confidence": 1.0,
+        "educationalValue": null
+      },
+      "seconds": 1.444
+    },
+    {
+      "case": "metadata",
+      "repetition": 2,
+      "passed": true,
+      "usage": {
+        "callKey": "844d4933-c877-453e-abb8-8d57578ad310",
+        "modelId": "qwen3.7-flash",
+        "inputTokens": 482,
+        "outputTokens": 90,
+        "callKind": "metadata"
+      },
+      "finishReason": "stop",
+      "result": {
+        "description": "涵盖高等数学核心内容的题库，包括极限、导数、积分、微分方程及多元函数等知识点，适用于高校学生复习与考试准备。",
+        "tags": [
+          "高等数学",
+          "微积分",
+          "大学数学",
+          "考研数学",
+          "理工科基础"
+        ]
+      },
+      "seconds": 1.416
+    },
+    {
+      "case": "report",
+      "repetition": 2,
+      "passed": true,
+      "usage": {
+        "callKey": "53fab446-0b65-4c0e-bf55-c5393bd1e15d",
+        "modelId": "qwen3.7-flash",
+        "inputTokens": 697,
+        "outputTokens": 185,
+        "callKind": "report"
+      },
+      "finishReason": "stop",
+      "result": {
+        "summary": "在4次尝试中，正确回答了1次，准确率为0.25。数据显示“加法”掌握程度较低。",
+        "mastery": [
+          {
+            "label": "加法",
+            "score": 0.25,
+            "evidence": "1/4 次作答正确；仅反映已提供的练习记录。"
+          }
+        ],
+        "weakPoints": [
+          {
+            "label": "加法",
+            "reason": "准确率仅为0.25，且被标记为薄弱知识点",
+            "suggestedAction": "针对加法进行专项练习"
+          }
+        ],
+        "recommendations": [
+          "建议加强基础加法运算的练习",
+          "回顾加法相关概念和计算方法"
+        ],
+        "riskLevel": "high"
+      },
+      "seconds": 2.675
+    },
+    {
+      "case": "document",
+      "repetition": 2,
+      "passed": false,
+      "usage": {
+        "callKey": "5998128b-275e-4f8a-ab19-deeb69153c55",
+        "modelId": "qwen3.7-flash",
+        "inputTokens": 1964,
+        "outputTokens": 265,
+        "callKind": "document"
+      },
+      "finishReason": "stop",
+      "result": {
+        "questions": [
+          {
+            "stem": "6 × 7 = ____.",
+            "answerMode": "fill_blank",
+            "questionTypeId": "fill_blank",
+            "options": [],
+            "answerPayload": null,
+            "analysis": null,
+            "contentBlocks": [
+              {
+                "partType": "formula",
+                "role": null,
+                "textValue": null,
+                "markdownValue": null,
+                "latexValue": "6 \\times 7 = ____.",
+                "jsonValue": null
+              }
+            ],
+            "sourceText": "1. Fill in the blank: 6 × 7 = ____.\\nAnswer: 42",
+            "confidence": 1.0,
+            "needsReview": false
+          },
+          {
+            "stem": "What is the square root of 81?",
+            "answerMode": "short_answer",
+            "questionTypeId": "short_answer",
+            "options": [],
+            "answerPayload": null,
+            "analysis": null,
+            "contentBlocks": [
+              {
+                "partType": "text",
+                "role": null,
+                "textValue": "What is the square root of 81?",
+                "markdownValue": null,
+                "latexValue": null,
+                "jsonValue": null
+              }
+            ],
+            "sourceText": "2. Short answer: What is the square root of 81?\\nAnswer: 9",
+            "confidence": 1.0,
+            "needsReview": false
+          }
+        ],
+        "groups": [
+          {
+            "title": "Arithmetic",
+            "instructions": "Answer both questions.",
+            "questionIndexes": [
+              0,
+              1
+            ]
+          }
+        ]
+      },
+      "seconds": 2.935
+    },
+    {
+      "case": "ocr",
+      "repetition": 2,
+      "passed": true,
+      "usage": {
+        "callKey": "bfa98630-fe2f-4b71-bc5b-54edcdb1c470",
+        "modelId": "qwen3.7-flash",
+        "inputTokens": 2136,
+        "outputTokens": 88,
+        "callKind": "ocr"
+      },
+      "finishReason": "stop",
+      "result": {
+        "text": "Synthetic Assessment\n\n1. Multiple choice: Which color is made by mixing red and blue?\nA. Green   B. Purple   C. Orange\nAnswer: B\n\n2. Fill in the blank: 9 + 10 = ___.\nAnswer: 19",
+        "figures": []
+      },
+      "seconds": 1.221
+    }
+  ]
+}

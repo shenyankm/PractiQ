@@ -1,0 +1,374 @@
+{
+  "method": "function_calling",
+  "model": "qwen3.7-flash",
+  "thinking": false,
+  "maxTokens": 4096,
+  "timeoutSeconds": 60,
+  "repetitions": 2,
+  "concurrency": 2,
+  "cases": [
+    {
+      "case": "answer",
+      "repetition": 1,
+      "passed": true,
+      "usage": {
+        "callKey": "3426e330-3f94-475e-9863-bd27cb311853",
+        "modelId": "qwen3.7-flash",
+        "inputTokens": 772,
+        "outputTokens": 159,
+        "callKind": "answer"
+      },
+      "finishReason": "stop",
+      "result": {
+        "answerPayload": {
+          "correctOption": "B"
+        },
+        "canonicalAnswer": "5",
+        "explanation": "计算 2 加 3 的结果。2 + 3 = 5。因此，选项 B 是正确的。",
+        "steps": [
+          "识别算式：2 + 3",
+          "执行加法运算：2 加上 3 等于 5",
+          "对比选项：选项 B 为 5"
+        ],
+        "confidence": 1.0,
+        "educationalValue": "基础算术加法"
+      },
+      "seconds": 2.03
+    },
+    {
+      "case": "metadata",
+      "repetition": 1,
+      "passed": true,
+      "usage": {
+        "callKey": "595b92f8-c298-4c8c-a702-26e1f284504e",
+        "modelId": "qwen3.7-flash",
+        "inputTokens": 458,
+        "outputTokens": 50,
+        "callKind": "metadata"
+      },
+      "finishReason": "stop",
+      "result": {
+        "description": "本\n",
+        "tags": [
+          "高",
+          "微",
+          "积",
+          "分"
+        ]
+      },
+      "seconds": 1.159
+    },
+    {
+      "case": "report",
+      "repetition": 1,
+      "passed": true,
+      "usage": {
+        "callKey": "fa41ecc7-4ff2-4d20-bd8e-f747e53335fc",
+        "modelId": "qwen3.7-flash",
+        "inputTokens": 697,
+        "outputTokens": 285,
+        "callKind": "report"
+      },
+      "finishReason": "stop",
+      "result": {
+        "summary": "根据提供的统计数据，该学习者在“加法”这一知识点上表现不佳。总尝试次数为4次，其中正确1次，准确率为0.25（25%）。\"加法\"被明确标记为薄弱知识领域。",
+        "mastery": [
+          {
+            "label": "加法",
+            "score": 0.25,
+            "evidence": "1/4 次作答正确；仅反映已提供的练习记录。"
+          }
+        ],
+        "weakPoints": [
+          {
+            "label": "加法",
+            "reason": "统计数据明确显示该知识点为弱项，且准确率仅为25%，表明存在明显的理解或执行困难。",
+            "suggestedAction": "建议针对“加法”概念进行专项复习和更多练习，以巩固基础并提高准确率。"
+          }
+        ],
+        "recommendations": [
+          "增加“加法”相关题目的练习频率，重点关注错误类型的分析。",
+          "回顾“加法”的基本原理和运算规则，确保概念清晰。",
+          "考虑寻求额外辅导或使用辅助工具来加强该领域的学习。"
+        ],
+        "riskLevel": "high"
+      },
+      "seconds": 4.424
+    },
+    {
+      "case": "document",
+      "repetition": 1,
+      "passed": true,
+      "usage": {
+        "callKey": "dfcb5fdc-0d9a-4b60-b3b5-472de6bfe505",
+        "modelId": "qwen3.7-flash",
+        "inputTokens": 1964,
+        "outputTokens": 291,
+        "callKind": "document"
+      },
+      "finishReason": "stop",
+      "result": {
+        "questions": [
+          {
+            "stem": "6 × 7 = __.",
+            "answerMode": "fill_blank",
+            "questionTypeId": "fill_blank",
+            "options": [],
+            "answerPayload": {
+              "answers": [
+                "42"
+              ]
+            },
+            "analysis": null,
+            "contentBlocks": [
+              {
+                "partType": "formula",
+                "role": null,
+                "textValue": null,
+                "markdownValue": null,
+                "latexValue": "6 \\times 7 = ____",
+                "jsonValue": null
+              }
+            ],
+            "sourceText": "1. Fill in the blank: 6 × 7 = __.\nAnswer: 42",
+            "confidence": 1.0,
+            "needsReview": false
+          },
+          {
+            "stem": "What is the square root of 81?",
+            "answerMode": "short_answer",
+            "questionTypeId": "short_answer",
+            "options": [],
+            "answerPayload": {
+              "text": "9"
+            },
+            "analysis": null,
+            "contentBlocks": [
+              {
+                "partType": "formula",
+                "role": null,
+                "textValue": null,
+                "markdownValue": null,
+                "latexValue": "\\sqrt{81}",
+                "jsonValue": null
+              }
+            ],
+            "sourceText": "2. Short answer: What is the square root of 81?\nAnswer: 9",
+            "confidence": 1.0,
+            "needsReview": false
+          }
+        ],
+        "groups": [
+          {
+            "title": "Arithmetic",
+            "instructions": "Answer both questions.",
+            "questionIndexes": [
+              0,
+              1
+            ]
+          }
+        ]
+      },
+      "seconds": 3.243
+    },
+    {
+      "case": "ocr",
+      "repetition": 1,
+      "passed": true,
+      "usage": {
+        "callKey": "cc24ab8e-239f-4e6a-948f-4c219abaad18",
+        "modelId": "qwen3.7-flash",
+        "inputTokens": 2136,
+        "outputTokens": 88,
+        "callKind": "ocr"
+      },
+      "finishReason": "stop",
+      "result": {
+        "text": "Synthetic Assessment\n\n1. Multiple choice: Which color is made by mixing red and blue?\nA. Green   B. Purple   C. Orange\nAnswer: B\n\n2. Fill in the blank: 9 + 10 = ___.\nAnswer: 19",
+        "figures": []
+      },
+      "seconds": 1.413
+    },
+    {
+      "case": "answer",
+      "repetition": 2,
+      "passed": true,
+      "usage": {
+        "callKey": "10e4cd56-8d19-4f77-a601-50144872e602",
+        "modelId": "qwen3.7-flash",
+        "inputTokens": 772,
+        "outputTokens": 141,
+        "callKind": "answer"
+      },
+      "finishReason": "stop",
+      "result": {
+        "answerPayload": {
+          "correctOption": "B"
+        },
+        "canonicalAnswer": "5",
+        "explanation": "2 加 3 等于 5。因此，选项 B 是正确的。",
+        "steps": [
+          "计算 2 + 3",
+          "得出结果为 5",
+          "对比选项，发现 B 选项为 5"
+        ],
+        "confidence": 1.0,
+        "educationalValue": "基础加法运算"
+      },
+      "seconds": 1.747
+    },
+    {
+      "case": "metadata",
+      "repetition": 2,
+      "passed": true,
+      "usage": {
+        "callKey": "afdfc2d7-6778-41a0-88d7-eff83efe155a",
+        "modelId": "qwen3.7-flash",
+        "inputTokens": 458,
+        "outputTokens": 46,
+        "callKind": "metadata"
+      },
+      "finishReason": "stop",
+      "result": {
+        "description": "本",
+        "tags": [
+          "高",
+          "微",
+          "积"
+        ]
+      },
+      "seconds": 0.967
+    },
+    {
+      "case": "report",
+      "repetition": 2,
+      "passed": true,
+      "usage": {
+        "callKey": "520c2841-3157-4b07-91d4-2eb2336b0682",
+        "modelId": "qwen3.7-flash",
+        "inputTokens": 697,
+        "outputTokens": 322,
+        "callKind": "report"
+      },
+      "finishReason": "stop",
+      "result": {
+        "summary": "基于提供的统计数据，该学习者在“加法”这一知识点上的表现显示出明显的困难。在总共4次尝试中，仅正确回答了1次，准确率为25%。系统识别出的薄弱知识点也为“加法”，这与低准确率的数据相吻合。由于样本量较小（仅4次尝试），结论的稳定性有限，但当前数据强烈指向需要对该特定技能进行强化训练。",
+        "mastery": [
+          {
+            "label": "加法",
+            "score": 0.25,
+            "evidence": "1/4 次作答正确；仅反映已提供的练习记录。"
+          }
+        ],
+        "weakPoints": [
+          {
+            "label": "加法",
+            "reason": "数据显示该学习者在此知识点上正确率极低（25%），且被系统标记为弱项，表明存在理解或执行层面的障碍",
+            "suggestedAction": "建议重新复习加法的基础概念，并通过更多针对性的练习题来巩固，特别关注错误类型以找出具体薄弱环节"
+          }
+        ],
+        "recommendations": [
+          "针对‘加法’知识点进行专项练习，增加练习频率和多样性",
+          "回顾之前的错误答案，分析具体的错误原因（如进位错误、符号混淆等）",
+          "考虑使用可视化工具或实物辅助来加深对加法运算过程的理解"
+        ],
+        "riskLevel": "high"
+      },
+      "seconds": 5.325
+    },
+    {
+      "case": "document",
+      "repetition": 2,
+      "passed": true,
+      "usage": {
+        "callKey": "3bee1edf-047e-41ca-bc93-b08ee5c499ab",
+        "modelId": "qwen3.7-flash",
+        "inputTokens": 1964,
+        "outputTokens": 294,
+        "callKind": "document"
+      },
+      "finishReason": "stop",
+      "result": {
+        "questions": [
+          {
+            "stem": "6 × 7 = ____.",
+            "answerMode": "fill_blank",
+            "questionTypeId": "fill_blank",
+            "options": [],
+            "answerPayload": {
+              "answers": [
+                "42"
+              ]
+            },
+            "analysis": null,
+            "contentBlocks": [
+              {
+                "partType": "text",
+                "role": null,
+                "textValue": "6 × 7 = ____.",
+                "markdownValue": null,
+                "latexValue": null,
+                "jsonValue": null
+              }
+            ],
+            "sourceText": "1. Fill in the blank: 6 × 7 = __.\nAnswer: 42",
+            "confidence": 1.0,
+            "needsReview": false
+          },
+          {
+            "stem": "What is the square root of 81?",
+            "answerMode": "short_answer",
+            "questionTypeId": "short_answer",
+            "options": [],
+            "answerPayload": {
+              "text": "9"
+            },
+            "analysis": null,
+            "contentBlocks": [
+              {
+                "partType": "text",
+                "role": null,
+                "textValue": "What is the square root of 81?",
+                "markdownValue": null,
+                "latexValue": null,
+                "jsonValue": null
+              }
+            ],
+            "sourceText": "2. Short answer: What is the square root of 81?\nAnswer: 9",
+            "confidence": 1.0,
+            "needsReview": false
+          }
+        ],
+        "groups": [
+          {
+            "title": "Arithmetic",
+            "instructions": "Answer both questions.",
+            "questionIndexes": [
+              0,
+              1
+            ]
+          }
+        ]
+      },
+      "seconds": 3.128
+    },
+    {
+      "case": "ocr",
+      "repetition": 2,
+      "passed": true,
+      "usage": {
+        "callKey": "5973237c-47c7-4aa2-b835-02de301350cd",
+        "modelId": "qwen3.7-flash",
+        "inputTokens": 2136,
+        "outputTokens": 88,
+        "callKind": "ocr"
+      },
+      "finishReason": "stop",
+      "result": {
+        "text": "Synthetic Assessment\n\n1. Multiple choice: Which color is made by mixing red and blue?\nA. Green    B. Purple    C. Orange\nAnswer: B\n\n2. Fill in the blank: 9 + 10 = ____.\nAnswer: 19",
+        "figures": []
+      },
+      "seconds": 1.22
+    }
+  ]
+}

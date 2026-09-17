@@ -87,7 +87,10 @@ class GoldQuestion(GoldModel):
             "questionTypeId": "expected", "confidence": 1, "needsReview": False,
             "contentBlocks": [{"partType": "text", "textValue": self.stem}],
         }
-        self.answerPayload = ParsedQuestion.model_validate(base).answerPayload
+        parsed_answer = ParsedQuestion.model_validate(base).answerPayload
+        if isinstance(parsed_answer, dict):
+            raise ValueError("gold answers must be complete")
+        self.answerPayload = parsed_answer
         if self.answerPayload is None and self.answerAliases:
             raise ValueError("missing source answers cannot have answer aliases")
         for alias in self.answerAliases:

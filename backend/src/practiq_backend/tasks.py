@@ -205,7 +205,7 @@ def outputs(jid: Positive, db: DB, page: Page):
     job(db, jid)
     return page.result(
         db.execute(
-            "select o.*,q.stem from question_import_job_outputs o join questions q on q.id=o.question_id where job_id=%s order by item_index limit %s offset %s",
+            "select o.*,q.stem,q.missing_fields as \"missingFields\" from question_import_job_outputs o join questions q on q.id=o.question_id where job_id=%s order by item_index limit %s offset %s",
             (jid, page.limit + 1, page.offset),
         ).fetchall()
     )
@@ -262,6 +262,12 @@ def answer_task(qid: Positive, request: Request, db: DB):
         "stem": q["stem"],
         "answerMode": q["answer_mode"],
         "analysis": q["analysis"],
+        "questionTypeId": q["question_type_id"],
+        "choiceVariant": q["choice_variant"],
+        "matchingVariant": q["matching_variant"],
+        "items": [{"id": i["id"], "side": i["side"], "content": i["content"]} for i in q.get("items", [])],
+        "sourceText": q["sourceText"],
+        "missingFields": q["missingFields"],
         "options": [{"label": o["option_label"], "content": o["content"]} for o in q["options"]],
     }
     t = one(

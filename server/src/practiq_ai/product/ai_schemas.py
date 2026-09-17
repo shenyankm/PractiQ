@@ -1,13 +1,38 @@
 from datetime import datetime
 from typing import Annotated, Any, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+)
 
-from practiq_ai.contracts import ArtifactReference, DocumentProcessing, ModelCallUsage
+from practiq_ai.contracts import (
+    ANSWER_TYPES,
+    AnswerPayload,
+    ArtifactReference,
+    ChoiceAnswerPayload,
+    DocumentProcessing,
+    MissingField,
+    ModelCallUsage,
+    ParsedItem,
+    answer_references_missing,
+    normalize_answer,
+    question_missing_fields,
+)
+from practiq_ai.contracts import (
+    ParsedOption as NativeParsedOption,
+)
+from practiq_ai.contracts import (
+    ParsedQuestion as NativeParsedQuestion,
+)
 
 __all__ = ["ModelCallUsage"]
 
-AnswerMode = Literal["choice", "true_false", "fill_blank", "short_answer"]
+AnswerMode = Literal["choice", "true_false", "fill_blank", "short_answer", "ordering", "matching"]
 DocumentSourceType = Literal["csv", "docx", "image", "text", "pdf", "xlsx"]
 ContentPartType = Literal[
     "text",
@@ -49,63 +74,12 @@ class DocumentParseRequest(StrictModel):
         return self
 
 
-class ParsedOption(StrictModel):
-    label: str = Field(min_length=1, max_length=32)
-    content: str = Field(min_length=1, max_length=20_000)
-    isCorrect: bool | None = None
-
-    @field_validator("label", "content")
-    @classmethod
-    def reject_blank_values(cls, value: str) -> str:
-        return _non_blank(value)
+class ParsedOption(NativeParsedOption):
+    pass
 
 
-class ContentBlock(StrictModel):
-    partType: ContentPartType
-    role: str | None = Field(default=None, max_length=64)
-    textValue: str | None = Field(default=None, max_length=120_000)
-    markdownValue: str | None = Field(default=None, max_length=100_000)
-    latexValue: str | None = Field(default=None, max_length=20_000)
-    jsonValue: dict[str, Any] | None = None
-
-
-class ParsedQuestion(StrictModel):
-    stem: str = Field(min_length=1, max_length=120_000)
-    answerMode: AnswerMode
-    questionTypeId: str = Field(min_length=1, max_length=128)
-    options: list[ParsedOption] = Field(max_length=100)
-    answerPayload: dict[str, Any] | None = None
-    analysis: str | None = Field(default=None, max_length=100_000)
-    contentBlocks: list[ContentBlock] = Field(min_length=1, max_length=1_000)
-    sourceText: str | None = Field(default=None, max_length=120_000)
-    confidence: float = Field(ge=0, le=1)
-    needsReview: bool
-
-    @field_validator("stem", "questionTypeId")
-    @classmethod
-    def reject_blank_values(cls, value: str) -> str:
-        return _non_blank(value)
-
-    @model_validator(mode="after")
-    def validate_options(self) -> Self:
-        if self.answerMode == "choice" and not self.options:
-            raise ValueError("options are required for choice questions")
-        labels = [option.label.casefold() for option in self.options]
-        if len(labels) != len(set(labels)):
-            raise ValueError("option labels must be unique")
-        answer_payload = self.answerPayload or {}
-        correct_option = answer_payload.get("correctOption")
-        if self.answerMode == "choice" and correct_option is not None:
-            if not isinstance(correct_option, str):
-                raise ValueError("correctOption must be an option label")
-            labels_by_key = {
-                option.label.casefold(): option.label for option in self.options
-            }
-            canonical_label = labels_by_key.get(_non_blank(correct_option).casefold())
-            if canonical_label is None:
-                raise ValueError("correctOption must reference an option label")
-            self.answerPayload = {**answer_payload, "correctOption": canonical_label}
-        return self
+class ParsedQuestion(NativeParsedQuestion):
+    pass
 
 
 class ParsedGroup(StrictModel):
@@ -164,15 +138,41 @@ def _non_blank(value: str) -> str:
 
 
 class AnswerGenerationRequest(StrictModel):
-    stem: str = Field(min_length=1, max_length=120_000)
-    answerMode: AnswerMode
+    stem: str | None = Field(default=None, max_length=120_000)
+    answerMode: AnswerMode | None = None
+    questionTypeId: str | None = Field(default=None, max_length=128)
+    choiceVariant: Literal["single", "multiple"] | None = None
+    matchingVariant: Literal["one_to_one", "many_to_one"] | None = None
+    items: list[ParsedItem] = Field(default_factory=list, max_length=100)
     options: list[ParsedOption] = Field(default_factory=list, max_length=100)
     analysis: str | None = Field(default=None, max_length=100_000)
+    sourceText: str | None = Field(default=None, max_length=120_000)
+    missingFields: list[MissingField] = Field(default_factory=list)
 
-    @field_validator("stem")
+    @field_validator("options", "items", "missingFields", mode="before")
     @classmethod
-    def reject_blank_stem(cls, value: str) -> str:
-        return _non_blank(value)
+    def absent_list(cls, value):
+        return [] if value is None else value
+
+    @field_validator("stem", "questionTypeId", "answerMode", "choiceVariant", "matchingVariant", "analysis", "sourceText", mode="before")
+    @classmethod
+    def blank_to_null(cls, value):
+        return None if isinstance(value, str) and not value.strip() else value
+
+    @model_validator(mode="after")
+    def validate_shape(self) -> Self:
+        if self.answerMode is not None and self.answerMode != "choice" and (self.options or self.choiceVariant):
+            raise ValueError("options are only allowed for choice questions")
+        if self.answerMode is not None and self.answerMode not in {"ordering", "matching"} and self.items:
+            raise ValueError("items require ordering or matching mode")
+        if self.answerMode is not None and self.answerMode != "matching" and self.matchingVariant:
+            raise ValueError("matchingVariant requires matching mode")
+        if self.answerMode == "ordering" and any(i.side is not None for i in self.items):
+            raise ValueError("Ordering items must be sideless")
+        labels = [o.label.casefold() for o in self.options if o.label]
+        if len(set(labels)) != len(labels):
+            raise ValueError("option labels must be unique")
+        return self
 
 
 class ReportMastery(StrictModel):
@@ -276,13 +276,47 @@ class LearningReportRequest(StrictModel):
         return self
 
 
+ANSWER_PAYLOAD_TYPES = ANSWER_TYPES
+
+
 class AnswerGenerationResult(StrictModel):
-    answerPayload: dict[str, Any]
-    canonicalAnswer: str
-    explanation: str
-    steps: list[str]
-    confidence: float = Field(ge=0, le=1)
+    answerPayload: AnswerPayload | dict[str, Any] | None = None
+    canonicalAnswer: str | None = None
+    explanation: str | None = None
+    steps: list[str] = Field(default_factory=list)
+    confidence: float = Field(default=0, ge=0, le=1)
     educationalValue: str | None = None
+    missingFields: list[MissingField] = Field(default_factory=list)
+
+    @field_validator("canonicalAnswer", "explanation", "educationalValue", mode="before")
+    @classmethod
+    def blank_to_null(cls, value):
+        return (value.strip() or None) if isinstance(value, str) else value
+
+    @field_validator("steps", "missingFields", mode="before")
+    @classmethod
+    def absent_list(cls, value):
+        return [] if value is None else value
+
+    @model_validator(mode="after")
+    def validate_answer_payload(self, info: ValidationInfo) -> Self:
+        if info.context is None:
+            return self
+        context = info.context
+        mode = context.get("answerMode")
+        self.answerPayload = normalize_answer(mode, self.answerPayload, context.get("choiceVariant"))
+        answer_references_missing(mode, self.answerPayload, context)
+        if isinstance(self.answerPayload, ChoiceAnswerPayload):
+            labels = {o["label"].strip().casefold(): o["label"].strip() for o in context.get("options", []) if o.get("label")}
+            canonical = labels.get(self.answerPayload.correctOption.casefold())
+            if canonical is None:
+                raise ValueError("correctOption must reference a supplied option label")
+            self.answerPayload.correctOption = canonical
+        data = {**context, "answerPayload": self.answerPayload,
+                "analysis": self.explanation or context.get("analysis"),
+                "missingFields": list(set(context.get("missingFields", [])) | set(self.missingFields))}
+        self.missingFields = question_missing_fields(data)
+        return self
 
 
 class MasteryItem(StrictModel):
@@ -304,11 +338,39 @@ class LearningReportResult(StrictModel):
     recommendations: list[str]
     riskLevel: RiskLevel
 
+    @model_validator(mode="after")
+    def ground_mastery(self, info: ValidationInfo) -> Self:
+        if info.context is None:
+            return self
+        stats = info.context["stats"]
+        rows = {row["label"]: row for row in stats["mastery"]}
+        labels = [item.label for item in self.mastery]
+        if len(labels) != len(set(labels)) or set(labels) != set(rows):
+            raise ValueError("mastery must include every supplied label exactly once")
+        allowed = set(rows) | set(stats.get("weakKnowledgePoints", []))
+        if any(item.label not in allowed for item in self.weakPoints):
+            raise ValueError("weakPoints must reference supplied labels")
+        for item in self.mastery:
+            row = rows[item.label]
+            item.score = row["correct"] / row["attempts"]
+            item.evidence = f"{row['correct']}/{row['attempts']} 次作答正确；仅反映已提供的练习记录。"
+        return self
+
 
 class BankMetadataRequest(StrictModel):
     name: str = Field(min_length=1, max_length=100, pattern=r"\S")
 
 
 class BankMetadataResult(StrictModel):
-    description: str = Field(min_length=1, max_length=500, pattern=r"\S")
-    tags: list[Annotated[str, Field(min_length=1, max_length=64, pattern=r"\S")]] = Field(min_length=1, max_length=30)
+    description: str = Field(min_length=1, max_length=500, pattern=r"[\s\S]*\S[\s\S]*")
+    tags: list[Annotated[str, Field(min_length=1, max_length=64, pattern=r"[\s\S]*\S[\s\S]*")]] = (
+        Field(min_length=3, max_length=6)
+    )
+
+    @field_validator("tags")
+    @classmethod
+    def unique_tags(cls, tags: list[str]) -> list[str]:
+        tags = [tag.strip() for tag in tags]
+        if len({tag.casefold() for tag in tags}) != len(tags):
+            raise ValueError("tags must be unique")
+        return tags

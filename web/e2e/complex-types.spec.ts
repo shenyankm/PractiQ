@@ -20,6 +20,10 @@ test('ordering question: create with items, publish, practice by moving items an
   const name = `排序验证 ${randomUUID().slice(0, 8)}`;
   await createBank(page, name);
   await chooseType(page, '排序题');
+  for (let i = 0; i < 3; i++) await page.getByRole('button', { name: '添加条目', exact: true }).click();
+  await page.getByLabel('正确顺序', { exact: false }).fill('1,2,3');
+  await page.getByLabel('来源原文', { exact: true }).fill('将需求分析、系统设计、测试验收按顺序排列');
+  await page.getByLabel('解析', { exact: true }).fill('先分析需求，再设计，最后测试验收。');
   await expect(page.getByRole('textbox', { name: '条目 1' })).toBeVisible();
   await page.getByLabel('题干', { exact: true }).fill('将步骤按顺序排列');
   await page.getByRole('textbox', { name: '条目 1' }).fill('需求分析');
@@ -61,6 +65,8 @@ test('short answer: keyword-free question stays ungraded and supports self revie
   const name = `自评验证 ${randomUUID().slice(0, 8)}`;
   await createBank(page, name);
   await chooseType(page, '简答题');
+  await page.getByLabel('来源原文', { exact: true }).fill('简述冒泡排序的思路');
+  await page.getByLabel('解析', { exact: true }).fill('比较相邻元素，将较大元素逐轮后移。');
   await page.getByLabel('题干', { exact: true }).fill('简述冒泡排序的思路');
   await page.getByLabel('参考答案', { exact: true }).fill('相邻元素两两比较，逐轮将最大值沉底');
   await page.getByRole('button', { name: '保存', exact: true }).click();

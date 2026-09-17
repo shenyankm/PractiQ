@@ -1,0 +1,67 @@
+{
+  "cases": [
+    {
+      "repetition": 1,
+      "passed": true,
+      "result": {
+        "description": "用于整理高等数学相关练习题，辅助日常练习与复习。",
+        "tags": [
+          "高等数学",
+          "数学练习",
+          "学习复习"
+        ]
+      },
+      "usage": [
+        {
+          "callKey": "d0fb8daf-3f2c-4693-8751-748867e3ef80",
+          "modelId": "qwen3.7-flash",
+          "inputTokens": 549,
+          "outputTokens": 62,
+          "callKind": "bank_metadata"
+        }
+      ]
+    },
+    {
+      "repetition": 2,
+      "passed": true,
+      "result": {
+        "description": "用于整理高等数学相关练习题，辅助日常练习与复习。",
+        "tags": [
+          "高等数学",
+          "数学练习",
+          "学习复习"
+        ]
+      },
+      "usage": [
+        {
+          "callKey": "a1bfa7e5-63e8-4793-8445-e536d28a9c06",
+          "modelId": "qwen3.7-flash",
+          "inputTokens": 549,
+          "outputTokens": 62,
+          "callKind": "bank_metadata"
+        }
+      ]
+    },
+    {
+      "repetition": 3,
+      "passed": true,
+      "result": {
+        "description": "用于整理高等数学相关练习题，辅助日常练习与复习。",
+        "tags": [
+          "高等数学",
+          "数学练习",
+          "学习复习"
+        ]
+      },
+      "usage": [
+        {
+          "callKey": "2a0cce90-5bc3-4305-90c6-e11a680d1b59",
+          "modelId": "qwen3.7-flash",
+          "inputTokens": 549,
+          "outputTokens": 62,
+          "callKind": "bank_metadata"
+        }
+      ]
+    }
+  ]
+}

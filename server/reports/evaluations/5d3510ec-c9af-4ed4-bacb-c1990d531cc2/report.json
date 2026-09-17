@@ -1,0 +1,318 @@
+{
+  "schemaVersion": 2,
+  "kind": "evaluation",
+  "runId": "5d3510ec-c9af-4ed4-bacb-c1990d531cc2",
+  "generatedAt": "2026-09-17T15:10:03.374066+00:00",
+  "environment": "local-real-services",
+  "scorerVersion": "2.0.0",
+  "repetitions": 1,
+  "caseIds": [
+    "text-basic"
+  ],
+  "datasetHash": "b20d362c1ab91ee988687ff44ff562b0ec76135eaca98bba937be2650d9b3f50",
+  "gitCommit": "9bc073134c7f947d8e7f6c4ccac4bf45249a1636",
+  "dirty": true,
+  "codeHash": "aa89e4d7976be229d85e874731898c912dc588cead71c382915b884b3f2ae1f5",
+  "models": {
+    "provider": "dashscope",
+    "text": "qwen3.7-flash",
+    "vision": "qwen3.7-flash"
+  },
+  "settings": {
+    "source_max_bytes": 26214400,
+    "vision_max_bytes": 52428800,
+    "max_document_pages": 100,
+    "max_vision_page_pixels": 25000000,
+    "max_total_input_chars": 2000000,
+    "graph_max_concurrency": 2,
+    "storage_concurrency": 4,
+    "storage_timeout_seconds": 30.0,
+    "model_timeout_seconds": 180.0,
+    "model_max_tokens": 16384
+  },
+  "promptHash": "f5e77f1bacef2ee2b70e73989779ce7a7af2e67ee6b600db42339a3392416cad",
+  "cases": [
+    {
+      "id": "text-basic",
+      "sourceType": "text",
+      "tags": [
+        "synthetic",
+        "smoke",
+        "text"
+      ],
+      "critical": false,
+      "repetition": 1,
+      "status": "SUCCEEDED",
+      "latencyMs": 24242.324000020744,
+      "expectedError": null,
+      "outcomeMatched": true,
+      "blocked": false,
+      "error": null,
+      "processing": {
+        "chunks": {
+          "total": 1,
+          "succeeded": 1,
+          "skipped": 0
+        },
+        "visuals": {
+          "total": 0,
+          "succeeded": 0,
+          "skipped": 0
+        },
+        "truncated": false,
+        "failures": []
+      },
+      "score": {
+        "expected": 2,
+        "predicted": 2,
+        "matched": 0,
+        "modeCorrect": 0,
+        "optionsExpected": 1,
+        "optionsCorrect": 0,
+        "answerCorrect": 0,
+        "inventedAnswers": 0,
+        "questions": [
+          {
+            "expectedIndex": 0,
+            "predictedIndex": null,
+            "answerMode": "choice",
+            "expected": {
+              "stem": "What is 2 + 3?",
+              "answerMode": "choice",
+              "options": [
+                {
+                  "label": "A",
+                  "content": "4"
+                },
+                {
+                  "label": "B",
+                  "content": "5"
+                },
+                {
+                  "label": "C",
+                  "content": "6"
+                }
+              ],
+              "answerPayload": {
+                "correctOption": "B"
+              }
+            },
+            "predicted": null,
+            "matched": false,
+            "correct": {
+              "answerMode": false,
+              "options": false,
+              "answerPayload": false
+            },
+            "inventedAnswer": false,
+            "differences": [
+              "missing"
+            ]
+          },
+          {
+            "expectedIndex": 1,
+            "predictedIndex": null,
+            "answerMode": "true_false",
+            "expected": {
+              "stem": "Pure water freezes at 0 degrees Celsius under standard atmospheric pressure.",
+              "answerMode": "true_false",
+              "options": [],
+              "answerPayload": {
+                "value": true
+              }
+            },
+            "predicted": null,
+            "matched": false,
+            "correct": {
+              "answerMode": false,
+              "options": false,
+              "answerPayload": false
+            },
+            "inventedAnswer": false,
+            "differences": [
+              "missing"
+            ]
+          },
+          {
+            "expectedIndex": null,
+            "predictedIndex": 0,
+            "answerMode": "choice",
+            "expected": null,
+            "predicted": {
+              "stem": "Multiple choice: What is 2 + 3?",
+              "answerMode": "choice",
+              "options": [
+                {
+                  "label": "A",
+                  "content": "4"
+                },
+                {
+                  "label": "B",
+                  "content": "5"
+                },
+                {
+                  "label": "C",
+                  "content": "6"
+                }
+              ],
+              "answerPayload": {
+                "correctOption": "B"
+              }
+            },
+            "matched": false,
+            "correct": {},
+            "inventedAnswer": false,
+            "differences": [
+              "extra"
+            ]
+          },
+          {
+            "expectedIndex": null,
+            "predictedIndex": 1,
+            "answerMode": "true_false",
+            "expected": null,
+            "predicted": {
+              "stem": "True or false: Pure water freezes at 0 degrees Celsius under standard atmospheric pressure.",
+              "answerMode": "true_false",
+              "options": [],
+              "answerPayload": {
+                "value": true
+              }
+            },
+            "matched": false,
+            "correct": {},
+            "inventedAnswer": false,
+            "differences": [
+              "extra"
+            ]
+          }
+        ],
+        "groups": null,
+        "visuals": {
+          "expected": 0,
+          "predicted": 0,
+          "matched": 0,
+          "missing": [],
+          "extra": []
+        }
+      },
+      "modelCalls": [
+        {
+          "callId": "01a0afea-ecc6-7532-8791-435ff7d2ecbe",
+          "node": "chunk",
+          "status": "RETURNED",
+          "inputTokens": 1710,
+          "outputTokens": 2383
+        }
+      ]
+    }
+  ],
+  "status": "FAILED",
+  "gateReasons": [
+    "BELOW_TARGET:questionPrecision",
+    "BELOW_TARGET:questionRecall",
+    "BELOW_TARGET:answerModeAccuracy",
+    "BELOW_TARGET:optionsAccuracy",
+    "BELOW_TARGET:parsedAnswerAccuracy"
+  ],
+  "documentParser": {
+    "questionPrecision": 0.0,
+    "questionRecall": 0.0,
+    "answerModeAccuracy": 0.0,
+    "optionsAccuracy": 0.0,
+    "parsedAnswerAccuracy": 0.0,
+    "groupF1": null,
+    "visualF1": 100.0
+  },
+  "outcomes": {
+    "SUCCEEDED": 1
+  },
+  "slices": {
+    "sourceType": {
+      "text": {
+        "questionPrecision": 0.0,
+        "questionRecall": 0.0,
+        "answerModeAccuracy": 0.0,
+        "optionsAccuracy": 0.0,
+        "parsedAnswerAccuracy": 0.0,
+        "groupF1": null,
+        "visualF1": 100.0
+      }
+    },
+    "answerMode": {
+      "choice": {
+        "questionPrecision": 0.0,
+        "questionRecall": 0.0,
+        "answerModeAccuracy": 0.0,
+        "optionsAccuracy": 0.0,
+        "parsedAnswerAccuracy": 0.0,
+        "groupF1": null,
+        "visualF1": null
+      },
+      "true_false": {
+        "questionPrecision": 0.0,
+        "questionRecall": 0.0,
+        "answerModeAccuracy": 0.0,
+        "optionsAccuracy": null,
+        "parsedAnswerAccuracy": 0.0,
+        "groupF1": null,
+        "visualF1": null
+      }
+    },
+    "tag": {
+      "smoke": {
+        "questionPrecision": 0.0,
+        "questionRecall": 0.0,
+        "answerModeAccuracy": 0.0,
+        "optionsAccuracy": 0.0,
+        "parsedAnswerAccuracy": 0.0,
+        "groupF1": null,
+        "visualF1": 100.0
+      },
+      "synthetic": {
+        "questionPrecision": 0.0,
+        "questionRecall": 0.0,
+        "answerModeAccuracy": 0.0,
+        "optionsAccuracy": 0.0,
+        "parsedAnswerAccuracy": 0.0,
+        "groupF1": null,
+        "visualF1": 100.0
+      },
+      "text": {
+        "questionPrecision": 0.0,
+        "questionRecall": 0.0,
+        "answerModeAccuracy": 0.0,
+        "optionsAccuracy": 0.0,
+        "parsedAnswerAccuracy": 0.0,
+        "groupF1": null,
+        "visualF1": 100.0
+      }
+    }
+  },
+  "latency": {
+    "all": {
+      "count": 1,
+      "p50Ms": 24242.324000020744,
+      "p95Ms": 24242.324000020744
+    },
+    "success": {
+      "count": 1,
+      "p50Ms": 24242.324000020744,
+      "p95Ms": 24242.324000020744
+    },
+    "failure": {
+      "count": 0,
+      "p50Ms": null,
+      "p95Ms": null
+    }
+  },
+  "modelUsage": {
+    "calls": 1,
+    "responses": 1,
+    "failedCalls": 0,
+    "inputTokens": 1710,
+    "outputTokens": 2383,
+    "complete": true,
+    "missingUsageCalls": 0
+  }
+}

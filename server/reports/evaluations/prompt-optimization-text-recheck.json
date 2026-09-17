@@ -1,0 +1,1423 @@
+{
+  "schemaVersion": 2,
+  "kind": "evaluation",
+  "runId": "cf8b7fad-384e-40d5-a83a-712b818d94a6",
+  "generatedAt": "2026-09-17T15:47:57.586945+00:00",
+  "environment": "local-real-services",
+  "scorerVersion": "2.0.0",
+  "repetitions": 3,
+  "caseIds": [
+    "text-basic",
+    "csv-quoted",
+    "text-no-answer"
+  ],
+  "datasetHash": "a826d8cbff50b736a4e0feb2b614c8877b1fd5a4537159f3c06fdc78d781754e",
+  "gitCommit": "9bc073134c7f947d8e7f6c4ccac4bf45249a1636",
+  "dirty": true,
+  "codeHash": "f656c0bf9c152b3737bf597e3be7db5d778d0033f04ebe5cab741d02865e5d10",
+  "models": {
+    "provider": "dashscope",
+    "text": "qwen3.7-flash",
+    "vision": "qwen3.7-flash"
+  },
+  "settings": {
+    "source_max_bytes": 26214400,
+    "vision_max_bytes": 52428800,
+    "max_document_pages": 100,
+    "max_vision_page_pixels": 25000000,
+    "max_total_input_chars": 2000000,
+    "graph_max_concurrency": 2,
+    "storage_concurrency": 4,
+    "storage_timeout_seconds": 30.0,
+    "model_timeout_seconds": 180.0,
+    "model_max_tokens": 16384
+  },
+  "promptHash": "93ce1704f7fa56a3404d5c1260495f48042611212f3fd020814b35cc6b7dbd94",
+  "cases": [
+    {
+      "id": "text-basic",
+      "sourceType": "text",
+      "tags": [
+        "synthetic",
+        "smoke",
+        "text"
+      ],
+      "critical": false,
+      "repetition": 1,
+      "status": "ERROR",
+      "latencyMs": 117908.7535829749,
+      "expectedError": null,
+      "outcomeMatched": false,
+      "blocked": false,
+      "error": {
+        "type": "DocumentProcessingError",
+        "code": "DOCUMENT_PARSE_FAILED",
+        "statusCode": 502
+      },
+      "processing": {
+        "chunks": {
+          "total": 1,
+          "succeeded": 0,
+          "skipped": 0
+        },
+        "visuals": {
+          "total": 0,
+          "succeeded": 0,
+          "skipped": 0
+        },
+        "truncated": false,
+        "failures": [
+          {
+            "stage": "document_parse",
+            "index": 0,
+            "code": "OUTPUT_INVALID",
+            "retryable": true
+          }
+        ]
+      },
+      "score": {
+        "expected": 2,
+        "predicted": 0,
+        "matched": 0,
+        "modeCorrect": 0,
+        "optionsExpected": 1,
+        "optionsCorrect": 0,
+        "answerCorrect": 0,
+        "inventedAnswers": 0,
+        "questions": [
+          {
+            "expectedIndex": 0,
+            "predictedIndex": null,
+            "answerMode": "choice",
+            "expected": {
+              "stem": "What is 2 + 3?",
+              "answerMode": "choice",
+              "options": [
+                {
+                  "label": "A",
+                  "content": "4"
+                },
+                {
+                  "label": "B",
+                  "content": "5"
+                },
+                {
+                  "label": "C",
+                  "content": "6"
+                }
+              ],
+              "answerPayload": {
+                "correctOption": "B"
+              }
+            },
+            "predicted": null,
+            "matched": false,
+            "correct": {
+              "answerMode": false,
+              "options": false,
+              "answerPayload": false
+            },
+            "inventedAnswer": false,
+            "differences": [
+              "missing"
+            ]
+          },
+          {
+            "expectedIndex": 1,
+            "predictedIndex": null,
+            "answerMode": "true_false",
+            "expected": {
+              "stem": "Pure water freezes at 0 degrees Celsius under standard atmospheric pressure.",
+              "answerMode": "true_false",
+              "options": [],
+              "answerPayload": {
+                "value": true
+              }
+            },
+            "predicted": null,
+            "matched": false,
+            "correct": {
+              "answerMode": false,
+              "options": false,
+              "answerPayload": false
+            },
+            "inventedAnswer": false,
+            "differences": [
+              "missing"
+            ]
+          }
+        ],
+        "groups": null,
+        "visuals": {
+          "expected": 0,
+          "predicted": 0,
+          "matched": 0,
+          "missing": [],
+          "extra": []
+        }
+      },
+      "modelCalls": [
+        {
+          "callId": "01a0b00d-9f9b-7451-b4ea-f940d9ead58d",
+          "node": "chunk",
+          "status": "RETURNED",
+          "inputTokens": 1987,
+          "outputTokens": 2845
+        },
+        {
+          "callId": "01a0b00e-0e65-7363-9606-c781096e8c9f",
+          "node": "chunk",
+          "status": "RETURNED",
+          "inputTokens": 2376,
+          "outputTokens": 3301
+        },
+        {
+          "callId": "01a0b00e-839e-7002-b059-51e4ddc7673d",
+          "node": "chunk",
+          "status": "RETURNED",
+          "inputTokens": 2765,
+          "outputTokens": 3320
+        },
+        {
+          "callId": "01a0b00e-fe09-7cc1-ad3d-0c98e0d55261",
+          "node": "chunk",
+          "status": "RETURNED",
+          "inputTokens": 3167,
+          "outputTokens": 2913
+        }
+      ]
+    },
+    {
+      "id": "csv-quoted",
+      "sourceType": "csv",
+      "tags": [
+        "synthetic",
+        "smoke",
+        "csv"
+      ],
+      "critical": false,
+      "repetition": 1,
+      "status": "SUCCEEDED",
+      "latencyMs": 26928.03866698523,
+      "expectedError": null,
+      "outcomeMatched": true,
+      "blocked": false,
+      "error": null,
+      "processing": {
+        "chunks": {
+          "total": 1,
+          "succeeded": 1,
+          "skipped": 0
+        },
+        "visuals": {
+          "total": 0,
+          "succeeded": 0,
+          "skipped": 0
+        },
+        "truncated": false,
+        "failures": []
+      },
+      "score": {
+        "expected": 2,
+        "predicted": 2,
+        "matched": 1,
+        "modeCorrect": 1,
+        "optionsExpected": 0,
+        "optionsCorrect": 0,
+        "answerCorrect": 0,
+        "inventedAnswers": 0,
+        "questions": [
+          {
+            "expectedIndex": 0,
+            "predictedIndex": null,
+            "answerMode": "fill_blank",
+            "expected": {
+              "stem": "The freezing point of water, in degrees Celsius, is ____.",
+              "answerMode": "fill_blank",
+              "options": [],
+              "answerPayload": {
+                "answers": [
+                  "0"
+                ]
+              }
+            },
+            "predicted": null,
+            "matched": false,
+            "correct": {
+              "answerMode": false,
+              "options": false,
+              "answerPayload": false
+            },
+            "inventedAnswer": false,
+            "differences": [
+              "missing"
+            ]
+          },
+          {
+            "expectedIndex": 1,
+            "predictedIndex": 1,
+            "answerMode": "short_answer",
+            "expected": {
+              "stem": "What is 12 + 8?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": {
+                "text": "20"
+              }
+            },
+            "predicted": {
+              "stem": "What is 12 + 8?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": null
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": false
+            },
+            "inventedAnswer": false,
+            "differences": [
+              "answerPayload"
+            ]
+          },
+          {
+            "expectedIndex": null,
+            "predictedIndex": 0,
+            "answerMode": "fill_blank",
+            "expected": null,
+            "predicted": {
+              "stem": "The freezing point of water, in degrees Celsius is __.",
+              "answerMode": "fill_blank",
+              "options": [],
+              "answerPayload": null
+            },
+            "matched": false,
+            "correct": {},
+            "inventedAnswer": false,
+            "differences": [
+              "extra"
+            ]
+          }
+        ],
+        "groups": null,
+        "visuals": {
+          "expected": 0,
+          "predicted": 0,
+          "matched": 0,
+          "missing": [],
+          "extra": []
+        }
+      },
+      "modelCalls": [
+        {
+          "callId": "01a0b00f-6c5f-70d0-93c5-8274dd1cdee3",
+          "node": "chunk",
+          "status": "RETURNED",
+          "inputTokens": 1967,
+          "outputTokens": 2771
+        }
+      ]
+    },
+    {
+      "id": "text-no-answer",
+      "sourceType": "text",
+      "tags": [
+        "synthetic",
+        "regression",
+        "no-source-answer"
+      ],
+      "critical": true,
+      "repetition": 1,
+      "status": "SUCCEEDED",
+      "latencyMs": 24470.288749987958,
+      "expectedError": null,
+      "outcomeMatched": true,
+      "blocked": false,
+      "error": null,
+      "processing": {
+        "chunks": {
+          "total": 1,
+          "succeeded": 1,
+          "skipped": 0
+        },
+        "visuals": {
+          "total": 0,
+          "succeeded": 0,
+          "skipped": 0
+        },
+        "truncated": false,
+        "failures": []
+      },
+      "score": {
+        "expected": 2,
+        "predicted": 2,
+        "matched": 2,
+        "modeCorrect": 2,
+        "optionsExpected": 1,
+        "optionsCorrect": 1,
+        "answerCorrect": 2,
+        "inventedAnswers": 0,
+        "questions": [
+          {
+            "expectedIndex": 0,
+            "predictedIndex": 0,
+            "answerMode": "short_answer",
+            "expected": {
+              "stem": "What is the capital of France?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": null
+            },
+            "predicted": {
+              "stem": "What is the capital of France?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": null
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": true
+            },
+            "inventedAnswer": false,
+            "differences": []
+          },
+          {
+            "expectedIndex": 1,
+            "predictedIndex": 1,
+            "answerMode": "choice",
+            "expected": {
+              "stem": "Which number is even?",
+              "answerMode": "choice",
+              "options": [
+                {
+                  "label": "A",
+                  "content": "3"
+                },
+                {
+                  "label": "B",
+                  "content": "4"
+                }
+              ],
+              "answerPayload": null
+            },
+            "predicted": {
+              "stem": "Which number is even?",
+              "answerMode": "choice",
+              "options": [
+                {
+                  "label": "A",
+                  "content": "3"
+                },
+                {
+                  "label": "B",
+                  "content": "4"
+                }
+              ],
+              "answerPayload": null
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": true
+            },
+            "inventedAnswer": false,
+            "differences": []
+          }
+        ],
+        "groups": null,
+        "visuals": {
+          "expected": 0,
+          "predicted": 0,
+          "matched": 0,
+          "missing": [],
+          "extra": []
+        }
+      },
+      "modelCalls": [
+        {
+          "callId": "01a0b00f-d4de-7652-ab2b-f0c485898fb2",
+          "node": "chunk",
+          "status": "RETURNED",
+          "inputTokens": 1966,
+          "outputTokens": 2638
+        }
+      ]
+    },
+    {
+      "id": "text-basic",
+      "sourceType": "text",
+      "tags": [
+        "synthetic",
+        "smoke",
+        "text"
+      ],
+      "critical": false,
+      "repetition": 2,
+      "status": "SUCCEEDED",
+      "latencyMs": 84064.35308299842,
+      "expectedError": null,
+      "outcomeMatched": true,
+      "blocked": false,
+      "error": null,
+      "processing": {
+        "chunks": {
+          "total": 1,
+          "succeeded": 1,
+          "skipped": 0
+        },
+        "visuals": {
+          "total": 0,
+          "succeeded": 0,
+          "skipped": 0
+        },
+        "truncated": false,
+        "failures": []
+      },
+      "score": {
+        "expected": 2,
+        "predicted": 2,
+        "matched": 2,
+        "modeCorrect": 2,
+        "optionsExpected": 1,
+        "optionsCorrect": 1,
+        "answerCorrect": 2,
+        "inventedAnswers": 0,
+        "questions": [
+          {
+            "expectedIndex": 0,
+            "predictedIndex": 0,
+            "answerMode": "choice",
+            "expected": {
+              "stem": "What is 2 + 3?",
+              "answerMode": "choice",
+              "options": [
+                {
+                  "label": "A",
+                  "content": "4"
+                },
+                {
+                  "label": "B",
+                  "content": "5"
+                },
+                {
+                  "label": "C",
+                  "content": "6"
+                }
+              ],
+              "answerPayload": {
+                "correctOption": "B"
+              }
+            },
+            "predicted": {
+              "stem": "What is 2 + 3?",
+              "answerMode": "choice",
+              "options": [
+                {
+                  "label": "A",
+                  "content": "4"
+                },
+                {
+                  "label": "B",
+                  "content": "5"
+                },
+                {
+                  "label": "C",
+                  "content": "6"
+                }
+              ],
+              "answerPayload": {
+                "correctOption": "B"
+              }
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": true
+            },
+            "inventedAnswer": false,
+            "differences": []
+          },
+          {
+            "expectedIndex": 1,
+            "predictedIndex": 1,
+            "answerMode": "true_false",
+            "expected": {
+              "stem": "Pure water freezes at 0 degrees Celsius under standard atmospheric pressure.",
+              "answerMode": "true_false",
+              "options": [],
+              "answerPayload": {
+                "value": true
+              }
+            },
+            "predicted": {
+              "stem": "Pure water freezes at 0 degrees Celsius under standard atmospheric pressure.",
+              "answerMode": "true_false",
+              "options": [],
+              "answerPayload": {
+                "value": true
+              }
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": true
+            },
+            "inventedAnswer": false,
+            "differences": []
+          }
+        ],
+        "groups": null,
+        "visuals": {
+          "expected": 0,
+          "predicted": 0,
+          "matched": 0,
+          "missing": [],
+          "extra": []
+        }
+      },
+      "modelCalls": [
+        {
+          "callId": "01a0b010-348a-7141-a0a0-34fd09294cf8",
+          "node": "chunk",
+          "status": "RETURNED",
+          "inputTokens": 1987,
+          "outputTokens": 8024
+        }
+      ]
+    },
+    {
+      "id": "csv-quoted",
+      "sourceType": "csv",
+      "tags": [
+        "synthetic",
+        "smoke",
+        "csv"
+      ],
+      "critical": false,
+      "repetition": 2,
+      "status": "SUCCEEDED",
+      "latencyMs": 40209.68787500169,
+      "expectedError": null,
+      "outcomeMatched": true,
+      "blocked": false,
+      "error": null,
+      "processing": {
+        "chunks": {
+          "total": 1,
+          "succeeded": 1,
+          "skipped": 0
+        },
+        "visuals": {
+          "total": 0,
+          "succeeded": 0,
+          "skipped": 0
+        },
+        "truncated": false,
+        "failures": []
+      },
+      "score": {
+        "expected": 2,
+        "predicted": 2,
+        "matched": 2,
+        "modeCorrect": 2,
+        "optionsExpected": 0,
+        "optionsCorrect": 0,
+        "answerCorrect": 0,
+        "inventedAnswers": 0,
+        "questions": [
+          {
+            "expectedIndex": 0,
+            "predictedIndex": 0,
+            "answerMode": "fill_blank",
+            "expected": {
+              "stem": "The freezing point of water, in degrees Celsius, is ____.",
+              "answerMode": "fill_blank",
+              "options": [],
+              "answerPayload": {
+                "answers": [
+                  "0"
+                ]
+              }
+            },
+            "predicted": {
+              "stem": "The freezing point of water, in degrees Celsius, is ____.",
+              "answerMode": "fill_blank",
+              "options": [],
+              "answerPayload": null
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": false
+            },
+            "inventedAnswer": false,
+            "differences": [
+              "answerPayload"
+            ]
+          },
+          {
+            "expectedIndex": 1,
+            "predictedIndex": 1,
+            "answerMode": "short_answer",
+            "expected": {
+              "stem": "What is 12 + 8?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": {
+                "text": "20"
+              }
+            },
+            "predicted": {
+              "stem": "What is 12 + 8?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": null
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": false
+            },
+            "inventedAnswer": false,
+            "differences": [
+              "answerPayload"
+            ]
+          }
+        ],
+        "groups": null,
+        "visuals": {
+          "expected": 0,
+          "predicted": 0,
+          "matched": 0,
+          "missing": [],
+          "extra": []
+        }
+      },
+      "modelCalls": [
+        {
+          "callId": "01a0b011-7cf1-73d0-a765-fc135190a32c",
+          "node": "chunk",
+          "status": "RETURNED",
+          "inputTokens": 1967,
+          "outputTokens": 3154
+        }
+      ]
+    },
+    {
+      "id": "text-no-answer",
+      "sourceType": "text",
+      "tags": [
+        "synthetic",
+        "regression",
+        "no-source-answer"
+      ],
+      "critical": true,
+      "repetition": 2,
+      "status": "SUCCEEDED",
+      "latencyMs": 38239.6669590089,
+      "expectedError": null,
+      "outcomeMatched": true,
+      "blocked": false,
+      "error": null,
+      "processing": {
+        "chunks": {
+          "total": 1,
+          "succeeded": 1,
+          "skipped": 0
+        },
+        "visuals": {
+          "total": 0,
+          "succeeded": 0,
+          "skipped": 0
+        },
+        "truncated": false,
+        "failures": []
+      },
+      "score": {
+        "expected": 2,
+        "predicted": 2,
+        "matched": 2,
+        "modeCorrect": 2,
+        "optionsExpected": 1,
+        "optionsCorrect": 1,
+        "answerCorrect": 2,
+        "inventedAnswers": 0,
+        "questions": [
+          {
+            "expectedIndex": 0,
+            "predictedIndex": 0,
+            "answerMode": "short_answer",
+            "expected": {
+              "stem": "What is the capital of France?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": null
+            },
+            "predicted": {
+              "stem": "What is the capital of France?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": null
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": true
+            },
+            "inventedAnswer": false,
+            "differences": []
+          },
+          {
+            "expectedIndex": 1,
+            "predictedIndex": 1,
+            "answerMode": "choice",
+            "expected": {
+              "stem": "Which number is even?",
+              "answerMode": "choice",
+              "options": [
+                {
+                  "label": "A",
+                  "content": "3"
+                },
+                {
+                  "label": "B",
+                  "content": "4"
+                }
+              ],
+              "answerPayload": null
+            },
+            "predicted": {
+              "stem": "Which number is even?",
+              "answerMode": "choice",
+              "options": [
+                {
+                  "label": "A",
+                  "content": "3"
+                },
+                {
+                  "label": "B",
+                  "content": "4"
+                }
+              ],
+              "answerPayload": null
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": true
+            },
+            "inventedAnswer": false,
+            "differences": []
+          }
+        ],
+        "groups": null,
+        "visuals": {
+          "expected": 0,
+          "predicted": 0,
+          "matched": 0,
+          "missing": [],
+          "extra": []
+        }
+      },
+      "modelCalls": [
+        {
+          "callId": "01a0b012-1a07-7ef2-b2ea-ff618de292da",
+          "node": "chunk",
+          "status": "RETURNED",
+          "inputTokens": 1966,
+          "outputTokens": 4106
+        }
+      ]
+    },
+    {
+      "id": "text-basic",
+      "sourceType": "text",
+      "tags": [
+        "synthetic",
+        "smoke",
+        "text"
+      ],
+      "critical": false,
+      "repetition": 3,
+      "status": "ERROR",
+      "latencyMs": 131542.03591600526,
+      "expectedError": null,
+      "outcomeMatched": false,
+      "blocked": false,
+      "error": {
+        "type": "DocumentProcessingError",
+        "code": "DOCUMENT_PARSE_FAILED",
+        "statusCode": 502
+      },
+      "processing": {
+        "chunks": {
+          "total": 1,
+          "succeeded": 0,
+          "skipped": 0
+        },
+        "visuals": {
+          "total": 0,
+          "succeeded": 0,
+          "skipped": 0
+        },
+        "truncated": false,
+        "failures": [
+          {
+            "stage": "document_parse",
+            "index": 0,
+            "code": "OUTPUT_INVALID",
+            "retryable": true
+          }
+        ]
+      },
+      "score": {
+        "expected": 2,
+        "predicted": 0,
+        "matched": 0,
+        "modeCorrect": 0,
+        "optionsExpected": 1,
+        "optionsCorrect": 0,
+        "answerCorrect": 0,
+        "inventedAnswers": 0,
+        "questions": [
+          {
+            "expectedIndex": 0,
+            "predictedIndex": null,
+            "answerMode": "choice",
+            "expected": {
+              "stem": "What is 2 + 3?",
+              "answerMode": "choice",
+              "options": [
+                {
+                  "label": "A",
+                  "content": "4"
+                },
+                {
+                  "label": "B",
+                  "content": "5"
+                },
+                {
+                  "label": "C",
+                  "content": "6"
+                }
+              ],
+              "answerPayload": {
+                "correctOption": "B"
+              }
+            },
+            "predicted": null,
+            "matched": false,
+            "correct": {
+              "answerMode": false,
+              "options": false,
+              "answerPayload": false
+            },
+            "inventedAnswer": false,
+            "differences": [
+              "missing"
+            ]
+          },
+          {
+            "expectedIndex": 1,
+            "predictedIndex": null,
+            "answerMode": "true_false",
+            "expected": {
+              "stem": "Pure water freezes at 0 degrees Celsius under standard atmospheric pressure.",
+              "answerMode": "true_false",
+              "options": [],
+              "answerPayload": {
+                "value": true
+              }
+            },
+            "predicted": null,
+            "matched": false,
+            "correct": {
+              "answerMode": false,
+              "options": false,
+              "answerPayload": false
+            },
+            "inventedAnswer": false,
+            "differences": [
+              "missing"
+            ]
+          }
+        ],
+        "groups": null,
+        "visuals": {
+          "expected": 0,
+          "predicted": 0,
+          "matched": 0,
+          "missing": [],
+          "extra": []
+        }
+      },
+      "modelCalls": [
+        {
+          "callId": "01a0b012-af66-7a51-b855-8a56dfffc5e3",
+          "node": "chunk",
+          "status": "RETURNED",
+          "inputTokens": 1987,
+          "outputTokens": 3944
+        },
+        {
+          "callId": "01a0b013-3952-7b00-bbda-9d74f4382d18",
+          "node": "chunk",
+          "status": "RETURNED",
+          "inputTokens": 2382,
+          "outputTokens": 2983
+        },
+        {
+          "callId": "01a0b013-ab95-74a0-9e97-33001ca711d3",
+          "node": "chunk",
+          "status": "RETURNED",
+          "inputTokens": 2767,
+          "outputTokens": 4415
+        },
+        {
+          "callId": "01a0b014-48f1-7470-ba23-d62333c8783a",
+          "node": "chunk",
+          "status": "RETURNED",
+          "inputTokens": 3162,
+          "outputTokens": 2808
+        }
+      ]
+    },
+    {
+      "id": "csv-quoted",
+      "sourceType": "csv",
+      "tags": [
+        "synthetic",
+        "smoke",
+        "csv"
+      ],
+      "critical": false,
+      "repetition": 3,
+      "status": "SUCCEEDED",
+      "latencyMs": 18575.793250027345,
+      "expectedError": null,
+      "outcomeMatched": true,
+      "blocked": false,
+      "error": null,
+      "processing": {
+        "chunks": {
+          "total": 1,
+          "succeeded": 1,
+          "skipped": 0
+        },
+        "visuals": {
+          "total": 0,
+          "succeeded": 0,
+          "skipped": 0
+        },
+        "truncated": false,
+        "failures": []
+      },
+      "score": {
+        "expected": 2,
+        "predicted": 2,
+        "matched": 1,
+        "modeCorrect": 1,
+        "optionsExpected": 0,
+        "optionsCorrect": 0,
+        "answerCorrect": 0,
+        "inventedAnswers": 0,
+        "questions": [
+          {
+            "expectedIndex": 0,
+            "predictedIndex": null,
+            "answerMode": "fill_blank",
+            "expected": {
+              "stem": "The freezing point of water, in degrees Celsius, is ____.",
+              "answerMode": "fill_blank",
+              "options": [],
+              "answerPayload": {
+                "answers": [
+                  "0"
+                ]
+              }
+            },
+            "predicted": null,
+            "matched": false,
+            "correct": {
+              "answerMode": false,
+              "options": false,
+              "answerPayload": false
+            },
+            "inventedAnswer": false,
+            "differences": [
+              "missing"
+            ]
+          },
+          {
+            "expectedIndex": 1,
+            "predictedIndex": 1,
+            "answerMode": "short_answer",
+            "expected": {
+              "stem": "What is 12 + 8?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": {
+                "text": "20"
+              }
+            },
+            "predicted": {
+              "stem": "What is 12 + 8?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": null
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": false
+            },
+            "inventedAnswer": false,
+            "differences": [
+              "answerPayload"
+            ]
+          },
+          {
+            "expectedIndex": null,
+            "predictedIndex": 0,
+            "answerMode": "fill_blank",
+            "expected": null,
+            "predicted": {
+              "stem": "The freezing point of water, in degrees Celsius, is ___.",
+              "answerMode": "fill_blank",
+              "options": [],
+              "answerPayload": null
+            },
+            "matched": false,
+            "correct": {},
+            "inventedAnswer": false,
+            "differences": [
+              "extra"
+            ]
+          }
+        ],
+        "groups": null,
+        "visuals": {
+          "expected": 0,
+          "predicted": 0,
+          "matched": 0,
+          "missing": [],
+          "extra": []
+        }
+      },
+      "modelCalls": [
+        {
+          "callId": "01a0b014-b134-7f70-aec3-ebf36f6def4a",
+          "node": "chunk",
+          "status": "RETURNED",
+          "inputTokens": 1967,
+          "outputTokens": 1928
+        }
+      ]
+    },
+    {
+      "id": "text-no-answer",
+      "sourceType": "text",
+      "tags": [
+        "synthetic",
+        "regression",
+        "no-source-answer"
+      ],
+      "critical": true,
+      "repetition": 3,
+      "status": "SUCCEEDED",
+      "latencyMs": 22829.474416997982,
+      "expectedError": null,
+      "outcomeMatched": true,
+      "blocked": false,
+      "error": null,
+      "processing": {
+        "chunks": {
+          "total": 1,
+          "succeeded": 1,
+          "skipped": 0
+        },
+        "visuals": {
+          "total": 0,
+          "succeeded": 0,
+          "skipped": 0
+        },
+        "truncated": false,
+        "failures": []
+      },
+      "score": {
+        "expected": 2,
+        "predicted": 2,
+        "matched": 2,
+        "modeCorrect": 2,
+        "optionsExpected": 1,
+        "optionsCorrect": 1,
+        "answerCorrect": 2,
+        "inventedAnswers": 0,
+        "questions": [
+          {
+            "expectedIndex": 0,
+            "predictedIndex": 0,
+            "answerMode": "short_answer",
+            "expected": {
+              "stem": "What is the capital of France?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": null
+            },
+            "predicted": {
+              "stem": "What is the capital of France?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": null
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": true
+            },
+            "inventedAnswer": false,
+            "differences": []
+          },
+          {
+            "expectedIndex": 1,
+            "predictedIndex": 1,
+            "answerMode": "choice",
+            "expected": {
+              "stem": "Which number is even?",
+              "answerMode": "choice",
+              "options": [
+                {
+                  "label": "A",
+                  "content": "3"
+                },
+                {
+                  "label": "B",
+                  "content": "4"
+                }
+              ],
+              "answerPayload": null
+            },
+            "predicted": {
+              "stem": "Which number is even?",
+              "answerMode": "choice",
+              "options": [
+                {
+                  "label": "A",
+                  "content": "3"
+                },
+                {
+                  "label": "B",
+                  "content": "4"
+                }
+              ],
+              "answerPayload": null
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": true
+            },
+            "inventedAnswer": false,
+            "differences": []
+          }
+        ],
+        "groups": null,
+        "visuals": {
+          "expected": 0,
+          "predicted": 0,
+          "matched": 0,
+          "missing": [],
+          "extra": []
+        }
+      },
+      "modelCalls": [
+        {
+          "callId": "01a0b014-f9cc-7de0-b8c1-4456c48b8981",
+          "node": "chunk",
+          "status": "RETURNED",
+          "inputTokens": 1966,
+          "outputTokens": 2451
+        }
+      ]
+    }
+  ],
+  "status": "FAILED",
+  "gateReasons": [
+    "BELOW_TARGET:questionPrecision",
+    "BELOW_TARGET:questionRecall",
+    "BELOW_TARGET:answerModeAccuracy",
+    "BELOW_TARGET:optionsAccuracy",
+    "BELOW_TARGET:parsedAnswerAccuracy",
+    "OUTCOME_MISMATCH:text-basic:1",
+    "OUTCOME_MISMATCH:text-basic:3"
+  ],
+  "documentParser": {
+    "questionPrecision": 85.71428571428571,
+    "questionRecall": 66.66666666666666,
+    "answerModeAccuracy": 66.66666666666666,
+    "optionsAccuracy": 66.66666666666666,
+    "parsedAnswerAccuracy": 44.44444444444444,
+    "groupF1": null,
+    "visualF1": 100.0
+  },
+  "outcomes": {
+    "ERROR": 2,
+    "SUCCEEDED": 7
+  },
+  "slices": {
+    "sourceType": {
+      "csv": {
+        "questionPrecision": 66.66666666666666,
+        "questionRecall": 66.66666666666666,
+        "answerModeAccuracy": 66.66666666666666,
+        "optionsAccuracy": null,
+        "parsedAnswerAccuracy": 0.0,
+        "groupF1": null,
+        "visualF1": 100.0
+      },
+      "text": {
+        "questionPrecision": 100.0,
+        "questionRecall": 66.66666666666666,
+        "answerModeAccuracy": 66.66666666666666,
+        "optionsAccuracy": 66.66666666666666,
+        "parsedAnswerAccuracy": 66.66666666666666,
+        "groupF1": null,
+        "visualF1": 100.0
+      }
+    },
+    "answerMode": {
+      "choice": {
+        "questionPrecision": 100.0,
+        "questionRecall": 66.66666666666666,
+        "answerModeAccuracy": 66.66666666666666,
+        "optionsAccuracy": 66.66666666666666,
+        "parsedAnswerAccuracy": 66.66666666666666,
+        "groupF1": null,
+        "visualF1": null
+      },
+      "fill_blank": {
+        "questionPrecision": 33.33333333333333,
+        "questionRecall": 33.33333333333333,
+        "answerModeAccuracy": 33.33333333333333,
+        "optionsAccuracy": null,
+        "parsedAnswerAccuracy": 0.0,
+        "groupF1": null,
+        "visualF1": null
+      },
+      "short_answer": {
+        "questionPrecision": 100.0,
+        "questionRecall": 100.0,
+        "answerModeAccuracy": 100.0,
+        "optionsAccuracy": null,
+        "parsedAnswerAccuracy": 50.0,
+        "groupF1": null,
+        "visualF1": null
+      },
+      "true_false": {
+        "questionPrecision": 100.0,
+        "questionRecall": 33.33333333333333,
+        "answerModeAccuracy": 33.33333333333333,
+        "optionsAccuracy": null,
+        "parsedAnswerAccuracy": 33.33333333333333,
+        "groupF1": null,
+        "visualF1": null
+      }
+    },
+    "tag": {
+      "csv": {
+        "questionPrecision": 66.66666666666666,
+        "questionRecall": 66.66666666666666,
+        "answerModeAccuracy": 66.66666666666666,
+        "optionsAccuracy": null,
+        "parsedAnswerAccuracy": 0.0,
+        "groupF1": null,
+        "visualF1": 100.0
+      },
+      "no-source-answer": {
+        "questionPrecision": 100.0,
+        "questionRecall": 100.0,
+        "answerModeAccuracy": 100.0,
+        "optionsAccuracy": 100.0,
+        "parsedAnswerAccuracy": 100.0,
+        "groupF1": null,
+        "visualF1": 100.0
+      },
+      "regression": {
+        "questionPrecision": 100.0,
+        "questionRecall": 100.0,
+        "answerModeAccuracy": 100.0,
+        "optionsAccuracy": 100.0,
+        "parsedAnswerAccuracy": 100.0,
+        "groupF1": null,
+        "visualF1": 100.0
+      },
+      "smoke": {
+        "questionPrecision": 75.0,
+        "questionRecall": 50.0,
+        "answerModeAccuracy": 50.0,
+        "optionsAccuracy": 33.33333333333333,
+        "parsedAnswerAccuracy": 16.666666666666664,
+        "groupF1": null,
+        "visualF1": 100.0
+      },
+      "synthetic": {
+        "questionPrecision": 85.71428571428571,
+        "questionRecall": 66.66666666666666,
+        "answerModeAccuracy": 66.66666666666666,
+        "optionsAccuracy": 66.66666666666666,
+        "parsedAnswerAccuracy": 44.44444444444444,
+        "groupF1": null,
+        "visualF1": 100.0
+      },
+      "text": {
+        "questionPrecision": 100.0,
+        "questionRecall": 33.33333333333333,
+        "answerModeAccuracy": 33.33333333333333,
+        "optionsAccuracy": 33.33333333333333,
+        "parsedAnswerAccuracy": 33.33333333333333,
+        "groupF1": null,
+        "visualF1": 100.0
+      }
+    }
+  },
+  "latency": {
+    "all": {
+      "count": 9,
+      "p50Ms": 38239.6669590089,
+      "p95Ms": 126088.72298279312
+    },
+    "success": {
+      "count": 7,
+      "p50Ms": 26928.03866698523,
+      "p95Ms": 70907.9535205994
+    },
+    "failure": {
+      "count": 2,
+      "p50Ms": 124725.39474949008,
+      "p95Ms": 130860.37179935376
+    }
+  },
+  "modelUsage": {
+    "calls": 15,
+    "responses": 15,
+    "failedCalls": 0,
+    "inputTokens": 34379,
+    "outputTokens": 51601,
+    "complete": true,
+    "missingUsageCalls": 0
+  }
+}

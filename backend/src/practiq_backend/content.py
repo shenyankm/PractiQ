@@ -4,8 +4,9 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Response
 from psycopg.types.json import Jsonb
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
+from .completeness import missing_answer, normalize_missing_values, require_complete
 from .core import DB, Error, Input, Name, Page, Positive, bank, invalid, ok, one, question
 
 router = APIRouter(prefix="/api/v1")
@@ -24,53 +25,58 @@ class BankPatch(Input):
     description: Annotated[str, Field(max_length=500)] | None = None
 
 
-class Option(Input):
-    label: Annotated[str, Field(min_length=1, max_length=16)]
-    content: Annotated[str, Field(min_length=1, max_length=20000)]
+class DraftInput(Input):
+    @field_validator("options", "items", mode="before", check_fields=False)
+    @classmethod
+    def absent_list(cls, value):
+        return [] if value is None else value
+
+    @field_validator("*", mode="before")
+    @classmethod
+    def empty_to_null(cls, value):
+        return None if isinstance(value, str) and not value.strip() else value
+
+
+class Option(DraftInput):
+    label: Annotated[str, Field(min_length=1, max_length=16)] | None = None
+    content: Annotated[str, Field(min_length=1, max_length=20000)] | None = None
     isCorrect: bool = False
 
 
-class ItemIn(Input):
+class ItemIn(DraftInput):
     side: Literal["left", "right"] | None = None
-    content: Annotated[str, Field(min_length=1, max_length=20000)]
+    content: Annotated[str, Field(min_length=1, max_length=20000)] | None = None
 
 
-class QuestionIn(Input):
-    questionTypeId: Annotated[str, Field(min_length=1, max_length=64)]
-    answerMode: Mode
-    stem: Annotated[str, Field(min_length=1, max_length=120000)]
-    analysis: Annotated[str, Field(max_length=100000)] = ""
+class QuestionIn(DraftInput):
+    questionTypeId: Annotated[str, Field(min_length=1, max_length=64)] | None = None
+    answerMode: Mode | None = None
+    stem: Annotated[str, Field(min_length=1, max_length=120000)] | None = None
+    analysis: Annotated[str, Field(max_length=100000)] | None = None
+    sourceText: Annotated[str, Field(max_length=120000)] | None = None
     choiceVariant: Literal["single", "multiple"] | None = None
     matchingVariant: Literal["one_to_one", "many_to_one"] | None = None
     status: Status = "draft"
     options: Annotated[list[Option], Field(max_length=100)] = Field(default_factory=list)
     items: Annotated[list[ItemIn], Field(max_length=100)] = Field(default_factory=list)
-    answerPayload: dict = Field(default_factory=dict)
+    answerPayload: dict | None = None
     groupId: Positive | None = None
     subsetId: Positive | None = None
 
     @model_validator(mode="after")
     def shape(self):
-        labels = [o.label for o in self.options]
+        labels = [o.label for o in self.options if o.label is not None]
         if len(set(labels)) != len(labels):
             raise ValueError("Option labels must be unique")
-        if self.answerMode == "choice":
-            if not self.choiceVariant or len(labels) < 2:
-                raise ValueError("Choice questions require a variant and at least two options")
-            if self.items:
-                raise ValueError("Choice questions do not take items")
-        elif self.choiceVariant or self.options:
-            raise ValueError("Only choice questions have options")
-        if self.answerMode == "ordering":
-            if len(self.items) < 2 or any(i.side is not None for i in self.items):
-                raise ValueError("Ordering questions require at least two sideless items")
-        elif self.answerMode == "matching":
-            lefts = sum(1 for i in self.items if i.side == "left")
-            rights = sum(1 for i in self.items if i.side == "right")
-            if not self.matchingVariant or lefts < 2 or rights < 2 or lefts + rights != len(self.items):
-                raise ValueError("Matching questions require a variant and at least two items on each side")
-        elif self.items or self.matchingVariant:
-            raise ValueError("Only ordering and matching questions take items")
+        if self.answerMode is not None:
+            if self.answerMode != "choice" and (self.choiceVariant or self.options):
+                raise ValueError("Only choice questions have options")
+            if self.answerMode not in {"ordering", "matching"} and self.items:
+                raise ValueError("Only ordering and matching questions take items")
+            if self.answerMode != "matching" and self.matchingVariant:
+                raise ValueError("Only matching questions have a matching variant")
+            if self.answerMode == "ordering" and any(i.side is not None for i in self.items):
+                raise ValueError("Ordering items must be sideless")
         return self
 
 
@@ -118,7 +124,7 @@ def normalize_key(mode, payload, options=()):
             invalid("Each left item can only be matched once")
         key = {"matches": [{"left": m["left"], "right": m["right"]} for m in matches]}
     else:
-        raw = payload.get("value", payload.get("answers", payload.get("answer")))
+        raw = payload.get("value", payload.get("answers", payload.get("answer", payload.get("text"))))
         if mode == "true_false" and not isinstance(raw, bool):
             invalid("A boolean answer is required")
         if mode == "fill_blank":
@@ -205,6 +211,9 @@ def details(db, qid, management=False):
         ).fetchone()
         answers = key["answer_payload"].get("answers") if key else None
         q["blank_count"] = len(answers) if isinstance(answers, list) and answers else 1
+    if q["answer_mode"] is None:
+        q["items"] = [{"id": -(i+1), "sort_order": i+1, **item} for i, item in enumerate(q["draft_items"])]
+    q.pop("draft_items", None)
     q["content_blocks"] = db.execute(
         "select * from question_content_blocks where question_id=%s order by sequence", (qid,)
     ).fetchall()
@@ -230,78 +239,111 @@ def details(db, qid, management=False):
             "select * from question_answer_keys where question_id=%s order by version", (qid,)
         ).fetchall()
     else:
-        q.pop("analysis", None)
+        for field in ("analysis", "source_text", "draft_answer_payload"):
+            q.pop(field, None)
+    q["missingFields"] = q.pop("missing_fields")
+    q.pop("missing_dependencies", None)
+    if management:
+        q["sourceText"] = q.pop("source_text")
+        q["draftAnswerPayload"] = q.pop("draft_answer_payload")
+        primary = next((key for key in q["answer_keys"] if key["is_primary"]), None)
+        q["answerPayload"] = q["draftAnswerPayload"] if q["draftAnswerPayload"] is not None else primary["answer_payload"] if primary else None
     return q
 
 
-def create_question(db, bank_id, body: QuestionIn):
-    b = bank(db, bank_id)
-    has_key = bool(body.answerPayload) or any(o.isCorrect for o in body.options)
-    auto_order = body.answerMode == "ordering" and not has_key and body.status == "active"
-    if body.answerMode == "matching" and body.status == "active" and not has_key:
-        invalid("Matching questions require an answer to publish")
-    key = None
-    if has_key or auto_order:
-        key = normalize_key(body.answerMode, body.answerPayload, body.options) if has_key else None
-        if auto_order:
-            key = {"order": list(range(len(body.items)))}
-    if key is None and body.status == "active":
-        invalid("Publish requires an answer key")
-    q = one(
-        db,
-        """insert into questions(bank_id,subject_id,question_type_id,answer_mode,choice_variant,matching_variant,stem,analysis,status,group_id,subset_id,sort_order)
-        values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,(select coalesce(max(sort_order),0)+1 from questions where bank_id=%s)) returning *""",
-        (
-            bank_id,
-            b["subject_id"],
-            body.questionTypeId,
-            body.answerMode,
-            body.choiceVariant,
-            body.matchingVariant,
-            body.stem,
-            body.analysis,
-            body.status,
-            body.groupId,
-            body.subsetId,
-            bank_id,
-        ),
+def validate_question_type(db, subject, type_id, mode):
+    if type_id is not None and not db.execute("select 1 from question_types where subject_id=%s and id=%s and (%s::text is null or answer_mode=%s)", (subject,type_id,mode,mode)).fetchone():
+        invalid("Question type must exist and match the answer mode")
+
+
+def restore_active(db, q):
+    if q["status"] == "active":
+        db.execute("update questions set status='active' where id=%s and cardinality(missing_fields)=0", (q["id"],))
+
+
+def save_draft_answer(db, qid, payload, options=(), item_ids=None, items=()):
+    q = question(db, qid)
+    payload = normalize_missing_values(payload)
+    # Never leave an old answer primary after the user clears or replaces it.
+    db.execute("update question_answer_keys set is_primary=false where question_id=%s", (qid,))
+    absent = missing_answer(q["answer_mode"], payload)
+    mode = q["answer_mode"]
+    draft_payload = payload
+    if payload and mode in {"ordering", "matching"}:
+        if item_ids is not None:
+            allowed = {side: set(range(sum(i.side == side for i in items))) for side in ("left", "right")}
+            allowed["order"] = set(range(len(items)))
+        elif mode == "ordering":
+            rows = db.execute("select id from question_ordering_items where question_id=%s order by sort_order", (qid,)).fetchall()
+            allowed = {"order": {r["id"] for r in rows}}
+        else:
+            rows = db.execute("select id,side from question_matching_items where question_id=%s order by side,sort_order", (qid,)).fetchall()
+            allowed = {side: {r["id"] for r in rows if r["side"] == side} for side in ("left", "right")}
+        supplied = {"order": [v for v in payload.get("order") or [] if v is not None]} if mode == "ordering" else {
+            side: [m[side] for m in payload.get("matches") or [] if m and m.get(side) is not None] for side in ("left", "right")}
+        for side, values in supplied.items():
+            unique = side != "right" or q["matching_variant"] == "one_to_one"
+            if "items" not in q["missing_fields"] and not set(values) <= allowed[side] or unique and len(set(values)) != len(values):
+                invalid("Answer references invalid or repeated items")
+        # Draft item references use positions, including after an API update using stored IDs.
+        if item_ids is None and rows:
+            if mode == "ordering":
+                ids = [r["id"] for r in rows]
+                draft_payload = {**payload, "order": [ids.index(v) if v in ids else v for v in payload.get("order") or []]}
+            else:
+                sides = {side: [r["id"] for r in rows if r["side"] == side] for side in ("left", "right")}
+                draft_payload = {**payload, "matches": [None if m is None else {side: sides[side].index(v) if v in sides[side] else v for side, v in m.items()} for m in payload.get("matches") or []]}
+    if not absent:
+        normalize_key(q["answer_mode"], payload, options)
+    if absent or any(f in q["missing_fields"] for f in ("options", "items")):
+        db.execute("update questions set draft_answer_payload=%s where id=%s", (Jsonb(draft_payload) if draft_payload else None, qid))
+        return
+    if q["answer_mode"] in {"ordering", "matching"} and item_ids is not None:
+        key = key_from_indices(q["answer_mode"], payload, items, item_ids)
+    else:
+        key = normalize_key(q["answer_mode"], payload, options)
+    mode = q["answer_mode"]
+    if mode in {"ordering", "matching"}:
+        table = "question_ordering_items" if mode == "ordering" else "question_matching_items"
+        rows = db.execute(f"select * from {table} where question_id=%s", (qid,)).fetchall()
+        allowed = {row["id"] for row in rows if mode == "ordering" or row["side"] == "left"}
+        supplied = set(key["order"]) if mode == "ordering" else {m["left"] for m in key["matches"]}
+        if not supplied <= allowed:
+            invalid("Answer references unknown items")
+        if mode == "matching":
+            rights = {row["id"] for row in rows if row["side"] == "right"}
+            selected = [m["right"] for m in key["matches"]]
+            if not set(selected) <= rights or q["matching_variant"] == "one_to_one" and len(set(selected)) != len(selected):
+                invalid("Answer references invalid right items")
+        if supplied != allowed:
+            db.execute("update questions set draft_answer_payload=%s where id=%s", (Jsonb(draft_payload), qid))
+            return
+    validate_key(db, q, key)
+    db.execute("update questions set draft_answer_payload=null where id=%s", (qid,))
+    db.execute(
+        "insert into question_answer_keys(question_id,version,answer_payload) values(%s,(select coalesce(max(version),0)+1 from question_answer_keys where question_id=%s),%s)",
+        (qid, qid, Jsonb(key)),
     )
+
+
+def create_question(db, bank_id, body: QuestionIn, *, dependencies=()):
+    b = bank(db, bank_id)
+    validate_question_type(db, b["subject_id"], body.questionTypeId, body.answerMode)
+    q = one(db,
+        """insert into questions(bank_id,subject_id,question_type_id,answer_mode,choice_variant,matching_variant,stem,analysis,source_text,missing_dependencies,status,group_id,subset_id,sort_order)
+        values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'draft',%s,%s,(select coalesce(max(sort_order),0)+1 from questions where bank_id=%s)) returning *""",
+        (bank_id,b["subject_id"],body.questionTypeId,body.answerMode,body.choiceVariant,body.matchingVariant,body.stem,body.analysis,body.sourceText,list(dependencies),body.groupId,body.subsetId,bank_id))
     for i, o in enumerate(body.options):
-        db.execute(
-            "insert into question_options(question_id,option_label,content,sort_order) values(%s,%s,%s,%s)",
-            (q["id"], o.label, o.content, i + 1),
-        )
-    item_ids = []
-    if body.answerMode == "ordering":
-        for i, item in enumerate(body.items):
-            item_ids.append(
-                one(
-                    db,
-                    "insert into question_ordering_items(question_id,content,sort_order) values(%s,%s,%s) returning id",
-                    (q["id"], item.content, i + 1),
-                )["id"]
-            )
-    elif body.answerMode == "matching":
-        counters = {"left": 0, "right": 0}
-        for item in body.items:
-            counters[item.side] += 1
-            item_ids.append(
-                one(
-                    db,
-                    "insert into question_matching_items(question_id,side,content,sort_order) values(%s,%s,%s,%s) returning id",
-                    (q["id"], item.side, item.content, counters[item.side]),
-                )["id"]
-            )
-    if key is not None:
-        if body.answerMode == "ordering":
-            key = {"order": item_ids} if auto_order else key_from_indices("ordering", body.answerPayload, body.items, item_ids)
-        elif body.answerMode == "matching":
-            key = key_from_indices("matching", body.answerPayload, body.items, item_ids)
-        validate_key(db, q, key)
-        db.execute(
-            "insert into question_answer_keys(question_id,version,answer_payload) values(%s,1,%s)",
-            (q["id"], Jsonb(key)),
-        )
+        db.execute("insert into question_options(question_id,option_label,content,sort_order) values(%s,%s,%s,%s)", (q["id"],o.label,o.content,i+1))
+    item_ids = replace_items(db, q["id"], body.answerMode, body.items) if body.answerMode in {"ordering", "matching"} else None
+    if body.answerMode is None:
+        db.execute("update questions set draft_items=%s where id=%s", (Jsonb([i.model_dump() for i in body.items]), q["id"]))
+    save_draft_answer(db, q["id"], body.answerPayload, body.options, item_ids, body.items)
+    if body.status == "active":
+        require_complete(question(db, q["id"]))
+        db.execute("update questions set status='active' where id=%s", (q["id"],))
+    elif body.status == "archived":
+        db.execute("update questions set status='archived' where id=%s", (q["id"],))
     return details(db, q["id"], True)
 
 
@@ -373,13 +415,14 @@ def items(
     db: DB,
     page: Page,
     status: Status | None = None,
+    incomplete: bool | None = None,
     type: str = "",
     groupId: Positive | None = None,
 ):
     bank(db, bank_id)
     rows = db.execute(
-        "select id as question_id,id,bank_id,question_type_id,answer_mode,choice_variant,stem,status as question_status,group_id,subset_id,sort_order from questions where bank_id=%s and deleted_at is null and (%s::text is null or status=%s) and (%s='' or question_type_id=%s) and (%s::bigint is null or group_id=%s) order by sort_order,id limit %s offset %s",
-        (bank_id, status, status, type, type, groupId, groupId, page.limit + 1, page.offset),
+        "select id as question_id,id,bank_id,question_type_id,answer_mode,choice_variant,stem,status as question_status,missing_fields as \"missingFields\",group_id,subset_id,sort_order from questions where bank_id=%s and deleted_at is null and (%s::text is null or status=%s) and (%s='' or question_type_id=%s) and (%s::bigint is null or group_id=%s) and (%s::boolean is null or (cardinality(missing_fields)>0)=%s) order by sort_order,id limit %s offset %s",
+        (bank_id, status, status, type, type, groupId, groupId, incomplete, incomplete, page.limit + 1, page.offset),
     ).fetchall()
     return page.result(rows)
 
@@ -399,7 +442,11 @@ def manage_question(qid: Positive, db: DB):
     return ok(details(db, qid, True))
 
 
-class QuestionPatch(Input):
+class QuestionPatch(DraftInput):
+    questionTypeId: Annotated[str, Field(min_length=1, max_length=64)] | None = None
+    answerMode: Mode | None = None
+    choiceVariant: Literal["single", "multiple"] | None = None
+    sourceText: Annotated[str, Field(max_length=120000)] | None = None
     options: Annotated[list[Option], Field(max_length=100)] | None = None
     items: Annotated[list[ItemIn], Field(max_length=100)] | None = None
     matchingVariant: Literal["one_to_one", "many_to_one"] | None = None
@@ -425,7 +472,7 @@ def replace_items(db, qid, mode, items: list[ItemIn]):
             )
     else:
         db.execute("delete from question_matching_items where question_id=%s", (qid,))
-        counters = {"left": 0, "right": 0}
+        counters = {"left": 0, "right": 0, None: 0}
         for item in items:
             counters[item.side] += 1
             ids.append(
@@ -443,7 +490,7 @@ def key_from_indices(mode, payload, items: list[ItemIn], item_ids: list[int]):
     grading = payload.get("grading")
     if mode == "ordering":
         order = int_list(payload.get("order"), "Ordering answer must be a distinct integer list")
-        if len(set(order)) != len(order) or len(order) != len(items) or any(v < 0 or v >= len(items) for v in order):
+        if len(set(order)) != len(order) or any(v < 0 or v >= len(items) for v in order):
             invalid("Ordering answer must be a permutation of item positions")
         key = {"order": [item_ids[v] for v in order]}
     else:
@@ -464,78 +511,58 @@ def key_from_indices(mode, payload, items: list[ItemIn], item_ids: list[int]):
 @router.patch("/questions/{qid}")
 def edit_question(qid: Positive, body: QuestionPatch, db: DB):
     q = question(db, qid)
-    if not body.model_fields_set:
+    db.execute("select id from questions where id=%s for update", (qid,))
+    fields = body.model_fields_set
+    if not fields:
         invalid("Provide a field to update")
-    if "stem" in body.model_fields_set and body.stem is None:
-        invalid("Stem cannot be null")
-    if body.answerPayload is not None and body.items is None:
-        invalid("Use the answer-keys endpoint to change the answer without editing items")
-    if body.matchingVariant is not None and body.items is None:
-        invalid("Update matchingVariant together with items")
-    db.execute(
-        "update questions set stem=coalesce(%s,stem),analysis=case when %s then %s else analysis end,group_id=case when %s then %s else group_id end,subset_id=case when %s then %s else subset_id end,updated_at=now() where id=%s",
-        (
-            body.stem,
-            "analysis" in body.model_fields_set,
-            body.analysis,
-            "groupId" in body.model_fields_set,
-            body.groupId,
-            "subsetId" in body.model_fields_set,
-            body.subsetId,
-            qid,
-        ),
-    )
+    for field, column in (("answerMode", "answer_mode"), ("questionTypeId", "question_type_id")):
+        if field in fields and q[column] is not None and getattr(body, field) != q[column]:
+            invalid("An established question type cannot change; create a new draft")
+    values = {"questionTypeId":q["question_type_id"],"answerMode":q["answer_mode"],"choiceVariant":q["choice_variant"],"matchingVariant":q["matching_variant"],"stem":q["stem"],"analysis":q["analysis"],"sourceText":q["source_text"],"groupId":q["group_id"],"subsetId":q["subset_id"]}
+    if body.items is None and q["answer_mode"] is None and q["draft_items"] and body.answerMode in {"ordering", "matching"}:
+        body.items = [ItemIn.model_validate(item) for item in q["draft_items"]]
+    values.update(body.model_dump(exclude_unset=True))
+    validated = QuestionIn.model_validate(values)
+    validate_question_type(db, q["subject_id"], validated.questionTypeId, validated.answerMode)
+    db.execute("update questions set question_type_id=%s,answer_mode=%s,choice_variant=%s,matching_variant=%s,stem=%s,analysis=%s,source_text=%s,group_id=%s,subset_id=%s,updated_at=now() where id=%s", (validated.questionTypeId,validated.answerMode,validated.choiceVariant,validated.matchingVariant,validated.stem,validated.analysis,validated.sourceText,validated.groupId,validated.subsetId,qid))
     if body.options is not None:
-        old_labels = {
-            r["option_label"]
-            for r in db.execute("select option_label from question_options where question_id=%s", (qid,))
-        }
-        if {o.label for o in body.options} != old_labels or len(body.options) != len(old_labels):
-            invalid("Existing option labels cannot be changed")
-        for option in body.options:
-            db.execute(
-                "update question_options set content=%s where question_id=%s and option_label=%s",
-                (option.content, qid, option.label),
-            )
-    if body.items is not None:
-        if q["answer_mode"] not in ("ordering", "matching"):
+        old = db.execute("select * from question_options where question_id=%s order by sort_order", (qid,)).fetchall()
+        referenced = db.execute("select 1 from practice_session_questions where question_id=%s limit 1", (qid,)).fetchone()
+        if referenced and [o.label for o in body.options] != [o["option_label"] for o in old]:
+            invalid("Options referenced by practice sessions cannot be replaced")
+        for i, option in enumerate(body.options):
+            if i < len(old):
+                db.execute("update question_options set option_label=%s,content=%s where id=%s", (option.label,option.content,old[i]["id"]))
+            else:
+                db.execute("insert into question_options(question_id,option_label,content,sort_order) values(%s,%s,%s,%s)", (qid,option.label,option.content,i+1))
+        for option in old[len(body.options):]:
+            db.execute("delete from question_options where id=%s", (option["id"],))
+    item_ids = None
+    if body.items is not None and validated.answerMode is None:
+        db.execute("update questions set draft_items=%s where id=%s", (Jsonb([i.model_dump() for i in body.items]), qid))
+    elif body.items is not None:
+        if validated.answerMode not in ("ordering", "matching"):
             invalid("Only ordering and matching questions take items")
-        variant = body.matchingVariant or q["matching_variant"]
-        if q["answer_mode"] == "ordering":
-            if len(body.items) < 2 or any(i.side is not None for i in body.items):
-                invalid("Ordering questions require at least two sideless items")
-        else:
-            lefts = sum(1 for i in body.items if i.side == "left")
-            rights = len(body.items) - lefts
-            if not variant or lefts < 2 or rights < 2 or lefts + rights != len(body.items):
-                invalid("Matching questions need at least two items on each side")
-            db.execute("update questions set matching_variant=%s,updated_at=now() where id=%s", (variant, qid))
-        item_ids = replace_items(db, qid, q["answer_mode"], body.items)
-        primary = db.execute(
-            "select * from question_answer_keys where question_id=%s and is_primary", (qid,)
-        ).fetchone()
-        if body.answerPayload is not None:
-            new_key = key_from_indices(q["answer_mode"], body.answerPayload, body.items, item_ids)
-            fresh = question(db, qid)
-            validate_key(db, fresh, new_key)
-            db.execute("update question_answer_keys set is_primary=false where question_id=%s", (qid,))
-            one(
-                db,
-                "insert into question_answer_keys(question_id,version,answer_payload,explanation_payload) values(%s,(select coalesce(max(version),0)+1 from question_answer_keys where question_id=%s),%s,%s) returning *",
-                (qid, qid, Jsonb(new_key), Jsonb(primary["explanation_payload"] if primary else {})),
-            )
-        elif primary is not None:
-            raise Error(
-                409,
-                "INVALID_STATE",
-                "Replacing items invalidates the answer key; include answerPayload to create a new version",
-            )
+        item_ids = replace_items(db, qid, validated.answerMode, body.items)
+        db.execute("update questions set draft_items='[]' where id=%s", (qid,))
+        if "answerPayload" not in fields and db.execute("select 1 from question_answer_keys where question_id=%s and is_primary", (qid,)).fetchone():
+            raise Error(409, "INVALID_STATE", "Replacing items requires a new answer")
+    if "answerPayload" in fields:
+        save_draft_answer(db, qid, body.answerPayload, body.options or (), item_ids, body.items or ())
+    elif q["draft_answer_payload"] is not None and (body.options is not None or body.items is not None or "answerMode" in fields):
+        save_draft_answer(db, qid, q["draft_answer_payload"], body.options or (), item_ids, body.items or ())
+    elif body.options is not None or {"choiceVariant", "matchingVariant"} & fields:
+        key = db.execute("select answer_payload from question_answer_keys where question_id=%s and is_primary", (qid,)).fetchone()
+        if key:
+            validate_key(db, question(db, qid), key["answer_payload"])
+    restore_active(db, q)
     return ok(details(db, qid, True))
 
 
 @router.post("/questions/{qid}/publish")
 def publish(qid: Positive, db: DB):
     q = question(db, qid)
+    require_complete(q)
     key = one(
         db, "select answer_payload from question_answer_keys where question_id=%s and is_primary", (qid,)
     )
@@ -572,14 +599,14 @@ def add_key(qid: Positive, body: KeyIn, db: DB):
         invalid("Answer mode cannot change")
     payload = normalize_key(body.answerMode, body.answerPayload)
     validate_key(db, q, payload)
+    db.execute("update questions set draft_answer_payload=null where id=%s", (qid,))
     db.execute("update question_answer_keys set is_primary=false where question_id=%s", (qid,))
-    return ok(
-        one(
-            db,
-            "insert into question_answer_keys(question_id,version,answer_payload,explanation_payload) values(%s,(select coalesce(max(version),0)+1 from question_answer_keys where question_id=%s),%s,%s) returning *",
-            (qid, qid, Jsonb(payload), Jsonb(body.explanationPayload)),
-        )
-    )
+    result = one(db,
+        "insert into question_answer_keys(question_id,version,answer_payload,explanation_payload) values(%s,(select coalesce(max(version),0)+1 from question_answer_keys where question_id=%s),%s,%s) returning *",
+        (qid,qid,Jsonb(payload),Jsonb(body.explanationPayload)))
+    restore_active(db, q)
+    return ok(result)
+
 
 
 class Tags(Input):
@@ -767,7 +794,7 @@ def search(
     status: Status | None = None,
 ):
     rows = db.execute(
-        "select q.id,q.bank_id,q.stem,q.question_type_id,q.answer_mode,q.status from questions q join question_banks b on b.id=q.bank_id where b.deleted_at is null and q.deleted_at is null and q.stem ilike %s and (%s::bigint is null or q.bank_id=%s) and (%s='' or q.question_type_id=%s) and (%s::text is null or q.status=%s) order by q.updated_at desc,q.id desc limit %s offset %s",
+        "select q.id,q.bank_id,q.stem,q.question_type_id,q.answer_mode,q.status,q.missing_fields as \"missingFields\" from questions q join question_banks b on b.id=q.bank_id where b.deleted_at is null and q.deleted_at is null and q.stem ilike %s and (%s::bigint is null or q.bank_id=%s) and (%s='' or q.question_type_id=%s) and (%s::text is null or q.status=%s) order by q.updated_at desc,q.id desc limit %s offset %s",
         (f"%{q}%", bankId, bankId, type, type, status, status, page.limit + 1, page.offset),
     ).fetchall()
     return page.result(rows)
@@ -874,8 +901,8 @@ def replace_key(qid: Positive, body: KeyIn, db: DB):
     return add_key(qid, body, db)
 
 
-class OptionPatch(Input):
-    content: Annotated[str, Field(min_length=1, max_length=20000)]
+class OptionPatch(DraftInput):
+    content: Annotated[str, Field(min_length=1, max_length=20000)] | None = None
 
 
 @router.post("/questions/{qid}/options", status_code=201)

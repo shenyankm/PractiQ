@@ -54,6 +54,8 @@ def content(client):
         "answerMode": "choice",
         "choiceVariant": "single",
         "stem": "1 + 1 = ?",
+        "analysis": "加法练习",
+        "sourceText": "1 + 1 = ? A.2 B.3 答案 A",
         "status": "active",
         "options": [{"label": "A", "content": "2"}, {"label": "B", "content": "3"}],
         "answerPayload": {"correct": ["A"]},
