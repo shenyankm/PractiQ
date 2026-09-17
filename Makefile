@@ -1,50 +1,36 @@
-AI_PYTHON ?= /home/sheny/miniconda3/envs/langgragh/bin/python
+PYTHON ?= $(shell command -v python)
+AI_PYTHON ?= $(PYTHON)
 AI_PORT ?= 8090
 
-.PHONY: server-install install test test-server verify server-dev backend-test backend-package backend-dev schema-check api-schema-smoke taro-install taro-dev taro-build taro-test taro-typecheck
-
-install: taro-install
-
-test: taro-test
-
-taro-install:
-	npm --prefix taro ci
-
-taro-dev:
-	npm --prefix taro run dev:weapp
-
-taro-build:
-	npm --prefix taro run build:weapp
-
-taro-test:
-	npm --prefix taro run verify
-
-taro-typecheck:
-	npm --prefix taro run typecheck
-
+.PHONY: install backend-install server-install web-install test web-test web-dev web-build web-typecheck backend-test backend-dev backend-worker test-server server-dev schema-check api-schema-smoke verify
+install: backend-install web-install
+backend-install:
+	uv pip install --python "$(PYTHON)" -e './backend[dev]'
 server-install:
-	uv pip install --python "$(AI_PYTHON)" -e "./server[dev]"
-
-test-server:
-	cd server && PATH="$(dir $(AI_PYTHON)):$$PATH" "$(AI_PYTHON)" -m pytest
-
-verify: test backend-test test-server schema-check api-schema-smoke
-
-backend-test:
-	mvn -f backend/pom.xml test
-
-backend-package:
-	mvn -f backend/pom.xml package
-
+	uv pip install --python "$(AI_PYTHON)" -e './server[dev]'
+web-install:
+	npm --prefix web ci
+web-dev:
+	npm --prefix web run dev
+web-build:
+	npm --prefix web run build
+web-typecheck:
+	npm --prefix web run typecheck
+web-test:
+	npm --prefix web run verify
+test: web-test
 backend-dev:
-	uv run --no-project --env-file .env.local -- mvn -f backend/pom.xml spring-boot:run
-
+	"$(PYTHON)" -m dotenv -f .env.local run --no-override -- "$(PYTHON)" -m uvicorn practiq_backend.app:app --host 127.0.0.1 --port 8080 --reload
+backend-worker:
+	"$(PYTHON)" -m dotenv -f .env.local run --no-override -- "$(PYTHON)" -m practiq_backend.worker
+backend-test:
+	PYTHON="$(PYTHON)" bash db/api_schema_smoke.sh
+test-server:
+	cd server && PATH="$(dir $(AI_PYTHON)):$$PATH" PYTHONPATH="$(CURDIR)/server/src" "$(AI_PYTHON)" -m pytest
 server-dev:
-	cd server && PATH="$(dir $(AI_PYTHON)):$$PATH" "$(AI_PYTHON)" -m dotenv -f ../.env.local run --no-override -- langgraph dev --no-browser --host 127.0.0.1 --port $(AI_PORT)
-
+	cd server && PATH="$(dir $(AI_PYTHON)):$$PATH" PYTHONPATH="$(CURDIR)/server/src" "$(AI_PYTHON)" -m dotenv -f ../.env.local run --no-override -- langgraph dev --no-browser --host 127.0.0.1 --port $(AI_PORT)
 schema-check:
-	bash db/schema_check.sh
-
-api-schema-smoke:
-	bash db/api_schema_smoke.sh
-
+	PYTHON="$(PYTHON)" bash db/schema_check.sh
+api-schema-smoke: backend-test
+verify: web-test backend-test test-server schema-check
+	"$(PYTHON)" -m ruff check --config backend/pyproject.toml backend/src/practiq_backend

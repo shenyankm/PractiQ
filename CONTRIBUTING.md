@@ -27,7 +27,7 @@ Run the checks for every area changed:
 | --- | --- |
 | `backend/` | `make backend-test` |
 | `server/` | `make test-server` |
-| `taro/` | `make test` |
+| `web/` | `make test` |
 | Multiple application layers | `make verify` |
 
 Database changes must also be exercised against PostgreSQL and include rollout and rollback notes when existing data may be affected.
@@ -43,7 +43,7 @@ The pull request description must include:
 - Commands run and their results
 - Schema, configuration, security, or deployment impact
 - A linked issue when applicable
-- Screenshots or a recording for Mini Program UI changes
+- Screenshots or a recording for Web UI changes
 
 Before requesting review, remove unrelated and generated files, confirm required checks pass, and verify that no secrets or personal data appear in the diff or supporting material.
 

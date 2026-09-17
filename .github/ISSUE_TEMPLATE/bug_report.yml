@@ -24,9 +24,9 @@ body:
     attributes:
       label: Affected area
       options:
-        - Java product API (`backend/`)
+        - Python product API (`backend/`)
         - Python AI service (`server/`)
-        - WeChat Mini Program (`taro/`)
+        - Web client (`web/`)
         - PostgreSQL schema (`db/`)
         - Documentation
         - Build or development tooling
@@ -70,7 +70,7 @@ body:
       placeholder: |
         Commit:
         OS:
-        Java/Python/Node version:
+        Python/Node version:
         WeChat Developer Tools version:
         Local, staging, or production:
 

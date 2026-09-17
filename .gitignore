@@ -28,13 +28,11 @@ node_modules/
 /dist/
 /.turbo/
 
-# Taro
-/taro/dist/
-/taro/.swc/
-
-# Java / Maven backend
-/backend/target/
-/backend/**/*.class
+# Web / Python product build
+/web/dist/
+/web/test-results/
+/backend/dist/
+/.local/
 
 # -----------------------------------------------
 # Python
@@ -59,7 +57,6 @@ __pycache__/
 .env.*
 !.env.example
 !.env.*.example
-!/taro/.env.test
 
 # -----------------------------------------------
 # OS Generated Files

@@ -10,9 +10,9 @@
 
 ## Affected areas
 
-- [ ] Java product API (`backend/`)
+- [ ] Python product API (`backend/`)
 - [ ] Python AI service (`server/`)
-- [ ] WeChat Mini Program (`taro/`)
+- [ ] Web client (`web/`)
 - [ ] PostgreSQL schema (`db/`)
 - [ ] Documentation or tooling
 

@@ -1,0 +1,27 @@
+name: Personal product
+on:
+  pull_request:
+    paths: ['backend/**', 'web/**', 'db/**', 'Makefile', '.github/workflows/product.yml']
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - uses: astral-sh/setup-uv@v7
+      - run: uv export --project backend --locked --extra dev --no-emit-project -o /tmp/backend-requirements.txt
+      - run: uv pip install --system -r /tmp/backend-requirements.txt -e backend
+      - run: npm --prefix web ci
+      - run: make test backend-test schema-check
+      - run: python -m ruff check --config backend/pyproject.toml backend/src/practiq_backend
