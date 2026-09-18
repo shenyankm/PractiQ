@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "status": "PASSED",
+  "generatedAt": "2026-09-18T05:15:21.694967+00:00",
+  "gitCommit": "43f89dd38a7a5da93992af3ab4a696786b676b08",
+  "environment": "local-langgraph-dev",
+  "codeHash": "5d139dff624802f4ea2c89dda2fa1f96a434c919ee9c4f2ab2df7cdf8dca3a47",
+  "runtime": {
+    "python": [
+      3,
+      14,
+      7
+    ],
+    "packages": {
+      "langgraph": "1.2.11",
+      "langgraph-api": "0.14.1",
+      "langchain-core": "1.5.6",
+      "langchain-openai": "1.5.1",
+      "pydantic": "2.13.4",
+      "pypdfium2": "5.12.1",
+      "pillow": "12.3.0",
+      "openpyxl": "3.1.5",
+      "alibabacloud-oss-v2": "1.4.0"
+    }
+  },
+  "imageDigest": null,
+  "parameters": {
+    "total": 400,
+    "submitConcurrency": 100,
+    "maxRunning": 4,
+    "graphConcurrency": 2,
+    "api": "document-tasks",
+    "allowRejections": true
+  },
+  "results": {
+    "runs": {
+      "success": 62,
+      "rejected_503": 338
+    },
+    "runCreateP95Ms": 667.3,
+    "healthP95Ms": 42.5,
+    "completionP50Seconds": 23.423,
+    "completionP95Seconds": 38.566,
+    "observedQueueWaitP95Seconds": 38.042,
+    "peakPendingRuns": null,
+    "peakRunningRuns": 1.0,
+    "observedWorkerMaximum": 1.0,
+    "minimumAvailableWorkers": 0.0,
+    "peakRssBytes": 224133120,
+    "sampledProviderConcurrencyPeak": 1.0,
+    "configuredModelConcurrencyCeiling": 8
+  },
+  "failures": []
+}

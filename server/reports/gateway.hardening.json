@@ -1,0 +1,12 @@
+{
+  "status": "PASSED",
+  "burstRequests": 100,
+  "responses": {
+    "200": 21,
+    "429": 79
+  },
+  "oversizedBodyStatus": 413,
+  "batchStatus": 403,
+  "backend": "local-langgraph-dev",
+  "publishedAddress": "127.0.0.1:18095"
+}

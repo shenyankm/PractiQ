@@ -1,0 +1,472 @@
+{
+  "schemaVersion": 2,
+  "kind": "evaluation",
+  "runId": "cea04b8b-6eb2-4bf6-8267-69fbf4c46097",
+  "generatedAt": "2026-09-18T05:36:39.766460+00:00",
+  "environment": "local-real-services",
+  "scorerVersion": "2.0.0",
+  "repetitions": 1,
+  "caseIds": [
+    "docx-formula-image",
+    "image-two-column"
+  ],
+  "datasetHash": "9fb1339d3cc1d2b89b43ceccdc29e66fb69ac97c9fff481f21543e80e69942ad",
+  "gitCommit": "43f89dd38a7a5da93992af3ab4a696786b676b08",
+  "dirty": true,
+  "codeHash": "0f47b14b7f60117bad1da74846ad8db52c2c0ea113fac45e37137a08944d2dc8",
+  "models": {
+    "provider": "dashscope",
+    "vision": "qwen3.7-flash"
+  },
+  "settings": {
+    "source_max_bytes": 26214400,
+    "vision_max_bytes": 52428800,
+    "max_document_pages": 100,
+    "max_vision_page_pixels": 25000000,
+    "max_total_input_chars": 2000000,
+    "graph_max_concurrency": 2,
+    "storage_concurrency": 4,
+    "storage_timeout_seconds": 30.0,
+    "model_timeout_seconds": 180.0,
+    "model_max_tokens": 16384,
+    "task_max_model_calls": 400,
+    "run_timeout_seconds": 1800.0,
+    "model_max_input_chars": 64000,
+    "provider_concurrency": 16,
+    "provider_rpm": 120,
+    "deployment_workers": 1,
+    "structured_output_method": "function_calling"
+  },
+  "promptHash": "c97a4fd2b51ea278aef030ecd0416dfc2b7d24c20f465016ea5f0e3a6fa8c285",
+  "cases": [
+    {
+      "id": "docx-formula-image",
+      "sourceType": "docx",
+      "tags": [
+        "synthetic",
+        "smoke",
+        "docx"
+      ],
+      "critical": false,
+      "repetition": 1,
+      "status": "SUCCEEDED",
+      "latencyMs": 4857.2877919996245,
+      "expectedError": null,
+      "outcomeMatched": true,
+      "blocked": false,
+      "error": null,
+      "processing": {
+        "chunks": {
+          "total": 0,
+          "succeeded": 0,
+          "skipped": 0
+        },
+        "visuals": {
+          "total": 2,
+          "succeeded": 2,
+          "skipped": 0
+        },
+        "truncated": false,
+        "failures": [],
+        "questionSources": [
+          {
+            "questionIndex": 0,
+            "stage": "vision_parse",
+            "unitIndex": 0
+          },
+          {
+            "questionIndex": 1,
+            "stage": "vision_parse",
+            "unitIndex": 0
+          }
+        ],
+        "quality": {
+          "reviewRequired": true,
+          "reviewQuestionCount": 2,
+          "issues": [
+            {
+              "questionIndex": 0,
+              "code": "MISSING_FIELDS"
+            },
+            {
+              "questionIndex": 1,
+              "code": "MISSING_FIELDS"
+            }
+          ]
+        }
+      },
+      "score": {
+        "expected": 2,
+        "predicted": 2,
+        "matched": 2,
+        "modeCorrect": 2,
+        "optionsExpected": 0,
+        "optionsCorrect": 0,
+        "answerCorrect": 2,
+        "inventedAnswers": 0,
+        "questions": [
+          {
+            "expectedIndex": 0,
+            "predictedIndex": 0,
+            "answerMode": "short_answer",
+            "expected": {
+              "stem": "A right triangle has legs of length 3 and 4. What is the hypotenuse length?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": {
+                "text": "5"
+              }
+            },
+            "predicted": {
+              "stem": "A right triangle has legs of length 3 and 4. What is the hypotenuse length?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": {
+                "text": "5"
+              }
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": true
+            },
+            "inventedAnswer": false,
+            "differences": []
+          },
+          {
+            "expectedIndex": 1,
+            "predictedIndex": 1,
+            "answerMode": "true_false",
+            "expected": {
+              "stem": "A right angle measures 90 degrees.",
+              "answerMode": "true_false",
+              "options": [],
+              "answerPayload": {
+                "value": true
+              }
+            },
+            "predicted": {
+              "stem": "A right angle measures 90 degrees.",
+              "answerMode": "true_false",
+              "options": [],
+              "answerPayload": {
+                "value": true
+              }
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": true
+            },
+            "inventedAnswer": false,
+            "differences": []
+          }
+        ],
+        "groups": null,
+        "visuals": {
+          "expected": 1,
+          "predicted": 1,
+          "matched": 1,
+          "missing": [],
+          "extra": []
+        }
+      },
+      "modelCalls": [
+        {
+          "callId": "01a0b304-5770-7ad0-9eea-057fd50edeb7",
+          "node": "vision_describe_attempt",
+          "status": "RETURNED",
+          "inputTokens": 1970,
+          "outputTokens": 109
+        },
+        {
+          "callId": "01a0b304-5772-7200-9513-1171f6dad004",
+          "node": "vision_parse_attempt",
+          "status": "RETURNED",
+          "inputTokens": 6465,
+          "outputTokens": 418
+        }
+      ]
+    },
+    {
+      "id": "image-two-column",
+      "sourceType": "image",
+      "tags": [
+        "synthetic",
+        "smoke",
+        "image"
+      ],
+      "critical": false,
+      "repetition": 1,
+      "status": "SUCCEEDED",
+      "latencyMs": 12301.556582999183,
+      "expectedError": null,
+      "outcomeMatched": true,
+      "blocked": false,
+      "error": null,
+      "processing": {
+        "chunks": {
+          "total": 0,
+          "succeeded": 0,
+          "skipped": 0
+        },
+        "visuals": {
+          "total": 1,
+          "succeeded": 1,
+          "skipped": 0
+        },
+        "truncated": false,
+        "failures": [],
+        "questionSources": [
+          {
+            "questionIndex": 0,
+            "stage": "vision_parse",
+            "unitIndex": 0
+          },
+          {
+            "questionIndex": 1,
+            "stage": "vision_parse",
+            "unitIndex": 0
+          }
+        ],
+        "quality": {
+          "reviewRequired": true,
+          "reviewQuestionCount": 2,
+          "issues": [
+            {
+              "questionIndex": 0,
+              "code": "MISSING_FIELDS"
+            },
+            {
+              "questionIndex": 1,
+              "code": "MISSING_FIELDS"
+            }
+          ]
+        }
+      },
+      "score": {
+        "expected": 2,
+        "predicted": 2,
+        "matched": 2,
+        "modeCorrect": 2,
+        "optionsExpected": 0,
+        "optionsCorrect": 0,
+        "answerCorrect": 2,
+        "inventedAnswers": 0,
+        "questions": [
+          {
+            "expectedIndex": 0,
+            "predictedIndex": 0,
+            "answerMode": "short_answer",
+            "expected": {
+              "stem": "How many days are in one week?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": {
+                "text": "7"
+              }
+            },
+            "predicted": {
+              "stem": "How many days are in one week?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": {
+                "text": "7"
+              }
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": true
+            },
+            "inventedAnswer": false,
+            "differences": []
+          },
+          {
+            "expectedIndex": 1,
+            "predictedIndex": 1,
+            "answerMode": "true_false",
+            "expected": {
+              "stem": "The Moon is a star.",
+              "answerMode": "true_false",
+              "options": [],
+              "answerPayload": {
+                "value": false
+              }
+            },
+            "predicted": {
+              "stem": "The Moon is a star.",
+              "answerMode": "true_false",
+              "options": [],
+              "answerPayload": {
+                "value": false
+              }
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": true
+            },
+            "inventedAnswer": false,
+            "differences": []
+          }
+        ],
+        "groups": null,
+        "visuals": {
+          "expected": 1,
+          "predicted": 1,
+          "matched": 1,
+          "missing": [],
+          "extra": []
+        }
+      },
+      "modelCalls": [
+        {
+          "callId": "01a0b304-64bd-7632-8820-8c9d53ffa9fb",
+          "node": "vision_parse_attempt",
+          "status": "RETURNED",
+          "inputTokens": 5507,
+          "outputTokens": 368
+        },
+        {
+          "callId": "01a0b304-7302-7890-8ac9-1b13e236953b",
+          "node": "vision_parse_attempt",
+          "status": "RETURNED",
+          "inputTokens": 5931,
+          "outputTokens": 386
+        },
+        {
+          "callId": "01a0b304-8848-7530-94cc-ed6764b9db98",
+          "node": "vision_parse_attempt",
+          "status": "RETURNED",
+          "inputTokens": 5957,
+          "outputTokens": 388
+        }
+      ]
+    }
+  ],
+  "status": "PASSED",
+  "gateReasons": [],
+  "documentParser": {
+    "questionPrecision": 100.0,
+    "questionRecall": 100.0,
+    "answerModeAccuracy": 100.0,
+    "optionsAccuracy": null,
+    "parsedAnswerAccuracy": 100.0,
+    "groupF1": null,
+    "visualF1": 100.0
+  },
+  "outcomes": {
+    "SUCCEEDED": 2
+  },
+  "slices": {
+    "sourceType": {
+      "docx": {
+        "questionPrecision": 100.0,
+        "questionRecall": 100.0,
+        "answerModeAccuracy": 100.0,
+        "optionsAccuracy": null,
+        "parsedAnswerAccuracy": 100.0,
+        "groupF1": null,
+        "visualF1": 100.0
+      },
+      "image": {
+        "questionPrecision": 100.0,
+        "questionRecall": 100.0,
+        "answerModeAccuracy": 100.0,
+        "optionsAccuracy": null,
+        "parsedAnswerAccuracy": 100.0,
+        "groupF1": null,
+        "visualF1": 100.0
+      }
+    },
+    "answerMode": {
+      "short_answer": {
+        "questionPrecision": 100.0,
+        "questionRecall": 100.0,
+        "answerModeAccuracy": 100.0,
+        "optionsAccuracy": null,
+        "parsedAnswerAccuracy": 100.0,
+        "groupF1": null,
+        "visualF1": null
+      },
+      "true_false": {
+        "questionPrecision": 100.0,
+        "questionRecall": 100.0,
+        "answerModeAccuracy": 100.0,
+        "optionsAccuracy": null,
+        "parsedAnswerAccuracy": 100.0,
+        "groupF1": null,
+        "visualF1": null
+      }
+    },
+    "tag": {
+      "docx": {
+        "questionPrecision": 100.0,
+        "questionRecall": 100.0,
+        "answerModeAccuracy": 100.0,
+        "optionsAccuracy": null,
+        "parsedAnswerAccuracy": 100.0,
+        "groupF1": null,
+        "visualF1": 100.0
+      },
+      "image": {
+        "questionPrecision": 100.0,
+        "questionRecall": 100.0,
+        "answerModeAccuracy": 100.0,
+        "optionsAccuracy": null,
+        "parsedAnswerAccuracy": 100.0,
+        "groupF1": null,
+        "visualF1": 100.0
+      },
+      "smoke": {
+        "questionPrecision": 100.0,
+        "questionRecall": 100.0,
+        "answerModeAccuracy": 100.0,
+        "optionsAccuracy": null,
+        "parsedAnswerAccuracy": 100.0,
+        "groupF1": null,
+        "visualF1": 100.0
+      },
+      "synthetic": {
+        "questionPrecision": 100.0,
+        "questionRecall": 100.0,
+        "answerModeAccuracy": 100.0,
+        "optionsAccuracy": null,
+        "parsedAnswerAccuracy": 100.0,
+        "groupF1": null,
+        "visualF1": 100.0
+      }
+    }
+  },
+  "latency": {
+    "all": {
+      "count": 2,
+      "p50Ms": 8579.422187499404,
+      "p95Ms": 11929.343143449205
+    },
+    "success": {
+      "count": 2,
+      "p50Ms": 8579.422187499404,
+      "p95Ms": 11929.343143449205
+    },
+    "failure": {
+      "count": 0,
+      "p50Ms": null,
+      "p95Ms": null
+    }
+  },
+  "modelUsage": {
+    "calls": 5,
+    "responses": 5,
+    "failedCalls": 0,
+    "inputTokens": 25830,
+    "outputTokens": 1669,
+    "complete": true,
+    "missingUsageCalls": 0
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "runId": "6c9dfcf3-fcd3-4710-a6a1-afcabe89b438",
+  "backend": "local",
+  "mode": "dry-run",
+  "retentionDays": 187,
+  "objects": 0,
+  "bytes": 0,
+  "candidates": [],
+  "completed": true
+}

@@ -1,0 +1,39 @@
+{
+  "generatedAt": "2026-09-18T05:51:09.337950+00:00",
+  "status": "NOT_FULLY_ACCEPTED",
+  "codeHash": "87f2d5b765593971e4ba571f2fbf29c0dc9513dfd1e35cb3fd9968c3b1fa9038",
+  "runtime": {
+    "python": [
+      3,
+      14,
+      7
+    ],
+    "packages": {
+      "langgraph": "1.2.11",
+      "langgraph-api": "0.14.1",
+      "langchain-core": "1.5.6",
+      "langchain-openai": "1.5.1",
+      "pydantic": "2.13.4",
+      "pypdfium2": "5.12.1",
+      "pillow": "12.3.0",
+      "openpyxl": "3.1.5",
+      "alibabacloud-oss-v2": "1.4.0"
+    }
+  },
+  "offline": {
+    "status": "PASSED",
+    "tests": 333,
+    "coveragePercent": 94,
+    "graphs": 5,
+    "fixtures": 23
+  },
+  "localService": {
+    "/ok": 200,
+    "/api/metrics": 200
+  },
+  "realModelQuality": "FAILED",
+  "finalLocalCapacity": "FAILED",
+  "standaloneRecovery": "BLOCKED_BY_RUNTIME_LICENSE",
+  "realOSS": "SKIPPED_BY_USER",
+  "imageDigest": "sha256:65b285774214c74a91dda2d7d3e305818108d98bfdb1018cb80ba93fb80d19f5"
+}

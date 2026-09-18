@@ -1,0 +1,842 @@
+{
+  "schemaVersion": 2,
+  "kind": "evaluation",
+  "runId": "4855d3ae-80dd-4d96-9c94-9787b115c2b6",
+  "generatedAt": "2026-09-18T05:20:12.048481+00:00",
+  "environment": "local-real-services",
+  "scorerVersion": "2.0.0",
+  "repetitions": 1,
+  "caseIds": [
+    "csv-basic",
+    "text-chinese",
+    "text-no-answer",
+    "pdf-long-material-answer-key"
+  ],
+  "datasetHash": "04147f06452024fa7494b47832c389d7ccba9d645add2725c88e9fa22cecacef",
+  "gitCommit": "43f89dd38a7a5da93992af3ab4a696786b676b08",
+  "dirty": true,
+  "codeHash": "c138bfbede724f204271119fb0dcd02dd05c39c330faa5c4dd9089ab18ef6dc2",
+  "models": {
+    "provider": "dashscope",
+    "vision": "qwen3.7-flash"
+  },
+  "settings": {
+    "source_max_bytes": 26214400,
+    "vision_max_bytes": 52428800,
+    "max_document_pages": 100,
+    "max_vision_page_pixels": 25000000,
+    "max_total_input_chars": 2000000,
+    "graph_max_concurrency": 2,
+    "storage_concurrency": 4,
+    "storage_timeout_seconds": 30.0,
+    "model_timeout_seconds": 180.0,
+    "model_max_tokens": 16384,
+    "task_max_model_calls": 400,
+    "run_timeout_seconds": 1800.0,
+    "model_max_input_chars": 64000,
+    "provider_concurrency": 16,
+    "provider_rpm": 120,
+    "deployment_workers": 1,
+    "structured_output_method": "function_calling"
+  },
+  "promptHash": "c97a4fd2b51ea278aef030ecd0416dfc2b7d24c20f465016ea5f0e3a6fa8c285",
+  "cases": [
+    {
+      "id": "csv-basic",
+      "sourceType": "csv",
+      "tags": [
+        "synthetic",
+        "smoke",
+        "csv"
+      ],
+      "critical": false,
+      "repetition": 1,
+      "status": "SUCCEEDED",
+      "latencyMs": 4779.703125001106,
+      "expectedError": null,
+      "outcomeMatched": true,
+      "blocked": false,
+      "error": null,
+      "processing": {
+        "chunks": {
+          "total": 1,
+          "succeeded": 1,
+          "skipped": 0
+        },
+        "visuals": {
+          "total": 0,
+          "succeeded": 0,
+          "skipped": 0
+        },
+        "truncated": false,
+        "failures": [],
+        "questionSources": [
+          {
+            "questionIndex": 0,
+            "stage": "document_parse",
+            "unitIndex": 0
+          },
+          {
+            "questionIndex": 1,
+            "stage": "document_parse",
+            "unitIndex": 0
+          }
+        ],
+        "quality": {
+          "reviewRequired": true,
+          "reviewQuestionCount": 2,
+          "issues": [
+            {
+              "questionIndex": 0,
+              "code": "MISSING_FIELDS"
+            },
+            {
+              "questionIndex": 1,
+              "code": "MISSING_FIELDS"
+            }
+          ]
+        }
+      },
+      "score": {
+        "expected": 2,
+        "predicted": 2,
+        "matched": 2,
+        "modeCorrect": 2,
+        "optionsExpected": 1,
+        "optionsCorrect": 1,
+        "answerCorrect": 2,
+        "inventedAnswers": 0,
+        "questions": [
+          {
+            "expectedIndex": 0,
+            "predictedIndex": 0,
+            "answerMode": "choice",
+            "expected": {
+              "stem": "What is 10 - 4?",
+              "answerMode": "choice",
+              "options": [
+                {
+                  "label": "A",
+                  "content": "5"
+                },
+                {
+                  "label": "B",
+                  "content": "6"
+                },
+                {
+                  "label": "C",
+                  "content": "7"
+                }
+              ],
+              "answerPayload": {
+                "correctOption": "B"
+              }
+            },
+            "predicted": {
+              "stem": "What is 10 - 4?",
+              "answerMode": "choice",
+              "options": [
+                {
+                  "label": "A",
+                  "content": "5"
+                },
+                {
+                  "label": "B",
+                  "content": "6"
+                },
+                {
+                  "label": "C",
+                  "content": "7"
+                }
+              ],
+              "answerPayload": {
+                "correctOption": "B"
+              }
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": true
+            },
+            "inventedAnswer": false,
+            "differences": []
+          },
+          {
+            "expectedIndex": 1,
+            "predictedIndex": 1,
+            "answerMode": "true_false",
+            "expected": {
+              "stem": "Mammals are warm-blooded.",
+              "answerMode": "true_false",
+              "options": [],
+              "answerPayload": {
+                "value": true
+              }
+            },
+            "predicted": {
+              "stem": "Mammals are warm-blooded.",
+              "answerMode": "true_false",
+              "options": [],
+              "answerPayload": {
+                "value": true
+              }
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": true
+            },
+            "inventedAnswer": false,
+            "differences": []
+          }
+        ],
+        "groups": null,
+        "visuals": {
+          "expected": 0,
+          "predicted": 0,
+          "matched": 0,
+          "missing": [],
+          "extra": []
+        }
+      },
+      "modelCalls": [
+        {
+          "callId": "01a0b2f5-4229-7c23-8d20-73444d3abea9",
+          "node": "document_parse_attempt",
+          "status": "RETURNED",
+          "inputTokens": 3542,
+          "outputTokens": 319
+        }
+      ]
+    },
+    {
+      "id": "text-chinese",
+      "sourceType": "text",
+      "tags": [
+        "synthetic",
+        "regression",
+        "chinese"
+      ],
+      "critical": true,
+      "repetition": 1,
+      "status": "SUCCEEDED",
+      "latencyMs": 3647.2374580007454,
+      "expectedError": null,
+      "outcomeMatched": true,
+      "blocked": false,
+      "error": null,
+      "processing": {
+        "chunks": {
+          "total": 1,
+          "succeeded": 1,
+          "skipped": 0
+        },
+        "visuals": {
+          "total": 0,
+          "succeeded": 0,
+          "skipped": 0
+        },
+        "truncated": false,
+        "failures": [],
+        "questionSources": [
+          {
+            "questionIndex": 0,
+            "stage": "document_parse",
+            "unitIndex": 0
+          },
+          {
+            "questionIndex": 1,
+            "stage": "document_parse",
+            "unitIndex": 0
+          }
+        ],
+        "quality": {
+          "reviewRequired": true,
+          "reviewQuestionCount": 2,
+          "issues": [
+            {
+              "questionIndex": 0,
+              "code": "MISSING_FIELDS"
+            },
+            {
+              "questionIndex": 1,
+              "code": "MISSING_FIELDS"
+            }
+          ]
+        }
+      },
+      "score": {
+        "expected": 2,
+        "predicted": 2,
+        "matched": 2,
+        "modeCorrect": 2,
+        "optionsExpected": 1,
+        "optionsCorrect": 1,
+        "answerCorrect": 2,
+        "inventedAnswers": 0,
+        "questions": [
+          {
+            "expectedIndex": 0,
+            "predictedIndex": 0,
+            "answerMode": "choice",
+            "expected": {
+              "stem": "中国的首都是哪座城市？",
+              "answerMode": "choice",
+              "options": [
+                {
+                  "label": "A",
+                  "content": "北京"
+                },
+                {
+                  "label": "B",
+                  "content": "上海"
+                }
+              ],
+              "answerPayload": {
+                "correctOption": "A"
+              }
+            },
+            "predicted": {
+              "stem": "中国的首都是哪座城市？",
+              "answerMode": "choice",
+              "options": [
+                {
+                  "label": "A",
+                  "content": "北京"
+                },
+                {
+                  "label": "B",
+                  "content": "上海"
+                }
+              ],
+              "answerPayload": {
+                "correctOption": "A"
+              }
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": true
+            },
+            "inventedAnswer": false,
+            "differences": []
+          },
+          {
+            "expectedIndex": 1,
+            "predictedIndex": 1,
+            "answerMode": "true_false",
+            "expected": {
+              "stem": "地球绕太阳公转。",
+              "answerMode": "true_false",
+              "options": [],
+              "answerPayload": {
+                "value": true
+              }
+            },
+            "predicted": {
+              "stem": "地球绕太阳公转。",
+              "answerMode": "true_false",
+              "options": [],
+              "answerPayload": {
+                "value": true
+              }
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": true
+            },
+            "inventedAnswer": false,
+            "differences": []
+          }
+        ],
+        "groups": null,
+        "visuals": {
+          "expected": 0,
+          "predicted": 0,
+          "matched": 0,
+          "missing": [],
+          "extra": []
+        }
+      },
+      "modelCalls": [
+        {
+          "callId": "01a0b2f5-538e-7932-accf-cea73d906820",
+          "node": "document_parse_attempt",
+          "status": "RETURNED",
+          "inputTokens": 3538,
+          "outputTokens": 292
+        }
+      ]
+    },
+    {
+      "id": "text-no-answer",
+      "sourceType": "text",
+      "tags": [
+        "synthetic",
+        "regression",
+        "no-source-answer"
+      ],
+      "critical": true,
+      "repetition": 1,
+      "status": "SUCCEEDED",
+      "latencyMs": 3651.5397500006657,
+      "expectedError": null,
+      "outcomeMatched": true,
+      "blocked": false,
+      "error": null,
+      "processing": {
+        "chunks": {
+          "total": 1,
+          "succeeded": 1,
+          "skipped": 0
+        },
+        "visuals": {
+          "total": 0,
+          "succeeded": 0,
+          "skipped": 0
+        },
+        "truncated": false,
+        "failures": [],
+        "questionSources": [
+          {
+            "questionIndex": 0,
+            "stage": "document_parse",
+            "unitIndex": 0
+          },
+          {
+            "questionIndex": 1,
+            "stage": "document_parse",
+            "unitIndex": 0
+          }
+        ],
+        "quality": {
+          "reviewRequired": true,
+          "reviewQuestionCount": 2,
+          "issues": [
+            {
+              "questionIndex": 0,
+              "code": "MISSING_FIELDS"
+            },
+            {
+              "questionIndex": 1,
+              "code": "MISSING_FIELDS"
+            }
+          ]
+        }
+      },
+      "score": {
+        "expected": 2,
+        "predicted": 2,
+        "matched": 2,
+        "modeCorrect": 2,
+        "optionsExpected": 1,
+        "optionsCorrect": 1,
+        "answerCorrect": 2,
+        "inventedAnswers": 0,
+        "questions": [
+          {
+            "expectedIndex": 0,
+            "predictedIndex": 0,
+            "answerMode": "short_answer",
+            "expected": {
+              "stem": "What is the capital of France?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": null
+            },
+            "predicted": {
+              "stem": "What is the capital of France?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": null
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": true
+            },
+            "inventedAnswer": false,
+            "differences": []
+          },
+          {
+            "expectedIndex": 1,
+            "predictedIndex": 1,
+            "answerMode": "choice",
+            "expected": {
+              "stem": "Which number is even?",
+              "answerMode": "choice",
+              "options": [
+                {
+                  "label": "A",
+                  "content": "3"
+                },
+                {
+                  "label": "B",
+                  "content": "4"
+                }
+              ],
+              "answerPayload": null
+            },
+            "predicted": {
+              "stem": "Which number is even?",
+              "answerMode": "choice",
+              "options": [
+                {
+                  "label": "A",
+                  "content": "3"
+                },
+                {
+                  "label": "B",
+                  "content": "4"
+                }
+              ],
+              "answerPayload": null
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": true
+            },
+            "inventedAnswer": false,
+            "differences": []
+          }
+        ],
+        "groups": null,
+        "visuals": {
+          "expected": 0,
+          "predicted": 0,
+          "matched": 0,
+          "missing": [],
+          "extra": []
+        }
+      },
+      "modelCalls": [
+        {
+          "callId": "01a0b2f5-61c7-7641-909f-8543e3f5da8d",
+          "node": "document_parse_attempt",
+          "status": "RETURNED",
+          "inputTokens": 3535,
+          "outputTokens": 277
+        }
+      ]
+    },
+    {
+      "id": "pdf-long-material-answer-key",
+      "sourceType": "pdf",
+      "tags": [
+        "synthetic",
+        "long-material",
+        "cross-page",
+        "concentrated-answers"
+      ],
+      "critical": true,
+      "repetition": 1,
+      "status": "SUCCEEDED",
+      "latencyMs": 11746.76025000008,
+      "expectedError": null,
+      "outcomeMatched": true,
+      "blocked": false,
+      "error": null,
+      "processing": {
+        "chunks": {
+          "total": 0,
+          "succeeded": 0,
+          "skipped": 0
+        },
+        "visuals": {
+          "total": 4,
+          "succeeded": 4,
+          "skipped": 0
+        },
+        "truncated": false,
+        "failures": [],
+        "questionSources": [
+          {
+            "questionIndex": 0,
+            "stage": "vision_parse",
+            "unitIndex": 2
+          }
+        ],
+        "quality": {
+          "reviewRequired": true,
+          "reviewQuestionCount": 1,
+          "issues": [
+            {
+              "questionIndex": 0,
+              "code": "MISSING_FIELDS"
+            }
+          ]
+        }
+      },
+      "score": {
+        "expected": 1,
+        "predicted": 1,
+        "matched": 1,
+        "modeCorrect": 1,
+        "optionsExpected": 0,
+        "optionsCorrect": 0,
+        "answerCorrect": 1,
+        "inventedAnswers": 0,
+        "questions": [
+          {
+            "expectedIndex": 0,
+            "predictedIndex": 0,
+            "answerMode": "short_answer",
+            "expected": {
+              "stem": "Which station is named in the observation record?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": {
+                "text": "Station Cedar"
+              }
+            },
+            "predicted": {
+              "stem": "Which station is named in the observation record?",
+              "answerMode": "short_answer",
+              "options": [],
+              "answerPayload": {
+                "text": "Station Cedar"
+              }
+            },
+            "matched": true,
+            "correct": {
+              "answerMode": true,
+              "options": true,
+              "answerPayload": true
+            },
+            "inventedAnswer": false,
+            "differences": []
+          }
+        ],
+        "groups": null,
+        "visuals": {
+          "expected": 0,
+          "predicted": 0,
+          "matched": 0,
+          "missing": [],
+          "extra": []
+        }
+      },
+      "modelCalls": [
+        {
+          "callId": "01a0b2f5-7273-7830-b397-f4f9e040ea2c",
+          "node": "vision_parse_attempt",
+          "status": "RETURNED",
+          "inputTokens": 8867,
+          "outputTokens": 44
+        },
+        {
+          "callId": "01a0b2f5-728a-7d80-b738-a94f53f90e53",
+          "node": "vision_parse_attempt",
+          "status": "RETURNED",
+          "inputTokens": 11358,
+          "outputTokens": 44
+        },
+        {
+          "callId": "01a0b2f5-89f5-7683-9bb6-806b17a8b07e",
+          "node": "vision_parse_attempt",
+          "status": "RETURNED",
+          "inputTokens": 8867,
+          "outputTokens": 44
+        },
+        {
+          "callId": "01a0b2f5-8a01-75a2-ac61-a4f000a01426",
+          "node": "vision_parse_attempt",
+          "status": "RETURNED",
+          "inputTokens": 11358,
+          "outputTokens": 151
+        }
+      ]
+    }
+  ],
+  "status": "PASSED",
+  "gateReasons": [],
+  "documentParser": {
+    "questionPrecision": 100.0,
+    "questionRecall": 100.0,
+    "answerModeAccuracy": 100.0,
+    "optionsAccuracy": 100.0,
+    "parsedAnswerAccuracy": 100.0,
+    "groupF1": null,
+    "visualF1": 100.0
+  },
+  "outcomes": {
+    "SUCCEEDED": 4
+  },
+  "slices": {
+    "sourceType": {
+      "csv": {
+        "questionPrecision": 100.0,
+        "questionRecall": 100.0,
+        "answerModeAccuracy": 100.0,
+        "optionsAccuracy": 100.0,
+        "parsedAnswerAccuracy": 100.0,
+        "groupF1": null,
+        "visualF1": 100.0
+      },
+      "pdf": {
+        "questionPrecision": 100.0,
+        "questionRecall": 100.0,
+        "answerModeAccuracy": 100.0,
+        "optionsAccuracy": null,
+        "parsedAnswerAccuracy": 100.0,
+        "groupF1": null,
+        "visualF1": 100.0
+      },
+      "text": {
+        "questionPrecision": 100.0,
+        "questionRecall": 100.0,
+        "answerModeAccuracy": 100.0,
+        "optionsAccuracy": 100.0,
+        "parsedAnswerAccuracy": 100.0,
+        "groupF1": null,
+        "visualF1": 100.0
+      }
+    },
+    "answerMode": {
+      "choice": {
+        "questionPrecision": 100.0,
+        "questionRecall": 100.0,
+        "answerModeAccuracy": 100.0,
+        "optionsAccuracy": 100.0,
+        "parsedAnswerAccuracy": 100.0,
+        "groupF1": null,
+        "visualF1": null
+      },
+      "short_answer": {
+        "questionPrecision": 100.0,
+        "questionRecall": 100.0,
+        "answerModeAccuracy": 100.0,
+        "optionsAccuracy": null,
+        "parsedAnswerAccuracy": 100.0,
+        "groupF1": null,
+        "visualF1": null
+      },
+      "true_false": {
+        "questionPrecision": 100.0,
+        "questionRecall": 100.0,
+        "answerModeAccuracy": 100.0,
+        "optionsAccuracy": null,
+        "parsedAnswerAccuracy": 100.0,
+        "groupF1": null,
+        "visualF1": null
+      }
+    },
+    "tag": {
+      "chinese": {
+        "questionPrecision": 100.0,
+        "questionRecall": 100.0,
+        "answerModeAccuracy": 100.0,
+        "optionsAccuracy": 100.0,
+        "parsedAnswerAccuracy": 100.0,
+        "groupF1": null,
+        "visualF1": 100.0
+      },
+      "concentrated-answers": {
+        "questionPrecision": 100.0,
+        "questionRecall": 100.0,
+        "answerModeAccuracy": 100.0,
+        "optionsAccuracy": null,
+        "parsedAnswerAccuracy": 100.0,
+        "groupF1": null,
+        "visualF1": 100.0
+      },
+      "cross-page": {
+        "questionPrecision": 100.0,
+        "questionRecall": 100.0,
+        "answerModeAccuracy": 100.0,
+        "optionsAccuracy": null,
+        "parsedAnswerAccuracy": 100.0,
+        "groupF1": null,
+        "visualF1": 100.0
+      },
+      "csv": {
+        "questionPrecision": 100.0,
+        "questionRecall": 100.0,
+        "answerModeAccuracy": 100.0,
+        "optionsAccuracy": 100.0,
+        "parsedAnswerAccuracy": 100.0,
+        "groupF1": null,
+        "visualF1": 100.0
+      },
+      "long-material": {
+        "questionPrecision": 100.0,
+        "questionRecall": 100.0,
+        "answerModeAccuracy": 100.0,
+        "optionsAccuracy": null,
+        "parsedAnswerAccuracy": 100.0,
+        "groupF1": null,
+        "visualF1": 100.0
+      },
+      "no-source-answer": {
+        "questionPrecision": 100.0,
+        "questionRecall": 100.0,
+        "answerModeAccuracy": 100.0,
+        "optionsAccuracy": 100.0,
+        "parsedAnswerAccuracy": 100.0,
+        "groupF1": null,
+        "visualF1": 100.0
+      },
+      "regression": {
+        "questionPrecision": 100.0,
+        "questionRecall": 100.0,
+        "answerModeAccuracy": 100.0,
+        "optionsAccuracy": 100.0,
+        "parsedAnswerAccuracy": 100.0,
+        "groupF1": null,
+        "visualF1": 100.0
+      },
+      "smoke": {
+        "questionPrecision": 100.0,
+        "questionRecall": 100.0,
+        "answerModeAccuracy": 100.0,
+        "optionsAccuracy": 100.0,
+        "parsedAnswerAccuracy": 100.0,
+        "groupF1": null,
+        "visualF1": 100.0
+      },
+      "synthetic": {
+        "questionPrecision": 100.0,
+        "questionRecall": 100.0,
+        "answerModeAccuracy": 100.0,
+        "optionsAccuracy": 100.0,
+        "parsedAnswerAccuracy": 100.0,
+        "groupF1": null,
+        "visualF1": 100.0
+      }
+    }
+  },
+  "latency": {
+    "all": {
+      "count": 4,
+      "p50Ms": 4215.621437500886,
+      "p95Ms": 10701.701681250233
+    },
+    "success": {
+      "count": 4,
+      "p50Ms": 4215.621437500886,
+      "p95Ms": 10701.701681250233
+    },
+    "failure": {
+      "count": 0,
+      "p50Ms": null,
+      "p95Ms": null
+    }
+  },
+  "modelUsage": {
+    "calls": 7,
+    "responses": 7,
+    "failedCalls": 0,
+    "inputTokens": 51065,
+    "outputTokens": 1171,
+    "complete": true,
+    "missingUsageCalls": 0
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "status": "PASSED",
+  "environment": "candidate-container-extractors-only",
+  "codeHash": "fd3b1168de65b2e08bdfefd28939d5767ab94fcfb9d39578f3e3379d064a07dd",
+  "runtime": {
+    "python": [
+      3,
+      14,
+      7
+    ],
+    "packages": {
+      "langgraph": "1.2.11",
+      "langgraph-api": "0.14.1",
+      "langchain-core": "1.5.6",
+      "langchain-openai": "1.5.1",
+      "pydantic": "2.13.4",
+      "pypdfium2": "5.12.1",
+      "pillow": "12.3.0",
+      "openpyxl": "3.1.5",
+      "alibabacloud-oss-v2": "1.4.0"
+    }
+  },
+  "imageDigest": "sha256:d9c4f81fd58bb9b82839f1e6563662445b7464a72ecdadf441d6962c75a6f220",
+  "results": [
+    {
+      "type": "pdf",
+      "pages": 1,
+      "bytes": 115626
+    },
+    {
+      "type": "docx",
+      "pages": 1,
+      "bytes": 72678
+    },
+    {
+      "type": "pdf",
+      "pages": 1,
+      "bytes": 115626
+    },
+    {
+      "type": "docx",
+      "pages": 1,
+      "bytes": 72678
+    },
+    {
+      "type": "pdf",
+      "pages": 1,
+      "bytes": 115626
+    },
+    {
+      "type": "docx",
+      "pages": 1,
+      "bytes": 72678
+    }
+  ],
+  "elapsedSeconds": 1.2369471260003593,
+  "pythonPeakRssBytes": 253812736,
+  "childrenPeakRssBytes": 225832960
+}
