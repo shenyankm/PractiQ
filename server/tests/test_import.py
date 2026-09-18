@@ -26,14 +26,15 @@ def setup(monkeypatch, tmp_path):
 
     monkeypatch.setattr(docx, "convert_to_pdf", lambda _: make_blank_pdf(1))
     store = object_store(tmp_path)
-    model = FakeModel(responses=[{"questions": [question("Imported")], "groups": []}])
-    vision = FakeModel(responses=[{
-        "text": "Imported", "figures": [],
-        "description": "Embedded figure", "extractedText": "caption",
-    }] * 2)
+    def response(_messages, schema):
+        if schema is document.vision.ImageDescription:
+            return {"description": "Embedded figure", "extractedText": "caption"}
+        return {"questions": [question("Imported")], "groups": []}
+
+    model = FakeModel(responses=[response] * 2)
     monkeypatch.setattr(document, "get_object_store", lambda: store)
     monkeypatch.setattr(webapp, "get_object_store", lambda: store)
-    monkeypatch.setattr(document, "get_models", lambda: (model, vision))
+    monkeypatch.setattr(document, "get_model", lambda: model)
     return store, model
 
 

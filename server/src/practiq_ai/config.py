@@ -8,14 +8,14 @@ from typing import Any
 from urllib.parse import urlsplit
 
 MIB = 1024 * 1024
+SERVER_ROOT = Path(__file__).resolve().parents[3]
 
 
 @dataclass(frozen=True)
 class Config:
     provider: str
     api_key: str
-    text_model: str
-    vision_model: str | None
+    vision_model: str
     storage_dir: Path
     source_max_bytes: int
     vision_max_bytes: int
@@ -27,6 +27,7 @@ class Config:
     storage_timeout_seconds: float
     model_timeout_seconds: float
     model_max_tokens: int
+    structured_output_method: str = "function_calling"
     soffice_path: str = "soffice"
     storage_backend: str = "local"
     oss_region: str = ""
@@ -105,7 +106,10 @@ def load() -> Config:
             oss_use_cname=cname == "true",
             oss_security_token=values.get("AI_OSS_SECURITY_TOKEN", "").strip() or None,
         )
-    vision_model = values.get("LLM_VISION_MODEL", "").strip() or None
+    method = values.get("AI_STRUCTURED_OUTPUT_METHOD", "function_calling")
+    if method not in {"auto", "json_schema", "function_calling"}:
+        raise ValueError("AI_STRUCTURED_OUTPUT_METHOD must be auto, json_schema or function_calling")
+    vision_model = _required(values, "LLM_VISION_MODEL")
     _required(values, "N_JOBS_PER_WORKER")
     jobs_per_worker = _positive_int(values, "N_JOBS_PER_WORKER", 8)
     graph_max_concurrency = _positive_int(values, "AI_GRAPH_MAX_CONCURRENCY", 2)
@@ -114,14 +118,14 @@ def load() -> Config:
             "N_JOBS_PER_WORKER * AI_GRAPH_MAX_CONCURRENCY must not exceed 16"
         )
     return Config(
+        structured_output_method=method,
         storage_backend=storage_backend,
         **oss_settings,
         soffice_path=values.get("AI_SOFFICE_PATH", "").strip() or "soffice",
         provider=provider,
         api_key=_required(values, "LLM_API_KEY"),
-        text_model=_required(values, "LLM_TEXT_MODEL"),
         vision_model=vision_model,
-        storage_dir=(Path(__file__).resolve().parents[3] / storage_dir).resolve(),
+        storage_dir=Path(os.path.abspath(SERVER_ROOT / storage_dir)),
         source_max_bytes=_positive_int(values, "AI_SOURCE_MAX_BYTES", 25 * MIB),
         vision_max_bytes=_positive_int(values, "AI_MAX_VISION_BYTES", 50 * MIB),
         max_document_pages=_positive_int(values, "AI_MAX_DOCUMENT_PAGES", 100),

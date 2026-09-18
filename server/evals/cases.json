@@ -709,6 +709,71 @@
         "code": "DOCUMENT_PROCESSING_FAILED",
         "statusCode": 400
       }
+    },
+    {
+      "id": "text-source-identity",
+      "sourceType": "text",
+      "path": "fixtures/text/text-source-identity.txt",
+      "tags": [
+        "synthetic",
+        "regression",
+        "source-identity",
+        "repeated-stem"
+      ],
+      "critical": true,
+      "expectedQuestions": [
+        {
+          "stem": "What does A record?",
+          "answerMode": "short_answer",
+          "options": [],
+          "answerPayload": {
+            "text": "alpha"
+          }
+        },
+        {
+          "stem": "What does a record?",
+          "answerMode": "short_answer",
+          "options": [],
+          "answerPayload": {
+            "text": "beta"
+          }
+        },
+        {
+          "stem": "Select the recorded label.",
+          "answerMode": "choice",
+          "options": [
+            {
+              "label": "A",
+              "content": "red"
+            },
+            {
+              "label": "B",
+              "content": "blue"
+            }
+          ],
+          "answerPayload": {
+            "correctOption": "A"
+          }
+        },
+        {
+          "stem": "Select the recorded label.",
+          "answerMode": "choice",
+          "options": [
+            {
+              "label": "A",
+              "content": "green"
+            },
+            {
+              "label": "B",
+              "content": "yellow"
+            }
+          ],
+          "answerPayload": {
+            "correctOption": "B"
+          }
+        }
+      ],
+      "expectedVisualKinds": []
     }
   ]
 }

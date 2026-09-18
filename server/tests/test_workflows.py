@@ -45,6 +45,8 @@ class FakeModel(BaseChatModel):
         async def invoke(messages):
             self.calls.append(list(messages))
             item = self.responses.pop(0)
+            if callable(item):
+                item = item(messages, schema)
             delay = 0
             if isinstance(item, tuple):
                 delay, item = item
@@ -113,6 +115,7 @@ class FakeObjectStore:
 def question(stem: str) -> dict[str, Any]:
     return {
         "stem": stem,
+        "sourceText": stem,
         "answerMode": "short_answer",
         "questionTypeId": "imported-short",
         "options": [],
@@ -158,38 +161,31 @@ def assert_json_value(value: Any) -> None:
 
 @pytest.mark.parametrize(("provider", "base_url"), llm.BASE_URLS.items())
 def test_builds_supported_provider(provider: str, base_url: str) -> None:
-    text, image = llm.build_models(provider, "test-key", "text-model")
+    text = llm.build_model(provider, "test-key", "text-model")
     assert isinstance(text, ChatOpenAI)
     assert text.openai_api_base == base_url
-    assert image is None
 
 
 def test_builds_deepseek_vision_model() -> None:
-    _, image = llm.build_models("deepseek", "test-key", "text-model", "vision-model")
+    image = llm.build_model("deepseek", "test-key", "vision-model")
     assert isinstance(image, ChatOpenAI)
 
 
 def test_document_graph_merges_parallel_chunks_and_keeps_checkpoint_small(monkeypatch):
     fake_store, reference = source("1. First\n2. Second\n3. Third")
-    model = FakeModel(
-        responses=[
-            (
-                0.02,
-                {
-                    "questions": [question("1. First"), question("2. Second")],
-                    "groups": [],
-                },
-            ),
-            {
-                "questions": [question("2. Second"), question("3. Third")],
-                "groups": [],
-            },
-        ]
-    )
+    def response(messages, _schema):
+        if "1. First" in messages[-1].content:
+            return (0.02, {"questions": [question("1. First"), question("2. Second")], "groups": []})
+        return {"questions": [question("2. Second"), question("3. Third")], "groups": []}
+
+    model = FakeModel(responses=[response, response])
     monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
-    monkeypatch.setattr(document, "get_models", lambda: (model, None))
+    monkeypatch.setattr(document, "get_model", lambda: model)
     monkeypatch.setattr(
-        document, "split_into_chunks", lambda _: ["chunk one", "chunk two"]
+        document, "split_chunk_spans", lambda text: [
+            {"start": 0, "end": text.index("2. Second") + len("2. Second"), "overlapStart": 0, "overlapEnd": 0},
+            {"start": text.index("2. Second"), "end": len(text), "overlapStart": text.index("2. Second"), "overlapEnd": text.index("2. Second") + len("2. Second")}
+        ]
     )
     saver = InMemorySaver()
     graph = document.build_document_graph(saver)
@@ -226,7 +222,7 @@ def test_document_graph_repairs_invalid_chunk_with_shared_budget(monkeypatch):
         ]
     )
     monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
-    monkeypatch.setattr(document, "get_models", lambda: (model, None))
+    monkeypatch.setattr(document, "get_model", lambda: model)
     graph = document.build_document_graph(InMemorySaver())
 
     output = asyncio.run(
@@ -244,10 +240,13 @@ def test_document_graph_returns_partial_for_one_failed_chunk(monkeypatch):
     fake_store, reference = source("1. First\n2. Second")
     monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
     monkeypatch.setattr(
-        document, "get_models", lambda: (FakeModel(responses=[]), None)
+        document, "get_model", lambda: FakeModel(responses=[])
     )
     monkeypatch.setattr(
-        document, "split_into_chunks", lambda _: ["chunk one", "chunk two"]
+        document, "split_chunk_spans", lambda text: [
+            {"start": 0, "end": text.index("2. Second") + len("2. Second"), "overlapStart": 0, "overlapEnd": 0},
+            {"start": text.index("2. Second"), "end": len(text), "overlapStart": text.index("2. Second"), "overlapEnd": text.index("2. Second") + len("2. Second")}
+        ]
     )
 
     async def partial_chunk(task, runtime):
@@ -283,6 +282,7 @@ def test_document_graph_returns_partial_for_one_failed_chunk(monkeypatch):
             "index": 1,
             "code": "OUTPUT_INVALID",
             "retryable": True,
+            "retriesRemaining": 2,
         }
     ]
 
@@ -291,7 +291,7 @@ def test_document_graph_raises_when_all_chunks_fail(monkeypatch):
     fake_store, reference = source("1. First")
     monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
     monkeypatch.setattr(
-        document, "get_models", lambda: (FakeModel(responses=[]), None)
+        document, "get_model", lambda: FakeModel(responses=[])
     )
 
     async def failed_chunk(task, runtime):
@@ -339,9 +339,12 @@ def test_document_graph_resumes_without_repeating_completed_chunk(monkeypatch):
         return await original_chunk(task, runtime)
 
     monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
-    monkeypatch.setattr(document, "get_models", lambda: (model, None))
+    monkeypatch.setattr(document, "get_model", lambda: model)
     monkeypatch.setattr(
-        document, "split_into_chunks", lambda _: ["chunk one", "chunk two"]
+        document, "split_chunk_spans", lambda text: [
+            {"start": 0, "end": text.index("2. Second") + len("2. Second"), "overlapStart": 0, "overlapEnd": 0},
+            {"start": text.index("2. Second"), "end": len(text), "overlapStart": text.index("2. Second"), "overlapEnd": text.index("2. Second") + len("2. Second")}
+        ]
     )
     monkeypatch.setattr(document, "_chunk", unstable_chunk)
     graph = document.build_document_graph(InMemorySaver())
@@ -381,7 +384,7 @@ def test_document_integrity_fails_before_model_call(
         reference["objectKey"] = key
     model = FakeModel(responses=[])
     monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
-    monkeypatch.setattr(document, "get_models", lambda: (model, None))
+    monkeypatch.setattr(document, "get_model", lambda: model)
     graph = document.build_document_graph(InMemorySaver())
 
     with pytest.raises(DocumentProcessingError) as exc:
@@ -474,33 +477,15 @@ def make_image() -> bytes:
     return buffer.getvalue()
 
 
-def test_vision_returns_descriptions_without_eager_crops() -> None:
-    model = FakeModel(
-        responses=[
-            {
-                "text": "OCR text",
-                "figures": [
-                    {
-                        "kind": "chart",
-                        "description": "A chart",
-                        "bbox": [0.1, 0.1, 0.6, 0.6],
-                    }
-                ],
-            }
-        ]
-    )
-
-    text, visuals, usage, failure = asyncio.run(
-        vision.ocr_page(model, make_image(), 0)
-    )
-
-    assert text == "OCR text"
-    assert visuals[0].imageRef is None
-    assert len(usage) == 1
-    assert failure is None
-    assert model.calls[0][0].content[1]["image_url"]["url"].startswith(
-        "data:image/png;base64,"
-    )
+def test_page_result_retains_structured_questions_and_figures():
+    parsed = document.PageParseResult.model_validate({
+        "questions": [question("Visible question")],
+        "figures": [{"kind": "chart", "description": "A chart", "bbox": [0.1, 0.1, 0.6, 0.6]}],
+    })
+    assert parsed.questions[0].stem == "Visible question"
+    assert parsed.figures[0].bbox == [0.1, 0.1, 0.6, 0.6]
+    with pytest.raises(ValueError):
+        document.PageParseResult.model_validate({"figures": [{"description": "bad", "bbox": [0, 0, 2, 1]}]})
 
 
 def test_crop_uploads_never_exceed_global_limit(monkeypatch):
@@ -575,33 +560,13 @@ def test_storage_work_is_bounded_by_configuration(monkeypatch):
     assert peak == 2
 
 
-def test_visuals_without_model_make_text_result_partial(monkeypatch):
-    fake_store, reference = source("1. Question")
-    model = FakeModel(
-        responses=[{"questions": [question("1. Question")], "groups": []}]
-    )
-    monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
-    monkeypatch.setattr(document, "get_models", lambda: (model, None))
-    monkeypatch.setattr(
-        document,
-        "extract",
-        lambda *_args: ExtractedDocument(
-            text="1. Question", page_images=[make_image()]
-        ),
-    )
-    graph = document.build_document_graph(InMemorySaver())
-    output = asyncio.run(
-        graph.ainvoke(
-            {"document": reference}, run_config()
-        )
-    )
+def test_missing_model_fails_before_processing(monkeypatch):
+    _, reference = source("Question")
+    monkeypatch.setattr(document, "get_model", lambda: None)
+    with pytest.raises(DocumentProcessingError) as error:
+        asyncio.run(document.graph.ainvoke({"document": reference}))
+    assert error.value.code == "VISION_MODEL_REQUIRED"
 
-    assert output["status"] == "PARTIAL"
-    assert output["processing"]["visuals"] == {
-        "total": 1,
-        "succeeded": 0,
-        "skipped": 1,
-    }
 
 
 def test_extractor_truncation_makes_result_partial(monkeypatch):
@@ -610,7 +575,7 @@ def test_extractor_truncation_makes_result_partial(monkeypatch):
         responses=[{"questions": [question("1. Question")], "groups": []}]
     )
     monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
-    monkeypatch.setattr(document, "get_models", lambda: (model, None))
+    monkeypatch.setattr(document, "get_model", lambda: model)
     monkeypatch.setattr(
         document,
         "extract",
@@ -632,20 +597,20 @@ def test_visual_unit_failure_returns_partial(monkeypatch):
     image = make_image()
     model = FakeModel(
         responses=[
-            {"invalid": True},
-            {"invalid": True},
-            {"invalid": True},
-            {"invalid": True},
+            {"invalid": 1},
+            {"invalid": 2},
+            {"invalid": 3},
+            {"invalid": 4},
             {"questions": [question("1. Question")], "groups": []},
         ]
     )
     monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
-    monkeypatch.setattr(document, "get_models", lambda: (model, model))
+    monkeypatch.setattr(document, "get_model", lambda: model)
     monkeypatch.setattr(
         document,
         "extract",
         lambda *_args: ExtractedDocument(
-            text="1. Question", page_images=[image]
+            text="1. Question", embedded_images=[image]
         ),
     )
     graph = document.build_document_graph(InMemorySaver())
@@ -661,16 +626,16 @@ def test_visual_unit_failure_returns_partial(monkeypatch):
         "succeeded": 0,
         "skipped": 0,
     }
-    assert output["processing"]["failures"][0]["stage"] == "vision_ocr"
+    assert output["processing"]["failures"][0]["stage"] == "vision_describe"
 
 
-def test_document_graph_runs_successful_ocr_and_crop(monkeypatch):
+def test_document_graph_extracts_directly_from_image_and_crops(monkeypatch):
     fake_store, reference = source("")
     image = make_image()
     model = FakeModel(
         responses=[
             {
-                "text": "1. OCR question",
+                "questions": [question("Visible question")],
                 "figures": [
                     {
                         "kind": "chart",
@@ -679,11 +644,10 @@ def test_document_graph_runs_successful_ocr_and_crop(monkeypatch):
                     }
                 ],
             },
-            {"questions": [question("1. OCR question")], "groups": []},
         ]
     )
     monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
-    monkeypatch.setattr(document, "get_models", lambda: (model, model))
+    monkeypatch.setattr(document, "get_model", lambda: model)
     monkeypatch.setattr(
         document,
         "extract",
@@ -699,6 +663,9 @@ def test_document_graph_runs_successful_ocr_and_crop(monkeypatch):
     assert output["status"] == "SUCCEEDED"
     assert output["result"]["visualElements"][0]["imageRef"] is not None
     assert output["processing"]["visuals"]["succeeded"] == 1
+    assert len(model.calls) == 1
+    assert "ocr" not in fake_store.put_kinds
+    assert "chunk" not in fake_store.put_kinds
 
 
 def test_document_graph_describes_embedded_images(monkeypatch):
@@ -710,7 +677,7 @@ def test_document_graph_describes_embedded_images(monkeypatch):
         ]
     )
     monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
-    monkeypatch.setattr(document, "get_models", lambda: (model, model))
+    monkeypatch.setattr(document, "get_model", lambda: model)
     monkeypatch.setattr(
         document,
         "extract",
@@ -734,7 +701,7 @@ def test_document_graph_describes_embedded_images(monkeypatch):
     ("with_visual", "with_model", "code"),
     (
         (True, False, "VISION_MODEL_REQUIRED"),
-        (False, False, "DOCUMENT_PROCESSING_FAILED"),
+        (False, True, "DOCUMENT_PROCESSING_FAILED"),
     ),
 )
 def test_document_graph_rejects_documents_without_text(
@@ -743,7 +710,7 @@ def test_document_graph_rejects_documents_without_text(
     fake_store, reference = source("")
     model = FakeModel(responses=[])
     monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
-    monkeypatch.setattr(document, "get_models", lambda: (model, model if with_model else None))
+    monkeypatch.setattr(document, "get_model", lambda: model if with_model else None)
     monkeypatch.setattr(
         document,
         "extract",
@@ -766,7 +733,7 @@ def test_document_graph_rejects_empty_vision_output(monkeypatch):
     fake_store, reference = source("")
     model = FakeModel(responses=[{"invalid": True}] * 4)
     monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
-    monkeypatch.setattr(document, "get_models", lambda: (model, model))
+    monkeypatch.setattr(document, "get_model", lambda: model)
     monkeypatch.setattr(
         document,
         "extract",
@@ -779,7 +746,7 @@ def test_document_graph_rejects_empty_vision_output(monkeypatch):
                 {"document": reference}, run_config()
             )
         )
-    assert exc.value.code == "VISION_OUTPUT_EMPTY"
+    assert exc.value.code == "DOCUMENT_PARSE_FAILED"
 
 
 def test_document_graph_marks_text_truncation_and_rejects_no_questions(monkeypatch):
@@ -792,7 +759,7 @@ def test_document_graph_marks_text_truncation_and_rejects_no_questions(monkeypat
     )
     monkeypatch.setenv("AI_MAX_TOTAL_INPUT_CHARS", "6")
     monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
-    monkeypatch.setattr(document, "get_models", lambda: (model, None))
+    monkeypatch.setattr(document, "get_model", lambda: model)
     graph = document.build_document_graph(InMemorySaver())
 
     output = asyncio.run(
@@ -870,8 +837,8 @@ def test_describe_image_returns_failure_after_invalid_outputs() -> None:
         vision.describe_image(FakeModel(responses=[{"invalid": True}] * 4), make_image())
     )
     assert described is None
-    assert len(usage) == 4
-    assert failure == "OUTPUT_INVALID"
+    assert len(usage) == 2
+    assert failure == "OUTPUT_STALLED"
 
 
 def _status_error(status: int) -> APIStatusError:
@@ -952,7 +919,7 @@ def test_structured_call_preserves_processing_errors(monkeypatch):
 @pytest.mark.parametrize("provider", ["unknown", "openai"])
 def test_model_builder_rejects_invalid_provider(provider: str) -> None:
     with pytest.raises(ValueError, match="Unsupported"):
-        llm.build_models(provider, "key", "text")
+        llm.build_model(provider, "key", "text")
 
 
 def test_chunk_result_rejects_invalid_group_indexes() -> None:

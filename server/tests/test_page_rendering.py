@@ -34,7 +34,7 @@ def paged_source(kind):
 @pytest.mark.parametrize("kind", ["pdf", "docx"])
 def test_missing_vision_fails_before_read_or_render(monkeypatch, kind):
     _, reference = paged_source(kind)
-    monkeypatch.setattr(document, "get_models", lambda: (None, None))
+    monkeypatch.setattr(document, "get_model", lambda: None)
     monkeypatch.setattr(
         document, "get_object_store", lambda: pytest.fail("must not read")
     )
@@ -50,47 +50,37 @@ def test_page_order_gaps_and_crops(monkeypatch, kind, failed):
     store, reference = paged_source(kind)
     model = FakeModel(responses=[{"questions": [question("Across pages")]}])
     monkeypatch.setattr(document, "get_object_store", lambda: store)
-    monkeypatch.setattr(document, "get_models", lambda: (model, model))
+    monkeypatch.setattr(document, "get_model", lambda: model)
     monkeypatch.setattr(
         document,
         "extract",
         lambda *_: ExtractedDocument(text="", page_images=[make_image()] * 3),
     )
 
-    async def ocr(_model, _image, index, _runtime):
+    async def page_call(_model, messages, schema, call_kind, *, runtime=None):
+        prompt = messages[-1].content
+        index = next(i for i in range(3) if f"PRIMARY page {i + 1}" in prompt)
+        assert schema is document.PageParseResult and call_kind == "vision_parse"
+        images = [message for message in messages if isinstance(message.content, list)]
+        assert len(images) == (3 if index == 1 else 2)
         await asyncio.sleep((2 - index) * 0.01)
         if index in failed:
-            return "", [], [], "OUTPUT_INVALID"
-        from practiq_ai.contracts import VisualElement
+            return None, [], "OUTPUT_INVALID"
+        return schema.model_validate({"questions": [question(f"Page {index + 1}")],
+            "figures": [{"kind": "image", "description": "Figure", "bbox": [0.1, 0.1, 0.8, 0.8]}]}), [], None
 
-        return (
-            ["1. Cross-page question", "A. first option", "B. second option"][index],
-            [
-                VisualElement(
-                    kind="image",
-                    description="Figure",
-                    page=index,
-                    bbox=[0.1, 0.1, 0.8, 0.8],
-                )
-            ],
-            [],
-            None,
-        )
-
-    monkeypatch.setattr(document.vision, "ocr_page", ocr)
+    monkeypatch.setattr(document, "structured_call", page_call)
     if len(failed) == 3:
         with pytest.raises(DocumentProcessingError) as error:
             asyncio.run(document.graph.ainvoke({"document": reference}))
-        assert error.value.code == "VISION_OUTPUT_EMPTY"
-        assert not model.calls
+        assert error.value.code == "DOCUMENT_PARSE_FAILED"
         return
     result = asyncio.run(document.graph.ainvoke({"document": reference}))
-    prompt = str(model.calls[0][-1].content)
-    assert prompt.index("[page 1]") < prompt.index("[page 2") < prompt.index("[page 3]")
-    assert "Cross-page question" in prompt and "B. second option" in prompt
-    assert ("unavailable" in prompt) == bool(failed)
+    assert not model.calls  # No transcription or subsequent text-model call.
+    assert [q["stem"] for q in result["result"]["questions"]] == [f"Page {i + 1}" for i in range(3) if i not in failed]
     assert result["status"] == ("PARTIAL" if failed else "SUCCEEDED")
     assert len(result["processing"]["failures"]) == len(failed)
+
     for figure in result["result"]["visualElements"]:
         assert figure["page"] not in failed
         assert figure["description"].startswith("[page crop]")

@@ -291,7 +291,7 @@ def setup_runner(tmp_path, monkeypatch, responses):
     model = CallbackModel(responses=responses)
     monkeypatch.setattr(ev, "get_object_store", lambda: store)
     monkeypatch.setattr(document, "get_object_store", lambda: store)
-    monkeypatch.setattr(document, "get_models", lambda: (model, None))
+    monkeypatch.setattr(document, "get_model", lambda: model)
     return path, model
 
 
@@ -425,11 +425,11 @@ def test_exhausted_retries_preserve_actual_failure_stage(tmp_path, monkeypatch, 
     path, model = setup_runner(tmp_path, monkeypatch, responses)
     monkeypatch.setattr(llm, "_retry_delay", lambda attempt: 0)
     report = asyncio.run(ev.run_evaluation(path))
-    assert model.calls == 4
-    expected = "OUTPUT_INVALID" if invalid_after_retry else "AI_PROVIDER_UNAVAILABLE"
+    assert model.calls == (3 if invalid_after_retry else 4)
+    expected = "OUTPUT_STALLED" if invalid_after_retry else "AI_PROVIDER_UNAVAILABLE"
     assert report["cases"][0]["processing"]["failures"][0]["code"] == expected
     assert report["status"] == ("FAILED" if invalid_after_retry else "BLOCKED")
-    assert report["modelUsage"]["inputTokens"] == (30 if invalid_after_retry else 0)
+    assert report["modelUsage"]["inputTokens"] == (20 if invalid_after_retry else 0)
 
 
 def test_partial_runner_keeps_processing_failures(tmp_path, monkeypatch) -> None:
@@ -453,3 +453,15 @@ def test_partial_runner_keeps_processing_failures(tmp_path, monkeypatch) -> None
 def test_malformed_reports_are_blocked() -> None:
     assert ev.compare_reports(cast(Any, []), report_with())["status"] == "BLOCKED"
     assert ev.compare_reports(report_with(), cast(Any, None))["status"] == "BLOCKED"
+
+
+def test_nullable_draft_fields_are_scored_without_breaking_report(tmp_path):
+    draft = {**question('Unmatched draft'), 'stem': None, 'answerMode': None, 'options': [], 'answerPayload': None}
+    record = case_record()
+    record['score'] = ev.score_result(gold_case(), {'questions': [question(), draft], 'groups': [], 'visualElements': []})
+    report = report_with([record])
+    assert report['documentParser']['questionPrecision'] == 50
+    assert report['slices']['answerMode']['unknown']['questionPrecision'] == 0
+    assert record['score']['questions'][-1]['answerMode'] is None
+    path = ev.write_report(report, tmp_path / 'report.json')
+    assert path.is_file()

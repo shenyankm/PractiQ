@@ -154,8 +154,8 @@ class Manifest(GoldModel):
         return self
 
 
-def normalize_stem(value: str) -> str:
-    value = re.sub(r"^\s*(?:\d{1,4}\s*[.、)．]|[一二三四五六七八九十]{1,3}\s*[、.．])", "", value, count=1)
+def normalize_stem(value: str | None) -> str:
+    value = re.sub(r"^\s*(?:\d{1,4}\s*[.、)．]|[一二三四五六七八九十]{1,3}\s*[、.．])", "", value or "", count=1)
     return re.sub(r"\s+", "", value)
 
 
@@ -375,7 +375,7 @@ def summarize(cases: list[dict[str, Any]]) -> dict[str, Any]:
             buckets["tag"][tag].append(case["score"])
         for mode in {row["answerMode"] for row in case["score"]["questions"]}:
             rows = [row for row in case["score"]["questions"] if row["answerMode"] == mode]
-            buckets["answerMode"][mode].append(question_counts(rows))
+            buckets["answerMode"][mode or "unknown"].append(question_counts(rows))
     metrics = quality_metrics(scores)
     reasons = [f"BELOW_TARGET:{key}" for key, value in metrics.items() if value is not None and value < 90]
     reasons.extend(f"OUTCOME_MISMATCH:{case['id']}:{case['repetition']}" for case in cases if not case["outcomeMatched"])
@@ -428,12 +428,16 @@ async def run_evaluation(manifest_path: Path, repetitions: int = 1, case_ids: li
     except ValueError:
         report.update(status="BLOCKED", gateReasons=["CONFIGURATION_ERROR"])
         return report
-    from practiq_ai.graphs.document import SYSTEM_PROMPT, build_document_graph
-    from practiq_ai.graphs.vision import DESCRIBE_PROMPT, OCR_PROMPT
+    from practiq_ai.graphs.document import (
+        SYSTEM_PROMPT,
+        build_document_graph,
+        unit_failures,
+    )
+    from practiq_ai.graphs.vision import DESCRIBE_PROMPT
 
-    report["models"] = {"provider": config.provider, "text": config.text_model, "vision": config.vision_model}
+    report["models"] = {"provider": config.provider, "vision": config.vision_model}
     report["settings"] = {name: getattr(config, name) for name in SETTING_NAMES}
-    report["promptHash"] = _digest([SYSTEM_PROMPT, OCR_PROMPT, DESCRIBE_PROMPT])
+    report["promptHash"] = _digest([SYSTEM_PROMPT, DESCRIBE_PROMPT])
     graph = build_document_graph(InMemorySaver())
     for repetition in range(1, repetitions + 1):
         for case in cases:
@@ -458,10 +462,7 @@ async def run_evaluation(manifest_path: Path, repetitions: int = 1, case_ids: li
                 if invoked:
                     state = (await graph.aget_state(runnable_config)).values
                     chunks = state.get("chunkResults", [])
-                    failures = [*state.get("failures", []), *[
-                        {"stage": "document_parse", "index": chunk["index"], "code": chunk["failureCode"] or "OUTPUT_INVALID", "retryable": True}
-                        for chunk in chunks if chunk["parsed"] is None
-                    ]]
+                    failures = unit_failures(state)
                     processing = DocumentProcessing.model_validate({
                         "chunks": {"total": len(state.get("chunkRefs", [])), "succeeded": sum(chunk["parsed"] is not None for chunk in chunks)},
                         "visuals": {"total": state.get("visualTotal", 0), "succeeded": len(state.get("visionResults", [])), "skipped": state.get("visualSkipped", 0)},

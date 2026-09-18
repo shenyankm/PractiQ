@@ -10,6 +10,7 @@ from practiq_ai.contracts import (
     document_source_key,
 )
 from practiq_ai.errors import DocumentProcessingError
+from practiq_ai.execution import new_execution
 from practiq_ai.extractors import ExtractedDocument
 from practiq_ai.graphs import document, formats
 from tests.test_workflows import (
@@ -48,7 +49,7 @@ async def test_format_graph_enforces_source_type_before_storage(
         ),
     }
     model = FakeModel(responses=[{"questions": [question("2 + 2?")]}])
-    vision = FakeModel(responses=[{"text": payload.decode(), "figures": []}])
+    vision = FakeModel(responses=[{"questions": [question("2 + 2?")], "figures": []}])
     store = FakeObjectStore({key: payload})
     extracted = []
 
@@ -62,7 +63,7 @@ async def test_format_graph_enforces_source_type_before_storage(
         return ExtractedDocument(text="", page_images=[make_image()]) if kind in {"pdf", "docx"} else ExtractedDocument(text=data.decode())
 
     monkeypatch.setattr(document, "get_object_store", get_store)
-    monkeypatch.setattr(document, "get_models", lambda: (model, vision))
+    monkeypatch.setattr(document, "get_model", lambda: vision if source_type in {"pdf", "docx"} else model)
     monkeypatch.setattr(document, "extract", extract)
     graph = getattr(formats, name)
     config = run_config()
@@ -71,7 +72,7 @@ async def test_format_graph_enforces_source_type_before_storage(
         graph = document.build_document_graph(
             InMemorySaver(), name=name, source_types=allowed
         )
-        await graph.aupdate_state(config, graph_input, as_node="load_context")
+        await graph.aupdate_state(config, {**graph_input, "execution": new_execution()}, as_node="load_context")
         graph_input = None
 
     assert graph.name == name
@@ -80,7 +81,8 @@ async def test_format_graph_enforces_source_type_before_storage(
         assert output["status"] == "SUCCEEDED"
         assert output["result"]["questions"][0]["stem"] == "2 + 2?"
         assert extracted == [source_type]
-        assert len(model.calls) == 1
+        assert len(model.calls) == (0 if source_type in {"pdf", "docx"} else 1)
+        assert len(vision.calls) == (1 if source_type in {"pdf", "docx"} else 0)
     else:
         with pytest.raises(DocumentProcessingError) as exc:
             await graph.ainvoke(graph_input, config)

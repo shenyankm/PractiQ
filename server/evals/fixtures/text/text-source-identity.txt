@@ -1,0 +1,10 @@
+1. Short answer: What does A record? Answer: alpha
+2. Short answer: What does a record? Answer: beta
+3. Multiple choice: Select the recorded label.
+A. red
+B. blue
+Answer: A
+4. Multiple choice: Select the recorded label.
+A. green
+B. yellow
+Answer: B

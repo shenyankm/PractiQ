@@ -2,19 +2,24 @@
 
 import asyncio
 import logging
-import os
 import random
 from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from functools import lru_cache
 from typing import Any, cast
-from uuid import NAMESPACE_URL, uuid4, uuid5
+from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.messages import BaseMessage, HumanMessage
+from langchain_core.messages import (
+    BaseMessage,
+    HumanMessage,
+    messages_from_dict,
+    messages_to_dict,
+)
 from langchain_core.runnables import RunnableLambda
 from langchain_openai import ChatOpenAI
+from langgraph.func import task
 from langgraph.runtime import Runtime
 from openai import APIConnectionError, APIStatusError, APITimeoutError, RateLimitError
 from pydantic import BaseModel, ValidationError
@@ -22,6 +27,7 @@ from pydantic import BaseModel, ValidationError
 from .config import load
 from .contracts import ModelCallUsage
 from .errors import DocumentProcessingError
+from .execution import CURRENT_ARTIFACT, fingerprint, guard, store_put
 from .json_repair import repair_json
 
 BASE_URLS = {
@@ -48,44 +54,24 @@ def collect_usage() -> Iterator[list[ModelCallUsage]]:
         _USAGE.reset(token)
 
 
-def build_models(
-    provider: str,
-    api_key: str,
-    text_model: str,
-    vision_model: str | None = None,
-    *,
-    max_tokens: int = 16_384,
-    timeout: float = 180,
-) -> tuple[BaseChatModel, BaseChatModel | None]:
-    if provider not in BASE_URLS:
-        raise ValueError(f"Unsupported LLM provider: {provider}")
-    return _build_model(provider, api_key, text_model, max_tokens, timeout), (
-        _build_model(provider, api_key, vision_model, max_tokens, timeout)
-        if vision_model
-        else None
-    )
-
-
 @lru_cache(maxsize=1)
-def get_models() -> tuple[BaseChatModel, BaseChatModel | None]:
+def get_model() -> BaseChatModel:
     config = load()
-    return build_models(
-        config.provider,
-        config.api_key,
-        config.text_model,
-        config.vision_model,
-        max_tokens=config.model_max_tokens,
-        timeout=config.model_timeout_seconds,
+    return build_model(
+        config.provider, config.api_key, config.vision_model,
+        max_tokens=config.model_max_tokens, timeout=config.model_timeout_seconds,
     )
 
 
-def _build_model(
+def build_model(
     provider: str,
     api_key: str,
     model_name: str,
-    max_tokens: int,
-    timeout: float,
+    max_tokens: int = 16_384,
+    timeout: float = 180,
 ) -> ChatOpenAI:
+    if provider not in BASE_URLS:
+        raise ValueError(f"Unsupported LLM provider: {provider}")
     return ChatOpenAI(
         model=model_name,
         api_key=cast(Any, api_key),
@@ -108,11 +94,7 @@ def structured_output(model: BaseChatModel, schema: type[BaseModel]):
         "qwen3.8-flash",
         "qwen3.8-max",
     )
-    method = os.getenv("AI_STRUCTURED_OUTPUT_METHOD", "function_calling")
-    if method not in {"auto", "json_schema", "function_calling"}:
-        raise ValueError(
-            "AI_STRUCTURED_OUTPUT_METHOD must be auto, json_schema or function_calling"
-        )
+    method = load().structured_output_method
     supported = (
         isinstance(model, ChatOpenAI)
         and model.openai_api_base == BASE_URLS["dashscope"]
@@ -202,6 +184,18 @@ def _retry_delay(attempt: int) -> float:
     return base + random.uniform(0, base / 2)
 
 
+def _failure_fingerprint(raw: BaseMessage, error: BaseMessage) -> str:
+    return fingerprint({
+        "content": raw.content,
+        "tools": [(call.get("name"), call.get("args")) for call in [
+            *getattr(raw, "tool_calls", []), *getattr(raw, "invalid_tool_calls", []),
+        ]],
+        "rawTools": [call.get("function") for call in raw.additional_kwargs.get("tool_calls", [])],
+        "function": raw.additional_kwargs.get("function_call"),
+        "error": error.content,
+    })
+
+
 def usage_from_response(
     model: BaseChatModel,
     raw: BaseMessage,
@@ -260,14 +254,21 @@ async def structured_attempt[ResultT: BaseModel](
     *,
     runtime: Runtime[Any] | None = None,
     logical_attempt: int = 1,
+    call_key: UUID | None = None,
+    call_record: dict[str, Any] | None = None,
 ) -> tuple[ResultT | None, list[BaseMessage], ModelCallUsage]:
     response = cast(
         dict[str, Any],
         await structured_output(model, schema).ainvoke(messages),
     )
+    if call_record is not None:
+        metadata = response["raw"].response_metadata
+        call_record["providerRequestId"] = metadata.get("request_id") or metadata.get("id")
     usage = usage_from_response(
         model, response["raw"], call_kind, runtime, logical_attempt
     )
+    if call_key is not None:
+        usage = usage.model_copy(update={"callKey": call_key})
     if (calls := _USAGE.get()) is not None:
         calls.append(usage)
     error = response["parsing_error"]
@@ -305,26 +306,64 @@ async def structured_call[ResultT: BaseModel](
     *,
     runtime: Runtime[Any] | None = None,
 ) -> tuple[ResultT | None, list[ModelCallUsage], str | None]:
-    """Use one four-call budget for transport retries and output repair."""
+    """Checkpoint individual attempts; replay never replenishes the four-call budget."""
     usage: list[ModelCallUsage] = []
     failure_code = "OUTPUT_INVALID"
-    for attempt in range(1, MAX_MODEL_CALLS + 1):
+    original_messages = list(messages)
+    previous_failure: str | None = None
+
+    async def attempt_call(attempt: int, artifact: dict[str, Any] | None) -> dict[str, Any]:
+        # The task receives references only. Image messages live in this closure,
+        # never in task arguments or correction messages written to checkpoints.
+        call_key = uuid4()
+        record: dict[str, Any] = {
+            "callKey": str(call_key), "callKind": call_kind,
+            "modelId": str(getattr(model, "model_name", None) or model._llm_type),
+            "status": "started", "usageStatus": "unknown", "inputTokens": None, "outputTokens": None,
+            "attempt": attempt,
+            "runId": runtime.execution_info.run_id if runtime and runtime.execution_info else None,
+            "artifact": artifact,
+        }
+        if runtime:
+            await store_put(runtime, "calls", str(call_key), record)
         try:
-            parsed, messages, call_usage = await structured_attempt(
-                model,
-                messages,
-                schema,
-                call_kind,
-                runtime=runtime,
-                logical_attempt=attempt,
+            parsed, corrected, call_usage = await structured_attempt(
+                model, messages, schema, call_kind, runtime=runtime,
+                logical_attempt=attempt, call_key=call_key, call_record=record,
             )
         except Exception as exc:
             if isinstance(exc, DocumentProcessingError):
-                raise
-            if not _retryable_openai_error(exc):
-                raise DocumentProcessingError(
-                    502, "AI provider request failed", "AI_PROVIDER_ERROR"
-                ) from exc
+                if runtime is None:
+                    raise
+                error = {"status": exc.status_code, "code": exc.code, "detail": exc.detail}
+            elif _retryable_openai_error(exc):
+                error = {"status": 502, "code": "AI_PROVIDER_UNAVAILABLE", "detail": "AI provider request failed"}
+            else:
+                error = {"status": 502, "code": "AI_PROVIDER_ERROR", "detail": "AI provider request failed"}
+            record.update(status="failed", error=error["code"])
+            if runtime:
+                await store_put(runtime, "calls", str(call_key), record)
+            return {"error": error}
+        record.update(call_usage.model_dump(mode="json"), status="completed", usageStatus="known")
+        if runtime:
+            await store_put(runtime, "calls", str(call_key), record)
+        return {
+            "parsed": parsed.model_dump(mode="json") if parsed is not None else None,
+            "correction": messages_to_dict(corrected[len(messages):]),
+            # Ignore provider IDs and usage; detect identical content AND error.
+            "failureFingerprint": _failure_fingerprint(corrected[-2], corrected[-1]) if parsed is None else None,
+            "usage": call_usage.model_dump(mode="json"),
+        }
+
+    durable_attempt = task(name=f"{call_kind}_attempt")(attempt_call)
+    for attempt in range(1, MAX_MODEL_CALLS + 1):
+        await guard(runtime)
+        saved = await (durable_attempt(attempt, CURRENT_ARTIFACT.get())
+                       if runtime and runtime.execution_info else attempt_call(attempt, None))
+        if error := saved.get("error"):
+            previous_failure = None
+            if error["code"] != "AI_PROVIDER_UNAVAILABLE":
+                raise DocumentProcessingError(error["status"], error["detail"], error["code"], usage)
             failure_code = "AI_PROVIDER_UNAVAILABLE"
             if attempt < MAX_MODEL_CALLS:
                 logger.warning(
@@ -333,9 +372,13 @@ async def structured_call[ResultT: BaseModel](
                 )
                 await asyncio.sleep(_retry_delay(attempt))
             continue
-        usage.append(call_usage)
-        if parsed is None:
+        usage.append(ModelCallUsage.model_validate(saved["usage"]))
+        if saved["parsed"] is None:
+            if saved["failureFingerprint"] == previous_failure:
+                return None, usage, "OUTPUT_STALLED"
+            previous_failure = saved["failureFingerprint"]
+            messages = [*original_messages, *messages_from_dict(saved["correction"])]
             failure_code = "OUTPUT_INVALID"
             continue
-        return parsed, usage, None
+        return schema.model_validate(saved["parsed"]), usage, None
     return None, usage, failure_code

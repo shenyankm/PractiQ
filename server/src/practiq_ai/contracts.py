@@ -462,6 +462,24 @@ class UnitFailure(StrictModel):
     index: int = Field(ge=0)
     code: str = Field(min_length=1, max_length=64)
     retryable: bool
+    retriesRemaining: int = Field(default=0, ge=0, le=2)
+
+
+class QuestionSource(StrictModel):
+    questionIndex: int = Field(ge=0)
+    stage: Literal["document_parse", "vision_parse"]
+    unitIndex: int = Field(ge=0)
+
+
+class QualityIssue(StrictModel):
+    questionIndex: int = Field(ge=0)
+    code: Literal["SOURCE_TEXT_NOT_FOUND", "AMBIGUOUS_OVERLAP", "OVERLAP_CONFLICT", "MISSING_FIELDS", "NEEDS_REVIEW"]
+
+
+class DocumentQuality(StrictModel):
+    reviewRequired: bool = False
+    reviewQuestionCount: int = Field(default=0, ge=0)
+    issues: list[QualityIssue] = Field(default_factory=list)
 
 
 class DocumentProcessing(StrictModel):
@@ -469,10 +487,24 @@ class DocumentProcessing(StrictModel):
     visuals: UnitCounts
     truncated: bool
     failures: list[UnitFailure] = Field(max_length=2_000)
+    questionSources: list[QuestionSource] = Field(default_factory=list)
+    quality: DocumentQuality = Field(default_factory=DocumentQuality)
+
+
+class FailedUnit(StrictModel):
+    stage: Literal["vision_parse", "vision_describe", "document_parse"]
+    index: StrictInt = Field(ge=0)
+
+
+class RetryUnits(StrictModel):
+    requestId: UUID
+    units: list[FailedUnit] = Field(default_factory=list, max_length=2_000)
 
 
 class DocumentParseInput(StrictModel):
     document: DocumentReference
+    failurePolicy: Literal["return_partial", "review"] = "return_partial"
+    retry: RetryUnits | None = None
 
     @model_validator(mode="after")
     def require_managed_storage_reference(self) -> Self:
@@ -483,3 +515,41 @@ class DocumentParseInput(StrictModel):
         if not _media_type_matches(document.sourceType, document.mediaType):
             raise ValueError("document mediaType does not match sourceType")
         return self
+
+
+GraphId = Literal["document_parser", "text_csv_parser", "pdf_parser", "docx_parser", "excel_parser"]
+
+
+class DocumentTaskCreate(StrictModel):
+    requestId: UUID
+    graphId: GraphId = "document_parser"
+    document: DocumentReference
+    failurePolicy: Literal["return_partial", "review"] = "return_partial"
+    parentThreadId: UUID | None = None
+
+    @model_validator(mode="after")
+    def validate_document(self) -> Self:
+        DocumentParseInput(document=self.document)
+        return self
+
+
+class DocumentTaskControl(StrictModel):
+    requestId: UUID
+    action: Literal["pause", "interrupt", "resume", "retry_failed", "accept_partial"]
+    runId: UUID | None = None
+    checkpointId: str | None = Field(default=None, min_length=1, max_length=128)
+    units: list[FailedUnit] = Field(default_factory=list, max_length=2_000)
+
+    @model_validator(mode="after")
+    def validate_target(self) -> Self:
+        if self.action in {"pause", "interrupt"}:
+            if self.runId is None or self.checkpointId is not None:
+                raise ValueError("pause/interrupt require runId and no checkpointId")
+        elif self.checkpointId is None or self.runId is not None:
+            raise ValueError("resume/retry/accept require checkpointId and no runId")
+        if self.units and self.action != "retry_failed":
+            raise ValueError("units are only accepted for retry_failed")
+        return self
+
+
+DocumentParseInput.model_rebuild()

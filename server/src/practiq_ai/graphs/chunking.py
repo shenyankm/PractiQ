@@ -1,6 +1,13 @@
 import re
+from typing import Any, TypedDict
 
-from ..contracts import ParsedGroup, ParsedQuestion
+from ..contracts import (
+    DocumentQuality,
+    ParsedGroup,
+    ParsedQuestion,
+    QualityIssue,
+    QuestionSource,
+)
 
 CHUNK_TARGET_CHARS = 30_000
 # 题号/大题起始行模式：阿拉伯数字编号、中文大题编号
@@ -10,83 +17,137 @@ QUESTION_BOUNDARY_PATTERN = re.compile(
 )
 
 
-def split_into_chunks(text: str, target_chars: int = CHUNK_TARGET_CHARS) -> list[str]:
-    """按题目边界切分长文本；相邻块重叠一段（上一块最后一题）用于跨界去重。"""
-    if len(text) <= target_chars:
-        return [text]
+class ChunkSpan(TypedDict):
+    start: int
+    end: int
+    overlapStart: int
+    overlapEnd: int
 
+
+def split_chunk_spans(text: str, target_chars: int = CHUNK_TARGET_CHARS) -> list[ChunkSpan]:
+    """Persist source offsets; overlap is source identity, never a stem heuristic."""
+    ranges: list[tuple[int, int]] = []
     boundaries = [match.start() for match in QUESTION_BOUNDARY_PATTERN.finditer(text)]
-    if not boundaries:
-        return [
-            text[index : index + target_chars]
-            for index in range(0, len(text), target_chars)
-        ]
-    if boundaries[0] != 0:
-        boundaries.insert(0, 0)
-    boundaries.append(len(text))
+    if len(text) <= target_chars:
+        ranges = [(0, len(text))]
+    elif not boundaries:
+        ranges = [(start, min(start + target_chars, len(text))) for start in range(0, len(text), target_chars)]
+    else:
+        if boundaries[0] != 0:
+            boundaries.insert(0, 0)
+        boundaries.append(len(text))
+        start = previous_boundary = 0
+        for boundary in boundaries[1:]:
+            if boundary - start >= target_chars:
+                cut = previous_boundary if previous_boundary > start else boundary
+                ranges.append((start, boundary))
+                start = cut
+            previous_boundary = boundary
+        if start < len(text):
+            ranges.append((start, len(text)))
+    spans: list[ChunkSpan] = []
+    for start, end in ranges:
+        if text[start:end].strip():
+            spans.append({"start": start, "end": end, "overlapStart": start,
+                          "overlapEnd": min(end, spans[-1]["end"]) if spans else start})
+    return spans
 
-    chunks: list[str] = []
-    start = 0
-    previous_boundary = 0
-    index = 1
-    while index < len(boundaries):
-        if boundaries[index] - start >= target_chars:
-            # 在不超过目标大小的最后一个题目边界处切开
-            cut = previous_boundary if previous_boundary > start else boundaries[index]
-            chunks.append(text[start:boundaries[index]])
-            start = cut
-        previous_boundary = boundaries[index]
-        index += 1
-    if start < len(text):
-        chunks.append(text[start:])
-    return [chunk for chunk in chunks if chunk.strip()]
+
+def split_into_chunks(text: str, target_chars: int = CHUNK_TARGET_CHARS) -> list[str]:
+    return [text[span["start"]:span["end"]] for span in split_chunk_spans(text, target_chars)]
+
+
+def _normalized_source(text: str, start: int) -> tuple[str, list[int]]:
+    positions = [start + index for index, char in enumerate(text) if not char.isspace()]
+    return re.sub(r"\s+", "", text), positions
+
+
+def _source_locations(source: tuple[str, list[int]], quote: str | None) -> list[tuple[int, int]]:
+    text, positions = source
+    needle = re.sub(r"\s+", "", quote or "")
+    if not needle:
+        return []
+    locations = []
+    offset = text.find(needle)
+    # Two matches suffice to prove ambiguity; do not scan repeated boilerplate.
+    while offset >= 0 and len(locations) < 2:
+        locations.append((positions[offset], positions[offset + len(needle) - 1] + 1))
+        offset = text.find(needle, offset + 1)
+    return locations
+
+
+def _content(question: ParsedQuestion) -> dict[str, Any]:
+    # Confidence/review flags are metadata, not extracted content.
+    return question.model_dump(exclude={"confidence", "needsReview", "missingFields", "sourceText"})
 
 
 def merge_chunk_results(
     chunk_results: list[tuple[int, list[ParsedQuestion], list[ParsedGroup]]],
-) -> tuple[list[ParsedQuestion], list[ParsedGroup], list[str], bool]:
-    """合并各块结果，仅删除相邻块边界处的重叠题。"""
+    *,
+    overlapping: bool = True,
+    source_text: str | None = None,
+    chunk_spans: list[ChunkSpan] | None = None,
+) -> tuple[list[ParsedQuestion], list[ParsedGroup], list[str], bool, list[QuestionSource], DocumentQuality]:
+    """Merge only proven source overlap; retain ambiguous or conflicting extracts."""
     warnings: list[str] = []
     questions: list[ParsedQuestion] = []
     groups: list[ParsedGroup] = []
+    sources: list[QuestionSource] = []
+    issues: set[tuple[int, str]] = set()
+    previous: list[tuple[int, tuple[int, int] | None, dict[str, Any]]] = []
     previous_chunk_index: int | None = None
-    previous_last_key: str | None = None
-    previous_last_index: int | None = None
 
     for chunk_index, chunk_questions, chunk_groups in chunk_results:
+        span = chunk_spans[chunk_index] if chunk_spans is not None else None
+        source = _normalized_source(source_text[span["start"]:span["end"]], span["start"]) if source_text is not None and span else None
+        adjacent = previous_chunk_index is not None and chunk_index == previous_chunk_index + 1
         index_map: dict[int, int] = {}
-        for local_index, question in enumerate(chunk_questions):
-            key = _normalize_stem(question.stem)
-            if (
-                local_index == 0
-                and previous_chunk_index is not None
-                and chunk_index == previous_chunk_index + 1
-                and bool(key)
-                and previous_last_key == key
-                and previous_last_index is not None
-            ):
-                index_map[local_index] = previous_last_index
-                continue
-            index_map[local_index] = len(questions)
-            questions.append(question)
+        current = []
+        used_previous: set[int] = set()
+        for local_index, original in enumerate(chunk_questions):
+            question = original.model_copy(deep=True)
+            locations = _source_locations(source, question.sourceText) if source else []
+            location = locations[0] if len(locations) == 1 else None
+            content = _content(question)
+            codes: set[str] = set()
+            if overlapping and not locations:
+                codes.add("SOURCE_TEXT_NOT_FOUND")
+            if overlapping and len(locations) > 1:
+                codes.add("AMBIGUOUS_OVERLAP")
+            candidates = []
+            if overlapping and adjacent and span and span["overlapEnd"] > span["overlapStart"]:
+                # ponytail: scan at most 1000 prior questions; index locations if profiling warrants it.
+                for prior_index, prior_location, prior_content in previous:
+                    if location and prior_location == location and span["overlapStart"] <= location[0] < location[1] <= span["overlapEnd"]:
+                        if prior_content == content:
+                            candidates.append(prior_index)
+                        else:
+                            codes.add("OVERLAP_CONFLICT")
+                            issues.add((prior_index, "OVERLAP_CONFLICT"))
+                    elif (location is None or prior_location is None) and prior_content == content:
+                        codes.add("AMBIGUOUS_OVERLAP")
+                        issues.add((prior_index, "AMBIGUOUS_OVERLAP"))
+            if len(candidates) == 1 and candidates[0] not in used_previous and not codes:
+                final_index = candidates[0]
+                used_previous.add(final_index)
+                questions[final_index].needsReview |= question.needsReview
+                questions[final_index].missingFields = list(dict.fromkeys([*questions[final_index].missingFields, *question.missingFields]))
+                questions[final_index].confidence = min(questions[final_index].confidence, question.confidence)
+            else:
+                if candidates:
+                    codes.add("AMBIGUOUS_OVERLAP")
+                    issues.update((index, "AMBIGUOUS_OVERLAP") for index in candidates)
+                final_index = len(questions)
+                questions.append(question)
+            index_map[local_index] = final_index
+            current.append((final_index, location, content))
+            issues.update((final_index, code) for code in codes)
+            sources.append(QuestionSource(questionIndex=final_index, stage="document_parse" if overlapping else "vision_parse", unitIndex=chunk_index))
         for group in chunk_groups:
-            remapped = sorted(
-                {
-                    index_map[index]
-                    for index in group.questionIndexes
-                    if index in index_map
-                }
-            )
+            remapped = sorted({index_map[index] for index in group.questionIndexes if index in index_map})
             if remapped:
-                groups.append(group.model_copy(update={'questionIndexes': remapped}))
-
-        previous_chunk_index = chunk_index
-        previous_last_key = (
-            _normalize_stem(chunk_questions[-1].stem) if chunk_questions else None
-        )
-        previous_last_index = (
-            index_map[len(chunk_questions) - 1] if chunk_questions else None
-        )
+                groups.append(group.model_copy(update={"questionIndexes": remapped}))
+        previous_chunk_index, previous = chunk_index, current
 
     truncated = len(questions) > 1_000
     if truncated:
@@ -110,10 +171,19 @@ def merge_chunk_results(
         )
         groups = groups[:1_000]
         truncated = True
-    return questions, groups, warnings, truncated
-
-
-def _normalize_stem(stem: str | None) -> str:
-    # 去掉行首题号与空白后取前 200 字符作为去重键
-    stripped = QUESTION_BOUNDARY_PATTERN.sub('', (stem or '').strip(), count=1)
-    return re.sub(r'\s+', '', stripped)[:200].casefold()
+    for index, _ in issues:
+        if index < len(questions):
+            questions[index].needsReview = True
+    for index, question in enumerate(questions):
+        if question.missingFields:
+            issues.add((index, "MISSING_FIELDS"))
+        elif question.needsReview:
+            issues.add((index, "NEEDS_REVIEW"))
+    review_count = sum(question.needsReview for question in questions)
+    quality = DocumentQuality(
+        reviewRequired=bool(review_count), reviewQuestionCount=review_count,
+        issues=[QualityIssue.model_validate({"questionIndex": index, "code": code})
+                for index, code in sorted(issues) if index < len(questions)],
+    )
+    sources = list({(s.questionIndex, s.stage, s.unitIndex): s for s in sources if s.questionIndex < len(questions)}.values())
+    return questions, groups, warnings, truncated, sources, quality

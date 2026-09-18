@@ -1,17 +1,16 @@
 """Durable document parsing graph with bounded fan-out."""
 
 import asyncio
-import operator
 from collections.abc import Awaitable, Callable
 from functools import partial
 from typing import Annotated, Any, NotRequired, Self, TypedDict, cast
 
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.runtime import Runtime
-from langgraph.types import Overwrite, Send
+from langgraph.types import Overwrite, Send, interrupt
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from practiq_ai.config import load
@@ -24,15 +23,25 @@ from practiq_ai.contracts import (
     DocumentSourceType,
     ParsedGroup,
     ParsedQuestion,
+    RetryUnits,
     UnitCounts,
     UnitFailure,
     VisualElement,
 )
 from practiq_ai.errors import DocumentProcessingError
+from practiq_ai.execution import (
+    CURRENT_ARTIFACT,
+    CURRENT_EXECUTION,
+    RECURSION_LIMIT,
+    guard,
+    merge_records,
+    new_execution,
+    validate_execution,
+)
 from practiq_ai.extractors import enforce_vision_bytes, extract
 from practiq_ai.graphs import vision
-from practiq_ai.graphs.chunking import merge_chunk_results, split_into_chunks
-from practiq_ai.llm import get_models, structured_call
+from practiq_ai.graphs.chunking import ChunkSpan, merge_chunk_results, split_chunk_spans
+from practiq_ai.llm import get_model, structured_call
 from practiq_ai.storage import get_object_store
 
 SYSTEM_PROMPT = """Extract assessment questions faithfully from the supplied fragment.
@@ -117,6 +126,10 @@ class ChunkParseResult(BaseModel):
         return self
 
 
+class PageParseResult(ChunkParseResult):
+    figures: list[vision.PageFigure] = Field(default_factory=list, max_length=1_000)
+
+
 class DocumentGraphOutput(TypedDict):
     status: str
     result: dict[str, Any]
@@ -126,28 +139,39 @@ class DocumentGraphOutput(TypedDict):
 
 class DocumentState(TypedDict):
     document: dict[str, Any]
+    execution: NotRequired[dict[str, Any]]
+    failurePolicy: NotRequired[str]
+    retry: NotRequired[dict[str, Any] | None]
+    round: NotRequired[int]
+    phase: NotRequired[str]
+    nextStage: NotRequired[str]
+    reviewAccepted: NotRequired[list[str]]
+    appliedRetries: NotRequired[list[str]]
+    retryCounts: NotRequired[dict[str, int]]
     warnings: NotRequired[list[str]]
     truncated: NotRequired[bool]
     visualTotal: NotRequired[int]
-    visualSkipped: NotRequired[int]
     textRef: NotRequired[dict[str, Any] | None]
     pageRefs: NotRequired[list[dict[str, Any]]]
     embeddedRefs: NotRequired[list[dict[str, Any]]]
-    visionResults: NotRequired[Annotated[list[dict[str, Any]], operator.add]]
+    visionResults: NotRequired[Annotated[list[dict[str, Any]], merge_records]]
     chunkRefs: NotRequired[list[dict[str, Any]]]
-    chunkResults: NotRequired[Annotated[list[dict[str, Any]], operator.add]]
-    failures: NotRequired[Annotated[list[dict[str, Any]], operator.add]]
+    chunkSpans: NotRequired[list[ChunkSpan]]
+    chunkResults: NotRequired[Annotated[list[dict[str, Any]], merge_records]]
+    failures: NotRequired[Annotated[list[dict[str, Any]], merge_records]]
     status: NotRequired[str]
     result: NotRequired[dict[str, Any]]
     processing: NotRequired[dict[str, Any]]
-    usage: NotRequired[Annotated[list[dict[str, Any]], operator.add]]
+    usage: NotRequired[Annotated[list[dict[str, Any]], merge_records]]
 
 
 class VisionTask(TypedDict):
     kind: str
     index: int
-    sourceSha256: str
+    neighbors: NotRequired[list[dict[str, Any]]]
     artifact: dict[str, Any]
+    execution: NotRequired[dict[str, Any]]
+    round: NotRequired[int]
 
 
 class ChunkTask(TypedDict):
@@ -156,6 +180,8 @@ class ChunkTask(TypedDict):
     sourceType: str
     fileName: str | None
     artifact: dict[str, Any]
+    execution: NotRequired[dict[str, Any]]
+    round: NotRequired[int]
 
 
 async def _bounded_map[ItemT, ResultT](
@@ -171,7 +197,7 @@ async def _bounded_map[ItemT, ResultT](
     return list(await asyncio.gather(*(run(item) for item in items)))
 
 
-def _load_context(state: DocumentState) -> dict[str, Any]:
+async def _load_context(state: DocumentState, runtime: Runtime[None]) -> dict[str, Any]:
     incoming = DocumentParseInput.model_validate(
         {
             key: state[key]
@@ -179,17 +205,49 @@ def _load_context(state: DocumentState) -> dict[str, Any]:
             if key in state
         }
     )
+    if incoming.retry is not None:
+        execution = state.get("execution", {})
+        await asyncio.to_thread(validate_execution, execution)
+        if execution.get("document") != incoming.document.model_dump(mode="json"):
+            raise DocumentProcessingError(409, "Retry cannot change the source document", "INVALID_CONTROL")
+        token = CURRENT_EXECUTION.set(execution)
+        try:
+            await guard(runtime, execution)
+        finally:
+            CURRENT_EXECUTION.reset(token)
+        return _retry_update(state, incoming.retry)
+    if state.get("execution"):
+        raise DocumentProcessingError(409, "Use resume/retry or create a new thread", "TASK_ALREADY_STARTED")
+    execution = await asyncio.to_thread(new_execution)
+    execution["document"] = incoming.document.model_dump(mode="json")
+    context = runtime.context if isinstance(runtime.context, dict) else {}
+    if expires_at := context.get("documentControl", {}).get("expiresAt"):
+        execution["expiresAt"] = expires_at
+    token = CURRENT_EXECUTION.set(execution)
+    try:
+        await guard(runtime, execution, check_pause=False)
+    finally:
+        CURRENT_EXECUTION.reset(token)
     return {
         "document": incoming.document.model_dump(mode="json"),
+        "execution": execution,
+        "failurePolicy": incoming.failurePolicy,
+        "retry": None,
+        "round": 0,
+        "phase": "prepare",
+        "nextStage": "prepare",
+        "reviewAccepted": [],
+        "appliedRetries": [],
+        "retryCounts": {},
         "warnings": [],
         "truncated": False,
         "visualTotal": 0,
-        "visualSkipped": 0,
         "textRef": None,
         "pageRefs": [],
         "embeddedRefs": [],
         "visionResults": Overwrite([]),
         "chunkRefs": [],
+        "chunkSpans": [],
         "chunkResults": Overwrite([]),
         "failures": Overwrite([]),
         "status": "",
@@ -213,11 +271,14 @@ async def _prepare(
             f"This graph accepts only: {', '.join(source_types)}",
             "DOCUMENT_SOURCE_TYPE_MISMATCH",
         )
-    if reference.sourceType in {"pdf", "docx"} and get_models()[1] is None:
-        raise DocumentProcessingError(409, "Configure a vision model to parse PDF or DOCX", "VISION_MODEL_REQUIRED")
-    store = get_object_store()
+    if (await asyncio.to_thread(get_model)) is None:
+        raise DocumentProcessingError(409, "Configure a vision model to parse documents", "VISION_MODEL_REQUIRED")
+    store = await asyncio.to_thread(get_object_store)
     source = await store.get_verified(reference)
-    document = await asyncio.to_thread(extract, reference.sourceType, source)
+    try:
+        document = await asyncio.wait_for(asyncio.to_thread(extract, reference.sourceType, source), timeout=180)
+    except TimeoutError as exc:
+        raise DocumentProcessingError(504, "Document preparation timed out", "DOCUMENT_PREPARE_TIMEOUT") from exc
     visual_total = len(document.page_images) + len(document.embedded_images)
     enforce_vision_bytes(
         sum(map(len, document.page_images))
@@ -240,34 +301,24 @@ async def _prepare(
         if document.text
         else None
     )
-    if visual_total and get_models()[1] is None:
-        warnings.append(
-            f"{visual_total} visual units were skipped because no vision model is configured."
-        )
-        page_refs: list[ArtifactReference] = []
-        embedded_refs: list[ArtifactReference] = []
-        visual_skipped = visual_total
-    else:
-        page_refs = await _bounded_map(
-            [
-                (data, "page", index, vision._media_type(data))
-                for index, data in enumerate(document.page_images)
-            ],
-            put,
-        )
-        embedded_refs = await _bounded_map(
-            [
-                (data, "embedded", index, vision._media_type(data))
-                for index, data in enumerate(document.embedded_images)
-            ],
-            put,
-        )
-        visual_skipped = 0
+    page_refs = await _bounded_map(
+        [
+            (data, "page", index, vision._media_type(data))
+            for index, data in enumerate(document.page_images)
+        ],
+        put,
+    )
+    embedded_refs = await _bounded_map(
+        [
+            (data, "embedded", index, vision._media_type(data))
+            for index, data in enumerate(document.embedded_images)
+        ],
+        put,
+    )
     return {
         "warnings": warnings,
         "truncated": document.truncated,
         "visualTotal": visual_total,
-        "visualSkipped": visual_skipped,
         "textRef": text_ref.model_dump(mode="json") if text_ref else None,
         "pageRefs": [item.model_dump(mode="json") for item in page_refs],
         "embeddedRefs": [item.model_dump(mode="json") for item in embedded_refs],
@@ -275,15 +326,18 @@ async def _prepare(
 
 
 def _dispatch_vision(state: DocumentState) -> list[Send] | str:
-    reference = DocumentReference.model_validate(state["document"])
+    pages = state.get("pageRefs", [])
     work = [
         Send(
             "vision",
             {
                 "kind": "page",
                 "index": index,
-                "sourceSha256": reference.sha256,
+                "neighbors": [{"index": other, "artifact": pages[other]}
+                              for other in range(max(0, index - 1), min(len(pages), index + 2))],
                 "artifact": item,
+                "execution": state.get("execution"),
+                "round": state.get("round", 0),
             },
         )
         for index, item in enumerate(state.get("pageRefs", []))
@@ -294,45 +348,51 @@ def _dispatch_vision(state: DocumentState) -> list[Send] | str:
             {
                 "kind": "embedded",
                 "index": index,
-                "sourceSha256": reference.sha256,
                 "artifact": item,
+                "execution": state.get("execution"),
+                "round": state.get("round", 0),
             },
         )
         for index, item in enumerate(state.get("embeddedRefs", []))
     )
-    return work or "assemble"
+    completed = {(item["kind"], item["index"]) for item in state.get("visionResults", [])}
+    completed.update(("page" if item["stage"] == "vision_parse" else "embedded", item["index"])
+                     for item in state.get("failures", []) if item["stage"] in {"vision_parse", "vision_describe"})
+    pending = [item for item in work if (item.arg["kind"], item.arg["index"]) not in completed]
+    return pending[:load().graph_max_concurrency] or "vision_review"
 
 
 async def _vision(
     state: VisionTask, runtime: Runtime[None]
 ) -> dict[str, list[dict[str, Any]]]:
-    model = get_models()[1]
+    model = (await asyncio.to_thread(get_model))
     assert model is not None
-    store = get_object_store()
+    store = await asyncio.to_thread(get_object_store)
     image = await store.get_verified(ArtifactReference.model_validate(state["artifact"]))
     if state["kind"] == "page":
-        text, visuals, usage, failure = await vision.ocr_page(
-            model, image, state["index"], runtime
-        )
-        if failure is not None:
-            return _unit_failure("vision_ocr", state["index"], failure, usage)
-        text_ref = (
-            await store.put_artifact(
-                text.encode("utf-8"),
-                source_sha256=state["sourceSha256"],
-                kind="ocr",
-                index=state["index"],
-                media_type="text/plain",
-            )
-            if text
-            else None
-        )
+        messages: list[BaseMessage] = [SystemMessage(content=SYSTEM_PROMPT)]
+        for neighbor in state.get("neighbors", [{"index": state["index"], "artifact": state["artifact"]}]):
+            content = image if neighbor["index"] == state["index"] else await store.get_verified(ArtifactReference.model_validate(neighbor["artifact"]))
+            role = "PRIMARY" if neighbor["index"] == state["index"] else "CONTEXT ONLY"
+            messages.append(vision._image_message(f"Page {neighbor['index'] + 1}: {role}", content, vision._media_type(content)))
+        messages.append(HumanMessage(content=(
+            f"Extract questions that START on PRIMARY page {state['index'] + 1} directly from the images. "
+            "Adjacent pages are context for continuations, shared material and printed answers. "
+            "Do not extract questions starting on context pages or duplicate a continuation. "
+            "If a continuation is outside this window, preserve the incomplete question and missingFields; never guess. "
+            "Include visible figures from the PRIMARY page only with factual descriptions and normalized "
+            "bounding boxes [x0,y0,x1,y1] from its top left. Return questions, groups and figures together; "
+            "do not produce an intermediate transcription."
+        )))
+        parsed, usage, failure = await structured_call(model, messages, PageParseResult, "vision_parse", runtime=runtime)
+        if parsed is None:
+            return _unit_failure("vision_parse", state["index"], failure or "OUTPUT_INVALID", usage)
         value = {
             "kind": "page",
             "index": state["index"],
             "artifact": state["artifact"],
-            "textRef": text_ref.model_dump(mode="json") if text_ref else None,
-            "visuals": [item.model_dump(mode="json") for item in visuals],
+            "parsed": parsed.model_dump(mode="json", exclude={"figures"}),
+            "visuals": [VisualElement(**item.model_dump(), page=state["index"]).model_dump(mode="json") for item in parsed.figures],
         }
     else:
         described, usage, failure = await vision.describe_image(model, image, runtime)
@@ -347,7 +407,6 @@ async def _vision(
             "kind": "embedded",
             "index": state["index"],
             "artifact": state["artifact"],
-            "textRef": None,
             "visuals": [described.model_copy(update={"imageRef": ArtifactReference.model_validate(state["artifact"]), "description": ("[embedded original] " + described.description)[:20_000]}).model_dump(mode="json")],
         }
     return {
@@ -367,7 +426,7 @@ def _unit_failure(
         stage=stage,
         index=index,
         code=code,
-        retryable=code in {"OUTPUT_INVALID", "AI_PROVIDER_UNAVAILABLE"},
+        retryable=code in RETRYABLE_CODES,
     )
     return {
         "visionResults": [],
@@ -377,32 +436,9 @@ def _unit_failure(
 
 
 async def _assemble(state: DocumentState) -> dict[str, Any]:
-    store = get_object_store()
-    results = sorted(
-        state.get("visionResults", []),
-        key=lambda item: (item["kind"] != "page", item["index"]),
-    )
-    async def get_text(item: dict[str, Any]) -> bytes:
-        return await store.get_verified(ArtifactReference.model_validate(item))
-
-    paged = state["document"]["sourceType"] in {"pdf", "docx"}
-    if paged:
-        pages = {item["index"]: item for item in results if item["kind"] == "page"}
-        if not any(item.get("textRef") for item in pages.values()):
-            raise DocumentProcessingError(502, "Pages produced no text", "VISION_OUTPUT_EMPTY")
-
-        async def page_text(index: int) -> str:
-            page = pages.get(index)
-            if page is None:
-                return f"[page {index + 1}: unavailable; do not join text across this gap]"
-            content = (await get_text(page["textRef"])).decode("utf-8") if page.get("textRef") else ""
-            return f"[page {index + 1}]\n{content}"
-
-        text = "\n\n".join(await _bounded_map(list(range(len(state.get("pageRefs", [])))), page_text))
-    else:
-        references = [item for item in [state.get("textRef"), *(result.get("textRef") for result in results)] if item is not None]
-        texts = await _bounded_map(references, get_text)
-        text = "\n\n".join(item.decode("utf-8") for item in texts if item)
+    store = await asyncio.to_thread(get_object_store)
+    reference = state.get("textRef")
+    text = (await store.get_verified(ArtifactReference.model_validate(reference))).decode("utf-8") if reference else ""
     warnings = list(state.get("warnings", []))
     truncated = bool(state.get("truncated"))
     max_chars = load().max_total_input_chars
@@ -413,12 +449,6 @@ async def _assemble(state: DocumentState) -> dict[str, Any]:
         text = text[:max_chars]
         truncated = True
     if not text.strip():
-        if state.get("visualSkipped"):
-            raise DocumentProcessingError(
-                409,
-                "Configure a vision model to parse image-only documents",
-                "VISION_MODEL_REQUIRED",
-            )
         if state.get("visualTotal"):
             raise DocumentProcessingError(
                 502, "Visual processing produced no text", "VISION_OUTPUT_EMPTY"
@@ -426,7 +456,8 @@ async def _assemble(state: DocumentState) -> dict[str, Any]:
         raise DocumentProcessingError(422, "Document contains no extractable text")
 
     reference = DocumentReference.model_validate(state["document"])
-    chunks = split_into_chunks(text)
+    spans = split_chunk_spans(text)
+    chunks = [text[span["start"]:span["end"]] for span in spans]
 
     async def put_chunk(item: tuple[int, str]) -> ArtifactReference:
         index, chunk = item
@@ -443,13 +474,15 @@ async def _assemble(state: DocumentState) -> dict[str, Any]:
         "warnings": warnings,
         "truncated": truncated,
         "chunkRefs": [item.model_dump(mode="json") for item in chunk_refs],
+        "chunkSpans": spans,
     }
 
 
-def _dispatch_chunks(state: DocumentState) -> list[Send]:
+def _dispatch_chunks(state: DocumentState) -> list[Send] | str:
     reference = DocumentReference.model_validate(state["document"])
     chunks = state.get("chunkRefs", [])
-    return [
+    completed = {item["index"] for item in state.get("chunkResults", [])}
+    work = [
         Send(
             "chunk",
             {
@@ -458,22 +491,26 @@ def _dispatch_chunks(state: DocumentState) -> list[Send]:
                 "sourceType": reference.sourceType,
                 "fileName": reference.fileName,
                 "artifact": item,
+                "execution": state.get("execution"),
+                "round": state.get("round", 0),
             },
         )
         for index, item in enumerate(chunks)
+        if index not in completed
     ]
+    return work[:load().graph_max_concurrency] or "chunk_review"
 
 
 async def _chunk(
     state: ChunkTask, runtime: Runtime[None]
 ) -> dict[str, list[dict[str, Any]]]:
     chunk = (
-        await get_object_store().get_verified(
+        await (await asyncio.to_thread(get_object_store)).get_verified(
             ArtifactReference.model_validate(state["artifact"])
         )
     ).decode("utf-8")
     parsed, usage, failure = await structured_call(
-        get_models()[0],
+        (await asyncio.to_thread(get_model)),
         [
             SystemMessage(content=SYSTEM_PROMPT),
             HumanMessage(
@@ -520,7 +557,7 @@ async def _crop_visuals(
         truncated = True
     selected = candidates[: vision.MAX_CROPS]
     selected_pages = sorted({page for _, page, _ in selected})
-    store = get_object_store()
+    store = await asyncio.to_thread(get_object_store)
 
     async def get_page(page: int) -> tuple[int, bytes]:
         return page, await store.get_verified(page_artifacts[page])
@@ -568,11 +605,15 @@ async def _crop_visuals(
 
 
 async def _merge(state: DocumentState) -> dict[str, Any]:
-    ordered = sorted(state.get("chunkResults", []), key=lambda item: item["index"])
+    pages = bool(state.get("pageRefs"))
+    ordered = sorted(
+        [item for item in state.get("visionResults", []) if item["kind"] == "page"] if pages else state.get("chunkResults", []),
+        key=lambda item: item["index"],
+    )
     failed_chunks = [item for item in ordered if item["parsed"] is None]
     if not ordered or len(failed_chunks) == len(ordered):
         raise DocumentProcessingError(
-            502, "All document fragments failed", "DOCUMENT_PARSE_FAILED"
+            502, "All document pages failed" if pages else "All document fragments failed", "DOCUMENT_PARSE_FAILED"
         )
     warnings = list(state.get("warnings", []))
     warnings.extend(
@@ -587,8 +628,14 @@ async def _merge(state: DocumentState) -> dict[str, Any]:
         for item in ordered
         if item["parsed"] is not None
     ]
-    questions, groups, merge_warnings, merge_truncated = merge_chunk_results(
-        [(index, item.questions, item.groups) for index, item in parsed]
+    text_ref = state.get("textRef")
+    source_text = None
+    if not pages and text_ref:
+        store = await asyncio.to_thread(get_object_store)
+        source_text = (await store.get_verified(ArtifactReference.model_validate(text_ref))).decode("utf-8")
+    questions, groups, merge_warnings, merge_truncated, question_sources, quality = merge_chunk_results(
+        [(index, item.questions, item.groups) for index, item in parsed], overlapping=not pages,
+        source_text=source_text, chunk_spans=state.get("chunkSpans") if not pages else None,
     )
     warnings.extend(merge_warnings)
     if not questions:
@@ -610,38 +657,28 @@ async def _merge(state: DocumentState) -> dict[str, Any]:
         warnings.append(
             f"Figure crop limit of {vision.MAX_CROPS} reached; remaining figures include descriptions only."
         )
-    failures = [
-        UnitFailure.model_validate(item) for item in state.get("failures", [])
-    ]
-    failures.extend(
-        UnitFailure(
-            stage="document_parse",
-            index=item["index"],
-            code=item["failureCode"] or "OUTPUT_INVALID",
-            retryable=True,
-        )
-        for item in failed_chunks
-    )
+    failures = [UnitFailure.model_validate(item) for item in unit_failures(dict(state)) if item["stage"] != "visual_crop"]
     failures.extend(crop_failures)
     truncated = (
         bool(state.get("truncated")) or merge_truncated or crop_truncated
     )
     processing = DocumentProcessing(
         chunks=UnitCounts(
-            total=len(ordered),
-            succeeded=len(ordered) - len(failed_chunks),
+            total=0 if pages else len(ordered),
+            succeeded=0 if pages else len(ordered) - len(failed_chunks),
         ),
         visuals=UnitCounts(
             total=state.get("visualTotal", 0),
             succeeded=len(state.get("visionResults", [])),
-            skipped=state.get("visualSkipped", 0),
         ),
         truncated=truncated,
         failures=failures,
+        questionSources=question_sources,
+        quality=quality,
     )
     status = (
         "PARTIAL"
-        if failures or truncated or state.get("visualSkipped", 0)
+        if failures or truncated
         else "SUCCEEDED"
     )
     result = DocumentParseResult(
@@ -660,11 +697,108 @@ async def _merge(state: DocumentState) -> dict[str, Any]:
     }
 
 
+MAX_UNIT_RETRIES = 2
+RETRYABLE_CODES = {"OUTPUT_INVALID", "OUTPUT_STALLED", "AI_PROVIDER_UNAVAILABLE"}
+
+
+def unit_failures(state: dict[str, Any]) -> list[dict[str, Any]]:
+    failures = [{k: v for k, v in item.items() if k != "round"} for item in state.get("failures", [])]
+    failures.extend({"stage": "document_parse", "index": item["index"],
+                     "code": item.get("failureCode") or "OUTPUT_INVALID", "retryable": True}
+                    for item in state.get("chunkResults", []) if item.get("parsed") is None)
+    failures.extend(item for item in state.get("processing", {}).get("failures", []) if item["stage"] == "visual_crop")
+    result = []
+    for item in failures:
+        key = f"{item['stage']}:{item['index']}"
+        remaining = max(0, MAX_UNIT_RETRIES - state.get("retryCounts", {}).get(key, 0)) if item["code"] in RETRYABLE_CODES else 0
+        result.append({**item, "retryable": remaining > 0, "retriesRemaining": remaining})
+    return result
+
+
+def _retry_update(state: DocumentState, request: RetryUnits) -> dict[str, Any]:
+    request_id = str(request.requestId)
+    if request_id in state.get("appliedRetries", []):
+        raise DocumentProcessingError(409, "Retry already applied", "CONTROL_ALREADY_EXECUTED")
+    failures = unit_failures(dict(state))
+    exhausted = {(item["stage"], item["index"]) for item in failures if item["code"] in RETRYABLE_CODES and not item["retriesRemaining"]}
+    if any((item.stage, item.index) in exhausted for item in request.units):
+        raise DocumentProcessingError(409, "Failed unit retry limit exceeded", "RETRY_LIMIT_EXCEEDED")
+    eligible = {(item["stage"], item["index"]) for item in failures if item["retryable"]}
+    selected = {(item.stage, item.index) for item in request.units} if request.units else eligible
+    if not selected or not selected <= eligible:
+        raise DocumentProcessingError(409, "Select existing retryable failures", "INVALID_RETRY_UNITS")
+    vision_changed = any(stage.startswith("vision_") for stage, _ in selected)
+    return {
+        "retry": None,
+        "round": state.get("round", 0) + 1,
+        "appliedRetries": [*state.get("appliedRetries", []), request_id],
+        "retryCounts": {**state.get("retryCounts", {}), **{
+            f"{stage}:{index}": state.get("retryCounts", {}).get(f"{stage}:{index}", 0) + 1
+            for stage, index in selected
+        }},
+        "reviewAccepted": [],
+        "nextStage": "vision_gate" if vision_changed else "chunk_gate",
+        "phase": "vision" if vision_changed else "chunk",
+        "failures": Overwrite([item for item in state.get("failures", []) if (item["stage"], item["index"]) not in selected]),
+        "chunkResults": Overwrite([item for item in state.get("chunkResults", []) if ("document_parse", item["index"]) not in selected]),
+        "chunkRefs": state.get("chunkRefs", []),
+        "status": "", "result": {}, "processing": {},
+    }
+
+
+async def _gate(state: DocumentState, *, phase: str) -> dict[str, Any]:
+    return {"phase": phase}
+
+
+async def _review(state: DocumentState, *, phase: str) -> dict[str, Any]:
+    failures = [item for item in unit_failures(dict(state)) if (item["stage"].startswith("vision_") if phase == "vision" else item["stage"] == ("visual_crop" if phase == "result" else "document_parse"))]
+    next_stage = ("merge" if state.get("pageRefs") else "chunk_gate" if state.get("chunkRefs") else "assemble") if phase == "vision" else "merge"
+    if phase == "result":
+        next_stage = "finish"
+    if state.get("failurePolicy") != "review" or not failures:
+        return {"nextStage": next_stage, "phase": phase}
+    can_accept = (
+        bool(state.get("textRef") or any(item.get("parsed", {}).get("questions") for item in state.get("visionResults", [])))
+        if phase == "vision" else any(item.get("parsed", {}).get("questions") for item in state.get("chunkResults", []) if item.get("parsed"))
+    )
+    if phase == "result":
+        can_accept = bool(state.get("result", {}).get("questions"))
+    answer = interrupt({"kind": "review", "stage": phase, "failures": failures, "canAccept": bool(can_accept)})
+    if isinstance(answer, dict) and answer.get("action") == "retry_failed":
+        return _retry_update(state, RetryUnits.model_validate({"requestId": answer.get("requestId"), "units": answer.get("units", [])}))
+    if not isinstance(answer, dict) or answer.get("action") != "accept_partial" or not can_accept:
+        raise DocumentProcessingError(422, "No acceptable partial result or invalid review decision", "INVALID_CONTROL")
+    return {"nextStage": next_stage, "reviewAccepted": [*state.get("reviewAccepted", []), phase]}
+
+
+def _guarded(function: Callable[..., Awaitable[dict[str, Any]]], *, with_runtime: bool = False):
+    async def run(state: Any, runtime: Runtime[None]) -> dict[str, Any]:
+        if "document" in state:
+            DocumentParseInput.model_validate({"document": state["document"]})
+        await asyncio.to_thread(validate_execution, state.get("execution"))
+        if "document" in state and state["execution"].get("document", state["document"]) != state["document"]:
+            raise DocumentProcessingError(409, "Resume cannot change the source document", "INVALID_CONTROL")
+        token = CURRENT_EXECUTION.set(state["execution"])
+        artifact_token = CURRENT_ARTIFACT.set(state.get("artifact"))
+        try:
+            await guard(runtime, state["execution"])
+            result = await (function(state, runtime) if with_runtime else function(state))
+            for key in ("visionResults", "chunkResults", "failures"):
+                if isinstance(result.get(key), list):
+                    result[key] = [dict(item, round=state.get("round", 0)) for item in result[key]]
+            return result
+        finally:
+            CURRENT_ARTIFACT.reset(artifact_token)
+            CURRENT_EXECUTION.reset(token)
+    return run
+
+
 def build_document_graph(
     checkpointer: BaseCheckpointSaver | None = None,
     *,
     name: str = "document_parser",
     source_types: tuple[DocumentSourceType, ...] | None = None,
+    store: Any = None,
 ) -> CompiledStateGraph:
     builder = StateGraph(
         DocumentState,
@@ -672,22 +806,36 @@ def build_document_graph(
         output_schema=DocumentGraphOutput,
     )
     builder.add_node("load_context", _load_context)
-    builder.add_node("prepare", partial(_prepare, source_types=source_types))
-    builder.add_node("vision", _vision, input_schema=VisionTask)
-    builder.add_node("assemble", _assemble)
-    builder.add_node("chunk", _chunk, input_schema=ChunkTask)
-    builder.add_node("merge", _merge)
+    builder.add_node("prepare", _guarded(partial(_prepare, source_types=source_types)))
+    builder.add_node("vision", _guarded(_vision, with_runtime=True), input_schema=VisionTask)
+    builder.add_node("assemble", _guarded(_assemble))
+    builder.add_node("chunk", _guarded(_chunk, with_runtime=True), input_schema=ChunkTask)
+    builder.add_node("merge", _guarded(_merge))
+    builder.add_node("vision_gate", _guarded(partial(_gate, phase="vision")))
+    builder.add_node("chunk_gate", _guarded(partial(_gate, phase="chunk")))
+    builder.add_node("vision_review", _guarded(partial(_review, phase="vision")))
+    builder.add_node("chunk_review", _guarded(partial(_review, phase="chunk")))
+    builder.add_node("result_review", _guarded(partial(_review, phase="result")))
+    builder.add_node("finish", _guarded(partial(_gate, phase="completed")))
     builder.add_edge(START, "load_context")
-    builder.add_edge("load_context", "prepare")
-    builder.add_conditional_edges("prepare", _dispatch_vision, ["vision", "assemble"])
-    builder.add_edge("vision", "assemble")
-    builder.add_conditional_edges("assemble", _dispatch_chunks, ["chunk"])
-    builder.add_edge("chunk", "merge")
-    builder.add_edge("merge", END)
+    builder.add_conditional_edges("load_context", lambda state: state.get("nextStage", "prepare"), ["prepare", "vision_gate", "chunk_gate"])
+    builder.add_edge("prepare", "vision_gate")
+    builder.add_conditional_edges("vision_gate", _dispatch_vision, ["vision", "vision_review"])
+    builder.add_edge("vision", "vision_gate")
+    builder.add_conditional_edges("vision_review", lambda state: state["nextStage"], ["vision_gate", "assemble", "chunk_gate", "merge"])
+    builder.add_edge("assemble", "chunk_gate")
+    builder.add_conditional_edges("chunk_gate", _dispatch_chunks, ["chunk", "chunk_review"])
+    builder.add_edge("chunk", "chunk_gate")
+    builder.add_conditional_edges("chunk_review", lambda state: state["nextStage"], ["chunk_gate", "merge"])
+    builder.add_edge("merge", "result_review")
+    builder.add_edge("result_review", "finish")
+    builder.add_edge("finish", END)
     return cast(
         CompiledStateGraph,
-        builder.compile(checkpointer=checkpointer, name=name).with_config(
-            {"max_concurrency": load().graph_max_concurrency}
+        builder.compile(checkpointer=checkpointer, store=store, name=name).with_config(
+            # Each active unit awaits one durable child task. Reserve its slot;
+            # dispatch batches, not executor slots, bound actual model concurrency.
+            {"max_concurrency": 2 * load().graph_max_concurrency, "recursion_limit": RECURSION_LIMIT}
         ),
     )
 

@@ -89,7 +89,7 @@ async def test_native_wire_format_repairs_and_records_failed_usage(
 
 def test_default_and_supported_protocol_selection(monkeypatch):
     monkeypatch.delenv("AI_STRUCTURED_OUTPUT_METHOD", raising=False)
-    model, _ = llm.build_models("dashscope", "test", "qwen3.7-flash")
+    model = llm.build_model("dashscope", "test", "qwen3.7-flash")
     calls = []
     monkeypatch.setattr(
         ChatOpenAI,
@@ -100,7 +100,7 @@ def test_default_and_supported_protocol_selection(monkeypatch):
     assert calls == [{"method": "function_calling", "include_raw": True}]
     assert cast(ChatOpenAI, model).extra_body == {"enable_thinking": False}
     monkeypatch.setenv("AI_STRUCTURED_OUTPUT_METHOD", "json_schema")
-    other, _ = llm.build_models("deepseek", "test", "deepseek-chat")
+    other = llm.build_model("deepseek", "test", "deepseek-chat")
     with pytest.raises(ValueError, match="provider/model"):
         llm.structured_output(other, Result)
     monkeypatch.setenv("AI_STRUCTURED_OUTPUT_METHOD", "invalid")
@@ -123,7 +123,7 @@ async def test_local_repair_accepts_incomplete_question_without_another_call(mon
         async def ainvoke(self, messages):
             return {'raw':raw,'parsed':None,'parsing_error':ValueError('invalid JSON')}
     monkeypatch.setattr(llm, 'structured_output', lambda *args: Runner())
-    model, _ = llm.build_models('dashscope','test','qwen3.7-flash')
+    model = llm.build_model('dashscope','test','qwen3.7-flash')
     messages: list[BaseMessage] = [HumanMessage(content='Extract')]
     with llm.collect_usage() as usage:
         result = await llm.structured_attempt(model, messages, ParsedQuestion, 'test')
@@ -147,3 +147,44 @@ def test_punctuation_repair_preserves_strings_false_zero_and_null():
     from practiq_ai.json_repair import repair_json
     source = '{"text":"逗号,}与引号\\\"不应修改","values":[false,0,null,]'
     assert json.loads(repair_json(source)) == {'text':'逗号,}与引号"不应修改','values':[False,0,None]}
+
+
+async def test_corrections_keep_only_latest_output_and_stop_on_identical_failure():
+    from tests.test_workflows import FakeModel
+
+    model = FakeModel(responses=[{'value': -1}, {'value': -2}, {'value': -3}, {'value': 2}])
+    original: list[BaseMessage] = [HumanMessage(content='source stays unchanged')]
+    parsed, usage, failure = await llm.structured_call(model, original, Result, 'test')
+    assert parsed == Result(value=2) and failure is None and len(usage) == 4
+    assert [len(messages) for messages in model.calls] == [1, 3, 3, 3]
+    assert all(messages[0] == original[0] for messages in model.calls)
+    assert '-1' not in str(model.calls[-1]) and '-2' not in str(model.calls[-1])
+    stalled = FakeModel(responses=[{'value': -1}] * 4)
+    parsed, usage, failure = await llm.structured_call(stalled, original, Result, 'test')
+    assert parsed is None and failure == 'OUTPUT_STALLED'
+    assert len(stalled.calls) == len(usage) == 2
+
+
+def test_stall_fingerprint_ignores_tool_ids_but_preserves_bad_arguments():
+    from langchain_core.messages import AIMessage
+
+    error = HumanMessage(content='Invalid JSON')
+    def raw(args, identifier):
+        return AIMessage(content='', additional_kwargs={'tool_calls': [
+            {'id': identifier, 'type': 'function', 'function': {'name': 'Result', 'arguments': args}},
+        ]})
+    assert llm._failure_fingerprint(raw('{broken', 'a'), error) == llm._failure_fingerprint(raw('{broken', 'b'), error)
+    assert llm._failure_fingerprint(raw('{broken', 'a'), error) != llm._failure_fingerprint(raw('{different', 'a'), error)
+
+
+async def test_transient_error_does_not_trigger_output_stall(monkeypatch):
+    from openai import APIConnectionError
+
+    from tests.test_workflows import FakeModel
+
+    monkeypatch.setattr(llm, '_retry_delay', lambda _: 0)
+    error = APIConnectionError(request=httpx2.Request('POST', 'https://example.invalid'))
+    model = FakeModel(responses=[{'value': -1}, error, {'value': -1}, {'value': 2}])
+    result, usage, failure = await llm.structured_call(model, [HumanMessage(content='source')], Result, 'test')
+    assert result == Result(value=2) and failure is None
+    assert len(model.calls) == 4 and len(usage) == 3

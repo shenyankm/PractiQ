@@ -4,13 +4,13 @@ from practiq_ai import config
 
 
 def _env(monkeypatch: pytest.MonkeyPatch, **values: str) -> None:
-    for key in ("AI_SERVICE_TOKEN", "LLM_PROVIDER", "LLM_API_KEY", "LLM_TEXT_MODEL", "AI_STORAGE_DIR"):
+    for key in ("AI_SERVICE_TOKEN", "LLM_PROVIDER", "LLM_API_KEY", "LLM_VISION_MODEL", "AI_STORAGE_DIR"):
         monkeypatch.delenv(key, raising=False)
     for key, value in {
         'AI_SERVICE_TOKEN': 'token',
         'LLM_PROVIDER': 'dashscope',
         'LLM_API_KEY': 'key',
-        'LLM_TEXT_MODEL': 'model',
+        'LLM_VISION_MODEL': 'model',
         **values,
     }.items():
         monkeypatch.setenv(key, value)

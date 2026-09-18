@@ -1,3 +1,4 @@
+import hashlib
 import json
 import shutil
 import socket
@@ -5,6 +6,7 @@ import subprocess
 import tempfile
 import time
 from pathlib import Path
+from uuid import uuid4
 
 import httpx
 
@@ -27,7 +29,7 @@ def test_agent_server_mounts_auth_routes_and_graphs() -> None:
         "AI_SERVICE_TOKEN": "blackbox-token",
         "LLM_PROVIDER": "dashscope",
         "LLM_API_KEY": "dummy",
-        "LLM_TEXT_MODEL": "dummy",
+        "LLM_VISION_MODEL": "dummy",
         "N_JOBS_PER_WORKER": "1",
         "AI_GRAPH_MAX_CONCURRENCY": "1",
     }
@@ -46,6 +48,22 @@ def test_agent_server_mounts_auth_routes_and_graphs() -> None:
     with tempfile.TemporaryDirectory() as runtime_dir, tempfile.NamedTemporaryFile(
         mode="w", suffix=".json", prefix=".langgraph-test-", dir=runtime_dir
     ) as config_file, tempfile.TemporaryFile(mode="w+") as log_file:
+        config["env"]["AI_STORAGE_DIR"] = str(Path(runtime_dir) / "files")
+        fixture = Path(runtime_dir) / "task_fixture.py"
+        fixture.write_text(
+            "import sys\n"
+            f"sys.path.insert(0, {str(ROOT)!r})\n"
+            "from tests.test_workflows import FakeModel, question\n"
+            "from practiq_ai.graphs import document, formats\n"
+            "model = FakeModel(responses=[(0.1, {'questions': [question('First')], 'groups': []}) for _ in range(20)])\n"
+            "document.get_model = lambda: model\n"
+            "document_parser = document.graph\n"
+            "text_csv_parser = formats.text_csv_parser\n"
+            "pdf_parser = formats.pdf_parser\n"
+            "docx_parser = formats.docx_parser\n"
+            "excel_parser = formats.excel_parser\n"
+        )
+        config["graphs"] = {name: f"{fixture}:{name}" for name in GRAPH_IDS}
         json.dump(config, config_file)
         config_file.flush()
         process = subprocess.Popen(
@@ -111,6 +129,51 @@ def test_agent_server_mounts_auth_routes_and_graphs() -> None:
                     events = "\n".join(stream.iter_lines())
                     assert "event: error" in events
                     assert "This graph accepts only: pdf" in events
+
+                # Exercise the actual mounted task routes, SDK loopback transport,
+                # server Store and native run cancellation; no external model calls.
+                payload = b"1. First"
+                upload = client.post("/api/uploads", headers=headers, json={
+                    "sourceType": "text", "fileName": "task.txt", "mediaType": "text/plain",
+                    "sha256": hashlib.sha256(payload).hexdigest(), "sizeBytes": len(payload),
+                })
+                upload.raise_for_status()
+                upload_info = upload.json()
+                client.put(upload_info["upload"]["url"], headers=headers, content=payload).raise_for_status()
+                request = {"requestId": str(uuid4()), "document": upload_info["document"]}
+                created = client.post("/api/document-tasks", headers=headers, json=request)
+                created.raise_for_status()
+                receipt = created.json()
+                path = "/api/document-tasks/" + receipt["threadId"]
+                duplicate = client.post("/api/document-tasks", headers=headers, json=request)
+                duplicate.raise_for_status()
+                assert duplicate.json() == receipt
+                paused = client.post(path + "/control", headers=headers, json={
+                    "requestId": str(uuid4()), "action": "pause", "runId": receipt["runId"],
+                })
+                paused.raise_for_status()
+
+                def wait_for_state(expected):
+                    deadline = time.monotonic() + 15
+                    while time.monotonic() < deadline:
+                        result = client.get(path, headers=headers)
+                        result.raise_for_status()
+                        value = result.json()
+                        if value["state"] in expected:
+                            return value
+                        assert value["state"] != "FAILED", value
+                        time.sleep(0.05)
+                    raise AssertionError("Task failed to reach expected state")
+
+                state = wait_for_state({"PAUSED", "COMPLETED"})
+                if state["state"] == "PAUSED":
+                    client.post(path + "/control", headers=headers, json={
+                        "requestId": str(uuid4()), "action": "resume", "checkpointId": state["checkpointId"],
+                    }).raise_for_status()
+                    state = wait_for_state({"COMPLETED"})
+                assert state["status"] == "SUCCEEDED"
+                assert len(state["usage"]) == 1
+                assert not state["unknownUsageCalls"]
         except BaseException:
             log_file.seek(0)
             print(f"Agent Server log:\n{log_file.read()}")
