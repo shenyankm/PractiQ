@@ -120,7 +120,7 @@ async def test_local_repair_accepts_incomplete_question_without_another_call(mon
                     usage_metadata={'input_tokens':10,'output_tokens':5,'total_tokens':15},
                     response_metadata={'finish_reason':'stop'})
     class Runner:
-        async def ainvoke(self, messages):
+        async def ainvoke(self, messages, config=None):
             return {'raw':raw,'parsed':None,'parsing_error':ValueError('invalid JSON')}
     monkeypatch.setattr(llm, 'structured_output', lambda *args: Runner())
     model = llm.build_model('dashscope','test','qwen3.7-flash')

@@ -400,6 +400,10 @@ async def _vision(
     store = await asyncio.to_thread(get_object_store)
     image = await store.get_verified(ArtifactReference.model_validate(state["artifact"]))
     if state["kind"] == "page":
+        telemetry.event("page_context", unitKey=state.get("unitKey"), primaryPage=state["index"],
+                        contextPages=[item["index"] for item in state.get("neighbors", [{"index": state["index"]}])],
+                        threadId=runtime.execution_info.thread_id if runtime.execution_info else None,
+                        runId=runtime.execution_info.run_id if runtime.execution_info else None)
         messages: list[BaseMessage] = [SystemMessage(content=SYSTEM_PROMPT)]
         for neighbor in state.get("neighbors", [{"index": state["index"], "artifact": state["artifact"]}]):
             content = image if neighbor["index"] == state["index"] else await store.get_verified(ArtifactReference.model_validate(neighbor["artifact"]))
@@ -841,6 +845,10 @@ def _guarded(function: Callable[..., Awaitable[dict[str, Any]]], *, with_runtime
         allowance_token = CURRENT_ALLOWANCE.set(state.get("callAllowance", 0))
         started = time.monotonic()
         stage = (function.func if isinstance(function, partial) else function).__name__.lstrip("_")
+        info = runtime.execution_info
+        source_type = state.get("execution", {}).get("document", {}).get("sourceType")
+        telemetry.event("stage_start", stage=stage, unitKey=state.get("unitKey"),
+                        threadId=info.thread_id if info else None, runId=info.run_id if info else None)
         outcome = "success"
         error_code = None
         try:
@@ -853,6 +861,10 @@ def _guarded(function: Callable[..., Awaitable[dict[str, Any]]], *, with_runtime
             for key in ("visionResults", "chunkResults", "failures"):
                 if isinstance(result.get(key), list):
                     result[key] = [dict(item, round=state.get("round", 0)) for item in result[key]]
+            if result.get("status") in {"SUCCEEDED", "PARTIAL"}:
+                telemetry.event("review_candidate", status=result["status"], sourceType=source_type,
+                                reviewRequired=result.get("processing", {}).get("quality", {}).get("reviewRequired", False),
+                                threadId=info.thread_id if info else None, runId=info.run_id if info else None)
             return result
         except GraphInterrupt:
             outcome = "interrupted"
@@ -862,12 +874,16 @@ def _guarded(function: Callable[..., Awaitable[dict[str, Any]]], *, with_runtime
             code = exc.code if isinstance(exc, DocumentProcessingError) else "STAGE_ERROR"
             error_code = code
             telemetry.failures.labels(code).inc()
+            telemetry.event("review_candidate", status="ERROR", sourceType=source_type,
+                            errorCode=code, reviewRequired=True,
+                            threadId=info.thread_id if info else None, runId=info.run_id if info else None)
             raise
         finally:
             elapsed = time.monotonic() - started
             info = runtime.execution_info
             telemetry.duration.labels(stage, outcome).observe(elapsed)
             telemetry.event("stage", stage=stage, outcome=outcome, unitIndex=state.get("index"),
+                            unitKey=state.get("unitKey"),
                             errorCode=error_code,
                             threadId=info.thread_id if info else None, runId=info.run_id if info else None,
                             durationMs=round(elapsed * 1000, 3))

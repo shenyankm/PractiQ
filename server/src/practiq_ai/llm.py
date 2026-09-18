@@ -295,7 +295,11 @@ async def structured_attempt[ResultT: BaseModel](
 ) -> tuple[ResultT | None, list[BaseMessage], ModelCallUsage]:
     response = cast(
         dict[str, Any],
-        await structured_output(model, schema).ainvoke(messages),
+        await structured_output(model, schema).ainvoke(messages, config={"metadata": {
+            "practiqCallKey": str(call_key) if call_key else None,
+            "practiqUnitKey": CURRENT_UNIT.get(), "practiqAttempt": logical_attempt,
+            "practiqSchema": schema.__name__, "practiqCallKind": call_kind,
+        }}),
     )
     if call_record is not None:
         metadata = response["raw"].response_metadata
@@ -309,9 +313,15 @@ async def structured_attempt[ResultT: BaseModel](
         calls.append(usage)
     error = response["parsing_error"]
     try:
-        return validate_response(response, schema), messages, usage
+        parsed = validate_response(response, schema)
+        if call_record is not None:
+            call_record["validation"] = "passed"
+        return parsed, messages, usage
     except ValueError as exc:
         error = exc
+        if call_record is not None:
+            call_record["validation"] = "failed"
+            call_record["validationCode"] = "OUTPUT_TRUNCATED" if response["raw"].response_metadata.get("finish_reason") == "length" else "OUTPUT_INVALID"
     if isinstance(error, ValidationError):
         error = "; ".join(
             f"{'.'.join(map(str, item['loc'])) or 'result'}: {item['msg']}"
@@ -357,6 +367,7 @@ async def structured_call[ResultT: BaseModel](
             "modelId": str(getattr(model, "model_name", None) or model._llm_type),
             "status": "started", "usageStatus": "unknown", "inputTokens": None, "outputTokens": None,
             "attempt": attempt,
+            "unitKey": CURRENT_UNIT.get(), "schema": schema.__name__, "validation": "not_run",
             "runId": runtime.execution_info.run_id if runtime and runtime.execution_info else None,
             "artifact": artifact,
             "startedAt": datetime.now(UTC).isoformat(),
@@ -377,6 +388,10 @@ async def structured_call[ResultT: BaseModel](
                 if runtime:
                     await store_put(runtime, "calls", str(call_key), record)
                 provider_started = True
+                telemetry.event("model_start", callKey=str(call_key), kind=call_kind,
+                                schema=schema.__name__, attempt=attempt, unitKey=CURRENT_UNIT.get(),
+                                runId=record["runId"],
+                                threadId=runtime.execution_info.thread_id if runtime and runtime.execution_info else None)
                 parsed, corrected, call_usage = await structured_attempt(
                     model, messages, schema, call_kind, runtime=runtime,
                     logical_attempt=attempt, call_key=call_key, call_record=record,
@@ -408,7 +423,8 @@ async def structured_call[ResultT: BaseModel](
             telemetry.calls.labels(call_kind, outcome).inc()
             telemetry.duration.labels("model", outcome).observe(elapsed)
             telemetry.event("model_call", callKey=str(call_key), kind=call_kind, outcome=outcome,
-                            runId=record["runId"], errorCode=error_code,
+                            runId=record["runId"], errorCode=error_code or record.get("validationCode"),
+                            schema=schema.__name__, attempt=attempt, validation=record["validation"],
                             threadId=runtime.execution_info.thread_id if runtime and runtime.execution_info else None,
                             unitKey=CURRENT_UNIT.get(), durationMs=round(elapsed * 1000, 3))
         record.update(call_usage.model_dump(mode="json"), status="completed", usageStatus="known",
@@ -424,6 +440,12 @@ async def structured_call[ResultT: BaseModel](
         }
 
     durable_attempt = task(name=f"{call_kind}_attempt")(attempt_call)
+    def decision(action: str, attempt: int, code: str | None = None) -> None:
+        telemetry.event("model_decision", kind=call_kind, unitKey=CURRENT_UNIT.get(),
+                        attempt=attempt, decision=action, errorCode=code,
+                        threadId=runtime.execution_info.thread_id if runtime and runtime.execution_info else None,
+                        runId=runtime.execution_info.run_id if runtime and runtime.execution_info else None)
+
     for attempt in range(1, MAX_MODEL_CALLS + 1):
         await guard(runtime)
         saved = await (durable_attempt(attempt, CURRENT_ARTIFACT.get())
@@ -431,11 +453,14 @@ async def structured_call[ResultT: BaseModel](
         if error := saved.get("error"):
             previous_failure = None
             if error["code"] in {"MODEL_BUDGET_EXCEEDED", "MODEL_INPUT_TOO_LARGE"}:
+                decision("stop", attempt, error["code"])
                 return None, usage, error["code"]
             if error["code"] != "AI_PROVIDER_UNAVAILABLE":
+                decision("stop", attempt, error["code"])
                 raise DocumentProcessingError(error["status"], error["detail"], error["code"], usage)
             failure_code = "AI_PROVIDER_UNAVAILABLE"
             if attempt < MAX_MODEL_CALLS:
+                decision("retry", attempt, error["code"])
                 logger.warning(
                     "Retrying transient model failure",
                     extra={"call_kind": call_kind, "attempt": attempt},
@@ -445,10 +470,15 @@ async def structured_call[ResultT: BaseModel](
         usage.append(ModelCallUsage.model_validate(saved["usage"]))
         if saved["parsed"] is None:
             if saved["failureFingerprint"] == previous_failure:
+                decision("stop", attempt, "OUTPUT_STALLED")
                 return None, usage, "OUTPUT_STALLED"
             previous_failure = saved["failureFingerprint"]
             messages = [*original_messages, *messages_from_dict(saved["correction"])]
             failure_code = "OUTPUT_INVALID"
+            if attempt < MAX_MODEL_CALLS:
+                decision("correct", attempt, failure_code)
             continue
+        decision("accept", attempt)
         return schema.model_validate(saved["parsed"]), usage, None
+    decision("stop", MAX_MODEL_CALLS, failure_code)
     return None, usage, failure_code

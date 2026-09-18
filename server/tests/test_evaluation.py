@@ -465,3 +465,152 @@ def test_nullable_draft_fields_are_scored_without_breaking_report(tmp_path):
     assert record['score']['questions'][-1]['answerMode'] is None
     path = ev.write_report(report, tmp_path / 'report.json')
     assert path.is_file()
+
+
+def test_no_source_answers_checks_rewritten_and_extra_questions():
+    case = {**gold_case(), "sourceHasNoAnswers": True}
+    case["expectedQuestions"][0]["answerPayload"] = None
+    output = {"questions": [question("Rewritten stem"), question("Invented extra")], "groups": [], "visualElements": []}
+    score = ev.score_result(case, output)
+    assert score["inventedAnswers"] == 2
+    assert score["unverifiedQuestions"] == 2
+    record = case_record(case, output)
+    report = ev.summarize([record])
+    assert report["status"] == "FAILED" and not record["qualityPassed"]
+    assert any(reason.startswith("INVENTED_ANSWER:") for reason in report["gateReasons"])
+    with pytest.raises(ValueError, match="forbids gold answers"):
+        ev.GoldCase.model_validate({**gold_case(), "sourceHasNoAnswers": True})
+
+
+def test_quality_reliability_counts_documents_and_expected_rejections_separately():
+    records = [case_record(repetition=n) for n in (1, 2, 3)]
+    records[1]["score"] = ev.score_result(gold_case(), {"questions": []})
+    rejected = {**gold_case(), "id": "rejected", "expectedQuestions": [], "expectedError": {"code": "NO_QUESTIONS_FOUND", "statusCode": 422}}
+    records.append(case_record(rejected, status="ERROR", error={"code": "NO_QUESTIONS_FOUND", "statusCode": 422}))
+    report = ev.summarize(records)
+    metrics = report["reliability"]
+    assert metrics["normalTrials"] == 3 and metrics["rejectionTrials"] == 1
+    assert metrics["executionSuccessRate"] == 100
+    assert metrics["qualityPassRate"] == pytest.approx(200 / 3)
+    assert metrics["anyRepetitionPassRate"] == 100 and metrics["allRepetitionsPassRate"] == 0
+    assert metrics["expectedRejectionRate"] == 100
+    assert report["latency"]["failure"]["count"] == 0
+    assert ev.summarize([case_record()])["reliability"]["allRepetitionsPassRate"] is None
+
+
+def test_expected_missing_answer_and_review_are_valid_quality():
+    gold = {**question(), "answerPayload": None, "expectedMissingFields": ["answerPayload"], "expectedNeedsReview": True}
+    actual = {**question(), "answerPayload": None, "missingFields": ["answerPayload"], "needsReview": True}
+    assert not ev.score_document_case([gold], [actual])["questions"][0]["differences"]
+    actual["needsReview"] = False
+    assert "needsReview" in ev.score_document_case([gold], [actual])["questions"][0]["differences"]
+
+
+def test_visual_page_is_part_of_identity():
+    case = {**gold_case(), "expectedVisuals": [{"kind": "diagram", "page": 0}]}
+    predicted = {"questions": [question()], "visualElements": [{"kind": "diagram", "page": 1}]}
+    assert ev.quality_metrics([ev.score_result(case, predicted)])["visualF1"] == 0
+    predicted["visualElements"][0]["page"] = 0
+    assert ev.quality_metrics([ev.score_result(case, predicted)])["visualF1"] == 100
+
+
+async def test_visual_artifact_reads_verify_checksums_and_decode(monkeypatch):
+    from tests.test_workflows import make_image
+
+    store = FakeObjectStore({})
+    ref = await store.put_artifact(make_image(), source_sha256="a" * 64, kind="crop", index=0, media_type="image/png")
+    monkeypatch.setattr(ev, "get_object_store", lambda: store)
+    result = {"visualElements": [{"imageRef": ref.model_dump(mode="json")} ]}
+    assert (await ev.check_visual_artifacts(result))[0]["passed"]
+    store.blobs[ref.objectKey] = b"x" * ref.sizeBytes
+    assert (await ev.check_visual_artifacts(result))[0]["code"] == "DOCUMENT_CHECKSUM_MISMATCH"
+    bad = await store.put_artifact(b"not an image", source_sha256="b" * 64, kind="crop", index=0, media_type="image/png")
+    result["visualElements"] = [{"imageRef": bad.model_dump(mode="json")}, {}]
+    assert [item["code"] for item in await ev.check_visual_artifacts(result)] == ["VISUAL_ARTIFACT_INVALID", "VISUAL_ARTIFACT_MISSING"]
+
+
+def test_trajectory_ignores_parallel_completion_order_and_rejects_wrong_route():
+    events: list[dict[str, Any]] = [{"event": "stage", "stage": stage, "outcome": "success"} for stage in ("prepare", "assemble")]
+    events.extend({"event": "model_start", "callKey": str(index), "kind": "document_parse", "schema": "ChunkParseResult", "unitKey": f"document_parse:{index}:0", "attempt": 1} for index in (1, 0))
+    events.extend({"event": "model_call", "callKey": str(index), "validation": "passed"} for index in (0, 1))
+    assert ev.score_trajectory(gold_case(), events, [], 4)["passed"]
+    events[2]["schema"] = "PageParseResult"
+    events[3]["attempt"] = 5
+    score = ev.score_trajectory(gold_case(), events, [], 1)
+    assert {"WRONG_ROUTE_OR_SCHEMA", "UNIT_ATTEMPT_LIMIT", "MODEL_CALL_LIMIT"} <= set(score["reasons"])
+    assert "MISSING_PREREQUISITE" in ev.score_trajectory(gold_case(), events[2:], [], 4)["reasons"]
+    page = {"event": "page_context", "primaryPage": 1, "contextPages": [0, 3]}
+    assert "INVALID_PAGE_CONTEXT" in ev.score_trajectory(gold_case(), [page], [{"callKey": "missing"}], 4)["reasons"]
+
+
+@pytest.mark.parametrize("failure", ["timeout", "rate_limit"])
+def test_transient_probe_recovers_with_trace(tmp_path, monkeypatch, failure):
+    import httpx2
+    from openai import APITimeoutError, RateLimitError
+
+    from practiq_ai import llm
+
+    request = httpx2.Request("POST", "https://example.invalid")
+    error = APITimeoutError(request=request) if failure == "timeout" else RateLimitError("SECRET_EXCEPTION", response=httpx2.Response(429, request=request), body=None)
+    path, model = setup_runner(tmp_path, monkeypatch, [error, model_result()])
+    monkeypatch.setattr(llm, "_retry_delay", lambda _: 0)
+    report = asyncio.run(ev.run_evaluation(path))
+    assert report["status"] == "PASSED" and model.calls == 2
+    case = report["cases"][0]
+    assert case["qualityPassed"] and case["trajectory"]["passed"]
+    assert case["trajectory"]["validatedResponses"] == 1
+    assert [c["validation"] for c in case["modelCalls"]] == ["not_run", "passed"]
+    assert any(e.get("decision") == "retry" for e in case["trajectory"]["events"])
+    assert report["efficiency"]["inputTokensPerQualityDocument"] is None
+    assert report["efficiency"]["costPerQualityDocument"] is None
+    assert report["modelUsage"]["missingUsageCalls"] == 1
+    assert "SECRET_EXCEPTION" not in json.dumps(report)
+
+
+def test_failed_validation_is_distinct_from_returned_response(tmp_path, monkeypatch):
+    path, _ = setup_runner(tmp_path, monkeypatch, [{"invalid": True}, model_result()])
+    report = asyncio.run(ev.run_evaluation(path))
+    assert report["status"] == "PASSED"
+    assert [c["status"] for c in report["cases"][0]["modelCalls"]] == ["RETURNED", "RETURNED"]
+    assert [c["validation"] for c in report["cases"][0]["modelCalls"]] == ["failed", "passed"]
+    assert report["efficiency"]["inputTokensPerQualityDocument"] == 20
+    assert report["stageLatency"]["chunk"]["count"] == 1
+
+
+def test_probe_reports_block_missing_skipped_or_stale_evidence(tmp_path):
+    from xml.etree import ElementTree as ET
+
+    root = ET.Element("testsuites")
+    suite = ET.SubElement(root, "testsuite")
+    prop = ET.SubElement(ET.SubElement(suite, "properties"), "property", name="practiqProbeFingerprint", value=ev.probe_fingerprint())
+    for modules in ev.PROBE_TESTS.values():
+        for module, names in modules.items():
+            for name in names:
+                ET.SubElement(suite, "testcase", classname=f"tests.{module}", name=name)
+    path = tmp_path / "probes.xml"
+    def save():
+        ET.ElementTree(root).write(path)
+    save()
+    assert ev.score_probes(path)["status"] == "PASSED"
+    assert ev.main(["--probes", str(path), "--output", str(tmp_path / "probes.json")]) == 0
+    testcase = suite.findall("testcase")[0]
+    failure = ET.SubElement(testcase, "failure")
+    save()
+    assert ev.score_probes(path)["status"] == "FAILED"
+    testcase.remove(failure)
+    ET.SubElement(testcase, "skipped")
+    save()
+    assert ev.score_probes(path)["status"] == "BLOCKED"
+    suite.remove(testcase)
+    prop.set("value", "old")
+    save()
+    assert "PROBE_FINGERPRINT_MISMATCH" in ev.score_probes(path)["gateReasons"]
+
+
+def test_sensitive_strings_and_old_scorers_cannot_be_published_or_compared():
+    for text in ("data:image/png;base64,PRIVATE", "https://example.invalid/file?x-oss-signature=PRIVATE", "Bearer PRIVATE_TOKEN"):
+        with pytest.raises(ValueError, match="credential-bearing"):
+            ev.ensure_public_report({"description": text})
+    old = report_with()
+    old["scorerVersion"] = "2.0.0"
+    assert ev.compare_reports(old, report_with())["status"] == "BLOCKED"

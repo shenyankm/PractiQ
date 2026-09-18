@@ -6,7 +6,7 @@
 激活已有 Python 3.14+ 环境后执行 `make server-install`、`make server-dev`（仓库根目录）。
 已有环境直接复用。不要创建项目 `.venv`。
 `langgraph dev` 不使用 `DATABASE_URI`/`REDIS_URI` 提供生产级持久化，不承诺 PostgreSQL 任务与 checkpoint 恢复。
-下述生产部署、许可证和恢复要求不适用于该开发模式。
+下述生产部署和恢复要求不适用于该开发模式。
 
 ## 生产基线
 
@@ -27,8 +27,6 @@ checkpoint 和持久队列，使用 `REDIS_URI` 处理流、取消与 pub/sub。
 | 变量 | 必填/默认 | 说明 |
 | --- | ---: | --- |
 | `AI_SERVICE_TOKEN` | 必填 | Agent Server 和自定义路由 Bearer token |
-| `LANGSMITH_API_KEY` | 本地可留空 | `langgraph dev` 无需许可证；独立部署按官方授权方案配置 |
-| `LANGGRAPH_CLOUD_LICENSE_KEY` | 本地可留空 | Standalone Server 许可证；生产验收须先通过对应运行时的授权校验 |
 | `DATABASE_URI` | 生产必填 | PostgreSQL URI |
 | `REDIS_URI` | 生产必填 | Redis URI；每个部署使用独立 DB |
 | `LLM_PROVIDER` | 必填 | `dashscope`、`deepseek`、兼容 `moonshot` |
@@ -57,7 +55,7 @@ checkpoint 和持久队列，使用 `REDIS_URI` 处理流、取消与 pub/sub。
 ## 部署
 
 1. 运行 CI 的 lock、Ruff、Pyright、分支覆盖率和构建门禁。
-2. 从仓库根目录执行 `docker build -f Dockerfile.server -t practiq-ai:候选版本 .`，通过验收后按镜像 digest 部署。生产独立部署使用受管数据服务和注入的许可密钥，不使用本机 `langgraph dev` 替代。
+2. 从仓库根目录执行 `docker build -f Dockerfile.server -t practiq-ai:候选版本 .`，通过验收后按镜像 digest 部署。生产独立部署使用受管数据服务，运行时部署要求以官方说明为准，不使用本机 `langgraph dev` 替代。
 3. 预发布按下节完成容量测试与故障演练。
 4. 部署候选镜像，并观察 30 分钟后恢复正常发布节奏。
 
@@ -157,9 +155,8 @@ DOCX 全页渲染需要 LibreOffice Writer 与中文字体；`Dockerfile.server`
 
 ## 资源边界与本地验收
 
-本地运行使用 `make server-dev`，不需要 `LANGSMITH_API_KEY` 或
-`LANGGRAPH_CLOUD_LICENSE_KEY`，也不需要 PostgreSQL/Redis。独立生产镜像仍由
-官方运行时校验许可证；不要将 dev 的文件落盘等同于 PostgreSQL 生产恢复。
+本地运行使用 `make server-dev`，不需要 PostgreSQL/Redis，状态保存在开发目录。
+开发模式的文件落盘与生产 PostgreSQL 恢复分别验收。
 隔离数据库演练配置为 `deploy/recovery.compose.yml`，使用独立 Compose project，
 端口只绑定 `127.0.0.1`；其中的测试口令只用于该隔离环境。不得连接生产数据库或
 复用生产卷。启动数据库：

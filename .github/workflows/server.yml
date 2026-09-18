@@ -23,7 +23,8 @@ jobs:
       - run: uv run pyright
       - run: uv run python scripts/evaluate.py --validate-only
       - run: uv run pip-audit
-      - run: uv run coverage run -m pytest
+      - run: uv run coverage run -m pytest --junitxml=reports/checks/probes.xml
+      - run: uv run python scripts/evaluate.py --probes reports/checks/probes.xml
       - run: uv run coverage report -m
       - run: uv run langgraph validate
       - run: uv build

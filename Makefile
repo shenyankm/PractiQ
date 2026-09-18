@@ -15,7 +15,8 @@ verify:
 	cd server && "$(AI_PYTHON)" -m ruff check src tests scripts
 	cd server && "$(AI_PYTHON)" -m pyright --pythonpath "$(AI_PYTHON)"
 	cd server && "$(AI_PYTHON)" scripts/evaluate.py --validate-only
-	cd server && PATH="$(dir $(AI_PYTHON)):$$PATH" PYTHONPATH="$(CURDIR)/server/src" "$(AI_PYTHON)" -m coverage run -m pytest
+	cd server && PATH="$(dir $(AI_PYTHON)):$$PATH" PYTHONPATH="$(CURDIR)/server/src" "$(AI_PYTHON)" -m coverage run -m pytest --junitxml=reports/checks/probes.xml
+	cd server && "$(AI_PYTHON)" scripts/evaluate.py --probes reports/checks/probes.xml
 	cd server && "$(AI_PYTHON)" -m coverage report
 	cd server && "$(AI_PYTHON)" -m langgraph_cli validate
 	cd server && uv build

@@ -8,7 +8,7 @@
 
 ## 数据集与人工金标
 
-`evals/cases.json` 使用 `schemaVersion: 2`，目前包含 20 份公开合成文档。
+`evals/cases.json` 使用 `schemaVersion: 2`，目前包含 25 份公开合成文档；评分版本为 `3.0.0`。
 保留 Text、CSV、XLSX、DOCX、PDF、Image 六种格式，增加中文、原文无答案、长题干相同前缀、
 合法重复题、跨分片长文、无题目文本、损坏 DOCX 七类回归案例，并增加大小写不同、同题干不同选项的来源身份案例。
 
@@ -21,6 +21,16 @@
   两者省略或为 `null` 表示未标注，`[]` 表示明确要求不存在该结构。
 - `stemAliases`、`answerAliases` 仅允许根据原文确认的等价形式，例如乘除号的 LaTeX 写法、
   化学式下标。别名必须遵守原题型契约；原文无答案时不得添加答案别名。
+- `sourceHasNoAnswers: true` 是整份文档没有答案的明确标注，所有输出答案都必须为 null，
+  包括题干被改写、未匹配和多余的题目；不能用于混合有答案和无答案的文档。
+- `expectedMissingFields`、`expectedNeedsReview` 可按题目标注合法草稿的缺失字段和审核状态。
+- `expectedVisuals: [{"kind": "diagram", "page": 0}]` 同时检查类别和从 0 开始的页码；
+  嵌入原图的 page 可为 null。它与旧 `expectedVisualKinds` 二选一，[] 仍表示明确没有视觉元素。
+  运行器还会读取所有视觉引用，验证大小、SHA-256 和图片解码；不会把引用写入报告。
+- `expectedProcess` 可指定 `requiredCallKinds` 和 `maxModelCalls`，由固定工作流的过程断言检查。
+- `split` 默认为 `regression`。新增 `image-holdout-instruction` 为独立的 `holdout`；
+  原有案例均保留在回归集。只用回归集调试，发布前运行两个集合；不能反复看留出集改提示词。
+  一个留出案例只验证流程，不构成泛化证据。真实材料须先脱敏、授权和独立人工标注后再加入。
 
 金标依据源文件人工核对，不能把模型输出直接反填为正确答案。
 当前 DOCX 内嵌图片的公开输出类别固定为 `image`，其金标按该契约标注；
@@ -38,6 +48,17 @@ CI 同时检查六种格式、四种题型、七类难例，以及每个 fixture
 
 ## 评分与门禁
 
+`qualityPassed` 表示该次执行满足状态、全部已标注字段/结构、视觉产物和过程期望。
+它与执行状态独立：SUCCEEDED 仍可质量不合格，原文没有答案且正确返回 null 则可质量合格。
+预期拒绝单独报告，不混入正常任务的执行成功率和失败耗时。
+
+`reliability` 报告文档执行成功率、质量通过率，以及每个案例至少三次执行时的
+`allRepetitionsPassRate` / `anyRepetitionPassRate`；不足三次显示 N/A。
+`reliabilitySlices` 按格式、标签和数据集划分汇总。三次重复不是生产可靠性置信保证。
+
+`fidelity` 分别记录补造答案、多余题目、字段不一致和来源待确认的题目数量。
+未匹配题目或来源警告不是自动判定的幻觉；不能从这些计数推导总体幻觉率。
+
 题干匹配仅删除开头题号及排版空白，保留大小写、标点与完整内容，不使用截断或忽略大小写的题干键；生产去重还要求原文位置与实际分片重叠一致。
 同题干按出现顺序一一匹配；额外题目降低 Precision，缺失题目降低 Recall 和字段准确率。
 选项按顺序比较 label/content，答案采用与原文金标一致的结构化值。
@@ -50,13 +71,14 @@ CI 同时检查六种格式、四种题型、七类难例，以及每个 fixture
 | optionsAccuracy | 选项正确的选择题 / 金标选择题 |
 | parsedAnswerAccuracy | 原文答案正确题目 / 金标题目，包含空答案 |
 | groupF1 | 2 × 完整匹配分组 /（金标分组 + 输出分组），同时检查标题和成员 |
-| visualF1 | 2 × 匹配视觉元素 /（金标元素 + 输出元素），按类别多重集计数 |
+| visualF1 | 2 × 匹配视觉元素 /（金标元素 + 输出元素），按类别及已标注页码的多重集计数 |
 
 各指标均为 0–100。没有分母时显示 N/A；明确标注结构为空且输出也为空时，该结构得分为 100。
 总体指标按题目或结构微平均，同时给出格式、题型和标签分桶。
 
 门禁要求：所有有标注的总体质量指标至少 90%；正常案例全部 `SUCCEEDED`；
-预期拒绝案例全部匹配；关键案例没有差异；任何原文无答案的匹配题都不得补造答案。
+预期拒绝案例全部匹配；关键案例没有差异；任何原文无答案的匹配题都不得补造答案，
+整份无答案案例中的未匹配题和额外题也必须保持空答案。
 `PARTIAL` 保留结果及阶段失败，但不计作正常案例成功。
 
 | 状态 / 退出码 | 含义 |
@@ -70,11 +92,25 @@ CI 同时检查六种格式、四种题型、七类难例，以及每个 fixture
 `complete: false` 和 `missingUsageCalls` 表示不能据此推断全部消耗；不估算价格或缺失用量。
 耗时按所有执行、成功执行、失败或 PARTIAL 执行分别报告 P50/P95，首期不作为阻断指标。
 
+`efficiency` 的分子包含所有评测尝试（包括拒绝案例、失败和纠错）的用量，分母只使用
+质量合格的正常文档数；同时展示分子和分母。缺失用量时 Token/合格文档显示 N/A；
+价格尚未配置，因此货币成本显示 N/A，不能把平台估价或已知用量当成完整账单。
+阶段 P50/P95 来自现有事件，同一文档的并发阶段耗时不能相加当作总耗时。
+
+`trajectory` 使用本地事件串起 thread/run、页面或分片、callKey、attempt、Schema、
+校验结果和重试/纠错/接受/停止。RETURNED 只表示供应商已返回，validation=passed 才表示
+结构校验通过。断言检查准备阶段、文本组装、允许的模型类型/Schema、页上下文、四次尝试
+及任务调用上限，允许并发单元交换完成顺序。事件不包含消息正文、图片、密钥或异常正文。
+文档状态与模型耗时仍复用 Prometheus；这些指标不代表语义准确率。
+
 ## 运行、比较与保存
 
 ```bash
 # 单次冒烟；--case 可重复指定。
 python -m dotenv -f .env run -- python scripts/evaluate.py --case text-basic
+
+# 调试时只使用回归集；默认不指定 split 时运行全部案例。
+python -m dotenv -f .env run -- python scripts/evaluate.py --split regression
 
 # 正式基线或候选运行：每个案例三次，每次使用独立 thread。
 python -m dotenv -f .env run -- python scripts/evaluate.py --repetitions 3
@@ -101,6 +137,47 @@ python scripts/evaluate.py --compare \
 重复次数必须一致。比较使用未四舍五入的指标，总体指标不得下降；报告展示百分点差异、
 逐案例计数变化及代码/模型/参数变化。单次运行可检查绝对门禁，但不能作为正式比较基线。
 修改评分含义时须更新 `SCORER_VERSION` 并重新实跑基线，禁止与旧评分混比。
+旧 v2 评分报告继续只读保存；v3 比较器拒绝旧评分版本，不迁移或重写历史分数。
+运行器会关闭 LANGSMITH_TRACING 和 LANGCHAIN_TRACING_V2，不向远端评测平台发送数据。
+
+## 离线故障探针与本地复核
+
+`make verify` 和 CI 只运行一次完整 pytest，并将其 JUnit 结果转为故障探针报告：
+
+```bash
+python -m pytest --junitxml=reports/checks/probes.xml
+python scripts/evaluate.py --probes reports/checks/probes.xml
+```
+
+探针复用恢复、预算、引用校验、转换器、相似来源和结构化输出测试，区分恢复成功率、
+正确停止率、路由通过率与未知用量保留。每个参数化场景是一条观测；缺失、跳过或 setup
+失败不算通过。JUnit 记录代码和测试指纹，过期证据返回 BLOCKED。不会导出测试异常正文。
+这些结果只证明确定性故障测试；真实进程重启为 NOT_ASSESSED，必须另外完成
+document-tasks.md 的隔离 Agent Server/PostgreSQL/Redis、local/OSS 演练。
+
+运行日志中的 `review_candidate` 只含任务标识、格式、状态和错误码。将 `practiq.events`
+的消息内容按 JSONL 保存到本地持久日志目录后生成复核清单：
+
+```bash
+python scripts/review_queue.py /absolute/logs/practiq.events.jsonl \
+  --output reports/reviews/2026-09-18.json
+```
+
+所有执行错误、PARTIAL 和质量审核标记都入选；其余任务按格式及稳定 thread 标识散列
+抽样约 5%，不是每个小批次恰好 5%。同一 run 去重，重放不改变抽样选择。
+清单仅含元数据；人工通过现有鉴权任务接口读取原文并记录复核结果。确认问题后，先脱敏、
+制作金标，再进入回归集。不会自动认定问题、修改提示词或发布版本。
+JSON/Markdown 输出禁止覆盖已有文件，生成报告无需提交到 Git。
+
+2026-09-18 的 [v3 首轮报告](../reports/evaluations/fc0f9716-001e-4849-9b4c-94399d9b501f/report.md)
+覆盖全部 25 个案例、各三次真实模型执行，结果 FAILED。69 次正常任务中执行成功 66 次、
+质量合格 61 次；23 个正常案例均至少通过一次，其中 17 个三次全通过；6 次预期拒绝均匹配。
+过程断言和视觉产物校验通过，但视觉 F1 为 80%，文件名伪指令案例出现一次补造答案，
+另有跨页答案、额外题目和视觉输出校验失败。保留全部失败证据，不作为合格基线。
+本轮未使用留出集结果修改提示词。独立 Agent Server/PostgreSQL/Redis 的生产崩溃恢复矩阵
+尚未完成。补充实测：隔离目录中仅使用本地运行配置并关闭 tracing，开发服务器两次
+启动的 `/ok` 均返回 200，正常停止后重启仍可读取原线程，未调用模型。该结果验证开发模式
+的线程落盘与正常重启，不覆盖执行中崩溃、模型结果复用或生产数据库恢复。
 
 ## 持续改进流程
 

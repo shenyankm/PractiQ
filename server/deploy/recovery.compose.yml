@@ -27,8 +27,6 @@ services:
     environment:
       DATABASE_URI: postgres://practiq_review:isolated-test-only@postgres:5432/practiq_review
       REDIS_URI: redis://redis:6379/0
-      LANGSMITH_API_KEY: ${LANGSMITH_API_KEY:-}
-      LANGGRAPH_CLOUD_LICENSE_KEY: ${LANGGRAPH_CLOUD_LICENSE_KEY:-}
       LANGSMITH_TRACING: "false"
       AI_SERVICE_TOKEN: isolated-test-token
       LLM_PROVIDER: dashscope
