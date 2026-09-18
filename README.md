@@ -1,57 +1,47 @@
 <p align="center">
-  <img src="web/public/practiq-logo.png" width="160" alt="PractiQ logo">
+  <img src="server/assets/logo/practiq-octopus-a5.png" width="160" alt="PractiQ logo">
 </p>
 
 # PractiQ
 
-本机运行的单用户题库与学习工具：管理题目、导入资料、练习判分、查看学习分析和 AI 报告。无需登录，没有会员、积分或支付功能。
+AI 文档导入工具：将文本、CSV、PDF、图片、Word 和 Excel 解析为结构化题目、材料题组、原文答案及视觉素材。支持分片解析、部分失败明细与模型调用用量记录。
 
-## 架构
+代码保留在 `server/`，通过 LangGraph Agent Server 调用；不包含前端、题库管理、练习判分、答案生成或学习报告。
 
-| 目录 | 职责 |
-| --- | --- |
-| `web/` | React 19 + Vite + TypeScript + HeroUI v3，移动与桌面 Web |
-| `backend/` | Python FastAPI 产品 API 与 PostgreSQL worker |
-| `server/` | 私有 LangGraph AI 解析、答案生成及报告服务 |
-| `db/` | 全新个人数据库结构与验证脚本 |
+## 本地运行
 
-产品后端不需要 Java、Maven、Redis 或微信配置。内部 AI 服务的原生部署要求见 `server/README.md`。
-
-## 本地启动
-
-使用已有 Conda Python 环境；不要创建 `.venv`。产品后端支持 Python 3.13+，AI 包声明 Python 3.14+。`PYTHON` 与 `AI_PYTHON` 可分别指定现有解释器。Web 使用 Node 22.12+。
+使用已有 Python 3.14+ 解释器，不创建项目 `.venv`。`AI_PYTHON` 可指定解释器路径。
 
 ```bash
-cp .env.example .env.local  # 仅首次；已有配置不要覆盖
-make install
-# AI 的 Python 3.14 环境已具备时：make server-install AI_PYTHON=/path/to/python
-# 创建独立 personal-postgres-data 卷，旧 postgres-data / redis-data 保持不动
-docker compose up -d personal-postgres
-make backend-dev
-make backend-worker  # 另一个终端
-make web-dev         # 另一个终端
-make server-dev AI_PYTHON=/path/to/python  # 使用 AI 功能时，另一个终端
+# 仅首次复制；已有模型配置不要覆盖
+cp -n server/.env.example server/.env
+# 编辑 server/.env，配置服务令牌与模型
+make install AI_PYTHON=/path/to/python3.14
+make server-dev AI_PYTHON=/path/to/python3.14
 ```
 
-打开 `http://127.0.0.1:5173`。无 AI 配置也可管理题库与练习；AI 操作会说明服务尚未配置。`AI_SERVICE_TOKEN` 必须在两个 Python 服务中一致，根目录 `.env.local` 仅配置产品后端和 worker；将 `server/.env.example` 复制为 `server/.env`（已有文件不要覆盖），配置 AI 模型与本地存储。`make server-dev` 会通过 LangGraph 加载 `server/.env`。
+默认监听 `127.0.0.1:8090`，健康检查为 `GET /ok`。本地开发不需要产品数据库或 Docker Compose；`langgraph dev` 不提供生产级任务持久化。
 
-构建后也可运行 `make web-build`，将 `APP_ORIGIN` 设为 `http://127.0.0.1:8080`，由产品 API 托管 Web 页面。默认只监听本机，不开放局域网或公网。
+PDF、DOCX 和图片需要视觉模型。DOCX 另需 LibreOffice Writer 和中文字体，可使用 `AI_SOFFICE_PATH` 指定转换程序。
 
-## 数据边界
+## 导入流程
 
-默认数据库为 `practiq_personal`。`db/00_schema.sql` 仅初始化空库，故意不包含删表或覆盖逻辑。旧版 SQL 归档于 `db/legacy/`，不自动升级或合并旧数据。不要执行 `docker compose down -v`。应用媒体默认存于 `.local/media`。
+1. 携带 `Authorization: Bearer <AI_SERVICE_TOKEN>`，调用 `POST /api/uploads` 申请文件引用。
+2. 使用返回的地址和 Content-Type 鉴权 PUT 原始文件；已有文件可能直接返回引用。
+3. 将 `DocumentReference` 交给对应 Graph，读取运行结果。
+4. 使用 `POST /api/artifacts/read` 鉴权读取衍生素材。
 
-导入文件最大 25 MiB，媒体最大 10 MiB。成功/取消导入由 worker 清理源文件；失败文件保留 24 小时供重试。浏览器保留未完成导入的文件指纹和请求键，刷新后重新选择同一文件可恢复。放弃本地恢复不会取消服务端任务。
+支持 `text_csv_parser`、`pdf_parser`、`docx_parser`、`excel_parser`，以及覆盖全部格式的 `document_parser`。原生入口不接受 URL、Base64 或服务器路径；原产品 `/api/v1/ai/*` 接口已移除。
 
-## 验证
+完整接口示例与能力边界见 [AI 使用说明](server/README.md)。
+
+## 验证与数据
 
 ```bash
-make test          # HeroUI 样式约束、Web 单测、类型检查、构建
-make backend-test # 创建一次性 PostgreSQL 容器，验证后移除该测试容器
-make test-server  # AI 测试使用替身，不调用真实 LLM
-make verify
-# API / Vite 已在一次性数据库上运行时：
-cd web && npx playwright test
+make test AI_PYTHON=/path/to/python3.14
+make verify AI_PYTHON=/path/to/python3.14
 ```
 
-产品 API 的交互文档位于 `http://127.0.0.1:8080/docs`；迁移契约见 `docs/P1-backend-contract.md`。
+自动化测试不调用真实模型；[评测说明](server/docs/evaluation.md) 和历史报告保留，历史失败结果不代表当前质量基线。
+
+AI 文件默认存放于 `server/.local/ai`，相对 `AI_STORAGE_DIR` 以 `server/` 为基准解析；生产使用持久挂载的绝对路径并备份。精简项目不会迁移或删除已有数据库、卷、文件和本地配置。生产部署参考 [运维说明](server/docs/operations.md) 与 `Dockerfile.server`。

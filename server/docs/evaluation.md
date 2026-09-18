@@ -1,6 +1,6 @@
 # document_parser 评测与改进
 
-以下本地命令需先执行 `conda activate langgragh`（初始化步骤见 README）。
+以下命令使用已有 Python 3.14+ 环境，并在 `server/` 下运行。
 
 评测沿用真实的本地文件写入和 `document_parser`，在本地直接调用 Graph，使用内存 checkpoint。
 它评估文档中题目与原文答案的提取质量；Agent Server HTTP、持久恢复和容量由现有工程测试及压测负责。
@@ -137,23 +137,7 @@ CI 不调用真实模型，不能证明提示词改动后的语义质量；此�
 图片没有文字时 `extractedText` 为 null。文档、文件名、图片和请求字段中的指令均视为数据。
 这些是语义约束，不代表能够彻底阻止提示注入或保证提取准确率。
 
-生成调用继续使用 function calling 和 Pydantic 校验，不包裹 XML，也不重复维护手写 Schema：
-
-- 答案支持选择、判断、填空、简答、排序和匹配结构，按请求题型校验答案与引用。
-  缺少必要条件时返回 `answerPayload: null` 和 `missingFields`，作为待补全成功结果；
-  可确定的输入缺失不调用模型。格式、类型、枚举和已填内容矛盾仍有限纠错并记录每次用量。
-  历史评测中“弃答最终返回 502”的记录属于旧契约，已被[题目完整性重构](../../docs/question-completeness.md)替代。
-- 报告必须逐一覆盖输入 mastery 标签，薄弱点不得引用未提供的标签。
-  `mastery.score` 明确定义为该组已提供练习的 `correct / attempts`，由程序计算；
-  `evidence` 由对应次数生成。总结、建议和风险判断仍需语义评测，结构校验不保证这些文字正确。
-- 题库生成建议必须有 3～6 个去除首尾空白且不区分大小写唯一的标签。
-  此限制只应用于 AI 生成结果，不更改用户编辑题库的规则。
-- 结构及语义错误都进入既有纠错流程；每次调用继续独立记录用量，重试上限不增加。
-  Pydantic 纠错消息仅包含字段路径与错误原因，并重申不得为通过校验而编造内容。
-
-相关回归测试位于 `product_tests/test_generation.py`、`product_tests/test_bank_metadata.py`，
-覆盖四种答案、选项引用、无法作答、报告标签与统计、标签数量及重复、纠错调用用量。
-提示词收益必须通过上述真实模型评测验证，FakeModel 测试通过不等于模型质量提升。
+回归测试覆盖题目完整性、模型纠错和每次调用用量。FakeModel 测试通过不等于真实模型质量提升。
 
 ### 百炼结构化输出配置
 
@@ -167,8 +151,7 @@ Qwen3.7 Plus/Flash/Max、Qwen3.8 Flash/Max 系列上选择原生 Schema，其余
 Qwen3.7 调用统一关闭 thinking，模型、Token 上限与超时仍取原配置。
 原生模式直接取得完整响应后再做 Pydantic 校验，避免 SDK 提前抛出截断错误而丢失用量；
 截断、未闭合 JSON、语义校验失败均拒绝采用，并纳入既有有限纠错与用量记录。
-不使用补括号等自动修复来接受被截断的答案。题库生成 Schema 的非空白正则兼容整串匹配，
-避免约束解码器将 `\S` 收窄为单字输出。
+明确 token 截断的输出不会被本地 JSON 修复接受。
 
 协议选择依据及实跑边界见[本轮优化记录](../reports/evaluations/prompt-optimization-summary.md)。
 

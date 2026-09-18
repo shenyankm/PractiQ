@@ -10,10 +10,7 @@
 
 ## Affected areas
 
-- [ ] Python product API (`backend/`)
 - [ ] Python AI service (`server/`)
-- [ ] Web client (`web/`)
-- [ ] PostgreSQL schema (`db/`)
 - [ ] Documentation or tooling
 
 ## Validation
@@ -22,14 +19,8 @@
 
 | Check | Result |
 | --- | --- |
-| `make backend-test` | Not run |
-| `make test-server` | Not run |
 | `make test` | Not run |
 | `make verify` | Not run |
-
-## User-visible evidence
-
-<!-- Add before-and-after screenshots or a recording for Mini Program changes. Write "N/A" for internal changes. -->
 
 ## Risk and rollout
 
@@ -45,8 +36,6 @@
 - [ ] New behavior has focused test coverage
 - [ ] Required checks pass, or failures are explained above
 - [ ] API, schema, environment, and user-facing changes are documented
-- [ ] Database changes include rollout notes for existing data
 - [ ] Logs, fixtures, screenshots, and commits contain no secrets or personal data
-- [ ] Product authentication, persistence, and billing remain in `backend/`
-- [ ] The AI service remains private, stateless, and free of product resource IDs
+- [ ] The AI service remains private and focused on document import
 - [ ] Production traffic still uses HTTPS

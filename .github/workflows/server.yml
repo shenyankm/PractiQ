@@ -1,7 +1,7 @@
 name: AI service
 on:
   pull_request:
-    paths: ["server/**", "Dockerfile.server", "compose.yaml", ".github/workflows/server.yml"]
+    paths: ["server/**", "Dockerfile.server", "Makefile", ".github/workflows/server.yml"]
   push:
     branches: [main]
 permissions:
@@ -19,7 +19,7 @@ jobs:
           enable-cache: true
           cache-dependency-glob: server/uv.lock
       - run: uv sync --locked --extra dev
-      - run: uv run ruff check src tests product_tests scripts
+      - run: uv run ruff check src tests scripts
       - run: uv run pyright
       - run: uv run python scripts/evaluate.py --validate-only
       - run: uv run pip-audit
@@ -27,6 +27,5 @@ jobs:
       - run: uv run coverage report -m
       - run: uv run langgraph validate
       - run: uv build
-      - run: docker compose -f ../compose.yaml config --quiet
       - run: docker build -f Dockerfile.server -t practiq-ai:ci .
         working-directory: .

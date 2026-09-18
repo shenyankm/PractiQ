@@ -7,22 +7,21 @@ import httpx2
 import pytest
 from langchain_core.messages import BaseMessage, HumanMessage
 from langchain_openai import ChatOpenAI
-from practiq_ai import llm
-from practiq_ai.product.agents import model as product_model
 from pydantic import BaseModel, Field
+
+from practiq_ai import llm
 
 
 class Result(BaseModel):
     value: int = Field(ge=0)
 
 
-@pytest.mark.parametrize("product", [False, True])
 @pytest.mark.parametrize(
     "bad_content,finish",
     [(' {"value":1}', "length"), ('{"value":', "stop"), ('{"value":-1}', "stop")],
 )
 async def test_native_wire_format_repairs_and_records_failed_usage(
-    monkeypatch, product, bad_content, finish
+    monkeypatch, bad_content, finish
 ):
     monkeypatch.setenv("AI_STRUCTURED_OUTPUT_METHOD", "json_schema")
     requests = []
@@ -74,24 +73,14 @@ async def test_native_wire_format_repairs_and_records_failed_usage(
             http_async_client=client,
         )
         messages: list[BaseMessage] = [HumanMessage(content="Return JSON with value=2")]
-        if product:
-            with product_model.collect_usage() as usage:
-                result, corrected = await product_model.structured_attempt(
-                    model, messages, Result, "test"
-                )
-                assert result is None
-                result, _ = await product_model.structured_attempt(
-                    model, corrected, Result, "test"
-                )
-        else:
-            with llm.collect_usage() as usage:
-                result, corrected, _ = await llm.structured_attempt(
-                    model, messages, Result, "test", runtime=None, logical_attempt=1
-                )
-                assert result is None
-                result, _, _ = await llm.structured_attempt(
-                    model, corrected, Result, "test", runtime=None, logical_attempt=2
-                )
+        with llm.collect_usage() as usage:
+            result, corrected, _ = await llm.structured_attempt(
+                model, messages, Result, "test", runtime=None, logical_attempt=1
+            )
+            assert result is None
+            result, _, _ = await llm.structured_attempt(
+                model, corrected, Result, "test", runtime=None, logical_attempt=2
+            )
         assert result == Result(value=2)
         assert len(usage) == 2
         assert sum(call.outputTokens for call in usage) == 10
@@ -119,11 +108,11 @@ def test_default_and_supported_protocol_selection(monkeypatch):
         llm.structured_output(model, Result)
 
 
-@pytest.mark.parametrize('product', [False, True])
 @pytest.mark.parametrize('tool', [False, True])
 @pytest.mark.parametrize('source', ['{"stem":"题干","answerMode":"short_answer"', '{"stem":"题干","options":[],}', '```json\n{"stem":"题干"}\n```'])
-async def test_local_repair_accepts_incomplete_question_without_another_call(monkeypatch, product, tool, source):
+async def test_local_repair_accepts_incomplete_question_without_another_call(monkeypatch, tool, source):
     from langchain_core.messages import AIMessage
+
     from practiq_ai.contracts import ParsedQuestion
 
     raw = AIMessage(content='' if tool else source,
@@ -133,12 +122,11 @@ async def test_local_repair_accepts_incomplete_question_without_another_call(mon
     class Runner:
         async def ainvoke(self, messages):
             return {'raw':raw,'parsed':None,'parsing_error':ValueError('invalid JSON')}
-    module = product_model if product else llm
-    monkeypatch.setattr(module, 'structured_output', lambda *args: Runner())
+    monkeypatch.setattr(llm, 'structured_output', lambda *args: Runner())
     model, _ = llm.build_models('dashscope','test','qwen3.7-flash')
     messages: list[BaseMessage] = [HumanMessage(content='Extract')]
-    with module.collect_usage() as usage:
-        result = await module.structured_attempt(model, messages, ParsedQuestion, 'test')
+    with llm.collect_usage() as usage:
+        result = await llm.structured_attempt(model, messages, ParsedQuestion, 'test')
     assert result[0] is not None
     assert result[0].stem == '题干'
     assert 'answerPayload' in result[0].missingFields

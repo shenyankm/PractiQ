@@ -726,7 +726,7 @@ def test_document_graph_describes_embedded_images(monkeypatch):
     )
 
     visual = output["result"]["visualElements"][0]
-    assert visual["description"] == "An embedded diagram"
+    assert visual["description"] == "[embedded original] An embedded diagram"
     assert visual["extractedText"] == "x = 1"
 
 

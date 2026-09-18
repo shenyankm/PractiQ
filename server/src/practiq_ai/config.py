@@ -24,6 +24,7 @@ class Config:
     storage_timeout_seconds: float
     model_timeout_seconds: float
     model_max_tokens: int
+    soffice_path: str = "soffice"
 
 
 def _required(values: dict[str, str], key: str) -> str:
@@ -77,6 +78,7 @@ def load() -> Config:
             "N_JOBS_PER_WORKER * AI_GRAPH_MAX_CONCURRENCY must not exceed 16"
         )
     return Config(
+        soffice_path=values.get("AI_SOFFICE_PATH", "").strip() or "soffice",
         provider=provider,
         api_key=_required(values, "LLM_API_KEY"),
         text_model=_required(values, "LLM_TEXT_MODEL"),

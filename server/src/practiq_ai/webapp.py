@@ -15,7 +15,7 @@ from practiq_ai.contracts import (
     DocumentUploadResponse,
 )
 from practiq_ai.errors import DocumentProcessingError
-from practiq_ai.product.app import create_app
+from practiq_ai.middleware import JsonBodyLimitMiddleware, SecurityHeadersMiddleware
 from practiq_ai.storage import get_object_store
 
 
@@ -25,8 +25,9 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     yield
 
 
-app = create_app(fallback=False)
-app.router.lifespan_context = lifespan
+app = FastAPI(lifespan=lifespan)
+app.add_middleware(JsonBodyLimitMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)
 
 
 def authorize(authorization: str | None = Header(default=None)) -> None:

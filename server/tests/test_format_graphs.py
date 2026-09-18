@@ -12,7 +12,13 @@ from practiq_ai.contracts import (
 from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.extractors import ExtractedDocument
 from practiq_ai.graphs import document, formats
-from tests.test_workflows import FakeModel, FakeObjectStore, question, run_config
+from tests.test_workflows import (
+    FakeModel,
+    FakeObjectStore,
+    make_image,
+    question,
+    run_config,
+)
 
 FORMAT_GRAPHS = [
     ("text_csv_parser", ("text", "csv")),
@@ -42,6 +48,7 @@ async def test_format_graph_enforces_source_type_before_storage(
         ),
     }
     model = FakeModel(responses=[{"questions": [question("2 + 2?")]}])
+    vision = FakeModel(responses=[{"text": payload.decode(), "figures": []}])
     store = FakeObjectStore({key: payload})
     extracted = []
 
@@ -52,10 +59,10 @@ async def test_format_graph_enforces_source_type_before_storage(
     def extract(kind, data):
         extracted.append(kind)
         assert data == payload
-        return ExtractedDocument(text=data.decode())
+        return ExtractedDocument(text="", page_images=[make_image()]) if kind in {"pdf", "docx"} else ExtractedDocument(text=data.decode())
 
     monkeypatch.setattr(document, "get_object_store", get_store)
-    monkeypatch.setattr(document, "get_models", lambda: (model, None))
+    monkeypatch.setattr(document, "get_models", lambda: (model, vision))
     monkeypatch.setattr(document, "extract", extract)
     graph = getattr(formats, name)
     config = run_config()

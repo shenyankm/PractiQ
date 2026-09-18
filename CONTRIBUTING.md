@@ -6,7 +6,7 @@ Thanks for contributing to PractiQ.
 
 Read [`AGENTS.md`](./AGENTS.md) for repository rules and service boundaries, and [`README.md`](./README.md) for setup and development instructions.
 
-Open an issue before starting a feature, architecture change, new dependency, or cross-service change. Small, clearly scoped bug fixes and documentation corrections may go directly to a pull request.
+Open an issue before starting a feature, architecture change, new dependency, or public API change. Small, clearly scoped bug fixes and documentation corrections may go directly to a pull request.
 
 Issue and pull request titles and descriptions must be written in English.
 
@@ -21,16 +21,7 @@ Issue and pull request titles and descriptions must be written in English.
 
 ## Validate changes
 
-Run the checks for every area changed:
-
-| Area | Command |
-| --- | --- |
-| `backend/` | `make backend-test` |
-| `server/` | `make test-server` |
-| `web/` | `make test` |
-| Multiple application layers | `make verify` |
-
-Database changes must also be exercised against PostgreSQL and include rollout and rollback notes when existing data may be affected.
+Run `make test` for the AI suite and `make verify` for all quality checks. Set `AI_PYTHON` to an existing Python 3.14+ interpreter. Tests use fake models; real model quality requires a separate evaluation run.
 
 ## Commit and open a pull request
 
@@ -43,7 +34,6 @@ The pull request description must include:
 - Commands run and their results
 - Schema, configuration, security, or deployment impact
 - A linked issue when applicable
-- Screenshots or a recording for Web UI changes
 
 Before requesting review, remove unrelated and generated files, confirm required checks pass, and verify that no secrets or personal data appear in the diff or supporting material.
 

@@ -2,9 +2,9 @@
 
 ## 本机开发（默认）
 
-仓库 `compose.yaml` 仅启动独立的个人 PostgreSQL（54322），不启动 AI 容器或 AI 专用 PostgreSQL。
-激活本机 Miniconda 的 `langgragh`（Python 3.14）环境后执行 `make server-install`、`make server-dev`（仓库根目录）。
-已有环境直接复用；新机器才执行 `conda create -n langgragh python=3.14`。不要创建项目 `.venv`。
+本地仅启动 AI Agent Server，不需要产品数据库或 Compose。
+激活已有 Python 3.14+ 环境后执行 `make server-install`、`make server-dev`（仓库根目录）。
+已有环境直接复用。不要创建项目 `.venv`。
 `langgraph dev` 不使用 `DATABASE_URI`/`REDIS_URI` 提供生产级持久化，不承诺 PostgreSQL 任务与 checkpoint 恢复。
 下述生产部署、许可证和恢复要求不适用于该开发模式。
 
@@ -33,13 +33,14 @@ checkpoint 和持久队列，使用 `REDIS_URI` 处理流、取消与 pub/sub。
 | `REDIS_URI` | 生产必填 | Redis URI；每个部署使用独立 DB |
 | `LLM_PROVIDER` | 必填 | `dashscope`、`deepseek`、兼容 `moonshot` |
 | `LLM_API_KEY` / `LLM_TEXT_MODEL` | 必填 | 文本模型 |
-| `LLM_VISION_MODEL` | 空 | 为空时视觉单元会被跳过并产生 PARTIAL；DeepSeek 可使用 `deepseek-v4-flash-vision-exp` |
-| `AI_STORAGE_DIR` | `.local/ai` | AI 文件目录；相对仓库根目录解析，生产使用持久挂载的绝对路径 |
+| `LLM_VISION_MODEL` | 空 | PDF、DOCX、图片解析必须配置；其他格式的内嵌图片在未配置时跳过并产生 PARTIAL；DeepSeek 可使用 `deepseek-v4-flash-vision-exp` |
+| `AI_STORAGE_DIR` | `.local/ai` | AI 文件目录；相对 `server/` 目录解析，生产使用持久挂载的绝对路径 |
 | `N_JOBS_PER_WORKER` | 8 | Agent Server 活跃 run 上限 |
 | `AI_GRAPH_MAX_CONCURRENCY` | 2 | 单 run graph 并行度 |
 | `AI_STORAGE_CONCURRENCY` | 4 | 单 run 本地文件存储 并发 |
 | `AI_SOURCE_MAX_BYTES` | 26214400 | 源文档字节上限 |
-| `AI_MAX_DOCUMENT_PAGES` | 100 | PDF 页数上限 |
+| `AI_MAX_DOCUMENT_PAGES` | 100 | PDF 及 DOCX 转换后页数上限 |
+| `AI_SOFFICE_PATH` | `soffice` | LibreOffice 可执行路径；DOCX 转换超时固定 60 秒 |
 | `AI_MAX_VISION_BYTES` | 52428800 | 派生视觉内容累计字节上限 |
 | `AI_MAX_VISION_PAGE_PIXELS` | 25000000 | 单页渲染像素上限 |
 | `AI_MAX_TOTAL_INPUT_CHARS` | 2000000 | 模型输入文本上限 |
@@ -52,7 +53,7 @@ checkpoint 和持久队列，使用 `REDIS_URI` 处理流、取消与 pub/sub。
 ## 部署
 
 1. 运行 CI 的 lock、Ruff、Pyright、分支覆盖率和构建门禁。
-2. 从仓库根目录执行 `docker build -f Dockerfile.server -t practiq-ai:候选版本 .`，通过验收后按镜像 digest 部署。仓库 Compose 不再提供 AI profile；生产独立部署使用受管数据服务和注入的许可密钥，不使用本机 `langgraph dev` 替代。
+2. 从仓库根目录执行 `docker build -f Dockerfile.server -t practiq-ai:候选版本 .`，通过验收后按镜像 digest 部署。生产独立部署使用受管数据服务和注入的许可密钥，不使用本机 `langgraph dev` 替代。
 3. 预发布按下节完成容量测试与故障演练。
 4. 部署候选镜像，并观察 30 分钟后恢复正常发布节奏。
 
@@ -78,7 +79,7 @@ checkpoint 和持久队列，使用 `REDIS_URI` 处理流、取消与 pub/sub。
 
 ## 容量验收
 
-本地先激活 `langgragh` Conda 环境。先上传一份代表性五页文档，把 graph 输入保存为 `/tmp/document-input.json`：
+本地先激活 Python 3.14+ 环境。先上传一份代表性五页文档，把 graph 输入保存为 `/tmp/document-input.json`：
 
 ```bash
 python scripts/load_test.py \
@@ -127,7 +128,7 @@ python scripts/load_test.py \
 30 分钟观察期内若错误率、PARTIAL 或资源指标越过阈值：
 
 1. 暂停新任务。
-2. 回滚服务镜像和客户端镜像到上一 digest。
+2. 回滚服务镜像到上一 digest。
 3. 保留失败 run、日志和 本地文件存储 对象用于复盘；确认队列稳定后再开放流量。
 
 只有容量实测证明单机不足或需要主机级高可用时，才按
@@ -135,8 +136,6 @@ python scripts/load_test.py \
 切换 Agent Server 的
 split API/queue 或分布式运行形态；不引入 Celery、Kafka 或自建队列。
 
-## Java compatibility traffic
+## DOCX 渲染
 
-The `/api/v1/ai/*` facade retains a 180-second total request deadline (including queueing and 本地文件存储). Java's worker read timeout is 185 seconds and its own task deadline remains authoritative. Failure usage reaches Java's existing ledger/refund rules. Native runs retain checkpoint/resumption; the synchronous facade intentionally has no independent durable product queue. Java retains source files for its existing failed-job retry window and deletes local sources after successful persistence. 本地文件存储 objects follow the independent lifecycle above.
-
-`AI_AGENT_MAX_CONCURRENCY` (default 4) bounds simultaneous Java facade operations per process. Native graph calls also consume provider capacity; the original `N_JOBS_PER_WORKER * AI_GRAPH_MAX_CONCURRENCY <= 16` check bounds native traffic only, not aggregate mixed traffic. Capacity-test both channels before production. No real provider/load evaluation was performed during migration; historical reports remain historical failed evidence, not new baselines.
+DOCX 全页渲染需要 LibreOffice Writer 与中文字体；`Dockerfile.server` 安装 `libreoffice-writer` 和 `fonts-noto-cjk`。本地安装后可用 `AI_SOFFICE_PATH` 指定执行路径。服务按渲染页序识别，不回退纯文本；分页可能与 Microsoft Word 不同。临时转换文件自动清理，持久页图沿用 `AI_STORAGE_DIR`。

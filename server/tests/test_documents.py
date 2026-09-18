@@ -11,7 +11,6 @@ from practiq_ai import extractors
 from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.extractors import ExtractedDocument, extract
 from practiq_ai.extractors import docx as docx_extractor
-from practiq_ai.extractors import pdf as pdf_extractor
 
 
 def make_docx(
@@ -109,22 +108,11 @@ def test_extract_csv_text_and_image() -> None:
     assert image_document.page_images == [image_buffer.getvalue()]
 
 
-def test_extract_docx_text_warnings_hints_and_images() -> None:
-    document = extract(
-        "docx",
-        make_docx(with_image=True),
-        "Prompt context",
-    )
-
-    assert document.warnings == []
-    assert document.text.startswith("Prompt context\n\nH2 + O2 → H2O")
-    assert (
-        "H2 + O2 → H2O\n\nQuestion\tAnswer\n2 + 2\t4\n\n"
-        "Escaped <text> & final paragraph"
-    ) in document.text
-    assert "[docx formulas detected: 1]" in document.text
-    assert "[docx tables detected: 1]" in document.text
-    assert "Scores & totals" in document.text
+def test_extract_docx_pages_and_original_images(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(docx_extractor, "convert_to_pdf", lambda _: make_blank_pdf(2))
+    document = extract("docx", make_docx(with_image=True), "ignored legacy text")
+    assert document.text == ""
+    assert len(document.page_images) == 2
     assert document.embedded_images == [b"\x89PNG fake image bytes"]
 
 
@@ -188,89 +176,6 @@ def test_docx_tool_is_registered_only_for_docx(
     assert calls == 1
 
 
-def test_docx_uses_docx2python_only_for_rich_parts(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    original = docx_extractor.docx2python
-
-    def unexpected_call(*_args: object, **_kwargs: object) -> None:
-        raise AssertionError("docx2python should not run for a plain DOCX")
-
-    monkeypatch.setattr(docx_extractor, "docx2python", unexpected_call)
-    assert "H2 + O2 → H2O" in extract("docx", make_docx()).text
-
-    calls = 0
-
-    def tracked_call(*args: object, **kwargs: object) -> object:
-        nonlocal calls
-        calls += 1
-        return original(*args, **kwargs)  # type: ignore[arg-type]
-
-    monkeypatch.setattr(docx_extractor, "docx2python", tracked_call)
-    rich = extract(
-        "docx",
-        make_docx(
-            body_text="Repeated content",
-            header_text="Repeated content",
-            footer_text="Footer only",
-            comment_text="Correct answer is B",
-        ),
-    )
-
-    assert calls == 1
-    assert rich.text.count("Repeated content") == 1
-    assert "[docx header]" not in rich.text
-    assert "[docx footer]\nFooter only" in rich.text
-    assert "[docx comments]\nCorrect answer is B" in rich.text
-    assert "Reviewer" not in rich.text
-
-
-def test_docx_extracts_nested_tables_without_repeating_merged_cells() -> None:
-    source = Document()
-    source.add_paragraph("Before")
-    outer = source.add_table(rows=1, cols=1)
-    outer.cell(0, 0).text = "Outer"
-    outer.cell(0, 0).add_table(rows=1, cols=1).cell(0, 0).text = "Nested question"
-    merged = source.add_table(rows=1, cols=2).cell(0, 0).merge(
-        source.tables[-1].cell(0, 1)
-    )
-    merged.text = "Merged question"
-    source.add_paragraph("After")
-
-    text = extract("docx", package_docx(source)).text
-
-    assert text.index("Before") < text.index("Nested question") < text.index("After")
-    assert "Outer\nNested question" in text
-    assert text.count("Merged question") == 1
-
-
-def test_docx_falls_back_to_docx2python(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(docx_extractor, "_extract_primary_text", lambda _value: "")
-
-    document = extract("docx", make_docx())
-
-    assert "H2 + O2 → H2O" in document.text
-    assert "Question" in document.text
-
-
-def test_docx_returns_existing_error_when_both_parsers_fail(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    def fail(*_args: object, **_kwargs: object) -> None:
-        raise ValueError("parser failed")
-
-    monkeypatch.setattr(docx_extractor, "_extract_primary_text", fail)
-    monkeypatch.setattr(docx_extractor, "docx2python", fail)
-
-    with pytest.raises(DocumentProcessingError) as exc_info:
-        extract("docx", make_docx())
-
-    assert exc_info.value.status_code == 400
-    assert exc_info.value.detail == "DOCX preprocessing failed"
-
-
 def test_extract_enforces_source_size(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("AI_SOURCE_MAX_BYTES", "4")
 
@@ -280,26 +185,12 @@ def test_extract_enforces_source_size(monkeypatch: pytest.MonkeyPatch) -> None:
     assert exc_info.value.status_code == 413
 
 
-def test_extract_pdf_with_embedded_text_skips_ocr(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    texts = iter(["1. What is 2+2? A. 4 B. 5", "2. What is 3+3? A. 6 B. 7"])
-    monkeypatch.setattr(pdf_extractor, "page_text", lambda _page: next(texts))
-
-    document = extract("pdf", make_blank_pdf(pages=2))
-
-    assert "1. What is 2+2?" in document.text
-    assert "2. What is 3+3?" in document.text
-    assert document.page_images == []
+def test_extract_pdf_renders_every_page() -> None:
+    document = extract("pdf", make_blank_pdf(pages=2), "ignored legacy text")
+    assert document.text == ""
+    assert len(document.page_images) == 2
+    assert all(image.startswith(b"\x89PNG") for image in document.page_images)
     assert document.warnings == []
-
-
-def test_extract_pdf_renders_scanned_pages_for_ocr() -> None:
-    document = extract("pdf", make_blank_pdf(pages=1))
-
-    assert len(document.page_images) == 1
-    assert document.page_images[0].startswith(b"\x89PNG")
-    assert any("rendered for OCR" in warning for warning in document.warnings)
 
 
 def test_extract_pdf_enforces_page_limit(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -411,7 +302,8 @@ def test_docx_rejects_missing_or_oversized_archive(
     assert exc_info.value.status_code == 413
 
 
-def test_docx_marks_excess_images_as_truncated() -> None:
+def test_docx_marks_excess_images_as_truncated(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(docx_extractor, "convert_to_pdf", lambda _: make_blank_pdf(1))
     document = extract("docx", make_docx(with_image=True, image_count=51))
 
     assert len(document.embedded_images) == 50

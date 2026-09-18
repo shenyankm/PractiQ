@@ -89,13 +89,10 @@ def test_agent_server_mounts_auth_routes_and_graphs() -> None:
                     client.post("/api/v3/uploads", headers=headers, json={}).status_code
                     == 404
                 )
-                health = client.get("/api/health/live")
-                assert health.status_code == 200 and health.json()["data"]["ok"] is True
-                java_path = "/api/v1/ai/parse-document"
-                assert client.post(java_path, json={}).status_code == 401
-                invalid_java = client.post(java_path, headers=headers, json={})
-                assert invalid_java.status_code == 422
-                assert invalid_java.json()["error"]["code"] == "VALIDATION_ERROR"
+                for removed in ("parse-document", "generate-answer", "learning-report"):
+                    response = client.post(f"/api/v1/ai/{removed}", headers=headers, json={})
+                    assert response.status_code == 404
+                assert client.get("/api/health/live", headers=headers).status_code == 404
                 assert client.post("/api/artifacts/read", json={}).status_code == 401
                 response = client.post("/assistants/search", headers=headers, json={})
                 response.raise_for_status()

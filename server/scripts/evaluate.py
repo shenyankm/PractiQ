@@ -89,7 +89,7 @@ class GoldQuestion(GoldModel):
         }
         parsed_answer = ParsedQuestion.model_validate(base).answerPayload
         if isinstance(parsed_answer, dict):
-            raise ValueError("gold answers must be complete")
+            raise ValueError("gold answers must be complete")  # noqa: TRY004 - Pydantic validators require ValueError
         self.answerPayload = parsed_answer
         if self.answerPayload is None and self.answerAliases:
             raise ValueError("missing source answers cannot have answer aliases")

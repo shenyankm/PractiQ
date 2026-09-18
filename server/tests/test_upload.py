@@ -130,3 +130,32 @@ async def test_private_local_put_validates_body_and_token(tmp_path, monkeypatch)
         assert response.status_code == 200, response.text
         assert response.json() == prepared.json()['document']
         assert (await client.post('/api/uploads', json=upload().model_dump(), headers=headers)).json()['upload'] is None
+
+
+async def test_metadata_limits_security_headers_and_removed_product_routes():
+    async def chunks():
+        yield b'x' * (1024 * 1024)
+        yield b'x'
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test", headers={"Authorization": "Bearer test-token"}) as client:
+        for path in ("/api/uploads", "/api/artifacts/read"):
+            assert (await client.post(path, content=b'x' * (1024 * 1024 + 1))).status_code == 413
+            response = await client.post(path, content=chunks())
+            assert response.status_code == 413
+            assert response.headers['x-content-type-options'] == 'nosniff'
+            assert response.headers['x-frame-options'] == 'DENY'
+        for operation in ('parse-document', 'generate-answer', 'learning-report'):
+            assert (await client.post(f'/api/v1/ai/{operation}', json={})).status_code == 404
+        assert (await client.post('/api/artifacts/read', json={}, headers={'Authorization': 'Bearer wrong'})).status_code == 401
+
+
+async def test_binary_upload_over_one_mib_uses_source_limit(tmp_path, monkeypatch):
+    from tests.test_storage import object_store, upload
+
+    store = object_store(tmp_path)
+    monkeypatch.setattr(webapp, 'get_object_store', lambda: store)
+    payload = b'q' * (1024 * 1024 + 1)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url='http://test', headers={'Authorization': 'Bearer test-token'}) as client:
+        prepared = await client.post('/api/uploads', json=upload(payload).model_dump())
+        response = await client.put(prepared.json()['upload']['url'], content=payload)
+        assert response.status_code == 200, response.text

@@ -1,6 +1,6 @@
 # ================================================
 # PractiQ .gitignore
-# PractiQ split-stack app
+# PractiQ AI document import
 # ================================================
 
 # -----------------------------------------------
@@ -32,7 +32,7 @@ node_modules/
 /web/dist/
 /web/test-results/
 /backend/dist/
-/.local/
+.local/
 
 # -----------------------------------------------
 # Python

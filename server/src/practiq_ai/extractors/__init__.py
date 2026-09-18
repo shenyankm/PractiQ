@@ -47,9 +47,6 @@ def extract(
             ExtractedDocument,
             registered_tools[source_type].invoke({"file_bytes": payload}),
         )
-        document.text = "\n\n".join(
-            part for part in (base_text, document.text) if part
-        )
     else:
         extractor = {
             "csv": extract_csv,

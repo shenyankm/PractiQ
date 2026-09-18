@@ -1,5 +1,5 @@
 name: Feature request
-description: Propose a product or engineering improvement for PractiQ
+description: Propose an AI import or engineering improvement for PractiQ
 title: "[Feature]: "
 labels:
   - enhancement
@@ -7,7 +7,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Search [existing issues](https://github.com/shenyankm/PractiQ/issues) and review the relevant product documents before proposing a feature. Describe the need before prescribing an implementation.
+        Search [existing issues](https://github.com/shenyankm/PractiQ/issues) and review the relevant AI documentation before proposing a feature. Describe the need before prescribing an implementation.
 
   - type: checkboxes
     id: preflight
@@ -24,10 +24,7 @@ body:
     attributes:
       label: Primary area
       options:
-        - Python product API (`backend/`)
         - Python AI service (`server/`)
-        - Web client (`web/`)
-        - PostgreSQL schema (`db/`)
         - Documentation
         - Build or development tooling
         - Cross-layer feature
@@ -54,13 +51,13 @@ body:
     id: proposal
     attributes:
       label: Proposed approach
-      description: Describe an implementation only if you have one. Keep product persistence and public API rules in `backend/`, and keep `server/` stateless and AI-only.
+      description: Describe an implementation only if you have one. Keep document import in `server/` and reuse existing graphs and extractors.
 
   - type: textarea
     id: impact
     attributes:
       label: Scope and impact
-      description: Note API, database, migration, security, privacy, configuration, deployment, offline, or WeChat platform implications.
+      description: Note API, storage, security, privacy, configuration, or deployment implications.
 
   - type: textarea
     id: alternatives

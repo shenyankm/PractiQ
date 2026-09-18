@@ -1,10 +1,12 @@
-# Agent Server provides native graph/run APIs as well as Java compatibility routes.
+# Agent Server provides native graph/run APIs and authenticated document upload/artifact routes.
 FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim AS lock
 WORKDIR /lock
 COPY server/pyproject.toml server/uv.lock ./
 RUN uv export --frozen --no-dev --no-emit-project --no-hashes -o requirements.txt
 
 FROM langchain/langgraph-api:3.14
+RUN apt-get update && apt-get install -y --no-install-recommends libreoffice-writer fonts-noto-cjk \
+    && rm -rf /var/lib/apt/lists/*
 COPY server /deps/server
 COPY --from=lock /lock/requirements.txt /deps/requirements.txt
 RUN PYTHONDONTWRITEBYTECODE=1 uv pip install --system --no-cache-dir -c /api/constraints.txt -r /deps/requirements.txt \

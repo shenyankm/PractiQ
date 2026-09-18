@@ -94,6 +94,9 @@ Fields: answerMode="true_false", answerPayload={"value":true}; group title="Scie
 questionIndexes=[0] when this is the fragment's first question.
 Source: "Fill in the blank: 2 + 2 = ____." with no printed answer.
 Fields: stem="2 + 2 = ____.", answerMode="fill_blank", answerPayload=null, analysis=null.
+Page markers are source positions, not question groups. A question may continue across
+consecutive pages. Never join content across an unavailable-page marker; preserve
+incomplete questions and mark missing fields instead.
 Return the supplied structured result. Extract existing answers; never invent them.
 """
 
@@ -210,6 +213,8 @@ async def _prepare(
             f"This graph accepts only: {', '.join(source_types)}",
             "DOCUMENT_SOURCE_TYPE_MISMATCH",
         )
+    if reference.sourceType in {"pdf", "docx"} and get_models()[1] is None:
+        raise DocumentProcessingError(409, "Configure a vision model to parse PDF or DOCX", "VISION_MODEL_REQUIRED")
     store = get_object_store()
     source = await store.get_verified(reference)
     document = await asyncio.to_thread(extract, reference.sourceType, source)
@@ -343,7 +348,7 @@ async def _vision(
             "index": state["index"],
             "artifact": state["artifact"],
             "textRef": None,
-            "visuals": [described.model_copy(update={"imageRef": ArtifactReference.model_validate(state["artifact"])}).model_dump(mode="json")],
+            "visuals": [described.model_copy(update={"imageRef": ArtifactReference.model_validate(state["artifact"]), "description": ("[embedded original] " + described.description)[:20_000]}).model_dump(mode="json")],
         }
     return {
         "visionResults": [value],
@@ -377,20 +382,27 @@ async def _assemble(state: DocumentState) -> dict[str, Any]:
         state.get("visionResults", []),
         key=lambda item: (item["kind"] != "page", item["index"]),
     )
-    references = [
-        item
-        for item in [
-            state.get("textRef"),
-            *(result.get("textRef") for result in results),
-        ]
-        if item is not None
-    ]
-
     async def get_text(item: dict[str, Any]) -> bytes:
         return await store.get_verified(ArtifactReference.model_validate(item))
 
-    texts = await _bounded_map(references, get_text)
-    text = "\n\n".join(item.decode("utf-8") for item in texts if item)
+    paged = state["document"]["sourceType"] in {"pdf", "docx"}
+    if paged:
+        pages = {item["index"]: item for item in results if item["kind"] == "page"}
+        if not any(item.get("textRef") for item in pages.values()):
+            raise DocumentProcessingError(502, "Pages produced no text", "VISION_OUTPUT_EMPTY")
+
+        async def page_text(index: int) -> str:
+            page = pages.get(index)
+            if page is None:
+                return f"[page {index + 1}: unavailable; do not join text across this gap]"
+            content = (await get_text(page["textRef"])).decode("utf-8") if page.get("textRef") else ""
+            return f"[page {index + 1}]\n{content}"
+
+        text = "\n\n".join(await _bounded_map(list(range(len(state.get("pageRefs", [])))), page_text))
+    else:
+        references = [item for item in [state.get("textRef"), *(result.get("textRef") for result in results)] if item is not None]
+        texts = await _bounded_map(references, get_text)
+        text = "\n\n".join(item.decode("utf-8") for item in texts if item)
     warnings = list(state.get("warnings", []))
     truncated = bool(state.get("truncated"))
     max_chars = load().max_total_input_chars
@@ -549,7 +561,7 @@ async def _crop_visuals(
     failures: list[UnitFailure] = []
     for index, artifact, failure in await _bounded_map(selected, crop):
         if artifact is not None:
-            visuals[index] = visuals[index].model_copy(update={"imageRef": artifact})
+            visuals[index] = visuals[index].model_copy(update={"imageRef": artifact, "description": ("[page crop] " + visuals[index].description)[:20_000] if reference.sourceType in {"pdf", "docx"} else visuals[index].description})
         if failure is not None:
             failures.append(failure)
     return visuals, failures, truncated

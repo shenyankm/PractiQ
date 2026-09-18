@@ -24,10 +24,7 @@ body:
     attributes:
       label: Affected area
       options:
-        - Python product API (`backend/`)
         - Python AI service (`server/`)
-        - Web client (`web/`)
-        - PostgreSQL schema (`db/`)
         - Documentation
         - Build or development tooling
         - Multiple areas

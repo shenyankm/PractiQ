@@ -1,4 +1,5 @@
 {
   "extraPaths": ["src"],
-  "include": ["src", "tests", "product_tests", "scripts"]
+  "include": ["src", "tests", "scripts"],
+  "pythonVersion": "3.14"
 }

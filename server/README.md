@@ -51,29 +51,26 @@ graph TD
 
 ## 核心边界
 
-- 原生 API 源文件经服务令牌鉴权的 PUT 接口写入本地目录；产品兼容入口将内联文件写入相同命名空间。解析前均校验大小和 SHA-256。
-- DOCX 仅通过确定性类型路由调用内部字节工具；正文由 `python-docx` 提取，复杂部件按需由 `docx2python` 补充。
-- PDF 页图和文档内嵌图片可并行识别；单个视觉或文本分片失败会保留明细并返回 `PARTIAL`。
+- 原生 API 源文件经服务令牌鉴权的 PUT 接口写入本地目录。解析前均校验大小和 SHA-256。
+- DOCX 通过内部字节工具校验文件，以 LibreOffice 转临时 PDF，再逐页渲染；同时直接提取内嵌原图。
+- PDF（含文字版）与 DOCX 的全部页面均以约 200 DPI 转图，必须配置视觉模型。逐页识别后按页序合并文字，再分片提题；失败页保留缺页标记。页内配图由模型提供边界框，Pillow 执行裁剪。DOCX 原图与页内裁剪图分别以描述前缀 `[embedded original]`、`[page crop]` 标注来源，不推测对应关系或自动绑定题目。页图和内嵌图片可并行识别；单个视觉或文本分片失败会保留明细并返回 `PARTIAL`。
 - Graph State 只保存对象引用和结构化结果，不保存文件 Base64。
 - 模型输出经过 Pydantic 校验；失败调用受统一重试与并发上限约束。
-- `product/` 保留产品后端调用的答案生成与学习报告接口；题库 CRUD、导入队列、持久化和重试由 `backend/` 中的 Python FastAPI 产品后端管理。单用户版不再计费。
 
 ## 快速开始
 
-本地使用 Miniconda 的 `langgragh` 环境（Python 3.14）；以下命令均先激活该环境。
+本地使用已有 Python 3.14+ 环境；以下命令中的 Python 与工具应来自同一环境。
 直接使用该环境中的命令，不运行会创建项目 `.venv` 的 `uv run` / `uv sync`。CI 仍使用 `uv.lock`。
 
 ```bash
 cd server  # from the PractiQ repository root
 test -f .env || cp .env.example .env
-source /home/sheny/miniconda3/etc/profile.d/conda.sh
-conda activate langgragh
-uv pip install --python "$CONDA_PREFIX/bin/python" -e ".[dev]"
-langgraph dev --no-browser --port 8090
-# Or from repository root: make server-dev (also loads root .env.local)
+uv pip install --python "$(command -v python)" -e ".[dev]"
+langgraph dev --no-browser --host 127.0.0.1 --port 8090
+# Or from repository root: make server-dev (loads server/.env)
 ```
 
-请求需携带 `Authorization: Bearer $AI_SERVICE_TOKEN`。文件先通过 `POST /api/uploads` 获取本服务的相对 PUT 路径（`upload.url`），使用相同服务令牌和返回的 Content-Type 上传原始二进制，再把返回的 `DocumentReference` 交给对应 Graph。原生 Graph 不接受内联文本、URL、Base64 或服务端本地路径。产品 `/api/v1/ai/parse-document` 兼容入口仍接受原来的内联 DTO，由 `product/document_parser.py` 转为本地文件引用，运行同一个 Graph。
+请求需携带 `Authorization: Bearer $AI_SERVICE_TOKEN`。文件先通过 `POST /api/uploads` 获取本服务的相对 PUT 路径（`upload.url`），使用相同服务令牌和返回的 Content-Type 上传原始二进制，再把返回的 `DocumentReference` 交给对应 Graph。原生 Graph 不接受内联文本、URL、Base64 或服务端本地路径。原产品 `/api/v1/ai/*` 接口已移除。
 
 例如，上传 PDF 后，向 `POST /threads/{thread_id}/runs` 提交以下请求；
 `input.document` 使用上传接口实际返回的引用（下面的占位值需替换）：
@@ -143,7 +140,7 @@ python -m dotenv -f .env run -- python scripts/load_test.py \
 ## 开发与质量检查
 
 ```bash
-python -m ruff check src tests product_tests scripts
+python -m ruff check src tests scripts
 python -m pyright
 python -m coverage run -m pytest
 python -m coverage report
@@ -153,16 +150,22 @@ uv build
 
 部署、监控、备份、压测和回滚说明见 [`docs/operations.md`](docs/operations.md)。
 
-## Monorepo integration
+## 素材读取
 
-See [migration/Java contract](docs/migration.md) for the preserved API, answer-key mapping, partial results, image access and billing behavior. This directory is self-contained: package, tests, fixtures, evals, historical reports, assets, scripts, graph configuration and lockfile all live here. Source repository deletion does not change imports or commands. Run `make test-server` at the repository root, or `python -m pytest` here in Conda.
-
-`POST /api/artifacts/read` accepts an `ArtifactReference` and returns checksum-verified bytes under service-token authentication. Keep this private. Java task results also retain bounded `imageBase64` previews and original `imageRef`; no client needs a service token to read its authorized task result. For local development, use the host Miniconda `langgragh` environment and `make server-dev`; root Compose contains only PostgreSQL and Redis, with no AI profile. This mode does not provide production PostgreSQL-backed task/checkpoint recovery. The root `Dockerfile.server` remains a standalone production reference; see `docs/operations.md` for its separate licensing and persistence requirements.
+`POST /api/artifacts/read` 接收 `ArtifactReference`，校验文件大小和 SHA-256 后返回原始字节，需携带服务令牌。Graph 输出保留文件引用，不返回 Base64 文件内容。
 
 ## 本地文件存储
 
-`AI_STORAGE_DIR` 默认 `.local/ai`，相对路径始终以仓库根目录解析，也支持绝对路径。
+`AI_STORAGE_DIR` 默认 `.local/ai`，相对路径始终以 `server/` 目录解析，也支持绝对路径。
 源文件存于 `practiq-agent/sources/`，派生文本与图片存于 `practiq-agent/artifacts/`；引用继续使用相对 `objectKey`，不会返回服务器绝对路径。
-上传地址不是预签名 URL，不含凭证、无需 `expiresAt`；PUT 必须携带服务令牌。浏览器仍只访问产品后端，不能获得此令牌。
-产品媒体目录 `MEDIA_DIR`（默认 `.local/media`）与 AI 存储分开。两处目录都需要持久保存并随数据库备份；容器部署请把 `AI_STORAGE_DIR` 设置为持久挂载的绝对路径。
+上传地址不是预签名 URL，不含凭证、无需 `expiresAt`；PUT 必须携带服务令牌。调用方应妥善保管服务令牌，不向公开客户端分发。
+AI 文件目录需要持久保存并与生产任务数据库配套备份；容器部署请把 `AI_STORAGE_DIR` 设置为持久挂载的绝对路径。
 不再需要 OSS SDK、bucket、endpoint 或访问密钥；旧云端对象未被读取、迁移或删除。已有 checkpoint 如引用云端文件，需要将对应对象保留原 `objectKey` 复制到此目录后才能恢复。
+
+## Word / PDF 全页视觉解析运行要求
+
+配置 `LLM_VISION_MODEL` 后才能解析 PDF 与 DOCX；缺失时返回 `VISION_MODEL_REQUIRED`，不会回退到纯文本。DOCX 另需 LibreOffice Writer 与中文字体（Linux 推荐 `fonts-noto-cjk`）；部署镜像已包含这两项。可通过 `AI_SOFFICE_PATH` 指定可执行文件，默认从 PATH 查找 `soffice`。转换缺失、失败、超时分别返回 `DOCX_CONVERTER_MISSING`、`DOCX_CONVERSION_FAILED`、`DOCX_CONVERSION_TIMEOUT`。
+
+每次转换使用独立临时目录和 LibreOffice 用户配置，60 秒超时后终止进程组并清理；临时 PDF 不持久保存，页图和配图进入现有素材存储。分页以服务器字体与 LibreOffice 渲染为准，可能与 Microsoft Word 不同。既有页数、像素、视觉总字节和裁剪上限仍适用；全页识别会增加模型调用成本与耗时。
+
+返回的 `page` 为零起始页索引；OCR 文本中的 `[page N]` 标记采用一开始的阅读页码。DOCX 原图无可靠位置时不填页码或坐标。自动化测试不调用真实模型；真实识别质量需另行验收。

@@ -1,17 +1,10 @@
 """Transport safeguards for the private AI service."""
 
-import logging
-import time
-import uuid
-
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse, Response
 
-from .support import get_upload_max_bytes
-
 DEFAULT_JSON_BODY_BYTES = 1 * 1024 * 1024
-AI_JSON_BODY_BYTES = 6 * get_upload_max_bytes() + DEFAULT_JSON_BODY_BYTES
 
 
 class _BodyTooLarge(Exception):
@@ -34,16 +27,12 @@ class JsonBodyLimitMiddleware:
         self.maximum = maximum
 
     async def __call__(self, scope, receive, send):
-        # Native Agent Server routes own their streaming/body protocol.
+        # Native runs and binary uploads own their streaming/body limits.
         if (scope['type'] != 'http' or scope['method'] not in {'POST', 'PUT', 'PATCH'}
-                or not scope['path'].startswith('/api/')):
+                or scope['path'].rstrip('/') not in {'/api/uploads', '/api/artifacts/read'}):
             await self.app(scope, receive, send)
             return
-        maximum = (
-            AI_JSON_BODY_BYTES
-            if scope['path'] in ('/api/v1/ai/parse-document', '/api/v1/ai/parse-document/')
-            else self.maximum
-        )
+        maximum = self.maximum
         try:
             headers = dict(scope['headers'])
             if int(headers.get(b'content-length', b'0')) > maximum:
@@ -85,25 +74,3 @@ class JsonBodyLimitMiddleware:
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         return apply_security_headers(await call_next(request))
-
-
-class RequestIDMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        request_id = request.headers.get('X-Request-ID', '')
-        if not request_id or len(request_id) > 128:
-            request_id = str(uuid.uuid4())
-        request.state.request_id = request_id
-        response = await call_next(request)
-        response.headers.update({'X-Request-ID': request_id})
-        return response
-
-
-class RequestLogMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        started = time.monotonic()
-        response = await call_next(request)
-        logging.getLogger('practiq.ai').info(
-            '%s %s %s %.3fs', request.method, request.url.path, response.status_code,
-            time.monotonic() - started,
-        )
-        return response

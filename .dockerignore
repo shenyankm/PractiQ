@@ -14,3 +14,4 @@ server/dist/
 server/**/__pycache__/
 server/**/*.pyc
 server/.coverage
+server/.local/
