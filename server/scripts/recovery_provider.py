@@ -18,7 +18,7 @@ from fastapi import FastAPI, Request
 from practiq_ai.contracts import ParsedQuestion
 
 
-def app_for(log: Path, invalid_responses: int = 0) -> FastAPI:
+def app_for(log: Path, invalid_responses: int = 0, delay: float = 0) -> FastAPI:
     if invalid_responses < 0:
         raise ValueError("invalid_responses must be nonnegative")
     app = FastAPI()
@@ -47,6 +47,7 @@ def app_for(log: Path, invalid_responses: int = 0) -> FastAPI:
                 result = {"invalid": True}
             await asyncio.to_thread(record, {"id": request_id, "schema": schema, "inputTokens": 10, "outputTokens": 5})
             call_count += 1
+        await asyncio.sleep(delay)
         return {"id": request_id, "object": "chat.completion", "created": 1, "model": body["model"],
                 "choices": [{"index": 0, "finish_reason": "tool_calls", "message": {"role": "assistant", "content": None,
                     "tool_calls": [{"id": "call_" + request_id, "type": "function", "function": {"name": schema, "arguments": json.dumps(result)}}]}}],
@@ -65,5 +66,8 @@ if __name__ == "__main__":
     parser.add_argument("--log", type=Path, required=True)
     parser.add_argument("--port", type=int, default=8091)
     parser.add_argument("--invalid-responses", type=int, default=0)
+    parser.add_argument("--delay", type=float, default=0, help="Hold synthetic calls open for capacity sampling")
     args = parser.parse_args()
-    uvicorn.run(app_for(args.log, args.invalid_responses), host="127.0.0.1", port=args.port)
+    if not 0 <= args.delay <= 180:
+        parser.error("delay must be between 0 and 180 seconds")
+    uvicorn.run(app_for(args.log, args.invalid_responses, args.delay), host="127.0.0.1", port=args.port)

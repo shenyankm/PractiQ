@@ -27,8 +27,8 @@ checkpoint 和持久队列，使用 `REDIS_URI` 处理流、取消与 pub/sub。
 | 变量 | 必填/默认 | 说明 |
 | --- | ---: | --- |
 | `AI_SERVICE_TOKEN` | 必填 | Agent Server 和自定义路由 Bearer token |
-| `LANGSMITH_API_KEY` | 必填 | Agent Server 授权 |
-| `LANGGRAPH_CLOUD_LICENSE_KEY` | 生产必填 | Standalone Server 许可证 |
+| `LANGSMITH_API_KEY` | 本地可留空 | `langgraph dev` 无需许可证；独立部署按官方授权方案配置 |
+| `LANGGRAPH_CLOUD_LICENSE_KEY` | 本地可留空 | Standalone Server 许可证；生产验收须先通过对应运行时的授权校验 |
 | `DATABASE_URI` | 生产必填 | PostgreSQL URI |
 | `REDIS_URI` | 生产必填 | Redis URI；每个部署使用独立 DB |
 | `LLM_PROVIDER` | 必填 | `dashscope`、`deepseek`、兼容 `moonshot` |
@@ -154,3 +154,106 @@ DOCX 全页渲染需要 LibreOffice Writer 与中文字体；`Dockerfile.server`
 任务期限固定为创建后 180 天；Store 调用记录、暂停记录和控制记录按剩余期限写入。查询不刷新 Store TTL，也不延长应用级恢复期限；过期返回 `TASK_EXPIRED`。原生 checkpoint TTL 扫描负责清理，文件不自动删除。
 
 先运行 `make test` 和 `make verify`。随后按 [任务说明中的生产故障演练](document-tasks.md#production-crash-drill) 在独立 PostgreSQL、Redis、持久文件卷及真实测试 OSS Bucket 执行。仅通过内存 checkpoint、假 OSS 或 `langgraph dev` 测试不能声明生产恢复保证。
+
+## 资源边界与本地验收
+
+本地运行使用 `make server-dev`，不需要 `LANGSMITH_API_KEY` 或
+`LANGGRAPH_CLOUD_LICENSE_KEY`，也不需要 PostgreSQL/Redis。独立生产镜像仍由
+官方运行时校验许可证；不要将 dev 的文件落盘等同于 PostgreSQL 生产恢复。
+隔离数据库演练配置为 `deploy/recovery.compose.yml`，使用独立 Compose project，
+端口只绑定 `127.0.0.1`；其中的测试口令只用于该隔离环境。不得连接生产数据库或
+复用生产卷。启动数据库：
+
+```sh
+docker compose -p practiq-review -f server/deploy/recovery.compose.yml up -d postgres redis
+```
+
+以下应用设置均在 `server/.env.example` 中列出：
+
+| 设置 | 默认 | 约束 |
+| --- | ---: | --- |
+| `AI_TASK_MAX_MODEL_CALLS` | 400 | 整个任务含补跑、暂停恢复和未知结果重放的调用槽预算 |
+| `AI_RUN_TIMEOUT_SECONDS` | 1800 | 每个 run 从执行阶段开始计时；新 run 可重新计时，任务预算不刷新 |
+| `AI_MODEL_MAX_INPUT_CHARS` | 64000 | 每次模型尝试的全部文本消息，含纠错上下文；不含图像 Base64 |
+| `AI_DEPLOYMENT_WORKERS` | 1 | 整个部署中实际调用同一 provider 的 worker 总数，含所有副本 |
+| `AI_PROVIDER_CONCURRENCY` | 16 | 部署分配到的 provider 并发预算 |
+| `AI_PROVIDER_RPM` | 120 | 部署分配到的每分钟请求预算 |
+| `AI_UPLOAD_CONCURRENCY` | 4 | 每个进程的同时上传处理上限；超出返回 429 |
+| `AI_MAX_BUSY_THREADS` | 300 | 原生 busy thread 接单水位；超出返回 503 |
+| `AI_MAINTENANCE_MODE` | false | 排空维护：禁止上传、新 run、原生状态/Store 写入，保留查询和取消 |
+
+任务 gate 在并发派发前为每个单元/补跑轮次预留最多 4 个槽，真实尝试前在 Store
+写入消耗。未用槽、失败写入和未知调用不返还，故 400 是上限，可能在少于 400 次
+实际调用时停止；查询响应的 `modelBudget.reserved` 不是实际调用次数。此保守策略
+避免新增全局计数器的并发事务。单元唯一写者依赖原生 thread 排他运行；原生调用须用
+`multitask_strategy=reject`，不可绕过任务控制更改内部状态或预算。
+
+文本分片目标 30,000 字符，硬上限 40,000 字符；不可安全保留题目边界的超长题返回
+`DOCUMENT_CHUNK_TOO_LARGE`。每次模型输入独立检查，超限为 `MODEL_INPUT_TOO_LARGE`。
+任务预算耗尽为 `MODEL_BUDGET_EXCEEDED`，不允许补跑；已有成功单元保留为 PARTIAL，
+全部失败按既有失败语义处理。run 截止为 `RUN_DEADLINE_EXCEEDED`。
+
+provider 配额按 worker 数向下取整静态分配；并发有 semaphore，RPM 用进程内滚动
+60 秒窗口。另有 `N_JOBS_PER_WORKER × AI_GRAPH_MAX_CONCURRENCY × AI_DEPLOYMENT_WORKERS`
+配置检查。不能让部署外的服务再使用同一份配额；滚动发布重叠实例也必须计入总数。
+RPM 窗口不跨重启保留；严格的跨重启账户级限额应由已有 provider 网关承担。
+队列水位检查不是原子队列容量，并发接单可能超调，须同时使用 `deploy/nginx.conf`
+的入口速率、连接数、请求体和超时限制。禁止公开绕开网关的后端端口；原生 batch
+和 cron 提交也被拦截，不引入另一套队列。
+
+PDFium 全部调用（PDF、DOCX 转 PDF、页计数、渲染、释放）共用进程内互斥。
+取消 `to_thread` 的等待不等于终止底层线程；锁在底层调用结束时释放。若实测需要
+硬 CPU/内存隔离，再把渲染迁移到可终止的有界子进程。
+
+容量脚本默认压测 `/api/document-tasks`；`--api native` 覆盖原生入口；
+`--allow-rejections` 用于过载演练，接受 429/503 但必须存在成功任务，PARTIAL 不算成功。
+`--environment standalone --image-digest sha256:...` 才标为生产独立运行时证据。
+报告区分配置模型并发与采样的实际 provider 槽数；200 ms 采样可能遗漏瞬间峰值，
+`observedQueueWaitP95Seconds` 是轮询观察到的上界，不是原生精确排队时间。
+本地 dev worker 数可能不同于生产配置，报告同时记录观察到的 worker 上限。
+
+## 业务指标与安全日志
+
+鉴权后的 `/api/metrics` 使用 Prometheus 文本格式，与原生 `/metrics` 分开采集。
+`practiq_stage_seconds` 覆盖 prepare（含转换）、vision/chunk、model（含等待）、merge 等阶段；
+`practiq_provider_inflight` 是进程内占用槽数；`practiq_model_calls_total` 区分 known、unknown
+和 rejected；`practiq_document_results_total` 区分 SUCCEEDED/PARTIAL 及质量审核标记；
+`practiq_failures_total` 按固定错误码计数。多个进程分别抓取再聚合，不能只采负载均衡地址。
+重放可能重复计数，这些指标用于运维趋势，账单核验以持久调用记录和 provider 账单为准。
+
+`practiq.events` 日志仅写阶段、单元、thread/run/call 标识、耗时和错误码；不写文档正文、
+模型原始输出、原图或密钥。调用记录新增 `startedAt`、`finishedAt`、`durationMs`；进程在
+响应前消失时保留 started/unknown，不伪造完成时间或零消耗。进程硬退出也可能丢失最后
+一次指标增量，应同时核对任务查询的 `unknownUsageCalls`。
+
+`deploy/alerts.rules.yml` 给出 PARTIAL、unknown、预算/截止、校验和、队列和模型延迟告警。
+`deploy/alerts.test.yml` 可用 `promtool test rules` 验证告警实际触发。
+`SUCCEEDED` 不代表题目完整；调用方必须检查 `processing.quality.reviewRequired` 和
+`missingFields`，将无原文答案作为草稿。`failurePolicy=review` 仍仅处理执行失败，
+不擅自改变为语义质量阻断。
+
+## 引用感知文件盘点与可恢复清理
+
+默认只盘点：在服务相同的配置/挂载下运行（shell 预先加载配置，不向日志打印密钥）：
+
+```sh
+python scripts/storage_gc.py --base-url http://127.0.0.1:8090 --output /tmp/storage-inventory.json
+```
+
+默认保留至少 187 天（任务 180 天加 7 天余量）。脚本遍历全部 thread 的历史 checkpoint
+以及 document_tasks Store，任一 source hash 仍被引用时保留该源文件及其全部素材。
+任一 API/存储盘点失败直接停止，不能把失败当作零引用。
+
+需要清理时，在所有副本设 `AI_MAINTENANCE_MODE=true` 并排空原有任务，同时停止直写同一
+目录/Bucket 的其他程序。运行相同命令加 `--quarantine` 和新的清单路径；脚本检查维护状态
+及无 busy thread、重读引用和对象元数据，并先持久化恢复清单再移动文件。
+只有在确认所有副本/外部写者停写后才可执行，单个 HTTP 端点无法替运维证明全局停写。
+
+local 移入同一根目录的 `.quarantine/<runId>/<objectKey>`，不永久删除；恢复时按清单将
+文件移回原 key，并通过正常 checksum API 复核。OSS 分支仅允许已启用版本控制的 Bucket，
+不传 version_id 的删除形成可恢复 delete marker；恢复由运维删除对应 marker。
+任一中断留下 `completed=false` 清单，核对已移动对象后恢复，不盲目重跑。此次没有执行
+真实 OSS 清理或验收。符号链接目录、对象变化、未启用 OSS 版本控制均拒绝清理。
+
+基础镜像已按 digest 固定；`uv.lock` 随 wheel 打包，并纳入执行指纹，运行时依赖版本和
+Python 补丁版本也参与恢复兼容校验。旧任务须在原候选镜像完成/恢复，不迁移旧状态。

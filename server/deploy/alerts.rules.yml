@@ -1,0 +1,30 @@
+groups:
+  - name: practiq
+    rules:
+      - alert: PractiQPartialResults
+        expr: sum(rate(practiq_document_results_total{status="PARTIAL"}[5m])) / clamp_min(sum(rate(practiq_document_results_total[5m])), 0.001) > 0.02
+        for: 5m
+        labels: {severity: warning}
+        annotations: {summary: "Document partial-result ratio exceeds 2%"}
+      - alert: PractiQUnknownUsage
+        expr: sum(increase(practiq_model_calls_total{outcome="unknown"}[5m])) > 0
+        labels: {severity: warning}
+        annotations: {summary: "Provider usage is unknown; inspect durable call records"}
+      - alert: PractiQBudgetOrDeadline
+        expr: sum(increase(practiq_failures_total{code=~"MODEL_BUDGET_EXCEEDED|RUN_DEADLINE_EXCEEDED|OUTPUT_STALLED"}[5m])) > 0
+        labels: {severity: warning}
+        annotations: {summary: "Document execution reached a bounded stop"}
+      - alert: PractiQChecksumMismatch
+        expr: sum(increase(practiq_failures_total{code="DOCUMENT_CHECKSUM_MISMATCH"}[5m])) > 0
+        labels: {severity: critical}
+        annotations: {summary: "Document integrity verification failed"}
+      - alert: PractiQQueueBacklog
+        expr: sum(lg_api_num_pending_runs) >= 300
+        for: 5m
+        labels: {severity: warning}
+        annotations: {summary: "Document queue remains at admission capacity"}
+      - alert: PractiQModelLatency
+        expr: histogram_quantile(0.95, sum by (le) (rate(practiq_stage_seconds_bucket{stage="model"}[5m]))) > 180
+        for: 5m
+        labels: {severity: warning}
+        annotations: {summary: "Model-stage P95 exceeds 180 seconds"}

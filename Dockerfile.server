@@ -1,10 +1,10 @@
 # Agent Server provides native graph/run APIs and authenticated document upload/artifact routes.
-FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim AS lock
+FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim@sha256:7cf77f594be8042dab6daa9fe326f90962252268b4f120a7f5dccce4d947e6c1 AS lock
 WORKDIR /lock
 COPY server/pyproject.toml server/uv.lock ./
 RUN uv export --frozen --no-dev --no-emit-project --no-hashes -o requirements.txt
 
-FROM langchain/langgraph-api:3.14
+FROM langchain/langgraph-api:3.14@sha256:647a0a639deabf60a6ab3a73b6f306cd96ddbd9815643d123a60c0f42c3ed905
 RUN apt-get update && apt-get install -y --no-install-recommends libreoffice-writer fonts-noto-cjk \
     && rm -rf /var/lib/apt/lists/*
 COPY server /deps/server

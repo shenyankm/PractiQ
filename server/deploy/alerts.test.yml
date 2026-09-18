@@ -1,0 +1,20 @@
+rule_files: [alerts.rules.yml]
+evaluation_interval: 1m
+tests:
+  - interval: 1m
+    input_series:
+      - series: 'practiq_model_calls_total{kind="document_parse",outcome="unknown"}'
+        values: '0 1 1 1'
+      - series: 'practiq_failures_total{code="DOCUMENT_CHECKSUM_MISMATCH"}'
+        values: '0 1 1 1'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: PractiQUnknownUsage
+        exp_alerts:
+          - exp_labels: {severity: warning}
+            exp_annotations: {summary: "Provider usage is unknown; inspect durable call records"}
+      - eval_time: 2m
+        alertname: PractiQChecksumMismatch
+        exp_alerts:
+          - exp_labels: {severity: critical}
+            exp_annotations: {summary: "Document integrity verification failed"}
