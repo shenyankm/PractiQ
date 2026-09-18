@@ -1,0 +1,10 @@
+1. What label belongs to sample one?
+
+2. What label belongs to sample two?
+
+3. What label belongs to sample three?
+
+Answer key:
+1. amber
+2. teal
+3. violet

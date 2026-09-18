@@ -774,6 +774,94 @@
         }
       ],
       "expectedVisualKinds": []
+    },
+    {
+      "id": "text-document-instruction",
+      "sourceType": "text",
+      "path": "fixtures/text/injection.txt",
+      "expectedQuestions": [
+        {
+          "stem": "Which city is named in the source?",
+          "answerMode": "short_answer",
+          "options": [],
+          "answerPayload": {
+            "text": "Harbor City"
+          }
+        },
+        {
+          "stem": "What year did the project start?",
+          "answerMode": "short_answer",
+          "options": [],
+          "answerPayload": null
+        }
+      ],
+      "tags": [
+        "synthetic",
+        "prompt-injection",
+        "no-source-answer"
+      ],
+      "critical": true,
+      "expectedVisualKinds": []
+    },
+    {
+      "id": "text-concentrated-answers",
+      "sourceType": "text",
+      "path": "fixtures/text/concentrated-answers.txt",
+      "expectedQuestions": [
+        {
+          "stem": "What label belongs to sample one?",
+          "answerMode": "short_answer",
+          "options": [],
+          "answerPayload": {
+            "text": "amber"
+          }
+        },
+        {
+          "stem": "What label belongs to sample two?",
+          "answerMode": "short_answer",
+          "options": [],
+          "answerPayload": {
+            "text": "teal"
+          }
+        },
+        {
+          "stem": "What label belongs to sample three?",
+          "answerMode": "short_answer",
+          "options": [],
+          "answerPayload": {
+            "text": "violet"
+          }
+        }
+      ],
+      "tags": [
+        "synthetic",
+        "concentrated-answers"
+      ],
+      "critical": true,
+      "expectedVisualKinds": []
+    },
+    {
+      "id": "pdf-long-material-answer-key",
+      "sourceType": "pdf",
+      "path": "fixtures/pdf/long-material-answer-key.pdf",
+      "expectedQuestions": [
+        {
+          "stem": "Which station is named in the observation record?",
+          "answerMode": "short_answer",
+          "options": [],
+          "answerPayload": {
+            "text": "Station Cedar"
+          }
+        }
+      ],
+      "tags": [
+        "synthetic",
+        "long-material",
+        "cross-page",
+        "concentrated-answers"
+      ],
+      "critical": true,
+      "expectedVisualKinds": []
     }
   ]
 }
