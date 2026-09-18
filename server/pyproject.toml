@@ -4,6 +4,7 @@ version = "0.3.0"
 description = "PractiQ internal AI document-processing service"
 requires-python = ">=3.14"
 dependencies = [
+  "alibabacloud-oss-v2==1.4.0",
   "fastapi==0.139.0",
   "pydantic==2.13.4",
   "pypdfium2==5.12.1",

@@ -110,3 +110,31 @@ def test_storage_paths_are_independent_of_working_directory(tmp_path, monkeypatc
     assert config.load().storage_dir == expected
     monkeypatch.setenv("AI_STORAGE_DIR", str(tmp_path / "files"))
     assert config.load().storage_dir == tmp_path / "files"
+
+
+def test_oss_configuration(monkeypatch):
+    _env(monkeypatch)
+    assert config.load().storage_backend == 'local'
+    values = {'AI_STORAGE_BACKEND': 'oss', 'AI_OSS_BUCKET': 'test-bucket',
+              'AI_OSS_REGION': 'cn-hangzhou', 'AI_OSS_ACCESS_KEY_ID': 'private-id',
+              'AI_OSS_ACCESS_KEY_SECRET': 'private-secret', 'AI_OSS_SECURITY_TOKEN': 'private-token',
+              'AI_OSS_ENDPOINT': 'https://files.example.com', 'AI_OSS_USE_CNAME': 'true'}
+    for key, value in values.items():
+        monkeypatch.setenv(key, value)
+    cfg = config.load()
+    assert cfg.oss_bucket == 'test-bucket' and cfg.oss_use_cname
+    assert cfg.oss_security_token == 'private-token'
+    assert 'private-' not in repr(cfg)
+    for key in ('AI_OSS_BUCKET', 'AI_OSS_REGION', 'AI_OSS_ACCESS_KEY_ID', 'AI_OSS_ACCESS_KEY_SECRET'):
+        monkeypatch.delenv(key)
+        with pytest.raises(ValueError, match=key):
+            config.load()
+        monkeypatch.setenv(key, values[key])
+    for key, value in [('AI_STORAGE_BACKEND','invalid'), ('AI_OSS_BUCKET','../bad'),
+                       ('AI_OSS_REGION','https://bad'), ('AI_OSS_ENDPOINT','http://host'),
+                       ('AI_OSS_ENDPOINT','https://user:password@host/path'),
+                       ('AI_OSS_USE_CNAME','yes'), ('AI_OSS_ENDPOINT','')]:
+        monkeypatch.setenv(key, value)
+        with pytest.raises(ValueError):
+            config.load()
+        monkeypatch.setenv(key, values[key])
