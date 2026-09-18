@@ -188,3 +188,23 @@ async def test_transient_error_does_not_trigger_output_stall(monkeypatch):
     result, usage, failure = await llm.structured_call(model, [HumanMessage(content='source')], Result, 'test')
     assert result == Result(value=2) and failure is None
     assert len(model.calls) == 4 and len(usage) == 3
+
+
+def test_model_schema_requires_presence_without_inventing_missing_values():
+    from langchain_core.utils.function_calling import convert_to_openai_tool
+
+    from practiq_ai.contracts import ParsedQuestion
+    from practiq_ai.graphs.document import PageParseResult
+
+    wire = convert_to_openai_tool(llm._model_schema(PageParseResult))
+    parameters = wire['function']['parameters']
+    question = parameters['$defs']['ParsedQuestion']
+    assert set(question['required']) == set(ParsedQuestion.model_fields)
+    assert set(parameters['required']) == {'questions', 'groups', 'figures'}
+    assert 'kind' in parameters['$defs']['PageFigure']['required']
+    assert {"type": "null"} in question['properties']['answerMode']['anyOf']
+    assert {"type": "null"} in question['properties']['answerPayload']['anyOf']
+    # The public draft contract remains permissive about absent values.
+    draft = ParsedQuestion.model_validate({'stem': 'An unanswered question'})
+    assert draft.answerMode is None and draft.answerPayload is None and draft.options == []
+    assert 'answerMode' in draft.missingFields

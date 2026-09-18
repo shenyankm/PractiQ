@@ -4,10 +4,12 @@ import asyncio
 import hashlib
 import json
 import math
+import sys
 from contextvars import ContextVar
 from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
 from functools import lru_cache
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
 
@@ -17,11 +19,13 @@ from langgraph.types import interrupt
 from .config import load
 from .errors import DocumentProcessingError
 
-STATE_VERSION = 1
+STATE_VERSION = 2
 TTL_MINUTES = 259_200
 RECURSION_LIMIT = 10_000
 CURRENT_EXECUTION: ContextVar[dict[str, Any] | None] = ContextVar("execution", default=None)
 CURRENT_ARTIFACT: ContextVar[dict[str, Any] | None] = ContextVar("artifact", default=None)
+CURRENT_UNIT: ContextVar[str | None] = ContextVar("unit", default=None)
+CURRENT_ALLOWANCE: ContextVar[int] = ContextVar("allowance", default=0)
 
 
 def fingerprint(value: Any) -> str:
@@ -31,10 +35,23 @@ def fingerprint(value: Any) -> str:
 @lru_cache(maxsize=1)
 def code_version() -> str:
     root = Path(__file__).parent
-    paths = [root / name for name in ("contracts.py", "llm.py", "execution.py", "config.py", "storage.py", "json_repair.py")]
+    paths = [root / name for name in ("contracts.py", "llm.py", "execution.py", "config.py", "storage.py", "json_repair.py", "capacity.py", "telemetry.py")]
     paths.extend(sorted((root / "graphs").glob("*.py")))
     paths.extend(sorted((root / "extractors").glob("*.py")))
+    bundled_lock = root / "uv.lock"
+    paths.append(bundled_lock if bundled_lock.exists() else root.parents[1] / "uv.lock")
     return hashlib.sha256(b"".join(path.read_bytes() for path in paths)).hexdigest()
+
+
+@lru_cache(maxsize=1)
+def runtime_version() -> dict[str, Any]:
+    packages = {}
+    for name in ("langgraph", "langgraph-api", "langchain-core", "langchain-openai", "pydantic", "pypdfium2", "pillow", "openpyxl", "alibabacloud-oss-v2"):
+        try:
+            packages[name] = version(name)
+        except PackageNotFoundError:
+            packages[name] = None
+    return {"python": list(sys.version_info[:3]), "packages": packages}
 
 
 def signature() -> dict[str, Any]:
@@ -42,10 +59,10 @@ def signature() -> dict[str, Any]:
     for key in ("api_key", "oss_access_key_id", "oss_access_key_secret", "oss_security_token"):
         settings.pop(key)
     # Concurrency and timeouts can change without changing document semantics.
-    for key in ("graph_max_concurrency", "storage_concurrency", "storage_timeout_seconds", "model_timeout_seconds"):
+    for key in ("graph_max_concurrency", "storage_concurrency", "storage_timeout_seconds", "model_timeout_seconds", "deployment_workers", "provider_concurrency", "provider_rpm", "upload_concurrency", "max_busy_threads", "maintenance"):
         settings.pop(key)
     settings["storage_dir"] = str(settings["storage_dir"])
-    return {"version": STATE_VERSION, "code": code_version(), "settings": settings}
+    return {"version": STATE_VERSION, "code": code_version(), "runtime": runtime_version(), "settings": settings}
 
 
 def new_execution() -> dict[str, Any]:
@@ -76,7 +93,50 @@ async def store_put(runtime: Runtime[Any], kind: str, key: str, value: dict[str,
     execution = CURRENT_EXECUTION.get()
     try:
         await runtime.store.aput(namespace(info.thread_id, kind), key, dict(value), index=False,
-                                 ttl=remaining_ttl(execution) if execution else TTL_MINUTES)
+                                 ttl=(remaining_ttl(execution) if execution else TTL_MINUTES) if runtime.store.supports_ttl else None)
+    except DocumentProcessingError:
+        raise
+    except Exception as exc:
+        raise DocumentProcessingError(503, "Execution store is unavailable", "EXECUTION_STORE_UNAVAILABLE") from exc
+
+
+async def reserve_model_call(runtime: Runtime[Any] | None) -> None:
+    """Spend a preallocated unit slot before I/O, including unknown/replayed calls.
+
+    A unit has exactly one sequential writer under native per-thread run exclusion;
+    concurrent units have different keys. No Store read/modify/write global counter.
+    """
+    unit = CURRENT_UNIT.get()
+    if unit is None:
+        return  # Standalone model helper, outside a document task.
+    if runtime is None or runtime.store is None or runtime.execution_info is None or runtime.execution_info.thread_id is None:
+        raise DocumentProcessingError(503, "Document budgets require a Store", "EXECUTION_STORE_REQUIRED")
+    try:
+        previous = await runtime.store.aget(namespace(runtime.execution_info.thread_id, "budget"), unit, refresh_ttl=False)
+        spent = previous.value["spent"] if previous else 0
+        if spent >= CURRENT_ALLOWANCE.get():
+            raise DocumentProcessingError(429, "Document model-call budget exhausted", "MODEL_BUDGET_EXCEEDED")
+        await store_put(runtime, "budget", unit, {"spent": spent + 1})
+    except DocumentProcessingError:
+        raise
+    except Exception as exc:
+        raise DocumentProcessingError(503, "Execution store is unavailable", "EXECUTION_STORE_UNAVAILABLE") from exc
+
+
+async def run_remaining(runtime: Runtime[Any]) -> float:
+    """A resumed run gets a new deadline; the task's call budget never resets."""
+    info = runtime.execution_info
+    if runtime.store is None or info is None or info.thread_id is None or info.run_id is None:
+        raise DocumentProcessingError(503, "Document deadlines require a Store and run ID", "EXECUTION_STORE_REQUIRED")
+    try:
+        item = await runtime.store.aget(namespace(info.thread_id, "deadlines"), str(info.run_id), refresh_ttl=False)
+        deadline = item.value["at"] if item else (datetime.now(UTC) + timedelta(seconds=load().run_timeout_seconds)).isoformat()
+        if item is None:
+            await store_put(runtime, "deadlines", str(info.run_id), {"at": deadline})
+        remaining = (datetime.fromisoformat(deadline) - datetime.now(UTC)).total_seconds()
+        if remaining <= 0:
+            raise DocumentProcessingError(504, "Run execution deadline exceeded", "RUN_DEADLINE_EXCEEDED")
+        return remaining
     except DocumentProcessingError:
         raise
     except Exception as exc:

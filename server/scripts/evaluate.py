@@ -20,6 +20,7 @@ from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.outputs import LLMResult
 from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.store.memory import InMemoryStore
 from openai import APIError
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -65,6 +66,8 @@ SETTING_NAMES = (
     "source_max_bytes", "vision_max_bytes", "max_document_pages", "max_vision_page_pixels",
     "max_total_input_chars", "graph_max_concurrency", "storage_concurrency",
     "storage_timeout_seconds", "model_timeout_seconds", "model_max_tokens",
+    "task_max_model_calls", "run_timeout_seconds", "model_max_input_chars",
+    "provider_concurrency", "provider_rpm", "deployment_workers", "structured_output_method",
 )
 
 
@@ -438,7 +441,7 @@ async def run_evaluation(manifest_path: Path, repetitions: int = 1, case_ids: li
     report["models"] = {"provider": config.provider, "vision": config.vision_model}
     report["settings"] = {name: getattr(config, name) for name in SETTING_NAMES}
     report["promptHash"] = _digest([SYSTEM_PROMPT, DESCRIBE_PROMPT])
-    graph = build_document_graph(InMemorySaver())
+    graph = build_document_graph(InMemorySaver(), store=InMemoryStore())
     for repetition in range(1, repetitions + 1):
         for case in cases:
             observer = EvaluationUsage()

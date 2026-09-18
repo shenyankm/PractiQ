@@ -1,8 +1,8 @@
 import hashlib
 import json
-import shutil
 import socket
 import subprocess
+import sys
 import tempfile
 import time
 from pathlib import Path
@@ -40,8 +40,6 @@ def test_agent_server_mounts_auth_routes_and_graphs() -> None:
     }
     config["auth"]["path"] = f"{ROOT}/src/practiq_ai/auth.py:auth"
     config["http"]["app"] = f"{ROOT}/src/practiq_ai/webapp.py:app"
-    executable = shutil.which("langgraph")
-    assert executable is not None
     port = _free_port()
     headers = {"Authorization": "Bearer blackbox-token"}
 
@@ -68,7 +66,7 @@ def test_agent_server_mounts_auth_routes_and_graphs() -> None:
         config_file.flush()
         process = subprocess.Popen(
             [
-                executable,
+                sys.executable, "-m", "langgraph_cli",
                 "dev",
                 "--no-browser",
                 "--no-reload",

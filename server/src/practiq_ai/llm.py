@@ -1,11 +1,14 @@
 """Model construction, bounded calls, structured output, and usage accounting."""
 
 import asyncio
+import json
 import logging
 import random
+import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
+from datetime import UTC, datetime
 from functools import lru_cache
 from typing import Any, cast
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
@@ -18,16 +21,26 @@ from langchain_core.messages import (
     messages_to_dict,
 )
 from langchain_core.runnables import RunnableLambda
+from langchain_core.utils.function_calling import convert_to_openai_tool
 from langchain_openai import ChatOpenAI
 from langgraph.func import task
 from langgraph.runtime import Runtime
 from openai import APIConnectionError, APIStatusError, APITimeoutError, RateLimitError
 from pydantic import BaseModel, ValidationError
 
+from . import telemetry
+from .capacity import provider_slot
 from .config import load
 from .contracts import ModelCallUsage
 from .errors import DocumentProcessingError
-from .execution import CURRENT_ARTIFACT, fingerprint, guard, store_put
+from .execution import (
+    CURRENT_ARTIFACT,
+    CURRENT_UNIT,
+    fingerprint,
+    guard,
+    reserve_model_call,
+    store_put,
+)
 from .json_repair import repair_json
 
 BASE_URLS = {
@@ -85,6 +98,28 @@ def build_model(
     )
 
 
+def _model_schema(schema: type[BaseModel]) -> dict[str, Any]:
+    value = schema.model_json_schema()
+
+    def visit(node: Any) -> None:
+        if isinstance(node, dict):
+            properties = node.get("properties", {})
+            if ({"answerMode", "sourceText"} <= properties.keys()
+                    or {"questions", "groups"} <= properties.keys()
+                    or {"bbox", "description", "kind"} <= properties.keys()):
+                # Require field presence on the wire; values remain nullable and
+                # local validation still accepts incomplete drafts without retries.
+                node["required"] = list(properties)
+            for child in node.values():
+                visit(child)
+        elif isinstance(node, list):
+            for child in node:
+                visit(child)
+
+    visit(value)
+    return value
+
+
 def structured_output(model: BaseChatModel, schema: type[BaseModel]):
     # Only documented model families use the provider's constrained JSON decoder.
     families = (
@@ -113,7 +148,7 @@ def structured_output(model: BaseChatModel, schema: type[BaseModel]):
             "json_schema": {
                 "name": schema.__name__,
                 "strict": True,
-                "schema": schema.model_json_schema(),
+                "schema": _model_schema(schema),
             },
         }
         return model.bind(
@@ -129,7 +164,8 @@ def structured_output(model: BaseChatModel, schema: type[BaseModel]):
             }
         )
     return model.with_structured_output(
-        schema, method="function_calling", include_raw=True
+        convert_to_openai_tool(_model_schema(schema)) if isinstance(model, ChatOpenAI) else schema,
+        method="function_calling", include_raw=True
     )
 
 
@@ -323,14 +359,29 @@ async def structured_call[ResultT: BaseModel](
             "attempt": attempt,
             "runId": runtime.execution_info.run_id if runtime and runtime.execution_info else None,
             "artifact": artifact,
+            "startedAt": datetime.now(UTC).isoformat(),
         }
-        if runtime:
-            await store_put(runtime, "calls", str(call_key), record)
+        started = time.monotonic()
+        outcome = "unknown"
+        error_code = None
+        provider_started = False
         try:
-            parsed, corrected, call_usage = await structured_attempt(
-                model, messages, schema, call_kind, runtime=runtime,
-                logical_attempt=attempt, call_key=call_key, call_record=record,
-            )
+            chars = sum(len(message.content) if isinstance(message.content, str) else sum(len(str(part.get("text", ""))) if isinstance(part, dict) else len(str(part)) for part in message.content) for message in messages)
+            chars += sum(len(json.dumps(message.additional_kwargs, default=str)) for message in messages)
+            if chars > load().model_max_input_chars:
+                outcome = "rejected"
+                error_code = "MODEL_INPUT_TOO_LARGE"
+                return {"error": {"status": 413, "code": "MODEL_INPUT_TOO_LARGE", "detail": "Model text input exceeds the configured limit"}}
+            await reserve_model_call(runtime)
+            async with provider_slot():
+                if runtime:
+                    await store_put(runtime, "calls", str(call_key), record)
+                provider_started = True
+                parsed, corrected, call_usage = await structured_attempt(
+                    model, messages, schema, call_kind, runtime=runtime,
+                    logical_attempt=attempt, call_key=call_key, call_record=record,
+                )
+            outcome = "known"
         except Exception as exc:
             if isinstance(exc, DocumentProcessingError):
                 if runtime is None:
@@ -340,11 +391,28 @@ async def structured_call[ResultT: BaseModel](
                 error = {"status": 502, "code": "AI_PROVIDER_UNAVAILABLE", "detail": "AI provider request failed"}
             else:
                 error = {"status": 502, "code": "AI_PROVIDER_ERROR", "detail": "AI provider request failed"}
-            record.update(status="failed", error=error["code"])
-            if runtime:
+            error_code = error["code"]
+            if not provider_started:
+                outcome = "rejected"
+            if error["code"] == "MODEL_BUDGET_EXCEEDED":
+                outcome = "rejected"
+                return {"error": error}
+            record.update(status="failed", error=error["code"], finishedAt=datetime.now(UTC).isoformat(), durationMs=round((time.monotonic() - started) * 1000, 3))
+            if runtime and error["code"] != "EXECUTION_STORE_UNAVAILABLE":
                 await store_put(runtime, "calls", str(call_key), record)
             return {"error": error}
-        record.update(call_usage.model_dump(mode="json"), status="completed", usageStatus="known")
+        finally:
+            elapsed = time.monotonic() - started
+            if not provider_started and outcome == "unknown":
+                outcome = "rejected"
+            telemetry.calls.labels(call_kind, outcome).inc()
+            telemetry.duration.labels("model", outcome).observe(elapsed)
+            telemetry.event("model_call", callKey=str(call_key), kind=call_kind, outcome=outcome,
+                            runId=record["runId"], errorCode=error_code,
+                            threadId=runtime.execution_info.thread_id if runtime and runtime.execution_info else None,
+                            unitKey=CURRENT_UNIT.get(), durationMs=round(elapsed * 1000, 3))
+        record.update(call_usage.model_dump(mode="json"), status="completed", usageStatus="known",
+                      finishedAt=datetime.now(UTC).isoformat(), durationMs=round((time.monotonic() - started) * 1000, 3))
         if runtime:
             await store_put(runtime, "calls", str(call_key), record)
         return {
@@ -362,6 +430,8 @@ async def structured_call[ResultT: BaseModel](
                        if runtime and runtime.execution_info else attempt_call(attempt, None))
         if error := saved.get("error"):
             previous_failure = None
+            if error["code"] in {"MODEL_BUDGET_EXCEEDED", "MODEL_INPUT_TOO_LARGE"}:
+                return None, usage, error["code"]
             if error["code"] != "AI_PROVIDER_UNAVAILABLE":
                 raise DocumentProcessingError(error["status"], error["detail"], error["code"], usage)
             failure_code = "AI_PROVIDER_UNAVAILABLE"

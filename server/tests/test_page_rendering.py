@@ -16,7 +16,7 @@ from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.extractors import ExtractedDocument, docx, extract, pdf
 from practiq_ai.graphs import document
 from tests.test_documents import make_blank_pdf
-from tests.test_workflows import FakeModel, make_image, question, source
+from tests.test_workflows import FakeModel, local_graph, make_image, question, source
 
 
 def paged_source(kind):
@@ -40,7 +40,7 @@ def test_missing_vision_fails_before_read_or_render(monkeypatch, kind):
     )
     monkeypatch.setattr(document, "extract", lambda *_: pytest.fail("must not render"))
     with pytest.raises(DocumentProcessingError) as error:
-        asyncio.run(document.graph.ainvoke({"document": reference}))
+        asyncio.run(local_graph().ainvoke({"document": reference}))
     assert error.value.code == "VISION_MODEL_REQUIRED"
 
 
@@ -72,10 +72,10 @@ def test_page_order_gaps_and_crops(monkeypatch, kind, failed):
     monkeypatch.setattr(document, "structured_call", page_call)
     if len(failed) == 3:
         with pytest.raises(DocumentProcessingError) as error:
-            asyncio.run(document.graph.ainvoke({"document": reference}))
+            asyncio.run(local_graph().ainvoke({"document": reference}))
         assert error.value.code == "DOCUMENT_PARSE_FAILED"
         return
-    result = asyncio.run(document.graph.ainvoke({"document": reference}))
+    result = asyncio.run(local_graph().ainvoke({"document": reference}))
     assert not model.calls  # No transcription or subsequent text-model call.
     assert [q["stem"] for q in result["result"]["questions"]] == [f"Page {i + 1}" for i in range(3) if i not in failed]
     assert result["status"] == ("PARTIAL" if failed else "SUCCEEDED")

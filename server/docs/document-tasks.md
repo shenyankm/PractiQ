@@ -261,3 +261,16 @@ backend matrices pass.
 
 The implementation reuses [Agent Server custom routes](https://docs.langchain.com/langsmith/custom-routes)
 and [native persistence](https://docs.langchain.com/oss/python/langgraph/persistence).
+
+## 任务预算与运行截止
+
+查询新增 `modelBudget: {"limit": 400, "reserved": 8}`，表示总上限与已预留槽，
+不是已计费调用数。gate 在派发前持久化单元额度，单元每次真实尝试前扣槽；
+暂停、补跑、进程中断后的未知调用均不重置额度，未使用槽也不归还。
+用量仍通过 `usage` 和 `unknownUsageCalls` 表达，不能用 reserved 推算账单。
+
+单 run 默认 30 分钟执行窗口；新建恢复 run 重置执行截止，保留原任务调用预算。
+任务 180 天恢复期限保持不变。新的直接 Python graph 调用必须显式提供 Store、
+thread_id 和 run_id；离线测试可使用 InMemoryStore，生产由 Agent Server 提供。
+
+完整配置、静态 provider 配额和本地/生产验收区别见 [运维说明](operations.md#资源边界与本地验收)。

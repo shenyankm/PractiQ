@@ -13,7 +13,14 @@ from practiq_ai.contracts import FailedUnit, RetryUnits
 from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.extractors import ExtractedDocument
 from practiq_ai.graphs import document
-from tests.test_workflows import FakeModel, make_image, question, run_config, source
+from tests.test_workflows import (
+    FakeModel,
+    local_graph,
+    make_image,
+    question,
+    run_config,
+    source,
+)
 
 
 class MemoryStore(InMemoryStore):
@@ -33,7 +40,7 @@ def setup_graph(monkeypatch, responses, *, parts=None):
              "overlapStart": sum(map(len, parts[:i])), "overlapEnd": sum(map(len, parts[:i]))}
             for i in range(len(parts))
         ])
-    graph = document.build_document_graph(InMemorySaver(), store=store)
+    graph = local_graph(InMemorySaver(), store=store)
     return graph, store, files, reference, model
 
 
@@ -55,7 +62,7 @@ async def test_retry_failed_units_preserves_successes_and_replaces_failures(monk
         return await original(state, runtime)
 
     monkeypatch.setattr(document, "_chunk", chunk)
-    graph = document.build_document_graph(InMemorySaver())
+    graph = local_graph(InMemorySaver())
     config = run_config()
     if all_failed:
         with pytest.raises(DocumentProcessingError, match="All document fragments"):
@@ -120,7 +127,7 @@ async def test_parallel_pause_stops_future_batches_and_resumes_all_interrupts(mo
         return await original(state, runtime)
 
     monkeypatch.setattr(document, "_chunk", chunk)
-    graph = document.build_document_graph(InMemorySaver(), store=store)
+    graph = local_graph(InMemorySaver(), store=store)
     result = await graph.ainvoke({"document": reference}, config)
     assert len(result["__interrupt__"]) == 2
     assert not model.calls
@@ -138,7 +145,7 @@ async def test_optional_review_and_decision(monkeypatch, decision):
         return {"chunkResults": [{"index": state["index"], "parsed": None if failed and state["index"] == 1 else parsed(str(state["index"])), "failureCode": "OUTPUT_INVALID"}], "usage": []}
 
     monkeypatch.setattr(document, "_chunk", chunk)
-    graph = document.build_document_graph(InMemorySaver())
+    graph = local_graph(InMemorySaver())
     config = run_config()
     result = await graph.ainvoke({"document": reference, "failurePolicy": "review"}, config)
     assert result["__interrupt__"][0].value["kind"] == "review"
@@ -248,7 +255,7 @@ async def test_maximum_batch_count_does_not_hit_default_recursion_limit(monkeypa
         return {"chunkResults": [{"index": state["index"], "parsed": parsed(str(state["index"])), "failureCode": None}]}
 
     monkeypatch.setattr(document, "_chunk", chunk)
-    graph = document.build_document_graph(InMemorySaver())
+    graph = local_graph(InMemorySaver())
     output = await graph.ainvoke({"document": reference}, run_config())
     assert output["processing"]["chunks"]["succeeded"] == 100
     assert peak <= document.load().graph_max_concurrency
@@ -366,7 +373,7 @@ async def test_retry_limits_shared_by_native_input_and_review(monkeypatch, revie
     monkeypatch.setattr(document, '_vision' if pages else '_chunk', unit)
     if pages:
         monkeypatch.setattr(document, 'extract', lambda *_: ExtractedDocument(text='', page_images=[make_image(), make_image()]))
-    graph = document.build_document_graph(InMemorySaver(), store=store)
+    graph = local_graph(InMemorySaver(), store=store)
     config = run_config()
     result = await graph.ainvoke({'document': reference, 'failurePolicy': 'review' if review else 'return_partial'}, config)
     stage = 'vision_parse' if pages else 'document_parse'
@@ -418,7 +425,7 @@ async def test_pause_after_retry_checkpoint_does_not_spend_another_round(monkeyp
 
     monkeypatch.setattr(document, '_gate', pause_after_admission)
     assert isinstance(graph.checkpointer, InMemorySaver)
-    graph = document.build_document_graph(graph.checkpointer, store=store)
+    graph = local_graph(graph.checkpointer, store=store)
     request = {'requestId': str(uuid4())}
     result = await graph.ainvoke({'document': reference, 'retry': request}, config)
     assert result['__interrupt__'] and len(model.calls) == 2

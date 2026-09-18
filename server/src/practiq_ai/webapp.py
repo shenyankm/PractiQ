@@ -2,13 +2,15 @@
 
 import asyncio
 import secrets
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator, AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Annotated, Any
 from uuid import UUID
+from weakref import WeakKeyDictionary
 
 import httpx
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 from practiq_ai import task_api
 from practiq_ai.config import load, service_token
@@ -23,6 +25,7 @@ from practiq_ai.contracts import (
 from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.middleware import JsonBodyLimitMiddleware, SecurityHeadersMiddleware
 from practiq_ai.storage import get_object_store
+from practiq_ai.telemetry import registry
 
 
 @asynccontextmanager
@@ -34,12 +37,37 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(lifespan=lifespan)
 app.add_middleware(JsonBodyLimitMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
+_uploads: WeakKeyDictionary[asyncio.AbstractEventLoop, int] = WeakKeyDictionary()
 
 
 def authorize(authorization: str | None = Header(default=None)) -> None:
     scheme, _, token = (authorization or "").partition(" ")
     if scheme.lower() != "bearer" or not secrets.compare_digest(token, service_token()):
         raise HTTPException(401, "Invalid service token")
+
+
+async def upload_slot() -> AsyncGenerator[None]:
+    config = load()
+    loop = asyncio.get_running_loop()
+    if config.maintenance:
+        raise HTTPException(503, {"code": "MAINTENANCE"})
+    if _uploads.get(loop, 0) >= config.upload_concurrency:
+        raise HTTPException(429, {"code": "UPLOAD_BUSY"}, headers={"Retry-After": "1"})
+    _uploads[loop] = _uploads.get(loop, 0) + 1
+    try:
+        yield
+    finally:
+        _uploads[loop] -= 1
+
+
+@app.get("/api/metrics", dependencies=[Depends(authorize)])
+async def application_metrics() -> Response:
+    return Response(generate_latest(registry), headers={"Content-Type": CONTENT_TYPE_LATEST})
+
+
+@app.get("/api/maintenance", dependencies=[Depends(authorize)])
+async def maintenance_status() -> dict[str, bool]:
+    return {"enabled": load().maintenance}
 
 
 async def _task_response(operation: Any) -> dict[str, Any]:
@@ -75,7 +103,7 @@ async def control_document_task(thread_id: UUID, request: DocumentTaskControl) -
     "/api/uploads",
     status_code=201,
     response_model=DocumentUploadResponse,
-    dependencies=[Depends(authorize)],
+    dependencies=[Depends(authorize), Depends(upload_slot)],
 )
 async def upload_document(request: DocumentUploadRequest) -> DocumentUploadResponse:
     try:
@@ -98,7 +126,7 @@ async def read_artifact(reference: ArtifactReference) -> Response:
                     headers={"Cache-Control": "no-store"})
 
 
-@app.put("/api/uploads/content", dependencies=[Depends(authorize)])
+@app.put("/api/uploads/content", dependencies=[Depends(authorize), Depends(upload_slot)])
 async def upload_content(request: Request, metadata: Annotated[DocumentUploadRequest, Query()]) -> DocumentReference:
     """Private, bounded binary upload; references never expose filesystem paths."""
     try:

@@ -8,8 +8,10 @@ from ..contracts import (
     QualityIssue,
     QuestionSource,
 )
+from ..errors import DocumentProcessingError
 
 CHUNK_TARGET_CHARS = 30_000
+CHUNK_MAX_CHARS = 40_000
 # 题号/大题起始行模式：阿拉伯数字编号、中文大题编号
 QUESTION_BOUNDARY_PATTERN = re.compile(
     r'^\s*(?:\d{1,4}\s*[.、)．]|[一二三四五六七八九十]{1,3}\s*[、.．])',
@@ -26,6 +28,8 @@ class ChunkSpan(TypedDict):
 
 def split_chunk_spans(text: str, target_chars: int = CHUNK_TARGET_CHARS) -> list[ChunkSpan]:
     """Persist source offsets; overlap is source identity, never a stem heuristic."""
+    if not 0 < target_chars <= CHUNK_MAX_CHARS:
+        raise ValueError("Chunk target must be within the hard input limit")
     ranges: list[tuple[int, int]] = []
     boundaries = [match.start() for match in QUESTION_BOUNDARY_PATTERN.finditer(text)]
     if len(text) <= target_chars:
@@ -40,13 +44,18 @@ def split_chunk_spans(text: str, target_chars: int = CHUNK_TARGET_CHARS) -> list
         for boundary in boundaries[1:]:
             if boundary - start >= target_chars:
                 cut = previous_boundary if previous_boundary > start else boundary
-                ranges.append((start, boundary))
+                # Keep overlap only when it fits; multiple valid questions must
+                # not become an oversized fragment merely because of overlap.
+                end = boundary if boundary - start <= CHUNK_MAX_CHARS else cut
+                ranges.append((start, end))
                 start = cut
             previous_boundary = boundary
         if start < len(text):
             ranges.append((start, len(text)))
     spans: list[ChunkSpan] = []
     for start, end in ranges:
+        if end - start > CHUNK_MAX_CHARS:
+            raise DocumentProcessingError(413, "A question exceeds the 40000-character fragment limit; split the source explicitly", "DOCUMENT_CHUNK_TOO_LARGE")
         if text[start:end].strip():
             spans.append({"start": start, "end": end, "overlapStart": start,
                           "overlapEnd": min(end, spans[-1]["end"]) if spans else start})

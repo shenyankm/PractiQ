@@ -1,18 +1,21 @@
 """Durable document parsing graph with bounded fan-out."""
 
 import asyncio
+import time
 from collections.abc import Awaitable, Callable
 from functools import partial
 from typing import Annotated, Any, NotRequired, Self, TypedDict, cast
 
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from langgraph.checkpoint.base import BaseCheckpointSaver
+from langgraph.errors import GraphInterrupt
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.runtime import Runtime
 from langgraph.types import Overwrite, Send, interrupt
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from practiq_ai import telemetry
 from practiq_ai.config import load
 from practiq_ai.contracts import (
     ArtifactReference,
@@ -30,12 +33,15 @@ from practiq_ai.contracts import (
 )
 from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.execution import (
+    CURRENT_ALLOWANCE,
     CURRENT_ARTIFACT,
     CURRENT_EXECUTION,
+    CURRENT_UNIT,
     RECURSION_LIMIT,
     guard,
     merge_records,
     new_execution,
+    run_remaining,
     validate_execution,
 )
 from practiq_ai.extractors import enforce_vision_bytes, extract
@@ -55,6 +61,14 @@ Retain identifiable incomplete questions; do not emit empty placeholder question
 Missing answers or one incomplete option do NOT erase a known question type or the
 other supplied options. Preserve every visible option label with content=null when
 its text is absent. Chinese 单选题/多选题 explicitly means choice with single/multiple.
+Type evidence includes source labels AND visible response structure: A/B/C options
+mean choice, a printed True/False or 判断题 label means true_false, a blank means
+fill_blank, and an open question without options or blanks means short_answer.
+CSV/XLSX type columns (choice, true_false, fill_blank, short_answer) are explicit
+labels. A missing answer does not make the type or options unknown. Always copy
+the supplied options even when the source omits the answer or single/multiple label;
+in that case choiceVariant alone may be null. questionTypeId may use the same
+recognized type as answerMode. Use answerMode=null only when type evidence is absent.
 For example, source "单选题：选出正确项。 A. 甲 B." yields answerMode="choice",
 questionTypeId="choice", choiceVariant="single", options=[{"label":"A","content":"甲"},
 {"label":"B","content":null}], answerPayload=null, analysis=null, and missingFields
@@ -148,6 +162,8 @@ class DocumentState(TypedDict):
     reviewAccepted: NotRequired[list[str]]
     appliedRetries: NotRequired[list[str]]
     retryCounts: NotRequired[dict[str, int]]
+    callAllowances: NotRequired[dict[str, int]]
+    reservedCalls: NotRequired[int]
     warnings: NotRequired[list[str]]
     truncated: NotRequired[bool]
     visualTotal: NotRequired[int]
@@ -172,6 +188,8 @@ class VisionTask(TypedDict):
     artifact: dict[str, Any]
     execution: NotRequired[dict[str, Any]]
     round: NotRequired[int]
+    callAllowance: NotRequired[int]
+    unitKey: NotRequired[str]
 
 
 class ChunkTask(TypedDict):
@@ -182,6 +200,8 @@ class ChunkTask(TypedDict):
     artifact: dict[str, Any]
     execution: NotRequired[dict[str, Any]]
     round: NotRequired[int]
+    callAllowance: NotRequired[int]
+    unitKey: NotRequired[str]
 
 
 async def _bounded_map[ItemT, ResultT](
@@ -239,6 +259,8 @@ async def _load_context(state: DocumentState, runtime: Runtime[None]) -> dict[st
         "reviewAccepted": [],
         "appliedRetries": [],
         "retryCounts": {},
+        "callAllowances": {},
+        "reservedCalls": 0,
         "warnings": [],
         "truncated": False,
         "visualTotal": 0,
@@ -359,7 +381,15 @@ def _dispatch_vision(state: DocumentState) -> list[Send] | str:
     completed.update(("page" if item["stage"] == "vision_parse" else "embedded", item["index"])
                      for item in state.get("failures", []) if item["stage"] in {"vision_parse", "vision_describe"})
     pending = [item for item in work if (item.arg["kind"], item.arg["index"]) not in completed]
-    return pending[:load().graph_max_concurrency] or "vision_review"
+    return _with_allowances(pending[:load().graph_max_concurrency], state) or "vision_review"
+
+
+def _with_allowances(work: list[Send], state: DocumentState) -> list[Send]:
+    for item in work:
+        stage = "document_parse" if item.node == "chunk" else "vision_parse" if item.arg["kind"] == "page" else "vision_describe"
+        key = f"{stage}:{item.arg['index']}:{state.get('round', 0)}"
+        item.arg.update(unitKey=key, callAllowance=state.get("callAllowances", {}).get(key, 0))
+    return work
 
 
 async def _vision(
@@ -379,7 +409,15 @@ async def _vision(
             f"Extract questions that START on PRIMARY page {state['index'] + 1} directly from the images. "
             "Adjacent pages are context for continuations, shared material and printed answers. "
             "Do not extract questions starting on context pages or duplicate a continuation. "
+            "First identify question starts visible on the PRIMARY image itself. If there are none, "
+            "return questions=[] and groups=[], even if neighboring pages contain questions. "
+            "An answer key entry such as '1. B' is an answer, not a new question. "
+            "Read answer keys on context pages only to fill answers for questions starting on PRIMARY. "
             "If a continuation is outside this window, preserve the incomplete question and missingFields; never guess. "
+            "A text-only page is not a figure; do not box paragraphs or answer lists. "
+            "Include standalone figures even if no question explicitly refers to them. "
+            "Classify geometric/schematic drawings as diagram, plotted data as chart, tabular data "
+            "as table, and photographs as image. Do not default every figure to image. "
             "Include visible figures from the PRIMARY page only with factual descriptions and normalized "
             "bounding boxes [x0,y0,x1,y1] from its top left. Return questions, groups and figures together; "
             "do not produce an intermediate transcription."
@@ -498,7 +536,7 @@ def _dispatch_chunks(state: DocumentState) -> list[Send] | str:
         for index, item in enumerate(chunks)
         if index not in completed
     ]
-    return work[:load().graph_max_concurrency] or "chunk_review"
+    return _with_allowances(work[:load().graph_max_concurrency], state) or "chunk_review"
 
 
 async def _chunk(
@@ -690,6 +728,9 @@ async def _merge(state: DocumentState) -> dict[str, Any]:
             sum(item.confidence for item in questions) / len(questions) * 100, 1
         ),
     )
+    telemetry.results.labels(status, str(quality.reviewRequired).lower()).inc()
+    for failure in failures:
+        telemetry.failures.labels(failure.code).inc()
     return {
         "status": status,
         "result": result.model_dump(mode="json"),
@@ -747,7 +788,23 @@ def _retry_update(state: DocumentState, request: RetryUnits) -> dict[str, Any]:
 
 
 async def _gate(state: DocumentState, *, phase: str) -> dict[str, Any]:
-    return {"phase": phase}
+    update: dict[str, Any] = {"phase": phase}
+    if phase not in {"vision", "chunk"}:
+        return update
+    work = _dispatch_vision(state) if phase == "vision" else _dispatch_chunks(state)
+    if isinstance(work, str):
+        return update
+    allowances = dict(state.get("callAllowances", {}))
+    reserved = state.get("reservedCalls", 0)
+    # ponytail: reserve up to four calls per unit and never reclaim unused slots.
+    # This conservative ceiling avoids a distributed budget counter across parallel units.
+    for item in work:
+        key = item.arg["unitKey"]
+        if key not in allowances:
+            allowance = min(4, max(0, load().task_max_model_calls - reserved))
+            allowances[key] = allowance
+            reserved += allowance
+    return {**update, "callAllowances": allowances, "reservedCalls": reserved}
 
 
 async def _review(state: DocumentState, *, phase: str) -> dict[str, Any]:
@@ -780,14 +837,42 @@ def _guarded(function: Callable[..., Awaitable[dict[str, Any]]], *, with_runtime
             raise DocumentProcessingError(409, "Resume cannot change the source document", "INVALID_CONTROL")
         token = CURRENT_EXECUTION.set(state["execution"])
         artifact_token = CURRENT_ARTIFACT.set(state.get("artifact"))
+        unit_token = CURRENT_UNIT.set(state.get("unitKey"))
+        allowance_token = CURRENT_ALLOWANCE.set(state.get("callAllowance", 0))
+        started = time.monotonic()
+        stage = (function.func if isinstance(function, partial) else function).__name__.lstrip("_")
+        outcome = "success"
+        error_code = None
         try:
             await guard(runtime, state["execution"])
-            result = await (function(state, runtime) if with_runtime else function(state))
+            try:
+                async with asyncio.timeout(await run_remaining(runtime)):
+                    result = await (function(state, runtime) if with_runtime else function(state))
+            except TimeoutError as exc:
+                raise DocumentProcessingError(504, "Run execution deadline exceeded", "RUN_DEADLINE_EXCEEDED") from exc
             for key in ("visionResults", "chunkResults", "failures"):
                 if isinstance(result.get(key), list):
                     result[key] = [dict(item, round=state.get("round", 0)) for item in result[key]]
             return result
+        except GraphInterrupt:
+            outcome = "interrupted"
+            raise
+        except BaseException as exc:
+            outcome = "error"
+            code = exc.code if isinstance(exc, DocumentProcessingError) else "STAGE_ERROR"
+            error_code = code
+            telemetry.failures.labels(code).inc()
+            raise
         finally:
+            elapsed = time.monotonic() - started
+            info = runtime.execution_info
+            telemetry.duration.labels(stage, outcome).observe(elapsed)
+            telemetry.event("stage", stage=stage, outcome=outcome, unitIndex=state.get("index"),
+                            errorCode=error_code,
+                            threadId=info.thread_id if info else None, runId=info.run_id if info else None,
+                            durationMs=round(elapsed * 1000, 3))
+            CURRENT_ALLOWANCE.reset(allowance_token)
+            CURRENT_UNIT.reset(unit_token)
             CURRENT_ARTIFACT.reset(artifact_token)
             CURRENT_EXECUTION.reset(token)
     return run

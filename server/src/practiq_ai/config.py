@@ -3,6 +3,7 @@
 import os
 import re
 from dataclasses import dataclass, field
+from math import isfinite
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
@@ -27,6 +28,15 @@ class Config:
     storage_timeout_seconds: float
     model_timeout_seconds: float
     model_max_tokens: int
+    task_max_model_calls: int = 400
+    run_timeout_seconds: float = 1800
+    model_max_input_chars: int = 64_000
+    deployment_workers: int = 1
+    provider_concurrency: int = 16
+    provider_rpm: int = 120
+    upload_concurrency: int = 4
+    max_busy_threads: int = 300
+    maintenance: bool = False
     structured_output_method: str = "function_calling"
     soffice_path: str = "soffice"
     storage_backend: str = "local"
@@ -63,7 +73,7 @@ def _positive_float(values: dict[str, str], key: str, default: float) -> float:
         value = float(raw)
     except ValueError as exc:
         raise ValueError(f"{key} must be a positive number") from exc
-    if value <= 0:
+    if not isfinite(value) or value <= 0:
         raise ValueError(f"{key} must be a positive number")
     return value
 
@@ -117,7 +127,26 @@ def load() -> Config:
         raise ValueError(
             "N_JOBS_PER_WORKER * AI_GRAPH_MAX_CONCURRENCY must not exceed 16"
         )
+    workers = _positive_int(values, "AI_DEPLOYMENT_WORKERS", 1)
+    provider_concurrency = _positive_int(values, "AI_PROVIDER_CONCURRENCY", 16)
+    provider_rpm = _positive_int(values, "AI_PROVIDER_RPM", 120)
+    maintenance = values.get("AI_MAINTENANCE_MODE", "false").lower().strip()
+    if maintenance not in {"true", "false"}:
+        raise ValueError("AI_MAINTENANCE_MODE must be true or false")
+    if jobs_per_worker * graph_max_concurrency * workers > provider_concurrency:
+        raise ValueError("Total deployment model concurrency exceeds AI_PROVIDER_CONCURRENCY")
+    if provider_rpm < workers:
+        raise ValueError("AI_PROVIDER_RPM must allow at least one request per worker")
     return Config(
+        maintenance=maintenance == "true",
+        task_max_model_calls=_positive_int(values, "AI_TASK_MAX_MODEL_CALLS", 400),
+        run_timeout_seconds=_positive_float(values, "AI_RUN_TIMEOUT_SECONDS", 1800),
+        model_max_input_chars=_positive_int(values, "AI_MODEL_MAX_INPUT_CHARS", 64_000),
+        deployment_workers=workers,
+        provider_concurrency=provider_concurrency,
+        provider_rpm=provider_rpm,
+        upload_concurrency=_positive_int(values, "AI_UPLOAD_CONCURRENCY", 4),
+        max_busy_threads=_positive_int(values, "AI_MAX_BUSY_THREADS", 300),
         structured_output_method=method,
         storage_backend=storage_backend,
         **oss_settings,

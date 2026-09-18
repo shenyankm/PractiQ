@@ -2,6 +2,7 @@
 
 from io import BytesIO
 from math import ceil
+from threading import RLock
 from typing import Any, cast
 
 import pypdfium2 as pdfium
@@ -14,9 +15,17 @@ from . import (
 )
 
 RENDER_SCALE = 200 / 72  # ~200dpi
+# PDFium is process-global and not thread-safe, even for different documents.
+# ponytail: serialize rendering; use bounded processes if measured throughput requires it.
+PDFIUM_LOCK = RLock()
 
 
 def extract(base_text: str, file_bytes: bytes) -> ExtractedDocument:
+    with PDFIUM_LOCK:
+        return _extract(file_bytes)
+
+
+def _extract(file_bytes: bytes) -> ExtractedDocument:
     try:
         document = pdfium.PdfDocument(file_bytes)
         try:
@@ -38,6 +47,11 @@ def extract(base_text: str, file_bytes: bytes) -> ExtractedDocument:
 
 
 def render_pages(file_bytes: bytes, indexes: list[int]) -> list[bytes]:
+    with PDFIUM_LOCK:
+        return _render_pages(file_bytes, indexes)
+
+
+def _render_pages(file_bytes: bytes, indexes: list[int]) -> list[bytes]:
     images: list[bytes] = []
     total_bytes = 0
     document = pdfium.PdfDocument(file_bytes)

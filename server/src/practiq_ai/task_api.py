@@ -8,6 +8,7 @@ from uuid import NAMESPACE_URL, uuid5
 import httpx
 from langgraph_sdk import get_client
 
+from .capacity import admit_run
 from .config import load
 from .contracts import (
     ArtifactReference,
@@ -72,6 +73,7 @@ async def _start_run(api: Any, thread_id: str, graph_id: str, request_id: str,
     previous = await _find_run(api, thread_id, request_id)
     if previous:
         return _receipt(thread_id, request_id, previous)
+    await admit_run(api)
     operation = {"requestId": request_id, "fingerprint": request_hash,
                  "generation": generation,
                  "expiresAt": expires_at}
@@ -99,11 +101,19 @@ async def create_task(request: DocumentTaskCreate) -> dict[str, Any]:
     request_hash = fingerprint(request.model_dump(mode="json"))
     if request.parentThreadId:
         await api.threads.get(str(request.parentThreadId))
-    thread = await api.threads.create(
-        thread_id=thread_id, if_exists="do_nothing", ttl={"strategy": "delete", "ttl": TTL_MINUTES},
-        metadata={"kind": "document_task", "requestFingerprint": request_hash,
-                  "graphId": request.graphId, "parentThreadId": str(request.parentThreadId) if request.parentThreadId else None},
-    )
+    try:
+        thread = await api.threads.get(thread_id)
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code != 404:
+            raise
+        # Reject overload before allocating a 180-day thread. Existing request IDs
+        # still reach receipt replay even while the queue is full.
+        await admit_run(api)
+        thread = await api.threads.create(
+            thread_id=thread_id, if_exists="do_nothing", ttl={"strategy": "delete", "ttl": TTL_MINUTES},
+            metadata={"kind": "document_task", "requestFingerprint": request_hash,
+                      "graphId": request.graphId, "parentThreadId": str(request.parentThreadId) if request.parentThreadId else None},
+        )
     if thread.get("metadata", {}).get("requestFingerprint") != request_hash:
         raise conflict("requestId was already used for different input", "REQUEST_CONFLICT")
     created_at = datetime.fromisoformat(thread["created_at"])
@@ -188,6 +198,8 @@ async def get_task(thread_id: str) -> dict[str, Any]:
             "chunks": _counts(len(values.get("chunkRefs", [])), sum(item.get("parsed") is not None for item in values.get("chunkResults", [])), sum(f["stage"] == "document_parse" for f in failures)),
         },
         "status": values.get("status") or None, "result": values.get("result") or None,
+        "modelBudget": {"limit": values.get("execution", {}).get("signature", {}).get("settings", {}).get("task_max_model_calls", load().task_max_model_calls),
+                        "reserved": values.get("reservedCalls", 0)},
         "processing": values.get("processing") or None, "usage": list(usage.values()),
         "unknownUsageCalls": [item["callKey"] for item in calls if item["status"] != "completed"],
     }

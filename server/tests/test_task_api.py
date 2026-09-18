@@ -30,10 +30,14 @@ class NativeAPI:
     def __init__(self, graph, store):
         self.graph, self.data = graph, store
         self.records, self.jobs = {}, {}
-        self.threads = SimpleNamespace(create=self.create_thread, get=self.get_thread, get_state=self.get_state, update=self.update_thread)
+        self.threads = SimpleNamespace(count=self.count_threads, create=self.create_thread, get=self.get_thread, get_state=self.get_state, update=self.update_thread)
         self.runs = SimpleNamespace(create=self.create_run, list=self.list_runs, cancel=self.cancel)
         self.store = SimpleNamespace(get_item=self.get_item, put_item=self.put_item, search_items=self.search_items)
         self.pending = []
+
+    async def count_threads(self, *, status):
+        assert status == "busy"
+        return sum(any(run["status"] == "running" for run in jobs) for jobs in self.jobs.values())
 
     async def create_thread(self, *, thread_id, metadata, **kwargs):
         # No await before setdefault: model atomic native insert-if-absent.

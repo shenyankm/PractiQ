@@ -15,6 +15,7 @@ from langchain_core.outputs import ChatGeneration, ChatResult
 from langchain_core.runnables import RunnableConfig, RunnableLambda
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.store.memory import InMemoryStore
 from openai import APIConnectionError, APIStatusError, APITimeoutError, RateLimitError
 from PIL import Image
 from pydantic import BaseModel, Field, ValidationError
@@ -147,6 +148,12 @@ def run_config(thread: str = "thread-1") -> RunnableConfig:
     )
 
 
+def local_graph(checkpointer=None, **kwargs):
+    """Explicit local Store; production gets the durable Store from Agent Server."""
+    kwargs.setdefault("store", InMemoryStore())
+    return document.build_document_graph(checkpointer, **kwargs).with_config(run_config())
+
+
 def assert_json_value(value: Any) -> None:
     if isinstance(value, dict):
         for key, item in value.items():
@@ -188,7 +195,7 @@ def test_document_graph_merges_parallel_chunks_and_keeps_checkpoint_small(monkey
         ]
     )
     saver = InMemorySaver()
-    graph = document.build_document_graph(saver)
+    graph = local_graph(saver)
     config = run_config()
 
     output = asyncio.run(
@@ -223,7 +230,7 @@ def test_document_graph_repairs_invalid_chunk_with_shared_budget(monkeypatch):
     )
     monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
     monkeypatch.setattr(document, "get_model", lambda: model)
-    graph = document.build_document_graph(InMemorySaver())
+    graph = local_graph(InMemorySaver())
 
     output = asyncio.run(
         graph.ainvoke(
@@ -267,7 +274,7 @@ def test_document_graph_returns_partial_for_one_failed_chunk(monkeypatch):
         }
 
     monkeypatch.setattr(document, "_chunk", partial_chunk)
-    graph = document.build_document_graph(InMemorySaver())
+    graph = local_graph(InMemorySaver())
     output = asyncio.run(
         graph.ainvoke(
             {"document": reference}, run_config()
@@ -307,7 +314,7 @@ def test_document_graph_raises_when_all_chunks_fail(monkeypatch):
         }
 
     monkeypatch.setattr(document, "_chunk", failed_chunk)
-    graph = document.build_document_graph(InMemorySaver())
+    graph = local_graph(InMemorySaver())
 
     with pytest.raises(DocumentProcessingError) as exc:
         asyncio.run(
@@ -347,7 +354,7 @@ def test_document_graph_resumes_without_repeating_completed_chunk(monkeypatch):
         ]
     )
     monkeypatch.setattr(document, "_chunk", unstable_chunk)
-    graph = document.build_document_graph(InMemorySaver())
+    graph = local_graph(InMemorySaver())
     config = run_config()
 
     with pytest.raises(RuntimeError, match="worker interrupted"):
@@ -385,7 +392,7 @@ def test_document_integrity_fails_before_model_call(
     model = FakeModel(responses=[])
     monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
     monkeypatch.setattr(document, "get_model", lambda: model)
-    graph = document.build_document_graph(InMemorySaver())
+    graph = local_graph(InMemorySaver())
 
     with pytest.raises(DocumentProcessingError) as exc:
         asyncio.run(
@@ -406,7 +413,7 @@ def test_checkpoint_update_cannot_bypass_document_reference_validation(monkeypat
             raise AssertionError("unmanaged reference reached storage")
 
     monkeypatch.setattr(document, "get_object_store", lambda: UnreachedStore())
-    graph = document.build_document_graph(InMemorySaver())
+    graph = local_graph(InMemorySaver())
     config = run_config("checkpoint-input-boundary")
 
     async def resume_from_forged_state():
@@ -564,7 +571,7 @@ def test_missing_model_fails_before_processing(monkeypatch):
     _, reference = source("Question")
     monkeypatch.setattr(document, "get_model", lambda: None)
     with pytest.raises(DocumentProcessingError) as error:
-        asyncio.run(document.graph.ainvoke({"document": reference}))
+        asyncio.run(local_graph().ainvoke({"document": reference}))
     assert error.value.code == "VISION_MODEL_REQUIRED"
 
 
@@ -581,7 +588,7 @@ def test_extractor_truncation_makes_result_partial(monkeypatch):
         "extract",
         lambda *_args: ExtractedDocument(text="1. Question", truncated=True),
     )
-    graph = document.build_document_graph(InMemorySaver())
+    graph = local_graph(InMemorySaver())
     output = asyncio.run(
         graph.ainvoke(
             {"document": reference}, run_config()
@@ -613,7 +620,7 @@ def test_visual_unit_failure_returns_partial(monkeypatch):
             text="1. Question", embedded_images=[image]
         ),
     )
-    graph = document.build_document_graph(InMemorySaver())
+    graph = local_graph(InMemorySaver())
     output = asyncio.run(
         graph.ainvoke(
             {"document": reference}, run_config()
@@ -655,7 +662,7 @@ def test_document_graph_extracts_directly_from_image_and_crops(monkeypatch):
     )
 
     output = asyncio.run(
-        document.build_document_graph(InMemorySaver()).ainvoke(
+        local_graph(InMemorySaver()).ainvoke(
             {"document": reference}, run_config()
         )
     )
@@ -687,7 +694,7 @@ def test_document_graph_describes_embedded_images(monkeypatch):
     )
 
     output = asyncio.run(
-        document.build_document_graph(InMemorySaver()).ainvoke(
+        local_graph(InMemorySaver()).ainvoke(
             {"document": reference}, run_config()
         )
     )
@@ -721,7 +728,7 @@ def test_document_graph_rejects_documents_without_text(
 
     with pytest.raises(DocumentProcessingError) as exc:
         asyncio.run(
-            document.build_document_graph(InMemorySaver()).ainvoke(
+            local_graph(InMemorySaver()).ainvoke(
                 {"document": reference}, run_config()
             )
         )
@@ -742,7 +749,7 @@ def test_document_graph_rejects_empty_vision_output(monkeypatch):
 
     with pytest.raises(DocumentProcessingError) as exc:
         asyncio.run(
-            document.build_document_graph(InMemorySaver()).ainvoke(
+            local_graph(InMemorySaver()).ainvoke(
                 {"document": reference}, run_config()
             )
         )
@@ -760,7 +767,7 @@ def test_document_graph_marks_text_truncation_and_rejects_no_questions(monkeypat
     monkeypatch.setenv("AI_MAX_TOTAL_INPUT_CHARS", "6")
     monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
     monkeypatch.setattr(document, "get_model", lambda: model)
-    graph = document.build_document_graph(InMemorySaver())
+    graph = local_graph(InMemorySaver())
 
     output = asyncio.run(
         graph.ainvoke(

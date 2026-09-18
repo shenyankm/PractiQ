@@ -16,6 +16,7 @@ from practiq_ai.graphs import document, formats
 from tests.test_workflows import (
     FakeModel,
     FakeObjectStore,
+    local_graph,
     make_image,
     question,
     run_config,
@@ -65,11 +66,12 @@ async def test_format_graph_enforces_source_type_before_storage(
     monkeypatch.setattr(document, "get_object_store", get_store)
     monkeypatch.setattr(document, "get_model", lambda: vision if source_type in {"pdf", "docx"} else model)
     monkeypatch.setattr(document, "extract", extract)
-    graph = getattr(formats, name)
+    assert getattr(formats, name).name == name
+    graph = local_graph(name=name, source_types=allowed)
     config = run_config()
     graph_input = {"document": reference}
     if resume:
-        graph = document.build_document_graph(
+        graph = local_graph(
             InMemorySaver(), name=name, source_types=allowed
         )
         await graph.aupdate_state(config, {**graph_input, "execution": new_execution()}, as_node="load_context")

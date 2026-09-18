@@ -14,7 +14,7 @@ from practiq_ai import webapp
 from practiq_ai.contracts import DOCUMENT_MEDIA_TYPES
 from practiq_ai.graphs import document
 from tests.test_storage import object_store
-from tests.test_workflows import FakeModel, question, run_config
+from tests.test_workflows import FakeModel, local_graph, question, run_config
 
 HEADERS = {"Authorization": "Bearer test-token"}
 
@@ -62,7 +62,7 @@ async def test_native_binary_import_and_verified_artifacts(setup, kind, fixture)
     payload = (Path(__file__).parents[1] / "evals/fixtures" / fixture).read_bytes()
     async with AsyncClient(transport=ASGITransport(app=webapp.app), base_url="http://test", headers=HEADERS) as client:
         reference = await ingest(client, payload, kind, Path(fixture).name)
-        result = await document.graph.ainvoke({"document": reference}, run_config())
+        result = await local_graph().ainvoke({"document": reference}, run_config())
         assert result["status"] == "SUCCEEDED"
         assert result["result"]["questions"][0]["stem"] == "Imported"
         assert result["usage"]
@@ -87,7 +87,7 @@ async def test_concurrent_native_runs_keep_distinct_usage(setup):
     async with AsyncClient(transport=ASGITransport(app=webapp.app), base_url="http://test", headers=HEADERS) as client:
         refs = [await ingest(client, text, "text", "q.txt") for text in (b"one", b"two")]
     results = await asyncio.gather(*(
-        document.graph.ainvoke({"document": reference}, run_config()) for reference in refs
+        local_graph().ainvoke({"document": reference}, run_config()) for reference in refs
     ))
     assert all(len(result["usage"]) == 1 for result in results)
     assert results[0]["usage"][0]["callKey"] != results[1]["usage"][0]["callKey"]
