@@ -4,44 +4,54 @@
 
 # PractiQ
 
-AI 文档导入工具：将文本、CSV、PDF、图片、Word 和 Excel 解析为结构化题目、材料题组、原文答案及视觉素材。支持分片解析、部分失败明细与模型调用用量记录。
+English | [简体中文](README.zh-CN.md)
 
-代码保留在 `server/`，通过 LangGraph Agent Server 调用；不包含前端、题库管理、练习判分、答案生成或学习报告。
+An AI document import tool that turns text, CSV, PDF, images, Word, and Excel files into structured questions, passage-based question groups, source answers, and visual assets. It supports durable pause/resume, selected failed-unit retry, optional human review, and per-call model usage tracking.
 
-## 本地运行
+The code lives in `server/` and runs through LangGraph Agent Server. It does not include a frontend, question bank management, practice grading, answer generation, or learning reports.
 
-使用已有 Python 3.14+ 解释器，不创建项目 `.venv`。`AI_PYTHON` 可指定解释器路径。
+## Run locally
+
+Use an existing Python 3.14+ interpreter without creating a project `.venv`. Set `AI_PYTHON` to the interpreter path.
 
 ```bash
-# 仅首次复制；已有模型配置不要覆盖
+# Copy only on first setup; do not overwrite existing model configuration
 cp -n server/.env.example server/.env
-# 编辑 server/.env，配置服务令牌与模型
+# Edit server/.env to configure the service token and models
 make install AI_PYTHON=/path/to/python3.14
 make server-dev AI_PYTHON=/path/to/python3.14
 ```
 
-默认监听 `127.0.0.1:8090`，健康检查为 `GET /ok`。本地开发不需要产品数据库或 Docker Compose；`langgraph dev` 不提供生产级任务持久化。
+The server listens on `127.0.0.1:8090` by default. Use `GET /ok` for health checks. Local development does not require a product database or Docker Compose; `langgraph dev` does not provide production-grade task persistence.
 
-PDF、DOCX 和图片需要视觉模型。DOCX 另需 LibreOffice Writer 和中文字体，可使用 `AI_SOFFICE_PATH` 指定转换程序。
+All formats use one required `LLM_VISION_MODEL`; `LLM_TEXT_MODEL` is removed. PDF, DOCX and images go directly to structured questions, with no intermediate OCR/transcription or text-model pass. Text/CSV/Excel send source text to that same model. DOCX also requires LibreOffice Writer and Chinese fonts. Use `AI_SOFFICE_PATH` to specify the converter executable.
 
-## 导入流程
+## Import workflow
 
-1. 携带 `Authorization: Bearer <AI_SERVICE_TOKEN>`，调用 `POST /api/uploads` 申请文件引用。
-2. 使用返回的地址和 Content-Type 鉴权 PUT 原始文件；已有文件可能直接返回引用。
-3. 将 `DocumentReference` 交给对应 Graph，读取运行结果。
-4. 使用 `POST /api/artifacts/read` 鉴权读取衍生素材。
+1. Call `POST /api/uploads` with `Authorization: Bearer <AI_SERVICE_TOKEN>` to request a file reference.
+2. Upload the raw file with an authenticated PUT using the returned URL and Content-Type. Existing files may return a reference without requiring another upload.
+3. Create a task with `POST /api/document-tasks` using the uploaded `document` and a UUID `requestId`; poll `GET /api/document-tasks/{threadId}`. Native graph APIs remain available.
+4. Call `POST /api/artifacts/read` with authentication to retrieve derived assets.
 
-支持 `text_csv_parser`、`pdf_parser`、`docx_parser`、`excel_parser`，以及覆盖全部格式的 `document_parser`。原生入口不接受 URL、Base64 或服务器路径；原产品 `/api/v1/ai/*` 接口已移除。
+Available graphs are `text_csv_parser`, `pdf_parser`, `docx_parser`, `excel_parser`, and `document_parser`, which supports all formats. Native inputs do not accept URLs, Base64 content, or server filesystem paths. The former product `/api/v1/ai/*` endpoints have been removed.
 
-完整接口示例与能力边界见 [AI 使用说明](server/README.md)。
+Pause, interrupt, resume, retry failed units or accept partial results through `POST /api/document-tasks/{threadId}/control`. See the [task API and recovery guide](server/docs/document-tasks.md) for request examples, idempotency and the 180-day recovery window.
 
-## 验证与数据
+See the [AI service guide](server/README.md) for complete API examples and capability limits.
+
+## Validation and data
 
 ```bash
 make test AI_PYTHON=/path/to/python3.14
 make verify AI_PYTHON=/path/to/python3.14
 ```
 
-自动化测试不调用真实模型；[评测说明](server/docs/evaluation.md) 和历史报告保留，历史失败结果不代表当前质量基线。
+Automated tests do not call real models. The [evaluation guide](server/docs/evaluation.md) and historical reports are retained; past failed runs do not establish a current quality baseline.
 
-AI 文件默认存放于 `server/.local/ai`，相对 `AI_STORAGE_DIR` 以 `server/` 为基准解析；生产使用持久挂载的绝对路径并备份。精简项目不会迁移或删除已有数据库、卷、文件和本地配置。生产部署参考 [运维说明](server/docs/operations.md) 与 `Dockerfile.server`。
+Storage supports two modes: `AI_STORAGE_BACKEND=local` (default) or `oss`. Both use the same authenticated upload and artifact APIs, with size and SHA-256 verification.
+
+In local mode, AI files are stored in `server/.local/ai` by default. Relative `AI_STORAGE_DIR` paths resolve from `server/`. In production, use an absolute path on a persistent mount and back it up. The project simplification does not migrate or delete existing databases, volumes, files, or local configuration. See the [operations guide](server/docs/operations.md) and `Dockerfile.server` for production deployment.
+
+In OSS mode, configure `AI_OSS_REGION`, `AI_OSS_BUCKET`, `AI_OSS_ACCESS_KEY_ID`, and `AI_OSS_ACCESS_KEY_SECRET` in `server/.env`. Optional `AI_OSS_SECURITY_TOKEN` supports temporary STS credentials. `AI_OSS_ENDPOINT` overrides the HTTPS endpoint; set `AI_OSS_USE_CNAME=true` for a bucket-bound custom domain. See `server/.env.example` for all settings.
+
+Use an existing private bucket and grant access only to the required objects. Credentials stay on the server; files pass through the authenticated API. Switching modes does not copy data or fall back to the other backend. Copy and verify every referenced object before switching. New versioned tasks reject storage-location changes; finish them on the original deployment or create new tasks after migration. Old checkpoints are not upgraded. Renew temporary credentials and restart before they expire.

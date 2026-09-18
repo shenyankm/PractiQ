@@ -11,10 +11,10 @@
 ## 生产基线
 
 - 单应用容器：8 vCPU / 16 GB；外部 PostgreSQL 和 Redis。
-- `N_JOBS_PER_WORKER=8`，graph `max_concurrency=2`，模型理论并发上限 16。
-- 单 run 内 本地文件存储 并发 4；源文档最大 25 MiB、100 页。
+- `N_JOBS_PER_WORKER=8`，每批模型单元上限 `AI_GRAPH_MAX_CONCURRENCY=2`，模型理论并发上限 16。
+- 单 run 内文件存储并发 4；源文档最大 25 MiB、100 页。
 - 同时提交 100 个任务，可短时积压 300 个；不是 100 个同时执行。
-- run 使用 `durability=sync`、`multitask_strategy=enqueue`。
+- 任务控制创建 run 使用 `durability=sync`、`multitask_strategy=reject`；原生调用也应使用同样设置。底层 `max_concurrency` 为单元批量上限的两倍，为原生持久 task 留出执行槽位，不会增加模型并发。
 - 单机部署只承诺应用进程重启恢复，不承诺主机级高可用。
 
 按照 [Standalone Agent Server 官方部署说明](https://docs.langchain.com/langsmith/deploy-standalone-server)，
@@ -32,12 +32,16 @@ checkpoint 和持久队列，使用 `REDIS_URI` 处理流、取消与 pub/sub。
 | `DATABASE_URI` | 生产必填 | PostgreSQL URI |
 | `REDIS_URI` | 生产必填 | Redis URI；每个部署使用独立 DB |
 | `LLM_PROVIDER` | 必填 | `dashscope`、`deepseek`、兼容 `moonshot` |
-| `LLM_API_KEY` / `LLM_TEXT_MODEL` | 必填 | 文本模型 |
-| `LLM_VISION_MODEL` | 空 | PDF、DOCX、图片解析必须配置；其他格式的内嵌图片在未配置时跳过并产生 PARTIAL；DeepSeek 可使用 `deepseek-v4-flash-vision-exp` |
+| `LLM_API_KEY` / `LLM_VISION_MODEL` | 必填 | 所有格式共用同一视觉模型；删除 `LLM_TEXT_MODEL`。页面直接结构化提题，无独立 OCR/文本模型串联 |
+| `AI_STORAGE_BACKEND` | `local` | `local` 或 `oss` |
+| `AI_OSS_REGION` / `AI_OSS_BUCKET` | OSS 必填 | 地域与已有私有 Bucket |
+| `AI_OSS_ACCESS_KEY_ID` / `AI_OSS_ACCESS_KEY_SECRET` | OSS 必填 | 服务端访问凭证 |
+| `AI_OSS_SECURITY_TOKEN` | 空 | 可选 STS token；过期前更新并重启 |
+| `AI_OSS_ENDPOINT` / `AI_OSS_USE_CNAME` | 空 / `false` | 可选 HTTPS 端点及自定义域名开关 |
 | `AI_STORAGE_DIR` | `.local/ai` | AI 文件目录；相对 `server/` 目录解析，生产使用持久挂载的绝对路径 |
 | `N_JOBS_PER_WORKER` | 8 | Agent Server 活跃 run 上限 |
 | `AI_GRAPH_MAX_CONCURRENCY` | 2 | 单 run graph 并行度 |
-| `AI_STORAGE_CONCURRENCY` | 4 | 单 run 本地文件存储 并发 |
+| `AI_STORAGE_CONCURRENCY` | 4 | 单 run 文件存储并发 |
 | `AI_SOURCE_MAX_BYTES` | 26214400 | 源文档字节上限 |
 | `AI_MAX_DOCUMENT_PAGES` | 100 | PDF 及 DOCX 转换后页数上限 |
 | `AI_SOFFICE_PATH` | `soffice` | LibreOffice 可执行路径；DOCX 转换超时固定 60 秒 |
@@ -46,7 +50,7 @@ checkpoint 和持久队列，使用 `REDIS_URI` 处理流、取消与 pub/sub。
 | `AI_MAX_TOTAL_INPUT_CHARS` | 2000000 | 模型输入文本上限 |
 | `AI_AGENT_MAX_TOKENS` | 16384 | 单次模型最大输出 token |
 | `AI_AGENT_TIMEOUT_SECONDS` | 180 | 单次模型超时 |
-| `AI_STORAGE_TIMEOUT_SECONDS` | 30 | 本地文件读写 超时 |
+| `AI_STORAGE_TIMEOUT_SECONDS` | 30 | 文件存储操作超时 |
 
 所有 `AI_*` 应用配置在启动时校验；非法数字、未知 provider 或缺失模型密钥 会阻止启动。密钥只通过部署平台 secret 注入，不写入镜像或仓库。
 
@@ -92,7 +96,7 @@ python scripts/load_test.py \
 默认创建 400 个独立 thread，以 100 个客户端并发提交。脚本要求 run ID 唯一、
 全部成功进入终态、run 创建 P95 不超过 1 秒、`/ok` P95 不超过 200 ms、
 活跃 run 不超过 8、配置模型并发上限不超过 16；提供 PID 时还要求 RSS 小于
-12.8 GiB。保留测试期的 provider 并发图，确认真实 LLM/OCR 请求峰值不超过 16。
+12.8 GiB。保留测试期的 provider 并发图，确认真实模型请求峰值不超过 16。
 
 调优一次只改一个参数并重跑同一份输入：
 
@@ -108,12 +112,15 @@ python scripts/load_test.py \
 每次发布候选镜像执行：
 
 1. 处理中重启应用容器；确认同一 run 从 PostgreSQL checkpoint 恢复且没有重复终态。
-2. 依次注入 LLM 429、连接超时和单页 OCR 非法输出；确认每个单元最多四次模型调用。
+2. 依次注入 LLM 429、连接超时和单页视觉提题非法输出；确认每个单元最多四次模型调用。
 3. 确认单页/单 chunk 故障返回 PARTIAL，全部 chunk 失败进入 error。
 4. 上传错误大小和 SHA-256 引用；确认模型未被调用且 run 进入 error。
 5. 暂停 Redis 后恢复；确认流暂时中断但 PostgreSQL 中的 run 未丢失。
 
 ## 数据生命周期与恢复
+
+以下目录与挂载要求适用于 `local` 模式。`oss` 模式使用已有私有 Bucket，源文件和素材均写入 OSS；按 `practiq-agent/sources/` 与 `practiq-agent/artifacts/` 前缀授予读写权限，并确保对象备份与任务数据库恢复时间匹配。切换模式不迁移数据；迁移前按原 objectKey 复制并验证对象；新版快照不允许更改存储位置继续旧任务，须原部署恢复或新建任务。不自动回退到本地或删除云端对象。两种模式均经服务鉴权 API 上传，不向客户端返回凭证。
+
 
 - `AI_STORAGE_DIR` 必须持久保存并备份；当前不自动清理 AI 文件。清理前确认文件已超过任务重试和 checkpoint 恢复窗口，不得删除仍有引用的文件。
 - 恢复数据库时同步恢复对应文件目录；多个进程必须使用同一目录。容器重建时复用持久挂载，不能依赖容器可写层。
@@ -128,8 +135,8 @@ python scripts/load_test.py \
 30 分钟观察期内若错误率、PARTIAL 或资源指标越过阈值：
 
 1. 暂停新任务。
-2. 回滚服务镜像到上一 digest。
-3. 保留失败 run、日志和 本地文件存储 对象用于复盘；确认队列稳定后再开放流量。
+2. 停止新版任务调度并隔离其 checkpoint；旧镜像只接管对应旧版本任务与数据库备份，不得读取新版 checkpoint。
+3. 保留失败 run、日志和文件存储对象用于复盘；确认队列稳定后再开放流量。
 
 只有容量实测证明单机不足或需要主机级高可用时，才按
 [官方扩展指南](https://docs.langchain.com/langsmith/agent-server-scale)
@@ -138,4 +145,12 @@ split API/queue 或分布式运行形态；不引入 Celery、Kafka 或自建队
 
 ## DOCX 渲染
 
-DOCX 全页渲染需要 LibreOffice Writer 与中文字体；`Dockerfile.server` 安装 `libreoffice-writer` 和 `fonts-noto-cjk`。本地安装后可用 `AI_SOFFICE_PATH` 指定执行路径。服务按渲染页序识别，不回退纯文本；分页可能与 Microsoft Word 不同。临时转换文件自动清理，持久页图沿用 `AI_STORAGE_DIR`。
+DOCX 全页渲染需要 LibreOffice Writer 与中文字体；`Dockerfile.server` 安装 `libreoffice-writer` 和 `fonts-noto-cjk`。本地安装后可用 `AI_SOFFICE_PATH` 指定执行路径。服务按渲染页序识别，不回退纯文本；分页可能与 Microsoft Word 不同。临时转换文件自动清理，持久页图写入所选本地或 OSS 存储。
+
+## 长任务版本发布与恢复验收
+
+状态、代码/提示词/契约、模型参数、存储位置均写入执行快照。不迁移历史无版本 checkpoint。发布前停止旧版本新任务，等待旧非终态任务在原镜像完成；仍有待保留的暂停任务则延期切换。保留旧镜像、数据库备份及对应文件。
+
+任务期限固定为创建后 180 天；Store 调用记录、暂停记录和控制记录按剩余期限写入。查询不刷新 Store TTL，也不延长应用级恢复期限；过期返回 `TASK_EXPIRED`。原生 checkpoint TTL 扫描负责清理，文件不自动删除。
+
+先运行 `make test` 和 `make verify`。随后按 [任务说明中的生产故障演练](document-tasks.md#production-crash-drill) 在独立 PostgreSQL、Redis、持久文件卷及真实测试 OSS Bucket 执行。仅通过内存 checkpoint、假 OSS 或 `langgraph dev` 测试不能声明生产恢复保证。

@@ -11,7 +11,7 @@ PractiQ AI Server 是一个基于 LangGraph 的文档理解服务。它读取文
 ## 使用流程
 
 ```text
-申请文件引用 → 经鉴权接口上传至本地目录 → 按格式选择 Graph → 获取结构化结果
+申请文件引用 → 经鉴权接口上传至配置的存储 → 按格式选择 Graph → 获取结构化结果
 ```
 
 仓库注册四个格式专用 Graph，以及一个兼容入口：
@@ -35,7 +35,7 @@ graph TD
     User["业务客户端"] -->|"申请文件引用"| Upload["FastAPI: POST /api/uploads"]
     Upload -->|"返回本服务 PUT 路径"| User
     User -->|"鉴权 PUT 文件"| Content["FastAPI: PUT /api/uploads/content"]
-    Content --> Storage[("本地目录 AI_STORAGE_DIR")]
+    Content --> Storage[("本地目录 / 阿里云 OSS")]
     User -->|"提交 DocumentReference"| Server["LangGraph Agent Server"]
     Server --> Parser["text_csv / pdf / docx / excel_parser<br/>兼容入口 document_parser"]
     Parser --> Extract["PDF / 图片 / DOCX / XLSX / CSV / 文本提取"]
@@ -51,9 +51,9 @@ graph TD
 
 ## 核心边界
 
-- 原生 API 源文件经服务令牌鉴权的 PUT 接口写入本地目录。解析前均校验大小和 SHA-256。
+- 原生 API 源文件经服务令牌鉴权的 PUT 接口写入选定存储。解析前均校验大小和 SHA-256。
 - DOCX 通过内部字节工具校验文件，以 LibreOffice 转临时 PDF，再逐页渲染；同时直接提取内嵌原图。
-- PDF（含文字版）与 DOCX 的全部页面均以约 200 DPI 转图，必须配置视觉模型。逐页识别后按页序合并文字，再分片提题；失败页保留缺页标记。页内配图由模型提供边界框，Pillow 执行裁剪。DOCX 原图与页内裁剪图分别以描述前缀 `[embedded original]`、`[page crop]` 标注来源，不推测对应关系或自动绑定题目。页图和内嵌图片可并行识别；单个视觉或文本分片失败会保留明细并返回 `PARTIAL`。
+- PDF（含文字版）与 DOCX 的全部页面均以约 200 DPI 转图，必须配置视觉模型。页面图像直接输出结构化题目、分组和图形，不生成 OCR 文本、不再交给文本模型提题。每页携带相邻页作为上下文，只输出起始于本页的题目；超出窗口的续文保留缺失字段，不猜测。失败页单独补跑并重新合并，成功页不重算。页内配图由模型提供边界框，Pillow 执行裁剪。DOCX 原图与页内裁剪图分别以描述前缀 `[embedded original]`、`[page crop]` 标注来源，不推测对应关系或自动绑定题目。页图和内嵌图片可并行识别；单个视觉或文本分片失败会保留明细并返回 `PARTIAL`。
 - Graph State 只保存对象引用和结构化结果，不保存文件 Base64。
 - 模型输出经过 Pydantic 校验；失败调用受统一重试与并发上限约束。
 
@@ -135,7 +135,7 @@ python -m dotenv -f .env run -- python scripts/load_test.py \
   --output reports/load-test.local.json
 ```
 
-评测覆盖公开合成小样本、单次运行配置的模型和本地文件存储，直接调用本地 Graph；压测调用本地 `langgraph dev`。`confidence` 未校准。
+评测覆盖公开合成小样本、单次运行配置的模型和配置的文件存储，直接调用本地 Graph；压测调用本地 `langgraph dev`。`confidence` 未校准。
 
 ## 开发与质量检查
 
@@ -154,18 +154,26 @@ uv build
 
 `POST /api/artifacts/read` 接收 `ArtifactReference`，校验文件大小和 SHA-256 后返回原始字节，需携带服务令牌。Graph 输出保留文件引用，不返回 Base64 文件内容。
 
-## 本地文件存储
+## 文件存储：本地与阿里云 OSS
 
-`AI_STORAGE_DIR` 默认 `.local/ai`，相对路径始终以 `server/` 目录解析，也支持绝对路径。
-源文件存于 `practiq-agent/sources/`，派生文本与图片存于 `practiq-agent/artifacts/`；引用继续使用相对 `objectKey`，不会返回服务器绝对路径。
-上传地址不是预签名 URL，不含凭证、无需 `expiresAt`；PUT 必须携带服务令牌。调用方应妥善保管服务令牌，不向公开客户端分发。
-AI 文件目录需要持久保存并与生产任务数据库配套备份；容器部署请把 `AI_STORAGE_DIR` 设置为持久挂载的绝对路径。
-不再需要 OSS SDK、bucket、endpoint 或访问密钥；旧云端对象未被读取、迁移或删除。已有 checkpoint 如引用云端文件，需要将对应对象保留原 `objectKey` 复制到此目录后才能恢复。
+通过 `AI_STORAGE_BACKEND=local|oss` 选择模式，默认 `local`。两种模式使用同一套原生上传、解析和素材读取接口，均校验命名空间、大小和 SHA-256；Graph State 只保存对象引用。上传地址始终是本服务的相对 PUT 路径，不返回 OSS 凭证或签名 URL。
+
+- **本地**：`AI_STORAGE_DIR` 默认 `.local/ai`，相对路径以 `server/` 为基准；生产使用持久挂载的绝对路径并备份。
+- **OSS**：配置 `AI_OSS_REGION`、`AI_OSS_BUCKET`、`AI_OSS_ACCESS_KEY_ID`、`AI_OSS_ACCESS_KEY_SECRET`。支持可选 `AI_OSS_SECURITY_TOKEN`；临时凭证需在过期前更新并重启服务。Bucket 需预先创建并保持私有。
+- 可选 `AI_OSS_ENDPOINT` 指定 HTTPS 端点，留空由地域生成；使用已绑定的自定义域名时设置 `AI_OSS_USE_CNAME=true`。
+
+源文件使用 `practiq-agent/sources/`，衍生文本与图片使用 `practiq-agent/artifacts/`；OSS 对象键与本地相对路径一致。仅授予这些前缀所需的 GetObject（含 HEAD）与 PutObject 权限，不需要创建 Bucket、列举或删除权限。OSS 使用[官方 Python SDK V2](https://www.alibabacloud.com/help/en/oss/developer-reference/2-0-manual-preview-version/)；连接和读写超时沿用 `AI_STORAGE_TIMEOUT_SECONDS`，异常返回统一存储错误。
+
+切换模式不自动迁移、清理或回退。迁移时需按原 objectKey 复制并验证全部引用对象；新版执行快照拒绝存储位置变化，原任务须在原部署完成或迁移后新建任务。备份时与生产任务数据库保持一致。离线测试覆盖双模式契约，但不替代真实 OSS 网络、RAM 权限与 Bucket 配置验收。
 
 ## Word / PDF 全页视觉解析运行要求
 
-配置 `LLM_VISION_MODEL` 后才能解析 PDF 与 DOCX；缺失时返回 `VISION_MODEL_REQUIRED`，不会回退到纯文本。DOCX 另需 LibreOffice Writer 与中文字体（Linux 推荐 `fonts-noto-cjk`）；部署镜像已包含这两项。可通过 `AI_SOFFICE_PATH` 指定可执行文件，默认从 PATH 查找 `soffice`。转换缺失、失败、超时分别返回 `DOCX_CONVERTER_MISSING`、`DOCX_CONVERSION_FAILED`、`DOCX_CONVERSION_TIMEOUT`。
+所有格式共用必填的 `LLM_VISION_MODEL`；移除 `LLM_TEXT_MODEL`，缺失视觉模型配置时启动失败。文本、CSV、Excel 仍按原始文本分片，但直接交给同一视觉模型；图片、PDF、DOCX 页面不进入文本分片流程。DOCX 另需 LibreOffice Writer 与中文字体（Linux 推荐 `fonts-noto-cjk`）；部署镜像已包含这两项。可通过 `AI_SOFFICE_PATH` 指定可执行文件，默认从 PATH 查找 `soffice`。转换缺失、失败、超时分别返回 `DOCX_CONVERTER_MISSING`、`DOCX_CONVERSION_FAILED`、`DOCX_CONVERSION_TIMEOUT`。
 
 每次转换使用独立临时目录和 LibreOffice 用户配置，60 秒超时后终止进程组并清理；临时 PDF 不持久保存，页图和配图进入现有素材存储。分页以服务器字体与 LibreOffice 渲染为准，可能与 Microsoft Word 不同。既有页数、像素、视觉总字节和裁剪上限仍适用；全页识别会增加模型调用成本与耗时。
 
-返回的 `page` 为零起始页索引；OCR 文本中的 `[page N]` 标记采用一开始的阅读页码。DOCX 原图无可靠位置时不填页码或坐标。自动化测试不调用真实模型；真实识别质量需另行验收。
+返回的 `page` 为零起始页索引。DOCX 原图无可靠位置时不填页码或坐标。自动化测试不调用真实模型；真实识别质量需另行验收。
+
+## 长任务控制
+
+五个 Graph 共用 [任务 API 与恢复规则](docs/document-tasks.md)。默认仍返回 `PARTIAL`；`failurePolicy="review"` 在处理失败时等待补跑或接受部分结果。原生 `{document: ...}` 输入与最终结果结构保留。所有变更请求使用 UUID `requestId`；恢复使用最新 `checkpointId`，暂停/中断使用目标 `runId`。请求受理与实际停止分开查询。
