@@ -25,10 +25,10 @@ Do not guess missing content. Return only the supplied structured result.
 
 
 class PageFigure(BaseModel):
-    kind: Literal["image", "table", "chart", "diagram", "qr_code"] = "image"
+    kind: Literal["image", "table", "chart", "diagram", "qr_code"] = Field(default="image", description="Classify visible content: table for rows/columns, chart for plotted data, diagram for schematic relationships, qr_code for QR codes, image for other pictures.")
     label: str | None = None
     description: str = Field(min_length=1, max_length=20_000)
-    bbox: list[float] = Field(min_length=4, max_length=4)
+    bbox: list[float] = Field(min_length=4, max_length=4, description="[x0, y0, x1, y1] relative to the full page, normalized to [0, 1], from top-left to bottom-right with positive area.")
 
     @field_validator("bbox")
     @classmethod

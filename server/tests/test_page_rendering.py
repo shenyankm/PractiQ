@@ -129,9 +129,9 @@ def test_converter_errors_and_cleanup(tmp_path, monkeypatch, mode):
         result = docx.convert_to_pdf(b"test")
         if mode == "invalid_pdf":
             with pytest.raises(DocumentProcessingError):
-                pdf.extract("", result)
+                pdf.extract(result)
         else:
-            assert len(pdf.extract("", result).page_images) == 1
+            assert len(pdf.extract(result).page_images) == 1
     assert not Path(record.read_text()).exists()
     if mode == "timeout":
         pid = int((tmp_path / "child").read_text())

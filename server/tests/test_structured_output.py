@@ -208,3 +208,99 @@ def test_model_schema_requires_presence_without_inventing_missing_values():
     draft = ParsedQuestion.model_validate({'stem': 'An unanswered question'})
     assert draft.answerMode is None and draft.answerPayload is None and draft.options == []
     assert 'answerMode' in draft.missingFields
+
+
+@pytest.mark.parametrize('wire', [
+    [{'function': {'name': 'Wrong', 'arguments': '{"value":1}'}}],
+    [{'function': {'name': 'Result', 'arguments': '{"value":1}'}}] * 2,
+    [{}], [{'function': None}], [{'function': {'name': 'Result'}}],
+    [{'function': {'arguments': '{"value":1}'}}], [None], 'malformed', {},
+])
+async def test_wire_validation_cannot_be_bypassed_by_parsed_object(monkeypatch, wire):
+    from langchain_core.messages import AIMessage
+
+    # Construct malformed provider envelopes without SDK normalization hiding them.
+    raw = AIMessage(content='', usage_metadata={'input_tokens': 10, 'output_tokens': 5, 'total_tokens': 15})
+    raw.additional_kwargs['tool_calls'] = wire
+    response = {'raw': raw, 'parsed': Result(value=1), 'parsing_error': None}
+    with pytest.raises(ValueError, match='tool'):
+        llm.validate_response(response, Result)
+    class Runner:
+        async def ainvoke(self, messages, config=None):
+            return response
+    monkeypatch.setattr(llm, 'structured_output', lambda *_: Runner())
+    parsed, usage, failure = await llm.structured_call(llm.build_model('dashscope', 'test', 'qwen3.7-flash'), [HumanMessage(content='source')], Result, 'test')
+    assert parsed is None and failure == 'OUTPUT_STALLED' and len(usage) == 2
+
+
+def test_wire_arguments_are_authoritative_and_normalized_calls_are_checked():
+    from langchain_core.messages import AIMessage
+
+    raw = AIMessage(content='', additional_kwargs={'tool_calls': [
+        {'function': {'name': 'Result', 'arguments': '{"value":2}'}}]})
+    response = {'raw': raw, 'parsed': Result(value=1)}
+    assert llm.validate_response(response, Result).value == 2
+    raw.additional_kwargs['tool_calls'][0]['function']['arguments'] = '{"value":-1}'
+    with pytest.raises(ValueError):
+        llm.validate_response(response, Result)
+    raw = AIMessage(content='', tool_calls=[{'name': 'Wrong', 'args': {'value': 2}, 'id': 'a'}])
+    with pytest.raises(ValueError, match='tool'):
+        llm.validate_response({'raw': raw, 'parsed': Result(value=1)}, Result)
+    raw.tool_calls[0]['name'] = 'Result'
+    assert llm.validate_response({'raw': raw, 'parsed': Result(value=1)}, Result).value == 2
+
+
+@pytest.mark.parametrize('repeated', [False, True])
+async def test_truncation_code_survives_budget_and_stall(monkeypatch, repeated):
+    from langchain_core.messages import AIMessage
+
+    from tests.test_workflows import FakeModel
+
+    attempts = []
+    class Runner:
+        async def ainvoke(self, messages, config=None):
+            attempts.append(messages)
+            return {'raw': AIMessage(content=json.dumps({'value': 1 if repeated else len(attempts)}),
+                                    response_metadata={'finish_reason': 'length'},
+                                    usage_metadata={'input_tokens': 10, 'output_tokens': 5, 'total_tokens': 15}),
+                    'parsed': Result(value=1), 'parsing_error': None}
+    monkeypatch.setattr(llm, 'structured_output', lambda *_: Runner())
+    parsed, usage, failure = await llm.structured_call(FakeModel(responses=[]), [HumanMessage(content='source')], Result, 'test')
+    assert parsed is None and failure == 'OUTPUT_TRUNCATED'
+    assert len(usage) == len(attempts) == (2 if repeated else 4)
+    assert sum(call.outputTokens for call in usage) == 5 * len(attempts)
+    assert 'Do not omit questions' in attempts[1][-1].content
+
+
+def test_semantic_descriptions_reach_wire_schema():
+    from practiq_ai.graphs.document import PageParseResult
+
+    schema = llm._model_schema(PageParseResult)['$defs']
+    for model, fields in {'ParsedQuestion': ['answerPayload', 'sourceText', 'confidence', 'needsReview'],
+                          'ParsedGroup': ['questionIndexes'], 'PageFigure': ['kind', 'bbox']}.items():
+        assert all(schema[model]['properties'][field]['description'] for field in fields)
+
+
+async def test_old_attempt_checkpoints_without_validation_code_replay(monkeypatch):
+    from types import SimpleNamespace
+    from uuid import uuid4
+
+    from langchain_core.messages import messages_to_dict
+
+    from tests.test_workflows import FakeModel
+
+    replays = []
+    async def cached(attempt, artifact):
+        replays.append(attempt)
+        return {'parsed': None, 'failureFingerprint': str(attempt),
+                'correction': messages_to_dict([HumanMessage(content='old correction')]),
+                'usage': {'callKey': str(uuid4()), 'modelId': 'fake', 'callKind': 'test', 'inputTokens': 10, 'outputTokens': 5}}
+    async def guard(_):
+        pass
+    monkeypatch.setattr(llm, 'task', lambda **_: lambda function: cached)
+    monkeypatch.setattr(llm, 'guard', guard)
+    model = FakeModel(responses=[])
+    parsed, usage, failure = await llm.structured_call(model, [HumanMessage(content='source')], Result, 'test',
+                                                     runtime=cast(Any, SimpleNamespace(execution_info=SimpleNamespace(thread_id='t', run_id='r'))))
+    assert parsed is None and failure == 'OUTPUT_INVALID'
+    assert replays == [1, 2, 3, 4] and len(usage) == 4 and not model.calls

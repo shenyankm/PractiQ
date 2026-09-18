@@ -169,6 +169,22 @@ python scripts/review_queue.py /absolute/logs/practiq.events.jsonl \
 制作金标，再进入回归集。不会自动认定问题、修改提示词或发布版本。
 JSON/Markdown 输出禁止覆盖已有文件，生成报告无需提交到 Git。
 
+可用 `--decisions /absolute/review-decisions.json` 合并人工结论，输入为 JSON 数组：
+
+```json
+[
+  {"threadId": "thread-1", "runId": "run-1", "verdict": "incorrect", "errorCategory": "model_output"},
+  {"threadId": "thread-2", "runId": "run-2", "verdict": "correct", "errorCategory": null}
+]
+```
+
+`verdict` 为 `correct`、`incorrect` 或 `uncertain`。只有 `incorrect` 必须填写
+`errorCategory`（`extraction`、`model_output`、`merge`、`gold_label`）；其他结论必须为 null。
+每条记录必须属于这批日志生成的已选复核清单，且 `(threadId, runId)` 不得重复。
+可以只填写部分任务；未填写项输出 null 并显示“待复核”。额外字段会被拒绝，
+不在结论文件中添加正文、答案或凭据。重新生成时使用新的 `--output` 路径。
+该本地结论不修改服务器结果或清除质量标记；接受服务器结果也不自动生成“正确”结论。
+
 2026-09-18 的 [v3 首轮报告](../reports/evaluations/fc0f9716-001e-4849-9b4c-94399d9b501f/report.md)
 覆盖全部 25 个案例、各三次真实模型执行，结果 FAILED。69 次正常任务中执行成功 66 次、
 质量合格 61 次；23 个正常案例均至少通过一次，其中 17 个三次全通过；6 次预期拒绝均匹配。
@@ -231,6 +247,12 @@ Qwen3.7 调用统一关闭 thinking，模型、Token 上限与超时仍取原配
 明确 token 截断的输出不会被本地 JSON 修复接受。
 
 协议选择依据及实跑边界见[本轮优化记录](../reports/evaluations/prompt-optimization-summary.md)。
+
+工具调用的数量、名称和参数结构在使用 SDK 的已解析对象之前检查；原始工具参数优先。
+原生 JSON Schema 和没有工具调用的结构化对象路径继续受同一业务校验约束。
+分组索引拒绝布尔值、浮点数与数字字符串；`isCorrect` 和 `needsReview` 不接受字符串或数字转布尔。
+关键字段和图形坐标的语义描述随 Schema 发送，合法草稿、false、0、null 的含义不变。
+截断错误保留为 `OUTPUT_TRUNCATED`，包括重复截断提前止损；不开放人工同参数补跑。
 
 本地 JSON Repair 已接入共用响应校验：补闭合括号、移除闭括号前的尾逗号、剥离完整代码围栏后重新执行原 Schema／内容校验。修复不新增模型调用；缺字段继续返回待补全。明确 token 截断、残缺字符串、缺失值以及类型或内容矛盾仍进入有限纠错，不因修复而放宽质量门禁。
 

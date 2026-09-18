@@ -56,3 +56,25 @@ def test_whitespace_modes_and_partial_answers_normalize_to_null():
 def test_partial_answer_does_not_hide_invalid_references():
     with pytest.raises(ValidationError):
         ParsedQuestion.model_validate({'stem':'排序','answerMode':'ordering','items':[{'content':'甲'},{'content':'乙'}],'answerPayload':{'order':[0,0,None]}})
+
+
+@pytest.mark.parametrize('value', [True, '0', 0.0])
+def test_group_indexes_reject_coercion(value):
+    from practiq_ai.contracts import ParsedGroup
+
+    with pytest.raises(ValidationError):
+        ParsedGroup.model_validate({'title': 'Section', 'questionIndexes': [value]})
+    assert ParsedGroup(title='Section', questionIndexes=[0]).questionIndexes == [0]
+
+
+@pytest.mark.parametrize('value', [0, 1, 'false', 'true'])
+def test_extraction_flags_reject_coercion(value):
+    from practiq_ai.contracts import ParsedOption
+
+    with pytest.raises(ValidationError):
+        ParsedOption.model_validate({'isCorrect': value})
+    with pytest.raises(ValidationError):
+        ParsedQuestion.model_validate({'stem': 'Question', 'needsReview': value})
+    assert ParsedOption(isCorrect=False).isCorrect is False
+    assert ParsedOption(isCorrect=None).isCorrect is None
+    assert ParsedQuestion(stem='Question', needsReview=False).needsReview  # Missing fields force review.

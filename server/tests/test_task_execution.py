@@ -152,6 +152,9 @@ async def test_optional_review_and_decision(monkeypatch, decision):
     assert result["__interrupt__"][0].value["canAccept"]
     failed = False
     result = await graph.ainvoke(Command(resume={"action": decision, "requestId": str(uuid4()), "units": []}), config)
+    assert result['__interrupt__'][0].value['qualityIssues']
+    result = await graph.ainvoke(Command(resume={'action': 'accept_partial'}), config)
+    assert '__interrupt__' not in result
     assert result["status"] == ("SUCCEEDED" if decision == "retry_failed" else "PARTIAL")
 
 
@@ -462,9 +465,9 @@ async def test_stalled_correction_is_restored_across_pause(monkeypatch):
     assert len(model.calls) == len(state['usage']) == 2
 
 
-async def test_quality_flags_are_visible_without_triggering_execution_review(monkeypatch):
+async def test_quality_flags_are_visible_without_blocking_default_policy(monkeypatch):
     graph, _, _, reference, model = setup_graph(monkeypatch, [parsed('Absent from source')])
-    output = await graph.ainvoke({'document': reference, 'failurePolicy': 'review'}, run_config())
+    output = await graph.ainvoke({'document': reference}, run_config())
     assert '__interrupt__' not in output and output['status'] == 'SUCCEEDED'
     assert output['processing']['quality']['reviewRequired']
     assert output['processing']['quality']['reviewQuestionCount'] == 1
@@ -495,3 +498,66 @@ async def test_recovery_provider_invalid_calls_survive_provider_restart(tmp_path
             calls = (await client.get('http://test/calls')).json()
             assert len(calls) == 2 + attempt
     assert len(log.read_text().splitlines()) == 3
+
+
+@pytest.mark.parametrize('code', ['SOURCE_TEXT_NOT_FOUND', 'AMBIGUOUS_OVERLAP', 'OVERLAP_CONFLICT', 'MISSING_FIELDS', 'NEEDS_REVIEW'])
+@pytest.mark.parametrize('policy', ['review', 'return_partial'])
+async def test_quality_review_preserves_results_and_only_blocks_source_issues(monkeypatch, code, policy):
+    graph, _, _, reference, model = setup_graph(monkeypatch, [parsed()])
+    original = document._merge
+    quality = {'reviewRequired': True, 'reviewQuestionCount': 1, 'issues': [{'questionIndex': 0, 'code': code}]}
+
+    async def merge(state):
+        result = await original(state)
+        result['processing']['quality'] = quality
+        return result
+
+    monkeypatch.setattr(document, '_merge', merge)
+    graph = local_graph(InMemorySaver())
+    config = run_config()
+    result = await graph.ainvoke({'document': reference, 'failurePolicy': policy}, config)
+    blocked = policy == 'review' and code not in {'MISSING_FIELDS', 'NEEDS_REVIEW'}
+    assert bool(result.get('__interrupt__')) == blocked
+    if blocked:
+        interruption = result['__interrupt__'][0].value
+        assert interruption == {'kind': 'review', 'stage': 'result', 'failures': [],
+                                'qualityIssues': quality['issues'], 'canAccept': True}
+        saved = (await graph.aget_state(config)).values
+        result = await graph.ainvoke(Command(resume={'action': 'accept_partial'}), config)
+        assert result['result'] == saved['result']
+    assert result['status'] == 'SUCCEEDED'
+    assert result['processing']['quality'] == quality
+    assert len(model.calls) == 1
+
+
+async def test_truncated_attempt_replay_preserves_reason_usage_and_budget(monkeypatch):
+    from langchain_core.messages import AIMessage
+
+    graph, store, _, reference, _ = setup_graph(monkeypatch, [])
+    calls = []
+    class Runner:
+        async def ainvoke(self, messages, config=None):
+            calls.append(messages)
+            return {'raw': AIMessage(content='{"questions":', response_metadata={'finish_reason': 'length'},
+                                    usage_metadata={'input_tokens': 10, 'output_tokens': 5, 'total_tokens': 15}),
+                    'parsed': None, 'parsing_error': ValueError('truncated')}
+    monkeypatch.setattr(llm, 'structured_output', lambda *_: Runner())
+    original = llm.structured_attempt
+    config = run_config()
+    async def attempt(*args, **kwargs):
+        result = await original(*args, **kwargs)
+        if len(calls) == 1:
+            await store.aput(execution.namespace('thread-1', 'pause'), str(config.get('run_id')), {'requested': True})
+        return result
+    monkeypatch.setattr(llm, 'structured_attempt', attempt)
+    result = await graph.ainvoke({'document': reference}, config)
+    assert result['__interrupt__'] and len(calls) == 1
+    with pytest.raises(DocumentProcessingError, match='All document fragments'):
+        await graph.ainvoke(Command(resume={'action': 'resume'}), {**config, 'run_id': uuid4()})
+    state = (await graph.aget_state(config)).values
+    assert len(calls) == len(state['usage']) == 2
+    failure = document.unit_failures(state)[0]
+    assert failure['code'] == 'OUTPUT_TRUNCATED' and not failure['retryable']
+    assert failure['retriesRemaining'] == 0
+    records = await store.asearch(execution.namespace('thread-1', 'calls'))
+    assert len(records) == 2 and all(item.value['validationCode'] == 'OUTPUT_TRUNCATED' for item in records)

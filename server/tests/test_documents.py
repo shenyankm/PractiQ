@@ -4,7 +4,6 @@ from zipfile import ZipFile
 import pytest
 from docx import Document
 from docx.document import Document as DocxDocument
-from langchain_core.tools import StructuredTool
 from pydantic import ValidationError
 
 from practiq_ai import extractors
@@ -110,17 +109,13 @@ def test_extract_csv_text_and_image() -> None:
 
 def test_extract_docx_pages_and_original_images(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(docx_extractor, "convert_to_pdf", lambda _: make_blank_pdf(2))
-    document = extract("docx", make_docx(with_image=True), "ignored legacy text")
+    document = extract("docx", make_docx(with_image=True))
     assert document.text == ""
     assert len(document.page_images) == 2
     assert document.embedded_images == [b"\x89PNG fake image bytes"]
 
 
-def test_docx_extraction_is_a_bytes_only_structured_tool() -> None:
-    tool = docx_extractor.extract_docx_content
-
-    assert isinstance(tool, StructuredTool)
-    assert set(docx_extractor.DocxExtractionInput.model_fields) == {"file_bytes"}
+def test_docx_extraction_accepts_only_bytes() -> None:
     for value in (
         "https://example.com/quiz.docx",
         "file:///tmp/quiz.docx",
@@ -129,39 +124,38 @@ def test_docx_extraction_is_a_bytes_only_structured_tool() -> None:
         "practiq-agent/sources/deadbeef/source.docx",
     ):
         with pytest.raises(ValidationError):
-            tool.invoke({"file_bytes": value})
+            docx_extractor.extract_docx_content(value)  # type: ignore[arg-type]
 
     with pytest.raises(ValidationError):
-        tool.invoke({"file_bytes": make_docx(), "url": "https://example.com"})
+        docx_extractor.extract_docx_content(make_docx(), url="https://example.com")  # type: ignore[call-arg]
     with pytest.raises(DocumentProcessingError, match="valid DOCX"):
-        tool.invoke({"file_bytes": b"file:///tmp/quiz.docx"})
+        docx_extractor.extract_docx_content(b"file:///tmp/quiz.docx")
 
 
-def test_docx_tool_enforces_source_size(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_docx_extraction_enforces_source_size(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("AI_SOURCE_MAX_BYTES", "1")
 
     with pytest.raises(DocumentProcessingError) as exc_info:
-        docx_extractor.extract_docx_content.invoke({"file_bytes": make_docx()})
+        docx_extractor.extract_docx_content(make_docx())
 
     assert exc_info.value.status_code == 413
 
 
-def test_docx_tool_is_registered_only_for_docx(
+def test_docx_extractor_is_used_only_for_docx(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from PIL import Image
 
     calls = 0
 
-    class RecordingTool:
-        def invoke(self, value: dict[str, bytes]) -> ExtractedDocument:
-            nonlocal calls
-            calls += 1
-            assert isinstance(value["file_bytes"], bytes)
-            return ExtractedDocument(text="docx tool output")
+    def recording_extractor(file_bytes: bytes) -> ExtractedDocument:
+        nonlocal calls
+        calls += 1
+        assert isinstance(file_bytes, bytes)
+        return ExtractedDocument(text="docx output")
 
-    monkeypatch.setattr(docx_extractor, "extract_docx_content", RecordingTool())
-    assert extract("docx", make_docx()).text == "docx tool output"
+    monkeypatch.setattr(docx_extractor, "extract_docx_content", recording_extractor)
+    assert extract("docx", make_docx()).text == "docx output"
 
     image_buffer = BytesIO()
     Image.new("RGB", (1, 1)).save(image_buffer, format="PNG")
@@ -186,7 +180,7 @@ def test_extract_enforces_source_size(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_extract_pdf_renders_every_page() -> None:
-    document = extract("pdf", make_blank_pdf(pages=2), "ignored legacy text")
+    document = extract("pdf", make_blank_pdf(pages=2))
     assert document.text == ""
     assert len(document.page_images) == 2
     assert all(image.startswith(b"\x89PNG") for image in document.page_images)

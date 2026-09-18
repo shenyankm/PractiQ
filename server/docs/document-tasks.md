@@ -60,7 +60,7 @@ native Agent Server streams; GET reconstructs progress without client history.
 | RUNNING | `pause`, `interrupt` with target `runId` |
 | PAUSING | `interrupt` with target `runId` |
 | PAUSED / INTERRUPTED | `resume` with latest `checkpointId` |
-| WAITING_REVIEW | `retry_failed`; `accept_partial` only with usable results |
+| WAITING_REVIEW | `retry_failed` only for eligible failures; `accept_partial` only with usable results |
 | FAILED | `resume` for unfinished nodes; `retry_failed` for recorded retryable units |
 | COMPLETED + PARTIAL | `retry_failed` for recorded retryable units |
 | COMPLETED + SUCCEEDED | Read or create a new task |
@@ -113,7 +113,12 @@ units remain. Explicitly selecting an exhausted unit returns HTTP 409
   retry opens a new round within the two-additional-round limit. Correction uses
   the original task/source plus only the latest failed response and validation
   error. Two consecutive identical failed outputs AND errors end that round as
-  `OUTPUT_STALLED`; transient transport errors do not count as repeated outputs.
+  `OUTPUT_STALLED`, except repeated truncation remains `OUTPUT_TRUNCATED`;
+  transient transport errors do not count as repeated outputs. Truncation is
+  rejected before JSON repair, retains its code through checkpoints and task
+  failures, and is not eligible for manual unit retry. Varying failed outputs
+  exhaust the same four-attempt budget and retain the last failure code. Old
+  attempt checkpoints without a validation code default to `OUTPUT_INVALID`.
   The 3 × 4 logical-attempt bound is not a provider billing guarantee.
 - A unique `callKey` identifies each real call. Known usage accumulates across
   recovery/retry and is deduplicated by this key. An interrupted request without
@@ -147,6 +152,30 @@ only a fresh checkpoint and request ID. No usable result means no accept option.
 Missing business fields, low confidence and `needsReview` retain draft semantics
 and alone do not trigger a decision. Crop failures can be accepted but cannot be
 blindly retried.
+
+At the result stage, `"review"` also pauses for `SOURCE_TEXT_NOT_FOUND`,
+`AMBIGUOUS_OVERLAP` and `OVERLAP_CONFLICT`. The interrupt payload keeps `kind`,
+`stage`, `failures`, `canAccept` and adds `qualityIssues` (old payloads may omit it):
+
+```json
+{
+  "kind": "review",
+  "stage": "result",
+  "failures": [],
+  "qualityIssues": [{"questionIndex": 0, "code": "SOURCE_TEXT_NOT_FOUND"}],
+  "canAccept": true
+}
+```
+
+For quality-only review, GET reports `WAITING_REVIEW` and
+`allowedActions: ["accept_partial"]`. Submit the existing control with
+`action="accept_partial"`, a new `requestId` and the latest `checkpointId`.
+Accepting preserves result content, execution status and all quality flags;
+it does not certify correctness. `return_partial` never blocks for these issues.
+`MISSING_FIELDS` and ordinary `NEEDS_REVIEW` alone remain non-blocking drafts.
+Quality issues are not failed units and cannot be selected for `retry_failed`.
+If recorded execution failures also remain retryable, retry follows the existing
+unit budget and routes back to that processing stage before merging again.
 
 ## Quality and source provenance / 质量与来源
 

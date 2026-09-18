@@ -174,6 +174,10 @@ async def test_retry_through_api_and_review_accept(monkeypatch):
     state = await task_api.get_task(thread_id)
     assert state["status"] == "SUCCEEDED", api.jobs
     assert state["failures"] == []
+    assert state["state"] == "WAITING_REVIEW" and state["allowedActions"] == ["accept_partial"]
+    await task_api.control_task(thread_id, DocumentTaskControl(requestId=uuid4(), action="accept_partial", checkpointId=state["checkpointId"]))
+    await api.finish()
+    assert (await task_api.get_task(thread_id))["state"] == "COMPLETED"
     assert len(model.calls) == len(state["usage"]) == 4
 
 
@@ -275,3 +279,57 @@ async def test_api_retry_limits_concurrency_and_exhaustion(monkeypatch, review):
         await api.finish()
         state = await task_api.get_task(thread_id)
     assert state['status'] == 'PARTIAL'
+
+
+async def test_quality_only_review_acceptance_is_idempotent_and_not_retryable(monkeypatch):
+    api, reference, model = setup_api(monkeypatch, [parsed('Absent from source')])
+    created = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference), failurePolicy='review'))
+    await api.finish()
+    thread_id = created['threadId']
+    state = await task_api.get_task(thread_id)
+    assert state['state'] == 'WAITING_REVIEW'
+    assert state['allowedActions'] == ['accept_partial'] and state['failures'] == []
+    assert state['blocking'][0]['qualityIssues'][0]['code'] == 'SOURCE_TEXT_NOT_FOUND'
+    with pytest.raises(DocumentProcessingError, match='retryable'):
+        await task_api.control_task(thread_id, DocumentTaskControl(requestId=uuid4(), action='retry_failed', checkpointId=state['checkpointId']))
+    with pytest.raises(DocumentProcessingError, match='checkpoint'):
+        await task_api.control_task(thread_id, DocumentTaskControl(requestId=uuid4(), action='accept_partial', checkpointId='stale'))
+    control = DocumentTaskControl(requestId=uuid4(), action='accept_partial', checkpointId=state['checkpointId'])
+    receipt = await task_api.control_task(thread_id, control)
+    await api.finish()
+    assert await task_api.control_task(thread_id, control) == receipt
+    output = await task_api.get_task(thread_id)
+    assert output['state'] == 'COMPLETED' and output['status'] == state['status'] == 'SUCCEEDED'
+    assert output['result'] == state['result'] and output['processing'] == state['processing']
+    assert output['processing']['quality']['reviewRequired']
+    assert len(model.calls) == 1
+
+
+@pytest.mark.parametrize('pages', [False, True])
+async def test_truncation_is_visible_and_not_manually_retryable(monkeypatch, pages):
+    from langchain_core.messages import AIMessage
+
+    from practiq_ai import llm
+    from practiq_ai.extractors import ExtractedDocument
+    from practiq_ai.graphs import document
+    from tests.test_workflows import make_image
+
+    api, reference, _ = setup_api(monkeypatch)
+    if pages:
+        monkeypatch.setattr(document, 'extract', lambda *_: ExtractedDocument(text='', page_images=[make_image()]))
+    class Runner:
+        async def ainvoke(self, messages, config=None):
+            return {'raw': AIMessage(content='{"questions":', response_metadata={'finish_reason': 'length'},
+                                    usage_metadata={'input_tokens': 10, 'output_tokens': 5, 'total_tokens': 15}),
+                    'parsed': None, 'parsing_error': ValueError('truncated')}
+    monkeypatch.setattr(llm, 'structured_output', lambda *_: Runner())
+    created = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
+    await api.finish()
+    state = await task_api.get_task(created['threadId'])
+    assert state['state'] == 'FAILED'
+    assert state['failures'] == [{'stage': 'vision_parse' if pages else 'document_parse', 'index': 0,
+                                  'code': 'OUTPUT_TRUNCATED', 'retryable': False, 'retriesRemaining': 0}]
+    assert len(state['usage']) == 2 and state['unknownUsageCalls'] == []
+    assert 'retry_failed' not in state['allowedActions']
+    with pytest.raises(DocumentProcessingError, match='retryable'):
+        await task_api.control_task(created['threadId'], DocumentTaskControl(requestId=uuid4(), action='retry_failed', checkpointId=state['checkpointId']))

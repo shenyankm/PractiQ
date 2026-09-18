@@ -9,8 +9,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from zipfile import BadZipFile, ZipFile
 
-from langchain_core.tools import StructuredTool
-from pydantic import BaseModel, ConfigDict, StrictBytes
+from pydantic import StrictBytes, validate_call
 
 from ..config import load
 from . import DocumentProcessingError, ExtractedDocument, enforce_vision_bytes
@@ -21,11 +20,6 @@ MAX_DOCX_EXPANDED_BYTES = 100 * 1024 * 1024
 MAX_EMBEDDED_IMAGES = 50
 IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp")
 CONVERSION_TIMEOUT_SECONDS = 60
-
-
-class DocxExtractionInput(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    file_bytes: StrictBytes
 
 
 def convert_to_pdf(file_bytes: bytes) -> bytes:
@@ -81,7 +75,8 @@ def convert_to_pdf(file_bytes: bytes) -> bytes:
         return output.read_bytes()
 
 
-def _extract_docx_content(file_bytes: bytes) -> ExtractedDocument:
+@validate_call
+def extract_docx_content(file_bytes: StrictBytes) -> ExtractedDocument:
     if len(file_bytes) > load().source_max_bytes:
         raise DocumentProcessingError(413, "Uploaded file is too large")
     _validate_docx_archive(file_bytes)
@@ -92,7 +87,7 @@ def _extract_docx_content(file_bytes: bytes) -> ExtractedDocument:
         raise
     except (BadZipFile, RuntimeError, OSError) as exc:
         raise DocumentProcessingError(400, "DOCX image extraction failed") from exc
-    document = extract_pdf("", convert_to_pdf(file_bytes))
+    document = extract_pdf(convert_to_pdf(file_bytes))
     enforce_vision_bytes(sum(map(len, images)) + sum(map(len, document.page_images)))
     return ExtractedDocument(
         text="",
@@ -101,14 +96,6 @@ def _extract_docx_content(file_bytes: bytes) -> ExtractedDocument:
         embedded_images=images,
         truncated=truncated,
     )
-
-
-extract_docx_content = StructuredTool.from_function(
-    func=_extract_docx_content,
-    name="extract_docx_content",
-    description="Render verified DOCX bytes as pages and extract original images.",
-    args_schema=DocxExtractionInput,
-)
 
 
 def _validate_docx_archive(file_bytes: bytes) -> set[str]:

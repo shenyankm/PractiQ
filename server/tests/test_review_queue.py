@@ -37,3 +37,34 @@ def test_event_capture_is_scoped_and_excludes_content_fields(caplog):
     telemetry.event("stage", stage="merge")
     assert len(events) == 1 and events[0]["stage"] == "prepare"
     assert "PRIVATE" not in json.dumps(events) + caplog.text
+
+
+def test_review_decisions_are_partial_validated_and_content_free(tmp_path):
+    log = tmp_path / 'events.jsonl'
+    log.write_text('\n'.join(json.dumps(candidate(i, review=True)) for i in range(2)))
+    decisions = tmp_path / 'decisions.json'
+    decision = {'threadId': 'thread-0', 'runId': 'run-0', 'verdict': 'incorrect', 'errorCategory': 'model_output'}
+    decisions.write_text(json.dumps([decision]))
+    output = tmp_path / 'reviewed.json'
+    args = [str(log), '--decisions', str(decisions), '--output', str(output)]
+    assert review_queue.main(args) == 0
+    report = json.loads(output.read_text())
+    assert report['items'][0]['verdict'] == 'incorrect'
+    assert report['items'][1]['verdict'] is None
+    assert '待复核' in output.with_suffix('.md').read_text()
+    invalid = [
+        [decision, decision], [{**decision, 'runId': 'unknown'}],
+        [{**decision, 'errorCategory': None}], [{**decision, 'verdict': 'correct'}],
+        [{**decision, 'verdict': 'uncertain'}], [{**decision, 'errorCategory': 'other'}],
+        [{**decision, 'sourceText': 'PRIVATE'}], {'not': 'a list'},
+    ]
+    for index, data in enumerate(invalid):
+        decisions.write_text(json.dumps(data))
+        target = tmp_path / f'invalid-{index}.json'
+        assert review_queue.main([*args[:-1], str(target)]) == 2
+        assert not target.exists() and not target.with_suffix('.md').exists()
+    decisions.write_text(json.dumps([{**decision, 'verdict': verdict, 'errorCategory': None,
+                                    'threadId': f'thread-{i}', 'runId': f'run-{i}'}
+                                   for i, verdict in enumerate(['correct', 'uncertain'])]))
+    assert review_queue.main([*args[:-1], str(tmp_path / 'accepted.json')]) == 0
+    assert json.loads(output.read_text()) == report  # Never overwrite the first report.

@@ -37,8 +37,8 @@ def test_pdf_entry_points_share_lock_and_release_after_failure(monkeypatch):
     monkeypatch.setattr(pdf, "_extract", work)
     monkeypatch.setattr(pdf, "_render_pages", work)
     with ThreadPoolExecutor(max_workers=4) as pool:
-        jobs = [pool.submit(pdf.extract, "", b"bad"), pool.submit(pdf.render_pages, b"good", [0]),
-                pool.submit(pdf.extract, "", b"good"), pool.submit(pdf.render_pages, b"good", [0])]
+        jobs = [pool.submit(pdf.extract, b"bad"), pool.submit(pdf.render_pages, b"good", [0]),
+                pool.submit(pdf.extract, b"good"), pool.submit(pdf.render_pages, b"good", [0])]
         with pytest.raises(ValueError):
             jobs[0].result()
         assert all(job.result() == [] for job in jobs[1:])

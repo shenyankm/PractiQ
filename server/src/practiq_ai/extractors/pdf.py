@@ -20,7 +20,7 @@ RENDER_SCALE = 200 / 72  # ~200dpi
 PDFIUM_LOCK = RLock()
 
 
-def extract(base_text: str, file_bytes: bytes) -> ExtractedDocument:
+def extract(file_bytes: bytes) -> ExtractedDocument:
     with PDFIUM_LOCK:
         return _extract(file_bytes)
 

@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-from typing import cast
 
 from ..config import load
 from ..contracts import DocumentSourceType
@@ -25,7 +24,6 @@ def enforce_vision_bytes(total: int) -> None:
 def extract(
     source_type: DocumentSourceType,
     payload: bytes,
-    base_text: str = "",
 ) -> ExtractedDocument:
     if len(payload) > load().source_max_bytes:
         raise DocumentProcessingError(413, "Uploaded file is too large")
@@ -41,19 +39,13 @@ def extract(
     from .pdf import extract as extract_pdf
     from .xlsx import extract as extract_xlsx
 
-    registered_tools = {"docx": extract_docx_content}
-    if source_type == "docx":
-        document = cast(
-            ExtractedDocument,
-            registered_tools[source_type].invoke({"file_bytes": payload}),
-        )
-    else:
-        extractor = {
-            "csv": extract_csv,
-            "image": extract_image,
-            "pdf": extract_pdf,
-            "xlsx": extract_xlsx,
-        }[source_type]
-        document = extractor(base_text, payload)
+    extractor = {
+        "docx": extract_docx_content,
+        "csv": extract_csv,
+        "image": extract_image,
+        "pdf": extract_pdf,
+        "xlsx": extract_xlsx,
+    }[source_type]
+    document = extractor(payload)
     document.text = document.text.strip()
     return document

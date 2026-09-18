@@ -176,24 +176,27 @@ def validate_response[ResultT: BaseModel](
     context: dict[str, Any] | None = None,
 ) -> ResultT:
     if response["raw"].response_metadata.get("finish_reason") == "length":
-        raise ValueError("Output was truncated; return a complete, more concise result")
-    parsed = response["parsed"]
-    if isinstance(parsed, BaseModel):
-        return schema.model_validate(parsed.model_dump(), context=context)
+        raise ValueError("Output was truncated; return a complete result without repetition. Do not omit questions or invent source content")
     raw = response["raw"]
-    # Inspect original tool arguments even when LangChain's parser failed.
+    # The wire arguments are authoritative, even if the SDK already parsed them.
     wire_calls = raw.additional_kwargs.get("tool_calls", [])
-    if wire_calls:
-        if len(wire_calls) != 1 or wire_calls[0]["function"]["name"] != schema.__name__:
+    if wire_calls is not None and wire_calls != []:
+        if not isinstance(wire_calls, list) or len(wire_calls) != 1 or not isinstance(wire_calls[0], dict):
             raise ValueError("Expected one tool call matching the response schema")
-        source = wire_calls[0]["function"]["arguments"]
+        function = wire_calls[0].get("function")
+        if not isinstance(function, dict) or function.get("name") != schema.__name__ or "arguments" not in function:
+            raise ValueError("Expected tool name and arguments matching the response schema")
+        source = function["arguments"]
     else:
         calls = [*getattr(raw, "tool_calls", []), *getattr(raw, "invalid_tool_calls", [])]
         if calls:
-            if len(calls) != 1 or calls[0]["name"] != schema.__name__:
+            if len(calls) != 1 or not isinstance(calls[0], dict) or calls[0].get("name") != schema.__name__ or "args" not in calls[0]:
                 raise ValueError("Expected one tool call matching the response schema")
             source = calls[0]["args"]
         else:
+            parsed = response["parsed"]
+            if isinstance(parsed, BaseModel):
+                return schema.model_validate(parsed.model_dump(), context=context)
             source = raw.content
     if isinstance(source, dict):
         return schema.model_validate(source, context=context)
@@ -221,12 +224,14 @@ def _retry_delay(attempt: int) -> float:
 
 
 def _failure_fingerprint(raw: BaseMessage, error: BaseMessage) -> str:
+    wire_calls = raw.additional_kwargs.get("tool_calls")
     return fingerprint({
         "content": raw.content,
         "tools": [(call.get("name"), call.get("args")) for call in [
             *getattr(raw, "tool_calls", []), *getattr(raw, "invalid_tool_calls", []),
         ]],
-        "rawTools": [call.get("function") for call in raw.additional_kwargs.get("tool_calls", [])],
+        "rawTools": [call.get("function") if isinstance(call, dict) else call for call in wire_calls]
+        if isinstance(wire_calls, list) else wire_calls,
         "function": raw.additional_kwargs.get("function_call"),
         "error": error.content,
     })
@@ -436,6 +441,7 @@ async def structured_call[ResultT: BaseModel](
             "correction": messages_to_dict(corrected[len(messages):]),
             # Ignore provider IDs and usage; detect identical content AND error.
             "failureFingerprint": _failure_fingerprint(corrected[-2], corrected[-1]) if parsed is None else None,
+            "validationCode": record.get("validationCode"),
             "usage": call_usage.model_dump(mode="json"),
         }
 
@@ -469,12 +475,13 @@ async def structured_call[ResultT: BaseModel](
             continue
         usage.append(ModelCallUsage.model_validate(saved["usage"]))
         if saved["parsed"] is None:
+            failure_code = saved.get("validationCode") or "OUTPUT_INVALID"
             if saved["failureFingerprint"] == previous_failure:
-                decision("stop", attempt, "OUTPUT_STALLED")
-                return None, usage, "OUTPUT_STALLED"
+                failure_code = "OUTPUT_TRUNCATED" if failure_code == "OUTPUT_TRUNCATED" else "OUTPUT_STALLED"
+                decision("stop", attempt, failure_code)
+                return None, usage, failure_code
             previous_failure = saved["failureFingerprint"]
             messages = [*original_messages, *messages_from_dict(saved["correction"])]
-            failure_code = "OUTPUT_INVALID"
             if attempt < MAX_MODEL_CALLS:
                 decision("correct", attempt, failure_code)
             continue

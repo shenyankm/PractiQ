@@ -12,7 +12,7 @@ MAX_XLSX_ENTRIES = 5_000
 MAX_XLSX_EXPANDED_BYTES = 100 * 1024 * 1024
 
 
-def extract(base_text: str, file_bytes: bytes) -> ExtractedDocument:
+def extract(file_bytes: bytes) -> ExtractedDocument:
     warnings: list[str] = []
     truncated = False
     try:
@@ -43,7 +43,7 @@ def extract(base_text: str, file_bytes: bytes) -> ExtractedDocument:
     finally:
         workbook.close()
 
-    text = '\n\n'.join(part for part in [base_text, *parts] if part)
+    text = '\n\n'.join(parts)
     return ExtractedDocument(text=text, warnings=warnings, truncated=truncated)
 
 

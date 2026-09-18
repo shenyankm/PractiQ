@@ -159,7 +159,6 @@ class DocumentState(TypedDict):
     round: NotRequired[int]
     phase: NotRequired[str]
     nextStage: NotRequired[str]
-    reviewAccepted: NotRequired[list[str]]
     appliedRetries: NotRequired[list[str]]
     retryCounts: NotRequired[dict[str, int]]
     callAllowances: NotRequired[dict[str, int]]
@@ -256,7 +255,6 @@ async def _load_context(state: DocumentState, runtime: Runtime[None]) -> dict[st
         "round": 0,
         "phase": "prepare",
         "nextStage": "prepare",
-        "reviewAccepted": [],
         "appliedRetries": [],
         "retryCounts": {},
         "callAllowances": {},
@@ -781,7 +779,6 @@ def _retry_update(state: DocumentState, request: RetryUnits) -> dict[str, Any]:
             f"{stage}:{index}": state.get("retryCounts", {}).get(f"{stage}:{index}", 0) + 1
             for stage, index in selected
         }},
-        "reviewAccepted": [],
         "nextStage": "vision_gate" if vision_changed else "chunk_gate",
         "phase": "vision" if vision_changed else "chunk",
         "failures": Overwrite([item for item in state.get("failures", []) if (item["stage"], item["index"]) not in selected]),
@@ -813,10 +810,12 @@ async def _gate(state: DocumentState, *, phase: str) -> dict[str, Any]:
 
 async def _review(state: DocumentState, *, phase: str) -> dict[str, Any]:
     failures = [item for item in unit_failures(dict(state)) if (item["stage"].startswith("vision_") if phase == "vision" else item["stage"] == ("visual_crop" if phase == "result" else "document_parse"))]
+    quality_issues = [item for item in state.get("processing", {}).get("quality", {}).get("issues", [])
+                      if item["code"] in {"SOURCE_TEXT_NOT_FOUND", "AMBIGUOUS_OVERLAP", "OVERLAP_CONFLICT"}] if phase == "result" else []
     next_stage = ("merge" if state.get("pageRefs") else "chunk_gate" if state.get("chunkRefs") else "assemble") if phase == "vision" else "merge"
     if phase == "result":
         next_stage = "finish"
-    if state.get("failurePolicy") != "review" or not failures:
+    if state.get("failurePolicy") != "review" or not (failures or quality_issues):
         return {"nextStage": next_stage, "phase": phase}
     can_accept = (
         bool(state.get("textRef") or any(item.get("parsed", {}).get("questions") for item in state.get("visionResults", [])))
@@ -824,12 +823,12 @@ async def _review(state: DocumentState, *, phase: str) -> dict[str, Any]:
     )
     if phase == "result":
         can_accept = bool(state.get("result", {}).get("questions"))
-    answer = interrupt({"kind": "review", "stage": phase, "failures": failures, "canAccept": bool(can_accept)})
+    answer = interrupt({"kind": "review", "stage": phase, "failures": failures, "qualityIssues": quality_issues, "canAccept": bool(can_accept)})
     if isinstance(answer, dict) and answer.get("action") == "retry_failed":
         return _retry_update(state, RetryUnits.model_validate({"requestId": answer.get("requestId"), "units": answer.get("units", [])}))
     if not isinstance(answer, dict) or answer.get("action") != "accept_partial" or not can_accept:
         raise DocumentProcessingError(422, "No acceptable partial result or invalid review decision", "INVALID_CONTROL")
-    return {"nextStage": next_stage, "reviewAccepted": [*state.get("reviewAccepted", []), phase]}
+    return {"nextStage": next_stage}
 
 
 def _guarded(function: Callable[..., Awaitable[dict[str, Any]]], *, with_runtime: bool = False):
@@ -929,7 +928,7 @@ def build_document_graph(
     builder.add_edge("chunk", "chunk_gate")
     builder.add_conditional_edges("chunk_review", lambda state: state["nextStage"], ["chunk_gate", "merge"])
     builder.add_edge("merge", "result_review")
-    builder.add_edge("result_review", "finish")
+    builder.add_conditional_edges("result_review", lambda state: state["nextStage"], ["finish", "vision_gate", "chunk_gate"])
     builder.add_edge("finish", END)
     return cast(
         CompiledStateGraph,

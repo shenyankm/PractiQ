@@ -96,7 +96,7 @@ class DocumentUploadRequest(StrictModel):
 class ParsedOption(StrictModel):
     label: str | None = Field(default=None, max_length=32)
     content: str | None = Field(default=None, max_length=20_000)
-    isCorrect: bool | None = None
+    isCorrect: StrictBool | None = None
 
     @field_validator("label", "content", mode="before")
     @classmethod
@@ -319,12 +319,12 @@ class ParsedQuestion(StrictModel):
     matchingVariant: Literal["one_to_one", "many_to_one"] | None = None
     items: list[ParsedItem] = Field(default_factory=list, max_length=100)
     options: list[ParsedOption] = Field(default_factory=list, max_length=100)
-    answerPayload: AnswerPayload | dict[str, Any] | None = None
+    answerPayload: AnswerPayload | dict[str, Any] | None = Field(default=None, description="Extract only an answer explicitly supplied by the source; never solve the question. Use null when absent.")
     analysis: str | None = Field(default=None, max_length=100_000)
     contentBlocks: list[ContentBlock] = Field(default_factory=list, max_length=1_000)
-    sourceText: str | None = Field(default=None, max_length=120_000)
-    confidence: float = Field(default=0, ge=0, le=1)
-    needsReview: bool = True
+    sourceText: str | None = Field(default=None, max_length=120_000, description="Literal source text for locating this question; do not summarize or paraphrase.")
+    confidence: float = Field(default=0, ge=0, le=1, description="Reliability of extraction, not confidence that the answer is correct.")
+    needsReview: StrictBool = Field(default=True, description="True when extraction is uncertain; missing fields also force review during validation.")
     missingFields: list[MissingField] = Field(default_factory=list)
 
     @field_validator("options", "items", "contentBlocks", "missingFields", mode="before")
@@ -368,7 +368,7 @@ class ParsedQuestion(StrictModel):
 class ParsedGroup(StrictModel):
     title: str = Field(min_length=1, max_length=1_000)
     instructions: str | None = Field(default=None, max_length=20_000)
-    questionIndexes: list[int] = Field(max_length=1_000)
+    questionIndexes: list[StrictInt] = Field(max_length=1_000, description="Zero-based positions in this fragment's questions, not printed question numbers.")
 
     @field_validator("title")
     @classmethod
