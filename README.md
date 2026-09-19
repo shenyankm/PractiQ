@@ -6,61 +6,66 @@
 
 English | [简体中文](README.zh-CN.md)
 
-An AI document import tool that turns text, CSV, PDF, images, Word, and Excel files into structured questions, passage-based question groups, source answers, and visual assets. It supports durable pause/resume, selected failed-unit retry, optional human review, and per-call model usage tracking.
+**Turn documents into structured questions, ready for review.**
 
-The code lives in `server/` and runs on FastAPI, open-source LangGraph and PostgreSQL, without the commercial Agent Server runtime. It does not include a frontend, question bank management, practice grading, answer generation, or learning reports.
+PractiQ is an AI document import service for teams building question banks, educational content tools, and document-processing workflows. It extracts questions, passage-based groups, source answers, and visual assets from text, PDFs, images, Word documents, and Excel workbooks, so you can review and reuse the content in your own application.
 
-## Run locally
+## From source files to reusable content
 
-Use an existing Python 3.14+ interpreter without creating a project `.venv`. Set `AI_PYTHON` to the interpreter path.
+Exam papers, scanned exercises, and spreadsheet question sets often combine text, tables, and illustrations. PractiQ brings them into a shared structure while keeping source references and identifying content that needs review.
+
+| Capability | What it gives you |
+| --- | --- |
+| Structured extraction | Question stems, options, answer formats, and answers or explanations present in the source. |
+| Passage-based groups | Shared reading passages or materials grouped with their questions. |
+| Visual content | Page images, embedded illustrations, and supported chart or diagram assets alongside extracted content. |
+| Traceable results | Available page, text, or worksheet references to help check results against the original. |
+| Explicit uncertainty | Missing-field flags, quality issues, and partial results for review. Missing source answers remain missing. |
+| Controllable tasks | Pause and resume work, retry eligible failed units while retaining successful results, or accept a partial result. |
+| Usage visibility | Per-call model usage records, including failed calls and cases where usage is unknown. |
+
+## Supported documents
+
+| Format | Typical input |
+| --- | --- |
+| TXT / CSV | Text exercises and exported question lists. |
+| PDF | Digital or scanned papers, including pages with illustrations. |
+| Images | Screenshots and photographed exercises. |
+| Word (`.docx`) | Teaching materials with page layouts and embedded images. |
+| Excel (`.xlsx`) | Worksheets containing cells, anchored images, and supported charts or shapes. |
+
+Word and Excel support applies to `.docx` and `.xlsx`; legacy `.doc` and `.xls` files need conversion first. See the [integration guide](server/docs/service-guide.md) for rendering requirements and format limits.
+
+## How it fits your workflow
+
+**Upload a document → Track extraction → Review results → Use them in your application**
+
+1. **Upload** through the authenticated API and create a document task.
+2. **Track** progress, extracted content, and any processing failures.
+3. **Review** source references and quality flags. When needed, retry eligible failures or explicitly accept the available result.
+4. **Use** structured results and visual assets in your own question bank or editorial workflow.
+
+PractiQ provides a self-hosted API service. Your application supplies the user interface and downstream workflow. Question-bank management, practice grading, answer generation, and learning reports are outside the current product. Extraction results still need content review; engineering tests do not establish model accuracy.
+
+## Get started
+
+You need Python 3.14+, a new empty PostgreSQL 16+ database, and access to text and vision models. Use an existing Python interpreter without a project `.venv`. Word rendering requires LibreOffice Writer; Excel chart and shape rendering requires Calc. Model calls may incur provider charges.
 
 ```bash
-# Copy only on first setup; do not overwrite existing model configuration
+# First setup only; preserve any existing configuration
 cp -n .env.example .env
-# Configure token, models, a NEW PostgreSQL database and separate file storage
+# Configure the service token, models, database, and file storage in .env
 make install AI_PYTHON=/path/to/python3.14
 make init-db AI_PYTHON=/path/to/python3.14
 make server-dev AI_PYTHON=/path/to/python3.14
 ```
 
-The server listens on `127.0.0.1:8090` by default. Use `GET /ok` for liveness and `/ready` for database/runtime readiness. Local and production runs require PostgreSQL. Initialization refuses non-empty databases; keep old Agent Server tasks in their original environment. Only one service process may own the new database.
+The service starts at `127.0.0.1:8090`. It uses FastAPI, open-source LangGraph, and PostgreSQL, with local file storage or a private OSS bucket. Text and vision models are both required; document content is sent to the configured model provider. The runtime uses one service process per database.
 
-Both `LLM_TEXT_MODEL` and `LLM_VISION_MODEL` are required, sharing the provider and API key. TXT/CSV use the text model. PDF/DOCX/images use direct visual extraction; XLSX combines worksheet cells, anchored images and rendered charts/shapes in one joint vision unit per worksheet. DOCX needs LibreOffice Writer; XLSX charts/shapes need Calc. Chinese fonts are included in the deployment image. `AI_SOFFICE_PATH` selects the converter.
+## Documentation
 
-## Import workflow
-
-1. Call `POST /api/uploads` with `Authorization: Bearer <AI_SERVICE_TOKEN>` to request a file reference.
-2. Upload the raw file with an authenticated PUT using the returned URL and Content-Type. Existing files may return a reference without requiring another upload.
-3. Create a task with `POST /api/document-tasks` using the uploaded `document` and a UUID `requestId`; poll `GET /api/document-tasks/{threadId}`. Official native graph/SDK APIs are no longer exposed.
-4. Call `POST /api/artifacts/read` with authentication to retrieve derived assets.
-
-Available graphs are `text_csv_parser`, `pdf_parser`, `docx_parser`, `excel_parser`, and `document_parser`, which supports all formats. Task inputs do not accept URLs, Base64 content, or server filesystem paths. The former product `/api/v1/ai/*` endpoints have been removed.
-
-Pause, interrupt, resume, retry failed units or accept partial results through `POST /api/document-tasks/{threadId}/control`. See the [task API and recovery guide](server/docs/document-tasks.md) for request examples, idempotency and the 180-day recovery window.
-
-See the [AI service guide](README.zh-CN.md#graph-与接口示例) for complete API examples and capability limits.
-
-## Validation and data
-
-```bash
-make test AI_PYTHON=/path/to/python3.14
-make verify AI_PYTHON=/path/to/python3.14
-make audit AI_PYTHON=/path/to/python3.14
-make image-check
-```
-
-Database tests explicitly request the `disposable_databases` fixture: they use `TEST_DATABASE_URI` or start a disposable PostgreSQL Docker container. Pure tests (for example, `cd server && python -m pytest tests/test_schemas.py tests/test_auth.py`) need neither. Shared fakes and sample builders live in `tests/support.py`; database helpers live in `tests/db_support.py`. CI installs LibreOffice Writer/Calc and Chinese fonts and sets `REQUIRE_LIBREOFFICE_TESTS=1`, so real rendering checks fail instead of skipping when LibreOffice is missing. Set the same variable locally to require those checks.
-
-`make verify` checks lockfile consistency, Ruff lint, Pyright types, evaluation fixtures, one test run with at least 90% coverage, recovery probes, and package builds. `make audit` checks only locked runtime and development dependencies and fails on vulnerabilities or audit errors; it requires network access. `make image-check` requires Docker and builds the service image without publishing it.
-
-CI runs these same Make targets for every pull request, pushes to `main`, and manual dispatches on Ubuntu 24.04 with Python 3.14 and uv 0.12.13. `make install-locked AI_PYTHON=/path/to/python3.14` installs the locked dependencies and editable project into the selected interpreter without creating a project `.venv`; use a dedicated interpreter in CI. The existing `make install` remains the convenience command for local development. Runs time out after 20 minutes and newer runs cancel older ones for the same workflow/ref. JUnit, coverage XML, and probe JSON/Markdown are written to `server/reports/checks/`; each verification replaces only those four generated reports. CI retains available reports for 14 days, including after test failures. Recovery probes are regression evidence, not full production crash-recovery acceptance.
-
-Automated tests do not call real models. The [evaluation guide](server/docs/evaluation.md) and historical reports are retained; past failed runs do not establish a current quality baseline.
-
-Storage supports two modes: `AI_STORAGE_BACKEND=local` (default) or `oss`. Both use the same authenticated upload and artifact APIs, with size and SHA-256 verification.
-
-In local mode, AI files are stored in `server/.local/ai-oss` by default. Relative `AI_STORAGE_DIR` paths resolve from `server/`. In production, use an absolute path on a persistent mount and back it up. The project simplification does not migrate or delete existing databases, volumes, files, or local configuration. See the [operations guide](server/docs/operations.md) and `Dockerfile.server` for production deployment.
-
-In OSS mode, configure `AI_OSS_REGION`, `AI_OSS_BUCKET`, `AI_OSS_ACCESS_KEY_ID`, and `AI_OSS_ACCESS_KEY_SECRET` in `.env`. Optional `AI_OSS_SECURITY_TOKEN` supports temporary STS credentials. `AI_OSS_ENDPOINT` overrides the HTTPS endpoint; set `AI_OSS_USE_CNAME=true` for a bucket-bound custom domain. See `.env.example` for all settings.
-
-Use an existing private bucket and grant access only to the required objects. Credentials stay on the server; files pass through the authenticated API. Switching modes does not copy data or fall back to the other backend. Copy and verify every referenced object before switching. New versioned tasks reject storage-location changes; finish them on the original deployment or create new tasks after migration. Old checkpoints are not upgraded. Renew temporary credentials and restart before they expire.
+- [Integration and development guide](server/docs/service-guide.md) — configuration, import flow, format behavior, and CI checks (Chinese).
+- [Task API](server/docs/document-tasks.md) — task creation, progress, pause/resume, retry, and review decisions (Chinese).
+- [Operations](server/docs/operations.md) — deployment, storage, monitoring, and recovery (Chinese).
+- [Evaluation](server/docs/evaluation.md) — datasets, model-quality checks, and evidence limits (Chinese).
+- [Contributing](CONTRIBUTING.md) — development checks and contribution guidelines.
