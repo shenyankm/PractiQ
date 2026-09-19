@@ -1,6 +1,6 @@
 # 文档任务 API 与 HITL
 
-五个 Graph 共用开源 LangGraph 的 checkpoint、Store 和 PostgreSQL 持久队列，不再提供官方 Agent Server 原生 API。
+四个 Graph 共用开源 LangGraph 的 checkpoint、Store 和 SQLite 持久队列，不再提供官方 Agent Server 原生 API。
 
 ## 创建与查询
 
@@ -17,7 +17,7 @@
 
 `POST /api/document-tasks` 返回 HTTP 202，字段为 `threadId`、`runId`、`requestId`、`accepted`。202 表示已持久入队，不代表解析完成。所有业务接口要求 `Authorization: Bearer <AI_SERVICE_TOKEN>`。
 
-`graphId` 可选 `document_parser`（默认，全部格式）、`text_csv_parser`、`pdf_parser`、`docx_parser`、`excel_parser`。可选 `parentThreadId` 仅关联已存在的新运行时任务，不覆盖父任务。未知字段、原始 state、URL、Base64、服务器文件路径和用户提交的模型结果均拒绝。
+`graphId` 可选 `document_parser`（默认，全部格式）、`text_csv_parser`、`pdf_parser`。可选 `parentThreadId` 仅关联已存在的新运行时任务，不覆盖父任务。未知字段、原始 state、URL、Base64、服务器文件路径和用户提交的模型结果均拒绝。
 
 `GET /api/document-tasks/{threadId}` 返回 `state`、`phase`、`progress`、`failures`、`blocking`、`allowedActions`、`checkpointId`、`expiresAt`、`updatedAt`、`status`、`result`、`processing`、`usage`、`unknownUsageCalls` 和 `modelBudget`。初始无 checkpoint 时返回不透明的 `pending:<runId>` 令牌，仅用于该任务控制，不是 LangGraph checkpoint。调用方不得解析或构造令牌。
 
@@ -68,8 +68,15 @@
 
 ## 格式边界
 
-TXT/CSV 用文本模型；PDF/DOCX/图片直接视觉提题。页面携带相邻页上下文，只输出起始于本页的题目；超过窗口的续文保留缺失字段，不猜测。DOCX 内嵌原图独立保留。
+TXT/CSV 用文本模型；PDF/图片直接视觉提题。页面携带相邻页上下文，只输出起始于本页的题目；超过窗口的续文保留缺失字段，不猜测。
 
-XLSX 以工作表为持久化单元，联合单元格、锚点图片与 Calc 图表/形状渲染。来源记录为 `excelSource`，未知关联为 `[]`，不伪造页码；真实重复题保留。不支持旧 `.xls`、单表超过 10,000 行或超出已有视觉/文本预算；公式无缓存时警告，不生成计算答案。
 
 部署、独占锁、恢复验收与清理见 [运维说明](operations.md)。
+
+## 任务列表
+
+`GET /api/document-tasks?limit=20&offset=0` 使用相同 Bearer 鉴权，返回 `items`（threadId、fileName、createdAt、expiresAt）及 `hasMore`。limit 为 1–100，按创建时间与任务 ID 降序排列；逐任务状态仍通过现有查询接口获取。
+
+## 已移除的 Word 输入
+
+`sourceType` 仅接受 `text`、`csv`、`pdf`、`image`。Word 上传及 `docx_parser` 新任务返回 422；旧 Word 任务的继续、重试和接受部分结果返回 409 / `WORD_FORMAT_REMOVED`，请转 PDF 后新建任务。历史记录与已有题库不删除，已完成结果仍可作为 JSON 导入。

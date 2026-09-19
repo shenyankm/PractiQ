@@ -1,10 +1,10 @@
 # 开源 LangGraph 服务运维
 
-运行时为 FastAPI / Uvicorn 单进程、开源 LangGraph 和 PostgreSQL。无需 Agent Server、Redis 或 LangSmith 运行授权。解析模型和云资源费用独立计算。
+运行时为 FastAPI / Uvicorn 单进程、开源 LangGraph 和本机 SQLite。无需 Agent Server、Redis 或 LangSmith 运行授权。解析模型和云资源费用独立计算。
 
 ## 初始化与启动
 
-使用已有 Python 3.14+，不创建项目 `.venv`。根目录 `.env` 由启动命令读取；进程环境优先。`DATABASE_URI` 必须指向新建的独立 PostgreSQL 数据库（16+）。不要复用 Agent Server 数据库；初始化命令发现 public schema 已有表就拒绝，不修改已有数据。
+使用已有 Python 3.14+，不创建项目 `.venv`。根目录 `.env` 由启动命令读取；进程环境优先。`AI_DATABASE_DIR` 指向专用本机磁盘目录，源码默认 `server/.local/database`，部署必须使用持久绝对路径。检测到旧 `DATABASE_URI` 时拒绝启动。旧 PostgreSQL 数据和卷不变；不自动迁移历史任务。未知非空 SQLite 库拒绝初始化。
 
 ```sh
 make install AI_PYTHON=/path/to/python3.14
@@ -12,25 +12,25 @@ make init-db AI_PYTHON=/path/to/python3.14
 make server-dev AI_PYTHON=/path/to/python3.14
 ```
 
-`make server-dev` 使用单 Uvicorn 进程，监听 `127.0.0.1:8090`；本地也必须有 PostgreSQL，数据库缺失或版本不符时启动失败，不回退内存。Graph 注册直接由 Python 完成，不再使用 `langgraph.json` 或 CLI 服务。
+`make server-dev` 使用单 Uvicorn 进程，监听 `127.0.0.1:8090`；本地使用持久 SQLite 文件，数据库缺失或版本不符时启动失败，不回退内存。Graph 注册直接由 Python 完成，不再使用 `langgraph.json` 或 CLI 服务。
 
-生产镜像由 `Dockerfile.server` 构建，包含 Python 3.14、LibreOffice Writer/Calc 和中文字体。Linux ECS 上使用 host 网络，容器默认监听 `127.0.0.1:8000`，通过主机 HTTPS 反向代理访问；不要公开数据库或应用后端端口。`deploy/nginx.conf` 是主机 loopback HTTP 代理示例，上游可信入口负责 TLS。
+生产镜像由 `Dockerfile.server` 构建，包含 Python 3.14、PDFium 和中文字体。Linux ECS 上使用 host 网络，容器默认监听 `127.0.0.1:8000`，通过主机 HTTPS 反向代理访问；不要公开数据库或应用后端端口。`deploy/nginx.conf` 是主机 loopback HTTP 代理示例，上游可信入口负责 TLS。
 
 推荐部署基线仍为 8 vCPU / 16 GB，须通过实际容量验收后调整。不要在多个 Uvicorn worker、自动缩容到零的函数计算实例或滚动重叠副本中运行。
 
 ## 数据与迁移
 
-- PostgreSQL 使用业务任务、运行、幂等回执三张表；checkpoint 和 Store 表由官方开源持久化组件管理。
+- `tasks.sqlite` 保存业务任务、运行、幂等回执；`checkpoints.sqlite` 与 `store.sqlite` 由官方 SQLite 持久化组件管理。启用 WAL、FULL 同步、外键和 5 秒忙等待；禁止网络文件系统和多服务进程。
 - 新服务使用新文件根目录（示例 `.local/ai-oss`，生产必须为持久挂载的绝对路径）或独立 OSS Bucket。旧任务、旧 checkpoint 和文件保留在原环境；不自动迁移、不删除、不复用旧状态库。
 - local/OSS 上传和素材读取继续进行鉴权、大小与 SHA-256 校验。OSS 凭证只保留在服务器；新 Bucket 仍由运维预先创建。
 - 切换存储、代码、模型或语义配置后，旧任务须在原版本完成；不尝试绕过执行指纹。数据库凭证不写入图状态或日志。
-- 备份 PostgreSQL 与对应文件存储，恢复时保持同一版本和配套数据；单实例不承诺主机级高可用。
+- 停止服务及维护进程后备份整个 SQLite 目录与对应文件存储（包括存在的 WAL 文件），恢复时保持同一版本和配套数据；不可只复制运行中的主数据库文件；单实例不承诺主机级高可用。
 
 ## 队列、暂停和恢复
 
 `N_JOBS_PER_WORKER=8` 控制进程内活跃任务上限，`AI_GRAPH_MAX_CONCURRENCY=2` 控制单任务单元并行；`AI_DEPLOYMENT_WORKERS` 必须为 1。请求在任务与队列事务提交后返回 202，数据库唯一约束保证同一 thread 只有一个待执行/运行中的 run。重复请求返回原回执；新请求超出 `AI_MAX_BUSY_THREADS=300` 返回 503。
 
-进程独占 PostgreSQL 会话锁；第二实例拒绝启动。锁连接异常时立即停止进程，包括未结束的转换线程；监督程序负责重启。数据库不可用时不继续接单或偷偷改用内存队列。
+进程持有标准库 `flock` 文件锁，第二实例拒绝启动；锁文件不能删除或替换。崩溃由内核释放锁，锁文件被替换时进程停止。监督程序负责重启。数据库不可用时不继续接单或偷偷改用内存队列。
 
 异常重启自动继续未完成 run，保留原 run ID、截止时间、任务预算和未知用量。已有完成 checkpoint 只修正任务终态。人工暂停、主动中断和 `WAITING_REVIEW` 不自动继续。进程停机停止接单，最多等待 60 秒；未完成任务保存为可恢复状态。服务管理器须留至少 65 秒终止窗口。
 
@@ -62,7 +62,7 @@ python -m practiq_ai.manage cleanup-state
 
 命令获得与服务相同的独占锁，仅删除过期且无活跃 run 的任务；通过官方 API 清理 checkpoint 与 Store，最后删除业务记录。中断后可以重入。维护时禁止其他程序直接写同一数据库/存储。
 
-文件脚本直接连接新 PostgreSQL，默认只读盘点：
+文件脚本直接连接 SQLite，默认只读盘点：
 
 ```sh
 python scripts/storage_gc.py --output /absolute/new-inventory.json
@@ -72,7 +72,7 @@ shell 须预先加载配置。盘点所有保留任务、完整 checkpoint 历�
 
 ## 验证
 
-`make verify` 使用真实隔离 PostgreSQL和模型替身，不调用外部模型。本地未提供 `TEST_DATABASE_URI` 时，测试创建并销毁专属 Docker PostgreSQL；CI 使用专属 PostgreSQL service。不要将测试连接指向生产实例，测试账号需要创建/删除测试数据库权限。
+`make verify` 使用临时 SQLite 文件和模型替身，不调用外部模型，也不需要 PostgreSQL 或 Docker 数据库。独立进程测试覆盖强制终止、未知调用与人工审核恢复。
 
 ```sh
 cd server
@@ -99,6 +99,8 @@ python scripts/load_test.py --base-url http://127.0.0.1:8090 --text '1. What is 
 
 ### 非特权容器部署
 
-镜像使用 UID/GID `10001:10001`。`server/deploy/service.compose.yml` 提供 Linux 主机部署约束：2 CPU、2 GiB 内存、128 进程、只读根文件系统、禁用所有 capabilities、禁止提权，并由 init 回收孤儿进程。仅持久目录 `/var/lib/practiq`、有界 tmpfs `/tmp` 与 `/home/practiq` 可写；LibreOffice 配置与提取临时文件置于这些可写范围。
+镜像使用 UID/GID `10001:10001`。`server/deploy/service.compose.yml` 提供 Linux 主机部署约束：2 CPU、2 GiB 内存、128 进程、只读根文件系统、禁用所有 capabilities、禁止提权，并由 init 回收孤儿进程。仅持久目录 `/var/lib/practiq`、有界 tmpfs `/tmp` 与 `/home/practiq` 可写；提取临时文件置于这些可写范围。
 
-使用前设置 `PRACTIQ_STORAGE_DIR` 为已核验的宿主持久目录绝对路径，并确认 UID 10001 有读取和写入权限。不要对现有挂载自动递归改权限；可选择已有专用组/ACL，或人工复制到新的专用目录并保留回退数据。数据库连接仍由 `.env` 的 `DATABASE_URI` 配置；服务通过 host 网络仅监听 `127.0.0.1:8000`。用 `docker compose -f server/deploy/service.compose.yml config --quiet` 检查配置，再在授权部署环境启动。资源额度是起始值，需按实际文档和并发容量验证。
+使用前设置 `PRACTIQ_STORAGE_DIR` 为已核验的宿主持久目录绝对路径，并确认 UID 10001 有读取和写入权限。不要对现有挂载自动递归改权限；可选择已有专用组/ACL，或人工复制到新的专用目录并保留回退数据。SQLite 目录固定为持久挂载内的 `/var/lib/practiq/database`，必须从 `.env` 移除旧 `DATABASE_URI`；服务通过 host 网络仅监听 `127.0.0.1:8000`。用 `docker compose -f server/deploy/service.compose.yml config --quiet` 检查配置，再在授权部署环境启动。资源额度是起始值，需按实际文档和并发容量验证。
+
+桌面模式在重启时将未完成任务保留为中断状态，用户点击“继续”后才重新产生模型调用；独立 server 仍自动恢复原 run。桌面题库 ZIP 备份不包含 AI 任务目录。

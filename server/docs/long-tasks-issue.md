@@ -1,3 +1,5 @@
+> 历史记录：当前版本已改用 SQLite，并已移除 Excel、Word 源文件解析与 LibreOffice 依赖；下文保留当时的范围与验证结果。
+
 > 历史设计记录：其中 Agent Server / Redis / 原生 API 部分已被开源运行时替换。当前接口与部署以 [document-tasks.md](document-tasks.md) 和 [operations.md](operations.md) 为准。
 
 # Add durable pause, resume and failed-unit retry for document tasks

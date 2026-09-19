@@ -1,5 +1,7 @@
 # document_parser 评测与改进
 
+当前评测覆盖 text、csv、pdf、image；Word 用例及转换器验证已移除，新增输入拒绝回归；损坏文件的预期拒绝检查改用 PDF，保留该检查要求。下文历史评测及 `server/reports/` 中的 DOCX 结果仅属于当时版本，不代表当前支持或质量。
+
 以下命令使用已有 Python 3.14+ 环境，并在 `server/` 下运行。
 
 评测沿用真实的本地文件写入和 `document_parser`，在本地直接调用 Graph，使用内存 checkpoint。
@@ -8,9 +10,9 @@
 
 ## 数据集与人工金标
 
-`evals/cases.json` 使用 `schemaVersion: 2`，目前包含 25 份公开合成文档；评分版本为 `3.0.0`。
-保留 Text、CSV、XLSX、DOCX、PDF、Image 六种格式，增加中文、原文无答案、长题干相同前缀、
-合法重复题、跨分片长文、无题目文本、损坏 DOCX 七类回归案例，并增加大小写不同、同题干不同选项的来源身份案例。
+`evals/cases.json` 使用 `schemaVersion: 2`，目前包含 21 份公开合成文档；评分版本为 `3.0.0`。
+保留 Text、CSV、PDF、Image 四种格式，增加中文、原文无答案、长题干相同前缀、
+合法重复题、跨分片长文、无题目文本、损坏 PDF 七类回归案例，并增加大小写不同、同题干不同选项的来源身份案例。
 
 - `id` 是稳定且唯一的案例标识；`path` 必须指向清单目录内部的文件，禁止路径和符号链接逃逸。
 - `tags` 用于按场景分桶，`critical: true` 表示该案例任一已标注字段或结构出错即失败。
@@ -33,8 +35,7 @@
   一个留出案例只验证流程，不构成泛化证据。真实材料须先脱敏、授权和独立人工标注后再加入。
 
 金标依据源文件人工核对，不能把模型输出直接反填为正确答案。
-当前 DOCX 内嵌图片的公开输出类别固定为 `image`，其金标按该契约标注；
-扫描页的图形仍按 视觉模型输出的 `diagram` 等类别评估。视觉描述语义由人工复核。
+PDF 和图片中的图形按视觉模型输出的 `diagram` 等类别评估。视觉描述语义由人工复核。
 
 维护数据集后执行：
 
@@ -43,7 +44,7 @@ python scripts/evaluate.py --validate-only
 python -m pytest tests/test_evaluation.py
 ```
 
-CI 同时检查六种格式、四种题型、七类难例，以及每个 fixture 都有对应清单项。
+CI 同时检查四种格式、七种题型、七类难例，以及每个 fixture 都有对应清单项。
 清单校验器本身支持任意非空规模，方便临时小集调试。
 
 ## 评分与门禁
@@ -154,7 +155,7 @@ python scripts/evaluate.py --probes reports/checks/probes.xml
 探针复用恢复、预算、引用校验、转换器、相似来源和结构化输出测试，区分恢复成功率、
 正确停止率、路由通过率与未知用量保留。每个参数化场景是一条观测；缺失、跳过或 setup
 失败不算通过。JUnit 记录代码和测试指纹，过期证据返回 BLOCKED。不会导出测试异常正文。
-这些结果只证明确定性故障测试；此探针摘要的真实进程重启仍标为 NOT_ASSESSED；进程强杀/恢复由 tests/test_agent_server.py 的隔离 PostgreSQL 测试单独证明，不能代替真实 OSS 验收。
+这些结果只证明确定性故障测试；此探针摘要的真实进程重启仍标为 NOT_ASSESSED；进程强杀/恢复由 tests/test_agent_server.py 的隔离 SQLite 测试单独证明，不能代替真实 OSS 验收。
 
 运行日志中的 `review_candidate` 只含任务标识、格式、状态和错误码。将 `practiq.events`
 的消息内容按 JSONL 保存到本地持久日志目录后生成复核清单：
@@ -274,3 +275,23 @@ Qwen3.7 调用统一关闭 thinking，模型、Token 上限与超时仍取原配
 与双栏图、表格、无原文答案等现有样本一起验证，保持原 90% 指标门槛及关键案例全通过要求。
 源数据只有人工构造内容，不含用户材料；PDF 为固定的四页英文观察记录及唯一问题/答案。
 评测的 PASSED/FAILED 与运行成功分开，提示词调整不能通过降低门槛或删除失败样本验收。
+
+
+### 定位模型校验失败
+
+评测报告每次模型调用的 `validationIssues` 记录失败字段路径与 Pydantic 错误类型，
+最多 20 项；未知字段名替换为 `?`，不记录字段值、原文或异常上下文。
+先定位失败 case/repetition 的 `calls`，区分 `list_type` 等结构错误、截断、业务校验
+与最终评分差异；HTTP 成功和任务完成不代表金标质量通过。
+
+已捕获的 `questions` 字符串包裹整段对象尾部响应作为离线回归样本保存于
+`tests/fixtures/stringified-page-arguments.json`。这种响应继续拒绝，不丢弃尾部字段，
+不猜测修复内容；共享纠错路径明确要求真正的数组和独立顶层字段，用量照常计入。
+模型初始提示同样明确数组结构。百炼预设与桌面的同一自定义 Base URL
+使用相同的 Qwen3.7 thinking 参数；其他自定义端点不注入该供应商参数。
+
+
+曾对百炼 Qwen3.7 试验 `vl_high_resolution_images=true`：扫描样本改善，但完整回归
+出现长 PDF 重复题和答案遗漏，未采用此参数。不能依据单个样本提高分辨率就断言整体质量改善。
+供应商图像参数说明见[百炼视觉理解文档](https://help.aliyun.com/zh/model-studio/vision)。
+严格字符评分和人工审核标记继续保留。
