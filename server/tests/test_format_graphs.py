@@ -1,5 +1,4 @@
 import hashlib
-from copy import copy
 from typing import get_args
 from unittest.mock import AsyncMock
 
@@ -14,7 +13,7 @@ from practiq_ai.contracts import (
 from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.execution import new_execution
 from practiq_ai.extractors import ExtractedDocument
-from practiq_ai.graphs import document, formats
+from practiq_ai.graphs import document
 from tests.support import (
     FakeModel,
     FakeObjectStore,
@@ -66,9 +65,7 @@ async def test_format_graph_enforces_source_type_before_storage(
     monkeypatch.setattr(document, "get_object_store", get_store)
     monkeypatch.setattr(document, "get_model", lambda *args: vision if source_type == "pdf" else model)
     monkeypatch.setattr(document, "extract", AsyncMock(side_effect=extract))
-    assert getattr(formats, name).name == name
-    graph = copy(getattr(formats, name))
-    graph.store = MemoryStore()
+    graph = document.build_document_graph(name=name, source_types=allowed, store=MemoryStore())
     config = run_config()
     graph_input = {"document": reference}
     if resume:

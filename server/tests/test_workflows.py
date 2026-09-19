@@ -469,43 +469,6 @@ def test_extractor_truncation_makes_result_partial(monkeypatch):
     assert output["processing"]["truncated"] is True
 
 
-def test_visual_unit_failure_returns_partial(monkeypatch):
-    fake_store, reference = source("1. Question")
-    image = make_image()
-    model = FakeModel(
-        responses=[
-            {"invalid": 1},
-            {"invalid": 2},
-            {"invalid": 3},
-            {"invalid": 4},
-            {"questions": [question("1. Question")], "groups": []},
-        ]
-    )
-    monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
-    monkeypatch.setattr(document, "get_model", lambda *args: model)
-    monkeypatch.setattr(
-        document,
-        "extract",
-        AsyncMock(side_effect=lambda *_args: ExtractedDocument(
-            text="1. Question", embedded_images=[image]
-        )),
-    )
-    graph = local_graph(InMemorySaver())
-    output = asyncio.run(
-        graph.ainvoke(
-            {"document": reference}, run_config()
-        )
-    )
-
-    assert output["status"] == "PARTIAL"
-    assert output["processing"]["visuals"] == {
-        "total": 1,
-        "succeeded": 0,
-        "skipped": 0,
-    }
-    assert output["processing"]["failures"][0]["stage"] == "vision_describe"
-
-
 def test_document_graph_extracts_directly_from_image_and_crops(monkeypatch):
     fake_store, reference = source("")
     image = make_image()
@@ -543,35 +506,6 @@ def test_document_graph_extracts_directly_from_image_and_crops(monkeypatch):
     assert len(model.calls) == 1
     assert "ocr" not in fake_store.put_kinds
     assert "chunk" not in fake_store.put_kinds
-
-
-def test_document_graph_describes_embedded_images(monkeypatch):
-    fake_store, reference = source("1. Question")
-    model = FakeModel(
-        responses=[
-            {"description": "An embedded diagram", "extractedText": "x = 1"},
-            {"questions": [question("1. Question")], "groups": []},
-        ]
-    )
-    monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
-    monkeypatch.setattr(document, "get_model", lambda *args: model)
-    monkeypatch.setattr(
-        document,
-        "extract",
-        AsyncMock(side_effect=lambda *_args: ExtractedDocument(
-            text="1. Question", embedded_images=[make_image()]
-        )),
-    )
-
-    output = asyncio.run(
-        local_graph(InMemorySaver()).ainvoke(
-            {"document": reference}, run_config()
-        )
-    )
-
-    visual = output["result"]["visualElements"][0]
-    assert visual["description"] == "[embedded original] An embedded diagram"
-    assert visual["extractedText"] == "x = 1"
 
 
 @pytest.mark.parametrize(
@@ -707,15 +641,6 @@ def test_vision_helpers_cover_media_and_crop_failures(monkeypatch):
 
     monkeypatch.setattr(vision, "MAX_CROP_BYTES", 1)
     assert vision.crop_figure(make_image(), [0, 0, 1, 1]) is None
-
-
-def test_describe_image_returns_failure_after_invalid_outputs() -> None:
-    described, usage, failure = asyncio.run(
-        vision.describe_image(FakeModel(responses=[{"invalid": True}] * 4), make_image())
-    )
-    assert described is None
-    assert len(usage) == 2
-    assert failure == "OUTPUT_STALLED"
 
 
 def _status_error(status: int) -> APIStatusError:

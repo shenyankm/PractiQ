@@ -39,8 +39,7 @@ async def provider_slot(record: dict[str, Any] | None = None):
     loop = asyncio.get_running_loop()
     if loop not in _providers:
         config = load()
-        _providers[loop] = ProviderGate(config.provider_concurrency // config.deployment_workers,
-                                       config.provider_rpm // config.deployment_workers)
+        _providers[loop] = ProviderGate(config.provider_concurrency, config.provider_rpm)
     gate = _providers[loop]
     timings = record if record is not None else {}
     with telemetry.measure("provider_concurrency_wait", timings, "concurrencyWaitMs"):

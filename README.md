@@ -18,7 +18,7 @@ Exam papers, scanned exercises, and spreadsheet question sets often combine text
 | --- | --- |
 | Structured extraction | Question stems, options, answer formats, and answers or explanations present in the source. |
 | Passage-based groups | Shared reading passages or materials grouped with their questions. |
-| Visual content | Page images, embedded illustrations, and supported chart or diagram assets alongside extracted content. |
+| Visual content | PDF pages and PNG/JPEG images are parsed directly; figure crops are preserved alongside extracted content. |
 | Traceable results | Available page or text references to help check results against the original. |
 | Explicit uncertainty | Missing-field flags, quality issues, and partial results for review. Missing source answers remain missing. |
 | Controllable tasks | Pause and resume work, retry eligible failed units while retaining successful results, or accept a partial result. |

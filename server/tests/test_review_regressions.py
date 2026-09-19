@@ -17,7 +17,7 @@ from PIL import Image
 from pydantic import ValidationError
 
 from practiq_ai import config, execution, webapp
-from practiq_ai.contracts import ParsedQuestion
+from practiq_ai.contracts import ParsedQuestion, VisualElement
 from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.extractors import ExtractedDocument, image, isolated
 from practiq_ai.graphs import document, vision
@@ -156,9 +156,7 @@ async def test_visual_constraints_are_corrected_inside_model_boundary(fields):
     model = FakeModel(responses=[{**good, **fields}, good])
     result, usage, failure = await llm.structured_call(model, [], vision.PageFigure, 'vision_parse')
     assert result is not None and failure is None and len(usage) == 2
-    assert vision.VisualElement(**result.model_dump()).description == 'Figure'
-    with pytest.raises(ValidationError):
-        vision.ImageDescription(description='   ')
+    assert VisualElement(**result.model_dump()).description == 'Figure'
 
 
 async def test_failed_batch_waits_for_sibling_cancellation():

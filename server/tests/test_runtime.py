@@ -54,7 +54,7 @@ async def test_singleton_lock_readiness_and_failed_start_cleanup(monkeypatch):
             pass
     monkeypatch.setenv('AI_DEPLOYMENT_WORKERS', '2')
     monkeypatch.setenv('N_JOBS_PER_WORKER', '1')
-    with pytest.raises(RuntimeError, match='one Uvicorn'):
+    with pytest.raises(ValueError, match='one Uvicorn'):
         await runtime.Service(Database(db.directory)).start()
     monkeypatch.setenv('AI_DEPLOYMENT_WORKERS', '1')
     await service.stop(timeout=0)
@@ -369,7 +369,14 @@ async def test_retired_word_tasks_remain_readable_but_never_run(monkeypatch, gra
     async with service.db.connection() as conn:
         await conn.execute('UPDATE document_tasks SET graph_id=?,document=? WHERE thread_id=?',
                            (graph_id, dumps(legacy), thread_id))
+    await service.graphs['document_parser'].aupdate_state(
+        {'configurable': {'thread_id': thread_id}},
+        {'embeddedRefs': [reference], 'visionResults': [
+            {'kind': 'embedded', 'index': 0, 'visuals': [{'description': 'Historical figure'}]}]},
+    )
     result = await task_api.get_task(thread_id)
+    assert result['progress']['visuals'] == {'total': 1, 'succeeded': 1, 'failed': 0, 'remaining': 0}
+    assert (await service.snapshot({'graph_id': graph_id, 'thread_id': thread_id})).values['embeddedRefs'] == [reference]
     assert result['state'] == 'COMPLETED' and result['result']['questions']
     assert not result['allowedActions'] and 'PDF' in result['blocking'][0]
     for action in ('resume', 'retry_failed', 'accept_partial'):
