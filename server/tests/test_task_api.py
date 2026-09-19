@@ -176,12 +176,12 @@ async def test_api_retry_limits_concurrency_and_exhaustion(monkeypatch, review):
     assert state['failures'][0]['code'] == 'OUTPUT_STALLED'
     assert not state['failures'][0]['retryable']
     assert 'retry_failed' not in state['allowedActions']
-    runs_before = len(await api.db.rows("SELECT run_id FROM document_runs WHERE thread_id=%s", (thread_id,)))
+    runs_before = len(await api.db.rows("SELECT run_id FROM document_runs WHERE thread_id=?", (thread_id,)))
     request = DocumentTaskControl(requestId=uuid4(), action='retry_failed', checkpointId=state['checkpointId'], units=[FailedUnit(stage='document_parse', index=state['failures'][0]['index'])])
     with pytest.raises(DocumentProcessingError) as error:
         await task_api.control_task(thread_id, request)
     assert error.value.status_code == 409 and error.value.code == 'RETRY_LIMIT_EXCEEDED'
-    assert len(await api.db.rows("SELECT run_id FROM document_runs WHERE thread_id=%s", (thread_id,))) == runs_before
+    assert len(await api.db.rows("SELECT run_id FROM document_runs WHERE thread_id=?", (thread_id,))) == runs_before
     if review:
         assert state['allowedActions'] == ['accept_partial']
         await task_api.control_task(thread_id, DocumentTaskControl(requestId=uuid4(), action='accept_partial', checkpointId=state['checkpointId']))

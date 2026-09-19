@@ -6,18 +6,15 @@ import os
 from contextlib import asynccontextmanager
 
 from .config import load
-from .database import INSTANCE_LOCK, Database, watch_ownership
+from .database import Database, watch_ownership
 from .execution import namespace
 
 
 @asynccontextmanager
 async def exclusive(db: Database):
-    conn = await db.lock_connection()
+    conn = db.acquire('Stop the service before offline maintenance')
     monitor = None
     try:
-        row = await (await conn.execute('SELECT pg_try_advisory_lock(%s) AS acquired', (INSTANCE_LOCK,))).fetchone()
-        if not row or not row['acquired']:
-            raise RuntimeError('Stop the service before offline maintenance')
         monitor = asyncio.create_task(watch_ownership(conn, lambda: os._exit(70)))
         yield
     finally:
@@ -39,9 +36,9 @@ async def cleanup(db: Database) -> int:
                 for item in items:
                     await db.store.adelete(item.namespace, item.key)
             async with db.transaction() as conn:
-                await conn.execute('DELETE FROM document_receipts WHERE thread_id=%s', (thread_id,))
-                await conn.execute('DELETE FROM document_runs WHERE thread_id=%s', (thread_id,))
-                await conn.execute('DELETE FROM document_tasks WHERE thread_id=%s', (thread_id,))
+                await conn.execute('DELETE FROM document_receipts WHERE thread_id=?', (thread_id,))
+                await conn.execute('DELETE FROM document_runs WHERE thread_id=?', (thread_id,))
+                await conn.execute('DELETE FROM document_tasks WHERE thread_id=?', (thread_id,))
         return len(tasks)
 
 

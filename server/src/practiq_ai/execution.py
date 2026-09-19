@@ -46,7 +46,7 @@ def code_version() -> str:
 @lru_cache(maxsize=1)
 def runtime_version() -> dict[str, Any]:
     packages = {}
-    for name in ("langgraph", "langgraph-checkpoint-postgres", "psycopg", "langchain-core", "langchain-openai", "pydantic", "pypdfium2", "pillow", "openpyxl", "alibabacloud-oss-v2"):
+    for name in ("langgraph", "langgraph-checkpoint-sqlite", "aiosqlite", "langchain-core", "langchain-openai", "pydantic", "pypdfium2", "pillow", "alibabacloud-oss-v2"):
         try:
             packages[name] = version(name)
         except PackageNotFoundError:

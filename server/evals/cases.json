@@ -185,218 +185,6 @@
       }
     },
     {
-      "id": "xlsx-single-sheet",
-      "sourceType": "xlsx",
-      "path": "fixtures/xlsx/single-sheet.xlsx",
-      "expectedQuestions": [
-        {
-          "stem": "What is the capital of France?",
-          "answerMode": "choice",
-          "options": [
-            {
-              "label": "A",
-              "content": "Berlin"
-            },
-            {
-              "label": "B",
-              "content": "Paris"
-            },
-            {
-              "label": "C",
-              "content": "Rome"
-            }
-          ],
-          "answerPayload": {
-            "correctOption": "B"
-          }
-        },
-        {
-          "stem": "The chemical symbol for sodium is ____.",
-          "answerMode": "fill_blank",
-          "options": [],
-          "answerPayload": {
-            "answers": [
-              "Na"
-            ]
-          }
-        }
-      ],
-      "tags": [
-        "synthetic",
-        "smoke",
-        "xlsx"
-      ],
-      "critical": false,
-      "expectedVisualKinds": [],
-      "expectedProcess": {
-        "requiredCallKinds": [
-          "document_parse"
-        ]
-      }
-    },
-    {
-      "id": "xlsx-multi-sheet",
-      "sourceType": "xlsx",
-      "path": "fixtures/xlsx/multi-sheet.xlsx",
-      "expectedQuestions": [
-        {
-          "stem": "Earth orbits the Sun.",
-          "answerMode": "true_false",
-          "options": [],
-          "answerPayload": {
-            "value": true
-          }
-        },
-        {
-          "stem": "What is 15 ÷ 3?",
-          "answerMode": "short_answer",
-          "options": [],
-          "answerPayload": {
-            "text": "5"
-          },
-          "stemAliases": [
-            "What is $15 \\div 3$?",
-            "What is 15 \\div 3?"
-          ]
-        }
-      ],
-      "tags": [
-        "synthetic",
-        "smoke",
-        "xlsx"
-      ],
-      "critical": false,
-      "expectedGroups": [
-        {
-          "title": "Science",
-          "questionIndexes": [
-            0
-          ]
-        },
-        {
-          "title": "Math",
-          "questionIndexes": [
-            1
-          ]
-        }
-      ],
-      "expectedVisualKinds": [],
-      "expectedProcess": {
-        "requiredCallKinds": [
-          "document_parse"
-        ]
-      }
-    },
-    {
-      "id": "docx-table",
-      "sourceType": "docx",
-      "path": "fixtures/docx/table.docx",
-      "expectedQuestions": [
-        {
-          "stem": "Which planet is the largest in the Solar System?",
-          "answerMode": "choice",
-          "options": [
-            {
-              "label": "A",
-              "content": "Earth"
-            },
-            {
-              "label": "B",
-              "content": "Mars"
-            },
-            {
-              "label": "C",
-              "content": "Jupiter"
-            }
-          ],
-          "answerPayload": {
-            "correctOption": "C"
-          }
-        },
-        {
-          "stem": "The chemical formula for water is ____.",
-          "answerMode": "fill_blank",
-          "options": [],
-          "answerPayload": {
-            "answers": [
-              "H2O"
-            ]
-          },
-          "answerAliases": [
-            {
-              "answers": [
-                "H_2O"
-              ]
-            },
-            {
-              "answers": [
-                "$H_2O$"
-              ]
-            },
-            {
-              "answers": [
-                "\\mathrm{H_2O}"
-              ]
-            },
-            {
-              "answers": [
-                "$\\mathrm{H_2O}$"
-              ]
-            }
-          ]
-        }
-      ],
-      "tags": [
-        "synthetic",
-        "smoke",
-        "docx"
-      ],
-      "critical": false,
-      "expectedVisualKinds": [],
-      "expectedProcess": {
-        "requiredCallKinds": [
-          "vision_parse"
-        ]
-      }
-    },
-    {
-      "id": "docx-formula-image",
-      "sourceType": "docx",
-      "path": "fixtures/docx/formula-image.docx",
-      "expectedVisualKinds": [
-        "image"
-      ],
-      "expectedQuestions": [
-        {
-          "stem": "A right triangle has legs of length 3 and 4. What is the hypotenuse length?",
-          "answerMode": "short_answer",
-          "options": [],
-          "answerPayload": {
-            "text": "5"
-          }
-        },
-        {
-          "stem": "A right angle measures 90 degrees.",
-          "answerMode": "true_false",
-          "options": [],
-          "answerPayload": {
-            "value": true
-          }
-        }
-      ],
-      "tags": [
-        "synthetic",
-        "smoke",
-        "docx"
-      ],
-      "critical": false,
-      "expectedProcess": {
-        "requiredCallKinds": [
-          "vision_parse"
-        ]
-      }
-    },
-    {
       "id": "pdf-text-layer",
       "sourceType": "pdf",
       "path": "fixtures/pdf/text-layer.pdf",
@@ -792,24 +580,6 @@
       }
     },
     {
-      "id": "docx-corrupt",
-      "sourceType": "docx",
-      "path": "fixtures/docx/docx-corrupt.docx",
-      "tags": [
-        "synthetic",
-        "regression",
-        "corrupt-input"
-      ],
-      "critical": true,
-      "expectedError": {
-        "code": "DOCUMENT_PROCESSING_FAILED",
-        "statusCode": 400
-      },
-      "expectedProcess": {
-        "maxModelCalls": 0
-      }
-    },
-    {
       "id": "text-source-identity",
       "sourceType": "text",
       "path": "fixtures/text/text-source-identity.txt",
@@ -1044,6 +814,24 @@
         }
       ],
       "expectedVisuals": []
+    },
+    {
+      "id": "pdf-corrupt",
+      "sourceType": "pdf",
+      "path": "fixtures/pdf/corrupt.pdf",
+      "tags": [
+        "synthetic",
+        "regression",
+        "corrupt-input"
+      ],
+      "critical": true,
+      "expectedError": {
+        "code": "DOCUMENT_PROCESSING_FAILED",
+        "statusCode": 400
+      },
+      "expectedProcess": {
+        "maxModelCalls": 0
+      }
     }
   ]
 }

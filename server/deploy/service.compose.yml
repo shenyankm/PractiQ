@@ -1,4 +1,4 @@
-# Linux host deployment behind a loopback HTTPS proxy; PostgreSQL is external.
+# Linux host deployment behind a loopback HTTPS proxy; SQLite and artifacts use the persistent local mount.
 services:
   ai:
     build:
@@ -11,6 +11,7 @@ services:
     env_file: ../../.env
     environment:
       AI_STORAGE_DIR: /var/lib/practiq
+      AI_DATABASE_DIR: /var/lib/practiq/database
     volumes:
       - type: bind
         source: ${PRACTIQ_STORAGE_DIR:?Set the absolute existing storage directory}

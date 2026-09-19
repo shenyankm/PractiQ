@@ -3,28 +3,25 @@
 import asyncio
 import json
 import os
-import re
 import sys
 import threading
 from io import BytesIO
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from uuid import uuid4
-from zipfile import ZipFile
 
 import httpx
 import pytest
 from langgraph.types import Command
-from openpyxl import Workbook
 from PIL import Image
 from pydantic import ValidationError
 
 from practiq_ai import config, execution, webapp
 from practiq_ai.contracts import ParsedQuestion
 from practiq_ai.errors import DocumentProcessingError
-from practiq_ai.extractors import ExtractedDocument, image, isolated, xlsx
-from practiq_ai.graphs import document, excel, vision
-from scripts import evaluate, storage_gc
+from practiq_ai.extractors import ExtractedDocument, image, isolated
+from practiq_ai.graphs import document, vision
+from scripts import storage_gc
 from tests.support import (
     make_image,
     object_store,
@@ -62,33 +59,10 @@ async def test_pause_then_review_keeps_interrupt_order(monkeypatch, phase, decis
         assert result['result']['questions']
 
 
-def workbook_with_dimension(dimension, *, coordinate='B2'):
-    book = Workbook()
-    assert book.active is not None
-    book.active['A1'] = 'First'
-    book.active[coordinate] = 'Second'
-    original, result = BytesIO(), BytesIO()
-    book.save(original)
-    with ZipFile(original) as source, ZipFile(result, 'w') as target:
-        for name in source.namelist():
-            data = source.read(name)
-            if name == 'xl/worksheets/sheet1.xml':
-                data = re.sub(rb'<dimension[^>]*/>', dimension.encode(), data)
-            target.writestr(name, data)
-    return result.getvalue()
 
 
-@pytest.mark.parametrize('dimension', ['<dimension ref="A1:A1"/>', '', '<dimension ref="A1:XFD1048576"/>'])
-def test_xlsx_actual_cells_override_declared_dimensions(dimension):
-    result = xlsx.extract(workbook_with_dimension(dimension))
-    assert 'A1=First' in result.text and 'B2=Second' in result.text
-    assert not result.truncated
 
 
-@pytest.mark.parametrize('coordinate', ['A10001', 'XFD2'])
-def test_xlsx_actual_coordinates_are_bounded(coordinate):
-    result = xlsx.extract(workbook_with_dimension('<dimension ref="A1:A1"/>', coordinate=coordinate))
-    assert result.truncated and result.worksheets[0]['failureCode'] == 'XLSX_SHEET_TOO_LARGE'
 
 
 async def test_storage_timeout_retains_capacity_until_io_finishes(tmp_path):
@@ -149,7 +123,7 @@ def test_image_pixel_and_frame_limits(monkeypatch):
     monkeypatch.setenv('AI_MAX_VISION_PAGE_PIXELS', '40000')
     assert image.extract(make_image()).page_images
     data = BytesIO()
-    Image.new('RGB', (2, 2), 'red').save(data, format='GIF', save_all=True, append_images=[Image.new('RGB', (2, 2), 'blue')])
+    Image.new('RGB', (2, 2), 'red').save(data, format='PNG', save_all=True, append_images=[Image.new('RGB', (2, 2), 'blue')])
     with pytest.raises(DocumentProcessingError, match='Multi-frame'):
         image.extract(data.getvalue())
 
@@ -185,8 +159,6 @@ async def test_visual_constraints_are_corrected_inside_model_boundary(fields):
     assert vision.VisualElement(**result.model_dump()).description == 'Figure'
     with pytest.raises(ValidationError):
         vision.ImageDescription(description='   ')
-    with pytest.raises(ValidationError):
-        excel.SheetVisual.model_validate({'kind': 'image', 'description': '   ', 'source': {'sheetName': 'Sheet', 'objectId': 'figure'}})
 
 
 async def test_failed_batch_waits_for_sibling_cancellation():
@@ -234,13 +206,6 @@ def test_default_uvicorn_logging_emits_json_without_private_fields():
     assert all(word not in lines[0] for word in ('private', 'secret', 'raw'))
 
 
-@pytest.mark.parametrize('schema,passed', [('GroundedSheetResult', True), ('ChunkParseResult', False)])
-def test_xlsx_trajectory_uses_sheet_schema_and_prepare_prerequisite(schema, passed):
-    events = [{'event': 'stage', 'stage': 'prepare', 'outcome': 'success'},
-              {'event': 'model_start', 'kind': 'document_parse', 'schema': schema, 'unitKey': 'document_parse:0:0', 'attempt': 1, 'callKey': 'call'}]
-    result = evaluate.score_trajectory({'sourceType': 'xlsx'}, events, [], 4)
-    assert result['passed'] == passed
-    assert not evaluate.score_trajectory({'sourceType': 'xlsx'}, events[1:], [], 4)['passed']
 
 
 def test_storage_legacy_and_wheel_paths_fail_without_moving_data(tmp_path, monkeypatch):

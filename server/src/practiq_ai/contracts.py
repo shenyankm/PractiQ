@@ -17,7 +17,7 @@ from pydantic import (
 )
 
 AnswerMode = Literal["choice", "true_false", "fill_blank", "short_answer", "ordering", "matching"]
-DocumentSourceType = Literal["csv", "docx", "image", "text", "pdf", "xlsx"]
+DocumentSourceType = Literal["csv", "image", "text", "pdf"]
 ContentPartType = Literal[
     "text",
     "formula",
@@ -32,11 +32,10 @@ ContentPartType = Literal[
 ]
 VisualKind = Literal["image", "table", "chart", "diagram", "qr_code"]
 DOCUMENT_MEDIA_TYPES = {
+    "image": {"image/png", "image/jpeg"},
     "csv": {"text/csv"},
-    "docx": {"application/vnd.openxmlformats-officedocument.wordprocessingml.document"},
     "pdf": {"application/pdf"},
     "text": {"text/plain"},
-    "xlsx": {"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"},
 }
 
 
@@ -52,11 +51,7 @@ def _non_blank(value: str) -> str:
 
 
 def _media_type_matches(source_type: DocumentSourceType, media_type: str) -> bool:
-    return (
-        media_type.startswith("image/")
-        if source_type == "image"
-        else media_type in DOCUMENT_MEDIA_TYPES[source_type]
-    )
+    return media_type in DOCUMENT_MEDIA_TYPES[source_type]
 
 
 def document_source_key(source_type: DocumentSourceType, sha256: str) -> str:
@@ -402,29 +397,11 @@ class DocumentUploadResponse(StrictModel):
     upload: LocalUpload | None
 
 
-class ExcelSource(StrictModel):
-    sheetName: str = Field(min_length=1, max_length=255)
-    cellRange: str | None = Field(default=None, pattern=r"^[A-Z]{1,3}[1-9][0-9]{0,6}(?::[A-Z]{1,3}[1-9][0-9]{0,6})?$")
-    objectId: str | None = Field(default=None, min_length=1, max_length=1_000)
-
-    @field_validator("cellRange")
-    @classmethod
-    def validate_excel_range(cls, value: str | None) -> str | None:
-        if value is not None:
-            from openpyxl.utils.cell import range_boundaries
-
-            left, top, right, bottom = range_boundaries(value)
-            if left is None or top is None or right is None or bottom is None or not (1 <= left <= right <= 16384 and 1 <= top <= bottom <= 1048576):
-                raise ValueError("Invalid Excel cell range")
-        return value
-
-
 VisualLabel = Annotated[str, Field(max_length=1_000)]
 VisualDescription = Annotated[str, Field(min_length=1, max_length=20_000), AfterValidator(_non_blank)]
 
 
 class VisualElement(StrictModel):
-    excelSource: ExcelSource | None = None
     questionIndexes: list[StrictInt] = Field(default_factory=list, max_length=1_000)
     kind: VisualKind
     label: VisualLabel | None = None
@@ -489,7 +466,6 @@ class UnitFailure(StrictModel):
 
 
 class QuestionSource(StrictModel):
-    excelSource: ExcelSource | None = None
     questionIndex: int = Field(ge=0)
     stage: Literal["document_parse", "vision_parse"]
     unitIndex: int = Field(ge=0)
@@ -541,7 +517,7 @@ class DocumentParseInput(StrictModel):
         return self
 
 
-GraphId = Literal["document_parser", "text_csv_parser", "pdf_parser", "docx_parser", "excel_parser"]
+GraphId = Literal["document_parser", "text_csv_parser", "pdf_parser"]
 
 
 class DocumentTaskCreate(StrictModel):

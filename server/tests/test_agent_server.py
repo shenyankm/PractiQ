@@ -1,4 +1,4 @@
-"""Real HTTP process + PostgreSQL recovery acceptance, with no external models."""
+"""Real HTTP process + SQLite recovery acceptance, with no external models."""
 import asyncio
 import hashlib
 import os
@@ -26,7 +26,7 @@ class Server:
         with socket.socket() as sock:
             sock.bind(('127.0.0.1', 0))
             port = sock.getsockname()[1]
-        self.env = {**os.environ, 'DATABASE_URI': uri, 'AI_STORAGE_DIR': str(tmp_path / 'files'),
+        self.env = {**os.environ, 'AI_DATABASE_DIR': str(uri), 'AI_STORAGE_DIR': str(tmp_path / 'files'),
                     'TEST_EVENTS': str(tmp_path), 'TEST_PHASE': phase, 'N_JOBS_PER_WORKER': '1',
                     'AI_GRAPH_MAX_CONCURRENCY': '1', 'AI_DEPLOYMENT_WORKERS': '1',
                     'PYTHONPATH': str(ROOT / 'src') + os.pathsep + str(ROOT)}
@@ -111,11 +111,7 @@ class Server:
 async def prepare(tmp_path, phase=''):
     db = await new_database()
     await db.close()
-    # psycopg's DSN is accepted by the runtime; config validates URI in production.
-    from psycopg.conninfo import conninfo_to_dict
-    v = conninfo_to_dict(db.uri)
-    uri = f"postgresql://{v['user']}:{v['password']}@{v['host']}:{v['port']}/{v['dbname']}"
-    return Server(tmp_path, uri, phase)
+    return Server(tmp_path, db.directory, phase)
 
 
 async def test_oss_server_auth_routes_and_graphs(tmp_path):
@@ -161,7 +157,7 @@ async def test_process_kill_automatically_recovers_same_run(tmp_path, phase):
             from practiq_ai.database import Database
             from practiq_ai.execution import namespace
 
-            db = Database(server.env['DATABASE_URI'])
+            db = Database(server.env['AI_DATABASE_DIR'])
             await db.open()
             try:
                 budgets = await db.store.asearch(namespace(receipt['threadId'], 'budget'), refresh_ttl=False)
@@ -220,17 +216,11 @@ async def test_user_interrupt_is_not_automatically_resumed(tmp_path):
 
 async def test_database_lock_loss_exits_process_and_recovery_is_exclusive(tmp_path):
     server = await prepare(tmp_path, 'model')
-    from psycopg import AsyncConnection
-
-    from practiq_ai.database import INSTANCE_LOCK
     try:
         await asyncio.to_thread(server.start)
         receipt = server.submit()
         await asyncio.to_thread(server.marker, 'model')
-        async with await AsyncConnection.connect(server.env['DATABASE_URI'], autocommit=True) as conn:
-            row = await (await conn.execute("SELECT pid FROM pg_locks WHERE locktype='advisory' AND objid=%s", (INSTANCE_LOCK,))).fetchone()
-            assert row
-            await conn.execute('SELECT pg_terminate_backend(%s)', (row[0],))
+        Path(server.env['AI_DATABASE_DIR'], 'owner.lock').unlink()
         assert server.process is not None
         await asyncio.to_thread(server.process.wait, 10)
         assert server.process.returncode == 70

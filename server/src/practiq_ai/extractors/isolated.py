@@ -22,9 +22,9 @@ async def extract(source_type: DocumentSourceType, payload: bytes, *, timeout: f
         source, output = root / "source", root / "result"
         source.write_bytes(payload)
         process = await asyncio.create_subprocess_exec(
-            sys.executable, "-m", __name__, source_type, str(source), str(output),
+            *([sys.executable, "extract"] if getattr(sys, "frozen", False) else [sys.executable, "-m", __name__]), source_type, str(source), str(output),
             start_new_session=True, env={**os.environ, "TMPDIR": directory},
-            stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL,
+            stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL,
         )
         try:
             await asyncio.wait_for(process.wait(), timeout)
@@ -53,10 +53,16 @@ def _decode_bytes(value):
 
 
 def main() -> None:
-    from . import docx
+    import threading
+    def parent_watch():
+        while os.read(0, 1024):
+            pass
+        if os.getpgrp() == os.getpid():
+            os.killpg(os.getpgrp(), signal.SIGKILL)
+        os._exit(70)
+    threading.Thread(target=parent_watch, daemon=True).start()
     from . import extract as extract_document
 
-    docx.ISOLATED_PROCESS = True
     source_type, source, output = sys.argv[1:]
     try:
         result = {"document": asdict(extract_document(cast(DocumentSourceType, source_type), Path(source).read_bytes()))}

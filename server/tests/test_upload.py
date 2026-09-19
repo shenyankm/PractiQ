@@ -97,10 +97,12 @@ async def test_upload_validation_and_removed_v3_route() -> None:
 @pytest.mark.usefixtures("disposable_databases")
 async def test_lifespan_validates_configuration(monkeypatch: pytest.MonkeyPatch) -> None:
     calls = 0
+    original_load = webapp.load
 
-    def loaded() -> None:
+    def loaded():
         nonlocal calls
         calls += 1
+        return original_load()
 
     from practiq_ai import database
     from tests.db_support import new_database
@@ -164,3 +166,50 @@ async def test_binary_upload_over_one_mib_uses_source_limit(tmp_path, monkeypatc
         prepared = await client.post('/api/uploads', json=upload(payload).model_dump())
         response = await client.put(prepared.json()['upload']['url'], content=payload)
         assert response.status_code == 200, response.text
+
+
+@pytest.mark.parametrize("kind", ["xlsx", "xls"])
+async def test_removed_spreadsheet_upload_is_rejected_before_storage(monkeypatch, kind):
+    monkeypatch.setattr(webapp, "get_object_store", lambda: pytest.fail("unsupported format reached storage"))
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test",
+                           headers={"Authorization": "Bearer test-token"}) as client:
+        response = await client.post("/api/uploads", json={"sourceType": kind, "fileName": "quiz." + kind,
+            "mediaType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "sizeBytes": 4, "sha256": "a" * 64})
+    assert response.status_code == 422
+
+@pytest.mark.parametrize('kind,media', [
+    ('doc', 'application/msword'),
+    ('docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'),
+])
+async def test_word_uploads_and_tasks_are_rejected(kind, media):
+    from uuid import uuid4
+
+    payload = {'sourceType': kind, 'fileName': f'quiz.{kind}', 'mediaType': media,
+               'sizeBytes': 4, 'sha256': 'a' * 64}
+    async with AsyncClient(transport=ASGITransport(app=app), base_url='http://test',
+                           headers={'Authorization': 'Bearer test-token'}) as client:
+        assert (await client.post('/api/uploads', json=payload)).status_code == 422
+        reference = {**payload, 'objectKey': f'practiq-agent/sources/{"a" * 64}/source.{kind}'}
+        assert (await client.post('/api/document-tasks', json={
+            'requestId': str(uuid4()), 'document': reference,
+        })).status_code == 422
+        reference.update(sourceType='pdf', fileName='quiz.pdf', mediaType='application/pdf',
+                         objectKey=f'practiq-agent/sources/{"a" * 64}/source.pdf')
+        assert (await client.post('/api/document-tasks', json={
+            'requestId': str(uuid4()), 'graphId': 'docx_parser', 'document': reference,
+        })).status_code == 422
+
+@pytest.mark.parametrize('media', ['image/webp', 'image/gif'])
+async def test_removed_image_formats_are_rejected_for_uploads_and_tasks(media):
+    from uuid import uuid4
+
+    payload = {'sourceType': 'image', 'fileName': 'image.' + media.split('/')[1],
+               'mediaType': media, 'sizeBytes': 4, 'sha256': 'a' * 64}
+    async with AsyncClient(transport=ASGITransport(app=app), base_url='http://test',
+                           headers={'Authorization': 'Bearer test-token'}) as client:
+        assert (await client.post('/api/uploads', json=payload)).status_code == 422
+        assert (await client.post('/api/document-tasks', json={
+            'requestId': str(uuid4()),
+            'document': {**payload, 'objectKey': f'practiq-agent/sources/{"a" * 64}/source.image'},
+        })).status_code == 422

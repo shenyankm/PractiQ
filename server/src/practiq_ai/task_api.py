@@ -1,11 +1,10 @@
-"""Document APIs over our PostgreSQL queue and open-source LangGraph."""
+"""Document APIs over our SQLite queue and open-source LangGraph."""
 
 import asyncio
 from datetime import timedelta
+from json import dumps as json_encode
 from typing import Any, cast
 from uuid import NAMESPACE_URL, uuid4, uuid5
-
-from psycopg.types.json import Jsonb
 
 from .config import load
 from .contracts import (
@@ -39,6 +38,11 @@ def conflict(message: str, code: str = 'INVALID_CONTROL') -> DocumentProcessingE
     return DocumentProcessingError(409, message, code)
 
 
+def require_supported_task(task) -> None:
+    if task['document'].get('sourceType') in {'doc', 'docx'} or task['graph_id'] == 'docx_parser':
+        raise conflict('暂不支持 Word 文件，请转为 PDF 后重新导入', 'WORD_FORMAT_REMOVED')
+
+
 def receipt(thread_id: str, request_id: str, run_id: str) -> dict[str, Any]:
     return {'threadId': thread_id, 'requestId': request_id, 'runId': run_id, 'accepted': True}
 
@@ -56,13 +60,13 @@ async def _enqueue(conn, task, request_id, request_hash, *, graph_input=None, co
     run_id = str(uuid4())
     context = {'documentControl': {'requestId': request_id, 'fingerprint': request_hash,
                                   'generation': generation, 'expiresAt': task['expires_at'].isoformat()}}
-    await conn.execute('INSERT INTO document_runs(run_id,thread_id,request_id,input,command,context,base_checkpoint) VALUES (%s,%s,%s,%s,%s,%s,%s)',
-                       (run_id, task['thread_id'], request_id, Jsonb(graph_input), Jsonb(command), Jsonb(context), base))
+    await conn.execute('INSERT INTO document_runs(run_id,thread_id,request_id,input,command,context,base_checkpoint) VALUES (?,?,?,?,?,?,?)',
+                       (run_id, task['thread_id'], request_id, json_encode(graph_input), json_encode(command), json_encode(context), base))
     return receipt(task['thread_id'], request_id, run_id)
 
 
 async def _replay(conn, thread_id, request_id, request_hash):
-    row = await (await conn.execute('SELECT r.*, t.expires_at FROM document_receipts r JOIN document_tasks t USING(thread_id) WHERE r.thread_id=%s AND request_id=%s', (thread_id, request_id))).fetchone()
+    row = await (await conn.execute('SELECT r.*, t.expires_at FROM document_receipts r JOIN document_tasks t USING(thread_id) WHERE r.thread_id=? AND request_id=?', (thread_id, request_id))).fetchone()
     if row:
         remaining_ttl({'expiresAt': row['expires_at'].isoformat()})
         if row['fingerprint'] != request_hash:
@@ -72,7 +76,7 @@ async def _replay(conn, thread_id, request_id, request_hash):
 
 
 async def _save_receipt(conn, thread_id, request_id, request_hash, response):
-    await conn.execute('INSERT INTO document_receipts VALUES (%s,%s,%s,%s)', (thread_id, request_id, request_hash, Jsonb(response)))
+    await conn.execute('INSERT INTO document_receipts VALUES (?,?,?,?)', (thread_id, request_id, request_hash, json_encode(response)))
 
 
 async def create_task(request: DocumentTaskCreate) -> dict[str, Any]:
@@ -85,12 +89,12 @@ async def create_task(request: DocumentTaskCreate) -> dict[str, Any]:
         if previous:
             return previous
         if request.parentThreadId:
-            parent = await (await conn.execute('SELECT thread_id FROM document_tasks WHERE thread_id=%s', (str(request.parentThreadId),))).fetchone()
+            parent = await (await conn.execute('SELECT thread_id FROM document_tasks WHERE thread_id=?', (str(request.parentThreadId),))).fetchone()
             if not parent:
                 raise DocumentProcessingError(404, 'Parent task not found', 'TASK_NOT_FOUND')
         await _admit(conn)
-        task = await (await conn.execute('INSERT INTO document_tasks(thread_id,request_hash,graph_id,document,failure_policy,parent_thread_id,expires_at) VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING *',
-            (thread_id, request_hash, request.graphId, Jsonb(request.document.model_dump(mode='json')), request.failurePolicy,
+        task = await (await conn.execute('INSERT INTO document_tasks(thread_id,request_hash,graph_id,document,failure_policy,parent_thread_id,expires_at) VALUES (?,?,?,?,?,?,?) RETURNING *',
+            (thread_id, request_hash, request.graphId, json_encode(request.document.model_dump(mode='json')), request.failurePolicy,
              str(request.parentThreadId) if request.parentThreadId else None, utcnow() + timedelta(minutes=TTL_MINUTES)))).fetchone()
         response = await _enqueue(conn, task, request_id, request_hash,
                                   graph_input=request.model_dump(mode='json', include={'document', 'failurePolicy'}))
@@ -100,13 +104,13 @@ async def create_task(request: DocumentTaskCreate) -> dict[str, Any]:
 
 
 async def _read_task(service, thread_id):
-    tasks = await service.db.rows('SELECT * FROM document_tasks WHERE thread_id=%s', (thread_id,))
+    tasks = await service.db.rows('SELECT * FROM document_tasks WHERE thread_id=?', (thread_id,))
     if not tasks:
         raise DocumentProcessingError(404, 'Document task not found', 'TASK_NOT_FOUND')
     task = tasks[0]
     remaining_ttl({'expiresAt': task['expires_at'].isoformat()})
     snapshot = await service.snapshot(task)
-    runs = await service.db.rows('SELECT * FROM document_runs WHERE thread_id=%s ORDER BY created_at DESC LIMIT 1', (thread_id,))
+    runs = await service.db.rows('SELECT * FROM document_runs WHERE thread_id=? ORDER BY created_at DESC LIMIT 1', (thread_id,))
     return task, snapshot, runs[0] if runs else None
 
 
@@ -156,6 +160,11 @@ async def get_task(thread_id: str) -> dict[str, Any]:
         actions = ['retry_failed'] if any(f['retryable'] for f in failures) else []
     else:
         state = 'PENDING'
+    retired = task['document'].get('sourceType') in {'doc', 'docx'} or task['graph_id'] == 'docx_parser'
+    if retired:
+        actions = []
+        if state != 'COMPLETED':
+            state = 'FAILED'
     calls = await _calls(service, thread_id)
     usage = {item['callKey']: item for item in values.get('usage', [])}
     usage.update({item['callKey']: {k: item[k] for k in ('callKey', 'modelId', 'inputTokens', 'outputTokens', 'callKind')}
@@ -166,7 +175,7 @@ async def get_task(thread_id: str) -> dict[str, Any]:
         'checkpointId': service.checkpoint_id(snapshot, run),
         'updatedAt': snapshot.created_at or task['created_at'].isoformat(), 'expiresAt': task['expires_at'].isoformat(),
         'allowedActions': actions, 'failures': failures,
-        'blocking': list(interruptions.values()) or ([run['error_code']] if run and run['error_code'] else []),
+        'blocking': ['暂不支持 Word 文件，请转为 PDF 后重新导入'] if retired else list(interruptions.values()) or ([run['error_code']] if run and run['error_code'] else []),
         'progress': {
             'visuals': _counts(len(values.get('pageRefs', [])) + len(values.get('embeddedRefs', [])), len(values.get('visionResults', [])), sum(f['stage'].startswith('vision_') for f in failures)),
             'chunks': _counts(len(values.get('chunkRefs', [])), sum(item.get('parsed') is not None for item in values.get('chunkResults', [])), sum(f['stage'] == 'document_parse' for f in failures)),
@@ -185,11 +194,12 @@ async def control_task(thread_id: str, request: DocumentTaskControl) -> dict[str
     # Expensive artifact checks happen outside the global admission transaction.
     # The checkpoint/run are re-read under the lock before enqueueing.
     if request.action not in {'pause', 'interrupt'}:
-        async with service.db.pool.connection() as conn:
+        async with service.db.connection() as conn:
             previous = await _replay(conn, thread_id, request_id, request_hash)
         if previous:
             return previous
         task, snapshot, run = await _read_task(service, thread_id)
+        require_supported_task(task)
         if run and run['status'] in {'pending', 'running'}:
             raise conflict('Wait until the current run stops', 'TASK_BUSY')
         if service.checkpoint_id(snapshot, run) != request.checkpointId:
@@ -209,9 +219,9 @@ async def control_task(thread_id: str, request: DocumentTaskControl) -> dict[str
                 raise conflict('The target run is no longer current', 'STALE_RUN')
             if run['status'] in {'pending', 'running'}:
                 if request.action == 'pause':
-                    await conn.execute('UPDATE document_runs SET pause_requested=true WHERE run_id=%s', (run['run_id'],))
+                    await conn.execute('UPDATE document_runs SET pause_requested=true WHERE run_id=?', (run['run_id'],))
                 else:
-                    await conn.execute('UPDATE document_runs SET cancel_requested=true WHERE run_id=%s', (run['run_id'],))
+                    await conn.execute('UPDATE document_runs SET cancel_requested=true WHERE run_id=?', (run['run_id'],))
             response = receipt(thread_id, request_id, run['run_id'])
         else:
             if run and run['status'] in {'pending', 'running'}:
@@ -261,3 +271,11 @@ async def _preflight(values: dict[str, Any]) -> None:
         if reference["objectKey"] not in seen:
             seen.add(reference["objectKey"])
             await store.get_verified(ArtifactReference.model_validate(reference))
+
+
+async def list_tasks(limit: int = 20, offset: int = 0) -> dict[str, Any]:
+    service = client()
+    rows = await service.db.rows('SELECT thread_id,document,created_at,expires_at FROM document_tasks ORDER BY created_at DESC,thread_id DESC LIMIT ? OFFSET ?', (limit + 1, offset))
+    return {'items': [{'threadId': row['thread_id'], 'fileName': row['document'].get('fileName', '文档'),
+                       'createdAt': row['created_at'].isoformat(), 'expiresAt': row['expires_at'].isoformat()}
+                      for row in rows[:limit]], 'hasMore': len(rows) > limit}

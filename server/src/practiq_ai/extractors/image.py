@@ -11,6 +11,8 @@ from . import DocumentProcessingError, ExtractedDocument
 def extract(file_bytes: bytes) -> ExtractedDocument:
     try:
         with Image.open(BytesIO(file_bytes)) as image:
+            if image.format not in {"PNG", "JPEG"}:
+                raise DocumentProcessingError(422, 'Only PNG and JPEG images are supported', 'IMAGE_FORMAT_UNSUPPORTED')
             if image.width * image.height > load().max_vision_page_pixels:
                 raise DocumentProcessingError(413, 'Image exceeds pixel limit', 'IMAGE_TOO_LARGE')
             if getattr(image, 'n_frames', 1) != 1:

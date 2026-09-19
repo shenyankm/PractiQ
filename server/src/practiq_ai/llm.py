@@ -76,7 +76,7 @@ def get_model(kind: str = "vision") -> ChatOpenAI:
     config = load()
     return build_model(
         config.provider, config.api_key, config.text_model if kind == "text" else config.vision_model,
-        max_tokens=config.model_max_tokens, timeout=config.model_timeout_seconds,
+        max_tokens=config.model_max_tokens, timeout=config.model_timeout_seconds, base_url=config.base_url,
     )
 
 

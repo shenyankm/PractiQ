@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-from typing import Any
 
 from ..config import load
 from ..contracts import DocumentSourceType
@@ -15,7 +14,6 @@ class ExtractedDocument:
     page_images: list[bytes] = field(default_factory=list)
     embedded_images: list[bytes] = field(default_factory=list)
     truncated: bool = False
-    worksheets: list[dict[str, Any]] = field(default_factory=list)
 
 
 def enforce_vision_bytes(total: int) -> None:
@@ -36,17 +34,13 @@ def extract(
             raise DocumentProcessingError(400, "text must contain valid UTF-8") from exc
 
     from .csv import extract as extract_csv
-    from .docx import extract_docx_content
     from .image import extract as extract_image
     from .pdf import extract as extract_pdf
-    from .xlsx import extract as extract_xlsx
 
     extractor = {
-        "docx": extract_docx_content,
         "csv": extract_csv,
         "image": extract_image,
         "pdf": extract_pdf,
-        "xlsx": extract_xlsx,
     }[source_type]
     document = extractor(payload)
     document.text = document.text.strip()

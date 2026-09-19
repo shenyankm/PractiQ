@@ -81,7 +81,7 @@ async def test_cleanup_fails_closed_and_preserves_inventory_before_mutation(tmp_
     report = await storage_gc.run(args)
     assert report["completed"] and report["objects"] == 1 and path.exists()
     from practiq_ai.database import Database
-    db = Database(db.uri)
+    db = Database(db.directory)
     monkeypatch.setattr(storage_gc, 'Database', lambda: db)
     args.quarantine = True
     args.output = tmp_path / "quarantine.json"

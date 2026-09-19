@@ -50,7 +50,7 @@ from practiq_ai.storage import get_object_store
 
 ROOT = Path(__file__).parents[1]
 SCORER_VERSION = "3.0.0"
-SOURCE_TYPES = {"text", "csv", "xlsx", "docx", "pdf", "image"}
+SOURCE_TYPES = {"text", "csv", "pdf", "image"}
 ANSWER_MODES = {"choice", "true_false", "fill_blank", "short_answer"}
 METRICS = (
     "questionPrecision", "questionRecall", "answerModeAccuracy", "optionsAccuracy",
@@ -58,9 +58,7 @@ METRICS = (
 )
 MEDIA_TYPES = {
     "csv": "text/csv",
-    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     "image": "image/png", "pdf": "application/pdf", "text": "text/plain",
-    "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 }
 BLOCKING_CODES = {
     "AI_PROVIDER_ERROR", "AI_PROVIDER_UNAVAILABLE", "OBJECT_STORE_UNAVAILABLE",
@@ -341,8 +339,8 @@ def quality_passed(case: dict[str, Any]) -> bool:
 def score_trajectory(case: dict[str, Any], events: list[dict[str, Any]], calls: list[dict[str, Any]], max_calls: int) -> dict[str, Any]:
     """Check per-unit constraints, never the total ordering of concurrent units."""
     expected = case.get("expectedProcess") or {}
-    allowed = {"vision_parse", "vision_describe"} if case["sourceType"] in {"pdf", "docx", "image"} else {"document_parse"}
-    schemas = {"vision_parse": "PageParseResult", "vision_describe": "ImageDescription", "document_parse": "GroundedSheetResult" if case["sourceType"] == "xlsx" else "ChunkParseResult"}
+    allowed = {"vision_parse", "vision_describe"} if case["sourceType"] in {"pdf", "image"} else {"document_parse"}
+    schemas = {"vision_parse": "PageParseResult", "vision_describe": "ImageDescription", "document_parse": "ChunkParseResult"}
     starts = [e for e in events if e["event"] == "model_start"]
     limits = expected.get("maxModelCalls")
     reasons = []
@@ -359,7 +357,7 @@ def score_trajectory(case: dict[str, Any], events: list[dict[str, Any]], calls: 
             kind, unit = event["kind"], event.get("unitKey")
             if kind not in allowed or event.get("schema") != schemas.get(kind):
                 reasons.append("WRONG_ROUTE_OR_SCHEMA")
-            if "prepare" not in completed_stages or (kind == "document_parse" and case["sourceType"] != "xlsx" and "assemble" not in completed_stages):
+            if "prepare" not in completed_stages or (kind == "document_parse" and "assemble" not in completed_stages):
                 reasons.append("MISSING_PREREQUISITE")
             if not unit or not re.fullmatch(rf"{re.escape(kind)}:\d+:\d+", unit):
                 reasons.append("INVALID_UNIT")
@@ -607,7 +605,7 @@ async def run_evaluation(manifest_path: Path, repetitions: int = 1, case_ids: li
     # Include inline page instructions and response schemas, not only system constants.
     report["promptHash"] = _digest([SYSTEM_PROMPT, DESCRIBE_PROMPT,
         *(hashlib.sha256((ROOT / "src/practiq_ai" / name).read_bytes()).hexdigest()
-          for name in ("graphs/document.py", "graphs/vision.py", "graphs/excel.py", "llm.py", "contracts.py"))])
+          for name in ("graphs/document.py", "graphs/vision.py", "llm.py", "contracts.py"))])
     graph = build_document_graph(InMemorySaver(), store=InMemoryStore())
     for repetition in range(1, repetitions + 1):
         for case in cases:
@@ -657,7 +655,7 @@ async def run_evaluation(manifest_path: Path, repetitions: int = 1, case_ids: li
             by_call = {e["callKey"]: e for e in events if e["event"] == "model_call"}
             for call in model_calls:
                 event = by_call.get(call.get("callKey"), {})
-                call.update(validation=event.get("validation", "unknown"), durationMs=event.get("durationMs"), errorCode=event.get("errorCode"),
+                call.update(validationIssues=event.get("validationIssues", []), validation=event.get("validation", "unknown"), durationMs=event.get("durationMs"), errorCode=event.get("errorCode"),
                             **{key: event.get(key) for key in ("concurrencyWaitMs", "rateWaitMs", "providerRequestMs")})
             report["cases"].append({
                 "id": case["id"], "sourceType": case["sourceType"], "tags": case["tags"],
@@ -766,7 +764,8 @@ PROBE_TESTS = {
         "test_evaluation": ["test_transient_probe_recovers_with_trace"],
     },
     "correctStopRate": {
-        "test_page_rendering": ["test_converter_missing"],
+        "test_page_rendering": ["test_missing_vision_fails_before_read_or_render"],
+        "test_runtime": ["test_retired_word_tasks_remain_readable_but_never_run"],
         "test_workflows": ["test_document_integrity_fails_before_model_call", "test_structured_call_does_not_retry_permanent_errors"],
         "test_task_execution": ["test_store_failure_stops_model_calls", "test_retry_limits_shared_by_native_input_and_review"],
         "test_structured_output": ["test_corrections_keep_only_latest_output_and_stop_on_identical_failure"],

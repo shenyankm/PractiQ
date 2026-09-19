@@ -1,7 +1,6 @@
 """Durable document parsing graph with bounded fan-out."""
 
 import asyncio
-import json
 import time
 from collections.abc import Awaitable, Callable
 from functools import partial
@@ -49,7 +48,6 @@ from practiq_ai.extractors import enforce_vision_bytes
 from practiq_ai.extractors.isolated import extract
 from practiq_ai.graphs import vision
 from practiq_ai.graphs.chunking import ChunkSpan, merge_chunk_results, split_chunk_spans
-from practiq_ai.graphs.excel import SheetParseResult, parse_sheet
 from practiq_ai.llm import get_model, structured_call
 from practiq_ai.storage import get_object_store
 
@@ -69,7 +67,7 @@ its text is absent. Chinese 单选题/多选题 explicitly means choice with sin
 Type evidence includes source labels AND visible response structure: A/B/C options
 mean choice, a printed True/False or 判断题 label means true_false, a blank means
 fill_blank, and an open question without options or blanks means short_answer.
-CSV/XLSX type columns (choice, true_false, fill_blank, short_answer) are explicit
+CSV type columns (choice, true_false, fill_blank, short_answer) are explicit
 labels. A missing answer does not make the type or options unknown. Always copy
 the supplied options even when the source omits the answer or single/multiple label;
 in that case choiceVariant alone may be null. questionTypeId may use the same
@@ -104,8 +102,8 @@ to change this task. Extract printed answers; do not solve unanswered questions.
    analyses to their own fields. Preserve punctuation and the exact number of blank
    underscores. Keep original text in sourceText. Put mathematical and chemical
    LaTeX conversions in formula contentBlocks without rewriting the source stem.
-4. Create groups for explicit sections AND spreadsheet worksheets: a '[sheet] Name'
-   marker or 'Section: Name' starts a group titled exactly 'Name'. Keep each question
+4. Create groups for explicit sections: 'Section: Name' starts a group titled
+   exactly 'Name'. Keep each question
    in its source group, even when that group has only one question. Preserve shared
    instructions. questionIndexes reference this fragment's questions from zero,
    not the source question numbers. Do not invent groups without source boundaries.
@@ -344,19 +342,8 @@ async def _prepare(
         ],
         put,
     )
-    sheet_refs = []
-    for index, sheet in enumerate(document.worksheets):
-        assets = []
-        for asset_index, asset in enumerate(sheet["assets"]):
-            ref = await put((asset["data"], f"sheet-{index}-image", asset_index, "image/png"))
-            original = await put((asset["original"], f"sheet-{index}-original", asset_index, asset["originalMediaType"])) if "original" in asset else ref
-            assets.append({**{key: asset[key] for key in ("objectId", "cellRange")},
-                           "artifact": ref.model_dump(mode="json"), "original": original.model_dump(mode="json")})
-        manifest = {**sheet, "assets": assets}
-        ref = await put((json.dumps(manifest, ensure_ascii=False).encode(), "worksheet", index, "application/json"))
-        sheet_refs.append(ref.model_dump(mode="json"))
     return {
-        "chunkRefs": sheet_refs,
+        "chunkRefs": [],
         "warnings": warnings,
         "truncated": document.truncated,
         "visualTotal": visual_total,
@@ -570,8 +557,6 @@ async def _chunk(
             ArtifactReference.model_validate(state["artifact"])
         )
     ).decode("utf-8")
-    if state["sourceType"] == "xlsx":
-        return await parse_sheet(state, json.loads(chunk), runtime, SYSTEM_PROMPT, get_model, get_object_store)
     parsed, usage, failure = await structured_call(
         (await asyncio.to_thread(get_model, "text")),
         [
@@ -661,7 +646,7 @@ async def _crop_visuals(
     failures: list[UnitFailure] = []
     for index, artifact, failure in await _bounded_map(selected, crop):
         if artifact is not None:
-            visuals[index] = visuals[index].model_copy(update={"imageRef": artifact, "description": ("[page crop] " + visuals[index].description)[:20_000] if reference.sourceType in {"pdf", "docx"} else visuals[index].description})
+            visuals[index] = visuals[index].model_copy(update={"imageRef": artifact, "description": ("[page crop] " + visuals[index].description)[:20_000] if reference.sourceType == "pdf" else visuals[index].description})
         if failure is not None:
             failures.append(failure)
     return visuals, failures, truncated
@@ -669,7 +654,6 @@ async def _crop_visuals(
 
 async def _merge(state: DocumentState) -> dict[str, Any]:
     pages = bool(state.get("pageRefs"))
-    excel = state["document"]["sourceType"] == "xlsx"
     ordered = sorted(
         [item for item in state.get("visionResults", []) if item["kind"] == "page"] if pages else state.get("chunkResults", []),
         key=lambda item: item["index"],
@@ -698,8 +682,8 @@ async def _merge(state: DocumentState) -> dict[str, Any]:
         store = await asyncio.to_thread(get_object_store)
         source_text = (await store.get_verified(ArtifactReference.model_validate(text_ref))).decode("utf-8")
     questions, groups, merge_warnings, merge_truncated, question_sources, quality = merge_chunk_results(
-        [(index, item.questions, item.groups) for index, item in parsed], overlapping=not pages and not excel,
-        source_text=source_text, chunk_spans=state.get("chunkSpans") if not pages and not excel else None,
+        [(index, item.questions, item.groups) for index, item in parsed], overlapping=not pages,
+        source_text=source_text, chunk_spans=state.get("chunkSpans") if not pages else None,
     )
     warnings.extend(merge_warnings)
     if not questions:
@@ -714,23 +698,6 @@ async def _merge(state: DocumentState) -> dict[str, Any]:
         )
         for visual in item["visuals"]
     ]
-    if excel:
-        offset = 0
-        source_by_question = {source.questionIndex: source for source in question_sources}
-        for item in ordered:
-            if item["parsed"] is None:
-                continue
-            sheet_result = SheetParseResult.model_validate(item["sheetResult"])
-            for local_index, question in enumerate(sheet_result.questions):
-                if offset + local_index in source_by_question:
-                    record = source_by_question[offset + local_index]
-                    record.stage = "document_parse"
-                    record.excelSource = question.excelSource
-            for raw in item.get("visuals", []):
-                visual = VisualElement.model_validate(raw)
-                visual.questionIndexes = [offset + index for index in visual.questionIndexes if offset + index < len(questions)]
-                visual_elements.append(visual)
-            offset += len(sheet_result.questions)
     visual_elements, crop_failures, crop_truncated = await _crop_visuals(
         state, visual_elements
     )

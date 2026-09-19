@@ -1,16 +1,15 @@
-"""Authenticated document APIs with a PostgreSQL-backed LangGraph runtime."""
+"""Authenticated document APIs with a SQLite-backed LangGraph runtime."""
 
 import asyncio
 from collections.abc import AsyncGenerator, AsyncIterator
 from contextlib import asynccontextmanager
+from sqlite3 import Error as DatabaseError
 from typing import Annotated, Any
 from uuid import UUID
 from weakref import WeakKeyDictionary
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
-from psycopg import Error as DatabaseError
-from psycopg_pool import PoolTimeout
 
 from practiq_ai import task_api
 from practiq_ai.config import load
@@ -33,14 +32,14 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     from . import runtime
     from .database import Database
     configure_logging()
-    await asyncio.to_thread(load)
+    settings = await asyncio.to_thread(load)
     service = runtime.Service(Database())
     await service.start()
     runtime.current = service
     try:
         yield
     finally:
-        await service.stop()
+        await service.stop(timeout=10 if settings.desktop_mode else 60)
         runtime.current = None
 
 
@@ -97,13 +96,18 @@ async def _task_response(operation: Any) -> dict[str, Any]:
         raise HTTPException(exc.status_code, {"code": exc.code, "message": exc.detail}) from exc
     except TimeoutError as exc:
         raise HTTPException(504, {"code": "CONTROL_TIMEOUT", "message": "Task preflight timed out"}) from exc
-    except (DatabaseError, PoolTimeout) as exc:
+    except DatabaseError as exc:
         raise HTTPException(503, {"code": "TASK_SERVICE_UNAVAILABLE", "message": "Task database is unavailable"}) from exc
 
 
 @app.post("/api/document-tasks", status_code=202, dependencies=[Depends(authorize)])
 async def create_document_task(request: DocumentTaskCreate) -> dict[str, Any]:
     return await _task_response(task_api.create_task(request))
+
+
+@app.get("/api/document-tasks", dependencies=[Depends(authorize)])
+async def list_document_tasks(limit: int = Query(default=20, ge=1, le=100), offset: int = Query(default=0, ge=0)):
+    return await _task_response(task_api.list_tasks(limit, offset))
 
 
 @app.get("/api/document-tasks/{thread_id}", dependencies=[Depends(authorize)])

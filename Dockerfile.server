@@ -5,7 +5,7 @@ RUN uv export --frozen --no-dev --no-emit-project --no-hashes -o requirements.tx
 
 FROM python:3.14-slim-bookworm@sha256:bf5a06313080f516be80f78839d992270e7877dde4e2c345a41b84f862fbc28b
 RUN sed -i 's|http://deb.debian.org|https://deb.debian.org|g' /etc/apt/sources.list.d/debian.sources \
-    && apt-get -o Acquire::Retries=3 update && apt-get -o Acquire::Retries=3 install -y --no-install-recommends libreoffice-writer libreoffice-calc fonts-noto-cjk \
+    && apt-get -o Acquire::Retries=3 update && apt-get -o Acquire::Retries=3 install -y --no-install-recommends fonts-noto-cjk \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=lock /usr/local/bin/uv /usr/local/bin/uv
 COPY --from=lock /lock/requirements.txt /tmp/requirements.txt
@@ -16,7 +16,7 @@ WORKDIR /app/server
 RUN uv pip install --system --no-cache-dir --no-deps .
 RUN groupadd --gid 10001 practiq && useradd --uid 10001 --gid 10001 --create-home practiq \
     && mkdir -p /var/lib/practiq && chown 10001:10001 /var/lib/practiq
-ENV LANGSMITH_TRACING=false LANGCHAIN_TRACING_V2=false AI_STORAGE_DIR=/var/lib/practiq
+ENV LANGSMITH_TRACING=false LANGCHAIN_TRACING_V2=false AI_STORAGE_DIR=/var/lib/practiq/files AI_DATABASE_DIR=/var/lib/practiq/database
 USER 10001:10001
 EXPOSE 8000
 # Host networking keeps the service on loopback behind the host HTTPS proxy.

@@ -182,6 +182,15 @@ class ObjectStore:
                 target.flush()
                 os.fsync(target.fileno())
             os.replace(name, path)
+            # Persist the directory entries before checkpoints can reference this file.
+            for directory in path.parents:
+                fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY)
+                try:
+                    os.fsync(fd)
+                finally:
+                    os.close(fd)
+                if directory == self.root.parent:
+                    break
         finally:
             if name is not None:
                 Path(name).unlink(missing_ok=True)

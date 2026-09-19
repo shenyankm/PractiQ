@@ -87,7 +87,7 @@ def test_load_rejects_model_concurrency_over_sixteen(
     (
         ({"AI_STORAGE_DIR": " "}, "AI_STORAGE_DIR"),
         ({"LLM_PROVIDER": "unknown"}, "Unsupported LLM_PROVIDER"),
-        ({"LLM_PROVIDER": "openai"}, "Unsupported LLM_PROVIDER"),
+        ({"LLM_PROVIDER": "openai"}, "LLM_BASE_URL"),
         ({"AI_STORAGE_TIMEOUT_SECONDS": "nonsense"}, "positive number"),
     ),
 )
@@ -140,3 +140,21 @@ def test_oss_configuration(monkeypatch):
         with pytest.raises(ValueError):
             config.load()
         monkeypatch.setenv(key, values[key])
+
+
+def test_sqlite_directory_and_custom_model_origin(tmp_path, monkeypatch):
+    _env(monkeypatch, LLM_PROVIDER='openai', LLM_BASE_URL='http://127.0.0.1:1234/v1')
+    monkeypatch.delenv('DATABASE_URI', raising=False)
+    monkeypatch.setenv('AI_DATABASE_DIR', str(tmp_path / 'db'))
+    assert config.database_dir() == tmp_path / 'db'
+    assert config.load().base_url == 'http://127.0.0.1:1234/v1'
+    for value in ('http://example.com', 'https://user:secret@example.com', 'https://example.com?key=secret', 'file:///tmp/model'):
+        monkeypatch.setenv('LLM_BASE_URL', value)
+        with pytest.raises(ValueError, match='LLM_BASE_URL'):
+            config.load()
+    monkeypatch.setenv('AI_DATABASE_DIR', ' ')
+    with pytest.raises(ValueError, match='AI_DATABASE_DIR'):
+        config.database_dir()
+    monkeypatch.setenv('DATABASE_URI', 'postgresql://unused')
+    with pytest.raises(ValueError, match='no longer supported'):
+        config.database_dir()

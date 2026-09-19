@@ -13,18 +13,6 @@ jobs:
   quality:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
-    services:
-      postgres:
-        image: postgres:16-bookworm
-        env:
-          POSTGRES_PASSWORD: isolated-test-only
-        ports: ['5432:5432']
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 2s --health-timeout 2s --health-retries 30
-    env:
-      REQUIRE_LIBREOFFICE_TESTS: "1"
-      TEST_DATABASE_URI: postgresql://postgres:isolated-test-only@127.0.0.1:5432/postgres
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v6
@@ -35,8 +23,8 @@ jobs:
           version: '0.12.13'
           enable-cache: true
           cache-dependency-glob: server/uv.lock
-      - name: Install document converters and fonts
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libreoffice-writer libreoffice-calc fonts-noto-cjk
+      - name: Install PDF fallback fonts
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends fonts-noto-cjk
       - name: Install locked dependencies
         run: make install-locked AI_PYTHON="$(command -v python)"
       - name: Verify service

@@ -27,8 +27,6 @@ from tests.support import (
 FORMAT_GRAPHS = [
     ("text_csv_parser", ("text", "csv")),
     ("pdf_parser", ("pdf",)),
-    ("docx_parser", ("docx",)),
-    ("excel_parser", ("xlsx",)),
 ]
 
 
@@ -51,7 +49,7 @@ async def test_format_graph_enforces_source_type_before_storage(
             else next(iter(DOCUMENT_MEDIA_TYPES[source_type]))
         ),
     }
-    model = FakeModel(responses=[{"questions": [{**question("2 + 2?"), **({"excelSource": {"sheetName": "Quiz", "cellRange": "A1"}} if source_type == "xlsx" else {})}]}])
+    model = FakeModel(responses=[{"questions": [question("2 + 2?")]}])
     vision = FakeModel(responses=[{"questions": [question("2 + 2?")], "figures": []}])
     store = FakeObjectStore({key: payload})
     extracted = []
@@ -63,12 +61,10 @@ async def test_format_graph_enforces_source_type_before_storage(
     def extract(kind, data):
         extracted.append(kind)
         assert data == payload
-        if kind == "xlsx":
-            return ExtractedDocument(text="", worksheets=[{"sheetName": "Quiz", "text": data.decode(), "assets": [], "objects": [], "warnings": [], "failureCode": None}])
-        return ExtractedDocument(text="", page_images=[make_image()]) if kind in {"pdf", "docx"} else ExtractedDocument(text=data.decode())
+        return ExtractedDocument(text="", page_images=[make_image()]) if kind == "pdf" else ExtractedDocument(text=data.decode())
 
     monkeypatch.setattr(document, "get_object_store", get_store)
-    monkeypatch.setattr(document, "get_model", lambda *args: vision if source_type in {"pdf", "docx"} else model)
+    monkeypatch.setattr(document, "get_model", lambda *args: vision if source_type == "pdf" else model)
     monkeypatch.setattr(document, "extract", AsyncMock(side_effect=extract))
     assert getattr(formats, name).name == name
     graph = copy(getattr(formats, name))
@@ -86,8 +82,8 @@ async def test_format_graph_enforces_source_type_before_storage(
         assert output["status"] == "SUCCEEDED"
         assert output["result"]["questions"][0]["stem"] == "2 + 2?"
         assert extracted == [source_type]
-        assert len(model.calls) == (0 if source_type in {"pdf", "docx"} else 1)
-        assert len(vision.calls) == (1 if source_type in {"pdf", "docx"} else 0)
+        assert len(model.calls) == (0 if source_type == "pdf" else 1)
+        assert len(vision.calls) == (1 if source_type == "pdf" else 0)
     else:
         with pytest.raises(DocumentProcessingError) as exc:
             await graph.ainvoke(graph_input, config)

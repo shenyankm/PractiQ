@@ -1,22 +1,22 @@
-"""Single-process durable queue runner. PostgreSQL is the source of truth."""
+"""Single-process durable queue runner. SQLite is the source of truth."""
 
 import asyncio
 import os
 from datetime import timedelta
+from sqlite3 import Error as DatabaseError
 from typing import Any
 
 from langgraph.types import Command
-from psycopg.errors import Error as DatabaseError
 
 from .config import load
-from .database import INSTANCE_LOCK, Database, utcnow, watch_ownership
+from .database import Database, utcnow, watch_ownership
 from .errors import DocumentProcessingError
 from .execution import namespace, remaining_ttl
 from .graphs.document import build_document_graph
 
 current: Service | None = None
 GRAPH_FORMATS = {'document_parser': None, 'text_csv_parser': ('text', 'csv'),
-                 'pdf_parser': ('pdf',), 'docx_parser': ('docx',), 'excel_parser': ('xlsx',)}
+                 'pdf_parser': ('pdf',)}
 
 
 class Service:
@@ -38,14 +38,14 @@ class Service:
             await self.db.check_schema()
             if load().deployment_workers != 1:
                 raise RuntimeError('The OSS runtime requires AI_DEPLOYMENT_WORKERS=1 and one Uvicorn process')
-            self.lock = await self.db.lock_connection()
-            row = await (await self.lock.execute('SELECT pg_try_advisory_lock(%s) AS acquired', (INSTANCE_LOCK,))).fetchone()
-            if not row or not row['acquired']:
-                raise RuntimeError('Another service already owns this database')
+            self.lock = self.db.acquire()
             self.graphs = {name: build_document_graph(self.db.checkpointer, store=self.db.store, name=name, source_types=types)
                            for name, types in GRAPH_FORMATS.items()}
-            async with self.db.pool.connection() as conn:
-                await conn.execute("UPDATE document_runs SET status='pending' WHERE status='running'")
+            async with self.db.connection() as conn:
+                if load().desktop_mode:
+                    await conn.execute("UPDATE document_runs SET status='interrupted' WHERE status IN ('pending','running')")
+                else:
+                    await conn.execute("UPDATE document_runs SET status='pending' WHERE status='running'")
             self.accepting = True
             self.loop = asyncio.create_task(self.dispatch(), name='document-dispatch')
             self.guard_task = asyncio.create_task(self.watch_lock(), name='database-ownership')
@@ -59,6 +59,7 @@ class Service:
         def lost():
             self.accepting = False
             self.fatal(70)
+        assert self.lock is not None
         await watch_ownership(self.lock, lost)
 
     async def ready(self):
@@ -90,7 +91,9 @@ class Service:
         await self.db.close()
 
     async def snapshot(self, task):
-        return await self.graphs[task['graph_id']].aget_state({'configurable': {'thread_id': task['thread_id']}})
+        # Read retired checkpoints without restoring a Word parser.
+        graph_id = 'document_parser' if task['graph_id'] == 'docx_parser' else task['graph_id']
+        return await self.graphs[graph_id].aget_state({'configurable': {'thread_id': task['thread_id']}})
 
     @staticmethod
     def checkpoint_id(snapshot, run=None):
@@ -132,14 +135,15 @@ class Service:
             self.fatal(70)
 
     async def finish(self, run_id, status, error=None):
-        async with self.db.pool.connection() as conn:
-            await conn.execute('UPDATE document_runs SET status=%s,error_code=%s,finished_at=now() WHERE run_id=%s', (status, error, run_id))
+        async with self.db.connection() as conn:
+            await conn.execute('UPDATE document_runs SET status=?,error_code=?,finished_at=now() WHERE run_id=?', (status, error, run_id))
 
     async def execute(self, run):
-        from .task_api import _preflight
+        from .task_api import _preflight, require_supported_task
         run_id = run['run_id']
         try:
-            task = (await self.db.rows('SELECT * FROM document_tasks WHERE thread_id=%s', (run['thread_id'],)))[0]
+            task = (await self.db.rows('SELECT * FROM document_tasks WHERE thread_id=?', (run['thread_id'],)))[0]
+            require_supported_task(task)
             remaining_ttl({'expiresAt': task['expires_at'].isoformat()})
             graph = self.graphs[task['graph_id']]
             snapshot = await self.snapshot(task)
@@ -148,8 +152,8 @@ class Service:
                 await self.finish(run_id, 'waiting' if snapshot.interrupts else 'success')
                 return
             deadline = run['deadline'] or utcnow() + timedelta(seconds=load().run_timeout_seconds)
-            async with self.db.pool.connection() as conn:
-                await conn.execute("UPDATE document_runs SET status='running',started_at=coalesce(started_at,now()),deadline=%s WHERE run_id=%s", (deadline, run_id))
+            async with self.db.connection() as conn:
+                await conn.execute("UPDATE document_runs SET status='running',started_at=coalesce(started_at,now()),deadline=? WHERE run_id=?", (deadline, run_id))
             await self.db.store.aput(namespace(run['thread_id'], 'deadlines'), run_id, {'at': deadline.isoformat()}, index=False)
             remaining = (deadline - utcnow()).total_seconds()
             if remaining <= 0:
@@ -163,7 +167,7 @@ class Service:
             snapshot = await self.snapshot(task)
             await self.finish(run_id, 'waiting' if snapshot.interrupts else 'success')
         except asyncio.CancelledError:
-            rows = await self.db.rows('SELECT cancel_requested FROM document_runs WHERE run_id=%s', (run_id,))
+            rows = await self.db.rows('SELECT cancel_requested FROM document_runs WHERE run_id=?', (run_id,))
             await self.finish(run_id, 'interrupted' if rows[0]['cancel_requested'] else 'pending')
         except DatabaseError:
             self.accepting = False

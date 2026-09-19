@@ -29,6 +29,8 @@ class Config:
     storage_timeout_seconds: float
     model_timeout_seconds: float
     model_max_tokens: int
+    base_url: str | None = None
+    desktop_mode: bool = False
     jobs_per_worker: int = 8
     task_max_model_calls: int = 400
     run_timeout_seconds: float = 1800
@@ -41,7 +43,6 @@ class Config:
     max_busy_threads: int = 300
     maintenance: bool = False
     structured_output_method: str = "function_calling"
-    soffice_path: str = "soffice"
     storage_backend: str = "local"
     oss_region: str = ""
     oss_bucket: str = ""
@@ -89,7 +90,7 @@ def load() -> Config:
     values = dict(os.environ)
     _required(values, "AI_SERVICE_TOKEN")
     provider = _required(values, "LLM_PROVIDER")
-    if provider not in {"dashscope", "deepseek", "moonshot"}:
+    if provider not in {"dashscope", "deepseek", "moonshot", "openai"}:
         raise ValueError(f"Unsupported LLM_PROVIDER: {provider}")
     storage_dir = values.get("AI_STORAGE_DIR", ".local/ai-oss").strip()
     if not storage_dir:
@@ -139,7 +140,21 @@ def load() -> Config:
         raise ValueError("Total deployment model concurrency exceeds AI_PROVIDER_CONCURRENCY")
     if provider_rpm < workers:
         raise ValueError("AI_PROVIDER_RPM must allow at least one request per worker")
+    base_url = values.get("LLM_BASE_URL", "").strip() or None
+    if provider == "openai" and not base_url:
+        raise ValueError("LLM_BASE_URL is required for openai")
+    if base_url:
+        import ipaddress
+        url = urlsplit(base_url)
+        try:
+            loopback = url.hostname == "localhost" or ipaddress.ip_address(url.hostname or "").is_loopback
+        except ValueError:
+            loopback = False
+        if (url.scheme != "https" and not (url.scheme == "http" and loopback)) or not url.hostname or url.username or url.password or url.query or url.fragment:
+            raise ValueError("LLM_BASE_URL requires HTTPS or loopback HTTP without credentials, query or fragment")
     return Config(
+        base_url=base_url,
+        desktop_mode=values.get("AI_DESKTOP_MODE") == "1",
         jobs_per_worker=jobs_per_worker,
         maintenance=maintenance == "true",
         task_max_model_calls=_positive_int(values, "AI_TASK_MAX_MODEL_CALLS", 400),
@@ -154,7 +169,6 @@ def load() -> Config:
         structured_output_method=method,
         storage_backend=storage_backend,
         **oss_settings,
-        soffice_path=values.get("AI_SOFFICE_PATH", "").strip() or "soffice",
         provider=provider,
         api_key=_required(values, "LLM_API_KEY"),
         vision_model=vision_model,
@@ -189,9 +203,11 @@ def storage_path(value: str) -> Path:
     return Path(os.path.abspath(SERVER_ROOT / path))
 
 
-def database_uri() -> str:
-    """Required only for the HTTP runtime and administrative commands."""
-    value = _required(dict(os.environ), "DATABASE_URI")
-    if urlsplit(value).scheme not in {"postgres", "postgresql"}:
-        raise ValueError("DATABASE_URI must be a PostgreSQL URI")
-    return value
+def database_dir() -> Path:
+    """Dedicated local SQLite directory; never silently reuse a PostgreSQL deployment."""
+    if os.environ.get("DATABASE_URI", "").strip():
+        raise ValueError("DATABASE_URI is no longer supported; set AI_DATABASE_DIR for a new SQLite database. Existing PostgreSQL data is untouched")
+    value = os.environ.get("AI_DATABASE_DIR", ".local/database").strip()
+    if not value:
+        raise ValueError("AI_DATABASE_DIR must not be empty")
+    return storage_path(value)

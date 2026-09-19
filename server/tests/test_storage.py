@@ -95,3 +95,18 @@ async def test_storage_timeout(tmp_path, monkeypatch):
         assert error.value.code == 'OBJECT_STORE_UNAVAILABLE'
     finally:
         await asyncio.to_thread(store._executor.shutdown)
+
+
+async def test_directory_sync_failure_does_not_return_a_reference(tmp_path, monkeypatch):
+    import stat
+    sync = storage.os.fsync
+    def fail_directory(fd):
+        if stat.S_ISDIR(storage.os.fstat(fd).st_mode):
+            raise OSError('directory sync failed')
+        sync(fd)
+    monkeypatch.setattr(storage.os, 'fsync', fail_directory)
+    with pytest.raises(DocumentProcessingError, match='Object storage'):
+        await object_store(tmp_path).put_artifact(b'image', source_sha256='a'*64,
+            kind='embedded', index=0, media_type='image/png')
+    # A completed file may remain orphaned, but no committed reference is returned.
+    assert len(list(tmp_path.rglob('*.png'))) == 1

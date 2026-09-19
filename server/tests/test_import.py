@@ -1,11 +1,10 @@
 """Upload -> real local storage -> native graph -> verified artifact download.
 
-Models and DOCX conversion are fake; extraction and graph execution are real.
+Models are fake; extraction and graph execution are real.
 """
 
 import asyncio
 import hashlib
-import json
 from pathlib import Path
 
 import pytest
@@ -21,16 +20,11 @@ HEADERS = {"Authorization": "Bearer test-token"}
 
 @pytest.fixture
 def setup(monkeypatch, tmp_path):
-    from practiq_ai.extractors import docx
-    from tests.support import make_blank_pdf
-
-    monkeypatch.setattr(docx, "convert_to_pdf", lambda _: make_blank_pdf(1))
     store = object_store(tmp_path)
     def response(_messages, schema):
         if schema is document.vision.ImageDescription:
             return {"description": "Embedded figure", "extractedText": "caption"}
-        extra = {"excelSource": {"sheetName": json.loads(_messages[1].content)["sheetName"], "cellRange": "A1"}} if schema.__name__ == "GroundedSheetResult" else {}
-        return {"questions": [{**question("Imported"), **extra}], "groups": []}
+        return {"questions": [question("Imported")], "groups": [], "figures": [{"kind": "image", "description": "Figure", "bbox": [0.1, 0.1, 0.8, 0.8]}]} if schema is document.PageParseResult else {"questions": [question("Imported")], "groups": []}
 
     model = FakeModel(responses=[response] * 2)
     monkeypatch.setattr(document, "get_object_store", lambda: store)
@@ -54,9 +48,8 @@ async def ingest(client, payload, kind, name):
 
 
 @pytest.mark.parametrize("kind,fixture", [
-    ("docx", "docx/table.docx"), ("xlsx", "xlsx/single-sheet.xlsx"),
     ("pdf", "pdf/text-layer.pdf"), ("csv", "csv/basic.csv"),
-    ("image", "image/clean.png"), ("docx", "docx/formula-image.docx"),
+    ("image", "image/clean.png"),
 ])
 async def test_native_binary_import_and_verified_artifacts(setup, kind, fixture):
     store, _ = setup
@@ -67,9 +60,9 @@ async def test_native_binary_import_and_verified_artifacts(setup, kind, fixture)
         assert result["status"] == "SUCCEEDED"
         assert result["result"]["questions"][0]["stem"] == "Imported"
         assert result["usage"]
-        if fixture == "docx/formula-image.docx":
+        if kind == "pdf":
             visual = result["result"]["visualElements"][0]
-            assert "/embedded/" in visual["imageRef"]["objectKey"]
+            assert "/" in visual["imageRef"]["objectKey"]
             assert "imageBase64" not in visual
             artifact = visual["imageRef"]
             response = await client.post("/api/artifacts/read", json=artifact)
