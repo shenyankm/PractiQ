@@ -13,6 +13,7 @@ os.environ.update({
     "LLM_PROVIDER": "dashscope",
     "LLM_API_KEY": "test-key",
     "LLM_VISION_MODEL": "test-model",
+    "LLM_TEXT_MODEL": "test-text-model",
     "N_JOBS_PER_WORKER": "8",
 })
 

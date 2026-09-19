@@ -187,7 +187,7 @@ def test_document_graph_merges_parallel_chunks_and_keeps_checkpoint_small(monkey
 
     model = FakeModel(responses=[response, response])
     monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
-    monkeypatch.setattr(document, "get_model", lambda: model)
+    monkeypatch.setattr(document, "get_model", lambda *args: model)
     monkeypatch.setattr(
         document, "split_chunk_spans", lambda text: [
             {"start": 0, "end": text.index("2. Second") + len("2. Second"), "overlapStart": 0, "overlapEnd": 0},
@@ -229,7 +229,7 @@ def test_document_graph_repairs_invalid_chunk_with_shared_budget(monkeypatch):
         ]
     )
     monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
-    monkeypatch.setattr(document, "get_model", lambda: model)
+    monkeypatch.setattr(document, "get_model", lambda *args: model)
     graph = local_graph(InMemorySaver())
 
     output = asyncio.run(
@@ -247,7 +247,7 @@ def test_document_graph_returns_partial_for_one_failed_chunk(monkeypatch):
     fake_store, reference = source("1. First\n2. Second")
     monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
     monkeypatch.setattr(
-        document, "get_model", lambda: FakeModel(responses=[])
+        document, "get_model", lambda *args: FakeModel(responses=[])
     )
     monkeypatch.setattr(
         document, "split_chunk_spans", lambda text: [
@@ -298,7 +298,7 @@ def test_document_graph_raises_when_all_chunks_fail(monkeypatch):
     fake_store, reference = source("1. First")
     monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
     monkeypatch.setattr(
-        document, "get_model", lambda: FakeModel(responses=[])
+        document, "get_model", lambda *args: FakeModel(responses=[])
     )
 
     async def failed_chunk(task, runtime):
@@ -346,7 +346,7 @@ def test_document_graph_resumes_without_repeating_completed_chunk(monkeypatch):
         return await original_chunk(task, runtime)
 
     monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
-    monkeypatch.setattr(document, "get_model", lambda: model)
+    monkeypatch.setattr(document, "get_model", lambda *args: model)
     monkeypatch.setattr(
         document, "split_chunk_spans", lambda text: [
             {"start": 0, "end": text.index("2. Second") + len("2. Second"), "overlapStart": 0, "overlapEnd": 0},
@@ -391,7 +391,7 @@ def test_document_integrity_fails_before_model_call(
         reference["objectKey"] = key
     model = FakeModel(responses=[])
     monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
-    monkeypatch.setattr(document, "get_model", lambda: model)
+    monkeypatch.setattr(document, "get_model", lambda *args: model)
     graph = local_graph(InMemorySaver())
 
     with pytest.raises(DocumentProcessingError) as exc:
@@ -569,7 +569,7 @@ def test_storage_work_is_bounded_by_configuration(monkeypatch):
 
 def test_missing_model_fails_before_processing(monkeypatch):
     _, reference = source("Question")
-    monkeypatch.setattr(document, "get_model", lambda: None)
+    monkeypatch.setattr(document, "get_model", lambda *args: None)
     with pytest.raises(DocumentProcessingError) as error:
         asyncio.run(local_graph().ainvoke({"document": reference}))
     assert error.value.code == "VISION_MODEL_REQUIRED"
@@ -582,7 +582,7 @@ def test_extractor_truncation_makes_result_partial(monkeypatch):
         responses=[{"questions": [question("1. Question")], "groups": []}]
     )
     monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
-    monkeypatch.setattr(document, "get_model", lambda: model)
+    monkeypatch.setattr(document, "get_model", lambda *args: model)
     monkeypatch.setattr(
         document,
         "extract",
@@ -612,7 +612,7 @@ def test_visual_unit_failure_returns_partial(monkeypatch):
         ]
     )
     monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
-    monkeypatch.setattr(document, "get_model", lambda: model)
+    monkeypatch.setattr(document, "get_model", lambda *args: model)
     monkeypatch.setattr(
         document,
         "extract",
@@ -654,7 +654,7 @@ def test_document_graph_extracts_directly_from_image_and_crops(monkeypatch):
         ]
     )
     monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
-    monkeypatch.setattr(document, "get_model", lambda: model)
+    monkeypatch.setattr(document, "get_model", lambda *args: model)
     monkeypatch.setattr(
         document,
         "extract",
@@ -684,7 +684,7 @@ def test_document_graph_describes_embedded_images(monkeypatch):
         ]
     )
     monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
-    monkeypatch.setattr(document, "get_model", lambda: model)
+    monkeypatch.setattr(document, "get_model", lambda *args: model)
     monkeypatch.setattr(
         document,
         "extract",
@@ -717,7 +717,7 @@ def test_document_graph_rejects_documents_without_text(
     fake_store, reference = source("")
     model = FakeModel(responses=[])
     monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
-    monkeypatch.setattr(document, "get_model", lambda: model if with_model else None)
+    monkeypatch.setattr(document, "get_model", lambda *args: model if with_model else None)
     monkeypatch.setattr(
         document,
         "extract",
@@ -740,7 +740,7 @@ def test_document_graph_rejects_empty_vision_output(monkeypatch):
     fake_store, reference = source("")
     model = FakeModel(responses=[{"invalid": True}] * 4)
     monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
-    monkeypatch.setattr(document, "get_model", lambda: model)
+    monkeypatch.setattr(document, "get_model", lambda *args: model)
     monkeypatch.setattr(
         document,
         "extract",
@@ -766,7 +766,7 @@ def test_document_graph_marks_text_truncation_and_rejects_no_questions(monkeypat
     )
     monkeypatch.setenv("AI_MAX_TOTAL_INPUT_CHARS", "6")
     monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
-    monkeypatch.setattr(document, "get_model", lambda: model)
+    monkeypatch.setattr(document, "get_model", lambda *args: model)
     graph = local_graph(InMemorySaver())
 
     output = asyncio.run(

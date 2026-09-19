@@ -32,7 +32,7 @@ def setup_graph(monkeypatch, responses, *, parts=None):
     files, reference = source("".join(parts) if parts else "1. First\n2. Second")
     model = FakeModel(responses=responses)
     store = MemoryStore()
-    monkeypatch.setattr(document, "get_model", lambda: model)
+    monkeypatch.setattr(document, "get_model", lambda *args: model)
     monkeypatch.setattr(document, "get_object_store", lambda: files)
     if parts:
         monkeypatch.setattr(document, "split_chunk_spans", lambda _: [
@@ -170,7 +170,7 @@ async def test_no_partial_acceptance_when_every_unit_failed(monkeypatch):
 async def test_model_result_survives_artifact_write_failure(monkeypatch):
     graph, store, files, reference, model = setup_graph(monkeypatch, [parsed()])
     vision_model = FakeModel(responses=[{**parsed(), "figures": [{"description": "Chart", "bbox": [0, 0, 1, 1]}]}])
-    monkeypatch.setattr(document, "get_model", lambda: vision_model)
+    monkeypatch.setattr(document, "get_model", lambda *args: vision_model)
     monkeypatch.setattr(document, "extract", lambda *_: ExtractedDocument(text="", page_images=[make_image()]))
     original = files.put_artifact
     fail = True
@@ -195,7 +195,7 @@ async def test_model_result_survives_artifact_write_failure(monkeypatch):
 
 async def test_retry_page_preserves_successes_without_text_model_or_chunks(monkeypatch):
     graph, _, _, reference, model = setup_graph(monkeypatch, [])
-    monkeypatch.setattr(document, "get_model", lambda: model)
+    monkeypatch.setattr(document, "get_model", lambda *args: model)
     monkeypatch.setattr(document, "extract", lambda *_: ExtractedDocument(text="", page_images=[make_image(), make_image()]))
     calls = Counter()
     fail = True
@@ -295,7 +295,7 @@ async def test_crop_failure_requires_review_but_is_not_retryable(monkeypatch):
     graph, _, _, reference, model = setup_graph(monkeypatch, [
         {**parsed(), "figures": [{"description": "Chart", "bbox": [0, 0, 1, 1]}]},
     ])
-    monkeypatch.setattr(document, "get_model", lambda: model)
+    monkeypatch.setattr(document, "get_model", lambda *args: model)
     monkeypatch.setattr(document, "extract", lambda *_: ExtractedDocument(text="", page_images=[make_image()]))
     monkeypatch.setattr(document.vision, "crop_figure", lambda *_: None)
     config = run_config()
@@ -310,7 +310,7 @@ async def test_crop_failure_requires_review_but_is_not_retryable(monkeypatch):
 
 async def test_identical_questions_on_different_pages_are_preserved(monkeypatch):
     graph, _, files, reference, model = setup_graph(monkeypatch, [parsed("Repeated"), parsed("Repeated")])
-    monkeypatch.setattr(document, "get_model", lambda: model)
+    monkeypatch.setattr(document, "get_model", lambda *args: model)
     monkeypatch.setattr(document, "extract", lambda *_: ExtractedDocument(text="", page_images=[make_image(), make_image()]))
     result = await graph.ainvoke({"document": reference}, run_config())
     assert [q["stem"] for q in result["result"]["questions"]] == ["Repeated", "Repeated"]
@@ -338,7 +338,7 @@ async def test_recovery_provider_uses_real_model_http_protocol(tmp_path):
 async def test_maximum_pages_use_bounded_visual_batches(monkeypatch):
     graph, _, _, reference, model = setup_graph(monkeypatch, [])
     count = document.load().max_document_pages
-    monkeypatch.setattr(document, "get_model", lambda: model)
+    monkeypatch.setattr(document, "get_model", lambda *args: model)
     monkeypatch.setattr(document, "extract", lambda *_: ExtractedDocument(text="", page_images=[make_image()] * count))
     active, peak, calls = 0, 0, 0
 
@@ -472,7 +472,7 @@ async def test_quality_flags_are_visible_without_blocking_default_policy(monkeyp
     assert output['processing']['quality']['reviewRequired']
     assert output['processing']['quality']['reviewQuestionCount'] == 1
     assert 'SOURCE_TEXT_NOT_FOUND' in {i['code'] for i in output['processing']['quality']['issues']}
-    assert output['processing']['questionSources'] == [{'questionIndex': 0, 'stage': 'document_parse', 'unitIndex': 0}]
+    assert output['processing']['questionSources'] == [{'questionIndex': 0, 'stage': 'document_parse', 'unitIndex': 0, 'excelSource': None}]
     assert len(model.calls) == 1
 
 

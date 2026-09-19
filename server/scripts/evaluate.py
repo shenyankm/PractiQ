@@ -602,12 +602,12 @@ async def run_evaluation(manifest_path: Path, repetitions: int = 1, case_ids: li
     )
     from practiq_ai.graphs.vision import DESCRIBE_PROMPT
 
-    report["models"] = {"provider": config.provider, "vision": config.vision_model}
+    report["models"] = {"provider": config.provider, "vision": config.vision_model, "text": config.text_model}
     report["settings"] = {name: getattr(config, name) for name in SETTING_NAMES}
     # Include inline page instructions and response schemas, not only system constants.
     report["promptHash"] = _digest([SYSTEM_PROMPT, DESCRIBE_PROMPT,
         *(hashlib.sha256((ROOT / "src/practiq_ai" / name).read_bytes()).hexdigest()
-          for name in ("graphs/document.py", "graphs/vision.py", "llm.py", "contracts.py"))])
+          for name in ("graphs/document.py", "graphs/vision.py", "graphs/excel.py", "llm.py", "contracts.py"))])
     graph = build_document_graph(InMemorySaver(), store=InMemoryStore())
     for repetition in range(1, repetitions + 1):
         for case in cases:

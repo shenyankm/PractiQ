@@ -291,7 +291,7 @@ def setup_runner(tmp_path, monkeypatch, responses):
     model = CallbackModel(responses=responses)
     monkeypatch.setattr(ev, "get_object_store", lambda: store)
     monkeypatch.setattr(document, "get_object_store", lambda: store)
-    monkeypatch.setattr(document, "get_model", lambda: model)
+    monkeypatch.setattr(document, "get_model", lambda *args: model)
     return path, model
 
 

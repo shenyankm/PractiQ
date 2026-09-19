@@ -1,6 +1,7 @@
 """Durable document parsing graph with bounded fan-out."""
 
 import asyncio
+import json
 import time
 from collections.abc import Awaitable, Callable
 from functools import partial
@@ -47,6 +48,7 @@ from practiq_ai.execution import (
 from practiq_ai.extractors import enforce_vision_bytes, extract
 from practiq_ai.graphs import vision
 from practiq_ai.graphs.chunking import ChunkSpan, merge_chunk_results, split_chunk_spans
+from practiq_ai.graphs.excel import SheetParseResult, parse_sheet
 from practiq_ai.llm import get_model, structured_call
 from practiq_ai.storage import get_object_store
 
@@ -291,7 +293,7 @@ async def _prepare(
             f"This graph accepts only: {', '.join(source_types)}",
             "DOCUMENT_SOURCE_TYPE_MISMATCH",
         )
-    if (await asyncio.to_thread(get_model)) is None:
+    if (await asyncio.to_thread(get_model, "text" if reference.sourceType in {"text", "csv"} else "vision")) is None:
         raise DocumentProcessingError(409, "Configure a vision model to parse documents", "VISION_MODEL_REQUIRED")
     store = await asyncio.to_thread(get_object_store)
     source = await store.get_verified(reference)
@@ -335,7 +337,19 @@ async def _prepare(
         ],
         put,
     )
+    sheet_refs = []
+    for index, sheet in enumerate(document.worksheets):
+        assets = []
+        for asset_index, asset in enumerate(sheet["assets"]):
+            ref = await put((asset["data"], f"sheet-{index}-image", asset_index, "image/png"))
+            original = await put((asset["original"], f"sheet-{index}-original", asset_index, asset["originalMediaType"])) if "original" in asset else ref
+            assets.append({**{key: asset[key] for key in ("objectId", "cellRange")},
+                           "artifact": ref.model_dump(mode="json"), "original": original.model_dump(mode="json")})
+        manifest = {**sheet, "assets": assets}
+        ref = await put((json.dumps(manifest, ensure_ascii=False).encode(), "worksheet", index, "application/json"))
+        sheet_refs.append(ref.model_dump(mode="json"))
     return {
+        "chunkRefs": sheet_refs,
         "warnings": warnings,
         "truncated": document.truncated,
         "visualTotal": visual_total,
@@ -549,8 +563,10 @@ async def _chunk(
             ArtifactReference.model_validate(state["artifact"])
         )
     ).decode("utf-8")
+    if state["sourceType"] == "xlsx":
+        return await parse_sheet(state, json.loads(chunk), runtime, SYSTEM_PROMPT, get_model, get_object_store)
     parsed, usage, failure = await structured_call(
-        (await asyncio.to_thread(get_model)),
+        (await asyncio.to_thread(get_model, "text")),
         [
             SystemMessage(content=SYSTEM_PROMPT),
             HumanMessage(
@@ -646,6 +662,7 @@ async def _crop_visuals(
 
 async def _merge(state: DocumentState) -> dict[str, Any]:
     pages = bool(state.get("pageRefs"))
+    excel = state["document"]["sourceType"] == "xlsx"
     ordered = sorted(
         [item for item in state.get("visionResults", []) if item["kind"] == "page"] if pages else state.get("chunkResults", []),
         key=lambda item: item["index"],
@@ -674,8 +691,8 @@ async def _merge(state: DocumentState) -> dict[str, Any]:
         store = await asyncio.to_thread(get_object_store)
         source_text = (await store.get_verified(ArtifactReference.model_validate(text_ref))).decode("utf-8")
     questions, groups, merge_warnings, merge_truncated, question_sources, quality = merge_chunk_results(
-        [(index, item.questions, item.groups) for index, item in parsed], overlapping=not pages,
-        source_text=source_text, chunk_spans=state.get("chunkSpans") if not pages else None,
+        [(index, item.questions, item.groups) for index, item in parsed], overlapping=not pages and not excel,
+        source_text=source_text, chunk_spans=state.get("chunkSpans") if not pages and not excel else None,
     )
     warnings.extend(merge_warnings)
     if not questions:
@@ -690,6 +707,23 @@ async def _merge(state: DocumentState) -> dict[str, Any]:
         )
         for visual in item["visuals"]
     ]
+    if excel:
+        offset = 0
+        source_by_question = {source.questionIndex: source for source in question_sources}
+        for item in ordered:
+            if item["parsed"] is None:
+                continue
+            sheet_result = SheetParseResult.model_validate(item["sheetResult"])
+            for local_index, question in enumerate(sheet_result.questions):
+                if offset + local_index in source_by_question:
+                    record = source_by_question[offset + local_index]
+                    record.stage = "document_parse"
+                    record.excelSource = question.excelSource
+            for raw in item.get("visuals", []):
+                visual = VisualElement.model_validate(raw)
+                visual.questionIndexes = [offset + index for index in visual.questionIndexes if offset + index < len(questions)]
+                visual_elements.append(visual)
+            offset += len(sheet_result.questions)
     visual_elements, crop_failures, crop_truncated = await _crop_visuals(
         state, visual_elements
     )

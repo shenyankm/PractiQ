@@ -399,7 +399,26 @@ class DocumentUploadResponse(StrictModel):
     upload: LocalUpload | None
 
 
+class ExcelSource(StrictModel):
+    sheetName: str = Field(min_length=1, max_length=255)
+    cellRange: str | None = Field(default=None, pattern=r"^[A-Z]{1,3}[1-9][0-9]{0,6}(?::[A-Z]{1,3}[1-9][0-9]{0,6})?$")
+    objectId: str | None = Field(default=None, min_length=1, max_length=1_000)
+
+    @field_validator("cellRange")
+    @classmethod
+    def validate_excel_range(cls, value: str | None) -> str | None:
+        if value is not None:
+            from openpyxl.utils.cell import range_boundaries
+
+            left, top, right, bottom = range_boundaries(value)
+            if left is None or top is None or right is None or bottom is None or not (1 <= left <= right <= 16384 and 1 <= top <= bottom <= 1048576):
+                raise ValueError("Invalid Excel cell range")
+        return value
+
+
 class VisualElement(StrictModel):
+    excelSource: ExcelSource | None = None
+    questionIndexes: list[StrictInt] = Field(default_factory=list, max_length=1_000)
     kind: VisualKind
     label: str | None = Field(default=None, max_length=1_000)
     description: str = Field(min_length=1, max_length=20_000)
@@ -442,6 +461,8 @@ class DocumentParseResult(StrictModel):
             for index in group.questionIndexes
         ):
             raise ValueError("questionIndexes must reference a parsed question")
+        if any(index < 0 or index >= question_count for visual in self.visualElements for index in visual.questionIndexes):
+            raise ValueError("visual questionIndexes must reference a parsed question")
         return self
 
 
@@ -466,6 +487,7 @@ class UnitFailure(StrictModel):
 
 
 class QuestionSource(StrictModel):
+    excelSource: ExcelSource | None = None
     questionIndex: int = Field(ge=0)
     stage: Literal["document_parse", "vision_parse"]
     unitIndex: int = Field(ge=0)

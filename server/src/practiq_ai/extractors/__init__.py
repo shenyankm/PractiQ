@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from typing import Any
 
 from ..config import load
 from ..contracts import DocumentSourceType
@@ -14,6 +15,7 @@ class ExtractedDocument:
     page_images: list[bytes] = field(default_factory=list)
     embedded_images: list[bytes] = field(default_factory=list)
     truncated: bool = False
+    worksheets: list[dict[str, Any]] = field(default_factory=list)
 
 
 def enforce_vision_bytes(total: int) -> None:

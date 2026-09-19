@@ -49,7 +49,7 @@ async def test_format_graph_enforces_source_type_before_storage(
             else next(iter(DOCUMENT_MEDIA_TYPES[source_type]))
         ),
     }
-    model = FakeModel(responses=[{"questions": [question("2 + 2?")]}])
+    model = FakeModel(responses=[{"questions": [{**question("2 + 2?"), **({"excelSource": {"sheetName": "Quiz", "cellRange": "A1"}} if source_type == "xlsx" else {})}]}])
     vision = FakeModel(responses=[{"questions": [question("2 + 2?")], "figures": []}])
     store = FakeObjectStore({key: payload})
     extracted = []
@@ -61,10 +61,12 @@ async def test_format_graph_enforces_source_type_before_storage(
     def extract(kind, data):
         extracted.append(kind)
         assert data == payload
+        if kind == "xlsx":
+            return ExtractedDocument(text="", worksheets=[{"sheetName": "Quiz", "text": data.decode(), "assets": [], "objects": [], "warnings": [], "failureCode": None}])
         return ExtractedDocument(text="", page_images=[make_image()]) if kind in {"pdf", "docx"} else ExtractedDocument(text=data.decode())
 
     monkeypatch.setattr(document, "get_object_store", get_store)
-    monkeypatch.setattr(document, "get_model", lambda: vision if source_type in {"pdf", "docx"} else model)
+    monkeypatch.setattr(document, "get_model", lambda *args: vision if source_type in {"pdf", "docx"} else model)
     monkeypatch.setattr(document, "extract", extract)
     assert getattr(formats, name).name == name
     graph = local_graph(name=name, source_types=allowed)

@@ -5,6 +5,7 @@ Models and DOCX conversion are fake; extraction and graph execution are real.
 
 import asyncio
 import hashlib
+import json
 from pathlib import Path
 
 import pytest
@@ -29,12 +30,13 @@ def setup(monkeypatch, tmp_path):
     def response(_messages, schema):
         if schema is document.vision.ImageDescription:
             return {"description": "Embedded figure", "extractedText": "caption"}
-        return {"questions": [question("Imported")], "groups": []}
+        extra = {"excelSource": {"sheetName": json.loads(_messages[1].content)["sheetName"], "cellRange": "A1"}} if schema.__name__ == "GroundedSheetResult" else {}
+        return {"questions": [{**question("Imported"), **extra}], "groups": []}
 
     model = FakeModel(responses=[response] * 2)
     monkeypatch.setattr(document, "get_object_store", lambda: store)
     monkeypatch.setattr(webapp, "get_object_store", lambda: store)
-    monkeypatch.setattr(document, "get_model", lambda: model)
+    monkeypatch.setattr(document, "get_model", lambda *args: model)
     return store, model
 
 

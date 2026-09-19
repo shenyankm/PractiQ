@@ -235,8 +235,8 @@ def test_extract_xlsx_produces_tabbed_sheet_text() -> None:
     document = extract("xlsx", make_xlsx())
 
     assert "[sheet] Quiz" in document.text
-    assert "1. What is 2+2?\tA. 4\tB. 5" in document.text
-    assert "Answer\tA" in document.text
+    assert "A1=1. What is 2+2?\tB1=A. 4\tC1=B. 5" in document.text
+    assert "A2=Answer\tB2=A" in document.text
 
 
 def test_extract_xlsx_rejects_oversized_expanded_archive(
@@ -325,4 +325,4 @@ def test_xlsx_rejects_non_workbook_and_marks_row_truncation(
     monkeypatch.setattr(xlsx_extractor, "MAX_ROWS_PER_SHEET", 1)
     document = extract("xlsx", make_xlsx())
     assert document.truncated is True
-    assert any("remaining rows were skipped" in warning for warning in document.warnings)
+    assert document.worksheets[0]["failureCode"] == "XLSX_SHEET_TOO_LARGE"

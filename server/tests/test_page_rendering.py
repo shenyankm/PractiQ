@@ -34,7 +34,7 @@ def paged_source(kind):
 @pytest.mark.parametrize("kind", ["pdf", "docx"])
 def test_missing_vision_fails_before_read_or_render(monkeypatch, kind):
     _, reference = paged_source(kind)
-    monkeypatch.setattr(document, "get_model", lambda: None)
+    monkeypatch.setattr(document, "get_model", lambda *args: None)
     monkeypatch.setattr(
         document, "get_object_store", lambda: pytest.fail("must not read")
     )
@@ -50,7 +50,7 @@ def test_page_order_gaps_and_crops(monkeypatch, kind, failed):
     store, reference = paged_source(kind)
     model = FakeModel(responses=[{"questions": [question("Across pages")]}])
     monkeypatch.setattr(document, "get_object_store", lambda: store)
-    monkeypatch.setattr(document, "get_model", lambda: model)
+    monkeypatch.setattr(document, "get_model", lambda *args: model)
     monkeypatch.setattr(
         document,
         "extract",
@@ -108,6 +108,7 @@ def test_converter_missing(monkeypatch):
 def test_converter_errors_and_cleanup(tmp_path, monkeypatch, mode):
     record = tmp_path / "directory"
     body = f"import sys, pathlib, time\np = pathlib.Path(sys.argv[-1]).parent\npathlib.Path({str(record)!r}).write_text(str(p))\n"
+    body += "assert '<value>3</value>' in (p / 'profile/user/registrymodifications.xcu').read_text()\n"
     if mode == "timeout":
         # A descendant must also be killed before TemporaryDirectory cleanup.
         body += "import subprocess\nchild = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'])\n"

@@ -17,6 +17,7 @@ class Config:
     provider: str
     api_key: str
     vision_model: str
+    text_model: str
     storage_dir: Path
     source_max_bytes: int
     vision_max_bytes: int
@@ -154,6 +155,7 @@ def load() -> Config:
         provider=provider,
         api_key=_required(values, "LLM_API_KEY"),
         vision_model=vision_model,
+        text_model=_required(values, "LLM_TEXT_MODEL"),
         storage_dir=Path(os.path.abspath(SERVER_ROOT / storage_dir)),
         source_max_bytes=_positive_int(values, "AI_SOURCE_MAX_BYTES", 25 * MIB),
         vision_max_bytes=_positive_int(values, "AI_MAX_VISION_BYTES", 50 * MIB),

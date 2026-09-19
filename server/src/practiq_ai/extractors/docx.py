@@ -22,22 +22,31 @@ IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp")
 CONVERSION_TIMEOUT_SECONDS = 60
 
 
-def convert_to_pdf(file_bytes: bytes) -> bytes:
+def convert_to_pdf(file_bytes: bytes, *, source_type: str = "docx", timeout_seconds: float | None = None) -> bytes:
+    label = source_type.upper()
     executable = shutil.which(load().soffice_path)
     if executable is None:
         raise DocumentProcessingError(
-            503, "LibreOffice is required for DOCX rendering", "DOCX_CONVERTER_MISSING"
+            503, f"LibreOffice is required for {label} rendering", f"{label}_CONVERTER_MISSING"
         )
-    with TemporaryDirectory(prefix="practiq-docx-") as directory:
+    with TemporaryDirectory(prefix=f"practiq-{source_type}-") as directory:
         root = Path(directory)
-        source = root / "source.docx"
+        source = root / f"source.{source_type}"
         source.write_bytes(file_bytes)
+        profile = root / "profile" / "user"
+        profile.mkdir(parents=True)
+        (profile / "registrymodifications.xcu").write_text(
+            '<oor:items xmlns:oor="http://openoffice.org/2001/registry">'
+            '<item oor:path="/org.openoffice.Office.Common/Security/Scripting">'
+            '<prop oor:name="MacroSecurityLevel" oor:op="fuse"><value>3</value></prop>'
+            '</item></oor:items>'
+        )
         command = [
             executable,
             f"-env:UserInstallation={(root / 'profile').as_uri()}",
             "--headless",
             "--convert-to",
-            "pdf:writer_pdf_Export",
+            "pdf:writer_pdf_Export" if source_type == "docx" else "pdf:calc_pdf_Export",
             "--outdir",
             str(root),
             str(source),
@@ -50,7 +59,7 @@ def convert_to_pdf(file_bytes: bytes) -> bytes:
                 start_new_session=True,
             ) as process:
                 try:
-                    returncode = process.wait(timeout=CONVERSION_TIMEOUT_SECONDS)
+                    returncode = process.wait(timeout=min(CONVERSION_TIMEOUT_SECONDS, timeout_seconds) if timeout_seconds is not None else CONVERSION_TIMEOUT_SECONDS)
                 except subprocess.TimeoutExpired as exc:
                     # Kill the conversion process group, including LibreOffice children.
                     try:
@@ -60,17 +69,17 @@ def convert_to_pdf(file_bytes: bytes) -> bytes:
                     process.wait()
                     raise DocumentProcessingError(
                         504,
-                        "DOCX conversion exceeded 60 seconds",
-                        "DOCX_CONVERSION_TIMEOUT",
+                        f"{label} conversion exceeded its time limit",
+                        f"{label}_CONVERSION_TIMEOUT",
                     ) from exc
         except OSError as exc:
             raise DocumentProcessingError(
-                502, "Could not start DOCX converter", "DOCX_CONVERSION_FAILED"
+                502, f"Could not start {label} converter", f"{label}_CONVERSION_FAILED"
             ) from exc
         output = root / "source.pdf"
         if returncode != 0 or not output.is_file():
             raise DocumentProcessingError(
-                502, "DOCX conversion failed", "DOCX_CONVERSION_FAILED"
+                502, f"{label} conversion failed", f"{label}_CONVERSION_FAILED"
             )
         return output.read_bytes()
 
