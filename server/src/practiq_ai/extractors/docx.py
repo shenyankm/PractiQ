@@ -20,6 +20,7 @@ MAX_DOCX_EXPANDED_BYTES = 100 * 1024 * 1024
 MAX_EMBEDDED_IMAGES = 50
 IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp")
 CONVERSION_TIMEOUT_SECONDS = 60
+ISOLATED_PROCESS = False
 
 
 def convert_to_pdf(file_bytes: bytes, *, source_type: str = "docx", timeout_seconds: float | None = None) -> bytes:
@@ -56,14 +57,14 @@ def convert_to_pdf(file_bytes: bytes, *, source_type: str = "docx", timeout_seco
                 command,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
-                start_new_session=True,
+                start_new_session=not ISOLATED_PROCESS,
             ) as process:
                 try:
                     returncode = process.wait(timeout=min(CONVERSION_TIMEOUT_SECONDS, timeout_seconds) if timeout_seconds is not None else CONVERSION_TIMEOUT_SECONDS)
                 except subprocess.TimeoutExpired as exc:
                     # Kill the conversion process group, including LibreOffice children.
                     try:
-                        os.killpg(process.pid, signal.SIGKILL)
+                        process.kill() if ISOLATED_PROCESS else os.killpg(process.pid, signal.SIGKILL)
                     except ProcessLookupError:
                         pass
                     process.wait()

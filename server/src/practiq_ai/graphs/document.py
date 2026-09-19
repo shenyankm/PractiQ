@@ -45,7 +45,8 @@ from practiq_ai.execution import (
     run_remaining,
     validate_execution,
 )
-from practiq_ai.extractors import enforce_vision_bytes, extract
+from practiq_ai.extractors import enforce_vision_bytes
+from practiq_ai.extractors.isolated import extract
 from practiq_ai.graphs import vision
 from practiq_ai.graphs.chunking import ChunkSpan, merge_chunk_results, split_chunk_spans
 from practiq_ai.graphs.excel import SheetParseResult, parse_sheet
@@ -215,7 +216,14 @@ async def _bounded_map[ItemT, ResultT](
         async with semaphore:
             return await function(item)
 
-    return list(await asyncio.gather(*(run(item) for item in items)))
+    tasks = [asyncio.create_task(run(item)) for item in items]
+    try:
+        return list(await asyncio.gather(*tasks))
+    finally:
+        for task in tasks:
+            if not task.done():
+                task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
 
 
 async def _load_context(state: DocumentState, runtime: Runtime[None]) -> dict[str, Any]:
@@ -297,10 +305,7 @@ async def _prepare(
         raise DocumentProcessingError(409, "Configure a vision model to parse documents", "VISION_MODEL_REQUIRED")
     store = await asyncio.to_thread(get_object_store)
     source = await store.get_verified(reference)
-    try:
-        document = await asyncio.wait_for(asyncio.to_thread(extract, reference.sourceType, source), timeout=180)
-    except TimeoutError as exc:
-        raise DocumentProcessingError(504, "Document preparation timed out", "DOCUMENT_PREPARE_TIMEOUT") from exc
+    document = await extract(reference.sourceType, source)
     visual_total = len(document.page_images) + len(document.embedded_images)
     enforce_vision_bytes(
         sum(map(len, document.page_images))
@@ -393,7 +398,7 @@ def _dispatch_vision(state: DocumentState) -> list[Send] | str:
     completed.update(("page" if item["stage"] == "vision_parse" else "embedded", item["index"])
                      for item in state.get("failures", []) if item["stage"] in {"vision_parse", "vision_describe"})
     pending = [item for item in work if (item.arg["kind"], item.arg["index"]) not in completed]
-    return _with_allowances(pending[:load().graph_max_concurrency], state) or "vision_review"
+    return _with_allowances(pending[:load().graph_max_concurrency], state) or "vision_review_pause"
 
 
 def _with_allowances(work: list[Send], state: DocumentState) -> list[Send]:
@@ -552,7 +557,7 @@ def _dispatch_chunks(state: DocumentState) -> list[Send] | str:
         for index, item in enumerate(chunks)
         if index not in completed
     ]
-    return _with_allowances(work[:load().graph_max_concurrency], state) or "chunk_review"
+    return _with_allowances(work[:load().graph_max_concurrency], state) or "chunk_review_pause"
 
 
 async def _chunk(
@@ -865,7 +870,7 @@ async def _review(state: DocumentState, *, phase: str) -> dict[str, Any]:
     return {"nextStage": next_stage}
 
 
-def _guarded(function: Callable[..., Awaitable[dict[str, Any]]], *, with_runtime: bool = False):
+def _guarded(function: Callable[..., Awaitable[dict[str, Any]]], *, with_runtime: bool = False, check_pause: bool = True):
     async def run(state: Any, runtime: Runtime[None]) -> dict[str, Any]:
         if "document" in state:
             DocumentParseInput.model_validate({"document": state["document"]})
@@ -885,7 +890,7 @@ def _guarded(function: Callable[..., Awaitable[dict[str, Any]]], *, with_runtime
         outcome = "success"
         error_code = None
         try:
-            await guard(runtime, state["execution"])
+            await guard(runtime, state["execution"], check_pause=check_pause)
             try:
                 async with asyncio.timeout(await run_remaining(runtime)):
                     result = await (function(state, runtime) if with_runtime else function(state))
@@ -947,21 +952,27 @@ def build_document_graph(
     builder.add_node("merge", _guarded(_merge))
     builder.add_node("vision_gate", _guarded(partial(_gate, phase="vision")))
     builder.add_node("chunk_gate", _guarded(partial(_gate, phase="chunk")))
-    builder.add_node("vision_review", _guarded(partial(_review, phase="vision")))
-    builder.add_node("chunk_review", _guarded(partial(_review, phase="chunk")))
-    builder.add_node("result_review", _guarded(partial(_review, phase="result")))
+    builder.add_node("vision_review_pause", _guarded(partial(_gate, phase="vision_review")))
+    builder.add_node("vision_review", _guarded(partial(_review, phase="vision"), check_pause=False))
+    builder.add_edge("vision_review_pause", "vision_review")
+    builder.add_node("chunk_review_pause", _guarded(partial(_gate, phase="chunk_review")))
+    builder.add_node("chunk_review", _guarded(partial(_review, phase="chunk"), check_pause=False))
+    builder.add_edge("chunk_review_pause", "chunk_review")
+    builder.add_node("result_review_pause", _guarded(partial(_gate, phase="result_review")))
+    builder.add_node("result_review", _guarded(partial(_review, phase="result"), check_pause=False))
+    builder.add_edge("result_review_pause", "result_review")
     builder.add_node("finish", _guarded(partial(_gate, phase="completed")))
     builder.add_edge(START, "load_context")
     builder.add_conditional_edges("load_context", lambda state: state.get("nextStage", "prepare"), ["prepare", "vision_gate", "chunk_gate"])
     builder.add_edge("prepare", "vision_gate")
-    builder.add_conditional_edges("vision_gate", _dispatch_vision, ["vision", "vision_review"])
+    builder.add_conditional_edges("vision_gate", _dispatch_vision, ["vision", "vision_review_pause"])
     builder.add_edge("vision", "vision_gate")
     builder.add_conditional_edges("vision_review", lambda state: state["nextStage"], ["vision_gate", "assemble", "chunk_gate", "merge"])
     builder.add_edge("assemble", "chunk_gate")
-    builder.add_conditional_edges("chunk_gate", _dispatch_chunks, ["chunk", "chunk_review"])
+    builder.add_conditional_edges("chunk_gate", _dispatch_chunks, ["chunk", "chunk_review_pause"])
     builder.add_edge("chunk", "chunk_gate")
     builder.add_conditional_edges("chunk_review", lambda state: state["nextStage"], ["chunk_gate", "merge"])
-    builder.add_edge("merge", "result_review")
+    builder.add_edge("merge", "result_review_pause")
     builder.add_conditional_edges("result_review", lambda state: state["nextStage"], ["finish", "vision_gate", "chunk_gate"])
     builder.add_edge("finish", END)
     return cast(

@@ -182,6 +182,23 @@ async def control_task(thread_id: str, request: DocumentTaskControl) -> dict[str
     service = client()
     request_id = str(request.requestId)
     request_hash = fingerprint(request.model_dump(mode='json'))
+    # Expensive artifact checks happen outside the global admission transaction.
+    # The checkpoint/run are re-read under the lock before enqueueing.
+    if request.action not in {'pause', 'interrupt'}:
+        async with service.db.pool.connection() as conn:
+            previous = await _replay(conn, thread_id, request_id, request_hash)
+        if previous:
+            return previous
+        task, snapshot, run = await _read_task(service, thread_id)
+        if run and run['status'] in {'pending', 'running'}:
+            raise conflict('Wait until the current run stops', 'TASK_BUSY')
+        if service.checkpoint_id(snapshot, run) != request.checkpointId:
+            raise conflict('Task changed since the checkpoint was read', 'STALE_CHECKPOINT')
+        async with asyncio.timeout(load().run_timeout_seconds):
+            if snapshot.values and snapshot.values.get('execution'):
+                await _preflight(snapshot.values)
+            else:
+                await get_object_store().get_verified(DocumentReference.model_validate(task['document']))
     async with service.db.transaction() as conn:
         previous = await _replay(conn, thread_id, request_id, request_hash)
         if previous:
@@ -202,10 +219,6 @@ async def control_task(thread_id: str, request: DocumentTaskControl) -> dict[str
             if service.checkpoint_id(snapshot, run) != request.checkpointId:
                 raise conflict('Task changed since the checkpoint was read', 'STALE_CHECKPOINT')
             values = snapshot.values or {}
-            if values.get('execution'):
-                await _preflight(values)
-            else:
-                await get_object_store().get_verified(DocumentReference.model_validate(task['document']))
             interruptions = _interrupts(snapshot)
             reviews = [v for v in interruptions.values() if v.get('kind') == 'review']
             if request.action == 'resume' and (reviews or values and not snapshot.next):

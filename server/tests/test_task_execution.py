@@ -1,6 +1,7 @@
 import asyncio
 from collections import Counter
 from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import pytest
@@ -145,7 +146,7 @@ async def test_model_result_survives_artifact_write_failure(monkeypatch):
     graph, store, files, reference, model = setup_graph(monkeypatch, [parsed()])
     vision_model = FakeModel(responses=[{**parsed(), "figures": [{"description": "Chart", "bbox": [0, 0, 1, 1]}]}])
     monkeypatch.setattr(document, "get_model", lambda *args: vision_model)
-    monkeypatch.setattr(document, "extract", lambda *_: ExtractedDocument(text="", page_images=[make_image()]))
+    monkeypatch.setattr(document, "extract", AsyncMock(side_effect=lambda *_: ExtractedDocument(text="", page_images=[make_image()])))
     original = files.put_artifact
     fail = True
 
@@ -170,7 +171,7 @@ async def test_model_result_survives_artifact_write_failure(monkeypatch):
 async def test_retry_page_preserves_successes_without_text_model_or_chunks(monkeypatch):
     graph, _, _, reference, model = setup_graph(monkeypatch, [])
     monkeypatch.setattr(document, "get_model", lambda *args: model)
-    monkeypatch.setattr(document, "extract", lambda *_: ExtractedDocument(text="", page_images=[make_image(), make_image()]))
+    monkeypatch.setattr(document, "extract", AsyncMock(side_effect=lambda *_: ExtractedDocument(text="", page_images=[make_image(), make_image()])))
     calls = Counter()
     fail = True
 
@@ -270,7 +271,7 @@ async def test_crop_failure_requires_review_but_is_not_retryable(monkeypatch):
         {**parsed(), "figures": [{"description": "Chart", "bbox": [0, 0, 1, 1]}]},
     ])
     monkeypatch.setattr(document, "get_model", lambda *args: model)
-    monkeypatch.setattr(document, "extract", lambda *_: ExtractedDocument(text="", page_images=[make_image()]))
+    monkeypatch.setattr(document, "extract", AsyncMock(side_effect=lambda *_: ExtractedDocument(text="", page_images=[make_image()])))
     monkeypatch.setattr(document.vision, "crop_figure", lambda *_: None)
     config = run_config()
     output = await graph.ainvoke({"document": reference, "failurePolicy": "review"}, config)
@@ -285,7 +286,7 @@ async def test_crop_failure_requires_review_but_is_not_retryable(monkeypatch):
 async def test_identical_questions_on_different_pages_are_preserved(monkeypatch):
     graph, _, files, reference, model = setup_graph(monkeypatch, [parsed("Repeated"), parsed("Repeated")])
     monkeypatch.setattr(document, "get_model", lambda *args: model)
-    monkeypatch.setattr(document, "extract", lambda *_: ExtractedDocument(text="", page_images=[make_image(), make_image()]))
+    monkeypatch.setattr(document, "extract", AsyncMock(side_effect=lambda *_: ExtractedDocument(text="", page_images=[make_image(), make_image()])))
     result = await graph.ainvoke({"document": reference}, run_config())
     assert [q["stem"] for q in result["result"]["questions"]] == ["Repeated", "Repeated"]
     assert len(model.calls) == 2
@@ -313,7 +314,7 @@ async def test_maximum_pages_use_bounded_visual_batches(monkeypatch):
     graph, _, _, reference, model = setup_graph(monkeypatch, [])
     count = document.load().max_document_pages
     monkeypatch.setattr(document, "get_model", lambda *args: model)
-    monkeypatch.setattr(document, "extract", lambda *_: ExtractedDocument(text="", page_images=[make_image()] * count))
+    monkeypatch.setattr(document, "extract", AsyncMock(side_effect=lambda *_: ExtractedDocument(text="", page_images=[make_image()] * count)))
     active, peak, calls = 0, 0, 0
 
     async def page_call(_model, messages, schema, call_kind, *, runtime=None):
@@ -349,7 +350,7 @@ async def test_retry_limits_shared_by_native_input_and_review(monkeypatch, revie
 
     monkeypatch.setattr(document, '_vision' if pages else '_chunk', unit)
     if pages:
-        monkeypatch.setattr(document, 'extract', lambda *_: ExtractedDocument(text='', page_images=[make_image(), make_image()]))
+        monkeypatch.setattr(document, 'extract', AsyncMock(side_effect=lambda *_: ExtractedDocument(text='', page_images=[make_image(), make_image()])))
     graph = local_graph(InMemorySaver(), store=store)
     config = run_config()
     result = await graph.ainvoke({'document': reference, 'failurePolicy': 'review' if review else 'return_partial'}, config)

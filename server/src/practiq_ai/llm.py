@@ -15,8 +15,10 @@ from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import (
+    AIMessage,
     BaseMessage,
     HumanMessage,
+    ToolMessage,
     messages_from_dict,
     messages_to_dict,
 )
@@ -335,11 +337,24 @@ async def structured_attempt[ResultT: BaseModel](
             f"{'.'.join(map(str, item['loc'])) or 'result'}: {item['msg']}"
             for item in error.errors(include_input=False, include_url=False)
         )
+    raw = response["raw"]
+    wire = raw.additional_kwargs.get("tool_calls")
+    calls = wire if wire is not None else [*raw.tool_calls, *raw.invalid_tool_calls]
+    replies = []
+    if calls:
+        if (isinstance(calls, list) and all(isinstance(call, dict) and isinstance(call.get("id"), str)
+                and call["id"] for call in calls) and len({call["id"] for call in calls}) == len(calls)):
+            replies = [ToolMessage(content="Output failed validation; correct it using the following feedback.",
+                                   tool_call_id=call["id"]) for call in calls]
+        else:
+            # Malformed envelopes cannot be replayed as protocol-level tool calls.
+            raw = AIMessage(content=json.dumps(raw.model_dump(), default=str))
     return (
         None,
         [
             *messages,
-            response["raw"],
+            raw,
+            *replies,
             HumanMessage(
                 content=(
                     "Your previous output failed validation with these errors:\n"
@@ -445,7 +460,7 @@ async def structured_call[ResultT: BaseModel](
             "parsed": parsed.model_dump(mode="json") if parsed is not None else None,
             "correction": messages_to_dict(corrected[len(messages):]),
             # Ignore provider IDs and usage; detect identical content AND error.
-            "failureFingerprint": _failure_fingerprint(corrected[-2], corrected[-1]) if parsed is None else None,
+            "failureFingerprint": _failure_fingerprint(corrected[len(messages)], corrected[-1]) if parsed is None else None,
             "validationCode": record.get("validationCode"),
             "usage": call_usage.model_dump(mode="json"),
         }

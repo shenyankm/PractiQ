@@ -25,13 +25,14 @@ from practiq_ai.contracts import (
 from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.middleware import JsonBodyLimitMiddleware, SecurityHeadersMiddleware
 from practiq_ai.storage import get_object_store
-from practiq_ai.telemetry import registry
+from practiq_ai.telemetry import configure_logging, registry
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     from . import runtime
     from .database import Database
+    configure_logging()
     await asyncio.to_thread(load)
     service = runtime.Service(Database())
     await service.start()
@@ -78,6 +79,7 @@ async def application_metrics() -> Response:
         jobs = load().jobs_per_worker
         body += (f"practiq_pending_runs {counts.get('pending', 0)}\n"
                  f"practiq_running_runs {counts.get('running', 0)}\n"
+                 f"practiq_queue_capacity {load().max_busy_threads}\n"
                  f"practiq_workers_max {jobs}\n"
                  f"practiq_workers_available {max(0, jobs - len(current.active))}\n").encode()
     return Response(body, headers={"Content-Type": CONTENT_TYPE_LATEST})
@@ -93,6 +95,8 @@ async def _task_response(operation: Any) -> dict[str, Any]:
         return await operation
     except DocumentProcessingError as exc:
         raise HTTPException(exc.status_code, {"code": exc.code, "message": exc.detail}) from exc
+    except TimeoutError as exc:
+        raise HTTPException(504, {"code": "CONTROL_TIMEOUT", "message": "Task preflight timed out"}) from exc
     except (DatabaseError, PoolTimeout) as exc:
         raise HTTPException(503, {"code": "TASK_SERVICE_UNAVAILABLE", "message": "Task database is unavailable"}) from exc
 
@@ -148,10 +152,14 @@ async def upload_content(request: Request, metadata: Annotated[DocumentUploadReq
         await store.prepare_document(metadata)
         assert metadata.sizeBytes is not None
         payload = bytearray()
-        async for chunk in request.stream():
-            if len(payload) + len(chunk) > metadata.sizeBytes:
-                raise DocumentProcessingError(413, "Uploaded file exceeds declared size", "DOCUMENT_TOO_LARGE")
-            payload.extend(chunk)
+        try:
+            async with asyncio.timeout(load().upload_timeout_seconds):
+                async for chunk in request.stream():
+                    if len(payload) + len(chunk) > metadata.sizeBytes:
+                        raise DocumentProcessingError(413, "Uploaded file exceeds declared size", "DOCUMENT_TOO_LARGE")
+                    payload.extend(chunk)
+        except TimeoutError as exc:
+            raise DocumentProcessingError(408, "Upload reception timed out", "UPLOAD_TIMEOUT") from exc
         document = await store.put_document(bytes(payload), metadata)
         return document
     except DocumentProcessingError as exc:

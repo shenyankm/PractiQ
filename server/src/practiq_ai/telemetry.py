@@ -28,6 +28,15 @@ EVENT_FIELDS = {
 }
 
 
+def configure_logging() -> None:
+    if not logger.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("%(message)s"))
+        logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
+
+
 @contextmanager
 def measure(stage: str, record: dict[str, Any], field: str) -> Iterator[None]:
     """Measure one phase, including failed or cancelled waits/requests."""

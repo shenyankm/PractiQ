@@ -45,6 +45,7 @@ COMMENT ON TABLE document_tasks IS 'practiq-oss-1';
 class Database:
     def __init__(self, uri: str | None = None):
         self.uri = uri or database_uri()
+        self.control_lock = asyncio.Lock()
         self.pool = AsyncConnectionPool[AsyncConnection[DictRow]](self.uri, open=False, min_size=1, max_size=16,
                                        timeout=5, kwargs={'autocommit': True, 'prepare_threshold': 0, 'row_factory': dict_row})
         self.checkpointer = AsyncPostgresSaver(self.pool)
@@ -67,19 +68,30 @@ class Database:
 
     @asynccontextmanager
     async def transaction(self):
-        async with self.pool.connection() as conn, conn.transaction():
+        async with self.control_lock, self.pool.connection() as conn, conn.transaction():
             # All short admission/control transactions serialize; graph work never holds this lock.
             await conn.execute('SELECT pg_advisory_xact_lock(%s)', (ADMISSION_LOCK,))
             yield conn
 
     async def initialize(self):
         async with self.pool.connection() as conn:
-            tables = await (await conn.execute("SELECT tablename FROM pg_tables WHERE schemaname = 'public'")).fetchall()
-            if tables:
+            tables = await (await conn.execute("SELECT relname AS tablename FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND relkind IN ('r','p','v','m','S','f')")).fetchall()
+            names = {row['tablename'] for row in tables}
+            owned = {'practiq_initialization', 'checkpoint_migrations', 'checkpoints', 'checkpoint_blobs',
+                     'checkpoint_writes', 'store', 'store_migrations'}
+            marker = await (await conn.execute("SELECT obj_description(to_regclass('practiq_initialization')) AS version")).fetchone()
+            if names and (not names <= owned or not marker or marker['version'] != SCHEMA_VERSION):
                 raise RuntimeError('Initialization requires an empty dedicated database; existing data is untouched')
+            if not names:
+                async with conn.transaction():
+                    await conn.execute("CREATE TABLE practiq_initialization (id boolean PRIMARY KEY)")
+                    await conn.execute("COMMENT ON TABLE practiq_initialization IS 'practiq-oss-1'")
             await self.checkpointer.setup()
             await self.store.setup()
-            await conn.execute(DDL, prepare=False)
+            # Business DDL and removal of the initialization marker commit together.
+            async with conn.transaction():
+                await conn.execute(DDL, prepare=False)
+                await conn.execute('DROP TABLE practiq_initialization')
 
     async def lock_connection(self) -> AsyncConnection[DictRow]:
         return await AsyncConnection[DictRow].connect(self.uri, autocommit=True, row_factory=dict_row,

@@ -304,3 +304,33 @@ async def test_old_attempt_checkpoints_without_validation_code_replay(monkeypatc
                                                      runtime=cast(Any, SimpleNamespace(execution_info=SimpleNamespace(thread_id='t', run_id='r'))))
     assert parsed is None and failure == 'OUTPUT_INVALID'
     assert replays == [1, 2, 3, 4] and len(usage) == 4 and not model.calls
+
+
+@pytest.mark.parametrize('arguments', ['{"value":-1}', '{broken'])
+async def test_default_tool_protocol_correction_pairs_every_call(monkeypatch, arguments):
+    monkeypatch.delenv('AI_STRUCTURED_OUTPUT_METHOD', raising=False)
+    requests = []
+    def respond(request):
+        payload = json.loads(request.content)
+        requests.append(payload)
+        pending = set()
+        for message in payload['messages']:
+            if message['role'] == 'assistant':
+                pending.update(call['id'] for call in message.get('tool_calls', []))
+            elif message['role'] == 'tool':
+                pending.remove(message['tool_call_id'])
+            else:
+                assert not pending, 'unanswered tool call before user message'
+        assert not pending
+        assert payload['tools'][0]['function']['name'] == 'Result'
+        return httpx2.Response(200, json={
+            'id': 'test', 'object': 'chat.completion', 'created': 0, 'model': 'qwen3.7-flash',
+            'choices': [{'index': 0, 'finish_reason': 'tool_calls', 'message': {'role': 'assistant', 'content': None,
+                'tool_calls': [{'id': f'call-{len(requests)}', 'type': 'function', 'function': {
+                    'name': 'Result', 'arguments': arguments if len(requests) == 1 else '{"value":2}'}}]}}],
+            'usage': {'prompt_tokens': 10, 'completion_tokens': 5, 'total_tokens': 15}})
+    async with httpx2.AsyncClient(transport=httpx2.MockTransport(respond)) as client:
+        model = ChatOpenAI(model='qwen3.7-flash', api_key=cast(Any, 'test'), max_retries=0, http_async_client=client)
+        result, usage, failure = await llm.structured_call(model, [HumanMessage(content='Extract')], Result, 'test')
+    assert result == Result(value=2) and failure is None
+    assert len(requests) == len(usage) == 2 and sum(item.outputTokens for item in usage) == 10

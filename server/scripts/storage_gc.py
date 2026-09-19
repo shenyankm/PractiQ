@@ -7,6 +7,7 @@ import os
 import re
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 from typing import Any
 from uuid import uuid4
 
@@ -146,7 +147,17 @@ async def scan(args, db):
             raise RuntimeError("References changed; rescan before cleanup")
         await asyncio.to_thread(quarantine, store, selected, run_id)
     result["completed"] = True
-    args.output.write_text(json.dumps(result, indent=2) + "\n")
+    temporary = None
+    try:
+        with NamedTemporaryFile(mode="w", dir=args.output.parent, delete=False) as handle:
+            temporary = Path(handle.name)
+            json.dump(result, handle, indent=2)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, args.output)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
     return result
 
 

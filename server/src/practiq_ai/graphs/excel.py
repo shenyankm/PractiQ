@@ -15,6 +15,7 @@ from ..contracts import (
     ParsedGroup,
     ParsedQuestion,
     StrictModel,
+    VisualDescription,
     VisualElement,
     VisualKind,
 )
@@ -25,7 +26,7 @@ from .vision import _image_message
 
 class SheetVisual(StrictModel):
     kind: VisualKind
-    description: str = Field(min_length=1, max_length=20_000)
+    description: VisualDescription
     source: ExcelSource
     questionIndexes: list[StrictInt] = Field(default_factory=list, max_length=1_000)
 

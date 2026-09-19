@@ -1,6 +1,7 @@
 import hashlib
 from copy import copy
 from typing import get_args
+from unittest.mock import AsyncMock
 
 import pytest
 from langgraph.checkpoint.memory import InMemorySaver
@@ -68,7 +69,7 @@ async def test_format_graph_enforces_source_type_before_storage(
 
     monkeypatch.setattr(document, "get_object_store", get_store)
     monkeypatch.setattr(document, "get_model", lambda *args: vision if source_type in {"pdf", "docx"} else model)
-    monkeypatch.setattr(document, "extract", extract)
+    monkeypatch.setattr(document, "extract", AsyncMock(side_effect=extract))
     assert getattr(formats, name).name == name
     graph = copy(getattr(formats, name))
     graph.store = MemoryStore()

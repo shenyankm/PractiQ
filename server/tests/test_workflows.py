@@ -3,6 +3,7 @@ import hashlib
 from collections import Counter
 from types import SimpleNamespace
 from typing import Any, cast
+from unittest.mock import AsyncMock
 
 import httpx2
 import pytest
@@ -455,7 +456,7 @@ def test_extractor_truncation_makes_result_partial(monkeypatch):
     monkeypatch.setattr(
         document,
         "extract",
-        lambda *_args: ExtractedDocument(text="1. Question", truncated=True),
+        AsyncMock(side_effect=lambda *_args: ExtractedDocument(text="1. Question", truncated=True)),
     )
     graph = local_graph(InMemorySaver())
     output = asyncio.run(
@@ -485,9 +486,9 @@ def test_visual_unit_failure_returns_partial(monkeypatch):
     monkeypatch.setattr(
         document,
         "extract",
-        lambda *_args: ExtractedDocument(
+        AsyncMock(side_effect=lambda *_args: ExtractedDocument(
             text="1. Question", embedded_images=[image]
-        ),
+        )),
     )
     graph = local_graph(InMemorySaver())
     output = asyncio.run(
@@ -527,7 +528,7 @@ def test_document_graph_extracts_directly_from_image_and_crops(monkeypatch):
     monkeypatch.setattr(
         document,
         "extract",
-        lambda *_args: ExtractedDocument(text="", page_images=[image]),
+        AsyncMock(side_effect=lambda *_args: ExtractedDocument(text="", page_images=[image])),
     )
 
     output = asyncio.run(
@@ -557,9 +558,9 @@ def test_document_graph_describes_embedded_images(monkeypatch):
     monkeypatch.setattr(
         document,
         "extract",
-        lambda *_args: ExtractedDocument(
+        AsyncMock(side_effect=lambda *_args: ExtractedDocument(
             text="1. Question", embedded_images=[make_image()]
-        ),
+        )),
     )
 
     output = asyncio.run(
@@ -590,9 +591,9 @@ def test_document_graph_rejects_documents_without_text(
     monkeypatch.setattr(
         document,
         "extract",
-        lambda *_args: ExtractedDocument(
+        AsyncMock(side_effect=lambda *_args: ExtractedDocument(
             text="", page_images=[make_image()] if with_visual else []
-        ),
+        )),
     )
 
     with pytest.raises(DocumentProcessingError) as exc:
@@ -613,7 +614,7 @@ def test_document_graph_rejects_empty_vision_output(monkeypatch):
     monkeypatch.setattr(
         document,
         "extract",
-        lambda *_args: ExtractedDocument(text="", page_images=[make_image()]),
+        AsyncMock(side_effect=lambda *_args: ExtractedDocument(text="", page_images=[make_image()])),
     )
 
     with pytest.raises(DocumentProcessingError) as exc:

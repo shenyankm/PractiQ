@@ -59,7 +59,7 @@ def signature() -> dict[str, Any]:
     for key in ("api_key", "oss_access_key_id", "oss_access_key_secret", "oss_security_token"):
         settings.pop(key)
     # Concurrency and timeouts can change without changing document semantics.
-    for key in ("jobs_per_worker", "graph_max_concurrency", "storage_concurrency", "storage_timeout_seconds", "model_timeout_seconds", "deployment_workers", "provider_concurrency", "provider_rpm", "upload_concurrency", "max_busy_threads", "maintenance"):
+    for key in ("jobs_per_worker", "graph_max_concurrency", "storage_concurrency", "storage_timeout_seconds", "model_timeout_seconds", "deployment_workers", "provider_concurrency", "provider_rpm", "upload_concurrency", "upload_timeout_seconds", "max_busy_threads", "maintenance"):
         settings.pop(key)
     settings["storage_dir"] = str(settings["storage_dir"])
     return {"version": STATE_VERSION, "code": code_version(), "runtime": runtime_version(), "settings": settings}

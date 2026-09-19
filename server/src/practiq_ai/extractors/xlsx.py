@@ -10,7 +10,7 @@ from xml.etree import ElementTree as ET
 from zipfile import BadZipFile, ZipFile
 
 from openpyxl import load_workbook
-from openpyxl.utils.cell import get_column_letter
+from openpyxl.utils.cell import coordinate_to_tuple, get_column_letter
 from PIL import Image
 
 from ..config import load
@@ -20,6 +20,8 @@ from .pdf import extract as extract_pdf
 
 PREPARE_SECONDS = 150  # Leave headroom inside the shared 180-second prepare deadline.
 MAX_ROWS_PER_SHEET = 10_000
+MAX_COLUMNS_PER_SHEET = 1_000
+MAX_CELLS_PER_SHEET = 1_000_000
 MAX_XLSX_ENTRIES = 5_000
 MAX_XLSX_EXPANDED_BYTES = 100 * 1024 * 1024
 S = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'
@@ -201,11 +203,22 @@ def extract(file_bytes: bytes) -> ExtractedDocument:
                     if part is None:
                         raise DocumentProcessingError(400, 'Missing worksheet relationship', 'XLSX_INVALID_RELATIONSHIP')
                     xml = _xml(archive.read(part))
-                    if worksheet.max_row and worksheet.max_row > MAX_ROWS_PER_SHEET:
-                        raise DocumentProcessingError(413, 'Worksheet exceeds row limit', 'XLSX_SHEET_TOO_LARGE')
+                    # Ignore untrusted declared dimensions; bound actual coordinates before iteration.
+                    cells_xml = xml.findall(f'{{{S}}}sheetData/{{{S}}}row/{{{S}}}c')
+                    positions = [coordinate_to_tuple(cell.attrib['r']) for cell in cells_xml]
+                    rows = [int(row.attrib['r']) for row in xml.findall(f'{{{S}}}sheetData/{{{S}}}row')]
+                    if (len(positions) > MAX_CELLS_PER_SHEET
+                            or any(not 1 <= row <= MAX_ROWS_PER_SHEET for row in rows)
+                            or any(not 1 <= row <= MAX_ROWS_PER_SHEET or not 1 <= col <= MAX_COLUMNS_PER_SHEET for row, col in positions)):
+                        raise DocumentProcessingError(413, 'Worksheet exceeds cell limits', 'XLSX_SHEET_TOO_LARGE')
+                    worksheet.reset_dimensions()
                     lines = [f'[sheet] {worksheet.title}', f'[visibility] {worksheet.sheet_state}']
                     chars = sum(map(len, lines))
+                    cell_count = 0
                     for row_index, row in enumerate(worksheet.iter_rows(), start=1):
+                        cell_count += len(row)
+                        if cell_count > MAX_CELLS_PER_SHEET:
+                            raise DocumentProcessingError(413, 'Worksheet exceeds cell limit', 'XLSX_SHEET_TOO_LARGE')
                         if row_index > MAX_ROWS_PER_SHEET:
                             raise DocumentProcessingError(413, 'Worksheet exceeds row limit', 'XLSX_SHEET_TOO_LARGE')
                         cells = [f'{cell.coordinate}={cell.value}' for cell in row if cell.value is not None]

@@ -342,7 +342,7 @@ def score_trajectory(case: dict[str, Any], events: list[dict[str, Any]], calls: 
     """Check per-unit constraints, never the total ordering of concurrent units."""
     expected = case.get("expectedProcess") or {}
     allowed = {"vision_parse", "vision_describe"} if case["sourceType"] in {"pdf", "docx", "image"} else {"document_parse"}
-    schemas = {"vision_parse": "PageParseResult", "vision_describe": "ImageDescription", "document_parse": "ChunkParseResult"}
+    schemas = {"vision_parse": "PageParseResult", "vision_describe": "ImageDescription", "document_parse": "GroundedSheetResult" if case["sourceType"] == "xlsx" else "ChunkParseResult"}
     starts = [e for e in events if e["event"] == "model_start"]
     limits = expected.get("maxModelCalls")
     reasons = []
@@ -359,7 +359,7 @@ def score_trajectory(case: dict[str, Any], events: list[dict[str, Any]], calls: 
             kind, unit = event["kind"], event.get("unitKey")
             if kind not in allowed or event.get("schema") != schemas.get(kind):
                 reasons.append("WRONG_ROUTE_OR_SCHEMA")
-            if "prepare" not in completed_stages or (kind == "document_parse" and "assemble" not in completed_stages):
+            if "prepare" not in completed_stages or (kind == "document_parse" and case["sourceType"] != "xlsx" and "assemble" not in completed_stages):
                 reasons.append("MISSING_PREREQUISITE")
             if not unit or not re.fullmatch(rf"{re.escape(kind)}:\d+:\d+", unit):
                 reasons.append("INVALID_UNIT")

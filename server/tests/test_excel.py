@@ -3,6 +3,7 @@
 import hashlib
 import json
 from io import BytesIO
+from unittest.mock import AsyncMock
 from uuid import uuid4
 from xml.etree import ElementTree as ET
 from zipfile import ZipFile
@@ -18,7 +19,7 @@ from pydantic import ValidationError
 from practiq_ai import config, execution, llm
 from practiq_ai.contracts import DOCUMENT_MEDIA_TYPES, document_source_key
 from practiq_ai.errors import DocumentProcessingError
-from practiq_ai.extractors import xlsx
+from practiq_ai.extractors import extract, xlsx
 from practiq_ai.graphs import document, excel
 from tests.support import (
     FakeModel,
@@ -191,7 +192,7 @@ async def test_invalid_model_references_are_corrected_with_usage(monkeypatch, de
     ('corrupt', None, 'XLSX_IMAGE_INVALID'),
     ('pixel_limit', 'XLSX_IMAGE_TOO_LARGE', 'Worksheet image exceeds pixel limit'),
     ('bytes_limit', 'DOCUMENT_PROCESSING_FAILED', 'Document visual content exceeds the configured limit'),
-    ('row_limit', 'XLSX_SHEET_TOO_LARGE', 'Worksheet exceeds row limit'),
+    ('row_limit', 'XLSX_SHEET_TOO_LARGE', 'Worksheet exceeds cell limits'),
     ('text_limit', 'XLSX_SHEET_TOO_LARGE', 'Worksheet exceeds model input limit'),
     ('unsupported', None, 'Unsupported worksheet object: oleObjects'),
 ])
@@ -230,6 +231,7 @@ async def test_render_failure_preserves_other_sheet(monkeypatch, code):
             raise DocumentProcessingError(503, 'Renderer failed', code)
         return make_blank_pdf(1)
     monkeypatch.setattr(xlsx, 'convert_to_pdf', render)
+    monkeypatch.setattr(document, 'extract', AsyncMock(side_effect=extract))
     reference, model, _, _ = setup(monkeypatch, payload, [response])
     result = await local_graph().ainvoke({'document': reference}, run_config())
     assert result['status'] == 'PARTIAL'

@@ -1,10 +1,11 @@
 """Strict public contracts for PractiQ."""
 
 from math import isfinite
-from typing import Any, Literal, Self
+from typing import Annotated, Any, Literal, Self
 from uuid import UUID
 
 from pydantic import (
+    AfterValidator,
     BaseModel,
     ConfigDict,
     Field,
@@ -197,23 +198,25 @@ def normalize_answer(mode, payload, variant=None):
         return None
     if not isinstance(payload, dict):
         raise ValueError("answerPayload must be an object")  # noqa: TRY004 - Pydantic validation boundary
-    if mode is None:
-        return payload
-    schema = MultipleChoiceAnswerPayload if mode == "choice" and variant == "multiple" else ANSWER_TYPES[mode]
-    if set(payload) - set(schema.model_fields):
+    schemas = [*ANSWER_TYPES.values(), MultipleChoiceAnswerPayload]
+    schema = (next((item for item in schemas if set(payload) <= set(item.model_fields)), None)
+              if mode is None else MultipleChoiceAnswerPayload if mode == "choice" and variant == "multiple" else ANSWER_TYPES[mode])
+    if schema is None or set(payload) - set(schema.model_fields):
         raise ValueError("answerPayload does not match answerMode")
-    partial = False
+    partial = mode is None
     for key, field in schema.model_fields.items():
         value = payload.get(key)
-        if value is None or isinstance(value, str) and not value.strip() or value == []:
+        if value is None:
             partial = True
             continue
-        if isinstance(value, list):
+        if key in {"answers", "order", "matches", "correct"}:
+            if not isinstance(value, list) or len(value) > 100:
+                raise ValueError("answer lists must contain at most 100 entries")
+            partial |= not value
             for entry in value:
-                if entry is None or isinstance(entry, str) and not entry.strip():
+                if entry is None:
                     partial = True
-                    continue
-                if mode == "matching":
+                elif key == "matches":
                     if not isinstance(entry, dict) or set(entry) - {"left", "right"}:
                         raise ValueError("matches must contain left/right pairs")
                     for side in ("left", "right"):
@@ -222,9 +225,9 @@ def normalize_answer(mode, payload, variant=None):
                         else:
                             TypeAdapter(StrictInt).validate_python(entry[side], strict=True)
                 else:
-                    TypeAdapter(StrictInt if mode == "ordering" else str).validate_python(entry, strict=True)
+                    TypeAdapter(StrictInt if key == "order" else str).validate_python(entry, strict=True)
         else:
-            TypeAdapter(field.annotation).validate_python(value, strict=True)
+            TypeAdapter(Annotated[field.annotation, *field.metadata]).validate_python(value, strict=True)
     return payload if partial else schema.model_validate(payload)
 
 
@@ -416,21 +419,20 @@ class ExcelSource(StrictModel):
         return value
 
 
+VisualLabel = Annotated[str, Field(max_length=1_000)]
+VisualDescription = Annotated[str, Field(min_length=1, max_length=20_000), AfterValidator(_non_blank)]
+
+
 class VisualElement(StrictModel):
     excelSource: ExcelSource | None = None
     questionIndexes: list[StrictInt] = Field(default_factory=list, max_length=1_000)
     kind: VisualKind
-    label: str | None = Field(default=None, max_length=1_000)
-    description: str = Field(min_length=1, max_length=20_000)
+    label: VisualLabel | None = None
+    description: VisualDescription
     extractedText: str | None = Field(default=None, max_length=100_000)
     page: int | None = Field(default=None, ge=0)
     bbox: list[float] | None = Field(default=None, min_length=4, max_length=4)
     imageRef: ArtifactReference | None = None
-
-    @field_validator("description")
-    @classmethod
-    def reject_blank_description(cls, value: str) -> str:
-        return _non_blank(value)
 
     @field_validator("bbox")
     @classmethod

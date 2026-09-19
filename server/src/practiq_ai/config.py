@@ -9,7 +9,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 MIB = 1024 * 1024
-SERVER_ROOT = Path(__file__).resolve().parents[3]
+SERVER_ROOT = Path(__file__).resolve().parents[2]
 
 
 @dataclass(frozen=True)
@@ -37,6 +37,7 @@ class Config:
     provider_concurrency: int = 16
     provider_rpm: int = 120
     upload_concurrency: int = 4
+    upload_timeout_seconds: float = 120
     max_busy_threads: int = 300
     maintenance: bool = False
     structured_output_method: str = "function_calling"
@@ -148,6 +149,7 @@ def load() -> Config:
         provider_concurrency=provider_concurrency,
         provider_rpm=provider_rpm,
         upload_concurrency=_positive_int(values, "AI_UPLOAD_CONCURRENCY", 4),
+        upload_timeout_seconds=_positive_float(values, "AI_UPLOAD_TIMEOUT_SECONDS", 120),
         max_busy_threads=_positive_int(values, "AI_MAX_BUSY_THREADS", 300),
         structured_output_method=method,
         storage_backend=storage_backend,
@@ -157,7 +159,7 @@ def load() -> Config:
         api_key=_required(values, "LLM_API_KEY"),
         vision_model=vision_model,
         text_model=_required(values, "LLM_TEXT_MODEL"),
-        storage_dir=Path(os.path.abspath(SERVER_ROOT / storage_dir)),
+        storage_dir=storage_path(storage_dir),
         source_max_bytes=_positive_int(values, "AI_SOURCE_MAX_BYTES", 25 * MIB),
         vision_max_bytes=_positive_int(values, "AI_MAX_VISION_BYTES", 50 * MIB),
         max_document_pages=_positive_int(values, "AI_MAX_DOCUMENT_PAGES", 100),
@@ -173,6 +175,18 @@ def load() -> Config:
         model_timeout_seconds=_positive_float(values, "AI_AGENT_TIMEOUT_SECONDS", 180),
         model_max_tokens=_positive_int(values, "AI_AGENT_MAX_TOKENS", 16_384),
     )
+
+
+def storage_path(value: str) -> Path:
+    path = Path(value)
+    if path.is_absolute():
+        return Path(os.path.abspath(path))
+    if not (SERVER_ROOT / "pyproject.toml").is_file() or not (SERVER_ROOT / "src/practiq_ai").is_dir():
+        raise ValueError("Wheel installations require an absolute AI_STORAGE_DIR")
+    legacy = SERVER_ROOT.parent / path
+    if legacy.is_dir() and any(legacy.iterdir()):
+        raise ValueError("Existing storage at the old repository-relative path; set an absolute AI_STORAGE_DIR to keep it or migrate explicitly")
+    return Path(os.path.abspath(SERVER_ROOT / path))
 
 
 def database_uri() -> str:

@@ -1,5 +1,6 @@
 import asyncio
 from typing import Any, cast
+from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import httpx
@@ -224,7 +225,7 @@ async def test_truncation_is_visible_and_not_manually_retryable(monkeypatch, pag
 
     api, reference, _ = await setup_api(monkeypatch)
     if pages:
-        monkeypatch.setattr(document, 'extract', lambda *_: ExtractedDocument(text='', page_images=[make_image()]))
+        monkeypatch.setattr(document, 'extract', AsyncMock(side_effect=lambda *_: ExtractedDocument(text='', page_images=[make_image()])))
     class Runner:
         async def ainvoke(self, messages, config=None):
             return {'raw': AIMessage(content='{"questions":', response_metadata={'finish_reason': 'length'},

@@ -2,6 +2,7 @@ import asyncio
 import logging
 import time
 from concurrent.futures import ThreadPoolExecutor
+from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import httpx
@@ -11,7 +12,8 @@ from practiq_ai import capacity, execution, task_api, telemetry, webapp
 from practiq_ai.config import load
 from practiq_ai.contracts import DocumentTaskCreate
 from practiq_ai.errors import DocumentProcessingError
-from practiq_ai.extractors import pdf
+from practiq_ai.extractors import extract, pdf
+from practiq_ai.graphs import document
 from practiq_ai.graphs.chunking import split_chunk_spans
 from tests.db_support import setup_api
 from tests.support import parsed, run_config, setup_graph
@@ -92,6 +94,8 @@ async def test_unknown_call_consumes_budget_after_interruption(monkeypatch):
 
 
 async def test_run_deadline_is_enforced_without_resetting_task_budget(monkeypatch):
+    # This test targets an in-flight model timeout; process startup has its own deadline tests.
+    monkeypatch.setattr(document, 'extract', AsyncMock(side_effect=extract))
     monkeypatch.setenv("AI_RUN_TIMEOUT_SECONDS", "0.05")
     graph, _, _, reference, model = setup_graph(monkeypatch, [(10, parsed()), parsed()])
     config = run_config()

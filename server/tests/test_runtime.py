@@ -3,6 +3,7 @@ from datetime import timedelta
 from uuid import UUID, uuid4
 
 import pytest
+from psycopg.errors import UndefinedFunction
 
 from practiq_ai import runtime, task_api
 from practiq_ai.contracts import (
@@ -181,3 +182,96 @@ async def test_maintenance_cleanup_skips_expired_queued_run(monkeypatch):
         assert (await db.rows('SELECT thread_id FROM document_tasks'))[0]['thread_id'] == receipt['threadId']
     finally:
         await db.close()
+
+
+async def test_control_waiters_do_not_starve_scheduler_connections(monkeypatch):
+    service, reference, _ = await setup_api(monkeypatch, [(30, parsed())])
+    created = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
+    fatal = []
+    service.fatal = fatal.append
+    entered, release = asyncio.Event(), asyncio.Event()
+    original = task_api._read_task
+    async def delayed(*args):
+        entered.set()
+        await release.wait()
+        return await original(*args)
+    monkeypatch.setattr(task_api, '_read_task', delayed)
+    requests = [asyncio.create_task(task_api.control_task(created['threadId'],
+                DocumentTaskControl(requestId=uuid4(), action='pause', runId=created['runId']))) for _ in range(24)]
+    try:
+        await asyncio.wait_for(entered.wait(), 2)
+        await asyncio.sleep(0.1)
+        assert await asyncio.wait_for(service.db.rows('SELECT 1'), 1)
+        assert await service.ready() and not fatal
+    finally:
+        release.set()
+        await asyncio.wait_for(asyncio.gather(*requests), 10)
+    assert not fatal
+
+
+@pytest.mark.parametrize('stage', ['checkpoint', 'store', 'business'])
+async def test_initialization_retries_owned_partial_database(monkeypatch, stage):
+    from practiq_ai import database
+    db = await new_database()
+    async with db.pool.connection() as conn:
+        await conn.execute('DROP SCHEMA public CASCADE; CREATE SCHEMA public', prepare=False)
+    with monkeypatch.context() as patch:
+        if stage == 'business':
+            patch.setattr(database, 'DDL', database.DDL + '\n SELECT missing_initialization_function();')
+        else:
+            owner = db.checkpointer if stage == 'checkpoint' else db.store
+            original = owner.setup
+            async def fail():
+                await original()
+                raise RuntimeError('interrupted initialization')
+            patch.setattr(owner, 'setup', fail)
+        with pytest.raises(UndefinedFunction if stage == 'business' else RuntimeError):
+            await db.initialize()
+    assert (await db.rows("SELECT to_regclass('practiq_initialization') AS marker"))[0]['marker']
+    await db.initialize()
+    await db.check_schema()
+    assert not (await db.rows("SELECT to_regclass('practiq_initialization') AS marker"))[0]['marker']
+    await db.close()
+
+
+async def test_initialization_refuses_unrecognized_nonempty_database():
+    db = await new_database()
+    async with db.pool.connection() as conn:
+        await conn.execute('DROP SCHEMA public CASCADE; CREATE SCHEMA public; CREATE TABLE foreign_data (value text); INSERT INTO foreign_data VALUES (\'keep\')', prepare=False)
+    with pytest.raises(RuntimeError, match='empty dedicated'):
+        await db.initialize()
+    assert await db.rows('SELECT * FROM foreign_data') == [{'value': 'keep'}]
+    await db.close()
+
+
+@pytest.mark.parametrize('expired', [False, True])
+async def test_recovery_preflight_is_inside_run_deadline(monkeypatch, expired):
+    service, reference, model = await setup_api(monkeypatch, [(30, parsed())])
+    created = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
+    async with asyncio.timeout(10):
+        while not model.calls:
+            await asyncio.sleep(0.01)
+    await service.stop(timeout=0)
+    db = Database(service.db.uri)
+    await db.open()
+    deadline = utcnow() + timedelta(seconds=-1 if expired else 0.3)
+    async with db.pool.connection() as conn:
+        await conn.execute('UPDATE document_runs SET deadline=%s WHERE run_id=%s', (deadline, created['runId']))
+    entered, stopped = asyncio.Event(), asyncio.Event()
+    async def preflight(_):
+        entered.set()
+        try:
+            await asyncio.Event().wait()
+        finally:
+            stopped.set()
+    monkeypatch.setattr(task_api, '_preflight', preflight)
+    restarted = runtime.Service(db)
+    fatal = []
+    monkeypatch.setattr(restarted, 'fatal', fatal.append)
+    SERVICES.append(restarted)
+    await restarted.start()
+    async with asyncio.timeout(3):
+        while (rows := await db.rows('SELECT status,error_code FROM document_runs WHERE run_id=%s', (created['runId'],)))[0]['status'] != 'error':
+            await asyncio.sleep(0.01)
+    assert rows[0]['error_code'] == 'RUN_DEADLINE_EXCEEDED' and not fatal
+    assert entered.is_set() == stopped.is_set() == (not expired)

@@ -5,6 +5,7 @@ import hashlib
 import os
 import re
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, cast
@@ -35,6 +36,8 @@ class ObjectStore:
     def __init__(self, config: Config):
         self._config = config
         self.root = config.storage_dir.resolve()
+        self._executor = ThreadPoolExecutor(max_workers=config.storage_concurrency, thread_name_prefix="practiq-storage")
+        self._slots = asyncio.Semaphore(config.storage_concurrency)
 
     async def prepare_document(
         self, request: DocumentUploadRequest
@@ -198,10 +201,22 @@ class ObjectStore:
 
     async def _call(self, function: Any, *args: Any) -> Any:
         try:
-            return await asyncio.wait_for(
-                asyncio.to_thread(function, *args),
-                timeout=self._config.storage_timeout_seconds,
-            )
+            async with asyncio.timeout(self._config.storage_timeout_seconds):
+                await self._slots.acquire()
+                try:
+                    future = self._executor.submit(function, *args)
+                except BaseException:
+                    self._slots.release()
+                    raise
+                loop = asyncio.get_running_loop()
+                def release(_):
+                    # Request cancellation cannot release capacity still occupied by I/O.
+                    try:
+                        loop.call_soon_threadsafe(self._slots.release)
+                    except RuntimeError:
+                        pass  # The owning event loop has already shut down.
+                future.add_done_callback(release)
+                return await asyncio.wrap_future(future)
         except DocumentProcessingError:
             raise
         except Exception as exc:

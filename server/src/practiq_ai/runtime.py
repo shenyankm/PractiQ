@@ -147,8 +147,6 @@ class Service:
             if advanced and (snapshot.interrupts or not snapshot.next):
                 await self.finish(run_id, 'waiting' if snapshot.interrupts else 'success')
                 return
-            if snapshot.values and snapshot.values.get('execution'):
-                await _preflight(snapshot.values)
             deadline = run['deadline'] or utcnow() + timedelta(seconds=load().run_timeout_seconds)
             async with self.db.pool.connection() as conn:
                 await conn.execute("UPDATE document_runs SET status='running',started_at=coalesce(started_at,now()),deadline=%s WHERE run_id=%s", (deadline, run_id))
@@ -158,6 +156,8 @@ class Service:
                 raise DocumentProcessingError(504, 'Run execution deadline exceeded', 'RUN_DEADLINE_EXCEEDED')
             graph_input = None if advanced else Command(**run['command']) if run['command'] else run['input']
             async with asyncio.timeout(remaining):
+                if snapshot.values and snapshot.values.get('execution'):
+                    await _preflight(snapshot.values)
                 await graph.ainvoke(graph_input, {'configurable': {'thread_id': run['thread_id']},
                     'run_id': run_id, 'metadata': {'practiqRunId': run_id}}, context=run['context'], durability='sync')
             snapshot = await self.snapshot(task)

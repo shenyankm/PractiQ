@@ -1,3 +1,5 @@
+from unittest.mock import AsyncMock
+
 """Page ordering, conversion failures and real local rendering (no model calls)."""
 
 import asyncio
@@ -42,7 +44,7 @@ def test_missing_vision_fails_before_read_or_render(monkeypatch, kind):
     monkeypatch.setattr(
         document, "get_object_store", lambda: pytest.fail("must not read")
     )
-    monkeypatch.setattr(document, "extract", lambda *_: pytest.fail("must not render"))
+    monkeypatch.setattr(document, "extract", AsyncMock(side_effect=lambda *_: pytest.fail("must not render")))
     with pytest.raises(DocumentProcessingError) as error:
         asyncio.run(local_graph().ainvoke({"document": reference}))
     assert error.value.code == "VISION_MODEL_REQUIRED"
@@ -58,7 +60,7 @@ def test_page_order_gaps_and_crops(monkeypatch, kind, failed):
     monkeypatch.setattr(
         document,
         "extract",
-        lambda *_: ExtractedDocument(text="", page_images=[make_image()] * 3),
+        AsyncMock(side_effect=lambda *_: ExtractedDocument(text="", page_images=[make_image()] * 3)),
     )
 
     async def page_call(_model, messages, schema, call_kind, *, runtime=None):

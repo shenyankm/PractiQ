@@ -102,9 +102,12 @@ def test_load_rejects_invalid_service_settings(
 
 
 def test_storage_paths_are_independent_of_working_directory(tmp_path, monkeypatch):
-    from pathlib import Path
     _env(monkeypatch, AI_STORAGE_DIR=".local/ai")
-    expected = Path(config.__file__).resolve().parents[3] / ".local/ai"
+    root = tmp_path / "server"
+    (root / "src/practiq_ai").mkdir(parents=True)
+    (root / "pyproject.toml").touch()
+    monkeypatch.setattr(config, "SERVER_ROOT", root)
+    expected = root / ".local/ai"
     monkeypatch.chdir(tmp_path)
     assert config.load().storage_dir == expected
     monkeypatch.setenv("AI_STORAGE_DIR", str(tmp_path / "files"))

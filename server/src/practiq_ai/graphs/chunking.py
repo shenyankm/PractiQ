@@ -105,6 +105,7 @@ def merge_chunk_results(
     issues: set[tuple[int, str]] = set()
     previous: list[tuple[int, tuple[int, int] | None, dict[str, Any]]] = []
     previous_chunk_index: int | None = None
+    previous_groups: list[int] = []
 
     for chunk_index, chunk_questions, chunk_groups in chunk_results:
         span = chunk_spans[chunk_index] if chunk_spans is not None else None
@@ -152,10 +153,21 @@ def merge_chunk_results(
             current.append((final_index, location, content))
             issues.update((final_index, code) for code in codes)
             sources.append(QuestionSource(questionIndex=final_index, stage="document_parse" if overlapping else "vision_parse", unitIndex=chunk_index))
+        current_groups = []
         for group in chunk_groups:
             remapped = sorted({index_map[index] for index in group.questionIndexes if index in index_map})
             if remapped:
-                groups.append(group.model_copy(update={"questionIndexes": remapped}))
+                matches = [index for index in previous_groups if adjacent
+                           and groups[index].title == group.title and groups[index].instructions == group.instructions
+                           and used_previous.intersection(remapped, groups[index].questionIndexes)]
+                if len(matches) == 1:
+                    index = matches[0]
+                    groups[index] = groups[index].model_copy(update={"questionIndexes": sorted(set(groups[index].questionIndexes) | set(remapped))})
+                else:
+                    index = len(groups)
+                    groups.append(group.model_copy(update={"questionIndexes": remapped}))
+                current_groups.append(index)
+        previous_groups = current_groups
         previous_chunk_index, previous = chunk_index, current
 
     truncated = len(questions) > 1_000

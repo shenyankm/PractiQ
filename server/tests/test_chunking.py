@@ -198,3 +198,19 @@ def test_page_provenance_is_not_text_verification():
     q.needsReview = True
     result = merge_chunk_results([(0, [q], [])], overlapping=False)
     assert result[5].issues[0].code == 'NEEDS_REVIEW'
+
+
+@pytest.mark.parametrize('same_material', [False, True])
+def test_material_groups_merge_only_with_confirmed_overlap(same_material):
+    q1, q2, q3 = question('1. First'), question('2. Second'), question('3. Third')
+    first = ParsedGroup(title='Material', instructions='Passage A', questionIndexes=[0, 1])
+    second = ParsedGroup(title='Material', instructions='Passage A' if same_material else 'Passage B', questionIndexes=[0, 1])
+    _, groups, *_ = merge_chunk_results([(0, [q1, q2], [first]), (1, [q2, q3], [second])],
+        source_text='1. First\n2. Second\n3. Third',
+        chunk_spans=[{'start': 0, 'end': 19, 'overlapStart': 0, 'overlapEnd': 0},
+                     {'start': 9, 'end': 27, 'overlapStart': 9, 'overlapEnd': 19}])
+    assert len(groups) == (1 if same_material else 2)
+    assert groups[0].questionIndexes == ([0, 1, 2] if same_material else [0, 1])
+    _, groups, *_ = merge_chunk_results([(0, [q1], [first.model_copy(update={'questionIndexes': [0]})]),
+                                        (1, [q3], [first.model_copy(update={'questionIndexes': [0]})])], overlapping=False)
+    assert len(groups) == 2
