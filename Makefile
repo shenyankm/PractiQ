@@ -48,7 +48,7 @@ app-dev:
 app-check:
 	"$(AI_PYTHON)" app/scripts/export-contracts.py --check
 	"$(AI_PYTHON)" app/scripts/check-fixtures.py
-	cd app && npm run check
+	cd app && TAURI_CONFIG='{"bundle":{"resources":[]}}' npm run check
 app-build: app-bundle
 	cd app && npm run tauri -- build
 

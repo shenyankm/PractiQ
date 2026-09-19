@@ -88,3 +88,25 @@ with Path(os.environ['INSTALL_CALLS']).open('a') as log:
         capture_output=True, text=True, check=False)
     assert result.returncode == 0, result.stdout + result.stderr
     assert [json.loads(line) for line in calls.read_text().splitlines()].count(['pip', 'install']) == 5
+
+
+def test_app_check_does_not_require_bundled_resources(tmp_path):
+    root = Path(__file__).resolve().parents[2]
+    shutil.copyfile(root / 'Makefile', tmp_path / 'Makefile')
+    (tmp_path / 'app').mkdir()
+    python = tmp_path / 'python'
+    python.write_text('#!/bin/sh\nexit 0\n')
+    python.chmod(0o755)
+    npm = tmp_path / 'npm'
+    npm.write_text(f'#!{sys.executable}\n' + '''
+import json, os, sys
+assert sys.argv[1:] == ['run', 'check']
+assert json.loads(os.environ['TAURI_CONFIG']) == {'bundle': {'resources': []}}
+''')
+    npm.chmod(0o755)
+    result = subprocess.run(
+        ['make', 'app-check', f'AI_PYTHON={python}'], cwd=tmp_path,
+        env={**os.environ, 'PATH': f'{tmp_path}{os.pathsep}{os.environ["PATH"]}'},
+        capture_output=True, text=True, check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
