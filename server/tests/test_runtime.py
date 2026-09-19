@@ -254,7 +254,10 @@ async def test_recovery_preflight_is_inside_run_deadline(monkeypatch, expired):
     await service.stop(timeout=0)
     db = Database(service.db.uri)
     await db.open()
-    deadline = utcnow() + timedelta(seconds=-1 if expired else 0.3)
+    # Restart/graph construction must not consume the interval under test.
+    execution_time = utcnow()
+    monkeypatch.setattr(runtime, 'utcnow', lambda: execution_time)
+    deadline = execution_time + timedelta(seconds=-1 if expired else 0.3)
     async with db.pool.connection() as conn:
         await conn.execute('UPDATE document_runs SET deadline=%s WHERE run_id=%s', (deadline, created['runId']))
     entered, stopped = asyncio.Event(), asyncio.Event()
