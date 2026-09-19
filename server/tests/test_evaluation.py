@@ -560,6 +560,8 @@ def test_transient_probe_recovers_with_trace(tmp_path, monkeypatch, failure):
     assert case["qualityPassed"] and case["trajectory"]["passed"]
     assert case["trajectory"]["validatedResponses"] == 1
     assert [c["validation"] for c in case["modelCalls"]] == ["not_run", "passed"]
+    assert all(c["providerRequestMs"] >= 0 and c["concurrencyWaitMs"] >= 0 and c["rateWaitMs"] >= 0
+               for c in case["modelCalls"])
     assert any(e.get("decision") == "retry" for e in case["trajectory"]["events"])
     assert report["efficiency"]["inputTokensPerQualityDocument"] is None
     assert report["efficiency"]["costPerQualityDocument"] is None

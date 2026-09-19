@@ -2,6 +2,7 @@
 
 import json
 import logging
+import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -23,7 +24,22 @@ EVENT_FIELDS = {
     "stage", "outcome", "unitIndex", "unitKey", "callKey", "kind", "schema",
     "threadId", "runId", "durationMs", "errorCode", "attempt", "validation",
     "decision", "sourceType", "status", "reviewRequired", "primaryPage", "contextPages",
+    "concurrencyWaitMs", "rateWaitMs", "providerRequestMs",
 }
+
+
+@contextmanager
+def measure(stage: str, record: dict[str, Any], field: str) -> Iterator[None]:
+    """Measure one phase, including failed or cancelled waits/requests."""
+    started = time.monotonic()
+    outcome = "failed"
+    try:
+        yield
+        outcome = "success"
+    finally:
+        elapsed = time.monotonic() - started
+        record[field] = round(elapsed * 1000, 3)
+        duration.labels(stage, outcome).observe(elapsed)
 
 
 @contextmanager

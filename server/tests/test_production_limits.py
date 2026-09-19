@@ -171,6 +171,9 @@ async def test_metrics_and_logs_do_not_contain_document_content(monkeypatch, cap
     assert all("private document phrase" not in e and "test-key" not in e for e in events)
     record = (await store.asearch(execution.namespace("thread-1", "calls")))[0].value
     assert record["startedAt"] <= record["finishedAt"] and record["durationMs"] >= 0
+    for field in ("concurrencyWaitMs", "rateWaitMs", "providerRequestMs"):
+        assert 0 <= record[field] <= record["durationMs"]
+        assert any(f'"{field}":' in event for event in events)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=webapp.app), base_url="http://test") as client:
         assert (await client.get("/api/metrics")).status_code == 401
         response = await client.get("/api/metrics", headers={"Authorization": "Bearer test-token"})
@@ -222,6 +225,49 @@ async def test_provider_slots_bound_parallel_calls_and_release_after_failure(mon
     assert peak == 2 and active == 0
     async with capacity.provider_slot():
         pass
+
+
+@pytest.mark.parametrize("phase", ["concurrency", "rate"])
+async def test_cancelled_provider_wait_is_measured_and_releases_only_owned_slot(monkeypatch, phase):
+    gate = capacity.ProviderGate(1, 1)
+    capacity._providers[asyncio.get_running_loop()] = gate
+    entered = asyncio.Event()
+    record = {}
+    if phase == "concurrency":
+        await gate.semaphore.acquire()
+    else:
+        async def wait_rate():
+            entered.set()
+            await asyncio.Event().wait()
+        monkeypatch.setattr(gate, "wait_rate", wait_rate)
+
+    async def call():
+        if phase == "concurrency":
+            entered.set()
+        async with capacity.provider_slot(record):
+            pytest.fail("cancelled wait must not invoke provider")
+
+    pending = asyncio.create_task(call())
+    await entered.wait()
+    pending.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await pending
+    assert record[f"{phase}WaitMs"] >= 0
+    assert "providerRequestMs" not in record
+    assert gate.semaphore.locked() == (phase == "concurrency")
+    if phase == "concurrency":
+        gate.semaphore.release()
+
+
+def test_phase_timing_records_failure_without_swallowing_exception(monkeypatch):
+    from types import SimpleNamespace
+
+    ticks = iter([10.0, 10.25])
+    monkeypatch.setattr(telemetry, "time", SimpleNamespace(monotonic=lambda: next(ticks)))
+    record = {}
+    with pytest.raises(ValueError, match="failure"), telemetry.measure("provider_request", record, "providerRequestMs"):
+        raise ValueError("failure")
+    assert record == {"providerRequestMs": 250.0}
 
 
 async def test_pdf_timeout_keeps_lock_until_background_work_finishes(monkeypatch):

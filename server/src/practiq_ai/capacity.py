@@ -4,6 +4,7 @@ import asyncio
 import time
 from collections import deque
 from contextlib import asynccontextmanager
+from typing import Any
 from weakref import WeakKeyDictionary
 
 from . import telemetry
@@ -34,14 +35,20 @@ _providers: WeakKeyDictionary[asyncio.AbstractEventLoop, ProviderGate] = WeakKey
 
 
 @asynccontextmanager
-async def provider_slot():
+async def provider_slot(record: dict[str, Any] | None = None):
     loop = asyncio.get_running_loop()
     if loop not in _providers:
         config = load()
         _providers[loop] = ProviderGate(config.provider_concurrency // config.deployment_workers,
                                        config.provider_rpm // config.deployment_workers)
     gate = _providers[loop]
-    async with gate.semaphore:
-        await gate.wait_rate()
+    timings = record if record is not None else {}
+    with telemetry.measure("provider_concurrency_wait", timings, "concurrencyWaitMs"):
+        await gate.semaphore.acquire()
+    try:
+        with telemetry.measure("provider_rate_wait", timings, "rateWaitMs"):
+            await gate.wait_rate()
         with telemetry.inflight.track_inprogress():
             yield
+    finally:
+        gate.semaphore.release()

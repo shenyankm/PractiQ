@@ -300,14 +300,15 @@ async def structured_attempt[ResultT: BaseModel](
     call_key: UUID | None = None,
     call_record: dict[str, Any] | None = None,
 ) -> tuple[ResultT | None, list[BaseMessage], ModelCallUsage]:
-    response = cast(
-        dict[str, Any],
-        await structured_output(model, schema).ainvoke(messages, config={"metadata": {
-            "practiqCallKey": str(call_key) if call_key else None,
-            "practiqUnitKey": CURRENT_UNIT.get(), "practiqAttempt": logical_attempt,
-            "practiqSchema": schema.__name__, "practiqCallKind": call_kind,
-        }}),
-    )
+    with telemetry.measure("provider_request", call_record if call_record is not None else {}, "providerRequestMs"):
+        response = cast(
+            dict[str, Any],
+            await structured_output(model, schema).ainvoke(messages, config={"metadata": {
+                "practiqCallKey": str(call_key) if call_key else None,
+                "practiqUnitKey": CURRENT_UNIT.get(), "practiqAttempt": logical_attempt,
+                "practiqSchema": schema.__name__, "practiqCallKind": call_kind,
+            }}),
+        )
     if call_record is not None:
         metadata = response["raw"].response_metadata
         call_record["providerRequestId"] = metadata.get("request_id") or metadata.get("id")
@@ -391,7 +392,7 @@ async def structured_call[ResultT: BaseModel](
                 error_code = "MODEL_INPUT_TOO_LARGE"
                 return {"error": {"status": 413, "code": "MODEL_INPUT_TOO_LARGE", "detail": "Model text input exceeds the configured limit"}}
             await reserve_model_call(runtime)
-            async with provider_slot():
+            async with provider_slot(record):
                 if runtime:
                     await store_put(runtime, "calls", str(call_key), record)
                 provider_started = True
@@ -433,7 +434,9 @@ async def structured_call[ResultT: BaseModel](
                             runId=record["runId"], errorCode=error_code or record.get("validationCode"),
                             schema=schema.__name__, attempt=attempt, validation=record["validation"],
                             threadId=runtime.execution_info.thread_id if runtime and runtime.execution_info else None,
-                            unitKey=CURRENT_UNIT.get(), durationMs=round(elapsed * 1000, 3))
+                            unitKey=CURRENT_UNIT.get(), durationMs=round(elapsed * 1000, 3),
+                            concurrencyWaitMs=record.get("concurrencyWaitMs"),
+                            rateWaitMs=record.get("rateWaitMs"), providerRequestMs=record.get("providerRequestMs"))
         record.update(call_usage.model_dump(mode="json"), status="completed", usageStatus="known",
                       finishedAt=datetime.now(UTC).isoformat(), durationMs=round((time.monotonic() - started) * 1000, 3))
         if runtime:

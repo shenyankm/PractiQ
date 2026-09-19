@@ -657,7 +657,8 @@ async def run_evaluation(manifest_path: Path, repetitions: int = 1, case_ids: li
             by_call = {e["callKey"]: e for e in events if e["event"] == "model_call"}
             for call in model_calls:
                 event = by_call.get(call.get("callKey"), {})
-                call.update(validation=event.get("validation", "unknown"), durationMs=event.get("durationMs"), errorCode=event.get("errorCode"))
+                call.update(validation=event.get("validation", "unknown"), durationMs=event.get("durationMs"), errorCode=event.get("errorCode"),
+                            **{key: event.get(key) for key in ("concurrencyWaitMs", "rateWaitMs", "providerRequestMs")})
             report["cases"].append({
                 "id": case["id"], "sourceType": case["sourceType"], "tags": case["tags"],
                 "split": case["split"],
