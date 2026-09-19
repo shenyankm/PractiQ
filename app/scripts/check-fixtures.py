@@ -7,7 +7,7 @@ root = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(root / 'server/src'))
 from practiq_ai.contracts import DocumentParseResult  # noqa: E402
 
-cases = json.loads((root / 'app/fixtures/contracts.json').read_text())
+cases = json.loads((root / 'app/fixtures/contracts.json').read_text(encoding='utf-8'))
 for case in cases:
     try:
         result = DocumentParseResult.model_validate(case['input'])
@@ -16,5 +16,5 @@ for case in cases:
     else:
         assert case['valid'], case['name']
         assert result.questions[0].missingFields == case['missingFields'], case['name']
-DocumentParseResult.model_validate_json((root / 'app/fixtures/sample.json').read_text())
+DocumentParseResult.model_validate_json((root / 'app/fixtures/sample.json').read_text(encoding='utf-8'))
 print(f'{len(cases)} shared contract cases and the sample validated by Python')
