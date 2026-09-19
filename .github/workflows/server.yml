@@ -1,14 +1,18 @@
 name: AI service
 on:
   pull_request:
-    paths: ["server/**", "Dockerfile.server", "Makefile", ".github/workflows/server.yml"]
   push:
     branches: [main]
+  workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   quality:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     services:
       postgres:
         image: postgres:16-bookworm
@@ -21,24 +25,35 @@ jobs:
     env:
       REQUIRE_LIBREOFFICE_TESTS: "1"
       TEST_DATABASE_URI: postgresql://postgres:isolated-test-only@127.0.0.1:5432/postgres
-    defaults:
-      run:
-        working-directory: server
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
       - uses: astral-sh/setup-uv@v7
         with:
+          version: '0.12.13'
           enable-cache: true
           cache-dependency-glob: server/uv.lock
-      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libreoffice-writer libreoffice-calc fonts-noto-cjk
-      - run: uv sync --locked --extra dev
-      - run: uv run ruff check src tests scripts
-      - run: uv run pyright
-      - run: uv run python scripts/evaluate.py --validate-only
-      - run: uv run pip-audit
-      - run: uv run coverage run -m pytest --junitxml=reports/checks/probes.xml
-      - run: uv run python scripts/evaluate.py --probes reports/checks/probes.xml
-      - run: uv run coverage report -m
-      - run: uv build
-      - run: docker build -f Dockerfile.server -t practiq-ai:ci .
-        working-directory: .
+      - name: Install document converters and fonts
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libreoffice-writer libreoffice-calc fonts-noto-cjk
+      - name: Install locked dependencies
+        run: make install-locked AI_PYTHON="$(command -v python)"
+      - name: Verify service
+        run: make verify AI_PYTHON="$(command -v python)"
+      - name: Upload check reports
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: service-checks
+          path: |
+            server/reports/checks/probes.xml
+            server/reports/checks/probes.json
+            server/reports/checks/probes.md
+            server/reports/checks/coverage.xml
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Audit locked dependencies
+        run: make audit AI_PYTHON="$(command -v python)"
+      - name: Build service image
+        run: make image-check

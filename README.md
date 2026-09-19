@@ -45,9 +45,15 @@ See the [AI service guide](README.zh-CN.md#graph-与接口示例) for complete A
 ```bash
 make test AI_PYTHON=/path/to/python3.14
 make verify AI_PYTHON=/path/to/python3.14
+make audit AI_PYTHON=/path/to/python3.14
+make image-check
 ```
 
 Database tests explicitly request the `disposable_databases` fixture: they use `TEST_DATABASE_URI` or start a disposable PostgreSQL Docker container. Pure tests (for example, `cd server && python -m pytest tests/test_schemas.py tests/test_auth.py`) need neither. Shared fakes and sample builders live in `tests/support.py`; database helpers live in `tests/db_support.py`. CI installs LibreOffice Writer/Calc and Chinese fonts and sets `REQUIRE_LIBREOFFICE_TESTS=1`, so real rendering checks fail instead of skipping when LibreOffice is missing. Set the same variable locally to require those checks.
+
+`make verify` checks lockfile consistency, Ruff lint, Pyright types, evaluation fixtures, one test run with at least 90% coverage, recovery probes, and package builds. `make audit` checks only locked runtime and development dependencies and fails on vulnerabilities or audit errors; it requires network access. `make image-check` requires Docker and builds the service image without publishing it.
+
+CI runs these same Make targets for every pull request, pushes to `main`, and manual dispatches on Ubuntu 24.04 with Python 3.14 and uv 0.12.13. `make install-locked AI_PYTHON=/path/to/python3.14` installs the locked dependencies and editable project into the selected interpreter without creating a project `.venv`; use a dedicated interpreter in CI. The existing `make install` remains the convenience command for local development. Runs time out after 20 minutes and newer runs cancel older ones for the same workflow/ref. JUnit, coverage XML, and probe JSON/Markdown are written to `server/reports/checks/`; each verification replaces only those four generated reports. CI retains available reports for 14 days, including after test failures. Recovery probes are regression evidence, not full production crash-recovery acceptance.
 
 Automated tests do not call real models. The [evaluation guide](server/docs/evaluation.md) and historical reports are retained; past failed runs do not establish a current quality baseline.
 

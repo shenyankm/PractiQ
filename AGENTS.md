@@ -12,7 +12,9 @@ There is no frontend, product backend, product database, login, billing, answer 
 - `make install`: install AI and development dependencies into that interpreter.
 - `make server-dev`: run Uvicorn on loopback with PostgreSQL, loading `.env`.
 - `make test` / `make test-server`: AI tests without external model calls.
-- `make verify`: Ruff, Pyright, evaluation fixture validation, tests with coverage, runtime recovery checks and package build.
+- `make install-locked`: install locked runtime/development dependencies into the selected interpreter without a project `.venv`.
+- `make verify`: lockfile consistency, Ruff, Pyright, evaluation fixtures, one test run with 90% coverage, recovery probes and package build. Reports go to `server/reports/checks/`, including on test failure.
+- `make audit` / `make image-check`: audit locked dependencies (network required) / build the Docker image without publishing.
 
 ## Boundaries
 

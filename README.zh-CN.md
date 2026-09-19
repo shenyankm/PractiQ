@@ -43,9 +43,15 @@ make server-dev AI_PYTHON=/path/to/python3.14
 ```bash
 make test AI_PYTHON=/path/to/python3.14
 make verify AI_PYTHON=/path/to/python3.14
+make audit AI_PYTHON=/path/to/python3.14
+make image-check
 ```
 
 数据库测试显式使用 `disposable_databases` fixture，通过 `TEST_DATABASE_URI` 连接测试库，或启动临时 PostgreSQL Docker 容器。纯单元测试（如 `cd server && python -m pytest tests/test_schemas.py tests/test_auth.py`）不需要数据库或 Docker。共享替身与数据构造位于 `tests/support.py`，数据库辅助函数位于 `tests/db_support.py`。CI 安装 LibreOffice Writer/Calc 和中文字体，设置 `REQUIRE_LIBREOFFICE_TESTS=1`，缺少转换器时真实渲染测试会失败而非跳过；本地可设置同一变量强制验证。
+
+`make verify` 检查锁文件一致性、Ruff lint、Pyright 类型、评估数据、单次测试与至少 90% 覆盖率、恢复探针和包构建。`make audit` 仅审计锁定的运行及开发依赖，需要联网，发现漏洞或审计错误时失败；`make image-check` 需要 Docker，仅构建服务镜像，不发布。
+
+CI 对所有 PR、`main` 推送及手动触发执行相同 Make 目标，使用 Ubuntu 24.04、Python 3.14 和 uv 0.12.13。`make install-locked AI_PYTHON=/path/to/python3.14` 将锁定依赖和可编辑项目安装到指定解释器，不创建项目 `.venv`；CI 使用专用解释器。原有 `make install` 保留为本地开发便捷入口。作业超时为 20 分钟，同一工作流/ref 的新运行取消旧运行。JUnit、覆盖率 XML、探针 JSON/Markdown 输出到 `server/reports/checks/`，每轮验证仅替换这四份生成报告；CI 保留已有报告 14 天，测试失败时也上传。恢复探针仅提供回归证据，不代表完整生产崩溃恢复验收。
 
 自动化测试不调用真实模型；[评测说明](server/docs/evaluation.md) 和历史报告保留，历史失败结果不代表当前质量基线。
 

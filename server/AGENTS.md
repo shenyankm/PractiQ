@@ -8,11 +8,12 @@ Application code lives in `src/practiq_ai/`. `webapp.py` exposes authenticated u
 
 - `cp -n ../.env.example ../.env` creates a local configuration template; replace placeholders locally and never commit `.env`.
 - Use an existing Python 3.14+ environment. Do not create a project `.venv`.
-- `uv pip install --python "$(command -v python)" -e ".[dev]"` installs project dependencies into the active Python environment. CI continues to use `uv.lock`.
+- `uv pip install --python "$(command -v python)" -e ".[dev]"` installs project dependencies into the active Python environment. CI uses `make install-locked` from the root with Python 3.14 and uv 0.12.13; it installs from `uv.lock` without creating a project `.venv`.
 - `make server-dev` from the root starts the single-process Uvicorn service. Initialize a new PostgreSQL database explicitly with `make init-db`; no in-memory runtime fallback.
 - `python -m pytest` runs the complete test suite.
 - `python -m pytest tests/test_documents.py` runs one focused test module while iterating.
 - `uv build` creates source and wheel distributions under `dist/`.
+- From the root, `make verify` checks the lockfile, lint, types, fixtures, tests with 90% coverage, recovery probes and builds. `make audit` checks locked dependencies; `make image-check` builds the Docker image. CI calls these targets and retains generated check reports for 14 days, including after failures.
 
 ## Coding Style & Naming Conventions
 

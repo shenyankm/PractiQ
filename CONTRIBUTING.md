@@ -21,7 +21,7 @@ Issue and pull request titles and descriptions must be written in English.
 
 ## Validate changes
 
-Run `make test` for the AI suite and `make verify` for all quality checks. Set `AI_PYTHON` to an existing Python 3.14+ interpreter. Tests use fake models; real model quality requires a separate evaluation run.
+Run `make test` for the AI suite and `make verify` for lockfile, static, fixture, coverage, recovery-probe and package checks. Run `make audit` for locked dependency vulnerabilities (network required) and `make image-check` for the Docker build. CI uses these same three targets; no formatting gate is added. Use `REQUIRE_LIBREOFFICE_TESTS=1` to require real rendering locally as CI does. Available diagnostic reports in `server/reports/checks/` are retained by CI for 14 days, including after test failures. Set `AI_PYTHON` to an existing Python 3.14+ interpreter. Tests use fake models; real model quality requires a separate evaluation run.
 
 ## Commit and open a pull request
 
