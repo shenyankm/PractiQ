@@ -23,7 +23,7 @@ _EVENTS: ContextVar[list[dict[str, Any]] | None] = ContextVar("evaluation_events
 EVENT_FIELDS = {
     "stage", "outcome", "unitIndex", "unitKey", "callKey", "kind", "schema",
     "threadId", "runId", "durationMs", "errorCode", "attempt", "validation",
-    "decision", "sourceType", "status", "reviewRequired", "primaryPage", "contextPages",
+    "validationIssues", "decision", "sourceType", "status", "reviewRequired", "primaryPage", "contextPages",
     "concurrencyWaitMs", "rateWaitMs", "providerRequestMs",
 }
 

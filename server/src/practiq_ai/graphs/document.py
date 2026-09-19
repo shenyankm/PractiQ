@@ -54,7 +54,9 @@ from practiq_ai.llm import get_model, structured_call
 from practiq_ai.storage import get_object_store
 
 SYSTEM_PROMPT = """Extract assessment questions faithfully from the supplied fragment.
-Return a complete JSON object even for incomplete questions. Missing scalar fields
+Return a complete JSON object even for incomplete questions. questions, groups and
+figures are separate top-level JSON arrays, never strings containing serialized JSON.
+Missing scalar fields
 are null and missing lists are []. Include missingFields listing missing business
 fields: stem, questionTypeId, answerMode, choiceVariant, matchingVariant, options, items, answerPayload,
 analysis, sourceText, media, material. Never invent a type or source text to fill gaps.

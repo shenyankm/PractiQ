@@ -334,3 +334,52 @@ async def test_default_tool_protocol_correction_pairs_every_call(monkeypatch, ar
         result, usage, failure = await llm.structured_call(model, [HumanMessage(content='Extract')], Result, 'test')
     assert result == Result(value=2) and failure is None
     assert len(requests) == len(usage) == 2 and sum(item.outputTokens for item in usage) == 10
+
+
+async def test_captured_malformed_array_is_rejected_and_corrected_without_lost_usage():
+    from pathlib import Path
+
+    from pydantic import ValidationError
+
+    from practiq_ai.graphs.document import PageParseResult
+    from tests.support import FakeModel
+
+    arguments = json.loads((Path(__file__).parent / 'fixtures/stringified-page-arguments.json').read_text())
+    with pytest.raises(ValidationError):
+        PageParseResult.model_validate(arguments)
+    # A valid second response preserves every field of the captured source fixture.
+    corrected = json.loads('{"questions":' + arguments['questions'])
+    model = FakeModel(responses=[arguments, corrected])
+    parsed, usage, failure = await llm.structured_call(model, [HumanMessage(content='source')], PageParseResult, 'test')
+    assert parsed == PageParseResult.model_validate(corrected) and failure is None
+    assert len(usage) == 2 and sum(call.outputTokens for call in usage) == 10
+    assert 'actual JSON arrays, not quoted JSON strings' in model.calls[1][-1].content
+    assert 'questions, groups and figures' in model.calls[1][-1].content
+
+
+async def test_validation_diagnostics_exclude_values_and_unknown_field_names():
+    from pydantic import ConfigDict
+
+    from practiq_ai import telemetry
+    from tests.support import FakeModel
+
+    class StrictResult(Result):
+        model_config = ConfigDict(extra='forbid')
+
+    model = FakeModel(responses=[{'value': -1, 'private-document-key': 'private-secret'}] * 2)
+    with telemetry.capture_events() as events:
+        _, _, failure = await llm.structured_call(model, [], StrictResult, 'test')
+    assert failure == 'OUTPUT_STALLED'
+    calls = [event for event in events if event['event'] == 'model_call']
+    assert sorted(calls[0]['validationIssues'], key=lambda issue: issue['type']) == [
+        {'path': ['?'], 'type': 'extra_forbidden'}, {'path': ['value'], 'type': 'greater_than_equal'}]
+    assert 'private-' not in json.dumps(events)
+
+
+def test_provider_preset_and_desktop_url_use_identical_qwen_parameters():
+    preset = llm.build_model('dashscope', 'test', 'qwen3.7-flash')
+    desktop = llm.build_model('openai', 'test', 'qwen3.7-flash', base_url=llm.BASE_URLS['dashscope'] + '/')
+    assert preset.openai_api_base == desktop.openai_api_base
+    assert preset.extra_body == desktop.extra_body == {'enable_thinking': False}
+    custom = llm.build_model('dashscope', 'test', 'qwen3.7-flash', base_url='https://example.invalid/v1')
+    assert custom.extra_body is None

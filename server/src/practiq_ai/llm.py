@@ -86,18 +86,20 @@ def build_model(
     model_name: str,
     max_tokens: int = 16_384,
     timeout: float = 180,
+    base_url: str | None = None,
 ) -> ChatOpenAI:
-    if provider not in BASE_URLS:
+    if provider not in BASE_URLS and not (provider == "openai" and base_url):
         raise ValueError(f"Unsupported LLM provider: {provider}")
+    endpoint = (base_url or BASE_URLS[provider]).rstrip("/")
     return ChatOpenAI(
         model=model_name,
         api_key=cast(Any, api_key),
-        base_url=BASE_URLS[provider],
+        base_url=endpoint,
         **cast(dict[str, Any], {"max_tokens": max_tokens}),
         timeout=timeout,
         max_retries=0,
         extra_body={"enable_thinking": False}
-        if provider == "dashscope" and model_name.startswith("qwen3.7-")
+        if endpoint == BASE_URLS["dashscope"] and model_name.startswith("qwen3.7-")
         else None,
     )
 
@@ -205,13 +207,32 @@ def validate_response[ResultT: BaseModel](
     if isinstance(source, dict):
         return schema.model_validate(source, context=context)
     if not isinstance(source, str):
-        raise ValueError("Expected JSON text or tool arguments")  # noqa: TRY004 - shared validation/repair boundary
+        raise ValueError("Expected a JSON object or tool arguments")  # noqa: TRY004
     try:
         return schema.model_validate_json(source, context=context)
     except ValidationError as exc:
-        if not any(error["type"] == "json_invalid" for error in exc.errors()):
+        if not any(item["type"] == "json_invalid" for item in exc.errors()):
             raise
-    return schema.model_validate_json(repair_json(source), context=context)
+        return schema.model_validate_json(repair_json(source), context=context)
+
+
+def _validation_issues(error: ValueError, schema: type[BaseModel]) -> list[dict[str, Any]]:
+    # Unknown keys, input values, messages and validator context can contain source
+    # text or secrets. Only declared field names, indexes and error types leave here.
+    fields: set[str] = set()
+    def visit(node: Any) -> None:
+        if isinstance(node, dict):
+            fields.update(node.get("properties", {}))
+            for child in node.values():
+                visit(child)
+        elif isinstance(node, list):
+            for child in node:
+                visit(child)
+    visit(schema.model_json_schema())
+    if not isinstance(error, ValidationError):
+        return [{"path": [], "type": "invalid_response"}]
+    return [{"path": [part if isinstance(part, int) or part in fields else "?" for part in item["loc"][:12]],
+             "type": item["type"]} for item in error.errors(include_input=False, include_context=False, include_url=False)[:20]]
 
 
 def _retryable_openai_error(exc: Exception) -> bool:
@@ -331,8 +352,17 @@ async def structured_attempt[ResultT: BaseModel](
         error = exc
         if call_record is not None:
             call_record["validation"] = "failed"
+            call_record["validationIssues"] = _validation_issues(exc, schema)
             call_record["validationCode"] = "OUTPUT_TRUNCATED" if response["raw"].response_metadata.get("finish_reason") == "length" else "OUTPUT_INVALID"
+    array_feedback = ""
     if isinstance(error, ValidationError):
+        if any(item["type"] == "list_type" for item in error.errors()):
+            array_feedback = (
+                "Array fields must be actual JSON arrays, not quoted JSON strings. "
+                "Return each field separately in the top-level object; do not pack "
+                "the rest of the object into one field. Rebuild the complete object "
+                "from the original source, preserving all questions, groups and figures.\n"
+            )
         error = "; ".join(
             f"{'.'.join(map(str, item['loc'])) or 'result'}: {item['msg']}"
             for item in error.errors(include_input=False, include_url=False)
@@ -358,7 +388,7 @@ async def structured_attempt[ResultT: BaseModel](
             HumanMessage(
                 content=(
                     "Your previous output failed validation with these errors:\n"
-                    f"{error}\nReturn a complete corrected result. "
+                    f"{error}\n{array_feedback}Return a complete corrected result. "
                     "Follow the original task rules; never invent source content to pass validation."
                 )
             ),
@@ -451,7 +481,8 @@ async def structured_call[ResultT: BaseModel](
                             threadId=runtime.execution_info.thread_id if runtime and runtime.execution_info else None,
                             unitKey=CURRENT_UNIT.get(), durationMs=round(elapsed * 1000, 3),
                             concurrencyWaitMs=record.get("concurrencyWaitMs"),
-                            rateWaitMs=record.get("rateWaitMs"), providerRequestMs=record.get("providerRequestMs"))
+                            rateWaitMs=record.get("rateWaitMs"), providerRequestMs=record.get("providerRequestMs"),
+                            **({"validationIssues": record["validationIssues"]} if "validationIssues" in record else {}))
         record.update(call_usage.model_dump(mode="json"), status="completed", usageStatus="known",
                       finishedAt=datetime.now(UTC).isoformat(), durationMs=round((time.monotonic() - started) * 1000, 3))
         if runtime:
