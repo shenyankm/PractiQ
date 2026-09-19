@@ -1,0 +1,11 @@
+BEGIN IMMEDIATE;
+CREATE TABLE banks(id TEXT PRIMARY KEY,title TEXT NOT NULL,description TEXT NOT NULL,created_at INTEGER NOT NULL);
+CREATE TABLE imports(id TEXT PRIMARY KEY,bank_id TEXT NOT NULL REFERENCES banks(id) ON DELETE CASCADE,digest TEXT NOT NULL,raw TEXT NOT NULL,created_at INTEGER NOT NULL,UNIQUE(bank_id,digest));
+CREATE TABLE assets(hash TEXT PRIMARY KEY,media TEXT NOT NULL,data BLOB NOT NULL);
+CREATE TABLE questions(id TEXT PRIMARY KEY,bank_id TEXT NOT NULL REFERENCES banks(id) ON DELETE CASCADE,import_id TEXT REFERENCES imports(id) ON DELETE SET NULL,position INTEGER NOT NULL,stem TEXT NOT NULL,mode TEXT NOT NULL,snapshot TEXT NOT NULL CHECK(json_valid(snapshot)),favorite INTEGER NOT NULL DEFAULT 0 CHECK(favorite IN(0,1)));
+CREATE INDEX questions_bank ON questions(bank_id,position);
+CREATE TABLE sessions(id TEXT PRIMARY KEY,bank_id TEXT,bank_title TEXT NOT NULL,created_at INTEGER NOT NULL,finished_at INTEGER,position INTEGER NOT NULL,mode TEXT NOT NULL);
+CREATE TABLE attempts(session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,ordinal INTEGER NOT NULL,question_id TEXT,snapshot TEXT NOT NULL CHECK(json_valid(snapshot)),answer TEXT NOT NULL DEFAULT 'null' CHECK(json_valid(answer)),auto_result INTEGER,result INTEGER,grade_kind TEXT NOT NULL DEFAULT 'ungraded',submitted_at INTEGER,skipped INTEGER NOT NULL DEFAULT 0,elapsed_ms INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(session_id,ordinal));
+CREATE INDEX attempts_question ON attempts(question_id,submitted_at DESC);
+PRAGMA user_version=1;
+COMMIT;

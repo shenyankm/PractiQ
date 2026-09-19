@@ -1,0 +1,30 @@
+[package]
+name = "practiq-desktop"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "practiq_desktop"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rusqlite = { version = "0.37", features = ["bundled", "backup"] }
+jsonschema = { version = "0.33", default-features = false }
+sha2 = "0.10"
+uuid = { version = "1", features = ["v4"] }
+rand = "0.9"
+base64 = "0.22"
+zip = { version = "4", default-features = false, features = ["deflate"] }
+
+tempfile = "3"
+tauri-plugin-single-instance = "2"
+keyring = { version = "3", features = ["apple-native"] }
+url = "2"
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }

@@ -1,0 +1,903 @@
+[
+  {
+    "name": "type-0",
+    "input": {
+      "questions": [
+        {
+          "stem": "下面哪一个是质数？",
+          "questionTypeId": "单选题",
+          "answerMode": "choice",
+          "choiceVariant": "single",
+          "options": [
+            {
+              "label": "A",
+              "content": "2"
+            },
+            {
+              "label": "B",
+              "content": "4"
+            }
+          ],
+          "answerPayload": {
+            "correctOption": "A"
+          },
+          "analysis": "2 只有 1 和自身两个正因数。",
+          "sourceText": "下面哪一个是质数？ A.2 B.4 答案 A",
+          "needsReview": false,
+          "confidence": 1,
+          "contentBlocks": [
+            {
+              "partType": "formula",
+              "latexValue": "2 + 2 = 4"
+            },
+            {
+              "partType": "table",
+              "markdownValue": "| 数字 | 是否质数 |\n| --- | --- |\n| 2 | 是 |\n| 4 | 否 |"
+            }
+          ]
+        }
+      ],
+      "groups": [],
+      "visualElements": [],
+      "warnings": [],
+      "confidenceScore": 50
+    },
+    "valid": true,
+    "missingFields": []
+  },
+  {
+    "name": "type-1",
+    "input": {
+      "questions": [
+        {
+          "stem": "请选择偶数。",
+          "questionTypeId": "choice",
+          "answerMode": "choice",
+          "answerPayload": {
+            "correct": [
+              "A",
+              "C"
+            ]
+          },
+          "analysis": "这是用于验证应用的人工编写示例。",
+          "sourceText": "请选择偶数。",
+          "needsReview": false,
+          "confidence": 1,
+          "choiceVariant": "multiple",
+          "options": [
+            {
+              "label": "A",
+              "content": "2"
+            },
+            {
+              "label": "B",
+              "content": "3"
+            },
+            {
+              "label": "C",
+              "content": "4"
+            }
+          ]
+        }
+      ],
+      "groups": [],
+      "visualElements": [],
+      "warnings": [],
+      "confidenceScore": 50
+    },
+    "valid": true,
+    "missingFields": []
+  },
+  {
+    "name": "type-2",
+    "input": {
+      "questions": [
+        {
+          "stem": "地球围绕太阳公转。",
+          "questionTypeId": "true_false",
+          "answerMode": "true_false",
+          "answerPayload": {
+            "value": true
+          },
+          "analysis": "这是用于验证应用的人工编写示例。",
+          "sourceText": "地球围绕太阳公转。",
+          "needsReview": false,
+          "confidence": 1
+        }
+      ],
+      "groups": [],
+      "visualElements": [],
+      "warnings": [],
+      "confidenceScore": 50
+    },
+    "valid": true,
+    "missingFields": []
+  },
+  {
+    "name": "type-3",
+    "input": {
+      "questions": [
+        {
+          "stem": "中国的首都是____。",
+          "questionTypeId": "fill_blank",
+          "answerMode": "fill_blank",
+          "answerPayload": {
+            "answers": [
+              "北京"
+            ]
+          },
+          "analysis": "这是用于验证应用的人工编写示例。",
+          "sourceText": "中国的首都是____。",
+          "needsReview": false,
+          "confidence": 1
+        }
+      ],
+      "groups": [],
+      "visualElements": [],
+      "warnings": [],
+      "confidenceScore": 50
+    },
+    "valid": true,
+    "missingFields": []
+  },
+  {
+    "name": "type-4",
+    "input": {
+      "questions": [
+        {
+          "stem": "简述你希望养成的学习习惯。",
+          "questionTypeId": "short_answer",
+          "answerMode": "short_answer",
+          "answerPayload": {
+            "text": "制定可执行的小目标，并定期复习。"
+          },
+          "analysis": "这是用于验证应用的人工编写示例。",
+          "sourceText": "简述你希望养成的学习习惯。",
+          "needsReview": false,
+          "confidence": 1
+        }
+      ],
+      "groups": [],
+      "visualElements": [],
+      "warnings": [],
+      "confidenceScore": 50
+    },
+    "valid": true,
+    "missingFields": []
+  },
+  {
+    "name": "type-5",
+    "input": {
+      "questions": [
+        {
+          "stem": "请将数字从小到大排序。",
+          "questionTypeId": "ordering",
+          "answerMode": "ordering",
+          "answerPayload": {
+            "order": [
+              1,
+              2,
+              0
+            ]
+          },
+          "analysis": "这是用于验证应用的人工编写示例。",
+          "sourceText": "请将数字从小到大排序。",
+          "needsReview": false,
+          "confidence": 1,
+          "items": [
+            {
+              "id": 0,
+              "content": "3"
+            },
+            {
+              "id": 1,
+              "content": "1"
+            },
+            {
+              "id": 2,
+              "content": "2"
+            }
+          ]
+        }
+      ],
+      "groups": [],
+      "visualElements": [],
+      "warnings": [],
+      "confidenceScore": 50
+    },
+    "valid": true,
+    "missingFields": []
+  },
+  {
+    "name": "type-6",
+    "input": {
+      "questions": [
+        {
+          "stem": "匹配英文与中文。",
+          "questionTypeId": "matching",
+          "answerMode": "matching",
+          "answerPayload": {
+            "matches": [
+              {
+                "left": 0,
+                "right": 1
+              },
+              {
+                "left": 1,
+                "right": 0
+              }
+            ]
+          },
+          "analysis": "这是用于验证应用的人工编写示例。",
+          "sourceText": "匹配英文与中文。",
+          "needsReview": false,
+          "confidence": 1,
+          "matchingVariant": "one_to_one",
+          "items": [
+            {
+              "id": 0,
+              "side": "left",
+              "content": "Apple"
+            },
+            {
+              "id": 1,
+              "side": "left",
+              "content": "Book"
+            },
+            {
+              "id": 0,
+              "side": "right",
+              "content": "书"
+            },
+            {
+              "id": 1,
+              "side": "right",
+              "content": "苹果"
+            }
+          ]
+        }
+      ],
+      "groups": [],
+      "visualElements": [],
+      "warnings": [],
+      "confidenceScore": 50
+    },
+    "valid": true,
+    "missingFields": []
+  },
+  {
+    "name": "type-7",
+    "input": {
+      "questions": [
+        {
+          "stem": "匹配数字与奇偶属性。",
+          "questionTypeId": "matching",
+          "answerMode": "matching",
+          "answerPayload": {
+            "matches": [
+              {
+                "left": 0,
+                "right": 0
+              },
+              {
+                "left": 1,
+                "right": 0
+              }
+            ]
+          },
+          "analysis": "这是用于验证应用的人工编写示例。",
+          "sourceText": "匹配数字与奇偶属性。",
+          "needsReview": false,
+          "confidence": 1,
+          "matchingVariant": "many_to_one",
+          "items": [
+            {
+              "id": 0,
+              "side": "left",
+              "content": "2"
+            },
+            {
+              "id": 1,
+              "side": "left",
+              "content": "4"
+            },
+            {
+              "id": 0,
+              "side": "right",
+              "content": "偶数"
+            },
+            {
+              "id": 1,
+              "side": "right",
+              "content": "奇数"
+            }
+          ]
+        }
+      ],
+      "groups": [],
+      "visualElements": [],
+      "warnings": [],
+      "confidenceScore": 50
+    },
+    "valid": true,
+    "missingFields": []
+  },
+  {
+    "name": "type-8",
+    "input": {
+      "questions": [
+        {
+          "stem": "观察 PractiQ 图标，描述你的印象。",
+          "questionTypeId": "short_answer",
+          "answerMode": "short_answer",
+          "answerPayload": null,
+          "analysis": "这是用于验证应用的人工编写示例。",
+          "sourceText": "观察 PractiQ 图标，描述你的印象。",
+          "needsReview": true,
+          "confidence": 1
+        }
+      ],
+      "groups": [],
+      "visualElements": [],
+      "warnings": [],
+      "confidenceScore": 50
+    },
+    "valid": true,
+    "missingFields": [
+      "answerPayload"
+    ]
+  },
+  {
+    "name": "null-answer",
+    "input": {
+      "questions": [
+        {
+          "stem": "下面哪一个是质数？",
+          "questionTypeId": "单选题",
+          "answerMode": "choice",
+          "choiceVariant": "single",
+          "options": [
+            {
+              "label": "A",
+              "content": "2"
+            },
+            {
+              "label": "B",
+              "content": "4"
+            }
+          ],
+          "answerPayload": null,
+          "analysis": "2 只有 1 和自身两个正因数。",
+          "sourceText": "下面哪一个是质数？ A.2 B.4 答案 A",
+          "needsReview": false,
+          "confidence": 1,
+          "contentBlocks": [
+            {
+              "partType": "formula",
+              "latexValue": "2 + 2 = 4"
+            },
+            {
+              "partType": "table",
+              "markdownValue": "| 数字 | 是否质数 |\n| --- | --- |\n| 2 | 是 |\n| 4 | 否 |"
+            }
+          ]
+        }
+      ],
+      "groups": [],
+      "visualElements": [],
+      "warnings": [],
+      "confidenceScore": 50
+    },
+    "valid": true,
+    "missingFields": [
+      "answerPayload"
+    ]
+  },
+  {
+    "name": "partial-answer",
+    "input": {
+      "questions": [
+        {
+          "stem": "下面哪一个是质数？",
+          "questionTypeId": "单选题",
+          "answerMode": "choice",
+          "choiceVariant": "single",
+          "options": [
+            {
+              "label": "A",
+              "content": "2"
+            },
+            {
+              "label": "B",
+              "content": "4"
+            }
+          ],
+          "answerPayload": {
+            "correctOption": null
+          },
+          "analysis": "2 只有 1 和自身两个正因数。",
+          "sourceText": "下面哪一个是质数？ A.2 B.4 答案 A",
+          "needsReview": false,
+          "confidence": 1,
+          "contentBlocks": [
+            {
+              "partType": "formula",
+              "latexValue": "2 + 2 = 4"
+            },
+            {
+              "partType": "table",
+              "markdownValue": "| 数字 | 是否质数 |\n| --- | --- |\n| 2 | 是 |\n| 4 | 否 |"
+            }
+          ]
+        }
+      ],
+      "groups": [],
+      "visualElements": [],
+      "warnings": [],
+      "confidenceScore": 50
+    },
+    "valid": true,
+    "missingFields": [
+      "answerPayload"
+    ]
+  },
+  {
+    "name": "blank-answer",
+    "input": {
+      "questions": [
+        {
+          "stem": "下面哪一个是质数？",
+          "questionTypeId": "单选题",
+          "answerMode": "choice",
+          "choiceVariant": "single",
+          "options": [
+            {
+              "label": "A",
+              "content": "2"
+            },
+            {
+              "label": "B",
+              "content": "4"
+            }
+          ],
+          "answerPayload": {
+            "correctOption": " "
+          },
+          "analysis": "2 只有 1 和自身两个正因数。",
+          "sourceText": "下面哪一个是质数？ A.2 B.4 答案 A",
+          "needsReview": false,
+          "confidence": 1,
+          "contentBlocks": [
+            {
+              "partType": "formula",
+              "latexValue": "2 + 2 = 4"
+            },
+            {
+              "partType": "table",
+              "markdownValue": "| 数字 | 是否质数 |\n| --- | --- |\n| 2 | 是 |\n| 4 | 否 |"
+            }
+          ]
+        }
+      ],
+      "groups": [],
+      "visualElements": [],
+      "warnings": [],
+      "confidenceScore": 50
+    },
+    "valid": true,
+    "missingFields": [
+      "answerPayload"
+    ]
+  },
+  {
+    "name": "missing-fields",
+    "input": {
+      "questions": [
+        {
+          "stem": null,
+          "questionTypeId": "单选题",
+          "answerMode": "choice",
+          "choiceVariant": "single",
+          "options": [
+            {
+              "label": "A",
+              "content": "2"
+            },
+            {
+              "label": "B",
+              "content": "4"
+            }
+          ],
+          "answerPayload": {
+            "correctOption": "A"
+          },
+          "analysis": null,
+          "sourceText": "下面哪一个是质数？ A.2 B.4 答案 A",
+          "needsReview": false,
+          "confidence": 1,
+          "contentBlocks": [
+            {
+              "partType": "formula",
+              "latexValue": "2 + 2 = 4"
+            },
+            {
+              "partType": "table",
+              "markdownValue": "| 数字 | 是否质数 |\n| --- | --- |\n| 2 | 是 |\n| 4 | 否 |"
+            }
+          ]
+        }
+      ],
+      "groups": [],
+      "visualElements": [],
+      "warnings": [],
+      "confidenceScore": 50
+    },
+    "valid": true,
+    "missingFields": [
+      "stem",
+      "analysis"
+    ]
+  },
+  {
+    "name": "case-answer",
+    "input": {
+      "questions": [
+        {
+          "stem": "下面哪一个是质数？",
+          "questionTypeId": "单选题",
+          "answerMode": "choice",
+          "choiceVariant": "single",
+          "options": [
+            {
+              "label": "A",
+              "content": "2"
+            },
+            {
+              "label": "B",
+              "content": "4"
+            }
+          ],
+          "answerPayload": {
+            "correctOption": "a"
+          },
+          "analysis": "2 只有 1 和自身两个正因数。",
+          "sourceText": "下面哪一个是质数？ A.2 B.4 答案 A",
+          "needsReview": false,
+          "confidence": 1,
+          "contentBlocks": [
+            {
+              "partType": "formula",
+              "latexValue": "2 + 2 = 4"
+            },
+            {
+              "partType": "table",
+              "markdownValue": "| 数字 | 是否质数 |\n| --- | --- |\n| 2 | 是 |\n| 4 | 否 |"
+            }
+          ]
+        }
+      ],
+      "groups": [],
+      "visualElements": [],
+      "warnings": [],
+      "confidenceScore": 50
+    },
+    "valid": true,
+    "missingFields": []
+  },
+  {
+    "name": "unknown-option",
+    "input": {
+      "questions": [
+        {
+          "stem": "下面哪一个是质数？",
+          "questionTypeId": "单选题",
+          "answerMode": "choice",
+          "choiceVariant": "single",
+          "options": [
+            {
+              "label": "A",
+              "content": "2"
+            },
+            {
+              "label": "B",
+              "content": "4"
+            }
+          ],
+          "answerPayload": {
+            "correctOption": "Z"
+          },
+          "analysis": "2 只有 1 和自身两个正因数。",
+          "sourceText": "下面哪一个是质数？ A.2 B.4 答案 A",
+          "needsReview": false,
+          "confidence": 1,
+          "contentBlocks": [
+            {
+              "partType": "formula",
+              "latexValue": "2 + 2 = 4"
+            },
+            {
+              "partType": "table",
+              "markdownValue": "| 数字 | 是否质数 |\n| --- | --- |\n| 2 | 是 |\n| 4 | 否 |"
+            }
+          ]
+        }
+      ],
+      "groups": [],
+      "visualElements": [],
+      "warnings": [],
+      "confidenceScore": 50
+    },
+    "valid": false,
+    "missingFields": null
+  },
+  {
+    "name": "wrong-payload-type",
+    "input": {
+      "questions": [
+        {
+          "stem": "下面哪一个是质数？",
+          "questionTypeId": "单选题",
+          "answerMode": "choice",
+          "choiceVariant": "single",
+          "options": [
+            {
+              "label": "A",
+              "content": "2"
+            },
+            {
+              "label": "B",
+              "content": "4"
+            }
+          ],
+          "answerPayload": {
+            "correctOption": 1
+          },
+          "analysis": "2 只有 1 和自身两个正因数。",
+          "sourceText": "下面哪一个是质数？ A.2 B.4 答案 A",
+          "needsReview": false,
+          "confidence": 1,
+          "contentBlocks": [
+            {
+              "partType": "formula",
+              "latexValue": "2 + 2 = 4"
+            },
+            {
+              "partType": "table",
+              "markdownValue": "| 数字 | 是否质数 |\n| --- | --- |\n| 2 | 是 |\n| 4 | 否 |"
+            }
+          ]
+        }
+      ],
+      "groups": [],
+      "visualElements": [],
+      "warnings": [],
+      "confidenceScore": 50
+    },
+    "valid": false,
+    "missingFields": null
+  },
+  {
+    "name": "boolean-as-answer",
+    "input": {
+      "questions": [
+        {
+          "stem": "下面哪一个是质数？",
+          "questionTypeId": "单选题",
+          "answerMode": "choice",
+          "choiceVariant": "single",
+          "options": [
+            {
+              "label": "A",
+              "content": "2"
+            },
+            {
+              "label": "B",
+              "content": "4"
+            }
+          ],
+          "answerPayload": true,
+          "analysis": "2 只有 1 和自身两个正因数。",
+          "sourceText": "下面哪一个是质数？ A.2 B.4 答案 A",
+          "needsReview": false,
+          "confidence": 1,
+          "contentBlocks": [
+            {
+              "partType": "formula",
+              "latexValue": "2 + 2 = 4"
+            },
+            {
+              "partType": "table",
+              "markdownValue": "| 数字 | 是否质数 |\n| --- | --- |\n| 2 | 是 |\n| 4 | 否 |"
+            }
+          ]
+        }
+      ],
+      "groups": [],
+      "visualElements": [],
+      "warnings": [],
+      "confidenceScore": 50
+    },
+    "valid": false,
+    "missingFields": null
+  },
+  {
+    "name": "unknown-field",
+    "input": {
+      "questions": [
+        {
+          "stem": "下面哪一个是质数？",
+          "questionTypeId": "单选题",
+          "answerMode": "choice",
+          "choiceVariant": "single",
+          "options": [
+            {
+              "label": "A",
+              "content": "2"
+            },
+            {
+              "label": "B",
+              "content": "4"
+            }
+          ],
+          "answerPayload": {
+            "correctOption": "A"
+          },
+          "analysis": "2 只有 1 和自身两个正因数。",
+          "sourceText": "下面哪一个是质数？ A.2 B.4 答案 A",
+          "needsReview": false,
+          "confidence": 1,
+          "contentBlocks": [
+            {
+              "partType": "formula",
+              "latexValue": "2 + 2 = 4"
+            },
+            {
+              "partType": "table",
+              "markdownValue": "| 数字 | 是否质数 |\n| --- | --- |\n| 2 | 是 |\n| 4 | 否 |"
+            }
+          ],
+          "invented": "value"
+        }
+      ],
+      "groups": [],
+      "visualElements": [],
+      "warnings": [],
+      "confidenceScore": 50
+    },
+    "valid": false,
+    "missingFields": null
+  },
+  {
+    "name": "duplicate-label",
+    "input": {
+      "questions": [
+        {
+          "stem": "下面哪一个是质数？",
+          "questionTypeId": "单选题",
+          "answerMode": "choice",
+          "choiceVariant": "single",
+          "options": [
+            {
+              "label": "A",
+              "content": "one"
+            },
+            {
+              "label": "a",
+              "content": "two"
+            }
+          ],
+          "answerPayload": {
+            "correctOption": "A"
+          },
+          "analysis": "2 只有 1 和自身两个正因数。",
+          "sourceText": "下面哪一个是质数？ A.2 B.4 答案 A",
+          "needsReview": false,
+          "confidence": 1,
+          "contentBlocks": [
+            {
+              "partType": "formula",
+              "latexValue": "2 + 2 = 4"
+            },
+            {
+              "partType": "table",
+              "markdownValue": "| 数字 | 是否质数 |\n| --- | --- |\n| 2 | 是 |\n| 4 | 否 |"
+            }
+          ]
+        }
+      ],
+      "groups": [],
+      "visualElements": [],
+      "warnings": [],
+      "confidenceScore": 50
+    },
+    "valid": false,
+    "missingFields": null
+  },
+  {
+    "name": "wrong-mode-payload",
+    "input": {
+      "questions": [
+        {
+          "stem": "下面哪一个是质数？",
+          "questionTypeId": "单选题",
+          "answerMode": "choice",
+          "choiceVariant": "single",
+          "options": [
+            {
+              "label": "A",
+              "content": "2"
+            },
+            {
+              "label": "B",
+              "content": "4"
+            }
+          ],
+          "answerPayload": {
+            "value": true
+          },
+          "analysis": "2 只有 1 和自身两个正因数。",
+          "sourceText": "下面哪一个是质数？ A.2 B.4 答案 A",
+          "needsReview": false,
+          "confidence": 1,
+          "contentBlocks": [
+            {
+              "partType": "formula",
+              "latexValue": "2 + 2 = 4"
+            },
+            {
+              "partType": "table",
+              "markdownValue": "| 数字 | 是否质数 |\n| --- | --- |\n| 2 | 是 |\n| 4 | 否 |"
+            }
+          ]
+        }
+      ],
+      "groups": [],
+      "visualElements": [],
+      "warnings": [],
+      "confidenceScore": 50
+    },
+    "valid": false,
+    "missingFields": null
+  },
+  {
+    "name": "empty-content-block",
+    "input": {
+      "questions": [
+        {
+          "stem": "下面哪一个是质数？",
+          "questionTypeId": "单选题",
+          "answerMode": "choice",
+          "choiceVariant": "single",
+          "options": [
+            {
+              "label": "A",
+              "content": "2"
+            },
+            {
+              "label": "B",
+              "content": "4"
+            }
+          ],
+          "answerPayload": {
+            "correctOption": "A"
+          },
+          "analysis": "2 只有 1 和自身两个正因数。",
+          "sourceText": "下面哪一个是质数？ A.2 B.4 答案 A",
+          "needsReview": false,
+          "confidence": 1,
+          "contentBlocks": [
+            {
+              "partType": "text"
+            }
+          ]
+        }
+      ],
+      "groups": [],
+      "visualElements": [],
+      "warnings": [],
+      "confidenceScore": 50
+    },
+    "valid": false,
+    "missingFields": null
+  }
+]

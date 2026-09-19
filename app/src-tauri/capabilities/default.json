@@ -1,0 +1,11 @@
+{
+  "identifier": "desktop",
+  "description": "Local desktop window only",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:default",
+    "core:window:allow-destroy"
+  ]
+}

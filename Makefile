@@ -37,3 +37,24 @@ audit:
 	"$(AI_PYTHON)" -m pip_audit --strict --disable-pip --no-deps -r "$$requirements"
 image-check:
 	docker build -f Dockerfile.server -t practiq-ai:ci .
+
+.PHONY: app-install app-dev app-check app-build
+app-install:
+	cd app && npm ci
+app-dev:
+	cd app && npm run desktop
+app-check:
+	"$(AI_PYTHON)" app/scripts/export-contracts.py --check
+	"$(AI_PYTHON)" app/scripts/check-fixtures.py
+	cd app && npm run check
+app-build: app-bundle
+	cd app && npm run tauri -- build
+
+.PHONY: app-bundle app-install-python
+app-install-python:
+	@set -eu; requirements=$$(mktemp); trap 'rm -f "$$requirements"' EXIT; \
+	cd server; uv export --locked --extra desktop --no-emit-project --python "$(AI_PYTHON)" -o "$$requirements" >/dev/null; \
+	uv pip install --break-system-packages --python "$(AI_PYTHON)" -r "$$requirements"; \
+	uv pip install --break-system-packages --python "$(AI_PYTHON)" --no-deps -e .
+app-bundle:
+	"$(AI_PYTHON)" app/scripts/bundle-python.py

@@ -185,3 +185,13 @@ temp/
 .coverage.*
 coverage.xml
 htmlcov/
+
+# Tauri desktop build output
+/app/dist/
+/app/src-tauri/target/
+/app/src-tauri/gen/
+/app/*.zip
+
+# Generated native desktop dependencies
+app/src-tauri/bundled/
+app/.build/

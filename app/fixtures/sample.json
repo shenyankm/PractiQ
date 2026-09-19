@@ -1,0 +1,329 @@
+{
+  "questions": [
+    {
+      "stem": "下面哪一个是质数？",
+      "answerMode": "choice",
+      "questionTypeId": "单选题",
+      "choiceVariant": "single",
+      "matchingVariant": null,
+      "items": [],
+      "options": [
+        {
+          "label": "A",
+          "content": "2",
+          "isCorrect": null
+        },
+        {
+          "label": "B",
+          "content": "4",
+          "isCorrect": null
+        }
+      ],
+      "answerPayload": {
+        "correctOption": "A"
+      },
+      "analysis": "2 只有 1 和自身两个正因数。",
+      "contentBlocks": [
+        {
+          "partType": "formula",
+          "role": null,
+          "textValue": null,
+          "markdownValue": null,
+          "latexValue": "2 + 2 = 4",
+          "jsonValue": null
+        },
+        {
+          "partType": "table",
+          "role": null,
+          "textValue": null,
+          "markdownValue": "| 数字 | 是否质数 |\n| --- | --- |\n| 2 | 是 |\n| 4 | 否 |",
+          "latexValue": null,
+          "jsonValue": null
+        }
+      ],
+      "sourceText": "下面哪一个是质数？ A.2 B.4 答案 A",
+      "confidence": 1.0,
+      "needsReview": false,
+      "missingFields": []
+    },
+    {
+      "stem": "请选择偶数。",
+      "answerMode": "choice",
+      "questionTypeId": "choice",
+      "choiceVariant": "multiple",
+      "matchingVariant": null,
+      "items": [],
+      "options": [
+        {
+          "label": "A",
+          "content": "2",
+          "isCorrect": null
+        },
+        {
+          "label": "B",
+          "content": "3",
+          "isCorrect": null
+        },
+        {
+          "label": "C",
+          "content": "4",
+          "isCorrect": null
+        }
+      ],
+      "answerPayload": {
+        "correct": [
+          "A",
+          "C"
+        ]
+      },
+      "analysis": "这是用于验证应用的人工编写示例。",
+      "contentBlocks": [],
+      "sourceText": "请选择偶数。",
+      "confidence": 1.0,
+      "needsReview": false,
+      "missingFields": []
+    },
+    {
+      "stem": "地球围绕太阳公转。",
+      "answerMode": "true_false",
+      "questionTypeId": "true_false",
+      "choiceVariant": null,
+      "matchingVariant": null,
+      "items": [],
+      "options": [],
+      "answerPayload": {
+        "value": true
+      },
+      "analysis": "这是用于验证应用的人工编写示例。",
+      "contentBlocks": [],
+      "sourceText": "地球围绕太阳公转。",
+      "confidence": 1.0,
+      "needsReview": false,
+      "missingFields": []
+    },
+    {
+      "stem": "中国的首都是____。",
+      "answerMode": "fill_blank",
+      "questionTypeId": "fill_blank",
+      "choiceVariant": null,
+      "matchingVariant": null,
+      "items": [],
+      "options": [],
+      "answerPayload": {
+        "answers": [
+          "北京"
+        ]
+      },
+      "analysis": "这是用于验证应用的人工编写示例。",
+      "contentBlocks": [],
+      "sourceText": "中国的首都是____。",
+      "confidence": 1.0,
+      "needsReview": false,
+      "missingFields": []
+    },
+    {
+      "stem": "简述你希望养成的学习习惯。",
+      "answerMode": "short_answer",
+      "questionTypeId": "short_answer",
+      "choiceVariant": null,
+      "matchingVariant": null,
+      "items": [],
+      "options": [],
+      "answerPayload": {
+        "text": "制定可执行的小目标，并定期复习。"
+      },
+      "analysis": "这是用于验证应用的人工编写示例。",
+      "contentBlocks": [],
+      "sourceText": "简述你希望养成的学习习惯。",
+      "confidence": 1.0,
+      "needsReview": false,
+      "missingFields": []
+    },
+    {
+      "stem": "请将数字从小到大排序。",
+      "answerMode": "ordering",
+      "questionTypeId": "ordering",
+      "choiceVariant": null,
+      "matchingVariant": null,
+      "items": [
+        {
+          "id": 0,
+          "side": null,
+          "content": "3"
+        },
+        {
+          "id": 1,
+          "side": null,
+          "content": "1"
+        },
+        {
+          "id": 2,
+          "side": null,
+          "content": "2"
+        }
+      ],
+      "options": [],
+      "answerPayload": {
+        "order": [
+          1,
+          2,
+          0
+        ]
+      },
+      "analysis": "这是用于验证应用的人工编写示例。",
+      "contentBlocks": [],
+      "sourceText": "请将数字从小到大排序。",
+      "confidence": 1.0,
+      "needsReview": false,
+      "missingFields": []
+    },
+    {
+      "stem": "匹配英文与中文。",
+      "answerMode": "matching",
+      "questionTypeId": "matching",
+      "choiceVariant": null,
+      "matchingVariant": "one_to_one",
+      "items": [
+        {
+          "id": 0,
+          "side": "left",
+          "content": "Apple"
+        },
+        {
+          "id": 1,
+          "side": "left",
+          "content": "Book"
+        },
+        {
+          "id": 0,
+          "side": "right",
+          "content": "书"
+        },
+        {
+          "id": 1,
+          "side": "right",
+          "content": "苹果"
+        }
+      ],
+      "options": [],
+      "answerPayload": {
+        "matches": [
+          {
+            "left": 0,
+            "right": 1
+          },
+          {
+            "left": 1,
+            "right": 0
+          }
+        ]
+      },
+      "analysis": "这是用于验证应用的人工编写示例。",
+      "contentBlocks": [],
+      "sourceText": "匹配英文与中文。",
+      "confidence": 1.0,
+      "needsReview": false,
+      "missingFields": []
+    },
+    {
+      "stem": "匹配数字与奇偶属性。",
+      "answerMode": "matching",
+      "questionTypeId": "matching",
+      "choiceVariant": null,
+      "matchingVariant": "many_to_one",
+      "items": [
+        {
+          "id": 0,
+          "side": "left",
+          "content": "2"
+        },
+        {
+          "id": 1,
+          "side": "left",
+          "content": "4"
+        },
+        {
+          "id": 0,
+          "side": "right",
+          "content": "偶数"
+        },
+        {
+          "id": 1,
+          "side": "right",
+          "content": "奇数"
+        }
+      ],
+      "options": [],
+      "answerPayload": {
+        "matches": [
+          {
+            "left": 0,
+            "right": 0
+          },
+          {
+            "left": 1,
+            "right": 0
+          }
+        ]
+      },
+      "analysis": "这是用于验证应用的人工编写示例。",
+      "contentBlocks": [],
+      "sourceText": "匹配数字与奇偶属性。",
+      "confidence": 1.0,
+      "needsReview": false,
+      "missingFields": []
+    },
+    {
+      "stem": "观察 PractiQ 图标，描述你的印象。",
+      "answerMode": "short_answer",
+      "questionTypeId": "short_answer",
+      "choiceVariant": null,
+      "matchingVariant": null,
+      "items": [],
+      "options": [],
+      "answerPayload": null,
+      "analysis": "这是用于验证应用的人工编写示例。",
+      "contentBlocks": [],
+      "sourceText": "观察 PractiQ 图标，描述你的印象。",
+      "confidence": 1.0,
+      "needsReview": true,
+      "missingFields": [
+        "answerPayload"
+      ]
+    }
+  ],
+  "groups": [
+    {
+      "title": "基础知识练习",
+      "instructions": "阅读各题并按要求作答。",
+      "questionIndexes": [
+        0,
+        1,
+        2
+      ]
+    }
+  ],
+  "visualElements": [
+    {
+      "questionIndexes": [
+        8
+      ],
+      "kind": "image",
+      "label": null,
+      "description": "PractiQ 章鱼图标。",
+      "extractedText": null,
+      "page": null,
+      "bbox": null,
+      "imageRef": {
+        "objectKey": "practiq-agent/artifacts/194d631965b1f86c4cf32eac39eee06a6a0523a127204b3995999240546deeaa/fixture/0-194d631965b1f86c4cf32eac39eee06a6a0523a127204b3995999240546deeaa.png",
+        "sha256": "194d631965b1f86c4cf32eac39eee06a6a0523a127204b3995999240546deeaa",
+        "mediaType": "image/png",
+        "sizeBytes": 993895
+      }
+    }
+  ],
+  "warnings": [
+    "本文件是人工编写的应用验收样例，不代表模型准确率。"
+  ],
+  "confidenceScore": 100.0
+}

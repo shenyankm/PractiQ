@@ -1,0 +1,43 @@
+name: Desktop
+on:
+  push:
+    paths: ['app/**', 'server/**', 'Makefile', '.github/workflows/desktop.yml']
+  pull_request:
+    paths: ['app/**', 'server/**', 'Makefile', '.github/workflows/desktop.yml']
+permissions:
+  contents: read
+jobs:
+  macos:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: '0.12.13'
+      - run: make install-locked app-install-python AI_PYTHON=python
+      - run: make app-install
+      - run: make app-check AI_PYTHON=python
+      - run: cargo fmt --manifest-path app/src-tauri/Cargo.toml --check
+      - run: make app-build AI_PYTHON=python
+      - run: python app/scripts/check-bundle.py --bundle app/src-tauri/target/release/bundle/macos/PractiQ.app/Contents/Resources/bundled
+      - run: ditto -c -k --keepParent app/src-tauri/target/release/bundle/macos/PractiQ.app app/PractiQ-macOS.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PractiQ-macOS
+          path: |
+            app/PractiQ-macOS.zip
+            app/src-tauri/target/release/bundle/dmg/*.dmg
+            server/reports/checks/desktop-bundle.json
+            app/src-tauri/bundled/build-manifest.json
