@@ -1,3 +1,5 @@
+> 历史设计记录：其中 Agent Server / Redis / 原生 API 部分已被开源运行时替换。当前接口与部署以 [document-tasks.md](document-tasks.md) 和 [operations.md](operations.md) 为准。
+
 # Add durable pause, resume and failed-unit retry for document tasks
 
 Issue draft; not published.
@@ -18,7 +20,7 @@ Persist model attempts and usage independently from downstream artifact writes.
 Reject incompatible execution snapshots and keep historical tasks on their old
 deployment instead of migrating checkpoints.
 
-All formats use one vision model. PDF/DOCX/image pages directly produce structured
+TXT/CSV use the required text model; other formats use the required vision model. XLSX combines cells and visual views per worksheet. PDF/DOCX/image pages directly produce structured
 questions and figures; remove OCR transcription and the second text-model pass.
 Preserve successful pages during failed-page retry.
 

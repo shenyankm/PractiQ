@@ -168,12 +168,20 @@ temp/
 .ruff_cache/
 .langgraph_api/
 *.egg-info/
-/server/dist/
+/server/**/dist/
 /server/reports/checks/
 /server/reports/evaluations/*/
 /server/reports/reviews/
-/server/.codex/
-/server/.qoder/
+/server/**/.codex
+/server/**/.qoder
 
 # Local agent workspace data
 .workbuddy/
+
+# Server build and diagnostic output
+/server/**/build/
+.mypy_cache/
+.pyright/
+.coverage.*
+coverage.xml
+htmlcov/

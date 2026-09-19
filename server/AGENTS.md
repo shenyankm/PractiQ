@@ -2,14 +2,14 @@
 
 ## Project Structure & Module Organization
 
-Application code lives in `src/practiq_ai/`. `webapp.py` exposes authenticated upload and artifact routes, `auth.py` handles Agent Server authentication, and `config.py` loads environment settings. Workflows live in `graphs/`, format readers in `extractors/`, and shared models in `contracts.py`. Do not add another parser or restore product APIs. Tests live in `tests/`; graph registration and TTL settings live in `langgraph.json`.
+Application code lives in `src/practiq_ai/`. `webapp.py` exposes authenticated upload and artifact routes, `auth.py` handles shared Bearer authentication, and `config.py` loads environment settings. Workflows live in `graphs/`, format readers in `extractors/`, and shared models in `contracts.py`. Do not add another parser or restore product APIs. Tests live in `tests/`; graph registration lives in `runtime.py`; PostgreSQL task records live in `database.py`.
 
 ## Build, Test, and Development Commands
 
-- `cp .env.example .env` creates a local configuration template; replace placeholders locally and never commit `.env`.
+- `cp -n ../.env.example ../.env` creates a local configuration template; replace placeholders locally and never commit `.env`.
 - Use an existing Python 3.14+ environment. Do not create a project `.venv`.
 - `uv pip install --python "$(command -v python)" -e ".[dev]"` installs project dependencies into the active Python environment. CI continues to use `uv.lock`.
-- `langgraph dev --no-browser --host 127.0.0.1 --port 8090` starts the local Agent Server with four format-specific graphs and the compatible `document_parser` graph.
+- `make server-dev` from the root starts the single-process Uvicorn service. Initialize a new PostgreSQL database explicitly with `make init-db`; no in-memory runtime fallback.
 - `python -m pytest` runs the complete test suite.
 - `python -m pytest tests/test_documents.py` runs one focused test module while iterating.
 - `uv build` creates source and wheel distributions under `dist/`.
@@ -20,7 +20,7 @@ Use four-space indentation, type annotations, and small modules with explicit re
 
 ## Testing Guidelines
 
-Tests use pytest with `pytest-asyncio` in automatic mode. Name tests `test_<behavior>` and keep fixtures or fakes close to the scenarios that use them. Cover success paths, validation failures, resumability, and storage/checksum boundaries when changing workflows. Tests must not call real LLM services; monkeypatch those integrations as existing tests do. The configured coverage threshold is 90%; every behavior change should have a focused regression test.
+Tests use pytest with `pytest-asyncio` in automatic mode. Name tests `test_<behavior>` and keep fixtures or fakes close to the scenarios that use them. Cover success paths, validation failures, resumability, and storage/checksum boundaries when changing workflows. Runtime tests use disposable PostgreSQL databases; tests must not call real LLM services; monkeypatch those integrations as existing tests do. The configured coverage threshold is 90%; every behavior change should have a focused regression test.
 
 ## Commit & Pull Request Guidelines
 

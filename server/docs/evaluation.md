@@ -3,7 +3,7 @@
 以下命令使用已有 Python 3.14+ 环境，并在 `server/` 下运行。
 
 评测沿用真实的本地文件写入和 `document_parser`，在本地直接调用 Graph，使用内存 checkpoint。
-它评估文档中题目与原文答案的提取质量；Agent Server HTTP、持久恢复和容量由现有工程测试及压测负责。
+它评估文档中题目与原文答案的提取质量；业务 HTTP、持久恢复和容量由现有工程测试及压测负责。
 本评测不接入 LangSmith，不使用 LLM 裁判，也不自动修改提示词或发布版本。
 
 ## 数据集与人工金标
@@ -105,18 +105,20 @@ CI 同时检查六种格式、四种题型、七类难例，以及每个 fixture
 
 ## 运行、比较与保存
 
+以下命令在 `server/` 中执行，环境配置统一读取仓库根目录 `.env`。
+
 ```bash
 # 单次冒烟；--case 可重复指定。
-python -m dotenv -f .env run -- python scripts/evaluate.py --case text-basic
+python -m dotenv -f ../.env run -- python scripts/evaluate.py --case text-basic
 
 # 调试时只使用回归集；默认不指定 split 时运行全部案例。
-python -m dotenv -f .env run -- python scripts/evaluate.py --split regression
+python -m dotenv -f ../.env run -- python scripts/evaluate.py --split regression
 
 # 正式基线或候选运行：每个案例三次，每次使用独立 thread。
-python -m dotenv -f .env run -- python scripts/evaluate.py --repetitions 3
+python -m dotenv -f ../.env run -- python scripts/evaluate.py --repetitions 3
 
 # 用实际基线报告路径替换占位符。
-python -m dotenv -f .env run -- python scripts/evaluate.py --repetitions 3 \
+python -m dotenv -f ../.env run -- python scripts/evaluate.py --repetitions 3 \
   --baseline 'reports/evaluations/<baseline-run-id>/report.json'
 
 # 比较已有报告，不需要 .env，不会调用模型或本地存储。
@@ -152,8 +154,7 @@ python scripts/evaluate.py --probes reports/checks/probes.xml
 探针复用恢复、预算、引用校验、转换器、相似来源和结构化输出测试，区分恢复成功率、
 正确停止率、路由通过率与未知用量保留。每个参数化场景是一条观测；缺失、跳过或 setup
 失败不算通过。JUnit 记录代码和测试指纹，过期证据返回 BLOCKED。不会导出测试异常正文。
-这些结果只证明确定性故障测试；真实进程重启为 NOT_ASSESSED，必须另外完成
-document-tasks.md 的隔离 Agent Server/PostgreSQL/Redis、local/OSS 演练。
+这些结果只证明确定性故障测试；此探针摘要的真实进程重启仍标为 NOT_ASSESSED；进程强杀/恢复由 tests/test_agent_server.py 的隔离 PostgreSQL 测试单独证明，不能代替真实 OSS 验收。
 
 运行日志中的 `review_candidate` 只含任务标识、格式、状态和错误码。将 `practiq.events`
 的消息内容按 JSONL 保存到本地持久日志目录后生成复核清单：

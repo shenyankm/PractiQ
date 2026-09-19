@@ -2,7 +2,7 @@
 
 ## Architecture
 
-`server/src/practiq_ai/` is the sole Python 3.14+ LangGraph AI document import service. Keep its format extractors, shared parser graphs, structured contracts, local/OSS file storage and model usage accounting together. `webapp.py` exposes authenticated upload and artifact routes; Agent Server provides runs, checkpoints and `/ok` health checks.
+`server/src/practiq_ai/` is the sole Python 3.14+ LangGraph AI document import service. Keep its format extractors, shared parser graphs, structured contracts, local/OSS file storage and model usage accounting together. `webapp.py` exposes authenticated upload and artifact routes; The single-process open-source LangGraph runtime owns a PostgreSQL task queue, checkpoints and Store; `/ok` and `/ready` are health checks. Do not restore official Agent Server APIs or Redis.
 
 There is no frontend, product backend, product database, login, billing, answer generation or learning report. Material-question groups are document content, not study groups. Do not restore removed product compatibility APIs.
 
@@ -10,9 +10,9 @@ There is no frontend, product backend, product database, login, billing, answer 
 
 - Use an existing Python 3.14+ interpreter; no project `.venv`. Set `AI_PYTHON` when needed.
 - `make install`: install AI and development dependencies into that interpreter.
-- `make server-dev`: run the Agent Server on loopback, loading `server/.env`.
+- `make server-dev`: run Uvicorn on loopback with PostgreSQL, loading `.env`.
 - `make test` / `make test-server`: AI tests without external model calls.
-- `make verify`: Ruff, Pyright, evaluation fixture validation, tests with coverage, graph validation and package build.
+- `make verify`: Ruff, Pyright, evaluation fixture validation, tests with coverage, runtime recovery checks and package build.
 
 ## Boundaries
 
