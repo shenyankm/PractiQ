@@ -23,7 +23,7 @@ from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.graphs import document
 from practiq_ai.graphs.chunking import split_into_chunks
 from scripts import evaluate as ev
-from tests.test_workflows import FakeObjectStore
+from tests.support import FakeObjectStore
 
 
 def question(stem: str = "1. What is 2 + 2?") -> dict:
@@ -515,7 +515,7 @@ def test_visual_page_is_part_of_identity():
 
 
 async def test_visual_artifact_reads_verify_checksums_and_decode(monkeypatch):
-    from tests.test_workflows import make_image
+    from tests.support import make_image
 
     store = FakeObjectStore({})
     ref = await store.put_artifact(make_image(), source_sha256="a" * 64, kind="crop", index=0, media_type="image/png")

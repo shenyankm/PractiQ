@@ -12,7 +12,7 @@ import httpx
 import pytest
 
 from scripts import load_test, storage_gc
-from tests.test_storage import object_store, upload
+from tests.support import object_store, upload
 
 
 def test_dev_launcher_uses_single_oss_process(tmp_path):
@@ -28,6 +28,7 @@ def test_dev_launcher_uses_single_oss_process(tmp_path):
     assert args[args.index('--env-file') + 1] == '../.env'
 
 
+@pytest.mark.usefixtures("disposable_databases")
 async def test_cleanup_keeps_historical_references_and_quarantines_only_old_orphans(tmp_path):
     store = object_store(tmp_path)
     referenced = await store.put_document(b"referenced", upload(b"referenced"))
@@ -59,6 +60,7 @@ async def test_cleanup_keeps_historical_references_and_quarantines_only_old_orph
     assert not (tmp_path / orphan.objectKey).exists()
 
 
+@pytest.mark.usefixtures("disposable_databases")
 async def test_cleanup_fails_closed_and_preserves_inventory_before_mutation(tmp_path, monkeypatch):
     store = object_store(tmp_path)
     orphan = await store.put_document(b"orphan", upload(b"orphan"))

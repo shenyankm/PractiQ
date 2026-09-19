@@ -6,7 +6,7 @@ from pathlib import Path
 from practiq_ai import runtime
 from practiq_ai.graphs import document
 from practiq_ai.webapp import app
-from tests.test_workflows import FakeModel, question
+from tests.support import FakeModel, question
 
 root = Path(os.environ['TEST_EVENTS'])
 root.mkdir(exist_ok=True)
@@ -38,7 +38,10 @@ class Model(FakeModel):
         async def invoke(messages):
             # The application has already persisted the started/unknown call record.
             await block_once('model')
-            return await runner.ainvoke(messages)
+            result = await runner.ainvoke(messages)
+            # Provider completed, but neither its response nor usage reached the caller.
+            await block_once("provider_completed")
+            return result
         return RunnableLambda(invoke)
 
 

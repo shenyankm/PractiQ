@@ -20,7 +20,7 @@ Use four-space indentation, type annotations, and small modules with explicit re
 
 ## Testing Guidelines
 
-Tests use pytest with `pytest-asyncio` in automatic mode. Name tests `test_<behavior>` and keep fixtures or fakes close to the scenarios that use them. Cover success paths, validation failures, resumability, and storage/checksum boundaries when changing workflows. Runtime tests use disposable PostgreSQL databases; tests must not call real LLM services; monkeypatch those integrations as existing tests do. The configured coverage threshold is 90%; every behavior change should have a focused regression test.
+Tests use pytest with `pytest-asyncio` in automatic mode. Name tests `test_<behavior>` and keep fixtures or fakes close to the scenarios that use them. Cover success paths, validation failures, resumability, and storage/checksum boundaries when changing workflows. Runtime tests explicitly request the `disposable_databases` fixture and use disposable PostgreSQL databases; pure tests must not start Docker. Shared fakes belong in `tests/support.py`, not other test modules. CI requires real LibreOffice rendering with `REQUIRE_LIBREOFFICE_TESTS=1`; tests must not call real LLM services; monkeypatch those integrations as existing tests do. The configured coverage threshold is 90%; every behavior change should have a focused regression test.
 
 ## Commit & Pull Request Guidelines
 

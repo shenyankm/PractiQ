@@ -1,8 +1,6 @@
 """Page ordering, conversion failures and real local rendering (no model calls)."""
 
 import asyncio
-import os
-import shutil
 import sys
 from io import BytesIO
 from pathlib import Path
@@ -15,8 +13,14 @@ from practiq_ai.contracts import DOCUMENT_MEDIA_TYPES, document_source_key
 from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.extractors import ExtractedDocument, docx, extract, pdf
 from practiq_ai.graphs import document
-from tests.test_documents import make_blank_pdf
-from tests.test_workflows import FakeModel, local_graph, make_image, question, source
+from tests.support import (
+    FakeModel,
+    local_graph,
+    make_blank_pdf,
+    make_image,
+    question,
+    source,
+)
 
 
 def paged_source(kind):
@@ -158,13 +162,7 @@ def test_converter_cannot_start(tmp_path, monkeypatch):
     assert error.value.code == "DOCX_CONVERSION_FAILED"
 
 
-def test_real_docx_rendering_and_original_image(monkeypatch, tmp_path):
-    executable = shutil.which(os.environ.get("AI_SOFFICE_PATH") or "soffice")
-    if executable is None:
-        pytest.skip(
-            "LibreOffice not installed; run this smoke check in the deployment environment"
-        )
-    monkeypatch.setenv("AI_SOFFICE_PATH", executable)
+def test_real_docx_rendering_and_original_image(monkeypatch, tmp_path, libreoffice):
     original = docx.TemporaryDirectory
     paths = []
 
@@ -222,7 +220,7 @@ def test_mixed_pdf_renders_text_and_scanned_pages():
 def test_docx_combined_visual_limit_and_bad_image_archive(monkeypatch):
     from zipfile import BadZipFile
 
-    from tests.test_documents import make_docx
+    from tests.support import make_docx
 
     payload = make_docx()
     monkeypatch.setattr(docx, "convert_to_pdf", lambda _: b"pdf")

@@ -13,9 +13,10 @@ from practiq_ai.contracts import (
 from practiq_ai.database import Database, utcnow
 from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.manage import cleanup, exclusive
-from tests.db_support import SERVICES, new_database
-from tests.test_task_api import setup_api
-from tests.test_task_execution import parsed
+from tests.db_support import SERVICES, new_database, setup_api
+from tests.support import parsed
+
+pytestmark = pytest.mark.usefixtures("disposable_databases")
 
 
 async def test_schema_initialization_is_explicit_and_refuses_existing_data(monkeypatch):
@@ -30,11 +31,20 @@ async def test_schema_initialization_is_explicit_and_refuses_existing_data(monke
 
 
 async def test_singleton_lock_readiness_and_failed_start_cleanup(monkeypatch):
+    from unittest.mock import Mock
+
+    build = Mock(wraps=runtime.build_document_graph)
+    monkeypatch.setattr(runtime, "build_document_graph", build)
     db = await new_database()
     service = runtime.Service(db)
     await service.start()
     SERVICES.append(service)
     assert await service.ready()
+    assert {call.kwargs["name"]: call.kwargs["source_types"] for call in build.call_args_list} == {
+        "document_parser": None, "text_csv_parser": ("text", "csv"),
+        "pdf_parser": ("pdf",), "docx_parser": ("docx",), "excel_parser": ("xlsx",),
+    }
+    assert set(service.graphs) == {call.kwargs["name"] for call in build.call_args_list}
     contender = runtime.Service(Database(db.uri))
     with pytest.raises(RuntimeError, match='Another service'):
         await contender.start()

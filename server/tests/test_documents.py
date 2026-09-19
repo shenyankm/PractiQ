@@ -2,80 +2,13 @@ from io import BytesIO
 from zipfile import ZipFile
 
 import pytest
-from docx import Document
-from docx.document import Document as DocxDocument
 from pydantic import ValidationError
 
 from practiq_ai import extractors
 from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.extractors import ExtractedDocument, extract
 from practiq_ai.extractors import docx as docx_extractor
-
-
-def make_docx(
-    with_image: bool = False,
-    image_count: int = 1,
-    *,
-    body_text: str = "H2 + O2 → H2O",
-    header_text: str = "",
-    footer_text: str = "",
-    comment_text: str = "",
-) -> bytes:
-    document = Document()
-    if header_text:
-        document.sections[0].header.paragraphs[0].text = header_text
-    body = document.add_paragraph(body_text)
-    if comment_text:
-        document.add_comment(body.runs, text=comment_text, author="Reviewer")
-    document.add_paragraph()
-    table = document.add_table(rows=2, cols=2)
-    table.rows[0].cells[0].text = "Question"
-    table.rows[0].cells[1].text = "Answer"
-    table.rows[1].cells[0].text = "2 + 2"
-    table.rows[1].cells[1].text = "4"
-    document.add_paragraph("Escaped <text> & final paragraph")
-    if footer_text:
-        document.sections[0].footer.paragraphs[0].text = footer_text
-    return package_docx(document, with_image, image_count)
-
-
-def package_docx(
-    document: DocxDocument,
-    with_image: bool = False,
-    image_count: int = 1,
-) -> bytes:
-    source = BytesIO()
-    document.save(source)
-
-    buffer = BytesIO()
-    with ZipFile(source) as original, ZipFile(buffer, "w") as archive:
-        for info in original.infolist():
-            value = original.read(info.filename)
-            if info.filename == "word/document.xml":
-                value = value.replace(b"</w:body>", b"<m:oMath/></w:body>")
-            archive.writestr(info, value)
-        archive.writestr(
-            "word/charts/chart1.xml",
-            "<c:chart><a:t>Scores &amp; totals</a:t><c:pt/><c:pt/></c:chart>",
-        )
-        if with_image:
-            for index in range(image_count):
-                archive.writestr(
-                    f"word/media/image{index + 1}.png", b"\x89PNG fake image bytes"
-                )
-    return buffer.getvalue()
-
-
-def make_blank_pdf(pages: int, size: int = 200) -> bytes:
-    import pypdfium2 as pdfium
-
-    document = pdfium.PdfDocument.new()
-    for _ in range(pages):
-        document.new_page(size, size)
-    buffer = BytesIO()
-    document.save(buffer)
-    document.close()
-    return buffer.getvalue()
+from tests.support import make_blank_pdf, make_docx
 
 
 def make_xlsx() -> bytes:

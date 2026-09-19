@@ -1,4 +1,5 @@
 import hashlib
+from copy import copy
 from typing import get_args
 
 import pytest
@@ -13,10 +14,10 @@ from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.execution import new_execution
 from practiq_ai.extractors import ExtractedDocument
 from practiq_ai.graphs import document, formats
-from tests.test_workflows import (
+from tests.support import (
     FakeModel,
     FakeObjectStore,
-    local_graph,
+    MemoryStore,
     make_image,
     question,
     run_config,
@@ -69,13 +70,12 @@ async def test_format_graph_enforces_source_type_before_storage(
     monkeypatch.setattr(document, "get_model", lambda *args: vision if source_type in {"pdf", "docx"} else model)
     monkeypatch.setattr(document, "extract", extract)
     assert getattr(formats, name).name == name
-    graph = local_graph(name=name, source_types=allowed)
+    graph = copy(getattr(formats, name))
+    graph.store = MemoryStore()
     config = run_config()
     graph_input = {"document": reference}
     if resume:
-        graph = local_graph(
-            InMemorySaver(), name=name, source_types=allowed
-        )
+        graph.checkpointer = InMemorySaver()
         await graph.aupdate_state(config, {**graph_input, "execution": new_execution()}, as_node="load_context")
         graph_input = None
 

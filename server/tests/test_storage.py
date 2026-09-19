@@ -1,24 +1,12 @@
 import asyncio
-import hashlib
-from dataclasses import replace
 from pathlib import Path
 
 import pytest
 
 from practiq_ai import storage
-from practiq_ai.config import load
-from practiq_ai.contracts import ArtifactReference, DocumentUploadRequest
+from practiq_ai.contracts import ArtifactReference
 from practiq_ai.errors import DocumentProcessingError
-from practiq_ai.storage import ObjectStore
-
-
-def object_store(root: Path, **overrides) -> ObjectStore:
-    return ObjectStore(replace(load(), storage_dir=root, **overrides))
-
-
-def upload(payload=b"quiz"):
-    return DocumentUploadRequest(sourceType="text", fileName="quiz.txt", mediaType="text/plain",
-                                 sizeBytes=len(payload), sha256=hashlib.sha256(payload).hexdigest())
+from tests.support import object_store, upload
 
 
 async def test_local_source_upload_dedup_restart_and_artifacts(tmp_path):

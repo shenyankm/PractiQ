@@ -13,9 +13,8 @@ from practiq_ai.contracts import DocumentTaskCreate
 from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.extractors import pdf
 from practiq_ai.graphs.chunking import split_chunk_spans
-from tests.test_task_api import setup_api
-from tests.test_task_execution import parsed, setup_graph
-from tests.test_workflows import run_config
+from tests.db_support import setup_api
+from tests.support import parsed, run_config, setup_graph
 
 
 def test_pdf_entry_points_share_lock_and_release_after_failure(monkeypatch):
@@ -132,6 +131,7 @@ async def test_provider_rate_and_concurrency_gate(monkeypatch):
     assert now == 160 and len(gate.starts) == 1
 
 
+@pytest.mark.usefixtures("disposable_databases")
 async def test_admission_is_atomic_and_does_not_leave_rejected_tasks(monkeypatch):
     monkeypatch.setenv("AI_MAX_BUSY_THREADS", "1")
     api, reference, _model = await setup_api(monkeypatch, [(10, parsed())])

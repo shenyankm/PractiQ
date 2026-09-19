@@ -47,6 +47,8 @@ make test AI_PYTHON=/path/to/python3.14
 make verify AI_PYTHON=/path/to/python3.14
 ```
 
+Database tests explicitly request the `disposable_databases` fixture: they use `TEST_DATABASE_URI` or start a disposable PostgreSQL Docker container. Pure tests (for example, `cd server && python -m pytest tests/test_schemas.py tests/test_auth.py`) need neither. Shared fakes and sample builders live in `tests/support.py`; database helpers live in `tests/db_support.py`. CI installs LibreOffice Writer/Calc and Chinese fonts and sets `REQUIRE_LIBREOFFICE_TESTS=1`, so real rendering checks fail instead of skipping when LibreOffice is missing. Set the same variable locally to require those checks.
+
 Automated tests do not call real models. The [evaluation guide](server/docs/evaluation.md) and historical reports are retained; past failed runs do not establish a current quality baseline.
 
 Storage supports two modes: `AI_STORAGE_BACKEND=local` (default) or `oss`. Both use the same authenticated upload and artifact APIs, with size and SHA-256 verification.

@@ -10,7 +10,7 @@ from httpx import ASGITransport, AsyncClient
 from practiq_ai import storage, webapp
 from practiq_ai.config import load
 from practiq_ai.errors import DocumentProcessingError
-from tests.test_storage import upload
+from tests.support import upload
 
 
 class Body:

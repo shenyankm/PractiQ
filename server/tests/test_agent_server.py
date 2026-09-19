@@ -14,6 +14,8 @@ import pytest
 
 from tests.db_support import new_database
 
+pytestmark = pytest.mark.usefixtures("disposable_databases")
+
 ROOT = Path(__file__).parents[1]
 
 
@@ -134,7 +136,7 @@ async def test_oss_server_auth_routes_and_graphs(tmp_path):
         server.client.close()
 
 
-@pytest.mark.parametrize('phase', ['queued', 'model', 'model_saved', 'completed'])
+@pytest.mark.parametrize('phase', ['queued', 'model', 'provider_completed', 'model_saved', 'completed'])
 async def test_process_kill_automatically_recovers_same_run(tmp_path, phase):
     server = await prepare(tmp_path, phase)
     try:
@@ -142,13 +144,30 @@ async def test_process_kill_automatically_recovers_same_run(tmp_path, phase):
         receipt = server.submit()
         await asyncio.to_thread(server.marker, phase)
         before = server.state(receipt)
+        if phase == 'provider_completed':
+            assert server.calls() == 1
+            assert not before['usage'] and len(before['unknownUsageCalls']) == 1
         server.stop(kill=True)
         await asyncio.to_thread(server.start)
         after = await asyncio.to_thread(server.wait, receipt, {'COMPLETED'})
         assert after['runId'] == receipt['runId']
         assert after['status'] == 'SUCCEEDED'
-        assert server.calls() == 1
-        assert len(after['unknownUsageCalls']) == (1 if phase == 'model' else 0)
+        assert server.calls() == (2 if phase == 'provider_completed' else 1)
+        assert len(after['usage']) == 1
+        assert len(after['unknownUsageCalls']) == (1 if phase in {'model', 'provider_completed'} else 0)
+        if phase == 'provider_completed':
+            assert after['unknownUsageCalls'] == before['unknownUsageCalls']
+            assert after['usage'][0]['callKey'] != before['unknownUsageCalls'][0]
+            from practiq_ai.database import Database
+            from practiq_ai.execution import namespace
+
+            db = Database(server.env['DATABASE_URI'])
+            await db.open()
+            try:
+                budgets = await db.store.asearch(namespace(receipt['threadId'], 'budget'), refresh_ttl=False)
+                assert sum(item.value['spent'] for item in budgets) == 2
+            finally:
+                await db.close()
         if phase != 'queued':
             assert after['modelBudget']['reserved'] == before['modelBudget']['reserved']
     finally:

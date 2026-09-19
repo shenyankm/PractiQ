@@ -5,7 +5,6 @@ from uuid import uuid4
 
 import pytest
 from langgraph.checkpoint.memory import InMemorySaver
-from langgraph.store.memory import InMemoryStore
 from langgraph.types import Command
 
 from practiq_ai import execution, llm
@@ -13,39 +12,14 @@ from practiq_ai.contracts import FailedUnit, RetryUnits
 from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.extractors import ExtractedDocument
 from practiq_ai.graphs import document
-from tests.test_workflows import (
+from tests.support import (
     FakeModel,
     local_graph,
     make_image,
-    question,
+    parsed,
     run_config,
-    source,
+    setup_graph,
 )
-
-
-class MemoryStore(InMemoryStore):
-    # Accept TTL metadata in unit tests; expiry itself is tested at the boundary.
-    supports_ttl = True
-
-
-def setup_graph(monkeypatch, responses, *, parts=None):
-    files, reference = source("".join(parts) if parts else "1. First\n2. Second")
-    model = FakeModel(responses=responses)
-    store = MemoryStore()
-    monkeypatch.setattr(document, "get_model", lambda *args: model)
-    monkeypatch.setattr(document, "get_object_store", lambda: files)
-    if parts:
-        monkeypatch.setattr(document, "split_chunk_spans", lambda _: [
-            {"start": sum(map(len, parts[:i])), "end": sum(map(len, parts[:i + 1])),
-             "overlapStart": sum(map(len, parts[:i])), "overlapEnd": sum(map(len, parts[:i]))}
-            for i in range(len(parts))
-        ])
-    graph = local_graph(InMemorySaver(), store=store)
-    return graph, store, files, reference, model
-
-
-def parsed(stem="First"):
-    return {"questions": [question(stem)], "groups": []}
 
 
 @pytest.mark.parametrize("all_failed", [False, True])

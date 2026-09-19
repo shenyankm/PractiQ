@@ -2,7 +2,6 @@
 
 import hashlib
 import json
-import shutil
 from io import BytesIO
 from uuid import uuid4
 from xml.etree import ElementTree as ET
@@ -21,11 +20,11 @@ from practiq_ai.contracts import DOCUMENT_MEDIA_TYPES, document_source_key
 from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.extractors import xlsx
 from practiq_ai.graphs import document, excel
-from tests.test_documents import make_blank_pdf
-from tests.test_workflows import (
+from tests.support import (
     FakeModel,
     FakeObjectStore,
     local_graph,
+    make_blank_pdf,
     make_image,
     question,
     run_config,
@@ -187,8 +186,16 @@ async def test_invalid_model_references_are_corrected_with_usage(monkeypatch, de
     assert len(result['usage']) == len(model.calls) == 2
 
 
-@pytest.mark.parametrize('mode', ['external', 'corrupt', 'pixel_limit', 'bytes_limit', 'row_limit', 'text_limit', 'unsupported'])
-def test_visual_and_sheet_limits_are_reported(monkeypatch, mode):
+@pytest.mark.parametrize('mode,code,warning', [
+    ('external', None, 'external or missing image was not loaded'),
+    ('corrupt', None, 'XLSX_IMAGE_INVALID'),
+    ('pixel_limit', 'XLSX_IMAGE_TOO_LARGE', 'Worksheet image exceeds pixel limit'),
+    ('bytes_limit', 'DOCUMENT_PROCESSING_FAILED', 'Document visual content exceeds the configured limit'),
+    ('row_limit', 'XLSX_SHEET_TOO_LARGE', 'Worksheet exceeds row limit'),
+    ('text_limit', 'XLSX_SHEET_TOO_LARGE', 'Worksheet exceeds model input limit'),
+    ('unsupported', None, 'Unsupported worksheet object: oleObjects'),
+])
+def test_visual_and_sheet_limits_are_reported(monkeypatch, mode, code, warning):
     data = workbook(images=True)
     if mode == 'external':
         data = rewrite(data, lambda path, value: value.replace(b'Target="/xl/media/image1.png"', b'Target="https://invalid.example/image.png" TargetMode="External"') if path.endswith('drawing1.xml.rels') else value)
@@ -206,8 +213,10 @@ def test_visual_and_sheet_limits_are_reported(monkeypatch, mode):
         data = rewrite(data, lambda path, value: value.replace(b'</worksheet>', b'<oleObjects/></worksheet>') if path.endswith('sheet1.xml') else value)
     result = xlsx.extract(data)
     assert result.truncated and result.warnings
-    if mode not in {'external', 'corrupt', 'unsupported'}:
-        assert result.worksheets[0]['failureCode'] is not None
+    unit = result.worksheets[0]
+    assert unit['failureCode'] == code
+    assert any(warning in value for value in unit['warnings'])
+    assert len(unit['assets']) == (1 if mode == 'unsupported' else 0)
 
 
 @pytest.mark.parametrize('code', ['XLSX_CONVERTER_MISSING', 'XLSX_CONVERSION_FAILED', 'XLSX_CONVERSION_TIMEOUT'])
@@ -238,15 +247,6 @@ def test_render_copy_keeps_drawings_and_clears_print_area():
             assert states == ['hidden', 'visible']
             assert b'_xlnm.Print_Area' not in rendered.read('xl/workbook.xml')
             assert rendered.read('xl/charts/chart1.xml') == archive.read('xl/charts/chart1.xml')
-
-
-@pytest.mark.skipif(not shutil.which('soffice'), reason='LibreOffice not installed')
-def test_real_calc_renders_chart_beyond_print_area():
-    result = xlsx.extract(workbook(images=True, charts=True, second=True))
-    assert all(unit['failureCode'] is None for unit in result.worksheets), result.warnings
-    pages = [asset for asset in result.worksheets[0]['assets'] if asset['objectId'].startswith('render:')]
-    assert pages
-    assert any(Image.open(BytesIO(asset['data'])).convert('RGB').getextrema() != ((255,255),) * 3 for asset in pages)
 
 
 @pytest.mark.parametrize('key', ['LLM_TEXT_MODEL', 'LLM_VISION_MODEL'])
@@ -295,8 +295,7 @@ def with_shape(data):
     return rewrite(data, add)
 
 
-@pytest.mark.skipif(not shutil.which('soffice'), reason='LibreOffice not installed')
-def test_real_calc_preserves_images_chart_shape_and_sheet_isolation(monkeypatch):
+def test_real_calc_preserves_images_chart_shape_and_sheet_isolation(monkeypatch, libreoffice):
     import pypdfium2 as pdfium
 
     convert = xlsx.convert_to_pdf
@@ -320,7 +319,11 @@ def test_real_calc_preserves_images_chart_shape_and_sheet_isolation(monkeypatch)
     monkeypatch.setattr(xlsx, 'convert_to_pdf', capture)
     result = xlsx.extract(with_shape(workbook(images=True, charts=True, second=True)))
     assert all(unit['failureCode'] is None for unit in result.worksheets), result.warnings
+    # The source print area is A1:B1; chart F6 and shape B21:E26 must still render.
     assert 'Native Chart' in texts[0] and 'Native Shape' in texts[0]
+    pages = [asset for asset in result.worksheets[0]['assets'] if asset['objectId'].startswith('render:')]
+    assert pages
+    assert any(Image.open(BytesIO(asset['data'])).convert('RGB').getextrema() != ((255, 255),) * 3 for asset in pages)
     assert 'Other sheet question' not in texts[0] and 'Other sheet question' in texts[1]
     assert 'Native Shape' not in texts[1]
     assert image_counts[0] >= 1
@@ -329,7 +332,7 @@ def test_real_calc_preserves_images_chart_shape_and_sheet_isolation(monkeypatch)
 
 @pytest.mark.parametrize('kind', ['text', 'csv'])
 async def test_text_formats_route_to_text_model(monkeypatch, kind):
-    from tests.test_workflows import source
+    from tests.support import source
     files, reference = source('1. Question?')
     if kind == 'csv':
         original = reference['objectKey']

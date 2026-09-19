@@ -14,8 +14,7 @@ from httpx import ASGITransport, AsyncClient
 from practiq_ai import webapp
 from practiq_ai.contracts import DOCUMENT_MEDIA_TYPES
 from practiq_ai.graphs import document
-from tests.test_storage import object_store
-from tests.test_workflows import FakeModel, local_graph, question, run_config
+from tests.support import FakeModel, local_graph, object_store, question, run_config
 
 HEADERS = {"Authorization": "Bearer test-token"}
 
@@ -23,7 +22,7 @@ HEADERS = {"Authorization": "Bearer test-token"}
 @pytest.fixture
 def setup(monkeypatch, tmp_path):
     from practiq_ai.extractors import docx
-    from tests.test_documents import make_blank_pdf
+    from tests.support import make_blank_pdf
 
     monkeypatch.setattr(docx, "convert_to_pdf", lambda _: make_blank_pdf(1))
     store = object_store(tmp_path)

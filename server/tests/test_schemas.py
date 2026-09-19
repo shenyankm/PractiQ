@@ -45,30 +45,23 @@ def test_upload_request_accepts_file_metadata_only() -> None:
 
     assert text.sourceType == "text"
     assert binary.sizeBytes == 123
-    for payload in (
-        {"sourceType": "text"},
-        {"sourceType": "text", "text": "ZmlsZSBjb250ZW50"},
-        {"sourceType": "text", "url": "https://example.com/quiz.txt"},
-        {"sourceType": "text", "base64": "ZmlsZSBjb250ZW50"},
-        {"sourceType": "text", "contextText": "inline document text"},
-        {"sourceType": "pdf", "fileName": "quiz.pdf"},
-        {
-            "sourceType": "pdf",
-            "fileName": "quiz.pdf",
-            "mediaType": "application/pdf",
-            "sizeBytes": 1,
-            "sha256": "bad",
-        },
-        {
-            "sourceType": "pdf",
-            "fileName": "quiz.pdf",
-            "mediaType": "image/png",
-            "sizeBytes": 1,
-            "sha256": "a" * 64,
-        },
-    ):
-        with pytest.raises(ValidationError):
-            DocumentUploadRequest.model_validate(payload)
+    valid = binary.model_dump()
+    for field in ("text", "url", "base64", "contextText"):
+        with pytest.raises(ValidationError) as error:
+            DocumentUploadRequest.model_validate({**valid, field: "untrusted content"})
+        assert [(item["loc"], item["type"]) for item in error.value.errors()] == [
+            ((field,), "extra_forbidden")
+        ]
+    for field in ("fileName", "mediaType", "sizeBytes", "sha256"):
+        with pytest.raises(ValidationError, match="are required"):
+            DocumentUploadRequest.model_validate({key: value for key, value in valid.items() if key != field})
+    with pytest.raises(ValidationError) as error:
+        DocumentUploadRequest.model_validate({**valid, "sha256": "bad"})
+    assert [(item["loc"], item["type"]) for item in error.value.errors()] == [
+        (("sha256",), "string_pattern_mismatch")
+    ]
+    with pytest.raises(ValidationError, match="mediaType does not match sourceType"):
+        DocumentUploadRequest.model_validate({**valid, "mediaType": "image/png"})
 
 
 def test_document_parse_input_accepts_only_managed_storage_references() -> None:

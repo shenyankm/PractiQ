@@ -19,6 +19,7 @@ jobs:
           --health-cmd "pg_isready -U postgres"
           --health-interval 2s --health-timeout 2s --health-retries 30
     env:
+      REQUIRE_LIBREOFFICE_TESTS: "1"
       TEST_DATABASE_URI: postgresql://postgres:isolated-test-only@127.0.0.1:5432/postgres
     defaults:
       run:
@@ -29,6 +30,7 @@ jobs:
         with:
           enable-cache: true
           cache-dependency-glob: server/uv.lock
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libreoffice-writer libreoffice-calc fonts-noto-cjk
       - run: uv sync --locked --extra dev
       - run: uv run ruff check src tests scripts
       - run: uv run pyright

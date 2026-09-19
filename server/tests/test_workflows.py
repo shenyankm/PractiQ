@@ -1,157 +1,33 @@
 import asyncio
 import hashlib
-import json
 from collections import Counter
-from io import BytesIO
 from types import SimpleNamespace
 from typing import Any, cast
-from uuid import uuid4
 
 import httpx2
 import pytest
-from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage
-from langchain_core.outputs import ChatGeneration, ChatResult
-from langchain_core.runnables import RunnableConfig, RunnableLambda
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import InMemorySaver
-from langgraph.store.memory import InMemoryStore
 from openai import APIConnectionError, APIStatusError, APITimeoutError, RateLimitError
-from PIL import Image
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import ValidationError
 
 from practiq_ai import llm
 from practiq_ai.contracts import (
     ArtifactReference,
-    DocumentReference,
     VisualElement,
 )
 from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.extractors import ExtractedDocument
 from practiq_ai.graphs import document, vision
-
-
-class FakeModel(BaseChatModel):
-    responses: list[Any]
-    calls: list[list[Any]] = Field(default_factory=list)
-
-    @property
-    def _llm_type(self) -> str:
-        return "fake"
-
-    def _generate(self, messages, stop=None, run_manager=None, **kwargs) -> ChatResult:
-        return ChatResult(generations=[ChatGeneration(message=AIMessage(content=""))])
-
-    def with_structured_output(self, schema: Any, *, include_raw=False, **kwargs):
-        async def invoke(messages):
-            self.calls.append(list(messages))
-            item = self.responses.pop(0)
-            if callable(item):
-                item = item(messages, schema)
-            delay = 0
-            if isinstance(item, tuple):
-                delay, item = item
-            if delay:
-                await asyncio.sleep(delay)
-            if isinstance(item, Exception):
-                raise item
-            raw = AIMessage(
-                content=json.dumps(item),
-                usage_metadata={
-                    "input_tokens": 10,
-                    "output_tokens": 5,
-                    "total_tokens": 15,
-                },
-            )
-            try:
-                parsed = cast(type[BaseModel], schema).model_validate(item)
-                error = None
-            except ValidationError as exc:
-                parsed, error = None, exc
-            return {"raw": raw, "parsed": parsed, "parsing_error": error}
-
-        return RunnableLambda(invoke)
-
-
-class FakeObjectStore:
-    def __init__(self, blobs: dict[str, bytes]):
-        self.blobs = blobs
-        self.put_kinds: list[str] = []
-
-    async def get_verified(self, reference):
-        payload = self.blobs[reference.objectKey]
-        if len(payload) != reference.sizeBytes:
-            raise DocumentProcessingError(
-                409, "Stored document size does not match", "DOCUMENT_SIZE_MISMATCH"
-            )
-        if hashlib.sha256(payload).hexdigest() != reference.sha256:
-            raise DocumentProcessingError(
-                409,
-                "Stored document checksum does not match",
-                "DOCUMENT_CHECKSUM_MISMATCH",
-            )
-        return payload
-
-    async def put_artifact(
-        self,
-        payload: bytes,
-        *,
-        source_sha256: str,
-        kind: str,
-        index: int,
-        media_type: str,
-    ):
-        digest = hashlib.sha256(payload).hexdigest()
-        key = f"artifact/{source_sha256}/{kind}/{index}/{digest}"
-        self.blobs[key] = payload
-        self.put_kinds.append(kind)
-        return ArtifactReference(
-            objectKey=key,
-            sha256=digest,
-            mediaType=media_type,
-            sizeBytes=len(payload),
-        )
-
-
-def question(stem: str) -> dict[str, Any]:
-    return {
-        "stem": stem,
-        "sourceText": stem,
-        "answerMode": "short_answer",
-        "questionTypeId": "imported-short",
-        "options": [],
-        "contentBlocks": [{"partType": "text", "textValue": stem}],
-        "confidence": 0.8,
-        "needsReview": False,
-    }
-
-
-def source(text: str) -> tuple[FakeObjectStore, dict[str, Any]]:
-    payload = text.encode()
-    digest = hashlib.sha256(payload).hexdigest()
-    key = f"practiq-agent/sources/{digest}/source.txt"
-    reference = DocumentReference(
-        objectKey=key,
-        sha256=digest,
-        mediaType="text/plain",
-        sizeBytes=len(payload),
-        sourceType="text",
-        fileName="quiz.txt",
-    )
-    return FakeObjectStore({key: payload}), reference.model_dump(mode="json")
-
-
-def run_config(thread: str = "thread-1") -> RunnableConfig:
-    return cast(
-        RunnableConfig,
-        {"configurable": {"thread_id": thread}, "run_id": uuid4()},
-    )
-
-
-def local_graph(checkpointer=None, **kwargs):
-    """Explicit local Store; production gets the durable Store from Agent Server."""
-    kwargs.setdefault("store", InMemoryStore())
-    return document.build_document_graph(checkpointer, **kwargs).with_config(run_config())
+from tests.support import (
+    FakeModel,
+    local_graph,
+    make_image,
+    question,
+    run_config,
+    source,
+)
 
 
 def assert_json_value(value: Any) -> None:
@@ -478,12 +354,6 @@ def test_usage_rejects_non_integral_provider_tokens() -> None:
     assert exc.value.code == "AI_USAGE_INVALID"
 
 
-def make_image() -> bytes:
-    buffer = BytesIO()
-    Image.new("RGB", (200, 200), "white").save(buffer, format="PNG")
-    return buffer.getvalue()
-
-
 def test_page_result_retains_structured_questions_and_figures():
     parsed = document.PageParseResult.model_validate({
         "questions": [question("Visible question")],
@@ -573,7 +443,6 @@ def test_missing_model_fails_before_processing(monkeypatch):
     with pytest.raises(DocumentProcessingError) as error:
         asyncio.run(local_graph().ainvoke({"document": reference}))
     assert error.value.code == "VISION_MODEL_REQUIRED"
-
 
 
 def test_extractor_truncation_makes_result_partial(monkeypatch):

@@ -150,7 +150,7 @@ def test_punctuation_repair_preserves_strings_false_zero_and_null():
 
 
 async def test_corrections_keep_only_latest_output_and_stop_on_identical_failure():
-    from tests.test_workflows import FakeModel
+    from tests.support import FakeModel
 
     model = FakeModel(responses=[{'value': -1}, {'value': -2}, {'value': -3}, {'value': 2}])
     original: list[BaseMessage] = [HumanMessage(content='source stays unchanged')]
@@ -180,7 +180,7 @@ def test_stall_fingerprint_ignores_tool_ids_but_preserves_bad_arguments():
 async def test_transient_error_does_not_trigger_output_stall(monkeypatch):
     from openai import APIConnectionError
 
-    from tests.test_workflows import FakeModel
+    from tests.support import FakeModel
 
     monkeypatch.setattr(llm, '_retry_delay', lambda _: 0)
     error = APIConnectionError(request=httpx2.Request('POST', 'https://example.invalid'))
@@ -254,7 +254,7 @@ def test_wire_arguments_are_authoritative_and_normalized_calls_are_checked():
 async def test_truncation_code_survives_budget_and_stall(monkeypatch, repeated):
     from langchain_core.messages import AIMessage
 
-    from tests.test_workflows import FakeModel
+    from tests.support import FakeModel
 
     attempts = []
     class Runner:
@@ -287,7 +287,7 @@ async def test_old_attempt_checkpoints_without_validation_code_replay(monkeypatc
 
     from langchain_core.messages import messages_to_dict
 
-    from tests.test_workflows import FakeModel
+    from tests.support import FakeModel
 
     replays = []
     async def cached(attempt, artifact):

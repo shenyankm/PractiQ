@@ -45,6 +45,8 @@ make test AI_PYTHON=/path/to/python3.14
 make verify AI_PYTHON=/path/to/python3.14
 ```
 
+数据库测试显式使用 `disposable_databases` fixture，通过 `TEST_DATABASE_URI` 连接测试库，或启动临时 PostgreSQL Docker 容器。纯单元测试（如 `cd server && python -m pytest tests/test_schemas.py tests/test_auth.py`）不需要数据库或 Docker。共享替身与数据构造位于 `tests/support.py`，数据库辅助函数位于 `tests/db_support.py`。CI 安装 LibreOffice Writer/Calc 和中文字体，设置 `REQUIRE_LIBREOFFICE_TESTS=1`，缺少转换器时真实渲染测试会失败而非跳过；本地可设置同一变量强制验证。
+
 自动化测试不调用真实模型；[评测说明](server/docs/evaluation.md) 和历史报告保留，历史失败结果不代表当前质量基线。
 
 支持 `AI_STORAGE_BACKEND=local`（默认）和 `oss` 两种模式，共用鉴权上传和素材读取接口，保留大小与 SHA-256 校验。

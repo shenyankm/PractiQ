@@ -1,4 +1,5 @@
 import os
+import shutil
 import subprocess
 import time
 from uuid import uuid4
@@ -7,7 +8,7 @@ import psycopg
 import pytest
 
 
-@pytest.fixture(scope='session', autouse=True)
+@pytest.fixture(scope='session')
 def postgres_server():
     """CI supplies PostgreSQL; local runs own one disposable Docker container."""
     if os.environ.get('TEST_DATABASE_URI'):
@@ -34,8 +35,19 @@ def postgres_server():
         subprocess.run(['docker', 'rm', '-f', name], check=True, capture_output=True)
 
 
-@pytest.fixture(autouse=True)
-async def disposable_databases():
+@pytest.fixture
+async def disposable_databases(postgres_server):
     yield
     from tests.db_support import cleanup
     await cleanup()
+
+
+@pytest.fixture
+def libreoffice(monkeypatch):
+    executable = shutil.which(os.environ.get("AI_SOFFICE_PATH") or "soffice")
+    if executable is None:
+        if os.environ.get("REQUIRE_LIBREOFFICE_TESTS") == "1":
+            pytest.fail("LibreOffice Writer/Calc is required for this test run")
+        pytest.skip("LibreOffice not installed; CI requires Writer/Calc")
+    monkeypatch.setenv("AI_SOFFICE_PATH", executable)
+    return executable

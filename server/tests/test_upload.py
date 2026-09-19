@@ -94,6 +94,7 @@ async def test_upload_validation_and_removed_v3_route() -> None:
     assert removed.status_code == 404
 
 
+@pytest.mark.usefixtures("disposable_databases")
 async def test_lifespan_validates_configuration(monkeypatch: pytest.MonkeyPatch) -> None:
     calls = 0
 
@@ -119,7 +120,7 @@ async def test_lifespan_validates_configuration(monkeypatch: pytest.MonkeyPatch)
 
 
 async def test_private_local_put_validates_body_and_token(tmp_path, monkeypatch):
-    from tests.test_storage import object_store, upload
+    from tests.support import object_store, upload
     store = object_store(tmp_path)
     monkeypatch.setattr(webapp, "get_object_store", lambda: store)
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -154,7 +155,7 @@ async def test_metadata_limits_security_headers_and_removed_product_routes():
 
 
 async def test_binary_upload_over_one_mib_uses_source_limit(tmp_path, monkeypatch):
-    from tests.test_storage import object_store, upload
+    from tests.support import object_store, upload
 
     store = object_store(tmp_path)
     monkeypatch.setattr(webapp, 'get_object_store', lambda: store)
