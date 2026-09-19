@@ -1,4 +1,4 @@
-"""Capacity check for a running standalone Agent Server."""
+"""Capacity check for a running open-source document service."""
 
 import argparse
 import asyncio
@@ -23,11 +23,7 @@ from practiq_ai.execution import code_version, runtime_version
 
 ROOT = Path(__file__).parents[1]
 TERMINAL = {"success", "error", "interrupted", "timeout"}
-METRIC_PATTERN = re.compile(
-    r"^(lg_api_(?:num_pending_runs|num_running_runs|workers_(?:active|available|max)))"
-    r"(?:\{[^}]*\})?\s+([0-9.eE+-]+)$",
-    re.MULTILINE,
-)
+METRIC_PATTERN = re.compile(r"^(practiq_(?:pending_runs|running_runs|workers_max|workers_available))\s+([0-9.eE+-]+)$", re.MULTILINE)
 
 
 def percentile(values: list[float], percentile_value: int) -> float:
@@ -60,11 +56,11 @@ async def monitor(
         response = await client.get("/ok")
         response.raise_for_status()
         health_latencies.append(time.perf_counter() - started)
-        metrics = await client.get("/metrics")
+        metrics = await client.get("/api/metrics")
         metrics.raise_for_status()
         for name, value in METRIC_PATTERN.findall(metrics.text):
             samples.setdefault(name, []).append(float(value))
-        application = await client.get("/api/metrics")
+        application = metrics
         application.raise_for_status()
         for value in re.findall(r"^practiq_provider_inflight\s+([0-9.eE+-]+)$", application.text, re.MULTILINE):
             samples.setdefault("provider_inflight", []).append(float(value))
@@ -85,38 +81,13 @@ async def submit(
 ) -> tuple[str, str, float]:
     async with semaphore:
         started = time.perf_counter()
-        if api == "document-tasks":
-            response = await client.post("/api/document-tasks", json={"requestId": str(uuid4()), **graph_input})
-            latencies.append(time.perf_counter() - started)
-            if response.status_code in {429, 503}:
-                return "", f"rejected_{response.status_code}", started
-            response.raise_for_status()
-            value = response.json()
-            return value["threadId"], value["runId"], started
-        thread_id = str(uuid4())
-        thread = await client.post(
-            "/threads",
-            json={
-                "thread_id": thread_id,
-                "metadata": {"sessionId": f"load-{index}"},
-            },
-        )
-        thread.raise_for_status()
-        started = time.perf_counter()
-        run = await client.post(
-            f"/threads/{thread_id}/runs",
-            json={
-                "assistant_id": "document_parser",
-                "input": graph_input,
-                "durability": "sync",
-                "multitask_strategy": "reject",
-            },
-        )
-        if run.status_code in {429, 503}:
-            return "", f"rejected_{run.status_code}", started
-        run.raise_for_status()
+        response = await client.post("/api/document-tasks", json={"requestId": str(uuid4()), **graph_input})
         latencies.append(time.perf_counter() - started)
-        return thread_id, run.json()["run_id"], started
+        if response.status_code in {429, 503}:
+            return "", f"rejected_{response.status_code}", started
+        response.raise_for_status()
+        value = response.json()
+        return value["threadId"], value["runId"], started
 
 
 async def wait_for_run(
@@ -133,17 +104,14 @@ async def wait_for_run(
         return run_id, 0, None
     while time.monotonic() < deadline:
         async with semaphore:
-            response = await client.get(f"/api/document-tasks/{thread_id}" if api == "document-tasks" else f"/threads/{thread_id}/runs/{run_id}")
+            response = await client.get(f"/api/document-tasks/{thread_id}")
         response.raise_for_status()
         value = response.json()
-        if api == "document-tasks":
-            if value["phase"] != "pending" and queue_wait is None:
-                queue_wait = time.perf_counter() - submitted
-            status = {"COMPLETED": "success" if value["status"] == "SUCCEEDED" else "partial",
-                      "FAILED": "error", "INTERRUPTED": "interrupted",
-                      "WAITING_REVIEW": "interrupted", "PAUSED": "interrupted"}.get(value["state"], "pending")
-        else:
-            status = value["status"]
+        if value["phase"] != "pending" and queue_wait is None:
+            queue_wait = time.perf_counter() - submitted
+        status = {"COMPLETED": "success" if value["status"] == "SUCCEEDED" else "partial",
+                  "FAILED": "error", "INTERRUPTED": "interrupted",
+                  "WAITING_REVIEW": "interrupted", "PAUSED": "interrupted"}.get(value["state"], "pending")
         if status in TERMINAL:
             return status, time.perf_counter() - submitted, queue_wait
         if status == "partial":
@@ -193,32 +161,25 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
         monitor_task = asyncio.create_task(
             monitor(client, done, health_latencies, samples, args.pid)
         )
+        started = time.perf_counter()
         try:
             semaphore = asyncio.Semaphore(args.submit_concurrency)
-            runs = await asyncio.gather(
-                *(
-                    submit(
-                        client,
-                        semaphore,
-                        graph_input,
-                        index,
-                        create_latencies,
-                        args.api,
-                    )
-                    for index in range(args.total)
-                )
-            )
+            poll_semaphore = asyncio.Semaphore(args.submit_concurrency)
+
+            async def submit_and_wait(index):
+                run = await submit(client, semaphore, graph_input, index, create_latencies, args.api)
+                thread_id, run_id, submitted = run
+                timing = await wait_for_run(client, poll_semaphore, thread_id, run_id,
+                                           time.monotonic() + args.completion_timeout, submitted, args.api)
+                return run, timing
+
+            completed = await asyncio.gather(*(submit_and_wait(index) for index in range(args.total)))
+            runs = [item[0] for item in completed]
+            timings = [item[1] for item in completed]
             accepted = [item for item in runs if item[0]]
             if len({run_id for _, run_id, _ in accepted}) != len(accepted):
                 raise AssertionError("duplicate run IDs")
-            deadline = time.monotonic() + args.completion_timeout
-            poll_semaphore = asyncio.Semaphore(args.submit_concurrency)
-            timings = await asyncio.gather(
-                *(
-                    wait_for_run(client, poll_semaphore, thread_id, run_id, deadline, submitted, args.api)
-                    for thread_id, run_id, submitted in runs
-                )
-            )
+            elapsed = time.perf_counter() - started
         finally:
             done.set()
             await monitor_task
@@ -228,22 +189,24 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
     queue_waits = [item[2] for item in timings if item[2] is not None]
     summary = {
         "runs": dict(Counter(statuses)),
+        "batchSeconds": round(elapsed, 3),
+        "successfulDocumentsPerMinute": round(statuses.count("success") * 60 / elapsed, 3),
         "runCreateP95Ms": round(percentile(create_latencies, 95) * 1_000, 1),
         "healthP95Ms": round(percentile(health_latencies, 95) * 1_000, 1),
         "completionP50Seconds": round(percentile(completions, 50), 3),
         "completionP95Seconds": round(percentile(completions, 95), 3),
         "observedQueueWaitP95Seconds": round(percentile(queue_waits, 95), 3) if queue_waits else None,
         "peakPendingRuns": (
-            max(samples["lg_api_num_pending_runs"])
-            if "lg_api_num_pending_runs" in samples
+            max(samples["practiq_pending_runs"])
+            if "practiq_pending_runs" in samples
             else None
         ),
         "peakRunningRuns": max(
-            samples.get("lg_api_num_running_runs", samples.get("lg_api_workers_active", [0]))
+            samples.get("practiq_running_runs", samples.get("practiq_running_runs", [0]))
         ),
-        "observedWorkerMaximum": max(samples.get("lg_api_workers_max", [0])),
+        "observedWorkerMaximum": max(samples.get("practiq_workers_max", [0])),
         "minimumAvailableWorkers": min(
-            samples.get("lg_api_workers_available", [args.max_running])
+            samples.get("practiq_workers_available", [args.max_running])
         ),
         "peakRssBytes": int(max(samples.get("rss_bytes", [0]))),
         "sampledProviderConcurrencyPeak": max(samples.get("provider_inflight", [0])),
@@ -290,6 +253,8 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
             "allowRejections": args.allow_rejections,
         },
         "results": summary,
+        "runs": [{"threadId": run[0], "runId": run[1], "status": timing[0]}
+                 for run, timing in zip(runs, timings, strict=True)],
         "failures": failures,
     }
 
@@ -303,9 +268,9 @@ def parse_args() -> argparse.Namespace:
     source.add_argument("--text")
     parser.add_argument("--output", type=Path)
     parser.add_argument("--total", type=int, default=400)
-    parser.add_argument("--api", choices=("document-tasks", "native"), default="document-tasks")
+    parser.add_argument("--api", choices=("document-tasks",), default="document-tasks")
     parser.add_argument("--allow-rejections", action="store_true", help="Overload drill: count explicit 429/503 as bounded admission, but require successful work")
-    parser.add_argument("--environment", choices=("local-langgraph-dev", "standalone"), default="local-langgraph-dev")
+    parser.add_argument("--environment", choices=("oss-local", "oss-container"), default="oss-local")
     parser.add_argument("--image-digest")
     parser.add_argument("--submit-concurrency", type=int, default=100)
     parser.add_argument("--max-running", type=int, default=8)
@@ -316,8 +281,8 @@ def parse_args() -> argparse.Namespace:
     args = parser.parse_args()
     if not args.token:
         parser.error("--token or AI_SERVICE_TOKEN is required")
-    if args.environment == "standalone" and not args.image_digest:
-        parser.error("standalone evidence requires --image-digest")
+    if args.environment == "oss-container" and not args.image_digest:
+        parser.error("container evidence requires --image-digest")
     if min(args.total, args.submit_concurrency, args.max_running, args.graph_concurrency, args.request_timeout, args.completion_timeout) <= 0:
         parser.error("capacity parameters must be positive")
     if args.output and args.output.exists():

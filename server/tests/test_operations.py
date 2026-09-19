@@ -2,15 +2,30 @@ import argparse
 import asyncio
 import json
 import os
+import subprocess
+import sys
 import time
+from pathlib import Path
 from types import SimpleNamespace
 
 import httpx
 import pytest
 
-from practiq_ai.auth import auth, authenticate
 from scripts import load_test, storage_gc
 from tests.test_storage import object_store, upload
+
+
+def test_dev_launcher_uses_single_oss_process(tmp_path):
+    (tmp_path / 'server').mkdir()
+    python = tmp_path / 'python'
+    python.write_text(f"#!{sys.executable}\nimport sys,json\nprint(json.dumps(sys.argv[1:]))\n")
+    python.chmod(0o755)
+    result = subprocess.run(['make', '-s', '-f', str(Path(__file__).parents[2] / 'Makefile'), 'server-dev', f'AI_PYTHON={python}'], cwd=tmp_path, check=True, capture_output=True, text=True)
+    args = json.loads(result.stdout)
+    assert args[:3] == ['-m', 'uvicorn', 'practiq_ai.webapp:app']
+    assert args[args.index('--workers') + 1] == '1'
+    assert args[args.index('--host') + 1] == '127.0.0.1'
+    assert args[args.index('--env-file') + 1] == '../.env'
 
 
 async def test_cleanup_keeps_historical_references_and_quarantines_only_old_orphans(tmp_path):
@@ -20,23 +35,21 @@ async def test_cleanup_keeps_historical_references_and_quarantines_only_old_orph
     recent = await store.put_document(b"recent", upload(b"recent"))
     for ref in (referenced, orphan):
         os.utime(tmp_path / ref.objectKey, (1, 1))
-    calls = []
+    from tests.db_support import new_database
+    db = await new_database()
+    from typing import TypedDict
 
-    async def search(**kwargs):
-        return [{"thread_id": "old-task"}]
-
-    async def history(path, *, params):
-        calls.append(params.get("before"))
-        return ([{"checkpoint": {"checkpoint_id": str(i)}, "values": {}} for i in range(10)]
-                if params.get("before") is None else [{"values": {"document": referenced.model_dump()}}])
-
-    async def items(*args, **kwargs):
-        assert kwargs["refresh_ttl"] is False
-        return {"items": []}
-
-    api = SimpleNamespace(threads=SimpleNamespace(search=search), http=SimpleNamespace(get=history), store=SimpleNamespace(search_items=items))
-    sources = await storage_gc.live_sources(api)
-    assert sources == {referenced.sha256} and calls == [None, "9"]
+    from langchain_core.runnables import RunnableConfig
+    from langgraph.graph import END, START, StateGraph
+    class State(TypedDict, total=False):
+        document: dict
+    graph = StateGraph(State).add_node('copy', lambda state: state).add_edge(START, 'copy').add_edge('copy', END).compile(checkpointer=db.checkpointer)
+    config: RunnableConfig = {'configurable': {'thread_id': 'history'}}
+    await graph.ainvoke({'document': referenced.model_dump()}, config)
+    await graph.ainvoke({}, config)
+    sources = await storage_gc.live_sources(db)
+    assert sources == {referenced.sha256}
+    await db.close()
     selected = storage_gc.candidates(storage_gc.inventory(store), sources, time.time() - 187 * 86400)
     assert [item["key"] for item in selected] == [orphan.objectKey]
     storage_gc.quarantine(store, selected, "drill")
@@ -56,16 +69,18 @@ async def test_cleanup_fails_closed_and_preserves_inventory_before_mutation(tmp_
     with pytest.raises(RuntimeError, match="changed"):
         storage_gc.quarantine(store, selected, "drill")
     os.utime(path, (1, 1))
-    api = SimpleNamespace(threads=SimpleNamespace(count=lambda **_: asyncio.sleep(0, result=0)))
-    monkeypatch.setattr(storage_gc, "get_client", lambda **_: api)
-    monkeypatch.setattr(storage_gc, "live_sources", lambda _: asyncio.sleep(0, result=set()))
+    from tests.db_support import new_database
+    db = await new_database()
+    monkeypatch.setattr(storage_gc, 'Database', lambda: db)
+    monkeypatch.setattr(storage_gc, 'live_sources', lambda _: asyncio.sleep(0, result=set()))
+    monkeypatch.setenv('AI_MAINTENANCE_MODE', 'true')
     monkeypatch.setattr(storage_gc, "get_object_store", lambda: store)
-    real_client = httpx.AsyncClient
-    transport = httpx.MockTransport(lambda request: httpx.Response(200, json={"enabled": True}))
-    monkeypatch.setattr(storage_gc.httpx, "AsyncClient", lambda **kwargs: real_client(transport=transport, **kwargs))
     args = argparse.Namespace(base_url="http://test", token="secret", quarantine=False, retention_days=187, output=tmp_path / "dry.json")
     report = await storage_gc.run(args)
     assert report["completed"] and report["objects"] == 1 and path.exists()
+    from practiq_ai.database import Database
+    db = Database(db.uri)
+    monkeypatch.setattr(storage_gc, 'Database', lambda: db)
     args.quarantine = True
     args.output = tmp_path / "quarantine.json"
 
@@ -81,20 +96,6 @@ async def test_cleanup_fails_closed_and_preserves_inventory_before_mutation(tmp_
     (tmp_path / "practiq-agent/link").symlink_to(tmp_path)
     with pytest.raises(ValueError, match="symlink"):
         storage_gc.inventory(store)
-
-
-async def test_maintenance_blocks_native_writes_but_keeps_reference_reads(monkeypatch):
-    monkeypatch.setenv("AI_MAINTENANCE_MODE", "true")
-    for path, method in [("/threads", "POST"), ("/threads/id/state", "POST"), ("/store/items", "PUT"), ("/threads/id", "DELETE")]:
-        with pytest.raises(auth.exceptions.HTTPException) as error:
-            await authenticate("Bearer test-token", path, method)
-        assert error.value.status_code == 503
-    for path in ("/threads/search", "/threads/count", "/threads/id/history", "/store/items/search"):
-        assert await authenticate("Bearer test-token", path, "POST")
-    for path in ("/runs/batch", "/crons", "/threads/id/crons"):
-        with pytest.raises(auth.exceptions.HTTPException) as error:
-            await authenticate("Bearer test-token", path, "POST")
-        assert error.value.status_code == 422
 
 
 async def test_load_driver_upload_auth_partial_and_overload(monkeypatch):
@@ -126,10 +127,41 @@ async def test_load_driver_upload_auth_partial_and_overload(monkeypatch):
     result = await load_test.run(args)
     assert result["status"] == "FAILED" and result["results"]["runs"] == {"partial": 1}
     assert result["results"]["sampledProviderConcurrencyPeak"] == 1
+    assert result["results"]["batchSeconds"] >= 0
+    assert result["results"]["successfulDocumentsPerMinute"] == 0
+    assert result["runs"] == [{"threadId": "t", "runId": "r", "status": "partial"}]
     assert any(request.method == "PUT" for request in requests)
     async with real_client(base_url="http://test", transport=httpx.MockTransport(lambda _: httpx.Response(503))) as client:
         task = await load_test.submit(client, asyncio.Semaphore(1), {}, 0, [])
         assert await load_test.wait_for_run(client, asyncio.Semaphore(1), *task[:2], time.monotonic()+1, task[2]) == ("rejected_503", 0, None)
+
+
+async def test_load_driver_polls_before_all_submissions_finish(tmp_path, monkeypatch):
+    polled = asyncio.Event()
+    source = tmp_path / "input.json"
+    source.write_text("{}")
+
+    async def submit(client, semaphore, graph_input, index, latencies, api):
+        if index == 1:
+            await asyncio.wait_for(polled.wait(), 1)
+        return str(index), str(index), time.perf_counter()
+
+    async def wait(client, semaphore, thread_id, run_id, deadline, submitted, api):
+        polled.set()
+        return "success", 0.1, 0.01
+
+    async def monitor(client, done, *args):
+        await done.wait()
+
+    monkeypatch.setattr(load_test, "submit", submit)
+    monkeypatch.setattr(load_test, "wait_for_run", wait)
+    monkeypatch.setattr(load_test, "monitor", monitor)
+    args = argparse.Namespace(token="test-token", base_url="http://test", input=source, total=2,
+                             submit_concurrency=2, request_timeout=3, completion_timeout=3, pid=None, api="document-tasks",
+                             max_running=2, graph_concurrency=2, allow_rejections=False, environment="local-langgraph-dev", image_digest=None)
+    report = await load_test.run(args)
+    assert report["results"]["runs"] == {"success": 2}
+    assert report["results"]["successfulDocumentsPerMinute"] > 0
 
 
 def test_oss_cleanup_requires_versioning_and_never_deletes_versions():

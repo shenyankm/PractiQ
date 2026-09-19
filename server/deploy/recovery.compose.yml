@@ -1,44 +1,17 @@
-# Isolated test stack. Always use a unique compose project; never external volumes.
+# Isolated recovery database only. Use a unique project name; never existing volumes.
 services:
   postgres:
     image: postgres:16-bookworm@sha256:bb3e1a57e5407e0a5280b4211980a5e537f4abd234a87014ac979849a78dd825
     environment:
-      POSTGRES_DB: practiq_review
-      POSTGRES_USER: practiq_review
+      POSTGRES_DB: practiq_oss_test
+      POSTGRES_USER: practiq_test
       POSTGRES_PASSWORD: isolated-test-only
     ports: ["127.0.0.1:15432:5432"]
     volumes: ["postgres:/var/lib/postgresql/data"]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U practiq_review -d practiq_review"]
+      test: ["CMD-SHELL", "pg_isready -U practiq_test -d practiq_oss_test"]
       interval: 2s
       timeout: 2s
       retries: 30
-  redis:
-    image: redis:7-bookworm@sha256:71da9275c5f3fcb97d0fa0c8c5b36cc995327265420f17a04bfd544f458059f7
-    ports: ["127.0.0.1:16379:6379"]
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 2s
-      timeout: 2s
-      retries: 30
-  agent:
-    image: practiq-ai:production-review
-    ports: ["127.0.0.1:18090:8000"]
-    environment:
-      DATABASE_URI: postgres://practiq_review:isolated-test-only@postgres:5432/practiq_review
-      REDIS_URI: redis://redis:6379/0
-      LANGSMITH_TRACING: "false"
-      AI_SERVICE_TOKEN: isolated-test-token
-      LLM_PROVIDER: dashscope
-      LLM_API_KEY: fake
-      LLM_VISION_MODEL: synthetic-vision
-      N_JOBS_PER_WORKER: "2"
-      AI_GRAPH_MAX_CONCURRENCY: "2"
-      AI_STORAGE_DIR: /data/files
-    volumes: ["files:/data/files"]
-    depends_on:
-      postgres: {condition: service_healthy}
-      redis: {condition: service_healthy}
 volumes:
   postgres:
-  files:

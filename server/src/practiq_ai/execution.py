@@ -19,7 +19,7 @@ from langgraph.types import interrupt
 from .config import load
 from .errors import DocumentProcessingError
 
-STATE_VERSION = 2
+STATE_VERSION = 4
 TTL_MINUTES = 259_200
 RECURSION_LIMIT = 10_000
 CURRENT_EXECUTION: ContextVar[dict[str, Any] | None] = ContextVar("execution", default=None)
@@ -35,7 +35,7 @@ def fingerprint(value: Any) -> str:
 @lru_cache(maxsize=1)
 def code_version() -> str:
     root = Path(__file__).parent
-    paths = [root / name for name in ("contracts.py", "llm.py", "execution.py", "config.py", "storage.py", "json_repair.py", "capacity.py", "telemetry.py")]
+    paths = [root / name for name in ("contracts.py", "llm.py", "execution.py", "config.py", "storage.py", "json_repair.py", "capacity.py", "telemetry.py", "runtime.py", "database.py", "task_api.py")]
     paths.extend(sorted((root / "graphs").glob("*.py")))
     paths.extend(sorted((root / "extractors").glob("*.py")))
     bundled_lock = root / "uv.lock"
@@ -46,7 +46,7 @@ def code_version() -> str:
 @lru_cache(maxsize=1)
 def runtime_version() -> dict[str, Any]:
     packages = {}
-    for name in ("langgraph", "langgraph-api", "langchain-core", "langchain-openai", "pydantic", "pypdfium2", "pillow", "openpyxl", "alibabacloud-oss-v2"):
+    for name in ("langgraph", "langgraph-checkpoint-postgres", "psycopg", "langchain-core", "langchain-openai", "pydantic", "pypdfium2", "pillow", "openpyxl", "alibabacloud-oss-v2"):
         try:
             packages[name] = version(name)
         except PackageNotFoundError:
@@ -59,7 +59,7 @@ def signature() -> dict[str, Any]:
     for key in ("api_key", "oss_access_key_id", "oss_access_key_secret", "oss_security_token"):
         settings.pop(key)
     # Concurrency and timeouts can change without changing document semantics.
-    for key in ("graph_max_concurrency", "storage_concurrency", "storage_timeout_seconds", "model_timeout_seconds", "deployment_workers", "provider_concurrency", "provider_rpm", "upload_concurrency", "max_busy_threads", "maintenance"):
+    for key in ("jobs_per_worker", "graph_max_concurrency", "storage_concurrency", "storage_timeout_seconds", "model_timeout_seconds", "deployment_workers", "provider_concurrency", "provider_rpm", "upload_concurrency", "max_busy_threads", "maintenance"):
         settings.pop(key)
     settings["storage_dir"] = str(settings["storage_dir"])
     return {"version": STATE_VERSION, "code": code_version(), "runtime": runtime_version(), "settings": settings}

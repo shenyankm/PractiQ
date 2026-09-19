@@ -29,6 +29,7 @@ class Config:
     storage_timeout_seconds: float
     model_timeout_seconds: float
     model_max_tokens: int
+    jobs_per_worker: int = 8
     task_max_model_calls: int = 400
     run_timeout_seconds: float = 1800
     model_max_input_chars: int = 64_000
@@ -89,7 +90,7 @@ def load() -> Config:
     provider = _required(values, "LLM_PROVIDER")
     if provider not in {"dashscope", "deepseek", "moonshot"}:
         raise ValueError(f"Unsupported LLM_PROVIDER: {provider}")
-    storage_dir = values.get("AI_STORAGE_DIR", ".local/ai").strip()
+    storage_dir = values.get("AI_STORAGE_DIR", ".local/ai-oss").strip()
     if not storage_dir:
         raise ValueError("AI_STORAGE_DIR must not be empty")
     storage_backend = values.get("AI_STORAGE_BACKEND", "local").strip()
@@ -121,7 +122,6 @@ def load() -> Config:
     if method not in {"auto", "json_schema", "function_calling"}:
         raise ValueError("AI_STRUCTURED_OUTPUT_METHOD must be auto, json_schema or function_calling")
     vision_model = _required(values, "LLM_VISION_MODEL")
-    _required(values, "N_JOBS_PER_WORKER")
     jobs_per_worker = _positive_int(values, "N_JOBS_PER_WORKER", 8)
     graph_max_concurrency = _positive_int(values, "AI_GRAPH_MAX_CONCURRENCY", 2)
     if jobs_per_worker * graph_max_concurrency > 16:
@@ -139,6 +139,7 @@ def load() -> Config:
     if provider_rpm < workers:
         raise ValueError("AI_PROVIDER_RPM must allow at least one request per worker")
     return Config(
+        jobs_per_worker=jobs_per_worker,
         maintenance=maintenance == "true",
         task_max_model_calls=_positive_int(values, "AI_TASK_MAX_MODEL_CALLS", 400),
         run_timeout_seconds=_positive_float(values, "AI_RUN_TIMEOUT_SECONDS", 1800),
@@ -172,3 +173,11 @@ def load() -> Config:
         model_timeout_seconds=_positive_float(values, "AI_AGENT_TIMEOUT_SECONDS", 180),
         model_max_tokens=_positive_int(values, "AI_AGENT_MAX_TOKENS", 16_384),
     )
+
+
+def database_uri() -> str:
+    """Required only for the HTTP runtime and administrative commands."""
+    value = _required(dict(os.environ), "DATABASE_URI")
+    if urlsplit(value).scheme not in {"postgres", "postgresql"}:
+        raise ValueError("DATABASE_URI must be a PostgreSQL URI")
+    return value

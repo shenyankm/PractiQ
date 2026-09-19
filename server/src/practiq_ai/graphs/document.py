@@ -870,7 +870,7 @@ def _guarded(function: Callable[..., Awaitable[dict[str, Any]]], *, with_runtime
         if "document" in state:
             DocumentParseInput.model_validate({"document": state["document"]})
         await asyncio.to_thread(validate_execution, state.get("execution"))
-        if "document" in state and state["execution"].get("document", state["document"]) != state["document"]:
+        if "document" in state and "document" in state["execution"] and state["execution"]["document"] != DocumentReference.model_validate(state["document"]).model_dump(mode="json"):
             raise DocumentProcessingError(409, "Resume cannot change the source document", "INVALID_CONTROL")
         token = CURRENT_EXECUTION.set(state["execution"])
         artifact_token = CURRENT_ARTIFACT.set(state.get("artifact"))

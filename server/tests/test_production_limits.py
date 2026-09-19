@@ -7,8 +7,7 @@ from uuid import uuid4
 import httpx
 import pytest
 
-from practiq_ai import capacity, execution, task_api, webapp
-from practiq_ai.auth import auth, authenticate
+from practiq_ai import capacity, execution, task_api, telemetry, webapp
 from practiq_ai.config import load
 from practiq_ai.contracts import DocumentTaskCreate
 from practiq_ai.errors import DocumentProcessingError
@@ -133,26 +132,17 @@ async def test_provider_rate_and_concurrency_gate(monkeypatch):
     assert now == 160 and len(gate.starts) == 1
 
 
-async def test_admission_for_native_and_wrapper_routes(monkeypatch):
+async def test_admission_is_atomic_and_does_not_leave_rejected_tasks(monkeypatch):
     monkeypatch.setenv("AI_MAX_BUSY_THREADS", "1")
-    api, reference, model = setup_api(monkeypatch)
-
-    async def full(**kwargs):
-        return 1
-
-    api.threads.count = full
-    monkeypatch.setattr(capacity, "get_client", lambda **_: api)
-    for path in ("/runs", "/runs/stream", "/threads/id/runs", "/threads/id/runs/wait"):
-        with pytest.raises(auth.exceptions.HTTPException) as error:
-            await authenticate("Bearer test-token", path, "POST")
-        assert error.value.status_code == 503
+    api, reference, _model = await setup_api(monkeypatch, [(10, parsed())])
+    await task_api.create_task(DocumentTaskCreate.model_validate({"requestId": str(uuid4()), "document": reference}))
     with pytest.raises(DocumentProcessingError) as error:
         await task_api.create_task(DocumentTaskCreate.model_validate({"requestId": str(uuid4()), "document": reference}))
-    assert error.value.code == "QUEUE_FULL" and not model.calls
-    assert not api.records  # Overload must not leave an idle thread per rejected request.
+    assert error.value.code == "QUEUE_FULL"
+    assert len(await api.db.rows('SELECT * FROM document_tasks')) == 1
     monkeypatch.setenv("AI_MAINTENANCE_MODE", "true")
     with pytest.raises(DocumentProcessingError, match="maintenance"):
-        await capacity.admit_run(api)
+        await task_api.create_task(DocumentTaskCreate.model_validate({"requestId": str(uuid4()), "document": reference}))
 
 
 async def test_upload_backpressure_releases_slot_on_cancellation(monkeypatch):

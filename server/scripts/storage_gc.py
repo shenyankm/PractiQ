@@ -8,14 +8,14 @@ import re
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote
 from uuid import uuid4
 
 import alibabacloud_oss_v2 as oss
-import httpx
-from langgraph_sdk import get_client
 
+from practiq_ai.config import load
+from practiq_ai.database import Database
 from practiq_ai.execution import TTL_MINUTES
+from practiq_ai.manage import exclusive
 from practiq_ai.storage import ObjectStore, OSSObjectStore, get_object_store
 
 KEY = re.compile(r"^practiq-agent/(?:sources|artifacts)/([0-9a-f]{64})/")
@@ -26,42 +26,27 @@ def referenced_sources(value: Any) -> set[str]:
         key = value.get("objectKey")
         found = {match.group(1)} if isinstance(key, str) and (match := KEY.match(key)) else set()
         return found.union(*(referenced_sources(item) for item in value.values()))
-    if isinstance(value, list):
+    if isinstance(value, (list, tuple)):
         return set().union(*(referenced_sources(item) for item in value))
     return set()
 
 
-async def live_sources(api: Any) -> set[str]:
-    """Scan every native thread and historical checkpoint, not just latest output."""
+async def live_sources(db: Database) -> set[str]:
+    """Read every retained task, checkpoint and Store item; failure aborts inventory."""
     sources: set[str] = set()
+    for row in await db.rows('SELECT document FROM document_tasks'):
+        sources.update(referenced_sources(row))
+    async for checkpoint in db.checkpointer.alist(None):
+        sources.update(referenced_sources(checkpoint.checkpoint))
+        sources.update(referenced_sources(checkpoint.pending_writes))
     offset = 0
     while True:
-        threads = await api.threads.search(limit=100, offset=offset)
-        for thread in threads:
-            sources.update(referenced_sources(thread))
-            before = None
-            while True:
-                # The native GET route accepts an ID cursor. The current server's
-                # POST history schema/runtime disagree about the `before` shape.
-                params = {"limit": 10, **({"before": before} if before else {})}
-                history = await api.http.get(f"/threads/{quote(thread['thread_id'], safe='')}/history", params=params)
-                sources.update(referenced_sources(history))
-                if len(history) < 10:
-                    break
-                cursor = history[-1]["checkpoint"]["checkpoint_id"]
-                if cursor == before:
-                    raise RuntimeError("History pagination did not advance")
-                before = cursor
-        offset += len(threads)
-        if len(threads) < 100:
-            break
-    offset = 0
-    while True:
-        page = await api.store.search_items(("document_tasks",), limit=100, offset=offset, refresh_ttl=False)
-        sources.update(referenced_sources(page["items"]))
-        if len(page["items"]) < 100:
+        items = await db.store.asearch(('document_tasks',), limit=100, offset=offset, refresh_ttl=False)
+        for item in items:
+            sources.update(referenced_sources(item.value))
+        if len(items) < 100:
             return sources
-        offset += len(page["items"])
+        offset += len(items)
 
 
 def inventory(store: ObjectStore) -> list[dict[str, Any]]:
@@ -123,20 +108,25 @@ def quarantine(store: ObjectStore, items: list[dict[str, Any]], run_id: str) -> 
 
 
 async def run(args: argparse.Namespace) -> dict[str, Any]:
-    headers = {"Authorization": f"Bearer {args.token}"}
-    api = get_client(url=args.base_url, api_key=None, headers=headers)
+    db = Database()
+    await db.open()
+    try:
+        await db.check_schema()
+        if args.quarantine:
+            if not load().maintenance:
+                raise RuntimeError('Cleanup requires maintenance mode')
+            async with exclusive(db):
+                if await db.rows("SELECT run_id FROM document_runs WHERE status IN ('pending','running')"):
+                    raise RuntimeError('Drain all queued and running tasks before cleanup')
+                return await scan(args, db)
+        return await scan(args, db)
+    finally:
+        await db.close()
 
-    async def require_drained() -> None:
-        async with httpx.AsyncClient(base_url=args.base_url, headers=headers, timeout=30) as client:
-            response = await client.get("/api/maintenance")
-            response.raise_for_status()
-            if not response.json()["enabled"] or await api.threads.count(status="busy"):
-                raise RuntimeError("Cleanup requires maintenance mode and no busy threads on all replicas")
 
-    if args.quarantine:
-        await require_drained()
+async def scan(args, db):
     store = get_object_store()
-    sources = await live_sources(api)  # Any API failure aborts; never assume no references.
+    sources = await live_sources(db)  # Any API failure aborts; never assume no references.
     items = await asyncio.to_thread(inventory, store)
     cutoff = (datetime.now(UTC) - timedelta(days=args.retention_days)).timestamp()
     selected = candidates(items, sources, cutoff)
@@ -152,8 +142,7 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
         handle.flush()
         os.fsync(handle.fileno())
     if args.quarantine:
-        await require_drained()
-        if await live_sources(api) != sources:
+        if await live_sources(db) != sources:
             raise RuntimeError("References changed; rescan before cleanup")
         await asyncio.to_thread(quarantine, store, selected, run_id)
     result["completed"] = True
@@ -163,14 +152,12 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--base-url", required=True)
-    parser.add_argument("--token", default=os.getenv("AI_SERVICE_TOKEN"))
     parser.add_argument("--retention-days", type=int, default=187)
     parser.add_argument("--quarantine", action="store_true")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
-    if not args.token or args.retention_days < TTL_MINUTES / 1440 + 7:
-        parser.error("A service token and at least 187 days retention are required")
+    if args.retention_days < TTL_MINUTES / 1440 + 7:
+        parser.error("At least 187 days retention is required")
     if args.output.exists():
         parser.error("Refusing to overwrite an inventory")
     result = asyncio.run(run(args))

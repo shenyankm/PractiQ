@@ -9,6 +9,17 @@ permissions:
 jobs:
   quality:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-bookworm
+        env:
+          POSTGRES_PASSWORD: isolated-test-only
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 2s --health-timeout 2s --health-retries 30
+    env:
+      TEST_DATABASE_URI: postgresql://postgres:isolated-test-only@127.0.0.1:5432/postgres
     defaults:
       run:
         working-directory: server
@@ -26,7 +37,6 @@ jobs:
       - run: uv run coverage run -m pytest --junitxml=reports/checks/probes.xml
       - run: uv run python scripts/evaluate.py --probes reports/checks/probes.xml
       - run: uv run coverage report -m
-      - run: uv run langgraph validate
       - run: uv build
       - run: docker build -f Dockerfile.server -t practiq-ai:ci .
         working-directory: .

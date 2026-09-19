@@ -1,19 +1,19 @@
-"""Typed upload metadata route mounted by Agent Server."""
+"""Authenticated document APIs with a PostgreSQL-backed LangGraph runtime."""
 
 import asyncio
-import secrets
 from collections.abc import AsyncGenerator, AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Annotated, Any
 from uuid import UUID
 from weakref import WeakKeyDictionary
 
-import httpx
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+from psycopg import Error as DatabaseError
+from psycopg_pool import PoolTimeout
 
 from practiq_ai import task_api
-from practiq_ai.config import load, service_token
+from practiq_ai.config import load
 from practiq_ai.contracts import (
     ArtifactReference,
     DocumentReference,
@@ -30,8 +30,17 @@ from practiq_ai.telemetry import registry
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    from . import runtime
+    from .database import Database
     await asyncio.to_thread(load)
-    yield
+    service = runtime.Service(Database())
+    await service.start()
+    runtime.current = service
+    try:
+        yield
+    finally:
+        await service.stop()
+        runtime.current = None
 
 
 app = FastAPI(lifespan=lifespan)
@@ -41,9 +50,8 @@ _uploads: WeakKeyDictionary[asyncio.AbstractEventLoop, int] = WeakKeyDictionary(
 
 
 def authorize(authorization: str | None = Header(default=None)) -> None:
-    scheme, _, token = (authorization or "").partition(" ")
-    if scheme.lower() != "bearer" or not secrets.compare_digest(token, service_token()):
-        raise HTTPException(401, "Invalid service token")
+    from .auth import authenticate
+    authenticate(authorization)
 
 
 async def upload_slot() -> AsyncGenerator[None]:
@@ -62,7 +70,17 @@ async def upload_slot() -> AsyncGenerator[None]:
 
 @app.get("/api/metrics", dependencies=[Depends(authorize)])
 async def application_metrics() -> Response:
-    return Response(generate_latest(registry), headers={"Content-Type": CONTENT_TYPE_LATEST})
+    from .runtime import current
+    body = generate_latest(registry)
+    if current:
+        rows = await current.db.rows("SELECT status,count(*) AS n FROM document_runs WHERE status IN ('pending','running') GROUP BY status")
+        counts = {row['status']: row['n'] for row in rows}
+        jobs = load().jobs_per_worker
+        body += (f"practiq_pending_runs {counts.get('pending', 0)}\n"
+                 f"practiq_running_runs {counts.get('running', 0)}\n"
+                 f"practiq_workers_max {jobs}\n"
+                 f"practiq_workers_available {max(0, jobs - len(current.active))}\n").encode()
+    return Response(body, headers={"Content-Type": CONTENT_TYPE_LATEST})
 
 
 @app.get("/api/maintenance", dependencies=[Depends(authorize)])
@@ -75,12 +93,8 @@ async def _task_response(operation: Any) -> dict[str, Any]:
         return await operation
     except DocumentProcessingError as exc:
         raise HTTPException(exc.status_code, {"code": exc.code, "message": exc.detail}) from exc
-    except httpx.HTTPStatusError as exc:
-        code = exc.response.status_code
-        raise HTTPException(code if code in {404, 409, 410, 422} else 503,
-                            {"code": "TASK_SERVICE_ERROR", "message": "Agent Server request failed"}) from exc
-    except httpx.RequestError as exc:
-        raise HTTPException(503, {"code": "TASK_SERVICE_UNAVAILABLE", "message": "Agent Server is unavailable"}) from exc
+    except (DatabaseError, PoolTimeout) as exc:
+        raise HTTPException(503, {"code": "TASK_SERVICE_UNAVAILABLE", "message": "Task database is unavailable"}) from exc
 
 
 @app.post("/api/document-tasks", status_code=202, dependencies=[Depends(authorize)])
@@ -142,3 +156,15 @@ async def upload_content(request: Request, metadata: Annotated[DocumentUploadReq
         return document
     except DocumentProcessingError as exc:
         raise HTTPException(exc.status_code, {"code": exc.code, "message": exc.detail}) from exc
+
+
+@app.get("/ok")
+async def liveness() -> dict[str, bool]:
+    return {"ok": True}
+
+
+@app.get("/ready")
+async def readiness() -> Response:
+    from .runtime import current
+    ready = current is not None and await current.ready()
+    return Response(status_code=200 if ready else 503)

@@ -27,7 +27,7 @@ class JsonBodyLimitMiddleware:
         self.maximum = maximum
 
     async def __call__(self, scope, receive, send):
-        # Native runs and binary uploads own their streaming/body limits.
+        # Binary uploads own their streaming/body limits.
         if (scope['type'] != 'http' or scope['method'] not in {'POST', 'PUT', 'PATCH'}
                 or not (scope['path'].rstrip('/') in {'/api/uploads', '/api/artifacts/read', '/api/document-tasks'}
                         or scope['path'].startswith('/api/document-tasks/') and scope['path'].rstrip('/').endswith('/control'))):

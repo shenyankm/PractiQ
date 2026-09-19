@@ -1,185 +1,245 @@
+"""Real HTTP process + PostgreSQL recovery acceptance, with no external models."""
+import asyncio
 import hashlib
-import json
+import os
 import socket
 import subprocess
 import sys
-import tempfile
 import time
 from pathlib import Path
 from uuid import uuid4
 
 import httpx
+import pytest
+
+from tests.db_support import new_database
 
 ROOT = Path(__file__).parents[1]
-GRAPH_IDS = {
-    "document_parser", "text_csv_parser", "pdf_parser", "docx_parser", "excel_parser"
-}
 
 
-def _free_port() -> int:
-    with socket.socket() as listener:
-        listener.bind(("127.0.0.1", 0))
-        return listener.getsockname()[1]
+class Server:
+    def __init__(self, tmp_path, uri, phase=''):
+        self.root = tmp_path
+        self.root.mkdir(exist_ok=True)
+        with socket.socket() as sock:
+            sock.bind(('127.0.0.1', 0))
+            port = sock.getsockname()[1]
+        self.env = {**os.environ, 'DATABASE_URI': uri, 'AI_STORAGE_DIR': str(tmp_path / 'files'),
+                    'TEST_EVENTS': str(tmp_path), 'TEST_PHASE': phase, 'N_JOBS_PER_WORKER': '1',
+                    'AI_GRAPH_MAX_CONCURRENCY': '1', 'AI_DEPLOYMENT_WORKERS': '1',
+                    'PYTHONPATH': str(ROOT / 'src') + os.pathsep + str(ROOT)}
+        self.client = httpx.Client(base_url=f'http://127.0.0.1:{port}', headers={'Authorization': 'Bearer test-token'}, timeout=5)
+        self.port = port
+        self.process = None
+        self.log = None
 
-
-def test_agent_server_mounts_auth_routes_and_graphs() -> None:
-    config = json.loads((ROOT / "langgraph.json").read_text())
-    assert set(config["graphs"]) == GRAPH_IDS
-    config["env"] = {
-        "AI_SERVICE_TOKEN": "blackbox-token",
-        "LLM_PROVIDER": "dashscope",
-        "LLM_API_KEY": "dummy",
-        "LLM_VISION_MODEL": "dummy",
-        "N_JOBS_PER_WORKER": "1",
-        "AI_GRAPH_MAX_CONCURRENCY": "1",
-    }
-    config["dependencies"] = [str(ROOT)]
-    config["graphs"] = {
-        name: f"{ROOT}/{target.removeprefix('./')}"
-        for name, target in config["graphs"].items()
-    }
-    config["auth"]["path"] = f"{ROOT}/src/practiq_ai/auth.py:auth"
-    config["http"]["app"] = f"{ROOT}/src/practiq_ai/webapp.py:app"
-    port = _free_port()
-    headers = {"Authorization": "Bearer blackbox-token"}
-
-    with tempfile.TemporaryDirectory() as runtime_dir, tempfile.NamedTemporaryFile(
-        mode="w", suffix=".json", prefix=".langgraph-test-", dir=runtime_dir
-    ) as config_file, tempfile.TemporaryFile(mode="w+") as log_file:
-        config["env"]["AI_STORAGE_DIR"] = str(Path(runtime_dir) / "files")
-        fixture = Path(runtime_dir) / "task_fixture.py"
-        fixture.write_text(
-            "import sys\n"
-            f"sys.path.insert(0, {str(ROOT)!r})\n"
-            "from tests.test_workflows import FakeModel, question\n"
-            "from practiq_ai.graphs import document, formats\n"
-            "model = FakeModel(responses=[(0.1, {'questions': [question('First')], 'groups': []}) for _ in range(20)])\n"
-            "document.get_model = lambda: model\n"
-            "document_parser = document.graph\n"
-            "text_csv_parser = formats.text_csv_parser\n"
-            "pdf_parser = formats.pdf_parser\n"
-            "docx_parser = formats.docx_parser\n"
-            "excel_parser = formats.excel_parser\n"
-        )
-        config["graphs"] = {name: f"{fixture}:{name}" for name in GRAPH_IDS}
-        json.dump(config, config_file)
-        config_file.flush()
-        process = subprocess.Popen(
-            [
-                sys.executable, "-m", "langgraph_cli",
-                "dev",
-                "--no-browser",
-                "--no-reload",
-                "--port",
-                str(port),
-                "--config",
-                config_file.name,
-            ],
-            cwd=runtime_dir,
-            stdout=log_file,
-            stderr=subprocess.STDOUT,
-            text=True,
-        )
-        try:
-            base_url = f"http://127.0.0.1:{port}"
-            deadline = time.monotonic() + 30
-            with httpx.Client(base_url=base_url, timeout=2) as client:
-                while True:
-                    if process.poll() is not None:
-                        raise AssertionError("Agent Server exited during startup")
-                    try:
-                        if client.get("/ok").status_code == 200:
-                            break
-                    except httpx.HTTPError:
-                        pass
-                    if time.monotonic() >= deadline:
-                        raise AssertionError("Agent Server did not become ready")
-                    time.sleep(0.1)
-
-                assert client.post("/api/uploads", json={}).status_code == 401
-                assert (
-                    client.post("/api/uploads", headers=headers, json={}).status_code
-                    == 422
-                )
-                assert (
-                    client.post("/api/v3/uploads", headers=headers, json={}).status_code
-                    == 404
-                )
-                for removed in ("parse-document", "generate-answer", "learning-report"):
-                    response = client.post(f"/api/v1/ai/{removed}", headers=headers, json={})
-                    assert response.status_code == 404
-                assert client.get("/api/health/live", headers=headers).status_code == 404
-                assert client.post("/api/artifacts/read", json={}).status_code == 401
-                response = client.post("/assistants/search", headers=headers, json={})
-                response.raise_for_status()
-                assistants = response.json()
-                assert {item["graph_id"] for item in assistants} == GRAPH_IDS
-                # Real native SSE execution, rejected before any storage/LLM call.
-                with client.stream("POST", "/runs/stream", headers=headers, json={
-                    "assistant_id": "pdf_parser",
-                    "input": {"document": {
-                        "sourceType": "text", "fileName": "synthetic.txt",
-                        "objectKey": "practiq-agent/sources/" + "a" * 64 + "/source.txt",
-                        "sha256": "a" * 64, "mediaType": "text/plain", "sizeBytes": 1,
-                    }},
-                }) as stream:
-                    assert stream.status_code == 200
-                    events = "\n".join(stream.iter_lines())
-                    assert "event: error" in events
-                    assert "This graph accepts only: pdf" in events
-
-                # Exercise the actual mounted task routes, SDK loopback transport,
-                # server Store and native run cancellation; no external model calls.
-                payload = b"1. First"
-                upload = client.post("/api/uploads", headers=headers, json={
-                    "sourceType": "text", "fileName": "task.txt", "mediaType": "text/plain",
-                    "sha256": hashlib.sha256(payload).hexdigest(), "sizeBytes": len(payload),
-                })
-                upload.raise_for_status()
-                upload_info = upload.json()
-                client.put(upload_info["upload"]["url"], headers=headers, content=payload).raise_for_status()
-                request = {"requestId": str(uuid4()), "document": upload_info["document"]}
-                created = client.post("/api/document-tasks", headers=headers, json=request)
-                created.raise_for_status()
-                receipt = created.json()
-                path = "/api/document-tasks/" + receipt["threadId"]
-                duplicate = client.post("/api/document-tasks", headers=headers, json=request)
-                duplicate.raise_for_status()
-                assert duplicate.json() == receipt
-                paused = client.post(path + "/control", headers=headers, json={
-                    "requestId": str(uuid4()), "action": "pause", "runId": receipt["runId"],
-                })
-                paused.raise_for_status()
-
-                def wait_for_state(expected):
-                    deadline = time.monotonic() + 15
-                    while time.monotonic() < deadline:
-                        result = client.get(path, headers=headers)
-                        result.raise_for_status()
-                        value = result.json()
-                        if value["state"] in expected:
-                            return value
-                        assert value["state"] != "FAILED", value
-                        time.sleep(0.05)
-                    raise AssertionError("Task failed to reach expected state")
-
-                state = wait_for_state({"PAUSED", "COMPLETED"})
-                if state["state"] == "PAUSED":
-                    client.post(path + "/control", headers=headers, json={
-                        "requestId": str(uuid4()), "action": "resume", "checkpointId": state["checkpointId"],
-                    }).raise_for_status()
-                    state = wait_for_state({"COMPLETED"})
-                assert state["status"] == "SUCCEEDED"
-                assert len(state["usage"]) == 1
-                assert not state["unknownUsageCalls"]
-        except BaseException:
-            log_file.seek(0)
-            print(f"Agent Server log:\n{log_file.read()}")
-            raise
-        finally:
-            process.terminate()
+    def start(self):
+        self.log = (self.root / 'server.log').open('a')
+        self.process = subprocess.Popen([sys.executable, '-m', 'uvicorn', 'tests.runtime_app:app',
+            '--host', '127.0.0.1', '--port', str(self.port), '--workers', '1'], cwd=ROOT, env=self.env,
+            stdout=self.log, stderr=subprocess.STDOUT)
+        deadline = time.monotonic() + 20
+        while time.monotonic() < deadline:
+            if self.process.poll() is not None:
+                raise AssertionError((self.root / 'server.log').read_text())
             try:
-                process.wait(timeout=5)
+                if self.client.get('/ready').status_code == 200:
+                    return
+            except httpx.HTTPError:
+                pass
+            time.sleep(0.05)
+        raise AssertionError('Service did not start')
+
+    def stop(self, kill=False):
+        if self.process and self.process.poll() is None:
+            self.process.kill() if kill else self.process.terminate()
+            try:
+                self.process.wait(timeout=8)
             except subprocess.TimeoutExpired:
-                process.kill()
-                process.wait(timeout=5)
+                self.process.kill()
+                self.process.wait(timeout=5)
+        if self.log:
+            self.log.close()
+
+    def submit(self, review=False):
+        payload = b'1. First' if not review else b'1. Different source'
+        value = self.client.post('/api/uploads', json={'sourceType': 'text', 'fileName': 'test.txt', 'mediaType': 'text/plain',
+            'sha256': hashlib.sha256(payload).hexdigest(), 'sizeBytes': len(payload)}).json()
+        if value['upload']:
+            self.client.put(value['upload']['url'], content=payload).raise_for_status()
+        request = {'requestId': str(uuid4()), 'document': value['document'], 'failurePolicy': 'review' if review else 'return_partial'}
+        response = self.client.post('/api/document-tasks', json=request)
+        response.raise_for_status()
+        assert self.client.post('/api/document-tasks', json=request).json() == response.json()
+        return response.json()
+
+    def state(self, receipt):
+        response = self.client.get('/api/document-tasks/' + receipt['threadId'])
+        response.raise_for_status()
+        return response.json()
+
+    def control(self, receipt, action, **kwargs):
+        request = {'requestId': str(uuid4()), 'action': action, **kwargs}
+        response = self.client.post('/api/document-tasks/' + receipt['threadId'] + '/control', json=request)
+        response.raise_for_status()
+        return request, response.json()
+
+    def wait(self, receipt, expected):
+        state = {}
+        deadline = time.monotonic() + 20
+        while time.monotonic() < deadline:
+            state = self.state(receipt)
+            if state['state'] in expected:
+                return state
+            assert state['state'] != 'FAILED', (state, (self.root / 'server.log').read_text())
+            time.sleep(0.05)
+        raise AssertionError(state)
+
+    def marker(self, name):
+        deadline = time.monotonic() + 20
+        while not (self.root / name).exists():
+            assert time.monotonic() < deadline, (self.root / 'server.log').read_text()
+            time.sleep(0.02)
+
+    def calls(self):
+        path = self.root / 'calls'
+        return len(path.read_text().splitlines()) if path.exists() else 0
+
+
+async def prepare(tmp_path, phase=''):
+    db = await new_database()
+    await db.close()
+    # psycopg's DSN is accepted by the runtime; config validates URI in production.
+    from psycopg.conninfo import conninfo_to_dict
+    v = conninfo_to_dict(db.uri)
+    uri = f"postgresql://{v['user']}:{v['password']}@{v['host']}:{v['port']}/{v['dbname']}"
+    return Server(tmp_path, uri, phase)
+
+
+async def test_oss_server_auth_routes_and_graphs(tmp_path):
+    server = await prepare(tmp_path)
+    try:
+        await asyncio.to_thread(server.start)
+        assert server.client.get('/ok', headers={'Authorization': ''}).json() == {'ok': True}
+        assert server.client.post('/api/uploads', json={}, headers={'Authorization': ''}).status_code == 401
+        assert server.client.post('/api/uploads', json={}).status_code == 422
+        for route in ['/threads', '/runs', '/store/items', '/assistants/search', '/api/v1/ai/parse-document']:
+            assert server.client.post(route, json={}).status_code == 404
+        receipt = server.submit()
+        state = await asyncio.to_thread(server.wait, receipt, {'COMPLETED'})
+        assert state['status'] == 'SUCCEEDED' and len(state['usage']) == 1
+        assert 'practiq_workers_max 1' in server.client.get('/api/metrics').text
+    finally:
+        server.stop(kill=True)
+        server.client.close()
+
+
+@pytest.mark.parametrize('phase', ['queued', 'model', 'model_saved', 'completed'])
+async def test_process_kill_automatically_recovers_same_run(tmp_path, phase):
+    server = await prepare(tmp_path, phase)
+    try:
+        await asyncio.to_thread(server.start)
+        receipt = server.submit()
+        await asyncio.to_thread(server.marker, phase)
+        before = server.state(receipt)
+        server.stop(kill=True)
+        await asyncio.to_thread(server.start)
+        after = await asyncio.to_thread(server.wait, receipt, {'COMPLETED'})
+        assert after['runId'] == receipt['runId']
+        assert after['status'] == 'SUCCEEDED'
+        assert server.calls() == 1
+        assert len(after['unknownUsageCalls']) == (1 if phase == 'model' else 0)
+        if phase != 'queued':
+            assert after['modelBudget']['reserved'] == before['modelBudget']['reserved']
+    finally:
+        server.stop(kill=True)
+        server.client.close()
+
+
+@pytest.mark.parametrize('phase', ['review_before', 'review_after'])
+async def test_review_decision_survives_process_kill_without_reapplication(tmp_path, phase):
+    server = await prepare(tmp_path, phase)
+    try:
+        await asyncio.to_thread(server.start)
+        receipt = server.submit(review=True)
+        waiting = await asyncio.to_thread(server.wait, receipt, {'WAITING_REVIEW'})
+        server.stop(kill=True)
+        await asyncio.to_thread(server.start)
+        assert server.state(receipt)['state'] == 'WAITING_REVIEW'
+        request, accepted = server.control(receipt, 'accept_partial', checkpointId=waiting['checkpointId'])
+        await asyncio.to_thread(server.marker, phase)
+        server.stop(kill=True)
+        await asyncio.to_thread(server.start)
+        done = await asyncio.to_thread(server.wait, receipt, {'COMPLETED'})
+        assert done['runId'] == accepted['runId'] and server.calls() == 1
+        assert done['processing']['quality']['reviewRequired']
+        assert server.client.post('/api/document-tasks/' + receipt['threadId'] + '/control', json=request).json() == accepted
+    finally:
+        server.stop(kill=True)
+        server.client.close()
+
+
+async def test_user_interrupt_is_not_automatically_resumed(tmp_path):
+    server = await prepare(tmp_path, 'model')
+    try:
+        await asyncio.to_thread(server.start)
+        receipt = server.submit()
+        await asyncio.to_thread(server.marker, 'model')
+        server.control(receipt, 'interrupt', runId=receipt['runId'])
+        interrupted = await asyncio.to_thread(server.wait, receipt, {'INTERRUPTED'})
+        server.stop(kill=True)
+        await asyncio.to_thread(server.start)
+        assert server.state(receipt)['state'] == 'INTERRUPTED'
+        assert server.calls() == 0
+        server.control(receipt, 'resume', checkpointId=interrupted['checkpointId'])
+        state = await asyncio.to_thread(server.wait, receipt, {'COMPLETED'})
+        assert len(state['unknownUsageCalls']) == 1 and server.calls() == 1
+    finally:
+        server.stop(kill=True)
+        server.client.close()
+
+
+async def test_database_lock_loss_exits_process_and_recovery_is_exclusive(tmp_path):
+    server = await prepare(tmp_path, 'model')
+    from psycopg import AsyncConnection
+
+    from practiq_ai.database import INSTANCE_LOCK
+    try:
+        await asyncio.to_thread(server.start)
+        receipt = server.submit()
+        await asyncio.to_thread(server.marker, 'model')
+        async with await AsyncConnection.connect(server.env['DATABASE_URI'], autocommit=True) as conn:
+            row = await (await conn.execute("SELECT pid FROM pg_locks WHERE locktype='advisory' AND objid=%s", (INSTANCE_LOCK,))).fetchone()
+            assert row
+            await conn.execute('SELECT pg_terminate_backend(%s)', (row[0],))
+        assert server.process is not None
+        await asyncio.to_thread(server.process.wait, 10)
+        assert server.process.returncode == 70
+        server.stop()
+        await asyncio.to_thread(server.start)
+        done = await asyncio.to_thread(server.wait, receipt, {'COMPLETED'})
+        assert done['runId'] == receipt['runId'] and len(done['unknownUsageCalls']) == 1
+    finally:
+        server.stop(kill=True)
+        server.client.close()
+
+
+async def test_manual_pause_remains_paused_after_restart(tmp_path):
+    server = await prepare(tmp_path, 'model')
+    try:
+        await asyncio.to_thread(server.start)
+        receipt = server.submit()
+        await asyncio.to_thread(server.marker, 'model')
+        server.control(receipt, 'pause', runId=receipt['runId'])
+        server.stop(kill=True)
+        await asyncio.to_thread(server.start)
+        state = await asyncio.to_thread(server.wait, receipt, {'PAUSED'})
+        server.stop(kill=True)
+        await asyncio.to_thread(server.start)
+        assert server.state(receipt)['state'] == 'PAUSED'
+        server.control(receipt, 'resume', checkpointId=state['checkpointId'])
+        done = await asyncio.to_thread(server.wait, receipt, {'COMPLETED'})
+        assert done['status'] == 'SUCCEEDED'
+    finally:
+        server.stop(kill=True)
+        server.client.close()

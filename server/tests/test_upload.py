@@ -101,6 +101,10 @@ async def test_lifespan_validates_configuration(monkeypatch: pytest.MonkeyPatch)
         nonlocal calls
         calls += 1
 
+    from practiq_ai import database
+    from tests.db_support import new_database
+    db = await new_database()
+    monkeypatch.setattr(database, 'Database', lambda: db)
     monkeypatch.setattr(webapp, "load", loaded)
     async with webapp.lifespan(app):
         assert calls == 1

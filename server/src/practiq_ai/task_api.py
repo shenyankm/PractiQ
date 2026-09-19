@@ -1,14 +1,12 @@
-"""Thin document-task controls over public Agent Server APIs (no private DB access)."""
+"""Document APIs over our PostgreSQL queue and open-source LangGraph."""
 
 import asyncio
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Any, cast
-from uuid import NAMESPACE_URL, uuid5
+from uuid import NAMESPACE_URL, uuid4, uuid5
 
-import httpx
-from langgraph_sdk import get_client
+from psycopg.types.json import Jsonb
 
-from .capacity import admit_run
 from .config import load
 from .contracts import (
     ArtifactReference,
@@ -17,9 +15,9 @@ from .contracts import (
     DocumentTaskCreate,
     RetryUnits,
 )
+from .database import utcnow
 from .errors import DocumentProcessingError
 from .execution import (
-    RECURSION_LIMIT,
     TTL_MINUTES,
     fingerprint,
     namespace,
@@ -30,179 +28,207 @@ from .graphs.document import _retry_update, unit_failures
 from .storage import get_object_store
 
 
-def client() -> Any:
-    # This SDK's in-process transport bypasses HTTP authentication. Only call it
-    # from already authenticated routes; never accept a caller-provided URL.
-    return get_client(url=None, api_key=None)
+def client():
+    from .runtime import current
+    if current is None or not current.accepting:
+        raise DocumentProcessingError(503, 'Task service is unavailable', 'TASK_SERVICE_UNAVAILABLE')
+    return current
 
 
-def conflict(message: str, code: str = "INVALID_CONTROL") -> DocumentProcessingError:
+def conflict(message: str, code: str = 'INVALID_CONTROL') -> DocumentProcessingError:
     return DocumentProcessingError(409, message, code)
 
 
-async def _item(api: Any, thread_id: str, kind: str, key: str) -> dict[str, Any] | None:
-    try:
-        item = await api.store.get_item(namespace(thread_id, kind), key, refresh_ttl=False)
-    except httpx.HTTPStatusError as exc:
-        if exc.response.status_code == 404:
-            return None
-        raise
-    return item["value"] if item else None
+def receipt(thread_id: str, request_id: str, run_id: str) -> dict[str, Any]:
+    return {'threadId': thread_id, 'requestId': request_id, 'runId': run_id, 'accepted': True}
 
 
-async def _find_run(api: Any, thread_id: str, request_id: str) -> dict[str, Any] | None:
-    offset = 0
-    while True:
-        runs = await api.runs.list(thread_id, limit=100, offset=offset)
-        for run in runs:
-            if run.get("metadata", {}).get("documentRequestId") == request_id:
-                return run
-        if len(runs) < 100:
-            return None
-        offset += len(runs)
+async def _admit(conn):
+    if load().maintenance:
+        raise DocumentProcessingError(503, 'Service is draining for maintenance', 'MAINTENANCE')
+    count = await (await conn.execute("SELECT count(*) AS n FROM document_runs WHERE status IN ('pending','running')")).fetchone()
+    if count['n'] >= load().max_busy_threads:
+        raise DocumentProcessingError(503, 'Document queue is full; retry later', 'QUEUE_FULL')
 
 
-def _receipt(thread_id: str, request_id: str, run: dict[str, Any] | None) -> dict[str, Any]:
-    return {"threadId": thread_id, "requestId": request_id,
-            "runId": run["run_id"] if run else None, "accepted": True}
+async def _enqueue(conn, task, request_id, request_hash, *, graph_input=None, command=None, base=None, generation=0):
+    await _admit(conn)
+    run_id = str(uuid4())
+    context = {'documentControl': {'requestId': request_id, 'fingerprint': request_hash,
+                                  'generation': generation, 'expiresAt': task['expires_at'].isoformat()}}
+    await conn.execute('INSERT INTO document_runs(run_id,thread_id,request_id,input,command,context,base_checkpoint) VALUES (%s,%s,%s,%s,%s,%s,%s)',
+                       (run_id, task['thread_id'], request_id, Jsonb(graph_input), Jsonb(command), Jsonb(context), base))
+    return receipt(task['thread_id'], request_id, run_id)
 
 
-async def _start_run(api: Any, thread_id: str, graph_id: str, request_id: str,
-                     request_hash: str, *, graph_input: Any = None, command: Any = None,
-                     expires_at: str | None = None, generation: int = 0) -> dict[str, Any]:
-    previous = await _find_run(api, thread_id, request_id)
-    if previous:
-        return _receipt(thread_id, request_id, previous)
-    await admit_run(api)
-    operation = {"requestId": request_id, "fingerprint": request_hash,
-                 "generation": generation,
-                 "expiresAt": expires_at}
-    try:
-        run = await api.runs.create(
-            thread_id, graph_id, input=graph_input, command=command,
-            durability="sync", multitask_strategy="reject",
-            config={"recursion_limit": RECURSION_LIMIT, "max_concurrency": 2 * load().graph_max_concurrency},
-            context={"documentControl": operation},
-            metadata={"documentRequestId": request_id},
-        )
-    except httpx.HTTPStatusError as exc:
-        if exc.response.status_code != 409:
-            raise
-        run = await _find_run(api, thread_id, request_id)
-        if not run:
-            raise conflict("Another run is active", "TASK_BUSY") from exc
-    return _receipt(thread_id, request_id, run)
+async def _replay(conn, thread_id, request_id, request_hash):
+    row = await (await conn.execute('SELECT r.*, t.expires_at FROM document_receipts r JOIN document_tasks t USING(thread_id) WHERE r.thread_id=%s AND request_id=%s', (thread_id, request_id))).fetchone()
+    if row:
+        remaining_ttl({'expiresAt': row['expires_at'].isoformat()})
+        if row['fingerprint'] != request_hash:
+            raise conflict('requestId was already used for different input', 'REQUEST_CONFLICT')
+        return row['response']
+    return None
+
+
+async def _save_receipt(conn, thread_id, request_id, request_hash, response):
+    await conn.execute('INSERT INTO document_receipts VALUES (%s,%s,%s,%s)', (thread_id, request_id, request_hash, Jsonb(response)))
 
 
 async def create_task(request: DocumentTaskCreate) -> dict[str, Any]:
-    api = client()
+    service = client()
     request_id = str(request.requestId)
-    thread_id = str(uuid5(NAMESPACE_URL, f"practiq/document/{request_id}"))
-    request_hash = fingerprint(request.model_dump(mode="json"))
-    if request.parentThreadId:
-        await api.threads.get(str(request.parentThreadId))
-    try:
-        thread = await api.threads.get(thread_id)
-    except httpx.HTTPStatusError as exc:
-        if exc.response.status_code != 404:
-            raise
-        # Reject overload before allocating a 180-day thread. Existing request IDs
-        # still reach receipt replay even while the queue is full.
-        await admit_run(api)
-        thread = await api.threads.create(
-            thread_id=thread_id, if_exists="do_nothing", ttl={"strategy": "delete", "ttl": TTL_MINUTES},
-            metadata={"kind": "document_task", "requestFingerprint": request_hash,
-                      "graphId": request.graphId, "parentThreadId": str(request.parentThreadId) if request.parentThreadId else None},
-        )
-    if thread.get("metadata", {}).get("requestFingerprint") != request_hash:
-        raise conflict("requestId was already used for different input", "REQUEST_CONFLICT")
-    created_at = datetime.fromisoformat(thread["created_at"])
-    expires_at = (created_at + timedelta(minutes=TTL_MINUTES)).isoformat()
-    remaining_ttl({"expiresAt": expires_at})
-    return await _start_run(api, thread_id, request.graphId, request_id, request_hash,
-                            graph_input=request.model_dump(mode="json", include={"document", "failurePolicy"}),
-                            expires_at=expires_at)
+    thread_id = str(uuid5(NAMESPACE_URL, f'practiq/document/{request_id}'))
+    request_hash = fingerprint(request.model_dump(mode='json'))
+    async with service.db.transaction() as conn:
+        previous = await _replay(conn, thread_id, request_id, request_hash)
+        if previous:
+            return previous
+        if request.parentThreadId:
+            parent = await (await conn.execute('SELECT thread_id FROM document_tasks WHERE thread_id=%s', (str(request.parentThreadId),))).fetchone()
+            if not parent:
+                raise DocumentProcessingError(404, 'Parent task not found', 'TASK_NOT_FOUND')
+        await _admit(conn)
+        task = await (await conn.execute('INSERT INTO document_tasks(thread_id,request_hash,graph_id,document,failure_policy,parent_thread_id,expires_at) VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING *',
+            (thread_id, request_hash, request.graphId, Jsonb(request.document.model_dump(mode='json')), request.failurePolicy,
+             str(request.parentThreadId) if request.parentThreadId else None, utcnow() + timedelta(minutes=TTL_MINUTES)))).fetchone()
+        response = await _enqueue(conn, task, request_id, request_hash,
+                                  graph_input=request.model_dump(mode='json', include={'document', 'failurePolicy'}))
+        await _save_receipt(conn, thread_id, request_id, request_hash, response)
+    service.wake.set()
+    return response
 
 
-def _interrupts(snapshot: dict[str, Any]) -> dict[str, dict[str, Any]]:
-    found = {item["id"]: item["value"] for item in snapshot.get("interrupts", [])}
-    for task in snapshot.get("tasks", []):
-        found.update({item["id"]: item["value"] for item in task.get("interrupts", [])})
-        if isinstance(task.get("state"), dict):
-            found.update(_interrupts(task["state"]))
-    return found
+async def _read_task(service, thread_id):
+    tasks = await service.db.rows('SELECT * FROM document_tasks WHERE thread_id=%s', (thread_id,))
+    if not tasks:
+        raise DocumentProcessingError(404, 'Document task not found', 'TASK_NOT_FOUND')
+    task = tasks[0]
+    remaining_ttl({'expiresAt': task['expires_at'].isoformat()})
+    snapshot = await service.snapshot(task)
+    runs = await service.db.rows('SELECT * FROM document_runs WHERE thread_id=%s ORDER BY created_at DESC LIMIT 1', (thread_id,))
+    return task, snapshot, runs[0] if runs else None
 
 
-async def _read_task(api: Any, thread_id: str) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any] | None]:
-    thread = await api.threads.get(thread_id)
-    if thread.get("metadata", {}).get("kind") != "document_task":
-        raise conflict("Controls require a versioned document task", "EXECUTION_VERSION_MISMATCH")
-    snapshot = await api.threads.get_state(thread_id, subgraphs=True)
-    runs = await api.runs.list(thread_id, limit=1)
-    return thread, snapshot, runs[0] if runs else None
+def _interrupts(snapshot):
+    return {item.id: item.value for item in snapshot.interrupts}
 
 
-async def _calls(api: Any, thread_id: str) -> list[dict[str, Any]]:
-    values: list[dict[str, Any]] = []
+async def _calls(service, thread_id):
+    values = []
     while True:
-        page = await api.store.search_items(namespace(thread_id, "calls"), limit=100, offset=len(values), refresh_ttl=False)
-        items = page["items"]
-        values.extend(item["value"] for item in items)
+        items = await service.db.store.asearch(namespace(thread_id, 'calls'), limit=100, offset=len(values), refresh_ttl=False)
+        values.extend(item.value for item in items)
         if len(items) < 100:
             return values
 
 
 async def get_task(thread_id: str) -> dict[str, Any]:
-    api = client()
-    thread, snapshot, run = await _read_task(api, thread_id)
-    values = snapshot.get("values") or {}
+    service = client()
+    task, snapshot, run = await _read_task(service, thread_id)
+    values = snapshot.values or {}
     interruptions = _interrupts(snapshot)
     failures = unit_failures(values)
-    active = bool(run and run["status"] in {"pending", "running"})
+    active = bool(run and run['status'] in {'pending', 'running'})
+    actions = []
     if active:
         assert run is not None
-        paused = await _item(api, thread_id, "pause", run["run_id"])
-        status = "PAUSING" if paused else "RUNNING"
-        actions = ["interrupt"] if paused else ["pause", "interrupt"]
+        state = 'PAUSING' if run['pause_requested'] else ('PENDING' if run['status'] == 'pending' else 'RUNNING')
+        actions = ['interrupt'] if run['pause_requested'] or run['cancel_requested'] else ['pause', 'interrupt']
+    elif run and run['status'] == 'error':
+        state = 'FAILED'
+        actions = ['resume'] if snapshot.next else []
+        if any(f['retryable'] for f in failures):
+            actions.append('retry_failed')
     elif interruptions:
-        reviews = [value for value in interruptions.values() if value.get("kind") == "review"]
-        status = "WAITING_REVIEW" if reviews else "PAUSED"
-        actions = (["retry_failed"] if any(f["retryable"] for f in failures) else []) if reviews else ["resume"]
-        if reviews and all(value.get("canAccept") for value in reviews):
-            actions.append("accept_partial")
-    elif run and run["status"] in {"error", "timeout", "interrupted"}:
-        status = "INTERRUPTED" if run["status"] == "interrupted" else "FAILED"
-        actions = ["resume"] if snapshot.get("next") else []
-        if any(item["retryable"] for item in failures):
-            actions.append("retry_failed")
-    elif values.get("status") in {"SUCCEEDED", "PARTIAL"}:
-        status = "COMPLETED"
-        actions = ["retry_failed"] if any(item["retryable"] for item in failures) else []
+        reviews = [value for value in interruptions.values() if value.get('kind') == 'review']
+        state = 'WAITING_REVIEW' if reviews else 'PAUSED'
+        actions = (['retry_failed'] if any(f['retryable'] for f in failures) else []) if reviews else ['resume']
+        if reviews and all(value.get('canAccept') for value in reviews):
+            actions.append('accept_partial')
+    elif run and run['status'] == 'interrupted':
+        state = 'INTERRUPTED'
+        actions = ['resume'] if snapshot.next or not values else []
+        if any(f['retryable'] for f in failures):
+            actions.append('retry_failed')
+    elif values.get('status') in {'SUCCEEDED', 'PARTIAL'}:
+        state = 'COMPLETED'
+        actions = ['retry_failed'] if any(f['retryable'] for f in failures) else []
     else:
-        status, actions = "PENDING", []
-    calls = await _calls(api, thread_id)
-    usage = {item["callKey"]: item for item in values.get("usage", [])}
-    usage.update({item["callKey"]: {k: item[k] for k in ("callKey", "modelId", "inputTokens", "outputTokens", "callKind")}
-                  for item in calls if item["status"] == "completed"})
-    execution = values.get("execution")
-    expires_at = execution["expiresAt"] if execution else (datetime.fromisoformat(thread["created_at"]) + timedelta(minutes=TTL_MINUTES)).isoformat()
+        state = 'PENDING'
+    calls = await _calls(service, thread_id)
+    usage = {item['callKey']: item for item in values.get('usage', [])}
+    usage.update({item['callKey']: {k: item[k] for k in ('callKey', 'modelId', 'inputTokens', 'outputTokens', 'callKind')}
+                  for item in calls if item['status'] == 'completed'})
     return {
-        "threadId": thread_id, "runId": run["run_id"] if run else None,
-        "state": status, "phase": values.get("phase", "pending"),
-        "checkpointId": (snapshot.get("checkpoint") or {}).get("checkpoint_id"),
-        "updatedAt": snapshot.get("created_at"), "expiresAt": expires_at,
-        "allowedActions": actions, "failures": failures,
-        "blocking": list(interruptions.values()) or [task["error"] for task in snapshot.get("tasks", []) if task.get("error")],
-        "progress": {
-            "visuals": _counts(len(values.get("pageRefs", [])) + len(values.get("embeddedRefs", [])), len(values.get("visionResults", [])), sum(f["stage"].startswith("vision_") for f in failures)),
-            "chunks": _counts(len(values.get("chunkRefs", [])), sum(item.get("parsed") is not None for item in values.get("chunkResults", [])), sum(f["stage"] == "document_parse" for f in failures)),
+        'threadId': thread_id, 'runId': run['run_id'] if run else None,
+        'state': state, 'phase': values.get('phase', 'pending'),
+        'checkpointId': service.checkpoint_id(snapshot, run),
+        'updatedAt': snapshot.created_at or task['created_at'].isoformat(), 'expiresAt': task['expires_at'].isoformat(),
+        'allowedActions': actions, 'failures': failures,
+        'blocking': list(interruptions.values()) or ([run['error_code']] if run and run['error_code'] else []),
+        'progress': {
+            'visuals': _counts(len(values.get('pageRefs', [])) + len(values.get('embeddedRefs', [])), len(values.get('visionResults', [])), sum(f['stage'].startswith('vision_') for f in failures)),
+            'chunks': _counts(len(values.get('chunkRefs', [])), sum(item.get('parsed') is not None for item in values.get('chunkResults', [])), sum(f['stage'] == 'document_parse' for f in failures)),
         },
-        "status": values.get("status") or None, "result": values.get("result") or None,
-        "modelBudget": {"limit": values.get("execution", {}).get("signature", {}).get("settings", {}).get("task_max_model_calls", load().task_max_model_calls),
-                        "reserved": values.get("reservedCalls", 0)},
-        "processing": values.get("processing") or None, "usage": list(usage.values()),
-        "unknownUsageCalls": [item["callKey"] for item in calls if item["status"] != "completed"],
+        'status': values.get('status') or None, 'result': values.get('result') or None,
+        'modelBudget': {'limit': values.get('execution', {}).get('signature', {}).get('settings', {}).get('task_max_model_calls', load().task_max_model_calls), 'reserved': values.get('reservedCalls', 0)},
+        'processing': values.get('processing') or None, 'usage': list(usage.values()),
+        'unknownUsageCalls': [item['callKey'] for item in calls if item['status'] != 'completed'],
     }
+
+
+async def control_task(thread_id: str, request: DocumentTaskControl) -> dict[str, Any]:
+    service = client()
+    request_id = str(request.requestId)
+    request_hash = fingerprint(request.model_dump(mode='json'))
+    async with service.db.transaction() as conn:
+        previous = await _replay(conn, thread_id, request_id, request_hash)
+        if previous:
+            return previous
+        task, snapshot, run = await _read_task(service, thread_id)
+        if request.action in {'pause', 'interrupt'}:
+            if not run or run['run_id'] != str(request.runId):
+                raise conflict('The target run is no longer current', 'STALE_RUN')
+            if run['status'] in {'pending', 'running'}:
+                if request.action == 'pause':
+                    await conn.execute('UPDATE document_runs SET pause_requested=true WHERE run_id=%s', (run['run_id'],))
+                else:
+                    await conn.execute('UPDATE document_runs SET cancel_requested=true WHERE run_id=%s', (run['run_id'],))
+            response = receipt(thread_id, request_id, run['run_id'])
+        else:
+            if run and run['status'] in {'pending', 'running'}:
+                raise conflict('Wait until the current run stops', 'TASK_BUSY')
+            if service.checkpoint_id(snapshot, run) != request.checkpointId:
+                raise conflict('Task changed since the checkpoint was read', 'STALE_CHECKPOINT')
+            values = snapshot.values or {}
+            if values.get('execution'):
+                await _preflight(values)
+            else:
+                await get_object_store().get_verified(DocumentReference.model_validate(task['document']))
+            interruptions = _interrupts(snapshot)
+            reviews = [v for v in interruptions.values() if v.get('kind') == 'review']
+            if request.action == 'resume' and (reviews or values and not snapshot.next):
+                raise conflict('Task requires a review decision or is already complete')
+            if request.action == 'accept_partial' and (not reviews or not all(v.get('canAccept') for v in reviews)):
+                raise conflict('There is no acceptable partial result')
+            graph_input = None
+            if not values:
+                graph_input = {'document': task['document'], 'failurePolicy': task['failure_policy']}
+            if request.action == 'retry_failed':
+                retry = RetryUnits(requestId=request.requestId, units=request.units)
+                _retry_update(cast(Any, values), retry)
+                if not reviews:
+                    if interruptions:
+                        raise conflict('Resume the paused task before retrying failed units')
+                    graph_input = {'document': values['document'], 'failurePolicy': values.get('failurePolicy', 'return_partial'), 'retry': retry.model_dump(mode='json')}
+            command = {'resume': {key: request.model_dump(mode='json') for key in interruptions}} if interruptions else None
+            admission = await service.db.store.aget(namespace(thread_id, 'control'), 'admission', refresh_ttl=False)
+            response = await _enqueue(conn, task, request_id, request_hash, graph_input=graph_input, command=command,
+                                      base=service.checkpoint_id(snapshot, run), generation=admission.value['generation'] if admission else 0)
+        await _save_receipt(conn, thread_id, request_id, request_hash, response)
+    service.wake.set()
+    return response
 
 
 def _counts(total: int, succeeded: int, failed: int) -> dict[str, int]:
@@ -222,66 +248,3 @@ async def _preflight(values: dict[str, Any]) -> None:
         if reference["objectKey"] not in seen:
             seen.add(reference["objectKey"])
             await store.get_verified(ArtifactReference.model_validate(reference))
-
-
-async def control_task(thread_id: str, request: DocumentTaskControl) -> dict[str, Any]:
-    api = client()
-    admission = await _item(api, thread_id, "control", "admission")
-    generation = admission["generation"] if admission else 0
-    thread, snapshot, run = await _read_task(api, thread_id)
-    request_id = str(request.requestId)
-    request_hash = fingerprint(request.model_dump(mode="json"))
-    # Native thread creation supplies atomic insert-if-absent for request receipts.
-    # Store.put alone is last-writer-wins and cannot reject concurrent ID reuse.
-    receipt_id = str(uuid5(NAMESPACE_URL, f"practiq/control/{thread_id}/{request_id}"))
-    expires_at = (datetime.fromisoformat(thread["created_at"]) + timedelta(minutes=TTL_MINUTES)).isoformat()
-    receipt = await api.threads.create(
-        thread_id=receipt_id, if_exists="do_nothing",
-        ttl={"strategy": "delete", "ttl": remaining_ttl({"expiresAt": expires_at})},
-        metadata={"kind": "document_control_receipt", "requestFingerprint": request_hash, "threadId": thread_id},
-    )
-    metadata = receipt.get("metadata", {})
-    if metadata.get("requestFingerprint") != request_hash:
-        raise conflict("requestId was already used for different input", "REQUEST_CONFLICT")
-    if metadata.get("response"):
-        return metadata["response"]
-    previous = await _find_run(api, thread_id, request_id)
-    if previous:
-        return _receipt(thread_id, request_id, previous)
-    if request.action in {"pause", "interrupt"}:
-        if not run or run["run_id"] != str(request.runId):
-            raise conflict("The target run is no longer current", "STALE_RUN")
-        if run["status"] in {"pending", "running"}:
-            if request.action == "pause":
-                await api.store.put_item(namespace(thread_id, "pause"), run["run_id"],
-                                         {"requestId": request_id}, index=False,
-                                         ttl=remaining_ttl({"expiresAt": expires_at}))
-            else:
-                await api.runs.cancel(thread_id, run["run_id"], action="interrupt", wait=True)
-        response = _receipt(thread_id, request_id, run)
-    else:
-        if run and run["status"] in {"pending", "running"}:
-            raise conflict("Wait until the current run stops", "TASK_BUSY")
-        if (snapshot.get("checkpoint") or {}).get("checkpoint_id") != request.checkpointId:
-            raise conflict("Task changed since the checkpoint was read", "STALE_CHECKPOINT")
-        values = snapshot.get("values") or {}
-        await _preflight(values)
-        interruptions = _interrupts(snapshot)
-        reviews = [v for v in interruptions.values() if v.get("kind") == "review"]
-        if request.action == "resume" and (reviews or not snapshot.get("next")):
-            raise conflict("Task requires a review decision or is already complete")
-        if request.action == "accept_partial" and (not reviews or not all(v.get("canAccept") for v in reviews)):
-            raise conflict("There is no acceptable partial result")
-        graph_input = None
-        if request.action == "retry_failed":
-            retry = RetryUnits(requestId=request.requestId, units=request.units)
-            _retry_update(cast(Any, values), retry)  # Validate before starting a run.
-            if not reviews:
-                if interruptions:
-                    raise conflict("Resume the paused task before retrying failed units")
-                graph_input = {"document": values["document"], "failurePolicy": values.get("failurePolicy", "return_partial"), "retry": retry.model_dump(mode="json")}
-        command = {"resume": {key: request.model_dump(mode="json") for key in interruptions}} if interruptions else None
-        response = await _start_run(api, thread_id, thread["metadata"]["graphId"], request_id, request_hash,
-                                    graph_input=graph_input, command=command, expires_at=expires_at, generation=generation)
-    await api.threads.update(receipt_id, metadata={**metadata, "response": response})
-    return response

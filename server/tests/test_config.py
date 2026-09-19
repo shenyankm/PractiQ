@@ -40,11 +40,10 @@ def test_load_requires_service_token(monkeypatch: pytest.MonkeyPatch):
         config.load()
 
 
-def test_load_requires_worker_limit(monkeypatch: pytest.MonkeyPatch):
+def test_load_defaults_worker_limit(monkeypatch: pytest.MonkeyPatch):
     _env(monkeypatch)
     monkeypatch.delenv("N_JOBS_PER_WORKER")
-    with pytest.raises(ValueError, match="N_JOBS_PER_WORKER"):
-        config.load()
+    assert config.load().jobs_per_worker == 8
 
 
 def test_auth_token_does_not_require_model_or_storage_settings(monkeypatch: pytest.MonkeyPatch):
