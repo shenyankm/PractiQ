@@ -36,8 +36,7 @@ class Service:
         await self.db.open()
         try:
             await self.db.check_schema()
-            if load().deployment_workers != 1:
-                raise RuntimeError('The OSS runtime requires AI_DEPLOYMENT_WORKERS=1 and one Uvicorn process')
+            load()  # Validate deployment settings before taking ownership.
             self.lock = self.db.acquire()
             self.graphs = {name: build_document_graph(self.db.checkpointer, store=self.db.store, name=name, source_types=types)
                            for name, types in GRAPH_FORMATS.items()}

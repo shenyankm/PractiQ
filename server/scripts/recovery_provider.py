@@ -39,8 +39,6 @@ def app_for(log: Path, invalid_responses: int = 0, delay: float = 0) -> FastAPI:
         result: dict[str, Any] = {"questions": [ParsedQuestion.model_validate({"stem": "Synthetic recovery question", "sourceText": "Synthetic recovery question"}).model_dump(mode="json")], "groups": []}
         if schema == "PageParseResult":
             result["figures"] = [{"description": "Synthetic figure", "bbox": [0.1, 0.1, 0.8, 0.8], "kind": "image"}]
-        elif schema == "ImageDescription":
-            result = {"description": "Synthetic figure", "extractedText": None}
         request_id = str(uuid4())
         async with lock:
             if call_count < invalid_responses:

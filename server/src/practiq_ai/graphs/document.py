@@ -171,7 +171,7 @@ class DocumentState(TypedDict):
     visualTotal: NotRequired[int]
     textRef: NotRequired[dict[str, Any] | None]
     pageRefs: NotRequired[list[dict[str, Any]]]
-    embeddedRefs: NotRequired[list[dict[str, Any]]]
+    embeddedRefs: NotRequired[list[dict[str, Any]]]  # Retain historical checkpoint reads.
     visionResults: NotRequired[Annotated[list[dict[str, Any]], merge_records]]
     chunkRefs: NotRequired[list[dict[str, Any]]]
     chunkSpans: NotRequired[list[ChunkSpan]]
@@ -274,7 +274,6 @@ async def _load_context(state: DocumentState, runtime: Runtime[None]) -> dict[st
         "visualTotal": 0,
         "textRef": None,
         "pageRefs": [],
-        "embeddedRefs": [],
         "visionResults": Overwrite([]),
         "chunkRefs": [],
         "chunkSpans": [],
@@ -306,11 +305,8 @@ async def _prepare(
     store = await asyncio.to_thread(get_object_store)
     source = await store.get_verified(reference)
     document = await extract(reference.sourceType, source)
-    visual_total = len(document.page_images) + len(document.embedded_images)
-    enforce_vision_bytes(
-        sum(map(len, document.page_images))
-        + sum(map(len, document.embedded_images))
-    )
+    visual_total = len(document.page_images)
+    enforce_vision_bytes(sum(map(len, document.page_images)))
     warnings = list(document.warnings)
 
     async def put(item: tuple[bytes, str, int, str]) -> ArtifactReference:
@@ -335,13 +331,6 @@ async def _prepare(
         ],
         put,
     )
-    embedded_refs = await _bounded_map(
-        [
-            (data, "embedded", index, vision._media_type(data))
-            for index, data in enumerate(document.embedded_images)
-        ],
-        put,
-    )
     return {
         "chunkRefs": [],
         "warnings": warnings,
@@ -349,7 +338,6 @@ async def _prepare(
         "visualTotal": visual_total,
         "textRef": text_ref.model_dump(mode="json") if text_ref else None,
         "pageRefs": [item.model_dump(mode="json") for item in page_refs],
-        "embeddedRefs": [item.model_dump(mode="json") for item in embedded_refs],
     }
 
 
@@ -370,29 +358,16 @@ def _dispatch_vision(state: DocumentState) -> list[Send] | str:
         )
         for index, item in enumerate(state.get("pageRefs", []))
     ]
-    work.extend(
-        Send(
-            "vision",
-            {
-                "kind": "embedded",
-                "index": index,
-                "artifact": item,
-                "execution": state.get("execution"),
-                "round": state.get("round", 0),
-            },
-        )
-        for index, item in enumerate(state.get("embeddedRefs", []))
-    )
     completed = {(item["kind"], item["index"]) for item in state.get("visionResults", [])}
-    completed.update(("page" if item["stage"] == "vision_parse" else "embedded", item["index"])
-                     for item in state.get("failures", []) if item["stage"] in {"vision_parse", "vision_describe"})
+    completed.update(("page", item["index"])
+                     for item in state.get("failures", []) if item["stage"] == "vision_parse")
     pending = [item for item in work if (item.arg["kind"], item.arg["index"]) not in completed]
     return _with_allowances(pending[:load().graph_max_concurrency], state) or "vision_review_pause"
 
 
 def _with_allowances(work: list[Send], state: DocumentState) -> list[Send]:
     for item in work:
-        stage = "document_parse" if item.node == "chunk" else "vision_parse" if item.arg["kind"] == "page" else "vision_describe"
+        stage = "document_parse" if item.node == "chunk" else "vision_parse"
         key = f"{stage}:{item.arg['index']}:{state.get('round', 0)}"
         item.arg.update(unitKey=key, callAllowance=state.get("callAllowances", {}).get(key, 0))
     return work
@@ -405,58 +380,42 @@ async def _vision(
     assert model is not None
     store = await asyncio.to_thread(get_object_store)
     image = await store.get_verified(ArtifactReference.model_validate(state["artifact"]))
-    if state["kind"] == "page":
-        telemetry.event("page_context", unitKey=state.get("unitKey"), primaryPage=state["index"],
-                        contextPages=[item["index"] for item in state.get("neighbors", [{"index": state["index"]}])],
-                        threadId=runtime.execution_info.thread_id if runtime.execution_info else None,
-                        runId=runtime.execution_info.run_id if runtime.execution_info else None)
-        messages: list[BaseMessage] = [SystemMessage(content=SYSTEM_PROMPT)]
-        for neighbor in state.get("neighbors", [{"index": state["index"], "artifact": state["artifact"]}]):
-            content = image if neighbor["index"] == state["index"] else await store.get_verified(ArtifactReference.model_validate(neighbor["artifact"]))
-            role = "PRIMARY" if neighbor["index"] == state["index"] else "CONTEXT ONLY"
-            messages.append(vision._image_message(f"Page {neighbor['index'] + 1}: {role}", content, vision._media_type(content)))
-        messages.append(HumanMessage(content=(
-            f"Extract questions that START on PRIMARY page {state['index'] + 1} directly from the images. "
-            "Adjacent pages are context for continuations, shared material and printed answers. "
-            "Do not extract questions starting on context pages or duplicate a continuation. "
-            "First identify question starts visible on the PRIMARY image itself. If there are none, "
-            "return questions=[] and groups=[], even if neighboring pages contain questions. "
-            "An answer key entry such as '1. B' is an answer, not a new question. "
-            "Read answer keys on context pages only to fill answers for questions starting on PRIMARY. "
-            "If a continuation is outside this window, preserve the incomplete question and missingFields; never guess. "
-            "A text-only page is not a figure; do not box paragraphs or answer lists. "
-            "Include standalone figures even if no question explicitly refers to them. "
-            "Classify geometric/schematic drawings as diagram, plotted data as chart, tabular data "
-            "as table, and photographs as image. Do not default every figure to image. "
-            "Include visible figures from the PRIMARY page only with factual descriptions and normalized "
-            "bounding boxes [x0,y0,x1,y1] from its top left. Return questions, groups and figures together; "
-            "do not produce an intermediate transcription."
-        )))
-        parsed, usage, failure = await structured_call(model, messages, PageParseResult, "vision_parse", runtime=runtime)
-        if parsed is None:
-            return _unit_failure("vision_parse", state["index"], failure or "OUTPUT_INVALID", usage)
-        value = {
-            "kind": "page",
-            "index": state["index"],
-            "artifact": state["artifact"],
-            "parsed": parsed.model_dump(mode="json", exclude={"figures"}),
-            "visuals": [VisualElement(**item.model_dump(), page=state["index"]).model_dump(mode="json") for item in parsed.figures],
-        }
-    else:
-        described, usage, failure = await vision.describe_image(model, image, runtime)
-        if failure is not None or described is None:
-            return _unit_failure(
-                "vision_describe",
-                state["index"],
-                failure or "OUTPUT_INVALID",
-                usage,
-            )
-        value = {
-            "kind": "embedded",
-            "index": state["index"],
-            "artifact": state["artifact"],
-            "visuals": [described.model_copy(update={"imageRef": ArtifactReference.model_validate(state["artifact"]), "description": ("[embedded original] " + described.description)[:20_000]}).model_dump(mode="json")],
-        }
+    telemetry.event("page_context", unitKey=state.get("unitKey"), primaryPage=state["index"],
+                    contextPages=[item["index"] for item in state.get("neighbors", [{"index": state["index"]}])],
+                    threadId=runtime.execution_info.thread_id if runtime.execution_info else None,
+                    runId=runtime.execution_info.run_id if runtime.execution_info else None)
+    messages: list[BaseMessage] = [SystemMessage(content=SYSTEM_PROMPT)]
+    for neighbor in state.get("neighbors", [{"index": state["index"], "artifact": state["artifact"]}]):
+        content = image if neighbor["index"] == state["index"] else await store.get_verified(ArtifactReference.model_validate(neighbor["artifact"]))
+        role = "PRIMARY" if neighbor["index"] == state["index"] else "CONTEXT ONLY"
+        messages.append(vision._image_message(f"Page {neighbor['index'] + 1}: {role}", content, vision._media_type(content)))
+    messages.append(HumanMessage(content=(
+        f"Extract questions that START on PRIMARY page {state['index'] + 1} directly from the images. "
+        "Adjacent pages are context for continuations, shared material and printed answers. "
+        "Do not extract questions starting on context pages or duplicate a continuation. "
+        "First identify question starts visible on the PRIMARY image itself. If there are none, "
+        "return questions=[] and groups=[], even if neighboring pages contain questions. "
+        "An answer key entry such as '1. B' is an answer, not a new question. "
+        "Read answer keys on context pages only to fill answers for questions starting on PRIMARY. "
+        "If a continuation is outside this window, preserve the incomplete question and missingFields; never guess. "
+        "A text-only page is not a figure; do not box paragraphs or answer lists. "
+        "Include standalone figures even if no question explicitly refers to them. "
+        "Classify geometric/schematic drawings as diagram, plotted data as chart, tabular data "
+        "as table, and photographs as image. Do not default every figure to image. "
+        "Include visible figures from the PRIMARY page only with factual descriptions and normalized "
+        "bounding boxes [x0,y0,x1,y1] from its top left. Return questions, groups and figures together; "
+        "do not produce an intermediate transcription."
+    )))
+    parsed, usage, failure = await structured_call(model, messages, PageParseResult, "vision_parse", runtime=runtime)
+    if parsed is None:
+        return _unit_failure("vision_parse", state["index"], failure or "OUTPUT_INVALID", usage)
+    value = {
+        "kind": "page",
+        "index": state["index"],
+        "artifact": state["artifact"],
+        "parsed": parsed.model_dump(mode="json", exclude={"figures"}),
+        "visuals": [VisualElement(**item.model_dump(), page=state["index"]).model_dump(mode="json") for item in parsed.figures],
+    }
     return {
         "visionResults": [value],
         "failures": [],

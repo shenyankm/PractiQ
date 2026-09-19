@@ -12,7 +12,6 @@ class ExtractedDocument:
     text: str
     warnings: list[str] = field(default_factory=list)
     page_images: list[bytes] = field(default_factory=list)
-    embedded_images: list[bytes] = field(default_factory=list)
     truncated: bool = False
 
 

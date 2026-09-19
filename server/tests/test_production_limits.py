@@ -188,12 +188,15 @@ async def test_metrics_and_logs_do_not_contain_document_content(monkeypatch, cap
 
 def test_deployment_limits_and_runtime_fingerprint(monkeypatch):
     monkeypatch.setenv("AI_DEPLOYMENT_WORKERS", "2")
+    with pytest.raises(ValueError, match="must be 1"):
+        load()
+    monkeypatch.setenv("AI_DEPLOYMENT_WORKERS", "1")
+    monkeypatch.setenv("AI_PROVIDER_CONCURRENCY", "1")
     with pytest.raises(ValueError, match="Total deployment"):
         load()
-    monkeypatch.setenv("N_JOBS_PER_WORKER", "4")
-    assert load().deployment_workers == 2
-    monkeypatch.setenv("AI_PROVIDER_RPM", "1")
-    with pytest.raises(ValueError, match="per worker"):
+    monkeypatch.setenv("AI_PROVIDER_CONCURRENCY", "16")
+    monkeypatch.setenv("AI_PROVIDER_RPM", "0")
+    with pytest.raises(ValueError, match="positive integer"):
         load()
     monkeypatch.setenv("AI_PROVIDER_RPM", "120")
     saved = execution.new_execution()
