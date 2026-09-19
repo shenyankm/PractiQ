@@ -14,7 +14,10 @@ COPY server/pyproject.toml server/uv.lock /app/server/
 COPY server/src /app/server/src
 WORKDIR /app/server
 RUN uv pip install --system --no-cache-dir --no-deps .
-ENV LANGSMITH_TRACING=false LANGCHAIN_TRACING_V2=false
+RUN groupadd --gid 10001 practiq && useradd --uid 10001 --gid 10001 --create-home practiq \
+    && mkdir -p /var/lib/practiq && chown 10001:10001 /var/lib/practiq
+ENV LANGSMITH_TRACING=false LANGCHAIN_TRACING_V2=false AI_STORAGE_DIR=/var/lib/practiq
+USER 10001:10001
 EXPOSE 8000
 # Host networking keeps the service on loopback behind the host HTTPS proxy.
 CMD ["python", "-m", "uvicorn", "practiq_ai.webapp:app", "--host", "127.0.0.1", "--port", "8000", "--workers", "1", "--timeout-graceful-shutdown", "65"]

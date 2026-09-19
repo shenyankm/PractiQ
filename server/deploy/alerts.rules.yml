@@ -19,7 +19,7 @@ groups:
         labels: {severity: critical}
         annotations: {summary: "Document integrity verification failed"}
       - alert: PractiQQueueBacklog
-        expr: sum(practiq_pending_runs) >= 300
+        expr: (practiq_pending_runs + practiq_running_runs) >= practiq_queue_capacity
         for: 5m
         labels: {severity: warning}
         annotations: {summary: "Document queue remains at admission capacity"}

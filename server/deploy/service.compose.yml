@@ -1,0 +1,27 @@
+# Linux host deployment behind a loopback HTTPS proxy; PostgreSQL is external.
+services:
+  ai:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.server
+    image: practiq-ai:local
+    network_mode: host
+    init: true
+    user: "10001:10001"
+    env_file: ../../.env
+    environment:
+      AI_STORAGE_DIR: /var/lib/practiq
+    volumes:
+      - type: bind
+        source: ${PRACTIQ_STORAGE_DIR:?Set the absolute existing storage directory}
+        target: /var/lib/practiq
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=536870912,mode=1777
+      - /home/practiq:rw,nosuid,nodev,size=67108864,uid=10001,gid=10001,mode=700
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    cpus: 2
+    mem_limit: 2g
+    pids_limit: 128
+    stop_grace_period: 70s

@@ -18,3 +18,31 @@ tests:
         exp_alerts:
           - exp_labels: {severity: critical}
             exp_annotations: {summary: "Document integrity verification failed"}
+  - interval: 1m
+    input_series:
+      - series: 'practiq_pending_runs{instance="full"}'
+        values: '292+0x10'
+      - series: 'practiq_running_runs{instance="full"}'
+        values: '8+0x10'
+      - series: 'practiq_queue_capacity{instance="full"}'
+        values: '300+0x10'
+      - series: 'practiq_pending_runs{instance="custom"}'
+        values: '2+0x10'
+      - series: 'practiq_running_runs{instance="custom"}'
+        values: '8+0x10'
+      - series: 'practiq_queue_capacity{instance="custom"}'
+        values: '10+0x10'
+      - series: 'practiq_pending_runs{instance="available"}'
+        values: '291+0x10'
+      - series: 'practiq_running_runs{instance="available"}'
+        values: '8+0x10'
+      - series: 'practiq_queue_capacity{instance="available"}'
+        values: '300+0x10'
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: PractiQQueueBacklog
+        exp_alerts:
+          - exp_labels: {severity: warning, instance: full}
+            exp_annotations: {summary: "Document queue remains at admission capacity"}
+          - exp_labels: {severity: warning, instance: custom}
+            exp_annotations: {summary: "Document queue remains at admission capacity"}
