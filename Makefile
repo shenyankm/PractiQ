@@ -1,5 +1,7 @@
 PYTHON ?= $(shell command -v python)
 AI_PYTHON ?= $(PYTHON)
+# Resolve executable names before uv searches for a virtual environment.
+override AI_PYTHON := $(or $(shell command -v "$(AI_PYTHON)"),$(AI_PYTHON))
 AI_PORT ?= 8090
 
 .PHONY: install server-install install-locked test test-server server-dev init-db verify audit image-check

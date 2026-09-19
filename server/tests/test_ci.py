@@ -62,3 +62,29 @@ sys.exit(7 if stage == os.environ["FAIL_STAGE"] else 0)
         assert {"coverage", "probes"} <= set(calls)
         if failure:
             assert "Error 7" in result.stderr
+
+@pytest.mark.parametrize('explicit_path', [False, True])
+def test_install_targets_use_the_selected_interpreter(tmp_path, explicit_path):
+    import json
+
+    root = Path(__file__).resolve().parents[2]
+    (tmp_path / 'python').symlink_to(sys.executable)
+    uv = tmp_path / 'uv'
+    uv.write_text(f'#!{sys.executable}\n' + '''
+import json, os, sys
+from pathlib import Path
+args = sys.argv[1:]
+interpreter = args[args.index('--python') + 1]
+assert Path(interpreter).is_absolute(), 'Named interpreters trigger uv virtual-environment discovery'
+assert Path(interpreter).samefile(sys.executable)
+with Path(os.environ['INSTALL_CALLS']).open('a') as log:
+    log.write(json.dumps(args[:2]) + '\\n')
+''')
+    uv.chmod(0o755)
+    calls = tmp_path / 'calls'
+    selected = str(tmp_path / 'python') if explicit_path else 'python'
+    result = subprocess.run(['make', 'server-install', 'install-locked', 'app-install-python', f'AI_PYTHON={selected}'],
+        cwd=root, env={**os.environ, 'PATH': f'{tmp_path}{os.pathsep}{os.environ["PATH"]}', 'INSTALL_CALLS': str(calls)},
+        capture_output=True, text=True, check=False)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert [json.loads(line) for line in calls.read_text().splitlines()].count(['pip', 'install']) == 5

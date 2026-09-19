@@ -25,6 +25,8 @@ Run `make test` for the AI suite and `make verify` for lockfile, static, fixture
 
 For desktop changes, also run `make app-check AI_PYTHON=/path/to/python3.14` and `make app-build` on macOS. Desktop checks include shared Python/Rust contract fixtures, TypeScript, UI interactions, SQLite/backup integration tests and Clippy. Use isolated application data for native UI acceptance. The native Keychain round-trip test is opt-in (`cargo test --manifest-path app/src-tauri/Cargo.toml native_keychain_roundtrip -- --ignored`); it uses and removes its own temporary credential. Do not place API keys in SQLite, logs, fixtures or backups.
 
+Make resolves `AI_PYTHON` executable names to explicit paths before invoking uv, so `AI_PYTHON=python` works in CI without a project virtual environment and installs into the interpreter selected by PATH. `--break-system-packages` only permits externally managed installations; it does not select a non-virtual environment.
+
 ## Commit and open a pull request
 
 Use focused [Conventional Commit](https://www.conventionalcommits.org/) subjects, for example `fix(server): reject oversized image payloads`.
