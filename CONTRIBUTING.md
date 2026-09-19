@@ -25,6 +25,8 @@ Run `make test` for the AI suite and `make verify` for lockfile, static, fixture
 
 For desktop changes, also run `make app-check AI_PYTHON=/path/to/python3.14` and `make app-build` on macOS. Desktop checks include shared Python/Rust contract fixtures, TypeScript, UI interactions, SQLite/backup integration tests and Clippy. Use isolated application data for native UI acceptance. The native Keychain round-trip test is opt-in (`cargo test --manifest-path app/src-tauri/Cargo.toml native_keychain_roundtrip -- --ignored`); it uses and removes its own temporary credential. Do not place API keys in SQLite, logs, fixtures or backups.
 
+Desktop CI runs on Windows and macOS for pushes and pull requests. Windows validates the shared contracts, frontend build and interactions, and compiles/lints all Rust targets. macOS additionally runs the full native storage/backup suite, builds the bundled service and checks the app package. Windows CI is not Windows release or native-runtime acceptance: directory synchronization, Keychain and Python packaging remain macOS-specific. Source checks override only the Tauri resource list so a clean checkout does not need a prebuilt Python bundle; release builds still require and package it. Rust dependencies are cached and newer runs cancel superseded runs on the same ref.
+
 Make resolves `AI_PYTHON` executable names to explicit paths before invoking uv, so `AI_PYTHON=python` works in CI without a project virtual environment and installs into the interpreter selected by PATH. `--break-system-packages` only permits externally managed installations; it does not select a non-virtual environment.
 
 ## Commit and open a pull request

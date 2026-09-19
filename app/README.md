@@ -69,3 +69,5 @@ WebP 和 GIF 不再作为源图片上传；请先转换为 PNG 或 JPEG。已有
 API Key 按 Base URL 隔离保存在 macOS Keychain，不回显；留空保持原值，明确勾选移除才删除。地址要求 HTTPS，本机 loopback 允许 HTTP；禁止 URL 内嵌凭据、查询参数和片段。恢复到另一台机器后需重新填写密钥。
 
 `request` 与 `ai_request` 均是类型化 Tauri 命令，不暴露通用 SQL、HTTP 或 shell 接口。`make app-check` 验证共享 AI 契约、React 交互、Rust 集成测试和 Clippy；桌面窗口与完整安装包需另行验收。
+
+桌面 CI 在每次推送和 PR 时同时运行 Windows 与 macOS。Windows 检查共享契约、前端构建与交互、Rust 全目标编译及 Clippy；macOS 另跑完整存储/备份测试、Python 打包和安装包检查。Windows 检查不代表已支持 Windows 安装或原生运行；当前发布目标仍为 Apple Silicon macOS。源码检查不需要预先生成 `bundled` 目录，正式打包仍包含内置服务。

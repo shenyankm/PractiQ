@@ -7,6 +7,7 @@
 - Store API keys only in macOS Keychain, scoped to the configured Base URL; never return stored keys to the webview or include them in SQLite/backups. Text and vision models must both be configured before parsing; desktop artifacts stay local.
 - Keep databases out of the repository. Use temporary directories in integration tests, including resource import and restore tests.
 - Use the existing octopus brand asset, Lucide (`lucide-react`) for functional icons, existing shadcn components and standard CSS layout. No mobile layout or mobile platform scaffolding.
+- Automatic CI covers Windows source/contract checks and macOS native tests and packaging; Windows release/runtime support is not implied.
 - `make app-check AI_PYTHON=/path/to/python3.14` and `make app-build` from the repository root are the acceptance commands.
 
 Source-document import supports PDF, TXT, CSV and PNG/JPEG images. Word is unsupported; direct users to export PDF. Do not restore Word parsers or LibreOffice dependencies. The desktop sidebar has one unified import page for offline JSON import and AI parsing/task management.

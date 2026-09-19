@@ -219,6 +219,7 @@ mod tests {
         assert!(!fields.iter().any(|s| s.contains("key")));
     }
     #[test]
+    #[cfg(target_os = "macos")]
     #[ignore = "uses an isolated native macOS Keychain entry; run explicitly on macOS"]
     fn native_keychain_roundtrip() {
         keyring::set_default_credential_builder(keyring::macos::default_credential_builder());
