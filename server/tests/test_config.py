@@ -4,13 +4,13 @@ from practiq_ai import config
 
 
 def _env(monkeypatch: pytest.MonkeyPatch, **values: str) -> None:
-    for key in ("AI_SERVICE_TOKEN", "LLM_PROVIDER", "LLM_API_KEY", "LLM_VISION_MODEL", "AI_STORAGE_DIR"):
+    for key in ("AI_SERVICE_TOKEN", "LLM_PROVIDER", "LLM_API_KEY", "LLM_MODEL", "AI_STORAGE_DIR"):
         monkeypatch.delenv(key, raising=False)
     for key, value in {
         'AI_SERVICE_TOKEN': 'token',
         'LLM_PROVIDER': 'dashscope',
         'LLM_API_KEY': 'key',
-        'LLM_VISION_MODEL': 'model',
+        'LLM_MODEL': 'model',
         **values,
     }.items():
         monkeypatch.setenv(key, value)
@@ -20,14 +20,14 @@ def test_load_reads_model_and_storage_settings(monkeypatch: pytest.MonkeyPatch):
     _env(
         monkeypatch,
         LLM_PROVIDER="deepseek",
-        LLM_VISION_MODEL="vision",
+        LLM_MODEL="vision",
         AI_MAX_DOCUMENT_PAGES="100",
         AI_GRAPH_MAX_CONCURRENCY="2",
         AI_STORAGE_CONCURRENCY="4",
     )
     loaded = config.load()
     assert loaded.provider == "deepseek"
-    assert loaded.vision_model == "vision"
+    assert loaded.model_id == "vision"
     assert loaded.storage_dir.is_absolute()
     assert loaded.max_document_pages == 100
     assert loaded.graph_max_concurrency == 2

@@ -68,7 +68,7 @@ it("shows progress and sends only the current run when pausing", async () => {
   expect(screen.getByText(/完成 1\/2/)).toBeTruthy();
 });
 it("keeps task failures visible with a retry action without starting an import", async () => {
-  vi.mocked(invoke).mockRejectedValue({ message: "请先配置视觉模型" });
+  vi.mocked(invoke).mockRejectedValue({ message: "请先配置模型 ID" });
   render(
     <AiTasks
       busy={false}
@@ -79,7 +79,7 @@ it("keeps task failures visible with a retry action without starting an import",
     />,
   );
   expect(await screen.findByRole("alert")).toBeTruthy();
-  expect(screen.getByText("请先配置视觉模型")).toBeTruthy();
+  expect(screen.getByText("请先配置模型 ID")).toBeTruthy();
   expect(screen.getByRole("button", { name: "重试" })).toBeTruthy();
   expect(toast.error).not.toHaveBeenCalled();
 });

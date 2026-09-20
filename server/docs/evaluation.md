@@ -10,7 +10,7 @@
 
 `scripts/evaluate_grading.py` 使用固定的合成题目，分别检查评分和原卷分值提取。它直接调用服务内的模型逻辑，使用临时评分数据库；不验证 HTTP 鉴权、桌面交互或供应商侧恰好一次调用。
 
-先在仓库根目录 `.env` 配置文本与视觉模型，再在 `server/` 下执行。以下命令会调用模型并产生费用，请为每次运行选择新的报告路径：
+先在仓库根目录 `.env` 配置统一的多模态模型 `LLM_MODEL`，再在 `server/` 下执行。以下命令会调用模型并产生费用，请为每次运行选择新的报告路径：
 
 ```sh
 python scripts/evaluate_grading.py --live --repeats 2 \

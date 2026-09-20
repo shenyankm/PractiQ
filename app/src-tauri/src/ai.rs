@@ -104,8 +104,7 @@ impl Process {
     fn start(app: &tauri::AppHandle, store: &Store) -> Result<Self> {
         let config = store.connection_settings()?.validate()?;
         let base = config.base_url.as_deref().ok_or("请先配置模型地址")?;
-        let text = config.text_model.as_deref().ok_or("请先配置文本模型")?;
-        let vision = config.vision_model.as_deref().ok_or("请先配置视觉模型")?;
+        let model = config.model_id.as_deref().ok_or("请先配置模型 ID")?;
         let key = store.model_secret(&app.config().identifier, base)?;
         let resources = app.path().resource_dir().map_err(err)?;
         let bundle = if cfg!(debug_assertions) {
@@ -118,7 +117,7 @@ impl Process {
             return Err("内置解析组件缺失，请重新构建或安装完整应用".into());
         }
         let token = format!("{}{}", store::id(), store::id());
-        let bootstrap = json!({"AI_SERVICE_TOKEN":token,"LLM_API_KEY":key,"LLM_BASE_URL":base,"LLM_TEXT_MODEL":text,"LLM_VISION_MODEL":vision,
+        let bootstrap = json!({"AI_SERVICE_TOKEN":token,"LLM_API_KEY":key,"LLM_BASE_URL":base,"LLM_MODEL":model,
             "AI_DATABASE_DIR":store.dir.join("ai/database"),"AI_STORAGE_DIR":store.dir.join("ai/files")});
         let child = Command::new(executable)
             .arg("serve")
@@ -280,11 +279,10 @@ fn confirm_document(
         .and_then(|s| s.to_str())
         .ok_or("文件名不合法")?;
     let message = format!(
-        "文件：{file_name}\n大小：{:.2} MiB\n模型服务：{}\n文本模型：{}\n视觉模型：{}\n\n解析内容将发送给此模型服务，可能产生费用。仅提取原文提供的答案，不会生成答案。",
+        "文件：{file_name}\n大小：{:.2} MiB\n模型服务：{}\n模型 ID：{}\n\n解析内容将发送给此模型服务，可能产生费用。仅提取原文提供的答案，不会生成答案。",
         bytes.len() as f64 / (1024.0 * 1024.0),
         config.base_url.as_deref().ok_or("请先配置模型地址")?,
-        config.text_model.as_deref().ok_or("请先配置文本模型")?,
-        config.vision_model.as_deref().ok_or("请先配置视觉模型")?,
+        config.model_id.as_deref().ok_or("请先配置模型 ID")?,
     );
     // Upload exactly the bytes the user confirmed, not a later replacement of the file.
     Ok(confirm(message).then_some(bytes))
@@ -616,19 +614,14 @@ mod tests {
         std::fs::write(&path, b"original").unwrap();
         let config = crate::settings::ConnectionSettings {
             base_url: Some("https://example.com/v1".into()),
-            text_model: Some("text-model".into()),
-            vision_model: Some("vision-model".into()),
+            model_id: Some("unified-model".into()),
             ..Default::default()
         };
         assert!(super::confirm_document(&path, config.clone(), |_| false)
             .unwrap()
             .is_none());
         let bytes = super::confirm_document(&path, config.clone(), |message| {
-            assert!(
-                message.contains("quiz.txt")
-                    && message.contains("text-model")
-                    && message.contains("vision-model")
-            );
+            assert!(message.contains("quiz.txt") && message.contains("unified-model"));
             assert!(message.contains("可能产生费用"));
             assert!(!message.contains(dir.path().to_str().unwrap()));
             std::fs::write(&path, b"changed").unwrap();

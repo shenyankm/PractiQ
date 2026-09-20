@@ -18,7 +18,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Checkbox } from "@/components/ui/checkbox";
 export function ConnectionSettingsPanel({
   busy,
@@ -35,8 +34,6 @@ export function ConnectionSettingsPanel({
   const [config, setConfig] = useState<ConnectionSettings>({
     base_url: null,
     model_id: null,
-    text_model: null,
-    vision_model: null,
     oss_url: null,
   });
   const [apiKey, setApiKey] = useState("");
@@ -64,7 +61,6 @@ export function ConnectionSettingsPanel({
   const configured =
     saved?.hasApiKey && saved.config.base_url === config.base_url;
   const missing = missingModelSettings({ config, hasApiKey: !clearKey && (!!configured || !!apiKey.trim()) });
-  const presets = ["https://dashscope.aliyuncs.com/compatible-mode/v1", "https://api.deepseek.com", "https://api.moonshot.cn/v1"];
   function field(name: keyof ConnectionSettings, value: string) {
     setConfig((old) => ({ ...old, [name]: value || null }));
     if (name === "base_url") {
@@ -116,26 +112,15 @@ export function ConnectionSettingsPanel({
           )}
           <fieldset disabled={busy || !saved} className="min-w-0 space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="providerPreset">供应商地址预设</Label>
-              <NativeSelect id="providerPreset" disabled={busy || !saved} className="w-full" value={presets.includes(config.base_url || "") ? config.base_url! : ""} onChange={e => field("base_url", e.target.value)}>
-                <NativeSelectOption value="">自定义兼容 OpenAI 的地址</NativeSelectOption>
-                <NativeSelectOption value={presets[0]}>DashScope</NativeSelectOption><NativeSelectOption value={presets[1]}>DeepSeek</NativeSelectOption><NativeSelectOption value={presets[2]}>Moonshot</NativeSelectOption>
-              </NativeSelect>
-              <p className="text-xs text-muted-foreground">仅填入 API 地址；请确认供应商同时提供文本和视觉模型，分别填写模型 ID。</p>
-            </div>
-            <div className="space-y-2">
               <Label htmlFor="baseUrl">Base URL</Label>
               <Input id="baseUrl" type="url" autoComplete="off" spellCheck={false} placeholder="https://api.example.com/v1" value={config.base_url || ""} onChange={e => field("base_url", e.target.value)}/>
               <p className="text-xs text-muted-foreground">从供应商的 API 文档复制兼容 OpenAI 的完整地址；本机回环服务允许 HTTP。</p>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-            {([['text_model','文本模型'],['vision_model','视觉模型']] as const).map(([key,label])=><div key={key} className="space-y-2">
-              <Label htmlFor={key}>{label}</Label>
-              <Input id={key} aria-describedby={`${key}-help`} placeholder={key === 'text_model' ? '供应商提供的文本模型 ID' : '支持图片输入的模型 ID'} autoComplete="off" value={config[key] || ''} onChange={e=>field(key,e.target.value)} />
-              <p id={`${key}-help`} className="text-xs leading-5 text-muted-foreground">{key === 'text_model' ? '用于提取文本中的题目。' : '用于识别页面与图片中的内容，须支持图片输入。'}在供应商控制台或模型列表中复制准确的 API 模型 ID，不填写聊天产品名称。</p>
-            </div>)}
+            <div className="space-y-2">
+              <Label htmlFor="modelId">模型 ID</Label>
+              <Input id="modelId" aria-describedby="model-help" placeholder="支持文本及图片输入的模型 ID" autoComplete="off" value={config.model_id || ""} onChange={e => field("model_id", e.target.value)} />
+              <p id="model-help" className="text-xs leading-5 text-muted-foreground">解析和评分统一使用此模型，须支持文本及图片输入。请从供应商模型列表复制准确的 API 模型 ID。</p>
             </div>
-            {(!config.text_model || !config.vision_model) && <p className="text-xs text-muted-foreground">开始解析前需分别填写文本模型与视觉模型。</p>}
             <div className="space-y-2">
               <Label htmlFor="apiKey">API Key</Label>
               <Input

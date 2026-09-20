@@ -341,7 +341,7 @@ fn version_one_backup_migrates_and_malicious_packages_do_not_replace_data() {
             .unwrap()
             .query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
             .unwrap(),
-        6
+        7
     );
     assert!(s.connection_settings().unwrap().base_url.is_none());
     let bank = s.save_bank(None, &bank, "").unwrap();

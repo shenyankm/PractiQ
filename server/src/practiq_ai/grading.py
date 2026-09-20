@@ -151,7 +151,7 @@ async def grade(request: GradeRequest) -> dict:
         content.extend({"type":"image_url", "image_url":{"url":image.verified_url()}} for image in request.images)
         calls: list[dict] = []
         try:
-            result, usage, failure = await structured_call(get_model("vision" if request.images else "text"), [SystemMessage(content=PROMPT), HumanMessage(content=content)], GradeResult, "subjective_grade", call_records=calls)
+            result, usage, failure = await structured_call(get_model(), [SystemMessage(content=PROMPT), HumanMessage(content=content)], GradeResult, "subjective_grade", call_records=calls)
             if result is None or result.maxCents != source_max:
                 response = {"status":"ungraded", "error":failure or "评分满分不匹配", "usage":[u.model_dump(mode="json") for u in usage]}
                 if failure and failure.startswith("AI_PROVIDER"):

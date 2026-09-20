@@ -20,7 +20,7 @@ def main():
     if len(raw) > 65536:
         raise SystemExit('Bootstrap too large')
     config = json.loads(raw)
-    allowed = {'AI_SERVICE_TOKEN', 'LLM_API_KEY', 'LLM_BASE_URL', 'LLM_TEXT_MODEL', 'LLM_VISION_MODEL',
+    allowed = {'AI_SERVICE_TOKEN', 'LLM_API_KEY', 'LLM_BASE_URL', 'LLM_MODEL',
                'AI_DATABASE_DIR', 'AI_STORAGE_DIR'}
     if set(config) != allowed or any(not isinstance(v, str) or not v for v in config.values()):
         raise SystemExit('Invalid bootstrap')

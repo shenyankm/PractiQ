@@ -599,7 +599,7 @@ async def run_evaluation(manifest_path: Path, repetitions: int = 1, case_ids: li
         unit_failures,
     )
 
-    report["models"] = {"provider": config.provider, "vision": config.vision_model, "text": config.text_model}
+    report["models"] = {"provider": config.provider, "modelId": config.model_id}
     report["settings"] = {name: getattr(config, name) for name in SETTING_NAMES}
     # Include inline page instructions and response schemas, not only system constants.
     report["promptHash"] = _digest([SYSTEM_PROMPT,

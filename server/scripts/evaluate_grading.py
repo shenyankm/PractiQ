@@ -40,7 +40,7 @@ async def evaluate(repeats: int):
     response=await grade(GradeRequest.model_validate(payload));actual=response.get("result",{}).get("scoreCents")
     results.append({"case":"image_partial","expectedCents":200,"actualCents":actual,"absoluteErrorCents":abs(actual-200) if actual is not None else None,"response":response})
     config=load()
-    return {"labelProvenance":"Rule-authored synthetic anchors; NOT independently teacher-labelled or production calibration", "textModel":config.text_model,"visionModel":config.vision_model,"runs":results,"exactMatches":sum(r["actualCents"]==r["expectedCents"] for r in results),"total":len(results)}
+    return {"labelProvenance":"Rule-authored synthetic anchors; NOT independently teacher-labelled or production calibration", "modelId":config.model_id,"runs":results,"exactMatches":sum(r["actualCents"]==r["expectedCents"] for r in results),"total":len(results)}
 
 
 async def evaluate_source(repeats: int):
@@ -54,7 +54,7 @@ async def evaluate_source(repeats: int):
     expected = [1.5, 1.5, 4, None, None]
     runs = []
     for repeat in range(repeats):
-        result, usage, error = await structured_call(get_model("text"), [SystemMessage(content=SYSTEM_PROMPT), HumanMessage(content=source)], DocumentParseResult, "source_score_smoke")
+        result, usage, error = await structured_call(get_model(), [SystemMessage(content=SYSTEM_PROMPT), HumanMessage(content=source)], DocumentParseResult, "source_score_smoke")
         scores = [q.sourceScore for q in result.questions] if result else []
         runs.append({"repeat":repeat,"expectedScores":expected,"scores":scores,"passed":scores==expected,"error":error,"result":result.model_dump(mode="json") if result else None,"usage":[u.model_dump(mode="json") for u in usage]})
         print(f"Source scores repeat={repeat+1}: {scores}", flush=True)

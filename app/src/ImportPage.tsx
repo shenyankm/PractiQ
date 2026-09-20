@@ -45,7 +45,7 @@ export function ImportPage({ busy, run, onPickJson, onPreview, onConfigure }: {
         {error ? <div role="alert" className="space-y-2"><p>{error}</p><Button variant="outline" disabled={busy} onClick={() => setRevision(n => n + 1)}>重试读取配置</Button></div>
           : !settings ? <p role="status">正在读取模型配置…</p>
           : !ready ? <div className="flex items-center justify-between gap-4 rounded-lg border bg-muted/30 p-4"><div><p className="font-medium">先配置 AI 模型</p><p className="mt-1 text-sm text-muted-foreground">还缺：{missing.join("、")}。已有 JSON 题库可直接离线导入。</p></div><Button disabled={busy} onClick={onConfigure}>配置 AI 模型</Button></div>
-          : <p className="text-sm text-muted-foreground">文本模型：{settings.config.text_model} · 视觉模型：{settings.config.vision_model}</p>}
+          : <p className="text-sm text-muted-foreground">模型 ID：{settings.config.model_id}</p>}
         <AiTasks busy={busy} run={run} onPreview={onPreview} modelsReady={ready} />
       </CardContent>
     </Card>

@@ -14,7 +14,7 @@ import pytest
 
 async def run(count):
     samples=[]
-    os.environ.update(AI_SERVICE_TOKEN='test-token',LLM_PROVIDER='dashscope',LLM_API_KEY='synthetic-key',LLM_TEXT_MODEL='synthetic',LLM_VISION_MODEL='synthetic',AI_STORAGE_DIR='/tmp/practiq-benchmark-unused',AI_DEPLOYMENT_WORKERS='1',N_JOBS_PER_WORKER='8',AI_GRAPH_MAX_CONCURRENCY='2',AI_PROVIDER_RPM='100000',AI_PROVIDER_CONCURRENCY='16')
+    os.environ.update(AI_SERVICE_TOKEN='test-token',LLM_PROVIDER='dashscope',LLM_API_KEY='synthetic-key',LLM_MODEL='synthetic',AI_STORAGE_DIR='/tmp/practiq-benchmark-unused',AI_DEPLOYMENT_WORKERS='1',N_JOBS_PER_WORKER='8',AI_GRAPH_MAX_CONCURRENCY='2',AI_PROVIDER_RPM='100000',AI_PROVIDER_CONCURRENCY='16')
     from practiq_ai import task_api
     from practiq_ai.contracts import DocumentReference, DocumentTaskCreate
     from practiq_ai.webapp import app

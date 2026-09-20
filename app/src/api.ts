@@ -304,8 +304,6 @@ export function canInteract(q: Question) {
 export interface ConnectionSettings {
   base_url: string | null;
   model_id: string | null;
-  text_model: string | null;
-  vision_model: string | null;
   oss_url: string | null;
 }
 export interface SettingsResult {
@@ -316,8 +314,7 @@ export interface SettingsResult {
 export function missingModelSettings(settings: SettingsResult): string[] {
   return [
     !settings.config.base_url?.trim() && "模型 API 地址",
-    !settings.config.text_model?.trim() && "文本模型",
-    !settings.config.vision_model?.trim() && "视觉模型",
+    !settings.config.model_id?.trim() && "模型 ID",
     !settings.hasApiKey && "API Key",
   ].filter((field): field is string => !!field);
 }
