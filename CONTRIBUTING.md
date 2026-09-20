@@ -32,6 +32,10 @@ Choose checks for the affected area:
 
 `make test` runs the AI test suite during development. `make verify` checks the lockfile, lint, types, evaluation fixtures, tests with 90% coverage, recovery probes, and package builds. Tests use model substitutes; they do not establish extraction or grading accuracy. See the [evaluation guide](server/docs/evaluation.md) for separate live-model checks.
 
+Run `make test-e2e AI_PYTHON=/path/to/python3.14` for the service HTTP workflows and native offline exam/backup workflow. These tests use temporary data directories and a loopback synthetic provider; they do not use configured API keys. Service checks cover upload, extraction, verified artifacts, review acceptance, grading, idempotency and restart persistence. The native workflow restores a backup into an empty installation and verifies scores, images and immutable history. These are service/native integration checks, not automated Tauri window or file-picker tests. They also run in the normal `make verify` and `make app-check` suites.
+
+Coverage includes Python subprocesses. `make verify` erases previous coverage data and combines the current run before generating reports, including when tests fail. For manual coverage runs, run `coverage combine` before `coverage report`.
+
 For desktop work, follow the [desktop build guide](app/README.md). `make app-check` checks shared Python/Rust contracts, TypeScript, frontend interactions, native integration tests, and Clippy. After building, run `app/scripts/check-bundle.py` against the packaged service. Use isolated application data for native UI acceptance.
 
 The Keychain round-trip test uses and removes its own temporary credential. Run it explicitly on macOS:

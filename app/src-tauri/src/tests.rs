@@ -785,3 +785,116 @@ fn database_failure_rolls_back_bank_and_receipt_together() {
         );
     }
 }
+
+#[test]
+fn e2e_exam_restart_restore_on_fresh_install_and_retry() {
+    use crate::exams::Paper;
+    let (dir, mut source) = store();
+    let preview = source.preview(sample(), "离线题库".into()).unwrap();
+    source
+        .resources(&std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../fixtures/resources"))
+        .unwrap();
+    let imported = source
+        .import(text(&preview, "ticket"), None, "离线题库")
+        .unwrap();
+    let bank = text(&imported, "bankId");
+    let rows = source.questions(Some(bank), "", "", "").unwrap();
+    let digest = text(&rows[8]["visuals"][0]["imageRef"], "sha256");
+    let image = source.asset(digest).unwrap();
+    source.favorite(text(&rows[0], "id"), true).unwrap();
+    let exam = source
+        .start_paper(Paper {
+            question_ids: vec![text(&rows[0], "id").into(), text(&rows[4], "id").into()],
+            kind: "self_test".into(),
+            minutes: None,
+            scores: vec![300, 700],
+            total_cents: 1000,
+        })
+        .unwrap();
+    let sid = text(&exam, "id");
+    source
+        .save_attempt(
+            (sid, 0),
+            json!({"correctOption":"B"}),
+            1200,
+            false,
+            false,
+            None,
+        )
+        .unwrap();
+    source
+        .save_attempt(
+            (sid, 1),
+            json!({"text":"我的作答"}),
+            2300,
+            false,
+            false,
+            None,
+        )
+        .unwrap();
+    source.position(sid, 1).unwrap();
+    drop(source);
+
+    let source = Store::new(dir.path().to_owned()).unwrap();
+    let resumed = source.session(sid).unwrap();
+    assert_eq!(resumed["position"], 1);
+    assert_eq!(resumed["attempts"][1]["answer"], json!({"text":"我的作答"}));
+    assert!(resumed["submittedAt"].is_null());
+    let submitted = source.submit_paper(sid, true).unwrap();
+    assert_eq!(submitted["attempts"][0]["earnedCents"], 0);
+    assert!(submitted["attempts"][1]["earnedCents"].is_null());
+    source.manual_score(sid, 1, 400, "覆盖部分得分点").unwrap();
+    let finished = source.complete_review(sid).unwrap();
+    let summaries = source.sessions().unwrap();
+    assert_eq!(summaries[0]["earnedCents"], 400);
+    assert_eq!(summaries[0]["totalCents"], 1000);
+    let backup = dir.path().join("portable.zip");
+    source.backup(&backup).unwrap();
+
+    // Restore into an empty installation, so existing files cannot hide a broken backup.
+    let (_destination, mut restored) = store();
+    restored.restore(&backup).unwrap();
+    assert_eq!(restored.session(sid).unwrap(), finished);
+    assert_eq!(restored.sessions().unwrap(), summaries);
+    assert_eq!(restored.asset(digest).unwrap(), image);
+    assert_eq!(
+        restored
+            .questions(Some(bank), "", "", "favorite")
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    assert!(restored
+        .save_attempt(
+            (sid, 0),
+            json!({"correctOption":"A"}),
+            0,
+            false,
+            false,
+            None
+        )
+        .is_err());
+    let retry = restored.retry_wrong(sid).unwrap();
+    assert_eq!(retry["attempts"].as_array().unwrap().len(), 2);
+    let retried = restored
+        .save_attempt(
+            (text(&retry, "id"), 0),
+            json!({"correctOption":"A"}),
+            10,
+            true,
+            false,
+            None,
+        )
+        .unwrap();
+    assert_eq!(retried["attempts"][0]["result"], true);
+    restored.delete_bank(bank).unwrap();
+    let mut expected = finished["attempts"].clone();
+    // Live favorites disappear with the bank; immutable snapshots and scores remain.
+    for attempt in expected.as_array_mut().unwrap() {
+        attempt["favorite"] = Value::Null;
+    }
+    assert_eq!(restored.session(sid).unwrap()["attempts"], expected);
+    assert_eq!(restored.asset(digest).unwrap(), image);
+}

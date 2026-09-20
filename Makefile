@@ -27,7 +27,9 @@ verify:
 	cd server && "$(AI_PYTHON)" -m pyright --pythonpath "$(AI_PYTHON)"
 	cd server && "$(AI_PYTHON)" scripts/evaluate.py --validate-only
 	@cd server; test_status=0; report_status=0; \
+	"$(AI_PYTHON)" -m coverage erase || exit $$?; \
 	PATH="$(dir $(AI_PYTHON)):$$PATH" PYTHONPATH="$(CURDIR)/server/src" "$(AI_PYTHON)" -m coverage run -m pytest --junitxml=reports/checks/probes.xml || test_status=$$?; \
+	"$(AI_PYTHON)" -m coverage combine || report_status=$$?; \
 	"$(AI_PYTHON)" -m coverage report || report_status=$$?; \
 	"$(AI_PYTHON)" -m coverage xml --fail-under=0 -o reports/checks/coverage.xml || report_status=$$?; \
 	"$(AI_PYTHON)" scripts/evaluate.py --probes reports/checks/probes.xml --output reports/checks/probes.json || report_status=$$?; \
@@ -51,6 +53,11 @@ app-check:
 	cd app && TAURI_CONFIG='{"bundle":{"resources":[]}}' npm run check
 app-build: app-bundle
 	cd app && npm run tauri -- build
+
+.PHONY: test-e2e
+test-e2e:
+	cd server && PATH="$(dir $(AI_PYTHON)):$$PATH" PYTHONPATH="$(CURDIR)/server/src" "$(AI_PYTHON)" -m pytest tests/test_e2e.py
+	TAURI_CONFIG='{"bundle":{"resources":[]}}' cargo test --manifest-path app/src-tauri/Cargo.toml e2e_
 
 .PHONY: app-bundle app-install-python
 app-install-python:

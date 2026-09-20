@@ -53,6 +53,7 @@ asyncio_default_fixture_loop_scope = "function"
 [tool.coverage.run]
 branch = true
 source = ["practiq_ai"]
+patch = ["subprocess"]
 
 [tool.coverage.report]
 fail_under = 90
