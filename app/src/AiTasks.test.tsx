@@ -67,7 +67,7 @@ it("shows progress and sends only the current run when pausing", async () => {
   );
   expect(screen.getByText(/完成 1\/2/)).toBeTruthy();
 });
-it("reports missing configuration without starting an import", async () => {
+it("keeps task failures visible with a retry action without starting an import", async () => {
   vi.mocked(invoke).mockRejectedValue({ message: "请先配置视觉模型" });
   render(
     <AiTasks
@@ -78,13 +78,10 @@ it("reports missing configuration without starting an import", async () => {
       onPreview={() => {}}
     />,
   );
-  await waitFor(() =>
-    expect(toast.error).toHaveBeenCalledWith("请先配置视觉模型", {
-      id: "请先配置视觉模型",
-    }),
-  );
-  expect(screen.queryByRole("alert")).toBeNull();
-  expect(screen.queryByText("请先配置视觉模型")).toBeNull();
+  expect(await screen.findByRole("alert")).toBeTruthy();
+  expect(screen.getByText("请先配置视觉模型")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "重试" })).toBeTruthy();
+  expect(toast.error).not.toHaveBeenCalled();
 });
 it("requires content review before acceptance and excludes waiting tasks from batch selection", async () => {
   const state = {
@@ -169,7 +166,7 @@ it("requires content review before acceptance and excludes waiting tasks from ba
   );
   expect(await screen.findByText("保存的候选题目")).toBeTruthy();
   expect(screen.getByText("已保存的材料正文")).toBeTruthy();
-  expect(screen.getByText(/#2：AI_PROVIDER_AUTH_ERROR/)).toBeTruthy();
+  expect(screen.getByText(/#2：模型鉴权失败/)).toBeTruthy();
   expect(
     vi
       .mocked(invoke)

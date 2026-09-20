@@ -1,14 +1,29 @@
 import { AiTasks } from "./AiTasks";
-import type { Preview } from "./api";
+import { useEffect, useState } from "react";
+import { api, errorMessage, missingModelSettings, type Preview, type SettingsResult } from "./api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
-export function ImportPage({ busy, run, onPickJson, onPreview }: {
+export function ImportPage({ busy, run, onPickJson, onPreview, onConfigure }: {
   busy: boolean;
   run: (job: () => Promise<void>) => void;
   onPickJson: () => Promise<void>;
   onPreview: (preview: Preview) => void;
+  onConfigure: () => void;
 }) {
+  const [settings, setSettings] = useState<SettingsResult | null>(null);
+  const [error, setError] = useState("");
+  const [revision, setRevision] = useState(0);
+  useEffect(() => {
+    let active = true;
+    setError("");
+    void api<SettingsResult>({ type: "settings" }).then(value => {
+      if (active) setSettings(value);
+    }).catch(e => { if (active) setError(errorMessage(e)); });
+    return () => { active = false; };
+  }, [revision]);
+  const missing = settings ? missingModelSettings(settings) : [];
+  const ready = !!settings && !missing.length;
   return <div className="space-y-6">
     <Card>
       <CardHeader>
@@ -23,8 +38,15 @@ export function ImportPage({ busy, run, onPickJson, onPreview }: {
         <CardDescription>支持 PDF（.pdf）、文本（.txt）、表格文本（.csv），以及图片（.png、.jpg、.jpeg）。单个文件最大 25 MiB。</CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
-        <p className="rounded-lg bg-muted p-4 text-sm leading-relaxed">暂不支持 Word 文件（.doc、.docx）。Word 的排版可能随字体和软件变化，影响题目、公式和图片的位置。PDF 能固定页面布局，更适合识别。请先在 Word 或 WPS 中选择“导出为 PDF”或“另存为 PDF”，再上传。</p>
-        <AiTasks busy={busy} run={run} onPreview={onPreview} />
+        <details className="text-sm text-muted-foreground">
+          <summary className="cursor-pointer">暂不支持 Word 文件，请先导出为 PDF</summary>
+          <p className="mt-2 leading-relaxed">Word（.doc、.docx）的排版可能随字体和软件变化。请在 Word 或 WPS 中选择“导出为 PDF”或“另存为 PDF”，以保留题目、公式和图片的位置。</p>
+        </details>
+        {error ? <div role="alert" className="space-y-2"><p>{error}</p><Button variant="outline" disabled={busy} onClick={() => setRevision(n => n + 1)}>重试读取配置</Button></div>
+          : !settings ? <p role="status">正在读取模型配置…</p>
+          : !ready ? <div className="flex items-center justify-between gap-4 rounded-lg border bg-muted/30 p-4"><div><p className="font-medium">先配置 AI 模型</p><p className="mt-1 text-sm text-muted-foreground">还缺：{missing.join("、")}。已有 JSON 题库可直接离线导入。</p></div><Button disabled={busy} onClick={onConfigure}>配置 AI 模型</Button></div>
+          : <p className="text-sm text-muted-foreground">文本模型：{settings.config.text_model} · 视觉模型：{settings.config.vision_model}</p>}
+        <AiTasks busy={busy} run={run} onPreview={onPreview} modelsReady={ready} />
       </CardContent>
     </Card>
   </div>;

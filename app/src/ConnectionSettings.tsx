@@ -4,6 +4,7 @@ import { Save, KeyRound } from "lucide-react";
 import {
   api,
   errorMessage,
+  missingModelSettings,
   type ConnectionSettings,
   type SettingsResult,
 } from "./api";
@@ -21,9 +22,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 export function ConnectionSettingsPanel({
   busy,
   run,
+  onSaved,
+  returnToImport = false,
 }: {
   busy: boolean;
   run: (job: () => Promise<void>) => void;
+  onSaved?: () => Promise<void>;
+  returnToImport?: boolean;
 }) {
   const [saved, setSaved] = useState<SettingsResult | null>(null);
   const [config, setConfig] = useState<ConnectionSettings>({
@@ -35,6 +40,7 @@ export function ConnectionSettingsPanel({
   });
   const [apiKey, setApiKey] = useState("");
   const [clearKey, setClearKey] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const [error, setError] = useState<string | null>(null);
   const load = () => {
     let active = true;
@@ -56,6 +62,8 @@ export function ConnectionSettingsPanel({
   useEffect(load, []);
   const configured =
     saved?.hasApiKey && saved.config.base_url === config.base_url;
+  const missing = missingModelSettings({ config, hasApiKey: !clearKey && (!!configured || !!apiKey.trim()) });
+  const presets = ["https://dashscope.aliyuncs.com/compatible-mode/v1", "https://api.deepseek.com", "https://api.moonshot.cn/v1"];
   function field(name: keyof ConnectionSettings, value: string) {
     setConfig((old) => ({ ...old, [name]: value || null }));
     if (name === "base_url") {
@@ -77,6 +85,8 @@ export function ConnectionSettingsPanel({
           onSubmit={(e) => {
             e.preventDefault();
             run(async () => {
+              setSaveError("");
+              try {
               const result = await api<SettingsResult>({
                 type: "save_settings",
                 config,
@@ -87,6 +97,8 @@ export function ConnectionSettingsPanel({
               setApiKey("");
               setClearKey(false);
               toast.success("连接配置已保存");
+              if (!missingModelSettings(result).length) await onSaved?.();
+              } catch (e) { setSaveError(errorMessage(e)); }
             });
           }}
         >
@@ -102,36 +114,24 @@ export function ConnectionSettingsPanel({
             </div>
           )}
           <fieldset disabled={busy || !saved} className="min-w-0 space-y-4">
-            <div className="grid grid-cols-3 items-start gap-4">
-            <div className="col-span-2 min-w-0 space-y-2">
-              <Label htmlFor="baseUrl">Base URL</Label>
-              <Input
-                id="baseUrl"
-                type="url"
-                autoComplete="off"
-                spellCheck={false}
-                placeholder="https://api.example.com/v1"
-                value={config.base_url || ""}
-                onChange={(e) => field("base_url", e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                填写完整的模型 API 地址；本机服务支持 http://127.0.0.1 地址。
-              </p>
+            <div className="space-y-2">
+              <Label htmlFor="providerPreset">供应商地址预设</Label>
+              <select id="providerPreset" className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm focus-visible:ring-2 focus-visible:ring-ring" value={presets.includes(config.base_url || "") ? config.base_url! : ""} onChange={e => field("base_url", e.target.value)}>
+                <option value="">自定义兼容 OpenAI 的地址</option>
+                <option value={presets[0]}>DashScope</option><option value={presets[1]}>DeepSeek</option><option value={presets[2]}>Moonshot</option>
+              </select>
+              <p className="text-xs text-muted-foreground">仅填入 API 地址；请确认供应商同时提供文本和视觉模型，分别填写模型 ID。</p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="providerPreset">供应商预设</Label>
-              <select id="providerPreset" className="h-8 w-full min-w-0 rounded-lg border border-input bg-background px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50" defaultValue="" onChange={e=>{if(e.target.value) field("base_url",e.target.value)}}>
-                <option value="">自定义兼容 OpenAI 的地址</option>
-                <option value="https://dashscope.aliyuncs.com/compatible-mode/v1">DashScope</option>
-                <option value="https://api.deepseek.com">DeepSeek</option>
-                <option value="https://api.moonshot.cn/v1">Moonshot</option>
-              </select>
-            </div>
+              <Label htmlFor="baseUrl">Base URL</Label>
+              <Input id="baseUrl" type="url" autoComplete="off" spellCheck={false} placeholder="https://api.example.com/v1" value={config.base_url || ""} onChange={e => field("base_url", e.target.value)}/>
+              <p className="text-xs text-muted-foreground">从供应商的 API 文档复制兼容 OpenAI 的完整地址；本机回环服务允许 HTTP。</p>
             </div>
             <div className="grid grid-cols-2 gap-4">
             {([['text_model','文本模型'],['vision_model','视觉模型']] as const).map(([key,label])=><div key={key} className="space-y-2">
               <Label htmlFor={key}>{label}</Label>
-              <Input id={key} autoComplete="off" value={config[key] || ''} onChange={e=>field(key,e.target.value)} />
+              <Input id={key} aria-describedby={`${key}-help`} placeholder={key === 'text_model' ? '供应商提供的文本模型 ID' : '支持图片输入的模型 ID'} autoComplete="off" value={config[key] || ''} onChange={e=>field(key,e.target.value)} />
+              <p id={`${key}-help`} className="text-xs leading-5 text-muted-foreground">{key === 'text_model' ? '用于提取文本中的题目。' : '用于识别页面与图片中的内容，须支持图片输入。'}在供应商控制台或模型列表中复制准确的 API 模型 ID，不填写聊天产品名称。</p>
             </div>)}
             </div>
             {(!config.text_model || !config.vision_model) && <p className="text-xs text-muted-foreground">开始解析前需分别填写文本模型与视觉模型。</p>}
@@ -144,7 +144,7 @@ export function ConnectionSettingsPanel({
                 spellCheck={false}
                 disabled={clearKey}
                 placeholder={
-                  configured ? "已保存，留空保持原值" : "填写 API Key（可留空）"
+                  configured ? "已保存，留空保持原值" : "填写此地址对应的 API Key"
                 }
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
@@ -172,11 +172,13 @@ export function ConnectionSettingsPanel({
               )}
             </div>
           </fieldset>
+          <p role="status" className="text-sm">{missing.length ? `解析配置还缺：${missing.join("、")}` : "解析所需字段已填写；保存配置不会调用模型，实际可用性将在主动解析时验证。"}</p>
+          {saveError && <p role="alert" className="text-sm text-destructive">{saveError}。请检查后重新保存。</p>}
           <div className="flex items-center justify-between gap-4 border-t pt-4">
           <p className="max-w-md text-xs leading-5 text-muted-foreground">更改连接配置会停止解析服务；旧任务可能因模型配置变化而无法继续。</p>
           <Button className="shrink-0" type="submit" disabled={busy || !saved}>
             <Save />
-            保存连接配置
+            {returnToImport && !missing.length ? "保存并返回导入" : "保存连接配置"}
           </Button>
           </div>
         </form>

@@ -116,9 +116,10 @@ export function AnswerInput({
           ].map(([v, t]) => (
             <label
               key={v}
+              htmlFor={`${prefix}-${v}`}
               className="flex items-center gap-3 rounded-lg border p-4"
             >
-              <RadioGroupItem value={v} />
+              <RadioGroupItem id={`${prefix}-${v}`} value={v} />
               {t}
             </label>
           ))}

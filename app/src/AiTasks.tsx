@@ -128,6 +128,12 @@ const states: Record<string, string> = {
   COMPLETED: "已完成",
   EXPIRED: "已过期",
 };
+function phaseName(phase: string) {
+  return ({ prepare: "准备文档", vision: "识别图片", chunk: "提取题目", document_parse: "提取题目", vision_parse: "识别图片", visual_crop: "整理图片", merge: "整理题目", result: "检查结果", review: "审核内容", vision_review: "审核图片", chunk_review: "审核题目", result_review: "审核结果", completed: "已完成" } as Record<string, string>)[phase] || "处理文档";
+}
+function failureMessage(code: string) {
+  return code === "AI_PROVIDER_AUTH_ERROR" ? "模型鉴权失败，请检查设置中的 API Key，再重试失败项。" : `此项未能完成，请检查配置或重试（${code}）。`;
+}
 const activeStates = new Set(["PENDING", "RUNNING", "PAUSING"]);
 function ReadAsset({
   review,
@@ -178,10 +184,12 @@ export function AiTasks({
   busy,
   run,
   onPreview,
+  modelsReady = true,
 }: {
   busy: boolean;
   run: (job: () => Promise<void>) => void;
   onPreview: (p: Preview) => void;
+  modelsReady?: boolean;
 }) {
   const [rows, setRows] = useState<Summary[]>([]),
     [offset, setOffset] = useState(0),
@@ -196,9 +204,6 @@ export function AiTasks({
     [confirmation, setConfirmation] = useState<Batch | null>(null),
     [running, setRunning] = useState<string | null>(null),
     [review, setReview] = useState<Review | null>(null);
-  useEffect(() => {
-    if (error) toast.error(error, { id: error });
-  }, [error]);
   async function localRefresh() {
     const [o, b] = await Promise.all([
       ai<PendingOperation[]>({ type: "operations" }),
@@ -219,6 +224,7 @@ export function AiTasks({
     await localRefresh();
   }
   useEffect(() => {
+    if (!modelsReady) return;
     let active = true;
     void ai<{ items: Summary[]; hasMore: boolean }>({ type: "list", offset })
       .then((r) => {
@@ -234,7 +240,7 @@ export function AiTasks({
     return () => {
       active = false;
     };
-  }, [offset]);
+  }, [offset, modelsReady]);
   useEffect(() => {
     let active = true;
     let timer: ReturnType<typeof setTimeout>;
@@ -261,7 +267,7 @@ export function AiTasks({
     };
   }, [running]);
   useEffect(() => {
-    if (!selected) return;
+    if (!selected || !modelsReady) return;
     let active = true;
     let timer: ReturnType<typeof setTimeout>;
     setTask(null);
@@ -292,7 +298,7 @@ export function AiTasks({
       active = false;
       clearTimeout(timer);
     };
-  }, [selected, revision, offset]);
+  }, [selected, revision, offset, modelsReady]);
   async function control(action: string) {
     if (!task) return;
     try {
@@ -328,9 +334,9 @@ export function AiTasks({
   return (
     <div className="space-y-5">
       <p className="text-sm text-muted-foreground">
-        请先在设置中配置模型。文件在本机处理，解析内容会发送到你配置的模型服务，可能产生费用。只有主动解析或继续任务时才会调用模型。审核和导入已有结果不会调用模型。
+        选择文件后会先确认文件与模型，点击“开始解析”才会发送解析内容，可能产生费用。审核和导入已有结果不会调用模型。
       </p>
-      <div className="flex gap-3">
+      {modelsReady && <div className="flex flex-wrap gap-3">
         <Button
           disabled={busy}
           onClick={() =>
@@ -349,13 +355,13 @@ export function AiTasks({
             })
           }
         >
-          选择文档并开始解析
+          选择文档…
         </Button>
         <Button variant="outline" disabled={busy} onClick={() => run(refresh)}>
           刷新任务
         </Button>
-        <Button
-          disabled={busy || !checked.length}
+        {!!checked.length && <Button
+          disabled={busy}
           onClick={() =>
             run(async () =>
               setConfirmation(
@@ -365,8 +371,9 @@ export function AiTasks({
           }
         >
           批量导入已选任务（{checked.length}）
-        </Button>
-      </div>
+        </Button>}
+      </div>}
+      {error && <div role="alert" className="flex items-center justify-between gap-3 rounded-lg border border-destructive/30 p-3"><p className="text-sm text-destructive">{error}</p><Button variant="outline" disabled={busy} onClick={() => run(async () => { try { await (modelsReady ? refresh() : localRefresh()); setError(""); } catch (e) { setError(errorMessage(e)); } })}>重试</Button></div>}
       {operations.length > 0 && (
         <section className="space-y-2">
           <h2>待确认操作</h2>
@@ -377,7 +384,7 @@ export function AiTasks({
             <div key={o.id}>
               {o.label}：{o.error?.message}
               <Button
-                disabled={busy}
+                disabled={busy || !modelsReady}
                 onClick={() =>
                   run(async () => {
                     try {
@@ -424,7 +431,7 @@ export function AiTasks({
               <p className="text-xs">
                 {states[r.state] || r.state} · {r.questionCount ?? 0} 题 ·{" "}
                 {r.reviewCount ?? 0} 待复核{" "}
-                {r.status === "PARTIAL" ? "· PARTIAL" : ""}{" "}
+                {r.status === "PARTIAL" ? "· 部分结果" : ""}{" "}
                 {r.importedBankId
                   ? "· 已导入"
                   : r.previouslyImported
@@ -433,8 +440,8 @@ export function AiTasks({
               </p>
             </div>
           ))}
-          {!rows.length && !error && <p>暂无解析任务</p>}
-          <div className="flex gap-2">
+          {modelsReady && !rows.length && !error && <p className="text-sm text-muted-foreground">暂无解析任务，选择一份文档开始。</p>}
+          {(offset > 0 || more) && <div className="flex gap-2">
             <Button
               variant="ghost"
               disabled={offset === 0 || busy}
@@ -449,7 +456,7 @@ export function AiTasks({
             >
               下一页
             </Button>
-          </div>
+          </div>}
         </div>
         {task && (
           <Card>
@@ -457,29 +464,27 @@ export function AiTasks({
               <h2 className="font-medium">
                 {states[task.state] || task.state}
               </h2>
-              <p className="text-sm">阶段：{task.phase}</p>
+              <p className="text-sm">{task.state === "WAITING_REVIEW" ? "部分内容需要确认，请先查看内容与审核。" : task.state === "FAILED" ? "解析未完成；已保存的内容保留，可查看原因并重试失败项。" : task.state === "COMPLETED" ? "解析结果已保存，可预览并导入题库。" : `当前阶段：${phaseName(task.phase)}`}</p>
               {Object.entries(task.progress).map(([key, p]) => (
                 <p className="text-sm" key={key}>
                   {key === "visuals" ? "图片" : "文本"}：完成 {p.succeeded}/
                   {p.total}，失败 {p.failed}
                 </p>
               ))}
-              <p className="text-sm">
+              <details className="text-sm text-muted-foreground"><summary className="cursor-pointer">模型用量与技术详情</summary><p className="mt-2">阶段：{task.phase}</p><p>
                 已记录 {task.usage.length} 次调用；输入{" "}
                 {task.usage.reduce((n, u) => n + (u.inputTokens || 0), 0)} /
                 输出 {task.usage.reduce((n, u) => n + (u.outputTokens || 0), 0)}{" "}
                 tokens；用量未知 {task.unknownUsageCalls.length} 次
-              </p>
+              </p></details>
               {task.failures.map((f, i) => (
                 <p className="text-sm text-destructive" key={i}>
-                  {f.stage} #{f.index + 1}：{f.message || f.code}
+                  {phaseName(f.stage)} #{f.index + 1}：{f.message || failureMessage(f.code)}
                   {f.retryable ? "（可重试）" : ""}
                 </p>
               ))}
               {task.blocking.length > 0 && (
-                <pre className="max-h-48 overflow-auto whitespace-pre-wrap text-xs">
-                  {JSON.stringify(task.blocking, null, 2)}
-                </pre>
+                <details className="text-sm"><summary className="cursor-pointer">需要处理的问题（{task.blocking.length}）</summary><p>请查看来源内容和质量提示，确认后接受部分结果或重试失败项。</p><pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap text-xs">{JSON.stringify(task.blocking, null, 2)}</pre></details>
               )}
               <div className="flex flex-wrap gap-2">
                 {task.allowedActions
@@ -576,7 +581,7 @@ export function AiTasks({
                 ) : (
                   b.items.some((i) => i.status !== "imported") && (
                     <Button
-                      disabled={!!running}
+                      disabled={!!running || !modelsReady}
                       onClick={() =>
                         b.status === "ready"
                           ? setConfirmation(b)
@@ -624,7 +629,7 @@ export function AiTasks({
                 />
                 <p className="text-sm">
                   {item.questionCount} 题 · {item.reviewCount} 待复核{" "}
-                  {item.partial ? "· PARTIAL" : ""}{" "}
+                  {item.partial ? "· 部分结果" : ""}{" "}
                   {item.status === "imported" ? "· 已导入，将跳过" : ""}{" "}
                   {item.previousVersion ? "· 新版本将单独建库，保留旧题库" : ""}
                 </p>
@@ -657,12 +662,12 @@ export function AiTasks({
             <DialogHeader>
               <DialogTitle>只读内容审核</DialogTitle>
               <DialogDescription>
-                阶段：{review.phase}。此预览不会接受结果或写入题库。
+                阶段：{phaseName(review.phase)}。此预览不会接受结果或写入题库。
               </DialogDescription>
             </DialogHeader>
             {review.failures.map((f, i) => (
               <p className="text-destructive" key={i}>
-                {f.stage} #{f.index + 1}：{f.message || f.code}
+                {phaseName(f.stage)} #{f.index + 1}：{f.message || failureMessage(f.code)}
               </p>
             ))}
             {review.units.map((unit, index) => (
@@ -671,7 +676,7 @@ export function AiTasks({
                 key={`${review.checkpointId}:${index}`}
               >
                 <h3>
-                  {unit.stage} #{unit.index + 1}
+                  {phaseName(unit.stage)} #{unit.index + 1}
                 </h3>
                 {unit.sourceRef != null && (
                   <ReadAsset

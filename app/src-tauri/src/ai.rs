@@ -18,7 +18,7 @@ use std::{
     time::{Duration, Instant},
 };
 use tauri::Manager;
-use tauri_plugin_dialog::DialogExt;
+use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
 
 #[derive(Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
@@ -267,6 +267,29 @@ fn document_format(path: &std::path::Path) -> Result<(&'static str, &'static str
     })
 }
 
+fn confirm_document(
+    path: &std::path::Path,
+    config: crate::settings::ConnectionSettings,
+    confirm: impl FnOnce(String) -> bool,
+) -> Result<Option<Vec<u8>>> {
+    document_format(path)?;
+    let bytes = store::read_bounded(path, 25 * 1024 * 1024)?;
+    let config = config.validate()?;
+    let file_name = path
+        .file_name()
+        .and_then(|s| s.to_str())
+        .ok_or("文件名不合法")?;
+    let message = format!(
+        "文件：{file_name}\n大小：{:.2} MiB\n模型服务：{}\n文本模型：{}\n视觉模型：{}\n\n解析内容将发送给此模型服务，可能产生费用。仅提取原文提供的答案，不会生成答案。",
+        bytes.len() as f64 / (1024.0 * 1024.0),
+        config.base_url.as_deref().ok_or("请先配置模型地址")?,
+        config.text_model.as_deref().ok_or("请先配置文本模型")?,
+        config.vision_model.as_deref().ok_or("请先配置视觉模型")?,
+    );
+    // Upload exactly the bytes the user confirmed, not a later replacement of the file.
+    Ok(confirm(message).then_some(bytes))
+}
+
 pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiResult<Value> {
     let dir = shared.lock().map_err(|_| "数据库不可用")?.dir.clone();
     let work = app.state::<WorkState>();
@@ -288,8 +311,24 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
             None => return Ok(Value::Null),
             Some(f) => {
                 let path = f.into_path().map_err(err)?;
-                document_format(&path)?;
-                Some(path)
+                let config = shared
+                    .lock()
+                    .map_err(|_| "数据库不可用")?
+                    .connection_settings()?;
+                let Some(bytes) = confirm_document(&path, config, |message| {
+                    app.dialog()
+                        .message(message)
+                        .title("确认解析文档")
+                        .buttons(MessageDialogButtons::OkCancelCustom(
+                            "开始解析".into(),
+                            "取消".into(),
+                        ))
+                        .blocking_show()
+                })?
+                else {
+                    return Ok(Value::Null);
+                };
+                Some((path, bytes))
             }
         }
     } else {
@@ -387,8 +426,7 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
             )
         }
         AiRequest::PickDocument => {
-            let path = selected.ok_or("未选择文档")?;
-            let bytes = store::read_bounded(&path, 25 * 1024 * 1024)?;
+            let (path, bytes) = selected.ok_or("未选择文档")?;
             let (kind, media) = document_format(&path)?;
             let body = json!({"sourceType":kind,"fileName":path.file_name().and_then(|s|s.to_str()).ok_or("文件名不合法")?,"mediaType":media,"sha256":store::hash(&bytes),"sizeBytes":bytes.len()});
             let prepared = process.json(Method::POST, "/api/uploads", Some(&body))?;
@@ -571,6 +609,42 @@ impl Endpoint {
 mod tests {
     use super::document_format;
     use std::path::Path;
+
+    #[test]
+    fn document_confirmation_is_required_and_freezes_validated_bytes() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("quiz.txt");
+        std::fs::write(&path, b"original").unwrap();
+        let config = crate::settings::ConnectionSettings {
+            base_url: Some("https://example.com/v1".into()),
+            text_model: Some("text-model".into()),
+            vision_model: Some("vision-model".into()),
+            ..Default::default()
+        };
+        assert!(super::confirm_document(&path, config.clone(), |_| false)
+            .unwrap()
+            .is_none());
+        let bytes = super::confirm_document(&path, config.clone(), |message| {
+            assert!(
+                message.contains("quiz.txt")
+                    && message.contains("text-model")
+                    && message.contains("vision-model")
+            );
+            assert!(message.contains("可能产生费用"));
+            assert!(!message.contains(dir.path().to_str().unwrap()));
+            std::fs::write(&path, b"changed").unwrap();
+            true
+        })
+        .unwrap()
+        .unwrap();
+        assert_eq!(bytes, b"original");
+        let oversized = std::fs::File::create(&path).unwrap();
+        oversized.set_len(25 * 1024 * 1024 + 1).unwrap();
+        assert!(super::confirm_document(&path, config, |_| panic!(
+            "oversized file reached confirmation"
+        ))
+        .is_err());
+    }
 
     #[test]
     fn supported_formats_and_word_guidance() {

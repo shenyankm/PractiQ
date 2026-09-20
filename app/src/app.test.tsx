@@ -39,7 +39,7 @@ describe("answer controls", () => {
     render(
       <AnswerInput question={questions[2]} value={null} onChange={changed} />,
     );
-    await userEvent.click(screen.getByText("错误"));
+    await userEvent.click(screen.getByRole("radio", { name: "错误" }));
     expect(changed).toHaveBeenCalledWith({ value: false });
     expect(answerReady(questions[2], { value: false })).toBe(true);
   });
@@ -110,7 +110,7 @@ it("flushes the latest draft before moving to the next question", async () => {
       flushRef={flushRef}
     />,
   );
-  await userEvent.click(screen.getByText("错误"));
+  await userEvent.click(screen.getByRole("radio", { name: "错误" }));
   await userEvent.click(screen.getByRole("button", { name: "下一题" }));
   await waitFor(() => expect(onSession).toHaveBeenCalled());
   const calls = mock.mock.calls.map(([r]) => r);
@@ -228,4 +228,45 @@ it("uses live favorite state and refreshes the session after toggling", async ()
   expect(api).toHaveBeenCalledWith({type:"favorite",id:"q",value:false});
   await waitFor(()=>expect(onSession).toHaveBeenCalledWith(session));
   expect(api).toHaveBeenCalledWith({type:"session",id:"exam"});
+});
+
+it("announces save failures, retries the draft and labels the current answer-card state", async () => {
+  const session = examSession(); session.deadlineAt = null;
+  vi.mocked(api).mockRejectedValue(new Error("disk unavailable"));
+  render(<Practice session={session} onSession={()=>{}} run={job=>{void job().catch(()=>{});}} flushRef={{current:async()=>{}}}/>);
+  fireEvent.change(screen.getByRole("textbox",{name:"作答内容"}),{target:{value:"新的草稿"}});
+  expect((await screen.findByRole("alert")).textContent).toContain("答案保存失败");
+  const current = screen.getByRole("button",{name:"转到第 1 题，已作答，未提交"});
+  expect(current.getAttribute("aria-current")).toBe("step");
+  vi.mocked(api).mockResolvedValue(session);
+  await userEvent.click(screen.getByRole("button",{name:"重试保存"}));
+  await waitFor(()=>expect(screen.queryByRole("alert")).toBeNull());
+  expect(api).toHaveBeenLastCalledWith(expect.objectContaining({type:"save_attempt",answer:{text:"新的草稿"},submit:false}));
+});
+
+it("moves focus into finish confirmation and restores it when cancelling without submitting", async () => {
+  const session = examSession(); session.deadlineAt = null;
+  vi.mocked(api).mockResolvedValue(session);
+  render(<Practice session={session} onSession={()=>{}} run={job=>{void job();}} flushRef={{current:async()=>{}}}/>);
+  const trigger = screen.getByRole("button",{name:"交卷"});
+  await userEvent.click(trigger);
+  expect(await screen.findByRole("alertdialog",{name:"确认交卷？"})).toBeTruthy();
+  const cancel = screen.getByRole("button",{name:"继续作答"});
+  await waitFor(()=>expect(document.activeElement).toBe(cancel));
+  await userEvent.click(cancel);
+  await waitFor(()=>expect(screen.queryByRole("alertdialog")).toBeNull());
+  await waitFor(()=>expect(document.activeElement).toBe(trigger));
+  expect(vi.mocked(api).mock.calls.some(([r])=>r.type === "submit_paper")).toBe(false);
+});
+
+it("opens the verified image in a keyboard-dismissable detail dialog", async () => {
+  const {Content} = await import("./Content");
+  vi.mocked(api).mockResolvedValue("data:image/png;base64,cGl4ZWw=");
+  render(<Content snapshot={{question:questions[4],groups:[],sources:[],warnings:[],missingAssets:false,visuals:[{id:"v",kind:"image",description:"题目配图",questionIds:["q"],imageRef:{sha256:"digest",objectKey:"image",mediaType:"image/png",sizeBytes:5}}]}}/>);
+  await userEvent.click(await screen.findByRole("button",{name:"放大查看图片"}));
+  expect(await screen.findByRole("dialog",{name:"查看图片"})).toBeTruthy();
+  await userEvent.keyboard("{Escape}");
+  await waitFor(()=>expect(screen.queryByRole("dialog")).toBeNull());
+  expect(document.activeElement).toBe(screen.getByRole("button",{name:"放大查看图片"}));
+  expect(api).toHaveBeenCalledWith({type:"asset",hash:"digest"});
 });

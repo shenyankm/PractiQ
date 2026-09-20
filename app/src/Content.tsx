@@ -1,10 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
 import { api, type Snapshot, type Visual } from "./api";
+import { ZoomIn } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 export function Markdown({ children }: { children?: string | null }) {
   return children ? (
@@ -39,9 +42,14 @@ export function Markdown({ children }: { children?: string | null }) {
 }
 function ImageAsset({ visual }: { visual: Visual }) {
   const [src, setSrc] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  const zoomButton = useRef<HTMLButtonElement>(null);
+  const [loading, setLoading] = useState(!!visual.imageRef);
   useEffect(() => {
     let active = true;
     setSrc(null);
+    setExpanded(false);
+    setLoading(!!visual.imageRef);
     if (visual.imageRef)
       void api<string | null>({ type: "asset", hash: visual.imageRef.sha256 })
         .then((s) => {
@@ -49,7 +57,7 @@ function ImageAsset({ visual }: { visual: Visual }) {
         })
         .catch(() => {
           if (active) setSrc(null);
-        });
+        }).finally(() => { if (active) setLoading(false); });
     return () => {
       active = false;
     };
@@ -57,14 +65,14 @@ function ImageAsset({ visual }: { visual: Visual }) {
   return (
     <figure className="space-y-2 rounded-lg border p-4">
       {src ? (
-        <img
-          src={src}
-          alt={visual.description}
-          className="max-h-96 max-w-full object-contain"
-        />
+        <>
+          <img src={src} alt={visual.description} className="max-h-[min(28vh,20rem)] max-w-full object-contain"/>
+          <Button ref={zoomButton} size="sm" variant="outline" onClick={() => setExpanded(true)}><ZoomIn/>放大查看图片</Button>
+          <Dialog open={expanded} onOpenChange={setExpanded}><DialogContent onCloseAutoFocus={(event) => { event.preventDefault(); zoomButton.current?.focus(); }} className="flex max-h-[90vh] flex-col sm:max-w-[90vw]"><DialogHeader className="shrink-0 pr-8"><DialogTitle>查看图片</DialogTitle><DialogDescription>{visual.description || "原始图片，可滚动查看完整细节。"}</DialogDescription></DialogHeader><div className="min-h-0 overflow-auto"><img src={src} alt={visual.description} className="max-w-none"/></div></DialogContent></Dialog>
+        </>
       ) : visual.imageRef ? (
         <p className="text-sm text-muted-foreground">
-          图片未导入，可依据下方文字作答或跳过。
+          {loading ? "正在加载图片…" : "图片不可用，可依据下方文字作答或跳过。"}
         </p>
       ) : null}
       <figcaption className="text-sm">
