@@ -1,3 +1,4 @@
+import { QuestionPreview } from "./QuestionPreview";
 import { StudySetup } from "./StudySetup";
 import { ImportPage } from "./ImportPage";
 import logo from "../../server/assets/logo/practiq-octopus-a5.png";
@@ -786,6 +787,7 @@ export default function App() {
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
+              <QuestionPreview questions={preview.questions ?? []} />
               <Label>导入到</Label>
               <Select value={importBank} onValueChange={setImportBank}>
                 <SelectTrigger className="w-full">

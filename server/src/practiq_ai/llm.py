@@ -459,6 +459,8 @@ async def structured_call[ResultT: BaseModel](
                 if runtime is None:
                     raise
                 error = {"status": exc.status_code, "code": exc.code, "detail": exc.detail}
+            elif isinstance(exc, APIStatusError) and exc.status_code in {401, 403}:
+                error = {"status": exc.status_code, "code": "AI_PROVIDER_AUTH_ERROR", "detail": "Check the model API key and permissions, then retry failed units"}
             elif _retryable_openai_error(exc):
                 error = {"status": 502, "code": "AI_PROVIDER_UNAVAILABLE", "detail": "AI provider request failed"}
             else:
@@ -515,7 +517,7 @@ async def structured_call[ResultT: BaseModel](
                        if runtime and runtime.execution_info else attempt_call(attempt, None))
         if error := saved.get("error"):
             previous_failure = None
-            if error["code"] in {"MODEL_BUDGET_EXCEEDED", "MODEL_INPUT_TOO_LARGE"}:
+            if error["code"] in {"MODEL_BUDGET_EXCEEDED", "MODEL_INPUT_TOO_LARGE", "AI_PROVIDER_AUTH_ERROR", "AI_PROVIDER_ERROR"}:
                 decision("stop", attempt, error["code"])
                 return None, usage, error["code"]
             if error["code"] != "AI_PROVIDER_UNAVAILABLE":

@@ -49,6 +49,38 @@ pub struct Pending {
     pub title: String,
     pub assets: HashMap<String, (String, Vec<u8>)>,
     pub missing: Vec<String>,
+    pub source: Option<ImportSource>,
+}
+pub struct ImportSource {
+    pub thread_id: String,
+    pub checkpoint_id: String,
+}
+impl Pending {
+    pub fn new(bytes: Vec<u8>, title: String) -> Result<Self> {
+        let root = contract::parse(&bytes)?;
+        let missing = list(contract::result(&root), "visualElements")
+            .iter()
+            .filter(|v| v["imageRef"].is_object())
+            .map(|v| text(&v["imageRef"], "objectKey").to_owned())
+            .collect();
+        Ok(Self {
+            ticket: id(),
+            root,
+            raw: bytes,
+            title,
+            assets: HashMap::new(),
+            missing,
+            source: None,
+        })
+    }
+    pub fn digest(&self) -> Result<String> {
+        if self.source.is_some() {
+            return Ok(hash(&serde_json::to_vec(&json!({"result":contract::result(&self.root),"status":self.root["status"],"processing":self.root["processing"]})).map_err(err)?));
+        }
+        Ok(hash(
+            &serde_json::to_vec(contract::result(&self.root)).map_err(err)?,
+        ))
+    }
 }
 pub struct Store {
     pub dir: PathBuf,
@@ -72,7 +104,7 @@ impl Store {
         let version: i64 = db
             .query_row("PRAGMA user_version", [], |r| r.get(0))
             .map_err(err)?;
-        if version > 5 {
+        if version > 6 {
             return Err("数据库来自更新版本的 PractiQ，请升级应用".into());
         }
         if version == 0 {
@@ -91,30 +123,21 @@ impl Store {
         if version < 5 {
             db.execute_batch(include_str!("exams.sql")).map_err(err)?;
         }
+        if version < 6 {
+            db.execute_batch(include_str!("ai_imports.sql"))
+                .map_err(err)?;
+        }
         Ok(db)
     }
     pub fn preview(&mut self, bytes: Vec<u8>, title: String) -> Result<Value> {
-        let root = contract::parse(&bytes)?;
-        let missing = list(contract::result(&root), "visualElements")
-            .iter()
-            .filter(|v| v["imageRef"].is_object())
-            .map(|v| text(&v["imageRef"], "objectKey").to_owned())
-            .collect();
-        self.pending = Some(Pending {
-            ticket: id(),
-            root,
-            raw: bytes,
-            title,
-            assets: HashMap::new(),
-            missing,
-        });
+        self.pending = Some(Pending::new(bytes, title)?);
         self.preview_value()
     }
     pub fn preview_value(&self) -> Result<Value> {
         let p = self.pending.as_ref().ok_or("没有待导入文件")?;
         let r = contract::result(&p.root);
         Ok(
-            json!({"ticket":p.ticket,"title":p.title,"count":list(r,"questions").len(),"reviewCount":list(r,"questions").iter().filter(|q|q["needsReview"]==true).count(),"warnings":r["warnings"],"status":p.root["status"],"processing":p.root["processing"],"missingAssets":p.missing,"assetCount":p.assets.len()}),
+            json!({"ticket":p.ticket,"title":p.title,"count":list(r,"questions").len(),"reviewCount":list(r,"questions").iter().filter(|q|q["needsReview"]==true).count(),"questions":r["questions"],"warnings":r["warnings"],"status":p.root["status"],"processing":p.root["processing"],"missingAssets":p.missing,"assetCount":p.assets.len()}),
         )
     }
     pub fn resources(&mut self, root: &Path) -> Result<Value> {
@@ -177,12 +200,34 @@ impl Store {
         if ticket != p.ticket {
             return Err("导入预览已失效".into());
         }
+        let result = self.import_pending(p, bank_id, title)?;
+        self.pending = None;
+        Ok(result)
+    }
+    pub fn import_pending(
+        &self,
+        p: &Pending,
+        bank_id: Option<String>,
+        title: &str,
+    ) -> Result<Value> {
         let title = valid_title(title)?;
         for (digest, (_, bytes)) in &p.assets {
             self.write_asset(digest, bytes)?;
         }
         let mut db = self.connect()?;
         let tx = db.transaction().map_err(err)?;
+        let digest = p.digest()?;
+        if let Some(source) = &p.source {
+            if let Some(bank) = tx.query_row(
+                "SELECT i.bank_id FROM ai_imports a JOIN imports i ON i.id=a.import_id WHERE a.thread_id=?1 AND a.digest=?2",
+                params![source.thread_id, digest], |r| r.get::<_, String>(0),
+            ).optional().map_err(err)? {
+                tx.execute("UPDATE ai_imports SET checkpoint_id=?3 WHERE thread_id=?1 AND digest=?2",
+                    params![source.thread_id, digest, source.checkpoint_id]).map_err(err)?;
+                tx.commit().map_err(err)?;
+                return Ok(json!({"duplicate":true,"bankId":bank,"count":0}));
+            }
+        }
         let existing_bank = bank_id.is_some();
         let bank = bank_id.unwrap_or_else(id);
         let exists: bool = tx
@@ -202,7 +247,6 @@ impl Store {
             )
             .map_err(err)?;
         }
-        let digest = hash(&serde_json::to_vec(contract::result(&p.root)).map_err(err)?);
         if tx
             .query_row(
                 "SELECT EXISTS(SELECT 1 FROM imports WHERE bank_id=?1 AND digest=?2)",
@@ -211,6 +255,11 @@ impl Store {
             )
             .map_err(err)?
         {
+            if let Some(source) = &p.source {
+                tx.execute("INSERT INTO ai_imports(thread_id,digest,checkpoint_id,import_id) SELECT ?1,?2,?3,id FROM imports WHERE bank_id=?4 AND digest=?2",
+                    params![source.thread_id, digest, source.checkpoint_id, bank]).map_err(err)?;
+                tx.commit().map_err(err)?;
+            }
             return Ok(json!({"duplicate":true,"bankId":bank,"count":0}));
         }
         let import_id = id();
@@ -229,6 +278,13 @@ impl Store {
             ],
         )
         .map_err(err)?;
+        if let Some(source) = &p.source {
+            tx.execute(
+                "INSERT INTO ai_imports VALUES(?1,?2,?3,?4)",
+                params![source.thread_id, digest, source.checkpoint_id, import_id],
+            )
+            .map_err(err)?;
+        }
         for (digest, (media, bytes)) in &p.assets {
             tx.execute(
                 "INSERT OR IGNORE INTO assets VALUES(?1,?2,?3,?4)",
@@ -290,8 +346,19 @@ impl Store {
         }
         tx.commit().map_err(err)?;
         let count = ids.len();
-        self.pending = None;
         Ok(json!({"duplicate":false,"bankId":bank,"count":count}))
+    }
+
+    pub fn imported_ai(
+        &self,
+        thread: &str,
+        digest: Option<&str>,
+        checkpoint: Option<&str>,
+    ) -> Result<Option<String>> {
+        self.connect()?.query_row(
+            "SELECT i.bank_id FROM ai_imports a JOIN imports i ON i.id=a.import_id WHERE a.thread_id=?1 AND (?2 IS NULL OR a.digest=?2) AND (?3 IS NULL OR a.checkpoint_id=?3) LIMIT 1",
+            params![thread, digest, checkpoint], |r| r.get(0),
+        ).optional().map_err(err)
     }
     pub fn banks(&self) -> Result<Value> {
         let db = self.connect()?;

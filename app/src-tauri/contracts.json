@@ -995,5 +995,1100 @@
     ],
     "title": "DocumentProcessing",
     "type": "object"
+  },
+  "taskSummary": {
+    "additionalProperties": false,
+    "properties": {
+      "threadId": {
+        "format": "uuid",
+        "title": "Threadid",
+        "type": "string"
+      },
+      "fileName": {
+        "title": "Filename",
+        "type": "string"
+      },
+      "createdAt": {
+        "title": "Createdat",
+        "type": "string"
+      },
+      "expiresAt": {
+        "title": "Expiresat",
+        "type": "string"
+      },
+      "state": {
+        "enum": [
+          "PENDING",
+          "RUNNING",
+          "PAUSING",
+          "PAUSED",
+          "INTERRUPTED",
+          "FAILED",
+          "WAITING_REVIEW",
+          "COMPLETED",
+          "EXPIRED"
+        ],
+        "title": "State",
+        "type": "string"
+      },
+      "status": {
+        "anyOf": [
+          {
+            "enum": [
+              "SUCCEEDED",
+              "PARTIAL"
+            ],
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Status"
+      },
+      "checkpointId": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Checkpointid"
+      },
+      "questionCount": {
+        "minimum": 0,
+        "title": "Questioncount",
+        "type": "integer"
+      },
+      "reviewCount": {
+        "minimum": 0,
+        "title": "Reviewcount",
+        "type": "integer"
+      }
+    },
+    "required": [
+      "threadId",
+      "fileName",
+      "createdAt",
+      "expiresAt",
+      "state",
+      "status",
+      "checkpointId",
+      "questionCount",
+      "reviewCount"
+    ],
+    "title": "DocumentTaskSummary",
+    "type": "object"
+  },
+  "taskReview": {
+    "$defs": {
+      "ArtifactReference": {
+        "additionalProperties": false,
+        "properties": {
+          "objectKey": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Objectkey",
+            "type": "string"
+          },
+          "sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sha256",
+            "type": "string"
+          },
+          "mediaType": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Mediatype",
+            "type": "string"
+          },
+          "sizeBytes": {
+            "minimum": 0,
+            "title": "Sizebytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "objectKey",
+          "sha256",
+          "mediaType",
+          "sizeBytes"
+        ],
+        "title": "ArtifactReference",
+        "type": "object"
+      },
+      "ChoiceAnswerPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "correctOption": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Correctoption",
+            "type": "string"
+          }
+        },
+        "required": [
+          "correctOption"
+        ],
+        "title": "ChoiceAnswerPayload",
+        "type": "object"
+      },
+      "ContentBlock": {
+        "additionalProperties": false,
+        "properties": {
+          "partType": {
+            "enum": [
+              "text",
+              "formula",
+              "image",
+              "table",
+              "list",
+              "html",
+              "markdown",
+              "chart",
+              "diagram",
+              "qr_code"
+            ],
+            "title": "Parttype",
+            "type": "string"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Role"
+          },
+          "textValue": {
+            "anyOf": [
+              {
+                "maxLength": 120000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Textvalue"
+          },
+          "markdownValue": {
+            "anyOf": [
+              {
+                "maxLength": 100000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Markdownvalue"
+          },
+          "latexValue": {
+            "anyOf": [
+              {
+                "maxLength": 20000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Latexvalue"
+          },
+          "jsonValue": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Jsonvalue"
+          }
+        },
+        "required": [
+          "partType"
+        ],
+        "title": "ContentBlock",
+        "type": "object"
+      },
+      "DocumentQuality": {
+        "additionalProperties": false,
+        "properties": {
+          "reviewRequired": {
+            "default": false,
+            "title": "Reviewrequired",
+            "type": "boolean"
+          },
+          "reviewQuestionCount": {
+            "default": 0,
+            "minimum": 0,
+            "title": "Reviewquestioncount",
+            "type": "integer"
+          },
+          "issues": {
+            "items": {
+              "$ref": "#/$defs/QualityIssue"
+            },
+            "title": "Issues",
+            "type": "array"
+          }
+        },
+        "title": "DocumentQuality",
+        "type": "object"
+      },
+      "FillBlankAnswerPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "answers": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Answers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "answers"
+        ],
+        "title": "FillBlankAnswerPayload",
+        "type": "object"
+      },
+      "MatchPair": {
+        "additionalProperties": false,
+        "properties": {
+          "left": {
+            "title": "Left",
+            "type": "integer"
+          },
+          "right": {
+            "title": "Right",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "left",
+          "right"
+        ],
+        "title": "MatchPair",
+        "type": "object"
+      },
+      "MatchingAnswerPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "matches": {
+            "items": {
+              "$ref": "#/$defs/MatchPair"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Matches",
+            "type": "array"
+          }
+        },
+        "required": [
+          "matches"
+        ],
+        "title": "MatchingAnswerPayload",
+        "type": "object"
+      },
+      "MultipleChoiceAnswerPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "correct": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Correct",
+            "type": "array"
+          }
+        },
+        "required": [
+          "correct"
+        ],
+        "title": "MultipleChoiceAnswerPayload",
+        "type": "object"
+      },
+      "OrderingAnswerPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "order": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Order",
+            "type": "array"
+          }
+        },
+        "required": [
+          "order"
+        ],
+        "title": "OrderingAnswerPayload",
+        "type": "object"
+      },
+      "ParsedGroup": {
+        "additionalProperties": false,
+        "properties": {
+          "title": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "instructions": {
+            "anyOf": [
+              {
+                "maxLength": 20000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Instructions"
+          },
+          "questionIndexes": {
+            "description": "Zero-based positions in this fragment's questions, not printed question numbers.",
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 1000,
+            "title": "Questionindexes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "title",
+          "questionIndexes"
+        ],
+        "title": "ParsedGroup",
+        "type": "object"
+      },
+      "ParsedItem": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Id"
+          },
+          "side": {
+            "anyOf": [
+              {
+                "enum": [
+                  "left",
+                  "right"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Side"
+          },
+          "content": {
+            "anyOf": [
+              {
+                "maxLength": 20000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Content"
+          }
+        },
+        "title": "ParsedItem",
+        "type": "object"
+      },
+      "ParsedOption": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Label"
+          },
+          "content": {
+            "anyOf": [
+              {
+                "maxLength": 20000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Content"
+          },
+          "isCorrect": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Iscorrect"
+          }
+        },
+        "title": "ParsedOption",
+        "type": "object"
+      },
+      "ParsedQuestion": {
+        "additionalProperties": false,
+        "properties": {
+          "stem": {
+            "anyOf": [
+              {
+                "maxLength": 120000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Stem"
+          },
+          "answerMode": {
+            "anyOf": [
+              {
+                "enum": [
+                  "choice",
+                  "true_false",
+                  "fill_blank",
+                  "short_answer",
+                  "ordering",
+                  "matching"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Answermode"
+          },
+          "questionTypeId": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Questiontypeid"
+          },
+          "choiceVariant": {
+            "anyOf": [
+              {
+                "enum": [
+                  "single",
+                  "multiple"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Choicevariant"
+          },
+          "matchingVariant": {
+            "anyOf": [
+              {
+                "enum": [
+                  "one_to_one",
+                  "many_to_one"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Matchingvariant"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/$defs/ParsedItem"
+            },
+            "maxItems": 100,
+            "title": "Items",
+            "type": "array"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/$defs/ParsedOption"
+            },
+            "maxItems": 100,
+            "title": "Options",
+            "type": "array"
+          },
+          "answerPayload": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ChoiceAnswerPayload"
+              },
+              {
+                "$ref": "#/$defs/TrueFalseAnswerPayload"
+              },
+              {
+                "$ref": "#/$defs/FillBlankAnswerPayload"
+              },
+              {
+                "$ref": "#/$defs/ShortAnswerPayload"
+              },
+              {
+                "$ref": "#/$defs/OrderingAnswerPayload"
+              },
+              {
+                "$ref": "#/$defs/MatchingAnswerPayload"
+              },
+              {
+                "$ref": "#/$defs/MultipleChoiceAnswerPayload"
+              },
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Extract only an answer explicitly supplied by the source; never solve the question. Use null when absent.",
+            "title": "Answerpayload"
+          },
+          "sourceScore": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "maximum": 1000000,
+                "multipleOf": 0.01,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Sourcescore"
+          },
+          "scoringRubric": {
+            "anyOf": [
+              {
+                "maxLength": 100000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Scoringrubric"
+          },
+          "scoreSourceText": {
+            "anyOf": [
+              {
+                "maxLength": 100000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Scoresourcetext"
+          },
+          "analysis": {
+            "anyOf": [
+              {
+                "maxLength": 100000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Analysis"
+          },
+          "contentBlocks": {
+            "items": {
+              "$ref": "#/$defs/ContentBlock"
+            },
+            "maxItems": 1000,
+            "title": "Contentblocks",
+            "type": "array"
+          },
+          "sourceText": {
+            "anyOf": [
+              {
+                "maxLength": 120000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Literal source text for locating this question; do not summarize or paraphrase.",
+            "title": "Sourcetext"
+          },
+          "confidence": {
+            "default": 0,
+            "description": "Reliability of extraction, not confidence that the answer is correct.",
+            "maximum": 1,
+            "minimum": 0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "needsReview": {
+            "default": true,
+            "description": "True when extraction is uncertain; missing fields also force review during validation.",
+            "title": "Needsreview",
+            "type": "boolean"
+          },
+          "missingFields": {
+            "items": {
+              "enum": [
+                "stem",
+                "questionTypeId",
+                "answerMode",
+                "choiceVariant",
+                "matchingVariant",
+                "options",
+                "items",
+                "answerPayload",
+                "analysis",
+                "sourceText",
+                "media",
+                "material"
+              ],
+              "type": "string"
+            },
+            "title": "Missingfields",
+            "type": "array"
+          }
+        },
+        "title": "ParsedQuestion",
+        "type": "object"
+      },
+      "QualityIssue": {
+        "additionalProperties": false,
+        "properties": {
+          "questionIndex": {
+            "minimum": 0,
+            "title": "Questionindex",
+            "type": "integer"
+          },
+          "code": {
+            "enum": [
+              "SOURCE_TEXT_NOT_FOUND",
+              "AMBIGUOUS_OVERLAP",
+              "OVERLAP_CONFLICT",
+              "MISSING_FIELDS",
+              "NEEDS_REVIEW"
+            ],
+            "title": "Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "questionIndex",
+          "code"
+        ],
+        "title": "QualityIssue",
+        "type": "object"
+      },
+      "QuestionSource": {
+        "additionalProperties": false,
+        "properties": {
+          "questionIndex": {
+            "minimum": 0,
+            "title": "Questionindex",
+            "type": "integer"
+          },
+          "stage": {
+            "enum": [
+              "document_parse",
+              "vision_parse"
+            ],
+            "title": "Stage",
+            "type": "string"
+          },
+          "unitIndex": {
+            "minimum": 0,
+            "title": "Unitindex",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "questionIndex",
+          "stage",
+          "unitIndex"
+        ],
+        "title": "QuestionSource",
+        "type": "object"
+      },
+      "ReviewUnit": {
+        "additionalProperties": false,
+        "properties": {
+          "stage": {
+            "enum": [
+              "result",
+              "vision_parse",
+              "document_parse"
+            ],
+            "title": "Stage",
+            "type": "string"
+          },
+          "index": {
+            "minimum": 0,
+            "title": "Index",
+            "type": "integer"
+          },
+          "questions": {
+            "items": {
+              "$ref": "#/$defs/ParsedQuestion"
+            },
+            "title": "Questions",
+            "type": "array"
+          },
+          "groups": {
+            "items": {
+              "$ref": "#/$defs/ParsedGroup"
+            },
+            "title": "Groups",
+            "type": "array"
+          },
+          "visualElements": {
+            "items": {
+              "$ref": "#/$defs/VisualElement"
+            },
+            "title": "Visualelements",
+            "type": "array"
+          },
+          "sourceRef": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ArtifactReference"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "stage",
+          "index",
+          "questions",
+          "groups"
+        ],
+        "title": "ReviewUnit",
+        "type": "object"
+      },
+      "ShortAnswerPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "text": {
+            "maxLength": 120000,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "ShortAnswerPayload",
+        "type": "object"
+      },
+      "TrueFalseAnswerPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "value": {
+            "title": "Value",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "value"
+        ],
+        "title": "TrueFalseAnswerPayload",
+        "type": "object"
+      },
+      "UnitFailure": {
+        "additionalProperties": false,
+        "properties": {
+          "stage": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Stage",
+            "type": "string"
+          },
+          "index": {
+            "minimum": 0,
+            "title": "Index",
+            "type": "integer"
+          },
+          "code": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Code",
+            "type": "string"
+          },
+          "retryable": {
+            "title": "Retryable",
+            "type": "boolean"
+          },
+          "retriesRemaining": {
+            "default": 0,
+            "maximum": 2,
+            "minimum": 0,
+            "title": "Retriesremaining",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "stage",
+          "index",
+          "code",
+          "retryable"
+        ],
+        "title": "UnitFailure",
+        "type": "object"
+      },
+      "VisualElement": {
+        "additionalProperties": false,
+        "properties": {
+          "questionIndexes": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 1000,
+            "title": "Questionindexes",
+            "type": "array"
+          },
+          "kind": {
+            "enum": [
+              "image",
+              "table",
+              "chart",
+              "diagram",
+              "qr_code"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Label"
+          },
+          "description": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "title": "Description",
+            "type": "string"
+          },
+          "extractedText": {
+            "anyOf": [
+              {
+                "maxLength": 100000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Extractedtext"
+          },
+          "page": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Page"
+          },
+          "bbox": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "maxItems": 4,
+                "minItems": 4,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Bbox"
+          },
+          "imageRef": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ArtifactReference"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "kind",
+          "description"
+        ],
+        "title": "VisualElement",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "threadId": {
+        "format": "uuid",
+        "title": "Threadid",
+        "type": "string"
+      },
+      "checkpointId": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Checkpointid"
+      },
+      "state": {
+        "enum": [
+          "PENDING",
+          "RUNNING",
+          "PAUSING",
+          "PAUSED",
+          "INTERRUPTED",
+          "FAILED",
+          "WAITING_REVIEW",
+          "COMPLETED",
+          "EXPIRED"
+        ],
+        "title": "State",
+        "type": "string"
+      },
+      "phase": {
+        "title": "Phase",
+        "type": "string"
+      },
+      "units": {
+        "items": {
+          "$ref": "#/$defs/ReviewUnit"
+        },
+        "title": "Units",
+        "type": "array"
+      },
+      "failures": {
+        "items": {
+          "$ref": "#/$defs/UnitFailure"
+        },
+        "title": "Failures",
+        "type": "array"
+      },
+      "quality": {
+        "$ref": "#/$defs/DocumentQuality"
+      },
+      "questionSources": {
+        "items": {
+          "$ref": "#/$defs/QuestionSource"
+        },
+        "title": "Questionsources",
+        "type": "array"
+      }
+    },
+    "required": [
+      "threadId",
+      "checkpointId",
+      "state",
+      "phase",
+      "units",
+      "failures",
+      "quality",
+      "questionSources"
+    ],
+    "title": "DocumentTaskReview",
+    "type": "object"
   }
 }

@@ -327,17 +327,16 @@ def test_structured_call_does_not_retry_permanent_errors(monkeypatch):
     model = FakeModel(responses=[RuntimeError("permanent")])
     monkeypatch.setattr(llm, "_retryable_openai_error", lambda _exc: False)
 
-    with pytest.raises(DocumentProcessingError) as exc:
-        asyncio.run(
-            llm.structured_call(
-                model,
-                [HumanMessage(content="test")],
-                document.ChunkParseResult,
-                "document_chunk",
-            )
+    result = asyncio.run(
+        llm.structured_call(
+            model,
+            [HumanMessage(content="test")],
+            document.ChunkParseResult,
+            "document_chunk",
         )
+    )
 
-    assert exc.value.code == "AI_PROVIDER_ERROR"
+    assert result == (None, [], "AI_PROVIDER_ERROR")
     assert len(model.calls) == 1
 
 

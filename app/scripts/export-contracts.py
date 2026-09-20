@@ -4,10 +4,15 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'server/src'))
-from practiq_ai.contracts import DocumentParseResult, DocumentProcessing  # noqa: E402
+from practiq_ai.contracts import (  # noqa: E402
+    DocumentParseResult, DocumentProcessing, DocumentTaskReview, DocumentTaskSummary,
+)
 
 path = Path(__file__).resolve().parents[1] / 'src-tauri/contracts.json'
-content = json.dumps({'result': DocumentParseResult.model_json_schema(), 'processing': DocumentProcessing.model_json_schema()}, ensure_ascii=False, indent=2) + '\n'
+content = json.dumps({name: model.model_json_schema() for name, model in {
+    'result': DocumentParseResult, 'processing': DocumentProcessing,
+    'taskSummary': DocumentTaskSummary, 'taskReview': DocumentTaskReview,
+}.items()}, ensure_ascii=False, indent=2) + '\n'
 if '--check' in sys.argv:
     if path.read_text(encoding='utf-8') != content:
         raise SystemExit('AI contract changed: run app/scripts/export-contracts.py and review the desktop importer.')

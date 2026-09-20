@@ -40,6 +40,13 @@ class Service:
             self.lock = self.db.acquire()
             self.graphs = {name: build_document_graph(self.db.checkpointer, store=self.db.store, name=name, source_types=types)
                            for name, types in GRAPH_FORMATS.items()}
+            # A crash can separate the final checkpoint from the queue receipt.
+            # Reconcile only this run's checkpoint, without executing graph nodes.
+            for run in await self.db.rows("SELECT * FROM document_runs WHERE status IN ('pending','running','interrupted')"):
+                task = (await self.db.rows('SELECT * FROM document_tasks WHERE thread_id=?', (run['thread_id'],)))[0]
+                snapshot = await self.snapshot(task)
+                if (saved_status := self.saved_run_status(snapshot, run)) is not None:
+                    await self.finish(run['run_id'], saved_status)
             async with self.db.connection() as conn:
                 if load().desktop_mode:
                     await conn.execute("UPDATE document_runs SET status='interrupted' WHERE status IN ('pending','running')")
@@ -97,6 +104,18 @@ class Service:
     @staticmethod
     def checkpoint_id(snapshot, run=None):
         return snapshot.config.get('configurable', {}).get('checkpoint_id') or (f"pending:{run['run_id']}" if run else None)
+
+    @staticmethod
+    def saved_run_status(snapshot, run):
+        if (snapshot.metadata or {}).get('practiqRunId') != run['run_id']:
+            return None
+        if snapshot.interrupts:
+            return 'waiting'
+        if not snapshot.next and (snapshot.values or {}).get('status') in {'SUCCEEDED', 'PARTIAL'}:
+            from .contracts import DocumentParseResult
+            DocumentParseResult.model_validate(snapshot.values['result'])
+            return 'success'
+        return None
 
     async def dispatch(self):
         try:

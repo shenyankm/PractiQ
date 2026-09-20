@@ -321,7 +321,7 @@ fn version_one_backup_migrates_and_malicious_packages_do_not_replace_data() {
             .unwrap()
             .query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
             .unwrap(),
-        5
+        6
     );
     assert!(s.connection_settings().unwrap().base_url.is_none());
     let bank = s.save_bank(None, &bank, "").unwrap();
@@ -686,4 +686,85 @@ fn exam_hides_answer_roles_and_reads_live_favorites_without_changing_snapshot() 
     assert_ne!(wire["requestId"], retried["requestId"]);
     s.delete_bank(&bank).unwrap();
     assert!(s.session(sid).unwrap()["attempts"][0]["favorite"].is_null());
+}
+
+#[test]
+fn ai_import_receipts_deduplicate_versions_and_survive_backup_without_work_manifests() {
+    use crate::store::{ImportSource, Pending};
+    let (dir, mut s) = store();
+    let task = crate::store::id();
+    let mut result: Value = serde_json::from_slice(&sample()).unwrap();
+    result["visualElements"] = json!([]);
+    let mut pending = Pending::new(serde_json::to_vec(&result).unwrap(), "first".into()).unwrap();
+    pending.source = Some(ImportSource {
+        thread_id: task.clone(),
+        checkpoint_id: "cp1".into(),
+    });
+    let first = s.import_pending(&pending, None, "first").unwrap();
+    let duplicate = s
+        .import_pending(&pending, None, "new bank should not exist")
+        .unwrap();
+    assert_eq!(duplicate["bankId"], first["bankId"]);
+    assert_eq!(duplicate["duplicate"], true);
+    result["questions"][0]["stem"] = json!("Changed source result");
+    let mut revised = Pending::new(serde_json::to_vec(&result).unwrap(), "second".into()).unwrap();
+    revised.source = Some(ImportSource {
+        thread_id: task.clone(),
+        checkpoint_id: "cp2".into(),
+    });
+    let second = s.import_pending(&revised, None, "second").unwrap();
+    assert_ne!(second["bankId"], first["bankId"]);
+    let db = s.connect().unwrap();
+    assert_eq!(
+        db.query_row("SELECT COUNT(*) FROM ai_imports", [], |r| r
+            .get::<_, i64>(0))
+            .unwrap(),
+        2
+    );
+    std::fs::create_dir_all(dir.path().join("ai/import-batches")).unwrap();
+    std::fs::write(
+        dir.path().join("ai/import-batches/excluded.json"),
+        b"not backed up",
+    )
+    .unwrap();
+    let archive = dir.path().join("receipt-backup.zip");
+    s.backup(&archive).unwrap();
+    let mut zip = zip::ZipArchive::new(std::fs::File::open(&archive).unwrap()).unwrap();
+    for i in 0..zip.len() {
+        assert!(!zip.by_index(i).unwrap().name().starts_with("ai/"));
+    }
+    s.restore(&archive).unwrap();
+    assert_eq!(
+        s.import_pending(&pending, None, "after restore").unwrap()["bankId"],
+        first["bankId"]
+    );
+    assert_eq!(
+        s.imported_ai(&task, Some(&revised.digest().unwrap()), None)
+            .unwrap(),
+        second["bankId"].as_str().map(String::from)
+    );
+}
+
+#[test]
+fn database_failure_rolls_back_bank_and_receipt_together() {
+    use crate::store::{ImportSource, Pending};
+    let (_dir, s) = store();
+    let mut result: Value = serde_json::from_slice(&sample()).unwrap();
+    result["visualElements"] = json!([]);
+    let mut pending = Pending::new(serde_json::to_vec(&result).unwrap(), "failure".into()).unwrap();
+    pending.source = Some(ImportSource {
+        thread_id: crate::store::id(),
+        checkpoint_id: "cp".into(),
+    });
+    let db = s.connect().unwrap();
+    db.execute_batch("CREATE TRIGGER fail_questions BEFORE INSERT ON questions BEGIN SELECT RAISE(ABORT,'injected disk failure'); END;").unwrap();
+    assert!(s.import_pending(&pending, None, "failure").is_err());
+    for table in ["banks", "imports", "ai_imports", "questions"] {
+        assert_eq!(
+            db.query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |r| r
+                .get::<_, i64>(0))
+                .unwrap(),
+            0
+        );
+    }
 }

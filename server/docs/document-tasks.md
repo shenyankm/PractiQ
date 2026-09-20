@@ -76,7 +76,34 @@ TXT/CSV 用文本模型；PDF/图片直接视觉提题。页面携带相邻页�
 
 ## 任务列表
 
-`GET /api/document-tasks?limit=20&offset=0` 使用相同 Bearer 鉴权，返回 `items`（threadId、fileName、createdAt、expiresAt）及 `hasMore`。limit 为 1–100，按创建时间与任务 ID 降序排列；逐任务状态仍通过现有查询接口获取。
+`GET /api/document-tasks?limit=20&offset=0` 使用相同 Bearer 鉴权，返回 `items`（threadId、fileName、createdAt、expiresAt、state、status、checkpointId、questionCount、reviewCount）及 `hasMore`。limit 为 1–100，按创建时间与任务 ID 降序排列。摘要只读取已保存的 checkpoint，不读取全部调用日志；过期任务标记 EXPIRED。完整状态通过单任务查询获取。
+
+## 只读审核预览
+
+`GET /api/document-tasks/{threadId}/preview` 使用相同鉴权和期限检查，返回 threadId、checkpointId、state、phase、units、failures、quality 和 questionSources。例如 `units` 的一项为：
+
+```json
+{
+  "stage": "document_parse",
+  "index": 0,
+  "questions": [],
+  "groups": [],
+  "visualElements": [],
+  "sourceRef": null
+}
+```
+
+阶段审核返回保存的成功单元和对应来源引用；结果审核返回合并结果。失败范围见 failures，质量与题目来源见 quality / questionSources。此接口不执行 merge、裁剪或模型，不接受结果、不写题库。来源内容仍通过校验过的 artifact 接口读取。接受时必须携带预览的 checkpointId，过期预览不能接受新版本。
+
+## 恢复错误与桌面回执
+
+启动时先检查最终 checkpoint 的 run 归属和合法结果：已结束的运行修正为完成，审核中断保留待审核，不执行节点。桌面模式下其余未完成任务仍等待主动继续。执行签名校验不变，不迁移跨版本 checkpoint。
+
+模型 401/403 保存为 `AI_PROVIDER_AUTH_ERROR`，不自动重试。修正密钥后显式 retry_failed 开启新的失败单元轮次，成功单元、历史用量和剩余预算保留。永久提供方错误保存为不可重试失败，不允许通过普通 resume 重放缓存错误。
+
+桌面在创建或控制 POST 前将 requestId 和原始请求持久保存到 `ai/requests/`。连接中断、无效回执或服务端不确定错误保留待确认状态；明确拒绝的 4xx（408 除外）终止该操作。用户显式重试使用同一 ID 和内容；修正输入后新操作使用新 ID。Rust 保留 code、message、httpStatus 和 requestId。HTTP 请求和图片下载不持有服务进程锁。
+
+桌面批次使用 prepare_batch、run_batch、batches、cancel_batch 命令。run_batch 的 titles 仅在首次确认时传入，继续传 null。`ai/import-batches/` 清单保存任务、结果摘要、checkpoint、名称和逐项状态；数据库 schema 6 的 ai_imports 保存 `(thread_id,digest)` 唯一回执，与题库同事务提交。继续时以数据库回执为准。清单与待确认请求不进入题库备份，已提交回执随题库保存；仍可恢复 schema 1–5 的备份并迁移至 6。
 
 ## 已移除的 Word 输入
 

@@ -1,4 +1,5 @@
 mod ai;
+mod ai_work;
 mod assets;
 mod backup;
 mod contract;
@@ -122,17 +123,33 @@ enum Request {
         api_key: Option<String>,
     },
 }
-#[derive(Serialize)]
-struct AppError {
-    code: &'static str,
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AppError {
+    code: String,
     message: String,
+    #[serde(rename = "requestId", skip_serializing_if = "Option::is_none")]
+    request_id: Option<String>,
+    #[serde(rename = "httpStatus", skip_serializing_if = "Option::is_none")]
+    http_status: Option<u16>,
+}
+impl AppError {
+    fn new(code: &str, message: impl Into<String>) -> Self {
+        Self {
+            code: code.into(),
+            message: message.into(),
+            request_id: None,
+            http_status: None,
+        }
+    }
 }
 impl From<String> for AppError {
     fn from(message: String) -> Self {
-        Self {
-            code: "OPERATION_FAILED",
-            message,
-        }
+        Self::new("OPERATION_FAILED", message)
+    }
+}
+impl From<&str> for AppError {
+    fn from(message: &str) -> Self {
+        message.to_owned().into()
     }
 }
 // ponytail: serialize a single desktop database; split reads only if measured contention warrants it.
@@ -155,6 +172,8 @@ async fn request(
         };
         let selected=selected.map(|p|p.into_path().map_err(|e|e.to_string())).transpose()?;
         if matches!(&request,Request::PickImport|Request::PickResources|Request::Backup|Request::Restore)&&selected.is_none(){return Ok(Value::Null);}
+        let work = app.state::<ai_work::WorkState>();
+        let _restore = if matches!(&request, Request::Restore) { Some(work.restore().map_err(|e|e.message)?) } else { None };
         if matches!(&request, Request::SaveSettings{..}|Request::Restore) {ai::stop(&app)?;}
         let mut store=shared.lock().map_err(|_|"数据库暂不可用，请重启应用")?;
         match request {
@@ -200,11 +219,11 @@ async fn ai_request(
     tauri::async_runtime::spawn_blocking(move || ai::request(app, shared, request))
         .await
         .map_err(|e| AppError::from(e.to_string()))?
-        .map_err(AppError::from)
 }
 pub fn run() {
     tauri::Builder::default()
         .manage(ai::AiState::new(None))
+        .manage(ai_work::WorkState::default())
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.show();
