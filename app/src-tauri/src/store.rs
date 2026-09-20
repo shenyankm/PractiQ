@@ -323,16 +323,20 @@ impl Store {
                 .filter(|s| s["questionIndex"] == i)
                 .cloned()
                 .collect();
-            let missing = visuals.iter().flat_map(contract::visual_refs).any(|r| {
-                !p.assets.contains_key(text(r, "sha256"))
-                    && !tx
-                        .query_row(
-                            "SELECT EXISTS(SELECT 1 FROM assets WHERE hash=?1)",
-                            [text(r, "sha256")],
-                            |r| r.get::<_, bool>(0),
-                        )
-                        .unwrap_or(false)
-            });
+            // Original pages are optional review aids; only missing crops block grading.
+            let missing = visuals
+                .iter()
+                .filter_map(|v| v.get("imageRef").filter(|r| r.is_object()))
+                .any(|r| {
+                    !p.assets.contains_key(text(r, "sha256"))
+                        && !tx
+                            .query_row(
+                                "SELECT EXISTS(SELECT 1 FROM assets WHERE hash=?1)",
+                                [text(r, "sha256")],
+                                |r| r.get::<_, bool>(0),
+                            )
+                            .unwrap_or(false)
+                });
             let snapshot = json!({"question":q,"groups":groups,"visuals":visuals,"sources":sources,"warnings":r["warnings"],"missingAssets":missing});
             tx.execute(
                 "INSERT INTO questions VALUES(?1,?2,?3,?4,?5,?6,?7,0)",

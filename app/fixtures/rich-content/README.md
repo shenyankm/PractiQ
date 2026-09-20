@@ -21,10 +21,11 @@ of inventing cells. Empty media placeholders and continuation-only pages are
 normalized only at the model boundary; public JSON import contracts stay strict.
 
 Figures carry validated page-local question indexes, remapped after page merging.
-Crops include a 4% page margin bounded to the page edges. Every figure retains a
-`sourceRef` for the original rendered page; even a failed page in a partial result
+Crops keep the model-classified bounds without automatic padding: adjacent
+printed answers must not enter an exam-visible material crop. Every figure retains
+a `sourceRef` for the original rendered page; even a failed page in a partial result
 keeps an original-page fallback and marks neighboring questions for review.
-This margin does not guarantee semantic completeness on arbitrary documents.
+Use the complete original page to inspect potentially clipped headers or labels.
 
 The desktop imports both references through the same checksum/path validation,
 deduplicates shared page files, and includes them in backups. “查看原页” loads the
@@ -63,7 +64,9 @@ The original failures are retained in `app/reports/rich-content/before-fix/`.
 Intermediate failed attempts also remain, including the malformed Markdown pipe
 and stalled continuation-page responses. Successful outputs do not erase them.
 
-The simple document passed three consecutive live runs. The strengthened gate
+Before the second review fixes, the simple document passed three consecutive live
+runs with padded crops. Those results do not establish crop completeness after
+removing padding. The strengthened gate
 compares every header/data cell against the fixed expected table, checks key
 formula structure and literal table text, and requires >=95% coverage of both
 reviewed regions. Results: `app/reports/rich-content/final-run-{1,2,3}/`.
@@ -97,7 +100,8 @@ round-trips; a larger asset is rejected.
 Failed-page originals attach only to the nearest surviving question page(s),
 including across consecutive failed pages, instead of appearing on every question.
 Answer-bearing figures carry an optional `role`; the model classifies supplied
-answers and recognized answer/solution headers enforce the classification. Both
+answers and recognized answer/solution labels in every table cell enforce the
+classification, even if the model declares the table material. Both
 table blocks and their visual crops are hidden in unsubmitted exams and restored
 from the immutable snapshot after submission. Whole tables are hidden rather than
 risking incorrect column redaction; semantic classification still depends on the
@@ -109,3 +113,32 @@ raising an output-contract exception or dropping model usage.
 Review-fix validation: 457 service tests (94% coverage), 40 frontend tests,
 27 Rust tests (one Keychain test ignored), all-target Clippy, formatting, macOS
 app/DMG build and packaged-service checks passed. No new live-model accuracy claim.
+
+Second-review fixes keep crop bounds unchanged, including when printed answers lie
+within the former padding margin. Continuation-only pages associate with the last
+preceding question (or the first following question for a leading orphan), require
+material review, and do not become document-wide visuals. Missing optional original
+pages remain in import warnings but no longer disable grading; missing required
+crop files still do. Existing immutable snapshots are not rewritten.
+
+Second-review validation: 37 focused page-rendering cases, 40 frontend tests,
+28 Rust tests (one Keychain test ignored), all-target Clippy, formatting, macOS
+app/DMG build and packaged-service checks passed. The first full service run had
+one concurrent-retry `TASK_BUSY` failure (471 passed); an unchanged full rerun
+passed all 472 tests with 94% coverage. The failure log was retained locally.
+No live-model completeness rerun was performed after removing crop padding.
+
+Answer-role propagation also covers an existing answer-tagged table whose figure
+omits its role: every matching table block and the associated visual receive the
+answer role before new blocks are inserted, including shared tables on multiple
+questions. Merged tables with no `tableRows` classify labels in `extractedText`
+as well. Regression cases preserve the full text for post-submission review and
+cover omitted/material figure roles, answer-role aliases, and duplicate blocks.
+
+Equivalent GFM tables now share answer roles despite cell-edge whitespace,
+optional outer pipes or alignment separators. Role propagation completes across
+all linked blocks and figures before insertion, independent of figure order and
+including shared-question chains. Identical tables in unrelated questions retain
+their own roles. Cell contents, escaped pipes and row/column boundaries remain
+significant; non-GFM transcriptions still require matching text. Regression cases
+cover both figure orders, existing answer blocks, and unrelated material tables.
