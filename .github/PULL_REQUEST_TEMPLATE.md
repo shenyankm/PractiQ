@@ -1,5 +1,3 @@
-# Pull request
-
 ## Summary
 
 <!-- Read CONTRIBUTING.md before requesting review. Keep the pull request focused and do not hard-wrap prose. Explain what changed and why. Describe behavior, not a list of files. -->
