@@ -473,6 +473,34 @@ async def _vision(
     parsed, usage, failure = await structured_call(model, messages, PageParseResult, "vision_parse", runtime=runtime)
     if parsed is None:
         return _unit_failure("vision_parse", state["index"], failure or "OUTPUT_INVALID", usage)
+    # Connect equivalent table copies within their associated questions before
+    # inserting blocks. Shared figures propagate roles across all their owners.
+    copies: dict[tuple[int, str], list[ContentBlock | vision.PageFigure]] = {}
+    keys_by_copy: dict[int, list[tuple[int, str]]] = {}
+    pending: list[ContentBlock | vision.PageFigure] = []
+    entries: list[tuple[ContentBlock | vision.PageFigure, list[int], list[str | None]]] = [(block, [index], [block.markdownValue, block.textValue])
+               for index, question in enumerate(parsed.questions)
+               for block in question.contentBlocks if block.partType == "table"]
+    for figure in parsed.figures:
+        if figure.kind == "table":
+            figure.extractedText = figure.table_markdown() or figure.extractedText
+            entries.append((figure, list(figure.questionIndexes or range(len(parsed.questions))), [figure.extractedText]))
+    for content, indexes, texts in entries:
+        text_keys = {vision.table_content_key(text) for text in texts if text}
+        keys = [(index, key) for key in text_keys for index in indexes]
+        keys_by_copy[id(content)] = keys
+        for key in keys:
+            copies.setdefault(key, []).append(content)
+        if vision.is_answer_role(content.role):
+            pending.append(content)
+    while pending:
+        content = pending.pop()
+        content.role = "answer"
+        for key in keys_by_copy[id(content)]:
+            for linked in copies.pop(key, []):
+                if linked.role != "answer":
+                    linked.role = "answer"
+                    pending.append(linked)
     for figure in parsed.figures:
         if figure.kind == "table":
             table = figure.table_markdown()
@@ -647,10 +675,8 @@ async def _crop_visuals(
     # Retain original page bytes independently of crop success/limits.
     for index, item in enumerate(visuals):
         if item.page in page_artifacts:
-            bbox = item.bbox
-            if bbox is not None:
-                bbox = [max(0., bbox[0] - .04), max(0., bbox[1] - .04), min(1., bbox[2] + .04), min(1., bbox[3] + .04)]
-            visuals[index] = item.model_copy(update={"sourceRef": page_artifacts[item.page], "bbox": bbox})
+            # Do not expand model-classified bounds: adjacent text may contain answers.
+            visuals[index] = item.model_copy(update={"sourceRef": page_artifacts[item.page]})
     candidates = [
         (index, item.page, item.bbox)
         for index, item in enumerate(visuals)
@@ -755,6 +781,18 @@ async def _merge(state: DocumentState) -> dict[str, Any]:
             indexes = [offset + i for i in visual.questionIndexes if offset + i < len(questions)]
             if visual.questionIndexes and not indexes:
                 continue
+            if not indexes and item["kind"] == "page" and item.get("parsed") and not item["parsed"]["questions"]:
+                # ponytail: infer the last preceding question and require review;
+                # use explicit cross-page IDs if ambiguous ownership needs automation.
+                # A leading orphan uses the next question.
+                preceding = [s for s in question_sources if s.unitIndex < item["index"]]
+                owner = max(preceding, key=lambda s: (s.unitIndex, s.questionIndex)) if preceding else min(question_sources, key=lambda s: (s.unitIndex, s.questionIndex))
+                indexes = [owner.questionIndex]
+                question = questions[owner.questionIndex]
+                question.needsReview = True
+                question.missingFields = list(dict.fromkeys([*question.missingFields, "material"]))
+                if not any(issue.questionIndex == owner.questionIndex and issue.code == "MISSING_FIELDS" for issue in quality.issues):
+                    quality.issues.append(QualityIssue(questionIndex=owner.questionIndex, code="MISSING_FIELDS"))
             visual_elements.append(visual.model_copy(update={"questionIndexes": indexes}))
         if item["kind"] == "page" and item.get("parsed"):
             offset += len(item["parsed"]["questions"])

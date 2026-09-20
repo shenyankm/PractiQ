@@ -1,6 +1,7 @@
 """Vision model calls and bounded figure cropping."""
 
 import base64
+import json
 import re
 from io import BytesIO
 from math import isfinite
@@ -13,6 +14,28 @@ from ..contracts import VisualDescription, VisualLabel
 
 MAX_CROPS = 50
 MAX_CROP_BYTES = 200 * 1024
+
+
+def table_content_key(text: str) -> str:
+    """Compare GFM cells, preserving cell contents and escaped literal pipes."""
+    rows = []
+    for line in text.strip().splitlines():
+        cells = re.split(r"(?<!\\)\|", line.strip())
+        if cells and not cells[0]:
+            cells.pop(0)
+        if cells and not cells[-1]:
+            cells.pop()
+        rows.append([cell.strip().replace(r"\|", "|") for cell in cells])
+    if len(rows) >= 2 and rows[1] and all(re.fullmatch(r":?-+:?", cell) for cell in rows[1]) and all(len(row) == len(rows[0]) for row in rows):
+        return "table:" + json.dumps([rows[0], *rows[2:]], ensure_ascii=False)
+    # ponytail: normalize simple GFM only; other representations require exact text.
+    return "text:" + text.strip()
+
+
+def is_answer_role(role: str | None) -> bool:
+    return any(word in (role or "").lower() for word in (
+        "answer", "analysis", "solution", "explanation", "rubric", "答案", "解析", "解答", "评分",
+    ))
 
 
 class PageFigure(BaseModel):
@@ -42,14 +65,20 @@ class PageFigure(BaseModel):
 
     @model_validator(mode="after")
     def validate_table(self):
+        # Classify before irregular/oversized tables lose their rows. Free-text
+        # merged tables need the same protection as rectangular tables.
+        texts = [self.extractedText or "", *(cell for row in self.tableRows or [] for cell in row)]
+        if is_answer_role(self.role) or self.kind == "table" and any(
+            re.search(r"\b(?:answers?|solutions?|analysis|explanations?|rubrics?)\b|答案|解析|解答|评分", text, re.IGNORECASE)
+            for text in texts
+        ):
+            self.role = "answer"
         if self.tableRows is not None:
             rows = self.tableRows
             if self.kind != "table" or any(len(row) > 100 for row in rows):
                 raise ValueError("tableRows is only for tables with at most 100 columns")
             if sum(len(cell) for row in rows for cell in row) > 90_000:
                 raise ValueError("tableRows exceeds text limit")
-            if rows and any(re.search(r"\b(?:answers?|solutions?|analysis|explanations?|rubrics?)\b|答案|解析|解答|评分", cell, re.IGNORECASE) for cell in rows[0]):
-                self.role = "answer"
             if len(rows) < 2 or not rows[0] or any(len(row) != len(rows[0]) for row in rows) or len(self.table_markdown() or "") > 100_000:
                 # Irregular or oversized GFM stays review-only; delimiters and
                 # escaping count toward the public contract limit too.

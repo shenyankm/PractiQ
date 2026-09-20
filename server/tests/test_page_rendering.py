@@ -270,14 +270,16 @@ def test_oversized_generated_table_degrades_without_losing_usage(monkeypatch, ro
 
 
 @pytest.mark.parametrize("header", ["Answer", "参考答案", "SOLUTION", "Value"])
-def test_answer_table_role_reaches_both_blocks_and_visuals(monkeypatch, header):
+@pytest.mark.parametrize("transposed", [False, True])
+@pytest.mark.parametrize("role", [None, "material"])
+def test_answer_table_role_reaches_both_blocks_and_visuals(monkeypatch, header, transposed, role):
     store, reference = paged_source("pdf")
     q = question("Table")
-    if header == "Answer":
+    if header == "Answer" and not transposed:
         q["contentBlocks"] = [{"partType": "table", "markdownValue": "| Question | Answer |\n| --- | --- |\n| 1 | SECRET |"}]
     model = FakeModel(responses=[{"questions": [q], "figures": [
-        {"kind": "table", "role": "answer" if header == "Value" else None, "description": "Supplied values", "questionIndexes": [0],
-         "tableRows": [["Question", header], ["1", "SECRET"]], "bbox": [0, 0, 1, 1]}]}])
+        {"kind": "table", "role": "answer" if header == "Value" else role, "description": "Supplied values", "questionIndexes": [0],
+         "tableRows": [["Field", "Value"], [header, "SECRET"]] if transposed else [["Question", header], ["1", "SECRET"]], "bbox": [0, 0, 1, 1]}]}])
     monkeypatch.setattr(document, "get_model", lambda *_: model)
     monkeypatch.setattr(document, "get_object_store", lambda: store)
     monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(text="", page_images=[make_image()])))
@@ -309,3 +311,141 @@ def test_failed_page_fallbacks_only_attach_to_nearest_surviving_questions(monkey
         expected = [i for i, page in enumerate(surviving) if abs(page - visual["page"]) == distance]
         assert visual["questionIndexes"] == expected
     assert "media" not in result["result"]["questions"][-1]["missingFields"]
+
+
+def test_material_crop_does_not_include_answer_outside_model_bounds(monkeypatch):
+    from PIL import Image, ImageDraw
+
+    from practiq_ai.contracts import ArtifactReference
+
+    page = Image.new("RGB", (1000, 1000), "white")
+    # The dark answer region sits outside the model box but within old 4% padding.
+    ImageDraw.Draw(page).rectangle((500, 610, 599, 629), fill="black")
+    image = BytesIO()
+    page.save(image, "PNG")
+    store, reference = paged_source("pdf")
+    model = FakeModel(responses=[{"questions": [question("Material")], "figures": [
+        {"kind": "chart", "role": "material", "description": "Chart", "questionIndexes": [0], "bbox": [0.2, 0.2, 0.6, 0.6]}]}])
+    monkeypatch.setattr(document, "get_model", lambda *_: model)
+    monkeypatch.setattr(document, "get_object_store", lambda: store)
+    monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(text="", page_images=[image.getvalue()])))
+    result = asyncio.run(local_graph().ainvoke({"document": reference}))
+    visual = result["result"]["visualElements"][0]
+    assert visual["bbox"] == [0.2, 0.2, 0.6, 0.6]
+    payload = asyncio.run(store.get_verified(ArtifactReference.model_validate(visual["imageRef"])))
+    with Image.open(BytesIO(payload)) as crop:
+        assert crop.size == (400, 400)
+        assert min(crop.convert("L").tobytes()) > 240
+    assert asyncio.run(store.get_verified(ArtifactReference.model_validate(visual["sourceRef"]))) == image.getvalue()
+
+
+@pytest.mark.parametrize("continuations", [{1, 2}, {0}])
+def test_continuation_figures_attach_to_one_nearby_question(monkeypatch, continuations):
+    store, reference = paged_source("pdf")
+    monkeypatch.setattr(document, "get_object_store", lambda: store)
+    monkeypatch.setattr(document, "get_model", lambda *_: FakeModel(responses=[]))
+    monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(text="", page_images=[make_image()] * 5)))
+
+    async def page_call(_model, messages, schema, call_kind, *, runtime=None):
+        index = next(i for i in range(5) if f"PRIMARY page {i + 1}" in messages[-1].content)
+        if index in continuations:
+            return schema.model_validate({"questions": [], "figures": [
+                {"kind": "table", "description": "Continuation", "bbox": [0, 0, 1, 1], "questionIndexes": [0]}]}), [], None
+        return schema.model_validate({"questions": [question(f"Page {index} A"), question(f"Page {index} B")]}), [], None
+
+    monkeypatch.setattr(document, "structured_call", page_call)
+    result = asyncio.run(local_graph().ainvoke({"document": reference}))
+    expected = 1 if continuations == {1, 2} else 0
+    visuals = result["result"]["visualElements"]
+    assert len(visuals) == len(continuations)
+    assert all(v["questionIndexes"] == [expected] for v in visuals)
+    questions = result["result"]["questions"]
+    assert "material" in questions[expected]["missingFields"] and questions[expected]["needsReview"]
+    assert "material" not in questions[-1]["missingFields"]
+
+
+@pytest.mark.parametrize("answer_role", ["answer_key", "worked_solution", "参考答案"])
+@pytest.mark.parametrize("figure_role", [None, "material"])
+def test_existing_answer_block_protects_shared_table_visual_and_all_copies(monkeypatch, answer_role, figure_role):
+    from practiq_ai.graphs.vision import PageFigure
+
+    store, reference = paged_source("pdf")
+    figure = {"kind": "table", "description": "Values", "role": figure_role,
+              "questionIndexes": [0, 1], "tableRows": [["n", "value"], ["1", "42"]], "bbox": [0, 0, 1, 1]}
+    markdown = PageFigure(**figure).table_markdown()
+    questions = [question("First"), question("Second")]
+    # The authoritative answer label is on the later question. The earlier
+    # generated copy and duplicate roleless blocks must not bypass exam filtering.
+    questions[1]["contentBlocks"] = [
+        {"partType": "table", "role": answer_role, "markdownValue": markdown},
+        {"partType": "table", "markdownValue": markdown},
+    ]
+    model = FakeModel(responses=[{"questions": questions, "figures": [figure]}])
+    monkeypatch.setattr(document, "get_model", lambda *_: model)
+    monkeypatch.setattr(document, "get_object_store", lambda: store)
+    monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(text="", page_images=[make_image()])))
+    result = asyncio.run(local_graph().ainvoke({"document": reference}))["result"]
+    assert result["visualElements"][0]["role"] == "answer"
+    assert result["visualElements"][0]["extractedText"] == markdown
+    blocks = [b for q in result["questions"] for b in q["contentBlocks"] if b["partType"] == "table"]
+    assert len(blocks) == 3 and all(b["role"] == "answer" and b["markdownValue"] == markdown for b in blocks)
+
+
+@pytest.mark.parametrize("text", ["合并表格\n答案：42", "Merged cells\nSolution: 42", "Merged cells\nAnswer: 42"])
+@pytest.mark.parametrize("role", [None, "material"])
+def test_unstructured_answer_table_classifies_text_and_matching_block(monkeypatch, text, role):
+    store, reference = paged_source("pdf")
+    q = question("Read merged table")
+    q["contentBlocks"] = [{"partType": "table", "role": "material", "textValue": text}]
+    figure = {"kind": "table", "description": "Merged table", "tableRows": None,
+              "extractedText": text, "role": role, "questionIndexes": [0], "bbox": [0, 0, 1, 1]}
+    model = FakeModel(responses=[{"questions": [q], "figures": [figure]}])
+    monkeypatch.setattr(document, "get_model", lambda *_: model)
+    monkeypatch.setattr(document, "get_object_store", lambda: store)
+    monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(text="", page_images=[make_image()])))
+    result = asyncio.run(local_graph().ainvoke({"document": reference}))["result"]
+    assert result["visualElements"][0]["role"] == "answer"
+    assert result["visualElements"][0]["extractedText"] == text
+    assert result["questions"][0]["contentBlocks"][0]["role"] == "answer"
+    assert result["questions"][0]["contentBlocks"][0]["textValue"] == text
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize("answer_in_block", [False, True])
+def test_equivalent_answer_tables_propagate_without_order_or_format_dependence(monkeypatch, reverse, answer_in_block):
+    store, reference = paged_source("pdf")
+    questions = [question("First"), question("Second"), question("Unrelated")]
+    compact = "n|value\n:---|---:\n1|SECRET left \\| right"
+    if answer_in_block:
+        questions[1]["contentBlocks"] = [{"partType": "table", "role": "answer", "markdownValue": compact}]
+    questions[2]["contentBlocks"] = [{"partType": "table", "role": "material", "markdownValue": compact}]
+    base = {"kind": "table", "description": "Values", "role": "material", "bbox": [0, 0, 1, 1],
+            "tableRows": [["n", "value"], ["1", "SECRET left | right"]]}
+    figures = [{**base, "questionIndexes": [0]}, {**base, "questionIndexes": [0, 1]},
+               {**base, "questionIndexes": [1], "role": "material" if answer_in_block else "answer"}]
+    if reverse:
+        figures.reverse()
+    figures.append({**base, "questionIndexes": [2]})
+    model = FakeModel(responses=[{"questions": questions, "figures": figures}])
+    monkeypatch.setattr(document, "get_model", lambda *_: model)
+    monkeypatch.setattr(document, "get_object_store", lambda: store)
+    monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(text="", page_images=[make_image()])))
+    result = asyncio.run(local_graph().ainvoke({"document": reference}))["result"]
+    assert [v["role"] for v in result["visualElements"]] == ["answer", "answer", "answer", "material"]
+    for q in result["questions"][:2]:
+        tables = [b for b in q["contentBlocks"] if b["partType"] == "table"]
+        assert tables and all(b["role"] == "answer" for b in tables)
+        assert "SECRET" in q["sourceText"]
+    assert all(b["role"] == "material" for b in result["questions"][2]["contentBlocks"])
+    if answer_in_block:
+        assert result["questions"][1]["contentBlocks"][0]["markdownValue"] == compact
+
+
+def test_table_comparison_preserves_cells_and_non_table_text():
+    from practiq_ai.graphs.vision import table_content_key
+
+    table = "| n | value |\n| --- | --- |\n| 1 | left \\| right |"
+    assert table_content_key(table) == table_content_key("n|value\n:---:|---:\n1|left \\| right")
+    for different in [table.replace("left ", "left  "), table.replace("1 |", "2 |"), table.replace(r"\|", "|"), table + "\n| 2 | |"]:
+        assert table_content_key(table) != table_content_key(different)
+    assert table_content_key("Merged\nSECRET") != table_content_key("Merged SECRET")

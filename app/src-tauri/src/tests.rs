@@ -1064,3 +1064,62 @@ fn exam_filters_answer_table_and_crop_then_restores_original_snapshot() {
         rows[0]["visuals"]
     );
 }
+
+#[test]
+fn missing_optional_source_page_does_not_disable_grading() {
+    for missing_crop in [false, true] {
+        let (_dir, mut s) = store();
+        let mut raw: Value = serde_json::from_slice(&sample()).unwrap();
+        let crop: Value = serde_json::from_slice::<Value>(include_bytes!(
+            "../../fixtures/rich-content/expected.json"
+        ))
+        .unwrap()["visualElements"][0]["imageRef"]
+            .clone();
+        let mut source = crop.clone();
+        source["objectKey"] = json!("absent-page.png");
+        source["sha256"] = json!("a".repeat(64));
+        raw["visualElements"] = json!([{"kind":"chart","description":"Required crop","questionIndexes":[0],"imageRef":crop,"sourceRef":source}]);
+        if missing_crop {
+            raw["visualElements"][0]["imageRef"]["objectKey"] = json!("absent-crop.png");
+        }
+        let preview = s
+            .preview(serde_json::to_vec(&raw).unwrap(), "Optional page".into())
+            .unwrap();
+        let resources = s
+            .resources(
+                &std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                    .join("../fixtures/rich-content/resources"),
+            )
+            .unwrap();
+        assert!(resources["missingAssets"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|v| v == "absent-page.png"));
+        let bank = s
+            .import(text(&preview, "ticket"), None, "Optional page")
+            .unwrap();
+        let rows = s
+            .questions(Some(text(&bank, "bankId")), "", "", "")
+            .unwrap();
+        assert_eq!(rows[0]["missingAssets"], missing_crop);
+        assert!(rows[1]["visuals"].as_array().unwrap().is_empty());
+        let session = practice(&s, rows, 1);
+        let graded = s
+            .save_attempt(
+                (text(&session, "id"), 0),
+                json!({"correctOption":"A"}),
+                1,
+                true,
+                false,
+                None,
+            )
+            .unwrap();
+        let result = &graded["attempts"][0]["autoResult"];
+        if missing_crop {
+            assert!(result.is_null());
+        } else {
+            assert!(result.is_boolean());
+        }
+    }
+}
