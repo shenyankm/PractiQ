@@ -59,9 +59,10 @@ export function AnswerInput({
             <label
               key={i}
               htmlFor={`${prefix}-${i}`}
-              className="flex cursor-pointer items-start gap-3 rounded-lg border p-4"
+              className="flex cursor-pointer items-start gap-3 rounded-lg border px-4 py-3"
             >
               <Checkbox
+                className="mt-1 shrink-0"
                 id={`${prefix}-${i}`}
                 checked={a.correct?.includes(o.label!) || false}
                 onCheckedChange={(checked) =>
@@ -72,8 +73,8 @@ export function AnswerInput({
                   })
                 }
               />
-              <div className="flex-1">
-                <span className="font-medium">{o.label}.</span>{" "}
+              <div className="grid min-w-0 flex-1 grid-cols-[auto_minmax(0,1fr)] items-start gap-2 leading-[1.75]">
+                <span className="min-w-6 font-medium">{o.label}.</span>
                 <Markdown>{o.content}</Markdown>
               </div>
             </label>
@@ -90,11 +91,11 @@ export function AnswerInput({
             <label
               key={i}
               htmlFor={`${prefix}-${i}`}
-              className="flex cursor-pointer items-start gap-3 rounded-lg border p-4"
+              className="flex cursor-pointer items-start gap-3 rounded-lg border px-4 py-3"
             >
-              <RadioGroupItem id={`${prefix}-${i}`} value={o.label!} />
-              <div className="flex-1">
-                <span className="font-medium">{o.label}.</span>
+              <RadioGroupItem className="mt-1 shrink-0" id={`${prefix}-${i}`} value={o.label!} />
+              <div className="grid min-w-0 flex-1 grid-cols-[auto_minmax(0,1fr)] items-start gap-2 leading-[1.75]">
+                <span className="min-w-6 font-medium">{o.label}.</span>
                 <Markdown>{o.content}</Markdown>
               </div>
             </label>

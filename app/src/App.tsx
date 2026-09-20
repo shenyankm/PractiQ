@@ -478,15 +478,15 @@ export default function App() {
                 <>
                   <div className="divide-y rounded-xl border">
                     {questions.slice(offset, offset + 30).map((row, i) => (
-                      <div key={row.id} className="flex items-center gap-4 p-4">
+                      <div key={row.id} className="flex min-h-20 items-center gap-4 p-4">
                         <span className="w-8 shrink-0 text-sm text-muted-foreground">
                           {offset + i + 1}
                         </span>
                         <button
-                          className="min-w-0 flex-1 text-left"
+                          className="grid min-w-0 flex-1 grid-cols-[5rem_minmax(0,1fr)] items-center gap-4 rounded-sm text-left focus-visible:outline-2 focus-visible:outline-ring"
                           onClick={() => setDetail(row)}
                         >
-                          <div className="mb-2 flex gap-2">
+                          <div className="flex min-w-0 flex-wrap items-center gap-2">
                             <Badge variant="outline">
                               {modeNames[row.question.answerMode || ""] ||
                                 "未知题型"}
@@ -498,12 +498,12 @@ export default function App() {
                               <Badge variant="destructive">错题</Badge>
                             )}
                             {page !== "questions" && (
-                              <span className="text-xs text-muted-foreground">
+                              <span className="w-full truncate text-xs text-muted-foreground" title={row.bankTitle}>
                                 {row.bankTitle}
                               </span>
                             )}
                           </div>
-                          <p className="line-clamp-2 text-sm leading-6">
+                          <p className="line-clamp-2 min-w-0 text-sm leading-6 wrap-anywhere">
                             {row.question.stem ||
                               row.question.sourceText ||
                               "题干缺失"}
