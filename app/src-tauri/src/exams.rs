@@ -239,6 +239,14 @@ impl Store {
             if kind != "practice" && submitted.is_none() {
                 let q = &mut a["snapshot"]["question"];
                 a_blank_count(q);
+                if let Some(visuals) = a["snapshot"]["visuals"].as_array_mut() {
+                    for visual in visuals {
+                        visual
+                            .as_object_mut()
+                            .ok_or("图片格式无效")?
+                            .remove("sourceRef");
+                    }
+                }
                 a["result"] = Value::Null;
                 a["autoResult"] = Value::Null;
             }

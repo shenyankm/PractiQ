@@ -156,7 +156,7 @@ async def test_visual_constraints_are_corrected_inside_model_boundary(fields):
     model = FakeModel(responses=[{**good, **fields}, good])
     result, usage, failure = await llm.structured_call(model, [], vision.PageFigure, 'vision_parse')
     assert result is not None and failure is None and len(usage) == 2
-    assert VisualElement(**result.model_dump()).description == 'Figure'
+    assert VisualElement(**result.model_dump(exclude={"tableRows"})).description == 'Figure'
 
 
 async def test_failed_batch_waits_for_sibling_cancellation():

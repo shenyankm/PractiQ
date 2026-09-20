@@ -18,3 +18,5 @@ for case in cases:
         assert result.questions[0].missingFields == case['missingFields'], case['name']
 DocumentParseResult.model_validate_json((root / 'app/fixtures/sample.json').read_text(encoding='utf-8'))
 print(f'{len(cases)} shared contract cases and the sample validated by Python')
+
+DocumentParseResult.model_validate_json((root / "app/fixtures/rich-content/expected.json").read_text(encoding="utf-8"))

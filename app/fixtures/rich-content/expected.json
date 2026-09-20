@@ -1,0 +1,61 @@
+{
+  "questions": [
+    {
+      "stem": "Using the supplied matrix A, what is its determinant?",
+      "answerMode": "short_answer",
+      "questionTypeId": "short_answer",
+      "choiceVariant": null,
+      "matchingVariant": null,
+      "items": [],
+      "options": [],
+      "answerPayload": {
+        "text": "The supplied determinant is -2."
+      },
+      "analysis": "Reference: $1 \\times 4 - 2 \\times 3 = -2$.",
+      "contentBlocks": [
+        {
+          "partType": "formula",
+          "latexValue": "A=\\begin{pmatrix}1&2\\\\3&4\\end{pmatrix},\\quad A^{-1}=\\frac{1}{-2}\\begin{pmatrix}4&-2\\\\-3&1\\end{pmatrix}"
+        },
+        {
+          "partType": "formula",
+          "latexValue": "\\begin{aligned}I&=\\int_0^1\\frac{x^2}{\\sqrt{1-x^2}}\\,dx\\\\&=\\frac{\\pi}{4},\\quad S=\\sum_{n=1}^{\\infty}\\frac{(-1)^{n+1}}{n^2}\\end{aligned}"
+        },
+        {
+          "partType": "formula",
+          "latexValue": "f(x)=\\begin{cases}\\frac{\\sqrt{x+1}}{1+x^2}&x\\ge0\\\\-x&x<0\\end{cases}"
+        },
+        {
+          "partType": "table",
+          "markdownValue": "| Sample | $x_i$ | Error | Note |\n| --- | ---: | ---: | --- |\n| A | $\\frac{1}{2}$ | -0.002 | left \\| right |\n| B | $10^{-6}$ | 0 | 中文，空值用 — |\n| C | $\\sqrt{2}$ | +0.003 | final row |"
+        }
+      ],
+      "sourceText": "Using the supplied matrix A, what is its determinant? Answer: The supplied determinant is -2.",
+      "confidence": 1.0,
+      "needsReview": false,
+      "missingFields": []
+    }
+  ],
+  "groups": [],
+  "visualElements": [
+    {
+      "questionIndexes": [
+        0
+      ],
+      "kind": "chart",
+      "label": null,
+      "description": "Measurement curve with axes, grid and small labels.",
+      "extractedText": null,
+      "page": null,
+      "bbox": null,
+      "imageRef": {
+        "objectKey": "chart.png",
+        "sha256": "d4423864a250e4940c4588ae7ade862cd5a3cead1f986d99fc4a7e3cbf529b45",
+        "mediaType": "image/png",
+        "sizeBytes": 5458
+      }
+    }
+  ],
+  "warnings": [],
+  "confidenceScore": 100
+}

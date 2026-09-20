@@ -69,7 +69,7 @@ def test_page_order_gaps_and_crops(monkeypatch, kind, failed):
         if index in failed:
             return None, [], "OUTPUT_INVALID"
         return schema.model_validate({"questions": [question(f"Page {index + 1}")],
-            "figures": [{"kind": "image", "description": "Figure", "bbox": [0.1, 0.1, 0.8, 0.8]}]}), [], None
+            "figures": [{"kind": "image", "description": "Figure", "questionIndexes": [0], "bbox": [0.1, 0.1, 0.8, 0.8]}]}), [], None
 
     monkeypatch.setattr(document, "structured_call", page_call)
     if len(failed) == 3:
@@ -83,10 +83,13 @@ def test_page_order_gaps_and_crops(monkeypatch, kind, failed):
     assert result["status"] == ("PARTIAL" if failed else "SUCCEEDED")
     assert len(result["processing"]["failures"]) == len(failed)
 
-    for figure in result["result"]["visualElements"]:
+    cropped = [v for v in result["result"]["visualElements"] if v["imageRef"]]
+    for index, figure in enumerate(cropped):
+        assert figure["questionIndexes"] == [index]
         assert figure["page"] not in failed
         assert figure["description"].startswith("[page crop]")
         assert figure["imageRef"]["objectKey"] in store.blobs
+    assert {v["page"] for v in result["result"]["visualElements"] if v["imageRef"] is None and v["sourceRef"]} == failed
 
 
 @pytest.mark.parametrize("fixture", ["text-layer.pdf", "scanned.pdf"])
@@ -116,3 +119,130 @@ def test_mixed_pdf_renders_text_and_scanned_pages():
         merged.save(payload)
     result = extract("pdf", payload.getvalue())
     assert result.text == "" and len(result.page_images) == count
+
+
+def test_rich_pdf_preserves_formula_and_table_blocks(monkeypatch, tmp_path):
+    """Real PDF pixels/crops, deterministic model output; not an OCR accuracy claim."""
+    import hashlib
+    import json
+
+    from practiq_ai.contracts import DocumentUploadRequest
+    from tests.support import object_store
+
+    fixture = Path(__file__).parents[2] / "app/fixtures/rich-content"
+    expected = json.loads((fixture / "expected.json").read_text())
+    payload = (fixture / "source.pdf").read_bytes()
+    rendered = extract("pdf", payload)
+    assert len(rendered.page_images) == 1
+    store = object_store(tmp_path)
+    ref = asyncio.run(store.put_document(payload, DocumentUploadRequest(
+        sourceType="pdf", fileName="source.pdf", mediaType="application/pdf",
+        sha256=hashlib.sha256(payload).hexdigest(), sizeBytes=len(payload))))
+    response = {"questions": expected["questions"], "groups": [], "figures": [
+        {"kind": "chart", "description": "Measurement curve", "bbox": [0.1, 0.6, 0.9, 0.8]}]}
+    monkeypatch.setattr(document, "get_model", lambda *args: FakeModel(responses=[response]))
+    monkeypatch.setattr(document, "get_object_store", lambda: store)
+    result = asyncio.run(local_graph().ainvoke({"document": ref.model_dump()}))
+    assert result["status"] == "SUCCEEDED"
+    assert result["result"]["questions"][0]["contentBlocks"] == [
+        {"role": None, "textValue": None, "markdownValue": None, "latexValue": None, "jsonValue": None, **b}
+        for b in expected["questions"][0]["contentBlocks"]]
+    from PIL import Image
+
+    from practiq_ai.contracts import ArtifactReference
+
+    crop = ArtifactReference.model_validate(result["result"]["visualElements"][0]["imageRef"])
+    with Image.open(BytesIO(asyncio.run(store.get_verified(crop)))) as image:
+        assert image.width > 500 and image.height > 200
+
+
+def test_rich_recognition_gate_rejects_wrong_formula_and_clipped_table(tmp_path):
+    import json
+    import runpy
+
+    root = Path(__file__).parents[2]
+    fixture = root / "app/fixtures/rich-content"
+    check = runpy.run_path(str(root / "app/scripts/check-rich-recognition.py"))["check_result"]
+    result = json.loads((fixture / "expected.json").read_text())
+    result["questions"][0]["sourceText"] += result["questions"][0]["contentBlocks"][-1]["markdownValue"]
+    result["visualElements"] = json.loads((fixture / "visual-regions.json").read_text())["regions"]
+    payload = (fixture / "source.pdf").read_bytes()
+    assert all(check(result, payload, tmp_path).values())
+    result["questions"][0]["contentBlocks"][2]["latexValue"] = r"\sqrt{x}+1"
+    result["visualElements"][0]["bbox"][1] += 0.08
+    result["questions"][0]["contentBlocks"].pop()
+    checks = check(result, payload, tmp_path)
+    assert not checks["radicandPreserved"]
+    assert not checks["structuredTablePreserved"]
+    assert not checks["tableCropCoverage95"]
+
+
+def test_figure_links_remap_across_pages_and_failed_crops_keep_source(monkeypatch):
+    from practiq_ai.graphs import vision
+
+    store, reference = paged_source("pdf")
+    model = FakeModel(responses=[])
+    monkeypatch.setattr(document, "get_object_store", lambda: store)
+    monkeypatch.setattr(document, "get_model", lambda *args: model)
+    monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(text="", page_images=[make_image()] * 2)))
+
+    async def page_call(_model, messages, schema, call_kind, *, runtime=None):
+        index = 0 if "PRIMARY page 1" in messages[-1].content else 1
+        return schema.model_validate({"questions": [question(f"Page {index}")], "figures": [
+            {"kind": "table", "description": "Unstructured table", "questionIndexes": [0], "bbox": [0.1, 0.2, 0.8, 0.9]}]}), [], None
+
+    monkeypatch.setattr(document, "structured_call", page_call)
+    monkeypatch.setattr(vision, "crop_figure", lambda *_: None)
+    result = asyncio.run(local_graph().ainvoke({"document": reference}))
+    visuals = result["result"]["visualElements"]
+    assert [v["questionIndexes"] for v in visuals] == [[0], [1]]
+    assert all(v["imageRef"] is None and v["sourceRef"]["objectKey"] in store.blobs for v in visuals)
+    assert all(q["needsReview"] and {"material", "media"} <= set(q["missingFields"]) for q in result["result"]["questions"])
+    assert result["processing"]["quality"]["reviewQuestionCount"] == 2
+    for indexes in [[-1], [1], [True]]:
+        with pytest.raises(ValueError):
+            document.PageParseResult.model_validate({"questions": [question("Q")], "figures": [
+                {"kind": "chart", "description": "X", "questionIndexes": indexes, "bbox": [0, 0, 1, 1]}]})
+
+
+def test_crop_coordinates_use_full_page_dimensions():
+    from PIL import Image, ImageDraw
+
+    from practiq_ai.graphs.vision import crop_figure
+
+    page = Image.new("RGB", (1000, 500), "white")
+    ImageDraw.Draw(page).rectangle((200, 100, 799, 399), fill="black")
+    buf = BytesIO()
+    page.save(buf, "PNG")
+    crop = crop_figure(buf.getvalue(), [0.2, 0.2, 0.8, 0.8])
+    assert crop is not None
+    with Image.open(BytesIO(crop)) as image:
+        assert image.size == (600, 300)
+        for position in [(0, 0), (599, 299)]:
+            pixel = image.getpixel(position)
+            assert isinstance(pixel, tuple) and max(pixel) < 10
+
+
+def test_table_rows_escape_cells_and_preserve_ragged_output_for_review():
+    from practiq_ai.graphs.vision import PageFigure
+
+    base = {"kind": "table", "description": "Measurements", "bbox": [0, 0, 1, 1]}
+    figure = PageFigure(**base, tableRows=[["Name", "Value"], ["A", r"left | right $\frac{1}{2}$"], ["B", ""]])
+    assert PageFigure(**base, tableRows=[]).tableRows is None
+    assert figure.table_markdown() == "| Name | Value |\n| --- | --- |\n| A | left \\| right $\\frac{1}{2}$ |\n| B |  |"
+    irregular = PageFigure(**base, tableRows=[["Name", "Value"], ["A"]])
+    assert irregular.tableRows is None and irregular.extractedText == "Name\tValue\nA"
+
+
+def test_incomplete_table_page_retains_question_and_continuation_figure():
+    q = question("Compare trials")
+    q["contentBlocks"] = [{"partType": "table", "markdownValue": None}]
+    parsed = document.PageParseResult.model_validate({"questions": [q], "figures": []})
+    assert parsed.questions[0].needsReview
+    assert "material" in parsed.questions[0].missingFields
+    assert parsed.questions[0].contentBlocks == []
+    continuation = document.PageParseResult.model_validate({"questions": None, "groups": None, "figures": [
+        {"kind": "table", "description": "Continued rows", "questionIndexes": [0], "tableRows": [], "bbox": [0, 0, 1, 1]}]})
+    assert continuation.questions == []
+    assert continuation.figures[0].questionIndexes == []
+    assert continuation.figures[0].tableRows is None

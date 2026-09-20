@@ -741,6 +741,18 @@
               }
             ],
             "default": null
+          },
+          "sourceRef": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ArtifactReference"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Complete source page image for visual verification; may include printed answers."
           }
         },
         "required": [
@@ -2006,6 +2018,18 @@
               }
             ],
             "default": null
+          },
+          "sourceRef": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ArtifactReference"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Complete source page image for visual verification; may include printed answers."
           }
         },
         "required": [

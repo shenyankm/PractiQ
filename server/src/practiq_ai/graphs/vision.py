@@ -6,7 +6,7 @@ from math import isfinite
 from typing import Literal
 
 from langchain_core.messages import HumanMessage
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, StrictInt, field_validator, model_validator
 
 from ..contracts import VisualDescription, VisualLabel
 
@@ -15,7 +15,10 @@ MAX_CROP_BYTES = 200 * 1024
 
 
 class PageFigure(BaseModel):
+    questionIndexes: list[StrictInt] = Field(default_factory=list, max_length=1_000, description="Indexes in this response questions array; empty only for genuinely unassociated figures.")
     kind: Literal["image", "table", "chart", "diagram", "qr_code"] = Field(default="image", description="Classify visible content: table for rows/columns, chart for plotted data, diagram for schematic relationships, qr_code for QR codes, image for other pictures.")
+    tableRows: list[list[str]] | None = Field(default=None, max_length=1000, description="Simple table only: first row is headers, then ALL data rows, each cell a raw string with inline $LaTeX$. Equal column counts; empty cells remain empty strings. Null for merged/multilevel tables that cannot be faithfully represented.")
+    extractedText: str | None = Field(default=None, max_length=100_000, description="For tables: complete GFM Markdown table including headers and every cell; for merged/multilevel cells use faithful readable text without inventing a flattened table. For other figures: visible text or null.")
     label: VisualLabel | None = None
     description: VisualDescription
     bbox: list[float] = Field(min_length=4, max_length=4, description="[x0, y0, x1, y1] relative to the full page, normalized to [0, 1], from top-left to bottom-right with positive area.")
@@ -29,6 +32,33 @@ class PageFigure(BaseModel):
         if x1 <= x0 or y1 <= y0:
             raise ValueError("bbox must have positive area")
         return bbox
+
+    @field_validator("tableRows", mode="before")
+    @classmethod
+    def empty_table_rows(cls, value):
+        return None if value == [] else value
+
+    @model_validator(mode="after")
+    def validate_table(self):
+        if self.tableRows is not None:
+            rows = self.tableRows
+            if self.kind != "table" or any(len(row) > 100 for row in rows):
+                raise ValueError("tableRows is only for tables with at most 100 columns")
+            if sum(len(cell) for row in rows for cell in row) > 90_000:
+                raise ValueError("tableRows exceeds text limit")
+            if len(rows) < 2 or not rows[0] or any(len(row) != len(rows[0]) for row in rows):
+                # Merged/irregular rows cannot safely become GFM. Preserve the
+                # transcription and let the page graph mark associated questions.
+                self.extractedText = self.extractedText or "\n".join("\t".join(row) for row in rows)
+                self.tableRows = None
+        return self
+
+    def table_markdown(self) -> str | None:
+        if self.tableRows is None:
+            return None
+        rows = ["| " + " | ".join(cell.replace(r"\|", "|").replace("|", r"\|").replace("\n", " ") for cell in row) + " |" for row in self.tableRows]
+        rows.insert(1, "| " + " | ".join("---" for _ in self.tableRows[0]) + " |")
+        return "\n".join(rows)
 
 
 def _image_message(prompt: str, image: bytes, media_type: str) -> HumanMessage:

@@ -59,8 +59,8 @@ impl Pending {
         let root = contract::parse(&bytes)?;
         let missing = list(contract::result(&root), "visualElements")
             .iter()
-            .filter(|v| v["imageRef"].is_object())
-            .map(|v| text(&v["imageRef"], "objectKey").to_owned())
+            .flat_map(contract::visual_refs)
+            .map(|r| text(r, "objectKey").to_owned())
             .collect();
         Ok(Self {
             ticket: id(),
@@ -145,9 +145,11 @@ impl Store {
         let mut assets = HashMap::new();
         let mut missing = Vec::new();
         let mut total = 0usize;
-        for visual in list(contract::result(&p.root), "visualElements") {
-            let r = &visual["imageRef"];
-            if !r.is_object() {
+        for r in list(contract::result(&p.root), "visualElements")
+            .iter()
+            .flat_map(contract::visual_refs)
+        {
+            if assets.contains_key(text(r, "sha256")) {
                 continue;
             }
             let key = text(r, "objectKey");
@@ -317,13 +319,12 @@ impl Store {
                 .filter(|s| s["questionIndex"] == i)
                 .cloned()
                 .collect();
-            let missing = visuals.iter().any(|v| {
-                v["imageRef"].is_object()
-                    && !p.assets.contains_key(text(&v["imageRef"], "sha256"))
+            let missing = visuals.iter().flat_map(contract::visual_refs).any(|r| {
+                !p.assets.contains_key(text(r, "sha256"))
                     && !tx
                         .query_row(
                             "SELECT EXISTS(SELECT 1 FROM assets WHERE hash=?1)",
-                            [text(&v["imageRef"], "sha256")],
+                            [text(r, "sha256")],
                             |r| r.get::<_, bool>(0),
                         )
                         .unwrap_or(false)

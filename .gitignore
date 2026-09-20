@@ -195,3 +195,6 @@ htmlcov/
 # Generated native desktop dependencies
 app/src-tauri/bundled/
 app/.build/
+
+# Local rich-content acceptance evidence
+/app/reports/

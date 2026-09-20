@@ -413,6 +413,7 @@ class VisualElement(StrictModel):
     page: int | None = Field(default=None, ge=0)
     bbox: list[float] | None = Field(default=None, min_length=4, max_length=4)
     imageRef: ArtifactReference | None = None
+    sourceRef: ArtifactReference | None = Field(default=None, description="Complete source page image for visual verification; may include printed answers.")
 
     @field_validator("bbox")
     @classmethod

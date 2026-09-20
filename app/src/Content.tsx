@@ -40,7 +40,7 @@ export function Markdown({ children }: { children?: string | null }) {
     </div>
   ) : null;
 }
-function ImageAsset({ visual }: { visual: Visual }) {
+function ImageAsset({ visual, original = false }: { visual: Visual; original?: boolean }) {
   const [src, setSrc] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
   const zoomButton = useRef<HTMLButtonElement>(null);
@@ -48,9 +48,9 @@ function ImageAsset({ visual }: { visual: Visual }) {
   useEffect(() => {
     let active = true;
     setSrc(null);
-    setExpanded(false);
+    if (!original) setExpanded(false);
     setLoading(!!visual.imageRef);
-    if (visual.imageRef)
+    if (visual.imageRef && (!original || expanded))
       void api<string | null>({ type: "asset", hash: visual.imageRef.sha256 })
         .then((s) => {
           if (active) setSrc(s);
@@ -61,14 +61,14 @@ function ImageAsset({ visual }: { visual: Visual }) {
     return () => {
       active = false;
     };
-  }, [visual.imageRef?.sha256]);
+  }, [visual.imageRef?.sha256, original, original && expanded]);
   return (
     <figure className="space-y-2 rounded-lg border p-4">
-      {src ? (
+      {src || original ? (
         <>
-          <img src={src} alt={visual.description} className="max-h-[min(28vh,20rem)] max-w-full object-contain"/>
-          <Button ref={zoomButton} size="sm" variant="outline" onClick={() => setExpanded(true)}><ZoomIn/>放大查看图片</Button>
-          <Dialog open={expanded} onOpenChange={setExpanded}><DialogContent onCloseAutoFocus={(event) => { event.preventDefault(); zoomButton.current?.focus(); }} className="flex max-h-[90vh] flex-col sm:max-w-[90vw]"><DialogHeader className="shrink-0 pr-8"><DialogTitle>查看图片</DialogTitle><DialogDescription>{visual.description || "原始图片，可滚动查看完整细节。"}</DialogDescription></DialogHeader><div className="min-h-0 overflow-auto"><img src={src} alt={visual.description} className="max-w-none"/></div></DialogContent></Dialog>
+          {!original && src && <img src={src} alt={visual.description} className="max-h-[min(28vh,20rem)] max-w-full object-contain"/>}
+          <Button ref={zoomButton} size="sm" variant="outline" onClick={() => setExpanded(true)}><ZoomIn/>{original ? "查看原页" : "放大查看图片"}</Button>
+          <Dialog open={expanded} onOpenChange={setExpanded}><DialogContent onCloseAutoFocus={(event) => { event.preventDefault(); zoomButton.current?.focus(); }} className="flex max-h-[90vh] flex-col sm:max-w-[90vw]"><DialogHeader className="shrink-0 pr-8"><DialogTitle>{original ? "查看原页" : "查看图片"}</DialogTitle><DialogDescription>{visual.description || "原始图片，可滚动查看完整细节。"}</DialogDescription></DialogHeader><div className="min-h-0 overflow-auto">{src ? <img src={src} alt={visual.description} className="max-w-none"/> : <p>{loading ? "正在加载原页…" : "原页不可用，请重新导入来源资源。"}</p>}</div></DialogContent></Dialog>
         </>
       ) : visual.imageRef ? (
         <p className="text-sm text-muted-foreground">
@@ -132,7 +132,10 @@ export function Content({
         </div>
       ))}
       {snapshot.visuals.map((v) => (
-        <ImageAsset key={v.id} visual={v} />
+        <div key={v.id} className="space-y-2">
+          <ImageAsset visual={{...v, extractedText: q.contentBlocks.some(b => b.markdownValue === v.extractedText) ? null : v.extractedText}} />
+          {!exam && v.sourceRef && <ImageAsset original visual={{...v, imageRef: v.sourceRef, label: null, extractedText: null, description: "完整来源页，可能含参考答案。可对照检查表头、图例和裁剪边缘。"}} />}
+        </div>
       ))}
       {source && (
         <details className="text-sm">

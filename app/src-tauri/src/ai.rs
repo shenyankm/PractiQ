@@ -581,11 +581,10 @@ impl Endpoint {
     }
     pub(crate) fn load_assets(&self, pending: &mut Pending, store: &Store) -> AiResult<()> {
         let mut total = 0usize;
-        for visual in contract::list(contract::result(&pending.root), "visualElements") {
-            let reference = &visual["imageRef"];
-            if !reference.is_object() {
-                continue;
-            }
+        for reference in contract::list(contract::result(&pending.root), "visualElements")
+            .iter()
+            .flat_map(contract::visual_refs)
+        {
             let digest = contract::text(reference, "sha256");
             if pending.assets.contains_key(digest) {
                 continue;

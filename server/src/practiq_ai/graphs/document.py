@@ -3,6 +3,7 @@
 import asyncio
 import time
 from collections.abc import Awaitable, Callable
+from copy import deepcopy
 from functools import partial
 from typing import Annotated, Any, NotRequired, Self, TypedDict, cast
 
@@ -19,6 +20,7 @@ from practiq_ai import telemetry
 from practiq_ai.config import load
 from practiq_ai.contracts import (
     ArtifactReference,
+    ContentBlock,
     DocumentParseInput,
     DocumentParseResult,
     DocumentProcessing,
@@ -26,6 +28,7 @@ from practiq_ai.contracts import (
     DocumentSourceType,
     ParsedGroup,
     ParsedQuestion,
+    QualityIssue,
     RetryUnits,
     UnitCounts,
     UnitFailure,
@@ -152,7 +155,39 @@ class ChunkParseResult(BaseModel):
 
 
 class PageParseResult(ChunkParseResult):
+    @model_validator(mode="before")
+    @classmethod
+    def retain_incomplete_page(cls, value):
+        if not isinstance(value, dict):
+            return value
+        value = deepcopy(value)
+        # Model-only normalization: continuation pages and empty media placeholders
+        # are incomplete extracts, not a reason to discard an otherwise readable page.
+        for key in ("questions", "groups", "figures"):
+            if value.get(key) is None:
+                value[key] = []
+        for question in value["questions"] if isinstance(value["questions"], list) else []:
+            if not isinstance(question, dict) or not isinstance(question.get("contentBlocks"), list):
+                continue
+            blocks = question["contentBlocks"]
+            kept = [b for b in blocks if not isinstance(b, dict) or any(b.get(k) for k in ("textValue", "markdownValue", "latexValue")) or b.get("jsonValue") is not None]
+            if len(kept) != len(blocks):
+                question["contentBlocks"] = kept
+                question["needsReview"] = True
+                question["missingFields"] = list(dict.fromkeys([*(question.get("missingFields") or []), "material"]))
+        if value["questions"] == [] and isinstance(value["figures"], list):
+            for figure in value["figures"]:
+                if isinstance(figure, dict):
+                    figure["questionIndexes"] = []
+        return value
+
     figures: list[vision.PageFigure] = Field(default_factory=list, max_length=1_000)
+
+    @model_validator(mode="after")
+    def validate_figure_indexes(self) -> Self:
+        if any(i < 0 or i >= len(self.questions) for figure in self.figures for i in figure.questionIndexes):
+            raise ValueError("figure questionIndexes must reference this page response")
+        return self
 
 
 class DocumentGraphOutput(TypedDict):
@@ -412,17 +447,57 @@ async def _vision(
         "as table, and photographs as image. Do not default every figure to image. "
         "Include visible figures from the PRIMARY page only with factual descriptions and normalized "
         "bounding boxes [x0,y0,x1,y1] from its top left. Return questions, groups and figures together; "
-        "do not produce an intermediate transcription."
+        "Associate each figure with indexes in this response questions array, not printed question numbers. "
+        "Figures/tables within a question section belong to it even when its wording does not explicitly refer to them. "
+        "If the page contains one question, associate its accompanying tables/figures with questionIndexes=[0]. "
+        "In each simple table figure, tableRows MUST contain the full table as arrays of raw cell strings: "
+        "first row headers, then ALL rows; preserve blank cells, signs, units and formulas as inline $LaTeX$. "
+        "A literal pipe belongs inside its cell string. Do not encode a row as Markdown. "
+        "Do not duplicate tables in question contentBlocks: the service constructs Markdown from tableRows. "
+        "sourceText must still include the entire associated source material, including all table cells, "
+        "printed answers and analysis; do not omit them just because they appear in structured fields. "
+        "Preserve literal symbols: em dash — is not the Chinese character 一; a cell containing left | right is one cell. "
+        "When a question has no formula or other non-table blocks, return contentBlocks=[]; "
+        "never emit an empty table/image contentBlock with all value fields null. "
+        "On continuation-only pages questions=[] and groups=[] (not null); figures may still be present with questionIndexes=[]. "
+        "For merged cells/multi-level headers that cannot be represented faithfully, set tableRows=null, retain the table image "
+        "and readable text, set associated questions needsReview=true and missingFields=[material]; do not flatten or invent cells. "
+        "Use context pages to retain continuing table rows belonging to the PRIMARY question. "
+        "Before returning each bounding box, verify its TOP includes the title and every header, "
+        "its BOTTOM includes the final row, x-axis labels and legend, and both SIDES include all cells and y-axis labels. "
+        "Coordinates refer to the ENTIRE supplied page image, including margins, never just the content area. "
+        "Return questions, groups and figures directly; do not produce an intermediate transcription."
     )))
     parsed, usage, failure = await structured_call(model, messages, PageParseResult, "vision_parse", runtime=runtime)
     if parsed is None:
         return _unit_failure("vision_parse", state["index"], failure or "OUTPUT_INVALID", usage)
+    for figure in parsed.figures:
+        if figure.kind == "table":
+            table = figure.table_markdown()
+            if table:
+                figure.extractedText = table
+            for index in figure.questionIndexes or (range(len(parsed.questions)) if not table else []):
+                question = parsed.questions[index]
+                if table:
+                    if len(question.contentBlocks) >= 1_000:
+                        question.needsReview = True
+                    elif not any(block.partType == "table" and block.markdownValue == table for block in question.contentBlocks):
+                        question.contentBlocks.append(ContentBlock(partType="table", markdownValue=table))
+                    # Keep the model's original transcription and append its extracted
+                    # cells when it omitted the table from sourceText.
+                    if table not in (question.sourceText or ""):
+                        combined = ((question.sourceText or "") + "\n" + table).strip()
+                        question.sourceText = combined[:120_000]
+                        question.needsReview |= len(combined) > 120_000
+                else:
+                    question.needsReview = True
+                    question.missingFields = list(dict.fromkeys([*question.missingFields, "material"]))
     value = {
         "kind": "page",
         "index": state["index"],
         "artifact": state["artifact"],
         "parsed": parsed.model_dump(mode="json", exclude={"figures"}),
-        "visuals": [VisualElement(**item.model_dump(), page=state["index"]).model_dump(mode="json") for item in parsed.figures],
+        "visuals": [VisualElement(**item.model_dump(exclude={"tableRows"}), page=state["index"]).model_dump(mode="json") for item in parsed.figures],
     }
     return {
         "visionResults": [value],
@@ -563,6 +638,13 @@ async def _crop_visuals(
         for item in state.get("visionResults", [])
         if item["kind"] == "page"
     }
+    # Retain original page bytes independently of crop success/limits.
+    for index, item in enumerate(visuals):
+        if item.page in page_artifacts:
+            bbox = item.bbox
+            if bbox is not None:
+                bbox = [max(0., bbox[0] - .04), max(0., bbox[1] - .04), min(1., bbox[2] + .04), min(1., bbox[3] + .04)]
+            visuals[index] = item.model_copy(update={"sourceRef": page_artifacts[item.page], "bbox": bbox})
     candidates = [
         (index, item.page, item.bbox)
         for index, item in enumerate(visuals)
@@ -657,14 +739,26 @@ async def _merge(state: DocumentState) -> dict[str, Any]:
         raise DocumentProcessingError(
             422, "AI agent did not return any questions", "NO_QUESTIONS_FOUND"
         )
-    visual_elements = [
-        VisualElement.model_validate(visual)
-        for item in sorted(
-            state.get("visionResults", []),
-            key=lambda value: (value["kind"] != "page", value["index"]),
-        )
-        for visual in item["visuals"]
-    ]
+    visual_elements = []
+    offset = 0
+    # Page results are concatenated without overlap deduplication. Remap local indexes
+    # before cropping, preserving gaps from failed pages and the 1000-question cap.
+    for item in sorted(state.get("visionResults", []), key=lambda value: (value["kind"] != "page", value["index"])):
+        for raw in item["visuals"]:
+            visual = VisualElement.model_validate(raw)
+            indexes = [offset + i for i in visual.questionIndexes if offset + i < len(questions)]
+            if visual.questionIndexes and not indexes:
+                continue
+            visual_elements.append(visual.model_copy(update={"questionIndexes": indexes}))
+        if item["kind"] == "page" and item.get("parsed"):
+            offset += len(item["parsed"]["questions"])
+    page_refs = state.get("pageRefs", [])
+    for failure in unit_failures(dict(state)):
+        if failure["stage"] == "vision_parse" and failure["index"] < len(page_refs):
+            page = failure["index"]
+            visual_elements.append(VisualElement(kind="image", page=page, label="未完成识别的原页",
+                description="此页识别未完成，请查看完整原页并复核相邻题目。",
+                sourceRef=ArtifactReference.model_validate(page_refs[page])))
     visual_elements, crop_failures, crop_truncated = await _crop_visuals(
         state, visual_elements
     )
@@ -672,6 +766,16 @@ async def _merge(state: DocumentState) -> dict[str, Any]:
         warnings.append(
             f"Figure crop limit of {vision.MAX_CROPS} reached; remaining figures include descriptions only."
         )
+    for visual in visual_elements:
+        if visual.sourceRef and visual.imageRef is None:
+            affected = visual.questionIndexes or [s.questionIndex for s in question_sources if s.unitIndex == visual.page or visual.bbox is None and visual.page is not None and abs(s.unitIndex - visual.page) <= 1]
+            for index in affected:
+                questions[index].needsReview = True
+                questions[index].missingFields = list(dict.fromkeys([*questions[index].missingFields, "media"]))
+                if not any(issue.questionIndex == index and issue.code == "MISSING_FIELDS" for issue in quality.issues):
+                    quality.issues.append(QualityIssue(questionIndex=index, code="MISSING_FIELDS"))
+    quality.reviewQuestionCount = sum(q.needsReview for q in questions)
+    quality.reviewRequired = bool(quality.reviewQuestionCount)
     failures = [UnitFailure.model_validate(item) for item in unit_failures(dict(state)) if item["stage"] != "visual_crop"]
     failures.extend(crop_failures)
     truncated = (

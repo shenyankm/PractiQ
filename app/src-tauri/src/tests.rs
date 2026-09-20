@@ -898,3 +898,78 @@ fn e2e_exam_restart_restore_on_fresh_install_and_retry() {
     assert_eq!(restored.session(sid).unwrap()["attempts"], expected);
     assert_eq!(restored.asset(digest).unwrap(), image);
 }
+
+#[test]
+fn rich_content_survives_import_reopen_practice_and_backup_exactly() {
+    let (dir, mut s) = store();
+    let mut expected: Value =
+        serde_json::from_slice(include_bytes!("../../fixtures/rich-content/expected.json"))
+            .unwrap();
+    expected["visualElements"][0]["sourceRef"] = expected["visualElements"][0]["imageRef"].clone();
+    let p = s
+        .preview(
+            serde_json::to_vec(&expected).unwrap(),
+            "Rich content".into(),
+        )
+        .unwrap();
+    s.resources(
+        &std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../fixtures/rich-content/resources"),
+    )
+    .unwrap();
+    let bank = text(
+        &s.import(text(&p, "ticket"), None, "Rich content").unwrap(),
+        "bankId",
+    )
+    .to_owned();
+    let rows = s.questions(Some(&bank), "", "", "").unwrap();
+    assert_eq!(rows[0]["question"], expected["questions"][0]);
+    assert_eq!(
+        rows[0]["visuals"][0]["imageRef"],
+        expected["visualElements"][0]["imageRef"]
+    );
+    assert_eq!(
+        rows[0]["visuals"][0]["sourceRef"],
+        expected["visualElements"][0]["sourceRef"]
+    );
+    assert_eq!(rows[0]["missingAssets"], false);
+    let digest = text(&expected["visualElements"][0]["imageRef"], "sha256");
+    let image = s.asset(digest).unwrap();
+    let session = practice(&s, rows.clone(), 1);
+    let sid = text(&session, "id");
+    let reopened = Store::new(dir.path().to_owned()).unwrap();
+    assert_eq!(reopened.questions(Some(&bank), "", "", "").unwrap(), rows);
+    assert_eq!(
+        reopened.session(sid).unwrap()["attempts"][0]["snapshot"]["question"],
+        expected["questions"][0]
+    );
+    drop(reopened);
+    let backup = dir.path().join("rich.zip");
+    s.backup(&backup).unwrap();
+    s.delete_bank(&bank).unwrap();
+    s.restore(&backup).unwrap();
+    assert_eq!(s.questions(Some(&bank), "", "", "").unwrap(), rows);
+    assert_eq!(s.asset(digest).unwrap(), image);
+    let exam = s
+        .start_paper(crate::exams::Paper {
+            question_ids: vec![text(&rows[0], "id").into()],
+            kind: "self_test".into(),
+            minutes: None,
+            scores: vec![100],
+            total_cents: 100,
+        })
+        .unwrap();
+    assert!(exam["attempts"][0]["snapshot"]["visuals"][0]
+        .get("sourceRef")
+        .is_none());
+    let submitted = s.submit_paper(text(&exam, "id"), true).unwrap();
+    assert_eq!(
+        submitted["attempts"][0]["snapshot"]["visuals"][0]["sourceRef"],
+        expected["visualElements"][0]["sourceRef"]
+    );
+    // The added reference uses the same path and checksum boundary as crops.
+    expected["visualElements"][0]["sourceRef"]["objectKey"] = json!("../escape.png");
+    s.preview(serde_json::to_vec(&expected).unwrap(), "bad source".into())
+        .unwrap();
+    assert!(s.resources(&dir.path().to_owned()).is_err());
+}
