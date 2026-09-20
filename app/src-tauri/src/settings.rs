@@ -174,7 +174,6 @@ mod tests {
             base_url: Some(" http://127.0.0.1:8317/v1/ ".into()),
             model_id: Some(" demo-model ".into()),
             oss_url: Some("https://bucket.oss-cn-hangzhou.aliyuncs.com".into()),
-            ..Default::default()
         }
         .validate()
         .unwrap();
