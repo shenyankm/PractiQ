@@ -56,7 +56,7 @@ it("keeps JSON import usable without models and preserves the destination bank",
     }
   });
   render(<App />);
-  const open = await screen.findByRole("button", { name: /打开题库/ });
+  const open = await screen.findByRole("button", { name: /查看题目/ });
   await waitFor(() => expect(open.hasAttribute("disabled")).toBe(false));
   await userEvent.click(open);
   const start = screen.getByRole("button", { name: "导入" });
@@ -117,4 +117,45 @@ it("keeps JSON import usable without models and preserves the destination bank",
           ),
       ),
   ).toBe(true);
+});
+
+it("opens study setup from each bank card with that bank selected", async () => {
+  const banks = [
+    { id: "bank-1", title: "题库一", description: "", count: 2 },
+    { id: "bank-2", title: "题库二", description: "", count: 3 },
+    { id: "empty", title: "空题库", description: "", count: 0 },
+  ];
+  vi.mocked(api).mockImplementation(async (request) => {
+    switch (request.type) {
+      case "banks": return banks as never;
+      case "sessions":
+      case "questions": return [] as never;
+      case "info": return { version: "test", dataDirectory: "/tmp/test" } as never;
+      default: throw new Error(`Unexpected request: ${request.type}`);
+    }
+  });
+  render(<App />);
+  const actions = await screen.findAllByRole("button", { name: "开始练习" });
+  await waitFor(() => expect(actions[0].hasAttribute("disabled")).toBe(false));
+  expect(actions).toHaveLength(3);
+  expect(actions[2].hasAttribute("disabled")).toBe(true);
+  expect(screen.getAllByRole("button", { name: "导入题库" })).toHaveLength(1);
+  expect(within(screen.getByRole("navigation")).getByRole("button", { name: "导入题库" })).toBeTruthy();
+  for (const index of [1, 0]) {
+    const card = screen.getByText(banks[index].title, { selector: '[data-slot="card-title"]' }).closest('[data-slot="card"]');
+    expect(card).not.toBeNull();
+    within(card as HTMLElement).getByRole("button", { name: `题库操作 ${banks[index].title}` }).focus();
+    await userEvent.keyboard("{Enter}");
+    expect(await screen.findByRole("menuitem", { name: "编辑题库" })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: "删除题库" })).toBeTruthy();
+    await userEvent.keyboard("{Escape}");
+    await userEvent.click(within(card as HTMLElement).getByRole("button", { name: "开始练习" }));
+    const dialog = await screen.findByRole("dialog");
+    for (const [i, bank] of banks.entries()) {
+      expect((within(dialog).getByRole("checkbox", { name: `${bank.title}（${bank.count}）` }) as HTMLInputElement).checked).toBe(i === index);
+    }
+    await waitFor(() => expect(api).toHaveBeenCalledWith({ type: "questions", bank_id: null, bank_ids: [banks[index].id], search: "", mode: "", filter: "" }));
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  }
 });

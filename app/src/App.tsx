@@ -19,8 +19,10 @@ import {
   Pencil,
   ChevronRight,
   BookmarkX,
+  EllipsisVertical,
 } from "lucide-react";
 import { toast } from "sonner";
+import { DropdownMenu } from "radix-ui";
 import {
   api,
   date,
@@ -116,7 +118,7 @@ export default function App() {
     description: string;
     action: () => Promise<void>;
   } | null>(null);
-  const [practiceSetup, setPracticeSetup] = useState(false);
+  const [practiceSetup, setPracticeSetup] = useState<{ bank: string | null } | null>(null);
   const [mergeSelection, setMergeSelection] = useState<string[]>([]);
   const [mergeTitle,setMergeTitle]=useState("");
   const [settingsRevision, setSettingsRevision] = useState(0);
@@ -249,7 +251,7 @@ export default function App() {
               ? "练习记录"
               : page === "practice"
                 ? "专注练习"
-                : "设置与备份";
+                : "设置";
   const listPage = ["questions", "wrong", "favorite"].includes(page);
   return (
     <div className="flex h-screen min-w-[960px] overflow-hidden bg-background text-foreground">
@@ -301,7 +303,7 @@ export default function App() {
             onClick={() => navigate("settings")}
           >
             <Settings />
-            设置与备份
+            设置
           </Button>
         </div>
       </aside>
@@ -345,13 +347,6 @@ export default function App() {
               </span>
             )}
 
-          {page === "banks" && <Button variant="outline" disabled={busy || !banks.length} onClick={()=>setPracticeSetup(true)}>练习 / 自测 / 模考</Button>}
-            {page === "banks" && (
-              <Button disabled={busy} onClick={() => navigate("import")}>
-                <Upload />
-                导入题库
-              </Button>
-            )}
             {listPage && (
               <>
                 <Button
@@ -377,7 +372,7 @@ export default function App() {
                 <Button
                   disabled={busy || !questions.length || loading}
                   onClick={() => {
-                    setPracticeSetup(true);
+                    setPracticeSetup({ bank: page === "questions" ? bank : null });
                   }}
                 >
                   <Play />
@@ -394,65 +389,49 @@ export default function App() {
               {banks.map((b) => (
                 <Card key={b.id}>
                   <CardHeader>
-                    <div className="mb-3 flex items-center justify-between">
-                      <BookOpen className="size-6 text-muted-foreground" />
-                      <Badge variant="secondary">{b.count} 题</Badge>
+                    <div className="flex items-start justify-between gap-2">
+                      <CardTitle className="min-w-0 break-words pt-1">{b.title}</CardTitle>
+                      <div className="flex shrink-0 items-center gap-1">
+                        <Badge variant="secondary">{b.count} 题</Badge>
+                        <DropdownMenu.Root>
+                          <DropdownMenu.Trigger asChild>
+                            <Button size="icon" variant="ghost" aria-label={`题库操作 ${b.title}`} disabled={busy}>
+                              <EllipsisVertical />
+                            </Button>
+                          </DropdownMenu.Trigger>
+                          <DropdownMenu.Portal>
+                            <DropdownMenu.Content align="end" sideOffset={4} className="z-50 min-w-32 rounded-lg border bg-popover p-1 text-sm text-popover-foreground shadow-md">
+                              <DropdownMenu.Item className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 outline-none focus:bg-accent" onSelect={() => setBankEditor({ id: b.id, title: b.title, description: b.description })}>
+                                <Pencil className="size-4" />编辑题库
+                              </DropdownMenu.Item>
+                              <DropdownMenu.Item className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-destructive outline-none focus:bg-destructive/10" onSelect={() => setConfirm({
+                                title: `删除“${b.title}”？`,
+                                description: "题库及其中题目将被删除，已有练习记录和内容快照会保留。",
+                                action: async () => {
+                                  await api({ type: "delete_bank", id: b.id });
+                                  await reload();
+                                },
+                              })}>
+                                <Trash2 className="size-4" />删除题库
+                              </DropdownMenu.Item>
+                            </DropdownMenu.Content>
+                          </DropdownMenu.Portal>
+                        </DropdownMenu.Root>
+                      </div>
                     </div>
-                    <CardTitle>{b.title}</CardTitle>
                     <CardDescription className="line-clamp-2 min-h-10">
                       {b.description}
                     </CardDescription>
                   </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center justify-between">
-                      <Button
-                        variant="outline"
-                        disabled={busy}
-                        onClick={() => navigate("questions", b.id)}
-                      >
-                        打开题库
-                        <ChevronRight />
-                      </Button>
-                      <div className="flex">
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          aria-label={`编辑题库 ${b.title}`}
-                          disabled={busy}
-                          onClick={() =>
-                            setBankEditor({
-                              id: b.id,
-                              title: b.title,
-                              description: b.description,
-                            })
-                          }
-                        >
-                          <Pencil />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          aria-label={`删除题库 ${b.title}`}
-                          disabled={busy}
-                          onClick={() =>
-                            setConfirm({
-                              title: `删除“${b.title}”？`,
-                              description:
-                                "题库及其中题目将被删除，已有练习记录和内容快照会保留。",
-                              action: async () => {
-                                await api({
-                                  type: "delete_bank",
-                                  id: b.id,
-                                });
-                                await reload();
-                              },
-                            })
-                          }
-                        >
-                          <Trash2 />
-                        </Button>
-                      </div>
-                    </div>
+                  <CardContent className="grid grid-cols-2 gap-2">
+                    <Button variant="outline" disabled={busy} onClick={() => navigate("questions", b.id)}>
+                      查看题目
+                      <ChevronRight />
+                    </Button>
+                    <Button disabled={busy || !b.count} onClick={() => setPracticeSetup({ bank: b.id })}>
+                      <Play />
+                      开始练习
+                    </Button>
                   </CardContent>
                 </Card>
               ))}
@@ -627,32 +606,38 @@ export default function App() {
           )}
           {page === "history" &&
             (sessions.length ? (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {sessions.map((s) => (
-                  <Card key={s.id}>
-                    <CardContent className="flex items-center justify-between gap-5 pt-6">
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-3">
-                          <h2 className="font-medium">{s.title}</h2>
+                  <Card key={s.id} className="py-3">
+                    <CardContent className="flex items-center justify-between gap-4">
+                      <div className="min-w-0 flex-1 space-y-2">
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                          <h2 className="min-w-0 break-words font-medium">{s.title}</h2>
                           <Badge variant="secondary">
                             {s.finishedAt ? "已结束" : s.submittedAt ? "待核对" : "进行中"}
                           </Badge>
+                          <span className="text-xs text-muted-foreground">
+                            {date(s.createdAt)} · {duration(s.elapsedMs)}
+                          </span>
                         </div>
-                        <p className="text-sm text-muted-foreground">
-                          {date(s.createdAt)} · {duration(s.elapsedMs)}
-                        </p>
-                        {s.kind && s.kind!=="practice" && <p>{s.pendingGrades?"暂定成绩":"成绩"}：{(s.earnedCents||0)/100} / {(s.totalCents||0)/100} 分 · 待评分 {s.pendingGrades} 题</p>}
-                        <p className="text-sm">
-                          已提交 {s.answered}/{s.count} · 正确率{" "}
-                          {s.graded
-                            ? `${Math.round((s.correct / s.graded) * 100)}%`
-                            : "—"}
-                          （{s.correct}/{s.graded}） · 自动判定 {s.autoGraded} ·
-                          自评 {s.selfGraded} · 跳过 {s.skipped} · 未判定{" "}
-                          {s.kind && s.kind!=="practice" ? s.pendingGrades : s.answered - s.graded - s.skipped}
-                        </p>
+                        <div className="flex flex-wrap gap-1.5 tabular-nums">
+                          <Badge variant="secondary">已提交 {s.answered}/{s.count}</Badge>
+                          <Badge variant="secondary">
+                            正确率 {s.graded ? `${Math.round((s.correct / s.graded) * 100)}%` : "—"}
+                            （{s.correct}/{s.graded}）
+                          </Badge>
+                          {s.kind && s.kind !== "practice" && <>
+                            <Badge variant="secondary">{s.pendingGrades ? "暂定成绩" : "成绩"} {(s.earnedCents || 0) / 100} / {(s.totalCents || 0) / 100} 分</Badge>
+                            <Badge variant="outline">待评分 {s.pendingGrades} 题</Badge>
+                          </>}
+                          <Badge variant="outline">自动判定 {s.autoGraded}</Badge>
+                          <Badge variant="outline">自评 {s.selfGraded}</Badge>
+                          <Badge variant="outline">跳过 {s.skipped}</Badge>
+                          <Badge variant="outline">未判定 {s.kind && s.kind !== "practice" ? s.pendingGrades : s.answered - s.graded - s.skipped}</Badge>
+                        </div>
                       </div>
                       <Button
+                        className="shrink-0"
                         variant="outline"
                         disabled={busy}
                         onClick={() =>
@@ -759,11 +744,6 @@ export default function App() {
                   <p>版本：{info?.version || "—"}</p>
                   <p className="break-all">
                     保存位置：{info?.dataDirectory || "—"}
-                  </p>
-                  <p className="text-muted-foreground">
-                    离线练习无需模型服务；文档解析按需启动内置组件。JSON 最大 32 MiB，单张图片最大 20
-                    MiB，单次图片总量最大 256 MiB，备份数据总量最大 512
-                    MiB。备份中的图片与数据库一起保存。
                   </p>
                 </CardContent>
               </Card>
@@ -1005,7 +985,7 @@ export default function App() {
           </DialogContent>
         </Dialog>
       )}
-      {practiceSetup && <StudySetup banks={banks} initialBank={page === "questions" ? bank : null} initialFilter={filter} initialMode={mode} initialSearch={search} busy={busy} run={run} onClose={()=>setPracticeSetup(false)} onStart={async s=>{await flushRef.current();setSession(s);setPracticeSetup(false);setPage("practice");}}/>}
+      {practiceSetup && <StudySetup banks={banks} initialBank={practiceSetup.bank} initialFilter={filter} initialMode={mode} initialSearch={search} busy={busy} run={run} onClose={()=>setPracticeSetup(null)} onStart={async s=>{await flushRef.current();setSession(s);setPracticeSetup(null);setPage("practice");}}/>}
       <AlertDialog
         open={!!confirm}
         onOpenChange={(v) => {
