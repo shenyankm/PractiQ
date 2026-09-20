@@ -898,3 +898,228 @@ fn e2e_exam_restart_restore_on_fresh_install_and_retry() {
     assert_eq!(restored.session(sid).unwrap()["attempts"], expected);
     assert_eq!(restored.asset(digest).unwrap(), image);
 }
+
+#[test]
+fn rich_content_survives_import_reopen_practice_and_backup_exactly() {
+    let (dir, mut s) = store();
+    let mut expected: Value =
+        serde_json::from_slice(include_bytes!("../../fixtures/rich-content/expected.json"))
+            .unwrap();
+    expected["visualElements"][0]["sourceRef"] = expected["visualElements"][0]["imageRef"].clone();
+    let p = s
+        .preview(
+            serde_json::to_vec(&expected).unwrap(),
+            "Rich content".into(),
+        )
+        .unwrap();
+    s.resources(
+        &std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../fixtures/rich-content/resources"),
+    )
+    .unwrap();
+    let bank = text(
+        &s.import(text(&p, "ticket"), None, "Rich content").unwrap(),
+        "bankId",
+    )
+    .to_owned();
+    let rows = s.questions(Some(&bank), "", "", "").unwrap();
+    assert_eq!(rows[0]["question"], expected["questions"][0]);
+    assert_eq!(
+        rows[0]["visuals"][0]["imageRef"],
+        expected["visualElements"][0]["imageRef"]
+    );
+    assert_eq!(
+        rows[0]["visuals"][0]["sourceRef"],
+        expected["visualElements"][0]["sourceRef"]
+    );
+    assert_eq!(rows[0]["missingAssets"], false);
+    let digest = text(&expected["visualElements"][0]["imageRef"], "sha256");
+    let image = s.asset(digest).unwrap();
+    let session = practice(&s, rows.clone(), 1);
+    let sid = text(&session, "id");
+    let reopened = Store::new(dir.path().to_owned()).unwrap();
+    assert_eq!(reopened.questions(Some(&bank), "", "", "").unwrap(), rows);
+    assert_eq!(
+        reopened.session(sid).unwrap()["attempts"][0]["snapshot"]["question"],
+        expected["questions"][0]
+    );
+    drop(reopened);
+    let backup = dir.path().join("rich.zip");
+    s.backup(&backup).unwrap();
+    s.delete_bank(&bank).unwrap();
+    s.restore(&backup).unwrap();
+    assert_eq!(s.questions(Some(&bank), "", "", "").unwrap(), rows);
+    assert_eq!(s.asset(digest).unwrap(), image);
+    let exam = s
+        .start_paper(crate::exams::Paper {
+            question_ids: vec![text(&rows[0], "id").into()],
+            kind: "self_test".into(),
+            minutes: None,
+            scores: vec![100],
+            total_cents: 100,
+        })
+        .unwrap();
+    assert!(exam["attempts"][0]["snapshot"]["visuals"][0]
+        .get("sourceRef")
+        .is_none());
+    let submitted = s.submit_paper(text(&exam, "id"), true).unwrap();
+    assert_eq!(
+        submitted["attempts"][0]["snapshot"]["visuals"][0]["sourceRef"],
+        expected["visualElements"][0]["sourceRef"]
+    );
+    // The added reference uses the same path and checksum boundary as crops.
+    expected["visualElements"][0]["sourceRef"]["objectKey"] = json!("../escape.png");
+    s.preview(serde_json::to_vec(&expected).unwrap(), "bad source".into())
+        .unwrap();
+    assert!(s.resources(dir.path()).is_err());
+}
+
+#[test]
+fn source_image_upload_limit_survives_import_and_backup() {
+    let (dir, mut s) = store();
+    // A valid fixture image with trailing padding exercises the exact byte limit.
+    let mut image = include_bytes!("../../fixtures/rich-content/resources/chart.png").to_vec();
+    image.resize(25 * 1024 * 1024, 0);
+    let digest = crate::store::hash(&image);
+    std::fs::write(dir.path().join("page.png"), &image).unwrap();
+    let mut raw: Value = serde_json::from_slice(&sample()).unwrap();
+    raw["visualElements"] = json!([{"kind":"image","description":"Full page","questionIndexes":[0],
+        "sourceRef":{"objectKey":"page.png","sha256":digest,"sizeBytes":image.len(),"mediaType":"image/png"}}]);
+    let preview = s
+        .preview(serde_json::to_vec(&raw).unwrap(), "Source page".into())
+        .unwrap();
+    s.resources(dir.path()).unwrap();
+    let imported = s
+        .import(text(&preview, "ticket"), None, "Source page")
+        .unwrap();
+    let rows = s
+        .questions(Some(text(&imported, "bankId")), "", "", "")
+        .unwrap();
+    assert_eq!(rows[0]["missingAssets"], false);
+    let backup = dir.path().join("source.zip");
+    s.backup(&backup).unwrap();
+    let (_fresh, mut restored) = store();
+    restored.restore(&backup).unwrap();
+    assert_eq!(
+        restored.read_asset(&digest, image.len() as u64).unwrap(),
+        image
+    );
+    image.push(0);
+    std::fs::write(dir.path().join("page.png"), &image).unwrap();
+    raw["visualElements"][0]["sourceRef"]["sizeBytes"] = json!(image.len());
+    raw["visualElements"][0]["sourceRef"]["sha256"] = json!(crate::store::hash(&image));
+    s.preview(serde_json::to_vec(&raw).unwrap(), "Too large".into())
+        .unwrap();
+    assert!(s.resources(dir.path()).is_err());
+    assert!(s.write_asset(&crate::store::hash(&image), &image).is_err());
+}
+
+#[test]
+fn exam_filters_answer_table_and_crop_then_restores_original_snapshot() {
+    let (_dir, mut s) = store();
+    let mut raw: Value = serde_json::from_slice(&sample()).unwrap();
+    raw["questions"][0]["contentBlocks"] = json!([
+        {"partType":"table","role":"answer","markdownValue":"| Answer |\n| --- |\n| SECRET |"},
+        {"partType":"table","role":"material","markdownValue":"| Input |\n| --- |\n| 3 |"}
+    ]);
+    raw["visualElements"] = json!([
+        {"kind":"table","role":"answer","description":"SECRET","extractedText":"SECRET","questionIndexes":[0]},
+        {"kind":"table","role":"material","description":"Input table","questionIndexes":[0]}
+    ]);
+    let preview = s
+        .preview(serde_json::to_vec(&raw).unwrap(), "Answer table".into())
+        .unwrap();
+    let imported = s
+        .import(text(&preview, "ticket"), None, "Answer table")
+        .unwrap();
+    let rows = s
+        .questions(Some(text(&imported, "bankId")), "", "", "")
+        .unwrap();
+    let exam = s
+        .start_paper(crate::exams::Paper {
+            question_ids: vec![text(&rows[0], "id").into()],
+            kind: "self_test".into(),
+            minutes: None,
+            scores: vec![100],
+            total_cents: 100,
+        })
+        .unwrap();
+    let snapshot = &exam["attempts"][0]["snapshot"];
+    assert!(!snapshot.to_string().contains("SECRET"));
+    assert_eq!(
+        snapshot["question"]["contentBlocks"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    assert_eq!(snapshot["visuals"].as_array().unwrap().len(), 1);
+    let submitted = s.submit_paper(text(&exam, "id"), true).unwrap();
+    assert_eq!(
+        submitted["attempts"][0]["snapshot"]["question"],
+        rows[0]["question"]
+    );
+    assert_eq!(
+        submitted["attempts"][0]["snapshot"]["visuals"],
+        rows[0]["visuals"]
+    );
+}
+
+#[test]
+fn missing_optional_source_page_does_not_disable_grading() {
+    for missing_crop in [false, true] {
+        let (_dir, mut s) = store();
+        let mut raw: Value = serde_json::from_slice(&sample()).unwrap();
+        let crop: Value = serde_json::from_slice::<Value>(include_bytes!(
+            "../../fixtures/rich-content/expected.json"
+        ))
+        .unwrap()["visualElements"][0]["imageRef"]
+            .clone();
+        let mut source = crop.clone();
+        source["objectKey"] = json!("absent-page.png");
+        source["sha256"] = json!("a".repeat(64));
+        raw["visualElements"] = json!([{"kind":"chart","description":"Required crop","questionIndexes":[0],"imageRef":crop,"sourceRef":source}]);
+        if missing_crop {
+            raw["visualElements"][0]["imageRef"]["objectKey"] = json!("absent-crop.png");
+        }
+        let preview = s
+            .preview(serde_json::to_vec(&raw).unwrap(), "Optional page".into())
+            .unwrap();
+        let resources = s
+            .resources(
+                &std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                    .join("../fixtures/rich-content/resources"),
+            )
+            .unwrap();
+        assert!(resources["missingAssets"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|v| v == "absent-page.png"));
+        let bank = s
+            .import(text(&preview, "ticket"), None, "Optional page")
+            .unwrap();
+        let rows = s
+            .questions(Some(text(&bank, "bankId")), "", "", "")
+            .unwrap();
+        assert_eq!(rows[0]["missingAssets"], missing_crop);
+        assert!(rows[1]["visuals"].as_array().unwrap().is_empty());
+        let session = practice(&s, rows, 1);
+        let graded = s
+            .save_attempt(
+                (text(&session, "id"), 0),
+                json!({"correctOption":"A"}),
+                1,
+                true,
+                false,
+                None,
+            )
+            .unwrap();
+        let result = &graded["attempts"][0]["autoResult"];
+        if missing_crop {
+            assert!(result.is_null());
+        } else {
+            assert!(result.is_boolean());
+        }
+    }
+}

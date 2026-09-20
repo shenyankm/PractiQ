@@ -5,7 +5,8 @@ use crate::{
 use rusqlite::{params, Connection};
 use std::{fs, io::Write, path::PathBuf};
 
-pub const LIMIT: usize = 20 * 1024 * 1024;
+// Match the accepted source-image upload limit, including full-page references.
+pub const LIMIT: usize = 25 * 1024 * 1024;
 pub const SCHEMA: &str = "CREATE TABLE assets(hash TEXT PRIMARY KEY,media TEXT NOT NULL,size INTEGER NOT NULL,path TEXT NOT NULL);";
 fn err(e: impl std::fmt::Display) -> String {
     e.to_string()

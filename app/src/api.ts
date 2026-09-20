@@ -67,19 +67,19 @@ export interface Group {
   instructions?: string | null;
   questionIds: string[];
 }
+export interface ImageReference {
+  sha256: string; objectKey: string; mediaType: string; sizeBytes: number;
+}
 export interface Visual {
+  role?: string | null;
   id: string;
   kind: string;
   description: string;
   label?: string | null;
   extractedText?: string | null;
   questionIds: string[];
-  imageRef?: {
-    sha256: string;
-    objectKey: string;
-    mediaType: string;
-    sizeBytes: number;
-  } | null;
+  imageRef?: ImageReference | null;
+  sourceRef?: ImageReference | null;
 }
 export interface Snapshot {
   question: Question;

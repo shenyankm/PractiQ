@@ -650,6 +650,20 @@
       "VisualElement": {
         "additionalProperties": false,
         "properties": {
+          "role": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Content role; answer-bearing visuals use answer and are hidden during unsubmitted exams.",
+            "title": "Role"
+          },
           "questionIndexes": {
             "items": {
               "type": "integer"
@@ -741,6 +755,18 @@
               }
             ],
             "default": null
+          },
+          "sourceRef": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ArtifactReference"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Complete source page image for visual verification; may include printed answers."
           }
         },
         "required": [
@@ -1915,6 +1941,20 @@
       "VisualElement": {
         "additionalProperties": false,
         "properties": {
+          "role": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Content role; answer-bearing visuals use answer and are hidden during unsubmitted exams.",
+            "title": "Role"
+          },
           "questionIndexes": {
             "items": {
               "type": "integer"
@@ -2006,6 +2046,18 @@
               }
             ],
             "default": null
+          },
+          "sourceRef": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ArtifactReference"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Complete source page image for visual verification; may include printed answers."
           }
         },
         "required": [

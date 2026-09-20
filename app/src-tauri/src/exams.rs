@@ -239,6 +239,15 @@ impl Store {
             if kind != "practice" && submitted.is_none() {
                 let q = &mut a["snapshot"]["question"];
                 a_blank_count(q);
+                if let Some(visuals) = a["snapshot"]["visuals"].as_array_mut() {
+                    visuals.retain(|visual| !answer_content(visual));
+                    for visual in visuals {
+                        visual
+                            .as_object_mut()
+                            .ok_or("图片格式无效")?
+                            .remove("sourceRef");
+                    }
+                }
                 a["result"] = Value::Null;
                 a["autoResult"] = Value::Null;
             }
@@ -362,23 +371,25 @@ fn a_blank_count(q: &mut Value) {
         }
     }
     if let Some(blocks) = q["contentBlocks"].as_array_mut() {
-        blocks.retain(|b| {
-            let role = text(b, "role").to_lowercase();
-            ![
-                "answer",
-                "analysis",
-                "solution",
-                "explanation",
-                "rubric",
-                "答案",
-                "解析",
-                "解答",
-                "评分",
-            ]
-            .iter()
-            .any(|word| role.contains(word))
-        });
+        blocks.retain(|block| !answer_content(block));
     }
+}
+
+fn answer_content(content: &Value) -> bool {
+    let role = text(content, "role").to_lowercase();
+    [
+        "answer",
+        "analysis",
+        "solution",
+        "explanation",
+        "rubric",
+        "答案",
+        "解析",
+        "解答",
+        "评分",
+    ]
+    .iter()
+    .any(|word| role.contains(word))
 }
 
 impl Store {

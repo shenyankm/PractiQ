@@ -536,3 +536,10 @@ pub fn grade(q: &Value, answer: &Value) -> Option<bool> {
         _ => None,
     }
 }
+
+// Every visual resource follows the same path/checksum/import boundaries.
+pub fn visual_refs(visual: &Value) -> impl Iterator<Item = &Value> {
+    ["imageRef", "sourceRef"]
+        .into_iter()
+        .filter_map(|key| visual.get(key).filter(|v| v.is_object()))
+}

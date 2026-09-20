@@ -405,6 +405,7 @@ VisualDescription = Annotated[str, Field(min_length=1, max_length=20_000), After
 
 
 class VisualElement(StrictModel):
+    role: str | None = Field(default=None, max_length=64, description="Content role; answer-bearing visuals use answer and are hidden during unsubmitted exams.")
     questionIndexes: list[StrictInt] = Field(default_factory=list, max_length=1_000)
     kind: VisualKind
     label: VisualLabel | None = None
@@ -413,6 +414,7 @@ class VisualElement(StrictModel):
     page: int | None = Field(default=None, ge=0)
     bbox: list[float] | None = Field(default=None, min_length=4, max_length=4)
     imageRef: ArtifactReference | None = None
+    sourceRef: ArtifactReference | None = Field(default=None, description="Complete source page image for visual verification; may include printed answers.")
 
     @field_validator("bbox")
     @classmethod
