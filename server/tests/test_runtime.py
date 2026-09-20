@@ -1,6 +1,7 @@
 import asyncio
 from datetime import timedelta
 from sqlite3 import OperationalError
+from types import SimpleNamespace
 from uuid import UUID, uuid4
 
 import pytest
@@ -130,13 +131,24 @@ async def test_readiness_and_client_fail_closed_without_runtime(monkeypatch):
 
 
 async def test_runtime_task_budget_and_deadline_are_durable(monkeypatch):
-    monkeypatch.setenv('AI_RUN_TIMEOUT_SECONDS', '1')
-    service, reference, model = await setup_api(monkeypatch, [(30, parsed())])
+    monkeypatch.setenv('AI_RUN_TIMEOUT_SECONDS', '60')
+    deadline = asyncio.timeout(60)
+    runtime_asyncio = SimpleNamespace(**vars(asyncio))
+    runtime_asyncio.timeout = lambda seconds: deadline
+    monkeypatch.setattr(runtime, 'asyncio', runtime_asyncio)
+
+    def expire_during_call(messages, schema):
+        # Trigger real cancellation only after the provider call is recorded.
+        deadline.reschedule(asyncio.get_running_loop().time())
+        return (30, parsed())
+
+    service, reference, model = await setup_api(monkeypatch, [expire_during_call])
     receipt = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
     await service.wait_idle()
     state = await task_api.get_task(receipt['threadId'])
     assert state['state'] == 'FAILED'
     assert state['blocking'] == ['RUN_DEADLINE_EXCEEDED']
+    assert deadline.expired()
     assert len(state['unknownUsageCalls']) == len(model.calls) == 1
 
 
