@@ -109,6 +109,9 @@ def _model_schema(schema: type[BaseModel]) -> dict[str, Any]:
 
     def visit(node: Any) -> None:
         if isinstance(node, dict):
+            # Fractional multipleOf is rejected by the model endpoint. Keep the
+            # precision rule in local Pydantic / exported importer validation.
+            node.pop("multipleOf", None)
             properties = node.get("properties", {})
             if ({"answerMode", "sourceText"} <= properties.keys()
                     or {"questions", "groups"} <= properties.keys()
@@ -404,6 +407,7 @@ async def structured_call[ResultT: BaseModel](
     call_kind: str,
     *,
     runtime: Runtime[Any] | None = None,
+    call_records: list[dict[str, Any]] | None = None,
 ) -> tuple[ResultT | None, list[ModelCallUsage], str | None]:
     """Checkpoint individual attempts; replay never replenishes the four-call budget."""
     usage: list[ModelCallUsage] = []
@@ -470,6 +474,8 @@ async def structured_call[ResultT: BaseModel](
                 await store_put(runtime, "calls", str(call_key), record)
             return {"error": error}
         finally:
+            if call_records is not None:
+                call_records.append(record)
             elapsed = time.monotonic() - started
             if not provider_started and outcome == "unknown":
                 outcome = "rejected"

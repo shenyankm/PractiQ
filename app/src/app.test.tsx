@@ -172,3 +172,12 @@ it("stores model and OSS configuration without returning an API key to the form"
     }),
   );
 });
+
+it("shows numeric partial credit after an exam and locks answer controls", () => {
+  const session: Session={id:"exam",kind:"self_test",title:"test",createdAt:0,submittedAt:1,finishedAt:null,position:0,mode:"ordered",attempts:[{ordinal:0,snapshot:{question:questions[4],groups:[],visuals:[],sources:[],warnings:[],missingAssets:false},answer:{text:"复习"},autoResult:null,result:false,gradeKind:"manual",submittedAt:1,skipped:false,elapsedMs:0,maxCents:500,earnedCents:300,grading:{manual:{scoreCents:300,reason:"部分得分"}}}]};
+  render(<Practice session={session} onSession={()=>{}} run={()=>{}} flushRef={{current:async()=>{}}}/>);
+  expect(screen.getByText("3 / 5 分")).toBeTruthy();
+  expect(screen.queryByText("回答错误")).toBeNull();
+  expect((screen.getByRole("textbox",{name:"作答内容"}) as HTMLTextAreaElement).disabled).toBe(true);
+  expect(screen.getByText(/正确率（满分题/)).toBeTruthy();
+});

@@ -318,6 +318,9 @@ class ParsedQuestion(StrictModel):
     items: list[ParsedItem] = Field(default_factory=list, max_length=100)
     options: list[ParsedOption] = Field(default_factory=list, max_length=100)
     answerPayload: AnswerPayload | dict[str, Any] | None = Field(default=None, description="Extract only an answer explicitly supplied by the source; never solve the question. Use null when absent.")
+    sourceScore: float | None = Field(default=None, gt=0, le=1_000_000, multiple_of=0.01, allow_inf_nan=False, strict=True)
+    scoringRubric: str | None = Field(default=None, max_length=100_000)
+    scoreSourceText: str | None = Field(default=None, max_length=100_000)
     analysis: str | None = Field(default=None, max_length=100_000)
     contentBlocks: list[ContentBlock] = Field(default_factory=list, max_length=1_000)
     sourceText: str | None = Field(default=None, max_length=120_000, description="Literal source text for locating this question; do not summarize or paraphrase.")
@@ -330,7 +333,7 @@ class ParsedQuestion(StrictModel):
     def absent_list(cls, value):
         return [] if value is None else value
 
-    @field_validator("stem", "questionTypeId", "answerMode", "choiceVariant", "matchingVariant", "analysis", "sourceText", mode="before")
+    @field_validator("stem", "questionTypeId", "answerMode", "choiceVariant", "matchingVariant", "analysis", "sourceText", "scoringRubric", "scoreSourceText", mode="before")
     @classmethod
     def blank_to_null(cls, value):
         return (value.strip() or None) if isinstance(value, str) else value

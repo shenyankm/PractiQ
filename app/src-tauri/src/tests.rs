@@ -321,7 +321,7 @@ fn version_one_backup_migrates_and_malicious_packages_do_not_replace_data() {
             .unwrap()
             .query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
             .unwrap(),
-        4
+        5
     );
     assert!(s.connection_settings().unwrap().base_url.is_none());
     let bank = s.save_bank(None, &bank, "").unwrap();
@@ -391,4 +391,216 @@ fn file_assets_migrate_and_corruption_does_not_replace_database() {
     assert!(s.restore(&backup).is_err());
     assert_eq!(s.banks().unwrap()[0]["id"], bank);
     assert!(s.asset_path("../escape").is_err());
+}
+
+#[test]
+fn exam_submit_expiry_scores_and_manual_override() {
+    use crate::exams::Paper;
+    let (_dir, mut s) = store();
+    let bank = import(&mut s);
+    let qs = s.questions(Some(&bank), "", "", "").unwrap();
+    let ids = vec![text(&qs[0], "id").to_owned(), text(&qs[4], "id").to_owned()];
+    let exam = s
+        .start_paper(Paper {
+            question_ids: ids,
+            kind: "mock_exam".into(),
+            minutes: Some(60),
+            scores: vec![333, 667],
+            total_cents: 1000,
+        })
+        .unwrap();
+    let sid = text(&exam, "id");
+    assert!(exam["attempts"][0]["snapshot"]["question"]["answerPayload"].is_null());
+    assert!(s
+        .save_attempt((sid, 0), json!({"correctOption":"A"}), 0, true, false, None)
+        .is_err());
+    s.save_attempt(
+        (sid, 0),
+        json!({"correctOption":"A"}),
+        0,
+        false,
+        false,
+        None,
+    )
+    .unwrap();
+    s.save_attempt((sid, 1), json!({"text":"学生作答"}), 0, false, false, None)
+        .unwrap();
+    s.flag(sid, 1, true).unwrap();
+    let result = s.submit_paper(sid, true).unwrap();
+    assert_eq!(result["attempts"][0]["earnedCents"], 333);
+    assert!(result["attempts"][1]["earnedCents"].is_null());
+    assert_eq!(result["attempts"][1]["flagged"], true);
+    assert_eq!(s.submit_paper(sid, true).unwrap(), result);
+    assert!(s
+        .save_attempt((sid, 0), json!(null), 0, false, false, None)
+        .is_err());
+    let request = s.prepare_grade(sid, 1, false).unwrap();
+    assert_eq!(request, s.prepare_grade(sid, 1, false).unwrap());
+    let response = json!({"status":"graded","result":{"scoreCents":400,"maxCents":667,"reason":"部分得分","evidence":[],"reviewReasons":[]}});
+    s.record_grade(sid, 1, text(&request, "requestId"), &response)
+        .unwrap();
+    let result = s.manual_score(sid, 1, 500, "复核得分点").unwrap();
+    assert_eq!(result["attempts"][1]["earnedCents"], 500);
+    assert!(s.manual_score(sid, 1, 668, "越界").is_err());
+    let late = s
+        .record_grade(sid, 1, text(&request, "requestId"), &response)
+        .unwrap();
+    assert_eq!(late["attempts"][1]["earnedCents"], 500);
+    assert_eq!(late["attempts"][1]["gradeKind"], "manual");
+    let failed = s
+        .record_grade(
+            sid,
+            1,
+            text(&request, "requestId"),
+            &json!({"status":"unknown","error":"timeout"}),
+        )
+        .unwrap();
+    assert_eq!(failed["attempts"][1]["earnedCents"], 500);
+    assert_eq!(
+        failed["attempts"][1]["grading"]["manualHistory"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    assert_eq!(
+        s.retry_wrong(sid).unwrap()["attempts"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    let exam = s
+        .start_paper(Paper {
+            question_ids: vec![text(&qs[0], "id").into()],
+            kind: "mock_exam".into(),
+            minutes: Some(1),
+            scores: vec![100],
+            total_cents: 100,
+        })
+        .unwrap();
+    let sid = text(&exam, "id");
+    s.save_attempt(
+        (sid, 0),
+        json!({"correctOption":"B"}),
+        0,
+        false,
+        false,
+        None,
+    )
+    .unwrap();
+    s.connect()
+        .unwrap()
+        .execute("UPDATE sessions SET deadline_at=0 WHERE id=?1", [sid])
+        .unwrap();
+    let reopened = Store::new(s.dir.clone()).unwrap().session(sid).unwrap();
+    assert!(reopened["submittedAt"].is_number());
+    assert_eq!(reopened["attempts"][0]["earnedCents"], 0);
+    assert!(s
+        .save_attempt(
+            (sid, 0),
+            json!({"correctOption":"A"}),
+            0,
+            false,
+            false,
+            None
+        )
+        .is_err());
+}
+
+#[test]
+fn merged_copy_filters_grading_and_backup_preserve_independence() {
+    use crate::exams::Paper;
+    let (dir, mut s) = store();
+    let bank = import(&mut s);
+    let p = s.preview(sample(), "second".into()).unwrap();
+    let second = s.import(text(&p, "ticket"), None, "second").unwrap();
+    let second = text(&second, "bankId").to_owned();
+    let qs = s.questions(Some(&bank), "", "", "").unwrap();
+    let mut q = qs[4]["question"].clone();
+    q["sourceScore"] = json!(5.25);
+    q["scoringRubric"] = json!("正确解释得 5.25 分");
+    q["scoreSourceText"] = json!("本题 5.25 分");
+    s.save_question(Some(text(&qs[4], "id").into()), &bank, q)
+        .unwrap();
+    s.favorite(text(&qs[4], "id"), true).unwrap();
+    assert_eq!(
+        s.questions_multi(None, &[bank.clone()], "", "single", "")
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    assert_eq!(
+        s.questions_multi(None, &[bank.clone(), second.clone()], "", "multiple", "")
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+    let merged = s
+        .merge_banks(&[bank.clone(), second.clone()], "merged")
+        .unwrap();
+    let new = text(&merged, "bankId");
+    assert_eq!(merged["count"], 18);
+    let copied = s.questions(Some(new), "", "short_answer", "").unwrap();
+    assert_eq!(copied[0]["question"]["sourceScore"], 5.25);
+    assert_eq!(copied[0]["favorite"], true);
+    let paper = s
+        .start_paper(Paper {
+            question_ids: vec![text(&copied[0], "id").into()],
+            kind: "self_test".into(),
+            minutes: None,
+            scores: vec![100],
+            total_cents: 100,
+        })
+        .unwrap();
+    let sid = text(&paper, "id");
+    s.save_attempt((sid, 0), json!({"text":"回答"}), 0, false, false, None)
+        .unwrap();
+    s.submit_paper(sid, true).unwrap();
+    s.prepare_grade(sid, 0, false).unwrap();
+    s.manual_score(sid, 0, 75, "部分得分").unwrap();
+    s.delete_bank(&bank).unwrap();
+    s.delete_bank(&second).unwrap();
+    assert_eq!(
+        s.questions(Some(new), "", "", "")
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .len(),
+        18
+    );
+    let backup = dir.path().join("exam.zip");
+    s.backup(&backup).unwrap();
+    s.restore(&backup).unwrap();
+    assert_eq!(s.session(sid).unwrap()["attempts"][0]["earnedCents"], 75);
+    assert_eq!(
+        s.connect()
+            .unwrap()
+            .query_row("SELECT count(*) FROM grade_requests", [], |r| r
+                .get::<_, i64>(0))
+            .unwrap(),
+        0
+    );
+    let before = s.banks().unwrap();
+    assert!(s
+        .merge_banks(&[new.into(), "deleted".into()], "bad")
+        .is_err());
+    assert_eq!(before, s.banks().unwrap());
+    let session = s.start(Some(new), "", "true_false", "", false, 1).unwrap();
+    let sid = text(&session, "id");
+    s.save_attempt((sid, 0), json!({"value":false}), 0, false, false, None)
+        .unwrap();
+    let done = s.submit_paper(sid, true).unwrap();
+    assert_eq!(done["attempts"][0]["skipped"], false);
+    assert!(s
+        .start(Some(new), "", "true_false", "", false, 999)
+        .is_err());
+    let unattempted = s
+        .questions(Some(new), "", "true_false", "unattempted")
+        .unwrap();
+    assert_eq!(unattempted.as_array().unwrap().len(), 1);
 }

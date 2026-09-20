@@ -11,3 +11,5 @@
 - `make app-check AI_PYTHON=/path/to/python3.14` and `make app-build` from the repository root are the acceptance commands.
 
 Source-document import supports PDF, TXT, CSV and PNG/JPEG images. Word is unsupported; direct users to export PDF. Do not restore Word parsers or LibreOffice dependencies. The desktop sidebar has one unified import page for offline JSON import and AI parsing/task management.
+
+Subjective grading is allowed only after an explicit user grading or retry action. Parsing still extracts supplied answers, scores and rubrics without solving questions. Grading requires a reference answer or explicit rubric; missing evidence remains ungraded. Reuse the bundled AI service and model call safeguards; keep exam answers, score snapshots and manual overrides local and preserve them in backups.

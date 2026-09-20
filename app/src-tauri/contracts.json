@@ -502,6 +502,47 @@
             "description": "Extract only an answer explicitly supplied by the source; never solve the question. Use null when absent.",
             "title": "Answerpayload"
           },
+          "sourceScore": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "maximum": 1000000,
+                "multipleOf": 0.01,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Sourcescore"
+          },
+          "scoringRubric": {
+            "anyOf": [
+              {
+                "maxLength": 100000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Scoringrubric"
+          },
+          "scoreSourceText": {
+            "anyOf": [
+              {
+                "maxLength": 100000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Scoresourcetext"
+          },
           "analysis": {
             "anyOf": [
               {

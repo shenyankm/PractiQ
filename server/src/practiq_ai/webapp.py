@@ -22,6 +22,7 @@ from practiq_ai.contracts import (
     DocumentUploadResponse,
 )
 from practiq_ai.errors import DocumentProcessingError
+from practiq_ai.grading import GradeRequest, digest_payload, grade
 from practiq_ai.middleware import JsonBodyLimitMiddleware, SecurityHeadersMiddleware
 from practiq_ai.storage import get_object_store
 from practiq_ai.telemetry import configure_logging, registry
@@ -180,3 +181,10 @@ async def readiness() -> Response:
     from .runtime import current
     ready = current is not None and await current.ready()
     return Response(status_code=200 if ready else 503)
+
+
+@app.post("/api/subjective-grades", dependencies=[Depends(authorize), Depends(upload_slot)])
+async def subjective_grade(request: GradeRequest, http_request: Request) -> dict:
+    if digest_payload(await http_request.json()) != request.inputDigest:
+        raise HTTPException(422, "评分输入摘要不匹配")
+    return await _task_response(grade(request))

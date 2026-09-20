@@ -1,3 +1,4 @@
+import { StudySetup } from "./StudySetup";
 import { ImportPage } from "./ImportPage";
 import logo from "../../server/assets/logo/practiq-octopus-a5.png";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -115,8 +116,8 @@ export default function App() {
     action: () => Promise<void>;
   } | null>(null);
   const [practiceSetup, setPracticeSetup] = useState(false);
-  const [random, setRandom] = useState(false);
-  const [count, setCount] = useState(20);
+  const [mergeSelection, setMergeSelection] = useState<string[]>([]);
+  const [mergeTitle,setMergeTitle]=useState("");
   const [settingsRevision, setSettingsRevision] = useState(0);
   const [info, setInfo] = useState<{
     dataDirectory: string;
@@ -342,6 +343,8 @@ export default function App() {
                 处理中…
               </span>
             )}
+
+          {page === "banks" && <Button variant="outline" disabled={busy || !banks.length} onClick={()=>setPracticeSetup(true)}>练习 / 自测 / 模考</Button>}
             {page === "banks" && (
               <Button disabled={busy} onClick={() => navigate("import")}>
                 <Upload />
@@ -373,7 +376,6 @@ export default function App() {
                 <Button
                   disabled={busy || !questions.length || loading}
                   onClick={() => {
-                    setCount(Math.min(20, questions.length));
                     setPracticeSetup(true);
                   }}
                 >
@@ -385,6 +387,7 @@ export default function App() {
           </div>
         </header>
         <div className="flex-1 overflow-y-auto p-8">
+            {page === "banks" && banks.length>1 && <section className="space-y-3 rounded-lg border p-4"><p>合并到新题库（保留原库和重复题，不继承作答历史）</p><div className="flex flex-wrap gap-3">{banks.map(b=><label key={b.id}><input type="checkbox" checked={mergeSelection.includes(b.id)} onChange={e=>setMergeSelection(e.target.checked?[...mergeSelection,b.id]:mergeSelection.filter(id=>id!==b.id))}/>{b.title}（{b.count} 题）</label>)}</div><Input aria-label="合并后的题库名称" placeholder="新题库名称" value={mergeTitle} onChange={e=>setMergeTitle(e.target.value)}/><Button disabled={busy||mergeSelection.length<2||!mergeTitle.trim()} onClick={()=>setConfirm({title:"复制合并题库",description:`将复制 ${banks.filter(b=>mergeSelection.includes(b.id)).reduce((n,b)=>n+b.count,0)} 题到「${mergeTitle}」，原库保留。`,action:async()=>{await api({type:"merge_banks",bank_ids:mergeSelection,title:mergeTitle});setMergeSelection([]);setMergeTitle("");await reload();toast.success("合并完成");}})}>预览并合并题库</Button></section>}
           {page === "banks" && (
             <div className="grid grid-cols-2 gap-5 xl:grid-cols-3">
               {banks.map((b) => (
@@ -476,6 +479,8 @@ export default function App() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">全部题型</SelectItem>
+                    <SelectItem value="single">单选题</SelectItem>
+                    <SelectItem value="multiple">多选题</SelectItem>
                     {Object.entries(modeNames).map(([v, label]) => (
                       <SelectItem key={v} value={v}>
                         {label}
@@ -629,12 +634,13 @@ export default function App() {
                         <div className="flex items-center gap-3">
                           <h2 className="font-medium">{s.title}</h2>
                           <Badge variant="secondary">
-                            {s.finishedAt ? "已结束" : "进行中"}
+                            {s.finishedAt ? "已结束" : s.submittedAt ? "待核对" : "进行中"}
                           </Badge>
                         </div>
                         <p className="text-sm text-muted-foreground">
                           {date(s.createdAt)} · {duration(s.elapsedMs)}
                         </p>
+                        {s.kind && s.kind!=="practice" && <p>{s.pendingGrades?"暂定成绩":"成绩"}：{(s.earnedCents||0)/100} / {(s.totalCents||0)/100} 分 · 待评分 {s.pendingGrades} 题</p>}
                         <p className="text-sm">
                           已提交 {s.answered}/{s.count} · 正确率{" "}
                           {s.graded
@@ -642,7 +648,7 @@ export default function App() {
                             : "—"}
                           （{s.correct}/{s.graded}） · 自动判定 {s.autoGraded} ·
                           自评 {s.selfGraded} · 跳过 {s.skipped} · 未判定{" "}
-                          {s.answered - s.graded - s.skipped}
+                          {s.kind && s.kind!=="practice" ? s.pendingGrades : s.answered - s.graded - s.skipped}
                         </p>
                       </div>
                       <Button
@@ -657,7 +663,7 @@ export default function App() {
                           })
                         }
                       >
-                        {s.finishedAt ? "查看记录" : "继续练习"}
+                        {s.finishedAt ? "查看记录" : s.submittedAt ? "核对评分" : "继续练习"}
                         <ChevronRight />
                       </Button>
                     </CardContent>
@@ -997,59 +1003,7 @@ export default function App() {
           </DialogContent>
         </Dialog>
       )}
-      <Dialog open={practiceSetup} onOpenChange={setPracticeSetup}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>开始一次练习</DialogTitle>
-            <DialogDescription>
-              使用当前筛选下的 {questions.length} 道题目。
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <Label htmlFor="questionCount">题目数量</Label>
-            <Input
-              id="questionCount"
-              type="number"
-              min={1}
-              max={Math.min(1000, questions.length)}
-              value={count}
-              onChange={(e) => setCount(Number(e.target.value))}
-            />
-            <Select
-              value={random ? "random" : "ordered"}
-              onValueChange={(v) => setRandom(v === "random")}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ordered">顺序练习</SelectItem>
-                <SelectItem value="random">随机练习</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <DialogFooter>
-            <Button
-              disabled={
-                busy || count < 1 || count > 1000 || !Number.isInteger(count)
-              }
-              onClick={() =>
-                run(async () => {
-                  await flushRef.current();
-                  setSession(
-                    await api({ type: "start", ...query, random, count }),
-                  );
-                  setPracticeSetup(false);
-                  setPage("practice");
-                })
-              }
-            >
-              开始练习
-              <Play />
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {practiceSetup && <StudySetup banks={banks} initialBank={page === "questions" ? bank : null} initialFilter={filter} initialMode={mode} initialSearch={search} busy={busy} run={run} onClose={()=>setPracticeSetup(false)} onStart={async s=>{await flushRef.current();setSession(s);setPracticeSetup(false);setPage("practice");}}/>}
       <AlertDialog
         open={!!confirm}
         onOpenChange={(v) => {

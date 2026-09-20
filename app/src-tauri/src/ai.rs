@@ -21,6 +21,11 @@ use tauri_plugin_dialog::DialogExt;
 #[derive(Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum AiRequest {
+    Grade {
+        id: String,
+        ordinal: usize,
+        retry: bool,
+    },
     List {
         offset: usize,
     },
@@ -145,6 +150,9 @@ impl Process {
             .client
             .request(method, format!("{}{path}", self.origin))
             .bearer_auth(&self.token);
+        if path == "/api/subjective-grades" {
+            request = request.timeout(Duration::from_secs(900));
+        }
         if let Some(body) = body {
             request = request.json(body);
         }
@@ -238,6 +246,28 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> Res
     }
     let process = state.as_ref().ok_or("解析服务不可用")?;
     match request {
+        AiRequest::Grade { id, ordinal, retry } => {
+            let payload = shared
+                .lock()
+                .map_err(|_| "数据库不可用")?
+                .prepare_grade(&id, ordinal, retry)?;
+            let response = match process.json(
+                Method::POST,
+                "/api/subjective-grades",
+                Some(&payload),
+            ) {
+                Ok(value) => value,
+                Err(message) => {
+                    serde_json::json!({"status":"unknown","error":message,"usageStatus":"unknown"})
+                }
+            };
+            shared.lock().map_err(|_| "数据库不可用")?.record_grade(
+                &id,
+                ordinal,
+                contract::text(&payload, "requestId"),
+                &response,
+            )
+        }
         AiRequest::List { offset } => {
             if offset > 1_000_000 {
                 return Err("分页参数无效".into());

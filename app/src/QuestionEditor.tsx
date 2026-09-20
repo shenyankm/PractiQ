@@ -322,6 +322,14 @@ export function QuestionEditor({
             />
           </div>
           <div className="space-y-2">
+            <Label htmlFor="sourceScore">原卷分值（没有则留空）</Label>
+            <Input id="sourceScore" type="number" min="0.01" max="1000000" step="0.01" value={q.sourceScore ?? ""} onChange={e => patch({sourceScore: e.target.value === "" ? null : Number(e.target.value)})}/>
+            <Label htmlFor="scoringRubric">原文评分细则</Label>
+            <Textarea id="scoringRubric" value={q.scoringRubric || ""} onChange={e => patch({scoringRubric:e.target.value || null})}/>
+            <Label htmlFor="scoreSourceText">分值与细则的原文依据</Label>
+            <Textarea id="scoreSourceText" value={q.scoreSourceText || ""} onChange={e => patch({scoreSourceText:e.target.value || null})}/>
+          </div>
+          <div className="space-y-2">
             <Label htmlFor="analysis">解析</Label>
             <Textarea
               id="analysis"

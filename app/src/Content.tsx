@@ -81,9 +81,11 @@ function ImageAsset({ visual }: { visual: Visual }) {
 export function Content({
   snapshot,
   source = false,
+  exam = false,
 }: {
   snapshot: Snapshot;
   source?: boolean;
+  exam?: boolean;
 }) {
   const q = snapshot.question;
   return (
@@ -105,7 +107,7 @@ export function Content({
         </section>
       ))}
       <Markdown>
-        {q.stem || q.sourceText || "此题题干缺失，请查看以下内容或跳过。"}
+        {q.stem || (!exam && q.sourceText) || "此题题干缺失，请查看以下内容或跳过。"}
       </Markdown>
       {q.contentBlocks.map((b, i) => (
         <div key={i}>

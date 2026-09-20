@@ -1,0 +1,11 @@
+BEGIN IMMEDIATE;
+ALTER TABLE sessions ADD COLUMN kind TEXT NOT NULL DEFAULT 'practice' CHECK(kind IN ('practice','self_test','mock_exam'));
+ALTER TABLE sessions ADD COLUMN deadline_at INTEGER;
+ALTER TABLE sessions ADD COLUMN submitted_at INTEGER;
+ALTER TABLE attempts ADD COLUMN max_cents INTEGER CHECK(max_cents > 0);
+ALTER TABLE attempts ADD COLUMN earned_cents INTEGER CHECK(earned_cents >= 0 AND earned_cents <= max_cents);
+ALTER TABLE attempts ADD COLUMN flagged INTEGER NOT NULL DEFAULT 0 CHECK(flagged IN (0,1));
+ALTER TABLE attempts ADD COLUMN grading TEXT NOT NULL DEFAULT '{}' CHECK(json_valid(grading));
+CREATE TABLE grade_requests(id TEXT PRIMARY KEY,session_id TEXT NOT NULL REFERENCES sessions(id),ordinal INTEGER NOT NULL,input TEXT NOT NULL CHECK(json_valid(input)),response TEXT CHECK(response IS NULL OR json_valid(response)),created_at INTEGER NOT NULL);
+PRAGMA user_version=5;
+COMMIT;

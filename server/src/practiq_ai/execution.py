@@ -35,7 +35,7 @@ def fingerprint(value: Any) -> str:
 @lru_cache(maxsize=1)
 def code_version() -> str:
     root = Path(__file__).parent
-    paths = [root / name for name in ("contracts.py", "llm.py", "execution.py", "config.py", "storage.py", "json_repair.py", "capacity.py", "telemetry.py", "runtime.py", "database.py", "task_api.py")]
+    paths = [root / name for name in ("contracts.py", "grading.py", "llm.py", "execution.py", "config.py", "storage.py", "json_repair.py", "capacity.py", "telemetry.py", "runtime.py", "database.py", "task_api.py")]
     paths.extend(sorted((root / "graphs").glob("*.py")))
     paths.extend(sorted((root / "extractors").glob("*.py")))
     bundled_lock = root / "uv.lock"

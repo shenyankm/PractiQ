@@ -71,6 +71,8 @@ fn normalize(q: &mut Value) {
             "matchingVariant",
             "analysis",
             "sourceText",
+            "scoringRubric",
+            "scoreSourceText",
         ] {
             if let Some(Value::String(s)) = obj.get_mut(key) {
                 *s = s.trim().to_owned();

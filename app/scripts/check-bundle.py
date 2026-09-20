@@ -87,6 +87,14 @@ def run(bundle,output):
                                 reference=visual['imageRef'];image=client.post('/api/artifacts/read',json=reference)
                                 image.raise_for_status();assert hashlib.sha256(image.content).hexdigest()==reference['sha256']
                     assert len(client.get('/api/document-tasks').json()['items'])==4
+                    assert client.post('/api/subjective-grades',json={},headers={'Authorization':''}).status_code==401
+                    grade_payload={'requestId':str(uuid4()),'question':{'stem':'Synthetic subjective question','answerMode':'short_answer','questionTypeId':'简答','answerPayload':{'text':'Reference evidence'}},'answer':'Student answer','maxCents':500}
+                    grade_payload['inputDigest']=hashlib.sha256(json.dumps({k:v for k,v in grade_payload.items() if k!='requestId'},sort_keys=True,ensure_ascii=False,separators=(',',':')).encode()).hexdigest()
+                    graded=client.post('/api/subjective-grades',json=grade_payload);graded.raise_for_status()
+                    result=graded.json();assert result['status']=='graded' and result['result']['scoreCents']==300,result
+                    assert len(result['usage'])==1 and len(result['calls'])==1
+                    assert client.post('/api/subjective-grades',json=grade_payload).json()==result
+                    report['subjectiveGrading']={'passed':True,'scoreCents':300,'replayIdentical':True,'usageCalls':len(result['usage'])}
                 process.stdin.close();process.wait(timeout=20)
                 assert process.returncode==0,(root/'stderr.log').read_text()[-8000:]
                 report['passed']=True

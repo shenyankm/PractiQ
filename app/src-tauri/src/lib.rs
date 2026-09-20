@@ -2,6 +2,7 @@ mod ai;
 mod assets;
 mod backup;
 mod contract;
+mod exams;
 mod settings;
 mod store;
 #[cfg(test)]
@@ -34,6 +35,8 @@ enum Request {
         id: String,
     },
     Questions {
+        #[serde(default)]
+        bank_ids: Vec<String>,
         bank_id: Option<String>,
         search: String,
         mode: String,
@@ -63,6 +66,34 @@ enum Request {
         id: String,
     },
     Sessions,
+    StartPaper {
+        paper: exams::Paper,
+    },
+    SubmitPaper {
+        id: String,
+        submit_drafts: bool,
+    },
+    CompleteReview {
+        id: String,
+    },
+    Flag {
+        id: String,
+        ordinal: usize,
+        value: bool,
+    },
+    ManualScore {
+        id: String,
+        ordinal: usize,
+        cents: i64,
+        reason: String,
+    },
+    RetryWrong {
+        id: String,
+    },
+    MergeBanks {
+        bank_ids: Vec<String>,
+        title: String,
+    },
     SaveAttempt {
         id: String,
         ordinal: usize,
@@ -133,13 +164,20 @@ async fn request(
             Request::Banks=>store.banks(),
             Request::SaveBank{id,title,description}=>store.save_bank(id,&title,&description),
             Request::DeleteBank{id}=>store.delete_bank(&id),
-            Request::Questions{bank_id,search,mode,filter}=>store.questions(bank_id.as_deref(),&search,&mode,&filter),
+            Request::Questions{bank_id,bank_ids,search,mode,filter}=>store.questions_multi(bank_id.as_deref(),&bank_ids,&search,&mode,&filter),
             Request::SaveQuestion{id,bank_id,question}=>store.save_question(id,&bank_id,question),
             Request::DeleteQuestion{id}=>store.delete_question(&id),
             Request::Favorite{id,value}=>store.favorite(&id,value),
             Request::Start{bank_id,search,mode,filter,random,count}=>store.start(bank_id.as_deref(),&search,&mode,&filter,random,count),
             Request::Session{id}=>store.session(&id),
             Request::Sessions=>store.sessions(),
+            Request::StartPaper{paper}=>store.start_paper(paper),
+            Request::SubmitPaper{id,submit_drafts}=>store.submit_paper(&id,submit_drafts),
+            Request::CompleteReview{id}=>store.complete_review(&id),
+            Request::Flag{id,ordinal,value}=>store.flag(&id,ordinal,value),
+            Request::ManualScore{id,ordinal,cents,reason}=>store.manual_score(&id,ordinal,cents,&reason),
+            Request::RetryWrong{id}=>store.retry_wrong(&id),
+            Request::MergeBanks{bank_ids,title}=>store.merge_banks(&bank_ids,&title),
             Request::SaveAttempt{id,ordinal,answer,elapsed_ms,submit,skip,self_result}=>store.save_attempt((&id, ordinal),answer,elapsed_ms,submit,skip,self_result),
             Request::Position{id,position}=>store.position(&id,position),
             Request::Finish{id}=>store.finish(&id),
