@@ -97,12 +97,12 @@ export function QuestionEditor({
         <fieldset disabled={busy} className="space-y-5">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>答题方式</Label>
+              <Label htmlFor="answer-mode">答题方式</Label>
               <Select
                 value={q.answerMode || ""}
                 onValueChange={(v) => mode(v as Mode)}
               >
-                <SelectTrigger className="w-full">
+                <SelectTrigger id="answer-mode" className="w-full">
                   <SelectValue placeholder="选择答题方式" />
                 </SelectTrigger>
                 <SelectContent>
@@ -133,7 +133,7 @@ export function QuestionEditor({
                 })
               }
             >
-              <SelectTrigger>
+              <SelectTrigger aria-label="选择题类型">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -152,7 +152,7 @@ export function QuestionEditor({
                 })
               }
             >
-              <SelectTrigger>
+              <SelectTrigger aria-label="匹配类型">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

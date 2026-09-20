@@ -82,7 +82,7 @@ it("keeps JSON import usable without models and preserves the destination bank",
   expect(vi.mocked(invoke).mock.calls.some(([,args]) => (args as {request:{type:string}}).request.type === "list")).toBe(false);
   await userEvent.click(screen.getByRole("button", { name: "选择题库 JSON" }));
   const dialog = await screen.findByRole("dialog");
-  expect(within(dialog).getByRole("combobox").textContent).toContain(
+  expect(within(dialog).getByRole("combobox", { name: "导入到" }).textContent).toContain(
     "现有题库",
   );
   await waitFor(() =>
@@ -151,7 +151,7 @@ it("opens study setup from each bank card with that bank selected", async () => 
     const dialog = await screen.findByRole("dialog");
     await userEvent.click(within(dialog).getByText(/高级设置/, { selector: "summary" }));
     for (const [i, bank] of banks.entries()) {
-      expect((within(dialog).getByRole("checkbox", { name: `${bank.title}（${bank.count}）` }) as HTMLInputElement).checked).toBe(i === index);
+      expect(within(dialog).getByRole("checkbox", { name: `${bank.title}（${bank.count}）` }).getAttribute("aria-checked")).toBe(String(i === index));
     }
     await waitFor(() => expect(api).toHaveBeenCalledWith({ type: "questions", bank_id: null, bank_ids: [banks[index].id], search: "", mode: "", filter: "" }));
     await userEvent.keyboard("{Escape}");

@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { api, errorMessage, type Bank, type Session, type SessionKind, type QuestionRow } from "./api";
 import { allocate, cents, questionType, sample, types } from "./paper";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
@@ -59,7 +61,6 @@ export function StudySetup({banks, initialBank, initialFilter, initialMode="", i
       run(async () => onStart(await api<Session>({type:"start_paper", paper:{question_ids:picked.map(q => q.id), kind, minutes:kind === "mock_exam" ? minutes : null, scores:values, total_cents:target}})));
     });
   }
-  const selectClass = "h-9 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring";
   const chosen = banks.filter(b => bankIds.includes(b.id));
   const selectedCount = selection === "count" ? count : selection === "manual" ? selected.length : Object.values(quotas).reduce((a, b) => a + b, 0);
   return <Dialog open onOpenChange={v => { if (!v && !busy) onClose(); }}>
@@ -67,26 +68,26 @@ export function StudySetup({banks, initialBank, initialFilter, initialMode="", i
       <DialogHeader className="shrink-0 pr-8"><DialogTitle>开始练习或考试</DialogTitle><DialogDescription>{kind === "practice" ? "选择题数即可开始；跨题库和题型筛选在高级设置中。" : "先预览题目与配分，再开始考试。更改选题或总分后需重新预览。"}</DialogDescription></DialogHeader>
       <fieldset disabled={busy} className="min-h-0 min-w-0 space-y-5 overflow-y-auto p-1 text-sm">
         <div className="grid grid-cols-2 gap-4">
-          <label className="grid gap-2 font-medium">模式<select className={selectClass} value={kind} onChange={e => { setKind(e.target.value as SessionKind); invalidate(); }}><option value="practice">即时反馈练习</option><option value="self_test">不限时自测</option><option value="mock_exam">限时模考</option></select></label>
+          <label className="grid gap-2 font-medium">模式<NativeSelect disabled={busy} className="w-full" value={kind} onChange={e => { setKind(e.target.value as SessionKind); invalidate(); }}><NativeSelectOption value="practice">即时反馈练习</NativeSelectOption><NativeSelectOption value="self_test">不限时自测</NativeSelectOption><NativeSelectOption value="mock_exam">限时模考</NativeSelectOption></NativeSelect></label>
           {kind === "mock_exam" && <label className="grid gap-2 font-medium">考试时长（分钟）<Input aria-label="考试分钟数" type="number" min={1} max={1440} value={minutes} onChange={e => setMinutes(Number(e.target.value))}/></label>}
           {selection === "count" && <label className="grid gap-2 font-medium">题目数量<Input type="number" min={1} max={Math.min(1000, rows.length)} value={count} onChange={e => { setCount(Number(e.target.value)); invalidate(); }}/></label>}
           {kind !== "practice" && <label className="grid gap-2 font-medium">考试总分<Input value={total} onChange={e => { setTotal(e.target.value); invalidate(); }}/></label>}
         </div>
-        {selection !== "manual" && <label className="flex items-center gap-2">出题顺序<select aria-label="出题顺序" className={selectClass + " max-w-40"} value={random ? "random" : "ordered"} onChange={e => { setRandom(e.target.value === "random"); invalidate(); }}><option value="ordered">顺序练习</option><option value="random">随机抽题</option></select></label>}
+        {selection !== "manual" && <label className="flex items-center gap-2">出题顺序<NativeSelect disabled={busy} aria-label="出题顺序" className="w-full max-w-40" value={random ? "random" : "ordered"} onChange={e => { setRandom(e.target.value === "random"); invalidate(); }}><NativeSelectOption value="ordered">顺序练习</NativeSelectOption><NativeSelectOption value="random">随机抽题</NativeSelectOption></NativeSelect></label>}
         <details className="rounded-lg border p-4">
           <summary className="cursor-pointer font-medium">高级设置 · 题库、筛选与选题方式</summary>
           <div className="mt-4 space-y-5">
             <fieldset><legend className="mb-2 font-medium">选择题库</legend><div className="mb-3 flex gap-2"><Button variant="outline" onClick={() => { setBanks(banks.filter(b => b.count > 0).map(b => b.id)); invalidate(); }}>全选可用题库</Button><Button variant="ghost" onClick={() => { setBanks([]); invalidate(); }}>清空选择</Button></div>
-              <div className="grid grid-cols-2 gap-2">{banks.map(b => <label className="flex min-w-0 items-start gap-2 rounded-lg border p-3 has-checked:border-primary has-checked:bg-primary/5" key={b.id}><input className="mt-0.5 size-4 shrink-0 accent-primary" type="checkbox" disabled={!b.count} checked={bankIds.includes(b.id)} onChange={e => { setBanks(e.target.checked ? [...bankIds, b.id] : bankIds.filter(id => id !== b.id)); invalidate(); }}/><span className="min-w-0 break-words">{b.title}（{b.count}）</span></label>)}</div>
+              <div className="grid grid-cols-2 gap-2">{banks.map(b => <label className="flex min-w-0 items-start gap-2 rounded-lg border p-3 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5" key={b.id}><Checkbox className="mt-0.5" disabled={busy || !b.count} checked={bankIds.includes(b.id)} onCheckedChange={checked => { setBanks(checked === true ? [...bankIds, b.id] : bankIds.filter(id => id !== b.id)); invalidate(); }}/><span className="min-w-0 break-words">{b.title}（{b.count}）</span></label>)}</div>
             </fieldset>
             <div className="grid grid-cols-2 gap-4">
-              <label className="grid gap-2">题型<select className={selectClass} value={mode} onChange={e => { setMode(e.target.value); invalidate(); }}><option value="">全部题型</option><option value="choice">全部选择题</option>{Object.entries(types).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
-              <label className="grid gap-2">范围<select className={selectClass} value={filter} onChange={e => { setFilter(e.target.value); invalidate(); }}>{[["","全部"],["wrong","错题"],["favorite","收藏"],["unattempted","未做题"]].map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
+              <label className="grid gap-2">题型<NativeSelect disabled={busy} className="w-full" value={mode} onChange={e => { setMode(e.target.value); invalidate(); }}><NativeSelectOption value="">全部题型</NativeSelectOption><NativeSelectOption value="choice">全部选择题</NativeSelectOption>{Object.entries(types).map(([k, v]) => <NativeSelectOption key={k} value={k}>{v}</NativeSelectOption>)}</NativeSelect></label>
+              <label className="grid gap-2">范围<NativeSelect disabled={busy} className="w-full" value={filter} onChange={e => { setFilter(e.target.value); invalidate(); }}>{[["","全部"],["wrong","错题"],["favorite","收藏"],["unattempted","未做题"]].map(([k, v]) => <NativeSelectOption key={k} value={k}>{v}</NativeSelectOption>)}</NativeSelect></label>
             </div>
             <label className="grid gap-2">关键词<Input aria-label="搜索题目" placeholder="搜索题干或关键词" value={search} onChange={e => { setSearch(e.target.value); invalidate(); }}/></label>
-            <label className="grid gap-2">选题方式<select className={selectClass} value={selection} onChange={e => { setSelection(e.target.value); invalidate(); }}><option value="count">总题数</option><option value="quota">按题型数量</option><option value="manual">手动选择</option></select></label>
+            <label className="grid gap-2">选题方式<NativeSelect disabled={busy} className="w-full" value={selection} onChange={e => { setSelection(e.target.value); invalidate(); }}><NativeSelectOption value="count">总题数</NativeSelectOption><NativeSelectOption value="quota">按题型数量</NativeSelectOption><NativeSelectOption value="manual">手动选择</NativeSelectOption></NativeSelect></label>
             {selection === "quota" && <div className="grid grid-cols-3 gap-3">{Object.entries(types).map(([k, v]) => <label className="grid gap-2" key={k}>{v}（可用 {rows.filter(q => questionType(q.question) === k).length}）<Input aria-label={`${v}题数`} type="number" min={0} value={quotas[k] || 0} onChange={e => { setQuotas({...quotas, [k]:Number(e.target.value)}); invalidate(); }}/></label>)}</div>}
-            {selection === "manual" && <div className="space-y-2">{rows.map(q => <label key={q.id} className="flex items-start gap-2 rounded-md border p-3"><input className="mt-0.5 size-4 shrink-0" type="checkbox" checked={selected.includes(q.id)} onChange={e => { setSelected(e.target.checked ? [...selected, q.id] : selected.filter(id => id !== q.id)); invalidate(); }}/>{q.question.stem || "题干缺失"}</label>)}</div>}
+            {selection === "manual" && <div className="space-y-2">{rows.map(q => <label key={q.id} className="flex items-start gap-2 rounded-md border p-3"><Checkbox className="mt-0.5" disabled={busy} checked={selected.includes(q.id)} onCheckedChange={checked => { setSelected(checked === true ? [...selected, q.id] : selected.filter(id => id !== q.id)); invalidate(); }}/>{q.question.stem || "题干缺失"}</label>)}</div>}
           </div>
         </details>
         {kind !== "practice" && !!preview.length && <section className="space-y-4 rounded-xl border p-4"><h3 className="font-semibold">选题与配分预览 · {preview.length} 题</h3><p className="text-muted-foreground">材料题按子题计数，原卷分值仅供参考。</p>

@@ -6,6 +6,8 @@ import { QuestionPreview } from "./QuestionPreview";
 import { Markdown } from "./Content";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import {
   Dialog,
@@ -407,14 +409,13 @@ export function AiTasks({
           {rows.map((r) => (
             <div key={r.threadId} className="rounded border p-2">
               <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
+                <Checkbox
                   aria-label={`选择 ${r.fileName}`}
-                  disabled={r.state !== "COMPLETED"}
+                  disabled={busy || r.state !== "COMPLETED"}
                   checked={checked.includes(r.threadId)}
-                  onChange={(e) =>
+                  onCheckedChange={(checked) =>
                     setChecked((v) =>
-                      e.target.checked
+                      checked === true
                         ? [...v, r.threadId]
                         : v.filter((id) => id !== r.threadId),
                     )
@@ -440,7 +441,12 @@ export function AiTasks({
               </p>
             </div>
           ))}
-          {modelsReady && !rows.length && !error && <p className="text-sm text-muted-foreground">暂无解析任务，选择一份文档开始。</p>}
+          {modelsReady && !rows.length && !error && <Empty>
+            <EmptyHeader>
+              <EmptyTitle>暂无解析任务</EmptyTitle>
+              <EmptyDescription>选择文档并开始解析后，可在这里查看任务进度。</EmptyDescription>
+            </EmptyHeader>
+          </Empty>}
           {(offset > 0 || more) && <div className="flex gap-2">
             <Button
               variant="ghost"
