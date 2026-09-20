@@ -4,15 +4,15 @@
 
 # PractiQ
 
-English | [简体中文](README.zh-CN.md)
+English | [Simplified Chinese](README.zh-CN.md)
 
 Turn documents into question banks, then practise and take mock exams on your Mac.
 
-PractiQ combines an offline desktop practice app with a self-hosted AI service. Import an existing PractiQ JSON file without model access, or configure text and vision models to extract questions from documents. Build tests across question banks, review your answers, and request AI scoring for supported short-answer questions.
+PractiQ combines an offline desktop practice app with a self-hosted AI service. Import an existing PractiQ JSON file without model access, or configure a model supporting text and image inputs to extract questions from documents. Build tests across question banks, review your answers, and request AI scoring for supported short-answer questions.
 
 ## Practise with your own materials
 
-Use the desktop app to manage questions and review your progress:
+The desktop interface is currently in Chinese; control names below are translated into English. Use the desktop app to manage questions and review your progress:
 
 | Task | What you can do |
 | --- | --- |
@@ -28,7 +28,7 @@ Practice, tests, local objective scoring, and manual scoring work offline. Docum
 
 ## Import documents and review results
 
-Open **导入题库** (Import question bank) in the desktop sidebar. Choose a PractiQ `.json` file for offline import, or select a source document and start parsing. Review the extracted questions, images, and warnings before creating a bank or appending to one.
+Open **Import question bank** in the desktop sidebar. Choose a PractiQ `.json` file for offline import, or select a source document and start parsing. Review the extracted questions, images, and warnings before creating a bank or appending to one.
 
 The parser accepts these source formats:
 
@@ -44,11 +44,11 @@ Parsing preserves source answers, explanations, passages, available score values
 
 ## Take a test and review scores
 
-Choose **练习 / 自测 / 模考** (Practice / Self-test / Mock exam) from a question bank, then select questions and preview the paper. Tests default to 100 points; you can change the total, allocate points by type, or edit each question's value. Values use 0.01-point increments and must sum to the total.
+Choose **Practice / Self-test / Mock exam** from a question bank, then select questions and preview the paper. Tests default to 100 points; you can change the total, allocate points by type, or edit each question's value. Values use 0.01-point increments and must sum to the total.
 
 Self-tests have no time limit. Mock exams default to 60 minutes and support 1–1,440 minutes, with up to 1,000 questions. Closing the app or putting your Mac to sleep does not pause the deadline. When you reopen an expired exam, the app submits the last saved answers.
 
-After submission, objective questions use local scoring. Select **AI 评分 / 继续** (AI scoring / Continue) to score eligible short answers against a reference answer or rubric. Missing evidence and failed calls stay ungraded. Review partial credit and explanations, and record manual corrections when needed.
+After submission, objective questions use local scoring. Select **AI scoring / Continue** to score eligible short answers against a reference answer or rubric. Missing evidence and failed calls stay ungraded. Review partial credit and explanations, and record manual corrections when needed.
 
 AI scoring supports personal practice. It is not calibrated for formal examinations. See the [exam acceptance record](app/EXAM_ACCEPTANCE.md) for dated engineering checks, synthetic model tests, and recorded failures.
 
@@ -63,7 +63,7 @@ make app-bundle AI_PYTHON=/path/to/python3.14
 make app-dev
 ```
 
-This builds the bundled Python service before starting the desktop app. You do not need model credentials to import JSON and practise offline. Configure the provider URL, text model, vision model, and API key in **设置** (Settings) when you want parsing or AI scoring.
+This builds the bundled Python service before starting the desktop app. You do not need model credentials to import JSON and practise offline. Configure the provider URL, model ID, and API key in **Settings**. Parsing and AI scoring share this model, which must support text and image inputs.
 
 To build a local application package, run:
 
@@ -75,13 +75,13 @@ The app stores practice data locally and API keys in macOS Keychain. Backups exc
 
 ## Run the AI service independently
 
-For API integration, use the same Python 3.14+ interpreter, uv, a dedicated SQLite directory, and text and vision models. Copy the configuration template once without overwriting existing settings:
+For API integration, use the same Python 3.14+ interpreter, uv, a dedicated SQLite directory, and a model supporting text and image inputs. Copy the configuration template once without overwriting existing settings:
 
 ```sh
 cp -n .env.example .env
 ```
 
-Set the service token, model credentials, both model names, database directory, and file storage in `.env`. Install dependencies, initialize a new database, and start the service:
+Set the service token, model credentials, `LLM_MODEL`, database directory, and file storage in `.env`. Install dependencies, initialize a new database, and start the service:
 
 ```sh
 make install-locked AI_PYTHON=/path/to/python3.14
