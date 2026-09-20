@@ -32,7 +32,7 @@ def service(tmp_path):
     bootstrap = {
         "AI_SERVICE_TOKEN": "e2e-token", "LLM_API_KEY": "synthetic-key",
         "LLM_BASE_URL": f"http://127.0.0.1:{sock.getsockname()[1]}/v1",
-        "LLM_TEXT_MODEL": "synthetic-text", "LLM_VISION_MODEL": "synthetic-vision",
+        "LLM_MODEL": "synthetic-model",
         "AI_DATABASE_DIR": str(tmp_path / "db"), "AI_STORAGE_DIR": str(tmp_path / "files"),
     }
 

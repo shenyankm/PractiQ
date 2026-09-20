@@ -208,7 +208,7 @@ it("guides an empty library to import without requiring AI settings", async () =
 });
 
 it("returns from model setup to the original import destination after saving", async () => {
-  let settings = {config:{base_url:"https://example.com/v1",model_id:null,text_model:"text",vision_model:null as string|null,oss_url:null},hasApiKey:true};
+  let settings = {config:{base_url:"https://example.com/v1",model_id:null as string|null,oss_url:null},hasApiKey:true};
   vi.mocked(api).mockImplementation(async r => {
     if (r.type === "banks") return [{id:"bank",title:"追加目标",count:0,description:""}] as never;
     if (r.type === "info") return {version:"test",dataDirectory:"/tmp/test"} as never;
@@ -223,7 +223,7 @@ it("returns from model setup to the original import destination after saving", a
   await waitFor(() => expect(entry.hasAttribute("disabled")).toBe(false));
   await userEvent.click(entry);
   await userEvent.click(await screen.findByRole("button",{name:"配置 AI 模型"}));
-  const vision = await screen.findByLabelText("视觉模型");
+  const vision = await screen.findByLabelText("模型 ID");
   await waitFor(() => expect(vision.closest("fieldset")?.disabled).toBe(false));
   await userEvent.type(vision,"vision");
   await userEvent.click(screen.getByRole("button",{name:"保存并返回导入"}));

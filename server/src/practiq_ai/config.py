@@ -16,8 +16,7 @@ SERVER_ROOT = Path(__file__).resolve().parents[2]
 class Config:
     provider: str
     api_key: str
-    vision_model: str
-    text_model: str
+    model_id: str
     storage_dir: Path
     source_max_bytes: int
     vision_max_bytes: int
@@ -123,7 +122,7 @@ def load() -> Config:
     method = values.get("AI_STRUCTURED_OUTPUT_METHOD", "function_calling")
     if method not in {"auto", "json_schema", "function_calling"}:
         raise ValueError("AI_STRUCTURED_OUTPUT_METHOD must be auto, json_schema or function_calling")
-    vision_model = _required(values, "LLM_VISION_MODEL")
+    model_id = _required(values, "LLM_MODEL")
     jobs_per_worker = _positive_int(values, "N_JOBS_PER_WORKER", 8)
     graph_max_concurrency = _positive_int(values, "AI_GRAPH_MAX_CONCURRENCY", 2)
     if jobs_per_worker * graph_max_concurrency > 16:
@@ -171,8 +170,7 @@ def load() -> Config:
         **oss_settings,
         provider=provider,
         api_key=_required(values, "LLM_API_KEY"),
-        vision_model=vision_model,
-        text_model=_required(values, "LLM_TEXT_MODEL"),
+        model_id=model_id,
         storage_dir=storage_path(storage_dir),
         source_max_bytes=_positive_int(values, "AI_SOURCE_MAX_BYTES", 25 * MIB),
         vision_max_bytes=_positive_int(values, "AI_MAX_VISION_BYTES", 50 * MIB),

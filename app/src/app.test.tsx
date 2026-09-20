@@ -136,8 +136,6 @@ it("stores model and OSS configuration without returning an API key to the form"
   const config = {
     base_url: "https://api.example.com/v1",
     model_id: "demo-model",
-    text_model: "demo-model",
-    vision_model: "vision-model",
     oss_url: "https://bucket.example.com",
   };
   vi.mocked(api).mockResolvedValue({ config, hasApiKey: true });
@@ -150,10 +148,13 @@ it("stores model and OSS configuration without returning an API key to the form"
     />,
   );
   await waitFor(() =>
-    expect((screen.getByLabelText("文本模型") as HTMLInputElement).value).toBe(
+    expect((screen.getByLabelText("模型 ID") as HTMLInputElement).value).toBe(
       "demo-model",
     ),
   );
+  expect(screen.queryByLabelText("供应商地址预设")).toBeNull();
+  expect(screen.queryByLabelText("文本模型")).toBeNull();
+  expect(screen.queryByLabelText("视觉模型")).toBeNull();
   const key = screen.getByLabelText("API Key") as HTMLInputElement;
   expect(key.type).toBe("password");
   expect(key.value).toBe("");

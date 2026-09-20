@@ -13,8 +13,6 @@ pub struct ConnectionSettings {
     pub base_url: Option<String>,
     pub model_id: Option<String>,
     pub oss_url: Option<String>,
-    pub text_model: Option<String>,
-    pub vision_model: Option<String>,
 }
 impl ConnectionSettings {
     pub fn validate(mut self) -> Result<Self> {
@@ -52,21 +50,17 @@ impl ConnectionSettings {
                 *raw = url.to_string().trim_end_matches('/').to_owned();
             }
         }
-        for value in [
-            &mut self.model_id,
-            &mut self.text_model,
-            &mut self.vision_model,
-        ] {
-            *value = value
-                .take()
-                .map(|s| s.trim().to_owned())
-                .filter(|s| !s.is_empty());
-            if value
-                .as_ref()
-                .is_some_and(|s| s.chars().count() > 255 || s.chars().any(char::is_control))
-            {
-                return Err("Model ID 不合法".into());
-            }
+        self.model_id = self
+            .model_id
+            .take()
+            .map(|s| s.trim().to_owned())
+            .filter(|s| !s.is_empty());
+        if self
+            .model_id
+            .as_ref()
+            .is_some_and(|s| s.chars().count() > 255 || s.chars().any(char::is_control))
+        {
+            return Err("Model ID 不合法".into());
         }
         Ok(self)
     }
@@ -106,15 +100,13 @@ impl Store {
     pub fn connection_settings(&self) -> Result<ConnectionSettings> {
         self.connect()?
             .query_row(
-                "SELECT base_url,model_id,oss_url,text_model,vision_model FROM settings WHERE id=1",
+                "SELECT base_url,model_id,oss_url FROM settings WHERE id=1",
                 [],
                 |r| {
                     Ok(ConnectionSettings {
                         base_url: r.get(0)?,
                         model_id: r.get(1)?,
                         oss_url: r.get(2)?,
-                        text_model: r.get(3)?,
-                        vision_model: r.get(4)?,
                     })
                 },
             )
@@ -148,8 +140,8 @@ impl Store {
         let mut db = self.connect()?;
         let tx = db.transaction().map_err(|e| e.to_string())?;
         tx.execute(
-            "UPDATE settings SET base_url=?1,model_id=?2,oss_url=?3,text_model=?4,vision_model=?5 WHERE id=1",
-            params![config.base_url, config.model_id, config.oss_url, config.text_model, config.vision_model],
+            "UPDATE settings SET base_url=?1,model_id=?2,oss_url=?3 WHERE id=1",
+            params![config.base_url, config.model_id, config.oss_url],
         )
         .map_err(|e| e.to_string())?;
         let previous = if let (Some(base), Some(key)) = (&config.base_url, &api_key) {

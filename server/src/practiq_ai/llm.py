@@ -69,13 +69,11 @@ def collect_usage() -> Iterator[list[ModelCallUsage]]:
         _USAGE.reset(token)
 
 
-@lru_cache(maxsize=2)
-def get_model(kind: str = "vision") -> ChatOpenAI:
-    if kind not in {"text", "vision"}:
-        raise ValueError("Unknown model kind")
+@lru_cache(maxsize=1)
+def get_model() -> ChatOpenAI:
     config = load()
     return build_model(
-        config.provider, config.api_key, config.text_model if kind == "text" else config.vision_model,
+        config.provider, config.api_key, config.model_id,
         max_tokens=config.model_max_tokens, timeout=config.model_timeout_seconds, base_url=config.base_url,
     )
 

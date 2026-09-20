@@ -233,7 +233,7 @@ fn validate_database(path: &Path) -> Result<i64> {
     let version: i64 = db
         .query_row("PRAGMA user_version", [], |r| r.get(0))
         .map_err(err)?;
-    if ![1, 2, 3, 4, 5, 6].contains(&version) {
+    if ![1, 2, 3, 4, 5, 6, 7].contains(&version) {
         return Err("备份数据库版本不兼容".into());
     }
     let schema = |db: &Connection| -> Result<Vec<String>> {
@@ -273,27 +273,46 @@ fn validate_database(path: &Path) -> Result<i64> {
             .execute_batch(include_str!("ai_imports.sql"))
             .map_err(err)?;
     }
+    if version >= 7 {
+        expected
+            .execute_batch(include_str!("single_model.sql"))
+            .map_err(err)?;
+    }
     if schema(&db)? != schema(&expected)? {
         return Err("备份数据库结构不受支持".into());
     }
     if version >= 2 {
-        let query = if version >= 4 {
-            "SELECT base_url,model_id,oss_url,text_model,vision_model FROM settings WHERE id=1"
-        } else {
-            "SELECT base_url,model_id,oss_url,NULL,NULL FROM settings WHERE id=1"
-        };
         let config = db
-            .query_row(query, [], |r| {
-                Ok(crate::settings::ConnectionSettings {
-                    base_url: r.get(0)?,
-                    model_id: r.get(1)?,
-                    oss_url: r.get(2)?,
-                    text_model: r.get(3)?,
-                    vision_model: r.get(4)?,
-                })
-            })
+            .query_row(
+                "SELECT base_url,model_id,oss_url FROM settings WHERE id=1",
+                [],
+                |r| {
+                    Ok(crate::settings::ConnectionSettings {
+                        base_url: r.get(0)?,
+                        model_id: r.get(1)?,
+                        oss_url: r.get(2)?,
+                    })
+                },
+            )
             .map_err(err)?;
         config.validate()?;
+        // Validate every legacy field before migrating, including unused values.
+        if (4..7).contains(&version) {
+            let (text, vision): (Option<String>, Option<String>) = db
+                .query_row(
+                    "SELECT text_model,vision_model FROM settings WHERE id=1",
+                    [],
+                    |r| Ok((r.get(0)?, r.get(1)?)),
+                )
+                .map_err(err)?;
+            for model_id in [text, vision] {
+                crate::settings::ConnectionSettings {
+                    model_id,
+                    ..Default::default()
+                }
+                .validate()?;
+            }
+        }
     }
     let integrity: String = db
         .query_row("PRAGMA integrity_check", [], |r| r.get(0))
@@ -368,6 +387,88 @@ fn validate_database(path: &Path) -> Result<i64> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn legacy_models_migrate_once_and_backups_roundtrip() {
+        for (vision, text, legacy, expected) in [
+            (Some(" vision "), Some("text"), Some("old"), Some("vision")),
+            (Some(" "), Some(" text "), Some("old"), Some("text")),
+            (None, None, Some(" old "), Some("old")),
+            (None, Some(" "), Some(" "), None),
+        ] {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("practiq.sqlite");
+            let db = Connection::open(&path).unwrap();
+            for sql in [include_str!("schema.sql"), include_str!("settings.sql")] {
+                db.execute_batch(sql).unwrap();
+            }
+            db.execute_batch("DROP TABLE assets;").unwrap();
+            db.execute_batch(crate::assets::SCHEMA).unwrap();
+            for sql in [
+                include_str!("models.sql"),
+                include_str!("exams.sql"),
+                include_str!("ai_imports.sql"),
+            ] {
+                db.execute_batch(sql).unwrap();
+            }
+            db.execute(
+                "UPDATE settings SET vision_model=?1,text_model=?2,model_id=?3",
+                rusqlite::params![vision, text, legacy],
+            )
+            .unwrap();
+            assert_eq!(validate_database(&path).unwrap(), 6);
+            drop(db);
+            let bytes = fs::read(&path).unwrap();
+            let archive_path = dir.path().join("legacy.zip");
+            let mut archive = ZipWriter::new(fs::File::create(&archive_path).unwrap());
+            let manifest = json!({"format":"practiq-backup","version":2,"schemaVersion":6,"database":{"sha256":hash(&bytes),"sizeBytes":bytes.len()},"assets":[]});
+            archive
+                .start_file("manifest.json", SimpleFileOptions::default())
+                .unwrap();
+            archive
+                .write_all(&serde_json::to_vec(&manifest).unwrap())
+                .unwrap();
+            archive
+                .start_file("practiq.sqlite", SimpleFileOptions::default())
+                .unwrap();
+            archive.write_all(&bytes).unwrap();
+            archive.finish().unwrap();
+            let restored_dir = tempfile::tempdir().unwrap();
+            let mut restored = Store::new(restored_dir.path().to_owned()).unwrap();
+            restored.restore(&archive_path).unwrap();
+            assert_eq!(
+                restored.connection_settings().unwrap().model_id.as_deref(),
+                expected
+            );
+            let upgraded = Store::new(dir.path().to_owned()).unwrap();
+            assert_eq!(
+                upgraded.connection_settings().unwrap().model_id.as_deref(),
+                expected
+            );
+            assert_eq!(validate_database(&path).unwrap(), 7);
+            upgraded
+                .connect()
+                .unwrap()
+                .execute("UPDATE settings SET model_id='changed'", [])
+                .unwrap();
+            assert_eq!(
+                upgraded.connection_settings().unwrap().model_id.as_deref(),
+                Some("changed")
+            );
+            assert!(upgraded
+                .connect()
+                .unwrap()
+                .prepare("SELECT text_model,vision_model FROM settings")
+                .is_err());
+            let backup = dir.path().join("current.zip");
+            upgraded.backup(&backup).unwrap();
+            restored.restore(&backup).unwrap();
+            assert_eq!(
+                restored.connection_settings().unwrap().model_id.as_deref(),
+                Some("changed")
+            );
+        }
+    }
 
     #[test]
     fn settings_validation_covers_legacy_and_current_columns() {

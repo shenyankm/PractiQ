@@ -103,7 +103,7 @@ impl Store {
         let version: i64 = db
             .query_row("PRAGMA user_version", [], |r| r.get(0))
             .map_err(err)?;
-        if version > 6 {
+        if version > 7 {
             return Err("数据库来自更新版本的 PractiQ，请升级应用".into());
         }
         if version == 0 {
@@ -124,6 +124,10 @@ impl Store {
         }
         if version < 6 {
             db.execute_batch(include_str!("ai_imports.sql"))
+                .map_err(err)?;
+        }
+        if version < 7 {
+            db.execute_batch(include_str!("single_model.sql"))
                 .map_err(err)?;
         }
         Ok(db)

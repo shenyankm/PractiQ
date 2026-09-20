@@ -42,7 +42,7 @@ def run(bundle,output):
         sock=socket.socket();sock.bind(('127.0.0.1',0));sock.listen(128)
         provider=uvicorn.Server(uvicorn.Config(app_for(root/'calls.jsonl'),log_level='error'))
         thread=threading.Thread(target=lambda:provider.run(sockets=[sock]),daemon=True);thread.start()
-        bootstrap={'AI_SERVICE_TOKEN':'bundled-test-token','LLM_API_KEY':'synthetic-test-key','LLM_BASE_URL':f'http://127.0.0.1:{sock.getsockname()[1]}/v1','LLM_TEXT_MODEL':'synthetic-text','LLM_VISION_MODEL':'synthetic-vision','AI_DATABASE_DIR':str(root/'db'),'AI_STORAGE_DIR':str(root/'files')}
+        bootstrap={'AI_SERVICE_TOKEN':'bundled-test-token','LLM_API_KEY':'synthetic-test-key','LLM_BASE_URL':f'http://127.0.0.1:{sock.getsockname()[1]}/v1','LLM_MODEL':'synthetic-model','AI_DATABASE_DIR':str(root/'db'),'AI_STORAGE_DIR':str(root/'files')}
         process=None
         try:
             with (root/'stderr.log').open('w') as log:
