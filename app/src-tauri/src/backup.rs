@@ -24,8 +24,11 @@ impl Store {
         self.connect()?
             .backup(rusqlite::MAIN_DB, &snapshot, None)
             .map_err(err)?;
-        let bytes = read_bounded(&snapshot, LIMIT)?;
         let db = Connection::open(&snapshot).map_err(err)?;
+        // In-flight model requests are task state, not portable practice history.
+        db.execute("DELETE FROM grade_requests WHERE response IS NULL", [])
+            .map_err(err)?;
+        let bytes = read_bounded(&snapshot, LIMIT)?;
         let assets=db.prepare("SELECT hash,media,size,path FROM assets ORDER BY hash").map_err(err)?.query_map([],|r| Ok(json!({"sha256":r.get::<_,String>(0)?,"mediaType":r.get::<_,String>(1)?,"sizeBytes":r.get::<_,u64>(2)?,"file":r.get::<_,String>(3)?}))).map_err(err)?.collect::<std::result::Result<Vec<_>,_>>().map_err(err)?;
         let version: i64 = db
             .query_row("PRAGMA user_version", [], |r| r.get(0))
@@ -230,7 +233,7 @@ fn validate_database(path: &Path) -> Result<i64> {
     let version: i64 = db
         .query_row("PRAGMA user_version", [], |r| r.get(0))
         .map_err(err)?;
-    if ![1, 2, 3, 4].contains(&version) {
+    if ![1, 2, 3, 4, 5].contains(&version) {
         return Err("备份数据库版本不兼容".into());
     }
     let schema = |db: &Connection| -> Result<Vec<String>> {
@@ -258,6 +261,11 @@ fn validate_database(path: &Path) -> Result<i64> {
     if version >= 4 {
         expected
             .execute_batch(include_str!("models.sql"))
+            .map_err(err)?;
+    }
+    if version >= 5 {
+        expected
+            .execute_batch(include_str!("exams.sql"))
             .map_err(err)?;
     }
     if schema(&db)? != schema(&expected)? {

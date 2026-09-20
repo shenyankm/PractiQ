@@ -124,7 +124,7 @@ export function AnswerInput({
         </RadioGroup>
       );
     case "fill_blank": {
-      const count = q.answerPayload?.answers?.length || a.answers?.length || 1;
+      const count = q.blankCount || q.answerPayload?.answers?.length || a.answers?.length || 1;
       return (
         <div className="space-y-3">
           {Array.from({ length: count }, (_, i) => (
@@ -145,7 +145,7 @@ export function AnswerInput({
               />
             </label>
           ))}
-          {!q.answerPayload?.answers?.length && !disabled && (
+          {!q.blankCount && !q.answerPayload?.answers?.length && !disabled && (
             <Button
               variant="outline"
               onClick={() =>

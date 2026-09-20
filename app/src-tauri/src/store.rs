@@ -72,7 +72,7 @@ impl Store {
         let version: i64 = db
             .query_row("PRAGMA user_version", [], |r| r.get(0))
             .map_err(err)?;
-        if version > 4 {
+        if version > 5 {
             return Err("数据库来自更新版本的 PractiQ，请升级应用".into());
         }
         if version == 0 {
@@ -87,6 +87,9 @@ impl Store {
         }
         if version < 4 {
             db.execute_batch(include_str!("models.sql")).map_err(err)?;
+        }
+        if version < 5 {
+            db.execute_batch(include_str!("exams.sql")).map_err(err)?;
         }
         Ok(db)
     }
@@ -328,7 +331,7 @@ impl Store {
         filter: &str,
     ) -> Result<Value> {
         let db = self.connect()?;
-        let mut stmt=db.prepare("SELECT q.id,q.bank_id,q.snapshot,q.favorite,b.title,(SELECT a.result FROM attempts a JOIN sessions s ON s.id=a.session_id WHERE a.question_id=q.id AND a.result IS NOT NULL ORDER BY a.submitted_at DESC,a.rowid DESC LIMIT 1) AS latest_result FROM questions q JOIN banks b ON b.id=q.bank_id WHERE (?1 IS NULL OR q.bank_id=?1) AND (?2='' OR instr(lower(q.stem),lower(?2))>0 OR instr(lower(q.snapshot),lower(?2))>0) AND (?3='' OR q.mode=?3) AND (?4!='favorite' OR q.favorite=1) AND (?4!='wrong' OR latest_result=0) ORDER BY b.created_at DESC,q.position").map_err(err)?;
+        let mut stmt=db.prepare("SELECT q.id,q.bank_id,q.snapshot,q.favorite,b.title,(SELECT a.result FROM attempts a JOIN sessions s ON s.id=a.session_id WHERE a.question_id=q.id AND a.result IS NOT NULL ORDER BY a.submitted_at DESC,a.rowid DESC LIMIT 1) AS latest_result FROM questions q JOIN banks b ON b.id=q.bank_id WHERE (?1 IS NULL OR q.bank_id=?1) AND (?2='' OR instr(lower(q.stem),lower(?2))>0 OR instr(lower(q.snapshot),lower(?2))>0) AND (?3='' OR q.mode=?3 OR (?3 IN ('single','multiple') AND q.mode='choice' AND json_extract(q.snapshot,'$.question.choiceVariant')=?3)) AND (?4!='favorite' OR q.favorite=1) AND (?4!='wrong' OR latest_result=0) AND (?4!='unattempted' OR NOT EXISTS(SELECT 1 FROM attempts a WHERE a.question_id=q.id AND a.submitted_at IS NOT NULL AND a.skipped=0)) ORDER BY b.created_at DESC,q.position").map_err(err)?;
         let rows = stmt
             .query_map(params![bank_id, search, mode, filter], |r| {
                 let mut v: Value =
@@ -383,12 +386,16 @@ impl Store {
         Ok(Value::Null)
     }
     pub fn favorite(&self, qid: &str, value: bool) -> Result<Value> {
-        self.connect()?
+        let changed = self
+            .connect()?
             .execute(
                 "UPDATE questions SET favorite=?2 WHERE id=?1",
                 params![qid, value],
             )
             .map_err(err)?;
+        if changed != 1 {
+            return Err("原题已删除，不能修改收藏".into());
+        }
         Ok(json!(value))
     }
     pub fn start(
@@ -414,6 +421,9 @@ impl Store {
         if random {
             questions.shuffle(&mut rand::rng());
         }
+        if count > questions.len() {
+            return Err("可用题数不足，请调整题数".into());
+        }
         questions.truncate(count);
         let sid = id();
         let title = if bank.is_some() {
@@ -428,7 +438,7 @@ impl Store {
         let mut db = self.connect()?;
         let tx = db.transaction().map_err(err)?;
         tx.execute(
-            "INSERT INTO sessions VALUES(?1,?2,?3,?4,NULL,0,?5)",
+            "INSERT INTO sessions(id,bank_id,bank_title,created_at,finished_at,position,mode) VALUES(?1,?2,?3,?4,NULL,0,?5)",
             params![
                 sid,
                 bank,
@@ -449,17 +459,32 @@ impl Store {
         self.session(&sid)
     }
     pub fn session(&self, sid: &str) -> Result<Value> {
+        self.expire_exam(sid)?;
         let db = self.connect()?;
         let mut session=db.query_row("SELECT id,bank_title,created_at,finished_at,position,mode FROM sessions WHERE id=?1",[sid],|r|Ok(json!({"id":r.get::<_,String>(0)?,"title":r.get::<_,String>(1)?,"createdAt":r.get::<_,i64>(2)?,"finishedAt":r.get::<_,Option<i64>>(3)?,"position":r.get::<_,i64>(4)?,"mode":r.get::<_,String>(5)?}))).map_err(err)?;
         let mut stmt=db.prepare("SELECT ordinal,snapshot,answer,auto_result,result,grade_kind,submitted_at,skipped,elapsed_ms FROM attempts WHERE session_id=?1 ORDER BY ordinal").map_err(err)?;
         let attempts=stmt.query_map([sid],|r|Ok(json!({"ordinal":r.get::<_,i64>(0)?,"snapshot":serde_json::from_str::<Value>(&r.get::<_,String>(1)?).unwrap_or(Value::Null),"answer":serde_json::from_str::<Value>(&r.get::<_,String>(2)?).unwrap_or(Value::Null),"autoResult":r.get::<_,Option<bool>>(3)?,"result":r.get::<_,Option<bool>>(4)?,"gradeKind":r.get::<_,String>(5)?,"submittedAt":r.get::<_,Option<i64>>(6)?,"skipped":r.get::<_,bool>(7)?,"elapsedMs":r.get::<_,i64>(8)?}))).map_err(err)?.collect::<std::result::Result<Vec<_>,_>>().map_err(err)?;
         session["attempts"] = json!(attempts);
+        self.enrich_session(&db, &mut session)?;
         Ok(session)
     }
     pub fn sessions(&self) -> Result<Value> {
         let db = self.connect()?;
-        let mut stmt=db.prepare("SELECT s.id,s.bank_title,s.created_at,s.finished_at,COUNT(*),SUM(a.submitted_at IS NOT NULL),SUM(a.result=1),SUM(a.result IS NOT NULL),SUM(a.skipped),SUM(a.elapsed_ms),SUM(a.grade_kind='self'),SUM(a.grade_kind='auto') FROM sessions s JOIN attempts a ON a.session_id=s.id GROUP BY s.id ORDER BY s.created_at DESC").map_err(err)?;
-        let rows=stmt.query_map([],|r|Ok(json!({"id":r.get::<_,String>(0)?,"title":r.get::<_,String>(1)?,"createdAt":r.get::<_,i64>(2)?,"finishedAt":r.get::<_,Option<i64>>(3)?,"count":r.get::<_,i64>(4)?,"answered":r.get::<_,i64>(5)?,"correct":r.get::<_,Option<i64>>(6)?.unwrap_or(0),"graded":r.get::<_,i64>(7)?,"skipped":r.get::<_,i64>(8)?,"elapsedMs":r.get::<_,i64>(9)?,"selfGraded":r.get::<_,i64>(10)?,"autoGraded":r.get::<_,i64>(11)?}))).map_err(err)?.collect::<std::result::Result<Vec<_>,_>>().map_err(err)?;
+        let mut expired = db
+            .prepare("SELECT id FROM sessions WHERE deadline_at<=?1 AND submitted_at IS NULL")
+            .map_err(err)?;
+        let ids = expired
+            .query_map([now()], |r| r.get::<_, String>(0))
+            .map_err(err)?
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(err)?;
+        drop(expired);
+        for sid in ids {
+            self.expire_exam(&sid)?;
+        }
+
+        let mut stmt=db.prepare("SELECT s.id,s.bank_title,s.created_at,s.finished_at,COUNT(*),SUM(a.submitted_at IS NOT NULL),SUM(CASE WHEN a.max_cents IS NOT NULL THEN a.earned_cents=a.max_cents ELSE a.result=1 END),SUM(CASE WHEN a.max_cents IS NOT NULL THEN a.earned_cents IS NOT NULL ELSE a.result IS NOT NULL END),SUM(a.skipped),SUM(a.elapsed_ms),SUM(a.grade_kind='self'),SUM(a.grade_kind='auto'),s.kind,s.submitted_at,SUM(a.max_cents),SUM(a.earned_cents),SUM(a.max_cents IS NOT NULL AND a.earned_cents IS NULL) FROM sessions s JOIN attempts a ON a.session_id=s.id GROUP BY s.id ORDER BY s.created_at DESC").map_err(err)?;
+        let rows=stmt.query_map([],|r|Ok(json!({"id":r.get::<_,String>(0)?,"title":r.get::<_,String>(1)?,"createdAt":r.get::<_,i64>(2)?,"finishedAt":r.get::<_,Option<i64>>(3)?,"count":r.get::<_,i64>(4)?,"answered":r.get::<_,i64>(5)?,"correct":r.get::<_,Option<i64>>(6)?.unwrap_or(0),"graded":r.get::<_,i64>(7)?,"skipped":r.get::<_,i64>(8)?,"elapsedMs":r.get::<_,i64>(9)?,"selfGraded":r.get::<_,i64>(10)?,"autoGraded":r.get::<_,i64>(11)?,"kind":r.get::<_,String>(12)?,"submittedAt":r.get::<_,Option<i64>>(13)?,"totalCents":r.get::<_,Option<i64>>(14)?,"earnedCents":r.get::<_,Option<i64>>(15)?,"pendingGrades":r.get::<_,i64>(16)?}))).map_err(err)?.collect::<std::result::Result<Vec<_>,_>>().map_err(err)?;
         Ok(json!(rows))
     }
     pub fn save_attempt(
@@ -472,6 +497,18 @@ impl Store {
         self_result: Option<bool>,
     ) -> Result<Value> {
         let (sid, ordinal) = target;
+        self.expire_exam(sid)?;
+        let exam = self
+            .connect()?
+            .query_row(
+                "SELECT kind,submitted_at FROM sessions WHERE id=?1",
+                [sid],
+                |r| Ok((r.get::<_, String>(0)?, r.get::<_, Option<i64>>(1)?)),
+            )
+            .map_err(err)?;
+        if exam.0 != "practice" && (submit || skip || self_result.is_some() || exam.1.is_some()) {
+            return Err("考试请统一交卷；交卷后不能修改作答".into());
+        }
         if serde_json::to_vec(&answer).map_err(err)?.len() > 256 * 1024 || elapsed < 0 {
             return Err("作答数据不合法".into());
         }
@@ -540,6 +577,9 @@ impl Store {
         Ok(session)
     }
     pub fn finish(&self, sid: &str) -> Result<Value> {
+        if self.session(sid)?["kind"] != "practice" {
+            return self.submit_paper(sid, true);
+        }
         let mut db = self.connect()?;
         let tx = db.transaction().map_err(err)?;
         tx.execute("UPDATE attempts SET skipped=1,submitted_at=?2 WHERE session_id=?1 AND submitted_at IS NULL",params![sid,now()]).map_err(err)?;

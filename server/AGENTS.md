@@ -28,3 +28,5 @@ Tests use pytest with `pytest-asyncio` in automatic mode. Name tests `test_<beha
 Use Conventional Commits: `<type>(<scope>): <summary>`. Allowed types are `feat`, `fix`, `docs`, `refactor`, `test`, and `chore`. Use an optional module name for `scope`, an imperative summary of at most 72 characters, and no trailing period. Example: `fix(extractors): enforce PDF page limit`. Keep each commit scoped to one concern.
 
 Each pull request must include a summary, linked issue when available, test commands and results, and any configuration or API-contract changes. Add request and response examples for API changes. Add screenshots only for visible UI or documentation changes. Run `python -m pytest` before requesting review.
+
+Subjective grading is allowed only after an explicit user grading or retry action. Parsing still extracts supplied answers, scores and rubrics without solving questions. Grading requires a reference answer or explicit rubric; missing evidence remains ungraded. Reuse the bundled AI service and model call safeguards; keep exam answers, score snapshots and manual overrides local and preserve them in backups.

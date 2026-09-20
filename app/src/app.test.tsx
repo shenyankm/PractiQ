@@ -1,11 +1,14 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AnswerInput } from "./AnswerInput";
 import { Markdown } from "./Content";
 import { canInteract, answerReady, type Question, type Session } from "./api";
 import { Practice } from "./Practice";
+import { ExamResults } from "./ExamResults";
+import { invoke } from "@tauri-apps/api/core";
+vi.mock("@tauri-apps/api/core", () => ({invoke:vi.fn()}));
 import fixture from "../fixtures/sample.json";
 import { api } from "./api";
 vi.mock("./api", async () => {
@@ -171,4 +174,58 @@ it("stores model and OSS configuration without returning an API key to the form"
       api_key: "",
     }),
   );
+});
+
+it("shows numeric partial credit after an exam and locks answer controls", () => {
+  const session: Session={id:"exam",kind:"self_test",title:"test",createdAt:0,submittedAt:1,finishedAt:null,position:0,mode:"ordered",attempts:[{ordinal:0,snapshot:{question:questions[4],groups:[],visuals:[],sources:[],warnings:[],missingAssets:false},answer:{text:"复习"},autoResult:null,result:false,gradeKind:"manual",submittedAt:1,skipped:false,elapsedMs:0,maxCents:500,earnedCents:300,grading:{manual:{scoreCents:300,reason:"部分得分"}}}]};
+  render(<Practice session={session} onSession={()=>{}} run={()=>{}} flushRef={{current:async()=>{}}}/>);
+  expect(screen.getByText("3 / 5 分")).toBeTruthy();
+  expect(screen.queryByText("回答错误")).toBeNull();
+  expect((screen.getByRole("textbox",{name:"作答内容"}) as HTMLTextAreaElement).disabled).toBe(true);
+  expect(screen.getByText(/正确率（满分题/)).toBeTruthy();
+});
+
+
+function examSession(): Session {
+  return {id:"exam",kind:"mock_exam",title:"test",createdAt:0,deadlineAt:Date.now()-1,submittedAt:null,finishedAt:null,position:0,mode:"ordered",attempts:[{ordinal:0,favorite:true,snapshot:{id:"q",favorite:false,question:questions[4],groups:[],visuals:[],sources:[],warnings:[],missingAssets:false},answer:{text:"durable"},autoResult:null,result:null,gradeKind:"ungraded",submittedAt:null,skipped:false,elapsedMs:0,maxCents:500,earnedCents:null}]};
+}
+
+it("keeps grading idle when the shared UI lock declines the job", async () => {
+  const session=examSession();session.submittedAt=1;session.attempts[0].submittedAt=1;
+  const onSession=vi.fn();
+  const {rerender}=render(<ExamResults session={session} onSession={onSession} run={()=>{}}/>);
+  const button=screen.getByRole("button",{name:/AI 评分／继续/}) as HTMLButtonElement;
+  await userEvent.click(button);
+  expect(button.disabled).toBe(false);
+  expect(screen.queryByText("停止后续评分")).toBeNull();
+  expect(invoke).not.toHaveBeenCalled();
+  vi.mocked(invoke).mockResolvedValue(session);
+  rerender(<ExamResults session={session} onSession={onSession} run={job=>{void job();}}/>);
+  await userEvent.click(button);
+  await waitFor(()=>expect(onSession).toHaveBeenCalledWith(session));
+});
+
+it("replaces an unsaved timeout edit with the durable submitted answer", async () => {
+  const session=examSession();
+  const props={onSession:vi.fn(),run:(job:()=>Promise<void>)=>{void job();},flushRef:{current:async()=>{}}};
+  const {rerender}=render(<Practice session={session} {...props}/>);
+  vi.mocked(api).mockRejectedValueOnce(new Error("exam submitted"));
+  fireEvent.change(screen.getByRole("textbox",{name:"作答内容"}),{target:{value:"unsaved after deadline"}});
+  await waitFor(()=>expect(api).toHaveBeenCalledWith(expect.objectContaining({type:"save_attempt",answer:{text:"unsaved after deadline"}})));
+  const locked={...session,submittedAt:1,attempts:[{...session.attempts[0],submittedAt:1}]};
+  rerender(<Practice session={locked} {...props}/>);
+  const input=screen.getByRole("textbox",{name:"作答内容"}) as HTMLTextAreaElement;
+  expect(input.value).toBe("durable");
+  expect(input.disabled).toBe(true);
+});
+
+it("uses live favorite state and refreshes the session after toggling", async () => {
+  const session=examSession();session.submittedAt=1;
+  const onSession=vi.fn();
+  vi.mocked(api).mockResolvedValue(session);
+  render(<Practice session={session} onSession={onSession} run={job=>{void job();}} flushRef={{current:async()=>{}}}/>);
+  await userEvent.click(screen.getByRole("button",{name:"取消收藏"}));
+  expect(api).toHaveBeenCalledWith({type:"favorite",id:"q",value:false});
+  await waitFor(()=>expect(onSession).toHaveBeenCalledWith(session));
+  expect(api).toHaveBeenCalledWith({type:"session",id:"exam"});
 });

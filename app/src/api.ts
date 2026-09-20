@@ -42,6 +42,10 @@ export interface Block {
   jsonValue?: Record<string, unknown> | null;
 }
 export interface Question {
+  sourceScore?: number | null;
+  scoringRubric?: string | null;
+  scoreSourceText?: string | null;
+  blankCount?: number;
   stem: string | null;
   answerMode: Mode | null;
   questionTypeId: string | null;
@@ -100,17 +104,26 @@ export interface Bank {
   createdAt: number;
 }
 export interface Attempt {
+  favorite?: boolean | null;
   ordinal: number;
   snapshot: Snapshot & Partial<QuestionRow>;
   answer: Answer | null;
   autoResult: boolean | null;
   result: boolean | null;
-  gradeKind: "auto" | "self" | "ungraded";
+  gradeKind: "auto" | "self" | "ungraded" | "ai" | "manual";
+  maxCents?: number | null;
+  earnedCents?: number | null;
+  flagged?: boolean;
+  grading?: { lastRequest?: {status: string; error?: string}; ai?: {status: string; error?: string; result?: {scoreCents: number | null; maxCents: number; reason: string; evidence: string[]; reviewReasons: string[]}}; manual?: {reason: string; scoreCents: number} };
   submittedAt: number | null;
   skipped: boolean;
   elapsedMs: number;
 }
+export type SessionKind = "practice" | "self_test" | "mock_exam";
 export interface Session {
+  kind?: SessionKind;
+  deadlineAt?: number | null;
+  submittedAt?: number | null;
   id: string;
   title: string;
   createdAt: number;
@@ -120,6 +133,11 @@ export interface Session {
   attempts: Attempt[];
 }
 export interface SessionSummary {
+  kind?: SessionKind;
+  submittedAt?: number | null;
+  totalCents?: number | null;
+  earnedCents?: number | null;
+  pendingGrades?: number;
   id: string;
   title: string;
   createdAt: number;
@@ -145,12 +163,20 @@ export interface Preview {
   assetCount: number;
 }
 type Query = {
+  bank_ids?: string[];
   bank_id: string | null;
   search: string;
   mode: string;
   filter: string;
 };
+export interface Paper { question_ids: string[]; kind: SessionKind; minutes: number | null; scores: number[]; total_cents: number }
 type Request =
+  | { type: "start_paper"; paper: Paper }
+  | { type: "submit_paper"; id: string; submit_drafts: boolean }
+  | { type: "complete_review" | "retry_wrong"; id: string }
+  | { type: "flag"; id: string; ordinal: number; value: boolean }
+  | { type: "manual_score"; id: string; ordinal: number; cents: number; reason: string }
+  | { type: "merge_banks"; bank_ids: string[]; title: string }
   | { type: "settings" }
   | {
       type: "save_settings";

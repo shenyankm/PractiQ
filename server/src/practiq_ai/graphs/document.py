@@ -52,6 +52,14 @@ from practiq_ai.llm import get_model, structured_call
 from practiq_ai.storage import get_object_store
 
 SYSTEM_PROMPT = """Extract assessment questions faithfully from the supplied fragment.
+Extract sourceScore, scoringRubric and scoreSourceText ONLY when explicitly supplied.
+A clearly scoped "each question is worth N points" applies to those questions.
+Never divide a section total among subquestions without explicit allocation: leave
+sourceScore null and add a review warning. Missing scores/rubrics stay null.
+Missing or ambiguous scores NEVER justify omitting a question. Verify every printed
+question number is retained, including the final numbered question and each subquestion;
+never merge or discard numbered questions because only a section total is supplied.
+Preserve literal evidence in scoreSourceText; never invent answers or grading criteria.
 Return a complete JSON object even for incomplete questions. questions, groups and
 figures are separate top-level JSON arrays, never strings containing serialized JSON.
 Missing scalar fields
