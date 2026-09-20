@@ -971,5 +971,5 @@ fn rich_content_survives_import_reopen_practice_and_backup_exactly() {
     expected["visualElements"][0]["sourceRef"]["objectKey"] = json!("../escape.png");
     s.preview(serde_json::to_vec(&expected).unwrap(), "bad source".into())
         .unwrap();
-    assert!(s.resources(&dir.path().to_owned()).is_err());
+    assert!(s.resources(dir.path()).is_err());
 }
