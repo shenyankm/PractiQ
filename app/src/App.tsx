@@ -119,6 +119,7 @@ export default function App() {
     action: () => Promise<void>;
   } | null>(null);
   const [practiceSetup, setPracticeSetup] = useState<{ bank: string | null } | null>(null);
+  const [mergeOpen, setMergeOpen] = useState(false);
   const [mergeSelection, setMergeSelection] = useState<string[]>([]);
   const [mergeTitle,setMergeTitle]=useState("");
   const [settingsRevision, setSettingsRevision] = useState(0);
@@ -347,6 +348,11 @@ export default function App() {
               </span>
             )}
 
+            {page === "banks" && banks.length > 1 && (
+              <Button variant="outline" disabled={busy} onClick={() => setMergeOpen(true)}>
+                合并题库
+              </Button>
+            )}
             {listPage && (
               <>
                 <Button
@@ -383,7 +389,6 @@ export default function App() {
           </div>
         </header>
         <div className="flex-1 overflow-y-auto p-8">
-            {page === "banks" && banks.length>1 && <section className="space-y-3 rounded-lg border p-4"><p>合并到新题库（保留原库和重复题，不继承作答历史）</p><div className="flex flex-wrap gap-3">{banks.map(b=><label key={b.id}><input type="checkbox" checked={mergeSelection.includes(b.id)} onChange={e=>setMergeSelection(e.target.checked?[...mergeSelection,b.id]:mergeSelection.filter(id=>id!==b.id))}/>{b.title}（{b.count} 题）</label>)}</div><Input aria-label="合并后的题库名称" placeholder="新题库名称" value={mergeTitle} onChange={e=>setMergeTitle(e.target.value)}/><Button disabled={busy||mergeSelection.length<2||!mergeTitle.trim()} onClick={()=>setConfirm({title:"复制合并题库",description:`将复制 ${banks.filter(b=>mergeSelection.includes(b.id)).reduce((n,b)=>n+b.count,0)} 题到「${mergeTitle}」，原库保留。`,action:async()=>{await api({type:"merge_banks",bank_ids:mergeSelection,title:mergeTitle});setMergeSelection([]);setMergeTitle("");await reload();toast.success("合并完成");}})}>预览并合并题库</Button></section>}
           {page === "banks" && (
             <div className="grid grid-cols-2 gap-5 xl:grid-cols-3">
               {banks.map((b) => (
@@ -423,7 +428,7 @@ export default function App() {
                       {b.description}
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="grid grid-cols-2 gap-2">
+                  <CardContent className="mt-auto grid grid-cols-2 gap-2">
                     <Button variant="outline" disabled={busy} onClick={() => navigate("questions", b.id)}>
                       查看题目
                       <ChevronRight />
@@ -751,6 +756,43 @@ export default function App() {
           )}
         </div>
       </main>
+      <Dialog open={mergeOpen} onOpenChange={(open) => { if (!busy) setMergeOpen(open); }}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>合并题库</DialogTitle>
+            <DialogDescription>选择至少两个题库，复制合并为新题库。保留原库和重复题，不继承作答历史。</DialogDescription>
+          </DialogHeader>
+          <fieldset disabled={busy} className="min-w-0 space-y-4">
+            <fieldset className="min-w-0">
+              <legend className="mb-2 text-sm font-medium">选择题库</legend>
+              <div className="grid max-h-64 grid-cols-2 gap-2 overflow-y-auto">
+                {banks.map((b) => (
+                  <label key={b.id} className="flex min-w-0 cursor-pointer items-start gap-2 rounded-lg border p-3 text-sm has-checked:border-primary has-checked:bg-primary/5">
+                    <input type="checkbox" className="mt-0.5 size-4 shrink-0 accent-primary" checked={mergeSelection.includes(b.id)} onChange={(e) => setMergeSelection(e.target.checked ? [...mergeSelection, b.id] : mergeSelection.filter(id => id !== b.id))} />
+                    <span className="min-w-0 break-words">{b.title}（{b.count} 题）</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            <div className="space-y-2">
+              <Label htmlFor="merge-title">新题库名称</Label>
+              <Input id="merge-title" aria-label="合并后的题库名称" placeholder="输入新题库名称" value={mergeTitle} onChange={(e) => setMergeTitle(e.target.value)} />
+            </div>
+            <p className="text-sm text-muted-foreground" role="status">已选 {mergeSelection.length} 个题库，共 {banks.filter(b => mergeSelection.includes(b.id)).reduce((n, b) => n + b.count, 0)} 题；原库保留。</p>
+          </fieldset>
+          <DialogFooter>
+            <Button variant="outline" disabled={busy} onClick={() => setMergeOpen(false)}>取消</Button>
+            <Button disabled={busy || mergeSelection.length < 2 || !mergeTitle.trim()} onClick={() => run(async () => {
+              await api({ type: "merge_banks", bank_ids: mergeSelection, title: mergeTitle.trim() });
+              setMergeSelection([]);
+              setMergeTitle("");
+              setMergeOpen(false);
+              await reload();
+              toast.success("合并完成");
+            })}>确认合并</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       {preview && (
         <Dialog
           open

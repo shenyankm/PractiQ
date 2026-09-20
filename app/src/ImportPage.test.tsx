@@ -159,3 +159,36 @@ it("opens study setup from each bank card with that bank selected", async () => 
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   }
 });
+
+it("merges banks only after selecting sources and confirming in the dialog", async () => {
+  vi.mocked(api).mockImplementation(async (request) => {
+    switch (request.type) {
+      case "banks": return [
+        { id: "one", title: "题库一", description: "", count: 2 },
+        { id: "two", title: "题库二", description: "", count: 3 },
+      ] as never;
+      case "sessions": return [] as never;
+      case "info": return { version: "test", dataDirectory: "/tmp/test" } as never;
+      case "merge_banks": return "merged" as never;
+      default: throw new Error(`Unexpected request: ${request.type}`);
+    }
+  });
+  render(<App />);
+  const entry = await screen.findByRole("button", { name: "合并题库" });
+  await waitFor(() => expect(entry.hasAttribute("disabled")).toBe(false));
+  expect(screen.queryByRole("checkbox")).toBeNull();
+  expect(screen.queryByRole("textbox", { name: "合并后的题库名称" })).toBeNull();
+  await userEvent.click(entry);
+  const dialog = await screen.findByRole("dialog");
+  const submit = within(dialog).getByRole("button", { name: "确认合并" });
+  await userEvent.type(within(dialog).getByRole("textbox", { name: "合并后的题库名称" }), "  综合复习  ");
+  await userEvent.click(within(dialog).getByRole("checkbox", { name: "题库一（2 题）" }));
+  expect(submit.hasAttribute("disabled")).toBe(true);
+  await userEvent.click(within(dialog).getByRole("checkbox", { name: "题库二（3 题）" }));
+  expect(within(dialog).getByRole("status").textContent).toContain("共 5 题");
+  expect(submit.hasAttribute("disabled")).toBe(false);
+  expect(vi.mocked(api).mock.calls.some(([r]) => r.type === "merge_banks")).toBe(false);
+  await userEvent.click(submit);
+  await waitFor(() => expect(api).toHaveBeenCalledWith({ type: "merge_banks", bank_ids: ["one", "two"], title: "综合复习" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+});
