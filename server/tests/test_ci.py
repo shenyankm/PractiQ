@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 
-@pytest.mark.parametrize("failure", ["", "lock", "tests", "coverage", "probes"])
+@pytest.mark.parametrize("failure", ["", "lock", "tests", "combine", "coverage", "probes"])
 def test_verify_keeps_reports_without_hiding_failures(tmp_path, failure):
     shutil.copyfile(Path(__file__).resolve().parents[2] / "Makefile", tmp_path / "Makefile")
     reports = tmp_path / "server/reports/checks"
@@ -27,6 +27,8 @@ if args[:2] == ["lock", "--check"]:
 elif args[:3] == ["-m", "coverage", "run"]:
     stage = "tests"
     Path("reports/checks/probes.xml").write_text("fresh")
+elif args[:3] == ["-m", "coverage", "combine"]:
+    stage = "combine"
 elif args[:3] == ["-m", "coverage", "report"]:
     stage = "coverage"
 elif args[:3] == ["-m", "coverage", "xml"]:
@@ -59,7 +61,8 @@ sys.exit(7 if stage == os.environ["FAIL_STAGE"] else 0)
         assert len(list(reports.iterdir())) == 4
         calls = (tmp_path / "server/calls").read_text().splitlines()
         assert calls.count("tests") == 1
-        assert {"coverage", "probes"} <= set(calls)
+        assert {"combine", "coverage", "probes"} <= set(calls)
+        assert calls.index("tests") < calls.index("combine") < calls.index("coverage")
         if failure:
             assert "Error 7" in result.stderr
 

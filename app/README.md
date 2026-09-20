@@ -94,6 +94,7 @@ make app-dev
 检查代码并构建本地安装包：
 
 ```sh
+make test-e2e AI_PYTHON=/path/to/python3.14
 make app-check AI_PYTHON=/path/to/python3.14
 make app-build AI_PYTHON=/path/to/python3.14
 ```
@@ -115,3 +116,5 @@ bundle_dir=app/src-tauri/target/release/bundle/macos
 `request` 与 `ai_request` 均是类型化 Tauri 命令，不暴露通用 SQL、HTTP 或 shell 接口。`make app-check` 验证共享 AI 契约、React 交互、Rust 集成测试和 Clippy；桌面窗口与完整安装包需另行验收。
 
 桌面 CI 在每次推送和 PR 时同时运行 Windows 与 macOS。Windows 检查共享契约、前端构建与交互、Rust 全目标编译及 Clippy；macOS 另跑完整存储/备份测试、Python 打包和安装包检查。Windows 检查不代表已支持 Windows 安装或原生运行；当前发布目标仍为 Apple Silicon macOS。源码检查不需要预先生成 `bundled` 目录，正式打包仍包含内置服务。
+
+`make test-e2e` 使用临时目录，验证真实 Python 服务启动与 HTTP 解析、重启、复核、评分请求复用，以及 Rust 离线考试从导入、草稿续答、交卷到新目录备份恢复和错题重练的流程。仅模型提供方使用本地合成桩，不调用真实模型。此命令不包含 Tauri 窗口／原生文件选择器自动化；服务和原生测试分别已纳入 `make verify` 与 `make app-check`。
