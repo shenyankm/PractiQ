@@ -55,14 +55,6 @@ enum Request {
         id: String,
         value: bool,
     },
-    Start {
-        bank_id: Option<String>,
-        search: String,
-        mode: String,
-        filter: String,
-        random: bool,
-        count: usize,
-    },
     Session {
         id: String,
     },
@@ -187,7 +179,6 @@ async fn request(
             Request::SaveQuestion{id,bank_id,question}=>store.save_question(id,&bank_id,question),
             Request::DeleteQuestion{id}=>store.delete_question(&id),
             Request::Favorite{id,value}=>store.favorite(&id,value),
-            Request::Start{bank_id,search,mode,filter,random,count}=>store.start(bank_id.as_deref(),&search,&mode,&filter,random,count),
             Request::Session{id}=>store.session(&id),
             Request::Sessions=>store.sessions(),
             Request::StartPaper{paper}=>store.start_paper(paper),

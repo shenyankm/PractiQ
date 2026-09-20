@@ -277,37 +277,21 @@ fn validate_database(path: &Path) -> Result<i64> {
         return Err("备份数据库结构不受支持".into());
     }
     if version >= 2 {
+        let query = if version >= 4 {
+            "SELECT base_url,model_id,oss_url,text_model,vision_model FROM settings WHERE id=1"
+        } else {
+            "SELECT base_url,model_id,oss_url,NULL,NULL FROM settings WHERE id=1"
+        };
         let config = db
-            .query_row(
-                "SELECT base_url,model_id,oss_url FROM settings WHERE id=1",
-                [],
-                |r| {
-                    Ok(crate::settings::ConnectionSettings {
-                        base_url: r.get(0)?,
-                        model_id: r.get(1)?,
-                        oss_url: r.get(2)?,
-                        ..Default::default()
-                    })
-                },
-            )
-            .map_err(err)?;
-        config.validate()?;
-    }
-    if version >= 4 {
-        let config = db
-            .query_row(
-                "SELECT base_url,model_id,oss_url,text_model,vision_model FROM settings WHERE id=1",
-                [],
-                |r| {
-                    Ok(crate::settings::ConnectionSettings {
-                        base_url: r.get(0)?,
-                        model_id: r.get(1)?,
-                        oss_url: r.get(2)?,
-                        text_model: r.get(3)?,
-                        vision_model: r.get(4)?,
-                    })
-                },
-            )
+            .query_row(query, [], |r| {
+                Ok(crate::settings::ConnectionSettings {
+                    base_url: r.get(0)?,
+                    model_id: r.get(1)?,
+                    oss_url: r.get(2)?,
+                    text_model: r.get(3)?,
+                    vision_model: r.get(4)?,
+                })
+            })
             .map_err(err)?;
         config.validate()?;
     }
@@ -379,4 +363,42 @@ fn validate_database(path: &Path) -> Result<i64> {
         }
     }
     Ok(version)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn settings_validation_covers_legacy_and_current_columns() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("backup.sqlite");
+        let db = Connection::open(&path).unwrap();
+        db.execute_batch(include_str!("schema.sql")).unwrap();
+        db.execute_batch(include_str!("settings.sql")).unwrap();
+        for version in [2, 4] {
+            if version == 4 {
+                db.execute_batch("DROP TABLE assets;").unwrap();
+                db.execute_batch(crate::assets::SCHEMA).unwrap();
+                db.execute_batch(include_str!("models.sql")).unwrap();
+            }
+            assert_eq!(validate_database(&path).unwrap(), version);
+            for (column, valid, invalid) in [
+                ("base_url", "https://example.com/v1", "file:///tmp/model"),
+                ("oss_url", "https://example.com", "file:///tmp/images"),
+                ("model_id", "legacy", "invalid\nmodel"),
+                ("text_model", "text", "invalid\nmodel"),
+                ("vision_model", "vision", "invalid\nmodel"),
+            ] {
+                if version < 4 && matches!(column, "text_model" | "vision_model") {
+                    continue;
+                }
+                let query = format!("UPDATE settings SET {column}=?1 WHERE id=1");
+                db.execute(&query, [invalid]).unwrap();
+                assert!(validate_database(&path).is_err(), "{version}: {column}");
+                db.execute(&query, [valid]).unwrap();
+                assert_eq!(validate_database(&path).unwrap(), version);
+            }
+        }
+    }
 }

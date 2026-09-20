@@ -19,7 +19,6 @@ rusqlite = { version = "0.37", features = ["bundled", "backup"] }
 jsonschema = { version = "0.33", default-features = false }
 sha2 = "0.10"
 uuid = { version = "1", features = ["v4"] }
-rand = "0.9"
 base64 = "0.22"
 zip = { version = "4", default-features = false, features = ["deflate"] }
 
