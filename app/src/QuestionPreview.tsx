@@ -35,8 +35,8 @@ export function QuestionPreview({ questions }: { questions: Question[] }) {
             }}
           />
           {q.options?.map((o) => (
-            <div key={o.label}>
-              <span>{o.label}.</span>
+            <div key={o.label} className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-start gap-2 leading-[1.75]">
+              <span className="min-w-6 font-medium">{o.label}.</span>
               <Markdown>{o.content}</Markdown>
             </div>
           ))}
