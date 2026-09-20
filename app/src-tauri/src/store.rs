@@ -169,7 +169,7 @@ impl Store {
             if !path.starts_with(&root) {
                 return Err(format!("资源路径越界: {key}"));
             }
-            let bytes = read_bounded(&path, 20 * 1024 * 1024)?;
+            let bytes = read_bounded(&path, crate::assets::LIMIT)?;
             if bytes.len() as u64 != r["sizeBytes"].as_u64().unwrap_or(u64::MAX)
                 || hash(&bytes) != text(r, "sha256")
             {

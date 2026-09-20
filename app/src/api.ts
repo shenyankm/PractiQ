@@ -71,6 +71,7 @@ export interface ImageReference {
   sha256: string; objectKey: string; mediaType: string; sizeBytes: number;
 }
 export interface Visual {
+  role?: string | null;
   id: string;
   kind: string;
   description: string;

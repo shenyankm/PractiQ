@@ -1,6 +1,7 @@
 """Vision model calls and bounded figure cropping."""
 
 import base64
+import re
 from io import BytesIO
 from math import isfinite
 from typing import Literal
@@ -15,6 +16,7 @@ MAX_CROP_BYTES = 200 * 1024
 
 
 class PageFigure(BaseModel):
+    role: str | None = Field(default=None, max_length=64, description="Use answer if any part contains supplied answers, solutions, analysis or scoring rubrics; otherwise material.")
     questionIndexes: list[StrictInt] = Field(default_factory=list, max_length=1_000, description="Indexes in this response questions array; empty only for genuinely unassociated figures.")
     kind: Literal["image", "table", "chart", "diagram", "qr_code"] = Field(default="image", description="Classify visible content: table for rows/columns, chart for plotted data, diagram for schematic relationships, qr_code for QR codes, image for other pictures.")
     tableRows: list[list[str]] | None = Field(default=None, max_length=1000, description="Simple table only: first row is headers, then ALL data rows, each cell a raw string with inline $LaTeX$. Equal column counts; empty cells remain empty strings. Null for merged/multilevel tables that cannot be faithfully represented.")
@@ -46,10 +48,12 @@ class PageFigure(BaseModel):
                 raise ValueError("tableRows is only for tables with at most 100 columns")
             if sum(len(cell) for row in rows for cell in row) > 90_000:
                 raise ValueError("tableRows exceeds text limit")
-            if len(rows) < 2 or not rows[0] or any(len(row) != len(rows[0]) for row in rows):
-                # Merged/irregular rows cannot safely become GFM. Preserve the
-                # transcription and let the page graph mark associated questions.
-                self.extractedText = self.extractedText or "\n".join("\t".join(row) for row in rows)
+            if rows and any(re.search(r"\b(?:answers?|solutions?|analysis|explanations?|rubrics?)\b|答案|解析|解答|评分", cell, re.IGNORECASE) for cell in rows[0]):
+                self.role = "answer"
+            if len(rows) < 2 or not rows[0] or any(len(row) != len(rows[0]) for row in rows) or len(self.table_markdown() or "") > 100_000:
+                # Irregular or oversized GFM stays review-only; delimiters and
+                # escaping count toward the public contract limit too.
+                self.extractedText = (self.extractedText or "\n".join("\t".join(row) for row in rows))[:100_000]
                 self.tableRows = None
         return self
 

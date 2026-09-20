@@ -650,6 +650,20 @@
       "VisualElement": {
         "additionalProperties": false,
         "properties": {
+          "role": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Content role; answer-bearing visuals use answer and are hidden during unsubmitted exams.",
+            "title": "Role"
+          },
           "questionIndexes": {
             "items": {
               "type": "integer"
@@ -1927,6 +1941,20 @@
       "VisualElement": {
         "additionalProperties": false,
         "properties": {
+          "role": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Content role; answer-bearing visuals use answer and are hidden during unsubmitted exams.",
+            "title": "Role"
+          },
           "questionIndexes": {
             "items": {
               "type": "integer"

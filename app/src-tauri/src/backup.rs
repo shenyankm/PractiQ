@@ -322,7 +322,7 @@ fn validate_database(path: &Path) -> Result<i64> {
             let data: Vec<u8> = row.get(1).map_err(err)?;
             let digest: String = row.get(2).map_err(err)?;
             if !["image/png", "image/jpeg", "image/webp", "image/gif"].contains(&media.as_str())
-                || data.len() > 20 * 1024 * 1024
+                || data.len() > crate::assets::LIMIT
                 || hash(&data) != digest
             {
                 return Err("备份图片校验失败".into());

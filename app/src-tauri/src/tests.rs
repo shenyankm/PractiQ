@@ -973,3 +973,94 @@ fn rich_content_survives_import_reopen_practice_and_backup_exactly() {
         .unwrap();
     assert!(s.resources(dir.path()).is_err());
 }
+
+#[test]
+fn source_image_upload_limit_survives_import_and_backup() {
+    let (dir, mut s) = store();
+    // A valid fixture image with trailing padding exercises the exact byte limit.
+    let mut image = include_bytes!("../../fixtures/rich-content/resources/chart.png").to_vec();
+    image.resize(25 * 1024 * 1024, 0);
+    let digest = crate::store::hash(&image);
+    std::fs::write(dir.path().join("page.png"), &image).unwrap();
+    let mut raw: Value = serde_json::from_slice(&sample()).unwrap();
+    raw["visualElements"] = json!([{"kind":"image","description":"Full page","questionIndexes":[0],
+        "sourceRef":{"objectKey":"page.png","sha256":digest,"sizeBytes":image.len(),"mediaType":"image/png"}}]);
+    let preview = s
+        .preview(serde_json::to_vec(&raw).unwrap(), "Source page".into())
+        .unwrap();
+    s.resources(dir.path()).unwrap();
+    let imported = s
+        .import(text(&preview, "ticket"), None, "Source page")
+        .unwrap();
+    let rows = s
+        .questions(Some(text(&imported, "bankId")), "", "", "")
+        .unwrap();
+    assert_eq!(rows[0]["missingAssets"], false);
+    let backup = dir.path().join("source.zip");
+    s.backup(&backup).unwrap();
+    let (_fresh, mut restored) = store();
+    restored.restore(&backup).unwrap();
+    assert_eq!(
+        restored.read_asset(&digest, image.len() as u64).unwrap(),
+        image
+    );
+    image.push(0);
+    std::fs::write(dir.path().join("page.png"), &image).unwrap();
+    raw["visualElements"][0]["sourceRef"]["sizeBytes"] = json!(image.len());
+    raw["visualElements"][0]["sourceRef"]["sha256"] = json!(crate::store::hash(&image));
+    s.preview(serde_json::to_vec(&raw).unwrap(), "Too large".into())
+        .unwrap();
+    assert!(s.resources(dir.path()).is_err());
+    assert!(s.write_asset(&crate::store::hash(&image), &image).is_err());
+}
+
+#[test]
+fn exam_filters_answer_table_and_crop_then_restores_original_snapshot() {
+    let (_dir, mut s) = store();
+    let mut raw: Value = serde_json::from_slice(&sample()).unwrap();
+    raw["questions"][0]["contentBlocks"] = json!([
+        {"partType":"table","role":"answer","markdownValue":"| Answer |\n| --- |\n| SECRET |"},
+        {"partType":"table","role":"material","markdownValue":"| Input |\n| --- |\n| 3 |"}
+    ]);
+    raw["visualElements"] = json!([
+        {"kind":"table","role":"answer","description":"SECRET","extractedText":"SECRET","questionIndexes":[0]},
+        {"kind":"table","role":"material","description":"Input table","questionIndexes":[0]}
+    ]);
+    let preview = s
+        .preview(serde_json::to_vec(&raw).unwrap(), "Answer table".into())
+        .unwrap();
+    let imported = s
+        .import(text(&preview, "ticket"), None, "Answer table")
+        .unwrap();
+    let rows = s
+        .questions(Some(text(&imported, "bankId")), "", "", "")
+        .unwrap();
+    let exam = s
+        .start_paper(crate::exams::Paper {
+            question_ids: vec![text(&rows[0], "id").into()],
+            kind: "self_test".into(),
+            minutes: None,
+            scores: vec![100],
+            total_cents: 100,
+        })
+        .unwrap();
+    let snapshot = &exam["attempts"][0]["snapshot"];
+    assert!(!snapshot.to_string().contains("SECRET"));
+    assert_eq!(
+        snapshot["question"]["contentBlocks"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    assert_eq!(snapshot["visuals"].as_array().unwrap().len(), 1);
+    let submitted = s.submit_paper(text(&exam, "id"), true).unwrap();
+    assert_eq!(
+        submitted["attempts"][0]["snapshot"]["question"],
+        rows[0]["question"]
+    );
+    assert_eq!(
+        submitted["attempts"][0]["snapshot"]["visuals"],
+        rows[0]["visuals"]
+    );
+}

@@ -454,6 +454,8 @@ async def _vision(
         "first row headers, then ALL rows; preserve blank cells, signs, units and formulas as inline $LaTeX$. "
         "A literal pipe belongs inside its cell string. Do not encode a row as Markdown. "
         "Do not duplicate tables in question contentBlocks: the service constructs Markdown from tableRows. "
+        "Set figure role=answer if ANY table cell or visual contains supplied answers, solutions, analysis or scoring rubrics, "
+        "including answer columns or rows; otherwise role=material. Preserve the full content for review. "
         "sourceText must still include the entire associated source material, including all table cells, "
         "printed answers and analysis; do not omit them just because they appear in structured fields. "
         "Preserve literal symbols: em dash — is not the Chinese character 一; a cell containing left | right is one cell. "
@@ -479,10 +481,14 @@ async def _vision(
             for index in figure.questionIndexes or (range(len(parsed.questions)) if not table else []):
                 question = parsed.questions[index]
                 if table:
-                    if len(question.contentBlocks) >= 1_000:
+                    existing = next((block for block in question.contentBlocks if block.partType == "table" and block.markdownValue == table), None)
+                    if existing is not None:
+                        if figure.role == "answer" or existing.role is None:
+                            existing.role = figure.role
+                    elif len(question.contentBlocks) >= 1_000:
                         question.needsReview = True
-                    elif not any(block.partType == "table" and block.markdownValue == table for block in question.contentBlocks):
-                        question.contentBlocks.append(ContentBlock(partType="table", markdownValue=table))
+                    else:
+                        question.contentBlocks.append(ContentBlock(partType="table", role=figure.role, markdownValue=table))
                     # Keep the model's original transcription and append its extracted
                     # cells when it omitted the table from sourceText.
                     if table not in (question.sourceText or ""):
@@ -756,7 +762,9 @@ async def _merge(state: DocumentState) -> dict[str, Any]:
     for failure in unit_failures(dict(state)):
         if failure["stage"] == "vision_parse" and failure["index"] < len(page_refs):
             page = failure["index"]
-            visual_elements.append(VisualElement(kind="image", page=page, label="未完成识别的原页",
+            distance = min(abs(s.unitIndex - page) for s in question_sources)
+            indexes = [s.questionIndex for s in question_sources if abs(s.unitIndex - page) == distance]
+            visual_elements.append(VisualElement(kind="image", page=page, questionIndexes=indexes, label="未完成识别的原页",
                 description="此页识别未完成，请查看完整原页并复核相邻题目。",
                 sourceRef=ArtifactReference.model_validate(page_refs[page])))
     visual_elements, crop_failures, crop_truncated = await _crop_visuals(

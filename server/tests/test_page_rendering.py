@@ -246,3 +246,66 @@ def test_incomplete_table_page_retains_question_and_continuation_figure():
     assert continuation.questions == []
     assert continuation.figures[0].questionIndexes == []
     assert continuation.figures[0].tableRows is None
+
+
+@pytest.mark.parametrize("rows", [
+    [[""] * 100 for _ in range(1000)],
+    [["Header"], ["|" * 80_000]],
+    [[""] * 100 for _ in range(999)] + [["x" * 90_000]],
+])
+def test_oversized_generated_table_degrades_without_losing_usage(monkeypatch, rows):
+    store, reference = paged_source("pdf")
+    model = FakeModel(responses=[{"questions": [question("Table")], "figures": [
+        {"kind": "table", "description": "Large table", "questionIndexes": [0], "tableRows": rows, "bbox": [0, 0, 1, 1]}]}])
+    monkeypatch.setattr(document, "get_model", lambda *_: model)
+    monkeypatch.setattr(document, "get_object_store", lambda: store)
+    monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(text="", page_images=[make_image()])))
+    result = asyncio.run(local_graph().ainvoke({"document": reference}))
+    q = result["result"]["questions"][0]
+    assert q["needsReview"] and "material" in q["missingFields"]
+    assert not any(b["partType"] == "table" for b in q["contentBlocks"])
+    visual = result["result"]["visualElements"][0]
+    assert len(visual["extractedText"]) <= 100_000 and visual["sourceRef"]
+    assert result["usage"] and len(model.calls) == 1
+
+
+@pytest.mark.parametrize("header", ["Answer", "参考答案", "SOLUTION", "Value"])
+def test_answer_table_role_reaches_both_blocks_and_visuals(monkeypatch, header):
+    store, reference = paged_source("pdf")
+    q = question("Table")
+    if header == "Answer":
+        q["contentBlocks"] = [{"partType": "table", "markdownValue": "| Question | Answer |\n| --- | --- |\n| 1 | SECRET |"}]
+    model = FakeModel(responses=[{"questions": [q], "figures": [
+        {"kind": "table", "role": "answer" if header == "Value" else None, "description": "Supplied values", "questionIndexes": [0],
+         "tableRows": [["Question", header], ["1", "SECRET"]], "bbox": [0, 0, 1, 1]}]}])
+    monkeypatch.setattr(document, "get_model", lambda *_: model)
+    monkeypatch.setattr(document, "get_object_store", lambda: store)
+    monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(text="", page_images=[make_image()])))
+    result = asyncio.run(local_graph().ainvoke({"document": reference}))["result"]
+    block = next(b for b in result["questions"][0]["contentBlocks"] if b["partType"] == "table")
+    assert block["role"] == result["visualElements"][0]["role"] == "answer"
+    assert "SECRET" in block["markdownValue"]
+    assert result["visualElements"][0]["imageRef"]
+
+
+@pytest.mark.parametrize("failed", [{1}, {0, 1, 2}])
+def test_failed_page_fallbacks_only_attach_to_nearest_surviving_questions(monkeypatch, failed):
+    store, reference = paged_source("pdf")
+    monkeypatch.setattr(document, "get_object_store", lambda: store)
+    monkeypatch.setattr(document, "get_model", lambda *_: FakeModel(responses=[]))
+    monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(text="", page_images=[make_image()] * 5)))
+
+    async def page_call(_model, messages, schema, call_kind, *, runtime=None):
+        index = next(i for i in range(5) if f"PRIMARY page {i + 1}" in messages[-1].content)
+        if index in failed:
+            return None, [], "OUTPUT_INVALID"
+        return schema.model_validate({"questions": [question(f"Page {index}")]}), [], None
+
+    monkeypatch.setattr(document, "structured_call", page_call)
+    result = asyncio.run(local_graph().ainvoke({"document": reference}))
+    surviving = [i for i in range(5) if i not in failed]
+    for visual in result["result"]["visualElements"]:
+        distance = min(abs(page - visual["page"]) for page in surviving)
+        expected = [i for i, page in enumerate(surviving) if abs(page - visual["page"]) == distance]
+        assert visual["questionIndexes"] == expected
+    assert "media" not in result["result"]["questions"][-1]["missingFields"]

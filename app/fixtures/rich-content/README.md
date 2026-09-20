@@ -88,3 +88,24 @@ Pyright, evaluation fixtures, recovery probes and package build), `make app-chec
 (40 frontend tests, 25 Rust tests; one Keychain test ignored, contracts and Clippy),
 Rust formatting, the macOS app/DMG build and packaged-service check. The Chrome
 layout/interaction check also passed before the test-only upstream rebase.
+
+## Review regression checks
+
+Desktop assets share the source-upload limit of 25 MiB across AI downloads, local
+resource imports, file storage and backup restoration. A 25 MiB original page
+round-trips; a larger asset is rejected.
+Failed-page originals attach only to the nearest surviving question page(s),
+including across consecutive failed pages, instead of appearing on every question.
+Answer-bearing figures carry an optional `role`; the model classifies supplied
+answers and recognized answer/solution headers enforce the classification. Both
+table blocks and their visual crops are hidden in unsubmitted exams and restored
+from the immutable snapshot after submission. Whole tables are hidden rather than
+risking incorrect column redaction; semantic classification still depends on the
+model for unlabeled answers.
+Generated Markdown is checked after escaping and separators. Oversized and
+irregular tables retain bounded text and original images with review flags, without
+raising an output-contract exception or dropping model usage.
+
+Review-fix validation: 457 service tests (94% coverage), 40 frontend tests,
+27 Rust tests (one Keychain test ignored), all-target Clippy, formatting, macOS
+app/DMG build and packaged-service checks passed. No new live-model accuracy claim.

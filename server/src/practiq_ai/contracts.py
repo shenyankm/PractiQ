@@ -405,6 +405,7 @@ VisualDescription = Annotated[str, Field(min_length=1, max_length=20_000), After
 
 
 class VisualElement(StrictModel):
+    role: str | None = Field(default=None, max_length=64, description="Content role; answer-bearing visuals use answer and are hidden during unsubmitted exams.")
     questionIndexes: list[StrictInt] = Field(default_factory=list, max_length=1_000)
     kind: VisualKind
     label: VisualLabel | None = None
