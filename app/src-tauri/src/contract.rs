@@ -22,6 +22,18 @@ fn schema_check(schema: &jsonschema::Validator, value: &Value, prefix: &str) -> 
     }
     Ok(())
 }
+pub fn validate_workflow(value: &Value, review: bool) -> Result<()> {
+    static SCHEMAS: OnceLock<(jsonschema::Validator, jsonschema::Validator)> = OnceLock::new();
+    let schemas = SCHEMAS.get_or_init(|| {
+        let source: Value =
+            serde_json::from_str(include_str!("../contracts.json")).expect("bundled schemas");
+        (
+            jsonschema::validator_for(&source["taskSummary"]).expect("task summary schema"),
+            jsonschema::validator_for(&source["taskReview"]).expect("task review schema"),
+        )
+    });
+    schema_check(if review { &schemas.1 } else { &schemas.0 }, value, "task")
+}
 pub fn list<'a>(v: &'a Value, key: &str) -> &'a [Value] {
     v.get(key)
         .and_then(Value::as_array)

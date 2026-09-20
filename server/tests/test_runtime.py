@@ -306,6 +306,27 @@ async def test_desktop_restart_requires_explicit_resume_and_lists_tasks(monkeypa
     assert (await task_api.get_task(created['threadId']))['state'] == 'COMPLETED'
 
 
+@pytest.mark.parametrize('desktop', [True, False])
+async def test_restart_reconciles_final_checkpoint_without_model_work(monkeypatch, desktop):
+    monkeypatch.setenv('AI_DESKTOP_MODE', '1' if desktop else '0')
+    service, reference, model = await setup_api(monkeypatch)
+    created = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
+    await service.wait_idle()
+    directory = service.db.directory
+    await service.stop(timeout=0)
+    db = Database(directory)
+    async with db.connection() as conn:
+        # Disk state after checkpoint commit but before the run's finish commit.
+        await conn.execute("UPDATE document_runs SET status='running',finished_at=NULL WHERE run_id=?", (created['runId'],))
+    restarted = runtime.Service(db)
+    await restarted.start()
+    SERVICES.append(restarted)
+    monkeypatch.setattr(runtime, 'current', restarted)
+    state = await task_api.get_task(created['threadId'])
+    assert state['state'] == 'COMPLETED' and state['result']['questions']
+    assert len(model.calls) == 1
+
+
 async def test_sqlite_write_contention_keeps_reads_responsive():
     db = await new_database()
     async def contender():
@@ -392,3 +413,20 @@ async def test_retired_word_tasks_remain_readable_but_never_run(monkeypatch, gra
     assert result['state'] == 'FAILED' and not result['allowedActions']
     assert (await service.db.rows('SELECT error_code FROM document_runs WHERE run_id=?', (receipt['runId'],)))[0]['error_code'] == 'WORD_FORMAT_REMOVED'
     assert await service.ready()
+
+
+def test_reconciliation_requires_matching_finished_checkpoint():
+    from types import SimpleNamespace
+
+    snapshot = SimpleNamespace(metadata={'practiqRunId': 'old'}, interrupts=(), next=(), values={'status': 'SUCCEEDED'})
+    assert runtime.Service.saved_run_status(snapshot, {'run_id': 'new'}) is None
+    snapshot.metadata = {'practiqRunId': 'new'}
+    snapshot.next = ('unfinished',)
+    assert runtime.Service.saved_run_status(snapshot, {'run_id': 'new'}) is None
+    snapshot.interrupts = ('review',)
+    assert runtime.Service.saved_run_status(snapshot, {'run_id': 'new'}) == 'waiting'
+    snapshot.interrupts = ()
+    snapshot.next = ()
+    snapshot.values['result'] = {'questions': 'invalid'}
+    with pytest.raises(ValueError):
+        runtime.Service.saved_run_status(snapshot, {'run_id': 'new'})

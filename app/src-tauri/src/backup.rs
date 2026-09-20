@@ -233,7 +233,7 @@ fn validate_database(path: &Path) -> Result<i64> {
     let version: i64 = db
         .query_row("PRAGMA user_version", [], |r| r.get(0))
         .map_err(err)?;
-    if ![1, 2, 3, 4, 5].contains(&version) {
+    if ![1, 2, 3, 4, 5, 6].contains(&version) {
         return Err("备份数据库版本不兼容".into());
     }
     let schema = |db: &Connection| -> Result<Vec<String>> {
@@ -266,6 +266,11 @@ fn validate_database(path: &Path) -> Result<i64> {
     if version >= 5 {
         expected
             .execute_batch(include_str!("exams.sql"))
+            .map_err(err)?;
+    }
+    if version >= 6 {
+        expected
+            .execute_batch(include_str!("ai_imports.sql"))
             .map_err(err)?;
     }
     if schema(&db)? != schema(&expected)? {

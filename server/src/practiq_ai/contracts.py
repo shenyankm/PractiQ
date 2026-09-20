@@ -556,3 +556,43 @@ class DocumentTaskControl(StrictModel):
 
 
 DocumentParseInput.model_rebuild()
+
+
+TaskState = Literal["PENDING", "RUNNING", "PAUSING", "PAUSED", "INTERRUPTED", "FAILED", "WAITING_REVIEW", "COMPLETED", "EXPIRED"]
+
+
+class DocumentTaskSummary(StrictModel):
+    threadId: UUID
+    fileName: str
+    createdAt: str
+    expiresAt: str
+    state: TaskState
+    status: Literal["SUCCEEDED", "PARTIAL"] | None
+    checkpointId: str | None
+    questionCount: int = Field(ge=0)
+    reviewCount: int = Field(ge=0)
+
+
+class DocumentTaskList(StrictModel):
+    items: list[DocumentTaskSummary]
+    hasMore: bool
+
+
+class ReviewUnit(StrictModel):
+    stage: Literal["result", "vision_parse", "document_parse"]
+    index: int = Field(ge=0)
+    questions: list[ParsedQuestion]
+    groups: list[ParsedGroup]
+    visualElements: list[VisualElement] = Field(default_factory=list)
+    sourceRef: ArtifactReference | None = None
+
+
+class DocumentTaskReview(StrictModel):
+    threadId: UUID
+    checkpointId: str | None
+    state: TaskState
+    phase: str
+    units: list[ReviewUnit]
+    failures: list[UnitFailure]
+    quality: DocumentQuality
+    questionSources: list[QuestionSource]

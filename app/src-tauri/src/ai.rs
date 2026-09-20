@@ -1,8 +1,10 @@
 use crate::{
+    ai_work::{self, WorkState},
     contract::{self, Result},
-    store::{self, Store},
-    Shared,
+    store::{self, ImportSource, Pending, Store},
+    AppError, Shared,
 };
+use base64::{engine::general_purpose::STANDARD, Engine};
 use reqwest::{
     blocking::{Client, Response},
     Method,
@@ -43,11 +45,40 @@ pub enum AiRequest {
     Preview {
         id: String,
     },
+    Review {
+        id: String,
+    },
+    ReviewAsset {
+        id: String,
+        checkpoint_id: String,
+        unit: usize,
+        visual: Option<usize>,
+    },
+    Operations,
+    Replay {
+        request_id: String,
+    },
+    Batches,
+    PrepareBatch {
+        ids: Vec<String>,
+    },
+    RunBatch {
+        id: String,
+        titles: Option<Vec<String>>,
+    },
+    CancelBatch {
+        id: String,
+    },
 }
+type AiResult<T> = std::result::Result<T, AppError>;
 pub type AiState = Mutex<Option<Process>>;
 pub struct Process {
     child: Child,
     input: Option<ChildStdin>,
+    endpoint: Endpoint,
+}
+#[derive(Clone)]
+pub(crate) struct Endpoint {
     client: Client,
     origin: String,
     token: String,
@@ -99,14 +130,16 @@ impl Process {
         let mut process = Self {
             child,
             input: None,
-            client: Client::builder()
-                .no_proxy()
-                .redirect(reqwest::redirect::Policy::none())
-                .timeout(Duration::from_secs(120))
-                .build()
-                .map_err(err)?,
-            origin: String::new(),
-            token,
+            endpoint: Endpoint {
+                client: Client::builder()
+                    .no_proxy()
+                    .redirect(reqwest::redirect::Policy::none())
+                    .timeout(Duration::from_secs(120))
+                    .build()
+                    .map_err(err)?,
+                origin: String::new(),
+                token,
+            },
         };
         let mut input = process.child.stdin.take().ok_or("无法打开解析管道")?;
         writeln!(input, "{bootstrap}").map_err(|_| "解析组件初始化失败")?;
@@ -134,10 +167,11 @@ impl Process {
             .as_u64()
             .filter(|p| *p > 0 && *p <= 65535)
             .ok_or("解析组件端口无效")?;
-        process.origin = format!("http://127.0.0.1:{port}");
+        process.endpoint.origin = format!("http://127.0.0.1:{port}");
         let status = process
+            .endpoint
             .client
-            .get(format!("{}/ready", process.origin))
+            .get(format!("{}/ready", process.endpoint.origin))
             .send()
             .map_err(|_| "解析组件未就绪")?;
         if !status.status().is_success() {
@@ -145,7 +179,21 @@ impl Process {
         }
         Ok(process)
     }
-    fn send(&self, method: Method, path: &str, body: Option<&Value>) -> Result<Response> {
+}
+impl Endpoint {
+    #[cfg(test)]
+    pub(crate) fn test(origin: String) -> Self {
+        Self {
+            client: Client::builder()
+                .no_proxy()
+                .timeout(Duration::from_secs(3))
+                .build()
+                .unwrap(),
+            origin,
+            token: "test".into(),
+        }
+    }
+    fn send(&self, method: Method, path: &str, body: Option<&Value>) -> AiResult<Response> {
         let mut request = self
             .client
             .request(method, format!("{}{path}", self.origin))
@@ -156,23 +204,28 @@ impl Process {
         if let Some(body) = body {
             request = request.json(body);
         }
-        let response = request.send().map_err(|_| "本地解析服务不可用，请重试")?;
+        let response = request.send().map_err(|_| {
+            AppError::new(
+                "LOCAL_SERVICE_UNAVAILABLE",
+                "本地解析服务连接中断，请重试待确认操作",
+            )
+        })?;
         if !response.status().is_success() {
             let status = response.status();
             let value = read_json(response)?;
-            return Err(format!(
-                "解析请求失败 ({status}): {}",
-                value["detail"]
-                    .get("message")
-                    .or(value["detail"].get("code"))
-                    .and_then(Value::as_str)
-                    .unwrap_or("请检查配置或任务状态")
-            ));
+            let mut error = AppError::new(
+                value["detail"]["code"].as_str().unwrap_or("SERVICE_ERROR"),
+                value["detail"]["message"]
+                    .as_str()
+                    .unwrap_or("请检查配置或刷新任务状态"),
+            );
+            error.http_status = Some(status.as_u16());
+            return Err(error);
         }
         Ok(response)
     }
-    fn json(&self, method: Method, path: &str, body: Option<&Value>) -> Result<Value> {
-        read_json(self.send(method, path, body)?)
+    pub(crate) fn json(&self, method: Method, path: &str, body: Option<&Value>) -> AiResult<Value> {
+        Ok(read_json(self.send(method, path, body)?)?)
     }
 }
 fn read_json(response: Response) -> Result<Value> {
@@ -186,7 +239,7 @@ fn read_json(response: Response) -> Result<Value> {
     }
     serde_json::from_slice(&bytes).map_err(|_| "解析服务返回无效数据".into())
 }
-fn task_path(id: &str) -> Result<String> {
+pub(crate) fn task_path(id: &str) -> Result<String> {
     let id = uuid::Uuid::parse_str(id).map_err(|_| "任务 ID 不合法")?;
     Ok(format!("/api/document-tasks/{id}"))
 }
@@ -214,7 +267,17 @@ fn document_format(path: &std::path::Path) -> Result<(&'static str, &'static str
     })
 }
 
-pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> Result<Value> {
+pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiResult<Value> {
+    let dir = shared.lock().map_err(|_| "数据库不可用")?.dir.clone();
+    let work = app.state::<WorkState>();
+    let _request = work.enter()?;
+    // Local recovery controls must remain available even without model settings.
+    match &request {
+        AiRequest::Operations => return ai_work::operations(&dir),
+        AiRequest::Batches => return ai_work::batches(&dir, &work),
+        AiRequest::CancelBatch { id } => return ai_work::cancel_batch(&dir, &work, id),
+        _ => {}
+    }
     let selected = if matches!(request, AiRequest::PickDocument) {
         let file = app
             .dialog()
@@ -241,10 +304,16 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> Res
         state.take();
     }
     if state.is_none() {
-        let dir = shared.lock().map_err(|_| "数据库不可用")?.dir.clone();
-        *state = Some(Process::start(&app, &Store { dir, pending: None })?);
+        *state = Some(Process::start(
+            &app,
+            &Store {
+                dir: dir.clone(),
+                pending: None,
+            },
+        )?);
     }
-    let process = state.as_ref().ok_or("解析服务不可用")?;
+    let process = state.as_ref().ok_or("解析服务不可用")?.endpoint.clone();
+    drop(state);
     match request {
         AiRequest::Grade { id, ordinal, retry } => {
             let payload = shared
@@ -257,26 +326,36 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> Res
                 Some(&payload),
             ) {
                 Ok(value) => value,
-                Err(message) => {
-                    serde_json::json!({"status":"unknown","error":message,"usageStatus":"unknown"})
+                Err(error) => {
+                    serde_json::json!({"status":"unknown","error":error.message,"usageStatus":"unknown"})
                 }
             };
-            shared.lock().map_err(|_| "数据库不可用")?.record_grade(
+            Ok(shared.lock().map_err(|_| "数据库不可用")?.record_grade(
                 &id,
                 ordinal,
                 contract::text(&payload, "requestId"),
                 &response,
-            )
+            )?)
         }
         AiRequest::List { offset } => {
             if offset > 1_000_000 {
                 return Err("分页参数无效".into());
             }
-            process.json(
+            let mut result = process.json(
                 Method::GET,
                 &format!("/api/document-tasks?limit=20&offset={offset}"),
                 None,
-            )
+            )?;
+            let store = shared.lock().map_err(|_| "数据库不可用")?;
+            for item in result["items"].as_array_mut().ok_or("任务列表格式错误")? {
+                contract::validate_workflow(item, false)?;
+                let id = contract::text(item, "threadId");
+                let bank = store.imported_ai(id, None, item["checkpointId"].as_str())?;
+                let previous = store.imported_ai(id, None, None)?.is_some();
+                item["importedBankId"] = json!(bank);
+                item["previouslyImported"] = json!(previous);
+            }
+            Ok(result)
         }
         AiRequest::Get { id } => process.json(Method::GET, &task_path(&id)?, None),
         AiRequest::Control {
@@ -298,10 +377,13 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> Res
                 return Err("操作不合法".into());
             }
             let body = json!({"requestId":store::id(),"action":action,"runId":run_id,"checkpointId":checkpoint_id,"units":units.unwrap_or(json!([]))});
-            process.json(
-                Method::POST,
+            ai_work::submit_operation(
+                &dir,
+                &work,
+                &process,
                 &format!("{}/control", task_path(&id)?),
-                Some(&body),
+                body,
+                &action,
             )
         }
         AiRequest::PickDocument => {
@@ -326,51 +408,162 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> Res
                     return Err("上传失败，请重试".into());
                 }
             }
-            process.json(Method::POST,"/api/document-tasks",Some(&json!({"requestId":store::id(),"document":prepared["document"],"failurePolicy":"review"})))
+            ai_work::submit_operation(
+                &dir,
+                &work,
+                &process,
+                "/api/document-tasks",
+                json!({"requestId":store::id(),"document":prepared["document"],"failurePolicy":"review"}),
+                body["fileName"].as_str().unwrap_or("解析文档"),
+            )
         }
         AiRequest::Preview { id } => {
-            let result = process.json(Method::GET, &task_path(&id)?, None)?;
-            if result["state"] != "COMPLETED" {
-                return Err("请先完成解析或接受部分结果".into());
-            }
-            let bytes = serde_json::to_vec(&result).map_err(err)?;
-            let parsed = contract::parse(&bytes)?;
-            let mut assets = std::collections::HashMap::new();
-            let mut total = 0usize;
-            for visual in contract::list(contract::result(&parsed), "visualElements") {
-                let r = &visual["imageRef"];
-                if !r.is_object() {
-                    continue;
-                }
-                let digest = contract::text(r, "sha256");
-                if assets.contains_key(digest) {
-                    continue;
-                }
-                let response = process.send(Method::POST, "/api/artifacts/read", Some(r))?;
-                let mut data = Vec::new();
-                response
-                    .take(crate::assets::LIMIT as u64 + 1)
-                    .read_to_end(&mut data)
-                    .map_err(err)?;
-                let media = contract::text(r, "mediaType");
-                total += data.len();
-                if data.len() > crate::assets::LIMIT
-                    || total > 256 * 1024 * 1024
-                    || r["sizeBytes"] != data.len()
-                    || store::hash(&data) != digest
-                    || !store::image_signature(&data, media)
-                {
-                    return Err("解析图片校验失败".into());
-                }
-                assets.insert(digest.to_owned(), (media.to_owned(), data));
-            }
+            let mut pending = process.pending(&id)?;
+            let store = Store { dir, pending: None };
+            process.load_assets(&mut pending, &store)?;
             let mut store = shared.lock().map_err(|_| "数据库不可用")?;
-            store.preview(bytes, "解析题库".into())?;
-            let pending = store.pending.as_mut().ok_or("预览失效")?;
-            pending.assets = assets;
-            pending.missing.clear();
-            store.preview_value()
+            store.pending = Some(pending);
+            Ok(store.preview_value()?)
         }
+        AiRequest::Review { id } => process.review(&id),
+        AiRequest::ReviewAsset {
+            id,
+            checkpoint_id,
+            unit,
+            visual,
+        } => {
+            let review = process.review(&id)?;
+            if review["checkpointId"] != checkpoint_id {
+                return Err(AppError::new("STALE_CHECKPOINT", "任务已变化，请刷新预览"));
+            }
+            let unit = review["units"].get(unit).ok_or("预览单元不存在")?;
+            let reference = match visual {
+                Some(index) => &unit["visualElements"].get(index).ok_or("图片不存在")?["imageRef"],
+                None => &unit["sourceRef"],
+            };
+            let media = contract::text(reference, "mediaType");
+            let content = if media == "text/plain" || media.starts_with("text/plain;") {
+                let mut bytes = Vec::new();
+                process
+                    .send(Method::POST, "/api/artifacts/read", Some(reference))?
+                    .take(contract::MAX_JSON as u64 + 1)
+                    .read_to_end(&mut bytes)
+                    .map_err(err)?;
+                if bytes.len() > contract::MAX_JSON
+                    || reference["sizeBytes"].as_u64() != Some(bytes.len() as u64)
+                    || store::hash(&bytes) != contract::text(reference, "sha256")
+                {
+                    return Err(AppError::new("ARTIFACT_INVALID", "来源文本校验失败"));
+                }
+                String::from_utf8(bytes).map_err(|_| "来源文本编码无效")?
+            } else {
+                let bytes = process.image(reference, &Store { dir, pending: None })?;
+                format!("data:{media};base64,{}", STANDARD.encode(bytes))
+            };
+            Ok(json!({"mediaType":media,"content":content}))
+        }
+        AiRequest::Replay { request_id } => {
+            ai_work::replay_operation(&dir, &work, &process, &request_id)
+        }
+        AiRequest::PrepareBatch { ids } => ai_work::prepare_batch(&dir, &process, &ids),
+        AiRequest::RunBatch { id, titles } => {
+            ai_work::run_batch(&dir, &work, &process, &shared, &id, titles)
+        }
+        AiRequest::Operations | AiRequest::Batches | AiRequest::CancelBatch { .. } => {
+            unreachable!("handled before service startup")
+        }
+    }
+}
+
+impl Endpoint {
+    fn review(&self, id: &str) -> AiResult<Value> {
+        let result = self.json(Method::GET, &format!("{}/preview", task_path(id)?), None)?;
+        contract::validate_workflow(&result, true)?;
+        Ok(result)
+    }
+    pub(crate) fn pending(&self, id: &str) -> AiResult<Pending> {
+        let result = self.json(Method::GET, &task_path(id)?, None)?;
+        if result["threadId"] != id || result["state"] != "COMPLETED" {
+            return Err(AppError::new(
+                "TASK_NOT_COMPLETED",
+                "请先完成解析或接受部分结果",
+            ));
+        }
+        let checkpoint = result["checkpointId"]
+            .as_str()
+            .filter(|s| !s.is_empty())
+            .ok_or("任务缺少结果版本")?
+            .to_owned();
+        let title = std::path::Path::new(result["fileName"].as_str().unwrap_or("解析题库"))
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("解析题库")
+            .to_owned();
+        // Store portable document output, not run state or model-call logs, in practice backups.
+        let mut output = json!({"status":result["status"],"result":result["result"]});
+        if !result["processing"].is_null() {
+            output["processing"] = result["processing"].clone();
+        }
+        let mut pending = Pending::new(serde_json::to_vec(&output).map_err(err)?, title)?;
+        if contract::list(contract::result(&pending.root), "questions").is_empty() {
+            return Err("结果没有可导入题目".into());
+        }
+        pending.source = Some(ImportSource {
+            thread_id: id.into(),
+            checkpoint_id: checkpoint,
+        });
+        Ok(pending)
+    }
+    fn image(&self, reference: &Value, store: &Store) -> AiResult<Vec<u8>> {
+        let digest = contract::text(reference, "sha256");
+        let media = contract::text(reference, "mediaType");
+        let size = reference["sizeBytes"]
+            .as_u64()
+            .filter(|n| *n > 0 && *n <= crate::assets::LIMIT as u64)
+            .ok_or("图片大小不合法")?;
+        let path = store.asset_path(digest)?;
+        let bytes = if path.exists() {
+            store.read_asset(digest, size)?
+        } else {
+            let response = self.send(Method::POST, "/api/artifacts/read", Some(reference))?;
+            let mut bytes = Vec::new();
+            response
+                .take(crate::assets::LIMIT as u64 + 1)
+                .read_to_end(&mut bytes)
+                .map_err(err)?;
+            bytes
+        };
+        if bytes.len() as u64 != size
+            || store::hash(&bytes) != digest
+            || !store::image_signature(&bytes, media)
+        {
+            return Err(AppError::new("ARTIFACT_INVALID", "解析图片缺失或校验失败"));
+        }
+        Ok(bytes)
+    }
+    pub(crate) fn load_assets(&self, pending: &mut Pending, store: &Store) -> AiResult<()> {
+        let mut total = 0usize;
+        for visual in contract::list(contract::result(&pending.root), "visualElements") {
+            let reference = &visual["imageRef"];
+            if !reference.is_object() {
+                continue;
+            }
+            let digest = contract::text(reference, "sha256");
+            if pending.assets.contains_key(digest) {
+                continue;
+            }
+            let bytes = self.image(reference, store)?;
+            total += bytes.len();
+            if total > 256 * 1024 * 1024 {
+                return Err("单次资源总量超过 256 MiB".into());
+            }
+            pending.assets.insert(
+                digest.into(),
+                (contract::text(reference, "mediaType").into(), bytes),
+            );
+        }
+        pending.missing.clear();
+        Ok(())
     }
 }
 

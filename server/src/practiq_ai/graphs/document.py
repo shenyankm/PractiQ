@@ -716,7 +716,7 @@ async def _merge(state: DocumentState) -> dict[str, Any]:
 
 
 MAX_UNIT_RETRIES = 2
-RETRYABLE_CODES = {"OUTPUT_INVALID", "OUTPUT_STALLED", "AI_PROVIDER_UNAVAILABLE"}
+RETRYABLE_CODES = {"OUTPUT_INVALID", "OUTPUT_STALLED", "AI_PROVIDER_UNAVAILABLE", "AI_PROVIDER_AUTH_ERROR"}
 
 
 def unit_failures(state: dict[str, Any]) -> list[dict[str, Any]]:

@@ -21,6 +21,58 @@ from tests.support import parsed
 pytestmark = pytest.mark.usefixtures("disposable_databases")
 
 
+async def test_auth_failure_can_be_explicitly_retried_without_replaying_successes(monkeypatch):
+    import httpx2
+    from openai import AuthenticationError
+
+    failure = AuthenticationError('bad fake key', response=httpx2.Response(401, request=httpx2.Request('POST', 'http://test')), body={})
+    failed = False
+
+    def respond(messages, _schema):
+        nonlocal failed
+        if messages[-1].content.endswith('First'):
+            return parsed('First')
+        if not failed:
+            failed = True
+            return failure
+        return parsed('Second')
+
+    api, reference, model = await setup_api(monkeypatch, [respond] * 3, parts=['First', 'Second'])
+    created = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference), failurePolicy='review'))
+    await api.wait_idle()
+    state = await task_api.get_task(created['threadId'])
+    assert state['state'] == 'WAITING_REVIEW'
+    assert state['failures'][0]['code'] == 'AI_PROVIDER_AUTH_ERROR'
+    assert 'retry_failed' in state['allowedActions'] and len(model.calls) == 2
+    before = await task_api.review_task(created['threadId'])
+    assert before['units'][0]['questions'][0]['stem'] == 'First'
+    assert before['failures'][0]['index'] == 1 and len(model.calls) == 2
+    monkeypatch.setenv('LLM_API_KEY', 'repaired-fake-key')
+    await task_api.control_task(created['threadId'], DocumentTaskControl(requestId=uuid4(), action='retry_failed', checkpointId=state['checkpointId']))
+    await api.wait_idle()
+    state = await task_api.get_task(created['threadId'])
+    assert state['state'] == 'COMPLETED' and len(model.calls) == 3
+    assert [q['stem'] for q in state['result']['questions']] == ['First', 'Second']
+    assert len(state['unknownUsageCalls']) == 1
+    listing = await task_api.list_tasks()
+    assert listing['items'][0]['questionCount'] == 2
+    review = await task_api.review_task(created['threadId'])
+    assert review['units'][0]['stage'] == 'result'
+    assert len(review['units'][0]['questions']) == 2 and len(model.calls) == 3
+
+
+async def test_permanent_provider_error_does_not_offer_useless_resume(monkeypatch):
+    api, reference, model = await setup_api(monkeypatch, [ValueError('invalid provider configuration')])
+    created = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
+    await api.wait_idle()
+    state = await task_api.get_task(created['threadId'])
+    assert state['state'] == 'FAILED' and state['allowedActions'] == []
+    assert state['failures'][0]['code'] == 'AI_PROVIDER_ERROR'
+    with pytest.raises(DocumentProcessingError, match='new document'):
+        await task_api.control_task(created['threadId'], DocumentTaskControl(requestId=uuid4(), action='resume', checkpointId=state['checkpointId']))
+    assert len(model.calls) == 1
+
+
 async def test_create_idempotency_concurrent_reuse_and_progress(monkeypatch):
     api, reference, model = await setup_api(monkeypatch)
     request = DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference))
@@ -199,6 +251,16 @@ async def test_quality_only_review_acceptance_is_idempotent_and_not_retryable(mo
     assert state['state'] == 'WAITING_REVIEW'
     assert state['allowedActions'] == ['accept_partial'] and state['failures'] == []
     assert state['blocking'][0]['qualityIssues'][0]['code'] == 'SOURCE_TEXT_NOT_FOUND'
+    monkeypatch.setenv('AI_SERVICE_TOKEN', 'test-token')
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://test') as http:
+        assert (await http.get(f'/api/document-tasks/{thread_id}/preview')).status_code == 401
+        response = await http.get(f'/api/document-tasks/{thread_id}/preview', headers={'Authorization': 'Bearer test-token'})
+        assert response.status_code == 200
+        preview = response.json()
+        assert preview['units'][0]['questions'] == state['result']['questions']
+        assert preview['quality'] == state['processing']['quality']
+        assert preview['checkpointId'] == state['checkpointId']
+        assert len(model.calls) == 1
     with pytest.raises(DocumentProcessingError, match='retryable'):
         await task_api.control_task(thread_id, DocumentTaskControl(requestId=uuid4(), action='retry_failed', checkpointId=state['checkpointId']))
     with pytest.raises(DocumentProcessingError, match='checkpoint'):

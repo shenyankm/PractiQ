@@ -12,6 +12,8 @@ from .contracts import (
     DocumentReference,
     DocumentTaskControl,
     DocumentTaskCreate,
+    DocumentTaskList,
+    DocumentTaskReview,
     RetryUnits,
 )
 from .database import utcnow
@@ -127,9 +129,7 @@ async def _calls(service, thread_id):
             return values
 
 
-async def get_task(thread_id: str) -> dict[str, Any]:
-    service = client()
-    task, snapshot, run = await _read_task(service, thread_id)
+def _task_state(task, snapshot, run):
     values = snapshot.values or {}
     interruptions = _interrupts(snapshot)
     failures = unit_failures(values)
@@ -141,7 +141,10 @@ async def get_task(thread_id: str) -> dict[str, Any]:
         actions = ['interrupt'] if run['pause_requested'] or run['cancel_requested'] else ['pause', 'interrupt']
     elif run and run['status'] == 'error':
         state = 'FAILED'
-        actions = ['resume'] if snapshot.next else []
+        actions = ['resume'] if snapshot.next and run['error_code'] not in {
+            'DOCUMENT_PARSE_FAILED', 'NO_QUESTIONS_FOUND', 'DOCUMENT_SOURCE_TYPE_MISMATCH',
+            'DOCUMENT_PREPARE_FAILED', 'MODEL_INPUT_TOO_LARGE', 'MODEL_BUDGET_EXCEEDED',
+        } else []
         if any(f['retryable'] for f in failures):
             actions.append('retry_failed')
     elif interruptions:
@@ -165,12 +168,23 @@ async def get_task(thread_id: str) -> dict[str, Any]:
         actions = []
         if state != 'COMPLETED':
             state = 'FAILED'
+    return state, actions, failures
+
+
+async def get_task(thread_id: str) -> dict[str, Any]:
+    service = client()
+    task, snapshot, run = await _read_task(service, thread_id)
+    values = snapshot.values or {}
+    interruptions = _interrupts(snapshot)
+    state, actions, failures = _task_state(task, snapshot, run)
+    retired = task['document'].get('sourceType') in {'doc', 'docx'} or task['graph_id'] == 'docx_parser'
     calls = await _calls(service, thread_id)
     usage = {item['callKey']: item for item in values.get('usage', [])}
     usage.update({item['callKey']: {k: item[k] for k in ('callKey', 'modelId', 'inputTokens', 'outputTokens', 'callKind')}
                   for item in calls if item['status'] == 'completed'})
     return {
         'threadId': thread_id, 'runId': run['run_id'] if run else None,
+        'fileName': task['document'].get('fileName') or '文档',
         'state': state, 'phase': values.get('phase', 'pending'),
         'checkpointId': service.checkpoint_id(snapshot, run),
         'updatedAt': snapshot.created_at or task['created_at'].isoformat(), 'expiresAt': task['expires_at'].isoformat(),
@@ -231,6 +245,8 @@ async def control_task(thread_id: str, request: DocumentTaskControl) -> dict[str
             values = snapshot.values or {}
             interruptions = _interrupts(snapshot)
             reviews = [v for v in interruptions.values() if v.get('kind') == 'review']
+            if request.action == 'resume' and 'resume' not in _task_state(task, snapshot, run)[1]:
+                raise conflict('Task requires a review decision, a failed-unit retry, or a new document')
             if request.action == 'resume' and (reviews or values and not snapshot.next):
                 raise conflict('Task requires a review decision or is already complete')
             if request.action == 'accept_partial' and (not reviews or not all(v.get('canAccept') for v in reviews)):
@@ -275,7 +291,47 @@ async def _preflight(values: dict[str, Any]) -> None:
 
 async def list_tasks(limit: int = 20, offset: int = 0) -> dict[str, Any]:
     service = client()
-    rows = await service.db.rows('SELECT thread_id,document,created_at,expires_at FROM document_tasks ORDER BY created_at DESC,thread_id DESC LIMIT ? OFFSET ?', (limit + 1, offset))
-    return {'items': [{'threadId': row['thread_id'], 'fileName': row['document'].get('fileName', '文档'),
-                       'createdAt': row['created_at'].isoformat(), 'expiresAt': row['expires_at'].isoformat()}
-                      for row in rows[:limit]], 'hasMore': len(rows) > limit}
+    rows = await service.db.rows('SELECT * FROM document_tasks ORDER BY created_at DESC,thread_id DESC LIMIT ? OFFSET ?', (limit + 1, offset))
+    items = []
+    for row in rows[:limit]:
+        expired = row['expires_at'] <= utcnow()
+        snapshot = await service.snapshot(row)
+        runs = await service.db.rows('SELECT * FROM document_runs WHERE thread_id=? ORDER BY created_at DESC LIMIT 1', (row['thread_id'],))
+        run = runs[0] if runs else None
+        values = snapshot.values or {}
+        questions = values.get('result', {}).get('questions', [])
+        items.append({'threadId': row['thread_id'], 'fileName': row['document'].get('fileName') or '文档',
+                      'createdAt': row['created_at'].isoformat(), 'expiresAt': row['expires_at'].isoformat(),
+                      'state': 'EXPIRED' if expired else _task_state(row, snapshot, run)[0],
+                      'status': values.get('status') or None, 'checkpointId': service.checkpoint_id(snapshot, run),
+                      'questionCount': len(questions), 'reviewCount': sum(bool(q.get('needsReview')) for q in questions)})
+    return DocumentTaskList(items=items, hasMore=len(rows) > limit).model_dump(mode='json')
+
+
+async def review_task(thread_id: str) -> dict[str, Any]:
+    """Read saved candidates only; never run merge, crop, or model nodes."""
+    service = client()
+    task, snapshot, run = await _read_task(service, thread_id)
+    values = snapshot.values or {}
+    state, _, failures = _task_state(task, snapshot, run)
+    units = []
+    if values.get('result', {}).get('questions'):
+        result = values['result']
+        units.append({'stage': 'result', 'index': 0, 'questions': result['questions'],
+                      'groups': result.get('groups', []), 'visualElements': result.get('visualElements', [])})
+    else:
+        for key, stage, refs in (('visionResults', 'vision_parse', 'pageRefs'), ('chunkResults', 'document_parse', 'chunkRefs')):
+            for item in sorted(values.get(key, []), key=lambda item: item['index']):
+                if not item.get('parsed'):
+                    continue
+                references = values.get(refs, [])
+                units.append({'stage': stage, 'index': item['index'], 'questions': item['parsed'].get('questions', []),
+                              'groups': item['parsed'].get('groups', []), 'visualElements': item.get('visuals', []),
+                              'sourceRef': references[item['index']] if item['index'] < len(references) else None})
+    processing = values.get('processing', {})
+    return DocumentTaskReview.model_validate({
+        'threadId': thread_id, 'checkpointId': service.checkpoint_id(snapshot, run),
+        'state': state, 'phase': values.get('phase', 'pending'), 'units': units,
+        'failures': failures, 'quality': processing.get('quality', {}),
+        'questionSources': processing.get('questionSources', []),
+    }).model_dump(mode='json')

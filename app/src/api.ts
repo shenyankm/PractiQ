@@ -152,6 +152,7 @@ export interface SessionSummary {
   autoGraded: number;
 }
 export interface Preview {
+  questions?: Question[];
   ticket: string;
   title: string;
   count: number;
@@ -224,9 +225,20 @@ export function api<T>(request: Request): Promise<T> {
   return invoke<T>("request", { request });
 }
 export function errorMessage(error: unknown): string {
-  return typeof error === "object" && error !== null && "message" in error
+  const message = typeof error === "object" && error !== null && "message" in error
     ? String(error.message)
     : String(error);
+  const code = typeof error === "object" && error !== null && "code" in error ? String(error.code) : "";
+  const action: Record<string, string> = {
+    STALE_CHECKPOINT: "请刷新任务或重新创建导入批次。",
+    STALE_RUN: "请刷新任务状态。",
+    TASK_BUSY: "请等待当前运行结束后刷新。",
+    AI_PROVIDER_AUTH_ERROR: "请在设置中修正密钥，再重试失败项。",
+    AI_PROVIDER_UNAVAILABLE: "请稍后重试失败项。",
+    EXECUTION_VERSION_MISMATCH: "请使用原执行版本，或重新解析文档。",
+    LOCAL_SERVICE_UNAVAILABLE: "如有待确认操作，请从原操作重试。",
+  };
+  return action[code] ? `${message} ${action[code]}` : message;
 }
 export function duration(ms: number) {
   const seconds = Math.floor(ms / 1000);
