@@ -73,7 +73,7 @@ export function ConnectionSettingsPanel({
       </CardHeader>
       <CardContent>
         <form
-          className="space-y-5"
+          className="space-y-4"
           onSubmit={(e) => {
             e.preventDefault();
             run(async () => {
@@ -101,8 +101,9 @@ export function ConnectionSettingsPanel({
               </Button>
             </div>
           )}
-          <fieldset disabled={busy || !saved} className="space-y-4">
-            <div className="space-y-2">
+          <fieldset disabled={busy || !saved} className="min-w-0 space-y-4">
+            <div className="grid grid-cols-3 items-start gap-4">
+            <div className="col-span-2 min-w-0 space-y-2">
               <Label htmlFor="baseUrl">Base URL</Label>
               <Input
                 id="baseUrl"
@@ -119,19 +120,21 @@ export function ConnectionSettingsPanel({
             </div>
             <div className="space-y-2">
               <Label htmlFor="providerPreset">供应商预设</Label>
-              <select id="providerPreset" className="w-full rounded border p-2" defaultValue="" onChange={e=>{if(e.target.value) field("base_url",e.target.value)}}>
+              <select id="providerPreset" className="h-8 w-full min-w-0 rounded-lg border border-input bg-background px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50" defaultValue="" onChange={e=>{if(e.target.value) field("base_url",e.target.value)}}>
                 <option value="">自定义兼容 OpenAI 的地址</option>
                 <option value="https://dashscope.aliyuncs.com/compatible-mode/v1">DashScope</option>
                 <option value="https://api.deepseek.com">DeepSeek</option>
                 <option value="https://api.moonshot.cn/v1">Moonshot</option>
               </select>
             </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
             {([['text_model','文本模型'],['vision_model','视觉模型']] as const).map(([key,label])=><div key={key} className="space-y-2">
               <Label htmlFor={key}>{label}</Label>
               <Input id={key} autoComplete="off" value={config[key] || ''} onChange={e=>field(key,e.target.value)} />
             </div>)}
-            {(!config.text_model || !config.vision_model) && <p className="text-sm text-muted-foreground">开始解析前需分别填写文本模型与视觉模型。</p>}
-            <p className="text-xs text-muted-foreground">更改连接配置会停止解析服务；旧任务可能因模型配置变化而无法继续。</p>
+            </div>
+            {(!config.text_model || !config.vision_model) && <p className="text-xs text-muted-foreground">开始解析前需分别填写文本模型与视觉模型。</p>}
             <div className="space-y-2">
               <Label htmlFor="apiKey">API Key</Label>
               <Input
@@ -146,12 +149,14 @@ export function ConnectionSettingsPanel({
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
               />
-              <p className="flex items-center gap-1 text-xs text-muted-foreground">
-                <KeyRound className="size-3" />
+              <p className="flex items-start gap-1.5 text-xs leading-5 text-muted-foreground">
+                <KeyRound className="mt-1 size-3 shrink-0" />
+                <span>
                 {configured
                   ? "该地址已有 API Key。"
                   : "该地址尚未保存 API Key。"}
                 密钥存入 macOS 钥匙串，不会导出到备份。
+                </span>
               </p>
               {configured && (
                 <label className="flex items-center gap-2 text-sm">
@@ -167,10 +172,13 @@ export function ConnectionSettingsPanel({
               )}
             </div>
           </fieldset>
-          <Button type="submit" disabled={busy || !saved}>
+          <div className="flex items-center justify-between gap-4 border-t pt-4">
+          <p className="max-w-md text-xs leading-5 text-muted-foreground">更改连接配置会停止解析服务；旧任务可能因模型配置变化而无法继续。</p>
+          <Button className="shrink-0" type="submit" disabled={busy || !saved}>
             <Save />
             保存连接配置
           </Button>
+          </div>
         </form>
       </CardContent>
     </Card>

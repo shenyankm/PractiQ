@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="server/assets/logo/practiq-octopus-a5.png" width="160" alt="PractiQ 标志">
+  <img src="app/src-tauri/icons/icon.png" width="160" alt="PractiQ 标志">
 </p>
 
 # PractiQ
