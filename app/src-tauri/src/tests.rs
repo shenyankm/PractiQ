@@ -525,7 +525,7 @@ fn merged_copy_filters_grading_and_backup_preserve_independence() {
         .unwrap();
     s.favorite(text(&qs[4], "id"), true).unwrap();
     assert_eq!(
-        s.questions_multi(None, &[bank.clone()], "", "single", "")
+        s.questions_multi(None, std::slice::from_ref(&bank), "", "single", "")
             .unwrap()
             .as_array()
             .unwrap()
