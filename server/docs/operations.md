@@ -1,13 +1,15 @@
 # 开源 LangGraph 服务运维
 
-运行时为 FastAPI / Uvicorn 单进程、开源 LangGraph 和本机 SQLite。无需 Agent Server、Redis 或 LangSmith 运行授权。解析模型和云资源费用独立计算。
+运行时为 FastAPI / Uvicorn 单进程、开源 LangGraph 和本机 SQLite。无需 Agent Server、Redis 或 LangSmith 运行授权。解析、主观题评分和云资源费用独立计算。本文说明独立服务的启动、备份、恢复与维护；桌面数据管理见[桌面指南](../../app/README.md)。
 
 ## 初始化与启动
 
 使用已有 Python 3.14+，不创建项目 `.venv`。根目录 `.env` 由启动命令读取；进程环境优先。`AI_DATABASE_DIR` 指向专用本机磁盘目录，源码默认 `server/.local/database`，部署必须使用持久绝对路径。检测到旧 `DATABASE_URI` 时拒绝启动。旧 PostgreSQL 数据和卷不变；不自动迁移历史任务。未知非空 SQLite 库拒绝初始化。
 
+准备 uv，并按[配置步骤](service-guide.md#本地运行)填写 `.env` 后，从仓库根目录执行：
+
 ```sh
-make install AI_PYTHON=/path/to/python3.14
+make install-locked AI_PYTHON=/path/to/python3.14
 make init-db AI_PYTHON=/path/to/python3.14
 make server-dev AI_PYTHON=/path/to/python3.14
 ```
@@ -16,11 +18,14 @@ make server-dev AI_PYTHON=/path/to/python3.14
 
 生产镜像由 `Dockerfile.server` 构建，包含 Python 3.14、PDFium 和中文字体。Linux ECS 上使用 host 网络，容器默认监听 `127.0.0.1:8000`，通过主机 HTTPS 反向代理访问；不要公开数据库或应用后端端口。`deploy/nginx.conf` 是主机 loopback HTTP 代理示例，上游可信入口负责 TLS。
 
-推荐部署基线仍为 8 vCPU / 16 GB，须通过实际容量验收后调整。不要在多个 Uvicorn worker、自动缩容到零的函数计算实例或滚动重叠副本中运行。
+资源配置需根据实际文档、模型延迟和并发测试确定；历史容量报告不能作为当前部署规格的保证。不要在多个 Uvicorn worker、自动缩容到零的函数计算实例或滚动重叠副本中运行。
 
 ## 数据与迁移
 
+备份和升级时保留配套的数据库、文件与配置：
+
 - `tasks.sqlite` 保存业务任务、运行、幂等回执；`checkpoints.sqlite` 与 `store.sqlite` 由官方 SQLite 持久化组件管理。启用 WAL、FULL 同步、外键和 5 秒忙等待；禁止网络文件系统和多服务进程。
+- `subjective-grades.sqlite` 保存主观题评分请求的 ID、摘要及响应，按首次评分请求创建。独立服务备份需保留该文件，避免丢失请求复用记录；它不属于文档任务队列，也不由文档任务清理命令清理。
 - 新服务使用新文件根目录（示例 `.local/ai-oss`，生产必须为持久挂载的绝对路径）或独立 OSS Bucket。旧任务、旧 checkpoint 和文件保留在原环境；不自动迁移、不删除、不复用旧状态库。
 - local/OSS 上传和素材读取继续进行鉴权、大小与 SHA-256 校验。OSS 凭证只保留在服务器；新 Bucket 仍由运维预先创建。
 - 切换存储、代码、模型或语义配置后，旧任务须在原版本完成；不尝试绕过执行指纹。数据库凭证不写入图状态或日志。
@@ -40,7 +45,7 @@ checkpoint 保存的成功单元会复用；外部模型请求已执行但结果
 
 ## 配置与观测
 
-完整变量见根目录 `.env.example`。保留源文件 25 MiB、100 页、视觉/文本预算、输入严格校验、转换超时、PDFium 互斥及供应商并发/RPM 限流。
+完整变量见[配置模板](../../.env.example)。保留源文件 25 MiB、100 页、视觉/文本预算、输入严格校验、转换超时、PDFium 互斥及供应商并发和每分钟请求数（RPM）限流。监控入口与观测边界如下：
 
 - `GET /ok`：公开活性检查，仅返回 `{"ok":true}`。
 - `GET /ready`：数据库、独占锁监控和调度器可用返回 200，否则 503；无敏感详情。
@@ -51,9 +56,17 @@ checkpoint 保存的成功单元会复用；外部模型请求已执行但结果
 
 `deploy/alerts.rules.yml` 保留部分结果、未知用量、预算、校验和、队列和延迟告警。`SUCCEEDED` 不代表语义质量通过；调用方仍检查 `processing.quality`。
 
+## 评分请求的恢复边界
+
+`POST /api/subjective-grades` 同步处理一题，不进入文档队列。维护模式拒绝评分；已经发往模型的调用可能继续完成。评分使用公共模型限流、重试和用量记录，但不受文档任务的 180 天期限、400 次总调用预算或 run 截止时间管理。
+
+进程中断可能留下已登记但没有结果的评分请求。相同 ID 重放返回 `unknown`，服务不会自动再次调用模型；只有明确重新评分并使用新 ID 才开始新的请求。保留未知用量，并与供应商账单核对。服务不自动清理评分缓存，维护方案应单独考虑其保存期限。
+
+桌面 ZIP 备份包含考试与已保存评分，但不含此服务缓存或 API Key。完整服务备份与桌面题库备份用途不同，不能互相替代。
+
 ## 保留期限与清理
 
-任务有效期 180 天。过期状态不会在启动时自动删除。排空并停止服务后，设置 `AI_MAINTENANCE_MODE=true`，使用同一配置执行：
+文档任务有效期 180 天。过期状态不会在启动时自动删除。排空并停止服务后，设置 `AI_MAINTENANCE_MODE=true`，使用同一配置执行：
 
 ```sh
 cd server
@@ -70,18 +83,25 @@ python scripts/storage_gc.py --output /absolute/new-inventory.json
 
 shell 须预先加载配置。盘点所有保留任务、完整 checkpoint 历史和 Store；任一读取失败立即停止。默认保留至少 187 天。`--quarantine` 必须在维护模式、排空、停止服务后执行；独占锁阻止服务同时启动，先保存可恢复清单再移动。local 隔离至同根 `.quarantine/<runId>/`；OSS 必须启用版本控制且仅创建 delete marker。未执行真实 OSS 清理。
 
-## 验证
+## 验证恢复与容量
 
 `make verify` 使用临时 SQLite 文件和模型替身，不调用外部模型，也不需要 PostgreSQL 或 Docker 数据库。独立进程测试覆盖强制终止、未知调用与人工审核恢复。
 
+先启动服务，再从仓库根目录运行文档任务压测：
+
 ```sh
 cd server
-python scripts/load_test.py --base-url http://127.0.0.1:8090 --text '1. What is 2 + 2? A. 3 B. 4 Answer: B' --total 20 --submit-concurrency 5 --output reports/new-load.json
+python -m dotenv -f ../.env run -- python scripts/load_test.py \
+  --base-url http://127.0.0.1:8090 \
+  --text '1. What is 2 + 2? A. 3 B. 4 Answer: B' \
+  --total 20 --submit-concurrency 5 --output reports/new-load.json
 ```
 
 压测只支持文档业务 API。连接真实模型的压测与评测会产生费用，需另行安排。历史 `Agent Server`/Redis/许可证和旧容量报告保留作为历史证据，不代表新运行时验收。
 
 ## 2026-09-19 恢复与资源边界修复
+
+以下记录保留该次修复的行为与升级要求：
 
 - 控制事务在取得连接前串行排队；恢复文件预检在全局锁外执行，并在入队前重新核对当前运行与 checkpoint。执行阶段的预检与图共享持久化运行期限。
 - 暂停和人工审核使用独立 checkpoint 节点。失败审核和结果质量审核均需先恢复暂停，再提交审核决定。升级后旧执行签名不兼容，旧任务须使用原部署恢复或新建任务。

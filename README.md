@@ -6,80 +6,98 @@
 
 English | [简体中文](README.zh-CN.md)
 
-**Turn documents into structured questions, then practise offline.**
+Turn documents into question banks, then practise and take mock exams on your Mac.
 
-PractiQ is an AI document import service for teams building question banks, educational content tools, and document-processing workflows. It extracts questions, passage-based groups, source answers, and visual assets from text, CSV, PDFs, and images, so you can review and reuse the content in your own application.
+PractiQ combines an offline desktop practice app with a self-hosted AI service. Import an existing PractiQ JSON file without model access, or configure text and vision models to extract questions from documents. Build tests across question banks, review your answers, and request AI scoring for supported short-answer questions.
 
-## From source files to reusable content
+## Practise with your own materials
 
-Exam papers, scanned exercises, and spreadsheet question sets often combine text, tables, and illustrations. PractiQ brings them into a shared structure while keeping source references and identifying content that needs review.
+Use the desktop app to manage questions and review your progress:
 
-| Capability | What it gives you |
+| Task | What you can do |
 | --- | --- |
-| Structured extraction | Question stems, options, answer formats, and answers or explanations present in the source. |
-| Passage-based groups | Shared reading passages or materials grouped with their questions. |
-| Visual content | PDF pages and PNG/JPEG images are parsed directly; figure crops are preserved alongside extracted content. |
-| Traceable results | Available page or text references to help check results against the original. |
-| Explicit uncertainty | Missing-field flags, quality issues, and partial results for review. Missing source answers remain missing. |
-| Controllable tasks | Pause and resume work, retry eligible failed units while retaining successful results, or accept a partial result. |
-| Usage visibility | Per-call model usage records, including failed calls and cases where usage is unknown. |
+| Import questions | Parse PDF, TXT, CSV, and PNG/JPEG files, or import PractiQ JSON with its local images |
+| Organize question banks | Edit questions, search, bookmark, and copy multiple banks into a new bank while keeping the originals |
+| Practise offline | Answer single-choice, multiple-choice, true/false, fill-in-the-blank, short-answer, ordering, and matching questions |
+| Build a test | Select across banks by question type, mistakes, bookmarks, or unanswered questions; use counts, type quotas, or manual selection |
+| Take a mock exam | Preview point values, set a time limit, and reveal answers after submission |
+| Review scores | Check local objective scores, request AI short-answer scores, or record a manual score with a reason |
+| Keep your records | Resume practice, revisit history, and back up question banks, images, attempts, and scores |
 
-## Supported documents
+Practice, tests, local objective scoring, and manual scoring work offline. Document parsing and AI scoring send content to your configured model provider and may incur charges. Start or resume those actions explicitly; reopening the desktop app does not resume model calls.
 
-| Format | Typical input |
+## Import documents and review results
+
+Open **导入题库** (Import question bank) in the desktop sidebar. Choose a PractiQ `.json` file for offline import, or select a source document and start parsing. Review the extracted questions, images, and warnings before creating a bank or appending to one.
+
+The parser accepts these source formats:
+
+| Format | Supported files |
 | --- | --- |
-| TXT / CSV | Text exercises and exported question lists. |
-| PDF | Digital or scanned papers, including pages with illustrations. |
-| Images | Screenshots and photographed exercises. |
+| Text and question lists | `.txt`, `.csv` |
+| Digital or scanned papers | `.pdf` |
+| Screenshots and photographs | `.png`, `.jpg`, `.jpeg` |
 
-Word (`.doc` / `.docx`) is not supported. Fonts and software can change Word layouts; PDF preserves page layout for recognition. Export to PDF from Word or WPS before uploading. See the [integration guide](server/docs/service-guide.md) for format limits.
+Export Word files to PDF before importing. Export Excel question lists to CSV, or use PDF to preserve their layout. Source uploads do not accept Word, Excel, WebP, or GIF files.
 
-The desktop sidebar’s **导入题库** (Import question bank) page combines offline PractiQ `.json` import and AI document parsing with task management. JSON import needs no model configuration. Document parsing accepts `.pdf`, `.txt`, `.csv`, `.png`, `.jpg`, and `.jpeg`.
+Parsing preserves source answers, explanations, passages, available score values, rubrics, and image references. It flags missing content instead of generating answers. You can pause tasks, resume them, retry eligible failed units, or accept partial results. Extracted content still needs review.
 
-## How it fits your workflow
+## Take a test and review scores
 
-**Upload a document → Track extraction → Review results → Use them in your application**
+Choose **练习 / 自测 / 模考** (Practice / Self-test / Mock exam) from a question bank, then select questions and preview the paper. Tests default to 100 points; you can change the total, allocate points by type, or edit each question's value. Values use 0.01-point increments and must sum to the total.
 
-1. **Upload** through the authenticated API and create a document task.
-2. **Track** progress, extracted content, and any processing failures.
-3. **Review** source references and quality flags. When needed, retry eligible failures or explicitly accept the available result.
-4. **Use** structured results and visual assets in your own question bank or editorial workflow.
+Self-tests have no time limit. Mock exams default to 60 minutes and support 1–1,440 minutes, with up to 1,000 questions. Closing the app or putting your Mac to sleep does not pause the deadline. When you reopen an expired exam, the app submits the last saved answers.
 
-PractiQ provides an independent self-hosted AI service and an offline desktop practice application. The desktop application imports AI JSON results into SQLite and supports question-bank management, practice, grading, bookmarks, mistakes, history and complete backups. Offline practice runs without the AI service; source-document import starts the bundled Python service on demand. AI answer generation and learning reports remain out of scope. Extraction results still need content review; engineering tests do not establish model accuracy.
+After submission, objective questions use local scoring. Select **AI 评分 / 继续** (AI scoring / Continue) to score eligible short answers against a reference answer or rubric. Missing evidence and failed calls stay ungraded. Review partial credit and explanations, and record manual corrections when needed.
 
-## Desktop application (macOS experiment)
+AI scoring supports personal practice. It is not calibrated for formal examinations. See the [exam acceptance record](app/EXAM_ACCEPTANCE.md) for dated engineering checks, synthetic model tests, and recorded failures.
 
-The new `app/` uses Tauri 2, React, Vite, shadcn/ui, TypeScript and SQLite. Desktop layouts only; iOS and Android are deferred. With Node.js 22.12+, Rust and Xcode installed:
+## Run the desktop app
+
+The current desktop target is Apple Silicon on macOS 14 or later. Development requires Node.js 22.12+, Rust, Xcode, uv, and an existing Python 3.14+ interpreter. Do not create a project `.venv`. Run these commands from the repository root, replacing the Python path with your interpreter:
 
 ```sh
+make install-locked app-install-python AI_PYTHON=/path/to/python3.14
 make app-install
+make app-bundle AI_PYTHON=/path/to/python3.14
 make app-dev
-# Build a local .app without publishing
-make app-install-python AI_PYTHON=/path/to/python3.14
+```
+
+This builds the bundled Python service before starting the desktop app. You do not need model credentials to import JSON and practise offline. Configure the provider URL, text model, vision model, and API key in **设置** (Settings) when you want parsing or AI scoring.
+
+To build a local application package, run:
+
+```sh
 make app-build AI_PYTHON=/path/to/python3.14
 ```
 
-Configure text and vision models to parse source documents locally, or import an existing AI result JSON and its image resources. Practice works offline, including incomplete questions with self-assessment. See the [desktop guide](app/README.md) for import limits, grading, data storage, backups and checks.
+The app stores practice data locally and API keys in macOS Keychain. Backups exclude keys and AI task state. See the [desktop guide](app/README.md) for storage, restore, packaging, and validation details. Windows CI checks do not establish Windows runtime support.
 
-## AI service: get started
+## Run the AI service independently
 
-You need Python 3.14+, a dedicated local SQLite directory, and access to text and vision models. Use an existing Python interpreter without a project `.venv`. Model calls may incur provider charges.
+For API integration, use the same Python 3.14+ interpreter, uv, a dedicated SQLite directory, and text and vision models. Copy the configuration template once without overwriting existing settings:
 
-```bash
-# First setup only; preserve any existing configuration
+```sh
 cp -n .env.example .env
-# Configure the service token, models, database, and file storage in .env
-make install AI_PYTHON=/path/to/python3.14
+```
+
+Set the service token, model credentials, both model names, database directory, and file storage in `.env`. Install dependencies, initialize a new database, and start the service:
+
+```sh
+make install-locked AI_PYTHON=/path/to/python3.14
 make init-db AI_PYTHON=/path/to/python3.14
 make server-dev AI_PYTHON=/path/to/python3.14
 ```
 
-The service starts at `127.0.0.1:8090`. It uses FastAPI, open-source LangGraph, and SQLite, with local file storage or a private OSS bucket. Text and vision models are both required; document content is sent to the configured model provider. The runtime uses one service process per database.
+The service listens on `127.0.0.1:8090` and runs one process per database. It uses FastAPI, LangGraph, and SQLite, with local files or private Alibaba Cloud Object Storage Service (OSS) storage. Use authenticated APIs for uploads, document tasks, artifacts, and explicit subjective grading.
 
-## Documentation
+## Find the detailed guides
 
-- [Integration and development guide](server/docs/service-guide.md) — configuration, import flow, format behavior, and CI checks (Chinese).
-- [Task API](server/docs/document-tasks.md) — task creation, progress, pause/resume, retry, and review decisions (Chinese).
-- [Operations](server/docs/operations.md) — deployment, storage, monitoring, and recovery (Chinese).
-- [Evaluation](server/docs/evaluation.md) — datasets, model-quality checks, and evidence limits (Chinese).
-- [Contributing](CONTRIBUTING.md) — development checks and contribution guidelines.
+Choose the guide for your task:
+
+- [Desktop guide](app/README.md): import, practice, tests, storage, and backups (Chinese)
+- [Service integration](server/docs/service-guide.md): configuration, parsing, grading, and API contracts (Chinese)
+- [Document task API](server/docs/document-tasks.md): progress, pause, resume, retry, and review decisions (Chinese)
+- [Operations](server/docs/operations.md): deployment, storage, monitoring, and recovery (Chinese)
+- [Evaluation](server/docs/evaluation.md): extraction and grading checks, datasets, and evidence limits (Chinese)
+- [Contributing](CONTRIBUTING.md): development checks and pull requests
