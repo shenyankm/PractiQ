@@ -208,7 +208,6 @@ type Request =
       question: Question;
     }
   | { type: "favorite"; id: string; value: boolean }
-  | ({ type: "start"; random: boolean; count: number } & Query)
   | {
       type: "save_attempt";
       id: string;

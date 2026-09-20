@@ -18,6 +18,20 @@ fn import(store: &mut Store) -> String {
         .unwrap();
     text(&imported, "bankId").into()
 }
+fn practice(store: &Store, rows: Value, count: usize) -> Value {
+    store
+        .start_paper(crate::exams::Paper {
+            question_ids: rows.as_array().unwrap()[..count]
+                .iter()
+                .map(|q| text(q, "id").to_owned())
+                .collect(),
+            kind: "practice".into(),
+            minutes: None,
+            scores: vec![],
+            total_cents: 0,
+        })
+        .unwrap()
+}
 #[test]
 fn shared_contract_corpus() {
     let cases: Value = serde_json::from_str(include_str!("../../fixtures/contracts.json")).unwrap();
@@ -103,7 +117,7 @@ fn transactional_import_resume_snapshot_and_latest_wrong() {
             .unwrap()["duplicate"],
         true
     );
-    let session = s.start(Some(&bank), "", "choice", "", false, 1).unwrap();
+    let session = practice(&s, s.questions(Some(&bank), "", "choice", "").unwrap(), 1);
     let sid = text(&session, "id");
     s.save_attempt(
         (sid, 0),
@@ -147,9 +161,11 @@ fn transactional_import_resume_snapshot_and_latest_wrong() {
             .len(),
         1
     );
-    let retry = s
-        .start(Some(&bank), "", "choice", "wrong", true, 1)
-        .unwrap();
+    let retry = practice(
+        &s,
+        s.questions(Some(&bank), "", "choice", "wrong").unwrap(),
+        1,
+    );
     s.save_attempt(
         (text(&retry, "id"), 0),
         json!({"correctOption":"A"}),
@@ -203,7 +219,7 @@ fn assets_backup_restore_and_failed_restore_preserve_data() {
         .as_str()
         .unwrap()
         .starts_with("data:image/png;base64,"));
-    let session = s.start(Some(&bank), "", "", "", true, 9).unwrap();
+    let session = practice(&s, qs.clone(), 9);
     let sid = text(&session, "id");
     s.finish(sid).unwrap();
     assert_eq!(s.position(sid, 5).unwrap()["position"], 5);
@@ -251,9 +267,11 @@ fn malformed_import_rolls_back_and_resources_cannot_escape() {
 fn self_grade_preserves_auto_result_and_ungraded_denominator() {
     let (_dir, mut s) = store();
     let bank = import(&mut s);
-    let session = s
-        .start(Some(&bank), "", "fill_blank", "", false, 1)
-        .unwrap();
+    let session = practice(
+        &s,
+        s.questions(Some(&bank), "", "fill_blank", "").unwrap(),
+        1,
+    );
     let sid = text(&session, "id");
     s.save_attempt(
         (sid, 0),
@@ -270,9 +288,11 @@ fn self_grade_preserves_auto_result_and_ungraded_denominator() {
     assert_eq!(v["attempts"][0]["result"], true);
     assert_eq!(v["attempts"][0]["autoResult"], false);
     assert_eq!(v["attempts"][0]["answer"]["answers"][0], "北京城");
-    let subjective = s
-        .start(Some(&bank), "", "short_answer", "", false, 2)
-        .unwrap();
+    let subjective = practice(
+        &s,
+        s.questions(Some(&bank), "", "short_answer", "").unwrap(),
+        2,
+    );
     s.save_attempt(
         (text(&subjective, "id"), 0),
         json!({"text":"my answer"}),
@@ -590,15 +610,12 @@ fn merged_copy_filters_grading_and_backup_preserve_independence() {
         .merge_banks(&[new.into(), "deleted".into()], "bad")
         .is_err());
     assert_eq!(before, s.banks().unwrap());
-    let session = s.start(Some(new), "", "true_false", "", false, 1).unwrap();
+    let session = practice(&s, s.questions(Some(new), "", "true_false", "").unwrap(), 1);
     let sid = text(&session, "id");
     s.save_attempt((sid, 0), json!({"value":false}), 0, false, false, None)
         .unwrap();
     let done = s.submit_paper(sid, true).unwrap();
     assert_eq!(done["attempts"][0]["skipped"], false);
-    assert!(s
-        .start(Some(new), "", "true_false", "", false, 999)
-        .is_err());
     let unattempted = s
         .questions(Some(new), "", "true_false", "unattempted")
         .unwrap();

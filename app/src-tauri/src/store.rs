@@ -1,6 +1,5 @@
 use crate::contract::{self, list, text, Result};
 use base64::{engine::general_purpose::STANDARD, Engine};
-use rand::seq::SliceRandom;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -464,66 +463,6 @@ impl Store {
             return Err("原题已删除，不能修改收藏".into());
         }
         Ok(json!(value))
-    }
-    pub fn start(
-        &self,
-        bank: Option<&str>,
-        search: &str,
-        mode: &str,
-        filter: &str,
-        random: bool,
-        count: usize,
-    ) -> Result<Value> {
-        if count == 0 || count > 1000 {
-            return Err("练习题数须为 1–1000".into());
-        }
-        let mut questions = self
-            .questions(bank, search, mode, filter)?
-            .as_array()
-            .cloned()
-            .unwrap_or_default();
-        if questions.is_empty() {
-            return Err("当前筛选下没有可练习题目".into());
-        }
-        if random {
-            questions.shuffle(&mut rand::rng());
-        }
-        if count > questions.len() {
-            return Err("可用题数不足，请调整题数".into());
-        }
-        questions.truncate(count);
-        let sid = id();
-        let title = if bank.is_some() {
-            text(&questions[0], "bankTitle")
-        } else if filter == "wrong" {
-            "错题练习"
-        } else if filter == "favorite" {
-            "收藏练习"
-        } else {
-            "跨题库练习"
-        };
-        let mut db = self.connect()?;
-        let tx = db.transaction().map_err(err)?;
-        tx.execute(
-            "INSERT INTO sessions(id,bank_id,bank_title,created_at,finished_at,position,mode) VALUES(?1,?2,?3,?4,NULL,0,?5)",
-            params![
-                sid,
-                bank,
-                title,
-                now(),
-                if random { "random" } else { "ordered" }
-            ],
-        )
-        .map_err(err)?;
-        for (i, snapshot) in questions.iter().enumerate() {
-            tx.execute(
-                "INSERT INTO attempts(session_id,ordinal,question_id,snapshot) VALUES(?1,?2,?3,?4)",
-                params![sid, i as i64, text(snapshot, "id"), snapshot.to_string()],
-            )
-            .map_err(err)?;
-        }
-        tx.commit().map_err(err)?;
-        self.session(&sid)
     }
     pub fn session(&self, sid: &str) -> Result<Value> {
         self.expire_exam(sid)?;
