@@ -6,6 +6,8 @@ Use this guide to prepare and validate a focused pull request. Read the [reposit
 
 Open an issue before starting a feature, architecture change, new dependency, or public API change. Scoped bug fixes and documentation corrections may go directly to a pull request. Write issue and pull request titles and descriptions in English.
 
+Issues must use the applicable [issue template](.github/ISSUE_TEMPLATE/), and pull requests must use the [pull request template](.github/PULL_REQUEST_TEMPLATE.md), whether submitted through the GitHub UI, CLI, or API. Preserve the template fields and sections; for CLI or API issues, use the form field labels as body headings. Complete required fields, explain non-applicable items, and mark checklist items complete only when verified.
+
 When making changes:
 
 - Preserve the boundaries in `AGENTS.md` and any directory-specific rules.

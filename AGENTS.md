@@ -28,7 +28,7 @@ Preserve strict Pydantic inputs, token authentication, bounded uploads, path and
 
 Bind services to loopback. Keep credentials server-side and never commit environment secrets. Preserve existing files, database volumes and unrelated worktree changes. Select local (default) or OSS with `AI_STORAGE_BACKEND`; preserve shared reference and checksum validation. Local AI storage resolves relative to `server/`; production must use a persistent absolute path.
 
-Update relevant documentation and focused tests with behavior changes. Follow `CONTRIBUTING.md` for pull requests.
+Update relevant documentation and focused tests with behavior changes. Follow `CONTRIBUTING.md` for issues and pull requests. Issues must use the applicable template in `.github/ISSUE_TEMPLATE/`; pull requests must use `.github/PULL_REQUEST_TEMPLATE.md`. This applies to submissions through the GitHub UI, CLI, or API. Preserve template fields and sections, explain non-applicable items, and mark checklist items complete only when verified.
 
 Source-document import supports PDF, TXT, CSV and PNG/JPEG images. Word is unsupported; direct users to export PDF. Do not restore Word parsers or LibreOffice dependencies. The desktop sidebar has one unified import page for offline JSON import and AI parsing/task management.
 
