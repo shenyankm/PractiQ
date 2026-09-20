@@ -227,6 +227,11 @@ impl Store {
         s["submittedAt"] = json!(submitted);
         for a in s["attempts"].as_array_mut().ok_or("练习记录损坏")? {
             let (max,earned,flagged,grading):(Option<i64>,Option<i64>,bool,String)=db.query_row("SELECT max_cents,earned_cents,flagged,grading FROM attempts WHERE session_id=?1 AND ordinal=?2",params![sid,a["ordinal"].as_i64()],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?))).map_err(err)?;
+            let favorite: Option<bool> = db.query_row(
+                "SELECT q.favorite FROM attempts a LEFT JOIN questions q ON q.id=a.question_id WHERE a.session_id=?1 AND a.ordinal=?2",
+                params![sid, a["ordinal"].as_i64()], |r| r.get(0),
+            ).map_err(err)?;
+            a["favorite"] = json!(favorite);
             a["maxCents"] = json!(max);
             a["earnedCents"] = json!(earned);
             a["flagged"] = json!(flagged);
@@ -358,10 +363,20 @@ fn a_blank_count(q: &mut Value) {
     }
     if let Some(blocks) = q["contentBlocks"].as_array_mut() {
         blocks.retain(|b| {
-            !matches!(
-                text(b, "role").to_lowercase().as_str(),
-                "answer" | "analysis" | "solution" | "explanation" | "答案" | "解析" | "评分细则"
-            )
+            let role = text(b, "role").to_lowercase();
+            ![
+                "answer",
+                "analysis",
+                "solution",
+                "explanation",
+                "rubric",
+                "答案",
+                "解析",
+                "解答",
+                "评分",
+            ]
+            .iter()
+            .any(|word| role.contains(word))
         });
     }
 }
@@ -405,11 +420,12 @@ impl Store {
                 .iter()
                 .map(|v| format!("{}\n{}", text(v, "description"), text(v, "extractedText"))),
         );
-        let mut payload = json!({"question":q,"answer":text(&answer,"text"),"maxCents":max,"materials":materials,"images":images});
-        if payload.to_string().len() > 31 * 1024 * 1024 {
+        let payload = json!({"question":q,"answer":text(&answer,"text"),"maxCents":max,"materials":materials,"images":images});
+        let raw = payload.to_string();
+        if raw.len() > 31 * 1024 * 1024 {
             return Err("评分题目资源超过 31 MiB，请人工评分".into());
         }
-        payload["inputDigest"] = json!(crate::store::hash(payload.to_string().as_bytes()));
+        let mut payload = json!({"inputDigest":crate::store::hash(raw.as_bytes()),"payload":raw});
         if !retry {
             let mut stmt=db.prepare("SELECT input FROM grade_requests WHERE session_id=?1 AND ordinal=?2 ORDER BY created_at DESC,rowid DESC LIMIT 1").map_err(err)?;
             let mut rows = stmt.query(params![sid, ordinal]).map_err(err)?;

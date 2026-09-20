@@ -37,9 +37,19 @@ cd server
 
 - 解析题目增加可空 `sourceScore`、`scoringRubric`、`scoreSourceText`；旧 JSON 不需补字段。
 - Tauri 请求增加 `start_paper`、`submit_paper`、`complete_review`、`flag`、`manual_score`、`retry_wrong`、`merge_banks`；`questions` 增加可选 `bank_ids`，`ai_request` 增加 `grade`。前端只提交考试 ID、题号和是否明确重试；Rust 从本次快照构造模型请求。
-- 鉴权 `POST /api/subjective-grades` 输入为 `requestId`（UUID）、`inputDigest`、`question`、`answer`、`maxCents`、可选 `materials` 与 `images`。`inputDigest` 是去掉 requestId/inputDigest 后按键排序、紧凑 UTF-8 JSON 的 SHA-256；图片仅接受有摘要的内联受限图片数据，不接受任意 URL 或文件路径。
+- 鉴权 `POST /api/subjective-grades` 输入为 `requestId`（UUID）、`inputDigest`、`payload`（JSON 字符串）。`payload` 包含 `question`、`answer`、`maxCents`、可选 `materials` 与 `images`，不包含请求 ID 或摘要。`inputDigest` 是该字符串原始 UTF-8 字节的 SHA-256；服务先校验摘要，再解析并严格校验内容，避免 Rust/Python 浮点指数格式差异；图片仅接受有摘要的内联受限图片数据，不接受任意 URL 或文件路径。
 - 输出 `status` 为 `graded` / `ungraded` / `unknown`，包含 `result`（得分、满分、理由、依据、复核原因）或错误，以及已知 `usage` 和逐调用 `calls`。分数使用整数百分单位，例如 300 表示 3 分。
 - 没有参考答案及细则、结构或材料不足时，不自动评分；模型失败不当作零分。重评分失败保留已有分数，人工评分优先于迟到响应，记录旧 AI 结果和人工改分历史。
 - 桌面备份保留最终评分与失败记录，排除未完成模型请求及服务请求缓存。服务结果未知后需要用户明确处理；供应商侧不保证恰好调用一次。
 
 非阻断构建提示：前端主包超过 500 kB，PyInstaller 提示未安装的可选模块；实际包内功能检查通过。未执行开发者签名或公证发布。
+
+
+评分请求示例（Python；使用已有 Bearer 鉴权）：
+```python
+payload = json.dumps({"question": question, "answer": "学生作答", "maxCents": 500}, ensure_ascii=False)
+request = {"requestId": str(uuid.uuid4()), "inputDigest": hashlib.sha256(payload.encode("utf-8")).hexdigest(), "payload": payload}
+# POST /api/subjective-grades，示例响应：
+# {"status":"unknown","error":"AI_PROVIDER_UNAVAILABLE","usage":[],"usageStatus":"unknown","calls":[]}
+```
+同一请求 ID 重放不再次调用模型；供应商失败后的新调用仍需用户明确重新评分。考试中会过滤包含 answer/analysis/solution/explanation/rubric 或答案、解析、解答、评分的角色变体；交卷后恢复原始快照。超时复核显示已持久化答案；收藏状态从当前题目读取，独立于不可变快照。

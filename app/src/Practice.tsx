@@ -39,8 +39,14 @@ export function Practice({
   const finished = session.finishedAt !== null || handedIn;
   const [confirmFinish,setConfirmFinish]=useState(false);
   const [clock,setClock]=useState(Date.now());
-  const [favorite,setFavorite]=useState(!!attempt.snapshot.favorite);
+  const favorite = attempt.favorite;
   const [seconds, setSeconds] = useState(elapsed.current);
+  useEffect(() => {
+    if (handedIn) {
+      setAnswer(attempt.answer);
+      answerRef.current = attempt.answer;
+    }
+  }, [handedIn, attempt.answer]);
   function persist(
     submit = false,
     skip = false,
@@ -157,7 +163,7 @@ export function Practice({
         <CardContent className="space-y-6">
           {exam && session.deadlineAt && !handedIn && <p role="timer">剩余 {duration(Math.max(0, session.deadlineAt-clock))}（后台与关闭应用不暂停）</p>}
           <div className="flex gap-2">
-            {attempt.snapshot.id && <Button variant="outline" onClick={()=>run(async()=>{await api({type:"favorite",id:attempt.snapshot.id!,value:!favorite});setFavorite(!favorite);})}>{favorite?"取消收藏":"收藏原题"}</Button>}
+            {attempt.snapshot.id && favorite != null && <Button variant="outline" onClick={()=>run(async()=>{await api({type:"favorite",id:attempt.snapshot.id!,value:!favorite});onSession(await api<Session>({type:"session",id:session.id}));})}>{favorite?"取消收藏":"收藏原题"}</Button>}
             {exam && !handedIn && <Button variant="outline" onClick={()=>run(async()=>{await flushRef.current();onSession(await api({type:"flag",id:session.id,ordinal:session.position,value:!attempt.flagged}));})}>{attempt.flagged?"取消待检查标记":"标记待检查"}</Button>}
           </div>
           <ExamResults session={session} onSession={onSession} run={run}/>

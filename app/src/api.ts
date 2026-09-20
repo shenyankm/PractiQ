@@ -104,6 +104,7 @@ export interface Bank {
   createdAt: number;
 }
 export interface Attempt {
+  favorite?: boolean | null;
   ordinal: number;
   snapshot: Snapshot & Partial<QuestionRow>;
   answer: Answer | null;

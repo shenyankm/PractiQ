@@ -89,7 +89,8 @@ def run(bundle,output):
                     assert len(client.get('/api/document-tasks').json()['items'])==4
                     assert client.post('/api/subjective-grades',json={},headers={'Authorization':''}).status_code==401
                     grade_payload={'requestId':str(uuid4()),'question':{'stem':'Synthetic subjective question','answerMode':'short_answer','questionTypeId':'简答','answerPayload':{'text':'Reference evidence'}},'answer':'Student answer','maxCents':500}
-                    grade_payload['inputDigest']=hashlib.sha256(json.dumps({k:v for k,v in grade_payload.items() if k!='requestId'},sort_keys=True,ensure_ascii=False,separators=(',',':')).encode()).hexdigest()
+                    raw_grade=json.dumps({k:v for k,v in grade_payload.items() if k!='requestId'},ensure_ascii=False,separators=(',',':'))
+                    grade_payload={'requestId':grade_payload['requestId'],'inputDigest':hashlib.sha256(raw_grade.encode()).hexdigest(),'payload':raw_grade}
                     graded=client.post('/api/subjective-grades',json=grade_payload);graded.raise_for_status()
                     result=graded.json();assert result['status']=='graded' and result['result']['scoreCents']==300,result
                     assert len(result['usage'])==1 and len(result['calls'])==1

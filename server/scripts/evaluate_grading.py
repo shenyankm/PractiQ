@@ -29,14 +29,14 @@ async def evaluate(repeats: int):
     for repeat in range(repeats):
         for name,answer,expected in CASES:
             payload={"requestId":str(uuid4()),"question":q,"answer":answer,"maxCents":500}
-            payload["inputDigest"]=digest_payload(payload)
+            payload["inputDigest"]=digest_payload(json.dumps({k:v for k,v in payload.items() if k != "requestId"}, ensure_ascii=False))
             response=await grade(GradeRequest.model_validate(payload))
             actual=response.get("result",{}).get("scoreCents")
             results.append({"case":name,"repeat":repeat,"expectedCents":expected,"actualCents":actual,"absoluteErrorCents":abs(actual-expected) if actual is not None else None,"response":response})
             print(f'{name} repeat={repeat+1}: expected={expected}, actual={actual}',flush=True)
     image=io.BytesIO();Image.new("RGB",(40,40),"red").save(image,format="PNG");raw=image.getvalue()
     payload={"requestId":str(uuid4()),"question":{"stem":"指出图片中图形的颜色与形状", "answerMode":"short_answer", "questionTypeId":"简答题", "answerPayload":{"text":"红色正方形"}, "scoringRubric":"颜色为红色得2分，形状为正方形得3分。"}, "answer":"红色", "maxCents":500,"images":[{"sha256":hashlib.sha256(raw).hexdigest(),"data":"data:image/png;base64,"+base64.b64encode(raw).decode()}]}
-    payload["inputDigest"]=digest_payload(payload)
+    payload["inputDigest"]=digest_payload(json.dumps({k:v for k,v in payload.items() if k != "requestId"}, ensure_ascii=False))
     response=await grade(GradeRequest.model_validate(payload));actual=response.get("result",{}).get("scoreCents")
     results.append({"case":"image_partial","expectedCents":200,"actualCents":actual,"absoluteErrorCents":abs(actual-200) if actual is not None else None,"response":response})
     config=load()

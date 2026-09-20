@@ -604,3 +604,86 @@ fn merged_copy_filters_grading_and_backup_preserve_independence() {
         .unwrap();
     assert_eq!(unattempted.as_array().unwrap().len(), 1);
 }
+
+#[test]
+fn exam_hides_answer_roles_and_reads_live_favorites_without_changing_snapshot() {
+    use crate::exams::Paper;
+    let (_dir, mut s) = store();
+    let bank = import(&mut s);
+    let qs = s.questions(Some(&bank), "", "", "").unwrap();
+    let qid = text(&qs[4], "id");
+    let roles = [
+        "answer_key",
+        "correct-answer",
+        "reference answer",
+        "MODEL ANSWER",
+        "worked_solution",
+        "answer explanation",
+        "评分细则",
+        "参考答案",
+        "解答过程",
+    ];
+    let mut q = qs[4]["question"].clone();
+    q["confidence"] = json!(1e-7);
+    let mut blocks: Vec<Value> = roles
+        .iter()
+        .map(|role| json!({"partType":"text","role":role,"textValue":"secret"}))
+        .collect();
+    blocks.push(json!({"partType":"text","role":"stem","textValue":"prompt"}));
+    q["contentBlocks"] = json!(blocks);
+    s.save_question(Some(qid.into()), &bank, q).unwrap();
+    let exam = s
+        .start_paper(Paper {
+            question_ids: vec![qid.into()],
+            kind: "self_test".into(),
+            minutes: None,
+            scores: vec![500],
+            total_cents: 500,
+        })
+        .unwrap();
+    let sid = text(&exam, "id");
+    assert_eq!(
+        list(
+            &exam["attempts"][0]["snapshot"]["question"],
+            "contentBlocks"
+        )
+        .len(),
+        1
+    );
+    assert_eq!(exam["attempts"][0]["favorite"], false);
+    s.favorite(qid, true).unwrap();
+    let refreshed = s.session(sid).unwrap();
+    assert_eq!(refreshed["attempts"][0]["favorite"], true);
+    assert_eq!(
+        refreshed["attempts"][0]["snapshot"],
+        exam["attempts"][0]["snapshot"]
+    );
+    s.favorite(qid, false).unwrap();
+    assert_eq!(s.session(sid).unwrap()["attempts"][0]["favorite"], false);
+    s.save_attempt((sid, 0), json!({"text":"中文\n😀"}), 0, false, false, None)
+        .unwrap();
+    let submitted = s.submit_paper(sid, true).unwrap();
+    assert_eq!(
+        list(
+            &submitted["attempts"][0]["snapshot"]["question"],
+            "contentBlocks"
+        )
+        .len(),
+        roles.len() + 1
+    );
+    let wire = s.prepare_grade(sid, 0, false).unwrap();
+    let raw = text(&wire, "payload");
+    assert!(raw.contains("1e-7"));
+    assert_eq!(
+        text(&wire, "inputDigest"),
+        crate::store::hash(raw.as_bytes())
+    );
+    let input: Value = serde_json::from_str(raw).unwrap();
+    assert_eq!(input["answer"], "中文\n😀");
+    assert_eq!(wire, s.prepare_grade(sid, 0, false).unwrap());
+    let retried = s.prepare_grade(sid, 0, true).unwrap();
+    assert_eq!(wire["inputDigest"], retried["inputDigest"]);
+    assert_ne!(wire["requestId"], retried["requestId"]);
+    s.delete_bank(&bank).unwrap();
+    assert!(s.session(sid).unwrap()["attempts"][0]["favorite"].is_null());
+}

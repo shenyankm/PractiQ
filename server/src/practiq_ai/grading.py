@@ -55,6 +55,20 @@ class GradeRequest(StrictModel):
         return self
 
 
+class GradeWireRequest(StrictModel):
+    requestId: UUID
+    inputDigest: str = Field(pattern=r"^[a-f0-9]{64}$")
+    payload: str = Field(max_length=32 * 1024 * 1024)
+
+    def verified_request(self) -> GradeRequest:
+        if digest_payload(self.payload) != self.inputDigest:
+            raise ValueError("评分输入摘要不匹配")
+        data = json.loads(self.payload)
+        if not isinstance(data, dict) or {"requestId", "inputDigest"} & data.keys():
+            raise ValueError("评分输入格式不合法")
+        return GradeRequest.model_validate({**data, "requestId": self.requestId, "inputDigest": self.inputDigest})
+
+
 class GradeResult(StrictModel):
     scoreCents: int | None = Field(strict=True, ge=0, le=100_000_000, description="Required earned score in hundredths of a point: 5 points = 500, 3 points = 300, zero credit = 0. Null ONLY if assessment evidence is insufficient, never for a wrong answer.")
     maxCents: int = Field(strict=True, ge=1, le=100_000_000)
@@ -140,6 +154,8 @@ async def grade(request: GradeRequest) -> dict:
             result, usage, failure = await structured_call(get_model("vision" if request.images else "text"), [SystemMessage(content=PROMPT), HumanMessage(content=content)], GradeResult, "subjective_grade", call_records=calls)
             if result is None or result.maxCents != source_max:
                 response = {"status":"ungraded", "error":failure or "评分满分不匹配", "usage":[u.model_dump(mode="json") for u in usage]}
+                if failure and failure.startswith("AI_PROVIDER"):
+                    response.update(status="unknown", usageStatus="unknown")
             else:
                 if source_max != request.maxCents:
                     if result.scoreCents is not None:
@@ -156,5 +172,6 @@ async def grade(request: GradeRequest) -> dict:
     return response
 
 
-def digest_payload(payload: dict) -> str:
-    return hashlib.sha256(json.dumps({k:v for k,v in payload.items() if k not in {"requestId", "inputDigest"}}, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode()).hexdigest()
+def digest_payload(payload: str) -> str:
+    """Hash the exact UTF-8 payload; never reserialize cross-language numbers."""
+    return hashlib.sha256(payload.encode()).hexdigest()

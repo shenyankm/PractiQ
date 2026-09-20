@@ -1,5 +1,6 @@
 import base64
 import hashlib
+import json
 from io import BytesIO
 from types import SimpleNamespace
 from uuid import uuid4
@@ -17,7 +18,7 @@ from practiq_ai.errors import DocumentProcessingError
 def payload(**changes):
     value={"requestId":str(uuid4()),"question":{"stem":"说明蒸发的含义", "answerMode":"short_answer", "questionTypeId":"简答题", "answerPayload":{"text":"液体表面发生的汽化现象"}},"answer":"液体变成气体", "maxCents":500}
     value.update(changes)
-    value["inputDigest"]=grading.digest_payload(value)
+    value["inputDigest"]=grading.digest_payload(json.dumps({k:v for k,v in value.items() if k != "requestId"},ensure_ascii=False))
     return value
 
 
@@ -116,15 +117,59 @@ async def test_verified_images_and_injection_stay_data(setup,monkeypatch):
         grading.GradeRequest.model_validate(payload(materials=["a"*120001]))
 
 
+def wire(value):
+    raw=json.dumps({k:v for k,v in value.items() if k not in {"requestId", "inputDigest"}},ensure_ascii=False)
+    return {"requestId":value["requestId"],"inputDigest":grading.digest_payload(raw),"payload":raw}
+
+
 def test_grading_endpoint_digest_auth_and_limits(setup,monkeypatch):
     async def fake(request):return {"status":"ungraded","usage":[]}
     monkeypatch.setattr(webapp,"grade",fake)
     webapp.app.dependency_overrides[webapp.authorize]=lambda:None
     try:
         client=TestClient(webapp.app)
-        assert client.post("/api/subjective-grades",json=payload()).status_code==200
-        bad=payload();bad["answer"]="changed"
+        assert client.post("/api/subjective-grades",json=wire(payload())).status_code==200
+        bad=wire(payload());bad["payload"]=bad["payload"].replace("液体变成气体", "changed")
         assert client.post("/api/subjective-grades",json=bad).status_code==422
         assert client.post("/api/subjective-grades",content=b"{}",headers={"content-length":str(33*1024*1024)}).status_code==413
+    finally:
+        webapp.app.dependency_overrides.clear()
+
+
+async def test_exhausted_provider_failure_is_unknown_and_replay_does_not_call(setup, monkeypatch):
+    calls=[]
+    async def exhausted(*args, **kwargs):
+        calls.append(True)
+        return None, [], "AI_PROVIDER_UNAVAILABLE"
+    monkeypatch.setattr(grading, "structured_call", exhausted)
+    request=grading.GradeRequest.model_validate(payload())
+    response=await grading.grade(request)
+    assert response["status"] == response["usageStatus"] == "unknown"
+    assert await grading.grade(request) == response
+    assert len(calls) == 1
+    await grading.grade(request.model_copy(update={"requestId":uuid4()}))
+    assert len(calls) == 2
+
+
+def test_wire_numbers_and_unicode_are_hashed_before_parsing(setup, monkeypatch):
+    seen=[]
+    async def fake(request):
+        seen.append(request)
+        return {"status":"ungraded", "usage":[]}
+    monkeypatch.setattr(webapp, "grade", fake)
+    webapp.app.dependency_overrides[webapp.authorize]=lambda:None
+    try:
+        client=TestClient(webapp.app)
+        # Rust spells the exponent without Python's leading zero.
+        raw='{"answer":"中文\\n😀", "images":[], "materials":[], "maxCents":500, "question":{"stem":"题", "answerMode":"short_answer", "answerPayload":{"text":"参考"}, "confidence":1e-7, "sourceScore":1.5}}'
+        request={"requestId":str(uuid4()), "inputDigest":grading.digest_payload(raw), "payload":raw}
+        assert client.post("/api/subjective-grades", json=request).status_code == 200
+        assert seen[0].question.confidence == 1e-7
+        for invalid in [raw.replace("1e-7", "1e-6"), '[]', '{', '{"requestId":"nested"}', '{"maxCents":true}']:
+            bad={**request, "payload":invalid}
+            if invalid != raw.replace("1e-7", "1e-6"):
+                bad["inputDigest"]=grading.digest_payload(invalid)
+            assert client.post("/api/subjective-grades", json=bad).status_code == 422
+        assert len(seen) == 1
     finally:
         webapp.app.dependency_overrides.clear()

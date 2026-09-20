@@ -17,7 +17,7 @@ export function ExamResults({session,onSession,run}:{session:Session;onSession:(
   const total=session.attempts.reduce((n,a)=>n+(a.maxCents||0),0), earned=graded.reduce((n,a)=>n+(a.earnedCents||0),0);
   const pending=session.attempts.filter(a=>exam&&a.earnedCents==null);
   const pendingAi=pending.filter(eligible);
-  function grade(items:Attempt[],retry=false){stopped.current=false;setRunning(true);setError("");run(async()=>{try{for(const item of items){if(stopped.current)break;const s=await invoke<Session>("ai_request",{request:{type:"grade",id:session.id,ordinal:item.ordinal,retry}});onSession(s);}}catch(e){setError(errorMessage(e));}finally{setRunning(false);}});}
+  function grade(items:Attempt[],retry=false){run(async()=>{stopped.current=false;setRunning(true);setError("");try{for(const item of items){if(stopped.current)break;const s=await invoke<Session>("ai_request",{request:{type:"grade",id:session.id,ordinal:item.ordinal,retry}});onSession(s);}}catch(e){setError(errorMessage(e));}finally{setRunning(false);}});}
   return <section className="space-y-3 rounded-lg border p-4" aria-label="本次结果">
     <h3 className="font-medium">{exam?(pending.length?"暂定成绩":"本次成绩"):"本次练习结果"}</h3>
     {exam&&<p>已确定得分 {earned/100} / {total/100} 分；{pending.length?"已确定得分率":"得分率"} {total?(earned/total*100).toFixed(1):0}% · 待评分 {pending.length} 题（共 {pending.reduce((n,a)=>n+(a.maxCents||0),0)/100} 分）</p>}
