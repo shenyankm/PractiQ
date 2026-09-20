@@ -1,50 +1,66 @@
-# Contributing to PractiQ
+# Contribute to PractiQ
 
-Thanks for contributing to PractiQ.
+Use this guide to prepare and validate a focused pull request. Read the [repository rules](AGENTS.md) for application boundaries and the [README](README.md) for setup.
 
-## Before you start
+## Choose a change
 
-Read [`AGENTS.md`](./AGENTS.md) for repository rules and service boundaries, and [`README.md`](./README.md) for setup and development instructions.
+Open an issue before starting a feature, architecture change, new dependency, or public API change. Scoped bug fixes and documentation corrections may go directly to a pull request. Write issue and pull request titles and descriptions in English.
 
-Open an issue before starting a feature, architecture change, new dependency, or public API change. Small, clearly scoped bug fixes and documentation corrections may go directly to a pull request.
+When making changes:
 
-Issue and pull request titles and descriptions must be written in English.
-
-## Make changes
-
-- Keep each pull request focused on one concern.
-- Preserve the boundaries defined in `AGENTS.md`.
+- Preserve the boundaries in `AGENTS.md` and any directory-specific rules.
 - Reuse existing code and dependencies before adding abstractions or packages.
-- Add the smallest test that fails before a fix and passes after it.
-- Update relevant documentation and `.env.example` when behavior, contracts, configuration, schema, or development commands change.
-- Never commit secrets, personal data, production data, `.env.local`, or generated output.
+- Add a focused regression test for behavior changes.
+- Update documentation, contracts, and `.env.example` when the change affects them.
+- Keep secrets, personal data, production data, and generated output out of Git.
 
-## Validate changes
+## Check the affected code
 
-Run `make test` for the AI suite and `make verify` for lockfile, static, fixture, coverage, recovery-probe and package checks. Run `make audit` for locked dependency vulnerabilities (network required) and `make image-check` for the Docker build. CI uses these same three targets; no formatting gate is added. PDF rendering checks use the bundled PDFium library; no office converter is required. Available diagnostic reports in `server/reports/checks/` are retained by CI for 14 days, including after test failures. Set `AI_PYTHON` to an existing Python 3.14+ interpreter. Tests use fake models; real model quality requires a separate evaluation run.
+Run commands from the repository root with an existing Python 3.14+ interpreter. Use `AI_PYTHON` to select it; do not create a project `.venv`. Install locked dependencies with `make install-locked AI_PYTHON=/path/to/python3.14`.
 
-For desktop changes, also run `make app-check AI_PYTHON=/path/to/python3.14` and `make app-build` on macOS. Desktop checks include shared Python/Rust contract fixtures, TypeScript, UI interactions, SQLite/backup integration tests and Clippy. Use isolated application data for native UI acceptance. The native Keychain round-trip test is opt-in (`cargo test --manifest-path app/src-tauri/Cargo.toml native_keychain_roundtrip -- --ignored`); it uses and removes its own temporary credential. Do not place API keys in SQLite, logs, fixtures or backups.
+Choose checks for the affected area:
 
-Desktop CI runs on Windows and macOS for pushes and pull requests. Windows validates the shared contracts, frontend build and interactions, and compiles/lints all Rust targets. macOS additionally runs the full native storage/backup suite, builds the bundled service and checks the app package. Windows CI is not Windows release or native-runtime acceptance: directory synchronization, Keychain and Python packaging remain macOS-specific. Source checks override only the Tauri resource list so a clean checkout does not need a prebuilt Python bundle; release builds still require and package it. Rust dependencies are cached and newer runs cancel superseded runs on the same ref.
+| Change | Checks |
+| --- | --- |
+| AI service | `make verify AI_PYTHON=/path/to/python3.14` |
+| Locked dependencies | `make audit AI_PYTHON=/path/to/python3.14` (requires network access) |
+| Service image | `make image-check` (requires Docker; does not publish) |
+| Desktop | `make app-check AI_PYTHON=/path/to/python3.14` and a macOS package build |
+| Documentation | Check claims against source, validate local links, and check command syntax |
 
-Make resolves `AI_PYTHON` executable names to explicit paths before invoking uv, so `AI_PYTHON=python` works in CI without a project virtual environment and installs into the interpreter selected by PATH. `--break-system-packages` only permits externally managed installations; it does not select a non-virtual environment.
+`make test` runs the AI test suite during development. `make verify` checks the lockfile, lint, types, evaluation fixtures, tests with 90% coverage, recovery probes, and package builds. Tests use model substitutes; they do not establish extraction or grading accuracy. See the [evaluation guide](server/docs/evaluation.md) for separate live-model checks.
 
-## Commit and open a pull request
+For desktop work, follow the [desktop build guide](app/README.md). `make app-check` checks shared Python/Rust contracts, TypeScript, frontend interactions, native integration tests, and Clippy. After building, run `app/scripts/check-bundle.py` against the packaged service. Use isolated application data for native UI acceptance.
 
-Use focused [Conventional Commit](https://www.conventionalcommits.org/) subjects, for example `fix(server): reject oversized image payloads`.
+The Keychain round-trip test uses and removes its own temporary credential. Run it explicitly on macOS:
 
-The pull request description must include:
+```sh
+cargo test --manifest-path app/src-tauri/Cargo.toml \
+  native_keychain_roundtrip -- --ignored
+```
 
-- The problem and chosen approach
+Never put API keys in SQLite, logs, fixtures, or backups.
+
+## Understand the CI coverage
+
+Continuous integration (CI) runs service verification, dependency auditing, and image builds. It retains available service check reports from `server/reports/checks/` for 14 days, including after failures.
+
+Desktop CI covers Windows source and contract checks, frontend builds and tests, Rust formatting, and Clippy. macOS also runs native storage and backup tests, builds the Python bundle, and checks the application package. These checks do not establish Windows runtime support or a signed macOS release.
+
+Source checks override the Tauri resource list so a clean checkout needs no prebuilt Python bundle. Package builds require the bundle. Make resolves `AI_PYTHON` names through `PATH` before invoking uv, so CI can select its interpreter with `AI_PYTHON=python`.
+
+## Submit a pull request
+
+Use a focused [Conventional Commit](https://www.conventionalcommits.org/) subject, such as `fix(server): reject oversized image payloads`. Explain the problem and resulting behavior in the pull request description, including:
+
 - Affected application boundaries
 - Commands run and their results
 - Schema, configuration, security, or deployment impact
 - A linked issue when applicable
+- AI assistance used to prepare the change, when applicable
 
-Before requesting review, remove unrelated and generated files, confirm required checks pass, and verify that no secrets or personal data appear in the diff or supporting material.
+Before requesting review, remove unrelated and generated files and inspect the diff for secrets or personal data. All changes require review before merge.
 
-All changes require review before merge.
-
-## Report security issues
+## Report security issues privately
 
 Do not publish credentials, personal data, or working exploit details in a public issue. Use GitHub private vulnerability reporting when available, or contact a maintainer privately.

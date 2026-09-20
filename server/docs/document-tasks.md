@@ -1,10 +1,10 @@
-# 文档任务 API 与 HITL
+# 创建、控制和复核文档任务
 
-四个 Graph 共用开源 LangGraph 的 checkpoint、Store 和 SQLite 持久队列，不再提供官方 Agent Server 原生 API。
+本文说明文档任务的创建、轮询、暂停、恢复与人工审核。三个 Graph 共用 LangGraph 检查点（checkpoint）、Store 和 SQLite 持久队列。主观题评分使用独立接口，见[评分接入说明](service-guide.md#主动请求主观题评分)。
 
 ## 创建与查询
 
-先通过鉴权上传接口获得 `document` 引用，再提交：
+先通过[鉴权上传接口](service-guide.md#导入流程)获得 `document` 引用，再提交。以下示意省略了引用字段；发送前将 `document` 字符串替换为上传返回的完整对象：
 
 ```json
 {
@@ -15,11 +15,13 @@
 }
 ```
 
-`POST /api/document-tasks` 返回 HTTP 202，字段为 `threadId`、`runId`、`requestId`、`accepted`。202 表示已持久入队，不代表解析完成。所有业务接口要求 `Authorization: Bearer <AI_SERVICE_TOKEN>`。
+`POST /api/document-tasks` 返回 HTTP 202，字段为 `threadId`、`runId`、`requestId`、`accepted`。202 表示已持久入队，不代表解析完成。所有业务接口要求 `Authorization: Bearer your_service_token_here`，令牌取自 `AI_SERVICE_TOKEN`。
 
 `graphId` 可选 `document_parser`（默认，全部格式）、`text_csv_parser`、`pdf_parser`。可选 `parentThreadId` 仅关联已存在的新运行时任务，不覆盖父任务。未知字段、原始 state、URL、Base64、服务器文件路径和用户提交的模型结果均拒绝。
 
 `GET /api/document-tasks/{threadId}` 返回 `state`、`phase`、`progress`、`failures`、`blocking`、`allowedActions`、`checkpointId`、`expiresAt`、`updatedAt`、`status`、`result`、`processing`、`usage`、`unknownUsageCalls` 和 `modelBudget`。初始无 checkpoint 时返回不透明的 `pending:<runId>` 令牌，仅用于该任务控制，不是 LangGraph checkpoint。调用方不得解析或构造令牌。
+
+按 `state` 和 `allowedActions` 选择操作：
 
 | state | 可用控制 |
 |---|---|
@@ -34,7 +36,7 @@
 
 ## 控制与幂等
 
-`POST /api/document-tasks/{threadId}/control`：
+向 `POST /api/document-tasks/{threadId}/control` 提交控制请求，例如恢复任务：
 
 ```json
 {
@@ -56,11 +58,11 @@
 
 审核载荷包含 `kind=review`、`stage`、`failures`、`qualityIssues`、`canAccept`。可重试失败允许 `retry_failed`；存在可用结果才允许 `accept_partial`。纯来源质量审核仅允许接受，不自动重跑成功单元。
 
-`MISSING_FIELDS`、一般 `NEEDS_REVIEW` 和缺少原文答案只标记草稿，不单独触发暂停。人工接受保留结果、缺失字段和质量标记，不改写为“质量合格”；没有结果编辑接口或审核前端。
+`MISSING_FIELDS`、一般 `NEEDS_REVIEW` 和缺少原文答案只标记草稿，不单独触发暂停。人工接受保留结果、缺失字段和质量标记，不改写为“质量合格”；服务不提供结果编辑接口；桌面可预览并接受部分结果，导入后在本地编辑题目。
 
 ## 恢复与期限
 
-意外重启自动继续未完成 run，使用原 run ID、截止时间和剩余预算；暂停、主动中断、待审核任务保持等待。新人工恢复 run 可获得新的运行截止，任务总预算不重置。
+独立服务意外重启后自动继续未完成 run，使用原 run ID、截止时间和剩余预算；暂停、主动中断、待审核任务保持等待。新人工恢复 run 可获得新的运行截止，任务总预算不重置。桌面模式重启后保留为中断状态，只有点击“继续”才重新调用模型。
 
 控制回执与队列在同一事务持久化，运行根据 checkpoint 判断控制是否已经应用。模型外部调用和数据库不能实现跨系统恰好一次：响应未持久保存时可能重发，未知用量和已消耗预算必须保留。
 
@@ -69,7 +71,6 @@
 ## 格式边界
 
 TXT/CSV 用文本模型；PDF/图片直接视觉提题。页面携带相邻页上下文，只输出起始于本页的题目；超过窗口的续文保留缺失字段，不猜测。
-
 
 部署、独占锁、恢复验收与清理见 [运维说明](operations.md)。
 
