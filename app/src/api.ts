@@ -312,3 +312,12 @@ export interface SettingsResult {
   config: ConnectionSettings;
   hasApiKey: boolean;
 }
+
+export function missingModelSettings(settings: SettingsResult): string[] {
+  return [
+    !settings.config.base_url?.trim() && "模型 API 地址",
+    !settings.config.text_model?.trim() && "文本模型",
+    !settings.config.vision_model?.trim() && "视觉模型",
+    !settings.hasApiKey && "API Key",
+  ].filter((field): field is string => !!field);
+}

@@ -7,11 +7,14 @@ import {
   duration,
   modeNames,
   type Answer,
+  type Attempt,
   type Session,
 } from "./api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Check, X, SkipForward, Pencil, Flag } from "lucide-react";
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel } from "@/components/ui/alert-dialog";
 import { Content, Markdown } from "./Content";
 import { AnswerInput, AnswerDisplay } from "./AnswerInput";
 import type { MutableRefObject } from "react";
@@ -30,6 +33,9 @@ export function Practice({
   const q = attempt.snapshot.question;
   const [answer, setAnswer] = useState<Answer | null>(attempt.answer);
   const [saved, setSaved] = useState("已保存");
+  const [saveError, setSaveError] = useState(false);
+  const [finishing, setFinishing] = useState(false);
+  const finishButton = useRef<HTMLButtonElement>(null);
   const elapsed = useRef(attempt.elapsedMs);
   const answerRef = useRef(answer);
   const chain = useRef(Promise.resolve());
@@ -71,9 +77,11 @@ export function Practice({
     chain.current = job.then(
       () => {
         setSaved("已保存");
+        setSaveError(false);
       },
       () => {
-        setSaved("保存失败，请重试或保持窗口打开");
+        setSaved("保存失败");
+        setSaveError(true);
       },
     );
     return job;
@@ -133,12 +141,34 @@ export function Practice({
       );
     });
   }
+  function finish(submitDrafts: boolean) {
+    run(async () => {
+      setFinishing(true);
+      try {
+        await flushRef.current();
+        onSession(await api({ type: "submit_paper", id: session.id, submit_drafts: submitDrafts }));
+        setConfirmFinish(false);
+      } finally { setFinishing(false); }
+    });
+  }
+  function answerState(a: Attempt) {
+    if (a.skipped) return { label: "已跳过", Icon: SkipForward };
+    if (a.submittedAt != null) {
+      if (a.result === true) return { label: "正确", Icon: Check };
+      if (a.result === false) return { label: exam ? "未得满分" : "错误", Icon: X };
+      return { label: "已提交，待判定", Icon: Check };
+    }
+    const draft = a.ordinal === session.position ? answer : a.answer;
+    if (answerReady(canInteract(a.snapshot.question) ? a.snapshot.question : { ...a.snapshot.question, answerMode: "short_answer" }, draft)) return { label: "已作答，未提交", Icon: Pencil };
+    if (draft !== null) return { label: "草稿未完成", Icon: Pencil };
+    return { label: "未作答", Icon: null };
+  }
   const selfAllowed =
     !attempt.skipped &&
     !exam && (attempt.autoResult === null || q.answerMode === "fill_blank");
   return (
     <div className="grid grid-cols-[minmax(0,1fr)_240px] gap-6">
-      <Card>
+      <Card className="overflow-visible">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -158,9 +188,10 @@ export function Practice({
               {duration(seconds)} · {finished ? "历史快照" : saved}
             </span>
           </div>
-          <CardTitle className="mt-2">{session.title}</CardTitle>
+          <p className="truncate text-xs text-muted-foreground" title={session.title}>{session.title}</p>
         </CardHeader>
         <CardContent className="space-y-6">
+          {saveError && <div role="alert" className="flex items-center justify-between gap-3 rounded-lg border border-destructive/40 p-3 text-sm"><p>答案保存失败，请重试或保持窗口打开。</p><Button variant="outline" disabled={saved === "保存中…"} onClick={() => run(async () => { await persist(); })}>重试保存</Button></div>}
           {exam && session.deadlineAt && !handedIn && <p role="timer">剩余 {duration(Math.max(0, session.deadlineAt-clock))}（后台与关闭应用不暂停）</p>}
           <div className="flex gap-2">
             {attempt.snapshot.id && favorite != null && <Button variant="outline" onClick={()=>run(async()=>{await api({type:"favorite",id:attempt.snapshot.id!,value:!favorite});onSession(await api<Session>({type:"session",id:session.id}));})}>{favorite?"取消收藏":"收藏原题"}</Button>}
@@ -174,35 +205,6 @@ export function Practice({
             onChange={change}
             disabled={submitted || finished}
           />
-          {!exam && !submitted && !finished && (
-            <div className="flex gap-3">
-              <Button
-                disabled={
-                  !answerReady(
-                    canInteract(q) ? q : { ...q, answerMode: "short_answer" },
-                    answer,
-                  )
-                }
-                onClick={() =>
-                  run(async () => {
-                    onSession(await persist(true));
-                  })
-                }
-              >
-                提交答案
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() =>
-                  run(async () => {
-                    onSession(await persist(true, true));
-                  })
-                }
-              >
-                跳过此题
-              </Button>
-            </div>
-          )}
           {submitted && (
             <section className="space-y-4 rounded-lg border bg-muted/30 p-5">
               <div className="flex items-center gap-3">
@@ -265,7 +267,37 @@ export function Practice({
               <Markdown>{q.analysis || "原文未提供解析。"}</Markdown>
             </section>
           )}
-          <div className="flex justify-between border-t pt-4">
+          <div className="sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-3 border-t bg-card py-3">
+          {!exam && !submitted && !finished && (
+            <div className="flex gap-3">
+              <Button
+                disabled={
+                  !answerReady(
+                    canInteract(q) ? q : { ...q, answerMode: "short_answer" },
+                    answer,
+                  )
+                }
+                onClick={() =>
+                  run(async () => {
+                    onSession(await persist(true));
+                  })
+                }
+              >
+                提交答案
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() =>
+                  run(async () => {
+                    onSession(await persist(true, true));
+                  })
+                }
+              >
+                跳过此题
+              </Button>
+            </div>
+          )}
+
             <Button
               variant="outline"
               disabled={session.position === 0}
@@ -283,14 +315,14 @@ export function Practice({
           </div>
         </CardContent>
       </Card>
-      <aside className="space-y-4">
+      <aside className="sticky top-0 self-start space-y-4">
         <Card>
           <CardHeader>
             <CardTitle>答题卡</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-4 gap-2">
-              {session.attempts.map((a) => (
+              {session.attempts.map((a) => { const state = answerState(a); return (
                 <Button
                   key={a.ordinal}
                   size="sm"
@@ -303,21 +335,30 @@ export function Practice({
                           ? "secondary"
                           : "outline"
                   }
-                  aria-label={`转到第 ${a.ordinal + 1} 题`}
+                  className={`relative min-h-9 ${a.ordinal === session.position ? "underline decoration-2 underline-offset-4" : ""}`}
+                  aria-current={a.ordinal === session.position ? "step" : undefined}
+                  aria-label={`转到第 ${a.ordinal + 1} 题，${state.label}${a.flagged ? "，待检查" : ""}`}
+                  title={state.label}
                   onClick={() => go(a.ordinal)}
                 >
-                  {a.ordinal + 1}{a.flagged ? "★" : ""}
+                  {a.ordinal + 1}{state.Icon && <state.Icon className="size-3" aria-hidden="true"/>}{a.flagged && <Flag className="absolute -top-1 -right-1 size-3" aria-hidden="true"/>}
                 </Button>
-              ))}
+              ); })}
             </div>
+            <p className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground"><span className="flex items-center gap-1"><Pencil className="size-3"/>草稿</span><span className="flex items-center gap-1"><Check className="size-3"/>已提交</span><span className="flex items-center gap-1"><X className="size-3"/>{exam ? "未得满分" : "错误"}</span><span className="flex items-center gap-1"><SkipForward className="size-3"/>跳过</span></p>
             <p className="mt-4 text-xs leading-5 text-muted-foreground">
               {exam ? "已作答" : "已提交"} {session.attempts.filter((a) => exam ? a.answer !== null : a.submittedAt).length} /{" "}
               {session.attempts.length}。草稿自动保存，可随时离开后继续。
             </p>
           </CardContent>
         </Card>
-        {!finished && <Button className="w-full" variant="outline" onClick={()=>run(async()=>{await flushRef.current();onSession(await api({type:"session",id:session.id}));setConfirmFinish(true);})}>{exam?"交卷":"结束练习"}</Button>}
-        {confirmFinish && !finished && <section role="alertdialog" aria-label="确认结束" className="space-y-3 rounded border p-3"><p>已提交 {session.attempts.filter(a=>a.submittedAt).length} 题；未提交草稿 {session.attempts.filter(a=>!a.submittedAt&&a.answer!==null).length} 题；空白 {session.attempts.filter(a=>!a.submittedAt&&a.answer===null).length} 题。结束后不能修改答案。</p><Button onClick={()=>run(async()=>{await flushRef.current();onSession(await api({type:"submit_paper",id:session.id,submit_drafts:true}));setConfirmFinish(false);})}>{exam?"确认交卷":"提交草稿并结束"}</Button>{!exam&&<Button variant="outline" onClick={()=>run(async()=>{await flushRef.current();onSession(await api({type:"submit_paper",id:session.id,submit_drafts:false}));setConfirmFinish(false);})}>草稿记为跳过并结束</Button>}<Button variant="ghost" onClick={()=>setConfirmFinish(false)}>继续作答</Button></section>}
+        {!finished && <Button ref={finishButton} className="w-full" variant="outline" onClick={() => run(async () => { await flushRef.current(); onSession(await api({type:"session", id:session.id})); setConfirmFinish(true); })}>{exam ? "交卷" : "结束练习"}</Button>}
+        <AlertDialog open={confirmFinish && !finished} onOpenChange={open => { if (!finishing) setConfirmFinish(open); }}>
+          <AlertDialogContent className="sm:max-w-lg" onCloseAutoFocus={event => { event.preventDefault(); finishButton.current?.focus(); }}>
+            <AlertDialogHeader><AlertDialogTitle>{exam ? "确认交卷？" : "结束本次练习？"}</AlertDialogTitle><AlertDialogDescription>已提交 {session.attempts.filter(a => a.submittedAt != null).length} 题；未提交草稿 {session.attempts.filter(a => a.submittedAt == null && a.answer !== null).length} 题；空白 {session.attempts.filter(a => a.submittedAt == null && a.answer === null).length} 题。结束后不能修改答案。</AlertDialogDescription></AlertDialogHeader>
+            <AlertDialogFooter className="flex-wrap"><AlertDialogCancel disabled={finishing}>继续作答</AlertDialogCancel>{!exam && <Button variant="outline" disabled={finishing} onClick={() => finish(false)}>草稿记为跳过并结束</Button>}<Button disabled={finishing} onClick={() => finish(true)}>{finishing ? "正在保存…" : exam ? "确认交卷" : "提交草稿并结束"}</Button></AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
         {finished && (
           <Card>
             <CardContent className="pt-5 text-sm">

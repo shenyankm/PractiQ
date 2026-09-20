@@ -123,6 +123,7 @@ export default function App() {
   const [mergeSelection, setMergeSelection] = useState<string[]>([]);
   const [mergeTitle,setMergeTitle]=useState("");
   const [settingsRevision, setSettingsRevision] = useState(0);
+  const [settingsReturn, setSettingsReturn] = useState<{ bank: string | null } | null>(null);
   const [info, setInfo] = useState<{
     dataDirectory: string;
     version: string;
@@ -219,6 +220,7 @@ export default function App() {
     run(async () => {
       await flushRef.current();
       flushRef.current = async () => {};
+      if (next !== "settings") setSettingsReturn(null);
       setPage(next);
       setBank(bankId);
       setDetail(null);
@@ -227,6 +229,14 @@ export default function App() {
       await reload();
     });
   }
+  function openSession(id: string) {
+    run(async () => {
+      await flushRef.current();
+      setSession(await api<Session>({ type: "session", id }));
+      setPage("practice");
+    });
+  }
+  const unfinished = sessions.find(s => !s.finishedAt && !s.submittedAt);
   async function refreshQuestions() {
     setQuestions(await api<QuestionRow[]>({ type: "questions", ...query }));
     await reload();
@@ -282,12 +292,13 @@ export default function App() {
           ).map(({ id, label, icon: Icon }) => (
             <Button
               key={id}
-              className="w-full justify-start gap-3"
+              className="w-full justify-start gap-3 aria-[current=page]:bg-primary/10 aria-[current=page]:text-primary"
               variant={
                 page === id || (id === "banks" && page === "questions")
                   ? "secondary"
                   : "ghost"
               }
+              aria-current={page === id || (id === "banks" && page === "questions") ? "page" : undefined}
               disabled={busy}
               onClick={() => navigate(id)}
             >
@@ -298,10 +309,11 @@ export default function App() {
         </nav>
         <div className="mt-auto space-y-4">
           <Button
-            className="w-full justify-start gap-3"
+            className="w-full justify-start gap-3 aria-[current=page]:bg-primary/10 aria-[current=page]:text-primary"
             variant={page === "settings" ? "secondary" : "ghost"}
+            aria-current={page === "settings" ? "page" : undefined}
             disabled={busy}
-            onClick={() => navigate("settings")}
+            onClick={() => { setSettingsReturn(null); navigate("settings"); }}
           >
             <Settings />
             设置
@@ -390,7 +402,10 @@ export default function App() {
         </header>
         <div className="flex-1 overflow-y-auto p-8">
           {page === "banks" && (
-            <div className="grid grid-cols-2 gap-5 xl:grid-cols-3">
+            <div className="space-y-5">
+              {unfinished && <Card className="border-primary/30 bg-primary/5"><CardContent className="flex items-center justify-between gap-4"><div className="min-w-0"><h2 className="font-semibold">继续未完成的练习</h2><p className="mt-1 break-words text-sm text-muted-foreground">{unfinished.title} · 已提交 {unfinished.answered}/{unfinished.count} 题</p></div><Button disabled={busy} onClick={() => openSession(unfinished.id)}><Play />继续练习</Button></CardContent></Card>}
+              {!banks.length && !busy && info && <Empty icon={BookOpen} title="从第一份题库开始" description="已有 PractiQ JSON 可离线导入；PDF、文本或图片可通过 AI 解析为题目。"><Button onClick={() => navigate("import")}><Upload />导入第一份题库</Button></Empty>}
+              <div className="grid grid-cols-2 gap-5 xl:grid-cols-3">
               {banks.map((b) => (
                 <Card key={b.id}>
                   <CardHeader>
@@ -433,13 +448,12 @@ export default function App() {
                       查看题目
                       <ChevronRight />
                     </Button>
-                    <Button disabled={busy || !b.count} onClick={() => setPracticeSetup({ bank: b.id })}>
-                      <Play />
-                      开始练习
-                    </Button>
+                    {b.count ? <Button disabled={busy} onClick={() => setPracticeSetup({ bank: b.id })}><Play />开始练习</Button>
+                      : <Button disabled={busy} onClick={() => navigate("import", b.id)}><Upload />导入题目</Button>}
                   </CardContent>
                 </Card>
               ))}
+              </div>
             </div>
           )}
           {listPage && (
@@ -625,34 +639,20 @@ export default function App() {
                             {date(s.createdAt)} · {duration(s.elapsedMs)}
                           </span>
                         </div>
-                        <div className="flex flex-wrap gap-1.5 tabular-nums">
-                          <Badge variant="secondary">已提交 {s.answered}/{s.count}</Badge>
-                          <Badge variant="secondary">
-                            正确率 {s.graded ? `${Math.round((s.correct / s.graded) * 100)}%` : "—"}
-                            （{s.correct}/{s.graded}）
-                          </Badge>
-                          {s.kind && s.kind !== "practice" && <>
+                        <div className="flex flex-wrap gap-2 text-sm tabular-nums">
+                          <span>已提交 {s.answered}/{s.count} 题</span>
+                          {!!(s.finishedAt || s.submittedAt) && (s.kind && s.kind !== "practice" ? <>
                             <Badge variant="secondary">{s.pendingGrades ? "暂定成绩" : "成绩"} {(s.earnedCents || 0) / 100} / {(s.totalCents || 0) / 100} 分</Badge>
-                            <Badge variant="outline">待评分 {s.pendingGrades} 题</Badge>
-                          </>}
-                          <Badge variant="outline">自动判定 {s.autoGraded}</Badge>
-                          <Badge variant="outline">自评 {s.selfGraded}</Badge>
-                          <Badge variant="outline">跳过 {s.skipped}</Badge>
-                          <Badge variant="outline">未判定 {s.kind && s.kind !== "practice" ? s.pendingGrades : s.answered - s.graded - s.skipped}</Badge>
+                            {!!s.pendingGrades && <Badge variant="outline">待评分 {s.pendingGrades} 题</Badge>}
+                          </> : <span>正确率 {s.graded ? `${Math.round((s.correct / s.graded) * 100)}%（${s.correct}/${s.graded}）` : "暂无已判定题目"}</span>)}
                         </div>
+                        {!!(s.answered || s.finishedAt || s.submittedAt) && <details className="text-sm text-muted-foreground"><summary className="cursor-pointer">判定详情</summary><p className="mt-2">自动判定 {s.autoGraded} · 自评 {s.selfGraded} · 跳过 {s.skipped} · 未判定 {s.kind && s.kind !== "practice" ? s.pendingGrades : s.answered - s.graded - s.skipped}</p></details>}
                       </div>
                       <Button
                         className="shrink-0"
                         variant="outline"
                         disabled={busy}
-                        onClick={() =>
-                          run(async () => {
-                            setSession(
-                              await api({ type: "session", id: s.id }),
-                            );
-                            setPage("practice");
-                          })
-                        }
+                        onClick={() => openSession(s.id)}
                       >
                         {s.finishedAt ? "查看记录" : s.submittedAt ? "核对评分" : "继续练习"}
                         <ChevronRight />
@@ -681,19 +681,28 @@ export default function App() {
               flushRef={flushRef}
             />
           )}
-          {page === "import" && <ImportPage busy={busy} run={run} onPickJson={pickImport} onPreview={p=>{setPreview(p);setImportTitle(p.title);setImportBank(bank || "new");}} />}
+          {page === "import" && <ImportPage busy={busy} run={run} onPickJson={pickImport} onPreview={p=>{setPreview(p);setImportTitle(p.title);setImportBank(bank || "new");}} onConfigure={() => { setSettingsReturn({ bank }); navigate("settings"); }} />}
           {page === "settings" && (
             <div className="max-w-3xl space-y-6">
               <ConnectionSettingsPanel
                 key={settingsRevision}
                 busy={busy}
                 run={run}
+                returnToImport={!!settingsReturn}
+                onSaved={async () => {
+                  if (settingsReturn) {
+                    await reload();
+                    setBank(settingsReturn.bank);
+                    setSettingsReturn(null);
+                    setPage("import");
+                  }
+                }}
               />
               <Card>
                 <CardHeader>
-                  <CardTitle>完整备份</CardTitle>
+                  <CardTitle>学习数据备份</CardTitle>
                   <CardDescription>
-                    包含全部题库、图片、收藏和练习记录。请定期保存到其他位置。
+                    包含题库、图片、收藏、作答和评分记录。不包含原始文档、AI 任务及 API Key；在其他设备恢复后需重新配置密钥。请定期保存到其他位置。
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="flex gap-3">
