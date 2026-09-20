@@ -1,3 +1,8 @@
+import {
+  AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader,
+  AlertDialogTitle, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogCancel, AlertDialogAction,
+} from "@/components/ui/alert-dialog";
 import { useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { api, errorMessage, type Session, type Attempt } from "./api";
@@ -31,7 +36,23 @@ export function ExamResults({session,onSession,run}:{session:Session;onSession:(
       {a.grading?.lastRequest&&<p>上次请求：{a.grading.lastRequest.error||a.grading.lastRequest.status}；已有得分保留。</p>}
       {a.grading?.manual&&<p>人工改分原因：{a.grading.manual.reason}</p>}
       {!eligible(a)&&a.earnedCents==null&&<p>缺少完整题目、作答或评分依据，需人工处理。</p>}
-      {eligible(a)&&(a.grading?.ai||a.grading?.lastRequest)&&<><Button variant="outline" disabled={running} onClick={()=>setRetryConfirm(true)}>重新评分当前题</Button>{retryConfirm&&<div role="alert"><p>将创建新请求，可能再次产生模型费用。原评分记录保留。</p><Button onClick={()=>{setRetryConfirm(false);grade([a],true);}}>确认重新评分</Button><Button variant="ghost" onClick={()=>setRetryConfirm(false)}>取消</Button></div>}</>}
+      {eligible(a) && (a.grading?.ai || a.grading?.lastRequest) && (
+        <AlertDialog open={retryConfirm} onOpenChange={setRetryConfirm}>
+          <AlertDialogTrigger asChild>
+            <Button variant="outline" disabled={running}>重新评分当前题</Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>重新评分当前题？</AlertDialogTitle>
+              <AlertDialogDescription>将创建新请求，可能再次产生模型费用。原评分记录保留。</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>取消</AlertDialogCancel>
+              <AlertDialogAction disabled={running} onClick={() => grade([a], true)}>确认重新评分</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
       <div className="flex flex-wrap gap-2"><Input className="w-32" aria-label="人工得分" placeholder="得分" value={score} onChange={e=>setScore(e.target.value)}/><Input className="flex-1" aria-label="改分原因" placeholder="人工评分／改分原因（必填）" value={reason} onChange={e=>setReason(e.target.value)}/><Button variant="outline" onClick={()=>{try{const value=cents(score);if(!reason.trim())throw new Error("请填写原因");run(async()=>onSession(await api({type:"manual_score",id:session.id,ordinal:a.ordinal,cents:value,reason})));}catch(e){setError(errorMessage(e));}}}>保存人工评分</Button></div>
     </>}
     {error&&<p role="alert">{error}</p>}

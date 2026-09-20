@@ -18,6 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Checkbox } from "@/components/ui/checkbox";
 export function ConnectionSettingsPanel({
   busy,
@@ -116,10 +117,10 @@ export function ConnectionSettingsPanel({
           <fieldset disabled={busy || !saved} className="min-w-0 space-y-4">
             <div className="space-y-2">
               <Label htmlFor="providerPreset">供应商地址预设</Label>
-              <select id="providerPreset" className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm focus-visible:ring-2 focus-visible:ring-ring" value={presets.includes(config.base_url || "") ? config.base_url! : ""} onChange={e => field("base_url", e.target.value)}>
-                <option value="">自定义兼容 OpenAI 的地址</option>
-                <option value={presets[0]}>DashScope</option><option value={presets[1]}>DeepSeek</option><option value={presets[2]}>Moonshot</option>
-              </select>
+              <NativeSelect id="providerPreset" disabled={busy || !saved} className="w-full" value={presets.includes(config.base_url || "") ? config.base_url! : ""} onChange={e => field("base_url", e.target.value)}>
+                <NativeSelectOption value="">自定义兼容 OpenAI 的地址</NativeSelectOption>
+                <NativeSelectOption value={presets[0]}>DashScope</NativeSelectOption><NativeSelectOption value={presets[1]}>DeepSeek</NativeSelectOption><NativeSelectOption value={presets[2]}>Moonshot</NativeSelectOption>
+              </NativeSelect>
               <p className="text-xs text-muted-foreground">仅填入 API 地址；请确认供应商同时提供文本和视觉模型，分别填写模型 ID。</p>
             </div>
             <div className="space-y-2">

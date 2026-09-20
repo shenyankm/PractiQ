@@ -22,7 +22,10 @@ import {
   EllipsisVertical,
 } from "lucide-react";
 import { toast } from "sonner";
-import { DropdownMenu } from "radix-ui";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription, EmptyContent } from "@/components/ui/empty";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import {
   api,
   date,
@@ -404,7 +407,7 @@ export default function App() {
           {page === "banks" && (
             <div className="space-y-5">
               {unfinished && <Card className="border-primary/30 bg-primary/5"><CardContent className="flex items-center justify-between gap-4"><div className="min-w-0"><h2 className="font-semibold">继续未完成的练习</h2><p className="mt-1 break-words text-sm text-muted-foreground">{unfinished.title} · 已提交 {unfinished.answered}/{unfinished.count} 题</p></div><Button disabled={busy} onClick={() => openSession(unfinished.id)}><Play />继续练习</Button></CardContent></Card>}
-              {!banks.length && !busy && info && <Empty icon={BookOpen} title="从第一份题库开始" description="已有 PractiQ JSON 可离线导入；PDF、文本或图片可通过 AI 解析为题目。"><Button onClick={() => navigate("import")}><Upload />导入第一份题库</Button></Empty>}
+              {!banks.length && !busy && info && <Empty className="min-h-96 border border-dashed"><EmptyHeader><EmptyMedia variant="icon"><BookOpen /></EmptyMedia><EmptyTitle>从第一份题库开始</EmptyTitle><EmptyDescription>已有 PractiQ JSON 可离线导入；PDF、文本或图片可通过 AI 解析为题目。</EmptyDescription></EmptyHeader><EmptyContent><Button onClick={() => navigate("import")}><Upload />导入第一份题库</Button></EmptyContent></Empty>}
               <div className="grid grid-cols-2 gap-5 xl:grid-cols-3">
               {banks.map((b) => (
                 <Card key={b.id}>
@@ -413,30 +416,28 @@ export default function App() {
                       <CardTitle className="min-w-0 break-words pt-1">{b.title}</CardTitle>
                       <div className="flex shrink-0 items-center gap-1">
                         <Badge variant="secondary">{b.count} 题</Badge>
-                        <DropdownMenu.Root>
-                          <DropdownMenu.Trigger asChild>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
                             <Button size="icon" variant="ghost" aria-label={`题库操作 ${b.title}`} disabled={busy}>
                               <EllipsisVertical />
                             </Button>
-                          </DropdownMenu.Trigger>
-                          <DropdownMenu.Portal>
-                            <DropdownMenu.Content align="end" sideOffset={4} className="z-50 min-w-32 rounded-lg border bg-popover p-1 text-sm text-popover-foreground shadow-md">
-                              <DropdownMenu.Item className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 outline-none focus:bg-accent" onSelect={() => setBankEditor({ id: b.id, title: b.title, description: b.description })}>
-                                <Pencil className="size-4" />编辑题库
-                              </DropdownMenu.Item>
-                              <DropdownMenu.Item className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-destructive outline-none focus:bg-destructive/10" onSelect={() => setConfirm({
-                                title: `删除“${b.title}”？`,
-                                description: "题库及其中题目将被删除，已有练习记录和内容快照会保留。",
-                                action: async () => {
-                                  await api({ type: "delete_bank", id: b.id });
-                                  await reload();
-                                },
-                              })}>
-                                <Trash2 className="size-4" />删除题库
-                              </DropdownMenu.Item>
-                            </DropdownMenu.Content>
-                          </DropdownMenu.Portal>
-                        </DropdownMenu.Root>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onSelect={() => setBankEditor({ id: b.id, title: b.title, description: b.description })}>
+                              <Pencil className="size-4" />编辑题库
+                            </DropdownMenuItem>
+                            <DropdownMenuItem variant="destructive" onSelect={() => setConfirm({
+                              title: `删除“${b.title}”？`,
+                              description: "题库及其中题目将被删除，已有练习记录和内容快照会保留。",
+                              action: async () => {
+                                await api({ type: "delete_bank", id: b.id });
+                                await reload();
+                              },
+                            })}>
+                              <Trash2 className="size-4" />删除题库
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </div>
                     <CardDescription className="line-clamp-2 min-h-10">
@@ -459,16 +460,15 @@ export default function App() {
           {listPage && (
             <div className="space-y-5">
               <div className="flex items-center gap-3">
-                <div className="relative flex-1">
-                  <Search className="absolute top-3 left-3 size-4 text-muted-foreground" />
-                  <Input
-                    className="pl-9"
+                <InputGroup className="flex-1">
+                  <InputGroupAddon><Search /></InputGroupAddon>
+                  <InputGroupInput
                     aria-label="搜索题目"
                     placeholder="搜索题干、选项或内容…"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                   />
-                </div>
+                </InputGroup>
                 <Select
                   value={mode || "all"}
                   onValueChange={(v) => setMode(v === "all" ? "" : v)}
@@ -604,21 +604,13 @@ export default function App() {
                 </>
               ) : (
                 !loading && (
-                  <Empty
-                    icon={page === "favorite" ? Star : BookOpen}
-                    title={
-                      page === "wrong"
-                        ? "暂时没有错题"
-                        : page === "favorite"
-                          ? "还没有收藏题目"
-                          : "没有找到题目"
-                    }
-                    description={
-                      page === "wrong"
-                        ? "已判定为错误的题目会出现在这里，再次答对后自动移出。"
-                        : "尝试调整筛选，或导入新的题目。"
-                    }
-                  />
+                  <Empty className="min-h-96 border border-dashed">
+                    <EmptyHeader>
+                      <EmptyMedia variant="icon">{page === "favorite" ? <Star /> : <BookOpen />}</EmptyMedia>
+                      <EmptyTitle>{page === "wrong" ? "暂时没有错题" : page === "favorite" ? "还没有收藏题目" : "没有找到题目"}</EmptyTitle>
+                      <EmptyDescription>{page === "wrong" ? "已判定为错误的题目会出现在这里，再次答对后自动移出。" : "尝试调整筛选，或导入新的题目。"}</EmptyDescription>
+                    </EmptyHeader>
+                  </Empty>
                 )
               )}
             </div>
@@ -662,11 +654,13 @@ export default function App() {
                 ))}
               </div>
             ) : (
-              <Empty
-                icon={History}
-                title="还没有练习记录"
-                description="完成一次练习后，即可在这里回顾答案、用时与正确率。"
-              />
+              <Empty className="min-h-96 border border-dashed">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon"><History /></EmptyMedia>
+                  <EmptyTitle>还没有练习记录</EmptyTitle>
+                  <EmptyDescription>完成一次练习后，即可在这里回顾答案、用时与正确率。</EmptyDescription>
+                </EmptyHeader>
+              </Empty>
             ))}
           {page === "practice" && session && (
             <Practice
@@ -776,8 +770,8 @@ export default function App() {
               <legend className="mb-2 text-sm font-medium">选择题库</legend>
               <div className="grid max-h-64 grid-cols-2 gap-2 overflow-y-auto">
                 {banks.map((b) => (
-                  <label key={b.id} className="flex min-w-0 cursor-pointer items-start gap-2 rounded-lg border p-3 text-sm has-checked:border-primary has-checked:bg-primary/5">
-                    <input type="checkbox" className="mt-0.5 size-4 shrink-0 accent-primary" checked={mergeSelection.includes(b.id)} onChange={(e) => setMergeSelection(e.target.checked ? [...mergeSelection, b.id] : mergeSelection.filter(id => id !== b.id))} />
+                  <label key={b.id} className="flex min-w-0 cursor-pointer items-start gap-2 rounded-lg border p-3 text-sm has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5">
+                    <Checkbox disabled={busy} className="mt-0.5" checked={mergeSelection.includes(b.id)} onCheckedChange={(checked) => setMergeSelection(checked === true ? [...mergeSelection, b.id] : mergeSelection.filter(id => id !== b.id))} />
                     <span className="min-w-0 break-words">{b.title}（{b.count} 题）</span>
                   </label>
                 ))}
@@ -819,9 +813,9 @@ export default function App() {
             </DialogHeader>
             <div className="space-y-4">
               <QuestionPreview questions={preview.questions ?? []} />
-              <Label>导入到</Label>
+              <Label htmlFor="import-bank">导入到</Label>
               <Select value={importBank} onValueChange={setImportBank}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger id="import-bank" className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1067,28 +1061,6 @@ export default function App() {
         </AlertDialogContent>
       </AlertDialog>
       <Toaster position="bottom-right" richColors />
-    </div>
-  );
-}
-function Empty({
-  icon: Icon,
-  title,
-  description,
-  children,
-}: {
-  icon: typeof BookOpen;
-  title: string;
-  description: string;
-  children?: React.ReactNode;
-}) {
-  return (
-    <div className="flex min-h-96 flex-col items-center justify-center gap-4 rounded-xl border border-dashed text-center">
-      <Icon className="size-12 text-muted-foreground/50" />
-      <h2 className="text-xl font-medium">{title}</h2>
-      <p className="max-w-md text-sm leading-6 text-muted-foreground">
-        {description}
-      </p>
-      {children}
     </div>
   );
 }

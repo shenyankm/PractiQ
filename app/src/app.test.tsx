@@ -270,3 +270,97 @@ it("opens the verified image in a keyboard-dismissable detail dialog", async () 
   expect(document.activeElement).toBe(screen.getByRole("button",{name:"放大查看图片"}));
   expect(api).toHaveBeenCalledWith({type:"asset",hash:"digest"});
 });
+
+it.each([true, false])("confirms finishing practice with submit_drafts=%s and restores focus on cancel", async (submitDrafts) => {
+  const user = userEvent.setup();
+  const session = { ...examSession(), kind: "practice" as const, deadlineAt: null };
+  vi.mocked(api).mockResolvedValue(session);
+  render(<Practice session={session} onSession={vi.fn()} run={job => { void job(); }} flushRef={{ current: async () => {} }} />);
+  const trigger = screen.getByRole("button", { name: "结束练习" });
+  await user.click(trigger);
+  expect(await screen.findByRole("alertdialog", { name: "结束本次练习？" })).toBeTruthy();
+  const cancel = screen.getByRole("button", { name: "继续作答" });
+  expect(document.activeElement).toBe(cancel);
+  await user.click(cancel);
+  await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+  expect(document.activeElement).toBe(trigger);
+  expect(vi.mocked(api).mock.calls.some(([r]) => r.type === "submit_paper")).toBe(false);
+  await user.click(trigger);
+  await screen.findByRole("alertdialog");
+  await user.click(screen.getByRole("button", { name: submitDrafts ? "提交草稿并结束" : "草稿记为跳过并结束" }));
+  await waitFor(() => expect(api).toHaveBeenCalledWith({ type: "submit_paper", id: session.id, submit_drafts: submitDrafts }));
+});
+
+it("requires fee confirmation before retrying AI grading", async () => {
+  const user = userEvent.setup();
+  const session = examSession();
+  session.submittedAt = 1;
+  session.attempts[0].grading = { lastRequest: { status: "FAILED", error: "模型暂不可用" } };
+  vi.mocked(invoke).mockResolvedValue(session);
+  render(<ExamResults session={session} onSession={vi.fn()} run={job => { void job(); }} />);
+  const trigger = screen.getByRole("button", { name: "重新评分当前题" });
+  await user.click(trigger);
+  expect(screen.getByRole("alertdialog", { name: "重新评分当前题？" })).toBeTruthy();
+  expect(document.activeElement).toBe(screen.getByRole("button", { name: "取消" }));
+  await user.keyboard("{Escape}");
+  await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+  expect(document.activeElement).toBe(trigger);
+  expect(invoke).not.toHaveBeenCalled();
+  await user.click(trigger);
+  await user.click(screen.getByRole("button", { name: "确认重新评分" }));
+  await waitFor(() => expect(invoke).toHaveBeenCalledWith("ai_request", {
+    request: { type: "grade", id: session.id, ordinal: 0, retry: true },
+  }));
+});
+
+it("preserves native filters, whole-label selection and disabled controls in study setup", async () => {
+  const { StudySetup } = await import("./StudySetup");
+  const user = userEvent.setup();
+  const session = examSession();
+  const row = { ...session.attempts[0].snapshot, id: "question", bankId: "bank", bankTitle: "题库甲", favorite: false, latestResult: null };
+  vi.mocked(api).mockImplementation(async request => (request.type === "questions" ? [row] : session) as never);
+  const props = { banks: [{ id: "bank", title: "题库甲", description: "", count: 1, createdAt: 0 }], initialBank: null, initialFilter: "", onClose: vi.fn(), onStart: vi.fn(), run: (job: () => Promise<void>) => { void job(); } };
+  const { rerender } = render(<StudySetup {...props} busy={false} />);
+  await screen.findByText(/可用 1 题/);
+  await user.click(screen.getByText("高级设置 · 题库、筛选与选题方式"));
+  await user.click(screen.getByRole("button", { name: "清空选择" }));
+  await user.click(screen.getByText("题库甲（1）"));
+  await waitFor(() => expect(api).toHaveBeenCalledWith(expect.objectContaining({ type: "questions", bank_ids: ["bank"] })));
+  await user.selectOptions(screen.getByRole("combobox", { name: "范围" }), "wrong");
+  await waitFor(() => expect(api).toHaveBeenCalledWith(expect.objectContaining({ type: "questions", filter: "wrong" })));
+  await user.selectOptions(screen.getByRole("combobox", { name: "选题方式" }), "manual");
+  await user.click(screen.getByText(row.question.stem!));
+  expect(screen.getByRole("checkbox", { name: row.question.stem! }).getAttribute("aria-checked")).toBe("true");
+  await user.click(screen.getByRole("button", { name: "立即开始" }));
+  await waitFor(() => expect(api).toHaveBeenCalledWith(expect.objectContaining({ type: "start_paper", paper: expect.objectContaining({ question_ids: ["question"] }) })));
+  rerender(<StudySetup {...props} busy />);
+  for (const control of [...screen.getAllByRole("checkbox"), ...screen.getAllByRole("combobox")]) {
+    expect((control as HTMLButtonElement).disabled).toBe(true);
+  }
+});
+
+it("keeps exam confirmation open on failure and disables duplicate submissions while pending", async () => {
+  const user = userEvent.setup();
+  const session = { ...examSession(), deadlineAt: null };
+  const failed = vi.fn();
+  let rejectSubmission!: (reason: Error) => void;
+  vi.mocked(api).mockImplementation(request => request.type === "submit_paper"
+    ? new Promise((_resolve, reject) => { rejectSubmission = reject; })
+    : Promise.resolve(session) as never);
+  render(<Practice session={session} onSession={vi.fn()} run={job => { void job().catch(failed); }} flushRef={{ current: async () => {} }} />);
+  await user.click(screen.getByRole("button", { name: "交卷" }));
+  await screen.findByRole("alertdialog", { name: "确认交卷？" });
+  expect(screen.queryByRole("button", { name: "草稿记为跳过并结束" })).toBeNull();
+  const confirm = screen.getByRole("button", { name: "确认交卷" }) as HTMLButtonElement;
+  await user.click(confirm);
+  await waitFor(() => expect(api).toHaveBeenCalledWith({ type: "submit_paper", id: session.id, submit_drafts: true }));
+  expect(confirm.disabled).toBe(true);
+  await user.keyboard("{Escape}");
+  expect(screen.getByRole("alertdialog")).toBeTruthy();
+  rejectSubmission(new Error("保存失败"));
+  await waitFor(() => expect(failed).toHaveBeenCalled());
+  expect(confirm.disabled).toBe(false);
+  expect(screen.getByRole("alertdialog")).toBeTruthy();
+  await user.click(screen.getByRole("button", { name: "继续作答" }));
+  await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+});
