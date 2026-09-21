@@ -4,7 +4,8 @@ import { QuestionPreview } from "./QuestionPreview";
 import { StudySetup } from "./StudySetup";
 import { ImportPage } from "./ImportPage";
 import logo from "../../server/assets/logo/practiq-octopus-a5.png";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ComponentProps } from "react";
+import { Tooltip } from "radix-ui";
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
@@ -15,6 +16,9 @@ import {
   History,
   Settings,
   Languages,
+  PanelLeftClose,
+  PanelLeftOpen,
+  CircleAlert,
   Search,
   ArrowLeft,
   Play,
@@ -95,8 +99,21 @@ type Page =
   | "import"
   | "settings"
   | "practice";
+function SidebarButton({ collapsed, label, children, className = "", ...props }: ComponentProps<typeof Button> & { collapsed: boolean; label: string }) {
+  return (
+    <Tooltip.Root>
+      <Tooltip.Trigger asChild>
+        <Button variant="ghost" aria-label={label} className={`w-full gap-3 aria-[current=page]:bg-primary/10 aria-[current=page]:text-primary ${collapsed ? "justify-center px-0" : "justify-start"} ${className}`} {...props}>
+          {children}<span hidden={collapsed}>{label}</span>
+        </Button>
+      </Tooltip.Trigger>
+      {collapsed && <Tooltip.Portal><Tooltip.Content side="right" sideOffset={8} className="z-50 rounded-md bg-popover px-3 py-2 text-sm text-popover-foreground shadow-md ring-1 ring-border">{label}</Tooltip.Content></Tooltip.Portal>}
+    </Tooltip.Root>
+  );
+}
 export default function App() {
   const language = useI18n();
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [languageOpen, setLanguageOpen] = useState(false);
   const languageTrigger = useRef<HTMLButtonElement>(null);
   const [page, setPage] = useState<Page>("banks");
@@ -281,18 +298,22 @@ export default function App() {
   const languageError = language.error != null && <div role="alert" className="text-xs text-destructive"><p>{t(language.error.key)}</p><p>{errorMessage(language.error.cause)}</p><Button size="sm" variant="outline" onClick={() => void language.reload()}>{t("重试")}</Button></div>;
   return (
     <div className="flex h-screen min-w-[960px] overflow-hidden bg-background text-foreground">
-      <aside className="flex w-56 shrink-0 flex-col border-r bg-muted/25 p-4">
-        <div className="mb-10 flex items-center gap-3 px-3 pt-3">
+      <Tooltip.Provider delayDuration={200}>
+      <aside id="app-sidebar" className={`flex shrink-0 flex-col border-r bg-muted/25 ${sidebarCollapsed ? "w-16 p-2" : "w-56 p-4"}`}>
+        <div className={`mb-4 flex items-center gap-3 pt-3 ${sidebarCollapsed ? "justify-center" : "px-3"}`}>
           <img
             src={logo}
             alt={t("PractiQ 小章鱼")}
             className="size-10 shrink-0 rounded-xl object-contain"
           />
-          <div>
+          <div hidden={sidebarCollapsed}>
             <div className="text-lg font-semibold tracking-tight">PractiQ</div>
             <div className="text-xs text-muted-foreground">{t("一点练习，每天进步")}</div>
           </div>
         </div>
+        <SidebarButton collapsed={sidebarCollapsed} label={sidebarCollapsed ? t("展开侧边栏") : t("收起侧边栏")} aria-expanded={!sidebarCollapsed} aria-controls="app-sidebar" className="mb-4" onClick={() => setSidebarCollapsed(value => !value)}>
+          {sidebarCollapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
+        </SidebarButton>
         <nav aria-label={t("主导航")} className="space-y-2">
           {(
             [
@@ -303,9 +324,10 @@ export default function App() {
               { id: "history", label: t("练习记录"), icon: History },
             ] as const
           ).map(({ id, label, icon: Icon }) => (
-            <Button
+            <SidebarButton
               key={id}
-              className="w-full justify-start gap-3 aria-[current=page]:bg-primary/10 aria-[current=page]:text-primary"
+              collapsed={sidebarCollapsed}
+              label={label}
               variant={
                 page === id || (id === "banks" && page === "questions")
                   ? "secondary"
@@ -316,15 +338,14 @@ export default function App() {
               onClick={() => navigate(id)}
             >
               <Icon />
-              {label}
-            </Button>
+            </SidebarButton>
           ))}
         </nav>
         <div className="mt-auto space-y-4">
           <div className="space-y-2">
-            <Button ref={languageTrigger} className="w-full justify-start gap-3" variant="ghost" aria-haspopup="dialog" onClick={() => setLanguageOpen(true)}>
-              <Languages />{t("语言")}
-            </Button>
+            <SidebarButton ref={languageTrigger} collapsed={sidebarCollapsed} label={t("语言")} className={language.error ? "text-destructive" : ""} aria-haspopup="dialog" onClick={() => setLanguageOpen(true)}>
+              {language.error ? <CircleAlert /> : <Languages />}
+            </SidebarButton>
             <Dialog open={languageOpen} onOpenChange={setLanguageOpen}>
               <DialogContent aria-describedby={undefined} onCloseAutoFocus={event => { event.preventDefault(); languageTrigger.current?.focus(); }}>
                 <DialogHeader><DialogTitle>{t("语言")}</DialogTitle></DialogHeader>
@@ -335,18 +356,20 @@ export default function App() {
                 {languageError}
               </DialogContent>
             </Dialog>
-            {!languageOpen && languageError}
+            {!languageOpen && (sidebarCollapsed ? language.error && <p role="alert" className="sr-only">{t(language.error.key)}</p> : languageError)}
           </div>
-          <Button
-            className="w-full justify-start gap-3 aria-[current=page]:bg-primary/10 aria-[current=page]:text-primary"
+          <SidebarButton
+            collapsed={sidebarCollapsed}
+            label={t("设置")}
             variant={page === "settings" ? "secondary" : "ghost"}
             aria-current={page === "settings" ? "page" : undefined}
             disabled={busy}
             onClick={() => { setSettingsReturn(null); navigate("settings"); }}
           >
-            <Settings />{t("设置")}</Button>
+            <Settings /></SidebarButton>
         </div>
       </aside>
+      </Tooltip.Provider>
       <main className="flex min-w-0 flex-1 flex-col">
         <header className="flex min-h-24 shrink-0 items-center justify-between gap-4 border-b px-8">
           <div className="flex items-center gap-3">

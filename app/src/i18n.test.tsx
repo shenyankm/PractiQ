@@ -101,6 +101,30 @@ it("switches through the sidebar and retains language on save failure", async ()
   expect(vi.mocked(invoke).mock.calls.filter(([name]) => name === "ai_request")).toHaveLength(0);
   expect(vi.mocked(invoke).mock.calls.some(([, args]) => JSON.stringify(args).includes('"save_settings"'))).toBe(false);
 });
+it.each(["zh-CN", "en"] as const)("collapses the sidebar without resetting settings or language controls (%s)", async value => {
+  saved = value;
+  wrap(<App />); await ready();
+  await userEvent.click(screen.getByRole("button", { name: t("设置") }));
+  const input = await screen.findByLabelText("Base URL");
+  await userEvent.type(input, "https://example.com/v1");
+  const calls = vi.mocked(invoke).mock.calls.length;
+  const toggle = screen.getByRole("button", { name: t("收起侧边栏") });
+  toggle.focus();
+  await userEvent.keyboard("{Enter}");
+  expect(toggle.getAttribute("aria-expanded")).toBe("false");
+  expect(screen.getByRole("button", { name: t("展开侧边栏") })).toBe(toggle);
+  expect(screen.getByRole("button", { name: t("设置") }).getAttribute("aria-current")).toBe("page");
+  expect(screen.getByLabelText("Base URL")).toBe(input);
+  expect((input as HTMLInputElement).value).toBe("https://example.com/v1");
+  expect(vi.mocked(invoke).mock.calls).toHaveLength(calls);
+  await userEvent.click(screen.getByRole("button", { name: t("语言") }));
+  expect(screen.getByRole("dialog", { name: t("语言") })).toBeTruthy();
+  await userEvent.keyboard("{Escape}");
+  await userEvent.click(toggle);
+  expect(toggle.getAttribute("aria-expanded")).toBe("true");
+  expect(screen.getByLabelText("Base URL")).toBe(input);
+  expect((input as HTMLInputElement).value).toBe("https://example.com/v1");
+});
 it("keeps editor input and an open dialog while changing all its labels", async () => {
   wrap(<QuestionEditor initial={blankQuestion()} busy={false} onClose={() => {}} onSave={() => {}} />); await ready();
   const input = screen.getByLabelText("题干（支持 Markdown 和公式）");

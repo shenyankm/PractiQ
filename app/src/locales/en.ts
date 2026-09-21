@@ -1,4 +1,6 @@
 export const en = {
+  "展开侧边栏": "Expand sidebar",
+  "收起侧边栏": "Collapse sidebar",
   "{0}组数": "{0} groups",
   "清空作答": "Clear answer",
   "命中子题时纳入完整题组，包含组内其他子题。": "A matching subquestion includes its entire group and the other subquestions.",
