@@ -2,7 +2,7 @@ import asyncio
 import logging
 import time
 from concurrent.futures import ThreadPoolExecutor
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 from uuid import uuid4
 
 import httpx
@@ -94,19 +94,36 @@ async def test_unknown_call_consumes_budget_after_interruption(monkeypatch):
 
 
 async def test_run_deadline_is_enforced_without_resetting_task_budget(monkeypatch):
-    # This test targets an in-flight model timeout; process startup has its own deadline tests.
+    # Expire the real timeout only once the provider is in flight, independent of runner speed.
     monkeypatch.setattr(document, 'extract', AsyncMock(side_effect=extract))
-    monkeypatch.setenv("AI_RUN_TIMEOUT_SECONDS", "0.05")
-    graph, _, _, reference, model = setup_graph(monkeypatch, [(10, parsed()), parsed()])
+    timers = []
+
+    def timeout(delay):
+        timer = asyncio.timeout(delay)
+        timers.append(timer)
+        return timer
+
+    def expire(messages, schema):
+        timers[-1].reschedule(asyncio.get_running_loop().time())
+        return (60, parsed())
+
+    monkeypatch.setattr(document, 'asyncio', Mock(wraps=asyncio, timeout=timeout))
+    graph, store, _, reference, model = setup_graph(monkeypatch, [expire, parsed()])
     config = run_config()
     with pytest.raises(DocumentProcessingError) as error:
         await graph.ainvoke({"document": reference}, config)
     assert error.value.code == "RUN_DEADLINE_EXCEEDED"
+    assert timers[-1].expired() and len(model.calls) == 1
+    # Persist expiry explicitly instead of waiting for wall-clock time to pass.
+    await store.aput(execution.namespace('thread-1', 'deadlines'), str(config.get('run_id')),
+                     {'at': '2000-01-01T00:00:00+00:00'})
     with pytest.raises(DocumentProcessingError, match="deadline"):
         await graph.ainvoke(None, config)
     assert len(model.calls) == 1
     output = await graph.ainvoke(None, {**config, "run_id": uuid4()})
     assert output["status"] == "SUCCEEDED" and len(model.calls) == 2
+    budget = await store.aget(execution.namespace('thread-1', 'budget'), 'document_parse:0:0')
+    assert budget is not None and budget.value['spent'] == 2
 
 
 async def test_model_text_limit_is_applied_before_provider(monkeypatch):

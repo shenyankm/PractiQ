@@ -209,11 +209,13 @@ async def control_task(thread_id: str, request: DocumentTaskControl) -> dict[str
     # Expensive artifact checks happen outside the global admission transaction.
     # The checkpoint/run are re-read under the lock before enqueueing.
     if request.action not in {'pause', 'interrupt'}:
+        task, snapshot, run = await _read_task(service, thread_id)
+        # A concurrent admission commits its run and receipt together. Read the
+        # receipt after the run so duplicates cannot see busy/stale before replay.
         async with service.db.connection() as conn:
             previous = await _replay(conn, thread_id, request_id, request_hash)
         if previous:
             return previous
-        task, snapshot, run = await _read_task(service, thread_id)
         require_supported_task(task)
         if run and run['status'] in {'pending', 'running'}:
             raise conflict('Wait until the current run stops', 'TASK_BUSY')

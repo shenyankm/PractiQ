@@ -3,6 +3,7 @@
 import asyncio
 import json
 import os
+import signal
 import sys
 import threading
 from io import BytesIO
@@ -91,23 +92,41 @@ async def test_extractor_reaps_blocked_process_and_descendants(monkeypatch, tmp_
     original = asyncio.create_subprocess_exec
     processes = []
     child_pid = tmp_path / 'child'
+    ready = asyncio.Event()
     async def blocked(*args, **kwargs):
         code = ('import subprocess,sys,time; from pathlib import Path; '
                 'p=subprocess.Popen([sys.executable,"-c","import time; time.sleep(60)"]); '
-                f'Path({str(child_pid)!r}).write_text(str(p.pid)); time.sleep(60)')
+                f'ready=Path({str(child_pid)!r}); pending=ready.with_suffix(".tmp"); '
+                'pending.write_text(str(p.pid)); pending.replace(ready); time.sleep(60)')
         process = await original(sys.executable, '-c', code, **kwargs)
         processes.append(process)
+        # Start the extraction timeout only after the descendant is observable.
+        try:
+            async with asyncio.timeout(30):
+                while not child_pid.exists():
+                    await asyncio.sleep(0.01)
+        except BaseException:
+            os.killpg(process.pid, signal.SIGKILL)
+            await process.wait()
+            raise
+        ready.set()
         return process
     with monkeypatch.context() as patch:
         patch.setattr(asyncio, 'create_subprocess_exec', blocked)
-        task = asyncio.create_task(isolated.extract('text', b'First', timeout=0.3 if not cancel else 60))
-        async with asyncio.timeout(5):
-            while not child_pid.exists():
-                await asyncio.sleep(0.01)
-        if cancel:
+        task = asyncio.create_task(isolated.extract('text', b'First', timeout=0 if not cancel else 60))
+        try:
+            if cancel:
+                async with asyncio.timeout(30):
+                    await ready.wait()
+                task.cancel()
+            with pytest.raises(asyncio.CancelledError if cancel else DocumentProcessingError) as error:
+                await task
+            if not cancel:
+                assert isinstance(error.value, DocumentProcessingError)
+                assert error.value.code == 'DOCUMENT_PREPARE_TIMEOUT'
+        finally:
             task.cancel()
-        with pytest.raises(asyncio.CancelledError if cancel else DocumentProcessingError):
-            await task
+            await asyncio.gather(task, return_exceptions=True)
     assert processes[0].returncode is not None
     # A killed descendant may briefly be a zombie until the OS reaps it.
     status = await original('ps', '-o', 'stat=', '-p', child_pid.read_text(), stdout=asyncio.subprocess.PIPE)

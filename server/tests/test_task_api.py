@@ -242,6 +242,36 @@ async def test_api_retry_limits_concurrency_and_exhaustion(monkeypatch, review):
     assert state['status'] == 'PARTIAL'
 
 
+@pytest.mark.parametrize('completed', [False, True])
+async def test_control_replays_request_admitted_during_preflight_read(monkeypatch, completed):
+    api, reference, _ = await setup_api(monkeypatch, [parsed(), {'bad': 1}, {'bad': 1},
+                                                     parsed('Second') if completed else (60, parsed('Second'))],
+                                         parts=['First', 'Second'])
+    created = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
+    await api.wait_idle()
+    thread_id = created['threadId']
+    state = await task_api.get_task(thread_id)
+    request = DocumentTaskControl(requestId=uuid4(), action='retry_failed', checkpointId=state['checkpointId'])
+    original = task_api._read_task
+    receipts = []
+    first = True
+
+    async def admit_before_read(*args):
+        nonlocal first
+        if first:
+            first = False
+            receipts.append(await task_api.control_task(thread_id, request))
+            if completed:
+                await api.wait_idle()
+        return await original(*args)
+
+    monkeypatch.setattr(task_api, '_read_task', admit_before_read)
+    assert await task_api.control_task(thread_id, request) == receipts[0]
+    runs = await api.db.rows('SELECT run_id FROM document_runs WHERE thread_id=? AND request_id=?',
+                             (thread_id, str(request.requestId)))
+    assert len(runs) == 1
+
+
 async def test_quality_only_review_acceptance_is_idempotent_and_not_retryable(monkeypatch):
     api, reference, model = await setup_api(monkeypatch, [parsed('Absent from source')])
     created = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference), failurePolicy='review'))

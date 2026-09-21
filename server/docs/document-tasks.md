@@ -46,7 +46,7 @@
 }
 ```
 
-每个变更使用 UUID `requestId`。同一请求重放返回原回执；同 ID 不同内容返回 `REQUEST_CONFLICT`。旧 run 返回 `STALE_RUN`，旧 checkpoint 返回 `STALE_CHECKPOINT`，任务仍忙返回 `TASK_BUSY`。请求受理与实际停止分开查询。
+每个变更使用 UUID `requestId`。同一请求重放（包括并发提交）返回原回执，即使该请求已启动运行或推进 checkpoint；同 ID 不同内容返回 `REQUEST_CONFLICT`。旧 run 返回 `STALE_RUN`，旧 checkpoint 返回 `STALE_CHECKPOINT`，任务仍忙返回 `TASK_BUSY`。请求受理与实际停止分开查询。
 
 `pause` 为协作暂停：已派发转换/模型调用可能先完成，后续批次停止。`interrupt` 先保存取消意图，再取消执行，不保证撤回远端模型请求或终止底层同步线程。立即中断产生的未知调用保留。
 
