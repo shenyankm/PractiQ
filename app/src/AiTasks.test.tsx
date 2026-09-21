@@ -425,3 +425,37 @@ it.each([
     ["list", "get", "operations", "batches"].includes((args as {request: {type: string}}).request.type),
   )).toBe(true);
 });
+
+it.each(["COMPLETED", "WAITING_REVIEW"])("retains %s controls when membership refresh fails", async state => {
+  vi.useFakeTimers();
+  let lists = 0, gets = 0;
+  const preview = {ticket: "retained"};
+  const onPreview = vi.fn();
+  vi.mocked(invoke).mockImplementation(async (_command, args) => {
+    const {type} = (args as {request: {type: string}}).request;
+    if (type === "list") {
+      if (++lists > 1) throw {httpStatus: 503, message: "membership unavailable"};
+      return {items: [{threadId: "task", fileName: "ready.pdf", expiresAt: ""}], hasMore: false} as never;
+    }
+    if (type === "get") {
+      gets++;
+      return {threadId: "task", state, phase: "completed", progress: {}, allowedActions: [], blocking: [], failures: [{stage: "text", index: 0, code: "TEST_FAILURE", message: "retained detail", retryable: false}], usage: [], unknownUsageCalls: []} as never;
+    }
+    if (type === "review") return {threadId: "task", checkpointId: "cp", phase: "completed", units: [], failures: [], quality: {}, questionSources: []} as never;
+    if (type === "preview") return preview as never;
+    return [] as never;
+  });
+  await act(async () => { render(<AiTasks busy={false} run={job => {void job();}} onPreview={onPreview}/>); });
+  await act(async () => { fireEvent.click(screen.getByRole("button", {name: "ready.pdf"})); });
+  await act(async () => { await vi.advanceTimersByTimeAsync(20000); });
+  expect(gets).toBe(1);
+  expect(lists).toBe(2);
+  expect(screen.getByText(/membership unavailable/)).toBeTruthy();
+  expect(screen.getByText(/retained detail/)).toBeTruthy();
+  if (state === "COMPLETED") {
+    await act(async () => { fireEvent.click(screen.getByRole("button", {name: "预览并导入题库"})); });
+    expect(onPreview).toHaveBeenCalledWith(preview);
+  }
+  await act(async () => { fireEvent.click(screen.getByRole("button", {name: "查看内容与审核"})); });
+  expect(screen.getByRole("dialog", {name: "只读内容审核"})).toBeTruthy();
+});

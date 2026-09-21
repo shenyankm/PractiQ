@@ -65,19 +65,19 @@ import { ThemeProvider } from "next-themes"
 
 ```bash
 # Apply a preset code from ui.shadcn.com.
-npx --no-install shadcn apply --preset a2r6bw
+node node_modules/shadcn/dist/index.js apply --preset a2r6bw
 
 # Positional shorthand also works.
-npx --no-install shadcn apply a2r6bw
+node node_modules/shadcn/dist/index.js apply a2r6bw
 
 # Switch to a named preset and overwrite existing components.
-npx --no-install shadcn apply --preset nova
+node node_modules/shadcn/dist/index.js apply --preset nova
 
 # Preserve existing components instead.
-npx --no-install shadcn init --preset nova --force --no-reinstall
+node node_modules/shadcn/dist/index.js init --preset nova --force --no-reinstall
 
 # Use a custom theme URL.
-npx --no-install shadcn apply --preset "https://ui.shadcn.com/init?base=radix&style=nova&theme=blue&..."
+node node_modules/shadcn/dist/index.js apply --preset "https://ui.shadcn.com/init?base=radix&style=nova&theme=blue&..."
 ```
 
 Or edit CSS variables directly in `globals.css`.
@@ -86,7 +86,7 @@ Or edit CSS variables directly in `globals.css`.
 
 ## Adding Custom Colors
 
-Add variables to the file at `tailwindCssFile` from `npx --no-install shadcn info` (typically `globals.css`). Never create a new CSS file for this.
+Add variables to the file at `tailwindCssFile` from `node node_modules/shadcn/dist/index.js info` (typically `globals.css`). Never create a new CSS file for this.
 
 ```css
 /* 1. Define in the global CSS file. */
@@ -108,7 +108,7 @@ Add variables to the file at `tailwindCssFile` from `npx --no-install shadcn inf
 }
 ```
 
-When `tailwindVersion` is `"v3"` (check via `npx --no-install shadcn info`), register in `tailwind.config.js` instead:
+When `tailwindVersion` is `"v3"` (check via `node node_modules/shadcn/dist/index.js info`), register in `tailwind.config.js` instead:
 
 ```js
 // 2b. Register with Tailwind v3 (tailwind.config.js).
@@ -196,14 +196,14 @@ export function ConfirmDialog({ title, description, onConfirm, children }) {
 ## Checking for Updates
 
 ```bash
-npx --no-install shadcn add button --diff
+node node_modules/shadcn/dist/index.js add button --diff
 ```
 
 To preview exactly what would change before updating, use `--dry-run` and `--diff`:
 
 ```bash
-npx --no-install shadcn add button --dry-run        # see all affected files
-npx --no-install shadcn add button --diff button.tsx # see the diff for a specific file
+node node_modules/shadcn/dist/index.js add button --dry-run        # see all affected files
+node node_modules/shadcn/dist/index.js add button --diff button.tsx # see the diff for a specific file
 ```
 
 See [Updating Components in SKILL.md](./SKILL.md#updating-components) for the full smart merge workflow.

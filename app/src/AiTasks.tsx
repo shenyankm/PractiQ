@@ -296,14 +296,15 @@ export function AiTasks({
           setError(null);
           if (activeStates.has(value.state)) timer = setTimeout(poll, 2000);
           else {
-            const listing = await ai<{ items: Summary[]; hasMore: boolean }>({
-              type: "list",
-              offset,
-            });
-            if (active) {
-              setRows(listing.items);
-              setMore(listing.hasMore);
-            }
+            // Membership refresh must not invalidate a successfully read task.
+            void ai<{ items: Summary[]; hasMore: boolean }>({ type: "list", offset })
+              .then((listing) => {
+                if (active) {
+                  setRows(listing.items);
+                  setMore(listing.hasMore);
+                }
+              })
+              .catch((e) => { if (active) setError(e); });
           }
           failures = 0;
         }

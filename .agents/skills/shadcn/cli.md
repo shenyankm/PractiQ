@@ -2,7 +2,7 @@
 
 Configuration is read from `components.json`.
 
-> **IMPORTANT:** Always run commands using the project's package runner: `npx --no-install shadcn`, `pnpm dlx shadcn@latest`, or `bunx --bun shadcn@latest`. Check `packageManager` from project context to choose the right one. Examples below use `npx --no-install shadcn` but substitute the correct runner for the project.
+> **IMPORTANT:** Run `make app-install` from the repository root (or `npm ci` from `app/`) to install the lockfile, then invoke `node node_modules/shadcn/dist/index.js` from `app/`. All examples below use that installed entry point. A missing local CLI must fail; do not fall back to `npx`, `dlx`, `bunx` or an unpinned download.
 
 > **IMPORTANT:** Only use the flags documented below. Do not invent or guess flags — if a flag isn't listed here, it doesn't exist. The CLI auto-detects the package manager from the project's lockfile; there is no `--package-manager` flag.
 
@@ -20,7 +20,7 @@ Configuration is read from `components.json`.
 ### `init` — Initialize or create a project
 
 ```bash
-npx --no-install shadcn init [components...] [options]
+node node_modules/shadcn/dist/index.js init [components...] [options]
 ```
 
 Initializes shadcn/ui in an existing project or creates a new project (when `--name` is provided). Optionally installs components in the same step.
@@ -40,12 +40,12 @@ Initializes shadcn/ui in an existing project or creates a new project (when `--n
 | `--monorepo`            |       | Scaffold a monorepo project                               | —       |
 | `--no-monorepo`         |       | Skip the monorepo prompt                                  | —       |
 
-`npx --no-install shadcn create` is an alias for `npx --no-install shadcn init`.
+`node node_modules/shadcn/dist/index.js create` is an alias for `node node_modules/shadcn/dist/index.js init`.
 
 ### `apply` — Apply a preset to an existing project
 
 ```bash
-npx --no-install shadcn apply [preset] [options]
+node node_modules/shadcn/dist/index.js apply [preset] [options]
 ```
 
 Applies a preset to an existing project, overwriting preset-driven config, fonts, CSS variables, and detected UI components.
@@ -62,10 +62,10 @@ If no preset is provided, the CLI offers to open the custom preset builder on `u
 
 ### `add` — Add components
 
-> **IMPORTANT:** To compare local components against upstream or to preview changes, ALWAYS use `npx --no-install shadcn add <component> --dry-run`, `--diff`, or `--view`. NEVER fetch raw files from GitHub or other sources manually. The CLI handles registry resolution, file paths, and CSS diffing automatically.
+> **IMPORTANT:** To compare local components against upstream or to preview changes, ALWAYS use `node node_modules/shadcn/dist/index.js add <component> --dry-run`, `--diff`, or `--view`. NEVER fetch raw files from GitHub or other sources manually. The CLI handles registry resolution, file paths, and CSS diffing automatically.
 
 ```bash
-npx --no-install shadcn add [components...] [options]
+node node_modules/shadcn/dist/index.js add [components...] [options]
 ```
 
 Accepts component names, registry-prefixed names (`@magicui/shimmer-button`),
@@ -89,28 +89,28 @@ Use `--dry-run` to preview what `add` would do without writing any files. `--dif
 
 ```bash
 # Preview all changes.
-npx --no-install shadcn add button --dry-run
+node node_modules/shadcn/dist/index.js add button --dry-run
 
 # Show diffs for all files (top 5).
-npx --no-install shadcn add button --diff
+node node_modules/shadcn/dist/index.js add button --diff
 
 # Show the diff for a specific file.
-npx --no-install shadcn add button --diff button.tsx
+node node_modules/shadcn/dist/index.js add button --diff button.tsx
 
 # Show contents for all files (top 5).
-npx --no-install shadcn add button --view
+node node_modules/shadcn/dist/index.js add button --view
 
 # Show the full content of a specific file.
-npx --no-install shadcn add button --view button.tsx
+node node_modules/shadcn/dist/index.js add button --view button.tsx
 
 # Works with URLs too.
-npx --no-install shadcn add https://api.npoint.io/abc123 --dry-run
+node node_modules/shadcn/dist/index.js add https://api.npoint.io/abc123 --dry-run
 
 # Works with public GitHub registries too.
-npx --no-install shadcn add owner/repo/item --dry-run
+node node_modules/shadcn/dist/index.js add owner/repo/item --dry-run
 
 # CSS diffs.
-npx --no-install shadcn add button --diff globals.css
+node node_modules/shadcn/dist/index.js add button --diff globals.css
 ```
 
 **When to use dry-run:**
@@ -121,7 +121,7 @@ npx --no-install shadcn add button --diff globals.css
 - When checking what CSS changes would be made to `globals.css` — use `--diff globals.css`.
 - When the user asks to review or audit third-party registry code before installing — use `--view` to inspect the source.
 
-> **`npx --no-install shadcn add --dry-run` vs `npx --no-install shadcn view`:** Prefer `npx --no-install shadcn add --dry-run/--diff/--view` over `npx --no-install shadcn view` when the user wants to preview changes to their project. `npx --no-install shadcn view` only shows raw registry metadata. `npx --no-install shadcn add --dry-run` shows exactly what would happen in the user's project: resolved file paths, diffs against existing files, and CSS updates. Use `npx --no-install shadcn view` only when the user wants to browse registry info without a project context.
+> **`node node_modules/shadcn/dist/index.js add --dry-run` vs `node node_modules/shadcn/dist/index.js view`:** Prefer `node node_modules/shadcn/dist/index.js add --dry-run/--diff/--view` over `node node_modules/shadcn/dist/index.js view` when the user wants to preview changes to their project. `node node_modules/shadcn/dist/index.js view` only shows raw registry metadata. `node node_modules/shadcn/dist/index.js add --dry-run` shows exactly what would happen in the user's project: resolved file paths, diffs against existing files, and CSS updates. Use `node node_modules/shadcn/dist/index.js view` only when the user wants to browse registry info without a project context.
 
 #### Smart Merge from Upstream
 
@@ -130,10 +130,10 @@ See [Updating Components in SKILL.md](./SKILL.md#updating-components) for the fu
 ### `search` — Search registries
 
 ```bash
-npx --no-install shadcn search [registries...] [options]
+node node_modules/shadcn/dist/index.js search [registries...] [options]
 ```
 
-Fuzzy search across registries. Also aliased as `npx --no-install shadcn list`.
+Fuzzy search across registries. Also aliased as `node node_modules/shadcn/dist/index.js list`.
 Supports namespaces (`@acme`), public GitHub registry sources (`owner/repo`),
 and registry catalog URLs. Without `-q`, lists all items. When no registries are
 passed, searches every registry configured in `components.json`.
@@ -150,22 +150,22 @@ passed, searches every registry configured in `components.json`.
 ### `view` — View item details
 
 ```bash
-npx --no-install shadcn view <items...> [options]
+node node_modules/shadcn/dist/index.js view <items...> [options]
 ```
 
 Displays item info including file contents. Examples:
-`npx --no-install shadcn view @shadcn/button`,
-`npx --no-install shadcn view owner/repo/item`.
+`node node_modules/shadcn/dist/index.js view @shadcn/button`,
+`node node_modules/shadcn/dist/index.js view owner/repo/item`.
 
 ### `docs` — Get component documentation URLs
 
 ```bash
-npx --no-install shadcn docs <components...> [options]
+node node_modules/shadcn/dist/index.js docs <components...> [options]
 ```
 
 Outputs resolved URLs for component documentation, examples, and API references. Accepts one or more component names. Fetch the URLs to get the actual content.
 
-Example output for `npx --no-install shadcn docs input button`:
+Example output for `node node_modules/shadcn/dist/index.js docs input button`:
 
 ```
 base  radix
@@ -183,12 +183,12 @@ Some components include an `api` link to the underlying library (e.g. `cmdk` for
 
 ### `diff` — Check for updates
 
-Do not use this command. Use `npx --no-install shadcn add --diff` instead.
+Do not use this command. Use `node node_modules/shadcn/dist/index.js add --diff` instead.
 
 ### `info` — Project information
 
 ```bash
-npx --no-install shadcn info [options]
+node node_modules/shadcn/dist/index.js info [options]
 ```
 
 Displays project info and `components.json` configuration. Run this first to discover the project's framework, aliases, Tailwind version, and resolved paths.
@@ -233,12 +233,12 @@ Displays project info and `components.json` configuration. Run this first to dis
 
 **Links fields:**
 
-The `info` output includes a **Links** section with templated URLs for component docs, source, and examples. For resolved URLs, use `npx --no-install shadcn docs <component>` instead.
+The `info` output includes a **Links** section with templated URLs for component docs, source, and examples. For resolved URLs, use `node node_modules/shadcn/dist/index.js docs <component>` instead.
 
 ### `build` — Build a custom registry
 
 ```bash
-npx --no-install shadcn build [registry] [options]
+node node_modules/shadcn/dist/index.js build [registry] [options]
 ```
 
 Builds `registry.json` into individual JSON files for distribution. Default input: `./registry.json`, default output: `./public/r`.
@@ -276,15 +276,15 @@ Three ways to specify a preset via `--preset`:
 2. **Code:** `--preset a2r6bw` (version-prefixed base62 string, e.g. `a2r6bw` or `b0`)
 3. **URL:** `--preset "https://ui.shadcn.com/init?base=radix&style=nova&..."`
 
-> **IMPORTANT:** Never try to decode, fetch, or resolve preset codes manually. Preset codes are opaque — pass them directly to `npx --no-install shadcn init --preset <code>` and let the CLI handle resolution.
-> Use `npx --no-install shadcn apply --preset <code>` when overwriting an existing project's preset.
+> **IMPORTANT:** Never try to decode, fetch, or resolve preset codes manually. Preset codes are opaque — pass them directly to `node node_modules/shadcn/dist/index.js init --preset <code>` and let the CLI handle resolution.
+> Use `node node_modules/shadcn/dist/index.js apply --preset <code>` when overwriting an existing project's preset.
 
 ## Switching Presets
 
 Ask the user first: **overwrite**, **merge**, or **skip** existing components?
 
-- **Overwrite / Re-install** → `npx --no-install shadcn apply --preset <code>`. Overwrites all detected component files with the new preset styles. Use when the user hasn't customized components.
-- **Merge** → `npx --no-install shadcn init --preset <code> --force --no-reinstall`, then run `npx --no-install shadcn info` to get the list of installed components and use the [smart merge workflow](./SKILL.md#updating-components) to update them one by one, preserving local changes. Use when the user has customized components.
-- **Skip** → `npx --no-install shadcn init --preset <code> --force --no-reinstall`. Only updates config and CSS variables, leaves existing components as-is.
+- **Overwrite / Re-install** → `node node_modules/shadcn/dist/index.js apply --preset <code>`. Overwrites all detected component files with the new preset styles. Use when the user hasn't customized components.
+- **Merge** → `node node_modules/shadcn/dist/index.js init --preset <code> --force --no-reinstall`, then run `node node_modules/shadcn/dist/index.js info` to get the list of installed components and use the [smart merge workflow](./SKILL.md#updating-components) to update them one by one, preserving local changes. Use when the user has customized components.
+- **Skip** → `node node_modules/shadcn/dist/index.js init --preset <code> --force --no-reinstall`. Only updates config and CSS variables, leaves existing components as-is.
 
 Always run preset commands inside the user's project directory. `apply` only works in an existing project with a `components.json` file. The CLI automatically preserves the current base (`base` vs `radix`) from `components.json`. If you must use a scratch/temp directory (e.g. for `--dry-run` comparisons), pass `--base <current-base>` explicitly — preset codes do not encode the base.

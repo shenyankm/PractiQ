@@ -423,27 +423,46 @@ fn a_blank_count(q: &mut Value) {
 // ponytail: explicit labels in legacy free text; typed roles are preferable for future content contracts.
 fn answer_text(value: &str) -> bool {
     value.to_lowercase().split(['\n', '|']).any(|line| {
-        let line = line.trim().trim_matches(['*', '#', ' ']);
-        [
-            "answer",
-            "answers",
-            "solution",
-            "solutions",
-            "analysis",
-            "explanation",
-            "rubric",
-            "参考答案",
-            "答案",
-            "解析",
-            "解答",
-            "评分",
-        ]
-        .iter()
-        .any(|label| {
-            line.strip_prefix(label).is_some_and(|rest| {
-                rest.trim().is_empty() || rest.trim_start().starts_with([':', '：'])
-            })
-        })
+        let label = line
+            .split([':', '：'])
+            .next()
+            .unwrap_or("")
+            .trim()
+            .trim_matches(['*', '#', ' '])
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ");
+        let answer = ["correct ", "reference ", "model "]
+            .iter()
+            .find_map(|prefix| label.strip_prefix(prefix))
+            .unwrap_or(&label);
+        matches!(
+            answer,
+            "answer" | "answers" | "answer key" | "answer keys" | "answers key" | "answers keys"
+        ) || matches!(
+            label.as_str(),
+            "solution"
+                | "solutions"
+                | "worked solution"
+                | "worked solutions"
+                | "analysis"
+                | "explanation"
+                | "explanations"
+                | "rubric"
+                | "rubrics"
+                | "scoring rubric"
+                | "scoring rubrics"
+                | "参考答案"
+                | "正确答案"
+                | "标准答案"
+                | "答案"
+                | "答案解析"
+                | "解析"
+                | "解答"
+                | "评分"
+                | "评分标准"
+                | "评分细则"
+        )
     })
 }
 

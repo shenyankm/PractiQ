@@ -72,3 +72,9 @@ Use `make verify`, `make app-check` and `make app-build` with the existing Pytho
 - [Content search](https://github.com/shenyankm/PractiQ/pull/36#discussion_r4061003724): search text-bearing fields and nested JSON content rather than schema keys, enum metadata, nulls and booleans. Literal schema words inside content remain searchable.
 - [Inherited block rendering](https://github.com/shenyankm/PractiQ/pull/36#discussion_r4061003729): preserve distinct Markdown, text, LaTeX and JSON fields together; identical Markdown/text renders once.
 - [Task read failures](https://github.com/shenyankm/PractiQ/pull/36#discussion_r4061003734): stop immediately for missing/expired tasks and permanent HTTP failures; allow at most three retries for transport, timeout, throttling or server errors, then refresh membership once. Retries only read state and never launch model actions.
+
+## PR #36 second review
+
+- [Qualified exam group labels](https://github.com/shenyankm/PractiQ/pull/36#discussion_r4061199058): hide groups whose titles or instructions carry qualified answer labels before hand-in, retaining ordinary prose and restoring all original group material after submission.
+- [Terminal task retention](https://github.com/shenyankm/PractiQ/pull/36#discussion_r4061199068): keep completed/reviewable task data and controls when the separate best-effort membership refresh fails; show the refresh error without retrying or discarding the successful task read.
+- [Locked shadcn execution](https://github.com/shenyankm/PractiQ/pull/36#discussion_r4061199073): document a locked install followed by direct execution of the installed CLI entry point throughout the skill and its references. Missing dependencies fail locally instead of invoking a package runner.

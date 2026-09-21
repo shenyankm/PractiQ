@@ -1058,6 +1058,34 @@ fn exam_filters_answer_table_and_crop_then_restores_original_snapshot() {
         {"title":"Notes","instructions":"Answer: SECRET","questionIds":["q0"]},
         {"title":"Solution concentration","instructions":"Use the table","questionIds":["q0"]}
     ]);
+    for label in [
+        "Correct Answer",
+        "Answer key",
+        "正确答案",
+        "Reference answers",
+        "Model answer keys",
+        "Worked solutions",
+        "Scoring rubrics",
+        "标准答案",
+        "答案解析",
+        "评分标准",
+        "评分细则",
+    ] {
+        raw["groups"].as_array_mut().unwrap().extend([
+            json!({"title":label,"instructions":"SECRET","questionIds":["q0"]}),
+            json!({"title":"Notes","instructions":format!("| **{label}**：SECRET |"),"questionIds":["q0"]}),
+        ]);
+    }
+    for label in [
+        "Data analysis method",
+        "Correct answer rate",
+        "Answer key usage",
+    ] {
+        raw["groups"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!({"title":label,"instructions":"Use the table","questionIds":["q0"]}));
+    }
     raw["visualElements"] = json!([
         {"kind":"table","role":"answer","description":"SECRET","extractedText":"SECRET","questionIds":["q0"]},
         {"kind":"table","role":"material","description":"Input table","questionIds":["q0"]}
@@ -1098,6 +1126,17 @@ fn exam_filters_answer_table_and_crop_then_restores_original_snapshot() {
         1
     );
     assert_eq!(snapshot["visuals"].as_array().unwrap().len(), 1);
+    assert_eq!(list(snapshot, "groups").len(), 4);
+    for label in [
+        "Solution concentration",
+        "Data analysis method",
+        "Correct answer rate",
+        "Answer key usage",
+    ] {
+        assert!(list(snapshot, "groups")
+            .iter()
+            .any(|g| text(g, "title") == label));
+    }
     let submitted = s.submit_paper(text(&exam, "id"), true).unwrap();
     assert_eq!(
         submitted["attempts"][0]["snapshot"]["question"],
@@ -1106,6 +1145,10 @@ fn exam_filters_answer_table_and_crop_then_restores_original_snapshot() {
     assert_eq!(
         submitted["attempts"][0]["snapshot"]["visuals"],
         rows[0]["visuals"]
+    );
+    assert_eq!(
+        submitted["attempts"][0]["snapshot"]["groups"],
+        rows[0]["groups"]
     );
 }
 

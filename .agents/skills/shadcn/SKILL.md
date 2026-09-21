@@ -1,26 +1,26 @@
 ---
 name: shadcn
 description: Manages shadcn components and projects — adding, searching, fixing, debugging, styling, and composing UI, including chat interfaces. Provides project context, component docs, and usage examples. Applies when working with shadcn/ui, component registries, presets, --preset codes, or any project with a components.json file. Also triggers for "shadcn init", "create an app with --preset", or "switch to --preset".
-allowed-tools: Bash(npx --no-install shadcn *)
+allowed-tools: Bash(node node_modules/shadcn/dist/index.js *)
 ---
 
 # shadcn/ui
 
 A framework for building ui, components and design systems. Components are added as source code to the user's project via the CLI.
 
-> **IMPORTANT:** Run project-aware commands from `app/` using the installed, lockfile-controlled CLI: `npx --no-install shadcn`. From the repository root, use `cd app` first. Do not download `@latest` or use `dlx`/`bunx` to bypass the lockfile.
+> **IMPORTANT:** Run project-aware commands from `app/` using the installed, lockfile-controlled CLI: `node node_modules/shadcn/dist/index.js`. Install dependencies with `make app-install` from the repository root (or `npm ci` from `app/`), then run commands from `app/`. If the local entry point is missing, repeat the locked install; never fall back to a package runner. Do not download `@latest` or use `dlx`/`bunx` to bypass the lockfile.
 
 ## Current Project Context
 
 ```json
-!`cd app && npx --no-install shadcn info --json`
+!`cd app && node node_modules/shadcn/dist/index.js info --json`
 ```
 
-The JSON above contains the project config and installed components. Use `npx --no-install shadcn docs <component>` to get documentation and example URLs for any component.
+The JSON above contains the project config and installed components. Use `node node_modules/shadcn/dist/index.js docs <component>` to get documentation and example URLs for any component.
 
 ## Principles
 
-1. **Use existing components first.** Use `npx --no-install shadcn search` to check registries before writing custom UI. Check community registries too.
+1. **Use existing components first.** Use `node node_modules/shadcn/dist/index.js search` to check registries before writing custom UI. Check community registries too.
 2. **Compose, don't reinvent.** Settings page = Tabs + Card + form controls. Dashboard = Sidebar + Card + Chart + Table.
 3. **Use built-in variants before custom styles.** `variant="outline"`, `size="sm"`, etc.
 4. **Use semantic colors.** `bg-primary`, `text-muted-foreground` — never raw values like `bg-blue-500`.
@@ -51,7 +51,7 @@ These rules are **always enforced**. Each links to a file with Incorrect/Correct
 ### Component Structure → [composition.md](./rules/composition.md)
 
 - **Use groups only when the installed wrapper exports them.** PractiQ Select exports no `SelectGroup`; put `SelectItem` directly inside `SelectContent`. Check local exports before using any grouping component.
-- **Use `asChild` (radix) or `render` (base) for custom triggers.** Check `base` field from `npx --no-install shadcn info`. → [base-vs-radix.md](./rules/base-vs-radix.md)
+- **Use `asChild` (radix) or `render` (base) for custom triggers.** Check `base` field from `node node_modules/shadcn/dist/index.js info`. → [base-vs-radix.md](./rules/base-vs-radix.md)
 - **Dialog, Sheet, and Drawer always need a Title.** `DialogTitle`, `SheetTitle`, `DrawerTitle` required for accessibility. Use `className="sr-only"` if visually hidden.
 - **Use full Card composition.** `CardHeader`/`CardTitle`/`CardDescription`/`CardContent`/`CardFooter`. Don't dump everything in `CardContent`.
 - **Button has no `isPending`/`isLoading`.** Compose with `Spinner` + `data-icon` + `disabled`.
@@ -84,8 +84,8 @@ These rules are **always enforced**. Each links to a file with Incorrect/Correct
 
 ### CLI
 
-- **Never decode preset codes or build preset URLs manually.** Use `npx --no-install shadcn preset decode <code>`, `preset url <code>`, or `preset open <code>`. For project-aware preset detection, use `npx --no-install shadcn preset resolve`.
-- **Apply preset codes directly with the CLI.** Use `npx --no-install shadcn apply <code>` for existing projects, or `npx --no-install shadcn init --preset <code>` when initializing.
+- **Never decode preset codes or build preset URLs manually.** Use `node node_modules/shadcn/dist/index.js preset decode <code>`, `preset url <code>`, or `preset open <code>`. For project-aware preset detection, use `node node_modules/shadcn/dist/index.js preset resolve`.
+- **Apply preset codes directly with the CLI.** Use `node node_modules/shadcn/dist/index.js apply <code>` for existing projects, or `node node_modules/shadcn/dist/index.js init --preset <code>` when initializing.
 
 ## Key Patterns
 
@@ -159,45 +159,45 @@ The injected project context contains these key fields:
 - **`resolvedPaths`** → exact file-system destinations for components, utils, hooks, etc.
 - **`framework`** → routing and file conventions (e.g. Next.js App Router vs Vite SPA).
 - **`packageManager`** → use this for any non-shadcn dependency installs (e.g. `pnpm add date-fns` vs `npm install date-fns`).
-- **`preset`** → resolved preset code and values for the current project. Use `npx --no-install shadcn preset resolve --json` when you only need preset information.
+- **`preset`** → resolved preset code and values for the current project. Use `node node_modules/shadcn/dist/index.js preset resolve --json` when you only need preset information.
 
 See [cli.md — `info` command](./cli.md) for the full field reference.
 
 ## Component Docs, Examples, and Usage
 
-Run `npx --no-install shadcn docs <component>` to get the URLs for a component's documentation, examples, and API reference. Fetch these URLs to get the actual content.
+Run `node node_modules/shadcn/dist/index.js docs <component>` to get the URLs for a component's documentation, examples, and API reference. Fetch these URLs to get the actual content.
 
 ```bash
-npx --no-install shadcn docs button dialog select
+node node_modules/shadcn/dist/index.js docs button dialog select
 ```
 
-**When creating, fixing, debugging, or using a component, always run `npx --no-install shadcn docs` and fetch the URLs first.** This ensures you're working with the correct API and usage patterns rather than guessing.
+**When creating, fixing, debugging, or using a component, always run `node node_modules/shadcn/dist/index.js docs` and fetch the URLs first.** This ensures you're working with the correct API and usage patterns rather than guessing.
 
 ## Workflow
 
-1. **Get project context** — already injected above. Run `npx --no-install shadcn info` again if you need to refresh.
+1. **Get project context** — already injected above. Run `node node_modules/shadcn/dist/index.js info` again if you need to refresh.
 2. **Check installed components first** — before running `add`, always check the `components` list from project context or list the `resolvedPaths.ui` directory. Don't import components that haven't been added, and don't re-add ones already installed.
-3. **Find components** — `npx --no-install shadcn search`.
-4. **Get docs and examples** — run `npx --no-install shadcn docs <component>` to get URLs, then fetch them. Use `npx --no-install shadcn view` to browse registry items you haven't installed. To preview changes to installed components, use `npx --no-install shadcn add --diff`.
-5. **Install or update** — `npx --no-install shadcn add`. When updating existing components, use `--dry-run` and `--diff` to preview changes first (see [Updating Components](#updating-components) below).
-6. **Fix imports in third-party components** — After adding components from community registries (e.g. `@bundui`, `@magicui`), check the added non-UI files for hardcoded import paths like `@/components/ui/...`. These won't match the project's actual aliases. Use `npx --no-install shadcn info` to get the correct `ui` alias (e.g. `@workspace/ui/components`) and rewrite the imports accordingly. The CLI rewrites imports for its own UI files, but third-party registry components may use default paths that don't match the project.
+3. **Find components** — `node node_modules/shadcn/dist/index.js search`.
+4. **Get docs and examples** — run `node node_modules/shadcn/dist/index.js docs <component>` to get URLs, then fetch them. Use `node node_modules/shadcn/dist/index.js view` to browse registry items you haven't installed. To preview changes to installed components, use `node node_modules/shadcn/dist/index.js add --diff`.
+5. **Install or update** — `node node_modules/shadcn/dist/index.js add`. When updating existing components, use `--dry-run` and `--diff` to preview changes first (see [Updating Components](#updating-components) below).
+6. **Fix imports in third-party components** — After adding components from community registries (e.g. `@bundui`, `@magicui`), check the added non-UI files for hardcoded import paths like `@/components/ui/...`. These won't match the project's actual aliases. Use `node node_modules/shadcn/dist/index.js info` to get the correct `ui` alias (e.g. `@workspace/ui/components`) and rewrite the imports accordingly. The CLI rewrites imports for its own UI files, but third-party registry components may use default paths that don't match the project.
 7. **Review added components** — After adding a component or block from any registry, **always read the added files and verify they are correct**. Check for missing sub-components (e.g. `SelectItem` without `SelectGroup`), missing imports, incorrect composition, or violations of the [Critical Rules](#critical-rules). Also replace any icon imports with the project's `iconLibrary` from the project context (e.g. if the registry item uses `lucide-react` but the project uses `hugeicons`, swap the imports and icon names accordingly). Fix all issues before moving on.
 8. **Registry must be explicit** — When the user asks to add a block or component, **do not guess the registry**. If no registry is specified (e.g. user says "add a login block" without specifying `@shadcn`, `@tailark`, `owner/repo`, etc.), ask which registry to use. Never default to a registry on behalf of the user.
 9. **Switching presets** — Ask the user first: **overwrite**, **partial**, **merge**, or **skip**?
-   - **Inspect current preset**: `npx --no-install shadcn preset resolve`. Use `--json` when you need structured values.
-   - **Inspect incoming preset**: `npx --no-install shadcn preset decode <code>`. Use `preset url <code>` or `preset open <code>` to share or open the preset builder.
-   - **Overwrite**: `npx --no-install shadcn apply <code>`. Overwrites detected components, fonts, and CSS variables.
-   - **Partial**: `npx --no-install shadcn apply <code> --only theme,font`. Updates only the selected preset parts without reinstalling UI components. Supported values are `theme` and `font`; comma-separated combinations are allowed. `icon` is intentionally not supported, because icon changes may require full component reinstall and transforms.
-   - **Merge**: `npx --no-install shadcn init --preset <code> --force --no-reinstall`, then run `npx --no-install shadcn info` to list installed components, then for each installed component use `--dry-run` and `--diff` to [smart merge](#updating-components) it individually.
-   - **Skip**: `npx --no-install shadcn init --preset <code> --force --no-reinstall`. Only updates config and CSS, leaves components as-is.
+   - **Inspect current preset**: `node node_modules/shadcn/dist/index.js preset resolve`. Use `--json` when you need structured values.
+   - **Inspect incoming preset**: `node node_modules/shadcn/dist/index.js preset decode <code>`. Use `preset url <code>` or `preset open <code>` to share or open the preset builder.
+   - **Overwrite**: `node node_modules/shadcn/dist/index.js apply <code>`. Overwrites detected components, fonts, and CSS variables.
+   - **Partial**: `node node_modules/shadcn/dist/index.js apply <code> --only theme,font`. Updates only the selected preset parts without reinstalling UI components. Supported values are `theme` and `font`; comma-separated combinations are allowed. `icon` is intentionally not supported, because icon changes may require full component reinstall and transforms.
+   - **Merge**: `node node_modules/shadcn/dist/index.js init --preset <code> --force --no-reinstall`, then run `node node_modules/shadcn/dist/index.js info` to list installed components, then for each installed component use `--dry-run` and `--diff` to [smart merge](#updating-components) it individually.
+   - **Skip**: `node node_modules/shadcn/dist/index.js init --preset <code> --force --no-reinstall`. Only updates config and CSS, leaves components as-is.
    - **Important**: Always run preset commands inside the user's project directory. `apply` only works in an existing project with a `components.json` file. The CLI automatically preserves the current base (`base` vs `radix`) from `components.json`. If you must use a scratch/temp directory (e.g. for `--dry-run` comparisons), pass `--base <current-base>` explicitly — preset codes do not encode the base.
 
 ## Updating Components
 
 When the user asks to update a component from upstream while keeping their local changes, use `--dry-run` and `--diff` to intelligently merge. **NEVER fetch raw files from GitHub manually — always use the CLI.**
 
-1. Run `npx --no-install shadcn add <component> --dry-run` to see all files that would be affected.
-2. For each file, run `npx --no-install shadcn add <component> --diff <file>` to see what changed upstream vs local.
+1. Run `node node_modules/shadcn/dist/index.js add <component> --dry-run` to see all files that would be affected.
+2. For each file, run `node node_modules/shadcn/dist/index.js add <component> --diff <file>` to see what changed upstream vs local.
 3. Decide per file based on the diff:
    - No local changes → safe to overwrite.
    - Has local changes → read the local file, analyze the diff, and apply upstream updates while preserving local modifications.
@@ -208,55 +208,55 @@ When the user asks to update a component from upstream while keeping their local
 
 ```bash
 # Create a new project.
-npx --no-install shadcn init --name my-app --preset base-nova
-npx --no-install shadcn init --name my-app --preset a2r6bw --template vite
+node node_modules/shadcn/dist/index.js init --name my-app --preset base-nova
+node node_modules/shadcn/dist/index.js init --name my-app --preset a2r6bw --template vite
 
 # Create a monorepo project.
-npx --no-install shadcn init --name my-app --preset base-nova --monorepo
-npx --no-install shadcn init --name my-app --preset base-nova --template next --monorepo
+node node_modules/shadcn/dist/index.js init --name my-app --preset base-nova --monorepo
+node node_modules/shadcn/dist/index.js init --name my-app --preset base-nova --template next --monorepo
 
 # Initialize existing project.
-npx --no-install shadcn init --preset base-nova
-npx --no-install shadcn init --defaults  # shortcut: --template=next --preset=nova (base style implied)
+node node_modules/shadcn/dist/index.js init --preset base-nova
+node node_modules/shadcn/dist/index.js init --defaults  # shortcut: --template=next --preset=nova (base style implied)
 
 # Apply a preset to an existing project.
-npx --no-install shadcn apply a2r6bw
-npx --no-install shadcn apply a2r6bw --only theme
-npx --no-install shadcn apply a2r6bw --only font
-npx --no-install shadcn apply a2r6bw --only theme,font
+node node_modules/shadcn/dist/index.js apply a2r6bw
+node node_modules/shadcn/dist/index.js apply a2r6bw --only theme
+node node_modules/shadcn/dist/index.js apply a2r6bw --only font
+node node_modules/shadcn/dist/index.js apply a2r6bw --only theme,font
 
 # Inspect preset codes and project preset state.
-npx --no-install shadcn preset decode a2r6bw
-npx --no-install shadcn preset url a2r6bw
-npx --no-install shadcn preset open a2r6bw
-npx --no-install shadcn preset resolve
-npx --no-install shadcn preset resolve --json
+node node_modules/shadcn/dist/index.js preset decode a2r6bw
+node node_modules/shadcn/dist/index.js preset url a2r6bw
+node node_modules/shadcn/dist/index.js preset open a2r6bw
+node node_modules/shadcn/dist/index.js preset resolve
+node node_modules/shadcn/dist/index.js preset resolve --json
 
 # Add components.
-npx --no-install shadcn add button card dialog
-npx --no-install shadcn add @magicui/shimmer-button
-npx --no-install shadcn add owner/repo/item
-npx --no-install shadcn add --all
+node node_modules/shadcn/dist/index.js add button card dialog
+node node_modules/shadcn/dist/index.js add @magicui/shimmer-button
+node node_modules/shadcn/dist/index.js add owner/repo/item
+node node_modules/shadcn/dist/index.js add --all
 
 # Preview changes before adding/updating.
-npx --no-install shadcn add button --dry-run
-npx --no-install shadcn add button --diff button.tsx
-npx --no-install shadcn add @acme/form --view button.tsx
-npx --no-install shadcn add owner/repo/item --dry-run
+node node_modules/shadcn/dist/index.js add button --dry-run
+node node_modules/shadcn/dist/index.js add button --diff button.tsx
+node node_modules/shadcn/dist/index.js add @acme/form --view button.tsx
+node node_modules/shadcn/dist/index.js add owner/repo/item --dry-run
 
 # Search registries.
-npx --no-install shadcn search @shadcn -q "sidebar"
-npx --no-install shadcn search @tailark -q "stats"
-npx --no-install shadcn search owner/repo -q "login"
-npx --no-install shadcn search                          # all configured registries
-npx --no-install shadcn search @shadcn -q "menu" -t ui  # filter by item type
+node node_modules/shadcn/dist/index.js search @shadcn -q "sidebar"
+node node_modules/shadcn/dist/index.js search @tailark -q "stats"
+node node_modules/shadcn/dist/index.js search owner/repo -q "login"
+node node_modules/shadcn/dist/index.js search                          # all configured registries
+node node_modules/shadcn/dist/index.js search @shadcn -q "menu" -t ui  # filter by item type
 
 # Get component docs and example URLs.
-npx --no-install shadcn docs button dialog select
+node node_modules/shadcn/dist/index.js docs button dialog select
 
 # View registry item details (for items not yet installed).
-npx --no-install shadcn view @shadcn/button
-npx --no-install shadcn view owner/repo/item
+node node_modules/shadcn/dist/index.js view @shadcn/button
+node node_modules/shadcn/dist/index.js view owner/repo/item
 ```
 
 **Named presets:** `nova`, `vega`, `maia`, `lyra`, `mira`, `luma`

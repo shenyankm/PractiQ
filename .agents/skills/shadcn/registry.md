@@ -10,7 +10,7 @@ A registry has two forms:
 - **Source registry**: an authored `registry.json` in a project or repository.
   It may use `include` and file paths that point at source files.
 - **Built registry**: generated JSON files served to CLI consumers, usually
-  from `public/r`. Use `npx --no-install shadcn build` to create this form.
+  from `public/r`. Use `node node_modules/shadcn/dist/index.js build` to create this form.
 
 The CLI installer consumes registry item payloads. A source registry is a way to
 author those payloads from real files.
@@ -241,28 +241,28 @@ commit SHA first.
 Use the CLI to build source registries:
 
 ```bash
-npx --no-install shadcn build
-npx --no-install shadcn build registry.json --output public/r
+node node_modules/shadcn/dist/index.js build
+node node_modules/shadcn/dist/index.js build registry.json --output public/r
 ```
 
 Use CLI commands to inspect the result:
 
 ```bash
-npx --no-install shadcn list @acme
-npx --no-install shadcn search @acme -q "login"
-npx --no-install shadcn view @acme/login-form
-npx --no-install shadcn add @acme/login-form --dry-run
-npx --no-install shadcn registry validate ./registry.json
+node node_modules/shadcn/dist/index.js list @acme
+node node_modules/shadcn/dist/index.js search @acme -q "login"
+node node_modules/shadcn/dist/index.js view @acme/login-form
+node node_modules/shadcn/dist/index.js add @acme/login-form --dry-run
+node node_modules/shadcn/dist/index.js registry validate ./registry.json
 ```
 
 Use GitHub addresses directly for public GitHub registries:
 
 ```bash
-npx --no-install shadcn list owner/repo
-npx --no-install shadcn search owner/repo -q "login"
-npx --no-install shadcn view owner/repo/item
-npx --no-install shadcn add owner/repo/item --dry-run
-npx --no-install shadcn registry validate owner/repo
+node node_modules/shadcn/dist/index.js list owner/repo
+node node_modules/shadcn/dist/index.js search owner/repo -q "login"
+node node_modules/shadcn/dist/index.js view owner/repo/item
+node node_modules/shadcn/dist/index.js add owner/repo/item --dry-run
+node node_modules/shadcn/dist/index.js registry validate owner/repo
 ```
 
 When working on registry implementation in the shadcn/ui codebase:
