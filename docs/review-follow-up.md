@@ -78,3 +78,7 @@ Use `make verify`, `make app-check` and `make app-build` with the existing Pytho
 - [Qualified exam group labels](https://github.com/shenyankm/PractiQ/pull/36#discussion_r4061199058): hide groups whose titles or instructions carry qualified answer labels before hand-in, retaining ordinary prose and restoring all original group material after submission.
 - [Terminal task retention](https://github.com/shenyankm/PractiQ/pull/36#discussion_r4061199068): keep completed/reviewable task data and controls when the separate best-effort membership refresh fails; show the refresh error without retrying or discarding the successful task read.
 - [Locked shadcn execution](https://github.com/shenyankm/PractiQ/pull/36#discussion_r4061199073): document a locked install followed by direct execution of the installed CLI entry point throughout the skill and its references. Missing dependencies fail locally instead of invoking a package runner.
+
+## PR #36 third review
+
+- [Partial fill-blank answers](https://github.com/shenyankm/PractiQ/pull/36#discussion_r4061366626): infer or compare blank counts only when reference answers are complete. Empty arrays and arrays containing null/blank entries remain importable with their original count and review flags. Shared Python/Rust fixtures cover partial answers with and without explicit counts, complete-count inference/mismatch, and invalid entry types; native tests verify import, reopen, practice snapshots and ungraded partial references.

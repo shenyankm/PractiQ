@@ -16,6 +16,8 @@ for case in cases:
     else:
         assert case['valid'], case['name']
         assert result.questions[0].missingFields == case['missingFields'], case['name']
+        for key, expected in case.get('expectedQuestion', {}).items():
+            assert result.questions[0].model_dump()[key] == expected, (case['name'], key)
 DocumentParseResult.model_validate_json((root / 'app/fixtures/sample.json').read_text(encoding='utf-8'))
 print(f'{len(cases)} shared contract cases and the sample validated by Python')
 

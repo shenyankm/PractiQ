@@ -180,7 +180,7 @@ pub fn validate_question(q: &mut Value) -> Result<()> {
             ));
         }
     }
-    if text(q, "answerMode") == "fill_blank" {
+    if text(q, "answerMode") == "fill_blank" && answer_complete(q) {
         if let Some(answers) = q["answerPayload"]["answers"].as_array() {
             let count = answers.len() as u64;
             if !q["blankCount"].is_null() && q["blankCount"].as_u64() != Some(count) {

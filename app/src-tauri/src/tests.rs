@@ -53,6 +53,11 @@ fn shared_contract_corpus() {
             parsed.as_ref().err()
         );
         if let Ok(root) = parsed {
+            if let Some(expected) = case["expectedQuestion"].as_object() {
+                for (key, value) in expected {
+                    assert_eq!(&root["questions"][0][key], value, "{}: {key}", case["name"]);
+                }
+            }
             assert_eq!(
                 root["questions"][0]["missingFields"], case["missingFields"],
                 "{}",
@@ -1478,5 +1483,40 @@ fn search_keeps_literal_schema_words_in_content() {
             "missing literal content {term}"
         );
         assert_eq!(found[0]["question"]["stem"], raw["questions"][0]["stem"]);
+    }
+}
+
+#[test]
+fn partial_fill_blank_import_preserves_answers_counts_and_review_flags() {
+    let cases: Value = serde_json::from_str(include_str!("../../fixtures/contracts.json")).unwrap();
+    for case in cases
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|case| case.get("expectedQuestion").is_some())
+    {
+        let (dir, mut s) = store();
+        let preview = s
+            .preview(serde_json::to_vec(&case["input"]).unwrap(), "Blanks".into())
+            .unwrap();
+        let imported = s.import(text(&preview, "ticket"), None, "Blanks").unwrap();
+        drop(s);
+        let reopened = Store::new(dir.path().to_owned()).unwrap();
+        let rows = reopened
+            .questions(Some(text(&imported, "bankId")), "", "", "")
+            .unwrap();
+        let session = practice(&reopened, rows.clone(), 1);
+        for q in [
+            &rows[0]["question"],
+            &session["attempts"][0]["snapshot"]["question"],
+        ] {
+            for (key, value) in case["expectedQuestion"].as_object().unwrap() {
+                assert_eq!(&q[key], value, "{}: {key}", case["name"]);
+            }
+            assert_eq!(q["missingFields"], case["missingFields"]);
+            if q["needsReview"] == true {
+                assert_eq!(contract::grade(q, &json!({"answers":["a","b","c"]})), None);
+            }
+        }
     }
 }

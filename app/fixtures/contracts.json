@@ -7270,5 +7270,382 @@
       "confidenceScore": 100.0
     },
     "valid": false
+  },
+  {
+    "name": "fill-blank-empty-inferred",
+    "input": {
+      "schemaVersion": 2,
+      "questions": [
+        {
+          "id": "q0",
+          "stem": "Fill the blanks",
+          "questionTypeId": "fill_blank",
+          "answerMode": "fill_blank",
+          "answerPayload": {
+            "answers": []
+          },
+          "blankCount": null,
+          "analysis": "Supplied explanation",
+          "sourceText": "Original question",
+          "needsReview": false
+        }
+      ],
+      "groups": [],
+      "visualElements": [],
+      "warnings": [],
+      "confidenceScore": 50
+    },
+    "valid": true,
+    "missingFields": [
+      "answerPayload"
+    ],
+    "expectedQuestion": {
+      "answerPayload": {
+        "answers": []
+      },
+      "blankCount": null,
+      "needsReview": true
+    }
+  },
+  {
+    "name": "fill-blank-empty-explicit",
+    "input": {
+      "schemaVersion": 2,
+      "questions": [
+        {
+          "id": "q0",
+          "stem": "Fill the blanks",
+          "questionTypeId": "fill_blank",
+          "answerMode": "fill_blank",
+          "answerPayload": {
+            "answers": []
+          },
+          "blankCount": 3,
+          "analysis": "Supplied explanation",
+          "sourceText": "Original question",
+          "needsReview": false
+        }
+      ],
+      "groups": [],
+      "visualElements": [],
+      "warnings": [],
+      "confidenceScore": 50
+    },
+    "valid": true,
+    "missingFields": [
+      "answerPayload"
+    ],
+    "expectedQuestion": {
+      "answerPayload": {
+        "answers": []
+      },
+      "blankCount": 3,
+      "needsReview": true
+    }
+  },
+  {
+    "name": "fill-blank-null-inferred",
+    "input": {
+      "schemaVersion": 2,
+      "questions": [
+        {
+          "id": "q0",
+          "stem": "Fill the blanks",
+          "questionTypeId": "fill_blank",
+          "answerMode": "fill_blank",
+          "answerPayload": {
+            "answers": [
+              "a",
+              null
+            ]
+          },
+          "blankCount": null,
+          "analysis": "Supplied explanation",
+          "sourceText": "Original question",
+          "needsReview": false
+        }
+      ],
+      "groups": [],
+      "visualElements": [],
+      "warnings": [],
+      "confidenceScore": 50
+    },
+    "valid": true,
+    "missingFields": [
+      "answerPayload"
+    ],
+    "expectedQuestion": {
+      "answerPayload": {
+        "answers": [
+          "a",
+          null
+        ]
+      },
+      "blankCount": null,
+      "needsReview": true
+    }
+  },
+  {
+    "name": "fill-blank-null-explicit",
+    "input": {
+      "schemaVersion": 2,
+      "questions": [
+        {
+          "id": "q0",
+          "stem": "Fill the blanks",
+          "questionTypeId": "fill_blank",
+          "answerMode": "fill_blank",
+          "answerPayload": {
+            "answers": [
+              "a",
+              null
+            ]
+          },
+          "blankCount": 3,
+          "analysis": "Supplied explanation",
+          "sourceText": "Original question",
+          "needsReview": false
+        }
+      ],
+      "groups": [],
+      "visualElements": [],
+      "warnings": [],
+      "confidenceScore": 50
+    },
+    "valid": true,
+    "missingFields": [
+      "answerPayload"
+    ],
+    "expectedQuestion": {
+      "answerPayload": {
+        "answers": [
+          "a",
+          null
+        ]
+      },
+      "blankCount": 3,
+      "needsReview": true
+    }
+  },
+  {
+    "name": "fill-blank-blank-inferred",
+    "input": {
+      "schemaVersion": 2,
+      "questions": [
+        {
+          "id": "q0",
+          "stem": "Fill the blanks",
+          "questionTypeId": "fill_blank",
+          "answerMode": "fill_blank",
+          "answerPayload": {
+            "answers": [
+              "  ",
+              "a"
+            ]
+          },
+          "blankCount": null,
+          "analysis": "Supplied explanation",
+          "sourceText": "Original question",
+          "needsReview": false
+        }
+      ],
+      "groups": [],
+      "visualElements": [],
+      "warnings": [],
+      "confidenceScore": 50
+    },
+    "valid": true,
+    "missingFields": [
+      "answerPayload"
+    ],
+    "expectedQuestion": {
+      "answerPayload": {
+        "answers": [
+          null,
+          "a"
+        ]
+      },
+      "blankCount": null,
+      "needsReview": true
+    }
+  },
+  {
+    "name": "fill-blank-blank-explicit",
+    "input": {
+      "schemaVersion": 2,
+      "questions": [
+        {
+          "id": "q0",
+          "stem": "Fill the blanks",
+          "questionTypeId": "fill_blank",
+          "answerMode": "fill_blank",
+          "answerPayload": {
+            "answers": [
+              "  ",
+              "a"
+            ]
+          },
+          "blankCount": 3,
+          "analysis": "Supplied explanation",
+          "sourceText": "Original question",
+          "needsReview": false
+        }
+      ],
+      "groups": [],
+      "visualElements": [],
+      "warnings": [],
+      "confidenceScore": 50
+    },
+    "valid": true,
+    "missingFields": [
+      "answerPayload"
+    ],
+    "expectedQuestion": {
+      "answerPayload": {
+        "answers": [
+          null,
+          "a"
+        ]
+      },
+      "blankCount": 3,
+      "needsReview": true
+    }
+  },
+  {
+    "name": "fill-blank-complete-inferred",
+    "input": {
+      "schemaVersion": 2,
+      "questions": [
+        {
+          "id": "q0",
+          "stem": "Fill the blanks",
+          "questionTypeId": "fill_blank",
+          "answerMode": "fill_blank",
+          "answerPayload": {
+            "answers": [
+              "a",
+              "b"
+            ]
+          },
+          "blankCount": null,
+          "analysis": "Supplied explanation",
+          "sourceText": "Original question",
+          "needsReview": false
+        }
+      ],
+      "groups": [],
+      "visualElements": [],
+      "warnings": [],
+      "confidenceScore": 50
+    },
+    "valid": true,
+    "missingFields": [],
+    "expectedQuestion": {
+      "answerPayload": {
+        "answers": [
+          "a",
+          "b"
+        ]
+      },
+      "blankCount": 2,
+      "needsReview": false
+    }
+  },
+  {
+    "name": "fill-blank-complete-matching",
+    "input": {
+      "schemaVersion": 2,
+      "questions": [
+        {
+          "id": "q0",
+          "stem": "Fill the blanks",
+          "questionTypeId": "fill_blank",
+          "answerMode": "fill_blank",
+          "answerPayload": {
+            "answers": [
+              "a",
+              "b"
+            ]
+          },
+          "blankCount": 2,
+          "analysis": "Supplied explanation",
+          "sourceText": "Original question",
+          "needsReview": false
+        }
+      ],
+      "groups": [],
+      "visualElements": [],
+      "warnings": [],
+      "confidenceScore": 50
+    },
+    "valid": true,
+    "missingFields": [],
+    "expectedQuestion": {
+      "answerPayload": {
+        "answers": [
+          "a",
+          "b"
+        ]
+      },
+      "blankCount": 2,
+      "needsReview": false
+    }
+  },
+  {
+    "name": "fill-blank-complete-mismatch",
+    "input": {
+      "schemaVersion": 2,
+      "questions": [
+        {
+          "id": "q0",
+          "stem": "Fill the blanks",
+          "questionTypeId": "fill_blank",
+          "answerMode": "fill_blank",
+          "answerPayload": {
+            "answers": [
+              "a",
+              "b"
+            ]
+          },
+          "blankCount": 3,
+          "analysis": "Supplied explanation",
+          "sourceText": "Original question",
+          "needsReview": false
+        }
+      ],
+      "groups": [],
+      "visualElements": [],
+      "warnings": [],
+      "confidenceScore": 50
+    },
+    "valid": false
+  },
+  {
+    "name": "fill-blank-invalid-number",
+    "input": {
+      "schemaVersion": 2,
+      "questions": [
+        {
+          "id": "q0",
+          "stem": "Fill the blanks",
+          "questionTypeId": "fill_blank",
+          "answerMode": "fill_blank",
+          "answerPayload": {
+            "answers": [
+              42
+            ]
+          },
+          "blankCount": null,
+          "analysis": "Supplied explanation",
+          "sourceText": "Original question",
+          "needsReview": false
+        }
+      ],
+      "groups": [],
+      "visualElements": [],
+      "warnings": [],
+      "confidenceScore": 50
+    },
+    "valid": false
   }
 ]
