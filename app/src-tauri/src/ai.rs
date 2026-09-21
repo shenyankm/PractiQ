@@ -83,8 +83,8 @@ pub(crate) struct Endpoint {
     origin: String,
     token: String,
 }
-fn err(e: impl std::fmt::Display) -> String {
-    e.to_string()
+fn err(e: impl std::fmt::Display) -> crate::AppError {
+    e.to_string().into()
 }
 impl Drop for Process {
     fn drop(&mut self) {
@@ -103,8 +103,14 @@ impl Drop for Process {
 impl Process {
     fn start(app: &tauri::AppHandle, store: &Store) -> Result<Self> {
         let config = store.connection_settings()?.validate()?;
-        let base = config.base_url.as_deref().ok_or("请先配置模型地址")?;
-        let model = config.model_id.as_deref().ok_or("请先配置模型 ID")?;
+        let base = config.base_url.as_deref().ok_or(crate::language::error(
+            "LOCAL_MODEL_URL_REQUIRED",
+            serde_json::json!({}),
+        ))?;
+        let model = config.model_id.as_deref().ok_or(crate::language::error(
+            "LOCAL_MODEL_ID_REQUIRED",
+            serde_json::json!({}),
+        ))?;
         let key = store.model_secret(&app.config().identifier, base)?;
         let resources = app.path().resource_dir().map_err(err)?;
         let bundle = if cfg!(debug_assertions) {
@@ -114,7 +120,10 @@ impl Process {
         };
         let executable = bundle.join("python/practiq-ai");
         if !executable.is_file() {
-            return Err("内置解析组件缺失，请重新构建或安装完整应用".into());
+            return Err(crate::language::error(
+                "LOCAL_BUNDLE_MISSING",
+                serde_json::json!({}),
+            ));
         }
         let token = format!("{}{}", store::id(), store::id());
         let bootstrap = json!({"AI_SERVICE_TOKEN":token,"LLM_API_KEY":key,"LLM_BASE_URL":base,"LLM_MODEL":model,
@@ -125,7 +134,9 @@ impl Process {
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
             .spawn()
-            .map_err(|_| "无法启动内置解析组件")?;
+            .map_err(|_| {
+                crate::language::error("LOCAL_BUNDLE_START_FAILED", serde_json::json!({}))
+            })?;
         let mut process = Self {
             child,
             input: None,
@@ -140,11 +151,19 @@ impl Process {
                 token,
             },
         };
-        let mut input = process.child.stdin.take().ok_or("无法打开解析管道")?;
-        writeln!(input, "{bootstrap}").map_err(|_| "解析组件初始化失败")?;
+        let mut input = process.child.stdin.take().ok_or(crate::language::error(
+            "LOCAL_INPUT_PIPE_FAILED",
+            serde_json::json!({}),
+        ))?;
+        writeln!(input, "{bootstrap}").map_err(|_| {
+            crate::language::error("LOCAL_BUNDLE_INIT_FAILED", serde_json::json!({}))
+        })?;
         input.flush().map_err(err)?;
         process.input = Some(input);
-        let stdout = process.child.stdout.take().ok_or("无法打开状态管道")?;
+        let stdout = process.child.stdout.take().ok_or(crate::language::error(
+            "LOCAL_STATUS_PIPE_FAILED",
+            serde_json::json!({}),
+        ))?;
         let (tx, rx) = std::sync::mpsc::channel();
         std::thread::spawn(move || {
             let mut reader = BufReader::new(stdout);
@@ -160,21 +179,30 @@ impl Process {
         });
         let ready = rx
             .recv_timeout(Duration::from_secs(45))
-            .map_err(|_| "解析组件启动超时")?
-            .ok_or("解析组件初始化失败")?;
+            .map_err(|_| crate::language::error("LOCAL_BUNDLE_TIMEOUT", serde_json::json!({})))?
+            .ok_or(crate::language::error(
+                "LOCAL_BUNDLE_INIT_FAILED",
+                serde_json::json!({}),
+            ))?;
         let port = ready["port"]
             .as_u64()
             .filter(|p| *p > 0 && *p <= 65535)
-            .ok_or("解析组件端口无效")?;
+            .ok_or(crate::language::error(
+                "LOCAL_BUNDLE_PORT_INVALID",
+                serde_json::json!({}),
+            ))?;
         process.endpoint.origin = format!("http://127.0.0.1:{port}");
         let status = process
             .endpoint
             .client
             .get(format!("{}/ready", process.endpoint.origin))
             .send()
-            .map_err(|_| "解析组件未就绪")?;
+            .map_err(|_| crate::language::error("LOCAL_BUNDLE_NOT_READY", serde_json::json!({})))?;
         if !status.status().is_success() {
-            return Err("解析组件未就绪".into());
+            return Err(crate::language::error(
+                "LOCAL_BUNDLE_NOT_READY",
+                serde_json::json!({}),
+            ));
         }
         Ok(process)
     }
@@ -224,7 +252,7 @@ impl Endpoint {
         Ok(response)
     }
     pub(crate) fn json(&self, method: Method, path: &str, body: Option<&Value>) -> AiResult<Value> {
-        Ok(read_json(self.send(method, path, body)?)?)
+        read_json(self.send(method, path, body)?)
     }
 }
 fn read_json(response: Response) -> Result<Value> {
@@ -234,18 +262,25 @@ fn read_json(response: Response) -> Result<Value> {
         .read_to_end(&mut bytes)
         .map_err(err)?;
     if bytes.len() > contract::MAX_JSON {
-        return Err("解析响应过大".into());
+        return Err(crate::language::error(
+            "LOCAL_RESPONSE_TOO_LARGE",
+            serde_json::json!({}),
+        ));
     }
-    serde_json::from_slice(&bytes).map_err(|_| "解析服务返回无效数据".into())
+    serde_json::from_slice(&bytes)
+        .map_err(|_| crate::language::error("LOCAL_RESPONSE_INVALID", serde_json::json!({})))
 }
 pub(crate) fn task_path(id: &str) -> Result<String> {
-    let id = uuid::Uuid::parse_str(id).map_err(|_| "任务 ID 不合法")?;
+    let id = uuid::Uuid::parse_str(id)
+        .map_err(|_| crate::language::error("LOCAL_TASK_ID_INVALID", serde_json::json!({})))?;
     Ok(format!("/api/document-tasks/{id}"))
 }
 pub fn stop(app: &tauri::AppHandle) -> Result<()> {
     app.state::<AiState>()
         .lock()
-        .map_err(|_| "解析状态不可用")?
+        .map_err(|_| {
+            crate::language::error("LOCAL_PARSER_STATE_UNAVAILABLE", serde_json::json!({}))
+        })?
         .take();
     Ok(())
 }
@@ -259,16 +294,27 @@ fn document_format(path: &std::path::Path) -> Result<(&'static str, &'static str
         "txt" => ("text", "text/plain"),
         "csv" => ("csv", "text/csv"),
         "pdf" => ("pdf", "application/pdf"),
-        "doc" | "docx" => return Err("暂不支持 Word 文件，请转为 PDF 后上传".into()),
+        "doc" | "docx" => {
+            return Err(crate::language::error(
+                "LOCAL_WORD_UNSUPPORTED",
+                serde_json::json!({}),
+            ))
+        }
         "png" => ("image", "image/png"),
         "jpg" | "jpeg" => ("image", "image/jpeg"),
-        _ => return Err("不支持的文档类型".into()),
+        _ => {
+            return Err(crate::language::error(
+                "LOCAL_DOCUMENT_UNSUPPORTED",
+                serde_json::json!({}),
+            ))
+        }
     })
 }
 
 fn confirm_document(
     path: &std::path::Path,
     config: crate::settings::ConnectionSettings,
+    locale: crate::language::Locale,
     confirm: impl FnOnce(String) -> bool,
 ) -> Result<Option<Vec<u8>>> {
     document_format(path)?;
@@ -277,19 +323,35 @@ fn confirm_document(
     let file_name = path
         .file_name()
         .and_then(|s| s.to_str())
-        .ok_or("文件名不合法")?;
-    let message = format!(
-        "文件：{file_name}\n大小：{:.2} MiB\n模型服务：{}\n模型 ID：{}\n\n解析内容将发送给此模型服务，可能产生费用。仅提取原文提供的答案，不会生成答案。",
-        bytes.len() as f64 / (1024.0 * 1024.0),
-        config.base_url.as_deref().ok_or("请先配置模型地址")?,
-        config.model_id.as_deref().ok_or("请先配置模型 ID")?,
-    );
+        .ok_or(crate::language::error(
+            "LOCAL_FILENAME_INVALID",
+            serde_json::json!({}),
+        ))?;
+    let size = bytes.len() as f64 / (1024.0 * 1024.0);
+    let base = config.base_url.as_deref().ok_or(crate::language::error(
+        "LOCAL_MODEL_URL_REQUIRED",
+        json!({}),
+    ))?;
+    let model = config
+        .model_id
+        .as_deref()
+        .ok_or(crate::language::error("LOCAL_MODEL_ID_REQUIRED", json!({})))?;
+    let message = if locale == crate::language::Locale::Chinese {
+        format!("文件：{file_name}\n大小：{size:.2} MiB\n模型服务：{base}\n模型 ID：{model}\n\n解析内容将发送给此模型服务，可能产生费用。仅提取原文提供的答案，不会生成答案。")
+    } else {
+        format!("File: {file_name}\nSize: {size:.2} MiB\nModel service: {base}\nModel ID: {model}\n\nContent will be sent to this model service and may incur charges. Only answers supplied in the source are extracted; no answers are generated.")
+    };
     // Upload exactly the bytes the user confirmed, not a later replacement of the file.
     Ok(confirm(message).then_some(bytes))
 }
 
 pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiResult<Value> {
-    let dir = shared.lock().map_err(|_| "数据库不可用")?.dir.clone();
+    let (dir, locale) = {
+        let store = shared
+            .lock()
+            .map_err(|_| crate::language::error("LOCAL_DATABASE_UNAVAILABLE", json!({})))?;
+        (store.dir.clone(), store.locale)
+    };
     let work = app.state::<WorkState>();
     let _request = work.enter()?;
     // Local recovery controls must remain available even without model settings.
@@ -303,7 +365,10 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
         let file = app
             .dialog()
             .file()
-            .add_filter("文档", &["txt", "csv", "pdf", "png", "jpg", "jpeg"])
+            .add_filter(
+                locale.text("文档", "Documents"),
+                &["txt", "csv", "pdf", "png", "jpg", "jpeg"],
+            )
             .blocking_pick_file();
         match file {
             None => return Ok(Value::Null),
@@ -311,15 +376,17 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
                 let path = f.into_path().map_err(err)?;
                 let config = shared
                     .lock()
-                    .map_err(|_| "数据库不可用")?
+                    .map_err(|_| {
+                        crate::language::error("LOCAL_DATABASE_UNAVAILABLE", serde_json::json!({}))
+                    })?
                     .connection_settings()?;
-                let Some(bytes) = confirm_document(&path, config, |message| {
+                let Some(bytes) = confirm_document(&path, config, locale, |message| {
                     app.dialog()
                         .message(message)
-                        .title("确认解析文档")
+                        .title(locale.text("确认解析文档", "Confirm document parsing"))
                         .buttons(MessageDialogButtons::OkCancelCustom(
-                            "开始解析".into(),
-                            "取消".into(),
+                            locale.text("开始解析", "Start parsing").into(),
+                            locale.text("取消", "Cancel").into(),
                         ))
                         .blocking_show()
                 })?
@@ -333,7 +400,9 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
         None
     };
     let state = app.state::<AiState>();
-    let mut state = state.lock().map_err(|_| "解析状态不可用")?;
+    let mut state = state.lock().map_err(|_| {
+        crate::language::error("LOCAL_PARSER_STATE_UNAVAILABLE", serde_json::json!({}))
+    })?;
     if state
         .as_mut()
         .is_some_and(|p| p.child.try_wait().ok().flatten().is_some())
@@ -344,18 +413,28 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
         *state = Some(Process::start(
             &app,
             &Store {
+                locale: Default::default(),
                 dir: dir.clone(),
                 pending: None,
             },
         )?);
     }
-    let process = state.as_ref().ok_or("解析服务不可用")?.endpoint.clone();
+    let process = state
+        .as_ref()
+        .ok_or(crate::language::error(
+            "LOCAL_PARSER_UNAVAILABLE",
+            serde_json::json!({}),
+        ))?
+        .endpoint
+        .clone();
     drop(state);
     match request {
         AiRequest::Grade { id, ordinal, retry } => {
             let payload = shared
                 .lock()
-                .map_err(|_| "数据库不可用")?
+                .map_err(|_| {
+                    crate::language::error("LOCAL_DATABASE_UNAVAILABLE", serde_json::json!({}))
+                })?
                 .prepare_grade(&id, ordinal, retry)?;
             let response = match process.json(
                 Method::POST,
@@ -364,27 +443,43 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
             ) {
                 Ok(value) => value,
                 Err(error) => {
-                    serde_json::json!({"status":"unknown","error":error.message,"usageStatus":"unknown"})
+                    serde_json::json!({"status":"unknown","error":error.message,"appError":error,"usageStatus":"unknown"})
                 }
             };
-            Ok(shared.lock().map_err(|_| "数据库不可用")?.record_grade(
-                &id,
-                ordinal,
-                contract::text(&payload, "requestId"),
-                &response,
-            )?)
+            Ok(shared
+                .lock()
+                .map_err(|_| {
+                    crate::language::error("LOCAL_DATABASE_UNAVAILABLE", serde_json::json!({}))
+                })?
+                .record_grade(
+                    &id,
+                    ordinal,
+                    contract::text(&payload, "requestId"),
+                    &response,
+                )?)
         }
         AiRequest::List { offset } => {
             if offset > 1_000_000 {
-                return Err("分页参数无效".into());
+                return Err(crate::language::error(
+                    "LOCAL_PAGE_INVALID",
+                    serde_json::json!({}),
+                ));
             }
             let mut result = process.json(
                 Method::GET,
                 &format!("/api/document-tasks?limit=20&offset={offset}"),
                 None,
             )?;
-            let store = shared.lock().map_err(|_| "数据库不可用")?;
-            for item in result["items"].as_array_mut().ok_or("任务列表格式错误")? {
+            let store = shared.lock().map_err(|_| {
+                crate::language::error("LOCAL_DATABASE_UNAVAILABLE", serde_json::json!({}))
+            })?;
+            for item in result["items"]
+                .as_array_mut()
+                .ok_or(crate::language::error(
+                    "LOCAL_TASK_LIST_INVALID",
+                    serde_json::json!({}),
+                ))?
+            {
                 contract::validate_workflow(item, false)?;
                 let id = contract::text(item, "threadId");
                 let bank = store.imported_ai(id, None, item["checkpointId"].as_str())?;
@@ -411,7 +506,10 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
             ]
             .contains(&action.as_str())
             {
-                return Err("操作不合法".into());
+                return Err(crate::language::error(
+                    "LOCAL_ACTION_INVALID",
+                    serde_json::json!({}),
+                ));
             }
             let body = json!({"requestId":store::id(),"action":action,"runId":run_id,"checkpointId":checkpoint_id,"units":units.unwrap_or(json!([]))});
             ai_work::submit_operation(
@@ -424,14 +522,25 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
             )
         }
         AiRequest::PickDocument => {
-            let (path, bytes) = selected.ok_or("未选择文档")?;
+            let (path, bytes) = selected.ok_or(crate::language::error(
+                "LOCAL_DOCUMENT_NOT_SELECTED",
+                serde_json::json!({}),
+            ))?;
             let (kind, media) = document_format(&path)?;
-            let body = json!({"sourceType":kind,"fileName":path.file_name().and_then(|s|s.to_str()).ok_or("文件名不合法")?,"mediaType":media,"sha256":store::hash(&bytes),"sizeBytes":bytes.len()});
+            let body = json!({"sourceType":kind,"fileName":path.file_name().and_then(|s|s.to_str()).ok_or(crate::language::error("LOCAL_FILENAME_INVALID", serde_json::json!({})))?,"mediaType":media,"sha256":store::hash(&bytes),"sizeBytes":bytes.len()});
             let prepared = process.json(Method::POST, "/api/uploads", Some(&body))?;
             if !prepared["upload"].is_null() {
-                let relative = prepared["upload"]["url"].as_str().ok_or("上传地址无效")?;
+                let relative = prepared["upload"]["url"]
+                    .as_str()
+                    .ok_or(crate::language::error(
+                        "LOCAL_UPLOAD_URL_INVALID",
+                        serde_json::json!({}),
+                    ))?;
                 if !relative.starts_with("/api/uploads/content?") {
-                    return Err("上传地址越界".into());
+                    return Err(crate::language::error(
+                        "LOCAL_UPLOAD_URL_OUTSIDE",
+                        serde_json::json!({}),
+                    ));
                 }
                 let response = process
                     .client
@@ -439,9 +548,14 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
                     .bearer_auth(&process.token)
                     .body(bytes)
                     .send()
-                    .map_err(|_| "上传失败")?;
+                    .map_err(|_| {
+                        crate::language::error("LOCAL_UPLOAD_FAILED", serde_json::json!({}))
+                    })?;
                 if !response.status().is_success() {
-                    return Err("上传失败，请重试".into());
+                    return Err(crate::language::error(
+                        "LOCAL_UPLOAD_RETRY",
+                        serde_json::json!({}),
+                    ));
                 }
             }
             ai_work::submit_operation(
@@ -450,14 +564,22 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
                 &process,
                 "/api/document-tasks",
                 json!({"requestId":store::id(),"document":prepared["document"],"failurePolicy":"review"}),
-                body["fileName"].as_str().unwrap_or("解析文档"),
+                body["fileName"]
+                    .as_str()
+                    .unwrap_or(locale.text("解析文档", "Parsed document")),
             )
         }
         AiRequest::Preview { id } => {
             let mut pending = process.pending(&id)?;
-            let store = Store { dir, pending: None };
+            let store = Store {
+                locale: Default::default(),
+                dir,
+                pending: None,
+            };
             process.load_assets(&mut pending, &store)?;
-            let mut store = shared.lock().map_err(|_| "数据库不可用")?;
+            let mut store = shared.lock().map_err(|_| {
+                crate::language::error("LOCAL_DATABASE_UNAVAILABLE", serde_json::json!({}))
+            })?;
             store.pending = Some(pending);
             Ok(store.preview_value()?)
         }
@@ -472,9 +594,17 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
             if review["checkpointId"] != checkpoint_id {
                 return Err(AppError::new("STALE_CHECKPOINT", "任务已变化，请刷新预览"));
             }
-            let unit = review["units"].get(unit).ok_or("预览单元不存在")?;
+            let unit = review["units"].get(unit).ok_or(crate::language::error(
+                "LOCAL_PREVIEW_UNIT_MISSING",
+                serde_json::json!({}),
+            ))?;
             let reference = match visual {
-                Some(index) => &unit["visualElements"].get(index).ok_or("图片不存在")?["imageRef"],
+                Some(index) => &unit["visualElements"]
+                    .get(index)
+                    .ok_or(crate::language::error(
+                        "LOCAL_IMAGE_MISSING",
+                        serde_json::json!({}),
+                    ))?["imageRef"],
                 None => &unit["sourceRef"],
             };
             let media = contract::text(reference, "mediaType");
@@ -491,9 +621,18 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
                 {
                     return Err(AppError::new("ARTIFACT_INVALID", "来源文本校验失败"));
                 }
-                String::from_utf8(bytes).map_err(|_| "来源文本编码无效")?
+                String::from_utf8(bytes).map_err(|_| {
+                    crate::language::error("LOCAL_SOURCE_ENCODING_INVALID", serde_json::json!({}))
+                })?
             } else {
-                let bytes = process.image(reference, &Store { dir, pending: None })?;
+                let bytes = process.image(
+                    reference,
+                    &Store {
+                        locale: Default::default(),
+                        dir,
+                        pending: None,
+                    },
+                )?;
                 format!("data:{media};base64,{}", STANDARD.encode(bytes))
             };
             Ok(json!({"mediaType":media,"content":content}))
@@ -528,12 +667,15 @@ impl Endpoint {
         let checkpoint = result["checkpointId"]
             .as_str()
             .filter(|s| !s.is_empty())
-            .ok_or("任务缺少结果版本")?
+            .ok_or(crate::language::error(
+                "LOCAL_RESULT_VERSION_MISSING",
+                serde_json::json!({}),
+            ))?
             .to_owned();
-        let title = std::path::Path::new(result["fileName"].as_str().unwrap_or("解析题库"))
+        let title = std::path::Path::new(result["fileName"].as_str().unwrap_or("PractiQ"))
             .file_stem()
             .and_then(|s| s.to_str())
-            .unwrap_or("解析题库")
+            .unwrap_or("PractiQ")
             .to_owned();
         // Store portable document output, not run state or model-call logs, in practice backups.
         let mut output = json!({"status":result["status"],"result":result["result"]});
@@ -542,7 +684,10 @@ impl Endpoint {
         }
         let mut pending = Pending::new(serde_json::to_vec(&output).map_err(err)?, title)?;
         if contract::list(contract::result(&pending.root), "questions").is_empty() {
-            return Err("结果没有可导入题目".into());
+            return Err(crate::language::error(
+                "LOCAL_RESULT_EMPTY",
+                serde_json::json!({}),
+            ));
         }
         pending.source = Some(ImportSource {
             thread_id: id.into(),
@@ -556,7 +701,10 @@ impl Endpoint {
         let size = reference["sizeBytes"]
             .as_u64()
             .filter(|n| *n > 0 && *n <= crate::assets::LIMIT as u64)
-            .ok_or("图片大小不合法")?;
+            .ok_or(crate::language::error(
+                "LOCAL_IMAGE_SIZE_OUTSIDE",
+                serde_json::json!({}),
+            ))?;
         let path = store.asset_path(digest)?;
         let bytes = if path.exists() {
             store.read_asset(digest, size)?
@@ -590,7 +738,10 @@ impl Endpoint {
             let bytes = self.image(reference, store)?;
             total += bytes.len();
             if total > 256 * 1024 * 1024 {
-                return Err("单次资源总量超过 256 MiB".into());
+                return Err(crate::language::error(
+                    "LOCAL_RESOURCES_TOO_LARGE",
+                    serde_json::json!({}),
+                ));
             }
             pending.assets.insert(
                 digest.into(),
@@ -617,24 +768,50 @@ mod tests {
             model_id: Some("unified-model".into()),
             ..Default::default()
         };
-        assert!(super::confirm_document(&path, config.clone(), |_| false)
-            .unwrap()
-            .is_none());
-        let bytes = super::confirm_document(&path, config.clone(), |message| {
-            assert!(message.contains("quiz.txt") && message.contains("unified-model"));
-            assert!(message.contains("可能产生费用"));
-            assert!(!message.contains(dir.path().to_str().unwrap()));
-            std::fs::write(&path, b"changed").unwrap();
-            true
-        })
+        assert!(super::confirm_document(
+            &path,
+            config.clone(),
+            crate::language::Locale::Chinese,
+            |_| false
+        )
+        .unwrap()
+        .is_none());
+        assert!(super::confirm_document(
+            &path,
+            config.clone(),
+            crate::language::Locale::English,
+            |message| {
+                assert!(message.contains("may incur charges"));
+                assert!(message.contains("no answers are generated"));
+                assert!(message.contains("Model ID:"));
+                false
+            }
+        )
+        .unwrap()
+        .is_none());
+        let bytes = super::confirm_document(
+            &path,
+            config.clone(),
+            crate::language::Locale::Chinese,
+            |message| {
+                assert!(message.contains("quiz.txt") && message.contains("unified-model"));
+                assert!(message.contains("可能产生费用"));
+                assert!(!message.contains(dir.path().to_str().unwrap()));
+                std::fs::write(&path, b"changed").unwrap();
+                true
+            },
+        )
         .unwrap()
         .unwrap();
         assert_eq!(bytes, b"original");
         let oversized = std::fs::File::create(&path).unwrap();
         oversized.set_len(25 * 1024 * 1024 + 1).unwrap();
-        assert!(super::confirm_document(&path, config, |_| panic!(
-            "oversized file reached confirmation"
-        ))
+        assert!(super::confirm_document(
+            &path,
+            config,
+            crate::language::Locale::Chinese,
+            |_| panic!("oversized file reached confirmation")
+        )
         .is_err());
     }
 
@@ -650,6 +827,7 @@ mod tests {
         for extension in ["doc", "DOCX"] {
             assert!(document_format(Path::new(&format!("quiz.{extension}")))
                 .unwrap_err()
+                .message
                 .contains("PDF"));
         }
         for extension in ["exe", "webp", "gif"] {

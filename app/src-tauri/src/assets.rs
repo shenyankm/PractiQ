@@ -8,8 +8,8 @@ use std::{fs, io::Write, path::PathBuf};
 // Match the accepted source-image upload limit, including full-page references.
 pub const LIMIT: usize = 25 * 1024 * 1024;
 pub const SCHEMA: &str = "CREATE TABLE assets(hash TEXT PRIMARY KEY,media TEXT NOT NULL,size INTEGER NOT NULL,path TEXT NOT NULL);";
-fn err(e: impl std::fmt::Display) -> String {
-    e.to_string()
+fn err(e: impl std::fmt::Display) -> crate::AppError {
+    e.to_string().into()
 }
 impl Store {
     pub fn asset_path(&self, digest: &str) -> Result<PathBuf> {
@@ -18,7 +18,10 @@ impl Store {
                 .bytes()
                 .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
         {
-            return Err("图片摘要不合法".into());
+            return Err(crate::language::error(
+                "LOCAL_ASSET_HASH_INVALID",
+                serde_json::json!({}),
+            ));
         }
         let root = self.dir.join("assets");
         fs::create_dir_all(&root).map_err(err)?;
@@ -27,28 +30,39 @@ impl Store {
             .file_type()
             .is_symlink()
         {
-            return Err("图片目录不能是链接".into());
+            return Err(crate::language::error(
+                "LOCAL_ASSET_DIRECTORY_LINK",
+                serde_json::json!({}),
+            ));
         }
         Ok(root.join(digest))
     }
     pub fn write_asset(&self, digest: &str, bytes: &[u8]) -> Result<()> {
         if bytes.len() > LIMIT || hash(bytes) != digest {
-            return Err("图片大小或摘要不匹配".into());
+            return Err(crate::language::error(
+                "LOCAL_ASSET_CHECKSUM_MISMATCH",
+                serde_json::json!({}),
+            ));
         }
         let path = self.asset_path(digest)?;
         if path.exists() {
             self.read_asset(digest, bytes.len() as u64)?;
             return Ok(());
         }
-        let mut file =
-            tempfile::NamedTempFile::new_in(path.parent().ok_or("图片目录无效")?).map_err(err)?;
+        let mut file = tempfile::NamedTempFile::new_in(path.parent().ok_or(
+            crate::language::error("LOCAL_ASSET_DIRECTORY_INVALID", serde_json::json!({})),
+        )?)
+        .map_err(err)?;
         file.write_all(bytes).map_err(err)?;
         file.as_file().sync_all().map_err(err)?;
         file.persist_noclobber(&path).map_err(err)?;
-        fs::File::open(path.parent().ok_or("图片目录无效")?)
-            .map_err(err)?
-            .sync_all()
-            .map_err(err)?;
+        fs::File::open(path.parent().ok_or(crate::language::error(
+            "LOCAL_ASSET_DIRECTORY_INVALID",
+            serde_json::json!({}),
+        ))?)
+        .map_err(err)?
+        .sync_all()
+        .map_err(err)?;
         Ok(())
     }
     pub fn read_asset(&self, digest: &str, size: u64) -> Result<Vec<u8>> {
@@ -58,11 +72,17 @@ impl Store {
             .file_type()
             .is_symlink()
         {
-            return Err("图片不能是链接".into());
+            return Err(crate::language::error(
+                "LOCAL_ASSET_LINK",
+                serde_json::json!({}),
+            ));
         }
         let bytes = read_bounded(&path, LIMIT)?;
         if bytes.len() as u64 != size || hash(&bytes) != digest {
-            return Err("图片文件缺失或损坏".into());
+            return Err(crate::language::error(
+                "LOCAL_ASSET_MISSING",
+                serde_json::json!({}),
+            ));
         }
         Ok(bytes)
     }
@@ -82,7 +102,10 @@ impl Store {
                 let media: String = row.get(1).map_err(err)?;
                 let bytes: Vec<u8> = row.get(2).map_err(err)?;
                 if !crate::store::image_signature(&bytes, &media) {
-                    return Err("旧图片格式不合法，原数据库已保留".into());
+                    return Err(crate::language::error(
+                        "LOCAL_LEGACY_IMAGE_INVALID",
+                        serde_json::json!({}),
+                    ));
                 }
                 self.write_asset(&digest, &bytes)?;
                 assets.push((digest, media, bytes.len()));

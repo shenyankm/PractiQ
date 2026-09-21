@@ -1,3 +1,5 @@
+import nativeMessages from "./locales/native.json";
+import { t, locale, MessageError, renderMessage, type LanguageRequest } from "./i18n";
 import { invoke } from "@tauri-apps/api/core";
 export type Mode =
   | "choice"
@@ -6,14 +8,14 @@ export type Mode =
   | "short_answer"
   | "ordering"
   | "matching";
-export const modeNames: Record<string, string> = {
-  choice: "选择题",
-  true_false: "判断题",
-  fill_blank: "填空题",
-  short_answer: "简答题",
-  ordering: "排序题",
-  matching: "匹配题",
-};
+export function modeNames(): Record<string, string> { return {
+  choice: t("选择题"),
+  true_false: t("判断题"),
+  fill_blank: t("填空题"),
+  short_answer: t("简答题"),
+  ordering: t("排序题"),
+  matching: t("匹配题"),
+}; }
 export type Answer = {
   correctOption?: string;
   correct?: string[];
@@ -114,7 +116,7 @@ export interface Attempt {
   maxCents?: number | null;
   earnedCents?: number | null;
   flagged?: boolean;
-  grading?: { lastRequest?: {status: string; error?: string}; ai?: {status: string; error?: string; result?: {scoreCents: number | null; maxCents: number; reason: string; evidence: string[]; reviewReasons: string[]}}; manual?: {reason: string; scoreCents: number} };
+  grading?: { lastRequest?: {status: string; error?: string; appError?: unknown}; ai?: {status: string; error?: string; appError?: unknown; result?: {scoreCents: number | null; maxCents: number; reason: string; evidence: string[]; reviewReasons: string[]}}; manual?: {reason: string; scoreCents: number} };
   submittedAt: number | null;
   skipped: boolean;
   elapsedMs: number;
@@ -172,6 +174,7 @@ type Query = {
 };
 export interface Paper { question_ids: string[]; kind: SessionKind; minutes: number | null; scores: number[]; total_cents: number }
 type Request =
+  | LanguageRequest
   | { type: "start_paper"; paper: Paper }
   | { type: "submit_paper"; id: string; submit_drafts: boolean }
   | { type: "complete_review" | "retry_wrong"; id: string }
@@ -221,30 +224,40 @@ type Request =
   | { type: "position"; id: string; position: number }
   | { type: "asset"; hash: string };
 export function api<T>(request: Request): Promise<T> {
-  return invoke<T>("request", { request });
+  return invoke<T>("request", { request, locale: locale() });
 }
 export function errorMessage(error: unknown): string {
-  const message = typeof error === "object" && error !== null && "message" in error
-    ? String(error.message)
-    : String(error);
-  const code = typeof error === "object" && error !== null && "code" in error ? String(error.code) : "";
-  const action: Record<string, string> = {
-    STALE_CHECKPOINT: "请刷新任务或重新创建导入批次。",
-    STALE_RUN: "请刷新任务状态。",
-    TASK_BUSY: "请等待当前运行结束后刷新。",
-    AI_PROVIDER_AUTH_ERROR: "请在设置中修正密钥，再重试失败项。",
-    AI_PROVIDER_UNAVAILABLE: "请稍后重试失败项。",
-    EXECUTION_VERSION_MISMATCH: "请使用原执行版本，或重新解析文档。",
-    LOCAL_SERVICE_UNAVAILABLE: "如有待确认操作，请从原操作重试。",
+  if (error instanceof MessageError) return renderMessage(error.localized);
+  const object = typeof error === "object" && error !== null ? error as Record<string, unknown> : {};
+  const code = String(object.code ?? (typeof error === "string" && /^[A-Z_]+$/.test(error) ? error : ""));
+  const entry = nativeMessages[code as keyof typeof nativeMessages];
+  const params = (object.params ?? {}) as Record<string, unknown>;
+  if (entry) {
+    const summary = entry[locale()].replace(/\{(\w+)\}/g, (_, key: string) => String(params[key] ?? ""));
+    const detail = [object.context, object.requestId, object.httpStatus].filter(v => v != null).join(" · ");
+    const diagnostic = !code.startsWith("LOCAL_") && typeof object.message === "string" && !Object.values(entry).includes(object.message as never)
+      ? ` ${t("诊断详情")}: ${object.message}` : "";
+    return `${summary}${diagnostic}${detail ? ` (${detail})` : ""}`;
+  }
+  const actions: Record<string, string> = {
+    STALE_CHECKPOINT: t("请刷新任务或重新创建导入批次。"),
+    STALE_RUN: t("请刷新任务状态。"),
+    TASK_BUSY: t("请等待当前运行结束后刷新。"),
+    AI_PROVIDER_AUTH_ERROR: t("模型鉴权失败，请检查设置中的 API Key，再重试失败项。"),
+    AI_PROVIDER_UNAVAILABLE: t("请稍后重试失败项。"),
+    EXECUTION_VERSION_MISMATCH: t("请使用原执行版本，或重新解析文档。"),
+    LOCAL_SERVICE_UNAVAILABLE: t("如有待确认操作，请从原操作重试。"),
   };
-  return action[code] ? `${message} ${action[code]}` : message;
+  const diagnostic = String(object.message ?? error);
+  const metadata = [code, object.requestId, object.httpStatus].filter(v => v != null && v !== "").join(" · ");
+  return `${actions[code] || t("操作失败，请查看诊断详情。")} ${t("诊断详情")}: ${diagnostic}${metadata ? ` (${metadata})` : ""}`;
 }
 export function duration(ms: number) {
   const seconds = Math.floor(ms / 1000);
-  return `${Math.floor(seconds / 60)} 分 ${seconds % 60} 秒`;
+  return t("{0} 分 {1} 秒", { 0: Math.floor(seconds / 60), 1: seconds % 60 });
 }
 export function date(ms: number) {
-  return new Date(ms).toLocaleString("zh-CN", { hour12: false });
+  return new Date(ms).toLocaleString(locale(), { hour12: false });
 }
 export function itemIds(q: Question, side?: "left" | "right") {
   return q.items
@@ -313,8 +326,12 @@ export interface SettingsResult {
 
 export function missingModelSettings(settings: SettingsResult): string[] {
   return [
-    !settings.config.base_url?.trim() && "模型 API 地址",
-    !settings.config.model_id?.trim() && "模型 ID",
+    !settings.config.base_url?.trim() && t("模型 API 地址"),
+    !settings.config.model_id?.trim() && t("模型 ID"),
     !settings.hasApiKey && "API Key",
   ].filter((field): field is string => !!field);
+}
+
+export function fieldName(key: string): string {
+  return ({ stem: t("题干"), questionTypeId: t("题型"), answerMode: t("答题方式"), choiceVariant: t("单/多选类型"), matchingVariant: t("匹配类型"), options: t("选项"), items: t("题项"), answerPayload: t("参考答案"), analysis: t("解析"), sourceText: t("原文"), media: t("图片"), material: t("材料") })[key] || key;
 }

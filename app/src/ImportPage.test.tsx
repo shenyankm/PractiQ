@@ -156,6 +156,7 @@ it("opens study setup from each bank card with that bank selected", async () => 
     await waitFor(() => expect(api).toHaveBeenCalledWith({ type: "questions", bank_id: null, bank_ids: [banks[index].id], search: "", mode: "", filter: "" }));
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(within(card as HTMLElement).getByRole("button", { name: "开始练习" })));
   }
 });
 

@@ -24,20 +24,26 @@ pub fn now() -> i64 {
 pub fn hash(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
 }
-fn err(e: impl std::fmt::Display) -> String {
-    e.to_string()
+fn err(e: impl std::fmt::Display) -> crate::AppError {
+    e.to_string().into()
 }
 pub fn read_bounded(path: &Path, limit: usize) -> Result<Vec<u8>> {
     let f = fs::File::open(path).map_err(err)?;
     if !f.metadata().map_err(err)?.is_file() {
-        return Err("请选择普通文件".into());
+        return Err(crate::language::error(
+            "LOCAL_REGULAR_FILE_REQUIRED",
+            serde_json::json!({}),
+        ));
     }
     let mut bytes = Vec::new();
     f.take(limit as u64 + 1)
         .read_to_end(&mut bytes)
         .map_err(err)?;
     if bytes.len() > limit {
-        return Err("文件超过大小限制".into());
+        return Err(crate::language::error(
+            "LOCAL_FILE_TOO_LARGE",
+            serde_json::json!({}),
+        ));
     }
     Ok(bytes)
 }
@@ -82,13 +88,18 @@ impl Pending {
     }
 }
 pub struct Store {
+    pub locale: crate::language::Locale,
     pub dir: PathBuf,
     pub pending: Option<Pending>,
 }
 impl Store {
     pub fn new(dir: PathBuf) -> Result<Self> {
         fs::create_dir_all(&dir).map_err(err)?;
-        let store = Self { dir, pending: None };
+        let store = Self {
+            dir,
+            pending: None,
+            locale: crate::language::Locale::default(),
+        };
         store.connect()?;
         Ok(store)
     }
@@ -103,8 +114,11 @@ impl Store {
         let version: i64 = db
             .query_row("PRAGMA user_version", [], |r| r.get(0))
             .map_err(err)?;
-        if version > 7 {
-            return Err("数据库来自更新版本的 PractiQ，请升级应用".into());
+        if version > 8 {
+            return Err(crate::language::error(
+                "LOCAL_DATABASE_NEWER",
+                serde_json::json!({}),
+            ));
         }
         if version == 0 {
             db.execute_batch(include_str!("schema.sql")).map_err(err)?;
@@ -130,6 +144,10 @@ impl Store {
             db.execute_batch(include_str!("single_model.sql"))
                 .map_err(err)?;
         }
+        if version < 8 {
+            db.execute_batch(include_str!("language.sql"))
+                .map_err(err)?;
+        }
         Ok(db)
     }
     pub fn preview(&mut self, bytes: Vec<u8>, title: String) -> Result<Value> {
@@ -137,7 +155,10 @@ impl Store {
         self.preview_value()
     }
     pub fn preview_value(&self) -> Result<Value> {
-        let p = self.pending.as_ref().ok_or("没有待导入文件")?;
+        let p = self.pending.as_ref().ok_or(crate::language::error(
+            "LOCAL_IMPORT_MISSING",
+            serde_json::json!({}),
+        ))?;
         let r = contract::result(&p.root);
         Ok(
             json!({"ticket":p.ticket,"title":p.title,"count":list(r,"questions").len(),"reviewCount":list(r,"questions").iter().filter(|q|q["needsReview"]==true).count(),"questions":r["questions"],"warnings":r["warnings"],"status":p.root["status"],"processing":p.root["processing"],"missingAssets":p.missing,"assetCount":p.assets.len()}),
@@ -145,7 +166,10 @@ impl Store {
     }
     pub fn resources(&mut self, root: &Path) -> Result<Value> {
         let root = root.canonicalize().map_err(err)?;
-        let p = self.pending.as_mut().ok_or("请先选择 JSON")?;
+        let p = self.pending.as_mut().ok_or(crate::language::error(
+            "LOCAL_JSON_REQUIRED",
+            serde_json::json!({}),
+        ))?;
         let mut assets = HashMap::new();
         let mut missing = Vec::new();
         let mut total = 0usize;
@@ -162,7 +186,10 @@ impl Store {
                 .any(|c| !matches!(c, Component::Normal(_)))
                 || key.contains('\\')
             {
-                return Err(format!("资源路径不安全: {key}"));
+                return Err(crate::language::error(
+                    "LOCAL_RESOURCE_PATH_UNSAFE",
+                    serde_json::json!({"key": key}),
+                ));
             }
             let path = root.join(key);
             if !path.exists() {
@@ -171,25 +198,41 @@ impl Store {
             }
             let path = path.canonicalize().map_err(err)?;
             if !path.starts_with(&root) {
-                return Err(format!("资源路径越界: {key}"));
+                return Err(crate::language::error(
+                    "LOCAL_RESOURCE_PATH_OUTSIDE",
+                    serde_json::json!({"key": key}),
+                ));
             }
             let bytes = read_bounded(&path, crate::assets::LIMIT)?;
             if bytes.len() as u64 != r["sizeBytes"].as_u64().unwrap_or(u64::MAX)
                 || hash(&bytes) != text(r, "sha256")
             {
-                return Err(format!("资源大小或 SHA-256 不匹配: {key}"));
+                return Err(crate::language::error(
+                    "LOCAL_RESOURCE_CHECKSUM_MISMATCH",
+                    serde_json::json!({"key": key}),
+                ));
             }
             let media = text(r, "mediaType");
             if !["image/png", "image/jpeg", "image/webp", "image/gif"].contains(&media) {
-                missing.push(format!("{key}（不支持的图片类型）"));
+                missing.push(format!(
+                    "{key} ({})",
+                    self.locale
+                        .text("不支持的图片类型", "unsupported image type")
+                ));
                 continue;
             }
             if !image_signature(&bytes, media) {
-                return Err(format!("图片实际格式不匹配: {key}"));
+                return Err(crate::language::error(
+                    "LOCAL_IMAGE_FORMAT_MISMATCH",
+                    serde_json::json!({"key": key}),
+                ));
             }
             total += bytes.len();
             if total > 256 * 1024 * 1024 {
-                return Err("单次资源总量超过 256 MiB".into());
+                return Err(crate::language::error(
+                    "LOCAL_RESOURCES_TOO_LARGE",
+                    serde_json::json!({}),
+                ));
             }
             assets.insert(text(r, "sha256").to_owned(), (media.to_owned(), bytes));
         }
@@ -198,12 +241,15 @@ impl Store {
         self.preview_value()
     }
     pub fn import(&mut self, ticket: &str, bank_id: Option<String>, title: &str) -> Result<Value> {
-        let p = self
-            .pending
-            .as_ref()
-            .ok_or("导入预览已失效，请重新选择 JSON")?;
+        let p = self.pending.as_ref().ok_or(crate::language::error(
+            "LOCAL_IMPORT_PREVIEW_EXPIRED",
+            serde_json::json!({}),
+        ))?;
         if ticket != p.ticket {
-            return Err("导入预览已失效".into());
+            return Err(crate::language::error(
+                "LOCAL_IMPORT_EXPIRED",
+                serde_json::json!({}),
+            ));
         }
         let result = self.import_pending(p, bank_id, title)?;
         self.pending = None;
@@ -243,7 +289,10 @@ impl Store {
             )
             .map_err(err)?;
         if existing_bank && !exists {
-            return Err("题库已不存在，请重新选择".into());
+            return Err(crate::language::error(
+                "LOCAL_BANK_MISSING",
+                serde_json::json!({}),
+            ));
         }
         if !exists {
             tx.execute(
@@ -384,7 +433,10 @@ impl Store {
     ) -> Result<Value> {
         let title = valid_title(title)?;
         if description.chars().count() > 20_000 {
-            return Err("说明过长".into());
+            return Err(crate::language::error(
+                "LOCAL_DESCRIPTION_TOO_LONG",
+                serde_json::json!({}),
+            ));
         }
         let bank_id = bank_id.unwrap_or_else(id);
         let db = self.connect()?;
@@ -442,7 +494,10 @@ impl Store {
             .optional()
             .map_err(err)?;
         if editing && old.is_none() {
-            return Err("题目已不存在或不属于所选题库".into());
+            return Err(crate::language::error(
+                "LOCAL_QUESTION_MISSING",
+                serde_json::json!({}),
+            ));
         }
         let mut snapshot: Value = old
             .map(|s| serde_json::from_str(&s).map_err(err))
@@ -469,7 +524,10 @@ impl Store {
             )
             .map_err(err)?;
         if changed != 1 {
-            return Err("原题已删除，不能修改收藏".into());
+            return Err(crate::language::error(
+                "LOCAL_FAVORITE_DELETED",
+                serde_json::json!({}),
+            ));
         }
         Ok(json!(value))
     }
@@ -522,10 +580,16 @@ impl Store {
             )
             .map_err(err)?;
         if exam.0 != "practice" && (submit || skip || self_result.is_some() || exam.1.is_some()) {
-            return Err("考试请统一交卷；交卷后不能修改作答".into());
+            return Err(crate::language::error(
+                "LOCAL_EXAM_LOCKED",
+                serde_json::json!({}),
+            ));
         }
         if serde_json::to_vec(&answer).map_err(err)?.len() > 256 * 1024 || elapsed < 0 {
-            return Err("作答数据不合法".into());
+            return Err(crate::language::error(
+                "LOCAL_ANSWER_INVALID",
+                serde_json::json!({}),
+            ));
         }
         let mut db = self.connect()?;
         let tx = db.transaction().map_err(err)?;
@@ -537,10 +601,16 @@ impl Store {
             )
             .map_err(err)?;
         if finished.is_some() {
-            return Err("练习已结束，不能修改作答".into());
+            return Err(crate::language::error(
+                "LOCAL_PRACTICE_FINISHED",
+                serde_json::json!({}),
+            ));
         }
         if elapsed > now() - created + 60_000 {
-            return Err("作答用时不合法".into());
+            return Err(crate::language::error(
+                "LOCAL_ELAPSED_INVALID",
+                serde_json::json!({}),
+            ));
         }
         let (snapshot,submitted,kind):(String,Option<i64>,String)=tx.query_row("SELECT snapshot,submitted_at,grade_kind FROM attempts WHERE session_id=?1 AND ordinal=?2",params![sid,ordinal],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).map_err(err)?;
         let snapshot: Value = serde_json::from_str(&snapshot).map_err(err)?;
@@ -628,7 +698,10 @@ impl Store {
 fn valid_title(title: &str) -> Result<&str> {
     let title = title.trim();
     if title.is_empty() || title.chars().count() > 255 {
-        Err("名称须为 1–255 个字符".into())
+        Err(crate::language::error(
+            "LOCAL_NAME_INVALID",
+            serde_json::json!({}),
+        ))
     } else {
         Ok(title)
     }

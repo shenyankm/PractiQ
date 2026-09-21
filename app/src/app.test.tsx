@@ -310,6 +310,7 @@ it("requires fee confirmation before retrying AI grading", async () => {
   await user.click(trigger);
   await user.click(screen.getByRole("button", { name: "确认重新评分" }));
   await waitFor(() => expect(invoke).toHaveBeenCalledWith("ai_request", {
+      locale: "zh-CN",
     request: { type: "grade", id: session.id, ordinal: 0, retry: true },
   }));
 });

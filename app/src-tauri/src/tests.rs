@@ -335,13 +335,15 @@ fn version_one_backup_migrates_and_malicious_packages_do_not_replace_data() {
         zip.write_all(&bytes).unwrap();
         zip.finish().unwrap();
     }
+    s.save_language(crate::language::Locale::English).unwrap();
     s.restore(&archive).unwrap();
+    assert_eq!(s.language().unwrap(), None);
     assert_eq!(
         s.connect()
             .unwrap()
             .query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
             .unwrap(),
-        7
+        8
     );
     assert!(s.connection_settings().unwrap().base_url.is_none());
     let bank = s.save_bank(None, &bank, "").unwrap();

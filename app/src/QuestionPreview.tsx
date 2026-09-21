@@ -1,10 +1,12 @@
+import { list, t, useI18n } from "./i18n";
 import { useState } from "react";
-import { type Question } from "./api";
+import { fieldName, type Question } from "./api";
 import { Content, Markdown } from "./Content";
 import { AnswerDisplay } from "./AnswerInput";
 import { Button } from "@/components/ui/button";
 
 export function QuestionPreview({ questions }: { questions: Question[] }) {
+  useI18n();
   const [page, setPage] = useState(0);
   const current = Math.min(
     page,
@@ -18,7 +20,7 @@ export function QuestionPreview({ questions }: { questions: Question[] }) {
           key={current * 20 + i}
         >
           <p>
-            {current * 20 + i + 1}. {q.needsReview ? "待复核" : ""}
+            {current * 20 + i + 1}. {q.needsReview ? t("待复核") : ""}
           </p>
           <Content
             snapshot={{
@@ -43,17 +45,17 @@ export function QuestionPreview({ questions }: { questions: Question[] }) {
           {q.items?.map((item, index) => (
             <div key={index}>
               <span>
-                {item.side || "题项"} {index + 1}
+                {item.side === "left" ? t("左侧") : item.side === "right" ? t("右侧") : t("题项")} {index + 1}
               </span>
               <Markdown>{item.content}</Markdown>
             </div>
           ))}
           <details>
-            <summary>答案、解析与来源</summary>
+            <summary>{t("答案、解析与来源")}</summary>
             <AnswerDisplay question={q} answer={q.answerPayload} />
             <Markdown>{q.analysis}</Markdown>
             <Markdown>{q.sourceText}</Markdown>
-            <p>{q.missingFields?.join("、")}</p>
+            <p>{list((q.missingFields || []).map(fieldName))}</p>
           </details>
         </article>
       ))}
@@ -63,9 +65,7 @@ export function QuestionPreview({ questions }: { questions: Question[] }) {
             variant="outline"
             disabled={!current}
             onClick={() => setPage(current - 1)}
-          >
-            前 20 题
-          </Button>
+          >{t("前 20 题")}</Button>
           <span>
             {current + 1} / {Math.ceil(questions.length / 20)}
           </span>
@@ -73,9 +73,7 @@ export function QuestionPreview({ questions }: { questions: Question[] }) {
             variant="outline"
             disabled={(current + 1) * 20 >= questions.length}
             onClick={() => setPage(current + 1)}
-          >
-            后 20 题
-          </Button>
+          >{t("后 20 题")}</Button>
         </div>
       )}
     </div>

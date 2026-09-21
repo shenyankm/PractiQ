@@ -1,5 +1,6 @@
+import { message, t, useI18n, locale } from "./i18n";
 import { useEffect, useState } from "react";
-import { toast } from "sonner";
+import { toast } from "./notifications";
 import { invoke } from "@tauri-apps/api/core";
 import { errorMessage, type Preview, type Question } from "./api";
 import { QuestionPreview } from "./QuestionPreview";
@@ -69,7 +70,7 @@ type Review = {
 type PendingOperation = {
   id: string;
   label: string;
-  error: { message: string } | null;
+  error: { code?: string; message: string; params?: Record<string, unknown> } | null;
 };
 type Batch = {
   id: string;
@@ -83,7 +84,7 @@ type Batch = {
     previousVersion: boolean;
     status: string;
     bankId: string | null;
-    error: { message: string } | null;
+    error: { code?: string; message: string; params?: Record<string, unknown> } | null;
   }[];
 };
 type Request =
@@ -110,31 +111,31 @@ type Request =
       visual: number | null;
     };
 export function ai<T>(request: Request): Promise<T> {
-  return invoke("ai_request", { request });
+  return invoke("ai_request", { request, locale: locale() });
 }
-const actions: Record<string, string> = {
-  pause: "暂停",
-  resume: "继续",
-  interrupt: "中断",
-  retry_failed: "重试失败项",
-  accept_partial: "接受部分结果",
-};
-const states: Record<string, string> = {
-  PENDING: "排队中",
-  RUNNING: "解析中",
-  PAUSING: "正在暂停",
-  PAUSED: "已暂停",
-  INTERRUPTED: "已中断",
-  FAILED: "失败",
-  WAITING_REVIEW: "等待审核",
-  COMPLETED: "已完成",
-  EXPIRED: "已过期",
-};
+function actions(): Record<string, string> { return {
+  pause: t("暂停"),
+  resume: t("继续"),
+  interrupt: t("中断"),
+  retry_failed: t("重试失败项"),
+  accept_partial: t("接受部分结果"),
+}; }
+function states(): Record<string, string> { return {
+  PENDING: t("排队中"),
+  RUNNING: t("解析中"),
+  PAUSING: t("正在暂停"),
+  PAUSED: t("已暂停"),
+  INTERRUPTED: t("已中断"),
+  FAILED: t("失败"),
+  WAITING_REVIEW: t("等待审核"),
+  COMPLETED: t("已完成"),
+  EXPIRED: t("已过期"),
+}; }
 function phaseName(phase: string) {
-  return ({ prepare: "准备文档", vision: "识别图片", chunk: "提取题目", document_parse: "提取题目", vision_parse: "识别图片", visual_crop: "整理图片", merge: "整理题目", result: "检查结果", review: "审核内容", vision_review: "审核图片", chunk_review: "审核题目", result_review: "审核结果", completed: "已完成" } as Record<string, string>)[phase] || "处理文档";
+  return ({ prepare: t("准备文档"), vision: t("识别图片"), chunk: t("提取题目"), document_parse: t("提取题目"), vision_parse: t("识别图片"), visual_crop: t("整理图片"), merge: t("整理题目"), result: t("检查结果"), review: t("审核内容"), vision_review: t("审核图片"), chunk_review: t("审核题目"), result_review: t("审核结果"), completed: t("已完成") } as Record<string, string>)[phase] || t("处理文档");
 }
 function failureMessage(code: string) {
-  return code === "AI_PROVIDER_AUTH_ERROR" ? "模型鉴权失败，请检查设置中的 API Key，再重试失败项。" : `此项未能完成，请检查配置或重试（${code}）。`;
+  return code === "AI_PROVIDER_AUTH_ERROR" ? t("模型鉴权失败，请检查设置中的 API Key，再重试失败项。") : t("此项未能完成，请检查配置或重试（{0}）。", { 0: code });
 }
 const activeStates = new Set(["PENDING", "RUNNING", "PAUSING"]);
 function ReadAsset({
@@ -148,6 +149,7 @@ function ReadAsset({
   visual: number | null;
   label: string;
 }) {
+  useI18n();
   const [src, setSrc] = useState<{ mediaType: string; content: string }>();
   return (
     <div>
@@ -173,7 +175,7 @@ function ReadAsset({
               visual,
             })
               .then(setSrc)
-              .catch((e) => toast.error(errorMessage(e)));
+              .catch((e) => toast.error(e));
           }}
         >
           {label}
@@ -193,12 +195,13 @@ export function AiTasks({
   onPreview: (p: Preview) => void;
   modelsReady?: boolean;
 }) {
+  useI18n();
   const [rows, setRows] = useState<Summary[]>([]),
     [offset, setOffset] = useState(0),
     [more, setMore] = useState(false),
     [selected, setSelected] = useState<string | null>(null),
     [task, setTask] = useState<Task | null>(null),
-    [error, setError] = useState(""),
+    [error, setError] = useState<unknown>(null),
     [revision, setRevision] = useState(0);
   const [checked, setChecked] = useState<string[]>([]),
     [operations, setOperations] = useState<PendingOperation[]>([]),
@@ -221,7 +224,7 @@ export function AiTasks({
     });
     setRows(r.items);
     setMore(r.hasMore);
-    setError("");
+    setError(null);
     setRevision((n) => n + 1);
     await localRefresh();
   }
@@ -233,11 +236,11 @@ export function AiTasks({
         if (active) {
           setRows(r.items);
           setMore(r.hasMore);
-          setError("");
+          setError(null);
         }
       })
       .catch((e) => {
-        if (active) setError(errorMessage(e));
+        if (active) setError(e);
       });
     return () => {
       active = false;
@@ -259,7 +262,7 @@ export function AiTasks({
             timer = setTimeout(poll, 1000);
         }
       } catch (e) {
-        if (active) setError(errorMessage(e));
+        if (active) setError(e);
       }
     };
     void poll();
@@ -278,7 +281,7 @@ export function AiTasks({
         const value = await ai<Task>({ type: "get", id: selected });
         if (active) {
           setTask(value);
-          setError("");
+          setError(null);
           if (activeStates.has(value.state)) timer = setTimeout(poll, 2000);
           else {
             const listing = await ai<{ items: Summary[]; hasMore: boolean }>({
@@ -292,7 +295,7 @@ export function AiTasks({
           }
         }
       } catch (e) {
-        if (active) setError(errorMessage(e));
+        if (active) setError(e);
       }
     };
     void poll();
@@ -327,17 +330,15 @@ export function AiTasks({
       await ai<Batch>({ type: "run_batch", id: batch.id, titles });
       await refresh();
     } catch (e) {
-      setError(errorMessage(e));
+      setError(e);
     } finally {
       setRunning(null);
-      await localRefresh().catch((e) => setError(errorMessage(e)));
+      await localRefresh().catch((e) => setError(e));
     }
   }
   return (
     <div className="space-y-5">
-      <p className="text-sm text-muted-foreground">
-        选择文件后会先确认文件与模型，点击“开始解析”才会发送解析内容，可能产生费用。审核和导入已有结果不会调用模型。
-      </p>
+      <p className="text-sm text-muted-foreground">{t("选择文件后会先确认文件与模型，点击“开始解析”才会发送解析内容，可能产生费用。审核和导入已有结果不会调用模型。")}</p>
       {modelsReady && <div className="flex flex-wrap gap-3">
         <Button
           disabled={busy}
@@ -356,12 +357,8 @@ export function AiTasks({
               }
             })
           }
-        >
-          选择文档…
-        </Button>
-        <Button variant="outline" disabled={busy} onClick={() => run(refresh)}>
-          刷新任务
-        </Button>
+        >{t("选择文档…")}</Button>
+        <Button variant="outline" disabled={busy} onClick={() => run(refresh)}>{t("刷新任务")}</Button>
         {!!checked.length && <Button
           disabled={busy}
           onClick={() =>
@@ -371,20 +368,16 @@ export function AiTasks({
               ),
             )
           }
-        >
-          批量导入已选任务（{checked.length}）
-        </Button>}
+        >{t("批量导入已选任务（{0}）", { 0: checked.length })}</Button>}
       </div>}
-      {error && <div role="alert" className="flex items-center justify-between gap-3 rounded-lg border border-destructive/30 p-3"><p className="text-sm text-destructive">{error}</p><Button variant="outline" disabled={busy} onClick={() => run(async () => { try { await (modelsReady ? refresh() : localRefresh()); setError(""); } catch (e) { setError(errorMessage(e)); } })}>重试</Button></div>}
+      {error != null && <div role="alert" className="flex items-center justify-between gap-3 rounded-lg border border-destructive/30 p-3"><p className="text-sm text-destructive">{errorMessage(error)}</p><Button variant="outline" disabled={busy} onClick={() => run(async () => { try { await (modelsReady ? refresh() : localRefresh()); setError(null); } catch (e) { setError(e); } })}>{t("重试")}</Button></div>}
       {operations.length > 0 && (
         <section className="space-y-2">
-          <h2>待确认操作</h2>
-          <p className="text-sm">
-            服务可能已接收请求。重试会使用原请求编号，不会重复创建任务；不会自动重试。
-          </p>
+          <h2>{t("待确认操作")}</h2>
+          <p className="text-sm">{t("服务可能已接收请求。重试会使用原请求编号，不会重复创建任务；不会自动重试。")}</p>
           {operations.map((o) => (
             <div key={o.id}>
-              {o.label}：{o.error?.message}
+              {actions()[o.label] || o.label}: {o.error && errorMessage(o.error)}
               <Button
                 disabled={busy || !modelsReady}
                 onClick={() =>
@@ -397,9 +390,7 @@ export function AiTasks({
                     }
                   })
                 }
-              >
-                重试待确认操作
-              </Button>
+              >{t("重试待确认操作")}</Button>
             </div>
           ))}
         </section>
@@ -410,7 +401,7 @@ export function AiTasks({
             <div key={r.threadId} className="rounded border p-2">
               <div className="flex items-center gap-2">
                 <Checkbox
-                  aria-label={`选择 ${r.fileName}`}
+                  aria-label={t("选择 {0}", { 0: r.fileName })}
                   disabled={busy || r.state !== "COMPLETED"}
                   checked={checked.includes(r.threadId)}
                   onCheckedChange={(checked) =>
@@ -429,22 +420,17 @@ export function AiTasks({
                   {r.fileName || r.threadId.slice(0, 8)}
                 </Button>
               </div>
-              <p className="text-xs">
-                {states[r.state] || r.state} · {r.questionCount ?? 0} 题 ·{" "}
-                {r.reviewCount ?? 0} 待复核{" "}
-                {r.status === "PARTIAL" ? "· 部分结果" : ""}{" "}
-                {r.importedBankId
-                  ? "· 已导入"
+              <p className="text-xs">{t("{0} · {1} 题 · {2} 待复核 {3} {4}", { 0: states()[r.state] || r.state, 1: r.questionCount ?? 0, 2: r.reviewCount ?? 0, 3: r.status === "PARTIAL" ? t("· 部分结果") : "", 4: r.importedBankId
+                  ? t("· 已导入")
                   : r.previouslyImported
-                    ? "· 曾导入其他版本"
-                    : ""}
-              </p>
+                    ? t("· 曾导入其他版本")
+                    : "" })}</p>
             </div>
           ))}
-          {modelsReady && !rows.length && !error && <Empty>
+          {modelsReady && !rows.length && !error != null && <Empty>
             <EmptyHeader>
-              <EmptyTitle>暂无解析任务</EmptyTitle>
-              <EmptyDescription>选择文档并开始解析后，可在这里查看任务进度。</EmptyDescription>
+              <EmptyTitle>{t("暂无解析任务")}</EmptyTitle>
+              <EmptyDescription>{t("选择文档并开始解析后，可在这里查看任务进度。")}</EmptyDescription>
             </EmptyHeader>
           </Empty>}
           {(offset > 0 || more) && <div className="flex gap-2">
@@ -452,45 +438,33 @@ export function AiTasks({
               variant="ghost"
               disabled={offset === 0 || busy}
               onClick={() => setOffset(Math.max(0, offset - 20))}
-            >
-              上一页
-            </Button>
+            >{t("上一页")}</Button>
             <Button
               variant="ghost"
               disabled={!more || busy}
               onClick={() => setOffset(offset + 20)}
-            >
-              下一页
-            </Button>
+            >{t("下一页")}</Button>
           </div>}
         </div>
         {task && (
           <Card>
             <CardContent className="space-y-4 pt-6">
               <h2 className="font-medium">
-                {states[task.state] || task.state}
+                {states()[task.state] || task.state}
               </h2>
-              <p className="text-sm">{task.state === "WAITING_REVIEW" ? "部分内容需要确认，请先查看内容与审核。" : task.state === "FAILED" ? "解析未完成；已保存的内容保留，可查看原因并重试失败项。" : task.state === "COMPLETED" ? "解析结果已保存，可预览并导入题库。" : `当前阶段：${phaseName(task.phase)}`}</p>
+              <p className="text-sm">{task.state === "WAITING_REVIEW" ? t("部分内容需要确认，请先查看内容与审核。") : task.state === "FAILED" ? t("解析未完成；已保存的内容保留，可查看原因并重试失败项。") : task.state === "COMPLETED" ? t("解析结果已保存，可预览并导入题库。") : t("当前阶段：{0}", { 0: phaseName(task.phase) })}</p>
               {Object.entries(task.progress).map(([key, p]) => (
-                <p className="text-sm" key={key}>
-                  {key === "visuals" ? "图片" : "文本"}：完成 {p.succeeded}/
-                  {p.total}，失败 {p.failed}
-                </p>
+                <p className="text-sm" key={key}>{t("{0}：完成 {1}/{2}，失败 {3}", { 0: key === "visuals" ? t("图片") : t("文本"), 1: p.succeeded, 2: p.total, 3: p.failed })}</p>
               ))}
-              <details className="text-sm text-muted-foreground"><summary className="cursor-pointer">模型用量与技术详情</summary><p className="mt-2">阶段：{task.phase}</p><p>
-                已记录 {task.usage.length} 次调用；输入{" "}
-                {task.usage.reduce((n, u) => n + (u.inputTokens || 0), 0)} /
-                输出 {task.usage.reduce((n, u) => n + (u.outputTokens || 0), 0)}{" "}
-                tokens；用量未知 {task.unknownUsageCalls.length} 次
-              </p></details>
+              <details className="text-sm text-muted-foreground"><summary className="cursor-pointer">{t("模型用量与技术详情")}</summary><p className="mt-2">{t("阶段：{0}", { 0: task.phase })}</p><p>{t("已记录 {0} 次调用；输入 {1} / 输出 {2} tokens；用量未知 {3} 次", { 0: task.usage.length, 1: task.usage.reduce((n, u) => n + (u.inputTokens || 0), 0), 2: task.usage.reduce((n, u) => n + (u.outputTokens || 0), 0), 3: task.unknownUsageCalls.length })}</p></details>
               {task.failures.map((f, i) => (
                 <p className="text-sm text-destructive" key={i}>
-                  {phaseName(f.stage)} #{f.index + 1}：{f.message || failureMessage(f.code)}
-                  {f.retryable ? "（可重试）" : ""}
+                  {phaseName(f.stage)} #{f.index + 1}：{errorMessage({code:f.code, message:f.message || failureMessage(f.code)})}
+                  {f.retryable ? t("（可重试）") : ""}
                 </p>
               ))}
               {task.blocking.length > 0 && (
-                <details className="text-sm"><summary className="cursor-pointer">需要处理的问题（{task.blocking.length}）</summary><p>请查看来源内容和质量提示，确认后接受部分结果或重试失败项。</p><pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap text-xs">{JSON.stringify(task.blocking, null, 2)}</pre></details>
+                <details className="text-sm"><summary className="cursor-pointer">{t("需要处理的问题（{0}）", { 0: task.blocking.length })}</summary><p>{t("请查看来源内容和质量提示，确认后接受部分结果或重试失败项。")}</p><pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap text-xs">{JSON.stringify(task.blocking, null, 2)}</pre></details>
               )}
               <div className="flex flex-wrap gap-2">
                 {task.allowedActions
@@ -502,7 +476,7 @@ export function AiTasks({
                       variant="outline"
                       onClick={() => run(() => control(action))}
                     >
-                      {actions[action] || action}
+                      {actions()[action] || action}
                     </Button>
                   ))}
                 {["COMPLETED", "WAITING_REVIEW"].includes(task.state) && (
@@ -519,9 +493,7 @@ export function AiTasks({
                         ),
                       )
                     }
-                  >
-                    查看内容与审核
-                  </Button>
+                  >{t("查看内容与审核")}</Button>
                 )}
                 {task.state === "COMPLETED" && (
                   <Button
@@ -536,9 +508,7 @@ export function AiTasks({
                         ),
                       )
                     }
-                  >
-                    预览并导入题库
-                  </Button>
+                  >{t("预览并导入题库")}</Button>
                 )}
               </div>
             </CardContent>
@@ -547,30 +517,26 @@ export function AiTasks({
       </div>
       {batches.length > 0 && (
         <section className="space-y-3">
-          <h2>导入批次</h2>
+          <h2>{t("导入批次")}</h2>
           {batches.map((b) => (
             <Card key={b.id}>
               <CardContent className="space-y-2 pt-4">
-                <p>
-                  {b.items.filter((i) => i.status === "imported").length}/
-                  {b.items.length} 已导入 ·{" "}
-                  {b.status === "running"
-                    ? "进行中"
+                <p>{t("{0}/{1} 已导入 · {2}", { 0: b.items.filter((i) => i.status === "imported").length, 1: b.items.length, 2: b.status === "running"
+                    ? t("进行中")
                     : b.status === "paused"
-                      ? "已暂停"
+                      ? t("已暂停")
                       : b.status === "ready"
-                        ? "待确认"
-                        : "已处理"}
-                </p>
+                        ? t("待确认")
+                        : t("已处理") })}</p>
                 {b.items.map((i) => (
                   <p className="text-sm" key={i.threadId}>
                     {i.title}：
                     {i.status === "imported"
-                      ? "已导入"
+                      ? t("已导入")
                       : i.status === "failed"
-                        ? "失败"
-                        : "待导入"}{" "}
-                    {i.error?.message}
+                        ? t("失败")
+                        : t("待导入")}{" "}
+                    {i.error && errorMessage(i.error)}
                   </p>
                 ))}
                 {b.status === "running" || running === b.id ? (
@@ -579,11 +545,9 @@ export function AiTasks({
                     onClick={() => {
                       void ai({ type: "cancel_batch", id: b.id })
                         .then(localRefresh)
-                        .catch((e) => setError(errorMessage(e)));
+                        .catch((e) => setError(e));
                     }}
-                  >
-                    停止后续导入
-                  </Button>
+                  >{t("停止后续导入")}</Button>
                 ) : (
                   b.items.some((i) => i.status !== "imported") && (
                     <Button
@@ -594,7 +558,7 @@ export function AiTasks({
                           : void startBatch(b, null)
                       }
                     >
-                      {b.status === "ready" ? "确认批次" : "继续未成功项"}
+                      {b.status === "ready" ? t("确认批次") : t("继续未成功项")}
                     </Button>
                   )
                 )}
@@ -612,15 +576,13 @@ export function AiTasks({
         >
           <DialogContent className="max-h-[85vh] overflow-auto">
             <DialogHeader>
-              <DialogTitle>批量导入确认</DialogTitle>
-              <DialogDescription>
-                每个任务单独新建题库，串行导入；失败只影响该项。重复结果返回已有题库。
-              </DialogDescription>
+              <DialogTitle>{t("批量导入确认")}</DialogTitle>
+              <DialogDescription>{t("每个任务单独新建题库，串行导入；失败只影响该项。重复结果返回已有题库。")}</DialogDescription>
             </DialogHeader>
             {confirmation.items.map((item, index) => (
               <div className="space-y-2" key={item.threadId}>
                 <Input
-                  aria-label={`题库名称 ${index + 1}`}
+                  aria-label={t("题库名称 {0}", { 0: index + 1 })}
                   maxLength={200}
                   value={item.title}
                   disabled={item.status === "imported"}
@@ -633,12 +595,7 @@ export function AiTasks({
                     })
                   }
                 />
-                <p className="text-sm">
-                  {item.questionCount} 题 · {item.reviewCount} 待复核{" "}
-                  {item.partial ? "· 部分结果" : ""}{" "}
-                  {item.status === "imported" ? "· 已导入，将跳过" : ""}{" "}
-                  {item.previousVersion ? "· 新版本将单独建库，保留旧题库" : ""}
-                </p>
+                <p className="text-sm">{t("{0} 题 · {1} 待复核 {2} {3} {4}", { 0: item.questionCount, 1: item.reviewCount, 2: item.partial ? t("· 部分结果") : "", 3: item.status === "imported" ? t("· 已导入，将跳过") : "", 4: item.previousVersion ? t("· 新版本将单独建库，保留旧题库") : "" })}</p>
               </div>
             ))}
             <Button
@@ -651,9 +608,7 @@ export function AiTasks({
                   confirmation.items.map((i) => i.title),
                 )
               }
-            >
-              确认逐项导入
-            </Button>
+            >{t("确认逐项导入")}</Button>
           </DialogContent>
         </Dialog>
       )}
@@ -666,14 +621,12 @@ export function AiTasks({
         >
           <DialogContent className="max-h-[85vh] overflow-auto sm:max-w-3xl">
             <DialogHeader>
-              <DialogTitle>只读内容审核</DialogTitle>
-              <DialogDescription>
-                阶段：{phaseName(review.phase)}。此预览不会接受结果或写入题库。
-              </DialogDescription>
+              <DialogTitle>{t("只读内容审核")}</DialogTitle>
+              <DialogDescription>{t("阶段：{0}。此预览不会接受结果或写入题库。", { 0: phaseName(review.phase) })}</DialogDescription>
             </DialogHeader>
             {review.failures.map((f, i) => (
               <p className="text-destructive" key={i}>
-                {phaseName(f.stage)} #{f.index + 1}：{f.message || failureMessage(f.code)}
+                {phaseName(f.stage)} #{f.index + 1}：{errorMessage({code:f.code, message:f.message || failureMessage(f.code)})}
               </p>
             ))}
             {review.units.map((unit, index) => (
@@ -689,7 +642,7 @@ export function AiTasks({
                     review={review}
                     unit={index}
                     visual={null}
-                    label="查看来源内容"
+                    label={t("查看来源内容")}
                   />
                 )}
                 {unit.groups.map((g, i) => (
@@ -707,7 +660,7 @@ export function AiTasks({
                         review={review}
                         unit={index}
                         visual={i}
-                        label={`查看关联图片 ${i + 1}`}
+                        label={t("查看关联图片 {0}", { 0: i + 1 })}
                       />
                     )}
                   </div>
@@ -715,7 +668,7 @@ export function AiTasks({
               </section>
             ))}
             <details>
-              <summary>来源和质量详情</summary>
+              <summary>{t("来源和质量详情")}</summary>
               <pre className="whitespace-pre-wrap text-xs">
                 {JSON.stringify(
                   { quality: review.quality, sources: review.questionSources },
@@ -730,9 +683,7 @@ export function AiTasks({
                 <Button
                   disabled={busy}
                   onClick={() => run(() => control("accept_partial"))}
-                >
-                  接受部分结果
-                </Button>
+                >{t("接受部分结果")}</Button>
               )}
           </DialogContent>
         </Dialog>

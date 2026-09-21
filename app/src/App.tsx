@@ -1,3 +1,5 @@
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { message, renderMessage, type Message, t, useI18n } from "./i18n";
 import { QuestionPreview } from "./QuestionPreview";
 import { StudySetup } from "./StudySetup";
 import { ImportPage } from "./ImportPage";
@@ -21,7 +23,7 @@ import {
   BookmarkX,
   EllipsisVertical,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "./notifications";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription, EmptyContent } from "@/components/ui/empty";
@@ -93,6 +95,7 @@ type Page =
   | "settings"
   | "practice";
 export default function App() {
+  const language = useI18n();
   const [page, setPage] = useState<Page>("banks");
   const [banks, setBanks] = useState<Bank[]>([]);
   const [bank, setBank] = useState<string | null>(null);
@@ -117,8 +120,8 @@ export default function App() {
   } | null>(null);
   const [detail, setDetail] = useState<QuestionRow | null>(null);
   const [confirm, setConfirm] = useState<{
-    title: string;
-    description: string;
+    title: Message;
+    description: Message;
     action: () => Promise<void>;
   } | null>(null);
   const [practiceSetup, setPracticeSetup] = useState<{ bank: string | null } | null>(null);
@@ -149,8 +152,7 @@ export default function App() {
     setBusy(true);
     void job()
       .catch((e) => {
-        const message = errorMessage(e);
-        toast.error(message, { id: message });
+        toast.error(e);
       })
       .finally(() => {
         lock.current = false;
@@ -179,8 +181,7 @@ export default function App() {
         })
         .catch((e) => {
           if (active) {
-            const message = errorMessage(e);
-            toast.error(message, { id: message });
+            toast.error(e);
           }
         })
         .finally(() => {
@@ -200,14 +201,14 @@ export default function App() {
       .onCloseRequested(async (event) => {
         event.preventDefault();
         if (lock.current) {
-          toast.info("请等待当前操作完成后关闭");
+          toast.info(message("请等待当前操作完成后关闭"));
           return;
         }
         try {
           await flushRef.current();
           await getCurrentWindow().destroy();
         } catch (e) {
-          toast.error(errorMessage(e));
+          toast.error(e);
         }
       })
       .then((fn) => {
@@ -253,19 +254,19 @@ export default function App() {
     }
   }
   const heading =
-    page === "import" ? "导入题库" : page === "banks"
-      ? "我的题库"
+    page === "import" ? t("导入题库") : page === "banks"
+      ? t("我的题库")
       : page === "questions"
-        ? currentBank?.title || "题库"
+        ? currentBank?.title || t("题库")
         : page === "wrong"
-          ? "错题本"
+          ? t("错题本")
           : page === "favorite"
-            ? "收藏夹"
+            ? t("收藏夹")
             : page === "history"
-              ? "练习记录"
+              ? t("练习记录")
               : page === "practice"
-                ? "专注练习"
-                : "设置";
+                ? t("专注练习")
+                : t("设置");
   const listPage = ["questions", "wrong", "favorite"].includes(page);
   return (
     <div className="flex h-screen min-w-[960px] overflow-hidden bg-background text-foreground">
@@ -273,24 +274,22 @@ export default function App() {
         <div className="mb-10 flex items-center gap-3 px-3 pt-3">
           <img
             src={logo}
-            alt="PractiQ 小章鱼"
+            alt={t("PractiQ 小章鱼")}
             className="size-10 shrink-0 rounded-xl object-contain"
           />
           <div>
             <div className="text-lg font-semibold tracking-tight">PractiQ</div>
-            <div className="text-xs text-muted-foreground">
-              一点练习，每天进步
-            </div>
+            <div className="text-xs text-muted-foreground">{t("一点练习，每天进步")}</div>
           </div>
         </div>
-        <nav aria-label="主导航" className="space-y-2">
+        <nav aria-label={t("主导航")} className="space-y-2">
           {(
             [
-              { id: "banks", label: "我的题库", icon: BookOpen },
-              { id: "import", label: "导入题库", icon: Upload },
-              { id: "wrong", label: "错题本", icon: BookmarkX },
-              { id: "favorite", label: "收藏夹", icon: Star },
-              { id: "history", label: "练习记录", icon: History },
+              { id: "banks", label: t("我的题库"), icon: BookOpen },
+              { id: "import", label: t("导入题库"), icon: Upload },
+              { id: "wrong", label: t("错题本"), icon: BookmarkX },
+              { id: "favorite", label: t("收藏夹"), icon: Star },
+              { id: "history", label: t("练习记录"), icon: History },
             ] as const
           ).map(({ id, label, icon: Icon }) => (
             <Button
@@ -311,6 +310,13 @@ export default function App() {
           ))}
         </nav>
         <div className="mt-auto space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="app-language">{t("语言")}</Label>
+            <NativeSelect id="app-language" className="w-full" value={language.locale} disabled={!language.ready || language.saving || busy} onChange={event => { const value = event.target.value; if (value === "zh-CN" || value === "en") void language.change(value); }}>
+              <NativeSelectOption value="zh-CN">简体中文</NativeSelectOption><NativeSelectOption value="en">English</NativeSelectOption>
+            </NativeSelect>
+            {language.error != null && <div role="alert" className="text-xs text-destructive"><p>{t(language.error.key)}</p><p>{errorMessage(language.error.cause)}</p><Button size="sm" variant="outline" onClick={() => void language.reload()}>{t("重试")}</Button></div>}
+          </div>
           <Button
             className="w-full justify-start gap-3 aria-[current=page]:bg-primary/10 aria-[current=page]:text-primary"
             variant={page === "settings" ? "secondary" : "ghost"}
@@ -318,9 +324,7 @@ export default function App() {
             disabled={busy}
             onClick={() => { setSettingsReturn(null); navigate("settings"); }}
           >
-            <Settings />
-            设置
-          </Button>
+            <Settings />{t("设置")}</Button>
         </div>
       </aside>
       <main className="flex min-w-0 flex-1 flex-col">
@@ -330,7 +334,7 @@ export default function App() {
               <Button
                 size="icon"
                 variant="ghost"
-                aria-label="返回题库"
+                aria-label={t("返回题库")}
                 disabled={busy}
                 onClick={() => navigate("banks")}
               >
@@ -343,30 +347,26 @@ export default function App() {
               </h1>
               <p className="mt-1 text-sm text-muted-foreground">
                 {page === "banks"
-                  ? `${banks.length} 个题库 · ${banks.reduce((n, b) => n + b.count, 0)} 道题目`
+                  ? t("{0} 个题库 · {1} 道题目", { 0: banks.length, 1: banks.reduce((n, b) => n + b.count, 0) })
                   : listPage
-                    ? `${questions.length} 道题目${loading ? " · 加载中…" : ""}`
+                    ? t("{0} 道题目{1}", { 0: questions.length, 1: loading ? t(" · 加载中…") : "" })
                     : page === "import"
-                      ? "导入已有题库，或将文档解析为题目"
+                      ? t("导入已有题库，或将文档解析为题目")
                     : page === "history"
-                      ? "回顾每一次作答与进步"
+                      ? t("回顾每一次作答与进步")
                       : page === "settings"
-                        ? "管理本地数据，保存你的练习成果"
-                        : "循序渐进，保持专注"}
+                        ? t("管理本地数据，保存你的练习成果")
+                        : t("循序渐进，保持专注")}
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             {busy && (
-              <span role="status" className="text-sm text-muted-foreground">
-                处理中…
-              </span>
+              <span role="status" className="text-sm text-muted-foreground">{t("处理中…")}</span>
             )}
 
             {page === "banks" && banks.length > 1 && (
-              <Button variant="outline" disabled={busy} onClick={() => setMergeOpen(true)}>
-                合并题库
-              </Button>
+              <Button variant="outline" disabled={busy} onClick={() => setMergeOpen(true)}>{t("合并题库")}</Button>
             )}
             {listPage && (
               <>
@@ -375,9 +375,7 @@ export default function App() {
                   disabled={busy}
                   onClick={() => navigate("import", page === "questions" ? bank : null)}
                 >
-                  <Upload />
-                  导入
-                </Button>
+                  <Upload />{t("导入")}</Button>
                 {page === "questions" && (
                   <Button
                     variant="outline"
@@ -386,9 +384,7 @@ export default function App() {
                       setEditor({ id: null, question: blankQuestion() })
                     }
                   >
-                    <Plus />
-                    新增题目
-                  </Button>
+                    <Plus />{t("新增题目")}</Button>
                 )}
                 <Button
                   disabled={busy || !questions.length || loading}
@@ -396,9 +392,7 @@ export default function App() {
                     setPracticeSetup({ bank: page === "questions" ? bank : null });
                   }}
                 >
-                  <Play />
-                  开始练习
-                </Button>
+                  <Play />{t("开始练习")}</Button>
               </>
             )}
           </div>
@@ -406,8 +400,8 @@ export default function App() {
         <div className="flex-1 overflow-y-auto p-8">
           {page === "banks" && (
             <div className="space-y-5">
-              {unfinished && <Card className="border-primary/30 bg-primary/5"><CardContent className="flex items-center justify-between gap-4"><div className="min-w-0"><h2 className="font-semibold">继续未完成的练习</h2><p className="mt-1 break-words text-sm text-muted-foreground">{unfinished.title} · 已提交 {unfinished.answered}/{unfinished.count} 题</p></div><Button disabled={busy} onClick={() => openSession(unfinished.id)}><Play />继续练习</Button></CardContent></Card>}
-              {!banks.length && !busy && info && <Empty className="min-h-96 border border-dashed"><EmptyHeader><EmptyMedia variant="icon"><BookOpen /></EmptyMedia><EmptyTitle>从第一份题库开始</EmptyTitle><EmptyDescription>已有 PractiQ JSON 可离线导入；PDF、文本或图片可通过 AI 解析为题目。</EmptyDescription></EmptyHeader><EmptyContent><Button onClick={() => navigate("import")}><Upload />导入第一份题库</Button></EmptyContent></Empty>}
+              {unfinished && <Card className="border-primary/30 bg-primary/5"><CardContent className="flex items-center justify-between gap-4"><div className="min-w-0"><h2 className="font-semibold">{t("继续未完成的练习")}</h2><p className="mt-1 break-words text-sm text-muted-foreground">{t("{0} · 已提交 {1}/{2} 题", { 0: unfinished.title, 1: unfinished.answered, 2: unfinished.count })}</p></div><Button disabled={busy} onClick={() => openSession(unfinished.id)}><Play />{t("继续练习")}</Button></CardContent></Card>}
+              {!banks.length && !busy && info && <Empty className="min-h-96 border border-dashed"><EmptyHeader><EmptyMedia variant="icon"><BookOpen /></EmptyMedia><EmptyTitle>{t("从第一份题库开始")}</EmptyTitle><EmptyDescription>{t("已有 PractiQ JSON 可离线导入；PDF、文本或图片可通过 AI 解析为题目。")}</EmptyDescription></EmptyHeader><EmptyContent><Button onClick={() => navigate("import")}><Upload />{t("导入第一份题库")}</Button></EmptyContent></Empty>}
               <div className="grid grid-cols-2 gap-5 xl:grid-cols-3">
               {banks.map((b) => (
                 <Card key={b.id}>
@@ -415,27 +409,25 @@ export default function App() {
                     <div className="flex items-start justify-between gap-2">
                       <CardTitle className="min-w-0 break-words pt-1">{b.title}</CardTitle>
                       <div className="flex shrink-0 items-center gap-1">
-                        <Badge variant="secondary">{b.count} 题</Badge>
+                        <Badge variant="secondary">{t("{0} 题", { 0: b.count })}</Badge>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button size="icon" variant="ghost" aria-label={`题库操作 ${b.title}`} disabled={busy}>
+                            <Button size="icon" variant="ghost" aria-label={t("题库操作 {0}", { 0: b.title })} disabled={busy}>
                               <EllipsisVertical />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onSelect={() => setBankEditor({ id: b.id, title: b.title, description: b.description })}>
-                              <Pencil className="size-4" />编辑题库
-                            </DropdownMenuItem>
+                              <Pencil className="size-4" />{t("编辑题库")}</DropdownMenuItem>
                             <DropdownMenuItem variant="destructive" onSelect={() => setConfirm({
-                              title: `删除“${b.title}”？`,
-                              description: "题库及其中题目将被删除，已有练习记录和内容快照会保留。",
+                              title: message("删除“{0}”？", { 0: b.title }),
+                              description: message("题库及其中题目将被删除，已有练习记录和内容快照会保留。"),
                               action: async () => {
                                 await api({ type: "delete_bank", id: b.id });
                                 await reload();
                               },
                             })}>
-                              <Trash2 className="size-4" />删除题库
-                            </DropdownMenuItem>
+                              <Trash2 className="size-4" />{t("删除题库")}</DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
@@ -445,12 +437,10 @@ export default function App() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="mt-auto grid grid-cols-2 gap-2">
-                    <Button variant="outline" disabled={busy} onClick={() => navigate("questions", b.id)}>
-                      查看题目
-                      <ChevronRight />
+                    <Button variant="outline" disabled={busy} onClick={() => navigate("questions", b.id)}>{t("查看题目")}<ChevronRight />
                     </Button>
-                    {b.count ? <Button disabled={busy} onClick={() => setPracticeSetup({ bank: b.id })}><Play />开始练习</Button>
-                      : <Button disabled={busy} onClick={() => navigate("import", b.id)}><Upload />导入题目</Button>}
+                    {b.count ? <Button disabled={busy} onClick={() => setPracticeSetup({ bank: b.id })}><Play />{t("开始练习")}</Button>
+                      : <Button disabled={busy} onClick={() => navigate("import", b.id)}><Upload />{t("导入题目")}</Button>}
                   </CardContent>
                 </Card>
               ))}
@@ -463,8 +453,8 @@ export default function App() {
                 <InputGroup className="flex-1">
                   <InputGroupAddon><Search /></InputGroupAddon>
                   <InputGroupInput
-                    aria-label="搜索题目"
-                    placeholder="搜索题干、选项或内容…"
+                    aria-label={t("搜索题目")}
+                    placeholder={t("搜索题干、选项或内容…")}
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                   />
@@ -473,14 +463,14 @@ export default function App() {
                   value={mode || "all"}
                   onValueChange={(v) => setMode(v === "all" ? "" : v)}
                 >
-                  <SelectTrigger className="w-40" aria-label="筛选题型">
+                  <SelectTrigger className="w-40" aria-label={t("筛选题型")}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">全部题型</SelectItem>
-                    <SelectItem value="single">单选题</SelectItem>
-                    <SelectItem value="multiple">多选题</SelectItem>
-                    {Object.entries(modeNames).map(([v, label]) => (
+                    <SelectItem value="all">{t("全部题型")}</SelectItem>
+                    <SelectItem value="single">{t("单选题")}</SelectItem>
+                    <SelectItem value="multiple">{t("多选题")}</SelectItem>
+                    {Object.entries(modeNames()).map(([v, label]) => (
                       <SelectItem key={v} value={v}>
                         {label}
                       </SelectItem>
@@ -502,14 +492,14 @@ export default function App() {
                         >
                           <div className="flex min-w-0 flex-wrap items-center gap-2">
                             <Badge variant="outline">
-                              {modeNames[row.question.answerMode || ""] ||
-                                "未知题型"}
+                              {modeNames()[row.question.answerMode || ""] ||
+                                t("未知题型")}
                             </Badge>
                             {row.question.needsReview && (
-                              <Badge variant="secondary">待复核</Badge>
+                              <Badge variant="secondary">{t("待复核")}</Badge>
                             )}
                             {row.latestResult === false && (
-                              <Badge variant="destructive">错题</Badge>
+                              <Badge variant="destructive">{t("错题")}</Badge>
                             )}
                             {page !== "questions" && (
                               <span className="w-full truncate text-xs text-muted-foreground" title={row.bankTitle}>
@@ -520,13 +510,13 @@ export default function App() {
                           <p className="line-clamp-2 min-w-0 text-sm leading-6 wrap-anywhere">
                             {row.question.stem ||
                               row.question.sourceText ||
-                              "题干缺失"}
+                              t("题干缺失")}
                           </p>
                         </button>
                         <Button
                           size="icon"
                           variant="ghost"
-                          aria-label={row.favorite ? "取消收藏" : "收藏题目"}
+                          aria-label={row.favorite ? t("取消收藏") : t("收藏题目")}
                           disabled={busy}
                           onClick={() =>
                             run(async () => {
@@ -546,7 +536,7 @@ export default function App() {
                         <Button
                           size="icon"
                           variant="ghost"
-                          aria-label="编辑题目"
+                          aria-label={t("编辑题目")}
                           disabled={busy}
                           onClick={() => {
                             setBank(row.bankId);
@@ -558,12 +548,12 @@ export default function App() {
                         <Button
                           size="icon"
                           variant="ghost"
-                          aria-label="删除题目"
+                          aria-label={t("删除题目")}
                           disabled={busy}
                           onClick={() =>
                             setConfirm({
-                              title: "删除这道题目？",
-                              description: "历史练习与作答快照仍会保留。",
+                              title: message("删除这道题目？"),
+                              description: message("历史练习与作答快照仍会保留。"),
                               action: async () => {
                                 await api({
                                   type: "delete_question",
@@ -580,25 +570,18 @@ export default function App() {
                     ))}
                   </div>
                   <div className="flex items-center justify-between text-sm text-muted-foreground">
-                    <span>
-                      第 {offset + 1}–{Math.min(offset + 30, questions.length)}{" "}
-                      题
-                    </span>
+                    <span>{t("第 {0}–{1} 题", { 0: offset + 1, 1: Math.min(offset + 30, questions.length) })}</span>
                     <div className="flex gap-2">
                       <Button
                         variant="outline"
                         disabled={offset === 0}
                         onClick={() => setOffset(Math.max(0, offset - 30))}
-                      >
-                        上一页
-                      </Button>
+                      >{t("上一页")}</Button>
                       <Button
                         variant="outline"
                         disabled={offset + 30 >= questions.length}
                         onClick={() => setOffset(offset + 30)}
-                      >
-                        下一页
-                      </Button>
+                      >{t("下一页")}</Button>
                     </div>
                   </div>
                 </>
@@ -607,8 +590,8 @@ export default function App() {
                   <Empty className="min-h-96 border border-dashed">
                     <EmptyHeader>
                       <EmptyMedia variant="icon">{page === "favorite" ? <Star /> : <BookOpen />}</EmptyMedia>
-                      <EmptyTitle>{page === "wrong" ? "暂时没有错题" : page === "favorite" ? "还没有收藏题目" : "没有找到题目"}</EmptyTitle>
-                      <EmptyDescription>{page === "wrong" ? "已判定为错误的题目会出现在这里，再次答对后自动移出。" : "尝试调整筛选，或导入新的题目。"}</EmptyDescription>
+                      <EmptyTitle>{page === "wrong" ? t("暂时没有错题") : page === "favorite" ? t("还没有收藏题目") : t("没有找到题目")}</EmptyTitle>
+                      <EmptyDescription>{page === "wrong" ? t("已判定为错误的题目会出现在这里，再次答对后自动移出。") : t("尝试调整筛选，或导入新的题目。")}</EmptyDescription>
                     </EmptyHeader>
                   </Empty>
                 )
@@ -625,20 +608,20 @@ export default function App() {
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                           <h2 className="min-w-0 break-words font-medium">{s.title}</h2>
                           <Badge variant="secondary">
-                            {s.finishedAt ? "已结束" : s.submittedAt ? "待核对" : "进行中"}
+                            {s.finishedAt ? t("已结束") : s.submittedAt ? t("待核对") : t("进行中")}
                           </Badge>
                           <span className="text-xs text-muted-foreground">
                             {date(s.createdAt)} · {duration(s.elapsedMs)}
                           </span>
                         </div>
                         <div className="flex flex-wrap gap-2 text-sm tabular-nums">
-                          <span>已提交 {s.answered}/{s.count} 题</span>
+                          <span>{t("已提交 {0}/{1} 题", { 0: s.answered, 1: s.count })}</span>
                           {!!(s.finishedAt || s.submittedAt) && (s.kind && s.kind !== "practice" ? <>
-                            <Badge variant="secondary">{s.pendingGrades ? "暂定成绩" : "成绩"} {(s.earnedCents || 0) / 100} / {(s.totalCents || 0) / 100} 分</Badge>
-                            {!!s.pendingGrades && <Badge variant="outline">待评分 {s.pendingGrades} 题</Badge>}
-                          </> : <span>正确率 {s.graded ? `${Math.round((s.correct / s.graded) * 100)}%（${s.correct}/${s.graded}）` : "暂无已判定题目"}</span>)}
+                            <Badge variant="secondary">{t("{0} {1} / {2} 分", { 0: s.pendingGrades ? t("暂定成绩") : t("成绩"), 1: (s.earnedCents || 0) / 100, 2: (s.totalCents || 0) / 100 })}</Badge>
+                            {!!s.pendingGrades && <Badge variant="outline">{t("待评分 {0} 题", { 0: s.pendingGrades })}</Badge>}
+                          </> : <span>{t("正确率 {0}", { 0: s.graded ? `${Math.round((s.correct / s.graded) * 100)}%（${s.correct}/${s.graded}）` : t("暂无已判定题目") })}</span>)}
                         </div>
-                        {!!(s.answered || s.finishedAt || s.submittedAt) && <details className="text-sm text-muted-foreground"><summary className="cursor-pointer">判定详情</summary><p className="mt-2">自动判定 {s.autoGraded} · 自评 {s.selfGraded} · 跳过 {s.skipped} · 未判定 {s.kind && s.kind !== "practice" ? s.pendingGrades : s.answered - s.graded - s.skipped}</p></details>}
+                        {!!(s.answered || s.finishedAt || s.submittedAt) && <details className="text-sm text-muted-foreground"><summary className="cursor-pointer">{t("判定详情")}</summary><p className="mt-2">{t("自动判定 {0} · 自评 {1} · 跳过 {2} · 未判定 {3}", { 0: s.autoGraded, 1: s.selfGraded, 2: s.skipped, 3: s.kind && s.kind !== "practice" ? s.pendingGrades : s.answered - s.graded - s.skipped })}</p></details>}
                       </div>
                       <Button
                         className="shrink-0"
@@ -646,7 +629,7 @@ export default function App() {
                         disabled={busy}
                         onClick={() => openSession(s.id)}
                       >
-                        {s.finishedAt ? "查看记录" : s.submittedAt ? "核对评分" : "继续练习"}
+                        {s.finishedAt ? t("查看记录") : s.submittedAt ? t("核对评分") : t("继续练习")}
                         <ChevronRight />
                       </Button>
                     </CardContent>
@@ -657,8 +640,8 @@ export default function App() {
               <Empty className="min-h-96 border border-dashed">
                 <EmptyHeader>
                   <EmptyMedia variant="icon"><History /></EmptyMedia>
-                  <EmptyTitle>还没有练习记录</EmptyTitle>
-                  <EmptyDescription>完成一次练习后，即可在这里回顾答案、用时与正确率。</EmptyDescription>
+                  <EmptyTitle>{t("还没有练习记录")}</EmptyTitle>
+                  <EmptyDescription>{t("完成一次练习后，即可在这里回顾答案、用时与正确率。")}</EmptyDescription>
                 </EmptyHeader>
               </Empty>
             ))}
@@ -669,7 +652,7 @@ export default function App() {
               onSession={(s) => {
                 setSession(s);
                 if (s.finishedAt && !session.finishedAt)
-                  toast.success("练习已结束，记录已保存");
+                  toast.success(message("练习已结束，记录已保存"));
               }}
               run={run}
               flushRef={flushRef}
@@ -694,10 +677,8 @@ export default function App() {
               />
               <Card>
                 <CardHeader>
-                  <CardTitle>学习数据备份</CardTitle>
-                  <CardDescription>
-                    包含题库、图片、收藏、作答和评分记录。不包含原始文档、AI 任务及 API Key；在其他设备恢复后需重新配置密钥。请定期保存到其他位置。
-                  </CardDescription>
+                  <CardTitle>{t("学习数据备份")}</CardTitle>
+                  <CardDescription>{t("包含题库、图片、收藏、作答和评分记录。不包含原始文档、AI 任务及 API Key；在其他设备恢复后需重新配置密钥。请定期保存到其他位置。")}</CardDescription>
                 </CardHeader>
                 <CardContent className="flex gap-3">
                   <Button
@@ -707,52 +688,47 @@ export default function App() {
                         const result = await api<{ path: string } | null>({
                           type: "backup",
                         });
-                        if (result) toast.success(`备份已保存：${result.path}`);
+                        if (result) toast.success(message("备份已保存：{0}", { 0: result.path }));
                       })
                     }
                   >
-                    <Upload />
-                    导出备份
-                  </Button>
+                    <Upload />{t("导出备份")}</Button>
                   <Button
                     variant="outline"
                     disabled={busy}
                     onClick={() =>
                       setConfirm({
-                        title: "用备份替换当前数据？",
+                        title: message("用备份替换当前数据？"),
                         description:
-                          "恢复会替换全部本地题库和练习记录。应用将先校验备份，并自动保存当前数据的恢复副本。",
+                          message("恢复会替换全部本地题库和练习记录。应用将先校验备份，并自动保存当前数据的恢复副本。"),
                         action: async () => {
                           const result = await api<{
                             recoveryPath: string;
                           } | null>({ type: "restore" });
                           if (result) {
+                            await language.reload();
                             setSettingsRevision((v) => v + 1);
                             setSession(null);
                             setDetail(null);
                             setBank(null);
                             await reload();
                             toast.success(
-                              `恢复完成。原数据副本：${result.recoveryPath}`,
+                              message("恢复完成。原数据副本：{0}", { 0: result.recoveryPath }),
                             );
                           }
                         },
                       })
                     }
-                  >
-                    恢复备份
-                  </Button>
+                  >{t("恢复备份")}</Button>
                 </CardContent>
               </Card>
               <Card>
                 <CardHeader>
-                  <CardTitle>本地数据</CardTitle>
+                  <CardTitle>{t("本地数据")}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3 text-sm">
-                  <p>版本：{info?.version || "—"}</p>
-                  <p className="break-all">
-                    保存位置：{info?.dataDirectory || "—"}
-                  </p>
+                  <p>{t("版本：{0}", { 0: info?.version || "—" })}</p>
+                  <p className="break-all">{t("保存位置：{0}", { 0: info?.dataDirectory || "—" })}</p>
                 </CardContent>
               </Card>
             </div>
@@ -762,37 +738,37 @@ export default function App() {
       <Dialog open={mergeOpen} onOpenChange={(open) => { if (!busy) setMergeOpen(open); }}>
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle>合并题库</DialogTitle>
-            <DialogDescription>选择至少两个题库，复制合并为新题库。保留原库和重复题，不继承作答历史。</DialogDescription>
+            <DialogTitle>{t("合并题库")}</DialogTitle>
+            <DialogDescription>{t("选择至少两个题库，复制合并为新题库。保留原库和重复题，不继承作答历史。")}</DialogDescription>
           </DialogHeader>
           <fieldset disabled={busy} className="min-w-0 space-y-4">
             <fieldset className="min-w-0">
-              <legend className="mb-2 text-sm font-medium">选择题库</legend>
+              <legend className="mb-2 text-sm font-medium">{t("选择题库")}</legend>
               <div className="grid max-h-64 grid-cols-2 gap-2 overflow-y-auto">
                 {banks.map((b) => (
                   <label key={b.id} className="flex min-w-0 cursor-pointer items-start gap-2 rounded-lg border p-3 text-sm has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5">
                     <Checkbox disabled={busy} className="mt-0.5" checked={mergeSelection.includes(b.id)} onCheckedChange={(checked) => setMergeSelection(checked === true ? [...mergeSelection, b.id] : mergeSelection.filter(id => id !== b.id))} />
-                    <span className="min-w-0 break-words">{b.title}（{b.count} 题）</span>
+                    <span className="min-w-0 break-words">{t("{0}（{1} 题）", { 0: b.title, 1: b.count })}</span>
                   </label>
                 ))}
               </div>
             </fieldset>
             <div className="space-y-2">
-              <Label htmlFor="merge-title">新题库名称</Label>
-              <Input id="merge-title" aria-label="合并后的题库名称" placeholder="输入新题库名称" value={mergeTitle} onChange={(e) => setMergeTitle(e.target.value)} />
+              <Label htmlFor="merge-title">{t("新题库名称")}</Label>
+              <Input id="merge-title" aria-label={t("合并后的题库名称")} placeholder={t("输入新题库名称")} value={mergeTitle} onChange={(e) => setMergeTitle(e.target.value)} />
             </div>
-            <p className="text-sm text-muted-foreground" role="status">已选 {mergeSelection.length} 个题库，共 {banks.filter(b => mergeSelection.includes(b.id)).reduce((n, b) => n + b.count, 0)} 题；原库保留。</p>
+            <p className="text-sm text-muted-foreground" role="status">{t("已选 {0} 个题库，共 {1} 题；原库保留。", { 0: mergeSelection.length, 1: banks.filter(b => mergeSelection.includes(b.id)).reduce((n, b) => n + b.count, 0) })}</p>
           </fieldset>
           <DialogFooter>
-            <Button variant="outline" disabled={busy} onClick={() => setMergeOpen(false)}>取消</Button>
+            <Button variant="outline" disabled={busy} onClick={() => setMergeOpen(false)}>{t("取消")}</Button>
             <Button disabled={busy || mergeSelection.length < 2 || !mergeTitle.trim()} onClick={() => run(async () => {
               await api({ type: "merge_banks", bank_ids: mergeSelection, title: mergeTitle.trim() });
               setMergeSelection([]);
               setMergeTitle("");
               setMergeOpen(false);
               await reload();
-              toast.success("合并完成");
-            })}>确认合并</Button>
+              toast.success(message("合并完成"));
+            })}>{t("确认合并")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -805,21 +781,18 @@ export default function App() {
         >
           <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
             <DialogHeader>
-              <DialogTitle>导入题库</DialogTitle>
-              <DialogDescription>
-                已识别 {preview.count} 道题目，其中 {preview.reviewCount}{" "}
-                道待复核，仍可直接练习。
-              </DialogDescription>
+              <DialogTitle>{t("导入题库")}</DialogTitle>
+              <DialogDescription>{t("已识别 {0} 道题目，其中 {1} 道待复核，仍可直接练习。", { 0: preview.count, 1: preview.reviewCount })}</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <QuestionPreview questions={preview.questions ?? []} />
-              <Label htmlFor="import-bank">导入到</Label>
+              <Label htmlFor="import-bank">{t("导入到")}</Label>
               <Select value={importBank} onValueChange={setImportBank}>
                 <SelectTrigger id="import-bank" className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="new">新建题库</SelectItem>
+                  <SelectItem value="new">{t("新建题库")}</SelectItem>
                   {banks.map((b) => (
                     <SelectItem key={b.id} value={b.id}>
                       {b.title}
@@ -829,16 +802,13 @@ export default function App() {
               </Select>
               {importBank === "new" && (
                 <Input
-                  aria-label="题库名称"
+                  aria-label={t("题库名称")}
                   value={importTitle}
                   onChange={(e) => setImportTitle(e.target.value)}
                 />
               )}
               <div className="rounded-lg border p-4 text-sm">
-                <p>
-                  已加载 {preview.assetCount} 张图片，缺失{" "}
-                  {preview.missingAssets.length} 个资源。
-                </p>
+                <p>{t("已加载 {0} 张图片，缺失 {1} 个资源。", { 0: preview.assetCount, 1: preview.missingAssets.length })}</p>
                 <Button
                   className="mt-3"
                   variant="outline"
@@ -851,18 +821,11 @@ export default function App() {
                       if (p) setPreview(p);
                     })
                   }
-                >
-                  选择图片资源根目录
-                </Button>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  选择包含 practiq-agent
-                  文件夹的目录。未提供图片也可导入，练习时会提示缺失。
-                </p>
+                >{t("选择图片资源根目录")}</Button>
+                <p className="mt-2 text-xs text-muted-foreground">{t("选择包含 practiq-agent 文件夹的目录。未提供图片也可导入，练习时会提示缺失。")}</p>
               </div>
               {preview.status === "PARTIAL" && (
-                <p className="text-sm">
-                  这是部分解析结果，可能未包含原文的全部题目。
-                </p>
+                <p className="text-sm">{t("这是部分解析结果，可能未包含原文的全部题目。")}</p>
               )}
               {preview.warnings.map((w, i) => (
                 <p key={i} className="text-sm text-muted-foreground">
@@ -871,7 +834,7 @@ export default function App() {
               ))}
               {preview.missingAssets.length > 0 && (
                 <details className="text-xs text-muted-foreground">
-                  <summary>缺失资源详情</summary>
+                  <summary>{t("缺失资源详情")}</summary>
                   {preview.missingAssets.map((m, i) => (
                     <p className="mt-2 break-all" key={i}>
                       {m}
@@ -885,9 +848,7 @@ export default function App() {
                 variant="outline"
                 disabled={busy}
                 onClick={() => setPreview(null)}
-              >
-                取消
-              </Button>
+              >{t("取消")}</Button>
               <Button
                 disabled={busy || !importTitle.trim()}
                 onClick={() =>
@@ -919,14 +880,12 @@ export default function App() {
                     );
                     toast.success(
                       result.duplicate
-                        ? "此题库已导入相同内容，本次已跳过"
-                        : `已导入 ${result.count} 道题目`,
+                        ? message("此题库已导入相同内容，本次已跳过")
+                        : message("已导入 {0} 道题目", { 0: result.count }),
                     );
                   })
                 }
-              >
-                确认导入
-              </Button>
+              >{t("确认导入")}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -940,10 +899,10 @@ export default function App() {
         >
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>编辑题库</DialogTitle>
+              <DialogTitle>{t("编辑题库")}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
-              <Label htmlFor="bankTitle">题库名称</Label>
+              <Label htmlFor="bankTitle">{t("题库名称")}</Label>
               <Input
                 id="bankTitle"
                 value={bankEditor.title}
@@ -951,7 +910,7 @@ export default function App() {
                   setBankEditor({ ...bankEditor, title: e.target.value })
                 }
               />
-              <Label htmlFor="description">说明</Label>
+              <Label htmlFor="description">{t("说明")}</Label>
               <Textarea
                 id="description"
                 value={bankEditor.description}
@@ -970,9 +929,7 @@ export default function App() {
                     await reload();
                   })
                 }
-              >
-                保存题库
-              </Button>
+              >{t("保存题库")}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -992,7 +949,7 @@ export default function App() {
               });
               setEditor(null);
               await refreshQuestions();
-              toast.success("题目已保存，历史练习不受影响");
+              toast.success(message("题目已保存，历史练习不受影响"));
             })
           }
         />
@@ -1006,7 +963,7 @@ export default function App() {
         >
           <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
             <DialogHeader>
-              <DialogTitle>题目详情</DialogTitle>
+              <DialogTitle>{t("题目详情")}</DialogTitle>
             </DialogHeader>
             <Content snapshot={detail} source />
             <AnswerInput
@@ -1017,14 +974,14 @@ export default function App() {
               prefix="detail-answer"
             />
             <div className="mt-4 space-y-4 border-t pt-4">
-              <h3 className="font-medium">参考答案</h3>
+              <h3 className="font-medium">{t("参考答案")}</h3>
               <AnswerDisplay
                 answer={detail.question.answerPayload}
                 question={detail.question}
               />
-              <h3 className="font-medium">解析</h3>
+              <h3 className="font-medium">{t("解析")}</h3>
               <p className="whitespace-pre-wrap text-sm">
-                {detail.question.analysis || "原文未提供解析。"}
+                {detail.question.analysis || t("原文未提供解析。")}
               </p>
             </div>
           </DialogContent>
@@ -1039,13 +996,13 @@ export default function App() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{confirm?.title}</AlertDialogTitle>
+            <AlertDialogTitle>{confirm && renderMessage(confirm.title)}</AlertDialogTitle>
             <AlertDialogDescription>
-              {confirm?.description}
+              {confirm && renderMessage(confirm.description)}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogCancel>{t("取消")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 if (confirm) {
@@ -1054,9 +1011,7 @@ export default function App() {
                   run(action);
                 }
               }}
-            >
-              确认
-            </AlertDialogAction>
+            >{t("确认")}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

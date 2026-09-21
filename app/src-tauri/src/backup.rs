@@ -11,13 +11,16 @@ use std::{
 };
 use zip::{write::SimpleFileOptions, ZipArchive, ZipWriter};
 const LIMIT: usize = 512 * 1024 * 1024;
-fn err(e: impl std::fmt::Display) -> String {
-    e.to_string()
+fn err(e: impl std::fmt::Display) -> crate::AppError {
+    e.to_string().into()
 }
 impl Store {
     pub fn backup(&self, destination: &Path) -> Result<Value> {
         if destination.starts_with(self.dir.join("assets")) || destination == self.db_path() {
-            return Err("不能覆盖应用数据".into());
+            return Err(crate::language::error(
+                "LOCAL_BACKUP_OVERWRITE",
+                serde_json::json!({}),
+            ));
         }
         let dir = tempfile::tempdir_in(&self.dir).map_err(err)?;
         let snapshot = dir.path().join("practiq.sqlite");
@@ -36,9 +39,15 @@ impl Store {
         let manifest = json!({"format":"practiq-backup","version":2,"schemaVersion":version,"createdAt":now(),"database":{"file":"practiq.sqlite","sha256":hash(&bytes),"sizeBytes":bytes.len()},"assets":assets});
         let manifest = serde_json::to_vec(&manifest).map_err(err)?;
         if manifest.len() > 1024 * 1024 {
-            return Err("备份清单过大".into());
+            return Err(crate::language::error(
+                "LOCAL_MANIFEST_TOO_LARGE",
+                serde_json::json!({}),
+            ));
         }
-        let parent = destination.parent().ok_or("备份路径无效")?;
+        let parent = destination.parent().ok_or(crate::language::error(
+            "LOCAL_BACKUP_PATH_INVALID",
+            serde_json::json!({}),
+        ))?;
         let mut output = tempfile::NamedTempFile::new_in(parent).map_err(err)?;
         {
             let mut zip = ZipWriter::new(output.as_file_mut());
@@ -50,15 +59,29 @@ impl Store {
             zip.write_all(&bytes).map_err(err)?;
             let mut total = bytes.len();
             for asset in &assets {
-                let digest = asset["sha256"].as_str().ok_or("图片摘要无效")?;
+                let digest = asset["sha256"].as_str().ok_or(crate::language::error(
+                    "LOCAL_IMAGE_HASH_INVALID",
+                    serde_json::json!({}),
+                ))?;
                 if asset["file"] != format!("assets/{digest}") {
-                    return Err("图片路径无效".into());
+                    return Err(crate::language::error(
+                        "LOCAL_IMAGE_PATH_INVALID",
+                        serde_json::json!({}),
+                    ));
                 }
-                let data =
-                    self.read_asset(digest, asset["sizeBytes"].as_u64().ok_or("图片大小无效")?)?;
+                let data = self.read_asset(
+                    digest,
+                    asset["sizeBytes"].as_u64().ok_or(crate::language::error(
+                        "LOCAL_IMAGE_SIZE_INVALID",
+                        serde_json::json!({}),
+                    ))?,
+                )?;
                 total += data.len();
                 if total > LIMIT {
-                    return Err("备份数据超过 512 MiB".into());
+                    return Err(crate::language::error(
+                        "LOCAL_BACKUP_TOO_LARGE",
+                        serde_json::json!({}),
+                    ));
                 }
                 zip.start_file(format!("assets/{digest}"), options)
                     .map_err(err)?;
@@ -73,7 +96,10 @@ impl Store {
     pub fn restore(&mut self, source: &Path) -> Result<Value> {
         let file = fs::File::open(source).map_err(err)?;
         if file.metadata().map_err(err)?.len() > (LIMIT + 2 * 1024 * 1024) as u64 {
-            return Err("备份包超过大小限制".into());
+            return Err(crate::language::error(
+                "LOCAL_ARCHIVE_TOO_LARGE",
+                serde_json::json!({}),
+            ));
         }
         let mut archive = ZipArchive::new(file).map_err(err)?;
         let mut manifest = Vec::new();
@@ -84,43 +110,73 @@ impl Store {
             .read_to_end(&mut manifest)
             .map_err(err)?;
         if manifest.len() > 1024 * 1024 {
-            return Err("备份清单过大".into());
+            return Err(crate::language::error(
+                "LOCAL_MANIFEST_TOO_LARGE",
+                serde_json::json!({}),
+            ));
         }
         let manifest: Value = serde_json::from_slice(&manifest).map_err(err)?;
         let legacy = manifest["version"] == 1;
         if manifest["format"] != "practiq-backup" || (!legacy && manifest["version"] != 2) {
-            return Err("不支持的备份版本".into());
+            return Err(crate::language::error(
+                "LOCAL_BACKUP_VERSION_UNSUPPORTED",
+                serde_json::json!({}),
+            ));
         }
         let assets = if legacy {
             Vec::new()
         } else {
-            manifest["assets"].as_array().ok_or("缺少图片清单")?.clone()
+            manifest["assets"]
+                .as_array()
+                .ok_or(crate::language::error(
+                    "LOCAL_IMAGE_MANIFEST_MISSING",
+                    serde_json::json!({}),
+                ))?
+                .clone()
         };
         let mut allowed = std::collections::HashSet::from([
             "manifest.json".to_owned(),
             "practiq.sqlite".to_owned(),
         ]);
         for asset in &assets {
-            let digest = asset["sha256"].as_str().ok_or("图片摘要无效")?;
+            let digest = asset["sha256"].as_str().ok_or(crate::language::error(
+                "LOCAL_IMAGE_HASH_INVALID",
+                serde_json::json!({}),
+            ))?;
             self.asset_path(digest)?;
             let path = format!("assets/{digest}");
             if asset["file"] != path || !allowed.insert(path) {
-                return Err("备份图片清单重复或路径非法".into());
+                return Err(crate::language::error(
+                    "LOCAL_IMAGE_MANIFEST_INVALID",
+                    serde_json::json!({}),
+                ));
             }
         }
         if archive.len() != allowed.len() {
-            return Err("备份包含未声明文件".into());
+            return Err(crate::language::error(
+                "LOCAL_BACKUP_UNDECLARED_FILE",
+                serde_json::json!({}),
+            ));
         }
         let mut total = 0u64;
         for i in 0..archive.len() {
             let f = archive.by_index(i).map_err(err)?;
             if !allowed.remove(f.name()) || f.unix_mode().is_some_and(|m| m & 0o170000 == 0o120000)
             {
-                return Err("备份包含非法路径或链接".into());
+                return Err(crate::language::error(
+                    "LOCAL_BACKUP_UNSAFE_PATH",
+                    serde_json::json!({}),
+                ));
             }
-            total = total.checked_add(f.size()).ok_or("备份大小溢出")?;
+            total = total.checked_add(f.size()).ok_or(crate::language::error(
+                "LOCAL_BACKUP_SIZE_OVERFLOW",
+                serde_json::json!({}),
+            ))?;
             if total > (LIMIT + 1024 * 1024) as u64 {
-                return Err("备份解压后超过大小限制".into());
+                return Err(crate::language::error(
+                    "LOCAL_BACKUP_EXPANDED_TOO_LARGE",
+                    serde_json::json!({}),
+                ));
             }
         }
         let staging = tempfile::tempdir_in(&self.dir).map_err(err)?;
@@ -136,19 +192,29 @@ impl Store {
             || manifest["database"]["sizeBytes"] != bytes.len()
             || manifest["database"]["sha256"] != hash(&bytes)
         {
-            return Err("备份数据库大小或校验和不匹配".into());
+            return Err(crate::language::error(
+                "LOCAL_BACKUP_CHECKSUM_MISMATCH",
+                serde_json::json!({}),
+            ));
         }
         fs::write(&candidate, &bytes).map_err(err)?;
         let version = validate_database(&candidate)?;
         if manifest["schemaVersion"] != version || (legacy && version > 2) {
-            return Err("备份清单与数据库版本不一致".into());
+            return Err(crate::language::error(
+                "LOCAL_BACKUP_SCHEMA_MISMATCH",
+                serde_json::json!({}),
+            ));
         }
         let staged = Store {
+            locale: Default::default(),
             dir: staging.path().to_owned(),
             pending: None,
         };
         for asset in &assets {
-            let digest = asset["sha256"].as_str().ok_or("图片摘要无效")?;
+            let digest = asset["sha256"].as_str().ok_or(crate::language::error(
+                "LOCAL_IMAGE_HASH_INVALID",
+                serde_json::json!({}),
+            ))?;
             let mut data = Vec::new();
             archive
                 .by_name(&format!("assets/{digest}"))
@@ -157,7 +223,10 @@ impl Store {
                 .read_to_end(&mut data)
                 .map_err(err)?;
             if asset["sizeBytes"] != data.len() {
-                return Err("备份图片大小不匹配".into());
+                return Err(crate::language::error(
+                    "LOCAL_BACKUP_IMAGE_SIZE",
+                    serde_json::json!({}),
+                ));
             }
             staged.write_asset(digest, &data)?;
         }
@@ -178,22 +247,34 @@ impl Store {
             .collect::<std::result::Result<Vec<_>, _>>()
             .map_err(err)?;
         if !legacy && rows.len() != assets.len() {
-            return Err("图片清单与数据库不一致".into());
+            return Err(crate::language::error(
+                "LOCAL_BACKUP_IMAGE_MANIFEST",
+                serde_json::json!({}),
+            ));
         }
         for (digest, media, size, path) in rows {
             if path != format!("assets/{digest}") {
-                return Err("备份图片路径不合法".into());
+                return Err(crate::language::error(
+                    "LOCAL_BACKUP_IMAGE_PATH",
+                    serde_json::json!({}),
+                ));
             }
             if !legacy
                 && !assets.iter().any(|a| {
                     a["sha256"] == digest && a["sizeBytes"] == size && a["mediaType"] == media
                 })
             {
-                return Err("图片清单与数据库不一致".into());
+                return Err(crate::language::error(
+                    "LOCAL_BACKUP_IMAGE_MANIFEST",
+                    serde_json::json!({}),
+                ));
             }
             let data = staged.read_asset(&digest, size)?;
             if !crate::store::image_signature(&data, &media) {
-                return Err("备份图片格式不匹配".into());
+                return Err(crate::language::error(
+                    "LOCAL_BACKUP_IMAGE_FORMAT",
+                    serde_json::json!({}),
+                ));
             }
             self.write_asset(&digest, &data)?;
         }
@@ -214,12 +295,12 @@ impl Store {
         fs::rename(&candidate, self.db_path()).map_err(err)?;
         if let Err(error) = fs::File::open(&self.dir).and_then(|dir| dir.sync_all()) {
             fs::rename(&previous, self.db_path()).map_err(|rollback| {
-                format!(
-                    "恢复失败：{error}；回滚失败：{rollback}；恢复副本：{}",
-                    recovery.display()
-                )
+                crate::language::error("LOCAL_RESTORE_ROLLBACK_FAILED", json!({"error":error.to_string(),"rollback":rollback.to_string(),"path":recovery.display().to_string()}))
             })?;
-            return Err(format!("恢复未完成：{error}；已恢复原数据库"));
+            return Err(crate::language::error(
+                "LOCAL_RESTORE_FAILED",
+                serde_json::json!({"error": error.to_string()}),
+            ));
         }
         self.pending = None;
         Ok(json!({"recoveryPath":recovery.display().to_string()}))
@@ -233,8 +314,11 @@ fn validate_database(path: &Path) -> Result<i64> {
     let version: i64 = db
         .query_row("PRAGMA user_version", [], |r| r.get(0))
         .map_err(err)?;
-    if ![1, 2, 3, 4, 5, 6, 7].contains(&version) {
-        return Err("备份数据库版本不兼容".into());
+    if ![1, 2, 3, 4, 5, 6, 7, 8].contains(&version) {
+        return Err(crate::language::error(
+            "LOCAL_BACKUP_DATABASE_VERSION",
+            serde_json::json!({}),
+        ));
     }
     let schema = |db: &Connection| -> Result<Vec<String>> {
         let mut stmt=db.prepare("SELECT type||':'||name||':'||COALESCE(sql,'') FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY name").map_err(err)?;
@@ -278,8 +362,25 @@ fn validate_database(path: &Path) -> Result<i64> {
             .execute_batch(include_str!("single_model.sql"))
             .map_err(err)?;
     }
+    if version >= 8 {
+        expected
+            .execute_batch(include_str!("language.sql"))
+            .map_err(err)?;
+        let value: Option<String> = db
+            .query_row("SELECT locale FROM settings WHERE id=1", [], |r| r.get(0))
+            .map_err(err)?;
+        if value
+            .as_deref()
+            .is_some_and(|v| !["zh-CN", "en"].contains(&v))
+        {
+            return Err(crate::language::error("LOCAL_LANGUAGE_INVALID", json!({})));
+        }
+    }
     if schema(&db)? != schema(&expected)? {
-        return Err("备份数据库结构不受支持".into());
+        return Err(crate::language::error(
+            "LOCAL_BACKUP_SCHEMA_UNSUPPORTED",
+            serde_json::json!({}),
+        ));
     }
     if version >= 2 {
         let config = db
@@ -318,7 +419,10 @@ fn validate_database(path: &Path) -> Result<i64> {
         .query_row("PRAGMA integrity_check", [], |r| r.get(0))
         .map_err(err)?;
     if integrity != "ok" {
-        return Err("备份数据库完整性检查失败".into());
+        return Err(crate::language::error(
+            "LOCAL_BACKUP_INTEGRITY",
+            serde_json::json!({}),
+        ));
     }
     if db
         .prepare("PRAGMA foreign_key_check")
@@ -329,7 +433,10 @@ fn validate_database(path: &Path) -> Result<i64> {
         .map_err(err)?
         .is_some()
     {
-        return Err("备份数据库关联损坏".into());
+        return Err(crate::language::error(
+            "LOCAL_BACKUP_RELATIONS",
+            serde_json::json!({}),
+        ));
     }
     if version < 3 {
         let mut stmt = db
@@ -344,7 +451,10 @@ fn validate_database(path: &Path) -> Result<i64> {
                 || data.len() > crate::assets::LIMIT
                 || hash(&data) != digest
             {
-                return Err("备份图片校验失败".into());
+                return Err(crate::language::error(
+                    "LOCAL_BACKUP_IMAGE_CHECKSUM",
+                    serde_json::json!({}),
+                ));
             }
         }
     }
@@ -356,13 +466,19 @@ fn validate_database(path: &Path) -> Result<i64> {
         while let Some(row) = rows.next().map_err(err)? {
             let raw: String = row.get(0).map_err(err)?;
             if raw.len() > crate::contract::MAX_JSON {
-                return Err("备份题目过大".into());
+                return Err(crate::language::error(
+                    "LOCAL_BACKUP_QUESTION_SIZE",
+                    serde_json::json!({}),
+                ));
             }
             let mut snapshot: Value = serde_json::from_str(&raw).map_err(err)?;
             crate::contract::validate_question(&mut snapshot["question"])?;
             for key in ["groups", "visuals", "sources", "warnings"] {
                 if !snapshot[key].is_array() {
-                    return Err(format!("备份快照字段不合法: {key}"));
+                    return Err(crate::language::error(
+                        "LOCAL_BACKUP_SNAPSHOT_FIELD",
+                        serde_json::json!({"key": key}),
+                    ));
                 }
             }
             let content = |key: &str| -> Result<Vec<Value>> {
@@ -370,7 +486,10 @@ fn validate_database(path: &Path) -> Result<i64> {
                     .iter()
                     .map(|value| {
                         let mut value = value.clone();
-                        let object = value.as_object_mut().ok_or("备份材料或图片结构不合法")?;
+                        let object = value.as_object_mut().ok_or(crate::language::error(
+                            "LOCAL_BACKUP_CONTENT_INVALID",
+                            serde_json::json!({}),
+                        ))?;
                         object.remove("id");
                         object.remove("questionIds");
                         object.insert("questionIndexes".into(), json!([0]));
@@ -445,7 +564,7 @@ mod tests {
                 upgraded.connection_settings().unwrap().model_id.as_deref(),
                 expected
             );
-            assert_eq!(validate_database(&path).unwrap(), 7);
+            assert_eq!(validate_database(&path).unwrap(), 8);
             upgraded
                 .connect()
                 .unwrap()

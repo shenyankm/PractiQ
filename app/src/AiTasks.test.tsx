@@ -55,6 +55,7 @@ it("shows progress and sends only the current run when pausing", async () => {
   await userEvent.click(await screen.findByRole("button", { name: "暂停" }));
   await waitFor(() =>
     expect(invoke).toHaveBeenCalledWith("ai_request", {
+      locale: "zh-CN",
       request: {
         type: "control",
         id: "task",
@@ -79,7 +80,7 @@ it("keeps task failures visible with a retry action without starting an import",
     />,
   );
   expect(await screen.findByRole("alert")).toBeTruthy();
-  expect(screen.getByText("请先配置模型 ID")).toBeTruthy();
+  expect(screen.getByText(/请先配置模型 ID/)).toBeTruthy();
   expect(screen.getByRole("button", { name: "重试" })).toBeTruthy();
   expect(toast.error).not.toHaveBeenCalled();
 });
@@ -178,6 +179,7 @@ it("requires content review before acceptance and excludes waiting tasks from ba
   await userEvent.click(screen.getByRole("button", { name: "接受部分结果" }));
   await waitFor(() =>
     expect(invoke).toHaveBeenCalledWith("ai_request", {
+      locale: "zh-CN",
       request: {
         type: "control",
         id: "task",
@@ -255,6 +257,7 @@ it("edits separate bank names and can cancel a running batch without waiting for
   await userEvent.click(screen.getByRole("button", { name: "确认逐项导入" }));
   await waitFor(() =>
     expect(invoke).toHaveBeenCalledWith("ai_request", {
+      locale: "zh-CN",
       request: { type: "run_batch", id: "batch", titles: ["独立题库"] },
     }),
   );
@@ -262,6 +265,7 @@ it("edits separate bank names and can cancel a running batch without waiting for
     await screen.findByRole("button", { name: "停止后续导入" }),
   );
   expect(invoke).toHaveBeenCalledWith("ai_request", {
+      locale: "zh-CN",
     request: { type: "cancel_batch", id: "batch" },
   });
   finish?.({ ...batch, status: "paused" });
@@ -304,6 +308,7 @@ it("replays a pending request by its persisted ID only after explicit action", a
   await userEvent.click(retry);
   await waitFor(() =>
     expect(invoke).toHaveBeenCalledWith("ai_request", {
+      locale: "zh-CN",
       request: { type: "replay", request_id: "stable-id" },
     }),
   );

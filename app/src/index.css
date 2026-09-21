@@ -123,3 +123,10 @@
   overflow-x: auto;
   overflow-y: hidden;
 }
+
+/* English actions need room to wrap within the desktop's existing columns. */
+html[lang="en"] [data-slot="button"]:not([data-size^="icon"]) {
+  height: auto;
+  min-height: 2rem;
+  white-space: normal;
+}
