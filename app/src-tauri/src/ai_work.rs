@@ -40,7 +40,10 @@ impl Drop for Lease<'_> {
 }
 impl WorkState {
     fn claim(&self, id: &str) -> Result<Lease<'_>> {
-        let mut active = self.0.lock().map_err(|_| "工作状态不可用")?;
+        let mut active = self
+            .0
+            .lock()
+            .map_err(|_| crate::language::error("LOCAL_WORK_UNAVAILABLE", serde_json::json!({})))?;
         self.claim_locked(id, &mut active)
     }
     fn claim_locked<'a>(
@@ -63,7 +66,10 @@ impl WorkState {
         self.claim(&store::id())
     }
     pub(crate) fn restore(&self) -> Result<Lease<'_>> {
-        let mut active = self.0.lock().map_err(|_| "工作状态不可用")?;
+        let mut active = self
+            .0
+            .lock()
+            .map_err(|_| crate::language::error("LOCAL_WORK_UNAVAILABLE", serde_json::json!({})))?;
         if !active.is_empty() {
             return Err(AppError::new(
                 "OPERATION_BUSY",
@@ -75,12 +81,16 @@ impl WorkState {
 }
 
 fn path(dir: &Path, kind: &str, id: &str) -> Result<PathBuf> {
-    let id = uuid::Uuid::parse_str(id).map_err(|_| "操作 ID 不合法")?;
+    let id = uuid::Uuid::parse_str(id)
+        .map_err(|_| crate::language::error("LOCAL_OPERATION_ID_INVALID", serde_json::json!({})))?;
     Ok(dir.join("ai").join(kind).join(format!("{id}.json")))
 }
 fn save<T: Serialize>(dir: &Path, kind: &str, id: &str, value: &T) -> Result<()> {
     let path = path(dir, kind, id)?;
-    let parent = path.parent().ok_or("工作目录无效")?;
+    let parent = path.parent().ok_or(crate::language::error(
+        "LOCAL_WORK_DIRECTORY_INVALID",
+        serde_json::json!({}),
+    ))?;
     fs::create_dir_all(parent).map_err(err)?;
     let mut file = tempfile::NamedTempFile::new_in(parent).map_err(err)?;
     file.write_all(&serde_json::to_vec(value).map_err(err)?)
@@ -115,7 +125,10 @@ fn all<T: DeserializeOwned>(dir: &Path, kind: &str) -> Result<Vec<T>> {
                 kind,
                 path.file_stem()
                     .and_then(|s| s.to_str())
-                    .ok_or("工作文件名无效")?,
+                    .ok_or(crate::language::error(
+                        "LOCAL_WORK_FILENAME_INVALID",
+                        serde_json::json!({}),
+                    ))?,
             )?);
         }
     }
@@ -142,18 +155,28 @@ struct Operation {
     error: Option<AppError>,
 }
 fn validate_operation(op: &Operation) -> Result<()> {
-    uuid::Uuid::parse_str(&op.id).map_err(|_| "操作 ID 不合法")?;
+    uuid::Uuid::parse_str(&op.id)
+        .map_err(|_| crate::language::error("LOCAL_OPERATION_ID_INVALID", serde_json::json!({})))?;
     if op.body["requestId"] != op.id {
-        return Err("操作回执不匹配".into());
+        return Err(crate::language::error(
+            "LOCAL_RECEIPT_MISMATCH",
+            serde_json::json!({}),
+        ));
     }
     if op.path != "/api/document-tasks" {
         let id = op
             .path
             .strip_prefix("/api/document-tasks/")
             .and_then(|s| s.strip_suffix("/control"))
-            .ok_or("操作路径不合法")?;
+            .ok_or(crate::language::error(
+                "LOCAL_OPERATION_PATH_INVALID",
+                serde_json::json!({}),
+            ))?;
         if op.path != format!("{}/control", task_path(id)?) {
-            return Err("操作路径不合法".into());
+            return Err(crate::language::error(
+                "LOCAL_OPERATION_PATH_INVALID",
+                serde_json::json!({}),
+            ));
         }
     }
     Ok(())
@@ -179,10 +202,16 @@ pub fn submit_operation(
     let mut unsigned = body.clone();
     unsigned
         .as_object_mut()
-        .ok_or("请求格式无效")?
+        .ok_or(crate::language::error(
+            "LOCAL_REQUEST_INVALID",
+            serde_json::json!({}),
+        ))?
         .remove("requestId");
     let identity = store::hash(&serde_json::to_vec(&json!([path, unsigned])).map_err(err)?);
-    let mut active = work.0.lock().map_err(|_| "工作状态不可用")?;
+    let mut active = work
+        .0
+        .lock()
+        .map_err(|_| crate::language::error("LOCAL_WORK_UNAVAILABLE", serde_json::json!({})))?;
     let previous = all::<Operation>(dir, "requests")?
         .into_iter()
         .find(|op| op.identity == identity && op.status == OperationStatus::Pending);
@@ -211,7 +240,10 @@ pub fn replay_operation(
     let lease = work.claim(id)?;
     let op: Operation = read(dir, "requests", id)?;
     if op.id != id {
-        return Err("操作 ID 不匹配".into());
+        return Err(crate::language::error(
+            "LOCAL_OPERATION_ID_MISMATCH",
+            serde_json::json!({}),
+        ));
     }
     execute_operation(dir, endpoint, op, lease)
 }
@@ -223,12 +255,14 @@ fn execute_operation(
 ) -> Result<Value> {
     validate_operation(&op)?;
     if op.status == OperationStatus::Accepted {
-        return op.receipt.ok_or_else(|| "操作回执缺失".into());
+        return op
+            .receipt
+            .ok_or_else(|| crate::language::error("LOCAL_RECEIPT_MISSING", serde_json::json!({})));
     }
     if op.status == OperationStatus::Rejected {
-        return Err(op
-            .error
-            .unwrap_or_else(|| "操作已被拒绝，请刷新任务".into()));
+        return Err(op.error.unwrap_or_else(|| {
+            crate::language::error("LOCAL_OPERATION_REJECTED", serde_json::json!({}))
+        }));
     }
     save(dir, "requests", &op.id, &op)?; // Durable identity before the first POST.
     let result = endpoint
@@ -307,9 +341,13 @@ struct Batch {
     items: Vec<BatchItem>,
 }
 fn validate_batch(batch: &Batch) -> Result<()> {
-    uuid::Uuid::parse_str(&batch.id).map_err(|_| "批次 ID 不合法")?;
+    uuid::Uuid::parse_str(&batch.id)
+        .map_err(|_| crate::language::error("LOCAL_BATCH_ID_INVALID", serde_json::json!({})))?;
     if batch.items.is_empty() || batch.items.len() > 100 {
-        return Err("每批请选择 1–100 个任务".into());
+        return Err(crate::language::error(
+            "LOCAL_BATCH_SIZE_INVALID",
+            serde_json::json!({}),
+        ));
     }
     let mut seen = HashSet::new();
     for item in &batch.items {
@@ -325,16 +363,23 @@ fn validate_batch(batch: &Batch) -> Result<()> {
             || item.title.trim().is_empty()
             || item.title.chars().count() > 200
         {
-            return Err("批次条目不合法".into());
+            return Err(crate::language::error(
+                "LOCAL_BATCH_ITEM_INVALID",
+                serde_json::json!({}),
+            ));
         }
     }
     Ok(())
 }
 pub fn prepare_batch(dir: &Path, endpoint: &Endpoint, ids: &[String]) -> Result<Value> {
     if ids.is_empty() || ids.len() > 100 || ids.iter().collect::<HashSet<_>>().len() != ids.len() {
-        return Err("请选择 1–100 个不重复的已完成任务".into());
+        return Err(crate::language::error(
+            "LOCAL_BATCH_SELECTION_INVALID",
+            serde_json::json!({}),
+        ));
     }
     let store = Store {
+        locale: Default::default(),
         dir: dir.into(),
         pending: None,
     };
@@ -346,7 +391,10 @@ pub fn prepare_batch(dir: &Path, endpoint: &Endpoint, ids: &[String]) -> Result<
     };
     for id in ids {
         let pending = endpoint.pending(id)?;
-        let source = pending.source.as_ref().ok_or("缺少任务来源")?;
+        let source = pending.source.as_ref().ok_or(crate::language::error(
+            "LOCAL_TASK_SOURCE_MISSING",
+            serde_json::json!({}),
+        ))?;
         let digest = pending.digest()?;
         let bank = store.imported_ai(id, Some(&digest), None)?;
         let previous = bank.is_none() && store.imported_ai(id, None, None)?.is_some();
@@ -378,7 +426,10 @@ pub fn prepare_batch(dir: &Path, endpoint: &Endpoint, ids: &[String]) -> Result<
 }
 pub fn batches(dir: &Path, work: &WorkState) -> Result<Value> {
     let mut batches = all::<Batch>(dir, "import-batches")?;
-    let active = work.0.lock().map_err(|_| "工作状态不可用")?;
+    let active = work
+        .0
+        .lock()
+        .map_err(|_| crate::language::error("LOCAL_WORK_UNAVAILABLE", serde_json::json!({})))?;
     for batch in &mut batches {
         validate_batch(batch)?;
         if batch.status == BatchStatus::Running && !active.contains_key(&batch.id) {
@@ -389,7 +440,10 @@ pub fn batches(dir: &Path, work: &WorkState) -> Result<Value> {
     Ok(json!(batches))
 }
 pub fn cancel_batch(dir: &Path, work: &WorkState, id: &str) -> Result<Value> {
-    let active = work.0.lock().map_err(|_| "工作状态不可用")?;
+    let active = work
+        .0
+        .lock()
+        .map_err(|_| crate::language::error("LOCAL_WORK_UNAVAILABLE", serde_json::json!({})))?;
     let mut batch: Batch = read(dir, "import-batches", id)?;
     validate_batch(&batch)?;
     if let Some(cancelled) = active.get(id) {
@@ -411,11 +465,17 @@ pub fn run_batch(
     let lease = work.claim(id)?;
     let mut batch: Batch = read(dir, "import-batches", id)?;
     if batch.id != id {
-        return Err("批次 ID 不匹配".into());
+        return Err(crate::language::error(
+            "LOCAL_BATCH_ID_MISMATCH",
+            serde_json::json!({}),
+        ));
     }
     if let Some(titles) = titles {
         if batch.status != BatchStatus::Ready || titles.len() != batch.items.len() {
-            return Err("批次已经开始，无法修改名称".into());
+            return Err(crate::language::error(
+                "LOCAL_BATCH_STARTED",
+                serde_json::json!({}),
+            ));
         }
         for (item, title) in batch.items.iter_mut().zip(titles) {
             item.title = title.trim().into();
@@ -458,11 +518,11 @@ fn import_item(
     shared: &Shared,
     item: &BatchItem,
 ) -> Result<String> {
-    if let Some(bank) = shared.lock().map_err(|_| "数据库不可用")?.imported_ai(
-        &item.thread_id,
-        Some(&item.digest),
-        None,
-    )? {
+    if let Some(bank) = shared
+        .lock()
+        .map_err(|_| crate::language::error("LOCAL_DATABASE_UNAVAILABLE", serde_json::json!({})))?
+        .imported_ai(&item.thread_id, Some(&item.digest), None)?
+    {
         return Ok(bank);
     }
     let mut pending = endpoint.pending(&item.thread_id)?;
@@ -478,15 +538,15 @@ fn import_item(
     endpoint.load_assets(
         &mut pending,
         &Store {
+            locale: Default::default(),
             dir: dir.into(),
             pending: None,
         },
     )?;
-    let result =
-        shared
-            .lock()
-            .map_err(|_| "数据库不可用")?
-            .import_pending(&pending, None, &item.title)?;
+    let result = shared
+        .lock()
+        .map_err(|_| crate::language::error("LOCAL_DATABASE_UNAVAILABLE", serde_json::json!({})))?
+        .import_pending(&pending, None, &item.title)?;
     Ok(contract::text(&result, "bankId").into())
 }
 

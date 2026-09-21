@@ -55,6 +55,7 @@ it("shows progress and sends only the current run when pausing", async () => {
   await userEvent.click(await screen.findByRole("button", { name: "暂停" }));
   await waitFor(() =>
     expect(invoke).toHaveBeenCalledWith("ai_request", {
+      locale: "zh-CN",
       request: {
         type: "control",
         id: "task",
@@ -67,8 +68,12 @@ it("shows progress and sends only the current run when pausing", async () => {
   );
   expect(screen.getByText(/完成 1\/2/)).toBeTruthy();
 });
-it("keeps task failures visible with a retry action without starting an import", async () => {
-  vi.mocked(invoke).mockRejectedValue({ message: "请先配置模型 ID" });
+it.each([new Error("请先配置模型 ID"), { message: "请先配置模型 ID" }])("hides the empty state on task failure and shows it after successful retry (%j)", async error => {
+  vi.mocked(invoke).mockImplementation(async (_command, args) => {
+    const { type } = (args as { request: { type: string } }).request;
+    if (type === "list") throw error;
+    return [] as never;
+  });
   render(
     <AiTasks
       busy={false}
@@ -79,9 +84,18 @@ it("keeps task failures visible with a retry action without starting an import",
     />,
   );
   expect(await screen.findByRole("alert")).toBeTruthy();
-  expect(screen.getByText("请先配置模型 ID")).toBeTruthy();
+  expect(screen.getByText(/请先配置模型 ID/)).toBeTruthy();
   expect(screen.getByRole("button", { name: "重试" })).toBeTruthy();
   expect(toast.error).not.toHaveBeenCalled();
+  expect(screen.queryByText("暂无解析任务")).toBeNull();
+  vi.mocked(invoke).mockImplementation(async (_command, args) => {
+    const { type } = (args as { request: { type: string } }).request;
+    return (type === "list" ? { items: [], hasMore: false } : []) as never;
+  });
+  await userEvent.click(screen.getByRole("button", { name: "重试" }));
+  expect(await screen.findByText("暂无解析任务")).toBeTruthy();
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(vi.mocked(invoke).mock.calls.every(([, args]) => ["list", "operations", "batches"].includes((args as { request: { type: string } }).request.type))).toBe(true);
 });
 it("requires content review before acceptance and excludes waiting tasks from batch selection", async () => {
   const state = {
@@ -178,6 +192,7 @@ it("requires content review before acceptance and excludes waiting tasks from ba
   await userEvent.click(screen.getByRole("button", { name: "接受部分结果" }));
   await waitFor(() =>
     expect(invoke).toHaveBeenCalledWith("ai_request", {
+      locale: "zh-CN",
       request: {
         type: "control",
         id: "task",
@@ -255,6 +270,7 @@ it("edits separate bank names and can cancel a running batch without waiting for
   await userEvent.click(screen.getByRole("button", { name: "确认逐项导入" }));
   await waitFor(() =>
     expect(invoke).toHaveBeenCalledWith("ai_request", {
+      locale: "zh-CN",
       request: { type: "run_batch", id: "batch", titles: ["独立题库"] },
     }),
   );
@@ -262,6 +278,7 @@ it("edits separate bank names and can cancel a running batch without waiting for
     await screen.findByRole("button", { name: "停止后续导入" }),
   );
   expect(invoke).toHaveBeenCalledWith("ai_request", {
+      locale: "zh-CN",
     request: { type: "cancel_batch", id: "batch" },
   });
   finish?.({ ...batch, status: "paused" });
@@ -304,6 +321,7 @@ it("replays a pending request by its persisted ID only after explicit action", a
   await userEvent.click(retry);
   await waitFor(() =>
     expect(invoke).toHaveBeenCalledWith("ai_request", {
+      locale: "zh-CN",
       request: { type: "replay", request_id: "stable-id" },
     }),
   );

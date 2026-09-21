@@ -78,6 +78,10 @@ jobs:
           workspaces: app/src-tauri
       - run: make install-locked app-install-python AI_PYTHON=python
       - run: make app-install
+      - run: npx playwright install chromium --only-shell
+        working-directory: app
+      - run: npm run test:browser
+        working-directory: app
       - run: make app-check AI_PYTHON=python
       - run: cargo fmt --manifest-path app/src-tauri/Cargo.toml --check
       - run: make app-build AI_PYTHON=python

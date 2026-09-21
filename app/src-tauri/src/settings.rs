@@ -18,7 +18,7 @@ impl ConnectionSettings {
     pub fn validate(mut self) -> Result<Self> {
         for (name, value) in [
             ("Base URL", &mut self.base_url),
-            ("OSS 地址", &mut self.oss_url),
+            ("OSS URL", &mut self.oss_url),
         ] {
             *value = value
                 .take()
@@ -26,10 +26,14 @@ impl ConnectionSettings {
                 .filter(|s| !s.is_empty());
             if let Some(raw) = value {
                 if raw.len() > 2048 {
-                    return Err(format!("{name} 过长"));
+                    return Err(crate::language::error(
+                        "LOCAL_URL_TOO_LONG",
+                        serde_json::json!({"name": name}),
+                    ));
                 }
-                let url = url::Url::parse(raw)
-                    .map_err(|_| format!("{name} 必须为完整的 http(s) 地址"))?;
+                let url = url::Url::parse(raw).map_err(|_| {
+                    crate::language::error("LOCAL_URL_INVALID", serde_json::json!({"name": name}))
+                })?;
                 let loopback = url.host_str().is_some_and(|h| {
                     h == "localhost"
                         || h == "[::1]"
@@ -37,7 +41,10 @@ impl ConnectionSettings {
                             .is_ok_and(|ip| ip.is_loopback())
                 });
                 if url.scheme() != "https" && !(url.scheme() == "http" && loopback) {
-                    return Err(format!("{name} 需要 HTTPS，本机回环地址可使用 HTTP"));
+                    return Err(crate::language::error(
+                        "LOCAL_URL_HTTPS_REQUIRED",
+                        serde_json::json!({"name": name}),
+                    ));
                 }
                 if url.host_str().is_none()
                     || !url.username().is_empty()
@@ -45,7 +52,10 @@ impl ConnectionSettings {
                     || url.query().is_some()
                     || url.fragment().is_some()
                 {
-                    return Err(format!("{name} 不能包含用户名、密码、查询参数或片段"));
+                    return Err(crate::language::error(
+                        "LOCAL_URL_CREDENTIALS_FORBIDDEN",
+                        serde_json::json!({"name": name}),
+                    ));
                 }
                 *raw = url.to_string().trim_end_matches('/').to_owned();
             }
@@ -60,7 +70,10 @@ impl ConnectionSettings {
             .as_ref()
             .is_some_and(|s| s.chars().count() > 255 || s.chars().any(char::is_control))
         {
-            return Err("Model ID 不合法".into());
+            return Err(crate::language::error(
+                "LOCAL_MODEL_ID_INVALID",
+                serde_json::json!({}),
+            ));
         }
         Ok(self)
     }
@@ -69,18 +82,24 @@ fn secret(entry: &Entry) -> Result<Option<String>> {
     match entry.get_password() {
         Ok(s) => Ok(Some(s)),
         Err(keyring::Error::NoEntry) => Ok(None),
-        Err(_) => Err("无法读取 macOS 钥匙串，请检查钥匙串是否已解锁".into()),
+        Err(_) => Err(crate::language::error(
+            "LOCAL_KEYCHAIN_READ",
+            serde_json::json!({}),
+        )),
     }
 }
 fn write_secret(entry: &Entry, value: Option<&str>) -> Result<()> {
     if let Some(value) = value {
         entry
             .set_password(value)
-            .map_err(|_| "无法写入 macOS 钥匙串；API Key 未保存".to_owned())
+            .map_err(|_| crate::language::error("LOCAL_KEYCHAIN_WRITE", serde_json::json!({})))
     } else {
         match entry.delete_credential() {
             Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
-            Err(_) => Err("无法移除钥匙串中的 API Key".into()),
+            Err(_) => Err(crate::language::error(
+                "LOCAL_KEYCHAIN_DELETE",
+                serde_json::json!({}),
+            )),
         }
     }
 }
@@ -89,13 +108,16 @@ fn entry(service: &str, base_url: &str) -> Result<Entry> {
         service,
         &format!("ai-api-key-{}", hash(base_url.as_bytes())),
     )
-    .map_err(|_| "无法初始化 macOS 钥匙串".into())
+    .map_err(|_| crate::language::error("LOCAL_KEYCHAIN_INIT", serde_json::json!({})))
 }
 impl Store {
     pub fn model_secret(&self, service: &str, base: &str) -> Result<String> {
         secret(&entry(service, base)?)?
             .filter(|s| !s.is_empty())
-            .ok_or("请先在设置中保存 API Key".into())
+            .ok_or(crate::language::error(
+                "LOCAL_API_KEY_REQUIRED",
+                serde_json::json!({}),
+            ))
     }
     pub fn connection_settings(&self) -> Result<ConnectionSettings> {
         self.connect()?
@@ -110,7 +132,7 @@ impl Store {
                     })
                 },
             )
-            .map_err(|e| e.to_string())
+            .map_err(|e| crate::AppError::from(e.to_string()))
     }
     pub fn settings(&self, service: &str) -> Result<Value> {
         let config = self.connection_settings()?;
@@ -132,18 +154,26 @@ impl Store {
             .as_ref()
             .is_some_and(|s| s.len() > 8192 || s.chars().any(char::is_control))
         {
-            return Err("API Key 不合法".into());
+            return Err(crate::language::error(
+                "LOCAL_API_KEY_INVALID",
+                serde_json::json!({}),
+            ));
         }
         if api_key.as_ref().is_some_and(|s| !s.trim().is_empty()) && config.base_url.is_none() {
-            return Err("保存 API Key 前请填写 Base URL".into());
+            return Err(crate::language::error(
+                "LOCAL_API_KEY_URL_REQUIRED",
+                serde_json::json!({}),
+            ));
         }
         let mut db = self.connect()?;
-        let tx = db.transaction().map_err(|e| e.to_string())?;
+        let tx = db
+            .transaction()
+            .map_err(|e| crate::AppError::from(e.to_string()))?;
         tx.execute(
             "UPDATE settings SET base_url=?1,model_id=?2,oss_url=?3 WHERE id=1",
             params![config.base_url, config.model_id, config.oss_url],
         )
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| crate::AppError::from(e.to_string()))?;
         let previous = if let (Some(base), Some(key)) = (&config.base_url, &api_key) {
             let entry = entry(service, base)?;
             let previous = secret(&entry)?;
@@ -155,10 +185,11 @@ impl Store {
         };
         if let Err(error) = tx.commit() {
             if let Some((entry, previous)) = previous {
-                write_secret(&entry, previous.as_deref())
-                    .map_err(|_| "设置保存失败，钥匙串回滚失败；请重新设置 API Key")?;
+                write_secret(&entry, previous.as_deref()).map_err(|_| {
+                    crate::language::error("LOCAL_KEYCHAIN_ROLLBACK", serde_json::json!({}))
+                })?;
             }
-            return Err(error.to_string());
+            return Err(error.to_string().into());
         }
         self.settings(service)
     }

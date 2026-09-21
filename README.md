@@ -12,7 +12,7 @@ PractiQ combines an offline desktop practice app with a self-hosted AI service. 
 
 ## Practise with your own materials
 
-The desktop interface is currently in Chinese; control names below are translated into English. Use the desktop app to manage questions and review your progress:
+Use the desktop app in Simplified Chinese or English to manage questions and review your progress:
 
 | Task | What you can do |
 | --- | --- |
@@ -26,9 +26,11 @@ The desktop interface is currently in Chinese; control names below are translate
 
 Practice, tests, local objective scoring, and manual scoring work offline. Document parsing and AI scoring send content to your configured model provider and may incur charges. Start or resume those actions explicitly; reopening the desktop app does not resume model calls.
 
+The desktop supports Simplified Chinese and English. Use **Language** above Settings in the sidebar to switch immediately. On first launch, Chinese system languages select Simplified Chinese; other languages select English. Your choice is stored locally and included in backups. Switching does not call a model or translate imported questions and answers.
+
 ## Import documents and review results
 
-Open **Import question bank** in the desktop sidebar. Choose a PractiQ `.json` file for offline import, or select a source document and start parsing. Review the extracted questions, images, and warnings before creating a bank or appending to one.
+Open **Import** in the desktop sidebar. Choose a PractiQ `.json` file for offline import, or select a source document and start parsing. Review the extracted questions, images, and warnings before creating a bank or appending to one.
 
 The parser accepts these source formats:
 
@@ -44,11 +46,11 @@ Parsing preserves source answers, explanations, passages, available score values
 
 ## Take a test and review scores
 
-Choose **Practice / Self-test / Mock exam** from a question bank, then select questions and preview the paper. Tests default to 100 points; you can change the total, allocate points by type, or edit each question's value. Values use 0.01-point increments and must sum to the total.
+Choose **Start practice** from a question bank, then select practice, an untimed self-test, or a timed mock exam. For tests, select questions and preview the paper. Tests default to 100 points; you can change the total, allocate points by type, or edit each question's value. Values use 0.01-point increments and must sum to the total.
 
 Self-tests have no time limit. Mock exams default to 60 minutes and support 1–1,440 minutes, with up to 1,000 questions. Closing the app or putting your Mac to sleep does not pause the deadline. When you reopen an expired exam, the app submits the last saved answers.
 
-After submission, objective questions use local scoring. Select **AI scoring / Continue** to score eligible short answers against a reference answer or rubric. Missing evidence and failed calls stay ungraded. Review partial credit and explanations, and record manual corrections when needed.
+After submission, objective questions use local scoring. Select **Start/resume AI grading** to score eligible short answers against a reference answer or rubric. Missing evidence and failed calls stay ungraded. Review partial credit and explanations, and record manual corrections when needed.
 
 AI scoring supports personal practice. It is not calibrated for formal examinations. See the [exam acceptance record](app/EXAM_ACCEPTANCE.md) for dated engineering checks, synthetic model tests, and recorded failures.
 
@@ -101,3 +103,5 @@ Choose the guide for your task:
 - [Operations](server/docs/operations.md): deployment, storage, monitoring, and recovery (Chinese)
 - [Evaluation](server/docs/evaluation.md): extraction and grading checks, datasets, and evidence limits (Chinese)
 - [Contributing](CONTRIBUTING.md): development checks and pull requests
+
+Desktop language regression: `cd app && npx playwright install chromium --only-shell && npm run test:browser` checks the 960px English layout and real keyboard language switching with a mocked Tauri boundary. It starts its own Vite server on port 1420 and makes no model calls. Unit/integration coverage for language races, persistence, backup restore and bilingual workflows runs in `make app-check`.

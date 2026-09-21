@@ -2,7 +2,7 @@ use serde_json::{json, Value};
 use std::collections::HashSet;
 use std::sync::OnceLock;
 
-pub type Result<T> = std::result::Result<T, String>;
+pub type Result<T> = std::result::Result<T, crate::AppError>;
 pub const MAX_JSON: usize = 32 * 1024 * 1024;
 
 fn schemas() -> &'static (jsonschema::Validator, jsonschema::Validator) {
@@ -18,7 +18,10 @@ fn schemas() -> &'static (jsonschema::Validator, jsonschema::Validator) {
 }
 fn schema_check(schema: &jsonschema::Validator, value: &Value, prefix: &str) -> Result<()> {
     if let Some(error) = schema.iter_errors(value).next() {
-        return Err(format!("{prefix}{}: {error}", error.instance_path));
+        return Err(crate::language::error(
+            "LOCAL_SCHEMA_INVALID",
+            serde_json::json!({"path": format!("{prefix}{}", error.instance_path), "detail": error.to_string()}),
+        ));
     }
     Ok(())
 }
@@ -151,7 +154,10 @@ pub fn validate_question(q: &mut Value) -> Result<()> {
     }
     for item in list(q, "items") {
         if item.get("id").is_some_and(|v| !v.is_null() && !v.is_i64()) {
-            return Err("items.id 必须是整数".into());
+            return Err(crate::language::error(
+                "LOCAL_ITEM_ID_INVALID",
+                serde_json::json!({}),
+            ));
         }
     }
     for block in list(q, "contentBlocks") {
@@ -160,7 +166,10 @@ pub fn validate_question(q: &mut Value) -> Result<()> {
             .any(|k| filled(&block[*k]))
             && block["jsonValue"].is_null()
         {
-            return Err("contentBlocks: 内容不能为空".into());
+            return Err(crate::language::error(
+                "LOCAL_CONTENT_EMPTY",
+                serde_json::json!({}),
+            ));
         }
     }
     let wrapper = json!({"questions":[q.clone()],"groups":[],"visualElements":[],"warnings":[],"confidenceScore":0});
@@ -170,17 +179,29 @@ pub fn validate_question(q: &mut Value) -> Result<()> {
         && mode != "choice"
         && (!list(q, "options").is_empty() || !text(q, "choiceVariant").is_empty())
     {
-        return Err("options / choiceVariant 仅适用于选择题".into());
+        return Err(crate::language::error(
+            "LOCAL_CHOICE_FIELDS_INVALID",
+            serde_json::json!({}),
+        ));
     }
     if !mode.is_empty() && mode != "ordering" && mode != "matching" && !list(q, "items").is_empty()
     {
-        return Err("items 仅适用于排序和匹配题".into());
+        return Err(crate::language::error(
+            "LOCAL_ITEMS_MODE_INVALID",
+            serde_json::json!({}),
+        ));
     }
     if !mode.is_empty() && mode != "matching" && !text(q, "matchingVariant").is_empty() {
-        return Err("matchingVariant 仅适用于匹配题".into());
+        return Err(crate::language::error(
+            "LOCAL_MATCHING_MODE_INVALID",
+            serde_json::json!({}),
+        ));
     }
     if mode == "ordering" && list(q, "items").iter().any(|i| !i["side"].is_null()) {
-        return Err("排序项不能含 side".into());
+        return Err(crate::language::error(
+            "LOCAL_ORDERING_SIDE_INVALID",
+            serde_json::json!({}),
+        ));
     }
     let labels: Vec<Value> = list(q, "options")
         .iter()
@@ -188,11 +209,17 @@ pub fn validate_question(q: &mut Value) -> Result<()> {
         .map(|s| json!(s.to_lowercase()))
         .collect();
     if !unique(&labels) {
-        return Err("选项标签重复".into());
+        return Err(crate::language::error(
+            "LOCAL_OPTION_LABEL_DUPLICATE",
+            serde_json::json!({}),
+        ));
     }
     let answer = &q["answerPayload"];
     if !answer.is_null() && !answer.is_object() {
-        return Err("answerPayload 必须为对象或 null".into());
+        return Err(crate::language::error(
+            "LOCAL_ANSWER_PAYLOAD_INVALID",
+            serde_json::json!({}),
+        ));
     }
     if let Some(obj) = answer.as_object() {
         let allowed: &[&str] = match mode {
@@ -215,7 +242,10 @@ pub fn validate_question(q: &mut Value) -> Result<()> {
         };
         if obj.keys().any(|k| !allowed.contains(&k.as_str())) || (mode.is_empty() && obj.len() > 1)
         {
-            return Err("answerPayload 与 answerMode 不匹配".into());
+            return Err(crate::language::error(
+                "LOCAL_ANSWER_MODE_MISMATCH",
+                serde_json::json!({}),
+            ));
         }
         for (key, value) in obj {
             if value.is_null() {
@@ -246,7 +276,10 @@ pub fn validate_question(q: &mut Value) -> Result<()> {
                 _ => false,
             };
             if !valid {
-                return Err(format!("answerPayload.{key}: 类型或长度不合法"));
+                return Err(crate::language::error(
+                    "LOCAL_ANSWER_FIELD_INVALID",
+                    serde_json::json!({"key": key}),
+                ));
             }
         }
     }
@@ -265,7 +298,10 @@ pub fn validate_question(q: &mut Value) -> Result<()> {
         if !unique(&selected)
             || (!labels.is_empty() && selected.iter().any(|s| !labels.contains(s)))
         {
-            return Err("答案引用不存在或重复的选项".into());
+            return Err(crate::language::error(
+                "LOCAL_OPTION_REFERENCE_INVALID",
+                serde_json::json!({}),
+            ));
         }
     }
     if mode == "ordering" {
@@ -276,7 +312,10 @@ pub fn validate_question(q: &mut Value) -> Result<()> {
             .collect();
         let ids = item_ids(q, None);
         if !unique(&order) || (!ids.is_empty() && order.iter().any(|v| !ids.contains(v))) {
-            return Err("排序答案引用无效".into());
+            return Err(crate::language::error(
+                "LOCAL_ORDER_REFERENCE_INVALID",
+                serde_json::json!({}),
+            ));
         }
     }
     if mode == "matching" {
@@ -298,7 +337,10 @@ pub fn validate_question(q: &mut Value) -> Result<()> {
                         .iter()
                         .any(|v| !item_ids(q, Some("right")).contains(v))))
         {
-            return Err("匹配答案引用无效".into());
+            return Err(crate::language::error(
+                "LOCAL_MATCH_REFERENCE_INVALID",
+                serde_json::json!({}),
+            ));
         }
     }
     if ![
@@ -313,7 +355,10 @@ pub fn validate_question(q: &mut Value) -> Result<()> {
     .iter()
     .any(|k| filled(&q[*k]))
     {
-        return Err("不能导入空题目".into());
+        return Err(crate::language::error(
+            "LOCAL_QUESTION_EMPTY",
+            serde_json::json!({}),
+        ));
     }
     let mut missing: Vec<Value> = ["stem", "questionTypeId", "answerMode"]
         .iter()
@@ -393,7 +438,10 @@ pub fn answer_complete(q: &Value) -> bool {
 }
 pub fn parse(bytes: &[u8]) -> Result<Value> {
     if bytes.len() > MAX_JSON {
-        return Err("JSON 超过 32 MiB".into());
+        return Err(crate::language::error(
+            "LOCAL_JSON_TOO_LARGE",
+            serde_json::json!({}),
+        ));
     }
     let mut root: Value = serde_json::from_slice(bytes).map_err(|e| format!("JSON: {e}"))?;
     // Old exports included this retired attribution field even for non-spreadsheet files.
@@ -419,19 +467,28 @@ pub fn parse(bytes: &[u8]) -> Result<Value> {
     };
     if let Some(questions) = result.get_mut("questions").and_then(Value::as_array_mut) {
         for (i, q) in questions.iter_mut().enumerate() {
-            validate_question(q).map_err(|e| format!("questions[{i}]: {e}"))?;
+            validate_question(q).map_err(|mut e| {
+                e.context = Some(format!("questions[{i}]"));
+                e
+            })?;
         }
     }
     schema_check(&schemas().0, result, "result")?;
     let count = list(result, "questions").len();
     for g in list(result, "groups") {
         if text(g, "title").trim().is_empty() {
-            return Err("groups.title 不能为空".into());
+            return Err(crate::language::error(
+                "LOCAL_GROUP_TITLE_EMPTY",
+                serde_json::json!({}),
+            ));
         }
     }
     for v in list(result, "visualElements") {
         if text(v, "description").trim().is_empty() {
-            return Err("visualElements.description 不能为空".into());
+            return Err(crate::language::error(
+                "LOCAL_VISUAL_DESCRIPTION_EMPTY",
+                serde_json::json!({}),
+            ));
         }
     }
     for key in ["groups", "visualElements"] {
@@ -440,7 +497,10 @@ pub fn parse(bytes: &[u8]) -> Result<Value> {
                 .iter()
                 .any(|v| v.as_u64().is_none_or(|v| v as usize >= count))
             {
-                return Err(format!("{key}[{i}].questionIndexes: 越界"));
+                return Err(crate::language::error(
+                    "LOCAL_QUESTION_INDEX_INVALID",
+                    serde_json::json!({"key": key, "i": i}),
+                ));
             }
             if key == "visualElements" {
                 if let Some(bbox) = group["bbox"].as_array() {
@@ -450,7 +510,10 @@ pub fn parse(bytes: &[u8]) -> Result<Value> {
                         || bbox[2].as_f64() <= bbox[0].as_f64()
                         || bbox[3].as_f64() <= bbox[1].as_f64()
                     {
-                        return Err(format!("visualElements[{i}].bbox: 无效区域"));
+                        return Err(crate::language::error(
+                            "LOCAL_VISUAL_BBOX_INVALID",
+                            serde_json::json!({"i": i}),
+                        ));
                     }
                 }
             }
@@ -463,7 +526,10 @@ pub fn parse(bytes: &[u8]) -> Result<Value> {
             if c["succeeded"].as_u64().unwrap_or(0) + c["skipped"].as_u64().unwrap_or(0)
                 > c["total"].as_u64().unwrap_or(0)
             {
-                return Err(format!("processing.{key}: 计数越界"));
+                return Err(crate::language::error(
+                    "LOCAL_PROCESSING_COUNT_INVALID",
+                    serde_json::json!({"key": key}),
+                ));
             }
         }
     }
