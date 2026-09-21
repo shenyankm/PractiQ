@@ -53,6 +53,11 @@ fn shared_contract_corpus() {
             parsed.as_ref().err()
         );
         if let Ok(root) = parsed {
+            if let Some(expected) = case["expectedQuestion"].as_object() {
+                for (key, value) in expected {
+                    assert_eq!(&root["questions"][0][key], value, "{}: {key}", case["name"]);
+                }
+            }
             assert_eq!(
                 root["questions"][0]["missingFields"], case["missingFields"],
                 "{}",
@@ -700,6 +705,25 @@ fn exam_hides_answer_roles_and_reads_live_favorites_without_changing_snapshot() 
     let retried = s.prepare_grade(sid, 0, true).unwrap();
     assert_eq!(wire["inputDigest"], retried["inputDigest"]);
     assert_ne!(wire["requestId"], retried["requestId"]);
+    let db = s.connect().unwrap();
+    db.execute(
+        "UPDATE attempts SET answer=?2 WHERE session_id=?1",
+        rusqlite::params![sid, json!({"text":"x".repeat(120_001)}).to_string()],
+    )
+    .unwrap();
+    let before: i64 = db
+        .query_row("SELECT COUNT(*) FROM grade_requests", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(
+        s.prepare_grade(sid, 0, true).unwrap_err().code,
+        "LOCAL_GRADING_TOO_LARGE"
+    );
+    assert_eq!(
+        db.query_row("SELECT COUNT(*) FROM grade_requests", [], |r| r
+            .get::<_, i64>(0))
+            .unwrap(),
+        before
+    );
     s.delete_bank(&bank).unwrap();
     assert!(s.session(sid).unwrap()["attempts"][0]["favorite"].is_null());
 }
@@ -1034,6 +1058,39 @@ fn exam_filters_answer_table_and_crop_then_restores_original_snapshot() {
         {"partType":"table","role":"answer","markdownValue":"| Answer |\n| --- |\n| SECRET |"},
         {"partType":"table","role":"material","markdownValue":"| Input |\n| --- |\n| 3 |"}
     ]);
+    raw["groups"] = json!([
+        {"title":"参考答案","instructions":"SECRET","questionIds":["q0"]},
+        {"title":"Notes","instructions":"Answer: SECRET","questionIds":["q0"]},
+        {"title":"Solution concentration","instructions":"Use the table","questionIds":["q0"]}
+    ]);
+    for label in [
+        "Correct Answer",
+        "Answer key",
+        "正确答案",
+        "Reference answers",
+        "Model answer keys",
+        "Worked solutions",
+        "Scoring rubrics",
+        "标准答案",
+        "答案解析",
+        "评分标准",
+        "评分细则",
+    ] {
+        raw["groups"].as_array_mut().unwrap().extend([
+            json!({"title":label,"instructions":"SECRET","questionIds":["q0"]}),
+            json!({"title":"Notes","instructions":format!("| **{label}**：SECRET |"),"questionIds":["q0"]}),
+        ]);
+    }
+    for label in [
+        "Data analysis method",
+        "Correct answer rate",
+        "Answer key usage",
+    ] {
+        raw["groups"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!({"title":label,"instructions":"Use the table","questionIds":["q0"]}));
+    }
     raw["visualElements"] = json!([
         {"kind":"table","role":"answer","description":"SECRET","extractedText":"SECRET","questionIds":["q0"]},
         {"kind":"table","role":"material","description":"Input table","questionIds":["q0"]}
@@ -1074,6 +1131,17 @@ fn exam_filters_answer_table_and_crop_then_restores_original_snapshot() {
         1
     );
     assert_eq!(snapshot["visuals"].as_array().unwrap().len(), 1);
+    assert_eq!(list(snapshot, "groups").len(), 4);
+    for label in [
+        "Solution concentration",
+        "Data analysis method",
+        "Correct answer rate",
+        "Answer key usage",
+    ] {
+        assert!(list(snapshot, "groups")
+            .iter()
+            .any(|g| text(g, "title") == label));
+    }
     let submitted = s.submit_paper(text(&exam, "id"), true).unwrap();
     assert_eq!(
         submitted["attempts"][0]["snapshot"]["question"],
@@ -1082,6 +1150,10 @@ fn exam_filters_answer_table_and_crop_then_restores_original_snapshot() {
     assert_eq!(
         submitted["attempts"][0]["snapshot"]["visuals"],
         rows[0]["visuals"]
+    );
+    assert_eq!(
+        submitted["attempts"][0]["snapshot"]["groups"],
+        rows[0]["groups"]
     );
 }
 
@@ -1330,5 +1402,121 @@ fn deleting_a_question_does_not_reassign_its_visuals() {
     for row in rows.as_array().unwrap() {
         assert_eq!(list(row, "visuals").len(), 1);
         assert_eq!(row["visuals"][0]["description"], "Unassigned");
+    }
+}
+
+#[test]
+fn closed_review_composite_content_search_and_favorites() {
+    let (_dir, mut s) = store();
+    let mut raw: Value =
+        serde_json::from_slice(include_bytes!("../../fixtures/composite.json")).unwrap();
+    raw["questions"][0]["passage"] =
+        json!([{"partType":"table","jsonValue":{"cells":[["STRUCTURED_MATERIAL"]]}}]);
+    let preview = s
+        .preview(serde_json::to_vec(&raw).unwrap(), "Composite".into())
+        .unwrap();
+    let imported = s
+        .import(text(&preview, "ticket"), None, "Composite")
+        .unwrap();
+    let bank = text(&imported, "bankId");
+    let roots = s.questions(Some(bank), "", "", "").unwrap();
+    let root = text(&roots[0], "id");
+    let child = text(&roots[0]["children"][0], "id");
+    assert!(roots[0]["children"][0]["groups"]
+        .to_string()
+        .contains("STRUCTURED_MATERIAL"));
+    for term in ["STRUCTURED_MATERIAL", "spring"] {
+        assert!(!s
+            .questions(Some(bank), term, "", "")
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .is_empty());
+    }
+    for term in ["false", "null", "textValue", "needsReview", "questionIds"] {
+        assert!(
+            s.questions(Some(bank), term, "", "")
+                .unwrap()
+                .as_array()
+                .unwrap()
+                .is_empty(),
+            "schema syntax matched {term}"
+        );
+    }
+    s.favorite(child, true).unwrap();
+    let favorites = s.questions(Some(bank), "", "", "favorite").unwrap();
+    assert_eq!(favorites[0]["id"], root);
+    assert_eq!(favorites[0]["favorite"], true);
+    s.favorite(root, false).unwrap();
+    assert!(s
+        .questions(Some(bank), "", "", "favorite")
+        .unwrap()
+        .as_array()
+        .unwrap()
+        .is_empty());
+    let mut q =
+        json!({"stem":"Blanks","answerMode":"fill_blank","answerPayload":{"answers":["a","b"]}});
+    contract::validate_question(&mut q).unwrap();
+    assert_eq!(q["blankCount"], 2);
+    q["blankCount"] = json!(1);
+    assert!(contract::validate_question(&mut q).is_err());
+}
+
+#[test]
+fn search_keeps_literal_schema_words_in_content() {
+    let (_dir, mut s) = store();
+    let mut raw: Value = serde_json::from_slice(&sample()).unwrap();
+    raw["questions"][0]["contentBlocks"] = json!([
+        {"partType":"table","jsonValue":{"cells":[["false", "null", "textValue"]]}}
+    ]);
+    let preview = s
+        .preview(serde_json::to_vec(&raw).unwrap(), "Search".into())
+        .unwrap();
+    let imported = s.import(text(&preview, "ticket"), None, "Search").unwrap();
+    for term in ["FALSE", "null", "textValue"] {
+        let found = s
+            .questions(Some(text(&imported, "bankId")), term, "", "")
+            .unwrap();
+        assert_eq!(
+            found.as_array().unwrap().len(),
+            1,
+            "missing literal content {term}"
+        );
+        assert_eq!(found[0]["question"]["stem"], raw["questions"][0]["stem"]);
+    }
+}
+
+#[test]
+fn partial_fill_blank_import_preserves_answers_counts_and_review_flags() {
+    let cases: Value = serde_json::from_str(include_str!("../../fixtures/contracts.json")).unwrap();
+    for case in cases
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|case| case.get("expectedQuestion").is_some())
+    {
+        let (dir, mut s) = store();
+        let preview = s
+            .preview(serde_json::to_vec(&case["input"]).unwrap(), "Blanks".into())
+            .unwrap();
+        let imported = s.import(text(&preview, "ticket"), None, "Blanks").unwrap();
+        drop(s);
+        let reopened = Store::new(dir.path().to_owned()).unwrap();
+        let rows = reopened
+            .questions(Some(text(&imported, "bankId")), "", "", "")
+            .unwrap();
+        let session = practice(&reopened, rows.clone(), 1);
+        for q in [
+            &rows[0]["question"],
+            &session["attempts"][0]["snapshot"]["question"],
+        ] {
+            for (key, value) in case["expectedQuestion"].as_object().unwrap() {
+                assert_eq!(&q[key], value, "{}: {key}", case["name"]);
+            }
+            assert_eq!(q["missingFields"], case["missingFields"]);
+            if q["needsReview"] == true {
+                assert_eq!(contract::grade(q, &json!({"answers":["a","b","c"]})), None);
+            }
+        }
     }
 }

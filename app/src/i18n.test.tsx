@@ -289,3 +289,11 @@ it("keeps translation parameters checked by TypeScript", () => {
   };
   expect(typeof invalidCalls).toBe("function");
 });
+it("localizes known native diagnostics without leaking application Chinese",async()=>{
+  wrap(null); await ready(); await change("en");
+  for (const code of ["LOCAL_SERVICE_UNAVAILABLE","STALE_CHECKPOINT"]) {
+    const message=errorMessage({code,message:"任务已变化，请刷新预览"});
+    expect(message).not.toMatch(/[\u3400-\u9fff]/);
+    expect(message).not.toContain("Diagnostic details");
+  }
+});

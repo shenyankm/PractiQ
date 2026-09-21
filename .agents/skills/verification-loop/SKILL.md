@@ -6,124 +6,14 @@ metadata:
   origin: ECC
 ---
 
-# Verification Loop Skill
+# PractiQ verification
 
-A comprehensive verification system for Claude Code sessions.
+Run from the repository root with an existing Python 3.14+ interpreter; no project `.venv`.
 
-## When to Use
+1. Inspect `git status --short`, `git diff HEAD --stat`, and `git diff HEAD` to cover staged and unstaged tracked changes. Read relevant untracked files listed by `git ls-files --others --exclude-standard`; diffs do not include them.
+2. Run focused tests for the changed behavior.
+3. For service changes, run `make verify AI_PYTHON=/path/to/python3.14`. This checks locks, Ruff, Pyright, evaluation fixtures, one test run with 90% coverage, probes and packaging; inspect reports even on failure.
+4. For desktop changes, run `make app-check AI_PYTHON=/path/to/python3.14` and `make app-build AI_PYTHON=/path/to/python3.14`; validate the bundle with `app/scripts/check-bundle.py`. The app-check target covers contracts, frontend, Rust tests and Clippy.
+5. Run `git diff --check` and inspect the final patch for unrelated data or secrets. Follow `CONTRIBUTING.md` and the PR template.
 
-Invoke this skill:
-- After completing a feature or significant code change
-- Before creating a PR
-- When you want to ensure quality gates pass
-- After refactoring
-
-## Verification Phases
-
-### Phase 1: Build Verification
-```bash
-# Check if project builds
-npm run build 2>&1 | tail -20
-# OR
-pnpm build 2>&1 | tail -20
-```
-
-If build fails, STOP and fix before continuing.
-
-### Phase 2: Type Check
-```bash
-set -o pipefail
-# TypeScript projects
-npx --no-install tsc --noEmit 2>&1 | head -30
-
-# Python projects
-pyright . 2>&1 | head -30
-```
-
-Report all type errors. Fix critical ones before continuing.
-
-### Phase 3: Lint Check
-```bash
-# JavaScript/TypeScript
-npm run lint 2>&1 | head -30
-
-# Python
-ruff check . 2>&1 | head -30
-```
-
-### Phase 4: Test Suite
-```bash
-# Run tests with coverage
-npm run test -- --coverage 2>&1 | tail -50
-
-# Check coverage threshold
-# Target: 80% minimum
-```
-
-Report:
-- Total tests: X
-- Passed: X
-- Failed: X
-- Coverage: X%
-
-### Phase 5: Security Scan
-```bash
-# Check for secrets
-grep -rn "sk-" --include="*.ts" --include="*.js" . 2>/dev/null | head -10
-grep -rn "api_key" --include="*.ts" --include="*.js" . 2>/dev/null | head -10
-
-# Check for console.log
-grep -rn "console.log" --include="*.ts" --include="*.tsx" src/ 2>/dev/null | head -10
-```
-
-### Phase 6: Diff Review
-```bash
-# Show what changed
-git diff --stat
-git diff HEAD~1 --name-only
-```
-
-Review each changed file for:
-- Unintended changes
-- Missing error handling
-- Potential edge cases
-
-## Output Format
-
-After running all phases, produce a verification report:
-
-```
-VERIFICATION REPORT
-==================
-
-Build:     [PASS/FAIL]
-Types:     [PASS/FAIL] (X errors)
-Lint:      [PASS/FAIL] (X warnings)
-Tests:     [PASS/FAIL] (X/Y passed, Z% coverage)
-Security:  [PASS/FAIL] (X issues)
-Diff:      [X files changed]
-
-Overall:   [READY/NOT READY] for PR
-
-Issues to Fix:
-1. ...
-2. ...
-```
-
-## Continuous Mode
-
-For long sessions, run verification every 15 minutes or after major changes:
-
-```markdown
-Set a mental checkpoint:
-- After completing each function
-- After finishing a component
-- Before moving to next task
-
-Run: /verify
-```
-
-## Integration with Hooks
-
-This skill complements PostToolUse hooks but provides deeper verification.
-Hooks catch issues immediately; this skill provides comprehensive review.
+Report actual commands and failures. Distinguish local checks, hosted CI, real-model quality and native UI acceptance; passing mocks does not establish live-model quality. Do not claim checks that were not run.

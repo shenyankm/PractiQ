@@ -18,6 +18,7 @@ export interface Group {
   id: string;
   title: string;
   instructions?: string | null;
+  contentBlocks?: Block[];
   questionIds: string[];
 }
 export interface ImageReference {
@@ -190,7 +191,7 @@ export function errorMessage(error: unknown): string {
   if (entry) {
     const summary = entry[locale()].replace(/\{(\w+)\}/g, (_, key: string) => String(params[key] ?? ""));
     const detail = [object.context, object.requestId, object.httpStatus].filter(v => v != null).join(" · ");
-    const diagnostic = !code.startsWith("LOCAL_") && typeof object.message === "string" && !Object.values(entry).includes(object.message as never)
+    const diagnostic = !code.startsWith("LOCAL_") && code !== "STALE_CHECKPOINT" && typeof object.message === "string" && !Object.values(entry).includes(object.message as never)
       ? ` ${t("诊断详情")}: ${object.message}` : "";
     return `${summary}${diagnostic}${detail ? ` (${detail})` : ""}`;
   }

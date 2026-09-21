@@ -29,10 +29,13 @@ class GradeImage(StrictModel):
         raw = base64.b64decode(encoded, validate=True)
         if len(raw) > 20 * 1024 * 1024 or hashlib.sha256(raw).hexdigest() != self.sha256:
             raise ValueError("Image checksum or size mismatch")
-        with Image.open(io.BytesIO(raw)) as image:
-            if image.width * image.height > 40_000_000 or Image.MIME.get(image.format or "") != header[5:-7]:
-                raise ValueError("Invalid image format or dimensions")
-            image.verify()
+        try:
+            with Image.open(io.BytesIO(raw)) as image:
+                if image.width * image.height > 40_000_000 or Image.MIME.get(image.format or "") != header[5:-7]:
+                    raise ValueError("Invalid image format or dimensions")
+                image.verify()
+        except (OSError, SyntaxError, Image.DecompressionBombError) as exc:
+            raise ValueError("Invalid image data") from exc
         return self.data
 
 

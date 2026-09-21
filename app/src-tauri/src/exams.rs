@@ -273,6 +273,11 @@ impl Store {
             if kind != "practice" && submitted.is_none() {
                 let q = &mut a["snapshot"]["question"];
                 a_blank_count(q);
+                if let Some(groups) = a["snapshot"]["groups"].as_array_mut() {
+                    groups.retain(|g| {
+                        !answer_text(text(g, "title")) && !answer_text(text(g, "instructions"))
+                    });
+                }
                 if let Some(visuals) = a["snapshot"]["visuals"].as_array_mut() {
                     visuals.retain(|visual| !answer_content(visual));
                     for visual in visuals {
@@ -415,6 +420,52 @@ fn a_blank_count(q: &mut Value) {
     }
 }
 
+// ponytail: explicit labels in legacy free text; typed roles are preferable for future content contracts.
+fn answer_text(value: &str) -> bool {
+    value.to_lowercase().split(['\n', '|']).any(|line| {
+        let label = line
+            .split([':', '：'])
+            .next()
+            .unwrap_or("")
+            .trim()
+            .trim_matches(['*', '#', ' '])
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ");
+        let answer = ["correct ", "reference ", "model "]
+            .iter()
+            .find_map(|prefix| label.strip_prefix(prefix))
+            .unwrap_or(&label);
+        matches!(
+            answer,
+            "answer" | "answers" | "answer key" | "answer keys" | "answers key" | "answers keys"
+        ) || matches!(
+            label.as_str(),
+            "solution"
+                | "solutions"
+                | "worked solution"
+                | "worked solutions"
+                | "analysis"
+                | "explanation"
+                | "explanations"
+                | "rubric"
+                | "rubrics"
+                | "scoring rubric"
+                | "scoring rubrics"
+                | "参考答案"
+                | "正确答案"
+                | "标准答案"
+                | "答案"
+                | "答案解析"
+                | "解析"
+                | "解答"
+                | "评分"
+                | "评分标准"
+                | "评分细则"
+        )
+    })
+}
+
 pub(crate) fn answer_content(content: &Value) -> bool {
     let role = text(content, "role").to_lowercase();
     [
@@ -464,19 +515,45 @@ impl Store {
                             serde_json::json!({}),
                         ));
                     }
+                    let encoded = data
+                        .as_str()
+                        .and_then(|s| s.split_once(','))
+                        .map(|(_, s)| s)
+                        .unwrap_or("");
+                    let padding = encoded.len() - encoded.trim_end_matches('=').len();
+                    if encoded.len() / 4 * 3 - padding > 20 * 1024 * 1024 {
+                        return Err(crate::language::error("LOCAL_GRADING_TOO_LARGE", json!({})));
+                    }
                     images.push(json!({"sha256":digest,"data":data}));
                 }
             }
         }
         let mut materials: Vec<String> = list(&snapshot, "groups")
             .iter()
-            .map(|g| format!("{}\n{}", text(g, "title"), text(g, "instructions")))
+            .map(|g| {
+                let mut material = format!("{}\n{}", text(g, "title"), text(g, "instructions"));
+                if let Some(blocks) = g.get("contentBlocks") {
+                    material.push('\n');
+                    material.push_str(&blocks.to_string());
+                }
+                material
+            })
             .collect();
         materials.extend(
             list(&snapshot, "visuals")
                 .iter()
                 .map(|v| format!("{}\n{}", text(v, "description"), text(v, "extractedText"))),
         );
+        if text(&answer, "text").chars().count() > 120_000
+            || materials.len() > 100
+            || materials.iter().map(|s| s.chars().count()).sum::<usize>() > 120_000
+            || images.len() > 32
+            || images
+                .iter()
+                .any(|image| text(image, "data").len() > 28_000_000)
+        {
+            return Err(crate::language::error("LOCAL_GRADING_TOO_LARGE", json!({})));
+        }
         let payload = json!({"question":q,"answer":text(&answer,"text"),"maxCents":max,"materials":materials,"images":images});
         let raw = payload.to_string();
         if raw.len() > 31 * 1024 * 1024 {

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
@@ -9,6 +9,8 @@ vi.mock("sonner", () => ({ toast: { error: vi.fn() } }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
+  vi.restoreAllMocks();
   vi.clearAllMocks();
 });
 it("shows progress and sends only the current run when pausing", async () => {
@@ -376,4 +378,84 @@ it("stops polling a completed task", async () => {
       ),
   ).toHaveLength(1);
   timers.mockRestore();
+});
+it("retries task polling after a transient read failure",async()=>{
+  let gets=0;
+  vi.mocked(invoke).mockImplementation(async(_command,args)=>{
+    const r=(args as {request:{type:string}}).request;
+    if(r.type==="list") return {items:[{threadId:"task",fileName:"retry.pdf",expiresAt:""}],hasMore:false} as never;
+    if(r.type==="get") {
+      if(++gets===1) throw new Error("transient read");
+      return {threadId:"task",state:"COMPLETED",phase:"completed",progress:{},allowedActions:[],blocking:[],failures:[],usage:[],unknownUsageCalls:[]} as never;
+    }
+    return [] as never;
+  });
+  render(<AiTasks busy={false} run={job=>{void job();}} onPreview={()=>{}}/>);
+  await userEvent.click(await screen.findByRole("button",{name:"retry.pdf"}));
+  await waitFor(()=>expect(gets).toBe(2),{timeout:4000});
+  expect(screen.queryByText(/transient read/)).toBeNull();
+});
+
+it.each([
+  [{code: "TASK_NOT_FOUND", httpStatus: 404}, 1],
+  [{code: "TASK_EXPIRED", httpStatus: 410}, 1],
+  [{httpStatus: 401}, 1],
+  [{httpStatus: 422}, 1],
+  [{httpStatus: 503}, 4],
+  [new Error("offline"), 4],
+])("bounds failed task reads and refreshes membership: %j", async (failure, expectedGets) => {
+  vi.useFakeTimers();
+  let gets = 0, lists = 0;
+  vi.mocked(invoke).mockImplementation(async (_command, args) => {
+    const r = (args as {request: {type: string}}).request;
+    if (r.type === "list") {
+      lists++;
+      return {items: gets ? [] : [{threadId: "task", fileName: "gone.pdf", expiresAt: ""}], hasMore: false} as never;
+    }
+    if (r.type === "get") { gets++; throw failure; }
+    return [] as never;
+  });
+  await act(async () => { render(<AiTasks busy={false} run={job => {void job();}} onPreview={() => {}}/>); });
+  await act(async () => { fireEvent.click(screen.getByRole("button", {name: "gone.pdf"})); });
+  await act(async () => { await vi.advanceTimersByTimeAsync(20000); });
+  expect(gets).toBe(expectedGets);
+  expect(lists).toBe(2);
+  expect(screen.queryByRole("button", {name: "gone.pdf"})).toBeNull();
+  expect(vi.mocked(invoke).mock.calls.every(([, args]) =>
+    ["list", "get", "operations", "batches"].includes((args as {request: {type: string}}).request.type),
+  )).toBe(true);
+});
+
+it.each(["COMPLETED", "WAITING_REVIEW"])("retains %s controls when membership refresh fails", async state => {
+  vi.useFakeTimers();
+  let lists = 0, gets = 0;
+  const preview = {ticket: "retained"};
+  const onPreview = vi.fn();
+  vi.mocked(invoke).mockImplementation(async (_command, args) => {
+    const {type} = (args as {request: {type: string}}).request;
+    if (type === "list") {
+      if (++lists > 1) throw {httpStatus: 503, message: "membership unavailable"};
+      return {items: [{threadId: "task", fileName: "ready.pdf", expiresAt: ""}], hasMore: false} as never;
+    }
+    if (type === "get") {
+      gets++;
+      return {threadId: "task", state, phase: "completed", progress: {}, allowedActions: [], blocking: [], failures: [{stage: "text", index: 0, code: "TEST_FAILURE", message: "retained detail", retryable: false}], usage: [], unknownUsageCalls: []} as never;
+    }
+    if (type === "review") return {threadId: "task", checkpointId: "cp", phase: "completed", units: [], failures: [], quality: {}, questionSources: []} as never;
+    if (type === "preview") return preview as never;
+    return [] as never;
+  });
+  await act(async () => { render(<AiTasks busy={false} run={job => {void job();}} onPreview={onPreview}/>); });
+  await act(async () => { fireEvent.click(screen.getByRole("button", {name: "ready.pdf"})); });
+  await act(async () => { await vi.advanceTimersByTimeAsync(20000); });
+  expect(gets).toBe(1);
+  expect(lists).toBe(2);
+  expect(screen.getByText(/membership unavailable/)).toBeTruthy();
+  expect(screen.getByText(/retained detail/)).toBeTruthy();
+  if (state === "COMPLETED") {
+    await act(async () => { fireEvent.click(screen.getByRole("button", {name: "预览并导入题库"})); });
+    expect(onPreview).toHaveBeenCalledWith(preview);
+  }
+  await act(async () => { fireEvent.click(screen.getByRole("button", {name: "查看内容与审核"})); });
+  expect(screen.getByRole("dialog", {name: "只读内容审核"})).toBeTruthy();
 });

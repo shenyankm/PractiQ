@@ -455,26 +455,19 @@ pub fn hydrate(row: &Value, rows: &[Value]) -> Value {
     materials.reverse();
     for p in &materials {
         let mut blank = 0;
-        let passage = list(p, "passage")
+        let passage: Vec<Value> = list(p, "passage")
             .iter()
             .filter(|b| !crate::exams::answer_content(b))
             .map(|b| {
                 if text(b, "partType") == "blank" {
-                    {
-                        blank += 1;
-                        format!("[{blank}]")
-                    }
+                    blank += 1;
+                    json!({"partType":"text", "textValue":format!("[{blank}]")})
                 } else {
-                    if !text(b, "latexValue").is_empty() {
-                        format!("$$\n{}\n$$", text(b, "latexValue"))
-                    } else {
-                        text(b, "markdownValue").to_owned() + text(b, "textValue")
-                    }
+                    b.clone()
                 }
             })
-            .collect::<Vec<_>>()
-            .join("\n");
-        result["groups"].as_array_mut().unwrap().push(json!({"id":p["id"],"title":p["stem"].as_str().unwrap_or(""),"instructions":passage,"questionIds":[row["id"]],"material":true}));
+            .collect();
+        result["groups"].as_array_mut().unwrap().push(json!({"id":p["id"],"title":p["stem"].as_str().unwrap_or(""),"contentBlocks":passage,"questionIds":[row["id"]],"material":true}));
     }
     if let Some(owner) = rows.iter().find(|r| {
         r["id"] == row["question"]["optionSourceId"] && !row["question"]["optionSourceId"].is_null()

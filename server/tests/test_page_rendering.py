@@ -385,7 +385,7 @@ def test_existing_answer_block_protects_shared_table_visual_and_all_copies(monke
     assert len(blocks) == 3 and all(b["role"] == "answer" and b["markdownValue"] == markdown for b in blocks)
 
 
-@pytest.mark.parametrize("text", ["合并表格\n答案：42", "Merged cells\nSolution: 42", "Merged cells\nAnswer: 42"])
+@pytest.mark.parametrize("text", ["合并表格\n答案：42", "Merged cells\nSolution: 42", "Merged cells\nAnswer: 42", "Correct Answer: 42", "Answer key: 42", "正确答案：42"])
 @pytest.mark.parametrize("role", [None, "material"])
 def test_unstructured_answer_table_classifies_text_and_matching_block(monkeypatch, text, role):
     store, reference = paged_source("pdf")

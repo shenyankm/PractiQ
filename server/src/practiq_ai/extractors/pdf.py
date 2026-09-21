@@ -80,6 +80,8 @@ def _render_pages(file_bytes: bytes, indexes: list[int]) -> list[bytes]:
                     bitmap.close()
             finally:
                 page.close()
+            if len(data) > 25 * 1024 * 1024:
+                raise DocumentProcessingError(413, "Rendered PDF page exceeds the 25 MiB asset limit", code="IMAGE_TOO_LARGE")
             total_bytes += len(data)
             enforce_vision_bytes(total_bytes)
             images.append(data)

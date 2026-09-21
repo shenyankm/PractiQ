@@ -41,3 +41,13 @@ it("keeps fragment review options separate before final IDs exist",()=>{
   expect(screen.getByText("Unique Y")).toBeTruthy();
   expect(screen.getByText("spring")).toBeTruthy();
 });
+it("clears stale reference answers when the blank count changes",async()=>{
+  const save=vi.fn();
+  render(<QuestionEditor initial={{...questions[1],answerMode:"fill_blank",choiceVariant:null,options:[],blankCount:2,answerPayload:{answers:["a","b"]}}} busy={false} onClose={()=>{}} onSave={save}/>);
+  const count=screen.getByLabelText("空位数量");
+  await userEvent.clear(count);
+  await userEvent.type(count,"1");
+  await userEvent.click(screen.getByRole("button",{name:"保存题目"}));
+  expect(save.mock.calls[0][0].answerPayload).toBeNull();
+  expect(save.mock.calls[0][0].blankCount).toBe(1);
+});

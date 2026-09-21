@@ -90,6 +90,31 @@ pub struct Store {
     pub dir: PathBuf,
     pub pending: Option<Pending>,
 }
+fn contains_search_text(value: &Value, search: &str) -> bool {
+    match value {
+        Value::String(value) => value.to_lowercase().contains(search),
+        Value::Array(values) => values.iter().any(|v| contains_search_text(v, search)),
+        Value::Object(values) => values.values().any(|v| contains_search_text(v, search)),
+        _ => false,
+    }
+}
+
+fn searchable_content_matches(value: &Value, search: &str) -> bool {
+    match value {
+        Value::Array(values) => values.iter().any(|v| searchable_content_matches(v, search)),
+        Value::Object(values) => values.iter().any(|(key, value)| match key.as_str() {
+            // These fields contain free-form content, not contract metadata.
+            "jsonValue" | "answerPayload" => contains_search_text(value, search),
+            "stem" | "sourceText" | "analysis" | "scoringRubric" | "scoreSourceText"
+            | "options" | "items" | "content" | "label" | "passage" | "contentBlocks"
+            | "textValue" | "markdownValue" | "latexValue" | "title" | "instructions"
+            | "description" | "extractedText" => searchable_content_matches(value, search),
+            _ => false,
+        }),
+        _ => contains_search_text(value, search),
+    }
+}
+
 impl Store {
     pub fn new(dir: PathBuf) -> Result<Self> {
         fs::create_dir_all(&dir).map_err(err)?;
@@ -387,23 +412,16 @@ impl Store {
         let db = self.connect()?;
         let rows = crate::questions::read(&db)?;
         let mut matches = std::collections::HashSet::new();
+        let search = search.to_lowercase();
         for row in &rows {
             if bank_id.is_some_and(|b| row["bankId"] != b) {
                 continue;
             }
             let q = &row["question"];
             if !search.is_empty()
-                && !["stem", "sourceText", "analysis"]
+                && ![q, &row["groups"], &row["visuals"]]
                     .iter()
-                    .any(|k| text(q, k).to_lowercase().contains(&search.to_lowercase()))
-                && !list(q, "passage").iter().any(|b| {
-                    text(b, "textValue")
-                        .to_lowercase()
-                        .contains(&search.to_lowercase())
-                        || text(b, "markdownValue")
-                            .to_lowercase()
-                            .contains(&search.to_lowercase())
-                })
+                    .any(|value| searchable_content_matches(value, &search))
             {
                 continue;
             }
@@ -432,6 +450,12 @@ impl Store {
                     && crate::questions::root_id(r, &rows) == text(row, "id"))
                 .map(|r| crate::questions::hydrate(r, &rows))
                 .collect::<Vec<_>>());
+            root["favorite"] = json!(
+                row["favorite"] == true
+                    || list(&root, "children")
+                        .iter()
+                        .any(|c| c["favorite"] == true)
+            );
             results.push(root);
         }
         Ok(json!(results))
@@ -469,11 +493,11 @@ impl Store {
         let changed = self
             .connect()?
             .execute(
-                "UPDATE questions SET favorite=?2 WHERE id=?1",
+                "WITH RECURSIVE subtree(id) AS (SELECT id FROM questions WHERE id=?1 UNION ALL SELECT q.id FROM questions q JOIN subtree s ON q.parent_id=s.id) UPDATE questions SET favorite=?2 WHERE id IN subtree",
                 params![qid, value],
             )
             .map_err(err)?;
-        if changed != 1 {
+        if changed == 0 {
             return Err(crate::language::error(
                 "LOCAL_FAVORITE_DELETED",
                 serde_json::json!({}),

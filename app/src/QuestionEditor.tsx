@@ -306,7 +306,7 @@ export function QuestionEditor({
               </div>
             </div>
           )}
-          {q.answerMode === "fill_blank" && <label className="grid gap-2">{t("空位数量")}<Input type="number" min={1} max={100} value={q.blankCount ?? ""} onChange={e => patch({blankCount:e.target.value ? Number(e.target.value) : null})}/></label>}
+          {q.answerMode === "fill_blank" && <label className="grid gap-2">{t("空位数量")}<Input type="number" min={1} max={100} value={q.blankCount ?? ""} onChange={e => patch({blankCount:e.target.value ? Number(e.target.value) : null, answerPayload:null})}/></label>}
           {isComposite(q) && <section className="space-y-3 rounded-lg border p-4">
             <Label>{t("共享文章与空位")}</Label>
             {(q.passage || []).map((b,i) => <div key={i} className="flex gap-2">

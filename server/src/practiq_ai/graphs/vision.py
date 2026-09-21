@@ -3,6 +3,7 @@
 import base64
 import json
 import re
+from html import unescape
 from io import BytesIO
 from math import isfinite
 from typing import Literal
@@ -25,7 +26,7 @@ def table_content_key(text: str) -> str:
             cells.pop(0)
         if cells and not cells[-1]:
             cells.pop()
-        rows.append([cell.strip().replace(r"\|", "|") for cell in cells])
+        rows.append([unescape(cell.strip().replace(r"\|", "|")) for cell in cells])
     if len(rows) >= 2 and rows[1] and all(re.fullmatch(r":?-+:?", cell) for cell in rows[1]) and all(len(row) == len(rows[0]) for row in rows):
         return "table:" + json.dumps([rows[0], *rows[2:]], ensure_ascii=False)
     # ponytail: normalize simple GFM only; other representations require exact text.
@@ -67,9 +68,10 @@ class PageFigure(BaseModel):
     def validate_table(self):
         # Classify before irregular/oversized tables lose their rows. Free-text
         # merged tables need the same protection as rectangular tables.
-        texts = [self.extractedText or "", *(cell for row in self.tableRows or [] for cell in row)]
+        texts = [*(cell for row in self.tableRows or [] for cell in row),
+                 *re.split(r"[|\n]", self.extractedText or "")]
         if is_answer_role(self.role) or self.kind == "table" and any(
-            re.search(r"\b(?:answers?|solutions?|analysis|explanations?|rubrics?)\b|答案|解析|解答|评分", text, re.IGNORECASE)
+            re.match(r"^(?:(?:(?:correct|reference|model)\s+)?answers?(?:\s+keys?)?|(?:worked\s+)?solutions?|analysis|explanations?|(?:scoring\s+)?rubrics?|(?:参考|正确|标准)?答案|答案解析|解析|解答|评分(?:标准|细则)?)(?:\s*[:：]|\s*$)", text.strip().strip("*# "), re.IGNORECASE)
             for text in texts
         ):
             self.role = "answer"
@@ -89,7 +91,12 @@ class PageFigure(BaseModel):
     def table_markdown(self) -> str | None:
         if self.tableRows is None:
             return None
-        rows = ["| " + " | ".join(cell.replace(r"\|", "|").replace("|", r"\|").replace("\n", " ") for cell in row) + " |" for row in self.tableRows]
+        def cell_text(cell: str) -> str:
+            parts = re.split(r"(\$(?:[^$\n]|\\\$)+\$)", cell)
+            return "".join(part.replace("|", r"\|") if i % 2 else
+                           re.sub(r"[\\`*_{}\[\]()<>!#&$~]", lambda m: f"&#{ord(m[0])};", part).replace("|", r"\|")
+                           for i, part in enumerate(parts)).replace("\n", " ").replace("\r", " ")
+        rows = ["| " + " | ".join(cell_text(cell) for cell in row) + " |" for row in self.tableRows]
         rows.insert(1, "| " + " | ".join("---" for _ in self.tableRows[0]) + " |")
         return "\n".join(rows)
 

@@ -29,7 +29,7 @@ const apiKey = "sk-proj-xxxxx"  // Hardcoded secret
 const dbPassword = "password123" // In source code
 ```
 
-#### PASS: ALWAYS Do This
+#### Server-only environment secrets
 ```typescript
 const apiKey = process.env.OPENAI_API_KEY
 const dbUrl = process.env.DATABASE_URL
@@ -42,7 +42,7 @@ if (!apiKey) {
 
 #### Verification Steps
 - [ ] No hardcoded API keys, tokens, or passwords
-- [ ] All secrets in environment variables
+- [ ] Server secrets in environment variables; desktop API keys in Base-URL-scoped macOS Keychain through typed native commands, excluded from backups
 - [ ] `.env.local` in .gitignore
 - [ ] No secrets in git history
 - [ ] Production secrets in hosting platform (Vercel, Railway)
@@ -75,30 +75,8 @@ export async function createUser(input: unknown) {
 ```
 
 #### File Upload Validation
-```typescript
-function validateFileUpload(file: File) {
-  // Size check (5MB max)
-  const maxSize = 5 * 1024 * 1024
-  if (file.size > maxSize) {
-    throw new Error('File too large (max 5MB)')
-  }
 
-  // Type check
-  const allowedTypes = ['image/jpeg', 'image/png', 'image/gif']
-  if (!allowedTypes.includes(file.type)) {
-    throw new Error('Invalid file type')
-  }
-
-  // Extension check
-  const allowedExtensions = ['.jpg', '.jpeg', '.png', '.gif']
-  const extension = file.name.toLowerCase().match(/\.[^.]+$/)?.[0]
-  if (!extension || !allowedExtensions.includes(extension)) {
-    throw new Error('Invalid file extension')
-  }
-
-  return true
-}
-```
+Browser MIME types, filenames and client-side checks are untrusted hints. The authenticated service or typed native command must enforce bounded bytes, validate checksums and paths, and decode the actual image format before acceptance. Reuse the existing upload/extractor and asset boundaries; invalid image bytes must become validation errors. Never add a second document parser.
 
 #### Verification Steps
 - [ ] All user inputs validated with schemas
@@ -201,19 +179,9 @@ CREATE POLICY "Users update own data"
 
 ### 5. XSS Prevention
 
-#### Sanitize HTML
-```typescript
-import DOMPurify from 'isomorphic-dompurify'
+#### Render structured content
 
-// ALWAYS sanitize user-provided HTML
-function renderUserContent(html: string) {
-  const clean = DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'p'],
-    ALLOWED_ATTR: []
-  })
-  return <div dangerouslySetInnerHTML={{ __html: clean }} />
-}
-```
+PractiQ must never inject imported document/model HTML, even after sanitization. Reuse `app/src/Content.tsx`: React text, bounded structured blocks, and Markdown with raw HTML disabled. Do not introduce `dangerouslySetInnerHTML` for imported content.
 
 #### Content Security Policy
 
@@ -509,3 +477,7 @@ Before ANY production deployment:
 ---
 
 **Remember**: Security is not optional. One vulnerability can compromise the entire platform. When in doubt, err on the side of caution.
+
+## Cloud reference
+
+For applicable deployment work, read [cloud infrastructure security](cloud-infrastructure-security.md). Product login, payments and Supabase examples above are generic reference material, not authorization to add those features to PractiQ.

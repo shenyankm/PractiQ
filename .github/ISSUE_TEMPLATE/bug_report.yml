@@ -25,6 +25,7 @@ body:
       label: Affected area
       options:
         - Python AI service (`server/`)
+        - Desktop application (`app/`)
         - Documentation
         - Build or development tooling
         - Multiple areas
@@ -63,12 +64,12 @@ body:
     id: environment
     attributes:
       label: Environment
-      description: Include the commit, operating system, runtime versions, browser or WeChat Developer Tools version, and deployment mode when relevant.
+      description: Include the commit, operating system, runtime versions, desktop app version, and deployment mode when relevant.
       placeholder: |
         Commit:
         OS:
         Python/Node version:
-        WeChat Developer Tools version:
+        Desktop app version:
         Local, staging, or production:
 
   - type: textarea

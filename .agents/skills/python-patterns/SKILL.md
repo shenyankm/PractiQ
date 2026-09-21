@@ -223,9 +223,11 @@ from contextlib import contextmanager
 def timer(name: str):
     """Context manager to time a block of code."""
     start = time.perf_counter()
-    yield
-    elapsed = time.perf_counter() - start
-    print(f"{name} took {elapsed:.4f} seconds")
+    try:
+        yield
+    finally:
+        elapsed = time.perf_counter() - start
+        print(f"{name} took {elapsed:.4f} seconds")
 
 # Usage
 with timer("data processing"):

@@ -25,7 +25,7 @@ Editor config files:
 
 ## Tools
 
-> **Tip:** MCP tools handle registry operations (search, view, install). For project configuration (aliases, framework, Tailwind version), use `npx shadcn@latest info` — there is no MCP equivalent.
+> **Tip:** MCP tools handle registry operations (search, view, install). For project configuration (aliases, framework, Tailwind version), use `node node_modules/shadcn/dist/index.js info` — there is no MCP equivalent.
 
 ### `shadcn:get_project_registries`
 

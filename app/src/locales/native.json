@@ -910,5 +910,13 @@
   "LOCAL_GROUP_DELETE_CHILD": {
     "zh-CN": "请编辑完整题组以删除子题",
     "en": "Edit the complete group to remove a subquestion"
+  },
+  "LOCAL_SERVICE_UNAVAILABLE": {
+    "zh-CN": "本地解析服务连接中断。如有待确认操作，请从原操作重试。",
+    "en": "The local parser disconnected. Retry any unconfirmed operation from its original entry."
+  },
+  "STALE_CHECKPOINT": {
+    "zh-CN": "任务已变化，请刷新任务或重新创建导入批次。",
+    "en": "The task changed. Refresh it or recreate the import batch."
   }
 }

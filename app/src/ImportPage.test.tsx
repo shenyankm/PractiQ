@@ -179,7 +179,15 @@ it("merges banks only after selecting sources and confirming in the dialog", asy
   expect(screen.queryByRole("checkbox")).toBeNull();
   expect(screen.queryByRole("textbox", { name: "合并后的题库名称" })).toBeNull();
   await userEvent.click(entry);
-  const dialog = await screen.findByRole("dialog");
+  let dialog = await screen.findByRole("dialog");
+  await userEvent.type(within(dialog).getByRole("textbox", {name:"合并后的题库名称"}), "discard");
+  await userEvent.click(within(dialog).getByRole("checkbox", {name:"题库一（2 题）"}));
+  await userEvent.click(within(dialog).getByRole("button", {name:"取消"}));
+  await waitFor(() => expect(document.activeElement).toBe(entry));
+  await userEvent.click(entry);
+  dialog = await screen.findByRole("dialog");
+  expect((within(dialog).getByRole("textbox", {name:"合并后的题库名称"}) as HTMLInputElement).value).toBe("");
+  expect(within(dialog).getByRole("checkbox", {name:"题库一（2 题）"}).getAttribute("aria-checked")).toBe("false");
   const submit = within(dialog).getByRole("button", { name: "确认合并" });
   await userEvent.type(within(dialog).getByRole("textbox", { name: "合并后的题库名称" }), "  综合复习  ");
   await userEvent.click(within(dialog).getByRole("checkbox", { name: "题库一（2 题）" }));

@@ -18,6 +18,12 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 
+function retryableRead(error: unknown) {
+  const { code, httpStatus } = (error ?? {}) as { code?: string; httpStatus?: number };
+  if (code === "TASK_NOT_FOUND" || code === "TASK_EXPIRED") return false;
+  return httpStatus == null || httpStatus === 408 || httpStatus === 429 || httpStatus >= 500;
+}
+
 type Failure = {
   retryable: boolean;
   stage: string;
@@ -249,6 +255,7 @@ export function AiTasks({
   useEffect(() => {
     let active = true;
     let timer: ReturnType<typeof setTimeout>;
+    let failures = 0;
     const poll = async () => {
       try {
         const [o, b] = await Promise.all([
@@ -256,13 +263,17 @@ export function AiTasks({
           ai<Batch[]>({ type: "batches" }),
         ]);
         if (active) {
+          failures = 0;
           setOperations(o);
           setBatches(b);
           if (running || b.some((v) => v.status === "running"))
             timer = setTimeout(poll, 1000);
         }
       } catch (e) {
-        if (active) setError(e);
+        if (active) {
+          setError(e);
+          if (retryableRead(e) && ++failures <= 3) timer = setTimeout(poll, 2000);
+        }
       }
     };
     void poll();
@@ -275,6 +286,7 @@ export function AiTasks({
     if (!selected || !modelsReady) return;
     let active = true;
     let timer: ReturnType<typeof setTimeout>;
+    let failures = 0;
     setTask(null);
     const poll = async () => {
       try {
@@ -284,18 +296,35 @@ export function AiTasks({
           setError(null);
           if (activeStates.has(value.state)) timer = setTimeout(poll, 2000);
           else {
-            const listing = await ai<{ items: Summary[]; hasMore: boolean }>({
-              type: "list",
-              offset,
-            });
-            if (active) {
-              setRows(listing.items);
-              setMore(listing.hasMore);
-            }
+            // Membership refresh must not invalidate a successfully read task.
+            void ai<{ items: Summary[]; hasMore: boolean }>({ type: "list", offset })
+              .then((listing) => {
+                if (active) {
+                  setRows(listing.items);
+                  setMore(listing.hasMore);
+                }
+              })
+              .catch((e) => { if (active) setError(e); });
           }
+          failures = 0;
         }
       } catch (e) {
-        if (active) setError(e);
+        if (active) {
+          setError(e);
+          if (retryableRead(e) && ++failures <= 3) timer = setTimeout(poll, 2000);
+          else {
+            setTask(null);
+            // Refresh membership once; never retry a removed/expired task indefinitely.
+            void ai<{ items: Summary[]; hasMore: boolean }>({ type: "list", offset })
+              .then((listing) => {
+                if (active) {
+                  setRows(listing.items);
+                  setMore(listing.hasMore);
+                }
+              })
+              .catch(() => {});
+          }
+        }
       }
     };
     void poll();

@@ -377,6 +377,11 @@ class ParsedQuestion(StrictModel):
         if self.optionSourceId and (self.answerMode != "choice" or self.options):
             raise ValueError("shared options require a choice without local options")
         self.answerPayload = normalize_answer(self.answerMode, self.answerPayload, self.choiceVariant)
+        if self.answerMode == "fill_blank" and isinstance(self.answerPayload, FillBlankAnswerPayload):
+            count = len(self.answerPayload.answers)
+            if self.blankCount is not None and self.blankCount != count:
+                raise ValueError("blankCount must match the number of reference answers")
+            self.blankCount = count
         answer_references_missing(self.answerMode, self.answerPayload, self.model_dump())
         self.missingFields = question_missing_fields(self.model_dump())
         if self.missingFields:

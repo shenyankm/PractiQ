@@ -7,6 +7,8 @@ metadata:
 
 # FastAPI Patterns
 
+> PractiQ scope: preserve shared Bearer service-token authentication in `server/src/practiq_ai/auth.py`. The generic user/password login examples below are outside this project; do not add product users, /token, billing or compatibility APIs.
+
 Modern, production-grade FastAPI development: project layout, Pydantic v2 schemas, dependency injection, async patterns, auth, transactional service methods, and testing.
 
 ## Project Structure

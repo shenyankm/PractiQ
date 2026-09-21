@@ -433,8 +433,26 @@ pub fn batches(dir: &Path, work: &WorkState) -> Result<Value> {
         .0
         .lock()
         .map_err(|_| crate::language::error("LOCAL_WORK_UNAVAILABLE", serde_json::json!({})))?;
+    let store = Store {
+        locale: Default::default(),
+        dir: dir.into(),
+        pending: None,
+    };
     for batch in &mut batches {
         validate_batch(batch)?;
+        // Active writers own their manifests; inactive batches reconcile against restored receipts.
+        if !active.contains_key(&batch.id) {
+            for item in &mut batch.items {
+                if item.status == ItemStatus::Imported {
+                    item.bank_id = store.imported_ai(&item.thread_id, Some(&item.digest), None)?;
+                    if item.bank_id.is_none() {
+                        item.status = ItemStatus::Pending;
+                        item.error = None;
+                        batch.status = BatchStatus::Paused;
+                    }
+                }
+            }
+        }
         if batch.status == BatchStatus::Running && !active.contains_key(&batch.id) {
             batch.status = BatchStatus::Paused;
         }
@@ -707,6 +725,8 @@ mod tests {
     fn batch_isolates_corrupt_images_and_resumes_from_database_receipts() {
         let dir = tempfile::tempdir().unwrap();
         let shared = shared(dir.path());
+        let backup = dir.path().join("before-import.zip");
+        shared.lock().unwrap().backup(&backup).unwrap();
         let work = WorkState::default();
         let ids = vec![store::id(), store::id(), store::id()];
         let expected = ids.clone();
@@ -793,6 +813,15 @@ mod tests {
                 .unwrap(),
             3
         );
+        drop(db);
+        shared.lock().unwrap().restore(&backup).unwrap();
+        let reconciled = batches(dir.path(), &work).unwrap();
+        assert_eq!(reconciled[0]["status"], "paused");
+        assert!(reconciled[0]["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|i| i["status"] == "pending" && i["bankId"].is_null()));
     }
 
     #[test]
