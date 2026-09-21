@@ -34,12 +34,14 @@ from practiq_ai.contracts import (
     AnswerMode,
     AnswerPayload,
     ArtifactReference,
+    ContentBlock,
     DocumentParseResult,
     DocumentProcessing,
     DocumentSourceType,
     DocumentUploadRequest,
     MissingField,
     ParsedGroup,
+    ParsedItem,
     ParsedOption,
     ParsedQuestion,
     VisualKind,
@@ -49,9 +51,9 @@ from practiq_ai.execution import runtime_version
 from practiq_ai.storage import get_object_store
 
 ROOT = Path(__file__).parents[1]
-SCORER_VERSION = "3.0.0"
+SCORER_VERSION = "4.0.0"
 SOURCE_TYPES = {"text", "csv", "pdf", "image"}
-ANSWER_MODES = {"choice", "true_false", "fill_blank", "short_answer"}
+ANSWER_MODES = {"choice", "true_false", "fill_blank", "short_answer", "ordering", "matching", "reading", "word_bank", "cloze"}
 METRICS = (
     "questionPrecision", "questionRecall", "answerModeAccuracy", "optionsAccuracy",
     "parsedAnswerAccuracy", "groupF1", "visualF1",
@@ -84,6 +86,15 @@ class GoldModel(BaseModel):
 class GoldQuestion(GoldModel):
     stem: str = Field(min_length=1)
     stemAliases: list[str] = Field(default_factory=list)
+    id: str | None = None
+    parentId: str | None = None
+    optionSourceId: str | None = None
+    passage: list[ContentBlock] = Field(default_factory=list)
+    items: list[ParsedItem] = Field(default_factory=list)
+    choiceVariant: Literal["single", "multiple"] | None = None
+    matchingVariant: Literal["one_to_one", "many_to_one"] | None = None
+    blankCount: int | None = None
+    allowReuse: bool = False
     answerMode: AnswerMode
     options: list[ParsedOption] = Field(default_factory=list)
     answerPayload: AnswerPayload | None
@@ -257,13 +268,29 @@ def score_document_case(expected: list[dict[str, Any]], predicted: list[dict[str
         "expected": None, "predicted": _question_view(predicted[i]), "matched": False,
         "correct": {}, "inventedAnswer": source_has_no_answers and predicted[i].get("answerPayload") is not None, "differences": ["extra"],
     } for i in remaining)
+    # Compare links by matched identity rather than parser-assigned ID spelling.
+    gold_ids = {q.get("id"): i for i, q in enumerate(expected) if q.get("id")}
+    actual_ids = {predicted[row["predictedIndex"]].get("id"): row["expectedIndex"] for row in rows if row["matched"]}
+    def structure(q, ids):
+        blocks = [{k: (ids.get(v, "missing") if k == "questionId" else v) for k, v in block.items() if v is not None} for block in q.get("passage", [])]
+        return {"parent": ids.get(q["parentId"], "missing") if q.get("parentId") else None, "optionsOwner": ids.get(q["optionSourceId"], "missing") if q.get("optionSourceId") else None,
+                "passage": blocks, "items": [{k: v for k, v in item.items() if v is not None} for item in q.get("items", [])],
+                "allowReuse": q.get("allowReuse", False)}
+    for row in rows:
+        if row["matched"]:
+            gold, actual = expected[row["expectedIndex"]], predicted[row["predictedIndex"]]
+            if gold.get("id") or gold.get("items"):
+                row["correct"]["structure"] = structure(gold, gold_ids) == structure(actual, actual_ids)
+                if not row["correct"]["structure"]:
+                    row["differences"].append("structure")
     return {**question_counts(rows), "questions": rows}
 
 
 def question_counts(rows: list[dict[str, Any]]) -> dict[str, int]:
-    gold = [row for row in rows if row["expectedIndex"] is not None]
+    leaves = [row for row in rows if row["answerMode"] not in {"reading", "word_bank", "cloze"}]
+    gold = [row for row in leaves if row["expectedIndex"] is not None]
     return {
-        "expected": len(gold), "predicted": sum(row["predictedIndex"] is not None for row in rows),
+        "expected": len(gold), "predicted": sum(row["predictedIndex"] is not None for row in leaves),
         "matched": sum(row["matched"] for row in gold),
         "modeCorrect": sum(row["correct"]["answerMode"] for row in gold),
         "optionsExpected": sum(row["answerMode"] == "choice" for row in gold),
@@ -295,8 +322,9 @@ def score_result(case: dict[str, Any], result: dict[str, Any]) -> dict[str, Any]
     gold_groups = None if expected_groups is None else [
         (normalize_stem(group["title"]), tuple(sorted(set(group["questionIndexes"])))) for group in expected_groups
     ]
+    id_indexes = {q.get("id"): i for i, q in enumerate(result.get("questions", []))}
     actual_groups = [
-        (normalize_stem(group["title"]), tuple(sorted({mapping.get(i, -i - 1) for i in group["questionIndexes"]})))
+        (normalize_stem(group["title"]), tuple(sorted({mapping.get(i, -i - 1) for i in [id_indexes.get(qid, -1) for qid in group["questionIds"]]})))
         for group in result.get("groups", [])
     ]
     score["groups"] = _structure_score(gold_groups, actual_groups)
@@ -638,7 +666,8 @@ async def run_evaluation(manifest_path: Path, repetitions: int = 1, case_ids: li
                         }).model_dump(mode="json")
             score = score_result(case, result)
             unverified = {row["predictedIndex"] for row in score["questions"] if row["expectedIndex"] is None}
-            unverified.update(issue["questionIndex"] for issue in (processing or {}).get("quality", {}).get("issues", [])
+            id_indexes = {q.get("id"): i for i, q in enumerate(result.get("questions", []))}
+            unverified.update(id_indexes.get(issue["questionId"], -1) for issue in (processing or {}).get("quality", {}).get("issues", [])
                               if issue["code"] in {"SOURCE_TEXT_NOT_FOUND", "AMBIGUOUS_OVERLAP", "OVERLAP_CONFLICT"})
             score["unverifiedQuestions"] = len(unverified)
             expected_error = case["expectedError"]

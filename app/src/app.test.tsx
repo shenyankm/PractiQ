@@ -320,7 +320,7 @@ it("preserves native filters, whole-label selection and disabled controls in stu
   const user = userEvent.setup();
   const session = examSession();
   const row = { ...session.attempts[0].snapshot, id: "question", bankId: "bank", bankTitle: "题库甲", favorite: false, latestResult: null };
-  vi.mocked(api).mockImplementation(async request => (request.type === "questions" ? [row] : session) as never);
+  vi.mocked(api).mockImplementation(async request => (request.type === "questions" ? [row] : request.type === "preview_paper" ? {questionIds:[row.id],digest:"preview",questions:[row],scores:[],count:1} : session) as never);
   const props = { banks: [{ id: "bank", title: "题库甲", description: "", count: 1, createdAt: 0 }], initialBank: null, initialFilter: "", onClose: vi.fn(), onStart: vi.fn(), run: (job: () => Promise<void>) => { void job(); } };
   const { rerender } = render(<StudySetup {...props} busy={false} />);
   await screen.findByText(/可用 1 题/);

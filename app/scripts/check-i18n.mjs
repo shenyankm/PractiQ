@@ -30,7 +30,11 @@ try {
     case 'questions':return questions;
     case 'info':return {version:'preview',dataDirectory:'/local/test'};
     case 'settings':return {config:{base_url:null,model_id:null,oss_url:null},hasApiKey:false};
-    case 'start_paper':return {id:'session',title:'原始名称',createdAt:1,finishedAt:null,position:0,mode:'ordered',attempts:questions.slice(0,request.paper.question_ids.length).map((q,i)=>({ordinal:i,snapshot:q,answer:null,autoResult:null,result:null,gradeKind:'ungraded',submittedAt:null,skipped:false,elapsedMs:0}))};
+    case 'preview_paper': {
+     const selected=questions.slice(0,request.request.count);
+     return {questionIds:selected.map(q=>q.id),digest:'browser-preview',questions:selected,scores:selected.map(()=>0),count:selected.length};
+    }
+    case 'start_paper':return {id:'session',title:'原始名称',createdAt:1,finishedAt:null,position:0,mode:'ordered',attempts:request.paper.question_ids.map((id,i)=>({ordinal:i,snapshot:questions.find(q=>q.id===id),answer:null,autoResult:null,result:null,gradeKind:'ungraded',submittedAt:null,skipped:false,elapsedMs:0}))};
     default:throw Error(`Unexpected request: ${request.type}`);
    }
   }};
@@ -69,6 +73,10 @@ try {
  checks.push(await overflow('setup'));
  await page.getByRole('button',{name:'Start now',exact:true}).click();
  await page.getByRole('heading',{name:'Practice',exact:true}).waitFor();
+ const paperCalls=await page.evaluate(()=>window.__calls.map(c=>c.request).filter(r=>['preview_paper','start_paper'].includes(r.type)));
+ assert.deepEqual(paperCalls.map(r=>r.type),['preview_paper','start_paper']);
+ assert.equal(paperCalls[1].paper.digest,'browser-preview');
+ assert.deepEqual(paperCalls[1].paper.question_ids,Array.from({length:paperCalls[0].request.count},(_,i)=>String(i)));
  checks.push(await overflow('practice'));
  assert.deepEqual(errors,[]);
  for (const check of checks) assert.deepEqual(check.items,[],`Text overflow: ${check.label}`);

@@ -15,6 +15,7 @@ from .contracts import (
     DocumentTaskList,
     DocumentTaskReview,
     RetryUnits,
+    scorable_count,
 )
 from .database import utcnow
 from .errors import DocumentProcessingError
@@ -304,7 +305,7 @@ async def list_tasks(limit: int = 20, offset: int = 0) -> dict[str, Any]:
                       'createdAt': row['created_at'].isoformat(), 'expiresAt': row['expires_at'].isoformat(),
                       'state': 'EXPIRED' if expired else _task_state(row, snapshot, run)[0],
                       'status': values.get('status') or None, 'checkpointId': service.checkpoint_id(snapshot, run),
-                      'questionCount': len(questions), 'reviewCount': sum(bool(q.get('needsReview')) for q in questions)})
+                      'questionCount': scorable_count(questions), 'reviewCount': sum(bool(q.get('needsReview')) and q.get('answerMode') not in {'reading', 'word_bank', 'cloze'} for q in questions)})
     return DocumentTaskList(items=items, hasMore=len(rows) > limit).model_dump(mode='json')
 
 

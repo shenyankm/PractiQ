@@ -1,5 +1,0 @@
-BEGIN IMMEDIATE;
-CREATE TABLE settings(id INTEGER PRIMARY KEY CHECK(id=1),base_url TEXT,model_id TEXT,oss_url TEXT);
-INSERT INTO settings VALUES(1,NULL,NULL,NULL);
-PRAGMA user_version=2;
-COMMIT;

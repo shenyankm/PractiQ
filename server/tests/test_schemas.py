@@ -14,11 +14,12 @@ from practiq_ai.contracts import (
 
 def question() -> dict:
     return {
+        "id": "q0",
         "stem": "What is 2+2?",
         "answerMode": "choice",
         "questionTypeId": "math-mcq",
-        "options": [{"label": " A ", "content": "4", "isCorrect": True}],
-        "answerPayload": {"correctOption": " a "},
+        "options": [{"label": " A ", "content": "4"}],
+        "answerPayload": {"correct": [" a "]},
         "analysis": "Simple arithmetic.",
         "contentBlocks": [{"partType": "text", "textValue": "What is 2+2?"}],
         "sourceText": "1. What is 2+2?",
@@ -115,8 +116,9 @@ def test_document_parse_input_accepts_only_managed_storage_references() -> None:
 def test_document_result_validates_nested_references_and_labels() -> None:
     result = DocumentParseResult.model_validate(
         {
+            "schemaVersion": 2,
             "questions": [question()],
-            "groups": [{"title": "Section 1", "questionIndexes": [0]}],
+            "groups": [{"title": "Section 1", "questionIds": ["q0"]}],
             "visualElements": [],
             "warnings": [],
             "confidenceScore": 91,
@@ -125,12 +127,12 @@ def test_document_result_validates_nested_references_and_labels() -> None:
 
     assert result.questions[0].options[0].label == "A"
     assert result.questions[0].answerPayload is not None
-    assert result.questions[0].model_dump()["answerPayload"] == {"correctOption": "A"}
+    assert result.questions[0].model_dump()["answerPayload"] == {"correct": ["A"]}
     with pytest.raises(ValidationError):
         DocumentParseResult.model_validate(
             {
                 **result.model_dump(),
-                "groups": [{"title": "Section 1", "questionIndexes": [1]}],
+                "groups": [{"title": "Section 1", "questionIds": ["absent"]}],
             }
         )
 
@@ -217,7 +219,7 @@ def test_cross_field_contract_invariants() -> None:
             ],
         },
         {**base, "answerPayload": {"text": "4"}},
-        {**base, "answerPayload": {"correctOption": "B"}},
+        {**base, "answerPayload": {"correct": ["B"]}},
     )
     for payload in invalid_questions:
         with pytest.raises(ValidationError):

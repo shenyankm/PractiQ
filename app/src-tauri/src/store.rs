@@ -50,7 +50,6 @@ pub fn read_bounded(path: &Path, limit: usize) -> Result<Vec<u8>> {
 pub struct Pending {
     pub ticket: String,
     pub root: Value,
-    pub raw: Vec<u8>,
     pub title: String,
     pub assets: HashMap<String, (String, Vec<u8>)>,
     pub missing: Vec<String>,
@@ -71,7 +70,6 @@ impl Pending {
         Ok(Self {
             ticket: id(),
             root,
-            raw: bytes,
             title,
             assets: HashMap::new(),
             missing,
@@ -107,46 +105,17 @@ impl Store {
         self.dir.join("practiq.sqlite")
     }
     pub fn connect(&self) -> Result<Connection> {
-        let mut db = Connection::open(self.db_path()).map_err(err)?;
+        let db = Connection::open(self.db_path()).map_err(err)?;
         db.busy_timeout(std::time::Duration::from_secs(5))
             .map_err(err)?;
         db.execute_batch("PRAGMA foreign_keys=ON;").map_err(err)?;
         let version: i64 = db
             .query_row("PRAGMA user_version", [], |r| r.get(0))
             .map_err(err)?;
-        if version > 8 {
-            return Err(crate::language::error(
-                "LOCAL_DATABASE_NEWER",
-                serde_json::json!({}),
-            ));
-        }
         if version == 0 {
             db.execute_batch(include_str!("schema.sql")).map_err(err)?;
-        }
-        if version < 2 {
-            db.execute_batch(include_str!("settings.sql"))
-                .map_err(err)?;
-        }
-        if version < 3 {
-            self.migrate_assets(&mut db)?;
-        }
-        if version < 4 {
-            db.execute_batch(include_str!("models.sql")).map_err(err)?;
-        }
-        if version < 5 {
-            db.execute_batch(include_str!("exams.sql")).map_err(err)?;
-        }
-        if version < 6 {
-            db.execute_batch(include_str!("ai_imports.sql"))
-                .map_err(err)?;
-        }
-        if version < 7 {
-            db.execute_batch(include_str!("single_model.sql"))
-                .map_err(err)?;
-        }
-        if version < 8 {
-            db.execute_batch(include_str!("language.sql"))
-                .map_err(err)?;
+        } else if version != 9 {
+            return Err("Only database schema 9 is supported; legacy data remains in its original directory".into());
         }
         Ok(db)
     }
@@ -161,7 +130,7 @@ impl Store {
         ))?;
         let r = contract::result(&p.root);
         Ok(
-            json!({"ticket":p.ticket,"title":p.title,"count":list(r,"questions").len(),"reviewCount":list(r,"questions").iter().filter(|q|q["needsReview"]==true).count(),"questions":r["questions"],"warnings":r["warnings"],"status":p.root["status"],"processing":p.root["processing"],"missingAssets":p.missing,"assetCount":p.assets.len()}),
+            json!({"ticket":p.ticket,"title":p.title,"count":list(r,"questions").iter().filter(|q|!crate::questions::composite(q)).count(),"reviewCount":list(r,"questions").iter().filter(|q|q["needsReview"]==true && !crate::questions::composite(q)).count(),"questions":r["questions"],"groups":r["groups"],"visuals":r["visualElements"],"warnings":r["warnings"],"status":p.root["status"],"processing":p.root["processing"],"missingAssets":p.missing,"assetCount":p.assets.len()}),
         )
     }
     pub fn resources(&mut self, root: &Path) -> Result<Value> {
@@ -319,17 +288,14 @@ impl Store {
         let import_id = id();
         let r = contract::result(&p.root);
         let ids: Vec<String> = list(r, "questions").iter().map(|_| id()).collect();
-        let groups = map_associations(list(r, "groups"), &ids);
-        let visuals = map_associations(list(r, "visualElements"), &ids);
+        let id_map: HashMap<_, _> = list(r, "questions")
+            .iter()
+            .zip(&ids)
+            .map(|(q, id)| (text(q, "id").to_owned(), id.clone()))
+            .collect();
         tx.execute(
-            "INSERT INTO imports VALUES(?1,?2,?3,?4,?5)",
-            params![
-                import_id,
-                bank,
-                digest,
-                String::from_utf8_lossy(&p.raw),
-                now()
-            ],
+            "INSERT INTO imports VALUES(?1,?2,?3,?4)",
+            params![import_id, bank, digest, now()],
         )
         .map_err(err)?;
         if let Some(source) = &p.source {
@@ -353,56 +319,17 @@ impl Store {
                 |r| r.get(0),
             )
             .map_err(err)?;
-        for (i, q) in list(r, "questions").iter().enumerate() {
-            let groups: Vec<_> = groups
-                .iter()
-                .filter(|g| list(g, "questionIds").contains(&json!(ids[i])))
-                .cloned()
-                .collect();
-            let visuals: Vec<_> = visuals
-                .iter()
-                .filter(|v| {
-                    list(v, "questionIds").is_empty()
-                        || list(v, "questionIds").contains(&json!(ids[i]))
-                })
-                .cloned()
-                .collect();
-            let sources: Vec<_> = list(&p.root["processing"], "questionSources")
-                .iter()
-                .filter(|s| s["questionIndex"] == i)
-                .cloned()
-                .collect();
-            // Original pages are optional review aids; only missing crops block grading.
-            let missing = visuals
-                .iter()
-                .filter_map(|v| v.get("imageRef").filter(|r| r.is_object()))
-                .any(|r| {
-                    !p.assets.contains_key(text(r, "sha256"))
-                        && !tx
-                            .query_row(
-                                "SELECT EXISTS(SELECT 1 FROM assets WHERE hash=?1)",
-                                [text(r, "sha256")],
-                                |r| r.get::<_, bool>(0),
-                            )
-                            .unwrap_or(false)
-                });
-            let snapshot = json!({"question":q,"groups":groups,"visuals":visuals,"sources":sources,"warnings":r["warnings"],"missingAssets":missing});
-            tx.execute(
-                "INSERT INTO questions VALUES(?1,?2,?3,?4,?5,?6,?7,0)",
-                params![
-                    ids[i],
-                    bank,
-                    import_id,
-                    offset + i as i64,
-                    text(q, "stem"),
-                    text(q, "answerMode"),
-                    snapshot.to_string()
-                ],
-            )
-            .map_err(err)?;
+        for (i, original) in list(r, "questions").iter().enumerate() {
+            let mut q = original.clone();
+            crate::questions::remap(&mut q, &id_map)?;
+            crate::questions::write(&tx, &q, &bank, Some(&import_id), offset + i as i64, false)?;
         }
+        crate::questions::put_context(&tx, &bank, r, &ids, &import_id, &p.root["processing"])?;
         tx.commit().map_err(err)?;
-        let count = ids.len();
+        let count = list(r, "questions")
+            .iter()
+            .filter(|q| !crate::questions::composite(q))
+            .count();
         Ok(json!({"duplicate":false,"bankId":bank,"count":count}))
     }
 
@@ -419,7 +346,7 @@ impl Store {
     }
     pub fn banks(&self) -> Result<Value> {
         let db = self.connect()?;
-        let mut s=db.prepare("SELECT b.id,b.title,b.description,b.created_at,COUNT(q.id) FROM banks b LEFT JOIN questions q ON q.bank_id=b.id GROUP BY b.id ORDER BY b.created_at DESC").map_err(err)?;
+        let mut s=db.prepare("SELECT b.id,b.title,b.description,b.created_at,COUNT(q.id) FROM banks b LEFT JOIN questions q ON q.bank_id=b.id AND (q.mode IS NULL OR q.mode NOT IN ('reading','word_bank','cloze')) GROUP BY b.id ORDER BY b.created_at DESC").map_err(err)?;
         let rows=s.query_map([],|r|Ok(json!({"id":r.get::<_,String>(0)?,"title":r.get::<_,String>(1)?,"description":r.get::<_,String>(2)?,"createdAt":r.get::<_,i64>(3)?,"count":r.get::<_,i64>(4)?}))).map_err(err)?;
         Ok(json!(rows
             .collect::<std::result::Result<Vec<_>, _>>()
@@ -449,7 +376,7 @@ impl Store {
             .map_err(err)?;
         Ok(Value::Null)
     }
-    // ponytail: load matching snapshots together; add SQL pagination when large libraries make this slow.
+    // ponytail: assemble bounded libraries in memory; add SQL pagination when profiling warrants it.
     pub fn questions(
         &self,
         bank_id: Option<&str>,
@@ -458,60 +385,83 @@ impl Store {
         filter: &str,
     ) -> Result<Value> {
         let db = self.connect()?;
-        let mut stmt=db.prepare("SELECT q.id,q.bank_id,q.snapshot,q.favorite,b.title,(SELECT a.result FROM attempts a JOIN sessions s ON s.id=a.session_id WHERE a.question_id=q.id AND a.result IS NOT NULL ORDER BY a.submitted_at DESC,a.rowid DESC LIMIT 1) AS latest_result FROM questions q JOIN banks b ON b.id=q.bank_id WHERE (?1 IS NULL OR q.bank_id=?1) AND (?2='' OR instr(lower(q.stem),lower(?2))>0 OR instr(lower(q.snapshot),lower(?2))>0) AND (?3='' OR q.mode=?3 OR (?3 IN ('single','multiple') AND q.mode='choice' AND json_extract(q.snapshot,'$.question.choiceVariant')=?3)) AND (?4!='favorite' OR q.favorite=1) AND (?4!='wrong' OR latest_result=0) AND (?4!='unattempted' OR NOT EXISTS(SELECT 1 FROM attempts a WHERE a.question_id=q.id AND a.submitted_at IS NOT NULL AND a.skipped=0)) ORDER BY b.created_at DESC,q.position").map_err(err)?;
-        let rows = stmt
-            .query_map(params![bank_id, search, mode, filter], |r| {
-                let mut v: Value =
-                    serde_json::from_str(&r.get::<_, String>(2)?).unwrap_or(Value::Null);
-                v["id"] = json!(r.get::<_, String>(0)?);
-                v["bankId"] = json!(r.get::<_, String>(1)?);
-                v["favorite"] = json!(r.get::<_, bool>(3)?);
-                v["bankTitle"] = json!(r.get::<_, String>(4)?);
-                v["latestResult"] = json!(r.get::<_, Option<bool>>(5)?);
-                Ok(v)
-            })
-            .map_err(err)?;
-        Ok(json!(rows
-            .collect::<std::result::Result<Vec<_>, _>>()
-            .map_err(err)?))
+        let rows = crate::questions::read(&db)?;
+        let mut matches = std::collections::HashSet::new();
+        for row in &rows {
+            if bank_id.is_some_and(|b| row["bankId"] != b) {
+                continue;
+            }
+            let q = &row["question"];
+            if !search.is_empty()
+                && !["stem", "sourceText", "analysis"]
+                    .iter()
+                    .any(|k| text(q, k).to_lowercase().contains(&search.to_lowercase()))
+                && !list(q, "passage").iter().any(|b| {
+                    text(b, "textValue")
+                        .to_lowercase()
+                        .contains(&search.to_lowercase())
+                        || text(b, "markdownValue")
+                            .to_lowercase()
+                            .contains(&search.to_lowercase())
+                })
+            {
+                continue;
+            }
+            let selected=match filter {"favorite"=>row["favorite"]==true,"wrong"=>row["latestResult"]==false,"unattempted"=>!crate::questions::composite(&row["question"]) && !db.query_row("SELECT EXISTS(SELECT 1 FROM attempts WHERE question_id=?1 AND submitted_at IS NOT NULL AND skipped=0)",[text(row,"id")],|r|r.get::<_,bool>(0)).map_err(err)?,_=>true};
+            if selected {
+                matches.insert(crate::questions::root_id(row, &rows).to_owned());
+            }
+        }
+        let mut results = Vec::new();
+        for row in &rows {
+            if !text(&row["question"], "parentId").is_empty() || !matches.contains(text(row, "id"))
+            {
+                continue;
+            }
+            let q = &row["question"];
+            if !mode.is_empty()
+                && text(q, "answerMode") != mode
+                && !(text(q, "answerMode") == "choice" && text(q, "choiceVariant") == mode)
+            {
+                continue;
+            }
+            let mut root = crate::questions::hydrate(row, &rows);
+            root["children"] = json!(rows
+                .iter()
+                .filter(|r| r["id"] != row["id"]
+                    && crate::questions::root_id(r, &rows) == text(row, "id"))
+                .map(|r| crate::questions::hydrate(r, &rows))
+                .collect::<Vec<_>>());
+            results.push(root);
+        }
+        Ok(json!(results))
     }
+    #[cfg(test)]
     pub fn save_question(
         &self,
-        question_id: Option<String>,
+        qid: Option<String>,
         bank: &str,
         mut question: Value,
     ) -> Result<Value> {
-        contract::validate_question(&mut question)?;
-        let db = self.connect()?;
-        let editing = question_id.is_some();
-        let qid = question_id.unwrap_or_else(id);
-        let old: Option<String> = db
-            .query_row(
-                "SELECT snapshot FROM questions WHERE id=?1 AND bank_id=?2",
-                params![qid, bank],
-                |r| r.get(0),
-            )
-            .optional()
-            .map_err(err)?;
-        if editing && old.is_none() {
-            return Err(crate::language::error(
-                "LOCAL_QUESTION_MISSING",
-                serde_json::json!({}),
-            ));
-        }
-        let mut snapshot: Value = old
-            .map(|s| serde_json::from_str(&s).map_err(err))
-            .transpose()?
-            .unwrap_or(
-                json!({"groups":[],"visuals":[],"sources":[],"warnings":[],"missingAssets":false}),
-            );
-        snapshot["question"] = question.clone();
-        db.execute("INSERT INTO questions(id,bank_id,position,stem,mode,snapshot,favorite) VALUES(?1,?2,(SELECT COALESCE(MAX(position),-1)+1 FROM questions WHERE bank_id=?2),?3,?4,?5,0) ON CONFLICT(id) DO UPDATE SET stem=excluded.stem,mode=excluded.mode,snapshot=excluded.snapshot",params![qid,bank,text(&question,"stem"),text(&question,"answerMode"),snapshot.to_string()]).map_err(err)?;
-        Ok(json!(qid))
+        question["id"] = json!(qid.clone().unwrap_or_else(id));
+        self.save_question_tree(bank, qid.as_deref(), vec![question])
     }
     pub fn delete_question(&self, qid: &str) -> Result<Value> {
-        self.connect()?
-            .execute("DELETE FROM questions WHERE id=?1", [qid])
+        let db = self.connect()?;
+        let child: bool = db
+            .query_row(
+                "SELECT parent_id IS NOT NULL FROM questions WHERE id=?1",
+                [qid],
+                |r| r.get(0),
+            )
+            .map_err(err)?;
+        if child {
+            return Err(crate::language::error(
+                "LOCAL_GROUP_DELETE_CHILD",
+                json!({}),
+            ));
+        }
+        db.execute("DELETE FROM questions WHERE id=?1", [qid])
             .map_err(err)?;
         Ok(Value::Null)
     }
@@ -535,8 +485,18 @@ impl Store {
         self.expire_exam(sid)?;
         let db = self.connect()?;
         let mut session=db.query_row("SELECT id,bank_title,created_at,finished_at,position,mode FROM sessions WHERE id=?1",[sid],|r|Ok(json!({"id":r.get::<_,String>(0)?,"title":r.get::<_,String>(1)?,"createdAt":r.get::<_,i64>(2)?,"finishedAt":r.get::<_,Option<i64>>(3)?,"position":r.get::<_,i64>(4)?,"mode":r.get::<_,String>(5)?}))).map_err(err)?;
-        let mut stmt=db.prepare("SELECT ordinal,snapshot,answer,auto_result,result,grade_kind,submitted_at,skipped,elapsed_ms FROM attempts WHERE session_id=?1 ORDER BY ordinal").map_err(err)?;
-        let attempts=stmt.query_map([sid],|r|Ok(json!({"ordinal":r.get::<_,i64>(0)?,"snapshot":serde_json::from_str::<Value>(&r.get::<_,String>(1)?).unwrap_or(Value::Null),"answer":serde_json::from_str::<Value>(&r.get::<_,String>(2)?).unwrap_or(Value::Null),"autoResult":r.get::<_,Option<bool>>(3)?,"result":r.get::<_,Option<bool>>(4)?,"gradeKind":r.get::<_,String>(5)?,"submittedAt":r.get::<_,Option<i64>>(6)?,"skipped":r.get::<_,bool>(7)?,"elapsedMs":r.get::<_,i64>(8)?}))).map_err(err)?.collect::<std::result::Result<Vec<_>,_>>().map_err(err)?;
+        let mut stmt=db.prepare("SELECT ordinal,snapshot_question_id,answer,auto_result,result,grade_kind,submitted_at,skipped,elapsed_ms FROM attempts WHERE session_id=?1 ORDER BY ordinal").map_err(err)?;
+        let attempts=stmt.query_map([sid],|r|Ok(json!({"ordinal":r.get::<_,i64>(0)?,"snapshotId":r.get::<_,String>(1)?,"answer":serde_json::from_str::<Value>(&r.get::<_,String>(2)?).unwrap_or(Value::Null),"autoResult":r.get::<_,Option<bool>>(3)?,"result":r.get::<_,Option<bool>>(4)?,"gradeKind":r.get::<_,String>(5)?,"submittedAt":r.get::<_,Option<i64>>(6)?,"skipped":r.get::<_,bool>(7)?,"elapsedMs":r.get::<_,i64>(8)?}))).map_err(err)?.collect::<std::result::Result<Vec<_>,_>>().map_err(err)?;
+        let mut attempts = attempts;
+        let frozen = crate::questions::session_rows(&db, sid)?;
+        for a in &mut attempts {
+            let row = frozen
+                .iter()
+                .find(|r| r["id"] == a["snapshotId"])
+                .ok_or("Missing frozen question")?;
+            a["snapshot"] = crate::questions::hydrate(row, &frozen);
+            a.as_object_mut().unwrap().remove("snapshotId");
+        }
         session["attempts"] = json!(attempts);
         self.enrich_session(&db, &mut session)?;
         Ok(session)
@@ -612,9 +572,41 @@ impl Store {
                 serde_json::json!({}),
             ));
         }
-        let (snapshot,submitted,kind):(String,Option<i64>,String)=tx.query_row("SELECT snapshot,submitted_at,grade_kind FROM attempts WHERE session_id=?1 AND ordinal=?2",params![sid,ordinal],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).map_err(err)?;
-        let snapshot: Value = serde_json::from_str(&snapshot).map_err(err)?;
+        let (snapshot,submitted,kind):(String,Option<i64>,String)=tx.query_row("SELECT snapshot_question_id,submitted_at,grade_kind FROM attempts WHERE session_id=?1 AND ordinal=?2",params![sid,ordinal],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).map_err(err)?;
+        let snapshot = crate::questions::snapshot(&tx, sid, &snapshot)?;
         let q = &snapshot["question"];
+        contract::validate_attempt(q, &answer)?;
+        if let Some(parent) = crate::questions::session_rows(&tx, sid)?
+            .iter()
+            .find(|r| r["id"] == q["optionSourceId"] && !q["optionSourceId"].is_null())
+        {
+            if parent["question"]["allowReuse"] != true {
+                let mut statement=tx.prepare("SELECT snapshot_question_id,answer FROM attempts WHERE session_id=?1 AND ordinal!=?2").map_err(err)?;
+                let others = statement
+                    .query_map(params![sid, ordinal], |r| {
+                        Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
+                    })
+                    .map_err(err)?
+                    .collect::<std::result::Result<Vec<_>, _>>()
+                    .map_err(err)?;
+                for (other, raw) in others {
+                    let row = crate::questions::snapshot(&tx, sid, &other)?;
+                    let a: Value = serde_json::from_str(&raw).map_err(err)?;
+                    if row["question"]["parentId"] == parent["id"]
+                        && list(&answer, "correct").iter().any(|v| {
+                            list(&a, "correct").iter().any(|other| {
+                                other.as_str().is_some_and(|other| {
+                                    v.as_str().is_some_and(|v| other.eq_ignore_ascii_case(v))
+                                })
+                            })
+                        })
+                    {
+                        return Err(crate::language::error("LOCAL_WORD_REUSED", json!({})));
+                    }
+                }
+            }
+        }
+
         if submitted.is_some() {
             if submit
                 && self_result.is_some()
@@ -677,6 +669,12 @@ impl Store {
         self.session(sid)
     }
     pub fn asset(&self, digest: &str) -> Result<Value> {
+        if let Some((media, bytes)) = self.pending.as_ref().and_then(|p| p.assets.get(digest)) {
+            return Ok(json!(format!(
+                "data:{media};base64,{}",
+                STANDARD.encode(bytes)
+            )));
+        }
         let row: Option<(String, u64)> = self
             .connect()?
             .query_row(
@@ -705,20 +703,6 @@ fn valid_title(title: &str) -> Result<&str> {
     } else {
         Ok(title)
     }
-}
-fn map_associations(values: &[Value], ids: &[String]) -> Vec<Value> {
-    values
-        .iter()
-        .map(|v| {
-            let mut v = v.clone();
-            v["id"] = json!(id());
-            v["questionIds"] = json!(list(&v, "questionIndexes")
-                .iter()
-                .filter_map(|i| i.as_u64().and_then(|i| ids.get(i as usize)))
-                .collect::<Vec<_>>());
-            v
-        })
-        .collect()
 }
 pub(crate) fn image_signature(bytes: &[u8], media: &str) -> bool {
     match media {

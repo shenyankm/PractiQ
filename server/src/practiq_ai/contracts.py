@@ -16,7 +16,7 @@ from pydantic import (
     model_validator,
 )
 
-AnswerMode = Literal["choice", "true_false", "fill_blank", "short_answer", "ordering", "matching"]
+AnswerMode = Literal["choice", "true_false", "fill_blank", "short_answer", "ordering", "matching", "reading", "word_bank", "cloze"]
 DocumentSourceType = Literal["csv", "image", "text", "pdf"]
 ContentPartType = Literal[
     "text",
@@ -28,6 +28,7 @@ ContentPartType = Literal[
     "markdown",
     "chart",
     "diagram",
+    "blank",
     "qr_code",
 ]
 VisualKind = Literal["image", "table", "chart", "diagram", "qr_code"]
@@ -92,7 +93,6 @@ class DocumentUploadRequest(StrictModel):
 class ParsedOption(StrictModel):
     label: str | None = Field(default=None, max_length=32)
     content: str | None = Field(default=None, max_length=20_000)
-    isCorrect: StrictBool | None = None
 
     @field_validator("label", "content", mode="before")
     @classmethod
@@ -101,12 +101,12 @@ class ParsedOption(StrictModel):
 
 
 class ChoiceAnswerPayload(StrictModel):
-    correctOption: str = Field(min_length=1, max_length=32)
+    correct: list[str] = Field(min_length=1, max_length=100)
 
-    @field_validator("correctOption")
+    @field_validator("correct")
     @classmethod
-    def reject_blank_option(cls, value: str) -> str:
-        return _non_blank(value)
+    def reject_blank_options(cls, values: list[str]) -> list[str]:
+        return [_non_blank(value) for value in values]
 
 
 class TrueFalseAnswerPayload(StrictModel):
@@ -144,10 +144,6 @@ class MatchingAnswerPayload(StrictModel):
     matches: list[MatchPair] = Field(min_length=1, max_length=100)
 
 
-class MultipleChoiceAnswerPayload(StrictModel):
-    correct: list[str] = Field(min_length=1, max_length=100)
-
-
 class ParsedItem(StrictModel):
     id: StrictInt | None = None
     side: Literal["left", "right"] | None = None
@@ -166,7 +162,6 @@ AnswerPayload = (
     | ShortAnswerPayload
     | OrderingAnswerPayload
     | MatchingAnswerPayload
-    | MultipleChoiceAnswerPayload
 )
 
 
@@ -193,9 +188,9 @@ def normalize_answer(mode, payload, variant=None):
         return None
     if not isinstance(payload, dict):
         raise ValueError("answerPayload must be an object")  # noqa: TRY004 - Pydantic validation boundary
-    schemas = [*ANSWER_TYPES.values(), MultipleChoiceAnswerPayload]
+    schemas = list(ANSWER_TYPES.values())
     schema = (next((item for item in schemas if set(payload) <= set(item.model_fields)), None)
-              if mode is None else MultipleChoiceAnswerPayload if mode == "choice" and variant == "multiple" else ANSWER_TYPES[mode])
+              if mode is None else ANSWER_TYPES.get(mode))
     if schema is None or set(payload) - set(schema.model_fields):
         raise ValueError("answerPayload does not match answerMode")
     partial = mode is None
@@ -232,14 +227,16 @@ def answer_references_missing(mode, answer, data):
     partial = isinstance(answer, dict)
     payload = answer if partial else answer.model_dump()
     if mode == "choice":
-        selected = payload.get("correct") or [payload.get("correctOption")]
+        selected = payload.get("correct") or []
         selected = [v for v in selected if v is not None]
         labels = {o["label"].casefold(): o["label"] for o in data.get("options", []) if o.get("label")}
         if len({v.casefold() for v in selected}) != len(selected):
             raise ValueError("correct options must be unique")
         if labels and any(v.casefold() not in labels for v in selected):
-            raise ValueError("correctOption must reference an option label")
-        if isinstance(answer, MultipleChoiceAnswerPayload) and labels:
+            raise ValueError("correct must reference supplied option labels")
+        if data.get("choiceVariant") == "single" and len(payload.get("correct") or []) > 1:
+            raise ValueError("single choice requires exactly one correct option")
+        if isinstance(answer, ChoiceAnswerPayload) and labels:
             answer.correct = [labels[v.casefold()] for v in selected]
     items = data.get("items") or []
     if mode == "ordering" and items:
@@ -268,11 +265,11 @@ def question_missing_fields(data):
         if not data.get(field):
             missing.append(field)
     mode = data.get("answerMode")
-    if mode == "choice":
-        if not data.get("choiceVariant"):
+    if mode in {"choice", "word_bank"}:
+        if mode == "choice" and not data.get("choiceVariant"):
             missing.append("choiceVariant")
         options = data.get("options") or []
-        if len(options) < 2 or any(not o.get("label") or not o.get("content") for o in options):
+        if not data.get("optionSourceId") and (len(options) < 2 or any(not o.get("label") or not o.get("content") for o in options)):
             missing.append("options")
     if mode in {"ordering", "matching"}:
         items = data.get("items") or []
@@ -281,7 +278,7 @@ def question_missing_fields(data):
         if len(items)<2 or any(not item.get("content") for item in items) or mode == "matching" and (any(i.get("side") is None for i in items) or sum(i.get("side")=="left" for i in items)<2 or sum(i.get("side")=="right" for i in items)<2):
             missing.append("items")
     answer = normalize_answer(mode, data.get("answerPayload"), data.get("choiceVariant"))
-    if answer_references_missing(mode, answer, data):
+    if mode not in COMPOSITE_MODES and answer_references_missing(mode, answer, data):
         missing.append("answerPayload")
     for field in ("analysis", "sourceText"):
         if not data.get(field):
@@ -290,8 +287,12 @@ def question_missing_fields(data):
     return missing
 
 
+COMPOSITE_MODES = {"reading", "word_bank", "cloze"}
+
+
 class ContentBlock(StrictModel):
     partType: ContentPartType
+    questionId: str | None = Field(default=None, min_length=1, max_length=128)
     role: str | None = Field(default=None, max_length=64)
     textValue: str | None = Field(default=None, max_length=120_000)
     markdownValue: str | None = Field(default=None, max_length=100_000)
@@ -300,6 +301,12 @@ class ContentBlock(StrictModel):
 
     @model_validator(mode="after")
     def require_content(self) -> Self:
+        if self.partType == "blank":
+            if not self.questionId:
+                raise ValueError("blank requires a questionId")
+            return self
+        if self.questionId is not None:
+            raise ValueError("questionId requires blank content")
         strings = (self.textValue, self.markdownValue, self.latexValue)
         if (
             not any(value and value.strip() for value in strings)
@@ -310,6 +317,12 @@ class ContentBlock(StrictModel):
 
 
 class ParsedQuestion(StrictModel):
+    id: str | None = Field(default=None, min_length=1, max_length=128)
+    parentId: str | None = Field(default=None, min_length=1, max_length=128)
+    optionSourceId: str | None = Field(default=None, min_length=1, max_length=128)
+    passage: list[ContentBlock] = Field(default_factory=list, max_length=1_000)
+    allowReuse: StrictBool = False
+    blankCount: StrictInt | None = Field(default=None, ge=1, le=100)
     stem: str | None = Field(default=None, max_length=120_000)
     answerMode: AnswerMode | None = None
     questionTypeId: str | None = Field(default=None, max_length=128)
@@ -340,7 +353,7 @@ class ParsedQuestion(StrictModel):
 
     @model_validator(mode="after")
     def validate_answer(self) -> Self:
-        if self.answerMode is not None and self.answerMode != "choice" and (self.options or self.choiceVariant):
+        if self.answerMode not in {None, "choice", "word_bank"} and (self.options or self.choiceVariant):
             raise ValueError("options are only allowed for choice questions")
         if self.answerMode is not None and self.answerMode not in {"ordering", "matching"} and self.items:
             raise ValueError("items require ordering or matching mode")
@@ -351,17 +364,24 @@ class ParsedQuestion(StrictModel):
         labels = [o.label.casefold() for o in self.options if o.label]
         if len(labels) != len(set(labels)):
             raise ValueError("option labels must be unique")
+        if self.allowReuse and self.answerMode != "word_bank":
+            raise ValueError("allowReuse requires word_bank mode")
+        if self.blankCount is not None and self.answerMode != "fill_blank":
+            raise ValueError("blankCount requires fill_blank mode")
+        if any(block.partType == "blank" for block in self.contentBlocks):
+            raise ValueError("blank references belong in passage")
+        if self.answerMode in COMPOSITE_MODES and self.answerPayload is not None:
+            raise ValueError("composite parents cannot have answers")
+        if self.answerMode not in COMPOSITE_MODES and self.passage:
+            raise ValueError("passage requires a composite question")
+        if self.optionSourceId and (self.answerMode != "choice" or self.options):
+            raise ValueError("shared options require a choice without local options")
         self.answerPayload = normalize_answer(self.answerMode, self.answerPayload, self.choiceVariant)
-        if isinstance(self.answerPayload, ChoiceAnswerPayload) and labels:
-            canonical = {o.label.casefold(): o.label for o in self.options if o.label}.get(self.answerPayload.correctOption.casefold())
-            if canonical is None:
-                raise ValueError("correctOption must reference an option label")
-            self.answerPayload = ChoiceAnswerPayload(correctOption=canonical)
         answer_references_missing(self.answerMode, self.answerPayload, self.model_dump())
         self.missingFields = question_missing_fields(self.model_dump())
         if self.missingFields:
             self.needsReview = True
-        if not any((self.stem, self.sourceText, self.options, self.items, self.contentBlocks, self.answerPayload, self.analysis)):
+        if not any((self.stem, self.sourceText, self.options, self.items, self.contentBlocks, self.passage, self.answerPayload, self.analysis)):
             raise ValueError("An empty object is not an identifiable question")
         return self
 
@@ -404,9 +424,8 @@ VisualLabel = Annotated[str, Field(max_length=1_000)]
 VisualDescription = Annotated[str, Field(min_length=1, max_length=20_000), AfterValidator(_non_blank)]
 
 
-class VisualElement(StrictModel):
+class VisualContent(StrictModel):
     role: str | None = Field(default=None, max_length=64, description="Content role; answer-bearing visuals use answer and are hidden during unsubmitted exams.")
-    questionIndexes: list[StrictInt] = Field(default_factory=list, max_length=1_000)
     kind: VisualKind
     label: VisualLabel | None = None
     description: VisualDescription
@@ -429,25 +448,85 @@ class VisualElement(StrictModel):
         return value
 
 
+class VisualElement(VisualContent):
+    questionIndexes: list[StrictInt] = Field(default_factory=list, max_length=1_000)
+
+
+class DocumentGroup(StrictModel):
+    title: str = Field(min_length=1, max_length=1_000)
+    instructions: str | None = Field(default=None, max_length=20_000)
+    questionIds: list[str] = Field(max_length=1_000)
+
+
+class DocumentVisual(VisualContent):
+    questionIds: list[str] = Field(default_factory=list, max_length=1_000)
+
+
 class DocumentParseResult(StrictModel):
+    schemaVersion: Literal[2]
     questions: list[ParsedQuestion] = Field(min_length=1, max_length=1_000)
-    groups: list[ParsedGroup] = Field(max_length=1_000)
-    visualElements: list[VisualElement] = Field(max_length=1_000)
+    groups: list[DocumentGroup] = Field(max_length=1_000)
+    visualElements: list[DocumentVisual] = Field(max_length=1_000)
     warnings: list[str] = Field(max_length=1_000)
     confidenceScore: float = Field(ge=0, le=100)
 
     @model_validator(mode="after")
-    def validate_group_indexes(self) -> Self:
-        question_count = len(self.questions)
-        if any(
-            index < 0 or index >= question_count
-            for group in self.groups
-            for index in group.questionIndexes
-        ):
-            raise ValueError("questionIndexes must reference a parsed question")
-        if any(index < 0 or index >= question_count for visual in self.visualElements for index in visual.questionIndexes):
-            raise ValueError("visual questionIndexes must reference a parsed question")
+    def validate_references(self) -> Self:
+        validate_question_tree(self.questions)
+        ids = {q.id for q in self.questions}
+        if any(qid not in ids for value in [*self.groups, *self.visualElements] for qid in value.questionIds):
+            raise ValueError("questionIds must reference a parsed question")
         return self
+
+
+def validate_question_tree(questions: list[ParsedQuestion]) -> None:
+    by_id = {q.id: q for q in questions}
+    if None in by_id or len(by_id) != len(questions):
+        raise ValueError("questions require unique IDs")
+    children: dict[str, list[ParsedQuestion]] = {}
+    for q in questions:
+        if q.parentId:
+            parent = by_id.get(q.parentId)
+            if parent is None or parent.answerMode not in COMPOSITE_MODES:
+                raise ValueError("parentId must reference a composite question")
+            if parent.answerMode != "reading" and (q.answerMode != "choice" or q.choiceVariant != "single"):
+                raise ValueError("gap children must be single choices")
+            if q.answerMode == "reading":
+                raise ValueError("reading questions cannot nest")
+            if parent.answerMode == "word_bank" and q.optionSourceId != parent.id:
+                raise ValueError("word-bank children must use their parent's options")
+            children.setdefault(q.parentId, []).append(q)
+        seen = {q.id}
+        ancestor = q.parentId
+        while ancestor:
+            if ancestor in seen or ancestor not in by_id:
+                raise ValueError("invalid or cyclic question ancestry")
+            seen.add(ancestor)
+            ancestor = by_id[ancestor].parentId
+        if q.optionSourceId:
+            owner = by_id.get(q.optionSourceId)
+            if owner is None or owner.answerMode != "word_bank" or q.parentId != owner.id:
+                raise ValueError("optionSourceId must reference the parent word bank")
+            answer_references_missing("choice", q.answerPayload, {**q.model_dump(), "options": [o.model_dump() for o in owner.options]})
+    for q in questions:
+        if q.answerMode not in COMPOSITE_MODES:
+            continue
+        descendants = children.get(q.id or "", [])
+        if not descendants or not q.passage:
+            q.needsReview = True
+            q.missingFields = list(dict.fromkeys([*q.missingFields, "material"]))
+        if q.answerMode in {"word_bank", "cloze"}:
+            refs = [block.questionId for block in q.passage if block.partType == "blank"]
+            if len(refs) != len(set(refs)) or set(refs) != {child.id for child in descendants}:
+                raise ValueError("passage blanks must reference each child exactly once")
+        if q.answerMode == "word_bank" and not q.allowReuse:
+            answers = [value for child in descendants for value in (child.answerPayload.model_dump() if isinstance(child.answerPayload, BaseModel) else child.answerPayload or {}).get("correct", []) if value is not None]
+            if len(answers) != len(set(answers)):
+                raise ValueError("word bank does not allow reused answers")
+
+
+def scorable_count(questions) -> int:
+    return sum((q.answerMode if isinstance(q, ParsedQuestion) else q.get("answerMode")) not in COMPOSITE_MODES for q in questions)
 
 
 class UnitCounts(StrictModel):
@@ -487,13 +566,30 @@ class DocumentQuality(StrictModel):
     issues: list[QualityIssue] = Field(default_factory=list)
 
 
+class DocumentQuestionSource(StrictModel):
+    questionId: str = Field(min_length=1, max_length=128)
+    stage: Literal["document_parse", "vision_parse"]
+    unitIndex: int = Field(ge=0)
+
+
+class DocumentQualityIssue(StrictModel):
+    questionId: str = Field(min_length=1, max_length=128)
+    code: Literal["SOURCE_TEXT_NOT_FOUND", "AMBIGUOUS_OVERLAP", "OVERLAP_CONFLICT", "MISSING_FIELDS", "NEEDS_REVIEW"]
+
+
+class ExportQuality(StrictModel):
+    reviewRequired: bool = False
+    reviewQuestionCount: int = Field(default=0, ge=0)
+    issues: list[DocumentQualityIssue] = Field(default_factory=list)
+
+
 class DocumentProcessing(StrictModel):
     chunks: UnitCounts
     visuals: UnitCounts
     truncated: bool
     failures: list[UnitFailure] = Field(max_length=2_000)
-    questionSources: list[QuestionSource] = Field(default_factory=list)
-    quality: DocumentQuality = Field(default_factory=DocumentQuality)
+    questionSources: list[DocumentQuestionSource] = Field(default_factory=list)
+    quality: ExportQuality = Field(default_factory=ExportQuality)
 
 
 class FailedUnit(StrictModel):
@@ -584,8 +680,8 @@ class ReviewUnit(StrictModel):
     stage: Literal["result", "vision_parse", "document_parse"]
     index: int = Field(ge=0)
     questions: list[ParsedQuestion]
-    groups: list[ParsedGroup]
-    visualElements: list[VisualElement] = Field(default_factory=list)
+    groups: list[ParsedGroup | DocumentGroup]
+    visualElements: list[VisualElement | DocumentVisual] = Field(default_factory=list)
     sourceRef: ArtifactReference | None = None
 
 
@@ -596,5 +692,5 @@ class DocumentTaskReview(StrictModel):
     phase: str
     units: list[ReviewUnit]
     failures: list[UnitFailure]
-    quality: DocumentQuality
-    questionSources: list[QuestionSource]
+    quality: ExportQuality
+    questionSources: list[DocumentQuestionSource]

@@ -105,3 +105,5 @@ Choose the guide for your task:
 - [Contributing](CONTRIBUTING.md): development checks and pull requests
 
 Desktop language regression: `cd app && npx playwright install chromium --only-shell && npm run test:browser` checks the 960px English layout and real keyboard language switching with a mocked Tauri boundary. It starts its own Vite server on port 1420 and makes no model calls. Unit/integration coverage for language races, persistence, backup restore and bilingual workflows runs in `make app-check`.
+
+题型契约、规范化 SQLite 表与复合题规则见[题型模型](docs/question-model.md)。

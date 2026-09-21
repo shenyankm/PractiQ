@@ -89,7 +89,7 @@ def test_merge_caps_questions_at_schema_limit() -> None:
 
     assert len(merged) == len(sources) == quality.reviewQuestionCount == 1_000
     assert groups == []
-    assert any('first 1000' in warning for warning in warnings)
+    assert any('retained 1000 nodes without splitting' in warning for warning in warnings)
     assert truncated
 
 

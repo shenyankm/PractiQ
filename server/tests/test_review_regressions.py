@@ -132,7 +132,7 @@ def test_image_pixel_and_frame_limits(monkeypatch):
     ('true_false', {'value': ['x', None]}), ('choice', {'correctOption': ['A', None]}),
     ('short_answer', {'text': [None]}), ('fill_blank', {'answers': [1, None]}),
     ('ordering', {'order': [True, None]}), ('matching', {'matches': [{'left': '1', 'right': None}]}),
-    ('fill_blank', {'answers': [None] * 101}), ('choice', {'correctOption': 'A' * 33}),
+    ('fill_blank', {'answers': [None] * 101}), ('choice', {'correct': ['A'] * 33}),
     ('short_answer', {'text': 'x' * 120001}),
 ])
 def test_partial_answers_never_bypass_shape_constraints(mode, payload):
@@ -140,7 +140,7 @@ def test_partial_answers_never_bypass_shape_constraints(mode, payload):
         ParsedQuestion(stem='Question', answerMode=mode, answerPayload=payload)
 
 
-@pytest.mark.parametrize('mode,payload', [('true_false', {'value': None}), ('choice', {'correctOption': None}),
+@pytest.mark.parametrize('mode,payload', [('true_false', {'value': None}), ('choice', {'correct': [None]}),
     ('short_answer', {'text': None}), ('fill_blank', {'answers': ['A', None]}),
     ('ordering', {'order': [1, None]}), ('matching', {'matches': [{'left': 1, 'right': None}]})])
 def test_partial_answers_preserve_missing_values(mode, payload):

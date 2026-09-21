@@ -19,7 +19,7 @@ from langgraph.types import interrupt
 from .config import load
 from .errors import DocumentProcessingError
 
-STATE_VERSION = 4
+STATE_VERSION = 5
 TTL_MINUTES = 259_200
 RECURSION_LIMIT = 10_000
 CURRENT_EXECUTION: ContextVar[dict[str, Any] | None] = ContextVar("execution", default=None)

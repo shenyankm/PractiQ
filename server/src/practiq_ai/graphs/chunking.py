@@ -87,7 +87,7 @@ def _source_locations(source: tuple[str, list[int]], quote: str | None) -> list[
 
 def _content(question: ParsedQuestion) -> dict[str, Any]:
     # Confidence/review flags are metadata, not extracted content.
-    return question.model_dump(exclude={"confidence", "needsReview", "missingFields", "sourceText"})
+    return question.model_dump(exclude={"confidence", "needsReview", "missingFields", "sourceText", "id"})
 
 
 def merge_chunk_results(
@@ -175,8 +175,20 @@ def merge_chunk_results(
         warnings.append(
             f'Parsed {len(questions)} questions; only the first 1000 were kept.'
         )
-        kept = set(range(1_000))
-        questions = questions[:1_000]
+        # A boundary may not retain half an article or its gap children.
+        by_id = {q.id: q for q in questions if q.id}
+        roots = []
+        for index, question in enumerate(questions):
+            seen = set()
+            while question.parentId in by_id and question.parentId not in seen:
+                seen.add(question.parentId)
+                question = by_id[question.parentId]
+            roots.append(question.id or f"unidentified:{index}")
+        crossing = set(roots[:1_000]) & set(roots[1_000:])
+        cutoff = min((i for i, root in enumerate(roots[:1_000]) if root in crossing), default=1_000)
+        warnings[-1] = f"Parsed {len(questions)} nodes; retained {cutoff} nodes without splitting a question group."
+        kept = set(range(cutoff))
+        questions = questions[:cutoff]
         groups = [
             group.model_copy(
                 update={
@@ -208,3 +220,60 @@ def merge_chunk_results(
     )
     sources = list({(s.questionIndex, s.stage, s.unitIndex): s for s in sources if s.questionIndex < len(questions)}.values())
     return questions, groups, warnings, truncated, sources, quality
+
+
+def finalize_question_ids(questions, groups, visuals, sources, quality):
+    """Resolve explicit source-anchored compound fragments in the merge stage only."""
+    from practiq_ai.contracts import COMPOSITE_MODES
+
+    retained = []
+    anchors = {}
+    index_map = {}
+    anchor_units = {}
+    source_units = {}
+    for source in sources:
+        source_units.setdefault(source.questionIndex, set()).add((source.stage, source.unitIndex))
+    for index, question in enumerate(questions):
+        # A compound ID emitted on consecutive pages names the same source material.
+        # Ordinary repeated questions never merge on content or a printed label.
+        prior = anchors.get(question.id) if question.id and question.id.startswith(("page:", "fragment:")) else None
+        if prior is not None and question.answerMode in COMPOSITE_MODES:
+            current_units = source_units.get(index, set())
+            if not any(stage == old_stage and unit == old_unit + 1 for stage, unit in current_units for old_stage, old_unit in anchor_units.get(question.id, set())):
+                raise ValueError("Composite continuation lacks adjacent source evidence")
+            anchor_units[question.id] = current_units
+            target = retained[prior]
+            if target.answerMode != question.answerMode or target.parentId != question.parentId:
+                raise ValueError("Conflicting composite source anchor")
+            target.passage.extend(b for b in question.passage if b not in target.passage)
+            target.needsReview |= question.needsReview
+            target.missingFields = list(dict.fromkeys([*target.missingFields, *question.missingFields]))
+            index_map[index] = prior
+        else:
+            index_map[index] = len(retained)
+            if question.id:
+                if question.id in anchors:
+                    raise ValueError("Duplicate source question ID")
+                anchors[question.id] = len(retained)
+                anchor_units[question.id] = source_units.get(index, set())
+            retained.append(question)
+    aliases = {key: f"q{value}" for key, value in anchors.items()}
+    for index, q in enumerate(retained):
+        q.id = f"q{index}"
+        if q.parentId:
+            if q.parentId not in aliases:
+                q.parentId = None
+                q.needsReview = True
+                q.missingFields = list(dict.fromkeys([*q.missingFields, "material"]))
+            else:
+                q.parentId = aliases[q.parentId]
+        if q.optionSourceId:
+            q.optionSourceId = aliases.get(q.optionSourceId, q.optionSourceId)
+        for block in q.passage:
+            if block.questionId:
+                block.questionId = aliases.get(block.questionId, block.questionId)
+    for obj in [*groups, *visuals]:
+        obj.questionIndexes = list(dict.fromkeys(index_map[i] for i in obj.questionIndexes))
+    for obj in [*sources, *quality.issues]:
+        obj.questionIndex = index_map[obj.questionIndex]
+    return retained

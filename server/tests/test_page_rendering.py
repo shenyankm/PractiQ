@@ -85,7 +85,7 @@ def test_page_order_gaps_and_crops(monkeypatch, kind, failed):
 
     cropped = [v for v in result["result"]["visualElements"] if v["imageRef"]]
     for index, figure in enumerate(cropped):
-        assert figure["questionIndexes"] == [index]
+        assert figure["questionIds"] == [f"q{index}"]
         assert figure["page"] not in failed
         assert figure["description"].startswith("[page crop]")
         assert figure["imageRef"]["objectKey"] in store.blobs
@@ -145,7 +145,7 @@ def test_rich_pdf_preserves_formula_and_table_blocks(monkeypatch, tmp_path):
     result = asyncio.run(local_graph().ainvoke({"document": ref.model_dump()}))
     assert result["status"] == "SUCCEEDED"
     assert result["result"]["questions"][0]["contentBlocks"] == [
-        {"role": None, "textValue": None, "markdownValue": None, "latexValue": None, "jsonValue": None, **b}
+        {"questionId": None, "role": None, "textValue": None, "markdownValue": None, "latexValue": None, "jsonValue": None, **b}
         for b in expected["questions"][0]["contentBlocks"]]
     from PIL import Image
 
@@ -195,7 +195,7 @@ def test_figure_links_remap_across_pages_and_failed_crops_keep_source(monkeypatc
     monkeypatch.setattr(vision, "crop_figure", lambda *_: None)
     result = asyncio.run(local_graph().ainvoke({"document": reference}))
     visuals = result["result"]["visualElements"]
-    assert [v["questionIndexes"] for v in visuals] == [[0], [1]]
+    assert [v["questionIds"] for v in visuals] == [["q0"], ["q1"]]
     assert all(v["imageRef"] is None and v["sourceRef"]["objectKey"] in store.blobs for v in visuals)
     assert all(q["needsReview"] and {"material", "media"} <= set(q["missingFields"]) for q in result["result"]["questions"])
     assert result["processing"]["quality"]["reviewQuestionCount"] == 2
@@ -291,7 +291,7 @@ def test_answer_table_role_reaches_both_blocks_and_visuals(monkeypatch, header, 
 
 
 @pytest.mark.parametrize("failed", [{1}, {0, 1, 2}])
-def test_failed_page_fallbacks_only_attach_to_nearest_surviving_questions(monkeypatch, failed):
+def test_failed_pages_remain_unassociated_without_source_evidence(monkeypatch, failed):
     store, reference = paged_source("pdf")
     monkeypatch.setattr(document, "get_object_store", lambda: store)
     monkeypatch.setattr(document, "get_model", lambda *_: FakeModel(responses=[]))
@@ -305,11 +305,8 @@ def test_failed_page_fallbacks_only_attach_to_nearest_surviving_questions(monkey
 
     monkeypatch.setattr(document, "structured_call", page_call)
     result = asyncio.run(local_graph().ainvoke({"document": reference}))
-    surviving = [i for i in range(5) if i not in failed]
     for visual in result["result"]["visualElements"]:
-        distance = min(abs(page - visual["page"]) for page in surviving)
-        expected = [i for i, page in enumerate(surviving) if abs(page - visual["page"]) == distance]
-        assert visual["questionIndexes"] == expected
+        assert visual["questionIds"] == []
     assert "media" not in result["result"]["questions"][-1]["missingFields"]
 
 
@@ -340,7 +337,7 @@ def test_material_crop_does_not_include_answer_outside_model_bounds(monkeypatch)
 
 
 @pytest.mark.parametrize("continuations", [{1, 2}, {0}])
-def test_continuation_figures_attach_to_one_nearby_question(monkeypatch, continuations):
+def test_unowned_continuation_figures_do_not_guess_a_question(monkeypatch, continuations):
     store, reference = paged_source("pdf")
     monkeypatch.setattr(document, "get_object_store", lambda: store)
     monkeypatch.setattr(document, "get_model", lambda *_: FakeModel(responses=[]))
@@ -355,13 +352,10 @@ def test_continuation_figures_attach_to_one_nearby_question(monkeypatch, continu
 
     monkeypatch.setattr(document, "structured_call", page_call)
     result = asyncio.run(local_graph().ainvoke({"document": reference}))
-    expected = 1 if continuations == {1, 2} else 0
     visuals = result["result"]["visualElements"]
     assert len(visuals) == len(continuations)
-    assert all(v["questionIndexes"] == [expected] for v in visuals)
-    questions = result["result"]["questions"]
-    assert "material" in questions[expected]["missingFields"] and questions[expected]["needsReview"]
-    assert "material" not in questions[-1]["missingFields"]
+    assert all(v["questionIds"] == [] for v in visuals)
+    assert all(q["needsReview"] for q in result["result"]["questions"])
 
 
 @pytest.mark.parametrize("answer_role", ["answer_key", "worked_solution", "参考答案"])

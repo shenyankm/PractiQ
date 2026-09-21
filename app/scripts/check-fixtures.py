@@ -20,3 +20,5 @@ DocumentParseResult.model_validate_json((root / 'app/fixtures/sample.json').read
 print(f'{len(cases)} shared contract cases and the sample validated by Python')
 
 DocumentParseResult.model_validate_json((root / "app/fixtures/rich-content/expected.json").read_text(encoding="utf-8"))
+
+DocumentParseResult.model_validate_json((root / "app/fixtures/composite.json").read_text(encoding="utf-8"))

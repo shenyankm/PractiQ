@@ -119,9 +119,9 @@ export function Content({
       <Markdown>
         {q.stem || (!exam && q.sourceText) || t("此题题干缺失，请查看以下内容或跳过。")}
       </Markdown>
-      {q.contentBlocks.map((b, i) => (
+      {[...(q.passage || []), ...q.contentBlocks].map((b, i) => (
         <div key={i}>
-          {b.latexValue ? (
+          {b.partType === "blank" ? <span className="inline-block rounded border px-3 py-1">{t("空位")} {(q.passage || []).filter(v=>v.partType==="blank").findIndex(v=>v.questionId===b.questionId)+1}</span> : b.latexValue ? (
             <Markdown>{`$$\n${b.latexValue}\n$$`}</Markdown>
           ) : (
             <Markdown>{b.markdownValue || b.textValue}</Markdown>

@@ -20,15 +20,23 @@ fn import(store: &mut Store) -> String {
 }
 fn practice(store: &Store, rows: Value, count: usize) -> Value {
     store
-        .start_paper(crate::exams::Paper {
-            question_ids: rows.as_array().unwrap()[..count]
+        .start_paper({
+            let question_ids: Vec<String> = rows.as_array().unwrap()[..count]
                 .iter()
                 .map(|q| text(q, "id").to_owned())
-                .collect(),
-            kind: "practice".into(),
-            minutes: None,
-            scores: vec![],
-            total_cents: 0,
+                .collect();
+            crate::exams::Paper {
+                digest: crate::paper::digest(
+                    &crate::paper::selected_rows(&store.question_rows().unwrap(), &question_ids)
+                        .unwrap(),
+                )
+                .unwrap(),
+                question_ids,
+                kind: "practice".into(),
+                minutes: None,
+                scores: vec![],
+                total_cents: 0,
+            }
         })
         .unwrap()
 }
@@ -56,17 +64,13 @@ fn shared_contract_corpus() {
     let envelope = json!({"status":"PARTIAL","result":raw});
     assert!(contract::parse(&serde_json::to_vec(&envelope).unwrap()).is_ok());
     let mut legacy = envelope.clone();
-    legacy["result"]["visualElements"][0]["excelSource"] = json!({"sheetName":"Old export"});
-    assert!(contract::parse(&serde_json::to_vec(&legacy).unwrap()).is_ok());
-    // Source metadata in old Word exports is not a new document-parsing request.
-    legacy["document"] = json!({"sourceType":"docx","fileName":"old.docx"});
-    let (_, mut store) = store();
-    let preview = store
-        .preview(serde_json::to_vec(&legacy).unwrap(), "旧 Word 题库".into())
-        .unwrap();
-    assert_eq!(preview["count"], raw["questions"].as_array().unwrap().len());
+    legacy["result"]
+        .as_object_mut()
+        .unwrap()
+        .remove("schemaVersion");
+    assert!(contract::parse(&serde_json::to_vec(&legacy).unwrap()).is_err());
     let mut bad = envelope;
-    bad["result"]["groups"][0]["questionIndexes"] = json!([999]);
+    bad["result"]["groups"][0]["questionIds"] = json!(["missing"]);
     assert!(contract::parse(&serde_json::to_vec(&bad).unwrap()).is_err());
 }
 #[test]
@@ -121,7 +125,7 @@ fn transactional_import_resume_snapshot_and_latest_wrong() {
     let sid = text(&session, "id");
     s.save_attempt(
         (sid, 0),
-        json!({"correctOption":"B"}),
+        json!({"correct": ["B"]}),
         1000,
         false,
         false,
@@ -129,25 +133,11 @@ fn transactional_import_resume_snapshot_and_latest_wrong() {
     )
     .unwrap();
     let resumed = Store::new(s.dir.clone()).unwrap().session(sid).unwrap();
-    assert_eq!(resumed["attempts"][0]["answer"]["correctOption"], "B");
-    s.save_attempt(
-        (sid, 0),
-        json!({"correctOption":"B"}),
-        1000,
-        true,
-        false,
-        None,
-    )
-    .unwrap();
-    s.save_attempt(
-        (sid, 0),
-        json!({"correctOption":"A"}),
-        1000,
-        true,
-        false,
-        None,
-    )
-    .unwrap();
+    assert_eq!(resumed["attempts"][0]["answer"]["correct"][0], "B");
+    s.save_attempt((sid, 0), json!({"correct": ["B"]}), 1000, true, false, None)
+        .unwrap();
+    s.save_attempt((sid, 0), json!({"correct": ["A"]}), 1000, true, false, None)
+        .unwrap();
     assert_eq!(
         s.session(sid).unwrap()["attempts"][0]["result"],
         false,
@@ -168,7 +158,7 @@ fn transactional_import_resume_snapshot_and_latest_wrong() {
     );
     s.save_attempt(
         (text(&retry, "id"), 0),
-        json!({"correctOption":"A"}),
+        json!({"correct": ["A"]}),
         0,
         true,
         false,
@@ -195,7 +185,7 @@ fn transactional_import_resume_snapshot_and_latest_wrong() {
     s.delete_bank(&bank).unwrap();
     assert!(s.banks().unwrap().as_array().unwrap().is_empty());
     assert_eq!(
-        s.session(sid).unwrap()["attempts"][0]["answer"]["correctOption"],
+        s.session(sid).unwrap()["attempts"][0]["answer"]["correct"][0],
         "B"
     );
 }
@@ -315,7 +305,7 @@ fn self_grade_preserves_auto_result_and_ungraded_denominator() {
 }
 
 #[test]
-fn version_one_backup_migrates_and_malicious_packages_do_not_replace_data() {
+fn legacy_and_malicious_backups_do_not_replace_data() {
     use std::io::Write;
     use zip::{write::SimpleFileOptions, ZipWriter};
     let (dir, mut s) = store();
@@ -336,17 +326,13 @@ fn version_one_backup_migrates_and_malicious_packages_do_not_replace_data() {
         zip.finish().unwrap();
     }
     s.save_language(crate::language::Locale::English).unwrap();
-    s.restore(&archive).unwrap();
-    assert_eq!(s.language().unwrap(), None);
+    let before = std::fs::read(s.db_path()).unwrap();
+    assert!(s.restore(&archive).is_err());
+    assert_eq!(before, std::fs::read(s.db_path()).unwrap());
     assert_eq!(
-        s.connect()
-            .unwrap()
-            .query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
-            .unwrap(),
-        8
+        s.language().unwrap(),
+        Some(crate::language::Locale::English)
     );
-    assert!(s.connection_settings().unwrap().base_url.is_none());
-    let bank = s.save_bank(None, &bank, "").unwrap();
     let malicious = dir.path().join("malicious.zip");
     {
         let mut zip = ZipWriter::new(std::fs::File::create(&malicious).unwrap());
@@ -381,20 +367,20 @@ fn stale_edits_and_deleted_import_targets_are_rejected() {
 }
 
 #[test]
-fn file_assets_migrate_and_corruption_does_not_replace_database() {
-    use rusqlite::{params, Connection};
+fn file_assets_and_corruption_do_not_replace_database() {
+    use rusqlite::params;
     let dir = tempfile::tempdir().unwrap();
-    let db = Connection::open(dir.path().join("practiq.sqlite")).unwrap();
-    db.execute_batch(include_str!("schema.sql")).unwrap();
-    let bytes = b"\x89PNG\r\n\x1a\nlegacy-image";
-    let digest = crate::store::hash(bytes);
-    db.execute(
-        "INSERT INTO assets VALUES(?1,'image/png',?2)",
-        params![digest, bytes.as_slice()],
-    )
-    .unwrap();
-    drop(db);
     let mut s = Store::new(dir.path().to_owned()).unwrap();
+    let bytes = b"\x89PNG\r\n\x1a\nfixture-image";
+    let digest = crate::store::hash(bytes);
+    s.write_asset(&digest, bytes).unwrap();
+    s.connect()
+        .unwrap()
+        .execute(
+            "INSERT INTO assets VALUES(?1,'image/png',?2,?3)",
+            params![digest, bytes.len(), format!("assets/{digest}")],
+        )
+        .unwrap();
     assert_eq!(s.read_asset(&digest, bytes.len() as u64).unwrap(), bytes);
     let db = s.connect().unwrap();
     assert!(db.prepare("SELECT data FROM assets").is_err());
@@ -423,28 +409,29 @@ fn exam_submit_expiry_scores_and_manual_override() {
     let qs = s.questions(Some(&bank), "", "", "").unwrap();
     let ids = vec![text(&qs[0], "id").to_owned(), text(&qs[4], "id").to_owned()];
     let exam = s
-        .start_paper(Paper {
-            question_ids: ids,
-            kind: "mock_exam".into(),
-            minutes: Some(60),
-            scores: vec![333, 667],
-            total_cents: 1000,
+        .start_paper({
+            let question_ids: Vec<String> = ids;
+            Paper {
+                digest: crate::paper::digest(
+                    &crate::paper::selected_rows(&s.question_rows().unwrap(), &question_ids)
+                        .unwrap(),
+                )
+                .unwrap(),
+                question_ids,
+                kind: "mock_exam".into(),
+                minutes: Some(60),
+                scores: vec![333, 667],
+                total_cents: 1000,
+            }
         })
         .unwrap();
     let sid = text(&exam, "id");
     assert!(exam["attempts"][0]["snapshot"]["question"]["answerPayload"].is_null());
     assert!(s
-        .save_attempt((sid, 0), json!({"correctOption":"A"}), 0, true, false, None)
+        .save_attempt((sid, 0), json!({"correct": ["A"]}), 0, true, false, None)
         .is_err());
-    s.save_attempt(
-        (sid, 0),
-        json!({"correctOption":"A"}),
-        0,
-        false,
-        false,
-        None,
-    )
-    .unwrap();
+    s.save_attempt((sid, 0), json!({"correct": ["A"]}), 0, false, false, None)
+        .unwrap();
     s.save_attempt((sid, 1), json!({"text":"学生作答"}), 0, false, false, None)
         .unwrap();
     s.flag(sid, 1, true).unwrap();
@@ -493,24 +480,25 @@ fn exam_submit_expiry_scores_and_manual_override() {
         1
     );
     let exam = s
-        .start_paper(Paper {
-            question_ids: vec![text(&qs[0], "id").into()],
-            kind: "mock_exam".into(),
-            minutes: Some(1),
-            scores: vec![100],
-            total_cents: 100,
+        .start_paper({
+            let question_ids: Vec<String> = vec![text(&qs[0], "id").into()];
+            Paper {
+                digest: crate::paper::digest(
+                    &crate::paper::selected_rows(&s.question_rows().unwrap(), &question_ids)
+                        .unwrap(),
+                )
+                .unwrap(),
+                question_ids,
+                kind: "mock_exam".into(),
+                minutes: Some(1),
+                scores: vec![100],
+                total_cents: 100,
+            }
         })
         .unwrap();
     let sid = text(&exam, "id");
-    s.save_attempt(
-        (sid, 0),
-        json!({"correctOption":"B"}),
-        0,
-        false,
-        false,
-        None,
-    )
-    .unwrap();
+    s.save_attempt((sid, 0), json!({"correct": ["B"]}), 0, false, false, None)
+        .unwrap();
     s.connect()
         .unwrap()
         .execute("UPDATE sessions SET deadline_at=0 WHERE id=?1", [sid])
@@ -519,14 +507,7 @@ fn exam_submit_expiry_scores_and_manual_override() {
     assert!(reopened["submittedAt"].is_number());
     assert_eq!(reopened["attempts"][0]["earnedCents"], 0);
     assert!(s
-        .save_attempt(
-            (sid, 0),
-            json!({"correctOption":"A"}),
-            0,
-            false,
-            false,
-            None
-        )
+        .save_attempt((sid, 0), json!({"correct": ["A"]}), 0, false, false, None)
         .is_err());
 }
 
@@ -571,12 +552,20 @@ fn merged_copy_filters_grading_and_backup_preserve_independence() {
     assert_eq!(copied[0]["question"]["sourceScore"], 5.25);
     assert_eq!(copied[0]["favorite"], true);
     let paper = s
-        .start_paper(Paper {
-            question_ids: vec![text(&copied[0], "id").into()],
-            kind: "self_test".into(),
-            minutes: None,
-            scores: vec![100],
-            total_cents: 100,
+        .start_paper({
+            let question_ids: Vec<String> = vec![text(&copied[0], "id").into()];
+            Paper {
+                digest: crate::paper::digest(
+                    &crate::paper::selected_rows(&s.question_rows().unwrap(), &question_ids)
+                        .unwrap(),
+                )
+                .unwrap(),
+                question_ids,
+                kind: "self_test".into(),
+                minutes: None,
+                scores: vec![100],
+                total_cents: 100,
+            }
         })
         .unwrap();
     let sid = text(&paper, "id");
@@ -652,12 +641,20 @@ fn exam_hides_answer_roles_and_reads_live_favorites_without_changing_snapshot() 
     q["contentBlocks"] = json!(blocks);
     s.save_question(Some(qid.into()), &bank, q).unwrap();
     let exam = s
-        .start_paper(Paper {
-            question_ids: vec![qid.into()],
-            kind: "self_test".into(),
-            minutes: None,
-            scores: vec![500],
-            total_cents: 500,
+        .start_paper({
+            let question_ids: Vec<String> = vec![qid.into()];
+            Paper {
+                digest: crate::paper::digest(
+                    &crate::paper::selected_rows(&s.question_rows().unwrap(), &question_ids)
+                        .unwrap(),
+                )
+                .unwrap(),
+                question_ids,
+                kind: "self_test".into(),
+                minutes: None,
+                scores: vec![500],
+                total_cents: 500,
+            }
         })
         .unwrap();
     let sid = text(&exam, "id");
@@ -806,6 +803,14 @@ fn e2e_exam_restart_restore_on_fresh_install_and_retry() {
     source.favorite(text(&rows[0], "id"), true).unwrap();
     let exam = source
         .start_paper(Paper {
+            digest: crate::paper::digest(
+                &crate::paper::selected_rows(
+                    &source.question_rows().unwrap(),
+                    &[text(&rows[0], "id").into(), text(&rows[4], "id").into()],
+                )
+                .unwrap(),
+            )
+            .unwrap(),
             question_ids: vec![text(&rows[0], "id").into(), text(&rows[4], "id").into()],
             kind: "self_test".into(),
             minutes: None,
@@ -817,7 +822,7 @@ fn e2e_exam_restart_restore_on_fresh_install_and_retry() {
     source
         .save_attempt(
             (sid, 0),
-            json!({"correctOption":"B"}),
+            json!({"correct": ["B"]}),
             1200,
             false,
             false,
@@ -869,21 +874,14 @@ fn e2e_exam_restart_restore_on_fresh_install_and_retry() {
         1
     );
     assert!(restored
-        .save_attempt(
-            (sid, 0),
-            json!({"correctOption":"A"}),
-            0,
-            false,
-            false,
-            None
-        )
+        .save_attempt((sid, 0), json!({"correct": ["A"]}), 0, false, false, None)
         .is_err());
     let retry = restored.retry_wrong(sid).unwrap();
     assert_eq!(retry["attempts"].as_array().unwrap().len(), 2);
     let retried = restored
         .save_attempt(
             (text(&retry, "id"), 0),
-            json!({"correctOption":"A"}),
+            json!({"correct": ["A"]}),
             10,
             true,
             false,
@@ -925,7 +923,11 @@ fn rich_content_survives_import_reopen_practice_and_backup_exactly() {
     )
     .to_owned();
     let rows = s.questions(Some(&bank), "", "", "").unwrap();
-    assert_eq!(rows[0]["question"], expected["questions"][0]);
+    for (key, value) in expected["questions"][0].as_object().unwrap() {
+        if key != "id" {
+            assert_eq!(&rows[0]["question"][key], value, "{key}");
+        }
+    }
     assert_eq!(
         rows[0]["visuals"][0]["imageRef"],
         expected["visualElements"][0]["imageRef"]
@@ -943,7 +945,7 @@ fn rich_content_survives_import_reopen_practice_and_backup_exactly() {
     assert_eq!(reopened.questions(Some(&bank), "", "", "").unwrap(), rows);
     assert_eq!(
         reopened.session(sid).unwrap()["attempts"][0]["snapshot"]["question"],
-        expected["questions"][0]
+        rows[0]["question"]
     );
     drop(reopened);
     let backup = dir.path().join("rich.zip");
@@ -953,12 +955,20 @@ fn rich_content_survives_import_reopen_practice_and_backup_exactly() {
     assert_eq!(s.questions(Some(&bank), "", "", "").unwrap(), rows);
     assert_eq!(s.asset(digest).unwrap(), image);
     let exam = s
-        .start_paper(crate::exams::Paper {
-            question_ids: vec![text(&rows[0], "id").into()],
-            kind: "self_test".into(),
-            minutes: None,
-            scores: vec![100],
-            total_cents: 100,
+        .start_paper({
+            let question_ids: Vec<String> = vec![text(&rows[0], "id").into()];
+            crate::exams::Paper {
+                digest: crate::paper::digest(
+                    &crate::paper::selected_rows(&s.question_rows().unwrap(), &question_ids)
+                        .unwrap(),
+                )
+                .unwrap(),
+                question_ids,
+                kind: "self_test".into(),
+                minutes: None,
+                scores: vec![100],
+                total_cents: 100,
+            }
         })
         .unwrap();
     assert!(exam["attempts"][0]["snapshot"]["visuals"][0]
@@ -985,7 +995,7 @@ fn source_image_upload_limit_survives_import_and_backup() {
     let digest = crate::store::hash(&image);
     std::fs::write(dir.path().join("page.png"), &image).unwrap();
     let mut raw: Value = serde_json::from_slice(&sample()).unwrap();
-    raw["visualElements"] = json!([{"kind":"image","description":"Full page","questionIndexes":[0],
+    raw["visualElements"] = json!([{"kind":"image","description":"Full page","questionIds":["q0"],
         "sourceRef":{"objectKey":"page.png","sha256":digest,"sizeBytes":image.len(),"mediaType":"image/png"}}]);
     let preview = s
         .preview(serde_json::to_vec(&raw).unwrap(), "Source page".into())
@@ -1025,8 +1035,8 @@ fn exam_filters_answer_table_and_crop_then_restores_original_snapshot() {
         {"partType":"table","role":"material","markdownValue":"| Input |\n| --- |\n| 3 |"}
     ]);
     raw["visualElements"] = json!([
-        {"kind":"table","role":"answer","description":"SECRET","extractedText":"SECRET","questionIndexes":[0]},
-        {"kind":"table","role":"material","description":"Input table","questionIndexes":[0]}
+        {"kind":"table","role":"answer","description":"SECRET","extractedText":"SECRET","questionIds":["q0"]},
+        {"kind":"table","role":"material","description":"Input table","questionIds":["q0"]}
     ]);
     let preview = s
         .preview(serde_json::to_vec(&raw).unwrap(), "Answer table".into())
@@ -1038,12 +1048,20 @@ fn exam_filters_answer_table_and_crop_then_restores_original_snapshot() {
         .questions(Some(text(&imported, "bankId")), "", "", "")
         .unwrap();
     let exam = s
-        .start_paper(crate::exams::Paper {
-            question_ids: vec![text(&rows[0], "id").into()],
-            kind: "self_test".into(),
-            minutes: None,
-            scores: vec![100],
-            total_cents: 100,
+        .start_paper({
+            let question_ids: Vec<String> = vec![text(&rows[0], "id").into()];
+            crate::exams::Paper {
+                digest: crate::paper::digest(
+                    &crate::paper::selected_rows(&s.question_rows().unwrap(), &question_ids)
+                        .unwrap(),
+                )
+                .unwrap(),
+                question_ids,
+                kind: "self_test".into(),
+                minutes: None,
+                scores: vec![100],
+                total_cents: 100,
+            }
         })
         .unwrap();
     let snapshot = &exam["attempts"][0]["snapshot"];
@@ -1080,7 +1098,7 @@ fn missing_optional_source_page_does_not_disable_grading() {
         let mut source = crop.clone();
         source["objectKey"] = json!("absent-page.png");
         source["sha256"] = json!("a".repeat(64));
-        raw["visualElements"] = json!([{"kind":"chart","description":"Required crop","questionIndexes":[0],"imageRef":crop,"sourceRef":source}]);
+        raw["visualElements"] = json!([{"kind":"chart","description":"Required crop","questionIds":["q0"],"imageRef":crop,"sourceRef":source}]);
         if missing_crop {
             raw["visualElements"][0]["imageRef"]["objectKey"] = json!("absent-crop.png");
         }
@@ -1110,7 +1128,7 @@ fn missing_optional_source_page_does_not_disable_grading() {
         let graded = s
             .save_attempt(
                 (text(&session, "id"), 0),
-                json!({"correctOption":"A"}),
+                json!({"correct": ["A"]}),
                 1,
                 true,
                 false,
@@ -1123,5 +1141,194 @@ fn missing_optional_source_page_does_not_disable_grading() {
         } else {
             assert!(result.is_boolean());
         }
+    }
+}
+
+#[test]
+fn composite_import_paper_edit_history_and_restore() {
+    let (dir, mut s) = store();
+    let data = include_bytes!("../../fixtures/composite.json").to_vec();
+    let p = s.preview(data, "Composite".into()).unwrap();
+    assert_eq!(p["count"], 10);
+    let imported = s.import(text(&p, "ticket"), None, "Composite").unwrap();
+    assert_eq!(imported["count"], 10);
+    let bank = text(&imported, "bankId");
+    let roots = s.questions(Some(bank), "", "", "").unwrap();
+    assert_eq!(list(&json!({"roots":roots}), "roots").len(), 3);
+    let request = |selection: &str, count: usize, quotas: Value| {
+        serde_json::from_value::<crate::paper::Preview>(json!({"bank_ids":[bank],"search":"","mode":"","filter":"","selection":selection,"count":count,"quotas":quotas,"question_ids":[],"random":false,"total_cents":1000})).unwrap()
+    };
+    assert!(s.preview_paper(request("count", 3, json!({}))).is_err());
+    let quota_all = s
+        .preview_paper(request(
+            "quota",
+            0,
+            json!({"reading":1,"word_bank":1,"cloze":1}),
+        ))
+        .unwrap();
+    assert_eq!(
+        quota_all["questionIds"],
+        json!(roots
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|r| r["id"].clone())
+            .collect::<Vec<_>>())
+    );
+    let mut invalid_budget = request("quota", 0, json!({"reading":1}));
+    invalid_budget.budgets.insert("reading".into(), i64::MAX);
+    assert!(s.preview_paper(invalid_budget).is_err());
+    let preview = s
+        .preview_paper(request("quota", 0, json!({"reading":1})))
+        .unwrap();
+    assert_eq!(preview["count"], 6);
+    assert_eq!(preview["scores"], json!([167, 167, 167, 167, 166, 166]));
+    let paper = || crate::exams::Paper {
+        question_ids: list(&preview, "questionIds")
+            .iter()
+            .map(|v| v.as_str().unwrap().into())
+            .collect(),
+        digest: text(&preview, "digest").into(),
+        kind: "practice".into(),
+        minutes: None,
+        scores: vec![],
+        total_cents: 0,
+    };
+    let session = s.start_paper(paper()).unwrap();
+    let sid = text(&session, "id");
+    let frozen = crate::questions::session_rows(&s.connect().unwrap(), sid).unwrap();
+    assert_eq!(
+        frozen
+            .iter()
+            .filter(|r| text(&r["question"], "answerMode") == "reading")
+            .count(),
+        1
+    );
+    assert_eq!(
+        frozen
+            .iter()
+            .filter(|r| !text(&r["question"], "optionSourceId").is_empty())
+            .count(),
+        2
+    );
+    assert!(frozen
+        .iter()
+        .filter(|r| !text(&r["question"], "optionSourceId").is_empty())
+        .all(|r| list(&r["question"], "options").is_empty()));
+    let attempts = list(&session, "attempts");
+    let words: Vec<_> = attempts
+        .iter()
+        .enumerate()
+        .filter(|(_, a)| !text(&a["snapshot"]["question"], "optionSourceId").is_empty())
+        .map(|(i, _)| i)
+        .collect();
+    s.save_attempt(
+        (sid, words[0]),
+        json!({"correct":["A"]}),
+        0,
+        false,
+        false,
+        None,
+    )
+    .unwrap();
+    assert!(s
+        .save_attempt(
+            (sid, words[1]),
+            json!({"correct":["A"]}),
+            0,
+            false,
+            false,
+            None
+        )
+        .is_err());
+    s.save_attempt((sid, words[0]), Value::Null, 0, false, false, None)
+        .unwrap();
+    s.save_attempt(
+        (sid, words[1]),
+        json!({"correct":["A"]}),
+        0,
+        false,
+        false,
+        None,
+    )
+    .unwrap();
+    for (i, a) in attempts.iter().enumerate() {
+        s.save_attempt((sid, i), Value::Null, 0, false, false, None)
+            .unwrap();
+        let q = &a["snapshot"]["question"];
+        if text(q, "answerMode") != "short_answer" {
+            assert_eq!(contract::grade(q, &q["answerPayload"]), Some(true));
+        }
+    }
+    let root = preview["questionIds"][0].as_str().unwrap();
+    let mut tree: Vec<_> = s
+        .question_rows()
+        .unwrap()
+        .into_iter()
+        .filter(|r| crate::questions::root_id(r, &frozen) == root)
+        .map(|r| r["question"].clone())
+        .collect();
+    tree[0]["stem"] = json!("Changed article");
+    assert!(s.delete_question(text(&tree[1], "id")).is_err());
+    s.save_question_tree(bank, Some(root), tree).unwrap();
+    assert!(s.start_paper(paper()).is_err());
+    assert_eq!(
+        s.session(sid).unwrap()["attempts"][0]["snapshot"]["groups"],
+        attempts[0]["snapshot"]["groups"]
+    );
+    s.delete_bank(bank).unwrap();
+    assert_eq!(
+        crate::questions::session_rows(&s.connect().unwrap(), sid).unwrap(),
+        frozen
+    );
+    let backup = dir.path().join("composite.zip");
+    s.backup(&backup).unwrap();
+    s.restore(&backup).unwrap();
+    assert_eq!(
+        crate::questions::session_rows(&s.connect().unwrap(), sid).unwrap(),
+        frozen
+    );
+}
+
+#[test]
+fn v2_storage_does_not_touch_legacy_files() {
+    let dir = tempfile::tempdir().unwrap();
+    for file in ["practiq.sqlite", "assets/old", "ai/database/tasks.sqlite"] {
+        let path = dir.path().join(file);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, b"legacy untouched").unwrap();
+    }
+    let mut current = Store::new(dir.path().join("v2")).unwrap();
+    import(&mut current);
+    let backup = dir.path().join("new.zip");
+    current.backup(&backup).unwrap();
+    current.restore(&backup).unwrap();
+    for file in ["practiq.sqlite", "assets/old", "ai/database/tasks.sqlite"] {
+        assert_eq!(
+            std::fs::read(dir.path().join(file)).unwrap(),
+            b"legacy untouched"
+        );
+    }
+}
+
+#[test]
+fn deleting_a_question_does_not_reassign_its_visuals() {
+    let (_dir, mut s) = store();
+    let mut result: Value = serde_json::from_slice(&sample()).unwrap();
+    result["visualElements"] = json!([
+        {"kind":"table","description":"Only first","questionIds":["q0"]},
+        {"kind":"table","description":"Unassigned","questionIds":[]}
+    ]);
+    let preview = s
+        .preview(serde_json::to_vec(&result).unwrap(), "scope".into())
+        .unwrap();
+    let bank = s.import(text(&preview, "ticket"), None, "scope").unwrap();
+    let bank = text(&bank, "bankId");
+    let rows = s.questions(Some(bank), "", "", "").unwrap();
+    s.delete_question(text(&rows[0], "id")).unwrap();
+    let rows = s.questions(Some(bank), "", "", "").unwrap();
+    for row in rows.as_array().unwrap() {
+        assert_eq!(list(row, "visuals").len(), 1);
+        assert_eq!(row["visuals"][0]["description"], "Unassigned");
     }
 }
