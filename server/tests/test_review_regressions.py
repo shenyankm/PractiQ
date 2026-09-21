@@ -267,3 +267,51 @@ async def test_extractor_returns_sanitized_input_failure():
         await isolated.extract('image', b'not an image')
     assert error.value.status_code == 400
     assert error.value.detail == 'Image preprocessing failed'
+
+
+def test_extraction_binary_transport_preserves_pages_and_rejects_invalid_files(monkeypatch, tmp_path):
+    monkeypatch.setattr(isolated, 'load', lambda: SimpleNamespace(source_max_bytes=1024, max_document_pages=2, vision_max_bytes=4096))
+    document = ExtractedDocument(text='中文', warnings=['review'], page_images=[make_image(), make_image()], truncated=True)
+    isolated._write_result(tmp_path, document)
+    assert isolated._read_result(tmp_path) == document
+    manifest = json.loads((tmp_path / 'result').read_text())
+    assert manifest['document']['page_images'] == list(map(len, document.page_images))
+    assert 'base64' not in (tmp_path / 'result').read_text()
+    for invalid in [[-1], [True], [4097], [1, 1, 1]]:
+        manifest['document']['page_images'] = invalid
+        (tmp_path / 'result').write_text(json.dumps(manifest))
+        with pytest.raises(DocumentProcessingError, match='extraction process failed'):
+            isolated._read_result(tmp_path)
+    isolated._write_result(tmp_path, document)
+    (tmp_path / 'page-0').write_bytes(b'incomplete')
+    with pytest.raises(DocumentProcessingError):
+        isolated._read_result(tmp_path)
+    (tmp_path / 'page-0').unlink()
+    (tmp_path / 'page-0').symlink_to(tmp_path / 'page-1')
+    with pytest.raises(DocumentProcessingError):
+        isolated._read_result(tmp_path)
+
+
+async def test_extraction_file_io_finishes_before_cancel_cleanup():
+    entered, release, finished = threading.Event(), threading.Event(), threading.Event()
+    def blocked():
+        entered.set()
+        try:
+            release.wait(5)
+            raise OSError('I/O failed while cancelling')
+        finally:
+            finished.set()
+    task = asyncio.create_task(isolated._thread_io(blocked))
+    try:
+        await asyncio.wait_for(asyncio.to_thread(entered.wait), 2)
+        task.cancel()
+        await asyncio.sleep(.01)
+        assert not task.done()
+        task.cancel()
+        await asyncio.sleep(.01)
+        assert not task.done()
+    finally:
+        release.set()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+    assert finished.is_set()

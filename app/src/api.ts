@@ -53,6 +53,7 @@ export interface QuestionRow extends Snapshot {
   favorite: boolean;
   latestResult: boolean | null;
 }
+export interface QuestionPage { items: QuestionRow[]; total: number; offset: number }
 export interface Bank {
   id: string;
   title: string;
@@ -166,7 +167,9 @@ type Request =
       id: string;
     }
   | ({ type: "questions" } & Query)
+  | ({ type: "questions_page"; limit: number; offset: number } & Query)
   | { type: "favorite"; id: string; value: boolean }
+  | { type: "save_draft"; id: string; ordinal: number; answer: Answer | null; elapsed_ms: number }
   | {
       type: "save_attempt";
       id: string;

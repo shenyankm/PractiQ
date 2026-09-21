@@ -38,19 +38,16 @@ pub fn selected_rows(rows: &[Value], roots: &[String]) -> Result<Vec<Value>> {
         return Err("Select distinct complete questions or groups".into());
     }
     let mut selected = Vec::new();
+    let index = questions::Index::new(rows);
     for root in roots {
-        let row = rows
-            .iter()
-            .find(|r| text(r, "id") == root)
+        let row = index
+            .by_id
+            .get(root.as_str())
             .ok_or("Selected question was deleted")?;
         if !text(&row["question"], "parentId").is_empty() {
             return Err("Composite questions must be selected as a whole".into());
         }
-        selected.extend(
-            rows.iter()
-                .filter(|r| questions::root_id(r, rows) == root)
-                .cloned(),
-        );
+        selected.extend(index.trees[root.as_str()].iter().map(|r| (*r).clone()));
     }
     let count = selected
         .iter()
@@ -184,6 +181,7 @@ impl Store {
         };
         let all = self.question_rows()?;
         let selected = selected_rows(&all, &chosen)?;
+        let index = questions::Index::new(&selected);
         let leaves: Vec<_> = selected
             .iter()
             .filter(|r| !questions::composite(&r["question"]))
@@ -206,8 +204,8 @@ impl Store {
                     .iter()
                     .enumerate()
                     .filter_map(|(i, r)| {
-                        let root = questions::root_id(r, &selected);
-                        let q = selected.iter().find(|r| text(r, "id") == root)?;
+                        let root = index.root_id(r);
+                        let q = index.by_id.get(root)?;
                         (category(&q["question"]) == key).then_some(i)
                     })
                     .collect();
@@ -227,7 +225,7 @@ impl Store {
             }
         }
         Ok(
-            json!({"questionIds":chosen,"digest":digest(&selected)?,"questions":leaves.iter().map(|r|questions::hydrate(r,&selected)).collect::<Vec<_>>(),"scores":scores,"count":leaves.len()}),
+            json!({"questionIds":chosen,"digest":digest(&selected)?,"questions":leaves.iter().map(|r|index.hydrate(r)).collect::<Vec<_>>(),"scores":scores,"count":leaves.len()}),
         )
     }
 }

@@ -1,0 +1,621 @@
+{
+  "date": "2026-09-21",
+  "baselineCommit": "d374cc09cf2ba1cf9cb3b5d1a52eac79cfa34ba1",
+  "candidate": "local working tree measured before the performance optimization commit",
+  "environment": {
+    "cpu": "Apple M4",
+    "cpuCores": 10,
+    "memoryGiB": 16,
+    "os": "macOS 27.0 (26A428)",
+    "python": "3.14.7",
+    "rust": "1.98.1",
+    "node": "22.23.2"
+  },
+  "scope": "Synthetic local measurements; no external models, user databases or deployment. Rust release Store methods include JSON serialization; runtime uses real SQLite and LangGraph with synthetic 100 ms model calls and ASGI health checks; preprocessing uses arbitrary page bytes in separate processes.",
+  "measurements": {
+    "desktop-before": {
+      "allQuestions": {
+        "jsonBytes": 3355601,
+        "maxMs": 9019.599959000001,
+        "medianMs": 7224.99125
+      },
+      "attempts": 1000,
+      "questions": 5000,
+      "repetitions": 3,
+      "saveAttempt": {
+        "jsonBytes": 878662,
+        "maxMs": 114.524625,
+        "medianMs": 108.507125
+      },
+      "session": {
+        "jsonBytes": 878662,
+        "maxMs": 95.30716699999999,
+        "medianMs": 95.001958
+      },
+      "smallBank": {
+        "jsonBytes": 13281,
+        "maxMs": 210.027041,
+        "medianMs": 205.068084
+      },
+      "submit": {
+        "jsonBytes": 892671,
+        "maxMs": 4056.277583,
+        "medianMs": 3648.073541
+      }
+    },
+    "desktop-after": {
+      "allQuestions": {
+        "jsonBytes": 3355601,
+        "maxMs": 224.46925000000002,
+        "medianMs": 213.408792
+      },
+      "attempts": 1000,
+      "draftBurst": {
+        "lastAnswerSurvivesReopen": true,
+        "p50Ms": 3.903292,
+        "p95Ms": 4.635333999999999,
+        "writes": 100
+      },
+      "firstPage": {
+        "jsonBytes": 19955,
+        "maxMs": 2.674375,
+        "medianMs": 2.63775
+      },
+      "questions": 5000,
+      "repetitions": 3,
+      "saveAttempt": {
+        "jsonBytes": 878662,
+        "maxMs": 25.724332999999998,
+        "medianMs": 14.0745
+      },
+      "saveDraft": {
+        "jsonBytes": 4,
+        "maxMs": 4.0264999999999995,
+        "medianMs": 3.923958
+      },
+      "session": {
+        "jsonBytes": 878662,
+        "maxMs": 10.49975,
+        "medianMs": 9.897666
+      },
+      "smallBank": {
+        "jsonBytes": 13281,
+        "maxMs": 2.098084,
+        "medianMs": 1.473709
+      },
+      "submit": {
+        "jsonBytes": 892671,
+        "maxMs": 19.020709,
+        "medianMs": 19.010666
+      }
+    },
+    "runtime-before": {
+      "runs": [
+        {
+          "documents": 80,
+          "concurrency": 8,
+          "graphConcurrency": 2,
+          "modelDelaySeconds": 0.1,
+          "seconds": 4.790482249984052,
+          "successfulDocumentsPerMinute": 1001.9868041502459,
+          "queueWaitMedianMs": 1822.7755,
+          "okP95Ms": 2.730292035266757,
+          "modelCalls": 80,
+          "allCompleted": true
+        },
+        {
+          "documents": 80,
+          "concurrency": 8,
+          "graphConcurrency": 2,
+          "modelDelaySeconds": 0.1,
+          "seconds": 6.257139291032217,
+          "successfulDocumentsPerMinute": 767.1237248752635,
+          "queueWaitMedianMs": 2467.2645,
+          "okP95Ms": 4.8390410374850035,
+          "modelCalls": 80,
+          "allCompleted": true
+        },
+        {
+          "documents": 80,
+          "concurrency": 8,
+          "graphConcurrency": 2,
+          "modelDelaySeconds": 0.1,
+          "seconds": 5.111939958995208,
+          "successfulDocumentsPerMinute": 938.978164552519,
+          "queueWaitMedianMs": 1951.136,
+          "okP95Ms": 2.9900840017944574,
+          "modelCalls": 80,
+          "allCompleted": true
+        }
+      ],
+      "medianSeconds": 5.111939958995208,
+      "medianDocumentsPerMinute": 938.978164552519
+    },
+    "runtime-after": {
+      "runs": [
+        {
+          "documents": 80,
+          "concurrency": 8,
+          "graphConcurrency": 2,
+          "modelDelaySeconds": 0.1,
+          "seconds": 4.283269957988523,
+          "successfulDocumentsPerMinute": 1120.6391488464901,
+          "queueWaitMedianMs": 1772.2865000000002,
+          "okP95Ms": 2.4161249748431146,
+          "modelCalls": 80,
+          "allCompleted": true
+        },
+        {
+          "documents": 80,
+          "concurrency": 8,
+          "graphConcurrency": 2,
+          "modelDelaySeconds": 0.1,
+          "seconds": 4.169675417011604,
+          "successfulDocumentsPerMinute": 1151.1687409568556,
+          "queueWaitMedianMs": 1575.0549999999998,
+          "okP95Ms": 2.172374981455505,
+          "modelCalls": 80,
+          "allCompleted": true
+        },
+        {
+          "documents": 80,
+          "concurrency": 8,
+          "graphConcurrency": 2,
+          "modelDelaySeconds": 0.1,
+          "seconds": 4.022509499976877,
+          "successfulDocumentsPerMinute": 1193.284938177919,
+          "queueWaitMedianMs": 1606.7134999999998,
+          "okP95Ms": 2.103917009662837,
+          "modelCalls": 80,
+          "allCompleted": true
+        }
+      ],
+      "medianSeconds": 4.169675417011604,
+      "medianDocumentsPerMinute": 1151.1687409568556
+    },
+    "runtime-burst": {
+      "runs": [
+        {
+          "documents": 240,
+          "concurrency": 8,
+          "graphConcurrency": 2,
+          "modelDelaySeconds": 0.1,
+          "seconds": 12.132324750011321,
+          "successfulDocumentsPerMinute": 1186.9118488595159,
+          "queueWaitMedianMs": 5722.418,
+          "okP95Ms": 2.0131669589318335,
+          "modelCalls": 240,
+          "allCompleted": true
+        }
+      ],
+      "medianSeconds": 12.132324750011321,
+      "medianDocumentsPerMinute": 1186.9118488595159
+    },
+    "preprocessing": {
+      "before": {
+        "mode": "before",
+        "imageMiB": 50,
+        "transportBytes": 69906088,
+        "medianReadMs": 105.46870896359906,
+        "maxEventLoopLagMs": 103.20687498198822,
+        "peakRssMiB": 279.75,
+        "outputsEqual": true
+      },
+      "after": {
+        "mode": "after",
+        "imageMiB": 50,
+        "transportBytes": 52429338,
+        "medianReadMs": 4.631790972780436,
+        "maxEventLoopLagMs": 0.6789160007610916,
+        "peakRssMiB": 142.21875,
+        "outputsEqual": true
+      }
+    }
+  },
+  "verification": {
+    "makeVerify": {
+      "passed": true,
+      "serverTests": 523,
+      "warnings": 6,
+      "coverageIncludingBranchesRoundedPercent": 94,
+      "lineCoveragePercent": 95.06,
+      "branchCoveragePercent": 89.56,
+      "validatedEvaluationFixtures": 22,
+      "recoveryProbesPassed": true,
+      "packageBuildPassed": true
+    },
+    "makeAppCheck": {
+      "passed": true,
+      "frontendTests": 87,
+      "rustTests": 40,
+      "ignoredRustTests": 2,
+      "ignoredReasons": [
+        "native macOS Keychain entry not exercised",
+        "performance workload run separately in release mode"
+      ],
+      "typescriptPassed": true,
+      "clippyPassed": true
+    },
+    "browserRegression": {
+      "passed": true,
+      "browser": "Chromium",
+      "nativeBoundary": "mocked"
+    },
+    "makeAppBuild": {
+      "passed": true,
+      "targets": [
+        "macOS app",
+        "macOS dmg"
+      ]
+    },
+    "bundleSmoke": {
+      "bundle": "app/src-tauri/target/release/bundle/macos/PractiQ.app/Contents/Resources/bundled",
+      "model": "synthetic-local-stub",
+      "checks": [
+        {
+          "format": "text",
+          "state": "COMPLETED",
+          "status": "SUCCEEDED",
+          "failures": [],
+          "blocking": [],
+          "seconds": 0.436,
+          "modelCalls": 1
+        },
+        {
+          "format": "csv",
+          "state": "COMPLETED",
+          "status": "SUCCEEDED",
+          "failures": [],
+          "blocking": [],
+          "seconds": 0.33,
+          "modelCalls": 1
+        },
+        {
+          "format": "image",
+          "state": "COMPLETED",
+          "status": "SUCCEEDED",
+          "failures": [],
+          "blocking": [],
+          "seconds": 0.32,
+          "modelCalls": 1
+        },
+        {
+          "format": "pdf",
+          "state": "COMPLETED",
+          "status": "SUCCEEDED",
+          "failures": [],
+          "blocking": [],
+          "seconds": 0.331,
+          "modelCalls": 1
+        }
+      ],
+      "passed": true,
+      "removedExcelRejected": true,
+      "removedWordRejected": true,
+      "removedImageFormatsRejected": true,
+      "subjectiveGrading": {
+        "passed": true,
+        "scoreCents": 300,
+        "replayIdentical": true,
+        "usageCalls": 1
+      }
+    },
+    "gitDiffCheckPassed": true
+  },
+  "reviewFix": {
+    "review": "https://github.com/shenyankm/PractiQ/pull/39#pullrequestreview-5268075232",
+    "basedOnCommit": "da05ded74f91a3cc2ba5a5456b9664eb2443a909",
+    "change": "Keep immediate event wakeups and rescan persisted queue work after at most one second of idle waiting.",
+    "regression": {
+      "scenarios": [
+        "create request cancelled after commit before wake",
+        "resume request cancelled after commit before wake"
+      ],
+      "before": "Both time out without unrelated requests or restart",
+      "after": "Both finish the persisted run with no duplicate calls or usage"
+    },
+    "verification": {
+      "focusedTestsPassed": 46,
+      "fullTestsPassed": 525,
+      "coverageIncludingBranchesRoundedPercent": 94,
+      "lineCoveragePercent": 95.06,
+      "branchCoveragePercent": 89.66,
+      "makeVerifyPassed": true,
+      "makeAppBuildPassed": true,
+      "bundleSmoke": {
+        "bundle": "app/src-tauri/target/release/bundle/macos/PractiQ.app/Contents/Resources/bundled",
+        "model": "synthetic-local-stub",
+        "checks": [
+          {
+            "format": "text",
+            "state": "COMPLETED",
+            "status": "SUCCEEDED",
+            "failures": [],
+            "blocking": [],
+            "seconds": 0.442,
+            "modelCalls": 1
+          },
+          {
+            "format": "csv",
+            "state": "COMPLETED",
+            "status": "SUCCEEDED",
+            "failures": [],
+            "blocking": [],
+            "seconds": 0.333,
+            "modelCalls": 1
+          },
+          {
+            "format": "image",
+            "state": "COMPLETED",
+            "status": "SUCCEEDED",
+            "failures": [],
+            "blocking": [],
+            "seconds": 0.332,
+            "modelCalls": 1
+          },
+          {
+            "format": "pdf",
+            "state": "COMPLETED",
+            "status": "SUCCEEDED",
+            "failures": [],
+            "blocking": [],
+            "seconds": 0.441,
+            "modelCalls": 1
+          }
+        ],
+        "passed": true,
+        "removedExcelRejected": true,
+        "removedWordRejected": true,
+        "removedImageFormatsRejected": true,
+        "subjectiveGrading": {
+          "passed": true,
+          "scoreCents": 300,
+          "replayIdentical": true,
+          "usageCalls": 1
+        }
+      }
+    },
+    "firstRuntimeRerun": {
+      "runs": [
+        {
+          "documents": 80,
+          "concurrency": 8,
+          "graphConcurrency": 2,
+          "modelDelaySeconds": 0.1,
+          "seconds": 4.6297200409462675,
+          "successfulDocumentsPerMinute": 1036.779752889535,
+          "queueWaitMedianMs": 1758.5015,
+          "okP95Ms": 2.2007079678587615,
+          "modelCalls": 80,
+          "allCompleted": true
+        },
+        {
+          "documents": 80,
+          "concurrency": 8,
+          "graphConcurrency": 2,
+          "modelDelaySeconds": 0.1,
+          "seconds": 5.255236416007392,
+          "successfulDocumentsPerMinute": 913.3747028733575,
+          "queueWaitMedianMs": 1893.792,
+          "okP95Ms": 3.2257080310955644,
+          "modelCalls": 80,
+          "allCompleted": true
+        },
+        {
+          "documents": 80,
+          "concurrency": 8,
+          "graphConcurrency": 2,
+          "modelDelaySeconds": 0.1,
+          "seconds": 5.196113832993433,
+          "successfulDocumentsPerMinute": 923.7672911478086,
+          "queueWaitMedianMs": 1999.5720000000001,
+          "okP95Ms": 2.7224579825997353,
+          "modelCalls": 80,
+          "allCompleted": true
+        }
+      ],
+      "medianSeconds": 5.196113832993433,
+      "medianDocumentsPerMinute": 923.7672911478086
+    },
+    "sharedLoopDiagnostic": {
+      "method": "Compare da05ded dispatch with 1-second fallback dispatch; other production code unchanged; AB/BA/AB order; no builds or tests during measurement",
+      "runs": [
+        {
+          "pair": 1,
+          "version": "before",
+          "documents": 80,
+          "concurrency": 8,
+          "graphConcurrency": 2,
+          "modelDelaySeconds": 0.1,
+          "seconds": 4.9011194159975275,
+          "successfulDocumentsPerMinute": 979.3680978946426,
+          "queueWaitMedianMs": 2027.8674999999998,
+          "okP95Ms": 2.794458996504545,
+          "modelCalls": 80,
+          "allCompleted": true
+        },
+        {
+          "pair": 1,
+          "version": "after",
+          "documents": 80,
+          "concurrency": 8,
+          "graphConcurrency": 2,
+          "modelDelaySeconds": 0.1,
+          "seconds": 4.759490041993558,
+          "successfulDocumentsPerMinute": 1008.5114072409056,
+          "queueWaitMedianMs": 1896.396,
+          "okP95Ms": 2.5307079777121544,
+          "modelCalls": 80,
+          "allCompleted": true
+        },
+        {
+          "pair": 2,
+          "version": "after",
+          "documents": 80,
+          "concurrency": 8,
+          "graphConcurrency": 2,
+          "modelDelaySeconds": 0.1,
+          "seconds": 4.771541374968365,
+          "successfulDocumentsPerMinute": 1005.9642414882809,
+          "queueWaitMedianMs": 1927.049,
+          "okP95Ms": 2.3923339904285967,
+          "modelCalls": 80,
+          "allCompleted": true
+        },
+        {
+          "pair": 2,
+          "version": "before",
+          "documents": 80,
+          "concurrency": 8,
+          "graphConcurrency": 2,
+          "modelDelaySeconds": 0.1,
+          "seconds": 4.809614082972985,
+          "successfulDocumentsPerMinute": 998.0010697725165,
+          "queueWaitMedianMs": 1974.5075000000002,
+          "okP95Ms": 2.7516669942997396,
+          "modelCalls": 80,
+          "allCompleted": true
+        },
+        {
+          "pair": 3,
+          "version": "before",
+          "documents": 80,
+          "concurrency": 8,
+          "graphConcurrency": 2,
+          "modelDelaySeconds": 0.1,
+          "seconds": 4.737347415997647,
+          "successfulDocumentsPerMinute": 1013.2252457970003,
+          "queueWaitMedianMs": 1876.21,
+          "okP95Ms": 2.385959029197693,
+          "modelCalls": 80,
+          "allCompleted": true
+        },
+        {
+          "pair": 3,
+          "version": "after",
+          "documents": 80,
+          "concurrency": 8,
+          "graphConcurrency": 2,
+          "modelDelaySeconds": 0.1,
+          "seconds": 4.960293874959461,
+          "successfulDocumentsPerMinute": 967.6846011546501,
+          "queueWaitMedianMs": 2044.823,
+          "okP95Ms": 2.7576250140555203,
+          "modelCalls": 80,
+          "allCompleted": true
+        }
+      ],
+      "summary": {
+        "before": {
+          "medianSeconds": 4.809614082972985,
+          "medianDocumentsPerMinute": 998.0010697725165
+        },
+        "after": {
+          "medianSeconds": 4.771541374968365,
+          "medianDocumentsPerMinute": 1005.9642414882809
+        }
+      },
+      "limitation": "Shared asyncio loop emitted pending LangGraph Store batch-task cleanup warnings; retained as diagnostic only. Accepted comparison uses a fresh event loop per run."
+    },
+    "pairedRuntimeRerun": {
+      "method": "Compare da05ded dispatch with 1-second fallback dispatch; other production code unchanged; AB/BA/AB order; a fresh asyncio loop per run as in benchmark_runtime.py; no builds or tests during measurement",
+      "runs": [
+        {
+          "pair": 1,
+          "version": "before",
+          "documents": 80,
+          "concurrency": 8,
+          "graphConcurrency": 2,
+          "modelDelaySeconds": 0.1,
+          "seconds": 5.285678416956216,
+          "successfulDocumentsPerMinute": 908.1142705545268,
+          "queueWaitMedianMs": 2337.2435,
+          "okP95Ms": 2.751625026576221,
+          "modelCalls": 80,
+          "allCompleted": true
+        },
+        {
+          "pair": 1,
+          "version": "after",
+          "documents": 80,
+          "concurrency": 8,
+          "graphConcurrency": 2,
+          "modelDelaySeconds": 0.1,
+          "seconds": 5.106213624996599,
+          "successfulDocumentsPerMinute": 940.0311762325058,
+          "queueWaitMedianMs": 2175.531,
+          "okP95Ms": 2.5478340103290975,
+          "modelCalls": 80,
+          "allCompleted": true
+        },
+        {
+          "pair": 2,
+          "version": "after",
+          "documents": 80,
+          "concurrency": 8,
+          "graphConcurrency": 2,
+          "modelDelaySeconds": 0.1,
+          "seconds": 4.88610212499043,
+          "successfulDocumentsPerMinute": 982.3781569054703,
+          "queueWaitMedianMs": 1969.2894999999999,
+          "okP95Ms": 2.6957079535350204,
+          "modelCalls": 80,
+          "allCompleted": true
+        },
+        {
+          "pair": 2,
+          "version": "before",
+          "documents": 80,
+          "concurrency": 8,
+          "graphConcurrency": 2,
+          "modelDelaySeconds": 0.1,
+          "seconds": 6.088382665999234,
+          "successfulDocumentsPerMinute": 788.3867134051466,
+          "queueWaitMedianMs": 2376.7195,
+          "okP95Ms": 3.3444169675931334,
+          "modelCalls": 80,
+          "allCompleted": true
+        },
+        {
+          "pair": 3,
+          "version": "before",
+          "documents": 80,
+          "concurrency": 8,
+          "graphConcurrency": 2,
+          "modelDelaySeconds": 0.1,
+          "seconds": 5.2520471250172704,
+          "successfulDocumentsPerMinute": 913.9293471179994,
+          "queueWaitMedianMs": 2141.7585,
+          "okP95Ms": 2.803416980896145,
+          "modelCalls": 80,
+          "allCompleted": true
+        },
+        {
+          "pair": 3,
+          "version": "after",
+          "documents": 80,
+          "concurrency": 8,
+          "graphConcurrency": 2,
+          "modelDelaySeconds": 0.1,
+          "seconds": 5.171498999989126,
+          "successfulDocumentsPerMinute": 928.1641551144248,
+          "queueWaitMedianMs": 2237.802,
+          "okP95Ms": 2.7771249879151583,
+          "modelCalls": 80,
+          "allCompleted": true
+        }
+      ],
+      "summary": {
+        "before": {
+          "medianSeconds": 5.285678416956216,
+          "medianDocumentsPerMinute": 908.1142705545268
+        },
+        "after": {
+          "medianSeconds": 5.106213624996599,
+          "medianDocumentsPerMinute": 940.0311762325058
+        }
+      }
+    },
+    "performanceConclusion": "All measured tasks completed. The original 22.6% synthetic throughput gain is not a current-version guarantee; preserve both the slower first rerun and the paired comparison."
+  }
+}

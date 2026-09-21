@@ -401,54 +401,136 @@ impl Store {
             .map_err(err)?;
         Ok(Value::Null)
     }
-    // ponytail: assemble bounded libraries in memory; add SQL pagination when profiling warrants it.
     pub fn questions(
         &self,
-        bank_id: Option<&str>,
+        bank: Option<&str>,
         search: &str,
         mode: &str,
         filter: &str,
     ) -> Result<Value> {
+        self.query_questions(bank, &[], (search, mode, filter), None)
+    }
+    pub fn questions_multi(
+        &self,
+        bank: Option<&str>,
+        banks: &[String],
+        search: &str,
+        mode: &str,
+        filter: &str,
+    ) -> Result<Value> {
+        if banks.is_empty() {
+            return self.questions(bank, search, mode, filter);
+        }
+        self.query_questions(bank, banks, (search, mode, filter), None)
+    }
+    pub fn query_questions(
+        &self,
+        bank: Option<&str>,
+        banks: &[String],
+        query: (&str, &str, &str),
+        page: Option<(usize, usize)>,
+    ) -> Result<Value> {
+        let (search, mode, filter) = query;
+        if banks.len() > 1000
+            || ![
+                "",
+                "choice",
+                "single",
+                "multiple",
+                "true_false",
+                "fill_blank",
+                "short_answer",
+                "ordering",
+                "matching",
+                "reading",
+                "word_bank",
+                "cloze",
+            ]
+            .contains(&mode)
+            || !["", "wrong", "favorite", "unattempted"].contains(&filter)
+            || page.is_some_and(|(limit, offset)| {
+                !(1..=100).contains(&limit) || offset > i64::MAX as usize
+            })
+        {
+            return Err(crate::language::error("LOCAL_FILTER_INVALID", json!({})));
+        }
+        if bank.is_some_and(|b| !banks.is_empty() && !banks.iter().any(|v| v == b)) {
+            return Ok(if page.is_some() {
+                json!({"items":[],"total":0,"offset":0})
+            } else {
+                json!([])
+            });
+        }
+        let banks = bank
+            .map(|b| vec![b.to_owned()])
+            .unwrap_or_else(|| banks.to_vec());
         let db = self.connect()?;
-        let rows = crate::questions::read(&db)?;
-        let mut matches = std::collections::HashSet::new();
-        let search = search.to_lowercase();
-        for row in &rows {
-            if bank_id.is_some_and(|b| row["bankId"] != b) {
-                continue;
-            }
-            let q = &row["question"];
-            if !search.is_empty()
-                && ![q, &row["groups"], &row["visuals"]]
+        let mut rows;
+        let mut ids;
+        if search.is_empty() {
+            // ponytail: root IDs use linear memory for exact totals; move COUNT/paging into SQL if ID lists become large.
+            ids = crate::questions::matching_roots(&db, &banks, mode, filter)?;
+            rows = Vec::new();
+        } else {
+            // Unicode substring search includes answers, shared materials and visuals.
+            rows = crate::questions::read_scoped(&db, &banks, None)?;
+            let index = crate::questions::Index::new(&rows);
+            let mut matches = std::collections::HashSet::new();
+            let search = search.to_lowercase();
+            for row in &rows {
+                if ![&row["question"], &row["groups"], &row["visuals"]]
                     .iter()
                     .any(|value| searchable_content_matches(value, &search))
-            {
-                continue;
+                {
+                    continue;
+                }
+                let selected = match filter {
+                    "favorite" => row["favorite"] == true,
+                    "wrong" => row["latestResult"] == false,
+                    "unattempted" => !crate::questions::composite(&row["question"]) && !db.query_row("SELECT EXISTS(SELECT 1 FROM attempts WHERE question_id=?1 AND submitted_at IS NOT NULL AND skipped=0)",[text(row,"id")],|r|r.get::<_,bool>(0)).map_err(err)?,
+                    _ => true,
+                };
+                if selected {
+                    matches.insert(index.root_id(row));
+                }
             }
-            let selected=match filter {"favorite"=>row["favorite"]==true,"wrong"=>row["latestResult"]==false,"unattempted"=>!crate::questions::composite(&row["question"]) && !db.query_row("SELECT EXISTS(SELECT 1 FROM attempts WHERE question_id=?1 AND submitted_at IS NOT NULL AND skipped=0)",[text(row,"id")],|r|r.get::<_,bool>(0)).map_err(err)?,_=>true};
-            if selected {
-                matches.insert(crate::questions::root_id(row, &rows).to_owned());
-            }
-        }
-        let mut results = Vec::new();
-        for row in &rows {
-            if !text(&row["question"], "parentId").is_empty() || !matches.contains(text(row, "id"))
-            {
-                continue;
-            }
-            let q = &row["question"];
-            if !mode.is_empty()
-                && text(q, "answerMode") != mode
-                && !(text(q, "answerMode") == "choice" && text(q, "choiceVariant") == mode)
-            {
-                continue;
-            }
-            let mut root = crate::questions::hydrate(row, &rows);
-            root["children"] = json!(rows
+            ids = rows
                 .iter()
-                .filter(|r| r["id"] != row["id"]
-                    && crate::questions::root_id(r, &rows) == text(row, "id"))
-                .map(|r| crate::questions::hydrate(r, &rows))
+                .filter(|row| {
+                    let q = &row["question"];
+                    text(q, "parentId").is_empty()
+                        && matches.contains(text(row, "id"))
+                        && (mode.is_empty()
+                            || text(q, "answerMode") == mode
+                            || (text(q, "answerMode") == "choice"
+                                && text(q, "choiceVariant") == mode))
+                })
+                .map(|r| text(r, "id").to_owned())
+                .collect();
+        }
+        let total = ids.len();
+        let offset = if let Some((limit, offset)) = page {
+            let offset = offset.min(total.saturating_sub(1) / limit * limit);
+            ids = ids.into_iter().skip(offset).take(limit).collect();
+            offset
+        } else {
+            0
+        };
+        if search.is_empty() {
+            rows = crate::questions::read_scoped(&db, &banks, Some(&ids))?;
+        }
+        let index = crate::questions::Index::new(&rows);
+        let mut results = Vec::with_capacity(ids.len());
+        for id in ids {
+            let row = index
+                .by_id
+                .get(id.as_str())
+                .ok_or("Selected question is missing")?;
+            let mut root = index.hydrate(row);
+            root["children"] = json!(index.trees[id.as_str()]
+                .iter()
+                .filter(|r| r["id"] != row["id"])
+                .map(|r| index.hydrate(r))
                 .collect::<Vec<_>>());
             root["favorite"] = json!(
                 row["favorite"] == true
@@ -458,7 +540,11 @@ impl Store {
             );
             results.push(root);
         }
-        Ok(json!(results))
+        Ok(if page.is_some() {
+            json!({"items":results,"total":total,"offset":offset})
+        } else {
+            json!(results)
+        })
     }
     #[cfg(test)]
     pub fn save_question(
@@ -509,16 +595,13 @@ impl Store {
         self.expire_exam(sid)?;
         let db = self.connect()?;
         let mut session=db.query_row("SELECT id,bank_title,created_at,finished_at,position,mode FROM sessions WHERE id=?1",[sid],|r|Ok(json!({"id":r.get::<_,String>(0)?,"title":r.get::<_,String>(1)?,"createdAt":r.get::<_,i64>(2)?,"finishedAt":r.get::<_,Option<i64>>(3)?,"position":r.get::<_,i64>(4)?,"mode":r.get::<_,String>(5)?}))).map_err(err)?;
-        let mut stmt=db.prepare("SELECT ordinal,snapshot_question_id,answer,auto_result,result,grade_kind,submitted_at,skipped,elapsed_ms FROM attempts WHERE session_id=?1 ORDER BY ordinal").map_err(err)?;
-        let attempts=stmt.query_map([sid],|r|Ok(json!({"ordinal":r.get::<_,i64>(0)?,"snapshotId":r.get::<_,String>(1)?,"answer":serde_json::from_str::<Value>(&r.get::<_,String>(2)?).unwrap_or(Value::Null),"autoResult":r.get::<_,Option<bool>>(3)?,"result":r.get::<_,Option<bool>>(4)?,"gradeKind":r.get::<_,String>(5)?,"submittedAt":r.get::<_,Option<i64>>(6)?,"skipped":r.get::<_,bool>(7)?,"elapsedMs":r.get::<_,i64>(8)?}))).map_err(err)?.collect::<std::result::Result<Vec<_>,_>>().map_err(err)?;
+        let mut stmt=db.prepare("SELECT a.ordinal,a.snapshot_question_id,a.answer,a.auto_result,a.result,a.grade_kind,a.submitted_at,a.skipped,a.elapsed_ms,a.max_cents,a.earned_cents,a.flagged,a.grading,q.favorite FROM attempts a LEFT JOIN questions q ON q.id=a.question_id WHERE a.session_id=?1 ORDER BY a.ordinal").map_err(err)?;
+        let attempts=stmt.query_map([sid],|r|Ok(json!({"ordinal":r.get::<_,i64>(0)?,"snapshotId":r.get::<_,String>(1)?,"answer":serde_json::from_str::<Value>(&r.get::<_,String>(2)?).unwrap_or(Value::Null),"autoResult":r.get::<_,Option<bool>>(3)?,"result":r.get::<_,Option<bool>>(4)?,"gradeKind":r.get::<_,String>(5)?,"submittedAt":r.get::<_,Option<i64>>(6)?,"skipped":r.get::<_,bool>(7)?,"elapsedMs":r.get::<_,i64>(8)?,"maxCents":r.get::<_,Option<i64>>(9)?,"earnedCents":r.get::<_,Option<i64>>(10)?,"flagged":r.get::<_,bool>(11)?,"grading":serde_json::from_str::<Value>(&r.get::<_,String>(12)?).map_err(|e|rusqlite::Error::FromSqlConversionFailure(12,rusqlite::types::Type::Text,Box::new(e)))?,"favorite":r.get::<_,Option<bool>>(13)?}))).map_err(err)?.collect::<std::result::Result<Vec<_>,_>>().map_err(err)?;
         let mut attempts = attempts;
         let frozen = crate::questions::session_rows(&db, sid)?;
+        let index = crate::questions::Index::new(&frozen);
         for a in &mut attempts {
-            let row = frozen
-                .iter()
-                .find(|r| r["id"] == a["snapshotId"])
-                .ok_or("Missing frozen question")?;
-            a["snapshot"] = crate::questions::hydrate(row, &frozen);
+            a["snapshot"] = index.snapshot(text(a, "snapshotId"))?;
             a.as_object_mut().unwrap().remove("snapshotId");
         }
         session["attempts"] = json!(attempts);
@@ -553,6 +636,22 @@ impl Store {
         skip: bool,
         self_result: Option<bool>,
     ) -> Result<Value> {
+        self.write_attempt(target, answer, elapsed, submit, skip, self_result)?;
+        self.session(target.0)
+    }
+    pub fn save_draft(&self, target: (&str, usize), answer: Value, elapsed: i64) -> Result<Value> {
+        self.write_attempt(target, answer, elapsed, false, false, None)?;
+        Ok(Value::Null)
+    }
+    fn write_attempt(
+        &self,
+        target: (&str, usize),
+        answer: Value,
+        elapsed: i64,
+        submit: bool,
+        skip: bool,
+        self_result: Option<bool>,
+    ) -> Result<()> {
         let (sid, ordinal) = target;
         self.expire_exam(sid)?;
         let exam = self
@@ -597,13 +696,12 @@ impl Store {
             ));
         }
         let (snapshot,submitted,kind):(String,Option<i64>,String)=tx.query_row("SELECT snapshot_question_id,submitted_at,grade_kind FROM attempts WHERE session_id=?1 AND ordinal=?2",params![sid,ordinal],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).map_err(err)?;
-        let snapshot = crate::questions::snapshot(&tx, sid, &snapshot)?;
+        let frozen = crate::questions::session_rows(&tx, sid)?;
+        let index = crate::questions::Index::new(&frozen);
+        let snapshot = index.snapshot(&snapshot)?;
         let q = &snapshot["question"];
         contract::validate_attempt(q, &answer)?;
-        if let Some(parent) = crate::questions::session_rows(&tx, sid)?
-            .iter()
-            .find(|r| r["id"] == q["optionSourceId"] && !q["optionSourceId"].is_null())
-        {
+        if let Some(parent) = index.by_id.get(text(q, "optionSourceId")) {
             if parent["question"]["allowReuse"] != true {
                 let mut statement=tx.prepare("SELECT snapshot_question_id,answer FROM attempts WHERE session_id=?1 AND ordinal!=?2").map_err(err)?;
                 let others = statement
@@ -614,7 +712,10 @@ impl Store {
                     .collect::<std::result::Result<Vec<_>, _>>()
                     .map_err(err)?;
                 for (other, raw) in others {
-                    let row = crate::questions::snapshot(&tx, sid, &other)?;
+                    let row = index
+                        .by_id
+                        .get(other.as_str())
+                        .ok_or("Snapshot question is missing")?;
                     let a: Value = serde_json::from_str(&raw).map_err(err)?;
                     if row["question"]["parentId"] == parent["id"]
                         && list(&answer, "correct").iter().any(|v| {
@@ -666,7 +767,7 @@ impl Store {
         )
         .map_err(err)?;
         tx.commit().map_err(err)?;
-        self.session(sid)
+        Ok(())
     }
     pub fn position(&self, sid: &str, position: usize) -> Result<Value> {
         let db = self.connect()?;

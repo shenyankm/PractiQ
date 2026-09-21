@@ -38,6 +38,7 @@ class Service:
             await self.db.check_schema()
             load()  # Validate deployment settings before taking ownership.
             self.lock = self.db.acquire()
+            await self.db.ensure_indexes()
             self.graphs = {name: build_document_graph(self.db.checkpointer, store=self.db.store, name=name, source_types=types)
                            for name, types in GRAPH_FORMATS.items()}
             # A crash can separate the final checkpoint from the queue receipt.
@@ -137,8 +138,9 @@ class Service:
                     # Maintenance drains existing work but creates no new work through the API.
                     self.active[run_id] = asyncio.create_task(self.execute(run), name=f'document-{run_id}')
                     self.active[run_id].add_done_callback(self.execution_done)
+                # Events are a fast path; cancellation can lose notification after commit.
                 try:
-                    await asyncio.wait_for(self.wake.wait(), timeout=0.1)
+                    await asyncio.wait_for(self.wake.wait(), timeout=1)
                 except TimeoutError:
                     pass
         except asyncio.CancelledError:

@@ -6,6 +6,8 @@ mod contract;
 mod exams;
 mod language;
 mod paper;
+#[cfg(test)]
+mod performance;
 mod questions;
 mod settings;
 mod store;
@@ -45,6 +47,16 @@ enum Request {
         search: String,
         mode: String,
         filter: String,
+    },
+    QuestionsPage {
+        #[serde(default)]
+        bank_ids: Vec<String>,
+        bank_id: Option<String>,
+        search: String,
+        mode: String,
+        filter: String,
+        limit: usize,
+        offset: usize,
     },
     SaveQuestionTree {
         bank_id: String,
@@ -92,6 +104,12 @@ enum Request {
     MergeBanks {
         bank_ids: Vec<String>,
         title: String,
+    },
+    SaveDraft {
+        id: String,
+        ordinal: usize,
+        answer: Value,
+        elapsed_ms: i64,
     },
     SaveAttempt {
         id: String,
@@ -201,6 +219,7 @@ async fn request(
             Request::SaveBank{id,title,description}=>store.save_bank(id,&title,&description),
             Request::DeleteBank{id}=>store.delete_bank(&id),
             Request::Questions{bank_id,bank_ids,search,mode,filter}=>store.questions_multi(bank_id.as_deref(),&bank_ids,&search,&mode,&filter),
+            Request::QuestionsPage{bank_id,bank_ids,search,mode,filter,limit,offset}=>store.query_questions(bank_id.as_deref(),&bank_ids,(&search,&mode,&filter),Some((limit,offset))),
             Request::SaveQuestionTree{bank_id,root_id,questions}=>store.save_question_tree(&bank_id,root_id.as_deref(),questions),
             Request::DeleteQuestion{id}=>store.delete_question(&id),
             Request::Favorite{id,value}=>store.favorite(&id,value),
@@ -215,6 +234,7 @@ async fn request(
             Request::RetryWrong{id}=>store.retry_wrong(&id),
             Request::MergeBanks{bank_ids,title}=>store.merge_banks(&bank_ids,&title),
             Request::SaveAttempt{id,ordinal,answer,elapsed_ms,submit,skip,self_result}=>store.save_attempt((&id, ordinal),answer,elapsed_ms,submit,skip,self_result),
+            Request::SaveDraft{id,ordinal,answer,elapsed_ms}=>store.save_draft((&id,ordinal),answer,elapsed_ms),
             Request::Position{id,position}=>store.position(&id,position),
             Request::Finish{id}=>store.finish(&id),
             Request::Asset{hash}=>store.asset(&hash),
