@@ -22,6 +22,61 @@ from tests.support import parsed
 pytestmark = pytest.mark.usefixtures("disposable_databases")
 
 
+@pytest.mark.parametrize('action', ['create', 'resume'])
+async def test_dispatch_recovers_committed_work_when_request_is_cancelled_before_wake(monkeypatch, action):
+    service, reference, model = await setup_api(monkeypatch, [(0.05, parsed()), parsed('second')], parts=['a', 'b'])
+    state = None
+    if action == 'resume':
+        created = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
+        await task_api.control_task(created['threadId'], DocumentTaskControl(requestId=uuid4(), action='pause', runId=created['runId']))
+        await service.wait_idle()
+        state = await task_api.get_task(created['threadId'])
+        assert state['state'] == 'PAUSED'
+
+    waiting, committed = asyncio.Event(), asyncio.Event()
+    wait = service.wake.wait
+    async def observe_wait():
+        if not service.wake.is_set():
+            waiting.set()
+        return await wait()
+    monkeypatch.setattr(service.wake, 'wait', observe_wait)
+    service.wake.set()
+    await asyncio.wait_for(waiting.wait(), 2)
+
+    transaction = service.db.transaction
+    @asynccontextmanager
+    async def after_commit():
+        async with transaction() as conn:
+            yield conn
+        # The durable row exists, but the request has not notified the dispatcher.
+        committed.set()
+        await asyncio.Event().wait()
+
+    request_id = uuid4()
+    with monkeypatch.context() as patch:
+        patch.setattr(service.db, 'transaction', after_commit)
+        if state is not None:
+            operation = task_api.control_task(state['threadId'], DocumentTaskControl(requestId=request_id, action='resume', checkpointId=state['checkpointId']))
+        else:
+            operation = task_api.create_task(DocumentTaskCreate(requestId=request_id, document=DocumentReference.model_validate(reference)))
+        request = asyncio.create_task(operation)
+        try:
+            await asyncio.wait_for(committed.wait(), 2)
+        finally:
+            request.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await request
+
+    runs = await service.db.rows('SELECT * FROM document_runs WHERE request_id=?', (str(request_id),))
+    assert len(runs) == 1
+    # Read-only observation: no new request, notification or restart rescues the run.
+    await asyncio.wait_for(service.wait_idle(), 3)
+    result = await task_api.get_task(runs[0]['thread_id'])
+    assert result['state'] == 'COMPLETED'
+    assert result['runId'] == runs[0]['run_id']
+    assert len(result['usage']) == len(model.calls) == 2
+
+
 async def test_idle_dispatch_is_event_driven_and_read_connection_is_transaction_isolated(monkeypatch):
     service, reference, _ = await setup_api(monkeypatch, [parsed()])
     db = service.db
