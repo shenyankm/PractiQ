@@ -14,6 +14,7 @@ import {
   Star,
   History,
   Settings,
+  Languages,
   Search,
   ArrowLeft,
   Play,
@@ -96,6 +97,8 @@ type Page =
   | "practice";
 export default function App() {
   const language = useI18n();
+  const [languageOpen, setLanguageOpen] = useState(false);
+  const languageTrigger = useRef<HTMLButtonElement>(null);
   const [page, setPage] = useState<Page>("banks");
   const [banks, setBanks] = useState<Bank[]>([]);
   const [bank, setBank] = useState<string | null>(null);
@@ -269,6 +272,7 @@ export default function App() {
                 ? t("专注练习")
                 : t("设置");
   const listPage = ["questions", "wrong", "favorite"].includes(page);
+  const languageError = language.error != null && <div role="alert" className="text-xs text-destructive"><p>{t(language.error.key)}</p><p>{errorMessage(language.error.cause)}</p><Button size="sm" variant="outline" onClick={() => void language.reload()}>{t("重试")}</Button></div>;
   return (
     <div className="flex h-screen min-w-[960px] overflow-hidden bg-background text-foreground">
       <aside className="flex w-56 shrink-0 flex-col border-r bg-muted/25 p-4">
@@ -312,11 +316,20 @@ export default function App() {
         </nav>
         <div className="mt-auto space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="app-language">{t("语言")}</Label>
-            <NativeSelect id="app-language" className="w-full" value={language.locale} disabled={!language.ready || language.saving || busy} onChange={event => { const value = event.target.value; if (value === "zh-CN" || value === "en") void language.change(value); }}>
-              <NativeSelectOption value="zh-CN">简体中文</NativeSelectOption><NativeSelectOption value="en">English</NativeSelectOption>
-            </NativeSelect>
-            {language.error != null && <div role="alert" className="text-xs text-destructive"><p>{t(language.error.key)}</p><p>{errorMessage(language.error.cause)}</p><Button size="sm" variant="outline" onClick={() => void language.reload()}>{t("重试")}</Button></div>}
+            <Button ref={languageTrigger} className="w-full justify-start gap-3" variant="ghost" aria-haspopup="dialog" onClick={() => setLanguageOpen(true)}>
+              <Languages />{t("语言")}
+            </Button>
+            <Dialog open={languageOpen} onOpenChange={setLanguageOpen}>
+              <DialogContent aria-describedby={undefined} onCloseAutoFocus={event => { event.preventDefault(); languageTrigger.current?.focus(); }}>
+                <DialogHeader><DialogTitle>{t("语言")}</DialogTitle></DialogHeader>
+                <Label htmlFor="app-language">{t("语言")}</Label>
+                <NativeSelect id="app-language" className="w-full" value={language.locale} disabled={!language.ready || language.saving || busy} onChange={event => { const value = event.target.value; if (value === "zh-CN" || value === "en") void language.change(value); }}>
+                  <NativeSelectOption value="zh-CN">简体中文</NativeSelectOption><NativeSelectOption value="en">English</NativeSelectOption>
+                </NativeSelect>
+                {languageError}
+              </DialogContent>
+            </Dialog>
+            {!languageOpen && languageError}
           </div>
           <Button
             className="w-full justify-start gap-3 aria-[current=page]:bg-primary/10 aria-[current=page]:text-primary"
