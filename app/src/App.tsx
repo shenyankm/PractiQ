@@ -127,6 +127,12 @@ export default function App() {
   } | null>(null);
   const [practiceSetup, setPracticeSetup] = useState<{ bank: string | null } | null>(null);
   const [mergeOpen, setMergeOpen] = useState(false);
+  const mergeTrigger = useRef<HTMLButtonElement>(null);
+  function closeMerge() {
+    setMergeOpen(false);
+    setMergeSelection([]);
+    setMergeTitle("");
+  }
   const [mergeSelection, setMergeSelection] = useState<string[]>([]);
   const [mergeTitle,setMergeTitle]=useState("");
   const [settingsRevision, setSettingsRevision] = useState(0);
@@ -367,7 +373,7 @@ export default function App() {
             )}
 
             {page === "banks" && banks.length > 1 && (
-              <Button variant="outline" disabled={busy} onClick={() => setMergeOpen(true)}>{t("合并题库")}</Button>
+              <Button ref={mergeTrigger} variant="outline" disabled={busy} onClick={() => setMergeOpen(true)}>{t("合并题库")}</Button>
             )}
             {listPage && (
               <>
@@ -736,8 +742,8 @@ export default function App() {
           )}
         </div>
       </main>
-      <Dialog open={mergeOpen} onOpenChange={(open) => { if (!busy) setMergeOpen(open); }}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
+      <Dialog open={mergeOpen} onOpenChange={(open) => { if (!busy && !open) closeMerge(); }}>
+        <DialogContent onCloseAutoFocus={event => { event.preventDefault(); mergeTrigger.current?.focus(); }} className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>{t("合并题库")}</DialogTitle>
             <DialogDescription>{t("选择至少两个题库，复制合并为新题库。保留原库和重复题，不继承作答历史。")}</DialogDescription>
@@ -761,12 +767,10 @@ export default function App() {
             <p className="text-sm text-muted-foreground" role="status">{t("已选 {0} 个题库，共 {1} 题；原库保留。", { 0: mergeSelection.length, 1: banks.filter(b => mergeSelection.includes(b.id)).reduce((n, b) => n + b.count, 0) })}</p>
           </fieldset>
           <DialogFooter>
-            <Button variant="outline" disabled={busy} onClick={() => setMergeOpen(false)}>{t("取消")}</Button>
+            <Button variant="outline" disabled={busy} onClick={closeMerge}>{t("取消")}</Button>
             <Button disabled={busy || mergeSelection.length < 2 || !mergeTitle.trim()} onClick={() => run(async () => {
               await api({ type: "merge_banks", bank_ids: mergeSelection, title: mergeTitle.trim() });
-              setMergeSelection([]);
-              setMergeTitle("");
-              setMergeOpen(false);
+              closeMerge();
               await reload();
               toast.success(message("合并完成"));
             })}>{t("确认合并")}</Button>

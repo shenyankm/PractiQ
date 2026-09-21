@@ -180,6 +180,15 @@ pub fn validate_question(q: &mut Value) -> Result<()> {
             ));
         }
     }
+    if text(q, "answerMode") == "fill_blank" {
+        if let Some(answers) = q["answerPayload"]["answers"].as_array() {
+            let count = answers.len() as u64;
+            if !q["blankCount"].is_null() && q["blankCount"].as_u64() != Some(count) {
+                return Err("blankCount must match the number of reference answers".into());
+            }
+            q["blankCount"] = json!(count);
+        }
+    }
     let wrapper = json!({"schemaVersion":2,"questions":[q.clone()],"groups":[],"visualElements":[],"warnings":[],"confidenceScore":0});
     schema_check(&schemas().0, &wrapper, "result")?;
     let mode = text(q, "answerMode");

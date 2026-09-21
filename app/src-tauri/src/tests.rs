@@ -700,6 +700,25 @@ fn exam_hides_answer_roles_and_reads_live_favorites_without_changing_snapshot() 
     let retried = s.prepare_grade(sid, 0, true).unwrap();
     assert_eq!(wire["inputDigest"], retried["inputDigest"]);
     assert_ne!(wire["requestId"], retried["requestId"]);
+    let db = s.connect().unwrap();
+    db.execute(
+        "UPDATE attempts SET answer=?2 WHERE session_id=?1",
+        rusqlite::params![sid, json!({"text":"x".repeat(120_001)}).to_string()],
+    )
+    .unwrap();
+    let before: i64 = db
+        .query_row("SELECT COUNT(*) FROM grade_requests", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(
+        s.prepare_grade(sid, 0, true).unwrap_err().code,
+        "LOCAL_GRADING_TOO_LARGE"
+    );
+    assert_eq!(
+        db.query_row("SELECT COUNT(*) FROM grade_requests", [], |r| r
+            .get::<_, i64>(0))
+            .unwrap(),
+        before
+    );
     s.delete_bank(&bank).unwrap();
     assert!(s.session(sid).unwrap()["attempts"][0]["favorite"].is_null());
 }
@@ -1034,6 +1053,11 @@ fn exam_filters_answer_table_and_crop_then_restores_original_snapshot() {
         {"partType":"table","role":"answer","markdownValue":"| Answer |\n| --- |\n| SECRET |"},
         {"partType":"table","role":"material","markdownValue":"| Input |\n| --- |\n| 3 |"}
     ]);
+    raw["groups"] = json!([
+        {"title":"参考答案","instructions":"SECRET","questionIds":["q0"]},
+        {"title":"Notes","instructions":"Answer: SECRET","questionIds":["q0"]},
+        {"title":"Solution concentration","instructions":"Use the table","questionIds":["q0"]}
+    ]);
     raw["visualElements"] = json!([
         {"kind":"table","role":"answer","description":"SECRET","extractedText":"SECRET","questionIds":["q0"]},
         {"kind":"table","role":"material","description":"Input table","questionIds":["q0"]}
@@ -1331,4 +1355,51 @@ fn deleting_a_question_does_not_reassign_its_visuals() {
         assert_eq!(list(row, "visuals").len(), 1);
         assert_eq!(row["visuals"][0]["description"], "Unassigned");
     }
+}
+
+#[test]
+fn closed_review_composite_content_search_and_favorites() {
+    let (_dir, mut s) = store();
+    let mut raw: Value =
+        serde_json::from_slice(include_bytes!("../../fixtures/composite.json")).unwrap();
+    raw["questions"][0]["passage"] =
+        json!([{"partType":"table","jsonValue":{"cells":[["STRUCTURED_MATERIAL"]]}}]);
+    let preview = s
+        .preview(serde_json::to_vec(&raw).unwrap(), "Composite".into())
+        .unwrap();
+    let imported = s
+        .import(text(&preview, "ticket"), None, "Composite")
+        .unwrap();
+    let bank = text(&imported, "bankId");
+    let roots = s.questions(Some(bank), "", "", "").unwrap();
+    let root = text(&roots[0], "id");
+    let child = text(&roots[0]["children"][0], "id");
+    assert!(roots[0]["children"][0]["groups"]
+        .to_string()
+        .contains("STRUCTURED_MATERIAL"));
+    for term in ["STRUCTURED_MATERIAL", "spring"] {
+        assert!(!s
+            .questions(Some(bank), term, "", "")
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .is_empty());
+    }
+    s.favorite(child, true).unwrap();
+    let favorites = s.questions(Some(bank), "", "", "favorite").unwrap();
+    assert_eq!(favorites[0]["id"], root);
+    assert_eq!(favorites[0]["favorite"], true);
+    s.favorite(root, false).unwrap();
+    assert!(s
+        .questions(Some(bank), "", "", "favorite")
+        .unwrap()
+        .as_array()
+        .unwrap()
+        .is_empty());
+    let mut q =
+        json!({"stem":"Blanks","answerMode":"fill_blank","answerPayload":{"answers":["a","b"]}});
+    contract::validate_question(&mut q).unwrap();
+    assert_eq!(q["blankCount"], 2);
+    q["blankCount"] = json!(1);
+    assert!(contract::validate_question(&mut q).is_err());
 }

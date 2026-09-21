@@ -393,17 +393,10 @@ impl Store {
             }
             let q = &row["question"];
             if !search.is_empty()
-                && !["stem", "sourceText", "analysis"]
-                    .iter()
-                    .any(|k| text(q, k).to_lowercase().contains(&search.to_lowercase()))
-                && !list(q, "passage").iter().any(|b| {
-                    text(b, "textValue")
-                        .to_lowercase()
-                        .contains(&search.to_lowercase())
-                        || text(b, "markdownValue")
-                            .to_lowercase()
-                            .contains(&search.to_lowercase())
-                })
+                && !json!([q, row["groups"], row["visuals"]])
+                    .to_string()
+                    .to_lowercase()
+                    .contains(&search.to_lowercase())
             {
                 continue;
             }
@@ -432,6 +425,12 @@ impl Store {
                     && crate::questions::root_id(r, &rows) == text(row, "id"))
                 .map(|r| crate::questions::hydrate(r, &rows))
                 .collect::<Vec<_>>());
+            root["favorite"] = json!(
+                row["favorite"] == true
+                    || list(&root, "children")
+                        .iter()
+                        .any(|c| c["favorite"] == true)
+            );
             results.push(root);
         }
         Ok(json!(results))
@@ -469,11 +468,11 @@ impl Store {
         let changed = self
             .connect()?
             .execute(
-                "UPDATE questions SET favorite=?2 WHERE id=?1",
+                "WITH RECURSIVE subtree(id) AS (SELECT id FROM questions WHERE id=?1 UNION ALL SELECT q.id FROM questions q JOIN subtree s ON q.parent_id=s.id) UPDATE questions SET favorite=?2 WHERE id IN subtree",
                 params![qid, value],
             )
             .map_err(err)?;
-        if changed != 1 {
+        if changed == 0 {
             return Err(crate::language::error(
                 "LOCAL_FAVORITE_DELETED",
                 serde_json::json!({}),

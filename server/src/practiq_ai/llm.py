@@ -454,6 +454,8 @@ async def structured_call[ResultT: BaseModel](
             outcome = "known"
         except Exception as exc:
             if isinstance(exc, DocumentProcessingError):
+                error_code = exc.code
+                record.update(status="failed", error=exc.code, finishedAt=datetime.now(UTC).isoformat(), durationMs=round((time.monotonic() - started) * 1000, 3))
                 if runtime is None:
                     raise
                 error = {"status": exc.status_code, "code": exc.code, "detail": exc.detail}
@@ -474,6 +476,8 @@ async def structured_call[ResultT: BaseModel](
                 await store_put(runtime, "calls", str(call_key), record)
             return {"error": error}
         finally:
+            if not provider_started and record["status"] == "started":
+                record.update(status="rejected", error=error_code or "MODEL_CALL_REJECTED", finishedAt=datetime.now(UTC).isoformat(), durationMs=round((time.monotonic() - started) * 1000, 3))
             if call_records is not None:
                 call_records.append(record)
             elapsed = time.monotonic() - started

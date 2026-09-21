@@ -5,7 +5,7 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
-import { api, fieldName, type Snapshot, type Visual } from "./api";
+import { api, fieldName, type Snapshot, type Visual, type Block } from "./api";
 import { ZoomIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -39,6 +39,22 @@ export function Markdown({ children }: { children?: string | null }) {
       </ReactMarkdown>
     </div>
   ) : null;
+}
+function Blocks({blocks}: {blocks: Block[]}) {
+  return <>{blocks.map((b, i) => (
+        <div key={i}>
+          {b.partType === "blank" ? <span className="inline-block rounded border px-3 py-1">{t("空位")} {blocks.filter(v=>v.partType==="blank").findIndex(v=>v.questionId===b.questionId)+1}</span> : b.latexValue ? (
+            <Markdown>{`$$\n${b.latexValue}\n$$`}</Markdown>
+          ) : (
+            <Markdown>{b.markdownValue || b.textValue}</Markdown>
+          )}
+          {b.jsonValue && (
+            <pre className="overflow-auto whitespace-pre-wrap rounded bg-muted p-3 text-sm">
+              {JSON.stringify(b.jsonValue, null, 2)}
+            </pre>
+          )}
+        </div>
+  ))}</>;
 }
 function ImageAsset({ visual, original = false }: { visual: Visual; original?: boolean }) {
   useI18n();
@@ -91,10 +107,12 @@ export function Content({
   snapshot,
   source = false,
   exam = false,
+  revealOriginal = true,
 }: {
   snapshot: Snapshot;
   source?: boolean;
   exam?: boolean;
+  revealOriginal?: boolean;
 }) {
   useI18n();
   const q = snapshot.question;
@@ -114,29 +132,17 @@ export function Content({
         <section key={g.id} className="rounded-lg border-l-4 bg-muted/40 p-4">
           <h3 className="mb-2 font-medium">{g.title}</h3>
           <Markdown>{g.instructions}</Markdown>
+          <Blocks blocks={g.contentBlocks || []} />
         </section>
       ))}
       <Markdown>
         {q.stem || (!exam && q.sourceText) || t("此题题干缺失，请查看以下内容或跳过。")}
       </Markdown>
-      {[...(q.passage || []), ...q.contentBlocks].map((b, i) => (
-        <div key={i}>
-          {b.partType === "blank" ? <span className="inline-block rounded border px-3 py-1">{t("空位")} {(q.passage || []).filter(v=>v.partType==="blank").findIndex(v=>v.questionId===b.questionId)+1}</span> : b.latexValue ? (
-            <Markdown>{`$$\n${b.latexValue}\n$$`}</Markdown>
-          ) : (
-            <Markdown>{b.markdownValue || b.textValue}</Markdown>
-          )}
-          {b.jsonValue && (
-            <pre className="overflow-auto whitespace-pre-wrap rounded bg-muted p-3 text-sm">
-              {JSON.stringify(b.jsonValue, null, 2)}
-            </pre>
-          )}
-        </div>
-      ))}
+      <Blocks blocks={[...(q.passage || []), ...q.contentBlocks]} />
       {snapshot.visuals.map((v) => (
         <div key={v.id} className="space-y-2">
           <ImageAsset visual={{...v, extractedText: q.contentBlocks.some(b => b.markdownValue === v.extractedText) ? null : v.extractedText}} />
-          {!exam && v.sourceRef && <ImageAsset original visual={{...v, imageRef: v.sourceRef, label: null, extractedText: null, description: t("完整来源页，可能含参考答案。可对照检查表头、图例和裁剪边缘。")}} />}
+          {!exam && revealOriginal && v.sourceRef && <ImageAsset original visual={{...v, imageRef: v.sourceRef, label: null, extractedText: null, description: t("完整来源页，可能含参考答案。可对照检查表头、图例和裁剪边缘。")}} />}
         </div>
       ))}
       {source && (

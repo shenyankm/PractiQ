@@ -262,7 +262,10 @@ export function AiTasks({
             timer = setTimeout(poll, 1000);
         }
       } catch (e) {
-        if (active) setError(e);
+        if (active) {
+          setError(e);
+          timer = setTimeout(poll, 2000);
+        }
       }
     };
     void poll();
@@ -295,7 +298,10 @@ export function AiTasks({
           }
         }
       } catch (e) {
-        if (active) setError(e);
+        if (active) {
+          setError(e);
+          timer = setTimeout(poll, 2000);
+        }
       }
     };
     void poll();

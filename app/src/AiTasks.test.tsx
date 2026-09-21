@@ -377,3 +377,19 @@ it("stops polling a completed task", async () => {
   ).toHaveLength(1);
   timers.mockRestore();
 });
+it("retries task polling after a transient read failure",async()=>{
+  let gets=0;
+  vi.mocked(invoke).mockImplementation(async(_command,args)=>{
+    const r=(args as {request:{type:string}}).request;
+    if(r.type==="list") return {items:[{threadId:"task",fileName:"retry.pdf",expiresAt:""}],hasMore:false} as never;
+    if(r.type==="get") {
+      if(++gets===1) throw new Error("transient read");
+      return {threadId:"task",state:"COMPLETED",phase:"completed",progress:{},allowedActions:[],blocking:[],failures:[],usage:[],unknownUsageCalls:[]} as never;
+    }
+    return [] as never;
+  });
+  render(<AiTasks busy={false} run={job=>{void job();}} onPreview={()=>{}}/>);
+  await userEvent.click(await screen.findByRole("button",{name:"retry.pdf"}));
+  await waitFor(()=>expect(gets).toBe(2),{timeout:4000});
+  expect(screen.queryByText(/transient read/)).toBeNull();
+});

@@ -97,7 +97,7 @@ export function Practice({
     let last = performance.now();
     let ticks = 0;
     const timer = setInterval(() => {
-      setClock(Date.now());
+      if (exam && !handedIn && session.deadlineAt) setClock(Date.now());
       if (exam && !handedIn && session.deadlineAt && Date.now() >= session.deadlineAt) {
         run(async()=>onSession(await api<Session>({type:"session",id:session.id})));
         return;
@@ -128,7 +128,7 @@ export function Practice({
           await chain.current;
         };
     };
-  }, [session.id, session.position, submitted, finished]);
+  }, [session.id, session.position, submitted, finished, exam, handedIn, session.deadlineAt]);
   function change(a: Answer | null) {
     setAnswer(a);
     answerRef.current = a;
@@ -198,7 +198,7 @@ export function Practice({
             {exam && !handedIn && <Button variant="outline" onClick={()=>run(async()=>{await flushRef.current();onSession(await api({type:"flag",id:session.id,ordinal:session.position,value:!attempt.flagged}));})}>{attempt.flagged?t("取消待检查标记"):t("标记待检查")}</Button>}
           </div>
           <ExamResults session={session} onSession={onSession} run={run}/>
-          <Content snapshot={attempt.snapshot} exam={exam&&!handedIn} />
+          <Content snapshot={attempt.snapshot} exam={exam&&!handedIn} revealOriginal={exam ? handedIn : submitted} />
           <AnswerInput
             question={q}
             value={answer}
