@@ -54,43 +54,6 @@ pub fn usable(s: &Value) -> bool {
 }
 
 impl Store {
-    pub fn questions_multi(
-        &self,
-        bank: Option<&str>,
-        banks: &[String],
-        search: &str,
-        mode: &str,
-        filter: &str,
-    ) -> Result<Value> {
-        if banks.len() > 1000
-            || ![
-                "",
-                "choice",
-                "single",
-                "multiple",
-                "true_false",
-                "fill_blank",
-                "short_answer",
-                "ordering",
-                "matching",
-                "reading",
-                "word_bank",
-                "cloze",
-            ]
-            .contains(&mode)
-            || !["", "wrong", "favorite", "unattempted"].contains(&filter)
-        {
-            return Err(crate::language::error(
-                "LOCAL_FILTER_INVALID",
-                serde_json::json!({}),
-            ));
-        }
-        let rows = self.questions(bank, search, mode, filter)?;
-        Ok(json!(list_value(&rows)
-            .iter()
-            .filter(|q| banks.is_empty() || banks.iter().any(|b| b == text(q, "bankId")))
-            .collect::<Vec<_>>()))
-    }
     pub fn start_paper(&self, paper: Paper) -> Result<Value> {
         let mut db = self.connect()?;
         let tx = db.transaction().map_err(err)?;
@@ -183,8 +146,10 @@ impl Store {
             .collect::<std::result::Result<Vec<_>, _>>()
             .map_err(err)?;
         drop(stmt);
+        let frozen = crate::questions::session_rows(&tx, sid)?;
+        let index = crate::questions::Index::new(&frozen);
         for (ordinal, snapshot, answer, max) in rows {
-            let snapshot = crate::questions::snapshot(&tx, sid, &snapshot)?;
+            let snapshot = index.snapshot(&snapshot)?;
             let answer: Value = serde_json::from_str(&answer).map_err(err)?;
             let q = &snapshot["question"];
             let skipped = !submit_drafts || !has_answer(&answer);
@@ -260,16 +225,6 @@ impl Store {
             "LOCAL_SESSION_CORRUPTED",
             serde_json::json!({}),
         ))? {
-            let (max,earned,flagged,grading):(Option<i64>,Option<i64>,bool,String)=db.query_row("SELECT max_cents,earned_cents,flagged,grading FROM attempts WHERE session_id=?1 AND ordinal=?2",params![sid,a["ordinal"].as_i64()],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?))).map_err(err)?;
-            let favorite: Option<bool> = db.query_row(
-                "SELECT q.favorite FROM attempts a LEFT JOIN questions q ON q.id=a.question_id WHERE a.session_id=?1 AND a.ordinal=?2",
-                params![sid, a["ordinal"].as_i64()], |r| r.get(0),
-            ).map_err(err)?;
-            a["favorite"] = json!(favorite);
-            a["maxCents"] = json!(max);
-            a["earnedCents"] = json!(earned);
-            a["flagged"] = json!(flagged);
-            a["grading"] = serde_json::from_str(&grading).map_err(err)?;
             if kind != "practice" && submitted.is_none() {
                 let q = &mut a["snapshot"]["question"];
                 a_blank_count(q);
@@ -314,9 +269,10 @@ impl Store {
         if roots.is_empty() {
             return Err("No mistakes to retry".into());
         }
+        let index = crate::questions::Index::new(&rows);
         let selected: Vec<_> = rows
             .iter()
-            .filter(|r| roots.contains(crate::questions::root_id(r, &rows)))
+            .filter(|r| roots.contains(index.root_id(r)))
             .cloned()
             .collect();
         let sid2 = id();
@@ -401,9 +357,6 @@ impl Store {
             json!({"bankId":bank,"count":rows.iter().filter(|r|!crate::questions::composite(&r["question"])).count()}),
         )
     }
-}
-fn list_value(v: &Value) -> &[Value] {
-    v.as_array().map(Vec::as_slice).unwrap_or(&[])
 }
 fn a_blank_count(q: &mut Value) {
     for k in [

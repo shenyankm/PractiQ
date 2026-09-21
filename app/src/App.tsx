@@ -43,6 +43,7 @@ import {
   type Preview,
   type Question,
   type QuestionRow,
+  type QuestionPage,
   type Session,
   type SessionSummary,
 } from "./api";
@@ -120,6 +121,7 @@ export default function App() {
   const [banks, setBanks] = useState<Bank[]>([]);
   const [bank, setBank] = useState<string | null>(null);
   const [questions, setQuestions] = useState<QuestionRow[]>([]);
+  const [questionTotal, setQuestionTotal] = useState(0);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [session, setSession] = useState<Session | null>(null);
   const [search, setSearch] = useState("");
@@ -196,15 +198,15 @@ export default function App() {
       setInfo(await api({ type: "info" }));
     });
   }, [run]);
+  useEffect(() => { setOffset(0); }, [page, bank, search, mode]);
   useEffect(() => {
     if (!["questions", "wrong", "favorite"].includes(page)) return;
     let active = true;
     setLoading(true);
-    setOffset(0);
     const timer = setTimeout(() => {
-      void api<QuestionRow[]>({ type: "questions", ...query })
+      void api<QuestionPage>({ type: "questions_page", ...query, limit: 30, offset })
         .then((rows) => {
-          if (active) setQuestions(rows);
+          if (active) { setQuestions(rows.items); setQuestionTotal(rows.total); setOffset(rows.offset); }
         })
         .catch((e) => {
           if (active) {
@@ -219,7 +221,7 @@ export default function App() {
       active = false;
       clearTimeout(timer);
     };
-  }, [page, bank, search, mode]);
+  }, [page, bank, search, mode, offset]);
   useEffect(() => {
     if (!isTauri()) return;
     let disposed = false;
@@ -269,7 +271,8 @@ export default function App() {
   }
   const unfinished = sessions.find(s => !s.finishedAt && !s.submittedAt);
   async function refreshQuestions() {
-    setQuestions(await api<QuestionRow[]>({ type: "questions", ...query }));
+    const result = await api<QuestionPage>({ type: "questions_page", ...query, limit: 30, offset });
+    setQuestions(result.items); setQuestionTotal(result.total); setOffset(result.offset);
     await reload();
   }
   async function pickImport() {
@@ -392,7 +395,7 @@ export default function App() {
                 {page === "banks"
                   ? t("{0} 个题库 · {1} 道题目", { 0: banks.length, 1: banks.reduce((n, b) => n + b.count, 0) })
                   : listPage
-                    ? t("{0} 道题目{1}", { 0: questions.length, 1: loading ? t(" · 加载中…") : "" })
+                    ? t("{0} 道题目{1}", { 0: questionTotal, 1: loading ? t(" · 加载中…") : "" })
                     : page === "import"
                       ? t("导入已有题库，或将文档解析为题目")
                     : page === "history"
@@ -524,7 +527,7 @@ export default function App() {
               {questions.length ? (
                 <>
                   <div className="divide-y rounded-xl border">
-                    {questions.slice(offset, offset + 30).map((row, i) => (
+                    {questions.map((row, i) => (
                       <div key={row.id} className="flex min-h-20 items-center gap-4 p-4">
                         <span className="w-8 shrink-0 text-sm text-muted-foreground">
                           {offset + i + 1}
@@ -613,16 +616,16 @@ export default function App() {
                     ))}
                   </div>
                   <div className="flex items-center justify-between text-sm text-muted-foreground">
-                    <span>{t("第 {0}–{1} 题", { 0: offset + 1, 1: Math.min(offset + 30, questions.length) })}</span>
+                    <span>{t("第 {0}–{1} 题", { 0: offset + 1, 1: Math.min(offset + 30, questionTotal) })}</span>
                     <div className="flex gap-2">
                       <Button
                         variant="outline"
-                        disabled={offset === 0}
+                        disabled={loading || busy || offset === 0}
                         onClick={() => setOffset(Math.max(0, offset - 30))}
                       >{t("上一页")}</Button>
                       <Button
                         variant="outline"
-                        disabled={offset + 30 >= questions.length}
+                        disabled={loading || busy || offset + 30 >= questionTotal}
                         onClick={() => setOffset(offset + 30)}
                       >{t("下一页")}</Button>
                     </div>
@@ -910,15 +913,9 @@ export default function App() {
                     setSearch("");
                     setMode("");
                     setPage("questions");
-                    setQuestions(
-                      await api({
-                        type: "questions",
-                        bank_id: result.bankId,
-                        search: "",
-                        mode: "",
-                        filter: "",
-                      }),
-                    );
+                    setOffset(0);
+                    setQuestions([]);
+                    setQuestionTotal(0);
                     toast.success(
                       result.duplicate
                         ? message("此题库已导入相同内容，本次已跳过")

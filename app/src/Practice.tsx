@@ -55,6 +55,8 @@ export function Practice({
       answerRef.current = attempt.answer;
     }
   }, [handedIn, attempt.answer]);
+  function persist(submit: true, skip?: boolean, selfResult?: boolean | null): Promise<Session>;
+  function persist(submit?: false, skip?: boolean, selfResult?: boolean | null): Promise<void>;
   function persist(
     submit = false,
     skip = false,
@@ -64,7 +66,7 @@ export function Practice({
     setSaved("保存中…");
     const job = chain.current
       .catch(() => {})
-      .then(() =>
+      .then((): Promise<Session | void> => submit ?
         api<Session>({
           type: "save_attempt",
           id: session.id,
@@ -74,7 +76,7 @@ export function Practice({
           submit,
           skip,
           self_result: selfResult,
-        }),
+        }) : api<void>({type:"save_draft", id:session.id, ordinal:session.position, answer:captured.answer, elapsed_ms:captured.elapsed}),
       );
     chain.current = job.then(
       () => {

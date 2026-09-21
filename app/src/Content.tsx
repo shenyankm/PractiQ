@@ -1,5 +1,5 @@
 import { list, t, useI18n } from "./i18n";
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -10,7 +10,7 @@ import { ZoomIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-export function Markdown({ children }: { children?: string | null }) {
+export const Markdown = memo(function Markdown({ children }: { children?: string | null }) {
   useI18n();
   return children ? (
     <div className="document-content">
@@ -39,7 +39,7 @@ export function Markdown({ children }: { children?: string | null }) {
       </ReactMarkdown>
     </div>
   ) : null;
-}
+});
 function Blocks({blocks}: {blocks: Block[]}) {
   return <>{blocks.map((b, i) => (
         <div key={i}>
@@ -103,7 +103,7 @@ function ImageAsset({ visual, original = false }: { visual: Visual; original?: b
     </figure>
   );
 }
-export function Content({
+export const Content = memo(function Content({
   snapshot,
   source = false,
   exam = false,
@@ -163,4 +163,4 @@ export function Content({
       )}
     </div>
   );
-}
+});

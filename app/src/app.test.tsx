@@ -117,9 +117,8 @@ it("flushes the latest draft before moving to the next question", async () => {
   const move = calls.findIndex((r) => r.type === "position");
   expect(move).toBeGreaterThan(0);
   expect(calls[move - 1]).toMatchObject({
-    type: "save_attempt",
+    type: "save_draft",
     answer: { value: false },
-    submit: false,
   });
 });
 
@@ -212,7 +211,7 @@ it("replaces an unsaved timeout edit with the durable submitted answer", async (
   const {rerender}=render(<Practice session={session} {...props}/>);
   vi.mocked(api).mockRejectedValueOnce(new Error("exam submitted"));
   fireEvent.change(screen.getByRole("textbox",{name:"作答内容"}),{target:{value:"unsaved after deadline"}});
-  await waitFor(()=>expect(api).toHaveBeenCalledWith(expect.objectContaining({type:"save_attempt",answer:{text:"unsaved after deadline"}})));
+  await waitFor(()=>expect(api).toHaveBeenCalledWith(expect.objectContaining({type:"save_draft",answer:{text:"unsaved after deadline"}})));
   const locked={...session,submittedAt:1,attempts:[{...session.attempts[0],submittedAt:1}]};
   rerender(<Practice session={locked} {...props}/>);
   const input=screen.getByRole("textbox",{name:"作答内容"}) as HTMLTextAreaElement;
@@ -242,7 +241,7 @@ it("announces save failures, retries the draft and labels the current answer-car
   vi.mocked(api).mockResolvedValue(session);
   await userEvent.click(screen.getByRole("button",{name:"重试保存"}));
   await waitFor(()=>expect(screen.queryByRole("alert")).toBeNull());
-  expect(api).toHaveBeenLastCalledWith(expect.objectContaining({type:"save_attempt",answer:{text:"新的草稿"},submit:false}));
+  expect(api).toHaveBeenLastCalledWith(expect.objectContaining({type:"save_draft",answer:{text:"新的草稿"}}));
 });
 
 it("moves focus into finish confirmation and restores it when cancelling without submitting", async () => {

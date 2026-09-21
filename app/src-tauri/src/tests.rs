@@ -11,6 +11,92 @@ fn store() -> (tempfile::TempDir, Store) {
     let store = Store::new(dir.path().to_owned()).unwrap();
     (dir, store)
 }
+#[test]
+fn paged_filters_preserve_complete_groups_and_drafts_survive_reopen() {
+    let (dir, mut s) = store();
+    let plain = import(&mut s);
+    let preview = s
+        .preview(
+            include_bytes!("../../fixtures/composite.json").to_vec(),
+            "Groups".into(),
+        )
+        .unwrap();
+    let result = s.import(text(&preview, "ticket"), None, "Groups").unwrap();
+    let grouped = text(&result, "bankId").to_owned();
+    let all = s.questions(Some(&grouped), "", "", "").unwrap();
+    let child = text(&all[0]["children"][0], "id");
+    s.favorite(child, true).unwrap();
+    for bank in [None, Some(plain.as_str()), Some(grouped.as_str())] {
+        for search in ["", "the", "材料"] {
+            for mode in ["", "single", "true_false", "reading", "word_bank"] {
+                for filter in ["", "favorite", "wrong", "unattempted"] {
+                    let expected = s.questions(bank, search, mode, filter).unwrap();
+                    let n = expected.as_array().unwrap().len();
+                    let mut combined = Vec::new();
+                    for offset in 0..n.max(1) {
+                        let page = s
+                            .query_questions(bank, &[], (search, mode, filter), Some((1, offset)))
+                            .unwrap();
+                        assert_eq!(page["total"], n);
+                        combined.extend_from_slice(list(&page, "items"));
+                    }
+                    assert_eq!(json!(combined), expected);
+                }
+            }
+        }
+    }
+    let favorites = s
+        .query_questions(Some(&grouped), &[], ("", "", "favorite"), Some((1, 0)))
+        .unwrap();
+    assert_eq!(favorites["items"][0]["id"], all[0]["id"]);
+    assert_eq!(
+        list(&favorites["items"][0], "children").len(),
+        list(&all[0], "children").len()
+    );
+    assert_eq!(
+        s.query_questions(
+            Some(&plain),
+            std::slice::from_ref(&grouped),
+            ("", "", ""),
+            Some((30, 0))
+        )
+        .unwrap()["total"],
+        0
+    );
+    assert!(s
+        .query_questions(None, &[], ("", "", ""), Some((0, 0)))
+        .is_err());
+    assert!(s
+        .query_questions(None, &[], ("", "", ""), Some((101, 0)))
+        .is_err());
+    let last = s
+        .query_questions(Some(&plain), &[], ("", "", ""), Some((2, 999)))
+        .unwrap();
+    assert_eq!(last["offset"], 8);
+    assert_eq!(list(&last, "items").len(), 1);
+    let session = practice(
+        &s,
+        s.questions(Some(&plain), "", "true_false", "").unwrap(),
+        1,
+    );
+    let sid = text(&session, "id");
+    assert!(s
+        .save_draft((sid, 0), json!({"value":false}), 123)
+        .unwrap()
+        .is_null());
+    assert!(s
+        .save_draft((sid, 0), json!({"value":"false"}), 123)
+        .is_err());
+    let reopened = Store::new(dir.path().into()).unwrap().session(sid).unwrap();
+    assert_eq!(reopened["attempts"][0]["answer"], json!({"value":false}));
+    assert_eq!(reopened["attempts"][0]["elapsedMs"], 123);
+    assert_eq!(
+        reopened["attempts"][0]["snapshot"],
+        session["attempts"][0]["snapshot"]
+    );
+    s.submit_paper(sid, true).unwrap();
+    assert!(s.save_draft((sid, 0), json!({"value":true}), 124).is_err());
+}
 fn import(store: &mut Store) -> String {
     let preview = store.preview(sample(), "示例题库".into()).unwrap();
     let imported = store
@@ -1337,7 +1423,7 @@ fn composite_import_paper_edit_history_and_restore() {
         .question_rows()
         .unwrap()
         .into_iter()
-        .filter(|r| crate::questions::root_id(r, &frozen) == root)
+        .filter(|r| crate::questions::Index::new(&frozen).root_id(r) == root)
         .map(|r| r["question"].clone())
         .collect();
     tree[0]["stem"] = json!("Changed article");

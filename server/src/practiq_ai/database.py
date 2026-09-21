@@ -40,6 +40,11 @@ CREATE TABLE document_receipts (
  PRIMARY KEY(thread_id, request_id)
 );
 """
+INDEX_DDL = """
+CREATE INDEX IF NOT EXISTS document_task_order ON document_tasks(created_at DESC,thread_id DESC);
+CREATE INDEX IF NOT EXISTS document_run_latest ON document_runs(thread_id,created_at DESC);
+CREATE INDEX IF NOT EXISTS document_active_order ON document_runs(created_at) WHERE status IN ('pending','running');
+"""
 JSON_COLUMNS = {'document', 'input', 'command', 'context', 'response'}
 DATE_COLUMNS = {'created_at', 'expires_at', 'started_at', 'deadline', 'finished_at'}
 sqlite3.register_adapter(datetime, lambda value: value.astimezone(UTC).isoformat())
@@ -82,7 +87,9 @@ class Database:
         self.directory = Path(directory) if directory is not None else database_dir()
         self.directory = self.directory.resolve()
         self.control_lock = asyncio.Lock()
+        self.read_lock = asyncio.Lock()
         self.connections: list[aiosqlite.Connection] = []
+        self.reader: aiosqlite.Connection | None = None
         self.checkpointer: AsyncSqliteSaver
         self.store: AsyncSqliteStore
 
@@ -110,11 +117,15 @@ class Database:
                 self.connections.append(await self.connect(name))
             self.checkpointer = AsyncSqliteSaver(self.connections[0])
             self.store = AsyncSqliteStore(self.connections[1])
+            self.reader = await self.connect('tasks.sqlite', business=True)
         except BaseException:
             await self.close()
             raise
 
     async def close(self):
+        if self.reader is not None:
+            await self.reader.close()
+            self.reader = None
         while self.connections:
             await self.connections.pop().close()
 
@@ -127,8 +138,17 @@ class Database:
             await conn.close()
 
     async def rows(self, query: LiteralString, params: Any = ()) -> list[dict[str, Any]]:
+        if self.reader is not None:
+            # Finish each cursor before the next read, so concurrent reads cannot share a stale snapshot.
+            async with self.read_lock, self.reader.execute(query, params) as cursor:
+                return cast(list[dict[str, Any]], await cursor.fetchall())
+        async with self.connection() as conn, conn.execute(query, params) as cursor:
+            return cast(list[dict[str, Any]], await cursor.fetchall())
+
+    async def ensure_indexes(self):
+        # Additive indexes keep schema-1 databases and durable checkpoints compatible.
         async with self.connection() as conn:
-            return cast(list[dict[str, Any]], await (await conn.execute(query, params)).fetchall())
+            await conn.executescript(INDEX_DDL)
 
     async def check_schema(self):
         rows = await self.rows('PRAGMA user_version')
@@ -170,7 +190,7 @@ class Database:
             await self.checkpointer.setup()
             await self.store.setup()
             try:
-                await conn.executescript(f'BEGIN IMMEDIATE; {DDL} PRAGMA user_version={SCHEMA_VERSION}; DROP TABLE practiq_initialization; COMMIT;')
+                await conn.executescript(f'BEGIN IMMEDIATE; {DDL} {INDEX_DDL} PRAGMA user_version={SCHEMA_VERSION}; DROP TABLE practiq_initialization; COMMIT;')
             except BaseException:
                 await conn.rollback()
                 raise

@@ -11,6 +11,7 @@ import userEvent from "@testing-library/user-event";
 import { invoke } from "@tauri-apps/api/core";
 import { api } from "./api";
 import App from "./App";
+import fixture from "../fixtures/sample.json";
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
@@ -26,6 +27,37 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+it("loads native pages and clamps the page after deleting the last item", async () => {
+  const rows=Array.from({length:31},(_,i)=>({id:`q${i}`,bankId:"bank",bankTitle:"Paged",question:{...fixture.questions[0],stem:`Page question ${i}`},groups:[],visuals:[],sources:[],warnings:[],missingAssets:false,favorite:false,latestResult:null}));
+  let deleted=false;
+  vi.mocked(api).mockImplementation(async request => {
+    switch(request.type) {
+      case "banks": return [{id:"bank",title:"Paged",description:"",count:deleted?30:31}] as never;
+      case "sessions": return [] as never;
+      case "info": return {version:"test",dataDirectory:"/tmp/test"} as never;
+      case "questions_page": {
+        const offset=deleted?0:request.offset;
+        return {items:rows.slice(offset,offset+30),offset,total:deleted?30:31} as never;
+      }
+      case "delete_question": deleted=true; return null as never;
+      default: throw new Error(`Unexpected request: ${request.type}`);
+    }
+  });
+  render(<App/>);
+  await userEvent.click(await screen.findByRole("button",{name:/查看题目/}));
+  expect(await screen.findByText("Page question 0")).toBeTruthy();
+  expect(screen.queryByText("Page question 30")).toBeNull();
+  await userEvent.click(screen.getByRole("button",{name:"下一页"}));
+  expect(await screen.findByText("Page question 30")).toBeTruthy();
+  expect(screen.queryByText("Page question 0")).toBeNull();
+  await userEvent.click(screen.getByRole("button",{name:/删除题目/}));
+  const dialog=await screen.findByRole("alertdialog");
+  await userEvent.click(within(dialog).getByRole("button",{name:"确认"}));
+  expect(await screen.findByText("Page question 0")).toBeTruthy();
+  expect(screen.getByRole("button",{name:"上一页"}).hasAttribute("disabled")).toBe(true);
+  expect(api).toHaveBeenCalledWith(expect.objectContaining({type:"questions_page",limit:30,offset:30}));
+});
+
 it("keeps JSON import usable without models and preserves the destination bank", async () => {
   vi.mocked(invoke).mockResolvedValue([]);
   vi.mocked(api).mockImplementation(async (request) => {
@@ -34,7 +66,8 @@ it("keeps JSON import usable without models and preserves the destination bank",
         return [
           { id: "bank-1", title: "现有题库", description: "", count: 0 },
         ] as never;
-      case "sessions":
+      case "sessions": return [] as never;
+      case "questions_page": return {items:[],total:0,offset:0} as never;
       case "questions":
         return [] as never;
       case "info":
@@ -126,7 +159,8 @@ it("opens study setup from each bank card with that bank selected", async () => 
   vi.mocked(api).mockImplementation(async (request) => {
     switch (request.type) {
       case "banks": return banks as never;
-      case "sessions":
+      case "sessions": return [] as never;
+      case "questions_page": return {items:[],total:0,offset:0} as never;
       case "questions": return [] as never;
       case "info": return { version: "test", dataDirectory: "/tmp/test" } as never;
       default: throw new Error(`Unexpected request: ${request.type}`);

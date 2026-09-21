@@ -27,8 +27,9 @@ try {
     case 'save_language': lang=request.locale;localStorage.setItem('test-language',lang);return lang;
     case 'banks':return banks;
     case 'sessions':return [];
-    case 'save_attempt':return null;
+    case 'save_attempt':case 'save_draft':return null;
     case 'questions':return questions;
+    case 'questions_page':return {items:questions.slice(request.offset,request.offset+request.limit),total:questions.length,offset:request.offset};
     case 'info':return {version:'preview',dataDirectory:'/local/test'};
     case 'settings':return {config:{base_url:null,model_id:null,oss_url:null},hasApiKey:false};
     case 'preview_paper': {
