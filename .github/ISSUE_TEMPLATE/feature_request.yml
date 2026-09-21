@@ -16,7 +16,7 @@ body:
       options:
         - label: I searched existing issues and found no duplicate.
           required: true
-        - label: I reviewed the relevant sections of `docs/PRD.md` and architecture documentation.
+        - label: I reviewed the relevant sections of `README.md` and architecture documentation.
           required: true
 
   - type: dropdown
@@ -25,6 +25,7 @@ body:
       label: Primary area
       options:
         - Python AI service (`server/`)
+        - Desktop application (`app/`)
         - Documentation
         - Build or development tooling
         - Cross-layer feature

@@ -7,6 +7,8 @@ metadata:
 
 # Vite Patterns
 
+> PractiQ scope: keep the desktop development server bound to 127.0.0.1. The container host:true recipe below is for other projects and must not be applied here.
+
 Build tool and dev server patterns for Vite 8+ projects. Covers configuration, environment variables, proxy setup, library mode, dependency pre-bundling, and common production pitfalls.
 
 ## When to Use

@@ -91,7 +91,7 @@ import { InputGroup, InputGroupInput, InputGroupAddon } from "@/components/ui/in
 <InputGroup>
   <InputGroupInput placeholder="Search..." />
   <InputGroupAddon>
-    <Button size="icon">
+    <Button size="icon" aria-label="Search">
       <SearchIcon data-icon="inline-start" />
     </Button>
   </InputGroupAddon>

@@ -108,6 +108,8 @@ def extract_with_cache(
     # Cache miss -> extract -> store
     logger.info("Cache miss: %s (hash=%s)", file_path.name, file_hash[:12])
     doc = extract_text(file_path)
+    if compute_file_hash(file_path) != file_hash:
+        raise RuntimeError("Source changed during extraction; retry from a stable snapshot")
     entry = CacheEntry(file_hash=file_hash, source_path=str(file_path), document=doc)
     write_cache(cache_dir, entry)
     return doc

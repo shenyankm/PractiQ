@@ -9,6 +9,7 @@
 ## Affected areas
 
 - [ ] Python AI service (`server/`)
+- [ ] Desktop application (`app/`)
 - [ ] Documentation or tooling
 
 ## Validation

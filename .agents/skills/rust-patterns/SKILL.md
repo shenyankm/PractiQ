@@ -335,15 +335,10 @@ for msg in rx {
 use tokio::time::Duration;
 
 async fn fetch_with_timeout(url: &str) -> Result<String> {
-    let response = tokio::time::timeout(
-        Duration::from_secs(5),
-        reqwest::get(url),
-    )
-    .await
-    .context("request timed out")?
-    .context("request failed")?;
-
-    response.text().await.context("failed to read body")
+    tokio::time::timeout(Duration::from_secs(5), async {
+        let response = reqwest::get(url).await.context("request failed")?;
+        response.text().await.context("failed to read body")
+    }).await.context("request timed out")?
 }
 
 // Spawn concurrent tasks
@@ -367,13 +362,12 @@ async fn fetch_all(urls: Vec<String>) -> Vec<Result<String>> {
 ### When Unsafe Is Acceptable
 
 ```rust
-// Acceptable: FFI boundary with documented invariants (Rust 2024+)
-/// # Safety
-/// `ptr` must be a valid, aligned pointer to an initialized `Widget`.
-unsafe fn widget_from_raw<'a>(ptr: *const Widget) -> &'a Widget {
-    // SAFETY: caller guarantees ptr is valid and aligned
-    unsafe { &*ptr }
+// Keep FFI pointers as pointers until an owner supplies a valid borrow lifetime.
+fn widget_from_raw(ptr: *mut Widget) -> Option<std::ptr::NonNull<Widget>> {
+    std::ptr::NonNull::new(ptr)
 }
+// NonNull does not prove validity or ownership. Dereferencing still requires
+// an explicit allocation lifetime and aliasing contract at the FFI boundary.
 
 // Acceptable: Performance-critical path with proof of correctness
 // SAFETY: index is always < len due to the loop bound

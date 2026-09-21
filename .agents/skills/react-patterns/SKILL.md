@@ -53,7 +53,7 @@ React has no inheritance model for components. Compose with `children`, render p
 
 ## Hooks Discipline
 
-See [rules/react/hooks.md](../../rules/react/hooks.md) for the full ruleset. Highlights:
+Use these hooks rules; no separate ruleset is required:
 
 - Top-level only, never conditional
 - Cleanup every subscription, interval, listener

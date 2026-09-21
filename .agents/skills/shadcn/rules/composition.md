@@ -1,3 +1,5 @@
+> PractiQ exception: the installed Select wrapper has no SelectGroup export. Place SelectItem directly in SelectContent; grouping examples below apply only to wrappers exposing the group.
+
 # Component Composition
 
 ## Contents
