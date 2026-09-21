@@ -18,6 +18,12 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 
+function retryableRead(error: unknown) {
+  const { code, httpStatus } = (error ?? {}) as { code?: string; httpStatus?: number };
+  if (code === "TASK_NOT_FOUND" || code === "TASK_EXPIRED") return false;
+  return httpStatus == null || httpStatus === 408 || httpStatus === 429 || httpStatus >= 500;
+}
+
 type Failure = {
   retryable: boolean;
   stage: string;
@@ -249,6 +255,7 @@ export function AiTasks({
   useEffect(() => {
     let active = true;
     let timer: ReturnType<typeof setTimeout>;
+    let failures = 0;
     const poll = async () => {
       try {
         const [o, b] = await Promise.all([
@@ -256,6 +263,7 @@ export function AiTasks({
           ai<Batch[]>({ type: "batches" }),
         ]);
         if (active) {
+          failures = 0;
           setOperations(o);
           setBatches(b);
           if (running || b.some((v) => v.status === "running"))
@@ -264,7 +272,7 @@ export function AiTasks({
       } catch (e) {
         if (active) {
           setError(e);
-          timer = setTimeout(poll, 2000);
+          if (retryableRead(e) && ++failures <= 3) timer = setTimeout(poll, 2000);
         }
       }
     };
@@ -278,6 +286,7 @@ export function AiTasks({
     if (!selected || !modelsReady) return;
     let active = true;
     let timer: ReturnType<typeof setTimeout>;
+    let failures = 0;
     setTask(null);
     const poll = async () => {
       try {
@@ -296,11 +305,24 @@ export function AiTasks({
               setMore(listing.hasMore);
             }
           }
+          failures = 0;
         }
       } catch (e) {
         if (active) {
           setError(e);
-          timer = setTimeout(poll, 2000);
+          if (retryableRead(e) && ++failures <= 3) timer = setTimeout(poll, 2000);
+          else {
+            setTask(null);
+            // Refresh membership once; never retry a removed/expired task indefinitely.
+            void ai<{ items: Summary[]; hasMore: boolean }>({ type: "list", offset })
+              .then((listing) => {
+                if (active) {
+                  setRows(listing.items);
+                  setMore(listing.hasMore);
+                }
+              })
+              .catch(() => {});
+          }
         }
       }
     };

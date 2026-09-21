@@ -43,11 +43,11 @@ export function Markdown({ children }: { children?: string | null }) {
 function Blocks({blocks}: {blocks: Block[]}) {
   return <>{blocks.map((b, i) => (
         <div key={i}>
-          {b.partType === "blank" ? <span className="inline-block rounded border px-3 py-1">{t("空位")} {blocks.filter(v=>v.partType==="blank").findIndex(v=>v.questionId===b.questionId)+1}</span> : b.latexValue ? (
-            <Markdown>{`$$\n${b.latexValue}\n$$`}</Markdown>
-          ) : (
-            <Markdown>{b.markdownValue || b.textValue}</Markdown>
-          )}
+          {b.partType === "blank" ? <span className="inline-block rounded border px-3 py-1">{t("空位")} {blocks.filter(v=>v.partType==="blank").findIndex(v=>v.questionId===b.questionId)+1}</span> : <>
+            {b.latexValue && <Markdown>{`$$\n${b.latexValue}\n$$`}</Markdown>}
+            <Markdown>{b.markdownValue}</Markdown>
+            {b.textValue !== b.markdownValue && <Markdown>{b.textValue}</Markdown>}
+          </>}
           {b.jsonValue && (
             <pre className="overflow-auto whitespace-pre-wrap rounded bg-muted p-3 text-sm">
               {JSON.stringify(b.jsonValue, null, 2)}

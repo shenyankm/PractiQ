@@ -90,6 +90,31 @@ pub struct Store {
     pub dir: PathBuf,
     pub pending: Option<Pending>,
 }
+fn contains_search_text(value: &Value, search: &str) -> bool {
+    match value {
+        Value::String(value) => value.to_lowercase().contains(search),
+        Value::Array(values) => values.iter().any(|v| contains_search_text(v, search)),
+        Value::Object(values) => values.values().any(|v| contains_search_text(v, search)),
+        _ => false,
+    }
+}
+
+fn searchable_content_matches(value: &Value, search: &str) -> bool {
+    match value {
+        Value::Array(values) => values.iter().any(|v| searchable_content_matches(v, search)),
+        Value::Object(values) => values.iter().any(|(key, value)| match key.as_str() {
+            // These fields contain free-form content, not contract metadata.
+            "jsonValue" | "answerPayload" => contains_search_text(value, search),
+            "stem" | "sourceText" | "analysis" | "scoringRubric" | "scoreSourceText"
+            | "options" | "items" | "content" | "label" | "passage" | "contentBlocks"
+            | "textValue" | "markdownValue" | "latexValue" | "title" | "instructions"
+            | "description" | "extractedText" => searchable_content_matches(value, search),
+            _ => false,
+        }),
+        _ => contains_search_text(value, search),
+    }
+}
+
 impl Store {
     pub fn new(dir: PathBuf) -> Result<Self> {
         fs::create_dir_all(&dir).map_err(err)?;
@@ -387,16 +412,16 @@ impl Store {
         let db = self.connect()?;
         let rows = crate::questions::read(&db)?;
         let mut matches = std::collections::HashSet::new();
+        let search = search.to_lowercase();
         for row in &rows {
             if bank_id.is_some_and(|b| row["bankId"] != b) {
                 continue;
             }
             let q = &row["question"];
             if !search.is_empty()
-                && !json!([q, row["groups"], row["visuals"]])
-                    .to_string()
-                    .to_lowercase()
-                    .contains(&search.to_lowercase())
+                && ![q, &row["groups"], &row["visuals"]]
+                    .iter()
+                    .any(|value| searchable_content_matches(value, &search))
             {
                 continue;
             }

@@ -32,3 +32,17 @@ it("renders inherited JSON blocks and literal table syntax without activating HT
   expect(container.querySelector("tag,img,a")).toBeNull();
   expect(container.querySelector(".katex")).not.toBeNull();
 });
+
+it("preserves every populated inherited block field without duplicate text", () => {
+  render(<Content snapshot={{...snapshot, visuals: [], groups: [{
+    id: "g", title: "Material", questionIds: ["q"], contentBlocks: [
+      {partType: "table", markdownValue: "**Markdown heading**", textValue: "Plain-text detail", latexValue: "x^2", jsonValue: {cells: [["JSON detail"]]}},
+      {partType: "text", markdownValue: "Same content", textValue: "Same content"},
+    ],
+  }]}}/>);
+  expect(screen.getByText("Markdown heading")).toBeTruthy();
+  expect(screen.getByText("Plain-text detail")).toBeTruthy();
+  expect(screen.getByText(/JSON detail/)).toBeTruthy();
+  expect(document.querySelector(".katex")).toBeTruthy();
+  expect(screen.getAllByText("Same content")).toHaveLength(1);
+});

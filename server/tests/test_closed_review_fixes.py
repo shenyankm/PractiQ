@@ -38,6 +38,14 @@ def test_table_labels_and_literal_cells_preserve_material():
     assert table_content_key("| x |\n| --- |\n| &lt;tag&gt; |") == table_content_key("x\n---\n<tag>")
 
 
+@pytest.mark.parametrize("label", ["Correct Answer", "Answer key", "Reference answers", "正确答案", "标准答案", "答案解析"])
+@pytest.mark.parametrize("structured", [False, True])
+def test_qualified_answer_table_labels(label, structured):
+    content = {"tableRows": [[label, "value"], ["1", "B"]]} if structured else {"extractedText": f"| **{label}** | value |\n| --- | --- |\n| 1 | B |"}
+    figure = PageFigure.model_validate({"kind": "table", "role": "material", "description": "Values", "bbox": [0, 0, 1, 1], **content})
+    assert figure.role == "answer"
+
+
 def test_pdf_page_cannot_publish_an_oversized_asset(monkeypatch):
     def oversized(_image, buffer, **_kwargs):
         buffer.write(b"x" * (25 * 1024 * 1024 + 1))

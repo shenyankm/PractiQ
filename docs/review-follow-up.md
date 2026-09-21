@@ -65,3 +65,10 @@ This change addresses the 44 applicable suggestions from the 2026-09-21 audit of
 Regression checks cover schema parity, literal table rendering and classification, PDF asset bounds, malformed grading images, terminal call records, composite search/favorites/material inheritance, exam redaction, grading rejection before persistence, restore reconciliation, source-page visibility, idle clock rendering, polling recovery, localization and merge-dialog reset/focus.
 
 Use `make verify`, `make app-check` and `make app-build` with the existing Python 3.14 interpreter. Check the packaged service using `app/scripts/check-bundle.py`. These checks use synthetic providers; they do not establish real-model extraction quality or signed Windows/macOS release readiness.
+
+## PR #36 follow-up
+
+- [Qualified answer labels](https://github.com/shenyankm/PractiQ/pull/36#discussion_r4061003719): recognize Correct Answer, Answer key, 正确答案 and related labels in structured and text tables; ordinary material such as Solution concentration remains material.
+- [Content search](https://github.com/shenyankm/PractiQ/pull/36#discussion_r4061003724): search text-bearing fields and nested JSON content rather than schema keys, enum metadata, nulls and booleans. Literal schema words inside content remain searchable.
+- [Inherited block rendering](https://github.com/shenyankm/PractiQ/pull/36#discussion_r4061003729): preserve distinct Markdown, text, LaTeX and JSON fields together; identical Markdown/text renders once.
+- [Task read failures](https://github.com/shenyankm/PractiQ/pull/36#discussion_r4061003734): stop immediately for missing/expired tasks and permanent HTTP failures; allow at most three retries for transport, timeout, throttling or server errors, then refresh membership once. Retries only read state and never launch model actions.

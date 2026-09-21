@@ -1385,6 +1385,16 @@ fn closed_review_composite_content_search_and_favorites() {
             .unwrap()
             .is_empty());
     }
+    for term in ["false", "null", "textValue", "needsReview", "questionIds"] {
+        assert!(
+            s.questions(Some(bank), term, "", "")
+                .unwrap()
+                .as_array()
+                .unwrap()
+                .is_empty(),
+            "schema syntax matched {term}"
+        );
+    }
     s.favorite(child, true).unwrap();
     let favorites = s.questions(Some(bank), "", "", "favorite").unwrap();
     assert_eq!(favorites[0]["id"], root);
@@ -1402,4 +1412,28 @@ fn closed_review_composite_content_search_and_favorites() {
     assert_eq!(q["blankCount"], 2);
     q["blankCount"] = json!(1);
     assert!(contract::validate_question(&mut q).is_err());
+}
+
+#[test]
+fn search_keeps_literal_schema_words_in_content() {
+    let (_dir, mut s) = store();
+    let mut raw: Value = serde_json::from_slice(&sample()).unwrap();
+    raw["questions"][0]["contentBlocks"] = json!([
+        {"partType":"table","jsonValue":{"cells":[["false", "null", "textValue"]]}}
+    ]);
+    let preview = s
+        .preview(serde_json::to_vec(&raw).unwrap(), "Search".into())
+        .unwrap();
+    let imported = s.import(text(&preview, "ticket"), None, "Search").unwrap();
+    for term in ["FALSE", "null", "textValue"] {
+        let found = s
+            .questions(Some(text(&imported, "bankId")), term, "", "")
+            .unwrap();
+        assert_eq!(
+            found.as_array().unwrap().len(),
+            1,
+            "missing literal content {term}"
+        );
+        assert_eq!(found[0]["question"]["stem"], raw["questions"][0]["stem"]);
+    }
 }

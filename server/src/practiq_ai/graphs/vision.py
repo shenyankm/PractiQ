@@ -71,7 +71,7 @@ class PageFigure(BaseModel):
         texts = [*(cell for row in self.tableRows or [] for cell in row),
                  *re.split(r"[|\n]", self.extractedText or "")]
         if is_answer_role(self.role) or self.kind == "table" and any(
-            re.match(r"^(?:answers?|solutions?|analysis|explanations?|rubrics?|参考答案|答案|解析|解答|评分)(?:\s*[:：]|\s*$)", text.strip().strip("*# "), re.IGNORECASE)
+            re.match(r"^(?:(?:(?:correct|reference|model)\s+)?answers?(?:\s+keys?)?|(?:worked\s+)?solutions?|analysis|explanations?|(?:scoring\s+)?rubrics?|(?:参考|正确|标准)?答案|答案解析|解析|解答|评分(?:标准|细则)?)(?:\s*[:：]|\s*$)", text.strip().strip("*# "), re.IGNORECASE)
             for text in texts
         ):
             self.role = "answer"

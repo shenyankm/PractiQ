@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
@@ -9,6 +9,8 @@ vi.mock("sonner", () => ({ toast: { error: vi.fn() } }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
+  vi.restoreAllMocks();
   vi.clearAllMocks();
 });
 it("shows progress and sends only the current run when pausing", async () => {
@@ -392,4 +394,34 @@ it("retries task polling after a transient read failure",async()=>{
   await userEvent.click(await screen.findByRole("button",{name:"retry.pdf"}));
   await waitFor(()=>expect(gets).toBe(2),{timeout:4000});
   expect(screen.queryByText(/transient read/)).toBeNull();
+});
+
+it.each([
+  [{code: "TASK_NOT_FOUND", httpStatus: 404}, 1],
+  [{code: "TASK_EXPIRED", httpStatus: 410}, 1],
+  [{httpStatus: 401}, 1],
+  [{httpStatus: 422}, 1],
+  [{httpStatus: 503}, 4],
+  [new Error("offline"), 4],
+])("bounds failed task reads and refreshes membership: %j", async (failure, expectedGets) => {
+  vi.useFakeTimers();
+  let gets = 0, lists = 0;
+  vi.mocked(invoke).mockImplementation(async (_command, args) => {
+    const r = (args as {request: {type: string}}).request;
+    if (r.type === "list") {
+      lists++;
+      return {items: gets ? [] : [{threadId: "task", fileName: "gone.pdf", expiresAt: ""}], hasMore: false} as never;
+    }
+    if (r.type === "get") { gets++; throw failure; }
+    return [] as never;
+  });
+  await act(async () => { render(<AiTasks busy={false} run={job => {void job();}} onPreview={() => {}}/>); });
+  await act(async () => { fireEvent.click(screen.getByRole("button", {name: "gone.pdf"})); });
+  await act(async () => { await vi.advanceTimersByTimeAsync(20000); });
+  expect(gets).toBe(expectedGets);
+  expect(lists).toBe(2);
+  expect(screen.queryByRole("button", {name: "gone.pdf"})).toBeNull();
+  expect(vi.mocked(invoke).mock.calls.every(([, args]) =>
+    ["list", "get", "operations", "batches"].includes((args as {request: {type: string}}).request.type),
+  )).toBe(true);
 });
