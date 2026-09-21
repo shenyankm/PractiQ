@@ -36,7 +36,7 @@ impl Store {
         let version: i64 = db
             .query_row("PRAGMA user_version", [], |r| r.get(0))
             .map_err(err)?;
-        let manifest = json!({"format":"practiq-backup","version":2,"schemaVersion":version,"createdAt":now(),"database":{"file":"practiq.sqlite","sha256":hash(&bytes),"sizeBytes":bytes.len()},"assets":assets});
+        let manifest = json!({"format":"practiq-backup","version":3,"schemaVersion":version,"createdAt":now(),"database":{"file":"practiq.sqlite","sha256":hash(&bytes),"sizeBytes":bytes.len()},"assets":assets});
         let manifest = serde_json::to_vec(&manifest).map_err(err)?;
         if manifest.len() > 1024 * 1024 {
             return Err(crate::language::error(
@@ -116,16 +116,13 @@ impl Store {
             ));
         }
         let manifest: Value = serde_json::from_slice(&manifest).map_err(err)?;
-        let legacy = manifest["version"] == 1;
-        if manifest["format"] != "practiq-backup" || (!legacy && manifest["version"] != 2) {
+        if manifest["format"] != "practiq-backup" || manifest["version"] != 3 {
             return Err(crate::language::error(
                 "LOCAL_BACKUP_VERSION_UNSUPPORTED",
                 serde_json::json!({}),
             ));
         }
-        let assets = if legacy {
-            Vec::new()
-        } else {
+        let assets = {
             manifest["assets"]
                 .as_array()
                 .ok_or(crate::language::error(
@@ -199,7 +196,7 @@ impl Store {
         }
         fs::write(&candidate, &bytes).map_err(err)?;
         let version = validate_database(&candidate)?;
-        if manifest["schemaVersion"] != version || (legacy && version > 2) {
+        if manifest["schemaVersion"] != version {
             return Err(crate::language::error(
                 "LOCAL_BACKUP_SCHEMA_MISMATCH",
                 serde_json::json!({}),
@@ -246,7 +243,7 @@ impl Store {
             .map_err(err)?
             .collect::<std::result::Result<Vec<_>, _>>()
             .map_err(err)?;
-        if !legacy && rows.len() != assets.len() {
+        if rows.len() != assets.len() {
             return Err(crate::language::error(
                 "LOCAL_BACKUP_IMAGE_MANIFEST",
                 serde_json::json!({}),
@@ -259,10 +256,9 @@ impl Store {
                     serde_json::json!({}),
                 ));
             }
-            if !legacy
-                && !assets.iter().any(|a| {
-                    a["sha256"] == digest && a["sizeBytes"] == size && a["mediaType"] == media
-                })
+            if !assets
+                .iter()
+                .any(|a| a["sha256"] == digest && a["sizeBytes"] == size && a["mediaType"] == media)
             {
                 return Err(crate::language::error(
                     "LOCAL_BACKUP_IMAGE_MANIFEST",
@@ -314,7 +310,7 @@ fn validate_database(path: &Path) -> Result<i64> {
     let version: i64 = db
         .query_row("PRAGMA user_version", [], |r| r.get(0))
         .map_err(err)?;
-    if ![1, 2, 3, 4, 5, 6, 7, 8].contains(&version) {
+    if version != 9 {
         return Err(crate::language::error(
             "LOCAL_BACKUP_DATABASE_VERSION",
             serde_json::json!({}),
@@ -333,48 +329,11 @@ fn validate_database(path: &Path) -> Result<i64> {
     expected
         .execute_batch(include_str!("schema.sql"))
         .map_err(err)?;
-    if version >= 2 {
-        expected
-            .execute_batch(include_str!("settings.sql"))
-            .map_err(err)?;
-    }
-    if version >= 3 {
-        expected.execute_batch("DROP TABLE assets;").map_err(err)?;
-        expected.execute_batch(crate::assets::SCHEMA).map_err(err)?;
-    }
-    if version >= 4 {
-        expected
-            .execute_batch(include_str!("models.sql"))
-            .map_err(err)?;
-    }
-    if version >= 5 {
-        expected
-            .execute_batch(include_str!("exams.sql"))
-            .map_err(err)?;
-    }
-    if version >= 6 {
-        expected
-            .execute_batch(include_str!("ai_imports.sql"))
-            .map_err(err)?;
-    }
-    if version >= 7 {
-        expected
-            .execute_batch(include_str!("single_model.sql"))
-            .map_err(err)?;
-    }
-    if version >= 8 {
-        expected
-            .execute_batch(include_str!("language.sql"))
-            .map_err(err)?;
-        let value: Option<String> = db
-            .query_row("SELECT locale FROM settings WHERE id=1", [], |r| r.get(0))
-            .map_err(err)?;
-        if value
-            .as_deref()
-            .is_some_and(|v| !["zh-CN", "en"].contains(&v))
-        {
-            return Err(crate::language::error("LOCAL_LANGUAGE_INVALID", json!({})));
-        }
+    let locale: Option<String> = db
+        .query_row("SELECT locale FROM settings WHERE id=1", [], |r| r.get(0))
+        .map_err(err)?;
+    if locale.as_deref().is_some_and(|v| v != "zh-CN" && v != "en") {
+        return Err("Invalid locale".into());
     }
     if schema(&db)? != schema(&expected)? {
         return Err(crate::language::error(
@@ -397,23 +356,6 @@ fn validate_database(path: &Path) -> Result<i64> {
             )
             .map_err(err)?;
         config.validate()?;
-        // Validate every legacy field before migrating, including unused values.
-        if (4..7).contains(&version) {
-            let (text, vision): (Option<String>, Option<String>) = db
-                .query_row(
-                    "SELECT text_model,vision_model FROM settings WHERE id=1",
-                    [],
-                    |r| Ok((r.get(0)?, r.get(1)?)),
-                )
-                .map_err(err)?;
-            for model_id in [text, vision] {
-                crate::settings::ConnectionSettings {
-                    model_id,
-                    ..Default::default()
-                }
-                .validate()?;
-            }
-        }
     }
     let integrity: String = db
         .query_row("PRAGMA integrity_check", [], |r| r.get(0))
@@ -438,67 +380,61 @@ fn validate_database(path: &Path) -> Result<i64> {
             serde_json::json!({}),
         ));
     }
-    if version < 3 {
-        let mut stmt = db
-            .prepare("SELECT media,data,hash FROM assets")
+    let rows = crate::questions::read(&db)?;
+    let mut questions: Vec<_> = rows.iter().map(|r| r["question"].clone()).collect();
+    crate::contract::validate_tree(&mut questions)?;
+    crate::questions::validate_tables(&db)?;
+    let doc = crate::questions::freeze(&rows);
+    let ids: std::collections::HashSet<_> = rows
+        .iter()
+        .map(|r| crate::contract::text(r, "id"))
+        .collect();
+    crate::contract::validate_context(
+        crate::contract::list(&doc, "groups"),
+        crate::contract::list(&doc, "visuals"),
+        &ids,
+    )?;
+    let sessions = db
+        .prepare("SELECT session_id,content FROM session_documents")
+        .map_err(err)?
+        .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))
+        .map_err(err)?
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .map_err(err)?;
+    for (sid, raw) in sessions {
+        if raw.len() > LIMIT {
+            return Err("Snapshot exceeds backup limit".into());
+        }
+        let doc: Value = serde_json::from_str(&raw).map_err(err)?;
+        let rows = crate::questions::thaw(&doc)?;
+        let mut qs: Vec<_> = rows.iter().map(|r| r["question"].clone()).collect();
+        crate::contract::validate_tree(&mut qs)?;
+        let ids: std::collections::HashSet<_> = rows
+            .iter()
+            .map(|r| crate::contract::text(r, "id"))
+            .collect();
+        if rows.iter().any(|r| r["id"] != r["question"]["id"]) {
+            return Err("Frozen question identity mismatch".into());
+        }
+        crate::contract::validate_context(
+            crate::contract::list(&doc, "groups"),
+            crate::contract::list(&doc, "visuals"),
+            &ids,
+        )?;
+        let attempts = db
+            .prepare("SELECT snapshot_question_id FROM attempts WHERE session_id=?1")
+            .map_err(err)?
+            .query_map([&sid], |r| r.get::<_, String>(0))
+            .map_err(err)?
+            .collect::<std::result::Result<Vec<_>, _>>()
             .map_err(err)?;
-        let mut rows = stmt.query([]).map_err(err)?;
-        while let Some(row) = rows.next().map_err(err)? {
-            let media: String = row.get(0).map_err(err)?;
-            let data: Vec<u8> = row.get(1).map_err(err)?;
-            let digest: String = row.get(2).map_err(err)?;
-            if !["image/png", "image/jpeg", "image/webp", "image/gif"].contains(&media.as_str())
-                || data.len() > crate::assets::LIMIT
-                || hash(&data) != digest
-            {
-                return Err(crate::language::error(
-                    "LOCAL_BACKUP_IMAGE_CHECKSUM",
-                    serde_json::json!({}),
-                ));
-            }
+        if attempts.iter().any(|id| !ids.contains(id.as_str())) {
+            return Err("Attempt references a missing frozen question".into());
         }
     }
-    for table in ["questions", "attempts"] {
-        let mut stmt = db
-            .prepare(&format!("SELECT snapshot FROM {table}"))
-            .map_err(err)?;
-        let mut rows = stmt.query([]).map_err(err)?;
-        while let Some(row) = rows.next().map_err(err)? {
-            let raw: String = row.get(0).map_err(err)?;
-            if raw.len() > crate::contract::MAX_JSON {
-                return Err(crate::language::error(
-                    "LOCAL_BACKUP_QUESTION_SIZE",
-                    serde_json::json!({}),
-                ));
-            }
-            let mut snapshot: Value = serde_json::from_str(&raw).map_err(err)?;
-            crate::contract::validate_question(&mut snapshot["question"])?;
-            for key in ["groups", "visuals", "sources", "warnings"] {
-                if !snapshot[key].is_array() {
-                    return Err(crate::language::error(
-                        "LOCAL_BACKUP_SNAPSHOT_FIELD",
-                        serde_json::json!({"key": key}),
-                    ));
-                }
-            }
-            let content = |key: &str| -> Result<Vec<Value>> {
-                crate::contract::list(&snapshot, key)
-                    .iter()
-                    .map(|value| {
-                        let mut value = value.clone();
-                        let object = value.as_object_mut().ok_or(crate::language::error(
-                            "LOCAL_BACKUP_CONTENT_INVALID",
-                            serde_json::json!({}),
-                        ))?;
-                        object.remove("id");
-                        object.remove("questionIds");
-                        object.insert("questionIndexes".into(), json!([0]));
-                        Ok(value)
-                    })
-                    .collect()
-            };
-            crate::contract::parse(&serde_json::to_vec(&json!({"questions":[snapshot["question"]],"groups":content("groups")?,"visualElements":content("visuals")?,"warnings":snapshot["warnings"],"confidenceScore":0})).map_err(err)?)?;
-        }
+    let missing:bool=db.query_row("SELECT EXISTS(SELECT 1 FROM sessions s LEFT JOIN session_documents d ON d.session_id=s.id WHERE d.session_id IS NULL)",[],|r|r.get(0)).map_err(err)?;
+    if missing {
+        return Err("Session snapshot is missing".into());
     }
     Ok(version)
 }
@@ -506,119 +442,15 @@ fn validate_database(path: &Path) -> Result<i64> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
     #[test]
-    fn legacy_models_migrate_once_and_backups_roundtrip() {
-        for (vision, text, legacy, expected) in [
-            (Some(" vision "), Some("text"), Some("old"), Some("vision")),
-            (Some(" "), Some(" text "), Some("old"), Some("text")),
-            (None, None, Some(" old "), Some("old")),
-            (None, Some(" "), Some(" "), None),
-        ] {
-            let dir = tempfile::tempdir().unwrap();
-            let path = dir.path().join("practiq.sqlite");
-            let db = Connection::open(&path).unwrap();
-            for sql in [include_str!("schema.sql"), include_str!("settings.sql")] {
-                db.execute_batch(sql).unwrap();
-            }
-            db.execute_batch("DROP TABLE assets;").unwrap();
-            db.execute_batch(crate::assets::SCHEMA).unwrap();
-            for sql in [
-                include_str!("models.sql"),
-                include_str!("exams.sql"),
-                include_str!("ai_imports.sql"),
-            ] {
-                db.execute_batch(sql).unwrap();
-            }
-            db.execute(
-                "UPDATE settings SET vision_model=?1,text_model=?2,model_id=?3",
-                rusqlite::params![vision, text, legacy],
-            )
-            .unwrap();
-            assert_eq!(validate_database(&path).unwrap(), 6);
-            drop(db);
-            let bytes = fs::read(&path).unwrap();
-            let archive_path = dir.path().join("legacy.zip");
-            let mut archive = ZipWriter::new(fs::File::create(&archive_path).unwrap());
-            let manifest = json!({"format":"practiq-backup","version":2,"schemaVersion":6,"database":{"sha256":hash(&bytes),"sizeBytes":bytes.len()},"assets":[]});
-            archive
-                .start_file("manifest.json", SimpleFileOptions::default())
-                .unwrap();
-            archive
-                .write_all(&serde_json::to_vec(&manifest).unwrap())
-                .unwrap();
-            archive
-                .start_file("practiq.sqlite", SimpleFileOptions::default())
-                .unwrap();
-            archive.write_all(&bytes).unwrap();
-            archive.finish().unwrap();
-            let restored_dir = tempfile::tempdir().unwrap();
-            let mut restored = Store::new(restored_dir.path().to_owned()).unwrap();
-            restored.restore(&archive_path).unwrap();
-            assert_eq!(
-                restored.connection_settings().unwrap().model_id.as_deref(),
-                expected
-            );
-            let upgraded = Store::new(dir.path().to_owned()).unwrap();
-            assert_eq!(
-                upgraded.connection_settings().unwrap().model_id.as_deref(),
-                expected
-            );
-            assert_eq!(validate_database(&path).unwrap(), 8);
-            upgraded
-                .connect()
-                .unwrap()
-                .execute("UPDATE settings SET model_id='changed'", [])
-                .unwrap();
-            assert_eq!(
-                upgraded.connection_settings().unwrap().model_id.as_deref(),
-                Some("changed")
-            );
-            assert!(upgraded
-                .connect()
-                .unwrap()
-                .prepare("SELECT text_model,vision_model FROM settings")
-                .is_err());
-            let backup = dir.path().join("current.zip");
-            upgraded.backup(&backup).unwrap();
-            restored.restore(&backup).unwrap();
-            assert_eq!(
-                restored.connection_settings().unwrap().model_id.as_deref(),
-                Some("changed")
-            );
-        }
-    }
-
-    #[test]
-    fn settings_validation_covers_legacy_and_current_columns() {
+    fn rejects_legacy_database_without_upgrading() {
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("backup.sqlite");
+        let path = dir.path().join("old.sqlite");
         let db = Connection::open(&path).unwrap();
-        db.execute_batch(include_str!("schema.sql")).unwrap();
-        db.execute_batch(include_str!("settings.sql")).unwrap();
-        for version in [2, 4] {
-            if version == 4 {
-                db.execute_batch("DROP TABLE assets;").unwrap();
-                db.execute_batch(crate::assets::SCHEMA).unwrap();
-                db.execute_batch(include_str!("models.sql")).unwrap();
-            }
-            assert_eq!(validate_database(&path).unwrap(), version);
-            for (column, valid, invalid) in [
-                ("base_url", "https://example.com/v1", "file:///tmp/model"),
-                ("oss_url", "https://example.com", "file:///tmp/images"),
-                ("model_id", "legacy", "invalid\nmodel"),
-                ("text_model", "text", "invalid\nmodel"),
-                ("vision_model", "vision", "invalid\nmodel"),
-            ] {
-                if version < 4 && matches!(column, "text_model" | "vision_model") {
-                    continue;
-                }
-                let query = format!("UPDATE settings SET {column}=?1 WHERE id=1");
-                db.execute(&query, [invalid]).unwrap();
-                assert!(validate_database(&path).is_err(), "{version}: {column}");
-                db.execute(&query, [valid]).unwrap();
-                assert_eq!(validate_database(&path).unwrap(), version);
-            }
-        }
+        db.execute_batch("PRAGMA user_version=8;").unwrap();
+        drop(db);
+        let before = fs::read(&path).unwrap();
+        assert!(validate_database(&path).is_err());
+        assert_eq!(before, fs::read(&path).unwrap());
     }
 }

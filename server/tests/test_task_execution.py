@@ -447,7 +447,7 @@ async def test_quality_flags_are_visible_without_blocking_default_policy(monkeyp
     assert output['processing']['quality']['reviewRequired']
     assert output['processing']['quality']['reviewQuestionCount'] == 1
     assert 'SOURCE_TEXT_NOT_FOUND' in {i['code'] for i in output['processing']['quality']['issues']}
-    assert output['processing']['questionSources'] == [{'questionIndex': 0, 'stage': 'document_parse', 'unitIndex': 0}]
+    assert output['processing']['questionSources'] == [{'questionId': 'q0', 'stage': 'document_parse', 'unitIndex': 0}]
     assert len(model.calls) == 1
 
 

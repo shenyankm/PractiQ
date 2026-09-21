@@ -5,6 +5,8 @@ mod backup;
 mod contract;
 mod exams;
 mod language;
+mod paper;
+mod questions;
 mod settings;
 mod store;
 #[cfg(test)]
@@ -44,10 +46,10 @@ enum Request {
         mode: String,
         filter: String,
     },
-    SaveQuestion {
-        id: Option<String>,
+    SaveQuestionTree {
         bank_id: String,
-        question: Value,
+        root_id: Option<String>,
+        questions: Vec<Value>,
     },
     DeleteQuestion {
         id: String,
@@ -60,6 +62,9 @@ enum Request {
         id: String,
     },
     Sessions,
+    PreviewPaper {
+        request: paper::Preview,
+    },
     StartPaper {
         paper: exams::Paper,
     },
@@ -196,12 +201,13 @@ async fn request(
             Request::SaveBank{id,title,description}=>store.save_bank(id,&title,&description),
             Request::DeleteBank{id}=>store.delete_bank(&id),
             Request::Questions{bank_id,bank_ids,search,mode,filter}=>store.questions_multi(bank_id.as_deref(),&bank_ids,&search,&mode,&filter),
-            Request::SaveQuestion{id,bank_id,question}=>store.save_question(id,&bank_id,question),
+            Request::SaveQuestionTree{bank_id,root_id,questions}=>store.save_question_tree(&bank_id,root_id.as_deref(),questions),
             Request::DeleteQuestion{id}=>store.delete_question(&id),
             Request::Favorite{id,value}=>store.favorite(&id,value),
             Request::Session{id}=>store.session(&id),
             Request::Sessions=>store.sessions(),
             Request::StartPaper{paper}=>store.start_paper(paper),
+            Request::PreviewPaper{request}=>store.preview_paper(request),
             Request::SubmitPaper{id,submit_drafts}=>store.submit_paper(&id,submit_drafts),
             Request::CompleteReview{id}=>store.complete_review(&id),
             Request::Flag{id,ordinal,value}=>store.flag(&id,ordinal,value),
@@ -252,7 +258,7 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
-            let dir = app.path().app_data_dir()?;
+            let dir = app.path().app_data_dir()?.join("v2");
             app.manage(Arc::new(Mutex::new(
                 Store::new(dir).map_err(std::io::Error::other)?,
             )));

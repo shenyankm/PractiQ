@@ -39,15 +39,18 @@
       "ChoiceAnswerPayload": {
         "additionalProperties": false,
         "properties": {
-          "correctOption": {
-            "maxLength": 32,
-            "minLength": 1,
-            "title": "Correctoption",
-            "type": "string"
+          "correct": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Correct",
+            "type": "array"
           }
         },
         "required": [
-          "correctOption"
+          "correct"
         ],
         "title": "ChoiceAnswerPayload",
         "type": "object"
@@ -66,10 +69,25 @@
               "markdown",
               "chart",
               "diagram",
+              "blank",
               "qr_code"
             ],
             "title": "Parttype",
             "type": "string"
+          },
+          "questionId": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Questionid"
           },
           "role": {
             "anyOf": [
@@ -143,6 +161,173 @@
         "title": "ContentBlock",
         "type": "object"
       },
+      "DocumentGroup": {
+        "additionalProperties": false,
+        "properties": {
+          "title": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "instructions": {
+            "anyOf": [
+              {
+                "maxLength": 20000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Instructions"
+          },
+          "questionIds": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "title": "Questionids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "title",
+          "questionIds"
+        ],
+        "title": "DocumentGroup",
+        "type": "object"
+      },
+      "DocumentVisual": {
+        "additionalProperties": false,
+        "properties": {
+          "role": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Content role; answer-bearing visuals use answer and are hidden during unsubmitted exams.",
+            "title": "Role"
+          },
+          "kind": {
+            "enum": [
+              "image",
+              "table",
+              "chart",
+              "diagram",
+              "qr_code"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Label"
+          },
+          "description": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "title": "Description",
+            "type": "string"
+          },
+          "extractedText": {
+            "anyOf": [
+              {
+                "maxLength": 100000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Extractedtext"
+          },
+          "page": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Page"
+          },
+          "bbox": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "maxItems": 4,
+                "minItems": 4,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Bbox"
+          },
+          "imageRef": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ArtifactReference"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "sourceRef": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ArtifactReference"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Complete source page image for visual verification; may include printed answers."
+          },
+          "questionIds": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "title": "Questionids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "kind",
+          "description"
+        ],
+        "title": "DocumentVisual",
+        "type": "object"
+      },
       "FillBlankAnswerPayload": {
         "additionalProperties": false,
         "properties": {
@@ -200,25 +385,6 @@
         "title": "MatchingAnswerPayload",
         "type": "object"
       },
-      "MultipleChoiceAnswerPayload": {
-        "additionalProperties": false,
-        "properties": {
-          "correct": {
-            "items": {
-              "type": "string"
-            },
-            "maxItems": 100,
-            "minItems": 1,
-            "title": "Correct",
-            "type": "array"
-          }
-        },
-        "required": [
-          "correct"
-        ],
-        "title": "MultipleChoiceAnswerPayload",
-        "type": "object"
-      },
       "OrderingAnswerPayload": {
         "additionalProperties": false,
         "properties": {
@@ -236,45 +402,6 @@
           "order"
         ],
         "title": "OrderingAnswerPayload",
-        "type": "object"
-      },
-      "ParsedGroup": {
-        "additionalProperties": false,
-        "properties": {
-          "title": {
-            "maxLength": 1000,
-            "minLength": 1,
-            "title": "Title",
-            "type": "string"
-          },
-          "instructions": {
-            "anyOf": [
-              {
-                "maxLength": 20000,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Instructions"
-          },
-          "questionIndexes": {
-            "description": "Zero-based positions in this fragment's questions, not printed question numbers.",
-            "items": {
-              "type": "integer"
-            },
-            "maxItems": 1000,
-            "title": "Questionindexes",
-            "type": "array"
-          }
-        },
-        "required": [
-          "title",
-          "questionIndexes"
-        ],
-        "title": "ParsedGroup",
         "type": "object"
       },
       "ParsedItem": {
@@ -353,18 +480,6 @@
             ],
             "default": null,
             "title": "Content"
-          },
-          "isCorrect": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Iscorrect"
           }
         },
         "title": "ParsedOption",
@@ -373,6 +488,75 @@
       "ParsedQuestion": {
         "additionalProperties": false,
         "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Id"
+          },
+          "parentId": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Parentid"
+          },
+          "optionSourceId": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Optionsourceid"
+          },
+          "passage": {
+            "items": {
+              "$ref": "#/$defs/ContentBlock"
+            },
+            "maxItems": 1000,
+            "title": "Passage",
+            "type": "array"
+          },
+          "allowReuse": {
+            "default": false,
+            "title": "Allowreuse",
+            "type": "boolean"
+          },
+          "blankCount": {
+            "anyOf": [
+              {
+                "maximum": 100,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Blankcount"
+          },
           "stem": {
             "anyOf": [
               {
@@ -395,7 +579,10 @@
                   "fill_blank",
                   "short_answer",
                   "ordering",
-                  "matching"
+                  "matching",
+                  "reading",
+                  "word_bank",
+                  "cloze"
                 ],
                 "type": "string"
               },
@@ -486,9 +673,6 @@
               },
               {
                 "$ref": "#/$defs/MatchingAnswerPayload"
-              },
-              {
-                "$ref": "#/$defs/MultipleChoiceAnswerPayload"
               },
               {
                 "additionalProperties": true,
@@ -646,139 +830,15 @@
         ],
         "title": "TrueFalseAnswerPayload",
         "type": "object"
-      },
-      "VisualElement": {
-        "additionalProperties": false,
-        "properties": {
-          "role": {
-            "anyOf": [
-              {
-                "maxLength": 64,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "Content role; answer-bearing visuals use answer and are hidden during unsubmitted exams.",
-            "title": "Role"
-          },
-          "questionIndexes": {
-            "items": {
-              "type": "integer"
-            },
-            "maxItems": 1000,
-            "title": "Questionindexes",
-            "type": "array"
-          },
-          "kind": {
-            "enum": [
-              "image",
-              "table",
-              "chart",
-              "diagram",
-              "qr_code"
-            ],
-            "title": "Kind",
-            "type": "string"
-          },
-          "label": {
-            "anyOf": [
-              {
-                "maxLength": 1000,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Label"
-          },
-          "description": {
-            "maxLength": 20000,
-            "minLength": 1,
-            "title": "Description",
-            "type": "string"
-          },
-          "extractedText": {
-            "anyOf": [
-              {
-                "maxLength": 100000,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Extractedtext"
-          },
-          "page": {
-            "anyOf": [
-              {
-                "minimum": 0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Page"
-          },
-          "bbox": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "number"
-                },
-                "maxItems": 4,
-                "minItems": 4,
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Bbox"
-          },
-          "imageRef": {
-            "anyOf": [
-              {
-                "$ref": "#/$defs/ArtifactReference"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null
-          },
-          "sourceRef": {
-            "anyOf": [
-              {
-                "$ref": "#/$defs/ArtifactReference"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "Complete source page image for visual verification; may include printed answers."
-          }
-        },
-        "required": [
-          "kind",
-          "description"
-        ],
-        "title": "VisualElement",
-        "type": "object"
       }
     },
     "additionalProperties": false,
     "properties": {
+      "schemaVersion": {
+        "const": 2,
+        "title": "Schemaversion",
+        "type": "integer"
+      },
       "questions": {
         "items": {
           "$ref": "#/$defs/ParsedQuestion"
@@ -790,7 +850,7 @@
       },
       "groups": {
         "items": {
-          "$ref": "#/$defs/ParsedGroup"
+          "$ref": "#/$defs/DocumentGroup"
         },
         "maxItems": 1000,
         "title": "Groups",
@@ -798,7 +858,7 @@
       },
       "visualElements": {
         "items": {
-          "$ref": "#/$defs/VisualElement"
+          "$ref": "#/$defs/DocumentVisual"
         },
         "maxItems": 1000,
         "title": "Visualelements",
@@ -820,6 +880,7 @@
       }
     },
     "required": [
+      "schemaVersion",
       "questions",
       "groups",
       "visualElements",
@@ -831,38 +892,14 @@
   },
   "processing": {
     "$defs": {
-      "DocumentQuality": {
+      "DocumentQualityIssue": {
         "additionalProperties": false,
         "properties": {
-          "reviewRequired": {
-            "default": false,
-            "title": "Reviewrequired",
-            "type": "boolean"
-          },
-          "reviewQuestionCount": {
-            "default": 0,
-            "minimum": 0,
-            "title": "Reviewquestioncount",
-            "type": "integer"
-          },
-          "issues": {
-            "items": {
-              "$ref": "#/$defs/QualityIssue"
-            },
-            "title": "Issues",
-            "type": "array"
-          }
-        },
-        "title": "DocumentQuality",
-        "type": "object"
-      },
-      "QualityIssue": {
-        "additionalProperties": false,
-        "properties": {
-          "questionIndex": {
-            "minimum": 0,
-            "title": "Questionindex",
-            "type": "integer"
+          "questionId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Questionid",
+            "type": "string"
           },
           "code": {
             "enum": [
@@ -877,19 +914,20 @@
           }
         },
         "required": [
-          "questionIndex",
+          "questionId",
           "code"
         ],
-        "title": "QualityIssue",
+        "title": "DocumentQualityIssue",
         "type": "object"
       },
-      "QuestionSource": {
+      "DocumentQuestionSource": {
         "additionalProperties": false,
         "properties": {
-          "questionIndex": {
-            "minimum": 0,
-            "title": "Questionindex",
-            "type": "integer"
+          "questionId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Questionid",
+            "type": "string"
           },
           "stage": {
             "enum": [
@@ -906,11 +944,36 @@
           }
         },
         "required": [
-          "questionIndex",
+          "questionId",
           "stage",
           "unitIndex"
         ],
-        "title": "QuestionSource",
+        "title": "DocumentQuestionSource",
+        "type": "object"
+      },
+      "ExportQuality": {
+        "additionalProperties": false,
+        "properties": {
+          "reviewRequired": {
+            "default": false,
+            "title": "Reviewrequired",
+            "type": "boolean"
+          },
+          "reviewQuestionCount": {
+            "default": 0,
+            "minimum": 0,
+            "title": "Reviewquestioncount",
+            "type": "integer"
+          },
+          "issues": {
+            "items": {
+              "$ref": "#/$defs/DocumentQualityIssue"
+            },
+            "title": "Issues",
+            "type": "array"
+          }
+        },
+        "title": "ExportQuality",
         "type": "object"
       },
       "UnitCounts": {
@@ -1004,13 +1067,13 @@
       },
       "questionSources": {
         "items": {
-          "$ref": "#/$defs/QuestionSource"
+          "$ref": "#/$defs/DocumentQuestionSource"
         },
         "title": "Questionsources",
         "type": "array"
       },
       "quality": {
-        "$ref": "#/$defs/DocumentQuality"
+        "$ref": "#/$defs/ExportQuality"
       }
     },
     "required": [
@@ -1148,15 +1211,18 @@
       "ChoiceAnswerPayload": {
         "additionalProperties": false,
         "properties": {
-          "correctOption": {
-            "maxLength": 32,
-            "minLength": 1,
-            "title": "Correctoption",
-            "type": "string"
+          "correct": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Correct",
+            "type": "array"
           }
         },
         "required": [
-          "correctOption"
+          "correct"
         ],
         "title": "ChoiceAnswerPayload",
         "type": "object"
@@ -1175,10 +1241,25 @@
               "markdown",
               "chart",
               "diagram",
+              "blank",
               "qr_code"
             ],
             "title": "Parttype",
             "type": "string"
+          },
+          "questionId": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Questionid"
           },
           "role": {
             "anyOf": [
@@ -1252,7 +1333,233 @@
         "title": "ContentBlock",
         "type": "object"
       },
-      "DocumentQuality": {
+      "DocumentGroup": {
+        "additionalProperties": false,
+        "properties": {
+          "title": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "instructions": {
+            "anyOf": [
+              {
+                "maxLength": 20000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Instructions"
+          },
+          "questionIds": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "title": "Questionids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "title",
+          "questionIds"
+        ],
+        "title": "DocumentGroup",
+        "type": "object"
+      },
+      "DocumentQualityIssue": {
+        "additionalProperties": false,
+        "properties": {
+          "questionId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Questionid",
+            "type": "string"
+          },
+          "code": {
+            "enum": [
+              "SOURCE_TEXT_NOT_FOUND",
+              "AMBIGUOUS_OVERLAP",
+              "OVERLAP_CONFLICT",
+              "MISSING_FIELDS",
+              "NEEDS_REVIEW"
+            ],
+            "title": "Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "questionId",
+          "code"
+        ],
+        "title": "DocumentQualityIssue",
+        "type": "object"
+      },
+      "DocumentQuestionSource": {
+        "additionalProperties": false,
+        "properties": {
+          "questionId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Questionid",
+            "type": "string"
+          },
+          "stage": {
+            "enum": [
+              "document_parse",
+              "vision_parse"
+            ],
+            "title": "Stage",
+            "type": "string"
+          },
+          "unitIndex": {
+            "minimum": 0,
+            "title": "Unitindex",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "questionId",
+          "stage",
+          "unitIndex"
+        ],
+        "title": "DocumentQuestionSource",
+        "type": "object"
+      },
+      "DocumentVisual": {
+        "additionalProperties": false,
+        "properties": {
+          "role": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Content role; answer-bearing visuals use answer and are hidden during unsubmitted exams.",
+            "title": "Role"
+          },
+          "kind": {
+            "enum": [
+              "image",
+              "table",
+              "chart",
+              "diagram",
+              "qr_code"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Label"
+          },
+          "description": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "title": "Description",
+            "type": "string"
+          },
+          "extractedText": {
+            "anyOf": [
+              {
+                "maxLength": 100000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Extractedtext"
+          },
+          "page": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Page"
+          },
+          "bbox": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "maxItems": 4,
+                "minItems": 4,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Bbox"
+          },
+          "imageRef": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ArtifactReference"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "sourceRef": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ArtifactReference"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Complete source page image for visual verification; may include printed answers."
+          },
+          "questionIds": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "title": "Questionids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "kind",
+          "description"
+        ],
+        "title": "DocumentVisual",
+        "type": "object"
+      },
+      "ExportQuality": {
         "additionalProperties": false,
         "properties": {
           "reviewRequired": {
@@ -1268,13 +1575,13 @@
           },
           "issues": {
             "items": {
-              "$ref": "#/$defs/QualityIssue"
+              "$ref": "#/$defs/DocumentQualityIssue"
             },
             "title": "Issues",
             "type": "array"
           }
         },
-        "title": "DocumentQuality",
+        "title": "ExportQuality",
         "type": "object"
       },
       "FillBlankAnswerPayload": {
@@ -1332,25 +1639,6 @@
           "matches"
         ],
         "title": "MatchingAnswerPayload",
-        "type": "object"
-      },
-      "MultipleChoiceAnswerPayload": {
-        "additionalProperties": false,
-        "properties": {
-          "correct": {
-            "items": {
-              "type": "string"
-            },
-            "maxItems": 100,
-            "minItems": 1,
-            "title": "Correct",
-            "type": "array"
-          }
-        },
-        "required": [
-          "correct"
-        ],
-        "title": "MultipleChoiceAnswerPayload",
         "type": "object"
       },
       "OrderingAnswerPayload": {
@@ -1487,18 +1775,6 @@
             ],
             "default": null,
             "title": "Content"
-          },
-          "isCorrect": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Iscorrect"
           }
         },
         "title": "ParsedOption",
@@ -1507,6 +1783,75 @@
       "ParsedQuestion": {
         "additionalProperties": false,
         "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Id"
+          },
+          "parentId": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Parentid"
+          },
+          "optionSourceId": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Optionsourceid"
+          },
+          "passage": {
+            "items": {
+              "$ref": "#/$defs/ContentBlock"
+            },
+            "maxItems": 1000,
+            "title": "Passage",
+            "type": "array"
+          },
+          "allowReuse": {
+            "default": false,
+            "title": "Allowreuse",
+            "type": "boolean"
+          },
+          "blankCount": {
+            "anyOf": [
+              {
+                "maximum": 100,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Blankcount"
+          },
           "stem": {
             "anyOf": [
               {
@@ -1529,7 +1874,10 @@
                   "fill_blank",
                   "short_answer",
                   "ordering",
-                  "matching"
+                  "matching",
+                  "reading",
+                  "word_bank",
+                  "cloze"
                 ],
                 "type": "string"
               },
@@ -1620,9 +1968,6 @@
               },
               {
                 "$ref": "#/$defs/MatchingAnswerPayload"
-              },
-              {
-                "$ref": "#/$defs/MultipleChoiceAnswerPayload"
               },
               {
                 "additionalProperties": true,
@@ -1751,63 +2096,6 @@
         "title": "ParsedQuestion",
         "type": "object"
       },
-      "QualityIssue": {
-        "additionalProperties": false,
-        "properties": {
-          "questionIndex": {
-            "minimum": 0,
-            "title": "Questionindex",
-            "type": "integer"
-          },
-          "code": {
-            "enum": [
-              "SOURCE_TEXT_NOT_FOUND",
-              "AMBIGUOUS_OVERLAP",
-              "OVERLAP_CONFLICT",
-              "MISSING_FIELDS",
-              "NEEDS_REVIEW"
-            ],
-            "title": "Code",
-            "type": "string"
-          }
-        },
-        "required": [
-          "questionIndex",
-          "code"
-        ],
-        "title": "QualityIssue",
-        "type": "object"
-      },
-      "QuestionSource": {
-        "additionalProperties": false,
-        "properties": {
-          "questionIndex": {
-            "minimum": 0,
-            "title": "Questionindex",
-            "type": "integer"
-          },
-          "stage": {
-            "enum": [
-              "document_parse",
-              "vision_parse"
-            ],
-            "title": "Stage",
-            "type": "string"
-          },
-          "unitIndex": {
-            "minimum": 0,
-            "title": "Unitindex",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "questionIndex",
-          "stage",
-          "unitIndex"
-        ],
-        "title": "QuestionSource",
-        "type": "object"
-      },
       "ReviewUnit": {
         "additionalProperties": false,
         "properties": {
@@ -1834,14 +2122,28 @@
           },
           "groups": {
             "items": {
-              "$ref": "#/$defs/ParsedGroup"
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ParsedGroup"
+                },
+                {
+                  "$ref": "#/$defs/DocumentGroup"
+                }
+              ]
             },
             "title": "Groups",
             "type": "array"
           },
           "visualElements": {
             "items": {
-              "$ref": "#/$defs/VisualElement"
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/VisualElement"
+                },
+                {
+                  "$ref": "#/$defs/DocumentVisual"
+                }
+              ]
             },
             "title": "Visualelements",
             "type": "array"
@@ -1955,14 +2257,6 @@
             "description": "Content role; answer-bearing visuals use answer and are hidden during unsubmitted exams.",
             "title": "Role"
           },
-          "questionIndexes": {
-            "items": {
-              "type": "integer"
-            },
-            "maxItems": 1000,
-            "title": "Questionindexes",
-            "type": "array"
-          },
           "kind": {
             "enum": [
               "image",
@@ -2058,6 +2352,14 @@
             ],
             "default": null,
             "description": "Complete source page image for visual verification; may include printed answers."
+          },
+          "questionIndexes": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 1000,
+            "title": "Questionindexes",
+            "type": "array"
           }
         },
         "required": [
@@ -2120,11 +2422,11 @@
         "type": "array"
       },
       "quality": {
-        "$ref": "#/$defs/DocumentQuality"
+        "$ref": "#/$defs/ExportQuality"
       },
       "questionSources": {
         "items": {
-          "$ref": "#/$defs/QuestionSource"
+          "$ref": "#/$defs/DocumentQuestionSource"
         },
         "title": "Questionsources",
         "type": "array"

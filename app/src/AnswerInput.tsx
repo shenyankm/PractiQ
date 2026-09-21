@@ -81,8 +81,8 @@ export function AnswerInput({
       ) : (
         <RadioGroup
           disabled={disabled}
-          value={a.correctOption || ""}
-          onValueChange={(v) => onChange({ correctOption: v })}
+          value={a.correct?.[0] || ""}
+          onValueChange={(v) => onChange({ correct: [v] })}
           aria-label={t("选择答案")}
         >
           {q.options.map((o, i) => (
@@ -124,7 +124,7 @@ export function AnswerInput({
         </RadioGroup>
       );
     case "fill_blank": {
-      const count = q.blankCount || q.answerPayload?.answers?.length || a.answers?.length || 1;
+      const count = q.blankCount || a.answers?.length || 1;
       return (
         <div className="space-y-3">
           {Array.from({ length: count }, (_, i) => (
@@ -145,7 +145,7 @@ export function AnswerInput({
               />
             </label>
           ))}
-          {!q.blankCount && !q.answerPayload?.answers?.length && !disabled && (
+          {!q.blankCount && !disabled && (
             <Button
               variant="outline"
               onClick={() =>
@@ -270,8 +270,7 @@ export function AnswerDisplay({
       <p className="text-sm text-muted-foreground">{t("原文未提供标准答案，可保持未判定或自行评价。")}</p>
     );
   let rendered: string;
-  if (typeof answer.correctOption === "string") rendered = answer.correctOption;
-  else if (answer.correct)
+  if (answer.correct)
     rendered = answer.correct.map((s) => s ?? t("缺失")).join("、");
   else if (typeof answer.value === "boolean")
     rendered = answer.value ? t("正确") : t("错误");

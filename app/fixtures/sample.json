@@ -10,17 +10,17 @@
       "options": [
         {
           "label": "A",
-          "content": "2",
-          "isCorrect": null
+          "content": "2"
         },
         {
           "label": "B",
-          "content": "4",
-          "isCorrect": null
+          "content": "4"
         }
       ],
       "answerPayload": {
-        "correctOption": "A"
+        "correct": [
+          "A"
+        ]
       },
       "analysis": "2 只有 1 和自身两个正因数。",
       "contentBlocks": [
@@ -44,7 +44,8 @@
       "sourceText": "下面哪一个是质数？ A.2 B.4 答案 A",
       "confidence": 1.0,
       "needsReview": false,
-      "missingFields": []
+      "missingFields": [],
+      "id": "q0"
     },
     {
       "stem": "请选择偶数。",
@@ -56,18 +57,15 @@
       "options": [
         {
           "label": "A",
-          "content": "2",
-          "isCorrect": null
+          "content": "2"
         },
         {
           "label": "B",
-          "content": "3",
-          "isCorrect": null
+          "content": "3"
         },
         {
           "label": "C",
-          "content": "4",
-          "isCorrect": null
+          "content": "4"
         }
       ],
       "answerPayload": {
@@ -81,7 +79,8 @@
       "sourceText": "请选择偶数。",
       "confidence": 1.0,
       "needsReview": false,
-      "missingFields": []
+      "missingFields": [],
+      "id": "q1"
     },
     {
       "stem": "地球围绕太阳公转。",
@@ -99,7 +98,8 @@
       "sourceText": "地球围绕太阳公转。",
       "confidence": 1.0,
       "needsReview": false,
-      "missingFields": []
+      "missingFields": [],
+      "id": "q2"
     },
     {
       "stem": "中国的首都是____。",
@@ -119,7 +119,8 @@
       "sourceText": "中国的首都是____。",
       "confidence": 1.0,
       "needsReview": false,
-      "missingFields": []
+      "missingFields": [],
+      "id": "q3"
     },
     {
       "stem": "简述你希望养成的学习习惯。",
@@ -137,7 +138,8 @@
       "sourceText": "简述你希望养成的学习习惯。",
       "confidence": 1.0,
       "needsReview": false,
-      "missingFields": []
+      "missingFields": [],
+      "id": "q4"
     },
     {
       "stem": "请将数字从小到大排序。",
@@ -175,7 +177,8 @@
       "sourceText": "请将数字从小到大排序。",
       "confidence": 1.0,
       "needsReview": false,
-      "missingFields": []
+      "missingFields": [],
+      "id": "q5"
     },
     {
       "stem": "匹配英文与中文。",
@@ -223,7 +226,8 @@
       "sourceText": "匹配英文与中文。",
       "confidence": 1.0,
       "needsReview": false,
-      "missingFields": []
+      "missingFields": [],
+      "id": "q6"
     },
     {
       "stem": "匹配数字与奇偶属性。",
@@ -271,7 +275,8 @@
       "sourceText": "匹配数字与奇偶属性。",
       "confidence": 1.0,
       "needsReview": false,
-      "missingFields": []
+      "missingFields": [],
+      "id": "q7"
     },
     {
       "stem": "观察 PractiQ 图标，描述你的印象。",
@@ -289,25 +294,23 @@
       "needsReview": true,
       "missingFields": [
         "answerPayload"
-      ]
+      ],
+      "id": "q8"
     }
   ],
   "groups": [
     {
       "title": "基础知识练习",
       "instructions": "阅读各题并按要求作答。",
-      "questionIndexes": [
-        0,
-        1,
-        2
+      "questionIds": [
+        "q0",
+        "q1",
+        "q2"
       ]
     }
   ],
   "visualElements": [
     {
-      "questionIndexes": [
-        8
-      ],
       "kind": "image",
       "label": null,
       "description": "PractiQ 章鱼图标。",
@@ -319,11 +322,15 @@
         "sha256": "194d631965b1f86c4cf32eac39eee06a6a0523a127204b3995999240546deeaa",
         "mediaType": "image/png",
         "sizeBytes": 993895
-      }
+      },
+      "questionIds": [
+        "q8"
+      ]
     }
   ],
   "warnings": [
     "本文件是人工编写的应用验收样例，不代表模型准确率。"
   ],
-  "confidenceScore": 100.0
+  "confidenceScore": 100.0,
+  "schemaVersion": 2
 }

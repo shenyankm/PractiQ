@@ -19,7 +19,9 @@
             }
           ],
           "answerPayload": {
-            "correctOption": "A"
+            "correct": [
+              "A"
+            ]
           },
           "analysis": "2 只有 1 和自身两个正因数。",
           "sourceText": "下面哪一个是质数？ A.2 B.4 答案 A",
@@ -34,13 +36,15 @@
               "partType": "table",
               "markdownValue": "| 数字 | 是否质数 |\n| --- | --- |\n| 2 | 是 |\n| 4 | 否 |"
             }
-          ]
+          ],
+          "id": "q0"
         }
       ],
       "groups": [],
       "visualElements": [],
       "warnings": [],
-      "confidenceScore": 50
+      "confidenceScore": 50,
+      "schemaVersion": 2
     },
     "valid": true,
     "missingFields": []
@@ -77,13 +81,15 @@
               "label": "C",
               "content": "4"
             }
-          ]
+          ],
+          "id": "q0"
         }
       ],
       "groups": [],
       "visualElements": [],
       "warnings": [],
-      "confidenceScore": 50
+      "confidenceScore": 50,
+      "schemaVersion": 2
     },
     "valid": true,
     "missingFields": []
@@ -102,13 +108,15 @@
           "analysis": "这是用于验证应用的人工编写示例。",
           "sourceText": "地球围绕太阳公转。",
           "needsReview": false,
-          "confidence": 1
+          "confidence": 1,
+          "id": "q0"
         }
       ],
       "groups": [],
       "visualElements": [],
       "warnings": [],
-      "confidenceScore": 50
+      "confidenceScore": 50,
+      "schemaVersion": 2
     },
     "valid": true,
     "missingFields": []
@@ -129,13 +137,15 @@
           "analysis": "这是用于验证应用的人工编写示例。",
           "sourceText": "中国的首都是____。",
           "needsReview": false,
-          "confidence": 1
+          "confidence": 1,
+          "id": "q0"
         }
       ],
       "groups": [],
       "visualElements": [],
       "warnings": [],
-      "confidenceScore": 50
+      "confidenceScore": 50,
+      "schemaVersion": 2
     },
     "valid": true,
     "missingFields": []
@@ -154,13 +164,15 @@
           "analysis": "这是用于验证应用的人工编写示例。",
           "sourceText": "简述你希望养成的学习习惯。",
           "needsReview": false,
-          "confidence": 1
+          "confidence": 1,
+          "id": "q0"
         }
       ],
       "groups": [],
       "visualElements": [],
       "warnings": [],
-      "confidenceScore": 50
+      "confidenceScore": 50,
+      "schemaVersion": 2
     },
     "valid": true,
     "missingFields": []
@@ -197,13 +209,15 @@
               "id": 2,
               "content": "2"
             }
-          ]
+          ],
+          "id": "q0"
         }
       ],
       "groups": [],
       "visualElements": [],
       "warnings": [],
-      "confidenceScore": 50
+      "confidenceScore": 50,
+      "schemaVersion": 2
     },
     "valid": true,
     "missingFields": []
@@ -254,13 +268,15 @@
               "side": "right",
               "content": "苹果"
             }
-          ]
+          ],
+          "id": "q0"
         }
       ],
       "groups": [],
       "visualElements": [],
       "warnings": [],
-      "confidenceScore": 50
+      "confidenceScore": 50,
+      "schemaVersion": 2
     },
     "valid": true,
     "missingFields": []
@@ -311,13 +327,15 @@
               "side": "right",
               "content": "奇数"
             }
-          ]
+          ],
+          "id": "q0"
         }
       ],
       "groups": [],
       "visualElements": [],
       "warnings": [],
-      "confidenceScore": 50
+      "confidenceScore": 50,
+      "schemaVersion": 2
     },
     "valid": true,
     "missingFields": []
@@ -334,13 +352,15 @@
           "analysis": "这是用于验证应用的人工编写示例。",
           "sourceText": "观察 PractiQ 图标，描述你的印象。",
           "needsReview": true,
-          "confidence": 1
+          "confidence": 1,
+          "id": "q0"
         }
       ],
       "groups": [],
       "visualElements": [],
       "warnings": [],
-      "confidenceScore": 50
+      "confidenceScore": 50,
+      "schemaVersion": 2
     },
     "valid": true,
     "missingFields": [
@@ -380,13 +400,15 @@
               "partType": "table",
               "markdownValue": "| 数字 | 是否质数 |\n| --- | --- |\n| 2 | 是 |\n| 4 | 否 |"
             }
-          ]
+          ],
+          "id": "q0"
         }
       ],
       "groups": [],
       "visualElements": [],
       "warnings": [],
-      "confidenceScore": 50
+      "confidenceScore": 50,
+      "schemaVersion": 2
     },
     "valid": true,
     "missingFields": [
@@ -413,7 +435,9 @@
             }
           ],
           "answerPayload": {
-            "correctOption": null
+            "correct": [
+              null
+            ]
           },
           "analysis": "2 只有 1 和自身两个正因数。",
           "sourceText": "下面哪一个是质数？ A.2 B.4 答案 A",
@@ -428,13 +452,15 @@
               "partType": "table",
               "markdownValue": "| 数字 | 是否质数 |\n| --- | --- |\n| 2 | 是 |\n| 4 | 否 |"
             }
-          ]
+          ],
+          "id": "q0"
         }
       ],
       "groups": [],
       "visualElements": [],
       "warnings": [],
-      "confidenceScore": 50
+      "confidenceScore": 50,
+      "schemaVersion": 2
     },
     "valid": true,
     "missingFields": [
@@ -461,7 +487,9 @@
             }
           ],
           "answerPayload": {
-            "correctOption": " "
+            "correct": [
+              " "
+            ]
           },
           "analysis": "2 只有 1 和自身两个正因数。",
           "sourceText": "下面哪一个是质数？ A.2 B.4 答案 A",
@@ -476,13 +504,15 @@
               "partType": "table",
               "markdownValue": "| 数字 | 是否质数 |\n| --- | --- |\n| 2 | 是 |\n| 4 | 否 |"
             }
-          ]
+          ],
+          "id": "q0"
         }
       ],
       "groups": [],
       "visualElements": [],
       "warnings": [],
-      "confidenceScore": 50
+      "confidenceScore": 50,
+      "schemaVersion": 2
     },
     "valid": true,
     "missingFields": [
@@ -509,7 +539,9 @@
             }
           ],
           "answerPayload": {
-            "correctOption": "A"
+            "correct": [
+              "A"
+            ]
           },
           "analysis": null,
           "sourceText": "下面哪一个是质数？ A.2 B.4 答案 A",
@@ -524,13 +556,15 @@
               "partType": "table",
               "markdownValue": "| 数字 | 是否质数 |\n| --- | --- |\n| 2 | 是 |\n| 4 | 否 |"
             }
-          ]
+          ],
+          "id": "q0"
         }
       ],
       "groups": [],
       "visualElements": [],
       "warnings": [],
-      "confidenceScore": 50
+      "confidenceScore": 50,
+      "schemaVersion": 2
     },
     "valid": true,
     "missingFields": [
@@ -558,7 +592,9 @@
             }
           ],
           "answerPayload": {
-            "correctOption": "a"
+            "correct": [
+              "a"
+            ]
           },
           "analysis": "2 只有 1 和自身两个正因数。",
           "sourceText": "下面哪一个是质数？ A.2 B.4 答案 A",
@@ -573,13 +609,15 @@
               "partType": "table",
               "markdownValue": "| 数字 | 是否质数 |\n| --- | --- |\n| 2 | 是 |\n| 4 | 否 |"
             }
-          ]
+          ],
+          "id": "q0"
         }
       ],
       "groups": [],
       "visualElements": [],
       "warnings": [],
-      "confidenceScore": 50
+      "confidenceScore": 50,
+      "schemaVersion": 2
     },
     "valid": true,
     "missingFields": []
@@ -604,7 +642,9 @@
             }
           ],
           "answerPayload": {
-            "correctOption": "Z"
+            "correct": [
+              "Z"
+            ]
           },
           "analysis": "2 只有 1 和自身两个正因数。",
           "sourceText": "下面哪一个是质数？ A.2 B.4 答案 A",
@@ -619,13 +659,15 @@
               "partType": "table",
               "markdownValue": "| 数字 | 是否质数 |\n| --- | --- |\n| 2 | 是 |\n| 4 | 否 |"
             }
-          ]
+          ],
+          "id": "q0"
         }
       ],
       "groups": [],
       "visualElements": [],
       "warnings": [],
-      "confidenceScore": 50
+      "confidenceScore": 50,
+      "schemaVersion": 2
     },
     "valid": false,
     "missingFields": null
@@ -650,7 +692,9 @@
             }
           ],
           "answerPayload": {
-            "correctOption": 1
+            "correct": [
+              1
+            ]
           },
           "analysis": "2 只有 1 和自身两个正因数。",
           "sourceText": "下面哪一个是质数？ A.2 B.4 答案 A",
@@ -665,13 +709,15 @@
               "partType": "table",
               "markdownValue": "| 数字 | 是否质数 |\n| --- | --- |\n| 2 | 是 |\n| 4 | 否 |"
             }
-          ]
+          ],
+          "id": "q0"
         }
       ],
       "groups": [],
       "visualElements": [],
       "warnings": [],
-      "confidenceScore": 50
+      "confidenceScore": 50,
+      "schemaVersion": 2
     },
     "valid": false,
     "missingFields": null
@@ -709,13 +755,15 @@
               "partType": "table",
               "markdownValue": "| 数字 | 是否质数 |\n| --- | --- |\n| 2 | 是 |\n| 4 | 否 |"
             }
-          ]
+          ],
+          "id": "q0"
         }
       ],
       "groups": [],
       "visualElements": [],
       "warnings": [],
-      "confidenceScore": 50
+      "confidenceScore": 50,
+      "schemaVersion": 2
     },
     "valid": false,
     "missingFields": null
@@ -740,7 +788,9 @@
             }
           ],
           "answerPayload": {
-            "correctOption": "A"
+            "correct": [
+              "A"
+            ]
           },
           "analysis": "2 只有 1 和自身两个正因数。",
           "sourceText": "下面哪一个是质数？ A.2 B.4 答案 A",
@@ -756,13 +806,15 @@
               "markdownValue": "| 数字 | 是否质数 |\n| --- | --- |\n| 2 | 是 |\n| 4 | 否 |"
             }
           ],
-          "invented": "value"
+          "invented": "value",
+          "id": "q0"
         }
       ],
       "groups": [],
       "visualElements": [],
       "warnings": [],
-      "confidenceScore": 50
+      "confidenceScore": 50,
+      "schemaVersion": 2
     },
     "valid": false,
     "missingFields": null
@@ -787,7 +839,9 @@
             }
           ],
           "answerPayload": {
-            "correctOption": "A"
+            "correct": [
+              "A"
+            ]
           },
           "analysis": "2 只有 1 和自身两个正因数。",
           "sourceText": "下面哪一个是质数？ A.2 B.4 答案 A",
@@ -802,13 +856,15 @@
               "partType": "table",
               "markdownValue": "| 数字 | 是否质数 |\n| --- | --- |\n| 2 | 是 |\n| 4 | 否 |"
             }
-          ]
+          ],
+          "id": "q0"
         }
       ],
       "groups": [],
       "visualElements": [],
       "warnings": [],
-      "confidenceScore": 50
+      "confidenceScore": 50,
+      "schemaVersion": 2
     },
     "valid": false,
     "missingFields": null
@@ -848,13 +904,15 @@
               "partType": "table",
               "markdownValue": "| 数字 | 是否质数 |\n| --- | --- |\n| 2 | 是 |\n| 4 | 否 |"
             }
-          ]
+          ],
+          "id": "q0"
         }
       ],
       "groups": [],
       "visualElements": [],
       "warnings": [],
-      "confidenceScore": 50
+      "confidenceScore": 50,
+      "schemaVersion": 2
     },
     "valid": false,
     "missingFields": null
@@ -879,7 +937,9 @@
             }
           ],
           "answerPayload": {
-            "correctOption": "A"
+            "correct": [
+              "A"
+            ]
           },
           "analysis": "2 只有 1 和自身两个正因数。",
           "sourceText": "下面哪一个是质数？ A.2 B.4 答案 A",
@@ -889,15 +949,6326 @@
             {
               "partType": "text"
             }
-          ]
+          ],
+          "id": "q0"
         }
       ],
       "groups": [],
       "visualElements": [],
       "warnings": [],
-      "confidenceScore": 50
+      "confidenceScore": 50,
+      "schemaVersion": 2
     },
     "valid": false,
     "missingFields": null
+  },
+  {
+    "name": "composite-all-types",
+    "input": {
+      "schemaVersion": 2,
+      "questions": [
+        {
+          "id": "reading",
+          "parentId": null,
+          "optionSourceId": null,
+          "passage": [
+            {
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "Shared article: seasons change.",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "reading",
+          "answerMode": "reading",
+          "questionTypeId": "reading",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": null,
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[reading]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "r-choice",
+          "parentId": "reading",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "r-choice",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[r-choice]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "r-short",
+          "parentId": "reading",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "r-short",
+          "answerMode": "short_answer",
+          "questionTypeId": "short_answer",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "text": "seasons"
+          },
+          "sourceScore": null,
+          "scoringRubric": "原文关键词 seasons",
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[r-short]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words",
+          "parentId": "reading",
+          "optionSourceId": null,
+          "passage": [
+            {
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "words passage",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "words1",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "words2",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words",
+          "answerMode": "word_bank",
+          "questionTypeId": "word_bank",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": null,
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words1",
+          "parentId": "words",
+          "optionSourceId": "words",
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words1",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words1]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words2",
+          "parentId": "words",
+          "optionSourceId": "words",
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words2",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "correct": [
+              "B"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words2]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze",
+          "parentId": "reading",
+          "optionSourceId": null,
+          "passage": [
+            {
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "cloze passage",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "cloze1",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "cloze2",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze",
+          "answerMode": "cloze",
+          "questionTypeId": "cloze",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": null,
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze1",
+          "parentId": "cloze",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze1",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze1]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze2",
+          "parentId": "cloze",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze2",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "B"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze2]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words-root",
+          "parentId": null,
+          "optionSourceId": null,
+          "passage": [
+            {
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "words-root passage",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "words-root1",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "words-root2",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words-root",
+          "answerMode": "word_bank",
+          "questionTypeId": "word_bank",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": null,
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words-root]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words-root1",
+          "parentId": "words-root",
+          "optionSourceId": "words-root",
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words-root1",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words-root1]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words-root2",
+          "parentId": "words-root",
+          "optionSourceId": "words-root",
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words-root2",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "correct": [
+              "B"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words-root2]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze-root",
+          "parentId": null,
+          "optionSourceId": null,
+          "passage": [
+            {
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "cloze-root passage",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "cloze-root1",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "cloze-root2",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze-root",
+          "answerMode": "cloze",
+          "questionTypeId": "cloze",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": null,
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze-root]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze-root1",
+          "parentId": "cloze-root",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze-root1",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze-root1]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze-root2",
+          "parentId": "cloze-root",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze-root2",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "B"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze-root2]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        }
+      ],
+      "groups": [
+        {
+          "title": "Composite section",
+          "instructions": null,
+          "questionIds": [
+            "reading",
+            "r-choice",
+            "r-short",
+            "words",
+            "words1",
+            "words2",
+            "cloze",
+            "cloze1",
+            "cloze2",
+            "words-root",
+            "words-root1",
+            "words-root2",
+            "cloze-root",
+            "cloze-root1",
+            "cloze-root2"
+          ]
+        }
+      ],
+      "visualElements": [],
+      "warnings": [],
+      "confidenceScore": 100.0
+    },
+    "valid": true,
+    "missingFields": []
+  },
+  {
+    "name": "duplicate-id",
+    "input": {
+      "schemaVersion": 2,
+      "questions": [
+        {
+          "id": "reading",
+          "parentId": null,
+          "optionSourceId": null,
+          "passage": [
+            {
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "Shared article: seasons change.",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "reading",
+          "answerMode": "reading",
+          "questionTypeId": "reading",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": null,
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[reading]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "reading",
+          "parentId": "reading",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "r-choice",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[reading]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "r-short",
+          "parentId": "reading",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "r-short",
+          "answerMode": "short_answer",
+          "questionTypeId": "short_answer",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "text": "seasons"
+          },
+          "sourceScore": null,
+          "scoringRubric": "原文关键词 seasons",
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[r-short]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words",
+          "parentId": "reading",
+          "optionSourceId": null,
+          "passage": [
+            {
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "words passage",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "words1",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "words2",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words",
+          "answerMode": "word_bank",
+          "questionTypeId": "word_bank",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": null,
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words1",
+          "parentId": "words",
+          "optionSourceId": "words",
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words1",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words1]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words2",
+          "parentId": "words",
+          "optionSourceId": "words",
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words2",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "correct": [
+              "B"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words2]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze",
+          "parentId": "reading",
+          "optionSourceId": null,
+          "passage": [
+            {
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "cloze passage",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "cloze1",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "cloze2",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze",
+          "answerMode": "cloze",
+          "questionTypeId": "cloze",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": null,
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze1",
+          "parentId": "cloze",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze1",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze1]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze2",
+          "parentId": "cloze",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze2",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "B"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze2]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words-root",
+          "parentId": null,
+          "optionSourceId": null,
+          "passage": [
+            {
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "words-root passage",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "words-root1",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "words-root2",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words-root",
+          "answerMode": "word_bank",
+          "questionTypeId": "word_bank",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": null,
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words-root]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words-root1",
+          "parentId": "words-root",
+          "optionSourceId": "words-root",
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words-root1",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words-root1]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words-root2",
+          "parentId": "words-root",
+          "optionSourceId": "words-root",
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words-root2",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "correct": [
+              "B"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words-root2]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze-root",
+          "parentId": null,
+          "optionSourceId": null,
+          "passage": [
+            {
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "cloze-root passage",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "cloze-root1",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "cloze-root2",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze-root",
+          "answerMode": "cloze",
+          "questionTypeId": "cloze",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": null,
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze-root]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze-root1",
+          "parentId": "cloze-root",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze-root1",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze-root1]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze-root2",
+          "parentId": "cloze-root",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze-root2",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "B"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze-root2]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        }
+      ],
+      "groups": [
+        {
+          "title": "Composite section",
+          "instructions": null,
+          "questionIds": [
+            "reading",
+            "r-choice",
+            "r-short",
+            "words",
+            "words1",
+            "words2",
+            "cloze",
+            "cloze1",
+            "cloze2",
+            "words-root",
+            "words-root1",
+            "words-root2",
+            "cloze-root",
+            "cloze-root1",
+            "cloze-root2"
+          ]
+        }
+      ],
+      "visualElements": [],
+      "warnings": [],
+      "confidenceScore": 100.0
+    },
+    "valid": false
+  },
+  {
+    "name": "missing-parent",
+    "input": {
+      "schemaVersion": 2,
+      "questions": [
+        {
+          "id": "reading",
+          "parentId": null,
+          "optionSourceId": null,
+          "passage": [
+            {
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "Shared article: seasons change.",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "reading",
+          "answerMode": "reading",
+          "questionTypeId": "reading",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": null,
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[reading]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "r-choice",
+          "parentId": "absent",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "r-choice",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[r-choice]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "r-short",
+          "parentId": "reading",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "r-short",
+          "answerMode": "short_answer",
+          "questionTypeId": "short_answer",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "text": "seasons"
+          },
+          "sourceScore": null,
+          "scoringRubric": "原文关键词 seasons",
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[r-short]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words",
+          "parentId": "reading",
+          "optionSourceId": null,
+          "passage": [
+            {
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "words passage",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "words1",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "words2",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words",
+          "answerMode": "word_bank",
+          "questionTypeId": "word_bank",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": null,
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words1",
+          "parentId": "words",
+          "optionSourceId": "words",
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words1",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words1]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words2",
+          "parentId": "words",
+          "optionSourceId": "words",
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words2",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "correct": [
+              "B"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words2]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze",
+          "parentId": "reading",
+          "optionSourceId": null,
+          "passage": [
+            {
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "cloze passage",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "cloze1",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "cloze2",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze",
+          "answerMode": "cloze",
+          "questionTypeId": "cloze",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": null,
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze1",
+          "parentId": "cloze",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze1",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze1]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze2",
+          "parentId": "cloze",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze2",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "B"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze2]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words-root",
+          "parentId": null,
+          "optionSourceId": null,
+          "passage": [
+            {
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "words-root passage",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "words-root1",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "words-root2",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words-root",
+          "answerMode": "word_bank",
+          "questionTypeId": "word_bank",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": null,
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words-root]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words-root1",
+          "parentId": "words-root",
+          "optionSourceId": "words-root",
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words-root1",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words-root1]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words-root2",
+          "parentId": "words-root",
+          "optionSourceId": "words-root",
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words-root2",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "correct": [
+              "B"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words-root2]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze-root",
+          "parentId": null,
+          "optionSourceId": null,
+          "passage": [
+            {
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "cloze-root passage",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "cloze-root1",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "cloze-root2",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze-root",
+          "answerMode": "cloze",
+          "questionTypeId": "cloze",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": null,
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze-root]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze-root1",
+          "parentId": "cloze-root",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze-root1",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze-root1]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze-root2",
+          "parentId": "cloze-root",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze-root2",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "B"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze-root2]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        }
+      ],
+      "groups": [
+        {
+          "title": "Composite section",
+          "instructions": null,
+          "questionIds": [
+            "reading",
+            "r-choice",
+            "r-short",
+            "words",
+            "words1",
+            "words2",
+            "cloze",
+            "cloze1",
+            "cloze2",
+            "words-root",
+            "words-root1",
+            "words-root2",
+            "cloze-root",
+            "cloze-root1",
+            "cloze-root2"
+          ]
+        }
+      ],
+      "visualElements": [],
+      "warnings": [],
+      "confidenceScore": 100.0
+    },
+    "valid": false
+  },
+  {
+    "name": "cycle",
+    "input": {
+      "schemaVersion": 2,
+      "questions": [
+        {
+          "id": "reading",
+          "parentId": "words",
+          "optionSourceId": null,
+          "passage": [
+            {
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "Shared article: seasons change.",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "reading",
+          "answerMode": "reading",
+          "questionTypeId": "reading",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": null,
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[reading]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "r-choice",
+          "parentId": "reading",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "r-choice",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[r-choice]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "r-short",
+          "parentId": "reading",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "r-short",
+          "answerMode": "short_answer",
+          "questionTypeId": "short_answer",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "text": "seasons"
+          },
+          "sourceScore": null,
+          "scoringRubric": "原文关键词 seasons",
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[r-short]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words",
+          "parentId": "reading",
+          "optionSourceId": null,
+          "passage": [
+            {
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "words passage",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "words1",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "words2",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words",
+          "answerMode": "word_bank",
+          "questionTypeId": "word_bank",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": null,
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words1",
+          "parentId": "words",
+          "optionSourceId": "words",
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words1",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words1]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words2",
+          "parentId": "words",
+          "optionSourceId": "words",
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words2",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "correct": [
+              "B"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words2]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze",
+          "parentId": "reading",
+          "optionSourceId": null,
+          "passage": [
+            {
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "cloze passage",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "cloze1",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "cloze2",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze",
+          "answerMode": "cloze",
+          "questionTypeId": "cloze",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": null,
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze1",
+          "parentId": "cloze",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze1",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze1]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze2",
+          "parentId": "cloze",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze2",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "B"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze2]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words-root",
+          "parentId": null,
+          "optionSourceId": null,
+          "passage": [
+            {
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "words-root passage",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "words-root1",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "words-root2",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words-root",
+          "answerMode": "word_bank",
+          "questionTypeId": "word_bank",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": null,
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words-root]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words-root1",
+          "parentId": "words-root",
+          "optionSourceId": "words-root",
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words-root1",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words-root1]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words-root2",
+          "parentId": "words-root",
+          "optionSourceId": "words-root",
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words-root2",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "correct": [
+              "B"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words-root2]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze-root",
+          "parentId": null,
+          "optionSourceId": null,
+          "passage": [
+            {
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "cloze-root passage",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "cloze-root1",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "cloze-root2",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze-root",
+          "answerMode": "cloze",
+          "questionTypeId": "cloze",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": null,
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze-root]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze-root1",
+          "parentId": "cloze-root",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze-root1",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze-root1]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze-root2",
+          "parentId": "cloze-root",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze-root2",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "B"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze-root2]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        }
+      ],
+      "groups": [
+        {
+          "title": "Composite section",
+          "instructions": null,
+          "questionIds": [
+            "reading",
+            "r-choice",
+            "r-short",
+            "words",
+            "words1",
+            "words2",
+            "cloze",
+            "cloze1",
+            "cloze2",
+            "words-root",
+            "words-root1",
+            "words-root2",
+            "cloze-root",
+            "cloze-root1",
+            "cloze-root2"
+          ]
+        }
+      ],
+      "visualElements": [],
+      "warnings": [],
+      "confidenceScore": 100.0
+    },
+    "valid": false
+  },
+  {
+    "name": "nested-reading",
+    "input": {
+      "schemaVersion": 2,
+      "questions": [
+        {
+          "id": "reading",
+          "parentId": null,
+          "optionSourceId": null,
+          "passage": [
+            {
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "Shared article: seasons change.",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "reading",
+          "answerMode": "reading",
+          "questionTypeId": "reading",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": null,
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[reading]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "r-choice",
+          "parentId": "reading",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "r-choice",
+          "answerMode": "reading",
+          "questionTypeId": "choice",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": null,
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[r-choice]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "r-short",
+          "parentId": "reading",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "r-short",
+          "answerMode": "short_answer",
+          "questionTypeId": "short_answer",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "text": "seasons"
+          },
+          "sourceScore": null,
+          "scoringRubric": "原文关键词 seasons",
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[r-short]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words",
+          "parentId": "reading",
+          "optionSourceId": null,
+          "passage": [
+            {
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "words passage",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "words1",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "words2",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words",
+          "answerMode": "word_bank",
+          "questionTypeId": "word_bank",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": null,
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words1",
+          "parentId": "words",
+          "optionSourceId": "words",
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words1",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words1]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words2",
+          "parentId": "words",
+          "optionSourceId": "words",
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words2",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "correct": [
+              "B"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words2]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze",
+          "parentId": "reading",
+          "optionSourceId": null,
+          "passage": [
+            {
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "cloze passage",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "cloze1",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "cloze2",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze",
+          "answerMode": "cloze",
+          "questionTypeId": "cloze",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": null,
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze1",
+          "parentId": "cloze",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze1",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze1]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze2",
+          "parentId": "cloze",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze2",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "B"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze2]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words-root",
+          "parentId": null,
+          "optionSourceId": null,
+          "passage": [
+            {
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "words-root passage",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "words-root1",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "words-root2",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words-root",
+          "answerMode": "word_bank",
+          "questionTypeId": "word_bank",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": null,
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words-root]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words-root1",
+          "parentId": "words-root",
+          "optionSourceId": "words-root",
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words-root1",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words-root1]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words-root2",
+          "parentId": "words-root",
+          "optionSourceId": "words-root",
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words-root2",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "correct": [
+              "B"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words-root2]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze-root",
+          "parentId": null,
+          "optionSourceId": null,
+          "passage": [
+            {
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "cloze-root passage",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "cloze-root1",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "cloze-root2",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze-root",
+          "answerMode": "cloze",
+          "questionTypeId": "cloze",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": null,
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze-root]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze-root1",
+          "parentId": "cloze-root",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze-root1",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze-root1]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze-root2",
+          "parentId": "cloze-root",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze-root2",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "B"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze-root2]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        }
+      ],
+      "groups": [
+        {
+          "title": "Composite section",
+          "instructions": null,
+          "questionIds": [
+            "reading",
+            "r-choice",
+            "r-short",
+            "words",
+            "words1",
+            "words2",
+            "cloze",
+            "cloze1",
+            "cloze2",
+            "words-root",
+            "words-root1",
+            "words-root2",
+            "cloze-root",
+            "cloze-root1",
+            "cloze-root2"
+          ]
+        }
+      ],
+      "visualElements": [],
+      "warnings": [],
+      "confidenceScore": 100.0
+    },
+    "valid": false
+  },
+  {
+    "name": "missing-blank",
+    "input": {
+      "schemaVersion": 2,
+      "questions": [
+        {
+          "id": "reading",
+          "parentId": null,
+          "optionSourceId": null,
+          "passage": [
+            {
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "Shared article: seasons change.",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "reading",
+          "answerMode": "reading",
+          "questionTypeId": "reading",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": null,
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[reading]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "r-choice",
+          "parentId": "reading",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "r-choice",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[r-choice]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "r-short",
+          "parentId": "reading",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "r-short",
+          "answerMode": "short_answer",
+          "questionTypeId": "short_answer",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "text": "seasons"
+          },
+          "sourceScore": null,
+          "scoringRubric": "原文关键词 seasons",
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[r-short]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words",
+          "parentId": "reading",
+          "optionSourceId": null,
+          "passage": [
+            {
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "words passage",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "words1",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words",
+          "answerMode": "word_bank",
+          "questionTypeId": "word_bank",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": null,
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words1",
+          "parentId": "words",
+          "optionSourceId": "words",
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words1",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words1]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words2",
+          "parentId": "words",
+          "optionSourceId": "words",
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words2",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "correct": [
+              "B"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words2]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze",
+          "parentId": "reading",
+          "optionSourceId": null,
+          "passage": [
+            {
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "cloze passage",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "cloze1",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "cloze2",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze",
+          "answerMode": "cloze",
+          "questionTypeId": "cloze",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": null,
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze1",
+          "parentId": "cloze",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze1",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze1]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze2",
+          "parentId": "cloze",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze2",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "B"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze2]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words-root",
+          "parentId": null,
+          "optionSourceId": null,
+          "passage": [
+            {
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "words-root passage",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "words-root1",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "words-root2",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words-root",
+          "answerMode": "word_bank",
+          "questionTypeId": "word_bank",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": null,
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words-root]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words-root1",
+          "parentId": "words-root",
+          "optionSourceId": "words-root",
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words-root1",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words-root1]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words-root2",
+          "parentId": "words-root",
+          "optionSourceId": "words-root",
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words-root2",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "correct": [
+              "B"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words-root2]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze-root",
+          "parentId": null,
+          "optionSourceId": null,
+          "passage": [
+            {
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "cloze-root passage",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "cloze-root1",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "cloze-root2",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze-root",
+          "answerMode": "cloze",
+          "questionTypeId": "cloze",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": null,
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze-root]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze-root1",
+          "parentId": "cloze-root",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze-root1",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze-root1]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze-root2",
+          "parentId": "cloze-root",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze-root2",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "B"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze-root2]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        }
+      ],
+      "groups": [
+        {
+          "title": "Composite section",
+          "instructions": null,
+          "questionIds": [
+            "reading",
+            "r-choice",
+            "r-short",
+            "words",
+            "words1",
+            "words2",
+            "cloze",
+            "cloze1",
+            "cloze2",
+            "words-root",
+            "words-root1",
+            "words-root2",
+            "cloze-root",
+            "cloze-root1",
+            "cloze-root2"
+          ]
+        }
+      ],
+      "visualElements": [],
+      "warnings": [],
+      "confidenceScore": 100.0
+    },
+    "valid": false
+  },
+  {
+    "name": "missing-option-pool",
+    "input": {
+      "schemaVersion": 2,
+      "questions": [
+        {
+          "id": "reading",
+          "parentId": null,
+          "optionSourceId": null,
+          "passage": [
+            {
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "Shared article: seasons change.",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "reading",
+          "answerMode": "reading",
+          "questionTypeId": "reading",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": null,
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[reading]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "r-choice",
+          "parentId": "reading",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "r-choice",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[r-choice]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "r-short",
+          "parentId": "reading",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "r-short",
+          "answerMode": "short_answer",
+          "questionTypeId": "short_answer",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "text": "seasons"
+          },
+          "sourceScore": null,
+          "scoringRubric": "原文关键词 seasons",
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[r-short]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words",
+          "parentId": "reading",
+          "optionSourceId": null,
+          "passage": [
+            {
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "words passage",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "words1",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "words2",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words",
+          "answerMode": "word_bank",
+          "questionTypeId": "word_bank",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": null,
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words1",
+          "parentId": "words",
+          "optionSourceId": "absent",
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words1",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words1]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words2",
+          "parentId": "words",
+          "optionSourceId": "words",
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words2",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "correct": [
+              "B"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words2]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze",
+          "parentId": "reading",
+          "optionSourceId": null,
+          "passage": [
+            {
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "cloze passage",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "cloze1",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "cloze2",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze",
+          "answerMode": "cloze",
+          "questionTypeId": "cloze",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": null,
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze1",
+          "parentId": "cloze",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze1",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze1]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze2",
+          "parentId": "cloze",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze2",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "B"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze2]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words-root",
+          "parentId": null,
+          "optionSourceId": null,
+          "passage": [
+            {
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "words-root passage",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "words-root1",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "words-root2",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words-root",
+          "answerMode": "word_bank",
+          "questionTypeId": "word_bank",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": null,
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words-root]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words-root1",
+          "parentId": "words-root",
+          "optionSourceId": "words-root",
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words-root1",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words-root1]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words-root2",
+          "parentId": "words-root",
+          "optionSourceId": "words-root",
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words-root2",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "correct": [
+              "B"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words-root2]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze-root",
+          "parentId": null,
+          "optionSourceId": null,
+          "passage": [
+            {
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "cloze-root passage",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "cloze-root1",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "cloze-root2",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze-root",
+          "answerMode": "cloze",
+          "questionTypeId": "cloze",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": null,
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze-root]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze-root1",
+          "parentId": "cloze-root",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze-root1",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze-root1]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze-root2",
+          "parentId": "cloze-root",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze-root2",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "B"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze-root2]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        }
+      ],
+      "groups": [
+        {
+          "title": "Composite section",
+          "instructions": null,
+          "questionIds": [
+            "reading",
+            "r-choice",
+            "r-short",
+            "words",
+            "words1",
+            "words2",
+            "cloze",
+            "cloze1",
+            "cloze2",
+            "words-root",
+            "words-root1",
+            "words-root2",
+            "cloze-root",
+            "cloze-root1",
+            "cloze-root2"
+          ]
+        }
+      ],
+      "visualElements": [],
+      "warnings": [],
+      "confidenceScore": 100.0
+    },
+    "valid": false
+  },
+  {
+    "name": "reused-word",
+    "input": {
+      "schemaVersion": 2,
+      "questions": [
+        {
+          "id": "reading",
+          "parentId": null,
+          "optionSourceId": null,
+          "passage": [
+            {
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "Shared article: seasons change.",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "reading",
+          "answerMode": "reading",
+          "questionTypeId": "reading",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": null,
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[reading]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "r-choice",
+          "parentId": "reading",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "r-choice",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[r-choice]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "r-short",
+          "parentId": "reading",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "r-short",
+          "answerMode": "short_answer",
+          "questionTypeId": "short_answer",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "text": "seasons"
+          },
+          "sourceScore": null,
+          "scoringRubric": "原文关键词 seasons",
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[r-short]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words",
+          "parentId": "reading",
+          "optionSourceId": null,
+          "passage": [
+            {
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "words passage",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "words1",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "words2",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words",
+          "answerMode": "word_bank",
+          "questionTypeId": "word_bank",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": null,
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words1",
+          "parentId": "words",
+          "optionSourceId": "words",
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words1",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words1]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words2",
+          "parentId": "words",
+          "optionSourceId": "words",
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words2",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words2]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze",
+          "parentId": "reading",
+          "optionSourceId": null,
+          "passage": [
+            {
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "cloze passage",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "cloze1",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "cloze2",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze",
+          "answerMode": "cloze",
+          "questionTypeId": "cloze",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": null,
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze1",
+          "parentId": "cloze",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze1",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze1]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze2",
+          "parentId": "cloze",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze2",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "B"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze2]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words-root",
+          "parentId": null,
+          "optionSourceId": null,
+          "passage": [
+            {
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "words-root passage",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "words-root1",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "words-root2",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words-root",
+          "answerMode": "word_bank",
+          "questionTypeId": "word_bank",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": null,
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words-root]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words-root1",
+          "parentId": "words-root",
+          "optionSourceId": "words-root",
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words-root1",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words-root1]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words-root2",
+          "parentId": "words-root",
+          "optionSourceId": "words-root",
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words-root2",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "correct": [
+              "B"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words-root2]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze-root",
+          "parentId": null,
+          "optionSourceId": null,
+          "passage": [
+            {
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "cloze-root passage",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "cloze-root1",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "cloze-root2",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze-root",
+          "answerMode": "cloze",
+          "questionTypeId": "cloze",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": null,
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze-root]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze-root1",
+          "parentId": "cloze-root",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze-root1",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze-root1]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze-root2",
+          "parentId": "cloze-root",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze-root2",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "B"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze-root2]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        }
+      ],
+      "groups": [
+        {
+          "title": "Composite section",
+          "instructions": null,
+          "questionIds": [
+            "reading",
+            "r-choice",
+            "r-short",
+            "words",
+            "words1",
+            "words2",
+            "cloze",
+            "cloze1",
+            "cloze2",
+            "words-root",
+            "words-root1",
+            "words-root2",
+            "cloze-root",
+            "cloze-root1",
+            "cloze-root2"
+          ]
+        }
+      ],
+      "visualElements": [],
+      "warnings": [],
+      "confidenceScore": 100.0
+    },
+    "valid": false
+  },
+  {
+    "name": "unknown-shared-option",
+    "input": {
+      "schemaVersion": 2,
+      "questions": [
+        {
+          "id": "reading",
+          "parentId": null,
+          "optionSourceId": null,
+          "passage": [
+            {
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "Shared article: seasons change.",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "reading",
+          "answerMode": "reading",
+          "questionTypeId": "reading",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": null,
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[reading]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "r-choice",
+          "parentId": "reading",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "r-choice",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[r-choice]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "r-short",
+          "parentId": "reading",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "r-short",
+          "answerMode": "short_answer",
+          "questionTypeId": "short_answer",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "text": "seasons"
+          },
+          "sourceScore": null,
+          "scoringRubric": "原文关键词 seasons",
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[r-short]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words",
+          "parentId": "reading",
+          "optionSourceId": null,
+          "passage": [
+            {
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "words passage",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "words1",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "words2",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words",
+          "answerMode": "word_bank",
+          "questionTypeId": "word_bank",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": null,
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words1",
+          "parentId": "words",
+          "optionSourceId": "words",
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words1",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "correct": [
+              "Z"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words1]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words2",
+          "parentId": "words",
+          "optionSourceId": "words",
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words2",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "correct": [
+              "B"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words2]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze",
+          "parentId": "reading",
+          "optionSourceId": null,
+          "passage": [
+            {
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "cloze passage",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "cloze1",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "cloze2",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze",
+          "answerMode": "cloze",
+          "questionTypeId": "cloze",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": null,
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze1",
+          "parentId": "cloze",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze1",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze1]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze2",
+          "parentId": "cloze",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze2",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "B"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze2]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words-root",
+          "parentId": null,
+          "optionSourceId": null,
+          "passage": [
+            {
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "words-root passage",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "words-root1",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "words-root2",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words-root",
+          "answerMode": "word_bank",
+          "questionTypeId": "word_bank",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": null,
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words-root]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words-root1",
+          "parentId": "words-root",
+          "optionSourceId": "words-root",
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words-root1",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words-root1]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words-root2",
+          "parentId": "words-root",
+          "optionSourceId": "words-root",
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words-root2",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "correct": [
+              "B"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words-root2]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze-root",
+          "parentId": null,
+          "optionSourceId": null,
+          "passage": [
+            {
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "cloze-root passage",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "cloze-root1",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "cloze-root2",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze-root",
+          "answerMode": "cloze",
+          "questionTypeId": "cloze",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": null,
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze-root]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze-root1",
+          "parentId": "cloze-root",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze-root1",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze-root1]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze-root2",
+          "parentId": "cloze-root",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze-root2",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "B"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze-root2]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        }
+      ],
+      "groups": [
+        {
+          "title": "Composite section",
+          "instructions": null,
+          "questionIds": [
+            "reading",
+            "r-choice",
+            "r-short",
+            "words",
+            "words1",
+            "words2",
+            "cloze",
+            "cloze1",
+            "cloze2",
+            "words-root",
+            "words-root1",
+            "words-root2",
+            "cloze-root",
+            "cloze-root1",
+            "cloze-root2"
+          ]
+        }
+      ],
+      "visualElements": [],
+      "warnings": [],
+      "confidenceScore": 100.0
+    },
+    "valid": false
+  },
+  {
+    "name": "old-version",
+    "input": {
+      "schemaVersion": 1,
+      "questions": [
+        {
+          "id": "reading",
+          "parentId": null,
+          "optionSourceId": null,
+          "passage": [
+            {
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "Shared article: seasons change.",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "reading",
+          "answerMode": "reading",
+          "questionTypeId": "reading",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": null,
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[reading]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "r-choice",
+          "parentId": "reading",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "r-choice",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[r-choice]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "r-short",
+          "parentId": "reading",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "r-short",
+          "answerMode": "short_answer",
+          "questionTypeId": "short_answer",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "text": "seasons"
+          },
+          "sourceScore": null,
+          "scoringRubric": "原文关键词 seasons",
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[r-short]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words",
+          "parentId": "reading",
+          "optionSourceId": null,
+          "passage": [
+            {
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "words passage",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "words1",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "words2",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words",
+          "answerMode": "word_bank",
+          "questionTypeId": "word_bank",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": null,
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words1",
+          "parentId": "words",
+          "optionSourceId": "words",
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words1",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words1]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words2",
+          "parentId": "words",
+          "optionSourceId": "words",
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words2",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "correct": [
+              "B"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words2]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze",
+          "parentId": "reading",
+          "optionSourceId": null,
+          "passage": [
+            {
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "cloze passage",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "cloze1",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "cloze2",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze",
+          "answerMode": "cloze",
+          "questionTypeId": "cloze",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": null,
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze1",
+          "parentId": "cloze",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze1",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze1]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze2",
+          "parentId": "cloze",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze2",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "B"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze2]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words-root",
+          "parentId": null,
+          "optionSourceId": null,
+          "passage": [
+            {
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "words-root passage",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "words-root1",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "words-root2",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words-root",
+          "answerMode": "word_bank",
+          "questionTypeId": "word_bank",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": null,
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words-root]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words-root1",
+          "parentId": "words-root",
+          "optionSourceId": "words-root",
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words-root1",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words-root1]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "words-root2",
+          "parentId": "words-root",
+          "optionSourceId": "words-root",
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "words-root2",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "correct": [
+              "B"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[words-root2]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze-root",
+          "parentId": null,
+          "optionSourceId": null,
+          "passage": [
+            {
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "cloze-root passage",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "cloze-root1",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "partType": "blank",
+              "questionId": "cloze-root2",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze-root",
+          "answerMode": "cloze",
+          "questionTypeId": "cloze",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": null,
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze-root]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze-root1",
+          "parentId": "cloze-root",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze-root1",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze-root1]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        },
+        {
+          "id": "cloze-root2",
+          "parentId": "cloze-root",
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "cloze-root2",
+          "answerMode": "choice",
+          "questionTypeId": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "spring"
+            },
+            {
+              "label": "B",
+              "content": "winter"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "B"
+            ]
+          },
+          "sourceScore": null,
+          "scoringRubric": null,
+          "scoreSourceText": null,
+          "analysis": "原文说明",
+          "contentBlocks": [],
+          "sourceText": "[[cloze-root2]]",
+          "confidence": 1.0,
+          "needsReview": false,
+          "missingFields": []
+        }
+      ],
+      "groups": [
+        {
+          "title": "Composite section",
+          "instructions": null,
+          "questionIds": [
+            "reading",
+            "r-choice",
+            "r-short",
+            "words",
+            "words1",
+            "words2",
+            "cloze",
+            "cloze1",
+            "cloze2",
+            "words-root",
+            "words-root1",
+            "words-root2",
+            "cloze-root",
+            "cloze-root1",
+            "cloze-root2"
+          ]
+        }
+      ],
+      "visualElements": [],
+      "warnings": [],
+      "confidenceScore": 100.0
+    },
+    "valid": false
   }
 ]

@@ -33,15 +33,13 @@
       "sourceText": "Using the supplied matrix A, what is its determinant? Answer: The supplied determinant is -2.",
       "confidence": 1.0,
       "needsReview": false,
-      "missingFields": []
+      "missingFields": [],
+      "id": "q0"
     }
   ],
   "groups": [],
   "visualElements": [
     {
-      "questionIndexes": [
-        0
-      ],
       "kind": "chart",
       "label": null,
       "description": "Measurement curve with axes, grid and small labels.",
@@ -53,9 +51,13 @@
         "sha256": "d4423864a250e4940c4588ae7ade862cd5a3cead1f986d99fc4a7e3cbf529b45",
         "mediaType": "image/png",
         "sizeBytes": 5458
-      }
+      },
+      "questionIds": [
+        "q0"
+      ]
     }
   ],
   "warnings": [],
-  "confidenceScore": 100
+  "confidenceScore": 100,
+  "schemaVersion": 2
 }

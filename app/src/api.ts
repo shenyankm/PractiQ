@@ -1,13 +1,10 @@
 import nativeMessages from "./locales/native.json";
 import { t, locale, MessageError, renderMessage, type LanguageRequest } from "./i18n";
 import { invoke } from "@tauri-apps/api/core";
-export type Mode =
-  | "choice"
-  | "true_false"
-  | "fill_blank"
-  | "short_answer"
-  | "ordering"
-  | "matching";
+import type { Question, Answer, ParsedOption as Option, ParsedItem as Item, ContentBlock as Block } from "./contracts.generated";
+export type { Question, Answer, Option, Item, Block };
+export type Mode = NonNullable<Question["answerMode"]>;
+export function isComposite(q: Question) { return q.answerMode === "reading" || q.answerMode === "word_bank" || q.answerMode === "cloze"; }
 export function modeNames(): Record<string, string> { return {
   choice: t("选择题"),
   true_false: t("判断题"),
@@ -15,54 +12,8 @@ export function modeNames(): Record<string, string> { return {
   short_answer: t("简答题"),
   ordering: t("排序题"),
   matching: t("匹配题"),
+  reading: t("阅读理解"), word_bank: t("选词填空"), cloze: t("完形填空"),
 }; }
-export type Answer = {
-  correctOption?: string;
-  correct?: string[];
-  value?: boolean;
-  answers?: string[];
-  text?: string;
-  order?: number[];
-  matches?: { left: number; right: number }[];
-};
-export interface Option {
-  label: string | null;
-  content: string | null;
-  isCorrect?: boolean | null;
-}
-export interface Item {
-  id?: number | null;
-  side?: "left" | "right" | null;
-  content: string | null;
-}
-export interface Block {
-  partType: string;
-  role?: string | null;
-  textValue?: string | null;
-  markdownValue?: string | null;
-  latexValue?: string | null;
-  jsonValue?: Record<string, unknown> | null;
-}
-export interface Question {
-  sourceScore?: number | null;
-  scoringRubric?: string | null;
-  scoreSourceText?: string | null;
-  blankCount?: number;
-  stem: string | null;
-  answerMode: Mode | null;
-  questionTypeId: string | null;
-  choiceVariant?: "single" | "multiple" | null;
-  matchingVariant?: "one_to_one" | "many_to_one" | null;
-  options: Option[];
-  items: Item[];
-  answerPayload: Answer | null;
-  analysis?: string | null;
-  sourceText?: string | null;
-  contentBlocks: Block[];
-  needsReview: boolean;
-  missingFields: string[];
-  confidence: number;
-}
 export interface Group {
   id: string;
   title: string;
@@ -92,6 +43,9 @@ export interface Snapshot {
   missingAssets: boolean;
 }
 export interface QuestionRow extends Snapshot {
+  rootId?: string;
+  rootType?: string;
+  children?: QuestionRow[];
   id: string;
   bankId: string;
   bankTitle: string;
@@ -154,6 +108,8 @@ export interface SessionSummary {
   autoGraded: number;
 }
 export interface Preview {
+  groups?: Group[];
+  visuals?: Visual[];
   questions?: Question[];
   ticket: string;
   title: string;
@@ -172,8 +128,13 @@ type Query = {
   mode: string;
   filter: string;
 };
-export interface Paper { question_ids: string[]; kind: SessionKind; minutes: number | null; scores: number[]; total_cents: number }
+export interface Paper { question_ids: string[]; kind: SessionKind; minutes: number | null; scores: number[]; total_cents: number; digest: string }
+export interface PaperPreview { questionIds: string[]; digest: string; questions: QuestionRow[]; scores: number[]; count: number }
+export interface PaperSelection { bank_ids: string[]; search: string; mode: string; filter: string; selection: string; count: number; quotas: Record<string,number>; question_ids: string[]; random: boolean; total_cents: number; budgets?: Record<string,number> }
 type Request =
+  | { type: "preview_paper"; request: PaperSelection }
+  | { type: "save_question_tree"; bank_id: string; root_id: string | null; questions: Question[] }
+
   | LanguageRequest
   | { type: "start_paper"; paper: Paper }
   | { type: "submit_paper"; id: string; submit_drafts: boolean }
@@ -204,12 +165,6 @@ type Request =
       id: string;
     }
   | ({ type: "questions" } & Query)
-  | {
-      type: "save_question";
-      id: string | null;
-      bank_id: string;
-      question: Question;
-    }
   | { type: "favorite"; id: string; value: boolean }
   | {
       type: "save_attempt";
@@ -268,9 +223,7 @@ export function answerReady(q: Question, a: Answer | null): boolean {
   if (!a) return false;
   switch (q.answerMode) {
     case "choice":
-      return q.choiceVariant === "multiple"
-        ? !!a.correct?.length
-        : !!a.correctOption;
+      return q.choiceVariant === "single" ? a.correct?.length === 1 : !!a.correct?.length;
     case "true_false":
       return typeof a.value === "boolean";
     case "fill_blank":

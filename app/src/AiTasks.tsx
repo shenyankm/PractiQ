@@ -59,9 +59,9 @@ type Review = {
     stage: string;
     index: number;
     questions: Question[];
-    groups: { title?: string; instructions?: string }[];
+    groups: (import("./contracts.generated").DocumentGroup | import("./contracts.generated").ParsedGroup)[];
     sourceRef: unknown;
-    visualElements: { description: string; imageRef: unknown }[];
+    visualElements: (import("./contracts.generated").DocumentVisual | import("./contracts.generated").VisualElement)[];
   }[];
   failures: Failure[];
   quality: unknown;
@@ -651,7 +651,7 @@ export function AiTasks({
                     <Markdown>{g.instructions}</Markdown>
                   </div>
                 ))}
-                <QuestionPreview questions={unit.questions} />
+                <QuestionPreview questions={unit.questions} groups={unit.groups} visuals={unit.visualElements} />
                 {unit.visualElements.map((v, i) => (
                   <div key={i}>
                     <Markdown>{v.description}</Markdown>

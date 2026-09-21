@@ -2,12 +2,10 @@ use crate::{
     contract::Result,
     store::{hash, read_bounded, Store},
 };
-use rusqlite::{params, Connection};
 use std::{fs, io::Write, path::PathBuf};
 
 // Match the accepted source-image upload limit, including full-page references.
 pub const LIMIT: usize = 25 * 1024 * 1024;
-pub const SCHEMA: &str = "CREATE TABLE assets(hash TEXT PRIMARY KEY,media TEXT NOT NULL,size INTEGER NOT NULL,path TEXT NOT NULL);";
 fn err(e: impl std::fmt::Display) -> crate::AppError {
     e.to_string().into()
 }
@@ -85,46 +83,5 @@ impl Store {
             ));
         }
         Ok(bytes)
-    }
-    pub fn migrate_assets(&self, db: &mut Connection) -> Result<()> {
-        let recovery = self.dir.join("recoveries");
-        fs::create_dir_all(&recovery).map_err(err)?;
-        let backup = recovery.join(format!("before-assets-{}.sqlite", crate::store::id()));
-        db.backup(rusqlite::MAIN_DB, &backup, None).map_err(err)?;
-        let mut assets = Vec::new();
-        {
-            let mut statement = db
-                .prepare("SELECT hash,media,data FROM assets")
-                .map_err(err)?;
-            let mut rows = statement.query([]).map_err(err)?;
-            while let Some(row) = rows.next().map_err(err)? {
-                let digest: String = row.get(0).map_err(err)?;
-                let media: String = row.get(1).map_err(err)?;
-                let bytes: Vec<u8> = row.get(2).map_err(err)?;
-                if !crate::store::image_signature(&bytes, &media) {
-                    return Err(crate::language::error(
-                        "LOCAL_LEGACY_IMAGE_INVALID",
-                        serde_json::json!({}),
-                    ));
-                }
-                self.write_asset(&digest, &bytes)?;
-                assets.push((digest, media, bytes.len()));
-            }
-        }
-        let tx = db.transaction().map_err(err)?;
-        tx.execute_batch("ALTER TABLE assets RENAME TO old_assets;")
-            .map_err(err)?;
-        tx.execute_batch(SCHEMA).map_err(err)?;
-        for (digest, media, size) in assets {
-            tx.execute(
-                "INSERT INTO assets VALUES(?1,?2,?3,?4)",
-                params![digest, media, size, format!("assets/{digest}")],
-            )
-            .map_err(err)?;
-        }
-        tx.execute_batch("DROP TABLE old_assets; PRAGMA user_version=3;")
-            .map_err(err)?;
-        tx.commit().map_err(err)?;
-        Ok(())
     }
 }

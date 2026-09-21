@@ -1,6 +1,6 @@
 import { t, useI18n } from "./i18n";
 import { useState } from "react";
-import { type Question, type Mode, modeNames } from "./api";
+import { type Question, type Mode, modeNames, isComposite } from "./api";
 import {
   Dialog,
   DialogContent,
@@ -22,6 +22,7 @@ import {
 import { AnswerInput } from "./AnswerInput";
 export function blankQuestion(): Question {
   return {
+    id: crypto.randomUUID(), parentId: null, passage: [], allowReuse: false,
     stem: "",
     questionTypeId: t("单选题"),
     answerMode: "choice",
@@ -43,26 +44,34 @@ export function blankQuestion(): Question {
 }
 export function QuestionEditor({
   initial,
+  initialChildren = [],
+  parent,
   onClose,
   onSave,
   busy,
 }: {
   initial: Question;
+  initialChildren?: Question[];
+  parent?: Question;
   onClose: () => void;
-  onSave: (q: Question) => void;
+  onSave: (q: Question, children: Question[]) => void;
   busy: boolean;
 }) {
   useI18n();
-  const [q, setQ] = useState<Question>(structuredClone(initial));
+  const [q, setQ] = useState<Question>(structuredClone({...initial, id: initial.id || crypto.randomUUID()}));
+  const [children, setChildren] = useState<Question[]>(structuredClone(initialChildren));
+  const [childEditor, setChildEditor] = useState<Question | null>(null);
   const patch = (p: Partial<Question>) => setQ((v) => ({ ...v, ...p }));
   function mode(value: Mode) {
+    setChildren([]);
     patch({
+      passage: [], optionSourceId: null, allowReuse:false, blankCount:value === "fill_blank" ? 1 : null,
       answerMode: value,
       questionTypeId: modeNames()[value],
       choiceVariant: value === "choice" ? "single" : null,
       matchingVariant: value === "matching" ? "one_to_one" : null,
       options:
-        value === "choice"
+        (value === "choice" || value === "word_bank")
           ? [
               { label: "A", content: "" },
               { label: "B", content: "" },
@@ -101,6 +110,7 @@ export function QuestionEditor({
             <div className="space-y-2">
               <Label htmlFor="answer-mode">{t("答题方式")}</Label>
               <Select
+                disabled={parent?.answerMode === "word_bank" || parent?.answerMode === "cloze"}
                 value={q.answerMode || ""}
                 onValueChange={(v) => mode(v as Mode)}
               >
@@ -108,7 +118,7 @@ export function QuestionEditor({
                   <SelectValue placeholder={t("选择答题方式")} />
                 </SelectTrigger>
                 <SelectContent>
-                  {Object.entries(modeNames()).map(([v, label]) => (
+                  {Object.entries(modeNames()).filter(([k]) => !parent || (parent.answerMode === "reading" ? k !== "reading" : k === "choice")).map(([v, label]) => (
                     <SelectItem key={v} value={v}>
                       {label}
                     </SelectItem>
@@ -127,6 +137,7 @@ export function QuestionEditor({
           </div>
           {q.answerMode === "choice" && (
             <Select
+              disabled={parent?.answerMode === "word_bank" || parent?.answerMode === "cloze"}
               value={q.choiceVariant || "single"}
               onValueChange={(v) =>
                 patch({
@@ -172,7 +183,7 @@ export function QuestionEditor({
               onChange={(e) => patch({ stem: e.target.value })}
             />
           </div>
-          {q.answerMode === "choice" && (
+          {(q.answerMode === "choice" && !q.optionSourceId || q.answerMode === "word_bank") && (
             <div className="space-y-3">
               <Label>{t("选项")}</Label>
               {q.options.map((o, i) => (
@@ -295,7 +306,20 @@ export function QuestionEditor({
               </div>
             </div>
           )}
-          <div className="space-y-3 rounded-lg border p-4">
+          {q.answerMode === "fill_blank" && <label className="grid gap-2">{t("空位数量")}<Input type="number" min={1} max={100} value={q.blankCount ?? ""} onChange={e => patch({blankCount:e.target.value ? Number(e.target.value) : null})}/></label>}
+          {isComposite(q) && <section className="space-y-3 rounded-lg border p-4">
+            <Label>{t("共享文章与空位")}</Label>
+            {(q.passage || []).map((b,i) => <div key={i} className="flex gap-2">
+              {b.partType === "blank" ? <span>{t("空位")} {children.findIndex(c => c.id === b.questionId)+1}</span> : <Textarea aria-label={t("文章段落")} value={b.markdownValue || b.textValue || b.latexValue || ""} onChange={e => patch({passage:q.passage!.map((v,j)=>j===i ? {...v,textValue:e.target.value,markdownValue:null,latexValue:null}:v)})}/>}
+              {b.partType !== "blank" && <Button variant="outline" onClick={()=>patch({passage:q.passage!.filter((_,j)=>j!==i)})}>{t("删除")}</Button>}
+            </div>)}
+            <Button variant="outline" onClick={()=>patch({passage:[...(q.passage || []),{partType:"text",textValue:""}]})}>{t("增加文章段落")}</Button>
+            {q.answerMode === "word_bank" && <label className="flex items-center gap-2"><input type="checkbox" checked={q.allowReuse || false} onChange={e=>patch({allowReuse:e.target.checked})}/>{t("允许重复选词")}</label>}
+            {children.filter(c=>c.parentId===q.id).map((c,i)=><div key={c.id} className="flex items-center gap-2"><span className="flex-1">{i+1}. {c.stem || t("题干缺失")}</span><Button variant="outline" onClick={()=>setChildEditor(c)}>{t("编辑题目")}</Button><Button variant="outline" onClick={()=>{ const removed=new Set([c.id]); for(const v of children) if(removed.has(v.parentId)) removed.add(v.id); setChildren(children.filter(v=>!removed.has(v.id)));patch({passage:(q.passage || []).filter(b=>!removed.has(b.questionId))}); }}>{t("删除")}</Button></div>)}
+            <Button variant="outline" onClick={()=>{const c=blankQuestion();c.parentId=q.id;c.stem=q.answerMode === "reading" ? "" : t("空位");if(q.answerMode === "word_bank"){c.optionSourceId=q.id;c.options=[];}setChildEditor(c);}}>{t("增加子题")}</Button>
+          </section>}
+          {!isComposite(q) && <div className="space-y-3 rounded-lg border p-4">
+
             <div className="flex justify-between">
               <Label>{t("参考答案（可留空）")}</Label>
               <Button
@@ -306,11 +330,11 @@ export function QuestionEditor({
             </div>
             <AnswerInput
               prefix="editor-answer"
-              question={{ ...q, answerPayload: null }}
+              question={{ ...q, options: q.optionSourceId ? parent?.options || [] : q.options, answerPayload: null }}
               value={q.answerPayload}
               onChange={(a) => patch({ answerPayload: a })}
             />
-          </div>
+          </div>}
           <div className="space-y-2">
             <Label htmlFor="sourceScore">{t("原卷分值（没有则留空）")}</Label>
             <Input id="sourceScore" type="number" min="0.01" max="1000000" step="0.01" value={q.sourceScore ?? ""} onChange={e => patch({sourceScore: e.target.value === "" ? null : Number(e.target.value)})}/>
@@ -340,9 +364,15 @@ export function QuestionEditor({
         </fieldset>
         <DialogFooter>
           <Button variant="outline" disabled={busy} onClick={onClose}>{t("取消")}</Button>
-          <Button disabled={busy} onClick={() => onSave(q)}>{t("保存题目")}</Button>
+          <Button disabled={busy} onClick={() => onSave(q,children)}>{t("保存题目")}</Button>
         </DialogFooter>
       </DialogContent>
+      {childEditor && <QuestionEditor key={childEditor.id} initial={childEditor} parent={q} initialChildren={children.filter(c=>c.parentId===childEditor.id)} busy={false} onClose={()=>setChildEditor(null)} onSave={(child,nested)=>{
+        const removed=new Set([child.id]);for(const c of children) if(removed.has(c.parentId))removed.add(c.id);
+        const index=children.findIndex(c=>c.id===child.id);const kept=children.filter(c=>!removed.has(c.id));kept.splice(index<0 ? kept.length : index,0,child,...nested);setChildren(kept);
+        if(q.answerMode !== "reading" && !(q.passage || []).some(b=>b.questionId===child.id))patch({passage:[...(q.passage || []),{partType:"blank",questionId:child.id}]});
+        setChildEditor(null);
+      }}/>}
     </Dialog>
   );
 }

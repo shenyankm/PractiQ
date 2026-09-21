@@ -18,6 +18,7 @@ pub struct Paper {
     pub minutes: Option<i64>,
     pub scores: Vec<i64>,
     pub total_cents: i64,
+    pub digest: String,
 }
 
 pub fn has_answer(v: &Value) -> bool {
@@ -72,6 +73,9 @@ impl Store {
                 "short_answer",
                 "ordering",
                 "matching",
+                "reading",
+                "word_bank",
+                "cloze",
             ]
             .contains(&mode)
             || !["", "wrong", "favorite", "unattempted"].contains(&filter)
@@ -88,8 +92,19 @@ impl Store {
             .collect::<Vec<_>>()))
     }
     pub fn start_paper(&self, paper: Paper) -> Result<Value> {
-        let n = paper.question_ids.len();
-        if n == 0 || n > 1000 || paper.question_ids.iter().collect::<HashSet<_>>().len() != n {
+        let mut db = self.connect()?;
+        let tx = db.transaction().map_err(err)?;
+        let all = crate::questions::read(&tx)?;
+        let selected = crate::paper::selected_rows(&all, &paper.question_ids)?;
+        if crate::paper::digest(&selected)? != paper.digest {
+            return Err(crate::language::error("LOCAL_PAPER_CHANGED", json!({})));
+        }
+        let leaves: Vec<_> = selected
+            .iter()
+            .filter(|r| !crate::questions::composite(&r["question"]))
+            .collect();
+        let n = leaves.len();
+        if n == 0 || n > 1000 {
             return Err(crate::language::error(
                 "LOCAL_QUESTION_SELECTION_INVALID",
                 serde_json::json!({}),
@@ -118,22 +133,17 @@ impl Store {
                 serde_json::json!({}),
             ));
         }
-        let rows = self.questions(None, "", "", "")?;
-        let map: HashMap<_, _> = list_value(&rows)
-            .iter()
-            .map(|q| (text(q, "id"), q))
-            .collect();
         let sid = id();
         let created = now();
-        let mut db = self.connect()?;
-        let tx = db.transaction().map_err(err)?;
         tx.execute("INSERT INTO sessions(id,bank_title,created_at,position,mode,kind,deadline_at) VALUES(?1,?2,?3,0,'ordered',?4,?5)",params![sid,if exam {self.locale.text("自测 / 模考", "Self-test / mock exam")} else {self.locale.text("跨题库练习", "Practice across banks")},created,paper.kind,paper.minutes.map(|m|created+m*60_000)]).map_err(err)?;
-        for (i, qid) in paper.question_ids.iter().enumerate() {
-            let q = map.get(qid.as_str()).ok_or(crate::language::error(
-                "LOCAL_SELECTED_QUESTION_DELETED",
-                serde_json::json!({}),
-            ))?;
-            tx.execute("INSERT INTO attempts(session_id,ordinal,question_id,snapshot,max_cents) VALUES(?1,?2,?3,?4,?5)",params![sid,i as i64,qid,q.to_string(),if exam {Some(paper.scores[i])} else {None}]).map_err(err)?;
+        tx.execute(
+            "INSERT INTO session_documents VALUES(?1,?2)",
+            params![sid, crate::questions::freeze(&selected).to_string()],
+        )
+        .map_err(err)?;
+        for (i, row) in leaves.iter().enumerate() {
+            let qid = text(row, "id");
+            tx.execute("INSERT INTO attempts(session_id,ordinal,question_id,snapshot_question_id,max_cents) VALUES(?1,?2,?3,?3,?4)",params![sid,i as i64,qid,if exam {Some(paper.scores[i])} else {None}]).map_err(err)?;
         }
         tx.commit().map_err(err)?;
         self.session(&sid)
@@ -159,7 +169,7 @@ impl Store {
         if submitted.is_some() || finished.is_some() {
             return Ok(());
         }
-        let mut stmt=tx.prepare("SELECT ordinal,snapshot,answer,max_cents FROM attempts WHERE session_id=?1 AND submitted_at IS NULL").map_err(err)?;
+        let mut stmt=tx.prepare("SELECT ordinal,snapshot_question_id,answer,max_cents FROM attempts WHERE session_id=?1 AND submitted_at IS NULL").map_err(err)?;
         let rows = stmt
             .query_map([sid], |r| {
                 Ok((
@@ -174,7 +184,7 @@ impl Store {
             .map_err(err)?;
         drop(stmt);
         for (ordinal, snapshot, answer, max) in rows {
-            let snapshot: Value = serde_json::from_str(&snapshot).map_err(err)?;
+            let snapshot = crate::questions::snapshot(&tx, sid, &snapshot)?;
             let answer: Value = serde_json::from_str(&answer).map_err(err)?;
             let q = &snapshot["question"];
             let skipped = !submit_drafts || !has_answer(&answer);
@@ -283,37 +293,41 @@ impl Store {
     }
     pub fn retry_wrong(&self, sid: &str) -> Result<Value> {
         let s = self.session(sid)?;
-        let sid2 = id();
         let mut db = self.connect()?;
-        let tx = db.transaction().map_err(err)?;
-        let wrong: Vec<_> = list(&s, "attempts")
+        let rows = crate::questions::session_rows(&db, sid)?;
+        let roots: HashSet<_> = list(&s, "attempts")
             .iter()
             .filter(|a| {
                 a["result"] == false
-                    || (a["earnedCents"]
+                    || a["earnedCents"]
                         .as_i64()
                         .zip(a["maxCents"].as_i64())
-                        .is_some_and(|(e, m)| e < m))
+                        .is_some_and(|(e, m)| e < m)
             })
+            .map(|a| text(&a["snapshot"], "rootId").to_owned())
             .collect();
-        if wrong.is_empty() {
-            return Err(crate::language::error(
-                "LOCAL_NO_MISTAKES",
-                serde_json::json!({}),
-            ));
+        if roots.is_empty() {
+            return Err("No mistakes to retry".into());
         }
-        tx.execute("INSERT INTO sessions(id,bank_title,created_at,position,mode) VALUES(?1,?3,?2,0,'ordered')",params![sid2,now(),self.locale.text("本次错题重练", "Retry session mistakes")]).map_err(err)?;
-        for (i, a) in wrong.iter().enumerate() {
-            tx.execute(
-                "INSERT INTO attempts(session_id,ordinal,question_id,snapshot) VALUES(?1,?2,?3,?4)",
-                params![
-                    sid2,
-                    i as i64,
-                    a["snapshot"]["id"].as_str(),
-                    a["snapshot"].to_string()
-                ],
-            )
-            .map_err(err)?;
+        let selected: Vec<_> = rows
+            .iter()
+            .filter(|r| roots.contains(crate::questions::root_id(r, &rows)))
+            .cloned()
+            .collect();
+        let sid2 = id();
+        let tx = db.transaction().map_err(err)?;
+        tx.execute("INSERT INTO sessions(id,bank_title,created_at,position,mode) VALUES(?1,?2,?3,0,'ordered')",params![sid2,self.locale.text("本次错题重练", "Retry session mistakes"),now()]).map_err(err)?;
+        tx.execute(
+            "INSERT INTO session_documents VALUES(?1,?2)",
+            params![sid2, crate::questions::freeze(&selected).to_string()],
+        )
+        .map_err(err)?;
+        for (i, row) in selected
+            .iter()
+            .filter(|r| !crate::questions::composite(&r["question"]))
+            .enumerate()
+        {
+            tx.execute("INSERT INTO attempts(session_id,ordinal,question_id,snapshot_question_id) VALUES(?1,?2,?3,?3)",params![sid2,i as i64,text(row,"id")]).map_err(err)?;
         }
         tx.commit().map_err(err)?;
         self.session(&sid2)
@@ -345,58 +359,48 @@ impl Store {
                 ));
             }
         }
-        let mut stmt=tx.prepare("SELECT q.id,q.bank_id,b.title,q.snapshot,q.favorite FROM questions q JOIN banks b ON b.id=q.bank_id ORDER BY b.created_at,b.id,q.position,q.id").map_err(err)?;
-        let rows = stmt
-            .query_map([], |r| {
-                Ok((
-                    r.get::<_, String>(0)?,
-                    r.get::<_, String>(1)?,
-                    r.get::<_, String>(2)?,
-                    r.get::<_, String>(3)?,
-                    r.get::<_, bool>(4)?,
-                ))
-            })
-            .map_err(err)?
-            .collect::<std::result::Result<Vec<_>, _>>()
-            .map_err(err)?;
-        drop(stmt);
-        let rows: Vec<_> = rows.into_iter().filter(|r| banks.contains(&r.1)).collect();
-        let ids: HashMap<_, _> = rows.iter().map(|r| (r.0.clone(), id())).collect();
+        let rows = crate::questions::read(&tx)?;
+        let mut rows: Vec<_> = rows
+            .into_iter()
+            .filter(|r| banks.contains(&text(r, "bankId").to_owned()))
+            .collect();
+        rows.sort_by_key(|r| {
+            banks
+                .iter()
+                .position(|b| b == text(r, "bankId"))
+                .unwrap_or(usize::MAX)
+        });
+        let ids: HashMap<_, _> = rows
+            .iter()
+            .map(|r| (text(r, "id").to_owned(), id()))
+            .collect();
         let bank = id();
         tx.execute(
-            "INSERT INTO banks VALUES(?1,?2,?4,?3)",
+            "INSERT INTO banks VALUES(?1,?2,?3,?4)",
             params![
                 bank,
                 title.trim(),
-                now(),
-                self.locale.text("合并副本", "Merged copy")
+                self.locale.text("合并副本", "Merged copy"),
+                now()
             ],
         )
         .map_err(err)?;
-        for (i, (old, origin, name, raw, favorite)) in rows.iter().enumerate() {
-            let mut s: Value = serde_json::from_str(raw).map_err(err)?;
-            for key in ["groups", "visuals"] {
-                if let Some(values) = s[key].as_array_mut() {
-                    for v in values {
-                        v["questionIds"] = json!(list(v, "questionIds")
-                            .iter()
-                            .filter_map(|qid| ids.get(qid.as_str()?))
-                            .collect::<Vec<_>>());
-                    }
-                }
-            }
-            s["origin"] = json!({"bankId":origin,"bankTitle":name,"questionId":old});
-            tx.execute("INSERT INTO questions(id,bank_id,position,stem,mode,snapshot,favorite) VALUES(?1,?2,?3,?4,?5,?6,?7)",params![ids[old],bank,i as i64,text(&s["question"],"stem"),text(&s["question"],"answerMode"),s.to_string(),favorite]).map_err(err)?;
+        for (i, row) in rows.iter().enumerate() {
+            let mut q = row["question"].clone();
+            crate::questions::remap(&mut q, &ids)?;
+            crate::questions::write(&tx, &q, &bank, None, i as i64, row["favorite"] == true)?;
         }
+        crate::questions::copy_context(&tx, &bank, &rows, &ids)?;
         tx.commit().map_err(err)?;
-        Ok(json!({"bankId":bank,"count":rows.len()}))
+        Ok(
+            json!({"bankId":bank,"count":rows.iter().filter(|r|!crate::questions::composite(&r["question"])).count()}),
+        )
     }
 }
 fn list_value(v: &Value) -> &[Value] {
     v.as_array().map(Vec::as_slice).unwrap_or(&[])
 }
 fn a_blank_count(q: &mut Value) {
-    q["blankCount"] = json!(list(&q["answerPayload"], "answers").len().max(1));
     for k in [
         "answerPayload",
         "analysis",
@@ -406,17 +410,12 @@ fn a_blank_count(q: &mut Value) {
     ] {
         q[k] = Value::Null;
     }
-    if let Some(options) = q["options"].as_array_mut() {
-        for o in options {
-            o["isCorrect"] = Value::Null;
-        }
-    }
     if let Some(blocks) = q["contentBlocks"].as_array_mut() {
         blocks.retain(|block| !answer_content(block));
     }
 }
 
-fn answer_content(content: &Value) -> bool {
+pub(crate) fn answer_content(content: &Value) -> bool {
     let role = text(content, "role").to_lowercase();
     [
         "answer",
@@ -436,8 +435,8 @@ fn answer_content(content: &Value) -> bool {
 impl Store {
     pub fn prepare_grade(&self, sid: &str, ordinal: usize, retry: bool) -> Result<Value> {
         let db = self.connect()?;
-        let (snapshot,answer,max,submitted,kind,grade_kind):(String,String,Option<i64>,Option<i64>,String,String)=db.query_row("SELECT a.snapshot,a.answer,a.max_cents,s.submitted_at,s.kind,a.grade_kind FROM attempts a JOIN sessions s ON s.id=a.session_id WHERE a.session_id=?1 AND a.ordinal=?2",params![sid,ordinal],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?,r.get(5)?))).map_err(err)?;
-        let snapshot: Value = serde_json::from_str(&snapshot).map_err(err)?;
+        let (snapshot,answer,max,submitted,kind,grade_kind):(String,String,Option<i64>,Option<i64>,String,String)=db.query_row("SELECT a.snapshot_question_id,a.answer,a.max_cents,s.submitted_at,s.kind,a.grade_kind FROM attempts a JOIN sessions s ON s.id=a.session_id WHERE a.session_id=?1 AND a.ordinal=?2",params![sid,ordinal],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?,r.get(5)?))).map_err(err)?;
+        let snapshot = crate::questions::snapshot(&db, sid, &snapshot)?;
         let answer: Value = serde_json::from_str(&answer).map_err(err)?;
         let q = &snapshot["question"];
         if submitted.is_none()

@@ -404,10 +404,13 @@ pub fn prepare_batch(dir: &Path, endpoint: &Endpoint, ids: &[String]) -> Result<
             checkpoint_id: source.checkpoint_id.clone(),
             digest,
             title: pending.title,
-            question_count: questions.len(),
+            question_count: questions
+                .iter()
+                .filter(|q| !crate::questions::composite(q))
+                .count(),
             review_count: questions
                 .iter()
-                .filter(|q| q["needsReview"] == true)
+                .filter(|q| q["needsReview"] == true && !crate::questions::composite(q))
                 .count(),
             partial: pending.root["status"] == "PARTIAL",
             previous_version: previous,
@@ -754,13 +757,12 @@ mod tests {
                 .unwrap(),
             1
         );
-        let raw: String = db
-            .query_row("SELECT raw FROM imports LIMIT 1", [], |r| r.get(0))
-            .unwrap();
-        assert!(serde_json::from_str::<Value>(&raw)
+        assert!(!db
+            .prepare("PRAGMA table_info(imports)")
             .unwrap()
-            .get("state")
-            .is_none());
+            .query_map([], |r| r.get::<_, String>(1))
+            .unwrap()
+            .any(|name| name.unwrap() == "raw"));
         // Simulate exit after DB commit but before the manifest records success.
         let mut interrupted: Batch = read(dir.path(), "import-batches", id).unwrap();
         interrupted.items[0].status = ItemStatus::Pending;

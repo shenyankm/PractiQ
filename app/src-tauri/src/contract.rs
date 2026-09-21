@@ -96,7 +96,13 @@ fn normalize(q: &mut Value) {
                 }
             }
         }
-        for key in ["items", "options", "contentBlocks", "missingFields"] {
+        for key in [
+            "items",
+            "options",
+            "contentBlocks",
+            "missingFields",
+            "passage",
+        ] {
             if obj.get(key).is_none_or(Value::is_null) {
                 obj.insert(key.into(), json!([]));
             }
@@ -117,6 +123,7 @@ fn normalize(q: &mut Value) {
                 }
             }
         }
+        obj.entry("allowReuse").or_insert(json!(false));
         obj.entry("confidence").or_insert(json!(0));
         obj.entry("needsReview").or_insert(json!(true));
     }
@@ -160,10 +167,11 @@ pub fn validate_question(q: &mut Value) -> Result<()> {
             ));
         }
     }
-    for block in list(q, "contentBlocks") {
-        if !["textValue", "markdownValue", "latexValue"]
-            .iter()
-            .any(|k| filled(&block[*k]))
+    for block in list(q, "contentBlocks").iter().chain(list(q, "passage")) {
+        if text(block, "partType") != "blank"
+            && !["textValue", "markdownValue", "latexValue"]
+                .iter()
+                .any(|k| filled(&block[*k]))
             && block["jsonValue"].is_null()
         {
             return Err(crate::language::error(
@@ -172,11 +180,33 @@ pub fn validate_question(q: &mut Value) -> Result<()> {
             ));
         }
     }
-    let wrapper = json!({"questions":[q.clone()],"groups":[],"visualElements":[],"warnings":[],"confidenceScore":0});
+    let wrapper = json!({"schemaVersion":2,"questions":[q.clone()],"groups":[],"visualElements":[],"warnings":[],"confidenceScore":0});
     schema_check(&schemas().0, &wrapper, "result")?;
     let mode = text(q, "answerMode");
+    if q["allowReuse"] == true && mode != "word_bank" {
+        return Err("allowReuse requires word_bank mode".into());
+    }
+    if !q["blankCount"].is_null() && mode != "fill_blank" {
+        return Err("blankCount requires fill_blank mode".into());
+    }
+    if !crate::questions::composite(q) && !list(q, "passage").is_empty() {
+        return Err("passage requires a composite question".into());
+    }
+    if list(q, "contentBlocks")
+        .iter()
+        .any(|b| text(b, "partType") == "blank")
+    {
+        return Err("blank references belong in passage".into());
+    }
+    for block in list(q, "passage") {
+        if (text(block, "partType") == "blank") != !text(block, "questionId").is_empty() {
+            return Err("Invalid blank reference".into());
+        }
+    }
+
     if !mode.is_empty()
         && mode != "choice"
+        && mode != "word_bank"
         && (!list(q, "options").is_empty() || !text(q, "choiceVariant").is_empty())
     {
         return Err(crate::language::error(
@@ -223,22 +253,13 @@ pub fn validate_question(q: &mut Value) -> Result<()> {
     }
     if let Some(obj) = answer.as_object() {
         let allowed: &[&str] = match mode {
-            "choice" if text(q, "choiceVariant") == "multiple" => &["correct"],
-            "choice" => &["correctOption"],
+            "choice" => &["correct"],
             "true_false" => &["value"],
             "fill_blank" => &["answers"],
             "short_answer" => &["text"],
             "ordering" => &["order"],
             "matching" => &["matches"],
-            _ => &[
-                "correct",
-                "correctOption",
-                "value",
-                "answers",
-                "text",
-                "order",
-                "matches",
-            ],
+            _ => &["correct", "value", "answers", "text", "order", "matches"],
         };
         if obj.keys().any(|k| !allowed.contains(&k.as_str())) || (mode.is_empty() && obj.len() > 1)
         {
@@ -253,7 +274,7 @@ pub fn validate_question(q: &mut Value) -> Result<()> {
             }
             let valid = match key.as_str() {
                 "value" => value.is_boolean(),
-                "correctOption" | "text" => value
+                "text" => value
                     .as_str()
                     .is_some_and(|s| s.chars().count() <= if key == "text" { 120_000 } else { 32 }),
                 "correct" | "answers" => value.as_array().is_some_and(|a| {
@@ -284,11 +305,10 @@ pub fn validate_question(q: &mut Value) -> Result<()> {
         }
     }
     if mode == "choice" {
-        let selected = if text(q, "choiceVariant") == "multiple" {
-            list(answer, "correct").to_vec()
-        } else {
-            vec![answer["correctOption"].clone()]
-        };
+        let selected = list(answer, "correct").to_vec();
+        if text(q, "choiceVariant") == "single" && selected.len() > 1 {
+            return Err("Single choice requires one answer".into());
+        }
         let selected: Vec<Value> = selected
             .iter()
             .filter_map(Value::as_str)
@@ -351,6 +371,7 @@ pub fn validate_question(q: &mut Value) -> Result<()> {
         "contentBlocks",
         "answerPayload",
         "analysis",
+        "passage",
     ]
     .iter()
     .any(|k| filled(&q[*k]))
@@ -365,14 +386,15 @@ pub fn validate_question(q: &mut Value) -> Result<()> {
         .filter(|k| !filled(&q[**k]))
         .map(|k| json!(k))
         .collect();
-    if mode == "choice" {
-        if text(q, "choiceVariant").is_empty() {
+    if matches!(mode, "choice" | "word_bank") {
+        if mode == "choice" && text(q, "choiceVariant").is_empty() {
             missing.push(json!("choiceVariant"));
         }
-        if list(q, "options").len() < 2
-            || list(q, "options")
-                .iter()
-                .any(|o| !filled(&o["label"]) || !filled(&o["content"]))
+        if text(q, "optionSourceId").is_empty()
+            && (list(q, "options").len() < 2
+                || list(q, "options")
+                    .iter()
+                    .any(|o| !filled(&o["label"]) || !filled(&o["content"])))
         {
             missing.push(json!("options"));
         }
@@ -391,7 +413,7 @@ pub fn validate_question(q: &mut Value) -> Result<()> {
             missing.push(json!("items"));
         }
     }
-    if !answer_complete(q) {
+    if !crate::questions::composite(q) && !answer_complete(q) {
         missing.push(json!("answerPayload"));
     }
     for key in ["analysis", "sourceText"] {
@@ -413,8 +435,7 @@ pub fn validate_question(q: &mut Value) -> Result<()> {
 pub fn answer_complete(q: &Value) -> bool {
     let a = &q["answerPayload"];
     let key = match text(q, "answerMode") {
-        "choice" if text(q, "choiceVariant") == "multiple" => "correct",
-        "choice" => "correctOption",
+        "choice" => "correct",
         "true_false" => "value",
         "fill_blank" => "answers",
         "short_answer" => "text",
@@ -444,28 +465,16 @@ pub fn parse(bytes: &[u8]) -> Result<Value> {
         ));
     }
     let mut root: Value = serde_json::from_slice(bytes).map_err(|e| format!("JSON: {e}"))?;
-    // Old exports included this retired attribution field even for non-spreadsheet files.
-    // Ignore it on import so removing the parser does not invalidate existing JSON/backups.
-    let visuals = if root.get("result").is_some() {
-        "/result/visualElements"
-    } else {
-        "/visualElements"
-    };
-    for pointer in [visuals, "/processing/questionSources"] {
-        if let Some(items) = root.pointer_mut(pointer).and_then(Value::as_array_mut) {
-            for item in items {
-                if let Some(object) = item.as_object_mut() {
-                    object.remove("excelSource");
-                }
-            }
-        }
-    }
     let result = if root.get("result").is_some() {
         &mut root["result"]
     } else {
         &mut root
     };
+    if result["schemaVersion"] != 2 {
+        return Err(crate::language::error("LOCAL_JSON_VERSION", json!({})));
+    }
     if let Some(questions) = result.get_mut("questions").and_then(Value::as_array_mut) {
+        validate_tree(questions)?;
         for (i, q) in questions.iter_mut().enumerate() {
             validate_question(q).map_err(|mut e| {
                 e.context = Some(format!("questions[{i}]"));
@@ -474,7 +483,10 @@ pub fn parse(bytes: &[u8]) -> Result<Value> {
         }
     }
     schema_check(&schemas().0, result, "result")?;
-    let count = list(result, "questions").len();
+    let ids: HashSet<_> = list(result, "questions")
+        .iter()
+        .map(|q| text(q, "id"))
+        .collect();
     for g in list(result, "groups") {
         if text(g, "title").trim().is_empty() {
             return Err(crate::language::error(
@@ -493,9 +505,9 @@ pub fn parse(bytes: &[u8]) -> Result<Value> {
     }
     for key in ["groups", "visualElements"] {
         for (i, group) in list(result, key).iter().enumerate() {
-            if list(group, "questionIndexes")
+            if list(group, "questionIds")
                 .iter()
-                .any(|v| v.as_u64().is_none_or(|v| v as usize >= count))
+                .any(|v| v.as_str().is_none_or(|v| !ids.contains(v)))
             {
                 return Err(crate::language::error(
                     "LOCAL_QUESTION_INDEX_INVALID",
@@ -521,6 +533,17 @@ pub fn parse(bytes: &[u8]) -> Result<Value> {
     }
     if let Some(processing) = root.get("processing").filter(|v| !v.is_null()) {
         schema_check(&schemas().1, processing, "processing")?;
+        let ids: HashSet<_> = list(self::result(&root), "questions")
+            .iter()
+            .map(|q| text(q, "id"))
+            .collect();
+        if list(processing, "questionSources")
+            .iter()
+            .chain(list(&processing["quality"], "issues"))
+            .any(|r| !ids.contains(text(r, "questionId")))
+        {
+            return Err("Processing references a missing question".into());
+        }
         for key in ["chunks", "visuals"] {
             let c = &processing[key];
             if c["succeeded"].as_u64().unwrap_or(0) + c["skipped"].as_u64().unwrap_or(0)
@@ -556,7 +579,7 @@ pub fn grade(q: &Value, answer: &Value) -> Option<bool> {
     }
     let expected = &q["answerPayload"];
     match text(q, "answerMode") {
-        "choice" if text(q, "choiceVariant") == "multiple" => {
+        "choice" => {
             let canonical = |v: &Value| -> Option<Vec<String>> {
                 let mut s = v
                     .as_array()?
@@ -569,10 +592,6 @@ pub fn grade(q: &Value, answer: &Value) -> Option<bool> {
             };
             Some(canonical(&answer["correct"])? == canonical(&expected["correct"])?)
         }
-        "choice" => Some(
-            answer["correctOption"].as_str()?.to_lowercase()
-                == expected["correctOption"].as_str()?.to_lowercase(),
-        ),
         "true_false" => Some(answer["value"].as_bool()? == expected["value"].as_bool()?),
         "fill_blank" => {
             let trim = |v: &Value| -> Option<Vec<String>> {
@@ -608,4 +627,183 @@ pub fn visual_refs(visual: &Value) -> impl Iterator<Item = &Value> {
     ["imageRef", "sourceRef"]
         .into_iter()
         .filter_map(|key| visual.get(key).filter(|v| v.is_object()))
+}
+
+/// Relational rules shared by JSON import, editing and backup validation.
+pub fn validate_tree(questions: &mut [Value]) -> Result<()> {
+    let mut ids = std::collections::HashMap::new();
+    for (i, q) in questions.iter().enumerate() {
+        let id = text(q, "id");
+        if id.is_empty() || ids.insert(id.to_owned(), i).is_some() {
+            return Err("Questions require unique IDs".into());
+        }
+    }
+    for q in questions.iter() {
+        let parent = text(q, "parentId");
+        if !parent.is_empty() {
+            let p = &questions[*ids.get(parent).ok_or("Missing parent question")?];
+            if !crate::questions::composite(p) || text(q, "answerMode") == "reading" {
+                return Err("Invalid composite ancestry".into());
+            }
+            if text(p, "answerMode") != "reading"
+                && (text(q, "answerMode") != "choice" || text(q, "choiceVariant") != "single")
+            {
+                return Err("Gap children must be single choices".into());
+            }
+            if text(p, "answerMode") == "word_bank" && text(q, "optionSourceId") != parent {
+                return Err("Word bank must share its options".into());
+            }
+        }
+        let mut current = parent;
+        let mut seen = HashSet::from([text(q, "id")]);
+        while !current.is_empty() {
+            if !seen.insert(current) {
+                return Err("Cyclic question ancestry".into());
+            }
+            current = text(
+                &questions[*ids.get(current).ok_or("Missing ancestor")?],
+                "parentId",
+            );
+        }
+        let owner = text(q, "optionSourceId");
+        if !owner.is_empty() {
+            let p = &questions[*ids.get(owner).ok_or("Missing option pool")?];
+            if owner != parent
+                || text(p, "answerMode") != "word_bank"
+                || text(q, "answerMode") != "choice"
+                || !list(q, "options").is_empty()
+            {
+                return Err("Invalid shared option pool".into());
+            }
+            let labels: Vec<_> = list(p, "options")
+                .iter()
+                .filter_map(|o| o["label"].as_str())
+                .map(str::to_lowercase)
+                .collect();
+            if !labels.is_empty()
+                && list(&q["answerPayload"], "correct")
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .any(|v| !labels.contains(&v.to_lowercase()))
+            {
+                return Err("Answer references an unknown shared option".into());
+            }
+        }
+        if crate::questions::composite(q) {
+            if !q["answerPayload"].is_null() {
+                return Err("Composite parents cannot have answers".into());
+            }
+            let children: Vec<_> = questions
+                .iter()
+                .filter(|c| text(c, "parentId") == text(q, "id"))
+                .collect();
+            if matches!(text(q, "answerMode"), "word_bank" | "cloze") {
+                let refs: Vec<_> = list(q, "passage")
+                    .iter()
+                    .filter(|b| text(b, "partType") == "blank")
+                    .map(|b| text(b, "questionId"))
+                    .collect();
+                if refs.iter().collect::<HashSet<_>>().len() != refs.len()
+                    || refs.len() != children.len()
+                    || children.iter().any(|c| !refs.contains(&text(c, "id")))
+                {
+                    return Err("Blank references must match child questions exactly".into());
+                }
+            }
+            if text(q, "answerMode") == "word_bank" && q["allowReuse"] != true {
+                let selected: Vec<_> = children
+                    .iter()
+                    .flat_map(|c| list(&c["answerPayload"], "correct"))
+                    .filter(|v| !v.is_null())
+                    .collect();
+                if selected
+                    .iter()
+                    .map(|v| v.to_string().to_lowercase())
+                    .collect::<HashSet<_>>()
+                    .len()
+                    != selected.len()
+                {
+                    return Err("Word bank answers cannot repeat".into());
+                }
+            }
+        }
+    }
+    let incomplete: Vec<_> = questions
+        .iter()
+        .filter(|q| {
+            crate::questions::composite(q)
+                && (list(q, "passage").is_empty()
+                    || !questions
+                        .iter()
+                        .any(|c| text(c, "parentId") == text(q, "id")))
+        })
+        .map(|q| text(q, "id").to_owned())
+        .collect();
+    for q in questions {
+        validate_question(q)?;
+        if incomplete.contains(&text(q, "id").to_owned()) {
+            q["needsReview"] = json!(true);
+            if !list(q, "missingFields").contains(&json!("material")) {
+                q["missingFields"]
+                    .as_array_mut()
+                    .unwrap()
+                    .push(json!("material"));
+            }
+        }
+    }
+    Ok(())
+}
+
+pub fn validate_attempt(q: &Value, answer: &Value) -> Result<()> {
+    if answer.is_null() {
+        return Ok(());
+    }
+    let mut candidate = q.clone();
+    candidate["answerPayload"] = answer.clone();
+    // A structurally incomplete question explicitly permits free text and self assessment.
+    if [
+        "answerMode",
+        "options",
+        "items",
+        "choiceVariant",
+        "matchingVariant",
+    ]
+    .iter()
+    .any(|k| list(q, "missingFields").contains(&json!(k)))
+        && answer
+            .as_object()
+            .is_some_and(|o| o.len() == 1 && o.get("text").is_some_and(Value::is_string))
+    {
+        return Ok(());
+    }
+    validate_question(&mut candidate)
+}
+
+pub fn validate_context(groups: &[Value], visuals: &[Value], ids: &HashSet<&str>) -> Result<()> {
+    static CONTEXT: OnceLock<(jsonschema::Validator, jsonschema::Validator)> = OnceLock::new();
+    let validators = CONTEXT.get_or_init(|| {
+        let source: Value =
+            serde_json::from_str(include_str!("../contracts.json")).expect("schemas");
+        let validator = |name: &str| {
+            jsonschema::validator_for(
+                &json!({"$defs":source["result"]["$defs"],"$ref":format!("#/$defs/{name}")}),
+            )
+            .expect("context schema")
+        };
+        (validator("DocumentGroup"), validator("DocumentVisual"))
+    });
+    for (values, schema) in [(groups, &validators.0), (visuals, &validators.1)] {
+        for value in values {
+            let mut v = value.clone();
+            v.as_object_mut().ok_or("Invalid context")?.remove("id");
+            schema_check(schema, &v, "context")?;
+            if list(&v, "questionIds")
+                .iter()
+                .any(|id| id.as_str().is_none_or(|id| !ids.contains(id)))
+            {
+                return Err("Context references a missing question".into());
+            }
+        }
+    }
+    Ok(())
 }

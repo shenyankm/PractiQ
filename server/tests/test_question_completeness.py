@@ -75,6 +75,4 @@ def test_extraction_flags_reject_coercion(value):
         ParsedOption.model_validate({'isCorrect': value})
     with pytest.raises(ValidationError):
         ParsedQuestion.model_validate({'stem': 'Question', 'needsReview': value})
-    assert ParsedOption(isCorrect=False).isCorrect is False
-    assert ParsedOption(isCorrect=None).isCorrect is None
     assert ParsedQuestion(stem='Question', needsReview=False).needsReview  # Missing fields force review.

@@ -30,7 +30,7 @@ def question(stem: str = "1. What is 2 + 2?") -> dict:
     return {
         "stem": stem, "answerMode": "choice",
         "options": [{"label": "A", "content": "3"}, {"label": "B", "content": "4"}],
-        "answerPayload": {"correctOption": "B"},
+        "answerPayload": {"correct": ["B"]},
     }
 
 
@@ -89,7 +89,7 @@ def test_manifest_covers_formats_modes_and_every_fixture() -> None:
     lambda m: m["cases"][0].update(extra=True),
     lambda m: m["cases"][0].update(expectedQuestions=[]),
     lambda m: m["cases"][0].update(expectedGroups=[{"title": "Bad", "questionIndexes": [10]}]),
-    lambda m: m["cases"][0]["expectedQuestions"][0].update(answerPayload={"correctOption": "C"}),
+    lambda m: m["cases"][0]["expectedQuestions"][0].update(answerPayload={"correct": ["C"]}),
     lambda m: m["cases"][0].update(tags=["x", "x"]),
     lambda m: m["cases"][0].update(expectedQuestions=[], expectedError={"code": "AI_PROVIDER_ERROR", "statusCode": 502}),
 ])
@@ -127,7 +127,7 @@ def test_full_stems_aliases_and_repeated_occurrences() -> None:
     assert ev.normalize_stem("Na") != ev.normalize_stem("NA")
     assert ev.normalize_stem("x+y") != ev.normalize_stem("x-y")
     second = deepcopy(question())
-    second["answerPayload"] = {"correctOption": "A"}
+    second["answerPayload"] = {"correct": ["A"]}
     score = ev.score_document_case([question(), second], [question(), second, question()])
     assert (score["matched"], score["predicted"], score["answerCorrect"]) == (2, 3, 2)
     assert score["questions"][-1]["differences"] == ["extra"]
@@ -165,11 +165,11 @@ def test_group_membership_and_visual_multisets() -> None:
     case["expectedQuestions"].append(question("another"))
     case["expectedGroups"] = [{"title": "Group", "questionIndexes": [0, 1]}]
     case["expectedVisualKinds"] = ["diagram", "diagram"]
-    result = {"questions": case["expectedQuestions"], "groups": [{"title": "Group", "questionIndexes": [0]}], "visualElements": [{"kind": "diagram"}]}
+    result = {"questions": [{**q,"id":f"q{i}"} for i,q in enumerate(case["expectedQuestions"])], "groups": [{"title": "Group", "questionIds": ["q0"]}], "visualElements": [{"kind": "diagram"}]}
     metrics = ev.quality_metrics([ev.score_result(case, result)])
     assert metrics["groupF1"] == 0
     assert metrics["visualF1"] == pytest.approx(200 / 3)
-    result["groups"][0]["questionIndexes"] = [0, 1]
+    result["groups"][0]["questionIds"] = ["q0", "q1"]
     result["visualElements"].append({"kind": "diagram"})
     assert ev.quality_metrics([ev.score_result(case, result)])["groupF1"] == 100
     assert ev.quality_metrics([ev.score_result(case, result)])["visualF1"] == 100

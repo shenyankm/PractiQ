@@ -890,5 +890,25 @@
   "CROP_FAILED": {
     "zh-CN": "图片裁剪失败，请复核来源图片",
     "en": "Image cropping failed. Review the source image."
+  },
+  "LOCAL_GROUP_COUNT_UNSATISFIABLE": {
+    "zh-CN": "完整题组无法恰好满足此题数，请调整题数或手动选择题组",
+    "en": "Complete groups cannot satisfy this exact count; adjust the count or select groups manually"
+  },
+  "LOCAL_PAPER_CHANGED": {
+    "zh-CN": "题目内容已变化，请重新生成组卷预览",
+    "en": "Questions changed; regenerate the paper preview"
+  },
+  "LOCAL_WORD_REUSED": {
+    "zh-CN": "此词已用于其他空位，请先清空原作答再选择",
+    "en": "This word is already selected in another blank; clear that answer first"
+  },
+  "LOCAL_JSON_VERSION": {
+    "zh-CN": "只支持 schemaVersion 为 2 的 PractiQ JSON，请重新导出",
+    "en": "Only PractiQ JSON schemaVersion 2 is supported"
+  },
+  "LOCAL_GROUP_DELETE_CHILD": {
+    "zh-CN": "请编辑完整题组以删除子题",
+    "en": "Edit the complete group to remove a subquestion"
   }
 }

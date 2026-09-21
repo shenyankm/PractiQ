@@ -117,6 +117,7 @@ export default function App() {
   const [editor, setEditor] = useState<{
     id: string | null;
     question: Question;
+    children?: Question[];
   } | null>(null);
   const [detail, setDetail] = useState<QuestionRow | null>(null);
   const [confirm, setConfirm] = useState<{
@@ -540,7 +541,7 @@ export default function App() {
                           disabled={busy}
                           onClick={() => {
                             setBank(row.bankId);
-                            setEditor({ id: row.id, question: row.question });
+                            setEditor({ id: row.id, question: row.question, children: (row.children || []).map(c=>({...c.question, options:c.question.optionSourceId ? [] : c.question.options})) });
                           }}
                         >
                           <Pencil />
@@ -785,7 +786,7 @@ export default function App() {
               <DialogDescription>{t("已识别 {0} 道题目，其中 {1} 道待复核，仍可直接练习。", { 0: preview.count, 1: preview.reviewCount })}</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
-              <QuestionPreview questions={preview.questions ?? []} />
+              <QuestionPreview questions={preview.questions ?? []} groups={preview.groups} visuals={preview.visuals} />
               <Label htmlFor="import-bank">{t("导入到")}</Label>
               <Select value={importBank} onValueChange={setImportBank}>
                 <SelectTrigger id="import-bank" className="w-full">
@@ -937,15 +938,16 @@ export default function App() {
       {editor && bank && (
         <QuestionEditor
           initial={editor.question}
+          initialChildren={editor.children}
           busy={busy}
           onClose={() => setEditor(null)}
-          onSave={(q) =>
+          onSave={(q, children) =>
             run(async () => {
               await api({
-                type: "save_question",
-                id: editor.id,
+                type: "save_question_tree",
+                root_id: editor.id,
                 bank_id: bank,
-                question: q,
+                questions: [q,...children],
               });
               setEditor(null);
               await refreshQuestions();
@@ -965,7 +967,8 @@ export default function App() {
             <DialogHeader>
               <DialogTitle>{t("题目详情")}</DialogTitle>
             </DialogHeader>
-            <Content snapshot={detail} source />
+            {!!detail.children?.length && <QuestionPreview questions={[detail.question,...detail.children.map(c=>c.question)]} groups={Array.from(new Map([detail,...detail.children].flatMap(r=>r.groups).map(g=>[g.id,g])).values())} visuals={Array.from(new Map([detail,...detail.children].flatMap(r=>r.visuals).map(v=>[v.id,v])).values())}/>}
+            {!detail.children?.length && <Content snapshot={detail} source />}
             <AnswerInput
               question={detail.question}
               value={detail.question.answerPayload}

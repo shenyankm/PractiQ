@@ -24,7 +24,9 @@
             }
           ],
           "answerPayload": {
-            "correctOption": "B"
+            "correct": [
+              "B"
+            ]
           }
         },
         {
@@ -122,7 +124,9 @@
             }
           ],
           "answerPayload": {
-            "correctOption": "B"
+            "correct": [
+              "B"
+            ]
           }
         },
         {
@@ -207,7 +211,9 @@
             }
           ],
           "answerPayload": {
-            "correctOption": "B"
+            "correct": [
+              "B"
+            ]
           }
         },
         {
@@ -292,7 +298,9 @@
             }
           ],
           "answerPayload": {
-            "correctOption": "B"
+            "correct": [
+              "B"
+            ]
           }
         },
         {
@@ -384,7 +392,9 @@
             }
           ],
           "answerPayload": {
-            "correctOption": "A"
+            "correct": [
+              "A"
+            ]
           }
         },
         {
@@ -621,7 +631,9 @@
             }
           ],
           "answerPayload": {
-            "correctOption": "A"
+            "correct": [
+              "A"
+            ]
           }
         },
         {
@@ -638,7 +650,9 @@
             }
           ],
           "answerPayload": {
-            "correctOption": "B"
+            "correct": [
+              "B"
+            ]
           }
         }
       ],
@@ -832,6 +846,200 @@
       "expectedProcess": {
         "maxModelCalls": 0
       }
+    },
+    {
+      "id": "text-composites",
+      "sourceType": "text",
+      "path": "fixtures/text/composites.txt",
+      "expectedQuestions": [
+        {
+          "id": "r",
+          "stem": "Seasons",
+          "answerMode": "reading",
+          "answerPayload": null,
+          "passage": [
+            {
+              "partType": "text",
+              "textValue": "Snow is white. Grass is green."
+            }
+          ]
+        },
+        {
+          "id": "r1",
+          "stem": "Snow is white.",
+          "answerMode": "true_false",
+          "answerPayload": {
+            "value": true
+          },
+          "parentId": "r"
+        },
+        {
+          "id": "w",
+          "stem": "Complete the sentence",
+          "answerMode": "word_bank",
+          "answerPayload": null,
+          "passage": [
+            {
+              "partType": "text",
+              "textValue": "Snow is "
+            },
+            {
+              "partType": "blank",
+              "questionId": "w1"
+            },
+            {
+              "partType": "text",
+              "textValue": ". Grass is "
+            },
+            {
+              "partType": "blank",
+              "questionId": "w2"
+            }
+          ],
+          "options": [
+            {
+              "label": "A",
+              "content": "white"
+            },
+            {
+              "label": "B",
+              "content": "green"
+            }
+          ]
+        },
+        {
+          "id": "w1",
+          "stem": "Snow is",
+          "answerMode": "choice",
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "parentId": "w",
+          "optionSourceId": "w",
+          "choiceVariant": "single"
+        },
+        {
+          "id": "w2",
+          "stem": "Grass is",
+          "answerMode": "choice",
+          "answerPayload": {
+            "correct": [
+              "B"
+            ]
+          },
+          "parentId": "w",
+          "optionSourceId": "w",
+          "choiceVariant": "single"
+        },
+        {
+          "id": "c",
+          "stem": "Complete the statement",
+          "answerMode": "cloze",
+          "answerPayload": null,
+          "passage": [
+            {
+              "partType": "text",
+              "textValue": "Snow is "
+            },
+            {
+              "partType": "blank",
+              "questionId": "c1"
+            }
+          ]
+        },
+        {
+          "id": "c1",
+          "stem": "Snow is",
+          "answerMode": "choice",
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "parentId": "c",
+          "options": [
+            {
+              "label": "A",
+              "content": "white"
+            },
+            {
+              "label": "B",
+              "content": "green"
+            }
+          ],
+          "choiceVariant": "single"
+        },
+        {
+          "id": "o",
+          "stem": "Sort ascending",
+          "answerMode": "ordering",
+          "answerPayload": {
+            "order": [
+              1,
+              0
+            ]
+          },
+          "items": [
+            {
+              "id": 0,
+              "content": "Two"
+            },
+            {
+              "id": 1,
+              "content": "One"
+            }
+          ]
+        },
+        {
+          "id": "m",
+          "stem": "Match words and numbers",
+          "answerMode": "matching",
+          "answerPayload": {
+            "matches": [
+              {
+                "left": 0,
+                "right": 0
+              },
+              {
+                "left": 1,
+                "right": 1
+              }
+            ]
+          },
+          "matchingVariant": "one_to_one",
+          "items": [
+            {
+              "id": 0,
+              "side": "left",
+              "content": "One"
+            },
+            {
+              "id": 1,
+              "side": "left",
+              "content": "Two"
+            },
+            {
+              "id": 0,
+              "side": "right",
+              "content": "1"
+            },
+            {
+              "id": 1,
+              "side": "right",
+              "content": "2"
+            }
+          ]
+        }
+      ],
+      "tags": [
+        "synthetic",
+        "composite",
+        "text"
+      ],
+      "critical": false,
+      "expectedVisualKinds": []
     }
   ]
 }

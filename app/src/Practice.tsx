@@ -129,7 +129,7 @@ export function Practice({
         };
     };
   }, [session.id, session.position, submitted, finished]);
-  function change(a: Answer) {
+  function change(a: Answer | null) {
     setAnswer(a);
     answerRef.current = a;
     setSaved("待保存");
@@ -205,6 +205,7 @@ export function Practice({
             onChange={change}
             disabled={submitted || finished}
           />
+          {!submitted && !finished && answer != null && <Button variant="outline" onClick={()=>change(null)}>{t("清空作答")}</Button>}
           {submitted && (
             <section className="space-y-4 rounded-lg border bg-muted/30 p-5">
               <div className="flex items-center gap-3">

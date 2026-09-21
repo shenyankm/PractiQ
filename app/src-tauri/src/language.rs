@@ -150,25 +150,16 @@ mod tests {
         assert_eq!(store.banks().unwrap()[0]["id"], bank);
     }
     #[test]
-    fn version_seven_migrates_without_overwriting_settings() {
+    fn version_seven_is_not_modified() {
         let dir = tempfile::tempdir().unwrap();
         let store = Store::new(dir.path().to_path_buf()).unwrap();
-        let db = store.connect().unwrap();
-        db.execute_batch("ALTER TABLE settings DROP COLUMN locale; PRAGMA user_version=7; UPDATE settings SET model_id='keep-model';").unwrap();
-        drop(db);
-        let store = Store::new(dir.path().to_path_buf()).unwrap();
-        assert_eq!(store.language().unwrap(), None);
-        assert_eq!(
-            store.connection_settings().unwrap().model_id.as_deref(),
-            Some("keep-model")
-        );
-        assert_eq!(
-            store
-                .connect()
-                .unwrap()
-                .query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
-                .unwrap(),
-            8
-        );
+        store
+            .connect()
+            .unwrap()
+            .execute_batch("PRAGMA user_version=7;")
+            .unwrap();
+        let before = std::fs::read(store.db_path()).unwrap();
+        assert!(Store::new(dir.path().to_path_buf()).is_err());
+        assert_eq!(before, std::fs::read(store.db_path()).unwrap());
     }
 }
