@@ -68,8 +68,12 @@ it("shows progress and sends only the current run when pausing", async () => {
   );
   expect(screen.getByText(/完成 1\/2/)).toBeTruthy();
 });
-it("keeps task failures visible with a retry action without starting an import", async () => {
-  vi.mocked(invoke).mockRejectedValue({ message: "请先配置模型 ID" });
+it.each([new Error("请先配置模型 ID"), { message: "请先配置模型 ID" }])("hides the empty state on task failure and shows it after successful retry (%j)", async error => {
+  vi.mocked(invoke).mockImplementation(async (_command, args) => {
+    const { type } = (args as { request: { type: string } }).request;
+    if (type === "list") throw error;
+    return [] as never;
+  });
   render(
     <AiTasks
       busy={false}
@@ -83,6 +87,15 @@ it("keeps task failures visible with a retry action without starting an import",
   expect(screen.getByText(/请先配置模型 ID/)).toBeTruthy();
   expect(screen.getByRole("button", { name: "重试" })).toBeTruthy();
   expect(toast.error).not.toHaveBeenCalled();
+  expect(screen.queryByText("暂无解析任务")).toBeNull();
+  vi.mocked(invoke).mockImplementation(async (_command, args) => {
+    const { type } = (args as { request: { type: string } }).request;
+    return (type === "list" ? { items: [], hasMore: false } : []) as never;
+  });
+  await userEvent.click(screen.getByRole("button", { name: "重试" }));
+  expect(await screen.findByText("暂无解析任务")).toBeTruthy();
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(vi.mocked(invoke).mock.calls.every(([, args]) => ["list", "operations", "batches"].includes((args as { request: { type: string } }).request.type))).toBe(true);
 });
 it("requires content review before acceptance and excludes waiting tasks from batch selection", async () => {
   const state = {

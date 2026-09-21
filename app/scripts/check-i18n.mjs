@@ -11,11 +11,15 @@ try {
  page.setDefaultTimeout(10000);
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.addInitScript(({fixture})=>{
+  // Exercise the browser UI with mocked commands, not native window/event APIs.
+  window.isTauri = false;
   let lang=localStorage.getItem('test-language');
   const banks=[{id:'one',title:'原始题库 — Original bank',description:'Imported content stays unchanged',count:8,createdAt:1},{id:'two',title:'Mathematics',description:'',count:8,createdAt:1}];
   const questions=fixture.questions.map((q,i)=>({id:String(i),bankId:'one',bankTitle:banks[0].title,question:q,groups:[],visuals:[],sources:[],warnings:[],missingAssets:false,favorite:false,latestResult:null}));
   window.__calls=[];
-  window.__TAURI_INTERNALS__={invoke:async(command,{request})=>{
+  window.__TAURI_INTERNALS__={invoke:async(command,args)=>{
+   if (!['request','ai_request'].includes(command)) throw Error(`Unexpected native command: ${command}`);
+   const {request} = args;
    window.__calls.push({command,request});
    if(command==='ai_request') {if(['operations','batches'].includes(request.type)) return [];throw Error('No model calls in preview');}
    switch(request.type){
@@ -33,6 +37,7 @@ try {
  },{fixture:JSON.parse(fs.readFileSync('fixtures/sample.json','utf8'))});
  await page.goto('http://127.0.0.1:1420');
  await page.getByRole('heading',{name:'My banks',exact:true}).waitFor();
+ assert.equal(await page.evaluate(async () => (await import('/node_modules/@tauri-apps/api/core.js')).isTauri()),false);
 
  const overflow=async label=>({label,items:await page.locator('main *, [role=dialog] *').evaluateAll(elements=>elements.filter(e=>e.clientWidth>0&&e.scrollWidth>e.clientWidth+3&&getComputedStyle(e).overflowX==='visible'&&e.children.length===0&&e.textContent.trim()).map(e=>({tag:e.tagName,text:e.textContent.slice(0,140),width:e.clientWidth,scroll:e.scrollWidth}))) });
  const checks=[await overflow('banks')];

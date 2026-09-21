@@ -427,7 +427,7 @@ export function AiTasks({
                     : "" })}</p>
             </div>
           ))}
-          {modelsReady && !rows.length && !error != null && <Empty>
+          {modelsReady && !rows.length && error == null && <Empty>
             <EmptyHeader>
               <EmptyTitle>{t("暂无解析任务")}</EmptyTitle>
               <EmptyDescription>{t("选择文档并开始解析后，可在这里查看任务进度。")}</EmptyDescription>
