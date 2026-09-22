@@ -107,7 +107,7 @@ it("keeps ZIP import usable without models and preserves the destination bank", 
     }),
   ).toBeTruthy();
   expect(screen.queryByRole("button", { name: "文档解析" })).toBeNull();
-  expect(screen.getByText(/暂不支持 Word 文件/).textContent).toContain("导出为 PDF");
+  expect((await screen.findByText(/暂不支持 Word 文件/)).textContent).toContain("导出为 PDF");
   expect(screen.getByText(/支持 PDF/).textContent).toContain(".jpeg");
   expect(screen.getByText(/支持 PDF/).textContent).not.toMatch(/\.gif|\.webp/);
   expect(await screen.findByRole("button", { name: "配置 AI 模型" })).toBeTruthy();
@@ -163,7 +163,7 @@ it("opens study setup from each bank card with that bank selected", async () => 
       case "banks": return banks as never;
       case "sessions": return [] as never;
       case "questions_page": return {items:[],total:0,offset:0} as never;
-      case "questions": return [] as never;
+      case "question_stats": return {count:0,types:{}} as never;
       case "info": return { version: "test", dataDirectory: "/tmp/test" } as never;
       default: throw new Error(`Unexpected request: ${request.type}`);
     }
@@ -189,7 +189,7 @@ it("opens study setup from each bank card with that bank selected", async () => 
     for (const [i, bank] of banks.entries()) {
       expect(within(dialog).getByRole("checkbox", { name: `${bank.title}（${bank.count}）` }).getAttribute("aria-checked")).toBe(String(i === index));
     }
-    await waitFor(() => expect(api).toHaveBeenCalledWith({ type: "questions", bank_id: null, bank_ids: [banks[index].id], search: "", mode: "", filter: "" }));
+    await waitFor(() => expect(api).toHaveBeenCalledWith({ type: "question_stats", bank_id: null, bank_ids: [banks[index].id], search: "", mode: "", filter: "" }));
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     await waitFor(() => expect(document.activeElement).toBe(within(card as HTMLElement).getByRole("button", { name: "开始练习" })));

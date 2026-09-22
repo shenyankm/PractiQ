@@ -1,5 +1,5 @@
 import { list, t, useI18n } from "./i18n";
-import { useState } from "react";
+import { memo, useMemo, useState } from "react";
 import { fieldName, type Question, type Group, type Visual } from "./api";
 import { Content, Markdown } from "./Content";
 import { AnswerDisplay } from "./AnswerInput";
@@ -7,19 +7,41 @@ import { Button } from "@/components/ui/button";
 
 type PreviewGroup = Omit<Group,"id"|"questionIds"> & {id?:string;questionIds?:string[];questionIndexes?:number[]};
 type PreviewVisual = Omit<Visual,"id"|"questionIds"> & {id?:string;questionIds?:string[];questionIndexes?:number[]};
-export function QuestionPreview({ questions, groups = [], visuals = [] }: { questions: Question[]; groups?: PreviewGroup[]; visuals?: PreviewVisual[] }) {
+export function indexPreviewQuestions(questions: Question[]) {
+  const byId = new Map<string, Question>();
+  for (const q of questions) if (q.id && !byId.has(q.id)) byId.set(q.id, q);
+  const roots = questions.filter(q => !q.parentId || !byId.has(q.parentId));
+  const rootOf = new Map<Question, Question | undefined>();
+  const trees = new Map(roots.map(q => [q, [] as { question: Question; index: number }[]]));
+  questions.forEach((question, index) => {
+    let current: Question | undefined = question;
+    const path = new Set<Question>();
+    while (current && !rootOf.has(current)) {
+      if (path.has(current)) { current = undefined; break; }
+      path.add(current);
+      const parent: Question | undefined = current.parentId ? byId.get(current.parentId) : undefined;
+      if (!parent) { rootOf.set(current, current); break; }
+      current = parent;
+    }
+    const root = current ? rootOf.get(current) : undefined;
+    for (const node of path) rootOf.set(node, root);
+    if (root) trees.get(root)?.push({ question, index });
+  });
+  return { roots, trees, byId };
+}
+
+export const QuestionPreview = memo(function QuestionPreview({ questions, groups = [], visuals = [] }: { questions: Question[]; groups?: PreviewGroup[]; visuals?: PreviewVisual[] }) {
   useI18n();
   const [page, setPage] = useState(0);
-  const roots=questions.filter(q=>!q.parentId || !questions.some(p=>p.id===q.parentId));
-  const rootId=(q:Question)=>{const seen=new Set<string>();while(q.parentId && !seen.has(q.parentId)){seen.add(q.parentId);const p=questions.find(p=>p.id===q.parentId);if(!p)break;q=p;}return q.id || `preview-${questions.indexOf(q)}`;};
+  const { roots, trees, byId } = useMemo(() => indexPreviewQuestions(questions), [questions]);
   const current = Math.min(
     page,
     Math.max(0, Math.ceil(roots.length / 20) - 1),
   );
   return (
     <div className="space-y-4">
-      {questions.filter(q=>roots.slice(current*20,current*20+20).some(r=>rootId(r)===rootId(q))).map((original) => {
-        const i=questions.indexOf(original);const owner=original.optionSourceId ? questions.find(p=>p.id===original.optionSourceId) : undefined;
+      {roots.slice(current * 20, current * 20 + 20).flatMap(root => trees.get(root)!).sort((a, b) => a.index - b.index).map(({ question: original, index: i }) => {
+        const owner = original.optionSourceId ? byId.get(original.optionSourceId) : undefined;
         const q=owner ? {...original,options:owner.options} : original;
         return (
         <article
@@ -85,4 +107,4 @@ export function QuestionPreview({ questions, groups = [], visuals = [] }: { ques
       )}
     </div>
   );
-}
+});

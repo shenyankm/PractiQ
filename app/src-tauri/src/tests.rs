@@ -32,6 +32,23 @@ fn paged_filters_preserve_complete_groups_and_drafts_survive_reopen() {
                 for filter in ["", "favorite", "wrong", "unattempted"] {
                     let expected = s.questions(bank, search, mode, filter).unwrap();
                     let n = expected.as_array().unwrap().len();
+                    let stats = s.question_stats(bank, &[], (search, mode, filter)).unwrap();
+                    let mut types = serde_json::Map::new();
+                    let mut count = 0;
+                    for root in expected.as_array().unwrap() {
+                        let category = crate::paper::category(&root["question"]);
+                        let total = types.get(category).and_then(Value::as_u64).unwrap_or(0) + 1;
+                        types.insert(category.into(), json!(total));
+                        count += if crate::questions::composite(&root["question"]) {
+                            list(root, "children")
+                                .iter()
+                                .filter(|c| !crate::questions::composite(&c["question"]))
+                                .count()
+                        } else {
+                            1
+                        };
+                    }
+                    assert_eq!(stats, json!({"count":count,"types":types}));
                     let mut combined = Vec::new();
                     for offset in 0..n.max(1) {
                         let page = s
@@ -66,6 +83,12 @@ fn paged_filters_preserve_complete_groups_and_drafts_survive_reopen() {
     assert!(s
         .query_questions(None, &[], ("", "", ""), Some((0, 0)))
         .is_err());
+    assert!(s.question_stats(None, &[], ("", "invalid", "")).is_err());
+    assert_eq!(
+        s.question_stats(Some(&plain), std::slice::from_ref(&grouped), ("", "", ""))
+            .unwrap(),
+        json!({"count":0,"types":{}})
+    );
     assert!(s
         .query_questions(None, &[], ("", "", ""), Some((101, 0)))
         .is_err());

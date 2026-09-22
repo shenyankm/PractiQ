@@ -54,6 +54,8 @@ it("shows progress and sends only the current run when pausing", async () => {
   await userEvent.click(
     await screen.findByRole("button", { name: "demo.pdf" }),
   );
+  const localReads = () => vi.mocked(invoke).mock.calls.filter(([,args]) => (args as {request:{type:string}}).request.type === "operations").length;
+  const beforeControl = localReads();
   await userEvent.click(await screen.findByRole("button", { name: "暂停" }));
   await waitFor(() =>
     expect(invoke).toHaveBeenCalledWith("ai_request", {
@@ -69,6 +71,7 @@ it("shows progress and sends only the current run when pausing", async () => {
     }),
   );
   expect(screen.getByText(/完成 1\/2/)).toBeTruthy();
+  await waitFor(() => expect(localReads()).toBe(beforeControl + 1));
 });
 it.each([new Error("请先配置模型 ID"), { message: "请先配置模型 ID" }])("hides the empty state on task failure and shows it after successful retry (%j)", async error => {
   vi.mocked(invoke).mockImplementation(async (_command, args) => {

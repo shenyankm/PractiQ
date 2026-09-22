@@ -28,7 +28,7 @@ try {
     case 'banks':return banks;
     case 'sessions':return [];
     case 'save_attempt':case 'save_draft':return null;
-    case 'questions':return questions;
+    case 'question_stats':return {count:questions.length,types:{single:questions.length}};
     case 'questions_page':return {items:questions.slice(request.offset,request.offset+request.limit),total:questions.length,offset:request.offset};
     case 'info':return {version:'preview',dataDirectory:'/local/test'};
     case 'settings':return {config:{base_url:null,model_id:null,oss_url:null},hasApiKey:false};

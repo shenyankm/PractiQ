@@ -1,6 +1,6 @@
 import { t, useI18n } from "./i18n";
 import { useState } from "react";
-import { type Question, type Mode, modeNames, isComposite } from "./api";
+import { blankQuestion, type Question, type Mode, modeNames, isComposite } from "./api";
 import {
   Dialog,
   DialogContent,
@@ -20,28 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { AnswerInput } from "./AnswerInput";
-export function blankQuestion(): Question {
-  return {
-    id: crypto.randomUUID(), parentId: null, passage: [], allowReuse: false,
-    stem: "",
-    questionTypeId: t("单选题"),
-    answerMode: "choice",
-    choiceVariant: "single",
-    matchingVariant: null,
-    options: [
-      { label: "A", content: "" },
-      { label: "B", content: "" },
-    ],
-    items: [],
-    answerPayload: null,
-    analysis: null,
-    sourceText: null,
-    contentBlocks: [],
-    needsReview: false,
-    missingFields: [],
-    confidence: 0,
-  };
-}
+export { blankQuestion } from "./api";
 export function QuestionEditor({
   initial,
   initialChildren = [],
@@ -58,8 +37,8 @@ export function QuestionEditor({
   busy: boolean;
 }) {
   useI18n();
-  const [q, setQ] = useState<Question>(structuredClone({...initial, id: initial.id || crypto.randomUUID()}));
-  const [children, setChildren] = useState<Question[]>(structuredClone(initialChildren));
+  const [q, setQ] = useState<Question>(() => structuredClone({...initial, id: initial.id || crypto.randomUUID()}));
+  const [children, setChildren] = useState<Question[]>(() => structuredClone(initialChildren));
   const [childEditor, setChildEditor] = useState<Question | null>(null);
   const patch = (p: Partial<Question>) => setQ((v) => ({ ...v, ...p }));
   function mode(value: Mode) {

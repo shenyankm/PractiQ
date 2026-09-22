@@ -434,6 +434,24 @@ impl Store {
         query: (&str, &str, &str),
         page: Option<(usize, usize)>,
     ) -> Result<Value> {
+        self.query_question_data(bank, banks, query, page, false)
+    }
+    pub fn question_stats(
+        &self,
+        bank: Option<&str>,
+        banks: &[String],
+        query: (&str, &str, &str),
+    ) -> Result<Value> {
+        self.query_question_data(bank, banks, query, None, true)
+    }
+    fn query_question_data(
+        &self,
+        bank: Option<&str>,
+        banks: &[String],
+        query: (&str, &str, &str),
+        page: Option<(usize, usize)>,
+        stats_only: bool,
+    ) -> Result<Value> {
         let (search, mode, filter) = query;
         if banks.len() > 1000
             || ![
@@ -459,7 +477,9 @@ impl Store {
             return Err(crate::language::error("LOCAL_FILTER_INVALID", json!({})));
         }
         if bank.is_some_and(|b| !banks.is_empty() && !banks.iter().any(|v| v == b)) {
-            return Ok(if page.is_some() {
+            return Ok(if stats_only {
+                json!({"count":0,"types":{}})
+            } else if page.is_some() {
                 json!({"items":[],"total":0,"offset":0})
             } else {
                 json!([])
@@ -513,6 +533,34 @@ impl Store {
                 .collect();
         }
         let total = ids.len();
+        if stats_only {
+            let mut statement = db.prepare("
+                WITH RECURSIVE tree(root,id) AS (
+                    SELECT value,value FROM json_each(?1)
+                    UNION ALL SELECT t.root,q.id FROM questions q JOIN tree t ON q.parent_id=t.id
+                ) SELECT COALESCE(CASE WHEN r.mode='choice' THEN c.variant ELSE r.mode END,''),
+                    COUNT(DISTINCT r.id), SUM(n.mode IS NULL OR n.mode NOT IN ('reading','word_bank','cloze'))
+                FROM tree t JOIN questions r ON r.id=t.root JOIN questions n ON n.id=t.id
+                LEFT JOIN choice_questions c ON c.question_id=r.id GROUP BY 1
+            ").map_err(err)?;
+            let mut types = serde_json::Map::new();
+            let mut count = 0;
+            for row in statement
+                .query_map([json!(ids).to_string()], |r| {
+                    Ok((
+                        r.get::<_, String>(0)?,
+                        r.get::<_, i64>(1)?,
+                        r.get::<_, i64>(2)?,
+                    ))
+                })
+                .map_err(err)?
+            {
+                let (mode, roots, answerable) = row.map_err(err)?;
+                types.insert(mode, json!(roots));
+                count += answerable;
+            }
+            return Ok(json!({"count":count,"types":types}));
+        }
         let offset = if let Some((limit, offset)) = page {
             let offset = offset.min(total.saturating_sub(1) / limit * limit);
             ids = ids.into_iter().skip(offset).take(limit).collect();

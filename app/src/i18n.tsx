@@ -17,19 +17,34 @@ export function isLocale(value: unknown): value is Locale { return value === "zh
 // rather than retaining the language in which a request was started.
 let current: Locale = systemLocale(typeof navigator === "undefined" ? [] : navigator.languages);
 export function locale() { return current; }
-export function list(values: string[]) { return new Intl.ListFormat(current, { style: "short", type: "conjunction" }).format(values); }
+const listFormats = {
+  "zh-CN": new Intl.ListFormat("zh-CN", { style: "short", type: "conjunction" }),
+  en: new Intl.ListFormat("en", { style: "short", type: "conjunction" }),
+};
+const plurals = new Intl.PluralRules("en");
+const numberFormats = new Map<string, Intl.NumberFormat>();
+function numberFormat(language: Locale, digits?: number) {
+  const key = `${language}:${digits ?? "default"}`;
+  let format = numberFormats.get(key);
+  if (!format) {
+    format = new Intl.NumberFormat(language, digits == null ? undefined : { minimumFractionDigits: digits, maximumFractionDigits: digits });
+    numberFormats.set(key, format);
+  }
+  return format;
+}
+export function list(values: string[]) { return listFormats[current].format(values); }
 export function number(value: number, digits?: number) {
-  return new Intl.NumberFormat(current, digits == null ? undefined : { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(value);
+  return numberFormat(current, digits).format(value);
 }
 export function translate<K extends MessageKey>(language: Locale, key: K, ...args: Args<K>): string {
   const params = (args[0] ?? {}) as Record<string, Value>;
   let template: string = language === "en" ? en[key] : zhCN[key];
   // Counts in these messages are immediately followed by their English noun.
   if (language === "en") template = template.replace(/\{(\d+)\} (questions|banks|images|resources|calls|points)\b/g,
-    (text, slot: string, noun: string) => typeof params[slot] === "number" && new Intl.PluralRules(language).select(params[slot] as number) === "one" ? `{${slot}} ${noun.slice(0, -1)}` : text);
+    (text, slot: string, noun: string) => typeof params[slot] === "number" && plurals.select(params[slot] as number) === "one" ? `{${slot}} ${noun.slice(0, -1)}` : text);
   return template.replace(/\{(\d+)\}/g, (_, slot: string) => {
     const value = params[slot];
-    return typeof value === "number" ? new Intl.NumberFormat(language).format(value) : value == null || value === false ? "" : String(value);
+    return typeof value === "number" ? numberFormat(language).format(value) : value == null || value === false ? "" : String(value);
   });
 }
 export function t<K extends MessageKey>(key: K, ...args: Args<K>) { return translate(current, key, ...args); }

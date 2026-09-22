@@ -14,6 +14,28 @@ export function modeNames(): Record<string, string> { return {
   matching: t("匹配题"),
   reading: t("阅读理解"), word_bank: t("选词填空"), cloze: t("完形填空"),
 }; }
+export function blankQuestion(): Question {
+  return {
+    id: crypto.randomUUID(), parentId: null, passage: [], allowReuse: false,
+    stem: "",
+    questionTypeId: t("单选题"),
+    answerMode: "choice",
+    choiceVariant: "single",
+    matchingVariant: null,
+    options: [
+      { label: "A", content: "" },
+      { label: "B", content: "" },
+    ],
+    items: [],
+    answerPayload: null,
+    analysis: null,
+    sourceText: null,
+    contentBlocks: [],
+    needsReview: false,
+    missingFields: [],
+    confidence: 0,
+  };
+}
 export interface Group {
   id: string;
   title: string;
@@ -132,6 +154,7 @@ type Query = {
 };
 export interface Paper { question_ids: string[]; kind: SessionKind; minutes: number | null; scores: number[]; total_cents: number; digest: string }
 export interface PaperPreview { questionIds: string[]; digest: string; questions: QuestionRow[]; scores: number[]; count: number }
+export interface QuestionStats { count: number; types: Record<string, number> }
 export interface PaperSelection { bank_ids: string[]; search: string; mode: string; filter: string; selection: string; count: number; quotas: Record<string,number>; question_ids: string[]; random: boolean; total_cents: number; budgets?: Record<string,number> }
 type Request =
   | { type: "export_bank"; bank_id: string }
@@ -167,6 +190,7 @@ type Request =
       id: string;
     }
   | ({ type: "questions" } & Query)
+  | ({ type: "question_stats" } & Query)
   | ({ type: "questions_page"; limit: number; offset: number } & Query)
   | { type: "favorite"; id: string; value: boolean }
   | { type: "save_draft"; id: string; ordinal: number; answer: Answer | null; elapsed_ms: number }
