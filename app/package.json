@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "tauri": "tauri",
     "desktop": "tauri dev",
-    "check": "tsc -b && vitest run && cargo test --manifest-path src-tauri/Cargo.toml && cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings",
+    "check": "tsc -b && vitest run && cargo fmt --manifest-path src-tauri/Cargo.toml --check && cargo test --manifest-path src-tauri/Cargo.toml && cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings",
     "test:browser": "node scripts/check-i18n.mjs"
   },
   "dependencies": {

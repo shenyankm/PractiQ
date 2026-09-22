@@ -116,7 +116,9 @@ impl Store {
             ));
         }
         let manifest: Value = serde_json::from_slice(&manifest).map_err(err)?;
-        if manifest["format"] == "practiq-question-bank" { return Err(crate::language::error("LOCAL_USE_BANK_IMPORT", json!({}))); }
+        if manifest["format"] == "practiq-question-bank" {
+            return Err(crate::language::error("LOCAL_USE_BANK_IMPORT", json!({})));
+        }
         if manifest["format"] != "practiq-backup" || manifest["version"] != 3 {
             return Err(crate::language::error(
                 "LOCAL_BACKUP_VERSION_UNSUPPORTED",

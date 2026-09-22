@@ -26,7 +26,9 @@ use tauri_plugin_dialog::DialogExt;
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 enum Request {
     PickImport,
-    ExportBank { bank_id: String },
+    ExportBank {
+        bank_id: String,
+    },
     Import {
         ticket: String,
         bank_id: Option<String>,
