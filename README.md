@@ -10,7 +10,7 @@ Turn documents into question banks, then practise and take mock exams on your Ma
 
 PractiQ combines an offline desktop practice app with a self-hosted AI service. Import an existing PractiQ bank ZIP without model access, or configure a model supporting text and image inputs to extract questions from documents. Build tests across question banks, review your answers, and request AI scoring for supported short-answer questions.
 
-## Who it is for and what it solves
+## 🎯 Who it is for and what it solves
 
 - **Students and independent learners**: turn your papers, handouts, and question lists into reusable banks, then revisit mistakes and bookmarks.
 - **Teachers and material organizers**: review questions and distribute a question-bank ZIP so recipients can practise offline.
@@ -18,7 +18,7 @@ PractiQ combines an offline desktop practice app with a self-hosted AI service. 
 
 PractiQ focuses on your materials, reviewable question banks, and local practice and mock exams. It does not include courses, a public question-bank marketplace, accounts, cloud sync, or online collaboration. Question files can be shared; each person's answers and scores stay on their device. Parsing extracts supplied answers without solving unanswered questions.
 
-## Try it without a model
+## 🚀 Try it without a model
 
 First follow [Run the desktop app](#run-the-desktop-app). If you already have the app, start at step 1:
 
@@ -29,7 +29,7 @@ First follow [Run the desktop app](#run-the-desktop-app). If you already have th
 
 This is a hand-written walkthrough sample, not a customer case study or a model evaluation. No API key is needed; model calls require an explicit parsing or AI grading action. Try the [composite question sample](app/fixtures/composite.zip) for reading comprehension, word-bank, and cloze questions.
 
-### Sharing question files
+### 📦 Sharing question files
 
 Choose **Export bank ZIP** in a bank card's menu and send the package to a classmate. Recipients import the ZIP with its images and keep their own practice records. Packages preserve answers, explanations, materials, and review flags, but exclude bookmarks, mistakes, personal answers, and scores. Missing or damaged images prevent export; existing destination files are never overwritten.
 
@@ -37,7 +37,7 @@ Choose **Export bank ZIP** in a bank card's menu and send the package to a class
 
 See the [first-release draft](docs/first-release.md) for scope, concise release notes, and outstanding release checks.
 
-## Practise with your own materials
+## 📚 Practise with your own materials
 
 The desktop app supports the following tasks:
 
@@ -55,7 +55,7 @@ Practice, tests, local objective scoring, and manual scoring work offline. Docum
 
 The desktop supports Simplified Chinese and English. Click **Language** above Settings to choose a language in the menu above the entry. On first launch, Chinese system languages select Simplified Chinese; other languages select English. Your choice is stored locally and included in backups. Switching does not call a model or translate imported questions and answers.
 
-## Import documents and review results
+## 📄 Import documents and review results
 
 Open **Import** in the desktop sidebar. Choose a PractiQ bank `.zip` file for offline import, or select a source document and start parsing. Review the extracted questions, images, and warnings before creating a bank or appending to one.
 
@@ -71,7 +71,7 @@ Export Word files to PDF before importing. Export Excel question lists to CSV, o
 
 Parsing preserves source answers, explanations, passages, available score values, rubrics, and image references. It flags missing content instead of generating answers. You can pause tasks, resume them, retry eligible failed units, or accept partial results. Extracted content still needs review.
 
-## Take a test and review scores
+## 📝 Take a test and review scores
 
 Choose **Start practice** from a question bank, then select practice, an untimed self-test, or a timed mock exam. For tests, select questions and preview the paper. Tests default to 100 points; you can change the total, allocate points by type, or edit each question's value. Values use 0.01-point increments and must sum to the total.
 
@@ -102,7 +102,7 @@ make app-build AI_PYTHON=/path/to/python3.14
 
 The app stores practice data locally and API keys in macOS Keychain. Backups exclude keys and AI task state. See the [desktop guide](app/README.md) for storage, restore, packaging, and validation details. Windows CI checks do not establish Windows runtime support.
 
-## Run the AI service independently
+## ⚙️ Run the AI service independently
 
 For API integration, use the same Python 3.14+ interpreter, uv, a dedicated SQLite directory, and a model supporting text and image inputs. Copy the configuration template once without overwriting existing settings:
 
@@ -120,7 +120,7 @@ make server-dev AI_PYTHON=/path/to/python3.14
 
 The service listens on `127.0.0.1:8090` and runs one process per database. It uses FastAPI, LangGraph, and SQLite, with local files or private Alibaba Cloud Object Storage Service (OSS) storage. Use authenticated APIs for uploads, document tasks, artifacts, and explicit subjective grading.
 
-## Find the detailed guides
+## 📖 Find the detailed guides
 
 Choose the guide for your task:
 

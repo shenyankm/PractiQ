@@ -26,7 +26,7 @@ This draft describes the current repository's first-release scope. It does not e
 
 ## 演示与使用场景 / Walkthrough and use cases
 
-从 [中文体验步骤](../README.zh-CN.md#先体验无需配置模型)或 [English walkthrough](../README.md#try-it-without-a-model) 开始，无需模型凭据即可用仓库样例导入题库并练习。
+从 [中文体验步骤](../README.zh-CN.md#-先体验无需配置模型)或 [English walkthrough](../README.md#-try-it-without-a-model) 开始，无需模型凭据即可用仓库样例导入题库并练习。
 
 可演示两个场景：学生导入自己的复习资料并按错题重练；资料整理者分发已有题库 ZIP 与图片，让接收者各自离线练习。这些是可复现的使用场景，不是已收集的真实用户证言。文件共享不包含在线社区、分享链接；支持桌面单库 ZIP 导出；整库备份包含个人记录，不适合作为纯题目分发包。
 
