@@ -35,7 +35,7 @@ beforeEach(() => {
       case "save_language": if (failSave) throw { code: "LOCAL_LANGUAGE_INVALID", message: "语言设置无效" }; saved = request.locale!; return saved;
       case "banks": case "sessions": return [];
       case "questions_page": return {items:[],total:0,offset:0} as never;
-      case "questions": return [];
+      case "question_stats": return {count:0,types:{}};
       case "info": return { version: "test", dataDirectory: "/test" };
       case "settings": return { config: { base_url: null, model_id: null, oss_url: null }, hasApiKey: false };
       default: throw new Error(`Unexpected command: ${request.type}`);

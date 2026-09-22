@@ -1,9 +1,6 @@
 import { message, renderMessage, type Message, t, useI18n } from "./i18n";
-import { QuestionPreview } from "./QuestionPreview";
-import { StudySetup } from "./StudySetup";
-import { ImportPage } from "./ImportPage";
-import logo from "../../server/assets/logo/practiq-octopus-a5.png";
-import { useCallback, useEffect, useRef, useState, type ComponentProps } from "react";
+import logo from "../src-tauri/icons/icon.png";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState, type ComponentProps } from "react";
 import { Tooltip } from "radix-ui";
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -35,6 +32,7 @@ import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription, EmptyCont
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import {
   api,
+  blankQuestion,
   date,
   duration,
   errorMessage,
@@ -85,11 +83,16 @@ import {
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
 import { Toaster } from "@/components/ui/sonner";
-import { Content } from "./Content";
-import { AnswerDisplay, AnswerInput } from "./AnswerInput";
-import { QuestionEditor, blankQuestion } from "./QuestionEditor";
-import { Practice } from "./Practice";
-import { ConnectionSettingsPanel } from "./ConnectionSettings";
+
+const QuestionPreview = lazy(() => import("./QuestionPreview").then(module => ({default:module.QuestionPreview})));
+const StudySetup = lazy(() => import("./StudySetup").then(module => ({default:module.StudySetup})));
+const ImportPage = lazy(() => import("./ImportPage").then(module => ({default:module.ImportPage})));
+const Content = lazy(() => import("./Content").then(module => ({default:module.Content})));
+const AnswerDisplay = lazy(() => import("./AnswerInput").then(module => ({default:module.AnswerDisplay})));
+const AnswerInput = lazy(() => import("./AnswerInput").then(module => ({default:module.AnswerInput})));
+const QuestionEditor = lazy(() => import("./QuestionEditor").then(module => ({default:module.QuestionEditor})));
+const Practice = lazy(() => import("./Practice").then(module => ({default:module.Practice})));
+const ConnectionSettingsPanel = lazy(() => import("./ConnectionSettings").then(module => ({default:module.ConnectionSettingsPanel})));
 
 type Page =
   | "banks"
@@ -189,14 +192,16 @@ export default function App() {
         setBusy(false);
       });
   }, []);
-  const reload = async () => {
+  const reloadBanks = async () => {
     setBanks(await api<Bank[]>({ type: "banks" }));
-    setSessions(await api<SessionSummary[]>({ type: "sessions" }));
   };
   useEffect(() => {
     run(async () => {
-      await reload();
-      setInfo(await api({ type: "info" }));
+      await Promise.all([
+        reloadBanks(),
+        api<SessionSummary[]>({ type: "sessions" }).then(setSessions),
+        api<{dataDirectory:string;version:string}>({ type: "info" }).then(setInfo),
+      ]);
     });
   }, [run]);
   useEffect(() => { setOffset(0); }, [page, bank, search, mode]);
@@ -260,7 +265,7 @@ export default function App() {
       setDetail(null);
       setSearch("");
       setMode("");
-      await reload();
+      if (next === "banks" || next === "history") setSessions(await api<SessionSummary[]>({type:"sessions"}));
     });
   }
   function openSession(id: string) {
@@ -274,7 +279,6 @@ export default function App() {
   async function refreshQuestions() {
     const result = await api<QuestionPage>({ type: "questions_page", ...query, limit: 30, offset });
     setQuestions(result.items); setQuestionTotal(result.total); setOffset(result.offset);
-    await reload();
   }
   async function pickImport() {
     const p = await api<Preview | null>({ type: "pick_import" });
@@ -298,6 +302,7 @@ export default function App() {
               : page === "practice"
                 ? t("专注练习")
                 : page === "model-settings" ? t("AI 模型") : t("设置");
+  const loadingView = <p role="status" className="p-4 text-sm text-muted-foreground">{t("加载中…")}</p>;
   const listPage = ["questions", "wrong", "favorite"].includes(page);
   const languageError = language.error != null && <div role="alert" className="text-xs text-destructive"><p>{t(language.error.key)}</p><p>{errorMessage(language.error.cause)}</p><Button size="sm" variant="outline" onClick={() => void language.reload()}>{t("重试")}</Button></div>;
   return (
@@ -447,6 +452,7 @@ export default function App() {
           </div>
         </header>
         <div className="flex-1 overflow-y-auto p-8">
+          <Suspense fallback={loadingView}>
           {page === "banks" && (
             <div className="space-y-5">
               {unfinished && <Card className="border-primary/30 bg-primary/5"><CardContent className="flex items-center justify-between gap-4"><div className="min-w-0"><h2 className="font-semibold">{t("继续未完成的练习")}</h2><p className="mt-1 break-words text-sm text-muted-foreground">{t("{0} · 已提交 {1}/{2} 题", { 0: unfinished.title, 1: unfinished.answered, 2: unfinished.count })}</p></div><Button disabled={busy} onClick={() => openSession(unfinished.id)}><Play />{t("继续练习")}</Button></CardContent></Card>}
@@ -477,7 +483,7 @@ export default function App() {
                               description: message("题库及其中题目将被删除，已有练习记录和内容快照会保留。"),
                               action: async () => {
                                 await api({ type: "delete_bank", id: b.id });
-                                await reload();
+                                await reloadBanks();
                               },
                             })}>
                               <Trash2 className="size-4" />{t("删除题库")}</DropdownMenuItem>
@@ -613,6 +619,7 @@ export default function App() {
                                   id: row.id,
                                 });
                                 await refreshQuestions();
+                                await reloadBanks();
                               },
                             })
                           }
@@ -721,7 +728,6 @@ export default function App() {
                 returnToImport={!!settingsReturn}
                 onSaved={async () => {
                   if (settingsReturn) {
-                    await reload();
                     setBank(settingsReturn.bank);
                     setSettingsReturn(null);
                     setPage("import");
@@ -769,7 +775,8 @@ export default function App() {
                             setSession(null);
                             setDetail(null);
                             setBank(null);
-                            await reload();
+                            await reloadBanks();
+                            setSessions(await api<SessionSummary[]>({type:"sessions"}));
                             toast.success(
                               message("恢复完成。原数据副本：{0}", { 0: result.recoveryPath }),
                             );
@@ -791,6 +798,7 @@ export default function App() {
               </Card>
             </div>
           )}
+          </Suspense>
         </div>
       </main>
       <Dialog open={mergeOpen} onOpenChange={(open) => { if (!busy && !open) closeMerge(); }}>
@@ -822,7 +830,7 @@ export default function App() {
             <Button disabled={busy || mergeSelection.length < 2 || !mergeTitle.trim()} onClick={() => run(async () => {
               await api({ type: "merge_banks", bank_ids: mergeSelection, title: mergeTitle.trim() });
               closeMerge();
-              await reload();
+              await reloadBanks();
               toast.success(message("合并完成"));
             })}>{t("确认合并")}</Button>
           </DialogFooter>
@@ -841,7 +849,7 @@ export default function App() {
               <DialogDescription>{t("已识别 {0} 道题目，其中 {1} 道待复核，仍可直接练习。", { 0: preview.count, 1: preview.reviewCount })}</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
-              <QuestionPreview questions={preview.questions ?? []} groups={preview.groups} visuals={preview.visuals} />
+              <Suspense fallback={loadingView}><QuestionPreview questions={preview.questions ?? []} groups={preview.groups} visuals={preview.visuals} /></Suspense>
               <Label htmlFor="import-bank">{t("导入到")}</Label>
               <Select value={importBank} onValueChange={setImportBank}>
                 <SelectTrigger id="import-bank" className="w-full">
@@ -906,7 +914,7 @@ export default function App() {
                       title: importTitle,
                     });
                     setPreview(null);
-                    await reload();
+                    await reloadBanks();
                     setBank(result.bankId);
                     setSearch("");
                     setMode("");
@@ -962,7 +970,7 @@ export default function App() {
                   run(async () => {
                     await api({ type: "save_bank", ...bankEditor });
                     setBankEditor(null);
-                    await reload();
+                    await reloadBanks();
                   })
                 }
               >{t("保存题库")}</Button>
@@ -971,7 +979,7 @@ export default function App() {
         </Dialog>
       )}
       {editor && bank && (
-        <QuestionEditor
+        <Suspense fallback={loadingView}><QuestionEditor
           initial={editor.question}
           initialChildren={editor.children}
           busy={busy}
@@ -986,10 +994,11 @@ export default function App() {
               });
               setEditor(null);
               await refreshQuestions();
+              await reloadBanks();
               toast.success(message("题目已保存，历史练习不受影响"));
             })
           }
-        />
+        /></Suspense>
       )}
       {detail && (
         <Dialog
@@ -1002,6 +1011,7 @@ export default function App() {
             <DialogHeader>
               <DialogTitle>{t("题目详情")}</DialogTitle>
             </DialogHeader>
+            <Suspense fallback={loadingView}>
             {!!detail.children?.length && <QuestionPreview questions={[detail.question,...detail.children.map(c=>c.question)]} groups={Array.from(new Map([detail,...detail.children].flatMap(r=>r.groups).map(g=>[g.id,g])).values())} visuals={Array.from(new Map([detail,...detail.children].flatMap(r=>r.visuals).map(v=>[v.id,v])).values())}/>}
             {!detail.children?.length && <Content snapshot={detail} source />}
             <AnswerInput
@@ -1022,10 +1032,11 @@ export default function App() {
                 {detail.question.analysis || t("原文未提供解析。")}
               </p>
             </div>
+            </Suspense>
           </DialogContent>
         </Dialog>
       )}
-      {practiceSetup && <StudySetup banks={banks} initialBank={practiceSetup.bank} initialFilter={filter} initialMode={mode} initialSearch={search} busy={busy} run={run} onClose={()=>setPracticeSetup(null)} onStart={async s=>{await flushRef.current();setSession(s);setPracticeSetup(null);setPage("practice");}}/>}
+      {practiceSetup && <Suspense fallback={loadingView}><StudySetup banks={banks} initialBank={practiceSetup.bank} initialFilter={filter} initialMode={mode} initialSearch={search} busy={busy} run={run} onClose={()=>setPracticeSetup(null)} onStart={async s=>{await flushRef.current();setSession(s);setPracticeSetup(null);setPage("practice");}}/></Suspense>}
       <AlertDialog
         open={!!confirm}
         onOpenChange={(v) => {

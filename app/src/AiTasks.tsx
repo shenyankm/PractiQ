@@ -223,7 +223,7 @@ export function AiTasks({
     setOperations(o);
     setBatches(b);
   }
-  async function refresh() {
+  async function refreshList() {
     const r = await ai<{ items: Summary[]; hasMore: boolean }>({
       type: "list",
       offset,
@@ -232,7 +232,9 @@ export function AiTasks({
     setMore(r.hasMore);
     setError(null);
     setRevision((n) => n + 1);
-    await localRefresh();
+  }
+  async function refresh() {
+    try { await refreshList(); } finally { await localRefresh(); }
   }
   useEffect(() => {
     if (!modelsReady) return;
@@ -347,7 +349,7 @@ export function AiTasks({
         units: [],
       });
       setReview(null);
-      await refresh();
+      await refreshList();
     } finally {
       await localRefresh();
     }
@@ -357,7 +359,7 @@ export function AiTasks({
     setConfirmation(null);
     try {
       await ai<Batch>({ type: "run_batch", id: batch.id, titles });
-      await refresh();
+      await refreshList();
     } catch (e) {
       setError(e);
     } finally {
@@ -378,7 +380,7 @@ export function AiTasks({
                   type: "pick_document",
                 });
                 if (created) {
-                  await refresh();
+                  await refreshList();
                   setSelected(created.threadId);
                 }
               } finally {
@@ -413,7 +415,7 @@ export function AiTasks({
                   run(async () => {
                     try {
                       await ai({ type: "replay", request_id: o.id });
-                      await refresh();
+                      await refreshList();
                     } finally {
                       await localRefresh();
                     }

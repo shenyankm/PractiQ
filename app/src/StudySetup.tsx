@@ -1,6 +1,6 @@
 import { message, MessageError, t, useI18n } from "./i18n";
 import { useEffect, useState } from "react";
-import { api, errorMessage, type Bank, type Session, type SessionKind, type QuestionRow, type PaperPreview, isComposite } from "./api";
+import { api, errorMessage, type Bank, type Session, type SessionKind, type QuestionRow, type QuestionPage, type QuestionStats, type PaperPreview } from "./api";
 import { cents, questionType, types } from "./paper";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -10,31 +10,51 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 
 export function StudySetup({banks, initialBank, initialFilter, initialMode="", initialSearch="", onClose, onStart, run, busy}: {banks:Bank[];initialBank:string|null;initialFilter:string;initialMode?:string;initialSearch?:string;onClose:()=>void;onStart:(s:Session)=>Promise<void>;run:(job:()=>Promise<void>)=>void;busy:boolean}) {
   useI18n();
-  const [bankIds, setBanks] = useState<string[]>(initialBank ? [initialBank] : banks.filter(b => b.count > 0).map(b => b.id));
+  const [bankIds, setBanks] = useState<string[]>(() => initialBank ? [initialBank] : banks.filter(b => b.count > 0).map(b => b.id));
   const [kind, setKind] = useState<SessionKind>("practice");
   const [mode, setMode] = useState(initialMode), [filter, setFilter] = useState(initialFilter), [search, setSearch] = useState(initialSearch);
   const [rows, setRows] = useState<QuestionRow[]>([]), [loadedQuery, setLoadedQuery] = useState("");
+  const [stats, setStats] = useState<QuestionStats>({ count: 0, types: {} });
+  const [offset, setOffset] = useState(0), [rootCount, setRootCount] = useState(0), [loadedPage, setLoadedPage] = useState("");
   const [error, setError] = useState<unknown>(null);
   const [count, setCount] = useState(20), [minutes, setMinutes] = useState(60), [random, setRandom] = useState(false);
   const [selection, setSelection] = useState("count"), [selected, setSelected] = useState<string[]>([]), [quotas, setQuotas] = useState<Record<string,number>>({});
   const [paper, setPaper] = useState<PaperPreview | null>(null);
   const [preview, setPreview] = useState<QuestionRow[]>([]), [scores, setScores] = useState<string[]>([]), [total, setTotal] = useState("100"), [budgets, setBudgets] = useState<Record<string,string>>({});
   const query = JSON.stringify({bank_ids: bankIds, search, mode, filter});
-  const loading = loadedQuery !== query;
+  const pageQuery = JSON.stringify({ query, offset });
+  const pageLoading = selection === "manual" && loadedPage !== pageQuery;
+  const loading = loadedQuery !== query || pageLoading;
   useEffect(() => {
     let active = true;
-    setError(null); setPreview([]); setPaper(null); setSelected([]);
+    setError(null); setPreview([]); setPaper(null); setSelected([]); setOffset(0);
     const values = JSON.parse(query);
     if (!values.bank_ids.length) {
-      setRows([]); setCount(0); setLoadedQuery(query);
+      setRows([]); setStats({ count: 0, types: {} }); setCount(0); setLoadedQuery(query);
       return;
     }
-    void api<QuestionRow[]>({type:"questions", bank_id:null, ...values})
-      .then(q => { if (active) { setRows(q); setCount(Math.min(20, q.reduce((n,r)=>n+(isComposite(r.question) ? (r.children || []).filter(c=>!isComposite(c.question)).length : 1),0))); } })
-      .catch(e => { if (active) { setRows([]); setError(e); } })
-      .finally(() => { if (active) setLoadedQuery(query); });
-    return () => { active = false; };
+    const timer = setTimeout(() => {
+      void api<QuestionStats>({type:"question_stats", bank_id:null, ...values})
+        .then(result => { if (active) { setStats(result); setCount(Math.min(20, result.count)); } })
+        .catch(e => { if (active) { setStats({ count: 0, types: {} }); setError(e); } })
+        .finally(() => { if (active) setLoadedQuery(query); });
+    }, 150);
+    return () => { active = false; clearTimeout(timer); };
   }, [query]);
+  useEffect(() => {
+    if (selection !== "manual") return;
+    let active = true;
+    setRows([]);
+    const values = JSON.parse(query);
+    if (!values.bank_ids.length) { setRootCount(0); setLoadedPage(pageQuery); return; }
+    const timer = setTimeout(() => {
+      void api<QuestionPage>({type:"questions_page", bank_id:null, ...values, limit:30, offset})
+        .then(result => { if (active) { setRows(result.items); setRootCount(result.total); setOffset(result.offset); } })
+        .catch(e => { if (active) { setRootCount(0); setError(e); } })
+        .finally(() => { if (active) setLoadedPage(pageQuery); });
+    }, 150);
+    return () => { active = false; clearTimeout(timer); };
+  }, [query, pageQuery, selection, offset]);
     const perform = (job:()=>Promise<void>) => run(async()=>{setError(null);try{await job();}catch(e){setError(e);}});
   const invalidate = () => { setPreview([]); setPaper(null); };
   async function generate(withBudgets = false) {
@@ -50,7 +70,7 @@ export function StudySetup({banks, initialBank, initialFilter, initialMode="", i
       await onStart(session);
     });
   }
-  const available=rows.reduce((n,r)=>n+(isComposite(r.question) ? (r.children || []).filter(c=>!isComposite(c.question)).length : 1),0);
+  const available = stats.count;
   const chosen = banks.filter(b => bankIds.includes(b.id));
   const selectedCount = selection === "count" ? count : selection === "manual" ? selected.length : Object.values(quotas).reduce((a, b) => a + b, 0);
   return <Dialog open onOpenChange={v => { if (!v && !busy) onClose(); }}>
@@ -76,8 +96,13 @@ export function StudySetup({banks, initialBank, initialFilter, initialMode="", i
             </div>
             <label className="grid gap-2">{t("关键词")}<Input aria-label={t("搜索题目")} placeholder={t("搜索题干或关键词")} value={search} onChange={e => { setSearch(e.target.value); invalidate(); }}/></label>
             <label className="grid gap-2">{t("选题方式")}<NativeSelect disabled={busy} className="w-full" value={selection} onChange={e => { setSelection(e.target.value); invalidate(); }}><NativeSelectOption value="count">{t("总题数")}</NativeSelectOption><NativeSelectOption value="quota">{t("按题型数量")}</NativeSelectOption><NativeSelectOption value="manual">{t("手动选择")}</NativeSelectOption></NativeSelect></label>
-            {selection === "quota" && <div className="grid grid-cols-3 gap-3">{Object.entries(types()).map(([k, v]) => <label className="grid gap-2" key={k}>{t("{0}（可用 {1}）", { 0: v, 1: rows.filter(q => questionType(q.question) === k).length })}<Input aria-label={t(["reading","word_bank","cloze"].includes(k) ? "{0}组数" : "{0}题数", { 0: v })} type="number" min={0} value={quotas[k] || 0} onChange={e => { setQuotas({...quotas, [k]:Number(e.target.value)}); invalidate(); }}/></label>)}</div>}
-            {selection === "manual" && <div className="space-y-2">{rows.map(q => <label key={q.id} className="flex items-start gap-2 rounded-md border p-3"><Checkbox className="mt-0.5" disabled={busy} checked={selected.includes(q.id)} onCheckedChange={checked => { setSelected(checked === true ? [...selected, q.id] : selected.filter(id => id !== q.id)); invalidate(); }}/>{q.question.stem || t("题干缺失")}</label>)}</div>}
+            {selection === "quota" && <div className="grid grid-cols-3 gap-3">{Object.entries(types()).map(([k, v]) => <label className="grid gap-2" key={k}>{t("{0}（可用 {1}）", { 0: v, 1: stats.types[k] || 0 })}<Input aria-label={t(["reading","word_bank","cloze"].includes(k) ? "{0}组数" : "{0}题数", { 0: v })} type="number" min={0} value={quotas[k] || 0} onChange={e => { setQuotas({...quotas, [k]:Number(e.target.value)}); invalidate(); }}/></label>)}</div>}
+            {selection === "manual" && <div className="space-y-2">{rows.map(q => <label key={q.id} className="flex items-start gap-2 rounded-md border p-3"><Checkbox className="mt-0.5" disabled={busy || loading} checked={selected.includes(q.id)} onCheckedChange={checked => { setSelected(checked === true ? [...selected, q.id] : selected.filter(id => id !== q.id)); invalidate(); }}/>{q.question.stem || t("题干缺失")}</label>)}
+              {rootCount > 30 && <div className="flex items-center justify-between gap-3">
+                <span>{t("第 {0}–{1} 题", { 0: offset + 1, 1: Math.min(offset + 30, rootCount) })}</span>
+                <div className="flex gap-2"><Button variant="outline" disabled={busy || pageLoading || offset === 0} onClick={() => setOffset(value => Math.max(0, value - 30))}>{t("上一页")}</Button><Button variant="outline" disabled={busy || pageLoading || offset + 30 >= rootCount} onClick={() => setOffset(value => value + 30)}>{t("下一页")}</Button></div>
+              </div>}
+            </div>}
           </div>
         </details>
         {kind !== "practice" && !!preview.length && <section className="space-y-4 rounded-xl border p-4"><h3 className="font-semibold">{t("选题与配分预览 · {0} 题", { 0: preview.length })}</h3><p className="text-muted-foreground">{t("材料题按子题计数，原卷分值仅供参考。")}</p>
@@ -87,9 +112,9 @@ export function StudySetup({banks, initialBank, initialFilter, initialMode="", i
       </fieldset>
       <div className="shrink-0 space-y-3 border-t pt-3">
         <p role="status" className="text-sm">{!bankIds.length ? t("请选择至少一个题库") : loading ? t("正在加载题目…") : <>{t("已选 {0} · 可用 {1} 题 · 本次 {2} 题{3}{4}{5}", { 0: chosen.length === 1 ? chosen[0].title : t("{0} 个题库", { 0: chosen.length }), 1: available, 2: selectedCount, 3: filter && ` · ${{wrong:t("错题"), favorite:t("收藏"), unattempted:t("未做题")}[filter]}`, 4: mode && ` · ${types()[mode] || t("选择题")}`, 5: search && t(" · 关键词：{0}", { 0: search }) })}</>}</p>
-        {!!filter && rows.some(r=>isComposite(r.question)) && <p className="text-sm text-muted-foreground">{t("命中子题时纳入完整题组，包含组内其他子题。")}</p>}
+        {!!filter && ["reading", "word_bank", "cloze"].some(type => stats.types[type]) && <p className="text-sm text-muted-foreground">{t("命中子题时纳入完整题组，包含组内其他子题。")}</p>}
         {error != null && <p role="alert" className="text-sm text-destructive">{errorMessage(error)}</p>}
-        <div className="flex justify-end gap-2"><Button variant="outline" disabled={busy} onClick={onClose}>{t("取消")}</Button>{kind !== "practice" && <Button variant={preview.length ? "outline" : "default"} disabled={busy || loading || !rows.length || !bankIds.length} onClick={() => perform(async () => { await generate(); })}>{preview.length ? t("重新生成预览") : t("预览题目与配分")}</Button>}{(kind === "practice" || !!preview.length) && <Button disabled={busy || loading || !rows.length || !bankIds.length} onClick={start}>{kind === "practice" ? t("立即开始") : t("开始考试")}</Button>}</div>
+        <div className="flex justify-end gap-2"><Button variant="outline" disabled={busy} onClick={onClose}>{t("取消")}</Button>{kind !== "practice" && <Button variant={preview.length ? "outline" : "default"} disabled={busy || loading || !available || !bankIds.length} onClick={() => perform(async () => { await generate(); })}>{preview.length ? t("重新生成预览") : t("预览题目与配分")}</Button>}{(kind === "practice" || !!preview.length) && <Button disabled={busy || loading || !available || !bankIds.length} onClick={start}>{kind === "practice" ? t("立即开始") : t("开始考试")}</Button>}</div>
       </div>
     </DialogContent>
   </Dialog>;

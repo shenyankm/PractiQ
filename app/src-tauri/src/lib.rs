@@ -61,6 +61,14 @@ enum Request {
         limit: usize,
         offset: usize,
     },
+    QuestionStats {
+        #[serde(default)]
+        bank_ids: Vec<String>,
+        bank_id: Option<String>,
+        search: String,
+        mode: String,
+        filter: String,
+    },
     SaveQuestionTree {
         bank_id: String,
         root_id: Option<String>,
@@ -227,6 +235,7 @@ async fn request(
             Request::DeleteBank{id}=>store.delete_bank(&id),
             Request::Questions{bank_id,bank_ids,search,mode,filter}=>store.questions_multi(bank_id.as_deref(),&bank_ids,&search,&mode,&filter),
             Request::QuestionsPage{bank_id,bank_ids,search,mode,filter,limit,offset}=>store.query_questions(bank_id.as_deref(),&bank_ids,(&search,&mode,&filter),Some((limit,offset))),
+            Request::QuestionStats{bank_id,bank_ids,search,mode,filter}=>store.question_stats(bank_id.as_deref(),&bank_ids,(&search,&mode,&filter)),
             Request::SaveQuestionTree{bank_id,root_id,questions}=>store.save_question_tree(&bank_id,root_id.as_deref(),questions),
             Request::DeleteQuestion{id}=>store.delete_question(&id),
             Request::Favorite{id,value}=>store.favorite(&id,value),

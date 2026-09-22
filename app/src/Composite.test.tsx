@@ -2,13 +2,31 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { QuestionPreview } from "./QuestionPreview";
+import { QuestionPreview, indexPreviewQuestions } from "./QuestionPreview";
 import { AnswerInput } from "./AnswerInput";
 import { QuestionEditor } from "./QuestionEditor";
 import type { Question } from "./api";
 import fixture from "../fixtures/composite.json";
 afterEach(cleanup);
 const questions=fixture.questions as Question[];
+it("indexes large nested previews once and keeps orphan and unidentified roots distinct", () => {
+  let reads = 0;
+  const nodes = Array.from({ length: 5000 }, (_, i) => ({
+    ...questions[1],
+    get id() { reads++; return `q${i}`; },
+    parentId: i % 5 ? `q${i - i % 5}` : null,
+  }));
+  const index = indexPreviewQuestions(nodes);
+  expect(index.roots).toHaveLength(1000);
+  expect(index.roots.slice(0, 20).flatMap(root => index.trees.get(root)!)).toHaveLength(100);
+  expect(reads).toBeLessThan(5000 * 10);
+  const orphan = { ...questions[1], id: "orphan", parentId: "missing" };
+  const anonymous = { ...questions[1], id: undefined, parentId: undefined };
+  const cycle = [{ ...orphan, id: "a", parentId: "b" }, { ...orphan, id: "b", parentId: "a" }];
+  const fragments = indexPreviewQuestions([orphan, anonymous, ...cycle]);
+  expect(fragments.roots).toEqual([orphan, anonymous]);
+  expect(fragments.trees.get(anonymous)?.[0].index).toBe(1);
+});
 it("previews complete nested groups with their shared option pool",()=>{
   render(<QuestionPreview questions={questions} groups={fixture.groups}/>);
   expect(screen.getByText("Shared article: seasons change.")).toBeTruthy();
@@ -29,8 +47,13 @@ it("saves an existing composite tree without losing blank IDs or child order",as
   const parent=questions.find(q=>q.id==="words")!;
   const children=questions.filter(q=>q.parentId===parent.id);
   const save=vi.fn();
+  const clone = vi.spyOn(globalThis, "structuredClone");
   render(<QuestionEditor initial={parent} initialChildren={children} busy={false} onClose={()=>{}} onSave={save}/>);
+  const initialClones = clone.mock.calls.length;
   await userEvent.click(screen.getByRole("checkbox",{name:"允许重复选词"}));
+  await userEvent.type(screen.getByLabelText("题干（支持 Markdown 和公式）"), " updated");
+  expect(clone).toHaveBeenCalledTimes(initialClones);
+  clone.mockRestore();
   await userEvent.click(screen.getByRole("button",{name:"保存题目"}));
   expect(save).toHaveBeenCalledWith(expect.objectContaining({allowReuse:true,passage:parent.passage}),children);
 });
