@@ -375,11 +375,20 @@ impl Store {
     }
     pub fn banks(&self) -> Result<Value> {
         let db = self.connect()?;
-        let mut s=db.prepare("SELECT b.id,b.title,b.description,b.created_at,COUNT(q.id) FROM banks b LEFT JOIN questions q ON q.bank_id=b.id AND (q.mode IS NULL OR q.mode NOT IN ('reading','word_bank','cloze')) GROUP BY b.id ORDER BY b.created_at DESC").map_err(err)?;
-        let rows=s.query_map([],|r|Ok(json!({"id":r.get::<_,String>(0)?,"title":r.get::<_,String>(1)?,"description":r.get::<_,String>(2)?,"createdAt":r.get::<_,i64>(3)?,"count":r.get::<_,i64>(4)?}))).map_err(err)?;
-        Ok(json!(rows
-            .collect::<std::result::Result<Vec<_>, _>>()
-            .map_err(err)?))
+        let mut stmt = db.prepare("SELECT b.id,b.title,COUNT(q.id) FROM banks b LEFT JOIN questions q ON q.bank_id=b.id AND (q.mode IS NULL OR q.mode NOT IN ('reading','word_bank','cloze')) GROUP BY b.id ORDER BY b.created_at DESC,b.id DESC").map_err(err)?;
+        let rows = stmt.query_map([], |r| Ok(json!({"id":r.get::<_,String>(0)?,"title":r.get::<_,String>(1)?,"count":r.get::<_,i64>(2)?}))).map_err(err)?.collect::<std::result::Result<Vec<_>,_>>().map_err(err)?;
+        Ok(json!(rows))
+    }
+    pub fn banks_page(&self, limit: usize, offset: usize) -> Result<Value> {
+        validate_page(limit, offset)?;
+        let db = self.connect()?;
+        let total: usize = db
+            .query_row("SELECT COUNT(*) FROM banks", [], |r| r.get(0))
+            .map_err(err)?;
+        let offset = offset.min(total.saturating_sub(1) / limit * limit);
+        let mut stmt = db.prepare("WITH page AS (SELECT * FROM banks ORDER BY created_at DESC,id DESC LIMIT ?1 OFFSET ?2) SELECT b.id,b.title,b.description,b.created_at,COUNT(q.id) FROM page b LEFT JOIN questions q ON q.bank_id=b.id AND (q.mode IS NULL OR q.mode NOT IN ('reading','word_bank','cloze')) GROUP BY b.id ORDER BY b.created_at DESC,b.id DESC").map_err(err)?;
+        let items = stmt.query_map(params![limit,offset], |r| Ok(json!({"id":r.get::<_,String>(0)?,"title":r.get::<_,String>(1)?,"description":r.get::<_,String>(2)?,"createdAt":r.get::<_,i64>(3)?,"count":r.get::<_,i64>(4)?}))).map_err(err)?.collect::<std::result::Result<Vec<_>,_>>().map_err(err)?;
+        Ok(json!({"items":items,"total":total,"offset":offset}))
     }
     pub fn save_bank(
         &self,
@@ -660,7 +669,7 @@ impl Store {
         self.enrich_session(&db, &mut session)?;
         Ok(session)
     }
-    pub fn sessions(&self) -> Result<Value> {
+    fn expire_sessions(&self) -> Result<()> {
         let db = self.connect()?;
         let mut expired = db
             .prepare("SELECT id FROM sessions WHERE deadline_at<=?1 AND submitted_at IS NULL")
@@ -675,9 +684,22 @@ impl Store {
             self.expire_exam(&sid)?;
         }
 
-        let mut stmt=db.prepare("SELECT s.id,s.bank_title,s.created_at,s.finished_at,COUNT(*),SUM(a.submitted_at IS NOT NULL),SUM(CASE WHEN a.max_cents IS NOT NULL THEN a.earned_cents=a.max_cents ELSE a.result=1 END),SUM(CASE WHEN a.max_cents IS NOT NULL THEN a.earned_cents IS NOT NULL ELSE a.result IS NOT NULL END),SUM(a.skipped),SUM(a.elapsed_ms),SUM(a.grade_kind='self'),SUM(a.grade_kind='auto'),s.kind,s.submitted_at,SUM(a.max_cents),SUM(a.earned_cents),SUM(a.max_cents IS NOT NULL AND a.earned_cents IS NULL) FROM sessions s JOIN attempts a ON a.session_id=s.id GROUP BY s.id ORDER BY s.created_at DESC").map_err(err)?;
-        let rows=stmt.query_map([],|r|Ok(json!({"id":r.get::<_,String>(0)?,"title":r.get::<_,String>(1)?,"createdAt":r.get::<_,i64>(2)?,"finishedAt":r.get::<_,Option<i64>>(3)?,"count":r.get::<_,i64>(4)?,"answered":r.get::<_,i64>(5)?,"correct":r.get::<_,Option<i64>>(6)?.unwrap_or(0),"graded":r.get::<_,i64>(7)?,"skipped":r.get::<_,i64>(8)?,"elapsedMs":r.get::<_,i64>(9)?,"selfGraded":r.get::<_,i64>(10)?,"autoGraded":r.get::<_,i64>(11)?,"kind":r.get::<_,String>(12)?,"submittedAt":r.get::<_,Option<i64>>(13)?,"totalCents":r.get::<_,Option<i64>>(14)?,"earnedCents":r.get::<_,Option<i64>>(15)?,"pendingGrades":r.get::<_,i64>(16)?}))).map_err(err)?.collect::<std::result::Result<Vec<_>,_>>().map_err(err)?;
-        Ok(json!(rows))
+        Ok(())
+    }
+    pub fn unfinished_session(&self) -> Result<Value> {
+        self.expire_sessions()?;
+        let db = self.connect()?;
+        db.query_row("SELECT s.id,s.bank_title,COUNT(a.ordinal),SUM(a.submitted_at IS NOT NULL) FROM (SELECT * FROM sessions s WHERE finished_at IS NULL AND submitted_at IS NULL AND EXISTS(SELECT 1 FROM attempts a WHERE a.session_id=s.id) ORDER BY created_at DESC,id DESC LIMIT 1) s JOIN attempts a ON a.session_id=s.id GROUP BY s.id", [], |r| Ok(json!({"id":r.get::<_,String>(0)?,"title":r.get::<_,String>(1)?,"count":r.get::<_,i64>(2)?,"answered":r.get::<_,i64>(3)?}))).optional().map(|v| v.unwrap_or(Value::Null)).map_err(err)
+    }
+    pub fn sessions(&self, limit: usize, offset: usize) -> Result<Value> {
+        validate_page(limit, offset)?;
+        self.expire_sessions()?;
+        let db = self.connect()?;
+        let total: usize = db.query_row("SELECT COUNT(*) FROM sessions s WHERE EXISTS(SELECT 1 FROM attempts a WHERE a.session_id=s.id)", [], |r| r.get(0)).map_err(err)?;
+        let offset = offset.min(total.saturating_sub(1) / limit * limit);
+        let mut stmt=db.prepare("WITH page AS (SELECT * FROM sessions s WHERE EXISTS(SELECT 1 FROM attempts a WHERE a.session_id=s.id) ORDER BY created_at DESC,id DESC LIMIT ?1 OFFSET ?2) SELECT s.id,s.bank_title,s.created_at,s.finished_at,COUNT(*),SUM(a.submitted_at IS NOT NULL),SUM(CASE WHEN a.max_cents IS NOT NULL THEN a.earned_cents=a.max_cents ELSE a.result=1 END),SUM(CASE WHEN a.max_cents IS NOT NULL THEN a.earned_cents IS NOT NULL ELSE a.result IS NOT NULL END),SUM(a.skipped),SUM(a.elapsed_ms),SUM(a.grade_kind='self'),SUM(a.grade_kind='auto'),s.kind,s.submitted_at,SUM(a.max_cents),SUM(a.earned_cents),SUM(a.max_cents IS NOT NULL AND a.earned_cents IS NULL) FROM page s JOIN attempts a ON a.session_id=s.id GROUP BY s.id ORDER BY s.created_at DESC,s.id DESC").map_err(err)?;
+        let rows=stmt.query_map(params![limit,offset],|r|Ok(json!({"id":r.get::<_,String>(0)?,"title":r.get::<_,String>(1)?,"createdAt":r.get::<_,i64>(2)?,"finishedAt":r.get::<_,Option<i64>>(3)?,"count":r.get::<_,i64>(4)?,"answered":r.get::<_,i64>(5)?,"correct":r.get::<_,Option<i64>>(6)?.unwrap_or(0),"graded":r.get::<_,i64>(7)?,"skipped":r.get::<_,i64>(8)?,"elapsedMs":r.get::<_,i64>(9)?,"selfGraded":r.get::<_,i64>(10)?,"autoGraded":r.get::<_,i64>(11)?,"kind":r.get::<_,String>(12)?,"submittedAt":r.get::<_,Option<i64>>(13)?,"totalCents":r.get::<_,Option<i64>>(14)?,"earnedCents":r.get::<_,Option<i64>>(15)?,"pendingGrades":r.get::<_,i64>(16)?}))).map_err(err)?.collect::<std::result::Result<Vec<_>,_>>().map_err(err)?;
+        Ok(json!({"items":rows,"total":total,"offset":offset}))
     }
     pub fn save_attempt(
         &self,
@@ -889,4 +911,11 @@ pub(crate) fn image_signature(bytes: &[u8], media: &str) -> bool {
         "image/webp" => bytes.starts_with(b"RIFF") && bytes.get(8..12) == Some(b"WEBP"),
         _ => false,
     }
+}
+
+fn validate_page(limit: usize, offset: usize) -> Result<()> {
+    if !(1..=100).contains(&limit) || offset > i64::MAX as usize {
+        return Err(crate::language::error("LOCAL_FILTER_INVALID", json!({})));
+    }
+    Ok(())
 }

@@ -35,6 +35,10 @@ enum Request {
         title: String,
     },
     Banks,
+    BanksPage {
+        limit: usize,
+        offset: usize,
+    },
     SaveBank {
         id: Option<String>,
         title: String,
@@ -84,7 +88,11 @@ enum Request {
     Session {
         id: String,
     },
-    Sessions,
+    SessionsPage {
+        limit: usize,
+        offset: usize,
+    },
+    UnfinishedSession,
     PreviewPaper {
         request: paper::Preview,
     },
@@ -231,6 +239,7 @@ async fn request(
             Request::ExportBank{bank_id}=>store.export_bank(&bank_id,&selected.ok_or(language::error("LOCAL_SAVE_LOCATION_MISSING",json!({})))?),
             Request::Import{ticket,bank_id,title}=>store.import(&ticket,bank_id,&title),
             Request::Banks=>store.banks(),
+            Request::BanksPage{limit,offset}=>store.banks_page(limit,offset),
             Request::SaveBank{id,title,description}=>store.save_bank(id,&title,&description),
             Request::DeleteBank{id}=>store.delete_bank(&id),
             Request::Questions{bank_id,bank_ids,search,mode,filter}=>store.questions_multi(bank_id.as_deref(),&bank_ids,&search,&mode,&filter),
@@ -240,7 +249,8 @@ async fn request(
             Request::DeleteQuestion{id}=>store.delete_question(&id),
             Request::Favorite{id,value}=>store.favorite(&id,value),
             Request::Session{id}=>store.session(&id),
-            Request::Sessions=>store.sessions(),
+            Request::SessionsPage{limit,offset}=>store.sessions(limit,offset),
+            Request::UnfinishedSession=>store.unfinished_session(),
             Request::StartPaper{paper}=>store.start_paper(paper),
             Request::PreviewPaper{request}=>store.preview_paper(request),
             Request::SubmitPaper{id,submit_drafts}=>store.submit_paper(&id,submit_drafts),

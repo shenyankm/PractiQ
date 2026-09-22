@@ -76,11 +76,12 @@ export interface QuestionRow extends Snapshot {
   latestResult: boolean | null;
 }
 export interface QuestionPage { items: QuestionRow[]; total: number; offset: number }
-export interface Bank {
-  id: string;
-  title: string;
+export interface BankChoice { id: string; title: string; count: number }
+export interface BankPage { items: Bank[]; total: number; offset: number }
+export interface SessionPage { items: SessionSummary[]; total: number; offset: number }
+export type UnfinishedSession = Pick<SessionSummary, "id" | "title" | "count" | "answered">;
+export interface Bank extends BankChoice {
   description: string;
-  count: number;
   createdAt: number;
 }
 export interface Attempt {
@@ -157,6 +158,7 @@ export interface PaperPreview { questionIds: string[]; digest: string; questions
 export interface QuestionStats { count: number; types: Record<string, number> }
 export interface PaperSelection { bank_ids: string[]; search: string; mode: string; filter: string; selection: string; count: number; quotas: Record<string,number>; question_ids: string[]; random: boolean; total_cents: number; budgets?: Record<string,number> }
 type Request =
+  | { type: "banks_page" | "sessions_page"; limit: number; offset: number }
   | { type: "export_bank"; bank_id: string }
   | { type: "preview_paper"; request: PaperSelection }
   | { type: "save_question_tree"; bank_id: string; root_id: string | null; questions: Question[] }
@@ -178,7 +180,7 @@ type Request =
       type:
         | "pick_import"
         | "banks"
-        | "sessions"
+        | "unfinished_session"
         | "backup"
         | "restore"
         | "info";

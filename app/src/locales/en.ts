@@ -1,4 +1,9 @@
 export const en = {
+  "题库分页": "Bank pagination",
+  "练习记录分页": "History pagination",
+  "{0}–{1} / {2} 条": "{0}–{1} / {2} entries",
+  "刷新": "Refresh",
+
   "配置": "Configure",
   "管理模型配置与本地学习数据": "Manage model settings and local learning data",
   "用于文档解析与主观题评分": "For document parsing and written-answer grading",

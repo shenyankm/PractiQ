@@ -37,13 +37,15 @@ import {
   duration,
   errorMessage,
   modeNames,
-  type Bank,
+  type BankChoice,
+  type BankPage,
+  type SessionPage,
+  type UnfinishedSession,
   type Preview,
   type Question,
   type QuestionRow,
   type QuestionPage,
   type Session,
-  type SessionSummary,
 } from "./api";
 import { Button } from "@/components/ui/button";
 import {
@@ -122,11 +124,18 @@ export default function App() {
   const [languageOpen, setLanguageOpen] = useState(false);
   const languageTrigger = useRef<HTMLButtonElement>(null);
   const [page, setPage] = useState<Page>("banks");
-  const [banks, setBanks] = useState<Bank[]>([]);
+  const [banks, setBanks] = useState<BankChoice[]>([]);
   const [bank, setBank] = useState<string | null>(null);
   const [questions, setQuestions] = useState<QuestionRow[]>([]);
   const [questionTotal, setQuestionTotal] = useState(0);
-  const [sessions, setSessions] = useState<SessionSummary[]>([]);
+  const [bankPage, setBankPage] = useState<BankPage>({ items: [], total: 0, offset: 0 });
+  const [sessionPage, setSessionPage] = useState<SessionPage>({ items: [], total: 0, offset: 0 });
+  const [bankOffset, setBankOffset] = useState(0);
+  const [sessionOffset, setSessionOffset] = useState(0);
+  const [listRevision, setListRevision] = useState(0);
+  const [summaryLoading, setSummaryLoading] = useState(true);
+  const [summaryError, setSummaryError] = useState<unknown>(null);
+  const [unfinished, setUnfinished] = useState<UnfinishedSession | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [search, setSearch] = useState("");
   const [mode, setMode] = useState("");
@@ -193,17 +202,35 @@ export default function App() {
       });
   }, []);
   const reloadBanks = async () => {
-    setBanks(await api<Bank[]>({ type: "banks" }));
+    setBanks(await api<BankChoice[]>({ type: "banks" }));
+    setListRevision(v => v + 1);
   };
   useEffect(() => {
     run(async () => {
       await Promise.all([
-        reloadBanks(),
-        api<SessionSummary[]>({ type: "sessions" }).then(setSessions),
+        api<BankChoice[]>({ type: "banks" }).then(setBanks),
         api<{dataDirectory:string;version:string}>({ type: "info" }).then(setInfo),
       ]);
     });
   }, [run]);
+  useEffect(() => {
+    if (page !== "banks" && page !== "history") return;
+    let active = true;
+    setSummaryLoading(true);
+    setSummaryError(null);
+    const request = page === "banks"
+      ? Promise.all([
+          api<BankPage>({ type: "banks_page", limit: 30, offset: bankOffset }),
+          api<UnfinishedSession | null>({ type: "unfinished_session" }),
+        ]).then(([result, pending]) => {
+          if (active) { setBankPage(result); setBankOffset(result.offset); setUnfinished(pending); }
+        })
+      : api<SessionPage>({ type: "sessions_page", limit: 30, offset: sessionOffset })
+          .then(result => { if (active) { setSessionPage(result); setSessionOffset(result.offset); } });
+    void request.catch(error => { if (active) setSummaryError(error); })
+      .finally(() => { if (active) setSummaryLoading(false); });
+    return () => { active = false; };
+  }, [page, bankOffset, sessionOffset, listRevision]);
   useEffect(() => { setOffset(0); }, [page, bank, search, mode]);
   useEffect(() => {
     if (!["questions", "wrong", "favorite"].includes(page)) return;
@@ -265,7 +292,7 @@ export default function App() {
       setDetail(null);
       setSearch("");
       setMode("");
-      if (next === "banks" || next === "history") setSessions(await api<SessionSummary[]>({type:"sessions"}));
+      if (next === "banks" || next === "history") setListRevision(v => v + 1);
     });
   }
   function openSession(id: string) {
@@ -275,7 +302,7 @@ export default function App() {
       setPage("practice");
     });
   }
-  const unfinished = sessions.find(s => !s.finishedAt && !s.submittedAt);
+  const summaries = page === "banks" ? bankPage : sessionPage;
   async function refreshQuestions() {
     const result = await api<QuestionPage>({ type: "questions_page", ...query, limit: 30, offset });
     setQuestions(result.items); setQuestionTotal(result.total); setOffset(result.offset);
@@ -453,12 +480,26 @@ export default function App() {
         </header>
         <div className="flex-1 overflow-y-auto p-8">
           <Suspense fallback={loadingView}>
+          {(page === "banks" || page === "history") && (
+            <div className="mb-5 space-y-3" aria-busy={summaryLoading}>
+              {summaryLoading && <p role="status">{t("加载中…")}</p>}
+              {summaryError != null && <div role="alert"><p>{errorMessage(summaryError)}</p><Button variant="outline" onClick={() => setListRevision(v => v + 1)}>{t("重试")}</Button></div>}
+              <nav aria-label={page === "banks" ? t("题库分页") : t("练习记录分页")} className="flex items-center justify-between gap-3">
+                <span role="status" className="text-sm text-muted-foreground">{!summaryLoading && !summaryError && t("{0}–{1} / {2} 条", {0: summaries.total ? summaries.offset + 1 : 0, 1: summaries.offset + summaries.items.length, 2: summaries.total})}</span>
+                <div className="flex gap-2">
+                  <Button variant="outline" disabled={busy || summaryLoading} onClick={() => setListRevision(v => v + 1)}>{t("刷新")}</Button>
+                  <Button variant="outline" disabled={busy || summaryLoading || !!summaryError || summaries.offset === 0} onClick={() => (page === "banks" ? setBankOffset : setSessionOffset)(Math.max(0, summaries.offset - 30))}>{t("上一页")}</Button>
+                  <Button variant="outline" disabled={busy || summaryLoading || !!summaryError || summaries.offset + 30 >= summaries.total} onClick={() => (page === "banks" ? setBankOffset : setSessionOffset)(summaries.offset + 30)}>{t("下一页")}</Button>
+                </div>
+              </nav>
+            </div>
+          )}
           {page === "banks" && (
             <div className="space-y-5">
-              {unfinished && <Card className="border-primary/30 bg-primary/5"><CardContent className="flex items-center justify-between gap-4"><div className="min-w-0"><h2 className="font-semibold">{t("继续未完成的练习")}</h2><p className="mt-1 break-words text-sm text-muted-foreground">{t("{0} · 已提交 {1}/{2} 题", { 0: unfinished.title, 1: unfinished.answered, 2: unfinished.count })}</p></div><Button disabled={busy} onClick={() => openSession(unfinished.id)}><Play />{t("继续练习")}</Button></CardContent></Card>}
-              {!banks.length && !busy && info && <Empty className="min-h-96 border border-dashed"><EmptyHeader><EmptyMedia variant="icon"><BookOpen /></EmptyMedia><EmptyTitle>{t("从第一份题库开始")}</EmptyTitle><EmptyDescription>{t("已有 PractiQ ZIP 可离线导入；PDF、文本或图片可通过 AI 解析为题目。")}</EmptyDescription></EmptyHeader><EmptyContent><Button onClick={() => navigate("import")}><Upload />{t("导入第一份题库")}</Button></EmptyContent></Empty>}
+              {!summaryLoading && !summaryError && unfinished && <Card className="border-primary/30 bg-primary/5"><CardContent className="flex items-center justify-between gap-4"><div className="min-w-0"><h2 className="font-semibold">{t("继续未完成的练习")}</h2><p className="mt-1 break-words text-sm text-muted-foreground">{t("{0} · 已提交 {1}/{2} 题", { 0: unfinished.title, 1: unfinished.answered, 2: unfinished.count })}</p></div><Button disabled={busy} onClick={() => openSession(unfinished.id)}><Play />{t("继续练习")}</Button></CardContent></Card>}
+              {!bankPage.total && !summaryLoading && !summaryError && info && <Empty className="min-h-96 border border-dashed"><EmptyHeader><EmptyMedia variant="icon"><BookOpen /></EmptyMedia><EmptyTitle>{t("从第一份题库开始")}</EmptyTitle><EmptyDescription>{t("已有 PractiQ ZIP 可离线导入；PDF、文本或图片可通过 AI 解析为题目。")}</EmptyDescription></EmptyHeader><EmptyContent><Button onClick={() => navigate("import")}><Upload />{t("导入第一份题库")}</Button></EmptyContent></Empty>}
               <div className="grid grid-cols-2 gap-5 xl:grid-cols-3">
-              {banks.map((b) => (
+              {!summaryLoading && !summaryError && bankPage.items.map((b) => (
                 <Card key={b.id}>
                   <CardHeader>
                     <div className="flex items-start justify-between gap-2">
@@ -658,10 +699,10 @@ export default function App() {
               )}
             </div>
           )}
-          {page === "history" &&
-            (sessions.length ? (
+          {page === "history" && !summaryLoading && !summaryError &&
+            (sessionPage.items.length ? (
               <div className="space-y-3">
-                {sessions.map((s) => (
+                {sessionPage.items.map((s) => (
                   <Card key={s.id} className="py-3">
                     <CardContent className="flex items-center justify-between gap-4">
                       <div className="min-w-0 flex-1 space-y-2">
@@ -711,6 +752,7 @@ export default function App() {
               session={session}
               onSession={(s) => {
                 setSession(s);
+                if (s.id !== session.id) setSessionOffset(0);
                 if (s.finishedAt && !session.finishedAt)
                   toast.success(message("练习已结束，记录已保存"));
               }}
@@ -776,7 +818,6 @@ export default function App() {
                             setDetail(null);
                             setBank(null);
                             await reloadBanks();
-                            setSessions(await api<SessionSummary[]>({type:"sessions"}));
                             toast.success(
                               message("恢复完成。原数据副本：{0}", { 0: result.recoveryPath }),
                             );
@@ -1036,7 +1077,7 @@ export default function App() {
           </DialogContent>
         </Dialog>
       )}
-      {practiceSetup && <Suspense fallback={loadingView}><StudySetup banks={banks} initialBank={practiceSetup.bank} initialFilter={filter} initialMode={mode} initialSearch={search} busy={busy} run={run} onClose={()=>setPracticeSetup(null)} onStart={async s=>{await flushRef.current();setSession(s);setPracticeSetup(null);setPage("practice");}}/></Suspense>}
+      {practiceSetup && <Suspense fallback={loadingView}><StudySetup banks={banks} initialBank={practiceSetup.bank} initialFilter={filter} initialMode={mode} initialSearch={search} busy={busy} run={run} onClose={()=>setPracticeSetup(null)} onStart={async s=>{await flushRef.current();setSession(s);setSessionOffset(0);setPracticeSetup(null);setPage("practice");}}/></Suspense>}
       <AlertDialog
         open={!!confirm}
         onOpenChange={(v) => {

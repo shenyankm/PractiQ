@@ -26,7 +26,9 @@ try {
     case 'language':return lang;
     case 'save_language': lang=request.locale;localStorage.setItem('test-language',lang);return lang;
     case 'banks':return banks;
-    case 'sessions':return [];
+    case 'banks_page':return {items:banks,total:banks.length,offset:0};
+    case 'sessions_page':return {items:[],total:0,offset:0};
+    case 'unfinished_session':return null;
     case 'save_attempt':case 'save_draft':return null;
     case 'question_stats':return {count:questions.length,types:{single:questions.length}};
     case 'questions_page':return {items:questions.slice(request.offset,request.offset+request.limit),total:questions.length,offset:request.offset};
