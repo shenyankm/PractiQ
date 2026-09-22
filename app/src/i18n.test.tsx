@@ -29,7 +29,7 @@ beforeEach(() => {
   Object.defineProperty(navigator, "languages", { configurable: true, value: ["zh-CN"] });
   vi.mocked(invoke).mockImplementation(async (command, args) => {
     if (command !== "request") throw new Error("Unexpected model request");
-    const request = (args as { request: { type: string; locale?: Locale } }).request;
+    const request = (args as { request: { type: string; locale?: Locale; config?: unknown } }).request;
     switch (request.type) {
       case "language": return saved;
       case "save_language": if (failSave) throw { code: "LOCAL_LANGUAGE_INVALID", message: "语言设置无效" }; saved = request.locale!; return saved;
@@ -39,6 +39,7 @@ beforeEach(() => {
       case "questions_page": return {items:[],total:0,offset:0} as never;
       case "question_stats": return {count:0,types:{}};
       case "info": return { version: "test", dataDirectory: "/test" };
+      case "save_settings": return {config:request.config,hasApiKey:false};
       case "settings": return { config: { base_url: null, model_id: null, oss_url: null }, hasApiKey: false };
       default: throw new Error(`Unexpected command: ${request.type}`);
     }
@@ -111,7 +112,7 @@ it.each(["zh-CN", "en"] as const)("collapses the sidebar without resetting setti
   expect(screen.getByRole("button", { name: t("设置") }).getAttribute("aria-current")).toBe("page");
   expect(screen.getByLabelText("Base URL")).toBe(input);
   expect((input as HTMLInputElement).value).toBe("https://example.com/v1");
-  expect(vi.mocked(invoke).mock.calls).toHaveLength(calls);
+  expect(vi.mocked(invoke).mock.calls.slice(calls).map(([,args]) => (args as {request:{type:string}}).request.type)).toEqual(["save_settings"]);
   await userEvent.click(screen.getByRole("button", { name: t("语言") }));
   expect(screen.getByRole("menu", { name: t("语言") })).toBeTruthy();
   await userEvent.keyboard("{Escape}");
@@ -222,6 +223,7 @@ it.each(["en", null] as const)("reloads restored preference %s through the setti
   wrap(<App />); await ready();
   await userEvent.click(screen.getByRole("button", { name: "设置" }));
   await userEvent.click(await screen.findByRole("button", { name: "恢复备份" }));
+  await userEvent.click(await screen.findByRole("menuitem",{name:"恢复学习数据备份"}));
   await userEvent.click(screen.getByRole("button", { name: "确认" }));
   await waitFor(() => expect(document.documentElement.lang).toBe("en"));
   expect(await screen.findByRole("heading", { name: "Settings" })).toBeTruthy();
@@ -246,11 +248,14 @@ it.each(["en", "zh-CN"] as const)("imports offline JSON and saves an unchanged m
     if (r.type === "pick_import") return {ticket:"ticket",title:"原文 filename",count:1,reviewCount:0,assetCount:0,missingAssets:[],warnings:[],status:"SUCCEEDED"};
     if (r.type === "import") return {bankId:"bank",count:1,duplicate:false};
     if (r.type === "save_settings") return {config:{},hasApiKey:false};
+    if (r.type === "test_settings") return null;
     return original(command,args);
   });
   wrap(<App />); await ready();
   await userEvent.click(screen.getByRole("button", {name:t("导入第一份题库")}));
-  await userEvent.click(await screen.findByRole("button", {name:t("选择题库 ZIP")}));
+  await userEvent.click(await screen.findByRole("button",{name:t("设置")}));
+  await userEvent.click(await screen.findByRole("button",{name:t("恢复备份")}));
+  await userEvent.click(await screen.findByRole("menuitem",{name:t("导入题库 ZIP")}));
   expect(await screen.findByRole("dialog")).toBeTruthy();
   await userEvent.click(screen.getByRole("button", {name:t("确认导入")}));
   await waitFor(() => expect(invoke).toHaveBeenCalledWith("request", expect.objectContaining({locale:value,request:expect.objectContaining({type:"import",ticket:"ticket",title:"原文 filename"})})));
@@ -258,10 +263,11 @@ it.each(["en", "zh-CN"] as const)("imports offline JSON and saves an unchanged m
   await userEvent.click(await screen.findByRole("button", {name:t("配置")}));
   const model = await screen.findByLabelText(t("模型 ID"));
   await waitFor(() => expect(model.closest("fieldset")?.disabled).toBe(false));
+  await userEvent.type(screen.getByLabelText("Base URL"),"https://example.com/v1");
+  await userEvent.type(screen.getByLabelText("API Key"),"test-key");
   await userEvent.type(model,"model-original");
   await change(value === "en" ? "zh-CN" : "en");
   expect((screen.getByLabelText(t("模型 ID")) as HTMLInputElement).value).toBe("model-original");
-  await userEvent.click(screen.getByRole("button", {name:t("保存连接配置")}));
   await waitFor(() => expect(invoke).toHaveBeenCalledWith("request", expect.objectContaining({request:expect.objectContaining({type:"save_settings",config:expect.objectContaining({model_id:"model-original"})})})));
   expect(vi.mocked(invoke).mock.calls.filter(([c,a]) => c === "ai_request" && !["operations","batches"].includes((a as {request:{type:string}}).request.type))).toHaveLength(0);
 });
@@ -298,6 +304,7 @@ it.each(["cancel", "failure"])("keeps preference when native restore returns %s"
   wrap(<App />); await ready();
   await userEvent.click(screen.getByRole("button", {name:"Settings"}));
   await userEvent.click(await screen.findByRole("button", {name:t("恢复备份")}));
+  await userEvent.click(await screen.findByRole("menuitem",{name:t("恢复学习数据备份")}));
   await userEvent.click(screen.getByRole("button", {name:t("确认")}));
   await waitFor(() => expect(invoke).toHaveBeenCalledWith("request",{locale:"en",request:{type:"restore"}}));
   await act(async () => {});

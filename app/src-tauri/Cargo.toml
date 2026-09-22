@@ -3,6 +3,10 @@ name = "practiq-desktop"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "PractiQ"
+path = "src/main.rs"
+
 [lib]
 name = "practiq_desktop"
 crate-type = ["staticlib", "cdylib", "rlib"]

@@ -1,4 +1,5 @@
 import { message, renderMessage, type Message, t, useI18n } from "./i18n";
+import { useTheme } from "./theme";
 import logo from "../src-tauri/icons/icon.png";
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, type ComponentProps } from "react";
 import { Tooltip } from "radix-ui";
@@ -13,6 +14,7 @@ import {
   History,
   Settings,
   Languages,
+  Palette,
   PanelLeftClose,
   PanelLeftOpen,
   CircleAlert,
@@ -110,8 +112,8 @@ function SidebarButton({ collapsed, label, children, className = "", ...props }:
   return (
     <Tooltip.Root>
       <Tooltip.Trigger asChild>
-        <Button variant="ghost" aria-label={label} className={`w-full gap-3 aria-[current=page]:bg-primary/10 aria-[current=page]:text-primary ${collapsed ? "justify-center px-0" : "justify-start"} ${className}`} {...props}>
-          {children}<span hidden={collapsed}>{label}</span>
+        <Button variant="ghost" aria-label={label} className={`w-full justify-start gap-3 overflow-hidden px-3.5 aria-[current=page]:bg-primary/10 aria-[current=page]:text-primary ${className}`} {...props}>
+          {children}<span aria-hidden={collapsed} className="sidebar-label shrink-0">{label}</span>
         </Button>
       </Tooltip.Trigger>
       {collapsed && <Tooltip.Portal><Tooltip.Content side="right" sideOffset={8} className="z-50 rounded-md bg-popover px-3 py-2 text-sm text-popover-foreground shadow-md ring-1 ring-border">{label}</Tooltip.Content></Tooltip.Portal>}
@@ -120,6 +122,9 @@ function SidebarButton({ collapsed, label, children, className = "", ...props }:
 }
 export default function App() {
   const language = useI18n();
+  const theme = useTheme();
+  const [themeOpen, setThemeOpen] = useState(false);
+  const themeTrigger = useRef<HTMLButtonElement>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [languageOpen, setLanguageOpen] = useState(false);
   const languageTrigger = useRef<HTMLButtonElement>(null);
@@ -312,7 +317,7 @@ export default function App() {
     if (p) {
       setPreview(p);
       setImportTitle(p.title);
-      setImportBank(bank || "new");
+      setImportBank("new");
     }
   }
   const heading =
@@ -335,13 +340,13 @@ export default function App() {
   return (
     <div className="flex h-screen min-w-[960px] overflow-hidden bg-background text-foreground">
       <Tooltip.Provider delayDuration={200}>
-      <aside id="app-sidebar" className={`flex shrink-0 flex-col border-r bg-muted/25 ${sidebarCollapsed ? "w-16 p-2" : "w-56 p-4"}`}>
-        <div className={`mb-4 flex items-center gap-3 pt-3 ${sidebarCollapsed ? "justify-center" : "px-3"}`}>
+      <aside id="app-sidebar" className={`flex shrink-0 flex-col border-r bg-muted/25 px-2 py-4 transition-[width] duration-200 ease-in-out motion-reduce:transition-none ${sidebarCollapsed ? "w-16" : "w-44"}`}>
+        <div className="mb-4 flex items-center gap-2 overflow-hidden px-1 pt-3">
           <Button variant="ghost" size="icon" className="group relative size-10 shrink-0 rounded-xl" aria-label={sidebarCollapsed ? t("展开侧边栏") : t("收起侧边栏")} aria-expanded={!sidebarCollapsed} aria-controls="app-sidebar" onClick={() => setSidebarCollapsed(value => !value)}>
             <img src={logo} alt="" className="size-10 rounded-xl object-contain group-hover:opacity-0 group-focus-visible:opacity-0" />
             <span className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100" aria-hidden="true">{sidebarCollapsed ? <PanelLeftOpen /> : <PanelLeftClose />}</span>
           </Button>
-          <div hidden={sidebarCollapsed}>
+          <div aria-hidden={sidebarCollapsed} className="sidebar-label shrink-0">
             <div className="text-lg font-semibold tracking-tight">PractiQ</div>
           </div>
         </div>
@@ -373,6 +378,21 @@ export default function App() {
           ))}
         </nav>
         <div className="mt-auto space-y-4">
+          <div className="space-y-2">
+            <DropdownMenu open={themeOpen} onOpenChange={setThemeOpen}>
+              <DropdownMenuTrigger asChild>
+                <SidebarButton ref={themeTrigger} collapsed={sidebarCollapsed} label={t("主题")} className={theme.error ? "text-destructive" : ""}>
+                  {theme.error ? <CircleAlert /> : <Palette />}
+                </SidebarButton>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent side="top" align="start" sideOffset={8} className="min-w-40" aria-label={t("主题")} onCloseAutoFocus={event => { event.preventDefault(); themeTrigger.current?.focus(); }}>
+                <DropdownMenuRadioGroup value={theme.theme}>
+                  {([{ value: "system", label: "跟随系统" }, { value: "light", label: "白天" }, { value: "dark", label: "黑夜" }] as const).map(({ value, label }) => <DropdownMenuRadioItem key={value} value={value} onSelect={event => { event.preventDefault(); if (theme.change(value)) setThemeOpen(false); }}>{t(label)}</DropdownMenuRadioItem>)}
+                </DropdownMenuRadioGroup>
+                {theme.error != null && <div role="alert" className="p-2 text-xs text-destructive"><p>{t("主题设置失败，请重试")}</p><p>{errorMessage(theme.error)}</p></div>}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
           <div className="space-y-2">
             <DropdownMenu open={languageOpen} onOpenChange={open => { if (!language.saving) setLanguageOpen(open); }}>
               <DropdownMenuTrigger asChild>
@@ -430,7 +450,7 @@ export default function App() {
                   : listPage
                     ? t("{0} 道题目{1}", { 0: questionTotal, 1: loading ? t(" · 加载中…") : "" })
                     : page === "import"
-                      ? t("导入已有题库，或将文档解析为题目")
+                      ? t("将文档解析为题目")
                     : page === "history"
                       ? t("回顾每一次作答与进步")
                       : page === "settings"
@@ -760,21 +780,13 @@ export default function App() {
               flushRef={flushRef}
             />
           )}
-          {page === "import" && <ImportPage busy={busy} run={run} onPickJson={pickImport} onPreview={p=>{setPreview(p);setImportTitle(p.title);setImportBank(bank || "new");}} onConfigure={() => { setSettingsReturn({ bank }); navigate("model-settings"); }} />}
+          {page === "import" && <ImportPage busy={busy} run={run} onPreview={p=>{setPreview(p);setImportTitle(p.title);setImportBank(bank || "new");}} onConfigure={() => { setSettingsReturn({ bank }); navigate("model-settings"); }} />}
           {page === "model-settings" && (
             <div className="max-w-3xl space-y-6">
               <ConnectionSettingsPanel
                 key={settingsRevision}
                 busy={busy}
                 run={run}
-                returnToImport={!!settingsReturn}
-                onSaved={async () => {
-                  if (settingsReturn) {
-                    setBank(settingsReturn.bank);
-                    setSettingsReturn(null);
-                    setPage("import");
-                  }
-                }}
               />
             </div>
           )}
@@ -799,10 +811,11 @@ export default function App() {
                     }
                   >
                     <Upload />{t("导出备份")}</Button>
-                  <Button
-                    variant="outline"
-                    disabled={busy}
-                    onClick={() =>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild><Button variant="outline" disabled={busy}>{t("恢复备份")}</Button></DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="min-w-48">
+                      <DropdownMenuItem disabled={busy} onSelect={() => run(pickImport)}>{t("导入题库 ZIP")}</DropdownMenuItem>
+                    <DropdownMenuItem disabled={busy} onSelect={() =>
                       setConfirm({
                         title: message("用备份替换当前数据？"),
                         description:
@@ -825,16 +838,16 @@ export default function App() {
                         },
                       })
                     }
-                  >{t("恢复备份")}</Button>
+                    >{t("恢复学习数据备份")}</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </CardContent>
               </Card>
               <Card>
-                <CardHeader>
-                  <CardTitle>{t("本地数据")}</CardTitle>
-                </CardHeader>
+                <CardHeader><CardTitle>{t("版本信息")}</CardTitle></CardHeader>
                 <CardContent className="space-y-3 text-sm">
                   <p>{t("版本：{0}", { 0: info?.version || "—" })}</p>
-                  <p className="break-all">{t("保存位置：{0}", { 0: info?.dataDirectory || "—" })}</p>
+                  <p className="break-all select-text">{t("源码地址：{0}", { 0: "https://github.com/shenyankm/PractiQ" })}</p>
                 </CardContent>
               </Card>
             </div>
@@ -1105,7 +1118,7 @@ export default function App() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      <Toaster position="bottom-right" richColors />
+      <Toaster theme={theme.dark ? "dark" : "light"} position="bottom-right" richColors />
     </div>
   );
 }

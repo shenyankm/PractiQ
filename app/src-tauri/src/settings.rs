@@ -110,7 +110,76 @@ fn entry(service: &str, base_url: &str) -> Result<Entry> {
     )
     .map_err(|_| crate::language::error("LOCAL_KEYCHAIN_INIT", serde_json::json!({})))
 }
+pub fn test_connection(config: ConnectionSettings, key: String) -> Result<Value> {
+    use std::io::Read;
+    let client = reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_secs(15))
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .map_err(|_| crate::language::error("LOCAL_CONNECTION_FAILED", json!({})))?;
+    let response = client
+        .get(format!(
+            "{}/models",
+            config.base_url.as_deref().unwrap_or_default()
+        ))
+        .bearer_auth(key)
+        .send()
+        .map_err(|_| crate::language::error("LOCAL_CONNECTION_FAILED", json!({})))?;
+    if !response.status().is_success() {
+        return Err(crate::language::error(
+            "LOCAL_CONNECTION_HTTP",
+            json!({"status": response.status().as_u16()}),
+        ));
+    }
+    let mut bytes = Vec::new();
+    response
+        .take(1_048_577)
+        .read_to_end(&mut bytes)
+        .map_err(|_| crate::language::error("LOCAL_CONNECTION_FAILED", json!({})))?;
+    let body: Value = if bytes.len() <= 1_048_576 {
+        serde_json::from_slice(&bytes).ok()
+    } else {
+        None
+    }
+    .ok_or(crate::language::error(
+        "LOCAL_CONNECTION_RESPONSE",
+        json!({}),
+    ))?;
+    let models = body
+        .get("data")
+        .and_then(Value::as_array)
+        .ok_or(crate::language::error(
+            "LOCAL_CONNECTION_RESPONSE",
+            json!({}),
+        ))?;
+    if !models
+        .iter()
+        .any(|model| model.get("id").and_then(Value::as_str) == config.model_id.as_deref())
+    {
+        return Err(crate::language::error("LOCAL_CONNECTION_MODEL", json!({})));
+    }
+    Ok(Value::Null)
+}
 impl Store {
+    pub fn connection_test_input(
+        &self,
+        service: &str,
+        config: ConnectionSettings,
+        api_key: Option<String>,
+    ) -> Result<(ConnectionSettings, String)> {
+        let config = config.validate()?;
+        if config.base_url.is_none() || config.model_id.is_none() {
+            return Err(crate::language::error("LOCAL_CONNECTION_FIELDS", json!({})));
+        }
+        let key = match api_key {
+            Some(key) if !key.trim().is_empty() => key.trim().to_owned(),
+            _ => self.model_secret(service, config.base_url.as_deref().unwrap_or_default())?,
+        };
+        if key.len() > 8192 || key.chars().any(char::is_control) {
+            return Err(crate::language::error("LOCAL_API_KEY_INVALID", json!({})));
+        }
+        Ok((config, key))
+    }
     pub fn model_secret(&self, service: &str, base: &str) -> Result<String> {
         secret(&entry(service, base)?)?
             .filter(|s| !s.is_empty())
@@ -197,6 +266,75 @@ impl Store {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn tests_connections_without_saving_and_rejects_bad_responses() {
+        use std::io::{Read, Write};
+        use std::net::TcpListener;
+        for (status, body, expected) in [
+            ("200 OK", r#"{"data":[{"id":"demo"}]}"#, None),
+            (
+                "401 Unauthorized",
+                "secret-key",
+                Some("LOCAL_CONNECTION_HTTP"),
+            ),
+            ("302 Found", "", Some("LOCAL_CONNECTION_HTTP")),
+            ("200 OK", "not json", Some("LOCAL_CONNECTION_RESPONSE")),
+            (
+                "200 OK",
+                r#"{"data":[{"id":"other"}]}"#,
+                Some("LOCAL_CONNECTION_MODEL"),
+            ),
+        ] {
+            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let base = format!("http://{}/v1", listener.local_addr().unwrap());
+            let server = std::thread::spawn(move || {
+                let (mut stream, _) = listener.accept().unwrap();
+                stream
+                    .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+                    .unwrap();
+                let mut request = Vec::new();
+                while !request.ends_with(b"\r\n\r\n") {
+                    let mut byte = [0];
+                    stream.read_exact(&mut byte).unwrap();
+                    request.push(byte[0]);
+                }
+                let request = String::from_utf8(request).unwrap();
+                assert!(request.starts_with("GET /v1/models HTTP/1.1"));
+                assert!(request
+                    .to_lowercase()
+                    .contains("authorization: bearer secret-key"));
+                write!(
+                    stream,
+                    "HTTP/1.1 {status}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                    body.len()
+                )
+                .unwrap();
+            });
+            let dir = tempfile::tempdir().unwrap();
+            let store = Store::new(dir.path().to_owned()).unwrap();
+            let (config, key) = store
+                .connection_test_input(
+                    "test",
+                    ConnectionSettings {
+                        base_url: Some(base),
+                        model_id: Some("demo".into()),
+                        oss_url: None,
+                    },
+                    Some("secret-key".into()),
+                )
+                .unwrap();
+            let result = test_connection(config, key);
+            if let Some(code) = expected {
+                let error = result.unwrap_err();
+                assert_eq!(error.code, code);
+                assert!(!error.message.contains("secret-key"));
+            } else {
+                assert!(result.is_ok());
+            }
+            assert!(store.connection_settings().unwrap().base_url.is_none());
+            server.join().unwrap();
+        }
+    }
     #[test]
     fn validates_urls_and_persists_nonsecret_settings() {
         let dir = tempfile::tempdir().unwrap();

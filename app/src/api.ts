@@ -172,7 +172,7 @@ type Request =
   | { type: "merge_banks"; bank_ids: string[]; title: string }
   | { type: "settings" }
   | {
-      type: "save_settings";
+      type: "save_settings" | "test_settings";
       config: ConnectionSettings;
       api_key: string | null;
     }

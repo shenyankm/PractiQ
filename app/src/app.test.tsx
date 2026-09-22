@@ -157,23 +157,15 @@ it("stores model and OSS configuration without returning an API key to the form"
   const key = screen.getByLabelText("API Key") as HTMLInputElement;
   expect(key.type).toBe("password");
   expect(key.value).toBe("");
-  await userEvent.click(screen.getByRole("button", { name: "保存连接配置" }));
-  await waitFor(() =>
-    expect(vi.mocked(api)).toHaveBeenCalledWith({
-      type: "save_settings",
-      config,
-      api_key: null,
-    }),
-  );
-  await userEvent.click(screen.getByRole("checkbox"));
-  await userEvent.click(screen.getByRole("button", { name: "保存连接配置" }));
-  await waitFor(() =>
-    expect(vi.mocked(api)).toHaveBeenCalledWith({
-      type: "save_settings",
-      config,
-      api_key: "",
-    }),
-  );
+  expect(key.placeholder).toBe("********************************");
+  expect(screen.queryByRole("button", {name:"保存"})).toBeNull();
+  await userEvent.type(screen.getByLabelText("模型 ID"), "-updated");
+  await waitFor(() => expect(api).toHaveBeenCalledWith({type:"save_settings",config:{...config,model_id:"demo-model-updated"},api_key:null}));
+  expect(screen.queryByRole("checkbox")).toBeNull();
+  await waitFor(() => expect(key.closest("fieldset")?.disabled).toBe(false));
+  await userEvent.type(key,"replacement-key");
+  await waitFor(() => expect(api).toHaveBeenCalledWith(expect.objectContaining({type:"save_settings",api_key:"replacement-key"})));
+
 });
 
 it("shows numeric partial credit after an exam and locks answer controls", () => {
@@ -364,4 +356,39 @@ it("keeps exam confirmation open on failure and disables duplicate submissions w
   expect(screen.getByRole("alertdialog")).toBeTruthy();
   await user.click(screen.getByRole("button", { name: "继续作答" }));
   await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+});
+
+it("autosaves drafts without testing, reports failures and keeps testing explicit", async () => {
+  const { ConnectionSettingsPanel } = await import("./ConnectionSettings");
+  const { toast } = await import("./notifications");
+  const success = vi.spyOn(toast, "success").mockImplementation(() => "notice");
+  const failure = vi.spyOn(toast, "error").mockImplementation(() => "notice");
+  const settings = {config:{base_url:"https://example.com/v1",model_id:"demo",oss_url:null},hasApiKey:true};
+  let failSave = false;
+  vi.mocked(api).mockImplementation(async request => {
+    if (request.type === "save_settings") {
+      if (failSave) throw Error("save failed");
+      return {...settings,config:request.config} as never;
+    }
+    if (request.type === "test_settings") return null as never;
+    return settings as never;
+  });
+  render(<ConnectionSettingsPanel busy={false} run={job => { void job(); }} />);
+  const model = await screen.findByLabelText("模型 ID");
+  await waitFor(() => expect((model as HTMLInputElement).value).toBe("demo"));
+  expect(screen.queryByRole("button",{name:"保存"})).toBeNull();
+  await userEvent.type(model,"-changed");
+  await waitFor(() => expect(success).toHaveBeenCalledWith(expect.objectContaining({key:"连接配置已保存"})));
+  expect(api).not.toHaveBeenCalledWith(expect.objectContaining({type:"test_settings"}));
+  expect(vi.mocked(api).mock.calls.filter(([request])=>request.type==="save_settings")).toHaveLength(1);
+  failSave=true;
+  await userEvent.type(model,"-failed");
+  await waitFor(() => expect(failure).toHaveBeenCalledWith(expect.objectContaining({message:"save failed"})));
+  expect((model as HTMLInputElement).value).toBe("demo-changed-failed");
+  failSave=false;
+  await userEvent.type(model,"-retry");
+  await userEvent.click(screen.getByRole("button",{name:"测试"}));
+  await waitFor(() => expect(success).toHaveBeenCalledWith(expect.objectContaining({key:"连接测试通过"})));
+  expect(api).toHaveBeenCalledWith(expect.objectContaining({type:"test_settings",config:expect.objectContaining({model_id:"demo-changed-failed-retry"})}));
+  success.mockRestore(); failure.mockRestore();
 });

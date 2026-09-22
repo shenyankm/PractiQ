@@ -50,7 +50,9 @@ it("pages native bank summaries, keeps all merge/study choices, and clamps after
   expect(within(screen.getByRole("dialog")).getByRole("checkbox",{name:"Bank 30（1）"})).toBeTruthy();
   await userEvent.keyboard("{Escape}");
   await userEvent.click(screen.getByRole("button",{name:"导入题库"}));
-  await userEvent.click(await screen.findByRole("button",{name:"选择题库 ZIP"}));
+  await userEvent.click(await screen.findByRole("button",{name:"设置"}));
+  await userEvent.click(await screen.findByRole("button",{name:"恢复备份"}));
+  await userEvent.click(await screen.findByRole("menuitem",{name:"导入题库 ZIP"}));
   await userEvent.click(within(await screen.findByRole("dialog")).getByRole("combobox"));
   expect(await screen.findByRole("option",{name:"Bank 30"})).toBeTruthy();
   await userEvent.keyboard("{Escape}");
@@ -138,6 +140,7 @@ it("refreshes merge totals and clamps both lists after restoring a smaller backu
   await screen.findByText("Session 30");
   await userEvent.click(screen.getByRole("button",{name:"设置"}));
   await userEvent.click(await screen.findByRole("button",{name:"恢复备份"}));
+  await userEvent.click(await screen.findByRole("menuitem",{name:"恢复学习数据备份"}));
   await userEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button",{name:"确认"}));
   await waitFor(()=>expect(api).toHaveBeenCalledWith({type:"restore"}));
   await waitFor(()=>expect(screen.getByRole("button",{name:"练习记录"}).hasAttribute("disabled")).toBe(false));
