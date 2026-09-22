@@ -10,7 +10,7 @@ Turn documents into question banks, then practise and take mock exams on your Ma
 
 PractiQ combines an offline desktop practice app with a self-hosted AI service. Import an existing PractiQ bank ZIP without model access, or configure a model supporting text and image inputs to extract questions from documents. Build tests across question banks, review your answers, and request AI scoring for supported short-answer questions.
 
-## Who it is for
+## Who it is for and what it solves
 
 - **Students and independent learners**: turn your papers, handouts, and question lists into reusable banks, then revisit mistakes and bookmarks.
 - **Teachers and material organizers**: review questions and distribute a question-bank ZIP so recipients can practise offline.
@@ -39,7 +39,7 @@ See the [first-release draft](docs/first-release.md) for scope, concise release 
 
 ## Practise with your own materials
 
-Use the desktop app in Simplified Chinese or English to manage questions and review your progress:
+The desktop app supports the following tasks:
 
 | Task | What you can do |
 | --- | --- |
@@ -133,4 +133,4 @@ Choose the guide for your task:
 
 Desktop language regression: `cd app && npx playwright install chromium --only-shell && npm run test:browser` checks the 960px English layout and real keyboard language switching with a mocked Tauri boundary. It starts its own Vite server on port 1420 and makes no model calls. Unit/integration coverage for language races, persistence, backup restore and bilingual workflows runs in `make app-check`.
 
-题型契约、规范化 SQLite 表与复合题规则见[题型模型](docs/question-model.md)。
+See the [question model](docs/question-model.md) for question-type contracts, normalized SQLite tables, and composite question rules.
