@@ -407,7 +407,7 @@ fn self_grade_preserves_auto_result_and_ungraded_denominator() {
     )
     .unwrap();
     s.finish(text(&subjective, "id")).unwrap();
-    let summaries = s.sessions().unwrap();
+    let summaries = s.sessions(100, 0).unwrap()["items"].clone();
     let summary = summaries
         .as_array()
         .unwrap()
@@ -985,7 +985,7 @@ fn e2e_exam_restart_restore_on_fresh_install_and_retry() {
     assert!(submitted["attempts"][1]["earnedCents"].is_null());
     source.manual_score(sid, 1, 400, "覆盖部分得分点").unwrap();
     let finished = source.complete_review(sid).unwrap();
-    let summaries = source.sessions().unwrap();
+    let summaries = source.sessions(100, 0).unwrap()["items"].clone();
     assert_eq!(summaries[0]["earnedCents"], 400);
     assert_eq!(summaries[0]["totalCents"], 1000);
     let backup = dir.path().join("portable.zip");
@@ -995,7 +995,10 @@ fn e2e_exam_restart_restore_on_fresh_install_and_retry() {
     let (_destination, mut restored) = store();
     restored.restore(&backup).unwrap();
     assert_eq!(restored.session(sid).unwrap(), finished);
-    assert_eq!(restored.sessions().unwrap(), summaries);
+    assert_eq!(
+        restored.sessions(100, 0).unwrap()["items"].clone(),
+        summaries
+    );
     assert_eq!(restored.asset(digest).unwrap(), image);
     assert_eq!(
         restored
@@ -1628,4 +1631,167 @@ fn partial_fill_blank_import_preserves_answers_counts_and_review_flags() {
             }
         }
     }
+}
+
+#[test]
+fn summary_pages_keep_stable_boundaries_choices_and_expire_off_page_exams() {
+    let (dir, mut s) = store();
+    assert_eq!(
+        s.banks_page(30, 90).unwrap(),
+        json!({"items":[],"offset":0,"total":0})
+    );
+    assert_eq!(
+        s.sessions(30, 90).unwrap(),
+        json!({"items":[],"offset":0,"total":0})
+    );
+    assert_eq!(s.unfinished_session().unwrap(), Value::Null);
+    for (limit, offset) in [(0, 0), (101, 0), (30, usize::MAX)] {
+        assert!(s.banks_page(limit, offset).is_err());
+        assert!(s.sessions(limit, offset).is_err());
+    }
+    for kind in ["banks_page", "sessions_page"] {
+        for (limit, offset) in [
+            (json!(-1), json!(0)),
+            (json!(30), json!(-1)),
+            (json!(1.5), json!(0)),
+        ] {
+            assert!(serde_json::from_value::<crate::Request>(
+                json!({"type":kind,"limit":limit,"offset":offset})
+            )
+            .is_err());
+        }
+    }
+    let bank = import(&mut s);
+    let rows = s.questions(Some(&bank), "", "", "").unwrap();
+    for i in 0..31 {
+        s.save_bank(
+            Some(format!("bank-{i:02}")),
+            &format!("Bank {i}"),
+            "description",
+        )
+        .unwrap();
+        let session = practice(&s, rows.clone(), 1);
+        s.connect()
+            .unwrap()
+            .execute(
+                "UPDATE sessions SET created_at=1,bank_title=?2 WHERE id=?1",
+                rusqlite::params![text(&session, "id"), format!("Session {i}")],
+            )
+            .unwrap();
+    }
+    s.connect()
+        .unwrap()
+        .execute("UPDATE banks SET created_at=1", [])
+        .unwrap();
+    let first = s.banks_page(30, 0).unwrap();
+    let last = s.banks_page(30, 30).unwrap();
+    assert_eq!(first["total"], 32);
+    assert_eq!(first["items"].as_array().unwrap().len(), 30);
+    assert_eq!(last["items"].as_array().unwrap().len(), 2);
+    assert_eq!(last, s.banks_page(30, 999).unwrap());
+    let choices = s.banks().unwrap();
+    assert_eq!(choices.as_array().unwrap().len(), 32);
+    let ids: Vec<_> = first["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .chain(last["items"].as_array().unwrap())
+        .map(|b| b["id"].clone())
+        .collect();
+    assert_eq!(
+        ids,
+        choices
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|b| b["id"].clone())
+            .collect::<Vec<_>>()
+    );
+    assert!(choices[0].get("description").is_none());
+    let history = s.sessions(30, 0).unwrap();
+    let tail = s.sessions(30, 30).unwrap();
+    assert_eq!(history["total"], 31);
+    assert_eq!(history["items"].as_array().unwrap().len(), 30);
+    assert_eq!(tail["items"].as_array().unwrap().len(), 1);
+    let session_ids: Vec<_> = history["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .chain(tail["items"].as_array().unwrap())
+        .map(|r| text(r, "id").to_owned())
+        .collect();
+    assert!(session_ids.windows(2).all(|w| w[0] > w[1]));
+    // The only unfinished session can be older than the entire visible page.
+    let oldest = &session_ids[30];
+    s.connect()
+        .unwrap()
+        .execute("UPDATE sessions SET finished_at=2 WHERE id<>?1", [oldest])
+        .unwrap();
+    assert_eq!(s.unfinished_session().unwrap()["id"], *oldest);
+    // A timed exam outside page one must still submit its saved draft.
+    let question_ids = vec![text(&rows[0], "id").to_owned()];
+    let exam = s
+        .start_paper(crate::exams::Paper {
+            digest: crate::paper::digest(
+                &crate::paper::selected_rows(&s.question_rows().unwrap(), &question_ids).unwrap(),
+            )
+            .unwrap(),
+            question_ids,
+            kind: "mock_exam".into(),
+            minutes: Some(1),
+            scores: vec![100],
+            total_cents: 100,
+        })
+        .unwrap();
+    let sid = text(&exam, "id");
+    s.save_draft((sid, 0), json!({"correct":["B"]}), 10)
+        .unwrap();
+    s.connect()
+        .unwrap()
+        .execute(
+            "UPDATE sessions SET created_at=0,deadline_at=0 WHERE id=?1",
+            [sid],
+        )
+        .unwrap();
+    let page = s.sessions(30, 0).unwrap();
+    assert_eq!(page["total"], 32);
+    assert!(!page["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|v| v["id"] == sid));
+    let submitted: Option<i64> = s
+        .connect()
+        .unwrap()
+        .query_row(
+            "SELECT submitted_at FROM sessions WHERE id=?1",
+            [sid],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert!(submitted.is_some());
+    assert_eq!(
+        s.session(sid).unwrap()["attempts"][0]["answer"],
+        json!({"correct":["B"]})
+    );
+    let snapshot = s.session(oldest).unwrap();
+    let backup = dir.path().join("pages.zip");
+    s.backup(&backup).unwrap();
+    for b in last["items"].as_array().unwrap() {
+        s.delete_bank(text(b, "id")).unwrap();
+    }
+    assert_eq!(s.banks_page(30, 30).unwrap()["offset"], 0);
+    assert_eq!(s.banks_page(30, 30).unwrap()["total"], 30);
+    assert_eq!(
+        s.session(oldest).unwrap()["attempts"][0]["snapshot"],
+        snapshot["attempts"][0]["snapshot"]
+    );
+    s.restore(&backup).unwrap();
+    assert_eq!(s.banks_page(30, 30).unwrap(), last);
+    assert_eq!(s.sessions(30, 0).unwrap(), page);
+    let merged = s
+        .merge_banks(&[bank.clone(), "bank-00".into()], "Merged")
+        .unwrap();
+    assert!(merged.is_object());
+    assert_eq!(s.banks_page(30, 30).unwrap()["total"], 33);
 }

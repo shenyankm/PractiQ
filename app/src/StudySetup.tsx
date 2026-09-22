@@ -1,6 +1,6 @@
 import { message, MessageError, t, useI18n } from "./i18n";
 import { useEffect, useState } from "react";
-import { api, errorMessage, type Bank, type Session, type SessionKind, type QuestionRow, type QuestionPage, type QuestionStats, type PaperPreview } from "./api";
+import { api, errorMessage, type BankChoice, type Session, type SessionKind, type QuestionRow, type QuestionPage, type QuestionStats, type PaperPreview } from "./api";
 import { cents, questionType, types } from "./paper";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -8,7 +8,7 @@ import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
-export function StudySetup({banks, initialBank, initialFilter, initialMode="", initialSearch="", onClose, onStart, run, busy}: {banks:Bank[];initialBank:string|null;initialFilter:string;initialMode?:string;initialSearch?:string;onClose:()=>void;onStart:(s:Session)=>Promise<void>;run:(job:()=>Promise<void>)=>void;busy:boolean}) {
+export function StudySetup({banks, initialBank, initialFilter, initialMode="", initialSearch="", onClose, onStart, run, busy}: {banks:BankChoice[];initialBank:string|null;initialFilter:string;initialMode?:string;initialSearch?:string;onClose:()=>void;onStart:(s:Session)=>Promise<void>;run:(job:()=>Promise<void>)=>void;busy:boolean}) {
   useI18n();
   const [bankIds, setBanks] = useState<string[]>(() => initialBank ? [initialBank] : banks.filter(b => b.count > 0).map(b => b.id));
   const [kind, setKind] = useState<SessionKind>("practice");

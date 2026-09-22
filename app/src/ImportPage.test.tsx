@@ -34,7 +34,9 @@ it("loads native pages and clamps the page after deleting the last item", async 
   vi.mocked(api).mockImplementation(async request => {
     switch(request.type) {
       case "banks": return [{id:"bank",title:"Paged",description:"",count:deleted?30:31}] as never;
-      case "sessions": return [] as never;
+      case "banks_page": return {items:[{id:"bank",title:"Paged",description:"",count:deleted?30:31}],total:1,offset:0} as never;
+      case "sessions_page": return {items:[],total:0,offset:0} as never;
+      case "unfinished_session": return null as never;
       case "info": return {version:"test",dataDirectory:"/tmp/test"} as never;
       case "questions_page": {
         const offset=deleted?0:request.offset;
@@ -67,7 +69,11 @@ it("keeps ZIP import usable without models and preserves the destination bank", 
         return [
           { id: "bank-1", title: "现有题库", description: "", count: 0 },
         ] as never;
-      case "sessions": return [] as never;
+      case "banks_page": return {items:[
+          { id: "bank-1", title: "现有题库", description: "", count: 0 },
+        ],total:1,offset:0} as never;
+      case "sessions_page": return {items:[],total:0,offset:0} as never;
+      case "unfinished_session": return null as never;
       case "questions_page": return {items:[],total:0,offset:0} as never;
       case "questions":
         return [] as never;
@@ -102,7 +108,7 @@ it("keeps ZIP import usable without models and preserves the destination bank", 
     await screen.findByRole("heading", { name: "导入题库", level: 1 }),
   ).toBeTruthy();
   expect(
-    within(screen.getByRole("navigation")).getByRole("button", {
+    within(screen.getByRole("navigation", {name:"主导航"})).getByRole("button", {
       name: "导入题库",
     }),
   ).toBeTruthy();
@@ -161,7 +167,9 @@ it("opens study setup from each bank card with that bank selected", async () => 
   vi.mocked(api).mockImplementation(async (request) => {
     switch (request.type) {
       case "banks": return banks as never;
-      case "sessions": return [] as never;
+      case "banks_page": return {items:banks,total:banks.length,offset:0} as never;
+      case "sessions_page": return {items:[],total:0,offset:0} as never;
+      case "unfinished_session": return null as never;
       case "questions_page": return {items:[],total:0,offset:0} as never;
       case "question_stats": return {count:0,types:{}} as never;
       case "info": return { version: "test", dataDirectory: "/tmp/test" } as never;
@@ -174,7 +182,7 @@ it("opens study setup from each bank card with that bank selected", async () => 
   expect(actions).toHaveLength(2);
   expect(screen.getByRole("button", { name: "导入题目" })).toBeTruthy();
   expect(screen.getAllByRole("button", { name: "导入题库" })).toHaveLength(1);
-  expect(within(screen.getByRole("navigation")).getByRole("button", { name: "导入题库" })).toBeTruthy();
+  expect(within(screen.getByRole("navigation", {name:"主导航"})).getByRole("button", { name: "导入题库" })).toBeTruthy();
   for (const index of [1, 0]) {
     const card = screen.getByText(banks[index].title, { selector: '[data-slot="card-title"]' }).closest('[data-slot="card"]');
     expect(card).not.toBeNull();
@@ -203,7 +211,12 @@ it("merges banks only after selecting sources and confirming in the dialog", asy
         { id: "one", title: "题库一", description: "", count: 2 },
         { id: "two", title: "题库二", description: "", count: 3 },
       ] as never;
-      case "sessions": return [] as never;
+      case "banks_page": return {items:[
+        { id: "one", title: "题库一", description: "", count: 2 },
+        { id: "two", title: "题库二", description: "", count: 3 },
+      ],total:2,offset:0} as never;
+      case "sessions_page": return {items:[],total:0,offset:0} as never;
+      case "unfinished_session": return null as never;
       case "info": return { version: "test", dataDirectory: "/tmp/test" } as never;
       case "merge_banks": return "merged" as never;
       default: throw new Error(`Unexpected request: ${request.type}`);
@@ -239,6 +252,8 @@ it("merges banks only after selecting sources and confirming in the dialog", asy
 
 it("guides an empty library to import without requiring AI settings", async () => {
   vi.mocked(api).mockImplementation(async r => {
+    if (r.type === "banks_page") return {items:[],total:0,offset:0} as never;
+    if (r.type === "unfinished_session") return null as never;
     if (r.type === "info") return {version:"test",dataDirectory:"/tmp/test"} as never;
     if (r.type === "settings") return {config:{},hasApiKey:false} as never;
     return [] as never;
@@ -248,13 +263,15 @@ it("guides an empty library to import without requiring AI settings", async () =
   await userEvent.click(await screen.findByRole("button",{name:"导入第一份题库"}));
   expect(await screen.findByRole("button",{name:"配置 AI 模型"})).toBeTruthy();
   expect(screen.getByRole("button",{name:"选择题库 ZIP"}).hasAttribute("disabled")).toBe(false);
-  expect(within(screen.getByRole("navigation")).getByRole("button",{name:"导入题库"}).getAttribute("aria-current")).toBe("page");
+  expect(within(screen.getByRole("navigation", {name:"主导航"})).getByRole("button",{name:"导入题库"}).getAttribute("aria-current")).toBe("page");
   expect(screen.queryByRole("button",{name:"上一页"})).toBeNull();
 });
 
 it("keeps model fields on a secondary settings page and refreshes the summary after saving", async () => {
   let settings = {config:{base_url:"https://example.com/v1",model_id:"",oss_url:null},hasApiKey:true};
   vi.mocked(api).mockImplementation(async r => {
+    if (r.type === "banks_page") return {items:[],total:0,offset:0} as never;
+    if (r.type === "unfinished_session") return null as never;
     if (r.type === "settings") return settings as never;
     if (r.type === "save_settings") { settings = {...settings,config:r.config as typeof settings.config}; return settings as never; }
     if (r.type === "info") return {version:"test",dataDirectory:"/tmp/test"} as never;
@@ -283,6 +300,8 @@ it("keeps model fields on a secondary settings page and refreshes the summary af
 it("returns from model setup to the original import destination after saving", async () => {
   let settings = {config:{base_url:"https://example.com/v1",model_id:null as string|null,oss_url:null},hasApiKey:true};
   vi.mocked(api).mockImplementation(async r => {
+    if (r.type === "banks_page") return {items:[{id:"bank",title:"追加目标",count:0,description:""}],total:1,offset:0} as never;
+    if (r.type === "unfinished_session") return null as never;
     if (r.type === "banks") return [{id:"bank",title:"追加目标",count:0,description:""}] as never;
     if (r.type === "info") return {version:"test",dataDirectory:"/tmp/test"} as never;
     if (r.type === "settings") return settings as never;
@@ -310,7 +329,8 @@ it("returns from model setup to the original import destination after saving", a
 it("continues the existing session from home without creating another paper", async () => {
   const session = {id:"existing",title:"旧练习",createdAt:1,finishedAt:null,position:0,mode:"ordered",attempts:[{ordinal:0,snapshot:{question:{stem:"题目",answerMode:"short_answer",options:[],items:[],answerPayload:null,contentBlocks:[],needsReview:false,missingFields:[]},groups:[],visuals:[],sources:[],warnings:[],missingAssets:false},answer:null,result:null,autoResult:null,gradeKind:"ungraded",submittedAt:null,skipped:false,elapsedMs:0}]};
   vi.mocked(api).mockImplementation(async r => {
-    if(r.type === "sessions") return [{...session,count:1,answered:0}] as never;
+    if (r.type === "banks_page") return {items:[],total:0,offset:0} as never;
+    if(r.type === "unfinished_session") return {...session,count:1,answered:0} as never;
     if(r.type === "info") return {version:"test",dataDirectory:"/tmp/test"} as never;
     if(r.type === "session") return session as never;
     return [] as never;
@@ -331,7 +351,9 @@ it("handles ZIP picker cancellation and package/export errors without importing"
   vi.mocked(api).mockImplementation(async request=>{
     switch(request.type){
       case "banks": return [{id:"bank",title:"Shared",description:"",count:1}] as never;
-      case "sessions": return [] as never;
+      case "banks_page": return {items:[{id:"bank",title:"Shared",description:"",count:1}],total:1,offset:0} as never;
+      case "sessions_page": return {items:[],total:0,offset:0} as never;
+      case "unfinished_session": return null as never;
       case "info": return {version:"test",dataDirectory:"/tmp/test"} as never;
       case "settings": return {config:{},hasApiKey:false} as never;
       case "pick_import": if(failImport)throw new Error("ZIP read failed"); return null as never;

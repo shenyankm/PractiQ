@@ -405,13 +405,13 @@ mod tests {
             .unwrap()
             .iter()
             .all(|r| r["favorite"] == false && r["latestResult"].is_null()));
-        let meta = restored.banks().unwrap();
+        let meta = restored.banks_page(30, 0).unwrap()["items"].clone();
         assert!(meta
             .as_array()
             .unwrap()
             .iter()
             .any(|b| b["title"] == "Shared" && b["description"] == "Description"));
-        assert_eq!(restored.sessions().unwrap(), json!([]));
+        assert_eq!(restored.sessions(30, 0).unwrap()["items"], json!([]));
         // Image integrity is checked before publication; existing files survive failures.
         fs::remove_file(s.asset_path(hash).unwrap()).unwrap();
         assert!(s

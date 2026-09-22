@@ -33,7 +33,9 @@ beforeEach(() => {
     switch (request.type) {
       case "language": return saved;
       case "save_language": if (failSave) throw { code: "LOCAL_LANGUAGE_INVALID", message: "语言设置无效" }; saved = request.locale!; return saved;
-      case "banks": case "sessions": return [];
+      case "banks": return [];
+      case "banks_page": case "sessions_page": return {items:[],total:0,offset:0};
+      case "unfinished_session": return null;
       case "questions_page": return {items:[],total:0,offset:0} as never;
       case "question_stats": return {count:0,types:{}};
       case "info": return { version: "test", dataDirectory: "/test" };
