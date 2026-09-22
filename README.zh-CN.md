@@ -132,3 +132,5 @@ make server-dev AI_PYTHON=/path/to/python3.14
 - [参与贡献](CONTRIBUTING.md)：开发检查与提交规范
 
 桌面语言浏览器回归：`cd app && npx playwright install chromium --only-shell && npm run test:browser`，验证 960px 英文布局及真实键盘气泡菜单语言切换，模拟 Tauri 边界，不调用模型；脚本自行使用端口 1420 启停 Vite。语言竞态、持久化、备份恢复及双语流程测试纳入 `make app-check`。
+
+题型契约、规范化 SQLite 表与复合题规则见[题型模型](docs/question-model.md)。
