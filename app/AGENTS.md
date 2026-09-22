@@ -1,7 +1,7 @@
 # Desktop application
 
 - React + Vite + shadcn/ui + TypeScript, Tauri 2 and Rust/SQLite. macOS and desktop layouts only in this release.
-- Reuse the bundled Python AI service for explicit document parsing; consume its existing JSON contracts for import. Never implement another parser or generate answers.
+- Reuse the bundled Python AI service for explicit document parsing; consume its existing JSON contracts inside question-bank ZIP packages for offline import. Never implement another parser or generate answers.
 - Validate all native command inputs. File access begins with a native file picker. Imported content cannot request arbitrary SQL, file access or network access.
 - Preserve nulls, quality warnings, source associations and practice snapshots. Unreviewed content may be practised. Incomplete/unavailable answers must not become automatically incorrect.
 - Store API keys only in macOS Keychain, scoped to the configured Base URL; never return stored keys to the webview or include them in SQLite/backups. A single model supporting text and image inputs must be configured before parsing; desktop artifacts stay local.

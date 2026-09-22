@@ -2,6 +2,7 @@ mod ai;
 mod ai_work;
 mod assets;
 mod backup;
+mod bank_zip;
 mod contract;
 mod exams;
 mod language;
@@ -25,7 +26,7 @@ use tauri_plugin_dialog::DialogExt;
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 enum Request {
     PickImport,
-    PickResources,
+    ExportBank { bank_id: String },
     Import {
         ticket: String,
         bank_id: Option<String>,
@@ -198,22 +199,26 @@ async fn request(
         let locale = locale.unwrap_or_default();
         // Native file dialogs select the only external paths accessible to business commands.
         let selected=match &request {
-            Request::PickImport=>app.dialog().file().add_filter(locale.text("AI 解析结果", "AI parsing result"),&["json"]).blocking_pick_file(),
-            Request::PickResources=>app.dialog().file().blocking_pick_folder(),
+            Request::PickImport=>app.dialog().file().add_filter(locale.text("PractiQ 题库 ZIP", "PractiQ bank ZIP"),&["zip"]).blocking_pick_file(),
+            Request::ExportBank{bank_id}=>{
+                let title = { let store=shared.lock().map_err(|_|language::error("LOCAL_DATABASE_UNAVAILABLE",json!({})))?;
+                    store.connect()?.query_row("SELECT title FROM banks WHERE id=?1",[bank_id],|r|r.get::<_,String>(0)).map_err(|e|AppError::from(e.to_string()))? };
+                app.dialog().file().set_file_name(bank_zip::filename(&title)).add_filter(locale.text("PractiQ 题库 ZIP","PractiQ bank ZIP"), &["zip"]).blocking_save_file()
+            },
             Request::Backup=>app.dialog().file().set_file_name("PractiQ-backup.zip").add_filter(locale.text("PractiQ 备份", "PractiQ backup"),&["zip"]).blocking_save_file(),
             Request::Restore=>app.dialog().file().add_filter(locale.text("PractiQ 备份", "PractiQ backup"),&["zip"]).blocking_pick_file(),
             _=>None,
         };
         let selected=selected.map(|p|p.into_path().map_err(|e|e.to_string())).transpose()?;
-        if matches!(&request,Request::PickImport|Request::PickResources|Request::Backup|Request::Restore)&&selected.is_none(){return Ok(Value::Null);}
+        if matches!(&request,Request::PickImport|Request::ExportBank{..}|Request::Backup|Request::Restore)&&selected.is_none(){return Ok(Value::Null);}
         let work = app.state::<ai_work::WorkState>();
         let _restore = if matches!(&request, Request::Restore) { Some(work.restore()?) } else { None };
         if matches!(&request, Request::SaveSettings{..}|Request::Restore) {ai::stop(&app)?;}
         let mut store=shared.lock().map_err(|_|language::error("LOCAL_DATABASE_RESTART", json!({})))?;
         store.locale = locale;
         match request {
-            Request::PickImport=>{let path=selected.ok_or(language::error("LOCAL_FILE_NOT_SELECTED", json!({})))?;let title=path.file_stem().and_then(|s|s.to_str()).unwrap_or(locale.text("导入题库", "Imported bank")).to_owned();store.preview(store::read_bounded(&path,contract::MAX_JSON)?,title)},
-            Request::PickResources=>store.resources(&selected.ok_or(language::error("LOCAL_DIRECTORY_NOT_SELECTED", json!({})))?),
+            Request::PickImport=>store.preview_bank_zip(&selected.ok_or(language::error("LOCAL_FILE_NOT_SELECTED",json!({})))?),
+            Request::ExportBank{bank_id}=>store.export_bank(&bank_id,&selected.ok_or(language::error("LOCAL_SAVE_LOCATION_MISSING",json!({})))?),
             Request::Import{ticket,bank_id,title}=>store.import(&ticket,bank_id,&title),
             Request::Banks=>store.banks(),
             Request::SaveBank{id,title,description}=>store.save_bank(id,&title,&description),

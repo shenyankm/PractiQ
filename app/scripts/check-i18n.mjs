@@ -45,22 +45,29 @@ try {
  await page.getByRole('heading',{name:'My banks',exact:true}).waitFor();
  assert.equal(await page.evaluate(async () => (await import('/node_modules/@tauri-apps/api/core.js')).isTauri()),false);
 
- const overflow=async label=>({label,items:await page.locator('aside *, main *, [role=dialog] *').evaluateAll(elements=>elements.filter(e=>e.clientWidth>0&&e.scrollWidth>e.clientWidth+3&&getComputedStyle(e).overflowX==='visible'&&e.children.length===0&&e.textContent.trim()).map(e=>({tag:e.tagName,text:e.textContent.slice(0,140),width:e.clientWidth,scroll:e.scrollWidth}))) });
+ const overflow=async label=>({label,items:await page.locator('aside *, main *, [role=dialog] *, [role=menu] *').evaluateAll(elements=>elements.filter(e=>e.clientWidth>0&&e.scrollWidth>e.clientWidth+3&&getComputedStyle(e).overflowX==='visible'&&e.children.length===0&&e.textContent.trim()).map(e=>({tag:e.tagName,text:e.textContent.slice(0,140),width:e.clientWidth,scroll:e.scrollWidth}))) });
  const checks=[await overflow('banks')];
  for (const names of [
   {locale:'en',language:'Language',collapse:'Collapse sidebar',expand:'Expand sidebar',nav:['My banks','Import','Mistakes','Favorites','History','Settings']},
   {locale:'zh-CN',language:'语言',collapse:'收起侧边栏',expand:'展开侧边栏',nav:['我的题库','导入题库','错题本','收藏夹','练习记录','设置']},
  ]) {
-  await page.locator('aside button[aria-haspopup="dialog"]').click();
-  await page.getByRole('combobox').selectOption(names.locale);
+  await page.locator('aside button[aria-haspopup="menu"]').click();
+  await page.getByRole('menuitemradio',{name:names.locale==='en'?'English':'简体中文',exact:true}).click();
   await page.waitForFunction(locale=>document.documentElement.lang===locale,names.locale);
   await page.keyboard.press('Escape');
-  await page.getByRole('dialog').waitFor({state:'hidden'});
+  await page.getByRole('menu').waitFor({state:'hidden'});
   const expandedMain=await page.locator('main').boundingBox();
   const toggle=page.getByRole('button',{name:names.collapse,exact:true});
+  await toggle.hover();
+  assert.equal(await toggle.locator('img').evaluate(e=>getComputedStyle(e).opacity),'0');
   await toggle.focus();
   await page.keyboard.press('Enter');
   assert.equal(await page.getByRole('button',{name:names.expand}).getAttribute('aria-expanded'),'false');
+  await page.mouse.move(900,10); await page.locator('main').click({position:{x:10,y:10}});
+  const collapsedToggle=page.getByRole('button',{name:names.expand,exact:true});
+  assert.equal(await collapsedToggle.locator('img').evaluate(e=>getComputedStyle(e).opacity),'1');
+  await collapsedToggle.hover();
+  assert.equal(await collapsedToggle.locator('img').evaluate(e=>getComputedStyle(e).opacity),'0');
   const sidebar=await page.locator('aside').boundingBox();
   const collapsedMain=await page.locator('main').boundingBox();
   assert.equal(sidebar.width,64);
@@ -83,58 +90,60 @@ try {
    assert(box && box.x>=sidebar.x && box.x+box.width<=sidebar.x+sidebar.width && box.y>=0 && box.y+box.height<=820);
   }
   await page.getByRole('button',{name:names.language,exact:true}).click();
-  await page.getByRole('dialog',{name:names.language,exact:true}).waitFor();
+  await page.getByRole('menu',{name:names.language,exact:true}).waitFor();
+  const menuBox=await page.getByRole('menu').boundingBox();
+  const languageBox=await page.getByRole('button',{name:names.language,exact:true,includeHidden:true}).boundingBox();
+  assert(menuBox.y+menuBox.height<=languageBox.y && menuBox.x>=0 && menuBox.x+menuBox.width<=960);
   await page.keyboard.press('Escape');
-  await page.getByRole('dialog').waitFor({state:'hidden'});
+  await page.getByRole('menu').waitFor({state:'hidden'});
   assert.equal(await page.getByRole('button',{name:names.language,exact:true}).evaluate(el=>el===document.activeElement),true);
   checks.push(await overflow(names.locale+' collapsed'));
   await page.getByRole('button',{name:names.expand,exact:true}).click();
   assert.equal((await page.locator('aside').boundingBox()).width,224);
   checks.push(await overflow(names.locale+' expanded'));
+  const modelEntry=page.getByRole('button',{name:names.locale==='en'?'Configure':'配置',exact:true});
+  await modelEntry.click();
+  await page.getByLabel('Base URL',{exact:true}).waitFor();
+  checks.push(await overflow(names.locale+' model settings'));
+  await page.getByRole('button',{name:names.locale==='en'?'Back to settings':'返回设置',exact:true}).click();
+  await modelEntry.waitFor();
+  assert.equal(await page.getByLabel('Base URL',{exact:true}).count(),0);
  }
  await page.getByRole('button',{name:'语言',exact:true}).click();
- await page.getByRole('combobox',{name:'语言'}).selectOption('en');
- await page.getByRole('dialog',{name:'Language',exact:true}).waitFor();
- await page.keyboard.press('Escape');
- await page.getByRole('dialog').waitFor({state:'hidden'});
-
+ await page.getByRole('menuitemradio',{name:'English',exact:true}).click();
+ await page.getByRole('menu').waitFor({state:'hidden'});
  await page.getByRole('button',{name:'Settings',exact:true}).click();
  await page.getByRole('heading',{name:'Settings',exact:true}).waitFor();
  checks.push(await overflow('settings'));
  await page.getByRole('button',{name:'Import',exact:true}).click();
- await page.getByText('Choose bank JSON',{exact:true}).waitFor();
+ await page.getByText('Choose bank ZIP',{exact:true}).waitFor();
  checks.push(await overflow('import'));
  const savesBeforeDismiss=await page.evaluate(()=>window.__calls.filter(c=>c.request.type==='save_language').length);
- assert.equal(await page.getByRole('combobox',{name:'Language'}).count(),0);
  const languageEntry=page.getByRole('button',{name:'Language',exact:true});
- await languageEntry.focus();
- await page.keyboard.press('Enter');
- const languageDialog=page.getByRole('dialog',{name:'Language',exact:true});
- await languageDialog.waitFor();
+ await languageEntry.focus(); await page.keyboard.press('Enter');
+ await page.getByRole('menu').waitFor();
  checks.push(await overflow('language'));
- const selector = page.getByRole('combobox',{name:'Language'});
- assert.equal(await selector.inputValue(),'en');
+ assert.equal(await page.getByRole('menuitemradio',{name:'English',exact:true}).getAttribute('aria-checked'),'true');
  await page.keyboard.press('Escape');
- await languageDialog.waitFor({state:'hidden'});
+ await page.getByRole('menu').waitFor({state:'hidden'});
  assert.equal(await languageEntry.evaluate(el=>el===document.activeElement),true);
  assert.equal(await page.evaluate(()=>window.__calls.filter(c=>c.request.type==='save_language').length),savesBeforeDismiss);
  await languageEntry.click();
- await page.waitForFunction(()=>!document.querySelector('#app-language').disabled);
- await selector.selectOption('zh-CN');
- await page.getByRole('dialog',{name:'语言',exact:true}).waitFor();
- await page.waitForFunction(()=>!document.querySelector('#app-language').disabled);
- await page.getByRole('combobox',{name:'语言'}).focus();
- // Native select type-ahead works with real key events on macOS headless Chromium.
- await page.keyboard.press('e');
- await page.getByRole('dialog',{name:'Language',exact:true}).waitFor();
- await page.keyboard.press('Escape');
- await page.getByRole('dialog').waitFor({state:'hidden'});
- await page.waitForFunction(()=>document.activeElement?.textContent?.trim()==='Language');
+ await page.getByRole('menuitemradio',{name:'简体中文',exact:true}).click();
+ await page.getByRole('menu').waitFor({state:'hidden'});
+ await page.getByRole('button',{name:'语言',exact:true}).click();
+ await page.getByRole('menu').waitFor();
+ await page.keyboard.press('Home'); await page.keyboard.press('ArrowDown');
+ await page.waitForFunction(()=>document.activeElement?.textContent?.trim()==='English');
+ await page.keyboard.press('Enter');
+ await page.getByRole('menu').waitFor({state:'hidden'});
+ await page.waitForFunction(()=>document.documentElement.lang==='en');
  await page.reload();
  await page.getByRole('heading',{name:'My banks',exact:true}).waitFor();
  await page.getByRole('button',{name:'Language',exact:true}).click();
- assert.equal(await page.getByRole('combobox',{name:'Language'}).inputValue(),'en');
- await page.getByRole('button',{name:'Close',exact:true}).click();
+ assert.equal(await page.getByRole('menuitemradio',{name:'English',exact:true}).getAttribute('aria-checked'),'true');
+ await page.keyboard.press('Escape');
+ await page.getByRole('menu').waitFor({state:'hidden'});
  await page.getByRole('button',{name:'My banks',exact:true}).click();
  await page.getByRole('button',{name:'Start practice',exact:true}).first().click();
  await page.getByRole('dialog').waitFor();
@@ -164,5 +173,5 @@ try {
  for (const check of checks) assert.deepEqual(check.items,[],`Text overflow: ${check.label}`);
  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
  assert.deepEqual(await page.evaluate(()=>window.__calls.filter(c=>c.command==='ai_request'&&!['operations','batches'].includes(c.request.type))),[]);
- console.log('PASS: bilingual expanded/collapsed sidebar navigation, tooltips, draft retention, language dialog/focus, 960px layouts; no model requests.');
+ console.log('PASS: bilingual expanded/collapsed sidebar navigation, tooltips, draft retention, language menu/focus, 960px layouts; no model requests.');
 } finally { await browser?.close(); await server.close(); }

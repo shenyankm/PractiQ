@@ -8,7 +8,34 @@ English | [Simplified Chinese](README.zh-CN.md)
 
 Turn documents into question banks, then practise and take mock exams on your Mac.
 
-PractiQ combines an offline desktop practice app with a self-hosted AI service. Import an existing PractiQ JSON file without model access, or configure a model supporting text and image inputs to extract questions from documents. Build tests across question banks, review your answers, and request AI scoring for supported short-answer questions.
+PractiQ combines an offline desktop practice app with a self-hosted AI service. Import an existing PractiQ bank ZIP without model access, or configure a model supporting text and image inputs to extract questions from documents. Build tests across question banks, review your answers, and request AI scoring for supported short-answer questions.
+
+## Who it is for
+
+- **Students and independent learners**: turn your papers, handouts, and question lists into reusable banks, then revisit mistakes and bookmarks.
+- **Teachers and material organizers**: review questions and distribute a question-bank ZIP so recipients can practise offline.
+- **Developers**: run the AI service independently to integrate document extraction into your tools.
+
+PractiQ focuses on your materials, reviewable question banks, and local practice and mock exams. It does not include courses, a public question-bank marketplace, accounts, cloud sync, or online collaboration. Question files can be shared; each person's answers and scores stay on their device. Parsing extracts supplied answers without solving unanswered questions.
+
+## Try it without a model
+
+First follow [Run the desktop app](#run-the-desktop-app). If you already have the app, start at step 1:
+
+1. Open **Import → Choose bank ZIP** and select [sample.zip](app/fixtures/sample.zip) from this repository.
+2. The app reads the included images automatically; no separate image folder is needed.
+3. Review the preview and create a bank. The sample contains nine questions across seven basic types, formulas, a table, and an image. One question deliberately lacks an answer to demonstrate the review flag.
+4. Open the bank and start practice. Answer questions and view explanations, then try a self-test or timed mock exam and review local scoring after submission.
+
+This is a hand-written walkthrough sample, not a customer case study or a model evaluation. No API key is needed; model calls require an explicit parsing or AI grading action. Try the [composite question sample](app/fixtures/composite.zip) for reading comprehension, word-bank, and cloze questions.
+
+### Sharing question files
+
+Choose **Export bank ZIP** in a bank card's menu and send the package to a classmate. Recipients import the ZIP with its images and keep their own practice records. Packages preserve answers, explanations, materials, and review flags, but exclude bookmarks, mistakes, personal answers, and scores. Missing or damaged images prevent export; existing destination files are never overwritten.
+
+**Learning-data backup ZIPs** include personal records for recovery. **Question-bank ZIPs** contain shareable content. The app rejects packages opened through the wrong entry point. See the [package guide](docs/question-bank-package.md) (Chinese).
+
+See the [first-release draft](docs/first-release.md) for scope, concise release notes, and outstanding release checks.
 
 ## Practise with your own materials
 
@@ -16,9 +43,9 @@ Use the desktop app in Simplified Chinese or English to manage questions and rev
 
 | Task | What you can do |
 | --- | --- |
-| Import questions | Parse PDF, TXT, CSV, and PNG/JPEG files, or import PractiQ JSON with its local images |
+| Import questions | Parse PDF, TXT, CSV, and PNG/JPEG files, or import a PractiQ ZIP containing questions and images |
 | Organize question banks | Edit questions, search, bookmark, and copy multiple banks into a new bank while keeping the originals |
-| Practise offline | Answer single-choice, multiple-choice, true/false, fill-in-the-blank, short-answer, ordering, and matching questions |
+| Practise offline | Answer seven basic question types plus reading comprehension, word-bank, and cloze groups |
 | Build a test | Select across banks by question type, mistakes, bookmarks, or unanswered questions; use counts, type quotas, or manual selection |
 | Take a mock exam | Preview point values, set a time limit, and reveal answers after submission |
 | Review scores | Check local objective scores, request AI short-answer scores, or record a manual score with a reason |
@@ -26,11 +53,11 @@ Use the desktop app in Simplified Chinese or English to manage questions and rev
 
 Practice, tests, local objective scoring, and manual scoring work offline. Document parsing and AI scoring send content to your configured model provider and may incur charges. Start or resume those actions explicitly; reopening the desktop app does not resume model calls.
 
-The desktop supports Simplified Chinese and English. Use **Language** above Settings in the sidebar to switch immediately. On first launch, Chinese system languages select Simplified Chinese; other languages select English. Your choice is stored locally and included in backups. Switching does not call a model or translate imported questions and answers.
+The desktop supports Simplified Chinese and English. Click **Language** above Settings to choose a language in the menu above the entry. On first launch, Chinese system languages select Simplified Chinese; other languages select English. Your choice is stored locally and included in backups. Switching does not call a model or translate imported questions and answers.
 
 ## Import documents and review results
 
-Open **Import** in the desktop sidebar. Choose a PractiQ `.json` file for offline import, or select a source document and start parsing. Review the extracted questions, images, and warnings before creating a bank or appending to one.
+Open **Import** in the desktop sidebar. Choose a PractiQ bank `.zip` file for offline import, or select a source document and start parsing. Review the extracted questions, images, and warnings before creating a bank or appending to one.
 
 The parser accepts these source formats:
 
@@ -65,7 +92,7 @@ make app-bundle AI_PYTHON=/path/to/python3.14
 make app-dev
 ```
 
-This builds the bundled Python service before starting the desktop app. You do not need model credentials to import JSON and practise offline. Configure the provider URL, model ID, and API key in **Settings**. Parsing and AI scoring share this model, which must support text and image inputs.
+This builds the bundled Python service before starting the desktop app. You do not need model credentials to import ZIP and practise offline. Configure the provider URL, model ID, and API key in **Settings**. Parsing and AI scoring share this model, which must support text and image inputs.
 
 To build a local application package, run:
 

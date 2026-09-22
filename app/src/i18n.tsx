@@ -43,8 +43,8 @@ export class MessageError extends Error {
 }
 
 type LanguageFailure = { key: "读取语言设置失败" | "保存语言设置失败"; cause: unknown };
-type LanguageContext = { locale: Locale; ready: boolean; saving: boolean; error: LanguageFailure | null; reload: () => Promise<void>; change: (value: Locale) => Promise<void> };
-const Context = createContext<LanguageContext>({ locale: current, ready: true, saving: false, error: null, reload: async () => {}, change: async () => {} });
+type LanguageContext = { locale: Locale; ready: boolean; saving: boolean; error: LanguageFailure | null; reload: () => Promise<void>; change: (value: Locale) => Promise<boolean> };
+const Context = createContext<LanguageContext>({ locale: current, ready: true, saving: false, error: null, reload: async () => {}, change: async () => true });
 export function useI18n() { return useContext(Context); }
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [language, setLanguage] = useState(current);
@@ -65,15 +65,16 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   }
   useEffect(() => { document.documentElement.lang = current; void reload(); return () => { ++generation.current; }; }, []);
   async function change(value: Locale) {
-    if (!isLocale(value) || lock.current || !ready) return;
+    if (!isLocale(value) || lock.current || !ready) return false;
     const request = ++generation.current;
     lock.current = true; setSaving(true);
     try {
       await invoke("request", { request: { type: "save_language", locale: value } satisfies LanguageRequest });
-      if (request !== generation.current) return;
-      apply(value); setError(null);
+      if (request !== generation.current) return false;
+      apply(value); setError(null); return true;
     } catch (e) { if (request === generation.current) setError({ key: "保存语言设置失败", cause: e }); }
     finally { lock.current = false; if (request === generation.current) setSaving(false); }
+    return false;
   }
   return <Context.Provider value={{ locale: language, ready, saving, error, reload, change }}>{ready ? children : <p role="status">{t("正在读取语言设置…")}</p>}</Context.Provider>;
 }

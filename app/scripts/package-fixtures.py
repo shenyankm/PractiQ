@@ -1,0 +1,26 @@
+"""Build deterministic, offline-importable question-bank ZIP examples."""
+import json
+from pathlib import Path
+from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
+
+fixtures = Path(__file__).resolve().parents[1] / 'fixtures'
+for name, title in [('sample', '基础题型示例'), ('composite', '复合题示例')]:
+    source = fixtures / f'{name}.json'
+    result = json.loads(source.read_text(encoding='utf-8'))
+    files = {
+        'manifest.json': json.dumps({'format': 'practiq-question-bank', 'version': 1,
+            'bank': {'title': title, 'description': '人工编写的操作样例，不代表模型准确率。'}}, ensure_ascii=False).encode(),
+        'questions.json': source.read_bytes(),
+    }
+    for visual in result['visualElements']:
+        for field in ('imageRef', 'sourceRef'):
+            reference = visual.get(field)
+            if reference:
+                key = reference['objectKey']
+                files[f'resources/{key}'] = (fixtures / 'resources' / key).read_bytes()
+    with ZipFile(fixtures / f'{name}.zip', 'w') as archive:
+        for name, data in sorted(files.items()):
+            info = ZipInfo(name, date_time=(2026, 1, 1, 0, 0, 0))
+            info.compress_type = ZIP_DEFLATED
+            info.external_attr = 0o100644 << 16
+            archive.writestr(info, data)

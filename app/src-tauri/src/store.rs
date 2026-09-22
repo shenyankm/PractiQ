@@ -7,7 +7,7 @@ use std::{
     collections::HashMap,
     fs,
     io::Read,
-    path::{Component, Path, PathBuf},
+    path::{Path, PathBuf},
     time::{SystemTime, UNIX_EPOCH},
 };
 use uuid::Uuid;
@@ -51,6 +51,7 @@ pub struct Pending {
     pub ticket: String,
     pub root: Value,
     pub title: String,
+    pub description: String,
     pub assets: HashMap<String, (String, Vec<u8>)>,
     pub missing: Vec<String>,
     pub source: Option<ImportSource>,
@@ -71,6 +72,7 @@ impl Pending {
             ticket: id(),
             root,
             title,
+            description: String::new(),
             assets: HashMap::new(),
             missing,
             source: None,
@@ -144,6 +146,7 @@ impl Store {
         }
         Ok(db)
     }
+    #[cfg(test)]
     pub fn preview(&mut self, bytes: Vec<u8>, title: String) -> Result<Value> {
         self.pending = Some(Pending::new(bytes, title)?);
         self.preview_value()
@@ -158,6 +161,7 @@ impl Store {
             json!({"ticket":p.ticket,"title":p.title,"count":list(r,"questions").iter().filter(|q|!crate::questions::composite(q)).count(),"reviewCount":list(r,"questions").iter().filter(|q|q["needsReview"]==true && !crate::questions::composite(q)).count(),"questions":r["questions"],"groups":r["groups"],"visuals":r["visualElements"],"warnings":r["warnings"],"status":p.root["status"],"processing":p.root["processing"],"missingAssets":p.missing,"assetCount":p.assets.len()}),
         )
     }
+    #[cfg(test)]
     pub fn resources(&mut self, root: &Path) -> Result<Value> {
         let root = root.canonicalize().map_err(err)?;
         let p = self.pending.as_mut().ok_or(crate::language::error(
@@ -177,7 +181,7 @@ impl Store {
             let key = text(r, "objectKey");
             if Path::new(key)
                 .components()
-                .any(|c| !matches!(c, Component::Normal(_)))
+                .any(|c| !matches!(c, std::path::Component::Normal(_)))
                 || key.contains('\\')
             {
                 return Err(crate::language::error(
@@ -261,6 +265,13 @@ impl Store {
         }
         let mut db = self.connect()?;
         let tx = db.transaction().map_err(err)?;
+        for (digest, (media, bytes)) in &p.assets {
+            tx.execute(
+                "INSERT OR IGNORE INTO assets VALUES(?1,?2,?3,?4)",
+                params![digest, media, bytes.len(), format!("assets/{digest}")],
+            )
+            .map_err(err)?;
+        }
         let digest = p.digest()?;
         if let Some(source) = &p.source {
             if let Some(bank) = tx.query_row(
@@ -290,8 +301,8 @@ impl Store {
         }
         if !exists {
             tx.execute(
-                "INSERT INTO banks VALUES(?1,?2,'',?3)",
-                params![bank, title, now()],
+                "INSERT INTO banks VALUES(?1,?2,?3,?4)",
+                params![bank, title, p.description, now()],
             )
             .map_err(err)?;
         }
@@ -306,8 +317,8 @@ impl Store {
             if let Some(source) = &p.source {
                 tx.execute("INSERT INTO ai_imports(thread_id,digest,checkpoint_id,import_id) SELECT ?1,?2,?3,id FROM imports WHERE bank_id=?4 AND digest=?2",
                     params![source.thread_id, digest, source.checkpoint_id, bank]).map_err(err)?;
-                tx.commit().map_err(err)?;
             }
+            tx.commit().map_err(err)?;
             return Ok(json!({"duplicate":true,"bankId":bank,"count":0}));
         }
         let import_id = id();
@@ -327,13 +338,6 @@ impl Store {
             tx.execute(
                 "INSERT INTO ai_imports VALUES(?1,?2,?3,?4)",
                 params![source.thread_id, digest, source.checkpoint_id, import_id],
-            )
-            .map_err(err)?;
-        }
-        for (digest, (media, bytes)) in &p.assets {
-            tx.execute(
-                "INSERT OR IGNORE INTO assets VALUES(?1,?2,?3,?4)",
-                params![digest, media, bytes.len(), format!("assets/{digest}")],
             )
             .map_err(err)?;
         }

@@ -918,5 +918,17 @@
   "STALE_CHECKPOINT": {
     "zh-CN": "任务已变化，请刷新任务或重新创建导入批次。",
     "en": "The task changed. Refresh it or recreate the import batch."
+  },
+  "LOCAL_BANK_ZIP_INVALID": {
+    "zh-CN": "题库 ZIP 无法读写：{detail}。请确认包完整、图片齐全，并选择未存在的导出文件名。",
+    "en": "Cannot read or write bank ZIP: {detail}. Check the package and images, and choose a new export filename."
+  },
+  "LOCAL_USE_BACKUP_RESTORE": {
+    "zh-CN": "这是学习数据备份，请到设置中选择“恢复备份”。",
+    "en": "This is a learning-data backup. Use Restore backup in Settings."
+  },
+  "LOCAL_USE_BANK_IMPORT": {
+    "zh-CN": "这是题库分享包，请到“导入题库”导入 ZIP。",
+    "en": "This is a question-bank package. Use Import to import the ZIP."
   }
 }

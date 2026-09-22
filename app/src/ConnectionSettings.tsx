@@ -1,7 +1,7 @@
 import { list, message, t, useI18n } from "./i18n";
 import { useEffect, useState } from "react";
 import { toast } from "./notifications";
-import { Save, KeyRound } from "lucide-react";
+import { Save, KeyRound, ChevronRight } from "lucide-react";
 import {
   api,
   errorMessage,
@@ -20,16 +20,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 export function ConnectionSettingsPanel({
   busy,
   run,
   onSaved,
   returnToImport = false,
+  onConfigure,
 }: {
   busy: boolean;
   run: (job: () => Promise<void>) => void;
   onSaved?: () => Promise<void>;
   returnToImport?: boolean;
+  onConfigure?: () => void;
 }) {
   useI18n();
   const [saved, setSaved] = useState<SettingsResult | null>(null);
@@ -70,6 +73,22 @@ export function ConnectionSettingsPanel({
       setApiKey("");
     }
   }
+  if (onConfigure) return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between gap-6">
+        <div className="min-w-0 space-y-2">
+          <div className="flex items-center gap-2">
+            <CardTitle>{t("AI 模型")}</CardTitle>
+            {!error && <Badge role="status" variant={saved && !missingModelSettings(saved).length ? "secondary" : "outline"}>
+              {!saved ? t("加载中…") : missingModelSettings(saved).length ? t("未配置") : t("已配置")}
+            </Badge>}
+          </div>
+          {error != null && <p role="alert" className="break-words text-sm text-destructive">{errorMessage(error)}</p>}
+        </div>
+        <Button variant="outline" disabled={busy} onClick={onConfigure} className="shrink-0">{t("配置")}<ChevronRight /></Button>
+      </CardHeader>
+    </Card>
+  );
   return (
     <Card>
       <CardHeader>
