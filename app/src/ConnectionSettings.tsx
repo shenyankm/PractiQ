@@ -1,7 +1,7 @@
 import { list, message, t, useI18n } from "./i18n";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "./notifications";
-import { Save, KeyRound, ChevronRight } from "lucide-react";
+import { PlugZap, LoaderCircle, ChevronRight } from "lucide-react";
 import {
   api,
   errorMessage,
@@ -12,26 +12,20 @@ import {
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 export function ConnectionSettingsPanel({
   busy,
   run,
-  onSaved,
-  returnToImport = false,
   onConfigure,
 }: {
   busy: boolean;
   run: (job: () => Promise<void>) => void;
-  onSaved?: () => Promise<void>;
-  returnToImport?: boolean;
   onConfigure?: () => void;
 }) {
   useI18n();
@@ -42,7 +36,12 @@ export function ConnectionSettingsPanel({
     oss_url: null,
   });
   const [apiKey, setApiKey] = useState("");
-  const [clearKey, setClearKey] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const [operation, setOperation] = useState<"test" | "save" | null>(null);
+  const locked = useRef(false);
+  const revision = useRef(0);
+  useEffect(() => () => { ++revision.current; }, []);
+  function invalidate() { ++revision.current; setDirty(true); setSaveError(null); }
   const [saveError, setSaveError] = useState<unknown>(null);
   const [error, setError] = useState<unknown>(null);
   const load = () => {
@@ -65,14 +64,39 @@ export function ConnectionSettingsPanel({
   useEffect(load, []);
   const configured =
     saved?.hasApiKey && saved.config.base_url === config.base_url;
-  const missing = missingModelSettings({ config, hasApiKey: !clearKey && (!!configured || !!apiKey.trim()) });
+  const missing = missingModelSettings({ config, hasApiKey: !!configured || !!apiKey.trim() });
   function field(name: keyof ConnectionSettings, value: string) {
+    invalidate();
     setConfig((old) => ({ ...old, [name]: value || null }));
     if (name === "base_url") {
-      setClearKey(false);
       setApiKey("");
     }
   }
+  async function persist() {
+    if (!dirty || !saved) return;
+    const version = revision.current;
+    setDirty(false); setSaveError(null);
+    try {
+      const result = await api<SettingsResult>({ type: "save_settings", config, api_key: apiKey.trim() || null });
+      if (version === revision.current) {
+        setSaved(result); setConfig(result.config);
+      }
+      toast.success(message("连接配置已保存"));
+    } catch (e) { setSaveError(e); toast.error(e); }
+  }
+  function autosave() {
+    if (!dirty || !saved || busy || locked.current) return;
+    locked.current = true; setOperation("save");
+    run(async () => {
+      try { await persist(); }
+      finally { locked.current = false; setOperation(null); }
+    });
+  }
+  useEffect(() => {
+    if (!dirty || busy || operation !== null) return;
+    const timer = window.setTimeout(autosave, 600);
+    return () => window.clearTimeout(timer);
+  }, [config, apiKey, dirty, busy, operation]);
   if (onConfigure) return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between gap-6">
@@ -91,32 +115,11 @@ export function ConnectionSettingsPanel({
   );
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>{t("AI 模型")}</CardTitle>
-        <CardDescription>{t("解析文档时调用配置的模型，可能产生费用。文件和图片保存在本机。")}</CardDescription>
-      </CardHeader>
       <CardContent>
         <form
           className="space-y-4"
-          onSubmit={(e) => {
-            e.preventDefault();
-            run(async () => {
-              setSaveError(null);
-              try {
-              const result = await api<SettingsResult>({
-                type: "save_settings",
-                config,
-                api_key: clearKey ? "" : apiKey.trim() || null,
-              });
-              setSaved(result);
-              setConfig(result.config);
-              setApiKey("");
-              setClearKey(false);
-              toast.success(message("连接配置已保存"));
-              if (!missingModelSettings(result).length) await onSaved?.();
-              } catch (e) { setSaveError(e); }
-            });
-          }}
+          onSubmit={e => e.preventDefault()}
+          onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget)) autosave(); }}
         >
           {error != null && (
             <div
@@ -127,16 +130,14 @@ export function ConnectionSettingsPanel({
               <Button type="button" variant="outline" onClick={() => load()}>{t("重试")}</Button>
             </div>
           )}
-          <fieldset disabled={busy || !saved} className="min-w-0 space-y-4">
+          <fieldset disabled={busy || operation !== null || !saved} className="min-w-0 space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="baseUrl">Base URL</Label>
-              <Input id="baseUrl" type="url" autoComplete="off" spellCheck={false} placeholder="https://api.example.com/v1" value={config.base_url || ""} onChange={e => field("base_url", e.target.value)}/>
-              <p className="text-xs text-muted-foreground">{t("从供应商的 API 文档复制兼容 OpenAI 的完整地址；本机回环服务允许 HTTP。")}</p>
+              <div className="flex items-center gap-3"><Label htmlFor="baseUrl">Base URL</Label><span id="base-url-hint" className="text-xs text-muted-foreground">{t("OpenAI 兼容地址")}</span></div>
+              <Input id="baseUrl" aria-describedby="base-url-hint" type="url" autoComplete="off" spellCheck={false} placeholder="https://api.example.com/v1" value={config.base_url || ""} onChange={e => field("base_url", e.target.value)}/>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="modelId">{t("模型 ID")}</Label>
-              <Input id="modelId" aria-describedby="model-help" placeholder={t("支持文本及图片输入的模型 ID")} autoComplete="off" value={config.model_id || ""} onChange={e => field("model_id", e.target.value)} />
-              <p id="model-help" className="text-xs leading-5 text-muted-foreground">{t("解析和评分统一使用此模型，须支持文本及图片输入。请从供应商模型列表复制准确的 API 模型 ID。")}</p>
+              <div className="flex items-center gap-3"><Label htmlFor="modelId">{t("模型 ID")}</Label><span id="model-id-hint" className="text-xs text-muted-foreground">{t("视觉模型")}</span></div>
+              <Input id="modelId" aria-describedby="model-id-hint" placeholder={t("支持文本及图片输入的模型 ID")} autoComplete="off" value={config.model_id || ""} onChange={e => field("model_id", e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="apiKey">API Key</Label>
@@ -145,39 +146,35 @@ export function ConnectionSettingsPanel({
                 type="password"
                 autoComplete="new-password"
                 spellCheck={false}
-                disabled={clearKey}
                 placeholder={
-                  configured ? t("已保存，留空保持原值") : t("填写此地址对应的 API Key")
+                  configured ? "********************************" : t("填写此地址对应的 API Key")
                 }
                 value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
+                onChange={(e) => { invalidate(); setApiKey(e.target.value); }}
               />
-              <p className="flex items-start gap-1.5 text-xs leading-5 text-muted-foreground">
-                <KeyRound className="mt-1 size-3 shrink-0" />
-                <span>{t("{0}密钥存入 macOS 钥匙串，不会导出到备份。", { 0: configured
-                  ? t("该地址已有 API Key。")
-                  : t("该地址尚未保存 API Key。") })}</span>
-              </p>
-              {configured && (
-                <label className="flex items-center gap-2 text-sm">
-                  <Checkbox
-                    checked={clearKey}
-                    onCheckedChange={(v) => {
-                      setClearKey(v === true);
-                      if (v) setApiKey("");
-                    }}
-                  />{t("移除该地址已保存的 API Key")}</label>
-              )}
             </div>
           </fieldset>
-          <p role="status" className="text-sm">{missing.length ? t("解析配置还缺：{0}", { 0: list(missing) }) : t("解析所需字段已填写；保存配置不会调用模型，实际可用性将在主动解析时验证。")}</p>
-          {saveError != null && <p role="alert" className="text-sm text-destructive">{t("{0}。请检查后重新保存。", { 0: errorMessage(saveError) })}</p>}
-          <div className="flex items-center justify-between gap-4 border-t pt-4">
-          <p className="max-w-md text-xs leading-5 text-muted-foreground">{t("更改连接配置会停止解析服务；旧任务可能因模型配置变化而无法继续。")}</p>
-          <Button className="shrink-0" type="submit" disabled={busy || !saved}>
-            <Save />
-            {returnToImport && !missing.length ? t("保存并返回导入") : t("保存连接配置")}
+          {missing.length > 0 && <p role="status" className="text-sm">{t("解析配置还缺：{0}", { 0: list(missing) })}</p>}
+          {saveError != null && <p role="alert" className="text-sm text-destructive">{errorMessage(saveError)}</p>}
+          <div className="flex items-center justify-end gap-4 border-t pt-4">
+          <Button variant="outline" type="button" disabled={busy || operation !== null || !saved || missing.length > 0} onClick={() => {
+            if (locked.current) return;
+            locked.current = true; setOperation("test"); setSaveError(null);
+            const version = revision.current;
+            run(async () => {
+              try {
+                await persist();
+                await api({ type: "test_settings", config, api_key: apiKey.trim() || null });
+                if (version !== revision.current) return;
+                toast.success(message("连接测试通过"));
+              } catch (e) { if (version === revision.current) { setSaveError(e); toast.error(e); } }
+              finally { locked.current = false; setOperation(null); }
+            });
+          }}>
+            {operation === "test" ? <LoaderCircle className="animate-spin" /> : <PlugZap />}
+            {operation === "test" ? t("测试中…") : t("测试")}
           </Button>
+          {operation === "save" && <span role="status" className="text-sm text-muted-foreground">{t("保存中…")}</span>}
           </div>
         </form>
       </CardContent>

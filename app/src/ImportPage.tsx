@@ -5,10 +5,9 @@ import { api, errorMessage, missingModelSettings, type Preview, type SettingsRes
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
-export function ImportPage({ busy, run, onPickJson, onPreview, onConfigure }: {
+export function ImportPage({ busy, run, onPreview, onConfigure }: {
   busy: boolean;
   run: (job: () => Promise<void>) => void;
-  onPickJson: () => Promise<void>;
   onPreview: (preview: Preview) => void;
   onConfigure: () => void;
 }) {
@@ -29,13 +28,6 @@ export function ImportPage({ busy, run, onPickJson, onPreview, onConfigure }: {
   return <div className="space-y-6">
     <Card>
       <CardHeader>
-        <CardTitle>{t("导入已有题库")}</CardTitle>
-        <CardDescription>{t("支持 PractiQ 题库 ZIP，包含题目与图片，无需 AI 解析或模型配置。")}</CardDescription>
-      </CardHeader>
-      <CardContent><Button disabled={busy} onClick={() => run(onPickJson)}>{t("选择题库 ZIP")}</Button></CardContent>
-    </Card>
-    <Card>
-      <CardHeader>
         <CardTitle>{t("从文档创建题库")}</CardTitle>
         <CardDescription>{t("支持 PDF（.pdf）、文本（.txt）、表格文本（.csv），以及图片（.png、.jpg、.jpeg）。单个文件最大 25 MiB。")}</CardDescription>
       </CardHeader>
@@ -46,7 +38,7 @@ export function ImportPage({ busy, run, onPickJson, onPreview, onConfigure }: {
         </details>
         {error ? <div role="alert" className="space-y-2"><p>{errorMessage(error)}</p><Button variant="outline" disabled={busy} onClick={() => setRevision(n => n + 1)}>{t("重试读取配置")}</Button></div>
           : !settings ? <p role="status">{t("正在读取模型配置…")}</p>
-          : !ready ? <div className="flex items-center justify-between gap-4 rounded-lg border bg-muted/30 p-4"><div><p className="font-medium">{t("先配置 AI 模型")}</p><p className="mt-1 text-sm text-muted-foreground">{t("还缺：{0}。已有 ZIP 题库可直接离线导入。", { 0: list(missing) })}</p></div><Button disabled={busy} onClick={onConfigure}>{t("配置 AI 模型")}</Button></div>
+          : !ready ? <div className="flex items-center justify-between gap-4 rounded-lg border bg-muted/30 p-4"><div><p className="font-medium">{t("先配置 AI 模型")}</p><p className="mt-1 text-sm text-muted-foreground">{t("还缺：{0}。题库 ZIP 请到设置中的“恢复备份”导入。", { 0: list(missing) })}</p></div><Button disabled={busy} onClick={onConfigure}>{t("配置 AI 模型")}</Button></div>
           : <p className="text-sm text-muted-foreground">{t("模型 ID：{0}", { 0: settings.config.model_id })}</p>}
         <AiTasks busy={busy} run={run} onPreview={onPreview} modelsReady={ready} />
       </CardContent>

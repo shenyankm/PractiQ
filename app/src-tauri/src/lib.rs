@@ -157,6 +157,10 @@ enum Request {
         locale: language::Locale,
     },
     Settings,
+    TestSettings {
+        config: settings::ConnectionSettings,
+        api_key: Option<String>,
+    },
     SaveSettings {
         config: settings::ConnectionSettings,
         api_key: Option<String>,
@@ -229,6 +233,12 @@ async fn request(
         };
         let selected=selected.map(|p|p.into_path().map_err(|e|e.to_string())).transpose()?;
         if matches!(&request,Request::PickImport|Request::ExportBank{..}|Request::Backup|Request::Restore)&&selected.is_none(){return Ok(Value::Null);}
+        if let Request::TestSettings { config, api_key } = request {
+            let (config, key) = shared.lock()
+                .map_err(|_| language::error("LOCAL_DATABASE_UNAVAILABLE", json!({})))?
+                .connection_test_input(&app.config().identifier, config, api_key)?;
+            return settings::test_connection(config, key);
+        }
         let work = app.state::<ai_work::WorkState>();
         let _restore = if matches!(&request, Request::Restore) { Some(work.restore()?) } else { None };
         if matches!(&request, Request::SaveSettings{..}|Request::Restore) {ai::stop(&app)?;}
@@ -268,6 +278,7 @@ async fn request(
             Request::Restore=>store.restore(&selected.ok_or(language::error("LOCAL_BACKUP_NOT_SELECTED", json!({})))?),
             Request::Language=>Ok(json!(store.language()?)),
             Request::SaveLanguage{locale}=>store.save_language(locale),
+            Request::TestSettings{..}=>unreachable!(),
             Request::Settings=>store.settings(&app.config().identifier),
             Request::SaveSettings{config,api_key}=>store.save_settings(&app.config().identifier,config,api_key),
             Request::Info=>Ok(json!({"dataDirectory":store.dir.display().to_string(),"version":env!("CARGO_PKG_VERSION")})),

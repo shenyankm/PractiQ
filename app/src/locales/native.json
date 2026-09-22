@@ -928,7 +928,27 @@
     "en": "This is a learning-data backup. Use Restore backup in Settings."
   },
   "LOCAL_USE_BANK_IMPORT": {
-    "zh-CN": "这是题库分享包，请到“导入题库”导入 ZIP。",
-    "en": "This is a question-bank package. Use Import to import the ZIP."
+    "zh-CN": "这是题库分享包，请到设置中的“恢复备份”选择“导入题库 ZIP”。",
+    "en": "This is a question-bank package. In Settings, choose Restore backup, then Import bank ZIP."
+  },
+  "LOCAL_CONNECTION_FAILED": {
+    "zh-CN": "连接失败或超时，请检查地址和网络。",
+    "en": "Connection failed or timed out. Check the URL and network."
+  },
+  "LOCAL_CONNECTION_HTTP": {
+    "zh-CN": "连接测试失败（HTTP {status}），请检查地址、API Key 和访问权限。",
+    "en": "Connection test failed (HTTP {status}). Check the URL, API key and access permissions."
+  },
+  "LOCAL_CONNECTION_RESPONSE": {
+    "zh-CN": "模型列表响应无效，无法验证连接。",
+    "en": "Invalid model list response; the connection could not be verified."
+  },
+  "LOCAL_CONNECTION_MODEL": {
+    "zh-CN": "模型列表中未找到该模型 ID，请检查模型名称和访问权限。",
+    "en": "Model ID not found in the model list. Check the model name and access permissions."
+  },
+  "LOCAL_CONNECTION_FIELDS": {
+    "zh-CN": "请先填写 Base URL 和模型 ID。",
+    "en": "Enter a Base URL and model ID first."
   }
 }

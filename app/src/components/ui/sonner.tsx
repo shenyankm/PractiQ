@@ -33,6 +33,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
         } as React.CSSProperties
       }
       toastOptions={{
+        style: { width: "max-content", maxWidth: "100%", right: 0 },
         closeButtonAriaLabel: t("关闭"),
         classNames: {
           toast: "cn-toast",

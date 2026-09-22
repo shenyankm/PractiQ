@@ -130,3 +130,22 @@ html[lang="en"] [data-slot="button"]:not([data-size^="icon"]) {
   min-height: 2rem;
   white-space: normal;
 }
+
+.sidebar-label {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 120ms ease-out, visibility 0s;
+}
+
+.sidebar-label[aria-hidden="true"] {
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 120ms ease-out, visibility 0s linear 120ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-label,
+  .sidebar-label[aria-hidden="true"] {
+    transition: none;
+  }
+}

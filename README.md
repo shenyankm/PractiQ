@@ -22,7 +22,7 @@ PractiQ focuses on your materials, reviewable question banks, and local practice
 
 First follow [Run the desktop app](#run-the-desktop-app). If you already have the app, start at step 1:
 
-1. Open **Import → Choose bank ZIP** and select [sample.zip](app/fixtures/sample.zip) from this repository.
+1. Open **Settings → Restore backup → Import bank ZIP** and select [sample.zip](app/fixtures/sample.zip) from this repository.
 2. The app reads the included images automatically; no separate image folder is needed.
 3. Review the preview and create a bank. The sample contains nine questions across seven basic types, formulas, a table, and an image. One question deliberately lacks an answer to demonstrate the review flag.
 4. Open the bank and start practice. Answer questions and view explanations, then try a self-test or timed mock exam and review local scoring after submission.
@@ -33,7 +33,7 @@ This is a hand-written walkthrough sample, not a customer case study or a model 
 
 Choose **Export bank ZIP** in a bank card's menu and send the package to a classmate. Recipients import the ZIP with its images and keep their own practice records. Packages preserve answers, explanations, materials, and review flags, but exclude bookmarks, mistakes, personal answers, and scores. Missing or damaged images prevent export; existing destination files are never overwritten.
 
-**Learning-data backup ZIPs** include personal records for recovery. **Question-bank ZIPs** contain shareable content. The app rejects packages opened through the wrong entry point. See the [package guide](docs/question-bank-package.md) (Chinese).
+**Learning-data backup ZIPs** include personal records for recovery. **Question-bank ZIPs** contain shareable content. Both are available under **Settings → Restore backup**, with separate options for bank import and full restoration. The app rejects packages opened through the wrong option. See the [package guide](docs/question-bank-package.md) (Chinese).
 
 See the [first-release draft](docs/first-release.md) for scope, concise release notes, and outstanding release checks.
 

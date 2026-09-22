@@ -47,17 +47,39 @@ try {
  await page.getByRole('heading',{name:'My banks',exact:true}).waitFor();
  assert.equal(await page.evaluate(async () => (await import('/node_modules/@tauri-apps/api/core.js')).isTauri()),false);
 
+ await page.emulateMedia({colorScheme:'dark'});
+ await page.waitForFunction(()=>document.documentElement.classList.contains('dark'));
+ await page.getByRole('button',{name:'Theme',exact:true}).click();
+ assert.equal(await page.getByRole('menuitemradio',{name:'System',exact:true}).getAttribute('aria-checked'),'true');
+ await page.getByRole('menuitemradio',{name:'Light',exact:true}).click();
+ await page.waitForFunction(()=>!document.documentElement.classList.contains('dark'));
+ await page.reload();
+ await page.getByRole('heading',{name:'My banks',exact:true}).waitFor();
+ assert.equal(await page.locator('html').evaluate(el=>el.classList.contains('dark')),false);
+ await page.getByRole('button',{name:'Collapse sidebar',exact:true}).click();
+ await page.getByRole('button',{name:'Theme',exact:true}).click();
+ assert.equal(await page.getByRole('menuitemradio',{name:'Light',exact:true}).getAttribute('aria-checked'),'true');
+ await page.getByRole('menuitemradio',{name:'Dark',exact:true}).click();
+ await page.waitForFunction(()=>document.documentElement.classList.contains('dark'));
+ await page.getByRole('button',{name:'Theme',exact:true}).click();
+ await page.getByRole('menuitemradio',{name:'System',exact:true}).click();
+ await page.emulateMedia({colorScheme:'light'});
+ await page.waitForFunction(()=>!document.documentElement.classList.contains('dark'));
+ await page.getByRole('button',{name:'Expand sidebar',exact:true}).click();
+ const settleSidebar=()=>page.locator('#app-sidebar').evaluate(async el=>{await Promise.all(el.getAnimations({subtree:true}).map(animation=>animation.finished));});
  const overflow=async label=>({label,items:await page.locator('aside *, main *, [role=dialog] *, [role=menu] *').evaluateAll(elements=>elements.filter(e=>e.clientWidth>0&&e.scrollWidth>e.clientWidth+3&&getComputedStyle(e).overflowX==='visible'&&e.children.length===0&&e.textContent.trim()).map(e=>({tag:e.tagName,text:e.textContent.slice(0,140),width:e.clientWidth,scroll:e.scrollWidth}))) });
  const checks=[await overflow('banks')];
  for (const names of [
   {locale:'en',language:'Language',collapse:'Collapse sidebar',expand:'Expand sidebar',nav:['My banks','Import','Mistakes','Favorites','History','Settings']},
   {locale:'zh-CN',language:'语言',collapse:'收起侧边栏',expand:'展开侧边栏',nav:['我的题库','导入题库','错题本','收藏夹','练习记录','设置']},
  ]) {
-  await page.locator('aside button[aria-haspopup="menu"]').click();
+  await page.locator('aside').getByRole('button',{name:/^(Language|语言)$/,exact:true}).click();
   await page.getByRole('menuitemradio',{name:names.locale==='en'?'English':'简体中文',exact:true}).click();
   await page.waitForFunction(locale=>document.documentElement.lang===locale,names.locale);
   await page.keyboard.press('Escape');
   await page.getByRole('menu').waitFor({state:'hidden'});
+  const sidebarPositions=()=>page.locator('aside button').evaluateAll(buttons=>buttons.map(button=>{const rect=button.getBoundingClientRect();const icon=button.querySelector('img,svg').getBoundingClientRect();return {y:rect.y,height:rect.height,iconX:icon.x,iconY:icon.y};}));
+  const expandedPositions=await sidebarPositions();
   const expandedMain=await page.locator('main').boundingBox();
   const toggle=page.getByRole('button',{name:names.collapse,exact:true});
   await toggle.hover();
@@ -65,19 +87,29 @@ try {
   await toggle.focus();
   await page.keyboard.press('Enter');
   assert.equal(await page.getByRole('button',{name:names.expand}).getAttribute('aria-expanded'),'false');
+  const intermediateWidth=await page.locator('#app-sidebar').evaluate(el=>{
+   const animation=el.getAnimations().find(animation=>animation.transitionProperty==='width');
+   if (!animation) throw Error('Missing sidebar width transition');
+   animation.pause(); animation.currentTime=100;
+   const width=el.getBoundingClientRect().width;
+   animation.play(); return width;
+  });
+  assert(intermediateWidth>64 && intermediateWidth<176,'Sidebar passes through an intermediate width');
+  await settleSidebar();
   await page.mouse.move(900,10); await page.locator('main').click({position:{x:10,y:10}});
   const collapsedToggle=page.getByRole('button',{name:names.expand,exact:true});
   assert.equal(await collapsedToggle.locator('img').evaluate(e=>getComputedStyle(e).opacity),'1');
   await collapsedToggle.hover();
   assert.equal(await collapsedToggle.locator('img').evaluate(e=>getComputedStyle(e).opacity),'0');
-  const sidebar=await page.locator('aside').boundingBox();
+  const sidebar=await page.locator('#app-sidebar').boundingBox();
   const collapsedMain=await page.locator('main').boundingBox();
+  assert.deepEqual(await sidebarPositions(),expandedPositions,'Sidebar rows and icons stay aligned when collapsed');
   assert.equal(sidebar.width,64);
-  assert.equal(collapsedMain.width-expandedMain.width,160);
+  assert.equal(collapsedMain.width-expandedMain.width,112);
   assert.equal(collapsedMain.x,sidebar.x+sidebar.width);
-  assert.equal(await page.locator('aside').getByText('PractiQ',{exact:true}).isVisible(),false);
+  assert.equal(await page.locator('#app-sidebar').getByText('PractiQ',{exact:true}).isVisible(),false);
   for (const name of names.nav) {
-   const entry=page.locator('aside').getByRole('button',{name,exact:true});
+   const entry=page.locator('#app-sidebar').getByRole('button',{name,exact:true});
    await entry.hover();
    await page.getByRole('tooltip',{name,exact:true}).waitFor();
    await page.mouse.move(900,10);
@@ -101,7 +133,9 @@ try {
   assert.equal(await page.getByRole('button',{name:names.language,exact:true}).evaluate(el=>el===document.activeElement),true);
   checks.push(await overflow(names.locale+' collapsed'));
   await page.getByRole('button',{name:names.expand,exact:true}).click();
-  assert.equal((await page.locator('aside').boundingBox()).width,224);
+  await settleSidebar();
+  assert.equal((await page.locator('#app-sidebar').boundingBox()).width,176);
+  assert.deepEqual(await sidebarPositions(),expandedPositions,'Sidebar rows and icons stay aligned after expanding');
   checks.push(await overflow(names.locale+' expanded'));
   const modelEntry=page.getByRole('button',{name:names.locale==='en'?'Configure':'配置',exact:true});
   await modelEntry.click();
@@ -118,7 +152,8 @@ try {
  await page.getByRole('heading',{name:'Settings',exact:true}).waitFor();
  checks.push(await overflow('settings'));
  await page.getByRole('button',{name:'Import',exact:true}).click();
- await page.getByText('Choose bank ZIP',{exact:true}).waitFor();
+ await page.getByText('Create a bank from a document',{exact:true}).waitFor();
+ assert.equal(await page.getByText('Choose bank ZIP',{exact:true}).count(),0);
  checks.push(await overflow('import'));
  const savesBeforeDismiss=await page.evaluate(()=>window.__calls.filter(c=>c.request.type==='save_language').length);
  const languageEntry=page.getByRole('button',{name:'Language',exact:true});
@@ -171,6 +206,15 @@ try {
  await page.getByRole('button',{name:'Expand sidebar',exact:true}).click();
  assert.equal(await answer.getAttribute('aria-checked'),'true');
  checks.push(await overflow('practice'));
+ await settleSidebar();
+ await page.emulateMedia({reducedMotion:'reduce'});
+ await page.getByRole('button',{name:'Collapse sidebar',exact:true}).click();
+ assert.equal((await page.locator('#app-sidebar').boundingBox()).width,64);
+ assert.equal(await page.locator('aside .sidebar-label').first().evaluate(el=>getComputedStyle(el).visibility),'hidden');
+ assert.equal(await page.locator('#app-sidebar').evaluate(el=>el.getAnimations().length),0);
+ assert.equal(await page.locator('#app-sidebar .sidebar-label').first().evaluate(el=>getComputedStyle(el).transitionDuration),'0s');
+ await page.getByRole('button',{name:'Expand sidebar',exact:true}).click();
+ assert.equal((await page.locator('#app-sidebar').boundingBox()).width,176);
  assert.deepEqual(errors,[]);
  for (const check of checks) assert.deepEqual(check.items,[],`Text overflow: ${check.label}`);
  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
