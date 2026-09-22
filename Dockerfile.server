@@ -9,11 +9,12 @@ RUN sed -i 's|http://deb.debian.org|https://deb.debian.org|g' /etc/apt/sources.l
     && rm -rf /var/lib/apt/lists/*
 COPY --from=lock /usr/local/bin/uv /usr/local/bin/uv
 COPY --from=lock /lock/requirements.txt /tmp/requirements.txt
-RUN uv pip install --system --no-cache-dir -r /tmp/requirements.txt
+# Allow slow PyPI responses during builds; uv retains its bounded HTTP retries.
+RUN UV_HTTP_TIMEOUT=120 uv pip install --system --no-cache-dir -r /tmp/requirements.txt
 COPY server/pyproject.toml server/uv.lock /app/server/
 COPY server/src /app/server/src
 WORKDIR /app/server
-RUN uv pip install --system --no-cache-dir --no-deps .
+RUN UV_HTTP_TIMEOUT=120 uv pip install --system --no-cache-dir --no-deps .
 RUN groupadd --gid 10001 practiq && useradd --uid 10001 --gid 10001 --create-home practiq \
     && mkdir -p /var/lib/practiq && chown 10001:10001 /var/lib/practiq
 ENV LANGSMITH_TRACING=false LANGCHAIN_TRACING_V2=false AI_STORAGE_DIR=/var/lib/practiq/files AI_DATABASE_DIR=/var/lib/practiq/database
