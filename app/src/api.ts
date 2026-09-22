@@ -134,6 +134,7 @@ export interface Paper { question_ids: string[]; kind: SessionKind; minutes: num
 export interface PaperPreview { questionIds: string[]; digest: string; questions: QuestionRow[]; scores: number[]; count: number }
 export interface PaperSelection { bank_ids: string[]; search: string; mode: string; filter: string; selection: string; count: number; quotas: Record<string,number>; question_ids: string[]; random: boolean; total_cents: number; budgets?: Record<string,number> }
 type Request =
+  | { type: "export_bank"; bank_id: string }
   | { type: "preview_paper"; request: PaperSelection }
   | { type: "save_question_tree"; bank_id: string; root_id: string | null; questions: Question[] }
 
@@ -153,7 +154,6 @@ type Request =
   | {
       type:
         | "pick_import"
-        | "pick_resources"
         | "banks"
         | "sessions"
         | "backup"

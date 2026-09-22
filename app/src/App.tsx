@@ -1,4 +1,3 @@
-import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { message, renderMessage, type Message, t, useI18n } from "./i18n";
 import { QuestionPreview } from "./QuestionPreview";
 import { StudySetup } from "./StudySetup";
@@ -11,6 +10,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   BookOpen,
   Upload,
+  Download,
   Plus,
   Star,
   History,
@@ -29,7 +29,7 @@ import {
   EllipsisVertical,
 } from "lucide-react";
 import { toast } from "./notifications";
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription, EmptyContent } from "@/components/ui/empty";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
@@ -99,6 +99,7 @@ type Page =
   | "history"
   | "import"
   | "settings"
+  | "model-settings"
   | "practice";
 function SidebarButton({ collapsed, label, children, className = "", ...props }: ComponentProps<typeof Button> & { collapsed: boolean; label: string }) {
   return (
@@ -253,7 +254,7 @@ export default function App() {
     run(async () => {
       await flushRef.current();
       flushRef.current = async () => {};
-      if (next !== "settings") setSettingsReturn(null);
+      if (next !== "model-settings") setSettingsReturn(null);
       setPage(next);
       setBank(bankId);
       setDetail(null);
@@ -296,7 +297,7 @@ export default function App() {
               ? t("练习记录")
               : page === "practice"
                 ? t("专注练习")
-                : t("设置");
+                : page === "model-settings" ? t("AI 模型") : t("设置");
   const listPage = ["questions", "wrong", "favorite"].includes(page);
   const languageError = language.error != null && <div role="alert" className="text-xs text-destructive"><p>{t(language.error.key)}</p><p>{errorMessage(language.error.cause)}</p><Button size="sm" variant="outline" onClick={() => void language.reload()}>{t("重试")}</Button></div>;
   return (
@@ -304,19 +305,14 @@ export default function App() {
       <Tooltip.Provider delayDuration={200}>
       <aside id="app-sidebar" className={`flex shrink-0 flex-col border-r bg-muted/25 ${sidebarCollapsed ? "w-16 p-2" : "w-56 p-4"}`}>
         <div className={`mb-4 flex items-center gap-3 pt-3 ${sidebarCollapsed ? "justify-center" : "px-3"}`}>
-          <img
-            src={logo}
-            alt={t("PractiQ 小章鱼")}
-            className="size-10 shrink-0 rounded-xl object-contain"
-          />
+          <Button variant="ghost" size="icon" className="group relative size-10 shrink-0 rounded-xl" aria-label={sidebarCollapsed ? t("展开侧边栏") : t("收起侧边栏")} aria-expanded={!sidebarCollapsed} aria-controls="app-sidebar" onClick={() => setSidebarCollapsed(value => !value)}>
+            <img src={logo} alt="" className="size-10 rounded-xl object-contain group-hover:opacity-0 group-focus-visible:opacity-0" />
+            <span className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100" aria-hidden="true">{sidebarCollapsed ? <PanelLeftOpen /> : <PanelLeftClose />}</span>
+          </Button>
           <div hidden={sidebarCollapsed}>
             <div className="text-lg font-semibold tracking-tight">PractiQ</div>
-            <div className="text-xs text-muted-foreground">{t("一点练习，每天进步")}</div>
           </div>
         </div>
-        <SidebarButton collapsed={sidebarCollapsed} label={sidebarCollapsed ? t("展开侧边栏") : t("收起侧边栏")} aria-expanded={!sidebarCollapsed} aria-controls="app-sidebar" className="mb-4" onClick={() => setSidebarCollapsed(value => !value)}>
-          {sidebarCollapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
-        </SidebarButton>
         <nav aria-label={t("主导航")} className="space-y-2">
           {(
             [
@@ -346,26 +342,26 @@ export default function App() {
         </nav>
         <div className="mt-auto space-y-4">
           <div className="space-y-2">
-            <SidebarButton ref={languageTrigger} collapsed={sidebarCollapsed} label={t("语言")} className={language.error ? "text-destructive" : ""} aria-haspopup="dialog" onClick={() => setLanguageOpen(true)}>
-              {language.error ? <CircleAlert /> : <Languages />}
-            </SidebarButton>
-            <Dialog open={languageOpen} onOpenChange={setLanguageOpen}>
-              <DialogContent aria-describedby={undefined} onCloseAutoFocus={event => { event.preventDefault(); languageTrigger.current?.focus(); }}>
-                <DialogHeader><DialogTitle>{t("语言")}</DialogTitle></DialogHeader>
-                <Label htmlFor="app-language">{t("语言")}</Label>
-                <NativeSelect id="app-language" className="w-full" value={language.locale} disabled={!language.ready || language.saving || busy} onChange={event => { const value = event.target.value; if (value === "zh-CN" || value === "en") void language.change(value); }}>
-                  <NativeSelectOption value="zh-CN">简体中文</NativeSelectOption><NativeSelectOption value="en">English</NativeSelectOption>
-                </NativeSelect>
+            <DropdownMenu open={languageOpen} onOpenChange={open => { if (!language.saving) setLanguageOpen(open); }}>
+              <DropdownMenuTrigger asChild>
+                <SidebarButton ref={languageTrigger} collapsed={sidebarCollapsed} label={t("语言")} className={language.error ? "text-destructive" : ""}>
+                  {language.error ? <CircleAlert /> : <Languages />}
+                </SidebarButton>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent side="top" align="start" sideOffset={8} className="min-w-40" aria-label={t("语言")} onCloseAutoFocus={event => { event.preventDefault(); languageTrigger.current?.focus(); }}>
+                <DropdownMenuRadioGroup value={language.locale}>
+                  {(["zh-CN", "en"] as const).map(value => <DropdownMenuRadioItem key={value} value={value} disabled={!language.ready || language.saving || busy} onSelect={event => { event.preventDefault(); void language.change(value).then(saved => { if (saved) setLanguageOpen(false); }); }}>{value === "zh-CN" ? "简体中文" : "English"}</DropdownMenuRadioItem>)}
+                </DropdownMenuRadioGroup>
                 {languageError}
-              </DialogContent>
-            </Dialog>
+              </DropdownMenuContent>
+            </DropdownMenu>
             {!languageOpen && (sidebarCollapsed ? language.error && <p role="alert" className="sr-only">{t(language.error.key)}</p> : languageError)}
           </div>
           <SidebarButton
             collapsed={sidebarCollapsed}
             label={t("设置")}
-            variant={page === "settings" ? "secondary" : "ghost"}
-            aria-current={page === "settings" ? "page" : undefined}
+            variant={page === "settings" || page === "model-settings" ? "secondary" : "ghost"}
+            aria-current={page === "settings" || page === "model-settings" ? "page" : undefined}
             disabled={busy}
             onClick={() => { setSettingsReturn(null); navigate("settings"); }}
           >
@@ -387,6 +383,11 @@ export default function App() {
                 <ArrowLeft />
               </Button>
             )}
+            {page === "model-settings" && (
+              <Button size="icon" variant="ghost" disabled={busy} aria-label={settingsReturn ? t("返回导入") : t("返回设置")} onClick={() => navigate(settingsReturn ? "import" : "settings", settingsReturn?.bank ?? null)}>
+                <ArrowLeft />
+              </Button>
+            )}
             <div>
               <h1 className="text-2xl font-semibold tracking-tight">
                 {heading}
@@ -401,7 +402,9 @@ export default function App() {
                     : page === "history"
                       ? t("回顾每一次作答与进步")
                       : page === "settings"
-                        ? t("管理本地数据，保存你的练习成果")
+                        ? t("管理模型配置与本地学习数据")
+                        : page === "model-settings"
+                          ? t("用于文档解析与主观题评分")
                         : t("循序渐进，保持专注")}
               </p>
             </div>
@@ -447,7 +450,7 @@ export default function App() {
           {page === "banks" && (
             <div className="space-y-5">
               {unfinished && <Card className="border-primary/30 bg-primary/5"><CardContent className="flex items-center justify-between gap-4"><div className="min-w-0"><h2 className="font-semibold">{t("继续未完成的练习")}</h2><p className="mt-1 break-words text-sm text-muted-foreground">{t("{0} · 已提交 {1}/{2} 题", { 0: unfinished.title, 1: unfinished.answered, 2: unfinished.count })}</p></div><Button disabled={busy} onClick={() => openSession(unfinished.id)}><Play />{t("继续练习")}</Button></CardContent></Card>}
-              {!banks.length && !busy && info && <Empty className="min-h-96 border border-dashed"><EmptyHeader><EmptyMedia variant="icon"><BookOpen /></EmptyMedia><EmptyTitle>{t("从第一份题库开始")}</EmptyTitle><EmptyDescription>{t("已有 PractiQ JSON 可离线导入；PDF、文本或图片可通过 AI 解析为题目。")}</EmptyDescription></EmptyHeader><EmptyContent><Button onClick={() => navigate("import")}><Upload />{t("导入第一份题库")}</Button></EmptyContent></Empty>}
+              {!banks.length && !busy && info && <Empty className="min-h-96 border border-dashed"><EmptyHeader><EmptyMedia variant="icon"><BookOpen /></EmptyMedia><EmptyTitle>{t("从第一份题库开始")}</EmptyTitle><EmptyDescription>{t("已有 PractiQ ZIP 可离线导入；PDF、文本或图片可通过 AI 解析为题目。")}</EmptyDescription></EmptyHeader><EmptyContent><Button onClick={() => navigate("import")}><Upload />{t("导入第一份题库")}</Button></EmptyContent></Empty>}
               <div className="grid grid-cols-2 gap-5 xl:grid-cols-3">
               {banks.map((b) => (
                 <Card key={b.id}>
@@ -463,6 +466,10 @@ export default function App() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
+                            <DropdownMenuItem disabled={busy || !b.count} onSelect={() => run(async () => {
+                              const result = await api<{path:string} | null>({type:"export_bank",bank_id:b.id});
+                              if (result) toast.success(message("题库已导出：{0}", {0:result.path}));
+                            })}><Download className="size-4" />{t("导出题库 ZIP")}</DropdownMenuItem>
                             <DropdownMenuItem onSelect={() => setBankEditor({ id: b.id, title: b.title, description: b.description })}>
                               <Pencil className="size-4" />{t("编辑题库")}</DropdownMenuItem>
                             <DropdownMenuItem variant="destructive" onSelect={() => setConfirm({
@@ -704,8 +711,8 @@ export default function App() {
               flushRef={flushRef}
             />
           )}
-          {page === "import" && <ImportPage busy={busy} run={run} onPickJson={pickImport} onPreview={p=>{setPreview(p);setImportTitle(p.title);setImportBank(bank || "new");}} onConfigure={() => { setSettingsReturn({ bank }); navigate("settings"); }} />}
-          {page === "settings" && (
+          {page === "import" && <ImportPage busy={busy} run={run} onPickJson={pickImport} onPreview={p=>{setPreview(p);setImportTitle(p.title);setImportBank(bank || "new");}} onConfigure={() => { setSettingsReturn({ bank }); navigate("model-settings"); }} />}
+          {page === "model-settings" && (
             <div className="max-w-3xl space-y-6">
               <ConnectionSettingsPanel
                 key={settingsRevision}
@@ -721,6 +728,11 @@ export default function App() {
                   }
                 }}
               />
+            </div>
+          )}
+          {page === "settings" && (
+            <div className="max-w-3xl space-y-6">
+              <ConnectionSettingsPanel key={settingsRevision} busy={busy} run={run} onConfigure={() => navigate("model-settings")} />
               <Card>
                 <CardHeader>
                   <CardTitle>{t("学习数据备份")}</CardTitle>
@@ -853,20 +865,6 @@ export default function App() {
               )}
               <div className="rounded-lg border p-4 text-sm">
                 <p>{t("已加载 {0} 张图片，缺失 {1} 个资源。", { 0: preview.assetCount, 1: preview.missingAssets.length })}</p>
-                <Button
-                  className="mt-3"
-                  variant="outline"
-                  disabled={busy}
-                  onClick={() =>
-                    run(async () => {
-                      const p = await api<Preview | null>({
-                        type: "pick_resources",
-                      });
-                      if (p) setPreview(p);
-                    })
-                  }
-                >{t("选择图片资源根目录")}</Button>
-                <p className="mt-2 text-xs text-muted-foreground">{t("选择包含 practiq-agent 文件夹的目录。未提供图片也可导入，练习时会提示缺失。")}</p>
               </div>
               {preview.status === "PARTIAL" && (
                 <p className="text-sm">{t("这是部分解析结果，可能未包含原文的全部题目。")}</p>

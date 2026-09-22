@@ -11,6 +11,7 @@ import userEvent from "@testing-library/user-event";
 import { invoke } from "@tauri-apps/api/core";
 import { api } from "./api";
 import App from "./App";
+import { toast } from "./notifications";
 import fixture from "../fixtures/sample.json";
 
 vi.mock("@tauri-apps/api/core", () => ({
@@ -58,7 +59,7 @@ it("loads native pages and clamps the page after deleting the last item", async 
   expect(api).toHaveBeenCalledWith(expect.objectContaining({type:"questions_page",limit:30,offset:30}));
 });
 
-it("keeps JSON import usable without models and preserves the destination bank", async () => {
+it("keeps ZIP import usable without models and preserves the destination bank", async () => {
   vi.mocked(invoke).mockResolvedValue([]);
   vi.mocked(api).mockImplementation(async (request) => {
     switch (request.type) {
@@ -113,8 +114,9 @@ it("keeps JSON import usable without models and preserves the destination bank",
   expect(screen.queryByRole("button", { name: "选择文档…" })).toBeNull();
   expect(screen.queryByRole("button", { name: "刷新任务" })).toBeNull();
   expect(vi.mocked(invoke).mock.calls.some(([,args]) => (args as {request:{type:string}}).request.type === "list")).toBe(false);
-  await userEvent.click(screen.getByRole("button", { name: "选择题库 JSON" }));
+  await userEvent.click(screen.getByRole("button", { name: "选择题库 ZIP" }));
   const dialog = await screen.findByRole("dialog");
+  expect(screen.queryByRole("button", {name:"选择图片资源根目录"})).toBeNull();
   expect(within(dialog).getByRole("combobox", { name: "导入到" }).textContent).toContain(
     "现有题库",
   );
@@ -245,9 +247,37 @@ it("guides an empty library to import without requiring AI settings", async () =
   render(<App/>);
   await userEvent.click(await screen.findByRole("button",{name:"导入第一份题库"}));
   expect(await screen.findByRole("button",{name:"配置 AI 模型"})).toBeTruthy();
-  expect(screen.getByRole("button",{name:"选择题库 JSON"}).hasAttribute("disabled")).toBe(false);
+  expect(screen.getByRole("button",{name:"选择题库 ZIP"}).hasAttribute("disabled")).toBe(false);
   expect(within(screen.getByRole("navigation")).getByRole("button",{name:"导入题库"}).getAttribute("aria-current")).toBe("page");
   expect(screen.queryByRole("button",{name:"上一页"})).toBeNull();
+});
+
+it("keeps model fields on a secondary settings page and refreshes the summary after saving", async () => {
+  let settings = {config:{base_url:"https://example.com/v1",model_id:"",oss_url:null},hasApiKey:true};
+  vi.mocked(api).mockImplementation(async r => {
+    if (r.type === "settings") return settings as never;
+    if (r.type === "save_settings") { settings = {...settings,config:r.config as typeof settings.config}; return settings as never; }
+    if (r.type === "info") return {version:"test",dataDirectory:"/tmp/test"} as never;
+    return [] as never;
+  });
+  render(<App/>);
+  await userEvent.click(await screen.findByRole("button",{name:"设置"}));
+  expect((await screen.findByText("未配置")).getAttribute("data-slot")).toBe("badge");
+  expect(screen.queryByText("用于文档解析与主观题评分")).toBeNull();
+  expect(screen.queryByLabelText("Base URL")).toBeNull();
+  expect(screen.getByRole("button",{name:"导出备份"})).toBeTruthy();
+  await userEvent.click(screen.getByRole("button",{name:"配置"}));
+  expect(await screen.findByRole("heading",{name:"AI 模型",level:1})).toBeTruthy();
+  expect(screen.queryByRole("button",{name:"导出备份"})).toBeNull();
+  expect(screen.getByRole("button",{name:"设置"}).getAttribute("aria-current")).toBe("page");
+  const model = await screen.findByLabelText("模型 ID");
+  await waitFor(() => expect(model.closest("fieldset")?.disabled).toBe(false));
+  await userEvent.clear(model);
+  await userEvent.type(model,"new-model");
+  await userEvent.click(screen.getByRole("button",{name:"保存连接配置"}));
+  await waitFor(() => expect(api).toHaveBeenCalledWith(expect.objectContaining({type:"save_settings"})));
+  await userEvent.click(screen.getByRole("button",{name:"返回设置"}));
+  expect((await screen.findByText("已配置")).getAttribute("data-slot")).toBe("badge");
 });
 
 it("returns from model setup to the original import destination after saving", async () => {
@@ -272,7 +302,7 @@ it("returns from model setup to the original import destination after saving", a
   await userEvent.click(screen.getByRole("button",{name:"保存并返回导入"}));
   expect(await screen.findByRole("heading",{name:"导入题库",level:1})).toBeTruthy();
   expect(await screen.findByRole("button",{name:"选择文档…"})).toBeTruthy();
-  await userEvent.click(screen.getByRole("button",{name:"选择题库 JSON"}));
+  await userEvent.click(screen.getByRole("button",{name:"选择题库 ZIP"}));
   expect(within(await screen.findByRole("dialog")).getByRole("combobox").textContent).toContain("追加目标");
   expect(vi.mocked(invoke).mock.calls.some(([,a]) => (a as {request:{type:string}}).request.type === "pick_document")).toBe(false);
 });
@@ -292,4 +322,40 @@ it("continues the existing session from home without creating another paper", as
   expect(await screen.findByRole("textbox",{name:"作答内容"})).toBeTruthy();
   expect(api).toHaveBeenCalledWith({type:"session",id:"existing"});
   expect(vi.mocked(api).mock.calls.some(([r]) => r.type === "start_paper")).toBe(false);
+});
+
+it("handles ZIP picker cancellation and package/export errors without importing", async () => {
+  const notified=vi.spyOn(toast,"error");
+  let failImport=false;
+  vi.mocked(invoke).mockResolvedValue([]);
+  vi.mocked(api).mockImplementation(async request=>{
+    switch(request.type){
+      case "banks": return [{id:"bank",title:"Shared",description:"",count:1}] as never;
+      case "sessions": return [] as never;
+      case "info": return {version:"test",dataDirectory:"/tmp/test"} as never;
+      case "settings": return {config:{},hasApiKey:false} as never;
+      case "pick_import": if(failImport)throw new Error("ZIP read failed"); return null as never;
+      case "export_bank": throw new Error("Missing image");
+      default: throw new Error(request.type);
+    }
+  });
+  render(<App/>);
+  const operations=await screen.findByRole("button",{name:"题库操作 Shared"});
+  await waitFor(()=>expect(operations.hasAttribute("disabled")).toBe(false));
+  operations.focus(); await userEvent.keyboard("{Enter}");
+  await userEvent.click(screen.getByRole("menuitem",{name:"导出题库 ZIP"}));
+  await waitFor(()=>expect(notified).toHaveBeenCalledWith(expect.objectContaining({message:"Missing image"})));
+  expect(api).toHaveBeenCalledWith({type:"export_bank",bank_id:"bank"});
+  await userEvent.click(screen.getByRole("button",{name:"导入题库"}));
+  const picker=await screen.findByRole("button",{name:"选择题库 ZIP"});
+  await userEvent.click(picker);
+  await waitFor(()=>expect(api).toHaveBeenCalledWith({type:"pick_import"}));
+  expect(screen.queryByRole("dialog")).toBeNull();
+  failImport=true;
+  await waitFor(()=>expect(picker.hasAttribute("disabled")).toBe(false));
+  await userEvent.click(picker);
+  await waitFor(()=>expect(notified).toHaveBeenCalledWith(expect.objectContaining({message:"ZIP read failed"})));
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(vi.mocked(api).mock.calls.some(([r])=>r.type==="import")).toBe(false);
+  notified.mockRestore();
 });
