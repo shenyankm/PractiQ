@@ -10,7 +10,7 @@ Issues must use the applicable [issue template](.github/ISSUE_TEMPLATE/), and pu
 
 When making changes:
 
-- Preserve the boundaries in `AGENTS.md` and any directory-specific rules.
+- Preserve the boundaries and module conventions in `AGENTS.md`.
 - Reuse existing code and dependencies before adding abstractions or packages.
 - Add a focused regression test for behavior changes.
 - Update documentation, contracts, and `.env.example` when the change affects them.
