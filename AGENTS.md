@@ -22,6 +22,21 @@ There is no product HTTP backend, login, billing, answer generation or learning 
 - `make app-check AI_PYTHON=...`: check shared AI contracts, frontend interactions, Rust integration tests and Clippy.
 - `make app-build`: build the macOS `.app` without publishing.
 
+## Module Conventions
+
+### AI service (`server/`)
+
+- Layout: `webapp.py` authenticated upload/artifact routes, `auth.py` shared Bearer authentication, `config.py` environment settings, `graphs/` workflows, `extractors/` format readers, `contracts.py` shared models, `runtime.py` graph registration, `database.py` SQLite task records, tests in `tests/`. Do not add another parser or restore product APIs.
+- Style: four-space indentation, type annotations and small single-responsibility modules; `snake_case` functions/variables, `PascalCase` classes and Pydantic models, `UPPER_CASE` constants; keep public payload fields compatible with the existing camelCase API contracts; prefer async for I/O and reuse shared errors and models instead of duplicating validation. Run the configured Ruff checks and type-check with `pyrightconfig.json`.
+- Tests: pytest with `pytest-asyncio` in automatic mode, named `test_<behavior>` with fixtures or fakes close to each scenario and shared fakes in `tests/support.py`, not other test modules. Runtime tests explicitly request the `disposable_databases` fixture; pure tests must not start Docker. Cover success paths, validation failures, resumability and storage/checksum boundaries; never call real LLM services (monkeypatch them as existing tests do); CI exercises real PDFium rendering and rejects Word inputs. Keep the 90% coverage threshold and add a focused regression test for every behavior change.
+
+### Desktop app (`app/`)
+
+- Validate all native command inputs. File access begins with a native file picker; imported content cannot request arbitrary SQL, file access or network access.
+- Preserve nulls, quality warnings, source associations and practice snapshots. Unreviewed content may be practised; incomplete/unavailable answers must not become automatically incorrect.
+- Keep databases out of the repository. Use temporary directories in integration tests, including resource import and restore tests.
+- Use the existing octopus brand asset, Lucide (`lucide-react`) for functional icons, existing shadcn components and standard CSS layout. No mobile layout or mobile platform scaffolding.
+
 ## Boundaries
 
 Preserve strict Pydantic inputs, token authentication, bounded uploads, path and checksum validation, partial-result details, checkpoint resumability and per-call usage on success and failure. Never inject raw document/model HTML. Do not add another source-document parser or a product compatibility layer. The desktop JSON importer must follow the existing AI contracts.
@@ -33,3 +48,7 @@ Update relevant documentation and focused tests with behavior changes. Follow `C
 Source-document import supports PDF, TXT, CSV and PNG/JPEG images. Word is unsupported; direct users to export PDF. Do not restore Word parsers or LibreOffice dependencies. The desktop import page handles AI parsing/task management. Offline question-bank ZIP import is under Settings > Restore backup alongside full study-data restoration; bank import appends content, while full restoration requires replacement confirmation.
 
 Subjective grading is allowed only after an explicit user grading or retry action. Parsing still extracts supplied answers, scores and rubrics without solving questions. Grading requires a reference answer or explicit rubric; missing evidence remains ungraded. Reuse the bundled AI service and model call safeguards; keep exam answers, score snapshots and manual overrides local and preserve them in backups.
+
+## Commit Conventions
+
+Use Conventional Commits: `<type>(<scope>): <summary>`. Allowed types are `feat`, `fix`, `docs`, `refactor`, `test`, and `chore`. Use an optional module name for `scope`, an imperative summary of at most 72 characters, and no trailing period. Example: `fix(extractors): enforce PDF page limit`. Keep each commit scoped to one concern.
