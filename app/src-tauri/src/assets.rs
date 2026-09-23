@@ -2,7 +2,7 @@ use crate::{
     contract::Result,
     store::{hash, read_bounded, Store},
 };
-use std::{fs, io::Write, path::PathBuf};
+use std::{collections::HashSet, fs, io::Write, path::PathBuf};
 
 // Match the accepted source-image upload limit, including full-page references.
 pub const LIMIT: usize = 25 * 1024 * 1024;
@@ -10,6 +10,72 @@ fn err(e: impl std::fmt::Display) -> crate::AppError {
     e.to_string().into()
 }
 impl Store {
+    pub fn collect_unused_assets(&self) -> Result<()> {
+        let mut db = self.connect()?;
+        let tx = db.transaction().map_err(err)?;
+        let hashes = tx
+            .prepare("SELECT hash FROM assets")
+            .map_err(err)?
+            .query_map([], |r| r.get::<_, String>(0))
+            .map_err(err)?
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(err)?;
+        let mut used = HashSet::new();
+        if !hashes.is_empty() {
+            let mut stmt = tx.prepare("WITH refs(visual) AS (SELECT content FROM visuals UNION ALL SELECT value FROM session_documents, json_each(session_documents.content,'$.visuals')) SELECT json_extract(visual,'$.imageRef.sha256'),json_extract(visual,'$.sourceRef.sha256') FROM refs").map_err(err)?;
+            let visuals = stmt
+                .query_map([], |r| {
+                    Ok((
+                        r.get::<_, Option<String>>(0)?,
+                        r.get::<_, Option<String>>(1)?,
+                    ))
+                })
+                .map_err(err)?;
+            for visual in visuals {
+                let (image, source) = visual.map_err(err)?;
+                used.extend(image.into_iter().chain(source));
+            }
+        }
+        for digest in &hashes {
+            if !used.contains(digest) {
+                tx.execute("DELETE FROM assets WHERE hash=?1", [digest])
+                    .map_err(err)?;
+            }
+        }
+        tx.commit().map_err(err)?;
+        let live: HashSet<_> = hashes
+            .into_iter()
+            .filter(|hash| used.contains(hash))
+            .collect();
+        let root = self.dir.join("assets");
+        if !root.exists() {
+            return Ok(());
+        }
+        if fs::symlink_metadata(&root)
+            .map_err(err)?
+            .file_type()
+            .is_symlink()
+        {
+            return Err(crate::language::error(
+                "LOCAL_ASSET_DIRECTORY_LINK",
+                serde_json::json!({}),
+            ));
+        }
+        for entry in fs::read_dir(root).map_err(err)? {
+            let entry = entry.map_err(err)?;
+            let name = entry.file_name();
+            let name = name.to_string_lossy();
+            if name.len() == 64
+                && name
+                    .bytes()
+                    .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
+                && !live.contains(name.as_ref())
+            {
+                fs::remove_file(entry.path()).map_err(err)?;
+            }
+        }
+        Ok(())
+    }
     pub fn asset_path(&self, digest: &str) -> Result<PathBuf> {
         if digest.len() != 64
             || !digest

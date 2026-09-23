@@ -304,6 +304,83 @@ fn transactional_import_resume_snapshot_and_latest_wrong() {
     );
 }
 #[test]
+fn startup_keeps_unlinked_legacy_visuals_and_their_assets() {
+    let (dir, s) = store();
+    let bank = s.save_bank(None, "legacy", "").unwrap();
+    let bytes = include_bytes!("../../fixtures/rich-content/resources/chart.png");
+    let digest = crate::store::hash(bytes);
+    s.write_asset(&digest, bytes).unwrap();
+    s.connect()
+        .unwrap()
+        .execute(
+            "INSERT INTO assets VALUES(?1,'image/png',?2,?3)",
+            rusqlite::params![digest, bytes.len(), format!("assets/{digest}")],
+        )
+        .unwrap();
+    s.connect()
+        .unwrap()
+        .execute(
+            "INSERT INTO visuals VALUES('unlinked',?1,?2,0)",
+            rusqlite::params![
+                bank.as_str().unwrap(),
+                json!({"imageRef":{"sha256":digest}}).to_string()
+            ],
+        )
+        .unwrap();
+    drop(s);
+    let reopened = Store::new(dir.path().to_owned()).unwrap();
+    assert_eq!(
+        reopened
+            .connect()
+            .unwrap()
+            .query_row("SELECT COUNT(*) FROM visuals", [], |r| r.get::<_, i64>(0))
+            .unwrap(),
+        1
+    );
+    assert!(reopened.asset(&digest).unwrap().is_string());
+}
+
+#[test]
+fn shared_images_survive_until_last_bank_is_deleted() {
+    let (_dir, mut s) = store();
+    let mut banks = Vec::new();
+    for title in ["first", "second"] {
+        let preview = s.preview(sample(), title.into()).unwrap();
+        s.resources(
+            &std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../fixtures/resources"),
+        )
+        .unwrap();
+        banks.push(
+            text(
+                &s.import(text(&preview, "ticket"), None, title).unwrap(),
+                "bankId",
+            )
+            .to_owned(),
+        );
+    }
+    let rows = s.questions(Some(&banks[0]), "", "", "").unwrap();
+    let digest = text(&rows[8]["visuals"][0]["imageRef"], "sha256");
+    s.delete_bank(&banks[0]).unwrap();
+    assert!(s.asset(digest).unwrap().is_string());
+    s.delete_bank(&banks[1]).unwrap();
+    assert!(s.asset(digest).unwrap().is_null());
+}
+
+#[cfg(unix)]
+#[test]
+fn cleanup_failure_does_not_mask_committed_delete_or_restore() {
+    let (dir, mut s) = store();
+    let bank = s.save_bank(None, "kept", "").unwrap();
+    let backup = dir.path().join("before.zip");
+    s.backup(&backup).unwrap();
+    std::os::unix::fs::symlink(dir.path(), dir.path().join("assets")).unwrap();
+    s.delete_bank(bank.as_str().unwrap()).unwrap();
+    assert!(s.banks().unwrap().as_array().unwrap().is_empty());
+    s.restore(&backup).unwrap();
+    assert_eq!(s.banks().unwrap()[0]["id"], bank);
+}
+
+#[test]
 fn assets_backup_restore_and_failed_restore_preserve_data() {
     let (dir, mut s) = store();
     let preview = s.preview(sample(), "示例".into()).unwrap();
@@ -330,6 +407,7 @@ fn assets_backup_restore_and_failed_restore_preserve_data() {
     let backup = dir.path().join("saved.zip");
     s.backup(&backup).unwrap();
     s.delete_bank(&bank).unwrap();
+    assert!(s.asset(digest).unwrap().is_string());
     let recovery = s.restore(&backup).unwrap();
     assert!(std::path::Path::new(text(&recovery, "recoveryPath")).exists());
     assert_eq!(s.banks().unwrap()[0]["count"], 9);
@@ -512,6 +590,7 @@ fn file_assets_and_corruption_do_not_replace_database() {
     assert!(s.backup(&dir.path().join("bad.zip")).is_err());
     assert!(s.restore(&backup).is_err());
     assert_eq!(s.banks().unwrap()[0]["id"], bank);
+    assert!(!s.asset_path(&digest).unwrap().exists());
     assert!(s.asset_path("../escape").is_err());
 }
 
@@ -905,9 +984,15 @@ fn database_failure_rolls_back_bank_and_receipt_together() {
         thread_id: crate::store::id(),
         checkpoint_id: "cp".into(),
     });
+    let orphan = b"failed import".to_vec();
+    let orphan_hash = crate::store::hash(&orphan);
+    pending
+        .assets
+        .insert(orphan_hash.clone(), ("image/png".into(), orphan));
     let db = s.connect().unwrap();
     db.execute_batch("CREATE TRIGGER fail_questions BEFORE INSERT ON questions BEGIN SELECT RAISE(ABORT,'injected disk failure'); END;").unwrap();
     assert!(s.import_pending(&pending, None, "failure").is_err());
+    assert!(!s.asset_path(&orphan_hash).unwrap().exists());
     for table in ["banks", "imports", "ai_imports", "questions"] {
         assert_eq!(
             db.query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |r| r
@@ -1032,7 +1117,14 @@ fn e2e_exam_restart_restore_on_fresh_install_and_retry() {
         attempt["favorite"] = Value::Null;
     }
     assert_eq!(restored.session(sid).unwrap()["attempts"], expected);
-    assert_eq!(restored.asset(digest).unwrap(), image);
+    assert!(restored.asset(digest).unwrap().is_null());
+    assert!(!restored.asset_path(digest).unwrap().exists());
+    let after_delete = restored.dir.join("after-delete.zip");
+    restored.backup(&after_delete).unwrap();
+    let mut archive = zip::ZipArchive::new(std::fs::File::open(after_delete).unwrap()).unwrap();
+    let manifest: Value =
+        serde_json::from_reader(archive.by_name("manifest.json").unwrap()).unwrap();
+    assert!(manifest["assets"].as_array().unwrap().is_empty());
 }
 
 #[test]
@@ -1120,6 +1212,14 @@ fn rich_content_survives_import_reopen_practice_and_backup_exactly() {
     s.preview(serde_json::to_vec(&expected).unwrap(), "bad source".into())
         .unwrap();
     assert!(s.resources(dir.path()).is_err());
+}
+
+#[test]
+fn image_validation_rejects_truncated_and_mislabeled_files() {
+    let png = include_bytes!("../../fixtures/rich-content/resources/chart.png");
+    assert!(crate::store::valid_image(png, "image/png"));
+    assert!(!crate::store::valid_image(&png[..16], "image/png"));
+    assert!(!crate::store::valid_image(png, "image/jpeg"));
 }
 
 #[test]
@@ -1326,6 +1426,38 @@ fn missing_optional_source_page_does_not_disable_grading() {
             assert!(result.is_boolean());
         }
     }
+}
+
+#[test]
+fn paper_preview_reads_only_selected_bank_details() {
+    let (_dir, mut s) = store();
+    let selected_bank = import(&mut s);
+    let unrelated_bank = import(&mut s);
+    let unrelated = s.questions(Some(&unrelated_bank), "", "", "").unwrap();
+    let qid = text(&unrelated[0], "id");
+    s.connect()
+        .unwrap()
+        .execute("DELETE FROM choice_questions WHERE question_id=?1", [qid])
+        .unwrap();
+    let request = serde_json::from_value::<crate::paper::Preview>(json!({"bank_ids":[selected_bank],"search":"","mode":"","filter":"","selection":"count","count":1,"quotas":{},"question_ids":[],"random":false,"total_cents":100})).unwrap();
+    assert_eq!(s.preview_paper(request).unwrap()["count"], 1);
+}
+
+#[test]
+fn paper_manual_selection_skips_unselected_question_details() {
+    let (_dir, mut s) = store();
+    let bank = import(&mut s);
+    let rows = s.questions(Some(&bank), "", "", "").unwrap();
+    let selected = text(&rows[1], "id");
+    s.connect()
+        .unwrap()
+        .execute(
+            "DELETE FROM choice_questions WHERE question_id=?1",
+            [text(&rows[0], "id")],
+        )
+        .unwrap();
+    let request = serde_json::from_value::<crate::paper::Preview>(json!({"bank_ids":[bank],"search":"","mode":"","filter":"","selection":"manual","count":0,"quotas":{},"question_ids":[selected],"random":false,"total_cents":100})).unwrap();
+    assert_eq!(s.preview_paper(request).unwrap()["count"], 1);
 }
 
 #[test]

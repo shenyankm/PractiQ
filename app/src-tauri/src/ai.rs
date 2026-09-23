@@ -4,7 +4,6 @@ use crate::{
     store::{self, ImportSource, Pending, Store},
     AppError, Shared,
 };
-use base64::{engine::general_purpose::STANDARD, Engine};
 use reqwest::{
     blocking::{Client, Response},
     Method,
@@ -12,9 +11,11 @@ use reqwest::{
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::{
+    fs,
     io::{BufRead, BufReader, Read, Write},
+    path::PathBuf,
     process::{Child, ChildStdin, Command, Stdio},
-    sync::Mutex,
+    sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
 use tauri::Manager;
@@ -76,6 +77,9 @@ pub struct Process {
     child: Child,
     input: Option<ChildStdin>,
     endpoint: Endpoint,
+    stderr: Arc<Mutex<StderrTail>>,
+    stderr_done: std::sync::mpsc::Receiver<()>,
+    diagnostic_path: PathBuf,
 }
 #[derive(Clone)]
 pub(crate) struct Endpoint {
@@ -86,18 +90,101 @@ pub(crate) struct Endpoint {
 fn err(e: impl std::fmt::Display) -> crate::AppError {
     e.to_string().into()
 }
+const STDERR_LIMIT: usize = 16 * 1024;
+fn replace_all(haystack: &[u8], needle: &[u8], replacement: &[u8]) -> Vec<u8> {
+    if needle.is_empty() {
+        return haystack.to_vec();
+    }
+    let mut output = Vec::with_capacity(haystack.len());
+    let mut start = 0;
+    while let Some(position) = haystack[start..]
+        .windows(needle.len())
+        .position(|window| window == needle)
+    {
+        output.extend_from_slice(&haystack[start..start + position]);
+        output.extend_from_slice(replacement);
+        start += position + needle.len();
+    }
+    output.extend_from_slice(&haystack[start..]);
+    output
+}
+// Redact while ingesting, before bytes are committed or truncated: a secret
+// split by a read or by the retained-tail boundary can then never leave a
+// partial credential in the diagnostic.
+struct StderrTail {
+    output: Vec<u8>,
+    pending: Vec<u8>,
+    guard: usize,
+}
+impl StderrTail {
+    fn new(secrets: &[String]) -> Self {
+        Self {
+            output: Vec::new(),
+            pending: Vec::new(),
+            guard: secrets
+                .iter()
+                .map(String::len)
+                .max()
+                .unwrap_or(0)
+                .saturating_sub(1),
+        }
+    }
+    fn append(&mut self, chunk: &[u8], secrets: &[String]) {
+        self.pending.extend_from_slice(chunk);
+        for secret in secrets {
+            if !secret.is_empty() {
+                self.pending = replace_all(&self.pending, secret.as_bytes(), b"[redacted]");
+            }
+        }
+        let keep = self.pending.len().saturating_sub(self.guard);
+        if keep == 0 {
+            return;
+        }
+        self.output.extend_from_slice(&self.pending[..keep]);
+        self.pending.drain(..keep);
+        if self.output.len() > STDERR_LIMIT {
+            self.output.drain(..self.output.len() - STDERR_LIMIT);
+        }
+    }
+    fn diagnostic(&mut self) -> String {
+        self.output.extend_from_slice(&self.pending);
+        self.pending.clear();
+        if self.output.len() > STDERR_LIMIT {
+            self.output.drain(..self.output.len() - STDERR_LIMIT);
+        }
+        String::from_utf8_lossy(&self.output).into_owned()
+    }
+}
 impl Drop for Process {
     fn drop(&mut self) {
         self.input.take();
         let until = Instant::now() + Duration::from_secs(13);
+        let mut exited = false;
         while Instant::now() < until {
             if self.child.try_wait().ok().flatten().is_some() {
-                return;
+                exited = true;
+                break;
             }
             std::thread::sleep(Duration::from_millis(50));
         }
-        let _ = self.child.kill();
-        let _ = self.child.wait();
+        if !exited {
+            let _ = self.child.kill();
+            let _ = self.child.wait();
+        }
+        let _ = self.stderr_done.recv_timeout(Duration::from_millis(250));
+        if let Ok(mut tail) = self.stderr.lock() {
+            let diagnostic = tail.diagnostic();
+            if !diagnostic.is_empty() {
+                if let Some(dir) = self.diagnostic_path.parent() {
+                    if fs::create_dir_all(dir).is_ok() {
+                        if let Ok(mut file) = tempfile::NamedTempFile::new_in(dir) {
+                            let _ = file.write_all(diagnostic.as_bytes());
+                            let _ = file.persist(&self.diagnostic_path);
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 impl Process {
@@ -126,27 +213,53 @@ impl Process {
             ));
         }
         let token = format!("{}{}", store::id(), store::id());
+        let redactions = vec![token.clone(), key.clone()];
+        let _ = fs::remove_file(store.dir.join("ai/parser-stderr.log"));
         let bootstrap = json!({"AI_SERVICE_TOKEN":token,"LLM_API_KEY":key,"LLM_BASE_URL":base,"LLM_MODEL":model,
             "AI_DATABASE_DIR":store.dir.join("ai/database"),"AI_STORAGE_DIR":store.dir.join("ai/files")});
-        let child = Command::new(executable)
+        let client = Client::builder()
+            .no_proxy()
+            .redirect(reqwest::redirect::Policy::none())
+            .timeout(Duration::from_secs(120))
+            .build()
+            .map_err(err)?;
+        let mut child = Command::new(executable)
             .arg("serve")
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::null())
+            .stderr(Stdio::piped())
             .spawn()
             .map_err(|_| {
                 crate::language::error("LOCAL_BUNDLE_START_FAILED", serde_json::json!({}))
             })?;
+        let mut stderr = child.stderr.take().ok_or(crate::language::error(
+            "LOCAL_STATUS_PIPE_FAILED",
+            serde_json::json!({}),
+        ))?;
+        let tail = Arc::new(Mutex::new(StderrTail::new(&redactions)));
+        let writer = tail.clone();
+        let secrets = redactions.clone();
+        let (done, stderr_done) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let mut buffer = [0u8; 4096];
+            while let Ok(count) = stderr.read(&mut buffer) {
+                if count == 0 {
+                    break;
+                }
+                if let Ok(mut tail) = writer.lock() {
+                    tail.append(&buffer[..count], &secrets);
+                }
+            }
+            let _ = done.send(());
+        });
         let mut process = Self {
             child,
             input: None,
+            stderr: tail,
+            stderr_done,
+            diagnostic_path: store.dir.join("ai/parser-stderr.log"),
             endpoint: Endpoint {
-                client: Client::builder()
-                    .no_proxy()
-                    .redirect(reqwest::redirect::Policy::none())
-                    .timeout(Duration::from_secs(120))
-                    .build()
-                    .map_err(err)?,
+                client,
                 origin: String::new(),
                 token,
             },
@@ -345,6 +458,109 @@ fn confirm_document(
     Ok(confirm(message).then_some(bytes))
 }
 
+fn active_endpoint(app: &tauri::AppHandle, dir: &std::path::Path) -> AiResult<Endpoint> {
+    let state = app.state::<AiState>();
+    let mut state = state.lock().map_err(|_| {
+        crate::language::error("LOCAL_PARSER_STATE_UNAVAILABLE", serde_json::json!({}))
+    })?;
+    if state
+        .as_mut()
+        .is_some_and(|p| p.child.try_wait().ok().flatten().is_some())
+    {
+        state.take();
+    }
+    if state.is_none() {
+        *state = Some(
+            Process::start(
+                app,
+                &Store {
+                    locale: Default::default(),
+                    dir: dir.to_owned(),
+                    pending: None,
+                },
+            )
+            .map_err(|mut error| {
+                let path = dir.join("ai/parser-stderr.log");
+                if path.exists() {
+                    error.context = Some(path.display().to_string());
+                }
+                error
+            })?,
+        );
+    }
+    Ok(state
+        .as_ref()
+        .ok_or(crate::language::error(
+            "LOCAL_PARSER_UNAVAILABLE",
+            serde_json::json!({}),
+        ))?
+        .endpoint
+        .clone())
+}
+
+fn review_reference(
+    process: &Endpoint,
+    id: &str,
+    checkpoint_id: &str,
+    unit: usize,
+    visual: Option<usize>,
+) -> AiResult<(Value, String)> {
+    let review = process.review(id)?;
+    if review["checkpointId"] != checkpoint_id {
+        return Err(AppError::new("STALE_CHECKPOINT", "任务已变化，请刷新预览"));
+    }
+    let unit = review["units"].get(unit).ok_or(crate::language::error(
+        "LOCAL_PREVIEW_UNIT_MISSING",
+        serde_json::json!({}),
+    ))?;
+    let reference = match visual {
+        Some(index) => &unit["visualElements"]
+            .get(index)
+            .ok_or(crate::language::error(
+                "LOCAL_IMAGE_MISSING",
+                serde_json::json!({}),
+            ))?["imageRef"],
+        None => &unit["sourceRef"],
+    };
+    Ok((
+        reference.clone(),
+        contract::text(reference, "mediaType").to_owned(),
+    ))
+}
+
+pub fn read_review_image(
+    app: tauri::AppHandle,
+    shared: Shared,
+    id: String,
+    checkpoint_id: String,
+    unit: usize,
+    visual: Option<usize>,
+) -> AiResult<Vec<u8>> {
+    let dir = shared
+        .lock()
+        .map_err(|_| crate::language::error("LOCAL_DATABASE_UNAVAILABLE", json!({})))?
+        .dir
+        .clone();
+    let work = app.state::<WorkState>();
+    let _request = work.enter()?;
+    let process = active_endpoint(&app, &dir)?;
+    let (reference, media) = review_reference(&process, &id, &checkpoint_id, unit, visual)?;
+    if !media.starts_with("image/") {
+        return Err(crate::language::error(
+            "LOCAL_IMAGE_FORMAT_MISMATCH",
+            json!({}),
+        ));
+    }
+    process.image(
+        &reference,
+        &Store {
+            locale: Default::default(),
+            dir,
+            pending: None,
+        },
+    )
+}
+
 pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiResult<Value> {
     let (dir, locale) = {
         let store = shared
@@ -399,35 +615,7 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
     } else {
         None
     };
-    let state = app.state::<AiState>();
-    let mut state = state.lock().map_err(|_| {
-        crate::language::error("LOCAL_PARSER_STATE_UNAVAILABLE", serde_json::json!({}))
-    })?;
-    if state
-        .as_mut()
-        .is_some_and(|p| p.child.try_wait().ok().flatten().is_some())
-    {
-        state.take();
-    }
-    if state.is_none() {
-        *state = Some(Process::start(
-            &app,
-            &Store {
-                locale: Default::default(),
-                dir: dir.clone(),
-                pending: None,
-            },
-        )?);
-    }
-    let process = state
-        .as_ref()
-        .ok_or(crate::language::error(
-            "LOCAL_PARSER_UNAVAILABLE",
-            serde_json::json!({}),
-        ))?
-        .endpoint
-        .clone();
-    drop(state);
+    let process = active_endpoint(&app, &dir)?;
     match request {
         AiRequest::Grade { id, ordinal, retry } => {
             let payload = shared
@@ -590,34 +778,17 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
             unit,
             visual,
         } => {
-            let review = process.review(&id)?;
-            if review["checkpointId"] != checkpoint_id {
-                return Err(AppError::new("STALE_CHECKPOINT", "任务已变化，请刷新预览"));
-            }
-            let unit = review["units"].get(unit).ok_or(crate::language::error(
-                "LOCAL_PREVIEW_UNIT_MISSING",
-                serde_json::json!({}),
-            ))?;
-            let reference = match visual {
-                Some(index) => &unit["visualElements"]
-                    .get(index)
-                    .ok_or(crate::language::error(
-                        "LOCAL_IMAGE_MISSING",
-                        serde_json::json!({}),
-                    ))?["imageRef"],
-                None => &unit["sourceRef"],
-            };
-            let media = contract::text(reference, "mediaType");
+            let (reference, media) = review_reference(&process, &id, &checkpoint_id, unit, visual)?;
             let content = if media == "text/plain" || media.starts_with("text/plain;") {
                 let mut bytes = Vec::new();
                 process
-                    .send(Method::POST, "/api/artifacts/read", Some(reference))?
+                    .send(Method::POST, "/api/artifacts/read", Some(&reference))?
                     .take(contract::MAX_JSON as u64 + 1)
                     .read_to_end(&mut bytes)
                     .map_err(err)?;
                 if bytes.len() > contract::MAX_JSON
                     || reference["sizeBytes"].as_u64() != Some(bytes.len() as u64)
-                    || store::hash(&bytes) != contract::text(reference, "sha256")
+                    || store::hash(&bytes) != contract::text(&reference, "sha256")
                 {
                     return Err(AppError::new("ARTIFACT_INVALID", "来源文本校验失败"));
                 }
@@ -625,15 +796,10 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
                     crate::language::error("LOCAL_SOURCE_ENCODING_INVALID", serde_json::json!({}))
                 })?
             } else {
-                let bytes = process.image(
-                    reference,
-                    &Store {
-                        locale: Default::default(),
-                        dir,
-                        pending: None,
-                    },
-                )?;
-                format!("data:{media};base64,{}", STANDARD.encode(bytes))
+                return Err(crate::language::error(
+                    "LOCAL_IMAGE_FORMAT_MISMATCH",
+                    json!({}),
+                ));
             };
             Ok(json!({"mediaType":media,"content":content}))
         }
@@ -719,7 +885,7 @@ impl Endpoint {
         };
         if bytes.len() as u64 != size
             || store::hash(&bytes) != digest
-            || !store::image_signature(&bytes, media)
+            || !store::valid_image(&bytes, media)
         {
             return Err(AppError::new("ARTIFACT_INVALID", "解析图片缺失或校验失败"));
         }
@@ -755,8 +921,49 @@ impl Endpoint {
 
 #[cfg(test)]
 mod tests {
-    use super::document_format;
+    use super::{document_format, StderrTail};
     use std::path::Path;
+
+    #[test]
+    fn stderr_diagnostics_are_bounded_and_redacted() {
+        let secrets = ["key-123".to_string(), "token-456".to_string()];
+        let mut tail = StderrTail::new(&secrets);
+        tail.append(&vec![b'x'; 20 * 1024], &secrets);
+        tail.append(b" key-123 token-456", &secrets);
+        let diagnostic = tail.diagnostic();
+        assert!(diagnostic.len() <= 16 * 1024);
+        assert!(!diagnostic.contains("key-123"));
+        assert!(!diagnostic.contains("token-456"));
+        assert!(diagnostic.contains("[redacted]"));
+    }
+
+    #[test]
+    fn stderr_secrets_split_across_reads_stay_redacted() {
+        let secrets = ["token-789".to_string()];
+        let mut tail = StderrTail::new(&secrets);
+        tail.append(b"error: token-", &secrets);
+        tail.append(b"789 done", &secrets);
+        let diagnostic = tail.diagnostic();
+        assert!(!diagnostic.contains("token-789"));
+        assert!(diagnostic.contains("[redacted] done"));
+    }
+
+    #[test]
+    fn stderr_secrets_at_the_truncation_boundary_stay_redacted() {
+        let secrets = ["key-123456".to_string()];
+        let mut tail = StderrTail::new(&secrets);
+        let mut first = vec![b'x'; 16];
+        first.extend_from_slice(b"key-");
+        tail.append(&first, &secrets);
+        let mut second = b"123456".to_vec();
+        second.resize(16 * 1024, b'y');
+        tail.append(&second, &secrets);
+        let diagnostic = tail.diagnostic();
+        assert!(diagnostic.len() <= 16 * 1024);
+        assert!(!diagnostic.contains("key-123456"));
+        assert!(!diagnostic.contains("123456"));
+        assert!(!diagnostic.contains("key-"));
+    }
 
     #[test]
     fn document_confirmation_is_required_and_freezes_validated_bytes() {

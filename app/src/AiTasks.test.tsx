@@ -103,6 +103,8 @@ it.each([new Error("请先配置模型 ID"), { message: "请先配置模型 ID" 
   expect(vi.mocked(invoke).mock.calls.every(([, args]) => ["list", "operations", "batches"].includes((args as { request: { type: string } }).request.type))).toBe(true);
 });
 it("requires content review before acceptance and excludes waiting tasks from batch selection", async () => {
+  URL.createObjectURL = vi.fn(() => "blob:review-image");
+  URL.revokeObjectURL = vi.fn();
   const state = {
     threadId: "task",
     runId: null,
@@ -116,7 +118,8 @@ it("requires content review before acceptance and excludes waiting tasks from ba
     usage: [],
     unknownUsageCalls: [],
   };
-  vi.mocked(invoke).mockImplementation(async (_command, args) => {
+  vi.mocked(invoke).mockImplementation(async (command, args) => {
+    if (command === "read_review_image") return new ArrayBuffer(4) as never;
     const r = (args as { request: { type: string } }).request;
     if (r.type === "list")
       return {
@@ -151,6 +154,7 @@ it("requires content review before acceptance and excludes waiting tasks from ba
               },
             ],
             groups: [{ title: "材料", instructions: "已保存的材料正文" }],
+            sourceRef: { mediaType: "image/png" },
             visualElements: [],
           },
         ],
@@ -162,7 +166,7 @@ it("requires content review before acceptance and excludes waiting tasks from ba
       } as never;
     return state as never;
   });
-  render(
+  const { unmount } = render(
     <AiTasks
       busy={false}
       run={(job) => {
@@ -185,13 +189,16 @@ it("requires content review before acceptance and excludes waiting tasks from ba
   );
   expect(await screen.findByText("保存的候选题目")).toBeTruthy();
   expect(screen.getByText("已保存的材料正文")).toBeTruthy();
+  await userEvent.click(screen.getByRole("button", { name: "查看来源内容" }));
+  expect(await screen.findByRole("img", { name: "查看来源内容" })).toBeTruthy();
+  expect(invoke).toHaveBeenCalledWith("read_review_image", { id: "task", checkpointId: "cp", unit: 0, visual: null });
   expect(screen.getByText(/#2：模型鉴权失败/)).toBeTruthy();
   expect(
     vi
       .mocked(invoke)
       .mock.calls.some(
-        ([, a]) =>
-          (a as { request: { type: string } }).request.type === "control",
+        ([command, a]) =>
+          command === "ai_request" && (a as { request: { type: string } }).request.type === "control",
       ),
   ).toBe(false);
   await userEvent.click(screen.getByRole("button", { name: "接受部分结果" }));
@@ -208,6 +215,8 @@ it("requires content review before acceptance and excludes waiting tasks from ba
       },
     }),
   );
+  unmount();
+  expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:review-image");
 });
 it("edits separate bank names and can cancel a running batch without waiting for it", async () => {
   const batch = {

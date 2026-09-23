@@ -1,9 +1,10 @@
 use crate::{
     contract::Result,
-    store::{hash, id, now, read_bounded, Store},
+    store::{id, now, Store},
 };
 use rusqlite::Connection;
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 use std::{
     fs,
     io::{Read, Write},
@@ -13,6 +14,24 @@ use zip::{write::SimpleFileOptions, ZipArchive, ZipWriter};
 const LIMIT: usize = 512 * 1024 * 1024;
 fn err(e: impl std::fmt::Display) -> crate::AppError {
     e.to_string().into()
+}
+fn file_digest(path: &Path) -> Result<(u64, String)> {
+    let mut file = fs::File::open(path).map_err(err)?;
+    let mut digest = Sha256::new();
+    let mut size = 0u64;
+    let mut buffer = [0u8; 64 * 1024];
+    loop {
+        let count = file.read(&mut buffer).map_err(err)?;
+        if count == 0 {
+            break;
+        }
+        size += count as u64;
+        if size > LIMIT as u64 {
+            return Err(crate::language::error("LOCAL_BACKUP_TOO_LARGE", json!({})));
+        }
+        digest.update(&buffer[..count]);
+    }
+    Ok((size, format!("{:x}", digest.finalize())))
 }
 impl Store {
     pub fn backup(&self, destination: &Path) -> Result<Value> {
@@ -31,12 +50,12 @@ impl Store {
         // In-flight model requests are task state, not portable practice history.
         db.execute("DELETE FROM grade_requests WHERE response IS NULL", [])
             .map_err(err)?;
-        let bytes = read_bounded(&snapshot, LIMIT)?;
+        let (database_size, database_hash) = file_digest(&snapshot)?;
         let assets=db.prepare("SELECT hash,media,size,path FROM assets ORDER BY hash").map_err(err)?.query_map([],|r| Ok(json!({"sha256":r.get::<_,String>(0)?,"mediaType":r.get::<_,String>(1)?,"sizeBytes":r.get::<_,u64>(2)?,"file":r.get::<_,String>(3)?}))).map_err(err)?.collect::<std::result::Result<Vec<_>,_>>().map_err(err)?;
         let version: i64 = db
             .query_row("PRAGMA user_version", [], |r| r.get(0))
             .map_err(err)?;
-        let manifest = json!({"format":"practiq-backup","version":3,"schemaVersion":version,"createdAt":now(),"database":{"file":"practiq.sqlite","sha256":hash(&bytes),"sizeBytes":bytes.len()},"assets":assets});
+        let manifest = json!({"format":"practiq-backup","version":3,"schemaVersion":version,"createdAt":now(),"database":{"file":"practiq.sqlite","sha256":database_hash,"sizeBytes":database_size},"assets":assets});
         let manifest = serde_json::to_vec(&manifest).map_err(err)?;
         if manifest.len() > 1024 * 1024 {
             return Err(crate::language::error(
@@ -56,8 +75,8 @@ impl Store {
             zip.start_file("manifest.json", options).map_err(err)?;
             zip.write_all(&manifest).map_err(err)?;
             zip.start_file("practiq.sqlite", options).map_err(err)?;
-            zip.write_all(&bytes).map_err(err)?;
-            let mut total = bytes.len();
+            std::io::copy(&mut fs::File::open(&snapshot).map_err(err)?, &mut zip).map_err(err)?;
+            let mut total = database_size;
             for asset in &assets {
                 let digest = asset["sha256"].as_str().ok_or(crate::language::error(
                     "LOCAL_IMAGE_HASH_INVALID",
@@ -76,8 +95,8 @@ impl Store {
                         serde_json::json!({}),
                     ))?,
                 )?;
-                total += data.len();
-                if total > LIMIT {
+                total += data.len() as u64;
+                if total > LIMIT as u64 {
                     return Err(crate::language::error(
                         "LOCAL_BACKUP_TOO_LARGE",
                         serde_json::json!({}),
@@ -94,6 +113,13 @@ impl Store {
         Ok(json!({"path":destination.display().to_string()}))
     }
     pub fn restore(&mut self, source: &Path) -> Result<Value> {
+        let result = self.restore_inner(source);
+        if result.is_err() {
+            let _ = self.collect_unused_assets();
+        }
+        result
+    }
+    fn restore_inner(&mut self, source: &Path) -> Result<Value> {
         let file = fs::File::open(source).map_err(err)?;
         if file.metadata().map_err(err)?.len() > (LIMIT + 2 * 1024 * 1024) as u64 {
             return Err(crate::language::error(
@@ -181,23 +207,25 @@ impl Store {
         }
         let staging = tempfile::tempdir_in(&self.dir).map_err(err)?;
         let candidate = staging.path().join("practiq.sqlite");
-        let mut bytes = Vec::new();
-        archive
-            .by_name("practiq.sqlite")
-            .map_err(err)?
-            .take(LIMIT as u64 + 1)
-            .read_to_end(&mut bytes)
-            .map_err(err)?;
-        if bytes.len() > LIMIT
-            || manifest["database"]["sizeBytes"] != bytes.len()
-            || manifest["database"]["sha256"] != hash(&bytes)
+        let mut candidate_file = fs::File::create(&candidate).map_err(err)?;
+        let copied = std::io::copy(
+            &mut archive
+                .by_name("practiq.sqlite")
+                .map_err(err)?
+                .take(LIMIT as u64 + 1),
+            &mut candidate_file,
+        )
+        .map_err(err)?;
+        drop(candidate_file);
+        if copied > LIMIT as u64
+            || manifest["database"]["sizeBytes"] != copied
+            || manifest["database"]["sha256"] != file_digest(&candidate)?.1
         {
             return Err(crate::language::error(
                 "LOCAL_BACKUP_CHECKSUM_MISMATCH",
                 serde_json::json!({}),
             ));
         }
-        fs::write(&candidate, &bytes).map_err(err)?;
         let version = validate_database(&candidate)?;
         if manifest["schemaVersion"] != version {
             return Err(crate::language::error(
@@ -269,7 +297,7 @@ impl Store {
                 ));
             }
             let data = staged.read_asset(&digest, size)?;
-            if !crate::store::image_signature(&data, &media) {
+            if !crate::store::valid_image(&data, &media) {
                 return Err(crate::language::error(
                     "LOCAL_BACKUP_IMAGE_FORMAT",
                     serde_json::json!({}),
@@ -302,6 +330,9 @@ impl Store {
             ));
         }
         self.pending = None;
+        if let Err(error) = self.collect_unused_assets() {
+            eprintln!("Asset cleanup deferred after restore: {error}");
+        }
         Ok(json!({"recoveryPath":recovery.display().to_string()}))
     }
 }
