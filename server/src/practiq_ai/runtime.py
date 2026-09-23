@@ -11,7 +11,7 @@ from langgraph.types import Command
 from .config import load
 from .database import Database, utcnow, watch_ownership
 from .errors import DocumentProcessingError
-from .execution import namespace, remaining_ttl
+from .execution import namespace, preflight, remaining_ttl, require_supported_task
 from .graphs.document import build_document_graph
 
 current: Service | None = None
@@ -159,7 +159,6 @@ class Service:
             await conn.execute('UPDATE document_runs SET status=?,error_code=?,finished_at=now() WHERE run_id=?', (status, error, run_id))
 
     async def execute(self, run):
-        from .task_api import _preflight, require_supported_task
         run_id = run['run_id']
         try:
             task = (await self.db.rows('SELECT * FROM document_tasks WHERE thread_id=?', (run['thread_id'],)))[0]
@@ -181,7 +180,7 @@ class Service:
             graph_input = None if advanced else Command(**run['command']) if run['command'] else run['input']
             async with asyncio.timeout(remaining):
                 if snapshot.values and snapshot.values.get('execution'):
-                    await _preflight(snapshot.values)
+                    await preflight(snapshot.values)
                 await graph.ainvoke(graph_input, {'configurable': {'thread_id': run['thread_id']},
                     'run_id': run_id, 'metadata': {'practiqRunId': run_id}}, context=run['context'], durability='sync')
             snapshot = await self.snapshot(task)

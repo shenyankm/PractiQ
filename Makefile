@@ -42,7 +42,7 @@ audit:
 image-check:
 	docker build -f Dockerfile.server -t practiq-ai:ci .
 
-.PHONY: app-install app-dev app-check app-build
+.PHONY: app-install app-dev app-check app-build app-package-check
 app-install:
 	cd app && npm ci
 app-dev:
@@ -53,6 +53,8 @@ app-check:
 	cd app && TAURI_CONFIG='{"bundle":{"resources":[]}}' npm run check
 app-build: app-bundle
 	cd app && npm run tauri -- build
+app-package-check: app-build
+	"$(AI_PYTHON)" app/scripts/check-bundle.py --bundle app/src-tauri/target/release/bundle/macos/PractiQ.app/Contents/Resources/bundled
 
 .PHONY: test-e2e
 test-e2e:

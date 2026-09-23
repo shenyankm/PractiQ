@@ -12,6 +12,22 @@ fn err(e: impl std::fmt::Display) -> crate::AppError {
 pub fn composite(q: &Value) -> bool {
     matches!(text(q, "answerMode"), "reading" | "word_bank" | "cloze")
 }
+pub(crate) fn answer_content(content: &Value) -> bool {
+    let role = text(content, "role").to_lowercase();
+    [
+        "answer",
+        "analysis",
+        "solution",
+        "explanation",
+        "rubric",
+        "答案",
+        "解析",
+        "解答",
+        "评分",
+    ]
+    .iter()
+    .any(|word| role.contains(word))
+}
 const DETAILS: &[(&str, &str, &str)] = &[
     ("choice", "choice_questions", "correct"),
     ("true_false", "true_false_questions", "value"),
@@ -541,7 +557,7 @@ impl<'a> Index<'a> {
             let mut blank = 0;
             let passage: Vec<Value> = list(p, "passage")
                 .iter()
-                .filter(|b| !crate::exams::answer_content(b))
+                .filter(|b| !answer_content(b))
                 .map(|b| {
                     if text(b, "partType") == "blank" {
                         blank += 1;

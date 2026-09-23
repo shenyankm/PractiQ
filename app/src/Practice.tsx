@@ -1,11 +1,10 @@
-import { t, useI18n } from "./i18n";
+import { duration, t, useI18n } from "./i18n";
 import { ExamResults } from "./ExamResults";
 import { memo, useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import {
   api,
   answerReady,
   canInteract,
-  duration,
   modeNames,
   type Answer,
   type Attempt,

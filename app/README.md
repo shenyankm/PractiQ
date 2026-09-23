@@ -107,14 +107,14 @@ make app-dev
 ```sh
 make test-e2e AI_PYTHON=/path/to/python3.14
 make app-check AI_PYTHON=/path/to/python3.14
-make app-build AI_PYTHON=/path/to/python3.14
+make app-package-check AI_PYTHON=/path/to/python3.14
 ```
 
 `app-bundle` 使用锁定的 PyInstaller 构建 onedir Python，资源位于 `app/src-tauri/bundled/`，生成资源不进入 Git。依赖清单和 Python 许可说明随包保存；PDF 使用内置 PDFium 渲染。构建会清理该目录中旧版 LibreOffice 资源，不下载或依赖办公软件，也不卸载用户软件。开发解析同样使用内置 Python 服务。
 
 Python 进程由 Rust 通过固定资源路径启动，因此使用 Tauri `bundle.resources` 保持整个 onedir 目录布局，不把 Python 可执行文件单独移动到 `Contents/MacOS`。无需通用 shell 插件或 WebView 执行权限。
 
-产物位于 `app/src-tauri/target/release/bundle/macos/PractiQ.app` 和同级 `dmg/` 目录。构建后验证实际应用里的资源：
+产物位于 `app/src-tauri/target/release/bundle/macos/PractiQ.app` 和同级 `dmg/` 目录。`app-package-check` 在构建后验证实际应用里的资源；单独复查时运行：
 
 ```sh
 bundle_dir=app/src-tauri/target/release/bundle/macos

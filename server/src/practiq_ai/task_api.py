@@ -8,7 +8,6 @@ from uuid import NAMESPACE_URL, uuid4, uuid5
 
 from .config import load
 from .contracts import (
-    ArtifactReference,
     DocumentReference,
     DocumentTaskControl,
     DocumentTaskCreate,
@@ -23,8 +22,9 @@ from .execution import (
     TTL_MINUTES,
     fingerprint,
     namespace,
+    preflight,
     remaining_ttl,
-    validate_execution,
+    require_supported_task,
 )
 from .graphs.document import _retry_update, unit_failures
 from .storage import get_object_store
@@ -39,11 +39,6 @@ def client():
 
 def conflict(message: str, code: str = 'INVALID_CONTROL') -> DocumentProcessingError:
     return DocumentProcessingError(409, message, code)
-
-
-def require_supported_task(task) -> None:
-    if task['document'].get('sourceType') in {'doc', 'docx'} or task['graph_id'] == 'docx_parser':
-        raise conflict('暂不支持 Word 文件，请转为 PDF 后重新导入', 'WORD_FORMAT_REMOVED')
 
 
 def receipt(thread_id: str, request_id: str, run_id: str) -> dict[str, Any]:
@@ -223,7 +218,7 @@ async def control_task(thread_id: str, request: DocumentTaskControl) -> dict[str
             raise conflict('Task changed since the checkpoint was read', 'STALE_CHECKPOINT')
         async with asyncio.timeout(load().run_timeout_seconds):
             if snapshot.values and snapshot.values.get('execution'):
-                await _preflight(snapshot.values)
+                await preflight(snapshot.values)
             else:
                 await get_object_store().get_verified(DocumentReference.model_validate(task['document']))
     async with service.db.transaction() as conn:
@@ -275,21 +270,6 @@ async def control_task(thread_id: str, request: DocumentTaskControl) -> dict[str
 
 def _counts(total: int, succeeded: int, failed: int) -> dict[str, int]:
     return {"total": total, "succeeded": succeeded, "failed": failed, "remaining": max(0, total - succeeded - failed)}
-
-
-async def _preflight(values: dict[str, Any]) -> None:
-    await asyncio.to_thread(validate_execution, values.get("execution"))
-    store = await asyncio.to_thread(get_object_store)
-    # Check the source and pending inputs, including outputs needed by assemble/merge.
-    await store.get_verified(DocumentReference.model_validate(values["document"]))
-    references = [item for key in ("pageRefs", "embeddedRefs", "chunkRefs") for item in values.get(key, [])]
-    if values.get("textRef"):
-        references.append(values["textRef"])
-    seen: set[str] = set()
-    for reference in references:
-        if reference["objectKey"] not in seen:
-            seen.add(reference["objectKey"])
-            await store.get_verified(ArtifactReference.model_validate(reference))
 
 
 async def list_tasks(limit: int = 20, offset: int = 0) -> dict[str, Any]:

@@ -1,4 +1,4 @@
-import { message, renderMessage, type Message, t, useI18n } from "./i18n";
+import { date, duration, message, renderMessage, type Message, t, useI18n } from "./i18n";
 import { useTheme } from "./theme";
 import logo from "../src-tauri/icons/icon.png";
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, type ComponentProps } from "react";
@@ -8,7 +8,6 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   BookOpen,
   Upload,
-  Download,
   Plus,
   Star,
   History,
@@ -25,37 +24,26 @@ import {
   Pencil,
   ChevronRight,
   BookmarkX,
-  EllipsisVertical,
 } from "lucide-react";
 import { toast } from "./notifications";
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription, EmptyContent } from "@/components/ui/empty";
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import {
   api,
   blankQuestion,
-  date,
-  duration,
   errorMessage,
   modeNames,
   type BankChoice,
-  type BankPage,
   type SessionPage,
-  type UnfinishedSession,
   type Preview,
   type Question,
   type QuestionRow,
   type Session,
 } from "./api";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -96,6 +84,9 @@ const AnswerInput = lazy(() => import("./AnswerInput").then(module => ({default:
 const QuestionEditor = lazy(() => import("./QuestionEditor").then(module => ({default:module.QuestionEditor})));
 const Practice = lazy(() => import("./Practice").then(module => ({default:module.Practice})));
 const ConnectionSettingsPanel = lazy(() => import("./ConnectionSettings").then(module => ({default:module.ConnectionSettingsPanel})));
+const ImportBankDialog = lazy(() => import("./ImportBankDialog").then(module => ({default:module.ImportBankDialog})));
+const SettingsPage = lazy(() => import("./SettingsPage").then(module => ({default:module.SettingsPage})));
+const BankList = lazy(() => import("./BankList").then(module => ({default:module.BankList})));
 
 type Page =
   | "banks"
@@ -132,22 +123,18 @@ export default function App() {
   const [bank, setBank] = useState<string | null>(null);
   const [questions, setQuestions] = useState<QuestionRow[]>([]);
   const [questionTotal, setQuestionTotal] = useState(0);
-  const [bankPage, setBankPage] = useState<BankPage>({ items: [], total: 0, offset: 0 });
   const [sessionPage, setSessionPage] = useState<SessionPage>({ items: [], total: 0, offset: 0 });
   const [bankOffset, setBankOffset] = useState(0);
   const [sessionOffset, setSessionOffset] = useState(0);
   const [listRevision, setListRevision] = useState(0);
   const [summaryLoading, setSummaryLoading] = useState(true);
   const [summaryError, setSummaryError] = useState<unknown>(null);
-  const [unfinished, setUnfinished] = useState<UnfinishedSession | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [search, setSearch] = useState("");
   const [mode, setMode] = useState("");
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [preview, setPreview] = useState<Preview | null>(null);
-  const [importTitle, setImportTitle] = useState("");
-  const [importBank, setImportBank] = useState("new");
+  const [importPreview, setImportPreview] = useState<{ preview: Preview; initialBank: string } | null>(null);
   const [bankEditor, setBankEditor] = useState<{
     id: string | null;
     title: string;
@@ -218,23 +205,16 @@ export default function App() {
     });
   }, [run]);
   useEffect(() => {
-    if (page !== "banks" && page !== "history") return;
+    if (page !== "history") return;
     let active = true;
     setSummaryLoading(true);
     setSummaryError(null);
-    const request = page === "banks"
-      ? Promise.all([
-          api({ type: "banks_page", limit: 30, offset: bankOffset }),
-          api({ type: "unfinished_session" }),
-        ]).then(([result, pending]) => {
-          if (active) { setBankPage(result); setBankOffset(result.offset); setUnfinished(pending); }
-        })
-      : api({ type: "sessions_page", limit: 30, offset: sessionOffset })
-          .then(result => { if (active) { setSessionPage(result); setSessionOffset(result.offset); } });
+    const request = api({ type: "sessions_page", limit: 30, offset: sessionOffset })
+      .then(result => { if (active) { setSessionPage(result); setSessionOffset(result.offset); } });
     void request.catch(error => { if (active) setSummaryError(error); })
       .finally(() => { if (active) setSummaryLoading(false); });
     return () => { active = false; };
-  }, [page, bankOffset, sessionOffset, listRevision]);
+  }, [page, sessionOffset, listRevision]);
   useEffect(() => { setOffset(0); }, [page, bank, search, mode]);
   useEffect(() => {
     if (!["questions", "wrong", "favorite"].includes(page)) return;
@@ -306,18 +286,13 @@ export default function App() {
       setPage("practice");
     });
   }
-  const summaries = page === "banks" ? bankPage : sessionPage;
   async function refreshQuestions() {
     const result = await api({ type: "questions_page", ...query, limit: 30, offset });
     setQuestions(result.items); setQuestionTotal(result.total); setOffset(result.offset);
   }
   async function pickImport() {
     const p = await api({ type: "pick_import" });
-    if (p) {
-      setPreview(p);
-      setImportTitle(p.title);
-      setImportBank("new");
-    }
+    if (p) setImportPreview({ preview: p, initialBank: "new" });
   }
   const heading =
     page === "import" ? t("导入题库") : page === "banks"
@@ -499,73 +474,41 @@ export default function App() {
         </header>
         <div className="flex-1 overflow-y-auto p-8">
           <Suspense fallback={loadingView}>
-          {(page === "banks" || page === "history") && (
+          {page === "history" && (
             <div className="mb-5 space-y-3" aria-busy={summaryLoading}>
               {summaryLoading && <p role="status">{t("加载中…")}</p>}
               {summaryError != null && <div role="alert"><p>{errorMessage(summaryError)}</p><Button variant="outline" onClick={() => setListRevision(v => v + 1)}>{t("重试")}</Button></div>}
-              <nav aria-label={page === "banks" ? t("题库分页") : t("练习记录分页")} className="flex items-center justify-between gap-3">
-                <span role="status" className="text-sm text-muted-foreground">{!summaryLoading && !summaryError && t("{0}–{1} / {2} 条", {0: summaries.total ? summaries.offset + 1 : 0, 1: summaries.offset + summaries.items.length, 2: summaries.total})}</span>
+              <nav aria-label={t("练习记录分页")} className="flex items-center justify-between gap-3">
+                <span role="status" className="text-sm text-muted-foreground">{!summaryLoading && !summaryError && t("{0}–{1} / {2} 条", {0: sessionPage.total ? sessionPage.offset + 1 : 0, 1: sessionPage.offset + sessionPage.items.length, 2: sessionPage.total})}</span>
                 <div className="flex gap-2">
                   <Button variant="outline" disabled={busy || summaryLoading} onClick={() => setListRevision(v => v + 1)}>{t("刷新")}</Button>
-                  <Button variant="outline" disabled={busy || summaryLoading || !!summaryError || summaries.offset === 0} onClick={() => (page === "banks" ? setBankOffset : setSessionOffset)(Math.max(0, summaries.offset - 30))}>{t("上一页")}</Button>
-                  <Button variant="outline" disabled={busy || summaryLoading || !!summaryError || summaries.offset + 30 >= summaries.total} onClick={() => (page === "banks" ? setBankOffset : setSessionOffset)(summaries.offset + 30)}>{t("下一页")}</Button>
+                  <Button variant="outline" disabled={busy || summaryLoading || !!summaryError || sessionPage.offset === 0} onClick={() => setSessionOffset(Math.max(0, sessionPage.offset - 30))}>{t("上一页")}</Button>
+                  <Button variant="outline" disabled={busy || summaryLoading || !!summaryError || sessionPage.offset + 30 >= sessionPage.total} onClick={() => setSessionOffset(sessionPage.offset + 30)}>{t("下一页")}</Button>
                 </div>
               </nav>
             </div>
           )}
-          {page === "banks" && (
-            <div className="space-y-5">
-              {!summaryLoading && !summaryError && unfinished && <Card className="border-primary/30 bg-primary/5"><CardContent className="flex items-center justify-between gap-4"><div className="min-w-0"><h2 className="font-semibold">{t("继续未完成的练习")}</h2><p className="mt-1 break-words text-sm text-muted-foreground">{t("{0} · 已提交 {1}/{2} 题", { 0: unfinished.title, 1: unfinished.answered, 2: unfinished.count })}</p></div><Button disabled={busy} onClick={() => openSession(unfinished.id)}><Play />{t("继续练习")}</Button></CardContent></Card>}
-              {!bankPage.total && !summaryLoading && !summaryError && info && <Empty className="min-h-96 border border-dashed"><EmptyHeader><EmptyMedia variant="icon"><BookOpen /></EmptyMedia><EmptyTitle>{t("从第一份题库开始")}</EmptyTitle><EmptyDescription>{t("已有 PractiQ ZIP 可离线导入；PDF、文本或图片可通过 AI 解析为题目。")}</EmptyDescription></EmptyHeader><EmptyContent><Button onClick={() => navigate("import")}><Upload />{t("导入第一份题库")}</Button></EmptyContent></Empty>}
-              <div className="grid grid-cols-2 gap-5 xl:grid-cols-3">
-              {!summaryLoading && !summaryError && bankPage.items.map((b) => (
-                <Card key={b.id}>
-                  <CardHeader>
-                    <div className="flex items-start justify-between gap-2">
-                      <CardTitle className="min-w-0 break-words pt-1">{b.title}</CardTitle>
-                      <div className="flex shrink-0 items-center gap-1">
-                        <Badge variant="secondary">{t("{0} 题", { 0: b.count })}</Badge>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button size="icon" variant="ghost" aria-label={t("题库操作 {0}", { 0: b.title })} disabled={busy}>
-                              <EllipsisVertical />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem disabled={busy || !b.count} onSelect={() => run(async () => {
-                              const result = await api({type:"export_bank",bank_id:b.id});
-                              if (result) toast.success(message("题库已导出：{0}", {0:result.path}));
-                            })}><Download className="size-4" />{t("导出题库 ZIP")}</DropdownMenuItem>
-                            <DropdownMenuItem onSelect={() => setBankEditor({ id: b.id, title: b.title, description: b.description })}>
-                              <Pencil className="size-4" />{t("编辑题库")}</DropdownMenuItem>
-                            <DropdownMenuItem variant="destructive" onSelect={() => setConfirm({
-                              title: message("删除“{0}”？", { 0: b.title }),
-                              description: message("题库及其中题目将被删除，已有练习记录和内容快照会保留。"),
-                              action: async () => {
-                                await api({ type: "delete_bank", id: b.id });
-                                await reloadBanks();
-                              },
-                            })}>
-                              <Trash2 className="size-4" />{t("删除题库")}</DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </div>
-                    <CardDescription className="line-clamp-2 min-h-10">
-                      {b.description}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="mt-auto grid grid-cols-2 gap-2">
-                    <Button variant="outline" disabled={busy} onClick={() => navigate("questions", b.id)}>{t("查看题目")}<ChevronRight />
-                    </Button>
-                    {b.count ? <Button disabled={busy} onClick={() => setPracticeSetup({ bank: b.id })}><Play />{t("开始练习")}</Button>
-                      : <Button disabled={busy} onClick={() => navigate("import", b.id)}><Upload />{t("导入题目")}</Button>}
-                  </CardContent>
-                </Card>
-              ))}
-              </div>
-            </div>
-          )}
+          {page === "banks" && <BankList
+            offset={bankOffset}
+            onOffsetChange={setBankOffset}
+            revision={listRevision}
+            busy={busy}
+            ready={!!info}
+            run={run}
+            onOpenSession={openSession}
+            onImport={bankId => navigate("import", bankId)}
+            onOpenQuestions={bankId => navigate("questions", bankId)}
+            onPractice={bankId => setPracticeSetup({ bank: bankId })}
+            onEdit={bankItem => setBankEditor({ id: bankItem.id, title: bankItem.title, description: bankItem.description })}
+            onDelete={bankItem => setConfirm({
+              title: message("删除“{0}”？", { 0: bankItem.title }),
+              description: message("题库及其中题目将被删除，已有练习记录和内容快照会保留。"),
+              action: async () => {
+                await api({ type: "delete_bank", id: bankItem.id });
+                await reloadBanks();
+              },
+            })}
+          />}
           {listPage && (
             <div className="space-y-5">
               <div className="flex items-center gap-3">
@@ -779,7 +722,7 @@ export default function App() {
               flushRef={flushRef}
             />
           )}
-          {page === "import" && <ImportPage busy={busy} run={run} onPreview={p=>{setPreview(p);setImportTitle(p.title);setImportBank(bank || "new");}} onConfigure={() => { setSettingsReturn({ bank }); navigate("model-settings"); }} />}
+          {page === "import" && <ImportPage busy={busy} run={run} onPreview={p=>setImportPreview({ preview: p, initialBank: bank || "new" })} onConfigure={() => { setSettingsReturn({ bank }); navigate("model-settings"); }} />}
           {page === "model-settings" && (
             <div className="max-w-3xl space-y-6">
               <ConnectionSettingsPanel
@@ -791,64 +734,25 @@ export default function App() {
             </div>
           )}
           {page === "settings" && (
-            <div className="max-w-3xl space-y-6">
-              <ConnectionSettingsPanel key={settingsRevision} busy={busy} run={run} onConfigure={() => navigate("model-settings")} flushRef={flushRef} />
-              <Card>
-                <CardHeader>
-                  <CardTitle>{t("学习数据备份")}</CardTitle>
-                  <CardDescription>{t("包含题库、图片、收藏、作答和评分记录。不包含原始文档、AI 任务及 API Key；在其他设备恢复后需重新配置密钥。请定期保存到其他位置。")}</CardDescription>
-                </CardHeader>
-                <CardContent className="flex gap-3">
-                  <Button
-                    disabled={busy}
-                    onClick={() =>
-                      run(async () => {
-                        const result = await api({
-                          type: "backup",
-                        });
-                        if (result) toast.success(message("备份已保存：{0}", { 0: result.path }));
-                      })
-                    }
-                  >
-                    <Upload />{t("导出备份")}</Button>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild><Button variant="outline" disabled={busy}>{t("恢复备份")}</Button></DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="min-w-48">
-                      <DropdownMenuItem disabled={busy} onSelect={() => run(pickImport)}>{t("导入题库 ZIP")}</DropdownMenuItem>
-                    <DropdownMenuItem disabled={busy} onSelect={() =>
-                      setConfirm({
-                        title: message("用备份替换当前数据？"),
-                        description:
-                          message("恢复会替换全部本地题库和练习记录。应用将先校验备份，并自动保存当前数据的恢复副本。"),
-                        action: async () => {
-                          const result = await api({ type: "restore" });
-                          if (result) {
-                            await language.reload();
-                            setSettingsRevision((v) => v + 1);
-                            setSession(null);
-                            setDetail(null);
-                            setBank(null);
-                            await reloadBanks();
-                            toast.success(
-                              message("恢复完成。原数据副本：{0}", { 0: result.recoveryPath }),
-                            );
-                          }
-                        },
-                      })
-                    }
-                    >{t("恢复学习数据备份")}</DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader><CardTitle>{t("版本信息")}</CardTitle></CardHeader>
-                <CardContent className="space-y-3 text-sm">
-                  <p>{t("版本：{0}", { 0: info?.version || "—" })}</p>
-                  <p className="break-all select-text">{t("源码地址：{0}", { 0: "https://github.com/shenyankm/PractiQ" })}</p>
-                </CardContent>
-              </Card>
-            </div>
+            <SettingsPage busy={busy} run={run} flushRef={flushRef} revision={settingsRevision} version={info?.version}
+              onConfigure={() => navigate("model-settings")}
+              onPickImport={pickImport}
+              onRestore={() => setConfirm({
+                title: message("用备份替换当前数据？"),
+                description: message("恢复会替换全部本地题库和练习记录。应用将先校验备份，并自动保存当前数据的恢复副本。"),
+                action: async () => {
+                  const result = await api({ type: "restore" });
+                  if (result) {
+                    await language.reload();
+                    setSettingsRevision(v => v + 1);
+                    setSession(null);
+                    setDetail(null);
+                    setBank(null);
+                    await reloadBanks();
+                    toast.success(message("恢复完成。原数据副本：{0}", { 0: result.recoveryPath }));
+                  }
+                },
+              })} />
           )}
           </Suspense>
         </div>
@@ -888,100 +792,25 @@ export default function App() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {preview && (
-        <Dialog
-          open
-          onOpenChange={(v) => {
-            if (!v && !busy) setPreview(null);
-          }}
-        >
-          <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
-            <DialogHeader>
-              <DialogTitle>{t("导入题库")}</DialogTitle>
-              <DialogDescription>{t("已识别 {0} 道题目，其中 {1} 道待复核，仍可直接练习。", { 0: preview.count, 1: preview.reviewCount })}</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <Suspense fallback={loadingView}><QuestionPreview questions={preview.questions ?? []} groups={preview.groups} visuals={preview.visuals} /></Suspense>
-              <Label htmlFor="import-bank">{t("导入到")}</Label>
-              <Select value={importBank} onValueChange={setImportBank}>
-                <SelectTrigger id="import-bank" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="new">{t("新建题库")}</SelectItem>
-                  {banks.map((b) => (
-                    <SelectItem key={b.id} value={b.id}>
-                      {b.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {importBank === "new" && (
-                <Input
-                  aria-label={t("题库名称")}
-                  value={importTitle}
-                  onChange={(e) => setImportTitle(e.target.value)}
-                />
-              )}
-              <div className="rounded-lg border p-4 text-sm">
-                <p>{t("已加载 {0} 张图片，缺失 {1} 个资源。", { 0: preview.assetCount, 1: preview.missingAssets.length })}</p>
-              </div>
-              {preview.status === "PARTIAL" && (
-                <p className="text-sm">{t("这是部分解析结果，可能未包含原文的全部题目。")}</p>
-              )}
-              {preview.warnings.map((w, i) => (
-                <p key={i} className="text-sm text-muted-foreground">
-                  {w}
-                </p>
-              ))}
-              {preview.missingAssets.length > 0 && (
-                <details className="text-xs text-muted-foreground">
-                  <summary>{t("缺失资源详情")}</summary>
-                  {preview.missingAssets.map((m, i) => (
-                    <p className="mt-2 break-all" key={i}>
-                      {m}
-                    </p>
-                  ))}
-                </details>
-              )}
-            </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                disabled={busy}
-                onClick={() => setPreview(null)}
-              >{t("取消")}</Button>
-              <Button
-                disabled={busy || !importTitle.trim()}
-                onClick={() =>
-                  run(async () => {
-                    const result = await api({
-                      type: "import",
-                      ticket: preview.ticket,
-                      bank_id: importBank === "new" ? null : importBank,
-                      title: importTitle,
-                    });
-                    setPreview(null);
-                    await reloadBanks();
-                    setBank(result.bankId);
-                    setSearch("");
-                    setMode("");
-                    setPage("questions");
-                    setOffset(0);
-                    setQuestions([]);
-                    setQuestionTotal(0);
-                    toast.success(
-                      result.duplicate
-                        ? message("此题库已导入相同内容，本次已跳过")
-                        : message("已导入 {0} 道题目", { 0: result.count }),
-                    );
-                  })
-                }
-              >{t("确认导入")}</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
+      {importPreview && <Suspense fallback={loadingView}><ImportBankDialog
+        key={importPreview.preview.ticket}
+        preview={importPreview.preview}
+        banks={banks}
+        initialBank={importPreview.initialBank}
+        busy={busy}
+        run={run}
+        onClose={() => setImportPreview(null)}
+        onImported={async bankId => {
+          await reloadBanks();
+          setBank(bankId);
+          setSearch("");
+          setMode("");
+          setPage("questions");
+          setOffset(0);
+          setQuestions([]);
+          setQuestionTotal(0);
+        }}
+      /></Suspense>}
       {bankEditor && (
         <Dialog
           open

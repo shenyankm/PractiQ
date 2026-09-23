@@ -1,8 +1,8 @@
-import { t, useI18n, locale } from "./i18n";
+import { t, useI18n } from "./i18n";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "./notifications";
-import { invoke } from "@tauri-apps/api/core";
-import { errorMessage, type Preview, type Question } from "./api";
+import { errorMessage, type Preview } from "./api";
+import { ai, readReviewImage, type Task, type Summary, type Review, type PendingOperation, type Batch } from "./ai-api";
 import { QuestionPreview } from "./QuestionPreview";
 import { Markdown } from "./Content";
 import { Button } from "@/components/ui/button";
@@ -24,116 +24,6 @@ function retryableRead(error: unknown) {
   return httpStatus == null || httpStatus === 408 || httpStatus === 429 || httpStatus >= 500;
 }
 
-type Failure = {
-  retryable: boolean;
-  stage: string;
-  index: number;
-  code: string;
-  message?: string;
-};
-type Task = {
-  threadId: string;
-  runId: string | null;
-  checkpointId: string | null;
-  state: string;
-  phase: string;
-  allowedActions: string[];
-  blocking: unknown[];
-  failures: Failure[];
-  progress: Record<
-    string,
-    { total: number; succeeded: number; failed: number }
-  >;
-  usage: { inputTokens: number | null; outputTokens: number | null }[];
-  unknownUsageCalls: string[];
-};
-type Summary = {
-  threadId: string;
-  fileName: string;
-  state: string;
-  status: string | null;
-  questionCount: number;
-  reviewCount: number;
-  importedBankId?: string | null;
-  previouslyImported?: boolean;
-};
-type Review = {
-  threadId: string;
-  checkpointId: string;
-  phase: string;
-  units: {
-    stage: string;
-    index: number;
-    questions: Question[];
-    groups: (import("./contracts.generated").DocumentGroup | import("./contracts.generated").ParsedGroup)[];
-    sourceRef: unknown;
-    visualElements: (import("./contracts.generated").DocumentVisual | import("./contracts.generated").VisualElement)[];
-  }[];
-  failures: Failure[];
-  quality: unknown;
-  questionSources: unknown[];
-};
-type PendingOperation = {
-  id: string;
-  label: string;
-  error: { code?: string; message: string; params?: Record<string, unknown> } | null;
-};
-type Batch = {
-  id: string;
-  status: "ready" | "running" | "paused" | "completed";
-  items: {
-    threadId: string;
-    title: string;
-    questionCount: number;
-    reviewCount: number;
-    partial: boolean;
-    previousVersion: boolean;
-    status: string;
-    bankId: string | null;
-    error: { code?: string; message: string; params?: Record<string, unknown> } | null;
-  }[];
-};
-type Request =
-  | { type: "list"; offset: number }
-  | { type: "get" | "preview" | "review"; id: string }
-  | { type: "pick_document" | "operations" | "batches" }
-  | {
-      type: "control";
-      id: string;
-      action: string;
-      run_id: string | null;
-      checkpoint_id: string | null;
-      units: unknown[];
-    }
-  | { type: "replay"; request_id: string }
-  | { type: "prepare_batch"; ids: string[] }
-  | { type: "run_batch"; id: string; titles: string[] | null }
-  | { type: "cancel_batch"; id: string }
-  | {
-      type: "review_asset";
-      id: string;
-      checkpoint_id: string;
-      unit: number;
-      visual: number | null;
-    };
-type ResponseMap = {
-  list: { items: Summary[]; hasMore: boolean };
-  get: Task;
-  preview: Preview;
-  review: Review;
-  pick_document: { threadId: string } | null;
-  operations: PendingOperation[];
-  batches: Batch[];
-  control: unknown;
-  replay: unknown;
-  prepare_batch: Batch;
-  run_batch: Batch;
-  cancel_batch: unknown;
-  review_asset: { mediaType: string; content: string };
-};
-export function ai<R extends Request>(request: R): Promise<ResponseMap[R["type"]]> {
-  return invoke<ResponseMap[R["type"]]>("ai_request", { request, locale: locale() });
-}
 function actions(): Record<string, string> { return {
   pause: t("暂停"),
   resume: t("继续"),
@@ -200,7 +90,7 @@ function ReadAsset({
           onClick={() => {
             const request = { id: review.threadId, checkpointId: review.checkpointId, unit, visual };
             void (mediaType.startsWith("image/")
-              ? invoke<ArrayBuffer>("read_review_image", request).then(bytes => ({ mediaType, content: URL.createObjectURL(new Blob([bytes], { type: mediaType })) }))
+              ? readReviewImage(request).then(bytes => ({ mediaType, content: URL.createObjectURL(new Blob([bytes], { type: mediaType })) }))
               : ai({ type: "review_asset", id: request.id, checkpoint_id: request.checkpointId, unit, visual }))
               .then(value => {
                 if (mounted.current) setSrc(value);

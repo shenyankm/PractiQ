@@ -3,7 +3,7 @@ import asyncio
 from tempfile import TemporaryDirectory
 from typing import Any, cast
 
-from practiq_ai import task_api
+from practiq_ai import execution, task_api
 from practiq_ai.database import Database
 from tests.support import parsed, setup_graph
 
@@ -41,6 +41,7 @@ async def setup_api(monkeypatch, responses=None, parts=None):
     SERVICES.append(service)
     monkeypatch.setattr(runtime, 'current', service)
     monkeypatch.setattr(task_api, 'get_object_store', lambda: files)
+    monkeypatch.setattr(execution, 'get_object_store', lambda: files)
     # Recompile the real parsing workflow with persistent backends and the patched model.
     service.graph = service.graphs['document_parser']
     service.data = db.store
