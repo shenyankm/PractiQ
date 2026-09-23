@@ -14,7 +14,7 @@ from typing import Any, cast
 from urllib.parse import urlsplit
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
-import httpx
+import httpx2
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import (
     AIMessage,
@@ -95,8 +95,8 @@ def build_model(
     if is_loopback_host(urlsplit(endpoint).hostname):
         # macOS system proxies can capture loopback requests even without proxy env vars.
         local_clients = {
-            "http_client": httpx.Client(timeout=timeout, trust_env=False),
-            "http_async_client": httpx.AsyncClient(timeout=timeout, trust_env=False),
+            "http_client": httpx2.Client(timeout=timeout, trust_env=False),
+            "http_async_client": httpx2.AsyncClient(timeout=timeout, trust_env=False),
         }
     return ChatOpenAI(
         model=model_name,
