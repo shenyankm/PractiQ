@@ -5,7 +5,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { Content } from "./Content";
 import type { Snapshot } from "./api";
 import fixture from "../fixtures/rich-content/expected.json";
-vi.mock("./api", () => ({api: vi.fn().mockResolvedValue(null)}));
+vi.mock("./api", () => ({api: vi.fn().mockRejectedValue(new Error("missing asset"))}));
 afterEach(cleanup);
 it("renders matrices, aligned integrals, cases and every table cell without losing mixed content", async () => {
   const snapshot = {question: fixture.questions[0], groups: [], sources: [], warnings: [], missingAssets: false,
@@ -34,7 +34,9 @@ it("opens the full source lazily, even when the crop is missing, and hides it du
   const { api } = await import("./api");
   const user = (await import("@testing-library/user-event")).default.setup();
   vi.mocked(api).mockClear();
-  vi.mocked(api).mockResolvedValue("data:image/png;base64,aW1hZ2U=");
+  URL.createObjectURL = vi.fn(() => "blob:full-page");
+  URL.revokeObjectURL = vi.fn();
+  vi.mocked(api).mockResolvedValue(new ArrayBuffer(5));
   const snapshot = {question: fixture.questions[0], groups: [], sources: [], warnings: [], missingAssets: false,
     visuals: [{...fixture.visualElements[0], imageRef: null, sourceRef: {...fixture.visualElements[0].imageRef, sha256: "full-page"}, id: "v", questionIds: ["q"]}]} as unknown as Snapshot;
   const {rerender} = render(<Content snapshot={snapshot}/>);

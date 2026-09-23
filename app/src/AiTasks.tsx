@@ -1,5 +1,5 @@
 import { t, useI18n, locale } from "./i18n";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "./notifications";
 import { invoke } from "@tauri-apps/api/core";
 import { errorMessage, type Preview, type Question } from "./api";
@@ -172,6 +172,16 @@ function ReadAsset({
 }) {
   useI18n();
   const [src, setSrc] = useState<{ mediaType: string; content: string }>();
+  const mounted = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
+  useEffect(() => () => {
+    if (src?.mediaType.startsWith("image/")) URL.revokeObjectURL(src.content);
+  }, [src]);
+  const reference = (visual === null ? review.units[unit]?.sourceRef : (review.units[unit]?.visualElements[visual] as { imageRef?: unknown } | undefined)?.imageRef) as { mediaType?: string } | undefined;
+  const mediaType = reference?.mediaType ?? "";
   return (
     <div>
       {src ? (
@@ -188,14 +198,14 @@ function ReadAsset({
         <Button
           variant="outline"
           onClick={() => {
-            void ai({
-              type: "review_asset",
-              id: review.threadId,
-              checkpoint_id: review.checkpointId,
-              unit,
-              visual,
-            })
-              .then(setSrc)
+            const request = { id: review.threadId, checkpointId: review.checkpointId, unit, visual };
+            void (mediaType.startsWith("image/")
+              ? invoke<ArrayBuffer>("read_review_image", request).then(bytes => ({ mediaType, content: URL.createObjectURL(new Blob([bytes], { type: mediaType })) }))
+              : ai({ type: "review_asset", id: request.id, checkpoint_id: request.checkpointId, unit, visual }))
+              .then(value => {
+                if (mounted.current) setSrc(value);
+                else if (value.mediaType.startsWith("image/")) URL.revokeObjectURL(value.content);
+              })
               .catch((e) => toast.error(e));
           }}
         >

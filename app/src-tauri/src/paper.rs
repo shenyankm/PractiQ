@@ -23,6 +23,11 @@ pub struct Preview {
     #[serde(default)]
     pub budgets: HashMap<String, i64>,
 }
+struct Candidate {
+    id: String,
+    category: String,
+    weight: usize,
+}
 pub fn category(q: &Value) -> &str {
     if text(q, "answerMode") == "choice" {
         text(q, "choiceVariant")
@@ -111,42 +116,95 @@ fn exact(weights: &[usize], target: usize) -> Result<Vec<usize>> {
     Ok(selected)
 }
 impl Store {
+    fn paper_candidates(&self, p: &Preview) -> Result<Vec<Candidate>> {
+        if !p.search.is_empty()
+            || p.bank_ids.len() > 1000
+            || ![
+                "",
+                "choice",
+                "single",
+                "multiple",
+                "true_false",
+                "fill_blank",
+                "short_answer",
+                "ordering",
+                "matching",
+                "reading",
+                "word_bank",
+                "cloze",
+            ]
+            .contains(&p.mode.as_str())
+            || !["", "wrong", "favorite", "unattempted"].contains(&p.filter.as_str())
+        {
+            let roots = self.questions_multi(None, &p.bank_ids, &p.search, &p.mode, &p.filter)?;
+            return roots
+                .as_array()
+                .ok_or("Invalid question selection")?
+                .iter()
+                .map(|root| {
+                    Ok(Candidate {
+                        id: text(root, "id").to_owned(),
+                        category: category(&root["question"]).to_owned(),
+                        weight: if questions::composite(&root["question"]) {
+                            list(root, "children")
+                                .iter()
+                                .filter(|child| !questions::composite(&child["question"]))
+                                .count()
+                        } else {
+                            1
+                        },
+                    })
+                })
+                .collect();
+        }
+        let db = self.connect()?;
+        let ids = questions::matching_roots(&db, &p.bank_ids, &p.mode, &p.filter)?;
+        if ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let mut stmt = db.prepare("WITH RECURSIVE tree(root,id) AS (SELECT value,value FROM json_each(?1) UNION ALL SELECT t.root,q.id FROM questions q JOIN tree t ON q.parent_id=t.id) SELECT t.root,COALESCE(CASE WHEN r.mode='choice' THEN c.variant ELSE r.mode END,''),SUM(n.mode IS NULL OR n.mode NOT IN ('reading','word_bank','cloze')) FROM tree t JOIN questions r ON r.id=t.root JOIN questions n ON n.id=t.id LEFT JOIN choice_questions c ON c.question_id=r.id GROUP BY t.root").map_err(|e| e.to_string())?;
+        let mut details = stmt
+            .query_map([json!(ids).to_string()], |r| {
+                Ok((
+                    r.get::<_, String>(0)?,
+                    (r.get::<_, String>(1)?, r.get::<_, i64>(2)?),
+                ))
+            })
+            .map_err(|e| e.to_string())?
+            .collect::<std::result::Result<HashMap<_, _>, _>>()
+            .map_err(|e| e.to_string())?;
+        ids.into_iter()
+            .map(|id| {
+                let (category, weight) =
+                    details.remove(&id).ok_or("Selected question is missing")?;
+                Ok(Candidate {
+                    id,
+                    category,
+                    weight: weight.try_into().map_err(|_| "Invalid question count")?,
+                })
+            })
+            .collect()
+    }
     pub fn preview_paper(&self, p: Preview) -> Result<Value> {
         if p.bank_ids.is_empty() {
             return Err("Select at least one bank".into());
         }
-        let candidates = self.questions_multi(None, &p.bank_ids, &p.search, &p.mode, &p.filter)?;
-        let mut roots = candidates
-            .as_array()
-            .ok_or("Invalid question selection")?
-            .clone();
+        let mut roots = self.paper_candidates(&p)?;
         if p.random {
             roots.sort_by_cached_key(|_| crate::store::id());
         }
         let chosen = match p.selection.as_str() {
             "count" => {
-                let weights: Vec<_> = roots
-                    .iter()
-                    .map(|r| {
-                        if questions::composite(&r["question"]) {
-                            list(r, "children")
-                                .iter()
-                                .filter(|c| !questions::composite(&c["question"]))
-                                .count()
-                        } else {
-                            1
-                        }
-                    })
-                    .collect();
+                let weights: Vec<_> = roots.iter().map(|r| r.weight).collect();
                 exact(&weights, p.count)?
                     .into_iter()
-                    .map(|i| text(&roots[i], "id").to_owned())
+                    .map(|i| roots[i].id.clone())
                     .collect::<Vec<_>>()
             }
             "manual" => {
                 if p.question_ids
                     .iter()
-                    .any(|id| !roots.iter().any(|r| text(r, "id") == id))
+                    .any(|id| !roots.iter().any(|r| &r.id == id))
                 {
                     return Err("Selected groups no longer match the filter".into());
                 }
@@ -158,29 +216,24 @@ impl Store {
                 keys.sort();
                 for key in keys {
                     let count = p.quotas[key];
-                    let available: Vec<_> = roots
-                        .iter()
-                        .filter(|r| category(&r["question"]) == key)
-                        .collect();
+                    let available: Vec<_> = roots.iter().filter(|r| &r.category == key).collect();
                     if count > available.len() {
                         return Err(
                             format!("Not enough complete questions/groups for {key}").into()
                         );
                     }
-                    chosen.extend(
-                        available
-                            .into_iter()
-                            .take(count)
-                            .map(|r| text(r, "id").to_owned()),
-                    );
+                    chosen.extend(available.into_iter().take(count).map(|r| r.id.clone()));
                 }
-                chosen.sort_by_key(|id| roots.iter().position(|r| text(r, "id") == id));
+                chosen.sort_by_key(|id| roots.iter().position(|r| &r.id == id));
                 chosen
             }
             _ => return Err("Unsupported selection mode".into()),
         };
-        let all = self.question_rows()?;
-        let selected = selected_rows(&all, &chosen)?;
+        let db = self.connect()?;
+        let selected = selected_rows(
+            &questions::read_scoped(&db, &p.bank_ids, Some(&chosen))?,
+            &chosen,
+        )?;
         let index = questions::Index::new(&selected);
         let leaves: Vec<_> = selected
             .iter()

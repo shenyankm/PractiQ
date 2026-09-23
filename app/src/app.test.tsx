@@ -253,7 +253,9 @@ it("moves focus into finish confirmation and restores it when cancelling without
 
 it("opens the verified image in a keyboard-dismissable detail dialog", async () => {
   const {Content} = await import("./Content");
-  vi.mocked(api).mockResolvedValue("data:image/png;base64,cGl4ZWw=");
+  URL.createObjectURL = vi.fn(() => "blob:image");
+  URL.revokeObjectURL = vi.fn();
+  vi.mocked(api).mockResolvedValue(new ArrayBuffer(5));
   render(<Content snapshot={{question:questions[4],groups:[],sources:[],warnings:[],missingAssets:false,visuals:[{id:"v",kind:"image",description:"题目配图",questionIds:["q"],imageRef:{sha256:"digest",objectKey:"image",mediaType:"image/png",sizeBytes:5}}]}}/>);
   await userEvent.click(await screen.findByRole("button",{name:"放大查看图片"}));
   expect(await screen.findByRole("dialog",{name:"查看图片"})).toBeTruthy();

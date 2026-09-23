@@ -616,6 +616,7 @@ pub fn snapshot(db: &Connection, sid: &str, qid: &str) -> Result<Value> {
     let rows = session_rows(db, sid)?;
     Index::new(&rows).snapshot(qid)
 }
+#[cfg(test)]
 impl Store {
     pub fn question_rows(&self) -> Result<Vec<Value>> {
         read(&self.connect()?)

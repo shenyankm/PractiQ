@@ -76,7 +76,7 @@ fn verify_image(reference: &Value, bytes: &[u8]) -> Result<()> {
     if bytes.len() > crate::assets::LIMIT
         || reference["sizeBytes"] != bytes.len()
         || store::hash(bytes) != text(reference, "sha256")
-        || !store::image_signature(bytes, text(reference, "mediaType"))
+        || !store::valid_image(bytes, text(reference, "mediaType"))
     {
         return Err(error(format!(
             "Invalid or missing image: {}",

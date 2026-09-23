@@ -146,9 +146,6 @@ enum Request {
     Finish {
         id: String,
     },
-    Asset {
-        hash: String,
-    },
     Backup,
     Restore,
     Info,
@@ -273,7 +270,6 @@ async fn request(
             Request::SaveDraft{id,ordinal,answer,elapsed_ms}=>store.save_draft((&id,ordinal),answer,elapsed_ms),
             Request::Position{id,position}=>store.position(&id,position),
             Request::Finish{id}=>store.finish(&id),
-            Request::Asset{hash}=>store.asset(&hash),
             Request::Backup=>store.backup(&selected.ok_or(language::error("LOCAL_SAVE_LOCATION_MISSING", json!({})))?),
             Request::Restore=>store.restore(&selected.ok_or(language::error("LOCAL_BACKUP_NOT_SELECTED", json!({})))?),
             Request::Language=>Ok(json!(store.language()?)),
@@ -284,6 +280,41 @@ async fn request(
             Request::Info=>Ok(json!({"dataDirectory":store.dir.display().to_string(),"version":env!("CARGO_PKG_VERSION")})),
         }
     }).await.map_err(|e|AppError::from(e.to_string()))?
+}
+#[tauri::command]
+async fn read_asset(
+    state: State<'_, Shared>,
+    hash: String,
+) -> std::result::Result<tauri::ipc::Response, AppError> {
+    let shared = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let store = shared
+            .lock()
+            .map_err(|_| language::error("LOCAL_DATABASE_UNAVAILABLE", json!({})))?;
+        let (_, bytes) = store
+            .asset_bytes(&hash)?
+            .ok_or(language::error("LOCAL_ASSET_MISSING", json!({})))?;
+        Ok(tauri::ipc::Response::new(bytes))
+    })
+    .await
+    .map_err(|e| AppError::from(e.to_string()))?
+}
+#[tauri::command]
+async fn read_review_image(
+    app: tauri::AppHandle,
+    state: State<'_, Shared>,
+    id: String,
+    checkpoint_id: String,
+    unit: usize,
+    visual: Option<usize>,
+) -> std::result::Result<tauri::ipc::Response, AppError> {
+    let shared = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        ai::read_review_image(app, shared, id, checkpoint_id, unit, visual)
+            .map(tauri::ipc::Response::new)
+    })
+    .await
+    .map_err(|e| AppError::from(e.to_string()))?
 }
 #[tauri::command]
 async fn ai_request(
@@ -321,7 +352,12 @@ pub fn run() {
             )));
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![request, ai_request])
+        .invoke_handler(tauri::generate_handler![
+            request,
+            ai_request,
+            read_asset,
+            read_review_image
+        ])
         .build(tauri::generate_context!())
         .expect("Unable to start PractiQ")
         .run(|app, event| {

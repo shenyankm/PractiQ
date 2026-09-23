@@ -209,7 +209,7 @@ type Request =
   | { type: "position"; id: string; position: number }
   | { type: "asset"; hash: string };
 type ResponseMap = {
-  asset: string | null;
+  asset: ArrayBuffer;
   backup: { path: string } | null;
   banks: BankChoice[];
   banks_page: BankPage;
@@ -248,6 +248,9 @@ type ResponseMap = {
   unfinished_session: UnfinishedSession | null;
 };
 export function api<R extends Request>(request: R): Promise<ResponseMap[R["type"]]> {
+  if (request.type === "asset") {
+    return invoke<ArrayBuffer>("read_asset", { hash: request.hash }) as Promise<ResponseMap[R["type"]]>;
+  }
   return invoke<ResponseMap[R["type"]]>("request", { request, locale: locale() });
 }
 export function errorMessage(error: unknown): string {

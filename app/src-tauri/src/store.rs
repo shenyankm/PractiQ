@@ -1,5 +1,6 @@
 use crate::contract::{self, list, text, Result};
 use base64::{engine::general_purpose::STANDARD, Engine};
+use image::ImageDecoder;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -126,6 +127,7 @@ impl Store {
             locale: crate::language::Locale::default(),
         };
         store.connect()?;
+        store.collect_unused_assets()?;
         Ok(store)
     }
     pub fn db_path(&self) -> PathBuf {
@@ -229,7 +231,7 @@ impl Store {
                 ));
                 continue;
             }
-            if !image_signature(&bytes, media) {
+            if !valid_image(&bytes, media) {
                 return Err(crate::language::error(
                     "LOCAL_IMAGE_FORMAT_MISMATCH",
                     serde_json::json!({"key": key}),
@@ -264,6 +266,18 @@ impl Store {
         Ok(result)
     }
     pub fn import_pending(
+        &self,
+        p: &Pending,
+        bank_id: Option<String>,
+        title: &str,
+    ) -> Result<Value> {
+        let result = self.import_pending_inner(p, bank_id, title);
+        if result.is_err() {
+            let _ = self.collect_unused_assets();
+        }
+        result
+    }
+    fn import_pending_inner(
         &self,
         p: &Pending,
         bank_id: Option<String>,
@@ -434,6 +448,9 @@ impl Store {
         self.connect()?
             .execute("DELETE FROM banks WHERE id=?1", [bank_id])
             .map_err(err)?;
+        if let Err(error) = self.collect_unused_assets() {
+            eprintln!("Asset cleanup deferred after bank deletion: {error}");
+        }
         Ok(Value::Null)
     }
     pub fn questions(
@@ -890,11 +907,16 @@ impl Store {
         self.session(sid)
     }
     pub fn asset(&self, digest: &str) -> Result<Value> {
+        Ok(match self.asset_bytes(digest)? {
+            Some((media, bytes)) => {
+                json!(format!("data:{media};base64,{}", STANDARD.encode(bytes)))
+            }
+            None => Value::Null,
+        })
+    }
+    pub fn asset_bytes(&self, digest: &str) -> Result<Option<(String, Vec<u8>)>> {
         if let Some((media, bytes)) = self.pending.as_ref().and_then(|p| p.assets.get(digest)) {
-            return Ok(json!(format!(
-                "data:{media};base64,{}",
-                STANDARD.encode(bytes)
-            )));
+            return Ok(Some((media.clone(), bytes.clone())));
         }
         let row: Option<(String, u64)> = self
             .connect()?
@@ -905,13 +927,8 @@ impl Store {
             )
             .optional()
             .map_err(err)?;
-        match row {
-            Some((media, size)) => Ok(json!(format!(
-                "data:{media};base64,{}",
-                STANDARD.encode(self.read_asset(digest, size)?)
-            ))),
-            None => Ok(Value::Null),
-        }
+        row.map(|(media, size)| Ok((media, self.read_asset(digest, size)?)))
+            .transpose()
     }
 }
 fn valid_title(title: &str) -> Result<&str> {
@@ -925,14 +942,36 @@ fn valid_title(title: &str) -> Result<&str> {
         Ok(title)
     }
 }
-pub(crate) fn image_signature(bytes: &[u8], media: &str) -> bool {
-    match media {
-        "image/png" => bytes.starts_with(b"\x89PNG\r\n\x1a\n"),
-        "image/jpeg" => bytes.starts_with(b"\xff\xd8\xff"),
-        "image/gif" => bytes.starts_with(b"GIF87a") || bytes.starts_with(b"GIF89a"),
-        "image/webp" => bytes.starts_with(b"RIFF") && bytes.get(8..12) == Some(b"WEBP"),
-        _ => false,
+pub(crate) fn valid_image(bytes: &[u8], media: &str) -> bool {
+    let format = match media {
+        "image/png" => image::ImageFormat::Png,
+        "image/jpeg" => image::ImageFormat::Jpeg,
+        "image/gif" => image::ImageFormat::Gif,
+        "image/webp" => image::ImageFormat::WebP,
+        _ => return false,
+    };
+    if image::guess_format(bytes).ok() != Some(format) {
+        return false;
     }
+    let reader = image::ImageReader::with_format(std::io::Cursor::new(bytes), format);
+    let Ok(decoder) = reader.into_decoder() else {
+        return false;
+    };
+    let (width, height) = decoder.dimensions();
+    if width == 0
+        || height == 0
+        || width > 16_384
+        || height > 16_384
+        || u64::from(width) * u64::from(height) > 32_000_000
+        || decoder.total_bytes() > 128 * 1024 * 1024
+    {
+        return false;
+    }
+    let mut reader = image::ImageReader::with_format(std::io::Cursor::new(bytes), format);
+    let mut limits = image::Limits::default();
+    limits.max_alloc = Some(128 * 1024 * 1024);
+    reader.limits(limits);
+    reader.decode().is_ok()
 }
 
 fn validate_page(limit: usize, offset: usize) -> Result<()> {
