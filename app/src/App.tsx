@@ -616,7 +616,7 @@ export default function App() {
                                 t("未知题型")}
                             </Badge>
                             {row.question.needsReview && (
-                              <Badge variant="secondary">{t("待复核")}</Badge>
+                              <CircleAlert className="size-4 text-amber-600 dark:text-amber-400" role="img" aria-label={t("待复核")} />
                             )}
                             {row.latestResult === false && (
                               <Badge variant="destructive">{t("错题")}</Badge>

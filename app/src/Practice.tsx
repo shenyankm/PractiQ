@@ -14,7 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Check, X, SkipForward, Pencil, Flag } from "lucide-react";
+import { Check, X, SkipForward, Pencil } from "lucide-react";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel } from "@/components/ui/alert-dialog";
 import { Content, Markdown } from "./Content";
 import { AnswerInput, AnswerDisplay } from "./AnswerInput";
@@ -321,15 +321,15 @@ function PracticeClock({elapsed, active, deadlineAt, saved, finished, onAutosave
 }
 
 function answerState(a: Attempt, draft: Answer | null, exam: boolean) {
-    if (a.skipped) return { label: t("已跳过"), Icon: SkipForward };
+    if (a.skipped) return t("已跳过");
     if (a.submittedAt != null) {
-      if (a.result === true) return { label: t("正确"), Icon: Check };
-      if (a.result === false) return { label: exam ? t("未得满分") : t("错误"), Icon: X };
-      return { label: t("已提交，待判定"), Icon: Check };
+      if (a.result === true) return t("正确");
+      if (a.result === false) return exam ? t("未得满分") : t("错误");
+      return t("已提交，待判定");
     }
-    if (answerReady(canInteract(a.snapshot.question) ? a.snapshot.question : { ...a.snapshot.question, answerMode: "short_answer" }, draft)) return { label: t("已作答，未提交"), Icon: Pencil };
-    if (draft !== null) return { label: t("草稿未完成"), Icon: Pencil };
-    return { label: t("未作答"), Icon: null };
+    if (answerReady(canInteract(a.snapshot.question) ? a.snapshot.question : { ...a.snapshot.question, answerMode: "short_answer" }, draft)) return t("已作答，未提交");
+    if (draft !== null) return t("草稿未完成");
+    return t("未作答");
   }
 
 const AnswerCardItem = memo(function AnswerCardItem({a, current, answer, exam, go}: {
@@ -337,6 +337,7 @@ const AnswerCardItem = memo(function AnswerCardItem({a, current, answer, exam, g
 }) {
   useI18n();
   const state = answerState(a, answer, exam);
+  const answered = !current && !a.skipped && a.result !== false && answer !== null;
   return (
                 <Button
                   key={a.ordinal}
@@ -350,13 +351,13 @@ const AnswerCardItem = memo(function AnswerCardItem({a, current, answer, exam, g
                           ? "secondary"
                           : "outline"
                   }
-                  className={`relative min-h-9 ${current ? "underline decoration-2 underline-offset-4" : ""}`}
+                  className={`relative min-h-9 ${current ? "underline decoration-2 underline-offset-4" : answered ? "border-sky-200 bg-sky-100 text-sky-900 hover:bg-sky-200 dark:border-sky-800 dark:bg-sky-950/60 dark:text-sky-100 dark:hover:bg-sky-900/60" : ""} ${a.flagged ? "ring-2 ring-amber-400 ring-offset-1" : ""}`}
                   aria-current={current ? "step" : undefined}
-                  aria-label={t("转到第 {0} 题，{1}{2}", { 0: a.ordinal + 1, 1: state.label, 2: a.flagged ? t("，待检查") : "" })}
-                  title={state.label}
+                  aria-label={t("转到第 {0} 题，{1}{2}", { 0: a.ordinal + 1, 1: state, 2: a.flagged ? t("，待检查") : "" })}
+                  title={`${state}${a.flagged ? t("，待检查") : ""}`}
                   onClick={() => go(a.ordinal)}
                 >
-                  {a.ordinal + 1}{state.Icon && <state.Icon className="size-3" aria-hidden="true"/>}{a.flagged && <Flag className="absolute -top-1 -right-1 size-3" aria-hidden="true"/>}
+                  {a.ordinal + 1}
                 </Button>
   );
 });

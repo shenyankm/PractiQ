@@ -143,6 +143,16 @@ impl Store {
             db.execute_batch(include_str!("schema.sql")).map_err(err)?;
         } else if version != 9 {
             return Err("Only database schema 9 is supported; legacy data remains in its original directory".into());
+        } else if !db
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM pragma_table_info('visuals') WHERE name='document_level')",
+                [],
+                |r| r.get::<_, bool>(0),
+            )
+            .map_err(err)?
+        {
+            db.execute_batch("ALTER TABLE visuals ADD COLUMN document_level INTEGER NOT NULL DEFAULT 0 CHECK(document_level IN(0,1));")
+                .map_err(err)?;
         }
         Ok(db)
     }
@@ -329,8 +339,20 @@ impl Store {
             .zip(&ids)
             .map(|(q, id)| (text(q, "id").to_owned(), id.clone()))
             .collect();
+        // Early schema 9 databases still have an unused, required raw column.
+        let has_raw = tx
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM pragma_table_info('imports') WHERE name='raw')",
+                [],
+                |r| r.get::<_, bool>(0),
+            )
+            .map_err(err)?;
         tx.execute(
-            "INSERT INTO imports VALUES(?1,?2,?3,?4)",
+            if has_raw {
+                "INSERT INTO imports(id,bank_id,digest,raw,created_at) VALUES(?1,?2,?3,'',?4)"
+            } else {
+                "INSERT INTO imports(id,bank_id,digest,created_at) VALUES(?1,?2,?3,?4)"
+            },
             params![import_id, bank, digest, now()],
         )
         .map_err(err)?;
