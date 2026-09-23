@@ -415,7 +415,7 @@ async def test_recovery_preflight_is_inside_run_deadline(monkeypatch, expired):
             await asyncio.Event().wait()
         finally:
             stopped.set()
-    monkeypatch.setattr(task_api, '_preflight', preflight)
+    monkeypatch.setattr(runtime, 'preflight', preflight)
     restarted = runtime.Service(db)
     fatal = []
     monkeypatch.setattr(restarted, 'fatal', fatal.append)

@@ -27,7 +27,7 @@ Choose checks for the affected area:
 | AI service | `make verify AI_PYTHON=/path/to/python3.14` |
 | Locked dependencies | `make audit AI_PYTHON=/path/to/python3.14` (requires network access) |
 | Service image | `make image-check` (requires Docker; does not publish) |
-| Desktop | `make app-check AI_PYTHON=/path/to/python3.14` and a macOS package build |
+| Desktop | `make app-check AI_PYTHON=/path/to/python3.14` and `make app-package-check AI_PYTHON=/path/to/python3.14` on macOS |
 | Documentation | Check claims against source, validate local links, and check command syntax |
 
 `make test` runs the AI test suite during development. `make verify` checks the lockfile, lint, types, evaluation fixtures, tests with 90% coverage, recovery probes, and package builds. Tests use model substitutes; they do not establish extraction or grading accuracy. See the [evaluation guide](server/docs/evaluation.md) for separate live-model checks.
@@ -36,7 +36,7 @@ Run `make test-e2e AI_PYTHON=/path/to/python3.14` for the service HTTP workflows
 
 Coverage includes Python subprocesses. `make verify` erases previous coverage data and combines the current run before generating reports, including when tests fail. For manual coverage runs, run `coverage combine` before `coverage report`.
 
-For desktop work, follow the [desktop build guide](app/README.md). `make app-check` checks shared Python/Rust contracts, TypeScript, frontend interactions, native integration tests, and Clippy. After building, run `app/scripts/check-bundle.py` against the packaged service. Use isolated application data for native UI acceptance.
+For desktop work, follow the [desktop build guide](app/README.md). `make app-check` checks shared Python/Rust contracts, TypeScript, frontend interactions, native integration tests, and Clippy. `make app-package-check` builds the macOS package and runs `app/scripts/check-bundle.py` against its bundled service. Use isolated application data for native UI acceptance.
 
 The Keychain round-trip test uses and removes its own temporary credential. Run it explicitly on macOS:
 

@@ -48,6 +48,13 @@ export function translate<K extends MessageKey>(language: Locale, key: K, ...arg
   });
 }
 export function t<K extends MessageKey>(key: K, ...args: Args<K>) { return translate(current, key, ...args); }
+export function duration(ms: number) {
+  const seconds = Math.floor(ms / 1000);
+  return t("{0} 分 {1} 秒", { 0: Math.floor(seconds / 60), 1: seconds % 60 });
+}
+export function date(ms: number) {
+  return new Date(ms).toLocaleString(locale(), { hour12: false });
+}
 export type Message = { key: MessageKey; params?: Record<string, Value> };
 export function message<K extends MessageKey>(key: K, ...args: Args<K>): Message { return { key, params: args[0] }; }
 export function renderMessage(value: Message): string {

@@ -234,7 +234,7 @@ impl Store {
                     });
                 }
                 if let Some(visuals) = a["snapshot"]["visuals"].as_array_mut() {
-                    visuals.retain(|visual| !answer_content(visual));
+                    visuals.retain(|visual| !crate::questions::answer_content(visual));
                     for visual in visuals {
                         visual
                             .as_object_mut()
@@ -369,7 +369,7 @@ fn a_blank_count(q: &mut Value) {
         q[k] = Value::Null;
     }
     if let Some(blocks) = q["contentBlocks"].as_array_mut() {
-        blocks.retain(|block| !answer_content(block));
+        blocks.retain(|block| !crate::questions::answer_content(block));
     }
 }
 
@@ -417,23 +417,6 @@ fn answer_text(value: &str) -> bool {
                 | "评分细则"
         )
     })
-}
-
-pub(crate) fn answer_content(content: &Value) -> bool {
-    let role = text(content, "role").to_lowercase();
-    [
-        "answer",
-        "analysis",
-        "solution",
-        "explanation",
-        "rubric",
-        "答案",
-        "解析",
-        "解答",
-        "评分",
-    ]
-    .iter()
-    .any(|word| role.contains(word))
 }
 
 impl Store {

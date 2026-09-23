@@ -17,7 +17,9 @@ from langgraph.runtime import Runtime
 from langgraph.types import interrupt
 
 from .config import load
+from .contracts import ArtifactReference, DocumentReference
 from .errors import DocumentProcessingError
+from .storage import get_object_store
 
 STATE_VERSION = 5
 TTL_MINUTES = 259_200
@@ -73,6 +75,26 @@ def validate_execution(execution: dict[str, Any] | None) -> None:
     if not execution or execution.get("signature") != signature():
         raise DocumentProcessingError(409, "Resume with the original deployment or create a new task", "EXECUTION_VERSION_MISMATCH")
     remaining_ttl(execution)
+
+
+def require_supported_task(task: Any) -> None:
+    if task['document'].get('sourceType') in {'doc', 'docx'} or task['graph_id'] == 'docx_parser':
+        raise DocumentProcessingError(409, '暂不支持 Word 文件，请转为 PDF 后重新导入', 'WORD_FORMAT_REMOVED')
+
+
+async def preflight(values: dict[str, Any]) -> None:
+    await asyncio.to_thread(validate_execution, values.get('execution'))
+    store = await asyncio.to_thread(get_object_store)
+    # Check the source and pending inputs, including outputs needed by assemble/merge.
+    await store.get_verified(DocumentReference.model_validate(values['document']))
+    references = [item for key in ('pageRefs', 'embeddedRefs', 'chunkRefs') for item in values.get(key, [])]
+    if values.get('textRef'):
+        references.append(values['textRef'])
+    seen: set[str] = set()
+    for reference in references:
+        if reference['objectKey'] not in seen:
+            seen.add(reference['objectKey'])
+            await store.get_verified(ArtifactReference.model_validate(reference))
 
 
 def remaining_ttl(execution: dict[str, Any]) -> int:

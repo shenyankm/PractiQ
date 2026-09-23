@@ -10,6 +10,7 @@ mod paper;
 #[cfg(test)]
 mod performance;
 mod questions;
+mod sessions;
 mod settings;
 mod store;
 #[cfg(test)]
