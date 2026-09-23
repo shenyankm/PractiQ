@@ -88,7 +88,7 @@ AI 可给部分分；原细则满分不同时按比例换算。人工评分必�
 
 设置中的“学习数据备份”导出 ZIP，包含清单、一致性题库 SQLite 快照和图片，解压总数据上限 512 MiB。备份也包含考试、评分及人工改分记录，不包含 AI 任务、原文档、检查点、`subjective-grades.sqlite` 评分缓存或 API Key。“恢复备份 → 恢复学习数据备份”保留覆盖确认。恢复前验证路径、链接、大小、schema、外键、图片摘要及题目契约；先备份当前数据，再切换数据库。恢复不修改 AI 目录或 Keychain。
 
-API Key 按 Base URL 隔离保存在 macOS Keychain，不回显；已保存时显示固定的星号占位，留空保持原值，填写新密钥可替换。地址要求 HTTPS，本机 loopback 允许 HTTP；禁止 URL 内嵌凭据、查询参数和片段。恢复到另一台机器后需重新填写密钥。
+API Key 按 Base URL 隔离保存在 macOS Keychain，不回显；已保存时显示固定的星号占位，留空保持原值，填写新密钥可替换。地址要求 HTTPS，本机 loopback 允许 HTTP；禁止 URL 内嵌凭据、查询参数和片段。本机 loopback 模型连接会绕过系统代理，避免请求被转发；远端模型连接仍遵循代理设置。恢复到另一台机器后需重新填写密钥。
 
 ## 开发、检查与打包
 
@@ -123,7 +123,7 @@ bundle_dir=app/src-tauri/target/release/bundle/macos
 
 该检查使用本机合成模型桩，验证文本、CSV、图片、PDF、Word 拒绝、资源读取、评分鉴权、部分得分、请求复用与正常退出。它不证明真实模型的识别或评分质量。正式签名、公证流程见[签名脚本](scripts/sign-release.sh)；未提供开发者证书时只是本地测试包。
 
-`request` 与 `ai_request` 均是类型化 Tauri 命令，不暴露通用 SQL、HTTP 或 shell 接口。`make app-check` 验证共享 AI 契约、React 交互、Rust 集成测试和 Clippy；桌面窗口与完整安装包需另行验收。
+`request` 与 `ai_request` 按请求类型推断返回值，不暴露通用 SQL、HTTP 或 shell 接口。连接设置仅在原生保存成功后标记为已保存；失败时可重试，离开设置页及关闭窗口前会等待保存。API Key 保存后清空输入框，测试连接时由原生 Keychain 读取。`make app-check` 验证共享 AI 契约、React Hooks 检查、交互测试、Rust 集成测试和 Clippy；桌面窗口与完整安装包需另行验收。
 
 离线存储与服务调度的合成压测、复现命令和适用范围见[性能验证记录](../server/reports/performance-20260921.md)。压测使用临时数据库，不访问个人题库或真实模型。
 
@@ -153,7 +153,7 @@ bundle_dir=app/src-tauri/target/release/bundle/macos
 
 新增界面文案时更新 `src/locales/en.ts` 与 `src/locales/zh-CN.ts`，使用 `t` 的完整句子与参数；需存入状态的消息使用 `message`，错误保留原始对象至渲染时调用 `errorMessage`。本地错误在产生处提供稳定错误码与参数，双语消息位于 `src/locales/native.json`，不要匹配已格式化的中文错误。运行 `make app-check AI_PYTHON=/path/to/python3.14` 验证词典、界面交互、迁移和备份兼容性。
 
-语言回归还覆盖 StrictMode 和过期响应、保存失败重试、恢复后的偏好重载、双语导入/设置/评分、草稿保留及日期数字格式。源码检查会拒绝直接写在 JSX 文本或无障碍属性中的未翻译文案；它不替代翻译质量审阅。
+语言回归还覆盖 StrictMode 和过期响应、保存失败重试、恢复后的偏好重载、双语导入/设置/评分、草稿保留及日期数字格式。源码检查会拒绝直接写在 JSX 文本或无障碍属性中的未翻译文案；它不替代翻译质量审阅。`cd app && npm run test:coverage` 输出前端覆盖率至 `coverage/app/`，并检查语句、分支、函数和行的最低覆盖率；桌面 CI 也运行该检查及 `npm audit --audit-level=high`。
 
 真实浏览器回归（模拟 Tauri 边界，不读写用户数据库、不调用模型）：
 

@@ -30,7 +30,7 @@ class Server:
                     'TEST_EVENTS': str(tmp_path), 'TEST_PHASE': phase, 'N_JOBS_PER_WORKER': '1',
                     'AI_GRAPH_MAX_CONCURRENCY': '1', 'AI_DEPLOYMENT_WORKERS': '1',
                     'PYTHONPATH': str(ROOT / 'src') + os.pathsep + str(ROOT)}
-        self.client = httpx.Client(base_url=f'http://127.0.0.1:{port}', headers={'Authorization': 'Bearer test-token'}, timeout=5)
+        self.client = httpx.Client(base_url=f'http://127.0.0.1:{port}', headers={'Authorization': 'Bearer test-token'}, timeout=5, trust_env=False)
         self.port = port
         self.process = None
         self.log = None

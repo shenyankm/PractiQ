@@ -21,7 +21,7 @@ export const en = {
 
   "题库分页": "Bank pagination",
   "练习记录分页": "History pagination",
-  "{0}–{1} / {2} 条": "{0}–{1} / {2} entries",
+  "{0}–{1} / {2} 条": "Showing {0}–{1} of {2}",
   "刷新": "Refresh",
 
   "配置": "Configure",
@@ -105,7 +105,7 @@ export const en = {
   "{0}：完成 {1}/{2}，失败 {3}": "{0}: {1}/{2} completed, {3} failed",
   "模型用量与技术详情": "Model usage and technical details",
   "阶段：{0}": "Stage: {0}",
-  "已记录 {0} 次调用；输入 {1} / 输出 {2} tokens；用量未知 {3} 次": "{0} calls recorded; {1} input / {2} output tokens; usage unknown for {3} calls",
+  "已记录 {0} 次调用；输入 {1} / 输出 {2} tokens；用量未知 {3} 次": "Calls recorded: {0}; input tokens: {1}; output tokens: {2}; calls with unknown usage: {3}",
   "（可重试）": "(retryable)",
   "需要处理的问题（{0}）": "Issues requiring attention ({0})",
   "请查看来源内容和质量提示，确认后接受部分结果或重试失败项。": "Review the source and quality notes, then accept partial results or retry failed items.",

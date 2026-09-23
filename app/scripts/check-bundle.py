@@ -46,8 +46,10 @@ def run(bundle,output):
         process=None
         try:
             with (root/'stderr.log').open('w') as log:
+                # An unreachable proxy catches accidental routing of local model calls.
                 process=subprocess.Popen([str(bundle/'python/practiq-ai'),'serve'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=log,
-                    cwd=root,env={'PATH':'/usr/bin:/bin','HOME':str(root),'TMPDIR':tmp,'LANG':'en_US.UTF-8'},text=True)
+                    cwd=root,env={'PATH':'/usr/bin:/bin','HOME':str(root),'TMPDIR':tmp,'LANG':'en_US.UTF-8',
+                                  'ALL_PROXY':'http://127.0.0.1:9','NO_PROXY':''},text=True)
                 process.stdin.write(json.dumps(bootstrap)+'\n');process.stdin.flush()
                 with selectors.DefaultSelector() as selector:
                     selector.register(process.stdout,selectors.EVENT_READ)
@@ -67,6 +69,7 @@ def run(bundle,output):
                     for extension in ['webp','gif']:
                         assert client.post('/api/uploads',json={'sourceType':'image','fileName':f'removed.{extension}','mediaType':f'image/{extension}','sha256':'a'*64,'sizeBytes':1}).status_code==422
                     report['removedImageFormatsRejected']=True
+                    provider_calls=0
                     for filename,kind,media in fixtures(root):
                         data=(root/filename).read_bytes();started=time.monotonic()
                         response=client.post('/api/uploads',json={'sourceType':kind,'fileName':filename,'mediaType':media,'sha256':hashlib.sha256(data).hexdigest(),'sizeBytes':len(data)})
@@ -82,6 +85,11 @@ def run(bundle,output):
                             time.sleep(.1)
                         report['checks'].append({'format':kind,'state':state.get('state'),'status':state.get('status'),'failures':state.get('failures'),'blocking':state.get('blocking'),'seconds':round(time.monotonic()-started,3),'modelCalls':len(state.get('usage',[]))})
                         assert state['state']=='COMPLETED' and not state['failures'], report['checks'][-1]
+                        call_log=root/'calls.jsonl'
+                        assert state['usage'] and call_log.exists(), report['checks'][-1]
+                        calls=len(call_log.read_text().splitlines())
+                        assert calls>provider_calls, report['checks'][-1]
+                        provider_calls=calls
                         for visual in (state.get('result') or {}).get('visualElements',[]):
                             if visual.get('imageRef'):
                                 reference=visual['imageRef'];image=client.post('/api/artifacts/read',json=reference)
@@ -95,6 +103,7 @@ def run(bundle,output):
                     result=graded.json();assert result['status']=='graded' and result['result']['scoreCents']==300,result
                     assert len(result['usage'])==1 and len(result['calls'])==1
                     assert client.post('/api/subjective-grades',json=grade_payload).json()==result
+                    assert len((root/'calls.jsonl').read_text().splitlines())==provider_calls+1
                     report['subjectiveGrading']={'passed':True,'scoreCents':300,'replayIdentical':True,'usageCalls':len(result['usage'])}
                 process.stdin.close();process.wait(timeout=20)
                 assert process.returncode==0,(root/'stderr.log').read_text()[-8000:]

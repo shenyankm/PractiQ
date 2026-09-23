@@ -1,5 +1,5 @@
 import { t, useI18n } from "./i18n";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { blankQuestion, type Question, type Mode, modeNames, isComposite } from "./api";
 import {
   Dialog,
@@ -37,6 +37,7 @@ export function QuestionEditor({
   busy: boolean;
 }) {
   useI18n();
+  const formId = useId();
   const [q, setQ] = useState<Question>(() => structuredClone({...initial, id: initial.id || crypto.randomUUID()}));
   const [children, setChildren] = useState<Question[]>(() => structuredClone(initialChildren));
   const [childEditor, setChildEditor] = useState<Question | null>(null);
@@ -87,13 +88,13 @@ export function QuestionEditor({
         <fieldset disabled={busy} className="space-y-5">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="answer-mode">{t("答题方式")}</Label>
+              <Label htmlFor={`${formId}-answer-mode`}>{t("答题方式")}</Label>
               <Select
                 disabled={parent?.answerMode === "word_bank" || parent?.answerMode === "cloze"}
                 value={q.answerMode || ""}
                 onValueChange={(v) => mode(v as Mode)}
               >
-                <SelectTrigger id="answer-mode" className="w-full">
+                <SelectTrigger id={`${formId}-answer-mode`} className="w-full">
                   <SelectValue placeholder={t("选择答题方式")} />
                 </SelectTrigger>
                 <SelectContent>
@@ -106,9 +107,9 @@ export function QuestionEditor({
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="typeName">{t("题型名称")}</Label>
+              <Label htmlFor={`${formId}-typeName`}>{t("题型名称")}</Label>
               <Input
-                id="typeName"
+                id={`${formId}-typeName`}
                 value={q.questionTypeId || ""}
                 onChange={(e) => patch({ questionTypeId: e.target.value })}
               />
@@ -154,9 +155,9 @@ export function QuestionEditor({
             </Select>
           )}
           <div className="space-y-2">
-            <Label htmlFor="stem">{t("题干（支持 Markdown 和公式）")}</Label>
+            <Label htmlFor={`${formId}-stem`}>{t("题干（支持 Markdown 和公式）")}</Label>
             <Textarea
-              id="stem"
+              id={`${formId}-stem`}
               rows={5}
               value={q.stem || ""}
               onChange={(e) => patch({ stem: e.target.value })}
@@ -315,26 +316,26 @@ export function QuestionEditor({
             />
           </div>}
           <div className="space-y-2">
-            <Label htmlFor="sourceScore">{t("原卷分值（没有则留空）")}</Label>
-            <Input id="sourceScore" type="number" min="0.01" max="1000000" step="0.01" value={q.sourceScore ?? ""} onChange={e => patch({sourceScore: e.target.value === "" ? null : Number(e.target.value)})}/>
-            <Label htmlFor="scoringRubric">{t("原文评分细则")}</Label>
-            <Textarea id="scoringRubric" value={q.scoringRubric || ""} onChange={e => patch({scoringRubric:e.target.value || null})}/>
-            <Label htmlFor="scoreSourceText">{t("分值与细则的原文依据")}</Label>
-            <Textarea id="scoreSourceText" value={q.scoreSourceText || ""} onChange={e => patch({scoreSourceText:e.target.value || null})}/>
+            <Label htmlFor={`${formId}-sourceScore`}>{t("原卷分值（没有则留空）")}</Label>
+            <Input id={`${formId}-sourceScore`} type="number" min="0.01" max="1000000" step="0.01" value={q.sourceScore ?? ""} onChange={e => patch({sourceScore: e.target.value === "" ? null : Number(e.target.value)})}/>
+            <Label htmlFor={`${formId}-scoringRubric`}>{t("原文评分细则")}</Label>
+            <Textarea id={`${formId}-scoringRubric`} value={q.scoringRubric || ""} onChange={e => patch({scoringRubric:e.target.value || null})}/>
+            <Label htmlFor={`${formId}-scoreSourceText`}>{t("分值与细则的原文依据")}</Label>
+            <Textarea id={`${formId}-scoreSourceText`} value={q.scoreSourceText || ""} onChange={e => patch({scoreSourceText:e.target.value || null})}/>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="analysis">{t("解析")}</Label>
+            <Label htmlFor={`${formId}-analysis`}>{t("解析")}</Label>
             <Textarea
-              id="analysis"
+              id={`${formId}-analysis`}
               rows={4}
               value={q.analysis || ""}
               onChange={(e) => patch({ analysis: e.target.value || null })}
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="sourceText">{t("来源原文")}</Label>
+            <Label htmlFor={`${formId}-sourceText`}>{t("来源原文")}</Label>
             <Textarea
-              id="sourceText"
+              id={`${formId}-sourceText`}
               rows={3}
               value={q.sourceText || ""}
               onChange={(e) => patch({ sourceText: e.target.value || null })}

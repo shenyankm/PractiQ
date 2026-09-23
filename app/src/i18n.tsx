@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { en } from "./locales/en";
 import { zhCN } from "./locales/zh-CN";
@@ -66,8 +66,8 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false), [saving, setSaving] = useState(false), [error, setError] = useState<LanguageFailure | null>(null);
   const lock = useRef(false);
   const generation = useRef(0);
-  function apply(value: Locale) { current = value; document.documentElement.lang = value; setLanguage(value); }
-  async function reload() {
+  const apply = useCallback((value: Locale) => { current = value; document.documentElement.lang = value; setLanguage(value); }, []);
+  const reload = useCallback(async () => {
     if (lock.current) return;
     const request = ++generation.current;
     try {
@@ -77,8 +77,8 @@ export function I18nProvider({ children }: { children: ReactNode }) {
       setError(null);
     } catch (e) { if (request === generation.current) setError({ key: "读取语言设置失败", cause: e }); }
     finally { if (request === generation.current) setReady(true); }
-  }
-  useEffect(() => { document.documentElement.lang = current; void reload(); return () => { ++generation.current; }; }, []);
+  }, [apply]);
+  useEffect(() => { const generationRef = generation; document.documentElement.lang = current; void reload(); return () => { ++generationRef.current; }; }, [reload]);
   async function change(value: Locale) {
     if (!isLocale(value) || lock.current || !ready) return false;
     const request = ++generation.current;

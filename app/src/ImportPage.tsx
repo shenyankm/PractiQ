@@ -18,7 +18,7 @@ export function ImportPage({ busy, run, onPreview, onConfigure }: {
   useEffect(() => {
     let active = true;
     setError(null);
-    void api<SettingsResult>({ type: "settings" }).then(value => {
+    void api({ type: "settings" }).then(value => {
       if (active) setSettings(value);
     }).catch(e => { if (active) setError(e); });
     return () => { active = false; };

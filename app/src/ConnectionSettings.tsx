@@ -1,5 +1,5 @@
 import { list, message, t, useI18n } from "./i18n";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
 import { toast } from "./notifications";
 import { PlugZap, LoaderCircle, ChevronRight } from "lucide-react";
 import {
@@ -23,10 +23,12 @@ export function ConnectionSettingsPanel({
   busy,
   run,
   onConfigure,
+  flushRef,
 }: {
   busy: boolean;
   run: (job: () => Promise<void>) => void;
   onConfigure?: () => void;
+  flushRef?: MutableRefObject<() => Promise<void>>;
 }) {
   useI18n();
   const [saved, setSaved] = useState<SettingsResult | null>(null);
@@ -40,13 +42,14 @@ export function ConnectionSettingsPanel({
   const [operation, setOperation] = useState<"test" | "save" | null>(null);
   const locked = useRef(false);
   const revision = useRef(0);
+  const pending = useRef<{ version: number; request: Promise<SettingsResult> } | null>(null);
   useEffect(() => () => { ++revision.current; }, []);
   function invalidate() { ++revision.current; setDirty(true); setSaveError(null); }
   const [saveError, setSaveError] = useState<unknown>(null);
   const [error, setError] = useState<unknown>(null);
   const load = () => {
     let active = true;
-    void api<SettingsResult>({ type: "settings" })
+    void api({ type: "settings" })
       .then((result) => {
         if (active) {
           setSaved(result);
@@ -72,31 +75,43 @@ export function ConnectionSettingsPanel({
       setApiKey("");
     }
   }
-  async function persist() {
-    if (!dirty || !saved) return;
+  const persist = useCallback(async () => {
+    if (!dirty || !saved) return saved;
     const version = revision.current;
-    setDirty(false); setSaveError(null);
+    if (pending.current?.version === version) return pending.current.request;
+    if (pending.current) await pending.current.request.catch(() => {});
+    setSaveError(null);
+    const request = api({ type: "save_settings", config, api_key: apiKey.trim() || null });
+    pending.current = { version, request };
     try {
-      const result = await api<SettingsResult>({ type: "save_settings", config, api_key: apiKey.trim() || null });
+      const result = await request;
       if (version === revision.current) {
-        setSaved(result); setConfig(result.config);
+        setSaved(result); setConfig(result.config); setApiKey(""); setDirty(false);
+        toast.success(message("连接配置已保存"));
       }
-      toast.success(message("连接配置已保存"));
-    } catch (e) { setSaveError(e); toast.error(e); }
-  }
-  function autosave() {
-    if (!dirty || !saved || busy || locked.current) return;
+      return result;
+    } catch (e) { if (version === revision.current) setSaveError(e); throw e; }
+    finally { if (pending.current?.request === request) pending.current = null; }
+  }, [dirty, saved, config, apiKey]);
+  useEffect(() => {
+    if (!flushRef || onConfigure) return;
+    const flush = async () => { await persist(); };
+    flushRef.current = flush;
+    return () => { if (flushRef.current === flush) flushRef.current = async () => {}; };
+  });
+  const autosave = useCallback((retry = false) => {
+    if ((!retry && saveError != null) || !dirty || !saved || busy || locked.current) return;
     locked.current = true; setOperation("save");
     run(async () => {
       try { await persist(); }
       finally { locked.current = false; setOperation(null); }
     });
-  }
+  }, [saveError, dirty, saved, busy, run, persist]);
   useEffect(() => {
-    if (!dirty || busy || operation !== null) return;
-    const timer = window.setTimeout(autosave, 600);
+    if (!dirty || saveError != null || busy || operation !== null) return;
+    const timer = window.setTimeout(() => autosave(), 600);
     return () => window.clearTimeout(timer);
-  }, [config, apiKey, dirty, busy, operation]);
+  }, [config, apiKey, dirty, saveError, busy, operation, autosave]);
   if (onConfigure) return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between gap-6">
@@ -155,7 +170,7 @@ export function ConnectionSettingsPanel({
             </div>
           </fieldset>
           {missing.length > 0 && <p role="status" className="text-sm">{t("解析配置还缺：{0}", { 0: list(missing) })}</p>}
-          {saveError != null && <p role="alert" className="text-sm text-destructive">{errorMessage(saveError)}</p>}
+          {saveError != null && <div role="alert" className="flex items-center justify-between gap-3 text-sm text-destructive"><span>{errorMessage(saveError)}</span><Button type="button" variant="outline" disabled={busy || operation !== null} onClick={() => autosave(true)}>{t("重试保存")}</Button></div>}
           <div className="flex items-center justify-end gap-4 border-t pt-4">
           <Button variant="outline" type="button" disabled={busy || operation !== null || !saved || missing.length > 0} onClick={() => {
             if (locked.current) return;
@@ -163,11 +178,12 @@ export function ConnectionSettingsPanel({
             const version = revision.current;
             run(async () => {
               try {
-                await persist();
-                await api({ type: "test_settings", config, api_key: apiKey.trim() || null });
+                const persisted = await persist();
+                if (!persisted) return;
+                await api({ type: "test_settings", config: persisted.config, api_key: null });
                 if (version !== revision.current) return;
                 toast.success(message("连接测试通过"));
-              } catch (e) { if (version === revision.current) { setSaveError(e); toast.error(e); } }
+              } catch (e) { if (version === revision.current) toast.error(e); }
               finally { locked.current = false; setOperation(null); }
             });
           }}>

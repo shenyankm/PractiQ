@@ -11,8 +11,10 @@ from contextvars import ContextVar
 from datetime import UTC, datetime
 from functools import lru_cache
 from typing import Any, cast
+from urllib.parse import urlsplit
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
+import httpx
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import (
     AIMessage,
@@ -32,7 +34,7 @@ from pydantic import BaseModel, ValidationError
 
 from . import telemetry
 from .capacity import provider_slot
-from .config import load
+from .config import is_loopback_host, load
 from .contracts import ModelCallUsage
 from .errors import DocumentProcessingError
 from .execution import (
@@ -89,6 +91,13 @@ def build_model(
     if provider not in BASE_URLS and not (provider == "openai" and base_url):
         raise ValueError(f"Unsupported LLM provider: {provider}")
     endpoint = (base_url or BASE_URLS[provider]).rstrip("/")
+    local_clients: dict[str, Any] = {}
+    if is_loopback_host(urlsplit(endpoint).hostname):
+        # macOS system proxies can capture loopback requests even without proxy env vars.
+        local_clients = {
+            "http_client": httpx.Client(timeout=timeout, trust_env=False),
+            "http_async_client": httpx.AsyncClient(timeout=timeout, trust_env=False),
+        }
     return ChatOpenAI(
         model=model_name,
         api_key=cast(Any, api_key),
@@ -99,6 +108,7 @@ def build_model(
         extra_body={"enable_thinking": False}
         if endpoint == BASE_URLS["dashscope"] and model_name.startswith("qwen3.7-")
         else None,
+        **local_clients,
     )
 
 

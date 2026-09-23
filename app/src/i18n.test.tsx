@@ -58,6 +58,8 @@ it("has complete dictionaries, matching parameters and count plurals", () => {
   expect(translate("en", "{0} 题", { 0: 1 })).toBe("1 question");
   expect(translate("en", "{0} 题", { 0: 2 })).toBe("2 questions");
   expect(translate("en", "{0} 个题库 · {1} 道题目", { 0: 1, 1: 1234 })).toBe("1 bank · 1,234 questions");
+  expect(translate("en", "{0}–{1} / {2} 条", { 0: 1, 1: 1, 2: 1 })).toBe("Showing 1–1 of 1");
+  expect(translate("en", "已记录 {0} 次调用；输入 {1} / 输出 {2} tokens；用量未知 {3} 次", { 0: 1, 1: 1, 2: 1, 3: 1 })).toBe("Calls recorded: 1; input tokens: 1; output tokens: 1; calls with unknown usage: 1");
   expect(translate("zh-CN", "已导入 {0} 道题目", { 0: 2 })).toBe("已导入 2 道题目");
 });
 it("resolves the system language and prefers a saved selection across remounts", async () => {

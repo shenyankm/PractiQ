@@ -62,13 +62,15 @@ function ImageAsset({ visual, original = false }: { visual: Visual; original?: b
   const [expanded, setExpanded] = useState(false);
   const zoomButton = useRef<HTMLButtonElement>(null);
   const [loading, setLoading] = useState(!!visual.imageRef);
+  const imageHash = visual.imageRef?.sha256;
+  const loadExpanded = original && expanded;
   useEffect(() => {
     let active = true;
     setSrc(null);
     if (!original) setExpanded(false);
-    setLoading(!!visual.imageRef);
-    if (visual.imageRef && (!original || expanded))
-      void api<string | null>({ type: "asset", hash: visual.imageRef.sha256 })
+    setLoading(!!imageHash);
+    if (imageHash && (!original || loadExpanded))
+      void api({ type: "asset", hash: imageHash })
         .then((s) => {
           if (active) setSrc(s);
         })
@@ -78,7 +80,7 @@ function ImageAsset({ visual, original = false }: { visual: Visual; original?: b
     return () => {
       active = false;
     };
-  }, [visual.imageRef?.sha256, original, original && expanded]);
+  }, [imageHash, original, loadExpanded]);
   return (
     <figure className="space-y-2 rounded-lg border p-4">
       {src || original ? (

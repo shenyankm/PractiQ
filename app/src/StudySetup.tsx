@@ -1,6 +1,6 @@
 import { message, MessageError, t, useI18n } from "./i18n";
 import { useEffect, useState } from "react";
-import { api, errorMessage, type BankChoice, type Session, type SessionKind, type QuestionRow, type QuestionPage, type QuestionStats, type PaperPreview } from "./api";
+import { api, errorMessage, type BankChoice, type Session, type SessionKind, type QuestionRow, type QuestionStats, type PaperPreview } from "./api";
 import { cents, questionType, types } from "./paper";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -34,7 +34,7 @@ export function StudySetup({banks, initialBank, initialFilter, initialMode="", i
       return;
     }
     const timer = setTimeout(() => {
-      void api<QuestionStats>({type:"question_stats", bank_id:null, ...values})
+      void api({type:"question_stats", bank_id:null, ...values})
         .then(result => { if (active) { setStats(result); setCount(Math.min(20, result.count)); } })
         .catch(e => { if (active) { setStats({ count: 0, types: {} }); setError(e); } })
         .finally(() => { if (active) setLoadedQuery(query); });
@@ -48,7 +48,7 @@ export function StudySetup({banks, initialBank, initialFilter, initialMode="", i
     const values = JSON.parse(query);
     if (!values.bank_ids.length) { setRootCount(0); setLoadedPage(pageQuery); return; }
     const timer = setTimeout(() => {
-      void api<QuestionPage>({type:"questions_page", bank_id:null, ...values, limit:30, offset})
+      void api({type:"questions_page", bank_id:null, ...values, limit:30, offset})
         .then(result => { if (active) { setRows(result.items); setRootCount(result.total); setOffset(result.offset); } })
         .catch(e => { if (active) { setRootCount(0); setError(e); } })
         .finally(() => { if (active) setLoadedPage(pageQuery); });
@@ -58,7 +58,7 @@ export function StudySetup({banks, initialBank, initialFilter, initialMode="", i
     const perform = (job:()=>Promise<void>) => run(async()=>{setError(null);try{await job();}catch(e){setError(e);}});
   const invalidate = () => { setPreview([]); setPaper(null); };
   async function generate(withBudgets = false) {
-    const result = await api<PaperPreview>({type:"preview_paper", request:{bank_ids:bankIds,search,mode,filter,selection,count,quotas,question_ids:selected,random,total_cents:kind === "practice" ? 0 : cents(total),budgets:withBudgets ? Object.fromEntries(Object.entries(budgets).map(([k,v])=>[k,cents(v)])) : {}}});
+    const result = await api({type:"preview_paper", request:{bank_ids:bankIds,search,mode,filter,selection,count,quotas,question_ids:selected,random,total_cents:kind === "practice" ? 0 : cents(total),budgets:withBudgets ? Object.fromEntries(Object.entries(budgets).map(([k,v])=>[k,cents(v)])) : {}}});
     setPaper(result); setPreview(result.questions); setScores(result.scores.map(v=>(v/100).toFixed(2)));
     return result;
   }
@@ -66,7 +66,7 @@ export function StudySetup({banks, initialBank, initialFilter, initialMode="", i
     perform(async () => {
       const result = kind === "practice" ? await generate() : paper;
       if (!result) throw new MessageError(message("请先选择题目并生成预览"));
-      const session=await api<Session>({type:"start_paper",paper:{question_ids:result.questionIds,digest:result.digest,kind,minutes:kind === "mock_exam" ? minutes : null,scores:kind === "practice" ? [] : scores.map(cents),total_cents:kind === "practice" ? 0 : cents(total)}});
+      const session=await api({type:"start_paper",paper:{question_ids:result.questionIds,digest:result.digest,kind,minutes:kind === "mock_exam" ? minutes : null,scores:kind === "practice" ? [] : scores.map(cents),total_cents:kind === "practice" ? 0 : cents(total)}});
       await onStart(session);
     });
   }

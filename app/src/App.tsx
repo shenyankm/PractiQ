@@ -46,7 +46,6 @@ import {
   type Preview,
   type Question,
   type QuestionRow,
-  type QuestionPage,
   type Session,
 } from "./api";
 import { Button } from "@/components/ui/button";
@@ -207,14 +206,14 @@ export default function App() {
       });
   }, []);
   const reloadBanks = async () => {
-    setBanks(await api<BankChoice[]>({ type: "banks" }));
+    setBanks(await api({ type: "banks" }));
     setListRevision(v => v + 1);
   };
   useEffect(() => {
     run(async () => {
       await Promise.all([
-        api<BankChoice[]>({ type: "banks" }).then(setBanks),
-        api<{dataDirectory:string;version:string}>({ type: "info" }).then(setInfo),
+        api({ type: "banks" }).then(setBanks),
+        api({ type: "info" }).then(setInfo),
       ]);
     });
   }, [run]);
@@ -225,12 +224,12 @@ export default function App() {
     setSummaryError(null);
     const request = page === "banks"
       ? Promise.all([
-          api<BankPage>({ type: "banks_page", limit: 30, offset: bankOffset }),
-          api<UnfinishedSession | null>({ type: "unfinished_session" }),
+          api({ type: "banks_page", limit: 30, offset: bankOffset }),
+          api({ type: "unfinished_session" }),
         ]).then(([result, pending]) => {
           if (active) { setBankPage(result); setBankOffset(result.offset); setUnfinished(pending); }
         })
-      : api<SessionPage>({ type: "sessions_page", limit: 30, offset: sessionOffset })
+      : api({ type: "sessions_page", limit: 30, offset: sessionOffset })
           .then(result => { if (active) { setSessionPage(result); setSessionOffset(result.offset); } });
     void request.catch(error => { if (active) setSummaryError(error); })
       .finally(() => { if (active) setSummaryLoading(false); });
@@ -242,7 +241,7 @@ export default function App() {
     let active = true;
     setLoading(true);
     const timer = setTimeout(() => {
-      void api<QuestionPage>({ type: "questions_page", ...query, limit: 30, offset })
+      void api({ type: "questions_page", bank_id: page === "questions" ? bank : null, search, mode, filter, limit: 30, offset })
         .then((rows) => {
           if (active) { setQuestions(rows.items); setQuestionTotal(rows.total); setOffset(rows.offset); }
         })
@@ -259,7 +258,7 @@ export default function App() {
       active = false;
       clearTimeout(timer);
     };
-  }, [page, bank, search, mode, offset]);
+  }, [page, bank, search, mode, filter, offset]);
   useEffect(() => {
     if (!isTauri()) return;
     let disposed = false;
@@ -303,17 +302,17 @@ export default function App() {
   function openSession(id: string) {
     run(async () => {
       await flushRef.current();
-      setSession(await api<Session>({ type: "session", id }));
+      setSession(await api({ type: "session", id }));
       setPage("practice");
     });
   }
   const summaries = page === "banks" ? bankPage : sessionPage;
   async function refreshQuestions() {
-    const result = await api<QuestionPage>({ type: "questions_page", ...query, limit: 30, offset });
+    const result = await api({ type: "questions_page", ...query, limit: 30, offset });
     setQuestions(result.items); setQuestionTotal(result.total); setOffset(result.offset);
   }
   async function pickImport() {
-    const p = await api<Preview | null>({ type: "pick_import" });
+    const p = await api({ type: "pick_import" });
     if (p) {
       setPreview(p);
       setImportTitle(p.title);
@@ -534,7 +533,7 @@ export default function App() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem disabled={busy || !b.count} onSelect={() => run(async () => {
-                              const result = await api<{path:string} | null>({type:"export_bank",bank_id:b.id});
+                              const result = await api({type:"export_bank",bank_id:b.id});
                               if (result) toast.success(message("题库已导出：{0}", {0:result.path}));
                             })}><Download className="size-4" />{t("导出题库 ZIP")}</DropdownMenuItem>
                             <DropdownMenuItem onSelect={() => setBankEditor({ id: b.id, title: b.title, description: b.description })}>
@@ -787,12 +786,13 @@ export default function App() {
                 key={settingsRevision}
                 busy={busy}
                 run={run}
+                flushRef={flushRef}
               />
             </div>
           )}
           {page === "settings" && (
             <div className="max-w-3xl space-y-6">
-              <ConnectionSettingsPanel key={settingsRevision} busy={busy} run={run} onConfigure={() => navigate("model-settings")} />
+              <ConnectionSettingsPanel key={settingsRevision} busy={busy} run={run} onConfigure={() => navigate("model-settings")} flushRef={flushRef} />
               <Card>
                 <CardHeader>
                   <CardTitle>{t("学习数据备份")}</CardTitle>
@@ -803,7 +803,7 @@ export default function App() {
                     disabled={busy}
                     onClick={() =>
                       run(async () => {
-                        const result = await api<{ path: string } | null>({
+                        const result = await api({
                           type: "backup",
                         });
                         if (result) toast.success(message("备份已保存：{0}", { 0: result.path }));
@@ -821,9 +821,7 @@ export default function App() {
                         description:
                           message("恢复会替换全部本地题库和练习记录。应用将先校验备份，并自动保存当前数据的恢复副本。"),
                         action: async () => {
-                          const result = await api<{
-                            recoveryPath: string;
-                          } | null>({ type: "restore" });
+                          const result = await api({ type: "restore" });
                           if (result) {
                             await language.reload();
                             setSettingsRevision((v) => v + 1);
@@ -957,11 +955,7 @@ export default function App() {
                 disabled={busy || !importTitle.trim()}
                 onClick={() =>
                   run(async () => {
-                    const result = await api<{
-                      duplicate: boolean;
-                      bankId: string;
-                      count: number;
-                    }>({
+                    const result = await api({
                       type: "import",
                       ticket: preview.ticket,
                       bank_id: importBank === "new" ? null : importBank,
