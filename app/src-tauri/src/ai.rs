@@ -77,10 +77,9 @@ pub struct Process {
     child: Child,
     input: Option<ChildStdin>,
     endpoint: Endpoint,
-    stderr: Arc<Mutex<Vec<u8>>>,
+    stderr: Arc<Mutex<StderrTail>>,
     stderr_done: std::sync::mpsc::Receiver<()>,
     diagnostic_path: PathBuf,
-    redactions: Vec<String>,
 }
 #[derive(Clone)]
 pub(crate) struct Endpoint {
@@ -91,20 +90,70 @@ pub(crate) struct Endpoint {
 fn err(e: impl std::fmt::Display) -> crate::AppError {
     e.to_string().into()
 }
-fn append_stderr(tail: &mut Vec<u8>, chunk: &[u8]) {
-    tail.extend_from_slice(chunk);
-    if tail.len() > 16 * 1024 {
-        tail.drain(..tail.len() - 16 * 1024);
+const STDERR_LIMIT: usize = 16 * 1024;
+fn replace_all(haystack: &[u8], needle: &[u8], replacement: &[u8]) -> Vec<u8> {
+    if needle.is_empty() {
+        return haystack.to_vec();
     }
+    let mut output = Vec::with_capacity(haystack.len());
+    let mut start = 0;
+    while let Some(position) = haystack[start..]
+        .windows(needle.len())
+        .position(|window| window == needle)
+    {
+        output.extend_from_slice(&haystack[start..start + position]);
+        output.extend_from_slice(replacement);
+        start += position + needle.len();
+    }
+    output.extend_from_slice(&haystack[start..]);
+    output
 }
-fn redact_stderr(bytes: &[u8], secrets: &[String]) -> String {
-    let mut diagnostic = String::from_utf8_lossy(bytes).into_owned();
-    for secret in secrets {
-        if !secret.is_empty() {
-            diagnostic = diagnostic.replace(secret, "[redacted]");
+// Redact while ingesting, before bytes are committed or truncated: a secret
+// split by a read or by the retained-tail boundary can then never leave a
+// partial credential in the diagnostic.
+struct StderrTail {
+    output: Vec<u8>,
+    pending: Vec<u8>,
+    guard: usize,
+}
+impl StderrTail {
+    fn new(secrets: &[String]) -> Self {
+        Self {
+            output: Vec::new(),
+            pending: Vec::new(),
+            guard: secrets
+                .iter()
+                .map(String::len)
+                .max()
+                .unwrap_or(0)
+                .saturating_sub(1),
         }
     }
-    diagnostic
+    fn append(&mut self, chunk: &[u8], secrets: &[String]) {
+        self.pending.extend_from_slice(chunk);
+        for secret in secrets {
+            if !secret.is_empty() {
+                self.pending = replace_all(&self.pending, secret.as_bytes(), b"[redacted]");
+            }
+        }
+        let keep = self.pending.len().saturating_sub(self.guard);
+        if keep == 0 {
+            return;
+        }
+        self.output.extend_from_slice(&self.pending[..keep]);
+        self.pending.drain(..keep);
+        if self.output.len() > STDERR_LIMIT {
+            self.output.drain(..self.output.len() - STDERR_LIMIT);
+        }
+    }
+    fn diagnostic(&mut self) -> String {
+        self.output.extend_from_slice(&self.pending);
+        self.pending.clear();
+        if self.output.len() > STDERR_LIMIT {
+            self.output.drain(..self.output.len() - STDERR_LIMIT);
+        }
+        String::from_utf8_lossy(&self.output).into_owned()
+    }
 }
 impl Drop for Process {
     fn drop(&mut self) {
@@ -123,8 +172,8 @@ impl Drop for Process {
             let _ = self.child.wait();
         }
         let _ = self.stderr_done.recv_timeout(Duration::from_millis(250));
-        if let Ok(bytes) = self.stderr.lock() {
-            let diagnostic = redact_stderr(&bytes, &self.redactions);
+        if let Ok(mut tail) = self.stderr.lock() {
+            let diagnostic = tail.diagnostic();
             if !diagnostic.is_empty() {
                 if let Some(dir) = self.diagnostic_path.parent() {
                     if fs::create_dir_all(dir).is_ok() {
@@ -187,8 +236,9 @@ impl Process {
             "LOCAL_STATUS_PIPE_FAILED",
             serde_json::json!({}),
         ))?;
-        let tail = Arc::new(Mutex::new(Vec::new()));
+        let tail = Arc::new(Mutex::new(StderrTail::new(&redactions)));
         let writer = tail.clone();
+        let secrets = redactions.clone();
         let (done, stderr_done) = std::sync::mpsc::channel();
         std::thread::spawn(move || {
             let mut buffer = [0u8; 4096];
@@ -197,7 +247,7 @@ impl Process {
                     break;
                 }
                 if let Ok(mut tail) = writer.lock() {
-                    append_stderr(&mut tail, &buffer[..count]);
+                    tail.append(&buffer[..count], &secrets);
                 }
             }
             let _ = done.send(());
@@ -208,7 +258,6 @@ impl Process {
             stderr: tail,
             stderr_done,
             diagnostic_path: store.dir.join("ai/parser-stderr.log"),
-            redactions,
             endpoint: Endpoint {
                 client,
                 origin: String::new(),
@@ -872,19 +921,48 @@ impl Endpoint {
 
 #[cfg(test)]
 mod tests {
-    use super::{append_stderr, document_format, redact_stderr};
+    use super::{document_format, StderrTail};
     use std::path::Path;
 
     #[test]
     fn stderr_diagnostics_are_bounded_and_redacted() {
-        let mut tail = Vec::new();
-        append_stderr(&mut tail, &vec![b'x'; 20 * 1024]);
-        append_stderr(&mut tail, b" key-123 token-456");
-        assert_eq!(tail.len(), 16 * 1024);
-        let diagnostic = redact_stderr(&tail, &["key-123".into(), "token-456".into()]);
+        let secrets = ["key-123".to_string(), "token-456".to_string()];
+        let mut tail = StderrTail::new(&secrets);
+        tail.append(&vec![b'x'; 20 * 1024], &secrets);
+        tail.append(b" key-123 token-456", &secrets);
+        let diagnostic = tail.diagnostic();
+        assert!(diagnostic.len() <= 16 * 1024);
         assert!(!diagnostic.contains("key-123"));
         assert!(!diagnostic.contains("token-456"));
         assert!(diagnostic.contains("[redacted]"));
+    }
+
+    #[test]
+    fn stderr_secrets_split_across_reads_stay_redacted() {
+        let secrets = ["token-789".to_string()];
+        let mut tail = StderrTail::new(&secrets);
+        tail.append(b"error: token-", &secrets);
+        tail.append(b"789 done", &secrets);
+        let diagnostic = tail.diagnostic();
+        assert!(!diagnostic.contains("token-789"));
+        assert!(diagnostic.contains("[redacted] done"));
+    }
+
+    #[test]
+    fn stderr_secrets_at_the_truncation_boundary_stay_redacted() {
+        let secrets = ["key-123456".to_string()];
+        let mut tail = StderrTail::new(&secrets);
+        let mut first = vec![b'x'; 16];
+        first.extend_from_slice(b"key-");
+        tail.append(&first, &secrets);
+        let mut second = b"123456".to_vec();
+        second.resize(16 * 1024, b'y');
+        tail.append(&second, &secrets);
+        let diagnostic = tail.diagnostic();
+        assert!(diagnostic.len() <= 16 * 1024);
+        assert!(!diagnostic.contains("key-123456"));
+        assert!(!diagnostic.contains("123456"));
+        assert!(!diagnostic.contains("key-"));
     }
 
     #[test]
