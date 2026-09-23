@@ -1,5 +1,5 @@
 import nativeMessages from "./locales/native.json";
-import { t, locale, MessageError, renderMessage, type LanguageRequest } from "./i18n";
+import { t, locale, MessageError, renderMessage, type LanguageRequest, type Locale } from "./i18n";
 import { invoke } from "@tauri-apps/api/core";
 import type { Question, Answer, ParsedOption as Option, ParsedItem as Item, ContentBlock as Block } from "./contracts.generated";
 export type { Question, Answer, Option, Item, Block };
@@ -208,8 +208,47 @@ type Request =
     }
   | { type: "position"; id: string; position: number }
   | { type: "asset"; hash: string };
-export function api<T>(request: Request): Promise<T> {
-  return invoke<T>("request", { request, locale: locale() });
+type ResponseMap = {
+  asset: string | null;
+  backup: { path: string } | null;
+  banks: BankChoice[];
+  banks_page: BankPage;
+  complete_review: Session;
+  delete_bank: null;
+  delete_question: null;
+  export_bank: { path: string } | null;
+  favorite: boolean;
+  finish: Session;
+  flag: Session;
+  import: { duplicate: boolean; bankId: string; count: number };
+  info: { dataDirectory: string; version: string };
+  language: Locale | null;
+  manual_score: Session;
+  merge_banks: { bankId: string; count: number };
+  pick_import: Preview | null;
+  position: Session;
+  preview_paper: PaperPreview;
+  question_stats: QuestionStats;
+  questions: QuestionRow[];
+  questions_page: QuestionPage;
+  restore: { recoveryPath: string } | null;
+  retry_wrong: Session;
+  save_attempt: Session;
+  save_bank: string;
+  save_draft: void;
+  save_language: Locale;
+  save_question_tree: string;
+  save_settings: SettingsResult;
+  session: Session;
+  sessions_page: SessionPage;
+  settings: SettingsResult;
+  start_paper: Session;
+  submit_paper: Session;
+  test_settings: null;
+  unfinished_session: UnfinishedSession | null;
+};
+export function api<R extends Request>(request: R): Promise<ResponseMap[R["type"]]> {
+  return invoke<ResponseMap[R["type"]]>("request", { request, locale: locale() });
 }
 export function errorMessage(error: unknown): string {
   if (error instanceof MessageError) return renderMessage(error.localized);

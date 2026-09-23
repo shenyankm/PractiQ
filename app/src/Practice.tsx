@@ -53,19 +53,17 @@ export function Practice({
       answerRef.current = attempt.answer;
     }
   }, [handedIn, attempt.answer]);
-  function persist(submit: true, skip?: boolean, selfResult?: boolean | null): Promise<Session>;
-  function persist(submit?: false, skip?: boolean, selfResult?: boolean | null): Promise<void>;
-  function persist(
+  const persist = useCallback((
     submit = false,
     skip = false,
     selfResult: boolean | null = null,
-  ) {
+  ): Promise<Session | void> => {
     const captured = { answer: answerRef.current, elapsed: elapsed.current };
     setSaved("保存中…");
     const job = chain.current
       .catch(() => {})
       .then((): Promise<Session | void> => submit ?
-        api<Session>({
+        api({
           type: "save_attempt",
           id: session.id,
           ordinal: session.position,
@@ -74,7 +72,7 @@ export function Practice({
           submit,
           skip,
           self_result: selfResult,
-        }) : api<void>({type:"save_draft", id:session.id, ordinal:session.position, answer:captured.answer, elapsed_ms:captured.elapsed}),
+        }) : api({type:"save_draft", id:session.id, ordinal:session.position, answer:captured.answer, elapsed_ms:captured.elapsed}),
       );
     chain.current = job.then(
       () => {
@@ -87,7 +85,10 @@ export function Practice({
       },
     );
     return job;
-  }
+  }, [session.id, session.position]) as {
+    (submit: true, skip?: boolean, selfResult?: boolean | null): Promise<Session>;
+    (submit?: false, skip?: boolean, selfResult?: boolean | null): Promise<void>;
+  };
   useEffect(() => {
     const flush = async () => {
       if (!submitted && !finished) await persist();
@@ -105,7 +106,7 @@ export function Practice({
           await chain.current;
         };
     };
-  }, [session.id, session.position, submitted, finished, exam, handedIn, session.deadlineAt]);
+  }, [session.id, session.position, submitted, finished, persist, flushRef]);
   function change(a: Answer | null) {
     setAnswer(a);
     answerRef.current = a;
@@ -116,7 +117,7 @@ export function Practice({
     run(async () => {
       await flushRef.current();
       onSession(
-        await api<Session>({ type: "position", id: session.id, position }),
+        await api({ type: "position", id: session.id, position }),
       );
     });
   }, [run, onSession, session.id, flushRef]);
@@ -149,7 +150,7 @@ export function Practice({
               </Badge>
               <span className="text-sm text-muted-foreground">{t("第 {0} / {1} 题", { 0: session.position + 1, 1: session.attempts.length })}</span>
             </div>
-            <PracticeClock elapsed={elapsed} active={!submitted && !finished} deadlineAt={exam && !handedIn ? session.deadlineAt : null} saved={saved} finished={finished} onAutosave={() => { void persist().catch(() => {}); }} onExpire={() => run(async () => onSession(await api<Session>({type:"session",id:session.id})))}/>
+            <PracticeClock elapsed={elapsed} active={!submitted && !finished} deadlineAt={exam && !handedIn ? session.deadlineAt : null} saved={saved} finished={finished} onAutosave={() => { void persist().catch(() => {}); }} onExpire={() => run(async () => onSession(await api({type:"session",id:session.id})))}/>
 
           </div>
           <p className="truncate text-xs text-muted-foreground" title={session.title}>{session.title}</p>
@@ -157,7 +158,7 @@ export function Practice({
         <CardContent className="space-y-6">
           {saveError && <div role="alert" className="flex items-center justify-between gap-3 rounded-lg border border-destructive/40 p-3 text-sm"><p>{t("答案保存失败，请重试或保持窗口打开。")}</p><Button variant="outline" disabled={saved === "保存中…"} onClick={() => run(async () => { await persist(); })}>{t("重试保存")}</Button></div>}
           <div className="flex gap-2">
-            {attempt.snapshot.id && favorite != null && <Button variant="outline" onClick={()=>run(async()=>{await api({type:"favorite",id:attempt.snapshot.id!,value:!favorite});onSession(await api<Session>({type:"session",id:session.id}));})}>{favorite?t("取消收藏"):t("收藏原题")}</Button>}
+            {attempt.snapshot.id && favorite != null && <Button variant="outline" onClick={()=>run(async()=>{await api({type:"favorite",id:attempt.snapshot.id!,value:!favorite});onSession(await api({type:"session",id:session.id}));})}>{favorite?t("取消收藏"):t("收藏原题")}</Button>}
             {exam && !handedIn && <Button variant="outline" onClick={()=>run(async()=>{await flushRef.current();onSession(await api({type:"flag",id:session.id,ordinal:session.position,value:!attempt.flagged}));})}>{attempt.flagged?t("取消待检查标记"):t("标记待检查")}</Button>}
           </div>
           <ExamResults session={session} onSession={onSession} run={run}/>

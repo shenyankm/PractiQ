@@ -41,6 +41,8 @@ def service(tmp_path):
         # Retain coverage configuration, but isolate credentials and proxies.
         env = {key: value for key, value in os.environ.items()
                if not key.startswith(("AI_", "LLM_")) and not key.lower().endswith("_proxy")}
+        # A dead proxy makes loopback bypass part of this end-to-end check.
+        env.update(ALL_PROXY="http://127.0.0.1:9", NO_PROXY="")
         env["PYTHONPATH"] = str(Path(__file__).resolve().parents[1] / "src")
         with (tmp_path / "service.log").open("w+") as log:
             process = subprocess.Popen([sys.executable, "-m", "practiq_ai.desktop", "serve"],

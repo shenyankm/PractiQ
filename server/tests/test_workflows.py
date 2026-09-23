@@ -55,6 +55,12 @@ def test_builds_deepseek_vision_model() -> None:
     assert isinstance(image, ChatOpenAI)
 
 
+def test_loopback_model_uses_native_http_clients() -> None:
+    model = llm.build_model("openai", "test-key", "local-model", base_url="http://127.0.0.1:1234/v1")
+    assert isinstance(model.http_client, httpx2.Client)
+    assert isinstance(model.http_async_client, httpx2.AsyncClient)
+
+
 def test_document_graph_merges_parallel_chunks_and_keeps_checkpoint_small(monkeypatch):
     fake_store, reference = source("1. First\n2. Second\n3. Third")
     def response(messages, _schema):

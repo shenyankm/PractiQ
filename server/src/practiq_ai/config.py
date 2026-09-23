@@ -1,5 +1,6 @@
 """Validated deployment settings; this is the only module that reads the environment."""
 
+import ipaddress
 import os
 import re
 from dataclasses import dataclass, field
@@ -85,6 +86,15 @@ def service_token() -> str:
     return _required(dict(os.environ), "AI_SERVICE_TOKEN")
 
 
+def is_loopback_host(hostname: str | None) -> bool:
+    if hostname == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(hostname or "").is_loopback
+    except ValueError:
+        return False
+
+
 def load() -> Config:
     values = dict(os.environ)
     _required(values, "AI_SERVICE_TOKEN")
@@ -143,12 +153,8 @@ def load() -> Config:
     if provider == "openai" and not base_url:
         raise ValueError("LLM_BASE_URL is required for openai")
     if base_url:
-        import ipaddress
         url = urlsplit(base_url)
-        try:
-            loopback = url.hostname == "localhost" or ipaddress.ip_address(url.hostname or "").is_loopback
-        except ValueError:
-            loopback = False
+        loopback = is_loopback_host(url.hostname)
         if (url.scheme != "https" and not (url.scheme == "http" and loopback)) or not url.hostname or url.username or url.password or url.query or url.fragment:
             raise ValueError("LLM_BASE_URL requires HTTPS or loopback HTTP without credentials, query or fragment")
     return Config(

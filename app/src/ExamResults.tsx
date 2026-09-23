@@ -56,7 +56,7 @@ export function ExamResults({session,onSession,run}:{session:Session;onSession:(
           </AlertDialogContent>
         </AlertDialog>
       )}
-      <div className="flex flex-wrap gap-2"><Input className="w-32" aria-label={t("人工得分")} placeholder={t("得分")} value={score} onChange={e=>setScore(e.target.value)}/><Input className="flex-1" aria-label={t("改分原因")} placeholder={t("人工评分／改分原因（必填）")} value={reason} onChange={e=>setReason(e.target.value)}/><Button variant="outline" onClick={()=>{try{const value=cents(score);if(!reason.trim())throw new MessageError(message("请填写原因"));run(async()=>onSession(await api({type:"manual_score",id:session.id,ordinal:a.ordinal,cents:value,reason})));}catch(e){setError(e);}}}>{t("保存人工评分")}</Button></div>
+      <div className="flex flex-wrap gap-2"><Input className="w-32" aria-label={t("人工得分")} placeholder={t("得分")} value={score} onChange={e=>setScore(e.target.value)}/><Input className="flex-1" aria-label={t("改分原因")} placeholder={t("人工评分／改分原因（必填）")} value={reason} onChange={e=>setReason(e.target.value)}/><Button variant="outline" onClick={()=>{try{const value=cents(score);if(!reason.trim())throw new MessageError(message("请填写原因"));setError(null);run(async()=>onSession(await api({type:"manual_score",id:session.id,ordinal:a.ordinal,cents:value,reason})));}catch(e){setError(e);}}}>{t("保存人工评分")}</Button></div>
     </>}
     {error != null &&<p role="alert">{errorMessage(error)}</p>}
   </section>;

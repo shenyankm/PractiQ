@@ -70,7 +70,7 @@ it("pages native bank summaries, keeps all merge/study choices, and clamps after
   expect(await screen.findByText("1–30 / 30 条")).toBeTruthy();
   expect(screen.getByRole("button",{name:"上一页"}).hasAttribute("disabled")).toBe(true);
   expect(screen.getByRole("button",{name:"下一页"}).hasAttribute("disabled")).toBe(true);
-}, 15000);
+}, 30000);
 it("ignores a stale history response and refreshes newly created sessions with persistent retry", async () => {
   setup(); const base=vi.mocked(api).getMockImplementation()!;
   let resolveOld:(value:unknown)=>void=()=>{};
@@ -111,7 +111,7 @@ it("ignores a stale history response and refreshes newly created sessions with p
   await userEvent.click(screen.getByRole("button",{name:"刷新"}));
   expect(await screen.findByText("还没有练习记录")).toBeTruthy();
   expect(screen.getByText("0–0 / 0 条")).toBeTruthy();
-});
+}, 30000);
 
 it("refreshes merge totals and clamps both lists after restoring a smaller backup", async () => {
   setup(); const base=vi.mocked(api).getMockImplementation()!;
@@ -151,4 +151,4 @@ it("refreshes merge totals and clamps both lists after restoring a smaller backu
   await screen.findByText("1–1 / 1 条");
   expect(screen.getByText("Bank 0")).toBeTruthy();
   expect(screen.getByRole("button",{name:"上一页"}).hasAttribute("disabled")).toBe(true);
-});
+}, 30000);

@@ -1,4 +1,4 @@
-import { message, t, useI18n, locale } from "./i18n";
+import { t, useI18n, locale } from "./i18n";
 import { useEffect, useState } from "react";
 import { toast } from "./notifications";
 import { invoke } from "@tauri-apps/api/core";
@@ -116,8 +116,23 @@ type Request =
       unit: number;
       visual: number | null;
     };
-export function ai<T>(request: Request): Promise<T> {
-  return invoke("ai_request", { request, locale: locale() });
+type ResponseMap = {
+  list: { items: Summary[]; hasMore: boolean };
+  get: Task;
+  preview: Preview;
+  review: Review;
+  pick_document: { threadId: string } | null;
+  operations: PendingOperation[];
+  batches: Batch[];
+  control: unknown;
+  replay: unknown;
+  prepare_batch: Batch;
+  run_batch: Batch;
+  cancel_batch: unknown;
+  review_asset: { mediaType: string; content: string };
+};
+export function ai<R extends Request>(request: R): Promise<ResponseMap[R["type"]]> {
+  return invoke<ResponseMap[R["type"]]>("ai_request", { request, locale: locale() });
 }
 function actions(): Record<string, string> { return {
   pause: t("暂停"),
@@ -173,7 +188,7 @@ function ReadAsset({
         <Button
           variant="outline"
           onClick={() => {
-            void ai<{ mediaType: string; content: string }>({
+            void ai({
               type: "review_asset",
               id: review.threadId,
               checkpoint_id: review.checkpointId,
@@ -217,14 +232,14 @@ export function AiTasks({
     [review, setReview] = useState<Review | null>(null);
   async function localRefresh() {
     const [o, b] = await Promise.all([
-      ai<PendingOperation[]>({ type: "operations" }),
-      ai<Batch[]>({ type: "batches" }),
+      ai({ type: "operations" }),
+      ai({ type: "batches" }),
     ]);
     setOperations(o);
     setBatches(b);
   }
   async function refreshList() {
-    const r = await ai<{ items: Summary[]; hasMore: boolean }>({
+    const r = await ai({
       type: "list",
       offset,
     });
@@ -239,7 +254,7 @@ export function AiTasks({
   useEffect(() => {
     if (!modelsReady) return;
     let active = true;
-    void ai<{ items: Summary[]; hasMore: boolean }>({ type: "list", offset })
+    void ai({ type: "list", offset })
       .then((r) => {
         if (active) {
           setRows(r.items);
@@ -261,8 +276,8 @@ export function AiTasks({
     const poll = async () => {
       try {
         const [o, b] = await Promise.all([
-          ai<PendingOperation[]>({ type: "operations" }),
-          ai<Batch[]>({ type: "batches" }),
+          ai({ type: "operations" }),
+          ai({ type: "batches" }),
         ]);
         if (active) {
           failures = 0;
@@ -292,14 +307,14 @@ export function AiTasks({
     setTask(null);
     const poll = async () => {
       try {
-        const value = await ai<Task>({ type: "get", id: selected });
+        const value = await ai({ type: "get", id: selected });
         if (active) {
           setTask(value);
           setError(null);
           if (activeStates.has(value.state)) timer = setTimeout(poll, 2000);
           else {
             // Membership refresh must not invalidate a successfully read task.
-            void ai<{ items: Summary[]; hasMore: boolean }>({ type: "list", offset })
+            void ai({ type: "list", offset })
               .then((listing) => {
                 if (active) {
                   setRows(listing.items);
@@ -317,7 +332,7 @@ export function AiTasks({
           else {
             setTask(null);
             // Refresh membership once; never retry a removed/expired task indefinitely.
-            void ai<{ items: Summary[]; hasMore: boolean }>({ type: "list", offset })
+            void ai({ type: "list", offset })
               .then((listing) => {
                 if (active) {
                   setRows(listing.items);
@@ -358,7 +373,7 @@ export function AiTasks({
     setRunning(batch.id);
     setConfirmation(null);
     try {
-      await ai<Batch>({ type: "run_batch", id: batch.id, titles });
+      await ai({ type: "run_batch", id: batch.id, titles });
       await refreshList();
     } catch (e) {
       setError(e);
@@ -376,7 +391,7 @@ export function AiTasks({
           onClick={() =>
             run(async () => {
               try {
-                const created = await ai<{ threadId: string } | null>({
+                const created = await ai({
                   type: "pick_document",
                 });
                 if (created) {
@@ -395,7 +410,7 @@ export function AiTasks({
           onClick={() =>
             run(async () =>
               setConfirmation(
-                await ai<Batch>({ type: "prepare_batch", ids: checked }),
+                await ai({ type: "prepare_batch", ids: checked }),
               ),
             )
           }
@@ -517,7 +532,7 @@ export function AiTasks({
                     onClick={() =>
                       run(async () =>
                         setReview(
-                          await ai<Review>({
+                          await ai({
                             type: "review",
                             id: task.threadId,
                           }),
@@ -532,7 +547,7 @@ export function AiTasks({
                     onClick={() =>
                       run(async () =>
                         onPreview(
-                          await ai<Preview>({
+                          await ai({
                             type: "preview",
                             id: task.threadId,
                           }),
