@@ -237,7 +237,11 @@ impl Store {
                     for material in materials {
                         for key in ["stem", "instructions"] {
                             if answer_text(text(material, key)) {
-                                material[key] = json!("");
+                                let safe = text(material, key)
+                                    .split_inclusive(['\n', '|'])
+                                    .filter(|part| !answer_text(part))
+                                    .collect::<String>();
+                                material[key] = json!(safe.trim_matches(['\n', '|']));
                             }
                         }
                     }

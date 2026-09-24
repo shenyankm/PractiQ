@@ -1296,6 +1296,7 @@ fn exam_redacts_answer_headings_in_parent_materials() {
     for attempt in list(&exam, "attempts") {
         let materials = &attempt["snapshot"]["materials"];
         assert!(!materials.to_string().contains("SECRET"));
+        assert_eq!(materials[0]["instructions"], "Read the passage");
         assert!(materials
             .to_string()
             .contains("Shared article: seasons change."));
