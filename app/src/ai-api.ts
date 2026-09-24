@@ -25,7 +25,16 @@ export type Task = {
   usage: { inputTokens: number | null; outputTokens: number | null }[];
   unknownUsageCalls: string[];
 };
+export type ImportOperation = { checkpointId: string | null; state: "importing" | "failed"; error?: unknown };
+export type ImportTaskContext = {
+  threadId: string;
+  onState: (state: "importing" | "failed", error?: unknown) => void;
+  onImported: (bankId: string) => void;
+};
 export type Summary = {
+  createdAt: string;
+  expiresAt: string;
+  checkpointId: string | null;
   threadId: string;
   fileName: string;
   state: string;
@@ -60,6 +69,7 @@ export type Batch = {
   id: string;
   status: "ready" | "running" | "paused" | "completed";
   items: {
+    checkpointId: string;
     threadId: string;
     title: string;
     questionCount: number;

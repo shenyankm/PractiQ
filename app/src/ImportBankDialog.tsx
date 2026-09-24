@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { api, type BankChoice, type Preview } from "./api";
 import { message, t } from "./i18n";
 import { toast } from "./notifications";
@@ -9,15 +9,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-export function ImportBankDialog({ preview, banks, initialBank, busy, run, onClose, onImported }: {
+export function ImportBankDialog({ preview, banks, initialBank, busy, run, onClose, onImported, onState }: {
   preview: Preview;
   banks: BankChoice[];
   initialBank: string;
   busy: boolean;
   run: (job: () => Promise<void>) => void;
+  onState?: (state: "importing" | "failed", error?: unknown) => void;
   onClose: () => void;
   onImported: (bankId: string) => Promise<void>;
 }) {
+  const submitting = useRef(false);
   const [title, setTitle] = useState(preview.title);
   const [bank, setBank] = useState(initialBank);
   return (
@@ -51,7 +53,14 @@ export function ImportBankDialog({ preview, banks, initialBank, busy, run, onClo
         <DialogFooter>
           <Button variant="outline" disabled={busy} onClick={onClose}>{t("取消")}</Button>
           <Button disabled={busy || !title.trim()} onClick={() => run(async () => {
-            const result = await api({ type: "import", ticket: preview.ticket, bank_id: bank === "new" ? null : bank, title });
+            if (submitting.current) return;
+            submitting.current = true;
+            onState?.("importing");
+            let result;
+            try {
+              result = await api({ type: "import", ticket: preview.ticket, bank_id: bank === "new" ? null : bank, title });
+            } catch (error) { onState?.("failed", error); throw error; }
+            finally { submitting.current = false; }
             onClose();
             await onImported(result.bankId);
             toast.success(result.duplicate ? message("此题库已导入相同内容，本次已跳过") : message("已导入 {0} 道题目", { 0: result.count }));

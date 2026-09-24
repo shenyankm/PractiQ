@@ -1,14 +1,16 @@
 import { list, t, useI18n } from "./i18n";
+import type { ImportTaskContext } from "./ai-api";
 import { AiTasks } from "./AiTasks";
 import { useEffect, useState } from "react";
 import { api, errorMessage, missingModelSettings, type Preview, type SettingsResult } from "./api";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
-export function ImportPage({ busy, run, onPreview, onConfigure }: {
+export function ImportPage({ busy, run, onPreview, onConfigure, onOpenBank }: {
   busy: boolean;
   run: (job: () => Promise<void>) => void;
-  onPreview: (preview: Preview) => void;
+  onPreview: (preview: Preview, context: ImportTaskContext) => void;
+  onOpenBank: (bankId: string) => void;
   onConfigure: () => void;
 }) {
   useI18n();
@@ -25,13 +27,12 @@ export function ImportPage({ busy, run, onPreview, onConfigure }: {
   }, [revision]);
   const missing = settings ? missingModelSettings(settings) : [];
   const ready = !!settings && !missing.length;
-  return <div className="space-y-6">
-    <Card>
-      <CardHeader>
+  return <AiTasks busy={busy} run={run} onPreview={onPreview} modelsReady={ready} onOpenBank={onOpenBank}>
+      <CardHeader className="px-0">
         <CardTitle>{t("从文档创建题库")}</CardTitle>
         <CardDescription>{t("支持 PDF（.pdf）、文本（.txt）、表格文本（.csv），以及图片（.png、.jpg、.jpeg）。单个文件最大 25 MiB。")}</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-5">
+      <div className="space-y-5">
         <details className="text-sm text-muted-foreground">
           <summary className="cursor-pointer">{t("暂不支持 Word 文件，请先导出为 PDF")}</summary>
           <p className="mt-2 leading-relaxed">{t("Word（.doc、.docx）的排版可能随字体和软件变化。请在 Word 或 WPS 中选择“导出为 PDF”或“另存为 PDF”，以保留题目、公式和图片的位置。")}</p>
@@ -39,9 +40,7 @@ export function ImportPage({ busy, run, onPreview, onConfigure }: {
         {error ? <div role="alert" className="space-y-2"><p>{errorMessage(error)}</p><Button variant="outline" disabled={busy} onClick={() => setRevision(n => n + 1)}>{t("重试读取配置")}</Button></div>
           : !settings ? <p role="status">{t("正在读取模型配置…")}</p>
           : !ready ? <div className="flex items-center justify-between gap-4 rounded-lg border bg-muted/30 p-4"><div><p className="font-medium">{t("先配置 AI 模型")}</p><p className="mt-1 text-sm text-muted-foreground">{t("还缺：{0}。题库 ZIP 请到设置中的“恢复备份”导入。", { 0: list(missing) })}</p></div><Button disabled={busy} onClick={onConfigure}>{t("配置 AI 模型")}</Button></div>
-          : <p className="text-sm text-muted-foreground">{t("模型 ID：{0}", { 0: settings.config.model_id })}</p>}
-        <AiTasks busy={busy} run={run} onPreview={onPreview} modelsReady={ready} />
-      </CardContent>
-    </Card>
-  </div>;
+          : null}
+      </div>
+  </AiTasks>;
 }

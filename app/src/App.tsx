@@ -1,3 +1,4 @@
+import type { ImportTaskContext } from "./ai-api";
 import { date, duration, message, renderMessage, type Message, t, useI18n } from "./i18n";
 import { useTheme } from "./theme";
 import logo from "../src-tauri/icons/icon.png";
@@ -134,7 +135,7 @@ export default function App() {
   const [mode, setMode] = useState("");
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [importPreview, setImportPreview] = useState<{ preview: Preview; initialBank: string } | null>(null);
+  const [importPreview, setImportPreview] = useState<{ preview: Preview; initialBank: string; task?: ImportTaskContext } | null>(null);
   const [bankEditor, setBankEditor] = useState<{
     id: string | null;
     title: string;
@@ -722,7 +723,7 @@ export default function App() {
               flushRef={flushRef}
             />
           )}
-          {page === "import" && <ImportPage busy={busy} run={run} onPreview={p=>setImportPreview({ preview: p, initialBank: bank || "new" })} onConfigure={() => { setSettingsReturn({ bank }); navigate("model-settings"); }} />}
+          {page === "import" && <ImportPage busy={busy} run={run} onPreview={(p, task)=>setImportPreview({ preview: p, initialBank: bank || "new", task })} onOpenBank={id => navigate("questions", id)} onConfigure={() => { setSettingsReturn({ bank }); navigate("model-settings"); }} />}
           {page === "model-settings" && (
             <div className="max-w-3xl space-y-6">
               <ConnectionSettingsPanel
@@ -799,9 +800,12 @@ export default function App() {
         initialBank={importPreview.initialBank}
         busy={busy}
         run={run}
+        onState={importPreview.task?.onState}
         onClose={() => setImportPreview(null)}
         onImported={async bankId => {
+          importPreview.task?.onImported(bankId);
           await reloadBanks();
+          if (importPreview.task) return;
           setBank(bankId);
           setSearch("");
           setMode("");

@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from "vitest";
 import {
+  act,
   cleanup,
+  fireEvent,
   render,
   screen,
   waitFor,
@@ -11,6 +13,7 @@ import userEvent from "@testing-library/user-event";
 import { invoke } from "@tauri-apps/api/core";
 import { api } from "./api";
 import App from "./App";
+import { ImportBankDialog } from "./ImportBankDialog";
 import { toast } from "./notifications";
 import fixture from "../fixtures/sample.json";
 
@@ -59,7 +62,7 @@ it("loads native pages and clamps the page after deleting the last item", async 
   const dialog=await screen.findByRole("alertdialog");
   await userEvent.click(within(dialog).getByRole("button",{name:"确认"}));
   expect(await screen.findByText("Page question 0")).toBeTruthy();
-  expect(screen.getByRole("button",{name:"上一页"}).hasAttribute("disabled")).toBe(true);
+  expect(screen.queryByRole("button",{name:"上一页"})).toBeNull();
   expect(api).toHaveBeenCalledWith(expect.objectContaining({type:"questions_page",limit:30,offset:30}));
 }, 30000);
 
@@ -391,4 +394,62 @@ it("handles ZIP picker cancellation and package/export errors without importing"
   expect(screen.queryByRole("dialog")).toBeNull();
   expect(vi.mocked(api).mock.calls.some(([r])=>r.type==="import")).toBe(false);
   notified.mockRestore();
+});
+
+it("keeps a confirmed document import in the task list and opens its bank only on request", async () => {
+  let imported = false;
+  vi.mocked(api).mockImplementation(async r => {
+    if (r.type === "banks") return imported ? [{id:"bank", title:"Parsed", description:"", count:2}] as never : [] as never;
+    if (r.type === "banks_page") return {items:[], total:0, offset:0} as never;
+    if (r.type === "unfinished_session") return null as never;
+    if (r.type === "info") return {version:"test", dataDirectory:"/tmp/test"} as never;
+    if (r.type === "settings") return {config:{base_url:"https://example.com", model_id:"model"}, hasApiKey:true} as never;
+    if (r.type === "import") {imported = true; return {bankId:"bank", count:2, duplicate:false} as never;}
+    if (r.type === "questions_page") return {items:[], total:0, offset:0} as never;
+    throw Error(r.type);
+  });
+  vi.mocked(invoke).mockImplementation(async (_command,args) => {
+    const r = (args as {request:{type:string}}).request;
+    if (r.type === "list") return {items:[{threadId:"task", fileName:"source.txt", state:"COMPLETED", checkpointId:"cp", createdAt:"2026-09-24T00:00:00Z", questionCount:2, reviewCount:0, importedBankId:imported ? "bank" : null}], hasMore:false} as never;
+    if (r.type === "get") return {threadId:"task", state:"COMPLETED", checkpointId:"cp", phase:"completed", progress:{}, allowedActions:[], blocking:[], failures:[], usage:[], unknownUsageCalls:[]} as never;
+    if (r.type === "preview") return {ticket:"ticket",title:"Parsed",count:2,reviewCount:0,assetCount:0,missingAssets:[],warnings:[],status:"SUCCEEDED"} as never;
+    return [] as never;
+  });
+  render(<App/>);
+  await userEvent.click(await screen.findByRole("button", {name:"导入题库"}));
+  const tasks = await screen.findByRole("region", {name:"导入任务"});
+  expect(screen.getByText("从文档创建题库").closest('[data-slot="card"]')?.contains(tasks)).toBe(false);
+  await userEvent.click(await screen.findByRole("button", {name:"source.txt"}));
+  await userEvent.click(await screen.findByRole("button", {name:"预览并导入题库"}));
+  await userEvent.click(within(await screen.findByRole("dialog", {name:"导入题库"})).getByRole("button", {name:"确认导入"}));
+  await waitFor(() => expect(screen.queryByRole("dialog", {name:"导入题库"})).toBeNull());
+  expect(screen.getByRole("dialog", {name:"source.txt"})).toBeTruthy();
+  expect(screen.getByRole("heading", {name:"已导入"})).toBeTruthy();
+  expect(vi.mocked(api).mock.calls.filter(([r]) => r.type === "import")).toHaveLength(1);
+  expect(vi.mocked(api).mock.calls.some(([r]) => r.type === "questions_page")).toBe(false);
+  await userEvent.click(screen.getByRole("button", {name:"查看题库"}));
+  await waitFor(() => expect(api).toHaveBeenCalledWith(expect.objectContaining({type:"questions_page",bank_id:"bank"})));
+});
+
+
+it("reports a failed local import and blocks duplicate submission until retry", async () => {
+  let rejectImport: (error: Error) => void = () => {};
+  const errors: unknown[] = [];
+  const onState = vi.fn(), onImported = vi.fn(), onClose = vi.fn();
+  vi.mocked(api).mockImplementation(() => new Promise((_resolve, reject) => {rejectImport = reject;}) as never);
+  render(<ImportBankDialog preview={{processing:null,ticket:"ticket",title:"Parsed",count:1,reviewCount:0,assetCount:0,missingAssets:[],warnings:[],status:"SUCCEEDED"}} banks={[]} initialBank="new" busy={false} run={job => {void job().catch(error => errors.push(error));}} onClose={onClose} onImported={onImported} onState={onState}/>);
+  const submit = screen.getByRole("button",{name:"确认导入"});
+  await act(async () => {fireEvent.click(submit); fireEvent.click(submit);});
+  expect(api).toHaveBeenCalledTimes(1);
+  expect(onState).toHaveBeenCalledWith("importing");
+  const failure = new Error("disk full");
+  await act(async () => {rejectImport(failure);});
+  expect(onState).toHaveBeenLastCalledWith("failed", failure);
+  expect(onClose).not.toHaveBeenCalled();
+  expect(onImported).not.toHaveBeenCalled();
+  expect(errors).toEqual([failure]);
+  vi.mocked(api).mockResolvedValue({bankId:"bank",count:1,duplicate:false} as never);
+  await act(async () => {fireEvent.click(submit);});
+  expect(api).toHaveBeenCalledTimes(2);
+  expect(onImported).toHaveBeenCalledWith("bank");
 });
