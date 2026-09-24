@@ -166,8 +166,15 @@ impl Store {
         let end = q["audioEndSeconds"].as_f64().unwrap_or(86400.0);
         let limit = q["examPlayCount"].as_u64().unwrap_or(2);
         let restricted = kind != "practice" && submitted.is_none();
-        let (mut used,mut pos,mut active,updated):(u64,f64,bool,i64)=tx.query_row("SELECT used,position,active,updated_at FROM listening_playback WHERE session_id=?1 AND question_id=?2",params![sid,qid],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?))).optional().map_err(err)?.unwrap_or((0,start,false,now()));
+        // updated_at stores this play's unpaused segment start; zero means paused.
+        let (mut used, mut pos, mut active, mut active_since, mut active_elapsed_ms):
+            (u64, f64, bool, i64, i64) = tx.query_row(
+                "SELECT used,position,active,updated_at,active_elapsed_ms FROM listening_playback WHERE session_id=?1 AND question_id=?2",
+                params![sid,qid],
+                |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?)),
+            ).optional().map_err(err)?.unwrap_or((0,start,false,0,0));
         if !matches!(action, PlaybackAction::State) {
+            let at = now();
             if submitted.is_some() || finished.is_some() {
                 return Err("Session playback is locked; use review playback".into());
             }
@@ -185,6 +192,14 @@ impl Store {
                         used += 1;
                         pos = start;
                         active = true;
+                        active_since = at;
+                        active_elapsed_ms = 0;
+                    } else if active_since == 0 {
+                        active_since = at;
+                    } else {
+                        // Reopening an active play must not count time spent outside the player.
+                        active_elapsed_ms = ((pos - start - 2.0).max(0.0) * 1000.0).ceil() as i64;
+                        active_since = at;
                     }
                 }
                 PlaybackAction::Progress | PlaybackAction::Pause | PlaybackAction::End => {
@@ -194,21 +209,32 @@ impl Store {
                     if !active {
                         return Err("Listening playback has not started".into());
                     }
-                    // Allow IPC timing jitter, but never an arbitrary forward/backward seek in an exam.
-                    if restricted
-                        && (next + 0.25 < pos
-                            || next - pos > ((now() - updated).max(0) as f64 / 1000.0 + 2.0))
-                    {
-                        return Err("Seeking is disabled in exams".into());
-                    }
-                    pos = next;
-                    if matches!(action, PlaybackAction::End) {
-                        active = false;
+                    if active_since == 0 {
+                        if !matches!(action, PlaybackAction::Pause) {
+                            return Err("Listening playback is paused".into());
+                        }
+                    } else {
+                        // The two-second IPC allowance applies once per play, even across pauses.
+                        let elapsed =
+                            active_elapsed_ms.saturating_add(at.saturating_sub(active_since));
+                        if restricted
+                            && (next + 0.25 < pos || next - start > elapsed as f64 / 1000.0 + 2.0)
+                        {
+                            return Err("Seeking is disabled in exams".into());
+                        }
+                        pos = if restricted { pos.max(next) } else { next };
+                        if matches!(action, PlaybackAction::Pause) {
+                            active_elapsed_ms = elapsed;
+                            active_since = 0;
+                        } else if matches!(action, PlaybackAction::End) {
+                            active = false;
+                            active_since = 0;
+                        }
                     }
                 }
                 PlaybackAction::State => {}
             }
-            tx.execute("INSERT INTO listening_playback VALUES(?1,?2,?3,?4,?5,?6) ON CONFLICT(session_id,question_id) DO UPDATE SET used=excluded.used,position=excluded.position,active=excluded.active,updated_at=excluded.updated_at",params![sid,qid,used,pos,active,now()]).map_err(err)?;
+            tx.execute("INSERT INTO listening_playback(session_id,question_id,used,position,active,updated_at,active_elapsed_ms) VALUES(?1,?2,?3,?4,?5,?6,?7) ON CONFLICT(session_id,question_id) DO UPDATE SET used=excluded.used,position=excluded.position,active=excluded.active,updated_at=excluded.updated_at,active_elapsed_ms=excluded.active_elapsed_ms",params![sid,qid,used,pos,active,active_since,active_elapsed_ms]).map_err(err)?;
         }
         tx.commit().map_err(err)?;
         Ok(
@@ -320,7 +346,7 @@ mod tests {
     fn unsubmitted_writing_hides_answer_lines_in_question_text() {
         let mut session = json!({"kind":"practice","submittedAt":null,"finishedAt":null,"attempts":[{
             "submittedAt":null,
-            "snapshot":{"question":{"questionKind":"writing","stem":"Write a letter\nReference answer: SECRET","instructions":"Use 100 words\n参考答案：SECRET","contentBlocks":[],"passage":[]},"materials":[],"visuals":[]}
+            "snapshot":{"question":{"questionKind":"writing","stem":"Write a letter\nReference answer:\nSECRET","instructions":"Use 100 words | 参考答案： | SECRET","contentBlocks":[],"passage":[]},"materials":[],"visuals":[]}
         }]});
         redact_session(&mut session);
         let question = &session["attempts"][0]["snapshot"]["question"];
@@ -460,6 +486,77 @@ mod tests {
         assert!(store
             .listening_playback(sid, &root, PlaybackAction::Start, None)
             .is_err());
+    }
+    #[test]
+    fn exam_progress_cannot_accumulate_seek_allowance_across_updates_or_pauses() {
+        let (_dir, store, bank) = english();
+        let roots = store.questions(Some(&bank), "", "listening", "").unwrap();
+        let root = text(&roots[0], "id").to_owned();
+        let selected =
+            crate::paper::selected_rows(&store.question_rows().unwrap(), &[root.clone()]).unwrap();
+        let session = store
+            .start_paper(crate::exams::Paper {
+                question_ids: vec![root.clone()],
+                kind: "self_test".into(),
+                minutes: None,
+                scores: vec![100, 100],
+                total_cents: 200,
+                digest: crate::paper::digest(&selected).unwrap(),
+            })
+            .unwrap();
+        let sid = text(&session, "id");
+        store
+            .listening_playback(sid, &root, PlaybackAction::Start, None)
+            .unwrap();
+        store
+            .listening_playback(sid, &root, PlaybackAction::Progress, Some(1.8))
+            .unwrap();
+        store
+            .listening_playback(sid, &root, PlaybackAction::Progress, Some(1.56))
+            .unwrap();
+        assert!(store
+            .listening_playback(sid, &root, PlaybackAction::Progress, Some(1.32))
+            .is_err());
+        assert!(store
+            .listening_playback(sid, &root, PlaybackAction::Progress, Some(2.8))
+            .is_err());
+        store.connect().unwrap().execute(
+            "UPDATE listening_playback SET updated_at=updated_at-60000 WHERE session_id=?1 AND question_id=?2",
+            params![sid,root],
+        ).unwrap();
+        assert_eq!(
+            store
+                .listening_playback(sid, &root, PlaybackAction::Start, None)
+                .unwrap()["used"],
+            1
+        );
+        assert!(store
+            .listening_playback(sid, &root, PlaybackAction::Progress, Some(2.8))
+            .is_err());
+        store
+            .listening_playback(sid, &root, PlaybackAction::Pause, Some(1.8))
+            .unwrap();
+        assert!(store
+            .listening_playback(sid, &root, PlaybackAction::Progress, Some(2.8))
+            .is_err());
+        let resumed = store
+            .listening_playback(sid, &root, PlaybackAction::Start, None)
+            .unwrap();
+        assert_eq!(resumed["used"], 1);
+        assert_eq!(resumed["position"], 1.8);
+        assert!(store
+            .listening_playback(sid, &root, PlaybackAction::Progress, Some(2.8))
+            .is_err());
+
+        rusqlite::Connection::open(store.db_path())
+            .unwrap()
+            .execute_batch("ALTER TABLE listening_playback DROP COLUMN active_elapsed_ms;")
+            .unwrap();
+        let restarted = store
+            .listening_playback(sid, &root, PlaybackAction::State, None)
+            .unwrap();
+        assert_eq!(restarted["used"], 0);
+        assert_eq!(restarted["active"], false);
     }
     #[test]
     fn english_roundtrip_redaction_playback_and_immutable_history() {

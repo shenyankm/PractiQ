@@ -147,16 +147,30 @@ impl Store {
             db.execute_batch(include_str!("schema.sql")).map_err(err)?;
         } else if version != 10 {
             return Err("Only database schema 10 is supported; legacy data remains in its original directory".into());
-        } else if !db
-            .query_row(
-                "SELECT EXISTS(SELECT 1 FROM pragma_table_info('visuals') WHERE name='document_level')",
-                [],
-                |r| r.get::<_, bool>(0),
-            )
-            .map_err(err)?
-        {
-            db.execute_batch("ALTER TABLE visuals ADD COLUMN document_level INTEGER NOT NULL DEFAULT 0 CHECK(document_level IN(0,1));")
-                .map_err(err)?;
+        } else {
+            if !db
+                .query_row(
+                    "SELECT EXISTS(SELECT 1 FROM pragma_table_info('visuals') WHERE name='document_level')",
+                    [],
+                    |r| r.get::<_, bool>(0),
+                )
+                .map_err(err)?
+            {
+                db.execute_batch("ALTER TABLE visuals ADD COLUMN document_level INTEGER NOT NULL DEFAULT 0 CHECK(document_level IN(0,1));")
+                    .map_err(err)?;
+            }
+            if !db
+                .query_row(
+                    "SELECT EXISTS(SELECT 1 FROM pragma_table_info('listening_playback') WHERE name='active_elapsed_ms')",
+                    [],
+                    |r| r.get::<_, bool>(0),
+                )
+                .map_err(err)?
+            {
+                // Earlier rows tracked the last update, so restart unfinished plays with their allowance intact.
+                db.execute_batch("BEGIN IMMEDIATE; ALTER TABLE listening_playback ADD COLUMN active_elapsed_ms INTEGER NOT NULL DEFAULT 0 CHECK(active_elapsed_ms>=0); UPDATE listening_playback SET used=MAX(used-1,0),position=0,active=0,updated_at=0 WHERE active=1; COMMIT;")
+                    .map_err(err)?;
+            }
         }
         Ok(db)
     }

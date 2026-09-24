@@ -1269,8 +1269,8 @@ fn exam_redacts_answer_headings_in_parent_materials() {
         serde_json::from_slice(include_bytes!("../../fixtures/composite.json")).unwrap();
     raw["questions"][0]["stem"] = json!("答案: SECRET");
     raw["questions"][0]["instructions"] = json!("Read the passage\n参考答案：SECRET");
-    raw["questions"][1]["stem"] = json!("Choose one\nReference answer: SECRET");
-    raw["questions"][1]["instructions"] = json!("Read the options\n答案解析：SECRET");
+    raw["questions"][1]["stem"] = json!("Choose one\nReference answer:\nSECRET");
+    raw["questions"][1]["instructions"] = json!("Read the options | 答案解析： | SECRET");
     raw["questions"][3]["instructions"] = json!("答案解析：SECRET");
     let preview = store
         .preview(serde_json::to_vec(&raw).unwrap(), "Composite".into())

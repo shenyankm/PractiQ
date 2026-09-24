@@ -385,9 +385,9 @@ pub(crate) fn strip_answer_lines(q: &mut Value) {
         if answer_text(text(q, key)) {
             let safe = text(q, key)
                 .split_inclusive(['\n', '|'])
-                .filter(|part| !answer_text(part))
+                .take_while(|part| !answer_text(part))
                 .collect::<String>();
-            q[key] = json!(safe.trim_matches(['\n', '|']));
+            q[key] = json!(safe.trim_matches(['\n', '|']).trim_end());
         }
     }
 }
