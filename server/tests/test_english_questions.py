@@ -57,6 +57,17 @@ def test_missing_audio_is_reviewable_without_fake_passage():
     assert result.questions[0].needsReview
 
 
+@pytest.mark.parametrize('content', [
+    {'instructions': 'Listen twice'},
+    {'audioRef': {'objectKey': 'audio/example.wav', 'sha256': 'a' * 64, 'mediaType': 'audio/wav', 'sizeBytes': 1}},
+    {'transcript': [{'partType': 'text', 'textValue': 'Spoken directions'}]},
+])
+def test_listening_only_content_identifies_reviewable_parent(content):
+    parent = ParsedQuestion.model_validate({'answerMode': 'listening', **content})
+    assert parent.needsReview
+    assert 'stem' in parent.missingFields
+
+
 def test_listening_continuation_preserves_transcript_and_rejects_metadata_conflict():
     def fragments():
         return [ParsedQuestion(id='page:0:audio', stem='Listen', answerMode='listening', instructions='Listen twice', transcript=[ContentBlock(partType='text', textValue=text)]) for text in ['First turn', 'Second turn']]

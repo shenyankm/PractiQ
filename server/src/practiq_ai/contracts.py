@@ -442,7 +442,7 @@ class ParsedQuestion(StrictModel):
         self.missingFields = question_missing_fields(self.model_dump())
         if self.missingFields:
             self.needsReview = True
-        if not any((self.stem, self.sourceText, self.options, self.items, self.contentBlocks, self.passage, self.answerPayload, self.analysis)):
+        if not any((self.stem, self.instructions, self.audioRef, self.transcript, self.sourceText, self.options, self.items, self.contentBlocks, self.passage, self.answerPayload, self.analysis)):
             raise ValueError("An empty object is not an identifiable question")
         return self
 

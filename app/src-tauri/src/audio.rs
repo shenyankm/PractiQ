@@ -283,6 +283,7 @@ pub fn redact_session(session: &mut Value) {
     }
 }
 fn strip_answers(q: &mut Value) {
+    crate::exams::strip_answer_lines(q);
     for k in [
         "answerPayload",
         "analysis",
@@ -314,6 +315,81 @@ mod tests {
             .import(text(&preview, "ticket"), None, "English")
             .unwrap();
         (dir, store, text(&bank, "bankId").into())
+    }
+    #[test]
+    fn unsubmitted_writing_hides_answer_lines_in_question_text() {
+        let mut session = json!({"kind":"practice","submittedAt":null,"finishedAt":null,"attempts":[{
+            "submittedAt":null,
+            "snapshot":{"question":{"questionKind":"writing","stem":"Write a letter\nReference answer: SECRET","instructions":"Use 100 words\n参考答案：SECRET","contentBlocks":[],"passage":[]},"materials":[],"visuals":[]}
+        }]});
+        redact_session(&mut session);
+        let question = &session["attempts"][0]["snapshot"]["question"];
+        assert_eq!(question["stem"], "Write a letter");
+        assert_eq!(question["instructions"], "Use 100 words");
+        assert!(!question.to_string().contains("SECRET"));
+    }
+    #[test]
+    fn question_save_collects_replaced_audio_and_failed_persistence() {
+        let (dir, mut store, bank) = english();
+        let roots = store.questions(Some(&bank), "", "listening", "").unwrap();
+        let root = text(&roots[0], "id").to_owned();
+        let old_hash = text(&roots[0]["question"]["audioRef"], "sha256").to_owned();
+        let selected =
+            crate::paper::selected_rows(&store.question_rows().unwrap(), &[root.clone()]).unwrap();
+        let mut tree: Vec<_> = selected.iter().map(|row| row["question"].clone()).collect();
+        let mut audio = include_bytes!("../../fixtures/resources/audio/chimes.wav").to_vec();
+        *audio.last_mut().unwrap() ^= 1;
+        let file = dir.path().join("replacement.wav");
+        std::fs::write(&file, &audio).unwrap();
+        let replacement = store.stage_audio(&file).unwrap();
+        let replacement_hash = text(&replacement["reference"], "sha256").to_owned();
+        tree[0]["audioRef"] = replacement["reference"].clone();
+        store
+            .save_question_tree(&bank, Some(&root), tree.clone())
+            .unwrap();
+        assert!(!store.asset_path(&old_hash).unwrap().exists());
+        assert!(store.asset_path(&replacement_hash).unwrap().exists());
+
+        let selected =
+            crate::paper::selected_rows(&store.question_rows().unwrap(), &[root.clone()]).unwrap();
+        store
+            .start_paper(crate::exams::Paper {
+                question_ids: vec![root.clone()],
+                kind: "practice".into(),
+                minutes: None,
+                scores: vec![],
+                total_cents: 0,
+                digest: crate::paper::digest(&selected).unwrap(),
+            })
+            .unwrap();
+        tree[0]["audioRef"] = Value::Null;
+        store
+            .save_question_tree(&bank, Some(&root), tree.clone())
+            .unwrap();
+        assert!(store.asset_path(&replacement_hash).unwrap().exists());
+
+        *audio.last_mut().unwrap() ^= 3;
+        std::fs::write(&file, &audio).unwrap();
+        let failed = store.stage_audio(&file).unwrap();
+        let failed_hash = text(&failed["reference"], "sha256").to_owned();
+        tree[0]["audioRef"] = failed["reference"].clone();
+        tree[0]["id"] = json!("missing-root");
+        for child in tree.iter_mut().skip(1) {
+            child["parentId"] = json!("missing-root");
+        }
+        assert!(store
+            .save_question_tree(&bank, Some("missing-root"), tree)
+            .is_err());
+        assert!(!store.asset_path(&failed_hash).unwrap().exists());
+        assert!(!store
+            .connect()
+            .unwrap()
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM assets WHERE hash=?1)",
+                [&failed_hash],
+                |row| row.get::<_, bool>(0)
+            )
+            .unwrap());
     }
     #[test]
     fn audio_selection_is_staged_and_checks_real_format() {

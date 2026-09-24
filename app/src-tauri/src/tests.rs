@@ -1269,6 +1269,8 @@ fn exam_redacts_answer_headings_in_parent_materials() {
         serde_json::from_slice(include_bytes!("../../fixtures/composite.json")).unwrap();
     raw["questions"][0]["stem"] = json!("答案: SECRET");
     raw["questions"][0]["instructions"] = json!("Read the passage\n参考答案：SECRET");
+    raw["questions"][1]["stem"] = json!("Choose one\nReference answer: SECRET");
+    raw["questions"][1]["instructions"] = json!("Read the options\n答案解析：SECRET");
     raw["questions"][3]["instructions"] = json!("答案解析：SECRET");
     let preview = store
         .preview(serde_json::to_vec(&raw).unwrap(), "Composite".into())
@@ -1296,13 +1298,27 @@ fn exam_redacts_answer_headings_in_parent_materials() {
     for attempt in list(&exam, "attempts") {
         let materials = &attempt["snapshot"]["materials"];
         assert!(!materials.to_string().contains("SECRET"));
+        assert!(!attempt["snapshot"]["question"]
+            .to_string()
+            .contains("SECRET"));
         assert_eq!(materials[0]["instructions"], "Read the passage");
         assert!(materials
             .to_string()
             .contains("Shared article: seasons change."));
     }
+    assert_eq!(
+        exam["attempts"][0]["snapshot"]["question"]["stem"],
+        "Choose one"
+    );
+    assert_eq!(
+        exam["attempts"][0]["snapshot"]["question"]["instructions"],
+        "Read the options"
+    );
     let submitted = store.submit_paper(text(&exam, "id"), false).unwrap();
     assert!(submitted["attempts"][0]["snapshot"]["materials"]
+        .to_string()
+        .contains("SECRET"));
+    assert!(submitted["attempts"][0]["snapshot"]["question"]
         .to_string()
         .contains("SECRET"));
 }

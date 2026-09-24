@@ -228,6 +228,7 @@ impl Store {
             if kind != "practice" && submitted.is_none() {
                 let q = &mut a["snapshot"]["question"];
                 a_blank_count(q);
+                strip_answer_lines(q);
                 if let Some(groups) = a["snapshot"]["groups"].as_array_mut() {
                     groups.retain(|g| {
                         !answer_text(text(g, "title")) && !answer_text(text(g, "instructions"))
@@ -235,15 +236,7 @@ impl Store {
                 }
                 if let Some(materials) = a["snapshot"]["materials"].as_array_mut() {
                     for material in materials {
-                        for key in ["stem", "instructions"] {
-                            if answer_text(text(material, key)) {
-                                let safe = text(material, key)
-                                    .split_inclusive(['\n', '|'])
-                                    .filter(|part| !answer_text(part))
-                                    .collect::<String>();
-                                material[key] = json!(safe.trim_matches(['\n', '|']));
-                            }
-                        }
+                        strip_answer_lines(material);
                     }
                 }
                 if let Some(visuals) = a["snapshot"]["visuals"].as_array_mut() {
@@ -387,6 +380,18 @@ fn a_blank_count(q: &mut Value) {
 }
 
 // ponytail: explicit labels in legacy free text; typed roles are preferable for future content contracts.
+pub(crate) fn strip_answer_lines(q: &mut Value) {
+    for key in ["stem", "instructions"] {
+        if answer_text(text(q, key)) {
+            let safe = text(q, key)
+                .split_inclusive(['\n', '|'])
+                .filter(|part| !answer_text(part))
+                .collect::<String>();
+            q[key] = json!(safe.trim_matches(['\n', '|']));
+        }
+    }
+}
+
 fn answer_text(value: &str) -> bool {
     value.to_lowercase().split(['\n', '|']).any(|line| {
         let label = line

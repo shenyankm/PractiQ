@@ -833,6 +833,19 @@ impl Store {
         &self,
         bank: &str,
         root: Option<&str>,
+        tree: Vec<Value>,
+    ) -> Result<Value> {
+        let result = self.save_question_tree_inner(bank, root, tree);
+        if let Err(error) = self.collect_unused_assets() {
+            eprintln!("Asset cleanup deferred after question save: {error}");
+        }
+        result
+    }
+
+    fn save_question_tree_inner(
+        &self,
+        bank: &str,
+        root: Option<&str>,
         mut tree: Vec<Value>,
     ) -> Result<Value> {
         if tree.is_empty() || tree.len() > 1000 {
