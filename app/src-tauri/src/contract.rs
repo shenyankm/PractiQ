@@ -174,7 +174,11 @@ pub fn validate_question(q: &mut Value) -> Result<()> {
             ));
         }
     }
-    for block in list(q, "contentBlocks").iter().chain(list(q, "passage")) {
+    for block in list(q, "contentBlocks")
+        .iter()
+        .chain(list(q, "passage"))
+        .chain(list(q, "transcript"))
+    {
         if text(block, "partType") != "blank"
             && !["textValue", "markdownValue", "latexValue"]
                 .iter()
@@ -272,7 +276,11 @@ pub fn validate_question(q: &mut Value) -> Result<()> {
     {
         return Err("blank references belong in passage".into());
     }
-    for block in list(q, "passage") {
+    for block in list(q, "contentBlocks")
+        .iter()
+        .chain(list(q, "passage"))
+        .chain(list(q, "transcript"))
+    {
         if (text(block, "partType") == "blank") != !text(block, "questionId").is_empty() {
             return Err("Invalid blank reference".into());
         }

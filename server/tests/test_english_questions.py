@@ -91,3 +91,8 @@ def test_listening_continuation_preserves_transcript_and_rejects_metadata_confli
     sources = [QuestionSource(questionIndex=i, stage='vision_parse', unitIndex=i) for i in range(2)]
     with pytest.raises(ValueError, match='metadata'):
         finalize_question_ids(qs, [], [], sources, DocumentQuality())
+    qs = fragments()
+    qs[0].audioEndSeconds = 1
+    qs[1].audioStartSeconds = 2
+    with pytest.raises(ValueError, match='audio end must be after start'):
+        finalize_question_ids(qs, [], [], sources, DocumentQuality())

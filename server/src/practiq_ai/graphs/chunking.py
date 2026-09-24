@@ -264,6 +264,7 @@ def finalize_question_ids(questions, groups, visuals, sources, quality):
                     setattr(target, field, value)
             target.needsReview |= question.needsReview
             target.missingFields = list(dict.fromkeys([*target.missingFields, *question.missingFields]))
+            ParsedQuestion.model_validate(target.model_dump())
             index_map[index] = prior
         else:
             index_map[index] = len(retained)

@@ -77,6 +77,16 @@ pub fn valid_media(bytes: &[u8], media: &str) -> bool {
         audio_info(bytes).is_ok_and(|(actual, _)| actual == media)
     }
 }
+pub(crate) fn validate_segment(q: &Value, duration: f64) -> Result<()> {
+    if q["audioStartSeconds"].as_f64().unwrap_or(0.0) >= duration
+        || q["audioEndSeconds"]
+            .as_f64()
+            .is_some_and(|end| end > duration + 0.05)
+    {
+        return Err("Audio segment exceeds file duration".into());
+    }
+    Ok(())
+}
 #[derive(Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PlaybackAction {
@@ -120,13 +130,7 @@ impl Store {
             }
             let (_, duration) = audio_info(&bytes)?;
             for q in tree.iter().filter(|q| q["audioRef"]["sha256"] == digest) {
-                if q["audioStartSeconds"].as_f64().unwrap_or(0.0) >= duration
-                    || q["audioEndSeconds"]
-                        .as_f64()
-                        .is_some_and(|end| end > duration + 0.05)
-                {
-                    return Err("Audio segment exceeds file duration".into());
-                }
+                validate_segment(q, duration)?;
             }
             self.write_asset(digest, &bytes)?;
             db.execute(

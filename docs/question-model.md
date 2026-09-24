@@ -115,7 +115,7 @@ erDiagram
 
 `questionKind` 为可空标准分类：listening、reading、word_bank、cloze、grammar_fill、sentence_selection、paragraph_matching、translation、writing。`questionTypeId` 保留原卷名称；`answerMode` 决定作答结构。分类与模式不匹配会被拒绝；筛选和配额按标准分类统计，缺分类时使用既有答题模式。
 
-- 听力使用 listening 父题，子题为 choice、fill_blank 或 short_answer；父题仅有说明、音频引用或听力原文时也可识别，缺题干仍标记待复核。音频不存在仍可导入，但标记 media 待复核。若音频引用存在而资源未取回，AI 预览会列出缺失音频，导入后继续标记资源缺失。`audioRef` 使用 objectKey、sha256、mediaType、sizeBytes，`audioStartSeconds` 默认 0，`audioEndSeconds` 可空，`transcript` 保存原卷听力文本，`examPlayCount` 默认 2、可设为 1–100。音频只通过本地选择器或题库 ZIP 提供，不从文档生成音频地址或转写。
+- 听力使用 listening 父题，子题为 choice、fill_blank 或 short_answer；父题仅有说明、音频引用或听力原文时也可识别，缺题干仍标记待复核。音频不存在仍可导入，但标记 media 待复核。若音频引用存在而资源未取回，AI 预览会列出缺失音频，导入后继续标记资源缺失。`audioRef` 使用 objectKey、sha256、mediaType、sizeBytes，`audioStartSeconds` 默认 0，`audioEndSeconds` 可空，`transcript` 保存原卷听力文本，`examPlayCount` 默认 2、可设为 1–100。分段合并后复核起止时间，ZIP 导入核对片段与实际音频时长；听力原文内容块须有内容且不得绑定题号。音频只通过本地选择器或题库 ZIP 提供，不从文档生成音频地址或转写。
 - 语法填空使用 gap_fill 父题，questionKind=grammar_fill，空位与 blankCount=1 的 fill_blank 子题一一对应。提示词保存在子题题干。
 - 七选五使用 word_bank 模式和 sentence_selection 分类；完整句子选项共享一次，不硬编码空位／选项数量。段落匹配使用 matching 模式和 paragraph_matching 分类，保留原卷的一对一或多对一规则。
 - 翻译和写作沿用 short_answer。sourceLanguage/targetLanguage 使用语言标签，例如 zh-CN、en；writingGenre 保存原卷文体；minWords/maxWords 缺失时为 null。原文、给定材料及续写开头使用 contentBlocks，role 分别为 source_text、material、starter_text。参考译文或范文仅存 answerPayload.text。

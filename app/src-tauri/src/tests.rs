@@ -1788,6 +1788,17 @@ fn listening_fields_identify_a_parent_without_a_stem() {
 }
 
 #[test]
+fn transcript_blocks_follow_shared_content_rules() {
+    for transcript in [
+        json!([{"partType":"text"}]),
+        json!([{"partType":"text","textValue":"Hello","questionId":"child"}]),
+    ] {
+        let mut q = json!({"stem":"Listen","answerMode":"listening","transcript":transcript});
+        assert!(contract::validate_question(&mut q).is_err());
+    }
+}
+
+#[test]
 fn search_keeps_literal_schema_words_in_content() {
     let (_dir, mut s) = store();
     let mut raw: Value = serde_json::from_slice(&sample()).unwrap();
