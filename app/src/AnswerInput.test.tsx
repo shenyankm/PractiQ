@@ -46,6 +46,20 @@ it("replaces a matching selection for one left item while preserving the others"
   expect(changed).toHaveBeenLastCalledWith({ matches: [{ left: 1, right: 0 }, { left: 0, right: 0 }] });
 });
 
+it("labels unlabeled paragraph choices by position instead of ID", async () => {
+  const question = { ...blankQuestion(), answerMode: "matching" as const, matchingVariant: "one_to_one" as const, questionKind: "paragraph_matching" as const, items: [
+    { id: 5, side: "left" as const, content: "Find this paragraph" },
+    { id: 6, side: "left" as const, content: "Find another paragraph" },
+    { id: 42, side: "right" as const, content: "First paragraph" },
+    { id: 88, side: "right" as const, content: "Second paragraph" },
+  ] };
+  render(<AnswerInput question={question} value={null} onChange={() => {}} />);
+  screen.getByRole("combobox", { name: "匹配 Find this paragraph" }).focus();
+  await userEvent.keyboard("{Enter}");
+  expect(screen.getByRole("option", { name: "1" })).toBeTruthy();
+  expect(screen.getByRole("option", { name: "2" })).toBeTruthy();
+});
+
 it("shows source answers and missing ordering or matching references clearly", () => {
   const question = { ...blankQuestion(), answerMode: "ordering" as const, choiceVariant: null, options: [], items: [{ id: 0, content: "第一项" }, { id: 1, content: "第二项" }] };
   const { rerender } = render(<AnswerDisplay answer={null} question={question} />);

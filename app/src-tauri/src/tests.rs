@@ -1263,6 +1263,50 @@ fn source_image_upload_limit_survives_import_and_backup() {
 }
 
 #[test]
+fn exam_redacts_answer_headings_in_parent_materials() {
+    let (_dir, mut store) = store();
+    let mut raw: Value =
+        serde_json::from_slice(include_bytes!("../../fixtures/composite.json")).unwrap();
+    raw["questions"][0]["stem"] = json!("答案: SECRET");
+    raw["questions"][0]["instructions"] = json!("Read the passage\n参考答案：SECRET");
+    raw["questions"][3]["instructions"] = json!("答案解析：SECRET");
+    let preview = store
+        .preview(serde_json::to_vec(&raw).unwrap(), "Composite".into())
+        .unwrap();
+    let bank = store
+        .import(text(&preview, "ticket"), None, "Composite")
+        .unwrap();
+    let roots = store
+        .questions(Some(text(&bank, "bankId")), "", "", "")
+        .unwrap();
+    let root = text(&roots[0], "id").to_owned();
+    let selected =
+        crate::paper::selected_rows(&store.question_rows().unwrap(), std::slice::from_ref(&root))
+            .unwrap();
+    let exam = store
+        .start_paper(crate::exams::Paper {
+            question_ids: vec![root],
+            kind: "self_test".into(),
+            minutes: None,
+            scores: vec![100; 6],
+            total_cents: 600,
+            digest: crate::paper::digest(&selected).unwrap(),
+        })
+        .unwrap();
+    for attempt in list(&exam, "attempts") {
+        let materials = &attempt["snapshot"]["materials"];
+        assert!(!materials.to_string().contains("SECRET"));
+        assert!(materials
+            .to_string()
+            .contains("Shared article: seasons change."));
+    }
+    let submitted = store.submit_paper(text(&exam, "id"), false).unwrap();
+    assert!(submitted["attempts"][0]["snapshot"]["materials"]
+        .to_string()
+        .contains("SECRET"));
+}
+
+#[test]
 fn exam_filters_answer_table_and_crop_then_restores_original_snapshot() {
     let (_dir, mut s) = store();
     let mut raw: Value = serde_json::from_slice(&sample()).unwrap();

@@ -27,4 +27,6 @@ Single-import progress and errors are transient UI state. After reopening the ap
 
 Active tasks on the current page refresh every two seconds even when the drawer is closed. Only the selected task loads detailed progress. Old responses are ignored after page changes, closing the drawer or unmounting. Transient reads retry at most three times; missing and expired task reads stop immediately.
 
+Batch selection applies to the current page. Selection clears on page changes and when a task becomes ineligible for import.
+
 Selecting a file still requires explicit confirmation before parsing. Reviewing saved results and importing do not call a model. Resume/retry calls require explicit user action. Confirmed imports stay on the task list; opening a bank is a separate action. Local batch recovery controls remain visible without model configuration.

@@ -27,6 +27,12 @@ it("opens material only on request and locates a gap without changing the draft"
   expect(screen.queryByRole("dialog")).toBeNull();
   await waitFor(()=>expect(document.activeElement).toBe(screen.getByRole("button",{name:"查看原文"})));
 });
+it("opens text-only parent instructions during practice",async()=>{
+  render(<Content materialDialog snapshot={{question:question("read-1"),materials:[{...question("read"),passage:[],contentBlocks:[],stem:"Parent heading",instructions:"Read this first"}],groups:[],visuals:[],sources:[],warnings:[],missingAssets:false}}/>);
+  await userEvent.click(screen.getByRole("button",{name:"查看原文"}));
+  expect(screen.getByText("Parent heading")).toBeTruthy();
+  expect(screen.getByText("Read this first")).toBeTruthy();
+});
 it("counts contractions and hyphenated words once, without disabling submission",()=>{
   expect(countEnglishWords("It's a well-known book.\nDon't re-read it! 2026")).toBe(8);
   render(<AnswerInput question={question("write")} value={{text:"It's a well-known book."}} onChange={()=>{}}/>);
@@ -88,6 +94,32 @@ it("saves listening edits and releases staged audio after closing the editor", a
   view.unmount();
   expect(mockApi).toHaveBeenCalledWith({ type: "release_audio", hash: reference.sha256 });
 }, 15000);
+
+it("releases replaced, removed, and late audio picks", async () => {
+  audioMocks();
+  const original = question("listen").audioRef!;
+  const references = ["a", "b", "c"].map(letter => ({...original,sha256:letter.repeat(64),objectKey:`audio/${letter.repeat(64)}`}));
+  let resolveLate: ((value:{reference:typeof original;duration:number})=>void)|undefined;
+  const late = new Promise<{reference:typeof original;duration:number}>(resolve=>{resolveLate=resolve;});
+  let picks=0;
+  mockApi.mockImplementation(async request=>{
+    if(request.type==="pick_audio") return (picks++ < 2 ? {reference:references[picks-1],duration:3} : await late) as never;
+    if(request.type==="asset") return new ArrayBuffer(2) as never;
+    return null as never;
+  });
+  const view=render(<QuestionEditor initial={{...question("listen"),audioRef:null}} busy={false} onClose={()=>{}} onSave={()=>{}}/>);
+  await userEvent.click(screen.getByRole("button",{name:"选择听力音频"}));
+  await screen.findByRole("button",{name:"移除音频"});
+  await userEvent.click(screen.getByRole("button",{name:"选择听力音频"}));
+  await waitFor(()=>expect(mockApi).toHaveBeenCalledWith({type:"release_audio",hash:references[0].sha256}));
+  await userEvent.click(screen.getByRole("button",{name:"移除音频"}));
+  await waitFor(()=>expect(mockApi).toHaveBeenCalledWith({type:"release_audio",hash:references[1].sha256}));
+  await userEvent.click(screen.getByRole("button",{name:"选择听力音频"}));
+  await waitFor(()=>expect(picks).toBe(3));
+  view.unmount();
+  resolveLate!({reference:references[2],duration:3});
+  await waitFor(()=>expect(mockApi).toHaveBeenCalledWith({type:"release_audio",hash:references[2].sha256}));
+});
 
 it("saves writing limits and materials while preserving continuation roles", async () => {
   const user = userEvent.setup();
@@ -171,6 +203,29 @@ it("does not consume a play when the browser cannot start audio",async()=>{
   await userEvent.click(screen.getByRole("button",{name:"播放听力"}));
   expect(screen.getByRole("alert")).toBeTruthy();expect(state.used).toBe(0);
   expect(mockApi.mock.calls.some(([r])=>r.type==="listening_playback" && r.action==="start")).toBe(false);
+});
+
+it("records playback completion after a pending native start",async()=>{
+  const {state}=audioMocks();
+  let resolveStart: ((value:typeof state)=>void)|undefined;
+  mockApi.mockImplementation(async request=>{
+    if(request.type==="asset")return new ArrayBuffer(2) as never;
+    if(request.type==="listening_playback"){
+      if(request.action==="start")return await new Promise<typeof state>(resolve=>{resolveStart=resolve;}) as never;
+      if(request.action==="end")state.active=false;
+      return {...state} as never;
+    }
+    return null as never;
+  });
+  const view=render(<ListeningPlayer question={question("listen")} session={session}/>);
+  await waitFor(()=>expect((screen.getByRole("button",{name:"播放听力"}) as HTMLButtonElement).disabled).toBe(false));
+  await userEvent.click(screen.getByRole("button",{name:"播放听力"}));
+  await waitFor(()=>expect(resolveStart).toBeDefined());
+  const player=view.container.querySelector("audio")!;
+  player.currentTime=0.2;fireEvent.ended(player);
+  state.used=1;state.active=true;resolveStart!({...state});
+  await waitFor(()=>expect(mockApi.mock.calls.some(([r])=>r.type==="listening_playback" && r.action==="end")).toBe(true));
+  expect(state.active).toBe(false);
 });
 
 it("resumes practice progress after remount and still permits seeking",async()=>{

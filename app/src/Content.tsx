@@ -169,7 +169,7 @@ export const Content = memo(function Content({
       <Markdown>{q.instructions}</Markdown>
       {(q.sourceLanguage || q.targetLanguage) && <p className="text-sm text-muted-foreground">{q.sourceLanguage}{q.sourceLanguage ? " → " : ""}{q.targetLanguage}</p>}
       {q.writingGenre && <p className="text-sm text-muted-foreground">{q.writingGenre}</p>}
-      {materialDialog && materials.some(m=>m.passage?.length || m.contentBlocks.length || m.transcript?.length || m.questionKind === "paragraph_matching") ? <>
+      {materialDialog && materials.some(m=>m.passage?.length || m.contentBlocks.length || m.transcript?.length || m.questionKind === "paragraph_matching" || (m.id !== q.id && (m.stem || m.instructions))) ? <>
         <Button ref={trigger} variant="outline" onClick={()=>setOpen(true)}>{t("查看原文")}</Button>
         <Dialog open={open} onOpenChange={setOpen}><DialogContent className="flex max-h-[85vh] flex-col sm:max-w-4xl" onCloseAutoFocus={e=>{e.preventDefault();trigger.current?.focus();}}><DialogHeader><DialogTitle>{t("查看原文")}</DialogTitle><DialogDescription>{t("题目材料；点击空位可定位对应子题。")}</DialogDescription></DialogHeader><div className="min-h-0 space-y-6 overflow-auto pr-3">{materials.map(material)}{snapshot.visuals.map(v=><ImageAsset key={v.id} visual={v}/>)}</div></DialogContent></Dialog>
       </> : !materialDialog && materials.filter(m=>m.id!==q.id).map(material)}

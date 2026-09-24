@@ -8,19 +8,29 @@ import { Button } from "@/components/ui/button";
 export function EnglishFields({question:q,patch}:{question:Question;patch:(q:Partial<Question>)=>void}) {
   useI18n();
   const staged=useRef(new Set<string>());
+  const mounted=useRef(false);
   const [error,setError]=useState(false);
   const [picking,setPicking]=useState(false);
-  useEffect(()=>{const hashes=staged.current;return ()=>{for(const hash of hashes)void api({type:"release_audio",hash}).catch(()=>{});};},[]);
+  useEffect(()=>{mounted.current=true;const hashes=staged.current;return ()=>{mounted.current=false;for(const hash of hashes)void api({type:"release_audio",hash}).catch(()=>{});hashes.clear();};},[]);
+  function release(hash?:string) {
+    if(hash && staged.current.delete(hash))void api({type:"release_audio",hash}).catch(()=>{});
+  }
   async function pick() {
     setPicking(true);setError(false);
-    try {const result=await api({type:"pick_audio"});if(result){staged.current.add(result.reference.sha256);patch({audioRef:result.reference,audioStartSeconds:0,audioEndSeconds:null,missingFields:q.missingFields.filter(f=>f!=="media")});}}
-    catch {setError(true);} finally {setPicking(false);}
+    try {const result=await api({type:"pick_audio"});if(result){
+      const hash=result.reference.sha256;
+      if(!mounted.current){void api({type:"release_audio",hash}).catch(()=>{});return;}
+      if(q.audioRef?.sha256!==hash)release(q.audioRef?.sha256);
+      staged.current.add(hash);
+      patch({audioRef:result.reference,audioStartSeconds:0,audioEndSeconds:null,missingFields:q.missingFields.filter(f=>f!=="media")});
+    }}
+    catch {if(mounted.current)setError(true);} finally {if(mounted.current)setPicking(false);}
   }
   return <section className="space-y-4">
     <label className="grid gap-2">{t("作答说明")}<Textarea value={q.instructions || ""} onChange={e=>patch({instructions:e.target.value || null})}/></label>
     {q.answerMode === "listening" && <div className="space-y-3 rounded border p-3">
       <Button variant="outline" disabled={picking} onClick={()=>void pick()}>{t("选择听力音频")}</Button>
-      {q.audioRef && <Button variant="ghost" onClick={()=>patch({audioRef:null})}>{t("移除音频")}</Button>}
+      {q.audioRef && <Button variant="ghost" onClick={()=>{release(q.audioRef?.sha256);patch({audioRef:null});}}>{t("移除音频")}</Button>}
       {error && <p role="alert">{t("音频加载或播放失败，请检查文件后重试。")}</p>}
       <p className="text-xs text-muted-foreground">{t("支持 MP3、M4A/AAC、WAV，每个文件不超过 25 MiB。")}</p>
       <ListeningPlayer key={q.audioRef?.sha256 || "missing"} question={q}/>

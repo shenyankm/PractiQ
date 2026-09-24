@@ -14,6 +14,7 @@ export function ListeningPlayer({question:q,session}:{question:Question;session?
   const [state,setState]=useState<PlaybackState|null>(null);
   const chain=useRef(Promise.resolve());
   const started=useRef(false);
+  const deferredEnd=useRef<number|null>(null);
   const positionChosen=useRef(false);
   const ended=useRef(false);
   const start=q.audioStartSeconds ?? 0;
@@ -66,17 +67,23 @@ export function ListeningPlayer({question:q,session}:{question:Question;session?
       if(!Number.isFinite(player.duration) || start>=player.duration || limit>player.duration+0.05) throw new Error("Invalid audio segment");
       if(restricted || (!started.current && !positionChosen.current && current?.active)) player.currentTime=current?.active ? current.position : start;
       else if(player.currentTime<start || player.currentTime>=limit || ended.current) player.currentTime=start;
-      allowedPosition.current=player.currentTime;ended.current=false;
+      allowedPosition.current=player.currentTime;ended.current=false;deferredEnd.current=null;
       await player.play();
       if(sid && q.id && live) setState(await api({type:"listening_playback",id:sid,question_id:q.id,action:"start"}));
       started.current=true;
+      if(deferredEnd.current != null){persist("end",deferredEnd.current);deferredEnd.current=null;started.current=false;}
     } catch {player.pause();setError(true);} finally {setBusy(false);}
   }
   function finish() {
     if(ended.current)return;
     ended.current=true;
     const player=audio.current;
-    if(player){persist("end",Math.min(player.currentTime,end ?? player.duration));player.pause();}
+    if(player){
+      const position=Math.min(player.currentTime,end ?? player.duration);
+      if(started.current)persist("end",position);
+      else deferredEnd.current=position;
+      player.pause();
+    }
     started.current=false;
   }
   const exhausted=restricted && state && !state.active && state.used>=state.limit;

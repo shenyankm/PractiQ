@@ -233,6 +233,15 @@ impl Store {
                         !answer_text(text(g, "title")) && !answer_text(text(g, "instructions"))
                     });
                 }
+                if let Some(materials) = a["snapshot"]["materials"].as_array_mut() {
+                    for material in materials {
+                        for key in ["stem", "instructions"] {
+                            if answer_text(text(material, key)) {
+                                material[key] = json!("");
+                            }
+                        }
+                    }
+                }
                 if let Some(visuals) = a["snapshot"]["visuals"].as_array_mut() {
                     visuals.retain(|visual| !crate::questions::answer_content(visual));
                     for visual in visuals {

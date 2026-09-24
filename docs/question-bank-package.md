@@ -37,3 +37,5 @@ ZIP 上限 300 MiB，JSON 上限 32 MiB，单张图片或音频上限 25 MiB，�
 开发样例可用 `python3 app/scripts/package-fixtures.py` 重新生成；内容为人工编写，不代表真实模型质量。
 
 音频引用存于听力父题的 `audioRef`，支持 audio/mpeg、audio/mp4、audio/aac、audio/wav。图片与音频共同计入包大小及展开大小限制。新版 ZIP 版本为 2、备份版本为 4；旧版本明确拒绝，新桌面目录为 v3，旧目录完整保留，需要重新解析或生成新版题库。
+
+首版听力音频校验依赖 macOS 的 `afinfo`；Windows 和 Linux 暂不支持含音频题库的导入、导出或备份恢复。

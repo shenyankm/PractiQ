@@ -8,6 +8,7 @@ from uuid import NAMESPACE_URL, uuid4, uuid5
 
 from .config import load
 from .contracts import (
+    COMPOSITE_MODES,
     DocumentReference,
     DocumentTaskControl,
     DocumentTaskCreate,
@@ -287,7 +288,7 @@ async def list_tasks(limit: int = 20, offset: int = 0) -> dict[str, Any]:
                       'createdAt': row['created_at'].isoformat(), 'expiresAt': row['expires_at'].isoformat(),
                       'state': 'EXPIRED' if expired else _task_state(row, snapshot, run)[0],
                       'status': values.get('status') or None, 'checkpointId': service.checkpoint_id(snapshot, run),
-                      'questionCount': scorable_count(questions), 'reviewCount': sum(bool(q.get('needsReview')) and q.get('answerMode') not in {'reading', 'word_bank', 'cloze', 'listening', 'gap_fill'} for q in questions)})
+                      'questionCount': scorable_count(questions), 'reviewCount': sum(bool(q.get('needsReview')) and q.get('answerMode') not in COMPOSITE_MODES for q in questions)})
     return DocumentTaskList(items=items, hasMore=len(rows) > limit).model_dump(mode='json')
 
 

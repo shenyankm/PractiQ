@@ -238,9 +238,9 @@ export function AnswerInput({
                   <SelectValue placeholder={t("选择对应项")} />
                 </SelectTrigger>
                 <SelectContent>
-                  {itemIds(q, "right").map((right) => (
+                  {itemIds(q, "right").map((right, index) => (
                     <SelectItem key={right.id} value={String(right.id)}>
-                      {q.questionKind === "paragraph_matching" ? right.label || String(right.id+1) : right.content}
+                      {q.questionKind === "paragraph_matching" ? right.label || String(index+1) : right.content}
                     </SelectItem>
                   ))}
                 </SelectContent>

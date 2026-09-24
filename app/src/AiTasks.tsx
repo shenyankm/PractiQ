@@ -170,6 +170,7 @@ export function AiTasks({
         const r = await ai({ type: "list", offset });
         if (!active) return;
         setRows(r.items);
+        setChecked(ids => ids.filter(id => r.items.some(row => row.threadId === id && ["READY", "IMPORT_FAILED"].includes(importTaskState(row)))));
         setMore(r.hasMore);
         setError(null);
         setLoading(false);
@@ -277,6 +278,7 @@ export function AiTasks({
   }
   async function startBatch(batch: Batch, titles: string[] | null) {
     setRunning(batch.id);
+    setChecked([]);
     setConfirmation(null);
     try {
       await ai({ type: "run_batch", id: batch.id, titles });
@@ -297,6 +299,7 @@ export function AiTasks({
       if (item?.status === "pending" && (batch.status === "running" || running === batch.id)) return { checkpointId: row.checkpointId, state: "importing" };
     }
   }
+  const eligibleChecked = checked.filter(id => rows.some(row => row.threadId === id && ["READY", "IMPORT_FAILED"].includes(importTaskState(row, importOperation(row)))));
   const selectedRow = rows.find(row => row.threadId === selected);
   const currentTask = task?.threadId === selected ? task : null;
   async function previewTask(value: Task) {
@@ -309,6 +312,7 @@ export function AiTasks({
       onImported: bankId => {
         setImports(values => { const next = { ...values }; delete next[threadId]; return next; });
         setRows(values => values.map(row => row.threadId === threadId && row.checkpointId === checkpointId ? { ...row, importedBankId: bankId } : row));
+        setChecked(ids => ids.filter(id => id !== threadId));
         setRevision(n => n + 1);
       },
     });
@@ -329,6 +333,7 @@ export function AiTasks({
                 });
                 if (created) {
                   setOffset(0);
+                  setChecked([]);
                   await refreshList();
                   setSelected(created.threadId);
                 }
@@ -345,16 +350,16 @@ export function AiTasks({
           <h2 className="text-lg font-semibold">{t("导入任务")}</h2>
           <div className="flex gap-2">
             {modelsReady && <Button variant="outline" disabled={busy || loading} onClick={() => run(refresh)}>{t("刷新任务")}</Button>}
-        {!!checked.length && <Button
+        {!!eligibleChecked.length && <Button
           disabled={busy}
           onClick={() =>
             run(async () =>
               setConfirmation(
-                await ai({ type: "prepare_batch", ids: checked.filter(id => { const row = rows.find(row => row.threadId === id); return !row || ["READY", "IMPORT_FAILED"].includes(importTaskState(row, importOperation(row))); }) }),
+                await ai({ type: "prepare_batch", ids: eligibleChecked }),
               ),
             )
           }
-        >{t("批量导入已选任务（{0}）", { 0: checked.length })}</Button>}
+        >{t("批量导入已选任务（{0}）", { 0: eligibleChecked.length })}</Button>}
           </div>
         </div>
       {error != null && <div role="alert" className="flex items-center justify-between gap-3 rounded-lg border border-destructive/30 p-3"><p className="text-sm text-destructive">{errorMessage(error)}</p><Button variant="outline" disabled={busy} onClick={() => run(async () => { try { await (modelsReady ? refresh() : localRefresh()); setError(null); } catch (e) { setError(e); } })}>{t("重试")}</Button></div>}
@@ -417,12 +422,12 @@ export function AiTasks({
             <Button
               variant="ghost"
               disabled={offset === 0 || busy}
-              onClick={() => { setRows([]); setOffset(Math.max(0, offset - 20)); }}
+              onClick={() => { setRows([]); setChecked([]); setOffset(Math.max(0, offset - 20)); }}
             >{t("上一页")}</Button>
             <Button
               variant="ghost"
               disabled={!more || busy}
-              onClick={() => { setRows([]); setOffset(offset + 20); }}
+              onClick={() => { setRows([]); setChecked([]); setOffset(offset + 20); }}
             >{t("下一页")}</Button>
           </div>}
       </section>

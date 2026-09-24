@@ -16,6 +16,9 @@ pub fn audio_info(bytes: &[u8]) -> Result<(String, f64)> {
     if bytes.is_empty() || bytes.len() > crate::assets::LIMIT {
         return Err("Invalid audio size".into());
     }
+    if !cfg!(target_os = "macos") {
+        return Err("Listening audio requires macOS".into());
+    }
     let mut file = tempfile::NamedTempFile::new().map_err(err)?;
     file.write_all(bytes).map_err(err)?;
     let output = tempfile::NamedTempFile::new().map_err(err)?;
@@ -168,7 +171,9 @@ impl Store {
             if submitted.is_some() || finished.is_some() {
                 return Err("Session playback is locked; use review playback".into());
             }
-            if self.asset_bytes(text(&q["audioRef"], "sha256"))?.is_none() {
+            if matches!(action, PlaybackAction::Start)
+                && self.asset_bytes(text(&q["audioRef"], "sha256"))?.is_none()
+            {
                 return Err("Listening audio is missing".into());
             }
             match action {
@@ -294,7 +299,7 @@ fn strip_answers(q: &mut Value) {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, target_os = "macos"))]
 mod tests {
     use super::*;
     fn english() -> (tempfile::TempDir, Store, String) {
@@ -346,6 +351,39 @@ mod tests {
             include_bytes!("../../fixtures/resources/audio/chimes.wav"),
             "audio/mpeg"
         ));
+    }
+    #[test]
+    fn playback_progress_does_not_rehash_the_audio_file() {
+        let (_dir, store, bank) = english();
+        let roots = store.questions(Some(&bank), "", "listening", "").unwrap();
+        let root = text(&roots[0], "id").to_owned();
+        let digest = text(&roots[0]["question"]["audioRef"], "sha256");
+        let selected = crate::paper::selected_rows(
+            &store.question_rows().unwrap(),
+            std::slice::from_ref(&root),
+        )
+        .unwrap();
+        let session = store
+            .start_paper(crate::exams::Paper {
+                question_ids: vec![root.clone()],
+                kind: "practice".into(),
+                minutes: None,
+                scores: vec![],
+                total_cents: 0,
+                digest: crate::paper::digest(&selected).unwrap(),
+            })
+            .unwrap();
+        let sid = text(&session, "id");
+        store
+            .listening_playback(sid, &root, PlaybackAction::Start, None)
+            .unwrap();
+        std::fs::remove_file(store.asset_path(digest).unwrap()).unwrap();
+        assert!(store
+            .listening_playback(sid, &root, PlaybackAction::Progress, Some(0.1))
+            .is_ok());
+        assert!(store
+            .listening_playback(sid, &root, PlaybackAction::Start, None)
+            .is_err());
     }
     #[test]
     fn english_roundtrip_redaction_playback_and_immutable_history() {

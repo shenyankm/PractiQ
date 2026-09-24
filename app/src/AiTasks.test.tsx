@@ -296,6 +296,33 @@ it("edits separate bank names and can cancel a running batch without waiting for
   });
   finish?.({ ...batch, status: "paused" });
 });
+
+it("prepares only eligible selected tasks and clears selection across pages", async () => {
+  let imported=false;
+  vi.mocked(invoke).mockImplementation(async (_command,args) => {
+    const request=(args as {request:{type:string;offset?:number}}).request;
+    if(request.type==="list")return {items:request.offset ? [{threadId:"third",fileName:"third.pdf",state:"COMPLETED",checkpointId:"cp3"}] : [
+      {threadId:"first",fileName:"first.pdf",state:"COMPLETED",checkpointId:"cp1",importedBankId:imported ? "bank" : null},
+      {threadId:"second",fileName:"second.pdf",state:"COMPLETED",checkpointId:"cp2"},
+    ],hasMore:!request.offset} as never;
+    if(request.type==="operations" || request.type==="batches")return [] as never;
+    if(request.type==="prepare_batch")return {id:"batch",status:"ready",items:[]} as never;
+    return null as never;
+  });
+  render(<AiTasks busy={false} run={job=>{void job();}} onPreview={()=>{}}/>);
+  await userEvent.click(await screen.findByRole("checkbox",{name:"选择 first.pdf"}));
+  await userEvent.click(screen.getByRole("checkbox",{name:"选择 second.pdf"}));
+  expect(screen.getByRole("button",{name:"批量导入已选任务（2）"})).toBeTruthy();
+  imported=true;
+  await userEvent.click(screen.getByRole("button",{name:"刷新任务"}));
+  await waitFor(()=>expect(screen.getByRole("button",{name:"批量导入已选任务（1）"})).toBeTruthy());
+  await userEvent.click(screen.getByRole("button",{name:"下一页"}));
+  await screen.findByRole("checkbox",{name:"选择 third.pdf"});
+  expect(screen.queryByRole("button",{name:/批量导入已选任务/})).toBeNull();
+  await userEvent.click(screen.getByRole("checkbox",{name:"选择 third.pdf"}));
+  await userEvent.click(screen.getByRole("button",{name:"批量导入已选任务（1）"}));
+  expect(invoke).toHaveBeenCalledWith("ai_request",{locale:"zh-CN",request:{type:"prepare_batch",ids:["third"]}});
+});
 it("replays a pending request by its persisted ID only after explicit action", async () => {
   let pending = true;
   vi.mocked(invoke).mockImplementation(async (_command, args) => {
