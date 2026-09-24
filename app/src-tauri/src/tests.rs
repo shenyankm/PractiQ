@@ -1768,6 +1768,26 @@ fn closed_review_composite_content_search_and_favorites() {
 }
 
 #[test]
+fn listening_fields_identify_a_parent_without_a_stem() {
+    for (field, value) in [
+        ("instructions", json!("Listen and answer")),
+        (
+            "audioRef",
+            json!({"objectKey":"audio/sample.mp3","sha256":"a".repeat(64),"mediaType":"audio/mpeg","sizeBytes":1}),
+        ),
+        (
+            "transcript",
+            json!([{"partType":"text","textValue":"A short dialogue"}]),
+        ),
+    ] {
+        let mut q = json!({"questionKind":"listening","answerMode":"listening","stem":null});
+        q[field] = value;
+        contract::validate_question(&mut q).unwrap();
+        assert_eq!(q["needsReview"], true, "{field}");
+    }
+}
+
+#[test]
 fn search_keeps_literal_schema_words_in_content() {
     let (_dir, mut s) = store();
     let mut raw: Value = serde_json::from_slice(&sample()).unwrap();

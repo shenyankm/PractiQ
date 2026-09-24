@@ -739,6 +739,10 @@ mod tests {
             })
             .unwrap();
         let sid = text(&s, "id");
+        assert_eq!(
+            s["attempts"][0]["snapshot"]["materials"][0]["transcript"],
+            json!([])
+        );
         let first = store
             .save_attempt((sid, 0), json!({"correct":["B"]}), 0, true, false, None)
             .unwrap();

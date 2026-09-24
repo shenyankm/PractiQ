@@ -439,6 +439,7 @@ pub fn validate_question(q: &mut Value) -> Result<()> {
     }
     if ![
         "stem",
+        "instructions",
         "sourceText",
         "options",
         "items",
@@ -449,6 +450,8 @@ pub fn validate_question(q: &mut Value) -> Result<()> {
     ]
     .iter()
     .any(|k| filled(&q[*k]))
+        && !q["audioRef"].is_object()
+        && list(q, "transcript").is_empty()
     {
         return Err(crate::language::error(
             "LOCAL_QUESTION_EMPTY",
