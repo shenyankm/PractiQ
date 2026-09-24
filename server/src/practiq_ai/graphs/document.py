@@ -143,7 +143,27 @@ Return the supplied structured result. Extract existing answers; never invent th
 
 
 SYSTEM_PROMPT += """
-Composite questions: use answerMode=reading, word_bank or cloze for a parent.
+English question kinds: listening, reading, word_bank, cloze, grammar_fill,
+sentence_selection, paragraph_matching, translation, writing. Preserve the source's
+questionTypeId label and instructions. Never invent answers, sample essays, rubrics,
+missing language directions, word limits, transcripts, or audio references.
+Listening: answerMode=listening parent, choice/fill_blank/short_answer children.
+Separate the supplied transcript into transcript blocks (never passage, sourceText,
+or other public material). Audio absent from the source stays audioRef=null, needsReview=true.
+Extract explicit examPlayCount; otherwise use 2. No audio transcription is performed.
+Grammar: answerMode=gap_fill parent, passage with blank references; one fill_blank
+child per blank with blankCount=1. Retain a provided hint word in the child's stem.
+Sentence selection: questionKind=sentence_selection with word_bank mode and full
+sentence options, allowReuse=false unless explicitly allowed by the source.
+Paragraph matching: questionKind=paragraph_matching, matching mode; left statements,
+right complete paragraphs, preserve printed labels separately from numeric item IDs.
+Translation/writing: short_answer mode, questionKind=translation/writing. Put the
+source text, writing materials and continuation starter into contentBlocks with
+roles material, source_text, or starter_text. stem is the task prompt. Extract
+sourceLanguage/targetLanguage language tags, writingGenre, minWords/maxWords only
+when stated. Supplied reference translation/essay stays answerPayload.text.
+ContentBlock.label and ParsedItem.label preserve printed paragraph/item labels.
+Composite questions: use answerMode=reading, word_bank, cloze, listening or gap_fill for a parent.
 Parents have passage content blocks and no answerPayload. Each child has parentId.
 Give every question an explicit source-anchored id: page:<start page>:<printed question>
 or fragment:<start fragment>:<printed question>. Use these IDs for parentId and blanks.
@@ -852,7 +872,7 @@ async def _merge(state: DocumentState) -> dict[str, Any]:
         questionSources=[DocumentQuestionSource(questionId=questions[item.questionIndex].id or "", stage=item.stage, unitIndex=item.unitIndex) for item in question_sources],
         quality=ExportQuality.model_validate({
             "reviewRequired": any(q.needsReview for q in questions),
-            "reviewQuestionCount": sum(q.needsReview and q.answerMode not in {"reading", "word_bank", "cloze"} for q in questions),
+            "reviewQuestionCount": sum(q.needsReview and q.answerMode not in {"reading", "word_bank", "cloze", "listening", "gap_fill"} for q in questions),
             "issues": [{"questionId": questions[item.questionIndex].id, "code": item.code} for item in quality.issues],
         }),
     )
@@ -862,7 +882,7 @@ async def _merge(state: DocumentState) -> dict[str, Any]:
         else "SUCCEEDED"
     )
     result = DocumentParseResult(
-        schemaVersion=2,
+        schemaVersion=3,
         questions=questions,
         groups=[DocumentGroup.model_validate({**g.model_dump(exclude={"questionIndexes"}), "questionIds": [questions[i].id for i in g.questionIndexes]}) for g in groups],
         visualElements=[DocumentVisual.model_validate({**v.model_dump(exclude={"questionIndexes"}), "questionIds": [questions[i].id for i in v.questionIndexes]}) for v in visual_elements],

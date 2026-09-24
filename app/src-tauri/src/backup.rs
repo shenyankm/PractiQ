@@ -55,7 +55,7 @@ impl Store {
         let version: i64 = db
             .query_row("PRAGMA user_version", [], |r| r.get(0))
             .map_err(err)?;
-        let manifest = json!({"format":"practiq-backup","version":3,"schemaVersion":version,"createdAt":now(),"database":{"file":"practiq.sqlite","sha256":database_hash,"sizeBytes":database_size},"assets":assets});
+        let manifest = json!({"format":"practiq-backup","version":4,"schemaVersion":version,"createdAt":now(),"database":{"file":"practiq.sqlite","sha256":database_hash,"sizeBytes":database_size},"assets":assets});
         let manifest = serde_json::to_vec(&manifest).map_err(err)?;
         if manifest.len() > 1024 * 1024 {
             return Err(crate::language::error(
@@ -145,7 +145,7 @@ impl Store {
         if manifest["format"] == "practiq-question-bank" {
             return Err(crate::language::error("LOCAL_USE_BANK_IMPORT", json!({})));
         }
-        if manifest["format"] != "practiq-backup" || manifest["version"] != 3 {
+        if manifest["format"] != "practiq-backup" || manifest["version"] != 4 {
             return Err(crate::language::error(
                 "LOCAL_BACKUP_VERSION_UNSUPPORTED",
                 serde_json::json!({}),
@@ -234,6 +234,7 @@ impl Store {
             ));
         }
         let staged = Store {
+            staged_audio: std::collections::HashMap::new(),
             locale: Default::default(),
             dir: staging.path().to_owned(),
             pending: None,
@@ -297,7 +298,7 @@ impl Store {
                 ));
             }
             let data = staged.read_asset(&digest, size)?;
-            if !crate::store::valid_image(&data, &media) {
+            if !crate::audio::valid_media(&data, &media) {
                 return Err(crate::language::error(
                     "LOCAL_BACKUP_IMAGE_FORMAT",
                     serde_json::json!({}),
@@ -330,6 +331,7 @@ impl Store {
             ));
         }
         self.pending = None;
+        self.staged_audio.clear();
         if let Err(error) = self.collect_unused_assets() {
             eprintln!("Asset cleanup deferred after restore: {error}");
         }
@@ -344,7 +346,7 @@ fn validate_database(path: &Path) -> Result<i64> {
     let version: i64 = db
         .query_row("PRAGMA user_version", [], |r| r.get(0))
         .map_err(err)?;
-    if version != 9 {
+    if version != 10 {
         return Err(crate::language::error(
             "LOCAL_BACKUP_DATABASE_VERSION",
             serde_json::json!({}),
@@ -462,6 +464,40 @@ fn validate_database(path: &Path) -> Result<i64> {
             .map_err(err)?
             .collect::<std::result::Result<Vec<_>, _>>()
             .map_err(err)?;
+        let mut statement=db.prepare("SELECT question_id,used,position,active FROM listening_playback WHERE session_id=?1").map_err(err)?;
+        let plays = statement
+            .query_map([&sid], |r| {
+                Ok((
+                    r.get::<_, String>(0)?,
+                    r.get::<_, u64>(1)?,
+                    r.get::<_, f64>(2)?,
+                    r.get::<_, bool>(3)?,
+                ))
+            })
+            .map_err(err)?;
+        let kind: String = db
+            .query_row("SELECT kind FROM sessions WHERE id=?1", [&sid], |r| {
+                r.get(0)
+            })
+            .map_err(err)?;
+        for play in plays {
+            let (qid, used, position, active) = play.map_err(err)?;
+            let q = qs
+                .iter()
+                .find(|q| {
+                    crate::contract::text(q, "id") == qid
+                        && crate::contract::text(q, "answerMode") == "listening"
+                })
+                .ok_or("Playback references a missing listening group")?;
+            if !position.is_finite()
+                || position < q["audioStartSeconds"].as_f64().unwrap_or(0.0)
+                || position > q["audioEndSeconds"].as_f64().unwrap_or(86400.0) + 0.1
+                || (active && used == 0)
+                || (kind != "practice" && used > q["examPlayCount"].as_u64().unwrap_or(2))
+            {
+                return Err("Invalid saved playback state".into());
+            }
+        }
         if attempts.iter().any(|id| !ids.contains(id.as_str())) {
             return Err("Attempt references a missing frozen question".into());
         }

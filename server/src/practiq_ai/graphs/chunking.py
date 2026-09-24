@@ -246,6 +246,22 @@ def finalize_question_ids(questions, groups, visuals, sources, quality):
             if target.answerMode != question.answerMode or target.parentId != question.parentId:
                 raise ValueError("Conflicting composite source anchor")
             target.passage.extend(b for b in question.passage if b not in target.passage)
+            target.transcript.extend(b for b in question.transcript if b not in target.transcript)
+            for field in ("questionKind", "instructions", "audioRef", "audioEndSeconds"):
+                value = getattr(question, field)
+                old = getattr(target, field)
+                if value is not None:
+                    if old is not None and old != value:
+                        raise ValueError("Conflicting composite metadata")
+                    setattr(target, field, value)
+            for field in ("audioStartSeconds", "examPlayCount"):
+                value = getattr(question, field)
+                old = getattr(target, field)
+                default = ParsedQuestion.model_fields[field].default
+                if value != default:
+                    if old != default and old != value:
+                        raise ValueError("Conflicting composite audio metadata")
+                    setattr(target, field, value)
             target.needsReview |= question.needsReview
             target.missingFields = list(dict.fromkeys([*target.missingFields, *question.missingFields]))
             index_map[index] = prior

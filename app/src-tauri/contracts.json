@@ -36,6 +36,41 @@
         "title": "ArtifactReference",
         "type": "object"
       },
+      "AudioReference": {
+        "additionalProperties": false,
+        "properties": {
+          "objectKey": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Objectkey",
+            "type": "string"
+          },
+          "sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sha256",
+            "type": "string"
+          },
+          "mediaType": {
+            "pattern": "^audio/(mpeg|mp4|aac|wav)$",
+            "title": "Mediatype",
+            "type": "string"
+          },
+          "sizeBytes": {
+            "exclusiveMinimum": 0,
+            "maximum": 26214400,
+            "title": "Sizebytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "objectKey",
+          "sha256",
+          "mediaType",
+          "sizeBytes"
+        ],
+        "title": "AudioReference",
+        "type": "object"
+      },
       "ChoiceAnswerPayload": {
         "additionalProperties": false,
         "properties": {
@@ -58,6 +93,19 @@
       "ContentBlock": {
         "additionalProperties": false,
         "properties": {
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Label"
+          },
           "partType": {
             "enum": [
               "text",
@@ -407,6 +455,19 @@
       "ParsedItem": {
         "additionalProperties": false,
         "properties": {
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Label"
+          },
           "id": {
             "anyOf": [
               {
@@ -516,6 +577,158 @@
             "default": null,
             "title": "Parentid"
           },
+          "questionKind": {
+            "anyOf": [
+              {
+                "enum": [
+                  "listening",
+                  "reading",
+                  "word_bank",
+                  "cloze",
+                  "grammar_fill",
+                  "sentence_selection",
+                  "paragraph_matching",
+                  "translation",
+                  "writing"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Questionkind"
+          },
+          "instructions": {
+            "anyOf": [
+              {
+                "maxLength": 20000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Instructions"
+          },
+          "audioRef": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AudioReference"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "audioStartSeconds": {
+            "default": 0,
+            "maximum": 86400,
+            "minimum": 0,
+            "title": "Audiostartseconds",
+            "type": "number"
+          },
+          "audioEndSeconds": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "maximum": 86400,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Audioendseconds"
+          },
+          "transcript": {
+            "items": {
+              "$ref": "#/$defs/ContentBlock"
+            },
+            "maxItems": 1000,
+            "title": "Transcript",
+            "type": "array"
+          },
+          "examPlayCount": {
+            "default": 2,
+            "maximum": 100,
+            "minimum": 1,
+            "title": "Examplaycount",
+            "type": "integer"
+          },
+          "sourceLanguage": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "pattern": "^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Sourcelanguage"
+          },
+          "targetLanguage": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "pattern": "^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Targetlanguage"
+          },
+          "writingGenre": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Writinggenre"
+          },
+          "minWords": {
+            "anyOf": [
+              {
+                "maximum": 100000,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Minwords"
+          },
+          "maxWords": {
+            "anyOf": [
+              {
+                "maximum": 100000,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Maxwords"
+          },
           "optionSourceId": {
             "anyOf": [
               {
@@ -582,7 +795,9 @@
                   "matching",
                   "reading",
                   "word_bank",
-                  "cloze"
+                  "cloze",
+                  "listening",
+                  "gap_fill"
                 ],
                 "type": "string"
               },
@@ -835,7 +1050,7 @@
     "additionalProperties": false,
     "properties": {
       "schemaVersion": {
-        "const": 2,
+        "const": 3,
         "title": "Schemaversion",
         "type": "integer"
       },
@@ -1208,6 +1423,41 @@
         "title": "ArtifactReference",
         "type": "object"
       },
+      "AudioReference": {
+        "additionalProperties": false,
+        "properties": {
+          "objectKey": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Objectkey",
+            "type": "string"
+          },
+          "sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sha256",
+            "type": "string"
+          },
+          "mediaType": {
+            "pattern": "^audio/(mpeg|mp4|aac|wav)$",
+            "title": "Mediatype",
+            "type": "string"
+          },
+          "sizeBytes": {
+            "exclusiveMinimum": 0,
+            "maximum": 26214400,
+            "title": "Sizebytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "objectKey",
+          "sha256",
+          "mediaType",
+          "sizeBytes"
+        ],
+        "title": "AudioReference",
+        "type": "object"
+      },
       "ChoiceAnswerPayload": {
         "additionalProperties": false,
         "properties": {
@@ -1230,6 +1480,19 @@
       "ContentBlock": {
         "additionalProperties": false,
         "properties": {
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Label"
+          },
           "partType": {
             "enum": [
               "text",
@@ -1702,6 +1965,19 @@
       "ParsedItem": {
         "additionalProperties": false,
         "properties": {
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Label"
+          },
           "id": {
             "anyOf": [
               {
@@ -1811,6 +2087,158 @@
             "default": null,
             "title": "Parentid"
           },
+          "questionKind": {
+            "anyOf": [
+              {
+                "enum": [
+                  "listening",
+                  "reading",
+                  "word_bank",
+                  "cloze",
+                  "grammar_fill",
+                  "sentence_selection",
+                  "paragraph_matching",
+                  "translation",
+                  "writing"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Questionkind"
+          },
+          "instructions": {
+            "anyOf": [
+              {
+                "maxLength": 20000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Instructions"
+          },
+          "audioRef": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AudioReference"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "audioStartSeconds": {
+            "default": 0,
+            "maximum": 86400,
+            "minimum": 0,
+            "title": "Audiostartseconds",
+            "type": "number"
+          },
+          "audioEndSeconds": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "maximum": 86400,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Audioendseconds"
+          },
+          "transcript": {
+            "items": {
+              "$ref": "#/$defs/ContentBlock"
+            },
+            "maxItems": 1000,
+            "title": "Transcript",
+            "type": "array"
+          },
+          "examPlayCount": {
+            "default": 2,
+            "maximum": 100,
+            "minimum": 1,
+            "title": "Examplaycount",
+            "type": "integer"
+          },
+          "sourceLanguage": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "pattern": "^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Sourcelanguage"
+          },
+          "targetLanguage": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "pattern": "^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Targetlanguage"
+          },
+          "writingGenre": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Writinggenre"
+          },
+          "minWords": {
+            "anyOf": [
+              {
+                "maximum": 100000,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Minwords"
+          },
+          "maxWords": {
+            "anyOf": [
+              {
+                "maximum": 100000,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Maxwords"
+          },
           "optionSourceId": {
             "anyOf": [
               {
@@ -1877,7 +2305,9 @@
                   "matching",
                   "reading",
                   "word_bank",
-                  "cloze"
+                  "cloze",
+                  "listening",
+                  "gap_fill"
                 ],
                 "type": "string"
               },

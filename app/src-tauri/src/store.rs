@@ -64,9 +64,7 @@ pub struct ImportSource {
 impl Pending {
     pub fn new(bytes: Vec<u8>, title: String) -> Result<Self> {
         let root = contract::parse(&bytes)?;
-        let missing = list(contract::result(&root), "visualElements")
-            .iter()
-            .flat_map(contract::visual_refs)
+        let missing = contract::resource_refs(contract::result(&root))
             .map(|r| text(r, "objectKey").to_owned())
             .collect();
         Ok(Self {
@@ -92,6 +90,7 @@ pub struct Store {
     pub locale: crate::language::Locale,
     pub dir: PathBuf,
     pub pending: Option<Pending>,
+    pub staged_audio: HashMap<String, (String, Vec<u8>)>,
 }
 fn contains_search_text(value: &Value, search: &str) -> bool {
     match value {
@@ -108,10 +107,12 @@ fn searchable_content_matches(value: &Value, search: &str) -> bool {
         Value::Object(values) => values.iter().any(|(key, value)| match key.as_str() {
             // These fields contain free-form content, not contract metadata.
             "jsonValue" | "answerPayload" => contains_search_text(value, search),
-            "stem" | "sourceText" | "analysis" | "scoringRubric" | "scoreSourceText"
-            | "options" | "items" | "content" | "label" | "passage" | "contentBlocks"
-            | "textValue" | "markdownValue" | "latexValue" | "title" | "instructions"
-            | "description" | "extractedText" => searchable_content_matches(value, search),
+            "stem" | "instructions" | "transcript" | "sourceText" | "analysis"
+            | "scoringRubric" | "scoreSourceText" | "options" | "items" | "content" | "label"
+            | "passage" | "contentBlocks" | "textValue" | "markdownValue" | "latexValue"
+            | "title" | "description" | "extractedText" => {
+                searchable_content_matches(value, search)
+            }
             _ => false,
         }),
         _ => contains_search_text(value, search),
@@ -124,6 +125,7 @@ impl Store {
         let store = Self {
             dir,
             pending: None,
+            staged_audio: HashMap::new(),
             locale: crate::language::Locale::default(),
         };
         store.connect()?;
@@ -143,8 +145,8 @@ impl Store {
             .map_err(err)?;
         if version == 0 {
             db.execute_batch(include_str!("schema.sql")).map_err(err)?;
-        } else if version != 9 {
-            return Err("Only database schema 9 is supported; legacy data remains in its original directory".into());
+        } else if version != 10 {
+            return Err("Only database schema 10 is supported; legacy data remains in its original directory".into());
         } else if !db
             .query_row(
                 "SELECT EXISTS(SELECT 1 FROM pragma_table_info('visuals') WHERE name='document_level')",
@@ -183,10 +185,7 @@ impl Store {
         let mut assets = HashMap::new();
         let mut missing = Vec::new();
         let mut total = 0usize;
-        for r in list(contract::result(&p.root), "visualElements")
-            .iter()
-            .flat_map(contract::visual_refs)
-        {
+        for r in contract::resource_refs(contract::result(&p.root)) {
             if assets.contains_key(text(r, "sha256")) {
                 continue;
             }
@@ -223,7 +222,18 @@ impl Store {
                 ));
             }
             let media = text(r, "mediaType");
-            if !["image/png", "image/jpeg", "image/webp", "image/gif"].contains(&media) {
+            if ![
+                "image/png",
+                "image/jpeg",
+                "image/webp",
+                "image/gif",
+                "audio/mpeg",
+                "audio/mp4",
+                "audio/aac",
+                "audio/wav",
+            ]
+            .contains(&media)
+            {
                 missing.push(format!(
                     "{key} ({})",
                     self.locale
@@ -231,7 +241,7 @@ impl Store {
                 ));
                 continue;
             }
-            if !valid_image(&bytes, media) {
+            if !crate::audio::valid_media(&bytes, media) {
                 return Err(crate::language::error(
                     "LOCAL_IMAGE_FORMAT_MISMATCH",
                     serde_json::json!({"key": key}),
@@ -411,7 +421,7 @@ impl Store {
     }
     pub fn banks(&self) -> Result<Value> {
         let db = self.connect()?;
-        let mut stmt = db.prepare("SELECT b.id,b.title,COUNT(q.id) FROM banks b LEFT JOIN questions q ON q.bank_id=b.id AND (q.mode IS NULL OR q.mode NOT IN ('reading','word_bank','cloze')) GROUP BY b.id ORDER BY b.created_at DESC,b.id DESC").map_err(err)?;
+        let mut stmt = db.prepare("SELECT b.id,b.title,COUNT(q.id) FROM banks b LEFT JOIN questions q ON q.bank_id=b.id AND (q.mode IS NULL OR q.mode NOT IN ('reading','word_bank','cloze','listening','gap_fill')) GROUP BY b.id ORDER BY b.created_at DESC,b.id DESC").map_err(err)?;
         let rows = stmt.query_map([], |r| Ok(json!({"id":r.get::<_,String>(0)?,"title":r.get::<_,String>(1)?,"count":r.get::<_,i64>(2)?}))).map_err(err)?.collect::<std::result::Result<Vec<_>,_>>().map_err(err)?;
         Ok(json!(rows))
     }
@@ -422,7 +432,7 @@ impl Store {
             .query_row("SELECT COUNT(*) FROM banks", [], |r| r.get(0))
             .map_err(err)?;
         let offset = offset.min(total.saturating_sub(1) / limit * limit);
-        let mut stmt = db.prepare("WITH page AS (SELECT * FROM banks ORDER BY created_at DESC,id DESC LIMIT ?1 OFFSET ?2) SELECT b.id,b.title,b.description,b.created_at,COUNT(q.id) FROM page b LEFT JOIN questions q ON q.bank_id=b.id AND (q.mode IS NULL OR q.mode NOT IN ('reading','word_bank','cloze')) GROUP BY b.id ORDER BY b.created_at DESC,b.id DESC").map_err(err)?;
+        let mut stmt = db.prepare("WITH page AS (SELECT * FROM banks ORDER BY created_at DESC,id DESC LIMIT ?1 OFFSET ?2) SELECT b.id,b.title,b.description,b.created_at,COUNT(q.id) FROM page b LEFT JOIN questions q ON q.bank_id=b.id AND (q.mode IS NULL OR q.mode NOT IN ('reading','word_bank','cloze','listening','gap_fill')) GROUP BY b.id ORDER BY b.created_at DESC,b.id DESC").map_err(err)?;
         let items = stmt.query_map(params![limit,offset], |r| Ok(json!({"id":r.get::<_,String>(0)?,"title":r.get::<_,String>(1)?,"description":r.get::<_,String>(2)?,"createdAt":r.get::<_,i64>(3)?,"count":r.get::<_,i64>(4)?}))).map_err(err)?.collect::<std::result::Result<Vec<_>,_>>().map_err(err)?;
         Ok(json!({"items":items,"total":total,"offset":offset}))
     }
@@ -515,6 +525,13 @@ impl Store {
                 "reading",
                 "word_bank",
                 "cloze",
+                "listening",
+                "gap_fill",
+                "grammar_fill",
+                "translation",
+                "writing",
+                "sentence_selection",
+                "paragraph_matching",
             ]
             .contains(&mode)
             || !["", "wrong", "favorite", "unattempted"].contains(&filter)
@@ -573,7 +590,8 @@ impl Store {
                     text(q, "parentId").is_empty()
                         && matches.contains(text(row, "id"))
                         && (mode.is_empty()
-                            || text(q, "answerMode") == mode
+                            || crate::paper::category(q) == mode
+                            || (mode == "choice" && text(q, "answerMode") == "choice")
                             || (text(q, "answerMode") == "choice"
                                 && text(q, "choiceVariant") == mode))
                 })
@@ -586,8 +604,8 @@ impl Store {
                 WITH RECURSIVE tree(root,id) AS (
                     SELECT value,value FROM json_each(?1)
                     UNION ALL SELECT t.root,q.id FROM questions q JOIN tree t ON q.parent_id=t.id
-                ) SELECT COALESCE(CASE WHEN r.mode='choice' THEN c.variant ELSE r.mode END,''),
-                    COUNT(DISTINCT r.id), SUM(n.mode IS NULL OR n.mode NOT IN ('reading','word_bank','cloze'))
+                ) SELECT COALESCE(CASE WHEN r.question_kind IS NOT NULL THEN r.question_kind WHEN r.mode='gap_fill' THEN 'grammar_fill' WHEN r.mode='choice' THEN c.variant ELSE r.mode END,''),
+                    COUNT(DISTINCT r.id), SUM(n.mode IS NULL OR n.mode NOT IN ('reading','word_bank','cloze','listening','gap_fill'))
                 FROM tree t JOIN questions r ON r.id=t.root JOIN questions n ON n.id=t.id
                 LEFT JOIN choice_questions c ON c.question_id=r.id GROUP BY 1
             ").map_err(err)?;
@@ -700,6 +718,9 @@ impl Store {
         })
     }
     pub fn asset_bytes(&self, digest: &str) -> Result<Option<(String, Vec<u8>)>> {
+        if let Some(asset) = self.staged_audio.get(digest) {
+            return Ok(Some(asset.clone()));
+        }
         if let Some((media, bytes)) = self.pending.as_ref().and_then(|p| p.assets.get(digest)) {
             return Ok(Some((media.clone(), bytes.clone())));
         }

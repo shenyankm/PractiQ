@@ -90,7 +90,7 @@ it("clears incompatible children and answer data when the answer mode changes", 
   const save = vi.fn();
   render(<QuestionEditor initial={initial} initialChildren={[child]} busy={false} onClose={vi.fn()} onSave={save} />);
 
-  screen.getByRole("combobox").focus();
+  screen.getByRole("combobox", { name: "答题方式" }).focus();
   await user.keyboard("{Enter}");
   await user.click(screen.getByRole("option", { name: "排序题" }));
   expect(screen.queryByText("Old child")).toBeNull();

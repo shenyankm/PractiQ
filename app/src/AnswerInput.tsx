@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import { ArrowUp, ArrowDown } from "lucide-react";
 import { type Question, type Answer, canInteract, itemIds } from "./api";
+import { countEnglishWords } from "./english";
 import { Markdown } from "./Content";
 export function AnswerInput({
   question: q,
@@ -20,12 +21,14 @@ export function AnswerInput({
   onChange,
   disabled = false,
   prefix = "answer",
+  usedOptions = [],
 }: {
   question: Question;
   value: Answer | null;
   onChange: (a: Answer) => void;
   disabled?: boolean;
   prefix?: string;
+  usedOptions?: string[];
 }) {
   useI18n();
   const a = {
@@ -74,6 +77,7 @@ export function AnswerInput({
               <div className="grid min-w-0 flex-1 grid-cols-[auto_minmax(0,1fr)] items-start gap-2 leading-[1.75]">
                 <span className="min-w-6 font-medium">{o.label}.</span>
                 <Markdown>{o.content}</Markdown>
+                {usedOptions.includes(o.label!) && <span className="text-xs text-muted-foreground">{t("已使用")}</span>}
               </div>
             </label>
           ))}
@@ -91,10 +95,11 @@ export function AnswerInput({
               htmlFor={`${prefix}-${i}`}
               className="flex cursor-pointer items-start gap-3 rounded-lg border px-4 py-3"
             >
-              <RadioGroupItem className="mt-1 shrink-0" id={`${prefix}-${i}`} value={o.label!} />
+              <RadioGroupItem className="mt-1 shrink-0" id={`${prefix}-${i}`} value={o.label!} disabled={usedOptions.includes(o.label!) && !a.correct?.includes(o.label!)} />
               <div className="grid min-w-0 flex-1 grid-cols-[auto_minmax(0,1fr)] items-start gap-2 leading-[1.75]">
                 <span className="min-w-6 font-medium">{o.label}.</span>
                 <Markdown>{o.content}</Markdown>
+                {usedOptions.includes(o.label!) && <span className="text-xs text-muted-foreground">{t("已使用")}</span>}
               </div>
             </label>
           ))}
@@ -235,7 +240,7 @@ export function AnswerInput({
                 <SelectContent>
                   {itemIds(q, "right").map((right) => (
                     <SelectItem key={right.id} value={String(right.id)}>
-                      {right.content}
+                      {q.questionKind === "paragraph_matching" ? right.label || String(right.id+1) : right.content}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -246,14 +251,21 @@ export function AnswerInput({
       );
     default:
       return (
+        <div className="space-y-2">
         <Textarea
           disabled={disabled}
           aria-label={t("作答内容")}
           placeholder={t("写下你的答案…")}
           value={a.text || ""}
           onChange={(e) => onChange({ text: e.target.value })}
-          rows={7}
+          rows={q.questionKind === "writing" ? 14 : 7}
+          spellCheck={false}
         />
+        {q.questionKind === "writing" && <p role="status" className="text-sm text-muted-foreground">{t("当前 {0} 词",{0:countEnglishWords(a.text || "")})}
+          {(q.minWords != null || q.maxWords != null) && <span> · {t("要求：{0}–{1} 词",{0:q.minWords ?? 0,1:q.maxWords ?? t("不限")})}</span>}
+          {(q.minWords != null && countEnglishWords(a.text || "")<q.minWords || q.maxWords != null && countEnglishWords(a.text || "")>q.maxWords) && <span> · {t("词数超出要求范围，仍可提交。")}</span>}
+        </p>}
+        </div>
       );
   }
 }

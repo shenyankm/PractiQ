@@ -904,8 +904,8 @@
     "en": "This word is already selected in another blank; clear that answer first"
   },
   "LOCAL_JSON_VERSION": {
-    "zh-CN": "只支持 schemaVersion 为 2 的 PractiQ JSON，请重新导出",
-    "en": "Only PractiQ JSON schemaVersion 2 is supported"
+    "zh-CN": "只支持 schemaVersion 为 3 的 PractiQ JSON，请重新导出",
+    "en": "Only PractiQ JSON schemaVersion 3 is supported"
   },
   "LOCAL_GROUP_DELETE_CHILD": {
     "zh-CN": "请编辑完整题组以删除子题",

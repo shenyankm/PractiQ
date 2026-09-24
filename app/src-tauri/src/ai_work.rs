@@ -382,6 +382,7 @@ pub fn prepare_batch(dir: &Path, endpoint: &Endpoint, ids: &[String]) -> Result<
         locale: Default::default(),
         dir: dir.into(),
         pending: None,
+        staged_audio: std::collections::HashMap::new(),
     };
     let mut batch = Batch {
         id: store::id(),
@@ -437,6 +438,7 @@ pub fn batches(dir: &Path, work: &WorkState) -> Result<Value> {
         locale: Default::default(),
         dir: dir.into(),
         pending: None,
+        staged_audio: std::collections::HashMap::new(),
     };
     for batch in &mut batches {
         validate_batch(batch)?;
@@ -562,6 +564,7 @@ fn import_item(
             locale: Default::default(),
             dir: dir.into(),
             pending: None,
+            staged_audio: std::collections::HashMap::new(),
         },
     )?;
     let result = shared

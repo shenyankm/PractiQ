@@ -475,6 +475,7 @@ impl Store {
                 material
             })
             .collect();
+        materials.extend(list(&snapshot, "materials").iter().map(Value::to_string));
         materials.extend(
             list(&snapshot, "visuals")
                 .iter()

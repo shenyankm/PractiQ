@@ -145,7 +145,7 @@ def test_rich_pdf_preserves_formula_and_table_blocks(monkeypatch, tmp_path):
     result = asyncio.run(local_graph().ainvoke({"document": ref.model_dump()}))
     assert result["status"] == "SUCCEEDED"
     assert result["result"]["questions"][0]["contentBlocks"] == [
-        {"questionId": None, "role": None, "textValue": None, "markdownValue": None, "latexValue": None, "jsonValue": None, **b}
+        {"label": None, "questionId": None, "role": None, "textValue": None, "markdownValue": None, "latexValue": None, "jsonValue": None, **b}
         for b in expected["questions"][0]["contentBlocks"]]
     from PIL import Image
 

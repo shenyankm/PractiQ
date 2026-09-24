@@ -36,6 +36,16 @@ impl Store {
                 used.extend(image.into_iter().chain(source));
             }
         }
+        let mut statement=tx.prepare("SELECT json_extract(audio_ref,'$.sha256') FROM listening_questions UNION SELECT json_extract(value,'$.question.audioRef.sha256') FROM session_documents,json_each(session_documents.content,'$.questions')").map_err(err)?;
+        for digest in statement
+            .query_map([], |r| r.get::<_, Option<String>>(0))
+            .map_err(err)?
+        {
+            if let Some(digest) = digest.map_err(err)? {
+                used.insert(digest);
+            }
+        }
+        drop(statement);
         for digest in &hashes {
             if !used.contains(digest) {
                 tx.execute("DELETE FROM assets WHERE hash=?1", [digest])

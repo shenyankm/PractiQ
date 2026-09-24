@@ -16,7 +16,7 @@ from pydantic import (
     model_validator,
 )
 
-AnswerMode = Literal["choice", "true_false", "fill_blank", "short_answer", "ordering", "matching", "reading", "word_bank", "cloze"]
+AnswerMode = Literal["choice", "true_false", "fill_blank", "short_answer", "ordering", "matching", "reading", "word_bank", "cloze", "listening", "gap_fill"]
 DocumentSourceType = Literal["csv", "image", "text", "pdf"]
 ContentPartType = Literal[
     "text",
@@ -145,6 +145,7 @@ class MatchingAnswerPayload(StrictModel):
 
 
 class ParsedItem(StrictModel):
+    label: str | None = Field(default=None, max_length=64)
     id: StrictInt | None = None
     side: Literal["left", "right"] | None = None
     content: str | None = Field(default=None, max_length=20_000)
@@ -283,14 +284,22 @@ def question_missing_fields(data):
     for field in ("analysis", "sourceText"):
         if not data.get(field):
             missing.append(field)
+    if mode == "listening" and not data.get("audioRef"):
+        missing.append("media")
     missing.extend(field for field in ("media", "material") if field in data.get("missingFields", []))
-    return missing
+    return list(dict.fromkeys(missing))
 
 
-COMPOSITE_MODES = {"reading", "word_bank", "cloze"}
+COMPOSITE_MODES = {"reading", "word_bank", "cloze", "listening", "gap_fill"}
+QUESTION_KIND_MODES = {
+    "listening": "listening", "reading": "reading", "word_bank": "word_bank",
+    "cloze": "cloze", "grammar_fill": "gap_fill", "sentence_selection": "word_bank",
+    "paragraph_matching": "matching", "translation": "short_answer", "writing": "short_answer",
+}
 
 
 class ContentBlock(StrictModel):
+    label: str | None = Field(default=None, max_length=64)
     partType: ContentPartType
     questionId: str | None = Field(default=None, min_length=1, max_length=128)
     role: str | None = Field(default=None, max_length=64)
@@ -316,9 +325,40 @@ class ContentBlock(StrictModel):
         return self
 
 
+class ArtifactReference(StrictModel):
+    objectKey: str = Field(min_length=1, max_length=1_024)
+    sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    mediaType: str = Field(min_length=1, max_length=255)
+    sizeBytes: int = Field(ge=0)
+
+
+class AudioReference(ArtifactReference):
+    mediaType: str = Field(pattern=r"^audio/(mpeg|mp4|aac|wav)$")
+    sizeBytes: int = Field(gt=0, le=25 * 1024 * 1024)
+
+    @field_validator("objectKey")
+    @classmethod
+    def safe_path(cls, value: str) -> str:
+        if "\\" in value or any(part in {"", ".", ".."} for part in value.split("/")) or ":" in value:
+            raise ValueError("audio objectKey must be a relative resource path")
+        return value
+
+
 class ParsedQuestion(StrictModel):
     id: str | None = Field(default=None, min_length=1, max_length=128)
     parentId: str | None = Field(default=None, min_length=1, max_length=128)
+    questionKind: Literal["listening", "reading", "word_bank", "cloze", "grammar_fill", "sentence_selection", "paragraph_matching", "translation", "writing"] | None = None
+    instructions: str | None = Field(default=None, max_length=20_000)
+    audioRef: AudioReference | None = None
+    audioStartSeconds: float = Field(default=0, ge=0, le=86_400, allow_inf_nan=False)
+    audioEndSeconds: float | None = Field(default=None, gt=0, le=86_400, allow_inf_nan=False)
+    transcript: list[ContentBlock] = Field(default_factory=list, max_length=1_000)
+    examPlayCount: StrictInt = Field(default=2, ge=1, le=100)
+    sourceLanguage: str | None = Field(default=None, pattern=r"^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$", max_length=64)
+    targetLanguage: str | None = Field(default=None, pattern=r"^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$", max_length=64)
+    writingGenre: str | None = Field(default=None, max_length=128)
+    minWords: StrictInt | None = Field(default=None, ge=0, le=100_000)
+    maxWords: StrictInt | None = Field(default=None, ge=1, le=100_000)
     optionSourceId: str | None = Field(default=None, min_length=1, max_length=128)
     passage: list[ContentBlock] = Field(default_factory=list, max_length=1_000)
     allowReuse: StrictBool = False
@@ -346,13 +386,29 @@ class ParsedQuestion(StrictModel):
     def absent_list(cls, value):
         return [] if value is None else value
 
-    @field_validator("stem", "questionTypeId", "answerMode", "choiceVariant", "matchingVariant", "analysis", "sourceText", "scoringRubric", "scoreSourceText", mode="before")
+    @field_validator("stem", "questionTypeId", "answerMode", "choiceVariant", "matchingVariant", "analysis", "sourceText", "scoringRubric", "scoreSourceText", "instructions", "writingGenre", "sourceLanguage", "targetLanguage", mode="before")
     @classmethod
     def blank_to_null(cls, value):
         return (value.strip() or None) if isinstance(value, str) else value
 
     @model_validator(mode="after")
     def validate_answer(self) -> Self:
+        if self.questionKind is not None and QUESTION_KIND_MODES[self.questionKind] != self.answerMode:
+            raise ValueError("questionKind does not match answerMode")
+        if self.audioEndSeconds is not None and self.audioEndSeconds <= self.audioStartSeconds:
+            raise ValueError("audio end must be after start")
+        if self.answerMode != "listening" and (self.audioRef or self.transcript or self.audioStartSeconds or self.audioEndSeconds or self.examPlayCount != 2):
+            raise ValueError("audio fields require listening mode")
+        if any(b.partType == "blank" for b in self.transcript):
+            raise ValueError("transcript cannot contain answerable blanks")
+        if self.questionKind != "translation" and self.sourceLanguage is not None:
+            raise ValueError("sourceLanguage requires translation")
+        if self.questionKind not in {"translation", "writing"} and self.targetLanguage is not None:
+            raise ValueError("targetLanguage requires translation or writing")
+        if self.questionKind != "writing" and any(v is not None for v in (self.minWords, self.maxWords, self.writingGenre)):
+            raise ValueError("writing fields require writing")
+        if self.minWords is not None and self.maxWords is not None and self.minWords > self.maxWords:
+            raise ValueError("minWords must not exceed maxWords")
         if self.answerMode not in {None, "choice", "word_bank"} and (self.options or self.choiceVariant):
             raise ValueError("options are only allowed for choice questions")
         if self.answerMode is not None and self.answerMode not in {"ordering", "matching"} and self.items:
@@ -400,13 +456,6 @@ class ParsedGroup(StrictModel):
     @classmethod
     def reject_blank_title(cls, value: str) -> str:
         return _non_blank(value)
-
-
-class ArtifactReference(StrictModel):
-    objectKey: str = Field(min_length=1, max_length=1_024)
-    sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
-    mediaType: str = Field(min_length=1, max_length=255)
-    sizeBytes: int = Field(ge=0)
 
 
 class DocumentReference(ArtifactReference):
@@ -468,7 +517,7 @@ class DocumentVisual(VisualContent):
 
 
 class DocumentParseResult(StrictModel):
-    schemaVersion: Literal[2]
+    schemaVersion: Literal[3]
     questions: list[ParsedQuestion] = Field(min_length=1, max_length=1_000)
     groups: list[DocumentGroup] = Field(max_length=1_000)
     visualElements: list[DocumentVisual] = Field(max_length=1_000)
@@ -494,10 +543,14 @@ def validate_question_tree(questions: list[ParsedQuestion]) -> None:
             parent = by_id.get(q.parentId)
             if parent is None or parent.answerMode not in COMPOSITE_MODES:
                 raise ValueError("parentId must reference a composite question")
-            if parent.answerMode != "reading" and (q.answerMode != "choice" or q.choiceVariant != "single"):
+            if parent.answerMode in {"word_bank", "cloze"} and (q.answerMode != "choice" or q.choiceVariant != "single"):
                 raise ValueError("gap children must be single choices")
-            if q.answerMode == "reading":
-                raise ValueError("reading questions cannot nest")
+            if parent.answerMode == "gap_fill" and (q.answerMode != "fill_blank" or q.blankCount != 1):
+                raise ValueError("grammar gaps require single-blank children")
+            if parent.answerMode == "listening" and q.answerMode not in {"choice", "fill_blank", "short_answer"}:
+                raise ValueError("invalid listening child mode")
+            if q.answerMode in {"reading", "listening"}:
+                raise ValueError("reading/listening questions cannot nest")
             if parent.answerMode == "word_bank" and q.optionSourceId != parent.id:
                 raise ValueError("word-bank children must use their parent's options")
             children.setdefault(q.parentId, []).append(q)
@@ -517,10 +570,10 @@ def validate_question_tree(questions: list[ParsedQuestion]) -> None:
         if q.answerMode not in COMPOSITE_MODES:
             continue
         descendants = children.get(q.id or "", [])
-        if not descendants or not q.passage:
+        if not descendants or (q.answerMode != "listening" and not q.passage):
             q.needsReview = True
             q.missingFields = list(dict.fromkeys([*q.missingFields, "material"]))
-        if q.answerMode in {"word_bank", "cloze"}:
+        if q.answerMode in {"word_bank", "cloze", "gap_fill"}:
             refs = [block.questionId for block in q.passage if block.partType == "blank"]
             if len(refs) != len(set(refs)) or set(refs) != {child.id for child in descendants}:
                 raise ValueError("passage blanks must reference each child exactly once")

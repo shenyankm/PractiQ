@@ -477,6 +477,7 @@ fn active_endpoint(app: &tauri::AppHandle, dir: &std::path::Path) -> AiResult<En
                     locale: Default::default(),
                     dir: dir.to_owned(),
                     pending: None,
+                    staged_audio: std::collections::HashMap::new(),
                 },
             )
             .map_err(|mut error| {
@@ -557,6 +558,7 @@ pub fn read_review_image(
             locale: Default::default(),
             dir,
             pending: None,
+            staged_audio: std::collections::HashMap::new(),
         },
     )
 }
@@ -763,6 +765,7 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
                 locale: Default::default(),
                 dir,
                 pending: None,
+                staged_audio: std::collections::HashMap::new(),
             };
             process.load_assets(&mut pending, &store)?;
             let mut store = shared.lock().map_err(|_| {

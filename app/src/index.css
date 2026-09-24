@@ -149,3 +149,8 @@ html[lang="en"] [data-slot="button"]:not([data-size^="icon"]) {
     transition: none;
   }
 }
+
+/* Keep explicit passage gaps in the surrounding sentence, including whitespace. */
+.passage-flow { line-height: 2.5; }
+.passage-fragment, .passage-fragment .document-content, .passage-fragment .document-content > p { display: inline; white-space: pre-wrap; }
+.passage-fragment .document-content > p { margin: 0; }

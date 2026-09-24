@@ -1666,7 +1666,7 @@ fn closed_review_composite_content_search_and_favorites() {
     let roots = s.questions(Some(bank), "", "", "").unwrap();
     let root = text(&roots[0], "id");
     let child = text(&roots[0]["children"][0], "id");
-    assert!(roots[0]["children"][0]["groups"]
+    assert!(roots[0]["children"][0]["materials"]
         .to_string()
         .contains("STRUCTURED_MATERIAL"));
     for term in ["STRUCTURED_MATERIAL", "spring"] {

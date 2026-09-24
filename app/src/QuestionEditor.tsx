@@ -19,6 +19,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { EnglishFields } from "./EnglishFields";
+import { kindModes, questionKinds } from "./english";
 import { AnswerInput } from "./AnswerInput";
 export { blankQuestion } from "./api";
 export function QuestionEditor({
@@ -45,6 +47,7 @@ export function QuestionEditor({
   function mode(value: Mode) {
     setChildren([]);
     patch({
+      questionKind:null, audioRef:null,transcript:[],audioStartSeconds:0,audioEndSeconds:null,examPlayCount:2,sourceLanguage:null,targetLanguage:null,writingGenre:null,minWords:null,maxWords:null,
       passage: [], optionSourceId: null, allowReuse:false, blankCount:value === "fill_blank" ? 1 : null,
       answerMode: value,
       questionTypeId: modeNames()[value],
@@ -90,7 +93,7 @@ export function QuestionEditor({
             <div className="space-y-2">
               <Label htmlFor={`${formId}-answer-mode`}>{t("答题方式")}</Label>
               <Select
-                disabled={parent?.answerMode === "word_bank" || parent?.answerMode === "cloze"}
+                disabled={!!parent && ["word_bank","cloze","gap_fill"].includes(parent.answerMode || "")}
                 value={q.answerMode || ""}
                 onValueChange={(v) => mode(v as Mode)}
               >
@@ -98,7 +101,7 @@ export function QuestionEditor({
                   <SelectValue placeholder={t("选择答题方式")} />
                 </SelectTrigger>
                 <SelectContent>
-                  {Object.entries(modeNames()).filter(([k]) => !parent || (parent.answerMode === "reading" ? k !== "reading" : k === "choice")).map(([v, label]) => (
+                  {Object.entries(modeNames()).filter(([k]) => !parent || (parent.answerMode === "reading" ? !["reading","listening"].includes(k) : parent.answerMode === "listening" ? ["choice","fill_blank","short_answer"].includes(k) : parent.answerMode === "gap_fill" ? k === "fill_blank" : k === "choice")).map(([v, label]) => (
                     <SelectItem key={v} value={v}>
                       {label}
                     </SelectItem>
@@ -115,9 +118,17 @@ export function QuestionEditor({
               />
             </div>
           </div>
+          {(!parent || parent.answerMode === "reading") && <label className="grid gap-2">{t("英语题型")}
+            <select className="rounded border bg-background p-2" value={q.questionKind || ""} onChange={e=>{
+              const kind=e.target.value as NonNullable<Question["questionKind"]>;
+              if(kind && kindModes[kind]!==q.answerMode)mode(kindModes[kind]);
+              patch({questionKind:kind || null,sourceLanguage:null,targetLanguage:null,writingGenre:null,minWords:null,maxWords:null});
+            }}><option value="">{t("通用题型")}</option>{Object.entries(questionKinds()).filter(([kind])=>!parent || !["reading","listening"].includes(kind)).map(([kind,label])=><option key={kind} value={kind}>{label}</option>)}</select>
+          </label>}
+          <EnglishFields question={q} patch={patch}/>
           {q.answerMode === "choice" && (
             <Select
-              disabled={parent?.answerMode === "word_bank" || parent?.answerMode === "cloze"}
+              disabled={!!parent && ["word_bank","cloze","gap_fill"].includes(parent.answerMode || "")}
               value={q.choiceVariant || "single"}
               onValueChange={(v) =>
                 patch({
@@ -231,7 +242,8 @@ export function QuestionEditor({
                       {item.side === "left" ? t("左侧") : t("右侧")}
                     </span>
                   )}
-                  <Input
+                  <Input className="w-20" aria-label={t("段落标签")} value={item.label || ""} onChange={e=>patch({items:q.items.map((v,j)=>j===i?{...v,label:e.target.value || null}:v)})}/>
+                  <Textarea
                     aria-label={t("题项 {0}", { 0: i + 1 })}
                     value={item.content || ""}
                     onChange={(e) =>
@@ -286,17 +298,18 @@ export function QuestionEditor({
               </div>
             </div>
           )}
-          {q.answerMode === "fill_blank" && <label className="grid gap-2">{t("空位数量")}<Input type="number" min={1} max={100} value={q.blankCount ?? ""} onChange={e => patch({blankCount:e.target.value ? Number(e.target.value) : null, answerPayload:null})}/></label>}
+          {q.answerMode === "fill_blank" && <label className="grid gap-2">{t("空位数量")}<Input type="number" disabled={parent?.answerMode === "gap_fill"} min={1} max={100} value={q.blankCount ?? ""} onChange={e => patch({blankCount:e.target.value ? Number(e.target.value) : null, answerPayload:null})}/></label>}
           {isComposite(q) && <section className="space-y-3 rounded-lg border p-4">
             <Label>{t("共享文章与空位")}</Label>
             {(q.passage || []).map((b,i) => <div key={i} className="flex gap-2">
+              {b.partType !== "blank" && <Input className="w-20" aria-label={t("段落标签")} value={b.label || ""} onChange={e=>patch({passage:q.passage!.map((v,j)=>j===i?{...v,label:e.target.value || null}:v)})}/>}
               {b.partType === "blank" ? <span>{t("空位")} {children.findIndex(c => c.id === b.questionId)+1}</span> : <Textarea aria-label={t("文章段落")} value={b.markdownValue || b.textValue || b.latexValue || ""} onChange={e => patch({passage:q.passage!.map((v,j)=>j===i ? {...v,textValue:e.target.value,markdownValue:null,latexValue:null}:v)})}/>}
               {b.partType !== "blank" && <Button variant="outline" onClick={()=>patch({passage:q.passage!.filter((_,j)=>j!==i)})}>{t("删除")}</Button>}
             </div>)}
             <Button variant="outline" onClick={()=>patch({passage:[...(q.passage || []),{partType:"text",textValue:""}]})}>{t("增加文章段落")}</Button>
             {q.answerMode === "word_bank" && <label className="flex items-center gap-2"><input type="checkbox" checked={q.allowReuse || false} onChange={e=>patch({allowReuse:e.target.checked})}/>{t("允许重复选词")}</label>}
             {children.filter(c=>c.parentId===q.id).map((c,i)=><div key={c.id} className="flex items-center gap-2"><span className="flex-1">{i+1}. {c.stem || t("题干缺失")}</span><Button variant="outline" onClick={()=>setChildEditor(c)}>{t("编辑题目")}</Button><Button variant="outline" onClick={()=>{ const removed=new Set([c.id]); for(const v of children) if(removed.has(v.parentId)) removed.add(v.id); setChildren(children.filter(v=>!removed.has(v.id)));patch({passage:(q.passage || []).filter(b=>!removed.has(b.questionId))}); }}>{t("删除")}</Button></div>)}
-            <Button variant="outline" onClick={()=>{const c=blankQuestion();c.parentId=q.id;c.stem=q.answerMode === "reading" ? "" : t("空位");if(q.answerMode === "word_bank"){c.optionSourceId=q.id;c.options=[];}setChildEditor(c);}}>{t("增加子题")}</Button>
+            <Button variant="outline" onClick={()=>{const c=blankQuestion();c.parentId=q.id;c.stem=["reading","listening"].includes(q.answerMode || "") ? "" : t("空位");if(q.answerMode === "gap_fill"){c.answerMode="fill_blank";c.blankCount=1;c.choiceVariant=null;c.options=[];}if(q.answerMode === "word_bank"){c.optionSourceId=q.id;c.options=[];}setChildEditor(c);}}>{t("增加子题")}</Button>
           </section>}
           {!isComposite(q) && <div className="space-y-3 rounded-lg border p-4">
 
@@ -350,7 +363,7 @@ export function QuestionEditor({
       {childEditor && <QuestionEditor key={childEditor.id} initial={childEditor} parent={q} initialChildren={children.filter(c=>c.parentId===childEditor.id)} busy={false} onClose={()=>setChildEditor(null)} onSave={(child,nested)=>{
         const removed=new Set([child.id]);for(const c of children) if(removed.has(c.parentId))removed.add(c.id);
         const index=children.findIndex(c=>c.id===child.id);const kept=children.filter(c=>!removed.has(c.id));kept.splice(index<0 ? kept.length : index,0,child,...nested);setChildren(kept);
-        if(q.answerMode !== "reading" && !(q.passage || []).some(b=>b.questionId===child.id))patch({passage:[...(q.passage || []),{partType:"blank",questionId:child.id}]});
+        if(!["reading","listening"].includes(q.answerMode || "") && !(q.passage || []).some(b=>b.questionId===child.id))patch({passage:[...(q.passage || []),{partType:"blank",questionId:child.id}]});
         setChildEditor(null);
       }}/>}
     </Dialog>

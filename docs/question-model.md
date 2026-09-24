@@ -4,7 +4,7 @@
 
 ## 版本与目录
 
-仅接受 `schemaVersion: 2` JSON（裸结果或任务输出中的 `result`），SQLite `user_version=9`，备份清单 `version=3`。桌面在系统应用数据目录的 `v2/` 中启动；不迁移、覆盖或删除旧根目录数据库、图片及 AI 工作目录。旧 JSON、旧备份和非 9 数据库明确拒绝。Python 执行状态版本为 5，旧结构 checkpoint 不可恢复，应重新解析源文件。
+仅接受 `schemaVersion: 3` JSON（裸结果或任务输出中的 `result`），SQLite `user_version=10`，备份清单 `version=4`。桌面在系统应用数据目录的 `v3/` 中启动；不迁移、覆盖或删除旧根目录数据库、图片及 AI 工作目录。旧 JSON、旧备份和非 10 数据库明确拒绝。Python 执行状态版本为 6，旧结构 checkpoint 不可恢复，应重新解析源文件。
 
 ## ER 图
 
@@ -21,6 +21,9 @@ erDiagram
   questions ||--o| reading_questions : subtype
   questions ||--o| word_bank_questions : subtype
   questions ||--o| cloze_questions : subtype
+  questions ||--o| listening_questions : subtype
+  questions ||--o| gap_fill_questions : subtype
+  sessions ||--o{ listening_playback : playback
   questions ||--o| option_sets : owns
   option_sets ||--o{ question_options : options
   option_sets ||--o{ choice_questions : references
@@ -41,22 +44,25 @@ erDiagram
 
 | 表 | 字段与含义 |
 |---|---|
-| `questions` | `id` 主键；`bank_id`、`import_id`；`parent_id` 可空父题；`position` 原文顺序；`stem`、`mode`、`question_type`；`analysis`、`source_text`；`source_score`、`scoring_rubric`、`score_source_text` 原卷依据；`content_blocks` 结构块；`confidence`、`needs_review`、`missing_fields`；`favorite` |
+| `questions` | `id` 主键；`bank_id`、`import_id`；`parent_id` 可空父题；`position` 原文顺序；`stem`、`mode`、`question_type`、`question_kind`、`instructions`；`analysis`、`source_text`；`source_score`、`scoring_rubric`、`score_source_text` 原卷依据；`content_blocks` 结构块；`confidence`、`needs_review`、`missing_fields`；`favorite` |
 | `choice_questions` | `question_id` 主外键；`variant` single/multiple；`option_set_id`；`correct` 经校验的 JSON 数组或 JSON null |
 | `true_false_questions` | `question_id`；`value` JSON 布尔或 null |
 | `fill_blank_questions` | `question_id`；`blank_count` 原文空位数；`answers` 按空排列的 JSON 数组或 null |
-| `short_answer_questions` | `question_id`；`answer` JSON 文本或 null |
+| `short_answer_questions` | `question_id`；`answer` JSON 文本或 null；翻译／写作的语言、文体和词数上下限 |
 | `ordering_questions` | `question_id`；`answer_order` 题项 ID 数组或 null |
 | `matching_questions` | `question_id`；`variant` one_to_one/many_to_one；`matches` 左右 ID 对数组或 null |
 | `reading_questions` | `question_id`；`passage` 文章结构块 |
 | `word_bank_questions` | `question_id`；`passage` 含显式空位引用；`allow_reuse`；`option_set_id` 共享词库 |
 | `cloze_questions` | `question_id`；`passage` 含显式空位引用 |
+| `listening_questions` | `question_id`；`passage`；`audio_ref`；起止秒数、听力原文、考试播放次数 |
+| `gap_fill_questions` | `question_id`；带显式空位 ID 的 `passage`；每空一个单空填空子题 |
+| `listening_playback` | `session_id,question_id`；已用遍数、当前进度、是否处于尚未结束的一遍、更新时间；暂停／重启不重复扣次 |
 | `option_sets` | `id` 指向拥有词库的题目；每组词库只保存一次 |
 | `question_options` | `owner_id`、`position` 联合主键；`label`、`content`；同词库标签唯一 |
-| `question_items` | `question_id`、`position` 联合主键；`item_id`、`side`、`content`；用于排序与匹配 |
+| `question_items` | `question_id`、`position` 联合主键；`item_id`、`label`、`side`、`content`；用于排序与匹配 |
 | `sections` / `section_questions` | 章节 `id,bank_id,title,instructions`；`section_id,question_id` 成员关系。章节不是必须整组作答的复合题 |
 | `visuals` / `question_visuals` | 素材 `id,bank_id,content,document_level`；`visual_id,question_id` 关联。`document_level` 明确标记文档级待确认素材；删除题目不会把失去关联的专属素材改挂到其他题 |
-| `assets` | `hash,media,size,path`；图片内容存在不可变 `assets/<sha256>` 文件中 |
+| `assets` | `hash,media,size,path`；图片及音频内容存在不可变 `assets/<sha256>` 文件中 |
 | `question_sources` | `question_id,stage,unit_index`；一个题目可关联多个原文页／分片 |
 | `imports` / `import_warnings` | 导入 `id,bank_id,digest,created_at`，不另存一份题目 JSON；警告 `import_id,position,message` |
 | `session_documents` | `session_id,content`；整场版本化不可变 JSON，题组父材料和共享词库各冻结一次 |
@@ -90,7 +96,7 @@ erDiagram
 3. 校验后导出 JSON；任务计数按可作答子题，复合父题不重复计数。预算、重试、用量和恢复继续由现有执行层负责；解析不解题。
 4. Rust `contract.rs` 校验导出 Schema 和引用；`questions.rs` 唯一映射关系表，供导入、完整题组编辑、复制合并和查询复用。图片写盘校验完成后再提交数据库引用。
 5. Rust `paper.rs` 负责抽题、配额、分值和预览摘要；`exams.rs` 开始练习核对摘要、冻结整场内容并判分。前端只展示与输入，不实现另一套最终抽题／判分规则。
-6. 简答 AI 评分仍需显式操作，从冻结快照取文章、必要素材和原文依据；交卷前 Rust 隐藏参考答案、解析、评分依据及可能泄题的原页引用。
+6. 简答 AI 评分仍需显式操作，从冻结快照的结构化 `materials` 取文章、必要素材和原文依据；交卷前 Rust 隐藏参考答案、解析、评分依据及可能泄题的原页引用。
 
 ## 组卷与历史
 
@@ -104,3 +110,21 @@ erDiagram
 - `server/tests/test_composite_questions.py`：共享 Python 流程与桌面复合样例、跨页显式引用。
 - `app/src-tauri/src/tests.rs`：真实临时 SQLite 导入、重建、整组抽取、词库约束、摘要失效、不可变历史及备份恢复。
 - `make verify`、`make app-check`、`make app-build`：离线检查与 macOS 构建。模型替身通过不代表真实模型对新题型的识别质量；真实模型效果需单独测量。
+
+## 英语题型
+
+`questionKind` 为可空标准分类：listening、reading、word_bank、cloze、grammar_fill、sentence_selection、paragraph_matching、translation、writing。`questionTypeId` 保留原卷名称；`answerMode` 决定作答结构。分类与模式不匹配会被拒绝；筛选和配额按标准分类统计，缺分类时使用既有答题模式。
+
+- 听力使用 listening 父题，子题为 choice、fill_blank 或 short_answer；音频不存在仍可导入，但标记 media 待复核。`audioRef` 使用 objectKey、sha256、mediaType、sizeBytes，`audioStartSeconds` 默认 0，`audioEndSeconds` 可空，`transcript` 保存原卷听力文本，`examPlayCount` 默认 2、可设为 1–100。音频只通过本地选择器或题库 ZIP 提供，不从文档生成音频地址或转写。
+- 语法填空使用 gap_fill 父题，questionKind=grammar_fill，空位与 blankCount=1 的 fill_blank 子题一一对应。提示词保存在子题题干。
+- 七选五使用 word_bank 模式和 sentence_selection 分类；完整句子选项共享一次，不硬编码空位／选项数量。段落匹配使用 matching 模式和 paragraph_matching 分类，保留原卷的一对一或多对一规则。
+- 翻译和写作沿用 short_answer。sourceLanguage/targetLanguage 使用语言标签，例如 zh-CN、en；writingGenre 保存原卷文体；minWords/maxWords 缺失时为 null。原文、给定材料及续写开头使用 contentBlocks，role 分别为 source_text、material、starter_text。参考译文或范文仅存 answerPayload.text。
+- instructions 保存作答说明；ContentBlock.label、ParsedItem.label 保存印刷段落／题项标签，不能作为内部 ID。未明确给出的答案、评分细则、语言和词数限制不会补造。
+
+练习材料以“查看原文”弹窗展示，空位保留 questionId，可以定位子题并显示当前草稿。英文词数将缩写和连字符词计为一个词，只提示范围、不自动扣分。翻译／写作练习自评，考试交卷后才可显式请求既有 AI 评分。
+
+听力练习允许拖动、倍速与重听；考试禁止拖动和倍速、允许暂停。实际播放开始计次，同组切题保留播放器，离开题组暂停；进度定期写入 SQLite，暂停及退出时补存。正常退出续播不扣新一遍；强制终止最多回退最近约一秒未保存进度。整组提交／跳过或结束练习后开放听力原文，考试须交卷。隐藏在 Rust 会话返回边界完成。
+
+音频使用 macOS 系统音频读取器校验，不新增解码依赖。新选音频先在编辑会话暂存，保存题组才先落盘再写入数据库；取消编辑释放暂存。资源回收同时检查当前题库与历史快照，删除原题不会删除历史引用的音频。
+
+离线体验包：[英语九类题型样例](../app/fixtures/english.zip)。其中三段提示音用于验证播放器及题组流程，不代表口语素材、真实模型识别准确率或完整考试题库。

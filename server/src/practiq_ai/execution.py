@@ -21,7 +21,7 @@ from .contracts import ArtifactReference, DocumentReference
 from .errors import DocumentProcessingError
 from .storage import get_object_store
 
-STATE_VERSION = 5
+STATE_VERSION = 6
 TTL_MINUTES = 259_200
 RECURSION_LIMIT = 10_000
 CURRENT_EXECUTION: ContextVar[dict[str, Any] | None] = ContextVar("execution", default=None)

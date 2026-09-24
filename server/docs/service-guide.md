@@ -201,7 +201,7 @@ PDFium 在可终止的隔离进程中渲染页面；页图和裁剪图进入素�
 
 返回的 `page` 为零起始页索引。自动化测试不调用真实模型；真实识别质量需另行验收。
 
-Word 输入已移除，`AI_SOFFICE_PATH` 不再生效。旧 Word 任务不能继续或重试，请转为 PDF 后新建任务；旧数据原样保留；新版只导入 schemaVersion 2 的 JSON、只恢复格式 3 备份。具体错误见 [任务 API](document-tasks.md)。
+Word 输入已移除，`AI_SOFFICE_PATH` 不再生效。旧 Word 任务不能继续或重试，请转为 PDF 后新建任务；旧数据原样保留；新版只导入 schemaVersion 3 的 JSON、只恢复格式 4 备份。具体错误见 [任务 API](document-tasks.md)。
 
 ## 长任务控制
 
@@ -221,4 +221,6 @@ Word 输入已移除，`AI_SOFFICE_PATH` 不再生效。旧 Word 任务不能继
 
 ## 题型契约 v2
 
-Python 仅提取、关联并导出 `schemaVersion: 2` JSON，由 Rust 校验并写入 schema 9 SQLite。新增阅读、选词、完形复合题，所有单／多选答案统一为 `answerPayload.correct` 数组。选词和完形每空为选择子题，公共材料和词库用 ID 引用；章节独立于复合题组。来源及审核问题在导出边界也用 questionId。执行状态版本 5 拒绝旧结构 checkpoint。详见[题型模型与 ER 图](../../docs/question-model.md)。
+Python 仅提取、关联并导出 `schemaVersion: 3` JSON，由 Rust 校验并写入 schema 10 SQLite。新增阅读、选词、完形复合题，所有单／多选答案统一为 `answerPayload.correct` 数组。选词和完形每空为选择子题，公共材料和词库用 ID 引用；章节独立于复合题组。来源及审核问题在导出边界也用 questionId。执行状态版本 6 拒绝旧结构 checkpoint。详见[题型模型与 ER 图](../../docs/question-model.md)。
+
+英语题型支持听力、阅读、选词、完形、语法填空、七选五、段落匹配、翻译与写作；仅提取原文给出的内容，听力音频由桌面本地附加。详细字段、原文弹窗与播放规则见[题型模型](../../docs/question-model.md#英语题型)。

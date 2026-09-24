@@ -1,3 +1,4 @@
+import { questionKinds } from "./english";
 import type { ImportTaskContext } from "./ai-api";
 import { date, duration, message, renderMessage, type Message, t, useI18n } from "./i18n";
 import { useTheme } from "./theme";
@@ -525,7 +526,7 @@ export default function App() {
                     <SelectItem value="all">{t("全部题型")}</SelectItem>
                     <SelectItem value="single">{t("单选题")}</SelectItem>
                     <SelectItem value="multiple">{t("多选题")}</SelectItem>
-                    {Object.entries(modeNames()).map(([v, label]) => (
+                    {Object.entries({...modeNames(),...questionKinds()}).filter(([key])=>key!=="gap_fill").map(([v, label]) => (
                       <SelectItem key={v} value={v}>
                         {label}
                       </SelectItem>
@@ -715,7 +716,7 @@ export default function App() {
           </div>}
           {page === "practice" && session && (
             <Practice
-              key={`${session.id}-${session.position}`}
+              key={session.id}
               session={session}
               onSession={(s) => {
                 setSession(s);

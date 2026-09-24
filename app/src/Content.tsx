@@ -5,7 +5,7 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
-import { api, fieldName, type Snapshot, type Visual, type Block } from "./api";
+import { api, fieldName, type Snapshot, type Visual, type Block, type Question } from "./api";
 import { ZoomIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -40,10 +40,12 @@ export const Markdown = memo(function Markdown({ children }: { children?: string
     </div>
   ) : null;
 });
-function Blocks({blocks}: {blocks: Block[]}) {
-  return <>{blocks.map((b, i) => (
-        <div key={i}>
-          {b.partType === "blank" ? <span className="inline-block rounded border px-3 py-1">{t("空位")} {blocks.filter(v=>v.partType==="blank").findIndex(v=>v.questionId===b.questionId)+1}</span> : <>
+export function Blocks({blocks, onBlank, blankAnswers = {}}: {blocks: Block[];onBlank?:(id:string)=>void;blankAnswers?:Record<string,string>}) {
+  const inline=blocks.some(b=>b.partType === "blank");
+  return <div className={inline ? "passage-flow" : "space-y-3"}>{blocks.map((b, i) => (
+        <div key={i} className={inline && !b.label && ["text","blank"].includes(b.partType) ? "passage-fragment" : undefined}>
+          {b.label && <span className="font-semibold">{b.label}</span>}
+          {b.partType === "blank" ? <Button type="button" variant="outline" size="sm" disabled={!onBlank} onClick={()=>b.questionId && onBlank?.(b.questionId)}>{t("空位")} {blocks.filter(v=>v.partType==="blank").findIndex(v=>v.questionId===b.questionId)+1}{b.questionId && blankAnswers[b.questionId] ? ` · ${blankAnswers[b.questionId]}` : ""}</Button> : <>
             {b.latexValue && <Markdown>{`$$\n${b.latexValue}\n$$`}</Markdown>}
             <Markdown>{b.markdownValue}</Markdown>
             {b.textValue !== b.markdownValue && <Markdown>{b.textValue}</Markdown>}
@@ -54,7 +56,7 @@ function Blocks({blocks}: {blocks: Block[]}) {
             </pre>
           )}
         </div>
-  ))}</>;
+  ))}</div>;
 }
 function ImageAsset({ visual, original = false }: { visual: Visual; original?: boolean }) {
   useI18n();
@@ -116,14 +118,32 @@ export const Content = memo(function Content({
   source = false,
   exam = false,
   revealOriginal = true,
+  materialDialog = false,
+  onBlank,
+  blankAnswers,
 }: {
   snapshot: Snapshot;
   source?: boolean;
   exam?: boolean;
   revealOriginal?: boolean;
+  materialDialog?: boolean;
+  onBlank?:(id:string)=>void;
+  blankAnswers?:Record<string,string>;
 }) {
   useI18n();
   const q = snapshot.question;
+  const ownMaterial = ["translation","writing","paragraph_matching"].includes(q.questionKind || "") || !!q.passage?.length;
+  const materials = [...(snapshot.materials || []), ...(ownMaterial ? [q] : [])];
+  const [open,setOpen]=useState(false);
+  const trigger=useRef<HTMLButtonElement>(null);
+  function material(q:Question) {
+    return <section key={q.id} className="space-y-3">
+      <Markdown>{q.stem}</Markdown><Markdown>{q.instructions}</Markdown>
+      <Blocks blocks={[...(q.passage || []), ...q.contentBlocks]} blankAnswers={blankAnswers} onBlank={id=>{setOpen(false);onBlank?.(id);}}/>
+      {q.questionKind === "paragraph_matching" && q.items.filter(i=>i.side==="right").map((item,i)=><div key={item.id ?? i}><strong>{item.label || String(i+1)}</strong><Markdown>{item.content}</Markdown></div>)}
+      {!!q.transcript?.length && <details><summary>{t("听力原文")}</summary><Blocks blocks={q.transcript}/></details>}
+    </section>;
+  }
   return (
     <div className="space-y-5">
       {(q.needsReview ||
@@ -131,7 +151,7 @@ export const Content = memo(function Content({
         snapshot.missingAssets) && (
         <div role="note" className="rounded-lg border bg-muted/50 p-3 text-sm">
           <strong>{t("内容待复核，仍可练习。")}</strong>{" "}
-          {snapshot.missingAssets ? t("部分图片未导入。") : ""}
+          {snapshot.missingAssets ? t("部分图片或音频未导入。") : ""}
           {q.missingFields.length > 0 &&
             t("缺失：{0}。", { 0: list(q.missingFields.map(fieldName)) })}
         </div>
@@ -146,7 +166,15 @@ export const Content = memo(function Content({
       <Markdown>
         {q.stem || (!exam && q.sourceText) || t("此题题干缺失，请查看以下内容或跳过。")}
       </Markdown>
-      <Blocks blocks={[...(q.passage || []), ...q.contentBlocks]} />
+      <Markdown>{q.instructions}</Markdown>
+      {(q.sourceLanguage || q.targetLanguage) && <p className="text-sm text-muted-foreground">{q.sourceLanguage}{q.sourceLanguage ? " → " : ""}{q.targetLanguage}</p>}
+      {q.writingGenre && <p className="text-sm text-muted-foreground">{q.writingGenre}</p>}
+      {materialDialog && materials.some(m=>m.passage?.length || m.contentBlocks.length || m.transcript?.length || m.questionKind === "paragraph_matching") ? <>
+        <Button ref={trigger} variant="outline" onClick={()=>setOpen(true)}>{t("查看原文")}</Button>
+        <Dialog open={open} onOpenChange={setOpen}><DialogContent className="flex max-h-[85vh] flex-col sm:max-w-4xl" onCloseAutoFocus={e=>{e.preventDefault();trigger.current?.focus();}}><DialogHeader><DialogTitle>{t("查看原文")}</DialogTitle><DialogDescription>{t("题目材料；点击空位可定位对应子题。")}</DialogDescription></DialogHeader><div className="min-h-0 space-y-6 overflow-auto pr-3">{materials.map(material)}{snapshot.visuals.map(v=><ImageAsset key={v.id} visual={v}/>)}</div></DialogContent></Dialog>
+      </> : !materialDialog && materials.filter(m=>m.id!==q.id).map(material)}
+      {(!materialDialog || !ownMaterial) && <Blocks blocks={[...(q.passage || []), ...q.contentBlocks]} />}
+      {!materialDialog && !!q.transcript?.length && <details><summary>{t("听力原文")}</summary><Blocks blocks={q.transcript}/></details>}
       {snapshot.visuals.map((v) => (
         <div key={v.id} className="space-y-2">
           <ImageAsset visual={{...v, extractedText: q.contentBlocks.some(b => b.markdownValue === v.extractedText) ? null : v.extractedText}} />

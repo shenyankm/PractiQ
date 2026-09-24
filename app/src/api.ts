@@ -4,7 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type { Question, Answer, ParsedOption as Option, ParsedItem as Item, ContentBlock as Block } from "./contracts.generated";
 export type { Question, Answer, Option, Item, Block };
 export type Mode = NonNullable<Question["answerMode"]>;
-export function isComposite(q: Question) { return q.answerMode === "reading" || q.answerMode === "word_bank" || q.answerMode === "cloze"; }
+export function isComposite(q: Question) { return ["reading","word_bank","cloze","listening","gap_fill"].includes(q.answerMode || ""); }
 export function modeNames(): Record<string, string> { return {
   choice: t("选择题"),
   true_false: t("判断题"),
@@ -12,6 +12,7 @@ export function modeNames(): Record<string, string> { return {
   short_answer: t("简答题"),
   ordering: t("排序题"),
   matching: t("匹配题"),
+  listening:t("听力题"), gap_fill:t("语法填空"),
   reading: t("阅读理解"), word_bank: t("选词填空"), cloze: t("完形填空"),
 }; }
 export function blankQuestion(): Question {
@@ -58,6 +59,7 @@ export interface Visual {
   sourceRef?: ImageReference | null;
 }
 export interface Snapshot {
+  materials?: Question[];
   question: Question;
   groups: Group[];
   visuals: Visual[];
@@ -157,7 +159,11 @@ export interface Paper { question_ids: string[]; kind: SessionKind; minutes: num
 export interface PaperPreview { questionIds: string[]; digest: string; questions: QuestionRow[]; scores: number[]; count: number }
 export interface QuestionStats { count: number; types: Record<string, number> }
 export interface PaperSelection { bank_ids: string[]; search: string; mode: string; filter: string; selection: string; count: number; quotas: Record<string,number>; question_ids: string[]; random: boolean; total_cents: number; budgets?: Record<string,number> }
+export interface PlaybackState { used:number; position:number; active:boolean; limit:number; restricted:boolean }
 type Request =
+  | { type:"pick_audio" }
+  | { type:"release_audio"; hash:string }
+  | { type:"listening_playback"; id:string; question_id:string; action:"state"|"start"|"progress"|"pause"|"end"; position?:number }
   | { type: "banks_page" | "sessions_page"; limit: number; offset: number }
   | { type: "export_bank"; bank_id: string }
   | { type: "preview_paper"; request: PaperSelection }
@@ -210,6 +216,9 @@ type Request =
   | { type: "asset"; hash: string };
 type ResponseMap = {
   asset: ArrayBuffer;
+  pick_audio: {reference:NonNullable<Question["audioRef"]>;duration:number}|null;
+  release_audio: null;
+  listening_playback: PlaybackState;
   backup: { path: string } | null;
   banks: BankChoice[];
   banks_page: BankPage;

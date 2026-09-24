@@ -116,7 +116,7 @@ def test_document_parse_input_accepts_only_managed_storage_references() -> None:
 def test_document_result_validates_nested_references_and_labels() -> None:
     result = DocumentParseResult.model_validate(
         {
-            "schemaVersion": 2,
+            "schemaVersion": 3,
             "questions": [question()],
             "groups": [{"title": "Section 1", "questionIds": ["q0"]}],
             "visualElements": [],
