@@ -47,6 +47,83 @@ it("edits translation fields and preserves source materials",async()=>{
   await userEvent.click(screen.getByRole("button",{name:"保存题目"}));
   expect(save).toHaveBeenCalledWith(expect.objectContaining({targetLanguage:"en-GB",contentBlocks:question("translate").contentBlocks}),[]);
 });
+it("saves listening edits and releases staged audio after closing the editor", async () => {
+  const user = userEvent.setup();
+  const save = vi.fn();
+  audioMocks();
+  const reference = question("listen").audioRef!;
+  const pick = vi.fn().mockResolvedValueOnce(null).mockRejectedValueOnce(new Error("Invalid audio"))
+    .mockResolvedValue({ reference, duration: 3 });
+  mockApi.mockImplementation(async request => {
+    if (request.type === "pick_audio") return pick();
+    if (request.type === "asset") return new ArrayBuffer(2) as never;
+    return null as never;
+  });
+  const view = render(<QuestionEditor initial={{ ...question("listen"), audioRef: null, missingFields: ["media", "material"] }} busy={false} onClose={() => {}} onSave={save} />);
+  await user.click(screen.getByRole("button", { name: "选择听力音频" }));
+  expect(screen.queryByRole("button", { name: "移除音频" })).toBeNull();
+  expect(screen.queryByRole("alert")).toBeNull();
+  await user.click(screen.getByRole("button", { name: "选择听力音频" }));
+  expect(await screen.findByRole("alert")).toBeTruthy();
+  await user.click(screen.getByRole("button", { name: "选择听力音频" }));
+  expect(await screen.findByRole("button", { name: "移除音频" })).toBeTruthy();
+  expect(screen.queryByRole("alert")).toBeNull();
+  await user.clear(screen.getByLabelText("开始秒数"));
+  await user.type(screen.getByLabelText("开始秒数"), "0.5");
+  await user.type(screen.getByLabelText("结束秒数（可留空）"), "2.5");
+  await user.clear(screen.getByLabelText("考试播放次数"));
+  await user.type(screen.getByLabelText("考试播放次数"), "3");
+  await user.clear(screen.getByLabelText("听力原文"));
+  await user.type(screen.getByLabelText("听力原文"), "Listen carefully.");
+  await user.click(screen.getByRole("button", { name: "保存题目" }));
+  expect(save).toHaveBeenLastCalledWith(expect.objectContaining({
+    audioRef: reference, audioStartSeconds: 0.5, audioEndSeconds: 2.5, examPlayCount: 3,
+    transcript: [{ partType: "text", textValue: "Listen carefully." }], missingFields: ["material"],
+  }), []);
+  await user.click(screen.getByRole("button", { name: "移除音频" }));
+  await user.clear(screen.getByLabelText("结束秒数（可留空）"));
+  await user.clear(screen.getByLabelText("听力原文"));
+  await user.click(screen.getByRole("button", { name: "保存题目" }));
+  expect(save).toHaveBeenLastCalledWith(expect.objectContaining({ audioRef: null, audioEndSeconds: null, transcript: [] }), []);
+  view.unmount();
+  expect(mockApi).toHaveBeenCalledWith({ type: "release_audio", hash: reference.sha256 });
+}, 15000);
+
+it("saves writing limits and materials while preserving continuation roles", async () => {
+  const user = userEvent.setup();
+  const save = vi.fn();
+  render(<QuestionEditor initial={{ ...question("write"), contentBlocks: [] }} busy={false} onClose={() => {}} onSave={save} />);
+  await user.clear(screen.getByLabelText("作答说明"));
+  await user.type(screen.getByLabelText("作答说明"), "Write a letter.");
+  await user.clear(screen.getByLabelText("写作文体"));
+  await user.type(screen.getByLabelText("写作文体"), "letter");
+  await user.clear(screen.getByLabelText("最少词数"));
+  await user.type(screen.getByLabelText("最少词数"), "80");
+  await user.clear(screen.getByLabelText("最多词数"));
+  await user.type(screen.getByLabelText("最多词数"), "120");
+  await user.click(screen.getByRole("button", { name: "增加材料段落" }));
+  await user.type(screen.getByLabelText("材料段落标签"), "A");
+  await user.type(screen.getByLabelText("材料内容"), "Invite a friend.");
+  await user.click(screen.getByRole("button", { name: "增加续写开头" }));
+  await user.type(screen.getAllByLabelText("材料内容")[1], "Dear friend,");
+  await user.click(screen.getByRole("button", { name: "保存题目" }));
+  expect(save).toHaveBeenLastCalledWith(expect.objectContaining({
+    instructions: "Write a letter.", writingGenre: "letter", minWords: 80, maxWords: 120,
+    contentBlocks: [
+      { partType: "text", role: "material", label: "A", textValue: "Invite a friend.", markdownValue: null },
+      { partType: "text", role: "starter_text", label: "续写开头", textValue: "Dear friend,", markdownValue: null },
+    ],
+  }), []);
+  await user.click(screen.getAllByRole("button", { name: "删除" })[0]);
+  await user.clear(screen.getByLabelText("最少词数"));
+  await user.clear(screen.getByLabelText("最多词数"));
+  await user.click(screen.getByRole("button", { name: "保存题目" }));
+  expect(save).toHaveBeenLastCalledWith(expect.objectContaining({
+    minWords: null, maxWords: null,
+    contentBlocks: [expect.objectContaining({ role: "starter_text", textValue: "Dear friend," })],
+  }), []);
+}, 15000);
+
 function audioMocks() {
   vi.spyOn(URL,"createObjectURL").mockReturnValue("blob:audio");
   vi.spyOn(URL,"revokeObjectURL").mockImplementation(()=>{});
