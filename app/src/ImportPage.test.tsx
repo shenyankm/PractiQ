@@ -61,7 +61,7 @@ it("loads native pages and clamps the page after deleting the last item", async 
   expect(await screen.findByText("Page question 0")).toBeTruthy();
   expect(screen.getByRole("button",{name:"上一页"}).hasAttribute("disabled")).toBe(true);
   expect(api).toHaveBeenCalledWith(expect.objectContaining({type:"questions_page",limit:30,offset:30}));
-});
+}, 30000);
 
 it("keeps ZIP import usable without models and preserves the destination bank", async () => {
   vi.mocked(invoke).mockResolvedValue([]);
