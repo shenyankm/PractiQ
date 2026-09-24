@@ -9,9 +9,12 @@ export function EnglishFields({question:q,patch}:{question:Question;patch:(q:Par
   useI18n();
   const staged=useRef(new Set<string>());
   const mounted=useRef(false);
+  const mode=useRef(q.answerMode);
+  mode.current=q.answerMode;
   const [error,setError]=useState(false);
   const [picking,setPicking]=useState(false);
   useEffect(()=>{mounted.current=true;const hashes=staged.current;return ()=>{mounted.current=false;for(const hash of hashes)void api({type:"release_audio",hash}).catch(()=>{});hashes.clear();};},[]);
+  useEffect(()=>{if(q.answerMode!=="listening"){for(const hash of staged.current)void api({type:"release_audio",hash}).catch(()=>{});staged.current.clear();}},[q.answerMode]);
   function release(hash?:string) {
     if(hash && staged.current.delete(hash))void api({type:"release_audio",hash}).catch(()=>{});
   }
@@ -19,7 +22,7 @@ export function EnglishFields({question:q,patch}:{question:Question;patch:(q:Par
     setPicking(true);setError(false);
     try {const result=await api({type:"pick_audio"});if(result){
       const hash=result.reference.sha256;
-      if(!mounted.current){void api({type:"release_audio",hash}).catch(()=>{});return;}
+      if(!mounted.current || mode.current!=="listening"){void api({type:"release_audio",hash}).catch(()=>{});return;}
       if(q.audioRef?.sha256!==hash)release(q.audioRef?.sha256);
       staged.current.add(hash);
       patch({audioRef:result.reference,audioStartSeconds:0,audioEndSeconds:null,missingFields:q.missingFields.filter(f=>f!=="media")});

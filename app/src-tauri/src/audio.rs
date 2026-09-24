@@ -215,8 +215,8 @@ impl Store {
                         }
                     } else {
                         // The two-second IPC allowance applies once per play, even across pauses.
-                        let elapsed =
-                            active_elapsed_ms.saturating_add(at.saturating_sub(active_since));
+                        let elapsed = active_elapsed_ms
+                            .saturating_add(at.saturating_sub(active_since).max(0));
                         if restricted
                             && (next + 0.25 < pos || next - start > elapsed as f64 / 1000.0 + 2.0)
                         {
@@ -418,6 +418,16 @@ mod tests {
             .unwrap());
     }
     #[test]
+    fn deleting_unreferenced_listening_question_collects_audio() {
+        let (_dir, store, bank) = english();
+        let roots = store.questions(Some(&bank), "", "listening", "").unwrap();
+        let root = text(&roots[0], "id");
+        let digest = text(&roots[0]["question"]["audioRef"], "sha256");
+        store.delete_question(root).unwrap();
+        assert!(!store.asset_path(digest).unwrap().exists());
+        assert!(store.asset_bytes(digest).unwrap().is_none());
+    }
+    #[test]
     fn audio_selection_is_staged_and_checks_real_format() {
         let dir = tempfile::tempdir().unwrap();
         let mut store = Store::new(dir.path().into()).unwrap();
@@ -557,6 +567,24 @@ mod tests {
             .unwrap();
         assert_eq!(restarted["used"], 0);
         assert_eq!(restarted["active"], false);
+        store
+            .listening_playback(sid, &root, PlaybackAction::Start, None)
+            .unwrap();
+        store.connect().unwrap().execute(
+            "UPDATE listening_playback SET updated_at=updated_at+60000 WHERE session_id=?1 AND question_id=?2",
+            params![sid,root],
+        ).unwrap();
+        store
+            .listening_playback(sid, &root, PlaybackAction::Progress, Some(0.1))
+            .unwrap();
+        store
+            .listening_playback(sid, &root, PlaybackAction::Pause, Some(0.1))
+            .unwrap();
+        let elapsed: i64 = store.connect().unwrap().query_row(
+            "SELECT active_elapsed_ms FROM listening_playback WHERE session_id=?1 AND question_id=?2",
+            params![sid,root], |row| row.get(0),
+        ).unwrap();
+        assert_eq!(elapsed, 0);
     }
     #[test]
     fn english_roundtrip_redaction_playback_and_immutable_history() {

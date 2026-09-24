@@ -705,6 +705,10 @@ impl Store {
         }
         db.execute("DELETE FROM questions WHERE id=?1", [qid])
             .map_err(err)?;
+        drop(db);
+        if let Err(error) = self.collect_unused_assets() {
+            eprintln!("Asset cleanup deferred after question deletion: {error}");
+        }
         Ok(Value::Null)
     }
     pub fn favorite(&self, qid: &str, value: bool) -> Result<Value> {

@@ -9,6 +9,7 @@ import { QuestionEditor } from "./QuestionEditor";
 import { countEnglishWords } from "./english";
 import { api, type Question, type Session } from "./api";
 import fixture from "../fixtures/english.json";
+HTMLElement.prototype.scrollIntoView=()=>{};
 vi.mock("./api",async importOriginal=>({...await importOriginal<typeof import("./api")>(),api:vi.fn()}));
 const questions=fixture.questions as Question[];
 const question=(id:string)=>questions.find(q=>q.id===id)!;
@@ -119,6 +120,38 @@ it("releases replaced, removed, and late audio picks", async () => {
   view.unmount();
   resolveLate!({reference:references[2],duration:3});
   await waitFor(()=>expect(mockApi).toHaveBeenCalledWith({type:"release_audio",hash:references[2].sha256}));
+});
+
+it("releases staged and late audio picks when the answer mode changes", async () => {
+  audioMocks();
+  const user=userEvent.setup();
+  const original=question("listen").audioRef!;
+  const refs=["d","e"].map(letter=>({...original,sha256:letter.repeat(64),objectKey:`audio/${letter.repeat(64)}`}));
+  let resolveLate:((value:{reference:typeof original;duration:number})=>void)|undefined;
+  const late=new Promise<{reference:typeof original;duration:number}>(resolve=>{resolveLate=resolve;});
+  let picks=0;
+  mockApi.mockImplementation(async request=>{
+    if(request.type==="pick_audio")return (picks++===0?{reference:refs[0],duration:3}:await late) as never;
+    if(request.type==="asset")return new ArrayBuffer(2) as never;
+    return null as never;
+  });
+  render(<QuestionEditor initial={{...question("listen"),audioRef:null}} busy={false} onClose={()=>{}} onSave={()=>{}}/>);
+  const chooseMode=async (name:string)=>{
+    screen.getByRole("combobox",{name:"答题方式"}).focus();
+    await user.keyboard("{Enter}");
+    await user.click(screen.getByRole("option",{name}));
+  };
+  await user.click(screen.getByRole("button",{name:"选择听力音频"}));
+  await screen.findByRole("button",{name:"移除音频"});
+  await chooseMode("简答题");
+  await waitFor(()=>expect(mockApi).toHaveBeenCalledWith({type:"release_audio",hash:refs[0].sha256}));
+  await chooseMode("听力题");
+  await user.click(screen.getByRole("button",{name:"选择听力音频"}));
+  await waitFor(()=>expect(picks).toBe(2));
+  await chooseMode("简答题");
+  resolveLate!({reference:refs[1],duration:3});
+  await waitFor(()=>expect(mockApi).toHaveBeenCalledWith({type:"release_audio",hash:refs[1].sha256}));
+  expect(screen.queryByRole("button",{name:"移除音频"})).toBeNull();
 });
 
 it("saves writing limits and materials while preserving continuation roles", async () => {
