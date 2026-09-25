@@ -10,6 +10,7 @@ mod language;
 mod paper;
 #[cfg(test)]
 mod performance;
+mod question_metadata;
 mod questions;
 mod sessions;
 mod settings;

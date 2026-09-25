@@ -1,4 +1,5 @@
 use crate::contract::{self, list, text, Result};
+use crate::question_metadata::COMPOSITE_SQL;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use image::ImageDecoder;
 use rusqlite::{params, Connection, OptionalExtension};
@@ -171,6 +172,9 @@ impl Store {
                 db.execute_batch("BEGIN IMMEDIATE; ALTER TABLE listening_playback ADD COLUMN active_elapsed_ms INTEGER NOT NULL DEFAULT 0 CHECK(active_elapsed_ms>=0); UPDATE listening_playback SET used=MAX(used-1,0),position=0,active=0,updated_at=0 WHERE active=1; COMMIT;")
                     .map_err(err)?;
             }
+        }
+        for (_, sql) in crate::questions::READ_INDEXES {
+            db.execute_batch(sql).map_err(err)?;
         }
         Ok(db)
     }
@@ -428,14 +432,22 @@ impl Store {
         digest: Option<&str>,
         checkpoint: Option<&str>,
     ) -> Result<Option<String>> {
-        self.connect()?.query_row(
+        Self::imported_ai_with(&self.connect()?, thread, digest, checkpoint)
+    }
+    pub(crate) fn imported_ai_with(
+        db: &Connection,
+        thread: &str,
+        digest: Option<&str>,
+        checkpoint: Option<&str>,
+    ) -> Result<Option<String>> {
+        db.query_row(
             "SELECT i.bank_id FROM ai_imports a JOIN imports i ON i.id=a.import_id WHERE a.thread_id=?1 AND (?2 IS NULL OR a.digest=?2) AND (?3 IS NULL OR a.checkpoint_id=?3) LIMIT 1",
             params![thread, digest, checkpoint], |r| r.get(0),
         ).optional().map_err(err)
     }
     pub fn banks(&self) -> Result<Value> {
         let db = self.connect()?;
-        let mut stmt = db.prepare("SELECT b.id,b.title,COUNT(q.id) FROM banks b LEFT JOIN questions q ON q.bank_id=b.id AND (q.mode IS NULL OR q.mode NOT IN ('reading','word_bank','cloze','listening','gap_fill')) GROUP BY b.id ORDER BY b.created_at DESC,b.id DESC").map_err(err)?;
+        let mut stmt = db.prepare(&format!("SELECT b.id,b.title,COUNT(q.id) FROM banks b LEFT JOIN questions q ON q.bank_id=b.id AND (q.mode IS NULL OR q.mode NOT IN ({COMPOSITE_SQL})) GROUP BY b.id ORDER BY b.created_at DESC,b.id DESC")).map_err(err)?;
         let rows = stmt.query_map([], |r| Ok(json!({"id":r.get::<_,String>(0)?,"title":r.get::<_,String>(1)?,"count":r.get::<_,i64>(2)?}))).map_err(err)?.collect::<std::result::Result<Vec<_>,_>>().map_err(err)?;
         Ok(json!(rows))
     }
@@ -446,7 +458,7 @@ impl Store {
             .query_row("SELECT COUNT(*) FROM banks", [], |r| r.get(0))
             .map_err(err)?;
         let offset = offset.min(total.saturating_sub(1) / limit * limit);
-        let mut stmt = db.prepare("WITH page AS (SELECT * FROM banks ORDER BY created_at DESC,id DESC LIMIT ?1 OFFSET ?2) SELECT b.id,b.title,b.description,b.created_at,COUNT(q.id) FROM page b LEFT JOIN questions q ON q.bank_id=b.id AND (q.mode IS NULL OR q.mode NOT IN ('reading','word_bank','cloze','listening','gap_fill')) GROUP BY b.id ORDER BY b.created_at DESC,b.id DESC").map_err(err)?;
+        let mut stmt = db.prepare(&format!("WITH page AS (SELECT * FROM banks ORDER BY created_at DESC,id DESC LIMIT ?1 OFFSET ?2) SELECT b.id,b.title,b.description,b.created_at,COUNT(q.id) FROM page b LEFT JOIN questions q ON q.bank_id=b.id AND (q.mode IS NULL OR q.mode NOT IN ({COMPOSITE_SQL})) GROUP BY b.id ORDER BY b.created_at DESC,b.id DESC")).map_err(err)?;
         let items = stmt.query_map(params![limit,offset], |r| Ok(json!({"id":r.get::<_,String>(0)?,"title":r.get::<_,String>(1)?,"description":r.get::<_,String>(2)?,"createdAt":r.get::<_,i64>(3)?,"count":r.get::<_,i64>(4)?}))).map_err(err)?.collect::<std::result::Result<Vec<_>,_>>().map_err(err)?;
         Ok(json!({"items":items,"total":total,"offset":offset}))
     }
@@ -525,34 +537,10 @@ impl Store {
         stats_only: bool,
     ) -> Result<Value> {
         let (search, mode, filter) = query;
-        if banks.len() > 1000
-            || ![
-                "",
-                "choice",
-                "single",
-                "multiple",
-                "true_false",
-                "fill_blank",
-                "short_answer",
-                "ordering",
-                "matching",
-                "reading",
-                "word_bank",
-                "cloze",
-                "listening",
-                "gap_fill",
-                "grammar_fill",
-                "translation",
-                "writing",
-                "sentence_selection",
-                "paragraph_matching",
-            ]
-            .contains(&mode)
-            || !["", "wrong", "favorite", "unattempted"].contains(&filter)
-            || page.is_some_and(|(limit, offset)| {
-                !(1..=100).contains(&limit) || offset > i64::MAX as usize
-            })
-        {
+        crate::questions::validate_filter(banks, mode, filter)?;
+        if page.is_some_and(|(limit, offset)| {
+            !(1..=100).contains(&limit) || offset > i64::MAX as usize
+        }) {
             return Err(crate::language::error("LOCAL_FILTER_INVALID", json!({})));
         }
         if bank.is_some_and(|b| !banks.is_empty() && !banks.iter().any(|v| v == b)) {
@@ -614,15 +602,15 @@ impl Store {
         }
         let total = ids.len();
         if stats_only {
-            let mut statement = db.prepare("
+            let mut statement = db.prepare(&format!("
                 WITH RECURSIVE tree(root,id) AS (
                     SELECT value,value FROM json_each(?1)
                     UNION ALL SELECT t.root,q.id FROM questions q JOIN tree t ON q.parent_id=t.id
                 ) SELECT COALESCE(CASE WHEN r.question_kind IS NOT NULL THEN r.question_kind WHEN r.mode='gap_fill' THEN 'grammar_fill' WHEN r.mode='choice' THEN c.variant ELSE r.mode END,''),
-                    COUNT(DISTINCT r.id), SUM(n.mode IS NULL OR n.mode NOT IN ('reading','word_bank','cloze','listening','gap_fill'))
+                    COUNT(DISTINCT r.id), SUM(n.mode IS NULL OR n.mode NOT IN ({COMPOSITE_SQL}))
                 FROM tree t JOIN questions r ON r.id=t.root JOIN questions n ON n.id=t.id
                 LEFT JOIN choice_questions c ON c.question_id=r.id GROUP BY 1
-            ").map_err(err)?;
+            ")).map_err(err)?;
             let mut types = serde_json::Map::new();
             let mut count = 0;
             for row in statement

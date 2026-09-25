@@ -41,11 +41,17 @@ export const Markdown = memo(function Markdown({ children }: { children?: string
   ) : null;
 });
 export function Blocks({blocks, onBlank, blankAnswers = {}}: {blocks: Block[];onBlank?:(id:string)=>void;blankAnswers?:Record<string,string>}) {
-  const inline=blocks.some(b=>b.partType === "blank");
+  const blankNumbers = new Map<string | null | undefined, number>();
+  let blankCount = 0;
+  for (const block of blocks) if (block.partType === "blank") {
+    blankCount++;
+    if (!blankNumbers.has(block.questionId)) blankNumbers.set(block.questionId, blankCount);
+  }
+  const inline = blankCount > 0;
   return <div className={inline ? "passage-flow" : "space-y-3"}>{blocks.map((b, i) => (
         <div key={i} className={inline && !b.label && ["text","blank"].includes(b.partType) ? "passage-fragment" : undefined}>
           {b.label && <span className="font-semibold">{b.label}</span>}
-          {b.partType === "blank" ? <Button type="button" variant="outline" size="sm" disabled={!onBlank} onClick={()=>b.questionId && onBlank?.(b.questionId)}>{t("空位")} {blocks.filter(v=>v.partType==="blank").findIndex(v=>v.questionId===b.questionId)+1}{b.questionId && blankAnswers[b.questionId] ? ` · ${blankAnswers[b.questionId]}` : ""}</Button> : <>
+          {b.partType === "blank" ? <Button type="button" variant="outline" size="sm" disabled={!onBlank} onClick={()=>b.questionId && onBlank?.(b.questionId)}>{t("空位")} {blankNumbers.get(b.questionId)}{b.questionId && blankAnswers[b.questionId] ? ` · ${blankAnswers[b.questionId]}` : ""}</Button> : <>
             {b.latexValue && <Markdown>{`$$\n${b.latexValue}\n$$`}</Markdown>}
             <Markdown>{b.markdownValue}</Markdown>
             {b.textValue !== b.markdownValue && <Markdown>{b.textValue}</Markdown>}

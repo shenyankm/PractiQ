@@ -1,4 +1,5 @@
 //! Group-aware selection and score allocation run only in Rust.
+use crate::question_metadata::COMPOSITE_SQL;
 use crate::{
     contract::{list, text, Result},
     questions,
@@ -102,6 +103,9 @@ fn exact(weights: &[usize], target: usize) -> Result<Vec<usize>> {
                 paths[n] = Some((n - weight, i));
             }
         }
+        if paths[target].is_some() {
+            break;
+        }
     }
     if paths[target].is_none() {
         return Err(crate::language::error(
@@ -121,25 +125,8 @@ fn exact(weights: &[usize], target: usize) -> Result<Vec<usize>> {
 }
 impl Store {
     fn paper_candidates(&self, p: &Preview) -> Result<Vec<Candidate>> {
-        if !p.search.is_empty()
-            || p.bank_ids.len() > 1000
-            || ![
-                "",
-                "choice",
-                "single",
-                "multiple",
-                "true_false",
-                "fill_blank",
-                "short_answer",
-                "ordering",
-                "matching",
-                "reading",
-                "word_bank",
-                "cloze",
-            ]
-            .contains(&p.mode.as_str())
-            || !["", "wrong", "favorite", "unattempted"].contains(&p.filter.as_str())
-        {
+        questions::validate_filter(&p.bank_ids, &p.mode, &p.filter)?;
+        if !p.search.is_empty() {
             let roots = self.questions_multi(None, &p.bank_ids, &p.search, &p.mode, &p.filter)?;
             return roots
                 .as_array()
@@ -166,7 +153,7 @@ impl Store {
         if ids.is_empty() {
             return Ok(Vec::new());
         }
-        let mut stmt = db.prepare("WITH RECURSIVE tree(root,id) AS (SELECT value,value FROM json_each(?1) UNION ALL SELECT t.root,q.id FROM questions q JOIN tree t ON q.parent_id=t.id) SELECT t.root,COALESCE(CASE WHEN r.question_kind IS NOT NULL THEN r.question_kind WHEN r.mode='gap_fill' THEN 'grammar_fill' WHEN r.mode='choice' THEN c.variant ELSE r.mode END,''),SUM(n.mode IS NULL OR n.mode NOT IN ('reading','word_bank','cloze','listening','gap_fill')) FROM tree t JOIN questions r ON r.id=t.root JOIN questions n ON n.id=t.id LEFT JOIN choice_questions c ON c.question_id=r.id GROUP BY t.root").map_err(|e| e.to_string())?;
+        let mut stmt = db.prepare(&format!("WITH RECURSIVE tree(root,id) AS (SELECT value,value FROM json_each(?1) UNION ALL SELECT t.root,q.id FROM questions q JOIN tree t ON q.parent_id=t.id) SELECT t.root,COALESCE(CASE WHEN r.question_kind IS NOT NULL THEN r.question_kind WHEN r.mode='gap_fill' THEN 'grammar_fill' WHEN r.mode='choice' THEN c.variant ELSE r.mode END,''),SUM(n.mode IS NULL OR n.mode NOT IN ({COMPOSITE_SQL})) FROM tree t JOIN questions r ON r.id=t.root JOIN questions n ON n.id=t.id LEFT JOIN choice_questions c ON c.question_id=r.id GROUP BY t.root")).map_err(|e| e.to_string())?;
         let mut details = stmt
             .query_map([json!(ids).to_string()], |r| {
                 Ok((

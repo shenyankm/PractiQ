@@ -204,16 +204,10 @@ pub fn validate_question(q: &mut Value) -> Result<()> {
     schema_check(&schemas().0, &wrapper, "result")?;
     let mode = text(q, "answerMode");
     let kind = text(q, "questionKind");
-    let expected = match kind {
-        "listening" => "listening",
-        "reading" => "reading",
-        "word_bank" | "sentence_selection" => "word_bank",
-        "cloze" => "cloze",
-        "grammar_fill" => "gap_fill",
-        "paragraph_matching" => "matching",
-        "translation" | "writing" => "short_answer",
-        _ => mode,
-    };
+    let expected = crate::question_metadata::QUESTION_KIND_MODES
+        .iter()
+        .find(|(k, _)| *k == kind)
+        .map_or(mode, |(_, mode)| *mode);
     if expected != mode {
         return Err("questionKind does not match answerMode".into());
     }

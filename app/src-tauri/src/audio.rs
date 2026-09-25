@@ -158,14 +158,10 @@ impl Store {
                 |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
             )
             .map_err(err)?;
-        let rows = crate::questions::session_rows(&tx, sid)?;
-        let q = &rows
-            .iter()
-            .find(|r| {
-                text(&r["question"], "id") == qid
-                    && text(&r["question"], "answerMode") == "listening"
-            })
-            .ok_or("Listening group is not in this session")?["question"];
+        let q = crate::questions::session_question(&tx, sid, qid)?;
+        if text(&q, "answerMode") != "listening" {
+            return Err("Listening group is not in this session".into());
+        }
         let start = q["audioStartSeconds"].as_f64().unwrap_or(0.0);
         let end = q["audioEndSeconds"].as_f64().unwrap_or(86400.0);
         let limit = q["examPlayCount"].as_u64().unwrap_or(2);
@@ -725,6 +721,17 @@ mod tests {
             "writing",
         ] {
             assert_eq!(stats["types"][kind], 1);
+            let preview = store
+                .preview_paper(
+                    serde_json::from_value(json!({
+                        "bank_ids":[bank],"search":"","mode":kind,"filter":"",
+                        "selection":"quota","count":0,"quotas":{kind:1},"question_ids":[],
+                        "random":false,"total_cents":100
+                    }))
+                    .unwrap(),
+                )
+                .unwrap();
+            assert_eq!(list(&preview, "questionIds").len(), 1);
             assert_eq!(
                 store
                     .questions(Some(&bank), "", kind, "")

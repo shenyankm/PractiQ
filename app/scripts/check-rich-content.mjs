@@ -4,13 +4,17 @@ import { mkdir } from 'node:fs/promises';
 const { chromium } = await import(process.argv[2] || 'playwright');
 const browser = await chromium.launch({headless: true, channel: "chrome"});
 try {
-  const page = await browser.newPage({viewport:{width:1280,height:850}});
+  const page = await browser.newPage({viewport:{width:1280,height:850},locale:"zh-CN"});
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
+  const fontRequests = [];
+  page.on('request', r => { if (r.resourceType() === 'font') fontRequests.push(r.url()); });
   await page.goto('http://127.0.0.1:1420/fixtures/rich-content/');
   const zoom = page.getByRole('button',{name:'放大查看图片'});
   await zoom.waitFor();
   await page.evaluate(() => document.fonts.ready);
+  assert(fontRequests.length > 0 && fontRequests.every(url => new URL(url).pathname.endsWith('.woff2')));
+  assert(await page.evaluate(() => [...document.fonts].filter(f => f.family.startsWith('KaTeX')).every(f => f.status !== 'error')));
   assert.equal(await page.locator('.katex-error').count(),0);
   assert.equal(await page.locator('.katex-display').count(),3);
   assert.equal(await page.locator('table td').count(),12);

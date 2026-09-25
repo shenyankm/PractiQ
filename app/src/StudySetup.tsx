@@ -1,3 +1,4 @@
+import { COMPOSITE_FILTERS } from "./contracts.generated";
 import { message, MessageError, t, useI18n } from "./i18n";
 import { useEffect, useState } from "react";
 import { api, errorMessage, type BankChoice, type Session, type SessionKind, type QuestionRow, type QuestionStats, type PaperPreview } from "./api";
@@ -96,7 +97,7 @@ export function StudySetup({banks, initialBank, initialFilter, initialMode="", i
             </div>
             <label className="grid gap-2">{t("关键词")}<Input aria-label={t("搜索题目")} placeholder={t("搜索题干或关键词")} value={search} onChange={e => { setSearch(e.target.value); invalidate(); }}/></label>
             <label className="grid gap-2">{t("选题方式")}<NativeSelect disabled={busy} className="w-full" value={selection} onChange={e => { setSelection(e.target.value); invalidate(); }}><NativeSelectOption value="count">{t("总题数")}</NativeSelectOption><NativeSelectOption value="quota">{t("按题型数量")}</NativeSelectOption><NativeSelectOption value="manual">{t("手动选择")}</NativeSelectOption></NativeSelect></label>
-            {selection === "quota" && <div className="grid grid-cols-3 gap-3">{Object.entries(types()).map(([k, v]) => <label className="grid gap-2" key={k}>{t("{0}（可用 {1}）", { 0: v, 1: stats.types[k] || 0 })}<Input aria-label={t(["reading","word_bank","cloze","listening","gap_fill","grammar_fill","sentence_selection"].includes(k) ? "{0}组数" : "{0}题数", { 0: v })} type="number" min={0} value={quotas[k] || 0} onChange={e => { setQuotas({...quotas, [k]:Number(e.target.value)}); invalidate(); }}/></label>)}</div>}
+            {selection === "quota" && <div className="grid grid-cols-3 gap-3">{Object.entries(types()).map(([k, v]) => <label className="grid gap-2" key={k}>{t("{0}（可用 {1}）", { 0: v, 1: stats.types[k] || 0 })}<Input aria-label={t(COMPOSITE_FILTERS.includes(k) ? "{0}组数" : "{0}题数", { 0: v })} type="number" min={0} value={quotas[k] || 0} onChange={e => { setQuotas({...quotas, [k]:Number(e.target.value)}); invalidate(); }}/></label>)}</div>}
             {selection === "manual" && <div className="space-y-2">{rows.map(q => <label key={q.id} className="flex items-start gap-2 rounded-md border p-3"><Checkbox className="mt-0.5" disabled={busy || loading} checked={selected.includes(q.id)} onCheckedChange={checked => { setSelected(checked === true ? [...selected, q.id] : selected.filter(id => id !== q.id)); invalidate(); }}/>{q.question.stem || t("题干缺失")}</label>)}
               {rootCount > 30 && <div className="flex items-center justify-between gap-3">
                 <span>{t("第 {0}–{1} 题", { 0: offset + 1, 1: Math.min(offset + 30, rootCount) })}</span>

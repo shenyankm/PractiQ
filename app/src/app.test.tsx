@@ -182,6 +182,28 @@ function examSession(): Session {
   return {id:"exam",kind:"mock_exam",title:"test",createdAt:0,deadlineAt:Date.now()-1,submittedAt:null,finishedAt:null,position:0,mode:"ordered",attempts:[{ordinal:0,favorite:true,snapshot:{id:"q",favorite:false,question:questions[4],groups:[],visuals:[],sources:[],warnings:[],missingAssets:false},answer:{text:"durable"},autoResult:null,result:null,gradeKind:"ungraded",submittedAt:null,skipped:false,elapsedMs:0,maxCents:500,earnedCents:null}]};
 }
 
+it("coalesces blocked draft writes and flushes the latest answer before navigation", async () => {
+  const session = {...examSession(), deadlineAt: null};
+  session.attempts.push({...session.attempts[0], ordinal: 1});
+  const pending: (() => void)[] = [];
+  vi.mocked(api).mockImplementation(request => request.type === "save_draft"
+    ? new Promise(resolve => { pending.push(() => resolve(null as never)); })
+    : Promise.resolve(session) as never);
+  render(<Practice session={session} onSession={vi.fn()} run={job => {void job();}} flushRef={{current:async()=>{}}}/>);
+  const input = screen.getByRole("textbox", {name:"作答内容"});
+  fireEvent.change(input, {target:{value:"first"}});
+  await waitFor(() => expect(pending).toHaveLength(1));
+  for (let i=0;i<20;i++) fireEvent.change(input, {target:{value:`draft ${i}`}});
+  await userEvent.click(screen.getByRole("button", {name:"下一题"}));
+  expect(pending).toHaveLength(1);
+  expect(vi.mocked(api).mock.calls.some(([r])=>r.type==="position")).toBe(false);
+  await act(async()=>pending[0]());
+  expect(pending).toHaveLength(2);
+  expect(api).toHaveBeenLastCalledWith(expect.objectContaining({type:"save_draft",answer:{text:"draft 19"}}));
+  await act(async()=>pending[1]());
+  await waitFor(()=>expect(api).toHaveBeenLastCalledWith({type:"position",id:"exam",position:1}));
+});
+
 it("keeps grading idle when the shared UI lock declines the job", async () => {
   const session=examSession();session.submittedAt=1;session.attempts[0].submittedAt=1;
   const onSession=vi.fn();

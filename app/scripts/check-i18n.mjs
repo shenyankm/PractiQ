@@ -21,7 +21,7 @@ try {
    if (!['request','ai_request'].includes(command)) throw Error(`Unexpected native command: ${command}`);
    const {request} = args;
    window.__calls.push({command,request});
-   if(command==='ai_request') {if(['operations','batches'].includes(request.type)) return [];throw Error('No model calls in preview');}
+   if(command==='ai_request') {if(request.type==='batches') return {items:[],total:0,offset:0,operations:[]};if(request.type==='operations') return [];throw Error('No model calls in preview');}
    switch(request.type){
     case 'language':return lang;
     case 'save_language': lang=request.locale;localStorage.setItem('test-language',lang);return lang;

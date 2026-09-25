@@ -1505,6 +1505,92 @@ fn paper_preview_reads_only_selected_bank_details() {
 }
 
 #[test]
+fn scoped_edits_start_and_merge_ignore_unrelated_details_and_reject_id_collisions() {
+    let (dir, mut s) = store();
+    let bank = import(&mut s);
+    let merge = import(&mut s);
+    let other = import(&mut s);
+    let db = s.connect().unwrap();
+    let rows = crate::questions::read_scoped(&db, std::slice::from_ref(&bank), None).unwrap();
+    let root = text(&rows[0], "id");
+    let unrelated: String = db
+        .query_row(
+            "SELECT id FROM questions WHERE bank_id=?1 AND mode='choice' LIMIT 1",
+            [&other],
+            |r| r.get(0),
+        )
+        .unwrap();
+    db.execute(
+        "DELETE FROM choice_questions WHERE question_id=?1",
+        [&unrelated],
+    )
+    .unwrap();
+    let mut q = rows[0]["question"].clone();
+    q["stem"] = json!("Edited locally");
+    let orphan = dir.path().join("assets").join("a".repeat(64));
+    std::fs::create_dir_all(orphan.parent().unwrap()).unwrap();
+    std::fs::write(&orphan, b"abandoned asset").unwrap();
+    s.save_question_tree(&bank, Some(root), vec![q.clone()])
+        .unwrap();
+    assert!(orphan.exists(), "text-only edits do not scan assets");
+    q["id"] = json!(unrelated);
+    assert!(s.save_question_tree(&bank, None, vec![q]).is_err());
+    let selected = crate::questions::read_scoped(&db, &[], Some(&[root.into()])).unwrap();
+    let session = s
+        .start_paper(crate::exams::Paper {
+            question_ids: vec![root.into()],
+            digest: crate::paper::digest(&selected).unwrap(),
+            kind: "practice".into(),
+            minutes: None,
+            scores: vec![],
+            total_cents: 0,
+        })
+        .unwrap();
+    assert_eq!(
+        session["attempts"][0]["snapshot"]["question"]["stem"],
+        "Edited locally"
+    );
+    assert!(s.merge_banks(&[bank, merge], "Copy").is_ok());
+    assert!(crate::questions::validate_tables(&db).is_err());
+}
+
+#[test]
+fn bulk_detail_validation_rejects_missing_extra_and_wrong_type_rows() {
+    let (_dir, mut s) = store();
+    let bank = import(&mut s);
+    let db = s.connect().unwrap();
+    crate::questions::validate_tables(&db).unwrap();
+    let q: String = db
+        .query_row(
+            "SELECT id FROM questions WHERE bank_id=?1 AND mode='true_false'",
+            [&bank],
+            |r| r.get(0),
+        )
+        .unwrap();
+    db.execute(
+        "DELETE FROM true_false_questions WHERE question_id=?1",
+        [&q],
+    )
+    .unwrap();
+    assert!(crate::questions::validate_tables(&db).is_err());
+    db.execute(
+        "INSERT INTO short_answer_questions(question_id,answer) VALUES(?1,'null')",
+        [&q],
+    )
+    .unwrap();
+    assert!(crate::questions::validate_tables(&db).is_err());
+    db.execute("INSERT INTO true_false_questions VALUES(?1,'true')", [&q])
+        .unwrap();
+    assert!(crate::questions::validate_tables(&db).is_err());
+    db.execute(
+        "DELETE FROM short_answer_questions WHERE question_id=?1",
+        [&q],
+    )
+    .unwrap();
+    crate::questions::validate_tables(&db).unwrap();
+}
+
+#[test]
 fn paper_manual_selection_skips_unselected_question_details() {
     let (_dir, mut s) = store();
     let bank = import(&mut s);

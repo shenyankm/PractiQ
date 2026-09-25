@@ -13,7 +13,19 @@ export default defineConfig({
       thresholds: { statements: 80, branches: 73, functions: 73, lines: 85 },
     },
   },
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    {
+      name: "katex-woff2",
+      enforce: "pre",
+      transform(code, id) {
+        // macOS 14+ WebView supports WOFF2; keep every KaTeX font family.
+        if (id.endsWith("/katex/dist/katex.min.css")) {
+          return code.replace(/,url\([^)]*\.(?:woff|ttf)\) format\("(?:woff|truetype)"\)/g, "");
+        }
+      },
+    },
+    react(), tailwindcss(),
+  ],
   resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
   server: { host: "127.0.0.1", port: 1420, strictPort: true },
   clearScreen: false,

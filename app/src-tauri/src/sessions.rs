@@ -129,16 +129,21 @@ impl Store {
             ));
         }
         let (snapshot,submitted,kind):(String,Option<i64>,String)=tx.query_row("SELECT snapshot_question_id,submitted_at,grade_kind FROM attempts WHERE session_id=?1 AND ordinal=?2",params![sid,ordinal],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).map_err(err)?;
-        let frozen = crate::questions::session_rows(&tx, sid)?;
+        let frozen = crate::questions::session_context(&tx, sid, &snapshot)?;
         let index = crate::questions::Index::new(&frozen);
         let snapshot = index.snapshot(&snapshot)?;
         let q = &snapshot["question"];
         contract::validate_attempt(q, &answer)?;
         if let Some(parent) = index.by_id.get(text(q, "optionSourceId")) {
             if parent["question"]["allowReuse"] != true {
-                let mut statement=tx.prepare("SELECT snapshot_question_id,answer FROM attempts WHERE session_id=?1 AND ordinal!=?2").map_err(err)?;
+                let siblings = frozen
+                    .iter()
+                    .filter(|r| r["question"]["parentId"] == parent["id"])
+                    .map(|r| text(r, "id"))
+                    .collect::<Vec<_>>();
+                let mut statement=tx.prepare("SELECT snapshot_question_id,answer FROM attempts WHERE session_id=?1 AND ordinal!=?2 AND snapshot_question_id IN (SELECT value FROM json_each(?3))").map_err(err)?;
                 let others = statement
-                    .query_map(params![sid, ordinal], |r| {
+                    .query_map(params![sid, ordinal, json!(siblings).to_string()], |r| {
                         Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
                     })
                     .map_err(err)?

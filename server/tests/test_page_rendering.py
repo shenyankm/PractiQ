@@ -223,6 +223,25 @@ def test_crop_coordinates_use_full_page_dimensions():
             assert isinstance(pixel, tuple) and max(pixel) < 10
 
 
+def test_batch_crops_decode_once_and_keep_individual_failure_positions(monkeypatch):
+    from practiq_ai.graphs import vision
+
+    payload = make_image()
+    boxes = [[0, 0, 0.5, 0.5], [0, 0, 1, 1]]
+    expected = [vision.crop_figure(payload, box) for box in boxes]
+    original = vision.Image.open
+    opened = []
+
+    def counted(*args, **kwargs):
+        opened.append(True)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(vision.Image, "open", counted)
+    assert vision.crop_figures(payload, [boxes[0], [1, 1, 0, 0], boxes[1]]) == [expected[0], None, expected[1]]
+    assert len(opened) == 1
+    assert vision.crop_figures(b"invalid image", boxes) == [None, None]
+
+
 def test_table_rows_escape_cells_and_preserve_ragged_output_for_review():
     from practiq_ai.graphs.vision import PageFigure
 

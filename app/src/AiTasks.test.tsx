@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
@@ -30,7 +30,7 @@ it("shows progress and sends only the current run when pausing", async () => {
   vi.mocked(invoke).mockImplementation(async (_command, args) => {
     const request = (args as { request: { type: string } }).request;
     return (
-      ["operations", "batches"].includes(request.type)
+      request.type === "batches" ? {items:[],total:0,offset:0,operations:[]} : request.type === "operations"
         ? []
         : request.type === "list"
           ? {
@@ -76,6 +76,7 @@ it("shows progress and sends only the current run when pausing", async () => {
 it.each([new Error("请先配置模型 ID"), { message: "请先配置模型 ID" }])("hides the empty state on task failure and shows it after successful retry (%j)", async error => {
   vi.mocked(invoke).mockImplementation(async (_command, args) => {
     const { type } = (args as { request: { type: string } }).request;
+    if (type === "batches") return {items:[],total:0,offset:0,operations:[]} as never;
     if (type === "list") throw error;
     return [] as never;
   });
@@ -95,7 +96,7 @@ it.each([new Error("请先配置模型 ID"), { message: "请先配置模型 ID" 
   expect(screen.queryByText("暂无解析任务")).toBeNull();
   vi.mocked(invoke).mockImplementation(async (_command, args) => {
     const { type } = (args as { request: { type: string } }).request;
-    return (type === "list" ? { items: [], hasMore: false } : []) as never;
+    return (type === "list" ? { items: [], hasMore: false } : type === "batches" ? {items:[],total:0,offset:0,operations:[]} : []) as never;
   });
   await userEvent.click(screen.getByRole("button", { name: "重试" }));
   expect(await screen.findByText("暂无解析任务")).toBeTruthy();
@@ -134,7 +135,8 @@ it("requires content review before acceptance and excludes waiting tasks from ba
         ],
         hasMore: false,
       } as never;
-    if (["operations", "batches"].includes(r.type)) return [] as never;
+    if (r.type === "batches") return {items:[],total:0,offset:0,operations:[]} as never;
+    if (r.type === "operations") return [] as never;
     if (r.type === "review")
       return {
         threadId: "task",
@@ -254,7 +256,7 @@ it("edits separate bank names and can cancel a running batch without waiting for
       } as never;
     if (r.type === "operations") return [] as never;
     if (r.type === "batches")
-      return (finish ? [{ ...batch, status: "running" }] : []) as never;
+      return {items:finish ? [{ ...batch, status: "running" }] : [], total:0,offset:0,operations:[]} as never;
     if (r.type === "prepare_batch") return batch as never;
     if (r.type === "run_batch")
       return new Promise((resolve) => {
@@ -305,7 +307,8 @@ it("prepares only eligible selected tasks and clears selection across pages", as
       {threadId:"first",fileName:"first.pdf",state:"COMPLETED",checkpointId:"cp1",importedBankId:imported ? "bank" : null},
       {threadId:"second",fileName:"second.pdf",state:"COMPLETED",checkpointId:"cp2"},
     ],hasMore:!request.offset} as never;
-    if(request.type==="operations" || request.type==="batches")return [] as never;
+    if(request.type==="batches")return {items:[],total:0,offset:0,operations:[]} as never;
+    if(request.type==="operations")return [] as never;
     if(request.type==="prepare_batch")return {id:"batch",status:"ready",items:[]} as never;
     return null as never;
   });
@@ -334,6 +337,7 @@ it("replays a pending request by its persisted ID only after explicit action", a
           ? [{ id: "stable-id", label: "quiz", error: { message: "响应丢失" } }]
           : []
       ) as never;
+    if (r.type === "batches") return {items:[],total:0,offset:0,operations:[]} as never;
     if (r.type === "replay") {
       pending = false;
       return { accepted: true } as never;
@@ -392,7 +396,7 @@ it("stops polling a completed task", async () => {
         hasMore: false,
       } as never;
     if (r.type === "get") return state as never;
-    return [] as never;
+    return (r.type === "batches" ? {items:[],total:0,offset:0,operations:[]} : []) as never;
   });
   render(
     <AiTasks
@@ -426,7 +430,7 @@ it("retries task polling after a transient read failure",async()=>{
       if(++gets===1) throw new Error("transient read");
       return {threadId:"task",state:"COMPLETED",phase:"completed",progress:{},allowedActions:[],blocking:[],failures:[],usage:[],unknownUsageCalls:[]} as never;
     }
-    return [] as never;
+    return (r.type === "batches" ? {items:[],total:0,offset:0,operations:[]} : []) as never;
   });
   render(<AiTasks busy={false} run={job=>{void job();}} onPreview={()=>{}}/>);
   await userEvent.click(await screen.findByRole("button",{name:"retry.pdf"}));
@@ -451,7 +455,7 @@ it.each([
       return {items: gets ? [] : [{threadId: "task", fileName: "gone.pdf", expiresAt: ""}], hasMore: false} as never;
     }
     if (r.type === "get") { gets++; throw failure; }
-    return [] as never;
+    return (r.type === "batches" ? {items:[],total:0,offset:0,operations:[]} : []) as never;
   });
   await act(async () => { render(<AiTasks busy={false} run={job => {void job();}} onPreview={() => {}}/>); });
   await act(async () => { fireEvent.click(screen.getByRole("button", {name: "gone.pdf"})); });
@@ -481,7 +485,7 @@ it.each(["COMPLETED", "WAITING_REVIEW"])("retains %s controls when membership re
     }
     if (type === "review") return {threadId: "task", checkpointId: "cp", phase: "completed", units: [], failures: [], quality: {}, questionSources: []} as never;
     if (type === "preview") return preview as never;
-    return [] as never;
+    return (type === "batches" ? {items:[],total:0,offset:0,operations:[]} : []) as never;
   });
   await act(async () => { render(<AiTasks busy={false} run={job => {void job();}} onPreview={onPreview}/>); });
   await act(async () => { fireEvent.click(screen.getByRole("button", {name: "ready.pdf"})); });
@@ -506,7 +510,7 @@ it("polls unselected tasks, renders a separate table and restores focus after cl
     const r = (args as {request: {type: string}}).request;
     if (r.type === "list") return {items: [{threadId: "task", fileName: "live.pdf", state, checkpointId: "cp", createdAt: "2026-09-24T00:00:00Z", status: "PARTIAL", questionCount: 2, reviewCount: 1, previouslyImported: true}], hasMore: false} as never;
     if (r.type === "get") { gets++; return {threadId: "task", state, checkpointId: "cp", phase: "completed", progress: {}, allowedActions: [], blocking: [], failures: [], usage: [], unknownUsageCalls: []} as never; }
-    return [] as never;
+    return (r.type === "batches" ? {items:[],total:0,offset:0,operations:[]} : []) as never;
   });
   await act(async () => {render(<AiTasks busy={false} run={job => {void job();}} onPreview={() => {}}/>);});
   expect(screen.getByRole("table")).toBeTruthy();
@@ -535,7 +539,7 @@ it("keeps expired imported tasks readable without fetching expired results", asy
     const r = (args as {request: {type: string}}).request;
     if (r.type === "list") return {items: [{threadId: "old", fileName: "old.pdf", state: "EXPIRED", importedBankId: "bank"}], hasMore: false} as never;
     if (r.type === "get") throw Error("must not fetch an expired result");
-    return [] as never;
+    return (r.type === "batches" ? {items:[],total:0,offset:0,operations:[]} : []) as never;
   });
   render(<AiTasks busy={false} run={job => {void job();}} onPreview={() => {}} onOpenBank={openBank}/>);
   await userEvent.click(await screen.findByRole("button", {name: "old.pdf"}));
@@ -558,7 +562,7 @@ it("discards an old page poll and a closed drawer's delayed detail", async () =>
       return new Promise(resolve => {resolveList=resolve;}) as never;
     }
     if (r.type === "get") return new Promise(resolve => {resolveDetail=resolve;}) as never;
-    return [] as never;
+    return (r.type === "batches" ? {items:[],total:0,offset:0,operations:[]} : []) as never;
   });
   await act(async () => {render(<AiTasks busy={false} run={job => {void job();}} onPreview={() => {}}/>);});
   await act(async () => {await vi.advanceTimersByTimeAsync(2000);});
@@ -571,4 +575,21 @@ it("discards an old page poll and a closed drawer's delayed detail", async () =>
   await act(async () => {resolveDetail({threadId:"new",state:"RUNNING",phase:"prepare",progress:{},allowedActions:["pause"],blocking:[],failures:[],usage:[],unknownUsageCalls:[]});});
   expect(screen.queryByRole("dialog")).toBeNull();
   expect(screen.queryByRole("button",{name:"暂停"})).toBeNull();
+});
+
+
+it("pages local batch history independently while keeping task import errors", async () => {
+  vi.mocked(invoke).mockImplementation(async (_command,args) => {
+    const r=(args as {request:{type:string;offset?:number;thread_ids?:string[]}}).request;
+    if(r.type==="list") return {items:[{threadId:"task",fileName:"ready.pdf",state:"COMPLETED",checkpointId:"cp"}],hasMore:false} as never;
+    if(r.type==="batches") return {items:[{id:`batch-${r.offset}`,status:"paused",items:[{threadId:"task",title:`History ${r.offset}`,status:"failed",error:null}]}],total:21,offset:r.offset,operations:[{threadId:"task",checkpointId:"cp",state:"failed"}]} as never;
+    return [] as never;
+  });
+  render(<AiTasks busy={false} run={job=>{void job();}} onPreview={()=>{}}/>);
+  const history=await screen.findByRole("region",{name:"导入批次"});
+  await userEvent.click(within(history).getByRole("button",{name:"下一页"}));
+  await waitFor(()=>expect(invoke).toHaveBeenCalledWith("ai_request",{locale:"zh-CN",request:{type:"batches",offset:20,thread_ids:["task"]}}));
+  expect(await screen.findByText(/History 20/)).toBeTruthy();
+  expect(screen.getByText("导入失败")).toBeTruthy();
+  expect(within(history).getByRole("button",{name:"下一页"}).hasAttribute("disabled")).toBe(true);
 });

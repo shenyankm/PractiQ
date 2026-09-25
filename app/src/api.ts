@@ -1,10 +1,11 @@
+import { COMPOSITE_MODES } from "./contracts.generated";
 import nativeMessages from "./locales/native.json";
 import { t, locale, MessageError, renderMessage, type LanguageRequest, type Locale } from "./i18n";
 import { invoke } from "@tauri-apps/api/core";
 import type { Question, Answer, ParsedOption as Option, ParsedItem as Item, ContentBlock as Block } from "./contracts.generated";
 export type { Question, Answer, Option, Item, Block };
 export type Mode = NonNullable<Question["answerMode"]>;
-export function isComposite(q: Question) { return ["reading","word_bank","cloze","listening","gap_fill"].includes(q.answerMode || ""); }
+export function isComposite(q: Question) { return COMPOSITE_MODES.includes(q.answerMode || ""); }
 export function modeNames(): Record<string, string> { return {
   choice: t("选择题"),
   true_false: t("判断题"),

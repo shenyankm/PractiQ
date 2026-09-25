@@ -1,0 +1,239 @@
+{
+  "baselineCommit": "2c3435e",
+  "environment": {
+    "cpu": "Apple M4",
+    "memoryGiB": 16,
+    "macOS": "27.0 (26A428)",
+    "python": "3.14.7",
+    "rust": "1.98.1",
+    "node": "22.23.2"
+  },
+  "desktopBefore": {
+    "allQuestions": {
+      "jsonBytes": 3630601,
+      "maxMs": 213.775041,
+      "medianMs": 205.747917
+    },
+    "attempts": 1000,
+    "draftBurst": {
+      "lastAnswerSurvivesReopen": true,
+      "p50Ms": 4.512291,
+      "p95Ms": 4.835624999999999,
+      "writes": 100
+    },
+    "firstPage": {
+      "jsonBytes": 21605,
+      "maxMs": 2.5604999999999998,
+      "medianMs": 2.547584
+    },
+    "questions": 5000,
+    "repetitions": 3,
+    "saveAttempt": {
+      "jsonBytes": 933662,
+      "maxMs": 30.173041,
+      "medianMs": 18.060625
+    },
+    "saveDraft": {
+      "jsonBytes": 4,
+      "maxMs": 5.015708,
+      "medianMs": 4.8409580000000005
+    },
+    "session": {
+      "jsonBytes": 933662,
+      "maxMs": 13.258916000000001,
+      "medianMs": 13.1585
+    },
+    "smallBank": {
+      "jsonBytes": 14381,
+      "maxMs": 1.9075419999999998,
+      "medianMs": 1.605791
+    },
+    "submit": {
+      "jsonBytes": 947671,
+      "maxMs": 22.858125,
+      "medianMs": 22.094042
+    }
+  },
+  "desktopAfter": {
+    "allQuestions": {
+      "jsonBytes": 3630601,
+      "maxMs": 102.248667,
+      "medianMs": 93.61325
+    },
+    "attempts": 1000,
+    "draftBurst": {
+      "lastAnswerSurvivesReopen": true,
+      "p50Ms": 3.014166,
+      "p95Ms": 3.148292,
+      "writes": 100
+    },
+    "firstPage": {
+      "jsonBytes": 21605,
+      "maxMs": 2.156917,
+      "medianMs": 2.1502499999999998
+    },
+    "questions": 5000,
+    "repetitions": 3,
+    "saveAttempt": {
+      "jsonBytes": 933662,
+      "maxMs": 28.101125,
+      "medianMs": 16.1465
+    },
+    "saveDraft": {
+      "jsonBytes": 4,
+      "maxMs": 3.3748340000000003,
+      "medianMs": 3.1905
+    },
+    "session": {
+      "jsonBytes": 933662,
+      "maxMs": 12.963416,
+      "medianMs": 12.941917
+    },
+    "smallBank": {
+      "jsonBytes": 14381,
+      "maxMs": 1.760375,
+      "medianMs": 1.2737079999999998
+    },
+    "submit": {
+      "jsonBytes": 947671,
+      "maxMs": 21.85675,
+      "medianMs": 21.792125
+    }
+  },
+  "desktopIntermediateBeforeReleaseProfile": {
+    "allQuestions": {
+      "jsonBytes": 3630601,
+      "maxMs": 94.184875,
+      "medianMs": 85.428
+    },
+    "attempts": 1000,
+    "draftBurst": {
+      "lastAnswerSurvivesReopen": true,
+      "p50Ms": 3.060333,
+      "p95Ms": 3.261083,
+      "writes": 100
+    },
+    "firstPage": {
+      "jsonBytes": 21605,
+      "maxMs": 2.472292,
+      "medianMs": 2.09925
+    },
+    "questions": 5000,
+    "repetitions": 3,
+    "saveAttempt": {
+      "jsonBytes": 933662,
+      "maxMs": 27.998375,
+      "medianMs": 16.250416
+    },
+    "saveDraft": {
+      "jsonBytes": 4,
+      "maxMs": 3.346542,
+      "medianMs": 3.341541
+    },
+    "session": {
+      "jsonBytes": 933662,
+      "maxMs": 13.60225,
+      "medianMs": 12.973417
+    },
+    "smallBank": {
+      "jsonBytes": 14381,
+      "maxMs": 1.3902079999999999,
+      "medianMs": 1.2335
+    },
+    "submit": {
+      "jsonBytes": 947671,
+      "maxMs": 22.246417,
+      "medianMs": 22.192125
+    }
+  },
+  "processing": {
+    "repetitions": 3,
+    "pagePixels": [
+      2480,
+      3508
+    ],
+    "crops": 50,
+    "perCropDecodeMedianMs": 902.5585409999621,
+    "batchDecodeMedianMs": 33.54391599896189,
+    "identicalCropBytes": true,
+    "mergeInputQuestions": 2000,
+    "mergeMedianMs": 38.59937499873922
+  },
+  "bytes": {
+    "pythonBefore": 137426092,
+    "pythonAfter": 98052807,
+    "frontendBefore": 2469461,
+    "frontendAfter": 1651152,
+    "removedKaTeXFallbackFonts": 816780,
+    "nativeSameConfigDefault": 24278416,
+    "nativeSameConfigThinLtoStrip": 18855984,
+    "finalApp": 128213385
+  },
+  "packageChecks": {
+    "bundle": "app/src-tauri/target/release/bundle/macos/PractiQ.app/Contents/Resources/bundled",
+    "model": "synthetic-local-stub",
+    "checks": [
+      {
+        "format": "text",
+        "state": "COMPLETED",
+        "status": "SUCCEEDED",
+        "failures": [],
+        "blocking": [],
+        "seconds": 0.439,
+        "modelCalls": 1
+      },
+      {
+        "format": "csv",
+        "state": "COMPLETED",
+        "status": "SUCCEEDED",
+        "failures": [],
+        "blocking": [],
+        "seconds": 0.335,
+        "modelCalls": 1
+      },
+      {
+        "format": "image",
+        "state": "COMPLETED",
+        "status": "SUCCEEDED",
+        "failures": [],
+        "blocking": [],
+        "seconds": 0.324,
+        "modelCalls": 1
+      },
+      {
+        "format": "pdf",
+        "state": "COMPLETED",
+        "status": "SUCCEEDED",
+        "failures": [],
+        "blocking": [],
+        "seconds": 0.33,
+        "modelCalls": 1
+      }
+    ],
+    "passed": true,
+    "removedExcelRejected": true,
+    "removedWordRejected": true,
+    "removedImageFormatsRejected": true,
+    "subjectiveGrading": {
+      "passed": true,
+      "scoreCents": 300,
+      "replayIdentical": true,
+      "usageCalls": 1
+    }
+  },
+  "checks": {
+    "serviceTests": 546,
+    "serviceCoveragePercent": 94,
+    "frontendTests": 133,
+    "rustTests": 75,
+    "ignoredRustTests": 2,
+    "ruff": true,
+    "pyright": true,
+    "contracts": true,
+    "clippy": true,
+    "browserI18n": true,
+    "browserRichContentAndWoff2": true,
+    "appBuild": true,
+    "gitDiffCheck": true
+  }
+}

@@ -428,7 +428,15 @@ pub fn prepare_batch(dir: &Path, endpoint: &Endpoint, ids: &[String]) -> Result<
     save(dir, "import-batches", &batch.id, &batch)?;
     Ok(json!(batch))
 }
-pub fn batches(dir: &Path, work: &WorkState) -> Result<Value> {
+pub fn batches(dir: &Path, work: &WorkState, offset: usize, threads: &[String]) -> Result<Value> {
+    crate::store::validate_page(20, offset)?;
+    if threads.len() > 21 {
+        return Err("Too many task IDs".into());
+    }
+    for thread in threads {
+        task_path(thread)?;
+    }
+    // ponytail: manifests still scan O(history); add an index only if directory reads dominate.
     let mut batches = all::<Batch>(dir, "import-batches")?;
     let active = work
         .0
@@ -440,13 +448,47 @@ pub fn batches(dir: &Path, work: &WorkState) -> Result<Value> {
         pending: None,
         staged_audio: std::collections::HashMap::new(),
     };
-    for batch in &mut batches {
+    for batch in &batches {
         validate_batch(batch)?;
+    }
+    batches.sort_by(|a, b| {
+        b.created_at
+            .cmp(&a.created_at)
+            .then_with(|| b.id.cmp(&a.id))
+    });
+    let mut operations = Vec::new();
+    let mut seen = HashSet::new();
+    for batch in &batches {
+        for item in &batch.items {
+            if threads.contains(&item.thread_id) {
+                let state = match item.status {
+                    ItemStatus::Failed => Some("failed"),
+                    ItemStatus::Pending if active.contains_key(&batch.id) => Some("importing"),
+                    _ => None,
+                };
+                if let Some(state) = state {
+                    if seen.insert((&item.thread_id, &item.checkpoint_id)) {
+                        operations.push(json!({"threadId":item.thread_id,"checkpointId":item.checkpoint_id,"state":state,"error":item.error}));
+                    }
+                }
+            }
+        }
+    }
+    let (mut running, history): (Vec<_>, Vec<_>) = batches
+        .into_iter()
+        .partition(|b| active.contains_key(&b.id));
+    let total = history.len();
+    let offset = offset.min(total.saturating_sub(1) / 20 * 20);
+    running.extend(history.into_iter().skip(offset).take(20));
+    let mut batches = running;
+    let db = store.connect()?;
+    for batch in &mut batches {
         // Active writers own their manifests; inactive batches reconcile against restored receipts.
         if !active.contains_key(&batch.id) {
             for item in &mut batch.items {
                 if item.status == ItemStatus::Imported {
-                    item.bank_id = store.imported_ai(&item.thread_id, Some(&item.digest), None)?;
+                    item.bank_id =
+                        Store::imported_ai_with(&db, &item.thread_id, Some(&item.digest), None)?;
                     if item.bank_id.is_none() {
                         item.status = ItemStatus::Pending;
                         item.error = None;
@@ -459,8 +501,7 @@ pub fn batches(dir: &Path, work: &WorkState) -> Result<Value> {
             batch.status = BatchStatus::Paused;
         }
     }
-    batches.sort_by_key(|batch| std::cmp::Reverse(batch.created_at));
-    Ok(json!(batches))
+    Ok(json!({"items":batches,"total":total,"offset":offset,"operations":operations}))
 }
 pub fn cancel_batch(dir: &Path, work: &WorkState, id: &str) -> Result<Value> {
     let active = work
@@ -725,6 +766,57 @@ mod tests {
     }
 
     #[test]
+    fn batch_pages_keep_active_work_and_off_page_failure_receipts() {
+        let dir = tempfile::tempdir().unwrap();
+        let _shared = shared(dir.path());
+        let work = WorkState::default();
+        let thread = store::id();
+        let mut first = String::new();
+        for i in 0..26 {
+            let id = store::id();
+            if i == 0 {
+                first = id.clone();
+            }
+            let batch = Batch {
+                id: id.clone(),
+                created_at: i,
+                status: BatchStatus::Running,
+                items: vec![BatchItem {
+                    thread_id: thread.clone(),
+                    checkpoint_id: "checkpoint".into(),
+                    digest: "a".repeat(64),
+                    title: format!("Item {i}"),
+                    question_count: 1,
+                    review_count: 0,
+                    partial: false,
+                    previous_version: false,
+                    status: if i == 0 {
+                        ItemStatus::Pending
+                    } else {
+                        ItemStatus::Failed
+                    },
+                    bank_id: None,
+                    error: None,
+                }],
+            };
+            save(dir.path(), "import-batches", &id, &batch).unwrap();
+        }
+        let _lease = work.claim(&first).unwrap();
+        let page = batches(dir.path(), &work, 0, std::slice::from_ref(&thread)).unwrap();
+        assert_eq!(page["total"], 25);
+        assert_eq!(page["items"].as_array().unwrap().len(), 21);
+        assert_eq!(page["items"][0]["id"], first);
+        assert_eq!(page["items"][0]["status"], "running");
+        assert_eq!(page["operations"].as_array().unwrap().len(), 1);
+        assert_eq!(page["operations"][0]["state"], "failed");
+        let last = batches(dir.path(), &work, 200, &[thread]).unwrap();
+        assert_eq!(last["offset"], 20);
+        assert_eq!(last["items"].as_array().unwrap().len(), 6);
+        assert_eq!(last["operations"], page["operations"]);
+        assert!(batches(dir.path(), &work, 0, &["invalid".into()]).is_err());
+    }
+
+    #[test]
     fn batch_isolates_corrupt_images_and_resumes_from_database_receipts() {
         let dir = tempfile::tempdir().unwrap();
         let shared = shared(dir.path());
@@ -793,7 +885,7 @@ mod tests {
         interrupted.status = BatchStatus::Running;
         save(dir.path(), "import-batches", id, &interrupted).unwrap();
         assert_eq!(
-            batches(dir.path(), &WorkState::default()).unwrap()[0]["status"],
+            batches(dir.path(), &WorkState::default(), 0, &[]).unwrap()["items"][0]["status"],
             "paused"
         );
         let offline = Endpoint::test("http://127.0.0.1:1".into());
@@ -818,7 +910,7 @@ mod tests {
         );
         drop(db);
         shared.lock().unwrap().restore(&backup).unwrap();
-        let reconciled = batches(dir.path(), &work).unwrap();
+        let reconciled = batches(dir.path(), &work, 0, &[]).unwrap()["items"].clone();
         assert_eq!(reconciled[0]["status"], "paused");
         assert!(reconciled[0]["items"]
             .as_array()
