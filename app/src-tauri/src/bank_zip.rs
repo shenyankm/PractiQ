@@ -118,6 +118,14 @@ pub fn filename(title: &str) -> String {
     )
 }
 impl Store {
+    pub fn add_example_bank(&mut self) -> Result<Value> {
+        let mut file = tempfile::NamedTempFile::new().map_err(error)?;
+        file.write_all(include_bytes!("../../fixtures/all-types.zip"))
+            .map_err(error)?;
+        let preview = self.preview_bank_zip(file.path())?;
+        self.import(text(&preview, "ticket"), None, text(&preview, "title"))
+    }
+
     pub fn preview_bank_zip(&mut self, source: &Path) -> Result<Value> {
         let file = fs::File::open(source).map_err(error)?;
         if file.metadata().map_err(error)?.len() > ZIP_LIMIT {
@@ -437,6 +445,71 @@ mod tests {
         assert!(!dir.path().join("missing.zip").exists());
         assert_eq!(fs::read(path).unwrap(), before);
     }
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn bundled_example_covers_all_types_and_imports_resources() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut store = Store::new(dir.path().into()).unwrap();
+        let result = store.add_example_bank().unwrap();
+        let db = store.connect().unwrap();
+        let modes: HashSet<String> = db
+            .prepare("SELECT DISTINCT mode FROM questions")
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .map(|r| r.unwrap())
+            .collect();
+        assert_eq!(
+            modes,
+            [
+                "choice",
+                "true_false",
+                "fill_blank",
+                "short_answer",
+                "ordering",
+                "matching",
+                "reading",
+                "word_bank",
+                "cloze",
+                "listening",
+                "gap_fill"
+            ]
+            .map(String::from)
+            .into_iter()
+            .collect()
+        );
+        for (kind, _) in crate::question_metadata::QUESTION_KIND_MODES {
+            assert!(
+                db.query_row(
+                    "SELECT COUNT(*) FROM questions WHERE question_kind=?1",
+                    [kind],
+                    |r| r.get::<_, i64>(0)
+                )
+                .unwrap()
+                    > 0
+            );
+        }
+        for variant in ["single", "multiple"] {
+            assert!(
+                db.query_row(
+                    "SELECT COUNT(*) FROM choice_questions WHERE variant=?1",
+                    [variant],
+                    |r| r.get::<_, i64>(0)
+                )
+                .unwrap()
+                    > 0
+            );
+        }
+        assert_eq!(store.banks().unwrap()[0]["title"], "全题型示例题库");
+        let exported = dir.path().join("example.zip");
+        store
+            .export_bank(text(&result, "bankId"), &exported)
+            .unwrap();
+        let preview = store.preview_bank_zip(&exported).unwrap();
+        assert!(list(&preview, "missingAssets").is_empty());
+        assert_eq!(list(&preview, "questions").len(), 26);
+    }
+
     #[test]
     fn packaged_examples_are_ready_for_offline_import() {
         let dir = tempfile::tempdir().unwrap();

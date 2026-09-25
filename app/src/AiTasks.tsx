@@ -10,7 +10,6 @@ import { Markdown } from "./Content";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import {
   Dialog,
@@ -357,7 +356,7 @@ export function AiTasks({
         >{t("选择文档…")}</Button>
       </div>}
       </CardContent></Card>
-      <section aria-label={t("导入任务")} className="space-y-4">
+      {(rows.length > 0 || loading || error != null || operations.length > 0 || offset > 0 || more) && <section aria-label={t("导入任务")} className="space-y-4">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-lg font-semibold">{t("导入任务")}</h2>
           <div className="flex gap-2">
@@ -400,7 +399,7 @@ export function AiTasks({
         </section>
       )}
       {loading && <p role="status">{t("加载中…")}</p>}
-      <div className="overflow-x-auto rounded-xl border">
+      {rows.length > 0 && <div className="overflow-x-auto rounded-xl border">
         <table className="w-full text-left text-sm">
           <thead className="bg-muted/40 text-muted-foreground"><tr>
             <th className="w-10 p-3"><span className="sr-only">{t("选择")}</span></th>
@@ -423,13 +422,7 @@ export function AiTasks({
             </tr>;
           })}</tbody>
         </table>
-      </div>
-          {modelsReady && !loading && !rows.length && error == null && <Empty>
-            <EmptyHeader>
-              <EmptyTitle>{t("暂无解析任务")}</EmptyTitle>
-              <EmptyDescription>{t("选择文档并开始解析后，可在这里查看任务进度。")}</EmptyDescription>
-            </EmptyHeader>
-          </Empty>}
+      </div>}
           {(offset > 0 || more) && <div className="flex gap-2">
             <Button
               variant="ghost"
@@ -442,7 +435,7 @@ export function AiTasks({
               onClick={() => { setRows([]); setChecked([]); setOffset(offset + 20); }}
             >{t("下一页")}</Button>
           </div>}
-      </section>
+      </section>}
       <Dialog open={selected !== null} onOpenChange={open => { if (!open) { setSelected(null); setTask(null); } }}>
         <DialogContent className="inset-y-0 right-0 left-auto flex h-full w-[min(40rem,100vw)] max-w-none translate-x-0 translate-y-0 flex-col overflow-y-auto rounded-none p-6 sm:max-w-none">
           <DialogHeader><DialogTitle>{selectedRow?.fileName || t("任务详情")}</DialogTitle><DialogDescription>{t("查看解析进度、审核内容和导入结果。")}</DialogDescription></DialogHeader>

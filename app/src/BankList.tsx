@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 
-export function BankList({ offset, onOffsetChange, revision, busy, ready, run, onOpenSession, onImport, onOpenQuestions, onPractice, onEdit, onDelete }: {
+export function BankList({ offset, onOffsetChange, revision, busy, ready, run, onOpenSession, onAddExample, onImport, onOpenQuestions, onPractice, onEdit, onDelete }: {
   offset: number;
   onOffsetChange: (offset: number) => void;
   revision: number;
@@ -17,6 +17,7 @@ export function BankList({ offset, onOffsetChange, revision, busy, ready, run, o
   ready: boolean;
   run: (job: () => Promise<void>) => void;
   onOpenSession: (id: string) => void;
+  onAddExample: () => void;
   onImport: (bankId: string | null) => void;
   onOpenQuestions: (bankId: string) => void;
   onPractice: (bankId: string) => void;
@@ -52,7 +53,7 @@ export function BankList({ offset, onOffsetChange, revision, busy, ready, run, o
       {error != null && <div role="alert"><p>{errorMessage(error)}</p><Button variant="outline" onClick={() => setRefresh(value => value + 1)}>{t("重试")}</Button></div>}
     </div>}
     {!loading && !error && unfinished && <Card className="border-primary/30 bg-primary/5"><CardContent className="flex items-center justify-between gap-4"><div className="min-w-0"><h2 className="font-semibold">{t("继续未完成的练习")}</h2><p className="mt-1 break-words text-sm text-muted-foreground">{t("{0} · 已提交 {1}/{2} 题", { 0: unfinished.title, 1: unfinished.answered, 2: unfinished.count })}</p></div><Button disabled={busy} onClick={() => onOpenSession(unfinished.id)}><Play />{t("继续练习")}</Button></CardContent></Card>}
-    {!page.total && !loading && !error && ready && <Empty className="min-h-96 border border-dashed"><EmptyHeader><EmptyMedia variant="icon"><BookOpen /></EmptyMedia><EmptyTitle>{t("从第一份题库开始")}</EmptyTitle><EmptyDescription>{t("已有 PractiQ ZIP 可离线导入；PDF、文本或图片可通过 AI 解析为题目。")}</EmptyDescription></EmptyHeader><EmptyContent><Button onClick={() => onImport(null)}><Upload />{t("导入第一份题库")}</Button></EmptyContent></Empty>}
+    {!page.total && !loading && !error && ready && <Empty className="min-h-96 border border-dashed"><EmptyHeader><EmptyMedia variant="icon"><BookOpen /></EmptyMedia><EmptyTitle>{t("从第一份题库开始")}</EmptyTitle><EmptyDescription>{t("已有 PractiQ ZIP 可离线导入；PDF、文本或图片可通过 AI 解析为题目。")}</EmptyDescription></EmptyHeader><EmptyContent><Button onClick={() => onImport(null)}><Upload />{t("导入第一份题库")}</Button><Button variant="outline" disabled={busy} onClick={onAddExample}><BookOpen />{t("添加示例题库")}</Button></EmptyContent></Empty>}
     <div className="grid grid-cols-2 gap-5 xl:grid-cols-3">
       {!loading && !error && page.items.map(bank => <Card key={bank.id}>
         <CardHeader>

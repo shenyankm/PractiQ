@@ -4,13 +4,19 @@ from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 fixtures = Path(__file__).resolve().parents[1] / 'fixtures'
-for name, title in [('sample', '基础题型示例'), ('composite', '复合题示例'), ('english', '英语题型示例')]:
+for name, title in [('sample', '基础题型示例'), ('composite', '复合题示例'), ('english', '英语题型示例'), ('all-types', '全题型示例题库')]:
     source = fixtures / f'{name}.json'
-    result = json.loads(source.read_text(encoding='utf-8'))
+    if name == 'all-types':
+        result = json.loads((fixtures / 'sample.json').read_text(encoding='utf-8'))
+        english = json.loads((fixtures / 'english.json').read_text(encoding='utf-8'))
+        for field in ('questions', 'groups', 'visualElements', 'warnings'):
+            result[field].extend(english[field])
+    else:
+        result = json.loads(source.read_text(encoding='utf-8'))
     files = {
         'manifest.json': json.dumps({'format': 'practiq-question-bank', 'version': 2,
             'bank': {'title': title, 'description': '人工编写的操作样例，不代表模型准确率。'}}, ensure_ascii=False).encode(),
-        'questions.json': source.read_bytes(),
+        'questions.json': json.dumps(result, ensure_ascii=False, indent=2).encode() if name == 'all-types' else source.read_bytes(),
     }
     for visual in result['visualElements']:
         for field in ('imageRef', 'sourceRef'):
