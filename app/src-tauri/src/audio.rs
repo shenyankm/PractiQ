@@ -397,6 +397,85 @@ mod tests {
         }
     }
     #[test]
+    fn restore_rejects_audio_segments_past_duration_in_questions_and_snapshots() {
+        let (dir, store, bank) = english();
+        let roots = store.questions(Some(&bank), "", "listening", "").unwrap();
+        let root = text(&roots[0], "id").to_owned();
+        let digest = text(&roots[0]["question"]["audioRef"], "sha256");
+        let (_, bytes) = store.asset_bytes(digest).unwrap().unwrap();
+        let duration = audio_info(&bytes).unwrap().1;
+        let original_start = roots[0]["question"]["audioStartSeconds"]
+            .as_f64()
+            .unwrap_or(0.0);
+        let original_end = roots[0]["question"]["audioEndSeconds"].as_f64();
+        let db = store.connect().unwrap();
+        db.execute(
+            "UPDATE listening_questions SET end_seconds=?1 WHERE question_id=?2",
+            params![duration + 1.0, root],
+        )
+        .unwrap();
+        let current_backup = dir.path().join("bad-current.zip");
+        store.backup(&current_backup).unwrap();
+        let mut restored = Store::new(dir.path().join("restored")).unwrap();
+        assert!(restored
+            .restore(&current_backup)
+            .unwrap_err()
+            .to_string()
+            .contains("duration"));
+        assert!(restored.banks().unwrap().as_array().unwrap().is_empty());
+
+        db.execute(
+            "UPDATE listening_questions SET start_seconds=?1,end_seconds=?2 WHERE question_id=?3",
+            params![original_start, original_end, root],
+        )
+        .unwrap();
+        let selected = crate::paper::selected_rows(
+            &store.question_rows().unwrap(),
+            std::slice::from_ref(&root),
+        )
+        .unwrap();
+        let session = store
+            .start_paper(crate::exams::Paper {
+                question_ids: vec![root],
+                kind: "practice".into(),
+                minutes: None,
+                scores: vec![],
+                total_cents: 0,
+                digest: crate::paper::digest(&selected).unwrap(),
+            })
+            .unwrap();
+        let sid = text(&session, "id");
+        let raw: String = db
+            .query_row(
+                "SELECT content FROM session_documents WHERE session_id=?1",
+                [sid],
+                |r| r.get(0),
+            )
+            .unwrap();
+        let mut document: Value = serde_json::from_str(&raw).unwrap();
+        let question = document["questions"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|row| row["question"]["audioRef"]["sha256"] == digest)
+            .unwrap();
+        question["question"]["audioStartSeconds"] = json!(duration + 1.0);
+        question["question"]["audioEndSeconds"] = json!(duration + 2.0);
+        db.execute(
+            "UPDATE session_documents SET content=?1 WHERE session_id=?2",
+            params![document.to_string(), sid],
+        )
+        .unwrap();
+        let snapshot_backup = dir.path().join("bad-snapshot.zip");
+        store.backup(&snapshot_backup).unwrap();
+        assert!(restored
+            .restore(&snapshot_backup)
+            .unwrap_err()
+            .to_string()
+            .contains("duration"));
+        assert!(restored.banks().unwrap().as_array().unwrap().is_empty());
+    }
+    #[test]
     fn question_save_collects_replaced_audio_and_failed_persistence() {
         let (dir, mut store, bank) = english();
         let roots = store.questions(Some(&bank), "", "listening", "").unwrap();

@@ -281,6 +281,7 @@ impl Store {
                 serde_json::json!({}),
             ));
         }
+        let mut audio_durations = std::collections::HashMap::new();
         for (digest, media, size, path) in rows {
             if path != format!("assets/{digest}") {
                 return Err(crate::language::error(
@@ -298,14 +299,23 @@ impl Store {
                 ));
             }
             let data = staged.read_asset(&digest, size)?;
-            if !crate::audio::valid_media(&data, &media) {
-                return Err(crate::language::error(
-                    "LOCAL_BACKUP_IMAGE_FORMAT",
-                    serde_json::json!({}),
-                ));
+            let invalid_format =
+                || crate::language::error("LOCAL_BACKUP_IMAGE_FORMAT", serde_json::json!({}));
+            if media.starts_with("image/") {
+                if !crate::audio::valid_media(&data, &media) {
+                    return Err(invalid_format());
+                }
+            } else {
+                let (actual, duration) =
+                    crate::audio::audio_info(&data).map_err(|_| invalid_format())?;
+                if actual != media {
+                    return Err(invalid_format());
+                }
+                audio_durations.insert(digest.clone(), duration);
             }
             self.write_asset(&digest, &data)?;
         }
+        validate_audio_segments(&db, &audio_durations)?;
         drop(db);
         fs::File::open(&candidate)
             .map_err(err)?
@@ -337,6 +347,37 @@ impl Store {
         }
         Ok(json!({"recoveryPath":recovery.display().to_string()}))
     }
+}
+fn validate_audio_segments(
+    db: &Connection,
+    durations: &std::collections::HashMap<String, f64>,
+) -> Result<()> {
+    if durations.is_empty() {
+        return Ok(());
+    }
+    let validate = |rows: Vec<Value>| -> Result<()> {
+        for row in rows {
+            let question = &row["question"];
+            if let Some(duration) =
+                durations.get(crate::contract::text(&question["audioRef"], "sha256"))
+            {
+                crate::audio::validate_segment(question, *duration)?;
+            }
+        }
+        Ok(())
+    };
+    validate(crate::questions::read(db)?)?;
+    let mut statement = db
+        .prepare("SELECT content FROM session_documents")
+        .map_err(err)?;
+    let documents = statement
+        .query_map([], |row| row.get::<_, String>(0))
+        .map_err(err)?;
+    for raw in documents {
+        let document: Value = serde_json::from_str(&raw.map_err(err)?).map_err(err)?;
+        validate(crate::questions::thaw(&document)?)?;
+    }
+    Ok(())
 }
 fn validate_database(path: &Path) -> Result<i64> {
     let db = Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
