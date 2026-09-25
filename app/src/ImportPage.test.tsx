@@ -67,7 +67,7 @@ it("loads native pages and clamps the page after deleting the last item", async 
 }, 30000);
 
 it("keeps ZIP import usable without models and preserves the destination bank", async () => {
-  vi.mocked(invoke).mockResolvedValue([]);
+  vi.mocked(invoke).mockImplementation(async (_c,args) => ((args as {request:{type:string}}).request.type === "batches" ? {items:[],total:0,offset:0,operations:[]} : []) as never);
   vi.mocked(api).mockImplementation(async (request) => {
     switch (request.type) {
       case "banks":
@@ -265,7 +265,7 @@ it("guides an empty library to import without requiring AI settings", async () =
     if (r.type === "settings") return {config:{},hasApiKey:false} as never;
     return [] as never;
   });
-  vi.mocked(invoke).mockResolvedValue([]);
+  vi.mocked(invoke).mockImplementation(async (_c,args) => ((args as {request:{type:string}}).request.type === "batches" ? {items:[],total:0,offset:0,operations:[]} : []) as never);
   render(<App/>);
   await userEvent.click(await screen.findByRole("button",{name:"导入第一份题库"}));
   expect(await screen.findByRole("button",{name:"配置 AI 模型"})).toBeTruthy();
@@ -316,7 +316,7 @@ it("autosaves model setup and returns to the original import destination", async
     if (r.type === "pick_import") return {ticket:"t",title:"文件",count:1,reviewCount:0,assetCount:0,missingAssets:[],warnings:[],status:"SUCCEEDED"} as never;
     return [] as never;
   });
-  vi.mocked(invoke).mockImplementation(async (_c,args) => ((args as {request:{type:string}}).request.type === "list" ? {items:[],hasMore:false} : []) as never);
+  vi.mocked(invoke).mockImplementation(async (_c,args) => ((args as {request:{type:string}}).request.type === "list" ? {items:[],hasMore:false} : (args as {request:{type:string}}).request.type === "batches" ? {items:[],total:0,offset:0,operations:[]} : []) as never);
   render(<App/>);
   const entry = await screen.findByRole("button",{name:"导入题目"});
   await waitFor(() => expect(entry.hasAttribute("disabled")).toBe(false));
@@ -358,7 +358,7 @@ it("continues the existing session from home without creating another paper", as
 it("handles ZIP picker cancellation and package/export errors without importing", async () => {
   const notified=vi.spyOn(toast,"error");
   let failImport=false;
-  vi.mocked(invoke).mockResolvedValue([]);
+  vi.mocked(invoke).mockImplementation(async (_c,args) => ((args as {request:{type:string}}).request.type === "batches" ? {items:[],total:0,offset:0,operations:[]} : []) as never);
   vi.mocked(api).mockImplementation(async request=>{
     switch(request.type){
       case "banks": return [{id:"bank",title:"Shared",description:"",count:1}] as never;
@@ -412,6 +412,7 @@ it("keeps a confirmed document import in the task list and opens its bank only o
     const r = (args as {request:{type:string}}).request;
     if (r.type === "list") return {items:[{threadId:"task", fileName:"source.txt", state:"COMPLETED", checkpointId:"cp", createdAt:"2026-09-24T00:00:00Z", questionCount:2, reviewCount:0, importedBankId:imported ? "bank" : null}], hasMore:false} as never;
     if (r.type === "get") return {threadId:"task", state:"COMPLETED", checkpointId:"cp", phase:"completed", progress:{}, allowedActions:[], blocking:[], failures:[], usage:[], unknownUsageCalls:[]} as never;
+    if (r.type === "batches") return {items:[],total:0,offset:0,operations:[]} as never;
     if (r.type === "preview") return {ticket:"ticket",title:"Parsed",count:2,reviewCount:0,assetCount:0,missingAssets:[],warnings:[],status:"SUCCEEDED"} as never;
     return [] as never;
   });

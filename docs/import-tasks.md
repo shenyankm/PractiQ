@@ -29,4 +29,6 @@ Active tasks on the current page refresh every two seconds even when the drawer 
 
 Batch selection applies to the current page. Selection clears on page changes and when a task becomes ineligible for import.
 
+Local batch history has its own 20-batch pages; active batches remain visible on every history page. Import failures for the visible tasks and the selected task are resolved independently of the history page. An active pending import takes precedence over historical failures for the same task and checkpoint. Receipt reconciliation reuses one SQLite connection per page. Manifest discovery still scans the local batch directory; it does not load every historical item into the UI.
+
 Selecting a file still requires explicit confirmation before parsing. Reviewing saved results and importing do not call a model. Resume/retry calls require explicit user action. Confirmed imports stay on the task list; opening a bank is a separate action. Local batch recovery controls remain visible without model configuration.

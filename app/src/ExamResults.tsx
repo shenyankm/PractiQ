@@ -1,11 +1,11 @@
-import { number, message, MessageError, t, useI18n, locale } from "./i18n";
+import { number, message, MessageError, t, useI18n } from "./i18n";
 import {
   AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader,
   AlertDialogTitle, AlertDialogDescription, AlertDialogFooter,
   AlertDialogCancel, AlertDialogAction,
 } from "@/components/ui/alert-dialog";
 import { useRef, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { ai } from "./ai-api";
 import { api, errorMessage, type Session, type Attempt } from "./api";
 import { cents } from "./paper";
 import { Button } from "@/components/ui/button";
@@ -25,7 +25,7 @@ export function ExamResults({session,onSession,run}:{session:Session;onSession:(
   const total=session.attempts.reduce((n,a)=>n+(a.maxCents||0),0), earned=graded.reduce((n,a)=>n+(a.earnedCents||0),0);
   const pending=session.attempts.filter(a=>exam&&a.earnedCents==null);
   const pendingAi=pending.filter(eligible);
-  function grade(items:Attempt[],retry=false){run(async()=>{stopped.current=false;setRunning(true);setError(null);try{for(const item of items){if(stopped.current)break;const s=await invoke<Session>("ai_request",{locale: locale(),request:{type:"grade",id:session.id,ordinal:item.ordinal,retry}});onSession(s);}}catch(e){setError(e);}finally{setRunning(false);}});}
+  function grade(items:Attempt[],retry=false){run(async()=>{stopped.current=false;setRunning(true);setError(null);try{for(const item of items){if(stopped.current)break;const s=await ai({type:"grade",id:session.id,ordinal:item.ordinal,retry});onSession(s);}}catch(e){setError(e);}finally{setRunning(false);}});}
   return <section className="space-y-3 rounded-lg border p-4" aria-label={t("本次结果")}>
     <h3 className="font-medium">{exam?(pending.length?t("暂定成绩"):t("本次成绩")):t("本次练习结果")}</h3>
     {exam&&<p>{t("已确定得分 {0} / {1} 分；{2} {3}% · 待评分 {4} 题（共 {5} 分）", { 0: earned/100, 1: total/100, 2: pending.length?t("已确定得分率"):t("得分率"), 3: total?number(earned/total*100, 1):0, 4: pending.length, 5: pending.reduce((n,a)=>n+(a.maxCents||0),0)/100 })}</p>}

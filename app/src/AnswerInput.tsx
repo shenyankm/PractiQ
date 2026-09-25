@@ -164,6 +164,7 @@ export function AnswerInput({
     case "ordering": {
       const items = itemIds(q);
       const order = a.order || items.map((i) => i.id);
+      const byId = new Map(items.map(item => [item.id, item]));
       function move(index: number, delta: number) {
         const next = [...order];
         [next[index], next[index + delta]] = [next[index + delta], next[index]];
@@ -178,7 +179,7 @@ export function AnswerInput({
             >
               <span className="text-muted-foreground">{index + 1}</span>
               <div className="flex-1">
-                <Markdown>{items.find((i) => i.id === id)?.content}</Markdown>
+                <Markdown>{byId.get(id)?.content}</Markdown>
               </div>
               <Button
                 size="icon"

@@ -1,6 +1,7 @@
+import type { DocumentTaskSummary, DocumentTaskReview } from "./contracts.generated";
 import { invoke } from "@tauri-apps/api/core";
 import { locale } from "./i18n";
-import type { Preview, Question } from "./api";
+import type { Preview, Session } from "./api";
 
 export type Failure = {
   retryable: boolean;
@@ -31,35 +32,8 @@ export type ImportTaskContext = {
   onState: (state: "importing" | "failed", error?: unknown) => void;
   onImported: (bankId: string) => void;
 };
-export type Summary = {
-  createdAt: string;
-  expiresAt: string;
-  checkpointId: string | null;
-  threadId: string;
-  fileName: string;
-  state: string;
-  status: string | null;
-  questionCount: number;
-  reviewCount: number;
-  importedBankId?: string | null;
-  previouslyImported?: boolean;
-};
-export type Review = {
-  threadId: string;
-  checkpointId: string;
-  phase: string;
-  units: {
-    stage: string;
-    index: number;
-    questions: Question[];
-    groups: (import("./contracts.generated").DocumentGroup | import("./contracts.generated").ParsedGroup)[];
-    sourceRef: unknown;
-    visualElements: (import("./contracts.generated").DocumentVisual | import("./contracts.generated").VisualElement)[];
-  }[];
-  failures: Failure[];
-  quality: unknown;
-  questionSources: unknown[];
-};
+export type Summary = DocumentTaskSummary & { importedBankId?: string | null; previouslyImported?: boolean };
+export type Review = DocumentTaskReview;
 export type PendingOperation = {
   id: string;
   label: string;
@@ -82,9 +56,10 @@ export type Batch = {
   }[];
 };
 type Request =
+  | { type: "grade"; id: string; ordinal: number; retry: boolean }
   | { type: "list"; offset: number }
   | { type: "get" | "preview" | "review"; id: string }
-  | { type: "pick_document" | "operations" | "batches" }
+  | { type: "pick_document" | "operations" }
   | {
       type: "control";
       id: string;
@@ -93,6 +68,7 @@ type Request =
       checkpoint_id: string | null;
       units: unknown[];
     }
+  | { type: "batches"; offset: number; thread_ids: string[] }
   | { type: "replay"; request_id: string }
   | { type: "prepare_batch"; ids: string[] }
   | { type: "run_batch"; id: string; titles: string[] | null }
@@ -105,13 +81,14 @@ type Request =
       visual: number | null;
     };
 type ResponseMap = {
+  grade: Session;
   list: { items: Summary[]; hasMore: boolean };
   get: Task;
   preview: Preview;
   review: Review;
   pick_document: { threadId: string } | null;
   operations: PendingOperation[];
-  batches: Batch[];
+  batches: { items: Batch[]; total: number; offset: number; operations: (ImportOperation & {threadId: string})[] };
   control: unknown;
   replay: unknown;
   prepare_batch: Batch;

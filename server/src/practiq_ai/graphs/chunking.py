@@ -114,6 +114,9 @@ def merge_chunk_results(
         index_map: dict[int, int] = {}
         current = []
         used_previous: set[int] = set()
+        previous_by_location: dict[tuple[int, int] | None, list[tuple[int, tuple[int, int] | None, dict[str, Any]]]] = {}
+        for entry in previous:
+            previous_by_location.setdefault(entry[1], []).append(entry)
         for local_index, original in enumerate(chunk_questions):
             question = original.model_copy(deep=True)
             locations = _source_locations(source, question.sourceText) if source else []
@@ -126,8 +129,9 @@ def merge_chunk_results(
                 codes.add("AMBIGUOUS_OVERLAP")
             candidates = []
             if overlapping and adjacent and span and span["overlapEnd"] > span["overlapStart"]:
-                # ponytail: scan at most 1000 prior questions; index locations if profiling warrants it.
-                for prior_index, prior_location, prior_content in previous:
+                # Unlocated source fragments must still participate in ambiguity checks.
+                prior_entries = previous if location is None else [*previous_by_location.get(location, []), *previous_by_location.get(None, [])]
+                for prior_index, prior_location, prior_content in prior_entries:
                     if location and prior_location == location and span["overlapStart"] <= location[0] < location[1] <= span["overlapEnd"]:
                         if prior_content == content:
                             candidates.append(prior_index)

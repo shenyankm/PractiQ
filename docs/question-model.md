@@ -2,6 +2,8 @@
 
 契约来源为 [`contracts.py`](../server/src/practiq_ai/contracts.py)，实际建表 SQL 为 [`schema.sql`](../app/src-tauri/src/schema.sql)。`app/scripts/export-contracts.py` 导出 Rust 使用的 `app/src-tauri/contracts.json` 和前端 `app/src/contracts.generated.ts`；`--check` 拒绝过期生成文件。完整普通题与复合题样例分别见 [`sample.json`](../app/fixtures/sample.json)、[`composite.json`](../app/fixtures/composite.json)。
 
+任务摘要与审核类型、题型到作答模式的映射、复合题分类也由同一脚本生成；Rust 元数据位于 `app/src-tauri/src/question_metadata.rs`。新增题型时更新 Python 契约后重新生成，不分别维护三份分类列表。数据库会补建题目关联和素材范围读取索引；备份可以缺少这些可选索引，但已有索引的定义必须严格匹配。
+
 ## 版本与目录
 
 仅接受 `schemaVersion: 3` JSON（裸结果或任务输出中的 `result`），SQLite `user_version=10`，备份清单 `version=4`。桌面在系统应用数据目录的 `v3/` 中启动；不迁移、覆盖或删除旧根目录数据库、图片及 AI 工作目录。旧 JSON、旧备份和非 10 数据库明确拒绝。Python 执行状态版本为 6，旧结构 checkpoint 不可恢复，应重新解析源文件。

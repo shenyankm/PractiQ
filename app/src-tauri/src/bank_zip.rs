@@ -503,7 +503,7 @@ mod tests {
         let mut s = Store::new(dir.path().into()).unwrap();
         s.connect()
             .unwrap()
-            .execute_batch("ALTER TABLE imports ADD COLUMN raw TEXT NOT NULL DEFAULT ''; ALTER TABLE visuals DROP COLUMN document_level;")
+            .execute_batch("ALTER TABLE imports ADD COLUMN raw TEXT NOT NULL DEFAULT ''; DROP INDEX visuals_bank; ALTER TABLE visuals DROP COLUMN document_level;")
             .unwrap();
         let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../fixtures/sample.zip");
         let p = s.preview_bank_zip(&path).unwrap();

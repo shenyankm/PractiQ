@@ -1,5 +1,5 @@
 import { date, t, useI18n } from "./i18n";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "./notifications";
 import { errorMessage, type Preview } from "./api";
 import { ai, readReviewImage, type Task, type Summary, type Review, type PendingOperation, type Batch, type ImportTaskContext, type ImportOperation } from "./ai-api";
@@ -76,7 +76,7 @@ function ReadAsset({
   useEffect(() => () => {
     if (src?.mediaType.startsWith("image/")) URL.revokeObjectURL(src.content);
   }, [src]);
-  const reference = (visual === null ? review.units[unit]?.sourceRef : (review.units[unit]?.visualElements[visual] as { imageRef?: unknown } | undefined)?.imageRef) as { mediaType?: string } | undefined;
+  const reference = (visual === null ? review.units[unit]?.sourceRef : (review.units[unit]?.visualElements?.[visual] as { imageRef?: unknown } | undefined)?.imageRef) as { mediaType?: string } | undefined;
   const mediaType = reference?.mediaType ?? "";
   return (
     <div>
@@ -93,7 +93,9 @@ function ReadAsset({
       ) : (
         <Button
           variant="outline"
+          disabled={!review.checkpointId}
           onClick={() => {
+            if (!review.checkpointId) return;
             const request = { id: review.threadId, checkpointId: review.checkpointId, unit, visual };
             void (mediaType.startsWith("image/")
               ? readReviewImage(request).then(bytes => ({ mediaType, content: URL.createObjectURL(new Blob([bytes], { type: mediaType })) }))
@@ -145,13 +147,20 @@ export function AiTasks({
   const [imports, setImports] = useState<Record<string, ImportOperation>>({});
   const [loading, setLoading] = useState(true);
   const batchWasRunning = useRef(false);
+  const [batchOffset, setBatchOffset] = useState(0), [batchTotal, setBatchTotal] = useState(0);
+  const [batchOperations, setBatchOperations] = useState<(ImportOperation & {threadId:string})[]>([]);
+  const batchThreads = JSON.stringify([...new Set([...rows.map(row=>row.threadId), ...(selected ? [selected] : [])])]);
+  function receiveBatches(page: Awaited<ReturnType<typeof readBatches>>) {
+    setBatches(page.items); setBatchTotal(page.total); setBatchOffset(page.offset); setBatchOperations(page.operations);
+  }
+  const readBatches = useCallback(() => ai({type:"batches",offset:batchOffset,thread_ids:JSON.parse(batchThreads)}), [batchOffset, batchThreads]);
   async function localRefresh() {
     const [o, b] = await Promise.all([
       ai({ type: "operations" }),
-      ai({ type: "batches" }),
+      readBatches(),
     ]);
     setOperations(o);
-    setBatches(b);
+    receiveBatches(b);
   }
   async function refreshList() {
     setRevision(n => n + 1);
@@ -196,16 +205,16 @@ export function AiTasks({
       try {
         const [o, b] = await Promise.all([
           ai({ type: "operations" }),
-          ai({ type: "batches" }),
+          readBatches(),
         ]);
         if (active) {
           failures = 0;
           setOperations(o);
-          setBatches(b);
-          const batchIsRunning = b.some(value => value.status === "running");
+          receiveBatches(b);
+          const batchIsRunning = b.items.some(value => value.status === "running");
           if (batchWasRunning.current && !batchIsRunning) setRevision(n => n + 1);
           batchWasRunning.current = batchIsRunning;
-          if (running || b.some((v) => v.status === "running"))
+          if (running || b.items.some((v) => v.status === "running"))
             timer = setTimeout(poll, 1000);
         }
       } catch (e) {
@@ -220,7 +229,7 @@ export function AiTasks({
       active = false;
       clearTimeout(timer);
     };
-  }, [running]);
+  }, [running, readBatches]);
   const selectedExpired = rows.some(row => row.threadId === selected && row.state === "EXPIRED");
   useEffect(() => {
     if (!selected || !modelsReady || selectedExpired) return;
@@ -290,14 +299,17 @@ export function AiTasks({
       await localRefresh().catch((e) => setError(e));
     }
   }
+  const operationIndex = useMemo(() => {
+    const index = new Map<string, ImportOperation>();
+    for (const operation of batchOperations) {
+      const key = JSON.stringify([operation.threadId, operation.checkpointId]);
+      if (!index.has(key)) index.set(key, operation);
+    }
+    return index;
+  }, [batchOperations]);
   function importOperation(row: Pick<Summary, "threadId" | "checkpointId">): ImportOperation | undefined {
     const local = imports[row.threadId];
-    if (local?.checkpointId === row.checkpointId) return local;
-    for (const batch of batches) {
-      const item = batch.items.find(item => item.threadId === row.threadId && item.checkpointId === row.checkpointId);
-      if (item?.status === "failed") return { checkpointId: row.checkpointId, state: "failed", error: item.error };
-      if (item?.status === "pending" && (batch.status === "running" || running === batch.id)) return { checkpointId: row.checkpointId, state: "importing" };
-    }
+    return local?.checkpointId === row.checkpointId ? local : operationIndex.get(JSON.stringify([row.threadId,row.checkpointId]));
   }
   const eligibleChecked = checked.filter(id => rows.some(row => row.threadId === id && ["READY", "IMPORT_FAILED"].includes(importTaskState(row, importOperation(row)))));
   const selectedRow = rows.find(row => row.threadId === selected);
@@ -500,8 +512,12 @@ export function AiTasks({
         </DialogContent>
       </Dialog>
       {batches.length > 0 && (
-        <section className="space-y-3">
+        <section className="space-y-3" aria-label={t("导入批次")}>
           <h2>{t("导入批次")}</h2>
+          {batchTotal > 20 && <div className="flex gap-2">
+            <Button variant="outline" disabled={batchOffset === 0} onClick={()=>setBatchOffset(n=>Math.max(0,n-20))}>{t("上一页")}</Button>
+            <Button variant="outline" disabled={batchOffset+20 >= batchTotal} onClick={()=>setBatchOffset(n=>n+20)}>{t("下一页")}</Button>
+          </div>}
           {batches.map((b) => (
             <Card key={b.id}>
               <CardContent className="space-y-2 pt-4">
@@ -610,7 +626,7 @@ export function AiTasks({
             </DialogHeader>
             {review.failures.map((f, i) => (
               <p className="text-destructive" key={i}>
-                {phaseName(f.stage)} #{f.index + 1}：{errorMessage({code:f.code, message:f.message || failureMessage(f.code)})}
+                {phaseName(f.stage)} #{f.index + 1}：{errorMessage({code:f.code, message:failureMessage(f.code)})}
               </p>
             ))}
             {review.units.map((unit, index) => (
@@ -636,7 +652,7 @@ export function AiTasks({
                   </div>
                 ))}
                 <QuestionPreview questions={unit.questions} groups={unit.groups} visuals={unit.visualElements} />
-                {unit.visualElements.map((v, i) => (
+                {(unit.visualElements || []).map((v, i) => (
                   <div key={i}>
                     <Markdown>{v.description}</Markdown>
                     {v.imageRef != null && (

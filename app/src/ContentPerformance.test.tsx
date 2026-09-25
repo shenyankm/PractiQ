@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from "vitest";
-import { act, cleanup, render } from "@testing-library/react";
-import { Markdown } from "./Content";
+import { act, cleanup, render, screen } from "@testing-library/react";
+import { Blocks, Markdown } from "./Content";
 import { Practice } from "./Practice";
 import { api, type Question, type Session } from "./api";
 import fixture from "../fixtures/sample.json";
@@ -36,4 +36,10 @@ it("updates the practice clock without rerendering 1000 answer buttons and still
   await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
   expect(api).toHaveBeenCalledWith(expect.objectContaining({type:"save_draft",elapsed_ms:3000}));
   expect(buttons.mock.calls.length).toBeLessThan(20);
+});
+
+
+it("keeps first-occurrence blank numbering when references repeat", () => {
+  render(<Blocks blocks={[{partType:"blank",questionId:"a"},{partType:"text",textValue:"between"},{partType:"blank",questionId:"a"},{partType:"blank",questionId:"b"}]} />);
+  expect(screen.getAllByRole("button").map(button=>button.textContent)).toEqual(["空位 1","空位 1","空位 3"]);
 });

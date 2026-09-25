@@ -21,6 +21,28 @@ from tests.support import parsed
 pytestmark = pytest.mark.usefixtures("disposable_databases")
 
 
+async def test_task_page_fetches_latest_runs_in_one_query(monkeypatch):
+    api, reference, _model = await setup_api(monkeypatch, [parsed("First"), parsed("Second")])
+    ids = []
+    for _ in range(2):
+        created = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
+        ids.append(created['threadId'])
+        await api.wait_idle()
+    original = api.db.rows
+    reads = []
+
+    async def rows(sql, params=()):
+        reads.append(sql)
+        return await original(sql, params)
+
+    monkeypatch.setattr(api.db, 'rows', rows)
+    page = await task_api.list_tasks(limit=2)
+    assert {item['threadId'] for item in page['items']} == set(ids)
+    assert all(item['state'] == 'COMPLETED' and item['questionCount'] == 1 for item in page['items'])
+    assert sum('FROM document_runs' in sql for sql in reads) == 1
+    assert not page['hasMore']
+
+
 async def test_auth_failure_can_be_explicitly_retried_without_replaying_successes(monkeypatch):
     import httpx2
     from openai import AuthenticationError

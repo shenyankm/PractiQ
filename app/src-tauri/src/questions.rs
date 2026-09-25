@@ -1,4 +1,5 @@
 //! The only mapping between normalized current questions and the wire contract.
+use crate::question_metadata::COMPOSITE_SQL;
 use crate::{
     contract::{self, list, text, Result},
     store::{id, Store},
@@ -10,10 +11,16 @@ fn err(e: impl std::fmt::Display) -> crate::AppError {
     e.to_string().into()
 }
 pub fn composite(q: &Value) -> bool {
-    matches!(
-        text(q, "answerMode"),
-        "reading" | "word_bank" | "cloze" | "listening" | "gap_fill"
-    )
+    crate::question_metadata::COMPOSITE_MODES.contains(&text(q, "answerMode"))
+}
+pub(crate) fn validate_filter(banks: &[String], mode: &str, filter: &str) -> Result<()> {
+    if banks.len() > 1000
+        || !crate::question_metadata::FILTER_MODES.contains(&mode)
+        || !["", "wrong", "favorite", "unattempted"].contains(&filter)
+    {
+        return Err(crate::language::error("LOCAL_FILTER_INVALID", json!({})));
+    }
+    Ok(())
 }
 pub(crate) fn answer_content(content: &Value) -> bool {
     let role = text(content, "role").to_lowercase();
@@ -341,7 +348,7 @@ pub fn matching_roots(
             SELECT DISTINCT t.root FROM tree t JOIN questions n ON n.id=t.id WHERE
                 (?3='favorite' AND n.favorite=1) OR
                 (?3='wrong' AND (SELECT result FROM attempts WHERE question_id=n.id AND result IS NOT NULL ORDER BY submitted_at DESC,rowid DESC LIMIT 1)=0) OR
-                (?3='unattempted' AND (n.mode IS NULL OR n.mode NOT IN ('reading','word_bank','cloze','listening','gap_fill')) AND NOT EXISTS(SELECT 1 FROM attempts WHERE question_id=n.id AND submitted_at IS NOT NULL AND skipped=0))
+                (?3='unattempted' AND (n.mode IS NULL OR n.mode NOT IN ({COMPOSITE_SQL})) AND NOT EXISTS(SELECT 1 FROM attempts WHERE question_id=n.id AND submitted_at IS NOT NULL AND skipped=0))
         ) SELECT q.id FROM questions q JOIN banks b ON b.id=q.bank_id LEFT JOIN choice_questions c ON c.question_id=q.id
         WHERE q.parent_id IS NULL AND {scope} AND (?2='' OR COALESCE(q.question_kind,q.mode)=?2 OR (?2='grammar_fill' AND q.mode='gap_fill') OR (q.mode='choice' AND c.variant=?2))
             AND (?3='' OR q.id IN (SELECT root FROM matches))
@@ -358,6 +365,27 @@ pub fn matching_roots(
 
 pub fn read(db: &Connection) -> Result<Vec<Value>> {
     read_scoped(db, &[], None)
+}
+
+pub const READ_INDEXES: &[(&str, &str)] = &[
+    ("section_questions_question", "CREATE INDEX IF NOT EXISTS section_questions_question ON section_questions(question_id,section_id)"),
+    ("question_visuals_question", "CREATE INDEX IF NOT EXISTS question_visuals_question ON question_visuals(question_id,visual_id)"),
+    ("visuals_bank", "CREATE INDEX IF NOT EXISTS visuals_bank ON visuals(bank_id,document_level)"),
+];
+
+fn related(db: &Connection, sql: &str, scope: &str) -> Result<HashMap<String, Vec<Value>>> {
+    let mut statement = db.prepare(sql).map_err(err)?;
+    let records = statement
+        .query_map([scope], |r| {
+            Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
+        })
+        .map_err(err)?;
+    let mut values: HashMap<String, Vec<Value>> = HashMap::new();
+    for record in records {
+        let (id, raw) = record.map_err(err)?;
+        values.entry(id).or_default().push(json_read(raw)?);
+    }
+    Ok(values)
 }
 
 pub fn read_scoped(
@@ -377,6 +405,27 @@ pub fn read_scoped(
     };
     let mut stmt=db.prepare(&format!("WITH RECURSIVE selected(id) AS (SELECT value FROM json_each(?2) UNION ALL SELECT q.id FROM questions q JOIN selected s ON q.parent_id=s.id) SELECT q.id,q.bank_id,q.import_id,q.parent_id,q.position,q.stem,q.mode,q.question_type,q.analysis,q.source_text,q.source_score,q.scoring_rubric,q.score_source_text,q.content_blocks,q.confidence,q.needs_review,q.missing_fields,q.favorite,b.title,q.question_kind,q.instructions FROM questions q JOIN banks b ON b.id=q.bank_id WHERE {bank_filter} AND {root_filter} ORDER BY b.created_at DESC,q.position,q.id")).map_err(err)?;
     let records=stmt.query_map(params![json!(banks).to_string(),roots.map(|v|json!(v).to_string())],|r| Ok((json!({"id":r.get::<_,String>(0)?,"parentId":r.get::<_,Option<String>>(3)?,"stem":r.get::<_,Option<String>>(5)?,"answerMode":r.get::<_,Option<String>>(6)?,"questionTypeId":r.get::<_,Option<String>>(7)?,"analysis":r.get::<_,Option<String>>(8)?,"sourceText":r.get::<_,Option<String>>(9)?,"sourceScore":r.get::<_,Option<f64>>(10)?,"scoringRubric":r.get::<_,Option<String>>(11)?,"scoreSourceText":r.get::<_,Option<String>>(12)?,"confidence":r.get::<_,f64>(14)?,"needsReview":r.get::<_,bool>(15)?,"questionKind":r.get::<_,Option<String>>(19)?,"instructions":r.get::<_,Option<String>>(20)?}),r.get::<_,String>(1)?,r.get::<_,Option<String>>(2)?,r.get::<_,String>(13)?,r.get::<_,String>(16)?,r.get::<_,bool>(17)?,r.get::<_,String>(18)?))).map_err(err)?.collect::<std::result::Result<Vec<_>,_>>().map_err(err)?;
+    if records.is_empty() {
+        return Ok(Vec::new());
+    }
+    let scope = json!(records.iter().map(|r| text(&r.0, "id")).collect::<Vec<_>>()).to_string();
+    let mut details = HashMap::new();
+    for (mode, table, _) in DETAILS {
+        let fields = match *mode {
+            "choice"=>"json_object('variant',variant,'owner',option_set_id,'answer',json(correct))",
+            "true_false"=>"json_object('answer',json(value))", "fill_blank"=>"json_object('blankCount',blank_count,'answer',json(answers))",
+            "short_answer"=>"json_object('answer',json(answer),'sourceLanguage',source_language,'targetLanguage',target_language,'writingGenre',writing_genre,'minWords',min_words,'maxWords',max_words)", "ordering"=>"json_object('answer',json(answer_order))",
+            "matching"=>"json_object('variant',variant,'answer',json(matches))", "word_bank"=>"json_object('passage',json(passage),'allowReuse',json(CASE allow_reuse WHEN 1 THEN 'true' ELSE 'false' END))",
+            "listening"=>"json_object('passage',json(passage),'audioRef',json(audio_ref),'audioStartSeconds',start_seconds,'audioEndSeconds',end_seconds,'transcript',json(transcript),'examPlayCount',play_count)",
+            _=>"json_object('passage',json(passage))",
+        };
+        details.extend(related(db, &format!("SELECT d.question_id,{fields} FROM {table} d JOIN questions q ON q.id=d.question_id WHERE q.mode='{mode}' AND d.question_id IN (SELECT value FROM json_each(?1))"), &scope)?);
+    }
+    let mut options = related(db, "SELECT owner_id,json_object('label',label,'content',content) FROM question_options WHERE owner_id IN (SELECT value FROM json_each(?1)) ORDER BY owner_id,position", &scope)?;
+    let mut items = related(db, "SELECT question_id,json_object('id',item_id,'side',side,'content',content,'label',label) FROM question_items WHERE question_id IN (SELECT value FROM json_each(?1)) ORDER BY question_id,position", &scope)?;
+    let mut sources = related(db, "SELECT question_id,json_object('questionId',question_id,'stage',stage,'unitIndex',unit_index) FROM question_sources WHERE question_id IN (SELECT value FROM json_each(?1)) ORDER BY question_id,stage,unit_index", &scope)?;
+    let warnings = related(db, "SELECT import_id,json_quote(message) FROM import_warnings WHERE import_id IN (SELECT import_id FROM questions WHERE id IN (SELECT value FROM json_each(?1))) ORDER BY import_id,position", &scope)?;
+    let mut latest = related(db, "SELECT q.id,COALESCE((SELECT CASE result WHEN 1 THEN 'true' ELSE 'false' END FROM attempts WHERE question_id=q.id AND result IS NOT NULL ORDER BY submitted_at DESC,rowid DESC LIMIT 1),'null') FROM questions q WHERE q.id IN (SELECT value FROM json_each(?1))", &scope)?;
     let mut rows = Vec::new();
     for (mut q, bank, import, blocks, missing, favorite, title) in records {
         q["contentBlocks"] = json_read(blocks)?;
@@ -397,15 +446,11 @@ pub fn read_scoped(
         let qid = text(&q, "id").to_owned();
         let mode = text(&q, "answerMode").to_owned();
         let mut owner = qid.clone();
-        if let Some((_, table, key)) = DETAILS.iter().find(|(m, _, _)| *m == mode) {
-            let data:String=db.query_row(&format!("SELECT {} FROM {table} WHERE question_id=?1",match mode.as_str(){
-                "choice"=>"json_object('variant',variant,'owner',option_set_id,'answer',json(correct))",
-                "true_false"=>"json_object('answer',json(value))", "fill_blank"=>"json_object('blankCount',blank_count,'answer',json(answers))",
-                "short_answer"=>"json_object('answer',json(answer),'sourceLanguage',source_language,'targetLanguage',target_language,'writingGenre',writing_genre,'minWords',min_words,'maxWords',max_words)", "ordering"=>"json_object('answer',json(answer_order))",
-                "matching"=>"json_object('variant',variant,'answer',json(matches))", "word_bank"=>"json_object('passage',json(passage),'allowReuse',json(CASE allow_reuse WHEN 1 THEN 'true' ELSE 'false' END))",
-                "listening"=>"json_object('passage',json(passage),'audioRef',json(audio_ref),'audioStartSeconds',start_seconds,'audioEndSeconds',end_seconds,'transcript',json(transcript),'examPlayCount',play_count)",
-                _=>"json_object('passage',json(passage))"}),[&qid],|r|r.get(0)).map_err(err)?;
-            let d = json_read(data)?;
+        if let Some((_, _, key)) = DETAILS.iter().find(|(m, _, _)| *m == mode) {
+            let d = details
+                .remove(&qid)
+                .and_then(|mut values| values.pop())
+                .ok_or("Question detail is missing")?;
             if !key.is_empty() && !d["answer"].is_null() {
                 q["answerPayload"] = json!({*key:d["answer"]});
             }
@@ -451,43 +496,51 @@ pub fn read_scoped(
                 q["allowReuse"] = d["allowReuse"].clone();
             }
         }
-        // Only owners carry options in persistent or exported content; hydrate resolves shared pools.
+        // Only owners carry options; hydrate resolves shared pools.
         if owner == qid {
-            q["options"]=json!(db.prepare("SELECT label,content FROM question_options WHERE owner_id=?1 ORDER BY position").map_err(err)?.query_map([&qid],|r|Ok(json!({"label":r.get::<_,Option<String>>(0)?,"content":r.get::<_,Option<String>>(1)?}))).map_err(err)?.collect::<std::result::Result<Vec<_>,_>>().map_err(err)?);
+            q["options"] = json!(options.remove(&qid).unwrap_or_default());
         }
-        q["items"]=json!(db.prepare("SELECT item_id,side,content,label FROM question_items WHERE question_id=?1 ORDER BY position").map_err(err)?.query_map([&qid],|r|Ok(json!({"id":r.get::<_,Option<i64>>(0)?,"side":r.get::<_,Option<String>>(1)?,"content":r.get::<_,Option<String>>(2)?,"label":r.get::<_,Option<String>>(3)?}))).map_err(err)?.collect::<std::result::Result<Vec<_>,_>>().map_err(err)?);
-        let sources=db.prepare("SELECT stage,unit_index FROM question_sources WHERE question_id=?1 ORDER BY stage,unit_index").map_err(err)?.query_map([&qid],|r|Ok(json!({"questionId":qid,"stage":r.get::<_,String>(0)?,"unitIndex":r.get::<_,i64>(1)?}))).map_err(err)?.collect::<std::result::Result<Vec<_>,_>>().map_err(err)?;
-        let warnings = db
-            .prepare("SELECT message FROM import_warnings WHERE import_id=?1 ORDER BY position")
-            .map_err(err)?
-            .query_map([import], |r| r.get::<_, String>(0))
-            .map_err(err)?
-            .collect::<std::result::Result<Vec<_>, _>>()
-            .map_err(err)?;
-        let latest:Option<bool>=db.query_row("SELECT (SELECT result FROM attempts WHERE question_id=?1 AND result IS NOT NULL ORDER BY submitted_at DESC,rowid DESC LIMIT 1)",[&qid],|r|r.get(0)).map_err(err)?;
+        q["items"] = json!(items.remove(&qid).unwrap_or_default());
+        let sources = sources.remove(&qid).unwrap_or_default();
+        let warnings = import
+            .as_ref()
+            .and_then(|id| warnings.get(id))
+            .cloned()
+            .unwrap_or_default();
+        let latest = latest
+            .remove(&qid)
+            .and_then(|mut values| values.pop())
+            .unwrap_or(Value::Null);
         rows.push(json!({"id":qid,"bankId":bank,"bankTitle":title,"question":q,"favorite":favorite,"latestResult":latest,"sources":sources,"warnings":warnings,"groups":[],"visuals":[],"missingAssets":false}));
     }
-    if rows.is_empty() {
-        return Ok(rows);
+    let loaded_ids: HashSet<_> = rows.iter().map(|r| text(r, "id")).collect();
+    let bank_scope = json!(rows
+        .iter()
+        .map(|r| text(r, "bankId"))
+        .collect::<HashSet<_>>())
+    .to_string();
+    let group_refs = related(db, "SELECT section_id,json_quote(question_id) FROM section_questions WHERE section_id IN (SELECT section_id FROM section_questions WHERE question_id IN (SELECT value FROM json_each(?1))) ORDER BY section_id,question_id", &scope)?;
+    let group_scope = json!(group_refs.keys().collect::<Vec<_>>()).to_string();
+    let mut statement = db.prepare("SELECT id,title,instructions FROM sections WHERE id IN (SELECT value FROM json_each(?1)) ORDER BY rowid").map_err(err)?;
+    let groups = statement.query_map([&group_scope], |r| Ok(json!({"id":r.get::<_,String>(0)?,"title":r.get::<_,String>(1)?,"instructions":r.get::<_,Option<String>>(2)?}))).map_err(err)?.collect::<std::result::Result<Vec<_>,_>>().map_err(err)?;
+    let mut groups_by_question: HashMap<String, Vec<Value>> = HashMap::new();
+    for mut group in groups {
+        let id = text(&group, "id").to_owned();
+        group["questionIds"] = json!(group_refs[&id]);
+        for qid in group_refs[&id]
+            .iter()
+            .filter_map(Value::as_str)
+            .filter(|id| loaded_ids.contains(id))
+        {
+            groups_by_question
+                .entry(qid.into())
+                .or_default()
+                .push(group.clone());
+        }
     }
-    let loaded_banks: HashSet<_> = rows.iter().map(|r| text(r, "bankId")).collect();
-    let scope = json!(loaded_banks).to_string();
-    let groups=db.prepare("SELECT id,title,instructions FROM sections WHERE bank_id IN (SELECT value FROM json_each(?1)) ORDER BY rowid").map_err(err)?.query_map([&scope],|r|Ok(json!({"id":r.get::<_,String>(0)?,"title":r.get::<_,String>(1)?,"instructions":r.get::<_,Option<String>>(2)?}))).map_err(err)?.collect::<std::result::Result<Vec<_>,_>>().map_err(err)?;
-    let mut gs = Vec::new();
-    for mut g in groups {
-        g["questionIds"] = json!(db
-            .prepare("SELECT question_id FROM section_questions WHERE section_id=?1")
-            .map_err(err)?
-            .query_map([text(&g, "id")], |r| r.get::<_, String>(0))
-            .map_err(err)?
-            .collect::<std::result::Result<Vec<_>, _>>()
-            .map_err(err)?);
-        gs.push(g);
-    }
-    let visuals = db
-        .prepare("SELECT id,content,bank_id,document_level FROM visuals WHERE bank_id IN (SELECT value FROM json_each(?1)) ORDER BY rowid")
-        .map_err(err)?
-        .query_map([&scope], |r| {
+    let mut statement = db.prepare("SELECT id,content,bank_id,document_level FROM visuals WHERE bank_id IN (SELECT value FROM json_each(?1)) AND (document_level=1 OR id IN (SELECT visual_id FROM question_visuals WHERE question_id IN (SELECT value FROM json_each(?2)))) ORDER BY rowid").map_err(err)?;
+    let visuals = statement
+        .query_map(params![bank_scope, scope], |r| {
             Ok((
                 r.get::<_, String>(0)?,
                 r.get::<_, String>(1)?,
@@ -498,41 +551,66 @@ pub fn read_scoped(
         .map_err(err)?
         .collect::<std::result::Result<Vec<_>, _>>()
         .map_err(err)?;
-    let mut vs = Vec::new();
-    for (vid, raw, bank, global) in visuals {
-        let mut v = json_read(raw)?;
-        v["id"] = json!(vid);
-        v["questionIds"] = json!(db
-            .prepare("SELECT question_id FROM question_visuals WHERE visual_id=?1")
-            .map_err(err)?
-            .query_map([&vid], |r| r.get::<_, String>(0))
-            .map_err(err)?
-            .collect::<std::result::Result<Vec<_>, _>>()
-            .map_err(err)?);
-        vs.push((bank, v, global));
+    let visual_scope = json!(visuals.iter().map(|v| &v.0).collect::<Vec<_>>()).to_string();
+    let mut visual_refs = related(db,"SELECT visual_id,json_quote(question_id) FROM question_visuals WHERE visual_id IN (SELECT value FROM json_each(?1)) ORDER BY visual_id,question_id", &visual_scope)?;
+    let mut visuals_by_question: HashMap<String, Vec<Value>> = HashMap::new();
+    let mut row_ids_by_bank: HashMap<&str, Vec<&str>> = HashMap::new();
+    for row in &rows {
+        row_ids_by_bank
+            .entry(text(row, "bankId"))
+            .or_default()
+            .push(text(row, "id"));
+    }
+    for (id, raw, bank, global) in visuals {
+        let mut visual = json_read(raw)?;
+        visual["id"] = json!(id);
+        visual["questionIds"] = json!(visual_refs.remove(&id).unwrap_or_default());
+        let targets = if global {
+            row_ids_by_bank[bank.as_str()].clone()
+        } else {
+            list(&visual, "questionIds")
+                .iter()
+                .filter_map(Value::as_str)
+                .collect()
+        };
+        for qid in targets.into_iter().filter(|id| loaded_ids.contains(id)) {
+            visuals_by_question
+                .entry(qid.into())
+                .or_default()
+                .push(visual.clone());
+        }
     }
     for row in &mut rows {
-        row["groups"] = json!(gs
-            .iter()
-            .filter(|g| list(g, "questionIds").contains(&row["id"]))
-            .collect::<Vec<_>>());
-        row["visuals"] = json!(vs
-            .iter()
-            .filter(|(bank, v, global)| row["bankId"] == *bank
-                && (*global || list(v, "questionIds").contains(&row["id"])))
-            .map(|(_, v, _)| v)
-            .collect::<Vec<_>>());
+        let id = text(row, "id").to_owned();
+        row["groups"] = json!(groups_by_question.remove(&id).unwrap_or_default());
+        row["visuals"] = json!(visuals_by_question.remove(&id).unwrap_or_default());
+    }
+    let hashes: HashSet<_> = rows
+        .iter()
+        .flat_map(|row| {
+            list(row, "visuals")
+                .iter()
+                .filter_map(|v| v.get("imageRef"))
+                .chain(row["question"].get("audioRef"))
+        })
+        .filter(|r| r.is_object())
+        .map(|r| text(r, "sha256"))
+        .collect();
+    let mut statement = db
+        .prepare("SELECT hash FROM assets WHERE hash IN (SELECT value FROM json_each(?1))")
+        .map_err(err)?;
+    let available = statement
+        .query_map([json!(hashes).to_string()], |r| r.get::<_, String>(0))
+        .map_err(err)?
+        .collect::<std::result::Result<HashSet<_>, _>>()
+        .map_err(err)?;
+    for row in &mut rows {
         row["missingAssets"] = json!(list(row, "visuals")
             .iter()
-            .filter_map(|v| v.get("imageRef").filter(|r| r.is_object()))
-            .chain(row["question"].get("audioRef").filter(|r| r.is_object()))
-            .any(|r| !db
-                .query_row(
-                    "SELECT EXISTS(SELECT 1 FROM assets WHERE hash=?1)",
-                    [text(r, "sha256")],
-                    |r| r.get::<_, bool>(0)
-                )
-                .unwrap_or(false)));
+            .filter_map(|v| v.get("imageRef"))
+            .chain(row["question"].get("audioRef"))
+            .filter(|r| r.is_object())
+            .any(|r| !available.contains(text(r, "sha256"))));
     }
     Ok(rows)
 }
@@ -640,10 +718,11 @@ pub fn freeze(rows: &[Value]) -> Value {
     let mut qs = rows.to_vec();
     let mut groups = Vec::new();
     let mut visuals = Vec::new();
+    let mut seen = HashSet::new();
     for row in &mut qs {
         for (key, values) in [("groups", &mut groups), ("visuals", &mut visuals)] {
             for item in list(row, key) {
-                if !values.iter().any(|v: &Value| v["id"] == item["id"]) {
+                if seen.insert((key, item["id"].to_string())) {
                     let mut item = item.clone();
                     if let Some(refs) = item["questionIds"].as_array_mut() {
                         refs.retain(|id| ids.contains(&id.to_string()));
@@ -662,13 +741,27 @@ pub fn thaw(doc: &Value) -> Result<Vec<Value>> {
         return Err("Unsupported session snapshot".into());
     }
     let mut rows = list(doc, "questions").to_vec();
-    for row in &mut rows {
-        for key in ["groups", "visuals"] {
-            row[key] = json!(list(doc, key)
-                .iter()
-                .filter(|g| (key == "visuals" && list(g, "questionIds").is_empty())
-                    || list(g, "questionIds").contains(&row["id"]))
-                .collect::<Vec<_>>());
+    for key in ["groups", "visuals"] {
+        let mut refs: HashMap<&str, Vec<&Value>> = HashMap::new();
+        for item in list(doc, key) {
+            let targets: Vec<_> = if key == "visuals" && list(item, "questionIds").is_empty() {
+                rows.iter().map(|r| text(r, "id")).collect()
+            } else {
+                list(item, "questionIds")
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .collect()
+            };
+            for id in targets {
+                refs.entry(id).or_default().push(item);
+            }
+        }
+        let values: Vec<_> = rows
+            .iter()
+            .map(|row| json!(refs.get(text(row, "id")).cloned().unwrap_or_default()))
+            .collect();
+        for (row, value) in rows.iter_mut().zip(values) {
+            row[key] = value;
         }
     }
     Ok(rows)
@@ -683,8 +776,61 @@ pub fn session_rows(db: &Connection, sid: &str) -> Result<Vec<Value>> {
         .map_err(err)?;
     thaw(&json_read(raw)?)
 }
+/// Parse the immutable document once, but expand only the target's dependency closure.
+pub fn session_context(db: &Connection, sid: &str, qid: &str) -> Result<Vec<Value>> {
+    let raw: String = db
+        .query_row(
+            "SELECT content FROM session_documents WHERE session_id=?1",
+            [sid],
+            |r| r.get(0),
+        )
+        .map_err(err)?;
+    let mut doc = json_read(raw)?;
+    let rows = list(&doc, "questions");
+    let by_id: HashMap<_, _> = rows.iter().map(|r| (text(r, "id"), r)).collect();
+    let mut selected = HashSet::new();
+    let mut pending = vec![qid];
+    while let Some(id) = pending.pop() {
+        if id.is_empty() || !selected.insert(id) {
+            continue;
+        }
+        let row = by_id.get(id).ok_or("Snapshot question is missing")?;
+        pending.extend([
+            text(&row["question"], "parentId"),
+            text(&row["question"], "optionSourceId"),
+        ]);
+    }
+    // Only siblings sharing an exclusive option pool participate in answer validation.
+    let owner = by_id
+        .get(qid)
+        .map(|r| text(&r["question"], "optionSourceId"))
+        .unwrap_or("");
+    if !owner.is_empty()
+        && by_id
+            .get(owner)
+            .is_some_and(|r| r["question"]["allowReuse"] != true)
+    {
+        selected.extend(
+            rows.iter()
+                .filter(|r| text(&r["question"], "parentId") == owner)
+                .map(|r| text(r, "id")),
+        );
+    }
+    let subset = rows
+        .iter()
+        .filter(|r| selected.contains(text(r, "id")))
+        .cloned()
+        .collect::<Vec<_>>();
+    doc["questions"] = json!(subset);
+    thaw(&doc)
+}
+
+pub fn session_question(db: &Connection, sid: &str, qid: &str) -> Result<Value> {
+    let raw: String = db.query_row("SELECT q.value FROM session_documents d,json_each(d.content,'$.questions') q WHERE d.session_id=?1 AND json_extract(d.content,'$.schemaVersion')=3 AND json_extract(q.value,'$.id')=?2",params![sid,qid],|r|r.get(0)).map_err(err)?;
+    Ok(json_read(raw)?["question"].take())
+}
 pub fn snapshot(db: &Connection, sid: &str, qid: &str) -> Result<Value> {
-    let rows = session_rows(db, sid)?;
+    let rows = session_context(db, sid, qid)?;
     Index::new(&rows).snapshot(qid)
 }
 #[cfg(test)]
@@ -797,24 +943,27 @@ pub fn copy_context(
 }
 
 pub fn validate_tables(db: &Connection) -> Result<()> {
-    for row in read(db)? {
-        let mut count = 0;
-        for (mode, table, _) in DETAILS {
-            let exists: bool = db
-                .query_row(
-                    &format!("SELECT EXISTS(SELECT 1 FROM {table} WHERE question_id=?1)"),
-                    [text(&row, "id")],
-                    |r| r.get(0),
-                )
-                .map_err(err)?;
-            if exists {
-                if *mode != text(&row["question"], "answerMode") {
-                    return Err("Question detail type mismatch".into());
-                }
-                count += 1;
-            }
+    let details = DETAILS
+        .iter()
+        .map(|(mode, table, _)| format!("SELECT question_id,'{mode}' AS mode FROM {table}"))
+        .collect::<Vec<_>>()
+        .join(" UNION ALL ");
+    let mut statement = db.prepare(&format!("WITH details AS ({details}) SELECT q.id,COALESCE(q.mode,''),COUNT(d.question_id),COALESCE(SUM(d.mode!=COALESCE(q.mode,'')),0) FROM questions q LEFT JOIN details d ON d.question_id=q.id GROUP BY q.id")).map_err(err)?;
+    let rows = statement
+        .query_map([], |r| {
+            Ok((
+                r.get::<_, String>(1)?,
+                r.get::<_, usize>(2)?,
+                r.get::<_, usize>(3)?,
+            ))
+        })
+        .map_err(err)?;
+    for row in rows {
+        let (mode, count, mismatches) = row.map_err(err)?;
+        if mismatches != 0 {
+            return Err("Question detail type mismatch".into());
         }
-        if count != usize::from(!text(&row["question"], "answerMode").is_empty()) {
+        if count != usize::from(!mode.is_empty()) {
             return Err("Question must have exactly one matching detail row".into());
         }
     }
@@ -836,10 +985,12 @@ impl Store {
         tree: Vec<Value>,
     ) -> Result<Value> {
         let result = self.save_question_tree_inner(bank, root, tree);
-        if let Err(error) = self.collect_unused_assets() {
-            eprintln!("Asset cleanup deferred after question save: {error}");
+        if result.as_ref().map_or(true, |(_, cleanup)| *cleanup) {
+            if let Err(error) = self.collect_unused_assets() {
+                eprintln!("Asset cleanup deferred after question save: {error}");
+            }
         }
-        result
+        result.map(|(value, _)| value)
     }
 
     fn save_question_tree_inner(
@@ -847,7 +998,7 @@ impl Store {
         bank: &str,
         root: Option<&str>,
         mut tree: Vec<Value>,
-    ) -> Result<Value> {
+    ) -> Result<(Value, bool)> {
         if tree.is_empty() || tree.len() > 1000 {
             return Err("A question tree needs 1–1000 nodes".into());
         }
@@ -872,7 +1023,7 @@ impl Store {
         let mut db = self.connect()?;
         let tx = db.transaction().map_err(err)?;
         self.persist_audio(&tx, &tree)?;
-        let old = read(&tx)?;
+        let old = read_scoped(&tx, &[], Some(std::slice::from_ref(&qid)))?;
         let old_index = Index::new(&old);
         if root.is_some()
             && !old.iter().any(|r| {
@@ -883,30 +1034,47 @@ impl Store {
         {
             return Err("Edited root no longer exists".into());
         }
-        for q in &tree {
-            if old.iter().any(|r| {
-                r["id"] == q["id"]
-                    && (root.is_none() || old_index.root_id(r) != qid || text(r, "bankId") != bank)
-            }) {
+        let incoming: HashSet<_> = tree.iter().map(|q| text(q, "id")).collect();
+        let mut statement = tx
+            .prepare("SELECT id FROM questions WHERE id IN (SELECT value FROM json_each(?1))")
+            .map_err(err)?;
+        let existing = statement
+            .query_map([json!(incoming).to_string()], |r| r.get::<_, String>(0))
+            .map_err(err)?;
+        for id in existing {
+            let id = id.map_err(err)?;
+            if root.is_none()
+                || old_index
+                    .by_id
+                    .get(id.as_str())
+                    .is_none_or(|r| old_index.root_id(r) != qid || text(r, "bankId") != bank)
+            {
                 return Err("Question ID belongs to another tree".into());
             }
         }
+        drop(statement);
+        let proposed_by_id: HashMap<_, _> = tree.iter().map(|q| (text(q, "id"), q)).collect();
+        let cleanup = old.iter().any(|r| {
+            proposed_by_id
+                .get(text(r, "id"))
+                .is_none_or(|q| q["audioRef"] != r["question"]["audioRef"])
+        });
         let position:i64=tx.query_row("SELECT COALESCE((SELECT position FROM questions WHERE id=?1),(SELECT COALESCE(MAX(position),-1)+1 FROM questions WHERE bank_id=?2))",params![qid,bank],|r|r.get(0)).map_err(err)?;
         for row in old
             .iter()
-            .filter(|r| old_index.root_id(r) == qid && !tree.iter().any(|q| q["id"] == r["id"]))
+            .filter(|r| old_index.root_id(r) == qid && !incoming.contains(text(r, "id")))
         {
             tx.execute("DELETE FROM questions WHERE id=?1", [text(row, "id")])
                 .map_err(err)?;
         }
         for (i, q) in tree.iter().enumerate() {
-            let favorite = old
-                .iter()
-                .find(|r| r["id"] == q["id"])
+            let favorite = old_index
+                .by_id
+                .get(text(q, "id"))
                 .is_some_and(|r| r["favorite"] == true);
             write(&tx, q, bank, None, position + i as i64, favorite)?;
         }
         tx.commit().map_err(err)?;
-        Ok(json!(qid))
+        Ok((json!(qid), cleanup))
     }
 }

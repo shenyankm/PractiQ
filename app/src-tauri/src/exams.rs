@@ -57,7 +57,7 @@ impl Store {
     pub fn start_paper(&self, paper: Paper) -> Result<Value> {
         let mut db = self.connect()?;
         let tx = db.transaction().map_err(err)?;
-        let all = crate::questions::read(&tx)?;
+        let all = crate::questions::read_scoped(&tx, &[], Some(&paper.question_ids))?;
         let selected = crate::paper::selected_rows(&all, &paper.question_ids)?;
         if crate::paper::digest(&selected)? != paper.digest {
             return Err(crate::language::error("LOCAL_PAPER_CHANGED", json!({})));
@@ -309,17 +309,13 @@ impl Store {
                 ));
             }
         }
-        let rows = crate::questions::read(&tx)?;
-        let mut rows: Vec<_> = rows
-            .into_iter()
-            .filter(|r| banks.contains(&text(r, "bankId").to_owned()))
+        let mut rows = crate::questions::read_scoped(&tx, banks, None)?;
+        let bank_order: HashMap<_, _> = banks
+            .iter()
+            .enumerate()
+            .map(|(i, id)| (id.as_str(), i))
             .collect();
-        rows.sort_by_key(|r| {
-            banks
-                .iter()
-                .position(|b| b == text(r, "bankId"))
-                .unwrap_or(usize::MAX)
-        });
+        rows.sort_by_key(|r| bank_order[text(r, "bankId")]);
         let ids: HashMap<_, _> = rows
             .iter()
             .map(|r| (text(r, "id").to_owned(), id()))

@@ -59,7 +59,10 @@ pub enum AiRequest {
     Replay {
         request_id: String,
     },
-    Batches,
+    Batches {
+        offset: usize,
+        thread_ids: Vec<String>,
+    },
     PrepareBatch {
         ids: Vec<String>,
     },
@@ -575,7 +578,9 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
     // Local recovery controls must remain available even without model settings.
     match &request {
         AiRequest::Operations => return ai_work::operations(&dir),
-        AiRequest::Batches => return ai_work::batches(&dir, &work),
+        AiRequest::Batches { offset, thread_ids } => {
+            return ai_work::batches(&dir, &work, *offset, thread_ids)
+        }
         AiRequest::CancelBatch { id } => return ai_work::cancel_batch(&dir, &work, id),
         _ => {}
     }
@@ -813,7 +818,7 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
         AiRequest::RunBatch { id, titles } => {
             ai_work::run_batch(&dir, &work, &process, &shared, &id, titles)
         }
-        AiRequest::Operations | AiRequest::Batches | AiRequest::CancelBatch { .. } => {
+        AiRequest::Operations | AiRequest::Batches { .. } | AiRequest::CancelBatch { .. } => {
             unreachable!("handled before service startup")
         }
     }

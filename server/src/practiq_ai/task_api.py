@@ -276,12 +276,18 @@ def _counts(total: int, succeeded: int, failed: int) -> dict[str, int]:
 async def list_tasks(limit: int = 20, offset: int = 0) -> dict[str, Any]:
     service = client()
     rows = await service.db.rows('SELECT * FROM document_tasks ORDER BY created_at DESC,thread_id DESC LIMIT ? OFFSET ?', (limit + 1, offset))
+    latest_runs = await service.db.rows(
+        'SELECT * FROM document_runs WHERE run_id IN '
+        '(SELECT (SELECT run_id FROM document_runs r WHERE r.thread_id=t.thread_id ORDER BY created_at DESC LIMIT 1) '
+        'FROM document_tasks t WHERE t.thread_id IN (SELECT value FROM json_each(?)))',
+        (json_encode([row['thread_id'] for row in rows[:limit]]),),
+    )
+    runs_by_thread = {run['thread_id']: run for run in latest_runs}
     items = []
     for row in rows[:limit]:
         expired = row['expires_at'] <= utcnow()
         snapshot = await service.snapshot(row)
-        runs = await service.db.rows('SELECT * FROM document_runs WHERE thread_id=? ORDER BY created_at DESC LIMIT 1', (row['thread_id'],))
-        run = runs[0] if runs else None
+        run = runs_by_thread.get(row['thread_id'])
         values = snapshot.values or {}
         questions = values.get('result', {}).get('questions', [])
         items.append({'threadId': row['thread_id'], 'fileName': row['document'].get('fileName') or '文档',

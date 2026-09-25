@@ -49,6 +49,8 @@ function PracticeQuestion({
   const elapsed = useRef(attempt.elapsedMs);
   const answerRef = useRef(answer);
   const chain = useRef(Promise.resolve());
+  const pendingDraft = useRef<{ answer: Answer | null; elapsed: number } | null>(null);
+  const draftJob = useRef<Promise<void> | null>(null);
   const submitted = attempt.submittedAt !== null;
   const exam = !!session.kind && session.kind !== "practice";
   const handedIn = exam && session.submittedAt != null;
@@ -68,26 +70,38 @@ function PracticeQuestion({
   ): Promise<Session | void> => {
     const captured = { answer: answerRef.current, elapsed: elapsed.current };
     setSaved("保存中…");
-    const job = chain.current
-      .catch(() => {})
-      .then((): Promise<Session | void> => submit ?
-        api({
-          type: "save_attempt",
-          id: session.id,
-          ordinal: session.position,
-          answer: captured.answer,
-          elapsed_ms: captured.elapsed,
-          submit,
-          skip,
-          self_result: selfResult,
-        }) : api({type:"save_draft", id:session.id, ordinal:session.position, answer:captured.answer, elapsed_ms:captured.elapsed}),
-      );
+    let job: Promise<Session | void>;
+    if (submit) {
+      job = chain.current.catch(() => {}).then(() => api({
+        type: "save_attempt", id: session.id, ordinal: session.position,
+        answer: captured.answer, elapsed_ms: captured.elapsed,
+        submit, skip, self_result: selfResult,
+      }));
+    } else {
+      pendingDraft.current = captured;
+      if (draftJob.current) return draftJob.current;
+      const drain = chain.current.catch(() => {}).then(async () => {
+        while (pendingDraft.current) {
+          const next = pendingDraft.current;
+          pendingDraft.current = null;
+          try {
+            await api({type:"save_draft", id:session.id, ordinal:session.position, answer:next.answer, elapsed_ms:next.elapsed});
+          } catch (error) {
+            if (!pendingDraft.current) throw error;
+          }
+        }
+      });
+      draftJob.current = drain;
+      job = drain;
+    }
     chain.current = job.then(
       () => {
+        if (draftJob.current === job) draftJob.current = null;
         setSaved("已保存");
         setSaveError(false);
       },
       () => {
+        if (draftJob.current === job) draftJob.current = null;
         setSaved("保存失败");
         setSaveError(true);
       },

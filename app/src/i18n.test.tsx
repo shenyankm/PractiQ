@@ -246,7 +246,8 @@ it.each(["en", "zh-CN"] as const)("imports offline JSON and saves an unchanged m
   const original = vi.mocked(invoke).getMockImplementation()!;
   vi.mocked(invoke).mockImplementation(async (command, args) => {
     const r = (args as {request:{type:string}}).request;
-    if (command === "ai_request" && ["operations", "batches"].includes(r.type)) return [];
+    if (command === "ai_request" && r.type === "batches") return {items:[],total:0,offset:0,operations:[]};
+    if (command === "ai_request" && r.type === "operations") return [];
     if (r.type === "pick_import") return {ticket:"ticket",title:"原文 filename",count:1,reviewCount:0,assetCount:0,missingAssets:[],warnings:[],status:"SUCCEEDED"};
     if (r.type === "import") return {bankId:"bank",count:1,duplicate:false};
     if (r.type === "save_settings") return {config:{},hasApiKey:false};

@@ -9,6 +9,7 @@ from math import isfinite
 from typing import Literal
 
 from langchain_core.messages import HumanMessage
+from PIL import Image
 from pydantic import BaseModel, Field, StrictInt, field_validator, model_validator
 
 from ..contracts import VisualDescription, VisualLabel
@@ -125,21 +126,32 @@ def _media_type(image: bytes) -> str:
     return "image/jpeg"
 
 
-def crop_figure(page_image: bytes, bbox: list[float]) -> bytes | None:
-    from PIL import Image
+def crop_figures(page_image: bytes, boxes: list[list[float]]) -> list[bytes | None]:
+    """Decode one page per batch; retain per-figure failure positions."""
+    try:
+        with Image.open(BytesIO(page_image)) as original, original.convert("RGB") as image:
+            result = []
+            for bbox in boxes:
+                try:
+                    result.append(crop_figure(image, bbox))
+                except (OSError, ValueError):
+                    result.append(None)
+            return result
+    except (OSError, ValueError):
+        return [None] * len(boxes)
 
+
+def crop_figure(page_image: bytes | Image.Image, bbox: list[float]) -> bytes | None:
+    if isinstance(page_image, bytes):
+        return crop_figures(page_image, [bbox])[0]
     x0, y0, x1, y1 = bbox
-    with Image.open(BytesIO(page_image)) as image:
-        try:
-            box = (
-                int(x0 * image.width),
-                int(y0 * image.height),
-                int(x1 * image.width),
-                int(y1 * image.height),
-            )
-        except (OverflowError, ValueError):
-            return None
-        cropped = image.convert("RGB").crop(box)
+    image = page_image
+    try:
+        box = (int(x0 * image.width), int(y0 * image.height),
+               int(x1 * image.width), int(y1 * image.height))
+    except (OverflowError, ValueError):
+        return None
+    cropped = image.crop(box)
     while True:
         buffer = BytesIO()
         cropped.save(buffer, format="JPEG", quality=80)

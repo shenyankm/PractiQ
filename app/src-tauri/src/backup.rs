@@ -406,6 +406,19 @@ fn validate_database(path: &Path) -> Result<i64> {
     expected
         .execute_batch(include_str!("schema.sql"))
         .map_err(err)?;
+    // Older backups may omit these optional indexes. Existing definitions must match exactly.
+    for (name, sql) in crate::questions::READ_INDEXES {
+        if db
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name=?1)",
+                [name],
+                |r| r.get::<_, bool>(0),
+            )
+            .map_err(err)?
+        {
+            expected.execute_batch(sql).map_err(err)?;
+        }
+    }
     let locale: Option<String> = db
         .query_row("SELECT locale FROM settings WHERE id=1", [], |r| r.get(0))
         .map_err(err)?;
@@ -553,6 +566,21 @@ fn validate_database(path: &Path) -> Result<i64> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn optional_read_indexes_preserve_old_backups_and_reject_altered_definitions() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("current.sqlite");
+        let db = Connection::open(&path).unwrap();
+        db.execute_batch(include_str!("schema.sql")).unwrap();
+        assert_eq!(validate_database(&path).unwrap(), 10);
+        for (_, sql) in crate::questions::READ_INDEXES {
+            db.execute_batch(sql).unwrap();
+        }
+        assert_eq!(validate_database(&path).unwrap(), 10);
+        db.execute_batch("DROP INDEX visuals_bank; CREATE INDEX visuals_bank ON visuals(content)")
+            .unwrap();
+        assert!(validate_database(&path).is_err());
+    }
     #[test]
     fn rejects_legacy_database_without_upgrading() {
         let dir = tempfile::tempdir().unwrap();

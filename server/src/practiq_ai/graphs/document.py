@@ -730,22 +730,20 @@ async def _crop_visuals(
     selected_pages = sorted({page for _, page, _ in selected})
     store = await asyncio.to_thread(get_object_store)
 
-    async def get_page(page: int) -> tuple[int, bytes]:
-        return page, await store.get_verified(page_artifacts[page])
+    async def get_crops(page: int) -> list[tuple[int, bytes | None]]:
+        items = [(index, bbox) for index, number, bbox in selected if number == page]
+        payload = await store.get_verified(page_artifacts[page])
+        crops = await asyncio.to_thread(vision.crop_figures, payload, [bbox for _, bbox in items])
+        return [(item[0], crop) for item, crop in zip(items, crops, strict=True)]
 
-    page_images = dict(await _bounded_map(selected_pages, get_page))
+    payloads = dict(item for batch in await _bounded_map(selected_pages, get_crops) for item in batch)
     reference = DocumentReference.model_validate(state["document"])
 
     async def crop(
         item: tuple[int, int, list[float]],
     ) -> tuple[int, ArtifactReference | None, UnitFailure | None]:
-        visual_index, page, bbox = item
-        try:
-            payload = await asyncio.to_thread(
-                vision.crop_figure, page_images[page], bbox
-            )
-        except (OSError, ValueError):
-            payload = None
+        visual_index, page, _bbox = item
+        payload = payloads.pop(visual_index)
         if payload is None:
             return (
                 visual_index,
