@@ -477,6 +477,7 @@ fn active_endpoint(app: &tauri::AppHandle, dir: &std::path::Path) -> AiResult<En
                     locale: Default::default(),
                     dir: dir.to_owned(),
                     pending: None,
+                    staged_audio: std::collections::HashMap::new(),
                 },
             )
             .map_err(|mut error| {
@@ -557,6 +558,7 @@ pub fn read_review_image(
             locale: Default::default(),
             dir,
             pending: None,
+            staged_audio: std::collections::HashMap::new(),
         },
     )
 }
@@ -763,6 +765,7 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
                 locale: Default::default(),
                 dir,
                 pending: None,
+                staged_audio: std::collections::HashMap::new(),
             };
             process.load_assets(&mut pending, &store)?;
             let mut store = shared.lock().map_err(|_| {
@@ -915,6 +918,14 @@ impl Endpoint {
             );
         }
         pending.missing.clear();
+        for reference in contract::resource_refs(contract::result(&pending.root)) {
+            let digest = contract::text(reference, "sha256");
+            if !pending.assets.contains_key(digest) && store.asset_bytes(digest)?.is_none() {
+                pending
+                    .missing
+                    .push(contract::text(reference, "objectKey").into());
+            }
+        }
         Ok(())
     }
 }
@@ -923,6 +934,26 @@ impl Endpoint {
 mod tests {
     use super::{document_format, StderrTail};
     use std::path::Path;
+
+    #[test]
+    fn ai_preview_preserves_missing_audio_reference() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = crate::store::Store::new(dir.path().to_owned()).unwrap();
+        let mut pending = crate::store::Pending::new(
+            include_bytes!("../../fixtures/english.json").to_vec(),
+            "English".into(),
+        )
+        .unwrap();
+        super::Endpoint::test("http://127.0.0.1:1".into())
+            .load_assets(&mut pending, &store)
+            .unwrap();
+        assert_eq!(pending.missing, ["audio/chimes.wav"]);
+        let imported = store.import_pending(&pending, None, "English").unwrap();
+        let listening = store
+            .questions(imported["bankId"].as_str(), "", "listening", "")
+            .unwrap();
+        assert_eq!(listening[0]["missingAssets"], true);
+    }
 
     #[test]
     fn stderr_diagnostics_are_bounded_and_redacted() {

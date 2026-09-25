@@ -50,10 +50,7 @@ fn read_entry(archive: &mut ZipArchive<fs::File>, name: &str, limit: usize) -> R
 }
 fn references(root: &Value) -> Result<BTreeMap<String, Value>> {
     let mut refs = BTreeMap::new();
-    for reference in list(contract::result(root), "visualElements")
-        .iter()
-        .flat_map(contract::visual_refs)
-    {
+    for reference in contract::resource_refs(contract::result(root)) {
         let key = text(reference, "objectKey");
         if key.is_empty()
             || key.contains('\\')
@@ -72,18 +69,31 @@ fn references(root: &Value) -> Result<BTreeMap<String, Value>> {
     }
     Ok(refs)
 }
-fn verify_image(reference: &Value, bytes: &[u8]) -> Result<()> {
+fn verify_resource(reference: &Value, bytes: &[u8]) -> Result<Option<f64>> {
+    let invalid = || {
+        error(format!(
+            "Invalid or missing resource: {}",
+            text(reference, "objectKey")
+        ))
+    };
     if bytes.len() > crate::assets::LIMIT
         || reference["sizeBytes"] != bytes.len()
         || store::hash(bytes) != text(reference, "sha256")
-        || !store::valid_image(bytes, text(reference, "mediaType"))
     {
-        return Err(error(format!(
-            "Invalid or missing image: {}",
-            text(reference, "objectKey")
-        )));
+        return Err(invalid());
     }
-    Ok(())
+    let media = text(reference, "mediaType");
+    if media.starts_with("image/") {
+        if !store::valid_image(bytes, media) {
+            return Err(invalid());
+        }
+        Ok(None)
+    } else {
+        match crate::audio::audio_info(bytes) {
+            Ok((actual, duration)) if actual == media => Ok(Some(duration)),
+            _ => Err(invalid()),
+        }
+    }
 }
 pub fn filename(title: &str) -> String {
     let clean: String = title
@@ -151,7 +161,7 @@ impl Store {
         }
         let manifest: Manifest = serde_json::from_value(value).map_err(error)?;
         if manifest.format != "practiq-question-bank"
-            || manifest.version != 1
+            || manifest.version != 2
             || manifest.bank.title.trim().is_empty()
             || manifest.bank.title.chars().count() > 255
             || manifest.bank.description.chars().count() > 20_000
@@ -177,9 +187,16 @@ impl Store {
             let bytes = read_entry(&mut archive, &name, crate::assets::LIMIT)?;
             total += bytes.len();
             if total > IMAGE_LIMIT {
-                return Err(error("Images exceed 256 MiB"));
+                return Err(error("Resources exceed 256 MiB"));
             }
-            verify_image(&reference, &bytes)?;
+            if let Some(duration) = verify_resource(&reference, &bytes)? {
+                for question in list(contract::result(&pending.root), "questions")
+                    .iter()
+                    .filter(|q| q["audioRef"]["sha256"] == reference["sha256"])
+                {
+                    crate::audio::validate_segment(question, duration).map_err(error)?;
+                }
+            }
             pending.assets.insert(
                 text(&reference, "sha256").into(),
                 (text(&reference, "mediaType").into(), bytes),
@@ -218,13 +235,13 @@ impl Store {
                 .collect()
         };
         let warnings = tx.prepare("SELECT w.message FROM import_warnings w JOIN imports i ON i.id=w.import_id WHERE i.bank_id=?1 ORDER BY i.created_at,w.position").map_err(error)?.query_map([bank_id],|r|r.get::<_,String>(0)).map_err(error)?.collect::<std::result::Result<Vec<_>,_>>().map_err(error)?;
-        let root = json!({"schemaVersion":2,"questions":rows.iter().map(|r|r["question"].clone()).collect::<Vec<_>>(),"groups":clean("groups"),"visualElements":clean("visuals"),"warnings":warnings,"confidenceScore":rows.iter().map(|r|r["question"]["confidence"].as_f64().unwrap_or(0.0)).fold(1.0,f64::min)*100.0});
+        let root = json!({"schemaVersion":3,"questions":rows.iter().map(|r|r["question"].clone()).collect::<Vec<_>>(),"groups":clean("groups"),"visualElements":clean("visuals"),"warnings":warnings,"confidenceScore":rows.iter().map(|r|r["question"]["confidence"].as_f64().unwrap_or(0.0)).fold(1.0,f64::min)*100.0});
         let bytes = serde_json::to_vec(&root).map_err(error)?;
         contract::parse(&bytes)?;
         let refs = references(&root)?;
         let manifest = serde_json::to_vec(&Manifest {
             format: "practiq-question-bank".into(),
-            version: 1,
+            version: 2,
             bank,
         })
         .map_err(error)?;
@@ -263,10 +280,10 @@ impl Store {
                             text(&reference, "objectKey")
                         ))
                     })?;
-                verify_image(&reference, &data)?;
+                let _ = verify_resource(&reference, &data)?;
                 total += data.len();
                 if total > IMAGE_LIMIT {
-                    return Err(error("Images exceed 256 MiB"));
+                    return Err(error("Resources exceed 256 MiB"));
                 }
                 zip.start_file(name, options).map_err(error)?;
                 zip.write_all(&data).map_err(error)?;
@@ -432,6 +449,53 @@ mod tests {
             s.import(text(&p, "ticket"), None, name).unwrap();
         }
         assert_eq!(s.banks().unwrap().as_array().unwrap().len(), 2);
+    }
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn zip_rejects_audio_segments_outside_file_duration() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut store = Store::new(dir.path().join("data")).unwrap();
+        let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("../fixtures/english.zip");
+        let mut zip = ZipArchive::new(fs::File::open(source).unwrap()).unwrap();
+        let entries: Vec<_> = (0..zip.len())
+            .map(|i| {
+                let mut entry = zip.by_index(i).unwrap();
+                let mut bytes = Vec::new();
+                entry.read_to_end(&mut bytes).unwrap();
+                (entry.name().to_owned(), bytes)
+            })
+            .collect();
+        for field in ["audioStartSeconds", "audioEndSeconds"] {
+            let path = dir.path().join(format!("{field}.zip"));
+            let mut writer = ZipWriter::new(fs::File::create(&path).unwrap());
+            for (name, bytes) in &entries {
+                writer
+                    .start_file(name, SimpleFileOptions::default())
+                    .unwrap();
+                if name == "questions.json" {
+                    let mut root: Value = serde_json::from_slice(bytes).unwrap();
+                    let listening = root["questions"]
+                        .as_array_mut()
+                        .unwrap()
+                        .iter_mut()
+                        .find(|q| q["audioRef"].is_object())
+                        .unwrap();
+                    listening[field] = json!(1000);
+                    writer
+                        .write_all(&serde_json::to_vec(&root).unwrap())
+                        .unwrap();
+                } else {
+                    writer.write_all(bytes).unwrap();
+                }
+            }
+            writer.finish().unwrap();
+            assert_eq!(
+                store.preview_bank_zip(&path).unwrap_err().code,
+                "LOCAL_BANK_ZIP_INVALID",
+                "{field}"
+            );
+        }
+        assert!(store.banks().unwrap().as_array().unwrap().is_empty());
     }
     #[test]
     fn imports_into_existing_database_with_early_schema_nine_layout() {

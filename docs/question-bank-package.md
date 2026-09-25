@@ -4,7 +4,7 @@
 
 ## 导入与分享
 
-1. 在“设置 → 恢复备份”选择“导入题库 ZIP”。可直接体验 [基础题型样例](../app/fixtures/sample.zip)或[复合题样例](../app/fixtures/composite.zip)，不需要模型配置。
+1. 在“设置 → 恢复备份”选择“导入题库 ZIP”。可直接体验 [基础题型样例](../app/fixtures/sample.zip)或[复合题样例](../app/fixtures/composite.zip)，不需要模型配置。另有[英语九类题型样例](../app/fixtures/english.zip)，包含用于播放器验证的提示音。
 2. 应用自动校验题目及包内图片，展示预览。新建题库时默认使用包内名称和描述，名称可修改；追加时保留目标题库信息。
 3. 在题库卡片操作菜单选择“导出题库 ZIP”，保存后即可分发。多个题库可先复制合并，再导出。
 
@@ -20,18 +20,22 @@
 
 ## 文件格式
 
-ZIP 根目录包含 `manifest.json`、`questions.json`，以及 `resources/<objectKey>` 图片文件。
+ZIP 根目录包含 `manifest.json`、`questions.json`，以及 `resources/<objectKey>` 图片及音频文件。
 
 ```json
 {
   "format": "practiq-question-bank",
-  "version": 1,
+  "version": 2,
   "bank": {"title": "示例题库", "description": "题库说明"}
 }
 ```
 
-`questions.json` 沿用 `schemaVersion: 2` 的 AI 结果契约，含 `questions`、`groups`、`visualElements`、`warnings`、`confidenceScore`。内部 JSON 契约见[题型模型](question-model.md)。图片沿用 `imageRef` 和 `sourceRef` 的 objectKey、SHA-256、大小和媒体类型。包仅存题目数据，不使用桌面数据库或练习快照作为导出内容。
+`questions.json` 沿用 `schemaVersion: 3` 的 AI 结果契约，含 `questions`、`groups`、`visualElements`、`warnings`、`confidenceScore`。内部 JSON 契约见[题型模型](question-model.md)。图片沿用 `imageRef` 和 `sourceRef` 的 objectKey、SHA-256、大小和媒体类型。包仅存题目数据，不使用桌面数据库或练习快照作为导出内容。
 
-ZIP 上限 300 MiB，JSON 上限 32 MiB，单图上限 25 MiB，全部图片展开后上限 256 MiB。当前结果契约每包最多 1000 个题目节点（含复合题父节点）、1000 个材料组、1000 个图片元素及 1000 条警告；超出时拒绝导出，不截断题库。必须包含全部引用图片，不允许额外文件、目录条目、重复条目、符号链接或路径穿越。
+ZIP 上限 300 MiB，JSON 上限 32 MiB，单张图片或音频上限 25 MiB，全部资源展开后上限 256 MiB。当前结果契约每包最多 1000 个题目节点（含复合题父节点）、1000 个材料组、1000 个图片元素及 1000 条警告；超出时拒绝导出，不截断题库。必须包含全部引用图片和音频，不允许额外文件、目录条目、重复条目、符号链接或路径穿越。
 
 开发样例可用 `python3 app/scripts/package-fixtures.py` 重新生成；内容为人工编写，不代表真实模型质量。
+
+音频引用存于听力父题的 `audioRef`，支持 audio/mpeg、audio/mp4、audio/aac、audio/wav。图片与音频共同计入包大小及展开大小限制。新版 ZIP 版本为 2、备份版本为 4；旧版本明确拒绝，新桌面目录为 v3，旧目录完整保留，需要重新解析或生成新版题库。
+
+首版听力音频校验依赖 macOS 的 `afinfo`；Windows 和 Linux 暂不支持含音频题库的导入、导出或备份恢复。

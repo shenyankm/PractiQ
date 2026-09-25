@@ -36,7 +36,7 @@ Run `make test-e2e AI_PYTHON=/path/to/python3.14` for the service HTTP workflows
 
 Coverage includes Python subprocesses. `make verify` erases previous coverage data and combines the current run before generating reports, including when tests fail. For manual coverage runs, run `coverage combine` before `coverage report`.
 
-For desktop work, follow the [desktop build guide](app/README.md). `make app-check` checks shared Python/Rust contracts, TypeScript, frontend interactions, native integration tests, and Clippy. `make app-package-check` builds the macOS package and runs `app/scripts/check-bundle.py` against its bundled service. Use isolated application data for native UI acceptance.
+`make app-check` checks shared Python/Rust contracts, TypeScript, frontend interactions, native integration tests, and Clippy. `make app-package-check` builds the macOS package and runs `app/scripts/check-bundle.py` against its bundled service. Use isolated application data for native UI acceptance.
 
 The Keychain round-trip test uses and removes its own temporary credential. Run it explicitly on macOS:
 

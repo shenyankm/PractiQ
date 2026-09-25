@@ -79,7 +79,7 @@ Self-tests have no time limit. Mock exams default to 60 minutes and support 1–
 
 After submission, objective questions use local scoring. Select **Start/resume AI grading** to score eligible short answers against a reference answer or rubric. Missing evidence and failed calls stay ungraded. Review partial credit and explanations, and record manual corrections when needed.
 
-AI scoring supports personal practice. It is not calibrated for formal examinations. See the [exam acceptance record](app/EXAM_ACCEPTANCE.md) for dated engineering checks, synthetic model tests, and recorded failures.
+AI scoring supports personal practice. It is not calibrated for formal examinations.
 
 ## Run the desktop app
 
@@ -100,7 +100,7 @@ To build a local application package, run:
 make app-build AI_PYTHON=/path/to/python3.14
 ```
 
-The app stores practice data locally and API keys in macOS Keychain. Backups exclude keys and AI task state. See the [desktop guide](app/README.md) for storage, restore, packaging, and validation details. Windows CI checks do not establish Windows runtime support.
+The app stores practice data locally and API keys in macOS Keychain. Backups exclude keys and AI task state. Windows CI checks do not establish Windows runtime support.
 
 ## ⚙️ Run the AI service independently
 
@@ -124,7 +124,6 @@ The service listens on `127.0.0.1:8090` and runs one process per database. It us
 
 Choose the guide for your task:
 
-- [Desktop guide](app/README.md): import, practice, tests, storage, and backups (Chinese)
 - [Service integration](server/docs/service-guide.md): configuration, parsing, grading, and API contracts (Chinese)
 - [Document task API](server/docs/document-tasks.md): progress, pause, resume, retry, and review decisions (Chinese)
 - [Operations](server/docs/operations.md): deployment, storage, monitoring, and recovery (Chinese)

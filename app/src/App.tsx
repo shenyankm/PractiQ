@@ -1,3 +1,5 @@
+import { questionKinds } from "./english";
+import type { ImportTaskContext } from "./ai-api";
 import { date, duration, message, renderMessage, type Message, t, useI18n } from "./i18n";
 import { useTheme } from "./theme";
 import logo from "../src-tauri/icons/icon.png";
@@ -134,7 +136,7 @@ export default function App() {
   const [mode, setMode] = useState("");
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [importPreview, setImportPreview] = useState<{ preview: Preview; initialBank: string } | null>(null);
+  const [importPreview, setImportPreview] = useState<{ preview: Preview; initialBank: string; task?: ImportTaskContext } | null>(null);
   const [bankEditor, setBankEditor] = useState<{
     id: string | null;
     title: string;
@@ -474,18 +476,10 @@ export default function App() {
         </header>
         <div className="flex-1 overflow-y-auto p-8">
           <Suspense fallback={loadingView}>
-          {page === "history" && (
+          {page === "history" && (summaryLoading || summaryError != null) && (
             <div className="mb-5 space-y-3" aria-busy={summaryLoading}>
               {summaryLoading && <p role="status">{t("加载中…")}</p>}
               {summaryError != null && <div role="alert"><p>{errorMessage(summaryError)}</p><Button variant="outline" onClick={() => setListRevision(v => v + 1)}>{t("重试")}</Button></div>}
-              <nav aria-label={t("练习记录分页")} className="flex items-center justify-between gap-3">
-                <span role="status" className="text-sm text-muted-foreground">{!summaryLoading && !summaryError && t("{0}–{1} / {2} 条", {0: sessionPage.total ? sessionPage.offset + 1 : 0, 1: sessionPage.offset + sessionPage.items.length, 2: sessionPage.total})}</span>
-                <div className="flex gap-2">
-                  <Button variant="outline" disabled={busy || summaryLoading} onClick={() => setListRevision(v => v + 1)}>{t("刷新")}</Button>
-                  <Button variant="outline" disabled={busy || summaryLoading || !!summaryError || sessionPage.offset === 0} onClick={() => setSessionOffset(Math.max(0, sessionPage.offset - 30))}>{t("上一页")}</Button>
-                  <Button variant="outline" disabled={busy || summaryLoading || !!summaryError || sessionPage.offset + 30 >= sessionPage.total} onClick={() => setSessionOffset(sessionPage.offset + 30)}>{t("下一页")}</Button>
-                </div>
-              </nav>
             </div>
           )}
           {page === "banks" && <BankList
@@ -532,7 +526,7 @@ export default function App() {
                     <SelectItem value="all">{t("全部题型")}</SelectItem>
                     <SelectItem value="single">{t("单选题")}</SelectItem>
                     <SelectItem value="multiple">{t("多选题")}</SelectItem>
-                    {Object.entries(modeNames()).map(([v, label]) => (
+                    {Object.entries({...modeNames(),...questionKinds()}).filter(([key])=>key!=="gap_fill").map(([v, label]) => (
                       <SelectItem key={v} value={v}>
                         {label}
                       </SelectItem>
@@ -632,7 +626,7 @@ export default function App() {
                       </div>
                     ))}
                   </div>
-                  <div className="flex items-center justify-between text-sm text-muted-foreground">
+                  {questionTotal > 30 && <div className="flex items-center justify-between text-sm text-muted-foreground">
                     <span>{t("第 {0}–{1} 题", { 0: offset + 1, 1: Math.min(offset + 30, questionTotal) })}</span>
                     <div className="flex gap-2">
                       <Button
@@ -646,7 +640,7 @@ export default function App() {
                         onClick={() => setOffset(offset + 30)}
                       >{t("下一页")}</Button>
                     </div>
-                  </div>
+                  </div>}
                 </>
               ) : (
                 !loading && (
@@ -708,9 +702,21 @@ export default function App() {
                 </EmptyHeader>
               </Empty>
             ))}
+          {page === "history" && <div className="mt-5 flex items-center justify-end gap-3">
+            {sessionPage.total > 30 && (
+              <nav aria-label={t("练习记录分页")} className="flex flex-1 items-center justify-between gap-3">
+                <span role="status" className="text-sm text-muted-foreground">{!summaryLoading && !summaryError && t("{0}–{1} / {2} 条", {0: sessionPage.total ? sessionPage.offset + 1 : 0, 1: sessionPage.offset + sessionPage.items.length, 2: sessionPage.total})}</span>
+                <div className="flex gap-2">
+                  <Button variant="outline" disabled={busy || summaryLoading || !!summaryError || sessionPage.offset === 0} onClick={() => setSessionOffset(Math.max(0, sessionPage.offset - 30))}>{t("上一页")}</Button>
+                  <Button variant="outline" disabled={busy || summaryLoading || !!summaryError || sessionPage.offset + 30 >= sessionPage.total} onClick={() => setSessionOffset(sessionPage.offset + 30)}>{t("下一页")}</Button>
+                </div>
+              </nav>
+            )}
+            <Button variant="outline" disabled={busy || summaryLoading} onClick={() => setListRevision(v => v + 1)}>{t("刷新")}</Button>
+          </div>}
           {page === "practice" && session && (
             <Practice
-              key={`${session.id}-${session.position}`}
+              key={session.id}
               session={session}
               onSession={(s) => {
                 setSession(s);
@@ -722,7 +728,7 @@ export default function App() {
               flushRef={flushRef}
             />
           )}
-          {page === "import" && <ImportPage busy={busy} run={run} onPreview={p=>setImportPreview({ preview: p, initialBank: bank || "new" })} onConfigure={() => { setSettingsReturn({ bank }); navigate("model-settings"); }} />}
+          {page === "import" && <ImportPage busy={busy} run={run} onPreview={(p, task)=>setImportPreview({ preview: p, initialBank: bank || "new", task })} onOpenBank={id => navigate("questions", id)} onConfigure={() => { setSettingsReturn({ bank }); navigate("model-settings"); }} />}
           {page === "model-settings" && (
             <div className="max-w-3xl space-y-6">
               <ConnectionSettingsPanel
@@ -799,9 +805,12 @@ export default function App() {
         initialBank={importPreview.initialBank}
         busy={busy}
         run={run}
+        onState={importPreview.task?.onState}
         onClose={() => setImportPreview(null)}
         onImported={async bankId => {
+          importPreview.task?.onImported(bankId);
           await reloadBanks();
+          if (importPreview.task) return;
           setBank(bankId);
           setSearch("");
           setMode("");

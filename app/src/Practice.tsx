@@ -1,4 +1,6 @@
 import { duration, t, useI18n } from "./i18n";
+import { ListeningPlayer } from "./ListeningPlayer";
+import { questionKinds } from "./english";
 import { ExamResults } from "./ExamResults";
 import { memo, useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import {
@@ -18,7 +20,14 @@ import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, A
 import { Content, Markdown } from "./Content";
 import { AnswerInput, AnswerDisplay } from "./AnswerInput";
 import type { MutableRefObject } from "react";
-export function Practice({
+export function Practice(props: Parameters<typeof PracticeQuestion>[0]) {
+  const listening=props.session.attempts[props.session.position].snapshot.materials?.find(q=>q.answerMode === "listening");
+  return <div className="space-y-4">
+    {listening && <ListeningPlayer key={`${props.session.id}-${listening.id}-${listening.audioRef?.sha256}`} question={listening} session={props.session}/>}
+    <PracticeQuestion key={`${props.session.id}-${props.session.position}`} {...props}/>
+  </div>;
+}
+function PracticeQuestion({
   session,
   onSession,
   run,
@@ -140,7 +149,7 @@ export function Practice({
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="secondary">
-                {modeNames()[q.answerMode || ""] || t("自由作答")}
+                {(q.questionKind ? questionKinds()[q.questionKind] : modeNames()[q.answerMode || ""]) || t("自由作答")}
                 {q.answerMode === "choice"
                   ? q.choiceVariant === "multiple"
                     ? t(" · 多选")
@@ -161,10 +170,16 @@ export function Practice({
             {exam && !handedIn && <Button variant="outline" onClick={()=>run(async()=>{await flushRef.current();onSession(await api({type:"flag",id:session.id,ordinal:session.position,value:!attempt.flagged}));})}>{attempt.flagged?t("取消待检查标记"):t("标记待检查")}</Button>}
           </div>
           <ExamResults session={session} onSession={onSession} run={run}/>
-          <Content snapshot={attempt.snapshot} exam={exam&&!handedIn} revealOriginal={exam ? handedIn : submitted} />
+          <Content snapshot={attempt.snapshot} exam={exam&&!handedIn} revealOriginal={exam ? handedIn : submitted} materialDialog
+            onBlank={id=>{const target=session.attempts.find(a=>a.snapshot.question.id===id);if(target)go(target.ordinal);}}
+            blankAnswers={Object.fromEntries(session.attempts.map(a=>{const value=a.ordinal===session.position ? answer : a.answer;return [a.snapshot.question.id || "",value?.correct?.join(", ") || value?.answers?.join(", ") || ""];}))}/>
+          {!!attempt.snapshot.materials?.length && <nav className="flex flex-wrap gap-2" aria-label={t("题组子题")}>
+            {session.attempts.filter(a=>a.snapshot.question.parentId===q.parentId).map(a=><Button key={a.ordinal} variant={a.ordinal===session.position?"secondary":"outline"} size="sm" onClick={()=>go(a.ordinal)}>{a.ordinal+1}</Button>)}
+          </nav>}
           <AnswerInput
             question={q}
             value={answer}
+            usedOptions={q.optionSourceId && attempt.snapshot.materials?.some(p=>p.id===q.optionSourceId && !p.allowReuse) ? session.attempts.filter(a=>a.ordinal!==session.position && a.snapshot.question.optionSourceId===q.optionSourceId).flatMap(a=>a.answer?.correct || []) : []}
             onChange={change}
             disabled={submitted || finished}
           />

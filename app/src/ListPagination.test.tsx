@@ -39,6 +39,7 @@ async function loaded() {
 }
 it("pages native bank summaries, keeps all merge/study choices, and clamps after deletion", async () => {
   setup(); render(<App/>); await loaded();
+  expect(screen.getByText("Bank 29").compareDocumentPosition(screen.getByRole("navigation",{name:"题库分页"})) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(screen.queryByText("Bank 30")).toBeNull();
   expect(screen.getByText("Off-page unfinished · 已提交 0/1 题")).toBeTruthy();
   expect(screen.getByRole("button",{name:"上一页"}).hasAttribute("disabled")).toBe(true);
@@ -67,9 +68,8 @@ it("pages native bank summaries, keeps all merge/study choices, and clamps after
   await userEvent.click(screen.getByRole("button",{name:"题库操作 Bank 30"}));
   await userEvent.click(screen.getByRole("menuitem",{name:"删除题库"}));
   await userEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button",{name:"确认"}));
-  expect(await screen.findByText("1–30 / 30 条")).toBeTruthy();
-  expect(screen.getByRole("button",{name:"上一页"}).hasAttribute("disabled")).toBe(true);
-  expect(screen.getByRole("button",{name:"下一页"}).hasAttribute("disabled")).toBe(true);
+  await screen.findByText("Bank 0");
+  expect(screen.queryByRole("navigation",{name:"题库分页"})).toBeNull();
 }, 30000);
 it("ignores a stale history response and refreshes newly created sessions with persistent retry", async () => {
   setup(); const base=vi.mocked(api).getMockImplementation()!;
@@ -86,6 +86,7 @@ it("ignores a stale history response and refreshes newly created sessions with p
   render(<App/>); await loaded();
   await userEvent.click(screen.getByRole("button",{name:"练习记录"}));
   await screen.findByText("Session 0");
+  expect(screen.getByText("Session 29").compareDocumentPosition(screen.getByRole("navigation",{name:"练习记录分页"})) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   await userEvent.click(screen.getByRole("button",{name:"下一页"}));
   expect(await screen.findByText("加载中…")).toBeTruthy();
   expect(screen.getByRole("button",{name:"上一页"}).hasAttribute("disabled")).toBe(true);
@@ -110,7 +111,7 @@ it("ignores a stale history response and refreshes newly created sessions with p
   records=[];
   await userEvent.click(screen.getByRole("button",{name:"刷新"}));
   expect(await screen.findByText("还没有练习记录")).toBeTruthy();
-  expect(screen.getByText("0–0 / 0 条")).toBeTruthy();
+  expect(screen.queryByRole("navigation",{name:"练习记录分页"})).toBeNull();
 }, 30000);
 
 it("refreshes merge totals and clamps both lists after restoring a smaller backup", async () => {
@@ -145,10 +146,9 @@ it("refreshes merge totals and clamps both lists after restoring a smaller backu
   await waitFor(()=>expect(api).toHaveBeenCalledWith({type:"restore"}));
   await waitFor(()=>expect(screen.getByRole("button",{name:"练习记录"}).hasAttribute("disabled")).toBe(false));
   await userEvent.click(screen.getByRole("button",{name:"练习记录"}));
-  await screen.findByText("1–1 / 1 条");
-  expect(screen.getByText("Session 0")).toBeTruthy();
+  await screen.findByText("Session 0");
+  expect(screen.queryByRole("navigation",{name:"练习记录分页"})).toBeNull();
   await userEvent.click(screen.getByRole("button",{name:"我的题库"}));
-  await screen.findByText("1–1 / 1 条");
-  expect(screen.getByText("Bank 0")).toBeTruthy();
-  expect(screen.getByRole("button",{name:"上一页"}).hasAttribute("disabled")).toBe(true);
+  await screen.findByText("Bank 0");
+  expect(screen.queryByRole("navigation",{name:"题库分页"})).toBeNull();
 }, 30000);

@@ -88,6 +88,10 @@ fn normalize(q: &mut Value) {
             "sourceText",
             "scoringRubric",
             "scoreSourceText",
+            "instructions",
+            "writingGenre",
+            "sourceLanguage",
+            "targetLanguage",
         ] {
             if let Some(Value::String(s)) = obj.get_mut(key) {
                 *s = s.trim().to_owned();
@@ -102,6 +106,7 @@ fn normalize(q: &mut Value) {
             "contentBlocks",
             "missingFields",
             "passage",
+            "transcript",
         ] {
             if obj.get(key).is_none_or(Value::is_null) {
                 obj.insert(key.into(), json!([]));
@@ -123,6 +128,8 @@ fn normalize(q: &mut Value) {
                 }
             }
         }
+        obj.entry("audioStartSeconds").or_insert(json!(0));
+        obj.entry("examPlayCount").or_insert(json!(2));
         obj.entry("allowReuse").or_insert(json!(false));
         obj.entry("confidence").or_insert(json!(0));
         obj.entry("needsReview").or_insert(json!(true));
@@ -167,7 +174,11 @@ pub fn validate_question(q: &mut Value) -> Result<()> {
             ));
         }
     }
-    for block in list(q, "contentBlocks").iter().chain(list(q, "passage")) {
+    for block in list(q, "contentBlocks")
+        .iter()
+        .chain(list(q, "passage"))
+        .chain(list(q, "transcript"))
+    {
         if text(block, "partType") != "blank"
             && !["textValue", "markdownValue", "latexValue"]
                 .iter()
@@ -189,9 +200,67 @@ pub fn validate_question(q: &mut Value) -> Result<()> {
             q["blankCount"] = json!(count);
         }
     }
-    let wrapper = json!({"schemaVersion":2,"questions":[q.clone()],"groups":[],"visualElements":[],"warnings":[],"confidenceScore":0});
+    let wrapper = json!({"schemaVersion":3,"questions":[q.clone()],"groups":[],"visualElements":[],"warnings":[],"confidenceScore":0});
     schema_check(&schemas().0, &wrapper, "result")?;
     let mode = text(q, "answerMode");
+    let kind = text(q, "questionKind");
+    let expected = match kind {
+        "listening" => "listening",
+        "reading" => "reading",
+        "word_bank" | "sentence_selection" => "word_bank",
+        "cloze" => "cloze",
+        "grammar_fill" => "gap_fill",
+        "paragraph_matching" => "matching",
+        "translation" | "writing" => "short_answer",
+        _ => mode,
+    };
+    if expected != mode {
+        return Err("questionKind does not match answerMode".into());
+    }
+    let start = q["audioStartSeconds"].as_f64().unwrap_or(0.0);
+    if q["audioEndSeconds"]
+        .as_f64()
+        .is_some_and(|end| end <= start)
+    {
+        return Err("Audio end must be after start".into());
+    }
+    if mode != "listening"
+        && (q["audioRef"].is_object()
+            || !list(q, "transcript").is_empty()
+            || start != 0.0
+            || !q["audioEndSeconds"].is_null()
+            || q["examPlayCount"] != 2)
+    {
+        return Err("Audio fields require listening mode".into());
+    }
+    if list(q, "transcript")
+        .iter()
+        .any(|b| text(b, "partType") == "blank")
+    {
+        return Err("Transcript cannot contain blanks".into());
+    }
+    if let Some(key) = q["audioRef"]["objectKey"].as_str() {
+        if key.contains(['\\', ':']) || key.split('/').any(|p| matches!(p, "" | "." | "..")) {
+            return Err("Unsafe audio resource path".into());
+        }
+    }
+    if (kind != "translation" && !q["sourceLanguage"].is_null())
+        || (!matches!(kind, "translation" | "writing") && !q["targetLanguage"].is_null())
+    {
+        return Err("Language fields require translation or writing".into());
+    }
+    if kind != "writing"
+        && ["minWords", "maxWords", "writingGenre"]
+            .iter()
+            .any(|k| !q[*k].is_null())
+    {
+        return Err("Writing fields require writing".into());
+    }
+    if let (Some(min), Some(max)) = (q["minWords"].as_u64(), q["maxWords"].as_u64()) {
+        if min > max {
+            return Err("Minimum words exceeds maximum".into());
+        }
+    }
     if q["allowReuse"] == true && mode != "word_bank" {
         return Err("allowReuse requires word_bank mode".into());
     }
@@ -207,7 +276,11 @@ pub fn validate_question(q: &mut Value) -> Result<()> {
     {
         return Err("blank references belong in passage".into());
     }
-    for block in list(q, "passage") {
+    for block in list(q, "contentBlocks")
+        .iter()
+        .chain(list(q, "passage"))
+        .chain(list(q, "transcript"))
+    {
         if (text(block, "partType") == "blank") != !text(block, "questionId").is_empty() {
             return Err("Invalid blank reference".into());
         }
@@ -374,6 +447,7 @@ pub fn validate_question(q: &mut Value) -> Result<()> {
     }
     if ![
         "stem",
+        "instructions",
         "sourceText",
         "options",
         "items",
@@ -384,6 +458,8 @@ pub fn validate_question(q: &mut Value) -> Result<()> {
     ]
     .iter()
     .any(|k| filled(&q[*k]))
+        && !q["audioRef"].is_object()
+        && list(q, "transcript").is_empty()
     {
         return Err(crate::language::error(
             "LOCAL_QUESTION_EMPTY",
@@ -430,8 +506,11 @@ pub fn validate_question(q: &mut Value) -> Result<()> {
             missing.push(json!(key));
         }
     }
+    if mode == "listening" && !q["audioRef"].is_object() {
+        missing.push(json!("media"));
+    }
     for key in ["media", "material"] {
-        if list(q, "missingFields").contains(&json!(key)) {
+        if list(q, "missingFields").contains(&json!(key)) && !missing.contains(&json!(key)) {
             missing.push(json!(key));
         }
     }
@@ -479,7 +558,7 @@ pub fn parse(bytes: &[u8]) -> Result<Value> {
     } else {
         &mut root
     };
-    if result["schemaVersion"] != 2 {
+    if result["schemaVersion"] != 3 {
         return Err(crate::language::error("LOCAL_JSON_VERSION", json!({})));
     }
     if let Some(questions) = result.get_mut("questions").and_then(Value::as_array_mut) {
@@ -632,6 +711,17 @@ pub fn grade(q: &Value, answer: &Value) -> Option<bool> {
 }
 
 // Every visual resource follows the same path/checksum/import boundaries.
+pub fn resource_refs(root: &Value) -> impl Iterator<Item = &Value> {
+    list(root, "visualElements")
+        .iter()
+        .flat_map(visual_refs)
+        .chain(
+            list(root, "questions")
+                .iter()
+                .filter_map(|q| q.get("audioRef").filter(|r| r.is_object())),
+        )
+}
+
 pub fn visual_refs(visual: &Value) -> impl Iterator<Item = &Value> {
     ["imageRef", "sourceRef"]
         .into_iter()
@@ -640,6 +730,9 @@ pub fn visual_refs(visual: &Value) -> impl Iterator<Item = &Value> {
 
 /// Relational rules shared by JSON import, editing and backup validation.
 pub fn validate_tree(questions: &mut [Value]) -> Result<()> {
+    for q in questions.iter_mut() {
+        validate_question(q)?;
+    }
     let mut ids = std::collections::HashMap::new();
     for (i, q) in questions.iter().enumerate() {
         let id = text(q, "id");
@@ -651,13 +744,28 @@ pub fn validate_tree(questions: &mut [Value]) -> Result<()> {
         let parent = text(q, "parentId");
         if !parent.is_empty() {
             let p = &questions[*ids.get(parent).ok_or("Missing parent question")?];
-            if !crate::questions::composite(p) || text(q, "answerMode") == "reading" {
+            if !crate::questions::composite(p)
+                || matches!(text(q, "answerMode"), "reading" | "listening")
+            {
                 return Err("Invalid composite ancestry".into());
             }
-            if text(p, "answerMode") != "reading"
+            if matches!(text(p, "answerMode"), "word_bank" | "cloze")
                 && (text(q, "answerMode") != "choice" || text(q, "choiceVariant") != "single")
             {
                 return Err("Gap children must be single choices".into());
+            }
+            if text(p, "answerMode") == "gap_fill"
+                && (text(q, "answerMode") != "fill_blank" || q["blankCount"] != 1)
+            {
+                return Err("Grammar gaps require single-blank children".into());
+            }
+            if text(p, "answerMode") == "listening"
+                && !matches!(
+                    text(q, "answerMode"),
+                    "choice" | "fill_blank" | "short_answer"
+                )
+            {
+                return Err("Invalid listening child mode".into());
             }
             if text(p, "answerMode") == "word_bank" && text(q, "optionSourceId") != parent {
                 return Err("Word bank must share its options".into());
@@ -706,7 +814,7 @@ pub fn validate_tree(questions: &mut [Value]) -> Result<()> {
                 .iter()
                 .filter(|c| text(c, "parentId") == text(q, "id"))
                 .collect();
-            if matches!(text(q, "answerMode"), "word_bank" | "cloze") {
+            if matches!(text(q, "answerMode"), "word_bank" | "cloze" | "gap_fill") {
                 let refs: Vec<_> = list(q, "passage")
                     .iter()
                     .filter(|b| text(b, "partType") == "blank")
@@ -741,7 +849,7 @@ pub fn validate_tree(questions: &mut [Value]) -> Result<()> {
         .iter()
         .filter(|q| {
             crate::questions::composite(q)
-                && (list(q, "passage").is_empty()
+                && ((text(q, "answerMode") != "listening" && list(q, "passage").is_empty())
                     || !questions
                         .iter()
                         .any(|c| text(c, "parentId") == text(q, "id")))
@@ -749,7 +857,6 @@ pub fn validate_tree(questions: &mut [Value]) -> Result<()> {
         .map(|q| text(q, "id").to_owned())
         .collect();
     for q in questions {
-        validate_question(q)?;
         if incomplete.contains(&text(q, "id").to_owned()) {
             q["needsReview"] = json!(true);
             if !list(q, "missingFields").contains(&json!("material")) {

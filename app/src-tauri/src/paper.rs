@@ -29,7 +29,11 @@ struct Candidate {
     weight: usize,
 }
 pub fn category(q: &Value) -> &str {
-    if text(q, "answerMode") == "choice" {
+    if !text(q, "questionKind").is_empty() {
+        text(q, "questionKind")
+    } else if text(q, "answerMode") == "gap_fill" {
+        "grammar_fill"
+    } else if text(q, "answerMode") == "choice" {
         text(q, "choiceVariant")
     } else {
         text(q, "answerMode")
@@ -162,7 +166,7 @@ impl Store {
         if ids.is_empty() {
             return Ok(Vec::new());
         }
-        let mut stmt = db.prepare("WITH RECURSIVE tree(root,id) AS (SELECT value,value FROM json_each(?1) UNION ALL SELECT t.root,q.id FROM questions q JOIN tree t ON q.parent_id=t.id) SELECT t.root,COALESCE(CASE WHEN r.mode='choice' THEN c.variant ELSE r.mode END,''),SUM(n.mode IS NULL OR n.mode NOT IN ('reading','word_bank','cloze')) FROM tree t JOIN questions r ON r.id=t.root JOIN questions n ON n.id=t.id LEFT JOIN choice_questions c ON c.question_id=r.id GROUP BY t.root").map_err(|e| e.to_string())?;
+        let mut stmt = db.prepare("WITH RECURSIVE tree(root,id) AS (SELECT value,value FROM json_each(?1) UNION ALL SELECT t.root,q.id FROM questions q JOIN tree t ON q.parent_id=t.id) SELECT t.root,COALESCE(CASE WHEN r.question_kind IS NOT NULL THEN r.question_kind WHEN r.mode='gap_fill' THEN 'grammar_fill' WHEN r.mode='choice' THEN c.variant ELSE r.mode END,''),SUM(n.mode IS NULL OR n.mode NOT IN ('reading','word_bank','cloze','listening','gap_fill')) FROM tree t JOIN questions r ON r.id=t.root JOIN questions n ON n.id=t.id LEFT JOIN choice_questions c ON c.question_id=r.id GROUP BY t.root").map_err(|e| e.to_string())?;
         let mut details = stmt
             .query_map([json!(ids).to_string()], |r| {
                 Ok((

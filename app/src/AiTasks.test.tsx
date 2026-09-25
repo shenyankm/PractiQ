@@ -175,14 +175,13 @@ it("requires content review before acceptance and excludes waiting tasks from ba
       onPreview={() => {}}
     />,
   );
+  expect(
+    (await screen.findByRole("checkbox", { name: "选择 review.pdf" }))
+      .hasAttribute("disabled"),
+  ).toBe(true);
   await userEvent.click(
     await screen.findByRole("button", { name: "review.pdf" }),
   );
-  expect(
-    screen
-      .getByRole("checkbox", { name: "选择 review.pdf" })
-      .hasAttribute("disabled"),
-  ).toBe(true);
   expect(screen.queryByRole("button", { name: "接受部分结果" })).toBeNull();
   await userEvent.click(
     await screen.findByRole("button", { name: "查看内容与审核" }),
@@ -296,6 +295,33 @@ it("edits separate bank names and can cancel a running batch without waiting for
     request: { type: "cancel_batch", id: "batch" },
   });
   finish?.({ ...batch, status: "paused" });
+});
+
+it("prepares only eligible selected tasks and clears selection across pages", async () => {
+  let imported=false;
+  vi.mocked(invoke).mockImplementation(async (_command,args) => {
+    const request=(args as {request:{type:string;offset?:number}}).request;
+    if(request.type==="list")return {items:request.offset ? [{threadId:"third",fileName:"third.pdf",state:"COMPLETED",checkpointId:"cp3"}] : [
+      {threadId:"first",fileName:"first.pdf",state:"COMPLETED",checkpointId:"cp1",importedBankId:imported ? "bank" : null},
+      {threadId:"second",fileName:"second.pdf",state:"COMPLETED",checkpointId:"cp2"},
+    ],hasMore:!request.offset} as never;
+    if(request.type==="operations" || request.type==="batches")return [] as never;
+    if(request.type==="prepare_batch")return {id:"batch",status:"ready",items:[]} as never;
+    return null as never;
+  });
+  render(<AiTasks busy={false} run={job=>{void job();}} onPreview={()=>{}}/>);
+  await userEvent.click(await screen.findByRole("checkbox",{name:"选择 first.pdf"}));
+  await userEvent.click(screen.getByRole("checkbox",{name:"选择 second.pdf"}));
+  expect(screen.getByRole("button",{name:"批量导入已选任务（2）"})).toBeTruthy();
+  imported=true;
+  await userEvent.click(screen.getByRole("button",{name:"刷新任务"}));
+  await waitFor(()=>expect(screen.getByRole("button",{name:"批量导入已选任务（1）"})).toBeTruthy());
+  await userEvent.click(screen.getByRole("button",{name:"下一页"}));
+  await screen.findByRole("checkbox",{name:"选择 third.pdf"});
+  expect(screen.queryByRole("button",{name:/批量导入已选任务/})).toBeNull();
+  await userEvent.click(screen.getByRole("checkbox",{name:"选择 third.pdf"}));
+  await userEvent.click(screen.getByRole("button",{name:"批量导入已选任务（1）"}));
+  expect(invoke).toHaveBeenCalledWith("ai_request",{locale:"zh-CN",request:{type:"prepare_batch",ids:["third"]}});
 });
 it("replays a pending request by its persisted ID only after explicit action", async () => {
   let pending = true;
@@ -461,13 +487,88 @@ it.each(["COMPLETED", "WAITING_REVIEW"])("retains %s controls when membership re
   await act(async () => { fireEvent.click(screen.getByRole("button", {name: "ready.pdf"})); });
   await act(async () => { await vi.advanceTimersByTimeAsync(20000); });
   expect(gets).toBe(1);
-  expect(lists).toBe(2);
+  expect(lists).toBe(5);
   expect(screen.getByText(/membership unavailable/)).toBeTruthy();
   expect(screen.getByText(/retained detail/)).toBeTruthy();
   if (state === "COMPLETED") {
     await act(async () => { fireEvent.click(screen.getByRole("button", {name: "预览并导入题库"})); });
-    expect(onPreview).toHaveBeenCalledWith(preview);
+    expect(onPreview).toHaveBeenCalledWith(preview, expect.objectContaining({threadId: "task"}));
   }
   await act(async () => { fireEvent.click(screen.getByRole("button", {name: "查看内容与审核"})); });
   expect(screen.getByRole("dialog", {name: "只读内容审核"})).toBeTruthy();
+});
+
+it("polls unselected tasks, renders a separate table and restores focus after closing details", async () => {
+  vi.useFakeTimers();
+  let state = "RUNNING";
+  let gets = 0;
+  vi.mocked(invoke).mockImplementation(async (_command, args) => {
+    const r = (args as {request: {type: string}}).request;
+    if (r.type === "list") return {items: [{threadId: "task", fileName: "live.pdf", state, checkpointId: "cp", createdAt: "2026-09-24T00:00:00Z", status: "PARTIAL", questionCount: 2, reviewCount: 1, previouslyImported: true}], hasMore: false} as never;
+    if (r.type === "get") { gets++; return {threadId: "task", state, checkpointId: "cp", phase: "completed", progress: {}, allowedActions: [], blocking: [], failures: [], usage: [], unknownUsageCalls: []} as never; }
+    return [] as never;
+  });
+  await act(async () => {render(<AiTasks busy={false} run={job => {void job();}} onPreview={() => {}}/>);});
+  expect(screen.getByRole("table")).toBeTruthy();
+  expect(screen.getByText("解析中")).toBeTruthy();
+  state = "COMPLETED";
+  await act(async () => {await vi.advanceTimersByTimeAsync(2000);});
+  expect(screen.getByText("待导入")).toBeTruthy();
+  expect(screen.getByText("部分结果")).toBeTruthy();
+  expect(screen.getByText("曾导入其他版本")).toBeTruthy();
+  expect(gets).toBe(0);
+  expect(screen.queryByRole("button", {name: "下一页"})).toBeNull();
+  const entry = screen.getByRole("button", {name: "live.pdf"});
+  entry.focus();
+  await act(async () => {fireEvent.click(entry);});
+  expect(screen.getByRole("dialog", {name: "live.pdf"})).toBeTruthy();
+  expect(gets).toBe(1);
+  await act(async () => {fireEvent.click(screen.getByRole("button", {name: "关闭"}));});
+  expect(screen.queryByRole("dialog")).toBeNull();
+  await act(async () => {await vi.advanceTimersByTimeAsync(100);});
+  expect(document.activeElement).toBe(entry);
+});
+
+it("keeps expired imported tasks readable without fetching expired results", async () => {
+  const openBank = vi.fn();
+  vi.mocked(invoke).mockImplementation(async (_command, args) => {
+    const r = (args as {request: {type: string}}).request;
+    if (r.type === "list") return {items: [{threadId: "old", fileName: "old.pdf", state: "EXPIRED", importedBankId: "bank"}], hasMore: false} as never;
+    if (r.type === "get") throw Error("must not fetch an expired result");
+    return [] as never;
+  });
+  render(<AiTasks busy={false} run={job => {void job();}} onPreview={() => {}} onOpenBank={openBank}/>);
+  await userEvent.click(await screen.findByRole("button", {name: "old.pdf"}));
+  expect(screen.getByText("任务已过期，请重新选择文档。已有题库不受影响。")).toBeTruthy();
+  expect(screen.queryByRole("button", {name: "预览并导入题库"})).toBeNull();
+  await userEvent.click(screen.getByRole("button", {name: "查看题库"}));
+  expect(openBank).toHaveBeenCalledWith("bank");
+});
+
+it("discards an old page poll and a closed drawer's delayed detail", async () => {
+  vi.useFakeTimers();
+  let resolveList: (value: unknown) => void = () => {};
+  let resolveDetail: (value: unknown) => void = () => {};
+  let firstPageReads = 0;
+  vi.mocked(invoke).mockImplementation(async (_command, args) => {
+    const r = (args as {request: {type: string; offset?: number}}).request;
+    if (r.type === "list") {
+      if (r.offset === 20) return {items:[{threadId:"new",fileName:"new.pdf",state:"COMPLETED"}],hasMore:false} as never;
+      if (++firstPageReads === 1) return {items:[{threadId:"old",fileName:"old.pdf",state:"RUNNING"}],hasMore:true} as never;
+      return new Promise(resolve => {resolveList=resolve;}) as never;
+    }
+    if (r.type === "get") return new Promise(resolve => {resolveDetail=resolve;}) as never;
+    return [] as never;
+  });
+  await act(async () => {render(<AiTasks busy={false} run={job => {void job();}} onPreview={() => {}}/>);});
+  await act(async () => {await vi.advanceTimersByTimeAsync(2000);});
+  await act(async () => {fireEvent.click(screen.getByRole("button", {name:"下一页"}));});
+  await act(async () => {resolveList({items:[{threadId:"stale",fileName:"STALE.pdf",state:"RUNNING"}],hasMore:true});});
+  expect(screen.queryByText("STALE.pdf")).toBeNull();
+  expect(screen.getByRole("button",{name:"new.pdf"})).toBeTruthy();
+  await act(async () => {fireEvent.click(screen.getByRole("button",{name:"new.pdf"}));});
+  await act(async () => {fireEvent.click(screen.getByRole("button",{name:"关闭"}));});
+  await act(async () => {resolveDetail({threadId:"new",state:"RUNNING",phase:"prepare",progress:{},allowedActions:["pause"],blocking:[],failures:[],usage:[],unknownUsageCalls:[]});});
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(screen.queryByRole("button",{name:"暂停"})).toBeNull();
 });

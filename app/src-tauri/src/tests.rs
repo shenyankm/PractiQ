@@ -1263,6 +1263,67 @@ fn source_image_upload_limit_survives_import_and_backup() {
 }
 
 #[test]
+fn exam_redacts_answer_headings_in_parent_materials() {
+    let (_dir, mut store) = store();
+    let mut raw: Value =
+        serde_json::from_slice(include_bytes!("../../fixtures/composite.json")).unwrap();
+    raw["questions"][0]["stem"] = json!("答案: SECRET");
+    raw["questions"][0]["instructions"] = json!("Read the passage\n参考答案：SECRET");
+    raw["questions"][1]["stem"] = json!("Choose one\nReference answer:\nSECRET");
+    raw["questions"][1]["instructions"] = json!("Read the options | 答案解析： | SECRET");
+    raw["questions"][3]["instructions"] = json!("答案解析：SECRET");
+    let preview = store
+        .preview(serde_json::to_vec(&raw).unwrap(), "Composite".into())
+        .unwrap();
+    let bank = store
+        .import(text(&preview, "ticket"), None, "Composite")
+        .unwrap();
+    let roots = store
+        .questions(Some(text(&bank, "bankId")), "", "", "")
+        .unwrap();
+    let root = text(&roots[0], "id").to_owned();
+    let selected =
+        crate::paper::selected_rows(&store.question_rows().unwrap(), std::slice::from_ref(&root))
+            .unwrap();
+    let exam = store
+        .start_paper(crate::exams::Paper {
+            question_ids: vec![root],
+            kind: "self_test".into(),
+            minutes: None,
+            scores: vec![100; 6],
+            total_cents: 600,
+            digest: crate::paper::digest(&selected).unwrap(),
+        })
+        .unwrap();
+    for attempt in list(&exam, "attempts") {
+        let materials = &attempt["snapshot"]["materials"];
+        assert!(!materials.to_string().contains("SECRET"));
+        assert!(!attempt["snapshot"]["question"]
+            .to_string()
+            .contains("SECRET"));
+        assert_eq!(materials[0]["instructions"], "Read the passage");
+        assert!(materials
+            .to_string()
+            .contains("Shared article: seasons change."));
+    }
+    assert_eq!(
+        exam["attempts"][0]["snapshot"]["question"]["stem"],
+        "Choose one"
+    );
+    assert_eq!(
+        exam["attempts"][0]["snapshot"]["question"]["instructions"],
+        "Read the options"
+    );
+    let submitted = store.submit_paper(text(&exam, "id"), false).unwrap();
+    assert!(submitted["attempts"][0]["snapshot"]["materials"]
+        .to_string()
+        .contains("SECRET"));
+    assert!(submitted["attempts"][0]["snapshot"]["question"]
+        .to_string()
+        .contains("SECRET"));
+}
+
+#[test]
 fn exam_filters_answer_table_and_crop_then_restores_original_snapshot() {
     let (_dir, mut s) = store();
     let mut raw: Value = serde_json::from_slice(&sample()).unwrap();
@@ -1666,7 +1727,7 @@ fn closed_review_composite_content_search_and_favorites() {
     let roots = s.questions(Some(bank), "", "", "").unwrap();
     let root = text(&roots[0], "id");
     let child = text(&roots[0]["children"][0], "id");
-    assert!(roots[0]["children"][0]["groups"]
+    assert!(roots[0]["children"][0]["materials"]
         .to_string()
         .contains("STRUCTURED_MATERIAL"));
     for term in ["STRUCTURED_MATERIAL", "spring"] {
@@ -1704,6 +1765,37 @@ fn closed_review_composite_content_search_and_favorites() {
     assert_eq!(q["blankCount"], 2);
     q["blankCount"] = json!(1);
     assert!(contract::validate_question(&mut q).is_err());
+}
+
+#[test]
+fn listening_fields_identify_a_parent_without_a_stem() {
+    for (field, value) in [
+        ("instructions", json!("Listen and answer")),
+        (
+            "audioRef",
+            json!({"objectKey":"audio/sample.mp3","sha256":"a".repeat(64),"mediaType":"audio/mpeg","sizeBytes":1}),
+        ),
+        (
+            "transcript",
+            json!([{"partType":"text","textValue":"A short dialogue"}]),
+        ),
+    ] {
+        let mut q = json!({"questionKind":"listening","answerMode":"listening","stem":null});
+        q[field] = value;
+        contract::validate_question(&mut q).unwrap();
+        assert_eq!(q["needsReview"], true, "{field}");
+    }
+}
+
+#[test]
+fn transcript_blocks_follow_shared_content_rules() {
+    for transcript in [
+        json!([{"partType":"text"}]),
+        json!([{"partType":"text","textValue":"Hello","questionId":"child"}]),
+    ] {
+        let mut q = json!({"stem":"Listen","answerMode":"listening","transcript":transcript});
+        assert!(contract::validate_question(&mut q).is_err());
+    }
 }
 
 #[test]

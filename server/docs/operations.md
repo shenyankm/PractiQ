@@ -1,6 +1,6 @@
 # 开源 LangGraph 服务运维
 
-运行时为 FastAPI / Uvicorn 单进程、开源 LangGraph 和本机 SQLite。无需 Agent Server、Redis 或 LangSmith 运行授权。解析、主观题评分和云资源费用独立计算。本文说明独立服务的启动、备份、恢复与维护；桌面数据管理见[桌面指南](../../app/README.md)。
+运行时为 FastAPI / Uvicorn 单进程、开源 LangGraph 和本机 SQLite。无需 Agent Server、Redis 或 LangSmith 运行授权。解析、主观题评分和云资源费用独立计算。本文说明独立服务的启动、备份、恢复与维护；桌面数据管理见[项目说明](../../README.zh-CN.md)。
 
 ## 初始化与启动
 

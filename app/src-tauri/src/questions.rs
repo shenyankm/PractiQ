@@ -10,7 +10,10 @@ fn err(e: impl std::fmt::Display) -> crate::AppError {
     e.to_string().into()
 }
 pub fn composite(q: &Value) -> bool {
-    matches!(text(q, "answerMode"), "reading" | "word_bank" | "cloze")
+    matches!(
+        text(q, "answerMode"),
+        "reading" | "word_bank" | "cloze" | "listening" | "gap_fill"
+    )
 }
 pub(crate) fn answer_content(content: &Value) -> bool {
     let role = text(content, "role").to_lowercase();
@@ -20,6 +23,8 @@ pub(crate) fn answer_content(content: &Value) -> bool {
         "solution",
         "explanation",
         "rubric",
+        "transcript",
+        "听力原文",
         "答案",
         "解析",
         "解答",
@@ -38,6 +43,8 @@ const DETAILS: &[(&str, &str, &str)] = &[
     ("reading", "reading_questions", ""),
     ("word_bank", "word_bank_questions", ""),
     ("cloze", "cloze_questions", ""),
+    ("listening", "listening_questions", ""),
+    ("gap_fill", "gap_fill_questions", ""),
 ];
 fn nullable(v: &Value, key: &str) -> Option<String> {
     v[key].as_str().map(str::to_owned)
@@ -77,6 +84,15 @@ pub fn write(
         return Err("Question ID is required".into());
     }
     db.execute("INSERT INTO questions(id,bank_id,import_id,parent_id,position,stem,mode,question_type,analysis,source_text,source_score,scoring_rubric,score_source_text,content_blocks,confidence,needs_review,missing_fields,favorite) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18) ON CONFLICT(id) DO UPDATE SET parent_id=excluded.parent_id,position=excluded.position,stem=excluded.stem,mode=excluded.mode,question_type=excluded.question_type,analysis=excluded.analysis,source_text=excluded.source_text,source_score=excluded.source_score,scoring_rubric=excluded.scoring_rubric,score_source_text=excluded.score_source_text,content_blocks=excluded.content_blocks,confidence=excluded.confidence,needs_review=excluded.needs_review,missing_fields=excluded.missing_fields",params![qid,bank,import,nullable(q,"parentId"),position,nullable(q,"stem"),nullable(q,"answerMode"),nullable(q,"questionTypeId"),nullable(q,"analysis"),nullable(q,"sourceText"),q["sourceScore"].as_f64(),nullable(q,"scoringRubric"),nullable(q,"scoreSourceText"),q["contentBlocks"].to_string(),q["confidence"].as_f64().unwrap_or(0.0),q["needsReview"].as_bool().unwrap_or(true),q["missingFields"].to_string(),favorite]).map_err(err)?;
+    db.execute(
+        "UPDATE questions SET question_kind=?2,instructions=?3 WHERE id=?1",
+        params![
+            qid,
+            nullable(q, "questionKind"),
+            nullable(q, "instructions")
+        ],
+    )
+    .map_err(err)?;
     for (_, table, _) in DETAILS {
         db.execute(&format!("DELETE FROM {table} WHERE question_id=?1"), [qid])
             .map_err(err)?;
@@ -132,8 +148,16 @@ pub fn write(
         }
         "short_answer" => {
             db.execute(
-                "INSERT INTO short_answer_questions VALUES(?1,?2)",
-                params![qid, a["text"].to_string()],
+                "INSERT INTO short_answer_questions VALUES(?1,?2,?3,?4,?5,?6,?7)",
+                params![
+                    qid,
+                    a["text"].to_string(),
+                    nullable(q, "sourceLanguage"),
+                    nullable(q, "targetLanguage"),
+                    nullable(q, "writingGenre"),
+                    q["minWords"].as_i64(),
+                    q["maxWords"].as_i64()
+                ],
             )
             .map_err(err)?;
         }
@@ -166,12 +190,23 @@ pub fn write(
             )
             .map_err(err)?;
         }
-        "reading" | "cloze" => {
-            let table = if mode == "reading" {
-                "reading_questions"
-            } else {
-                "cloze_questions"
-            };
+        "listening" => {
+            db.execute(
+                "INSERT INTO listening_questions VALUES(?1,?2,?3,?4,?5,?6,?7)",
+                params![
+                    qid,
+                    q["passage"].to_string(),
+                    q["audioRef"].to_string(),
+                    q["audioStartSeconds"].as_f64().unwrap_or(0.0),
+                    q["audioEndSeconds"].as_f64(),
+                    json!(list(q, "transcript")).to_string(),
+                    q["examPlayCount"].as_i64().unwrap_or(2)
+                ],
+            )
+            .map_err(err)?;
+        }
+        "reading" | "cloze" | "gap_fill" => {
+            let table = DETAILS.iter().find(|(m, _, _)| *m == mode).unwrap().1;
             db.execute(
                 &format!("INSERT INTO {table} VALUES(?1,?2)"),
                 params![qid, q["passage"].to_string()],
@@ -183,13 +218,14 @@ pub fn write(
     }
     for (i, item) in list(q, "items").iter().enumerate() {
         db.execute(
-            "INSERT INTO question_items VALUES(?1,?2,?3,?4,?5)",
+            "INSERT INTO question_items VALUES(?1,?2,?3,?4,?5,?6)",
             params![
                 qid,
                 i as i64,
                 item["id"].as_i64(),
                 nullable(item, "side"),
-                nullable(item, "content")
+                nullable(item, "content"),
+                nullable(item, "label")
             ],
         )
         .map_err(err)?;
@@ -305,9 +341,9 @@ pub fn matching_roots(
             SELECT DISTINCT t.root FROM tree t JOIN questions n ON n.id=t.id WHERE
                 (?3='favorite' AND n.favorite=1) OR
                 (?3='wrong' AND (SELECT result FROM attempts WHERE question_id=n.id AND result IS NOT NULL ORDER BY submitted_at DESC,rowid DESC LIMIT 1)=0) OR
-                (?3='unattempted' AND (n.mode IS NULL OR n.mode NOT IN ('reading','word_bank','cloze')) AND NOT EXISTS(SELECT 1 FROM attempts WHERE question_id=n.id AND submitted_at IS NOT NULL AND skipped=0))
+                (?3='unattempted' AND (n.mode IS NULL OR n.mode NOT IN ('reading','word_bank','cloze','listening','gap_fill')) AND NOT EXISTS(SELECT 1 FROM attempts WHERE question_id=n.id AND submitted_at IS NOT NULL AND skipped=0))
         ) SELECT q.id FROM questions q JOIN banks b ON b.id=q.bank_id LEFT JOIN choice_questions c ON c.question_id=q.id
-        WHERE q.parent_id IS NULL AND {scope} AND (?2='' OR q.mode=?2 OR (q.mode='choice' AND c.variant=?2))
+        WHERE q.parent_id IS NULL AND {scope} AND (?2='' OR COALESCE(q.question_kind,q.mode)=?2 OR (?2='grammar_fill' AND q.mode='gap_fill') OR (q.mode='choice' AND c.variant=?2))
             AND (?3='' OR q.id IN (SELECT root FROM matches))
         ORDER BY b.created_at DESC,q.position,q.id" )).map_err(err)?;
     let result = statement
@@ -339,8 +375,8 @@ pub fn read_scoped(
     } else {
         "1"
     };
-    let mut stmt=db.prepare(&format!("WITH RECURSIVE selected(id) AS (SELECT value FROM json_each(?2) UNION ALL SELECT q.id FROM questions q JOIN selected s ON q.parent_id=s.id) SELECT q.id,q.bank_id,q.import_id,q.parent_id,q.position,q.stem,q.mode,q.question_type,q.analysis,q.source_text,q.source_score,q.scoring_rubric,q.score_source_text,q.content_blocks,q.confidence,q.needs_review,q.missing_fields,q.favorite,b.title FROM questions q JOIN banks b ON b.id=q.bank_id WHERE {bank_filter} AND {root_filter} ORDER BY b.created_at DESC,q.position,q.id")).map_err(err)?;
-    let records=stmt.query_map(params![json!(banks).to_string(),roots.map(|v|json!(v).to_string())],|r| Ok((json!({"id":r.get::<_,String>(0)?,"parentId":r.get::<_,Option<String>>(3)?,"stem":r.get::<_,Option<String>>(5)?,"answerMode":r.get::<_,Option<String>>(6)?,"questionTypeId":r.get::<_,Option<String>>(7)?,"analysis":r.get::<_,Option<String>>(8)?,"sourceText":r.get::<_,Option<String>>(9)?,"sourceScore":r.get::<_,Option<f64>>(10)?,"scoringRubric":r.get::<_,Option<String>>(11)?,"scoreSourceText":r.get::<_,Option<String>>(12)?,"confidence":r.get::<_,f64>(14)?,"needsReview":r.get::<_,bool>(15)?}),r.get::<_,String>(1)?,r.get::<_,Option<String>>(2)?,r.get::<_,String>(13)?,r.get::<_,String>(16)?,r.get::<_,bool>(17)?,r.get::<_,String>(18)?))).map_err(err)?.collect::<std::result::Result<Vec<_>,_>>().map_err(err)?;
+    let mut stmt=db.prepare(&format!("WITH RECURSIVE selected(id) AS (SELECT value FROM json_each(?2) UNION ALL SELECT q.id FROM questions q JOIN selected s ON q.parent_id=s.id) SELECT q.id,q.bank_id,q.import_id,q.parent_id,q.position,q.stem,q.mode,q.question_type,q.analysis,q.source_text,q.source_score,q.scoring_rubric,q.score_source_text,q.content_blocks,q.confidence,q.needs_review,q.missing_fields,q.favorite,b.title,q.question_kind,q.instructions FROM questions q JOIN banks b ON b.id=q.bank_id WHERE {bank_filter} AND {root_filter} ORDER BY b.created_at DESC,q.position,q.id")).map_err(err)?;
+    let records=stmt.query_map(params![json!(banks).to_string(),roots.map(|v|json!(v).to_string())],|r| Ok((json!({"id":r.get::<_,String>(0)?,"parentId":r.get::<_,Option<String>>(3)?,"stem":r.get::<_,Option<String>>(5)?,"answerMode":r.get::<_,Option<String>>(6)?,"questionTypeId":r.get::<_,Option<String>>(7)?,"analysis":r.get::<_,Option<String>>(8)?,"sourceText":r.get::<_,Option<String>>(9)?,"sourceScore":r.get::<_,Option<f64>>(10)?,"scoringRubric":r.get::<_,Option<String>>(11)?,"scoreSourceText":r.get::<_,Option<String>>(12)?,"confidence":r.get::<_,f64>(14)?,"needsReview":r.get::<_,bool>(15)?,"questionKind":r.get::<_,Option<String>>(19)?,"instructions":r.get::<_,Option<String>>(20)?}),r.get::<_,String>(1)?,r.get::<_,Option<String>>(2)?,r.get::<_,String>(13)?,r.get::<_,String>(16)?,r.get::<_,bool>(17)?,r.get::<_,String>(18)?))).map_err(err)?.collect::<std::result::Result<Vec<_>,_>>().map_err(err)?;
     let mut rows = Vec::new();
     for (mut q, bank, import, blocks, missing, favorite, title) in records {
         q["contentBlocks"] = json_read(blocks)?;
@@ -365,12 +401,35 @@ pub fn read_scoped(
             let data:String=db.query_row(&format!("SELECT {} FROM {table} WHERE question_id=?1",match mode.as_str(){
                 "choice"=>"json_object('variant',variant,'owner',option_set_id,'answer',json(correct))",
                 "true_false"=>"json_object('answer',json(value))", "fill_blank"=>"json_object('blankCount',blank_count,'answer',json(answers))",
-                "short_answer"=>"json_object('answer',json(answer))", "ordering"=>"json_object('answer',json(answer_order))",
+                "short_answer"=>"json_object('answer',json(answer),'sourceLanguage',source_language,'targetLanguage',target_language,'writingGenre',writing_genre,'minWords',min_words,'maxWords',max_words)", "ordering"=>"json_object('answer',json(answer_order))",
                 "matching"=>"json_object('variant',variant,'answer',json(matches))", "word_bank"=>"json_object('passage',json(passage),'allowReuse',json(CASE allow_reuse WHEN 1 THEN 'true' ELSE 'false' END))",
+                "listening"=>"json_object('passage',json(passage),'audioRef',json(audio_ref),'audioStartSeconds',start_seconds,'audioEndSeconds',end_seconds,'transcript',json(transcript),'examPlayCount',play_count)",
                 _=>"json_object('passage',json(passage))"}),[&qid],|r|r.get(0)).map_err(err)?;
             let d = json_read(data)?;
             if !key.is_empty() && !d["answer"].is_null() {
                 q["answerPayload"] = json!({*key:d["answer"]});
+            }
+            if mode == "short_answer" {
+                for key in [
+                    "sourceLanguage",
+                    "targetLanguage",
+                    "writingGenre",
+                    "minWords",
+                    "maxWords",
+                ] {
+                    q[key] = d[key].clone();
+                }
+            }
+            if mode == "listening" {
+                for key in [
+                    "audioRef",
+                    "audioStartSeconds",
+                    "audioEndSeconds",
+                    "transcript",
+                    "examPlayCount",
+                ] {
+                    q[key] = d[key].clone();
+                }
             }
             if mode == "choice" {
                 q["choiceVariant"] = d["variant"].clone();
@@ -396,7 +455,7 @@ pub fn read_scoped(
         if owner == qid {
             q["options"]=json!(db.prepare("SELECT label,content FROM question_options WHERE owner_id=?1 ORDER BY position").map_err(err)?.query_map([&qid],|r|Ok(json!({"label":r.get::<_,Option<String>>(0)?,"content":r.get::<_,Option<String>>(1)?}))).map_err(err)?.collect::<std::result::Result<Vec<_>,_>>().map_err(err)?);
         }
-        q["items"]=json!(db.prepare("SELECT item_id,side,content FROM question_items WHERE question_id=?1 ORDER BY position").map_err(err)?.query_map([&qid],|r|Ok(json!({"id":r.get::<_,Option<i64>>(0)?,"side":r.get::<_,Option<String>>(1)?,"content":r.get::<_,Option<String>>(2)?}))).map_err(err)?.collect::<std::result::Result<Vec<_>,_>>().map_err(err)?);
+        q["items"]=json!(db.prepare("SELECT item_id,side,content,label FROM question_items WHERE question_id=?1 ORDER BY position").map_err(err)?.query_map([&qid],|r|Ok(json!({"id":r.get::<_,Option<i64>>(0)?,"side":r.get::<_,Option<String>>(1)?,"content":r.get::<_,Option<String>>(2)?,"label":r.get::<_,Option<String>>(3)?}))).map_err(err)?.collect::<std::result::Result<Vec<_>,_>>().map_err(err)?);
         let sources=db.prepare("SELECT stage,unit_index FROM question_sources WHERE question_id=?1 ORDER BY stage,unit_index").map_err(err)?.query_map([&qid],|r|Ok(json!({"questionId":qid,"stage":r.get::<_,String>(0)?,"unitIndex":r.get::<_,i64>(1)?}))).map_err(err)?.collect::<std::result::Result<Vec<_>,_>>().map_err(err)?;
         let warnings = db
             .prepare("SELECT message FROM import_warnings WHERE import_id=?1 ORDER BY position")
@@ -466,6 +525,7 @@ pub fn read_scoped(
         row["missingAssets"] = json!(list(row, "visuals")
             .iter()
             .filter_map(|v| v.get("imageRef").filter(|r| r.is_object()))
+            .chain(row["question"].get("audioRef").filter(|r| r.is_object()))
             .any(|r| !db
                 .query_row(
                     "SELECT EXISTS(SELECT 1 FROM assets WHERE hash=?1)",
@@ -553,22 +613,17 @@ impl<'a> Index<'a> {
             parent = text(&p["question"], "parentId");
         }
         materials.reverse();
-        for p in &materials {
-            let mut blank = 0;
-            let passage: Vec<Value> = list(p, "passage")
-                .iter()
-                .filter(|b| !answer_content(b))
-                .map(|b| {
-                    if text(b, "partType") == "blank" {
-                        blank += 1;
-                        json!({"partType":"text", "textValue":format!("[{blank}]")})
-                    } else {
-                        b.clone()
-                    }
-                })
-                .collect();
-            result["groups"].as_array_mut().unwrap().push(json!({"id":p["id"],"title":p["stem"].as_str().unwrap_or(""),"contentBlocks":passage,"questionIds":[row["id"]],"material":true}));
-        }
+        result["materials"] = json!(materials
+            .iter()
+            .map(|p| {
+                let mut p = (*p).clone();
+                p["passage"] = json!(list(&p, "passage")
+                    .iter()
+                    .filter(|b| !answer_content(b))
+                    .collect::<Vec<_>>());
+                p
+            })
+            .collect::<Vec<_>>());
         if let Some(owner) = self.by_id.get(text(&row["question"], "optionSourceId")) {
             result["question"]["options"] = owner["question"]["options"].clone();
         }
@@ -599,11 +654,11 @@ pub fn freeze(rows: &[Value]) -> Value {
             row.as_object_mut().unwrap().remove(key);
         }
     }
-    json!({"schemaVersion":2,"questions":qs,"groups":groups,"visuals":visuals})
+    json!({"schemaVersion":3,"questions":qs,"groups":groups,"visuals":visuals})
 }
 
 pub fn thaw(doc: &Value) -> Result<Vec<Value>> {
-    if doc["schemaVersion"] != 2 {
+    if doc["schemaVersion"] != 3 {
         return Err("Unsupported session snapshot".into());
     }
     let mut rows = list(doc, "questions").to_vec();
@@ -778,6 +833,19 @@ impl Store {
         &self,
         bank: &str,
         root: Option<&str>,
+        tree: Vec<Value>,
+    ) -> Result<Value> {
+        let result = self.save_question_tree_inner(bank, root, tree);
+        if let Err(error) = self.collect_unused_assets() {
+            eprintln!("Asset cleanup deferred after question save: {error}");
+        }
+        result
+    }
+
+    fn save_question_tree_inner(
+        &self,
+        bank: &str,
+        root: Option<&str>,
         mut tree: Vec<Value>,
     ) -> Result<Value> {
         if tree.is_empty() || tree.len() > 1000 {
@@ -803,6 +871,7 @@ impl Store {
         }
         let mut db = self.connect()?;
         let tx = db.transaction().map_err(err)?;
+        self.persist_audio(&tx, &tree)?;
         let old = read(&tx)?;
         let old_index = Index::new(&old);
         if root.is_some()

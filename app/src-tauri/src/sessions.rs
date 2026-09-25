@@ -25,6 +25,7 @@ impl Store {
         }
         session["attempts"] = json!(attempts);
         self.enrich_session(&db, &mut session)?;
+        crate::audio::redact_session(&mut session);
         Ok(session)
     }
     fn expire_sessions(&self) -> Result<()> {

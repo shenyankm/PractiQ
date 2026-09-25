@@ -79,7 +79,7 @@ Word 文件请先导出为 PDF。Excel 题目清单请导出为 CSV；需要保�
 
 交卷后，客观题在本地判分。点击 **AI 评分 / 继续**，才会根据参考答案或评分细则评阅符合条件的简答题。缺少依据或调用失败的题目保持未判定。你可以查看部分得分及理由，并按需人工改分。
 
-AI 评分用于个人练习，尚未经过正式考试阅卷校准。[考试验收记录](app/EXAM_ACCEPTANCE.md) 区分了对应版本的工程检查、合成样本模型测试和失败记录。
+AI 评分用于个人练习，尚未经过正式考试阅卷校准。
 
 ## 运行桌面应用
 
@@ -100,7 +100,7 @@ make app-dev
 make app-build AI_PYTHON=/path/to/python3.14
 ```
 
-练习数据保存在本机，API Key 存在 macOS 钥匙串中。备份不含密钥或 AI 任务状态。存储、恢复、打包和验证步骤见[桌面指南](app/README.md)。Windows CI 检查不代表已支持 Windows 原生运行。
+练习数据保存在本机，API Key 存在 macOS 钥匙串中。备份不含密钥或 AI 任务状态。Windows CI 检查不代表已支持 Windows 原生运行。
 
 ## ⚙️ 独立运行 AI 服务
 
@@ -124,7 +124,6 @@ make server-dev AI_PYTHON=/path/to/python3.14
 
 按当前任务选择文档：
 
-- [桌面指南](app/README.md)：导入、练习、考试、存储与备份
 - [服务接入](server/docs/service-guide.md)：配置、解析、评分与接口契约
 - [文档任务 API](server/docs/document-tasks.md)：进度、暂停、恢复、补跑与人工决策
 - [部署与运维](server/docs/operations.md)：部署、存储、监控与恢复

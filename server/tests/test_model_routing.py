@@ -31,7 +31,7 @@ def test_single_model_and_execution_signature(monkeypatch):
 def test_visual_result_rejects_invalid_final_question_index():
     from practiq_ai.contracts import DocumentParseResult
     with pytest.raises(ValidationError, match='questionIds'):
-        DocumentParseResult.model_validate({'schemaVersion': 2, 'questions': [{**question('Q'), 'id': 'q0'}], 'groups': [], 'warnings': [], 'confidenceScore': 80,
+        DocumentParseResult.model_validate({'schemaVersion': 3, 'questions': [{**question('Q'), 'id': 'q0'}], 'groups': [], 'warnings': [], 'confidenceScore': 80,
                                           'visualElements': [{'kind': 'image', 'description': 'x', 'questionIds': ['absent']}]})
 
 

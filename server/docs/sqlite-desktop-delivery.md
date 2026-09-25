@@ -1,6 +1,6 @@
 # SQLite 与 macOS 桌面交付记录
 
-> 历史报告：以下结果、包体积、哈希与依赖说明属于当时版本。当前版本已移除 Word 与 LibreOffice，导入入口已统一；现行用法见 [桌面说明](../../app/README.md) 和 [服务指南](service-guide.md)。历史证据不代表当前版本验收。
+> 历史报告：以下结果、包体积、哈希与依赖说明属于当时版本。当前版本已移除 Word 与 LibreOffice，导入入口已统一；现行用法见 [项目说明](../../README.zh-CN.md) 和 [服务指南](service-guide.md)。历史证据不代表当前版本验收。
 
 验证日期：2026-09-19。目标是 Apple Silicon macOS；本机系统 macOS 27.0，应用声明最低 macOS 14，尚未在最低版本系统验证。未提交、推送或发布，保留既有工作区修改和旧 PostgreSQL 数据。
 

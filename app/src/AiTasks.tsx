@@ -1,8 +1,10 @@
-import { t, useI18n } from "./i18n";
-import { useEffect, useRef, useState } from "react";
+import { date, t, useI18n } from "./i18n";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "./notifications";
 import { errorMessage, type Preview } from "./api";
-import { ai, readReviewImage, type Task, type Summary, type Review, type PendingOperation, type Batch } from "./ai-api";
+import { ai, readReviewImage, type Task, type Summary, type Review, type PendingOperation, type Batch, type ImportTaskContext, type ImportOperation } from "./ai-api";
+import { importTaskState } from "./import-task-state";
+import { Badge } from "@/components/ui/badge";
 import { QuestionPreview } from "./QuestionPreview";
 import { Markdown } from "./Content";
 import { Button } from "@/components/ui/button";
@@ -37,10 +39,14 @@ function states(): Record<string, string> { return {
   PAUSING: t("正在暂停"),
   PAUSED: t("已暂停"),
   INTERRUPTED: t("已中断"),
-  FAILED: t("失败"),
-  WAITING_REVIEW: t("等待审核"),
+  FAILED: t("解析失败"),
+  WAITING_REVIEW: t("待审核"),
   COMPLETED: t("已完成"),
   EXPIRED: t("已过期"),
+  READY: t("待导入"),
+  IMPORTING: t("导入中"),
+  IMPORT_FAILED: t("导入失败"),
+  IMPORTED: t("已导入"),
 }; }
 function phaseName(phase: string) {
   return ({ prepare: t("准备文档"), vision: t("识别图片"), chunk: t("提取题目"), document_parse: t("提取题目"), vision_parse: t("识别图片"), visual_crop: t("整理图片"), merge: t("整理题目"), result: t("检查结果"), review: t("审核内容"), vision_review: t("审核图片"), chunk_review: t("审核题目"), result_review: t("审核结果"), completed: t("已完成") } as Record<string, string>)[phase] || t("处理文档");
@@ -110,10 +116,14 @@ export function AiTasks({
   run,
   onPreview,
   modelsReady = true,
+  children,
+  onOpenBank,
 }: {
   busy: boolean;
   run: (job: () => Promise<void>) => void;
-  onPreview: (p: Preview) => void;
+  onPreview: (p: Preview, context: ImportTaskContext) => void;
+  children?: ReactNode;
+  onOpenBank?: (bankId: string) => void;
   modelsReady?: boolean;
 }) {
   useI18n();
@@ -124,12 +134,17 @@ export function AiTasks({
     [task, setTask] = useState<Task | null>(null),
     [error, setError] = useState<unknown>(null),
     [revision, setRevision] = useState(0);
+  const [detailError, setDetailError] = useState<unknown>(null);
+  const [detailRevision, setDetailRevision] = useState(0);
   const [checked, setChecked] = useState<string[]>([]),
     [operations, setOperations] = useState<PendingOperation[]>([]),
     [batches, setBatches] = useState<Batch[]>([]),
     [confirmation, setConfirmation] = useState<Batch | null>(null),
     [running, setRunning] = useState<string | null>(null),
     [review, setReview] = useState<Review | null>(null);
+  const [imports, setImports] = useState<Record<string, ImportOperation>>({});
+  const [loading, setLoading] = useState(true);
+  const batchWasRunning = useRef(false);
   async function localRefresh() {
     const [o, b] = await Promise.all([
       ai({ type: "operations" }),
@@ -139,36 +154,40 @@ export function AiTasks({
     setBatches(b);
   }
   async function refreshList() {
-    const r = await ai({
-      type: "list",
-      offset,
-    });
-    setRows(r.items);
-    setMore(r.hasMore);
-    setError(null);
-    setRevision((n) => n + 1);
+    setRevision(n => n + 1);
   }
   async function refresh() {
-    try { await refreshList(); } finally { await localRefresh(); }
+    await refreshList();
+    await localRefresh();
   }
   useEffect(() => {
-    if (!modelsReady) return;
+    if (!modelsReady) { setLoading(false); return; }
     let active = true;
-    void ai({ type: "list", offset })
-      .then((r) => {
-        if (active) {
-          setRows(r.items);
-          setMore(r.hasMore);
-          setError(null);
-        }
-      })
-      .catch((e) => {
-        if (active) setError(e);
-      });
-    return () => {
-      active = false;
+    let timer: ReturnType<typeof setTimeout>;
+    let failures = 0;
+    const poll = async () => {
+      try {
+        const r = await ai({ type: "list", offset });
+        if (!active) return;
+        setRows(r.items);
+        setChecked(ids => ids.filter(id => r.items.some(row => row.threadId === id && ["READY", "IMPORT_FAILED"].includes(importTaskState(row)))));
+        setMore(r.hasMore);
+        setError(null);
+        setLoading(false);
+        failures = 0;
+        if (r.items.some(row => activeStates.has(row.state)) || running)
+          timer = setTimeout(poll, 2000);
+      } catch (e) {
+        if (!active) return;
+        setError(e);
+        setLoading(false);
+        if (retryableRead(e) && ++failures <= 3) timer = setTimeout(poll, 2000);
+      }
     };
-  }, [offset, modelsReady]);
+    setLoading(true);
+    void poll();
+    return () => { active = false; clearTimeout(timer); };
+  }, [offset, modelsReady, revision, running]);
   useEffect(() => {
     let active = true;
     let timer: ReturnType<typeof setTimeout>;
@@ -183,6 +202,9 @@ export function AiTasks({
           failures = 0;
           setOperations(o);
           setBatches(b);
+          const batchIsRunning = b.some(value => value.status === "running");
+          if (batchWasRunning.current && !batchIsRunning) setRevision(n => n + 1);
+          batchWasRunning.current = batchIsRunning;
           if (running || b.some((v) => v.status === "running"))
             timer = setTimeout(poll, 1000);
         }
@@ -199,47 +221,31 @@ export function AiTasks({
       clearTimeout(timer);
     };
   }, [running]);
+  const selectedExpired = rows.some(row => row.threadId === selected && row.state === "EXPIRED");
   useEffect(() => {
-    if (!selected || !modelsReady) return;
+    if (!selected || !modelsReady || selectedExpired) return;
     let active = true;
     let timer: ReturnType<typeof setTimeout>;
     let failures = 0;
     setTask(null);
+    setDetailError(null);
     const poll = async () => {
       try {
         const value = await ai({ type: "get", id: selected });
         if (active) {
           setTask(value);
-          setError(null);
+          setDetailError(null);
           if (activeStates.has(value.state)) timer = setTimeout(poll, 2000);
-          else {
-            // Membership refresh must not invalidate a successfully read task.
-            void ai({ type: "list", offset })
-              .then((listing) => {
-                if (active) {
-                  setRows(listing.items);
-                  setMore(listing.hasMore);
-                }
-              })
-              .catch((e) => { if (active) setError(e); });
-          }
+          else setRevision(n => n + 1);
           failures = 0;
         }
       } catch (e) {
         if (active) {
-          setError(e);
+          setDetailError(e);
           if (retryableRead(e) && ++failures <= 3) timer = setTimeout(poll, 2000);
           else {
             setTask(null);
-            // Refresh membership once; never retry a removed/expired task indefinitely.
-            void ai({ type: "list", offset })
-              .then((listing) => {
-                if (active) {
-                  setRows(listing.items);
-                  setMore(listing.hasMore);
-                }
-              })
-              .catch(() => {});
+            setRevision(n => n + 1);
           }
         }
       }
@@ -249,9 +255,9 @@ export function AiTasks({
       active = false;
       clearTimeout(timer);
     };
-  }, [selected, revision, offset, modelsReady]);
+  }, [selected, detailRevision, modelsReady, selectedExpired]);
   async function control(action: string) {
-    if (!task) return;
+    if (!task || task.threadId !== selected || !task.allowedActions.includes(action)) return;
     try {
       await ai({
         type: "control",
@@ -264,6 +270,7 @@ export function AiTasks({
         units: [],
       });
       setReview(null);
+      setDetailRevision(n => n + 1);
       await refreshList();
     } finally {
       await localRefresh();
@@ -271,6 +278,7 @@ export function AiTasks({
   }
   async function startBatch(batch: Batch, titles: string[] | null) {
     setRunning(batch.id);
+    setChecked([]);
     setConfirmation(null);
     try {
       await ai({ type: "run_batch", id: batch.id, titles });
@@ -282,8 +290,37 @@ export function AiTasks({
       await localRefresh().catch((e) => setError(e));
     }
   }
+  function importOperation(row: Pick<Summary, "threadId" | "checkpointId">): ImportOperation | undefined {
+    const local = imports[row.threadId];
+    if (local?.checkpointId === row.checkpointId) return local;
+    for (const batch of batches) {
+      const item = batch.items.find(item => item.threadId === row.threadId && item.checkpointId === row.checkpointId);
+      if (item?.status === "failed") return { checkpointId: row.checkpointId, state: "failed", error: item.error };
+      if (item?.status === "pending" && (batch.status === "running" || running === batch.id)) return { checkpointId: row.checkpointId, state: "importing" };
+    }
+  }
+  const eligibleChecked = checked.filter(id => rows.some(row => row.threadId === id && ["READY", "IMPORT_FAILED"].includes(importTaskState(row, importOperation(row)))));
+  const selectedRow = rows.find(row => row.threadId === selected);
+  const currentTask = task?.threadId === selected ? task : null;
+  async function previewTask(value: Task) {
+    const checkpointId = value.checkpointId;
+    const threadId = value.threadId;
+    const preview = await ai({ type: "preview", id: threadId });
+    onPreview(preview, {
+      threadId,
+      onState: (state, error) => setImports(values => ({ ...values, [threadId]: { checkpointId, state, error } })),
+      onImported: bankId => {
+        setImports(values => { const next = { ...values }; delete next[threadId]; return next; });
+        setRows(values => values.map(row => row.threadId === threadId && row.checkpointId === checkpointId ? { ...row, importedBankId: bankId } : row));
+        setChecked(ids => ids.filter(id => id !== threadId));
+        setRevision(n => n + 1);
+      },
+    });
+  }
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
+      <Card><CardContent className="space-y-5">
+      {children}
       <p className="text-sm text-muted-foreground">{t("选择文件后会先确认文件与模型，点击“开始解析”才会发送解析内容，可能产生费用。审核和导入已有结果不会调用模型。")}</p>
       {modelsReady && <div className="flex flex-wrap gap-3">
         <Button
@@ -295,6 +332,8 @@ export function AiTasks({
                   type: "pick_document",
                 });
                 if (created) {
+                  setOffset(0);
+                  setChecked([]);
                   await refreshList();
                   setSelected(created.threadId);
                 }
@@ -304,18 +343,25 @@ export function AiTasks({
             })
           }
         >{t("选择文档…")}</Button>
-        <Button variant="outline" disabled={busy} onClick={() => run(refresh)}>{t("刷新任务")}</Button>
-        {!!checked.length && <Button
+      </div>}
+      </CardContent></Card>
+      <section aria-label={t("导入任务")} className="space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold">{t("导入任务")}</h2>
+          <div className="flex gap-2">
+            {modelsReady && <Button variant="outline" disabled={busy || loading} onClick={() => run(refresh)}>{t("刷新任务")}</Button>}
+        {!!eligibleChecked.length && <Button
           disabled={busy}
           onClick={() =>
             run(async () =>
               setConfirmation(
-                await ai({ type: "prepare_batch", ids: checked }),
+                await ai({ type: "prepare_batch", ids: eligibleChecked }),
               ),
             )
           }
-        >{t("批量导入已选任务（{0}）", { 0: checked.length })}</Button>}
-      </div>}
+        >{t("批量导入已选任务（{0}）", { 0: eligibleChecked.length })}</Button>}
+          </div>
+        </div>
       {error != null && <div role="alert" className="flex items-center justify-between gap-3 rounded-lg border border-destructive/30 p-3"><p className="text-sm text-destructive">{errorMessage(error)}</p><Button variant="outline" disabled={busy} onClick={() => run(async () => { try { await (modelsReady ? refresh() : localRefresh()); setError(null); } catch (e) { setError(e); } })}>{t("重试")}</Button></div>}
       {operations.length > 0 && (
         <section className="space-y-2">
@@ -341,39 +387,32 @@ export function AiTasks({
           ))}
         </section>
       )}
-      <div className="grid grid-cols-[280px_1fr] gap-5">
-        <div className="space-y-2">
-          {rows.map((r) => (
-            <div key={r.threadId} className="rounded border p-2">
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  aria-label={t("选择 {0}", { 0: r.fileName })}
-                  disabled={busy || r.state !== "COMPLETED"}
-                  checked={checked.includes(r.threadId)}
-                  onCheckedChange={(checked) =>
-                    setChecked((v) =>
-                      checked === true
-                        ? [...v, r.threadId]
-                        : v.filter((id) => id !== r.threadId),
-                    )
-                  }
-                />
-                <Button
-                  className="min-w-0 flex-1 justify-start truncate"
-                  variant={selected === r.threadId ? "secondary" : "ghost"}
-                  onClick={() => setSelected(r.threadId)}
-                >
-                  {r.fileName || r.threadId.slice(0, 8)}
-                </Button>
-              </div>
-              <p className="text-xs">{t("{0} · {1} 题 · {2} 待复核 {3} {4}", { 0: states()[r.state] || r.state, 1: r.questionCount ?? 0, 2: r.reviewCount ?? 0, 3: r.status === "PARTIAL" ? t("· 部分结果") : "", 4: r.importedBankId
-                  ? t("· 已导入")
-                  : r.previouslyImported
-                    ? t("· 曾导入其他版本")
-                    : "" })}</p>
-            </div>
-          ))}
-          {modelsReady && !rows.length && error == null && <Empty>
+      {loading && <p role="status">{t("加载中…")}</p>}
+      <div className="overflow-x-auto rounded-xl border">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-muted/40 text-muted-foreground"><tr>
+            <th className="w-10 p-3"><span className="sr-only">{t("选择")}</span></th>
+            <th className="p-3">{t("文件名")}</th><th className="p-3">{t("任务状态")}</th>
+            <th className="p-3">{t("题目 / 待复核")}</th><th className="p-3">{t("创建时间")}</th><th className="p-3">{t("操作")}</th>
+          </tr></thead>
+          <tbody>{rows.map(r => {
+            const state = importTaskState(r, importOperation(r));
+            return <tr key={r.threadId} className="border-t align-top">
+              <td className="p-3"><Checkbox aria-label={t("选择 {0}", { 0: r.fileName })} disabled={busy || !modelsReady || !["READY", "IMPORT_FAILED"].includes(state)} checked={checked.includes(r.threadId)} onCheckedChange={value => setChecked(ids => value === true ? [...ids, r.threadId] : ids.filter(id => id !== r.threadId))} /></td>
+              <td className="max-w-72 p-3"><Button className="h-auto max-w-full justify-start whitespace-normal break-all p-0 text-left" variant="link" onClick={() => { setTask(null); setSelected(r.threadId); }}>{r.fileName || r.threadId.slice(0, 8)}</Button></td>
+              <td className="space-y-1 p-3"><Badge variant="secondary">{states()[state] || state}</Badge>
+                {r.status === "PARTIAL" && <p className="text-xs text-muted-foreground">{t("部分结果")}</p>}
+                {r.previouslyImported && !r.importedBankId && <p className="text-xs text-muted-foreground">{t("曾导入其他版本")}</p>}
+                {state === "IMPORT_FAILED" && <p className="text-xs text-destructive">{errorMessage(importOperation(r)?.error)}</p>}
+              </td>
+              <td className="p-3 tabular-nums">{r.questionCount ?? 0} / {r.reviewCount ?? 0}</td>
+              <td className="whitespace-nowrap p-3 text-muted-foreground">{r.createdAt ? date(Date.parse(r.createdAt)) : "—"}</td>
+              <td className="p-3"><div className="flex gap-2"><Button variant="outline" onClick={() => { setTask(null); setSelected(r.threadId); }}>{t("查看详情")}</Button>{r.importedBankId && onOpenBank && <Button variant="outline" onClick={() => onOpenBank(r.importedBankId!)}>{t("查看题库")}</Button>}</div></td>
+            </tr>;
+          })}</tbody>
+        </table>
+      </div>
+          {modelsReady && !loading && !rows.length && error == null && <Empty>
             <EmptyHeader>
               <EmptyTitle>{t("暂无解析任务")}</EmptyTitle>
               <EmptyDescription>{t("选择文档并开始解析后，可在这里查看任务进度。")}</EmptyDescription>
@@ -383,22 +422,28 @@ export function AiTasks({
             <Button
               variant="ghost"
               disabled={offset === 0 || busy}
-              onClick={() => setOffset(Math.max(0, offset - 20))}
+              onClick={() => { setRows([]); setChecked([]); setOffset(Math.max(0, offset - 20)); }}
             >{t("上一页")}</Button>
             <Button
               variant="ghost"
               disabled={!more || busy}
-              onClick={() => setOffset(offset + 20)}
+              onClick={() => { setRows([]); setChecked([]); setOffset(offset + 20); }}
             >{t("下一页")}</Button>
           </div>}
-        </div>
-        {task && (
-          <Card>
-            <CardContent className="space-y-4 pt-6">
+      </section>
+      <Dialog open={selected !== null} onOpenChange={open => { if (!open) { setSelected(null); setTask(null); } }}>
+        <DialogContent className="inset-y-0 right-0 left-auto flex h-full w-[min(40rem,100vw)] max-w-none translate-x-0 translate-y-0 flex-col overflow-y-auto rounded-none p-6 sm:max-w-none">
+          <DialogHeader><DialogTitle>{selectedRow?.fileName || t("任务详情")}</DialogTitle><DialogDescription>{t("查看解析进度、审核内容和导入结果。")}</DialogDescription></DialogHeader>
+          {selectedRow?.state === "EXPIRED" ? <p>{t("任务已过期，请重新选择文档。已有题库不受影响。")}</p> : !currentTask ? <p role="status">{detailError ? errorMessage(detailError) : t("加载中…")}</p> : null}
+          {detailError != null && <Button variant="outline" disabled={busy || !modelsReady} onClick={() => setDetailRevision(n => n + 1)}>{t("重试")}</Button>}
+          {selectedRow?.importedBankId && onOpenBank && <Button onClick={() => onOpenBank(selectedRow.importedBankId!)}>{t("查看题库")}</Button>}
+        {task && currentTask && selectedRow?.state !== "EXPIRED" && (
+            <div className="space-y-4">
               <h2 className="font-medium">
-                {states()[task.state] || task.state}
+                {states()[importTaskState({ ...selectedRow, ...task, importedBankId: selectedRow?.checkpointId === task.checkpointId ? selectedRow.importedBankId : null }, importOperation(task))] || task.state}
               </h2>
-              <p className="text-sm">{task.state === "WAITING_REVIEW" ? t("部分内容需要确认，请先查看内容与审核。") : task.state === "FAILED" ? t("解析未完成；已保存的内容保留，可查看原因并重试失败项。") : task.state === "COMPLETED" ? t("解析结果已保存，可预览并导入题库。") : t("当前阶段：{0}", { 0: phaseName(task.phase) })}</p>
+              {importOperation(task)?.state === "failed" && <p role="alert" className="text-sm text-destructive">{errorMessage(importOperation(task)?.error)}</p>}
+              <p className="text-sm">{task.state === "WAITING_REVIEW" ? t("部分内容需要确认，请先查看内容与审核。") : task.state === "FAILED" ? t("解析未完成；已保存的内容保留，可查看原因并重试失败项。") : task.state === "COMPLETED" ? (selectedRow?.checkpointId === task.checkpointId && selectedRow?.importedBankId ? t("已导入") : t("解析结果已保存，可预览并导入题库。")) : t("当前阶段：{0}", { 0: phaseName(task.phase) })}</p>
               {Object.entries(task.progress).map(([key, p]) => (
                 <p className="text-sm" key={key}>{t("{0}：完成 {1}/{2}，失败 {3}", { 0: key === "visuals" ? t("图片") : t("文本"), 1: p.succeeded, 2: p.total, 3: p.failed })}</p>
               ))}
@@ -418,7 +463,7 @@ export function AiTasks({
                   .map((action) => (
                     <Button
                       key={action}
-                      disabled={busy}
+                      disabled={busy || !modelsReady || importOperation(task)?.state === "importing"}
                       variant="outline"
                       onClick={() => run(() => control(action))}
                     >
@@ -428,7 +473,7 @@ export function AiTasks({
                 {["COMPLETED", "WAITING_REVIEW"].includes(task.state) && (
                   <Button
                     variant="outline"
-                    disabled={busy}
+                    disabled={busy || !modelsReady || importOperation(task)?.state === "importing"}
                     onClick={() =>
                       run(async () =>
                         setReview(
@@ -441,26 +486,19 @@ export function AiTasks({
                     }
                   >{t("查看内容与审核")}</Button>
                 )}
-                {task.state === "COMPLETED" && (
+                {task.state === "COMPLETED" && !(selectedRow?.checkpointId === task.checkpointId && selectedRow?.importedBankId) && (
                   <Button
-                    disabled={busy}
+                    disabled={busy || !modelsReady || importOperation(task)?.state === "importing"}
                     onClick={() =>
-                      run(async () =>
-                        onPreview(
-                          await ai({
-                            type: "preview",
-                            id: task.threadId,
-                          }),
-                        ),
-                      )
+                      run(() => previewTask(task))
                     }
                   >{t("预览并导入题库")}</Button>
                 )}
               </div>
-            </CardContent>
-          </Card>
+            </div>
         )}
-      </div>
+        </DialogContent>
+      </Dialog>
       {batches.length > 0 && (
         <section className="space-y-3">
           <h2>{t("导入批次")}</h2>

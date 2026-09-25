@@ -1,3 +1,4 @@
+import { ListeningPlayer } from "./ListeningPlayer";
 import { list, t, useI18n } from "./i18n";
 import { memo, useMemo, useState } from "react";
 import { fieldName, type Question, type Group, type Visual } from "./api";
@@ -65,6 +66,7 @@ export const QuestionPreview = memo(function QuestionPreview({ questions, groups
               missingAssets: false,
             }}
           />
+          {q.answerMode === "listening" && <ListeningPlayer question={q}/>}
           {q.options?.map((o) => (
             <div key={o.label} className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-start gap-2 leading-[1.75]">
               <span className="min-w-6 font-medium">{o.label}.</span>

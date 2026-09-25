@@ -228,21 +228,10 @@ impl Store {
             if kind != "practice" && submitted.is_none() {
                 let q = &mut a["snapshot"]["question"];
                 a_blank_count(q);
-                if let Some(groups) = a["snapshot"]["groups"].as_array_mut() {
-                    groups.retain(|g| {
-                        !answer_text(text(g, "title")) && !answer_text(text(g, "instructions"))
-                    });
-                }
-                if let Some(visuals) = a["snapshot"]["visuals"].as_array_mut() {
-                    visuals.retain(|visual| !crate::questions::answer_content(visual));
-                    for visual in visuals {
-                        visual
-                            .as_object_mut()
-                            .ok_or(crate::language::error(
-                                "LOCAL_IMAGE_FORMAT_INVALID",
-                                serde_json::json!({}),
-                            ))?
-                            .remove("sourceRef");
+                strip_answer_lines(q);
+                if let Some(materials) = a["snapshot"]["materials"].as_array_mut() {
+                    for material in materials {
+                        strip_answer_lines(material);
                     }
                 }
                 a["result"] = Value::Null;
@@ -374,7 +363,19 @@ fn a_blank_count(q: &mut Value) {
 }
 
 // ponytail: explicit labels in legacy free text; typed roles are preferable for future content contracts.
-fn answer_text(value: &str) -> bool {
+pub(crate) fn strip_answer_lines(q: &mut Value) {
+    for key in ["stem", "instructions"] {
+        if answer_text(text(q, key)) {
+            let safe = text(q, key)
+                .split_inclusive(['\n', '|'])
+                .take_while(|part| !answer_text(part))
+                .collect::<String>();
+            q[key] = json!(safe.trim_matches(['\n', '|']).trim_end());
+        }
+    }
+}
+
+pub(crate) fn answer_text(value: &str) -> bool {
     value.to_lowercase().split(['\n', '|']).any(|line| {
         let label = line
             .split([':', '：'])
@@ -475,6 +476,7 @@ impl Store {
                 material
             })
             .collect();
+        materials.extend(list(&snapshot, "materials").iter().map(Value::to_string));
         materials.extend(
             list(&snapshot, "visuals")
                 .iter()

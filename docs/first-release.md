@@ -42,6 +42,6 @@ Demonstrate personal revision and distribution of bank ZIP with images for indep
 - [ ] 从实际应用录制简短演示或截取导入、练习、成绩复核界面，随发布材料提供。Capture an actual app walkthrough or screenshots of import, practice, and score review.
 - [ ] 记录真实模型的解析与评分样例及失败情况，并收集经用户同意的试用反馈。Record live-model examples and failures, and collect user feedback with consent.
 
-工程检查和人工样例不证明真实模型准确率；历史检查不代替发布候选版本验收。AI 评分面向个人练习，缺少参考答案或评分细则时保持未判定。Word 请导出 PDF；Windows CI 不代表 Windows 运行支持。安装与数据限制见[桌面指南](../app/README.md)，既有评分证据见[考试验收记录](../app/EXAM_ACCEPTANCE.md)。
+工程检查和人工样例不证明真实模型准确率；历史检查不代替发布候选版本验收。AI 评分面向个人练习，缺少参考答案或评分细则时保持未判定。Word 请导出 PDF；Windows CI 不代表 Windows 运行支持。
 
 Engineering checks and hand-written samples do not establish live-model accuracy; historical checks do not replace release-candidate acceptance. AI grading is for personal practice and requires a reference answer or rubric. Export Word to PDF. Windows CI does not establish Windows runtime support. The linked guides record installation constraints and existing grading evidence.

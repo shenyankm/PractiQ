@@ -1,6 +1,7 @@
 mod ai;
 mod ai_work;
 mod assets;
+mod audio;
 mod backup;
 mod bank_zip;
 mod contract;
@@ -27,6 +28,16 @@ use tauri_plugin_dialog::DialogExt;
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 enum Request {
     PickImport,
+    PickAudio,
+    ReleaseAudio {
+        hash: String,
+    },
+    ListeningPlayback {
+        id: String,
+        question_id: String,
+        action: audio::PlaybackAction,
+        position: Option<f64>,
+    },
     ExportBank {
         bank_id: String,
     },
@@ -219,6 +230,7 @@ async fn request(
         let locale = locale.unwrap_or_default();
         // Native file dialogs select the only external paths accessible to business commands.
         let selected=match &request {
+            Request::PickAudio=>app.dialog().file().add_filter(locale.text("听力音频","Listening audio"),&["mp3","m4a","aac","wav"]).blocking_pick_file(),
             Request::PickImport=>app.dialog().file().add_filter(locale.text("PractiQ 题库 ZIP", "PractiQ bank ZIP"),&["zip"]).blocking_pick_file(),
             Request::ExportBank{bank_id}=>{
                 let title = { let store=shared.lock().map_err(|_|language::error("LOCAL_DATABASE_UNAVAILABLE",json!({})))?;
@@ -230,7 +242,7 @@ async fn request(
             _=>None,
         };
         let selected=selected.map(|p|p.into_path().map_err(|e|e.to_string())).transpose()?;
-        if matches!(&request,Request::PickImport|Request::ExportBank{..}|Request::Backup|Request::Restore)&&selected.is_none(){return Ok(Value::Null);}
+        if matches!(&request,Request::PickImport|Request::PickAudio|Request::ExportBank{..}|Request::Backup|Request::Restore)&&selected.is_none(){return Ok(Value::Null);}
         if let Request::TestSettings { config, api_key } = request {
             let (config, key) = shared.lock()
                 .map_err(|_| language::error("LOCAL_DATABASE_UNAVAILABLE", json!({})))?
@@ -243,6 +255,9 @@ async fn request(
         let mut store=shared.lock().map_err(|_|language::error("LOCAL_DATABASE_RESTART", json!({})))?;
         store.locale = locale;
         match request {
+            Request::PickAudio=>store.stage_audio(&selected.ok_or("No audio selected")?),
+            Request::ReleaseAudio{hash}=>{store.staged_audio.remove(&hash);Ok(Value::Null)},
+            Request::ListeningPlayback{id,question_id,action,position}=>store.listening_playback(&id,&question_id,action,position),
             Request::PickImport=>store.preview_bank_zip(&selected.ok_or(language::error("LOCAL_FILE_NOT_SELECTED",json!({})))?),
             Request::ExportBank{bank_id}=>store.export_bank(&bank_id,&selected.ok_or(language::error("LOCAL_SAVE_LOCATION_MISSING",json!({})))?),
             Request::Import{ticket,bank_id,title}=>store.import(&ticket,bank_id,&title),
@@ -347,7 +362,7 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
-            let dir = app.path().app_data_dir()?.join("v2");
+            let dir = app.path().app_data_dir()?.join("v3");
             app.manage(Arc::new(Mutex::new(
                 Store::new(dir).map_err(std::io::Error::other)?,
             )));
