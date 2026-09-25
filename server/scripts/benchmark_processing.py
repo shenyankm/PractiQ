@@ -14,8 +14,10 @@ from practiq_ai.graphs.vision import crop_figure, crop_figures
 
 
 def measure(run):
-    timings = []
-    for _ in range(3):
+    start = perf_counter()
+    result = run()
+    timings = [(perf_counter() - start) * 1000]
+    for _ in range(2):
         start = perf_counter()
         result = run()
         timings.append((perf_counter() - start) * 1000)
