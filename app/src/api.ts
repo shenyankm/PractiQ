@@ -185,6 +185,7 @@ type Request =
     }
   | {
       type:
+        | "add_example_bank"
         | "pick_import"
         | "banks"
         | "unfinished_session"
@@ -235,6 +236,7 @@ type ResponseMap = {
   language: Locale | null;
   manual_score: Session;
   merge_banks: { bankId: string; count: number };
+  add_example_bank: { duplicate: boolean; bankId: string; count: number };
   pick_import: Preview | null;
   position: Session;
   preview_paper: PaperPreview;

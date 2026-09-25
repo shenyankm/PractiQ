@@ -489,6 +489,7 @@ export default function App() {
             busy={busy}
             ready={!!info}
             run={run}
+            onAddExample={() => run(async () => { await api({ type: "add_example_bank" }); await reloadBanks(); })}
             onOpenSession={openSession}
             onImport={bankId => navigate("import", bankId)}
             onOpenQuestions={bankId => navigate("questions", bankId)}

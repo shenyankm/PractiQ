@@ -463,6 +463,8 @@ it("clears a newly saved API key from the webview before testing the Keychain co
   });
   render(<ConnectionSettingsPanel busy={false} run={job => { void job(); }} />);
   const key = await screen.findByLabelText("API Key") as HTMLInputElement;
+  expect(screen.queryByText(/解析配置还缺/)).toBeNull();
+  expect(screen.getByRole("button", {name:"测试"}).hasAttribute("disabled")).toBe(true);
   await userEvent.type(key,"replacement-key");
   await waitFor(() => expect(api).toHaveBeenCalledWith(expect.objectContaining({type:"save_settings",api_key:"replacement-key"})));
   await waitFor(() => expect(key.value).toBe(""));

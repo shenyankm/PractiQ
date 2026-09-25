@@ -1,4 +1,4 @@
-import { list, message, t, useI18n } from "./i18n";
+import { message, t, useI18n } from "./i18n";
 import { useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
 import { toast } from "./notifications";
 import { PlugZap, LoaderCircle, ChevronRight } from "lucide-react";
@@ -169,7 +169,6 @@ export function ConnectionSettingsPanel({
               />
             </div>
           </fieldset>
-          {missing.length > 0 && <p role="status" className="text-sm">{t("解析配置还缺：{0}", { 0: list(missing) })}</p>}
           {saveError != null && <div role="alert" className="flex items-center justify-between gap-3 text-sm text-destructive"><span>{errorMessage(saveError)}</span><Button type="button" variant="outline" disabled={busy || operation !== null} onClick={() => autosave(true)}>{t("重试保存")}</Button></div>}
           <div className="flex items-center justify-end gap-4 border-t pt-4">
           <Button variant="outline" type="button" disabled={busy || operation !== null || !saved || missing.length > 0} onClick={() => {

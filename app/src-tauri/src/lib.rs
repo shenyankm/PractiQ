@@ -29,6 +29,7 @@ use tauri_plugin_dialog::DialogExt;
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 enum Request {
     PickImport,
+    AddExampleBank,
     PickAudio,
     ReleaseAudio {
         hash: String,
@@ -259,6 +260,7 @@ async fn request(
             Request::PickAudio=>store.stage_audio(&selected.ok_or("No audio selected")?),
             Request::ReleaseAudio{hash}=>{store.staged_audio.remove(&hash);Ok(Value::Null)},
             Request::ListeningPlayback{id,question_id,action,position}=>store.listening_playback(&id,&question_id,action,position),
+            Request::AddExampleBank=>store.add_example_bank(),
             Request::PickImport=>store.preview_bank_zip(&selected.ok_or(language::error("LOCAL_FILE_NOT_SELECTED",json!({})))?),
             Request::ExportBank{bank_id}=>store.export_bank(&bank_id,&selected.ok_or(language::error("LOCAL_SAVE_LOCATION_MISSING",json!({})))?),
             Request::Import{ticket,bank_id,title}=>store.import(&ticket,bank_id,&title),

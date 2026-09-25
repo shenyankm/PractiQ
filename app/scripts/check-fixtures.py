@@ -1,11 +1,13 @@
 """Validate the shared desktop corpus against the actual AI contract."""
 import json
 import sys
+from typing import get_args
 from pathlib import Path
+from zipfile import ZipFile
 
 root = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(root / 'server/src'))
-from practiq_ai.contracts import DocumentParseResult  # noqa: E402
+from practiq_ai.contracts import AnswerMode, DocumentParseResult  # noqa: E402
 
 cases = json.loads((root / 'app/fixtures/contracts.json').read_text(encoding='utf-8'))
 for case in cases:
@@ -26,3 +28,7 @@ DocumentParseResult.model_validate_json((root / "app/fixtures/rich-content/expec
 DocumentParseResult.model_validate_json((root / "app/fixtures/composite.json").read_text(encoding="utf-8"))
 
 DocumentParseResult.model_validate_json((root / "app/fixtures/english.json").read_text(encoding="utf-8"))
+
+with ZipFile(root / "app/fixtures/all-types.zip") as archive:
+    example = DocumentParseResult.model_validate_json(archive.read("questions.json"))
+    assert {q.answerMode for q in example.questions} == set(get_args(AnswerMode))

@@ -13,6 +13,20 @@ afterEach(() => {
   vi.restoreAllMocks();
   vi.clearAllMocks();
 });
+it.each([false, true])("hides the empty task section with modelsReady=%s", async modelsReady => {
+  vi.mocked(invoke).mockImplementation(async (_command, args) => {
+    const { type } = (args as { request: { type: string } }).request;
+    if (type === "list") return { items: [], hasMore: false };
+    if (type === "batches") return { items: [], total: 0, offset: 0, operations: [] };
+    return [];
+  });
+  await act(async () => {
+    render(<AiTasks busy={false} run={job => {void job();}} onPreview={() => {}} modelsReady={modelsReady}/>);
+  });
+  expect(screen.queryByRole("region", {name: "导入任务"})).toBeNull();
+  expect(screen.queryByRole("table")).toBeNull();
+});
+
 it("shows progress and sends only the current run when pausing", async () => {
   const state = {
     threadId: "task",
@@ -73,7 +87,7 @@ it("shows progress and sends only the current run when pausing", async () => {
   expect(screen.getByText(/完成 1\/2/)).toBeTruthy();
   await waitFor(() => expect(localReads()).toBe(beforeControl + 1));
 });
-it.each([new Error("请先配置模型 ID"), { message: "请先配置模型 ID" }])("hides the empty state on task failure and shows it after successful retry (%j)", async error => {
+it.each([new Error("请先配置模型 ID"), { message: "请先配置模型 ID" }])("preserves task errors and hides the empty section after successful retry (%j)", async error => {
   vi.mocked(invoke).mockImplementation(async (_command, args) => {
     const { type } = (args as { request: { type: string } }).request;
     if (type === "batches") return {items:[],total:0,offset:0,operations:[]} as never;
@@ -99,7 +113,8 @@ it.each([new Error("请先配置模型 ID"), { message: "请先配置模型 ID" 
     return (type === "list" ? { items: [], hasMore: false } : type === "batches" ? {items:[],total:0,offset:0,operations:[]} : []) as never;
   });
   await userEvent.click(screen.getByRole("button", { name: "重试" }));
-  expect(await screen.findByText("暂无解析任务")).toBeTruthy();
+  await waitFor(() => expect(screen.queryByRole("region", {name: "导入任务"})).toBeNull());
+  expect(screen.queryByRole("table")).toBeNull();
   expect(screen.queryByRole("alert")).toBeNull();
   expect(vi.mocked(invoke).mock.calls.every(([, args]) => ["list", "operations", "batches"].includes((args as { request: { type: string } }).request.type))).toBe(true);
 });

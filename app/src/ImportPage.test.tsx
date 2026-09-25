@@ -257,6 +257,25 @@ it("merges banks only after selecting sources and confirming in the dialog", asy
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
 });
 
+it("adds the bundled example from an empty library without AI settings", async () => {
+  let added = false;
+  const bank = {id:"example",title:"全题型示例题库",description:"",count:20};
+  vi.mocked(api).mockImplementation(async r => {
+    if (r.type === "banks_page") return {items:added ? [bank] : [],total:added ? 1 : 0,offset:0} as never;
+    if (r.type === "banks") return (added ? [bank] : []) as never;
+    if (r.type === "unfinished_session") return null as never;
+    if (r.type === "info") return {version:"test",dataDirectory:"/tmp/test"} as never;
+    if (r.type === "add_example_bank") { added = true; return {bankId:bank.id,count:20,duplicate:false} as never; }
+    throw Error(r.type);
+  });
+  render(<App/>);
+  await userEvent.click(await screen.findByRole("button", {name:"添加示例题库"}));
+  expect(await screen.findByText("全题型示例题库")).toBeTruthy();
+  expect(screen.queryByRole("button", {name:"添加示例题库"})).toBeNull();
+  expect(vi.mocked(api).mock.calls.filter(([r]) => r.type === "add_example_bank")).toHaveLength(1);
+  expect(invoke).not.toHaveBeenCalled();
+});
+
 it("guides an empty library to import without requiring AI settings", async () => {
   vi.mocked(api).mockImplementation(async r => {
     if (r.type === "banks_page") return {items:[],total:0,offset:0} as never;

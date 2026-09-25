@@ -1,6 +1,6 @@
 # Document import tasks
 
-The Import page keeps document selection above a paginated task list, newest first. Each source document is one task. The detail drawer shows saved progress, review content, errors and model usage. ZIP import remains under Settings > Restore backup.
+The Import page keeps document selection above a paginated task list, newest first. The task heading and table are hidden when there are no tasks; loading, errors, pending operations and pagination remain visible when needed. Each source document is one task. The detail drawer shows saved progress, review content, errors and model usage. ZIP import remains under Settings > Restore backup.
 
 ## State and actions
 
@@ -32,3 +32,5 @@ Batch selection applies to the current page. Selection clears on page changes an
 Local batch history has its own 20-batch pages; active batches remain visible on every history page. Import failures for the visible tasks and the selected task are resolved independently of the history page. An active pending import takes precedence over historical failures for the same task and checkpoint. Receipt reconciliation reuses one SQLite connection per page. Manifest discovery still scans the local batch directory; it does not load every historical item into the UI.
 
 Selecting a file still requires explicit confirmation before parsing. Reviewing saved results and importing do not call a model. Resume/retry calls require explicit user action. Confirmed imports stay on the task list; opening a bank is a separate action. Local batch recovery controls remain visible without model configuration.
+
+An empty My Banks page offers “添加示例题库” (Add example bank). It imports the bundled all-types ZIP locally without model configuration or calls, covering every answer mode and English question kind, including chime audio for listening and an image example.
