@@ -229,26 +229,9 @@ impl Store {
                 let q = &mut a["snapshot"]["question"];
                 a_blank_count(q);
                 strip_answer_lines(q);
-                if let Some(groups) = a["snapshot"]["groups"].as_array_mut() {
-                    groups.retain(|g| {
-                        !answer_text(text(g, "title")) && !answer_text(text(g, "instructions"))
-                    });
-                }
                 if let Some(materials) = a["snapshot"]["materials"].as_array_mut() {
                     for material in materials {
                         strip_answer_lines(material);
-                    }
-                }
-                if let Some(visuals) = a["snapshot"]["visuals"].as_array_mut() {
-                    visuals.retain(|visual| !crate::questions::answer_content(visual));
-                    for visual in visuals {
-                        visual
-                            .as_object_mut()
-                            .ok_or(crate::language::error(
-                                "LOCAL_IMAGE_FORMAT_INVALID",
-                                serde_json::json!({}),
-                            ))?
-                            .remove("sourceRef");
                     }
                 }
                 a["result"] = Value::Null;
@@ -392,7 +375,7 @@ pub(crate) fn strip_answer_lines(q: &mut Value) {
     }
 }
 
-fn answer_text(value: &str) -> bool {
+pub(crate) fn answer_text(value: &str) -> bool {
     value.to_lowercase().split(['\n', '|']).any(|line| {
         let label = line
             .split([':', '：'])

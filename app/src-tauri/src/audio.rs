@@ -292,12 +292,20 @@ pub fn redact_session(session: &mut Value) {
                 listening_locked = true;
             }
         }
-        if listening_locked {
-            if let Some(blocks) = a["snapshot"]["question"]["contentBlocks"].as_array_mut() {
-                blocks.retain(|b| !crate::questions::answer_content(b));
+        if (!reveal && protected) || listening_locked {
+            if let Some(groups) = a["snapshot"]["groups"].as_array_mut() {
+                groups.retain(|g| {
+                    !crate::exams::answer_text(text(g, "title"))
+                        && !crate::exams::answer_text(text(g, "instructions"))
+                });
             }
             if let Some(visuals) = a["snapshot"]["visuals"].as_array_mut() {
                 visuals.retain(|v| !crate::questions::answer_content(v));
+            }
+        }
+        if listening_locked {
+            if let Some(blocks) = a["snapshot"]["question"]["contentBlocks"].as_array_mut() {
+                blocks.retain(|b| !crate::questions::answer_content(b));
             }
         }
         if (!reveal && protected) || listening_locked {
@@ -307,7 +315,9 @@ pub fn redact_session(session: &mut Value) {
                 .into_iter()
                 .flatten()
             {
-                visual.as_object_mut().unwrap().remove("sourceRef");
+                if let Some(visual) = visual.as_object_mut() {
+                    visual.remove("sourceRef");
+                }
             }
         }
     }
@@ -357,6 +367,34 @@ mod tests {
         assert_eq!(question["stem"], "Write a letter");
         assert_eq!(question["instructions"], "Use 100 words");
         assert!(!question.to_string().contains("SECRET"));
+    }
+    #[test]
+    fn protected_practice_hides_answer_groups_and_visuals_until_submission() {
+        for kind in ["writing", "translation", "listening"] {
+            let original = json!({"kind":"practice","submittedAt":null,"finishedAt":null,"attempts":[{
+                "submittedAt":null,
+                "snapshot":{
+                    "question":{"questionKind":if kind == "listening" { "choice" } else { kind },"contentBlocks":[],"passage":[]},
+                    "materials":if kind == "listening" { json!([{"id":"root","answerMode":"listening","transcript":[]}]) } else { json!([]) },
+                    "groups":[{"title":"Prompt","instructions":"Read this"},{"title":"Answer: SECRET","instructions":"Reveal"},{"title":"More context","instructions":"Answer: SECRET"}],
+                    "visuals":[{"role":"question","imageRef":{"sha256":"question"},"sourceRef":{"sha256":"full-page"}},{"role":"answer","imageRef":{"sha256":"SECRET"}}]
+                }
+            }]});
+            let mut pending = original.clone();
+            redact_session(&mut pending);
+            let snapshot = &pending["attempts"][0]["snapshot"];
+            assert_eq!(snapshot["groups"].as_array().unwrap().len(), 1, "{kind}");
+            assert_eq!(snapshot["visuals"].as_array().unwrap().len(), 1, "{kind}");
+            assert!(snapshot["visuals"][0].get("sourceRef").is_none(), "{kind}");
+            assert!(!snapshot.to_string().contains("SECRET"), "{kind}");
+
+            let mut submitted = original;
+            submitted["attempts"][0]["submittedAt"] = json!(1);
+            redact_session(&mut submitted);
+            let snapshot = &submitted["attempts"][0]["snapshot"];
+            assert_eq!(snapshot["groups"].as_array().unwrap().len(), 3, "{kind}");
+            assert_eq!(snapshot["visuals"].as_array().unwrap().len(), 2, "{kind}");
+        }
     }
     #[test]
     fn question_save_collects_replaced_audio_and_failed_persistence() {
