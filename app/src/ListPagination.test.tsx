@@ -5,7 +5,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import App from "./App";
 import { api, type Bank, type SessionSummary } from "./api";
 
-vi.mock("@tauri-apps/api/core", () => ({invoke:vi.fn().mockResolvedValue([]),isTauri:()=>false}));
+vi.mock("@tauri-apps/api/core", () => ({invoke:vi.fn(async (_command, args) => (args as {request:{type:string}}).request.type === "batches" ? {items:[],total:0,offset:0,operations:[]} : []),isTauri:()=>false}));
 vi.mock("./api", async () => ({...await vi.importActual("./api"),api:vi.fn()}));
 HTMLElement.prototype.hasPointerCapture = () => false;
 HTMLElement.prototype.scrollIntoView = () => {};
