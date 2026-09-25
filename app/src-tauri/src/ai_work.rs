@@ -458,17 +458,20 @@ pub fn batches(dir: &Path, work: &WorkState, offset: usize, threads: &[String]) 
     });
     let mut operations = Vec::new();
     let mut seen = HashSet::new();
-    for batch in &batches {
-        for item in &batch.items {
-            if threads.contains(&item.thread_id) {
-                let state = match item.status {
-                    ItemStatus::Failed => Some("failed"),
-                    ItemStatus::Pending if active.contains_key(&batch.id) => Some("importing"),
-                    _ => None,
-                };
-                if let Some(state) = state {
-                    if seen.insert((&item.thread_id, &item.checkpoint_id)) {
-                        operations.push(json!({"threadId":item.thread_id,"checkpointId":item.checkpoint_id,"state":state,"error":item.error}));
+    for priority in ["importing", "failed"] {
+        for batch in &batches {
+            for item in &batch.items {
+                if threads.contains(&item.thread_id) {
+                    let state = match item.status {
+                        ItemStatus::Failed => Some("failed"),
+                        ItemStatus::Pending if active.contains_key(&batch.id) => Some("importing"),
+                        _ => None,
+                    };
+                    if let Some(state) = state {
+                        if state == priority && seen.insert((&item.thread_id, &item.checkpoint_id))
+                        {
+                            operations.push(json!({"threadId":item.thread_id,"checkpointId":item.checkpoint_id,"state":state,"error":item.error}));
+                        }
                     }
                 }
             }
@@ -808,11 +811,14 @@ mod tests {
         assert_eq!(page["items"][0]["id"], first);
         assert_eq!(page["items"][0]["status"], "running");
         assert_eq!(page["operations"].as_array().unwrap().len(), 1);
-        assert_eq!(page["operations"][0]["state"], "failed");
-        let last = batches(dir.path(), &work, 200, &[thread]).unwrap();
+        assert_eq!(page["operations"][0]["state"], "importing");
+        let last = batches(dir.path(), &work, 200, std::slice::from_ref(&thread)).unwrap();
         assert_eq!(last["offset"], 20);
         assert_eq!(last["items"].as_array().unwrap().len(), 6);
         assert_eq!(last["operations"], page["operations"]);
+        drop(_lease);
+        let inactive = batches(dir.path(), &work, 0, &[thread]).unwrap();
+        assert_eq!(inactive["operations"][0]["state"], "failed");
         assert!(batches(dir.path(), &work, 0, &["invalid".into()]).is_err());
     }
 
