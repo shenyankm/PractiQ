@@ -84,7 +84,11 @@ function PracticeQuestion({
         while (pendingDraft.current) {
           const next = pendingDraft.current;
           pendingDraft.current = null;
-          await api({type:"save_draft", id:session.id, ordinal:session.position, answer:next.answer, elapsed_ms:next.elapsed});
+          try {
+            await api({type:"save_draft", id:session.id, ordinal:session.position, answer:next.answer, elapsed_ms:next.elapsed});
+          } catch (error) {
+            if (!pendingDraft.current) throw error;
+          }
         }
       });
       draftJob.current = drain;

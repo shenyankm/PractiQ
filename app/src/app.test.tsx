@@ -204,6 +204,37 @@ it("coalesces blocked draft writes and flushes the latest answer before navigati
   await waitFor(()=>expect(api).toHaveBeenLastCalledWith({type:"position",id:"exam",position:1}));
 });
 
+it.each([false, true])("drains newer drafts after a failed write and reports latest failure=%s", async failLatest => {
+  const session = {...examSession(), deadlineAt: null};
+  session.attempts.push({...session.attempts[0], ordinal: 1});
+  const pending: {resolve: () => void; reject: (error: Error) => void}[] = [];
+  vi.mocked(api).mockImplementation(request => request.type === "save_draft"
+    ? new Promise((resolve, reject) => { pending.push({resolve: () => resolve(null as never), reject}); })
+    : Promise.resolve(session) as never);
+  const failure = vi.fn();
+  render(<Practice session={session} onSession={vi.fn()} run={job => {void job().catch(failure);}} flushRef={{current:async()=>{}}}/>);
+  const input = screen.getByRole("textbox", {name:"作答内容"});
+  fireEvent.change(input, {target:{value:"first"}});
+  await waitFor(() => expect(pending).toHaveLength(1));
+  fireEvent.change(input, {target:{value:"latest"}});
+  await userEvent.click(screen.getByRole("button", {name:"下一题"}));
+  await act(async () => pending[0].reject(new Error("first failed")));
+  expect(pending).toHaveLength(2);
+  expect(api).toHaveBeenLastCalledWith(expect.objectContaining({type:"save_draft",answer:{text:"latest"}}));
+  expect(vi.mocked(api).mock.calls.some(([r]) => r.type === "position")).toBe(false);
+  const latestError = new Error("latest failed");
+  await act(async () => { if (failLatest) pending[1].reject(latestError); else pending[1].resolve(); });
+  if (failLatest) {
+    expect(failure).toHaveBeenCalledWith(latestError);
+    expect(screen.getByRole("alert").textContent).toContain("答案保存失败");
+    expect(vi.mocked(api).mock.calls.some(([r]) => r.type === "position")).toBe(false);
+  } else {
+    await waitFor(() => expect(api).toHaveBeenLastCalledWith({type:"position",id:"exam",position:1}));
+    expect(failure).not.toHaveBeenCalled();
+    expect(screen.getByText(/· 已保存/)).toBeTruthy();
+  }
+});
+
 it("keeps grading idle when the shared UI lock declines the job", async () => {
   const session=examSession();session.submittedAt=1;session.attempts[0].submittedAt=1;
   const onSession=vi.fn();
