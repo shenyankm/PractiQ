@@ -5,7 +5,18 @@ import { afterEach, expect, it, vi } from "vitest";
 import App from "./App";
 import { api, type Bank, type SessionSummary } from "./api";
 
-vi.mock("@tauri-apps/api/core", () => ({invoke:vi.fn(async (_command, args) => (args as {request:{type:string}}).request.type === "batches" ? {items:[],total:0,offset:0,operations:[]} : []),isTauri:()=>false}));
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: vi.fn(async (_command, args) => {
+    const { type } = (args as {request:{type:string}}).request;
+    switch (type) {
+      case "list": return {items:[],hasMore:false};
+      case "batches": return {items:[],total:0,offset:0,operations:[]};
+      case "operations": return [];
+      default: throw new Error(`Unexpected AI request: ${type}`);
+    }
+  }),
+  isTauri: () => false,
+}));
 vi.mock("./api", async () => ({...await vi.importActual("./api"),api:vi.fn()}));
 HTMLElement.prototype.hasPointerCapture = () => false;
 HTMLElement.prototype.scrollIntoView = () => {};
@@ -51,6 +62,8 @@ it("pages native bank summaries, keeps all merge/study choices, and clamps after
   expect(within(screen.getByRole("dialog")).getByRole("checkbox",{name:"Bank 30（1）"})).toBeTruthy();
   await userEvent.keyboard("{Escape}");
   await userEvent.click(screen.getByRole("button",{name:"导入题库"}));
+  await screen.findByText("解析新文档前，请配置 AI 模型");
+  await waitFor(() => expect(screen.queryAllByRole("status")).toHaveLength(0));
   await userEvent.click(await screen.findByRole("button",{name:"设置"}));
   await userEvent.click(await screen.findByRole("button",{name:"恢复备份"}));
   await userEvent.click(await screen.findByRole("menuitem",{name:"导入题库 ZIP"}));
