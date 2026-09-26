@@ -22,7 +22,7 @@ def main():
     (OUTPUT/'THIRD-PARTY.txt').write_text('Python and Python dependency licenses are retained in the bundled distribution metadata.\n')
     from importlib.metadata import distributions
     packages=sorted([{'name':d.metadata['Name'],'version':d.version} for d in distributions(path=[str(OUTPUT/'python/_internal')])],key=lambda d:d['name'].lower())
-    assert not {'python-docx', 'openpyxl', 'psycopg', 'psycopg-pool', 'langgraph-checkpoint-postgres', 'langgraph-api', 'langgraph-runtime-inmem', 'langgraph-grpc-common'} & {p['name'].lower() for p in packages}, 'Retired dependencies were bundled'
+    assert not {'alibabacloud-oss-v2', 'python-docx', 'openpyxl', 'psycopg', 'psycopg-pool', 'langgraph-checkpoint-postgres', 'langgraph-api', 'langgraph-runtime-inmem', 'langgraph-grpc-common'} & {p['name'].lower() for p in packages}, 'Retired dependencies were bundled'
     (OUTPUT/'build-manifest.json').write_text(json.dumps({'architecture':'arm64','python':sys.version,'packages':packages},indent=2))
     print(f'Bundled resources: {OUTPUT}')
 

@@ -49,7 +49,7 @@ async def run(action: str):
         if action == 'init-db':
             async with exclusive(db):
                 await db.initialize()
-            print('Initialized dedicated OSS task database')
+            print('Initialized dedicated SQLite task database')
         else:
             await db.check_schema()
             print(f'Expired tasks removed: {await cleanup(db)}')

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 
 export function ImportBankDialog({ preview, banks, initialBank, busy, run, onClose, onImported, onState }: {
   preview: Preview;
@@ -32,13 +32,10 @@ export function ImportBankDialog({ preview, banks, initialBank, busy, run, onClo
         <div className="space-y-4">
           <QuestionPreview questions={preview.questions ?? []} groups={preview.groups} visuals={preview.visuals} />
           <Label htmlFor="import-bank">{t("导入到")}</Label>
-          <Select value={bank} onValueChange={setBank}>
-            <SelectTrigger id="import-bank"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="new">{t("新建题库")}</SelectItem>
-              {banks.map(choice => <SelectItem key={choice.id} value={choice.id}>{choice.title}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <NativeSelect id="import-bank" value={bank} onChange={event => setBank(event.target.value)}>
+            <NativeSelectOption value="new">{t("新建题库")}</NativeSelectOption>
+            {banks.map(choice => <NativeSelectOption key={choice.id} value={choice.id}>{choice.title}</NativeSelectOption>)}
+          </NativeSelect>
           {bank === "new" && <Input aria-label={t("题库名称")} value={title} onChange={event => setTitle(event.target.value)} />}
           <div className="rounded-lg border p-4 text-sm">
             <p>{t("已加载 {0} 张图片，缺失 {1} 个资源。", { 0: preview.assetCount, 1: preview.missingAssets.length })}</p>

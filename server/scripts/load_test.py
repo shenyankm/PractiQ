@@ -270,7 +270,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--total", type=int, default=400)
     parser.add_argument("--api", choices=("document-tasks",), default="document-tasks")
     parser.add_argument("--allow-rejections", action="store_true", help="Overload drill: count explicit 429/503 as bounded admission, but require successful work")
-    parser.add_argument("--environment", choices=("oss-local", "oss-container"), default="oss-local")
+    parser.add_argument("--environment", choices=("local", "container"), default="local")
     parser.add_argument("--image-digest")
     parser.add_argument("--submit-concurrency", type=int, default=100)
     parser.add_argument("--max-running", type=int, default=8)
@@ -281,7 +281,7 @@ def parse_args() -> argparse.Namespace:
     args = parser.parse_args()
     if not args.token:
         parser.error("--token or AI_SERVICE_TOKEN is required")
-    if args.environment == "oss-container" and not args.image_digest:
+    if args.environment == "container" and not args.image_digest:
         parser.error("container evidence requires --image-digest")
     if min(args.total, args.submit_concurrency, args.max_running, args.graph_concurrency, args.request_timeout, args.completion_timeout) <= 0:
         parser.error("capacity parameters must be positive")

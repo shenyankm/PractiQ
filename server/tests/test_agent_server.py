@@ -114,7 +114,7 @@ async def prepare(tmp_path, phase=''):
     return Server(tmp_path, db.directory, phase)
 
 
-async def test_oss_server_auth_routes_and_graphs(tmp_path):
+async def test_server_auth_routes_and_graphs(tmp_path):
     server = await prepare(tmp_path)
     try:
         await asyncio.to_thread(server.start)

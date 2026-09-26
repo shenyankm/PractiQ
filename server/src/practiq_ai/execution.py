@@ -48,7 +48,7 @@ def code_version() -> str:
 @lru_cache(maxsize=1)
 def runtime_version() -> dict[str, Any]:
     packages = {}
-    for name in ("langgraph", "langgraph-checkpoint-sqlite", "aiosqlite", "langchain-core", "langchain-openai", "pydantic", "pypdfium2", "pillow", "alibabacloud-oss-v2"):
+    for name in ("langgraph", "langgraph-checkpoint-sqlite", "aiosqlite", "langchain-core", "langchain-openai", "pydantic", "pypdfium2", "pillow"):
         try:
             packages[name] = version(name)
         except PackageNotFoundError:
@@ -58,8 +58,7 @@ def runtime_version() -> dict[str, Any]:
 
 def signature() -> dict[str, Any]:
     settings = asdict(load())
-    for key in ("api_key", "oss_access_key_id", "oss_access_key_secret", "oss_security_token"):
-        settings.pop(key)
+    settings.pop("api_key")
     # Concurrency and timeouts can change without changing document semantics.
     for key in ("jobs_per_worker", "graph_max_concurrency", "storage_concurrency", "storage_timeout_seconds", "model_timeout_seconds", "deployment_workers", "provider_concurrency", "provider_rpm", "upload_concurrency", "upload_timeout_seconds", "max_busy_threads", "maintenance"):
         settings.pop(key)

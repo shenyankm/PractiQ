@@ -4,13 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { ArrowUp, ArrowDown } from "lucide-react";
 import { type Question, type Answer, canInteract, itemIds } from "./api";
 import { countEnglishWords } from "./english";
@@ -216,36 +210,31 @@ export function AnswerInput({
               className="grid grid-cols-2 items-center gap-4 rounded-lg border p-3"
             >
               <Markdown>{item.content}</Markdown>
-              <Select
+              <NativeSelect
+                className="w-full"
+                aria-label={t("匹配 {0}", { 0: item.content })}
                 disabled={disabled}
                 value={
                   a.matches
                     ?.find((p) => p.left === item.id)
                     ?.right.toString() || ""
                 }
-                onValueChange={(v) =>
+                onChange={(event) =>
                   onChange({
                     matches: [
                       ...(a.matches || []).filter((p) => p.left !== item.id),
-                      { left: item.id, right: Number(v) },
+                      { left: item.id, right: Number(event.target.value) },
                     ],
                   })
                 }
               >
-                <SelectTrigger
-                  className="w-full"
-                  aria-label={t("匹配 {0}", { 0: item.content })}
-                >
-                  <SelectValue placeholder={t("选择对应项")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {itemIds(q, "right").map((right, index) => (
-                    <SelectItem key={right.id} value={String(right.id)}>
-                      {q.questionKind === "paragraph_matching" ? right.label || String(index+1) : right.content}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                <NativeSelectOption value="" disabled>{t("选择对应项")}</NativeSelectOption>
+                {itemIds(q, "right").map((right, index) => (
+                  <NativeSelectOption key={right.id} value={String(right.id)}>
+                    {q.questionKind === "paragraph_matching" ? right.label || String(index+1) : right.content}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
             </div>
           ))}
         </div>

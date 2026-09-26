@@ -136,19 +136,17 @@ it("releases staged and late audio picks when the answer mode changes", async ()
     return null as never;
   });
   render(<QuestionEditor initial={{...question("listen"),audioRef:null}} busy={false} onClose={()=>{}} onSave={()=>{}}/>);
-  const chooseMode=async (name:string)=>{
-    screen.getByRole("combobox",{name:"答题方式"}).focus();
-    await user.keyboard("{Enter}");
-    await user.click(screen.getByRole("option",{name}));
+  const chooseMode=async (value:string)=>{
+    await user.selectOptions(screen.getByRole("combobox",{name:"答题方式"}),value);
   };
   await user.click(screen.getByRole("button",{name:"选择听力音频"}));
   await screen.findByRole("button",{name:"移除音频"});
-  await chooseMode("简答题");
+  await chooseMode("short_answer");
   await waitFor(()=>expect(mockApi).toHaveBeenCalledWith({type:"release_audio",hash:refs[0].sha256}));
-  await chooseMode("听力题");
+  await chooseMode("listening");
   await user.click(screen.getByRole("button",{name:"选择听力音频"}));
   await waitFor(()=>expect(picks).toBe(2));
-  await chooseMode("简答题");
+  await chooseMode("short_answer");
   resolveLate!({reference:refs[1],duration:3});
   await waitFor(()=>expect(mockApi).toHaveBeenCalledWith({type:"release_audio",hash:refs[1].sha256}));
   expect(screen.queryByRole("button",{name:"移除音频"})).toBeNull();

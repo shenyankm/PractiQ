@@ -118,7 +118,7 @@ make init-db AI_PYTHON=/path/to/python3.14
 make server-dev AI_PYTHON=/path/to/python3.14
 ```
 
-服务监听 `127.0.0.1:8090`，每个数据库只运行一个服务进程。服务使用 FastAPI、LangGraph 和 SQLite，文件存于本地或私有阿里云对象存储（OSS）。上传、文档任务、素材读取和主动请求的主观题评分均使用鉴权 API。
+服务监听 `127.0.0.1:8090`，每个数据库只运行一个服务进程。服务使用 FastAPI、LangGraph 和 SQLite，文件存于本地持久目录。上传、文档任务、素材读取和主动请求的主观题评分均使用鉴权 API。
 
 ## 📖 查找详细说明
 

@@ -1,4 +1,4 @@
-"""Content-addressed local or Alibaba Cloud OSS storage for source and derived artifacts."""
+"""Content-addressed local storage for source and derived artifacts."""
 
 import asyncio
 import hashlib
@@ -8,11 +8,8 @@ import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 from urllib.parse import urlencode
-
-import alibabacloud_oss_v2 as oss
-from alibabacloud_oss_v2.types import StreamBody
 
 from .config import Config, load
 from .contracts import (
@@ -238,65 +235,9 @@ class ObjectStore:
         )
 
 
-class OSSObjectStore(ObjectStore):
-    """Reuse reference/checksum validation and change only the storage operations."""
-
-    def __init__(self, config: Config):
-        super().__init__(config)
-        cfg = oss.config.load_default()
-        cfg.region = config.oss_region
-        cfg.endpoint = config.oss_endpoint
-        cfg.use_cname = config.oss_use_cname
-        cfg.credentials_provider = oss.credentials.StaticCredentialsProvider(
-            config.oss_access_key_id, config.oss_access_key_secret, config.oss_security_token
-        )
-        cfg.connect_timeout = config.storage_timeout_seconds
-        cfg.readwrite_timeout = config.storage_timeout_seconds
-        cfg.retry_max_attempts = 1
-        self.client = oss.Client(cfg)
-
-    def _write(self, key: str, payload: bytes) -> None:
-        self.client.put_object(oss.PutObjectRequest(
-            bucket=self._config.oss_bucket, key=key, body=payload,
-        ))
-
-    def _read(self, key: str, size: int) -> bytes:
-        result = self.client.get_object(oss.GetObjectRequest(
-            bucket=self._config.oss_bucket, key=key,
-        ))
-        body = cast(StreamBody, result.body)
-        try:
-            payload = bytearray()
-            for chunk in body.iter_bytes(chunk_size=64 * 1024):
-                if len(payload) + len(chunk) > size:
-                    raise DocumentProcessingError(
-                        409, "Stored document size does not match", "DOCUMENT_SIZE_MISMATCH"
-                    )
-                payload.extend(chunk)
-            return bytes(payload)
-        finally:
-            body.close()
-
-    def _size(self, key: str) -> int | None:
-        try:
-            result = self.client.head_object(oss.HeadObjectRequest(
-                bucket=self._config.oss_bucket, key=key,
-            ))
-        except oss.exceptions.OperationError as exc:
-            error = exc.unwrap()
-            if (isinstance(error, oss.exceptions.ServiceError)
-                    and error.status_code == 404 and error.code in {"NoSuchKey", "NotFound"}):
-                return None
-            raise
-        if result.content_length is None:
-            raise self._unavailable()
-        return result.content_length
-
-
 @lru_cache(maxsize=1)
 def get_object_store() -> ObjectStore:
-    config = load()
-    return OSSObjectStore(config) if config.storage_backend == "oss" else ObjectStore(config)
+    return ObjectStore(load())
 
 
 def _suffix(media_type: str) -> str:

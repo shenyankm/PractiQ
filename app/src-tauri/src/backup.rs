@@ -434,13 +434,12 @@ fn validate_database(path: &Path) -> Result<i64> {
     if version >= 2 {
         let config = db
             .query_row(
-                "SELECT base_url,model_id,oss_url FROM settings WHERE id=1",
+                "SELECT base_url,model_id FROM settings WHERE id=1",
                 [],
                 |r| {
                     Ok(crate::settings::ConnectionSettings {
                         base_url: r.get(0)?,
                         model_id: r.get(1)?,
-                        oss_url: r.get(2)?,
                     })
                 },
             )

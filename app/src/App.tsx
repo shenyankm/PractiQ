@@ -50,13 +50,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import {
   Dialog,
   DialogContent,
@@ -516,24 +510,19 @@ export default function App() {
                     onChange={(e) => setSearch(e.target.value)}
                   />
                 </InputGroup>
-                <Select
-                  value={mode || "all"}
-                  onValueChange={(v) => setMode(v === "all" ? "" : v)}
+                <NativeSelect
+                  className="w-40"
+                  aria-label={t("筛选题型")}
+                  value={mode}
+                  onChange={(event) => setMode(event.target.value)}
                 >
-                  <SelectTrigger className="w-40" aria-label={t("筛选题型")}>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">{t("全部题型")}</SelectItem>
-                    <SelectItem value="single">{t("单选题")}</SelectItem>
-                    <SelectItem value="multiple">{t("多选题")}</SelectItem>
-                    {Object.entries({...modeNames(),...questionKinds()}).filter(([key])=>key!=="gap_fill").map(([v, label]) => (
-                      <SelectItem key={v} value={v}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  <NativeSelectOption value="">{t("全部题型")}</NativeSelectOption>
+                  <NativeSelectOption value="single">{t("单选题")}</NativeSelectOption>
+                  <NativeSelectOption value="multiple">{t("多选题")}</NativeSelectOption>
+                  {Object.entries({...modeNames(),...questionKinds()}).filter(([key])=>key!=="gap_fill").map(([v, label]) => (
+                    <NativeSelectOption key={v} value={v}>{label}</NativeSelectOption>
+                  ))}
+                </NativeSelect>
               </div>
               {questions.length ? (
                 <>

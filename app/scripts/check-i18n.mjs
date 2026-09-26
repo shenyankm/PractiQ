@@ -33,7 +33,7 @@ try {
     case 'question_stats':return {count:questions.length,types:{single:questions.length}};
     case 'questions_page':return {items:questions.slice(request.offset,request.offset+request.limit),total:questions.length,offset:request.offset};
     case 'info':return {version:'preview',dataDirectory:'/local/test'};
-    case 'settings':return {config:{base_url:null,model_id:null,oss_url:null},hasApiKey:false};
+    case 'settings':return {config:{base_url:null,model_id:null},hasApiKey:false};
     case 'preview_paper': {
      const selected=questions.slice(0,request.request.count);
      return {questionIds:selected.map(q=>q.id),digest:'browser-preview',questions:selected,scores:selected.map(()=>0),count:selected.length};

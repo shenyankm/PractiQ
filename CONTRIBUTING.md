@@ -16,6 +16,8 @@ When making changes:
 - Update documentation, contracts, and `.env.example` when the change affects them.
 - Keep secrets, personal data, production data, and generated output out of Git.
 
+Frontend message keys are the Simplified Chinese source text; add their English translations to `app/src/locales/en.ts`. Reuse `NativeSelect` for plain-text option lists. Desktop connection settings expose only `base_url` and `model_id`; the unused `oss_url` SQLite column is retained unchanged for existing databases and backups.
+
 ## Check the affected code
 
 Run commands from the repository root with an existing Python 3.14+ interpreter. Use `AI_PYTHON` to select it; do not create a project `.venv`. Install locked dependencies with `make install-locked AI_PYTHON=/path/to/python3.14`.
@@ -36,7 +38,7 @@ Run `make test-e2e AI_PYTHON=/path/to/python3.14` for the service HTTP workflows
 
 Coverage includes Python subprocesses. `make verify` erases previous coverage data and combines the current run before generating reports, including when tests fail. For manual coverage runs, run `coverage combine` before `coverage report`.
 
-`make app-check` checks shared Python/Rust contracts, TypeScript, frontend interactions, native integration tests, and Clippy. `make app-package-check` builds the macOS package and runs `app/scripts/check-bundle.py` against its bundled service. Use isolated application data for native UI acceptance.
+`make app-check` checks shared Python/Rust contracts, TypeScript, frontend interactions, native integration tests, and Clippy across all targets, including test code. `make app-package-check` builds the macOS package and runs `app/scripts/check-bundle.py` against its bundled service. Use isolated application data for native UI acceptance.
 
 The Keychain round-trip test uses and removes its own temporary credential. Run it explicitly on macOS:
 

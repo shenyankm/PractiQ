@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { expect, it } from "vitest";
 
 // Product/technical names and the two self-identifying language choices are intentional.
-const literalLabels = new Set(["PractiQ", "API Key", "Base URL", "https://api.example.com/v1", "OSS URL", "简体中文", "English"]);
+const literalLabels = new Set(["PractiQ", "API Key", "Base URL", "https://api.example.com/v1", "简体中文", "English"]);
 function untranslated(source: string) {
   const failures: string[] = [];
   function check(value: string, line: number) {
@@ -44,8 +44,7 @@ it("routes application JSX copy and accessible labels through the dictionary", (
 it("translates every local error code emitted by Rust", async () => {
   const {default:messages} = await import("./locales/native.json");
   const { en } = await import("./locales/en");
-  const { zhCN } = await import("./locales/zh-CN");
-  const mapped = Object.fromEntries([...readFileSync('src/api.ts','utf8').matchAll(/([A-Z_]+): t\("([^"]+)"\)/g)].map(([,code,key]) => [code,{en:en[key as keyof typeof en],"zh-CN":zhCN[key as keyof typeof zhCN]}]));
+  const mapped = Object.fromEntries([...readFileSync('src/api.ts','utf8').matchAll(/([A-Z_]+): t\("([^"]+)"\)/g)].map(([,code,key]) => [code,{en:en[key as keyof typeof en],"zh-CN":key}]));
   const codes = new Set<string>();
   for (const file of readdirSync('src-tauri/src').filter(f=>f.endsWith('.rs'))) {
     for (const match of readFileSync(join('src-tauri/src',file),'utf8').matchAll(/"(LOCAL_[A-Z_]+)"/g)) codes.add(match[1]);

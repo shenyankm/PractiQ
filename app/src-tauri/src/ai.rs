@@ -1009,7 +1009,6 @@ mod tests {
         let config = crate::settings::ConnectionSettings {
             base_url: Some("https://example.com/v1".into()),
             model_id: Some("unified-model".into()),
-            ..Default::default()
         };
         assert!(super::confirm_document(
             &path,

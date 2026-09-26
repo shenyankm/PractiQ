@@ -2,11 +2,9 @@
 
 import ipaddress
 import os
-import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from math import isfinite
 from pathlib import Path
-from typing import Any
 from urllib.parse import urlsplit
 
 MIB = 1024 * 1024
@@ -43,14 +41,6 @@ class Config:
     max_busy_threads: int = 300
     maintenance: bool = False
     structured_output_method: str = "function_calling"
-    storage_backend: str = "local"
-    oss_region: str = ""
-    oss_bucket: str = ""
-    oss_endpoint: str | None = None
-    oss_use_cname: bool = False
-    oss_access_key_id: str = field(default="", repr=False)
-    oss_access_key_secret: str = field(default="", repr=False)
-    oss_security_token: str | None = field(default=None, repr=False)
 
 
 def _required(values: dict[str, str], key: str) -> str:
@@ -104,31 +94,8 @@ def load() -> Config:
     storage_dir = values.get("AI_STORAGE_DIR", ".local/ai-oss").strip()
     if not storage_dir:
         raise ValueError("AI_STORAGE_DIR must not be empty")
-    storage_backend = values.get("AI_STORAGE_BACKEND", "local").strip()
-    if storage_backend not in {"local", "oss"}:
-        raise ValueError("AI_STORAGE_BACKEND must be local or oss")
-    oss_settings: dict[str, Any] = {}
-    if storage_backend == "oss":
-        for name in ("REGION", "BUCKET", "ACCESS_KEY_ID", "ACCESS_KEY_SECRET"):
-            oss_settings[f"oss_{name.lower()}"] = _required(values, f"AI_OSS_{name}")
-        if not re.fullmatch(r"[a-z0-9][a-z0-9-]{1,61}[a-z0-9]", oss_settings["oss_bucket"]):
-            raise ValueError("AI_OSS_BUCKET must be a valid OSS bucket name")
-        if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)+", oss_settings["oss_region"]):
-            raise ValueError("AI_OSS_REGION must be an OSS region ID")
-        endpoint = values.get("AI_OSS_ENDPOINT", "").strip() or None
-        if endpoint:
-            url = urlsplit(endpoint)
-            if (url.scheme != "https" or not url.hostname or url.username or url.password
-                    or url.path not in {"", "/"} or url.query or url.fragment):
-                raise ValueError("AI_OSS_ENDPOINT must be an HTTPS origin")
-        cname = values.get("AI_OSS_USE_CNAME", "false").strip().lower()
-        if cname not in {"true", "false"} or (cname == "true" and not endpoint):
-            raise ValueError("AI_OSS_USE_CNAME must be true or false; true requires AI_OSS_ENDPOINT")
-        oss_settings.update(
-            oss_endpoint=endpoint,
-            oss_use_cname=cname == "true",
-            oss_security_token=values.get("AI_OSS_SECURITY_TOKEN", "").strip() or None,
-        )
+    if values.get("AI_STORAGE_BACKEND", "local").strip() != "local":
+        raise ValueError("AI_STORAGE_BACKEND no longer supports remote storage; migrate files to AI_STORAGE_DIR before using local storage")
     method = values.get("AI_STRUCTURED_OUTPUT_METHOD", "function_calling")
     if method not in {"auto", "json_schema", "function_calling"}:
         raise ValueError("AI_STRUCTURED_OUTPUT_METHOD must be auto, json_schema or function_calling")
@@ -172,8 +139,6 @@ def load() -> Config:
         upload_timeout_seconds=_positive_float(values, "AI_UPLOAD_TIMEOUT_SECONDS", 120),
         max_busy_threads=_positive_int(values, "AI_MAX_BUSY_THREADS", 300),
         structured_output_method=method,
-        storage_backend=storage_backend,
-        **oss_settings,
         provider=provider,
         api_key=_required(values, "LLM_API_KEY"),
         model_id=model_id,

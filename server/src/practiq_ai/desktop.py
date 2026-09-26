@@ -28,7 +28,7 @@ def main():
         if key.startswith(('AI_', 'LLM_', 'DATABASE_')):
             os.environ.pop(key)
     os.environ.update(config)
-    os.environ.update(LLM_PROVIDER='openai', AI_STORAGE_BACKEND='local', AI_DESKTOP_MODE='1', AI_DEPLOYMENT_WORKERS='1')
+    os.environ.update(LLM_PROVIDER='openai', AI_DESKTOP_MODE='1', AI_DEPLOYMENT_WORKERS='1')
     from .config import load
     from .database import Database
     load()

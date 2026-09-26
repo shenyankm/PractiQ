@@ -12,53 +12,48 @@ use serde_json::{json, Value};
 pub struct ConnectionSettings {
     pub base_url: Option<String>,
     pub model_id: Option<String>,
-    pub oss_url: Option<String>,
 }
 impl ConnectionSettings {
     pub fn validate(mut self) -> Result<Self> {
-        for (name, value) in [
-            ("Base URL", &mut self.base_url),
-            ("OSS URL", &mut self.oss_url),
-        ] {
-            *value = value
-                .take()
-                .map(|s| s.trim().to_owned())
-                .filter(|s| !s.is_empty());
-            if let Some(raw) = value {
-                if raw.len() > 2048 {
-                    return Err(crate::language::error(
-                        "LOCAL_URL_TOO_LONG",
-                        serde_json::json!({"name": name}),
-                    ));
-                }
-                let url = url::Url::parse(raw).map_err(|_| {
-                    crate::language::error("LOCAL_URL_INVALID", serde_json::json!({"name": name}))
-                })?;
-                let loopback = url.host_str().is_some_and(|h| {
-                    h == "localhost"
-                        || h == "[::1]"
-                        || h.parse::<std::net::IpAddr>()
-                            .is_ok_and(|ip| ip.is_loopback())
-                });
-                if url.scheme() != "https" && !(url.scheme() == "http" && loopback) {
-                    return Err(crate::language::error(
-                        "LOCAL_URL_HTTPS_REQUIRED",
-                        serde_json::json!({"name": name}),
-                    ));
-                }
-                if url.host_str().is_none()
-                    || !url.username().is_empty()
-                    || url.password().is_some()
-                    || url.query().is_some()
-                    || url.fragment().is_some()
-                {
-                    return Err(crate::language::error(
-                        "LOCAL_URL_CREDENTIALS_FORBIDDEN",
-                        serde_json::json!({"name": name}),
-                    ));
-                }
-                *raw = url.to_string().trim_end_matches('/').to_owned();
+        let (name, value) = ("Base URL", &mut self.base_url);
+        *value = value
+            .take()
+            .map(|s| s.trim().to_owned())
+            .filter(|s| !s.is_empty());
+        if let Some(raw) = value {
+            if raw.len() > 2048 {
+                return Err(crate::language::error(
+                    "LOCAL_URL_TOO_LONG",
+                    serde_json::json!({"name": name}),
+                ));
             }
+            let url = url::Url::parse(raw).map_err(|_| {
+                crate::language::error("LOCAL_URL_INVALID", serde_json::json!({"name": name}))
+            })?;
+            let loopback = url.host_str().is_some_and(|h| {
+                h == "localhost"
+                    || h == "[::1]"
+                    || h.parse::<std::net::IpAddr>()
+                        .is_ok_and(|ip| ip.is_loopback())
+            });
+            if url.scheme() != "https" && !(url.scheme() == "http" && loopback) {
+                return Err(crate::language::error(
+                    "LOCAL_URL_HTTPS_REQUIRED",
+                    serde_json::json!({"name": name}),
+                ));
+            }
+            if url.host_str().is_none()
+                || !url.username().is_empty()
+                || url.password().is_some()
+                || url.query().is_some()
+                || url.fragment().is_some()
+            {
+                return Err(crate::language::error(
+                    "LOCAL_URL_CREDENTIALS_FORBIDDEN",
+                    serde_json::json!({"name": name}),
+                ));
+            }
+            *raw = url.to_string().trim_end_matches('/').to_owned();
         }
         self.model_id = self
             .model_id
@@ -191,13 +186,12 @@ impl Store {
     pub fn connection_settings(&self) -> Result<ConnectionSettings> {
         self.connect()?
             .query_row(
-                "SELECT base_url,model_id,oss_url FROM settings WHERE id=1",
+                "SELECT base_url,model_id FROM settings WHERE id=1",
                 [],
                 |r| {
                     Ok(ConnectionSettings {
                         base_url: r.get(0)?,
                         model_id: r.get(1)?,
-                        oss_url: r.get(2)?,
                     })
                 },
             )
@@ -239,8 +233,8 @@ impl Store {
             .transaction()
             .map_err(|e| crate::AppError::from(e.to_string()))?;
         tx.execute(
-            "UPDATE settings SET base_url=?1,model_id=?2,oss_url=?3 WHERE id=1",
-            params![config.base_url, config.model_id, config.oss_url],
+            "UPDATE settings SET base_url=?1,model_id=?2 WHERE id=1",
+            params![config.base_url, config.model_id],
         )
         .map_err(|e| crate::AppError::from(e.to_string()))?;
         let previous = if let (Some(base), Some(key)) = (&config.base_url, &api_key) {
@@ -318,7 +312,6 @@ mod tests {
                     ConnectionSettings {
                         base_url: Some(base),
                         model_id: Some("demo".into()),
-                        oss_url: None,
                     },
                     Some("secret-key".into()),
                 )
@@ -342,7 +335,6 @@ mod tests {
         let config = ConnectionSettings {
             base_url: Some(" http://127.0.0.1:8317/v1/ ".into()),
             model_id: Some(" demo-model ".into()),
-            oss_url: Some("https://bucket.oss-cn-hangzhou.aliyuncs.com".into()),
         }
         .validate()
         .unwrap();
@@ -377,6 +369,49 @@ mod tests {
             .collect::<std::result::Result<Vec<_>, _>>()
             .unwrap();
         assert!(!fields.iter().any(|s| s.contains("key")));
+    }
+    #[test]
+    fn preserves_unused_oss_settings_in_old_backups() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path().to_owned()).unwrap();
+        let legacy = "https://bucket.example.com";
+        store
+            .connect()
+            .unwrap()
+            .execute("UPDATE settings SET oss_url=?1", [legacy])
+            .unwrap();
+        assert_eq!(
+            serde_json::to_value(store.connection_settings().unwrap()).unwrap(),
+            json!({"base_url":null,"model_id":null})
+        );
+        store
+            .save_settings(
+                "test",
+                ConnectionSettings {
+                    model_id: Some("demo".into()),
+                    ..Default::default()
+                },
+                None,
+            )
+            .unwrap();
+        let archive = dir.path().join("backup.zip");
+        store.backup(&archive).unwrap();
+        let restored_dir = tempfile::tempdir().unwrap();
+        let mut restored = Store::new(restored_dir.path().to_owned()).unwrap();
+        restored.restore(&archive).unwrap();
+        assert_eq!(
+            restored.connection_settings().unwrap().model_id.as_deref(),
+            Some("demo")
+        );
+        assert_eq!(
+            restored
+                .connect()
+                .unwrap()
+                .query_row("SELECT oss_url FROM settings", [], |row| row
+                    .get::<_, String>(0))
+                .unwrap(),
+            legacy
+        );
     }
     #[test]
     #[cfg(target_os = "macos")]

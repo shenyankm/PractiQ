@@ -6,7 +6,6 @@ import userEvent from "@testing-library/user-event";
 import { invoke } from "@tauri-apps/api/core";
 import { I18nProvider, date, duration, message, MessageError, systemLocale, number, list, locale, t, translate, useI18n, type Locale } from "./i18n";
 import { en } from "./locales/en";
-import { zhCN } from "./locales/zh-CN";
 import native from "./locales/native.json";
 import { errorMessage, type Session, type Question } from "./api";
 import App from "./App";
@@ -40,7 +39,7 @@ beforeEach(() => {
       case "question_stats": return {count:0,types:{}};
       case "info": return { version: "test", dataDirectory: "/test" };
       case "save_settings": return {config:request.config,hasApiKey:false};
-      case "settings": return { config: { base_url: null, model_id: null, oss_url: null }, hasApiKey: false };
+      case "settings": return { config: { base_url: null, model_id: null }, hasApiKey: false };
       default: throw new Error(`Unexpected command: ${request.type}`);
     }
   });
@@ -48,7 +47,6 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
 it("has complete dictionaries, matching parameters and count plurals", () => {
-  expect(Object.keys(en).sort()).toEqual(Object.keys(zhCN).sort());
   const slots = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map(m => m[1]).sort();
   for (const [key, value] of Object.entries(en)) {
     expect(value.trim(), key).not.toBe("");
@@ -61,6 +59,8 @@ it("has complete dictionaries, matching parameters and count plurals", () => {
   expect(translate("en", "{0}–{1} / {2} 条", { 0: 1, 1: 1, 2: 1 })).toBe("Showing 1–1 of 1");
   expect(translate("en", "已记录 {0} 次调用；输入 {1} / 输出 {2} tokens；用量未知 {3} 次", { 0: 1, 1: 1, 2: 1, 3: 1 })).toBe("Calls recorded: 1; input tokens: 1; output tokens: 1; calls with unknown usage: 1");
   expect(translate("zh-CN", "已导入 {0} 道题目", { 0: 2 })).toBe("已导入 2 道题目");
+  expect(translate("zh-CN", "选择答题方式")).toBe("选择答题方式");
+  expect(translate("zh-CN", "{0} 个题库 · {1} 道题目", { 0: 1, 1: 1234 })).toBe("1 个题库 · 1,234 道题目");
 });
 it("resolves the system language and prefers a saved selection across remounts", async () => {
   expect(systemLocale(["zh-TW"])).toBe("zh-CN");

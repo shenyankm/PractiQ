@@ -135,15 +135,11 @@ CI 对所有 PR、`main` 推送及手动触发执行相同 Make 目标，使用 
 
 本地存储、任务调度和提取进程传输的合成压测见[性能验证记录](../reports/performance-20260921.md)。服务启动时为 schema 1 的任务库补建排序索引；业务读取复用独立连接并串行结束游标，写事务、checkpoint 和 Store 仍各自隔离。调度器优先由提交、控制、完成和停止事件唤醒，空闲等待最多 1 秒后也会复查持久队列，避免请求在提交事务后、发送通知前被取消时遗留任务；启动时扫描恢复队列。
 
-支持 `AI_STORAGE_BACKEND=local`（默认）和 `oss` 两种模式，共用鉴权上传和素材读取接口，保留大小与 SHA-256 校验。
+仅使用本地持久文件存储。上传和素材读取通过鉴权 API，保留大小、SHA-256、路径和引用校验。
 
-本地模式下，AI 文件默认存放于 `server/.local/ai-oss`，相对 `AI_STORAGE_DIR` 以 `server/` 为基准解析；生产使用持久挂载的绝对路径并备份。精简项目不会迁移或删除已有数据库、卷、文件和本地配置。生产部署参考 [运维说明](operations.md) 与 `Dockerfile.server`。
+AI 文件默认存放于 `server/.local/ai-oss`；这是保留的历史目录名，不再代表云存储支持。相对 `AI_STORAGE_DIR` 以 `server/` 为基准解析，生产使用持久挂载的绝对路径并备份。源文件使用 `practiq-agent/sources/`，衍生文本与图片使用 `practiq-agent/artifacts/`。存储 I/O 使用有界线程池与 `AI_STORAGE_TIMEOUT_SECONDS`，异常返回统一存储错误。
 
-OSS 模式需在 `.env` 配置 `AI_OSS_REGION`、`AI_OSS_BUCKET`、`AI_OSS_ACCESS_KEY_ID` 和 `AI_OSS_ACCESS_KEY_SECRET`；临时 STS 凭证可加 `AI_OSS_SECURITY_TOKEN`。可通过 `AI_OSS_ENDPOINT` 指定 HTTPS 端点；使用已绑定到 Bucket 的自定义域名时，设置 `AI_OSS_USE_CNAME=true`。完整配置见 `.env.example`。
-
-使用已有私有 Bucket，仅授予所需对象的访问权限。凭证保留在服务端，文件仍通过鉴权 API 传输。切换模式不自动迁移数据，也不回退到另一种存储；迁移须按原 objectKey 复制并验证全部对象。新版任务拒绝存储位置变化，须在原部署完成或迁移后新建任务；历史 checkpoint 不升级。临时凭证需在过期前更新并重启服务。
-
-源文件使用 `practiq-agent/sources/`，衍生文本与图片使用 `practiq-agent/artifacts/`；OSS 对象键与本地相对路径一致。仅授予这些前缀所需的 GetObject（含 HEAD）与 PutObject 权限，不需要创建 Bucket、列举或删除权限。OSS 使用[官方 Python SDK V2](https://www.alibabacloud.com/help/en/oss/developer-reference/2-0-manual-preview-version/)；连接和读写超时沿用 `AI_STORAGE_TIMEOUT_SECONDS`，异常返回统一存储错误。
+OSS 后端及 SDK 已移除。旧 `AI_STORAGE_BACKEND=oss` 配置会拒绝启动，避免静默切换文件根目录；未设置该变量或旧值 `local` 均使用本地存储。移除 `AI_OSS_*` 配置，迁移步骤见[运维说明](operations.md#移除-oss-后的升级)。现有本地文件、数据库和备份不会自动迁移或删除。
 
 ## Graph 与接口示例
 
@@ -176,7 +172,7 @@ graph TD
     API --> Grading[主观题评分]
     Grading --> Model
     Grading --> Grades[(SQLite 评分请求缓存)]
-    API --> Files[(本地持久目录 / OSS)]
+    API --> Files[(本地持久目录)]
     Graph --> Files
 ```
 

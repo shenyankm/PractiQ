@@ -57,7 +57,6 @@ async def main():
     load_dotenv(ROOT / '.env')
     os.environ['LANGSMITH_TRACING'] = os.environ['LANGCHAIN_TRACING_V2'] = 'false'
     with tempfile.TemporaryDirectory(prefix='practiq-rich-') as directory:
-        os.environ['AI_STORAGE_BACKEND'] = 'local'
         os.environ['AI_STORAGE_DIR'] = directory
         from practiq_ai.graphs.document import build_document_graph
         merged = '--merged' in sys.argv

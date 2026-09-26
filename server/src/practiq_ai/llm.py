@@ -5,9 +5,6 @@ import json
 import logging
 import random
 import time
-from collections.abc import Iterator
-from contextlib import contextmanager
-from contextvars import ContextVar
 from datetime import UTC, datetime
 from functools import lru_cache
 from typing import Any, cast
@@ -54,21 +51,6 @@ BASE_URLS = {
 }
 MAX_MODEL_CALLS = 4
 logger = logging.getLogger(__name__)
-
-
-_USAGE: ContextVar[list[ModelCallUsage] | None] = ContextVar(
-    "document_usage", default=None
-)
-
-
-@contextmanager
-def collect_usage() -> Iterator[list[ModelCallUsage]]:
-    calls: list[ModelCallUsage] = []
-    token = _USAGE.set(calls)
-    try:
-        yield calls
-    finally:
-        _USAGE.reset(token)
 
 
 @lru_cache(maxsize=1)
@@ -351,8 +333,6 @@ async def structured_attempt[ResultT: BaseModel](
     )
     if call_key is not None:
         usage = usage.model_copy(update={"callKey": call_key})
-    if (calls := _USAGE.get()) is not None:
-        calls.append(usage)
     error = response["parsing_error"]
     try:
         parsed = validate_response(response, schema)
