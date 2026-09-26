@@ -29,9 +29,11 @@ First follow [Run the desktop app](#run-the-desktop-app). If you already have th
 
 This is a hand-written walkthrough sample, not a customer case study or a model evaluation. No API key is needed; model calls require an explicit parsing or AI grading action. Try the [composite question sample](app/fixtures/composite.zip) for reading comprehension, word-bank, and cloze questions.
 
+When **My banks** is empty, choose **Add example bank** to load the bundled [all-types sample](app/fixtures/all-types.zip) directly. It includes English question types, an image, and listening chimes, and requires no model configuration.
+
 ### 📦 Sharing question files
 
-Choose **Export bank ZIP** in a bank card's menu and send the package to a classmate. Recipients import the ZIP with its images and keep their own practice records. Packages preserve answers, explanations, materials, and review flags, but exclude bookmarks, mistakes, personal answers, and scores. Missing or damaged images prevent export; existing destination files are never overwritten.
+Choose **Export bank ZIP** in a bank card's menu and send the package to a classmate. Recipients import the ZIP with its images and audio and keep their own practice records. Packages preserve answers, explanations, materials, and review flags, but exclude bookmarks, mistakes, personal answers, and scores. Missing or damaged referenced images or audio prevent export; existing destination files are never overwritten.
 
 **Learning-data backup ZIPs** include personal records for recovery. **Question-bank ZIPs** contain shareable content. Both are available under **Settings → Restore backup**, with separate options for bank import and full restoration. The app rejects packages opened through the wrong option. See the [package guide](docs/question-bank-package.md) (Chinese).
 
@@ -45,11 +47,11 @@ The desktop app supports the following tasks:
 | --- | --- |
 | Import questions | Parse PDF, TXT, CSV, and PNG/JPEG files, or import a PractiQ ZIP containing questions and images |
 | Organize question banks | Edit questions, search, bookmark, and copy multiple banks into a new bank while keeping the originals |
-| Practise offline | Answer seven basic question types plus reading comprehension, word-bank, and cloze groups |
+| Practise offline | Answer seven basic question types and English listening, reading comprehension, word-bank, cloze, grammar fill, sentence selection, paragraph matching, translation, and writing questions |
 | Build a test | Select across banks by question type, mistakes, bookmarks, or unanswered questions; use counts, type quotas, or manual selection |
 | Take a mock exam | Preview point values, set a time limit, and reveal answers after submission |
 | Review scores | Check local objective scores, request AI short-answer scores, or record a manual score with a reason |
-| Keep your records | Resume practice, revisit history, and back up question banks, images, attempts, and scores |
+| Keep your records | Resume practice, revisit history, and back up question banks, images, audio, attempts, and scores |
 
 Practice, tests, local objective scoring, and manual scoring work offline. Document parsing and AI scoring send content to your configured model provider and may incur charges. Start or resume those actions explicitly; reopening the desktop app does not resume model calls.
 
@@ -57,7 +59,7 @@ The desktop supports Simplified Chinese and English. Click **Language** above Se
 
 ## 📄 Import documents and review results
 
-Open **Import** in the desktop sidebar. Choose a PractiQ bank `.zip` file for offline import, or select a source document and start parsing. Review the extracted questions, images, and warnings before creating a bank or appending to one.
+Open **Import** in the desktop sidebar. After configuring a model, choose **Upload**, select a source document, and confirm **Start parsing**. Review the extracted questions, images, and warnings before creating a bank or appending to one. For offline ZIP import, use **Settings → Restore backup → Import bank ZIP**.
 
 The parser accepts these source formats:
 
@@ -130,6 +132,6 @@ Choose the guide for your task:
 - [Evaluation](server/docs/evaluation.md): extraction and grading checks, datasets, and evidence limits (Chinese)
 - [Contributing](CONTRIBUTING.md): development checks and pull requests
 
-Desktop language regression: `cd app && npx playwright install chromium --only-shell && npm run test:browser` checks the 960px English layout and real keyboard language switching with a mocked Tauri boundary. It starts its own Vite server on port 1420 and makes no model calls. Unit/integration coverage for language races, persistence, backup restore and bilingual workflows runs in `make app-check`.
+Desktop browser regression: `cd app && npx playwright install chromium --only-shell && npm run test:browser` checks bilingual sidebar navigation, import entry points, keyboard focus, and the 960px layout with mocked native commands. It starts Vite on an available loopback port and makes no model calls. Unit/integration coverage for language races, persistence, backup restore and bilingual workflows runs in `make app-check`.
 
 See the [question model](docs/question-model.md) for question-type contracts, normalized SQLite tables, and composite question rules.

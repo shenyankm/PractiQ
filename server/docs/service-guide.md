@@ -215,7 +215,7 @@ Word 输入已移除，`AI_SOFFICE_PATH` 不再生效。旧 Word 任务不能继
 
 存储路径、上传接收期限、进程隔离及升级步骤见 [运维说明](operations.md)。
 
-## 题型契约 v2
+## 题型契约 v3
 
 Python 仅提取、关联并导出 `schemaVersion: 3` JSON，由 Rust 校验并写入 schema 10 SQLite。新增阅读、选词、完形复合题，所有单／多选答案统一为 `answerPayload.correct` 数组。选词和完形每空为选择子题，公共材料和词库用 ID 引用；章节独立于复合题组。来源及审核问题在导出边界也用 questionId。执行状态版本 6 拒绝旧结构 checkpoint。详见[题型模型与 ER 图](../../docs/question-model.md)。
 

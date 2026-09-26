@@ -11,15 +11,15 @@ This draft describes the current repository's first-release scope. It does not e
 | 桌面 / Desktop | Apple Silicon macOS 14+；简体中文与英文 / Simplified Chinese and English |
 | 导入 / Import | 离线 PractiQ ZIP 题库包；主动解析 PDF、TXT、CSV、PNG/JPEG / Offline bank ZIP with images; explicit document parsing |
 | 整理 / Organization | 预览复核、编辑、搜索、收藏、复制合并题库 / Review, edit, search, bookmark, and copy-merge banks |
-| 练习 / Practice | 七种基础题型及阅读理解、选词填空、完形填空；断点续练与历史 / Seven basic types and three composite types; resume and history |
+| 练习 / Practice | 七种基础题型及英语听力、阅读、选词、完形、语法填空、七选五、段落匹配、翻译和写作；断点续练与历史 / Seven basic types and nine English question kinds; resume and history |
 | 考试 / Exams | 跨题库组卷、自测、限时模考、配分与本地客观题判分 / Cross-bank tests, timed exams, point allocation, and local objective scoring |
 | 主观题 / Short answers | 有参考答案或评分细则时主动请求 AI 评分；支持人工改分 / Explicit AI grading with evidence; manual overrides |
-| 数据 / Data | 本地存储与含图片、作答、评分的备份恢复；密钥不进入备份 / Local storage and backups including images, answers, and scores; keys excluded |
+| 数据 / Data | 本地存储与含图片、音频、作答、评分的备份恢复；密钥不进入备份 / Local storage and backups including images, audio, answers, and scores; keys excluded |
 
 ## 首版变更摘要 / Initial release notes
 
 - 串联资料导入、题目复核、离线练习、组卷考试与成绩复核。Connect document import and review to offline practice, exams, and score review.
-- 提供统一导入页，兼顾已有题库 ZIP 和可暂停、继续、补跑的 AI 解析任务。Provide one import page for bank ZIP and controllable AI parsing tasks.
+- 导入页管理可暂停、继续、补跑的 AI 解析任务；已有题库 ZIP 从设置的“恢复备份”菜单导入。Manage controllable AI parsing tasks on the Import page; import bank ZIP through Settings → Restore backup.
 - 保留题目审核标记与历史练习快照，支持备份恢复个人学习记录。Preserve review flags and historical practice snapshots, with backup and restore for personal records.
 
 以上是首次交付的能力摘要，不是已发布版本之间的差异记录。These notes summarize the initial delivery, not changes between published versions.
