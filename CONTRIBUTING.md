@@ -40,6 +40,8 @@ Coverage includes Python subprocesses. `make verify` erases previous coverage da
 
 `make app-check` checks shared Python/Rust contracts, TypeScript, frontend interactions, native integration tests, and Clippy across all targets, including test code. `make app-package-check` builds the macOS package and runs `app/scripts/check-bundle.py` against its bundled service. Use isolated application data for native UI acceptance.
 
+Run `npm --prefix app run test:browser` for bilingual navigation, import entry points, focus and layout checks in Chromium. The script starts Vite on an available loopback port, so it can run alongside `make app-dev`. Native commands are mocked; it does not call models or exercise native file pickers.
+
 The Keychain round-trip test uses and removes its own temporary credential. Run it explicitly on macOS:
 
 ```sh
