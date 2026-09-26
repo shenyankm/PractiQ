@@ -8,7 +8,7 @@ from typing import Any
 
 from langgraph.types import Command
 
-from .config import load
+from .config import load, require_model_config
 from .database import Database, utcnow, watch_ownership
 from .errors import DocumentProcessingError
 from .execution import namespace, preflight, remaining_ttl, require_supported_task
@@ -161,6 +161,7 @@ class Service:
     async def execute(self, run):
         run_id = run['run_id']
         try:
+            require_model_config()
             task = (await self.db.rows('SELECT * FROM document_tasks WHERE thread_id=?', (run['thread_id'],)))[0]
             require_supported_task(task)
             remaining_ttl({'expiresAt': task['expires_at'].isoformat()})

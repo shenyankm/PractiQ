@@ -428,7 +428,8 @@ async def test_recovery_preflight_is_inside_run_deadline(monkeypatch, expired):
     assert entered.is_set() == stopped.is_set() == (not expired)
 
 
-async def test_desktop_restart_requires_explicit_resume_and_lists_tasks(monkeypatch):
+@pytest.mark.parametrize('read_only', [False, True])
+async def test_desktop_restart_requires_explicit_resume_and_lists_tasks(monkeypatch, read_only):
     monkeypatch.setenv('AI_DESKTOP_MODE', '1')
     service, reference, model = await setup_api(monkeypatch, [(30, parsed()), parsed()])
     created = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
@@ -437,6 +438,8 @@ async def test_desktop_restart_requires_explicit_resume_and_lists_tasks(monkeypa
             await asyncio.sleep(0.01)
     directory = service.db.directory
     await service.stop(timeout=0)
+    if read_only:
+        monkeypatch.setenv('AI_READ_ONLY', '1')
     restarted = runtime.Service(Database(directory))
     await restarted.start()
     SERVICES.append(restarted)
@@ -449,6 +452,13 @@ async def test_desktop_restart_requires_explicit_resume_and_lists_tasks(monkeypa
     assert listing['items'][0]['threadId'] == created['threadId']
     assert not listing['hasMore']
     assert not (await task_api.list_tasks(1, 1))['items']
+    if read_only:
+        assert not state['modelConfigured'] and not state['resumeCompatible']
+        with pytest.raises(DocumentProcessingError) as error:
+            await task_api.control_task(created['threadId'], DocumentTaskControl(requestId=uuid4(), action='resume', checkpointId=state['checkpointId']))
+        assert error.value.code == 'MODEL_NOT_CONFIGURED'
+        assert len(model.calls) == 1
+        return
     await task_api.control_task(created['threadId'], DocumentTaskControl(requestId=uuid4(), action='resume', checkpointId=state['checkpointId']))
     async with asyncio.timeout(10):
         while await restarted.db.rows("SELECT run_id FROM document_runs WHERE status IN ('pending','running')"):

@@ -46,17 +46,20 @@ def run(bundle,output):
         process=None
         try:
             with (root/'stderr.log').open('w') as log:
-                # An unreachable proxy catches accidental routing of local model calls.
-                process=subprocess.Popen([str(bundle/'python/practiq-ai'),'serve'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=log,
-                    cwd=root,env={'PATH':'/usr/bin:/bin','HOME':str(root),'TMPDIR':tmp,'LANG':'en_US.UTF-8',
-                                  'ALL_PROXY':'http://127.0.0.1:9','NO_PROXY':''},text=True)
-                process.stdin.write(json.dumps(bootstrap)+'\n');process.stdin.flush()
-                with selectors.DefaultSelector() as selector:
-                    selector.register(process.stdout,selectors.EVENT_READ)
-                    if not selector.select(60):raise RuntimeError('Bundled startup timed out')
-                line=process.stdout.readline()
-                if not line:raise RuntimeError((root/'stderr.log').read_text()[-8000:])
-                ready=json.loads(line)
+                def start_service(settings):
+                    nonlocal process
+                    # An unreachable proxy catches accidental routing of local model calls.
+                    process=subprocess.Popen([str(bundle/'python/practiq-ai'),'serve'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=log,
+                        cwd=root,env={'PATH':'/usr/bin:/bin','HOME':str(root),'TMPDIR':tmp,'LANG':'en_US.UTF-8',
+                                      'ALL_PROXY':'http://127.0.0.1:9','NO_PROXY':''},text=True)
+                    process.stdin.write(json.dumps(settings)+'\n');process.stdin.flush()
+                    with selectors.DefaultSelector() as selector:
+                        selector.register(process.stdout,selectors.EVENT_READ)
+                        if not selector.select(60):raise RuntimeError('Bundled startup timed out')
+                    line=process.stdout.readline()
+                    if not line:raise RuntimeError((root/'stderr.log').read_text()[-8000:])
+                    return json.loads(line)
+                ready=start_service(bootstrap)
                 with httpx.Client(base_url=f"http://127.0.0.1:{ready['port']}",headers={'Authorization':'Bearer bundled-test-token'},timeout=30,trust_env=False) as client:
                     assert client.get('/ready').status_code==200
                     assert client.get('/api/document-tasks',headers={'Authorization':''}).status_code==401
@@ -107,6 +110,23 @@ def run(bundle,output):
                     report['subjectiveGrading']={'passed':True,'scoreCents':300,'replayIdentical':True,'usageCalls':len(result['usage'])}
                 process.stdin.close();process.wait(timeout=20)
                 assert process.returncode==0,(root/'stderr.log').read_text()[-8000:]
+                process.stdout.close()
+                ready=start_service({**bootstrap,**{key:'' for key in ('LLM_API_KEY','LLM_BASE_URL','LLM_MODEL')}})
+                with httpx.Client(base_url=f"http://127.0.0.1:{ready['port']}",headers={'Authorization':'Bearer bundled-test-token'},timeout=30,trust_env=False) as client:
+                    tasks=client.get('/api/document-tasks');tasks.raise_for_status()
+                    assert len(tasks.json()['items'])==4
+                    for task in tasks.json()['items']:
+                        path='/api/document-tasks/'+task['threadId']
+                        saved=client.get(path);saved.raise_for_status()
+                        assert saved.json()['state']=='COMPLETED' and not saved.json()['modelConfigured']
+                        client.get(path+'/preview').raise_for_status()
+                    assert client.post('/api/document-tasks/'+task_id+'/reparse',json={'requestId':str(uuid4())}).json()['detail']['code']=='MODEL_NOT_CONFIGURED'
+                    assert client.post('/api/subjective-grades',json=grade_payload).json()['detail']['code']=='MODEL_NOT_CONFIGURED'
+                    assert len((root/'calls.jsonl').read_text().splitlines())==provider_calls+1
+                    report['readOnlyRestart']={'passed':True,'retainedTasks':4,'additionalModelCalls':0}
+                process.stdin.close();process.wait(timeout=20)
+                assert process.returncode==0,(root/'stderr.log').read_text()[-8000:]
+                process.stdout.close()
                 report['passed']=True
         finally:
             if process and process.poll() is None:process.kill();process.wait()

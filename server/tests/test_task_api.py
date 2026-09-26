@@ -1,4 +1,5 @@
 import asyncio
+from datetime import timedelta
 from typing import Any, cast
 from unittest.mock import AsyncMock
 from uuid import uuid4
@@ -11,12 +12,14 @@ from practiq_ai.contracts import (
     DocumentReference,
     DocumentTaskControl,
     DocumentTaskCreate,
+    DocumentTaskReparse,
     FailedUnit,
 )
+from practiq_ai.database import utcnow
 from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.webapp import app
 from tests.db_support import setup_api
-from tests.support import parsed
+from tests.support import FakeObjectStore, parsed
 
 pytestmark = pytest.mark.usefixtures("disposable_databases")
 
@@ -41,6 +44,68 @@ async def test_task_page_fetches_latest_runs_in_one_query(monkeypatch):
     assert all(item['state'] == 'COMPLETED' and item['questionCount'] == 1 for item in page['items'])
     assert sum('FROM document_runs' in sql for sql in reads) == 1
     assert not page['hasMore']
+
+
+async def test_reparse_preserves_original_result_and_links_source_with_new_signature(monkeypatch):
+    api, reference, model = await setup_api(monkeypatch, [parsed('First'), parsed('Second')])
+    original = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
+    await api.wait_idle()
+    old = await task_api.get_task(original['threadId'])
+    monkeypatch.setenv('LLM_MODEL', 'changed-model')
+    assert not (await task_api.get_task(original['threadId']))['resumeCompatible']
+    request = DocumentTaskReparse(requestId=uuid4())
+    child = await task_api.reparse_task(original['threadId'], request)
+    assert child == await task_api.reparse_task(original['threadId'], request)
+    await api.wait_idle()
+    new = await task_api.get_task(child['threadId'])
+    assert new['parentThreadId'] == original['threadId'] and new['resumeCompatible']
+    assert new['result']['questions'][0]['stem'] == 'Second'
+    assert (await task_api.get_task(original['threadId']))['result'] == old['result']
+    assert len(model.calls) == 2
+    assert len((await task_api.list_tasks(sha256=reference['sha256']))['items']) == 2
+    assert not (await task_api.list_tasks(sha256='0' * 64))['items']
+    review = await task_api.review_task(child['threadId'])
+    sources = [unit for unit in review['units'] if unit['sourceRef']]
+    assert sources and all(not unit['questions'] and not unit['groups'] for unit in sources)
+
+
+async def test_reparse_rejects_damaged_source_before_queueing(monkeypatch):
+    api, reference, _ = await setup_api(monkeypatch)
+    original = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
+    await api.wait_idle()
+    files = cast(FakeObjectStore, task_api.get_object_store())
+    files.blobs[reference['objectKey']] = b'corrupt'
+    with pytest.raises(DocumentProcessingError):
+        await task_api.reparse_task(original['threadId'], DocumentTaskReparse(requestId=uuid4()))
+    assert len((await task_api.list_tasks())['items']) == 1
+
+
+async def test_reparse_receipt_replay_uses_child_expiry_not_expired_parent(monkeypatch):
+    api, reference, model = await setup_api(monkeypatch, [parsed(), parsed()])
+    original = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
+    await api.wait_idle()
+    request = DocumentTaskReparse(requestId=uuid4())
+    child = await task_api.reparse_task(original['threadId'], request)
+    await api.wait_idle()
+    async with api.db.connection() as conn:
+        await conn.execute('UPDATE document_tasks SET expires_at=? WHERE thread_id=?',
+                           (utcnow() - timedelta(seconds=1), original['threadId']))
+    # An accepted operation is still replayable without another source/model call.
+    cast(FakeObjectStore, task_api.get_object_store()).blobs[reference['objectKey']] = b'corrupt'
+    monkeypatch.setenv('AI_DESKTOP_MODE', '1')
+    monkeypatch.setenv('AI_READ_ONLY', '1')
+    assert await task_api.reparse_task(original['threadId'], request) == child
+    with pytest.raises(DocumentProcessingError) as error:
+        await task_api.reparse_task(original['threadId'], DocumentTaskReparse(requestId=uuid4()))
+    assert error.value.code == 'TASK_EXPIRED'
+    async with api.db.connection() as conn:
+        await conn.execute('UPDATE document_tasks SET expires_at=? WHERE thread_id=?',
+                           (utcnow() - timedelta(seconds=1), child['threadId']))
+    with pytest.raises(DocumentProcessingError) as error:
+        await task_api.reparse_task(original['threadId'], request)
+    assert error.value.code == 'TASK_EXPIRED'
+    assert len(model.calls) == 2
+    assert len((await task_api.list_tasks())['items']) == 2
 
 
 async def test_auth_failure_can_be_explicitly_retried_without_replaying_successes(monkeypatch):

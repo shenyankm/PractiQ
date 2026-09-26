@@ -37,7 +37,7 @@ def service(tmp_path):
     }
 
     @contextmanager
-    def start():
+    def start(*, read_only=False):
         # Retain coverage configuration, but isolate credentials and proxies.
         env = {key: value for key, value in os.environ.items()
                if not key.startswith(("AI_", "LLM_")) and not key.lower().endswith("_proxy")}
@@ -50,7 +50,8 @@ def service(tmp_path):
                                        stderr=log, cwd=tmp_path, env=env, text=True)
             assert process.stdin is not None and process.stdout is not None
             try:
-                process.stdin.write(json.dumps(bootstrap) + "\n")
+                settings = {**bootstrap, **({key: '' for key in ('LLM_API_KEY', 'LLM_BASE_URL', 'LLM_MODEL')} if read_only else {})}
+                process.stdin.write(json.dumps(settings) + "\n")
                 process.stdin.flush()
                 with selectors.DefaultSelector() as selector:
                     selector.register(process.stdout, selectors.EVENT_READ)
@@ -145,14 +146,30 @@ def test_e2e_upload_parse_artifacts_and_restart(service, kind):
             assert len(response.content) == reference["sizeBytes"]
             assert client.post("/api/artifacts/read", json={**reference, "sizeBytes": reference["sizeBytes"] + 1}).status_code == 409
         assert "practiq_workers_available" in client.get("/api/metrics").text
-    with start() as client:
+    with start(read_only=True) as client:
         restored = client.get(path).json()
         assert restored["result"] == state["result"] and restored["usage"] == state["usage"]
         assert restored["state"] == "COMPLETED"
+        assert not restored['modelConfigured'] and not restored['resumeCompatible']
         assert client.post("/api/document-tasks", json=request).json() == receipt
+        assert client.get(path, headers={'Authorization': ''}).status_code == 401
+        assert client.get(path + '/preview').status_code == 200
+        for reference in references:
+            assert client.post('/api/artifacts/read', json=reference).status_code == 200
+        for url, body in (
+            ('/api/document-tasks', {**request, 'requestId': str(uuid4())}),
+            (path + '/reparse', {'requestId': str(uuid4())}),
+            (path + '/control', {'requestId': str(uuid4()), 'action': 'resume', 'checkpointId': restored['checkpointId']}),
+            ('/api/subjective-grades', {}),
+        ):
+            rejected = client.post(url, json=body)
+            assert rejected.status_code == 409, rejected.text
+            assert rejected.json()['detail']['code'] == 'MODEL_NOT_CONFIGURED'
         listing = client.get("/api/document-tasks").json()["items"]
         assert len(listing) == 1 and listing[0]["questionCount"] == 1
         assert client.get("/api/document-tasks", params={"offset": 1}).json()["items"] == []
+        assert client.get('/api/document-tasks', params={'sha256': document['sha256']}).json()['items'] == listing
+        assert client.get('/api/document-tasks', params={'sha256': 'invalid'}).status_code == 422
     assert len(calls.read_text().splitlines()) == 1, "Reads, restart and replay must not charge again"
 
 
@@ -228,6 +245,7 @@ def test_e2e_rejected_uploads_never_queue_work(service):
 @pytest.mark.parametrize(("args", "bootstrap", "message"), [
     ([], "", "Expected serve or extract"),
     (["serve"], "{}\n", "Invalid bootstrap"),
+    (["serve"], "[]\n", "Invalid bootstrap"),
     (["serve"], "x" * 65537, "Bootstrap too large"),
 ])
 def test_e2e_bootstrap_rejects_invalid_input(tmp_path, args, bootstrap, message):

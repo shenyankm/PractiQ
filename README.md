@@ -55,11 +55,13 @@ The desktop app supports the following tasks:
 
 Practice, tests, local objective scoring, and manual scoring work offline. Document parsing and AI scoring send content to your configured model provider and may incur charges. Start or resume those actions explicitly; reopening the desktop app does not resume model calls.
 
-The desktop supports Simplified Chinese and English. Click **Language** above Settings to choose a language in the menu above the entry. On first launch, Chinese system languages select Simplified Chinese; other languages select English. Your choice is stored locally and included in backups. Switching does not call a model or translate imported questions and answers.
+The desktop supports Simplified Chinese and English. Click **Language** above Settings to choose a language in the menu above the entry. On first launch, Chinese system languages select Simplified Chinese; other languages select English. Your choice is stored locally and included in backups. Each new AI grading request keeps the language selected when you explicitly start it, including when checking that request again. Switching language does not call a model or translate imported content or existing grading feedback.
 
 ## 📄 Import documents and review results
 
-Open **Import** in the desktop sidebar. After configuring a model, choose **Upload**, select a source document, and confirm **Start parsing**. Review the extracted questions, images, and warnings before creating a bank or appending to one. For offline ZIP import, use **Settings → Restore backup → Import bank ZIP**.
+Open **Import** in the desktop sidebar. After configuring a model, choose **Choose a document to parse**, select one or more source files, and confirm parsing for each file. Matching file content prompts you to open the existing task or explicitly parse again, which may incur another charge. Saved tasks and results remain readable without model credentials; new parsing and AI grading require a configured model.
+
+Review the extracted questions, images, and warnings before creating a bank or appending to one. Batch import can create a bank per document or append all selected results to one existing bank; an import failure affects only that item. For offline ZIP import, follow the shortcut to **Settings → Restore backup → Import bank ZIP**; this appends content without replacing learning records.
 
 The parser accepts these source formats:
 
@@ -71,15 +73,25 @@ The parser accepts these source formats:
 
 Export Word files to PDF before importing. Export Excel question lists to CSV, or use PDF to preserve their layout. Source uploads do not accept Word, Excel, WebP, or GIF files.
 
-Parsing preserves source answers, explanations, passages, available score values, rubrics, and image references. It flags missing content instead of generating answers. You can pause tasks, resume them, retry eligible failed units, or accept partial results. Extracted content still needs review.
+Parsing preserves source answers, explanations, passages, available score values, rubrics, and image references. It flags missing content instead of generating answers. You can pause tasks, resume them, retry eligible failed units, or accept partial results. Use **Show only items needing review** and the next-item action to inspect flagged questions and their source pages or text segments where available. Accepting partial results keeps quality flags, and unreviewed questions can still be practised.
+
+AI tasks expire 180 days after creation; the task list shows the retention date for results not yet imported. Import the results you want to keep into a bank before that date. Task expiry does not remove imported banks.
 
 ## 📝 Take a test and review scores
 
 Choose **Start practice** from a question bank, then select practice, an untimed self-test, or a timed mock exam. For tests, select questions and preview the paper. Tests default to 100 points; you can change the total, allocate points by type, or edit each question's value. Values use 0.01-point increments and must sum to the total.
 
+Composite questions always stay together: total counts use answerable subquestions, while manual selection distinguishes groups from subquestions. The setup picks a feasible default and suggests nearby counts when your requested total cannot be formed from complete groups.
+
+Starting practice or an exam from a bank gives the session a title with its source bank, mode, and question count. The home page offers the most recently active unfinished session; history can be filtered by in-progress, awaiting-review, and finished sessions. Exams show saved draft progress and the remaining time. Choose the bank menu's unattempted-question action or **Continue with more unattempted questions** after submission to move to another batch from the source banks.
+
 Self-tests have no time limit. Mock exams default to 60 minutes and support 1–1,440 minutes, with up to 1,000 questions. Closing the app or putting your Mac to sleep does not pause the deadline. When you reopen an expired exam, the app submits the last saved answers.
 
 After submission, objective questions use local scoring. Select **Start/resume AI grading** to score eligible short answers against a reference answer or rubric. Missing evidence and failed calls stay ungraded. Review partial credit and explanations, and record manual corrections when needed.
+
+Partial credit is labelled separately from a wrong answer; the mistakes list includes questions below full credit. Ungraded AI results display the reason and review notes, and an unknown result can be checked before explicitly requesting a new paid grade.
+
+Ending ordinary practice locks answers, but eligible submitted responses can still be self-assessed against the reference. Fill-in feedback compares each blank, trimming surrounding whitespace while preserving case and punctuation; self-assessment keeps the original automatic result and answer snapshot.
 
 AI scoring supports personal practice. It is not calibrated for formal examinations.
 
@@ -94,7 +106,9 @@ make app-bundle AI_PYTHON=/path/to/python3.14
 make app-dev
 ```
 
-This builds the bundled Python service before starting the desktop app. You do not need model credentials to import ZIP and practise offline. Configure the provider URL, model ID, and API key in **Settings**. Parsing and AI scoring share this model, which must support text and image inputs.
+This builds the bundled Python service before starting the desktop app. You do not need model credentials to import ZIP and practise offline. Configure the provider URL, model ID, and API key in **Settings**, then choose **Save and apply**. Editing alone does not change the running service. Applying changes is blocked during active AI requests or parsing; pause parsing or wait for it to finish first. Parsing and AI scoring share this model, which must support text and image inputs.
+
+If a model or parser change prevents an old task from resuming, you can still inspect its saved results or explicitly parse again with the current model.
 
 To build a local application package, run:
 

@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { api, type BankChoice, type Preview } from "./api";
+import type { DocumentQualityIssue, DocumentQuestionSource } from "./contracts.generated";
 import { message, t } from "./i18n";
 import { toast } from "./notifications";
 import { QuestionPreview } from "./QuestionPreview";
@@ -22,6 +23,7 @@ export function ImportBankDialog({ preview, banks, initialBank, busy, run, onClo
   const submitting = useRef(false);
   const [title, setTitle] = useState(preview.title);
   const [bank, setBank] = useState(initialBank);
+  const processing = preview.processing as { quality?: { issues?: DocumentQualityIssue[] }; questionSources?: DocumentQuestionSource[] } | undefined;
   return (
     <Dialog open onOpenChange={open => { if (!open && !busy) onClose(); }}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
@@ -30,7 +32,6 @@ export function ImportBankDialog({ preview, banks, initialBank, busy, run, onClo
           <DialogDescription>{t("已识别 {0} 道题目，其中 {1} 道待复核，仍可直接练习。", { 0: preview.count, 1: preview.reviewCount })}</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
-          <QuestionPreview questions={preview.questions ?? []} groups={preview.groups} visuals={preview.visuals} />
           <Label htmlFor="import-bank">{t("导入到")}</Label>
           <NativeSelect id="import-bank" value={bank} onChange={event => setBank(event.target.value)}>
             <NativeSelectOption value="new">{t("新建题库")}</NativeSelectOption>
@@ -46,8 +47,9 @@ export function ImportBankDialog({ preview, banks, initialBank, busy, run, onClo
             <summary>{t("缺失资源详情")}</summary>
             {preview.missingAssets.map((missing, index) => <p className="mt-2 break-all" key={index}>{missing}</p>)}
           </details>}
+          <QuestionPreview questions={preview.questions ?? []} groups={preview.groups} visuals={preview.visuals} reviewMode questionSources={processing?.questionSources} qualityIssues={processing?.quality?.issues} />
         </div>
-        <DialogFooter>
+        <DialogFooter className="sticky bottom-0 border-t bg-background pt-3">
           <Button variant="outline" disabled={busy} onClick={onClose}>{t("取消")}</Button>
           <Button disabled={busy || !title.trim()} onClick={() => run(async () => {
             if (submitting.current) return;

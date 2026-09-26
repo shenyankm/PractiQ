@@ -51,9 +51,11 @@ The request has three fields:
 | --- | --- |
 | `requestId` | Client-generated UUID; reuse it when querying the same grading request |
 | `inputDigest` | Hexadecimal SHA-256 of the raw UTF-8 bytes of `payload` |
-| `payload` | JSON string containing `question`, `answer`, `maxCents`, and optional `materials` and `images` |
+| `payload` | JSON string containing `question`, `answer`, `maxCents`, and optional `materials`, `images`, and `feedbackLocale` |
 
 `question` follows the parsed-question contract. `maxCents` is an integer in hundredths of a point: `500` means 5 points. The inner `payload` must not contain `requestId` or `inputDigest`. Do not reserialize the string after calculating its digest.
+
+`feedbackLocale` accepts `zh-CN` or `en` and controls generated grading explanations; quoted evidence stays in its source language. Omitted values default to `zh-CN` for existing clients. The desktop includes its current language when preparing a new request and preserves that language and digest on replay. Switching the interface language does not translate saved feedback or trigger regrading.
 
 This synthetic example constructs a request without calling a model. Its Chinese question and rubric are sample content:
 

@@ -32,11 +32,13 @@ function PracticeQuestion({
   onSession,
   run,
   flushRef,
+  onNextUnattempted,
 }: {
   session: Session;
   onSession: (s: Session) => void;
   run: (job: () => Promise<void>) => void;
   flushRef: MutableRefObject<() => Promise<void>>;
+  onNextUnattempted?: () => void;
 }) {
   useI18n();
   const attempt = session.attempts[session.position];
@@ -46,6 +48,8 @@ function PracticeQuestion({
   const [saveError, setSaveError] = useState(false);
   const [finishing, setFinishing] = useState(false);
   const finishButton = useRef<HTMLButtonElement>(null);
+  const questionHeading = useRef<HTMLHeadingElement>(null);
+  const reviewOnClose = useRef(false);
   const elapsed = useRef(attempt.elapsedMs);
   const answerRef = useRef(answer);
   const chain = useRef(Promise.resolve());
@@ -57,6 +61,7 @@ function PracticeQuestion({
   const finished = session.finishedAt !== null || handedIn;
   const [confirmFinish,setConfirmFinish]=useState(false);
   const favorite = attempt.favorite;
+  useEffect(() => { questionHeading.current?.focus(); }, []);
   useEffect(() => {
     if (handedIn) {
       setAnswer(attempt.answer);
@@ -66,7 +71,6 @@ function PracticeQuestion({
   const persist = useCallback((
     submit = false,
     skip = false,
-    selfResult: boolean | null = null,
   ): Promise<Session | void> => {
     const captured = { answer: answerRef.current, elapsed: elapsed.current };
     setSaved("保存中…");
@@ -75,7 +79,7 @@ function PracticeQuestion({
       job = chain.current.catch(() => {}).then(() => api({
         type: "save_attempt", id: session.id, ordinal: session.position,
         answer: captured.answer, elapsed_ms: captured.elapsed,
-        submit, skip, self_result: selfResult,
+        submit, skip, self_result: null,
       }));
     } else {
       pendingDraft.current = captured;
@@ -108,8 +112,8 @@ function PracticeQuestion({
     );
     return job;
   }, [session.id, session.position]) as {
-    (submit: true, skip?: boolean, selfResult?: boolean | null): Promise<Session>;
-    (submit?: false, skip?: boolean, selfResult?: boolean | null): Promise<void>;
+    (submit: true, skip?: boolean): Promise<Session>;
+    (submit?: false, skip?: boolean): Promise<void>;
   };
   useEffect(() => {
     const flush = async () => {
@@ -156,6 +160,12 @@ function PracticeQuestion({
   const selfAllowed =
     !attempt.skipped &&
     !exam && (attempt.autoResult === null || q.answerMode === "fill_blank");
+  const unassessed = exam ? [] : session.attempts.filter(a => a.submittedAt != null && !a.skipped && a.result === null);
+  const resultLabel = exam
+    ? attempt.earnedCents == null ? t("待评分") : t("{0}{1} / {2} 分", { 0: attempt.skipped ? t("未答 · ") : attempt.earnedCents > 0 && attempt.earnedCents < (attempt.maxCents || 0) ? `${t("部分得分")} · ` : "", 1: attempt.earnedCents / 100, 2: (attempt.maxCents || 0) / 100 })
+    : attempt.skipped ? t("已跳过") : attempt.result === true ? t("回答正确") : attempt.result === false
+      ? q.answerMode === "fill_blank" && attempt.gradeKind === "auto" ? t("文本不完全一致") : t("回答错误")
+      : t("未判定");
   return (
     <div className="grid grid-cols-[minmax(0,1fr)_240px] gap-6">
       <Card className="overflow-visible">
@@ -170,7 +180,7 @@ function PracticeQuestion({
                     : t(" · 单选")
                   : ""}
               </Badge>
-              <span className="text-sm text-muted-foreground">{t("第 {0} / {1} 题", { 0: session.position + 1, 1: session.attempts.length })}</span>
+              <h2 ref={questionHeading} tabIndex={-1} className="text-sm text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring">{t("第 {0} / {1} 题", { 0: session.position + 1, 1: session.attempts.length })}</h2>
             </div>
             <PracticeClock elapsed={elapsed} active={!submitted && !finished} deadlineAt={exam && !handedIn ? session.deadlineAt : null} saved={saved} finished={finished} onAutosave={() => { void persist().catch(() => {}); }} onExpire={() => run(async () => onSession(await api({type:"session",id:session.id})))}/>
 
@@ -183,7 +193,8 @@ function PracticeQuestion({
             {attempt.snapshot.id && favorite != null && <Button variant="outline" onClick={()=>run(async()=>{await api({type:"favorite",id:attempt.snapshot.id!,value:!favorite});onSession(await api({type:"session",id:session.id}));})}>{favorite?t("取消收藏"):t("收藏原题")}</Button>}
             {exam && !handedIn && <Button variant="outline" onClick={()=>run(async()=>{await flushRef.current();onSession(await api({type:"flag",id:session.id,ordinal:session.position,value:!attempt.flagged}));})}>{attempt.flagged?t("取消待检查标记"):t("标记待检查")}</Button>}
           </div>
-          <ExamResults session={session} onSession={onSession} run={run}/>
+          <ExamResults session={session} onSession={onSession} run={run} onNextUnattempted={onNextUnattempted}/>
+          {!exam && <p role="status" aria-label={t("答题状态")} aria-live="polite" aria-atomic="true" className="sr-only">{submitted ? t("第 {0} 题：{1}", {0:attempt.ordinal+1,1:resultLabel}) : ""}</p>}
           <Content snapshot={attempt.snapshot} exam={exam&&!handedIn} revealOriginal={exam ? handedIn : submitted} materialDialog
             onBlank={id=>{const target=session.attempts.find(a=>a.snapshot.question.id===id);if(target)go(target.ordinal);}}
             blankAnswers={Object.fromEntries(session.attempts.map(a=>{const value=a.ordinal===session.position ? answer : a.answer;return [a.snapshot.question.id || "",value?.correct?.join(", ") || value?.answers?.join(", ") || ""];}))}/>
@@ -203,18 +214,10 @@ function PracticeQuestion({
               <div className="flex items-center gap-3">
                 <Badge
                   variant={
-                    attempt.result === false ? "destructive" : "secondary"
+                    attempt.result === false && !(exam && (attempt.earnedCents || 0) > 0) ? "destructive" : "secondary"
                   }
                 >
-                  {exam
-                    ? attempt.earnedCents == null ? t("待评分") : t("{0}{1} / {2} 分", { 0: attempt.skipped ? t("未答 · ") : "", 1: attempt.earnedCents / 100, 2: (attempt.maxCents || 0) / 100 })
-                    : attempt.skipped
-                    ? t("已跳过")
-                    : attempt.result === true
-                      ? t("回答正确")
-                      : attempt.result === false
-                        ? t("回答错误")
-                        : t("未判定")}
+                  {resultLabel}
                 </Badge>
                 <span className="text-xs text-muted-foreground">
                   {attempt.gradeKind === "ai" ? t("AI 评分") : attempt.gradeKind === "manual" ? t("人工评分") : attempt.gradeKind === "self"
@@ -224,16 +227,17 @@ function PracticeQuestion({
                       : t("不计入正确率")}
                 </span>
               </div>
+              {q.answerMode === "fill_blank" && attempt.autoResult === false && <p className="text-sm text-muted-foreground">{t("填空按去除首尾空白后的文本逐空比较，大小写和标点均保留。请核对差异后确认评分。")}</p>}
               <h3 className="font-medium">{t("参考答案")}</h3>
-              <AnswerDisplay answer={q.answerPayload} question={q} />
-              {selfAllowed && !finished && (
+              <AnswerDisplay answer={q.answerPayload} question={q} response={attempt.answer} />
+              {selfAllowed && (
                 <div className="flex items-center gap-3">
                   <span className="text-sm">{t("对照答案自评：")}</span>
                   <Button
                     variant="outline"
                     onClick={() =>
                       run(async () => {
-                        onSession(await persist(true, false, true));
+                        onSession(await api({type:"self_assess",id:session.id,ordinal:attempt.ordinal,result:true}));
                       })
                     }
                   >{t("我答对了")}</Button>
@@ -241,7 +245,7 @@ function PracticeQuestion({
                     variant="outline"
                     onClick={() =>
                       run(async () => {
-                        onSession(await persist(true, false, false));
+                        onSession(await api({type:"self_assess",id:session.id,ordinal:attempt.ordinal,result:false}));
                       })
                     }
                   >{t("我答错了")}</Button>
@@ -298,9 +302,9 @@ function PracticeQuestion({
         <AnswerCard session={session} answer={answer} exam={exam} go={go} />
         {!finished && <Button ref={finishButton} className="w-full" variant="outline" onClick={() => run(async () => { await flushRef.current(); onSession(await api({type:"session", id:session.id})); setConfirmFinish(true); })}>{exam ? t("交卷") : t("结束练习")}</Button>}
         <AlertDialog open={confirmFinish && !finished} onOpenChange={open => { if (!finishing) setConfirmFinish(open); }}>
-          <AlertDialogContent className="sm:max-w-lg" onCloseAutoFocus={event => { event.preventDefault(); finishButton.current?.focus(); }}>
-            <AlertDialogHeader><AlertDialogTitle>{exam ? t("确认交卷？") : t("结束本次练习？")}</AlertDialogTitle><AlertDialogDescription>{t("已提交 {0} 题；未提交草稿 {1} 题；空白 {2} 题。结束后不能修改答案。", { 0: session.attempts.filter(a => a.submittedAt != null).length, 1: session.attempts.filter(a => a.submittedAt == null && a.answer !== null).length, 2: session.attempts.filter(a => a.submittedAt == null && a.answer === null).length })}</AlertDialogDescription></AlertDialogHeader>
-            <AlertDialogFooter className="flex-wrap"><AlertDialogCancel disabled={finishing}>{t("继续作答")}</AlertDialogCancel>{!exam && <Button variant="outline" disabled={finishing} onClick={() => finish(false)}>{t("草稿记为跳过并结束")}</Button>}<Button disabled={finishing} onClick={() => finish(true)}>{finishing ? t("正在保存…") : exam ? t("确认交卷") : t("提交草稿并结束")}</Button></AlertDialogFooter>
+          <AlertDialogContent className="sm:max-w-lg" onCloseAutoFocus={event => { event.preventDefault(); (reviewOnClose.current ? questionHeading : finishButton).current?.focus(); reviewOnClose.current = false; }}>
+            <AlertDialogHeader><AlertDialogTitle>{exam ? t("确认交卷？") : t("结束本次练习？")}</AlertDialogTitle><AlertDialogDescription>{t("已提交 {0} 题；未提交草稿 {1} 题；空白 {2} 题。结束后不能修改答案。", { 0: session.attempts.filter(a => a.submittedAt != null).length, 1: session.attempts.filter(a => a.submittedAt == null && hasAnswer(a.answer)).length, 2: session.attempts.filter(a => a.submittedAt == null && !hasAnswer(a.answer)).length })}{unassessed.length > 0 && <span className="mt-2 block">{t("还有 {0} 题未自评。结束后仍可在练习记录中核对并补充自评。", {0:unassessed.length})}</span>}</AlertDialogDescription></AlertDialogHeader>
+            <AlertDialogFooter className="flex-wrap"><AlertDialogCancel disabled={finishing}>{t("继续作答")}</AlertDialogCancel>{unassessed.length > 0 && <Button variant="outline" disabled={finishing} onClick={() => { reviewOnClose.current = true; setConfirmFinish(false); go(unassessed[0].ordinal); }}>{t("去核对")}</Button>}{!exam && <Button variant="outline" disabled={finishing} onClick={() => finish(false)}>{unassessed.length > 0 ? t("草稿记为跳过并结束（保留未判定）") : t("草稿记为跳过并结束")}</Button>}<Button disabled={finishing} onClick={() => finish(true)}>{finishing ? t("正在保存…") : exam ? t("确认交卷") : unassessed.length > 0 ? t("提交草稿并结束（保留未判定）") : t("提交草稿并结束")}</Button></AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
         {finished && (
@@ -349,15 +353,23 @@ function PracticeClock({elapsed, active, deadlineAt, saved, finished, onAutosave
   </div>;
 }
 
+// Match native has_answer: a partial draft counts, but whitespace-only values do not.
+function hasAnswer(value: unknown): boolean {
+  if (value == null) return false;
+  if (typeof value === "string") return value.trim().length > 0;
+  if (typeof value === "object") return Object.values(value).some(hasAnswer);
+  return true;
+}
+
 function answerState(a: Attempt, draft: Answer | null, exam: boolean) {
     if (a.skipped) return t("已跳过");
     if (a.submittedAt != null) {
       if (a.result === true) return t("正确");
-      if (a.result === false) return exam ? t("未得满分") : t("错误");
+      if (a.result === false) return exam ? (a.earnedCents || 0) > 0 ? t("部分得分") : t("未得满分") : a.snapshot.question.answerMode === "fill_blank" && a.gradeKind === "auto" ? t("文本不完全一致") : t("错误");
       return t("已提交，待判定");
     }
     if (answerReady(canInteract(a.snapshot.question) ? a.snapshot.question : { ...a.snapshot.question, answerMode: "short_answer" }, draft)) return t("已作答，未提交");
-    if (draft !== null) return t("草稿未完成");
+    if (hasAnswer(draft)) return t("草稿未完成");
     return t("未作答");
   }
 
@@ -366,7 +378,7 @@ const AnswerCardItem = memo(function AnswerCardItem({a, current, answer, exam, g
 }) {
   useI18n();
   const state = answerState(a, answer, exam);
-  const answered = !current && !a.skipped && a.result !== false && answer !== null;
+  const answered = !current && !a.skipped && a.result !== false && hasAnswer(answer);
   return (
                 <Button
                   key={a.ordinal}
@@ -374,7 +386,7 @@ const AnswerCardItem = memo(function AnswerCardItem({a, current, answer, exam, g
                   variant={
                     current
                       ? "default"
-                      : a.result === false
+                      : a.result === false && !(exam && (a.earnedCents || 0) > 0)
                         ? "destructive"
                         : a.submittedAt
                           ? "secondary"
@@ -405,7 +417,7 @@ const AnswerCard = memo(function AnswerCard({session, answer, exam, go}: {
               {session.attempts.map(a => <AnswerCardItem key={a.ordinal} a={a} current={a.ordinal === session.position} answer={a.ordinal === session.position ? answer : a.answer} exam={exam} go={go} />)}
             </div>
             <p className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground"><span className="flex items-center gap-1"><Pencil className="size-3"/>{t("草稿")}</span><span className="flex items-center gap-1"><Check className="size-3"/>{t("已提交")}</span><span className="flex items-center gap-1"><X className="size-3"/>{exam ? t("未得满分") : t("错误")}</span><span className="flex items-center gap-1"><SkipForward className="size-3"/>{t("跳过")}</span></p>
-            <p className="mt-4 text-xs leading-5 text-muted-foreground">{t("{0} {1} / {2}。草稿自动保存，可随时离开后继续。", { 0: exam ? t("已作答") : t("已提交"), 1: session.attempts.filter((a) => exam ? a.answer !== null : a.submittedAt).length, 2: session.attempts.length })}</p>
+            <p className="mt-4 text-xs leading-5 text-muted-foreground">{t("{0} {1} / {2}。草稿自动保存，可随时离开后继续。", { 0: exam ? t("已作答") : t("已提交"), 1: session.attempts.filter((a) => exam ? hasAnswer(a.ordinal === session.position ? answer : a.answer) : a.submittedAt != null).length, 2: session.attempts.length })}</p>
           </CardContent>
         </Card>
   );

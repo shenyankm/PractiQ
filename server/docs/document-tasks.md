@@ -21,6 +21,8 @@ First obtain a `document` reference through the [authenticated upload API](servi
 
 `GET /api/document-tasks/{threadId}` returns `state`, `phase`, `progress`, `failures`, `blocking`, `allowedActions`, `checkpointId`, `expiresAt`, `updatedAt`, `status`, `result`, `processing`, `usage`, `unknownUsageCalls`, and `modelBudget`. Before the first checkpoint, it returns an opaque `pending:<runId>` token used only for task control. This is not a LangGraph checkpoint; clients must not parse or construct it.
 
+Details also include `parentThreadId` (nullable), `modelConfigured`, and `resumeCompatible`. The last field is false when this process has no model configuration or the saved execution signature differs. `allowedActions` describes the saved task state; model configuration and signature checks still apply when performing a control.
+
 Choose controls from `state` and `allowedActions`:
 
 | State | Available controls |
@@ -68,6 +70,10 @@ Control receipts and queue entries are persisted in one transaction. Execution u
 
 Tasks expire 180 days after creation, returning `TASK_EXPIRED`. Changes to code, locked dependencies, Python patch version, model, or storage semantics return `EXECUTION_VERSION_MISMATCH`; use the original version or create a new task. Upgrades do not migrate old Agent Server checkpoints.
 
+To explicitly parse the same source with the current model, send `POST /api/document-tasks/{threadId}/reparse` with `{"requestId":"a-new-UUID"}`. This verifies the retained source checksum and expiry, reuses the existing task-creation path, and returns the standard 202 receipt. The new task links to the original through `parentThreadId`; the original result and usage remain unchanged. Replays use the same request ID. This is a new paid parsing operation, not a resume; unsupported Word sources still require export to PDF.
+
+The desktop bootstrap accepts empty strings for all three `LLM_API_KEY`, `LLM_BASE_URL`, and `LLM_MODEL` fields to start a read-only service. Authentication, storage validation, and retention checks remain required. List, detail, review, and verified artifact reads remain available for importing completed results without a model or Keychain read. Uploads and new parsing/grading/control work return `MODEL_NOT_CONFIGURED`; pause and interrupt are still available. Partial-result acceptance executes graph finalization and retains the model configuration and execution-signature requirement. A later explicit model action can restart the service with complete model settings; startup never automatically resumes desktop runs.
+
 ## Format boundaries
 
 All formats use `LLM_MODEL`. TXT/CSV send text; PDF/images send images directly for extraction. Each page includes adjacent-page context and emits only questions starting on that page. Content outside the window remains incomplete and is not invented.
@@ -77,6 +83,8 @@ See [operations](operations.md) for deployment, exclusive locking, recovery acce
 ## Task list
 
 `GET /api/document-tasks?limit=20&offset=0` uses the same Bearer authentication. It returns `items` containing threadId, fileName, createdAt, expiresAt, state, status, checkpointId, questionCount, and reviewCount, plus `hasMore`. Limit is 1–100. Results sort by creation time and task ID descending. Summaries read saved checkpoints without loading all call logs; expired tasks appear as EXPIRED. Use the single-task endpoint for full state.
+
+Optional `sha256` filters by the source document's 64-character lowercase hexadecimal digest, with the same pagination. This supports duplicate-source reminders without parsing the document or making a model call.
 
 ## Read-only review preview
 
@@ -93,7 +101,7 @@ See [operations](operations.md) for deployment, exclusive locking, recovery acce
 }
 ```
 
-Stage review returns saved successful units and their source references; result review returns merged output. Failures identify failed scopes; quality and questionSources describe review issues and provenance. This endpoint does not merge, crop, call models, accept results, or write question banks. Read source content through the validated artifact API. Acceptance must carry the preview's checkpointId; an old preview cannot accept a newer result.
+Stage review returns saved successful units and their source references; result review returns merged output plus source-only units with empty questions/groups and retained source references. Match `questionSources.stage` and `unitIndex` to these units to locate original text or page images. Failures identify failed scopes; quality and questionSources describe review issues and provenance. This endpoint does not merge, crop, call models, accept results, or write question banks. Read source content through the validated artifact API. Acceptance must carry the preview's checkpointId; an old preview cannot accept a newer result.
 
 ## Recovery errors and desktop receipts
 

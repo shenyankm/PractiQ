@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import {
   act,
   cleanup,
@@ -14,6 +14,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { api } from "./api";
 import App from "./App";
 import { ImportBankDialog } from "./ImportBankDialog";
+import { ImportPage } from "./ImportPage";
 import { toast } from "./notifications";
 import fixture from "../fixtures/sample.json";
 
@@ -28,9 +29,38 @@ vi.mock("./api", async () => ({
 HTMLElement.prototype.hasPointerCapture = () => false;
 HTMLElement.prototype.scrollIntoView = () => {};
 vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
+beforeEach(() => {
+  vi.mocked(invoke).mockImplementation(async (_command, args) => {
+    const { type } = (args as { request: { type: string } }).request;
+    return type === "list" ? { items: [], hasMore: false } : type === "batches" ? { items: [], total: 0, offset: 0, operations: [] } : [];
+  });
+});
 afterEach(() => {
+  vi.useRealTimers();
   cleanup();
   vi.clearAllMocks();
+});
+
+it("explains a slow settings read without stacking requests and keeps offline navigation available", async () => {
+  vi.useFakeTimers();
+  vi.mocked(api).mockImplementation(() => new Promise(() => {}) as never);
+  const onOpenZipSettings = vi.fn();
+  await act(async () => { render(<ImportPage busy={false} run={job => { void job(); }} onPreview={() => {}} onOpenBank={() => {}} onConfigure={() => {}} onOpenZipSettings={onOpenZipSettings}/>); });
+  await act(async () => { await vi.advanceTimersByTimeAsync(8000); });
+  expect(screen.getByText(/读取模型配置耗时较长/)).toBeTruthy();
+  expect(screen.queryByRole("button", {name:"重试读取配置"})).toBeNull();
+  expect(api).toHaveBeenCalledTimes(1);
+  expect(vi.mocked(invoke).mock.calls.some(([, args]) => (args as {request:{type:string}}).request.type === "list")).toBe(true);
+  fireEvent.click(screen.getByRole("button", {name:"已有题库 ZIP？前往设置导入（追加，不替换学习记录）"}));
+  expect(onOpenZipSettings).toHaveBeenCalledTimes(1);
+});
+
+it("shows partial-result and missing-resource warnings before a long question preview", () => {
+  render(<ImportBankDialog preview={{processing:null,ticket:"ticket",title:"Parsed",count:1,reviewCount:1,questions:[{...fixture.questions[0],id:"question",needsReview:true}] as never,assetCount:0,missingAssets:["missing.png"],warnings:[],status:"PARTIAL"}} banks={[]} initialBank="new" busy={false} run={() => {}} onClose={() => {}} onImported={async () => {}}/>);
+  const question = screen.getByRole("article", {name:"预览题目 1"});
+  const warning = screen.getByText("这是部分解析结果，可能未包含原文的全部题目。");
+  expect(warning.compareDocumentPosition(question) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(screen.getByText("已加载 0 张图片，缺失 1 个资源。").compareDocumentPosition(question) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 });
 
 it("hides import in favorites while preserving practice and other import entries", async () => {
@@ -88,7 +118,7 @@ it("loads native pages and clamps the page after deleting the last item", async 
 }, 30000);
 
 it("keeps ZIP import usable without models and preserves the destination bank", async () => {
-  vi.mocked(invoke).mockImplementation(async (_c,args) => ((args as {request:{type:string}}).request.type === "batches" ? {items:[],total:0,offset:0,operations:[]} : []) as never);
+  vi.mocked(invoke).mockImplementation(async (_c,args) => ((args as {request:{type:string}}).request.type === "list" ? {items:[],hasMore:false} : (args as {request:{type:string}}).request.type === "batches" ? {items:[],total:0,offset:0,operations:[]} : []) as never);
   vi.mocked(api).mockImplementation(async (request) => {
     switch (request.type) {
       case "banks":
@@ -138,9 +168,9 @@ it("keeps ZIP import usable without models and preserves the destination bank", 
   ).toBeTruthy();
   expect(screen.queryByRole("button", { name: "文档解析" })).toBeNull();
   expect(await screen.findByRole("button", { name: "配置 AI 模型" })).toBeTruthy();
-  expect(screen.queryByRole("button", { name: "上传" })).toBeNull();
-  expect(screen.queryByRole("button", { name: "刷新任务" })).toBeNull();
-  expect(vi.mocked(invoke).mock.calls.some(([,args]) => (args as {request:{type:string}}).request.type === "list")).toBe(false);
+  expect(screen.getByRole("button", { name: "选择文档并解析" }).hasAttribute("disabled")).toBe(true);
+  expect(screen.queryByRole("region", { name: "导入任务" })).toBeNull();
+  expect(vi.mocked(invoke).mock.calls.some(([,args]) => (args as {request:{type:string}}).request.type === "list")).toBe(true);
   await userEvent.click(await screen.findByRole("button",{name:"设置"}));
   await userEvent.click(await screen.findByRole("button",{name:"恢复备份"}));
   await userEvent.click(await screen.findByRole("menuitem",{name:"导入题库 ZIP"}));
@@ -299,9 +329,9 @@ it("guides an empty library to import without requiring AI settings", async () =
     if (r.type === "settings") return {config:{},hasApiKey:false} as never;
     return [] as never;
   });
-  vi.mocked(invoke).mockImplementation(async (_c,args) => ((args as {request:{type:string}}).request.type === "batches" ? {items:[],total:0,offset:0,operations:[]} : []) as never);
+  vi.mocked(invoke).mockImplementation(async (_c,args) => ((args as {request:{type:string}}).request.type === "list" ? {items:[],hasMore:false} : (args as {request:{type:string}}).request.type === "batches" ? {items:[],total:0,offset:0,operations:[]} : []) as never);
   render(<App/>);
-  await userEvent.click(await screen.findByRole("button",{name:"导入第一份题库"}));
+  await userEvent.click(await screen.findByRole("button",{name:"从文档解析题目"}));
   expect(await screen.findByRole("button",{name:"配置 AI 模型"})).toBeTruthy();
   expect(screen.queryByRole("button",{name:"选择题库 ZIP"})).toBeNull();
   expect(screen.queryByText("导入已有题库")).toBeNull();
@@ -333,12 +363,14 @@ it("keeps model fields on a secondary settings page and refreshes the summary af
   await waitFor(() => expect(model.closest("fieldset")?.disabled).toBe(false));
   await userEvent.clear(model);
   await userEvent.type(model,"new-model");
+  expect(vi.mocked(api).mock.calls.some(([request]) => request.type === "save_settings")).toBe(false);
+  await userEvent.click(screen.getByRole("button", {name:"保存并应用"}));
   await waitFor(() => expect(api).toHaveBeenCalledWith(expect.objectContaining({type:"save_settings"})));
   await userEvent.click(screen.getByRole("button",{name:"返回设置"}));
   expect((await screen.findByText("已配置")).getAttribute("data-slot")).toBe("badge");
 });
 
-it("autosaves model setup and returns to the original import destination", async () => {
+it("explicitly saves model setup and returns to the original import destination", async () => {
   let settings = {config:{base_url:"https://example.com/v1",model_id:null as string|null},hasApiKey:true};
   vi.mocked(api).mockImplementation(async r => {
     if (r.type === "banks_page") return {items:[{id:"bank",title:"追加目标",count:0,description:""}],total:1,offset:0} as never;
@@ -359,11 +391,13 @@ it("autosaves model setup and returns to the original import destination", async
   const vision = await screen.findByLabelText("模型 ID");
   await waitFor(() => expect(vision.closest("fieldset")?.disabled).toBe(false));
   await userEvent.type(vision,"vision");
+  expect(vi.mocked(api).mock.calls.some(([request]) => request.type === "save_settings")).toBe(false);
+  await userEvent.click(screen.getByRole("button", {name:"保存并应用"}));
   await waitFor(() => expect(api).toHaveBeenCalledWith(expect.objectContaining({type:"save_settings"})));
   await waitFor(() => expect(screen.getByRole("button",{name:"返回导入"}).hasAttribute("disabled")).toBe(false));
   await userEvent.click(screen.getByRole("button",{name:"返回导入"}));
   expect(await screen.findByRole("heading",{name:"导入题库",level:1})).toBeTruthy();
-  expect(await screen.findByRole("button",{name:"上传"})).toBeTruthy();
+  expect(await screen.findByRole("button",{name:"选择文档并解析"})).toBeTruthy();
   await userEvent.click(await screen.findByRole("button",{name:"设置"}));
   await userEvent.click(await screen.findByRole("button",{name:"恢复备份"}));
   await userEvent.click(await screen.findByRole("menuitem",{name:"导入题库 ZIP"}));
@@ -392,7 +426,7 @@ it("continues the existing session from home without creating another paper", as
 it("handles ZIP picker cancellation and package/export errors without importing", async () => {
   const notified=vi.spyOn(toast,"error");
   let failImport=false;
-  vi.mocked(invoke).mockImplementation(async (_c,args) => ((args as {request:{type:string}}).request.type === "batches" ? {items:[],total:0,offset:0,operations:[]} : []) as never);
+  vi.mocked(invoke).mockImplementation(async (_c,args) => ((args as {request:{type:string}}).request.type === "list" ? {items:[],hasMore:false} : (args as {request:{type:string}}).request.type === "batches" ? {items:[],total:0,offset:0,operations:[]} : []) as never);
   vi.mocked(api).mockImplementation(async request=>{
     switch(request.type){
       case "banks": return [{id:"bank",title:"Shared",description:"",count:1}] as never;
@@ -453,7 +487,7 @@ it("keeps a confirmed document import in the task list and opens its bank only o
   render(<App/>);
   await userEvent.click(await screen.findByRole("button", {name:"导入题库"}));
   const tasks = await screen.findByRole("region", {name:"导入任务"});
-  const upload = await screen.findByRole("button", {name:"上传"});
+  const upload = await screen.findByRole("button", {name:"选择文档并解析"});
   expect(upload.closest('[data-slot="card"]')).toBeNull();
   expect(tasks.contains(upload)).toBe(false);
   expect(screen.queryByText("从文档创建题库")).toBeNull();

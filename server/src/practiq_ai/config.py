@@ -29,6 +29,7 @@ class Config:
     model_max_tokens: int
     base_url: str | None = None
     desktop_mode: bool = False
+    read_only: bool = False
     jobs_per_worker: int = 8
     task_max_model_calls: int = 400
     run_timeout_seconds: float = 1800
@@ -88,8 +89,11 @@ def is_loopback_host(hostname: str | None) -> bool:
 def load() -> Config:
     values = dict(os.environ)
     _required(values, "AI_SERVICE_TOKEN")
-    provider = _required(values, "LLM_PROVIDER")
-    if provider not in {"dashscope", "deepseek", "moonshot", "openai"}:
+    read_only = values.get("AI_READ_ONLY") == "1"
+    if read_only and values.get("AI_DESKTOP_MODE") != "1":
+        raise ValueError("AI_READ_ONLY requires desktop mode")
+    provider = "" if read_only else _required(values, "LLM_PROVIDER")
+    if not read_only and provider not in {"dashscope", "deepseek", "moonshot", "openai"}:
         raise ValueError(f"Unsupported LLM_PROVIDER: {provider}")
     storage_dir = values.get("AI_STORAGE_DIR", ".local/ai-oss").strip()
     if not storage_dir:
@@ -99,7 +103,7 @@ def load() -> Config:
     method = values.get("AI_STRUCTURED_OUTPUT_METHOD", "function_calling")
     if method not in {"auto", "json_schema", "function_calling"}:
         raise ValueError("AI_STRUCTURED_OUTPUT_METHOD must be auto, json_schema or function_calling")
-    model_id = _required(values, "LLM_MODEL")
+    model_id = "" if read_only else _required(values, "LLM_MODEL")
     jobs_per_worker = _positive_int(values, "N_JOBS_PER_WORKER", 8)
     graph_max_concurrency = _positive_int(values, "AI_GRAPH_MAX_CONCURRENCY", 2)
     if jobs_per_worker * graph_max_concurrency > 16:
@@ -116,7 +120,7 @@ def load() -> Config:
         raise ValueError("AI_MAINTENANCE_MODE must be true or false")
     if jobs_per_worker * graph_max_concurrency > provider_concurrency:
         raise ValueError("Total deployment model concurrency exceeds AI_PROVIDER_CONCURRENCY")
-    base_url = values.get("LLM_BASE_URL", "").strip() or None
+    base_url = None if read_only else values.get("LLM_BASE_URL", "").strip() or None
     if provider == "openai" and not base_url:
         raise ValueError("LLM_BASE_URL is required for openai")
     if base_url:
@@ -127,6 +131,7 @@ def load() -> Config:
     return Config(
         base_url=base_url,
         desktop_mode=values.get("AI_DESKTOP_MODE") == "1",
+        read_only=read_only,
         jobs_per_worker=jobs_per_worker,
         maintenance=maintenance == "true",
         task_max_model_calls=_positive_int(values, "AI_TASK_MAX_MODEL_CALLS", 400),
@@ -140,7 +145,7 @@ def load() -> Config:
         max_busy_threads=_positive_int(values, "AI_MAX_BUSY_THREADS", 300),
         structured_output_method=method,
         provider=provider,
-        api_key=_required(values, "LLM_API_KEY"),
+        api_key="" if read_only else _required(values, "LLM_API_KEY"),
         model_id=model_id,
         storage_dir=storage_path(storage_dir),
         source_max_bytes=_positive_int(values, "AI_SOURCE_MAX_BYTES", 25 * MIB),
@@ -158,6 +163,14 @@ def load() -> Config:
         model_timeout_seconds=_positive_float(values, "AI_AGENT_TIMEOUT_SECONDS", 180),
         model_max_tokens=_positive_int(values, "AI_AGENT_MAX_TOKENS", 16_384),
     )
+
+
+def require_model_config() -> Config:
+    settings = load()
+    if settings.read_only:
+        from .errors import DocumentProcessingError
+        raise DocumentProcessingError(409, "Configure a model before starting or resuming AI work", "MODEL_NOT_CONFIGURED")
+    return settings
 
 
 def storage_path(value: str) -> Path:

@@ -66,15 +66,18 @@ impl WorkState {
         self.claim(&store::id())
     }
     pub(crate) fn restore(&self) -> Result<Lease<'_>> {
+        self.exclusive("请先等待当前 AI 请求结束或停止导入批次，再恢复备份")
+    }
+    pub(crate) fn configure(&self) -> Result<Lease<'_>> {
+        self.exclusive("请先等待当前 AI 请求结束或停止导入批次，再更改连接设置")
+    }
+    fn exclusive(&self, message: &str) -> Result<Lease<'_>> {
         let mut active = self
             .0
             .lock()
             .map_err(|_| crate::language::error("LOCAL_WORK_UNAVAILABLE", serde_json::json!({})))?;
         if !active.is_empty() {
-            return Err(AppError::new(
-                "OPERATION_BUSY",
-                "请先等待当前 AI 请求结束或停止导入批次，再恢复备份",
-            ));
+            return Err(AppError::new("OPERATION_BUSY", message));
         }
         self.claim_locked("restore", &mut active)
     }
@@ -164,15 +167,17 @@ fn validate_operation(op: &Operation) -> Result<()> {
         ));
     }
     if op.path != "/api/document-tasks" {
-        let id = op
+        let (id, action) = op
             .path
             .strip_prefix("/api/document-tasks/")
-            .and_then(|s| s.strip_suffix("/control"))
+            .and_then(|s| s.rsplit_once('/'))
             .ok_or(crate::language::error(
                 "LOCAL_OPERATION_PATH_INVALID",
                 serde_json::json!({}),
             ))?;
-        if op.path != format!("{}/control", task_path(id)?) {
+        if !matches!(action, "control" | "reparse")
+            || op.path != format!("{}/{action}", task_path(id)?)
+        {
             return Err(crate::language::error(
                 "LOCAL_OPERATION_PATH_INVALID",
                 serde_json::json!({}),
@@ -338,7 +343,34 @@ struct Batch {
     id: String,
     created_at: i64,
     status: BatchStatus,
+    #[serde(default)]
+    bank_id: Option<String>,
     items: Vec<BatchItem>,
+}
+fn validate_destination(store: &Store, bank_id: Option<&str>) -> Result<()> {
+    if let Some(bank_id) = bank_id {
+        let exists: bool = store
+            .connect()?
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM banks WHERE id=?1)",
+                [bank_id],
+                |r| r.get(0),
+            )
+            .map_err(err)?;
+        if !exists {
+            return Err(crate::language::error("LOCAL_BANK_MISSING", json!({})));
+        }
+    }
+    Ok(())
+}
+fn imported_destination(bank: String, requested: Option<&str>) -> Result<String> {
+    if requested.is_some_and(|requested| requested != bank) {
+        return Err(AppError::new(
+            "AI_RESULT_IMPORTED_ELSEWHERE",
+            "该结果已导入其他题库，请打开原题库查看",
+        ));
+    }
+    Ok(bank)
 }
 fn validate_batch(batch: &Batch) -> Result<()> {
     uuid::Uuid::parse_str(&batch.id)
@@ -371,7 +403,12 @@ fn validate_batch(batch: &Batch) -> Result<()> {
     }
     Ok(())
 }
-pub fn prepare_batch(dir: &Path, endpoint: &Endpoint, ids: &[String]) -> Result<Value> {
+pub fn prepare_batch(
+    dir: &Path,
+    endpoint: &Endpoint,
+    ids: &[String],
+    bank_id: Option<String>,
+) -> Result<Value> {
     if ids.is_empty() || ids.len() > 100 || ids.iter().collect::<HashSet<_>>().len() != ids.len() {
         return Err(crate::language::error(
             "LOCAL_BATCH_SELECTION_INVALID",
@@ -384,10 +421,12 @@ pub fn prepare_batch(dir: &Path, endpoint: &Endpoint, ids: &[String]) -> Result<
         pending: None,
         staged_audio: std::collections::HashMap::new(),
     };
+    validate_destination(&store, bank_id.as_deref())?;
     let mut batch = Batch {
         id: store::id(),
         created_at: store::now(),
         status: BatchStatus::Ready,
+        bank_id,
         items: vec![],
     };
     for id in ids {
@@ -397,7 +436,10 @@ pub fn prepare_batch(dir: &Path, endpoint: &Endpoint, ids: &[String]) -> Result<
             serde_json::json!({}),
         ))?;
         let digest = pending.digest()?;
-        let bank = store.imported_ai(id, Some(&digest), None)?;
+        let bank = store
+            .imported_ai(id, Some(&digest), None)?
+            .map(|bank| imported_destination(bank, batch.bank_id.as_deref()))
+            .transpose()?;
         let previous = bank.is_none() && store.imported_ai(id, None, None)?.is_some();
         let questions = contract::list(contract::result(&pending.root), "questions");
         batch.items.push(BatchItem {
@@ -490,12 +532,24 @@ pub fn batches(dir: &Path, work: &WorkState, offset: usize, threads: &[String]) 
         if !active.contains_key(&batch.id) {
             for item in &mut batch.items {
                 if item.status == ItemStatus::Imported {
-                    item.bank_id =
-                        Store::imported_ai_with(&db, &item.thread_id, Some(&item.digest), None)?;
-                    if item.bank_id.is_none() {
-                        item.status = ItemStatus::Pending;
-                        item.error = None;
-                        batch.status = BatchStatus::Paused;
+                    let imported =
+                        Store::imported_ai_with(&db, &item.thread_id, Some(&item.digest), None)?
+                            .map(|bank| imported_destination(bank, batch.bank_id.as_deref()))
+                            .transpose();
+                    match imported {
+                        Ok(Some(bank)) => item.bank_id = Some(bank),
+                        Ok(None) => {
+                            item.bank_id = None;
+                            item.status = ItemStatus::Pending;
+                            item.error = None;
+                            batch.status = BatchStatus::Paused;
+                        }
+                        Err(error) => {
+                            item.bank_id = None;
+                            item.status = ItemStatus::Failed;
+                            item.error = Some(error);
+                            batch.status = BatchStatus::Paused;
+                        }
                     }
                 }
             }
@@ -549,6 +603,12 @@ pub fn run_batch(
         }
     }
     validate_batch(&batch)?;
+    validate_destination(
+        &*shared
+            .lock()
+            .map_err(|_| crate::language::error("LOCAL_DATABASE_UNAVAILABLE", json!({})))?,
+        batch.bank_id.as_deref(),
+    )?;
     batch.status = BatchStatus::Running;
     save(dir, "import-batches", id, &batch)?;
     for index in 0..batch.items.len() {
@@ -558,7 +618,7 @@ pub fn run_batch(
         }
         let item = &mut batch.items[index];
         // The practice database, not the manifest, decides whether a commit happened.
-        let result = import_item(dir, endpoint, shared, item);
+        let result = import_item(dir, endpoint, shared, item, batch.bank_id.as_deref());
         match result {
             Ok(bank) => {
                 item.status = ItemStatus::Imported;
@@ -584,13 +644,14 @@ fn import_item(
     endpoint: &Endpoint,
     shared: &Shared,
     item: &BatchItem,
+    bank_id: Option<&str>,
 ) -> Result<String> {
     if let Some(bank) = shared
         .lock()
         .map_err(|_| crate::language::error("LOCAL_DATABASE_UNAVAILABLE", serde_json::json!({})))?
         .imported_ai(&item.thread_id, Some(&item.digest), None)?
     {
-        return Ok(bank);
+        return imported_destination(bank, bank_id);
     }
     let mut pending = endpoint.pending(&item.thread_id)?;
     if pending.source.as_ref().map(|s| s.checkpoint_id.as_str())
@@ -614,8 +675,8 @@ fn import_item(
     let result = shared
         .lock()
         .map_err(|_| crate::language::error("LOCAL_DATABASE_UNAVAILABLE", serde_json::json!({})))?
-        .import_pending(&pending, None, &item.title)?;
-    Ok(contract::text(&result, "bankId").into())
+        .import_pending(&pending, bank_id.map(str::to_owned), &item.title)?;
+    imported_destination(contract::text(&result, "bankId").into(), bank_id)
 }
 
 #[cfg(test)]
@@ -769,6 +830,48 @@ mod tests {
     }
 
     #[test]
+    fn reparse_replays_the_same_request_and_rejects_other_action_paths() {
+        let dir = tempfile::tempdir().unwrap();
+        let request_id = store::id();
+        let task_id = store::id();
+        let path = format!("{}/reparse", task_path(&task_id).unwrap());
+        let expected_path = path.clone();
+        let expected_id = request_id.clone();
+        let mut calls = 0;
+        let (endpoint, worker) = server(2, move |path, body| {
+            assert_eq!(path, expected_path);
+            assert_eq!(body["requestId"], expected_id);
+            calls += 1;
+            (calls == 2).then(|| {
+                (
+                    200,
+                    serde_json::to_vec(&json!({"requestId":expected_id,"accepted":true})).unwrap(),
+                )
+            })
+        });
+        assert!(submit_operation(
+            dir.path(),
+            &WorkState::default(),
+            &endpoint,
+            &path,
+            json!({"requestId":request_id}),
+            "reparse",
+        )
+        .is_err());
+        replay_operation(dir.path(), &WorkState::default(), &endpoint, &request_id).unwrap();
+        worker.join().unwrap();
+        let mut op: Operation = read(dir.path(), "requests", &request_id).unwrap();
+        for invalid in [
+            format!("{}/delete", task_path(&task_id).unwrap()),
+            "/api/document-tasks/not-a-uuid/reparse".into(),
+            format!("{}/reparse/extra", task_path(&task_id).unwrap()),
+        ] {
+            op.path = invalid;
+            assert!(validate_operation(&op).is_err());
+        }
+    }
+
+    #[test]
     fn batch_pages_keep_active_work_and_off_page_failure_receipts() {
         let dir = tempfile::tempdir().unwrap();
         let _shared = shared(dir.path());
@@ -784,6 +887,7 @@ mod tests {
                 id: id.clone(),
                 created_at: i,
                 status: BatchStatus::Running,
+                bank_id: None,
                 items: vec![BatchItem {
                     thread_id: thread.clone(),
                     checkpoint_id: "checkpoint".into(),
@@ -838,7 +942,7 @@ mod tests {
             let id = path.rsplit('/').next().unwrap();
             response(task(id, id == expected[1]))
         });
-        let preview = prepare_batch(dir.path(), &endpoint, &ids).unwrap();
+        let preview = prepare_batch(dir.path(), &endpoint, &ids, None).unwrap();
         let id = contract::text(&preview, "id");
         let result = run_batch(
             dir.path(),
@@ -926,36 +1030,135 @@ mod tests {
     }
 
     #[test]
-    fn cancel_stops_after_current_item_and_explicit_continue_imports_remaining() {
+    fn append_batch_keeps_destination_through_cancel_restart_and_committed_receipts() {
         let dir = tempfile::tempdir().unwrap();
         let shared = shared(dir.path());
         let work = Arc::new(WorkState::default());
         let ids = vec![store::id(), store::id()];
-        let (endpoint, worker) = server(2, |path, _| {
-            response(task(path.rsplit('/').next().unwrap(), false))
-        });
-        let preview = prepare_batch(dir.path(), &endpoint, &ids).unwrap();
+        let bank_id = shared
+            .lock()
+            .unwrap()
+            .save_bank(None, "Combined", "")
+            .unwrap()
+            .as_str()
+            .unwrap()
+            .to_owned();
+        fn distinct_task(path: &str) -> Value {
+            let id = path.rsplit('/').next().unwrap();
+            let mut value = task(id, false);
+            value["result"]["questions"][0]["stem"] = json!(id);
+            value
+        }
+        let offline = Endpoint::test("http://127.0.0.1:1".into());
+        assert_eq!(
+            prepare_batch(dir.path(), &offline, &ids, Some("missing".into()))
+                .unwrap_err()
+                .code,
+            "LOCAL_BANK_MISSING"
+        );
+        let (endpoint, worker) = server(2, |path, _| response(distinct_task(path)));
+        let preview = prepare_batch(dir.path(), &endpoint, &ids, Some(bank_id.clone())).unwrap();
         worker.join().unwrap();
+        assert_eq!(preview["bankId"], bank_id);
         let id = contract::text(&preview, "id").to_owned();
         let cancel_dir = dir.path().to_owned();
         let cancel_id = id.clone();
         let cancel_work = work.clone();
         let (endpoint, worker) = server(1, move |path, _| {
             cancel_batch(&cancel_dir, &cancel_work, &cancel_id).unwrap();
-            response(task(path.rsplit('/').next().unwrap(), false))
+            response(distinct_task(path))
         });
         let paused = run_batch(dir.path(), &work, &endpoint, &shared, &id, None).unwrap();
         worker.join().unwrap();
         assert_eq!(paused["status"], "paused");
         assert_eq!(paused["items"][0]["status"], "imported");
         assert_eq!(paused["items"][1]["status"], "pending");
-        let (endpoint, worker) = server(1, |path, _| {
-            response(task(path.rsplit('/').next().unwrap(), false))
-        });
-        let done = run_batch(dir.path(), &work, &endpoint, &shared, &id, None).unwrap();
+        assert_eq!(paused["items"][0]["bankId"], bank_id);
+        // Simulate exit after a commit but before its manifest update.
+        let mut interrupted: Batch = read(dir.path(), "import-batches", &id).unwrap();
+        interrupted.items[0].status = ItemStatus::Pending;
+        interrupted.items[0].bank_id = None;
+        save(dir.path(), "import-batches", &id, &interrupted).unwrap();
+        let (endpoint, worker) = server(1, |path, _| response(distinct_task(path)));
+        let done = run_batch(
+            dir.path(),
+            &WorkState::default(),
+            &endpoint,
+            &shared,
+            &id,
+            None,
+        )
+        .unwrap();
         worker.join().unwrap();
         assert_eq!(done["status"], "completed");
         assert_eq!(done["items"][1]["status"], "imported");
+        assert_eq!(done["items"][1]["bankId"], bank_id);
+        let db = shared.lock().unwrap().connect().unwrap();
+        assert_eq!(
+            db.query_row("SELECT COUNT(*) FROM banks", [], |r| r.get::<_, i64>(0))
+                .unwrap(),
+            1
+        );
+        assert_eq!(
+            db.query_row("SELECT COUNT(*) FROM imports", [], |r| r.get::<_, i64>(0))
+                .unwrap(),
+            2
+        );
+        let repeated = run_batch(dir.path(), &work, &offline, &shared, &id, None).unwrap();
+        assert_eq!(repeated, done);
+        assert_eq!(
+            db.query_row("SELECT COUNT(*) FROM imports", [], |r| r.get::<_, i64>(0))
+                .unwrap(),
+            2
+        );
+        let other = shared
+            .lock()
+            .unwrap()
+            .save_bank(None, "Other", "")
+            .unwrap()
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let (endpoint, worker) = server(1, |path, _| response(distinct_task(path)));
+        assert_eq!(
+            prepare_batch(dir.path(), &endpoint, &ids, Some(other.clone()))
+                .unwrap_err()
+                .code,
+            "AI_RESULT_IMPORTED_ELSEWHERE"
+        );
+        worker.join().unwrap();
+        // A result imported elsewhere after preparation must also fail at execution.
+        interrupted.bank_id = Some(other.clone());
+        interrupted.items[0].status = ItemStatus::Imported;
+        interrupted.items[0].bank_id = Some(bank_id);
+        save(dir.path(), "import-batches", &id, &interrupted).unwrap();
+        assert_eq!(
+            batches(dir.path(), &work, 0, &[]).unwrap()["items"][0]["items"][0]["error"]["code"],
+            "AI_RESULT_IMPORTED_ELSEWHERE"
+        );
+        let conflicted = run_batch(dir.path(), &work, &offline, &shared, &id, None).unwrap();
+        assert_eq!(
+            conflicted["items"][0]["error"]["code"],
+            "AI_RESULT_IMPORTED_ELSEWHERE"
+        );
+        assert_eq!(
+            db.query_row("SELECT COUNT(*) FROM imports", [], |r| r.get::<_, i64>(0))
+                .unwrap(),
+            2
+        );
+        let mut legacy = serde_json::to_value(interrupted).unwrap();
+        legacy.as_object_mut().unwrap().remove("bankId");
+        assert!(serde_json::from_value::<Batch>(legacy)
+            .unwrap()
+            .bank_id
+            .is_none());
+        shared.lock().unwrap().delete_bank(&other).unwrap();
+        assert_eq!(
+            run_batch(dir.path(), &work, &offline, &shared, &id, None)
+                .unwrap_err()
+                .code,
+            "LOCAL_BANK_MISSING"
+        );
     }
 
     #[test]
@@ -972,7 +1175,7 @@ mod tests {
             }
             response(result)
         });
-        let batch = prepare_batch(dir.path(), &endpoint, &[id]).unwrap();
+        let batch = prepare_batch(dir.path(), &endpoint, &[id], None).unwrap();
         let result = run_batch(
             dir.path(),
             &WorkState::default(),
@@ -1003,9 +1206,16 @@ fn restore_excludes_inflight_requests_in_both_directions() {
     let work = WorkState::default();
     let request = work.enter().unwrap();
     assert!(work.restore().is_err());
+    assert!(work.configure().is_err());
     drop(request);
     let restore = work.restore().unwrap();
     assert!(work.enter().is_err());
+    assert!(work.configure().is_err());
     drop(restore);
+    let configure = work.configure().unwrap();
+    assert!(work.enter().is_err());
+    assert!(work.restore().is_err());
+    assert!(work.configure().is_err());
+    drop(configure);
     assert!(work.enter().is_ok());
 }

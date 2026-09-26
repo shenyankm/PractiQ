@@ -425,7 +425,7 @@ pub fn read_scoped(
     let mut items = related(db, "SELECT question_id,json_object('id',item_id,'side',side,'content',content,'label',label) FROM question_items WHERE question_id IN (SELECT value FROM json_each(?1)) ORDER BY question_id,position", &scope)?;
     let mut sources = related(db, "SELECT question_id,json_object('questionId',question_id,'stage',stage,'unitIndex',unit_index) FROM question_sources WHERE question_id IN (SELECT value FROM json_each(?1)) ORDER BY question_id,stage,unit_index", &scope)?;
     let warnings = related(db, "SELECT import_id,json_quote(message) FROM import_warnings WHERE import_id IN (SELECT import_id FROM questions WHERE id IN (SELECT value FROM json_each(?1))) ORDER BY import_id,position", &scope)?;
-    let mut latest = related(db, "SELECT q.id,COALESCE((SELECT CASE result WHEN 1 THEN 'true' ELSE 'false' END FROM attempts WHERE question_id=q.id AND result IS NOT NULL ORDER BY submitted_at DESC,rowid DESC LIMIT 1),'null') FROM questions q WHERE q.id IN (SELECT value FROM json_each(?1))", &scope)?;
+    let mut latest = related(db, "SELECT q.id,COALESCE((SELECT json_object('result',result,'earnedCents',earned_cents,'maxCents',max_cents,'gradeKind',grade_kind) FROM attempts WHERE question_id=q.id AND result IS NOT NULL ORDER BY submitted_at DESC,rowid DESC LIMIT 1),'null') FROM questions q WHERE q.id IN (SELECT value FROM json_each(?1))", &scope)?;
     let mut rows = Vec::new();
     for (mut q, bank, import, blocks, missing, favorite, title) in records {
         q["contentBlocks"] = json_read(blocks)?;
@@ -511,7 +511,13 @@ pub fn read_scoped(
             .remove(&qid)
             .and_then(|mut values| values.pop())
             .unwrap_or(Value::Null);
-        rows.push(json!({"id":qid,"bankId":bank,"bankTitle":title,"question":q,"favorite":favorite,"latestResult":latest,"sources":sources,"warnings":warnings,"groups":[],"visuals":[],"missingAssets":false}));
+        let result = latest["result"].as_i64().map(|value| value != 0);
+        let score = if latest["earnedCents"].is_number() && latest["maxCents"].is_number() {
+            json!({"earnedCents":latest["earnedCents"],"maxCents":latest["maxCents"],"gradeKind":latest["gradeKind"]})
+        } else {
+            Value::Null
+        };
+        rows.push(json!({"id":qid,"bankId":bank,"bankTitle":title,"question":q,"favorite":favorite,"latestResult":result,"latestScore":score,"sources":sources,"warnings":warnings,"groups":[],"visuals":[],"missingAssets":false}));
     }
     let loaded_ids: HashSet<_> = rows.iter().map(|r| text(r, "id")).collect();
     let bank_scope = json!(rows
@@ -720,6 +726,10 @@ pub fn freeze(rows: &[Value]) -> Value {
     let mut visuals = Vec::new();
     let mut seen = HashSet::new();
     for row in &mut qs {
+        // Live list metadata is neither document content nor an immutable attempt snapshot.
+        for key in ["latestScore", "answerableCount"] {
+            row.as_object_mut().unwrap().remove(key);
+        }
         for (key, values) in [("groups", &mut groups), ("visuals", &mut visuals)] {
             for item in list(row, key) {
                 if seen.insert((key, item["id"].to_string())) {

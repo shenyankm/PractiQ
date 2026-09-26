@@ -98,7 +98,47 @@ impl Store {
         }
         let sid = id();
         let created = now();
-        tx.execute("INSERT INTO sessions(id,bank_title,created_at,position,mode,kind,deadline_at) VALUES(?1,?2,?3,0,'ordered',?4,?5)",params![sid,if exam {self.locale.text("自测 / 模考", "Self-test / mock exam")} else {self.locale.text("跨题库练习", "Practice across banks")},created,paper.kind,paper.minutes.map(|m|created+m*60_000)]).map_err(err)?;
+        let mut bank_ids = HashSet::new();
+        let bank_titles: Vec<_> = leaves
+            .iter()
+            .filter_map(|row| {
+                bank_ids
+                    .insert(text(row, "bankId"))
+                    .then_some(text(row, "bankTitle"))
+            })
+            .collect();
+        let bank_title = bank_titles
+            .first()
+            .copied()
+            .unwrap_or(self.locale.text("题库", "Question bank"));
+        let banks = if bank_titles.len() > 1 {
+            if self.locale == crate::language::Locale::Chinese {
+                format!("{bank_title}等 {} 个题库", bank_titles.len())
+            } else {
+                format!(
+                    "{bank_title} and {} other {}",
+                    bank_titles.len() - 1,
+                    if bank_titles.len() == 2 {
+                        "bank"
+                    } else {
+                        "banks"
+                    }
+                )
+            }
+        } else {
+            bank_title.to_owned()
+        };
+        let mode = match paper.kind.as_str() {
+            "self_test" => self.locale.text("不限时自测", "Self-test"),
+            "mock_exam" => self.locale.text("限时模考", "Timed mock exam"),
+            _ => self.locale.text("练习", "Practice"),
+        };
+        let title = format!(
+            "{banks} · {mode} · {n} {}",
+            self.locale
+                .text("题", if n == 1 { "question" } else { "questions" })
+        );
+        tx.execute("INSERT INTO sessions(id,bank_title,created_at,position,mode,kind,deadline_at) VALUES(?1,?2,?3,0,'ordered',?4,?5)",params![sid,title,created,paper.kind,paper.minutes.map(|m|created+m*60_000)]).map_err(err)?;
         tx.execute(
             "INSERT INTO session_documents VALUES(?1,?2)",
             params![sid, crate::questions::freeze(&selected).to_string()],
@@ -175,10 +215,16 @@ impl Store {
     }
     pub fn submit_paper(&self, sid: &str, submit_drafts: bool) -> Result<Value> {
         self.submit_core(sid, submit_drafts)?;
+        self.connect()?
+            .execute(
+                "UPDATE sessions SET last_active_at=?2 WHERE id=?1",
+                params![sid, now()],
+            )
+            .map_err(err)?;
         self.session(sid)
     }
     pub fn complete_review(&self, sid: &str) -> Result<Value> {
-        self.connect()?.execute("UPDATE sessions SET finished_at=COALESCE(finished_at,?2) WHERE id=?1 AND submitted_at IS NOT NULL",params![sid,now()]).map_err(err)?;
+        self.connect()?.execute("UPDATE sessions SET finished_at=COALESCE(finished_at,?2),last_active_at=?2 WHERE id=?1 AND submitted_at IS NOT NULL",params![sid,now()]).map_err(err)?;
         self.session(sid)
     }
     pub fn flag(&self, sid: &str, ordinal: usize, value: bool) -> Result<Value> {
@@ -207,6 +253,11 @@ impl Store {
                 serde_json::json!({}),
             ));
         }
+        db.execute(
+            "UPDATE sessions SET last_active_at=?2 WHERE id=?1",
+            params![sid, now()],
+        )
+        .map_err(err)?;
         self.session(sid)
     }
     pub fn enrich_session(&self, db: &Connection, s: &mut Value) -> Result<()> {
@@ -488,7 +539,7 @@ impl Store {
         {
             return Err(crate::language::error("LOCAL_GRADING_TOO_LARGE", json!({})));
         }
-        let payload = json!({"question":q,"answer":text(&answer,"text"),"maxCents":max,"materials":materials,"images":images});
+        let payload = json!({"question":q,"answer":text(&answer,"text"),"maxCents":max,"materials":materials,"images":images,"feedbackLocale":self.locale.as_str()});
         let raw = payload.to_string();
         if raw.len() > 31 * 1024 * 1024 {
             return Err(crate::language::error(
@@ -503,14 +554,33 @@ impl Store {
             if let Some(row) = rows.next().map_err(err)? {
                 let previous: Value =
                     serde_json::from_str(&row.get::<_, String>(0).map_err(err)?).map_err(err)?;
-                if previous["inputDigest"] != payload["inputDigest"] {
+                let mut original: Value = serde_json::from_str(&raw).map_err(err)?;
+                match previous["feedbackLocale"].as_str() {
+                    Some(locale @ ("zh-CN" | "en")) => original["feedbackLocale"] = json!(locale),
+                    None => {
+                        original
+                            .as_object_mut()
+                            .ok_or("Invalid grading payload")?
+                            .remove("feedbackLocale");
+                    }
+                    _ => {
+                        return Err(crate::language::error(
+                            "LOCAL_GRADING_INPUT_CHANGED",
+                            json!({}),
+                        ))
+                    }
+                }
+                // Rebuild from immutable content and the frozen locale; older payloads had no locale.
+                let original = original.to_string();
+                if previous["inputDigest"] != crate::store::hash(original.as_bytes()) {
                     return Err(crate::language::error(
                         "LOCAL_GRADING_INPUT_CHANGED",
-                        serde_json::json!({}),
+                        json!({}),
                     ));
                 }
-                payload["requestId"] = previous["requestId"].clone();
-                return Ok(payload);
+                return Ok(
+                    json!({"requestId":previous["requestId"],"inputDigest":previous["inputDigest"],"payload":original}),
+                );
             }
         }
         let rid = id();
@@ -521,7 +591,7 @@ impl Store {
                 rid,
                 sid,
                 ordinal,
-                json!({"requestId":rid,"inputDigest":payload["inputDigest"]}).to_string(),
+                json!({"requestId":rid,"inputDigest":payload["inputDigest"],"feedbackLocale":self.locale.as_str()}).to_string(),
                 now()
             ],
         )
@@ -570,7 +640,7 @@ impl Store {
                 serde_json::json!({}),
             ));
         }
-        tx.execute("UPDATE attempts SET grading=json_set(grading,CASE WHEN ?4 IS NULL THEN '$.lastRequest' ELSE '$.ai' END,json(?3)),earned_cents=CASE WHEN grade_kind='manual' OR ?4 IS NULL THEN earned_cents ELSE ?4 END,result=CASE WHEN grade_kind='manual' OR ?4 IS NULL THEN result ELSE (?4=max_cents) END,grade_kind=CASE WHEN grade_kind='manual' OR ?4 IS NULL THEN grade_kind ELSE 'ai' END WHERE session_id=?1 AND ordinal=?2 AND ?5=(SELECT id FROM grade_requests WHERE session_id=?1 AND ordinal=?2 ORDER BY created_at DESC,rowid DESC LIMIT 1)",params![sid,ordinal,response.to_string(),score,rid]).map_err(err)?;
+        tx.execute("UPDATE attempts SET grading=json_set(CASE WHEN ?4 IS NULL THEN grading ELSE json_remove(grading,'$.lastRequest') END,CASE WHEN ?4 IS NULL THEN '$.lastRequest' ELSE '$.ai' END,json(?3)),earned_cents=CASE WHEN grade_kind='manual' OR ?4 IS NULL THEN earned_cents ELSE ?4 END,result=CASE WHEN grade_kind='manual' OR ?4 IS NULL THEN result ELSE (?4=max_cents) END,grade_kind=CASE WHEN grade_kind='manual' OR ?4 IS NULL THEN grade_kind ELSE 'ai' END WHERE session_id=?1 AND ordinal=?2 AND ?5=(SELECT id FROM grade_requests WHERE session_id=?1 AND ordinal=?2 ORDER BY created_at DESC,rowid DESC LIMIT 1)",params![sid,ordinal,response.to_string(),score,rid]).map_err(err)?;
         tx.commit().map_err(err)?;
         self.session(sid)
     }

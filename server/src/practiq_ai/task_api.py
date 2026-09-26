@@ -4,15 +4,16 @@ import asyncio
 from datetime import timedelta
 from json import dumps as json_encode
 from typing import Any, cast
-from uuid import NAMESPACE_URL, uuid4, uuid5
+from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
-from .config import load
+from .config import load, require_model_config
 from .contracts import (
     COMPOSITE_MODES,
     DocumentReference,
     DocumentTaskControl,
     DocumentTaskCreate,
     DocumentTaskList,
+    DocumentTaskReparse,
     DocumentTaskReview,
     RetryUnits,
     scorable_count,
@@ -26,6 +27,7 @@ from .execution import (
     preflight,
     remaining_ttl,
     require_supported_task,
+    signature,
 )
 from .graphs.document import _retry_update, unit_failures
 from .storage import get_object_store
@@ -47,6 +49,7 @@ def receipt(thread_id: str, request_id: str, run_id: str) -> dict[str, Any]:
 
 
 async def _admit(conn):
+    require_model_config()
     if load().maintenance:
         raise DocumentProcessingError(503, 'Service is draining for maintenance', 'MAINTENANCE')
     count = await (await conn.execute("SELECT count(*) AS n FROM document_runs WHERE status IN ('pending','running')")).fetchone()
@@ -111,6 +114,26 @@ async def _read_task(service, thread_id):
     snapshot = await service.snapshot(task)
     runs = await service.db.rows('SELECT * FROM document_runs WHERE thread_id=? ORDER BY created_at DESC LIMIT 1', (thread_id,))
     return task, snapshot, runs[0] if runs else None
+
+
+async def reparse_task(thread_id: str, request: DocumentTaskReparse) -> dict[str, Any]:
+    service = client()
+    tasks = await service.db.rows('SELECT * FROM document_tasks WHERE thread_id=?', (thread_id,))
+    if not tasks:
+        raise DocumentProcessingError(404, 'Document task not found', 'TASK_NOT_FOUND')
+    task = tasks[0]
+    require_supported_task(task)
+    create = DocumentTaskCreate(requestId=request.requestId, document=DocumentReference.model_validate(task['document']),
+                                graphId=task['graph_id'], failurePolicy=task['failure_policy'], parentThreadId=UUID(thread_id))
+    async with service.db.connection() as conn:
+        previous = await _replay(conn, str(uuid5(NAMESPACE_URL, f'practiq/document/{request.requestId}')),
+                                 str(request.requestId), fingerprint(create.model_dump(mode='json')))
+    if previous:
+        return previous
+    remaining_ttl({'expiresAt': task['expires_at'].isoformat()})
+    require_model_config()
+    await get_object_store().get_verified(create.document)
+    return await create_task(create)
 
 
 def _interrupts(snapshot):
@@ -181,6 +204,9 @@ async def get_task(thread_id: str) -> dict[str, Any]:
                   for item in calls if item['status'] == 'completed'})
     return {
         'threadId': thread_id, 'runId': run['run_id'] if run else None,
+        'parentThreadId': task['parent_thread_id'],
+        'modelConfigured': not load().read_only,
+        'resumeCompatible': not load().read_only and (not values.get('execution') or values['execution'].get('signature') == signature()),
         'fileName': task['document'].get('fileName') or '文档',
         'state': state, 'phase': values.get('phase', 'pending'),
         'checkpointId': service.checkpoint_id(snapshot, run),
@@ -212,6 +238,7 @@ async def control_task(thread_id: str, request: DocumentTaskControl) -> dict[str
             previous = await _replay(conn, thread_id, request_id, request_hash)
         if previous:
             return previous
+        require_model_config()
         require_supported_task(task)
         if run and run['status'] in {'pending', 'running'}:
             raise conflict('Wait until the current run stops', 'TASK_BUSY')
@@ -273,9 +300,11 @@ def _counts(total: int, succeeded: int, failed: int) -> dict[str, int]:
     return {"total": total, "succeeded": succeeded, "failed": failed, "remaining": max(0, total - succeeded - failed)}
 
 
-async def list_tasks(limit: int = 20, offset: int = 0) -> dict[str, Any]:
+async def list_tasks(limit: int = 20, offset: int = 0, sha256: str | None = None) -> dict[str, Any]:
     service = client()
-    rows = await service.db.rows('SELECT * FROM document_tasks ORDER BY created_at DESC,thread_id DESC LIMIT ? OFFSET ?', (limit + 1, offset))
+    source_filter = " WHERE json_extract(document, '$.sha256')=?" if sha256 else ''
+    params = (sha256, limit + 1, offset) if sha256 else (limit + 1, offset)
+    rows = await service.db.rows('SELECT * FROM document_tasks' + source_filter + ' ORDER BY created_at DESC,thread_id DESC LIMIT ? OFFSET ?', params)
     latest_runs = await service.db.rows(
         'SELECT * FROM document_runs WHERE run_id IN '
         '(SELECT (SELECT run_id FROM document_runs r WHERE r.thread_id=t.thread_id ORDER BY created_at DESC LIMIT 1) '
@@ -309,6 +338,9 @@ async def review_task(thread_id: str) -> dict[str, Any]:
         result = values['result']
         units.append({'stage': 'result', 'index': 0, 'questions': result['questions'],
                       'groups': result.get('groups', []), 'visualElements': result.get('visualElements', [])})
+        for refs, stage in (('pageRefs', 'vision_parse'), ('chunkRefs', 'document_parse')):
+            units.extend({'stage': stage, 'index': index, 'questions': [], 'groups': [], 'sourceRef': reference}
+                         for index, reference in enumerate(values.get(refs, [])))
     else:
         for key, stage, refs in (('visionResults', 'vision_parse', 'pageRefs'), ('chunkResults', 'document_parse', 'chunkRefs')):
             for item in sorted(values.get(key, []), key=lambda item: item['index']):

@@ -41,7 +41,7 @@ it("pages native bank summaries, keeps all merge/study choices, and clamps after
   setup(); render(<App/>); await loaded();
   expect(screen.getByText("Bank 29").compareDocumentPosition(screen.getByRole("navigation",{name:"题库分页"})) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(screen.queryByText("Bank 30")).toBeNull();
-  expect(screen.getByText("Off-page unfinished · 已提交 0/1 题")).toBeTruthy();
+  expect(screen.getByText("已提交 0/1 题").closest("p")?.textContent).toBe("Off-page unfinished · 已提交 0/1 题");
   expect(screen.getByRole("button",{name:"上一页"}).hasAttribute("disabled")).toBe(true);
   await userEvent.click(screen.getByRole("button",{name:"合并题库"}));
   expect(within(await screen.findByRole("dialog")).getByRole("checkbox",{name:"Bank 30（1 题）"})).toBeTruthy();

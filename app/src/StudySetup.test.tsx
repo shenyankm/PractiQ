@@ -12,7 +12,7 @@ const rows = fixture.questions.slice(0,2).map((question,i) => ({id:`q${i}`,bankI
 function setup() {
   const onStart = vi.fn(async (_s: Session) => {});
   vi.mocked(api).mockImplementation(async r => {
-    if(r.type === "question_stats") return {count:rows.length,types:{single:rows.length}} as never;
+    if(r.type === "question_stats") return {count:rows.length,types:{single:rows.length},feasibleCounts:[1,2]} as never;
     if(r.type === "questions_page") return {items:rows,total:rows.length,offset:0} as never;
     if(r.type === "preview_paper") {
       const selected=r.request.selection === "manual" ? rows.filter(q=>r.request.question_ids.includes(q.id)) : r.request.selection === "quota" ? rows.slice(0,r.request.quotas.single || 0) : rows.slice(0,r.request.count);
@@ -83,7 +83,7 @@ it("debounces statistics, pages manual choices and preserves selections across p
   expect(vi.mocked(api).mock.calls.some(([r]) => r.type === "questions_page")).toBe(false);
   const all = Array.from({length:31}, (_, i) => ({...rows[0],id:`q${i}`,question:{...rows[0].question,stem:`Question ${i}`}}));
   vi.mocked(api).mockImplementation(async r => {
-    if (r.type === "question_stats") return {count:31,types:{single:31}} as never;
+    if (r.type === "question_stats") return {count:31,types:{single:31},feasibleCounts:Array.from({length:31}, (_, i) => i + 1)} as never;
     if (r.type === "questions_page") return {items:all.slice(r.offset,r.offset+r.limit),total:31,offset:r.offset} as never;
     if (r.type === "preview_paper") return {questionIds:r.request.question_ids,digest:"preview",questions:[],scores:[],count:2} as never;
     return {id:"session"} as never;
@@ -103,4 +103,60 @@ it("debounces statistics, pages manual choices and preserves selections across p
   expect((await screen.findByRole("checkbox",{name:"Question 0"})).getAttribute("aria-checked")).toBe("true");
   await userEvent.click(screen.getByRole("button",{name:"立即开始"}));
   await waitFor(()=>expect(api).toHaveBeenCalledWith(expect.objectContaining({type:"start_paper",paper:expect.objectContaining({question_ids:["q0","q30"]})})));
+});
+
+
+it("uses whole-group defaults, offers nearby counts and never silently changes an entered count", async () => {
+  const started = setup();
+  vi.mocked(api).mockImplementation(async r => {
+    if (r.type === "question_stats") return {count:24,types:{reading:8},feasibleCounts:[3,6,9,12,15,18,21,24]} as never;
+    if (r.type === "preview_paper") return {questionIds:["group"],digest:"preview",questions:rows,scores:[],count:r.request.count} as never;
+    return {id:"session"} as never;
+  });
+  await screen.findByText(/可用 24 题/);
+  const count = screen.getByLabelText("题目数量") as HTMLInputElement;
+  expect(count.value).toBe("18");
+  fireEvent.change(count, {target:{value:"20"}});
+  expect(count.value).toBe("20");
+  expect(screen.getByRole("button",{name:"立即开始"}).hasAttribute("disabled")).toBe(true);
+  expect(screen.getByRole("button",{name:"选择 18 小题"})).toBeTruthy();
+  await userEvent.click(screen.getByRole("button",{name:"选择 21 小题"}));
+  expect(count.value).toBe("21");
+  await userEvent.click(screen.getByRole("button",{name:"立即开始"}));
+  await waitFor(() => expect(started).toHaveBeenCalled());
+  expect(api).toHaveBeenCalledWith(expect.objectContaining({type:"preview_paper",request:expect.objectContaining({count:21})}));
+});
+
+it("reports selected material groups and answerable subquestions separately", async () => {
+  setup();
+  const groups = rows.map((q, i) => ({...q,answerableCount:3,question:{...q.question,stem:`材料 ${i}`,answerMode:"reading"}}));
+  vi.mocked(api).mockImplementation(async r => {
+    if (r.type === "question_stats") return {count:6,types:{reading:2},feasibleCounts:[3,6]} as never;
+    if (r.type === "questions_page") return {items:groups,total:2,offset:0} as never;
+    return {id:"session"} as never;
+  });
+  await screen.findByText(/可用 6 题/);
+  await userEvent.click(screen.getByText(/高级设置/, {selector:"summary"}));
+  await userEvent.selectOptions(screen.getByLabelText("选题方式"), "manual");
+  await userEvent.click(await screen.findByRole("checkbox", {name:/材料 0/}));
+  await userEvent.click(screen.getByRole("checkbox", {name:/材料 1/}));
+  expect(screen.getByRole("status").textContent).toContain("本次 2 组 / 6 小题");
+  await userEvent.selectOptions(screen.getByLabelText("选题方式"), "quota");
+  expect(screen.getByText("阅读理解（可用 2 组）")).toBeTruthy();
+  fireEvent.change(screen.getByLabelText("阅读理解组数"), {target:{value:"2"}});
+  expect(screen.getByRole("status").textContent).toContain("2 组 + 0 单题；小题数将在生成时确定");
+});
+
+
+it("keeps an explicit resumed bank scope instead of falling back to every bank", async () => {
+  vi.mocked(api).mockResolvedValue({count:1,types:{single:1},feasibleCounts:[1]} as never);
+  const props = {banks,initialBank:"one",initialFilter:"unattempted",busy:false,run:(job:()=>Promise<void>)=>{void job();},onStart:async()=>{},onClose:()=>{}};
+  const view = render(<StudySetup {...props} initialBankIds={["two"]}/>);
+  await waitFor(() => expect(api).toHaveBeenCalledWith({type:"question_stats",bank_id:null,bank_ids:["two"],search:"",mode:"",filter:"unattempted"}));
+  view.unmount();
+  vi.mocked(api).mockClear();
+  render(<StudySetup {...props} initialBankIds={[]}/>);
+  expect(screen.getByText("请选择至少一个题库")).toBeTruthy();
+  expect(screen.getByRole("button",{name:"立即开始"}).hasAttribute("disabled")).toBe(true);
+  expect(api).not.toHaveBeenCalled();
 });

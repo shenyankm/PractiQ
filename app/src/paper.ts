@@ -9,3 +9,8 @@ export function cents(value: string): number {
   if (!Number.isSafeInteger(n) || n>100_000_000) throw new MessageError(message("分数超过上限"));
   return n;
 }
+
+// Counts come from the native whole-group selector; prefer a valid size at or below 20.
+export function defaultPaperCount(counts: number[]): number {
+  return counts.filter(n => n <= 20).at(-1) ?? counts[0] ?? 0;
+}

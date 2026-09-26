@@ -88,10 +88,7 @@ fn split(total: i64, count: usize) -> Result<Vec<i64>> {
         .collect())
 }
 /// Bounded subset sum. Backtracking uses each root once; group children never split.
-fn exact(weights: &[usize], target: usize) -> Result<Vec<usize>> {
-    if target == 0 || target > 1000 {
-        return Err("Question count must be between 1 and 1000".into());
-    }
+fn selection_paths(weights: &[usize], target: usize) -> Vec<Option<(usize, usize)>> {
     let mut paths = vec![None; target + 1];
     paths[0] = Some((0, usize::MAX));
     for (i, &weight) in weights.iter().enumerate() {
@@ -103,10 +100,22 @@ fn exact(weights: &[usize], target: usize) -> Result<Vec<usize>> {
                 paths[n] = Some((n - weight, i));
             }
         }
-        if paths[target].is_some() {
-            break;
-        }
     }
+    paths
+}
+pub(crate) fn feasible_counts(weights: &[usize]) -> Vec<usize> {
+    selection_paths(weights, weights.iter().sum::<usize>().min(1000))
+        .iter()
+        .enumerate()
+        .skip(1)
+        .filter_map(|(n, path)| path.is_some().then_some(n))
+        .collect()
+}
+fn exact(weights: &[usize], target: usize) -> Result<Vec<usize>> {
+    if target == 0 || target > 1000 {
+        return Err("Question count must be between 1 and 1000".into());
+    }
+    let paths = selection_paths(weights, target);
     if paths[target].is_none() {
         return Err(crate::language::error(
             "LOCAL_GROUP_COUNT_UNSATISFIABLE",
@@ -281,5 +290,124 @@ mod tests {
         assert_eq!(exact(&[3, 4, 2], 6).unwrap(), vec![1, 2]);
         assert!(exact(&[3, 3], 5).is_err());
         assert_eq!(split(100, 3).unwrap(), vec![34, 33, 33]);
+        assert_eq!(
+            feasible_counts(&[3; 8]),
+            (1..=8).map(|n| n * 3).collect::<Vec<_>>()
+        );
+        assert_eq!(feasible_counts(&[1000, 3]), vec![3, 1000]);
+        assert!(feasible_counts(&[1001]).is_empty());
+        assert!(feasible_counts(&[]).is_empty());
+        assert!(exact(&[1001], 1001).is_err());
+    }
+    #[test]
+    fn statistics_and_manual_rows_count_complete_groups_as_subquestions() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut store = Store::new(directory.path().into()).unwrap();
+        let mut document: Value =
+            serde_json::from_slice(include_bytes!("../../fixtures/composite.json")).unwrap();
+        let root = document["questions"][0].clone();
+        let child = document["questions"][1].clone();
+        let mut questions = Vec::new();
+        for i in 0..8 {
+            let id = format!("group-{i}");
+            let mut group = root.clone();
+            group["id"] = json!(id);
+            questions.push(group);
+            for j in 0..3 {
+                let mut leaf = child.clone();
+                leaf["id"] = json!(format!("{id}-{j}"));
+                leaf["parentId"] = json!(id);
+                questions.push(leaf);
+            }
+        }
+        document["questions"] = json!(questions);
+        document["groups"] = json!([]);
+        let imported = store
+            .preview(serde_json::to_vec(&document).unwrap(), "Groups".into())
+            .unwrap();
+        let imported = store
+            .import(text(&imported, "ticket"), None, "Groups")
+            .unwrap();
+        let bank = text(&imported, "bankId");
+        let stats = store.question_stats(Some(bank), &[], ("", "", "")).unwrap();
+        assert_eq!(stats["count"], 24);
+        assert_eq!(stats["types"], json!({"reading":8}));
+        assert_eq!(
+            stats["feasibleCounts"],
+            json!([3, 6, 9, 12, 15, 18, 21, 24])
+        );
+        let page = store
+            .query_questions(Some(bank), &[], ("", "", ""), Some((30, 0)))
+            .unwrap();
+        assert_eq!(page["total"], 8);
+        assert!(list(&page, "items")
+            .iter()
+            .all(|row| row["answerableCount"] == 3));
+        let request = |count| {
+            serde_json::from_value::<Preview>(json!({"bank_ids":[bank],"search":"","mode":"","filter":"","selection":"count","count":count,"quotas":{},"question_ids":[],"random":false,"total_cents":0})).unwrap()
+        };
+        assert!(store.preview_paper(request(20)).is_err());
+        let preview = store.preview_paper(request(18)).unwrap();
+        assert_eq!(preview["count"], 18);
+        assert_eq!(list(&preview, "questionIds").len(), 6);
+        assert!(list(&preview, "questions")
+            .iter()
+            .all(|row| row.get("answerableCount").is_none()));
+    }
+    #[test]
+    fn changing_previous_scores_keeps_previews_valid_and_snapshots_free_of_live_metadata() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut store = Store::new(directory.path().into()).unwrap();
+        let imported = store
+            .preview(
+                include_bytes!("../../fixtures/sample.json").to_vec(),
+                "Bank".into(),
+            )
+            .unwrap();
+        let imported = store
+            .import(text(&imported, "ticket"), None, "Bank")
+            .unwrap();
+        let bank = text(&imported, "bankId");
+        let request = || {
+            serde_json::from_value::<Preview>(json!({"bank_ids":[bank],"search":"","mode":"single","filter":"","selection":"count","count":1,"quotas":{},"question_ids":[],"random":false,"total_cents":1000})).unwrap()
+        };
+        let paper = |preview: &Value| crate::exams::Paper {
+            question_ids: list(preview, "questionIds")
+                .iter()
+                .map(|id| id.as_str().unwrap().into())
+                .collect(),
+            digest: text(preview, "digest").into(),
+            kind: "self_test".into(),
+            minutes: None,
+            scores: vec![1000],
+            total_cents: 1000,
+        };
+        let previous = store
+            .start_paper(paper(&store.preview_paper(request()).unwrap()))
+            .unwrap();
+        let sid = text(&previous, "id");
+        store
+            .save_draft((sid, 0), json!({"correct":["A"]}), 10)
+            .unwrap();
+        store.submit_paper(sid, true).unwrap();
+        store.manual_score(sid, 0, 800, "First review").unwrap();
+        let preview = store.preview_paper(request()).unwrap();
+        assert_eq!(preview["questions"][0]["latestScore"]["earnedCents"], 800);
+        store.manual_score(sid, 0, 900, "Corrected review").unwrap();
+        assert_eq!(
+            store.preview_paper(request()).unwrap()["digest"],
+            preview["digest"]
+        );
+        let next = store.start_paper(paper(&preview)).unwrap();
+        let snapshot = &next["attempts"][0]["snapshot"];
+        assert!(snapshot.get("latestScore").is_none());
+        assert!(snapshot.get("answerableCount").is_none());
+        let rows = store.questions(Some(bank), "", "single", "").unwrap();
+        assert_eq!(rows[0]["answerableCount"], 1);
+        assert_eq!(rows[0]["latestScore"]["earnedCents"], 900);
+        let frozen = questions::freeze(rows.as_array().unwrap());
+        assert!(list(&frozen, "questions")
+            .iter()
+            .all(|row| row.get("latestScore").is_none() && row.get("answerableCount").is_none()));
     }
 }

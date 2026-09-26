@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
-export function SettingsPage({ busy, run, flushRef, revision, version, onConfigure, onPickImport, onRestore }: {
+export function SettingsPage({ busy, run, flushRef, revision, version, onConfigure, onPickImport, onRestore, restoreOpen, onRestoreOpenChange }: {
   busy: boolean;
   run: (job: () => Promise<void>) => void;
   flushRef: ComponentProps<typeof ConnectionSettingsPanel>["flushRef"];
@@ -17,6 +17,8 @@ export function SettingsPage({ busy, run, flushRef, revision, version, onConfigu
   onConfigure: () => void;
   onPickImport: () => Promise<void>;
   onRestore: () => void;
+  restoreOpen: boolean;
+  onRestoreOpenChange: (open: boolean) => void;
 }) {
   return <div className="max-w-3xl space-y-6">
     <ConnectionSettingsPanel key={revision} busy={busy} run={run} onConfigure={onConfigure} flushRef={flushRef} />
@@ -30,11 +32,11 @@ export function SettingsPage({ busy, run, flushRef, revision, version, onConfigu
           const result = await api({ type: "backup" });
           if (result) toast.success(message("备份已保存：{0}", { 0: result.path }));
         })}><Upload />{t("导出备份")}</Button>
-        <DropdownMenu>
+        <DropdownMenu open={restoreOpen} onOpenChange={onRestoreOpenChange}>
           <DropdownMenuTrigger asChild><Button variant="outline" disabled={busy}>{t("恢复备份")}</Button></DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="min-w-48">
-            <DropdownMenuItem disabled={busy} onSelect={() => run(onPickImport)}>{t("导入题库 ZIP")}</DropdownMenuItem>
-            <DropdownMenuItem disabled={busy} onSelect={onRestore}>{t("恢复学习数据备份")}</DropdownMenuItem>
+            <DropdownMenuItem aria-label={t("导入题库 ZIP")} className="flex-col items-start" disabled={busy} onSelect={() => run(onPickImport)}>{t("导入题库 ZIP")}<span className="text-xs text-muted-foreground">{t("追加题库，不替换已有学习记录")}</span></DropdownMenuItem>
+            <DropdownMenuItem aria-label={t("恢复学习数据备份")} className="flex-col items-start" disabled={busy} onSelect={onRestore}>{t("恢复学习数据备份")}<span className="text-xs text-muted-foreground">{t("替换全部本地数据，操作前需确认")}</span></DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </CardContent>

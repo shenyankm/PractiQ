@@ -19,7 +19,7 @@ use std::{
     time::{Duration, Instant},
 };
 use tauri::Manager;
-use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
+use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogResult};
 
 #[derive(Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
@@ -36,6 +36,9 @@ pub enum AiRequest {
         id: String,
     },
     PickDocument,
+    Reparse {
+        id: String,
+    },
     Control {
         id: String,
         action: String,
@@ -65,6 +68,7 @@ pub enum AiRequest {
     },
     PrepareBatch {
         ids: Vec<String>,
+        bank_id: Option<String>,
     },
     RunBatch {
         id: String,
@@ -77,6 +81,7 @@ pub enum AiRequest {
 type AiResult<T> = std::result::Result<T, AppError>;
 pub type AiState = Mutex<Option<Process>>;
 pub struct Process {
+    model_enabled: bool,
     child: Child,
     input: Option<ChildStdin>,
     endpoint: Endpoint,
@@ -191,17 +196,29 @@ impl Drop for Process {
     }
 }
 impl Process {
-    fn start(app: &tauri::AppHandle, store: &Store) -> Result<Self> {
-        let config = store.connection_settings()?.validate()?;
-        let base = config.base_url.as_deref().ok_or(crate::language::error(
-            "LOCAL_MODEL_URL_REQUIRED",
-            serde_json::json!({}),
-        ))?;
-        let model = config.model_id.as_deref().ok_or(crate::language::error(
-            "LOCAL_MODEL_ID_REQUIRED",
-            serde_json::json!({}),
-        ))?;
-        let key = store.model_secret(&app.config().identifier, base)?;
+    fn start(app: &tauri::AppHandle, store: &Store, model_enabled: bool) -> Result<Self> {
+        let config = if model_enabled {
+            store.connection_settings()?.validate()?
+        } else {
+            Default::default()
+        };
+        let (base, model, key) = if model_enabled {
+            let base = config.base_url.as_deref().ok_or(crate::language::error(
+                "LOCAL_MODEL_URL_REQUIRED",
+                json!({}),
+            ))?;
+            let model = config
+                .model_id
+                .as_deref()
+                .ok_or(crate::language::error("LOCAL_MODEL_ID_REQUIRED", json!({})))?;
+            (
+                base,
+                model,
+                store.model_secret(&app.config().identifier, base)?,
+            )
+        } else {
+            ("", "", String::new())
+        };
         let resources = app.path().resource_dir().map_err(err)?;
         let bundle = if cfg!(debug_assertions) {
             std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("bundled")
@@ -256,6 +273,7 @@ impl Process {
             let _ = done.send(());
         });
         let mut process = Self {
+            model_enabled,
             child,
             input: None,
             stderr: tail,
@@ -400,6 +418,70 @@ pub fn stop(app: &tauri::AppHandle) -> Result<()> {
         .take();
     Ok(())
 }
+pub fn save_settings(
+    app: &tauri::AppHandle,
+    shared: &Shared,
+    config: crate::settings::ConnectionSettings,
+    api_key: Option<String>,
+) -> Result<Value> {
+    let work = app.state::<WorkState>();
+    let _configuration = work.configure()?;
+    let endpoint = {
+        let state = app.state::<AiState>();
+        let mut state = state
+            .lock()
+            .map_err(|_| crate::language::error("LOCAL_PARSER_STATE_UNAVAILABLE", json!({})))?;
+        if state
+            .as_mut()
+            .is_some_and(|process| process.child.try_wait().ok().flatten().is_some())
+        {
+            state.take();
+        }
+        state.as_ref().map(|process| process.endpoint.clone())
+    };
+    if let Some(endpoint) = endpoint {
+        ensure_idle(&endpoint)?;
+    }
+    let result = crate::settings::snapshot(shared)?.save_settings(
+        &app.config().identifier,
+        config,
+        api_key,
+    )?;
+    stop(app)?;
+    Ok(result)
+}
+fn ensure_idle(endpoint: &Endpoint) -> Result<()> {
+    let mut offset = 0;
+    loop {
+        let page = endpoint.json(
+            Method::GET,
+            &format!("/api/document-tasks?limit=100&offset={offset}"),
+            None,
+        )?;
+        let tasks = page["items"]
+            .as_array()
+            .ok_or(crate::language::error("LOCAL_TASK_LIST_INVALID", json!({})))?;
+        if tasks.iter().any(|task| {
+            matches!(
+                task["state"].as_str(),
+                Some("PENDING" | "RUNNING" | "PAUSING")
+            )
+        }) {
+            return Err(crate::language::error(
+                "LOCAL_SETTINGS_ACTIVE_TASKS",
+                json!({}),
+            ));
+        }
+        if page["hasMore"] != true {
+            return Ok(());
+        }
+        offset += tasks.len();
+        if tasks.is_empty() || offset > 1_000_000 {
+            return Err(crate::language::error("LOCAL_TASK_LIST_INVALID", json!({})));
+        }
+    }
+}
+
 fn document_format(path: &std::path::Path) -> Result<(&'static str, &'static str)> {
     let extension = path
         .extension()
@@ -427,6 +509,7 @@ fn document_format(path: &std::path::Path) -> Result<(&'static str, &'static str
     })
 }
 
+#[cfg(test)]
 fn confirm_document(
     path: &std::path::Path,
     config: crate::settings::ConnectionSettings,
@@ -435,6 +518,15 @@ fn confirm_document(
 ) -> Result<Option<Vec<u8>>> {
     document_format(path)?;
     let bytes = store::read_bounded(path, 25 * 1024 * 1024)?;
+    confirm_document_bytes(path, bytes, config, locale, confirm)
+}
+fn confirm_document_bytes(
+    path: &std::path::Path,
+    bytes: Vec<u8>,
+    config: crate::settings::ConnectionSettings,
+    locale: crate::language::Locale,
+    confirm: impl FnOnce(String) -> bool,
+) -> Result<Option<Vec<u8>>> {
     let config = config.validate()?;
     let file_name = path
         .file_name()
@@ -461,15 +553,18 @@ fn confirm_document(
     Ok(confirm(message).then_some(bytes))
 }
 
-fn active_endpoint(app: &tauri::AppHandle, dir: &std::path::Path) -> AiResult<Endpoint> {
+fn active_endpoint(
+    app: &tauri::AppHandle,
+    dir: &std::path::Path,
+    model_required: bool,
+) -> AiResult<Endpoint> {
     let state = app.state::<AiState>();
     let mut state = state.lock().map_err(|_| {
         crate::language::error("LOCAL_PARSER_STATE_UNAVAILABLE", serde_json::json!({}))
     })?;
-    if state
-        .as_mut()
-        .is_some_and(|p| p.child.try_wait().ok().flatten().is_some())
-    {
+    if state.as_mut().is_some_and(|p| {
+        p.child.try_wait().ok().flatten().is_some() || (model_required && !p.model_enabled)
+    }) {
         state.take();
     }
     if state.is_none() {
@@ -482,6 +577,7 @@ fn active_endpoint(app: &tauri::AppHandle, dir: &std::path::Path) -> AiResult<En
                     pending: None,
                     staged_audio: std::collections::HashMap::new(),
                 },
+                model_required,
             )
             .map_err(|mut error| {
                 let path = dir.join("ai/parser-stderr.log");
@@ -547,7 +643,7 @@ pub fn read_review_image(
         .clone();
     let work = app.state::<WorkState>();
     let _request = work.enter()?;
-    let process = active_endpoint(&app, &dir)?;
+    let process = active_endpoint(&app, &dir, false)?;
     let (reference, media) = review_reference(&process, &id, &checkpoint_id, unit, visual)?;
     if !media.starts_with("image/") {
         return Err(crate::language::error(
@@ -563,6 +659,53 @@ pub fn read_review_image(
             pending: None,
             staged_audio: std::collections::HashMap::new(),
         },
+    )
+}
+
+fn upload_document(
+    process: &Endpoint,
+    dir: &std::path::Path,
+    work: &WorkState,
+    path: &std::path::Path,
+    bytes: Vec<u8>,
+) -> Result<Value> {
+    let (kind, media) = document_format(path)?;
+    let body = json!({"sourceType":kind,"fileName":path.file_name().and_then(|s|s.to_str()).ok_or(crate::language::error("LOCAL_FILENAME_INVALID", serde_json::json!({})))?,"mediaType":media,"sha256":store::hash(&bytes),"sizeBytes":bytes.len()});
+    let prepared = process.json(Method::POST, "/api/uploads", Some(&body))?;
+    if !prepared["upload"].is_null() {
+        let relative = prepared["upload"]["url"]
+            .as_str()
+            .ok_or(crate::language::error(
+                "LOCAL_UPLOAD_URL_INVALID",
+                serde_json::json!({}),
+            ))?;
+        if !relative.starts_with("/api/uploads/content?") {
+            return Err(crate::language::error(
+                "LOCAL_UPLOAD_URL_OUTSIDE",
+                serde_json::json!({}),
+            ));
+        }
+        let response = process
+            .client
+            .put(format!("{}{relative}", process.origin))
+            .bearer_auth(&process.token)
+            .body(bytes)
+            .send()
+            .map_err(|_| crate::language::error("LOCAL_UPLOAD_FAILED", serde_json::json!({})))?;
+        if !response.status().is_success() {
+            return Err(crate::language::error(
+                "LOCAL_UPLOAD_RETRY",
+                serde_json::json!({}),
+            ));
+        }
+    }
+    ai_work::submit_operation(
+        dir,
+        work,
+        process,
+        "/api/document-tasks",
+        json!({"requestId":store::id(),"document":prepared["document"],"failurePolicy":"review"}),
+        body["fileName"].as_str().unwrap_or("Parsed document"),
     )
 }
 
@@ -585,44 +728,33 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
         _ => {}
     }
     let selected = if matches!(request, AiRequest::PickDocument) {
-        let file = app
+        let files = app
             .dialog()
             .file()
             .add_filter(
                 locale.text("文档", "Documents"),
                 &["txt", "csv", "pdf", "png", "jpg", "jpeg"],
             )
-            .blocking_pick_file();
-        match file {
-            None => return Ok(Value::Null),
-            Some(f) => {
-                let path = f.into_path().map_err(err)?;
-                let config = shared
-                    .lock()
-                    .map_err(|_| {
-                        crate::language::error("LOCAL_DATABASE_UNAVAILABLE", serde_json::json!({}))
-                    })?
-                    .connection_settings()?;
-                let Some(bytes) = confirm_document(&path, config, locale, |message| {
-                    app.dialog()
-                        .message(message)
-                        .title(locale.text("确认解析文档", "Confirm document parsing"))
-                        .buttons(MessageDialogButtons::OkCancelCustom(
-                            locale.text("开始解析", "Start parsing").into(),
-                            locale.text("取消", "Cancel").into(),
-                        ))
-                        .blocking_show()
-                })?
-                else {
-                    return Ok(Value::Null);
-                };
-                Some((path, bytes))
-            }
+            .blocking_pick_files();
+        let Some(files) = files else {
+            return Ok(Value::Null);
+        };
+        if files.len() > 100 {
+            return Err(crate::language::error(
+                "LOCAL_BATCH_SIZE_INVALID",
+                json!({}),
+            ));
         }
+        files
+            .into_iter()
+            .map(|file| file.into_path().map_err(err))
+            .collect::<Result<Vec<_>>>()?
     } else {
-        None
+        Vec::new()
     };
-    let process = active_endpoint(&app, &dir)?;
+    let model_required = matches!(&request, AiRequest::Grade { .. } | AiRequest::Replay { .. })
+        || matches!(&request, AiRequest::Control { action, .. } if matches!(action.as_str(), "resume" | "retry_failed" | "accept_partial"));
+    let process = active_endpoint(&app, &dir, model_required)?;
     match request {
         AiRequest::Grade { id, ordinal, retry } => {
             let payload = shared
@@ -717,51 +849,95 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
             )
         }
         AiRequest::PickDocument => {
-            let (path, bytes) = selected.ok_or(crate::language::error(
-                "LOCAL_DOCUMENT_NOT_SELECTED",
-                serde_json::json!({}),
-            ))?;
-            let (kind, media) = document_format(&path)?;
-            let body = json!({"sourceType":kind,"fileName":path.file_name().and_then(|s|s.to_str()).ok_or(crate::language::error("LOCAL_FILENAME_INVALID", serde_json::json!({})))?,"mediaType":media,"sha256":store::hash(&bytes),"sizeBytes":bytes.len()});
-            let prepared = process.json(Method::POST, "/api/uploads", Some(&body))?;
-            if !prepared["upload"].is_null() {
-                let relative = prepared["upload"]["url"]
-                    .as_str()
-                    .ok_or(crate::language::error(
-                        "LOCAL_UPLOAD_URL_INVALID",
-                        serde_json::json!({}),
-                    ))?;
-                if !relative.starts_with("/api/uploads/content?") {
-                    return Err(crate::language::error(
-                        "LOCAL_UPLOAD_URL_OUTSIDE",
-                        serde_json::json!({}),
-                    ));
+            let mut process = process;
+            let mut ids = Vec::new();
+            for path in selected {
+                document_format(&path)?;
+                let bytes = store::read_bounded(&path, 25 * 1024 * 1024)?;
+                let hash = store::hash(&bytes);
+                let previous = process.json(
+                    Method::GET,
+                    &format!("/api/document-tasks?limit=1&sha256={hash}"),
+                    None,
+                )?;
+                if let Some(existing) = previous["items"].as_array().and_then(|items| items.first())
+                {
+                    let open = locale.text("打开已有任务", "Open existing task");
+                    let reparse = locale.text("重新解析", "Parse again");
+                    let choice = app.dialog().message(locale.text("已解析过相同内容的文件。可以打开已有任务，或确认后再次解析（可能再次计费）。", "A task already exists for the same file content. Open it, or confirm parsing again (additional charges may apply)."))
+                        .title(locale.text("发现相同文档", "Matching document found"))
+                        .buttons(MessageDialogButtons::YesNoCancelCustom(open.into(), reparse.into(), locale.text("跳过此文件", "Skip this file").into())).blocking_show_with_result();
+                    if choice == MessageDialogResult::Custom(open.into())
+                        || choice == MessageDialogResult::Yes
+                    {
+                        let id = contract::text(existing, "threadId");
+                        task_path(id)?;
+                        if !ids.iter().any(|saved| saved == id) {
+                            ids.push(id.to_owned());
+                        }
+                        continue;
+                    }
+                    if choice != MessageDialogResult::Custom(reparse.into())
+                        && choice != MessageDialogResult::No
+                    {
+                        continue;
+                    }
                 }
-                let response = process
-                    .client
-                    .put(format!("{}{relative}", process.origin))
-                    .bearer_auth(&process.token)
-                    .body(bytes)
-                    .send()
-                    .map_err(|_| {
-                        crate::language::error("LOCAL_UPLOAD_FAILED", serde_json::json!({}))
-                    })?;
-                if !response.status().is_success() {
-                    return Err(crate::language::error(
-                        "LOCAL_UPLOAD_RETRY",
-                        serde_json::json!({}),
-                    ));
-                }
+                let config = crate::settings::snapshot(&shared)?.connection_settings()?;
+                let Some(bytes) =
+                    confirm_document_bytes(&path, bytes, config, locale, |message| {
+                        app.dialog()
+                            .message(message)
+                            .title(locale.text("确认解析文档", "Confirm document parsing"))
+                            .buttons(MessageDialogButtons::OkCancelCustom(
+                                locale.text("开始解析", "Start parsing").into(),
+                                locale.text("跳过此文件", "Skip this file").into(),
+                            ))
+                            .blocking_show()
+                    })?
+                else {
+                    continue;
+                };
+                process = active_endpoint(&app, &dir, true)?;
+                let receipt = upload_document(&process, &dir, &work, &path, bytes)?;
+                let id = contract::text(&receipt, "threadId");
+                task_path(id)?;
+                ids.push(id.to_owned());
             }
+            if ids.is_empty() {
+                Ok(Value::Null)
+            } else {
+                Ok(json!({"threadId":ids[0],"threadIds":ids}))
+            }
+        }
+        AiRequest::Reparse { id } => {
+            let task = process.json(Method::GET, &task_path(&id)?, None)?;
+            let config = crate::settings::snapshot(&shared)?.connection_settings()?;
+            let message = if locale == crate::language::Locale::Chinese {
+                format!("文件：{}\n模型服务：{}\n模型 ID：{}\n\n将创建新任务重新解析原文件，旧结果保留，可能再次产生费用。", contract::text(&task, "fileName"), config.base_url.as_deref().unwrap_or_default(), config.model_id.as_deref().unwrap_or_default())
+            } else {
+                format!("File: {}\nModel service: {}\nModel ID: {}\n\nCreate a new task from the original file. Existing results are retained. This may incur additional charges.", contract::text(&task, "fileName"), config.base_url.as_deref().unwrap_or_default(), config.model_id.as_deref().unwrap_or_default())
+            };
+            if !app
+                .dialog()
+                .message(message)
+                .title(locale.text("确认重新解析", "Confirm parsing again"))
+                .buttons(MessageDialogButtons::OkCancelCustom(
+                    locale.text("重新解析", "Parse again").into(),
+                    locale.text("取消", "Cancel").into(),
+                ))
+                .blocking_show()
+            {
+                return Ok(Value::Null);
+            }
+            let process = active_endpoint(&app, &dir, true)?;
             ai_work::submit_operation(
                 &dir,
                 &work,
                 &process,
-                "/api/document-tasks",
-                json!({"requestId":store::id(),"document":prepared["document"],"failurePolicy":"review"}),
-                body["fileName"]
-                    .as_str()
-                    .unwrap_or(locale.text("解析文档", "Parsed document")),
+                &format!("{}/reparse", task_path(&id)?),
+                json!({"requestId":store::id()}),
+                locale.text("重新解析文档", "Parse document again"),
             )
         }
         AiRequest::Preview { id } => {
@@ -814,7 +990,9 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
         AiRequest::Replay { request_id } => {
             ai_work::replay_operation(&dir, &work, &process, &request_id)
         }
-        AiRequest::PrepareBatch { ids } => ai_work::prepare_batch(&dir, &process, &ids),
+        AiRequest::PrepareBatch { ids, bank_id } => {
+            ai_work::prepare_batch(&dir, &process, &ids, bank_id)
+        }
         AiRequest::RunBatch { id, titles } => {
             ai_work::run_batch(&dir, &work, &process, &shared, &id, titles)
         }
@@ -939,6 +1117,46 @@ impl Endpoint {
 mod tests {
     use super::{document_format, StderrTail};
     use std::path::Path;
+
+    #[test]
+    fn applying_settings_rejects_active_tasks_on_later_pages() {
+        use std::{
+            io::{Read, Write},
+            net::TcpListener,
+        };
+        for state in ["PENDING", "RUNNING", "PAUSING", "COMPLETED"] {
+            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let endpoint =
+                super::Endpoint::test(format!("http://{}", listener.local_addr().unwrap()));
+            let server = std::thread::spawn(move || {
+                for page in 0..2 {
+                    let (mut stream, _) = listener.accept().unwrap();
+                    let mut request = Vec::new();
+                    while !request.ends_with(b"\r\n\r\n") {
+                        let mut byte = [0];
+                        stream.read_exact(&mut byte).unwrap();
+                        request.push(byte[0]);
+                    }
+                    assert!(String::from_utf8(request)
+                        .unwrap()
+                        .contains(&format!("offset={page}")));
+                    let body = serde_json::json!({"items":[{"state":if page == 0 { "COMPLETED" } else { state }}],"hasMore":page==0}).to_string();
+                    write!(
+                        stream,
+                        "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                        body.len()
+                    )
+                    .unwrap();
+                }
+            });
+            let result = super::ensure_idle(&endpoint);
+            assert_eq!(result.is_ok(), state == "COMPLETED");
+            if let Err(error) = result {
+                assert_eq!(error.code, "LOCAL_SETTINGS_ACTIVE_TASKS");
+            }
+            server.join().unwrap();
+        }
+    }
 
     #[test]
     fn ai_preview_preserves_missing_audio_reference() {

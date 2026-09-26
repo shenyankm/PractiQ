@@ -692,6 +692,10 @@ class DocumentTaskCreate(StrictModel):
         return self
 
 
+class DocumentTaskReparse(StrictModel):
+    requestId: UUID
+
+
 class DocumentTaskControl(StrictModel):
     requestId: UUID
     action: Literal["pause", "interrupt", "resume", "retry_failed", "accept_partial"]

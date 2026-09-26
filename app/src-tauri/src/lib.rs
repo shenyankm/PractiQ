@@ -97,6 +97,8 @@ enum Request {
     SessionsPage {
         limit: usize,
         offset: usize,
+        #[serde(default)]
+        filter: String,
     },
     UnfinishedSession,
     PreviewPaper {
@@ -135,6 +137,11 @@ enum Request {
         ordinal: usize,
         answer: Value,
         elapsed_ms: i64,
+    },
+    SelfAssess {
+        id: String,
+        ordinal: usize,
+        result: bool,
     },
     SaveAttempt {
         id: String,
@@ -237,15 +244,20 @@ async fn request(
         };
         let selected=selected.map(|p|p.into_path().map_err(|e|e.to_string())).transpose()?;
         if matches!(&request,Request::PickImport|Request::PickAudio|Request::ExportBank{..}|Request::Backup|Request::Restore)&&selected.is_none(){return Ok(Value::Null);}
+        if matches!(&request, Request::Settings) {
+            return settings::snapshot(&shared)?.settings(&app.config().identifier);
+        }
         if let Request::TestSettings { config, api_key } = request {
-            let (config, key) = shared.lock()
-                .map_err(|_| language::error("LOCAL_DATABASE_UNAVAILABLE", json!({})))?
+            let (config, key) = settings::snapshot(&shared)?
                 .connection_test_input(&app.config().identifier, config, api_key)?;
             return settings::test_connection(config, key);
         }
+        if let Request::SaveSettings { config, api_key } = request {
+            return ai::save_settings(&app, &shared, config, api_key);
+        }
         let work = app.state::<ai_work::WorkState>();
         let _restore = if matches!(&request, Request::Restore) { Some(work.restore()?) } else { None };
-        if matches!(&request, Request::SaveSettings{..}|Request::Restore) {ai::stop(&app)?;}
+        if matches!(&request, Request::Restore) {ai::stop(&app)?;}
         let mut store=shared.lock().map_err(|_|language::error("LOCAL_DATABASE_RESTART", json!({})))?;
         store.locale = locale;
         match request {
@@ -266,7 +278,7 @@ async fn request(
             Request::DeleteQuestion{id}=>store.delete_question(&id),
             Request::Favorite{id,value}=>store.favorite(&id,value),
             Request::Session{id}=>store.session(&id),
-            Request::SessionsPage{limit,offset}=>store.sessions(limit,offset),
+            Request::SessionsPage{limit,offset,filter}=>store.sessions_filtered(limit,offset,if filter.is_empty(){"all"}else{&filter}),
             Request::UnfinishedSession=>store.unfinished_session(),
             Request::StartPaper{paper}=>store.start_paper(paper),
             Request::PreviewPaper{request}=>store.preview_paper(request),
@@ -278,15 +290,14 @@ async fn request(
             Request::MergeBanks{bank_ids,title}=>store.merge_banks(&bank_ids,&title),
             Request::SaveAttempt{id,ordinal,answer,elapsed_ms,submit,skip,self_result}=>store.save_attempt((&id, ordinal),answer,elapsed_ms,submit,skip,self_result),
             Request::SaveDraft{id,ordinal,answer,elapsed_ms}=>store.save_draft((&id,ordinal),answer,elapsed_ms),
+            Request::SelfAssess{id,ordinal,result}=>store.self_assess(&id,ordinal,result),
             Request::Position{id,position}=>store.position(&id,position),
             Request::Finish{id}=>store.finish(&id),
             Request::Backup=>store.backup(&selected.ok_or(language::error("LOCAL_SAVE_LOCATION_MISSING", json!({})))?),
             Request::Restore=>store.restore(&selected.ok_or(language::error("LOCAL_BACKUP_NOT_SELECTED", json!({})))?),
             Request::Language=>Ok(json!(store.language()?)),
             Request::SaveLanguage{locale}=>store.save_language(locale),
-            Request::TestSettings{..}=>unreachable!(),
-            Request::Settings=>store.settings(&app.config().identifier),
-            Request::SaveSettings{config,api_key}=>store.save_settings(&app.config().identifier,config,api_key),
+            Request::TestSettings{..}|Request::Settings|Request::SaveSettings{..}=>unreachable!(),
             Request::Info=>Ok(json!({"dataDirectory":store.dir.display().to_string(),"version":env!("CARGO_PKG_VERSION")})),
         }
     }).await.map_err(|e|AppError::from(e.to_string()))?

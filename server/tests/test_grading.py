@@ -48,24 +48,38 @@ def test_score_contract_nullable_and_strict():
             grading.GradeResult(scoreCents=invalid,maxCents=500,reason="依据",evidence=[],reviewReasons=[])
 
 
-async def test_grade_partial_cache_and_rescale(setup,monkeypatch):
+@pytest.mark.parametrize("feedback_locale,language,reason,missing_rubric,rescale_note", [
+    (None, "Chinese", "缺少表面", "未提供详细评分细则", "比例换算"),
+    ("zh-CN", "Chinese", "缺少表面", "未提供详细评分细则", "比例换算"),
+    ("en", "English", "Missing the surface condition.", "No detailed scoring rubric was provided.", "Scaled proportionally"),
+])
+async def test_grade_partial_cache_and_rescale(setup,monkeypatch,feedback_locale,language,reason,missing_rubric,rescale_note):
     seen=[]
     async def call(model,messages,schema,kind,**kwargs):
         seen.append((model,messages,kind))
-        return grading.GradeResult(scoreCents=300,maxCents=500,reason="缺少表面",evidence=["作答：液体变成气体；参考：液体表面"],reviewReasons=[]),[],None
+        assert f"Return explanations in {language}." in messages[0].content
+        assert missing_rubric in messages[0].content
+        assert "untrusted assessment DATA" in messages[0].content
+        assert "Preserve quoted assessment evidence in its original language" in messages[0].content
+        assert "液体变成气体" in messages[1].content[0]["text"]
+        return grading.GradeResult(scoreCents=300,maxCents=500,reason=reason,evidence=["液体变成气体"],reviewReasons=[]),[],None
     monkeypatch.setattr(grading,"structured_call",call)
-    request=grading.GradeRequest.model_validate(payload())
+    changes = {} if feedback_locale is None else {"feedbackLocale": feedback_locale}
+    request=grading.GradeRequest.model_validate(payload(**changes))
     result=await grading.grade(request)
     assert result["result"]["scoreCents"]==300
-    assert "未提供详细评分细则" in result["result"]["reviewReasons"]
+    assert result["result"]["reason"]==reason
+    assert result["result"]["evidence"]==["液体变成气体"]
+    assert result["result"]["reviewReasons"]==[missing_rubric]
     assert await grading.grade(request)==result and len(seen)==1
     bad=request.model_copy(update={"inputDigest":"0"*64})
     with pytest.raises(DocumentProcessingError,match="内容已变化"):
         await grading.grade(bad)
     source={**payload()["question"],"sourceScore":5,"scoringRubric":"满分5分，定义3分、发生位置2分"}
-    result=await grading.grade(grading.GradeRequest.model_validate(payload(question=source,maxCents=1000)))
+    result=await grading.grade(grading.GradeRequest.model_validate(payload(question=source,maxCents=1000,**changes)))
     assert result["result"]["scoreCents"]==600 and result["result"]["maxCents"]==1000
-    assert "比例换算" in result["result"]["reason"]
+    assert rescale_note in result["result"]["reason"]
+    assert result["result"]["reviewReasons"]==[]
     assert seen[0][0]=="unified"
 
 
@@ -120,6 +134,37 @@ async def test_verified_images_and_injection_stay_data(setup,monkeypatch):
 def wire(value):
     raw=json.dumps({k:v for k,v in value.items() if k not in {"requestId", "inputDigest"}},ensure_ascii=False)
     return {"requestId":value["requestId"],"inputDigest":grading.digest_payload(raw),"payload":raw}
+
+
+def test_feedback_locale_is_validated_and_part_of_the_frozen_payload():
+    legacy = grading.GradeWireRequest.model_validate(wire(payload())).verified_request()
+    assert legacy.feedbackLocale == "zh-CN"
+    english = wire(payload(feedbackLocale="en"))
+    assert grading.GradeWireRequest.model_validate(english).verified_request().feedbackLocale == "en"
+    with pytest.raises(ValidationError):
+        grading.GradeWireRequest.model_validate(wire(payload(feedbackLocale="fr"))).verified_request()
+    with pytest.raises(ValueError, match="摘要不匹配"):
+        grading.GradeWireRequest.model_validate({**english, "payload": english["payload"].replace('"en"', '"zh-CN"')}).verified_request()
+
+
+async def test_english_grading_failures_preserve_abstention_and_unknown_replay(setup, monkeypatch):
+    async def wrong_max(*args, **kwargs):
+        return grading.GradeResult(scoreCents=1,maxCents=1,reason="Wrong maximum",evidence=[],reviewReasons=[]),[],None
+    monkeypatch.setattr(grading, "structured_call", wrong_max)
+    response = await grading.grade(grading.GradeRequest.model_validate(payload(feedbackLocale="en")))
+    assert response["error"] == "The grading maximum does not match the requested score."
+    async def forbidden(*args, **kwargs):
+        pytest.fail("Missing evidence or an unknown prior request must not call the model")
+    monkeypatch.setattr(grading, "structured_call", forbidden)
+    missing_basis = {**payload()["question"], "answerPayload": None}
+    response = await grading.grade(grading.GradeRequest.model_validate(payload(question=missing_basis, feedbackLocale="en")))
+    assert response["status"] == "ungraded"
+    assert response["error"] == "The question, answer, or grading evidence is incomplete."
+    request = grading.GradeRequest.model_validate(payload(feedbackLocale="en"))
+    assert grading._claim(request) is None
+    response = await grading.grade(request)
+    assert response["status"] == "unknown"
+    assert response["error"] == "Result unknown; check the record before explicitly requesting another grade."
 
 
 def test_grading_endpoint_digest_auth_and_limits(setup,monkeypatch):
