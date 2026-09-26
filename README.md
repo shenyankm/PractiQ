@@ -35,7 +35,7 @@ When **My banks** is empty, choose **Add example bank** to load the bundled [all
 
 Choose **Export bank ZIP** in a bank card's menu and send the package to a classmate. Recipients import the ZIP with its images and audio and keep their own practice records. Packages preserve answers, explanations, materials, and review flags, but exclude bookmarks, mistakes, personal answers, and scores. Missing or damaged referenced images or audio prevent export; existing destination files are never overwritten.
 
-**Learning-data backup ZIPs** include personal records for recovery. **Question-bank ZIPs** contain shareable content. Both are available under **Settings → Restore backup**, with separate options for bank import and full restoration. The app rejects packages opened through the wrong option. See the [package guide](docs/question-bank-package.md) (Chinese).
+**Learning-data backup ZIPs** include personal records for recovery. **Question-bank ZIPs** contain shareable content. Both are available under **Settings → Restore backup**, with separate options for bank import and full restoration. The app rejects packages opened through the wrong option. See the [package guide](docs/question-bank-package.md).
 
 See the [first-release draft](docs/first-release.md) for scope, concise release notes, and outstanding release checks.
 
@@ -126,10 +126,10 @@ The service listens on `127.0.0.1:8090` and runs one process per database. It us
 
 Choose the guide for your task:
 
-- [Service integration](server/docs/service-guide.md): configuration, parsing, grading, and API contracts (Chinese)
-- [Document task API](server/docs/document-tasks.md): progress, pause, resume, retry, and review decisions (Chinese)
-- [Operations](server/docs/operations.md): deployment, storage, monitoring, and recovery (Chinese)
-- [Evaluation](server/docs/evaluation.md): extraction and grading checks, datasets, and evidence limits (Chinese)
+- [Service integration](server/docs/service-guide.md): configuration, parsing, grading, and API contracts
+- [Document task API](server/docs/document-tasks.md): progress, pause, resume, retry, and review decisions
+- [Operations](server/docs/operations.md): deployment, storage, monitoring, and recovery
+- [Evaluation](server/docs/evaluation.md): extraction and grading checks, datasets, and evidence limits
 - [Contributing](CONTRIBUTING.md): development checks and pull requests
 
 Desktop browser regression: `cd app && npx playwright install chromium --only-shell && npm run test:browser` checks bilingual sidebar navigation, import entry points, keyboard focus, and the 960px layout with mocked native commands. It starts Vite on an available loopback port and makes no model calls. Unit/integration coverage for language races, persistence, backup restore and bilingual workflows runs in `make app-check`.

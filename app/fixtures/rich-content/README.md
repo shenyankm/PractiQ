@@ -28,7 +28,7 @@ keeps an original-page fallback and marks neighboring questions for review.
 Use the complete original page to inspect potentially clipped headers or labels.
 
 The desktop imports both references through the same checksum/path validation,
-deduplicates shared page files, and includes them in backups. “查看原页” loads the
+deduplicates shared page files, and includes them in backups. **View source page** loads the
 image only on demand. Unsubmitted exams remove original-page references from the
 returned snapshot and hide the control because pages can contain printed answers.
 Exact duplicate table transcriptions are not displayed twice.

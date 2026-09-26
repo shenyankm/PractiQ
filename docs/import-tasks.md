@@ -33,4 +33,4 @@ Local batch history has its own 20-batch pages; active batches remain visible on
 
 Selecting a file still requires explicit confirmation before parsing. Reviewing saved results and importing do not call a model. Resume/retry calls require explicit user action. Confirmed imports stay on the task list; opening a bank is a separate action. Local batch recovery controls remain visible without model configuration.
 
-An empty My Banks page offers “添加示例题库” (Add example bank). It imports the bundled all-types ZIP locally without model configuration or calls, covering every answer mode and English question kind, including chime audio for listening and an image example.
+An empty My Banks page offers **Add example bank**. It imports the bundled all-types ZIP locally without model configuration or calls, covering every answer mode and English question kind, including chime audio for listening and an image example.

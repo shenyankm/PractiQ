@@ -1,97 +1,97 @@
-> 存储更新：当前版本仅使用本地文件，OSS 后端已移除；下文涉及 OSS 的内容保留为当时的审计或设计记录。
+> Storage update: the current version uses local files only; the OSS backend has been removed. References to OSS below are preserved as historical audit or design records.
 
-# 当前版本功能与错误处理检查
+# Functionality and error-handling audit
 
-检查日期：2026-09-22。代码基线：`10722af8710c470dc71610d2309626870ca2bce4`。工作区已有 README 与首版发布草案修改，本次保留。未修改业务代码，未提交或推送。
+Audit date: 2026-09-22. Code baseline: `10722af8710c470dc71610d2309626870ca2bce4`. Existing README and first-release draft changes were preserved. No application code was changed, committed, or pushed.
 
-结论：主要功能通过现有自动化、原生存储测试及 macOS 打包检查，但不能认定所有功能与错误处理均正确。本轮额外复现了两项 P2 问题，建议首发前修复。真实模型效果、完整原生窗口操作和干净系统安装仍需验收。
+Conclusion: major features passed existing automation, native storage tests, and macOS package checks, but this does not establish correctness of every feature and error path. Two additional P2 issues were reproduced and recommended for repair before the initial release. Live-model quality, complete native-window workflows, and clean-system installation still require acceptance.
 
-## ZIP 改版跟进
+## ZIP redesign follow-up
 
-原检查结论对应上方基线。本次 ZIP 改版已修复重复导入补图：图片元数据在去重判断前写入并提交，新增回归覆盖补图后读取与备份恢复。已添加题库 ZIP 导入／导出、语言气泡菜单与 Logo 切换。最终改版验证：89 项前端测试、44 项 Rust 测试、Clippy、960px 双语浏览器检查、macOS 应用打包及包内合成模型服务检查通过。新增 ZIP 测试使用临时数据库，未触碰个人题库。下方保留原复现记录；搜索失败展示旧结果的问题仍未修复，本次不扩大修改范围。
+The original audit findings apply to the baseline above. The subsequent ZIP redesign fixed image recovery on duplicate import: image metadata is written and committed before deduplication, with regressions covering reads and backup/restore after image recovery. Bank ZIP import/export, a language popover menu, and logo switching were added. Final redesign checks passed: 89 frontend tests, 44 Rust tests, Clippy, bilingual browser checks at 960px, macOS packaging, and bundled-service checks with a synthetic model. New ZIP tests used temporary databases without touching personal banks. The original reproductions remain below. The stale-results-on-search-failure issue remained unfixed; that change did not expand scope to address it.
 
-## 确认的问题
+## Confirmed issues
 
-### P2：重复导入无法补齐首次漏选的图片
+### P2: Duplicate import cannot recover images omitted on the first import
 
-位置：[store.rs](../app/src-tauri/src/store.rs)，`import_pending` 的重复结果返回分支（298–311 行）；图片元数据写入位于其后（333–338 行）。
+Location: [store.rs](../app/src-tauri/src/store.rs), the duplicate-result return branch in `import_pending` (lines 298–311), before image metadata is written (lines 333–338).
 
-复现步骤：
+Reproduction:
 
-1. 导入 `app/fixtures/sample.json`，不选图片目录，创建题库。
-2. 再导入相同 JSON，选择 `app/fixtures/resources`。预览正确显示加载了 1 张图片。
-3. 选择追加到首次创建的题库，确认导入。
-4. 返回重复导入结果，但图片仍不可用，含图题仍缺资源。
+1. Import `app/fixtures/sample.json` without selecting an image directory and create a bank.
+2. Import the same JSON again, selecting `app/fixtures/resources`. The preview correctly reports one loaded image.
+3. Append to the original bank and confirm.
+4. The receipt reports a duplicate import, but the image remains unavailable and the question still lacks its resource.
 
-原因：图片文件已经写入磁盘，但去重分支在向 `assets` 表登记元数据之前返回。读取图片和判定缺图依赖该表，因此磁盘上的文件不能恢复题目；备份也不会收录这张未登记的图片。
+Cause: the image file is already on disk, but deduplication returns before registering metadata in `assets`. Image reads and missing-image checks depend on that table, so the file alone cannot restore the question. Backups also omit the unregistered image.
 
-验证：在源码临时副本中以临时 SQLite 数据运行 Rust 复现测试。确认图片预览为 1、导入回执 `duplicate=true`，随后断言 `asset(hash)` 应可读失败，实际仍为 `null`。未使用个人题库。
+Validation: a Rust reproduction ran in a temporary source copy with temporary SQLite data. The preview count was one and `duplicate=true`; the subsequent assertion that `asset(hash)` should be readable failed because it remained `null`. No personal bank was used.
 
-修复方向：重复题目导入仍应事务性登记已验证的图片资源，再返回去重回执；保持题目去重与历史快照约束。回归需覆盖补图后读取及备份恢复，而不只是检查文件已落盘。
+Proposed fix: transactionally register verified images even for duplicate question imports before returning the deduplication receipt. Preserve question deduplication and historical snapshots. Regressions must check image reads and backup/restore, not only file existence.
 
-### P2：题目查询失败后将旧结果显示在新条件下
+### P2: Failed question queries display old results under new filters
 
-位置：[App.tsx](../app/src/App.tsx)，题目分页请求的错误分支（202–218 行）。
+Location: [App.tsx](../app/src/App.tsx), the question-pagination error branch (lines 202–218).
 
-复现步骤：
+Reproduction:
 
-1. 成功打开题目列表，例如样例中的“下面哪一个是质数？”。
-2. 输入一个与该题不匹配的搜索词。
-3. 让新的 `questions_page` 请求失败，例如数据库暂时锁定。
-4. 页面只弹出错误通知并停止加载；仍显示上次题目及数量，而搜索框已是新条件。
+1. Open a question list successfully, such as the sample question “下面哪一个是质数？” (“Which of the following is prime?”).
+2. Enter a search term that does not match that question.
+3. Make the new `questions_page` request fail, for example through a temporary database lock.
+4. The page shows only an error notification and stops loading. The previous questions and count remain while the search box displays the new filter.
 
-原因：失败分支没有清空旧结果，也没有保留与旧结果对应的查询标识或提供持续的失败状态。题库、错题、收藏和搜索共用此请求路径；切换题库时也存在旧数据被解释为新列表的风险。
+Cause: the error branch neither clears old results nor retains their query identity or a persistent failure state. Banks, mistakes, bookmarks, and search share this request path; switching banks can likewise present old data as the new list.
 
-验证：在临时源码副本中运行 React 测试，首次请求返回样例题，新搜索请求抛出 `database is locked`。断言旧题目不应继续显示失败，确认其仍留在界面。
+Validation: a React test in a temporary source copy returned a sample question on the first request and threw `database is locked` on the new search. The assertion that the old question should disappear failed, confirming it remained visible.
 
-修复方向：区分当前查询与上次成功结果；失败时隐藏旧列表或明确标记其所属条件，并提供页面内错误与重试。测试覆盖搜索及题库切换失败。
+Proposed fix: distinguish the current query from the last successful result. Hide stale results on failure or explicitly label their filters, and provide an inline error and retry. Cover both search and bank-switch failures.
 
-## 各功能检查结果
+## Feature results
 
-“通过”仅表示本轮所列测试与检查通过，不表示穷尽所有输入、硬件或服务故障。
+“Passed” means only that the listed checks passed in this audit, not that every input, hardware condition, or service failure was exhausted.
 
-| 功能 | 当前证据 | 结论与限制 |
+| Feature | Evidence | Result and limits |
 | --- | --- | --- |
-| JSON 导入、预览、契约校验 | 41 项共享契约样例、普通与复合题样例、Rust 导入事务与去重测试 | 主流程通过；漏图后重复导入存在上述问题 |
-| 图片、公式、表格与共用材料 | 前端内容测试、Rust 富内容导入／重开／备份测试 | 已有样例通过；不能推断任意文档排版均可保真 |
-| 题库创建、编辑、删除、复制合并 | 原生存储测试、复制独立性及历史快照测试 | 已有测试通过；删除保留历史快照 |
-| 搜索、收藏、错题、分页 | 分页与完整题组筛选测试 | 正常路径通过；请求失败后展示旧数据的问题已复现 |
-| 七种基础题型及三种复合题型 | 契约、本地判分、前端作答与复合题测试 | 已有样例通过，包括缺答案保持未判定、共享词库限制 |
-| 草稿保存、续练、切题、结束确认 | 前端保存交互、原生重开和不可变快照测试；检查退出保存逻辑 | 已测路径通过；磁盘满、系统强制终止等全链路实机故障未穷尽 |
-| 跨题库组卷、自测、限时模考 | 组卷预览、配分、截止时间、交卷和原生端到端测试 | 已测路径通过；原生窗口休眠／唤醒验收未单独执行 |
-| 客观判分、人工改分与成绩复核 | 所有基础判分模式、分值约束、人工优先级与历史保存测试 | 已测路径通过；不完整题目不能一律算错 |
-| AI 主观题评分 | 服务端评分测试、原生请求记录与包内服务合成模型测试 | 依据检查、部分分、请求复用及未知结果处理通过；未证明真实模型阅卷质量 |
-| PDF、TXT、CSV、PNG/JPEG 解析 | 服务端格式测试与实际包内 Python 服务检查 | 合成模型下四类源格式完成；Word、Excel 和已移除图片格式拒绝检查通过 |
-| 暂停、继续、中断、失败补跑、部分结果审核 | 调度、检查点、任务 API、进程恢复与失败单元测试 | 已测路径通过，包括提交已持久化但唤醒丢失的恢复路径 |
-| 待确认请求、批量导入与停止后续项 | Rust `ai_work` 测试 | 原请求身份复用、逐项失败隔离、停止／继续和数据库回执恢复通过 |
-| 备份与恢复 | 损坏归档拒绝、关系／契约／摘要校验、原生新目录恢复测试 | 已有测试通过；补图去重问题会使未登记图片不进入备份 |
-| 设置与密钥 | 配置校验测试、原生 Keychain 隔离条目读写删除测试 | 通过；未读取或更改用户实际模型密钥 |
-| 中英切换、侧边栏与键盘交互 | 词典与交互测试、Playwright 960px 双语检查 | 通过；浏览器模拟 Tauri 边界，不代表完整原生文件选择器验收 |
-| 独立服务鉴权、上传、素材访问、健康检查 | HTTP 端到端、上传限额、路径／摘要和鉴权测试 | 已测路径通过；真实 OSS 环境和部署基础设施未连接验收 |
+| JSON import, preview, contract validation | 41 shared contract cases, basic/composite samples, Rust import-transaction and deduplication tests | Main path passed; duplicate import after omitted images had the issue above |
+| Images, formulas, tables, shared material | Frontend content tests; Rust rich-content import/reopen/backup tests | Existing samples passed; arbitrary document-layout fidelity was not established |
+| Bank creation, editing, deletion, copy-merge | Native storage, copy-independence, and historical-snapshot tests | Existing tests passed; deletion preserved historical snapshots |
+| Search, bookmarks, mistakes, pagination | Pagination and complete-group filtering tests | Normal paths passed; stale results after request failure were reproduced |
+| Seven basic and three composite question types | Contract, local scoring, frontend response, and composite tests | Existing samples passed, including ungraded missing answers and shared option-bank restrictions |
+| Draft save, resume, switching, exit confirmation | Frontend save interactions, native reopen/immutable snapshots, inspection of exit-save logic | Tested paths passed; end-to-end disk-full and forced-termination faults were not exhausted on hardware |
+| Cross-bank papers, self-tests, timed exams | Paper previews, point allocation, deadlines, submission, and native end-to-end tests | Tested paths passed; native-window sleep/wake acceptance was not run separately |
+| Objective scoring, manual overrides, score review | All basic scoring modes, point constraints, manual precedence, and history tests | Tested paths passed; incomplete questions must not all be marked incorrect |
+| AI subjective grading | Service grading tests, native request records, bundled service with a synthetic model | Evidence checks, partial credit, request reuse, and unknown outcomes passed; live-model grading quality was not established |
+| PDF, TXT, CSV, PNG/JPEG parsing | Service format tests and actual bundled Python service checks | All four source-format categories completed with a synthetic model; Word, Excel, and removed image-format rejection passed |
+| Pause, resume, interrupt, failed-unit retry, partial-result review | Scheduling, checkpoints, task APIs, process recovery, failed-unit tests | Tested paths passed, including recovery after a persisted submission lost its wake-up signal |
+| Unconfirmed requests, batch import, stop remaining items | Rust `ai_work` tests | Original request identity, per-item failure isolation, stop/resume, and database receipt recovery passed |
+| Backup and restore | Corrupt-archive rejection; relationship/contract/digest checks; native restore into a new directory | Existing tests passed; the duplicate-image issue omitted unregistered images from backups |
+| Settings and credentials | Configuration validation and native Keychain read/write/delete with an isolated entry | Passed; actual user model credentials were neither read nor changed |
+| Chinese/English switching, sidebar, keyboard interaction | Dictionary/interaction tests and Playwright bilingual checks at 960px | Passed; browser mocks of Tauri do not establish full native file-picker acceptance |
+| Standalone authentication, upload, artifact access, health | HTTP end-to-end, upload limits, path/digest, and authentication tests | Tested paths passed; real OSS and deployment infrastructure were not connected for acceptance |
 
-## 本轮运行结果
+## Run results
 
-Python 使用 `/Users/sheny/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14`，没有创建项目虚拟环境。
+Python was `~/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14`; no project virtual environment was created.
 
-| 检查 | 结果 |
+| Check | Result |
 | --- | --- |
-| `make verify AI_PYTHON=...` | 通过：锁文件、Ruff、Pyright、评测样例、525 项测试、94% 覆盖率、恢复探针、Python 包构建 |
-| `make app-check AI_PYTHON=...` | 通过：共享契约、TypeScript、11 个测试文件共 87 项前端测试、40 项 Rust 测试、Clippy |
-| `cd app && npm run test:browser` | 通过：双语布局、侧边栏、键盘切换、焦点和草稿保留；无模型请求 |
-| `make app-build AI_PYTHON=...` | 通过：生成 Apple Silicon `.app` 和 `.dmg`；存在前端大于 500 kB 的 chunk 警告，不是构建失败 |
-| `python3.14 app/scripts/check-bundle.py --bundle app/src-tauri/target/release/bundle/macos/PractiQ.app/Contents/Resources/bundled` | 通过：实际打包 Python 服务的文本、CSV、图片、PDF、移除格式拒绝与评分检查；使用本地合成模型 |
-| `TAURI_CONFIG='{"bundle":{"resources":[]}}' cargo test --manifest-path app/src-tauri/Cargo.toml native_keychain_roundtrip -- --ignored` | 通过：1 项原生 Keychain 测试，使用并清除独立测试条目 |
-| 两项额外缺陷复现 | 预期行为断言均失败，分别确认上述图片恢复与列表错误处理问题；与已通过的既有测试分开计数 |
+| `make verify AI_PYTHON=...` | Passed: lockfile, Ruff, Pyright, evaluation fixtures, 525 tests, 94% coverage, recovery probes, Python package build |
+| `make app-check AI_PYTHON=...` | Passed: shared contracts, TypeScript, 87 frontend tests in 11 files, 40 Rust tests, Clippy |
+| `cd app && npm run test:browser` | Passed: bilingual layout, sidebar, keyboard switching, focus, and draft preservation; no model requests |
+| `make app-build AI_PYTHON=...` | Passed: Apple Silicon `.app` and `.dmg`; a frontend chunk warning above 500 kB was not a build failure |
+| `python3.14 app/scripts/check-bundle.py --bundle app/src-tauri/target/release/bundle/macos/PractiQ.app/Contents/Resources/bundled` | Passed: actual packaged Python service checks for text, CSV, image, PDF, removed-format rejection, and grading, using a local synthetic model |
+| `TAURI_CONFIG='{"bundle":{"resources":[]}}' cargo test --manifest-path app/src-tauri/Cargo.toml native_keychain_roundtrip -- --ignored` | Passed: one native Keychain test with a separate test entry, removed afterward |
+| Two additional defect reproductions | Both expected-behavior assertions failed, confirming the image-recovery and list-error issues above; counted separately from existing passing tests |
 
-默认 Rust 检查跳过的两项是合成性能压力测试和 Keychain 测试；Keychain 已单独补跑，性能压力测试本轮未跑。服务端端到端测试已包含在 `make verify`，原生离线端到端测试已包含在 `make app-check`，未重复计数。
+Default Rust checks skipped synthetic performance stress and Keychain tests. Keychain ran separately; performance stress did not run in this audit. Service end-to-end tests were included in `make verify`, and native offline end-to-end tests in `make app-check`; they were not counted twice.
 
-服务端可复核报告：`server/reports/checks/probes.xml`、`coverage.xml`、`probes.json`。详细本地日志位于 `/tmp/practiq-audit-{server,desktop,browser,build,package,keychain,repro-native,repro-ui}-20260922.log`。临时复现源码位于 `/tmp/practiq-functional-audit-20260922/`，这些路径不是发布材料，系统可能清理它们。
+Reviewable service reports: `server/reports/checks/probes.xml`, `coverage.xml`, and `probes.json`. Detailed local logs were at `/tmp/practiq-audit-{server,desktop,browser,build,package,keychain,repro-native,repro-ui}-20260922.log`. Temporary reproduction source was at `/tmp/practiq-functional-audit-20260922/`. These are not release artifacts and may be removed by the system.
 
-## 尚不能下结论的部分
+## Unverified areas
 
-- 本轮未调用外部付费模型。真实试卷识别完整性、复杂排版、图片裁剪和简答评分准确性仍需真实数据评测。
-- 本轮构建的是本机应用包；未在干净 Mac 上完成下载安装、Gatekeeper、签名／公证、原生文件选择器和完整窗口操作验收。
-- 测试覆盖已设计的故障点，不穷尽断电、磁盘耗尽、Keychain 拒绝访问、所有网络时序与第三方故障组合。
-- 未验证 Windows 原生运行、真实 OSS、远端 CI 或 Docker 部署。本次结论限定于当前 macOS 代码与本地验证环境。
+- No external paid models were called. Extraction completeness on real papers, complex layouts, image cropping, and short-answer grading accuracy still require real-data evaluation.
+- This was a local package build. Download/install, Gatekeeper, signing/notarization, native file pickers, and complete window workflows were not accepted on a clean Mac.
+- Tests cover designed fault points, not every combination of power loss, disk exhaustion, Keychain denial, network timing, and third-party failures.
+- Native Windows execution, real OSS, remote CI, and Docker deployment were not verified. Conclusions apply only to the macOS code and local validation environment tested here.
 
-发布建议：先修复两项已复现问题并补充针对性回归，再对最终候选包完成原生使用流程与真实模型验收；当前证据支持继续内部试用，不支持“所有功能及错误处理均无问题”的表述。
+Release recommendation at the time: fix both reproduced issues with focused regressions, then complete native-workflow and live-model acceptance on the final candidate package. The evidence supports continued internal trials, not a claim that all features and error paths are correct.
