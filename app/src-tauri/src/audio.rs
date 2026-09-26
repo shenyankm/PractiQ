@@ -477,8 +477,11 @@ mod tests {
         let roots = store.questions(Some(&bank), "", "listening", "").unwrap();
         let root = text(&roots[0], "id").to_owned();
         let old_hash = text(&roots[0]["question"]["audioRef"], "sha256").to_owned();
-        let selected =
-            crate::paper::selected_rows(&store.question_rows().unwrap(), &[root.clone()]).unwrap();
+        let selected = crate::paper::selected_rows(
+            &store.question_rows().unwrap(),
+            std::slice::from_ref(&root),
+        )
+        .unwrap();
         let mut tree: Vec<_> = selected.iter().map(|row| row["question"].clone()).collect();
         let mut audio = include_bytes!("../../fixtures/resources/audio/chimes.wav").to_vec();
         *audio.last_mut().unwrap() ^= 1;
@@ -493,8 +496,11 @@ mod tests {
         assert!(!store.asset_path(&old_hash).unwrap().exists());
         assert!(store.asset_path(&replacement_hash).unwrap().exists());
 
-        let selected =
-            crate::paper::selected_rows(&store.question_rows().unwrap(), &[root.clone()]).unwrap();
+        let selected = crate::paper::selected_rows(
+            &store.question_rows().unwrap(),
+            std::slice::from_ref(&root),
+        )
+        .unwrap();
         store
             .start_paper(crate::exams::Paper {
                 question_ids: vec![root.clone()],
@@ -619,8 +625,11 @@ mod tests {
         let (_dir, store, bank) = english();
         let roots = store.questions(Some(&bank), "", "listening", "").unwrap();
         let root = text(&roots[0], "id").to_owned();
-        let selected =
-            crate::paper::selected_rows(&store.question_rows().unwrap(), &[root.clone()]).unwrap();
+        let selected = crate::paper::selected_rows(
+            &store.question_rows().unwrap(),
+            std::slice::from_ref(&root),
+        )
+        .unwrap();
         let session = store
             .start_paper(crate::exams::Paper {
                 question_ids: vec![root.clone()],
