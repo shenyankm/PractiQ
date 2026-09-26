@@ -103,8 +103,8 @@
 
 桌面在创建或控制 POST 前将 requestId 和原始请求持久保存到 `ai/requests/`。连接中断、无效回执或服务端不确定错误保留待确认状态；明确拒绝的 4xx（408 除外）终止该操作。用户显式重试使用同一 ID 和内容；修正输入后新操作使用新 ID。Rust 保留 code、message、httpStatus 和 requestId。HTTP 请求和图片下载不持有服务进程锁。
 
-桌面批次使用 prepare_batch、run_batch、batches、cancel_batch 命令。run_batch 的 titles 仅在首次确认时传入，继续传 null。`ai/import-batches/` 清单保存任务、结果摘要、checkpoint、名称和逐项状态；数据库 schema 6 的 ai_imports 保存 `(thread_id,digest)` 唯一回执，与题库同事务提交。继续时以数据库回执为准。清单与待确认请求不进入题库备份，已提交回执随题库保存；仍可恢复 schema 1–5 的备份并迁移至 6。
+桌面批次使用 prepare_batch、run_batch、batches、cancel_batch 命令。run_batch 的 titles 仅在首次确认时传入，继续传 null。`ai/import-batches/` 清单保存任务、结果摘要、checkpoint、名称和逐项状态；数据库 schema 10 的 `ai_imports` 保存 `(thread_id,digest)` 唯一回执，与题库同事务提交。继续时以数据库回执为准。清单与待确认请求不进入学习数据备份，已提交回执随数据库保存；仅恢复备份格式 4、数据库 schema 10，旧版本明确拒绝且不自动迁移。版本边界见[题型模型](../../docs/question-model.md#版本与目录)。
 
 ## 已移除的 Word 输入
 
-`sourceType` 仅接受 `text`、`csv`、`pdf`、`image`。Word 上传及 `docx_parser` 新任务返回 422；旧 Word 任务的继续、重试和接受部分结果返回 409 / `WORD_FORMAT_REMOVED`，请转 PDF 后新建任务。历史记录与已有题库不删除，已完成结果仍可作为 JSON 导入。
+`sourceType` 仅接受 `text`、`csv`、`pdf`、`image`。Word 上传及 `docx_parser` 新任务返回 422；旧 Word 任务的继续、重试和接受部分结果返回 409 / `WORD_FORMAT_REMOVED`，请转 PDF 后新建任务。历史记录与已有题库不删除。导入已有结果仍须符合当前题目契约，离线文件导入使用[题库 ZIP](../../docs/question-bank-package.md)。

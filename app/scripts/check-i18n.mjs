@@ -2,7 +2,7 @@ import { chromium } from 'playwright';
 import { createServer } from 'vite';
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
-const server = await createServer({server:{port:1420,host:'127.0.0.1',strictPort:true}});
+const server = await createServer({server:{port:0,host:'127.0.0.1',strictPort:true}});
 await server.listen();
 let browser;
 try {
@@ -43,7 +43,7 @@ try {
    }
   }};
  },{fixture:JSON.parse(fs.readFileSync('fixtures/sample.json','utf8'))});
- await page.goto('http://127.0.0.1:1420');
+ await page.goto(server.resolvedUrls.local[0]);
  await page.getByRole('heading',{name:'My banks',exact:true}).waitFor();
  assert.equal(await page.evaluate(async () => (await import('/node_modules/@tauri-apps/api/core.js')).isTauri()),false);
 
@@ -152,7 +152,10 @@ try {
  await page.getByRole('heading',{name:'Settings',exact:true}).waitFor();
  checks.push(await overflow('settings'));
  await page.getByRole('button',{name:'Import',exact:true}).click();
- await page.getByText('Create a bank from a document',{exact:true}).waitFor();
+ await page.getByRole('heading',{name:'Import',exact:true}).waitFor();
+ await page.getByRole('button',{name:'Configure AI model',exact:true}).waitFor();
+ assert.equal(await page.getByRole('button',{name:'Upload',exact:true}).count(),0);
+ assert.equal(await page.getByRole('region',{name:'Import tasks',exact:true}).count(),0);
  assert.equal(await page.getByText('Choose bank ZIP',{exact:true}).count(),0);
  checks.push(await overflow('import'));
  const savesBeforeDismiss=await page.evaluate(()=>window.__calls.filter(c=>c.request.type==='save_language').length);

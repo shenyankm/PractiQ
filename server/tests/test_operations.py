@@ -105,20 +105,24 @@ async def test_load_driver_upload_auth_partial_and_overload(monkeypatch):
     def handle(request):
         requests.append(request)
         assert request.headers["Authorization"] == "Bearer test-token"
-        if request.url.path == "/api/uploads":
+        if request.method == "POST" and request.url.path == "/api/uploads":
             return httpx.Response(200, json={"upload": {"url": "/api/uploads/content", "headers": {"Content-Type": "text/plain"}}, "document": {}})
-        if request.method == "PUT":
+        if request.method == "PUT" and request.url.path == "/api/uploads/content":
             assert request.content == b"synthetic"
             return httpx.Response(200)
-        if request.method == "POST":
+        if request.method == "POST" and request.url.path == "/api/document-tasks":
             return httpx.Response(202, json={"threadId": "t", "runId": "r"})
-        if request.url.path.startswith("/api/document-tasks/"):
+        if request.method == "GET" and request.url.path == "/api/document-tasks/t":
             return httpx.Response(200, json={"phase": "completed", "state": "COMPLETED", "status": "PARTIAL"})
-        if request.url.path == "/api/metrics":
-            return httpx.Response(200, text="practiq_provider_inflight 1\n")
-        if request.url.path == "/metrics":
-            return httpx.Response(200, text="lg_api_workers_active 1\n")
-        return httpx.Response(200)
+        if request.method == "GET" and request.url.path == "/api/metrics":
+            return httpx.Response(200, text=(
+                "practiq_pending_runs 3\npractiq_running_runs 1\n"
+                "practiq_workers_max 2\npractiq_workers_available 1\n"
+                "practiq_provider_inflight 1\n"
+            ))
+        if request.method == "GET" and request.url.path == "/ok":
+            return httpx.Response(200, json={"ok": True})
+        raise AssertionError(f"Unexpected request: {request.method} {request.url.path}")
 
     real_client = httpx.AsyncClient
     monkeypatch.setattr(load_test.httpx, "AsyncClient", lambda **kwargs: real_client(transport=httpx.MockTransport(handle), **kwargs))
@@ -128,6 +132,10 @@ async def test_load_driver_upload_auth_partial_and_overload(monkeypatch):
     result = await load_test.run(args)
     assert result["status"] == "FAILED" and result["results"]["runs"] == {"partial": 1}
     assert result["results"]["sampledProviderConcurrencyPeak"] == 1
+    assert result["results"]["peakPendingRuns"] == 3
+    assert result["results"]["peakRunningRuns"] == 1
+    assert result["results"]["observedWorkerMaximum"] == 2
+    assert result["results"]["minimumAvailableWorkers"] == 1
     assert result["results"]["batchSeconds"] >= 0
     assert result["results"]["successfulDocumentsPerMinute"] == 0
     assert result["runs"] == [{"threadId": "t", "runId": "r", "status": "partial"}]
