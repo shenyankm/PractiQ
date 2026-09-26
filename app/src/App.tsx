@@ -441,12 +441,12 @@ export default function App() {
             )}
             {listPage && (
               <>
-                <Button
+                {page !== "favorite" && <Button
                   variant="outline"
                   disabled={busy}
                   onClick={() => navigate("import", page === "questions" ? bank : null)}
                 >
-                  <Upload />{t("导入")}</Button>
+                  <Upload />{t("导入")}</Button>}
                 {page === "questions" && (
                   <Button
                     variant="outline"

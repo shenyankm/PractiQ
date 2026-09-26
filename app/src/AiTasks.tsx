@@ -330,9 +330,7 @@ export function AiTasks({
   }
   return (
     <div className="space-y-6">
-      <Card><CardContent className="space-y-5">
       {children}
-      <p className="text-sm text-muted-foreground">{t("选择文件后会先确认文件与模型，点击“开始解析”才会发送解析内容，可能产生费用。审核和导入已有结果不会调用模型。")}</p>
       {modelsReady && <div className="flex flex-wrap gap-3">
         <Button
           disabled={busy}
@@ -353,9 +351,8 @@ export function AiTasks({
               }
             })
           }
-        >{t("选择文档…")}</Button>
+        >{t("上传")}</Button>
       </div>}
-      </CardContent></Card>
       {(rows.length > 0 || loading || error != null || operations.length > 0 || offset > 0 || more) && <section aria-label={t("导入任务")} className="space-y-4">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-lg font-semibold">{t("导入任务")}</h2>

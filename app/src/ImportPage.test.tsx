@@ -33,6 +33,27 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+it("hides import in favorites while preserving practice and other import entries", async () => {
+  vi.mocked(api).mockImplementation(async request => {
+    switch (request.type) {
+      case "banks": return [] as never;
+      case "banks_page":
+      case "questions_page": return {items:[],total:0,offset:0} as never;
+      case "unfinished_session": return null as never;
+      case "info": return {version:"test",dataDirectory:"/tmp/test"} as never;
+      default: throw new Error(`Unexpected request: ${request.type}`);
+    }
+  });
+  render(<App/>);
+  await userEvent.click(await screen.findByRole("button", {name:"收藏夹"}));
+  expect(await screen.findByRole("heading", {name:"收藏夹",level:1})).toBeTruthy();
+  expect(screen.queryByRole("button", {name:"导入"})).toBeNull();
+  expect(screen.getByRole("button", {name:"开始练习"})).toBeTruthy();
+  expect(screen.getByRole("button", {name:"导入题库"})).toBeTruthy();
+  await userEvent.click(screen.getByRole("button", {name:"错题本"}));
+  expect(await screen.findByRole("button", {name:"导入"})).toBeTruthy();
+});
+
 it("loads native pages and clamps the page after deleting the last item", async () => {
   const rows=Array.from({length:31},(_,i)=>({id:`q${i}`,bankId:"bank",bankTitle:"Paged",question:{...fixture.questions[0],stem:`Page question ${i}`},groups:[],visuals:[],sources:[],warnings:[],missingAssets:false,favorite:false,latestResult:null}));
   let deleted=false;
@@ -116,11 +137,8 @@ it("keeps ZIP import usable without models and preserves the destination bank", 
     }),
   ).toBeTruthy();
   expect(screen.queryByRole("button", { name: "文档解析" })).toBeNull();
-  expect((await screen.findByText(/暂不支持 Word 文件/)).textContent).toContain("导出为 PDF");
-  expect(screen.getByText(/支持 PDF/).textContent).toContain(".jpeg");
-  expect(screen.getByText(/支持 PDF/).textContent).not.toMatch(/\.gif|\.webp/);
   expect(await screen.findByRole("button", { name: "配置 AI 模型" })).toBeTruthy();
-  expect(screen.queryByRole("button", { name: "选择文档…" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "上传" })).toBeNull();
   expect(screen.queryByRole("button", { name: "刷新任务" })).toBeNull();
   expect(vi.mocked(invoke).mock.calls.some(([,args]) => (args as {request:{type:string}}).request.type === "list")).toBe(false);
   await userEvent.click(await screen.findByRole("button",{name:"设置"}));
@@ -345,7 +363,7 @@ it("autosaves model setup and returns to the original import destination", async
   await waitFor(() => expect(screen.getByRole("button",{name:"返回导入"}).hasAttribute("disabled")).toBe(false));
   await userEvent.click(screen.getByRole("button",{name:"返回导入"}));
   expect(await screen.findByRole("heading",{name:"导入题库",level:1})).toBeTruthy();
-  expect(await screen.findByRole("button",{name:"选择文档…"})).toBeTruthy();
+  expect(await screen.findByRole("button",{name:"上传"})).toBeTruthy();
   await userEvent.click(await screen.findByRole("button",{name:"设置"}));
   await userEvent.click(await screen.findByRole("button",{name:"恢复备份"}));
   await userEvent.click(await screen.findByRole("menuitem",{name:"导入题库 ZIP"}));
@@ -435,7 +453,11 @@ it("keeps a confirmed document import in the task list and opens its bank only o
   render(<App/>);
   await userEvent.click(await screen.findByRole("button", {name:"导入题库"}));
   const tasks = await screen.findByRole("region", {name:"导入任务"});
-  expect(screen.getByText("从文档创建题库").closest('[data-slot="card"]')?.contains(tasks)).toBe(false);
+  const upload = await screen.findByRole("button", {name:"上传"});
+  expect(upload.closest('[data-slot="card"]')).toBeNull();
+  expect(tasks.contains(upload)).toBe(false);
+  expect(screen.queryByText("从文档创建题库")).toBeNull();
+  expect(screen.queryByText(/暂不支持 Word 文件/)).toBeNull();
   await userEvent.click(await screen.findByRole("button", {name:"source.txt"}));
   await userEvent.click(await screen.findByRole("button", {name:"预览并导入题库"}));
   await userEvent.click(within(await screen.findByRole("dialog", {name:"导入题库"})).getByRole("button", {name:"确认导入"}));
