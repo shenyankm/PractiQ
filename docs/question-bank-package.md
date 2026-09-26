@@ -1,43 +1,43 @@
-# ZIP 题库导入、导出与备份
+# Import, export, and back up question-bank ZIP files
 
-题库分享只需一个 ZIP。应用不再提供单独 JSON 或图片目录选择入口；文档解析和 AI 任务导入保持原流程。
+A single ZIP is enough to share a question bank. The app no longer offers separate JSON or image-directory pickers. Document parsing and AI task import retain their existing workflow.
 
-## 导入与分享
+## Import and share
 
-空题库页面可点击“添加示例题库”，直接离线添加[全题型示例](../app/fixtures/all-types.zip)：20 道可作答题目、6 个材料父节点，覆盖全部 11 种作答模式和 9 个英语题型分类，含图片及听力提示音。无需模型配置。
+On the empty question-bank page, choose **Add example bank** to add the [all-types sample](../app/fixtures/all-types.zip) offline: 20 answerable questions and six material parent nodes covering all 11 answer modes and nine English question kinds, including images and listening tones. No model configuration is required.
 
-1. 在“设置 → 恢复备份”选择“导入题库 ZIP”。可直接体验 [基础题型样例](../app/fixtures/sample.zip)或[复合题样例](../app/fixtures/composite.zip)，不需要模型配置。另有[英语九类题型样例](../app/fixtures/english.zip)，包含用于播放器验证的提示音。
-2. 应用自动校验题目、包内图片及音频，展示预览。新建题库时默认使用包内名称和描述，名称可修改；追加时保留目标题库信息。
-3. 在题库卡片操作菜单选择“导出题库 ZIP”，保存后即可分发。多个题库可先复制合并，再导出。
+1. In **Settings → Restore backup**, choose **Import bank ZIP**. Try the [basic sample](../app/fixtures/sample.zip) or [composite sample](../app/fixtures/composite.zip) without model configuration. The [nine English question kinds sample](../app/fixtures/english.zip) also includes tones for player verification.
+2. The app validates questions, packaged images, and audio, then displays a preview. A new bank defaults to the package title and description; the title is editable. Appending preserves the target bank's metadata.
+3. Choose **Export bank ZIP** from a bank card's action menu, save the file, and distribute it. To share multiple banks together, copy-merge them before exporting.
 
-分享包保留题目、答案、解析、原文内容、共用材料、复合题关系、原卷分值、评分细则、图片、听力音频和审核标记。不包含收藏、错题状态、个人作答、练习历史、评分记录、连接设置或密钥。
+Sharing packages retain questions, answers, explanations, source content, shared materials, composite relationships, source scores, rubrics, images, listening audio, and review flags. They exclude bookmarks, mistake status, personal answers, practice history, grading records, connection settings, and credentials.
 
-缺失或损坏的引用图片、音频会阻止导出。对首次缺图导入的题库，可追加导入同内容的完整 ZIP：题目不重复增加，已验证图片会补齐，历史快照不改写。导出采用临时文件，全部成功后才发布，并拒绝覆盖已有文件名。
+Missing or corrupt referenced images or audio prevent export. If a bank was initially imported without images, append a complete ZIP with the same content: questions are not duplicated, verified images are added, and historical snapshots remain unchanged. Export writes a temporary file and publishes it only after all steps succeed; existing filenames cannot be overwritten.
 
-## 与学习数据备份的区别
+## Difference from study-data backups
 
-设置中的“导出备份”仍生成 ZIP，包含个人题库、图片、音频、作答、考试和评分记录，用于恢复自己的数据；不包含密钥和 AI 任务状态。恢复仍会校验备份并保留恢复前副本。
+**Export backup** in Settings still creates a ZIP containing personal banks, images, audio, answers, exams, and grading records for restoring your own data. It excludes credentials and AI task state. Restore validates the backup and retains a pre-restore copy.
 
-题库分享包与学习数据备份是两种不同格式。两种操作都在设置的“恢复备份”菜单中：选择“导入题库 ZIP”追加内容，选择“恢复学习数据备份”经确认后替换个人数据。选错类型会报错。
+Bank-sharing packages and study-data backups are different formats. Both operations are under **Restore backup** in Settings: **Import bank ZIP** appends content, while **Restore study-data backup** replaces personal data after confirmation. Selecting the wrong format returns an error.
 
-## 文件格式
+## File format
 
-ZIP 根目录包含 `manifest.json`、`questions.json`，以及 `resources/<objectKey>` 图片及音频文件。
+The ZIP root contains `manifest.json`, `questions.json`, and image/audio files at `resources/<objectKey>`.
 
 ```json
 {
   "format": "practiq-question-bank",
   "version": 2,
-  "bank": {"title": "示例题库", "description": "题库说明"}
+  "bank": {"title": "Example bank", "description": "Bank description"}
 }
 ```
 
-`questions.json` 沿用 `schemaVersion: 3` 的 AI 结果契约，含 `questions`、`groups`、`visualElements`、`warnings`、`confidenceScore`。内部 JSON 契约见[题型模型](question-model.md)。图片沿用 `imageRef` 和 `sourceRef` 的 objectKey、SHA-256、大小和媒体类型。包仅存题目数据，不使用桌面数据库或练习快照作为导出内容。
+`questions.json` follows the AI result contract with `schemaVersion: 3`, including `questions`, `groups`, `visualElements`, `warnings`, and `confidenceScore`. See the [question model](question-model.md) for the JSON contract. Images retain the objectKey, SHA-256, size, and media type in `imageRef` and `sourceRef`. Packages contain question data, not the desktop database or practice snapshots.
 
-ZIP 上限 300 MiB，JSON 上限 32 MiB，单张图片或音频上限 25 MiB，全部资源展开后上限 256 MiB。当前结果契约每包最多 1000 个题目节点（含复合题父节点）、1000 个材料组、1000 个图片元素及 1000 条警告；超出时拒绝导出，不截断题库。必须包含全部引用图片和音频，不允许额外文件、目录条目、重复条目、符号链接或路径穿越。
+Limits are 300 MiB per ZIP, 32 MiB per JSON file, 25 MiB per image or audio file, and 256 MiB for all expanded resources. The current result contract permits at most 1000 question nodes (including composite parents), 1000 material groups, 1000 visual elements, and 1000 warnings per package. Exceeding these limits rejects export rather than truncating the bank. All referenced images and audio must be present. Extra files, directory entries, duplicate entries, symlinks, and path traversal are forbidden.
 
-开发样例可用 `python3 app/scripts/package-fixtures.py` 重新生成；内容为人工编写，不代表真实模型质量。
+Regenerate development samples with `python3 app/scripts/package-fixtures.py`. Their hand-written content does not establish live-model quality.
 
-音频引用存于听力父题的 `audioRef`，支持 audio/mpeg、audio/mp4、audio/aac、audio/wav。图片与音频共同计入包大小及展开大小限制。新版 ZIP 版本为 2、备份版本为 4；旧版本明确拒绝，新桌面目录为 v3，旧目录完整保留，需要重新解析或生成新版题库。
+Listening parent questions store audio references in `audioRef`, supporting audio/mpeg, audio/mp4, audio/aac, and audio/wav. Images and audio share the package and expanded-size budgets. The current ZIP version is 2, backup version is 4, and desktop directory is v3. Older versions are explicitly rejected; old directories remain intact. Reparse source documents or generate new-format banks.
 
-首版听力音频校验依赖 macOS 的 `afinfo`；Windows 和 Linux 暂不支持含音频题库的导入、导出或备份恢复。
+Initial listening-audio validation requires macOS `afinfo`. Windows and Linux currently do not support importing, exporting, or restoring banks with audio.

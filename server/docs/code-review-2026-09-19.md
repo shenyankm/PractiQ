@@ -1,369 +1,368 @@
-> 存储更新：当前版本仅使用本地文件，OSS 后端已移除；下文涉及 OSS 的内容保留为当时的审计或设计记录。
+> Storage update: the current version uses local files only; the OSS backend has been removed. References to OSS below are preserved as historical audit or design records.
 
-> 历史记录：当前版本已改用 SQLite，并已移除 Excel 源文件解析；下文保留当时的范围与验证结果。
+> Historical record: the current version uses SQLite and no longer parses Excel source files. The scope and validation results below describe the version reviewed at the time.
 
-> 历史报告：以下结果、包体积、哈希与依赖说明属于当时版本。当前版本已移除 Word 与 LibreOffice；导入页管理 AI 解析任务，ZIP 题库从“设置 → 恢复备份”导入。现行用法见 [项目说明](../../README.zh-CN.md) 和 [服务指南](service-guide.md)。历史证据不代表当前版本验收。
+> Historical report: results, package sizes, hashes, and dependency descriptions apply to the version tested at the time. The current version has removed Word and LibreOffice. The Import page manages AI parsing tasks; bank ZIP import is under Settings → Restore backup. See the [project overview](../../README.md) and [service guide](service-guide.md) for current usage. Historical evidence does not establish acceptance of the current version.
 
-# 项目严格审查报告与优化建议
+# Detailed code review and improvement recommendations
 
-- 审查日期：2026-09-19
-- 审查对象：Python / LangGraph 文档导入服务
-- 审查方式：静态代码检查、现有测试、隔离 PostgreSQL 故障注入、内存图与离线模型协议复现
-- 实施状态：R01–R17、O01–O04 已在本地工作区修复；逐项说明和复核结果见第 8 节。第 1–7 节保留原始审查时的发现与证据。
+- Review date: 2026-09-19
+- Target: Python / LangGraph document import service
+- Methods: static inspection, existing tests, isolated PostgreSQL fault injection, in-memory graphs, and offline model-protocol reproductions
+- Implementation status: R01–R17 and O01–O04 were fixed in the local workspace. Section 8 records each fix and its validation. Sections 1–7 preserve the original findings and evidence.
 
-## 1. 结论
+## 1. Conclusion
 
-当前工程已有认证、严格输入模型、持久化队列、checkpoint、文件校验、模型调用预算和较完整的测试基础，但故障组合场景仍存在实质性缺陷。最值得优先处理的是：
+The service already has authentication, strict input models, a durable queue, checkpoints, file validation, model-call budgets, and substantial tests. Combined fault scenarios nevertheless expose significant defects. The highest priorities are:
 
-1. 并发控制请求造成连接池饥饿，进而触发服务退出。
-2. 暂停与人工审核中断顺序冲突，导致恢复失败。
-3. XLSX 声明维度异常导致静默漏题。
-4. 默认工具调用协议下的纠错消息不完整。
-5. 超时后底层工作继续运行，以及图片像素预算未生效。
+1. Concurrent control requests can starve the connection pool and trigger service exit.
+2. Pause and human-review interrupts can conflict, preventing resume.
+3. Incorrect XLSX dimensions can silently omit questions.
+4. Correction messages are incomplete under the default tool-calling protocol.
+5. Underlying work continues after timeout, and image pixel budgets are not enforced.
 
-建议先修复正确性、恢复能力和资源边界，再考虑大规模风格重构。
+Fix correctness, recovery, and resource boundaries before broad style refactoring.
 
-## 2. 范围与验证边界
+## 2. Scope and validation limits
 
-### 审查范围
+### Review scope
 
-- HTTP、认证、上传与素材读取。
-- PostgreSQL 队列、任务控制、幂等、暂停、恢复和运行期限。
-- 文档提取、解析图、结构化模型输出及结果合并。
-- local / OSS 存储接口与文件清理脚本。
-- 日志、指标、评测、依赖及部署配置。
+- HTTP, authentication, uploads, and artifact reads.
+- PostgreSQL queue, task controls, idempotency, pause, resume, and run deadlines.
+- Extraction, parser graphs, structured model output, and result merging.
+- Local/OSS storage interfaces and file cleanup scripts.
+- Logs, metrics, evaluation, dependencies, and deployment configuration.
 
-项目明确不包含前端、产品后端、登录、计费、答题或学习报告；这些功能未被列为缺陷。单进程、共享 Bearer 认证和公开健康检查也未被直接视为问题。
+At the time, the project explicitly excluded a frontend, product backend, login, billing, answering, and learning reports; their absence was not a defect. A single process, shared Bearer authentication, and public health checks were not treated as findings by themselves.
 
-### 已执行验证
+### Completed checks
 
-| 检查 | 结果 |
+| Check | Result |
 |---|---|
-| 完整 pytest | 452 通过，2 跳过 |
-| 跳过原因 | 本机未安装 LibreOffice，真实 Writer / Calc 渲染测试未执行 |
-| Ruff | 通过 |
-| Pyright | 0 errors、0 warnings |
-| 依赖锁文件一致性 | 通过 |
-| 评测清单校验 | 25 个案例通过校验，不代表真实模型质量评测通过 |
-| 锁定依赖漏洞审计 | 未发现已知漏洞，不代表不存在未知漏洞 |
-| 关键问题复核 | 隔离数据库、内存图、内存文档及 SDK MockTransport 复现 |
+| Full pytest suite | 452 passed, 2 skipped |
+| Skip reason | LibreOffice was not installed locally, so real Writer/Calc rendering tests did not run |
+| Ruff | Passed |
+| Pyright | 0 errors, 0 warnings |
+| Dependency lock consistency | Passed |
+| Evaluation manifest | 25 cases validated; this does not mean live-model quality evaluation passed |
+| Locked dependency vulnerability audit | No known vulnerabilities found; this does not rule out unknown vulnerabilities |
+| Critical findings | Reproduced with isolated databases, in-memory graphs/documents, and SDK MockTransport |
 
-未调用真实外部模型，未执行真实 OSS 验收，未重新构建生产镜像，也未重新测量覆盖率。部分复现使用受控调度、缩短超时或故障注入，不应解读为生产吞吐量或故障发生概率测量。
+No real external models were called, real OSS acceptance was not performed, the production image was not rebuilt, and coverage was not remeasured. Some reproductions used controlled scheduling, shortened timeouts, or fault injection; they do not measure production throughput or failure probability.
 
-下文源码位置均相对于仓库根目录，行号对应审查时版本，后续修改可能导致行号变化。
+Source locations below are relative to the repository root. Line numbers refer to the reviewed version and may shift after changes.
 
-## 3. 优先级与问题总览
+## 3. Priorities and findings
 
-- **P1：优先修复。** 可能导致服务退出、任务无法正常恢复、静默丢失内容或资源边界失效。
-- **P2：随后处理。** 影响错误处理、数据契约、运维可靠性或验证可信度。
-- **优化项：计划性改进。** 不等同于已确认的可利用漏洞。
+- **P1: fix first.** Potential service exit, failed recovery, silent content loss, or ineffective resource boundaries.
+- **P2: fix next.** Error handling, data contracts, operational reliability, or trustworthiness of validation.
+- **Improvements: planned work.** Not equivalent to confirmed exploitable vulnerabilities.
 
-| 编号 | 优先级 | 问题 | 验证依据 |
+| ID | Priority | Finding | Evidence |
 |---|---|---|---|
-| R01 | P1 | 控制请求耗尽连接池并触发退出路径 | 隔离 PostgreSQL 故障注入 |
-| R02 | P1 | 暂停与审核中断顺序冲突 | 内存图复现 |
-| R03 | P1 | XLSX 维度异常静默漏题 | 内存工作簿复现 |
-| R04 | P1 | 工具调用纠错缺少匹配应答 | 实际 SDK 请求捕获、严格协议替身 |
-| R05 | P1 | 超时后同步解析和存储工作仍运行 | 受控阻塞线程复现 |
-| R06 | P1 | 图片入口绕过配置像素上限 | 内存图片复现 |
-| R07 | P2 | 不完整答案绕过类型约束 | 内存模型校验复现 |
-| R08 | P2 | 模型结果后置校验导致重复恢复失败 | 模型校验及离线图复现 |
-| R09 | P2 | 批次失败后兄弟协程继续执行 | 内存并发复现 |
-| R10 | P2 | 恢复预检不受运行期限约束 | 慢预检替身复现 |
-| R11 | P2 | GC 最终重写可能损坏恢复清单 | 临时目录写入失败注入 |
-| R12 | P2 | 默认启动不输出结构化 INFO 日志 | 默认 Uvicorn 日志配置复现 |
-| R13 | P2 | XLSX 正常 Schema 被评测器误判 | 评测函数复现 |
-| R14 | P2 | 默认存储路径与约定不一致 | 实际配置解析复核 |
-| R15 | P2 | 慢上传没有接收期限 | 停滞请求流复现 |
-| R16 | P2 | 非 ASCII Bearer 值引发未处理异常 | 认证函数及 HTTP 边界复现 |
-| R17 | P2 | 半初始化数据库无法直接重试 | 静态控制流分析 |
+| R01 | P1 | Control requests exhaust the connection pool and trigger exit | Isolated PostgreSQL fault injection |
+| R02 | P1 | Pause and review interrupt order conflicts | In-memory graph reproduction |
+| R03 | P1 | Incorrect XLSX dimensions silently omit questions | In-memory workbook reproduction |
+| R04 | P1 | Tool-call correction lacks matching responses | Captured actual SDK requests and strict protocol stub |
+| R05 | P1 | Synchronous parsing/storage continues after timeout | Controlled blocking-thread reproduction |
+| R06 | P1 | Image input bypasses configured pixel limits | In-memory image reproduction |
+| R07 | P2 | Incomplete answers bypass type constraints | In-memory model validation |
+| R08 | P2 | Late result validation causes repeated resume failures | Model validation and offline graph reproduction |
+| R09 | P2 | Sibling coroutines continue after batch failure | In-memory concurrency reproduction |
+| R10 | P2 | Recovery prechecks are outside run deadlines | Slow-precheck stub |
+| R11 | P2 | Final GC rewrite can corrupt the recovery manifest | Temporary-directory write-failure injection |
+| R12 | P2 | Default startup omits structured INFO logs | Default Uvicorn logging reproduction |
+| R13 | P2 | Evaluator rejects a valid XLSX schema | Evaluation-function reproduction |
+| R14 | P2 | Default storage path violates the documented contract | Actual configuration resolution |
+| R15 | P2 | Slow uploads have no receive deadline | Stalled request-stream reproduction |
+| R16 | P2 | Non-ASCII Bearer values cause an unhandled exception | Authentication and HTTP-boundary reproduction |
+| R17 | P2 | Partially initialized databases cannot retry directly | Static control-flow analysis |
 
-## 4. P1 问题详情
+## 4. P1 findings
 
-### R01：并发控制请求可能触发服务退出
+### R01: Concurrent control requests can trigger service exit
 
-**位置**
+**Locations**
 
 - `server/src/practiq_ai/database.py:69`
 - `server/src/practiq_ai/task_api.py:185`
 - `server/src/practiq_ai/runtime.py:125`
 
-**触发机制与影响**
+**Mechanism and impact**
 
-控制事务先取得数据库连接，再等待全局 advisory lock。持锁请求在 `_read_task`、checkpoint 或 Store 读取中又需要额外连接。等待锁的请求可以占满 16 个连接，使持锁者和调度器都无法继续。
+Control transactions acquire a database connection before waiting for a global advisory lock. The lock holder then needs another connection for `_read_task`, checkpoint, or Store reads. Waiting requests can occupy all 16 connections, blocking both the holder and the scheduler.
 
-隔离 PostgreSQL 复现使用 16 个并发控制请求、受控调度和缩短的连接池超时，观察到 `PoolTimeout` 以及 `fatal(70)` 调用。复现截获了退出函数；生产默认实现为进程退出。
+An isolated PostgreSQL reproduction used 16 concurrent control requests, controlled scheduling, and a shortened pool timeout. It observed `PoolTimeout` and a `fatal(70)` call. The reproduction intercepted the exit function; the production default exits the process.
 
-**建议**
+**Recommendations**
 
-- 在获取连接前串行化需要全局锁的控制事务，避免等待者占满连接池。
-- 尽可能复用事务连接，并缩短控制事务。
-- 避免在全局临界区内执行长时间素材读取；移出后须保留必要的一致性复核。
-- 不要仅靠扩大连接池掩盖等待链。
+- Serialize control transactions requiring the global lock before acquiring connections.
+- Reuse transaction connections where possible and shorten control transactions.
+- Move long artifact reads outside the global critical section while retaining necessary consistency rechecks.
+- Do not hide the wait chain by merely enlarging the pool.
 
-**回归验收**：并发控制达到或超过连接池容量时，调度器仍可工作；控制请求能完成或有界拒绝，不触发退出路径。
+**Regression acceptance**: at or above pool-capacity control concurrency, the scheduler remains functional; requests complete or fail within bounds without triggering exit.
 
-### R02：暂停与人工审核中断顺序冲突
+### R02: Pause and human-review interrupt order conflicts
 
-**位置**
+**Locations**
 
 - `server/src/practiq_ai/execution.py:176`
 - `server/src/practiq_ai/graphs/document.py:860`
 
-**触发机制与影响**
+**Mechanism and impact**
 
-审核节点先经过 guard 中的暂停中断，再执行业务审核中断。恢复创建新 `runId` 后，旧暂停标记不再命中，重放跳过第一个中断，业务审核中断错误消费原本给暂停的 `resume`，返回 `INVALID_CONTROL`。
+A review node first reaches the guard's pause interrupt, then the business review interrupt. Resume creates a new `runId`, so the old pause marker no longer matches. Replay skips the first interrupt, and the business review consumes the `resume` value intended for pause, returning `INVALID_CONTROL`.
 
-内存图已复现该顺序冲突，普通暂停测试没有覆盖同一节点中的两种中断。
+An in-memory graph reproduced this ordering conflict. Ordinary pause tests did not cover both interrupt kinds in one node.
 
-**建议**：保持重放时中断顺序稳定，或将暂停与审核拆成独立 checkpoint 节点。
+**Recommendation**: keep interrupt order stable during replay, or separate pause and review into independent checkpoint nodes.
 
-**回归验收**：分别覆盖失败审核和结果质量审核；暂停后恢复应进入正确的审核状态，后续补跑或接受部分结果仍可执行。
+**Regression acceptance**: cover both failure review and result-quality review. Resume after pause must enter the correct review state and still allow retry or acceptance of partial results.
 
-### R03：XLSX 声明维度异常导致静默漏题
+### R03: Incorrect XLSX dimensions silently omit questions
 
-**位置**：`server/src/practiq_ai/extractors/xlsx.py:204`
+**Location**: `server/src/practiq_ai/extractors/xlsx.py:204`
 
-**触发机制与影响**
+**Mechanism and impact**
 
-`read_only` 工作表迭代信任文件声明的维度。内存工作簿实际包含 A1、B2 两道题，将声明范围改为 A1:A1 后，仅提取 A1，且没有 warning、没有失败标记、`truncated=False`。
+`read_only` worksheet iteration trusts declared dimensions. An in-memory workbook contained questions in A1 and B2. Changing its declared range to A1:A1 caused only A1 to be extracted, with no warning, no failure marker, and `truncated=False`.
 
-现有行数检查只能检查已经迭代到的行，无法发现被错误维度隐藏的内容。
+Existing row-count checks inspect only rows reached by iteration, so they cannot detect content hidden by incorrect dimensions.
 
-**建议**：根据实际单元格校正或重置维度，同时限制实际行数、列数和单元格总量，避免修复漏题时引入新的资源消耗问题。
+**Recommendation**: correct or reset dimensions from actual cells, while limiting actual rows, columns, and total cells to avoid introducing resource exhaustion.
 
-**回归验收**：声明范围偏小、缺失及异常偏大的工作簿，不得静默漏掉实际单元格；超限必须明确拒绝或报告部分失败。
+**Regression acceptance**: undersized, missing, and excessively large declared dimensions must not silently omit real cells. Limit breaches must explicitly reject the input or report partial failure.
 
-### R04：默认工具调用纠错缺少匹配应答
+### R04: Default tool-call correction lacks matching responses
 
-**位置**
+**Locations**
 
 - `server/src/practiq_ai/llm.py:338`
 - `server/src/practiq_ai/llm.py:489`
 
-**触发机制与影响**
+**Mechanism and impact**
 
-默认 `function_calling` 路径发生输出校验失败时，代码把带 `tool_calls` 的 assistant 消息直接接上 user 纠错消息，没有提供对应 `tool_call_id` 的 `ToolMessage`。
+After validation failure in the default `function_calling` path, an assistant message with `tool_calls` is followed directly by a user correction message, without a `ToolMessage` for the corresponding `tool_call_id`.
 
-已捕获实际 SDK 生成的第二次请求，确认存在未应答工具调用。严格协议替身返回 400 后，当前代码转为 `AI_PROVIDER_ERROR`，纠错提前终止。真实供应商拒绝行为未进行在线验证。
+The actual SDK's second request was captured and contained unanswered tool calls. A strict protocol stub returned 400, which became `AI_PROVIDER_ERROR` and stopped correction early. Real-provider rejection was not verified online.
 
-现有通用模型替身主要返回普通文本；原生 JSON Schema 协议测试也不能代替默认工具调用路径测试。
+Existing generic model fakes mostly return plain text. Native JSON Schema tests also do not cover the default tool-calling path.
 
-**建议**：构造符合工具消息配对要求的纠错历史，并增加默认协议的请求级回归测试。
+**Recommendation**: build correction history with properly paired tool messages and add request-level regression coverage for the default protocol.
 
-**回归验收**：第一次工具参数非法、第二次合法时，应完成纠错并保留两次用量；第二次请求不得包含未匹配的工具调用。
+**Regression acceptance**: invalid first-call arguments followed by valid second-call arguments complete correction and retain both usage records. The second request contains no unmatched tool calls.
 
-### R05：超时后底层同步工作仍继续执行
+### R05: Underlying synchronous work continues after timeout
 
-**位置**
+**Locations**
 
 - `server/src/practiq_ai/graphs/document.py:301`
 - `server/src/practiq_ai/storage.py:199`
 
-**触发机制与影响**
+**Mechanism and impact**
 
-`wait_for(to_thread(...))` 超时只取消等待，不能终止已经运行的线程。复现中，接口或图节点已经返回超时错误，底层操作仍然存活。
+Timing out `wait_for(to_thread(...))` cancels only the wait, not an already running thread. The reproduction returned a timeout from the endpoint or graph node while the underlying operation remained alive.
 
-慢磁盘、慢 OSS 或耗时文档解析会积累遗留工作；任务和上传槽位可能已释放，但底层工作仍占用共享线程池、CPU、内存或渲染锁。线程继续运行已复现，生产资源耗尽程度属于风险推断。
+Slow disks, slow OSS, or expensive parsing can accumulate leftover work. Task/upload slots may be released while work still consumes the shared thread pool, CPU, memory, or rendering lock. Continued thread execution was reproduced; the extent of production resource exhaustion remains an inferred risk.
 
-**建议**
+**Recommendations**
 
-- 不可协作取消的文档提取使用可终止、可回收的子进程。
-- 存储使用独立且有界的执行资源，容量在底层操作实际结束后释放。
-- 区分请求等待超时、底层 I/O 超时和资源回收完成，不能只验证错误码。
+- Run extraction that cannot cancel cooperatively in terminable, reapable subprocesses.
+- Give storage separate bounded execution resources, releasing capacity only when underlying operations actually finish.
+- Distinguish request-wait timeout, underlying I/O timeout, and completed resource cleanup; checking error codes alone is insufficient.
 
-**回归验收**：连续超时不会持续增加遗留工作；后续正常任务仍能取得执行资源。
+**Regression acceptance**: repeated timeouts do not continually accumulate work, and later normal tasks can still obtain execution resources.
 
-### R06：图片入口没有执行配置像素上限
+### R06: Image input does not enforce the configured pixel limit
 
-**位置**：`server/src/practiq_ai/extractors/image.py:10`
+**Location**: `server/src/practiq_ai/extractors/image.py:10`
 
-**触发机制与影响**
+**Mechanism and impact**
 
-直接上传图片仅执行 `image.verify()`，未检查 `AI_MAX_VISION_PAGE_PIXELS`。将像素上限设为 1 时，200×200 图片仍被接受。
+Direct image uploads run only `image.verify()` without checking `AI_MAX_VISION_PAGE_PIXELS`. With the pixel limit set to 1, a 200×200 image was still accepted.
 
-压缩字节限制不能替代解码内存限制；Pillow 自身的保护阈值也不等于服务配置。后续裁剪会解码整张图片。
+Compressed-byte limits do not bound decoded memory, and Pillow's own threshold is not the service's configured limit. Later cropping decodes the full image.
 
-**建议**：在接受图片前校验尺寸和像素预算，并明确多帧图片策略；统一图片、PDF 和 XLSX 的相关边界。
+**Recommendation**: validate dimensions and pixel budgets before acceptance, define a multi-frame policy, and align relevant image, PDF, and XLSX boundaries.
 
-**回归验收**：超过配置像素预算的图片在模型调用和整图解码前被拒绝，合法边界图片正常通过。
+**Regression acceptance**: over-budget images are rejected before model calls and full decoding; images exactly at the limit pass.
 
-## 5. P2 问题详情
+## 5. P2 findings
 
-### R07：不完整答案绕过类型约束
+### R07: Incomplete answers bypass type constraints
 
-- **位置**：`server/src/practiq_ai/contracts.py:205`
-- **问题**：partial 分支直接返回字典，绕过完整 Schema 的部分约束。`true_false.value=["x", null]` 可被接受；`correctOption=["A", null]` 会在引用检查中抛 `AttributeError`。
-- **建议**：允许缺值，但始终验证容器、元素类型、长度及引用合法性；非法结构统一产生可进入纠错流程的验证错误。
-- **验收**：针对各题型覆盖缺值与错误类型组合，不能将任意容器当作合法草稿，也不能出现未处理的类型异常。
+- **Location**: `server/src/practiq_ai/contracts.py:205`
+- **Problem**: the partial branch returns a dictionary directly, bypassing some complete-schema constraints. It accepts `true_false.value=["x", null]`; `correctOption=["A", null]` raises `AttributeError` during reference checks.
+- **Recommendation**: allow missing values while always validating containers, element types, lengths, and references. Invalid structures must produce validation errors that can enter correction.
+- **Acceptance**: cover missing-value/wrong-type combinations for every type. Arbitrary containers must not count as valid drafts, and no unhandled type exceptions should occur.
 
-### R08：模型结果校验过晚，恢复可能反复失败
+### R08: Late model-result validation can repeatedly break resume
 
-- **位置**：`server/src/practiq_ai/graphs/vision.py:27`、`server/src/practiq_ai/graphs/document.py:449`
-- **问题**：`PageFigure` 接受空白 description、超过 1000 字符的 label；转换为 `VisualElement` 时才拒绝。此时已离开模型纠错边界，接受的模型结果还可能已被 checkpoint 缓存，恢复再次失败而不重新调用模型。
-- **建议**：模型输出 Schema 与最终公开模型复用字段约束，确保“通过结构校验”意味着可安全转换为最终结果。
-- **验收**：空白描述、超长标签在模型纠错阶段被处理；不得形成无法通过补跑恢复的缓存结果。
+- **Locations**: `server/src/practiq_ai/graphs/vision.py:27`, `server/src/practiq_ai/graphs/document.py:449`
+- **Problem**: `PageFigure` accepts whitespace-only descriptions and labels longer than 1000 characters; conversion to `VisualElement` rejects them outside the model-correction boundary. Accepted output may already be checkpointed, so resume fails again without another model call.
+- **Recommendation**: share field constraints between model-output schemas and final public models so structural acceptance guarantees safe conversion.
+- **Acceptance**: handle blank descriptions and oversized labels during model correction, without caching results that retry cannot recover.
 
-### R09：批次失败后兄弟协程继续执行
+### R09: Sibling coroutines continue after batch failure
 
-- **位置**：`server/src/practiq_ai/graphs/document.py:208`
-- **问题**：`asyncio.gather` 中一个子任务失败，会向外抛出异常，但不自动取消并等待其他子任务。素材写入或裁剪批次失败后，兄弟协程仍可能继续执行，与恢复后的新批次重叠。
-- **建议**：异常时取消并等待全部子任务，或使用 `TaskGroup`；同时注意取消协程仍不能终止 R05 所述的同步线程。
-- **验收**：覆盖“一个立即失败、一个阻塞”的批次；批次返回前不得遗留仍运行的兄弟协程。
+- **Location**: `server/src/practiq_ai/graphs/document.py:208`
+- **Problem**: when one `asyncio.gather` child fails, the exception propagates without automatically canceling and awaiting siblings. Artifact writes or cropping may continue and overlap a new batch after resume.
+- **Recommendation**: cancel and await every child on error, or use `TaskGroup`. Canceling a coroutine still cannot terminate the synchronous threads described in R05.
+- **Acceptance**: test a batch with one immediate failure and one blocked child. No sibling coroutine may remain running when the batch returns.
 
-### R10：恢复预检未纳入运行期限
+### R10: Recovery prechecks are outside run deadlines
 
-- **位置**：`server/src/practiq_ai/runtime.py:150`
-- **问题**：先逐个校验源文件和素材，再确定、检查 deadline 并进入超时范围。即使运行已过期，也可能先长时间执行预检、占用任务槽位。
-- **建议**：先确定期限，再用剩余时间覆盖恢复预检及图执行。
-- **验收**：已过期运行不执行长时间预检；慢预检不会突破运行的总期限。
+- **Location**: `server/src/practiq_ai/runtime.py:150`
+- **Problem**: source/artifact validation runs before establishing/checking the deadline and entering the timeout scope. An expired run may still spend a long time in prechecks while occupying a task slot.
+- **Recommendation**: establish the deadline first and apply the remaining time to both prechecks and graph execution.
+- **Acceptance**: expired runs skip lengthy prechecks, and slow prechecks cannot exceed the total run deadline.
 
-### R11：GC 完成时可能损坏恢复清单
+### R11: Final GC update can corrupt the recovery manifest
 
-- **位置**：`server/scripts/storage_gc.py:139`
-- **问题**：移动对象前已经持久化恢复清单，但完成后用 `write_text` 非原子地重写。文件会先被截断，磁盘写入失败或进程中断可能留下空白、残缺清单。
-- **建议**：保留原始清单，或使用临时文件、fsync 和原子替换更新完成状态。
-- **验收**：在最终更新阶段注入写入失败，已移动对象的原始恢复清单仍完整可读。
+- **Location**: `server/scripts/storage_gc.py:139`
+- **Problem**: a recovery manifest is persisted before moving objects, but completion rewrites it non-atomically with `write_text`. Truncation followed by disk failure or process interruption can leave an empty or incomplete manifest.
+- **Recommendation**: preserve the original manifest or update completion status through a temporary file, fsync, and atomic replacement.
+- **Acceptance**: inject failure during the final update; the original manifest for moved objects remains fully readable.
 
-### R12：默认启动不输出结构化 INFO 日志
+### R12: Default startup omits structured INFO logs
 
-- **位置**：`server/src/practiq_ai/telemetry.py:62`
-- **问题**：事件使用 INFO 级别，而默认 Uvicorn 配置下 `practiq.events` 的有效级别为 WARNING，且无对应输出 handler。正常启动不会输出预期事件，影响排障、调用轨迹和人工复核。测试通过主动设置 INFO 掩盖了问题。
-- **建议**：在服务启动配置中明确 logger、级别、handler 和 JSON 消息格式，不依赖测试环境的日志设置。
-- **验收**：使用真实启动配置验证事件输出，且日志不含正文、密钥和原始异常内容。
+- **Location**: `server/src/practiq_ai/telemetry.py:62`
+- **Problem**: events use INFO, while default Uvicorn configuration leaves `practiq.events` at effective WARNING without an output handler. Expected events are absent during normal startup, impairing diagnostics, call traces, and human review. Tests mask this by explicitly enabling INFO.
+- **Recommendation**: configure the logger, level, handler, and JSON message format at startup, independently of test logging settings.
+- **Acceptance**: verify events with actual startup configuration and ensure logs exclude content, credentials, and raw exceptions.
 
-### R13：XLSX 正常 Schema 被评测器误判
+### R13: Evaluator rejects the valid XLSX schema
 
-- **位置**：`server/scripts/evaluate.py:344`、`server/src/practiq_ai/graphs/excel.py:102`
-- **问题**：XLSX 实际使用 `GroundedSheetResult`，评测器却要求 `document_parse` 对应 `ChunkParseResult`，因此合法调用也会得到 `WRONG_ROUTE_OR_SCHEMA`。
-- **建议**：按来源格式校验合法的调用类型与 Schema 组合，不只按 `callKind` 建立单一映射。
-- **验收**：合法 XLSX 轨迹通过，真正的错误模型路由或错误 Schema 仍被拒绝。
+- **Locations**: `server/scripts/evaluate.py:344`, `server/src/practiq_ai/graphs/excel.py:102`
+- **Problem**: XLSX uses `GroundedSheetResult`, but the evaluator requires `ChunkParseResult` for `document_parse`, producing `WRONG_ROUTE_OR_SCHEMA` for valid calls.
+- **Recommendation**: validate allowed call-kind/schema combinations by source format, not a single mapping keyed only by `callKind`.
+- **Acceptance**: valid XLSX trajectories pass while incorrect model routes and schemas still fail.
 
-### R14：默认存储路径与约定不一致
+### R14: Default storage path violates the documented contract
 
-- **位置**：`server/src/practiq_ai/config.py:12`、`server/src/practiq_ai/config.py:160`
-- **问题**：文档约定相对路径从 `server/` 解析，实际 `parents[3]` 指向仓库根目录。当前默认值解析为仓库根下的 `.local/ai-oss`；安装为 wheel 后基准目录还会随安装布局变化。
-- **建议**：明确稳定的路径契约，补充源码安装和 wheel 安装测试；生产坚持使用持久化绝对路径。
-- **注意**：修正实现前必须处理现有文件位置，不能直接静默切换数据根目录，也不能自动移动或删除现有数据。
-- **验收**：不同工作目录、安装模式下行为符合文档；已有数据的处理方案明确且可回退。
+- **Locations**: `server/src/practiq_ai/config.py:12`, `server/src/practiq_ai/config.py:160`
+- **Problem**: documentation resolves relative paths from `server/`, but `parents[3]` points to the repository root. The default therefore resolves to root-level `.local/ai-oss`; wheel installation changes the base again with installation layout.
+- **Recommendation**: define a stable path contract and test source and wheel installations. Production should use persistent absolute paths.
+- **Caution**: account for existing file locations before changing behavior. Do not silently switch data roots or automatically move/delete data.
+- **Acceptance**: behavior matches documentation across working directories and installation modes, with explicit, reversible handling of existing data.
 
-### R15：慢上传缺少接收期限
+### R15: Slow uploads have no receive deadline
 
-- **位置**：`server/src/practiq_ai/webapp.py:150`
-- **问题**：请求体只有字节上限，没有空闲或总接收期限，停滞的鉴权上传可长期占用上传槽位。存储操作超时不覆盖接收请求体的阶段。
-- **边界**：Nginx 默认请求缓冲能缓解代理部署路径，但直连服务路径仍存在该问题。
-- **建议**：对接收阶段设置适当期限，超时后释放上传槽位。
-- **验收**：停滞流能有界结束；慢但持续正常传输的合法请求符合预期策略。
+- **Location**: `server/src/practiq_ai/webapp.py:150`
+- **Problem**: request bodies have a byte limit but no idle or total receive deadline. A stalled authenticated upload can occupy a slot indefinitely; storage timeouts do not cover body reception.
+- **Boundary**: default Nginx request buffering mitigates proxied deployment, but direct service access remains affected.
+- **Recommendation**: bound reception time and release upload slots on timeout.
+- **Acceptance**: stalled streams end within bounds; slow but continuously progressing valid requests follow the documented policy.
 
-### R16：异常 Bearer 输入引发未处理异常
+### R16: Malformed Bearer input causes an unhandled exception
 
-- **位置**：`server/src/practiq_ai/auth.py:12`
-- **问题**：字符串版 `secrets.compare_digest` 不接受非 ASCII 内容，异常 Bearer 值会抛 `TypeError`，导致 500 而非 401。
-- **边界**：未发现认证绕过，这是输入边界与错误处理缺陷。
-- **建议**：先拒绝不符合 token 编码约定的输入，再进行常量时间比较，统一返回 401。
-- **验收**：缺失、错误、非 ASCII token 均不会产生未处理异常；合法 token 行为不变。
+- **Location**: `server/src/practiq_ai/auth.py:12`
+- **Problem**: string `secrets.compare_digest` rejects non-ASCII content with `TypeError`, producing 500 instead of 401.
+- **Boundary**: no authentication bypass was found; this is an input/error-handling defect.
+- **Recommendation**: reject input outside the token encoding contract before constant-time comparison and return 401 consistently.
+- **Acceptance**: missing, incorrect, and non-ASCII tokens produce no unhandled exceptions; valid-token behavior remains unchanged.
 
-### R17：半初始化数据库无法直接重试
+### R17: Partially initialized databases cannot retry directly
 
-- **位置**：`server/src/practiq_ai/database.py:75`
-- **问题**：checkpoint setup、Store setup 和业务 DDL 分步执行。前一步成功、后一步失败后，数据库已经非空，再次初始化必然被拒绝，服务又无法通过完整 Schema 检查。
-- **验证状态**：静态控制流确认，未执行初始化阶段故障注入。
-- **建议**：记录或识别初始化阶段，只允许经过验证、属于本服务的半初始化状态继续完成；仍须拒绝未知非空数据库。
-- **验收**：在各初始化阶段注入故障，重试可安全完成，不修改未知库中的既有数据。
+- **Location**: `server/src/practiq_ai/database.py:75`
+- **Problem**: checkpoint setup, Store setup, and business DDL run separately. If a later step fails, the nonempty database rejects reinitialization but cannot pass complete-schema checks.
+- **Validation status**: confirmed by static control flow; initialization-stage fault injection had not yet run.
+- **Recommendation**: record or recognize initialization phases and allow only verified partial states owned by this service to continue. Still reject unknown nonempty databases.
+- **Acceptance**: injected failures at each phase recover safely on retry without changing existing data in unknown databases.
 
-## 6. 进一步优化
+## 6. Further improvements
 
-### O01：修正队列告警口径
+### O01: Align queue alerts with admission capacity
 
-- **位置**：`server/deploy/alerts.rules.yml:22`、`server/src/practiq_ai/task_api.py:49`
-- **现状**：准入限制统计 pending 与 running 之和，告警却要求 pending 至少为 300。默认 8 个运行槽占满时，292 个 pending 就可能已经拒绝新任务，而该告警不触发。
-- **建议**：告警使用与准入一致的口径，并避免与可配置容量脱节；补充正常满载和配置变更的告警规则测试。
+- **Locations**: `server/deploy/alerts.rules.yml:22`, `server/src/practiq_ai/task_api.py:49`
+- **Current behavior**: admission counts pending plus running, while the alert requires at least 300 pending. With all eight default running slots occupied, 292 pending tasks can already reject new work without triggering the alert.
+- **Recommendation**: use the same count and configured capacity as admission; test normal saturation and capacity changes.
 
-### O02：补齐材料组跨片合并
+### O02: Complete cross-chunk material-group merging
 
-- **位置**：`server/src/practiq_ai/graphs/chunking.py:155`
-- **现状**：重叠题目已按来源去重，但所属分组仍直接追加，同一材料组跨片时可能重复，重叠题被重复归组。
-- **建议**：仅在共享已确认的重叠题、标题及材料信息一致时合并，不能只凭同名分组合并。
-- **验收**：跨片同一材料组合并正确；同名但不同来源的合法分组保持独立。
+- **Location**: `server/src/practiq_ai/graphs/chunking.py:155`
+- **Current behavior**: overlapping questions are source-deduplicated, but groups are appended directly, potentially duplicating the same cross-chunk group and its overlapping memberships.
+- **Recommendation**: merge only groups sharing confirmed overlapping questions and matching titles/materials, never merely matching names.
+- **Acceptance**: one cross-chunk material group merges correctly; same-named groups from different sources remain separate.
 
-### O03：优先增加故障组合测试
+### O03: Prioritize combined-fault tests
 
-相比继续增加正常路径测试，优先覆盖以下组合：
+Before adding more happy-path tests, cover:
 
-- 暂停与人工审核中断同时出现。
-- 并发控制、连接池满载与调度器取连接同时出现。
-- 一个素材任务失败，另一个仍阻塞。
-- 默认工具调用协议发生输出纠错。
-- 模型输出通过中间 Schema，但不满足最终结果约束。
-- 超时返回后仍有底层工作，随后启动恢复或新任务。
-- GC 移动成功，但完成清单写入失败。
+- Pause and human-review interrupts together.
+- Concurrent control, a full connection pool, and scheduler connection acquisition.
+- One failed artifact task with another still blocked.
+- Output correction under the default tool-calling protocol.
+- Model output valid under an intermediate schema but invalid for the final result.
+- Underlying work continuing after timeout while recovery or a new task starts.
+- Successful GC moves followed by a failed completion-manifest write.
 
-测试应检查真实故障后果，例如资源释放、状态可恢复、请求协议正确和数据完整性，而不只断言异常类型或错误码。
+Check actual consequences—resource release, recoverable state, correct request protocol, and data integrity—not just exception types or error codes.
 
-### O04：加强转换器运行隔离
+### O04: Strengthen converter isolation
 
-- **位置**：`Dockerfile.server:6`
-- **现状**：镜像未声明非 root 用户，服务处理不可信文档，当前隔离边界仍有加固空间。
-- **建议**：使用非特权用户，配合 CPU、内存、文件系统和转换进程隔离；明确临时目录及持久化目录的可写范围。
-- **边界**：这是防御性加固建议，不代表已经确认转换器存在可利用漏洞。权限和部署配置调整应单独评估，并验证现有数据挂载和转换功能。
+- **Location**: `Dockerfile.server:6`
+- **Current behavior**: the image declares no non-root user while processing untrusted documents, leaving room to strengthen isolation.
+- **Recommendation**: use an unprivileged user with CPU, memory, filesystem, and conversion-process isolation, and define writable temporary/persistent paths.
+- **Boundary**: this is defensive hardening, not a confirmed exploitable converter vulnerability. Evaluate permission/deployment changes separately and verify existing mounts and conversion behavior.
 
-## 7. 建议实施顺序
+## 7. Recommended implementation order
 
-| 阶段 | 范围 | 完成标准 |
+| Phase | Scope | Completion criteria |
 |---|---|---|
-| 第一阶段：核心正确性与恢复 | R01、R02、R03、R04 | 连接池、暂停审核、XLSX 漏题、默认协议纠错均有针对性回归测试 |
-| 第二阶段：资源与结果边界 | R05、R06、R07、R08、R09、R10、R15 | 超时和失败不会遗留不受控工作，输入与最终输出约束一致 |
-| 第三阶段：数据与运维可靠性 | R11、R12、R13、R14、R16、R17 | 恢复清单、日志、评测、存储路径及初始化流程可信 |
-| 第四阶段：持续改进 | O01、O02、O03、O04 | 告警与容量一致，跨片结构正确，组合测试和部署隔离增强 |
+| 1: Core correctness and recovery | R01, R02, R03, R04 | Focused regressions for pool starvation, pause/review, XLSX omission, and default-protocol correction |
+| 2: Resource and result boundaries | R05, R06, R07, R08, R09, R10, R15 | Timeouts/failures leave no uncontrolled work; input and final-output constraints agree |
+| 3: Data and operational reliability | R11, R12, R13, R14, R16, R17 | Trustworthy recovery manifests, logs, evaluation, storage paths, and initialization |
+| 4: Continuous improvement | O01, O02, O03, O04 | Capacity-aligned alerts, correct cross-chunk structure, combined-fault coverage, and deployment isolation |
 
-每项行为修改应同步更新相关文档和聚焦测试，再运行项目验证流程。真实供应商协议、真实 LibreOffice 渲染及真实 OSS 行为仍需在相应授权环境完成验收，不能用离线替身结果代替。
+Update relevant docs and focused tests with each behavior change, then run project verification. Real-provider protocols, real LibreOffice rendering, and real OSS behavior still require acceptance in appropriately authorized environments; offline fakes cannot replace it.
 
+## 8. Repair record (2026-09-19)
 
-## 8. 修复记录（2026-09-19）
+Repairs followed section 7. Nothing was committed, pushed, or deployed, and existing storage files and business databases were neither moved nor deleted. New tests mainly reside in `tests/test_review_regressions.py`; database fault injection used a separate temporary PostgreSQL database.
 
-按第 7 节顺序完成修复，未提交、推送或部署。没有移动、删除原有存储文件或业务数据库。新增测试主要集中于 `tests/test_review_regressions.py`，数据库故障注入使用独立临时 PostgreSQL 数据库。
-
-| 编号 | 实施结果 | 回归证据 |
+| ID | Implementation | Regression evidence |
 |---|---|---|
-| R01 | 控制事务取连接前排队；素材预检移出全局事务，入队前重新核对运行与 checkpoint | 24 个并发控制请求期间数据库查询、调度器与 readiness 可用，无 fatal 调用 |
-| R02 | 视觉、文本、结果审核各有独立暂停 checkpoint；审核节点不再混用暂停中断 | 三类审核均覆盖新 runId 恢复，失败审核可接受部分结果或补跑 |
-| R03 | 重置声明维度，预检实际坐标并限制实际迭代单元格 | 偏小、缺失、异常偏大的维度不漏 A1/B2；超限行列明确部分失败 |
-| R04 | 纠错补齐所有匹配 ToolMessage；无合法调用 ID 的畸形信封转为普通文本历史 | 实际 SDK MockTransport 检查第二次请求的工具配对；非法参数/JSON 后第二次成功且保留两次用量 |
-| R05 | 提取进程组可终止并回收，转换器继承其组；结果用 JSON/base64 传递。存储线程池和槽位独立有界，实际 I/O 结束才释放容量 | 真实阻塞子进程及后代在超时/取消后停止；连续存储超时只有一个底层工作，结束后正常请求可继续 |
-| R06 | 直接图片入口在 verify/模型调用/整图解码前检查像素，多帧输入明确拒绝 | 超过配置上限拒绝，恰好上限接受，多帧 GIF 拒绝 |
-| R07 | 缺值答案仍验证字段形状、严格元素类型、字段长度、列表容量和引用 | 各题型缺值保留；错误布尔/数组/整数/匹配对和超长字段统一 ValidationError |
-| R08 | PageFigure、ImageDescription、SheetVisual 与 VisualElement 共享描述约束，标签共享长度约束 | 空白描述/超长标签在 structured_call 内纠错，合法结果可直接构造公开结果 |
-| R09 | 批次失败/取消时取消并等待全部兄弟协程 | 一个失败、一个阻塞时，返回前执行阻塞协程的清理逻辑 |
-| R10 | 恢复预检置于持久化运行剩余期限内 | 过期运行不调用预检；慢预检在总期限到达时取消并释放任务槽 |
-| R11 | GC 最终清单采用临时文件、fsync、原子替换 | 对象已隔离后注入最终替换失败，原清单仍完整且对象可按 runId 找回 |
-| R12 | 服务启动配置独立 INFO JSON handler，幂等且不依赖 root logger | 子进程加载默认 Uvicorn 配置后事件恰好输出一次，正文/密钥/原始异常字段不输出 |
-| R13 | XLSX 使用 GroundedSheetResult，并按实际准备阶段校验前置流程 | 合法 XLSX 轨迹通过，错误 Schema 和缺少准备阶段仍拒绝 |
-| R14 | 源码相对路径从 server/ 解析；wheel 要求绝对路径；旧相对位置有数据时拒绝隐式切换 | 工作目录独立、源码/wheel 路径、旧数据保留测试；容器 wheel 使用持久目录绝对路径 |
-| R15 | AI_UPLOAD_TIMEOUT_SECONDS 限制总接收时间，408 超时释放上传槽 | 停滞流有界结束，随后合法上传成功 |
-| R16 | 比较 Bearer token 前拒绝非 ASCII 输入 | HTTP 非 ASCII header 返回 401，原合法/错误/缺失 token 测试保持通过 |
-| R17 | 空库先写本服务初始化标记，已知半初始化状态允许重试，业务 DDL 与去标记原子提交 | checkpoint、Store、业务 DDL 三阶段注入失败后重试成功；未知库原数据保留 |
-| O01 | 同实例 pending + running 对比实际 queue_capacity | promtool 覆盖 292+8/300 满载、自定义 2+8/10 和未满载实例 |
-| O02 | 仅对唯一匹配、标题/材料一致且共享已确认重叠题的分组合并 | 跨片同材料组合并，同名异材料及不同来源分组保留 |
-| O03 | 补充连接池、暂停审核、并发失败、协议纠错、进程/线程超时和 GC 写入失败组合 | 检查实际资源、恢复结果、请求消息和恢复清单，不仅检查异常码 |
-| O04 | 镜像 UID/GID 10001；新增 CPU/内存/PID 上限、只读根目录、禁提权的 Compose 配置 | 非 root、只读根目录下真实 Writer/Calc、进程提取和临时目录清理通过；临时宿主 bind mount 原文件保留、读写验证通过 |
+| R01 | Queue control transactions before acquiring connections; move artifact prechecks outside the global transaction and recheck run/checkpoint before enqueueing | Database queries, scheduler, and readiness remained available during 24 concurrent control requests, with no fatal call |
+| R02 | Separate pause checkpoints for visual, text, and result review; review nodes no longer mix pause interrupts | All three review kinds resumed with a new runId; failure review still allowed partial-result acceptance or retry |
+| R03 | Reset declared dimensions, precheck actual coordinates, and bound actual cell iteration | Undersized, missing, and oversized dimensions retained A1/B2; excessive rows/columns produced explicit partial failure |
+| R04 | Add every matching ToolMessage during correction; convert malformed envelopes without valid call IDs into plain-text history | Actual SDK MockTransport checked second-request pairing; invalid arguments/JSON corrected on the second call with both usage records retained |
+| R05 | Terminate and reap extraction process groups, inherited by converters; transfer results as JSON/base64. Give storage a separate bounded pool and slots released only after actual I/O completion | Real blocked subprocesses and descendants stopped on timeout/cancel; repeated storage timeouts left only one underlying operation, and normal requests resumed after completion |
+| R06 | Check pixels before verify/model calls/full decode at direct image input; explicitly reject multiple frames | Over-limit images rejected, exact-limit images accepted, multi-frame GIF rejected |
+| R07 | Validate field shape, strict element types, lengths, list capacity, and references even with missing answers | Missing values preserved across types; wrong booleans/arrays/integers/matching pairs and oversized fields consistently raised ValidationError |
+| R08 | Share description constraints across PageFigure, ImageDescription, SheetVisual, and VisualElement, and share label limits | Blank descriptions/oversized labels corrected within structured_call; valid results directly constructed public output |
+| R09 | Cancel and await all sibling coroutines on batch failure/cancellation | With one failed and one blocked child, blocked-child cleanup completed before return |
+| R10 | Include recovery prechecks in the persisted run's remaining deadline | Expired runs skipped prechecks; slow prechecks canceled at the deadline and released the task slot |
+| R11 | Final GC manifest update uses a temporary file, fsync, and atomic replacement | Injected replacement failure after quarantine preserved the original manifest and object recovery by runId |
+| R12 | Startup installs an idempotent independent INFO JSON handler without relying on the root logger | A subprocess using default Uvicorn configuration emitted an event exactly once, excluding content/credentials/raw exceptions |
+| R13 | Use GroundedSheetResult for XLSX and validate the actual preparation sequence | Valid XLSX trajectories passed; wrong schemas and missing preparation still failed |
+| R14 | Resolve source-relative paths from server/; require absolute paths for wheels; reject implicit switching when old relative locations contain data | Working-directory independence, source/wheel paths, and old-data preservation tested; container wheels use absolute persistent paths |
+| R15 | AI_UPLOAD_TIMEOUT_SECONDS bounds total reception time; 408 releases the upload slot | Stalled streams ended within bounds; subsequent valid uploads succeeded |
+| R16 | Reject non-ASCII input before comparing Bearer tokens | Non-ASCII HTTP headers returned 401; valid/incorrect/missing-token tests still passed |
+| R17 | Mark empty databases before initialization, retry known partial states, and atomically commit business DDL with marker removal | Retry succeeded after faults in checkpoint, Store, and business-DDL phases; unknown database contents remained intact |
+| O01 | Compare same-instance pending + running with actual queue_capacity | promtool covered 292+8/300 saturation, custom 2+8/10 capacity, and unsaturated instances |
+| O02 | Merge only unique matches with matching title/material and shared confirmed overlapping questions | Cross-chunk material groups merged; same-name/different-material and different-source groups remained separate |
+| O03 | Add pool, pause/review, concurrent-failure, protocol-correction, process/thread-timeout, and GC-write fault combinations | Checked real resources, recovery outcomes, request messages, and manifests, not only error codes |
+| O04 | Image UID/GID 10001; Compose CPU/memory/PID limits, read-only root, and no privilege escalation | Real Writer/Calc, process extraction, and temporary-directory cleanup passed as non-root with a read-only root; temporary host bind-mount reads/writes passed while preserving existing files |
 
-### 升级与验证边界
+### Upgrade and validation limits
 
-- 存储路径升级、保留原位置及人工迁移/回退步骤见 [operations.md](operations.md)。检测到旧位置数据时需将 `AI_STORAGE_DIR` 显式设为原绝对路径，或先按文档人工迁移；不自动改用户配置或文件权限。
-- 运行语义和代码签名已变化，旧任务使用原部署恢复，或创建新任务。未伪造旧签名以绕过 checkpoint 兼容性保护。
-- 新增上传总期限默认 120 秒，持续但过慢的上传也会超时；部署方按实际需求调整。存储 I/O 本身无法被线程取消，但后台工作有严格容量上限；所有槽位持续被底层 I/O 占用时，后续请求有界失败。
-- 容器隔离验证使用临时目录和离线文档，未接触生产挂载或部署。`scripts/check_container.py` 可在相同限制的镜像中复跑。真实供应商协议与真实 OSS 仍未在线验收；离线 SDK 测试不替代供应商验收，未重新执行真实模型质量评测。
+- See [operations.md](operations.md) for storage-path upgrades, retaining the old location, and manual migration/rollback. When old-location data exists, explicitly set `AI_STORAGE_DIR` to its original absolute path or migrate manually first. User configuration and permissions are not changed automatically.
+- Runtime semantics and code signatures changed. Resume old tasks on their original deployment or create new tasks. Old signatures were not forged to bypass checkpoint compatibility protection.
+- The new total upload deadline defaults to 120 seconds, so continuous but excessively slow uploads also time out; operators can adjust it. Threads cannot cancel storage I/O itself, but background work has a strict capacity limit. If all slots remain occupied by underlying I/O, later requests fail within bounds.
+- Container checks used temporary directories and offline documents, without production mounts or deployment. `scripts/check_container.py` can rerun inside an image with the same restrictions. Real-provider protocols and real OSS were still unverified online; offline SDK tests do not replace provider acceptance. Live-model quality evaluation was not rerun.
 
-### 最终复核结果
+### Final verification
 
-| 检查 | 当前结果 |
+| Check | Result at the time |
 |---|---|
-| `make verify AI_PYTHON=<现有 Python 3.14.7>` | 通过：504 项测试全部通过、无跳过；覆盖率 94%；Ruff、Pyright、锁文件、25 个评测案例清单、故障探针和 sdist/wheel 构建均通过 |
-| `make audit AI_PYTHON=<现有 Python 3.14.7>` | 锁定运行及开发依赖未发现已知漏洞 |
-| `make image-check` | 新非 root 镜像构建通过，未发布 |
-| `promtool test rules /rules/alerts.test.yml` | 全部规则用例通过 |
-| `docker compose -f server/deploy/service.compose.yml config --quiet` | 提供临时绝对存储路径时配置校验通过，未启动部署 |
-| 受限容器内 `python /check.py` | UID 10001、只读根目录、2 CPU / 2 GiB / 128 PID 限制下，真实 Writer/Calc、进程提取、临时目录清理和宿主 bind mount 对象读写通过；挂载中预存文件保持原内容 |
-| `git diff --check` | 通过 |
+| `make verify AI_PYTHON=<existing Python 3.14.7>` | Passed: all 504 tests, none skipped; 94% coverage; Ruff, Pyright, lockfile, 25-case evaluation manifest, fault probes, and sdist/wheel builds |
+| `make audit AI_PYTHON=<existing Python 3.14.7>` | No known vulnerabilities in locked runtime/development dependencies |
+| `make image-check` | New non-root image built successfully; not published |
+| `promtool test rules /rules/alerts.test.yml` | All rule cases passed |
+| `docker compose -f server/deploy/service.compose.yml config --quiet` | Configuration validated with a temporary absolute storage path; deployment was not started |
+| `python /check.py` in a restricted container | With UID 10001, read-only root, 2 CPU / 2 GiB / 128 PID limits: real Writer/Calc, process extraction, temporary cleanup, and host bind-mount object reads/writes passed; preexisting mounted files retained their contents |
+| `git diff --check` | Passed |
 
-本轮 `make verify` 的检查产物位于 `server/reports/checks/`；完整测试包含本机真实 LibreOffice 测试，以及隔离 PostgreSQL 和进程重启测试。探针摘要自身的固定测试集合仍不代表生产持久性/容量或真实模型质量验收。
+This run's `make verify` artifacts were saved in `server/reports/checks/`. The full suite included real local LibreOffice tests, isolated PostgreSQL, and process-restart tests. The probe summary's fixed test set still does not establish production durability/capacity or live-model quality acceptance.

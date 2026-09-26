@@ -1,157 +1,149 @@
-# 验证文档提取与主观题评分
+# Verify document extraction and subjective grading
 
-本指南区分文档提取质量、主观题评分样本和工程检查。提取评测覆盖 text、csv、pdf、image；Word 用例及转换器验证已移除，新增输入拒绝回归；损坏文件的预期拒绝检查改用 PDF，保留该检查要求。下文历史评测及 `server/reports/` 中的 DOCX 结果仅属于当时版本，不代表当前支持或质量。
+This guide separates document extraction quality, subjective grading samples, and engineering checks. Extraction evaluation covers text, CSV, PDF, and images. Word cases and converter checks have been removed and replaced with input-rejection regressions; the corrupt-file rejection check now uses PDF. Historical DOCX results below and in `server/reports/` describe earlier versions, not current support or quality.
 
-以下命令使用已有 Python 3.14+ 环境，并在 `server/` 下运行。
+Use an existing Python 3.14+ environment and run the commands from `server/`.
 
-评测沿用真实的本地文件写入和 `document_parser`，在本地直接调用 Graph，使用内存 checkpoint。它评估文档中题目与原文答案的提取质量；业务 HTTP、持久恢复和容量由现有工程测试及压测负责。本评测不接入 LangSmith，不使用 LLM 裁判，也不自动修改提示词或发布版本。
+Evaluation uses real local file writes and `document_parser`, calling the graph locally with an in-memory checkpoint. It measures extraction of questions and supplied answers. Engineering tests and load tests cover HTTP behavior, durable recovery, and capacity. Evaluation does not use LangSmith or an LLM judge, change prompts automatically, or publish releases.
 
-## 检查主观题评分与原卷分值提取
+## Check subjective grading and source-score extraction
 
-`scripts/evaluate_grading.py` 使用固定的合成题目，分别检查评分和原卷分值提取。它直接调用服务内的模型逻辑，使用临时评分数据库；不验证 HTTP 鉴权、桌面交互或供应商侧恰好一次调用。
+`scripts/evaluate_grading.py` uses fixed synthetic questions to check grading and source-score extraction separately. It calls the service's model logic directly with a temporary grading database. It does not verify HTTP authentication, desktop interactions, or exactly-once provider calls.
 
-先在仓库根目录 `.env` 配置统一的多模态模型 `LLM_MODEL`，再在 `server/` 下执行。以下命令会调用模型并产生费用，请为每次运行选择新的报告路径：
+Configure the shared multimodal `LLM_MODEL` in the repository-root `.env`, then run from `server/`. These commands call the model and incur charges. Choose a new report path for every run:
 
 ```sh
 python scripts/evaluate_grading.py --live --repeats 2 \
   --output reports/grading/your_grading_run.json
 ```
 
-默认运行四个文本案例各两次，再运行一个图片部分得分案例。文本案例包括满分、部分分、错误作答和含伪指令的作答。报告保留期望值、实际得分、绝对误差、模型名称和调用结果。
+By default, the script runs four text cases twice each, followed by one image partial-credit case. Text cases cover full credit, partial credit, an incorrect answer, and an answer containing embedded instructions. Reports retain expected values, actual scores, absolute error, model names, and call outcomes.
 
-单独检查分值提取，确认没有明确分值的题目保持 `null`：
+Check source-score extraction separately to confirm that questions without an explicit score retain `null`:
 
 ```sh
 python scripts/evaluate_grading.py --live --source-scores-only \
   --repeats 2 --output reports/grading/your_source_score_run.json
 ```
 
-检查报告中的 `exactMatches`、`total` 和逐次结果。该脚本正常退出不等于样本全部通过；它也不会阻止覆盖已有输出文件。失败报告应保留，不用新结果覆盖旧证据。
+Inspect `exactMatches`, `total`, and individual results. A successful script exit does not mean every sample passed. The script also permits overwriting output files; preserve failed reports instead of replacing them with newer results.
 
-这些规则构造的样本不等于教师独立标注或跨学科校准。不能据此承诺正式考试阅卷准确率。
+These rule-based synthetic samples are not independent teacher annotations or cross-subject calibration. They do not establish accuracy for formal exam grading.
 
-## 文档提取数据集与人工金标
+## Extraction dataset and human gold labels
 
-`evals/cases.json` 使用 `schemaVersion: 2`，目前包含 22 个合成案例；`scripts/evaluate.py` 的评分版本为 `4.0.0`。清单覆盖 Text、CSV、PDF、Image 四种格式、七种基础题型和阅读／选词／完形复合题，以及中文、原文无答案、长题干相同前缀、合法重复题、跨分片长文、无题目文本、损坏 PDF 等场景。听力、语法填空等新增英语题型的契约与桌面测试不等于已纳入此真实模型质量评测。清单字段含义如下：
+`evals/cases.json` uses `schemaVersion: 2` and currently contains 22 synthetic cases. The scorer version in `scripts/evaluate.py` is `4.0.0`. The manifest covers Text, CSV, PDF, and Image; seven basic question types; reading, word-bank, and cloze composites; and cases involving Chinese, missing source answers, long stems with identical prefixes, legitimate duplicates, long text spanning chunks, text without questions, and corrupt PDFs. Contract and desktop tests for newer English question types, such as listening and grammar cloze, do not mean those types are covered by this live-model quality evaluation. Manifest fields mean:
 
-- `id` 是稳定且唯一的案例标识；`path` 必须指向清单目录内部的文件，禁止路径和符号链接逃逸。
-- `tags` 用于按场景分桶，`critical: true` 表示该案例任一已标注字段或结构出错即失败。
-- 正常案例必须标注 `expectedQuestions`，并预期 `SUCCEEDED`。
-- 拒绝案例只标注 `expectedError: {"code": "NO_QUESTIONS_FOUND", "statusCode": 422}` 等错误，
-  两个值必须同时匹配；外部服务不可用不能标为预期成功。
-- `expectedGroups` 标注标题及从 0 开始的题目索引；`expectedVisualKinds` 标注视觉类别和数量。
-  两者省略或为 `null` 表示未标注，`[]` 表示明确要求不存在该结构。
-- `stemAliases`、`answerAliases` 仅允许根据原文确认的等价形式，例如乘除号的 LaTeX 写法、
-  化学式下标。别名必须遵守原题型契约；原文无答案时不得添加答案别名。
-- `sourceHasNoAnswers: true` 是整份文档没有答案的明确标注，所有输出答案都必须为 null，
-  包括题干被改写、未匹配和多余的题目；不能用于混合有答案和无答案的文档。
-- `expectedMissingFields`、`expectedNeedsReview` 可按题目标注合法草稿的缺失字段和审核状态。
-- `expectedVisuals: [{"kind": "diagram", "page": 0}]` 同时检查类别和从 0 开始的页码；
-  嵌入原图的 page 可为 null。它与旧 `expectedVisualKinds` 二选一，[] 仍表示明确没有视觉元素。
-  运行器还会读取所有视觉引用，验证大小、SHA-256 和图片解码；不会把引用写入报告。
-- `expectedProcess` 可指定 `requiredCallKinds` 和 `maxModelCalls`，由固定工作流的过程断言检查。
-- `split` 默认为 `regression`。新增 `image-holdout-instruction` 为独立的 `holdout`；
-  原有案例均保留在回归集。只用回归集调试，发布前运行两个集合；不能反复看留出集改提示词。
-  一个留出案例只验证流程，不构成泛化证据。真实材料须先脱敏、授权和独立人工标注后再加入。
+- `id` is a stable, unique case identifier. `path` must point inside the manifest directory; path and symlink escapes are forbidden.
+- `tags` group cases by scenario. With `critical: true`, any discrepancy in an annotated field or structure fails the case.
+- Normal cases must specify `expectedQuestions` and expect `SUCCEEDED`.
+- Rejection cases specify only an error such as `expectedError: {"code": "NO_QUESTIONS_FOUND", "statusCode": 422}`. Both values must match. External-service unavailability cannot be labeled an expected success.
+- `expectedGroups` annotates titles and zero-based question indices. `expectedVisualKinds` annotates visual kinds and counts. Omission or `null` means unannotated; `[]` explicitly requires no such structure.
+- `stemAliases` and `answerAliases` allow only source-verified equivalents, such as LaTeX multiplication/division symbols or chemical subscripts. Aliases must obey the question-type contract. Do not add answer aliases when the source has no answer.
+- `sourceHasNoAnswers: true` explicitly marks an entire document as answerless. Every output answer must be null, including rewritten, unmatched, and extra questions. Do not use it for documents mixing answered and unanswered questions.
+- `expectedMissingFields` and `expectedNeedsReview` annotate missing fields and review status for valid drafts, per question.
+- `expectedVisuals: [{"kind": "diagram", "page": 0}]` checks both kind and zero-based page. Embedded original images may have a null page. Use this field or the older `expectedVisualKinds`, not both; `[]` still explicitly means no visuals. The runner also reads every visual reference and verifies size, SHA-256, and image decoding, without exporting references into reports.
+- `expectedProcess` can specify `requiredCallKinds` and `maxModelCalls`, checked by fixed-workflow process assertions.
+- `split` defaults to `regression`. `image-holdout-instruction` is a separate `holdout` case; existing cases remain in the regression set. Debug against regression cases and run both sets before release. Do not repeatedly inspect the holdout to tune prompts. One holdout case verifies the process, not generalization. Real material requires de-identification, authorization, and independent human annotation before inclusion.
 
-金标依据源文件人工核对，不能把模型输出直接反填为正确答案。PDF 和图片中的图形按视觉模型输出的 `diagram` 等类别评估。视觉描述语义由人工复核。
+Check gold labels against source files manually; never copy model outputs back as correct answers. PDF and image figures are evaluated using visual-model categories such as `diagram`. Humans review the meaning of visual descriptions.
 
-维护数据集后执行：
+After updating the dataset, run:
 
 ```bash
 python scripts/evaluate.py --validate-only
 python -m pytest tests/test_evaluation.py
 ```
 
-CI 同时检查四种格式、`ANSWER_MODES` 所列九种作答模式、七类难例标签，以及每个 fixture 都有对应清单项。作答模式中的 `choice` 同时用于单选与多选。清单校验器本身支持任意非空规模，方便临时小集调试。
+CI checks coverage of all four formats, the nine answer modes in `ANSWER_MODES`, seven difficult-case tags, and a manifest entry for every fixture. `choice` covers both single and multiple choice. The manifest validator accepts any nonempty dataset size for small debugging sets.
 
-## 评分与门禁
+## Scoring and gates
 
-`qualityPassed` 表示该次执行满足状态、全部已标注字段/结构、视觉产物和过程期望。它与执行状态独立：SUCCEEDED 仍可质量不合格，原文没有答案且正确返回 null 则可质量合格。预期拒绝单独报告，不混入正常任务的执行成功率和失败耗时。
+`qualityPassed` means an execution meets its expected status, all annotated fields and structures, visual-artifact checks, and process expectations. It is independent of execution status: `SUCCEEDED` can still fail quality, while correctly returning null for missing source answers can pass. Expected rejections are reported separately from normal-task success rates and failure timing.
 
-`reliability` 报告文档执行成功率、质量通过率，以及每个案例至少三次执行时的`allRepetitionsPassRate` / `anyRepetitionPassRate`；不足三次显示 N/A。`reliabilitySlices` 按格式、标签和数据集划分汇总。三次重复不是生产可靠性置信保证。
+`reliability` reports document execution success and quality pass rates. When every case has at least three repetitions, it also reports `allRepetitionsPassRate` and `anyRepetitionPassRate`; otherwise these are N/A. `reliabilitySlices` groups results by format, tag, and dataset split. Three repetitions do not establish production reliability confidence.
 
-`fidelity` 分别记录补造答案、多余题目、字段不一致和来源待确认的题目数量。未匹配题目或来源警告不是自动判定的幻觉；不能从这些计数推导总体幻觉率。
+`fidelity` separately counts fabricated answers, extra questions, field inconsistencies, and questions needing source confirmation. Unmatched questions and source warnings are not automatically hallucinations; these counts cannot establish an overall hallucination rate.
 
-题干匹配仅删除开头题号及排版空白，保留大小写、标点与完整内容，不使用截断或忽略大小写的题干键；生产去重还要求原文位置与实际分片重叠一致。同题干按出现顺序一一匹配；额外题目降低 Precision，缺失题目降低 Recall 和字段准确率。选项按顺序比较 label/content，答案采用与原文金标一致的结构化值。
+Stem matching removes only leading question numbers and layout whitespace, preserving case, punctuation, and full content. It does not truncate stems or use case-insensitive keys. Production deduplication also requires matching source locations and actual chunk overlap. Identical stems match one-to-one in occurrence order. Extra questions reduce precision; missing questions reduce recall and field accuracy. Options are compared in label/content order, and answers use structured values consistent with the source gold labels.
 
-| 指标 | 分子 / 分母 |
+| Metric | Numerator / denominator |
 |---|---|
-| questionPrecision | 匹配题目 / 输出题目 |
-| questionRecall | 匹配题目 / 金标题目 |
-| answerModeAccuracy | 题型正确题目 / 金标题目 |
-| optionsAccuracy | 选项正确的选择题 / 金标选择题 |
-| parsedAnswerAccuracy | 原文答案正确题目 / 金标题目，包含空答案 |
-| groupF1 | 2 × 完整匹配分组 /（金标分组 + 输出分组），同时检查标题和成员 |
-| visualF1 | 2 × 匹配视觉元素 /（金标元素 + 输出元素），按类别及已标注页码的多重集计数 |
+| questionPrecision | Matched questions / output questions |
+| questionRecall | Matched questions / gold questions |
+| answerModeAccuracy | Questions with the correct answer mode / gold questions |
+| optionsAccuracy | Choice questions with correct options / gold choice questions |
+| parsedAnswerAccuracy | Questions with correct source answers / gold questions, including null answers |
+| groupF1 | 2 × fully matched groups / (gold groups + output groups), checking titles and members |
+| visualF1 | 2 × matched visuals / (gold visuals + output visuals), using multiset counts of kind and annotated page |
 
-各指标均为 0–100。没有分母时显示 N/A；明确标注结构为空且输出也为空时，该结构得分为 100。总体指标按题目或结构微平均，同时给出格式、题型和标签分桶。
+Metrics range from 0 to 100. A missing denominator yields N/A; an explicitly empty annotated structure with an empty output scores 100. Overall metrics use micro-averages over questions or structures, with breakdowns by format, question type, and tag.
 
-门禁要求：所有有标注的总体质量指标至少 90%；正常案例全部 `SUCCEEDED`；预期拒绝案例全部匹配；关键案例没有差异；任何原文无答案的匹配题都不得补造答案，整份无答案案例中的未匹配题和额外题也必须保持空答案。`PARTIAL` 保留结果及阶段失败，但不计作正常案例成功。
+Gates require all annotated overall quality metrics to reach at least 90%, all normal cases to be `SUCCEEDED`, all expected rejections to match, and all critical cases to have no discrepancies. Matched questions without source answers must never receive fabricated answers. Unmatched and extra questions in wholly answerless cases must also retain null answers. `PARTIAL` preserves results and stage failures but does not count as a normal-case success.
 
-| 状态 / 退出码 | 含义 |
+| Status / exit code | Meaning |
 |---|---|
-| PASSED / 0 | 本次门禁通过；指定有效基线时也没有指标回退 |
-| FAILED / 1 | 质量、预期状态、关键案例或不回退门禁失败 |
-| BLOCKED / 2 | 配置缺失、模型/本地存储 不可用、输入无效或基线不可比较 |
+| PASSED / 0 | All gates passed, including non-regression when a valid baseline was supplied |
+| FAILED / 1 | A quality, expected-status, critical-case, or non-regression gate failed |
+| BLOCKED / 2 | Missing configuration, unavailable model/local storage, invalid input, or incomparable baseline |
 
-外部失败不会被当作“模型答案得分为零”的有效基线。报告仍保留已取得的结果与失败耗时。Token 是回调观察到的已返回用量，`complete: false` 和 `missingUsageCalls` 表示不能据此推断全部消耗；不估算价格或缺失用量。耗时按所有执行、成功执行、失败或 PARTIAL 执行分别报告 P50/P95，首期不作为阻断指标。
+External failures are not valid baselines with a model-answer score of zero. Reports retain available results and failure timing. Tokens are returned usage observed through callbacks; `complete: false` and `missingUsageCalls` mean total consumption cannot be inferred. Prices and missing usage are not estimated. P50/P95 timing is reported separately for all executions, successful executions, and failed or `PARTIAL` executions; timing is not an initial blocking gate.
 
-`efficiency` 的分子包含所有评测尝试（包括拒绝案例、失败和纠错）的用量，分母只使用质量合格的正常文档数；同时展示分子和分母。缺失用量时 Token/合格文档显示 N/A；价格尚未配置，因此货币成本显示 N/A，不能把平台估价或已知用量当成完整账单。阶段 P50/P95 来自现有事件，同一文档的并发阶段耗时不能相加当作总耗时。
+The `efficiency` numerator includes usage from every evaluation attempt, including rejection cases, failures, and corrections. Its denominator includes only normal documents that pass quality; both counts are shown. Tokens per qualifying document are N/A when usage is missing. Monetary cost is N/A because prices are not configured. Platform estimates and known usage are not complete bills. Stage P50/P95 comes from existing events; concurrent stages within one document cannot be summed into total duration.
 
-`trajectory` 使用本地事件串起 thread/run、页面或分片、callKey、attempt、Schema、校验结果和重试/纠错/接受/停止。RETURNED 只表示供应商已返回，validation=passed 才表示结构校验通过。断言检查准备阶段、文本组装、允许的模型类型/Schema、页上下文、四次尝试及任务调用上限，允许并发单元交换完成顺序。事件不包含消息正文、图片、密钥或异常正文。文档状态与模型耗时仍复用 Prometheus；这些指标不代表语义准确率。
+`trajectory` links thread/run, page or chunk, callKey, attempt, schema, validation results, and retry/correction/accept/stop events locally. `RETURNED` means only that the provider returned; `validation=passed` means structural validation passed. Assertions check preparation, text assembly, allowed model kinds/schemas, page context, the four-attempt limit, and task call limits, while allowing concurrent units to finish out of order. Events exclude message bodies, images, credentials, and exception bodies. Document status and model timing continue to use Prometheus; these metrics do not measure semantic accuracy.
 
-## 运行、比较与保存
+## Run, compare, and save
 
-以下命令在 `server/` 中执行，环境配置统一读取仓库根目录 `.env`。
+Run these commands in `server/`. Configuration comes from the repository-root `.env`.
 
 ```bash
-# 单次冒烟；--case 可重复指定。
+# Single-case smoke test; --case may be repeated.
 python -m dotenv -f ../.env run -- python scripts/evaluate.py --case text-basic
 
-# 调试时只使用回归集；默认不指定 split 时运行全部案例。
+# Use only regression cases for debugging; omitting split runs all cases.
 python -m dotenv -f ../.env run -- python scripts/evaluate.py --split regression
 
-# 正式基线或候选运行：每个案例三次，每次使用独立 thread。
+# Formal baseline or candidate: three repetitions per case, each with its own thread.
 python -m dotenv -f ../.env run -- python scripts/evaluate.py --repetitions 3
 
-# 用实际基线报告路径替换占位符。
+# Replace the placeholder with the actual baseline report path.
 python -m dotenv -f ../.env run -- python scripts/evaluate.py --repetitions 3 \
   --baseline 'reports/evaluations/your_baseline_run/report.json'
 
-# 比较已有报告，不需要 .env，不会调用模型或本地存储。
+# Compare existing reports without .env, model calls, or local storage access.
 python scripts/evaluate.py --compare \
   'reports/evaluations/your_baseline_run/report.json' \
   'reports/evaluations/your_candidate_run/report.json'
 ```
 
-默认在 `reports/evaluations/<runId>/` 生成 `report.json` 和 `report.md`，终端显示实际路径。`--output` 可指定新的 `.json` 路径，同时生成同名 Markdown；已有文件拒绝覆盖。原来的 `reports/evaluation.json` 是 v1 历史失败证据，继续保留，不能用作 v2 基线。
+By default, runs produce `report.json` and `report.md` under `reports/evaluations/<runId>/`; the terminal prints the actual paths. `--output` accepts a new `.json` path and also produces a matching Markdown file. Existing files cannot be overwritten. The old `reports/evaluation.json` remains historical v1 failure evidence and is not a valid v2 baseline.
 
-报告记录 Git commit、dirty 状态、源码与依赖指纹、提示词指纹、模型、白名单运行参数、所选金标及文件内容哈希、评分版本、每次执行的字段差异、处理失败、模型调用和耗时。不导出密钥、签名 URL、对象引用或原始异常正文。
+Reports record the Git commit and dirty state, source/dependency and prompt fingerprints, model, allowlisted runtime parameters, selected gold labels and file-content hashes, scorer version, per-execution field differences, processing failures, model calls, and timing. They exclude credentials, signed URLs, object references, and raw exception bodies.
 
-有效基线必须 PASSED，且基线与候选均至少运行三次；数据集哈希、评分版本、所选案例及重复次数必须一致。比较使用未四舍五入的指标，总体指标不得下降；报告展示百分点差异、逐案例计数变化及代码/模型/参数变化。单次运行可检查绝对门禁，但不能作为正式比较基线。修改评分含义时须更新 `SCORER_VERSION` 并重新实跑基线，禁止与旧评分混比。历史评分报告继续只读保存；当前比较器要求评分版本与 `SCORER_VERSION` 一致，不迁移或重写历史分数。运行器会关闭 LANGSMITH_TRACING 和 LANGCHAIN_TRACING_V2，不向远端评测平台发送数据。
+A valid baseline must be PASSED. Both baseline and candidate must have at least three repetitions and identical dataset hashes, scorer versions, selected cases, and repetition counts. Comparison uses unrounded metrics and forbids decreases in overall metrics. Reports show percentage-point changes, per-case count changes, and code/model/parameter changes. A single run can check absolute gates but cannot serve as a formal comparison baseline. Changes to scoring semantics require a new `SCORER_VERSION` and a new live baseline; do not mix scoring versions. Historical reports remain read-only. The current comparator requires the current `SCORER_VERSION` and does not migrate or rewrite historical scores. The runner disables `LANGSMITH_TRACING` and `LANGCHAIN_TRACING_V2` and sends no data to a remote evaluation platform.
 
-## 离线故障探针与本地复核
+## Offline fault probes and local review
 
-`make verify` 和 CI 只运行一次完整 pytest，并将其 JUnit 结果转为故障探针报告：
+`make verify` and CI run the full pytest suite once and convert its JUnit results into a fault-probe report:
 
 ```bash
 python -m pytest --junitxml=reports/checks/probes.xml
 python scripts/evaluate.py --probes reports/checks/probes.xml
 ```
 
-探针复用恢复、预算、引用校验、转换器、相似来源和结构化输出测试，区分恢复成功率、正确停止率、路由通过率与未知用量保留。每个参数化场景是一条观测；缺失、跳过或 setup失败不算通过。JUnit 记录代码和测试指纹，过期证据返回 BLOCKED。不会导出测试异常正文。这些结果只证明确定性故障测试；此探针摘要的真实进程重启仍标为 NOT_ASSESSED；进程强杀/恢复由 tests/test_agent_server.py 的隔离 SQLite 测试单独证明，不能代替生产持久目录的恢复验收。
+Probes reuse tests for recovery, budgets, reference validation, converters, similar sources, and structured output. They distinguish recovery success, correct stopping, route validity, and preservation of unknown usage. Each parameterized scenario is one observation; missing, skipped, or setup-failed scenarios do not pass. JUnit records code and test fingerprints; stale evidence returns BLOCKED. Test exception bodies are not exported. These results establish only deterministic fault-test behavior. Actual process restart remains NOT_ASSESSED in this probe summary. Isolated SQLite tests in `tests/test_agent_server.py` separately verify forced termination and recovery; they do not replace recovery acceptance against production persistent directories.
 
-运行日志中的 `review_candidate` 只含任务标识、格式、状态和错误码。将 `practiq.events`的消息内容按 JSONL 保存到本地持久日志目录后生成复核清单：
+The `review_candidate` log event contains only task identifiers, format, status, and error codes. Save `practiq.events` message bodies as JSONL in a local persistent log directory, then generate a review queue:
 
 ```bash
 python scripts/review_queue.py /absolute/logs/practiq.events.jsonl \
   --output reports/reviews/2026-09-18.json
 ```
 
-所有执行错误、PARTIAL 和质量审核标记都入选；其余任务按格式及稳定 thread 标识散列抽样约 5%，不是每个小批次恰好 5%。同一 run 去重，重放不改变抽样选择。清单仅含元数据；人工通过现有鉴权任务接口读取原文并记录复核结果。确认问题后，先脱敏、制作金标，再进入回归集。不会自动认定问题、修改提示词或发布版本。JSON/Markdown 输出禁止覆盖已有文件，生成报告无需提交到 Git。
+All execution errors, `PARTIAL` results, and quality-review flags are selected. Other tasks are sampled at approximately 5% using format and a stable thread-identifier hash, not exactly 5% of every small batch. Runs are deduplicated, and replay does not change selection. The queue contains only metadata. Reviewers read source material through existing authenticated task APIs and record decisions. Confirmed problems are de-identified and given gold labels before entering the regression set. This process does not automatically classify problems, change prompts, or publish releases. JSON/Markdown outputs cannot overwrite existing files, and generated reports need not be committed to Git.
 
-可用 `--decisions /absolute/review-decisions.json` 合并人工结论，输入为 JSON 数组：
+Merge human decisions with `--decisions /absolute/review-decisions.json`, using a JSON array:
 
 ```json
 [
@@ -170,68 +162,65 @@ python scripts/review_queue.py /absolute/logs/practiq.events.jsonl \
 ]
 ```
 
-`verdict` 为 `correct`、`incorrect` 或 `uncertain`。只有 `incorrect` 必须填写`errorCategory`（`extraction`、`model_output`、`merge`、`gold_label`）；其他结论必须为 null。每条记录必须属于这批日志生成的已选复核清单，且 `(threadId, runId)` 不得重复。可以只填写部分任务；未填写项输出 null 并显示“待复核”。额外字段会被拒绝，不在结论文件中添加正文、答案或凭据。重新生成时使用新的 `--output` 路径。该本地结论不修改服务器结果或清除质量标记；接受服务器结果也不自动生成“正确”结论。
+`verdict` is `correct`, `incorrect`, or `uncertain`. Only `incorrect` requires `errorCategory` (`extraction`, `model_output`, `merge`, or `gold_label`); other verdicts require null. Every entry must belong to the queue selected from this log batch, with no duplicate `(threadId, runId)`. Partial decisions are allowed; omitted entries remain null and display as pending review. Extra fields are rejected. Do not add content, answers, or credentials to decision files. Use a new `--output` path when regenerating. Local decisions do not alter server results or clear quality flags; accepting a server result does not automatically create a correct verdict.
 
-2026-09-18 的 [v3 首轮报告](../reports/evaluations/fc0f9716-001e-4849-9b4c-94399d9b501f/report.md)覆盖全部 25 个案例、各三次真实模型执行，结果 FAILED。69 次正常任务中执行成功 66 次、质量合格 61 次；23 个正常案例均至少通过一次，其中 17 个三次全通过；6 次预期拒绝均匹配。过程断言和视觉产物校验通过，但视觉 F1 为 80%，文件名伪指令案例出现一次补造答案，另有跨页答案、额外题目和视觉输出校验失败。保留全部失败证据，不作为合格基线。本轮未使用留出集结果修改提示词。
+The [first v3 report](../reports/evaluations/fc0f9716-001e-4849-9b4c-94399d9b501f/report.md), dated 2026-09-18, covered all 25 cases with three live-model executions each and FAILED. Of 69 normal-task executions, 66 succeeded and 61 passed quality. All 23 normal cases passed at least once; 17 passed all three repetitions. All six expected rejections matched. Process assertions and visual-artifact validation passed, but visual F1 was 80%. The filename-instruction case fabricated an answer once; other failures involved cross-page answers, extra questions, and visual-output validation. All failure evidence is retained, and this run is not a qualifying baseline. Holdout results were not used to tune prompts in this round.
 
-当时独立 Agent Server/PostgreSQL/Redis 的生产崩溃恢复矩阵尚未完成。补充实测：隔离目录中仅使用本地运行配置并关闭 tracing，开发服务器两次启动的 `/ok` 均返回 200，正常停止后重启仍可读取原线程，未调用模型。该结果验证开发模式的线程落盘与正常重启，不覆盖执行中崩溃、模型结果复用或生产数据库恢复。
+At that time, the production crash-recovery matrix for the separate Agent Server/PostgreSQL/Redis stack was incomplete. An additional isolated-directory check used only local runtime configuration with tracing disabled: `/ok` returned 200 on both development-server starts, and the original thread remained readable after a graceful stop and restart, without model calls. This verifies development-mode thread persistence and graceful restart, not mid-execution crashes, model-result reuse, or production database recovery.
 
-## 持续改进流程
+## Continuous improvement
 
-保留固定数据和失败证据，按以下顺序验证改动：
+Keep fixed datasets and failure evidence, and validate changes in this order:
 
-1. 根据 Markdown 门禁原因和分桶指标，定位 JSON 中的逐题期望、实际值及 `processing.failures`。
-2. 人工核对原文；确认是错误金标、合理等价表达、提取/视觉识别错误、模型输出错误还是合并错误。
-3. 把确认的失败材料补为案例；原始数据及正确标注固定后，再修改提示词、模型或代码中的一个因素。
-4. 运行完整工程检查，再用相同数据集重复三次真实评测；用有效基线比较质量变化与 Token/耗时变化。
-5. 人工复核差异，通过后记录新的报告路径作为后续基线；保留旧报告和回归样本，不自动替换基线。
+1. Use Markdown gate reasons and metric breakdowns to locate per-question expected/actual values and `processing.failures` in JSON.
+2. Review the source manually to distinguish incorrect gold labels, valid equivalents, extraction/visual-recognition errors, model-output errors, and merge errors.
+3. Add confirmed failures as cases. Once source data and correct annotations are fixed, change one factor: prompt, model, or code.
+4. Run all engineering checks, then run three live evaluation repetitions on the same dataset. Compare quality, tokens, and timing against a valid baseline.
+5. Review differences manually. After acceptance, record the new report path as the next baseline. Preserve old reports and regression samples; never replace baselines automatically.
 
-PR 中记录修改原因、案例 ID、工程测试命令、实跑报告路径及基线差异。CI 不调用真实模型，不能证明提示词改动后的语义质量；此部分证据由本地实跑提供。合成小样本通过也不代表生产质量或泛化效果达标。
+PRs should record the reason for the change, case IDs, engineering-check commands, live report paths, and baseline differences. CI does not call real models and cannot establish semantic quality after prompt changes; local live runs provide that evidence. Passing a small synthetic dataset does not establish production quality or generalization.
 
-## 首轮实跑复核入口
+## Review the first live run
 
-[首次 v2 报告](../reports/evaluations/b66d5814-eea3-439b-9117-e2243a8bcc9c/report.md)覆盖全部 19 个案例，单次运行，结果 FAILED，不能用作三次重复的有效基线。该轮问题包括：
+The [first v2 report](../reports/evaluations/b66d5814-eea3-439b-9117-e2243a8bcc9c/report.md) covered all 19 cases once and FAILED. It is not a valid three-repetition baseline. Findings included:
 
-- `csv-basic` 没有提取出题目；`docx-formula-image` 的视觉描述四次输出仍不符合契约，返回 PARTIAL。
-- `xlsx-multi-sheet` 等案例丢失原文答案；长题干、重复题、跨分片样本存在简答题被标为填空题的情况。
-- 部分题干保留了 `Multiple choice:` 等源文件中的题型前缀，导致严格匹配失败；`Na` 与 `\mathrm{Na}` 等表达也需人工判定等价。
-- 两个预期拒绝案例符合预期，原文无答案案例没有补造答案。成功状态不等于所有字段正确。
+- `csv-basic` extracted no questions. Visual descriptions for `docx-formula-image` still violated the contract after four outputs, returning PARTIAL.
+- Cases such as `xlsx-multi-sheet` lost source answers. Some short-answer questions in long-stem, duplicate, and cross-chunk samples were labeled as fill-in-the-blank.
+- Some stems retained source type prefixes such as `Multiple choice:`, causing strict matching failures. Expressions such as `Na` and `\mathrm{Na}` also required human equivalence review.
+- Both expected rejections matched, and answerless-source cases did not fabricate answers. Successful status did not mean every field was correct.
 
-先核对这些差异再决定修改金标、评分规则或 Agent。若人工确认新的等价别名，应在固定的新数据集上重新实跑，不能直接与本轮不同数据集哈希的报告比较，也不能覆盖本轮证据。
+Review these differences before changing gold labels, scoring rules, or the agent. If humans confirm new equivalent aliases, rerun on the fixed new dataset. Do not compare directly against reports with a different dataset hash or overwrite this evidence.
 
+## Prompt and output constraints
 
-## 提示词与生成结果约束
+Document parsing extracts only supplied answers and explanations, returning null when absent rather than solving questions. It preserves genuine duplicate questions and determines types from source labels or response requirements. Groups include explicit source sections and `[sheet]` text markers (which do not imply Excel-file support), using zero-based indices within the current chunk. Prompts include examples of an unanswered fill-in-the-blank question, an answered short-answer question, and a worksheet true/false question. Stems retain original wording, punctuation, and blank-underscore counts; LaTeX conversion belongs in formula content blocks. Visual models extract structured questions directly from pages. Unreadable content retains missing fields and review flags rather than fabricated content. Images without text return null `extractedText`. Instructions inside documents, filenames, images, and request fields are treated as data. These semantic constraints do not guarantee complete prompt-injection prevention or extraction accuracy.
 
-文档解析仅提取原文答案和解析，缺失时返回 null，不通过解题补全；保留真实重复题，按原文题型标签或作答要求判断题型，分组包含原文中的显式章节与 `[sheet]` 文本标记（不代表支持 Excel 文件），使用当前片段内从 0 开始的索引。提示词包含无答案填空题、有答案简答题与工作表判断题三个示例。题干保留原始措辞、标点和填空下划线数量，LaTeX 转换放入公式内容块。页面由视觉模型直接结构化提题；无法辨认的内容保留缺失字段和审核标记，不补造内容；图片没有文字时 `extractedText` 为 null。文档、文件名、图片和请求字段中的指令均视为数据。这些是语义约束，不代表能够彻底阻止提示注入或保证提取准确率。
+Regression tests cover question completeness, model correction, and usage for every call. Passing FakeModel tests does not demonstrate improved live-model quality.
 
-回归测试覆盖题目完整性、模型纠错和每次调用用量。FakeModel 测试通过不等于真实模型质量提升。
+### Bailian structured-output configuration
 
-### 百炼结构化输出配置
+All agents share model and protocol selection in `llm.py`. `AI_STRUCTURED_OUTPUT_METHOD=function_calling` is the default. `json_schema` explicitly enables Bailian `response_format.type=json_schema` with `strict=true`. `auto` selects native schema only for the officially supported Qwen3.7 Plus/Flash/Max and Qwen3.8 Flash/Max families, otherwise using tool calling. Explicit native mode fails for unsupported models instead of silently falling back. The support list follows [Bailian's official documentation](https://help.aliyun.com/zh/model-studio/qwen-structured-output).
 
-所有 Agent 共用 `llm.py` 的模型与协议选择。默认`AI_STRUCTURED_OUTPUT_METHOD=function_calling`；`json_schema` 显式启用百炼`response_format.type=json_schema`、`strict=true`，`auto` 仅在官方支持的Qwen3.7 Plus/Flash/Max、Qwen3.8 Flash/Max 系列上选择原生 Schema，其余使用工具调用。显式指定原生模式但模型不支持时直接报错，不静默降级。支持范围依据[百炼官方文档](https://help.aliyun.com/zh/model-studio/qwen-structured-output)。
+Qwen3.7 calls disable thinking; model, token limits, and timeouts still come from existing configuration. Native mode receives the complete response before Pydantic validation, avoiding early SDK truncation errors that lose usage. Truncated output, unclosed JSON, and semantic validation failures are rejected and enter the existing bounded correction and usage-recording path. Explicit token truncation cannot be accepted through local JSON repair.
 
-Qwen3.7 调用统一关闭 thinking，模型、Token 上限与超时仍取原配置。原生模式直接取得完整响应后再做 Pydantic 校验，避免 SDK 提前抛出截断错误而丢失用量；截断、未闭合 JSON、语义校验失败均拒绝采用，并纳入既有有限纠错与用量记录。明确 token 截断的输出不会被本地 JSON 修复接受。
+See the [optimization record](../reports/evaluations/prompt-optimization-summary.md) for protocol-selection evidence and live-run limitations.
 
-协议选择依据及实跑边界见[本轮优化记录](../reports/evaluations/prompt-optimization-summary.md)。
+Tool-call count, names, and argument structure are checked before using SDK-parsed objects; raw tool arguments take priority. Native JSON Schema and structured objects without tool calls remain subject to the same business validation. Group indices reject booleans, floats, and numeric strings. `isCorrect` and `needsReview` reject string/number coercion to booleans. Semantic descriptions of key fields and figure coordinates are sent with the schema; valid drafts, false, zero, and null retain their meanings. Truncation remains `OUTPUT_TRUNCATED`, including early stopping after repeated truncation, and does not allow manual retries with unchanged parameters.
 
-工具调用的数量、名称和参数结构在使用 SDK 的已解析对象之前检查；原始工具参数优先。原生 JSON Schema 和没有工具调用的结构化对象路径继续受同一业务校验约束。分组索引拒绝布尔值、浮点数与数字字符串；`isCorrect` 和 `needsReview` 不接受字符串或数字转布尔。关键字段和图形坐标的语义描述随 Schema 发送，合法草稿、false、0、null 的含义不变。截断错误保留为 `OUTPUT_TRUNCATED`，包括重复截断提前止损；不开放人工同参数补跑。
+Local JSON Repair is integrated into shared response validation: it closes brackets, removes trailing commas before closing brackets, and strips complete code fences before rerunning the original schema/content checks. Repair adds no model calls, and missing fields remain incomplete. Explicit token truncation, unfinished strings, missing values, and type/content contradictions still enter bounded correction. Repair does not relax quality gates.
 
-本地 JSON Repair 已接入共用响应校验：补闭合括号、移除闭括号前的尾逗号、剥离完整代码围栏后重新执行原 Schema／内容校验。修复不新增模型调用；缺字段继续返回待补全。明确 token 截断、残缺字符串、缺失值以及类型或内容矛盾仍进入有限纠错，不因修复而放宽质量门禁。
+### Failure limits and quality visibility
 
-### 失败止损与质量可见性回归
+Gold labels for `text-source-identity` preserve stems that differ in case and questions with identical stems but different options. Offline tests cover chunk offsets, ambiguous sources, same-source content conflicts, early stopping on repeated invalid output, and retry limits. Live evaluation still runs baseline and candidate three times on the same dataset; gold labels are not changed to pass gates. Empty stems in valid drafts count as unmatched. Null answer modes appear in the report's `unknown` bucket while remaining null in the original result. `processing.questionSources/quality` provides only source and review hints. It does not change quality scoring or prove semantic validation of images or answers. Failure reports reuse graph failure classifications and remaining retry counts.
 
-`text-source-identity` 的金标固定保留大小写不同的题干及同题干不同选项的题目。分片偏移、来源歧义、同源内容冲突、重复坏输出止损及补跑上限由离线测试覆盖；真实评测仍使用同一数据集分别运行基线与候选各三次，不为通过门禁修改金标。合法草稿的空题干作为未匹配项计分；空题型在报告中归入 `unknown` 分桶，原结果仍保留 null。新增的 `processing.questionSources/quality` 仅提供来源和审核提示，不影响原质量评分，也不证明图片或答案已通过语义校验。失败报告复用 Graph 的失败分类与剩余补跑次数。
+Compare call counts, known input/output tokens, and unknown usage alongside the original quality gates. If the baseline itself failed, formal comparison remains BLOCKED. Measured differences may be reported, but non-regression acceptance cannot be claimed. Durable recovery also requires the isolated local persistent-storage exercise in [operations.md](operations.md).
 
-比较调用次数、已知输入/输出 Token 及未知用量，同时检查原有质量门禁。如果基线本身未通过，正式比较仍返回 BLOCKED；可以报告实测差异，但不能宣称通过不回退验收。持久恢复须另外完成 [operations.md](operations.md) 的本地持久存储隔离演练。
+Human-defined synthetic gold labels added on 2026-09-18 cover embedded instructions, consolidated answers, and four-page material with answers on the last page. Together with existing two-column diagrams, tables, and answerless-source samples, they retain the 90% metric threshold and the requirement that every critical case pass. Source data is entirely human-constructed and contains no user material. The PDF contains a fixed four-page English observation log and one question/answer. Evaluation PASSED/FAILED is separate from execution success. Prompt changes cannot be accepted by lowering thresholds or deleting failing samples.
 
-2026-09-18 补充的人工定义合成金标包括文档内伪指令、集中答案及四页长材料/末页答案。与双栏图、表格、无原文答案等现有样本一起验证，保持原 90% 指标门槛及关键案例全通过要求。源数据只有人工构造内容，不含用户材料；PDF 为固定的四页英文观察记录及唯一问题/答案。评测的 PASSED/FAILED 与运行成功分开，提示词调整不能通过降低门槛或删除失败样本验收。
+### Diagnose model validation failures
 
+Each model call's `validationIssues` records failing field paths and Pydantic error types, up to 20 entries. Unknown field names become `?`; field values, source text, and exception context are excluded. Locate `calls` for the failed case/repetition, then distinguish structural errors such as `list_type`, truncation, business validation, and final scoring differences. HTTP success and task completion do not imply gold-label quality acceptance.
 
-### 定位模型校验失败
+A captured response whose `questions` string wraps the remaining object fields is retained as an offline regression sample in `tests/fixtures/stringified-page-arguments.json`. Such responses remain rejected: trailing fields are not discarded, and content is not guessed. Shared correction explicitly requires real arrays and separate top-level fields; usage is counted normally. Initial prompts also specify array structure. The Bailian preset and the same custom Base URL in the desktop use identical Qwen3.7 thinking parameters. Other custom endpoints do not receive this provider-specific parameter.
 
-评测报告每次模型调用的 `validationIssues` 记录失败字段路径与 Pydantic 错误类型，最多 20 项；未知字段名替换为 `?`，不记录字段值、原文或异常上下文。先定位失败 case/repetition 的 `calls`，区分 `list_type` 等结构错误、截断、业务校验与最终评分差异；HTTP 成功和任务完成不代表金标质量通过。
-
-已捕获的 `questions` 字符串包裹整段对象尾部响应作为离线回归样本保存于`tests/fixtures/stringified-page-arguments.json`。这种响应继续拒绝，不丢弃尾部字段，不猜测修复内容；共享纠错路径明确要求真正的数组和独立顶层字段，用量照常计入。模型初始提示同样明确数组结构。百炼预设与桌面的同一自定义 Base URL使用相同的 Qwen3.7 thinking 参数；其他自定义端点不注入该供应商参数。
-
-
-曾对百炼 Qwen3.7 试验 `vl_high_resolution_images=true`：扫描样本改善，但完整回归出现长 PDF 重复题和答案遗漏，未采用此参数。不能依据单个样本提高分辨率就断言整体质量改善。供应商图像参数说明见[百炼视觉理解文档](https://help.aliyun.com/zh/model-studio/vision)。严格字符评分和人工审核标记继续保留。
+An experiment with `vl_high_resolution_images=true` on Bailian Qwen3.7 improved a scanned sample but introduced duplicate questions and missing answers in long PDFs during full regression, so the parameter was not adopted. A single improved high-resolution sample does not establish overall quality improvement. See [Bailian's vision documentation](https://help.aliyun.com/zh/model-studio/vision) for image parameters. Strict character scoring and human-review flags remain in place.

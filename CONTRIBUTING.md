@@ -14,6 +14,7 @@ When making changes:
 - Reuse existing code and dependencies before adding abstractions or packages.
 - Add a focused regression test for behavior changes.
 - Update documentation, contracts, and `.env.example` when the change affects them.
+- Write project documentation in English, except `README.zh-CN.md`. Preserve source-language examples, quoted UI labels, and archived evaluation evidence.
 - Keep secrets, personal data, production data, and generated output out of Git.
 
 Frontend message keys are the Simplified Chinese source text; add their English translations to `app/src/locales/en.ts`. Reuse `NativeSelect` for plain-text option lists. Desktop connection settings expose only `base_url` and `model_id`; the unused `oss_url` SQLite column is retained unchanged for existing databases and backups.

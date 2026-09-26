@@ -1,27 +1,27 @@
-# SQLite 与 macOS 桌面交付记录
+# SQLite and macOS desktop delivery record
 
-> 历史报告：以下结果、包体积、哈希与依赖说明属于当时版本。当前版本已移除 Word 与 LibreOffice；导入页管理 AI 解析任务，ZIP 题库从“设置 → 恢复备份”导入。现行用法见 [项目说明](../../README.zh-CN.md) 和 [服务指南](service-guide.md)。历史证据不代表当前版本验收。
+> Historical report: results, package sizes, hashes, and dependency descriptions apply to the version tested at the time. The current version has removed Word and LibreOffice. The Import page manages AI parsing tasks; bank ZIP import is under Settings → Restore backup. See the [project overview](../../README.md) and [service guide](service-guide.md) for current usage. Historical evidence does not establish acceptance of the current version.
 
-验证日期：2026-09-19。目标是 Apple Silicon macOS；本机系统 macOS 27.0，应用声明最低 macOS 14，尚未在最低版本系统验证。未提交、推送或发布，保留既有工作区修改和旧 PostgreSQL 数据。
+Validation date: 2026-09-19. Target: Apple Silicon macOS. The local system was macOS 27.0; the app declared macOS 14 as its minimum, but that version had not been tested. Nothing was committed, pushed, or published. Existing workspace changes and old PostgreSQL data were preserved.
 
-## 本次范围
+## Scope
 
-- 任务队列改为 aiosqlite，检查点与 Store 使用官方 SQLite 实现，分别位于三个数据库文件。所有服务连接使用 WAL、FULL 同步、外键和 5 秒忙等待；服务与离线维护共享 flock 独占锁。保留幂等、运行约束、预算、过期和恢复语义。
-- 独立服务通过 AI_DATABASE_DIR 指定本地数据目录，显式 init-db；桌面自动初始化专用目录。旧 DATABASE_URI 明确报错，不迁移或删除旧数据。初始化中断可重试，未知库和版本拒绝接管。
-- Rust 通过固定资源路径管理 PyInstaller onedir 服务，私有 stdin 传递随机令牌与 Keychain 密钥，Python 绑定随机 loopback 端口。WebView 仅使用类型化命令。退出/父进程消失触发关闭，隔离提取子进程随管道关闭退出。
-- 桌面新增双模型配置、文档选择、分页任务、阶段和完成计数、失败详情、用量、暂停/继续/中断/补跑/部分结果接受，以及复用题库导入预览。配置修改停止旧服务；旧执行签名不兼容时拒绝恢复。重启后任务等待明确继续。
-- 桌面 BLOB 图片逐张迁出到 SHA-256 文件，先写入并同步再提交数据库引用；先保留升级恢复副本。图片从 AI 目录复制进题库目录，练习快照不依赖 AI 保留期限。ZIP v2 包含清单、数据库和图片，保留 v1 恢复，不含 AI 任务、原文档、检查点或 Keychain 密钥。
-- 按最新要求删除 Excel 源文件解析、工作表图、契约路由、评测样本与 openpyxl 依赖。XLS/XLSX 上传返回 422，文件选择器不再提供这些格式。旧 JSON/备份的废弃工作表归属字段只在桌面读取时忽略，不启用解析。历史验收记录保留并标注历史范围。
+- Replaced the task queue with aiosqlite and used the official SQLite checkpoint and Store implementations, in three separate database files. All service connections use WAL, FULL synchronization, foreign keys, and a five-second busy timeout. The service and offline maintenance share an exclusive flock lock. Idempotency, run constraints, budgets, expiry, and recovery semantics remain intact.
+- The standalone service uses `AI_DATABASE_DIR` for local data and requires explicit `init-db`; the desktop initializes its dedicated directory automatically. Old `DATABASE_URI` configuration fails explicitly, without migrating or deleting old data. Interrupted initialization can retry; unknown databases and versions are rejected.
+- Rust manages a PyInstaller onedir service at a fixed resource path, passing a random token and Keychain credentials through private stdin. Python binds a random loopback port. The WebView uses only typed commands. App exit or parent disappearance triggers shutdown; isolated extraction subprocesses exit when their pipes close.
+- Added desktop dual-model settings, document selection, paginated tasks, stage/completion counts, failure details, usage, pause/resume/interrupt/retry/partial-result acceptance, and reuse of the bank-import preview. Configuration changes stop the old service. Incompatible execution signatures prevent resume. Tasks wait for explicit resume after restart.
+- Migrated desktop BLOB images individually to SHA-256 files, writing and syncing before committing database references and retaining an upgrade-recovery copy first. Images are copied from AI storage into bank storage, so practice snapshots do not depend on AI retention. ZIP v2 includes a manifest, database, and images, retains v1 restore support, and excludes AI tasks, source documents, checkpoints, and Keychain credentials.
+- Removed Excel source parsing, worksheet graphs, contract routes, evaluation samples, and openpyxl as requested. XLS/XLSX uploads return 422, and file pickers no longer offer them. Deprecated worksheet-association fields in old JSON/backups are ignored only during desktop reads; they do not enable parsing. Historical acceptance records remain with scope notices.
 
-## 打包方式
+## Packaging
 
-Python 3.14.7、PyInstaller 6.22.3；LangGraph SQLite 3.1.1、aiosqlite 0.22.1。完整依赖锁为 server/uv.lock；实际包内分发清单位于 Contents/Resources/bundled/build-manifest.json。
+Python 3.14.7 and PyInstaller 6.22.3; LangGraph SQLite 3.1.1 and aiosqlite 0.22.1. The full dependency lock is `server/uv.lock`; the actual bundled distribution manifest is `Contents/Resources/bundled/build-manifest.json`.
 
-完整 LibreOffice 26.2.6 arm64，固定下载地址与 SHA-256：94bb3248df074c225490a8a6d1d9dc87c7d6783dbb7a8e9f0d0c3d94348552af。保留完整上游应用、许可、第三方说明和源码获取链接；因此上游套件仍含 Calc，但 PractiQ 已没有 Excel 解析入口、实现或 Python 依赖。Word 使用内置 Writer，每次转换独立配置目录。服务容器只安装 Writer。
+The package included full LibreOffice 26.2.6 arm64, with a pinned download URL and SHA-256: `94bb3248df074c225490a8a6d1d9dc87c7d6783dbb7a8e9f0d0c3d94348552af`. It retained the complete upstream app, licenses, third-party notices, and source links. The upstream suite therefore still included Calc, although PractiQ no longer had an Excel parsing entry point, implementation, or Python dependency. Word used bundled Writer with a separate profile directory for each conversion. The service container installed only Writer.
 
-为保持 PyInstaller onedir 布局，使用 Tauri bundle.resources 加固定路径 Rust 子进程，而不是将可执行文件单独移入 externalBin。没有开放通用 shell 或 HTTP 命令。
+To preserve PyInstaller's onedir layout, packaging used Tauri `bundle.resources` and a fixed-path Rust subprocess instead of moving the executable alone into `externalBin`. No generic shell or HTTP command was exposed.
 
-复现命令：
+Reproduction commands:
 
 ```sh
 make install-locked app-install-python AI_PYTHON=/path/to/python3.14
@@ -34,42 +34,42 @@ make app-build AI_PYTHON=/path/to/python3.14
 cargo test --manifest-path app/src-tauri/Cargo.toml native_keychain_roundtrip -- --ignored
 ```
 
-## 工程验证
+## Engineering validation
 
-- make verify：447 项通过，覆盖率 91%；锁文件、Ruff、Pyright、23 个评测样本的结构检查、恢复探针、sdist/wheel 构建通过。没有调用真实模型。
-- SQLite 回归包含初始化中断重试、重复请求、并发队列、暂停审核顺序、失败补跑、预算/未知用量、过期清理、独占锁拒绝、写锁等待、SQLITE_FULL 回滚和实际服务进程强杀后恢复。
-- make app-check：9 项前端测试、10 项 Rust 测试和 Clippy 通过；默认跳过的原生 Keychain 测试另行执行通过，仅使用随机命名临时条目，测试后删除。
-- Rust 检查包含 BLOB 升级、共享图片、不可变练习快照、图片损坏、ZIP 路径/链接/大小/校验和、旧备份和恢复失败保护。并非完整的断电故障矩阵。
-- 实际原生界面已检查解析入口、双模型设置、缺配置提示和既有题库保留；没有修改用户模型凭据。
-- 最终安装包的执行结果见 ../reports/checks/desktop-bundle.json；验证只采用本机合成模型，PATH 限制为 /usr/bin:/bin，临时 HOME，调用实际 .app 内的 Python、隔离解析器和 LibreOffice。
+- `make verify`: 447 tests passed, with 91% coverage. Lockfile, Ruff, Pyright, structural validation of 23 evaluation samples, recovery probes, and sdist/wheel builds passed. No real models were called.
+- SQLite regressions covered initialization retry, duplicate requests, concurrent queues, pause/review ordering, failed-unit retry, budgets/unknown usage, expiry cleanup, exclusive-lock rejection, write-lock waits, SQLITE_FULL rollback, and recovery after forcibly killing the actual service process.
+- `make app-check`: nine frontend tests, ten Rust tests, and Clippy passed. The native Keychain test, skipped by default, passed separately using only a randomly named temporary entry that was deleted afterward.
+- Rust checks covered BLOB migration, shared images, immutable practice snapshots, corrupt images, ZIP paths/links/sizes/checksums, old backups, and restore-failure protection. This was not a complete power-loss fault matrix.
+- The native UI was checked for the parsing entry point, dual-model settings, missing-configuration hints, and preservation of existing banks. User model credentials were not changed.
+- Final package results were recorded in `../reports/checks/desktop-bundle.json`. Validation used only a local synthetic model, restricted PATH to `/usr/bin:/bin`, and a temporary HOME, invoking the actual `.app` Python, isolated parser, and LibreOffice.
 
-原始检查输出保存在 server/reports/checks/。早期整包检查曾因模型桩未覆盖工作表协议失败；该能力现已删除。一次重负载下转换超时测试失败，最终完整回归通过。失败记录不用于质量或分发承诺。
+Raw outputs were saved in `server/reports/checks/`. An earlier package check failed because the model stub did not cover the worksheet protocol; that capability was subsequently removed. One conversion-timeout test failed under heavy load; the final full regression passed. Failure records do not support quality or distribution guarantees.
 
-## 同负载数据库对比
+## Database comparison under the same workload
 
-基线为 cf0b1768b51ab79ac56fac1cc6cc8f75ea090646 的隔离 git archive；旧 PostgreSQL 16 使用本轮临时 Docker 容器，测试后仅删除该容器，未接触原有数据库或数据卷。使用同一 scripts/benchmark_runtime.py、相同文本、40 个任务、并发 8、模型桩每次等待 0.1 秒，交替运行 3 轮。每轮 40 次调用、40 项完成。
+The baseline was an isolated git archive of `cf0b1768b51ab79ac56fac1cc6cc8f75ea090646`. PostgreSQL 16 ran in a temporary Docker container created for this comparison; only that container was deleted afterward, leaving existing databases and volumes untouched. Both versions used the same `scripts/benchmark_runtime.py`, text input, 40 tasks, concurrency of eight, and model stub waiting 0.1 seconds per call. Three rounds alternated between versions, each completing 40 calls and 40 tasks.
 
-| 三轮中位数 | PostgreSQL 基线 | SQLite |
+| Median of three rounds | PostgreSQL baseline | SQLite |
 | --- | ---: | ---: |
-| 总用时（秒） | 5.639 | 2.971 |
-| 成功文档/分钟 | 425.58 | 807.85 |
-| 排队等待（毫秒） | 1553.06 | 1264.11 |
-| /ok P95（毫秒） | 7.35 | 3.06 |
+| Total duration (seconds) | 5.639 | 2.971 |
+| Successful documents/minute | 425.58 | 807.85 |
+| Queue wait (milliseconds) | 1553.06 | 1264.11 |
+| /ok P95 (milliseconds) | 7.35 | 3.06 |
 
-完整逐轮数据见 ../reports/checks/sqlite-comparison.json。健康检查使用 ASGI 进程内请求；旧 PostgreSQL 经 Docker 端口，SQLite 直接访问本机文件，拓扑不同。该结果只刻画本机短文本合成负载，不能承诺真实模型吞吐、长文档容量或生产 SLO。
+Full per-round data was recorded in `../reports/checks/sqlite-comparison.json`. Health checks used in-process ASGI requests. PostgreSQL used a Docker port while SQLite accessed local files directly, so topology differed. These results describe only a local synthetic short-text workload, not real-model throughput, long-document capacity, or a production SLO.
 
-单轮复现：在对应源码目录安装对应依赖，用 PYTHONPATH 指向该版本的 server/src 和 server，执行当前 server/scripts/benchmark_runtime.py --output /absolute/result.json。PostgreSQL 基线另需 TEST_DATABASE_URI 指向专用可销毁测试实例；当前 SQLite 自动创建临时数据库。不要指向业务数据库。
+To reproduce one round, install the matching dependencies in the corresponding source tree, point `PYTHONPATH` at that version's `server/src` and `server`, and run the current `server/scripts/benchmark_runtime.py --output /absolute/result.json`. The PostgreSQL baseline also requires `TEST_DATABASE_URI` pointing to a dedicated disposable instance. Current SQLite creates temporary databases automatically. Never point this check at a business database.
 
-## 本地构建产物
+## Local build artifacts
 
-- app/src-tauri/target/release/bundle/macos/PractiQ.app
-- app/src-tauri/target/release/bundle/dmg/PractiQ_0.1.0_aarch64.dmg
-- DMG 大小：363.6 MiB；SHA-256：`28988327a2848648bb2fcdafce5bf2c711b7565b892e965bd8997ee7ac9e8b0c`。
-- 实际 .app 五格式检查通过，XLSX 拒绝检查通过，鉴权、分页查询、图片 checksum 和退出清理通过。包内不含 openpyxl 或 PostgreSQL Python 后端。
-- Python 与完整 LibreOffice 资源约 935 MiB；体积主要来自未裁剪的 LibreOffice 套件。
+- `app/src-tauri/target/release/bundle/macos/PractiQ.app`
+- `app/src-tauri/target/release/bundle/dmg/PractiQ_0.1.0_aarch64.dmg`
+- DMG size: 363.6 MiB; SHA-256: `28988327a2848648bb2fcdafce5bf2c711b7565b892e965bd8997ee7ac9e8b0c`.
+- The actual `.app` passed five-format checks, XLSX rejection, authentication, paginated queries, image checksums, and exit cleanup. It contained neither openpyxl nor the PostgreSQL Python backend.
+- Python and full LibreOffice resources occupied approximately 935 MiB, mostly from the untrimmed LibreOffice suite.
 
-## 验收边界
+## Acceptance limits
 
-本轮交付本地验证包。已修复结构纠错、桌面模型参数与诊断；保留版本正常执行 63/63、严格内容质量 60/63，尚未全部通过。高分辨率候选因完整回归失败撤回，见 [最终修复报告](../reports/evaluations/vision-fix-delivery-20260919-230113/acceptance.md)；未验证最低 macOS 14、全新系统、全部输入变体和完整断电恢复矩阵。合成模型结果不能代替题目、答案和图片关联质量。
+This delivery was a locally validated package. Structured correction, desktop model parameters, and diagnostics were fixed. The retained version completed 63/63 normal executions and passed strict content quality in 60/63, so quality was not fully passing. A high-resolution candidate was withdrawn after full regression failed; see the [final repair report](../reports/evaluations/vision-fix-delivery-20260919-230113/acceptance.md). Minimum macOS 14, a clean system, all input variants, and the full power-loss recovery matrix were not validated. Synthetic-model results do not establish question, answer, or image-association quality.
 
-未提供 Apple Developer ID / 公证凭据，未执行正式签名、公证或发布。scripts/sign-release.sh 提供嵌套二进制签名、应用签名、公证、staple 和 spctl 验证流程，需在有凭据的分发环境另行运行并验证。当前 .app/.dmg 不视为正式分发验收通过。
+No Apple Developer ID or notarization credentials were provided, and formal signing, notarization, and publication were not performed. `scripts/sign-release.sh` provides nested-binary signing, app signing, notarization, stapling, and spctl verification; run and verify it separately in a credentialed distribution environment. These `.app`/`.dmg` artifacts did not pass formal distribution acceptance.

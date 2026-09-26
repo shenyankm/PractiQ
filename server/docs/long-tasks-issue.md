@@ -1,8 +1,8 @@
-> 存储更新：当前版本仅使用本地文件，OSS 后端已移除；下文涉及 OSS 的内容保留为当时的审计或设计记录。
+> Storage update: the current version uses local files only; the OSS backend has been removed. References to OSS below are preserved as historical audit or design records.
 
-> 历史记录：当前版本已改用 SQLite，并已移除 Excel、Word 源文件解析与 LibreOffice 依赖；下文保留当时的范围与验证结果。
+> Historical record: the current version uses SQLite and has removed Excel and Word source parsing and LibreOffice. The scope and validation results below describe the version at the time.
 
-> 历史设计记录：其中 Agent Server / Redis / 原生 API 部分已被开源运行时替换。当前接口与部署以 [document-tasks.md](document-tasks.md) 和 [operations.md](operations.md) 为准。
+> Historical design: Agent Server, Redis, and native APIs have been replaced by the open-source runtime. See [document-tasks.md](document-tasks.md) and [operations.md](operations.md) for current APIs and deployment.
 
 # Add durable pause, resume and failed-unit retry for document tasks
 
