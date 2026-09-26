@@ -73,17 +73,15 @@ async def test_native_wire_format_repairs_and_records_failed_usage(
             http_async_client=client,
         )
         messages: list[BaseMessage] = [HumanMessage(content="Return JSON with value=2")]
-        with llm.collect_usage() as usage:
-            result, corrected, _ = await llm.structured_attempt(
-                model, messages, Result, "test", runtime=None, logical_attempt=1
-            )
-            assert result is None
-            result, _, _ = await llm.structured_attempt(
-                model, corrected, Result, "test", runtime=None, logical_attempt=2
-            )
+        result, corrected, first_usage = await llm.structured_attempt(
+            model, messages, Result, "test", runtime=None, logical_attempt=1
+        )
+        assert result is None
+        result, _, second_usage = await llm.structured_attempt(
+            model, corrected, Result, "test", runtime=None, logical_attempt=2
+        )
         assert result == Result(value=2)
-        assert len(usage) == 2
-        assert sum(call.outputTokens for call in usage) == 10
+        assert first_usage.outputTokens == second_usage.outputTokens == 5
         assert len(requests) == 2
 
 
@@ -125,12 +123,12 @@ async def test_local_repair_accepts_incomplete_question_without_another_call(mon
     monkeypatch.setattr(llm, 'structured_output', lambda *args: Runner())
     model = llm.build_model('dashscope','test','qwen3.7-flash')
     messages: list[BaseMessage] = [HumanMessage(content='Extract')]
-    with llm.collect_usage() as usage:
-        result = await llm.structured_attempt(model, messages, ParsedQuestion, 'test')
+    result = await llm.structured_attempt(model, messages, ParsedQuestion, 'test')
     assert result[0] is not None
     assert result[0].stem == '题干'
     assert 'answerPayload' in result[0].missingFields
-    assert result[1] == messages and len(usage) == 1
+    assert result[1] == messages
+    assert result[2].inputTokens == 10 and result[2].outputTokens == 5
 
 
 @pytest.mark.parametrize('source', ['{"value":', '{"value":"cut', '{"value":tru', '{"value":1,', '{"value":1]', '{"value":-1,}', '{"value":"2",}'])

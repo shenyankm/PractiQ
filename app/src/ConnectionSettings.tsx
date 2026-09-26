@@ -35,7 +35,6 @@ export function ConnectionSettingsPanel({
   const [config, setConfig] = useState<ConnectionSettings>({
     base_url: null,
     model_id: null,
-    oss_url: null,
   });
   const [apiKey, setApiKey] = useState("");
   const [dirty, setDirty] = useState(false);

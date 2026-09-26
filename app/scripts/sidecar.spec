@@ -12,7 +12,7 @@ for package in ('langgraph', 'langchain_core', 'langchain_openai', 'practiq_ai',
     datas += data
     binaries += libs
     hiddenimports += hidden
-for distribution in ('practiq-ai-service','langgraph','langgraph-checkpoint-sqlite','aiosqlite','langchain-core','langchain-openai','pydantic','pypdfium2','pillow','alibabacloud-oss-v2'):
+for distribution in ('practiq-ai-service','langgraph','langgraph-checkpoint-sqlite','aiosqlite','langchain-core','langchain-openai','pydantic','pypdfium2','pillow'):
     datas += copy_metadata(distribution, recursive=True)
 # Namespace discovery can see optional backends installed in the build interpreter.
 datas = [(source, target) for source, target in datas if not any(name in source.lower() for name in ('langgraph_checkpoint_postgres', '/langgraph/checkpoint/postgres/', '/langgraph/store/postgres/', 'psycopg', 'openpyxl', 'et_xmlfile'))]

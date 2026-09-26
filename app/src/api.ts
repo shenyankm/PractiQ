@@ -199,7 +199,6 @@ type Request =
       type: "delete_bank" | "delete_question" | "session" | "finish";
       id: string;
     }
-  | ({ type: "questions" } & Query)
   | ({ type: "question_stats" } & Query)
   | ({ type: "questions_page"; limit: number; offset: number } & Query)
   | { type: "favorite"; id: string; value: boolean }
@@ -241,7 +240,6 @@ type ResponseMap = {
   position: Session;
   preview_paper: PaperPreview;
   question_stats: QuestionStats;
-  questions: QuestionRow[];
   questions_page: QuestionPage;
   restore: { recoveryPath: string } | null;
   retry_wrong: Session;
@@ -347,7 +345,6 @@ export function canInteract(q: Question) {
 export interface ConnectionSettings {
   base_url: string | null;
   model_id: string | null;
-  oss_url: string | null;
 }
 export interface SettingsResult {
   config: ConnectionSettings;

@@ -16,6 +16,8 @@ When making changes:
 - Update documentation, contracts, and `.env.example` when the change affects them.
 - Keep secrets, personal data, production data, and generated output out of Git.
 
+Frontend message keys are the Simplified Chinese source text; add their English translations to `app/src/locales/en.ts`. Reuse `NativeSelect` for plain-text option lists. Desktop connection settings expose only `base_url` and `model_id`; the unused `oss_url` SQLite column is retained unchanged for existing databases and backups.
+
 ## Check the affected code
 
 Run commands from the repository root with an existing Python 3.14+ interpreter. Use `AI_PYTHON` to select it; do not create a project `.venv`. Install locked dependencies with `make install-locked AI_PYTHON=/path/to/python3.14`.

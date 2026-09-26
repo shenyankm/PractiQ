@@ -54,9 +54,7 @@ it("pages native bank summaries, keeps all merge/study choices, and clamps after
   await userEvent.click(await screen.findByRole("button",{name:"设置"}));
   await userEvent.click(await screen.findByRole("button",{name:"恢复备份"}));
   await userEvent.click(await screen.findByRole("menuitem",{name:"导入题库 ZIP"}));
-  await userEvent.click(within(await screen.findByRole("dialog")).getByRole("combobox"));
-  expect(await screen.findByRole("option",{name:"Bank 30"})).toBeTruthy();
-  await userEvent.keyboard("{Escape}");
+  expect(within(await screen.findByRole("dialog")).getByRole("option",{name:"Bank 30"})).toBeTruthy();
   await userEvent.click(within(screen.getByRole("dialog")).getByRole("button",{name:"取消"}));
   await userEvent.click(screen.getByRole("button",{name:"我的题库"}));
   await loaded();

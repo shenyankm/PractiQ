@@ -122,7 +122,7 @@ it("flushes the latest draft before moving to the next question", async () => {
   });
 });
 
-it("stores model and OSS configuration without returning an API key to the form", async () => {
+it("stores model configuration without returning an API key to the form", async () => {
   vi.stubGlobal(
     "ResizeObserver",
     class {
@@ -135,7 +135,6 @@ it("stores model and OSS configuration without returning an API key to the form"
   const config = {
     base_url: "https://api.example.com/v1",
     model_id: "demo-model",
-    oss_url: "https://bucket.example.com",
   };
   vi.mocked(api).mockResolvedValue({ config, hasApiKey: true });
   render(
@@ -418,7 +417,7 @@ it("autosaves drafts without testing, reports failures and keeps testing explici
   const { toast } = await import("./notifications");
   const success = vi.spyOn(toast, "success").mockImplementation(() => "notice");
   const failure = vi.spyOn(toast, "error").mockImplementation(() => "notice");
-  const settings = {config:{base_url:"https://example.com/v1",model_id:"demo",oss_url:null},hasApiKey:true};
+  const settings = {config:{base_url:"https://example.com/v1",model_id:"demo"},hasApiKey:true};
   let failSave = false;
   const flushRef = { current: async () => {} };
   vi.mocked(api).mockImplementation(async request => {
@@ -455,7 +454,7 @@ it("autosaves drafts without testing, reports failures and keeps testing explici
 
 it("clears a newly saved API key from the webview before testing the Keychain copy", async () => {
   const { ConnectionSettingsPanel } = await import("./ConnectionSettings");
-  const settings = {config:{base_url:"https://example.com/v1",model_id:"demo",oss_url:null},hasApiKey:false};
+  const settings = {config:{base_url:"https://example.com/v1",model_id:"demo"},hasApiKey:false};
   vi.mocked(api).mockImplementation(async request => {
     if (request.type === "save_settings") return {...settings,hasApiKey:true} as never;
     if (request.type === "test_settings") return null as never;
@@ -474,7 +473,7 @@ it("clears a newly saved API key from the webview before testing the Keychain co
 
 it("uses the pending settings save when navigation flushes", async () => {
   const { ConnectionSettingsPanel } = await import("./ConnectionSettings");
-  const settings = {config:{base_url:"https://example.com/v1",model_id:"demo",oss_url:null},hasApiKey:true};
+  const settings = {config:{base_url:"https://example.com/v1",model_id:"demo"},hasApiKey:true};
   let finishSave!: (value: typeof settings) => void;
   const pending = new Promise<typeof settings>(resolve => { finishSave = resolve; });
   const flushRef = { current: async () => {} };

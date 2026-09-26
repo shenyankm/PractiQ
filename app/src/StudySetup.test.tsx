@@ -80,7 +80,7 @@ it("keeps manual and per-type question selection available for practice", async 
 it("debounces statistics, pages manual choices and preserves selections across pages", async () => {
   setup();
   await screen.findByText(/可用 2 题/);
-  expect(vi.mocked(api).mock.calls.some(([r]) => r.type === "questions" || r.type === "questions_page")).toBe(false);
+  expect(vi.mocked(api).mock.calls.some(([r]) => r.type === "questions_page")).toBe(false);
   const all = Array.from({length:31}, (_, i) => ({...rows[0],id:`q${i}`,question:{...rows[0].question,stem:`Question ${i}`}}));
   vi.mocked(api).mockImplementation(async r => {
     if (r.type === "question_stats") return {count:31,types:{single:31}} as never;

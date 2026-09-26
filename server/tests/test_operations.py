@@ -6,7 +6,6 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from types import SimpleNamespace
 
 import httpx
 import pytest
@@ -15,7 +14,7 @@ from scripts import load_test, storage_gc
 from tests.support import object_store, upload
 
 
-def test_dev_launcher_uses_single_oss_process(tmp_path):
+def test_dev_launcher_uses_single_process(tmp_path):
     (tmp_path / 'server').mkdir()
     python = tmp_path / 'python'
     python.write_text(f"#!{sys.executable}\nimport sys,json\nprint(json.dumps(sys.argv[1:]))\n")
@@ -164,29 +163,3 @@ async def test_load_driver_polls_before_all_submissions_finish(tmp_path, monkeyp
     report = await load_test.run(args)
     assert report["results"]["runs"] == {"success": 2}
     assert report["results"]["successfulDocumentsPerMinute"] > 0
-
-
-def test_oss_cleanup_requires_versioning_and_never_deletes_versions():
-    from datetime import UTC, datetime
-    from pathlib import Path
-    from typing import Any, cast
-
-    from practiq_ai.storage import OSSObjectStore
-
-    store = object.__new__(OSSObjectStore)
-    store._config = object_store(Path('/unused'))._config
-    deleted = []
-    enabled = False
-    item = SimpleNamespace(key='practiq-agent/sources/' + 'a' * 64 + '/source.txt', last_modified=datetime(2020, 1, 1, tzinfo=UTC), size=4, etag='etag')
-    store.client = cast(Any, SimpleNamespace(
-        list_objects_v2=lambda _: SimpleNamespace(contents=[item], is_truncated=False),
-        get_bucket_versioning=lambda _: SimpleNamespace(version_status='Enabled' if enabled else 'Suspended'),
-        delete_object=lambda request: deleted.append(request),
-    ))
-    selected = storage_gc.inventory(store)
-    with pytest.raises(ValueError, match='versioning'):
-        storage_gc.quarantine(store, selected, 'drill')
-    assert not deleted
-    enabled = True
-    storage_gc.quarantine(store, selected, 'drill')
-    assert len(deleted) == 1 and deleted[0].version_id is None

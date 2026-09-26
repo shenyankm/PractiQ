@@ -90,9 +90,7 @@ it("clears incompatible children and answer data when the answer mode changes", 
   const save = vi.fn();
   render(<QuestionEditor initial={initial} initialChildren={[child]} busy={false} onClose={vi.fn()} onSave={save} />);
 
-  screen.getByRole("combobox", { name: "答题方式" }).focus();
-  await user.keyboard("{Enter}");
-  await user.click(screen.getByRole("option", { name: "排序题" }));
+  await user.selectOptions(screen.getByRole("combobox", { name: "答题方式" }), "ordering");
   expect(screen.queryByText("Old child")).toBeNull();
   expect(screen.getAllByRole("textbox", { name: /题项 \d/ })).toHaveLength(2);
   await user.click(screen.getByRole("button", { name: "保存题目" }));
@@ -101,4 +99,18 @@ it("clears incompatible children and answer data when the answer mode changes", 
   expect(edited).toMatchObject({ answerMode: "ordering", passage: [], answerPayload: null });
   expect(edited.items).toHaveLength(2);
   expect(children).toEqual([]);
+});
+
+it("keeps an unknown answer mode empty until selected and disables editing while busy", async () => {
+  const user = userEvent.setup();
+  const initial = { ...blankQuestion(), answerMode: null };
+  const save = vi.fn();
+  const view = render(<QuestionEditor initial={initial} busy={false} onClose={vi.fn()} onSave={save} />);
+  const mode = screen.getByRole("combobox", { name: "答题方式" }) as HTMLSelectElement;
+  expect(mode.value).toBe("");
+  await user.click(screen.getByRole("button", { name: "保存题目" }));
+  expect(save.mock.calls[0][0].answerMode).toBeNull();
+  view.rerender(<QuestionEditor initial={initial} busy onClose={vi.fn()} onSave={save} />);
+  await user.selectOptions(mode, "ordering");
+  expect(mode.value).toBe("");
 });

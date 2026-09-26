@@ -1,7 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { en } from "./locales/en";
-import { zhCN } from "./locales/zh-CN";
 
 export type Locale = "zh-CN" | "en";
 export type LanguageRequest = { type: "language" } | { type: "save_language"; locale: Locale };
@@ -38,7 +37,7 @@ export function number(value: number, digits?: number) {
 }
 export function translate<K extends MessageKey>(language: Locale, key: K, ...args: Args<K>): string {
   const params = (args[0] ?? {}) as Record<string, Value>;
-  let template: string = language === "en" ? en[key] : zhCN[key];
+  let template: string = language === "en" ? en[key] : key;
   // Counts in these messages are immediately followed by their English noun.
   if (language === "en") template = template.replace(/\{(\d+)\} (questions|banks|images|resources|calls|points)\b/g,
     (text, slot: string, noun: string) => typeof params[slot] === "number" && plurals.select(params[slot] as number) === "one" ? `{${slot}} ${noun.slice(0, -1)}` : text);

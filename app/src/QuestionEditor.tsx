@@ -12,13 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { EnglishFields } from "./EnglishFields";
 import { kindModes, questionKinds } from "./english";
 import { AnswerInput } from "./AnswerInput";
@@ -92,22 +86,18 @@ export function QuestionEditor({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor={`${formId}-answer-mode`}>{t("答题方式")}</Label>
-              <Select
+              <NativeSelect
+                id={`${formId}-answer-mode`}
+                className="w-full"
                 disabled={!!parent && ["word_bank","cloze","gap_fill"].includes(parent.answerMode || "")}
                 value={q.answerMode || ""}
-                onValueChange={(v) => mode(v as Mode)}
+                onChange={(event) => mode(event.target.value as Mode)}
               >
-                <SelectTrigger id={`${formId}-answer-mode`} className="w-full">
-                  <SelectValue placeholder={t("选择答题方式")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(modeNames()).filter(([k]) => !parent || (parent.answerMode === "reading" ? !["reading","listening"].includes(k) : parent.answerMode === "listening" ? ["choice","fill_blank","short_answer"].includes(k) : parent.answerMode === "gap_fill" ? k === "fill_blank" : k === "choice")).map(([v, label]) => (
-                    <SelectItem key={v} value={v}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                <NativeSelectOption value="" disabled>{t("选择答题方式")}</NativeSelectOption>
+                {Object.entries(modeNames()).filter(([k]) => !parent || (parent.answerMode === "reading" ? !["reading","listening"].includes(k) : parent.answerMode === "listening" ? ["choice","fill_blank","short_answer"].includes(k) : parent.answerMode === "gap_fill" ? k === "fill_blank" : k === "choice")).map(([v, label]) => (
+                  <NativeSelectOption key={v} value={v}>{label}</NativeSelectOption>
+                ))}
+              </NativeSelect>
             </div>
             <div className="space-y-2">
               <Label htmlFor={`${formId}-typeName`}>{t("题型名称")}</Label>
@@ -127,43 +117,35 @@ export function QuestionEditor({
           </label>}
           <EnglishFields question={q} patch={patch}/>
           {q.answerMode === "choice" && (
-            <Select
+            <NativeSelect
+              aria-label={t("选择题类型")}
               disabled={!!parent && ["word_bank","cloze","gap_fill"].includes(parent.answerMode || "")}
               value={q.choiceVariant || "single"}
-              onValueChange={(v) =>
+              onChange={(event) =>
                 patch({
-                  choiceVariant: v as "single" | "multiple",
+                  choiceVariant: event.target.value as "single" | "multiple",
                   answerPayload: null,
                 })
               }
             >
-              <SelectTrigger aria-label={t("选择题类型")}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="single">{t("单选")}</SelectItem>
-                <SelectItem value="multiple">{t("多选")}</SelectItem>
-              </SelectContent>
-            </Select>
+              <NativeSelectOption value="single">{t("单选")}</NativeSelectOption>
+              <NativeSelectOption value="multiple">{t("多选")}</NativeSelectOption>
+            </NativeSelect>
           )}
           {q.answerMode === "matching" && (
-            <Select
+            <NativeSelect
+              aria-label={t("匹配类型")}
               value={q.matchingVariant || "one_to_one"}
-              onValueChange={(v) =>
+              onChange={(event) =>
                 patch({
-                  matchingVariant: v as "one_to_one" | "many_to_one",
+                  matchingVariant: event.target.value as "one_to_one" | "many_to_one",
                   answerPayload: null,
                 })
               }
             >
-              <SelectTrigger aria-label={t("匹配类型")}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="one_to_one">{t("一对一匹配")}</SelectItem>
-                <SelectItem value="many_to_one">{t("多对一匹配")}</SelectItem>
-              </SelectContent>
-            </Select>
+              <NativeSelectOption value="one_to_one">{t("一对一匹配")}</NativeSelectOption>
+              <NativeSelectOption value="many_to_one">{t("多对一匹配")}</NativeSelectOption>
+            </NativeSelect>
           )}
           <div className="space-y-2">
             <Label htmlFor={`${formId}-stem`}>{t("题干（支持 Markdown 和公式）")}</Label>

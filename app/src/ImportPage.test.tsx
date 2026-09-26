@@ -80,8 +80,6 @@ it("keeps ZIP import usable without models and preserves the destination bank", 
       case "sessions_page": return {items:[],total:0,offset:0} as never;
       case "unfinished_session": return null as never;
       case "questions_page": return {items:[],total:0,offset:0} as never;
-      case "questions":
-        return [] as never;
       case "info":
         return { version: "test", dataDirectory: "/tmp/test" } as never;
       case "settings": return { config: {}, hasApiKey: false } as never;
@@ -130,9 +128,8 @@ it("keeps ZIP import usable without models and preserves the destination bank", 
   await userEvent.click(await screen.findByRole("menuitem",{name:"导入题库 ZIP"}));
   const dialog = await screen.findByRole("dialog");
   expect(screen.queryByRole("button", {name:"选择图片资源根目录"})).toBeNull();
-  expect(within(dialog).getByRole("combobox", { name: "导入到" }).textContent).toContain("新建题库");
-  await userEvent.click(within(dialog).getByRole("combobox", {name:"导入到"}));
-  await userEvent.click(await screen.findByRole("option",{name:"现有题库"}));
+  expect((within(dialog).getByRole("combobox", { name: "导入到" }) as HTMLSelectElement).value).toBe("new");
+  await userEvent.selectOptions(within(dialog).getByRole("combobox", {name:"导入到"}), "bank-1");
   await waitFor(() =>
     expect(
       within(dialog)
@@ -295,7 +292,7 @@ it("guides an empty library to import without requiring AI settings", async () =
 });
 
 it("keeps model fields on a secondary settings page and refreshes the summary after saving", async () => {
-  let settings = {config:{base_url:"https://example.com/v1",model_id:"",oss_url:null},hasApiKey:true};
+  let settings = {config:{base_url:"https://example.com/v1",model_id:""},hasApiKey:true};
   vi.mocked(api).mockImplementation(async r => {
     if (r.type === "banks_page") return {items:[],total:0,offset:0} as never;
     if (r.type === "unfinished_session") return null as never;
@@ -324,7 +321,7 @@ it("keeps model fields on a secondary settings page and refreshes the summary af
 });
 
 it("autosaves model setup and returns to the original import destination", async () => {
-  let settings = {config:{base_url:"https://example.com/v1",model_id:null as string|null,oss_url:null},hasApiKey:true};
+  let settings = {config:{base_url:"https://example.com/v1",model_id:null as string|null},hasApiKey:true};
   vi.mocked(api).mockImplementation(async r => {
     if (r.type === "banks_page") return {items:[{id:"bank",title:"追加目标",count:0,description:""}],total:1,offset:0} as never;
     if (r.type === "unfinished_session") return null as never;
@@ -352,7 +349,7 @@ it("autosaves model setup and returns to the original import destination", async
   await userEvent.click(await screen.findByRole("button",{name:"设置"}));
   await userEvent.click(await screen.findByRole("button",{name:"恢复备份"}));
   await userEvent.click(await screen.findByRole("menuitem",{name:"导入题库 ZIP"}));
-  expect(within(await screen.findByRole("dialog")).getByRole("combobox").textContent).toContain("新建题库");
+  expect((within(await screen.findByRole("dialog")).getByRole("combobox") as HTMLSelectElement).value).toBe("new");
   expect(vi.mocked(invoke).mock.calls.some(([,a]) => (a as {request:{type:string}}).request.type === "pick_document")).toBe(false);
 });
 

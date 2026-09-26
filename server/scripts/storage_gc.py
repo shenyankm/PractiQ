@@ -11,13 +11,11 @@ from tempfile import NamedTemporaryFile
 from typing import Any
 from uuid import uuid4
 
-import alibabacloud_oss_v2 as oss
-
 from practiq_ai.config import load
 from practiq_ai.database import Database
 from practiq_ai.execution import TTL_MINUTES
 from practiq_ai.manage import exclusive
-from practiq_ai.storage import ObjectStore, OSSObjectStore, get_object_store
+from practiq_ai.storage import ObjectStore, get_object_store
 
 KEY = re.compile(r"^practiq-agent/(?:sources|artifacts)/([0-9a-f]{64})/")
 
@@ -52,21 +50,6 @@ async def live_sources(db: Database) -> set[str]:
 
 def inventory(store: ObjectStore) -> list[dict[str, Any]]:
     items = []
-    if isinstance(store, OSSObjectStore):
-        token = None
-        while True:
-            page = store.client.list_objects_v2(oss.ListObjectsV2Request(
-                bucket=store._config.oss_bucket, prefix="practiq-agent/", continuation_token=token))
-            for item in page.contents or []:
-                if item.key and KEY.match(item.key):
-                    if item.last_modified is None or item.size is None or item.etag is None:
-                        raise RuntimeError("Object metadata is incomplete")
-                    items.append({"key": item.key, "modified": item.last_modified.timestamp(), "size": item.size, "identity": item.etag})
-            if not page.is_truncated:
-                return items
-            if not page.next_continuation_token or page.next_continuation_token == token:
-                raise RuntimeError("Object pagination did not advance")
-            token = page.next_continuation_token
     prefix = store.root / "practiq-agent"
     if prefix.is_symlink():
         raise ValueError("Refusing symlinked storage")
@@ -91,21 +74,13 @@ def quarantine(store: ObjectStore, items: list[dict[str, Any]], run_id: str) -> 
     current = {item["key"]: item for item in inventory(store)}
     if any(current.get(item["key"]) != item for item in items):
         raise RuntimeError("Storage changed since inventory; rescan before cleanup")
-    if isinstance(store, OSSObjectStore):
-        status = store.client.get_bucket_versioning(oss.GetBucketVersioningRequest(bucket=store._config.oss_bucket))
-        if status.version_status != "Enabled":
-            raise ValueError("Recoverable OSS cleanup requires enabled bucket versioning")
-        for item in items:
-            # No version_id: create a delete marker; retained object versions remain recoverable.
-            store.client.delete_object(oss.DeleteObjectRequest(bucket=store._config.oss_bucket, key=item["key"]))
-    else:
-        for item in items:
-            source = store._path(item["key"])
-            target = store.root / ".quarantine" / run_id / item["key"]
-            if any(parent.is_symlink() for parent in (target, *target.parents) if parent.is_relative_to(store.root)):
-                raise ValueError("Refusing symlinked quarantine")
-            target.parent.mkdir(parents=True, exist_ok=True)
-            source.rename(target)
+    for item in items:
+        source = store._path(item["key"])
+        target = store.root / ".quarantine" / run_id / item["key"]
+        if any(parent.is_symlink() for parent in (target, *target.parents) if parent.is_relative_to(store.root)):
+            raise ValueError("Refusing symlinked quarantine")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        source.rename(target)
 
 
 async def run(args: argparse.Namespace) -> dict[str, Any]:
@@ -132,7 +107,7 @@ async def scan(args, db):
     cutoff = (datetime.now(UTC) - timedelta(days=args.retention_days)).timestamp()
     selected = candidates(items, sources, cutoff)
     run_id = str(uuid4())
-    result = {"runId": run_id, "backend": store._config.storage_backend,
+    result = {"runId": run_id, "backend": "local",
               "mode": "quarantine" if args.quarantine else "dry-run", "retentionDays": args.retention_days,
               "objects": len(selected), "bytes": sum(item["size"] for item in selected), "candidates": selected,
               "completed": False}

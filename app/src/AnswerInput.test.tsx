@@ -35,14 +35,12 @@ it("replaces a matching selection for one left item while preserving the others"
   const changed = vi.fn();
   const { rerender } = render(<AnswerInput question={question} value={{ matches: [{ left: 1, right: 0 }] }} onChange={changed} />);
 
-  screen.getByRole("combobox", { name: "匹配 左一" }).focus();
-  await user.keyboard("{Enter}");
-  await user.click(screen.getByRole("option", { name: "右乙" }));
+  expect((screen.getByRole("combobox", { name: "匹配 左一" }) as HTMLSelectElement).value).toBe("");
+  expect(changed).not.toHaveBeenCalled();
+  await user.selectOptions(screen.getByRole("combobox", { name: "匹配 左一" }), "1");
   expect(changed).toHaveBeenCalledWith({ matches: [{ left: 1, right: 0 }, { left: 0, right: 1 }] });
   rerender(<AnswerInput question={question} value={{ matches: [{ left: 1, right: 0 }, { left: 0, right: 1 }] }} onChange={changed} />);
-  screen.getByRole("combobox", { name: "匹配 左一" }).focus();
-  await user.keyboard("{Enter}");
-  await user.click(screen.getByRole("option", { name: "右甲" }));
+  await user.selectOptions(screen.getByRole("combobox", { name: "匹配 左一" }), "0");
   expect(changed).toHaveBeenLastCalledWith({ matches: [{ left: 1, right: 0 }, { left: 0, right: 0 }] });
 });
 
@@ -54,10 +52,8 @@ it("labels unlabeled paragraph choices by position instead of ID", async () => {
     { id: 88, side: "right" as const, content: "Second paragraph" },
   ] };
   render(<AnswerInput question={question} value={null} onChange={() => {}} />);
-  screen.getByRole("combobox", { name: "匹配 Find this paragraph" }).focus();
-  await userEvent.keyboard("{Enter}");
-  expect(screen.getByRole("option", { name: "1" })).toBeTruthy();
-  expect(screen.getByRole("option", { name: "2" })).toBeTruthy();
+  expect(screen.getAllByRole("option", { name: "1" })).toHaveLength(2);
+  expect(screen.getAllByRole("option", { name: "2" })).toHaveLength(2);
 });
 
 it("shows source answers and missing ordering or matching references clearly", () => {
