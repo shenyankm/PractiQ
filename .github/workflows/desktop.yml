@@ -95,7 +95,7 @@ jobs:
         shell: pwsh
         run: |
           $installer = (Get-ChildItem app/src-tauri/target/release/bundle/nsis/*-setup.exe)[0]
-          $destination = "$env:RUNNER_TEMP/PractiQ"
+          $destination = Join-Path $env:RUNNER_TEMP 'PractiQ'
           $process = Start-Process -FilePath $installer.FullName -ArgumentList '/S', "/D=$destination" -Wait -PassThru
           if ($process.ExitCode -ne 0) { throw "Installer failed: $($process.ExitCode)" }
           python app/scripts/check-bundle.py --bundle "$destination/bundled"
