@@ -1,5 +1,5 @@
 name: Feature request
-description: Propose an AI import or engineering improvement for PractiQ
+description: Propose an improvement to PractiQ's desktop app, AI service, or development workflow
 title: "[Feature]: "
 labels:
   - enhancement
@@ -7,7 +7,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Search [existing issues](https://github.com/shenyankm/PractiQ/issues) and review the relevant AI documentation before proposing a feature. Describe the need before prescribing an implementation.
+        Search [existing issues](https://github.com/shenyankm/PractiQ/issues) and review the relevant sections of [README.md](https://github.com/shenyankm/PractiQ/blob/main/README.md) before proposing a feature. Describe the need before prescribing an implementation.
 
   - type: checkboxes
     id: preflight
@@ -16,7 +16,7 @@ body:
       options:
         - label: I searched existing issues and found no duplicate.
           required: true
-        - label: I reviewed the relevant sections of `README.md` and architecture documentation.
+        - label: I reviewed the relevant sections of `README.md`.
           required: true
 
   - type: dropdown
@@ -52,7 +52,7 @@ body:
     id: proposal
     attributes:
       label: Proposed approach
-      description: Describe an implementation only if you have one. Keep document import in `server/` and reuse existing graphs and extractors.
+      description: Describe an implementation only if you have one. For technical proposals, consult AGENTS.md and the relevant architecture documentation, and reuse existing components. Document parsing and explicit AI grading belong in the existing service; practice remains offline.
 
   - type: textarea
     id: impact
