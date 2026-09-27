@@ -531,46 +531,40 @@ mod tests {
         assert!(!fields.iter().any(|s| s.contains("key")));
     }
     #[test]
-    fn preserves_unused_oss_settings_in_old_backups() {
+    fn removes_oss_settings_from_existing_databases_and_backups() {
         let dir = tempfile::tempdir().unwrap();
-        let store = Store::new(dir.path().to_owned()).unwrap();
-        let legacy = "https://bucket.example.com";
-        store
-            .connect()
-            .unwrap()
-            .execute("UPDATE settings SET oss_url=?1", [legacy])
-            .unwrap();
-        assert_eq!(
-            serde_json::to_value(store.connection_settings().unwrap()).unwrap(),
-            json!({"base_url":null,"model_id":null})
-        );
-        store
-            .save_settings(
-                "test",
-                ConnectionSettings {
-                    model_id: Some("demo".into()),
-                    ..Default::default()
-                },
-                None,
+        let store = Store::new(dir.path().join("source")).unwrap();
+        let has_oss = |db: &rusqlite::Connection| {
+            db.query_row(
+                "SELECT EXISTS(SELECT 1 FROM pragma_table_info('settings') WHERE name='oss_url')",
+                [],
+                |row| row.get::<_, bool>(0),
             )
-            .unwrap();
+            .unwrap()
+        };
+        assert!(!has_oss(&store.connect().unwrap()));
+        // Recreate the historical schema, including its original column order.
+        let db = rusqlite::Connection::open(store.db_path()).unwrap();
+        db.execute_batch(
+            "DROP TABLE settings;
+             CREATE TABLE settings(id INTEGER PRIMARY KEY CHECK(id=1),base_url TEXT,model_id TEXT,oss_url TEXT,locale TEXT CHECK(locale IS NULL OR locale IN('zh-CN','en')), libreoffice_path TEXT);
+             INSERT INTO settings VALUES(1,NULL,'demo','https://bucket.example.com','en',NULL);",
+        )
+        .unwrap();
+        drop(db);
+        assert!(!has_oss(&store.connect().unwrap()));
+        assert_eq!(
+            store.connection_settings().unwrap().model_id.as_deref(),
+            Some("demo")
+        );
         let archive = dir.path().join("backup.zip");
         store.backup(&archive).unwrap();
-        let restored_dir = tempfile::tempdir().unwrap();
-        let mut restored = Store::new(restored_dir.path().to_owned()).unwrap();
+        let mut restored = Store::new(dir.path().join("restored")).unwrap();
         restored.restore(&archive).unwrap();
+        assert!(!has_oss(&restored.connect().unwrap()));
         assert_eq!(
             restored.connection_settings().unwrap().model_id.as_deref(),
             Some("demo")
-        );
-        assert_eq!(
-            restored
-                .connect()
-                .unwrap()
-                .query_row("SELECT oss_url FROM settings", [], |row| row
-                    .get::<_, String>(0))
-                .unwrap(),
-            legacy
         );
     }
     #[test]

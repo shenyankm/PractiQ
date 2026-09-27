@@ -187,6 +187,17 @@ impl Store {
         if !db.query_row("SELECT EXISTS(SELECT 1 FROM pragma_table_info('settings') WHERE name='libreoffice_path')", [], |r| r.get::<_, bool>(0)).map_err(err)? {
             db.execute_batch("ALTER TABLE settings ADD COLUMN libreoffice_path TEXT;").map_err(err)?;
         }
+        if db
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM pragma_table_info('settings') WHERE name='oss_url')",
+                [],
+                |r| r.get::<_, bool>(0),
+            )
+            .map_err(err)?
+        {
+            db.execute_batch("ALTER TABLE settings DROP COLUMN oss_url;")
+                .map_err(err)?;
+        }
         for (_, sql) in crate::questions::READ_INDEXES {
             db.execute_batch(sql).map_err(err)?;
         }
