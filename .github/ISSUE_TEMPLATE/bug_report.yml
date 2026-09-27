@@ -44,7 +44,7 @@ body:
     id: reproduction
     attributes:
       label: How can we reproduce it?
-      description: List the smallest sequence that reproduces the problem, including relevant inputs.
+      description: List the smallest sequence that reproduces the problem. For import issues, distinguish source-document parsing, bank ZIP import, and full backup restoration. Include file format, size, page count where applicable, and a sanitized minimal sample if available.
       placeholder: |
         1. Start…
         2. Open…
@@ -64,19 +64,20 @@ body:
     id: environment
     attributes:
       label: Environment
-      description: Include the commit, operating system, runtime versions, desktop app version, and deployment mode when relevant.
+      description: Include the app version or commit, OS version and CPU architecture, and how you run PractiQ. Runtime versions are only needed for development or independent-service issues. Use N/A for unrelated fields or explain unknown values.
       placeholder: |
-        Commit:
-        OS:
-        Python/Node version:
-        Desktop app version:
-        Local, staging, or production:
+        App version or commit:
+        OS version and CPU architecture:
+        Installed desktop app, desktop from source, or independent AI service:
+        Python/Node/Rust versions (if relevant):
+    validations:
+      required: true
 
   - type: textarea
     id: evidence
     attributes:
       label: Logs, screenshots, or other evidence
-      description: Add sanitized logs, request IDs, screenshots, or recordings. Remove tokens, API keys, personal data, and private document content.
+      description: Add sanitized logs, screenshots, or recordings. For parsing or grading issues, include the task/request ID, error code, model ID, and failing stage when available. For result-quality issues, show a specific expected-versus-actual example. Remove tokens, API keys, personal data, and private document content; a full private document is not required.
 
   - type: textarea
     id: context
