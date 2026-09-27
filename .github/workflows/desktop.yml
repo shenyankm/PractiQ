@@ -102,6 +102,10 @@ jobs:
       - name: Verify packaged Linux service
         if: runner.os == 'Linux'
         run: |
+          dependencies="$(dpkg-deb -f app/src-tauri/target/release/bundle/deb/*.deb Depends)"
+          for dependency in libwebkit2gtk-4.1-0 libgtk-3-0; do
+            printf '%s\n' "$dependencies" | tr ',' '\n' | sed 's/^ *//' | grep -Fx "$dependency"
+          done
           dpkg-deb -x app/src-tauri/target/release/bundle/deb/*.deb "$RUNNER_TEMP/practiq-package"
           python app/scripts/check-bundle.py --bundle "$RUNNER_TEMP/practiq-package/usr/lib/PractiQ/bundled"
       - uses: actions/upload-artifact@v4
