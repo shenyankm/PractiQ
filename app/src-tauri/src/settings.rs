@@ -168,6 +168,27 @@ pub fn snapshot(shared: &crate::Shared) -> Result<Store> {
         staged_audio: Default::default(),
     })
 }
+/// Read SQLite under the restore mutex, then release it before credential UI.
+pub fn settings(shared: &crate::Shared, service: &str) -> Result<Value> {
+    settings_with(shared, |base| secret(&entry(service, base)?))
+}
+fn settings_with(
+    shared: &crate::Shared,
+    read: impl FnOnce(&str) -> Result<Option<String>>,
+) -> Result<Value> {
+    let config = shared
+        .lock()
+        .map_err(|_| crate::language::error("LOCAL_DATABASE_UNAVAILABLE", json!({})))?
+        .connection_settings()?;
+    let configured = config
+        .base_url
+        .as_deref()
+        .map(read)
+        .transpose()?
+        .flatten()
+        .is_some();
+    Ok(json!({"config":config,"hasApiKey":configured}))
+}
 impl Store {
     pub fn connection_test_input(
         &self,
@@ -209,20 +230,6 @@ impl Store {
                 },
             )
             .map_err(|e| crate::AppError::from(e.to_string()))
-    }
-    pub fn settings(&self, service: &str) -> Result<Value> {
-        self.settings_with(|base| secret(&entry(service, base)?))
-    }
-    fn settings_with(&self, read: impl FnOnce(&str) -> Result<Option<String>>) -> Result<Value> {
-        let config = self.connection_settings()?;
-        let configured = config
-            .base_url
-            .as_deref()
-            .map(read)
-            .transpose()?
-            .flatten()
-            .is_some();
-        Ok(json!({"config":config,"hasApiKey":configured}))
     }
     pub fn save_settings(
         &self,
@@ -284,6 +291,43 @@ impl Store {
 mod tests {
     use super::*;
     #[test]
+    fn settings_read_waits_for_restore_to_release_the_store() {
+        use std::sync::{mpsc, Arc, Mutex};
+        use std::time::Duration;
+        let dir = tempfile::tempdir().unwrap();
+        let source = Store::new(dir.path().join("source")).unwrap();
+        source
+            .connect()
+            .unwrap()
+            .execute("UPDATE settings SET model_id='restored'", [])
+            .unwrap();
+        let archive = dir.path().join("backup.zip");
+        source.backup(&archive).unwrap();
+        let shared = Arc::new(Mutex::new(Store::new(dir.path().join("live")).unwrap()));
+        let mut store = shared.lock().unwrap();
+        let reader = shared.clone();
+        let (started, ready) = mpsc::channel();
+        let (finished, result) = mpsc::channel();
+        let worker = std::thread::spawn(move || {
+            started.send(()).unwrap();
+            finished.send(settings(&reader, "test")).unwrap();
+        });
+        ready.recv_timeout(Duration::from_secs(5)).unwrap();
+        assert!(matches!(
+            result.recv_timeout(Duration::from_millis(100)),
+            Err(mpsc::RecvTimeoutError::Timeout)
+        ));
+        store.restore(&archive).unwrap();
+        drop(store);
+        let value = result
+            .recv_timeout(Duration::from_secs(5))
+            .unwrap()
+            .unwrap();
+        assert_eq!(value["config"]["model_id"], "restored");
+        assert_eq!(value["hasApiKey"], false);
+        worker.join().unwrap();
+    }
+    #[test]
     fn waiting_for_credentials_does_not_hold_the_offline_store_or_database() {
         use std::sync::{mpsc, Arc, Mutex};
         let dir = tempfile::tempdir().unwrap();
@@ -297,11 +341,11 @@ mod tests {
             )
             .unwrap();
         let shared = Arc::new(Mutex::new(store));
-        let detached = snapshot(&shared).unwrap();
+        let reader = shared.clone();
         let (waiting, started) = mpsc::channel();
         let (release, resumed) = mpsc::channel();
         let worker = std::thread::spawn(move || {
-            detached.settings_with(|_| {
+            settings_with(&reader, |_| {
                 waiting.send(()).unwrap();
                 resumed
                     .recv_timeout(std::time::Duration::from_secs(5))
