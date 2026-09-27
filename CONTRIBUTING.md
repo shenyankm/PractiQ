@@ -1,77 +1,47 @@
 # Contribute to PractiQ
 
-Use this guide to prepare and validate a focused pull request. Read the [repository rules](AGENTS.md) for application boundaries and the [README](README.md) for setup.
+Use this guide to prepare a focused change to the offline desktop app or its AI service. Follow [AGENTS.md](AGENTS.md) for architecture and coding rules, and [README.md](README.md) for setup and platform-specific commands.
 
 ## Choose a change
 
-Open an issue before starting a feature, architecture change, new dependency, or public API change. Scoped bug fixes and documentation corrections may go directly to a pull request. Write issue and pull request titles and descriptions in English.
+Open an issue before starting a feature, architecture change, new dependency, or public API change. Scoped bug fixes and documentation corrections may go directly to a pull request.
 
-Issues must use the applicable [issue template](.github/ISSUE_TEMPLATE/), and pull requests must use the [pull request template](.github/PULL_REQUEST_TEMPLATE.md), whether submitted through the GitHub UI, CLI, or API. Preserve the template fields and sections; for CLI or API issues, use the form field labels as body headings. Complete required fields, explain non-applicable items, and mark checklist items complete only when verified.
+Write issue and pull request titles and descriptions in English. Use the applicable [issue template](.github/ISSUE_TEMPLATE/) and [pull request template](.github/PULL_REQUEST_TEMPLATE.md), including submissions through the CLI or API. Preserve all fields and sections; use issue form labels as body headings for CLI or API submissions. Complete required fields, explain non-applicable items, and only mark verified checklist items complete.
 
-When making changes:
+## Make the change
 
-- Preserve the boundaries and module conventions in `AGENTS.md`.
-- Reuse existing code and dependencies before adding abstractions or packages.
-- Add a focused regression test for behavior changes.
-- Update documentation, contracts, and `.env.example` when the change affects them.
+Keep each change focused:
+
+- Reuse existing code, components, and dependencies.
+- Add a focused regression test for each behavior change.
+- Update affected documentation, contracts, and `.env.example`.
 - Write project documentation in English, except `README.zh-CN.md`. Preserve source-language examples, quoted UI labels, and archived evaluation evidence.
-- Keep secrets, personal data, production data, and generated output out of Git.
+- For frontend copy, use Simplified Chinese message keys and add English translations to `app/src/locales/en.ts`.
+- Keep secrets, personal data, local databases, and generated build output out of Git. Never put API keys in SQLite, logs, fixtures, or backups.
 
-Frontend message keys are the Simplified Chinese source text; add their English translations to `app/src/locales/en.ts`. Reuse `NativeSelect` for plain-text option lists. Desktop connection settings expose only `base_url` and `model_id`; the unused `oss_url` SQLite column is removed when opening existing databases or restoring old backups.
+## Validate the change
 
-## Check the affected code
+Run checks from the repository root. Use an existing Python 3.14+ interpreter, select it with `AI_PYTHON=/path/to/python3.14`, and do not create a project `.venv`. Install locked dependencies with `make install-locked AI_PYTHON=/path/to/python3.14` and `make app-install` as needed.
 
-Run commands from the repository root with an existing Python 3.14+ interpreter. Use `AI_PYTHON` to select it; do not create a project `.venv`. Install locked dependencies with `make install-locked AI_PYTHON=/path/to/python3.14`.
-
-Choose checks for the affected area:
+Choose checks for the affected area; append `AI_PYTHON=/path/to/python3.14` to Python-dependent Make commands:
 
 | Change | Checks |
 | --- | --- |
-| AI service | `make verify AI_PYTHON=/path/to/python3.14` |
-| Locked dependencies | `make audit AI_PYTHON=/path/to/python3.14` (requires network access) |
-| Service image | `make image-check` (requires Docker; does not publish) |
-| Desktop | `make app-check AI_PYTHON=/path/to/python3.14` and `make app-package-check AI_PYTHON=/path/to/python3.14` on macOS |
-| Documentation | Check claims against source, validate local links, and check command syntax |
+| AI service | `make verify` (lockfile, lint, types, fixtures, tests with 90% coverage, recovery probes, package build) |
+| Locked dependencies | `make audit` (network required) |
+| Service image | `make image-check` (Docker required; does not publish) |
+| Desktop | `make app-check` and `make app-package-check` on macOS or Linux; see the [desktop CI workflow](.github/workflows/desktop.yml) for Windows checks |
+| Desktop UI | Also run `npm --prefix app run test:browser`; see [README.md](README.md) for Chromium setup |
+| Documentation | Verify claims against source, local links, and command syntax |
 
-`make test` runs the AI test suite during development. `make verify` checks the lockfile, lint, types, evaluation fixtures, tests with 90% coverage, recovery probes, and package builds. Tests use model substitutes; they do not establish extraction or grading accuracy. See the [evaluation guide](server/docs/evaluation.md) for separate live-model checks.
-
-Run `make test-e2e AI_PYTHON=/path/to/python3.14` for the service HTTP workflows and native offline exam/backup workflow. These tests use temporary data directories and a loopback synthetic provider; they do not use configured API keys. Service checks cover upload, extraction, verified artifacts, review acceptance, grading, idempotency and restart persistence. The native workflow restores a backup into an empty installation and verifies scores, images and immutable history. These are service/native integration checks, not automated Tauri window or file-picker tests. They also run in the normal `make verify` and `make app-check` suites.
-
-Coverage includes Python subprocesses. `make verify` erases previous coverage data and combines the current run before generating reports, including when tests fail. For manual coverage runs, run `coverage combine` before `coverage report`.
-
-`make app-check` checks shared Python/Rust contracts, TypeScript, frontend interactions, native integration tests, and Clippy across all targets, including test code. `make app-package-check` builds the native macOS or Linux package and runs `app/scripts/check-bundle.py` against its bundled service. Use isolated application data for native UI acceptance.
-
-Run `npm --prefix app run test:browser` for bilingual navigation, import entry points, focus and layout checks in Chromium. The script starts Vite on an available loopback port, so it can run alongside `make app-dev`. Native commands are mocked; it does not call models or exercise native file pickers.
-
-The native credential-store round-trip test uses and removes its own temporary credential. Run it explicitly on the target OS (Linux requires an unlocked Secret Service session):
-
-```sh
-cargo test --manifest-path app/src-tauri/Cargo.toml \
-  native_keychain_roundtrip -- --ignored
-```
-
-Never put API keys in SQLite, logs, fixtures, or backups.
-
-## Understand the CI coverage
-
-Continuous integration (CI) runs service verification, dependency auditing, and image builds. It retains available service check reports from `server/reports/checks/` for 14 days, including after failures.
-
-Desktop CI covers macOS, Windows and Linux source and contract checks, frontend builds and tests, Rust formatting, native storage and backup tests, and Clippy. Each platform builds its native Python bundle and checks the packaged service. Windows and Linux also exercise their native credential stores. Windows produces an NSIS installer; Linux produces a Debian package on Ubuntu 22.04. Interactive desktop acceptance, audio playback and release signing remain separate checks.
-
-Source checks override the Tauri resource list so a clean checkout needs no prebuilt Python bundle. Package builds require the bundle. Make resolves `AI_PYTHON` names through `PATH` before invoking uv, so CI can select its interpreter with `AI_PYTHON=python`.
+Automated checks use model substitutes; they do not establish extraction or grading accuracy. See the [evaluation guide](server/docs/evaluation.md) for live-model checks. Browser checks mock native commands. Validate affected native interactions, credential storage, and audio playback on the target OS using isolated test data. Report untested platforms and flows in the pull request.
 
 ## Submit a pull request
 
-Use a focused [Conventional Commit](https://www.conventionalcommits.org/) subject, such as `fix(server): reject oversized image payloads`. Explain the problem and resulting behavior in the pull request description, including:
+Use Conventional Commits for commit messages and pull request titles, following [AGENTS.md](AGENTS.md#commit-conventions), for example `fix(server): reject oversized image payloads`.
 
-- Affected application boundaries
-- Commands run and their results
-- Schema, configuration, security, or deployment impact
-- A linked issue when applicable
-- AI assistance used to prepare the change, when applicable
-
-Before requesting review, remove unrelated and generated files and inspect the diff for secrets or personal data. All changes require review before merge.
+Complete the pull request template with the problem, resulting behavior, linked issue when applicable, checks and results, and migration, configuration, or security impact. Disclose AI assistance when used. Before requesting review, inspect the diff for unrelated changes, generated files, secrets, and personal data. All changes require review before merge.
 
 ## Report security issues privately
 
-Do not publish credentials, personal data, or working exploit details in a public issue. Use GitHub private vulnerability reporting when available, or contact a maintainer privately.
+Do not include credentials, personal data, or working exploit details in public issues. Use GitHub private vulnerability reporting when available, or contact a maintainer privately.
