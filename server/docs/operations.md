@@ -33,7 +33,7 @@ Keep matching database, file, and configuration backups:
 
 ### Upgrade after OSS removal
 
-Storage now uses local files only. The OSS SDK, credential configuration, and cloud cleanup logic have been removed. Old `AI_STORAGE_BACKEND=oss` settings fail explicitly. An unset variable or the value `local` selects local storage. The historical `.local/ai-oss` directory name prevents existing local files from becoming inaccessible. The desktop's old `oss_url` column remains for backup compatibility but is not read or written as connection configuration.
+Storage now uses local files only. The OSS SDK, credential configuration, and cloud cleanup logic have been removed. Old `AI_STORAGE_BACKEND=oss` settings fail explicitly. An unset variable or the value `local` selects local storage. The historical `.local/ai-oss` directory name prevents existing local files from becoming inaccessible. The desktop removes the unused `oss_url` column when opening existing databases or restoring old backups; new databases and backups omit it.
 
 On old OSS deployments, finish unfinished tasks with the original version, stop the service, and back up. Manually copy source and derived files to a persistent local directory using their original objectKeys. Verify sizes and SHA-256, set an absolute `AI_STORAGE_DIR`, remove `AI_STORAGE_BACKEND` and `AI_OSS_*`, and create new tasks with the new version. Do not resume old tasks after execution fingerprints change. Keep the old deployment, bucket, database, and configuration for rollback. Upgraded code does not access or delete cloud files.
 

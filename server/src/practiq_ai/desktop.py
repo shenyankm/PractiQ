@@ -8,13 +8,17 @@ import threading
 
 
 def main():
+    if sys.argv[1:] == ['office']:
+        from .office import main as office
+        office()
+        return
     if sys.argv[1:2] == ['extract']:
         sys.argv = [sys.argv[0], *sys.argv[2:]]
         from .extractors.isolated import main as extract
         extract()
         return
     if sys.argv[1:] != ['serve']:
-        raise SystemExit('Expected serve or extract')
+        raise SystemExit('Expected serve, extract or office')
     # Credentials never appear in argv, stdout or persisted configuration.
     raw = sys.stdin.buffer.readline(65537)
     if len(raw) > 65536:

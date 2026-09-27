@@ -243,7 +243,7 @@ def test_e2e_rejected_uploads_never_queue_work(service):
 
 
 @pytest.mark.parametrize(("args", "bootstrap", "message"), [
-    ([], "", "Expected serve or extract"),
+    ([], "", "Expected serve, extract or office"),
     (["serve"], "{}\n", "Invalid bootstrap"),
     (["serve"], "[]\n", "Invalid bootstrap"),
     (["serve"], "x" * 65537, "Bootstrap too large"),

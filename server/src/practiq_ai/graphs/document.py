@@ -977,7 +977,7 @@ async def _review(state: DocumentState, *, phase: str) -> dict[str, Any]:
     if state.get("failurePolicy") != "review" or not (failures or quality_issues):
         return {"nextStage": next_stage, "phase": phase}
     can_accept = (
-        bool(state.get("textRef") or any(item.get("parsed", {}).get("questions") for item in state.get("visionResults", [])))
+        bool((state.get("textRef") and not state.get("pageRefs")) or any((item.get("parsed") or {}).get("questions") for item in state.get("visionResults", [])))
         if phase == "vision" else any(item.get("parsed", {}).get("questions") for item in state.get("chunkResults", []) if item.get("parsed"))
     )
     if phase == "result":

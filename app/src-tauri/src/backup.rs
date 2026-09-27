@@ -50,6 +50,9 @@ impl Store {
         // In-flight model requests are task state, not portable practice history.
         db.execute("DELETE FROM grade_requests WHERE response IS NULL", [])
             .map_err(err)?;
+        // Executable preferences are machine-specific; backups must never authorize programs.
+        db.execute("UPDATE settings SET libreoffice_path=NULL", [])
+            .map_err(err)?;
         let (database_size, database_hash) = file_digest(&snapshot)?;
         let assets=db.prepare("SELECT hash,media,size,path FROM assets ORDER BY hash").map_err(err)?.query_map([],|r| Ok(json!({"sha256":r.get::<_,String>(0)?,"mediaType":r.get::<_,String>(1)?,"sizeBytes":r.get::<_,u64>(2)?,"file":r.get::<_,String>(3)?}))).map_err(err)?.collect::<std::result::Result<Vec<_>,_>>().map_err(err)?;
         let version: i64 = db
@@ -260,6 +263,8 @@ impl Store {
         }
         // Upgrade only the validated staging database, never the live database.
         let db = staged.connect()?;
+        db.execute("UPDATE settings SET libreoffice_path=NULL", [])
+            .map_err(err)?;
         let rows = db
             .prepare("SELECT hash,media,size,path FROM assets")
             .map_err(err)?
@@ -415,6 +420,22 @@ fn validate_database(path: &Path) -> Result<i64> {
     {
         // Validate an older backup before its staging database gains activity timestamps.
         expected_schema = expected_schema.replace(", last_active_at INTEGER", "");
+    }
+    if !db.query_row("SELECT EXISTS(SELECT 1 FROM pragma_table_info('settings') WHERE name='libreoffice_path')", [], |r| r.get::<_, bool>(0)).map_err(err)? {
+        expected_schema = expected_schema.replace(", libreoffice_path TEXT", "").replace("VALUES(1,NULL,NULL,NULL,NULL)", "VALUES(1,NULL,NULL,NULL)");
+    }
+    if db
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM pragma_table_info('settings') WHERE name='oss_url')",
+            [],
+            |r| r.get::<_, bool>(0),
+        )
+        .map_err(err)?
+    {
+        // Validate the original backup before removing its unused column in staging.
+        expected_schema = expected_schema
+            .replace("model_id TEXT,", "model_id TEXT,oss_url TEXT,")
+            .replace("VALUES(1,NULL,", "VALUES(1,NULL,NULL,");
     }
     expected.execute_batch(&expected_schema).map_err(err)?;
     // Older backups may omit these optional indexes. Existing definitions must match exactly.
@@ -590,6 +611,51 @@ mod tests {
         db.execute_batch("DROP INDEX visuals_bank; CREATE INDEX visuals_bank ON visuals(content)")
             .unwrap();
         assert!(validate_database(&path).is_err());
+    }
+    #[test]
+    fn restores_old_oss_backups_without_retaining_the_column() {
+        for office_column in [false, true] {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("old.sqlite");
+            let db = Connection::open(&path).unwrap();
+            let mut schema = include_str!("schema.sql")
+                .replace("model_id TEXT,", "model_id TEXT,oss_url TEXT,")
+                .replace("VALUES(1,NULL,", "VALUES(1,NULL,NULL,");
+            if !office_column {
+                schema = schema.replace(", libreoffice_path TEXT", "").replace(
+                    "VALUES(1,NULL,NULL,NULL,NULL,NULL)",
+                    "VALUES(1,NULL,NULL,NULL,NULL)",
+                );
+            }
+            db.execute_batch(&schema).unwrap();
+            db.execute_batch("UPDATE settings SET model_id='demo',locale='en',oss_url='https://bucket.example.com'").unwrap();
+            drop(db);
+            let (size, digest) = file_digest(&path).unwrap();
+            let archive = dir.path().join("old.zip");
+            let mut zip = ZipWriter::new(fs::File::create(&archive).unwrap());
+            zip.start_file("manifest.json", SimpleFileOptions::default())
+                .unwrap();
+            let manifest = json!({"format":"practiq-backup","version":4,"schemaVersion":10,"database":{"file":"practiq.sqlite","sha256":digest,"sizeBytes":size},"assets":[]});
+            zip.write_all(&serde_json::to_vec(&manifest).unwrap())
+                .unwrap();
+            zip.start_file("practiq.sqlite", SimpleFileOptions::default())
+                .unwrap();
+            zip.write_all(&fs::read(&path).unwrap()).unwrap();
+            zip.finish().unwrap();
+            let mut store = Store::new(dir.path().join("restored")).unwrap();
+            store.restore(&archive).unwrap();
+            let db = store.connect().unwrap();
+            assert!(!db.query_row("SELECT EXISTS(SELECT 1 FROM pragma_table_info('settings') WHERE name='oss_url')", [], |r| r.get::<_, bool>(0)).unwrap());
+            assert_eq!(
+                db.query_row("SELECT model_id,locale FROM settings", [], |r| Ok((
+                    r.get::<_, String>(0)?,
+                    r.get::<_, String>(1)?
+                )))
+                .unwrap(),
+                ("demo".into(), "en".into())
+            );
+            assert_eq!(validate_database(&store.db_path()).unwrap(), 10);
+        }
     }
     #[test]
     fn rejects_legacy_database_without_upgrading() {

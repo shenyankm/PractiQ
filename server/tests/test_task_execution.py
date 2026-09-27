@@ -142,6 +142,18 @@ async def test_no_partial_acceptance_when_every_unit_failed(monkeypatch):
         await graph.ainvoke(Command(resume={"action": "accept_partial"}), config)
 
 
+async def test_source_text_does_not_make_failed_page_results_acceptable(monkeypatch):
+    graph, _, _, reference, _ = setup_graph(monkeypatch, [])
+    monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(text="source evidence", page_images=[make_image()])))
+    monkeypatch.setattr(document, "structured_call", AsyncMock(return_value=(None, [], "OUTPUT_INVALID")))
+    config = run_config()
+    output = await graph.ainvoke({"document": reference, "failurePolicy": "review"}, config)
+    review = output["__interrupt__"][0].value
+    assert review["stage"] == "vision" and not review["canAccept"]
+    with pytest.raises(DocumentProcessingError, match="No acceptable"):
+        await graph.ainvoke(Command(resume={"action": "accept_partial"}), config)
+
+
 async def test_model_result_survives_artifact_write_failure(monkeypatch):
     graph, store, files, reference, model = setup_graph(monkeypatch, [parsed()])
     vision_model = FakeModel(responses=[{**parsed(), "figures": [{"description": "Chart", "bbox": [0, 0, 1, 1]}]}])
@@ -169,9 +181,9 @@ async def test_model_result_survives_artifact_write_failure(monkeypatch):
 
 
 async def test_retry_page_preserves_successes_without_text_model_or_chunks(monkeypatch):
-    graph, _, _, reference, model = setup_graph(monkeypatch, [])
+    graph, _, files, reference, model = setup_graph(monkeypatch, [])
     monkeypatch.setattr(document, "get_model", lambda *args: model)
-    monkeypatch.setattr(document, "extract", AsyncMock(side_effect=lambda *_: ExtractedDocument(text="", page_images=[make_image(), make_image()])))
+    monkeypatch.setattr(document, "extract", AsyncMock(side_effect=lambda *_: ExtractedDocument(text="Office source evidence", page_images=[make_image(), make_image()])))
     calls = Counter()
     fail = True
 
@@ -190,6 +202,7 @@ async def test_retry_page_preserves_successes_without_text_model_or_chunks(monke
     output = await graph.ainvoke({"document": reference, "retry": {"requestId": str(uuid4())}}, config)
     assert calls == Counter({0: 1, 1: 2})
     assert not model.calls
+    assert "text" in files.put_kinds and "chunk" not in files.put_kinds
     assert output["processing"]["chunks"]["total"] == 0
     assert [item["stem"] for item in output["result"]["questions"]] == ["0", "1"]
     assert output["status"] == "SUCCEEDED"

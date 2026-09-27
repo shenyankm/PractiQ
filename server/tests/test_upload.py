@@ -168,7 +168,7 @@ async def test_binary_upload_over_one_mib_uses_source_limit(tmp_path, monkeypatc
         assert response.status_code == 200, response.text
 
 
-@pytest.mark.parametrize("kind", ["xlsx", "xls"])
+@pytest.mark.parametrize("kind", ["xlsx", "xls", "xlsm", "xlsb"])
 async def test_removed_spreadsheet_upload_is_rejected_before_storage(monkeypatch, kind):
     monkeypatch.setattr(webapp, "get_object_store", lambda: pytest.fail("unsupported format reached storage"))
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test",
@@ -180,6 +180,7 @@ async def test_removed_spreadsheet_upload_is_rejected_before_storage(monkeypatch
 
 @pytest.mark.parametrize('kind,media', [
     ('doc', 'application/msword'),
+    ('docm', 'application/vnd.ms-word.document.macroEnabled.12'),
     ('docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'),
 ])
 async def test_word_uploads_and_tasks_are_rejected(kind, media):

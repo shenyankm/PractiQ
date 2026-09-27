@@ -3,6 +3,8 @@ import type { ImportTaskContext } from "./ai-api";
 import { AiTasks } from "./AiTasks";
 import { useEffect, useState } from "react";
 import { api, errorMessage, missingModelSettings, type Preview, type SettingsResult } from "./api";
+import { OfficeTools } from "./OfficeTools";
+import type { OfficeMode } from "./office-api";
 import { Button } from "@/components/ui/button";
 
 export function ImportPage({ busy, run, onPreview, onConfigure, onOpenBank, onOpenZipSettings }: {
@@ -14,6 +16,8 @@ export function ImportPage({ busy, run, onPreview, onConfigure, onOpenBank, onOp
   onOpenZipSettings: () => void;
 }) {
   useI18n();
+  const [officeMode, setOfficeMode] = useState<OfficeMode>("pdf");
+  const [officeBusy, setOfficeBusy] = useState(false);
   const [settings, setSettings] = useState<SettingsResult | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [revision, setRevision] = useState(0);
@@ -30,12 +34,13 @@ export function ImportPage({ busy, run, onPreview, onConfigure, onOpenBank, onOp
   }, [revision]);
   const missing = settings ? missingModelSettings(settings) : [];
   const ready = !!settings && !missing.length;
-  return <AiTasks busy={busy} run={run} onPreview={onPreview} modelsReady={ready} onOpenBank={onOpenBank}>
+  return <AiTasks busy={busy || officeBusy} run={run} onPreview={onPreview} modelsReady={ready} officeMode={officeMode} onOpenBank={onOpenBank}>
         <div className="space-y-2 rounded-lg border p-4 text-sm">
-          <p>{t("从文档解析题目：支持 PDF、TXT、CSV、PNG 和 JPEG。Word 请先导出为 PDF。")}</p>
+          <p>{t("从文档解析题目：支持 PDF、TXT、CSV、PNG 和 JPEG；Word、Excel 通过本机 LibreOffice 转换后导入。")}</p>
           <p className="text-muted-foreground">{t("解析会在确认后调用所配置的模型；查看已有结果和导入 ZIP 无需模型配置。")}</p>
           <Button variant="link" className="h-auto whitespace-normal px-0 text-left" onClick={onOpenZipSettings}>{t("已有题库 ZIP？前往设置导入（追加，不替换学习记录）")}</Button>
         </div>
+        <OfficeTools mode={officeMode} onMode={setOfficeMode} busy={busy} onBusy={setOfficeBusy}/>
         {error ? <div role="alert" className="space-y-2"><p>{errorMessage(error)}</p><Button variant="outline" disabled={busy} onClick={() => setRevision(n => n + 1)}>{t("重试读取配置")}</Button></div>
           : !settings ? <p role="status">{waiting ? t("读取模型配置耗时较长，可能正在等待系统凭据存储响应。不会重复发送请求；你仍可查看已有任务或前往设置导入 ZIP。") : t("正在读取模型配置…")}</p>
           : !ready ? <div className="flex items-center justify-between gap-4 rounded-lg border bg-muted/30 p-4"><div><p className="font-medium">{t("解析新文档前，请配置 AI 模型")}</p><p className="mt-1 text-sm text-muted-foreground">{t("还缺：{0}", { 0: list(missing) })}</p></div><Button disabled={busy} onClick={onConfigure}>{t("配置 AI 模型")}</Button></div>

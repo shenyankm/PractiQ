@@ -1,6 +1,6 @@
 # Verify document extraction and subjective grading
 
-This guide separates document extraction quality, subjective grading samples, and engineering checks. Extraction evaluation covers text, CSV, PDF, and images. Word cases and converter checks have been removed and replaced with input-rejection regressions; the corrupt-file rejection check now uses PDF. Historical DOCX results below and in `server/reports/` describe earlier versions, not current support or quality.
+This guide separates document extraction quality, subjective grading samples, and engineering checks. Service extraction evaluation covers text, CSV, PDF, and images; raw Office upload rejection remains covered. Desktop conversion is evaluated separately using actual locally installed LibreOffice, without model calls: see [Office evaluation](desktop-office.md) and `app/scripts/check-office.py`. Historical DOCX model results below and in `server/reports/` describe earlier parsers, not the quality of the current desktop conversion path.
 
 Use an existing Python 3.14+ environment and run the commands from `server/`.
 

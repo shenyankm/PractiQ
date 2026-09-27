@@ -2,7 +2,7 @@
 
 > Historical record: the current version uses SQLite and no longer parses Excel source files. The scope and validation results below describe the version reviewed at the time.
 
-> Historical report: results, package sizes, hashes, and dependency descriptions apply to the version tested at the time. The current version has removed Word and LibreOffice. The Import page manages AI parsing tasks; bank ZIP import is under Settings → Restore backup. See the [project overview](../../README.md) and [service guide](service-guide.md) for current usage. Historical evidence does not establish acceptance of the current version.
+> Historical report: results, package sizes, hashes, and dependency descriptions apply to the version tested at the time. The current service rejects raw Office uploads; the desktop converts them with locally installed LibreOffice without bundling the suite. The Import page manages AI parsing tasks; bank ZIP import is under Settings → Restore backup. See the [project overview](../../README.md) and [service guide](service-guide.md) for current usage. Historical evidence does not establish acceptance of the current version.
 
 # Detailed code review and improvement recommendations
 

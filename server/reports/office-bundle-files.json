@@ -1,0 +1,6303 @@
+{
+  "measuredAt": "2026-09-28",
+  "platform": "darwin",
+  "architecture": "arm64",
+  "scope": "Python resource logical file sizes; symlinks excluded; baseline is the existing pre-rebuild artifact, not a rebuilt baseline commit",
+  "before": {
+    "files": 983,
+    "bytes": 97270818
+  },
+  "after": {
+    "files": 984,
+    "bytes": 97302759
+  },
+  "officeDependencySavingsBytes": 0,
+  "components": {
+    "Crypto": [
+      2780864,
+      2780864
+    ],
+    "PIL": [
+      11518896,
+      11518896
+    ],
+    "_cffi_backend.cpython-314-darwin.so": [
+      228256,
+      228256
+    ],
+    "aiosqlite-0.22.1.dist-info": [
+      6827,
+      6827
+    ],
+    "annotated_doc-0.0.5.dist-info": [
+      8576,
+      8576
+    ],
+    "annotated_types-0.8.0.dist-info": [
+      16956,
+      16956
+    ],
+    "anyio-4.14.2.dist-info": [
+      14047,
+      14047
+    ],
+    "base_library.zip": [
+      1394119,
+      1394119
+    ],
+    "certifi": [
+      240216,
+      240216
+    ],
+    "certifi-2026.7.22.dist-info": [
+      4691,
+      4691
+    ],
+    "charset_normalizer": [
+      415712,
+      415712
+    ],
+    "charset_normalizer-3.5.1.dist-info": [
+      49316,
+      49316
+    ],
+    "click-8.4.2.dist-info": [
+      5990,
+      5990
+    ],
+    "cryptography": [
+      11770336,
+      11770336
+    ],
+    "cryptography-50.0.1.dist-info": [
+      77014,
+      77014
+    ],
+    "distro-1.9.0.dist-info": [
+      19275,
+      19275
+    ],
+    "fastapi-0.139.0.dist-info": [
+      33610,
+      33610
+    ],
+    "google": [
+      333104,
+      333104
+    ],
+    "h11-0.16.0.dist-info": [
+      10981,
+      10981
+    ],
+    "httpcore-1.0.9.dist-info": [
+      26259,
+      26259
+    ],
+    "httpcore2-2.13.0.dist-info": [
+      30995,
+      30995
+    ],
+    "httptools": [
+      335120,
+      335120
+    ],
+    "httpx-0.28.1.dist-info": [
+      11155,
+      11155
+    ],
+    "httpx2-2.13.0.dist-info": [
+      14815,
+      14815
+    ],
+    "idna-3.18.dist-info": [
+      9190,
+      9190
+    ],
+    "jiter": [
+      727376,
+      727376
+    ],
+    "jiter-0.16.0.dist-info": [
+      50968,
+      50968
+    ],
+    "jsonpatch-1.33.dist-info": [
+      5606,
+      5606
+    ],
+    "jsonpointer-3.1.1.dist-info": [
+      4903,
+      4903
+    ],
+    "langchain_core": [
+      2409242,
+      2409242
+    ],
+    "langchain_core-1.5.6.dist-info": [
+      23389,
+      23389
+    ],
+    "langchain_openai": [
+      519042,
+      519042
+    ],
+    "langchain_openai-1.5.1.dist-info": [
+      7536,
+      7536
+    ],
+    "langchain_protocol-0.0.18.dist-info": [
+      4371,
+      4371
+    ],
+    "langgraph": [
+      1530255,
+      1530255
+    ],
+    "langgraph-1.2.11.dist-info": [
+      13185,
+      13185
+    ],
+    "langgraph_checkpoint-4.2.0.dist-info": [
+      10518,
+      10518
+    ],
+    "langgraph_checkpoint_sqlite-3.1.1.dist-info": [
+      7663,
+      7663
+    ],
+    "langgraph_prebuilt-1.1.0.dist-info": [
+      7632,
+      7632
+    ],
+    "langgraph_sdk-0.4.4.dist-info": [
+      10830,
+      10830
+    ],
+    "langsmith-0.11.0.dist-info": [
+      54496,
+      54496
+    ],
+    "libpython3.14.dylib": [
+      18708608,
+      18708608
+    ],
+    "openai-3.2.0.dist-info": [
+      217499,
+      217499
+    ],
+    "opentelemetry_api-1.42.1.dist-info": [
+      18076,
+      18076
+    ],
+    "opentelemetry_exporter_otlp_proto_http-1.42.1.dist-info": [
+      15959,
+      15959
+    ],
+    "opentelemetry_exporter_prometheus-0.63b1.dist-info": [
+      14795,
+      14795
+    ],
+    "opentelemetry_sdk-1.42.1.dist-info": [
+      23821,
+      23821
+    ],
+    "orjson": [
+      252384,
+      252384
+    ],
+    "orjson-3.12.0.dist-info": [
+      98015,
+      98015
+    ],
+    "ormsgpack": [
+      370752,
+      370752
+    ],
+    "ormsgpack-1.12.2.dist-info": [
+      16557,
+      16557
+    ],
+    "packaging-26.3.dist-info": [
+      17858,
+      17858
+    ],
+    "pillow-12.3.0.dist-info": [
+      113002,
+      113002
+    ],
+    "practiq-ai": [
+      19672992,
+      19687680
+    ],
+    "practiq_ai": [
+      524910,
+      542163
+    ],
+    "practiq_ai_service-0.3.0.dist-info": [
+      2438,
+      2438
+    ],
+    "prometheus_client-0.26.0.dist-info": [
+      17329,
+      17329
+    ],
+    "pydantic-2.13.4.dist-info": [
+      120132,
+      120132
+    ],
+    "pydantic_core": [
+      4145568,
+      4145568
+    ],
+    "pydantic_core-2.46.4.dist-info": [
+      134228,
+      134228
+    ],
+    "pypdfium2": [
+      164331,
+      164331
+    ],
+    "pypdfium2-5.12.1.dist-info": [
+      210996,
+      210996
+    ],
+    "pypdfium2_raw": [
+      7259424,
+      7259424
+    ],
+    "python_dotenv-1.2.3.dist-info": [
+      32154,
+      32154
+    ],
+    "pyyaml-6.0.3.dist-info": [
+      5561,
+      5561
+    ],
+    "regex": [
+      786432,
+      786432
+    ],
+    "regex-2026.7.19.dist-info": [
+      53230,
+      53230
+    ],
+    "requests-2.34.2.dist-info": [
+      17293,
+      17293
+    ],
+    "requests_toolbelt-1.0.0.dist-info": [
+      20251,
+      20251
+    ],
+    "setuptools": [
+      1335,
+      1335
+    ],
+    "sniffio-1.3.1.dist-info": [
+      17772,
+      17772
+    ],
+    "sqlite_vec": [
+      162993,
+      162993
+    ],
+    "sqlite_vec-0.1.9.dist-info": [
+      971,
+      971
+    ],
+    "starlette-1.6.0.dist-info": [
+      11445,
+      11445
+    ],
+    "tenacity-9.1.4.dist-info": [
+      14201,
+      14201
+    ],
+    "tiktoken": [
+      2918928,
+      2918928
+    ],
+    "tiktoken-0.14.0.dist-info": [
+      9203,
+      9203
+    ],
+    "tomli": [
+      201616,
+      201616
+    ],
+    "tqdm-4.70.0.dist-info": [
+      62621,
+      62621
+    ],
+    "truststore-0.10.4.dist-info": [
+      6634,
+      6634
+    ],
+    "typing_extensions-4.16.0.dist-info": [
+      17953,
+      17953
+    ],
+    "typing_inspection-0.4.3.dist-info": [
+      4711,
+      4711
+    ],
+    "urllib3-2.7.0.dist-info": [
+      11658,
+      11658
+    ],
+    "uuid_utils": [
+      671376,
+      671376
+    ],
+    "uuid_utils-0.17.0.dist-info": [
+      51431,
+      51431
+    ],
+    "uvicorn": [
+      279697,
+      279697
+    ],
+    "uvicorn-0.53.0.dist-info": [
+      12836,
+      12836
+    ],
+    "uvloop": [
+      1950672,
+      1950672
+    ],
+    "watchfiles": [
+      910256,
+      910256
+    ],
+    "websockets-15.0.1.dist-info": [
+      13363,
+      13363
+    ],
+    "xxhash": [
+      118512,
+      118512
+    ],
+    "xxhash-4.0.1.dist-info": [
+      20075,
+      20075
+    ],
+    "yaml": [
+      379648,
+      379648
+    ],
+    "zstandard": [
+      1636976,
+      1636976
+    ],
+    "zstandard-0.25.0.dist-info": [
+      6008,
+      6008
+    ]
+  },
+  "files": [
+    {
+      "path": "_internal/Crypto/Cipher/_ARC4.abi3.so",
+      "beforeBytes": 50336,
+      "afterBytes": 50336,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/Crypto/Cipher/_Salsa20.abi3.so",
+      "beforeBytes": 50720,
+      "afterBytes": 50720,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/Crypto/Cipher/_chacha20.abi3.so",
+      "beforeBytes": 50800,
+      "afterBytes": 50800,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/Crypto/Cipher/_pkcs1_decode.abi3.so",
+      "beforeBytes": 50368,
+      "afterBytes": 50368,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/Crypto/Cipher/_raw_aes.abi3.so",
+      "beforeBytes": 67360,
+      "afterBytes": 67360,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/Crypto/Cipher/_raw_arc2.abi3.so",
+      "beforeBytes": 50672,
+      "afterBytes": 50672,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/Crypto/Cipher/_raw_blowfish.abi3.so",
+      "beforeBytes": 50720,
+      "afterBytes": 50720,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/Crypto/Cipher/_raw_cast.abi3.so",
+      "beforeBytes": 51088,
+      "afterBytes": 51088,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/Crypto/Cipher/_raw_cbc.abi3.so",
+      "beforeBytes": 50688,
+      "afterBytes": 50688,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/Crypto/Cipher/_raw_cfb.abi3.so",
+      "beforeBytes": 50928,
+      "afterBytes": 50928,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/Crypto/Cipher/_raw_ctr.abi3.so",
+      "beforeBytes": 50944,
+      "afterBytes": 50944,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/Crypto/Cipher/_raw_des.abi3.so",
+      "beforeBytes": 84144,
+      "afterBytes": 84144,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/Crypto/Cipher/_raw_des3.abi3.so",
+      "beforeBytes": 84160,
+      "afterBytes": 84160,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/Crypto/Cipher/_raw_ecb.abi3.so",
+      "beforeBytes": 17456,
+      "afterBytes": 17456,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/Crypto/Cipher/_raw_eksblowfish.abi3.so",
+      "beforeBytes": 50928,
+      "afterBytes": 50928,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/Crypto/Cipher/_raw_ocb.abi3.so",
+      "beforeBytes": 51152,
+      "afterBytes": 51152,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/Crypto/Cipher/_raw_ofb.abi3.so",
+      "beforeBytes": 50640,
+      "afterBytes": 50640,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/Crypto/Hash/_BLAKE2b.abi3.so",
+      "beforeBytes": 51040,
+      "afterBytes": 51040,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/Crypto/Hash/_BLAKE2s.abi3.so",
+      "beforeBytes": 51040,
+      "afterBytes": 51040,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/Crypto/Hash/_MD2.abi3.so",
+      "beforeBytes": 50944,
+      "afterBytes": 50944,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/Crypto/Hash/_MD4.abi3.so",
+      "beforeBytes": 50960,
+      "afterBytes": 50960,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/Crypto/Hash/_MD5.abi3.so",
+      "beforeBytes": 51664,
+      "afterBytes": 51664,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/Crypto/Hash/_RIPEMD160.abi3.so",
+      "beforeBytes": 51056,
+      "afterBytes": 51056,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/Crypto/Hash/_SHA1.abi3.so",
+      "beforeBytes": 51664,
+      "afterBytes": 51664,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/Crypto/Hash/_SHA224.abi3.so",
+      "beforeBytes": 51680,
+      "afterBytes": 51680,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/Crypto/Hash/_SHA256.abi3.so",
+      "beforeBytes": 51680,
+      "afterBytes": 51680,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/Crypto/Hash/_SHA384.abi3.so",
+      "beforeBytes": 51680,
+      "afterBytes": 51680,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/Crypto/Hash/_SHA512.abi3.so",
+      "beforeBytes": 51696,
+      "afterBytes": 51696,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/Crypto/Hash/_ghash_portable.abi3.so",
+      "beforeBytes": 50544,
+      "afterBytes": 50544,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/Crypto/Hash/_keccak.abi3.so",
+      "beforeBytes": 51616,
+      "afterBytes": 51616,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/Crypto/Hash/_poly1305.abi3.so",
+      "beforeBytes": 51264,
+      "afterBytes": 51264,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/Crypto/Math/_modexp.abi3.so",
+      "beforeBytes": 73952,
+      "afterBytes": 73952,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/Crypto/Protocol/_scrypt.abi3.so",
+      "beforeBytes": 50320,
+      "afterBytes": 50320,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/Crypto/PublicKey/_curve25519.abi3.so",
+      "beforeBytes": 52384,
+      "afterBytes": 52384,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/Crypto/PublicKey/_curve448.abi3.so",
+      "beforeBytes": 74848,
+      "afterBytes": 74848,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/Crypto/PublicKey/_ec_ws.abi3.so",
+      "beforeBytes": 734768,
+      "afterBytes": 734768,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/Crypto/PublicKey/_ed25519.abi3.so",
+      "beforeBytes": 53104,
+      "afterBytes": 53104,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/Crypto/PublicKey/_ed448.abi3.so",
+      "beforeBytes": 75456,
+      "afterBytes": 75456,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/Crypto/Util/_cpuid_c.abi3.so",
+      "beforeBytes": 17216,
+      "afterBytes": 17216,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/Crypto/Util/_strxor.abi3.so",
+      "beforeBytes": 17184,
+      "afterBytes": 17184,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/PIL/.dylibs/libXau.6.dylib",
+      "beforeBytes": 51776,
+      "afterBytes": 51776,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/PIL/.dylibs/libavif.16.4.2.dylib",
+      "beforeBytes": 3014000,
+      "afterBytes": 3014000,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/PIL/.dylibs/libbrotlicommon.1.2.0.dylib",
+      "beforeBytes": 165712,
+      "afterBytes": 165712,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/PIL/.dylibs/libbrotlidec.1.2.0.dylib",
+      "beforeBytes": 86096,
+      "afterBytes": 86096,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/PIL/.dylibs/libfreetype.6.dylib",
+      "beforeBytes": 1102912,
+      "afterBytes": 1102912,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/PIL/.dylibs/libharfbuzz.0.dylib",
+      "beforeBytes": 1788592,
+      "afterBytes": 1788592,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/PIL/.dylibs/libjpeg.62.4.0.dylib",
+      "beforeBytes": 648224,
+      "afterBytes": 648224,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/PIL/.dylibs/liblcms2.2.dylib",
+      "beforeBytes": 504272,
+      "afterBytes": 504272,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/PIL/.dylibs/liblzma.5.dylib",
+      "beforeBytes": 305344,
+      "afterBytes": 305344,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/PIL/.dylibs/libopenjp2.2.5.4.dylib",
+      "beforeBytes": 644656,
+      "afterBytes": 644656,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/PIL/.dylibs/libpng16.16.dylib",
+      "beforeBytes": 324480,
+      "afterBytes": 324480,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/PIL/.dylibs/libsharpyuv.0.dylib",
+      "beforeBytes": 67872,
+      "afterBytes": 67872,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/PIL/.dylibs/libtiff.6.dylib",
+      "beforeBytes": 748080,
+      "afterBytes": 748080,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/PIL/.dylibs/libwebp.7.dylib",
+      "beforeBytes": 494688,
+      "afterBytes": 494688,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/PIL/.dylibs/libwebpdemux.2.dylib",
+      "beforeBytes": 51632,
+      "afterBytes": 51632,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/PIL/.dylibs/libwebpmux.3.dylib",
+      "beforeBytes": 87808,
+      "afterBytes": 87808,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/PIL/.dylibs/libxcb.1.1.0.dylib",
+      "beforeBytes": 258176,
+      "afterBytes": 258176,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/PIL/.dylibs/libz.1.3.1.zlib-ng.dylib",
+      "beforeBytes": 158320,
+      "afterBytes": 158320,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/PIL/_avif.cpython-314-darwin.so",
+      "beforeBytes": 55664,
+      "afterBytes": 55664,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/PIL/_imaging.cpython-314-darwin.so",
+      "beforeBytes": 599200,
+      "afterBytes": 599200,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/PIL/_imagingcms.cpython-314-darwin.so",
+      "beforeBytes": 79936,
+      "afterBytes": 79936,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/PIL/_imagingft.cpython-314-darwin.so",
+      "beforeBytes": 99168,
+      "afterBytes": 99168,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/PIL/_imagingmath.cpython-314-darwin.so",
+      "beforeBytes": 71856,
+      "afterBytes": 71856,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/PIL/_imagingtk.cpython-314-darwin.so",
+      "beforeBytes": 52608,
+      "afterBytes": 52608,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/PIL/_webp.cpython-314-darwin.so",
+      "beforeBytes": 57824,
+      "afterBytes": 57824,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/_cffi_backend.cpython-314-darwin.so",
+      "beforeBytes": 228256,
+      "afterBytes": 228256,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/aiosqlite-0.22.1.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/aiosqlite-0.22.1.dist-info/METADATA",
+      "beforeBytes": 4311,
+      "afterBytes": 4311,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/aiosqlite-0.22.1.dist-info/RECORD",
+      "beforeBytes": 1361,
+      "afterBytes": 1361,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/aiosqlite-0.22.1.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/aiosqlite-0.22.1.dist-info/WHEEL",
+      "beforeBytes": 82,
+      "afterBytes": 82,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/aiosqlite-0.22.1.dist-info/licenses/LICENSE",
+      "beforeBytes": 1071,
+      "afterBytes": 1071,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/annotated_doc-0.0.5.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/annotated_doc-0.0.5.dist-info/METADATA",
+      "beforeBytes": 6516,
+      "afterBytes": 6516,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/annotated_doc-0.0.5.dist-info/RECORD",
+      "beforeBytes": 848,
+      "afterBytes": 848,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/annotated_doc-0.0.5.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/annotated_doc-0.0.5.dist-info/WHEEL",
+      "beforeBytes": 90,
+      "afterBytes": 90,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/annotated_doc-0.0.5.dist-info/entry_points.txt",
+      "beforeBytes": 34,
+      "afterBytes": 34,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/annotated_doc-0.0.5.dist-info/licenses/LICENSE",
+      "beforeBytes": 1086,
+      "afterBytes": 1086,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/annotated_types-0.8.0.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/annotated_types-0.8.0.dist-info/METADATA",
+      "beforeBytes": 15009,
+      "afterBytes": 15009,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/annotated_types-0.8.0.dist-info/RECORD",
+      "beforeBytes": 775,
+      "afterBytes": 775,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/annotated_types-0.8.0.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/annotated_types-0.8.0.dist-info/WHEEL",
+      "beforeBytes": 87,
+      "afterBytes": 87,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/annotated_types-0.8.0.dist-info/licenses/LICENSE",
+      "beforeBytes": 1083,
+      "afterBytes": 1083,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/anyio-4.14.2.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/anyio-4.14.2.dist-info/METADATA",
+      "beforeBytes": 4645,
+      "afterBytes": 4645,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/anyio-4.14.2.dist-info/RECORD",
+      "beforeBytes": 4368,
+      "afterBytes": 4368,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/anyio-4.14.2.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/anyio-4.14.2.dist-info/WHEEL",
+      "beforeBytes": 91,
+      "afterBytes": 91,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/anyio-4.14.2.dist-info/entry_points.txt",
+      "beforeBytes": 39,
+      "afterBytes": 39,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/anyio-4.14.2.dist-info/licenses/LICENSE",
+      "beforeBytes": 1081,
+      "afterBytes": 1081,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/anyio-4.14.2.dist-info/scm_file_list.json",
+      "beforeBytes": 3654,
+      "afterBytes": 3654,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/anyio-4.14.2.dist-info/scm_version.json",
+      "beforeBytes": 161,
+      "afterBytes": 161,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/anyio-4.14.2.dist-info/top_level.txt",
+      "beforeBytes": 6,
+      "afterBytes": 6,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/base_library.zip",
+      "beforeBytes": 1394119,
+      "afterBytes": 1394119,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/certifi-2026.7.22.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/certifi-2026.7.22.dist-info/METADATA",
+      "beforeBytes": 2474,
+      "afterBytes": 2474,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/certifi-2026.7.22.dist-info/RECORD",
+      "beforeBytes": 1127,
+      "afterBytes": 1127,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/certifi-2026.7.22.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/certifi-2026.7.22.dist-info/WHEEL",
+      "beforeBytes": 91,
+      "afterBytes": 91,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/certifi-2026.7.22.dist-info/licenses/LICENSE",
+      "beforeBytes": 989,
+      "afterBytes": 989,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/certifi-2026.7.22.dist-info/top_level.txt",
+      "beforeBytes": 8,
+      "afterBytes": 8,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/certifi/cacert.pem",
+      "beforeBytes": 240216,
+      "afterBytes": 240216,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/certifi/py.typed",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/charset_normalizer-3.5.1.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/charset_normalizer-3.5.1.dist-info/METADATA",
+      "beforeBytes": 45868,
+      "afterBytes": 45868,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/charset_normalizer-3.5.1.dist-info/RECORD",
+      "beforeBytes": 2149,
+      "afterBytes": 2149,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/charset_normalizer-3.5.1.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/charset_normalizer-3.5.1.dist-info/WHEEL",
+      "beforeBytes": 142,
+      "afterBytes": 142,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/charset_normalizer-3.5.1.dist-info/entry_points.txt",
+      "beforeBytes": 65,
+      "afterBytes": 65,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/charset_normalizer-3.5.1.dist-info/licenses/LICENSE",
+      "beforeBytes": 1071,
+      "afterBytes": 1071,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/charset_normalizer-3.5.1.dist-info/top_level.txt",
+      "beforeBytes": 19,
+      "afterBytes": 19,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/charset_normalizer/cd.cpython-314-darwin.so",
+      "beforeBytes": 166624,
+      "afterBytes": 166624,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/charset_normalizer/md.cpython-314-darwin.so",
+      "beforeBytes": 249088,
+      "afterBytes": 249088,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/click-8.4.2.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/click-8.4.2.dist-info/METADATA",
+      "beforeBytes": 2621,
+      "afterBytes": 2621,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/click-8.4.2.dist-info/RECORD",
+      "beforeBytes": 1810,
+      "afterBytes": 1810,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/click-8.4.2.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/click-8.4.2.dist-info/WHEEL",
+      "beforeBytes": 82,
+      "afterBytes": 82,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/click-8.4.2.dist-info/licenses/LICENSE.txt",
+      "beforeBytes": 1475,
+      "afterBytes": 1475,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/cryptography-50.0.1.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/cryptography-50.0.1.dist-info/METADATA",
+      "beforeBytes": 4343,
+      "afterBytes": 4343,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/cryptography-50.0.1.dist-info/RECORD",
+      "beforeBytes": 12278,
+      "afterBytes": 12278,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/cryptography-50.0.1.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/cryptography-50.0.1.dist-info/WHEEL",
+      "beforeBytes": 104,
+      "afterBytes": 104,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/cryptography-50.0.1.dist-info/licenses/LICENSE",
+      "beforeBytes": 197,
+      "afterBytes": 197,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/cryptography-50.0.1.dist-info/licenses/LICENSE.APACHE",
+      "beforeBytes": 11360,
+      "afterBytes": 11360,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/cryptography-50.0.1.dist-info/licenses/LICENSE.BSD",
+      "beforeBytes": 1532,
+      "afterBytes": 1532,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/cryptography-50.0.1.dist-info/sboms/cryptography-rust.cyclonedx.json",
+      "beforeBytes": 45993,
+      "afterBytes": 45993,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/cryptography-50.0.1.dist-info/sboms/sbom.json",
+      "beforeBytes": 1205,
+      "afterBytes": 1205,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/cryptography/hazmat/bindings/_rust.abi3.so",
+      "beforeBytes": 11770336,
+      "afterBytes": 11770336,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/distro-1.9.0.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/distro-1.9.0.dist-info/LICENSE",
+      "beforeBytes": 11325,
+      "afterBytes": 11325,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/distro-1.9.0.dist-info/METADATA",
+      "beforeBytes": 6791,
+      "afterBytes": 6791,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/distro-1.9.0.dist-info/RECORD",
+      "beforeBytes": 1012,
+      "afterBytes": 1012,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/distro-1.9.0.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/distro-1.9.0.dist-info/WHEEL",
+      "beforeBytes": 92,
+      "afterBytes": 92,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/distro-1.9.0.dist-info/entry_points.txt",
+      "beforeBytes": 46,
+      "afterBytes": 46,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/distro-1.9.0.dist-info/top_level.txt",
+      "beforeBytes": 7,
+      "afterBytes": 7,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/fastapi-0.139.0.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/fastapi-0.139.0.dist-info/METADATA",
+      "beforeBytes": 26993,
+      "afterBytes": 26993,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/fastapi-0.139.0.dist-info/RECORD",
+      "beforeBytes": 5378,
+      "afterBytes": 5378,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/fastapi-0.139.0.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/fastapi-0.139.0.dist-info/WHEEL",
+      "beforeBytes": 90,
+      "afterBytes": 90,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/fastapi-0.139.0.dist-info/entry_points.txt",
+      "beforeBytes": 61,
+      "afterBytes": 61,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/fastapi-0.139.0.dist-info/licenses/LICENSE",
+      "beforeBytes": 1086,
+      "afterBytes": 1086,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/google/_upb/_message.abi3.so",
+      "beforeBytes": 333104,
+      "afterBytes": 333104,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/h11-0.16.0.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/h11-0.16.0.dist-info/METADATA",
+      "beforeBytes": 8348,
+      "afterBytes": 8348,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/h11-0.16.0.dist-info/RECORD",
+      "beforeBytes": 1412,
+      "afterBytes": 1412,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/h11-0.16.0.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/h11-0.16.0.dist-info/WHEEL",
+      "beforeBytes": 91,
+      "afterBytes": 91,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/h11-0.16.0.dist-info/licenses/LICENSE.txt",
+      "beforeBytes": 1124,
+      "afterBytes": 1124,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/h11-0.16.0.dist-info/top_level.txt",
+      "beforeBytes": 4,
+      "afterBytes": 4,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/httpcore-1.0.9.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/httpcore-1.0.9.dist-info/METADATA",
+      "beforeBytes": 21529,
+      "afterBytes": 21529,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/httpcore-1.0.9.dist-info/RECORD",
+      "beforeBytes": 3123,
+      "afterBytes": 3123,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/httpcore-1.0.9.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/httpcore-1.0.9.dist-info/WHEEL",
+      "beforeBytes": 87,
+      "afterBytes": 87,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/httpcore-1.0.9.dist-info/licenses/LICENSE.md",
+      "beforeBytes": 1518,
+      "afterBytes": 1518,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/httpcore2-2.13.0.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/httpcore2-2.13.0.dist-info/METADATA",
+      "beforeBytes": 26140,
+      "afterBytes": 26140,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/httpcore2-2.13.0.dist-info/RECORD",
+      "beforeBytes": 3167,
+      "afterBytes": 3167,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/httpcore2-2.13.0.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/httpcore2-2.13.0.dist-info/WHEEL",
+      "beforeBytes": 87,
+      "afterBytes": 87,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/httpcore2-2.13.0.dist-info/licenses/LICENSE.md",
+      "beforeBytes": 1599,
+      "afterBytes": 1599,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/httptools/parser/parser.cpython-314-darwin.so",
+      "beforeBytes": 206816,
+      "afterBytes": 206816,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/httptools/parser/url_parser.cpython-314-darwin.so",
+      "beforeBytes": 128304,
+      "afterBytes": 128304,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/httpx-0.28.1.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/httpx-0.28.1.dist-info/METADATA",
+      "beforeBytes": 7052,
+      "afterBytes": 7052,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/httpx-0.28.1.dist-info/RECORD",
+      "beforeBytes": 2469,
+      "afterBytes": 2469,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/httpx-0.28.1.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/httpx-0.28.1.dist-info/WHEEL",
+      "beforeBytes": 87,
+      "afterBytes": 87,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/httpx-0.28.1.dist-info/entry_points.txt",
+      "beforeBytes": 37,
+      "afterBytes": 37,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/httpx-0.28.1.dist-info/licenses/LICENSE.md",
+      "beforeBytes": 1508,
+      "afterBytes": 1508,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/httpx2-2.13.0.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/httpx2-2.13.0.dist-info/METADATA",
+      "beforeBytes": 10015,
+      "afterBytes": 10015,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/httpx2-2.13.0.dist-info/RECORD",
+      "beforeBytes": 3077,
+      "afterBytes": 3077,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/httpx2-2.13.0.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/httpx2-2.13.0.dist-info/WHEEL",
+      "beforeBytes": 87,
+      "afterBytes": 87,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/httpx2-2.13.0.dist-info/entry_points.txt",
+      "beforeBytes": 45,
+      "afterBytes": 45,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/httpx2-2.13.0.dist-info/licenses/LICENSE.md",
+      "beforeBytes": 1589,
+      "afterBytes": 1589,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/idna-3.18.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/idna-3.18.dist-info/METADATA",
+      "beforeBytes": 6119,
+      "afterBytes": 6119,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/idna-3.18.dist-info/RECORD",
+      "beforeBytes": 1408,
+      "afterBytes": 1408,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/idna-3.18.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/idna-3.18.dist-info/WHEEL",
+      "beforeBytes": 82,
+      "afterBytes": 82,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/idna-3.18.dist-info/entry_points.txt",
+      "beforeBytes": 38,
+      "afterBytes": 38,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/idna-3.18.dist-info/licenses/LICENSE.md",
+      "beforeBytes": 1541,
+      "afterBytes": 1541,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/jiter-0.16.0.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/jiter-0.16.0.dist-info/METADATA",
+      "beforeBytes": 5212,
+      "afterBytes": 5212,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/jiter-0.16.0.dist-info/RECORD",
+      "beforeBytes": 894,
+      "afterBytes": 894,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/jiter-0.16.0.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/jiter-0.16.0.dist-info/WHEEL",
+      "beforeBytes": 105,
+      "afterBytes": 105,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/jiter-0.16.0.dist-info/licenses/LICENSE",
+      "beforeBytes": 1091,
+      "afterBytes": 1091,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/jiter-0.16.0.dist-info/sboms/jiter-python.cyclonedx.json",
+      "beforeBytes": 43664,
+      "afterBytes": 43664,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/jiter/jiter.cpython-314-darwin.so",
+      "beforeBytes": 727376,
+      "afterBytes": 727376,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/jsonpatch-1.33.dist-info/AUTHORS",
+      "beforeBytes": 140,
+      "afterBytes": 140,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/jsonpatch-1.33.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/jsonpatch-1.33.dist-info/LICENSE",
+      "beforeBytes": 1481,
+      "afterBytes": 1481,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/jsonpatch-1.33.dist-info/METADATA",
+      "beforeBytes": 2980,
+      "afterBytes": 2980,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/jsonpatch-1.33.dist-info/RECORD",
+      "beforeBytes": 883,
+      "afterBytes": 883,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/jsonpatch-1.33.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/jsonpatch-1.33.dist-info/WHEEL",
+      "beforeBytes": 110,
+      "afterBytes": 110,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/jsonpatch-1.33.dist-info/top_level.txt",
+      "beforeBytes": 10,
+      "afterBytes": 10,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/jsonpointer-3.1.1.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/jsonpointer-3.1.1.dist-info/METADATA",
+      "beforeBytes": 2418,
+      "afterBytes": 2418,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/jsonpointer-3.1.1.dist-info/RECORD",
+      "beforeBytes": 854,
+      "afterBytes": 854,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/jsonpointer-3.1.1.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/jsonpointer-3.1.1.dist-info/WHEEL",
+      "beforeBytes": 91,
+      "afterBytes": 91,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/jsonpointer-3.1.1.dist-info/licenses/AUTHORS",
+      "beforeBytes": 113,
+      "afterBytes": 113,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/jsonpointer-3.1.1.dist-info/licenses/LICENSE.txt",
+      "beforeBytes": 1413,
+      "afterBytes": 1413,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/jsonpointer-3.1.1.dist-info/top_level.txt",
+      "beforeBytes": 12,
+      "afterBytes": 12,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core-1.5.6.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core-1.5.6.dist-info/METADATA",
+      "beforeBytes": 4787,
+      "afterBytes": 4787,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core-1.5.6.dist-info/RECORD",
+      "beforeBytes": 17446,
+      "afterBytes": 17446,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core-1.5.6.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core-1.5.6.dist-info/WHEEL",
+      "beforeBytes": 87,
+      "afterBytes": 87,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core-1.5.6.dist-info/licenses/LICENSE",
+      "beforeBytes": 1067,
+      "afterBytes": 1067,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/__init__.py",
+      "beforeBytes": 679,
+      "afterBytes": 679,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/_api/__init__.py",
+      "beforeBytes": 2600,
+      "afterBytes": 2600,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/_api/beta_decorator.py",
+      "beforeBytes": 9317,
+      "afterBytes": 9317,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/_api/deprecation.py",
+      "beforeBytes": 23228,
+      "afterBytes": 23228,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/_api/internal.py",
+      "beforeBytes": 720,
+      "afterBytes": 720,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/_api/path.py",
+      "beforeBytes": 1349,
+      "afterBytes": 1349,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/_import_utils.py",
+      "beforeBytes": 1428,
+      "afterBytes": 1428,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/_security/__init__.py",
+      "beforeBytes": 1046,
+      "afterBytes": 1046,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/_security/_exceptions.py",
+      "beforeBytes": 268,
+      "afterBytes": 268,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/_security/_policy.py",
+      "beforeBytes": 10973,
+      "afterBytes": 10973,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/_security/_ssrf_protection.py",
+      "beforeBytes": 4611,
+      "afterBytes": 4611,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/_security/_transport.py",
+      "beforeBytes": 8392,
+      "afterBytes": 8392,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/agents.py",
+      "beforeBytes": 8480,
+      "afterBytes": 8480,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/caches.py",
+      "beforeBytes": 10365,
+      "afterBytes": 10365,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/callbacks/__init__.py",
+      "beforeBytes": 4221,
+      "afterBytes": 4221,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/callbacks/base.py",
+      "beforeBytes": 37441,
+      "afterBytes": 37441,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/callbacks/file.py",
+      "beforeBytes": 8340,
+      "afterBytes": 8340,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/callbacks/manager.py",
+      "beforeBytes": 91207,
+      "afterBytes": 91207,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/callbacks/stdout.py",
+      "beforeBytes": 3695,
+      "afterBytes": 3695,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/callbacks/streaming_stdout.py",
+      "beforeBytes": 4411,
+      "afterBytes": 4411,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/callbacks/usage.py",
+      "beforeBytes": 4277,
+      "afterBytes": 4277,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/chat_history.py",
+      "beforeBytes": 8456,
+      "afterBytes": 8456,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/chat_loaders.py",
+      "beforeBytes": 601,
+      "afterBytes": 601,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/chat_sessions.py",
+      "beforeBytes": 580,
+      "afterBytes": 580,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/cross_encoders.py",
+      "beforeBytes": 394,
+      "afterBytes": 394,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/document_loaders/__init__.py",
+      "beforeBytes": 975,
+      "afterBytes": 975,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/document_loaders/base.py",
+      "beforeBytes": 4773,
+      "afterBytes": 4773,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/document_loaders/blob_loaders.py",
+      "beforeBytes": 1070,
+      "afterBytes": 1070,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/document_loaders/langsmith.py",
+      "beforeBytes": 6935,
+      "afterBytes": 6935,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/documents/__init__.py",
+      "beforeBytes": 2013,
+      "afterBytes": 2013,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/documents/base.py",
+      "beforeBytes": 11154,
+      "afterBytes": 11154,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/documents/compressor.py",
+      "beforeBytes": 2017,
+      "afterBytes": 2017,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/documents/transformers.py",
+      "beforeBytes": 2543,
+      "afterBytes": 2543,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/embeddings/__init__.py",
+      "beforeBytes": 774,
+      "afterBytes": 774,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/embeddings/embeddings.py",
+      "beforeBytes": 2405,
+      "afterBytes": 2405,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/embeddings/fake.py",
+      "beforeBytes": 3886,
+      "afterBytes": 3886,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/env.py",
+      "beforeBytes": 608,
+      "afterBytes": 608,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/example_selectors/__init__.py",
+      "beforeBytes": 1394,
+      "afterBytes": 1394,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/example_selectors/base.py",
+      "beforeBytes": 1750,
+      "afterBytes": 1750,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/example_selectors/length_based.py",
+      "beforeBytes": 4448,
+      "afterBytes": 4448,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/example_selectors/semantic_similarity.py",
+      "beforeBytes": 13739,
+      "afterBytes": 13739,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/exceptions.py",
+      "beforeBytes": 3845,
+      "afterBytes": 3845,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/globals.py",
+      "beforeBytes": 1852,
+      "afterBytes": 1852,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/indexing/__init__.py",
+      "beforeBytes": 1276,
+      "afterBytes": 1276,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/indexing/api.py",
+      "beforeBytes": 39246,
+      "afterBytes": 39246,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/indexing/base.py",
+      "beforeBytes": 22449,
+      "afterBytes": 22449,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/indexing/in_memory.py",
+      "beforeBytes": 3283,
+      "afterBytes": 3283,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/language_models/__init__.py",
+      "beforeBytes": 3646,
+      "afterBytes": 3646,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/language_models/_compat_bridge.py",
+      "beforeBytes": 33314,
+      "afterBytes": 33314,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/language_models/_utils.py",
+      "beforeBytes": 11621,
+      "afterBytes": 11621,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/language_models/base.py",
+      "beforeBytes": 16736,
+      "afterBytes": 16736,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/language_models/chat_model_stream.py",
+      "beforeBytes": 61545,
+      "afterBytes": 61545,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/language_models/chat_models.py",
+      "beforeBytes": 109565,
+      "afterBytes": 109565,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/language_models/fake.py",
+      "beforeBytes": 3732,
+      "afterBytes": 3732,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/language_models/fake_chat_models.py",
+      "beforeBytes": 13648,
+      "afterBytes": 13648,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/language_models/llms.py",
+      "beforeBytes": 56509,
+      "afterBytes": 56509,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/language_models/model_profile.py",
+      "beforeBytes": 6228,
+      "afterBytes": 6228,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/load/__init__.py",
+      "beforeBytes": 1238,
+      "afterBytes": 1238,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/load/_validation.py",
+      "beforeBytes": 6860,
+      "afterBytes": 6860,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/load/dump.py",
+      "beforeBytes": 3883,
+      "afterBytes": 3883,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/load/load.py",
+      "beforeBytes": 34269,
+      "afterBytes": 34269,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/load/mapping.py",
+      "beforeBytes": 30151,
+      "afterBytes": 30151,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/load/serializable.py",
+      "beforeBytes": 13616,
+      "afterBytes": 13616,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/messages/__init__.py",
+      "beforeBytes": 5723,
+      "afterBytes": 5723,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/messages/ai.py",
+      "beforeBytes": 29142,
+      "afterBytes": 29142,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/messages/base.py",
+      "beforeBytes": 17578,
+      "afterBytes": 17578,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/messages/block_translators/__init__.py",
+      "beforeBytes": 4249,
+      "afterBytes": 4249,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/messages/block_translators/anthropic.py",
+      "beforeBytes": 21346,
+      "afterBytes": 21346,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/messages/block_translators/bedrock.py",
+      "beforeBytes": 3735,
+      "afterBytes": 3735,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/messages/block_translators/bedrock_converse.py",
+      "beforeBytes": 12522,
+      "afterBytes": 12522,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/messages/block_translators/google_genai.py",
+      "beforeBytes": 23216,
+      "afterBytes": 23216,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/messages/block_translators/google_vertexai.py",
+      "beforeBytes": 632,
+      "afterBytes": 632,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/messages/block_translators/groq.py",
+      "beforeBytes": 5632,
+      "afterBytes": 5632,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/messages/block_translators/langchain_v0.py",
+      "beforeBytes": 11702,
+      "afterBytes": 11702,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/messages/block_translators/openai.py",
+      "beforeBytes": 42282,
+      "afterBytes": 42282,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/messages/chat.py",
+      "beforeBytes": 2204,
+      "afterBytes": 2204,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/messages/content.py",
+      "beforeBytes": 42409,
+      "afterBytes": 42409,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/messages/function.py",
+      "beforeBytes": 2094,
+      "afterBytes": 2094,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/messages/human.py",
+      "beforeBytes": 2164,
+      "afterBytes": 2164,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/messages/modifier.py",
+      "beforeBytes": 875,
+      "afterBytes": 875,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/messages/system.py",
+      "beforeBytes": 2174,
+      "afterBytes": 2174,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/messages/tool.py",
+      "beforeBytes": 13329,
+      "afterBytes": 13329,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/messages/utils.py",
+      "beforeBytes": 95151,
+      "afterBytes": 95151,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/output_parsers/__init__.py",
+      "beforeBytes": 3487,
+      "afterBytes": 3487,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/output_parsers/base.py",
+      "beforeBytes": 11638,
+      "afterBytes": 11638,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/output_parsers/format_instructions.py",
+      "beforeBytes": 1108,
+      "afterBytes": 1108,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/output_parsers/json.py",
+      "beforeBytes": 4658,
+      "afterBytes": 4658,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/output_parsers/list.py",
+      "beforeBytes": 7270,
+      "afterBytes": 7270,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/output_parsers/openai_functions.py",
+      "beforeBytes": 11139,
+      "afterBytes": 11139,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/output_parsers/openai_tools.py",
+      "beforeBytes": 13207,
+      "afterBytes": 13207,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/output_parsers/pydantic.py",
+      "beforeBytes": 4850,
+      "afterBytes": 4850,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/output_parsers/string.py",
+      "beforeBytes": 1898,
+      "afterBytes": 1898,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/output_parsers/transform.py",
+      "beforeBytes": 5835,
+      "afterBytes": 5835,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/output_parsers/xml.py",
+      "beforeBytes": 11118,
+      "afterBytes": 11118,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/outputs/__init__.py",
+      "beforeBytes": 2117,
+      "afterBytes": 2117,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/outputs/chat_generation.py",
+      "beforeBytes": 5293,
+      "afterBytes": 5293,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/outputs/chat_result.py",
+      "beforeBytes": 1383,
+      "afterBytes": 1383,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/outputs/generation.py",
+      "beforeBytes": 2601,
+      "afterBytes": 2601,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/outputs/llm_result.py",
+      "beforeBytes": 3967,
+      "afterBytes": 3967,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/outputs/run_info.py",
+      "beforeBytes": 618,
+      "afterBytes": 618,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/prompt_values.py",
+      "beforeBytes": 4527,
+      "afterBytes": 4527,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/prompts/__init__.py",
+      "beforeBytes": 3031,
+      "afterBytes": 3031,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/prompts/base.py",
+      "beforeBytes": 17508,
+      "afterBytes": 17508,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/prompts/chat.py",
+      "beforeBytes": 51863,
+      "afterBytes": 51863,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/prompts/dict.py",
+      "beforeBytes": 5890,
+      "afterBytes": 5890,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/prompts/few_shot.py",
+      "beforeBytes": 16174,
+      "afterBytes": 16174,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/prompts/few_shot_with_templates.py",
+      "beforeBytes": 8401,
+      "afterBytes": 8401,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/prompts/image.py",
+      "beforeBytes": 5514,
+      "afterBytes": 5514,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/prompts/loading.py",
+      "beforeBytes": 10684,
+      "afterBytes": 10684,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/prompts/message.py",
+      "beforeBytes": 2652,
+      "afterBytes": 2652,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/prompts/prompt.py",
+      "beforeBytes": 10947,
+      "afterBytes": 10947,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/prompts/string.py",
+      "beforeBytes": 12774,
+      "afterBytes": 12774,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/prompts/structured.py",
+      "beforeBytes": 7067,
+      "afterBytes": 7067,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/py.typed",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/rate_limiters.py",
+      "beforeBytes": 9385,
+      "afterBytes": 9385,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/retrievers.py",
+      "beforeBytes": 11140,
+      "afterBytes": 11140,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/runnables/__init__.py",
+      "beforeBytes": 3873,
+      "afterBytes": 3873,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/runnables/base.py",
+      "beforeBytes": 238737,
+      "afterBytes": 238737,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/runnables/branch.py",
+      "beforeBytes": 15775,
+      "afterBytes": 15775,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/runnables/config.py",
+      "beforeBytes": 22606,
+      "afterBytes": 22606,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/runnables/configurable.py",
+      "beforeBytes": 23853,
+      "afterBytes": 23853,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/runnables/fallbacks.py",
+      "beforeBytes": 24459,
+      "afterBytes": 24459,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/runnables/graph.py",
+      "beforeBytes": 23123,
+      "afterBytes": 23123,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/runnables/graph_ascii.py",
+      "beforeBytes": 10405,
+      "afterBytes": 10405,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/runnables/graph_mermaid.py",
+      "beforeBytes": 17569,
+      "afterBytes": 17569,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/runnables/graph_png.py",
+      "beforeBytes": 6513,
+      "afterBytes": 6513,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/runnables/history.py",
+      "beforeBytes": 24733,
+      "afterBytes": 24733,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/runnables/passthrough.py",
+      "beforeBytes": 26718,
+      "afterBytes": 26718,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/runnables/retry.py",
+      "beforeBytes": 13686,
+      "afterBytes": 13686,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/runnables/router.py",
+      "beforeBytes": 7175,
+      "afterBytes": 7175,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/runnables/schema.py",
+      "beforeBytes": 5982,
+      "afterBytes": 5982,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/runnables/utils.py",
+      "beforeBytes": 23185,
+      "afterBytes": 23185,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/stores.py",
+      "beforeBytes": 9214,
+      "afterBytes": 9214,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/structured_query.py",
+      "beforeBytes": 5129,
+      "afterBytes": 5129,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/sys_info.py",
+      "beforeBytes": 3833,
+      "afterBytes": 3833,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/tools/__init__.py",
+      "beforeBytes": 2510,
+      "afterBytes": 2510,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/tools/base.py",
+      "beforeBytes": 63788,
+      "afterBytes": 63788,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/tools/convert.py",
+      "beforeBytes": 18217,
+      "afterBytes": 18217,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/tools/render.py",
+      "beforeBytes": 1817,
+      "afterBytes": 1817,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/tools/retriever.py",
+      "beforeBytes": 3216,
+      "afterBytes": 3216,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/tools/simple.py",
+      "beforeBytes": 6847,
+      "afterBytes": 6847,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/tools/structured.py",
+      "beforeBytes": 9772,
+      "afterBytes": 9772,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/tracers/__init__.py",
+      "beforeBytes": 1358,
+      "afterBytes": 1358,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/tracers/_compat.py",
+      "beforeBytes": 2824,
+      "afterBytes": 2824,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/tracers/_streaming.py",
+      "beforeBytes": 1831,
+      "afterBytes": 1831,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/tracers/base.py",
+      "beforeBytes": 27651,
+      "afterBytes": 27651,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/tracers/context.py",
+      "beforeBytes": 6226,
+      "afterBytes": 6226,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/tracers/core.py",
+      "beforeBytes": 26501,
+      "afterBytes": 26501,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/tracers/evaluation.py",
+      "beforeBytes": 8231,
+      "afterBytes": 8231,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/tracers/event_stream.py",
+      "beforeBytes": 35904,
+      "afterBytes": 35904,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/tracers/langchain.py",
+      "beforeBytes": 17541,
+      "afterBytes": 17541,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/tracers/log_stream.py",
+      "beforeBytes": 25581,
+      "afterBytes": 25581,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/tracers/memory_stream.py",
+      "beforeBytes": 7095,
+      "afterBytes": 7095,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/tracers/root_listeners.py",
+      "beforeBytes": 4097,
+      "afterBytes": 4097,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/tracers/run_collector.py",
+      "beforeBytes": 1254,
+      "afterBytes": 1254,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/tracers/schemas.py",
+      "beforeBytes": 191,
+      "afterBytes": 191,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/tracers/stdout.py",
+      "beforeBytes": 6731,
+      "afterBytes": 6731,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/utils/__init__.py",
+      "beforeBytes": 3041,
+      "afterBytes": 3041,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/utils/_gateway.py",
+      "beforeBytes": 10342,
+      "afterBytes": 10342,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/utils/_merge.py",
+      "beforeBytes": 8953,
+      "afterBytes": 8953,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/utils/aiter.py",
+      "beforeBytes": 10964,
+      "afterBytes": 10964,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/utils/env.py",
+      "beforeBytes": 2469,
+      "afterBytes": 2469,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/utils/formatting.py",
+      "beforeBytes": 3063,
+      "afterBytes": 3063,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/utils/function_calling.py",
+      "beforeBytes": 31151,
+      "afterBytes": 31151,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/utils/html.py",
+      "beforeBytes": 3862,
+      "afterBytes": 3862,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/utils/image.py",
+      "beforeBytes": 532,
+      "afterBytes": 532,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/utils/input.py",
+      "beforeBytes": 2092,
+      "afterBytes": 2092,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/utils/interactive_env.py",
+      "beforeBytes": 291,
+      "afterBytes": 291,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/utils/iter.py",
+      "beforeBytes": 7524,
+      "afterBytes": 7524,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/utils/json.py",
+      "beforeBytes": 7172,
+      "afterBytes": 7172,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/utils/json_schema.py",
+      "beforeBytes": 9926,
+      "afterBytes": 9926,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/utils/mustache.py",
+      "beforeBytes": 22792,
+      "afterBytes": 22792,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/utils/pydantic.py",
+      "beforeBytes": 20274,
+      "afterBytes": 20274,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/utils/strings.py",
+      "beforeBytes": 1789,
+      "afterBytes": 1789,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/utils/usage.py",
+      "beforeBytes": 2043,
+      "afterBytes": 2043,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/utils/utils.py",
+      "beforeBytes": 16227,
+      "afterBytes": 16227,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/utils/uuid.py",
+      "beforeBytes": 1825,
+      "afterBytes": 1825,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/vectorstores/__init__.py",
+      "beforeBytes": 1386,
+      "afterBytes": 1386,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/vectorstores/base.py",
+      "beforeBytes": 40832,
+      "afterBytes": 40832,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/vectorstores/in_memory.py",
+      "beforeBytes": 15747,
+      "afterBytes": 15747,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/vectorstores/utils.py",
+      "beforeBytes": 5149,
+      "afterBytes": 5149,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_core/version.py",
+      "beforeBytes": 67,
+      "afterBytes": 67,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_openai-1.5.1.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_openai-1.5.1.dist-info/METADATA",
+      "beforeBytes": 3433,
+      "afterBytes": 3433,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_openai-1.5.1.dist-info/RECORD",
+      "beforeBytes": 2942,
+      "afterBytes": 2942,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_openai-1.5.1.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_openai-1.5.1.dist-info/WHEEL",
+      "beforeBytes": 87,
+      "afterBytes": 87,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_openai-1.5.1.dist-info/licenses/LICENSE",
+      "beforeBytes": 1072,
+      "afterBytes": 1072,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_openai/__init__.py",
+      "beforeBytes": 629,
+      "afterBytes": 629,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_openai/_compat.py",
+      "beforeBytes": 1728,
+      "afterBytes": 1728,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_openai/_version.py",
+      "beforeBytes": 73,
+      "afterBytes": 73,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_openai/chat_models/__init__.py",
+      "beforeBytes": 203,
+      "afterBytes": 203,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_openai/chat_models/_client_utils.py",
+      "beforeBytes": 25591,
+      "afterBytes": 25591,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_openai/chat_models/_compat.py",
+      "beforeBytes": 20036,
+      "afterBytes": 20036,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_openai/chat_models/azure.py",
+      "beforeBytes": 45129,
+      "afterBytes": 45129,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_openai/chat_models/base.py",
+      "beforeBytes": 209904,
+      "afterBytes": 209904,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_openai/chat_models/codex.py",
+      "beforeBytes": 24324,
+      "afterBytes": 24324,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_openai/chatgpt_oauth.py",
+      "beforeBytes": 38839,
+      "afterBytes": 38839,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_openai/data/__init__.py",
+      "beforeBytes": 82,
+      "afterBytes": 82,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_openai/data/_profiles.py",
+      "beforeBytes": 46276,
+      "afterBytes": 46276,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_openai/data/profile_augmentations.toml",
+      "beforeBytes": 3520,
+      "afterBytes": 3520,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_openai/embeddings/__init__.py",
+      "beforeBytes": 224,
+      "afterBytes": 224,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_openai/embeddings/azure.py",
+      "beforeBytes": 9127,
+      "afterBytes": 9127,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_openai/embeddings/base.py",
+      "beforeBytes": 31775,
+      "afterBytes": 31775,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_openai/llms/__init__.py",
+      "beforeBytes": 218,
+      "afterBytes": 218,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_openai/llms/azure.py",
+      "beforeBytes": 9013,
+      "afterBytes": 9013,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_openai/llms/base.py",
+      "beforeBytes": 32826,
+      "afterBytes": 32826,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_openai/middleware/__init__.py",
+      "beforeBytes": 259,
+      "afterBytes": 259,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_openai/middleware/openai_moderation.py",
+      "beforeBytes": 15397,
+      "afterBytes": 15397,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_openai/output_parsers/__init__.py",
+      "beforeBytes": 269,
+      "afterBytes": 269,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_openai/output_parsers/tools.py",
+      "beforeBytes": 269,
+      "afterBytes": 269,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_openai/py.typed",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_openai/tools/__init__.py",
+      "beforeBytes": 132,
+      "afterBytes": 132,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_openai/tools/custom_tool.py",
+      "beforeBytes": 3199,
+      "afterBytes": 3199,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_protocol-0.0.18.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_protocol-0.0.18.dist-info/METADATA",
+      "beforeBytes": 2406,
+      "afterBytes": 2406,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_protocol-0.0.18.dist-info/RECORD",
+      "beforeBytes": 804,
+      "afterBytes": 804,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_protocol-0.0.18.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_protocol-0.0.18.dist-info/WHEEL",
+      "beforeBytes": 87,
+      "afterBytes": 87,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langchain_protocol-0.0.18.dist-info/licenses/LICENSE",
+      "beforeBytes": 1072,
+      "afterBytes": 1072,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph-1.2.11.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph-1.2.11.dist-info/METADATA",
+      "beforeBytes": 4870,
+      "afterBytes": 4870,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph-1.2.11.dist-info/RECORD",
+      "beforeBytes": 7154,
+      "afterBytes": 7154,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph-1.2.11.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph-1.2.11.dist-info/WHEEL",
+      "beforeBytes": 87,
+      "afterBytes": 87,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph-1.2.11.dist-info/licenses/LICENSE",
+      "beforeBytes": 1072,
+      "afterBytes": 1072,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/_internal/__init__.py",
+      "beforeBytes": 121,
+      "afterBytes": 121,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/_internal/_cache.py",
+      "beforeBytes": 1199,
+      "afterBytes": 1199,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/_internal/_config.py",
+      "beforeBytes": 16338,
+      "afterBytes": 16338,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/_internal/_constants.py",
+      "beforeBytes": 5972,
+      "afterBytes": 5972,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/_internal/_fields.py",
+      "beforeBytes": 7368,
+      "afterBytes": 7368,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/_internal/_future.py",
+      "beforeBytes": 7259,
+      "afterBytes": 7259,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/_internal/_pydantic.py",
+      "beforeBytes": 8755,
+      "afterBytes": 8755,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/_internal/_queue.py",
+      "beforeBytes": 4451,
+      "afterBytes": 4451,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/_internal/_replay.py",
+      "beforeBytes": 3304,
+      "afterBytes": 3304,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/_internal/_retry.py",
+      "beforeBytes": 773,
+      "afterBytes": 773,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/_internal/_runnable.py",
+      "beforeBytes": 34003,
+      "afterBytes": 34003,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/_internal/_scratchpad.py",
+      "beforeBytes": 434,
+      "afterBytes": 434,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/_internal/_serde.py",
+      "beforeBytes": 7292,
+      "afterBytes": 7292,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/_internal/_timeout.py",
+      "beforeBytes": 770,
+      "afterBytes": 770,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/_internal/_typing.py",
+      "beforeBytes": 1536,
+      "afterBytes": 1536,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/cache/base/__init__.py",
+      "beforeBytes": 1835,
+      "afterBytes": 1835,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/cache/base/py.typed",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/cache/memory/__init__.py",
+      "beforeBytes": 3071,
+      "afterBytes": 3071,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/cache/redis/__init__.py",
+      "beforeBytes": 5188,
+      "afterBytes": 5188,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/cache/sqlite/__init__.py",
+      "beforeBytes": 4781,
+      "afterBytes": 4781,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/callbacks.py",
+      "beforeBytes": 12262,
+      "afterBytes": 12262,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/channels/__init__.py",
+      "beforeBytes": 868,
+      "afterBytes": 868,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/channels/any_value.py",
+      "beforeBytes": 1985,
+      "afterBytes": 1985,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/channels/base.py",
+      "beforeBytes": 3643,
+      "afterBytes": 3643,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/channels/binop.py",
+      "beforeBytes": 5313,
+      "afterBytes": 5313,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/channels/delta.py",
+      "beforeBytes": 7772,
+      "afterBytes": 7772,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/channels/ephemeral_value.py",
+      "beforeBytes": 2402,
+      "afterBytes": 2402,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/channels/last_value.py",
+      "beforeBytes": 4324,
+      "afterBytes": 4324,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/channels/named_barrier_value.py",
+      "beforeBytes": 5165,
+      "afterBytes": 5165,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/channels/topic.py",
+      "beforeBytes": 2863,
+      "afterBytes": 2863,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/channels/untracked_value.py",
+      "beforeBytes": 2186,
+      "afterBytes": 2186,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/checkpoint/base/__init__.py",
+      "beforeBytes": 30659,
+      "afterBytes": 30659,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/checkpoint/base/id.py",
+      "beforeBytes": 3647,
+      "afterBytes": 3647,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/checkpoint/base/py.typed",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/checkpoint/memory/__init__.py",
+      "beforeBytes": 26150,
+      "afterBytes": 26150,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/checkpoint/memory/py.typed",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/checkpoint/serde/__init__.py",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/checkpoint/serde/_msgpack.py",
+      "beforeBytes": 3500,
+      "afterBytes": 3500,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/checkpoint/serde/base.py",
+      "beforeBytes": 1933,
+      "afterBytes": 1933,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/checkpoint/serde/encrypted.py",
+      "beforeBytes": 3180,
+      "afterBytes": 3180,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/checkpoint/serde/event_hooks.py",
+      "beforeBytes": 1235,
+      "afterBytes": 1235,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/checkpoint/serde/jsonplus.py",
+      "beforeBytes": 31710,
+      "afterBytes": 31710,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/checkpoint/serde/py.typed",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/checkpoint/serde/types.py",
+      "beforeBytes": 1636,
+      "afterBytes": 1636,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/checkpoint/sqlite/__init__.py",
+      "beforeBytes": 25541,
+      "afterBytes": 25541,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/checkpoint/sqlite/_delta.py",
+      "beforeBytes": 6932,
+      "afterBytes": 6932,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/checkpoint/sqlite/aio.py",
+      "beforeBytes": 29332,
+      "afterBytes": 29332,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/checkpoint/sqlite/py.typed",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/checkpoint/sqlite/utils.py",
+      "beforeBytes": 4264,
+      "afterBytes": 4264,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/config.py",
+      "beforeBytes": 5603,
+      "afterBytes": 5603,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/constants.py",
+      "beforeBytes": 1930,
+      "afterBytes": 1930,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/errors.py",
+      "beforeBytes": 7540,
+      "afterBytes": 7540,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/func/__init__.py",
+      "beforeBytes": 23816,
+      "afterBytes": 23816,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/graph/__init__.py",
+      "beforeBytes": 284,
+      "afterBytes": 284,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/graph/_branch.py",
+      "beforeBytes": 7515,
+      "afterBytes": 7515,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/graph/_node.py",
+      "beforeBytes": 3305,
+      "afterBytes": 3305,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/graph/message.py",
+      "beforeBytes": 15476,
+      "afterBytes": 15476,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/graph/state.py",
+      "beforeBytes": 76310,
+      "afterBytes": 76310,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/graph/ui.py",
+      "beforeBytes": 6593,
+      "afterBytes": 6593,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/managed/__init__.py",
+      "beforeBytes": 114,
+      "afterBytes": 114,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/managed/base.py",
+      "beforeBytes": 639,
+      "afterBytes": 639,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/managed/is_last_step.py",
+      "beforeBytes": 634,
+      "afterBytes": 634,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/prebuilt/__init__.py",
+      "beforeBytes": 628,
+      "afterBytes": 628,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/prebuilt/_tool_call_stream.py",
+      "beforeBytes": 4078,
+      "afterBytes": 4078,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/prebuilt/_tool_call_transformer.py",
+      "beforeBytes": 5169,
+      "afterBytes": 5169,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/prebuilt/chat_agent_executor.py",
+      "beforeBytes": 39821,
+      "afterBytes": 39821,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/prebuilt/interrupt.py",
+      "beforeBytes": 3975,
+      "afterBytes": 3975,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/prebuilt/py.typed",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/prebuilt/tool_node.py",
+      "beforeBytes": 79248,
+      "afterBytes": 79248,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/prebuilt/tool_validator.py",
+      "beforeBytes": 9089,
+      "afterBytes": 9089,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/pregel/__init__.py",
+      "beforeBytes": 91,
+      "afterBytes": 91,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/pregel/_algo.py",
+      "beforeBytes": 52186,
+      "afterBytes": 52186,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/pregel/_call.py",
+      "beforeBytes": 9820,
+      "afterBytes": 9820,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/pregel/_checkpoint.py",
+      "beforeBytes": 12437,
+      "afterBytes": 12437,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/pregel/_config.py",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/pregel/_draw.py",
+      "beforeBytes": 10464,
+      "afterBytes": 10464,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/pregel/_executor.py",
+      "beforeBytes": 8185,
+      "afterBytes": 8185,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/pregel/_io.py",
+      "beforeBytes": 5826,
+      "afterBytes": 5826,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/pregel/_log.py",
+      "beforeBytes": 56,
+      "afterBytes": 56,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/pregel/_loop.py",
+      "beforeBytes": 82085,
+      "afterBytes": 82085,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/pregel/_messages.py",
+      "beforeBytes": 17446,
+      "afterBytes": 17446,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/pregel/_read.py",
+      "beforeBytes": 10686,
+      "afterBytes": 10686,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/pregel/_remote_run_stream.py",
+      "beforeBytes": 13910,
+      "afterBytes": 13910,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/pregel/_retry.py",
+      "beforeBytes": 33048,
+      "afterBytes": 33048,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/pregel/_runner.py",
+      "beforeBytes": 36898,
+      "afterBytes": 36898,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/pregel/_tools.py",
+      "beforeBytes": 9065,
+      "afterBytes": 9065,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/pregel/_utils.py",
+      "beforeBytes": 9749,
+      "afterBytes": 9749,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/pregel/_validate.py",
+      "beforeBytes": 4473,
+      "afterBytes": 4473,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/pregel/_write.py",
+      "beforeBytes": 7309,
+      "afterBytes": 7309,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/pregel/debug.py",
+      "beforeBytes": 10010,
+      "afterBytes": 10010,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/pregel/main.py",
+      "beforeBytes": 175454,
+      "afterBytes": 175454,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/pregel/protocol.py",
+      "beforeBytes": 8597,
+      "afterBytes": 8597,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/pregel/remote.py",
+      "beforeBytes": 48550,
+      "afterBytes": 48550,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/pregel/types.py",
+      "beforeBytes": 737,
+      "afterBytes": 737,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/py.typed",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/runtime.py",
+      "beforeBytes": 10319,
+      "afterBytes": 10319,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/store/base/__init__.py",
+      "beforeBytes": 43090,
+      "afterBytes": 43090,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/store/base/batch.py",
+      "beforeBytes": 11205,
+      "afterBytes": 11205,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/store/base/embed.py",
+      "beforeBytes": 14497,
+      "afterBytes": 14497,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/store/base/py.typed",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/store/memory/__init__.py",
+      "beforeBytes": 21155,
+      "afterBytes": 21155,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/store/memory/py.typed",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/store/sqlite/__init__.py",
+      "beforeBytes": 155,
+      "afterBytes": 155,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/store/sqlite/aio.py",
+      "beforeBytes": 23449,
+      "afterBytes": 23449,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/store/sqlite/base.py",
+      "beforeBytes": 59332,
+      "afterBytes": 59332,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/stream/__init__.py",
+      "beforeBytes": 1221,
+      "afterBytes": 1221,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/stream/_convert.py",
+      "beforeBytes": 914,
+      "afterBytes": 914,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/stream/_mux.py",
+      "beforeBytes": 21479,
+      "afterBytes": 21479,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/stream/_types.py",
+      "beforeBytes": 13117,
+      "afterBytes": 13117,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/stream/run_stream.py",
+      "beforeBytes": 25510,
+      "afterBytes": 25510,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/stream/stream_channel.py",
+      "beforeBytes": 12793,
+      "afterBytes": 12793,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/stream/transformers.py",
+      "beforeBytes": 40751,
+      "afterBytes": 40751,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/types.py",
+      "beforeBytes": 34950,
+      "afterBytes": 34950,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/typing.py",
+      "beforeBytes": 1260,
+      "afterBytes": 1260,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/utils/__init__.py",
+      "beforeBytes": 52,
+      "afterBytes": 52,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/utils/config.py",
+      "beforeBytes": 228,
+      "afterBytes": 228,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/utils/runnable.py",
+      "beforeBytes": 164,
+      "afterBytes": 164,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/version.py",
+      "beforeBytes": 331,
+      "afterBytes": 331,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph/warnings.py",
+      "beforeBytes": 2482,
+      "afterBytes": 2482,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph_checkpoint-4.2.0.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph_checkpoint-4.2.0.dist-info/METADATA",
+      "beforeBytes": 6718,
+      "afterBytes": 6718,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph_checkpoint-4.2.0.dist-info/RECORD",
+      "beforeBytes": 2639,
+      "afterBytes": 2639,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph_checkpoint-4.2.0.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph_checkpoint-4.2.0.dist-info/WHEEL",
+      "beforeBytes": 87,
+      "afterBytes": 87,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph_checkpoint-4.2.0.dist-info/licenses/LICENSE",
+      "beforeBytes": 1072,
+      "afterBytes": 1072,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph_checkpoint_sqlite-3.1.1.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph_checkpoint_sqlite-3.1.1.dist-info/METADATA",
+      "beforeBytes": 5083,
+      "afterBytes": 5083,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph_checkpoint_sqlite-3.1.1.dist-info/RECORD",
+      "beforeBytes": 1419,
+      "afterBytes": 1419,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph_checkpoint_sqlite-3.1.1.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph_checkpoint_sqlite-3.1.1.dist-info/WHEEL",
+      "beforeBytes": 87,
+      "afterBytes": 87,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph_checkpoint_sqlite-3.1.1.dist-info/licenses/LICENSE",
+      "beforeBytes": 1072,
+      "afterBytes": 1072,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph_prebuilt-1.1.0.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph_prebuilt-1.1.0.dist-info/METADATA",
+      "beforeBytes": 5195,
+      "afterBytes": 5195,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph_prebuilt-1.1.0.dist-info/RECORD",
+      "beforeBytes": 1276,
+      "afterBytes": 1276,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph_prebuilt-1.1.0.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph_prebuilt-1.1.0.dist-info/WHEEL",
+      "beforeBytes": 87,
+      "afterBytes": 87,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph_prebuilt-1.1.0.dist-info/licenses/LICENSE",
+      "beforeBytes": 1072,
+      "afterBytes": 1072,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph_sdk-0.4.4.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph_sdk-0.4.4.dist-info/METADATA",
+      "beforeBytes": 5102,
+      "afterBytes": 5102,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph_sdk-0.4.4.dist-info/RECORD",
+      "beforeBytes": 4567,
+      "afterBytes": 4567,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph_sdk-0.4.4.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph_sdk-0.4.4.dist-info/WHEEL",
+      "beforeBytes": 87,
+      "afterBytes": 87,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langgraph_sdk-0.4.4.dist-info/licenses/LICENSE",
+      "beforeBytes": 1072,
+      "afterBytes": 1072,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langsmith-0.11.0.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langsmith-0.11.0.dist-info/METADATA",
+      "beforeBytes": 22524,
+      "afterBytes": 22524,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langsmith-0.11.0.dist-info/RECORD",
+      "beforeBytes": 31829,
+      "afterBytes": 31829,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langsmith-0.11.0.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langsmith-0.11.0.dist-info/WHEEL",
+      "beforeBytes": 87,
+      "afterBytes": 87,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/langsmith-0.11.0.dist-info/entry_points.txt",
+      "beforeBytes": 54,
+      "afterBytes": 54,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/libpython3.14.dylib",
+      "beforeBytes": 18708608,
+      "afterBytes": 18708608,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/openai-3.2.0.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/openai-3.2.0.dist-info/METADATA",
+      "beforeBytes": 41693,
+      "afterBytes": 41693,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/openai-3.2.0.dist-info/RECORD",
+      "beforeBytes": 164381,
+      "afterBytes": 164381,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/openai-3.2.0.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/openai-3.2.0.dist-info/WHEEL",
+      "beforeBytes": 87,
+      "afterBytes": 87,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/openai-3.2.0.dist-info/licenses/LICENSE",
+      "beforeBytes": 11336,
+      "afterBytes": 11336,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/opentelemetry_api-1.42.1.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/opentelemetry_api-1.42.1.dist-info/METADATA",
+      "beforeBytes": 1411,
+      "afterBytes": 1411,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/opentelemetry_api-1.42.1.dist-info/RECORD",
+      "beforeBytes": 4646,
+      "afterBytes": 4646,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/opentelemetry_api-1.42.1.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/opentelemetry_api-1.42.1.dist-info/WHEEL",
+      "beforeBytes": 87,
+      "afterBytes": 87,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/opentelemetry_api-1.42.1.dist-info/entry_points.txt",
+      "beforeBytes": 573,
+      "afterBytes": 573,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/opentelemetry_api-1.42.1.dist-info/licenses/LICENSE",
+      "beforeBytes": 11357,
+      "afterBytes": 11357,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/opentelemetry_exporter_otlp_proto_http-1.42.1.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/opentelemetry_exporter_otlp_proto_http-1.42.1.dist-info/METADATA",
+      "beforeBytes": 2414,
+      "afterBytes": 2414,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/opentelemetry_exporter_otlp_proto_http-1.42.1.dist-info/RECORD",
+      "beforeBytes": 1734,
+      "afterBytes": 1734,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/opentelemetry_exporter_otlp_proto_http-1.42.1.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/opentelemetry_exporter_otlp_proto_http-1.42.1.dist-info/WHEEL",
+      "beforeBytes": 87,
+      "afterBytes": 87,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/opentelemetry_exporter_otlp_proto_http-1.42.1.dist-info/entry_points.txt",
+      "beforeBytes": 365,
+      "afterBytes": 365,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/opentelemetry_exporter_otlp_proto_http-1.42.1.dist-info/licenses/LICENSE",
+      "beforeBytes": 11357,
+      "afterBytes": 11357,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/opentelemetry_exporter_prometheus-0.63b1.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/opentelemetry_exporter_prometheus-0.63b1.dist-info/METADATA",
+      "beforeBytes": 2068,
+      "afterBytes": 2068,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/opentelemetry_exporter_prometheus-0.63b1.dist-info/RECORD",
+      "beforeBytes": 1173,
+      "afterBytes": 1173,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/opentelemetry_exporter_prometheus-0.63b1.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/opentelemetry_exporter_prometheus-0.63b1.dist-info/WHEEL",
+      "beforeBytes": 87,
+      "afterBytes": 87,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/opentelemetry_exporter_prometheus-0.63b1.dist-info/entry_points.txt",
+      "beforeBytes": 108,
+      "afterBytes": 108,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/opentelemetry_exporter_prometheus-0.63b1.dist-info/licenses/LICENSE",
+      "beforeBytes": 11357,
+      "afterBytes": 11357,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/opentelemetry_sdk-1.42.1.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/opentelemetry_sdk-1.42.1.dist-info/METADATA",
+      "beforeBytes": 1665,
+      "afterBytes": 1665,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/opentelemetry_sdk-1.42.1.dist-info/RECORD",
+      "beforeBytes": 9247,
+      "afterBytes": 9247,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/opentelemetry_sdk-1.42.1.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/opentelemetry_sdk-1.42.1.dist-info/WHEEL",
+      "beforeBytes": 87,
+      "afterBytes": 87,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/opentelemetry_sdk-1.42.1.dist-info/entry_points.txt",
+      "beforeBytes": 1463,
+      "afterBytes": 1463,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/opentelemetry_sdk-1.42.1.dist-info/licenses/LICENSE",
+      "beforeBytes": 11357,
+      "afterBytes": 11357,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/orjson-3.12.0.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/orjson-3.12.0.dist-info/METADATA",
+      "beforeBytes": 41988,
+      "afterBytes": 41988,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/orjson-3.12.0.dist-info/RECORD",
+      "beforeBytes": 1115,
+      "afterBytes": 1115,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/orjson-3.12.0.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/orjson-3.12.0.dist-info/WHEEL",
+      "beforeBytes": 105,
+      "afterBytes": 105,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/orjson-3.12.0.dist-info/licenses/LICENSE-APACHE",
+      "beforeBytes": 10847,
+      "afterBytes": 10847,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/orjson-3.12.0.dist-info/licenses/LICENSE-MIT",
+      "beforeBytes": 1023,
+      "afterBytes": 1023,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/orjson-3.12.0.dist-info/licenses/LICENSE-MPL-2.0",
+      "beforeBytes": 16727,
+      "afterBytes": 16727,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/orjson-3.12.0.dist-info/sboms/orjson.cyclonedx.json",
+      "beforeBytes": 26208,
+      "afterBytes": 26208,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/orjson/orjson.cpython-314-darwin.so",
+      "beforeBytes": 252384,
+      "afterBytes": 252384,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/ormsgpack-1.12.2.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/ormsgpack-1.12.2.dist-info/METADATA",
+      "beforeBytes": 3219,
+      "afterBytes": 3219,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/ormsgpack-1.12.2.dist-info/RECORD",
+      "beforeBytes": 1220,
+      "afterBytes": 1220,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/ormsgpack-1.12.2.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/ormsgpack-1.12.2.dist-info/WHEEL",
+      "beforeBytes": 183,
+      "afterBytes": 183,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/ormsgpack-1.12.2.dist-info/entry_points.txt",
+      "beforeBytes": 63,
+      "afterBytes": 63,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/ormsgpack-1.12.2.dist-info/licenses/LICENSE-APACHE",
+      "beforeBytes": 10847,
+      "afterBytes": 10847,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/ormsgpack-1.12.2.dist-info/licenses/LICENSE-MIT",
+      "beforeBytes": 1023,
+      "afterBytes": 1023,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/ormsgpack/ormsgpack.cpython-314-darwin.so",
+      "beforeBytes": 370752,
+      "afterBytes": 370752,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/packaging-26.3.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/packaging-26.3.dist-info/METADATA",
+      "beforeBytes": 3544,
+      "afterBytes": 3544,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/packaging-26.3.dist-info/RECORD",
+      "beforeBytes": 2515,
+      "afterBytes": 2515,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/packaging-26.3.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/packaging-26.3.dist-info/WHEEL",
+      "beforeBytes": 82,
+      "afterBytes": 82,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/packaging-26.3.dist-info/licenses/LICENSE",
+      "beforeBytes": 197,
+      "afterBytes": 197,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/packaging-26.3.dist-info/licenses/LICENSE.APACHE",
+      "beforeBytes": 10174,
+      "afterBytes": 10174,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/packaging-26.3.dist-info/licenses/LICENSE.BSD",
+      "beforeBytes": 1344,
+      "afterBytes": 1344,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pillow-12.3.0.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pillow-12.3.0.dist-info/METADATA",
+      "beforeBytes": 9093,
+      "afterBytes": 9093,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pillow-12.3.0.dist-info/RECORD",
+      "beforeBytes": 11180,
+      "afterBytes": 11180,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pillow-12.3.0.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pillow-12.3.0.dist-info/WHEEL",
+      "beforeBytes": 136,
+      "afterBytes": 136,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pillow-12.3.0.dist-info/licenses/LICENSE",
+      "beforeBytes": 70307,
+      "afterBytes": 70307,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pillow-12.3.0.dist-info/sboms/pillow-12.3.0.cdx.json",
+      "beforeBytes": 22279,
+      "afterBytes": 22279,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pillow-12.3.0.dist-info/top_level.txt",
+      "beforeBytes": 4,
+      "afterBytes": 4,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pillow-12.3.0.dist-info/zip-safe",
+      "beforeBytes": 1,
+      "afterBytes": 1,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/practiq_ai/__init__.py",
+      "beforeBytes": 45,
+      "afterBytes": 45,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/practiq_ai/auth.py",
+      "beforeBytes": 414,
+      "afterBytes": 414,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/practiq_ai/capacity.py",
+      "beforeBytes": 1755,
+      "afterBytes": 1755,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/practiq_ai/config.py",
+      "beforeBytes": 8525,
+      "afterBytes": 8525,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/practiq_ai/contracts.py",
+      "beforeBytes": 34020,
+      "afterBytes": 34020,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/practiq_ai/database.py",
+      "beforeBytes": 9948,
+      "afterBytes": 9948,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/practiq_ai/desktop.py",
+      "beforeBytes": 2909,
+      "afterBytes": 3027,
+      "deltaBytes": 118
+    },
+    {
+      "path": "_internal/practiq_ai/errors.py",
+      "beforeBytes": 506,
+      "afterBytes": 506,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/practiq_ai/execution.py",
+      "beforeBytes": 11476,
+      "afterBytes": 11476,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/practiq_ai/extractors/__init__.py",
+      "beforeBytes": 1407,
+      "afterBytes": 1407,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/practiq_ai/extractors/csv.py",
+      "beforeBytes": 547,
+      "afterBytes": 547,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/practiq_ai/extractors/image.py",
+      "beforeBytes": 1056,
+      "afterBytes": 1056,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/practiq_ai/extractors/isolated.py",
+      "beforeBytes": 5854,
+      "afterBytes": 6021,
+      "deltaBytes": 167
+    },
+    {
+      "path": "_internal/practiq_ai/extractors/pdf.py",
+      "beforeBytes": 2979,
+      "afterBytes": 2979,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/practiq_ai/extractors/windows_job.py",
+      "beforeBytes": 2291,
+      "afterBytes": 2291,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/practiq_ai/grading.py",
+      "beforeBytes": 10424,
+      "afterBytes": 10424,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/practiq_ai/graphs/__init__.py",
+      "beforeBytes": 33,
+      "afterBytes": 33,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/practiq_ai/graphs/chunking.py",
+      "beforeBytes": 15231,
+      "afterBytes": 15231,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/practiq_ai/graphs/document.py",
+      "beforeBytes": 57262,
+      "afterBytes": 57262,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/practiq_ai/graphs/vision.py",
+      "beforeBytes": 7924,
+      "afterBytes": 7924,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/practiq_ai/json_repair.py",
+      "beforeBytes": 1494,
+      "afterBytes": 1494,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/practiq_ai/llm.py",
+      "beforeBytes": 25106,
+      "afterBytes": 25106,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/practiq_ai/manage.py",
+      "beforeBytes": 2524,
+      "afterBytes": 2524,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/practiq_ai/middleware.py",
+      "beforeBytes": 2937,
+      "afterBytes": 2937,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/practiq_ai/office.py",
+      "beforeBytes": null,
+      "afterBytes": 16968,
+      "deltaBytes": 16968
+    },
+    {
+      "path": "_internal/practiq_ai/runtime.py",
+      "beforeBytes": 10034,
+      "afterBytes": 10034,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/practiq_ai/storage.py",
+      "beforeBytes": 10064,
+      "afterBytes": 10064,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/practiq_ai/task_api.py",
+      "beforeBytes": 20206,
+      "afterBytes": 20206,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/practiq_ai/telemetry.py",
+      "beforeBytes": 2901,
+      "afterBytes": 2901,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/practiq_ai/uv.lock",
+      "beforeBytes": 266265,
+      "afterBytes": 266265,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/practiq_ai/webapp.py",
+      "beforeBytes": 8773,
+      "afterBytes": 8773,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/practiq_ai_service-0.3.0.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/practiq_ai_service-0.3.0.dist-info/METADATA",
+      "beforeBytes": 1158,
+      "afterBytes": 1158,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/practiq_ai_service-0.3.0.dist-info/RECORD",
+      "beforeBytes": 915,
+      "afterBytes": 915,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/practiq_ai_service-0.3.0.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/practiq_ai_service-0.3.0.dist-info/WHEEL",
+      "beforeBytes": 87,
+      "afterBytes": 87,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/practiq_ai_service-0.3.0.dist-info/direct_url.json",
+      "beforeBytes": 88,
+      "afterBytes": 88,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/practiq_ai_service-0.3.0.dist-info/uv_build.json",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/practiq_ai_service-0.3.0.dist-info/uv_cache.json",
+      "beforeBytes": 186,
+      "afterBytes": 186,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/prometheus_client-0.26.0.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/prometheus_client-0.26.0.dist-info/METADATA",
+      "beforeBytes": 2089,
+      "afterBytes": 2089,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/prometheus_client-0.26.0.dist-info/RECORD",
+      "beforeBytes": 3536,
+      "afterBytes": 3536,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/prometheus_client-0.26.0.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/prometheus_client-0.26.0.dist-info/WHEEL",
+      "beforeBytes": 91,
+      "afterBytes": 91,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/prometheus_client-0.26.0.dist-info/licenses/LICENSE",
+      "beforeBytes": 11357,
+      "afterBytes": 11357,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/prometheus_client-0.26.0.dist-info/licenses/NOTICE",
+      "beforeBytes": 236,
+      "afterBytes": 236,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/prometheus_client-0.26.0.dist-info/top_level.txt",
+      "beforeBytes": 18,
+      "afterBytes": 18,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pydantic-2.13.4.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pydantic-2.13.4.dist-info/METADATA",
+      "beforeBytes": 109397,
+      "afterBytes": 109397,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pydantic-2.13.4.dist-info/RECORD",
+      "beforeBytes": 9517,
+      "afterBytes": 9517,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pydantic-2.13.4.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pydantic-2.13.4.dist-info/WHEEL",
+      "beforeBytes": 87,
+      "afterBytes": 87,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pydantic-2.13.4.dist-info/licenses/LICENSE",
+      "beforeBytes": 1129,
+      "afterBytes": 1129,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pydantic_core-2.46.4.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pydantic_core-2.46.4.dist-info/METADATA",
+      "beforeBytes": 6573,
+      "afterBytes": 6573,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pydantic_core-2.46.4.dist-info/RECORD",
+      "beforeBytes": 1089,
+      "afterBytes": 1089,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pydantic_core-2.46.4.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pydantic_core-2.46.4.dist-info/WHEEL",
+      "beforeBytes": 105,
+      "afterBytes": 105,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pydantic_core-2.46.4.dist-info/licenses/LICENSE",
+      "beforeBytes": 1080,
+      "afterBytes": 1080,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pydantic_core-2.46.4.dist-info/sboms/pydantic-core.cyclonedx.json",
+      "beforeBytes": 125379,
+      "afterBytes": 125379,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pydantic_core/_pydantic_core.cpython-314-darwin.so",
+      "beforeBytes": 4145568,
+      "afterBytes": 4145568,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2-5.12.1.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2-5.12.1.dist-info/METADATA",
+      "beforeBytes": 69187,
+      "afterBytes": 69187,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2-5.12.1.dist-info/RECORD",
+      "beforeBytes": 6965,
+      "afterBytes": 6965,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2-5.12.1.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2-5.12.1.dist-info/WHEEL",
+      "beforeBytes": 106,
+      "afterBytes": 106,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2-5.12.1.dist-info/entry_points.txt",
+      "beforeBytes": 62,
+      "afterBytes": 62,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2-5.12.1.dist-info/licenses/LICENSES/Apache-2.0.txt",
+      "beforeBytes": 11358,
+      "afterBytes": 11358,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2-5.12.1.dist-info/licenses/LICENSES/BSD-3-Clause.txt",
+      "beforeBytes": 1459,
+      "afterBytes": 1459,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2-5.12.1.dist-info/licenses/LICENSES/CC-BY-4.0.txt",
+      "beforeBytes": 14527,
+      "afterBytes": 14527,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2-5.12.1.dist-info/licenses/data/darwin_arm64/BUILD_LICENSES/abseil.txt",
+      "beforeBytes": 11361,
+      "afterBytes": 11361,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2-5.12.1.dist-info/licenses/data/darwin_arm64/BUILD_LICENSES/agg23.txt",
+      "beforeBytes": 725,
+      "afterBytes": 725,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2-5.12.1.dist-info/licenses/data/darwin_arm64/BUILD_LICENSES/fast_float.txt",
+      "beforeBytes": 1079,
+      "afterBytes": 1079,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2-5.12.1.dist-info/licenses/data/darwin_arm64/BUILD_LICENSES/freetype.txt",
+      "beforeBytes": 6741,
+      "afterBytes": 6741,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2-5.12.1.dist-info/licenses/data/darwin_arm64/BUILD_LICENSES/icu.txt",
+      "beforeBytes": 27718,
+      "afterBytes": 27718,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2-5.12.1.dist-info/licenses/data/darwin_arm64/BUILD_LICENSES/lcms.txt",
+      "beforeBytes": 1353,
+      "afterBytes": 1353,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2-5.12.1.dist-info/licenses/data/darwin_arm64/BUILD_LICENSES/libjpeg_turbo.ijg",
+      "beforeBytes": 12799,
+      "afterBytes": 12799,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2-5.12.1.dist-info/licenses/data/darwin_arm64/BUILD_LICENSES/libjpeg_turbo.md",
+      "beforeBytes": 5620,
+      "afterBytes": 5620,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2-5.12.1.dist-info/licenses/data/darwin_arm64/BUILD_LICENSES/libopenjpeg.txt",
+      "beforeBytes": 1794,
+      "afterBytes": 1794,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2-5.12.1.dist-info/licenses/data/darwin_arm64/BUILD_LICENSES/libpng.txt",
+      "beforeBytes": 5345,
+      "afterBytes": 5345,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2-5.12.1.dist-info/licenses/data/darwin_arm64/BUILD_LICENSES/libtiff.txt",
+      "beforeBytes": 1139,
+      "afterBytes": 1139,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2-5.12.1.dist-info/licenses/data/darwin_arm64/BUILD_LICENSES/llvm-libc.txt",
+      "beforeBytes": 15140,
+      "afterBytes": 15140,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2-5.12.1.dist-info/licenses/data/darwin_arm64/BUILD_LICENSES/pdfium-binaries.txt",
+      "beforeBytes": 1177,
+      "afterBytes": 1177,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2-5.12.1.dist-info/licenses/data/darwin_arm64/BUILD_LICENSES/pdfium.txt",
+      "beforeBytes": 12896,
+      "afterBytes": 12896,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2-5.12.1.dist-info/licenses/data/darwin_arm64/BUILD_LICENSES/simdutf.txt",
+      "beforeBytes": 1059,
+      "afterBytes": 1059,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2-5.12.1.dist-info/licenses/data/darwin_arm64/BUILD_LICENSES/zlib.txt",
+      "beforeBytes": 1332,
+      "afterBytes": 1332,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2-5.12.1.dist-info/top_level.txt",
+      "beforeBytes": 52,
+      "afterBytes": 52,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2/__init__.py",
+      "beforeBytes": 251,
+      "afterBytes": 251,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2/__main__.py",
+      "beforeBytes": 892,
+      "afterBytes": 892,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2/_helpers/__init__.py",
+      "beforeBytes": 537,
+      "afterBytes": 537,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2/_helpers/attachment.py",
+      "beforeBytes": 5231,
+      "afterBytes": 5231,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2/_helpers/bitmap.py",
+      "beforeBytes": 17457,
+      "afterBytes": 17457,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2/_helpers/document.py",
+      "beforeBytes": 28232,
+      "afterBytes": 28232,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2/_helpers/matrix.py",
+      "beforeBytes": 6435,
+      "afterBytes": 6435,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2/_helpers/misc.py",
+      "beforeBytes": 1538,
+      "afterBytes": 1538,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2/_helpers/page.py",
+      "beforeBytes": 23653,
+      "afterBytes": 23653,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2/_helpers/pageobjects.py",
+      "beforeBytes": 26785,
+      "afterBytes": 26785,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2/_helpers/sysfontinfo.py",
+      "beforeBytes": 12247,
+      "afterBytes": 12247,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2/_helpers/textpage.py",
+      "beforeBytes": 13729,
+      "afterBytes": 13729,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2/_helpers/unsupported.py",
+      "beforeBytes": 2582,
+      "afterBytes": 2582,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2/_lazy.py",
+      "beforeBytes": 1302,
+      "afterBytes": 1302,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2/_library_scope.py",
+      "beforeBytes": 2277,
+      "afterBytes": 2277,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2/internal/__init__.py",
+      "beforeBytes": 236,
+      "afterBytes": 236,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2/internal/bases.py",
+      "beforeBytes": 6681,
+      "afterBytes": 6681,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2/internal/consts.py",
+      "beforeBytes": 8371,
+      "afterBytes": 8371,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2/internal/utils.py",
+      "beforeBytes": 2759,
+      "afterBytes": 2759,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2/raw.py",
+      "beforeBytes": 268,
+      "afterBytes": 268,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2/version.json",
+      "beforeBytes": 161,
+      "afterBytes": 161,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2/version.py",
+      "beforeBytes": 2707,
+      "afterBytes": 2707,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2_raw/__init__.py",
+      "beforeBytes": 826,
+      "afterBytes": 826,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2_raw/bindings.py",
+      "beforeBytes": 146074,
+      "afterBytes": 146074,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2_raw/libpdfium.dylib",
+      "beforeBytes": 7109808,
+      "afterBytes": 7109808,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2_raw/version.json",
+      "beforeBytes": 143,
+      "afterBytes": 143,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pypdfium2_raw/version.py",
+      "beforeBytes": 2573,
+      "afterBytes": 2573,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/python_dotenv-1.2.3.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/python_dotenv-1.2.3.dist-info/METADATA",
+      "beforeBytes": 29008,
+      "afterBytes": 29008,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/python_dotenv-1.2.3.dist-info/RECORD",
+      "beforeBytes": 1443,
+      "afterBytes": 1443,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/python_dotenv-1.2.3.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/python_dotenv-1.2.3.dist-info/WHEEL",
+      "beforeBytes": 91,
+      "afterBytes": 91,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/python_dotenv-1.2.3.dist-info/entry_points.txt",
+      "beforeBytes": 47,
+      "afterBytes": 47,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/python_dotenv-1.2.3.dist-info/licenses/LICENSE",
+      "beforeBytes": 1556,
+      "afterBytes": 1556,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/python_dotenv-1.2.3.dist-info/top_level.txt",
+      "beforeBytes": 7,
+      "afterBytes": 7,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pyyaml-6.0.3.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pyyaml-6.0.3.dist-info/METADATA",
+      "beforeBytes": 2351,
+      "afterBytes": 2351,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pyyaml-6.0.3.dist-info/RECORD",
+      "beforeBytes": 1960,
+      "afterBytes": 1960,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pyyaml-6.0.3.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pyyaml-6.0.3.dist-info/WHEEL",
+      "beforeBytes": 136,
+      "afterBytes": 136,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pyyaml-6.0.3.dist-info/licenses/LICENSE",
+      "beforeBytes": 1101,
+      "afterBytes": 1101,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/pyyaml-6.0.3.dist-info/top_level.txt",
+      "beforeBytes": 11,
+      "afterBytes": 11,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/regex-2026.7.19.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/regex-2026.7.19.dist-info/METADATA",
+      "beforeBytes": 40513,
+      "afterBytes": 40513,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/regex-2026.7.19.dist-info/RECORD",
+      "beforeBytes": 989,
+      "afterBytes": 989,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/regex-2026.7.19.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/regex-2026.7.19.dist-info/WHEEL",
+      "beforeBytes": 136,
+      "afterBytes": 136,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/regex-2026.7.19.dist-info/licenses/LICENSE.txt",
+      "beforeBytes": 11584,
+      "afterBytes": 11584,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/regex-2026.7.19.dist-info/top_level.txt",
+      "beforeBytes": 6,
+      "afterBytes": 6,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/regex/_regex.cpython-314-darwin.so",
+      "beforeBytes": 786432,
+      "afterBytes": 786432,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/requests-2.34.2.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/requests-2.34.2.dist-info/METADATA",
+      "beforeBytes": 4806,
+      "afterBytes": 4806,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/requests-2.34.2.dist-info/RECORD",
+      "beforeBytes": 2205,
+      "afterBytes": 2205,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/requests-2.34.2.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/requests-2.34.2.dist-info/WHEEL",
+      "beforeBytes": 91,
+      "afterBytes": 91,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/requests-2.34.2.dist-info/licenses/LICENSE",
+      "beforeBytes": 10142,
+      "afterBytes": 10142,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/requests-2.34.2.dist-info/licenses/NOTICE",
+      "beforeBytes": 38,
+      "afterBytes": 38,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/requests-2.34.2.dist-info/top_level.txt",
+      "beforeBytes": 9,
+      "afterBytes": 9,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/requests_toolbelt-1.0.0.dist-info/AUTHORS.rst",
+      "beforeBytes": 986,
+      "afterBytes": 986,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/requests_toolbelt-1.0.0.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/requests_toolbelt-1.0.0.dist-info/LICENSE",
+      "beforeBytes": 596,
+      "afterBytes": 596,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/requests_toolbelt-1.0.0.dist-info/METADATA",
+      "beforeBytes": 14638,
+      "afterBytes": 14638,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/requests_toolbelt-1.0.0.dist-info/RECORD",
+      "beforeBytes": 3901,
+      "afterBytes": 3901,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/requests_toolbelt-1.0.0.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/requests_toolbelt-1.0.0.dist-info/WHEEL",
+      "beforeBytes": 110,
+      "afterBytes": 110,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/requests_toolbelt-1.0.0.dist-info/top_level.txt",
+      "beforeBytes": 18,
+      "afterBytes": 18,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/setuptools/_vendor/jaraco/text/Lorem ipsum.txt",
+      "beforeBytes": 1335,
+      "afterBytes": 1335,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/sniffio-1.3.1.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/sniffio-1.3.1.dist-info/LICENSE",
+      "beforeBytes": 185,
+      "afterBytes": 185,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/sniffio-1.3.1.dist-info/LICENSE.APACHE2",
+      "beforeBytes": 11358,
+      "afterBytes": 11358,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/sniffio-1.3.1.dist-info/LICENSE.MIT",
+      "beforeBytes": 1046,
+      "afterBytes": 1046,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/sniffio-1.3.1.dist-info/METADATA",
+      "beforeBytes": 3875,
+      "afterBytes": 3875,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/sniffio-1.3.1.dist-info/RECORD",
+      "beforeBytes": 1206,
+      "afterBytes": 1206,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/sniffio-1.3.1.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/sniffio-1.3.1.dist-info/WHEEL",
+      "beforeBytes": 92,
+      "afterBytes": 92,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/sniffio-1.3.1.dist-info/top_level.txt",
+      "beforeBytes": 8,
+      "afterBytes": 8,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/sqlite_vec-0.1.9.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/sqlite_vec-0.1.9.dist-info/METADATA",
+      "beforeBytes": 198,
+      "afterBytes": 198,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/sqlite_vec-0.1.9.dist-info/RECORD",
+      "beforeBytes": 649,
+      "afterBytes": 649,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/sqlite_vec-0.1.9.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/sqlite_vec-0.1.9.dist-info/WHEEL",
+      "beforeBytes": 111,
+      "afterBytes": 111,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/sqlite_vec-0.1.9.dist-info/top_level.txt",
+      "beforeBytes": 11,
+      "afterBytes": 11,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/sqlite_vec/__init__.py",
+      "beforeBytes": 1905,
+      "afterBytes": 1905,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/sqlite_vec/vec0.dylib",
+      "beforeBytes": 161088,
+      "afterBytes": 161088,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/starlette-1.6.0.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/starlette-1.6.0.dist-info/METADATA",
+      "beforeBytes": 6370,
+      "afterBytes": 6370,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/starlette-1.6.0.dist-info/RECORD",
+      "beforeBytes": 3468,
+      "afterBytes": 3468,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/starlette-1.6.0.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/starlette-1.6.0.dist-info/WHEEL",
+      "beforeBytes": 87,
+      "afterBytes": 87,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/starlette-1.6.0.dist-info/licenses/LICENSE.md",
+      "beforeBytes": 1518,
+      "afterBytes": 1518,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/tenacity-9.1.4.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/tenacity-9.1.4.dist-info/METADATA",
+      "beforeBytes": 1174,
+      "afterBytes": 1174,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/tenacity-9.1.4.dist-info/RECORD",
+      "beforeBytes": 1568,
+      "afterBytes": 1568,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/tenacity-9.1.4.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/tenacity-9.1.4.dist-info/WHEEL",
+      "beforeBytes": 91,
+      "afterBytes": 91,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/tenacity-9.1.4.dist-info/licenses/LICENSE",
+      "beforeBytes": 11357,
+      "afterBytes": 11357,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/tenacity-9.1.4.dist-info/top_level.txt",
+      "beforeBytes": 9,
+      "afterBytes": 9,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/tiktoken-0.14.0.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/tiktoken-0.14.0.dist-info/METADATA",
+      "beforeBytes": 6669,
+      "afterBytes": 6669,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/tiktoken-0.14.0.dist-info/RECORD",
+      "beforeBytes": 1296,
+      "afterBytes": 1296,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/tiktoken-0.14.0.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/tiktoken-0.14.0.dist-info/WHEEL",
+      "beforeBytes": 136,
+      "afterBytes": 136,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/tiktoken-0.14.0.dist-info/licenses/LICENSE",
+      "beforeBytes": 1078,
+      "afterBytes": 1078,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/tiktoken-0.14.0.dist-info/top_level.txt",
+      "beforeBytes": 22,
+      "afterBytes": 22,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/tiktoken/_tiktoken.cpython-314-darwin.so",
+      "beforeBytes": 2918928,
+      "afterBytes": 2918928,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/tomli/__init__.cpython-314-darwin.so",
+      "beforeBytes": 50400,
+      "afterBytes": 50400,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/tomli/_parser.cpython-314-darwin.so",
+      "beforeBytes": 50416,
+      "afterBytes": 50416,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/tomli/_re.cpython-314-darwin.so",
+      "beforeBytes": 50384,
+      "afterBytes": 50384,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/tomli/_types.cpython-314-darwin.so",
+      "beforeBytes": 50416,
+      "afterBytes": 50416,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/tqdm-4.70.0.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/tqdm-4.70.0.dist-info/METADATA",
+      "beforeBytes": 57344,
+      "afterBytes": 57344,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/tqdm-4.70.0.dist-info/RECORD",
+      "beforeBytes": 3155,
+      "afterBytes": 3155,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/tqdm-4.70.0.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/tqdm-4.70.0.dist-info/WHEEL",
+      "beforeBytes": 91,
+      "afterBytes": 91,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/tqdm-4.70.0.dist-info/entry_points.txt",
+      "beforeBytes": 39,
+      "afterBytes": 39,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/tqdm-4.70.0.dist-info/licenses/LICENCE",
+      "beforeBytes": 1985,
+      "afterBytes": 1985,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/tqdm-4.70.0.dist-info/top_level.txt",
+      "beforeBytes": 5,
+      "afterBytes": 5,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/truststore-0.10.4.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/truststore-0.10.4.dist-info/METADATA",
+      "beforeBytes": 4413,
+      "afterBytes": 4413,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/truststore-0.10.4.dist-info/RECORD",
+      "beforeBytes": 1051,
+      "afterBytes": 1051,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/truststore-0.10.4.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/truststore-0.10.4.dist-info/WHEEL",
+      "beforeBytes": 82,
+      "afterBytes": 82,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/truststore-0.10.4.dist-info/licenses/LICENSE",
+      "beforeBytes": 1086,
+      "afterBytes": 1086,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/typing_extensions-4.16.0.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/typing_extensions-4.16.0.dist-info/METADATA",
+      "beforeBytes": 3310,
+      "afterBytes": 3310,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/typing_extensions-4.16.0.dist-info/RECORD",
+      "beforeBytes": 623,
+      "afterBytes": 623,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/typing_extensions-4.16.0.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/typing_extensions-4.16.0.dist-info/WHEEL",
+      "beforeBytes": 82,
+      "afterBytes": 82,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/typing_extensions-4.16.0.dist-info/licenses/LICENSE",
+      "beforeBytes": 13936,
+      "afterBytes": 13936,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/typing_inspection-0.4.3.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/typing_inspection-0.4.3.dist-info/METADATA",
+      "beforeBytes": 2554,
+      "afterBytes": 2554,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/typing_inspection-0.4.3.dist-info/RECORD",
+      "beforeBytes": 978,
+      "afterBytes": 978,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/typing_inspection-0.4.3.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/typing_inspection-0.4.3.dist-info/WHEEL",
+      "beforeBytes": 87,
+      "afterBytes": 87,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/typing_inspection-0.4.3.dist-info/licenses/LICENSE",
+      "beforeBytes": 1090,
+      "afterBytes": 1090,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/urllib3-2.7.0.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/urllib3-2.7.0.dist-info/METADATA",
+      "beforeBytes": 6852,
+      "afterBytes": 6852,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/urllib3-2.7.0.dist-info/RECORD",
+      "beforeBytes": 3624,
+      "afterBytes": 3624,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/urllib3-2.7.0.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/urllib3-2.7.0.dist-info/WHEEL",
+      "beforeBytes": 87,
+      "afterBytes": 87,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/urllib3-2.7.0.dist-info/licenses/LICENSE.txt",
+      "beforeBytes": 1093,
+      "afterBytes": 1093,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uuid_utils-0.17.0.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uuid_utils-0.17.0.dist-info/METADATA",
+      "beforeBytes": 6359,
+      "afterBytes": 6359,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uuid_utils-0.17.0.dist-info/RECORD",
+      "beforeBytes": 1131,
+      "afterBytes": 1131,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uuid_utils-0.17.0.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uuid_utils-0.17.0.dist-info/WHEEL",
+      "beforeBytes": 183,
+      "afterBytes": 183,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uuid_utils-0.17.0.dist-info/licenses/LICENSE.md",
+      "beforeBytes": 1487,
+      "afterBytes": 1487,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uuid_utils-0.17.0.dist-info/sboms/uuid-utils.cyclonedx.json",
+      "beforeBytes": 42269,
+      "afterBytes": 42269,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uuid_utils/_uuid_utils.cpython-314-darwin.so",
+      "beforeBytes": 671376,
+      "afterBytes": 671376,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn-0.53.0.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn-0.53.0.dist-info/METADATA",
+      "beforeBytes": 6607,
+      "afterBytes": 6607,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn-0.53.0.dist-info/RECORD",
+      "beforeBytes": 4568,
+      "afterBytes": 4568,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn-0.53.0.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn-0.53.0.dist-info/WHEEL",
+      "beforeBytes": 87,
+      "afterBytes": 87,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn-0.53.0.dist-info/entry_points.txt",
+      "beforeBytes": 46,
+      "afterBytes": 46,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn-0.53.0.dist-info/licenses/LICENSE.md",
+      "beforeBytes": 1526,
+      "afterBytes": 1526,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn/__init__.py",
+      "beforeBytes": 147,
+      "afterBytes": 147,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn/__main__.py",
+      "beforeBytes": 62,
+      "afterBytes": 62,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn/_ansi.py",
+      "beforeBytes": 617,
+      "afterBytes": 617,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn/_compat.py",
+      "beforeBytes": 2916,
+      "afterBytes": 2916,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn/_subprocess.py",
+      "beforeBytes": 2776,
+      "afterBytes": 2776,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn/_types.py",
+      "beforeBytes": 7677,
+      "afterBytes": 7677,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn/config.py",
+      "beforeBytes": 25482,
+      "afterBytes": 25482,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn/importer.py",
+      "beforeBytes": 1128,
+      "afterBytes": 1128,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn/lifespan/__init__.py",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn/lifespan/off.py",
+      "beforeBytes": 332,
+      "afterBytes": 332,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn/lifespan/on.py",
+      "beforeBytes": 5173,
+      "afterBytes": 5173,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn/logging.py",
+      "beforeBytes": 4256,
+      "afterBytes": 4256,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn/loops/__init__.py",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn/loops/asyncio.py",
+      "beforeBytes": 333,
+      "afterBytes": 333,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn/loops/auto.py",
+      "beforeBytes": 566,
+      "afterBytes": 566,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn/loops/uvloop.py",
+      "beforeBytes": 236,
+      "afterBytes": 236,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn/loops/zuvloop.py",
+      "beforeBytes": 239,
+      "afterBytes": 239,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn/main.py",
+      "beforeBytes": 19049,
+      "afterBytes": 19049,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn/middleware/__init__.py",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn/middleware/asgi2.py",
+      "beforeBytes": 394,
+      "afterBytes": 394,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn/middleware/message_logger.py",
+      "beforeBytes": 2859,
+      "afterBytes": 2859,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn/middleware/proxy_headers.py",
+      "beforeBytes": 7421,
+      "afterBytes": 7421,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn/middleware/wsgi.py",
+      "beforeBytes": 7125,
+      "afterBytes": 7125,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn/protocols/__init__.py",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn/protocols/http/__init__.py",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn/protocols/http/auto.py",
+      "beforeBytes": 403,
+      "afterBytes": 403,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn/protocols/http/auto_zttp_impl.py",
+      "beforeBytes": 3272,
+      "afterBytes": 3272,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn/protocols/http/flow_control.py",
+      "beforeBytes": 1701,
+      "afterBytes": 1701,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn/protocols/http/h11_impl.py",
+      "beforeBytes": 20886,
+      "afterBytes": 20886,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn/protocols/http/httptools_impl.py",
+      "beforeBytes": 22564,
+      "afterBytes": 22564,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn/protocols/http/zttp_h2_impl.py",
+      "beforeBytes": 19950,
+      "afterBytes": 19950,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn/protocols/http/zttp_impl.py",
+      "beforeBytes": 21835,
+      "afterBytes": 21835,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn/protocols/utils.py",
+      "beforeBytes": 2058,
+      "afterBytes": 2058,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn/protocols/websockets/__init__.py",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn/protocols/websockets/auto.py",
+      "beforeBytes": 611,
+      "afterBytes": 611,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn/protocols/websockets/websockets_impl.py",
+      "beforeBytes": 15784,
+      "afterBytes": 15784,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn/protocols/websockets/websockets_sansio_impl.py",
+      "beforeBytes": 23861,
+      "afterBytes": 23861,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn/protocols/websockets/wsproto_impl.py",
+      "beforeBytes": 21138,
+      "afterBytes": 21138,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn/py.typed",
+      "beforeBytes": 1,
+      "afterBytes": 1,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn/server.py",
+      "beforeBytes": 13705,
+      "afterBytes": 13705,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn/supervisors/__init__.py",
+      "beforeBytes": 507,
+      "afterBytes": 507,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn/supervisors/basereload.py",
+      "beforeBytes": 4018,
+      "afterBytes": 4018,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn/supervisors/multiprocess.py",
+      "beforeBytes": 10271,
+      "afterBytes": 10271,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn/supervisors/statreload.py",
+      "beforeBytes": 1548,
+      "afterBytes": 1548,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn/supervisors/watchfilesreload.py",
+      "beforeBytes": 2923,
+      "afterBytes": 2923,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvicorn/workers.py",
+      "beforeBytes": 3873,
+      "afterBytes": 3873,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/uvloop/loop.cpython-314-darwin.so",
+      "beforeBytes": 1950672,
+      "afterBytes": 1950672,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/watchfiles/_rust_notify.cpython-314-darwin.so",
+      "beforeBytes": 910256,
+      "afterBytes": 910256,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/websockets-15.0.1.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/websockets-15.0.1.dist-info/LICENSE",
+      "beforeBytes": 1514,
+      "afterBytes": 1514,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/websockets-15.0.1.dist-info/METADATA",
+      "beforeBytes": 6817,
+      "afterBytes": 6817,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/websockets-15.0.1.dist-info/RECORD",
+      "beforeBytes": 4877,
+      "afterBytes": 4877,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/websockets-15.0.1.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/websockets-15.0.1.dist-info/WHEEL",
+      "beforeBytes": 91,
+      "afterBytes": 91,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/websockets-15.0.1.dist-info/entry_points.txt",
+      "beforeBytes": 51,
+      "afterBytes": 51,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/websockets-15.0.1.dist-info/top_level.txt",
+      "beforeBytes": 11,
+      "afterBytes": 11,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/xxhash-4.0.1.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/xxhash-4.0.1.dist-info/METADATA",
+      "beforeBytes": 17658,
+      "afterBytes": 17658,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/xxhash-4.0.1.dist-info/RECORD",
+      "beforeBytes": 951,
+      "afterBytes": 951,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/xxhash-4.0.1.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/xxhash-4.0.1.dist-info/WHEEL",
+      "beforeBytes": 136,
+      "afterBytes": 136,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/xxhash-4.0.1.dist-info/licenses/LICENSE",
+      "beforeBytes": 1313,
+      "afterBytes": 1313,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/xxhash-4.0.1.dist-info/top_level.txt",
+      "beforeBytes": 15,
+      "afterBytes": 15,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/xxhash/_xxhash.cpython-314-darwin.so",
+      "beforeBytes": 118512,
+      "afterBytes": 118512,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/yaml/_yaml.cpython-314-darwin.so",
+      "beforeBytes": 379648,
+      "afterBytes": 379648,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/zstandard-0.25.0.dist-info/INSTALLER",
+      "beforeBytes": 2,
+      "afterBytes": 2,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/zstandard-0.25.0.dist-info/METADATA",
+      "beforeBytes": 3275,
+      "afterBytes": 3275,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/zstandard-0.25.0.dist-info/RECORD",
+      "beforeBytes": 1101,
+      "afterBytes": 1101,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/zstandard-0.25.0.dist-info/REQUESTED",
+      "beforeBytes": 0,
+      "afterBytes": 0,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/zstandard-0.25.0.dist-info/WHEEL",
+      "beforeBytes": 136,
+      "afterBytes": 136,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/zstandard-0.25.0.dist-info/licenses/LICENSE",
+      "beforeBytes": 1484,
+      "afterBytes": 1484,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/zstandard-0.25.0.dist-info/top_level.txt",
+      "beforeBytes": 10,
+      "afterBytes": 10,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/zstandard/_cffi.cpython-314-darwin.so",
+      "beforeBytes": 879744,
+      "afterBytes": 879744,
+      "deltaBytes": 0
+    },
+    {
+      "path": "_internal/zstandard/backend_c.cpython-314-darwin.so",
+      "beforeBytes": 757232,
+      "afterBytes": 757232,
+      "deltaBytes": 0
+    },
+    {
+      "path": "practiq-ai",
+      "beforeBytes": 19672992,
+      "afterBytes": 19687680,
+      "deltaBytes": 14688
+    }
+  ]
+}

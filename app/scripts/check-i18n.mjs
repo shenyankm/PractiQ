@@ -23,10 +23,15 @@ try {
   const task={threadId:summary.threadId,runId:null,checkpointId:summary.checkpointId,state:summary.state,phase:'completed',allowedActions:[],blocking:[],failures:[],progress:{text:{total:1,succeeded:1,failed:0}},usage:[],unknownUsageCalls:[]};
   window.__calls=[];
   window.__TAURI_INTERNALS__={invoke:async(command,args)=>{
-   if (!['request','ai_request'].includes(command)) throw Error(`Unexpected native command: ${command}`);
+   if (!['request','ai_request','office_request'].includes(command)) throw Error(`Unexpected native command: ${command}`);
    const {request} = args;
    window.__calls.push({command,request});
    await window.__recordMockCall({command,request});
+   if(command==='office_request') {
+    if(request.type==='status') return {path:'/Applications/LibreOffice.app/Contents/MacOS/soffice',version:'LibreOffice browser fixture',capabilities:{writer_pdf:true,writer_text:true,calc_pdf:true,calc_text:true},errors:{}};
+    if(request.type==='convert') return {paths:['/saved/中文 表格-题目.csv'],count:1};
+    throw Error(`Unexpected Office request: ${request.type}`);
+   }
    if(command==='ai_request') {
     if(request.type==='list') return {items:[summary],hasMore:false};
     if(request.type==='get' && request.id===summary.threadId) return task;
@@ -171,6 +176,14 @@ try {
  await page.getByRole('button',{name:'Configure AI model',exact:true}).waitFor();
  assert.equal(await page.getByRole('button',{name:'Upload',exact:true}).count(),0);
  assert.equal(await page.getByRole('button',{name:'Choose a document to parse',exact:true}).isDisabled(),true);
+ await page.getByRole('button',{name:'Check LibreOffice',exact:true}).click();
+ await page.getByText('LibreOffice browser fixture',{exact:true}).waitFor();
+ await page.getByLabel('Word / Excel processing',{exact:true}).selectOption('text');
+ await page.getByText('Text mode loses images, formulas and layout. Excel exports all worksheets, including hidden sheets.',{exact:true}).waitFor();
+ await page.getByRole('button',{name:'Convert / extract file',exact:true}).click();
+ await page.getByText('/saved/中文 表格-题目.csv',{exact:true}).waitFor();
+ assert.deepEqual(observedCalls.filter(c=>c.command==='office_request').map(c=>c.request),[{type:'status'},{type:'convert',mode:'text'}]);
+ assert.equal(await page.getByRole('button',{name:'Choose a document to parse',exact:true}).isDisabled(),true);
  await page.getByRole('region',{name:'Import tasks',exact:true}).waitFor();
  await page.getByRole('button',{name:'原始试卷 — Saved paper.pdf',exact:true}).waitFor();
  assert.equal(await page.getByText('Choose bank ZIP',{exact:true}).count(),0);
@@ -287,5 +300,5 @@ try {
  for (const check of checks) assert.deepEqual(check.items,[],`Text overflow: ${check.label}`);
  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
  assert.deepEqual(observedCalls.filter(c=>c.command==='ai_request'&&!['operations','batches','list','get'].includes(c.request.type)),[]);
- console.log('PASS: bilingual expanded/collapsed sidebar navigation, tooltips, draft retention, language menu/focus, unconfigured import history and ZIP entry, explicit model settings, 960px layouts; no parsing or grading requests.');
+ console.log('PASS: bilingual expanded/collapsed sidebar navigation, tooltips, draft retention, language menu/focus, unconfigured local Office export, import history and ZIP entry, explicit model settings, 960px layouts; no parsing or grading requests.');
 } finally { await browser?.close(); await server.close(); }

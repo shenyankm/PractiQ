@@ -40,7 +40,7 @@ CREATE TABLE listening_playback(session_id TEXT NOT NULL REFERENCES sessions(id)
 CREATE TABLE attempts(session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,ordinal INTEGER NOT NULL,question_id TEXT,snapshot_question_id TEXT NOT NULL,answer TEXT NOT NULL DEFAULT 'null' CHECK(json_valid(answer)),auto_result INTEGER,result INTEGER,grade_kind TEXT NOT NULL DEFAULT 'ungraded',submitted_at INTEGER,skipped INTEGER NOT NULL DEFAULT 0,elapsed_ms INTEGER NOT NULL DEFAULT 0,max_cents INTEGER CHECK(max_cents > 0),earned_cents INTEGER CHECK(earned_cents>=0 AND earned_cents<=max_cents),flagged INTEGER NOT NULL DEFAULT 0 CHECK(flagged IN(0,1)),grading TEXT NOT NULL DEFAULT '{}' CHECK(json_valid(grading)),PRIMARY KEY(session_id,ordinal));
 CREATE INDEX attempts_question ON attempts(question_id,submitted_at DESC);
 CREATE TABLE grade_requests(id TEXT PRIMARY KEY,session_id TEXT NOT NULL REFERENCES sessions(id),ordinal INTEGER NOT NULL,input TEXT NOT NULL CHECK(json_valid(input)),response TEXT CHECK(response IS NULL OR json_valid(response)),created_at INTEGER NOT NULL);
-CREATE TABLE settings(id INTEGER PRIMARY KEY CHECK(id=1),base_url TEXT,model_id TEXT,oss_url TEXT,locale TEXT CHECK(locale IS NULL OR locale IN('zh-CN','en')));
+CREATE TABLE settings(id INTEGER PRIMARY KEY CHECK(id=1),base_url TEXT,model_id TEXT,locale TEXT CHECK(locale IS NULL OR locale IN('zh-CN','en')), libreoffice_path TEXT);
 INSERT INTO settings VALUES(1,NULL,NULL,NULL,NULL);
 CREATE TABLE ai_imports(thread_id TEXT NOT NULL,digest TEXT NOT NULL,checkpoint_id TEXT NOT NULL,import_id TEXT NOT NULL REFERENCES imports(id) ON DELETE CASCADE,PRIMARY KEY(thread_id,digest));
 PRAGMA user_version=10;

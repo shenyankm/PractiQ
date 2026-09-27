@@ -17,11 +17,11 @@ from langgraph.runtime import Runtime
 from langgraph.types import interrupt
 
 from .config import load
-from .contracts import ArtifactReference, DocumentReference
+from .contracts import DOCUMENT_MEDIA_TYPES, ArtifactReference, DocumentReference
 from .errors import DocumentProcessingError
 from .storage import get_object_store
 
-STATE_VERSION = 6
+STATE_VERSION = 7
 TTL_MINUTES = 259_200
 RECURSION_LIMIT = 10_000
 CURRENT_EXECUTION: ContextVar[dict[str, Any] | None] = ContextVar("execution", default=None)
@@ -76,9 +76,13 @@ def validate_execution(execution: dict[str, Any] | None) -> None:
     remaining_ttl(execution)
 
 
+def retired_task(task: Any) -> bool:
+    return task['document'].get('sourceType') not in DOCUMENT_MEDIA_TYPES or task['graph_id'] == 'docx_parser'
+
+
 def require_supported_task(task: Any) -> None:
-    if task['document'].get('sourceType') in {'doc', 'docx'} or task['graph_id'] == 'docx_parser':
-        raise DocumentProcessingError(409, '暂不支持 Word 文件，请转为 PDF 后重新导入', 'WORD_FORMAT_REMOVED')
+    if retired_task(task):
+        raise DocumentProcessingError(409, '暂不支持 Office 文件，请转为 PDF 后重新导入', 'WORD_FORMAT_REMOVED')
 
 
 async def preflight(values: dict[str, Any]) -> None:
