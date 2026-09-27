@@ -114,7 +114,7 @@ it.each(["zh-CN", "en"] as const)("collapses the sidebar without resetting setti
   expect(screen.getByRole("button", { name: t("设置") }).getAttribute("aria-current")).toBe("page");
   expect(screen.getByLabelText("Base URL")).toBe(input);
   expect((input as HTMLInputElement).value).toBe("https://example.com/v1");
-  expect(vi.mocked(invoke).mock.calls.slice(calls).map(([,args]) => (args as {request:{type:string}}).request.type)).toEqual(["save_settings"]);
+  expect(vi.mocked(invoke).mock.calls.slice(calls)).toEqual([]);
   await userEvent.click(screen.getByRole("button", { name: t("语言") }));
   expect(screen.getByRole("menu", { name: t("语言") })).toBeTruthy();
   await userEvent.keyboard("{Escape}");
@@ -241,13 +241,14 @@ it.each(["en", "zh-CN"] as const)("formats dates, durations, counts and precisio
   expect(number(0, 2)).toBe("0.00");
   expect(list(["A", "B"])).toBe(value === "en" ? "A & B" : "A和B");
 });
-it.each(["en", "zh-CN"] as const)("imports offline JSON and saves an unchanged model form in %s", async value => {
+it.each(["en", "zh-CN"] as const)("imports offline JSON and explicitly saves a translated model form in %s", async value => {
   saved = value;
   const original = vi.mocked(invoke).getMockImplementation()!;
   vi.mocked(invoke).mockImplementation(async (command, args) => {
     const r = (args as {request:{type:string}}).request;
     if (command === "ai_request" && r.type === "batches") return {items:[],total:0,offset:0,operations:[]};
     if (command === "ai_request" && r.type === "operations") return [];
+    if (command === "ai_request" && r.type === "list") return {items:[],hasMore:false};
     if (r.type === "pick_import") return {ticket:"ticket",title:"原文 filename",count:1,reviewCount:0,assetCount:0,missingAssets:[],warnings:[],status:"SUCCEEDED"};
     if (r.type === "import") return {bankId:"bank",count:1,duplicate:false};
     if (r.type === "save_settings") return {config:{},hasApiKey:false};
@@ -255,7 +256,7 @@ it.each(["en", "zh-CN"] as const)("imports offline JSON and saves an unchanged m
     return original(command,args);
   });
   wrap(<App />); await ready();
-  await userEvent.click(screen.getByRole("button", {name:t("导入第一份题库")}));
+  await userEvent.click(screen.getByRole("button", {name:t("从文档解析题目")}));
   await userEvent.click(await screen.findByRole("button",{name:t("设置")}));
   await userEvent.click(await screen.findByRole("button",{name:t("恢复备份")}));
   await userEvent.click(await screen.findByRole("menuitem",{name:t("导入题库 ZIP")}));
@@ -271,8 +272,10 @@ it.each(["en", "zh-CN"] as const)("imports offline JSON and saves an unchanged m
   await userEvent.type(model,"model-original");
   await change(value === "en" ? "zh-CN" : "en");
   expect((screen.getByLabelText(t("模型 ID")) as HTMLInputElement).value).toBe("model-original");
+  expect(vi.mocked(invoke).mock.calls.filter(([,a]) => (a as {request:{type:string}}).request.type === "save_settings")).toHaveLength(0);
+  await userEvent.click(screen.getByRole("button", {name:t("保存并应用")}));
   await waitFor(() => expect(invoke).toHaveBeenCalledWith("request", expect.objectContaining({request:expect.objectContaining({type:"save_settings",config:expect.objectContaining({model_id:"model-original"})})})));
-  expect(vi.mocked(invoke).mock.calls.filter(([c,a]) => c === "ai_request" && !["operations","batches"].includes((a as {request:{type:string}}).request.type))).toHaveLength(0);
+  expect(vi.mocked(invoke).mock.calls.filter(([c,a]) => c === "ai_request" && !["operations","batches","list"].includes((a as {request:{type:string}}).request.type))).toHaveLength(0);
 });
 it.each(["en", "zh-CN"] as const)("keeps grading explicit and formats partial scores in %s", async value => {
   saved = value;

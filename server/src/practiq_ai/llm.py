@@ -31,7 +31,7 @@ from pydantic import BaseModel, ValidationError
 
 from . import telemetry
 from .capacity import provider_slot
-from .config import is_loopback_host, load
+from .config import is_loopback_host, load, require_model_config
 from .contracts import ModelCallUsage
 from .errors import DocumentProcessingError
 from .execution import (
@@ -55,7 +55,7 @@ logger = logging.getLogger(__name__)
 
 @lru_cache(maxsize=1)
 def get_model() -> ChatOpenAI:
-    config = load()
+    config = require_model_config()
     return build_model(
         config.provider, config.api_key, config.model_id,
         max_tokens=config.model_max_tokens, timeout=config.model_timeout_seconds, base_url=config.base_url,

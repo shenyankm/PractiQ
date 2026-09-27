@@ -403,9 +403,19 @@ fn validate_database(path: &Path) -> Result<i64> {
         Ok(rows)
     };
     let expected = Connection::open_in_memory().map_err(err)?;
-    expected
-        .execute_batch(include_str!("schema.sql"))
-        .map_err(err)?;
+    let mut expected_schema = include_str!("schema.sql").to_owned();
+    if !db
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM pragma_table_info('sessions') WHERE name='last_active_at')",
+            [],
+            |r| r.get::<_, bool>(0),
+        )
+        .map_err(err)?
+    {
+        // Validate an older backup before its staging database gains activity timestamps.
+        expected_schema = expected_schema.replace(", last_active_at INTEGER", "");
+    }
+    expected.execute_batch(&expected_schema).map_err(err)?;
     // Older backups may omit these optional indexes. Existing definitions must match exactly.
     for (name, sql) in crate::questions::READ_INDEXES {
         if db

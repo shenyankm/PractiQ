@@ -24,6 +24,12 @@ impl Store {
             a.as_object_mut().unwrap().remove("snapshotId");
         }
         session["attempts"] = json!(attempts);
+        let mut banks = db.prepare("SELECT q.bank_id FROM attempts a JOIN questions q ON q.id=a.question_id WHERE a.session_id=?1 GROUP BY q.bank_id ORDER BY MIN(a.ordinal)").map_err(err)?;
+        session["bankIds"] = json!(banks
+            .query_map([sid], |r| r.get::<_, String>(0))
+            .map_err(err)?
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(err)?);
         self.enrich_session(&db, &mut session)?;
         crate::audio::redact_session(&mut session);
         Ok(session)
@@ -46,19 +52,75 @@ impl Store {
         Ok(())
     }
     pub fn unfinished_session(&self) -> Result<Value> {
-        self.expire_sessions()?;
-        let db = self.connect()?;
-        db.query_row("SELECT s.id,s.bank_title,COUNT(a.ordinal),SUM(a.submitted_at IS NOT NULL) FROM (SELECT * FROM sessions s WHERE finished_at IS NULL AND submitted_at IS NULL AND EXISTS(SELECT 1 FROM attempts a WHERE a.session_id=s.id) ORDER BY created_at DESC,id DESC LIMIT 1) s JOIN attempts a ON a.session_id=s.id GROUP BY s.id", [], |r| Ok(json!({"id":r.get::<_,String>(0)?,"title":r.get::<_,String>(1)?,"count":r.get::<_,i64>(2)?,"answered":r.get::<_,i64>(3)?}))).optional().map(|v| v.unwrap_or(Value::Null)).map_err(err)
+        let page = self.sessions_filtered(1, 0, "active")?;
+        Ok(page["items"][0].clone())
     }
+    #[cfg(test)]
     pub fn sessions(&self, limit: usize, offset: usize) -> Result<Value> {
+        self.sessions_filtered(limit, offset, "all")
+    }
+    pub fn sessions_filtered(&self, limit: usize, offset: usize, filter: &str) -> Result<Value> {
         validate_page(limit, offset)?;
+        let condition = match filter {
+            "all" => "1",
+            "active" => "s.finished_at IS NULL AND s.submitted_at IS NULL",
+            "review" => "s.finished_at IS NULL AND s.submitted_at IS NOT NULL",
+            "finished" => "s.finished_at IS NOT NULL",
+            _ => return Err(crate::language::error("LOCAL_FILTER_INVALID", json!({}))),
+        };
         self.expire_sessions()?;
         let db = self.connect()?;
-        let total: usize = db.query_row("SELECT COUNT(*) FROM sessions s WHERE EXISTS(SELECT 1 FROM attempts a WHERE a.session_id=s.id)", [], |r| r.get(0)).map_err(err)?;
+        let total: usize = db.query_row(&format!("SELECT COUNT(*) FROM sessions s WHERE {condition} AND EXISTS(SELECT 1 FROM attempts a WHERE a.session_id=s.id)"), [], |r| r.get(0)).map_err(err)?;
         let offset = offset.min(total.saturating_sub(1) / limit * limit);
-        let mut stmt=db.prepare("WITH page AS (SELECT * FROM sessions s WHERE EXISTS(SELECT 1 FROM attempts a WHERE a.session_id=s.id) ORDER BY created_at DESC,id DESC LIMIT ?1 OFFSET ?2) SELECT s.id,s.bank_title,s.created_at,s.finished_at,COUNT(*),SUM(a.submitted_at IS NOT NULL),SUM(CASE WHEN a.max_cents IS NOT NULL THEN a.earned_cents=a.max_cents ELSE a.result=1 END),SUM(CASE WHEN a.max_cents IS NOT NULL THEN a.earned_cents IS NOT NULL ELSE a.result IS NOT NULL END),SUM(a.skipped),SUM(a.elapsed_ms),SUM(a.grade_kind='self'),SUM(a.grade_kind='auto'),s.kind,s.submitted_at,SUM(a.max_cents),SUM(a.earned_cents),SUM(a.max_cents IS NOT NULL AND a.earned_cents IS NULL) FROM page s JOIN attempts a ON a.session_id=s.id GROUP BY s.id ORDER BY s.created_at DESC,s.id DESC").map_err(err)?;
-        let rows=stmt.query_map(params![limit,offset],|r|Ok(json!({"id":r.get::<_,String>(0)?,"title":r.get::<_,String>(1)?,"createdAt":r.get::<_,i64>(2)?,"finishedAt":r.get::<_,Option<i64>>(3)?,"count":r.get::<_,i64>(4)?,"answered":r.get::<_,i64>(5)?,"correct":r.get::<_,Option<i64>>(6)?.unwrap_or(0),"graded":r.get::<_,i64>(7)?,"skipped":r.get::<_,i64>(8)?,"elapsedMs":r.get::<_,i64>(9)?,"selfGraded":r.get::<_,i64>(10)?,"autoGraded":r.get::<_,i64>(11)?,"kind":r.get::<_,String>(12)?,"submittedAt":r.get::<_,Option<i64>>(13)?,"totalCents":r.get::<_,Option<i64>>(14)?,"earnedCents":r.get::<_,Option<i64>>(15)?,"pendingGrades":r.get::<_,i64>(16)?}))).map_err(err)?.collect::<std::result::Result<Vec<_>,_>>().map_err(err)?;
+        let mut stmt=db.prepare(&format!("WITH page AS (SELECT * FROM sessions s WHERE {condition} AND EXISTS(SELECT 1 FROM attempts a WHERE a.session_id=s.id) ORDER BY COALESCE(last_active_at,created_at) DESC,id DESC LIMIT ?1 OFFSET ?2) SELECT s.id,s.bank_title,s.created_at,s.finished_at,COUNT(*),SUM(a.submitted_at IS NOT NULL),SUM(CASE WHEN a.max_cents IS NOT NULL THEN a.earned_cents=a.max_cents ELSE a.result=1 END),SUM(CASE WHEN a.max_cents IS NOT NULL THEN a.earned_cents IS NOT NULL ELSE a.result IS NOT NULL END),SUM(a.skipped),SUM(a.elapsed_ms),SUM(a.grade_kind='self'),SUM(a.grade_kind='auto'),s.kind,s.submitted_at,SUM(a.max_cents),SUM(a.earned_cents),SUM(a.max_cents IS NOT NULL AND a.earned_cents IS NULL),s.deadline_at,COALESCE(s.last_active_at,s.created_at) FROM page s JOIN attempts a ON a.session_id=s.id GROUP BY s.id ORDER BY COALESCE(s.last_active_at,s.created_at) DESC,s.id DESC")).map_err(err)?;
+        let mut rows = stmt.query_map(params![limit, offset], |r| {
+            Ok(json!({"id":r.get::<_,String>(0)?,"title":r.get::<_,String>(1)?,"createdAt":r.get::<_,i64>(2)?,"finishedAt":r.get::<_,Option<i64>>(3)?,"count":r.get::<_,i64>(4)?,"answered":r.get::<_,i64>(5)?,"correct":r.get::<_,Option<i64>>(6)?.unwrap_or(0),"graded":r.get::<_,i64>(7)?,"skipped":r.get::<_,i64>(8)?,"elapsedMs":r.get::<_,i64>(9)?,"selfGraded":r.get::<_,i64>(10)?,"autoGraded":r.get::<_,i64>(11)?,"kind":r.get::<_,String>(12)?,"submittedAt":r.get::<_,Option<i64>>(13)?,"totalCents":r.get::<_,Option<i64>>(14)?,"earnedCents":r.get::<_,Option<i64>>(15)?,"pendingGrades":r.get::<_,i64>(16)?,"deadlineAt":r.get::<_,Option<i64>>(17)?,"lastActiveAt":r.get::<_,i64>(18)?}))
+        }).map_err(err)?.collect::<std::result::Result<Vec<_>,_>>().map_err(err)?;
+        let mut drafts = db
+            .prepare("SELECT answer FROM attempts WHERE session_id=?1 AND submitted_at IS NULL")
+            .map_err(err)?;
+        for session in &mut rows {
+            let mut answers = drafts.query([text(session, "id")]).map_err(err)?;
+            let mut count = 0;
+            while let Some(row) = answers.next().map_err(err)? {
+                let answer: Value =
+                    serde_json::from_str(&row.get::<_, String>(0).map_err(err)?).map_err(err)?;
+                count += usize::from(crate::exams::has_answer(&answer));
+            }
+            session["draftAnswered"] = json!(count);
+        }
         Ok(json!({"items":rows,"total":total,"offset":offset}))
+    }
+    pub fn self_assess(&self, sid: &str, ordinal: usize, result: bool) -> Result<Value> {
+        let mut db = self.connect()?;
+        let tx = db.transaction().map_err(err)?;
+        let attempt = tx.query_row(
+            "SELECT s.kind,a.submitted_at,a.skipped,a.auto_result,a.snapshot_question_id FROM attempts a JOIN sessions s ON s.id=a.session_id WHERE a.session_id=?1 AND a.ordinal=?2",
+            params![sid, ordinal],
+            |r| Ok((r.get::<_,String>(0)?,r.get::<_,Option<i64>>(1)?,r.get::<_,bool>(2)?,r.get::<_,Option<bool>>(3)?,r.get::<_,String>(4)?)),
+        ).optional().map_err(err)?;
+        let ineligible = || crate::language::error("LOCAL_SELF_ASSESSMENT_INELIGIBLE", json!({}));
+        let (kind, submitted, skipped, auto, qid) = attempt.ok_or_else(ineligible)?;
+        let snapshot = crate::questions::snapshot(&tx, sid, &qid)?;
+        if kind != "practice"
+            || submitted.is_none()
+            || skipped
+            || (auto.is_some() && text(&snapshot["question"], "answerMode") != "fill_blank")
+        {
+            return Err(ineligible());
+        }
+        tx.execute(
+            "UPDATE attempts SET result=?3,grade_kind='self' WHERE session_id=?1 AND ordinal=?2",
+            params![sid, ordinal, result],
+        )
+        .map_err(err)?;
+        tx.execute(
+            "UPDATE sessions SET last_active_at=?2 WHERE id=?1",
+            params![sid, now()],
+        )
+        .map_err(err)?;
+        tx.commit().map_err(err)?;
+        self.session(sid)
     }
     pub fn save_attempt(
         &self,
@@ -200,8 +262,8 @@ impl Store {
             tx.execute("UPDATE attempts SET answer=?3,elapsed_ms=MAX(elapsed_ms,?4),submitted_at=?5,skipped=?6,auto_result=?7,result=?8,grade_kind=?9 WHERE session_id=?1 AND ordinal=?2",params![sid,ordinal,answer.to_string(),elapsed,if submit{Some(now())}else{None},submit&&skip,auto,result,grade_kind]).map_err(err)?;
         }
         tx.execute(
-            "UPDATE sessions SET position=?2 WHERE id=?1",
-            params![sid, ordinal],
+            "UPDATE sessions SET position=?2,last_active_at=?3 WHERE id=?1",
+            params![sid, ordinal, now()],
         )
         .map_err(err)?;
         tx.commit().map_err(err)?;
@@ -209,7 +271,7 @@ impl Store {
     }
     pub fn position(&self, sid: &str, position: usize) -> Result<Value> {
         let db = self.connect()?;
-        db.execute("UPDATE sessions SET position=?2 WHERE id=?1 AND finished_at IS NULL AND EXISTS(SELECT 1 FROM attempts WHERE session_id=?1 AND ordinal=?2)",params![sid,position]).map_err(err)?;
+        db.execute("UPDATE sessions SET position=?2,last_active_at=?3 WHERE id=?1 AND finished_at IS NULL AND EXISTS(SELECT 1 FROM attempts WHERE session_id=?1 AND ordinal=?2)",params![sid,position,now()]).map_err(err)?;
         let mut session = self.session(sid)?;
         if position < list(&session, "attempts").len() {
             session["position"] = json!(position);
@@ -232,3 +294,7 @@ impl Store {
         self.session(sid)
     }
 }
+
+#[cfg(test)]
+#[path = "ux_sessions_tests.rs"]
+mod ux_sessions_tests;

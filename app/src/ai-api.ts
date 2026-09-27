@@ -11,6 +11,7 @@ export type Failure = {
   message?: string;
 };
 export type Task = {
+  expiresAt?: string;
   threadId: string;
   runId: string | null;
   checkpointId: string | null;
@@ -40,6 +41,7 @@ export type PendingOperation = {
   error: { code?: string; message: string; params?: Record<string, unknown> } | null;
 };
 export type Batch = {
+  bankId?: string | null;
   id: string;
   status: "ready" | "running" | "paused" | "completed";
   items: {
@@ -59,6 +61,7 @@ type Request =
   | { type: "grade"; id: string; ordinal: number; retry: boolean }
   | { type: "list"; offset: number }
   | { type: "get" | "preview" | "review"; id: string }
+  | { type: "reparse"; id: string }
   | { type: "pick_document" | "operations" }
   | {
       type: "control";
@@ -70,7 +73,7 @@ type Request =
     }
   | { type: "batches"; offset: number; thread_ids: string[] }
   | { type: "replay"; request_id: string }
-  | { type: "prepare_batch"; ids: string[] }
+  | { type: "prepare_batch"; ids: string[]; bank_id?: string | null }
   | { type: "run_batch"; id: string; titles: string[] | null }
   | { type: "cancel_batch"; id: string }
   | {
@@ -86,7 +89,8 @@ type ResponseMap = {
   get: Task;
   preview: Preview;
   review: Review;
-  pick_document: { threadId: string } | null;
+  pick_document: { threadId: string; threadIds?: string[] } | null;
+  reparse: { threadId: string } | null;
   operations: PendingOperation[];
   batches: { items: Batch[]; total: number; offset: number; operations: (ImportOperation & {threadId: string})[] };
   control: unknown;

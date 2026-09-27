@@ -10,18 +10,30 @@ try {
  const page=await browser.newPage({viewport:{width:960,height:820},locale:'en-US'});
  page.setDefaultTimeout(10000);
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ const observedCalls=[];
+ await page.exposeFunction('__recordMockCall',call=>observedCalls.push(call));
  await page.addInitScript(({fixture})=>{
   // Exercise the browser UI with mocked commands, not native window/event APIs.
   window.isTauri = false;
   let lang=localStorage.getItem('test-language');
   const banks=[{id:'one',title:'原始题库 — Original bank',description:'Imported content stays unchanged',count:8,createdAt:1},{id:'two',title:'Mathematics',description:'',count:8,createdAt:1}];
   const questions=fixture.questions.map((q,i)=>({id:String(i),bankId:'one',bankTitle:banks[0].title,question:q,groups:[],visuals:[],sources:[],warnings:[],missingAssets:false,favorite:false,latestResult:null}));
+  let settings={config:{base_url:null,model_id:null},hasApiKey:false};
+  const summary={threadId:'saved-task',fileName:'原始试卷 — Saved paper.pdf',createdAt:'2026-09-01T08:00:00Z',expiresAt:'2026-10-01T08:00:00Z',state:'COMPLETED',status:'SUCCEEDED',checkpointId:'saved-checkpoint',questionCount:8,reviewCount:1};
+  const task={threadId:summary.threadId,runId:null,checkpointId:summary.checkpointId,state:summary.state,phase:'completed',allowedActions:[],blocking:[],failures:[],progress:{text:{total:1,succeeded:1,failed:0}},usage:[],unknownUsageCalls:[]};
   window.__calls=[];
   window.__TAURI_INTERNALS__={invoke:async(command,args)=>{
    if (!['request','ai_request'].includes(command)) throw Error(`Unexpected native command: ${command}`);
    const {request} = args;
    window.__calls.push({command,request});
-   if(command==='ai_request') {if(request.type==='batches') return {items:[],total:0,offset:0,operations:[]};if(request.type==='operations') return [];throw Error('No model calls in preview');}
+   await window.__recordMockCall({command,request});
+   if(command==='ai_request') {
+    if(request.type==='list') return {items:[summary],hasMore:false};
+    if(request.type==='get' && request.id===summary.threadId) return task;
+    if(request.type==='batches') return {items:[],total:0,offset:0,operations:[]};
+    if(request.type==='operations') return [];
+    throw Error(`Unexpected AI request: ${request.type}`);
+   }
    switch(request.type){
     case 'language':return lang;
     case 'save_language': lang=request.locale;localStorage.setItem('test-language',lang);return lang;
@@ -33,7 +45,10 @@ try {
     case 'question_stats':return {count:questions.length,types:{single:questions.length}};
     case 'questions_page':return {items:questions.slice(request.offset,request.offset+request.limit),total:questions.length,offset:request.offset};
     case 'info':return {version:'preview',dataDirectory:'/local/test'};
-    case 'settings':return {config:{base_url:null,model_id:null},hasApiKey:false};
+    case 'settings':return settings;
+    case 'test_settings':return null;
+    case 'save_settings':settings={config:request.config,hasApiKey:!!request.api_key||settings.hasApiKey};return settings;
+    case 'pick_import':return null;
     case 'preview_paper': {
      const selected=questions.slice(0,request.request.count);
      return {questionIds:selected.map(q=>q.id),digest:'browser-preview',questions:selected,scores:selected.map(()=>0),count:selected.length};
@@ -155,9 +170,59 @@ try {
  await page.getByRole('heading',{name:'Import',exact:true}).waitFor();
  await page.getByRole('button',{name:'Configure AI model',exact:true}).waitFor();
  assert.equal(await page.getByRole('button',{name:'Upload',exact:true}).count(),0);
- assert.equal(await page.getByRole('region',{name:'Import tasks',exact:true}).count(),0);
+ assert.equal(await page.getByRole('button',{name:'Choose a document to parse',exact:true}).isDisabled(),true);
+ await page.getByRole('region',{name:'Import tasks',exact:true}).waitFor();
+ await page.getByRole('button',{name:'原始试卷 — Saved paper.pdf',exact:true}).waitFor();
  assert.equal(await page.getByText('Choose bank ZIP',{exact:true}).count(),0);
- checks.push(await overflow('import'));
+ checks.push(await overflow('unconfigured import history'));
+ await page.getByRole('button',{name:'原始试卷 — Saved paper.pdf',exact:true}).click();
+ const taskDialog=page.getByRole('dialog');
+ await taskDialog.getByText('Results are saved. Preview and import them into a question bank.',{exact:true}).waitFor();
+ assert.equal(await taskDialog.getByRole('button',{name:'Preview and import',exact:true}).isEnabled(),true);
+ await taskDialog.getByText(/^Results not yet imported are kept until /).waitFor();
+ checks.push(await overflow('unconfigured saved task'));
+ await page.keyboard.press('Escape');
+ await taskDialog.waitFor({state:'hidden'});
+ assert.equal(await page.getByRole('button',{name:'原始试卷 — Saved paper.pdf',exact:true}).evaluate(el=>el===document.activeElement),true);
+ await page.getByRole('button',{name:'Have a bank ZIP? Import it in Settings (adds content without replacing study records)',exact:true}).click();
+ await page.getByRole('heading',{name:'Settings',exact:true,includeHidden:true}).waitFor();
+ await page.getByRole('menuitem',{name:'Import bank ZIP',exact:true}).waitFor();
+ await page.getByRole('menuitem',{name:'Restore study-data backup',exact:true}).waitFor();
+ checks.push(await overflow('ZIP import and full restore choices'));
+ await page.getByRole('menuitem',{name:'Import bank ZIP',exact:true}).click();
+ await page.getByRole('menu').waitFor({state:'hidden'});
+ assert.equal(observedCalls.filter(c=>c.request.type==='pick_import').length,1);
+
+ await page.getByRole('button',{name:'Configure',exact:true}).click();
+ await page.getByLabel('Base URL',{exact:true}).fill('https://api.example.test/v1');
+ await page.getByLabel('Model ID',{exact:true}).fill('browser-model');
+ await page.getByLabel('API Key',{exact:true}).fill('fake-browser-key');
+ await page.getByRole('button',{name:'Save and apply',exact:true}).focus();
+ assert.equal(observedCalls.filter(c=>c.request.type==='save_settings').length,0,'Editing and blurring settings must not save');
+ checks.push(await overflow('unsaved model settings'));
+ await page.getByRole('button',{name:'Test',exact:true}).click();
+ await page.getByText('Connection test passed',{exact:true}).waitFor();
+ assert.equal(observedCalls.filter(c=>c.request.type==='save_settings').length,0,'Testing a draft must not save it');
+ const testCall=observedCalls.filter(c=>c.request.type==='test_settings');
+ assert.equal(testCall.length,1);
+ assert.deepEqual(testCall[0].request,{type:'test_settings',config:{base_url:'https://api.example.test/v1',model_id:'browser-model'},api_key:'fake-browser-key'});
+ await page.getByRole('button',{name:'Back to settings',exact:true}).click();
+ await page.getByText('Save and apply or discard your settings changes first',{exact:true}).waitFor();
+ assert.equal(await page.getByLabel('Model ID',{exact:true}).inputValue(),'browser-model','Navigation retains the unsaved draft');
+ assert.equal(observedCalls.filter(c=>c.request.type==='save_settings').length,0);
+ await page.getByRole('button',{name:'Save and apply',exact:true}).click();
+ await page.getByText('Connection settings saved',{exact:true}).waitFor();
+ assert.equal(observedCalls.filter(c=>c.request.type==='save_settings').length,1);
+ assert.equal(await page.getByRole('button',{name:'Save and apply',exact:true}).isDisabled(),true);
+ assert.equal(await page.getByLabel('API Key',{exact:true}).inputValue(),'');
+ await page.getByLabel('Model ID',{exact:true}).fill('discarded-model');
+ await page.getByRole('button',{name:'Discard changes',exact:true}).click();
+ assert.equal(await page.getByLabel('Model ID',{exact:true}).inputValue(),'browser-model');
+ assert.equal(observedCalls.filter(c=>c.request.type==='save_settings').length,1,'Discarding changes must not write settings');
+ await page.getByRole('button',{name:'Back to settings',exact:true}).click();
+ await page.getByRole('button',{name:'Import',exact:true}).click();
+ await page.getByRole('heading',{name:'Import',exact:true}).waitFor();
+ await page.waitForFunction(()=>Array.from(document.querySelectorAll('button')).some(button=>button.textContent.trim()==='Choose a document to parse'&&!button.disabled));
  const savesBeforeDismiss=await page.evaluate(()=>window.__calls.filter(c=>c.request.type==='save_language').length);
  const languageEntry=page.getByRole('button',{name:'Language',exact:true});
  await languageEntry.focus(); await page.keyboard.press('Enter');
@@ -221,6 +286,6 @@ try {
  assert.deepEqual(errors,[]);
  for (const check of checks) assert.deepEqual(check.items,[],`Text overflow: ${check.label}`);
  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
- assert.deepEqual(await page.evaluate(()=>window.__calls.filter(c=>c.command==='ai_request'&&!['operations','batches'].includes(c.request.type))),[]);
- console.log('PASS: bilingual expanded/collapsed sidebar navigation, tooltips, draft retention, language menu/focus, 960px layouts; no model requests.');
+ assert.deepEqual(observedCalls.filter(c=>c.command==='ai_request'&&!['operations','batches','list','get'].includes(c.request.type)),[]);
+ console.log('PASS: bilingual expanded/collapsed sidebar navigation, tooltips, draft retention, language menu/focus, unconfigured import history and ZIP entry, explicit model settings, 960px layouts; no parsing or grading requests.');
 } finally { await browser?.close(); await server.close(); }

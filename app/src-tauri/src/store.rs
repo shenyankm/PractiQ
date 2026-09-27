@@ -173,6 +173,17 @@ impl Store {
                     .map_err(err)?;
             }
         }
+        if !db
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM pragma_table_info('sessions') WHERE name='last_active_at')",
+                [],
+                |r| r.get::<_, bool>(0),
+            )
+            .map_err(err)?
+        {
+            db.execute_batch("BEGIN IMMEDIATE; ALTER TABLE sessions ADD COLUMN last_active_at INTEGER; UPDATE sessions SET last_active_at=MAX(created_at,COALESCE(finished_at,0),COALESCE(submitted_at,0),COALESCE((SELECT MAX(submitted_at) FROM attempts WHERE session_id=sessions.id),0)); COMMIT;")
+                .map_err(err)?;
+        }
         for (_, sql) in crate::questions::READ_INDEXES {
             db.execute_batch(sql).map_err(err)?;
         }
@@ -545,7 +556,7 @@ impl Store {
         }
         if bank.is_some_and(|b| !banks.is_empty() && !banks.iter().any(|v| v == b)) {
             return Ok(if stats_only {
-                json!({"count":0,"types":{}})
+                json!({"count":0,"types":{},"feasibleCounts":[]})
             } else if page.is_some() {
                 json!({"items":[],"total":0,"offset":0})
             } else {
@@ -607,27 +618,28 @@ impl Store {
                     SELECT value,value FROM json_each(?1)
                     UNION ALL SELECT t.root,q.id FROM questions q JOIN tree t ON q.parent_id=t.id
                 ) SELECT COALESCE(CASE WHEN r.question_kind IS NOT NULL THEN r.question_kind WHEN r.mode='gap_fill' THEN 'grammar_fill' WHEN r.mode='choice' THEN c.variant ELSE r.mode END,''),
-                    COUNT(DISTINCT r.id), SUM(n.mode IS NULL OR n.mode NOT IN ({COMPOSITE_SQL}))
+                    SUM(n.mode IS NULL OR n.mode NOT IN ({COMPOSITE_SQL}))
                 FROM tree t JOIN questions r ON r.id=t.root JOIN questions n ON n.id=t.id
-                LEFT JOIN choice_questions c ON c.question_id=r.id GROUP BY 1
+                LEFT JOIN choice_questions c ON c.question_id=r.id GROUP BY r.id
             ")).map_err(err)?;
             let mut types = serde_json::Map::new();
             let mut count = 0;
+            let mut weights = Vec::new();
             for row in statement
                 .query_map([json!(ids).to_string()], |r| {
-                    Ok((
-                        r.get::<_, String>(0)?,
-                        r.get::<_, i64>(1)?,
-                        r.get::<_, i64>(2)?,
-                    ))
+                    Ok((r.get::<_, String>(0)?, r.get::<_, usize>(1)?))
                 })
                 .map_err(err)?
             {
-                let (mode, roots, answerable) = row.map_err(err)?;
+                let (mode, answerable) = row.map_err(err)?;
+                let roots = types.get(&mode).and_then(Value::as_u64).unwrap_or(0) + 1;
                 types.insert(mode, json!(roots));
                 count += answerable;
+                weights.push(answerable);
             }
-            return Ok(json!({"count":count,"types":types}));
+            return Ok(
+                json!({"count":count,"types":types,"feasibleCounts":crate::paper::feasible_counts(&weights)}),
+            );
         }
         let offset = if let Some((limit, offset)) = page {
             let offset = offset.min(total.saturating_sub(1) / limit * limit);
@@ -647,6 +659,10 @@ impl Store {
                 .get(id.as_str())
                 .ok_or("Selected question is missing")?;
             let mut root = index.hydrate(row);
+            root["answerableCount"] = json!(index.trees[id.as_str()]
+                .iter()
+                .filter(|r| !crate::questions::composite(&r["question"]))
+                .count());
             root["children"] = json!(index.trees[id.as_str()]
                 .iter()
                 .filter(|r| r["id"] != row["id"])

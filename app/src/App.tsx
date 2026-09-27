@@ -2,6 +2,7 @@ import { questionKinds } from "./english";
 import type { ImportTaskContext } from "./ai-api";
 import { date, duration, message, renderMessage, type Message, t, useI18n } from "./i18n";
 import { useTheme } from "./theme";
+import { SessionProgress } from "./SessionProgress";
 import logo from "../src-tauri/icons/icon.png";
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, type ComponentProps } from "react";
 import { Tooltip } from "radix-ui";
@@ -43,6 +44,7 @@ import {
   type Question,
   type QuestionRow,
   type Session,
+  type SessionFilter,
 } from "./api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -115,6 +117,9 @@ export default function App() {
   const [languageOpen, setLanguageOpen] = useState(false);
   const languageTrigger = useRef<HTMLButtonElement>(null);
   const [page, setPage] = useState<Page>("banks");
+  const pageHeading = useRef<HTMLHeadingElement>(null);
+  const previousPage = useRef<Page>(page);
+  const [restoreOpen, setRestoreOpen] = useState(false);
   const [banks, setBanks] = useState<BankChoice[]>([]);
   const [bank, setBank] = useState<string | null>(null);
   const [questions, setQuestions] = useState<QuestionRow[]>([]);
@@ -122,6 +127,7 @@ export default function App() {
   const [sessionPage, setSessionPage] = useState<SessionPage>({ items: [], total: 0, offset: 0 });
   const [bankOffset, setBankOffset] = useState(0);
   const [sessionOffset, setSessionOffset] = useState(0);
+  const [sessionFilter, setSessionFilter] = useState<SessionFilter>("all");
   const [listRevision, setListRevision] = useState(0);
   const [summaryLoading, setSummaryLoading] = useState(true);
   const [summaryError, setSummaryError] = useState<unknown>(null);
@@ -147,7 +153,7 @@ export default function App() {
     description: Message;
     action: () => Promise<void>;
   } | null>(null);
-  const [practiceSetup, setPracticeSetup] = useState<{ bank: string | null } | null>(null);
+  const [practiceSetup, setPracticeSetup] = useState<{ bank: string | null; bankIds?: string[]; filter?: string } | null>(null);
   const [mergeOpen, setMergeOpen] = useState(false);
   const mergeTrigger = useRef<HTMLButtonElement>(null);
   function closeMerge() {
@@ -205,12 +211,16 @@ export default function App() {
     let active = true;
     setSummaryLoading(true);
     setSummaryError(null);
-    const request = api({ type: "sessions_page", limit: 30, offset: sessionOffset })
+    const request = api({ type: "sessions_page", limit: 30, offset: sessionOffset, ...(sessionFilter === "all" ? {} : {filter: sessionFilter}) })
       .then(result => { if (active) { setSessionPage(result); setSessionOffset(result.offset); } });
     void request.catch(error => { if (active) setSummaryError(error); })
       .finally(() => { if (active) setSummaryLoading(false); });
     return () => { active = false; };
-  }, [page, sessionOffset, listRevision]);
+  }, [page, sessionOffset, listRevision, sessionFilter]);
+  useEffect(() => {
+    if (previousPage.current !== page) pageHeading.current?.focus();
+    previousPage.current = page;
+  }, [page]);
   useEffect(() => { setOffset(0); }, [page, bank, search, mode]);
   useEffect(() => {
     if (!["questions", "wrong", "favorite"].includes(page)) return;
@@ -262,12 +272,13 @@ export default function App() {
       unlisten?.();
     };
   }, []);
-  function navigate(next: Page, bankId: string | null = null) {
+  function navigate(next: Page, bankId: string | null = null, showRestore = false) {
     run(async () => {
       await flushRef.current();
       flushRef.current = async () => {};
       if (next !== "model-settings") setSettingsReturn(null);
       setPage(next);
+      setRestoreOpen(showRestore);
       setBank(bankId);
       setDetail(null);
       setSearch("");
@@ -411,7 +422,7 @@ export default function App() {
               </Button>
             )}
             <div>
-              <h1 className="text-2xl font-semibold tracking-tight">
+              <h1 ref={pageHeading} tabIndex={-1} className="text-2xl font-semibold tracking-tight outline-none">
                 {heading}
               </h1>
               <p className="mt-1 text-sm text-muted-foreground">
@@ -470,6 +481,9 @@ export default function App() {
         </header>
         <div className="flex-1 overflow-y-auto p-8">
           <Suspense fallback={loadingView}>
+          {page === "history" && <div className="mb-5 flex items-center gap-3"><Label htmlFor="history-filter">{t("练习记录状态")}</Label><NativeSelect id="history-filter" value={sessionFilter} disabled={busy} onChange={e => { setSessionFilter(e.target.value as SessionFilter); setSessionOffset(0); }}>
+            <NativeSelectOption value="all">{t("全部")}</NativeSelectOption><NativeSelectOption value="active">{t("进行中")}</NativeSelectOption><NativeSelectOption value="review">{t("待核对")}</NativeSelectOption><NativeSelectOption value="finished">{t("已结束")}</NativeSelectOption>
+          </NativeSelect></div>}
           {page === "history" && (summaryLoading || summaryError != null) && (
             <div className="mb-5 space-y-3" aria-busy={summaryLoading}>
               {summaryLoading && <p role="status">{t("加载中…")}</p>}
@@ -486,8 +500,11 @@ export default function App() {
             onAddExample={() => run(async () => { await api({ type: "add_example_bank" }); await reloadBanks(); })}
             onOpenSession={openSession}
             onImport={bankId => navigate("import", bankId)}
+            onOpenZipSettings={() => navigate("settings", null, true)}
+            onHistory={() => { setSessionFilter("active"); setSessionOffset(0); navigate("history"); }}
             onOpenQuestions={bankId => navigate("questions", bankId)}
             onPractice={bankId => setPracticeSetup({ bank: bankId })}
+            onPracticeUnattempted={bankId => setPracticeSetup({ bank: bankId, filter: "unattempted" })}
             onEdit={bankItem => setBankEditor({ id: bankItem.id, title: bankItem.title, description: bankItem.description })}
             onDelete={bankItem => setConfirm({
               title: message("删除“{0}”？", { 0: bankItem.title }),
@@ -524,6 +541,7 @@ export default function App() {
                   ))}
                 </NativeSelect>
               </div>
+              {page === "wrong" && questions.length > 0 && <p className="text-sm text-muted-foreground">{t("错误和未得满分的题目会出现在这里，再次答对或得满分后自动移出；未评分不算错题。")}</p>}
               {questions.length ? (
                 <>
                   <div className="divide-y rounded-xl border">
@@ -544,9 +562,10 @@ export default function App() {
                             {row.question.needsReview && (
                               <CircleAlert className="size-4 text-amber-600 dark:text-amber-400" role="img" aria-label={t("待复核")} />
                             )}
-                            {row.latestResult === false && (
-                              <Badge variant="destructive">{t("错题")}</Badge>
+                            {[row, ...(row.children || [])].some(item => item.latestResult === false) && (
+                              <Badge variant="destructive">{[row, ...(row.children || [])].some(item => item.latestScore && item.latestScore.earnedCents > 0 && item.latestScore.earnedCents < item.latestScore.maxCents) ? t("部分得分") : t("错题")}</Badge>
                             )}
+                            {row.latestScore && <span className="text-xs text-muted-foreground">{t("上次 {0} / {1} 分", { 0: row.latestScore.earnedCents / 100, 1: row.latestScore.maxCents / 100 })}</span>}
                             {page !== "questions" && (
                               <span className="w-full truncate text-xs text-muted-foreground" title={row.bankTitle}>
                                 {row.bankTitle}
@@ -638,7 +657,7 @@ export default function App() {
                     <EmptyHeader>
                       <EmptyMedia variant="icon">{page === "favorite" ? <Star /> : <BookOpen />}</EmptyMedia>
                       <EmptyTitle>{page === "wrong" ? t("暂时没有错题") : page === "favorite" ? t("还没有收藏题目") : t("没有找到题目")}</EmptyTitle>
-                      <EmptyDescription>{page === "wrong" ? t("已判定为错误的题目会出现在这里，再次答对后自动移出。") : t("尝试调整筛选，或导入新的题目。")}</EmptyDescription>
+                      <EmptyDescription>{page === "wrong" ? t("错误和未得满分的题目会出现在这里，再次答对或得满分后自动移出；未评分不算错题。") : t("尝试调整筛选，或导入新的题目。")}</EmptyDescription>
                     </EmptyHeader>
                   </Empty>
                 )
@@ -662,7 +681,7 @@ export default function App() {
                           </span>
                         </div>
                         <div className="flex flex-wrap gap-2 text-sm tabular-nums">
-                          <span>{t("已提交 {0}/{1} 题", { 0: s.answered, 1: s.count })}</span>
+                          <SessionProgress session={s} active={!s.finishedAt && !s.submittedAt} onExpired={() => setListRevision(v => v + 1)}/>
                           {!!(s.finishedAt || s.submittedAt) && (s.kind && s.kind !== "practice" ? <>
                             <Badge variant="secondary">{t("{0} {1} / {2} 分", { 0: s.pendingGrades ? t("暂定成绩") : t("成绩"), 1: (s.earnedCents || 0) / 100, 2: (s.totalCents || 0) / 100 })}</Badge>
                             {!!s.pendingGrades && <Badge variant="outline">{t("待评分 {0} 题", { 0: s.pendingGrades })}</Badge>}
@@ -676,7 +695,7 @@ export default function App() {
                         disabled={busy}
                         onClick={() => openSession(s.id)}
                       >
-                        {s.finishedAt ? t("查看记录") : s.submittedAt ? t("核对评分") : t("继续练习")}
+                        {s.finishedAt ? t("查看记录") : s.submittedAt ? t("核对评分") : s.kind && s.kind !== "practice" ? t("继续考试") : t("继续练习")}
                         <ChevronRight />
                       </Button>
                     </CardContent>
@@ -687,8 +706,8 @@ export default function App() {
               <Empty className="min-h-96 border border-dashed">
                 <EmptyHeader>
                   <EmptyMedia variant="icon"><History /></EmptyMedia>
-                  <EmptyTitle>{t("还没有练习记录")}</EmptyTitle>
-                  <EmptyDescription>{t("完成一次练习后，即可在这里回顾答案、用时与正确率。")}</EmptyDescription>
+                  <EmptyTitle>{sessionFilter === "all" ? t("还没有练习记录") : t("没有符合此状态的记录")}</EmptyTitle>
+                  <EmptyDescription>{sessionFilter === "all" ? t("开始练习后，即可在这里继续作答或回顾结果。") : t("尝试选择其他状态。")}</EmptyDescription>
                 </EmptyHeader>
               </Empty>
             ))}
@@ -716,9 +735,10 @@ export default function App() {
               }}
               run={run}
               flushRef={flushRef}
+              onNextUnattempted={session.bankIds?.some(id => banks.some(b => b.id === id)) ? () => setPracticeSetup({ bank: null, bankIds: session.bankIds!.filter(id => banks.some(b => b.id === id)), filter: "unattempted" }) : undefined}
             />
           )}
-          {page === "import" && <ImportPage busy={busy} run={run} onPreview={(p, task)=>setImportPreview({ preview: p, initialBank: bank || "new", task })} onOpenBank={id => navigate("questions", id)} onConfigure={() => { setSettingsReturn({ bank }); navigate("model-settings"); }} />}
+          {page === "import" && <ImportPage busy={busy} run={run} onPreview={(p, task)=>setImportPreview({ preview: p, initialBank: bank || "new", task })} onOpenBank={id => navigate("questions", id)} onOpenZipSettings={() => navigate("settings", null, true)} onConfigure={() => { setSettingsReturn({ bank }); navigate("model-settings"); }} />}
           {page === "model-settings" && (
             <div className="max-w-3xl space-y-6">
               <ConnectionSettingsPanel
@@ -731,6 +751,7 @@ export default function App() {
           )}
           {page === "settings" && (
             <SettingsPage busy={busy} run={run} flushRef={flushRef} revision={settingsRevision} version={info?.version}
+              restoreOpen={restoreOpen} onRestoreOpenChange={setRestoreOpen}
               onConfigure={() => navigate("model-settings")}
               onPickImport={pickImport}
               onRestore={() => setConfirm({
@@ -912,7 +933,7 @@ export default function App() {
           </DialogContent>
         </Dialog>
       )}
-      {practiceSetup && <Suspense fallback={loadingView}><StudySetup banks={banks} initialBank={practiceSetup.bank} initialFilter={filter} initialMode={mode} initialSearch={search} busy={busy} run={run} onClose={()=>setPracticeSetup(null)} onStart={async s=>{await flushRef.current();setSession(s);setSessionOffset(0);setPracticeSetup(null);setPage("practice");}}/></Suspense>}
+      {practiceSetup && <Suspense fallback={loadingView}><StudySetup banks={banks} initialBank={practiceSetup.bank} initialBankIds={practiceSetup.bankIds} initialFilter={practiceSetup.filter ?? filter} initialMode={mode} initialSearch={search} busy={busy} run={run} onClose={()=>setPracticeSetup(null)} onStart={async s=>{await flushRef.current();setSession(s);setSessionOffset(0);setPracticeSetup(null);setPage("practice");}}/></Suspense>}
       <AlertDialog
         open={!!confirm}
         onOpenChange={(v) => {

@@ -40,6 +40,26 @@ def test_load_requires_service_token(monkeypatch: pytest.MonkeyPatch):
         config.load()
 
 
+def test_desktop_read_only_requires_auth_but_no_model(monkeypatch):
+    from practiq_ai.errors import DocumentProcessingError
+
+    _env(monkeypatch, AI_DESKTOP_MODE='1', AI_READ_ONLY='1')
+    for key in ('LLM_PROVIDER', 'LLM_API_KEY', 'LLM_MODEL', 'LLM_BASE_URL'):
+        monkeypatch.delenv(key, raising=False)
+    settings = config.load()
+    assert settings.read_only and not settings.model_id and not settings.api_key
+    with pytest.raises(DocumentProcessingError) as error:
+        config.require_model_config()
+    assert error.value.code == 'MODEL_NOT_CONFIGURED'
+    monkeypatch.setenv('AI_DESKTOP_MODE', '0')
+    with pytest.raises(ValueError, match='requires desktop'):
+        config.load()
+    monkeypatch.setenv('AI_DESKTOP_MODE', '1')
+    monkeypatch.delenv('AI_SERVICE_TOKEN')
+    with pytest.raises(ValueError, match='AI_SERVICE_TOKEN'):
+        config.load()
+
+
 def test_load_defaults_worker_limit(monkeypatch: pytest.MonkeyPatch):
     _env(monkeypatch)
     monkeypatch.delenv("N_JOBS_PER_WORKER")

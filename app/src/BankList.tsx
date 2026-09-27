@@ -3,13 +3,14 @@ import { BookOpen, ChevronRight, Download, EllipsisVertical, Pencil, Play, Trash
 import { api, errorMessage, type Bank, type BankPage, type UnfinishedSession } from "./api";
 import { message, t, useI18n } from "./i18n";
 import { toast } from "./notifications";
+import { SessionProgress } from "./SessionProgress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 
-export function BankList({ offset, onOffsetChange, revision, busy, ready, run, onOpenSession, onAddExample, onImport, onOpenQuestions, onPractice, onEdit, onDelete }: {
+export function BankList({ offset, onOffsetChange, revision, busy, ready, run, onOpenSession, onAddExample, onImport, onOpenZipSettings, onHistory, onOpenQuestions, onPractice, onPracticeUnattempted, onEdit, onDelete }: {
   offset: number;
   onOffsetChange: (offset: number) => void;
   revision: number;
@@ -19,8 +20,11 @@ export function BankList({ offset, onOffsetChange, revision, busy, ready, run, o
   onOpenSession: (id: string) => void;
   onAddExample: () => void;
   onImport: (bankId: string | null) => void;
+  onOpenZipSettings: () => void;
+  onHistory: () => void;
   onOpenQuestions: (bankId: string) => void;
   onPractice: (bankId: string) => void;
+  onPracticeUnattempted: (bankId: string) => void;
   onEdit: (bank: Bank) => void;
   onDelete: (bank: Bank) => void;
 }) {
@@ -52,8 +56,9 @@ export function BankList({ offset, onOffsetChange, revision, busy, ready, run, o
       {loading && <p role="status">{t("加载中…")}</p>}
       {error != null && <div role="alert"><p>{errorMessage(error)}</p><Button variant="outline" onClick={() => setRefresh(value => value + 1)}>{t("重试")}</Button></div>}
     </div>}
-    {!loading && !error && unfinished && <Card className="border-primary/30 bg-primary/5"><CardContent className="flex items-center justify-between gap-4"><div className="min-w-0"><h2 className="font-semibold">{t("继续未完成的练习")}</h2><p className="mt-1 break-words text-sm text-muted-foreground">{t("{0} · 已提交 {1}/{2} 题", { 0: unfinished.title, 1: unfinished.answered, 2: unfinished.count })}</p></div><Button disabled={busy} onClick={() => onOpenSession(unfinished.id)}><Play />{t("继续练习")}</Button></CardContent></Card>}
-    {!page.total && !loading && !error && ready && <Empty className="min-h-96 border border-dashed"><EmptyHeader><EmptyMedia variant="icon"><BookOpen /></EmptyMedia><EmptyTitle>{t("从第一份题库开始")}</EmptyTitle><EmptyDescription>{t("已有 PractiQ ZIP 可离线导入；PDF、文本或图片可通过 AI 解析为题目。")}</EmptyDescription></EmptyHeader><EmptyContent><Button onClick={() => onImport(null)}><Upload />{t("导入第一份题库")}</Button><Button variant="outline" disabled={busy} onClick={onAddExample}><BookOpen />{t("添加示例题库")}</Button></EmptyContent></Empty>}
+    {!loading && !error && unfinished && <Card className="border-primary/30 bg-primary/5"><CardContent className="flex items-center justify-between gap-4"><div className="min-w-0"><h2 className="font-semibold">{t("继续未完成的练习")}</h2><p className="mt-1 break-words text-sm text-muted-foreground">{unfinished.title} · <SessionProgress session={unfinished} onExpired={() => setRefresh(value => value + 1)}/></p></div><div className="flex shrink-0 gap-2"><Button variant="outline" disabled={busy} onClick={onHistory}>{t("查看全部")}</Button><Button disabled={busy} onClick={() => onOpenSession(unfinished.id)}><Play />{unfinished.kind && unfinished.kind !== "practice" ? t("继续考试") : t("继续练习")}</Button></div></CardContent></Card>}
+    {!page.total && !loading && !error && ready && <Empty className="min-h-96 border border-dashed"><EmptyHeader><EmptyMedia variant="icon"><BookOpen /></EmptyMedia><EmptyTitle>{t("从第一份题库开始")}</EmptyTitle><EmptyDescription>{t("已有 PractiQ ZIP 可离线导入；PDF、文本或图片可通过 AI 解析为题目。")}</EmptyDescription></EmptyHeader><EmptyContent><Button onClick={() => onImport(null)}><Upload />{t("从文档解析题目")}</Button><Button variant="outline" disabled={busy} onClick={onAddExample}><BookOpen />{t("添加示例题库")}</Button></EmptyContent></Empty>}
+    <Button variant="link" disabled={busy} onClick={onOpenZipSettings}>{t("已有题库 ZIP？前往设置导入")}</Button>
     <div className="grid grid-cols-2 gap-5 xl:grid-cols-3">
       {!loading && !error && page.items.map(bank => <Card key={bank.id}>
         <CardHeader>
@@ -69,6 +74,7 @@ export function BankList({ offset, onOffsetChange, revision, busy, ready, run, o
                     if (result) toast.success(message("题库已导出：{0}", { 0: result.path }));
                   })}><Download className="size-4" />{t("导出题库 ZIP")}</DropdownMenuItem>
                   <DropdownMenuItem onSelect={() => onEdit(bank)}><Pencil className="size-4" />{t("编辑题库")}</DropdownMenuItem>
+                  <DropdownMenuItem disabled={busy || !bank.count} onSelect={() => onPracticeUnattempted(bank.id)}><Play className="size-4" />{t("练习未做题")}</DropdownMenuItem>
                   <DropdownMenuItem variant="destructive" onSelect={() => onDelete(bank)}><Trash2 className="size-4" />{t("删除题库")}</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

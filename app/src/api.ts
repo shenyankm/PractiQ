@@ -69,6 +69,8 @@ export interface Snapshot {
   missingAssets: boolean;
 }
 export interface QuestionRow extends Snapshot {
+  answerableCount?: number;
+  latestScore?: { earnedCents: number; maxCents: number; gradeKind: string } | null;
   rootId?: string;
   rootType?: string;
   children?: QuestionRow[];
@@ -82,7 +84,14 @@ export interface QuestionPage { items: QuestionRow[]; total: number; offset: num
 export interface BankChoice { id: string; title: string; count: number }
 export interface BankPage { items: Bank[]; total: number; offset: number }
 export interface SessionPage { items: SessionSummary[]; total: number; offset: number }
-export type UnfinishedSession = Pick<SessionSummary, "id" | "title" | "count" | "answered">;
+export type UnfinishedSession = Pick<SessionSummary, "id" | "title" | "count" | "answered" | "kind" | "draftAnswered" | "deadlineAt" | "lastActiveAt">;
+export type SessionFilter = "all" | "active" | "review" | "finished";
+export interface GradingResponse {
+  status: string;
+  error?: string;
+  appError?: unknown;
+  result?: { scoreCents: number | null; maxCents: number; reason: string; evidence: string[]; reviewReasons: string[] };
+}
 export interface Bank extends BankChoice {
   description: string;
   createdAt: number;
@@ -98,13 +107,14 @@ export interface Attempt {
   maxCents?: number | null;
   earnedCents?: number | null;
   flagged?: boolean;
-  grading?: { lastRequest?: {status: string; error?: string; appError?: unknown}; ai?: {status: string; error?: string; appError?: unknown; result?: {scoreCents: number | null; maxCents: number; reason: string; evidence: string[]; reviewReasons: string[]}}; manual?: {reason: string; scoreCents: number} };
+  grading?: { lastRequest?: GradingResponse; ai?: GradingResponse; manual?: {reason: string; scoreCents: number} };
   submittedAt: number | null;
   skipped: boolean;
   elapsedMs: number;
 }
 export type SessionKind = "practice" | "self_test" | "mock_exam";
 export interface Session {
+  bankIds?: string[];
   kind?: SessionKind;
   deadlineAt?: number | null;
   submittedAt?: number | null;
@@ -117,6 +127,9 @@ export interface Session {
   attempts: Attempt[];
 }
 export interface SessionSummary {
+  draftAnswered?: number;
+  deadlineAt?: number | null;
+  lastActiveAt?: number;
   kind?: SessionKind;
   submittedAt?: number | null;
   totalCents?: number | null;
@@ -158,14 +171,16 @@ type Query = {
 };
 export interface Paper { question_ids: string[]; kind: SessionKind; minutes: number | null; scores: number[]; total_cents: number; digest: string }
 export interface PaperPreview { questionIds: string[]; digest: string; questions: QuestionRow[]; scores: number[]; count: number }
-export interface QuestionStats { count: number; types: Record<string, number> }
+export interface QuestionStats { count: number; types: Record<string, number>; feasibleCounts?: number[] }
 export interface PaperSelection { bank_ids: string[]; search: string; mode: string; filter: string; selection: string; count: number; quotas: Record<string,number>; question_ids: string[]; random: boolean; total_cents: number; budgets?: Record<string,number> }
 export interface PlaybackState { used:number; position:number; active:boolean; limit:number; restricted:boolean }
 type Request =
   | { type:"pick_audio" }
   | { type:"release_audio"; hash:string }
   | { type:"listening_playback"; id:string; question_id:string; action:"state"|"start"|"progress"|"pause"|"end"; position?:number }
-  | { type: "banks_page" | "sessions_page"; limit: number; offset: number }
+  | { type: "banks_page"; limit: number; offset: number }
+  | { type: "sessions_page"; limit: number; offset: number; filter?: SessionFilter }
+  | { type: "self_assess"; id: string; ordinal: number; result: boolean }
   | { type: "export_bank"; bank_id: string }
   | { type: "preview_paper"; request: PaperSelection }
   | { type: "save_question_tree"; bank_id: string; root_id: string | null; questions: Question[] }
@@ -249,6 +264,7 @@ type ResponseMap = {
   save_language: Locale;
   save_question_tree: string;
   save_settings: SettingsResult;
+  self_assess: Session;
   session: Session;
   sessions_page: SessionPage;
   settings: SettingsResult;

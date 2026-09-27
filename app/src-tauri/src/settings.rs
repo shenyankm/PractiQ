@@ -155,6 +155,19 @@ pub fn test_connection(config: ConnectionSettings, key: String) -> Result<Value>
     }
     Ok(Value::Null)
 }
+/// Copy only the store location while holding the UI database mutex. Keychain
+/// calls below can wait for macOS authorization without blocking offline work.
+pub fn snapshot(shared: &crate::Shared) -> Result<Store> {
+    let store = shared
+        .lock()
+        .map_err(|_| crate::language::error("LOCAL_DATABASE_UNAVAILABLE", json!({})))?;
+    Ok(Store {
+        locale: store.locale,
+        dir: store.dir.clone(),
+        pending: None,
+        staged_audio: Default::default(),
+    })
+}
 impl Store {
     pub fn connection_test_input(
         &self,
@@ -198,12 +211,17 @@ impl Store {
             .map_err(|e| crate::AppError::from(e.to_string()))
     }
     pub fn settings(&self, service: &str) -> Result<Value> {
+        self.settings_with(|base| secret(&entry(service, base)?))
+    }
+    fn settings_with(&self, read: impl FnOnce(&str) -> Result<Option<String>>) -> Result<Value> {
         let config = self.connection_settings()?;
-        let configured = if let Some(base) = &config.base_url {
-            secret(&entry(service, base)?)?.is_some()
-        } else {
-            false
-        };
+        let configured = config
+            .base_url
+            .as_deref()
+            .map(read)
+            .transpose()?
+            .flatten()
+            .is_some();
         Ok(json!({"config":config,"hasApiKey":configured}))
     }
     pub fn save_settings(
@@ -228,15 +246,11 @@ impl Store {
                 serde_json::json!({}),
             ));
         }
-        let mut db = self.connect()?;
-        let tx = db
-            .transaction()
-            .map_err(|e| crate::AppError::from(e.to_string()))?;
-        tx.execute(
-            "UPDATE settings SET base_url=?1,model_id=?2 WHERE id=1",
-            params![config.base_url, config.model_id],
-        )
-        .map_err(|e| crate::AppError::from(e.to_string()))?;
+        let configured = match (&config.base_url, &api_key) {
+            (Some(_), Some(key)) => !key.trim().is_empty(),
+            (Some(base), None) => secret(&entry(service, base)?)?.is_some(),
+            (None, _) => false,
+        };
         let previous = if let (Some(base), Some(key)) = (&config.base_url, &api_key) {
             let entry = entry(service, base)?;
             let previous = secret(&entry)?;
@@ -246,20 +260,76 @@ impl Store {
         } else {
             None
         };
-        if let Err(error) = tx.commit() {
+        // Do not hold a SQLite write transaction while the OS credential UI waits.
+        let persist = self.connect().and_then(|db| {
+            db.execute(
+                "UPDATE settings SET base_url=?1,model_id=?2 WHERE id=1",
+                params![config.base_url, config.model_id],
+            )
+            .map(|_| ())
+            .map_err(|error| crate::AppError::from(error.to_string()))
+        });
+        if let Err(error) = persist {
             if let Some((entry, previous)) = previous {
                 write_secret(&entry, previous.as_deref()).map_err(|_| {
                     crate::language::error("LOCAL_KEYCHAIN_ROLLBACK", serde_json::json!({}))
                 })?;
             }
-            return Err(error.to_string().into());
+            return Err(error);
         }
-        self.settings(service)
+        Ok(json!({"config":config,"hasApiKey":configured}))
     }
 }
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn waiting_for_credentials_does_not_hold_the_offline_store_or_database() {
+        use std::sync::{mpsc, Arc, Mutex};
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path().to_owned()).unwrap();
+        store
+            .connect()
+            .unwrap()
+            .execute(
+                "UPDATE settings SET base_url='https://example.com/v1',model_id='demo'",
+                [],
+            )
+            .unwrap();
+        let shared = Arc::new(Mutex::new(store));
+        let detached = snapshot(&shared).unwrap();
+        let (waiting, started) = mpsc::channel();
+        let (release, resumed) = mpsc::channel();
+        let worker = std::thread::spawn(move || {
+            detached.settings_with(|_| {
+                waiting.send(()).unwrap();
+                resumed
+                    .recv_timeout(std::time::Duration::from_secs(5))
+                    .unwrap();
+                Ok(Some("fake credential".into()))
+            })
+        });
+        started
+            .recv_timeout(std::time::Duration::from_secs(5))
+            .unwrap();
+        {
+            let store = shared
+                .try_lock()
+                .expect("Keychain wait blocked offline work");
+            assert!(store.banks().is_ok());
+            store
+                .connect()
+                .unwrap()
+                .execute(
+                    "UPDATE settings SET model_id='offline remains writable'",
+                    [],
+                )
+                .unwrap();
+        }
+        release.send(()).unwrap();
+        assert_eq!(worker.join().unwrap().unwrap()["hasApiKey"], true);
+    }
+
     #[test]
     fn tests_connections_without_saving_and_rejects_bad_responses() {
         use std::io::{Read, Write};

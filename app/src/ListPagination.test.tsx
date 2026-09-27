@@ -5,7 +5,18 @@ import { afterEach, expect, it, vi } from "vitest";
 import App from "./App";
 import { api, type Bank, type SessionSummary } from "./api";
 
-vi.mock("@tauri-apps/api/core", () => ({invoke:vi.fn(async (_command, args) => (args as {request:{type:string}}).request.type === "batches" ? {items:[],total:0,offset:0,operations:[]} : []),isTauri:()=>false}));
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: vi.fn(async (_command, args) => {
+    const { type } = (args as {request:{type:string}}).request;
+    switch (type) {
+      case "list": return {items:[],hasMore:false};
+      case "batches": return {items:[],total:0,offset:0,operations:[]};
+      case "operations": return [];
+      default: throw new Error(`Unexpected AI request: ${type}`);
+    }
+  }),
+  isTauri: () => false,
+}));
 vi.mock("./api", async () => ({...await vi.importActual("./api"),api:vi.fn()}));
 HTMLElement.prototype.hasPointerCapture = () => false;
 HTMLElement.prototype.scrollIntoView = () => {};
@@ -41,7 +52,7 @@ it("pages native bank summaries, keeps all merge/study choices, and clamps after
   setup(); render(<App/>); await loaded();
   expect(screen.getByText("Bank 29").compareDocumentPosition(screen.getByRole("navigation",{name:"题库分页"})) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(screen.queryByText("Bank 30")).toBeNull();
-  expect(screen.getByText("Off-page unfinished · 已提交 0/1 题")).toBeTruthy();
+  expect(screen.getByText("已提交 0/1 题").closest("p")?.textContent).toBe("Off-page unfinished · 已提交 0/1 题");
   expect(screen.getByRole("button",{name:"上一页"}).hasAttribute("disabled")).toBe(true);
   await userEvent.click(screen.getByRole("button",{name:"合并题库"}));
   expect(within(await screen.findByRole("dialog")).getByRole("checkbox",{name:"Bank 30（1 题）"})).toBeTruthy();
@@ -51,6 +62,8 @@ it("pages native bank summaries, keeps all merge/study choices, and clamps after
   expect(within(screen.getByRole("dialog")).getByRole("checkbox",{name:"Bank 30（1）"})).toBeTruthy();
   await userEvent.keyboard("{Escape}");
   await userEvent.click(screen.getByRole("button",{name:"导入题库"}));
+  await screen.findByText("解析新文档前，请配置 AI 模型");
+  await waitFor(() => expect(screen.queryAllByRole("status")).toHaveLength(0));
   await userEvent.click(await screen.findByRole("button",{name:"设置"}));
   await userEvent.click(await screen.findByRole("button",{name:"恢复备份"}));
   await userEvent.click(await screen.findByRole("menuitem",{name:"导入题库 ZIP"}));

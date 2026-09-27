@@ -262,15 +262,27 @@ export function AnswerInput({
 export function AnswerDisplay({
   answer,
   question,
+  response,
 }: {
   answer: Answer | null;
   question?: Question;
+  response?: Answer | null;
 }) {
   useI18n();
   if (!answer)
     return (
       <p className="text-sm text-muted-foreground">{t("原文未提供标准答案，可保持未判定或自行评价。")}</p>
     );
+  if (question?.answerMode === "fill_blank" && answer.answers && response?.answers) {
+    return <div className="overflow-x-auto"><table className="w-full text-sm" aria-label={t("填空答案对照")}>
+      <thead><tr className="border-b text-left"><th className="p-2">{t("空格")}</th><th className="p-2">{t("你的答案")}</th><th className="p-2">{t("参考答案")}</th><th className="p-2">{t("核对结果")}</th></tr></thead>
+      <tbody>{Array.from({length:Math.max(answer.answers.length,response.answers.length)},(_,i)=>{
+        const expected=answer.answers![i], actual=response.answers![i];
+        const state=!expected?.trim()?t("参考答案不完整"):!actual?.trim()?t("未作答"):actual.trim()===expected.trim()?t("文本一致"):t("文本不一致");
+        return <tr key={i} className="border-b align-top"><th scope="row" className="p-2 font-normal">{i+1}</th><td className="p-2"><Markdown>{actual || t("未作答")}</Markdown></td><td className="p-2"><Markdown>{expected || t("缺失")}</Markdown></td><td className="p-2">{state}</td></tr>;
+      })}</tbody>
+    </table></div>;
+  }
   let rendered: string;
   if (answer.correct)
     rendered = answer.correct.map((s) => s ?? t("缺失")).join("、");

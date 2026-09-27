@@ -950,5 +950,21 @@
   "LOCAL_CONNECTION_FIELDS": {
     "zh-CN": "请先填写 Base URL 和模型 ID。",
     "en": "Enter a Base URL and model ID first."
+  },
+  "LOCAL_SELF_ASSESSMENT_INELIGIBLE": {
+    "zh-CN": "此题不能自评：仅支持已提交、未跳过且允许自评的普通练习题。",
+    "en": "This question cannot be self-assessed. Self-assessment is available only for eligible, submitted, unskipped questions in ordinary practice."
+  },
+  "AI_RESULT_IMPORTED_ELSEWHERE": {
+    "zh-CN": "该结果已导入其他题库，请打开原题库查看",
+    "en": "This result was already imported into another bank. Open that bank to view it."
+  },
+  "LOCAL_SETTINGS_ACTIVE_TASKS": {
+    "zh-CN": "请先暂停或等待正在解析的任务完成，再应用配置。",
+    "en": "Pause active parsing tasks or wait for them to finish before applying settings."
+  },
+  "MODEL_NOT_CONFIGURED": {
+    "zh-CN": "开始或继续 AI 任务前，请先配置模型。",
+    "en": "Configure a model before starting or resuming AI work"
   }
 }

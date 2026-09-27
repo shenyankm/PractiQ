@@ -12,13 +12,14 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Res
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 from practiq_ai import task_api
-from practiq_ai.config import load
+from practiq_ai.config import load, require_model_config
 from practiq_ai.contracts import (
     ArtifactReference,
     DocumentReference,
     DocumentTaskControl,
     DocumentTaskCreate,
     DocumentTaskList,
+    DocumentTaskReparse,
     DocumentTaskReview,
     DocumentUploadRequest,
     DocumentUploadResponse,
@@ -58,7 +59,10 @@ def authorize(authorization: str | None = Header(default=None)) -> None:
 
 
 async def upload_slot() -> AsyncGenerator[None]:
-    config = load()
+    try:
+        config = require_model_config()
+    except DocumentProcessingError as exc:
+        raise HTTPException(exc.status_code, {"code": exc.code, "message": exc.detail}) from exc
     loop = asyncio.get_running_loop()
     if config.maintenance:
         raise HTTPException(503, {"code": "MAINTENANCE"})
@@ -109,8 +113,9 @@ async def create_document_task(request: DocumentTaskCreate) -> dict[str, Any]:
 
 
 @app.get("/api/document-tasks", response_model=DocumentTaskList, dependencies=[Depends(authorize)])
-async def list_document_tasks(limit: int = Query(default=20, ge=1, le=100), offset: int = Query(default=0, ge=0)):
-    return await _task_response(task_api.list_tasks(limit, offset))
+async def list_document_tasks(limit: int = Query(default=20, ge=1, le=100), offset: int = Query(default=0, ge=0),
+                              sha256: str | None = Query(default=None, pattern=r'^[a-f0-9]{64}$')):
+    return await _task_response(task_api.list_tasks(limit, offset, sha256))
 
 
 @app.get("/api/document-tasks/{thread_id}", dependencies=[Depends(authorize)])
@@ -126,6 +131,11 @@ async def preview_document_task(thread_id: UUID) -> dict[str, Any]:
 @app.post("/api/document-tasks/{thread_id}/control", status_code=202, dependencies=[Depends(authorize)])
 async def control_document_task(thread_id: UUID, request: DocumentTaskControl) -> dict[str, Any]:
     return await _task_response(task_api.control_task(str(thread_id), request))
+
+
+@app.post("/api/document-tasks/{thread_id}/reparse", status_code=202, dependencies=[Depends(authorize)])
+async def reparse_document_task(thread_id: UUID, request: DocumentTaskReparse) -> dict[str, Any]:
+    return await _task_response(task_api.reparse_task(str(thread_id), request))
 
 
 

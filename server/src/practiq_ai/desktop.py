@@ -22,13 +22,19 @@ def main():
     config = json.loads(raw)
     allowed = {'AI_SERVICE_TOKEN', 'LLM_API_KEY', 'LLM_BASE_URL', 'LLM_MODEL',
                'AI_DATABASE_DIR', 'AI_STORAGE_DIR'}
-    if set(config) != allowed or any(not isinstance(v, str) or not v for v in config.values()):
+    model_keys = {'LLM_API_KEY', 'LLM_BASE_URL', 'LLM_MODEL'}
+    if (not isinstance(config, dict) or set(config) != allowed
+            or any(not isinstance(v, str) for v in config.values())
+            or any(not config[key].strip() for key in allowed - model_keys)
+            or len({bool(config[key].strip()) for key in model_keys}) != 1):
         raise SystemExit('Invalid bootstrap')
     for key in list(os.environ):
         if key.startswith(('AI_', 'LLM_', 'DATABASE_')):
             os.environ.pop(key)
     os.environ.update(config)
     os.environ.update(LLM_PROVIDER='openai', AI_DESKTOP_MODE='1', AI_DEPLOYMENT_WORKERS='1')
+    if not config['LLM_MODEL'].strip():
+        os.environ['AI_READ_ONLY'] = '1'
     from .config import load
     from .database import Database
     load()

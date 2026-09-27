@@ -1,10 +1,13 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import { toast } from "sonner";
 import { AiTasks } from "./AiTasks";
+import { api, blankQuestion } from "./api";
+vi.mock("./api", async () => ({ ...(await vi.importActual<typeof import("./api")>("./api")), api: vi.fn() }));
+beforeEach(() => { vi.mocked(api).mockResolvedValue([] as never); });
 vi.mock("sonner", () => ({ toast: { error: vi.fn() } }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 afterEach(() => {
@@ -12,6 +15,107 @@ afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
   vi.clearAllMocks();
+});
+
+it("reads and previews saved results without models while disabling model actions", async () => {
+  const onPreview = vi.fn();
+  const preview = { ticket:"ticket",title:"saved",count:1,reviewCount:0,warnings:[],missingAssets:[],assetCount:0,processing:null,status:"SUCCEEDED" };
+  vi.mocked(invoke).mockImplementation(async (_command, args) => {
+    const { type } = (args as {request:{type:string}}).request;
+    if (type === "list") return {items:[{threadId:"saved",fileName:"saved.pdf",state:"COMPLETED",checkpointId:"cp",expiresAt:"2027-01-01T00:00:00Z"}],hasMore:false};
+    if (type === "get") return {threadId:"saved",state:"COMPLETED",checkpointId:"cp",phase:"completed",allowedActions:["retry_failed"],blocking:[],failures:[],progress:{},usage:[],unknownUsageCalls:[]};
+    if (type === "preview") return preview;
+    if (type === "batches") return {items:[],total:0,offset:0,operations:[]};
+    return [];
+  });
+  render(<AiTasks busy={false} run={job => {void job();}} onPreview={onPreview} modelsReady={false}/>);
+  expect(await screen.findByText(/未入库结果保留至/)).toBeTruthy();
+  expect((await screen.findByRole("checkbox", {name:"选择 saved.pdf"})).hasAttribute("disabled")).toBe(false);
+  await userEvent.click(screen.getByRole("button", {name:"saved.pdf"}));
+  expect((await screen.findByRole("button", {name:"重试失败项"})).hasAttribute("disabled")).toBe(true);
+  expect(screen.getByRole("button", {name:"使用当前模型重新解析"}).hasAttribute("disabled")).toBe(true);
+  expect(screen.getByRole("button", {name:"查看内容与审核"}).hasAttribute("disabled")).toBe(false);
+  await userEvent.click(screen.getByRole("button", {name:"预览并导入题库"}));
+  expect(onPreview).toHaveBeenCalledWith(preview, expect.objectContaining({threadId:"saved"}));
+  expect(vi.mocked(invoke).mock.calls.some(([, args]) => ["control","reparse","pick_document"].includes((args as {request:{type:string}}).request.type))).toBe(false);
+});
+
+it("prepares an offline batch for the chosen existing bank", async () => {
+  vi.mocked(api).mockResolvedValue([{id:"bank",title:"Course",count:2}] as never);
+  vi.mocked(invoke).mockImplementation(async (_command, args) => {
+    const { type } = (args as {request:{type:string}}).request;
+    if (type === "list") return {items:[{threadId:"saved",fileName:"saved.pdf",state:"COMPLETED",checkpointId:"cp"}],hasMore:false};
+    if (type === "batches") return {items:[],total:0,offset:0,operations:[]};
+    if (type === "prepare_batch") return {id:"batch",bankId:"bank",status:"ready",items:[]};
+    return [];
+  });
+  render(<AiTasks busy={false} run={job => {void job();}} onPreview={() => {}} modelsReady={false}/>);
+  await userEvent.click(await screen.findByRole("checkbox", {name:"选择 saved.pdf"}));
+  await screen.findByRole("option", {name:"Course"});
+  await userEvent.selectOptions(screen.getByRole("combobox", {name:"批量导入到"}), "bank");
+  await userEvent.click(screen.getByRole("button", {name:"批量导入已选任务（1）"}));
+  expect(invoke).toHaveBeenCalledWith("ai_request", {locale:"zh-CN",request:{type:"prepare_batch",ids:["saved"],bank_id:"bank"}});
+  expect(await screen.findByText("所有任务追加到所选题库，保留已有题目和学习记录；失败只影响该项。")).toBeTruthy();
+});
+
+it("refreshes accepted documents when a later file in the selection fails", async () => {
+  let created = false;
+  const failure = new Error("second file failed");
+  const errors: unknown[] = [];
+  vi.mocked(invoke).mockImplementation(async (_command, args) => {
+    const { type } = (args as {request:{type:string}}).request;
+    if (type === "list") return {items:created ? [{threadId:"first",fileName:"first.pdf",state:"COMPLETED",checkpointId:"cp"}] : [],hasMore:false};
+    if (type === "pick_document") { created = true; throw failure; }
+    if (type === "batches") return {items:[],total:0,offset:0,operations:[]};
+    return [];
+  });
+  render(<AiTasks busy={false} run={job => {void job().catch(error => errors.push(error));}} onPreview={() => {}}/>);
+  await userEvent.click(screen.getByRole("button", {name:"选择文档并解析"}));
+  expect(await screen.findByRole("button", {name:"first.pdf"})).toBeTruthy();
+  expect(errors).toEqual([failure]);
+});
+
+it("opens the mapped original page from a final result without accepting or rerunning it", async () => {
+  URL.createObjectURL = vi.fn(() => "blob:source");
+  URL.revokeObjectURL = vi.fn();
+  vi.mocked(invoke).mockImplementation(async (command, args) => {
+    if (command === "read_review_image") return new ArrayBuffer(4);
+    const { type } = (args as {request:{type:string}}).request;
+    if (type === "list") return {items:[{threadId:"saved",fileName:"saved.pdf",state:"COMPLETED",checkpointId:"cp"}],hasMore:false};
+    if (type === "get") return {threadId:"saved",state:"COMPLETED",checkpointId:"cp",phase:"completed",allowedActions:[],blocking:[],failures:[],progress:{},usage:[],unknownUsageCalls:[]};
+    if (type === "review") return {threadId:"saved",checkpointId:"cp",phase:"completed",failures:[],quality:{reviewQuestionCount:1,issues:[{questionId:"q",code:"SOURCE_TEXT_NOT_FOUND"}]},questionSources:[{questionId:"q",stage:"vision_parse",unitIndex:2}],units:[
+      {stage:"result",index:0,questions:[{...blankQuestion(),id:"q",stem:"Saved candidate",needsReview:true}],groups:[]},
+      {stage:"vision_parse",index:2,questions:[],groups:[],sourceRef:{mediaType:"image/png"}},
+    ]};
+    if (type === "batches") return {items:[],total:0,offset:0,operations:[]};
+    return [];
+  });
+  render(<AiTasks busy={false} run={job => {void job();}} onPreview={() => {}} modelsReady={false}/>);
+  await userEvent.click(await screen.findByRole("button", {name:"saved.pdf"}));
+  await userEvent.click(await screen.findByRole("button", {name:"查看内容与审核"}));
+  await userEvent.click(await screen.findByRole("button", {name:"查看第 3 页原文"}));
+  expect(await screen.findByRole("img", {name:"查看第 3 页原文"})).toBeTruthy();
+  expect(invoke).toHaveBeenCalledWith("read_review_image", {id:"saved",checkpointId:"cp",unit:1,visual:null});
+  expect(vi.mocked(invoke).mock.calls.some(([command, args]) => command === "ai_request" && ["control","reparse"].includes((args as {request:{type:string}}).request.type))).toBe(false);
+});
+
+it("creates a replacement task only after the reparse action", async () => {
+  let created = false;
+  vi.mocked(invoke).mockImplementation(async (_command, args) => {
+    const request = (args as {request:{type:string;id?:string}}).request;
+    if (request.type === "list") return {items:[{threadId:created ? "new" : "saved",fileName:"saved.pdf",state:"COMPLETED",checkpointId:"cp"}],hasMore:false};
+    if (request.type === "get") return {threadId:request.id,state:"COMPLETED",checkpointId:"cp",phase:"completed",allowedActions:[],blocking:[],failures:[],progress:{},usage:[],unknownUsageCalls:[]};
+    if (request.type === "reparse") { created = true; return {threadId:"new"}; }
+    if (request.type === "batches") return {items:[],total:0,offset:0,operations:[]};
+    return [];
+  });
+  render(<AiTasks busy={false} run={job => {void job();}} onPreview={() => {}}/>);
+  await userEvent.click(await screen.findByRole("button", {name:"saved.pdf"}));
+  const action = await screen.findByRole("button", {name:"使用当前模型重新解析"});
+  expect(created).toBe(false);
+  await userEvent.click(action);
+  expect(invoke).toHaveBeenCalledWith("ai_request", {locale:"zh-CN",request:{type:"reparse",id:"saved"}});
+  await waitFor(() => expect(invoke).toHaveBeenCalledWith("ai_request", {locale:"zh-CN",request:{type:"get",id:"new"}}));
 });
 it.each([false, true])("hides the empty task section with modelsReady=%s", async modelsReady => {
   vi.mocked(invoke).mockImplementation(async (_command, args) => {
@@ -339,7 +443,7 @@ it("prepares only eligible selected tasks and clears selection across pages", as
   expect(screen.queryByRole("button",{name:/批量导入已选任务/})).toBeNull();
   await userEvent.click(screen.getByRole("checkbox",{name:"选择 third.pdf"}));
   await userEvent.click(screen.getByRole("button",{name:"批量导入已选任务（1）"}));
-  expect(invoke).toHaveBeenCalledWith("ai_request",{locale:"zh-CN",request:{type:"prepare_batch",ids:["third"]}});
+  expect(invoke).toHaveBeenCalledWith("ai_request",{locale:"zh-CN",request:{type:"prepare_batch",ids:["third"],bank_id:null}});
 });
 it("replays a pending request by its persisted ID only after explicit action", async () => {
   let pending = true;

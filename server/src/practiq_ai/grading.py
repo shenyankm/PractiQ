@@ -6,6 +6,7 @@ import io
 import json
 import sqlite3
 from contextlib import closing, contextmanager
+from typing import Literal
 from uuid import UUID
 
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -42,6 +43,7 @@ class GradeImage(StrictModel):
 class GradeRequest(StrictModel):
     requestId: UUID
     inputDigest: str = Field(pattern=r"^[a-f0-9]{64}$")
+    feedbackLocale: Literal["zh-CN", "en"] = "zh-CN"
     question: ParsedQuestion
     materials: list[str] = Field(default_factory=list, max_length=100)
     answer: str = Field(max_length=120_000)
@@ -108,8 +110,7 @@ irrelevant answer earns 0 (NOT null). Only abstain when the PROVIDED ASSESSMENT
 EVIDENCE is insufficient, never because the student is wrong or incomplete.
 Do not invent a missing reference answer. If evidence is insufficient,
 return scoreCents null and explain why in reviewReasons. maxCents must exactly match
-assessmentMaxCents. Scores are integer hundredths of one point. If a rubric is absent,
-include '未提供详细评分细则' in reviewReasons. Return explanations in Chinese."""
+assessmentMaxCents. Scores are integer hundredths of one point."""
 
 
 @contextmanager
@@ -127,7 +128,7 @@ def _claim(request: GradeRequest):
         if row:
             if row[0] != request.inputDigest:
                 raise DocumentProcessingError(409, "评分请求内容已变化", "REQUEST_CONFLICT")
-            return json.loads(row[1]) if row[1] else {"status":"unknown", "error":"结果未知；请检查记录后明确重新评分", "usage":[]}
+            return json.loads(row[1]) if row[1] else {"status":"unknown", "error":"Result unknown; check the record before explicitly requesting another grade." if request.feedbackLocale == "en" else "结果未知；请检查记录后明确重新评分", "usage":[]}
         db.execute("INSERT INTO grades VALUES(?,?,NULL)", (str(request.requestId),request.inputDigest))
     return None
 
@@ -143,30 +144,34 @@ async def grade(request: GradeRequest) -> dict:
     previous = await asyncio.to_thread(_claim, request)
     if previous is not None:
         return previous
+    english = request.feedbackLocale == "en"
     q = request.question
     reference = q.answerPayload.model_dump() if isinstance(q.answerPayload, StrictModel) else q.answerPayload
     if q.answerMode != "short_answer" or not q.stem or not request.answer.strip() or any(k in q.missingFields for k in ("stem", "material", "media", "answerMode")) or not (q.scoringRubric or reference and reference.get("text")):
-        response = {"status":"ungraded", "error":"缺少完整题目、作答或评分依据", "usage":[]}
+        response = {"status":"ungraded", "error":"The question, answer, or grading evidence is incomplete." if english else "缺少完整题目、作答或评分依据", "usage":[]}
     else:
         source_max = round(q.sourceScore * 100) if q.scoringRubric and q.sourceScore else request.maxCents
         payload = {"question":q.model_dump(mode="json", exclude={"sourceText", "scoreSourceText", "options", "items"}), "materials":request.materials, "answer":request.answer, "assessmentMaxCents":source_max}
         content: list = [{"type":"text", "text":json.dumps(payload, ensure_ascii=False)}]
         content.extend({"type":"image_url", "image_url":{"url":image.verified_url()}} for image in request.images)
+        missing_rubric = "No detailed scoring rubric was provided." if english else "未提供详细评分细则"
+        language = "English" if english else "Chinese"
+        prompt = f"{PROMPT}\nReturn explanations in {language}. Preserve quoted assessment evidence in its original language. If a rubric is absent, include '{missing_rubric}' in reviewReasons."
         calls: list[dict] = []
         try:
-            result, usage, failure = await structured_call(get_model(), [SystemMessage(content=PROMPT), HumanMessage(content=content)], GradeResult, "subjective_grade", call_records=calls)
+            result, usage, failure = await structured_call(get_model(), [SystemMessage(content=prompt), HumanMessage(content=content)], GradeResult, "subjective_grade", call_records=calls)
             if result is None or result.maxCents != source_max:
-                response = {"status":"ungraded", "error":failure or "评分满分不匹配", "usage":[u.model_dump(mode="json") for u in usage]}
+                response = {"status":"ungraded", "error":failure or ("The grading maximum does not match the requested score." if english else "评分满分不匹配"), "usage":[u.model_dump(mode="json") for u in usage]}
                 if failure and failure.startswith("AI_PROVIDER"):
                     response.update(status="unknown", usageStatus="unknown")
             else:
                 if source_max != request.maxCents:
                     if result.scoreCents is not None:
                         result.scoreCents = (result.scoreCents * request.maxCents + source_max // 2) // source_max
-                    result.reason += f"；按原卷 {source_max/100:g} 分比例换算至本次 {request.maxCents/100:g} 分。"
+                    result.reason += f" Scaled proportionally from the source maximum of {source_max/100:g} to this session's maximum of {request.maxCents/100:g} points." if english else f"；按原卷 {source_max/100:g} 分比例换算至本次 {request.maxCents/100:g} 分。"
                 result.maxCents = request.maxCents
-                if not q.scoringRubric and "未提供详细评分细则" not in result.reviewReasons:
-                    result.reviewReasons.append("未提供详细评分细则")
+                if not q.scoringRubric and missing_rubric not in result.reviewReasons:
+                    result.reviewReasons.append(missing_rubric)
                 response = {"status":"graded" if result.scoreCents is not None else "ungraded", "result":result.model_dump(), "usage":[u.model_dump(mode="json") for u in usage]}
         except DocumentProcessingError as exc:
             response = {"status":"unknown" if exc.code.startswith("AI_PROVIDER") else "ungraded", "error":exc.code, "usage":[u.model_dump(mode="json") for u in exc.usage], "usageStatus":"unknown"}

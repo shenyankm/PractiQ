@@ -48,7 +48,8 @@ fn paged_filters_preserve_complete_groups_and_drafts_survive_reopen() {
                             1
                         };
                     }
-                    assert_eq!(stats, json!({"count":count,"types":types}));
+                    assert_eq!(stats["count"], count);
+                    assert_eq!(stats["types"], json!(types));
                     let mut combined = Vec::new();
                     for offset in 0..n.max(1) {
                         let page = s
@@ -87,7 +88,7 @@ fn paged_filters_preserve_complete_groups_and_drafts_survive_reopen() {
     assert_eq!(
         s.question_stats(Some(&plain), std::slice::from_ref(&grouped), ("", "", ""))
             .unwrap(),
-        json!({"count":0,"types":{}})
+        json!({"count":0,"types":{},"feasibleCounts":[]})
     );
     assert!(s
         .query_questions(None, &[], ("", "", ""), Some((101, 0)))
@@ -2059,7 +2060,7 @@ fn summary_pages_keep_stable_boundaries_choices_and_expire_off_page_exams() {
     s.connect()
         .unwrap()
         .execute(
-            "UPDATE sessions SET created_at=0,deadline_at=0 WHERE id=?1",
+            "UPDATE sessions SET created_at=0,deadline_at=0,last_active_at=0 WHERE id=?1",
             [sid],
         )
         .unwrap();
