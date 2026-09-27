@@ -5,6 +5,7 @@ import json
 import os
 import signal
 import stat
+import subprocess
 import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -23,7 +24,8 @@ async def extract(source_type: DocumentSourceType, payload: bytes, *, timeout: f
         await _thread_io(source.write_bytes, payload)
         process = await asyncio.create_subprocess_exec(
             *([sys.executable, "extract"] if getattr(sys, "frozen", False) else [sys.executable, "-m", __name__]), source_type, str(source), str(output),
-            start_new_session=True, env={**os.environ, "TMPDIR": directory},
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            start_new_session=os.name != "nt", env={**os.environ, "TMPDIR": directory},
             stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL,
         )
         try:
@@ -35,7 +37,11 @@ async def extract(source_type: DocumentSourceType, payload: bytes, *, timeout: f
             raise DocumentProcessingError(504, "Document preparation timed out", "DOCUMENT_PREPARE_TIMEOUT") from exc
         finally:
             try:
-                os.killpg(process.pid, signal.SIGKILL)
+                if os.name == "nt":
+                    if process.returncode is None:
+                        process.kill()
+                else:
+                    os.killpg(process.pid, signal.SIGKILL)
             except ProcessLookupError:
                 pass
             await process.wait()
@@ -57,7 +63,7 @@ async def _thread_io(function, *args):
 
 
 def _read_file(path: Path, limit: int) -> bytes:
-    descriptor = os.open(path, os.O_RDONLY | os.O_NONBLOCK | getattr(os, 'O_NOFOLLOW', 0))
+    descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NONBLOCK", 0) | getattr(os, 'O_NOFOLLOW', 0))
     with os.fdopen(descriptor, 'rb') as stream:
         info = os.fstat(stream.fileno())
         if not stat.S_ISREG(info.st_mode) or info.st_size > limit:
@@ -107,7 +113,7 @@ def main() -> None:
     def parent_watch():
         while os.read(0, 1024):
             pass
-        if os.getpgrp() == os.getpid():
+        if os.name != "nt" and os.getpgrp() == os.getpid():
             os.killpg(os.getpgrp(), signal.SIGKILL)
         os._exit(70)
     threading.Thread(target=parent_watch, daemon=True).start()

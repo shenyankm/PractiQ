@@ -6,7 +6,7 @@
 
 [English](README.md) | 简体中文
 
-把文档整理成题库，在 Mac 上练习、自测和模考。
+把文档整理成题库，在桌面上练习、自测和模考。
 
 PractiQ 包含离线桌面练习应用和可独立部署的 AI 服务。你可以直接导入已有 PractiQ ZIP 题库包，也可以配置支持文本及图片输入的模型，从文档中提取题目。导入后，跨题库组卷、复习作答，并按需使用 AI 为符合条件的简答题评分。
 
@@ -85,7 +85,7 @@ AI 任务自创建起保留 180 天，任务列表显示尚未入库结果的保
 
 从题库开始练习或考试时，记录按题库、模式和题数命名。首页提供最近活动的未完成练习入口；历史可筛选进行中、待核对和已结束。考试显示已保存的草稿作答数与剩余时间。可在题库菜单选择**练习未做题**，或提交后选择**继续下一批未做题**，继续练习来源题库中的未做题。
 
-自测不限时。模考默认 60 分钟，可设置 1–1440 分钟，最多选择 1000 题。关闭应用或让 Mac 休眠都不会暂停截止时间；重新进入已超时的考试时，应用按最后成功保存的答案交卷。
+自测不限时。模考默认 60 分钟，可设置 1–1440 分钟，最多选择 1000 题。关闭应用或让电脑休眠都不会暂停截止时间；重新进入已超时的考试时，应用按最后成功保存的答案交卷。
 
 交卷后，客观题在本地判分。点击 **AI 评分 / 继续**，才会根据参考答案或评分细则评阅符合条件的简答题。缺少依据或调用失败的题目保持未判定。你可以查看部分得分及理由，并按需人工改分。
 
@@ -97,7 +97,11 @@ AI 评分用于个人练习，尚未经过正式考试阅卷校准。
 
 ## 运行桌面应用
 
-当前桌面目标为 Apple Silicon Mac，最低系统版本为 macOS 14。开发需要 Node.js 22.12+、Rust、Xcode、uv 和已有 Python 3.14+ 解释器，不创建项目 `.venv`。从仓库根目录执行以下命令，并把 Python 路径替换为你的解释器：
+桌面构建目标包括 macOS 14+（Apple Silicon）、Windows 10/11（x64）和 Ubuntu 22.04+（x64，`.deb`）。macOS 已完成本地验证；Windows 和 Linux 已配置构建与内置服务 CI 检查，仍需在对应系统完成桌面交互验收。
+
+开发需要 Node.js 22.12+、Rust、uv 和已有 Python 3.14+ 解释器。请安装 [Tauri 对应平台的前置依赖](https://v2.tauri.app/start/prerequisites/)：macOS 使用 Xcode，Windows 使用 MSVC 构建工具和 WebView2，Linux 使用 WebKitGTK 4.1、`libdbus-1-dev` 及构建库。Linux 保存 API Key 还需要已解锁的 Secret Service 服务（如 GNOME Keyring），听力播放需要 GStreamer 音频插件。不创建项目 `.venv`。请在目标系统上构建，以打包对应平台的 Python 服务。
+
+在 macOS 或 Linux 上，从仓库根目录执行以下命令，并把 Python 路径替换为你的解释器：
 
 ```sh
 make install-locked app-install-python AI_PYTHON=/path/to/python3.14
@@ -116,7 +120,23 @@ make app-dev
 make app-build AI_PYTHON=/path/to/python3.14
 ```
 
-练习数据保存在本机，API Key 存在 macOS 钥匙串中。备份不含密钥或 AI 任务状态。Windows CI 检查不代表已支持 Windows 原生运行。
+Windows 使用 PowerShell，从仓库根目录执行：
+
+```powershell
+uv export --project server --locked --extra dev --extra desktop --no-emit-project -o "$env:TEMP/practiq-requirements.txt"
+uv pip install --python (Get-Command python).Source -r "$env:TEMP/practiq-requirements.txt"
+uv pip install --python (Get-Command python).Source --no-deps -e server
+python app/scripts/bundle-python.py
+cd app
+npm ci
+npm run desktop
+# 构建 Windows 安装包：
+npm run tauri -- build
+```
+
+构建产物位于 `app/src-tauri/target/release/bundle`：macOS 为 `.app`/`.dmg`，Windows 为 NSIS `.exe`，Linux 为 `.deb`。CI 使用模拟模型响应和真实 PDF 渲染检查各平台打包后的 Python 服务，不代表已验证安装包签名或桌面音频播放。
+
+练习数据保存在本机，API Key 分别存入 macOS 钥匙串、Windows 凭据管理器或 Linux Secret Service。备份不含密钥或 AI 任务状态。Windows API Key 须符合凭据存储的 UTF-16 编码 2,560 字节上限（即 1,280 个 ASCII 字符）；超长密钥会在保存或测试连接前被拒绝。
 
 ## ⚙️ 独立运行 AI 服务
 

@@ -73,6 +73,16 @@ impl ConnectionSettings {
         Ok(self)
     }
 }
+fn validate_api_key(key: &str) -> Result<()> {
+    // keyring stores Windows passwords as UTF-16 in a 2,560-byte credential blob.
+    if key.len() > 8192
+        || key.chars().any(char::is_control)
+        || (cfg!(target_os = "windows") && key.encode_utf16().count() * 2 > 2560)
+    {
+        return Err(crate::language::error("LOCAL_API_KEY_INVALID", json!({})));
+    }
+    Ok(())
+}
 fn secret(entry: &Entry) -> Result<Option<String>> {
     match entry.get_password() {
         Ok(s) => Ok(Some(s)),
@@ -168,6 +178,27 @@ pub fn snapshot(shared: &crate::Shared) -> Result<Store> {
         staged_audio: Default::default(),
     })
 }
+/// Read SQLite under the restore mutex, then release it before credential UI.
+pub fn settings(shared: &crate::Shared, service: &str) -> Result<Value> {
+    settings_with(shared, |base| secret(&entry(service, base)?))
+}
+fn settings_with(
+    shared: &crate::Shared,
+    read: impl FnOnce(&str) -> Result<Option<String>>,
+) -> Result<Value> {
+    let config = shared
+        .lock()
+        .map_err(|_| crate::language::error("LOCAL_DATABASE_UNAVAILABLE", json!({})))?
+        .connection_settings()?;
+    let configured = config
+        .base_url
+        .as_deref()
+        .map(read)
+        .transpose()?
+        .flatten()
+        .is_some();
+    Ok(json!({"config":config,"hasApiKey":configured}))
+}
 impl Store {
     pub fn connection_test_input(
         &self,
@@ -183,9 +214,7 @@ impl Store {
             Some(key) if !key.trim().is_empty() => key.trim().to_owned(),
             _ => self.model_secret(service, config.base_url.as_deref().unwrap_or_default())?,
         };
-        if key.len() > 8192 || key.chars().any(char::is_control) {
-            return Err(crate::language::error("LOCAL_API_KEY_INVALID", json!({})));
-        }
+        validate_api_key(&key)?;
         Ok((config, key))
     }
     pub fn model_secret(&self, service: &str, base: &str) -> Result<String> {
@@ -210,20 +239,6 @@ impl Store {
             )
             .map_err(|e| crate::AppError::from(e.to_string()))
     }
-    pub fn settings(&self, service: &str) -> Result<Value> {
-        self.settings_with(|base| secret(&entry(service, base)?))
-    }
-    fn settings_with(&self, read: impl FnOnce(&str) -> Result<Option<String>>) -> Result<Value> {
-        let config = self.connection_settings()?;
-        let configured = config
-            .base_url
-            .as_deref()
-            .map(read)
-            .transpose()?
-            .flatten()
-            .is_some();
-        Ok(json!({"config":config,"hasApiKey":configured}))
-    }
     pub fn save_settings(
         &self,
         service: &str,
@@ -231,14 +246,8 @@ impl Store {
         api_key: Option<String>,
     ) -> Result<Value> {
         let config = config.validate()?;
-        if api_key
-            .as_ref()
-            .is_some_and(|s| s.len() > 8192 || s.chars().any(char::is_control))
-        {
-            return Err(crate::language::error(
-                "LOCAL_API_KEY_INVALID",
-                serde_json::json!({}),
-            ));
+        if let Some(key) = &api_key {
+            validate_api_key(key)?;
         }
         if api_key.as_ref().is_some_and(|s| !s.trim().is_empty()) && config.base_url.is_none() {
             return Err(crate::language::error(
@@ -284,6 +293,87 @@ impl Store {
 mod tests {
     use super::*;
     #[test]
+    fn api_key_validation_matches_native_storage_limits() {
+        for key in ["x".repeat(8193), "key\nvalue".into()] {
+            assert_eq!(
+                validate_api_key(&key).unwrap_err().code,
+                "LOCAL_API_KEY_INVALID"
+            );
+        }
+        for character in ["x", "中", "😀"] {
+            let boundary = character.repeat(1280 / character.encode_utf16().count());
+            assert!(validate_api_key(&boundary).is_ok());
+            assert_eq!(
+                validate_api_key(&(boundary + character)).is_err(),
+                cfg!(target_os = "windows")
+            );
+        }
+    }
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn oversized_windows_keys_are_rejected_before_saving_or_testing() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path().to_owned()).unwrap();
+        let config = ConnectionSettings {
+            base_url: Some("https://example.com/v1".into()),
+            model_id: Some("test".into()),
+        };
+        let key = Some("x".repeat(1281));
+        assert_eq!(
+            store
+                .save_settings("test", config.clone(), key.clone())
+                .unwrap_err()
+                .code,
+            "LOCAL_API_KEY_INVALID"
+        );
+        assert_eq!(
+            store
+                .connection_test_input("test", config, key)
+                .err()
+                .unwrap()
+                .code,
+            "LOCAL_API_KEY_INVALID"
+        );
+        assert!(store.connection_settings().unwrap().base_url.is_none());
+    }
+    #[test]
+    fn settings_read_waits_for_restore_to_release_the_store() {
+        use std::sync::{mpsc, Arc, Mutex};
+        use std::time::Duration;
+        let dir = tempfile::tempdir().unwrap();
+        let source = Store::new(dir.path().join("source")).unwrap();
+        source
+            .connect()
+            .unwrap()
+            .execute("UPDATE settings SET model_id='restored'", [])
+            .unwrap();
+        let archive = dir.path().join("backup.zip");
+        source.backup(&archive).unwrap();
+        let shared = Arc::new(Mutex::new(Store::new(dir.path().join("live")).unwrap()));
+        let mut store = shared.lock().unwrap();
+        let reader = shared.clone();
+        let (started, ready) = mpsc::channel();
+        let (finished, result) = mpsc::channel();
+        let worker = std::thread::spawn(move || {
+            started.send(()).unwrap();
+            finished.send(settings(&reader, "test")).unwrap();
+        });
+        ready.recv_timeout(Duration::from_secs(5)).unwrap();
+        assert!(matches!(
+            result.recv_timeout(Duration::from_millis(100)),
+            Err(mpsc::RecvTimeoutError::Timeout)
+        ));
+        store.restore(&archive).unwrap();
+        drop(store);
+        let value = result
+            .recv_timeout(Duration::from_secs(5))
+            .unwrap()
+            .unwrap();
+        assert_eq!(value["config"]["model_id"], "restored");
+        assert_eq!(value["hasApiKey"], false);
+        worker.join().unwrap();
+    }
+    #[test]
     fn waiting_for_credentials_does_not_hold_the_offline_store_or_database() {
         use std::sync::{mpsc, Arc, Mutex};
         let dir = tempfile::tempdir().unwrap();
@@ -297,11 +387,11 @@ mod tests {
             )
             .unwrap();
         let shared = Arc::new(Mutex::new(store));
-        let detached = snapshot(&shared).unwrap();
+        let reader = shared.clone();
         let (waiting, started) = mpsc::channel();
         let (release, resumed) = mpsc::channel();
         let worker = std::thread::spawn(move || {
-            detached.settings_with(|_| {
+            settings_with(&reader, |_| {
                 waiting.send(()).unwrap();
                 resumed
                     .recv_timeout(std::time::Duration::from_secs(5))
@@ -484,10 +574,16 @@ mod tests {
         );
     }
     #[test]
-    #[cfg(target_os = "macos")]
-    #[ignore = "uses an isolated native macOS Keychain entry; run explicitly on macOS"]
+    #[ignore = "uses an isolated native credential entry; run explicitly on the target OS"]
     fn native_keychain_roundtrip() {
+        #[cfg(target_os = "macos")]
         keyring::set_default_credential_builder(keyring::macos::default_credential_builder());
+        #[cfg(target_os = "windows")]
+        keyring::set_default_credential_builder(keyring::windows::default_credential_builder());
+        #[cfg(target_os = "linux")]
+        keyring::set_default_credential_builder(
+            keyring::secret_service::default_credential_builder(),
+        );
         let entry = entry(
             &format!("com.practiq.test.{}", crate::store::id()),
             "https://example.com/v1",

@@ -178,16 +178,26 @@ class ObjectStore:
                 target.write(payload)
                 target.flush()
                 os.fsync(target.fileno())
-            os.replace(name, path)
-            # Persist the directory entries before checkpoints can reference this file.
-            for directory in path.parents:
-                fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY)
-                try:
-                    os.fsync(fd)
-                finally:
-                    os.close(fd)
-                if directory == self.root.parent:
-                    break
+            if os.name == 'nt':
+                import ctypes
+                from ctypes import wintypes
+                move = ctypes.WinDLL('kernel32', use_last_error=True).MoveFileExW
+                move.argtypes = (wintypes.LPCWSTR, wintypes.LPCWSTR, wintypes.DWORD)
+                move.restype = wintypes.BOOL
+                # REPLACE_EXISTING | WRITE_THROUGH: Windows has no directory fsync.
+                if not move(name, str(path), 0x1 | 0x8):
+                    raise ctypes.WinError(ctypes.get_last_error())
+            else:
+                os.replace(name, path)
+                # Persist entries before checkpoints can reference this file.
+                for directory in path.parents:
+                    fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY)
+                    try:
+                        os.fsync(fd)
+                    finally:
+                        os.close(fd)
+                    if directory == self.root.parent:
+                        break
         finally:
             if name is not None:
                 Path(name).unlink(missing_ok=True)

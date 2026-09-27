@@ -29,9 +29,13 @@ zip = { version = "4", default-features = false, features = ["deflate"] }
 
 tempfile = "3"
 tauri-plugin-single-instance = "2"
-keyring = { version = "3", features = ["apple-native"] }
+keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service", "crypto-rust"] }
+symphonia = { version = "0.6.1", default-features = false, features = ["aac", "mp3", "isomp4", "wav", "pcm", "alac", "id3v2"] }
 url = "2"
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Storage_FileSystem"] }
 
 [profile.release]
 lto = "thin"

@@ -6,6 +6,7 @@ mod backup;
 mod bank_zip;
 mod contract;
 mod exams;
+mod filesystem;
 mod language;
 mod paper;
 #[cfg(test)]
@@ -245,7 +246,7 @@ async fn request(
         let selected=selected.map(|p|p.into_path().map_err(|e|e.to_string())).transpose()?;
         if matches!(&request,Request::PickImport|Request::PickAudio|Request::ExportBank{..}|Request::Backup|Request::Restore)&&selected.is_none(){return Ok(Value::Null);}
         if matches!(&request, Request::Settings) {
-            return settings::snapshot(&shared)?.settings(&app.config().identifier);
+            return settings::settings(&shared, &app.config().identifier);
         }
         if let Request::TestSettings { config, api_key } = request {
             let (config, key) = settings::snapshot(&shared)?

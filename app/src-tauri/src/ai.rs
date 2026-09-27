@@ -225,7 +225,9 @@ impl Process {
         } else {
             resources.join("bundled")
         };
-        let executable = bundle.join("python/practiq-ai");
+        let executable = bundle
+            .join("python")
+            .join(format!("practiq-ai{}", std::env::consts::EXE_SUFFIX));
         if !executable.is_file() {
             return Err(crate::language::error(
                 "LOCAL_BUNDLE_MISSING",
@@ -243,7 +245,13 @@ impl Process {
             .timeout(Duration::from_secs(120))
             .build()
             .map_err(err)?;
-        let mut child = Command::new(executable)
+        let mut command = Command::new(executable);
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::process::CommandExt;
+            command.creation_flags(0x08000000); // CREATE_NO_WINDOW; keep stdio pipes.
+        }
+        let mut child = command
             .arg("serve")
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())

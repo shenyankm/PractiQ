@@ -108,8 +108,7 @@ impl Store {
             }
             zip.finish().map_err(err)?;
         }
-        output.as_file().sync_all().map_err(err)?;
-        output.persist(destination).map_err(err)?;
+        crate::filesystem::persist(output, destination, true).map_err(err)?;
         Ok(json!({"path":destination.display().to_string()}))
     }
     pub fn restore(&mut self, source: &Path) -> Result<Value> {
@@ -317,7 +316,9 @@ impl Store {
         }
         validate_audio_segments(&db, &audio_durations)?;
         drop(db);
-        fs::File::open(&candidate)
+        fs::OpenOptions::new()
+            .write(true)
+            .open(&candidate)
             .map_err(err)?
             .sync_all()
             .map_err(err)?;
@@ -330,9 +331,9 @@ impl Store {
             .backup(rusqlite::MAIN_DB, &previous, None)
             .map_err(err)?;
         // Replace only after all resources validate. Keep a rollback generation until fsync succeeds.
-        fs::rename(&candidate, self.db_path()).map_err(err)?;
-        if let Err(error) = fs::File::open(&self.dir).and_then(|dir| dir.sync_all()) {
-            fs::rename(&previous, self.db_path()).map_err(|rollback| {
+        crate::filesystem::replace(&candidate, &self.db_path()).map_err(err)?;
+        if let Err(error) = crate::filesystem::sync_directory(&self.dir) {
+            crate::filesystem::replace(&previous, &self.db_path()).map_err(|rollback| {
                 crate::language::error("LOCAL_RESTORE_ROLLBACK_FAILED", json!({"error":error.to_string(),"rollback":rollback.to_string(),"path":recovery.display().to_string()}))
             })?;
             return Err(crate::language::error(

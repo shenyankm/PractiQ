@@ -33,7 +33,8 @@
     "shortDescription": "离线题库与练习",
     "icon": [
       "icons/icon.png",
-      "icons/icon.icns"
+      "icons/icon.icns",
+      "icons/icon.ico"
     ],
     "resources": {
       "bundled/": "bundled/"
