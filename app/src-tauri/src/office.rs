@@ -1,0 +1,661 @@
+//! Native file authorization and the desktop-only LibreOffice sidecar command.
+use crate::{contract::Result, language::Locale, store, AppError, Shared};
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
+use std::{
+    fs,
+    io::{Read, Write},
+    path::Path,
+    process::{Child, ChildStdin, Command, Stdio},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
+    time::{Duration, Instant},
+};
+use tauri::Manager;
+use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
+
+pub const LIMIT: usize = 25 * 1024 * 1024;
+#[derive(Clone, Copy, Default, Deserialize, Serialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum Mode {
+    #[default]
+    Pdf,
+    Text,
+}
+#[derive(Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+pub enum Request {
+    Status,
+    PickExecutable,
+    ResetExecutable,
+    Convert { mode: Mode },
+    Cancel,
+    InstallationGuide,
+}
+#[derive(Default)]
+pub struct OfficeState(Mutex<Option<Arc<AtomicBool>>>);
+struct Lease<'a>(&'a OfficeState, Arc<AtomicBool>);
+impl Drop for Lease<'_> {
+    fn drop(&mut self) {
+        if let Ok(mut state) = self.0 .0.lock() {
+            *state = None;
+        }
+    }
+}
+fn error(code: &str) -> AppError {
+    crate::language::error(code, json!({}))
+}
+fn err(e: impl std::fmt::Display) -> AppError {
+    e.to_string().into()
+}
+impl OfficeState {
+    fn enter(&self) -> Result<Lease<'_>> {
+        let mut state = self.0.lock().map_err(err)?;
+        if state.is_some() {
+            return Err(error("OFFICE_BUSY"));
+        }
+        let cancel = Arc::new(AtomicBool::new(false));
+        *state = Some(cancel.clone());
+        Ok(Lease(self, cancel))
+    }
+    pub fn cancel(&self) {
+        if let Ok(state) = self.0.lock() {
+            if let Some(cancel) = &*state {
+                cancel.store(true, Ordering::SeqCst);
+            }
+        }
+    }
+    pub fn shutdown(&self) {
+        self.cancel();
+        // Let the worker close its Job Object and release temporary files before app exit.
+        for _ in 0..150 {
+            if self.0.lock().map(|s| s.is_none()).unwrap_or(true) {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+    }
+}
+struct Worker {
+    child: Child,
+    input: Option<ChildStdin>,
+}
+impl Drop for Worker {
+    fn drop(&mut self) {
+        self.input.take(); // EOF invokes worker cleanup, including LibreOffice descendants.
+        for _ in 0..100 {
+            if self.child.try_wait().ok().flatten().is_some() {
+                return;
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+    }
+}
+fn worker(app: &tauri::AppHandle, request: Value) -> Result<Value> {
+    let state = app.state::<OfficeState>();
+    let lease = state.enter()?;
+    let scratch = tempfile::Builder::new()
+        .prefix("practiq-office-")
+        .tempdir()
+        .map_err(err)?;
+    worker_in(app, request, scratch.path(), &lease.1)
+}
+fn worker_in(
+    app: &tauri::AppHandle,
+    request: Value,
+    scratch: &Path,
+    cancel: &AtomicBool,
+) -> Result<Value> {
+    // Native ownership also removes worker profiles/logs after cancellation or a crash.
+    let mut command = Command::new(crate::ai::executable(app)?);
+    for name in ["TMPDIR", "TEMP", "TMP"] {
+        command.env(name, scratch);
+    }
+    command.env("PRACTIQ_OFFICE_WORKSPACE", scratch);
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        command.creation_flags(0x08000000);
+    }
+    let child = command
+        .arg("office")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .map_err(err)?;
+    let mut process = Worker { child, input: None };
+    process.input = process.child.stdin.take();
+    writeln!(
+        process
+            .input
+            .as_mut()
+            .ok_or_else(|| error("OFFICE_WORKER_FAILED"))?,
+        "{request}"
+    )
+    .map_err(err)?;
+    let stdout = process
+        .child
+        .stdout
+        .take()
+        .ok_or_else(|| error("OFFICE_WORKER_FAILED"))?;
+    let reader = std::thread::spawn(move || {
+        let mut bytes = Vec::new();
+        stdout.take(65537).read_to_end(&mut bytes).map(|_| bytes)
+    });
+    let start = Instant::now();
+    let result = loop {
+        if cancel.load(Ordering::SeqCst) {
+            break Err(error("OFFICE_CANCELLED"));
+        }
+        if start.elapsed() > Duration::from_secs(190) {
+            break Err(error("OFFICE_TIMEOUT"));
+        }
+        match process.child.try_wait() {
+            Ok(Some(status)) => {
+                break if status.success() {
+                    Ok(())
+                } else {
+                    Err(error("OFFICE_WORKER_FAILED"))
+                }
+            }
+            Err(e) => break Err(err(e)),
+            Ok(None) => std::thread::sleep(Duration::from_millis(50)),
+        }
+    };
+    drop(process);
+    let bytes = reader
+        .join()
+        .map_err(|_| error("OFFICE_WORKER_FAILED"))?
+        .map_err(err)?;
+    result?;
+    if bytes.len() > 65536 {
+        return Err(error("OFFICE_OUTPUT_INVALID"));
+    }
+    let result: Value =
+        serde_json::from_slice(&bytes).map_err(|_| error("OFFICE_WORKER_FAILED"))?;
+    if let Some(code) = result["error"].as_str() {
+        return Err(error(match code {
+            "OFFICE_TIMEOUT" => "OFFICE_TIMEOUT",
+            "OFFICE_OUTPUT_LIMIT" => "OFFICE_OUTPUT_LIMIT",
+            "OFFICE_OUTPUT_INVALID" => "OFFICE_OUTPUT_INVALID",
+            "OFFICE_FORMAT_UNSUPPORTED" => "OFFICE_FORMAT_UNSUPPORTED",
+            "OFFICE_INPUT_INVALID" => "OFFICE_INPUT_INVALID",
+            _ => "OFFICE_CONVERSION_FAILED",
+        }));
+    }
+    result
+        .get("result")
+        .cloned()
+        .ok_or_else(|| error("OFFICE_WORKER_FAILED"))
+}
+pub fn is_office(path: &Path) -> bool {
+    path.extension()
+        .and_then(|s| s.to_str())
+        .is_some_and(|s| ["doc", "docx", "xls", "xlsx"].contains(&s.to_ascii_lowercase().as_str()))
+}
+fn preferred(shared: &Shared) -> Result<Option<String>> {
+    shared
+        .lock()
+        .map_err(err)?
+        .connect()?
+        .query_row(
+            "SELECT libreoffice_path FROM settings WHERE id=1",
+            [],
+            |r| r.get(0),
+        )
+        .map_err(err)
+}
+fn save_preferred(shared: &Shared, path: Option<&str>) -> Result<()> {
+    shared
+        .lock()
+        .map_err(err)?
+        .connect()?
+        .execute("UPDATE settings SET libreoffice_path=?1 WHERE id=1", [path])
+        .map_err(err)?;
+    Ok(())
+}
+pub fn status(app: &tauri::AppHandle, shared: &Shared) -> Result<Value> {
+    worker(
+        app,
+        json!({"type":"detect", "preferred":preferred(shared)?}),
+    )
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct Origin {
+    pub file_name: String,
+    pub source_sha256: String,
+    pub mode: Mode,
+    pub version: String,
+    pub artifact_sha256: String,
+}
+pub struct Artifact {
+    pub name: String,
+    pub bytes: Vec<u8>,
+    pub origin: Origin,
+    pub has_content: bool,
+}
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct Manifest {
+    name: String,
+    sha256: String,
+    size_bytes: usize,
+    has_content: bool,
+}
+fn read_artifacts(
+    root: &Path,
+    response: Value,
+    original: &Path,
+    bytes: &[u8],
+    mode: Mode,
+    version: &str,
+) -> Result<Vec<Artifact>> {
+    let files: Vec<Manifest> =
+        serde_json::from_value(response["artifacts"].clone()).map_err(err)?;
+    if files.is_empty() || files.len() > 100 {
+        return Err(error("OFFICE_OUTPUT_INVALID"));
+    }
+    let original_name = original
+        .file_name()
+        .and_then(|s| s.to_str())
+        .ok_or_else(|| error("OFFICE_INPUT_INVALID"))?;
+    let expected = if mode == Mode::Pdf {
+        "pdf"
+    } else if original
+        .extension()
+        .and_then(|s| s.to_str())
+        .is_some_and(|s| s.eq_ignore_ascii_case("xls") || s.eq_ignore_ascii_case("xlsx"))
+    {
+        "csv"
+    } else {
+        "txt"
+    };
+    let mut artifacts = Vec::new();
+    let mut total = 0;
+    let mut seen = std::collections::HashSet::new();
+    for file in files {
+        let path = Path::new(&file.name);
+        if path.components().count() != 1
+            || file.name.contains(['/', '\\', ':'])
+            || !seen.insert(file.name.clone())
+            || path.extension().and_then(|s| s.to_str()) != Some(expected)
+        {
+            return Err(error("OFFICE_OUTPUT_INVALID"));
+        }
+        let path = root.join(path);
+        let metadata = fs::symlink_metadata(&path).map_err(err)?;
+        if !metadata.is_file() || metadata.file_type().is_symlink() {
+            return Err(error("OFFICE_OUTPUT_INVALID"));
+        }
+        let payload = store::read_bounded(&path, LIMIT)?;
+        if payload.len() != file.size_bytes || store::hash(&payload) != file.sha256 {
+            return Err(error("OFFICE_OUTPUT_INVALID"));
+        }
+        total += payload.len();
+        if total > 100 * 1024 * 1024 {
+            return Err(error("OFFICE_OUTPUT_LIMIT"));
+        }
+        // Worker inputs have a fixed safe basename; only display names contain the original name.
+        let suffix = file
+            .name
+            .strip_prefix("source")
+            .ok_or_else(|| error("OFFICE_OUTPUT_INVALID"))?;
+        let name = format!("{original_name}{suffix}");
+        if name.chars().count() > 255 {
+            return Err(error("OFFICE_INPUT_INVALID"));
+        }
+        artifacts.push(Artifact {
+            name,
+            bytes: payload,
+            has_content: file.has_content,
+            origin: Origin {
+                file_name: original_name.into(),
+                source_sha256: store::hash(bytes),
+                mode,
+                version: version.into(),
+                artifact_sha256: file.sha256,
+            },
+        });
+    }
+    Ok(artifacts)
+}
+pub fn prepare(
+    app: &tauri::AppHandle,
+    shared: &Shared,
+    path: &Path,
+    bytes: &[u8],
+    mode: Mode,
+    engine: Option<&Value>,
+) -> Result<Vec<Artifact>> {
+    if !is_office(path) || bytes.is_empty() || bytes.len() > LIMIT {
+        return Err(error("OFFICE_INPUT_INVALID"));
+    }
+    let detected;
+    let engine = if let Some(engine) = engine {
+        engine
+    } else {
+        detected = status(app, shared)?;
+        &detected
+    };
+    let executable = engine["path"]
+        .as_str()
+        .ok_or_else(|| error("OFFICE_NOT_FOUND"))?;
+    let version = engine["version"]
+        .as_str()
+        .ok_or_else(|| error("OFFICE_NOT_FOUND"))?;
+    let extension = path
+        .extension()
+        .and_then(|s| s.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    let capability = format!(
+        "{}_{}",
+        if extension.starts_with("doc") {
+            "writer"
+        } else {
+            "calc"
+        },
+        if mode == Mode::Pdf { "pdf" } else { "text" }
+    );
+    if engine["capabilities"][&capability] != true {
+        return Err(error("OFFICE_CAPABILITY_MISSING"));
+    }
+    let state = app.state::<OfficeState>();
+    let lease = state.enter()?;
+    let directory = tempfile::Builder::new()
+        .prefix("practiq-office-")
+        .tempdir()
+        .map_err(err)?;
+    let source = directory.path().join(format!("source.{extension}"));
+    fs::write(&source, bytes).map_err(err)?;
+    let output = directory.path().join("output");
+    let response = worker_in(
+        app,
+        json!({"type":"convert", "engine":executable, "source":source, "output":output, "mode":mode}),
+        directory.path(),
+        &lease.1,
+    )?;
+    read_artifacts(&output, response, path, bytes, mode, version)
+}
+pub fn request(
+    app: tauri::AppHandle,
+    shared: Shared,
+    request: Request,
+    locale: Locale,
+) -> Result<Value> {
+    if matches!(request, Request::Cancel) {
+        app.state::<OfficeState>().cancel();
+        return Ok(Value::Null);
+    }
+    let work = app.state::<crate::ai_work::WorkState>();
+    let _lease = work.enter()?;
+    match request {
+        Request::InstallationGuide => {
+            #[cfg(target_os = "macos")]
+            let mut command = Command::new("/usr/bin/open");
+            #[cfg(target_os = "linux")]
+            let mut command = Command::new("xdg-open");
+            #[cfg(target_os = "windows")]
+            let mut command = {
+                let mut c = Command::new("rundll32.exe");
+                c.arg("url.dll,FileProtocolHandler");
+                c
+            };
+            command
+                .arg("https://www.libreoffice.org/download/download-libreoffice/")
+                .spawn()
+                .map_err(err)?;
+            Ok(Value::Null)
+        }
+        Request::Status => status(&app, &shared),
+        Request::ResetExecutable => {
+            save_preferred(&shared, None)?;
+            status(&app, &shared)
+        }
+        Request::PickExecutable => {
+            let Some(path) = app
+                .dialog()
+                .file()
+                .set_title(locale.text(
+                    "选择 LibreOffice 程序（soffice）",
+                    "Select LibreOffice (soffice)",
+                ))
+                .blocking_pick_file()
+            else {
+                return Ok(Value::Null);
+            };
+            let path = path.into_path().map_err(err)?;
+            let result = worker(&app, json!({"type":"detect", "preferred":path}))?;
+            let path = result["path"]
+                .as_str()
+                .ok_or_else(|| error("OFFICE_NOT_FOUND"))?;
+            save_preferred(&shared, Some(path))?;
+            Ok(result)
+        }
+        Request::Convert { mode } => {
+            let Some(path) = app
+                .dialog()
+                .file()
+                .add_filter("Word / Excel", &["doc", "docx", "xls", "xlsx"])
+                .blocking_pick_file()
+            else {
+                return Ok(Value::Null);
+            };
+            let path = path.into_path().map_err(err)?;
+            let bytes = store::read_bounded(&path, LIMIT)?;
+            let artifacts = prepare(&app, &shared, &path, &bytes, mode, None)?;
+            let count = artifacts.len();
+            let mut destinations = Vec::new();
+            let directory = if count > 1 {
+                let Some(folder) = app.dialog().file().blocking_pick_folder() else {
+                    return Ok(Value::Null);
+                };
+                let directory = folder
+                    .into_path()
+                    .map_err(err)?
+                    .join(format!("PractiQ-{}", store::id()));
+                fs::create_dir(&directory).map_err(err)?;
+                Some(directory)
+            } else {
+                None
+            };
+            for artifact in artifacts {
+                let destination = if let Some(directory) = &directory {
+                    directory.join(&artifact.name)
+                } else {
+                    let Some(file) = app
+                        .dialog()
+                        .file()
+                        .set_file_name(&artifact.name)
+                        .blocking_save_file()
+                    else {
+                        return Ok(Value::Null);
+                    };
+                    file.into_path().map_err(err)?
+                };
+                if destination == path
+                    || (destination.exists()
+                        && fs::canonicalize(&destination).ok() == fs::canonicalize(&path).ok())
+                {
+                    return Err(error("OFFICE_SOURCE_OVERWRITE"));
+                }
+                if destination.exists()
+                    && !app
+                        .dialog()
+                        .message(locale.text(
+                            "目标文件已存在，是否替换？",
+                            "The destination exists. Replace it?",
+                        ))
+                        .buttons(MessageDialogButtons::OkCancel)
+                        .blocking_show()
+                {
+                    return Ok(Value::Null);
+                }
+                let mut file = tempfile::NamedTempFile::new_in(
+                    destination
+                        .parent()
+                        .ok_or_else(|| error("OFFICE_OUTPUT_INVALID"))?,
+                )
+                .map_err(err)?;
+                file.write_all(&artifact.bytes).map_err(err)?;
+                crate::filesystem::persist(file, &destination, true).map_err(err)?;
+                destinations.push(destination);
+            }
+            Ok(json!({"paths":destinations, "count":count}))
+        }
+        Request::Cancel => Ok(Value::Null),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn frontend_cannot_supply_executable_or_document_paths() {
+        for value in [
+            json!({"type":"convert","mode":"pdf","path":"/private/file.docx"}),
+            json!({"type":"convert","mode":"pdf","engine":"/bin/sh"}),
+            json!({"type":"convert","mode":"shell"}),
+        ] {
+            assert!(serde_json::from_value::<Request>(value).is_err());
+        }
+        assert!(serde_json::from_value::<Request>(json!({"type":"status"})).is_ok());
+    }
+    #[test]
+    fn output_manifest_rejects_paths_hashes_and_wrong_formats() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join("source.txt"), b"text").unwrap();
+        let valid = json!({"artifacts":[{"name":"source.txt","sha256":store::hash(b"text"),"sizeBytes":4,"hasContent":true}]});
+        let output = read_artifacts(
+            dir.path(),
+            valid.clone(),
+            Path::new("测试.docx"),
+            b"input",
+            Mode::Text,
+            "LibreOffice",
+        )
+        .unwrap();
+        assert_eq!(output[0].name, "测试.docx.txt");
+        assert_eq!(output[0].origin.source_sha256, store::hash(b"input"));
+        for name in [
+            "../source.txt",
+            "..\\source.txt",
+            "source.exe",
+            "C:source.txt",
+        ] {
+            let mut bad = valid.clone();
+            bad["artifacts"][0]["name"] = json!(name);
+            assert!(read_artifacts(
+                dir.path(),
+                bad,
+                Path::new("source.docx"),
+                b"input",
+                Mode::Text,
+                "v"
+            )
+            .is_err());
+        }
+        let mut bad = valid.clone();
+        bad["artifacts"][0]["sha256"] = json!("bad");
+        assert!(read_artifacts(
+            dir.path(),
+            bad,
+            Path::new("source.docx"),
+            b"input",
+            Mode::Text,
+            "v"
+        )
+        .is_err());
+        assert!(read_artifacts(
+            dir.path(),
+            valid,
+            Path::new("source.docx"),
+            b"input",
+            Mode::Pdf,
+            "v"
+        )
+        .is_err());
+    }
+    #[test]
+    fn conversion_serializes_cancellation_and_resets_state() {
+        let state = OfficeState::default();
+        let lease = state.enter().unwrap();
+        assert!(state.enter().is_err());
+        state.cancel();
+        assert!(lease.1.load(Ordering::SeqCst));
+        drop(lease);
+        assert!(!state.enter().unwrap().1.load(Ordering::SeqCst));
+    }
+    #[test]
+    fn executable_setting_is_local_and_removed_from_backups() {
+        let dir = tempfile::tempdir().unwrap();
+        let shared = Arc::new(Mutex::new(store::Store::new(dir.path().into()).unwrap()));
+        assert!(preferred(&shared).unwrap().is_none());
+        save_preferred(&shared, Some("/native/soffice")).unwrap();
+        assert_eq!(
+            preferred(&shared).unwrap().as_deref(),
+            Some("/native/soffice")
+        );
+        let path = dir.path().join("backup.zip");
+        shared.lock().unwrap().backup(&path).unwrap();
+        shared.lock().unwrap().restore(&path).unwrap();
+        assert!(preferred(&shared).unwrap().is_none());
+        shared
+            .lock()
+            .unwrap()
+            .connect()
+            .unwrap()
+            .execute_batch("ALTER TABLE settings DROP COLUMN libreoffice_path;")
+            .unwrap();
+        assert!(preferred(&shared).unwrap().is_none());
+    }
+    #[test]
+    fn restore_accepts_old_settings_and_never_trusts_a_backup_executable() {
+        let dir = tempfile::tempdir().unwrap();
+        let shared = Arc::new(Mutex::new(
+            store::Store::new(dir.path().join("data")).unwrap(),
+        ));
+        for old_schema in [true, false] {
+            let snapshot = dir.path().join(if old_schema {
+                "old.sqlite"
+            } else {
+                "untrusted.sqlite"
+            });
+            shared
+                .lock()
+                .unwrap()
+                .connect()
+                .unwrap()
+                .backup(rusqlite::MAIN_DB, &snapshot, None)
+                .unwrap();
+            let db = rusqlite::Connection::open(&snapshot).unwrap();
+            db.execute_batch(if old_schema {
+                "ALTER TABLE settings DROP COLUMN libreoffice_path;"
+            } else {
+                "UPDATE settings SET libreoffice_path='/untrusted/program';"
+            })
+            .unwrap();
+            drop(db);
+            let bytes = fs::read(&snapshot).unwrap();
+            let manifest = json!({"format":"practiq-backup","version":4,"schemaVersion":10,"database":{"file":"practiq.sqlite","sha256":store::hash(&bytes),"sizeBytes":bytes.len()},"assets":[]});
+            let archive = dir.path().join("restore.zip");
+            let mut zip = zip::ZipWriter::new(fs::File::create(&archive).unwrap());
+            zip.start_file("manifest.json", zip::write::SimpleFileOptions::default())
+                .unwrap();
+            zip.write_all(manifest.to_string().as_bytes()).unwrap();
+            zip.start_file("practiq.sqlite", zip::write::SimpleFileOptions::default())
+                .unwrap();
+            zip.write_all(&bytes).unwrap();
+            zip.finish().unwrap();
+            shared.lock().unwrap().restore(&archive).unwrap();
+            assert!(preferred(&shared).unwrap().is_none());
+        }
+    }
+}

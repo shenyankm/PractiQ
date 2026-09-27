@@ -18,8 +18,8 @@ def main():
     subprocess.run([sys.executable,'-m','PyInstaller','--noconfirm','--distpath',str(OUTPUT),'--workpath',str(ROOT/'app/.build/python'),str(ROOT/'app/scripts/sidecar.spec')],check=True)
     license_path = next(path for path in (Path(sysconfig.get_path('stdlib'))/'LICENSE.txt', Path(sys.base_prefix)/'LICENSE.txt') if path.is_file())
     shutil.copyfile(license_path, OUTPUT/'PYTHON-LICENSE.txt')
-    retired = OUTPUT/'LibreOffice.app'
-    if retired.exists(): shutil.rmtree(retired)
+    for retired in (OUTPUT/'LibreOffice.app', OUTPUT/'office'):
+        if retired.exists(): shutil.rmtree(retired)
     (OUTPUT/'THIRD-PARTY.txt').write_text('Python and Python dependency licenses are retained in the bundled distribution metadata.\n')
     from importlib.metadata import distributions
     packages=sorted([{'name':d.metadata['Name'],'version':d.version} for d in distributions(path=[str(OUTPUT/'python/_internal')])],key=lambda d:d['name'].lower())

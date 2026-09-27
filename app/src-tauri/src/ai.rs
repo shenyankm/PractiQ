@@ -35,7 +35,10 @@ pub enum AiRequest {
     Get {
         id: String,
     },
-    PickDocument,
+    PickDocument {
+        #[serde(default)]
+        office_mode: crate::office::Mode,
+    },
     Reparse {
         id: String,
     },
@@ -97,6 +100,24 @@ pub(crate) struct Endpoint {
 }
 fn err(e: impl std::fmt::Display) -> crate::AppError {
     e.to_string().into()
+}
+pub(crate) fn executable(app: &tauri::AppHandle) -> Result<PathBuf> {
+    let resources = app.path().resource_dir().map_err(err)?;
+    let bundle = if cfg!(debug_assertions) {
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("bundled")
+    } else {
+        resources.join("bundled")
+    };
+    let executable = bundle
+        .join("python")
+        .join(format!("practiq-ai{}", std::env::consts::EXE_SUFFIX));
+    if !executable.is_file() {
+        return Err(crate::language::error(
+            "LOCAL_BUNDLE_MISSING",
+            serde_json::json!({}),
+        ));
+    }
+    Ok(executable)
 }
 const STDERR_LIMIT: usize = 16 * 1024;
 fn replace_all(haystack: &[u8], needle: &[u8], replacement: &[u8]) -> Vec<u8> {
@@ -219,21 +240,7 @@ impl Process {
         } else {
             ("", "", String::new())
         };
-        let resources = app.path().resource_dir().map_err(err)?;
-        let bundle = if cfg!(debug_assertions) {
-            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("bundled")
-        } else {
-            resources.join("bundled")
-        };
-        let executable = bundle
-            .join("python")
-            .join(format!("practiq-ai{}", std::env::consts::EXE_SUFFIX));
-        if !executable.is_file() {
-            return Err(crate::language::error(
-                "LOCAL_BUNDLE_MISSING",
-                serde_json::json!({}),
-            ));
-        }
+        let executable = executable(app)?;
         let token = format!("{}{}", store::id(), store::id());
         let redactions = vec![token.clone(), key.clone()];
         let _ = fs::remove_file(store.dir.join("ai/parser-stderr.log"));
@@ -500,7 +507,7 @@ fn document_format(path: &std::path::Path) -> Result<(&'static str, &'static str
         "txt" => ("text", "text/plain"),
         "csv" => ("csv", "text/csv"),
         "pdf" => ("pdf", "application/pdf"),
-        "doc" | "docx" => {
+        "doc" | "docx" | "xls" | "xlsx" | "docm" | "xlsm" | "xlsb" => {
             return Err(crate::language::error(
                 "LOCAL_WORD_UNSUPPORTED",
                 serde_json::json!({}),
@@ -670,13 +677,7 @@ pub fn read_review_image(
     )
 }
 
-fn upload_document(
-    process: &Endpoint,
-    dir: &std::path::Path,
-    work: &WorkState,
-    path: &std::path::Path,
-    bytes: Vec<u8>,
-) -> Result<Value> {
+fn upload_document(process: &Endpoint, path: &std::path::Path, bytes: Vec<u8>) -> Result<Value> {
     let (kind, media) = document_format(path)?;
     let body = json!({"sourceType":kind,"fileName":path.file_name().and_then(|s|s.to_str()).ok_or(crate::language::error("LOCAL_FILENAME_INVALID", serde_json::json!({})))?,"mediaType":media,"sha256":store::hash(&bytes),"sizeBytes":bytes.len()});
     let prepared = process.json(Method::POST, "/api/uploads", Some(&body))?;
@@ -707,14 +708,7 @@ fn upload_document(
             ));
         }
     }
-    ai_work::submit_operation(
-        dir,
-        work,
-        process,
-        "/api/document-tasks",
-        json!({"requestId":store::id(),"document":prepared["document"],"failurePolicy":"review"}),
-        body["fileName"].as_str().unwrap_or("Parsed document"),
-    )
+    Ok(prepared["document"].clone())
 }
 
 pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiResult<Value> {
@@ -735,13 +729,15 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
         AiRequest::CancelBatch { id } => return ai_work::cancel_batch(&dir, &work, id),
         _ => {}
     }
-    let selected = if matches!(request, AiRequest::PickDocument) {
+    let selected = if matches!(request, AiRequest::PickDocument { .. }) {
         let files = app
             .dialog()
             .file()
             .add_filter(
                 locale.text("文档", "Documents"),
-                &["txt", "csv", "pdf", "png", "jpg", "jpeg"],
+                &[
+                    "txt", "csv", "pdf", "png", "jpg", "jpeg", "doc", "docx", "xls", "xlsx",
+                ],
             )
             .blocking_pick_files();
         let Some(files) = files else {
@@ -856,20 +852,30 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
                 &action,
             )
         }
-        AiRequest::PickDocument => {
+        AiRequest::PickDocument { office_mode } => {
             let mut process = process;
             let mut ids = Vec::new();
+            let mut engine = None;
             for path in selected {
-                document_format(&path)?;
+                let office = crate::office::is_office(&path);
+                if !office {
+                    document_format(&path)?;
+                }
                 let bytes = store::read_bounded(&path, 25 * 1024 * 1024)?;
                 let hash = store::hash(&bytes);
-                let previous = process.json(
-                    Method::GET,
-                    &format!("/api/document-tasks?limit=1&sha256={hash}"),
-                    None,
-                )?;
-                if let Some(existing) = previous["items"].as_array().and_then(|items| items.first())
-                {
+                let previous = if office {
+                    ai_work::office_matches(&dir, &hash, office_mode)?
+                } else {
+                    process.json(
+                        Method::GET,
+                        &format!("/api/document-tasks?limit=1&sha256={hash}"),
+                        None,
+                    )?["items"]
+                        .as_array()
+                        .cloned()
+                        .unwrap_or_default()
+                };
+                if !previous.is_empty() {
                     let open = locale.text("打开已有任务", "Open existing task");
                     let reparse = locale.text("重新解析", "Parse again");
                     let choice = app.dialog().message(locale.text("已解析过相同内容的文件。可以打开已有任务，或确认后再次解析（可能再次计费）。", "A task already exists for the same file content. Open it, or confirm parsing again (additional charges may apply)."))
@@ -878,10 +884,12 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
                     if choice == MessageDialogResult::Custom(open.into())
                         || choice == MessageDialogResult::Yes
                     {
-                        let id = contract::text(existing, "threadId");
-                        task_path(id)?;
-                        if !ids.iter().any(|saved| saved == id) {
-                            ids.push(id.to_owned());
+                        for existing in &previous {
+                            let id = contract::text(existing, "threadId");
+                            task_path(id)?;
+                            if !ids.iter().any(|saved| saved == id) {
+                                ids.push(id.to_owned());
+                            }
                         }
                         continue;
                     }
@@ -891,9 +899,50 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
                         continue;
                     }
                 }
+                let converted = if office {
+                    if engine.is_none() {
+                        engine = Some(crate::office::status(&app, &shared)?);
+                    }
+                    crate::office::prepare(
+                        &app,
+                        &shared,
+                        &path,
+                        &bytes,
+                        office_mode,
+                        engine.as_ref(),
+                    )?
+                } else {
+                    Vec::new()
+                };
+                let artifact_names = converted
+                    .iter()
+                    .map(|a| {
+                        if a.has_content {
+                            a.name.clone()
+                        } else {
+                            format!(
+                                "{} ({})",
+                                a.name,
+                                locale.text("空白文件，不创建 AI 任务", "empty file, no AI task")
+                            )
+                        }
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                if office && !converted.iter().any(|a| a.has_content) {
+                    return Err(crate::language::error("OFFICE_EMPTY_OUTPUT", json!({})));
+                }
                 let config = crate::settings::snapshot(&shared)?.connection_settings()?;
                 let Some(bytes) =
                     confirm_document_bytes(&path, bytes, config, locale, |message| {
+                        let message = if office {
+                            format!(
+                                "{message}\n\n{}\n{artifact_names}",
+                                locale.text("待解析的转换文件：", "Converted files to parse:")
+                            )
+                        } else {
+                            message
+                        };
                         app.dialog()
                             .message(message)
                             .title(locale.text("确认解析文档", "Confirm document parsing"))
@@ -907,10 +956,32 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
                     continue;
                 };
                 process = active_endpoint(&app, &dir, true)?;
-                let receipt = upload_document(&process, &dir, &work, &path, bytes)?;
-                let id = contract::text(&receipt, "threadId");
-                task_path(id)?;
-                ids.push(id.to_owned());
+                let mut documents = Vec::new();
+                if office {
+                    for artifact in converted.into_iter().filter(|a| a.has_content) {
+                        let document = upload_document(
+                            &process,
+                            std::path::Path::new(&artifact.name),
+                            artifact.bytes,
+                        )?;
+                        documents.push((document, artifact.name, Some(artifact.origin)));
+                    }
+                } else {
+                    let document = upload_document(&process, &path, bytes)?;
+                    documents.push((
+                        document,
+                        path.file_name()
+                            .and_then(|s| s.to_str())
+                            .unwrap_or_default()
+                            .to_owned(),
+                        None,
+                    ));
+                }
+                for receipt in ai_work::submit_documents(&dir, &work, &process, documents)? {
+                    let id = contract::text(&receipt, "threadId");
+                    task_path(id)?;
+                    ids.push(id.to_owned());
+                }
             }
             if ids.is_empty() {
                 Ok(Value::Null)
@@ -1292,7 +1363,7 @@ mod tests {
             document_format(Path::new("quiz.PDF")).unwrap(),
             ("pdf", "application/pdf")
         );
-        for extension in ["doc", "DOCX"] {
+        for extension in ["doc", "DOCX", "xls", "XLSX", "docm", "xlsm", "xlsb"] {
             assert!(document_format(Path::new(&format!("quiz.{extension}")))
                 .unwrap_err()
                 .message

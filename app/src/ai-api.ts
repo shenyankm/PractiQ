@@ -62,7 +62,8 @@ type Request =
   | { type: "list"; offset: number }
   | { type: "get" | "preview" | "review"; id: string }
   | { type: "reparse"; id: string }
-  | { type: "pick_document" | "operations" }
+  | { type: "pick_document"; office_mode?: import("./office-api").OfficeMode }
+  | { type: "operations" }
   | {
       type: "control";
       id: string;

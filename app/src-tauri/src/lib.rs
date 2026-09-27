@@ -8,6 +8,7 @@ mod contract;
 mod exams;
 mod filesystem;
 mod language;
+mod office;
 mod paper;
 #[cfg(test)]
 mod performance;
@@ -356,10 +357,25 @@ async fn ai_request(
     .await
     .map_err(|e| AppError::from(e.to_string()))?
 }
+#[tauri::command]
+async fn office_request(
+    app: tauri::AppHandle,
+    state: State<'_, Shared>,
+    request: office::Request,
+    locale: Option<language::Locale>,
+) -> std::result::Result<Value, AppError> {
+    let shared = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        office::request(app, shared, request, locale.unwrap_or_default())
+    })
+    .await
+    .map_err(|e| AppError::from(e.to_string()))?
+}
 pub fn run() {
     tauri::Builder::default()
         .manage(ai::AiState::new(None))
         .manage(ai_work::WorkState::default())
+        .manage(office::OfficeState::default())
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.show();
@@ -377,6 +393,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             request,
             ai_request,
+            office_request,
             read_asset,
             read_review_image
         ])
@@ -384,6 +401,7 @@ pub fn run() {
         .expect("Unable to start PractiQ")
         .run(|app, event| {
             if let tauri::RunEvent::Exit = event {
+                app.state::<office::OfficeState>().shutdown();
                 let _ = ai::stop(app);
             }
             if let tauri::RunEvent::ExitRequested { api, .. } = event {

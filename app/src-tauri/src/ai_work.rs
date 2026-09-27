@@ -151,6 +151,8 @@ struct Operation {
     status: OperationStatus,
     receipt: Option<Value>,
     error: Option<AppError>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    office_source: Option<crate::office::Origin>,
 }
 fn validate_operation(op: &Operation) -> Result<()> {
     uuid::Uuid::parse_str(&op.id)
@@ -199,6 +201,27 @@ pub fn submit_operation(
     body: Value,
     label: &str,
 ) -> Result<Value> {
+    let office_source = if let Some(id) = path
+        .strip_prefix("/api/document-tasks/")
+        .and_then(|s| s.strip_suffix("/reparse"))
+    {
+        office_sources(dir)?.remove(id)
+    } else {
+        None
+    };
+    let mut active = work.0.lock().map_err(err)?;
+    let op = stage_operation(dir, path, body, label, office_source)?;
+    let lease = work.claim_locked(&op.id, &mut active)?;
+    drop(active);
+    execute_operation(dir, endpoint, op, lease)
+}
+fn stage_operation(
+    dir: &Path,
+    path: &str,
+    body: Value,
+    label: &str,
+    office_source: Option<crate::office::Origin>,
+) -> Result<Operation> {
     let mut unsigned = body.clone();
     unsigned
         .as_object_mut()
@@ -208,10 +231,6 @@ pub fn submit_operation(
         ))?
         .remove("requestId");
     let identity = store::hash(&serde_json::to_vec(&json!([path, unsigned])).map_err(err)?);
-    let mut active = work
-        .0
-        .lock()
-        .map_err(|_| crate::language::error("LOCAL_WORK_UNAVAILABLE", serde_json::json!({})))?;
     let previous = all::<Operation>(dir, "requests")?
         .into_iter()
         .find(|op| op.identity == identity && op.status == OperationStatus::Pending);
@@ -224,13 +243,76 @@ pub fn submit_operation(
         status: OperationStatus::Pending,
         receipt: None,
         error: None,
+        office_source,
     });
     validate_operation(&op)?;
     save(dir, "requests", &op.id, &op)?;
-    let lease = work.claim_locked(&op.id, &mut active)?;
-    drop(active);
-    execute_operation(dir, endpoint, op, lease)
+    Ok(op)
 }
+
+pub fn submit_documents(
+    dir: &Path,
+    work: &WorkState,
+    endpoint: &Endpoint,
+    documents: Vec<(Value, String, Option<crate::office::Origin>)>,
+) -> Result<Vec<Value>> {
+    let active = work.0.lock().map_err(err)?;
+    let mut staged = Vec::new();
+    // Persist every sheet before any POST. A failure leaves the rest explicitly replayable.
+    for (document, label, source) in documents {
+        staged.push(stage_operation(
+            dir,
+            "/api/document-tasks",
+            json!({"requestId":store::id(),"document":document,"failurePolicy":"review"}),
+            &label,
+            source,
+        )?);
+    }
+    drop(active);
+    staged
+        .into_iter()
+        .map(|op| {
+            let lease = work.claim(&op.id)?;
+            execute_operation(dir, endpoint, op, lease)
+        })
+        .collect()
+}
+
+pub fn office_matches(dir: &Path, hash: &str, mode: crate::office::Mode) -> Result<Vec<Value>> {
+    let mut matches = Vec::new();
+    for op in all::<Operation>(dir, "requests")? {
+        validate_operation(&op)?;
+        if op
+            .office_source
+            .as_ref()
+            .is_some_and(|s| s.source_sha256 == hash && s.mode == mode)
+        {
+            if op.status == OperationStatus::Pending {
+                let mut error = crate::language::error("OFFICE_IMPORT_PENDING", json!({}));
+                error.request_id = Some(op.id);
+                return Err(error);
+            }
+            if let (OperationStatus::Accepted, Some(receipt)) = (op.status, op.receipt) {
+                matches.push(receipt);
+            }
+        }
+    }
+    Ok(matches)
+}
+
+fn office_sources(dir: &Path) -> Result<HashMap<String, crate::office::Origin>> {
+    let mut sources = HashMap::new();
+    for op in all::<Operation>(dir, "requests")? {
+        validate_operation(&op)?;
+        if let (Some(source), Some(receipt)) = (op.office_source, op.receipt) {
+            if let Some(id) = receipt["threadId"].as_str() {
+                sources.insert(id.to_owned(), source);
+            }
+        }
+    }
+    Ok(sources)
+}
+
 pub fn replay_operation(
     dir: &Path,
     work: &WorkState,
@@ -755,6 +837,105 @@ mod tests {
     }
     fn shared(dir: &Path) -> Shared {
         Arc::new(Mutex::new(Store::new(dir.into()).unwrap()))
+    }
+
+    #[test]
+    fn office_sheets_are_durable_before_submission_and_keep_origins_on_replay() {
+        let dir = tempfile::tempdir().unwrap();
+        let origin = crate::office::Origin {
+            file_name: "source.xlsx".into(),
+            source_sha256: "a".repeat(64),
+            mode: crate::office::Mode::Text,
+            version: "LibreOffice 26.2".into(),
+            artifact_sha256: "b".repeat(64),
+        };
+        let (endpoint, server_thread) = server(1, |_, _| None);
+        assert!(submit_documents(
+            dir.path(),
+            &WorkState::default(),
+            &endpoint,
+            vec![
+                (
+                    json!({"sha256":"one"}),
+                    "first.csv".into(),
+                    Some(origin.clone())
+                ),
+                (
+                    json!({"sha256":"two"}),
+                    "second.csv".into(),
+                    Some(origin.clone())
+                )
+            ]
+        )
+        .is_err());
+        server_thread.join().unwrap();
+        let pending = operations(dir.path()).unwrap();
+        assert_eq!(pending.as_array().unwrap().len(), 2);
+        assert_eq!(
+            office_matches(dir.path(), &origin.source_sha256, crate::office::Mode::Text)
+                .unwrap_err()
+                .code,
+            "OFFICE_IMPORT_PENDING"
+        );
+        let (endpoint, server_thread) = server(2, |_, body| {
+            response(
+                json!({"requestId":body["requestId"], "accepted":true, "threadId":body["requestId"]}),
+            )
+        });
+        for item in pending.as_array().unwrap() {
+            let id = contract::text(item, "id");
+            replay_operation(dir.path(), &WorkState::default(), &endpoint, id).unwrap();
+            let saved = office_sources(dir.path()).unwrap().remove(id).unwrap();
+            assert_eq!(saved.source_sha256, origin.source_sha256);
+            assert_eq!(saved.file_name, "source.xlsx");
+        }
+        server_thread.join().unwrap();
+        assert!(operations(dir.path())
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .is_empty());
+        assert_eq!(
+            office_matches(dir.path(), &origin.source_sha256, crate::office::Mode::Text)
+                .unwrap()
+                .len(),
+            2
+        );
+        assert!(
+            office_matches(dir.path(), &origin.source_sha256, crate::office::Mode::Pdf)
+                .unwrap()
+                .is_empty()
+        );
+        let old = contract::text(&pending[0], "id");
+        let new = store::id();
+        let expected = new.clone();
+        let (endpoint, server_thread) = server(2, move |_, body| {
+            response(json!({"requestId":body["requestId"], "accepted":true, "threadId":expected}))
+        });
+        submit_operation(
+            dir.path(),
+            &WorkState::default(),
+            &endpoint,
+            &format!("/api/document-tasks/{old}/reparse"),
+            json!({"requestId":new}),
+            "reparse",
+        )
+        .unwrap();
+        // Control receipts for the same task must not mask its original source association.
+        submit_operation(
+            dir.path(),
+            &WorkState::default(),
+            &endpoint,
+            &format!("/api/document-tasks/{new}/control"),
+            json!({"requestId":store::id(), "action":"pause"}),
+            "pause",
+        )
+        .unwrap();
+        server_thread.join().unwrap();
+        assert_eq!(
+            office_sources(dir.path()).unwrap()[&new].source_sha256,
+            origin.source_sha256
+        );
     }
 
     #[test]

@@ -592,8 +592,8 @@
     "en": "Parser state is unavailable"
   },
   "LOCAL_WORD_UNSUPPORTED": {
-    "zh-CN": "暂不支持 Word 文件，请转为 PDF 后上传",
-    "en": "Word files are unsupported. Export to PDF before uploading."
+    "zh-CN": "暂不支持 Word、Excel 文件，请转为 PDF 后上传",
+    "en": "Word and Excel files are unsupported. Export to PDF before uploading."
   },
   "LOCAL_DOCUMENT_UNSUPPORTED": {
     "zh-CN": "不支持的文档类型",
@@ -966,5 +966,61 @@
   "MODEL_NOT_CONFIGURED": {
     "zh-CN": "开始或继续 AI 任务前，请先配置模型。",
     "en": "Configure a model before starting or resuming AI work"
+  },
+  "OFFICE_BUSY": {
+    "zh-CN": "已有 LibreOffice 检测或转换正在进行",
+    "en": "LibreOffice detection or conversion is already running"
+  },
+  "OFFICE_CANCELLED": {
+    "zh-CN": "本机转换已取消",
+    "en": "Local conversion cancelled"
+  },
+  "OFFICE_TIMEOUT": {
+    "zh-CN": "LibreOffice 转换超时，原文件未修改",
+    "en": "LibreOffice conversion timed out; the source file is unchanged"
+  },
+  "OFFICE_OUTPUT_LIMIT": {
+    "zh-CN": "转换结果超过文件数量、大小或页数限制",
+    "en": "Conversion exceeded the file count, size or page limit"
+  },
+  "OFFICE_OUTPUT_INVALID": {
+    "zh-CN": "LibreOffice 未生成有效完整的转换结果",
+    "en": "LibreOffice did not produce valid, complete output"
+  },
+  "OFFICE_INPUT_INVALID": {
+    "zh-CN": "Office 文件无效或超过 25 MiB 限制",
+    "en": "Invalid Office file or input exceeds 25 MiB"
+  },
+  "OFFICE_FORMAT_UNSUPPORTED": {
+    "zh-CN": "仅支持 DOC、DOCX、XLS 和 XLSX 文件",
+    "en": "Only DOC, DOCX, XLS and XLSX files are supported"
+  },
+  "OFFICE_CONVERSION_FAILED": {
+    "zh-CN": "LibreOffice 转换失败，请检查文件是否损坏、加密或缺少组件",
+    "en": "LibreOffice conversion failed; check for a corrupt or encrypted file or missing components"
+  },
+  "OFFICE_WORKER_FAILED": {
+    "zh-CN": "本机转换进程异常退出，请重新检测 LibreOffice",
+    "en": "The conversion worker exited unexpectedly; check LibreOffice again"
+  },
+  "OFFICE_NOT_FOUND": {
+    "zh-CN": "未找到可用的 LibreOffice，请安装或选择程序位置",
+    "en": "No usable LibreOffice installation found; install it or select its executable"
+  },
+  "OFFICE_CAPABILITY_MISSING": {
+    "zh-CN": "当前 LibreOffice 缺少此转换能力，请安装 Writer 和 Calc 后重新检测",
+    "en": "This LibreOffice installation lacks the requested capability; install Writer and Calc and check again"
+  },
+  "OFFICE_SOURCE_OVERWRITE": {
+    "zh-CN": "不能覆盖原始 Office 文件，请选择其他位置",
+    "en": "The original Office file cannot be overwritten; select another destination"
+  },
+  "OFFICE_EMPTY_OUTPUT": {
+    "zh-CN": "提取结果为空，没有创建 AI 任务；仍可使用独立导出保存文件",
+    "en": "Extracted content is empty; no AI tasks were created. Use standalone export to save the files"
+  },
+  "OFFICE_IMPORT_PENDING": {
+    "zh-CN": "此文件有待确认的解析请求，请先重试待确认操作，避免重复提交",
+    "en": "This file has pending parsing requests. Retry pending operations before importing it again"
   }
 }

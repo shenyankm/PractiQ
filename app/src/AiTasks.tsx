@@ -118,6 +118,7 @@ export function AiTasks({
   run,
   onPreview,
   modelsReady = true,
+  officeMode,
   children,
   onOpenBank,
 }: {
@@ -127,6 +128,7 @@ export function AiTasks({
   children?: ReactNode;
   onOpenBank?: (bankId: string) => void;
   modelsReady?: boolean;
+  officeMode?: import("./office-api").OfficeMode;
 }) {
   useI18n();
   const [rows, setRows] = useState<Summary[]>([]),
@@ -354,6 +356,7 @@ export function AiTasks({
               try {
                 const created = await ai({
                   type: "pick_document",
+                  ...(officeMode ? { office_mode: officeMode } : {}),
                 });
                 if (created) {
                   setOffset(0);

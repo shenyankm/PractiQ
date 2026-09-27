@@ -50,6 +50,9 @@ impl Store {
         // In-flight model requests are task state, not portable practice history.
         db.execute("DELETE FROM grade_requests WHERE response IS NULL", [])
             .map_err(err)?;
+        // Executable preferences are machine-specific; backups must never authorize programs.
+        db.execute("UPDATE settings SET libreoffice_path=NULL", [])
+            .map_err(err)?;
         let (database_size, database_hash) = file_digest(&snapshot)?;
         let assets=db.prepare("SELECT hash,media,size,path FROM assets ORDER BY hash").map_err(err)?.query_map([],|r| Ok(json!({"sha256":r.get::<_,String>(0)?,"mediaType":r.get::<_,String>(1)?,"sizeBytes":r.get::<_,u64>(2)?,"file":r.get::<_,String>(3)?}))).map_err(err)?.collect::<std::result::Result<Vec<_>,_>>().map_err(err)?;
         let version: i64 = db
@@ -260,6 +263,8 @@ impl Store {
         }
         // Upgrade only the validated staging database, never the live database.
         let db = staged.connect()?;
+        db.execute("UPDATE settings SET libreoffice_path=NULL", [])
+            .map_err(err)?;
         let rows = db
             .prepare("SELECT hash,media,size,path FROM assets")
             .map_err(err)?
@@ -415,6 +420,9 @@ fn validate_database(path: &Path) -> Result<i64> {
     {
         // Validate an older backup before its staging database gains activity timestamps.
         expected_schema = expected_schema.replace(", last_active_at INTEGER", "");
+    }
+    if !db.query_row("SELECT EXISTS(SELECT 1 FROM pragma_table_info('settings') WHERE name='libreoffice_path')", [], |r| r.get::<_, bool>(0)).map_err(err)? {
+        expected_schema = expected_schema.replace(", libreoffice_path TEXT", "").replace("VALUES(1,NULL,NULL,NULL,NULL,NULL)", "VALUES(1,NULL,NULL,NULL,NULL)");
     }
     expected.execute_batch(&expected_schema).map_err(err)?;
     // Older backups may omit these optional indexes. Existing definitions must match exactly.

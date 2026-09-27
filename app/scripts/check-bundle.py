@@ -34,7 +34,7 @@ def fixtures(root):
 def run(bundle,output):
     report={'bundle':str(bundle),'model':'synthetic-local-stub','checks':[],'passed':False}
     output.parent.mkdir(parents=True,exist_ok=True)
-    assert not (bundle/'LibreOffice.app').exists(), 'Retired office suite was bundled'
+    assert not any((bundle/name).exists() for name in ('LibreOffice.app', 'office')), 'Retired office suite was bundled'
     manifest=json.loads((bundle/'build-manifest.json').read_text(encoding='utf-8'))
     assert 'libreoffice' not in manifest
     assert 'python-docx' not in {p['name'].lower() for p in manifest['packages']}

@@ -31,7 +31,21 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libdbus-1-dev gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-libav gnome-keyring
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libdbus-1-dev gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-libav gnome-keyring libreoffice-writer libreoffice-calc fonts-noto-cjk
+      - name: Install LibreOffice for Windows conversion checks
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: choco install libreoffice-fresh --yes --no-progress
+      - name: Install CJK test font on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $font = Join-Path $env:WINDIR 'Fonts/NotoSansCJKsc-Regular.otf'
+          Invoke-WebRequest 'https://raw.githubusercontent.com/notofonts/noto-cjk/main/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Regular.otf' -OutFile $font
+          if ((Get-FileHash $font -Algorithm SHA256).Hash -ne '2c76254f6fc379fddfce0a7e84fb5385bb135d3e399294f6eeb6680d0365b74b') { throw 'Unexpected CJK font checksum' }
+          New-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts' -Name 'Noto Sans CJK SC (OpenType)' -Value 'NotoSansCJKsc-Regular.otf' -PropertyType String -Force
+          Add-Type 'using System.Runtime.InteropServices; public static class CiFonts { [DllImport("gdi32.dll", CharSet=CharSet.Unicode, ExactSpelling=true)] public static extern int AddFontResourceW(string path); }'
+          if ([CiFonts]::AddFontResourceW($font) -eq 0) { throw 'CJK font registration failed' }
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -58,7 +72,7 @@ jobs:
           uv pip install --python "$desktop_python" --no-deps -e .
       - run: python app/scripts/export-contracts.py --check
       - run: python app/scripts/check-fixtures.py
-      - run: python -m pytest server/tests/test_desktop_platforms.py
+      - run: python -m pytest server/tests/test_desktop_platforms.py server/tests/test_office.py
       - run: npm ci
         working-directory: app
       - run: npm run build
@@ -99,6 +113,7 @@ jobs:
           $process = Start-Process -FilePath $installer.FullName -ArgumentList '/S', "/D=$destination" -Wait -PassThru
           if ($process.ExitCode -ne 0) { throw "Installer failed: $($process.ExitCode)" }
           python app/scripts/check-bundle.py --bundle "$destination/bundled"
+          python app/scripts/check-office.py --bundle "$destination/bundled"
       - name: Verify packaged Linux service
         if: runner.os == 'Linux'
         run: |
@@ -108,6 +123,7 @@ jobs:
           done
           dpkg-deb -x app/src-tauri/target/release/bundle/deb/*.deb "$RUNNER_TEMP/practiq-package"
           python app/scripts/check-bundle.py --bundle "$RUNNER_TEMP/practiq-package/usr/lib/PractiQ/bundled"
+          python app/scripts/check-office.py --bundle "$RUNNER_TEMP/practiq-package/usr/lib/PractiQ/bundled"
       - uses: actions/upload-artifact@v4
         with:
           name: PractiQ-${{ matrix.platform }}
@@ -115,12 +131,15 @@ jobs:
             app/src-tauri/target/release/bundle/nsis/*-setup.exe
             app/src-tauri/target/release/bundle/deb/*.deb
             server/reports/checks/desktop-bundle.json
+            server/reports/checks/office*
             app/src-tauri/bundled/build-manifest.json
   macos:
     runs-on: macos-latest
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+      - name: Install LibreOffice for macOS conversion checks
+        run: brew install --cask libreoffice
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -147,6 +166,7 @@ jobs:
       - run: make app-check AI_PYTHON=python
       - run: cargo fmt --manifest-path app/src-tauri/Cargo.toml --check
       - run: make app-package-check AI_PYTHON=python
+      - run: python app/scripts/check-office.py --bundle app/src-tauri/target/release/bundle/macos/PractiQ.app/Contents/Resources/bundled
       - run: ditto -c -k --keepParent app/src-tauri/target/release/bundle/macos/PractiQ.app app/PractiQ-macOS.zip
       - uses: actions/upload-artifact@v4
         with:
@@ -155,4 +175,5 @@ jobs:
             app/PractiQ-macOS.zip
             app/src-tauri/target/release/bundle/dmg/*.dmg
             server/reports/checks/desktop-bundle.json
+            server/reports/checks/office*
             app/src-tauri/bundled/build-manifest.json
