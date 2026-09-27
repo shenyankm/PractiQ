@@ -539,14 +539,15 @@ async def test_missing_checkpoint_tables_fail_closed():
         await db.close()
 
 @pytest.mark.parametrize('graph_id', ['docx_parser', 'document_parser'])
-async def test_retired_word_tasks_remain_readable_but_never_run(monkeypatch, graph_id):
+@pytest.mark.parametrize('kind', ['docx', 'xlsx'])
+async def test_retired_word_tasks_remain_readable_but_never_run(monkeypatch, graph_id, kind):
     from json import dumps
 
     service, reference, model = await setup_api(monkeypatch)
     receipt = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
     await service.wait_idle()
     thread_id = receipt['threadId']
-    legacy = {**reference, 'sourceType': 'docx', 'fileName': 'old.docx'}
+    legacy = {**reference, 'sourceType': kind, 'fileName': f'old.{kind}'}
     async with service.db.connection() as conn:
         await conn.execute('UPDATE document_tasks SET graph_id=?,document=? WHERE thread_id=?',
                            (graph_id, dumps(legacy), thread_id))
@@ -565,6 +566,10 @@ async def test_retired_word_tasks_remain_readable_but_never_run(monkeypatch, gra
             await task_api.control_task(thread_id, DocumentTaskControl(
                 requestId=uuid4(), action=action, checkpointId=result['checkpointId']))
         assert error.value.code == 'WORD_FORMAT_REMOVED'
+    from practiq_ai.contracts import DocumentTaskReparse
+    with pytest.raises(DocumentProcessingError, match='PDF'):
+        await task_api.reparse_task(thread_id, DocumentTaskReparse(requestId=uuid4()))
+    assert not result['resumeCompatible']
     calls = len(model.calls)
     run = (await service.db.rows('SELECT * FROM document_runs WHERE run_id=?', (receipt['runId'],)))[0]
     await service.execute(run)

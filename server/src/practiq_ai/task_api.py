@@ -27,6 +27,7 @@ from .execution import (
     preflight,
     remaining_ttl,
     require_supported_task,
+    retired_task,
     signature,
 )
 from .graphs.document import _retry_update, unit_failures
@@ -183,7 +184,7 @@ def _task_state(task, snapshot, run):
         actions = ['retry_failed'] if any(f['retryable'] for f in failures) else []
     else:
         state = 'PENDING'
-    retired = task['document'].get('sourceType') in {'doc', 'docx'} or task['graph_id'] == 'docx_parser'
+    retired = retired_task(task)
     if retired:
         actions = []
         if state != 'COMPLETED':
@@ -197,7 +198,7 @@ async def get_task(thread_id: str) -> dict[str, Any]:
     values = snapshot.values or {}
     interruptions = _interrupts(snapshot)
     state, actions, failures = _task_state(task, snapshot, run)
-    retired = task['document'].get('sourceType') in {'doc', 'docx'} or task['graph_id'] == 'docx_parser'
+    retired = retired_task(task)
     calls = await _calls(service, thread_id)
     usage = {item['callKey']: item for item in values.get('usage', [])}
     usage.update({item['callKey']: {k: item[k] for k in ('callKey', 'modelId', 'inputTokens', 'outputTokens', 'callKind')}
@@ -206,13 +207,13 @@ async def get_task(thread_id: str) -> dict[str, Any]:
         'threadId': thread_id, 'runId': run['run_id'] if run else None,
         'parentThreadId': task['parent_thread_id'],
         'modelConfigured': not load().read_only,
-        'resumeCompatible': not load().read_only and (not values.get('execution') or values['execution'].get('signature') == signature()),
+        'resumeCompatible': not retired and not load().read_only and (not values.get('execution') or values['execution'].get('signature') == signature()),
         'fileName': task['document'].get('fileName') or '文档',
         'state': state, 'phase': values.get('phase', 'pending'),
         'checkpointId': service.checkpoint_id(snapshot, run),
         'updatedAt': snapshot.created_at or task['created_at'].isoformat(), 'expiresAt': task['expires_at'].isoformat(),
         'allowedActions': actions, 'failures': failures,
-        'blocking': ['暂不支持 Word 文件，请转为 PDF 后重新导入'] if retired else list(interruptions.values()) or ([run['error_code']] if run and run['error_code'] else []),
+        'blocking': ['暂不支持 Office 文件，请转为 PDF 后重新导入'] if retired else list(interruptions.values()) or ([run['error_code']] if run and run['error_code'] else []),
         'progress': {
             'visuals': _counts(len(values.get('pageRefs', [])) + len(values.get('embeddedRefs', [])), len(values.get('visionResults', [])), sum(f['stage'].startswith('vision_') for f in failures)),
             'chunks': _counts(len(values.get('chunkRefs', [])), sum(item.get('parsed') is not None for item in values.get('chunkResults', [])), sum(f['stage'] == 'document_parse' for f in failures)),

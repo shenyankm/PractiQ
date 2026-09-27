@@ -108,15 +108,26 @@ def _read_result(root: Path) -> ExtractedDocument:
         raise DocumentProcessingError(502, 'Document extraction process failed', 'DOCUMENT_PREPARE_FAILED') from exc
 
 
-def main() -> None:
+def watch_parent(cleanup=None) -> None:
     import threading
     def parent_watch():
         while os.read(0, 1024):
             pass
-        if os.name != "nt" and os.getpgrp() == os.getpid():
-            os.killpg(os.getpgrp(), signal.SIGKILL)
-        os._exit(70)
+        try:
+            if cleanup is not None:
+                cleanup()
+            elif os.name != "nt" and os.getpgrp() == os.getpid():
+                os.killpg(os.getpgrp(), signal.SIGKILL)
+        finally:
+            os._exit(70)
     threading.Thread(target=parent_watch, daemon=True).start()
+
+
+def main() -> None:
+    if os.name == "nt":
+        from .windows_job import protect_descendants
+        protect_descendants()
+    watch_parent()
     from . import extract as extract_document
 
     source_type, source, output = sys.argv[1:]

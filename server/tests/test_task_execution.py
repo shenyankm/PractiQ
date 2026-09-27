@@ -169,9 +169,9 @@ async def test_model_result_survives_artifact_write_failure(monkeypatch):
 
 
 async def test_retry_page_preserves_successes_without_text_model_or_chunks(monkeypatch):
-    graph, _, _, reference, model = setup_graph(monkeypatch, [])
+    graph, _, files, reference, model = setup_graph(monkeypatch, [])
     monkeypatch.setattr(document, "get_model", lambda *args: model)
-    monkeypatch.setattr(document, "extract", AsyncMock(side_effect=lambda *_: ExtractedDocument(text="", page_images=[make_image(), make_image()])))
+    monkeypatch.setattr(document, "extract", AsyncMock(side_effect=lambda *_: ExtractedDocument(text="Office source evidence", page_images=[make_image(), make_image()])))
     calls = Counter()
     fail = True
 
@@ -190,6 +190,7 @@ async def test_retry_page_preserves_successes_without_text_model_or_chunks(monke
     output = await graph.ainvoke({"document": reference, "retry": {"requestId": str(uuid4())}}, config)
     assert calls == Counter({0: 1, 1: 2})
     assert not model.calls
+    assert "text" in files.put_kinds and "chunk" not in files.put_kinds
     assert output["processing"]["chunks"]["total"] == 0
     assert [item["stem"] for item in output["result"]["questions"]] == ["0", "1"]
     assert output["status"] == "SUCCEEDED"
