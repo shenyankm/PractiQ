@@ -199,7 +199,7 @@ The extractor delivers binary page images and a bounded manifest. The parent rea
 
 Returned `page` values are zero-based. Automated tests do not call real models; recognition quality requires separate acceptance.
 
-Word input has been removed and `AI_SOFFICE_PATH` has no effect. Old Word tasks cannot resume or retry; export to PDF and create a new task. Old data remains intact. The current version imports only schemaVersion 3 JSON and restores only format 4 backups. See [task errors](document-tasks.md) for details.
+Raw Word/Excel service input is unsupported and `AI_SOFFICE_PATH` has no effect. The desktop uses a separate private worker to convert local Office files to PDF/TXT/CSV before upload; see [desktop Office support](desktop-office.md). Old `docx_parser` tasks still cannot resume or retry; convert their original file and create a new task. New desktop Office tasks retain supported-format artifacts and can retry/reparse without LibreOffice. Old data remains intact. The current version imports only schemaVersion 3 JSON and restores only format 4 backups. See [task errors](document-tasks.md) for details.
 
 ## Long-running task controls
 

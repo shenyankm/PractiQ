@@ -71,7 +71,7 @@ The parser accepts these source formats:
 | Digital or scanned papers | `.pdf` |
 | Screenshots and photographs | `.png`, `.jpg`, `.jpeg` |
 
-Export Word files to PDF before importing. Export Excel question lists to CSV, or use PDF to preserve their layout. Source uploads do not accept Word, Excel, WebP, or GIF files.
+The desktop can import Word (.doc/.docx) and Excel (.xls/.xlsx) through locally installed LibreOffice. PDF conversion is the default; text mode produces Word TXT or one CSV per worksheet, including hidden sheets. The Import page also offers local conversion/export without model configuration. Install Writer and Calc from [LibreOffice](https://www.libreoffice.org/download/download-libreoffice/), then check or select the installation on that page. PractiQ does not bundle or download Office. See [desktop conversion and evaluation](server/docs/desktop-office.md) for limits and fidelity notes. Direct service uploads still accept only PDF, TXT, CSV and PNG/JPEG; WebP and GIF remain unsupported.
 
 Parsing preserves source answers, explanations, passages, available score values, rubrics, and image references. It flags missing content instead of generating answers. You can pause tasks, resume them, retry eligible failed units, or accept partial results. Use **Show only items needing review** and the next-item action to inspect flagged questions and their source pages or text segments where available. Accepting partial results keeps quality flags, and unreviewed questions can still be practised.
 

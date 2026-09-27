@@ -1,6 +1,6 @@
 # SQLite and macOS desktop delivery record
 
-> Historical report: results, package sizes, hashes, and dependency descriptions apply to the version tested at the time. The current version has removed Word and LibreOffice. The Import page manages AI parsing tasks; bank ZIP import is under Settings → Restore backup. See the [project overview](../../README.md) and [service guide](service-guide.md) for current usage. Historical evidence does not establish acceptance of the current version.
+> Historical report: results, package sizes, hashes, and dependency descriptions apply to the version tested at the time. The current service rejects raw Office uploads; the desktop converts them with locally installed LibreOffice without bundling the suite. The Import page manages AI parsing tasks; bank ZIP import is under Settings → Restore backup. See the [project overview](../../README.md) and [service guide](service-guide.md) for current usage. Historical evidence does not establish acceptance of the current version.
 
 Validation date: 2026-09-19. Target: Apple Silicon macOS. The local system was macOS 27.0; the app declared macOS 14 as its minimum, but that version had not been tested. Nothing was committed, pushed, or published. Existing workspace changes and old PostgreSQL data were preserved.
 

@@ -1,6 +1,6 @@
 > Storage update: the current version uses local files only; the OSS backend has been removed. References to OSS below are preserved as historical audit or design records.
 
-> Historical record: the current version uses SQLite and has removed Excel and Word source parsing and LibreOffice. The scope and validation results below describe the version at the time.
+> Historical record: the current service uses SQLite and rejects raw Word/Excel uploads. Desktop Office conversion uses locally installed LibreOffice. The scope and validation results below describe the version at the time.
 
 > Historical design: Agent Server, Redis, and native APIs have been replaced by the open-source runtime. See [document-tasks.md](document-tasks.md) and [operations.md](operations.md) for current APIs and deployment.
 
