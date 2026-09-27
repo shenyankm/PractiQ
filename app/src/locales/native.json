@@ -1016,8 +1016,8 @@
     "en": "The original Office file cannot be overwritten; select another destination"
   },
   "OFFICE_EMPTY_OUTPUT": {
-    "zh-CN": "提取结果为空，没有创建 AI 任务；仍可使用独立导出保存文件",
-    "en": "Extracted content is empty; no AI tasks were created. Use standalone export to save the files"
+    "zh-CN": "此文件提取结果为空，已跳过且未为此文件创建 AI 任务；仍可使用独立导出保存文件",
+    "en": "This file's extracted content is empty; it was skipped without creating tasks for this file. Use standalone export to save it"
   },
   "OFFICE_IMPORT_PENDING": {
     "zh-CN": "此文件有待确认的解析请求，请先重试待确认操作，避免重复提交",

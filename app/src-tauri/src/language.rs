@@ -30,8 +30,10 @@ static ERRORS: LazyLock<Value> = LazyLock::new(|| {
     serde_json::from_str(include_str!("../../src/locales/native.json"))
         .expect("native translations")
 });
-pub fn error(code: &str, params: Value) -> AppError {
-    let template = ERRORS[code]["zh-CN"].as_str().expect("known error code");
+pub fn message(code: &str, params: &Value, locale: Locale) -> String {
+    let template = ERRORS[code][locale.as_str()]
+        .as_str()
+        .expect("known error code");
     let mut message = template.to_owned();
     if let Some(values) = params.as_object() {
         for (key, value) in values {
@@ -44,7 +46,10 @@ pub fn error(code: &str, params: Value) -> AppError {
             );
         }
     }
-    let mut result = AppError::new(code, message);
+    message
+}
+pub fn error(code: &str, params: Value) -> AppError {
+    let mut result = AppError::new(code, message(code, &params, Locale::Chinese));
     result.params = Box::new(params);
     result
 }
@@ -108,6 +113,11 @@ mod tests {
         let serialized = serde_json::to_value(error).unwrap();
         assert_eq!(serialized["code"], "LOCAL_RESOURCE_PATH_UNSAFE");
         assert_eq!(serialized["params"]["key"], "../file");
+        for code in ["OFFICE_EMPTY_OUTPUT", "OFFICE_IMPORT_PENDING"] {
+            let translated = message(code, &json!({}), Locale::English);
+            assert!(translated.starts_with("This file"));
+            assert_ne!(translated, message(code, &json!({}), Locale::Chinese));
+        }
     }
     #[test]
     fn failed_language_write_preserves_preference_and_model_settings() {

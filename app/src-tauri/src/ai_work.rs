@@ -250,6 +250,24 @@ fn stage_operation(
     Ok(op)
 }
 
+pub fn stage_document(
+    dir: &Path,
+    work: &WorkState,
+    document: Value,
+    label: &str,
+    source: Option<crate::office::Origin>,
+) -> Result<()> {
+    let _active = work.0.lock().map_err(err)?;
+    stage_operation(
+        dir,
+        "/api/document-tasks",
+        json!({"requestId":store::id(),"document":document,"failurePolicy":"review"}),
+        label,
+        source,
+    )?;
+    Ok(())
+}
+
 pub fn submit_documents(
     dir: &Path,
     work: &WorkState,
@@ -837,6 +855,87 @@ mod tests {
     }
     fn shared(dir: &Path) -> Shared {
         Arc::new(Mutex::new(Store::new(dir.into()).unwrap()))
+    }
+
+    #[test]
+    fn interrupted_sheet_uploads_have_receipts_before_content_transfer() {
+        let dir = tempfile::tempdir().unwrap();
+        let stored = dir.path().to_owned();
+        let origin = crate::office::Origin {
+            file_name: "source.xlsx".into(),
+            source_sha256: "a".repeat(64),
+            mode: crate::office::Mode::Text,
+            version: "LibreOffice".into(),
+            artifact_sha256: "b".repeat(64),
+        };
+        let mut uploads = 0;
+        let (endpoint, worker) = server(6, move |path, body| {
+            if path == "/api/uploads" {
+                return response(
+                    json!({"document":body, "upload":{"url":"/api/uploads/content?test"}}),
+                );
+            }
+            if path.starts_with("/api/uploads/content?") {
+                uploads += 1;
+                let pending = all::<Operation>(&stored, "requests").unwrap();
+                assert_eq!(pending.len(), uploads);
+                assert!(pending
+                    .iter()
+                    .all(|op| op.office_source.is_some() && op.receipt.is_none()));
+                // The second PUT can persist its data but lose a successful response.
+                return Some((if uploads == 2 { 503 } else { 200 }, b"{}".to_vec()));
+            }
+            assert_eq!(path, "/api/document-tasks");
+            response(
+                json!({"accepted":true, "requestId":body["requestId"], "threadId":body["requestId"]}),
+            )
+        });
+        for (index, bytes) in [b"{}".to_vec(), b"[]".to_vec()].into_iter().enumerate() {
+            let name = format!("sheet-{index}.csv");
+            let result =
+                crate::ai::upload_document(&endpoint, Path::new(&name), bytes, |document| {
+                    stage_document(
+                        dir.path(),
+                        &WorkState::default(),
+                        document.clone(),
+                        &name,
+                        Some(origin.clone()),
+                    )
+                });
+            assert_eq!(result.is_ok(), index == 0);
+        }
+        let pending = operations(dir.path()).unwrap();
+        assert_eq!(pending.as_array().unwrap().len(), 2);
+        for op in pending.as_array().unwrap() {
+            let id = contract::text(op, "id");
+            let receipt =
+                replay_operation(dir.path(), &WorkState::default(), &endpoint, id).unwrap();
+            assert_eq!(receipt["requestId"], id);
+        }
+        worker.join().unwrap();
+        assert!(operations(dir.path())
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .is_empty());
+        assert_eq!(
+            office_matches(dir.path(), &origin.source_sha256, crate::office::Mode::Text)
+                .unwrap()
+                .len(),
+            2
+        );
+
+        let (endpoint, worker) = server(1, |_, body| {
+            response(json!({"document":body,"upload":{"url":"/api/uploads/content?test"}}))
+        });
+        let result = crate::ai::upload_document(
+            &endpoint,
+            Path::new("never-uploaded.csv"),
+            b"{}".to_vec(),
+            |_| Err(AppError::new("DISK_FULL", "cannot record ownership")),
+        );
+        assert_eq!(result.unwrap_err().code, "DISK_FULL");
+        worker.join().unwrap();
     }
 
     #[test]

@@ -5,7 +5,7 @@ use serde_json::{json, Value};
 use std::{
     fs,
     io::{Read, Write},
-    path::Path,
+    path::{Path, PathBuf},
     process::{Child, ChildStdin, Command, Stdio},
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -249,6 +249,37 @@ struct Manifest {
     size_bytes: usize,
     has_content: bool,
 }
+fn artifact_name(original: &str, suffix: &str) -> Result<String> {
+    let name = format!("{original}{suffix}");
+    if name.len() <= 255 {
+        return Ok(name);
+    }
+    // A byte bound also fits Windows' UTF-16 component limit. Keep the sheet suffix intact.
+    let tail = format!("-{}{suffix}", &store::hash(name.as_bytes())[..16]);
+    let mut end = 255usize
+        .checked_sub(tail.len())
+        .ok_or_else(|| error("OFFICE_OUTPUT_INVALID"))?;
+    while !original.is_char_boundary(end) {
+        end -= 1;
+    }
+    Ok(format!("{}{tail}", &original[..end]))
+}
+fn export_destination(mut path: PathBuf, extension: &str) -> Result<PathBuf> {
+    if !path
+        .extension()
+        .and_then(|s| s.to_str())
+        .is_some_and(|s| s.eq_ignore_ascii_case(extension))
+    {
+        path.set_extension(extension);
+    }
+    if path
+        .file_name()
+        .is_none_or(|s| s.as_encoded_bytes().len() > 255)
+    {
+        return Err(error("OFFICE_OUTPUT_INVALID"));
+    }
+    Ok(path)
+}
 fn read_artifacts(
     root: &Path,
     response: Value,
@@ -307,10 +338,7 @@ fn read_artifacts(
             .name
             .strip_prefix("source")
             .ok_or_else(|| error("OFFICE_OUTPUT_INVALID"))?;
-        let name = format!("{original_name}{suffix}");
-        if name.chars().count() > 255 {
-            return Err(error("OFFICE_INPUT_INVALID"));
-        }
+        let name = artifact_name(original_name, suffix)?;
         artifacts.push(Artifact {
             name,
             bytes: payload,
@@ -467,18 +495,23 @@ pub fn request(
                 None
             };
             for artifact in artifacts {
+                let extension = Path::new(&artifact.name)
+                    .extension()
+                    .and_then(|s| s.to_str())
+                    .ok_or_else(|| error("OFFICE_OUTPUT_INVALID"))?;
                 let destination = if let Some(directory) = &directory {
                     directory.join(&artifact.name)
                 } else {
                     let Some(file) = app
                         .dialog()
                         .file()
+                        .add_filter(extension.to_ascii_uppercase(), &[extension])
                         .set_file_name(&artifact.name)
                         .blocking_save_file()
                     else {
                         return Ok(Value::Null);
                     };
-                    file.into_path().map_err(err)?
+                    export_destination(file.into_path().map_err(err)?, extension)?
                 };
                 if destination == path
                     || (destination.exists()
@@ -517,6 +550,47 @@ pub fn request(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn generated_names_fit_utf8_filesystem_limits_and_keep_unique_sheet_suffixes() {
+        let dir = tempfile::tempdir().unwrap();
+        let original = format!("{}.xlsx", "中".repeat(83));
+        let mut names = std::collections::HashSet::new();
+        for suffix in [".pdf", "-中文工作表.csv", "-隐藏工作表.csv"] {
+            let name = artifact_name(&original, suffix).unwrap();
+            assert!(name.len() <= 255);
+            assert!(name.ends_with(suffix));
+            assert!(names.insert(name.clone()));
+            fs::write(dir.path().join(name), b"converted").unwrap();
+        }
+        assert_ne!(
+            artifact_name(&format!("{}a.xlsx", "中".repeat(80)), ".pdf").unwrap(),
+            artifact_name(&format!("{}b.xlsx", "中".repeat(80)), ".pdf").unwrap()
+        );
+        assert_eq!(
+            artifact_name("短文件.xlsx", "-工作表.csv").unwrap(),
+            "短文件.xlsx-工作表.csv"
+        );
+        assert!(artifact_name(&original, &format!("-{}.csv", "中".repeat(100))).is_err());
+    }
+    #[test]
+    fn save_destinations_keep_the_artifact_extension() {
+        let dir = tempfile::tempdir().unwrap();
+        for extension in ["pdf", "txt", "csv"] {
+            for name in ["中文", "中文.docx", "中文."] {
+                let path = export_destination(dir.path().join(name), extension).unwrap();
+                assert_eq!(path.extension().unwrap(), extension);
+                assert_eq!(path.parent(), Some(dir.path()));
+            }
+            let uppercase = dir
+                .path()
+                .join(format!("中文.{}", extension.to_ascii_uppercase()));
+            assert_eq!(
+                export_destination(uppercase.clone(), extension).unwrap(),
+                uppercase
+            );
+        }
+        assert!(export_destination(dir.path().join("中".repeat(85)), "pdf").is_err());
+    }
     #[test]
     fn frontend_cannot_supply_executable_or_document_paths() {
         for value in [

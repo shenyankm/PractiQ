@@ -1,5 +1,7 @@
 # 本机 LibreOffice 接入评估（2026-09-28）
 
+> Archived evaluation of the initial implementation at `730a381`. Review fixes and their current validation are recorded in [PR #70](https://github.com/shenyankm/PractiQ/pull/70); the measurements below describe the original build.
+
 已接入桌面原生选文件、LibreOffice 检测、独立导出和确认后 AI 导入。独立服务的上传类型与解析图不变。当前场景无需引入 `python-docx`、`openpyxl` 或 Python UNO；相对现有版本，可以直接删除的大依赖为 **0**。
 
 ## 实际转换
@@ -21,7 +23,7 @@
 
 八项检查全部通过，单次中位数 2.033 秒；这些是一次本机执行的观测值，不是性能基准，也不包括安装探测的耗时。检查覆盖中文和空格路径、文件完整性、输出摘要、原文件不变、表格末行、隐藏工作表、`001` 前导零、日期显示值、公式结果 `3`、打印范围内外的内容差异。另用本机 HTTP 探针检查 Word 外链图片和 Calc `WEBSERVICE` 公式，收到 **0 次**外链请求。
 
-原始数据见 [打包后转换结果](../reports/checks/office-installed.json)；PDF、TXT、CSV 和逐页 PNG 保存在 `server/reports/checks/office-installed-artifacts/`。合成输入及来源说明见 [Office fixtures](../../app/fixtures/office/README.md)，复现命令见 [使用说明](desktop-office.md)。
+原始数据文件为 `server/reports/checks/office-installed.json`；PDF、TXT、CSV 和逐页 PNG 保存在 `server/reports/checks/office-installed-artifacts/`。这些本机评估输出不纳入仓库。合成输入及来源说明见 [Office fixtures](../../app/fixtures/office/README.md)，复现命令见 [使用说明](desktop-office.md)。
 
 ## 视觉观察与保真边界
 

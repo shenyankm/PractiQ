@@ -677,10 +677,17 @@ pub fn read_review_image(
     )
 }
 
-fn upload_document(process: &Endpoint, path: &std::path::Path, bytes: Vec<u8>) -> Result<Value> {
+pub(crate) fn upload_document(
+    process: &Endpoint,
+    path: &std::path::Path,
+    bytes: Vec<u8>,
+    record: impl FnOnce(&Value) -> Result<()>,
+) -> Result<Value> {
     let (kind, media) = document_format(path)?;
     let body = json!({"sourceType":kind,"fileName":path.file_name().and_then(|s|s.to_str()).ok_or(crate::language::error("LOCAL_FILENAME_INVALID", serde_json::json!({})))?,"mediaType":media,"sha256":store::hash(&bytes),"sizeBytes":bytes.len()});
     let prepared = process.json(Method::POST, "/api/uploads", Some(&body))?;
+    // Record ownership before a PUT can persist content or lose its response.
+    record(&prepared["document"])?;
     if !prepared["upload"].is_null() {
         let relative = prepared["upload"]["url"]
             .as_str()
@@ -709,6 +716,39 @@ fn upload_document(process: &Endpoint, path: &std::path::Path, bytes: Vec<u8>) -
         }
     }
     Ok(prepared["document"].clone())
+}
+
+fn pick_documents(
+    selected: Vec<PathBuf>,
+    mut import: impl FnMut(&std::path::Path) -> Result<Vec<String>>,
+    mut skipped: impl FnMut(&std::path::Path, AppError),
+) -> Result<Value> {
+    let mut ids = Vec::new();
+    for path in selected {
+        match import(&path) {
+            Ok(tasks) => {
+                for id in tasks {
+                    if !ids.contains(&id) {
+                        ids.push(id);
+                    }
+                }
+            }
+            Err(error)
+                if matches!(
+                    error.code.as_str(),
+                    "OFFICE_IMPORT_PENDING" | "OFFICE_EMPTY_OUTPUT"
+                ) =>
+            {
+                skipped(&path, error)
+            }
+            Err(error) => return Err(error),
+        }
+    }
+    Ok(if ids.is_empty() {
+        Value::Null
+    } else {
+        json!({"threadId":ids[0],"threadIds":ids})
+    })
 }
 
 pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiResult<Value> {
@@ -854,140 +894,168 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
         }
         AiRequest::PickDocument { office_mode } => {
             let mut process = process;
-            let mut ids = Vec::new();
             let mut engine = None;
-            for path in selected {
-                let office = crate::office::is_office(&path);
-                if !office {
-                    document_format(&path)?;
-                }
-                let bytes = store::read_bounded(&path, 25 * 1024 * 1024)?;
-                let hash = store::hash(&bytes);
-                let previous = if office {
-                    ai_work::office_matches(&dir, &hash, office_mode)?
-                } else {
-                    process.json(
-                        Method::GET,
-                        &format!("/api/document-tasks?limit=1&sha256={hash}"),
-                        None,
-                    )?["items"]
-                        .as_array()
-                        .cloned()
-                        .unwrap_or_default()
-                };
-                if !previous.is_empty() {
-                    let open = locale.text("打开已有任务", "Open existing task");
-                    let reparse = locale.text("重新解析", "Parse again");
-                    let choice = app.dialog().message(locale.text("已解析过相同内容的文件。可以打开已有任务，或确认后再次解析（可能再次计费）。", "A task already exists for the same file content. Open it, or confirm parsing again (additional charges may apply)."))
+            pick_documents(
+                selected,
+                |path| {
+                    let mut ids = Vec::new();
+                    let office = crate::office::is_office(path);
+                    if !office {
+                        document_format(path)?;
+                    }
+                    let bytes = store::read_bounded(path, 25 * 1024 * 1024)?;
+                    let hash = store::hash(&bytes);
+                    let previous = if office {
+                        ai_work::office_matches(&dir, &hash, office_mode)?
+                    } else {
+                        process.json(
+                            Method::GET,
+                            &format!("/api/document-tasks?limit=1&sha256={hash}"),
+                            None,
+                        )?["items"]
+                            .as_array()
+                            .cloned()
+                            .unwrap_or_default()
+                    };
+                    if !previous.is_empty() {
+                        let open = locale.text("打开已有任务", "Open existing task");
+                        let reparse = locale.text("重新解析", "Parse again");
+                        let choice = app.dialog().message(locale.text("已解析过相同内容的文件。可以打开已有任务，或确认后再次解析（可能再次计费）。", "A task already exists for the same file content. Open it, or confirm parsing again (additional charges may apply)."))
                         .title(locale.text("发现相同文档", "Matching document found"))
                         .buttons(MessageDialogButtons::YesNoCancelCustom(open.into(), reparse.into(), locale.text("跳过此文件", "Skip this file").into())).blocking_show_with_result();
-                    if choice == MessageDialogResult::Custom(open.into())
-                        || choice == MessageDialogResult::Yes
-                    {
-                        for existing in &previous {
-                            let id = contract::text(existing, "threadId");
-                            task_path(id)?;
-                            if !ids.iter().any(|saved| saved == id) {
-                                ids.push(id.to_owned());
+                        if choice == MessageDialogResult::Custom(open.into())
+                            || choice == MessageDialogResult::Yes
+                        {
+                            for existing in &previous {
+                                let id = contract::text(existing, "threadId");
+                                task_path(id)?;
+                                if !ids.iter().any(|saved| saved == id) {
+                                    ids.push(id.to_owned());
+                                }
                             }
+                            return Ok(ids);
                         }
-                        continue;
-                    }
-                    if choice != MessageDialogResult::Custom(reparse.into())
-                        && choice != MessageDialogResult::No
-                    {
-                        continue;
-                    }
-                }
-                let converted = if office {
-                    if engine.is_none() {
-                        engine = Some(crate::office::status(&app, &shared)?);
-                    }
-                    crate::office::prepare(
-                        &app,
-                        &shared,
-                        &path,
-                        &bytes,
-                        office_mode,
-                        engine.as_ref(),
-                    )?
-                } else {
-                    Vec::new()
-                };
-                let artifact_names = converted
-                    .iter()
-                    .map(|a| {
-                        if a.has_content {
-                            a.name.clone()
-                        } else {
-                            format!(
-                                "{} ({})",
-                                a.name,
-                                locale.text("空白文件，不创建 AI 任务", "empty file, no AI task")
-                            )
+                        if choice != MessageDialogResult::Custom(reparse.into())
+                            && choice != MessageDialogResult::No
+                        {
+                            return Ok(ids);
                         }
-                    })
-                    .collect::<Vec<_>>()
-                    .join("\n");
-                if office && !converted.iter().any(|a| a.has_content) {
-                    return Err(crate::language::error("OFFICE_EMPTY_OUTPUT", json!({})));
-                }
-                let config = crate::settings::snapshot(&shared)?.connection_settings()?;
-                let Some(bytes) =
-                    confirm_document_bytes(&path, bytes, config, locale, |message| {
-                        let message = if office {
-                            format!(
-                                "{message}\n\n{}\n{artifact_names}",
-                                locale.text("待解析的转换文件：", "Converted files to parse:")
-                            )
-                        } else {
-                            message
-                        };
-                        app.dialog()
-                            .message(message)
-                            .title(locale.text("确认解析文档", "Confirm document parsing"))
-                            .buttons(MessageDialogButtons::OkCancelCustom(
-                                locale.text("开始解析", "Start parsing").into(),
-                                locale.text("跳过此文件", "Skip this file").into(),
-                            ))
-                            .blocking_show()
-                    })?
-                else {
-                    continue;
-                };
-                process = active_endpoint(&app, &dir, true)?;
-                let mut documents = Vec::new();
-                if office {
-                    for artifact in converted.into_iter().filter(|a| a.has_content) {
-                        let document = upload_document(
-                            &process,
-                            std::path::Path::new(&artifact.name),
-                            artifact.bytes,
-                        )?;
-                        documents.push((document, artifact.name, Some(artifact.origin)));
                     }
-                } else {
-                    let document = upload_document(&process, &path, bytes)?;
-                    documents.push((
-                        document,
-                        path.file_name()
-                            .and_then(|s| s.to_str())
-                            .unwrap_or_default()
-                            .to_owned(),
-                        None,
-                    ));
-                }
-                for receipt in ai_work::submit_documents(&dir, &work, &process, documents)? {
-                    let id = contract::text(&receipt, "threadId");
-                    task_path(id)?;
-                    ids.push(id.to_owned());
-                }
-            }
-            if ids.is_empty() {
-                Ok(Value::Null)
-            } else {
-                Ok(json!({"threadId":ids[0],"threadIds":ids}))
-            }
+                    let converted = if office {
+                        if engine.is_none() {
+                            engine = Some(crate::office::status(&app, &shared)?);
+                        }
+                        crate::office::prepare(
+                            &app,
+                            &shared,
+                            path,
+                            &bytes,
+                            office_mode,
+                            engine.as_ref(),
+                        )?
+                    } else {
+                        Vec::new()
+                    };
+                    let artifact_names = converted
+                        .iter()
+                        .map(|a| {
+                            if a.has_content {
+                                a.name.clone()
+                            } else {
+                                format!(
+                                    "{} ({})",
+                                    a.name,
+                                    locale
+                                        .text("空白文件，不创建 AI 任务", "empty file, no AI task")
+                                )
+                            }
+                        })
+                        .collect::<Vec<_>>()
+                        .join("\n");
+                    if office && !converted.iter().any(|a| a.has_content) {
+                        return Err(crate::language::error("OFFICE_EMPTY_OUTPUT", json!({})));
+                    }
+                    let config = crate::settings::snapshot(&shared)?.connection_settings()?;
+                    let Some(bytes) =
+                        confirm_document_bytes(path, bytes, config, locale, |message| {
+                            let message = if office {
+                                format!(
+                                    "{message}\n\n{}\n{artifact_names}",
+                                    locale.text("待解析的转换文件：", "Converted files to parse:")
+                                )
+                            } else {
+                                message
+                            };
+                            app.dialog()
+                                .message(message)
+                                .title(locale.text("确认解析文档", "Confirm document parsing"))
+                                .buttons(MessageDialogButtons::OkCancelCustom(
+                                    locale.text("开始解析", "Start parsing").into(),
+                                    locale.text("跳过此文件", "Skip this file").into(),
+                                ))
+                                .blocking_show()
+                        })?
+                    else {
+                        return Ok(ids);
+                    };
+                    process = active_endpoint(&app, &dir, true)?;
+                    let mut documents = Vec::new();
+                    if office {
+                        for artifact in converted.into_iter().filter(|a| a.has_content) {
+                            let document = upload_document(
+                                &process,
+                                std::path::Path::new(&artifact.name),
+                                artifact.bytes,
+                                |document| {
+                                    ai_work::stage_document(
+                                        &dir,
+                                        &work,
+                                        document.clone(),
+                                        &artifact.name,
+                                        Some(artifact.origin.clone()),
+                                    )
+                                },
+                            )?;
+                            documents.push((document, artifact.name, Some(artifact.origin)));
+                        }
+                    } else {
+                        let document = upload_document(&process, path, bytes, |document| {
+                            ai_work::stage_document(
+                                &dir,
+                                &work,
+                                document.clone(),
+                                path.file_name()
+                                    .and_then(|s| s.to_str())
+                                    .unwrap_or_default(),
+                                None,
+                            )
+                        })?;
+                        documents.push((
+                            document,
+                            path.file_name()
+                                .and_then(|s| s.to_str())
+                                .unwrap_or_default()
+                                .to_owned(),
+                            None,
+                        ));
+                    }
+                    for receipt in ai_work::submit_documents(&dir, &work, &process, documents)? {
+                        let id = contract::text(&receipt, "threadId");
+                        task_path(id)?;
+                        ids.push(id.to_owned());
+                    }
+                    Ok(ids)
+                },
+                |path, error| {
+                    app.dialog()
+                        .message(format!(
+                            "{}\n{}",
+                            path.file_name().unwrap_or_default().to_string_lossy(),
+                            crate::language::message(&error.code, &error.params, locale)
+                        ))
+                        .blocking_show();
+                },
+            )
         }
         AiRequest::Reparse { id } => {
             let task = process.json(Method::GET, &task_path(&id)?, None)?;
@@ -1196,6 +1264,51 @@ impl Endpoint {
 mod tests {
     use super::{document_format, StderrTail};
     use std::path::Path;
+
+    #[test]
+    fn office_skips_keep_prior_tasks_and_continue_the_selection() {
+        for code in ["OFFICE_IMPORT_PENDING", "OFFICE_EMPTY_OUTPUT"] {
+            let mut visited = Vec::new();
+            let mut skipped = Vec::new();
+            let result = super::pick_documents(
+                ["a.pdf", "empty.xlsx", "c.docx"].map(Into::into).to_vec(),
+                |path| {
+                    let name = path.to_str().unwrap().to_owned();
+                    visited.push(name.clone());
+                    if name == "empty.xlsx" {
+                        Err(crate::language::error(code, serde_json::json!({})))
+                    } else {
+                        Ok(vec![name])
+                    }
+                },
+                |path, error| skipped.push((path.to_owned(), error.code)),
+            )
+            .unwrap();
+            assert_eq!(visited, ["a.pdf", "empty.xlsx", "c.docx"]);
+            assert_eq!(
+                result,
+                serde_json::json!({"threadId":"a.pdf","threadIds":["a.pdf","c.docx"]})
+            );
+            assert_eq!(skipped, [("empty.xlsx".into(), code.into())]);
+        }
+        let error = super::pick_documents(
+            vec!["a.xlsx".into()],
+            |_| Err(crate::AppError::new("STORAGE_FAILED", "failed")),
+            |_, _| panic!("unexpected skip"),
+        )
+        .unwrap_err();
+        assert_eq!(error.code, "STORAGE_FAILED");
+        assert!(super::pick_documents(
+            vec!["empty.xlsx".into()],
+            |_| Err(crate::language::error(
+                "OFFICE_EMPTY_OUTPUT",
+                serde_json::json!({})
+            )),
+            |_, _| {}
+        )
+        .unwrap()
+        .is_null());
+    }
 
     #[test]
     fn applying_settings_rejects_active_tasks_on_later_pages() {

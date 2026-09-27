@@ -2,6 +2,7 @@
 import io
 import json
 import os
+import struct
 import subprocess
 import sys
 import time
@@ -293,3 +294,58 @@ def test_private_worker_detection_has_no_service_bootstrap(monkeypatch, capsys):
         monkeypatch.setattr(windows_job, "protect_descendants", lambda: None)
     office.main()
     assert json.loads(capsys.readouterr().out) == {"result": {"path": None}}
+
+
+@pytest.mark.parametrize("extension,family", [("doc", "writer"), ("xls", "calc")])
+def test_legacy_input_checks_root_stream_family_before_launch(tmp_path, monkeypatch, extension, family):
+    fixtures = Path(__file__).parents[2] / "app/fixtures/office"
+    original = next(fixtures.glob(f"*.{extension}")).read_bytes()
+    source = tmp_path / f"selected.{extension}"
+    source.write_bytes(original)
+    monkeypatch.setattr(office, "_export", lambda *args: [{"name": "converted"}])
+    assert office.convert("unused", source, tmp_path / "out", "pdf")
+    assert source.read_bytes() == original
+    # A real Word container renamed to XLS (and vice versa) is not accepted.
+    other = next(fixtures.glob("*.xls" if extension == "doc" else "*.doc")).read_bytes()
+    monkeypatch.setattr(office, "_export", lambda *args: pytest.fail("wrong family reached LibreOffice"))
+    for data in [other, original[:512], original[:512] + b"truncated"]:
+        source.write_bytes(data)
+        with pytest.raises(office.OfficeError, match="OFFICE_INPUT_INVALID"):
+            office.convert("unused", source, tmp_path / "out", "pdf")
+
+
+def compound_directory(names, *, nested=False):
+    """Minimal CFB metadata fixture; no document parser or Office program is needed."""
+    header = bytearray(512)
+    header[:8] = bytes.fromhex("d0cf11e0a1b11ae1")
+    struct.pack_into("<HHHH", header, 24, 0x3e, 3, 0xfffe, 9)
+    struct.pack_into("<III", header, 40, 0, 1, 1)
+    struct.pack_into("<II", header, 68, 0xfffffffe, 0)
+    struct.pack_into("<109I", header, 76, 0, *([0xffffffff] * 108))
+    fat = struct.pack("<128I", 0xfffffffd, 0xfffffffe, *([0xffffffff] * 126))
+    directory = bytearray(512)
+    for i, name in enumerate(["Root Entry", *names]):
+        encoded = (name + "\0").encode("utf-16-le")
+        directory[i*128:i*128+len(encoded)] = encoded
+        struct.pack_into("<HBBIII", directory, i*128+64, len(encoded), 5 if i == 0 else 1 if nested and i == 1 else 2, 1,
+                         0xffffffff, i+1 if i and i < len(names) and not nested else 0xffffffff,
+                         1 if i == 0 else 2 if nested and i == 1 else 0xffffffff)
+    return header + fat + directory
+
+
+@pytest.mark.parametrize("names,nested", [(["PowerPoint Document"], False), (["EncryptionInfo", "EncryptedPackage"], False), (["WordDocument"], False), (["Embedded", "WordDocument", "0Table"], True)])
+def test_unrelated_or_encrypted_compound_containers_are_rejected(names, nested):
+    data = compound_directory(names, nested=nested)
+    for family in ("writer", "calc"):
+        with pytest.raises(office.OfficeError, match="OFFICE_INPUT_INVALID"):
+            office._validate_legacy(bytes(data), family)
+
+
+@pytest.mark.parametrize("offset,packed", [(28, b"xx"), (44, struct.pack("<I", 9999)), (48, struct.pack("<I", 9999)),
+                                          (512+4, struct.pack("<I", 1)), (1024+76, struct.pack("<I", 9999)),
+                                          (1024+128+72, struct.pack("<I", 1)), (1024+128+64, b"\x41\x00")])
+def test_malformed_compound_allocation_and_directory_are_bounded(offset, packed):
+    data = compound_directory(["WordDocument", "0Table"])
+    data[offset:offset+len(packed)] = packed
+    with pytest.raises(office.OfficeError, match="OFFICE_INPUT_INVALID"):
+        office._validate_legacy(bytes(data), "writer")

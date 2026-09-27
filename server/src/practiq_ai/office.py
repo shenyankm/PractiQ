@@ -8,6 +8,7 @@ import os
 import shutil
 import signal
 import stat
+import struct
 import subprocess
 import sys
 import threading
@@ -271,6 +272,82 @@ def detect(preferred: str | None = None) -> dict[str, Any]:
     return best
 
 
+def _validate_legacy(data: bytes, family: str) -> None:
+    """Check bounded CFB directory metadata, not document content or embedded OLE objects."""
+    try:
+        if len(data) < 512 or data[:8] != bytes.fromhex("d0cf11e0a1b11ae1"):
+            raise ValueError("Not a compound file")
+        version, order, shift = struct.unpack_from("<HHH", data, 26)
+        if (version, shift) not in ((3, 9), (4, 12)) or order != 0xfffe:
+            raise ValueError("Invalid sector format")
+        size = 1 << shift
+        sectors = len(data) // size - 1
+        if len(data) % size or sectors < 1:
+            raise ValueError("Truncated compound file")
+
+        def sector(index: int) -> bytes:
+            if not 0 <= index < sectors:
+                raise ValueError("Sector outside input")
+            return data[(index + 1) * size:(index + 2) * size]
+
+        fat_count, directory_start = struct.unpack_from("<II", data, 44)
+        difat_start, difat_count = struct.unpack_from("<II", data, 68)
+        if not 0 < fat_count <= sectors or difat_count > sectors:
+            raise ValueError("Invalid allocation count")
+        fat_sectors = [s for s in struct.unpack_from("<109I", data, 76) if s != 0xffffffff]
+        seen = set()
+        for _ in range(difat_count):
+            if difat_start in seen:
+                raise ValueError("Cyclic DIFAT")
+            seen.add(difat_start)
+            values = struct.unpack(f"<{size // 4}I", sector(difat_start))
+            fat_sectors.extend(s for s in values[:-1] if s != 0xffffffff)
+            if len(fat_sectors) > fat_count:
+                raise ValueError("Oversized DIFAT")
+            difat_start = values[-1]
+        if len(fat_sectors) != fat_count or len(set(fat_sectors)) != fat_count:
+            raise ValueError("Invalid FAT")
+        fat = b"".join(sector(index) for index in fat_sectors)
+        directory = bytearray()
+        seen.clear()
+        while directory_start != 0xfffffffe:
+            if directory_start in seen or directory_start >= len(fat) // 4:
+                raise ValueError("Invalid directory chain")
+            seen.add(directory_start)
+            directory.extend(sector(directory_start))
+            directory_start = struct.unpack_from("<I", fat, directory_start * 4)[0]
+        if len(directory) < 128 or directory[66] != 5:
+            raise ValueError("Missing root storage")
+
+        # Only root children identify the document; embedded Word/Excel streams do not.
+        pending = [struct.unpack_from("<I", directory, 76)[0]]
+        names: dict[str, int] = {}
+        seen.clear()
+        while pending:
+            index = pending.pop()
+            if index == 0xffffffff:
+                continue
+            if index in seen or index >= len(directory) // 128:
+                raise ValueError("Invalid directory tree")
+            seen.add(index)
+            entry = directory[index * 128:(index + 1) * 128]
+            length = struct.unpack_from("<H", entry, 64)[0]
+            if not 2 <= length <= 64 or length % 2 or entry[length-2:length] != b"\0\0" or entry[66] not in (1, 2):
+                raise ValueError("Invalid directory entry")
+            name = entry[:length-2].decode("utf-16-le").casefold()
+            if not name or "\0" in name or name in names:
+                raise ValueError("Invalid stream name")
+            names[name] = entry[66]
+            pending.extend(struct.unpack_from("<II", entry, 68))
+        streams = {name for name, kind in names.items() if kind == 2}
+        required = ({"worddocument"} <= streams and bool({"0table", "1table"} & streams)
+                    if family == "writer" else bool({"workbook", "book"} & streams))
+        if not required or {"encryptioninfo", "encryptedpackage"} & streams:
+            raise ValueError("Wrong or encrypted document family")
+    except (ValueError, struct.error) as exc:
+        raise OfficeError("OFFICE_INPUT_INVALID") from exc
+
+
 def convert(engine: str, source: Path, output: Path, mode: str) -> list[dict[str, Any]]:
     family = FORMATS.get(source.suffix.lower())
     if family is None or mode not in ("pdf", "text"):
@@ -279,8 +356,7 @@ def convert(engine: str, source: Path, output: Path, mode: str) -> list[dict[str
         raise OfficeError("OFFICE_INPUT_INVALID")
     data = _read_file(source, FILE_LIMIT)
     if source.suffix.lower() in (".doc", ".xls"):
-        if not data.startswith(bytes.fromhex("d0cf11e0a1b11ae1")):
-            raise OfficeError("OFFICE_INPUT_INVALID")
+        _validate_legacy(data, family)
     else:
         try:
             with zipfile.ZipFile(io.BytesIO(data)) as archive:
