@@ -962,6 +962,7 @@ fn ai_import_receipts_deduplicate_versions_and_survive_backup_without_work_manif
     for i in 0..zip.len() {
         assert!(!zip.by_index(i).unwrap().name().starts_with("ai/"));
     }
+    drop(db);
     s.restore(&archive).unwrap();
     assert_eq!(
         s.import_pending(&pending, None, "after restore").unwrap()["bankId"],
