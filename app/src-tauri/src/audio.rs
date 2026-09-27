@@ -14,7 +14,10 @@ fn err(e: impl std::fmt::Display) -> crate::AppError {
 /// Probe and decode bounded input; filenames and supplied MIME types are untrusted.
 pub fn audio_info(bytes: &[u8]) -> Result<(String, f64)> {
     use symphonia::core::{
-        codecs::audio::{well_known::CODEC_ID_MP3, AudioDecoderOptions},
+        codecs::audio::{
+            well_known::{CODEC_ID_AAC, CODEC_ID_MP3},
+            AudioDecoderOptions,
+        },
         formats::{probe::Hint, FormatOptions, TrackType},
         io::{MediaSourceStream, MediaSourceStreamOptions},
         meta::MetadataOptions,
@@ -48,7 +51,7 @@ pub fn audio_info(bytes: &[u8]) -> Result<(String, f64)> {
         "audio/mp4"
     } else if parameters.codec == CODEC_ID_MP3 {
         "audio/mpeg"
-    } else if bytes.len() >= 2 && bytes[0] == 0xff && bytes[1] & 0xf6 == 0xf0 {
+    } else if parameters.codec == CODEC_ID_AAC {
         "audio/aac"
     } else {
         return Err("Use MP3, M4A/AAC or WAV audio".into());
@@ -582,6 +585,16 @@ mod tests {
             assert!(!valid_media(bytes, "audio/wav"));
             assert!(audio_info(&bytes[..16]).is_err());
         }
+    }
+    #[test]
+    fn audio_probe_accepts_id3_prefixed_aac() {
+        // Empty ID3v2.4 tag followed by the existing ADTS fixture.
+        let mut bytes = b"ID3\x04\x00\x00\x00\x00\x00\x00".to_vec();
+        bytes.extend_from_slice(include_bytes!("../../fixtures/resources/audio/chimes.aac"));
+        let (media, duration) = audio_info(&bytes).unwrap();
+        assert_eq!(media, "audio/aac");
+        assert!((2.9..3.3).contains(&duration), "{duration}");
+        assert!(valid_media(&bytes, "audio/aac"));
     }
     #[test]
     fn audio_selection_is_staged_and_checks_real_format() {
