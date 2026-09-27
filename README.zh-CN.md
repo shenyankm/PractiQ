@@ -136,7 +136,7 @@ npm run tauri -- build
 
 构建产物位于 `app/src-tauri/target/release/bundle`：macOS 为 `.app`/`.dmg`，Windows 为 NSIS `.exe`，Linux 为 `.deb`。CI 使用模拟模型响应和真实 PDF 渲染检查各平台打包后的 Python 服务，不代表已验证安装包签名或桌面音频播放。
 
-练习数据保存在本机，API Key 分别存入 macOS 钥匙串、Windows 凭据管理器或 Linux Secret Service。备份不含密钥或 AI 任务状态。
+练习数据保存在本机，API Key 分别存入 macOS 钥匙串、Windows 凭据管理器或 Linux Secret Service。备份不含密钥或 AI 任务状态。Windows API Key 须符合凭据存储的 UTF-16 编码 2,560 字节上限（即 1,280 个 ASCII 字符）；超长密钥会在保存或测试连接前被拒绝。
 
 ## ⚙️ 独立运行 AI 服务
 

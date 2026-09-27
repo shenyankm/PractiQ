@@ -136,7 +136,7 @@ npm run tauri -- build
 
 Packages are written under `app/src-tauri/target/release/bundle`: `.app`/`.dmg` on macOS, NSIS `.exe` on Windows, and `.deb` on Linux. CI checks each packaged Python service using synthetic model responses and real PDF rendering; it does not certify installer signing or interactive playback.
 
-The app stores practice data locally and API keys in macOS Keychain, Windows Credential Manager, or Linux Secret Service. Backups exclude keys and AI task state.
+The app stores practice data locally and API keys in macOS Keychain, Windows Credential Manager, or Linux Secret Service. Backups exclude keys and AI task state. Windows API keys must fit the credential store’s 2,560-byte UTF-16 limit (1,280 ASCII characters); longer keys are rejected before saving or testing the connection.
 
 ## ⚙️ Run the AI service independently
 

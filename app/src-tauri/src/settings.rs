@@ -73,6 +73,16 @@ impl ConnectionSettings {
         Ok(self)
     }
 }
+fn validate_api_key(key: &str) -> Result<()> {
+    // keyring stores Windows passwords as UTF-16 in a 2,560-byte credential blob.
+    if key.len() > 8192
+        || key.chars().any(char::is_control)
+        || (cfg!(target_os = "windows") && key.encode_utf16().count() * 2 > 2560)
+    {
+        return Err(crate::language::error("LOCAL_API_KEY_INVALID", json!({})));
+    }
+    Ok(())
+}
 fn secret(entry: &Entry) -> Result<Option<String>> {
     match entry.get_password() {
         Ok(s) => Ok(Some(s)),
@@ -204,9 +214,7 @@ impl Store {
             Some(key) if !key.trim().is_empty() => key.trim().to_owned(),
             _ => self.model_secret(service, config.base_url.as_deref().unwrap_or_default())?,
         };
-        if key.len() > 8192 || key.chars().any(char::is_control) {
-            return Err(crate::language::error("LOCAL_API_KEY_INVALID", json!({})));
-        }
+        validate_api_key(&key)?;
         Ok((config, key))
     }
     pub fn model_secret(&self, service: &str, base: &str) -> Result<String> {
@@ -238,14 +246,8 @@ impl Store {
         api_key: Option<String>,
     ) -> Result<Value> {
         let config = config.validate()?;
-        if api_key
-            .as_ref()
-            .is_some_and(|s| s.len() > 8192 || s.chars().any(char::is_control))
-        {
-            return Err(crate::language::error(
-                "LOCAL_API_KEY_INVALID",
-                serde_json::json!({}),
-            ));
+        if let Some(key) = &api_key {
+            validate_api_key(key)?;
         }
         if api_key.as_ref().is_some_and(|s| !s.trim().is_empty()) && config.base_url.is_none() {
             return Err(crate::language::error(
@@ -290,6 +292,50 @@ impl Store {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn api_key_validation_matches_native_storage_limits() {
+        for key in ["x".repeat(8193), "key\nvalue".into()] {
+            assert_eq!(
+                validate_api_key(&key).unwrap_err().code,
+                "LOCAL_API_KEY_INVALID"
+            );
+        }
+        for character in ["x", "中", "😀"] {
+            let boundary = character.repeat(1280 / character.encode_utf16().count());
+            assert!(validate_api_key(&boundary).is_ok());
+            assert_eq!(
+                validate_api_key(&(boundary + character)).is_err(),
+                cfg!(target_os = "windows")
+            );
+        }
+    }
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn oversized_windows_keys_are_rejected_before_saving_or_testing() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path().to_owned()).unwrap();
+        let config = ConnectionSettings {
+            base_url: Some("https://example.com/v1".into()),
+            model_id: Some("test".into()),
+        };
+        let key = Some("x".repeat(1281));
+        assert_eq!(
+            store
+                .save_settings("test", config.clone(), key.clone())
+                .unwrap_err()
+                .code,
+            "LOCAL_API_KEY_INVALID"
+        );
+        assert_eq!(
+            store
+                .connection_test_input("test", config, key)
+                .err()
+                .unwrap()
+                .code,
+            "LOCAL_API_KEY_INVALID"
+        );
+        assert!(store.connection_settings().unwrap().base_url.is_none());
+    }
     #[test]
     fn settings_read_waits_for_restore_to_release_the_store() {
         use std::sync::{mpsc, Arc, Mutex};
