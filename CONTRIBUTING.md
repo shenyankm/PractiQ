@@ -39,11 +39,11 @@ Run `make test-e2e AI_PYTHON=/path/to/python3.14` for the service HTTP workflows
 
 Coverage includes Python subprocesses. `make verify` erases previous coverage data and combines the current run before generating reports, including when tests fail. For manual coverage runs, run `coverage combine` before `coverage report`.
 
-`make app-check` checks shared Python/Rust contracts, TypeScript, frontend interactions, native integration tests, and Clippy across all targets, including test code. `make app-package-check` builds the macOS package and runs `app/scripts/check-bundle.py` against its bundled service. Use isolated application data for native UI acceptance.
+`make app-check` checks shared Python/Rust contracts, TypeScript, frontend interactions, native integration tests, and Clippy across all targets, including test code. `make app-package-check` builds the native macOS or Linux package and runs `app/scripts/check-bundle.py` against its bundled service. Use isolated application data for native UI acceptance.
 
 Run `npm --prefix app run test:browser` for bilingual navigation, import entry points, focus and layout checks in Chromium. The script starts Vite on an available loopback port, so it can run alongside `make app-dev`. Native commands are mocked; it does not call models or exercise native file pickers.
 
-The Keychain round-trip test uses and removes its own temporary credential. Run it explicitly on macOS:
+The native credential-store round-trip test uses and removes its own temporary credential. Run it explicitly on the target OS (Linux requires an unlocked Secret Service session):
 
 ```sh
 cargo test --manifest-path app/src-tauri/Cargo.toml \
@@ -56,7 +56,7 @@ Never put API keys in SQLite, logs, fixtures, or backups.
 
 Continuous integration (CI) runs service verification, dependency auditing, and image builds. It retains available service check reports from `server/reports/checks/` for 14 days, including after failures.
 
-Desktop CI covers Windows source and contract checks, frontend builds and tests, Rust formatting, and Clippy. macOS also runs native storage and backup tests, builds the Python bundle, and checks the application package. These checks do not establish Windows runtime support or a signed macOS release.
+Desktop CI covers macOS, Windows and Linux source and contract checks, frontend builds and tests, Rust formatting, native storage and backup tests, and Clippy. Each platform builds its native Python bundle and checks the packaged service. Windows and Linux also exercise their native credential stores. Windows produces an NSIS installer; Linux produces a Debian package on Ubuntu 22.04. Interactive desktop acceptance, audio playback and release signing remain separate checks.
 
 Source checks override the Tauri resource list so a clean checkout needs no prebuilt Python bundle. Package builds require the bundle. Make resolves `AI_PYTHON` names through `PATH` before invoking uv, so CI can select its interpreter with `AI_PYTHON=python`.
 

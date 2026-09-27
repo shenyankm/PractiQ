@@ -147,7 +147,7 @@ export function ConnectionSettingsPanel({
               <Button type="button" variant="outline" disabled={reading} onClick={() => load()}>{t("重试")}</Button>
             </div>
           )}
-          {waiting && <p role="status" className="text-sm text-muted-foreground">{t("正在等待 macOS 钥匙串授权；可继续离线练习，请勿重复请求。")}</p>}
+          {waiting && <p role="status" className="text-sm text-muted-foreground">{t("正在等待系统凭据存储授权；可继续离线练习，请勿重复请求。")}</p>}
           <p className="text-sm text-muted-foreground">{t("编辑不会影响当前任务。保存并应用会更新后续模型操作；请先暂停或等待正在解析的任务完成。")}</p>
           <fieldset disabled={busy || operation !== null || !saved} className="min-w-0 space-y-4">
             <div className="space-y-2">

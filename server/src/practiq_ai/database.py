@@ -1,7 +1,7 @@
 """Local SQLite task records, with separate LangGraph checkpoint and Store files."""
 
 import asyncio
-import fcntl
+import errno
 import json
 import os
 import sqlite3
@@ -67,7 +67,18 @@ class Ownership:
         self.path = path
         self.file = path.open('a+b')
         try:
-            fcntl.flock(self.file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            if os.name == 'nt':
+                import msvcrt
+                self.file.seek(0)
+                try:
+                    msvcrt.locking(self.file.fileno(), msvcrt.LK_NBLCK, 1)
+                except OSError as exc:
+                    if exc.errno in {errno.EACCES, errno.EDEADLK}:
+                        raise BlockingIOError('Database is locked') from exc
+                    raise
+            else:
+                import fcntl
+                fcntl.flock(self.file, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BaseException:
             self.file.close()
             raise

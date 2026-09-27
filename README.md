@@ -4,9 +4,9 @@
 
 # PractiQ
 
-English | [Simplified Chinese](README.zh-CN.md)
+English | [简体中文](README.zh-CN.md)
 
-Turn documents into question banks, then practise and take mock exams on your Mac.
+Turn documents into question banks, then practise and take mock exams on your desktop.
 
 PractiQ combines an offline desktop practice app with a self-hosted AI service. Import an existing PractiQ bank ZIP without model access, or configure a model supporting text and image inputs to extract questions from documents. Build tests across question banks, review your answers, and request AI scoring for supported short-answer questions.
 
@@ -97,7 +97,11 @@ AI scoring supports personal practice. It is not calibrated for formal examinati
 
 ## Run the desktop app
 
-The current desktop target is Apple Silicon on macOS 14 or later. Development requires Node.js 22.12+, Rust, Xcode, uv, and an existing Python 3.14+ interpreter. Do not create a project `.venv`. Run these commands from the repository root, replacing the Python path with your interpreter:
+Desktop build targets are macOS 14+ (Apple Silicon), Windows 10/11 (x64), and Ubuntu 22.04+ (x64, `.deb`). macOS has been validated locally; Windows and Linux builds and bundled-service checks are configured in CI, with interactive desktop acceptance still required on those systems.
+
+Development requires Node.js 22.12+, Rust, uv, and an existing Python 3.14+ interpreter. Install the [Tauri platform prerequisites](https://v2.tauri.app/start/prerequisites/): Xcode on macOS, MSVC build tools and WebView2 on Windows, or WebKitGTK 4.1, `libdbus-1-dev`, and build libraries on Linux. Linux also needs an unlocked Secret Service provider (such as GNOME Keyring) for API keys, and GStreamer audio plugins for listening playback. Do not create a project `.venv`. Build on the target OS; packages include its native Python service.
+
+On macOS or Linux, run these commands from the repository root, replacing the Python path with your interpreter:
 
 ```sh
 make install-locked app-install-python AI_PYTHON=/path/to/python3.14
@@ -116,7 +120,23 @@ To build a local application package, run:
 make app-build AI_PYTHON=/path/to/python3.14
 ```
 
-The app stores practice data locally and API keys in macOS Keychain. Backups exclude keys and AI task state. Windows CI checks do not establish Windows runtime support.
+On Windows, use PowerShell from the repository root:
+
+```powershell
+uv export --project server --locked --extra dev --extra desktop --no-emit-project -o "$env:TEMP/practiq-requirements.txt"
+uv pip install --python (Get-Command python).Source -r "$env:TEMP/practiq-requirements.txt"
+uv pip install --python (Get-Command python).Source --no-deps -e server
+python app/scripts/bundle-python.py
+cd app
+npm ci
+npm run desktop
+# To build the Windows installer:
+npm run tauri -- build
+```
+
+Packages are written under `app/src-tauri/target/release/bundle`: `.app`/`.dmg` on macOS, NSIS `.exe` on Windows, and `.deb` on Linux. CI checks each packaged Python service using synthetic model responses and real PDF rendering; it does not certify installer signing or interactive playback.
+
+The app stores practice data locally and API keys in macOS Keychain, Windows Credential Manager, or Linux Secret Service. Backups exclude keys and AI task state.
 
 ## ⚙️ Run the AI service independently
 

@@ -6,66 +6,78 @@ use crate::{
 use rusqlite::{params, OptionalExtension};
 use serde::Deserialize;
 use serde_json::{json, Value};
-use std::{io::Write, path::Path};
+use std::{io::Cursor, path::Path};
 fn err(e: impl std::fmt::Display) -> crate::AppError {
     e.to_string().into()
 }
 
-/// Use the target platform's audio reader, instead of trusting a filename or MIME hint.
+/// Probe and decode bounded input; filenames and supplied MIME types are untrusted.
 pub fn audio_info(bytes: &[u8]) -> Result<(String, f64)> {
+    use symphonia::core::{
+        codecs::audio::{well_known::CODEC_ID_MP3, AudioDecoderOptions},
+        formats::{probe::Hint, FormatOptions, TrackType},
+        io::{MediaSourceStream, MediaSourceStreamOptions},
+        meta::MetadataOptions,
+    };
     if bytes.is_empty() || bytes.len() > crate::assets::LIMIT {
         return Err("Invalid audio size".into());
     }
-    if !cfg!(target_os = "macos") {
-        return Err("Listening audio requires macOS".into());
-    }
-    let mut file = tempfile::NamedTempFile::new().map_err(err)?;
-    file.write_all(bytes).map_err(err)?;
-    let output = tempfile::NamedTempFile::new().map_err(err)?;
-    let mut child = std::process::Command::new("/usr/bin/afinfo")
-        .arg(file.path())
-        .stdout(output.reopen().map_err(err)?)
-        .stderr(std::process::Stdio::null())
-        .spawn()
+    let source = MediaSourceStream::new(
+        Box::new(Cursor::new(bytes.to_vec())),
+        MediaSourceStreamOptions::default(),
+    );
+    let mut format = symphonia::default::get_probe()
+        .probe(
+            &Hint::new(),
+            source,
+            FormatOptions::default(),
+            MetadataOptions::default(),
+        )
+        .map_err(err)?;
+    let track = format
+        .default_track(TrackType::Audio)
+        .ok_or("Empty audio stream")?;
+    let parameters = track
+        .codec_params
+        .as_ref()
+        .and_then(|p| p.audio())
+        .ok_or("Missing audio parameters")?;
+    let media = if bytes.starts_with(b"RIFF") && bytes.get(8..12) == Some(b"WAVE") {
+        "audio/wav"
+    } else if bytes.get(4..8) == Some(b"ftyp") {
+        "audio/mp4"
+    } else if parameters.codec == CODEC_ID_MP3 {
+        "audio/mpeg"
+    } else if bytes.len() >= 2 && bytes[0] == 0xff && bytes[1] & 0xf6 == 0xf0 {
+        "audio/aac"
+    } else {
+        return Err("Use MP3, M4A/AAC or WAV audio".into());
+    };
+    let id = track.id;
+    let mut decoder = symphonia::default::get_codecs()
+        .make_audio_decoder(parameters, &AudioDecoderOptions::default())
         .map_err(err)?;
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    let mut duration = 0.0;
     loop {
-        if let Some(status) = child.try_wait().map_err(err)? {
-            if !status.success() {
-                return Err("Unsupported or damaged audio".into());
-            }
-            break;
-        }
         if std::time::Instant::now() >= deadline {
-            let _ = child.kill();
-            let _ = child.wait();
             return Err("Audio validation timed out".into());
         }
-        std::thread::sleep(std::time::Duration::from_millis(10));
+        let packet = match format.next_packet() {
+            Ok(Some(packet)) => packet,
+            Ok(None) => break,
+            Err(e) => return Err(err(e)),
+        };
+        if packet.track_id != id {
+            continue;
+        }
+        let decoded = decoder.decode(&packet).map_err(err)?;
+        duration += decoded.frames() as f64 / decoded.spec().rate() as f64;
+        if !duration.is_finite() || duration > 86400.0 {
+            return Err("Invalid audio duration".into());
+        }
     }
-    let data = String::from_utf8(read_bounded(output.path(), 16 * 1024)?).map_err(err)?;
-    let field = |key: &str| {
-        data.lines()
-            .find_map(|line| line.strip_prefix(key))
-            .map(str::trim)
-            .unwrap_or("")
-    };
-    let media = match field("File type ID:") {
-        "WAVE" => "audio/wav",
-        "MPG3" => "audio/mpeg",
-        "m4af" | "mp4f" => "audio/mp4",
-        "adts" => "audio/aac",
-        _ => return Err("Use MP3, M4A/AAC or WAV audio".into()),
-    };
-    let duration = field("estimated duration:")
-        .split_whitespace()
-        .next()
-        .and_then(|v| v.parse::<f64>().ok())
-        .filter(|v| v.is_finite() && *v > 0.0 && *v <= 86400.0)
-        .ok_or("Invalid audio duration")?;
-    if field("audio packets:").parse::<u64>().unwrap_or(0) == 0
-        || field("audio bytes:").parse::<u64>().unwrap_or(0) == 0
-    {
+    if duration <= 0.0 {
         return Err("Empty audio stream".into());
     }
     Ok((media.into(), duration))
@@ -336,7 +348,7 @@ fn strip_answers(q: &mut Value) {
     }
 }
 
-#[cfg(all(test, target_os = "macos"))]
+#[cfg(test)]
 mod tests {
     use super::*;
     fn english() -> (tempfile::TempDir, Store, String) {
@@ -549,6 +561,27 @@ mod tests {
         store.delete_question(root).unwrap();
         assert!(!store.asset_path(digest).unwrap().exists());
         assert!(store.asset_bytes(digest).unwrap().is_none());
+    }
+    #[test]
+    fn audio_probe_decodes_aac_containers_without_platform_tools() {
+        // Fixtures: afconvert chimes.wav chimes.{m4a,aac} -f {m4af,adts} -d aac.
+        for (bytes, expected) in [
+            (
+                include_bytes!("../../fixtures/resources/audio/chimes.m4a").as_slice(),
+                "audio/mp4",
+            ),
+            (
+                include_bytes!("../../fixtures/resources/audio/chimes.aac").as_slice(),
+                "audio/aac",
+            ),
+        ] {
+            let (media, duration) =
+                audio_info(bytes).unwrap_or_else(|e| panic!("{expected}: {e:?}"));
+            assert_eq!(media, expected);
+            assert!((2.9..3.3).contains(&duration), "{duration}");
+            assert!(!valid_media(bytes, "audio/wav"));
+            assert!(audio_info(&bytes[..16]).is_err());
+        }
     }
     #[test]
     fn audio_selection_is_staged_and_checks_real_format() {

@@ -464,20 +464,20 @@
     "en": "Invalid model ID"
   },
   "LOCAL_KEYCHAIN_READ": {
-    "zh-CN": "无法读取 macOS 钥匙串，请检查钥匙串是否已解锁",
-    "en": "Cannot read macOS Keychain. Check that it is unlocked."
+    "zh-CN": "无法读取系统凭据存储，请检查系统凭据存储是否已解锁",
+    "en": "Cannot read the system credential store. Check that it is unlocked."
   },
   "LOCAL_KEYCHAIN_WRITE": {
-    "zh-CN": "无法写入 macOS 钥匙串；API Key 未保存",
-    "en": "Cannot write to macOS Keychain. The API key was not saved."
+    "zh-CN": "无法写入系统凭据存储；API Key 未保存",
+    "en": "Cannot write to the system credential store. The API key was not saved."
   },
   "LOCAL_KEYCHAIN_DELETE": {
-    "zh-CN": "无法移除钥匙串中的 API Key",
-    "en": "Cannot remove the API key from Keychain"
+    "zh-CN": "无法移除系统凭据存储中的 API Key",
+    "en": "Cannot remove the API key from the credential store"
   },
   "LOCAL_KEYCHAIN_INIT": {
-    "zh-CN": "无法初始化 macOS 钥匙串",
-    "en": "Cannot initialize macOS Keychain"
+    "zh-CN": "无法初始化系统凭据存储",
+    "en": "Cannot initialize the system credential store"
   },
   "LOCAL_API_KEY_REQUIRED": {
     "zh-CN": "请先在设置中保存 API Key",
@@ -492,8 +492,8 @@
     "en": "Enter a Base URL before saving an API key"
   },
   "LOCAL_KEYCHAIN_ROLLBACK": {
-    "zh-CN": "设置保存失败，钥匙串回滚失败；请重新设置 API Key",
-    "en": "Settings could not be saved and Keychain rollback failed. Set the API key again."
+    "zh-CN": "设置保存失败，系统凭据存储回滚失败；请重新设置 API Key",
+    "en": "Settings could not be saved and credential store rollback failed. Set the API key again."
   },
   "LOCAL_FILTER_INVALID": {
     "zh-CN": "筛选条件不合法",

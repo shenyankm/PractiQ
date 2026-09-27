@@ -37,7 +37,7 @@ export function ImportPage({ busy, run, onPreview, onConfigure, onOpenBank, onOp
           <Button variant="link" className="h-auto whitespace-normal px-0 text-left" onClick={onOpenZipSettings}>{t("已有题库 ZIP？前往设置导入（追加，不替换学习记录）")}</Button>
         </div>
         {error ? <div role="alert" className="space-y-2"><p>{errorMessage(error)}</p><Button variant="outline" disabled={busy} onClick={() => setRevision(n => n + 1)}>{t("重试读取配置")}</Button></div>
-          : !settings ? <p role="status">{waiting ? t("读取模型配置耗时较长，可能正在等待钥匙串响应。不会重复发送请求；你仍可查看已有任务或前往设置导入 ZIP。") : t("正在读取模型配置…")}</p>
+          : !settings ? <p role="status">{waiting ? t("读取模型配置耗时较长，可能正在等待系统凭据存储响应。不会重复发送请求；你仍可查看已有任务或前往设置导入 ZIP。") : t("正在读取模型配置…")}</p>
           : !ready ? <div className="flex items-center justify-between gap-4 rounded-lg border bg-muted/30 p-4"><div><p className="font-medium">{t("解析新文档前，请配置 AI 模型")}</p><p className="mt-1 text-sm text-muted-foreground">{t("还缺：{0}", { 0: list(missing) })}</p></div><Button disabled={busy} onClick={onConfigure}>{t("配置 AI 模型")}</Button></div>
           : null}
   </AiTasks>;

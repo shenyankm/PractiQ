@@ -302,8 +302,7 @@ impl Store {
         if output.as_file().metadata().map_err(error)?.len() > ZIP_LIMIT {
             return Err(error("ZIP exceeds 300 MiB"));
         }
-        output.as_file().sync_all().map_err(error)?;
-        output.persist_noclobber(destination).map_err(error)?;
+        crate::filesystem::persist(output, destination, false).map_err(error)?;
         Ok(json!({"path":destination.display().to_string()}))
     }
 }
@@ -445,7 +444,6 @@ mod tests {
         assert!(!dir.path().join("missing.zip").exists());
         assert_eq!(fs::read(path).unwrap(), before);
     }
-    #[cfg(target_os = "macos")]
     #[test]
     fn bundled_example_covers_all_types_and_imports_resources() {
         let dir = tempfile::tempdir().unwrap();
@@ -523,7 +521,6 @@ mod tests {
         }
         assert_eq!(s.banks().unwrap().as_array().unwrap().len(), 2);
     }
-    #[cfg(target_os = "macos")]
     #[test]
     fn zip_rejects_audio_segments_outside_file_duration() {
         let dir = tempfile::tempdir().unwrap();

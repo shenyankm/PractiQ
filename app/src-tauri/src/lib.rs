@@ -6,6 +6,7 @@ mod backup;
 mod bank_zip;
 mod contract;
 mod exams;
+mod filesystem;
 mod language;
 mod paper;
 #[cfg(test)]

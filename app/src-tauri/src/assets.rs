@@ -128,15 +128,7 @@ impl Store {
         )?)
         .map_err(err)?;
         file.write_all(bytes).map_err(err)?;
-        file.as_file().sync_all().map_err(err)?;
-        file.persist_noclobber(&path).map_err(err)?;
-        fs::File::open(path.parent().ok_or(crate::language::error(
-            "LOCAL_ASSET_DIRECTORY_INVALID",
-            serde_json::json!({}),
-        ))?)
-        .map_err(err)?
-        .sync_all()
-        .map_err(err)?;
+        crate::filesystem::persist(file, &path, false).map_err(err)?;
         Ok(())
     }
     pub fn read_asset(&self, digest: &str, size: u64) -> Result<Vec<u8>> {

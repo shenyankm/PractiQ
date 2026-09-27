@@ -98,12 +98,7 @@ fn save<T: Serialize>(dir: &Path, kind: &str, id: &str, value: &T) -> Result<()>
     let mut file = tempfile::NamedTempFile::new_in(parent).map_err(err)?;
     file.write_all(&serde_json::to_vec(value).map_err(err)?)
         .map_err(err)?;
-    file.as_file().sync_all().map_err(err)?;
-    file.persist(&path).map_err(err)?;
-    fs::File::open(parent)
-        .map_err(err)?
-        .sync_all()
-        .map_err(err)?;
+    crate::filesystem::persist(file, &path, true).map_err(err)?;
     Ok(())
 }
 fn read<T: DeserializeOwned>(dir: &Path, kind: &str, id: &str) -> Result<T> {

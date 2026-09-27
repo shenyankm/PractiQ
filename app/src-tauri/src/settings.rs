@@ -484,10 +484,16 @@ mod tests {
         );
     }
     #[test]
-    #[cfg(target_os = "macos")]
-    #[ignore = "uses an isolated native macOS Keychain entry; run explicitly on macOS"]
+    #[ignore = "uses an isolated native credential entry; run explicitly on the target OS"]
     fn native_keychain_roundtrip() {
+        #[cfg(target_os = "macos")]
         keyring::set_default_credential_builder(keyring::macos::default_credential_builder());
+        #[cfg(target_os = "windows")]
+        keyring::set_default_credential_builder(keyring::windows::default_credential_builder());
+        #[cfg(target_os = "linux")]
+        keyring::set_default_credential_builder(
+            keyring::secret_service::default_credential_builder(),
+        );
         let entry = entry(
             &format!("com.practiq.test.{}", crate::store::id()),
             "https://example.com/v1",

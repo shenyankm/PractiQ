@@ -2,7 +2,8 @@
 import argparse
 import hashlib
 import json
-import selectors
+import os
+import queue
 import socket
 import subprocess
 import sys
@@ -34,7 +35,7 @@ def run(bundle,output):
     report={'bundle':str(bundle),'model':'synthetic-local-stub','checks':[],'passed':False}
     output.parent.mkdir(parents=True,exist_ok=True)
     assert not (bundle/'LibreOffice.app').exists(), 'Retired office suite was bundled'
-    manifest=json.loads((bundle/'build-manifest.json').read_text())
+    manifest=json.loads((bundle/'build-manifest.json').read_text(encoding='utf-8'))
     assert 'libreoffice' not in manifest
     assert 'python-docx' not in {p['name'].lower() for p in manifest['packages']}
     with tempfile.TemporaryDirectory(prefix='practiq-bundle-test-') as tmp:
@@ -49,14 +50,16 @@ def run(bundle,output):
                 def start_service(settings):
                     nonlocal process
                     # An unreachable proxy catches accidental routing of local model calls.
-                    process=subprocess.Popen([str(bundle/'python/practiq-ai'),'serve'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=log,
-                        cwd=root,env={'PATH':'/usr/bin:/bin','HOME':str(root),'TMPDIR':tmp,'LANG':'en_US.UTF-8',
+                    process=subprocess.Popen([str(bundle/'python'/('practiq-ai.exe' if sys.platform == 'win32' else 'practiq-ai')),'serve'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=log,
+                        cwd=root,env={**{key:value for key,value in os.environ.items() if key.upper() in {'SYSTEMROOT', 'WINDIR'}},
+                                      'PATH':'','HOME':str(root),'TMPDIR':tmp,'TEMP':tmp,'TMP':tmp,'LANG':'en_US.UTF-8',
                                       'ALL_PROXY':'http://127.0.0.1:9','NO_PROXY':''},text=True)
                     process.stdin.write(json.dumps(settings)+'\n');process.stdin.flush()
-                    with selectors.DefaultSelector() as selector:
-                        selector.register(process.stdout,selectors.EVENT_READ)
-                        if not selector.select(60):raise RuntimeError('Bundled startup timed out')
-                    line=process.stdout.readline()
+                    lines=queue.Queue()
+                    stream=process.stdout
+                    threading.Thread(target=lambda:lines.put(stream.readline()),daemon=True).start()
+                    try:line=lines.get(timeout=60)
+                    except queue.Empty:raise RuntimeError('Bundled startup timed out') from None
                     if not line:raise RuntimeError((root/'stderr.log').read_text()[-8000:])
                     return json.loads(line)
                 ready=start_service(bootstrap)
