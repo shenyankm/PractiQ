@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 import pytest
+import yaml
 
 
 @pytest.mark.parametrize("failure", ["", "lock", "tests", "combine", "coverage", "probes"])
@@ -153,3 +154,51 @@ else:
     assert (result.returncode != 0) == failure, result.stdout + result.stderr
     if failure:
         assert "Error 7" in result.stderr
+
+
+def test_workflows_deduplicate_common_checks_without_dropping_native_gates():
+    from fnmatch import fnmatchcase
+
+    root = Path(__file__).resolve().parents[2]
+    workflows = {
+        name: yaml.load((root / f".github/workflows/{name}.yml").read_text(), Loader=yaml.BaseLoader)
+        for name in ("desktop", "server")
+    }
+    for workflow in workflows.values():
+        assert workflow["on"]["push"]["branches"] == ["main"]
+        paths = workflow["on"]["pull_request"]["paths"]
+        assert paths == workflow["on"]["push"]["paths"]
+        for unrelated in ("README.md", "docs/guide.md", ".agents/skills/example/SKILL.md"):
+            assert not any(fnmatchcase(unrelated, pattern) for pattern in paths)
+    for path in ("server/src/practiq_ai/webapp.py", "app/fixtures/english.json",
+                 "app/scripts/check-rich-recognition.py", ".dockerignore", "Dockerfile.server",
+                 ".github/workflows/desktop.yml", "Makefile"):
+        assert any(fnmatchcase(path, pattern) for pattern in workflows["server"]["on"]["push"]["paths"])
+
+    jobs = workflows["desktop"]["jobs"]
+    quality, package = jobs["quality"], jobs["package"]
+    assert quality["runs-on"].startswith("ubuntu-")
+    assert package["needs"] == "quality"
+    assert {item["platform"] for item in package["strategy"]["matrix"]["include"]} == {"Windows", "Linux", "macOS"}
+    quality_commands = "\n".join(step.get("run", "") for step in quality["steps"])
+    package_commands = "\n".join(step.get("run", "") for step in package["steps"])
+    for command in ("npm run lint", "npm run test:coverage", "npm run test:browser", "npm audit",
+                    "export-contracts.py --check", "check-fixtures.py", "cargo fmt", "make audit-rust"):
+        assert command in quality_commands
+        assert command not in package_commands
+    assert "--release --manifest-path app/src-tauri/vendor/glib/Cargo.toml" in quality_commands
+    for command in ("cargo test --locked", "cargo clippy --locked", "--all-targets -- -D warnings",
+                    "test_desktop_platforms.py", "test_office.py", "bundle-python.py", "npm run tauri -- build"):
+        assert command in package_commands
+    assert "npm run build" not in package_commands  # Tauri already invokes beforeBuildCommand.
+    for platform in ("Windows", "Linux", "macOS"):
+        commands = "\n".join(step.get("run", "") for step in package["steps"]
+                             if step.get("if") == f"runner.os == '{platform}'")
+        assert "check-bundle.py" in commands and "check-office.py" in commands
+        if platform != "macOS":
+            assert "native_keychain_roundtrip -- --ignored" in commands
+    uploads = [step for step in package["steps"] if step.get("uses", "").startswith("actions/upload-artifact@")]
+    reports, installers = uploads
+    assert reports["if"] == "${{ always() }}" and reports["with"]["retention-days"] == "7"
+    assert installers["if"] == "github.event_name != 'pull_request'"
+    assert installers["with"]["retention-days"] == "14"

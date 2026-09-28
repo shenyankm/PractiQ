@@ -1,8 +1,10 @@
 name: AI service
 on:
   pull_request:
+    paths: ['server/**', 'app/fixtures/**', 'app/scripts/check-rich-recognition.py', 'Dockerfile.server', '.dockerignore', '.env.example', 'Makefile', '.github/workflows/*.yml']
   push:
     branches: [main]
+    paths: ['server/**', 'app/fixtures/**', 'app/scripts/check-rich-recognition.py', 'Dockerfile.server', '.dockerignore', '.env.example', 'Makefile', '.github/workflows/*.yml']
   workflow_dispatch:
 permissions:
   contents: read
