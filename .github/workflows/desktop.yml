@@ -1,9 +1,10 @@
 name: Desktop
 on:
   push:
-    paths: ['app/**', 'server/**', 'Makefile', '.github/workflows/desktop.yml']
+    branches: [main]
+    paths: ['app/**', 'server/**', 'Makefile', 'rust-toolchain.toml', '.github/workflows/desktop.yml']
   pull_request:
-    paths: ['app/**', 'server/**', 'Makefile', '.github/workflows/desktop.yml']
+    paths: ['app/**', 'server/**', 'Makefile', 'rust-toolchain.toml', '.github/workflows/desktop.yml']
   workflow_dispatch:
 concurrency:
   group: desktop-${{ github.ref }}
@@ -11,7 +12,67 @@ concurrency:
 permissions:
   contents: read
 jobs:
-  desktop:
+  quality:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - name: Install pinned Rust toolchain
+        run: rustup show
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: app/src-tauri
+          key: quality
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: '0.12.13'
+          enable-cache: true
+          cache-dependency-glob: server/uv.lock
+      - name: Install locked service dependencies for contract checks
+        run: make install-locked AI_PYTHON=python
+      - run: python app/scripts/export-contracts.py --check
+      - run: python app/scripts/check-fixtures.py
+      - run: python -m pytest server/tests/test_ci.py
+      - run: npm ci
+        working-directory: app
+      - name: Check frontend types, lint and coverage
+        working-directory: app
+        run: |
+          npx tsc -b
+          npm run lint
+          npm run test:coverage
+      - run: npx playwright install --with-deps chromium --only-shell
+        working-directory: app
+      - run: npm run test:browser
+        working-directory: app
+      - run: npm audit --audit-level=high
+        working-directory: app
+      - run: cargo fmt --manifest-path app/src-tauri/Cargo.toml --check
+      - name: Install pinned Rust advisory checker
+        run: cargo install cargo-audit --locked --version 0.22.2 --registry crates-io
+      - run: make audit-rust
+      - name: Test GLib safety backport with release optimizations
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libglib2.0-dev
+          cargo test --locked --release --manifest-path app/src-tauri/vendor/glib/Cargo.toml --target-dir app/src-tauri/target/glib-backport --lib variant_iter::tests
+      - name: Upload frontend coverage
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-coverage
+          path: app/coverage/
+          retention-days: 7
+  package:
+    needs: quality
     strategy:
       fail-fast: false
       matrix:
@@ -20,6 +81,8 @@ jobs:
             platform: Windows
           - os: ubuntu-22.04
             platform: Linux
+          - os: macos-15
+            platform: macOS
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     defaults:
@@ -46,32 +109,27 @@ jobs:
           New-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts' -Name 'Noto Sans CJK SC (OpenType)' -Value 'NotoSansCJKsc-Regular.otf' -PropertyType String -Force
           Add-Type 'using System.Runtime.InteropServices; public static class CiFonts { [DllImport("gdi32.dll", CharSet=CharSet.Unicode, ExactSpelling=true)] public static extern int AddFontResourceW(string path); }'
           if ([CiFonts]::AddFontResourceW($font) -eq 0) { throw 'CJK font registration failed' }
+      - name: Install LibreOffice for macOS conversion checks
+        if: runner.os == 'macOS'
+        run: brew install --cask libreoffice
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
           cache-dependency-path: app/package-lock.json
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy, rustfmt
+      - name: Install pinned Rust toolchain
+        run: rustup show
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: app/src-tauri
-      - name: Install pinned Rust advisory checker
-        if: runner.os == 'Linux'
-        run: cargo install cargo-audit --locked --version 0.22.2 --registry crates-io
-      - name: Audit locked Rust dependencies
-        if: runner.os == 'Linux'
-        run: make audit-rust
-      - name: Test GLib safety backport with release optimizations
-        if: runner.os == 'Linux'
-        run: cargo test --locked --release --manifest-path app/src-tauri/vendor/glib/Cargo.toml --target-dir app/src-tauri/target/glib-backport --lib variant_iter::tests
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.14'
       - uses: astral-sh/setup-uv@v7
         with:
           version: '0.12.13'
+          enable-cache: true
+          cache-dependency-glob: server/uv.lock
       - name: Install locked Python runtime and bundler
         working-directory: server
         run: |
@@ -79,20 +137,9 @@ jobs:
           uv export --locked --extra dev --extra desktop --no-emit-project -o "$RUNNER_TEMP/requirements.txt"
           uv pip install --python "$desktop_python" -r "$RUNNER_TEMP/requirements.txt"
           uv pip install --python "$desktop_python" --no-deps -e .
-      - run: python app/scripts/export-contracts.py --check
-      - run: python app/scripts/check-fixtures.py
       - run: python -m pytest server/tests/test_desktop_platforms.py server/tests/test_office.py
       - run: npm ci
         working-directory: app
-      - run: npm run build
-        working-directory: app
-      - run: npm run lint
-        working-directory: app
-      - run: npm run test:coverage
-        working-directory: app
-      - run: npm audit --audit-level=high
-        working-directory: app
-      - run: cargo fmt --manifest-path app/src-tauri/Cargo.toml --check
       - name: Verify Rust flows and lint
         env:
           TAURI_CONFIG: '{"bundle":{"resources":[]}}'
@@ -133,56 +180,33 @@ jobs:
           dpkg-deb -x app/src-tauri/target/release/bundle/deb/*.deb "$RUNNER_TEMP/practiq-package"
           python app/scripts/check-bundle.py --bundle "$RUNNER_TEMP/practiq-package/usr/lib/PractiQ/bundled"
           python app/scripts/check-office.py --bundle "$RUNNER_TEMP/practiq-package/usr/lib/PractiQ/bundled"
-      - uses: actions/upload-artifact@v4
+      - name: Verify packaged macOS service
+        if: runner.os == 'macOS'
+        run: |
+          python app/scripts/check-bundle.py --bundle app/src-tauri/target/release/bundle/macos/PractiQ.app/Contents/Resources/bundled
+          python app/scripts/check-office.py --bundle app/src-tauri/target/release/bundle/macos/PractiQ.app/Contents/Resources/bundled
+      - name: Archive macOS application
+        if: runner.os == 'macOS' && github.event_name != 'pull_request'
+        run: ditto -c -k --keepParent app/src-tauri/target/release/bundle/macos/PractiQ.app app/PractiQ-macOS.zip
+      - name: Upload package verification reports
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-checks-${{ matrix.platform }}
+          path: |
+            server/reports/checks/desktop-bundle.json
+            server/reports/checks/office*
+            app/src-tauri/bundled/build-manifest.json
+          retention-days: 7
+      - name: Upload installers
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
         with:
           name: PractiQ-${{ matrix.platform }}
           path: |
             app/src-tauri/target/release/bundle/nsis/*-setup.exe
             app/src-tauri/target/release/bundle/deb/*.deb
-            server/reports/checks/desktop-bundle.json
-            server/reports/checks/office*
-            app/src-tauri/bundled/build-manifest.json
-  macos:
-    runs-on: macos-latest
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install LibreOffice for macOS conversion checks
-        run: brew install --cask libreoffice
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: npm
-          cache-dependency-path: app/package-lock.json
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy, rustfmt
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.14'
-      - uses: astral-sh/setup-uv@v7
-        with:
-          version: '0.12.13'
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: app/src-tauri
-      - run: make install-locked app-install-python AI_PYTHON=python
-      - run: make app-install
-      - run: npx playwright install chromium --only-shell
-        working-directory: app
-      - run: npm run test:browser
-        working-directory: app
-      - run: make app-check AI_PYTHON=python
-      - run: cargo fmt --manifest-path app/src-tauri/Cargo.toml --check
-      - run: make app-package-check AI_PYTHON=python
-      - run: python app/scripts/check-office.py --bundle app/src-tauri/target/release/bundle/macos/PractiQ.app/Contents/Resources/bundled
-      - run: ditto -c -k --keepParent app/src-tauri/target/release/bundle/macos/PractiQ.app app/PractiQ-macOS.zip
-      - uses: actions/upload-artifact@v4
-        with:
-          name: PractiQ-macOS
-          path: |
-            app/PractiQ-macOS.zip
             app/src-tauri/target/release/bundle/dmg/*.dmg
-            server/reports/checks/desktop-bundle.json
-            server/reports/checks/office*
-            app/src-tauri/bundled/build-manifest.json
+            app/PractiQ-macOS.zip
+          if-no-files-found: error
+          retention-days: 14
