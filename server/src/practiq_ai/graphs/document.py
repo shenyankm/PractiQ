@@ -397,8 +397,7 @@ async def _prepare(
             f"This graph accepts only: {', '.join(source_types)}",
             "DOCUMENT_SOURCE_TYPE_MISMATCH",
         )
-    if (await asyncio.to_thread(get_model)) is None:
-        raise DocumentProcessingError(409, "Configure a vision model to parse documents", "VISION_MODEL_REQUIRED")
+    await asyncio.to_thread(get_model)
     store = await asyncio.to_thread(get_object_store)
     source = await store.get_verified(reference)
     document = await extract(reference.sourceType, source)
@@ -474,7 +473,6 @@ async def _vision(
     state: VisionTask, runtime: Runtime[None]
 ) -> dict[str, list[dict[str, Any]]]:
     model = (await asyncio.to_thread(get_model))
-    assert model is not None
     store = await asyncio.to_thread(get_object_store)
     image = await store.get_verified(ArtifactReference.model_validate(state["artifact"]))
     telemetry.event("page_context", unitKey=state.get("unitKey"), primaryPage=state["index"],

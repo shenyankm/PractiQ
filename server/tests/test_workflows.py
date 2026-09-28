@@ -443,14 +443,6 @@ def test_storage_work_is_bounded_by_configuration(monkeypatch):
     assert peak == 2
 
 
-def test_missing_model_fails_before_processing(monkeypatch):
-    _, reference = source("Question")
-    monkeypatch.setattr(document, "get_model", lambda *args: None)
-    with pytest.raises(DocumentProcessingError) as error:
-        asyncio.run(local_graph().ainvoke({"document": reference}))
-    assert error.value.code == "VISION_MODEL_REQUIRED"
-
-
 def test_extractor_truncation_makes_result_partial(monkeypatch):
     fake_store, reference = source("1. Question")
     model = FakeModel(
@@ -513,26 +505,15 @@ def test_document_graph_extracts_directly_from_image_and_crops(monkeypatch):
     assert "chunk" not in fake_store.put_kinds
 
 
-@pytest.mark.parametrize(
-    ("with_visual", "with_model", "code"),
-    (
-        (True, False, "VISION_MODEL_REQUIRED"),
-        (False, True, "DOCUMENT_PROCESSING_FAILED"),
-    ),
-)
-def test_document_graph_rejects_documents_without_text(
-    monkeypatch, with_visual: bool, with_model: bool, code: str
-):
+def test_document_graph_rejects_documents_without_content(monkeypatch):
     fake_store, reference = source("")
     model = FakeModel(responses=[])
     monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
-    monkeypatch.setattr(document, "get_model", lambda *args: model if with_model else None)
+    monkeypatch.setattr(document, "get_model", lambda *args: model)
     monkeypatch.setattr(
         document,
         "extract",
-        AsyncMock(side_effect=lambda *_args: ExtractedDocument(
-            text="", page_images=[make_image()] if with_visual else []
-        )),
+        AsyncMock(return_value=ExtractedDocument(text="")),
     )
 
     with pytest.raises(DocumentProcessingError) as exc:
@@ -541,8 +522,8 @@ def test_document_graph_rejects_documents_without_text(
                 {"document": reference}, run_config()
             )
         )
-    assert exc.value.code == code
-    assert exc.value.status_code in {409, 422}
+    assert exc.value.code == "DOCUMENT_PROCESSING_FAILED"
+    assert exc.value.status_code == 422
 
 
 def test_document_graph_rejects_empty_vision_output(monkeypatch):

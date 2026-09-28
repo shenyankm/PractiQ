@@ -808,7 +808,7 @@ PROBE_TESTS = {
         "test_evaluation": ["test_transient_probe_recovers_with_trace"],
     },
     "correctStopRate": {
-        "test_page_rendering": ["test_missing_vision_fails_before_read_or_render"],
+        "test_page_rendering": ["test_missing_model_fails_before_read_or_render"],
         "test_runtime": ["test_unsupported_tasks_are_unchanged_and_do_not_block_current_work"],
         "test_workflows": ["test_document_integrity_fails_before_model_call", "test_structured_call_does_not_retry_permanent_errors"],
         "test_task_execution": ["test_store_failure_stops_model_calls", "test_retry_limits_shared_by_native_input_and_review"],

@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from practiq_ai import llm
 from practiq_ai.contracts import DOCUMENT_MEDIA_TYPES, document_source_key
 from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.extractors import ExtractedDocument, extract
@@ -33,17 +34,19 @@ def paged_source(kind):
     return store, reference
 
 
-@pytest.mark.parametrize("kind", ["pdf"])
-def test_missing_vision_fails_before_read_or_render(monkeypatch, kind):
+@pytest.mark.parametrize("kind", ["text", "pdf"])
+def test_missing_model_fails_before_read_or_render(monkeypatch, kind):
     _, reference = paged_source(kind)
-    monkeypatch.setattr(document, "get_model", lambda *args: None)
+    monkeypatch.setenv("AI_DESKTOP_MODE", "1")
+    monkeypatch.setenv("AI_READ_ONLY", "1")
+    monkeypatch.setattr(document, "get_model", llm.get_model.__wrapped__)
     monkeypatch.setattr(
         document, "get_object_store", lambda: pytest.fail("must not read")
     )
     monkeypatch.setattr(document, "extract", AsyncMock(side_effect=lambda *_: pytest.fail("must not render")))
     with pytest.raises(DocumentProcessingError) as error:
         asyncio.run(local_graph().ainvoke({"document": reference}))
-    assert error.value.code == "VISION_MODEL_REQUIRED"
+    assert error.value.code == "MODEL_NOT_CONFIGURED"
 
 
 @pytest.mark.parametrize("kind", ["pdf"])
