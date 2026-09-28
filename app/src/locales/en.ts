@@ -3,7 +3,7 @@ export const en = {
   "检测 LibreOffice": "Check LibreOffice",
   "选择程序位置": "Select executable",
   "恢复自动查找": "Use automatic discovery",
-  "LibreOffice 安装指引": "Install LibreOffice",
+  "下载 LibreOffice": "Download LibreOffice",
   "未找到可用的 LibreOffice，请安装或选择程序位置。": "No usable LibreOffice found. Install it or select its executable.",
   "首次转换时会自动检测；也可先检查本机安装。": "The first conversion checks your installation automatically. You can also check it now.",
   "Word → PDF": "Word → PDF",
