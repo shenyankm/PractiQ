@@ -1,135 +1,9 @@
-# ================================================
-# PractiQ .gitignore
-# PractiQ AI document import
-# ================================================
-
-# -----------------------------------------------
-# Dependencies
-# -----------------------------------------------
-node_modules/
-/.pnp
-.pnp.*
-
-# Package manager caches / metadata
-/.npm/
-/.pnpm-store/
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/sdks
-!.yarn/versions
-
-# -----------------------------------------------
-# Build Output
-# -----------------------------------------------
-/out/
-/build/
-/dist/
-/.turbo/
-
-# Web / Python product build
-/web/dist/
-/web/test-results/
-/backend/dist/
-.local/
-
-# -----------------------------------------------
-# Python
-# -----------------------------------------------
-__pycache__/
-*.py[cod]
-.venv/
-# -----------------------------------------------
-# Testing / Coverage / Reports
-# -----------------------------------------------
-/coverage/
-.coverage
-/test-results/
-/blob-report/
-/reports/
-*.lcov
-
-# -----------------------------------------------
-# Environment Variables
-# -----------------------------------------------
+# Local configuration and credentials
 .env
 .env.*
 !.env.example
 !.env.*.example
-
-# -----------------------------------------------
-# OS Generated Files
-# -----------------------------------------------
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-Thumbs.db
-Desktop.ini
 *.pem
-
-# -----------------------------------------------
-# Debug / Logs
-# -----------------------------------------------
-/logs/
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-.pnpm-debug.log*
-
-# -----------------------------------------------
-# TypeScript
-# -----------------------------------------------
-*.tsbuildinfo
-
-# -----------------------------------------------
-# IDE / Editor
-# -----------------------------------------------
-.classpath
-.project
-.settings/
-.vscode/
-!.vscode/extensions.json
-!.vscode/settings.json
-!.vscode/launch.json
-!.vscode/tasks.json
-.idea/
-*.swp
-*.swo
-*~
-
-# -----------------------------------------------
-# Vercel / Deployment
-# -----------------------------------------------
-.vercel/
-.netlify/
-
-# -----------------------------------------------
-# Local Agent / Tool State
-# -----------------------------------------------
-.opencode/*
-!.opencode/opencode.json
-.omx/
-/.codegraph/
-.pi-lens/
-.worktrees/
-
-# Project-local installed agent skills
-/.agents/skills/paddle-*/
-/.agents/skills/heroui-*/
-/.pi/skills/paddle-*
-/.claude/skills/paddle-*
-/.qwen/skills/paddle-*
-/.qoder/skills/paddle-*
-/skills-lock.json
-
-# -----------------------------------------------
-# SSL / Certificates
-# -----------------------------------------------
 *.key
 *.crt
 *.csr
@@ -137,64 +11,97 @@ pnpm-debug.log*
 *.p12
 *.pfx
 
-# -----------------------------------------------
-# Database
-# -----------------------------------------------
-pgdata/
-postgres_data/
-*.dump
-*.sql.gz
-*.backup
-*.sqlite
-*.sqlite3
-*.db
-*.db-journal
-
-# -----------------------------------------------
-# Temporary Files / Local Uploads
-# -----------------------------------------------
-*.tmp
-*.temp
-*.cache
-.cache/
-*.bak
-*.orig
-uploads/
-tmp/
-temp/
-
-# Migrated AI development/build state (fixtures and historical reports are versioned)
+# Python dependencies, caches and builds
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
 .pytest_cache/
 .ruff_cache/
-.langgraph_api/
-*.egg-info/
-/server/**/dist/
-/server/reports/checks/
-/server/reports/evaluations/*/
-/server/reports/reviews/
-/server/**/.codex
-/server/**/.qoder
-
-# Local agent workspace data
-.workbuddy/
-
-# Server build and diagnostic output
-/server/**/build/
 .mypy_cache/
 .pyright/
+/server/**/build/
+/server/**/dist/
+
+# React / Vite / Tauri dependencies and builds
+node_modules/
+*.tsbuildinfo
+/app/dist/
+/app/.build/
+/app/src-tauri/target/
+/app/src-tauri/gen/
+/app/src-tauri/bundled/
+/app/*.zip
+
+# Test output (fixtures and historical reports stay versioned)
+coverage/
+.coverage
 .coverage.*
 coverage.xml
 htmlcov/
-
-# Tauri desktop build output
-/app/dist/
-/app/src-tauri/target/
-/app/src-tauri/gen/
-/app/*.zip
-
-# Generated native desktop dependencies
-app/src-tauri/bundled/
-app/.build/
-
-# Local rich-content acceptance evidence
+test-results/
+blob-report/
+playwright-report/
+/reports/
 /app/reports/
+/server/reports/checks/
+/server/reports/evaluations/*/
+/server/reports/reviews/
+
+# Local runtime data, including SQLite journals and WAL files
+.local/
+# Retained local state from earlier LangGraph development runs
+.langgraph_api/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite3
+*.sqlite3-journal
+*.sqlite3-wal
+*.sqlite3-shm
+*.backup
+uploads/
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+*.cache
+*.bak
+*.orig
+.cache/
+tmp/
+temp/
+
+# OS and editor state
+.DS_Store
+._*
+Thumbs.db
+Desktop.ini
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Local agent state and installed skills
+.opencode/*
+!.opencode/opencode.json
+.omx/
+/.codegraph/
+.pi-lens/
+.worktrees/
+.workbuddy/
+/server/**/.codex/
+/server/**/.qoder/
+/.agents/
+/.pi/skills/paddle-*
+/.claude/skills/paddle-*
+/.qwen/skills/paddle-*
+/.qoder/skills/paddle-*
+/skills-lock.json

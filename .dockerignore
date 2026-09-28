@@ -1,17 +1,19 @@
-*
+# Dockerfile.server builds from the repository root.
+# Include only its COPY inputs; omit desktop files, tests, reports and local data.
+**
 !Dockerfile.server
 !server/
-!server/**
-server/.env
-server/.env.*
-!server/.env.example
-server/.venv/
-server/.pytest_cache/
-server/.ruff_cache/
-server/.langgraph_api/
-server/.git/
-server/dist/
-server/**/__pycache__/
-server/**/*.pyc
-server/.coverage
-server/.local/
+server/**
+!server/pyproject.toml
+!server/uv.lock
+!server/src/
+!server/src/**
+
+# Exclude generated Python files and local secrets even inside src.
+**/__pycache__/
+**/*.py[cod]
+**/*.egg-info/
+**/.env
+**/.env.*
+**/*.pem
+**/*.key
