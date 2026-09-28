@@ -2,6 +2,7 @@
 
 import asyncio
 import os
+from collections import OrderedDict
 from datetime import timedelta
 from sqlite3 import Error as DatabaseError
 from typing import Any
@@ -24,6 +25,7 @@ class Service:
         self.db = db
         self.graphs: dict[str, Any] = {}
         self.active: dict[str, asyncio.Task] = {}
+        self.task_summaries: OrderedDict[str, tuple[tuple, dict[str, Any]]] = OrderedDict()
         self.wake = asyncio.Event()
         self.accepting = False
         self.stopping = False

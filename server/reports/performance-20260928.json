@@ -1,0 +1,294 @@
+{
+  "date": "2026-09-28",
+  "baseCommit": "0c3c0202b9625ba9f1353338fee317e0e60bff5c",
+  "environment": {
+    "cpu": "Apple M4",
+    "os": "macOS 27.0 (26A428)",
+    "python": "3.14.7",
+    "cargo": "1.98.1",
+    "node": "22.23.2"
+  },
+  "method": {
+    "desktop": "Disposable SQLite, 5000 simple questions, 1000 attempts, release; 3 samples per measurement, median including JSON serialization; draft burst 100 writes. Does not measure IPC or WebView paint.",
+    "inserts": "1000 new questions via the shared write helper within a rolled-back transaction; excludes archive parsing, images and commit.",
+    "receipts": "Same-version A/B of 40 receipt queries with separate versus shared connections.",
+    "taskList": "20 synthetic completed tasks, 5 sequential list reads including the cold first read; zero real model calls."
+  },
+  "desktopBefore": {
+    "allQuestions": {
+      "jsonBytes": 3825601,
+      "maxMs": 99.473916,
+      "medianMs": 98.996208
+    },
+    "attempts": 1000,
+    "draftBurst": {
+      "lastAnswerSurvivesReopen": true,
+      "p50Ms": 2.92075,
+      "p95Ms": 3.158166,
+      "writes": 100
+    },
+    "filteredSearch": {
+      "jsonBytes": 1544,
+      "maxMs": 68.953959,
+      "medianMs": 68.09804199999999
+    },
+    "firstPage": {
+      "jsonBytes": 22775,
+      "maxMs": 2.524958,
+      "medianMs": 2.1923749999999997
+    },
+    "insert1000": {
+      "jsonBytes": 4,
+      "maxMs": 45.740084,
+      "medianMs": 44.695959
+    },
+    "questions": 5000,
+    "repetitions": 3,
+    "saveAttempt": {
+      "jsonBytes": 933685,
+      "maxMs": 27.215625,
+      "medianMs": 16.307916
+    },
+    "saveDraft": {
+      "jsonBytes": 4,
+      "maxMs": 3.438167,
+      "medianMs": 3.078084
+    },
+    "session": {
+      "jsonBytes": 933685,
+      "maxMs": 13.537,
+      "medianMs": 13.027708
+    },
+    "smallBank": {
+      "jsonBytes": 15161,
+      "maxMs": 1.473792,
+      "medianMs": 1.414917
+    },
+    "submit": {
+      "jsonBytes": 947694,
+      "maxMs": 22.172583999999997,
+      "medianMs": 22.165333
+    }
+  },
+  "desktopAfter": {
+    "allQuestions": {
+      "jsonBytes": 3825601,
+      "maxMs": 103.371833,
+      "medianMs": 102.96825
+    },
+    "attempts": 1000,
+    "draftBurst": {
+      "lastAnswerSurvivesReopen": true,
+      "p50Ms": 0.5926250000000001,
+      "p95Ms": 0.669709,
+      "writes": 100
+    },
+    "filteredSearch": {
+      "jsonBytes": 1544,
+      "maxMs": 4.479458,
+      "medianMs": 4.433125
+    },
+    "firstPage": {
+      "jsonBytes": 22775,
+      "maxMs": 2.334458,
+      "medianMs": 2.324541
+    },
+    "insert1000": {
+      "jsonBytes": 4,
+      "maxMs": 5.7475,
+      "medianMs": 5.472959
+    },
+    "positionUpdate": {
+      "jsonBytes": 224168,
+      "maxMs": 4.002708,
+      "medianMs": 3.538375
+    },
+    "questions": 5000,
+    "receiptLookupsSeparate": {
+      "jsonBytes": 4,
+      "maxMs": 9.476417,
+      "medianMs": 8.784292
+    },
+    "receiptLookupsShared": {
+      "jsonBytes": 4,
+      "maxMs": 0.47150000000000003,
+      "medianMs": 0.468333
+    },
+    "repetitions": 3,
+    "saveAttempt": {
+      "jsonBytes": 933766,
+      "maxMs": 26.51025,
+      "medianMs": 13.358958000000001
+    },
+    "saveAttemptUpdate": {
+      "jsonBytes": 224168,
+      "maxMs": 4.157417,
+      "medianMs": 4.0284580000000005
+    },
+    "saveDraft": {
+      "jsonBytes": 4,
+      "maxMs": 0.974334,
+      "medianMs": 0.727792
+    },
+    "session": {
+      "jsonBytes": 933766,
+      "maxMs": 15.889082999999998,
+      "medianMs": 12.827125
+    },
+    "smallBank": {
+      "jsonBytes": 15161,
+      "maxMs": 1.746958,
+      "medianMs": 1.483292
+    },
+    "submit": {
+      "jsonBytes": 947775,
+      "maxMs": 24.441375,
+      "medianMs": 23.925834
+    }
+  },
+  "taskListBefore": {
+    "method": "Current list_tasks and real SQLite checkpoint backend; synthetic completed state with one chunk and result; five repeated reads; no model calls, IPC or WebView",
+    "results": [
+      {
+        "tasks": 20,
+        "questionsPerTask": 1,
+        "samplesMs": [
+          4.881290995399468,
+          4.631709001841955,
+          4.5856659999117255,
+          5.08758299110923,
+          4.642250001779757
+        ],
+        "medianMs": 4.642250001779757,
+        "responseBytes": 6329,
+        "checkpointBytes": 52172,
+        "checkpointRows": 20,
+        "realModelCalls": 0
+      },
+      {
+        "tasks": 20,
+        "questionsPerTask": 1000,
+        "samplesMs": [
+          36.181916992063634,
+          33.84208299394231,
+          33.35820899519604,
+          71.15620900003705,
+          34.103333004168235
+        ],
+        "medianMs": 34.103333004168235,
+        "responseBytes": 6389,
+        "checkpointBytes": 36682600,
+        "checkpointRows": 20,
+        "realModelCalls": 0
+      }
+    ]
+  },
+  "taskListAfter": {
+    "method": "Real disposable SQLite; 20 synthetic completed tasks, one chunk and result; five reads including cold first read; no model calls, IPC or WebView",
+    "results": [
+      {
+        "tasks": 20,
+        "questionsPerTask": 1,
+        "samplesMs": [
+          5.393542000092566,
+          0.4742500022985041,
+          0.433833003626205,
+          0.42854101047851145,
+          0.3877499984810129
+        ],
+        "medianMs": 0.433833003626205,
+        "responseBytes": 6329,
+        "checkpointBytes": 52128,
+        "checkpointRows": 20,
+        "realModelCalls": 0
+      },
+      {
+        "tasks": 20,
+        "questionsPerTask": 1000,
+        "samplesMs": [
+          40.64366698730737,
+          0.5664170021191239,
+          0.4566669958876446,
+          0.4076250042999163,
+          0.378084005205892
+        ],
+        "medianMs": 0.4566669958876446,
+        "responseBytes": 6389,
+        "checkpointBytes": 36682588,
+        "checkpointRows": 20,
+        "realModelCalls": 0
+      }
+    ]
+  },
+  "checks": {
+    "frontendPassed": 197,
+    "rustPassed": 108,
+    "rustIgnored": 2,
+    "rustPerformancePassed": 1,
+    "pythonPassed": 611,
+    "pythonSkipped": 2,
+    "pythonCoveragePercent": 92,
+    "appCheck": true,
+    "serverVerify": true,
+    "bilingualBrowser": true,
+    "richContentBrowser": true,
+    "nativeAppBuild": true
+  },
+  "packagedService": {
+    "bundle": "app/src-tauri/target/release/bundle/macos/PractiQ.app/Contents/Resources/bundled",
+    "model": "synthetic-local-stub",
+    "checks": [
+      {
+        "format": "text",
+        "state": "COMPLETED",
+        "status": "SUCCEEDED",
+        "failures": [],
+        "blocking": [],
+        "seconds": 0.437,
+        "modelCalls": 1
+      },
+      {
+        "format": "csv",
+        "state": "COMPLETED",
+        "status": "SUCCEEDED",
+        "failures": [],
+        "blocking": [],
+        "seconds": 0.326,
+        "modelCalls": 1
+      },
+      {
+        "format": "image",
+        "state": "COMPLETED",
+        "status": "SUCCEEDED",
+        "failures": [],
+        "blocking": [],
+        "seconds": 0.331,
+        "modelCalls": 1
+      },
+      {
+        "format": "pdf",
+        "state": "COMPLETED",
+        "status": "SUCCEEDED",
+        "failures": [],
+        "blocking": [],
+        "seconds": 0.332,
+        "modelCalls": 1
+      }
+    ],
+    "passed": true,
+    "removedExcelRejected": true,
+    "removedWordRejected": true,
+    "removedImageFormatsRejected": true,
+    "subjectiveGrading": {
+      "passed": true,
+      "scoreCents": 300,
+      "replayIdentical": true,
+      "usageCalls": 1
+    },
+    "readOnlyRestart": {
+      "passed": true,
+      "retainedTasks": 4,
+      "additionalModelCalls": 0
+    }
+  }
+}

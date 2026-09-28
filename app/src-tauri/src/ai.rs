@@ -591,6 +591,7 @@ fn active_endpoint(
                     dir: dir.to_owned(),
                     pending: None,
                     staged_audio: std::collections::HashMap::new(),
+                    session_document_cache: Default::default(),
                 },
                 model_required,
             )
@@ -673,6 +674,7 @@ pub fn read_review_image(
             dir,
             pending: None,
             staged_audio: std::collections::HashMap::new(),
+            session_document_cache: Default::default(),
         },
     )
 }
@@ -844,6 +846,7 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
             let store = shared.lock().map_err(|_| {
                 crate::language::error("LOCAL_DATABASE_UNAVAILABLE", serde_json::json!({}))
             })?;
+            let db = store.connect()?;
             for item in result["items"]
                 .as_array_mut()
                 .ok_or(crate::language::error(
@@ -853,8 +856,8 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
             {
                 contract::validate_workflow(item, false)?;
                 let id = contract::text(item, "threadId");
-                let bank = store.imported_ai(id, None, item["checkpointId"].as_str())?;
-                let previous = store.imported_ai(id, None, None)?.is_some();
+                let bank = Store::imported_ai_with(&db, id, None, item["checkpointId"].as_str())?;
+                let previous = Store::imported_ai_with(&db, id, None, None)?.is_some();
                 item["importedBankId"] = json!(bank);
                 item["previouslyImported"] = json!(previous);
             }
@@ -1094,6 +1097,7 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
                 dir,
                 pending: None,
                 staged_audio: std::collections::HashMap::new(),
+                session_document_cache: Default::default(),
             };
             process.load_assets(&mut pending, &store)?;
             let mut store = shared.lock().map_err(|_| {

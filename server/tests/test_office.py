@@ -202,6 +202,10 @@ def test_office_input_checks_package_members_and_macro_payload(tmp_path, monkeyp
                 archive.writestr("word/vbaProject.bin", "macro")
     write()
     before = source.read_bytes()
+    monkeypatch.setattr(office, "_run", lambda *args: b"LibreOffice 26.2")
+    assert office.convert("unused", source, tmp_path / "out", "text", expected_version="LibreOffice 26.2")
+    with pytest.raises(office.OfficeError, match="OFFICE_ENGINE_INVALID"):
+        office.convert("unused", source, tmp_path / "out", "text", expected_version="LibreOffice 25.8")
     assert office.convert("unused", source, tmp_path / "out", "text")[0]["name"] == "source.txt"
     assert source.read_bytes() == before
     write(True)
@@ -274,7 +278,7 @@ office.main()
         unrelated.wait()
 
 
-@pytest.mark.parametrize("payload", [{}, [], {"type": "detect", "preferred": 3}, {"type": "convert", "engine": 1, "source": "x", "output": "y", "mode": "pdf"}])
+@pytest.mark.parametrize("payload", [{}, [], {"type": "detect", "preferred": 3}, {"type": "convert", "engine": 1, "version": "x", "source": "x", "output": "y", "mode": "pdf"}])
 def test_private_worker_rejects_malformed_requests(payload, monkeypatch, capsys):
     monkeypatch.setattr(office.sys, "stdin", SimpleNamespace(buffer=io.BytesIO(json.dumps(payload).encode() + b"\n")))
     monkeypatch.setattr(office, "watch_parent", lambda cleanup: None)
@@ -294,6 +298,21 @@ def test_private_worker_detection_has_no_service_bootstrap(monkeypatch, capsys):
         monkeypatch.setattr(windows_job, "protect_descendants", lambda: None)
     office.main()
     assert json.loads(capsys.readouterr().out) == {"result": {"path": None}}
+
+
+def test_private_conversion_requires_and_forwards_the_detected_version(monkeypatch, capsys):
+    request = {"type": "convert", "engine": "soffice", "version": "LibreOffice 26.2", "source": "source.docx", "output": "output", "mode": "text"}
+    monkeypatch.setattr(office.sys, "stdin", SimpleNamespace(buffer=io.BytesIO(json.dumps(request).encode() + b"\n")))
+    monkeypatch.setattr(office, "watch_parent", lambda cleanup: None)
+    def convert(engine, source, output, mode, *, expected_version):
+        assert (engine, source, output, mode, expected_version) == ("soffice", Path("source.docx"), Path("output"), "text", "LibreOffice 26.2")
+        return [{"name": "source.txt"}]
+    monkeypatch.setattr(office, "convert", convert)
+    if os.name == "nt":
+        from practiq_ai.extractors import windows_job
+        monkeypatch.setattr(windows_job, "protect_descendants", lambda: None)
+    office.main()
+    assert json.loads(capsys.readouterr().out) == {"result": {"artifacts": [{"name": "source.txt"}]}}
 
 
 @pytest.mark.parametrize("extension,family", [("doc", "writer"), ("xls", "calc")])

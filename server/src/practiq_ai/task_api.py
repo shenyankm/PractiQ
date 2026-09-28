@@ -313,18 +313,33 @@ async def list_tasks(limit: int = 20, offset: int = 0, sha256: str | None = None
         (json_encode([row['thread_id'] for row in rows[:limit]]),),
     )
     runs_by_thread = {run['thread_id']: run for run in latest_runs}
+    heads = await service.db.checkpoint_heads([row['thread_id'] for row in rows[:limit]])
     items = []
     for row in rows[:limit]:
         expired = row['expires_at'] <= utcnow()
-        snapshot = await service.snapshot(row)
         run = runs_by_thread.get(row['thread_id'])
-        values = snapshot.values or {}
-        questions = values.get('result', {}).get('questions', [])
+        key = (heads.get(row['thread_id']), run['run_id'] if run else None, run['status'] if run else None)
+        cached = service.task_summaries.get(row['thread_id'])
+        if cached and cached[0] == key:
+            summary = cached[1]
+            service.task_summaries.move_to_end(row['thread_id'])
+        else:
+            snapshot = await service.snapshot(row)
+            values = snapshot.values or {}
+            questions = values.get('result', {}).get('questions', [])
+            summary = {'state': _task_state(row, snapshot, run)[0], 'status': values.get('status') or None,
+                       'checkpointId': service.checkpoint_id(snapshot, run), 'questionCount': scorable_count(questions),
+                       'reviewCount': sum(bool(q.get('needsReview')) and q.get('answerMode') not in COMPOSITE_MODES for q in questions)}
+            # Only completed, quiescent checkpoints are safe from same-checkpoint pending writes.
+            if summary['state'] == 'COMPLETED' and not snapshot.next and not snapshot.interrupts:
+                key = (summary['checkpointId'], key[1], key[2])
+                service.task_summaries[row['thread_id']] = (key, summary)
+                service.task_summaries.move_to_end(row['thread_id'])
+                while len(service.task_summaries) > 256:
+                    service.task_summaries.popitem(last=False)
         items.append({'threadId': row['thread_id'], 'fileName': row['document'].get('fileName') or '文档',
                       'createdAt': row['created_at'].isoformat(), 'expiresAt': row['expires_at'].isoformat(),
-                      'state': 'EXPIRED' if expired else _task_state(row, snapshot, run)[0],
-                      'status': values.get('status') or None, 'checkpointId': service.checkpoint_id(snapshot, run),
-                      'questionCount': scorable_count(questions), 'reviewCount': sum(bool(q.get('needsReview')) and q.get('answerMode') not in COMPOSITE_MODES for q in questions)})
+                      **summary, 'state': 'EXPIRED' if expired else summary['state']})
     return DocumentTaskList(items=items, hasMore=len(rows) > limit).model_dump(mode='json')
 
 

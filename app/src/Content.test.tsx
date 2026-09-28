@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { createRequire } from "node:module";
 import { afterEach, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import { Content } from "./Content";
 import type { Snapshot } from "./api";
 import fixture from "../fixtures/rich-content/expected.json";
@@ -48,4 +48,31 @@ it("opens the full source lazily, even when the crop is missing, and hides it du
   expect(document.activeElement).toBe(screen.getByRole("button", {name: "查看原页"}));
   rerender(<Content snapshot={snapshot} exam/>);
   expect(screen.queryByRole("button", {name: "查看原页"})).toBeNull();
+});
+
+it("fetches shared image bytes only when figures approach the viewport", async () => {
+  const { api } = await import("./api");
+  const observers: IntersectionObserverCallback[] = [];
+  vi.stubGlobal("IntersectionObserver", class {
+    constructor(callback: IntersectionObserverCallback) { observers.push(callback); }
+    observe() {}
+    disconnect() {}
+  });
+  try {
+    vi.mocked(api).mockClear();
+    vi.mocked(api).mockResolvedValue(new ArrayBuffer(4));
+    URL.createObjectURL = vi.fn(() => "blob:visible");
+    URL.revokeObjectURL = vi.fn();
+    const visual = {...fixture.visualElements[0],sourceRef:null,questionIds:["q"]};
+    const snapshot = {question:fixture.questions[0],groups:[],sources:[],warnings:[],missingAssets:false,
+      visuals:[{...visual,id:"one"},{...visual,id:"two"}]} as unknown as Snapshot;
+    const view = render(<Content snapshot={snapshot}/>);
+    expect(api).not.toHaveBeenCalled();
+    await act(async () => { for (const callback of observers) callback([{isIntersecting:true} as IntersectionObserverEntry], {} as IntersectionObserver); });
+    expect(await screen.findAllByRole("button",{name:"放大查看图片"})).toHaveLength(2);
+    expect(api).toHaveBeenCalledTimes(1);
+    view.unmount();
+    await act(async () => {});
+    expect(URL.revokeObjectURL).toHaveBeenCalledExactlyOnceWith("blob:visible");
+  } finally { vi.unstubAllGlobals(); }
 });

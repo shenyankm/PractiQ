@@ -2,7 +2,7 @@ import { duration, t, useI18n } from "./i18n";
 import { ListeningPlayer } from "./ListeningPlayer";
 import { questionKinds } from "./english";
 import { ExamResults } from "./ExamResults";
-import { memo, useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import {
   api,
   answerReady,
@@ -147,6 +147,20 @@ function PracticeQuestion({
       );
     });
   }, [run, onSession, session.id, flushRef]);
+  const blankTargets = useMemo(() => {
+    const ids = new Set([q, ...(attempt.snapshot.materials || [])]
+      .flatMap(material => [...(material.passage || []), ...material.contentBlocks])
+      .filter(block => block.partType === "blank").map(block => block.questionId));
+    return ids.size ? session.attempts.filter(a => ids.has(a.snapshot.question.id)) : [];
+  }, [q, attempt.snapshot.materials, session.attempts]);
+  const onBlank = useCallback((id: string) => {
+    const target = blankTargets.find(a => a.snapshot.question.id === id);
+    if (target) go(target.ordinal);
+  }, [blankTargets, go]);
+  const blankAnswers = useMemo(() => blankTargets.length ? Object.fromEntries(blankTargets.map(a => {
+    const value = a.ordinal === session.position ? answer : a.answer;
+    return [a.snapshot.question.id || "", value?.correct?.join(", ") || value?.answers?.join(", ") || ""];
+  })) : undefined, [blankTargets, session.position, answer]);
   function finish(submitDrafts: boolean) {
     run(async () => {
       setFinishing(true);
@@ -196,8 +210,7 @@ function PracticeQuestion({
           <ExamResults session={session} onSession={onSession} run={run} onNextUnattempted={onNextUnattempted}/>
           {!exam && <p role="status" aria-label={t("答题状态")} aria-live="polite" aria-atomic="true" className="sr-only">{submitted ? t("第 {0} 题：{1}", {0:attempt.ordinal+1,1:resultLabel}) : ""}</p>}
           <Content snapshot={attempt.snapshot} exam={exam&&!handedIn} revealOriginal={exam ? handedIn : submitted} materialDialog
-            onBlank={id=>{const target=session.attempts.find(a=>a.snapshot.question.id===id);if(target)go(target.ordinal);}}
-            blankAnswers={Object.fromEntries(session.attempts.map(a=>{const value=a.ordinal===session.position ? answer : a.answer;return [a.snapshot.question.id || "",value?.correct?.join(", ") || value?.answers?.join(", ") || ""];}))}/>
+            onBlank={blankTargets.length ? onBlank : undefined} blankAnswers={blankAnswers}/>
           {!!attempt.snapshot.materials?.length && <nav className="flex flex-wrap gap-2" aria-label={t("题组子题")}>
             {session.attempts.filter(a=>a.snapshot.question.parentId===q.parentId).map(a=><Button key={a.ordinal} variant={a.ordinal===session.position?"secondary":"outline"} size="sm" onClick={()=>go(a.ordinal)}>{a.ordinal+1}</Button>)}
           </nav>}

@@ -2,7 +2,7 @@ use crate::{
     contract::{self, list, text, Result},
     store::{id, now, Store},
 };
-use rusqlite::{params, Connection};
+use rusqlite::params;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};
@@ -153,6 +153,9 @@ impl Store {
     }
     pub fn expire_exam(&self, sid: &str) -> Result<()> {
         let db = self.connect()?;
+        self.expire_exam_with(&db, sid)
+    }
+    pub(crate) fn expire_exam_with(&self, db: &rusqlite::Connection, sid: &str) -> Result<()> {
         let expired:bool=db.query_row("SELECT deadline_at IS NOT NULL AND deadline_at<=?2 AND submitted_at IS NULL FROM sessions WHERE id=?1",params![sid,now()],|r|r.get(0)).map_err(err)?;
         if expired {
             self.submit_core(sid, true)?;
@@ -260,29 +263,21 @@ impl Store {
         .map_err(err)?;
         self.session(sid)
     }
-    pub fn enrich_session(&self, db: &Connection, s: &mut Value) -> Result<()> {
-        let sid = text(s, "id").to_owned();
-        let (kind, deadline, submitted): (String, Option<i64>, Option<i64>) = db
-            .query_row(
-                "SELECT kind,deadline_at,submitted_at FROM sessions WHERE id=?1",
-                [&sid],
-                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
-            )
-            .map_err(err)?;
-        s["kind"] = json!(kind);
-        s["deadlineAt"] = json!(deadline);
-        s["submittedAt"] = json!(submitted);
+    pub fn enrich_session(s: &mut Value) -> Result<()> {
+        let locked = text(s, "kind") != "practice" && s["submittedAt"].is_null();
         for a in s["attempts"].as_array_mut().ok_or(crate::language::error(
             "LOCAL_SESSION_CORRUPTED",
             serde_json::json!({}),
         ))? {
-            if kind != "practice" && submitted.is_none() {
-                let q = &mut a["snapshot"]["question"];
-                a_blank_count(q);
-                strip_answer_lines(q);
-                if let Some(materials) = a["snapshot"]["materials"].as_array_mut() {
-                    for material in materials {
-                        strip_answer_lines(material);
+            if locked {
+                if let Some(snapshot) = a.get_mut("snapshot") {
+                    let q = &mut snapshot["question"];
+                    a_blank_count(q);
+                    strip_answer_lines(q);
+                    if let Some(materials) = snapshot["materials"].as_array_mut() {
+                        for material in materials {
+                            strip_answer_lines(material);
+                        }
                     }
                 }
                 a["result"] = Value::Null;
@@ -385,7 +380,15 @@ impl Store {
         for (i, row) in rows.iter().enumerate() {
             let mut q = row["question"].clone();
             crate::questions::remap(&mut q, &ids)?;
-            crate::questions::write(&tx, &q, &bank, None, i as i64, row["favorite"] == true)?;
+            crate::questions::write(
+                &tx,
+                &q,
+                &bank,
+                None,
+                i as i64,
+                row["favorite"] == true,
+                false,
+            )?;
         }
         crate::questions::copy_context(&tx, &bank, &rows, &ids)?;
         tx.commit().map_err(err)?;

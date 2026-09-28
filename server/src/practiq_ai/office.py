@@ -239,14 +239,19 @@ CALC_PROBE = '''<?xml version="1.0" encoding="UTF-8"?>
 <office:document xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0" office:mimetype="application/vnd.oasis.opendocument.spreadsheet" office:version="1.2"><office:body><office:spreadsheet><table:table table:name="中文"><table:table-row><table:table-cell office:value-type="string"><text:p>001</text:p></table:table-cell></table:table-row></table:table><table:table table:name="Second"><table:table-row><table:table-cell office:value-type="string"><text:p>PractiQ</text:p></table:table-cell></table:table-row></table:table></office:spreadsheet></office:body></office:document>'''
 
 
+def engine_version(engine: Path, deadline: float) -> str:
+    version = _run([str(engine), "--version"], min(deadline, time.monotonic() + 10)).decode("utf-8", errors="replace").strip()
+    if not version.startswith(("LibreOffice ", "LibreOfficeDev ")):
+        raise OfficeError("OFFICE_ENGINE_INVALID")
+    return version
+
+
 def detect(preferred: str | None = None) -> dict[str, Any]:
     best: dict[str, Any] = {"path": None, "version": None, "capabilities": dict.fromkeys(CAPABILITIES, False), "errors": {}}
     deadline = time.monotonic() + TIMEOUT
     for engine in candidates(preferred)[:8]:
         try:
-            version = _run([str(engine), "--version"], min(deadline, time.monotonic() + 10)).decode("utf-8", errors="replace").strip()
-            if not version.startswith(("LibreOffice ", "LibreOfficeDev ")):
-                raise OfficeError("OFFICE_ENGINE_INVALID")
+            version = engine_version(engine, deadline)
         except (OSError, OfficeError):
             continue
         status: dict[str, Any] = {"path": str(engine), "version": version, "capabilities": {}, "errors": {}}
@@ -348,7 +353,7 @@ def _validate_legacy(data: bytes, family: str) -> None:
         raise OfficeError("OFFICE_INPUT_INVALID") from exc
 
 
-def convert(engine: str, source: Path, output: Path, mode: str) -> list[dict[str, Any]]:
+def convert(engine: str, source: Path, output: Path, mode: str, *, expected_version: str | None = None) -> list[dict[str, Any]]:
     family = FORMATS.get(source.suffix.lower())
     if family is None or mode not in ("pdf", "text"):
         raise OfficeError("OFFICE_FORMAT_UNSUPPORTED")
@@ -369,7 +374,10 @@ def convert(engine: str, source: Path, output: Path, mode: str) -> list[dict[str
                     raise OfficeError("OFFICE_INPUT_INVALID")
         except zipfile.BadZipFile as exc:
             raise OfficeError("OFFICE_INPUT_INVALID") from exc
-    return _export(Path(engine), source, output, family, mode, time.monotonic() + TIMEOUT)
+    deadline = time.monotonic() + TIMEOUT
+    if expected_version is not None and engine_version(Path(engine), deadline) != expected_version:
+        raise OfficeError("OFFICE_ENGINE_INVALID")
+    return _export(Path(engine), source, output, family, mode, deadline)
 
 
 def main() -> None:
@@ -388,10 +396,10 @@ def main() -> None:
             if request["preferred"] is not None and not isinstance(request["preferred"], str):
                 raise OfficeError("OFFICE_INPUT_INVALID")
             result = detect(request["preferred"])
-        elif request.get("type") == "convert" and set(request) == {"type", "engine", "source", "output", "mode"}:
-            if any(not isinstance(request[key], str) for key in ("engine", "source", "output", "mode")):
+        elif request.get("type") == "convert" and set(request) == {"type", "engine", "version", "source", "output", "mode"}:
+            if any(not isinstance(request[key], str) for key in ("engine", "version", "source", "output", "mode")):
                 raise OfficeError("OFFICE_INPUT_INVALID")
-            result = {"artifacts": convert(request["engine"], Path(request["source"]), Path(request["output"]), request["mode"])}
+            result = {"artifacts": convert(request["engine"], Path(request["source"]), Path(request["output"]), request["mode"], expected_version=request["version"])}
         else:
             raise OfficeError("OFFICE_INPUT_INVALID")
         print(json.dumps({"result": result}), flush=True)

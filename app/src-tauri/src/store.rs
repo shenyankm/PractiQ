@@ -88,6 +88,7 @@ impl Pending {
     }
 }
 pub struct Store {
+    pub session_document_cache: std::cell::RefCell<Option<(String, std::sync::Arc<Value>)>>,
     pub locale: crate::language::Locale,
     pub dir: PathBuf,
     pub pending: Option<Pending>,
@@ -127,6 +128,7 @@ impl Store {
             dir,
             pending: None,
             staged_audio: HashMap::new(),
+            session_document_cache: Default::default(),
             locale: crate::language::Locale::default(),
         };
         store.connect()?;
@@ -440,7 +442,15 @@ impl Store {
         for (i, original) in list(r, "questions").iter().enumerate() {
             let mut q = original.clone();
             crate::questions::remap(&mut q, &id_map)?;
-            crate::questions::write(&tx, &q, &bank, Some(&import_id), offset + i as i64, false)?;
+            crate::questions::write(
+                &tx,
+                &q,
+                &bank,
+                Some(&import_id),
+                offset + i as i64,
+                false,
+                false,
+            )?;
         }
         crate::questions::put_context(&tx, &bank, r, &ids, &import_id, &p.root["processing"])?;
         tx.commit().map_err(err)?;
@@ -589,7 +599,15 @@ impl Store {
             rows = Vec::new();
         } else {
             // Unicode substring search includes answers, shared materials and visuals.
-            rows = crate::questions::read_scoped(&db, &banks, None)?;
+            let candidates = crate::questions::matching_roots(&db, &banks, mode, filter)?;
+            rows = crate::questions::read_scoped(&db, &banks, Some(&candidates))?;
+            let attempted: std::collections::HashSet<String> = if filter == "unattempted" {
+                db.prepare("SELECT DISTINCT a.question_id FROM attempts a JOIN questions q ON q.id=a.question_id WHERE a.submitted_at IS NOT NULL AND a.skipped=0 AND (?1='[]' OR q.bank_id IN (SELECT value FROM json_each(?1)))").map_err(err)?
+                    .query_map([json!(banks).to_string()], |r| r.get(0)).map_err(err)?
+                    .collect::<std::result::Result<_, _>>().map_err(err)?
+            } else {
+                std::collections::HashSet::new()
+            };
             let index = crate::questions::Index::new(&rows);
             let mut matches = std::collections::HashSet::new();
             let search = search.to_lowercase();
@@ -603,7 +621,10 @@ impl Store {
                 let selected = match filter {
                     "favorite" => row["favorite"] == true,
                     "wrong" => row["latestResult"] == false,
-                    "unattempted" => !crate::questions::composite(&row["question"]) && !db.query_row("SELECT EXISTS(SELECT 1 FROM attempts WHERE question_id=?1 AND submitted_at IS NOT NULL AND skipped=0)",[text(row,"id")],|r|r.get::<_,bool>(0)).map_err(err)?,
+                    "unattempted" => {
+                        !crate::questions::composite(&row["question"])
+                            && !attempted.contains(text(row, "id"))
+                    }
                     _ => true,
                 };
                 if selected {

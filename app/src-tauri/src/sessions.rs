@@ -11,18 +11,49 @@ fn err(e: impl std::fmt::Display) -> crate::AppError {
 
 impl Store {
     pub fn session(&self, sid: &str) -> Result<Value> {
-        self.expire_exam(sid)?;
+        self.session_data(sid, None)
+    }
+    pub(crate) fn session_data(&self, sid: &str, snapshot_key: Option<&str>) -> Result<Value> {
         let db = self.connect()?;
-        let mut session=db.query_row("SELECT id,bank_title,created_at,finished_at,position,mode FROM sessions WHERE id=?1",[sid],|r|Ok(json!({"id":r.get::<_,String>(0)?,"title":r.get::<_,String>(1)?,"createdAt":r.get::<_,i64>(2)?,"finishedAt":r.get::<_,Option<i64>>(3)?,"position":r.get::<_,i64>(4)?,"mode":r.get::<_,String>(5)?}))).map_err(err)?;
+        self.session_with(&db, sid, snapshot_key)
+    }
+    fn session_with(
+        &self,
+        db: &rusqlite::Connection,
+        sid: &str,
+        snapshot_key: Option<&str>,
+    ) -> Result<Value> {
+        self.expire_exam_with(db, sid)?;
+        let mut session=db.query_row("SELECT id,bank_title,created_at,finished_at,position,mode,kind,deadline_at,submitted_at FROM sessions WHERE id=?1",[sid],|r|Ok(json!({"id":r.get::<_,String>(0)?,"title":r.get::<_,String>(1)?,"createdAt":r.get::<_,i64>(2)?,"finishedAt":r.get::<_,Option<i64>>(3)?,"position":r.get::<_,i64>(4)?,"mode":r.get::<_,String>(5)?,"kind":r.get::<_,String>(6)?,"deadlineAt":r.get::<_,Option<i64>>(7)?,"submittedAt":r.get::<_,Option<i64>>(8)?}))).map_err(err)?;
         let mut stmt=db.prepare("SELECT a.ordinal,a.snapshot_question_id,a.answer,a.auto_result,a.result,a.grade_kind,a.submitted_at,a.skipped,a.elapsed_ms,a.max_cents,a.earned_cents,a.flagged,a.grading,q.favorite FROM attempts a LEFT JOIN questions q ON q.id=a.question_id WHERE a.session_id=?1 ORDER BY a.ordinal").map_err(err)?;
         let attempts=stmt.query_map([sid],|r|Ok(json!({"ordinal":r.get::<_,i64>(0)?,"snapshotId":r.get::<_,String>(1)?,"answer":serde_json::from_str::<Value>(&r.get::<_,String>(2)?).unwrap_or(Value::Null),"autoResult":r.get::<_,Option<bool>>(3)?,"result":r.get::<_,Option<bool>>(4)?,"gradeKind":r.get::<_,String>(5)?,"submittedAt":r.get::<_,Option<i64>>(6)?,"skipped":r.get::<_,bool>(7)?,"elapsedMs":r.get::<_,i64>(8)?,"maxCents":r.get::<_,Option<i64>>(9)?,"earnedCents":r.get::<_,Option<i64>>(10)?,"flagged":r.get::<_,bool>(11)?,"grading":serde_json::from_str::<Value>(&r.get::<_,String>(12)?).map_err(|e|rusqlite::Error::FromSqlConversionFailure(12,rusqlite::types::Type::Text,Box::new(e)))?,"favorite":r.get::<_,Option<bool>>(13)?}))).map_err(err)?.collect::<std::result::Result<Vec<_>,_>>().map_err(err)?;
         let mut attempts = attempts;
-        let frozen = crate::questions::session_rows(&db, sid)?;
-        let index = crate::questions::Index::new(&frozen);
+        // Immutable snapshots change visibility only when an attempt/session is submitted or finished.
+        let key = crate::store::hash(
+            json!([
+                sid,
+                session["kind"],
+                session["finishedAt"],
+                session["submittedAt"],
+                attempts
+                    .iter()
+                    .map(|a| (&a["snapshotId"], &a["submittedAt"]))
+                    .collect::<Vec<_>>()
+            ])
+            .to_string()
+            .as_bytes(),
+        );
+        if snapshot_key != Some(key.as_str()) {
+            let frozen = crate::questions::thaw(self.session_document(db, sid)?.as_ref())?;
+            let index = crate::questions::Index::new(&frozen);
+            for a in &mut attempts {
+                a["snapshot"] = index.snapshot(text(a, "snapshotId"))?;
+            }
+        }
         for a in &mut attempts {
-            a["snapshot"] = index.snapshot(text(a, "snapshotId"))?;
             a.as_object_mut().unwrap().remove("snapshotId");
         }
+        session["snapshotKey"] = json!(key);
         session["attempts"] = json!(attempts);
         let mut banks = db.prepare("SELECT q.bank_id FROM attempts a JOIN questions q ON q.id=a.question_id WHERE a.session_id=?1 GROUP BY q.bank_id ORDER BY MIN(a.ordinal)").map_err(err)?;
         session["bankIds"] = json!(banks
@@ -30,7 +61,7 @@ impl Store {
             .map_err(err)?
             .collect::<std::result::Result<Vec<_>, _>>()
             .map_err(err)?);
-        self.enrich_session(&db, &mut session)?;
+        Self::enrich_session(&mut session)?;
         crate::audio::redact_session(&mut session);
         Ok(session)
     }
@@ -122,6 +153,7 @@ impl Store {
         tx.commit().map_err(err)?;
         self.session(sid)
     }
+    #[cfg(test)]
     pub fn save_attempt(
         &self,
         target: (&str, usize),
@@ -138,7 +170,7 @@ impl Store {
         self.write_attempt(target, answer, elapsed, false, false, None)?;
         Ok(Value::Null)
     }
-    fn write_attempt(
+    pub(crate) fn write_attempt(
         &self,
         target: (&str, usize),
         answer: Value,
@@ -148,9 +180,9 @@ impl Store {
         self_result: Option<bool>,
     ) -> Result<()> {
         let (sid, ordinal) = target;
-        self.expire_exam(sid)?;
-        let exam = self
-            .connect()?
+        let mut db = self.connect()?;
+        self.expire_exam_with(&db, sid)?;
+        let exam = db
             .query_row(
                 "SELECT kind,submitted_at FROM sessions WHERE id=?1",
                 [sid],
@@ -169,7 +201,6 @@ impl Store {
                 serde_json::json!({}),
             ));
         }
-        let mut db = self.connect()?;
         let tx = db.transaction().map_err(err)?;
         let (finished, created): (Option<i64>, i64) = tx
             .query_row(
@@ -191,7 +222,10 @@ impl Store {
             ));
         }
         let (snapshot,submitted,kind):(String,Option<i64>,String)=tx.query_row("SELECT snapshot_question_id,submitted_at,grade_kind FROM attempts WHERE session_id=?1 AND ordinal=?2",params![sid,ordinal],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).map_err(err)?;
-        let frozen = crate::questions::session_context(&tx, sid, &snapshot)?;
+        let frozen = crate::questions::context_from_document(
+            self.session_document(&tx, sid)?.as_ref(),
+            &snapshot,
+        )?;
         let index = crate::questions::Index::new(&frozen);
         let snapshot = index.snapshot(&snapshot)?;
         let q = &snapshot["question"];
@@ -269,10 +303,15 @@ impl Store {
         tx.commit().map_err(err)?;
         Ok(())
     }
-    pub fn position(&self, sid: &str, position: usize) -> Result<Value> {
+    pub fn position(
+        &self,
+        sid: &str,
+        position: usize,
+        snapshot_key: Option<&str>,
+    ) -> Result<Value> {
         let db = self.connect()?;
         db.execute("UPDATE sessions SET position=?2,last_active_at=?3 WHERE id=?1 AND finished_at IS NULL AND EXISTS(SELECT 1 FROM attempts WHERE session_id=?1 AND ordinal=?2)",params![sid,position,now()]).map_err(err)?;
-        let mut session = self.session(sid)?;
+        let mut session = self.session_with(&db, sid, snapshot_key)?;
         if position < list(&session, "attempts").len() {
             session["position"] = json!(position);
         }

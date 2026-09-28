@@ -10,6 +10,7 @@ try {
   const fontRequests = [];
   page.on('request', r => { if (r.resourceType() === 'font') fontRequests.push(r.url()); });
   await page.goto('http://127.0.0.1:1420/fixtures/rich-content/');
+  await page.locator('figure').first().scrollIntoViewIfNeeded();
   const zoom = page.getByRole('button',{name:'放大查看图片'});
   await zoom.waitFor();
   await page.evaluate(() => document.fonts.ready);

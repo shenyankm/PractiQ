@@ -161,6 +161,15 @@ class Database:
         async with self.connection() as conn:
             await conn.executescript(INDEX_DDL)
 
+    async def checkpoint_heads(self, thread_ids: list[str]) -> dict[str, str]:
+        # Read only primary-key metadata, never the serialized checkpoint payload.
+        async with self.checkpointer.lock, self.connections[0].execute(
+            "SELECT value,(SELECT checkpoint_id FROM checkpoints WHERE thread_id=ids.value AND checkpoint_ns='' "
+            "ORDER BY checkpoint_id DESC LIMIT 1) FROM json_each(?) ids",
+            (json.dumps(thread_ids),),
+        ) as cursor:
+            return {str(row[0]): str(row[1]) for row in await cursor.fetchall() if row[1] is not None}
+
     async def check_schema(self):
         rows = await self.rows('PRAGMA user_version')
         if rows[0]['user_version'] != SCHEMA_VERSION:

@@ -146,6 +146,7 @@ enum Request {
         result: bool,
     },
     SaveAttempt {
+        snapshot_key: Option<String>,
         id: String,
         ordinal: usize,
         answer: Value,
@@ -155,6 +156,7 @@ enum Request {
         self_result: Option<bool>,
     },
     Position {
+        snapshot_key: Option<String>,
         id: String,
         position: usize,
     },
@@ -290,10 +292,13 @@ async fn request(
             Request::ManualScore{id,ordinal,cents,reason}=>store.manual_score(&id,ordinal,cents,&reason),
             Request::RetryWrong{id}=>store.retry_wrong(&id),
             Request::MergeBanks{bank_ids,title}=>store.merge_banks(&bank_ids,&title),
-            Request::SaveAttempt{id,ordinal,answer,elapsed_ms,submit,skip,self_result}=>store.save_attempt((&id, ordinal),answer,elapsed_ms,submit,skip,self_result),
+            Request::SaveAttempt{id,ordinal,answer,elapsed_ms,submit,skip,self_result,snapshot_key}=>{
+                store.write_attempt((&id, ordinal),answer,elapsed_ms,submit,skip,self_result)?;
+                store.session_data(&id,snapshot_key.as_deref())
+            },
             Request::SaveDraft{id,ordinal,answer,elapsed_ms}=>store.save_draft((&id,ordinal),answer,elapsed_ms),
             Request::SelfAssess{id,ordinal,result}=>store.self_assess(&id,ordinal,result),
-            Request::Position{id,position}=>store.position(&id,position),
+            Request::Position{id,position,snapshot_key}=>store.position(&id,position,snapshot_key.as_deref()),
             Request::Finish{id}=>store.finish(&id),
             Request::Backup=>store.backup(&selected.ok_or(language::error("LOCAL_SAVE_LOCATION_MISSING", json!({})))?),
             Request::Restore=>store.restore(&selected.ok_or(language::error("LOCAL_BACKUP_NOT_SELECTED", json!({})))?),

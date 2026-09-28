@@ -11,7 +11,7 @@ use std::{
         atomic::{AtomicBool, Ordering},
         Arc, Mutex,
     },
-    time::{Duration, Instant},
+    time::{Duration, Instant, SystemTime},
 };
 use tauri::Manager;
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
@@ -35,11 +35,26 @@ pub enum Request {
     InstallationGuide,
 }
 #[derive(Default)]
-pub struct OfficeState(Mutex<Option<Arc<AtomicBool>>>);
+pub struct OfficeState {
+    active: Mutex<Option<Arc<AtomicBool>>>,
+    detected: Mutex<Option<Detection>>,
+}
+struct Detection {
+    preferred: Option<String>,
+    identity: (PathBuf, u64, SystemTime),
+    result: Value,
+    checked: Instant,
+}
+fn identity(result: &Value) -> Option<(PathBuf, u64, SystemTime)> {
+    let path = fs::canonicalize(result["path"].as_str()?).ok()?;
+    let info = fs::metadata(&path).ok()?;
+    info.is_file()
+        .then_some((path, info.len(), info.modified().ok()?))
+}
 struct Lease<'a>(&'a OfficeState, Arc<AtomicBool>);
 impl Drop for Lease<'_> {
     fn drop(&mut self) {
-        if let Ok(mut state) = self.0 .0.lock() {
+        if let Ok(mut state) = self.0.active.lock() {
             *state = None;
         }
     }
@@ -51,8 +66,38 @@ fn err(e: impl std::fmt::Display) -> AppError {
     e.to_string().into()
 }
 impl OfficeState {
+    fn invalidate(&self) {
+        if let Ok(mut cached) = self.detected.lock() {
+            *cached = None;
+        }
+    }
+    fn detect(
+        &self,
+        preferred: Option<String>,
+        run: impl FnOnce() -> Result<Value>,
+    ) -> Result<Value> {
+        if let Some(cached) = self.detected.lock().map_err(err)?.as_ref() {
+            if cached.preferred == preferred
+                && cached.checked.elapsed() < Duration::from_secs(300)
+                && identity(&cached.result).as_ref() == Some(&cached.identity)
+            {
+                return Ok(cached.result.clone());
+            }
+        }
+        self.invalidate();
+        let result = run()?;
+        if let Some(identity) = identity(&result) {
+            *self.detected.lock().map_err(err)? = Some(Detection {
+                preferred,
+                identity,
+                result: result.clone(),
+                checked: Instant::now(),
+            });
+        }
+        Ok(result)
+    }
     fn enter(&self) -> Result<Lease<'_>> {
-        let mut state = self.0.lock().map_err(err)?;
+        let mut state = self.active.lock().map_err(err)?;
         if state.is_some() {
             return Err(error("OFFICE_BUSY"));
         }
@@ -61,7 +106,7 @@ impl OfficeState {
         Ok(Lease(self, cancel))
     }
     pub fn cancel(&self) {
-        if let Ok(state) = self.0.lock() {
+        if let Ok(state) = self.active.lock() {
             if let Some(cancel) = &*state {
                 cancel.store(true, Ordering::SeqCst);
             }
@@ -71,7 +116,7 @@ impl OfficeState {
         self.cancel();
         // Let the worker close its Job Object and release temporary files before app exit.
         for _ in 0..150 {
-            if self.0.lock().map(|s| s.is_none()).unwrap_or(true) {
+            if self.active.lock().map(|s| s.is_none()).unwrap_or(true) {
                 break;
             }
             std::thread::sleep(Duration::from_millis(20));
@@ -220,10 +265,10 @@ fn save_preferred(shared: &Shared, path: Option<&str>) -> Result<()> {
     Ok(())
 }
 pub fn status(app: &tauri::AppHandle, shared: &Shared) -> Result<Value> {
-    worker(
-        app,
-        json!({"type":"detect", "preferred":preferred(shared)?}),
-    )
+    let preferred = preferred(shared)?;
+    app.state::<OfficeState>().detect(preferred.clone(), || {
+        worker(app, json!({"type":"detect", "preferred":preferred}))
+    })
 }
 
 #[derive(Clone, Deserialize, Serialize)]
@@ -406,10 +451,10 @@ pub fn prepare(
     let output = directory.path().join("output");
     let response = worker_in(
         app,
-        json!({"type":"convert", "engine":executable, "source":source, "output":output, "mode":mode}),
+        json!({"type":"convert", "engine":executable, "version":version, "source":source, "output":output, "mode":mode}),
         directory.path(),
         &lease.1,
-    )?;
+    ).inspect_err(|_| state.invalidate())?;
     read_artifacts(&output, response, path, bytes, mode, version)
 }
 pub fn request(
@@ -442,8 +487,12 @@ pub fn request(
                 .map_err(err)?;
             Ok(Value::Null)
         }
-        Request::Status => status(&app, &shared),
+        Request::Status => {
+            app.state::<OfficeState>().invalidate();
+            status(&app, &shared)
+        }
         Request::ResetExecutable => {
+            app.state::<OfficeState>().invalidate();
             save_preferred(&shared, None)?;
             status(&app, &shared)
         }
@@ -460,12 +509,14 @@ pub fn request(
                 return Ok(Value::Null);
             };
             let path = path.into_path().map_err(err)?;
+            app.state::<OfficeState>().invalidate();
             let result = worker(&app, json!({"type":"detect", "preferred":path}))?;
             let path = result["path"]
                 .as_str()
                 .ok_or_else(|| error("OFFICE_NOT_FOUND"))?;
             save_preferred(&shared, Some(path))?;
-            Ok(result)
+            app.state::<OfficeState>()
+                .detect(Some(path.to_owned()), || Ok(result))
         }
         Request::Convert { mode } => {
             let Some(path) = app
@@ -550,6 +601,39 @@ pub fn request(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn detection_cache_rechecks_changed_missing_and_expired_executables() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("soffice");
+        fs::write(&path, "version one").unwrap();
+        let state = OfficeState::default();
+        let calls = std::cell::Cell::new(0);
+        let detect = || {
+            calls.set(calls.get() + 1);
+            Ok(json!({"path":path,"version":"LibreOffice 26"}))
+        };
+        state.detect(None, detect).unwrap();
+        state.detect(None, detect).unwrap();
+        assert_eq!(calls.get(), 1);
+        fs::write(&path, "replacement executable").unwrap();
+        state.detect(None, detect).unwrap();
+        state.detect(Some("new preference".into()), detect).unwrap();
+        state.invalidate();
+        state.detect(None, detect).unwrap();
+        state.detected.lock().unwrap().as_mut().unwrap().checked -= Duration::from_secs(301);
+        state.detect(None, detect).unwrap();
+        assert_eq!(calls.get(), 5);
+        fs::remove_file(path).unwrap();
+        for _ in 0..2 {
+            state
+                .detect(None, || {
+                    calls.set(calls.get() + 1);
+                    Ok(json!({"path":null}))
+                })
+                .unwrap();
+        }
+        assert_eq!(calls.get(), 7);
+    }
     #[test]
     fn generated_names_fit_utf8_filesystem_limits_and_keep_unique_sheet_suffixes() {
         let dir = tempfile::tempdir().unwrap();
