@@ -73,7 +73,7 @@ PractiQ 的重点是“自己的资料 → 可复核题库 → 本地练习与�
 | 电子或扫描试卷 | `.pdf` |
 | 截图和拍摄图片 | `.png`、`.jpg`、`.jpeg` |
 
-Word 文件请先导出为 PDF。Excel 题目清单请导出为 CSV；需要保留排版时导出为 PDF。源文档上传不接受 Word、Excel、WebP 或 GIF。
+桌面端通过本机安装的 LibreOffice 导入 Word（`.doc`、`.docx`）和 Excel（`.xls`、`.xlsx`）。默认转换为 PDF；文本模式将 Word 转成 TXT，将 Excel 的每个工作表（包括隐藏表）分别转成 CSV。导入页也提供无需模型配置的本地转换和导出。请从 [LibreOffice 官网](https://www.libreoffice.org/download/download-libreoffice/)安装 Writer 和 Calc，再在导入页检查或选择安装位置；PractiQ 不内置或下载 Office。格式限制和保真说明见[桌面转换与评估指南](server/docs/desktop-office.md)。独立服务直接上传仍仅接受 PDF、TXT、CSV、PNG/JPEG，不接受 Word、Excel、WebP 或 GIF。
 
 解析保留原文答案、解析、共用材料、可提取的分值、评分细则和图片引用。缺失内容会标记待复核，不通过解题补答案。你可以暂停、恢复任务，补跑符合条件的失败单元，或接受部分结果。使用**仅看待复核**和**下一个待复核问题**定位异常题目，并在来源可用时对照原页或文本片段。接受部分结果会保留质量标记，未复核题目仍可练习。
 

@@ -7,7 +7,7 @@ This draft describes the current repository's first-release scope. It does not e
 | Area | Included capabilities |
 | --- | --- |
 | Desktop | Apple Silicon macOS 14+; Simplified Chinese and English |
-| Import | Offline bank ZIP with images; explicit parsing of PDF, TXT, CSV, and PNG/JPEG |
+| Import | Offline bank ZIP with images; explicit parsing of PDF, TXT, CSV, and PNG/JPEG; local Word/Excel conversion through installed LibreOffice |
 | Organization | Review, edit, search, bookmark, and copy-merge banks |
 | Practice | Seven basic types and nine English question kinds: listening, reading, word bank, cloze, grammar fill, sentence selection, paragraph matching, translation, and writing; resume and history |
 | Exams | Cross-bank tests, timed exams, point allocation, and local objective scoring |
@@ -38,4 +38,4 @@ Keep these items unchecked until evidence exists for the final release candidate
 - [ ] Capture an actual app walkthrough or screenshots of import, practice, and score review.
 - [ ] Record live-model parsing and grading examples and failures, and collect user feedback with consent.
 
-Engineering checks and hand-written samples do not establish live-model accuracy; historical checks do not replace release-candidate acceptance. AI grading is for personal practice and leaves answers ungraded without a reference answer or rubric. Export Word to PDF. Windows CI does not establish Windows runtime support. The linked guides record installation constraints and existing grading evidence.
+Engineering checks and hand-written samples do not establish live-model accuracy; historical checks do not replace release-candidate acceptance. AI grading is for personal practice and leaves answers ungraded without a reference answer or rubric. Desktop Word/Excel import uses [local LibreOffice conversion](../server/docs/desktop-office.md), with PDF as the default and explicit confirmation before AI submission; standalone conversion needs no model configuration. Direct service uploads exclude Office formats. Windows CI does not establish Windows runtime support. The linked guides record installation constraints and existing grading evidence.
