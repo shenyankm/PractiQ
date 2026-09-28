@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from "vitest";
 import { act, cleanup, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { Blocks, Markdown } from "./Content";
+import { QuestionPreview } from "./QuestionPreview";
 import { Practice } from "./Practice";
 import { api, type Question, type Session } from "./api";
 import fixture from "../fixtures/sample.json";
@@ -42,4 +44,18 @@ it("updates the practice clock without rerendering 1000 answer buttons and still
 it("keeps first-occurrence blank numbering when references repeat", () => {
   render(<Blocks blocks={[{partType:"blank",questionId:"a"},{partType:"text",textValue:"between"},{partType:"blank",questionId:"a"},{partType:"blank",questionId:"b"}]} />);
   expect(screen.getAllByRole("button").map(button=>button.textContent)).toEqual(["空位 1","空位 1","空位 3"]);
+});
+
+it("parses folded answers only after opening, and retains them on reopen", async () => {
+  const user = userEvent.setup();
+  render(<QuestionPreview questions={[{...fixture.questions[4], analysis:"Hidden formula $x^2$", sourceText:"Original source"} as Question]}/>);
+  expect(parse).not.toHaveBeenCalledWith("Hidden formula $x^2$");
+  expect(screen.queryByText("Original source")).toBeNull();
+  await user.click(screen.getByText("答案、解析与来源"));
+  expect(await screen.findByText("Original source")).toBeTruthy();
+  expect(parse).toHaveBeenCalledWith("Hidden formula $x^2$");
+  parse.mockClear();
+  await user.click(screen.getByText("答案、解析与来源"));
+  await user.click(screen.getByText("答案、解析与来源"));
+  expect(parse).not.toHaveBeenCalled();
 });

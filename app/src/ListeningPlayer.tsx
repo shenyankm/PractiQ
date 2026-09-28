@@ -2,6 +2,7 @@ import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { api, type PlaybackState, type Question, type Session } from "./api";
 import { t, useI18n } from "./i18n";
 import { Markdown } from "./Content";
+import { acquireAsset } from "./asset-urls";
 import { Button } from "@/components/ui/button";
 
 export function ListeningPlayer({question:q,session}:{question:Question;session?:Session}) {
@@ -27,11 +28,13 @@ export function ListeningPlayer({question:q,session}:{question:Question;session?
   const allowedPosition=useRef(start);
   const progressAt=useRef(0);
   useEffect(()=>{
-    let active=true,url:string|null=null;
-    if(hash) void api({type:"asset",hash}).then(bytes=>{
-      if(active) {url=URL.createObjectURL(new Blob([bytes],{type:media}));setSrc(url);}
+    let active=true;
+    setSrc(null); setError(false);
+    const resource=hash ? acquireAsset(hash,media) : undefined;
+    if(resource) void resource.url.then(url=>{
+      if(active) setSrc(url);
     }).catch(()=>{if(active)setError(true);});
-    return ()=>{active=false;if(url)URL.revokeObjectURL(url);};
+    return ()=>{active=false;resource?.release();};
   },[hash,media]);
   useEffect(()=>{
     if(sid && q.id && live) void api({type:"listening_playback",id:sid,question_id:q.id,action:"state"}).then(setState).catch(()=>setError(true));

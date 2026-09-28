@@ -3,7 +3,7 @@ import { list, t, useI18n } from "./i18n";
 import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { fieldName, type Question, type Group, type Visual } from "./api";
 import type { DocumentQualityIssue, DocumentQuestionSource } from "./contracts.generated";
-import { Content, Markdown } from "./Content";
+import { Content, LazyDetails, Markdown } from "./Content";
 import { AnswerDisplay } from "./AnswerInput";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -141,13 +141,12 @@ export const QuestionPreview = memo(function QuestionPreview({ questions, groups
               <Markdown>{item.content}</Markdown>
             </div>
           ))}
-          <details>
-            <summary>{t("答案、解析与来源")}</summary>
+          <LazyDetails summary={t("答案、解析与来源")}>
             <AnswerDisplay question={q} answer={q.answerPayload} />
             <Markdown>{q.analysis}</Markdown>
             <Markdown>{q.sourceText}</Markdown>
             <p>{list((q.missingFields || []).map(fieldName))}</p>
-          </details>
+          </LazyDetails>
         </article>
       );})}
       {visibleRoots.length > 20 && (

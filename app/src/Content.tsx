@@ -1,15 +1,23 @@
 import { list, t, useI18n } from "./i18n";
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
-import { api, fieldName, type Snapshot, type Visual, type Block, type Question } from "./api";
+import { fieldName, type Snapshot, type Visual, type Block, type Question } from "./api";
+import { acquireAsset } from "./asset-urls";
 import { ZoomIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+export function LazyDetails({ summary, children, className }: { summary: ReactNode; children: ReactNode; className?: string }) {
+  const [loaded, setLoaded] = useState(false);
+  return <details className={className} onToggle={event => { if (event.currentTarget.open) setLoaded(true); }}>
+    <summary>{summary}</summary>
+    {loaded && children}
+  </details>;
+}
 export const Markdown = memo(function Markdown({ children }: { children?: string | null }) {
   useI18n();
   return children ? (
@@ -73,30 +81,41 @@ function ImageAsset({ visual, original = false }: { visual: Visual; original?: b
   const imageHash = visual.imageRef?.sha256;
   const mediaType = visual.imageRef?.mediaType;
   const loadExpanded = original && expanded;
+  const figure = useRef<HTMLElement>(null);
+  const [nearby, setNearby] = useState(typeof IntersectionObserver === "undefined");
+  useEffect(() => {
+    if (nearby || original || !figure.current) return;
+    const observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) { setNearby(true); observer.disconnect(); }
+    }, {rootMargin:"200px"});
+    observer.observe(figure.current);
+    return () => observer.disconnect();
+  }, [nearby, original]);
   useEffect(() => {
     let active = true;
-    let objectUrl: string | null = null;
+    let resource: ReturnType<typeof acquireAsset> | undefined;
     setSrc(null);
     if (!original) setExpanded(false);
     setLoading(!!imageHash);
-    if (imageHash && (!original || loadExpanded))
-      void api({ type: "asset", hash: imageHash })
-        .then((bytes) => {
+    if (imageHash && (original ? loadExpanded : nearby)) {
+      resource = acquireAsset(imageHash, mediaType);
+      void resource.url
+        .then((url) => {
           if (active) {
-            objectUrl = URL.createObjectURL(new Blob([bytes], { type: mediaType }));
-            setSrc(objectUrl);
+            setSrc(url);
           }
         })
         .catch(() => {
           if (active) setSrc(null);
         }).finally(() => { if (active) setLoading(false); });
+    }
     return () => {
       active = false;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      resource?.release();
     };
-  }, [imageHash, mediaType, original, loadExpanded]);
+  }, [imageHash, mediaType, original, loadExpanded, nearby]);
   return (
-    <figure className="space-y-2 rounded-lg border p-4">
+    <figure ref={figure} className="space-y-2 rounded-lg border p-4">
       {src || original ? (
         <>
           {!original && src && <img src={src} alt={visual.description} className="max-h-[min(28vh,20rem)] max-w-full object-contain"/>}
@@ -147,7 +166,7 @@ export const Content = memo(function Content({
       <Markdown>{q.stem}</Markdown><Markdown>{q.instructions}</Markdown>
       <Blocks blocks={[...(q.passage || []), ...q.contentBlocks]} blankAnswers={blankAnswers} onBlank={id=>{setOpen(false);onBlank?.(id);}}/>
       {q.questionKind === "paragraph_matching" && q.items.filter(i=>i.side==="right").map((item,i)=><div key={item.id ?? i}><strong>{item.label || String(i+1)}</strong><Markdown>{item.content}</Markdown></div>)}
-      {!!q.transcript?.length && <details><summary>{t("听力原文")}</summary><Blocks blocks={q.transcript}/></details>}
+      {!!q.transcript?.length && <LazyDetails summary={t("听力原文")}><Blocks blocks={q.transcript}/></LazyDetails>}
     </section>;
   }
   return (
@@ -180,7 +199,7 @@ export const Content = memo(function Content({
         <Dialog open={open} onOpenChange={setOpen}><DialogContent className="flex max-h-[85vh] flex-col sm:max-w-4xl" onCloseAutoFocus={e=>{e.preventDefault();trigger.current?.focus();}}><DialogHeader><DialogTitle>{t("查看原文")}</DialogTitle><DialogDescription>{t("题目材料；点击空位可定位对应子题。")}</DialogDescription></DialogHeader><div className="min-h-0 space-y-6 overflow-auto pr-3">{materials.map(material)}{snapshot.visuals.map(v=><ImageAsset key={v.id} visual={v}/>)}</div></DialogContent></Dialog>
       </> : !materialDialog && materials.filter(m=>m.id!==q.id).map(material)}
       {(!materialDialog || !ownMaterial) && <Blocks blocks={[...(q.passage || []), ...q.contentBlocks]} />}
-      {!materialDialog && !!q.transcript?.length && <details><summary>{t("听力原文")}</summary><Blocks blocks={q.transcript}/></details>}
+      {!materialDialog && !!q.transcript?.length && <LazyDetails summary={t("听力原文")}><Blocks blocks={q.transcript}/></LazyDetails>}
       {snapshot.visuals.map((v) => (
         <div key={v.id} className="space-y-2">
           <ImageAsset visual={{...v, extractedText: q.contentBlocks.some(b => b.markdownValue === v.extractedText) ? null : v.extractedText}} />
@@ -188,8 +207,7 @@ export const Content = memo(function Content({
         </div>
       ))}
       {source && (
-        <details className="text-sm">
-          <summary className="cursor-pointer text-muted-foreground">{t("原文与导入提示")}</summary>
+        <LazyDetails className="text-sm" summary={<span className="cursor-pointer text-muted-foreground">{t("原文与导入提示")}</span>}>
           <div className="mt-3 space-y-2">
             <Markdown>{q.sourceText}</Markdown>
             {snapshot.warnings.map((w, i) => (
@@ -201,7 +219,7 @@ export const Content = memo(function Content({
               </pre>
             ))}
           </div>
-        </details>
+        </LazyDetails>
       )}
     </div>
   );
