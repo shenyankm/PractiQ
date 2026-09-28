@@ -1,6 +1,6 @@
 use crate::{
     contract::{self, list, text, Result},
-    store::{now, validate_page, Store},
+    store::{validate_page, Store},
 };
 use rusqlite::{params, OptionalExtension};
 use serde_json::{json, Value};
@@ -10,6 +10,17 @@ fn err(e: impl std::fmt::Display) -> crate::AppError {
 }
 
 impl Store {
+    pub(crate) fn session_now_with(&self, db: &rusqlite::Connection) -> Result<i64> {
+        if self.session_clock.started() {
+            return self.session_clock.now();
+        }
+        let saved: i64 = db.query_row(
+            "SELECT COALESCE(MAX(MAX(created_at,COALESCE(last_active_at,created_at),COALESCE(submitted_at,created_at),COALESCE(finished_at,created_at))),0) FROM sessions",
+            [], |row| row.get(0),
+        ).map_err(err)?;
+        self.session_clock.at_least(saved)
+    }
+
     pub fn session(&self, sid: &str) -> Result<Value> {
         self.session_data(sid, None)
     }
@@ -53,6 +64,9 @@ impl Store {
         for a in &mut attempts {
             a.as_object_mut().unwrap().remove("snapshotId");
         }
+        if session["deadlineAt"].is_number() && session["submittedAt"].is_null() {
+            session["clockNow"] = json!(self.session_clock.now()?);
+        }
         session["snapshotKey"] = json!(key);
         session["attempts"] = json!(attempts);
         let mut banks = db.prepare("SELECT q.bank_id FROM attempts a JOIN questions q ON q.id=a.question_id WHERE a.session_id=?1 GROUP BY q.bank_id ORDER BY MIN(a.ordinal)").map_err(err)?;
@@ -67,11 +81,12 @@ impl Store {
     }
     fn expire_sessions(&self) -> Result<()> {
         let db = self.connect()?;
+        let at = self.session_now_with(&db)?;
         let mut expired = db
             .prepare("SELECT id FROM sessions WHERE deadline_at<=?1 AND submitted_at IS NULL")
             .map_err(err)?;
         let ids = expired
-            .query_map([now()], |r| r.get::<_, String>(0))
+            .query_map([at], |r| r.get::<_, String>(0))
             .map_err(err)?
             .collect::<std::result::Result<Vec<_>, _>>()
             .map_err(err)?;
@@ -119,6 +134,9 @@ impl Store {
                 count += usize::from(crate::exams::has_answer(&answer));
             }
             session["draftAnswered"] = json!(count);
+            if session["deadlineAt"].is_number() && session["submittedAt"].is_null() {
+                session["clockNow"] = json!(self.session_now_with(&db)?);
+            }
         }
         Ok(json!({"items":rows,"total":total,"offset":offset}))
     }
@@ -133,6 +151,7 @@ impl Store {
         let ineligible = || crate::language::error("LOCAL_SELF_ASSESSMENT_INELIGIBLE", json!({}));
         let (kind, submitted, skipped, auto, qid) = attempt.ok_or_else(ineligible)?;
         let snapshot = crate::questions::snapshot(&tx, sid, &qid)?;
+        self.session_now_with(&tx)?;
         if kind != "practice"
             || submitted.is_none()
             || skipped
@@ -147,7 +166,7 @@ impl Store {
         .map_err(err)?;
         tx.execute(
             "UPDATE sessions SET last_active_at=?2 WHERE id=?1",
-            params![sid, now()],
+            params![sid, self.session_clock.now()?],
         )
         .map_err(err)?;
         tx.commit().map_err(err)?;
@@ -215,7 +234,13 @@ impl Store {
                 serde_json::json!({}),
             ));
         }
-        if elapsed > now() - created + 60_000 {
+        if elapsed
+            > self
+                .session_clock
+                .now()?
+                .saturating_sub(created)
+                .saturating_add(60_000)
+        {
             return Err(crate::language::error(
                 "LOCAL_ELAPSED_INVALID",
                 serde_json::json!({}),
@@ -293,11 +318,11 @@ impl Store {
             } else {
                 "ungraded"
             };
-            tx.execute("UPDATE attempts SET answer=?3,elapsed_ms=MAX(elapsed_ms,?4),submitted_at=?5,skipped=?6,auto_result=?7,result=?8,grade_kind=?9 WHERE session_id=?1 AND ordinal=?2",params![sid,ordinal,answer.to_string(),elapsed,if submit{Some(now())}else{None},submit&&skip,auto,result,grade_kind]).map_err(err)?;
+            tx.execute("UPDATE attempts SET answer=?3,elapsed_ms=MAX(elapsed_ms,?4),submitted_at=?5,skipped=?6,auto_result=?7,result=?8,grade_kind=?9 WHERE session_id=?1 AND ordinal=?2",params![sid,ordinal,answer.to_string(),elapsed,if submit{Some(self.session_clock.now()?)}else{None},submit&&skip,auto,result,grade_kind]).map_err(err)?;
         }
         tx.execute(
             "UPDATE sessions SET position=?2,last_active_at=?3 WHERE id=?1",
-            params![sid, ordinal, now()],
+            params![sid, ordinal, self.session_clock.now()?],
         )
         .map_err(err)?;
         tx.commit().map_err(err)?;
@@ -310,7 +335,8 @@ impl Store {
         snapshot_key: Option<&str>,
     ) -> Result<Value> {
         let db = self.connect()?;
-        db.execute("UPDATE sessions SET position=?2,last_active_at=?3 WHERE id=?1 AND finished_at IS NULL AND EXISTS(SELECT 1 FROM attempts WHERE session_id=?1 AND ordinal=?2)",params![sid,position,now()]).map_err(err)?;
+        self.session_now_with(&db)?;
+        db.execute("UPDATE sessions SET position=?2,last_active_at=?3 WHERE id=?1 AND finished_at IS NULL AND EXISTS(SELECT 1 FROM attempts WHERE session_id=?1 AND ordinal=?2)",params![sid,position,self.session_clock.now()?]).map_err(err)?;
         let mut session = self.session_with(&db, sid, snapshot_key)?;
         if position < list(&session, "attempts").len() {
             session["position"] = json!(position);
@@ -323,10 +349,10 @@ impl Store {
         }
         let mut db = self.connect()?;
         let tx = db.transaction().map_err(err)?;
-        tx.execute("UPDATE attempts SET skipped=1,submitted_at=?2 WHERE session_id=?1 AND submitted_at IS NULL",params![sid,now()]).map_err(err)?;
+        tx.execute("UPDATE attempts SET skipped=1,submitted_at=?2 WHERE session_id=?1 AND submitted_at IS NULL",params![sid,self.session_clock.now()?]).map_err(err)?;
         tx.execute(
             "UPDATE sessions SET finished_at=COALESCE(finished_at,?2) WHERE id=?1",
-            params![sid, now()],
+            params![sid, self.session_clock.now()?],
         )
         .map_err(err)?;
         tx.commit().map_err(err)?;

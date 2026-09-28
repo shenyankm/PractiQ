@@ -43,11 +43,12 @@ function qualityMessage(code: DocumentQualityIssue["code"]) {
   }
 }
 
-export const QuestionPreview = memo(function QuestionPreview({ questions, groups = [], visuals = [], reviewMode = false, questionSources = [], qualityIssues = [], renderSource }: {
+export const QuestionPreview = memo(function QuestionPreview({ questions, groups = [], visuals = [], reviewMode = false, reviewedQuestionIds = [], questionSources = [], qualityIssues = [], renderSource }: {
   questions: Question[];
   groups?: PreviewGroup[];
   visuals?: PreviewVisual[];
   reviewMode?: boolean;
+  reviewedQuestionIds?: string[];
   questionSources?: DocumentQuestionSource[];
   qualityIssues?: DocumentQualityIssue[];
   renderSource?: (source: DocumentQuestionSource) => ReactNode;
@@ -59,7 +60,8 @@ export const QuestionPreview = memo(function QuestionPreview({ questions, groups
   const articles = useRef(new Map<number, HTMLElement>());
   const { roots, trees, byId } = useMemo(() => indexPreviewQuestions(questions), [questions]);
   const reviewIds = new Set(qualityIssues.map(issue => issue.questionId));
-  const needsReview = (question: Question) => question.needsReview || reviewIds.has(question.id || "");
+  const reviewedIds = new Set(reviewedQuestionIds);
+  const needsReview = (question: Question) => !reviewedIds.has(question.id || "") && (question.needsReview || reviewIds.has(question.id || ""));
   const reviewQuestions = questions.map((question, index) => ({ question, index })).filter(({ question }) => needsReview(question));
   const reviewRoots = roots.filter(root => trees.get(root)?.some(({ question }) => needsReview(question)));
   const visibleRoots = reviewMode && onlyReview && reviewRoots.length ? reviewRoots : roots;
@@ -102,7 +104,7 @@ export const QuestionPreview = memo(function QuestionPreview({ questions, groups
           ref={element => { if (element) articles.current.set(i, element); else articles.current.delete(i); }}
         >
           <p>
-            {i + 1}. {needsReview(q) ? t("待复核") : ""}
+            {i + 1}. {reviewedIds.has(q.id || "") ? t("已复核") : needsReview(q) ? t("待复核") : ""}
           </p>
           {reviewMode && <div className="space-y-2 text-sm">
             {qualityIssues.filter(issue => issue.questionId === q.id).map((issue, index) => <p key={index}>{qualityMessage(issue.code)}</p>)}
@@ -113,6 +115,7 @@ export const QuestionPreview = memo(function QuestionPreview({ questions, groups
             </div>)}
           </div>}
           <Content
+            reviewed={reviewedIds.has(q.id || "")}
             snapshot={{
               question: {
                 ...q,

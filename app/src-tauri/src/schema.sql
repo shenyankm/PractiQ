@@ -14,6 +14,7 @@ CREATE TABLE questions(
  missing_fields TEXT NOT NULL CHECK(json_valid(missing_fields)),favorite INTEGER NOT NULL DEFAULT 0 CHECK(favorite IN(0,1)));
 CREATE INDEX questions_bank ON questions(bank_id,position);
 CREATE INDEX questions_parent ON questions(parent_id,position);
+CREATE TABLE question_reviews(question_id TEXT PRIMARY KEY REFERENCES questions(id) ON DELETE CASCADE,reviewed_at INTEGER NOT NULL CHECK(reviewed_at>=0));
 CREATE TABLE option_sets(id TEXT PRIMARY KEY REFERENCES questions(id) ON DELETE CASCADE);
 CREATE TABLE question_options(owner_id TEXT NOT NULL REFERENCES option_sets(id) ON DELETE CASCADE,position INTEGER NOT NULL,label TEXT,content TEXT,PRIMARY KEY(owner_id,position),UNIQUE(owner_id,label));
 CREATE TABLE choice_questions(question_id TEXT PRIMARY KEY REFERENCES questions(id) ON DELETE CASCADE,variant TEXT CHECK(variant IN('single','multiple')),option_set_id TEXT NOT NULL REFERENCES option_sets(id) DEFERRABLE INITIALLY DEFERRED,correct TEXT NOT NULL CHECK(json_valid(correct) AND json_type(correct) IN('array','null')));

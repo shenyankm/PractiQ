@@ -16,7 +16,7 @@ pub fn composite(q: &Value) -> bool {
 pub(crate) fn validate_filter(banks: &[String], mode: &str, filter: &str) -> Result<()> {
     if banks.len() > 1000
         || !crate::question_metadata::FILTER_MODES.contains(&mode)
-        || !["", "wrong", "favorite", "unattempted"].contains(&filter)
+        || !["", "wrong", "favorite", "unattempted", "review"].contains(&filter)
     {
         return Err(crate::language::error("LOCAL_FILTER_INVALID", json!({})));
     }
@@ -349,6 +349,7 @@ pub fn matching_roots(
         ), matches AS (
             SELECT DISTINCT t.root FROM tree t JOIN questions n ON n.id=t.id WHERE
                 (?3='favorite' AND n.favorite=1) OR
+                (?3='review' AND n.needs_review=1 AND NOT EXISTS(SELECT 1 FROM question_reviews r WHERE r.question_id=n.id)) OR
                 (?3='wrong' AND (SELECT result FROM attempts WHERE question_id=n.id AND result IS NOT NULL ORDER BY submitted_at DESC,rowid DESC LIMIT 1)=0) OR
                 (?3='unattempted' AND (n.mode IS NULL OR n.mode NOT IN ({COMPOSITE_SQL})) AND NOT EXISTS(SELECT 1 FROM attempts WHERE question_id=n.id AND submitted_at IS NOT NULL AND skipped=0))
         ) SELECT q.id FROM questions q JOIN banks b ON b.id=q.bank_id LEFT JOIN choice_questions c ON c.question_id=q.id
@@ -408,8 +409,8 @@ pub fn read_scoped(
     } else {
         "1"
     };
-    let mut stmt=db.prepare(&format!("WITH RECURSIVE selected(id) AS (SELECT value FROM json_each(?2) UNION ALL SELECT q.id FROM questions q JOIN selected s ON q.parent_id=s.id) SELECT q.id,q.bank_id,q.import_id,q.parent_id,q.position,q.stem,q.mode,q.question_type,q.analysis,q.source_text,q.source_score,q.scoring_rubric,q.score_source_text,q.content_blocks,q.confidence,q.needs_review,q.missing_fields,q.favorite,b.title,q.question_kind,q.instructions FROM questions q JOIN banks b ON b.id=q.bank_id WHERE {bank_filter} AND {root_filter} ORDER BY b.created_at DESC,q.position,q.id")).map_err(err)?;
-    let records=stmt.query_map(params![json!(banks).to_string(),roots.map(|v|json!(v).to_string())],|r| Ok((json!({"id":r.get::<_,String>(0)?,"parentId":r.get::<_,Option<String>>(3)?,"stem":r.get::<_,Option<String>>(5)?,"answerMode":r.get::<_,Option<String>>(6)?,"questionTypeId":r.get::<_,Option<String>>(7)?,"analysis":r.get::<_,Option<String>>(8)?,"sourceText":r.get::<_,Option<String>>(9)?,"sourceScore":r.get::<_,Option<f64>>(10)?,"scoringRubric":r.get::<_,Option<String>>(11)?,"scoreSourceText":r.get::<_,Option<String>>(12)?,"confidence":r.get::<_,f64>(14)?,"needsReview":r.get::<_,bool>(15)?,"questionKind":r.get::<_,Option<String>>(19)?,"instructions":r.get::<_,Option<String>>(20)?}),r.get::<_,String>(1)?,r.get::<_,Option<String>>(2)?,r.get::<_,String>(13)?,r.get::<_,String>(16)?,r.get::<_,bool>(17)?,r.get::<_,String>(18)?))).map_err(err)?.collect::<std::result::Result<Vec<_>,_>>().map_err(err)?;
+    let mut stmt=db.prepare(&format!("WITH RECURSIVE selected(id) AS (SELECT value FROM json_each(?2) UNION ALL SELECT q.id FROM questions q JOIN selected s ON q.parent_id=s.id) SELECT q.id,q.bank_id,q.import_id,q.parent_id,q.position,q.stem,q.mode,q.question_type,q.analysis,q.source_text,q.source_score,q.scoring_rubric,q.score_source_text,q.content_blocks,q.confidence,q.needs_review,q.missing_fields,q.favorite,b.title,q.question_kind,q.instructions,review.reviewed_at FROM questions q JOIN banks b ON b.id=q.bank_id LEFT JOIN question_reviews review ON review.question_id=q.id WHERE {bank_filter} AND {root_filter} ORDER BY b.created_at DESC,q.position,q.id")).map_err(err)?;
+    let records=stmt.query_map(params![json!(banks).to_string(),roots.map(|v|json!(v).to_string())],|r| Ok((json!({"id":r.get::<_,String>(0)?,"parentId":r.get::<_,Option<String>>(3)?,"stem":r.get::<_,Option<String>>(5)?,"answerMode":r.get::<_,Option<String>>(6)?,"questionTypeId":r.get::<_,Option<String>>(7)?,"analysis":r.get::<_,Option<String>>(8)?,"sourceText":r.get::<_,Option<String>>(9)?,"sourceScore":r.get::<_,Option<f64>>(10)?,"scoringRubric":r.get::<_,Option<String>>(11)?,"scoreSourceText":r.get::<_,Option<String>>(12)?,"confidence":r.get::<_,f64>(14)?,"needsReview":r.get::<_,bool>(15)?,"questionKind":r.get::<_,Option<String>>(19)?,"instructions":r.get::<_,Option<String>>(20)?}),r.get::<_,String>(1)?,r.get::<_,Option<String>>(2)?,r.get::<_,String>(13)?,r.get::<_,String>(16)?,r.get::<_,bool>(17)?,r.get::<_,String>(18)?,r.get::<_,Option<i64>>(21)?))).map_err(err)?.collect::<std::result::Result<Vec<_>,_>>().map_err(err)?;
     if records.is_empty() {
         return Ok(Vec::new());
     }
@@ -432,7 +433,7 @@ pub fn read_scoped(
     let warnings = related(db, "SELECT import_id,json_quote(message) FROM import_warnings WHERE import_id IN (SELECT import_id FROM questions WHERE id IN (SELECT value FROM json_each(?1))) ORDER BY import_id,position", &scope)?;
     let mut latest = related(db, "SELECT q.id,COALESCE((SELECT json_object('result',result,'earnedCents',earned_cents,'maxCents',max_cents,'gradeKind',grade_kind) FROM attempts WHERE question_id=q.id AND result IS NOT NULL ORDER BY submitted_at DESC,rowid DESC LIMIT 1),'null') FROM questions q WHERE q.id IN (SELECT value FROM json_each(?1))", &scope)?;
     let mut rows = Vec::new();
-    for (mut q, bank, import, blocks, missing, favorite, title) in records {
+    for (mut q, bank, import, blocks, missing, favorite, title, reviewed_at) in records {
         q["contentBlocks"] = json_read(blocks)?;
         q["missingFields"] = json_read(missing)?;
         for key in ["options", "items", "passage"] {
@@ -522,7 +523,7 @@ pub fn read_scoped(
         } else {
             Value::Null
         };
-        rows.push(json!({"id":qid,"bankId":bank,"bankTitle":title,"question":q,"favorite":favorite,"latestResult":result,"latestScore":score,"sources":sources,"warnings":warnings,"groups":[],"visuals":[],"missingAssets":false}));
+        rows.push(json!({"id":qid,"bankId":bank,"bankTitle":title,"question":q,"favorite":favorite,"reviewedAt":reviewed_at,"latestResult":result,"latestScore":score,"sources":sources,"warnings":warnings,"groups":[],"visuals":[],"missingAssets":false}));
     }
     let loaded_ids: HashSet<_> = rows.iter().map(|r| text(r, "id")).collect();
     let bank_scope = json!(rows
@@ -726,19 +727,30 @@ impl<'a> Index<'a> {
 
 pub fn freeze(rows: &[Value]) -> Value {
     let ids: HashSet<_> = rows.iter().map(|r| r["id"].clone().to_string()).collect();
+    let mixed_banks = rows
+        .windows(2)
+        .any(|pair| pair[0]["bankId"] != pair[1]["bankId"]);
     let mut qs = rows.to_vec();
     let mut groups = Vec::new();
     let mut visuals = Vec::new();
     let mut seen = HashSet::new();
     for row in &mut qs {
         // Live list metadata is neither document content nor an immutable attempt snapshot.
-        for key in ["latestScore", "answerableCount"] {
+        for key in ["latestScore", "answerableCount", "reviewedAt"] {
             row.as_object_mut().unwrap().remove(key);
         }
         for (key, values) in [("groups", &mut groups), ("visuals", &mut visuals)] {
             for item in list(row, key) {
                 if seen.insert((key, item["id"].to_string())) {
                     let mut item = item.clone();
+                    if mixed_banks && key == "visuals" && list(&item, "questionIds").is_empty() {
+                        // A source-bank document image must not become global in a mixed snapshot.
+                        item["questionIds"] = json!(rows
+                            .iter()
+                            .filter(|source| source["bankId"] == row["bankId"])
+                            .map(|source| &source["id"])
+                            .collect::<Vec<_>>());
+                    }
                     if let Some(refs) = item["questionIds"].as_array_mut() {
                         refs.retain(|id| ids.contains(&id.to_string()));
                     }
@@ -946,21 +958,27 @@ pub fn copy_context(
                 continue;
             }
             let vid = id();
+            let targets: Vec<_> = if list(v, "questionIds").is_empty() {
+                rows.iter()
+                    .filter(|source| source["bankId"] == row["bankId"])
+                    .map(|source| text(source, "id"))
+                    .collect()
+            } else {
+                list(v, "questionIds")
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .collect()
+            };
             let mut content = v.clone();
             for key in ["id", "questionIds"] {
                 content.as_object_mut().unwrap().remove(key);
             }
             db.execute(
                 "INSERT INTO visuals VALUES(?1,?2,?3,?4)",
-                params![
-                    vid,
-                    bank,
-                    content.to_string(),
-                    list(v, "questionIds").is_empty()
-                ],
+                params![vid, bank, content.to_string(), false],
             )
             .map_err(err)?;
-            for old in list(v, "questionIds").iter().filter_map(Value::as_str) {
+            for old in targets {
                 if let Some(qid) = ids.get(old) {
                     db.execute(
                         "INSERT INTO question_visuals VALUES(?1,?2)",
@@ -1096,6 +1114,11 @@ impl Store {
             }
         }
         drop(statement);
+        tx.execute(
+            "DELETE FROM question_reviews WHERE question_id IN (SELECT value FROM json_each(?1))",
+            [json!(old.iter().map(|row| text(row, "id")).collect::<Vec<_>>()).to_string()],
+        )
+        .map_err(err)?;
         let proposed_by_id: HashMap<_, _> = tree.iter().map(|q| (text(q, "id"), q)).collect();
         let cleanup = old.iter().any(|r| {
             proposed_by_id
@@ -1127,5 +1150,359 @@ impl Store {
         }
         tx.commit().map_err(err)?;
         Ok((json!(qid), cleanup))
+    }
+}
+
+#[cfg(test)]
+mod visual_tests {
+    use super::*;
+    use std::{io::Write, path::Path};
+
+    fn import_bank(store: &mut Store, title: &str, visual_questions: Option<Value>) -> String {
+        let mut source: Value =
+            serde_json::from_slice(include_bytes!("../../fixtures/sample.json")).unwrap();
+        source["questions"].as_array_mut().unwrap().truncate(2);
+        for (i, question) in source["questions"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .enumerate()
+        {
+            question["stem"] = json!(format!("{title} question {i}"));
+        }
+        source["groups"] = json!([]);
+        if let Some(ids) = visual_questions {
+            source["visualElements"][0]["questionIds"] = ids;
+        } else {
+            source["visualElements"] = json!([]);
+        }
+        let preview = store
+            .preview(serde_json::to_vec(&source).unwrap(), title.into())
+            .unwrap();
+        store
+            .resources(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../fixtures/resources"))
+            .unwrap();
+        text(
+            &store.import(text(&preview, "ticket"), None, title).unwrap(),
+            "bankId",
+        )
+        .into()
+    }
+
+    fn start(store: &Store, ids: Vec<String>, kind: &str) -> Value {
+        let selected = crate::paper::selected_rows(&store.question_rows().unwrap(), &ids).unwrap();
+        store
+            .start_paper(crate::exams::Paper {
+                digest: crate::paper::digest(&selected).unwrap(),
+                scores: if kind == "practice" {
+                    vec![]
+                } else {
+                    vec![100; ids.len()]
+                },
+                total_cents: if kind == "practice" {
+                    0
+                } else {
+                    100 * ids.len() as i64
+                },
+                question_ids: ids,
+                kind: kind.into(),
+                minutes: (kind == "mock_exam").then_some(30),
+            })
+            .unwrap()
+    }
+
+    fn assert_bank_scope(store: &Store, bank: &str) {
+        let rows = store.questions(Some(bank), "", "", "").unwrap();
+        assert_eq!(rows.as_array().unwrap().len(), 4);
+        for row in rows.as_array().unwrap() {
+            assert_eq!(
+                list(row, "visuals").len(),
+                usize::from(text(&row["question"], "stem").starts_with("A "))
+            );
+        }
+    }
+
+    #[test]
+    fn document_visuals_keep_their_bank_scope_across_sessions_merge_and_archives() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut store = Store::new(dir.path().into()).unwrap();
+        let a = import_bank(&mut store, "A", Some(json!([])));
+        let b = import_bank(&mut store, "B", None);
+        let a_rows = store.questions(Some(&a), "", "", "").unwrap();
+        let b_rows = store.questions(Some(&b), "", "", "").unwrap();
+        assert_eq!(list(&a_rows[0], "visuals").len(), 1);
+        assert!(list(&a_rows[0]["visuals"][0], "questionIds").is_empty());
+        assert!(list(&b_rows[0], "visuals").is_empty());
+        let ids = vec![text(&a_rows[0], "id").into(), text(&b_rows[0], "id").into()];
+        let mut sessions = Vec::new();
+        for kind in ["practice", "mock_exam"] {
+            let session = start(&store, ids.clone(), kind);
+            let attempts = list(&session, "attempts");
+            assert_eq!(list(&attempts[0]["snapshot"], "visuals").len(), 1);
+            assert!(list(&attempts[1]["snapshot"], "visuals").is_empty());
+            let frozen = session_rows(&store.connect().unwrap(), text(&session, "id")).unwrap();
+            assert_eq!(frozen[0]["visuals"][0]["questionIds"], json!([ids[0]]));
+            sessions.push(session);
+        }
+        let merged = store.merge_banks(&[a, b], "Merged").unwrap();
+        let merged = text(&merged, "bankId");
+        assert_bank_scope(&store, merged);
+        let reopened = Store::new(dir.path().into()).unwrap();
+        for session in &sessions {
+            assert_eq!(
+                reopened.session(text(session, "id")).unwrap()["attempts"],
+                session["attempts"]
+            );
+        }
+
+        let zip = dir.path().join("bank.zip");
+        store.export_bank(merged, &zip).unwrap();
+        let zip_dir = tempfile::tempdir().unwrap();
+        let mut imported = Store::new(zip_dir.path().into()).unwrap();
+        let preview = imported.preview_bank_zip(&zip).unwrap();
+        let imported_bank = imported
+            .import(text(&preview, "ticket"), None, "Imported")
+            .unwrap();
+        assert_bank_scope(&imported, text(&imported_bank, "bankId"));
+
+        let backup = dir.path().join("backup.zip");
+        store.backup(&backup).unwrap();
+        let restored_dir = tempfile::tempdir().unwrap();
+        let mut restored = Store::new(restored_dir.path().into()).unwrap();
+        restored.restore(&backup).unwrap();
+        assert_bank_scope(&restored, merged);
+        for session in sessions {
+            assert_eq!(
+                restored.session(text(&session, "id")).unwrap()["attempts"],
+                session["attempts"]
+            );
+        }
+    }
+
+    #[test]
+    fn deleted_question_visuals_collect_assets_unless_shared_document_or_history_references_remain()
+    {
+        for kind in ["private", "shared", "document", "history"] {
+            let dir = tempfile::tempdir().unwrap();
+            let mut store = Store::new(dir.path().into()).unwrap();
+            let refs = match kind {
+                "shared" => json!(["q0", "q1"]),
+                "document" => json!([]),
+                _ => json!(["q0"]),
+            };
+            let bank = import_bank(&mut store, "A", Some(refs));
+            let rows = store.questions(Some(&bank), "", "", "").unwrap();
+            let qid = text(&rows[0], "id");
+            let digest = text(&rows[0]["visuals"][0]["imageRef"], "sha256");
+            let history = (kind == "history").then(|| start(&store, vec![qid.into()], "practice"));
+            store.delete_question(qid).unwrap();
+            let db = store.connect().unwrap();
+            let visuals: usize = db
+                .query_row("SELECT COUNT(*) FROM visuals", [], |r| r.get(0))
+                .unwrap();
+            assert_eq!(
+                visuals,
+                usize::from(matches!(kind, "shared" | "document")),
+                "{kind}"
+            );
+            let retained = kind != "private";
+            assert_eq!(
+                store.asset_path(digest).unwrap().exists(),
+                retained,
+                "{kind}"
+            );
+            let assets: usize = db
+                .query_row("SELECT COUNT(*) FROM assets", [], |r| r.get(0))
+                .unwrap();
+            assert_eq!(assets, usize::from(retained), "{kind}");
+            if let Some(session) = &history {
+                assert_eq!(
+                    store.session(text(session, "id")).unwrap()["attempts"][0]["snapshot"],
+                    session["attempts"][0]["snapshot"]
+                );
+            }
+            let backup = dir.path().join("backup.zip");
+            store.backup(&backup).unwrap();
+            let restored_dir = tempfile::tempdir().unwrap();
+            let mut restored = Store::new(restored_dir.path().into()).unwrap();
+            restored.restore(&backup).unwrap();
+            assert_eq!(
+                restored.asset_path(digest).unwrap().exists(),
+                retained,
+                "{kind}"
+            );
+            if let Some(session) = history {
+                assert_eq!(
+                    restored.session(text(&session, "id")).unwrap()["attempts"][0]["snapshot"],
+                    session["attempts"][0]["snapshot"]
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn single_bank_document_visuals_keep_unassociated_scope_in_sessions_and_zip() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut store = Store::new(dir.path().into()).unwrap();
+        let bank = import_bank(&mut store, "A", Some(json!([])));
+        let rows = store.questions(Some(&bank), "", "", "").unwrap();
+        let session = start(&store, vec![text(&rows[0], "id").into()], "practice");
+        let visual = &session["attempts"][0]["snapshot"]["visuals"][0];
+        assert_eq!(visual["questionIds"], json!([]));
+        let archive = dir.path().join("single-bank.zip");
+        store.export_bank(&bank, &archive).unwrap();
+        let target_dir = tempfile::tempdir().unwrap();
+        let mut target = Store::new(target_dir.path().into()).unwrap();
+        let preview = target.preview_bank_zip(&archive).unwrap();
+        let imported = target
+            .import(text(&preview, "ticket"), None, "Imported")
+            .unwrap();
+        let rows = target
+            .questions(Some(text(&imported, "bankId")), "", "", "")
+            .unwrap();
+        for row in rows.as_array().unwrap() {
+            assert_eq!(list(row, "visuals").len(), 1);
+            assert_eq!(row["visuals"][0]["questionIds"], json!([]));
+        }
+    }
+
+    #[test]
+    fn adding_reviews_to_canonical_schema_does_not_reclassify_orphaned_visuals() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut store = Store::new(dir.path().into()).unwrap();
+        let bank = import_bank(&mut store, "A", Some(json!(["q0"])));
+        let rows = store.questions(Some(&bank), "", "", "").unwrap();
+        let digest = text(&rows[0]["visuals"][0]["imageRef"], "sha256");
+        let db = store.connect().unwrap();
+        db.execute("DELETE FROM questions WHERE id=?1", [text(&rows[0], "id")])
+            .unwrap();
+        db.execute_batch("DROP TABLE question_reviews;").unwrap();
+        drop(db);
+        let reopened = Store::new(dir.path().into()).unwrap();
+        assert!(!reopened.asset_path(digest).unwrap().exists());
+        let count: usize = reopened
+            .connect()
+            .unwrap()
+            .query_row("SELECT COUNT(*) FROM visuals", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(count, 0);
+    }
+
+    #[test]
+    fn legacy_visual_scope_survives_first_startup_and_direct_backup_restore() {
+        for already_migrated in [false, true] {
+            let dir = tempfile::tempdir().unwrap();
+            let mut source = Store::new(dir.path().into()).unwrap();
+            let global_bank = import_bank(&mut source, "A", Some(json!([])));
+            let scoped_bank = import_bank(&mut source, "B", Some(json!(["q0"])));
+            let global_rows = source.questions(Some(&global_bank), "", "", "").unwrap();
+            let scoped_rows = source.questions(Some(&scoped_bank), "", "", "").unwrap();
+            let session = start(
+                &source,
+                vec![
+                    text(&global_rows[0], "id").into(),
+                    text(&scoped_rows[0], "id").into(),
+                ],
+                "practice",
+            );
+            let sid = text(&session, "id");
+            let db = source.connect().unwrap();
+            let snapshot: String = db
+                .query_row(
+                    "SELECT content FROM session_documents WHERE session_id=?1",
+                    [sid],
+                    |r| r.get(0),
+                )
+                .unwrap();
+            db.execute_batch(
+            "DROP INDEX visuals_bank; ALTER TABLE visuals DROP COLUMN document_level; DROP TABLE question_reviews;",
+        )
+        .unwrap();
+            if already_migrated {
+                db.execute_batch("ALTER TABLE visuals ADD COLUMN document_level INTEGER NOT NULL DEFAULT 0 CHECK(document_level IN(0,1));").unwrap();
+            }
+            drop(db);
+
+            // Package the old database directly: Store::backup would open and migrate it first.
+            let database = std::fs::read(source.db_path()).unwrap();
+            let image = &global_rows[0]["visuals"][0]["imageRef"];
+            let digest = text(image, "sha256");
+            let bytes = source
+                .read_asset(digest, image["sizeBytes"].as_u64().unwrap())
+                .unwrap();
+            let image_path = format!("assets/{digest}");
+            let manifest = json!({"format":"practiq-backup","version":4,"schemaVersion":10,
+                "database":{"file":"practiq.sqlite","sha256":crate::store::hash(&database),"sizeBytes":database.len()},
+                "assets":[{"sha256":digest,"mediaType":image["mediaType"],"sizeBytes":bytes.len(),"file":image_path}]
+            });
+            let archive = dir.path().join("legacy.zip");
+            let mut zip = zip::ZipWriter::new(std::fs::File::create(&archive).unwrap());
+            for (name, data) in [
+                ("manifest.json", manifest.to_string().into_bytes()),
+                ("practiq.sqlite", database),
+                (image_path.as_str(), bytes.clone()),
+            ] {
+                zip.start_file(name, zip::write::SimpleFileOptions::default())
+                    .unwrap();
+                zip.write_all(&data).unwrap();
+            }
+            zip.finish().unwrap();
+
+            let assert_preserved = |store: &Store| {
+                let db = store.connect().unwrap();
+                for (bank, document_level) in [(&global_bank, true), (&scoped_bank, false)] {
+                    let actual: bool = db
+                        .query_row(
+                            "SELECT document_level FROM visuals WHERE bank_id=?1",
+                            [bank],
+                            |r| r.get(0),
+                        )
+                        .unwrap();
+                    assert_eq!(actual, document_level);
+                    assert_eq!(
+                        list(
+                            &store.questions(Some(bank), "", "", "").unwrap()[0],
+                            "visuals"
+                        )
+                        .len(),
+                        1
+                    );
+                }
+                let current: String = db
+                    .query_row(
+                        "SELECT content FROM session_documents WHERE session_id=?1",
+                        [sid],
+                        |r| r.get(0),
+                    )
+                    .unwrap();
+                assert_eq!(current, snapshot);
+                assert_eq!(store.read_asset(digest, bytes.len() as u64).unwrap(), bytes);
+            };
+            let restored_dir = tempfile::tempdir().unwrap();
+            let mut restored = Store::new(restored_dir.path().into()).unwrap();
+            restored.restore(&archive).unwrap();
+            assert_preserved(&restored);
+            let mut reopened = Store::new(dir.path().into()).unwrap();
+            assert_preserved(&reopened);
+            let migrated = dir.path().join("migrated.zip");
+            reopened.backup(&migrated).unwrap();
+            restored.restore(&migrated).unwrap();
+            assert_preserved(&restored);
+            // The upgrade marker must not protect newly orphaned question images on later connections.
+            let new_bank = import_bank(&mut reopened, "New", Some(json!(["q0"])));
+            let rows = reopened.questions(Some(&new_bank), "", "", "").unwrap();
+            reopened.delete_question(text(&rows[0], "id")).unwrap();
+            let count: usize = reopened
+                .connect()
+                .unwrap()
+                .query_row(
+                    "SELECT COUNT(*) FROM visuals WHERE bank_id=?1",
+                    [&new_bank],
+                    |r| r.get(0),
+                )
+                .unwrap();
+            assert_eq!(count, 0);
+            assert_preserved(&reopened);
+        }
     }
 }

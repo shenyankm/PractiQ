@@ -60,6 +60,7 @@ export interface Visual {
   sourceRef?: ImageReference | null;
 }
 export interface Snapshot {
+  reviewedAt?: number | null;
   materials?: Question[];
   question: Question;
   groups: Group[];
@@ -84,7 +85,7 @@ export interface QuestionPage { items: QuestionRow[]; total: number; offset: num
 export interface BankChoice { id: string; title: string; count: number }
 export interface BankPage { items: Bank[]; total: number; offset: number }
 export interface SessionPage { items: SessionSummary[]; total: number; offset: number }
-export type UnfinishedSession = Pick<SessionSummary, "id" | "title" | "count" | "answered" | "kind" | "draftAnswered" | "deadlineAt" | "lastActiveAt">;
+export type UnfinishedSession = Pick<SessionSummary, "id" | "title" | "count" | "answered" | "kind" | "draftAnswered" | "deadlineAt" | "lastActiveAt" | "clockNow">;
 export type SessionFilter = "all" | "active" | "review" | "finished";
 export interface GradingResponse {
   status: string;
@@ -114,6 +115,7 @@ export interface Attempt {
 }
 export type SessionKind = "practice" | "self_test" | "mock_exam";
 export interface Session {
+  clockNow?: number;
   snapshotKey?: string;
   bankIds?: string[];
   kind?: SessionKind;
@@ -128,6 +130,7 @@ export interface Session {
   attempts: Attempt[];
 }
 export interface SessionSummary {
+  clockNow?: number;
   draftAnswered?: number;
   deadlineAt?: number | null;
   lastActiveAt?: number;
@@ -218,6 +221,7 @@ type Request =
   | ({ type: "question_stats" } & Query)
   | ({ type: "questions_page"; limit: number; offset: number } & Query)
   | { type: "favorite"; id: string; value: boolean }
+  | { type: "review_question"; id: string; reviewed: boolean }
   | { type: "save_draft"; id: string; ordinal: number; answer: Answer | null; elapsed_ms: number }
   | {
       type: "save_attempt";
@@ -244,6 +248,7 @@ type ResponseMap = {
   delete_question: null;
   export_bank: { path: string } | null;
   favorite: boolean;
+  review_question: number | null;
   finish: Session;
   flag: Session;
   import: { duplicate: boolean; bankId: string; count: number };
@@ -282,7 +287,7 @@ export async function api<R extends Request>(request: R): Promise<ResponseMap[R[
   }
   if (request.type === "restore") { lastSession = undefined; sessionEpoch++; }
   const epoch = sessionEpoch;
-  const base = (request.type === "position" || request.type === "save_attempt") && lastSession?.id === request.id ? lastSession : undefined;
+  const base = (request.type === "session" || request.type === "position" || request.type === "save_attempt") && lastSession?.id === request.id ? lastSession : undefined;
   let result = await invoke<ResponseMap[R["type"]]>("request", {
     request: base?.snapshotKey ? {...request, snapshot_key:base.snapshotKey} : request, locale: locale(),
   });

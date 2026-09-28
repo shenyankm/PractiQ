@@ -1,4 +1,8 @@
 {
+  "LOCAL_REVIEW_ROOT_INVALID": {
+    "zh-CN": "请选择完整题目确认或撤销复核",
+    "en": "Select a complete question to confirm or undo its review"
+  },
   "LOCAL_MODEL_URL_REQUIRED": {
     "zh-CN": "请先配置模型地址",
     "en": "Configure the model URL first"

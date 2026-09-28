@@ -1,13 +1,15 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import App from "./App";
-import { api, type QuestionRow, type SessionSummary } from "./api";
+import { api, blankQuestion, type QuestionRow, type SessionSummary } from "./api";
+import { toast } from "./notifications";
 import fixture from "../fixtures/sample.json";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(), isTauri: () => false }));
 vi.mock("./api", async () => ({ ...await vi.importActual("./api"), api: vi.fn() }));
+vi.mock("./notifications", () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() } }));
 HTMLElement.prototype.hasPointerCapture = () => false;
 HTMLElement.prototype.scrollIntoView = () => {};
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
@@ -24,14 +26,24 @@ const row = {
   favorite: false, latestResult: false,
   latestScore: { earnedCents: 900, maxCents: 1000, gradeKind: "manual" },
 } as QuestionRow;
-function setup(question = row) {
+function setup(question = row, failReview = false) {
   vi.mocked(api).mockImplementation(async request => {
     switch (request.type) {
       case "banks": return [{ id: "bank", title: "English", count: 20 }] as never;
       case "banks_page": return { items: [{ id: "bank", title: "English", count: 20, description: "" }], total: 1, offset: 0 } as never;
       case "unfinished_session": return exam as never;
       case "sessions_page": return { items: request.filter === "finished" ? [] : [exam], total: request.filter === "finished" ? 0 : 1, offset: 0 } as never;
-      case "questions_page": return { items: [question], total: 1, offset: 0 } as never;
+      case "questions_page": {
+        const pending = [question, ...(question.children || [])].some(item => item.question.needsReview && item.reviewedAt == null);
+        const items = request.filter === "review" && !pending ? [] : [question];
+        return { items, total: items.length, offset: 0 } as never;
+      }
+      case "review_question": {
+        if (failReview) throw new Error("Review failed");
+        const reviewedAt = request.reviewed ? 123 : null;
+        question = { ...question, reviewedAt, children: question.children?.map(child => ({ ...child, reviewedAt })) };
+        return reviewedAt as never;
+      }
       case "info": return { version: "test", dataDirectory: "/tmp/test" } as never;
       case "settings": return { config: { base_url: null, model_id: null }, hasApiKey: false } as never;
       case "pick_import": return null as never;
@@ -85,4 +97,60 @@ it("shows partial credit from a material group's child when the parent has no re
   await userEvent.click(screen.getByRole("button", { name: "错题本" }));
   expect(await screen.findByText("部分得分")).toBeTruthy();
   expect(screen.getByText(/未评分不算错题。/)).toBeTruthy();
+});
+
+it("filters pending reviews and confirms or revokes the whole material tree without hiding original warnings", async () => {
+  const pending: QuestionRow = {
+    ...row, id: "root", latestResult: null, latestScore: null,
+    question: { ...blankQuestion(), id: "root", stem: "Shared material", answerMode: "reading", choiceVariant: null, options: [] },
+    children: [{ ...row, id: "child", question: { ...row.question, id: "child", parentId: "root", needsReview: true, missingFields: ["answerPayload"], answerPayload: null } }],
+  };
+  setup(pending); render(<App />);
+  await screen.findByText("English");
+  await userEvent.click(screen.getByRole("button", { name: "查看题目" }));
+  expect(await screen.findByRole("img", { name: "待复核" })).toBeTruthy();
+  await userEvent.click(screen.getByRole("checkbox", { name: "仅看待复核" }));
+  await waitFor(() => expect(api).toHaveBeenCalledWith(expect.objectContaining({ type: "questions_page", filter: "review", offset: 0 })));
+  await userEvent.click(screen.getByRole("button", { name: /Shared material/ }));
+  let dialog = screen.getByRole("dialog", { name: "题目详情" });
+  expect(within(dialog).getByText("此操作应用于本题及全部子题；原始质量提示会保留。")).toBeTruthy();
+  expect(await within(dialog).findByText("内容待复核，仍可练习。")).toBeTruthy();
+  await userEvent.click(within(dialog).getByRole("button", { name: "标记已复核" }));
+  expect(await within(dialog).findByRole("button", { name: "撤销复核确认" })).toBeTruthy();
+  expect(api).toHaveBeenCalledWith({ type: "review_question", id: "root", reviewed: true });
+  expect(within(dialog).getAllByText("已人工复核，原始质量提示已保留。")).toHaveLength(2);
+  expect(within(dialog).getAllByText(/缺失：/)).toHaveLength(1);
+  expect(within(dialog).queryByText("内容待复核，仍可练习。")).toBeNull();
+  await userEvent.click(within(dialog).getByRole("button", { name: "关闭" }));
+  expect(await screen.findByText("没有找到题目")).toBeTruthy();
+  await userEvent.click(screen.getByRole("checkbox", { name: "仅看待复核" }));
+  const reviewedRow = await screen.findByRole("button", { name: /Shared material/ });
+  expect(screen.queryByRole("img", { name: "待复核" })).toBeNull();
+  await userEvent.click(reviewedRow);
+  dialog = screen.getByRole("dialog", { name: "题目详情" });
+  await userEvent.click(within(dialog).getByRole("button", { name: "撤销复核确认" }));
+  expect(await within(dialog).findByRole("button", { name: "标记已复核" })).toBeTruthy();
+  expect(api).toHaveBeenCalledWith({ type: "review_question", id: "root", reviewed: false });
+  expect(within(dialog).getByText("内容待复核，仍可练习。")).toBeTruthy();
+  await userEvent.click(within(dialog).getByRole("button", { name: "关闭" }));
+  expect(await screen.findByRole("img", { name: "待复核" })).toBeTruthy();
+  expect(pending.children?.[0].question.needsReview).toBe(true);
+  expect(pending.children?.[0].question.missingFields).toEqual(["answerPayload"]);
+});
+
+it.each([null, 123])("preserves review state when saving the confirmation fails (reviewedAt=%s)", async reviewedAt => {
+  setup({ ...row, reviewedAt, question: { ...row.question, needsReview: true, missingFields: ["answerPayload"] } }, true);
+  render(<App />);
+  await screen.findByText("English");
+  await userEvent.click(screen.getByRole("button", { name: "查看题目" }));
+  await userEvent.click(await screen.findByRole("button", { name: new RegExp(row.question.stem!) }));
+  const dialog = screen.getByRole("dialog", { name: "题目详情" });
+  const action = reviewedAt == null ? "标记已复核" : "撤销复核确认";
+  await userEvent.click(within(dialog).getByRole("button", { name: action }));
+  await waitFor(() => expect(toast.error).toHaveBeenCalledWith(new Error("Review failed")));
+  expect(within(dialog).getByRole("button", { name: action }).hasAttribute("disabled")).toBe(false);
+  expect(within(dialog).getByText(reviewedAt == null ? "内容待复核，仍可练习。" : "已人工复核，原始质量提示已保留。")).toBeTruthy();
+  expect(within(dialog).getByText(/缺失：/)).toBeTruthy();
+  await userEvent.click(within(dialog).getByRole("button", { name: "关闭" }));
+  expect(screen.queryByRole("img", { name: "待复核" }) != null).toBe(reviewedAt == null);
 });

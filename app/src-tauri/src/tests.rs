@@ -328,6 +328,11 @@ fn startup_keeps_unlinked_legacy_visuals_and_their_assets() {
             ],
         )
         .unwrap();
+    // Reproduce the pre-review schema's ALTER TABLE migration, not a new canonical orphan.
+    s.connect()
+        .unwrap()
+        .execute_batch("DROP INDEX visuals_bank; ALTER TABLE visuals DROP COLUMN document_level; ALTER TABLE visuals ADD COLUMN document_level INTEGER NOT NULL DEFAULT 0 CHECK(document_level IN(0,1)); DROP TABLE question_reviews;")
+        .unwrap();
     drop(s);
     let reopened = Store::new(dir.path().to_owned()).unwrap();
     assert_eq!(

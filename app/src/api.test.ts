@@ -44,3 +44,15 @@ it("does not retain an old session response that arrives after restoration start
   await api({type:"position",id:"late",position:0});
   expect(invoke).toHaveBeenLastCalledWith("request",expect.objectContaining({request:{type:"position",id:"late",position:0}}));
 });
+
+it("polls the session clock without retransmitting immutable snapshots", async () => {
+  const snapshot = {question:{id:"clock-question"}};
+  const session = {id:"clock-poll",clockNow:1000,snapshotKey:"clock-hidden",attempts:[{ordinal:0,snapshot}]} as Session;
+  vi.mocked(invoke).mockResolvedValueOnce(session);
+  await api({type:"session",id:session.id});
+  vi.mocked(invoke).mockResolvedValueOnce({...session,clockNow:4000,attempts:[{ordinal:0,answer:{value:true}}]});
+  const polled = await api({type:"session",id:session.id});
+  expect(polled.clockNow).toBe(4000);
+  expect(polled.attempts[0].snapshot).toBe(snapshot);
+  expect(invoke).toHaveBeenLastCalledWith("request",expect.objectContaining({request:{type:"session",id:session.id,snapshot_key:"clock-hidden"}}));
+});

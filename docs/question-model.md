@@ -63,12 +63,15 @@ erDiagram
 | `question_options` | Composite key `owner_id,position`; `label`, `content`; labels are unique within an option bank |
 | `question_items` | Composite key `question_id,position`; `item_id`, `label`, `side`, `content`; used for ordering and matching |
 | `sections` / `section_questions` | Section `id,bank_id,title,instructions`; membership `section_id,question_id`. Sections are not composite questions that must be answered as a unit |
-| `visuals` / `question_visuals` | Material `id,bank_id,content,document_level`; association `visual_id,question_id`. `document_level` explicitly marks document-level material needing confirmation; deleting questions does not reassign orphaned question-specific material to other questions |
+| `visuals` / `question_visuals` | Material `id,bank_id,content,document_level`; association `visual_id,question_id`. `document_level` explicitly marks document-level material needing confirmation. Mixed-bank snapshots and copies convert material's source-bank scope into explicit question IDs; single-bank snapshots and ZIP exports retain unassociated document-level status. Asset collection removes orphaned question-specific material while retaining document-level material and bytes referenced by current questions or immutable history |
 | `assets` | `hash,media,size,path`; image and audio bytes live in immutable `assets/<sha256>` files |
 | `question_sources` | `question_id,stage,unit_index`; one question may reference multiple source pages/chunks |
+| `question_reviews` | Local `question_id,reviewed_at` confirmation, exposed as nullable `reviewedAt` on desktop rows; separate from imported quality flags |
 | `imports` / `import_warnings` | Import `id,bank_id,digest,created_at`, without a duplicate question JSON copy; warnings `import_id,position,message` |
 | `session_documents` | `session_id,content`; versioned immutable JSON for the entire session, freezing each parent material and shared option bank once |
 | `attempts` | `session_id,ordinal`; weak source-question reference `question_id`; frozen child ID `snapshot_question_id`; `answer`, grading, timing, points, and grading records. Deleting a source question does not affect snapshots |
+
+Legacy schema-10 databases without a visual scope column retain unassociated material as document-level material during migration. Databases previously migrated with `document_level DEFAULT 0` receive the same conservative treatment once, when the new local review table is created. Those older rows no longer distinguish original document images from deleted-question remnants, so this may retain old orphaned images; newly deleted question images still follow normal asset collection.
 
 ## JSON examples
 
@@ -101,6 +104,8 @@ A complete single-choice answer has exactly one item; multiple choice has at lea
 6. Short-answer AI grading requires an explicit action and obtains passages, required materials, and source evidence from structured `materials` in frozen snapshots. Before submission, Rust hides reference answers, explanations, grading evidence, and source-page references that could reveal answers.
 
 ## Paper generation and history
+
+An explicit review confirmation applies to a root question and its complete descendant tree. It records local `reviewedAt` without clearing `needsReview`, `missingFields`, confidence or source evidence. The pending-review filter excludes confirmed trees, but confirmation does not guarantee correct answers or allow incomplete evidence to be automatically graded. Editing the tree clears its confirmation. Full study backups preserve it; shared bank ZIPs, copied/merged banks and immutable practice snapshots exclude it. See the [review-fix tracking](review-fixes-20260928.md) for regression and acceptance boundaries.
 
 Total-count selection treats root questions or complete groups as candidates, using subset dynamic programming over leaf counts with a maximum of 1000. If the exact count cannot be met, it requests an adjustment instead of splitting groups. Quotas apply to root types, such as five single-choice questions and two reading groups; previews report actual leaf counts. Randomization changes only root-group order, preserving source order within groups. Mistake, bookmark, and unanswered filters include the whole group when a child matches.
 

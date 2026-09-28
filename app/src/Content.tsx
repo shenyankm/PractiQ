@@ -140,6 +140,7 @@ function ImageAsset({ visual, original = false }: { visual: Visual; original?: b
 }
 export const Content = memo(function Content({
   snapshot,
+  reviewed = snapshot.reviewedAt != null,
   source = false,
   exam = false,
   revealOriginal = true,
@@ -148,6 +149,7 @@ export const Content = memo(function Content({
   blankAnswers,
 }: {
   snapshot: Snapshot;
+  reviewed?: boolean;
   source?: boolean;
   exam?: boolean;
   revealOriginal?: boolean;
@@ -171,11 +173,11 @@ export const Content = memo(function Content({
   }
   return (
     <div className="space-y-5">
-      {(q.needsReview ||
+      {(reviewed || q.needsReview ||
         q.missingFields.length > 0 ||
         snapshot.missingAssets) && (
         <div role="note" className="rounded-lg border bg-muted/50 p-3 text-sm">
-          <strong>{t("内容待复核，仍可练习。")}</strong>{" "}
+          <strong>{reviewed ? t("已人工复核，原始质量提示已保留。") : t("内容待复核，仍可练习。")}</strong>{" "}
           {snapshot.missingAssets ? t("部分图片或音频未导入。") : ""}
           {q.missingFields.length > 0 &&
             t("缺失：{0}。", { 0: list(q.missingFields.map(fieldName)) })}

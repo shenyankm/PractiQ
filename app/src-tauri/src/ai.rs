@@ -591,6 +591,7 @@ fn active_endpoint(
                     dir: dir.to_owned(),
                     pending: None,
                     staged_audio: std::collections::HashMap::new(),
+                    session_clock: Default::default(),
                     session_document_cache: Default::default(),
                 },
                 model_required,
@@ -674,6 +675,7 @@ pub fn read_review_image(
             dir,
             pending: None,
             staged_audio: std::collections::HashMap::new(),
+            session_clock: Default::default(),
             session_document_cache: Default::default(),
         },
     )
@@ -1097,6 +1099,7 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
                 dir,
                 pending: None,
                 staged_audio: std::collections::HashMap::new(),
+                session_clock: Default::default(),
                 session_document_cache: Default::default(),
             };
             process.load_assets(&mut pending, &store)?;

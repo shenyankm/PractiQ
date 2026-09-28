@@ -97,7 +97,7 @@ impl Store {
             ));
         }
         let sid = id();
-        let created = now();
+        let created = self.session_now_with(&tx)?;
         let mut bank_ids = HashSet::new();
         let bank_titles: Vec<_> = leaves
             .iter()
@@ -138,7 +138,7 @@ impl Store {
             self.locale
                 .text("题", if n == 1 { "question" } else { "questions" })
         );
-        tx.execute("INSERT INTO sessions(id,bank_title,created_at,position,mode,kind,deadline_at) VALUES(?1,?2,?3,0,'ordered',?4,?5)",params![sid,title,created,paper.kind,paper.minutes.map(|m|created+m*60_000)]).map_err(err)?;
+        tx.execute("INSERT INTO sessions(id,bank_title,created_at,position,mode,kind,deadline_at) VALUES(?1,?2,?3,0,'ordered',?4,?5)",params![sid,title,created,paper.kind,paper.minutes.map(|m|created.saturating_add(m*60_000))]).map_err(err)?;
         tx.execute(
             "INSERT INTO session_documents VALUES(?1,?2)",
             params![sid, crate::questions::freeze(&selected).to_string()],
@@ -156,7 +156,8 @@ impl Store {
         self.expire_exam_with(&db, sid)
     }
     pub(crate) fn expire_exam_with(&self, db: &rusqlite::Connection, sid: &str) -> Result<()> {
-        let expired:bool=db.query_row("SELECT deadline_at IS NOT NULL AND deadline_at<=?2 AND submitted_at IS NULL FROM sessions WHERE id=?1",params![sid,now()],|r|r.get(0)).map_err(err)?;
+        self.session_now_with(db)?;
+        let expired:bool=db.query_row("SELECT deadline_at IS NOT NULL AND deadline_at<=?2 AND submitted_at IS NULL FROM sessions WHERE id=?1",params![sid,self.session_clock.now()?],|r|r.get(0)).map_err(err)?;
         if expired {
             self.submit_core(sid, true)?;
         }
@@ -164,6 +165,7 @@ impl Store {
     }
     fn submit_core(&self, sid: &str, submit_drafts: bool) -> Result<()> {
         let mut db = self.connect()?;
+        self.session_now_with(&db)?;
         let tx = db.transaction().map_err(err)?;
         let (_kind, submitted, finished): (String, Option<i64>, Option<i64>) = tx
             .query_row(
@@ -210,9 +212,9 @@ impl Store {
             } else {
                 None
             };
-            tx.execute("UPDATE attempts SET submitted_at=?3,skipped=?4,auto_result=?5,result=?8,grade_kind=?6,earned_cents=?7 WHERE session_id=?1 AND ordinal=?2",params![sid,ordinal,now(),skipped,auto,if auto.is_some() || earned.is_some(){"auto"}else{"ungraded"},earned,if max.is_some(){earned.map(|v|Some(v)==max)}else{auto}]).map_err(err)?;
+            tx.execute("UPDATE attempts SET submitted_at=?3,skipped=?4,auto_result=?5,result=?8,grade_kind=?6,earned_cents=?7 WHERE session_id=?1 AND ordinal=?2",params![sid,ordinal,self.session_clock.now()?,skipped,auto,if auto.is_some() || earned.is_some(){"auto"}else{"ungraded"},earned,if max.is_some(){earned.map(|v|Some(v)==max)}else{auto}]).map_err(err)?;
         }
-        tx.execute("UPDATE sessions SET submitted_at=?2,finished_at=CASE WHEN kind='practice' THEN ?2 ELSE finished_at END WHERE id=?1",params![sid,now()]).map_err(err)?;
+        tx.execute("UPDATE sessions SET submitted_at=?2,finished_at=CASE WHEN kind='practice' THEN ?2 ELSE finished_at END WHERE id=?1",params![sid,self.session_clock.now()?]).map_err(err)?;
         tx.commit().map_err(err)?;
         Ok(())
     }
@@ -221,13 +223,15 @@ impl Store {
         self.connect()?
             .execute(
                 "UPDATE sessions SET last_active_at=?2 WHERE id=?1",
-                params![sid, now()],
+                params![sid, self.session_clock.now()?],
             )
             .map_err(err)?;
         self.session(sid)
     }
     pub fn complete_review(&self, sid: &str) -> Result<Value> {
-        self.connect()?.execute("UPDATE sessions SET finished_at=COALESCE(finished_at,?2),last_active_at=?2 WHERE id=?1 AND submitted_at IS NOT NULL",params![sid,now()]).map_err(err)?;
+        let db = self.connect()?;
+        self.session_now_with(&db)?;
+        db.execute("UPDATE sessions SET finished_at=COALESCE(finished_at,?2),last_active_at=?2 WHERE id=?1 AND submitted_at IS NOT NULL",params![sid,self.session_clock.now()?]).map_err(err)?;
         self.session(sid)
     }
     pub fn flag(&self, sid: &str, ordinal: usize, value: bool) -> Result<Value> {
@@ -249,7 +253,8 @@ impl Store {
             ));
         }
         let db = self.connect()?;
-        let changed=db.execute("UPDATE attempts SET earned_cents=?3,result=(?3=max_cents),grade_kind='manual',grading=json_set(grading,'$.manual',json(?4),'$.manualHistory',json_insert(COALESCE(json_extract(grading,'$.manualHistory'),'[]'),'$[#]',json(?4))) WHERE session_id=?1 AND ordinal=?2 AND max_cents>=?3 AND ?3>=0 AND EXISTS(SELECT 1 FROM sessions WHERE id=?1 AND submitted_at IS NOT NULL)",params![sid,ordinal,cents,json!({"scoreCents":cents,"reason":reason,"at":now()}).to_string()]).map_err(err)?;
+        self.session_now_with(&db)?;
+        let changed=db.execute("UPDATE attempts SET earned_cents=?3,result=(?3=max_cents),grade_kind='manual',grading=json_set(grading,'$.manual',json(?4),'$.manualHistory',json_insert(COALESCE(json_extract(grading,'$.manualHistory'),'[]'),'$[#]',json(?4))) WHERE session_id=?1 AND ordinal=?2 AND max_cents>=?3 AND ?3>=0 AND EXISTS(SELECT 1 FROM sessions WHERE id=?1 AND submitted_at IS NOT NULL)",params![sid,ordinal,cents,json!({"scoreCents":cents,"reason":reason,"at":self.session_clock.now()?}).to_string()]).map_err(err)?;
         if changed != 1 {
             return Err(crate::language::error(
                 "LOCAL_MANUAL_SCORE_INVALID",
@@ -258,7 +263,7 @@ impl Store {
         }
         db.execute(
             "UPDATE sessions SET last_active_at=?2 WHERE id=?1",
-            params![sid, now()],
+            params![sid, self.session_clock.now()?],
         )
         .map_err(err)?;
         self.session(sid)
@@ -312,7 +317,7 @@ impl Store {
             .collect();
         let sid2 = id();
         let tx = db.transaction().map_err(err)?;
-        tx.execute("INSERT INTO sessions(id,bank_title,created_at,position,mode) VALUES(?1,?2,?3,0,'ordered')",params![sid2,self.locale.text("本次错题重练", "Retry session mistakes"),now()]).map_err(err)?;
+        tx.execute("INSERT INTO sessions(id,bank_title,created_at,position,mode) VALUES(?1,?2,?3,0,'ordered')",params![sid2,self.locale.text("本次错题重练", "Retry session mistakes"),self.session_clock.now()?]).map_err(err)?;
         tx.execute(
             "INSERT INTO session_documents VALUES(?1,?2)",
             params![sid2, crate::questions::freeze(&selected).to_string()],
@@ -473,6 +478,7 @@ pub(crate) fn answer_text(value: &str) -> bool {
 impl Store {
     pub fn prepare_grade(&self, sid: &str, ordinal: usize, retry: bool) -> Result<Value> {
         let db = self.connect()?;
+        self.session_now_with(&db)?;
         let (snapshot,answer,max,submitted,kind,grade_kind):(String,String,Option<i64>,Option<i64>,String,String)=db.query_row("SELECT a.snapshot_question_id,a.answer,a.max_cents,s.submitted_at,s.kind,a.grade_kind FROM attempts a JOIN sessions s ON s.id=a.session_id WHERE a.session_id=?1 AND a.ordinal=?2",params![sid,ordinal],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?,r.get(5)?))).map_err(err)?;
         let snapshot = crate::questions::snapshot(&db, sid, &snapshot)?;
         let answer: Value = serde_json::from_str(&answer).map_err(err)?;
@@ -595,7 +601,7 @@ impl Store {
                 sid,
                 ordinal,
                 json!({"requestId":rid,"inputDigest":payload["inputDigest"],"feedbackLocale":self.locale.as_str()}).to_string(),
-                now()
+                self.session_clock.now()?
             ],
         )
         .map_err(err)?;

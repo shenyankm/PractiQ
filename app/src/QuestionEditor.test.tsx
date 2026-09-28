@@ -7,6 +7,15 @@ import { blankQuestion, QuestionEditor } from "./QuestionEditor";
 HTMLElement.prototype.scrollIntoView = () => {};
 afterEach(cleanup);
 
+it("adds an unused choice label after deleting a middle option without renumbering existing labels", async () => {
+  const save = vi.fn();
+  render(<QuestionEditor initial={{ ...blankQuestion(), options: [{label:" a ",content:"One"}, {label:"B",content:"Two"}, {label:"C",content:"Three"}] }} busy={false} onClose={vi.fn()} onSave={save} />);
+  await userEvent.click(screen.getAllByRole("button", {name:"删除"})[1]);
+  await userEvent.click(screen.getByRole("button", {name:"增加选项"}));
+  await userEvent.click(screen.getByRole("button", {name:"保存题目"}));
+  expect(save.mock.calls[0][0].options.map((option: {label:string}) => option.label)).toEqual([" a ", "C", "B"]);
+});
+
 it("edits choice content and source evidence without mutating the original question", async () => {
   const user = userEvent.setup();
   const initial = { ...blankQuestion(), id: "choice", stem: "Old stem", options: [{ label: "A", content: "One" }, { label: "B", content: "Two" }], answerPayload: { correct: ["A"] } };

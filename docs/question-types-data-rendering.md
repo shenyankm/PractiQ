@@ -403,7 +403,7 @@ Final `DocumentGroup` requires a title of 1–1000 characters, optional instruct
 
 `imageRef` points to a question image/crop; `sourceRef` points to the complete verification page, which may include answers. Both use `ArtifactReference`: `objectKey` length 1–1024, a 64-character lowercase SHA-256, `mediaType` length 1–255, and nonnegative integer `sizeBytes`. Actual resource acceptance also checks formats, paths, and hashes. Unassociated visuals display a document-level association warning, not an assertion that they belong exclusively to the current question.
 
-Import remaps node IDs, parent IDs, option owners, passage blank IDs, section membership, and visual associations together. Sources: `remap`, `put_context`, and `read_scoped` in [questions.rs](../app/src-tauri/src/questions.rs), and `DocumentGroup`, `VisualContent`, and `DocumentProcessing` in [contracts.py](../server/src/practiq_ai/contracts.py).
+Import remaps node IDs, parent IDs, option owners, passage blank IDs, section membership, and visual associations together. Mixed-bank session snapshots and copied banks convert document-level visuals into explicit IDs for their source bank's included questions; adding another bank never broadens those associations. A single-bank snapshot or ZIP retains empty references and the document-level association warning; ZIP exports of merged banks preserve their explicit references. Sources: `remap`, `put_context`, `read_scoped`, `freeze`, and `copy_context` in [questions.rs](../app/src-tauri/src/questions.rs), and `DocumentGroup`, `VisualContent`, and `DocumentProcessing` in [contracts.py](../server/src/practiq_ai/contracts.py).
 
 ## 5. Frontend rendering
 

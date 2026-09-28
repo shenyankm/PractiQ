@@ -199,17 +199,16 @@ export function QuestionEditor({
               <Button
                 variant="outline"
                 disabled={q.options.length >= 100}
-                onClick={() =>
-                  patch({
-                    options: [
-                      ...q.options,
-                      {
-                        label: String.fromCharCode(65 + q.options.length),
-                        content: "",
-                      },
-                    ],
-                  })
-                }
+                onClick={() => {
+                  const labels = new Set(q.options.map(option => option.label?.trim().toLowerCase()));
+                  let index = 0;
+                  let label = "A";
+                  while (labels.has(label.toLowerCase())) {
+                    index++;
+                    label = index < 26 ? String.fromCharCode(65 + index) : String(index + 1);
+                  }
+                  patch({options: [...q.options, {label, content: ""}]});
+                }}
               >{t("增加选项")}</Button>
             </div>
           )}

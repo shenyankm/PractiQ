@@ -134,6 +134,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
   const [session, setSession] = useState<Session | null>(null);
   const [search, setSearch] = useState("");
   const [mode, setMode] = useState("");
+  const [onlyReview, setOnlyReview] = useState(false);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
   const [importPreview, setImportPreview] = useState<{ preview: Preview; initialBank: string; task?: ImportTaskContext } | null>(null);
@@ -173,7 +174,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
   const flushRef = useRef<() => Promise<void>>(async () => {});
   const lock = useRef(false);
   const filter =
-    page === "wrong" ? "wrong" : page === "favorite" ? "favorite" : "";
+    page === "wrong" ? "wrong" : page === "favorite" ? "favorite" : page === "questions" && onlyReview ? "review" : "";
   const query = {
     bank_id: page === "questions" ? bank : null,
     search,
@@ -217,11 +218,26 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
       .finally(() => { if (active) setSummaryLoading(false); });
     return () => { active = false; };
   }, [page, sessionOffset, listRevision, sessionFilter]);
+  const hasTimedSession = sessionPage.items.some(s => s.deadlineAt != null && s.finishedAt == null && s.submittedAt == null);
+  useEffect(() => {
+    if (page !== "history" || !hasTimedSession) return;
+    let active = true, loading = false;
+    const refreshClock = () => {
+      if (loading) return;
+      loading = true;
+      void api({ type: "sessions_page", limit: 30, offset: sessionOffset, ...(sessionFilter === "all" ? {} : { filter: sessionFilter }) })
+        .then(result => { if (active) { setSessionPage(result); setSessionOffset(result.offset); } })
+        .catch(() => {}).finally(() => { loading = false; });
+    };
+    const timer = window.setInterval(refreshClock, 3000);
+    window.addEventListener("focus", refreshClock);
+    return () => { active = false; window.clearInterval(timer); window.removeEventListener("focus", refreshClock); };
+  }, [page, hasTimedSession, sessionOffset, sessionFilter]);
   useEffect(() => {
     if (previousPage.current !== page) pageHeading.current?.focus();
     previousPage.current = page;
   }, [page]);
-  useEffect(() => { setOffset(0); }, [page, bank, search, mode]);
+  useEffect(() => { setOffset(0); }, [page, bank, search, mode, filter]);
   useEffect(() => {
     if (!["questions", "wrong", "favorite"].includes(page)) return;
     let active = true;
@@ -283,6 +299,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
       setDetail(null);
       setSearch("");
       setMode("");
+      setOnlyReview(false);
       if (next === "banks" || next === "history") setListRevision(v => v + 1);
     });
   }
@@ -540,6 +557,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                     <NativeSelectOption key={v} value={v}>{label}</NativeSelectOption>
                   ))}
                 </NativeSelect>
+                {page === "questions" && <label className="flex shrink-0 items-center gap-2 text-sm"><Checkbox checked={onlyReview} disabled={busy} onCheckedChange={checked => setOnlyReview(checked === true)} />{t("仅看待复核")}</label>}
               </div>
               {page === "wrong" && questions.length > 0 && <p className="text-sm text-muted-foreground">{t("错误和未得满分的题目会出现在这里，再次答对或得满分后自动移出；未评分不算错题。")}</p>}
               {questions.length ? (
@@ -559,7 +577,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                               {modeNames()[row.question.answerMode || ""] ||
                                 t("未知题型")}
                             </Badge>
-                            {row.question.needsReview && (
+                            {[row, ...(row.children || [])].some(item => item.question.needsReview && item.reviewedAt == null) && (
                               <CircleAlert className="size-4 text-amber-600 dark:text-amber-400" role="img" aria-label={t("待复核")} />
                             )}
                             {[row, ...(row.children || [])].some(item => item.latestResult === false) && (
@@ -907,9 +925,15 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
           <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
             <DialogHeader>
               <DialogTitle>{t("题目详情")}</DialogTitle>
+              <DialogDescription>{t("此操作应用于本题及全部子题；原始质量提示会保留。")}</DialogDescription>
             </DialogHeader>
+            <Button variant="outline" disabled={busy} onClick={() => run(async () => {
+              const reviewedAt = await api({ type: "review_question", id: detail.id, reviewed: detail.reviewedAt == null });
+              setDetail(current => current?.id === detail.id ? { ...current, reviewedAt, children: current.children?.map(child => ({ ...child, reviewedAt })) } : current);
+              await refreshQuestions();
+            })}>{detail.reviewedAt == null ? t("标记已复核") : t("撤销复核确认")}</Button>
             <Suspense fallback={loadingView}>
-            {!!detail.children?.length && <QuestionPreview questions={[detail.question,...detail.children.map(c=>c.question)]} groups={Array.from(new Map([detail,...detail.children].flatMap(r=>r.groups).map(g=>[g.id,g])).values())} visuals={Array.from(new Map([detail,...detail.children].flatMap(r=>r.visuals).map(v=>[v.id,v])).values())}/>}
+            {!!detail.children?.length && <QuestionPreview questions={[detail.question,...detail.children.map(c=>c.question)]} reviewedQuestionIds={[detail,...detail.children].filter(row => row.reviewedAt != null).map(row => row.question.id || row.id)} groups={Array.from(new Map([detail,...detail.children].flatMap(r=>r.groups).map(g=>[g.id,g])).values())} visuals={Array.from(new Map([detail,...detail.children].flatMap(r=>r.visuals).map(v=>[v.id,v])).values())}/>}
             {!detail.children?.length && <Content snapshot={detail} source />}
             <AnswerInput
               question={detail.question}

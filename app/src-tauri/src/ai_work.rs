@@ -515,6 +515,7 @@ pub fn prepare_batch(
         dir: dir.into(),
         pending: None,
         staged_audio: std::collections::HashMap::new(),
+        session_clock: Default::default(),
         session_document_cache: Default::default(),
     };
     validate_destination(&store, bank_id.as_deref())?;
@@ -585,6 +586,7 @@ pub fn batches(dir: &Path, work: &WorkState, offset: usize, threads: &[String]) 
         dir: dir.into(),
         pending: None,
         staged_audio: std::collections::HashMap::new(),
+        session_clock: Default::default(),
         session_document_cache: Default::default(),
     };
     for batch in &batches {
@@ -767,6 +769,7 @@ fn import_item(
             dir: dir.into(),
             pending: None,
             staged_audio: std::collections::HashMap::new(),
+            session_clock: Default::default(),
             session_document_cache: Default::default(),
         },
     )?;

@@ -196,7 +196,7 @@ function PracticeQuestion({
               </Badge>
               <h2 ref={questionHeading} tabIndex={-1} className="text-sm text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring">{t("第 {0} / {1} 题", { 0: session.position + 1, 1: session.attempts.length })}</h2>
             </div>
-            <PracticeClock elapsed={elapsed} active={!submitted && !finished} deadlineAt={exam && !handedIn ? session.deadlineAt : null} saved={saved} finished={finished} onAutosave={() => { void persist().catch(() => {}); }} onExpire={() => run(async () => onSession(await api({type:"session",id:session.id})))}/>
+            <PracticeClock elapsed={elapsed} active={!submitted && !finished} deadlineAt={exam && !handedIn ? session.deadlineAt : null} clockNow={session.clockNow} saved={saved} finished={finished} onAutosave={() => { void persist().catch(() => {}); }} loadSession={() => api({type:"session",id:session.id})} onSession={onSession}/>
 
           </div>
           <p className="truncate text-xs text-muted-foreground" title={session.title}>{session.title}</p>
@@ -330,26 +330,43 @@ function PracticeQuestion({
   );
 }
 
-function PracticeClock({elapsed, active, deadlineAt, saved, finished, onAutosave, onExpire}: {
-  elapsed: MutableRefObject<number>; active: boolean; deadlineAt?: number | null;
+function PracticeClock({elapsed, active, deadlineAt, clockNow, saved, finished, onAutosave, loadSession, onSession}: {
+  elapsed: MutableRefObject<number>; active: boolean; deadlineAt?: number | null; clockNow?: number;
   saved: "已保存" | "保存中…" | "保存失败" | "待保存"; finished: boolean;
-  onAutosave: () => void; onExpire: () => void;
+  onAutosave: () => void; loadSession: () => Promise<Session>; onSession: (session: Session) => void;
 }) {
   useI18n();
   const [seconds, setSeconds] = useState(elapsed.current);
-  const [clock, setClock] = useState(Date.now);
+  const [clock, setClock] = useState(() => clockNow ?? Date.now());
   const autosave = useEffectEvent(onAutosave);
-  const expire = useEffectEvent(onExpire);
+  const load = useEffectEvent(loadSession);
+  const updateSession = useEffectEvent(onSession);
   useEffect(() => {
     if (!active && !deadlineAt) return;
-    let last = performance.now(), ticks = 0;
+    let last = performance.now(), ticks = 0, polls = 0;
+    let base = clockNow ?? Date.now(), synced = last;
+    let disposed = false, refreshing = false;
+    const refresh = () => {
+      if (!deadlineAt || refreshing) return;
+      refreshing = true;
+      void load().then(session => {
+        if (disposed || !session) return;
+        if (session.submittedAt != null) { updateSession(session); return; }
+        if (session.clockNow != null) {
+          base = session.clockNow;
+          synced = performance.now();
+          setClock(base);
+        }
+      }).catch(() => {}).finally(() => { refreshing = false; });
+    };
     const timer = setInterval(() => {
-      if (deadlineAt) {
-        const now = Date.now();
-        setClock(now);
-        if (now >= deadlineAt) { expire(); return; }
-      }
       const current = performance.now();
+      if (deadlineAt) {
+        const now = base + current - synced;
+        setClock(now);
+        // Native continuous time also includes sleep on platforms whose performance.now does not.
+        if (++polls % 3 === 0 || now >= deadlineAt) refresh();
+      }
       const delta = Math.min(current - last, 1500);
       last = current;
       if (active && document.visibilityState === "visible" && document.hasFocus()) {
@@ -358,8 +375,15 @@ function PracticeClock({elapsed, active, deadlineAt, saved, finished, onAutosave
         if (++ticks % 3 === 0) autosave();
       }
     }, 1000);
-    return () => clearInterval(timer);
-  }, [elapsed, active, deadlineAt]);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      disposed = true;
+      clearInterval(timer);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [elapsed, active, deadlineAt, clockNow]);
   return <div className="space-y-1 text-sm text-muted-foreground">
     <span>{duration(seconds)} · {finished ? t("历史快照") : t(saved)}</span>
     {deadlineAt ? <p role="timer">{t("剩余 {0}（后台与关闭应用不暂停）", { 0: duration(Math.max(0, deadlineAt-clock)) })}</p> : null}

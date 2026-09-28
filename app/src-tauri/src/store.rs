@@ -88,6 +88,7 @@ impl Pending {
     }
 }
 pub struct Store {
+    pub session_clock: crate::session_clock::SessionClock,
     pub session_document_cache: std::cell::RefCell<Option<(String, std::sync::Arc<Value>)>>,
     pub locale: crate::language::Locale,
     pub dir: PathBuf,
@@ -128,6 +129,7 @@ impl Store {
             dir,
             pending: None,
             staged_audio: HashMap::new(),
+            session_clock: Default::default(),
             session_document_cache: Default::default(),
             locale: crate::language::Locale::default(),
         };
@@ -159,7 +161,8 @@ impl Store {
                 )
                 .map_err(err)?
             {
-                db.execute_batch("ALTER TABLE visuals ADD COLUMN document_level INTEGER NOT NULL DEFAULT 0 CHECK(document_level IN(0,1));")
+                // Legacy rows lacked an explicit scope flag; retain unassociated material conservatively.
+                db.execute_batch("BEGIN IMMEDIATE; ALTER TABLE visuals ADD COLUMN document_level INTEGER NOT NULL DEFAULT 0 CHECK(document_level IN(0,1)); UPDATE visuals SET document_level=1 WHERE NOT EXISTS(SELECT 1 FROM question_visuals WHERE visual_id=visuals.id); COMMIT;")
                     .map_err(err)?;
             }
             if !db
@@ -199,6 +202,24 @@ impl Store {
         {
             db.execute_batch("ALTER TABLE settings DROP COLUMN oss_url;")
                 .map_err(err)?;
+        }
+        if !db
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='question_reviews')",
+                [],
+                |r| r.get::<_, bool>(0),
+            )
+            .map_err(err)?
+        {
+            // Old ADD COLUMN migrations erased unassociated scope; retain ambiguous legacy material once.
+            // Creating the new review table in the same transaction marks this upgrade as complete.
+            db.execute_batch("BEGIN IMMEDIATE;
+                UPDATE visuals SET document_level=1 WHERE document_level=0
+                    AND EXISTS(SELECT 1 FROM pragma_table_info('visuals') WHERE name='document_level' AND dflt_value='0')
+                    AND NOT EXISTS(SELECT 1 FROM question_visuals WHERE visual_id=visuals.id)
+                    AND NOT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='question_reviews');
+                CREATE TABLE IF NOT EXISTS question_reviews(question_id TEXT PRIMARY KEY REFERENCES questions(id) ON DELETE CASCADE,reviewed_at INTEGER NOT NULL CHECK(reviewed_at>=0));
+                COMMIT;").map_err(err)?;
         }
         for (_, sql) in crate::questions::READ_INDEXES {
             db.execute_batch(sql).map_err(err)?;
@@ -619,6 +640,9 @@ impl Store {
                     continue;
                 }
                 let selected = match filter {
+                    "review" => {
+                        row["question"]["needsReview"] == true && row["reviewedAt"].is_null()
+                    }
                     "favorite" => row["favorite"] == true,
                     "wrong" => row["latestResult"] == false,
                     "unattempted" => {
@@ -749,6 +773,32 @@ impl Store {
             eprintln!("Asset cleanup deferred after question deletion: {error}");
         }
         Ok(Value::Null)
+    }
+    pub fn review_question(&self, qid: &str, reviewed: bool) -> Result<Value> {
+        let mut db = self.connect()?;
+        let tx = db.transaction().map_err(err)?;
+        if !tx
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM questions WHERE id=?1 AND parent_id IS NULL)",
+                [qid],
+                |row| row.get::<_, bool>(0),
+            )
+            .map_err(err)?
+        {
+            return Err(crate::language::error(
+                "LOCAL_REVIEW_ROOT_INVALID",
+                json!({}),
+            ));
+        }
+        let timestamp = reviewed.then(|| now().max(0));
+        let tree = "WITH RECURSIVE tree(id) AS (SELECT id FROM questions WHERE id=?1 UNION ALL SELECT q.id FROM questions q JOIN tree t ON q.parent_id=t.id)";
+        if let Some(at) = timestamp {
+            tx.execute(&format!("{tree} INSERT OR REPLACE INTO question_reviews(question_id,reviewed_at) SELECT id,?2 FROM tree"), params![qid,at]).map_err(err)?;
+        } else {
+            tx.execute(&format!("{tree} DELETE FROM question_reviews WHERE question_id IN (SELECT id FROM tree)"), [qid]).map_err(err)?;
+        }
+        tx.commit().map_err(err)?;
+        Ok(json!(timestamp))
     }
     pub fn favorite(&self, qid: &str, value: bool) -> Result<Value> {
         let changed = self

@@ -13,7 +13,10 @@ mod paper;
 #[cfg(test)]
 mod performance;
 mod question_metadata;
+#[cfg(test)]
+mod question_review_tests;
 mod questions;
+mod session_clock;
 mod sessions;
 mod settings;
 mod store;
@@ -89,12 +92,18 @@ enum Request {
     DeleteQuestion {
         id: String,
     },
+    ReviewQuestion {
+        id: String,
+        reviewed: bool,
+    },
     Favorite {
         id: String,
         value: bool,
     },
     Session {
         id: String,
+        #[serde(default)]
+        snapshot_key: Option<String>,
     },
     SessionsPage {
         limit: usize,
@@ -280,8 +289,9 @@ async fn request(
             Request::QuestionStats{bank_id,bank_ids,search,mode,filter}=>store.question_stats(bank_id.as_deref(),&bank_ids,(&search,&mode,&filter)),
             Request::SaveQuestionTree{bank_id,root_id,questions}=>store.save_question_tree(&bank_id,root_id.as_deref(),questions),
             Request::DeleteQuestion{id}=>store.delete_question(&id),
+            Request::ReviewQuestion{id,reviewed}=>store.review_question(&id,reviewed),
             Request::Favorite{id,value}=>store.favorite(&id,value),
-            Request::Session{id}=>store.session(&id),
+            Request::Session{id,snapshot_key}=>store.session_data(&id,snapshot_key.as_deref()),
             Request::SessionsPage{limit,offset,filter}=>store.sessions_filtered(limit,offset,if filter.is_empty(){"all"}else{&filter}),
             Request::UnfinishedSession=>store.unfinished_session(),
             Request::StartPaper{paper}=>store.start_paper(paper),
