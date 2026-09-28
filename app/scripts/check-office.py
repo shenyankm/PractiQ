@@ -77,7 +77,7 @@ def call_worker(bundle: Path, request: dict) -> dict:
             except subprocess.TimeoutExpired: process.kill(); process.wait()
 
 
-def check_external_links(engine: str, bundle: Path | None, fixtures_dir: Path) -> dict:
+def check_external_links(engine: str, version: str, bundle: Path | None, fixtures_dir: Path) -> dict:
     requests = []
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
@@ -107,9 +107,9 @@ def check_external_links(engine: str, bundle: Path | None, fixtures_dir: Path) -
                         target.writestr(item, data)
                 output = Path(tmp)/source.stem
                 if bundle:
-                    call_worker(bundle, {'type':'convert','engine':engine,'source':str(source),'output':str(output),'mode':'pdf'})
+                    call_worker(bundle, {'type':'convert','engine':engine,'version':version,'source':str(source),'output':str(output),'mode':'pdf'})
                 else:
-                    office.convert(engine, source, output, 'pdf')
+                    office.convert(engine, source, output, 'pdf', expected_version=version)
         assert not requests, f'LibreOffice updated external content: {requests}'
         return {'passed':True, 'httpRequests':len(requests), 'cases':['linked Word image', 'Calc WEBSERVICE formula']}
     finally:
@@ -144,9 +144,9 @@ def main() -> None:
                 with tempfile.TemporaryDirectory(prefix='practiq-office-eval-') as tmp:
                     output = Path(tmp)/'output'
                     if args.bundle:
-                        artifacts = call_worker(args.bundle, {'type':'convert','engine':status['path'],'source':str(source),'output':str(output),'mode':mode})['artifacts']
+                        artifacts = call_worker(args.bundle, {'type':'convert','engine':status['path'],'version':status['version'],'source':str(source),'output':str(output),'mode':mode})['artifacts']
                     else:
-                        artifacts = office.convert(status['path'], source, output, mode)
+                        artifacts = office.convert(status['path'], source, output, mode, expected_version=status['version'])
                     texts = []
                     pages = 0
                     for artifact in artifacts:
@@ -190,7 +190,7 @@ def main() -> None:
                     assert hashlib.sha256(source.read_bytes()).hexdigest() == original
                     report['cases'].append({'input':source.name,'mode':mode,'sourceSha256':original,'outputs':artifacts,'pages':pages,'seconds':round(time.monotonic()-started,3),'passed':True})
         assert len(report['cases']) == 8, 'All four Office formats must be exercised'
-        report['externalLinks'] = check_external_links(status['path'], args.bundle, fixture_dir)
+        report['externalLinks'] = check_external_links(status['path'], status['version'], args.bundle, fixture_dir)
         report['passed'] = True
     except Exception as error:
         report['error'] = str(error)
