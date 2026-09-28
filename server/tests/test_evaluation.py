@@ -251,6 +251,37 @@ def test_structure_scoring_uses_matched_ids_and_includes_idless_material() -> No
     assert record["score"]["questions"][0]["expected"]["structure"]["passage"][0]["textValue"] == "Original"
 
 
+@pytest.mark.parametrize("gold,field,wrong", [
+    ({**question(), "choiceVariant": "single"}, "choiceVariant", "multiple"),
+    ({"stem": "Match", "answerMode": "matching", "matchingVariant": "one_to_one", "answerPayload": {"matches": [{"left": 0, "right": 0}]},
+      "items": [{"id": 0, "side": "left", "content": "One"}, {"id": 0, "side": "right", "content": "1"}]}, "matchingVariant", "many_to_one"),
+    ({"stem": "Fill both blanks: ____ ____", "answerMode": "fill_blank", "blankCount": 2, "answerPayload": None}, "blankCount", 1),
+])
+def test_annotated_variants_and_blank_counts_participate_in_structure_gate(gold, field, wrong) -> None:
+    case = gold_case()
+    case["expectedQuestions"] = [ev.GoldQuestion.model_validate(gold).model_dump(mode="json")]
+    assert ev.summarize([case_record(case)])["status"] == "PASSED"
+    predicted = {**gold, field: wrong}
+    for actual in (predicted, {**gold, field: None}):
+        record = case_record(case, {"questions": [actual]})
+        summary = ev.summarize([record])
+        assert record["qualityPassed"] is False
+        assert record["score"]["questions"][0]["differences"] == ["structure"]
+        assert record["score"]["questions"][0]["expected"]["structure"][field] == gold[field]
+        assert summary["status"] == "FAILED"
+        assert summary["documentParser"]["structureAccuracy"] == 0
+        assert "STRUCTURE_MISMATCH:sample:1" in summary["gateReasons"]
+
+    # Null/default and omitted gold fields are unannotated, not assertions of absence.
+    for unannotated in ({**gold, field: None}, {key: value for key, value in gold.items() if key != field}):
+        case["expectedQuestions"] = [unannotated]
+        record = case_record(case, {"questions": [predicted]})
+        assert ev.summarize([record])["status"] == "PASSED"
+        assert record["qualityPassed"] is True
+        if "structure" in record["score"]["questions"][0]["expected"]:
+            assert field not in record["score"]["questions"][0]["expected"]["structure"]
+
+
 def test_usage_records_missing_metadata_errors_and_returned_tokens() -> None:
     observer = ev.EvaluationUsage()
     ids = [uuid4() for _ in range(3)]
@@ -669,7 +700,7 @@ def test_sensitive_strings_and_old_scorers_cannot_be_published_or_compared():
     for text in ("data:image/png;base64,PRIVATE", "https://example.invalid/file?x-oss-signature=PRIVATE", "Bearer PRIVATE_TOKEN"):
         with pytest.raises(ValueError, match="credential-bearing"):
             ev.ensure_public_report({"description": text})
-    for version in ("2.0.0", "4.0.0"):
+    for version in ("2.0.0", "4.0.0", "5.0.0"):
         old = report_with()
         old["scorerVersion"] = version
         comparison = ev.compare_reports(old, report_with())

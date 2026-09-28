@@ -52,7 +52,7 @@ from practiq_ai.execution import runtime_version
 from practiq_ai.storage import get_object_store
 
 ROOT = Path(__file__).parents[1]
-SCORER_VERSION = "5.0.0"
+SCORER_VERSION = "5.0.1"
 SOURCE_TYPES = {"text", "csv", "pdf", "image"}
 ANSWER_MODES = {"choice", "true_false", "fill_blank", "short_answer", "ordering", "matching", "reading", "word_bank", "cloze"}
 METRICS = (
@@ -272,19 +272,21 @@ def score_document_case(expected: list[dict[str, Any]], predicted: list[dict[str
     # Compare links by matched identity rather than parser-assigned ID spelling.
     gold_ids = {q.get("id"): i for i, q in enumerate(expected) if q.get("id")}
     actual_ids = {predicted[row["predictedIndex"]].get("id"): row["expectedIndex"] for row in rows if row["matched"]}
-    def structure(q, ids):
+    def structure(q, ids, annotated_fields):
         blocks = [{k: (ids.get(v, "missing") if k == "questionId" else v) for k, v in block.items() if v is not None} for block in q.get("passage", [])]
         return {"answerMode": q["answerMode"], "parent": ids.get(q["parentId"], "missing") if q.get("parentId") else None, "optionsOwner": ids.get(q["optionSourceId"], "missing") if q.get("optionSourceId") else None,
                 "passage": blocks, "items": [{k: v for k, v in item.items() if v is not None} for item in q.get("items", [])],
                 "sharedOptions": _question_view(q)["options"] if q["answerMode"] == "word_bank" else [],
-                "allowReuse": q.get("allowReuse", False)}
+                "allowReuse": q.get("allowReuse", False),
+                **{field: q.get(field) for field in annotated_fields}}
     for row in rows:
         gold = expected[row["expectedIndex"]] if row["expectedIndex"] is not None else None
         actual = predicted[row["predictedIndex"]] if row["predictedIndex"] is not None else None
-        if not any(q is not None and (q["answerMode"] in COMPOSITE_MODES or any(q.get(key) for key in ("parentId", "optionSourceId", "passage", "items", "allowReuse"))) for q in (gold, actual)):
+        annotated_fields = [field for field in ("choiceVariant", "matchingVariant", "blankCount") if gold is not None and gold.get(field) is not None]
+        if not annotated_fields and not any(q is not None and (q["answerMode"] in COMPOSITE_MODES or any(q.get(key) for key in ("parentId", "optionSourceId", "passage", "items", "allowReuse"))) for q in (gold, actual)):
             continue
-        expected_structure = structure(gold, gold_ids) if gold is not None else None
-        actual_structure = structure(actual, actual_ids) if actual is not None else None
+        expected_structure = structure(gold, gold_ids, annotated_fields) if gold is not None else None
+        actual_structure = structure(actual, actual_ids, annotated_fields) if actual is not None else None
         if row["expected"] is not None:
             row["expected"]["structure"] = expected_structure
         if row["predicted"] is not None:
