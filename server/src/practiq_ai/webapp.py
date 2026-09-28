@@ -25,6 +25,7 @@ from practiq_ai.contracts import (
     DocumentUploadResponse,
 )
 from practiq_ai.errors import DocumentProcessingError
+from practiq_ai.execution import SUPPORTED_TASKS_SQL
 from practiq_ai.grading import GradeWireRequest, grade
 from practiq_ai.middleware import JsonBodyLimitMiddleware, SecurityHeadersMiddleware
 from practiq_ai.storage import get_object_store
@@ -80,7 +81,7 @@ async def application_metrics() -> Response:
     from .runtime import current
     body = generate_latest(registry)
     if current:
-        rows = await current.db.rows("SELECT status,count(*) AS n FROM document_runs WHERE status IN ('pending','running') GROUP BY status")
+        rows = await current.db.rows(f"SELECT status,count(*) AS n FROM document_runs WHERE thread_id IN ({SUPPORTED_TASKS_SQL}) AND status IN ('pending','running') GROUP BY status")
         counts = {row['status']: row['n'] for row in rows}
         jobs = load().jobs_per_worker
         body += (f"practiq_pending_runs {counts.get('pending', 0)}\n"

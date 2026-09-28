@@ -84,7 +84,7 @@ async def test_idle_dispatch_is_event_driven_and_read_connection_is_transaction_
     dispatches = []
     original = db.rows
     async def observed(query, params=()):
-        if query == "SELECT * FROM document_runs WHERE status IN ('pending','running') ORDER BY created_at":
+        if query.startswith('SELECT * FROM document_runs WHERE') and query.endswith('ORDER BY created_at'):
             dispatches.append(1)
             entered.set()
         return await original(query, params)
@@ -538,46 +538,73 @@ async def test_missing_checkpoint_tables_fail_closed():
     finally:
         await db.close()
 
-@pytest.mark.parametrize('graph_id', ['docx_parser', 'document_parser'])
-@pytest.mark.parametrize('kind', ['docx', 'xlsx'])
-async def test_retired_word_tasks_remain_readable_but_never_run(monkeypatch, graph_id, kind):
+@pytest.mark.parametrize('desktop', [False, True])
+@pytest.mark.parametrize(('graph_id', 'kind'), [('docx_parser', 'text'), ('document_parser', 'docx'), ('document_parser', 'xlsx')])
+async def test_unsupported_tasks_are_unchanged_and_do_not_block_current_work(monkeypatch, graph_id, kind, desktop):
     from json import dumps
 
-    service, reference, model = await setup_api(monkeypatch)
-    receipt = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
+    import httpx
+
+    from practiq_ai.webapp import app
+
+    monkeypatch.setenv('AI_SERVICE_TOKEN', 'test-token')
+    monkeypatch.setenv('AI_DESKTOP_MODE', '1' if desktop else '0')
+    service, reference, model = await setup_api(monkeypatch, [parsed(), parsed(), parsed()])
+    good = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
+    old = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
     await service.wait_idle()
-    thread_id = receipt['threadId']
-    legacy = {**reference, 'sourceType': kind, 'fileName': f'old.{kind}'}
+    await service.stop()
+    await service.db.open()
+    thread_id = old['threadId']
     async with service.db.connection() as conn:
         await conn.execute('UPDATE document_tasks SET graph_id=?,document=? WHERE thread_id=?',
-                           (graph_id, dumps(legacy), thread_id))
-    await service.graphs['document_parser'].aupdate_state(
-        {'configurable': {'thread_id': thread_id}},
-        {'embeddedRefs': [reference], 'visionResults': [
-            {'kind': 'embedded', 'index': 0, 'visuals': [{'description': 'Historical figure'}]}]},
-    )
-    result = await task_api.get_task(thread_id)
-    assert result['progress']['visuals'] == {'total': 1, 'succeeded': 1, 'failed': 0, 'remaining': 0}
-    assert (await service.snapshot({'graph_id': graph_id, 'thread_id': thread_id})).values['embeddedRefs'] == [reference]
-    assert result['state'] == 'COMPLETED' and result['result']['questions']
-    assert not result['allowedActions'] and 'PDF' in result['blocking'][0]
-    for action in ('resume', 'retry_failed', 'accept_partial'):
-        with pytest.raises(DocumentProcessingError, match='PDF') as error:
-            await task_api.control_task(thread_id, DocumentTaskControl(
-                requestId=uuid4(), action=action, checkpointId=result['checkpointId']))
-        assert error.value.code == 'WORD_FORMAT_REMOVED'
-    from practiq_ai.contracts import DocumentTaskReparse
-    with pytest.raises(DocumentProcessingError, match='PDF'):
-        await task_api.reparse_task(thread_id, DocumentTaskReparse(requestId=uuid4()))
-    assert not result['resumeCompatible']
+                           (graph_id, dumps({**reference, 'sourceType': kind}), thread_id))
+        await conn.execute('UPDATE document_runs SET status=? WHERE thread_id=?', ('pending' if desktop else 'running', thread_id))
+    before_task = await service.db.rows('SELECT * FROM document_tasks WHERE thread_id=?', (thread_id,))
+    before_runs = await service.db.rows('SELECT * FROM document_runs WHERE thread_id=?', (thread_id,))
+    before_heads = await service.db.checkpoint_heads([thread_id])
+    restarted = runtime.Service(service.db)
+    SERVICES.append(restarted)
+    monkeypatch.setattr(runtime, 'current', restarted)
+    monkeypatch.setenv('AI_MAX_BUSY_THREADS', '1')
+    await restarted.start()
+    assert await restarted.ready()
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://test',
+                                headers={'Authorization': 'Bearer test-token'}) as http:
+        url = f'/api/document-tasks/{thread_id}'
+        for suffix in ('', '/preview'):
+            response = await http.get(url + suffix)
+            assert response.status_code == 409
+            assert response.json()['detail']['code'] == 'TASK_FORMAT_UNSUPPORTED'
+        for action in ('resume', 'retry_failed', 'accept_partial', 'pause', 'interrupt'):
+            body = {'requestId': str(uuid4()), 'action': action}
+            body.update({'runId': old['runId']} if action in {'pause', 'interrupt'} else {'checkpointId': 'old'})
+            response = await http.post(url + '/control', json=body)
+            assert response.status_code == 409
+            assert response.json()['detail']['code'] == 'TASK_FORMAT_UNSUPPORTED'
+        response = await http.post(url + '/reparse', json={'requestId': str(uuid4())})
+        assert response.status_code == 409
+        assert response.json()['detail']['code'] == 'TASK_FORMAT_UNSUPPORTED'
+        metrics = await http.get('/api/metrics')
+        assert 'practiq_running_runs 0\n' in metrics.text
+    assert (await task_api.get_task(good['threadId']))['state'] == 'COMPLETED'
+    page = await task_api.list_tasks(limit=1, sha256=reference['sha256'])
+    assert [item['threadId'] for item in page['items']] == [good['threadId']]
+    assert not page['hasMore']
+    assert not (await task_api.list_tasks(limit=1, offset=1))['items']
     calls = len(model.calls)
-    run = (await service.db.rows('SELECT * FROM document_runs WHERE run_id=?', (receipt['runId'],)))[0]
-    await service.execute(run)
-    assert len(model.calls) == calls
-    result = await task_api.get_task(thread_id)
-    assert result['state'] == 'FAILED' and not result['allowedActions']
-    assert (await service.db.rows('SELECT error_code FROM document_runs WHERE run_id=?', (receipt['runId'],)))[0]['error_code'] == 'WORD_FORMAT_REMOVED'
-    assert await service.ready()
+    current = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
+    await service.wait_idle()
+    assert (await task_api.get_task(current['threadId']))['state'] == 'COMPLETED'
+    assert len(model.calls) == calls + 1
+    assert (await task_api.list_tasks(limit=1))['hasMore']
+    assert [item['threadId'] for item in (await task_api.list_tasks(limit=1, offset=1))['items']] == [good['threadId']]
+    # Even a stale dispatcher selection must not update the unsupported run.
+    await restarted.execute(before_runs[0])
+    assert await service.db.rows('SELECT * FROM document_tasks WHERE thread_id=?', (thread_id,)) == before_task
+    assert await service.db.rows('SELECT * FROM document_runs WHERE thread_id=?', (thread_id,)) == before_runs
+    assert await service.db.checkpoint_heads([thread_id]) == before_heads
+    assert len(model.calls) == calls + 1
 
 
 def test_reconciliation_requires_matching_finished_checkpoint():

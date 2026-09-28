@@ -21,13 +21,13 @@ from .contracts import (
 from .database import utcnow
 from .errors import DocumentProcessingError
 from .execution import (
+    SUPPORTED_TASKS_SQL,
     TTL_MINUTES,
     fingerprint,
     namespace,
     preflight,
     remaining_ttl,
     require_supported_task,
-    retired_task,
     signature,
 )
 from .graphs.document import _retry_update, unit_failures
@@ -53,7 +53,7 @@ async def _admit(conn):
     require_model_config()
     if load().maintenance:
         raise DocumentProcessingError(503, 'Service is draining for maintenance', 'MAINTENANCE')
-    count = await (await conn.execute("SELECT count(*) AS n FROM document_runs WHERE status IN ('pending','running')")).fetchone()
+    count = await (await conn.execute(f"SELECT count(*) AS n FROM document_runs WHERE thread_id IN ({SUPPORTED_TASKS_SQL}) AND status IN ('pending','running')")).fetchone()
     if count['n'] >= load().max_busy_threads:
         raise DocumentProcessingError(503, 'Document queue is full; retry later', 'QUEUE_FULL')
 
@@ -69,8 +69,9 @@ async def _enqueue(conn, task, request_id, request_hash, *, graph_input=None, co
 
 
 async def _replay(conn, thread_id, request_id, request_hash):
-    row = await (await conn.execute('SELECT r.*, t.expires_at FROM document_receipts r JOIN document_tasks t USING(thread_id) WHERE r.thread_id=? AND request_id=?', (thread_id, request_id))).fetchone()
+    row = await (await conn.execute('SELECT r.*, t.expires_at, t.graph_id, t.document FROM document_receipts r JOIN document_tasks t USING(thread_id) WHERE r.thread_id=? AND request_id=?', (thread_id, request_id))).fetchone()
     if row:
+        require_supported_task(row)
         remaining_ttl({'expiresAt': row['expires_at'].isoformat()})
         if row['fingerprint'] != request_hash:
             raise conflict('requestId was already used for different input', 'REQUEST_CONFLICT')
@@ -92,9 +93,10 @@ async def create_task(request: DocumentTaskCreate) -> dict[str, Any]:
         if previous:
             return previous
         if request.parentThreadId:
-            parent = await (await conn.execute('SELECT thread_id FROM document_tasks WHERE thread_id=?', (str(request.parentThreadId),))).fetchone()
+            parent = await (await conn.execute('SELECT * FROM document_tasks WHERE thread_id=?', (str(request.parentThreadId),))).fetchone()
             if not parent:
                 raise DocumentProcessingError(404, 'Parent task not found', 'TASK_NOT_FOUND')
+            require_supported_task(parent)
         await _admit(conn)
         task = await (await conn.execute('INSERT INTO document_tasks(thread_id,request_hash,graph_id,document,failure_policy,parent_thread_id,expires_at) VALUES (?,?,?,?,?,?,?) RETURNING *',
             (thread_id, request_hash, request.graphId, json_encode(request.document.model_dump(mode='json')), request.failurePolicy,
@@ -111,6 +113,7 @@ async def _read_task(service, thread_id):
     if not tasks:
         raise DocumentProcessingError(404, 'Document task not found', 'TASK_NOT_FOUND')
     task = tasks[0]
+    require_supported_task(task)
     remaining_ttl({'expiresAt': task['expires_at'].isoformat()})
     snapshot = await service.snapshot(task)
     runs = await service.db.rows('SELECT * FROM document_runs WHERE thread_id=? ORDER BY created_at DESC LIMIT 1', (thread_id,))
@@ -150,7 +153,7 @@ async def _calls(service, thread_id):
             return values
 
 
-def _task_state(task, snapshot, run):
+def _task_state(snapshot, run):
     values = snapshot.values or {}
     interruptions = _interrupts(snapshot)
     failures = unit_failures(values)
@@ -184,11 +187,6 @@ def _task_state(task, snapshot, run):
         actions = ['retry_failed'] if any(f['retryable'] for f in failures) else []
     else:
         state = 'PENDING'
-    retired = retired_task(task)
-    if retired:
-        actions = []
-        if state != 'COMPLETED':
-            state = 'FAILED'
     return state, actions, failures
 
 
@@ -197,8 +195,7 @@ async def get_task(thread_id: str) -> dict[str, Any]:
     task, snapshot, run = await _read_task(service, thread_id)
     values = snapshot.values or {}
     interruptions = _interrupts(snapshot)
-    state, actions, failures = _task_state(task, snapshot, run)
-    retired = retired_task(task)
+    state, actions, failures = _task_state(snapshot, run)
     calls = await _calls(service, thread_id)
     usage = {item['callKey']: item for item in values.get('usage', [])}
     usage.update({item['callKey']: {k: item[k] for k in ('callKey', 'modelId', 'inputTokens', 'outputTokens', 'callKind')}
@@ -207,15 +204,15 @@ async def get_task(thread_id: str) -> dict[str, Any]:
         'threadId': thread_id, 'runId': run['run_id'] if run else None,
         'parentThreadId': task['parent_thread_id'],
         'modelConfigured': not load().read_only,
-        'resumeCompatible': not retired and not load().read_only and (not values.get('execution') or values['execution'].get('signature') == signature()),
+        'resumeCompatible': not load().read_only and (not values.get('execution') or values['execution'].get('signature') == signature()),
         'fileName': task['document'].get('fileName') or '文档',
         'state': state, 'phase': values.get('phase', 'pending'),
         'checkpointId': service.checkpoint_id(snapshot, run),
         'updatedAt': snapshot.created_at or task['created_at'].isoformat(), 'expiresAt': task['expires_at'].isoformat(),
         'allowedActions': actions, 'failures': failures,
-        'blocking': ['暂不支持 Office 文件，请转为 PDF 后重新导入'] if retired else list(interruptions.values()) or ([run['error_code']] if run and run['error_code'] else []),
+        'blocking': list(interruptions.values()) or ([run['error_code']] if run and run['error_code'] else []),
         'progress': {
-            'visuals': _counts(len(values.get('pageRefs', [])) + len(values.get('embeddedRefs', [])), len(values.get('visionResults', [])), sum(f['stage'].startswith('vision_') for f in failures)),
+            'visuals': _counts(len(values.get('pageRefs', [])), len(values.get('visionResults', [])), sum(f['stage'].startswith('vision_') for f in failures)),
             'chunks': _counts(len(values.get('chunkRefs', [])), sum(item.get('parsed') is not None for item in values.get('chunkResults', [])), sum(f['stage'] == 'document_parse' for f in failures)),
         },
         'status': values.get('status') or None, 'result': values.get('result') or None,
@@ -272,7 +269,7 @@ async def control_task(thread_id: str, request: DocumentTaskControl) -> dict[str
             values = snapshot.values or {}
             interruptions = _interrupts(snapshot)
             reviews = [v for v in interruptions.values() if v.get('kind') == 'review']
-            if request.action == 'resume' and 'resume' not in _task_state(task, snapshot, run)[1]:
+            if request.action == 'resume' and 'resume' not in _task_state(snapshot, run)[1]:
                 raise conflict('Task requires a review decision, a failed-unit retry, or a new document')
             if request.action == 'resume' and (reviews or values and not snapshot.next):
                 raise conflict('Task requires a review decision or is already complete')
@@ -303,9 +300,9 @@ def _counts(total: int, succeeded: int, failed: int) -> dict[str, int]:
 
 async def list_tasks(limit: int = 20, offset: int = 0, sha256: str | None = None) -> dict[str, Any]:
     service = client()
-    source_filter = " WHERE json_extract(document, '$.sha256')=?" if sha256 else ''
+    source_filter = " AND json_extract(document, '$.sha256')=?" if sha256 else ''
     params = (sha256, limit + 1, offset) if sha256 else (limit + 1, offset)
-    rows = await service.db.rows('SELECT * FROM document_tasks' + source_filter + ' ORDER BY created_at DESC,thread_id DESC LIMIT ? OFFSET ?', params)
+    rows = await service.db.rows(f'SELECT * FROM document_tasks WHERE thread_id IN ({SUPPORTED_TASKS_SQL})' + source_filter + ' ORDER BY created_at DESC,thread_id DESC LIMIT ? OFFSET ?', params)
     latest_runs = await service.db.rows(
         'SELECT * FROM document_runs WHERE run_id IN '
         '(SELECT (SELECT run_id FROM document_runs r WHERE r.thread_id=t.thread_id ORDER BY created_at DESC LIMIT 1) '
@@ -327,7 +324,7 @@ async def list_tasks(limit: int = 20, offset: int = 0, sha256: str | None = None
             snapshot = await service.snapshot(row)
             values = snapshot.values or {}
             questions = values.get('result', {}).get('questions', [])
-            summary = {'state': _task_state(row, snapshot, run)[0], 'status': values.get('status') or None,
+            summary = {'state': _task_state(snapshot, run)[0], 'status': values.get('status') or None,
                        'checkpointId': service.checkpoint_id(snapshot, run), 'questionCount': scorable_count(questions),
                        'reviewCount': sum(bool(q.get('needsReview')) and q.get('answerMode') not in COMPOSITE_MODES for q in questions)}
             # Only completed, quiescent checkpoints are safe from same-checkpoint pending writes.
@@ -346,9 +343,9 @@ async def list_tasks(limit: int = 20, offset: int = 0, sha256: str | None = None
 async def review_task(thread_id: str) -> dict[str, Any]:
     """Read saved candidates only; never run merge, crop, or model nodes."""
     service = client()
-    task, snapshot, run = await _read_task(service, thread_id)
+    _task, snapshot, run = await _read_task(service, thread_id)
     values = snapshot.values or {}
-    state, _, failures = _task_state(task, snapshot, run)
+    state, _, failures = _task_state(snapshot, run)
     units = []
     if values.get('result', {}).get('questions'):
         result = values['result']
