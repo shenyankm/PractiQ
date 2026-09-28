@@ -1,0 +1,126 @@
+{
+  "schema_version": 1,
+  "skill_name": "product-design-and-ux",
+  "evals": [
+    {
+      "id": "task-flow-design",
+      "prompt": "We are designing the invite-teammates flow for our collaboration app. Users need to add multiple teammates, choose roles, and receive invites by email. What does the task flow look like, and what should I decide before the design handoff to engineering?",
+      "expected_output": "A task flow design that walks the complete user path including the decisions at each step: entry points into invite, the invite composition step (email addresses, roles, optional message), validation states for invalid or duplicate addresses, the confirmation and what happens next for the inviter, and the invitee-side journey (email receipt, acceptance, account creation or login, role assignment). The response makes the interface decisions explicit: whether invites can be sent partially (some valid, some invalid), whether resending and revoking are supported, the failure and error states, and the boundary conditions (max batch size, deduplication). It ends with the unresolved decision points that need product input before engineering handoff.",
+      "assertions": [
+        "The response covers both the inviter-side and invitee-side journeys end to end",
+        "Validation and error states are specified for invalid, duplicate, and partial batches of addresses",
+        "The response resolves or flags decisions on resend, revoke, deduplication, and batch limits",
+        "The flow includes the post-acceptance state such as role assignment and account creation",
+        "Unresolved decision points are explicitly listed for product input before handoff"
+      ]
+    },
+    {
+      "id": "state-recovery-model",
+      "prompt": "Our checkout form loses all user input when the page reloads or the session times out, and users abandon the flow. I want a state and recovery model so this stops happening. What states does the form have and how should recovery work in each?",
+      "expected_output": "A state and recovery model that enumerates the form's states: initial empty, partial input, validation error, submitting, submitted, and the failure states (network error, session expiry, server-side validation rejection, duplicate submission). For each state the response defines what is preserved and what is recoverable: input autosaved locally and restored on reload, session expiry handled by re-authentication that returns the user to the same step with data intact, idempotency so a retried submit does not double-charge, and explicit error recovery paths that tell the user what happened and what to do. The response also defines the timeout boundary after which recovery is no longer possible and the data is cleared with a clear message.",
+      "assertions": [
+        "The response enumerates the full state set including partial input, submitting, network failure, and session expiry",
+        "Input is preserved and restored on reload through autosave or local persistence",
+        "Session expiry recovery returns the user to the same step with data intact",
+        "Retried submissions are idempotent and cannot double-charge",
+        "The response defines when recovery is no longer possible and how that is communicated"
+      ]
+    },
+    {
+      "id": "interface-contract-handoff",
+      "prompt": "I am handing the search-results page design to engineering. Every handoff before has produced drift: different spacing, wrong empty states, unclear loading behavior. What should the interface contract contain so the implementation matches the design?",
+      "expected_output": "An interface contract that specifies behavior rather than only aesthetics: the component inventory with names matching the design system, spacing and sizing tokens with concrete values, the states each component must render (loading, empty, error, populated, end-of-results), interaction behavior (debounce timing, keyboard navigation, focus management), and the data contract the page consumes (fields, ordering, pagination model). The response explains how to make the contract verifiable: reference screenshots or fixtures for key states, named tokens instead of pixel values repeated ad hoc, and a checklist the engineer uses to confirm each state before the page is considered done.",
+      "assertions": [
+        "The contract covers behavior and states, not only visual appearance",
+        "Components map to the design system with concrete spacing and sizing tokens",
+        "All states including loading, empty, error, and end-of-results are specified",
+        "Interaction behavior such as debounce, keyboard navigation, and focus is specified",
+        "The contract is verifiable through named tokens, fixtures, and a state checklist"
+      ]
+    },
+    {
+      "id": "usability-study-plan",
+      "prompt": "We are about to redesign our dashboard navigation and want to test the new information architecture before building it. How do I plan a usability study that gives us signal we can act on, without over-engineering the research?",
+      "expected_output": "A usability study plan scoped to the decision at hand: a task-based test of the navigation where participants are asked to find specific information in the new IA, with a small set of well-chosen tasks that cover the highest-frequency user goals. The plan specifies participant criteria (a pragmatic small set of current users across the main personas, not a large panel), the protocol (moderated sessions with think-aloud, task success and time as measures, plus observation of where people look first), and the analysis: task success rates, the places where participants get lost, and a ranked list of IA problems with severity. The response right-sizes the study: 5-8 participants for a formative IA test, task selection driven by analytics data on what users actually do, and a report format that leads with the actionable problems.",
+      "assertions": [
+        "The study is task-based and tests the new IA against high-frequency user goals",
+        "Participant criteria are pragmatic and grounded in real usage, with a small formative sample",
+        "The protocol specifies moderated think-aloud sessions and the measures taken",
+        "Analysis produces ranked, severity-ordered problems from task success and lostness data",
+        "The response right-sizes the study and justifies the sample size for a formative test"
+      ]
+    },
+    {
+      "id": "information-architecture-review",
+      "prompt": "Our app has grown from 5 to 40 screens and navigation is now a maze. Users cannot find features that exist, and teams keep adding entries to the sidebar. How should I review the information architecture and fix it systematically?",
+      "expected_output": "An information architecture review that starts from evidence, not opinion: card sorting or tree-testing results if available, analytics on navigation paths and search queries, and a content inventory grouped by user task frequency. The response proposes a hierarchy organized around the top user jobs with a small number of top-level destinations, applies the rules of thumb for where items belong (frequency and importance drive depth, related tasks cluster), and defines the governance fix: a stated policy for when a new feature earns a navigation entry versus living inside an existing destination, so the maze does not grow back. It sequences the work: audit, propose IA, validate with tree-testing or a quick study, then migrate with redirects.",
+      "assertions": [
+        "The review is driven by evidence such as navigation analytics, search data, and a content inventory",
+        "The proposed hierarchy is organized around top user jobs with few top-level destinations",
+        "Placement rules are explicit, using frequency and importance to drive depth",
+        "The response includes navigation governance so the structure does not regrow into a maze",
+        "The response sequences audit, redesign, validation, and migration with redirects"
+      ]
+    },
+    {
+      "id": "ai-uncertain-output-recovery",
+      "prompt": "We are designing an AI assistant that drafts answers from an internal knowledge base. What should happen when the sources are missing, stale, or conflicting, and how should a user recover?",
+      "expected_output": "A framework-neutral interaction design that defines source ownership and freshness, distinguishes draft from verified fact, makes unsupported or conflicting context visible, preserves the user’s request, and provides clarification, correction, safe fallback, and escalation paths. It names the evidence and model-change acceptance checks without inventing confidence or claiming that a citation proves correctness.",
+      "assertions": [
+        "The response defines missing, stale, and conflicting source behavior",
+        "The draft is distinguished from a verified fact or committed action",
+        "The response provides correction, clarification, fallback, and escalation recovery",
+        "The user’s input and relevant context are preserved through recovery",
+        "The response avoids unsupported confidence or correctness claims"
+      ]
+    },
+    {
+      "id": "ai-human-control-boundary",
+      "prompt": "A product team wants an AI system to recommend account changes and sometimes execute them. Define the interaction contract before implementation.",
+      "expected_output": "An interaction contract that compares assist, recommend, and execute modes against stakes, reversibility, observability, permissions, and review burden; identifies the human approval boundary; separates preview from external commit; and specifies authorization re-checks, cancellation or undo where real, partial failure, and completion evidence.",
+      "assertions": [
+        "The response compares control modes using task risk and reversibility",
+        "A human approval and authorization boundary is explicit",
+        "Preview is distinguished from an external side effect",
+        "Partial failure, retry or deduplication, and completion evidence are specified",
+        "The response records an owner and revisit trigger for the control decision"
+      ]
+    },
+    {
+      "id": "ai-feedback-consent-loop",
+      "prompt": "We want feedback on AI suggestions in a customer workflow. Design a feedback loop that is useful without treating every thumbs-up as truth.",
+      "expected_output": "A consent-aware feedback design that uses minimal signals such as accepted, edited, rejected, corrected, escalated, or completed; explains purpose and retention; separates preference, experience, task completion, and correctness; routes signals to triage and evaluation owners; and defines the evidence required before changing the model, prompt, retrieval, or UX.",
+      "assertions": [
+        "The response proposes minimal, meaningful feedback signals",
+        "Purpose, notice or consent, minimization, retention, and ownership are addressed",
+        "Preference and experience are distinguished from correctness",
+        "Signals flow to triage, representative fixtures, independent evaluation, and a release decision",
+        "The response does not treat ratings alone as correctness evidence"
+      ]
+    },
+    {
+      "id": "ai-change-acceptance-fixtures",
+      "prompt": "A team is changing its model and retrieval index for a production recommendation experience. What acceptance evidence should the UX handoff require?",
+      "expected_output": "A change-acceptance plan with versioned model, prompt, and retrieval identifiers; authorized representative fixtures covering normal, ambiguous, unsupported, stale, permission, interruption, and fallback cases; observable behavior and recovery expectations; user and countermetric evidence; and separate recording of blocked, inconclusive, and passed results.",
+      "assertions": [
+        "The plan records the changed model, prompt, and retrieval versions",
+        "Fixtures include normal, ambiguous, unsupported, stale, permission, interruption, and fallback cases",
+        "Each fixture has observable behavior and recovery expectations",
+        "User outcomes and countermetrics are considered alongside quality evidence",
+        "Blocked and inconclusive results remain distinct from passes"
+      ]
+    },
+    {
+      "id": "ai-handoff-escalation",
+      "prompt": "A conversational assistant must hand a difficult case to a human. Define the handoff and opt-out behavior for the UX and engineering teams.",
+      "expected_output": "A handoff design that states when escalation occurs, what status and destination are shown, what context is transferred, how the user can inspect or correct the summary, what the alternate or opt-out path does, and how the human continues without re-entering known information. It distinguishes a generated summary from a verified transcript and protects unnecessary sensitive content.",
+      "assertions": [
+        "Escalation trigger, destination, and user-visible status are explicit",
+        "Transferred context is bounded and inspectable",
+        "The user can correct the handoff summary",
+        "Opt-out or alternate behavior is defined",
+        "The design distinguishes generated summary from verified transcript and minimizes sensitive data"
+      ]
+    }
+  ]
+}
