@@ -58,10 +58,12 @@ app-build: app-bundle
 app-package-check: app-build
 ifeq ($(shell uname -s),Darwin)
 	"$(AI_PYTHON)" app/scripts/check-bundle.py --bundle app/src-tauri/target/release/bundle/macos/PractiQ.app/Contents/Resources/bundled
+	"$(AI_PYTHON)" app/scripts/check-office.py --isolated --bundle app/src-tauri/target/release/bundle/macos/PractiQ.app/Contents/Resources/bundled
 else
 	@set -eu; package_dir=$$(mktemp -d); trap 'rm -rf "$$package_dir"' EXIT; \
 	dpkg-deb -x app/src-tauri/target/release/bundle/deb/*.deb "$$package_dir"; \
-	"$(AI_PYTHON)" app/scripts/check-bundle.py --bundle "$$package_dir/usr/lib/PractiQ/bundled"
+	"$(AI_PYTHON)" app/scripts/check-bundle.py --bundle "$$package_dir/usr/lib/PractiQ/bundled"; \
+	"$(AI_PYTHON)" app/scripts/check-office.py --isolated --bundle "$$package_dir/usr/lib/PractiQ/bundled"
 endif
 
 .PHONY: test-e2e

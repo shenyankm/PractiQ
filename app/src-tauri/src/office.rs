@@ -28,11 +28,8 @@ pub enum Mode {
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Request {
     Status,
-    PickExecutable,
-    ResetExecutable,
     Convert { mode: Mode },
     Cancel,
-    InstallationGuide,
 }
 #[derive(Default)]
 pub struct OfficeState {
@@ -40,7 +37,7 @@ pub struct OfficeState {
     detected: Mutex<Option<Detection>>,
 }
 struct Detection {
-    preferred: Option<String>,
+    engine: Option<String>,
     identity: (PathBuf, u64, SystemTime),
     result: Value,
     checked: Instant,
@@ -71,13 +68,9 @@ impl OfficeState {
             *cached = None;
         }
     }
-    fn detect(
-        &self,
-        preferred: Option<String>,
-        run: impl FnOnce() -> Result<Value>,
-    ) -> Result<Value> {
+    fn detect(&self, engine: Option<String>, run: impl FnOnce() -> Result<Value>) -> Result<Value> {
         if let Some(cached) = self.detected.lock().map_err(err)?.as_ref() {
-            if cached.preferred == preferred
+            if cached.engine == engine
                 && cached.checked.elapsed() < Duration::from_secs(300)
                 && identity(&cached.result).as_ref() == Some(&cached.identity)
             {
@@ -88,7 +81,7 @@ impl OfficeState {
         let result = run()?;
         if let Some(identity) = identity(&result) {
             *self.detected.lock().map_err(err)? = Some(Detection {
-                preferred,
+                engine,
                 identity,
                 result: result.clone(),
                 checked: Instant::now(),
@@ -225,6 +218,7 @@ fn worker_in(
         serde_json::from_slice(&bytes).map_err(|_| error("OFFICE_WORKER_FAILED"))?;
     if let Some(code) = result["error"].as_str() {
         return Err(error(match code {
+            "OFFICE_NOT_FOUND" | "OFFICE_ENGINE_INVALID" => "OFFICE_NOT_FOUND",
             "OFFICE_TIMEOUT" => "OFFICE_TIMEOUT",
             "OFFICE_OUTPUT_LIMIT" => "OFFICE_OUTPUT_LIMIT",
             "OFFICE_OUTPUT_INVALID" => "OFFICE_OUTPUT_INVALID",
@@ -243,32 +237,50 @@ pub fn is_office(path: &Path) -> bool {
         .and_then(|s| s.to_str())
         .is_some_and(|s| ["doc", "docx", "xls", "xlsx"].contains(&s.to_ascii_lowercase().as_str()))
 }
-fn preferred(shared: &Shared) -> Result<Option<String>> {
-    shared
-        .lock()
-        .map_err(err)?
-        .connect()?
-        .query_row(
-            "SELECT libreoffice_path FROM settings WHERE id=1",
-            [],
-            |r| r.get(0),
-        )
-        .map_err(err)
+fn bundled_engine(bundle: &Path) -> Result<PathBuf> {
+    let root = bundle
+        .join("office")
+        .canonicalize()
+        .map_err(|_| error("OFFICE_NOT_FOUND"))?;
+    let manifest: Value = serde_json::from_slice(
+        &fs::read(root.join("manifest.json")).map_err(|_| error("OFFICE_NOT_FOUND"))?,
+    )
+    .map_err(|_| error("OFFICE_NOT_FOUND"))?;
+    let platform = match std::env::consts::OS {
+        "macos" => "darwin",
+        "windows" => "win32",
+        other => other,
+    };
+    let lock: Value = serde_json::from_str(include_str!("../../scripts/libreoffice.lock.json"))
+        .map_err(|_| error("OFFICE_NOT_FOUND"))?;
+    let artifact = &lock["artifacts"][format!("{platform}-{}", std::env::consts::ARCH)];
+    let executable = artifact["executable"]
+        .as_str()
+        .ok_or_else(|| error("OFFICE_NOT_FOUND"))?;
+    if manifest["platform"] != platform
+        || manifest["architecture"] != std::env::consts::ARCH
+        || manifest["version"] != lock["version"]
+        || ["executable", "sha256", "url"]
+            .iter()
+            .any(|key| manifest[key] != artifact[key])
+    {
+        return Err(error("OFFICE_NOT_FOUND"));
+    }
+    let path = root
+        .join(executable)
+        .canonicalize()
+        .map_err(|_| error("OFFICE_NOT_FOUND"))?;
+    if !path.starts_with(root) || !path.is_file() {
+        return Err(error("OFFICE_NOT_FOUND"));
+    }
+    Ok(path)
 }
-fn save_preferred(shared: &Shared, path: Option<&str>) -> Result<()> {
-    shared
-        .lock()
-        .map_err(err)?
-        .connect()?
-        .execute("UPDATE settings SET libreoffice_path=?1 WHERE id=1", [path])
-        .map_err(err)?;
-    Ok(())
-}
-pub fn status(app: &tauri::AppHandle, shared: &Shared) -> Result<Value> {
-    let preferred = preferred(shared)?;
-    app.state::<OfficeState>().detect(preferred.clone(), || {
-        worker(app, json!({"type":"detect", "preferred":preferred}))
-    })
+pub fn status(app: &tauri::AppHandle, _shared: &Shared) -> Result<Value> {
+    let path = bundled_engine(&crate::ai::bundle_dir(app)?)?;
+    app.state::<OfficeState>()
+        .detect(Some(path.to_string_lossy().into_owned()), || {
+            worker(app, json!({"type":"detect", "engine":path}))
+        })
 }
 
 #[derive(Clone, Deserialize, Serialize)]
@@ -470,53 +482,9 @@ pub fn request(
     let work = app.state::<crate::ai_work::WorkState>();
     let _lease = work.enter()?;
     match request {
-        Request::InstallationGuide => {
-            #[cfg(target_os = "macos")]
-            let mut command = Command::new("/usr/bin/open");
-            #[cfg(target_os = "linux")]
-            let mut command = Command::new("xdg-open");
-            #[cfg(target_os = "windows")]
-            let mut command = {
-                let mut c = Command::new("rundll32.exe");
-                c.arg("url.dll,FileProtocolHandler");
-                c
-            };
-            command
-                .arg("https://www.libreoffice.org/download/download-libreoffice/")
-                .spawn()
-                .map_err(err)?;
-            Ok(Value::Null)
-        }
         Request::Status => {
             app.state::<OfficeState>().invalidate();
             status(&app, &shared)
-        }
-        Request::ResetExecutable => {
-            app.state::<OfficeState>().invalidate();
-            save_preferred(&shared, None)?;
-            status(&app, &shared)
-        }
-        Request::PickExecutable => {
-            let Some(path) = app
-                .dialog()
-                .file()
-                .set_title(locale.text(
-                    "选择 LibreOffice 程序（soffice）",
-                    "Select LibreOffice (soffice)",
-                ))
-                .blocking_pick_file()
-            else {
-                return Ok(Value::Null);
-            };
-            let path = path.into_path().map_err(err)?;
-            app.state::<OfficeState>().invalidate();
-            let result = worker(&app, json!({"type":"detect", "preferred":path}))?;
-            let path = result["path"]
-                .as_str()
-                .ok_or_else(|| error("OFFICE_NOT_FOUND"))?;
-            save_preferred(&shared, Some(path))?;
-            app.state::<OfficeState>()
-                .detect(Some(path.to_owned()), || Ok(result))
         }
         Request::Convert { mode } => {
             let Some(path) = app
@@ -681,6 +649,9 @@ mod tests {
             json!({"type":"convert","mode":"pdf","path":"/private/file.docx"}),
             json!({"type":"convert","mode":"pdf","engine":"/bin/sh"}),
             json!({"type":"convert","mode":"shell"}),
+            json!({"type":"pick_executable"}),
+            json!({"type":"reset_executable"}),
+            json!({"type":"installation_guide"}),
         ] {
             assert!(serde_json::from_value::<Request>(value).is_err());
         }
@@ -752,68 +723,33 @@ mod tests {
         assert!(!state.enter().unwrap().1.load(Ordering::SeqCst));
     }
     #[test]
-    fn executable_setting_is_local_and_removed_from_backups() {
+    fn bundled_engine_rejects_missing_and_wrong_architecture() {
         let dir = tempfile::tempdir().unwrap();
-        let shared = Arc::new(Mutex::new(store::Store::new(dir.path().into()).unwrap()));
-        assert!(preferred(&shared).unwrap().is_none());
-        save_preferred(&shared, Some("/native/soffice")).unwrap();
+        assert!(bundled_engine(dir.path()).is_err());
+        let platform = match std::env::consts::OS {
+            "macos" => "darwin",
+            "windows" => "win32",
+            other => other,
+        };
+        let lock: Value =
+            serde_json::from_str(include_str!("../../scripts/libreoffice.lock.json")).unwrap();
+        let artifact = &lock["artifacts"][format!("{platform}-{}", std::env::consts::ARCH)];
+        let executable = artifact["executable"].as_str().unwrap();
+        let root = dir.path().join("office");
+        let engine = root.join(executable);
+        fs::create_dir_all(engine.parent().unwrap()).unwrap();
+        fs::write(&engine, "fixture").unwrap();
+        let mut manifest = artifact.clone();
+        manifest["platform"] = json!(platform);
+        manifest["architecture"] = json!(std::env::consts::ARCH);
+        manifest["version"] = lock["version"].clone();
+        fs::write(root.join("manifest.json"), manifest.to_string()).unwrap();
         assert_eq!(
-            preferred(&shared).unwrap().as_deref(),
-            Some("/native/soffice")
+            bundled_engine(dir.path()).unwrap(),
+            engine.canonicalize().unwrap()
         );
-        let path = dir.path().join("backup.zip");
-        shared.lock().unwrap().backup(&path).unwrap();
-        shared.lock().unwrap().restore(&path).unwrap();
-        assert!(preferred(&shared).unwrap().is_none());
-        shared
-            .lock()
-            .unwrap()
-            .connect()
-            .unwrap()
-            .execute_batch("ALTER TABLE settings DROP COLUMN libreoffice_path;")
-            .unwrap();
-        assert!(preferred(&shared).unwrap().is_none());
-    }
-    #[test]
-    fn restore_accepts_old_settings_and_never_trusts_a_backup_executable() {
-        let dir = tempfile::tempdir().unwrap();
-        let shared = Arc::new(Mutex::new(
-            store::Store::new(dir.path().join("data")).unwrap(),
-        ));
-        for old_schema in [true, false] {
-            let snapshot = dir.path().join(if old_schema {
-                "old.sqlite"
-            } else {
-                "untrusted.sqlite"
-            });
-            shared
-                .lock()
-                .unwrap()
-                .connect()
-                .unwrap()
-                .backup(rusqlite::MAIN_DB, &snapshot, None)
-                .unwrap();
-            let db = rusqlite::Connection::open(&snapshot).unwrap();
-            db.execute_batch(if old_schema {
-                "ALTER TABLE settings DROP COLUMN libreoffice_path;"
-            } else {
-                "UPDATE settings SET libreoffice_path='/untrusted/program';"
-            })
-            .unwrap();
-            drop(db);
-            let bytes = fs::read(&snapshot).unwrap();
-            let manifest = json!({"format":"practiq-backup","version":4,"schemaVersion":10,"database":{"file":"practiq.sqlite","sha256":store::hash(&bytes),"sizeBytes":bytes.len()},"assets":[]});
-            let archive = dir.path().join("restore.zip");
-            let mut zip = zip::ZipWriter::new(fs::File::create(&archive).unwrap());
-            zip.start_file("manifest.json", zip::write::SimpleFileOptions::default())
-                .unwrap();
-            zip.write_all(manifest.to_string().as_bytes()).unwrap();
-            zip.start_file("practiq.sqlite", zip::write::SimpleFileOptions::default())
-                .unwrap();
-            zip.write_all(&bytes).unwrap();
-            zip.finish().unwrap();
-            shared.lock().unwrap().restore(&archive).unwrap();
-            assert!(preferred(&shared).unwrap().is_none());
-        }
+        manifest["architecture"] = json!("wrong");
+        fs::write(root.join("manifest.json"), manifest.to_string()).unwrap();
+        assert!(bundled_engine(dir.path()).is_err());
     }
 }

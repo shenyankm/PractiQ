@@ -94,11 +94,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libdbus-1-dev gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-libav gnome-keyring libreoffice-writer libreoffice-calc fonts-noto-cjk
-      - name: Install LibreOffice for Windows conversion checks
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: choco install libreoffice-fresh --yes --no-progress
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libdbus-1-dev gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-libav gnome-keyring libxinerama1 libcairo2 libcups2 libfontconfig1 libsm6 libice6 libxext6 libxrender1 fonts-noto-cjk
       - name: Install CJK test font on Windows
         if: runner.os == 'Windows'
         shell: pwsh
@@ -109,9 +105,6 @@ jobs:
           New-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts' -Name 'Noto Sans CJK SC (OpenType)' -Value 'NotoSansCJKsc-Regular.otf' -PropertyType String -Force
           Add-Type 'using System.Runtime.InteropServices; public static class CiFonts { [DllImport("gdi32.dll", CharSet=CharSet.Unicode, ExactSpelling=true)] public static extern int AddFontResourceW(string path); }'
           if ([CiFonts]::AddFontResourceW($font) -eq 0) { throw 'CJK font registration failed' }
-      - name: Install LibreOffice for macOS conversion checks
-        if: runner.os == 'macOS'
-        run: brew install --cask libreoffice
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -137,7 +130,7 @@ jobs:
           uv export --locked --extra dev --extra desktop --no-emit-project -o "$RUNNER_TEMP/requirements.txt"
           uv pip install --python "$desktop_python" -r "$RUNNER_TEMP/requirements.txt"
           uv pip install --python "$desktop_python" --no-deps -e .
-      - run: python -m pytest server/tests/test_desktop_platforms.py server/tests/test_office.py
+      - run: python -m pytest server/tests/test_desktop_platforms.py server/tests/test_office.py server/tests/test_office_bundle.py
       - run: npm ci
         working-directory: app
       - name: Verify Rust flows and lint
@@ -169,7 +162,8 @@ jobs:
           $process = Start-Process -FilePath $installer.FullName -ArgumentList '/S', "/D=$destination" -Wait -PassThru
           if ($process.ExitCode -ne 0) { throw "Installer failed: $($process.ExitCode)" }
           python app/scripts/check-bundle.py --bundle "$destination/bundled"
-          python app/scripts/check-office.py --bundle "$destination/bundled"
+          if ($LASTEXITCODE -ne 0) { throw "Packaged service checks failed" }
+          python app/scripts/check-office.py --isolated --bundle "$destination/bundled"
       - name: Verify packaged Linux service
         if: runner.os == 'Linux'
         run: |
@@ -179,12 +173,12 @@ jobs:
           done
           dpkg-deb -x app/src-tauri/target/release/bundle/deb/*.deb "$RUNNER_TEMP/practiq-package"
           python app/scripts/check-bundle.py --bundle "$RUNNER_TEMP/practiq-package/usr/lib/PractiQ/bundled"
-          python app/scripts/check-office.py --bundle "$RUNNER_TEMP/practiq-package/usr/lib/PractiQ/bundled"
+          python app/scripts/check-office.py --isolated --bundle "$RUNNER_TEMP/practiq-package/usr/lib/PractiQ/bundled"
       - name: Verify packaged macOS service
         if: runner.os == 'macOS'
         run: |
           python app/scripts/check-bundle.py --bundle app/src-tauri/target/release/bundle/macos/PractiQ.app/Contents/Resources/bundled
-          python app/scripts/check-office.py --bundle app/src-tauri/target/release/bundle/macos/PractiQ.app/Contents/Resources/bundled
+          python app/scripts/check-office.py --isolated --bundle app/src-tauri/target/release/bundle/macos/PractiQ.app/Contents/Resources/bundled
       - name: Archive macOS application
         if: runner.os == 'macOS' && github.event_name != 'pull_request'
         run: ditto -c -k --keepParent app/src-tauri/target/release/bundle/macos/PractiQ.app app/PractiQ-macOS.zip

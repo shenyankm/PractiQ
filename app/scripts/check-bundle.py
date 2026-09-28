@@ -34,9 +34,18 @@ def fixtures(root):
 def run(bundle,output):
     report={'bundle':str(bundle),'model':'synthetic-local-stub','checks':[],'passed':False}
     output.parent.mkdir(parents=True,exist_ok=True)
-    assert not any((bundle/name).exists() for name in ('LibreOffice.app', 'office')), 'Retired office suite was bundled'
+    from bundle_office import validate
+    office = validate(bundle)
+    report['libreoffice'] = office
+    report['sizeBytes'] = {
+        name: sum(p.stat().st_size for p in directory.rglob('*') if p.is_file() and not p.is_symlink())
+        for name, directory in [('bundled', bundle), ('office', bundle/'office')]
+    }
+    if sys.platform == 'darwin':
+        subprocess.run(['codesign', '--verify', '--deep', '--strict', str(bundle/'office/LibreOffice.app')], check=True)
+
     manifest=json.loads((bundle/'build-manifest.json').read_text(encoding='utf-8'))
-    assert 'libreoffice' not in manifest
+    assert manifest['libreoffice'] == office
     assert 'python-docx' not in {p['name'].lower() for p in manifest['packages']}
     with tempfile.TemporaryDirectory(prefix='practiq-bundle-test-') as tmp:
         root=Path(tmp)

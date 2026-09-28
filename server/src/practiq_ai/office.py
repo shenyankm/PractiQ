@@ -25,7 +25,6 @@ TOTAL_LIMIT = 100 * 1024 * 1024
 FILE_COUNT = 100
 TIMEOUT = 180
 FORMATS = {".doc": "writer", ".docx": "writer", ".xls": "calc", ".xlsx": "calc"}
-CAPABILITIES = ("writer_pdf", "writer_text", "calc_pdf", "calc_text")
 _children: set[subprocess.Popen] = set()
 _lock = threading.Lock()
 
@@ -111,6 +110,8 @@ def _run(arguments: list[str], deadline: float, output: Path | None = None) -> b
         with log.open("wb") as stream:
             env = {key: value for key, value in os.environ.items()
                    if not key.startswith(("AI_", "LLM_", "DATABASE_"))}
+            # LibreOffice embeds Python; bytecode writes would invalidate signed resources.
+            env["PYTHONDONTWRITEBYTECODE"] = "1"
             if getattr(sys, "frozen", False):
                 if sys.platform == "linux":
                     env["LD_LIBRARY_PATH"] = env.get("LD_LIBRARY_PATH_ORIG", "")
@@ -145,36 +146,6 @@ def _run(arguments: list[str], deadline: float, output: Path | None = None) -> b
                     _stop(process)
                     _children.discard(process)
         return _read_file(log, 65536) if output is None else b""
-
-
-def candidates(preferred: str | None = None) -> list[Path]:
-    if preferred:
-        path = Path(preferred).expanduser()
-        if sys.platform == "win32" and path.name.lower() == "soffice.exe" and path.with_suffix(".com").is_file():
-            path = path.with_suffix(".com")
-        return [path / "Contents/MacOS/soffice" if path.suffix == ".app" else path]
-    paths: list[Path] = []
-    if sys.platform == "darwin":
-        paths += [root / "LibreOffice.app/Contents/MacOS/soffice"
-                  for root in (Path("/Applications"), Path.home() / "Applications")]
-    elif sys.platform == "win32":
-        import winreg
-        for hive in (winreg.HKEY_CURRENT_USER, winreg.HKEY_LOCAL_MACHINE):
-            for view in (winreg.KEY_WOW64_64KEY, winreg.KEY_WOW64_32KEY):
-                for key in (r"SOFTWARE\LibreOffice\UNO\InstallPath", r"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\soffice.exe"):
-                    try:
-                        with winreg.OpenKey(hive, key, 0, winreg.KEY_READ | view) as handle:
-                            value = Path(str(winreg.QueryValueEx(handle, None)[0]))
-                            paths.append(value / "soffice.com" if value.suffix != ".exe" else value.with_suffix(".com"))
-                    except OSError:
-                        pass
-        paths += [Path(os.environ[key]) / "LibreOffice/program/soffice.com"
-                  for key in ("PROGRAMFILES", "PROGRAMFILES(X86)", "LOCALAPPDATA") if key in os.environ]
-    else:
-        paths += [Path("/usr/bin/libreoffice"), Path("/usr/bin/soffice")]
-        paths += sorted(Path("/opt").glob("libreoffice*/program/soffice"))
-    paths += [Path(found) for name in ("soffice", "libreoffice") if (found := shutil.which(name))]
-    return list(dict.fromkeys(path.absolute() for path in paths if path.is_file()))
 
 
 def _profile(directory: Path) -> Path:
@@ -246,35 +217,32 @@ def engine_version(engine: Path, deadline: float) -> str:
     return version
 
 
-def detect(preferred: str | None = None) -> dict[str, Any]:
-    best: dict[str, Any] = {"path": None, "version": None, "capabilities": dict.fromkeys(CAPABILITIES, False), "errors": {}}
+def detect(engine: str) -> dict[str, Any]:
+    path = Path(engine)
+    if not path.is_absolute() or not path.is_file():
+        raise OfficeError("OFFICE_NOT_FOUND")
     deadline = time.monotonic() + TIMEOUT
-    for engine in candidates(preferred)[:8]:
-        try:
-            version = engine_version(engine, deadline)
-        except (OSError, OfficeError):
-            continue
-        status: dict[str, Any] = {"path": str(engine), "version": version, "capabilities": {}, "errors": {}}
-        with TemporaryDirectory(prefix="practiq-office-probe-") as directory:
-            root = Path(directory)
-            for family, extension, text in (("writer", "fodt", WRITER_PROBE), ("calc", "fods", CALC_PROBE)):
-                source = root / f"probe.{extension}"
-                source.write_text(text, encoding="utf-8")
-                for mode in ("pdf", "text"):
-                    key = f"{family}_{mode}"
-                    try:
-                        artifacts = _export(engine, source, root / key, family, mode, deadline)
-                        if family == "calc" and mode == "text" and len(artifacts) != 2:
-                            raise OfficeError("OFFICE_SHEETS_UNSUPPORTED")
-                        status["capabilities"][key] = True
-                    except (OSError, OfficeError) as exc:
-                        status["capabilities"][key] = False
-                        status["errors"][key] = exc.code if isinstance(exc, OfficeError) else "OFFICE_CONVERSION_FAILED"
-        if best["path"] is None or sum(status["capabilities"].values()) > sum(best["capabilities"].values()):
-            best = status
-        if all(status["capabilities"].values()) or time.monotonic() >= deadline:
-            break
-    return best
+    try:
+        version = engine_version(path, deadline)
+    except (OSError, OfficeError) as exc:
+        raise OfficeError("OFFICE_ENGINE_INVALID") from exc
+    status: dict[str, Any] = {"path": str(path), "version": version, "capabilities": {}, "errors": {}}
+    with TemporaryDirectory(prefix="practiq-office-probe-") as directory:
+        root = Path(directory)
+        for family, extension, text in (("writer", "fodt", WRITER_PROBE), ("calc", "fods", CALC_PROBE)):
+            source = root / f"probe.{extension}"
+            source.write_text(text, encoding="utf-8")
+            for mode in ("pdf", "text"):
+                key = f"{family}_{mode}"
+                try:
+                    artifacts = _export(path, source, root / key, family, mode, deadline)
+                    if family == "calc" and mode == "text" and len(artifacts) != 2:
+                        raise OfficeError("OFFICE_SHEETS_UNSUPPORTED")
+                    status["capabilities"][key] = True
+                except (OSError, OfficeError) as exc:
+                    status["capabilities"][key] = False
+                    status["errors"][key] = exc.code if isinstance(exc, OfficeError) else "OFFICE_CONVERSION_FAILED"
+    return status
 
 
 def _validate_legacy(data: bytes, family: str) -> None:
@@ -392,10 +360,10 @@ def main() -> None:
         request = json.loads(raw)
         if not isinstance(request, dict):
             raise OfficeError("OFFICE_INPUT_INVALID")
-        if request.get("type") == "detect" and set(request) == {"type", "preferred"}:
-            if request["preferred"] is not None and not isinstance(request["preferred"], str):
+        if request.get("type") == "detect" and set(request) == {"type", "engine"}:
+            if not isinstance(request["engine"], str):
                 raise OfficeError("OFFICE_INPUT_INVALID")
-            result = detect(request["preferred"])
+            result = detect(request["engine"])
         elif request.get("type") == "convert" and set(request) == {"type", "engine", "version", "source", "output", "mode"}:
             if any(not isinstance(request[key], str) for key in ("engine", "version", "source", "output", "mode")):
                 raise OfficeError("OFFICE_INPUT_INVALID")

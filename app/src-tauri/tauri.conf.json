@@ -37,10 +37,16 @@
       "icons/icon.ico"
     ],
     "resources": {
-      "bundled/": "bundled/"
+      "bundled/python/": "bundled/python/",
+      "bundled/build-manifest.json": "bundled/build-manifest.json",
+      "bundled/THIRD-PARTY.txt": "bundled/THIRD-PARTY.txt",
+      "bundled/PYTHON-LICENSE.txt": "bundled/PYTHON-LICENSE.txt"
     },
     "macOS": {
-      "minimumSystemVersion": "14.0"
+      "minimumSystemVersion": "14.0",
+      "files": {
+        "Resources/bundled/office": "bundled/office"
+      }
     }
   }
 }

@@ -1004,16 +1004,16 @@
     "en": "LibreOffice conversion failed; check for a corrupt or encrypted file or missing components"
   },
   "OFFICE_WORKER_FAILED": {
-    "zh-CN": "本机转换进程异常退出，请重新检测 LibreOffice",
+    "zh-CN": "本机转换进程异常退出，请重新检查转换组件",
     "en": "The conversion worker exited unexpectedly; check LibreOffice again"
   },
   "OFFICE_NOT_FOUND": {
-    "zh-CN": "未找到可用的 LibreOffice，请安装或选择程序位置",
-    "en": "No usable LibreOffice installation found; install it or select its executable"
+    "zh-CN": "内置转换组件缺失或损坏，请重新安装 PractiQ",
+    "en": "The built-in conversion component is missing or damaged; reinstall PractiQ"
   },
   "OFFICE_CAPABILITY_MISSING": {
-    "zh-CN": "当前 LibreOffice 缺少此转换能力，请安装 Writer 和 Calc 后重新检测",
-    "en": "This LibreOffice installation lacks the requested capability; install Writer and Calc and check again"
+    "zh-CN": "内置组件无法完成此类转换，请重新安装 PractiQ 后检查",
+    "en": "The built-in component cannot perform this conversion; reinstall PractiQ and check again"
   },
   "OFFICE_SOURCE_OVERWRITE": {
     "zh-CN": "不能覆盖原始 Office 文件，请选择其他位置",

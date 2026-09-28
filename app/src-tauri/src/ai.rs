@@ -101,14 +101,17 @@ pub(crate) struct Endpoint {
 fn err(e: impl std::fmt::Display) -> crate::AppError {
     e.to_string().into()
 }
-pub(crate) fn executable(app: &tauri::AppHandle) -> Result<PathBuf> {
+pub(crate) fn bundle_dir(app: &tauri::AppHandle) -> Result<PathBuf> {
     let resources = app.path().resource_dir().map_err(err)?;
     let bundle = if cfg!(debug_assertions) {
         std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("bundled")
     } else {
         resources.join("bundled")
     };
-    let executable = bundle
+    Ok(bundle)
+}
+pub(crate) fn executable(app: &tauri::AppHandle) -> Result<PathBuf> {
+    let executable = bundle_dir(app)?
         .join("python")
         .join(format!("practiq-ai{}", std::env::consts::EXE_SUFFIX));
     if !executable.is_file() {

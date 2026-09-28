@@ -176,7 +176,7 @@ try {
  await page.getByRole('button',{name:'Configure AI model',exact:true}).waitFor();
  assert.equal(await page.getByRole('button',{name:'Upload',exact:true}).count(),0);
  assert.equal(await page.getByRole('button',{name:'Choose a document to parse',exact:true}).isDisabled(),true);
- await page.getByRole('button',{name:'Check LibreOffice',exact:true}).click();
+ await page.getByRole('button',{name:'Check conversion component',exact:true}).click();
  await page.getByText('LibreOffice browser fixture',{exact:true}).waitFor();
  await page.getByLabel('Word / Excel processing',{exact:true}).selectOption('text');
  await page.getByText('Text mode loses images, formulas and layout. Excel exports all worksheets, including hidden sheets.',{exact:true}).waitFor();

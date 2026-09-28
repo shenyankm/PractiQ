@@ -36,7 +36,7 @@ export function ImportPage({ busy, run, onPreview, onConfigure, onOpenBank, onOp
   const ready = !!settings && !missing.length;
   return <AiTasks busy={busy || officeBusy} run={run} onPreview={onPreview} modelsReady={ready} officeMode={officeMode} onOpenBank={onOpenBank}>
         <div className="space-y-2 rounded-lg border p-4 text-sm">
-          <p>{t("从文档解析题目：支持 PDF、TXT、CSV、PNG 和 JPEG；Word、Excel 通过本机 LibreOffice 转换后导入。")}</p>
+          <p>{t("从文档解析题目：支持 PDF、TXT、CSV、PNG 和 JPEG；Word、Excel 通过内置文档转换 转换后导入。")}</p>
           <p className="text-muted-foreground">{t("解析会在确认后调用所配置的模型；查看已有结果和导入 ZIP 无需模型配置。")}</p>
           <Button variant="link" className="h-auto whitespace-normal px-0 text-left" onClick={onOpenZipSettings}>{t("已有题库 ZIP？前往设置导入（追加，不替换学习记录）")}</Button>
         </div>
