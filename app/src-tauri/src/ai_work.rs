@@ -19,13 +19,18 @@ use std::{
     },
 };
 
+pub(crate) const MAX_SOURCE_FILES: usize = 10;
+
 type Result<T> = std::result::Result<T, AppError>;
 fn err(e: impl std::fmt::Display) -> AppError {
     e.to_string().into()
 }
 
 #[derive(Default)]
-pub struct WorkState(Mutex<HashMap<String, Arc<AtomicBool>>>);
+pub struct WorkState(
+    Mutex<HashMap<String, Arc<AtomicBool>>>,
+    Mutex<Option<(String, Vec<PathBuf>)>>,
+);
 pub(crate) struct Lease<'a> {
     state: &'a WorkState,
     id: String,
@@ -39,6 +44,35 @@ impl Drop for Lease<'_> {
     }
 }
 impl WorkState {
+    pub(crate) fn select_documents(&self, paths: Vec<PathBuf>) -> Result<Value> {
+        if paths.is_empty() || paths.len() > MAX_SOURCE_FILES {
+            return Err(crate::language::error(
+                "LOCAL_SOURCE_COUNT_INVALID",
+                json!({}),
+            ));
+        }
+        let token = store::id();
+        let names: Vec<_> = paths
+            .iter()
+            .map(|path| {
+                path.file_name()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or_default()
+                    .to_owned()
+            })
+            .collect();
+        *self.1.lock().map_err(err)? = Some((token.clone(), paths));
+        Ok(json!({"token":token,"fileNames":names}))
+    }
+    pub(crate) fn selected_documents(&self, token: &str) -> Result<Vec<PathBuf>> {
+        self.1
+            .lock()
+            .map_err(err)?
+            .as_ref()
+            .filter(|(id, _)| id == token)
+            .map(|(_, paths)| paths.clone())
+            .ok_or_else(|| AppError::new("LOCAL_SOURCE_MISSING", "请重新选择源文件"))
+    }
     fn claim(&self, id: &str) -> Result<Lease<'_>> {
         let mut active = self
             .0
@@ -133,6 +167,39 @@ fn all<T: DeserializeOwned>(dir: &Path, kind: &str) -> Result<Vec<T>> {
     Ok(result)
 }
 
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ImportDetails {
+    pub title: String,
+    pub description: String,
+}
+impl ImportDetails {
+    pub fn validate(&self) -> Result<()> {
+        if self.title.trim().is_empty()
+            || self.title.chars().count() > 200
+            || self.description.trim().is_empty()
+            || self.description.chars().count() > 20_000
+        {
+            return Err(AppError::new(
+                "LOCAL_IMPORT_DETAILS_INVALID",
+                "请填写题库名（最多 200 字）和描述（最多 20000 字）",
+            ));
+        }
+        Ok(())
+    }
+}
+pub fn import_details(dir: &Path) -> Result<HashMap<String, ImportDetails>> {
+    let mut details = HashMap::new();
+    for op in all::<Operation>(dir, "requests")? {
+        if let (Some(value), Some(receipt)) = (op.import_details, op.receipt) {
+            if let Some(id) = receipt["threadId"].as_str() {
+                details.insert(id.to_owned(), value);
+            }
+        }
+    }
+    Ok(details)
+}
+
 #[derive(Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 enum OperationStatus {
@@ -153,6 +220,8 @@ struct Operation {
     error: Option<AppError>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     office_source: Option<crate::office::Origin>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    import_details: Option<ImportDetails>,
 }
 fn validate_operation(op: &Operation) -> Result<()> {
     uuid::Uuid::parse_str(&op.id)
@@ -210,7 +279,13 @@ pub fn submit_operation(
         None
     };
     let mut active = work.0.lock().map_err(err)?;
-    let op = stage_operation(dir, path, body, label, office_source)?;
+    let mut op = stage_operation(dir, path, body, label, office_source)?;
+    if let Some(id) = path
+        .strip_prefix("/api/document-tasks/")
+        .and_then(|s| s.strip_suffix("/reparse"))
+    {
+        op.import_details = import_details(dir)?.remove(id);
+    }
     let lease = work.claim_locked(&op.id, &mut active)?;
     drop(active);
     execute_operation(dir, endpoint, op, lease)
@@ -244,6 +319,7 @@ fn stage_operation(
         receipt: None,
         error: None,
         office_source,
+        import_details: None,
     });
     validate_operation(&op)?;
     save(dir, "requests", &op.id, &op)?;
@@ -256,15 +332,21 @@ pub fn stage_document(
     document: Value,
     label: &str,
     source: Option<crate::office::Origin>,
+    details: Option<&ImportDetails>,
 ) -> Result<()> {
     let _active = work.0.lock().map_err(err)?;
-    stage_operation(
+    let mut op = stage_operation(
         dir,
         "/api/document-tasks",
         json!({"requestId":store::id(),"document":document,"failurePolicy":"review"}),
         label,
         source,
     )?;
+    if let Some(details) = details {
+        details.validate()?;
+        op.import_details = Some(details.clone());
+        save(dir, "requests", &op.id, &op)?;
+    }
     Ok(())
 }
 
@@ -442,6 +524,26 @@ struct Batch {
     bank_id: Option<String>,
     items: Vec<BatchItem>,
 }
+pub fn delete_task(dir: &Path, work: &WorkState, endpoint: &Endpoint, id: &str) -> Result<Value> {
+    let active = work.0.lock().map_err(err)?;
+    for batch in all::<Batch>(dir, "import-batches")? {
+        if active.contains_key(&batch.id) && batch.items.iter().any(|item| item.thread_id == id) {
+            return Err(AppError::new("OPERATION_BUSY", "请先停止导入批次"));
+        }
+    }
+    let result = endpoint.json(Method::DELETE, &task_path(id)?, None)?;
+    for op in all::<Operation>(dir, "requests")? {
+        if op
+            .receipt
+            .as_ref()
+            .is_some_and(|receipt| receipt["threadId"] == id)
+        {
+            fs::remove_file(path(dir, "requests", &op.id)?).map_err(err)?;
+        }
+    }
+    Ok(result)
+}
+
 fn validate_destination(store: &Store, bank_id: Option<&str>) -> Result<()> {
     if let Some(bank_id) = bank_id {
         let exists: bool = store
@@ -524,7 +626,7 @@ pub fn prepare_batch(
     };
     let db = store.connect()?;
     for id in ids {
-        let pending = endpoint.pending(id)?;
+        let pending = endpoint.pending(dir, id)?;
         let source = pending.source.as_ref().ok_or(crate::language::error(
             "LOCAL_TASK_SOURCE_MISSING",
             serde_json::json!({}),
@@ -744,7 +846,7 @@ fn import_item(
     {
         return imported_destination(bank, bank_id);
     }
-    let mut pending = endpoint.pending(&item.thread_id)?;
+    let mut pending = endpoint.pending(dir, &item.thread_id)?;
     if pending.source.as_ref().map(|s| s.checkpoint_id.as_str())
         != Some(item.checkpoint_id.as_str())
         || pending.digest()? != item.digest
@@ -776,6 +878,168 @@ mod tests {
         net::TcpListener,
         thread,
     };
+
+    #[test]
+    fn import_form_metadata_survives_receipts_and_populates_bank() {
+        let dir = tempfile::tempdir().unwrap();
+        let work = WorkState::default();
+        let selected = work
+            .select_documents(vec![
+                PathBuf::from("/tmp/source.pdf"),
+                PathBuf::from("/tmp/second.csv"),
+            ])
+            .unwrap();
+        assert_eq!(
+            work.selected_documents(selected["token"].as_str().unwrap())
+                .unwrap(),
+            vec![
+                PathBuf::from("/tmp/source.pdf"),
+                PathBuf::from("/tmp/second.csv")
+            ]
+        );
+        assert!(work.selected_documents("/etc/passwd").is_err());
+        assert_eq!(selected["fileNames"], json!(["source.pdf", "second.csv"]));
+        assert!(work.select_documents(vec![]).is_err());
+        assert!(work
+            .select_documents(vec![PathBuf::from("/tmp/source.pdf"); 11])
+            .is_err());
+        assert_eq!(
+            work.selected_documents(selected["token"].as_str().unwrap())
+                .unwrap()
+                .len(),
+            2
+        );
+        let replacement = work
+            .select_documents(
+                (0..10)
+                    .map(|i| PathBuf::from(format!("/tmp/source-{i}.pdf")))
+                    .collect(),
+            )
+            .unwrap();
+        assert!(work
+            .selected_documents(selected["token"].as_str().unwrap())
+            .is_err());
+        assert_eq!(
+            work.selected_documents(replacement["token"].as_str().unwrap())
+                .unwrap()
+                .len(),
+            10
+        );
+        let details = ImportDetails {
+            title: "Course".into(),
+            description: "Chapter one".into(),
+        };
+        assert!(ImportDetails {
+            title: " ".into(),
+            description: "x".into()
+        }
+        .validate()
+        .is_err());
+        assert!(ImportDetails {
+            title: "x".into(),
+            description: " ".into()
+        }
+        .validate()
+        .is_err());
+        let id = store::id();
+        let document = json!({"fileName":"source.pdf"});
+        stage_document(
+            dir.path(),
+            &work,
+            document.clone(),
+            "source.pdf",
+            None,
+            Some(&details),
+        )
+        .unwrap();
+        let task_id = id.clone();
+        let (endpoint, worker) = server(2, move |path, body| {
+            if path == "/api/document-tasks" {
+                response(json!({"accepted":true,"requestId":body["requestId"],"threadId":task_id}))
+            } else {
+                response(task(&task_id, false))
+            }
+        });
+        submit_documents(
+            dir.path(),
+            &work,
+            &endpoint,
+            vec![(document, "source.pdf".into(), None)],
+        )
+        .unwrap();
+        assert_eq!(import_details(dir.path()).unwrap()[&id].title, "Course");
+        let pending = endpoint.pending(dir.path(), &id).unwrap();
+        let store = Store::new(dir.path().into()).unwrap();
+        let result = store
+            .import_pending(&pending, None, &pending.title)
+            .unwrap();
+        let saved: (String, String) = store
+            .connect()
+            .unwrap()
+            .query_row(
+                "SELECT title,description FROM banks WHERE id=?1",
+                [result["bankId"].as_str().unwrap()],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(saved, ("Course".into(), "Chapter one".into()));
+        worker.join().unwrap();
+    }
+
+    #[test]
+    fn deleting_history_clears_receipts_but_rejects_an_active_import_batch() {
+        let dir = tempfile::tempdir().unwrap();
+        let work = WorkState::default();
+        let id = store::id();
+        let batch_id = store::id();
+        let mut op = stage_operation(
+            dir.path(),
+            "/api/document-tasks",
+            json!({"requestId":store::id(),"document":{}}),
+            "source",
+            None,
+        )
+        .unwrap();
+        op.status = OperationStatus::Accepted;
+        op.receipt = Some(json!({"threadId":id}));
+        save(dir.path(), "requests", &op.id, &op).unwrap();
+        let batch = Batch {
+            id: batch_id.clone(),
+            created_at: 0,
+            status: BatchStatus::Running,
+            bank_id: None,
+            items: vec![BatchItem {
+                thread_id: id.clone(),
+                checkpoint_id: "cp".into(),
+                digest: "digest".into(),
+                title: "Course".into(),
+                question_count: 1,
+                review_count: 0,
+                partial: false,
+                previous_version: false,
+                status: ItemStatus::Pending,
+                bank_id: None,
+                error: None,
+            }],
+        };
+        save(dir.path(), "import-batches", &batch_id, &batch).unwrap();
+        let (endpoint, worker) = server(1, |_, _| response(json!({"deleted":true})));
+        let lease = work.claim(&batch_id).unwrap();
+        assert_eq!(
+            delete_task(dir.path(), &work, &endpoint, &id)
+                .unwrap_err()
+                .code,
+            "OPERATION_BUSY"
+        );
+        assert!(path(dir.path(), "requests", &op.id).unwrap().exists());
+        drop(lease);
+        assert_eq!(
+            delete_task(dir.path(), &work, &endpoint, &id).unwrap()["deleted"],
+            true
+        );
+        assert!(!path(dir.path(), "requests", &op.id).unwrap().exists());
+        worker.join().unwrap();
+    }
 
     // Bounded loopback server; dropping a response simulates a committed but lost receipt.
     fn server(
@@ -894,6 +1158,7 @@ mod tests {
                         document.clone(),
                         &name,
                         Some(origin.clone()),
+                        None,
                     )
                 });
             assert_eq!(result.is_ok(), index == 0);

@@ -166,9 +166,10 @@ it("keeps ZIP import usable without models and preserves the destination bank", 
       name: "导入题库",
     }),
   ).toBeTruthy();
+  expect((await screen.findByRole("tablist", {name:"导入题库"})).closest("header")).not.toBeNull();
   expect(screen.queryByRole("button", { name: "文档解析" })).toBeNull();
   expect(await screen.findByRole("button", { name: "配置 AI 模型" })).toBeTruthy();
-  expect(screen.getByRole("button", { name: "选择文档并解析" }).hasAttribute("disabled")).toBe(true);
+  expect(screen.getByRole("button", { name: "开始导入" }).hasAttribute("disabled")).toBe(true);
   expect(screen.queryByRole("region", { name: "导入任务" })).toBeNull();
   expect(vi.mocked(invoke).mock.calls.some(([,args]) => (args as {request:{type:string}}).request.type === "list")).toBe(true);
   await userEvent.click(await screen.findByRole("button",{name:"设置"}));
@@ -397,7 +398,7 @@ it("explicitly saves model setup and returns to the original import destination"
   await waitFor(() => expect(screen.getByRole("button",{name:"返回导入"}).hasAttribute("disabled")).toBe(false));
   await userEvent.click(screen.getByRole("button",{name:"返回导入"}));
   expect(await screen.findByRole("heading",{name:"导入题库",level:1})).toBeTruthy();
-  expect(await screen.findByRole("button",{name:"选择文档并解析"})).toBeTruthy();
+  expect(await screen.findByRole("button",{name:"开始导入"})).toBeTruthy();
   await userEvent.click(await screen.findByRole("button",{name:"设置"}));
   await userEvent.click(await screen.findByRole("button",{name:"恢复备份"}));
   await userEvent.click(await screen.findByRole("menuitem",{name:"导入题库 ZIP"}));
@@ -486,12 +487,14 @@ it("allows unchecked credentials and keeps a confirmed import in the task list u
   });
   render(<App/>);
   await userEvent.click(await screen.findByRole("button", {name:"导入题库"}));
-  const tasks = await screen.findByRole("region", {name:"导入任务"});
-  const upload = await screen.findByRole("button", {name:"选择文档并解析"});
+  const upload = await screen.findByRole("button", {name:"开始导入"});
   expect(upload.closest('[data-slot="card"]')).toBeNull();
-  expect(tasks.contains(upload)).toBe(false);
+  expect(screen.queryByRole("region", {name:"导入任务"})).toBeNull();
   expect(screen.queryByText("从文档创建题库")).toBeNull();
+  expect(screen.queryByRole("region", {name:"内置文档转换"})).toBeNull();
+  expect(screen.queryByRole("button", {name:"转换／提取文件"})).toBeNull();
   expect(screen.queryByText(/暂不支持 Word 文件/)).toBeNull();
+  await userEvent.click(screen.getByRole("tab", {name:"导入记录"}));
   await userEvent.click(await screen.findByRole("button", {name:"source.txt"}));
   await userEvent.click(await screen.findByRole("button", {name:"预览并导入题库"}));
   await userEvent.click(within(await screen.findByRole("dialog", {name:"导入题库"})).getByRole("button", {name:"确认导入"}));

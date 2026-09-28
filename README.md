@@ -33,7 +33,9 @@ Export a bank from its card menu to share content without personal answers or sc
 2. Open **Import**, select source files, and confirm parsing.
 3. Review questions, images, and warnings, then create a bank or append to an existing one.
 
-Supported source files are **PDF, TXT, CSV, and PNG/JPEG**. Desktop packages include LibreOffice 26.8.0 for Word and Excel conversion; no separate installation or runtime download is required. The desktop converts them to PDF by default; local conversion/export needs no model. The standalone service does not accept Office files. See the [conversion guide](server/docs/desktop-office.md) for text export and limitations.
+Supported source files are **PDF, TXT, CSV, and PNG/JPEG**. Desktop packages include LibreOffice 26.8.0 for Word and Excel conversion; no separate installation or runtime download is required. The desktop converts them to PDF by default. The standalone service does not accept Office files. See the [conversion guide](server/docs/desktop-office.md) for text export and limitations.
+
+The Import page has **Import** and **Import history** tabs. Enter a bank name and description, select up to 10 source files at once, and start the import. Parsing requires explicit confirmation. New tasks appear in history; click a row to inspect details, or use the stop/resume and delete icons. Stop running tasks before deleting their records. Deletion preserves imported banks and practice data. Form metadata is stored locally and used when creating the bank. History supports lifecycle filters applied before pagination. Cancel task explicitly stops parsing while preserving saved work; resume remains an explicit allowed action. Completed means parsing is complete; the bank import status is displayed separately.
 
 Parsing extracts supplied answers and rubrics without solving unanswered questions. Missing content stays flagged for review. Tasks support pause, resume, retries, and partial results; import results within **180 days** to keep them. Expiry does not affect imported banks.
 

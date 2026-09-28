@@ -3,7 +3,7 @@ import { importTaskState } from "./import-task-state";
 
 it("keeps parser states authoritative and binds import operations to the current result", () => {
   const task = { state: "COMPLETED", checkpointId: "new", importedBankId: null };
-  for (const state of ["PENDING", "RUNNING", "PAUSING", "PAUSED", "INTERRUPTED", "FAILED", "WAITING_REVIEW", "EXPIRED"]) {
+  for (const state of ["PENDING", "RUNNING", "PAUSING", "PAUSED", "INTERRUPTED", "CANCELLED", "FAILED", "WAITING_REVIEW", "EXPIRED"]) {
     expect(importTaskState({ ...task, state }, { checkpointId: "new", state: "failed" })).toBe(state);
   }
   expect(importTaskState(task)).toBe("READY");

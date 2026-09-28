@@ -1,4 +1,8 @@
 {
+  "LOCAL_SOURCE_COUNT_INVALID": {
+    "zh-CN": "请选择 1–10 份源文件",
+    "en": "Select 1–10 source files"
+  },
   "LOCAL_REVIEW_ROOT_INVALID": {
     "zh-CN": "请选择完整题目确认或撤销复核",
     "en": "Select a complete question to confirm or undo its review"
@@ -1026,5 +1030,13 @@
   "OFFICE_IMPORT_PENDING": {
     "zh-CN": "此文件有待确认的解析请求，请先重试待确认操作，避免重复提交",
     "en": "This file has pending parsing requests. Retry pending operations before importing it again"
+  },
+  "LOCAL_SOURCE_MISSING": {
+    "zh-CN": "请重新选择源文件",
+    "en": "Select the source file again"
+  },
+  "LOCAL_IMPORT_DETAILS_INVALID": {
+    "zh-CN": "请填写题库名（最多 200 字）和描述（最多 20000 字）",
+    "en": "Enter a bank name (up to 200 characters) and description (up to 20000 characters)"
   }
 }

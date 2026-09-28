@@ -3,7 +3,7 @@
 import asyncio
 from datetime import timedelta
 from json import dumps as json_encode
-from typing import Any, cast
+from typing import Any, Literal, cast
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from .config import load, require_model_config
@@ -163,6 +163,11 @@ def _task_state(snapshot, run):
         assert run is not None
         state = 'PAUSING' if run['pause_requested'] else ('PENDING' if run['status'] == 'pending' else 'RUNNING')
         actions = ['interrupt'] if run['pause_requested'] or run['cancel_requested'] else ['pause', 'interrupt']
+    elif run and run['status'] == 'interrupted' and run['cancel_requested']:
+        state = 'CANCELLED'
+        actions = ['resume'] if snapshot.next or not values else []
+        if any(f['retryable'] for f in failures):
+            actions.append('retry_failed')
     elif run and run['status'] == 'error':
         state = 'FAILED'
         actions = ['resume'] if snapshot.next and run['error_code'] not in {
@@ -298,7 +303,51 @@ def _counts(total: int, succeeded: int, failed: int) -> dict[str, int]:
     return {"total": total, "succeeded": succeeded, "failed": failed, "remaining": max(0, total - succeeded - failed)}
 
 
-async def list_tasks(limit: int = 20, offset: int = 0, sha256: str | None = None) -> dict[str, Any]:
+async def delete_task(thread_id: str) -> dict[str, bool]:
+    service = client()
+    async with service.db.transaction() as conn:
+        active = await (await conn.execute("SELECT 1 FROM document_runs WHERE thread_id=? AND status IN ('pending','running')", (thread_id,))).fetchone()
+        if active:
+            raise conflict('Stop the task before deleting it', 'TASK_BUSY')
+        # Keep shared source artifacts and imported desktop banks intact.
+        await conn.execute('DELETE FROM document_receipts WHERE thread_id=?', (thread_id,))
+        await conn.execute('DELETE FROM document_runs WHERE thread_id=?', (thread_id,))
+        await conn.execute('DELETE FROM document_tasks WHERE thread_id=?', (thread_id,))
+    service.task_summaries.pop(thread_id, None)
+    await service.db.checkpointer.adelete_thread(thread_id)
+    while items := await service.db.store.asearch(namespace(thread_id, '')[:2], limit=100, refresh_ttl=False):
+        for item in items:
+            await service.db.store.adelete(item.namespace, item.key)
+    return {'deleted': True}
+
+
+TaskFilter = Literal['active', 'paused', 'completed', 'cancelled', 'failed', 'review', 'interrupted', 'expired']
+FILTER_STATES = {
+    'active': {'PENDING', 'RUNNING', 'PAUSING'}, 'paused': {'PAUSED'},
+    'completed': {'COMPLETED'}, 'cancelled': {'CANCELLED'}, 'failed': {'FAILED'},
+    'review': {'WAITING_REVIEW'}, 'interrupted': {'INTERRUPTED'}, 'expired': {'EXPIRED'},
+}
+
+
+async def list_tasks(limit: int = 20, offset: int = 0, sha256: str | None = None, state_filter: TaskFilter | None = None) -> dict[str, Any]:
+    if state_filter is not None:
+        # ponytail: scan cached summaries for filtered pages; index lifecycle states if history grows large.
+        items = []
+        source_offset = 0
+        matched = 0
+        while len(items) <= limit:
+            page = await list_tasks(100, source_offset, sha256)
+            for item in page['items']:
+                if item['state'] in FILTER_STATES[state_filter]:
+                    if matched >= offset:
+                        items.append(item)
+                    matched += 1
+                    if len(items) > limit:
+                        break
+            if not page['hasMore']:
+                break
+            source_offset += 100
+        return DocumentTaskList(items=items[:limit], hasMore=len(items) > limit).model_dump(mode='json')
     service = client()
     source_filter = " AND json_extract(document, '$.sha256')=?" if sha256 else ''
     params = (sha256, limit + 1, offset) if sha256 else (limit + 1, offset)

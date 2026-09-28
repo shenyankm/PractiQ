@@ -2,8 +2,14 @@ import { date, message, t, useI18n } from "./i18n";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "./notifications";
 import { api, errorMessage, isComposite, type Preview, type BankChoice } from "./api";
-import { ai, readReviewImage, type Task, type Summary, type Review, type PendingOperation, type Batch, type ImportTaskContext, type ImportOperation } from "./ai-api";
+import { ai, readReviewImage, type Task, type TaskFilter, type Summary, type Review, type PendingOperation, type Batch, type ImportTaskContext, type ImportOperation } from "./ai-api";
 import { importTaskState } from "./import-task-state";
+import { createPortal } from "react-dom";
+import { Tabs } from "radix-ui";
+import { Pause, Play, Trash2, Upload } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { QuestionPreview } from "./QuestionPreview";
 import { Markdown } from "./Content";
@@ -29,7 +35,7 @@ function retryableRead(error: unknown) {
 function actions(): Record<string, string> { return {
   pause: t("暂停"),
   resume: t("继续"),
-  interrupt: t("中断"),
+  interrupt: t("取消任务"),
   retry_failed: t("重试失败项"),
   accept_partial: t("接受部分结果"),
 }; }
@@ -39,6 +45,7 @@ function states(): Record<string, string> { return {
   PAUSING: t("正在暂停"),
   PAUSED: t("已暂停"),
   INTERRUPTED: t("已中断"),
+  CANCELLED: t("已取消"),
   FAILED: t("解析失败"),
   WAITING_REVIEW: t("待审核"),
   COMPLETED: t("已完成"),
@@ -114,6 +121,7 @@ function ReadAsset({
   );
 }
 export function AiTasks({
+  tabsHost,
   busy,
   run,
   onPreview,
@@ -122,6 +130,7 @@ export function AiTasks({
   children,
   onOpenBank,
 }: {
+  tabsHost?: HTMLDivElement | null;
   busy: boolean;
   run: (job: () => Promise<void>) => void;
   onPreview: (p: Preview, context: ImportTaskContext) => void;
@@ -131,6 +140,15 @@ export function AiTasks({
   officeMode?: import("./office-api").OfficeMode;
 }) {
   useI18n();
+  const [filter, setFilter] = useState<TaskFilter | "all">("all");
+  const [tab, setTab] = useState("import");
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [source, setSource] = useState<{ token: string; fileNames: string[] } | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
+  const [deleting, setDeleting] = useState<Summary | null>(null);
+  const [rowBusy, setRowBusy] = useState<string | null>(null);
   const [rows, setRows] = useState<Summary[]>([]),
     [offset, setOffset] = useState(0),
     [more, setMore] = useState(false),
@@ -158,7 +176,7 @@ export function AiTasks({
   function receiveBatches(page: Awaited<ReturnType<typeof readBatches>>) {
     setBatches(page.items); setBatchTotal(page.total); setBatchOffset(page.offset); setBatchOperations(page.operations);
   }
-  const readBatches = useCallback(() => ai({type:"batches",offset:batchOffset,thread_ids:JSON.parse(batchThreads)}), [batchOffset, batchThreads]);
+  const readBatches = useCallback(async () => ai({type:"batches",offset:batchOffset,thread_ids:JSON.parse(batchThreads)}), [batchOffset, batchThreads]);
   async function localRefresh() {
     const [o, b] = await Promise.all([
       ai({ type: "operations" }),
@@ -180,7 +198,7 @@ export function AiTasks({
     let failures = 0;
     const poll = async () => {
       try {
-        const r = await ai({ type: "list", offset });
+        const r = await ai({ type: "list", offset, ...(filter === "all" ? {} : { filter }) });
         if (!active) return;
         setRows(r.items);
         setChecked(ids => ids.filter(id => r.items.some(row => row.threadId === id && ["READY", "IMPORT_FAILED"].includes(importTaskState(row)))));
@@ -188,7 +206,7 @@ export function AiTasks({
         setError(null);
         setLoading(false);
         failures = 0;
-        if (r.items.some(row => activeStates.has(row.state)) || running)
+        if (r.items.some(row => activeStates.has(row.state)) || running || filter !== "all")
           timer = setTimeout(poll, 2000);
       } catch (e) {
         if (!active) return;
@@ -200,7 +218,7 @@ export function AiTasks({
     setLoading(true);
     void poll();
     return () => { active = false; clearTimeout(timer); };
-  }, [offset, revision, running]);
+  }, [offset, revision, running, filter]);
   useEffect(() => {
     let active = true;
     let timer: ReturnType<typeof setTimeout>;
@@ -270,8 +288,9 @@ export function AiTasks({
       clearTimeout(timer);
     };
   }, [selected, detailRevision, selectedExpired]);
-  async function control(action: string) {
-    if (!task || task.threadId !== selected || !task.allowedActions.includes(action)) return;
+  async function control(action: string, target = task) {
+    if (!target || !target.allowedActions.includes(action)) return;
+    const task = target;
     try {
       await ai({
         type: "control",
@@ -292,6 +311,16 @@ export function AiTasks({
     } finally {
       await localRefresh();
     }
+  }
+  async function rowControl(row: Summary) {
+    setRowBusy(row.threadId);
+    try {
+      const current = await ai({ type: "get", id: row.threadId });
+      const action = current.allowedActions.includes("pause") ? "pause"
+        : current.allowedActions.includes("resume") ? "resume"
+        : current.allowedActions.includes("retry_failed") ? "retry_failed" : null;
+      if (action && (action === "pause" || modelsReady)) await control(action, current);
+    } finally { setRowBusy(null); }
   }
   async function startBatch(batch: Batch, titles: string[] | null) {
     setRunning(batch.id);
@@ -345,40 +374,65 @@ export function AiTasks({
       },
     });
   }
+  const tabs = <Tabs.List aria-label={t("导入题库")} className="inline-flex gap-1 rounded-lg bg-muted p-1">
+        <Tabs.Trigger value="import" className="rounded-md px-4 py-1.5 text-sm font-medium focus-visible:outline-2 data-[state=active]:bg-background data-[state=active]:shadow-sm">{t("导入")}</Tabs.Trigger>
+        <Tabs.Trigger value="records" className="rounded-md px-4 py-1.5 text-sm font-medium focus-visible:outline-2 data-[state=active]:bg-background data-[state=active]:shadow-sm">{t("导入记录")}</Tabs.Trigger>
+      </Tabs.List>;
   return (
-    <div className="space-y-6">
-      {children}
-      <div className="flex flex-wrap gap-3">
-        <Button
-          disabled={busy || !modelsReady}
-          onClick={() =>
-            run(async () => {
-              try {
-                const created = await ai({
-                  type: "pick_document",
-                  ...(officeMode ? { office_mode: officeMode } : {}),
-                });
-                if (created) {
-                  setOffset(0);
-                  setChecked([]);
-                  setSelected(created.threadId);
-                  if ((created.threadIds?.length ?? 0) > 1) toast.success(message("已打开 {0} 个文档任务", { 0: created.threadIds!.length }));
-                }
-              } catch (error) {
-                setOffset(0);
-                throw error;
-              } finally {
-                await refreshList();
-                await localRefresh();
+    <Tabs.Root value={tab} onValueChange={setTab} className="space-y-6">
+      {tabsHost ? createPortal(tabs, tabsHost) : tabs}
+      <Tabs.Content value="import" forceMount hidden={tab !== "import"} className="space-y-6">
+        <form className="max-w-3xl space-y-5" onSubmit={event => {
+          event.preventDefault();
+          if (!source || !title.trim() || !description.trim() || !modelsReady || submittingRef.current) return;
+          submittingRef.current = true;
+          setSubmitting(true);
+          run(async () => {
+            try {
+              const created = await ai({ type: "pick_document", selection: source.token, details: { title: title.trim(), description: description.trim() }, ...(officeMode ? { office_mode: officeMode } : {}) });
+              if (created) {
+                setOffset(0); setChecked([]); setFilter("all"); setTab("records");
+                setSource(null); setTitle(""); setDescription("");
+                if ((created.threadIds?.length ?? 0) > 1) toast.success(message("已打开 {0} 个文档任务", { 0: created.threadIds!.length }));
               }
-            })
-          }
-        >{t("选择文档并解析")}</Button>
-      </div>
-      {(rows.length > 0 || loading || error != null || operations.length > 0 || offset > 0 || more) && <section aria-label={t("导入任务")} className="space-y-4">
+            } finally {
+              submittingRef.current = false; setSubmitting(false);
+              await refresh();
+            }
+          });
+        }}>
+          <div className="space-y-2"><Label htmlFor="source-bank-title">{t("题库名")}</Label><Input id="source-bank-title" required maxLength={200} value={title} disabled={busy || submitting} onChange={event => setTitle(event.target.value)} /></div>
+          <div className="space-y-2"><Label htmlFor="source-bank-description">{t("描述")}</Label><Textarea id="source-bank-description" required maxLength={20000} value={description} disabled={busy || submitting} onChange={event => setDescription(event.target.value)} /></div>
+          <div className="space-y-2"><Label htmlFor="source-file">{t("源文件")}</Label>
+            <Button aria-label={source ? t("已选择 {0} 份文件（重新选择）", { 0: source.fileNames.length }) : t("上传源文件")} id="source-file" type="button" variant="outline" className="h-auto min-h-24 w-full flex-col gap-2 border-dashed" disabled={busy || submitting} onClick={() => run(async () => { const selected = await ai({ type: "select_document" }); if (selected) setSource(selected); })}>
+              <Upload className="size-5" aria-hidden="true" />{source ? t("已选择 {0} 份文件（重新选择）", { 0: source.fileNames.length }) : t("上传源文件")}
+            </Button>
+            {source && <ul aria-label={t("已选源文件")} className="max-h-40 space-y-1 overflow-y-auto text-sm">{source.fileNames.map((name, index) => <li key={index} className="break-all">{name}</li>)}</ul>}
+            <p className="text-xs text-muted-foreground">{t("可一次选择多份文件，最多 10 份。")}</p>
+            <p className="text-xs text-muted-foreground">{t("支持 PDF、TXT、CSV、PNG、JPEG、Word 和 Excel。")}</p>
+          </div>
+          {children}
+          <Button type="submit" disabled={busy || submitting || !modelsReady || !source || !title.trim() || !description.trim()}>{submitting ? t("正在提交…") : t("开始导入")}</Button>
+        </form>
+      </Tabs.Content>
+      <Tabs.Content value="records" forceMount hidden={tab !== "records"} className="space-y-6">
+      <section aria-label={t("导入任务")} className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold">{t("导入任务")}</h2>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex items-center gap-3">
+            <Label htmlFor="import-status-filter">{t("导入状态")}</Label>
+            <NativeSelect id="import-status-filter" value={filter} onChange={event => { setFilter(event.target.value as TaskFilter | "all"); setOffset(0); setRows([]); setChecked([]); setMore(false); }}>
+              <NativeSelectOption value="all">{t("全部")}</NativeSelectOption>
+              <NativeSelectOption value="active">{t("进行中")}</NativeSelectOption>
+              <NativeSelectOption value="paused">{t("已暂停")}</NativeSelectOption>
+              <NativeSelectOption value="completed">{t("已完成")}</NativeSelectOption>
+              <NativeSelectOption value="cancelled">{t("已取消")}</NativeSelectOption>
+              <NativeSelectOption value="failed">{t("解析失败")}</NativeSelectOption>
+              <NativeSelectOption value="review">{t("待审核")}</NativeSelectOption>
+              <NativeSelectOption value="interrupted">{t("已中断")}</NativeSelectOption>
+              <NativeSelectOption value="expired">{t("已过期")}</NativeSelectOption>
+            </NativeSelect>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
             <Button variant="outline" disabled={busy || loading} onClick={() => run(refresh)}>{t("刷新任务")}</Button>
         {!!eligibleChecked.length && <><NativeSelect className="max-w-56" aria-label={t("批量导入到")} value={batchBank} onChange={event => setBatchBank(event.target.value)}>
           <NativeSelectOption value="new">{t("每个文档新建题库")}</NativeSelectOption>
@@ -421,26 +475,27 @@ export function AiTasks({
         </section>
       )}
       {loading && <p role="status">{t("加载中…")}</p>}
+      {!loading && !error && !rows.length && <p className="py-12 text-center text-sm text-muted-foreground">{filter === "all" ? t("暂无导入记录") : t("暂无符合此状态的导入记录")}</p>}
       {rows.length > 0 && <div className="overflow-x-auto rounded-xl border">
-        <table className="w-full text-left text-sm">
+        <table className="w-full table-fixed text-left text-sm">
           <thead className="bg-muted/40 text-muted-foreground"><tr>
             <th className="w-10 p-3"><span className="sr-only">{t("选择")}</span></th>
-            <th className="p-3">{t("文件名")}</th><th className="p-3">{t("任务状态")}</th>
-            <th className="p-3">{t("题目 / 待复核")}</th><th className="p-3">{t("创建时间")}</th><th className="p-3">{t("操作")}</th>
+            <th className="w-40 p-3">{t("导入 ID")}</th><th className="p-3">{t("题库名")}</th><th className="w-36 p-3">{t("导入状态")}</th><th className="w-24 p-3">{t("操作")}</th>
           </tr></thead>
           <tbody>{rows.map(r => {
             const state = importTaskState(r, importOperation(r));
-            return <tr key={r.threadId} className="border-t align-top">
+            return <tr key={r.threadId} className="cursor-pointer border-t align-top hover:bg-muted/30" onClick={event => { if (!(event.target as HTMLElement).closest("button, input, a")) { setTask(null); setSelected(r.threadId); } }}>
               <td className="p-3"><Checkbox aria-label={t("选择 {0}", { 0: r.fileName })} disabled={busy || !["READY", "IMPORT_FAILED"].includes(state)} checked={checked.includes(r.threadId)} onCheckedChange={value => setChecked(ids => value === true ? [...ids, r.threadId] : ids.filter(id => id !== r.threadId))} /></td>
-              <td className="max-w-72 p-3"><Button className="h-auto max-w-full justify-start whitespace-normal break-all p-0 text-left" variant="link" onClick={() => { setTask(null); setSelected(r.threadId); }}>{r.fileName || r.threadId.slice(0, 8)}</Button></td>
+              <td className="max-w-48 break-all p-3 font-mono text-xs text-muted-foreground">{r.threadId}</td>
+              <td className="max-w-72 p-3"><Button className="h-auto max-w-full justify-start whitespace-normal break-all p-0 text-left" variant="link" onClick={() => { setTask(null); setSelected(r.threadId); }}>{r.bankTitle || r.fileName || r.threadId.slice(0, 8)}</Button></td>
               <td className="space-y-1 p-3"><Badge variant="secondary">{states()[state] || state}</Badge>
                 {r.status === "PARTIAL" && <p className="text-xs text-muted-foreground">{t("部分结果")}</p>}
                 {r.previouslyImported && !r.importedBankId && <p className="text-xs text-muted-foreground">{t("曾导入其他版本")}</p>}
                 {state === "IMPORT_FAILED" && <p className="text-xs text-destructive">{errorMessage(importOperation(r)?.error)}</p>}
               </td>
-              <td className="p-3 tabular-nums">{r.questionCount ?? 0} / {r.reviewCount ?? 0}</td>
-              <td className="p-3 text-muted-foreground"><p>{r.createdAt ? date(Date.parse(r.createdAt)) : "—"}</p>{r.expiresAt && !r.importedBankId && r.state !== "EXPIRED" && <p className="mt-1 text-xs">{t("未入库结果保留至 {0}", { 0: date(Date.parse(r.expiresAt)) })}</p>}</td>
-              <td className="p-3"><div className="flex gap-2"><Button variant="outline" onClick={() => { setTask(null); setSelected(r.threadId); }}>{t("查看详情")}</Button>{r.importedBankId && onOpenBank && <Button variant="outline" onClick={() => onOpenBank(r.importedBankId!)}>{t("查看题库")}</Button>}</div></td>
+              <td className="p-3"><div className="flex gap-2">
+                <Button size="icon" variant="ghost" aria-label={activeStates.has(r.state) ? t("停止") : t("继续")} title={activeStates.has(r.state) ? t("停止") : t("继续")} disabled={busy || rowBusy !== null || r.state === "PAUSING" || (!activeStates.has(r.state) && (!modelsReady || !["PAUSED", "INTERRUPTED", "CANCELLED", "FAILED"].includes(r.state)))} onClick={() => run(() => rowControl(r))}>{activeStates.has(r.state) ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}</Button>
+                <Button size="icon" variant="ghost" aria-label={t("删除")} title={t("删除")} disabled={busy || rowBusy !== null || activeStates.has(r.state) || state === "IMPORTING" || !!running} onClick={() => setDeleting(r)}><Trash2 aria-hidden="true" /></Button></div></td>
             </tr>;
           })}</tbody>
         </table>
@@ -457,10 +512,11 @@ export function AiTasks({
               onClick={() => { setRows([]); setChecked([]); setOffset(offset + 20); }}
             >{t("下一页")}</Button>
           </div>}
-      </section>}
+      </section>
       <Dialog open={selected !== null} onOpenChange={open => { if (!open) { setSelected(null); setTask(null); } }}>
         <DialogContent className="inset-y-0 right-0 left-auto flex h-full w-[min(40rem,100vw)] max-w-none translate-x-0 translate-y-0 flex-col overflow-y-auto rounded-none p-6 sm:max-w-none">
-          <DialogHeader><DialogTitle>{selectedRow?.fileName || t("任务详情")}</DialogTitle><DialogDescription>{t("查看解析进度、审核内容和导入结果。")}</DialogDescription></DialogHeader>
+          <DialogHeader><DialogTitle>{selectedRow?.bankTitle || selectedRow?.fileName || t("任务详情")}</DialogTitle><DialogDescription>{t("查看解析进度、审核内容和导入结果。")}</DialogDescription></DialogHeader>
+          <dl className="space-y-2 text-sm"><div><dt className="text-muted-foreground">{t("导入 ID")}</dt><dd className="break-all font-mono">{selected}</dd></div><div><dt className="text-muted-foreground">{t("源文件")}</dt><dd>{selectedRow?.fileName}</dd></div><div><dt className="text-muted-foreground">{t("创建时间")}</dt><dd>{selectedRow?.createdAt ? date(Date.parse(selectedRow.createdAt)) : "—"}</dd></div><div><dt className="text-muted-foreground">{t("题目 / 待复核")}</dt><dd>{selectedRow?.questionCount ?? 0} / {selectedRow?.reviewCount ?? 0}</dd></div>{selectedRow?.bankDescription && <div><dt className="text-muted-foreground">{t("描述")}</dt><dd className="whitespace-pre-wrap">{selectedRow.bankDescription}</dd></div>}</dl>
           {selectedRow?.state === "EXPIRED" ? <p>{t("任务已过期，请重新选择文档。已有题库不受影响。")}</p> : !currentTask ? <p role="status">{detailError ? errorMessage(detailError) : t("加载中…")}</p> : null}
           {detailError != null && <Button variant="outline" disabled={busy} onClick={() => setDetailRevision(n => n + 1)}>{t("重试")}</Button>}
           {selectedRow?.importedBankId && onOpenBank && <Button onClick={() => onOpenBank(selectedRow.importedBankId!)}>{t("查看题库")}</Button>}
@@ -718,6 +774,14 @@ export function AiTasks({
           </DialogContent>
         </Dialog>
       )}
-    </div>
+      <AlertDialog open={deleting !== null} onOpenChange={open => { if (!open) setDeleting(null); }}>
+        <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>{t("删除导入记录？")}</AlertDialogTitle><AlertDialogDescription>{t("将删除此导入记录，已导入的题库和学习记录不受影响。")}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>{t("取消")}</AlertDialogCancel><AlertDialogAction onClick={() => {
+          if (!deleting) return;
+          const id = deleting.threadId;
+          run(async () => { setRowBusy(id); try { await ai({ type: "delete", id }); if (selected === id) { setSelected(null); setTask(null); } setChecked(ids => ids.filter(value => value !== id)); if (rows.length === 1 && offset > 0) setOffset(Math.max(0, offset - 20)); await refresh(); } finally { setRowBusy(null); } });
+        }}>{t("删除")}</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+      </AlertDialog>
+      </Tabs.Content>
+    </Tabs.Root>
   );
 }

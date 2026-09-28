@@ -33,7 +33,8 @@ try {
     throw Error(`Unexpected Office request: ${request.type}`);
    }
    if(command==='ai_request') {
-    if(request.type==='list') return {items:[summary],hasMore:false};
+    if(request.type==='select_document') return {token:'native-selection',fileNames:['试卷 — Paper.pdf','答案 — Answers.txt']};
+    if(request.type==='list') return {items:request.filter && request.filter !== 'completed' ? [] : [summary],hasMore:false};
     if(request.type==='get' && request.id===summary.threadId) return task;
     if(request.type==='batches') return {items:[],total:0,offset:0,operations:[]};
     if(request.type==='operations') return [];
@@ -174,17 +175,24 @@ try {
  await page.getByRole('button',{name:'Import',exact:true}).click();
  await page.getByRole('heading',{name:'Import',exact:true}).waitFor();
  await page.getByRole('button',{name:'Configure AI model',exact:true}).waitFor();
+ const importTabs=page.locator('main > header').getByRole('tablist',{name:'Import',exact:true});
+ await importTabs.waitFor();
+ const tabsBounds=await importTabs.boundingBox();
+ const titleBounds=await page.getByRole('heading',{name:'Import',exact:true}).boundingBox();
+ assert(tabsBounds.x > titleBounds.x + titleBounds.width && tabsBounds.y < 128);
  assert.equal(await page.getByRole('button',{name:'Upload',exact:true}).count(),0);
- assert.equal(await page.getByRole('button',{name:'Choose a document to parse',exact:true}).isDisabled(),true);
- await page.getByRole('button',{name:'Check conversion component',exact:true}).click();
- await page.getByText('LibreOffice browser fixture',{exact:true}).waitFor();
- await page.getByLabel('Word / Excel processing',{exact:true}).selectOption('text');
- await page.getByText('Text mode loses images, formulas and layout. Excel exports all worksheets, including hidden sheets.',{exact:true}).waitFor();
- await page.getByRole('button',{name:'Convert / extract file',exact:true}).click();
- await page.getByText('/saved/中文 表格-题目.csv',{exact:true}).waitFor();
- assert.deepEqual(observedCalls.filter(c=>c.command==='office_request').map(c=>c.request),[{type:'status'},{type:'convert',mode:'text'}]);
- assert.equal(await page.getByRole('button',{name:'Choose a document to parse',exact:true}).isDisabled(),true);
+ assert.equal(await page.getByRole('button',{name:'Start import',exact:true}).isDisabled(),true);
+ await page.getByLabel('Question bank name',{exact:true}).fill('Algebra');
+ await page.getByLabel('Description',{exact:true}).fill('Chapter 1');
+ await page.getByRole('button',{name:'Upload source file',exact:true}).click();
+ await page.getByRole('button',{name:'2 files selected (choose again)',exact:true}).waitFor();
+ assert.deepEqual(await page.getByRole('list',{name:'Selected source files',exact:true}).getByRole('listitem').allTextContents(),['试卷 — Paper.pdf','答案 — Answers.txt']);
+ checks.push(await overflow('import form'));
+ await page.getByRole('tab',{name:'Import history',exact:true}).click();
  await page.getByRole('region',{name:'Import tasks',exact:true}).waitFor();
+ await page.getByRole('combobox',{name:'Import status',exact:true}).selectOption('paused');
+ await page.getByText('No imports match this status',{exact:true}).waitFor();
+ await page.getByRole('combobox',{name:'Import status',exact:true}).selectOption('completed');
  await page.getByRole('button',{name:'原始试卷 — Saved paper.pdf',exact:true}).waitFor();
  assert.equal(await page.getByText('Choose bank ZIP',{exact:true}).count(),0);
  checks.push(await overflow('unconfigured import history'));
@@ -197,6 +205,8 @@ try {
  await page.keyboard.press('Escape');
  await taskDialog.waitFor({state:'hidden'});
  assert.equal(await page.getByRole('button',{name:'原始试卷 — Saved paper.pdf',exact:true}).evaluate(el=>el===document.activeElement),true);
+ await page.getByRole('tab',{name:'Import',exact:true}).click();
+ assert.equal(await page.getByLabel('Question bank name',{exact:true}).inputValue(),'Algebra');
  await page.getByRole('button',{name:'Have a bank ZIP? Import it in Settings (adds content without replacing study records)',exact:true}).click();
  await page.getByRole('heading',{name:'Settings',exact:true,includeHidden:true}).waitFor();
  await page.getByRole('menuitem',{name:'Import bank ZIP',exact:true}).waitFor();
@@ -241,7 +251,9 @@ try {
  await page.getByRole('button',{name:'Back to settings',exact:true}).click();
  await page.getByRole('button',{name:'Import',exact:true}).click();
  await page.getByRole('heading',{name:'Import',exact:true}).waitFor();
- await page.waitForFunction(()=>Array.from(document.querySelectorAll('button')).some(button=>button.textContent.trim()==='Choose a document to parse'&&!button.disabled));
+ await page.getByRole('button',{name:'Upload source file',exact:true}).waitFor();
+ assert.equal(await page.getByRole('button',{name:'Start import',exact:true}).isDisabled(),true);
+ assert.equal(await page.getByRole('button',{name:'Configure AI model',exact:true}).count(),0);
  const savesBeforeDismiss=await page.evaluate(()=>window.__calls.filter(c=>c.request.type==='save_language').length);
  const languageEntry=page.getByRole('button',{name:'Language',exact:true});
  await languageEntry.focus(); await page.keyboard.press('Enter');
@@ -305,6 +317,6 @@ try {
  assert.deepEqual(errors,[]);
  for (const check of checks) assert.deepEqual(check.items,[],`Text overflow: ${check.label}`);
  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
- assert.deepEqual(observedCalls.filter(c=>c.command==='ai_request'&&!['operations','batches','list','get'].includes(c.request.type)),[]);
- console.log('PASS: bilingual expanded/collapsed sidebar navigation, tooltips, draft retention, language menu/focus, unconfigured local Office export, import history and ZIP entry, autosaved model settings, 960px layouts; no parsing or grading requests.');
+ assert.deepEqual(observedCalls.filter(c=>c.command==='ai_request'&&!['operations','batches','list','get','select_document'].includes(c.request.type)),[]);
+ console.log('PASS: bilingual expanded/collapsed sidebar navigation, tooltips, draft retention, language menu/focus, import form tabs and draft retention, import history and ZIP entry, autosaved model settings, 960px layouts; no parsing or grading requests.');
 } finally { await browser?.close(); await server.close(); }

@@ -29,10 +29,12 @@ Choose controls from `state` and `allowedActions`:
 |---|---|
 | PENDING / RUNNING | pause or interrupt with the target runId |
 | PAUSING | interrupt |
-| PAUSED / INTERRUPTED | resume with the latest checkpointId |
+| PAUSED / INTERRUPTED / CANCELLED | resume with the latest checkpointId when allowedActions permits it |
 | WAITING_REVIEW | retry_failed / accept_partial as specified by allowedActions |
 | FAILED | resume unfinished nodes or retry_failed for eligible failed units |
 | COMPLETED | retry_failed for eligible failures in a PARTIAL result |
+
+An explicit `interrupt` reports `CANCELLED` once stopped; process interruption reports `INTERRUPTED`. Neither automatically resumes. A cancelled task retains its saved work and can resume only through an explicit allowed action.
 
 State and quality are independent: `COMPLETED` may contain `PARTIAL`, and `SUCCEEDED` may still require content review. Progress reflects only persisted data. Clients poll with GET and do not use native SSE, thread, run, or Store APIs.
 
@@ -82,7 +84,7 @@ See [operations](operations.md) for deployment, exclusive locking, recovery acce
 
 ## Task list
 
-`GET /api/document-tasks?limit=20&offset=0` uses the same Bearer authentication. It returns `items` containing threadId, fileName, createdAt, expiresAt, state, status, checkpointId, questionCount, and reviewCount, plus `hasMore`. Limit is 1–100. Results sort by creation time and task ID descending. Summaries read saved checkpoints without loading all call logs; expired tasks appear as EXPIRED. Use the single-task endpoint for full state.
+`GET /api/document-tasks?limit=20&offset=0` uses the same Bearer authentication. It returns `items` containing threadId, fileName, createdAt, expiresAt, state, status, checkpointId, questionCount, and reviewCount, plus `hasMore`. Limit is 1–100. Results sort by creation time and task ID descending. Summaries read saved checkpoints without loading all call logs; expired tasks appear as EXPIRED. Use the single-task endpoint for full state. The optional `state_filter` is one of `active`, `paused`, `completed`, `cancelled`, `failed`, `review`, `interrupted`, or `expired`. Filtering precedes pagination across the full history; `active` includes PENDING, RUNNING and PAUSING. `completed` means parsing completed, regardless of whether the desktop has imported the result into a bank.
 
 Optional `sha256` filters by the source document's 64-character lowercase hexadecimal digest, with the same pagination. This supports duplicate-source reminders without parsing the document or making a model call.
 

@@ -1,14 +1,16 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render as renderComponent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import { toast } from "sonner";
+import { flushSync } from "react-dom";
+import type { ReactElement } from "react";
 import { AiTasks } from "./AiTasks";
 import { api, blankQuestion } from "./api";
 vi.mock("./api", async () => ({ ...(await vi.importActual<typeof import("./api")>("./api")), api: vi.fn() }));
 beforeEach(() => { vi.mocked(api).mockResolvedValue([] as never); });
-vi.mock("sonner", () => ({ toast: { error: vi.fn() } }));
+vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 afterEach(() => {
   cleanup();
@@ -16,6 +18,13 @@ afterEach(() => {
   vi.restoreAllMocks();
   vi.clearAllMocks();
 });
+
+function render(ui: ReactElement) {
+  let result!: ReturnType<typeof renderComponent>;
+  flushSync(() => { result = renderComponent(ui); });
+  fireEvent.mouseDown(screen.getByRole("tab", { name: "导入记录" }), { button: 0, ctrlKey: false });
+  return result;
+}
 
 it("reads and previews saved results without models while disabling model actions", async () => {
   const onPreview = vi.fn();
@@ -29,9 +38,9 @@ it("reads and previews saved results without models while disabling model action
     return [];
   });
   render(<AiTasks busy={false} run={job => {void job();}} onPreview={onPreview} modelsReady={false}/>);
-  expect(await screen.findByText(/未入库结果保留至/)).toBeTruthy();
   expect((await screen.findByRole("checkbox", {name:"选择 saved.pdf"})).hasAttribute("disabled")).toBe(false);
   await userEvent.click(screen.getByRole("button", {name:"saved.pdf"}));
+  expect(await screen.findByText(/未入库结果保留至/)).toBeTruthy();
   expect((await screen.findByRole("button", {name:"重试失败项"})).hasAttribute("disabled")).toBe(true);
   expect(screen.getByRole("button", {name:"使用当前模型重新解析"}).hasAttribute("disabled")).toBe(true);
   expect(screen.getByRole("button", {name:"查看内容与审核"}).hasAttribute("disabled")).toBe(false);
@@ -65,12 +74,18 @@ it("refreshes accepted documents when a later file in the selection fails", asyn
   vi.mocked(invoke).mockImplementation(async (_command, args) => {
     const { type } = (args as {request:{type:string}}).request;
     if (type === "list") return {items:created ? [{threadId:"first",fileName:"first.pdf",state:"COMPLETED",checkpointId:"cp"}] : [],hasMore:false};
+    if (type === "select_document") return {token:"source",fileNames:["first.pdf"]};
     if (type === "pick_document") { created = true; throw failure; }
     if (type === "batches") return {items:[],total:0,offset:0,operations:[]};
     return [];
   });
   render(<AiTasks busy={false} run={job => {void job().catch(error => errors.push(error));}} onPreview={() => {}}/>);
-  await userEvent.click(screen.getByRole("button", {name:"选择文档并解析"}));
+  await userEvent.click(screen.getByRole("tab", {name:"导入"}));
+  await userEvent.type(screen.getByLabelText("题库名"), "Course");
+  await userEvent.type(screen.getByLabelText("描述"), "Questions");
+  await userEvent.click(screen.getByRole("button", {name:"上传源文件"}));
+  await userEvent.click(screen.getByRole("button", {name:"开始导入"}));
+  await userEvent.click(screen.getByRole("tab", {name:"导入记录"}));
   expect(await screen.findByRole("button", {name:"first.pdf"})).toBeTruthy();
   expect(errors).toEqual([failure]);
 });
@@ -117,7 +132,7 @@ it("creates a replacement task only after the reparse action", async () => {
   expect(invoke).toHaveBeenCalledWith("ai_request", {locale:"zh-CN",request:{type:"reparse",id:"saved"}});
   await waitFor(() => expect(invoke).toHaveBeenCalledWith("ai_request", {locale:"zh-CN",request:{type:"get",id:"new"}}));
 });
-it.each([false, true])("hides the empty task section with modelsReady=%s", async modelsReady => {
+it.each([false, true])("shows an empty history state with modelsReady=%s", async modelsReady => {
   vi.mocked(invoke).mockImplementation(async (_command, args) => {
     const { type } = (args as { request: { type: string } }).request;
     if (type === "list") return { items: [], hasMore: false };
@@ -127,7 +142,7 @@ it.each([false, true])("hides the empty task section with modelsReady=%s", async
   await act(async () => {
     render(<AiTasks busy={false} run={job => {void job();}} onPreview={() => {}} modelsReady={modelsReady}/>);
   });
-  expect(screen.queryByRole("region", {name: "导入任务"})).toBeNull();
+  expect(screen.getByText("暂无导入记录")).toBeTruthy();
   expect(screen.queryByRole("table")).toBeNull();
 });
 
@@ -191,7 +206,7 @@ it("shows progress and sends only the current run when pausing", async () => {
   expect(screen.getByText(/完成 1\/2/)).toBeTruthy();
   await waitFor(() => expect(localReads()).toBe(beforeControl + 1));
 });
-it.each([new Error("请先配置模型 ID"), { message: "请先配置模型 ID" }])("preserves task errors and hides the empty section after successful retry (%j)", async error => {
+it.each([new Error("请先配置模型 ID"), { message: "请先配置模型 ID" }])("preserves task errors and shows empty history after successful retry (%j)", async error => {
   vi.mocked(invoke).mockImplementation(async (_command, args) => {
     const { type } = (args as { request: { type: string } }).request;
     if (type === "batches") return {items:[],total:0,offset:0,operations:[]} as never;
@@ -217,7 +232,7 @@ it.each([new Error("请先配置模型 ID"), { message: "请先配置模型 ID" 
     return (type === "list" ? { items: [], hasMore: false } : type === "batches" ? {items:[],total:0,offset:0,operations:[]} : []) as never;
   });
   await userEvent.click(screen.getByRole("button", { name: "重试" }));
-  await waitFor(() => expect(screen.queryByRole("region", {name: "导入任务"})).toBeNull());
+  await waitFor(() => expect(screen.getByText("暂无导入记录")).toBeTruthy());
   expect(screen.queryByRole("table")).toBeNull();
   expect(screen.queryByRole("alert")).toBeNull();
   expect(vi.mocked(invoke).mock.calls.every(([, args]) => ["list", "operations", "batches"].includes((args as { request: { type: string } }).request.type))).toBe(true);
@@ -711,4 +726,89 @@ it("pages local batch history independently while keeping task import errors", a
   expect(await screen.findByText(/History 20/)).toBeTruthy();
   expect(screen.getByText("导入失败")).toBeTruthy();
   expect(within(history).getByRole("button",{name:"下一页"}).hasAttribute("disabled")).toBe(true);
+});
+
+it("requires the import form, preserves multiple files across tabs and submits their native token", async () => {
+  let created = false, selections = 0;
+  vi.mocked(invoke).mockImplementation(async (_command, args) => {
+    const request = (args as {request:{type:string}}).request;
+    if (request.type === "select_document") return selections++ ? null : {token:"native-token",fileNames:["paper.pdf", "answers.txt"]};
+    if (request.type === "pick_document") { created = true; return {threadId:"new-task",threadIds:["new-task", "second-task"]}; }
+    if (request.type === "list") return {items:created ? [{threadId:"new-task",fileName:"paper.pdf",bankTitle:"Algebra",bankDescription:"Chapter 1",state:"RUNNING"}] : [],hasMore:false};
+    if (request.type === "batches") return {items:[],total:0,offset:0,operations:[]};
+    return [];
+  });
+  renderComponent(<AiTasks busy={false} run={job => {void job();}} onPreview={() => {}} officeMode="pdf"/>);
+  expect(screen.getByRole("button", {name:"开始导入"}).hasAttribute("disabled")).toBe(true);
+  await userEvent.type(screen.getByLabelText("题库名"), "Algebra");
+  await userEvent.type(screen.getByLabelText("描述"), "Chapter 1");
+  await userEvent.click(screen.getByRole("button", {name:"上传源文件"}));
+  expect(invoke).not.toHaveBeenCalledWith("ai_request", expect.objectContaining({request:expect.objectContaining({type:"pick_document"})}));
+  await userEvent.click(screen.getByRole("tab", {name:"导入记录"}));
+  expect(await screen.findByText("暂无导入记录")).toBeTruthy();
+  await userEvent.click(screen.getByRole("tab", {name:"导入"}));
+  expect((screen.getByLabelText("题库名") as HTMLInputElement).value).toBe("Algebra");
+  expect(screen.getByRole("button", {name:"已选择 2 份文件（重新选择）"})).toBeTruthy();
+  expect(within(screen.getByRole("list", {name:"已选源文件"})).getAllByRole("listitem").map(item => item.textContent)).toEqual(["paper.pdf", "answers.txt"]);
+  await userEvent.click(screen.getByRole("button", {name:"已选择 2 份文件（重新选择）"}));
+  expect(screen.getByText("answers.txt")).toBeTruthy();
+  await userEvent.click(screen.getByRole("button", {name:"开始导入"}));
+  expect(invoke).toHaveBeenCalledWith("ai_request", {locale:"zh-CN",request:{type:"pick_document",selection:"native-token",details:{title:"Algebra",description:"Chapter 1"},office_mode:"pdf"}});
+  expect(await screen.findByRole("button", {name:"Algebra"})).toBeTruthy();
+  expect(screen.getByRole("tab", {name:"导入记录"}).getAttribute("aria-selected")).toBe("true");
+  expect(screen.queryByRole("dialog")).toBeNull();
+});
+
+it("controls a row using its current run and confirms deletion of a stopped record", async () => {
+  let state = "RUNNING", deleted = false;
+  vi.mocked(invoke).mockImplementation(async (_command, args) => {
+    const request = (args as {request:{type:string;action?:string}}).request;
+    if (request.type === "list") return {items:deleted ? [] : [{threadId:"record-id",fileName:"paper.pdf",bankTitle:"Algebra",bankDescription:"Chapter 1",state}],hasMore:false};
+    if (request.type === "get") return {threadId:"record-id",runId:"current-run",checkpointId:"current-checkpoint",state,phase:"prepare",allowedActions:state === "RUNNING" ? ["pause"] : ["resume"],blocking:[],failures:[],progress:{},usage:[],unknownUsageCalls:[]};
+    if (request.type === "control") { state = request.action === "pause" ? "PAUSED" : "RUNNING"; return {}; }
+    if (request.type === "delete") { deleted = true; return {deleted:true}; }
+    if (request.type === "batches") return {items:[],total:0,offset:0,operations:[]};
+    return [];
+  });
+  render(<AiTasks busy={false} run={job => {void job();}} onPreview={() => {}}/>);
+  expect(await screen.findByText("record-id")).toBeTruthy();
+  expect(screen.getByRole("button", {name:"删除"}).hasAttribute("disabled")).toBe(true);
+  await userEvent.click(screen.getByRole("button", {name:"停止"}));
+  expect(invoke).toHaveBeenCalledWith("ai_request", {locale:"zh-CN",request:{type:"control",id:"record-id",action:"pause",run_id:"current-run",checkpoint_id:null,units:[]}});
+  await userEvent.click(await screen.findByRole("button", {name:"继续"}));
+  expect(invoke).toHaveBeenCalledWith("ai_request", {locale:"zh-CN",request:{type:"control",id:"record-id",action:"resume",run_id:null,checkpoint_id:"current-checkpoint",units:[]}});
+  await userEvent.click(await screen.findByRole("button", {name:"停止"}));
+  await screen.findByText("已暂停", {selector:'[data-slot="badge"]'});
+  await userEvent.click(screen.getByRole("button", {name:"Algebra"}));
+  expect(await screen.findByRole("dialog", {name:"Algebra"})).toBeTruthy();
+  expect(screen.getByText("Chapter 1")).toBeTruthy();
+  await userEvent.keyboard("{Escape}");
+  await userEvent.click(screen.getByRole("button", {name:"删除"}));
+  expect(deleted).toBe(false);
+  await userEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", {name:"取消"}));
+  expect(deleted).toBe(false);
+  await userEvent.click(screen.getByRole("button", {name:"删除"}));
+  await userEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", {name:"删除"}));
+  expect(await screen.findByText("暂无导入记录")).toBeTruthy();
+});
+
+it("filters history through the native list and resets pagination and selection", async () => {
+  vi.mocked(invoke).mockImplementation(async (_command, args) => {
+    const request = (args as {request:{type:string;filter?:string;offset?:number}}).request;
+    if (request.type === "list") return request.filter === "paused" ? {items:[{threadId:"paused",fileName:"paused.pdf",state:"PAUSED"}],hasMore:false} : request.filter ? {items:[],hasMore:false} : {items:[{threadId:"ready",fileName:"ready.pdf",state:"COMPLETED",checkpointId:"cp"}],hasMore:true};
+    if (request.type === "batches") return {items:[],total:0,offset:0,operations:[]};
+    return [];
+  });
+  render(<AiTasks busy={false} run={job => {void job();}} onPreview={() => {}}/>);
+  await userEvent.click(await screen.findByRole("button", {name:"下一页"}));
+  await userEvent.click(await screen.findByRole("checkbox", {name:"选择 ready.pdf"}));
+  await userEvent.selectOptions(screen.getByRole("combobox", {name:"导入状态"}), "paused");
+  expect(await screen.findByRole("button", {name:"paused.pdf"})).toBeTruthy();
+  expect(invoke).toHaveBeenCalledWith("ai_request", {locale:"zh-CN",request:{type:"list",offset:0,filter:"paused"}});
+  expect(screen.queryByRole("button", {name:/批量导入已选任务/})).toBeNull();
+  expect(screen.queryByRole("button", {name:"上一页"})).toBeNull();
+  await userEvent.selectOptions(screen.getByRole("combobox", {name:"导入状态"}), "cancelled");
+  expect(await screen.findByText("暂无符合此状态的导入记录")).toBeTruthy();
+  await userEvent.selectOptions(screen.getByRole("combobox", {name:"导入状态"}), "all");
+  expect(await screen.findByRole("button", {name:"ready.pdf"})).toBeTruthy();
 });

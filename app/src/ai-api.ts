@@ -3,6 +3,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { locale } from "./i18n";
 import type { Preview, Session } from "./api";
 
+export type TaskFilter = "active" | "paused" | "completed" | "cancelled" | "failed" | "review" | "interrupted" | "expired";
+
 export type Failure = {
   retryable: boolean;
   stage: string;
@@ -33,7 +35,7 @@ export type ImportTaskContext = {
   onState: (state: "importing" | "failed", error?: unknown) => void;
   onImported: (bankId: string) => void;
 };
-export type Summary = DocumentTaskSummary & { importedBankId?: string | null; previouslyImported?: boolean };
+export type Summary = DocumentTaskSummary & { importedBankId?: string | null; previouslyImported?: boolean; bankTitle?: string | null; bankDescription?: string | null };
 export type Review = DocumentTaskReview;
 export type PendingOperation = {
   id: string;
@@ -59,10 +61,12 @@ export type Batch = {
 };
 type Request =
   | { type: "grade"; id: string; ordinal: number; retry: boolean }
-  | { type: "list"; offset: number }
+  | { type: "list"; offset: number; filter?: TaskFilter }
   | { type: "get" | "preview" | "review"; id: string }
   | { type: "reparse"; id: string }
-  | { type: "pick_document"; office_mode?: import("./office-api").OfficeMode }
+  | { type: "select_document" }
+  | { type: "delete"; id: string }
+  | { type: "pick_document"; office_mode?: import("./office-api").OfficeMode; selection: string; details: { title: string; description: string } }
   | { type: "operations" }
   | {
       type: "control";
@@ -90,6 +94,8 @@ type ResponseMap = {
   get: Task;
   preview: Preview;
   review: Review;
+  select_document: { token: string; fileNames: string[] } | null;
+  delete: { deleted: boolean };
   pick_document: { threadId: string; threadIds?: string[] } | null;
   reparse: { threadId: string } | null;
   operations: PendingOperation[];

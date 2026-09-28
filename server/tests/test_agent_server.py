@@ -201,10 +201,10 @@ async def test_user_interrupt_is_not_automatically_resumed(tmp_path):
         receipt = server.submit()
         await asyncio.to_thread(server.marker, 'model')
         server.control(receipt, 'interrupt', runId=receipt['runId'])
-        interrupted = await asyncio.to_thread(server.wait, receipt, {'INTERRUPTED'})
+        interrupted = await asyncio.to_thread(server.wait, receipt, {'CANCELLED'})
         server.stop(kill=True)
         await asyncio.to_thread(server.start)
-        assert server.state(receipt)['state'] == 'INTERRUPTED'
+        assert server.state(receipt)['state'] == 'CANCELLED'
         assert server.calls() == 0
         server.control(receipt, 'resume', checkpointId=interrupted['checkpointId'])
         state = await asyncio.to_thread(server.wait, receipt, {'COMPLETED'})

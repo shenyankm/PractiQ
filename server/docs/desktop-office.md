@@ -11,11 +11,13 @@ All desktop packages include LibreOffice. On Import, **Check conversion componen
 | DOC / DOCX | PDF for the existing visual parser | UTF-8 TXT |
 | XLS / XLSX | PDF for the existing visual parser | One UTF-8 CSV per sheet, including hidden sheets |
 
-**Convert / extract files** works without model settings. It opens native input and save dialogs. Multiple CSVs are saved in a new `PractiQ-<UUID>` directory inside the chosen folder; existing source files cannot be overwritten. This operation starts neither the HTTP service nor model calls.
+The private **Convert / extract files** command works without model settings; its standalone panel is no longer shown on the import page. It opens native input and save dialogs. Multiple CSVs are saved in a new `PractiQ-<UUID>` directory inside the chosen folder; existing source files cannot be overwritten. This operation starts neither the HTTP service nor model calls.
 
 Generated filenames fit a 255-byte UTF-8 component limit, shortening long source names with a digest while retaining the worksheet suffix. The save dialog filters by the converted format and restores a missing or changed PDF/TXT/CSV extension before checking the destination.
 
-For AI import, choose the mode, select source files, then review the converted filenames in the native confirmation dialog. Only confirmation permits uploads and model work. Excel text mode creates one task per nonempty sheet, named after the source file and sheet. Empty sheets are exported locally but explicitly marked as skipped for AI; wholly empty extraction creates no tasks. Conversion never silently switches modes.
+For AI import, fill in the bank name and description in the Import tab, select up to 10 source files at once, and click Start import. The form uses PDF mode. Review the converted filenames in the native confirmation dialog. Only confirmation permits uploads and model work. Excel text mode creates one task per nonempty sheet, named after the source file and sheet. Empty sheets are exported locally but explicitly marked as skipped for AI; wholly empty extraction creates no tasks. Conversion never silently switches modes.
+
+The native `select_document` command authorizes the selected paths and returns a selection token. `pick_document` requires that token and the bank name/description; it never opens a second file picker as a fallback. Missing fields, invalid metadata and unknown or replaced tokens are rejected before processing.
 
 In a multi-file selection, an empty Office result or a source with pending operations is reported and skipped individually. Previously accepted tasks remain in the returned selection, and subsequent files still run.
 

@@ -115,13 +115,19 @@ async def create_document_task(request: DocumentTaskCreate) -> dict[str, Any]:
 
 @app.get("/api/document-tasks", response_model=DocumentTaskList, dependencies=[Depends(authorize)])
 async def list_document_tasks(limit: int = Query(default=20, ge=1, le=100), offset: int = Query(default=0, ge=0),
-                              sha256: str | None = Query(default=None, pattern=r'^[a-f0-9]{64}$')):
-    return await _task_response(task_api.list_tasks(limit, offset, sha256))
+                              sha256: str | None = Query(default=None, pattern=r'^[a-f0-9]{64}$'),
+                              state_filter: task_api.TaskFilter | None = None):
+    return await _task_response(task_api.list_tasks(limit, offset, sha256, state_filter))
 
 
 @app.get("/api/document-tasks/{thread_id}", dependencies=[Depends(authorize)])
 async def get_document_task(thread_id: UUID) -> dict[str, Any]:
     return await _task_response(task_api.get_task(str(thread_id)))
+
+
+@app.delete("/api/document-tasks/{thread_id}", dependencies=[Depends(authorize)])
+async def delete_document_task(thread_id: UUID) -> dict[str, bool]:
+    return await _task_response(task_api.delete_task(str(thread_id)))
 
 
 @app.get("/api/document-tasks/{thread_id}/preview", response_model=DocumentTaskReview, dependencies=[Depends(authorize)])

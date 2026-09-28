@@ -116,6 +116,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [languageOpen, setLanguageOpen] = useState(false);
   const languageTrigger = useRef<HTMLButtonElement>(null);
+  const [importTabsHost, setImportTabsHost] = useState<HTMLDivElement | null>(null);
   const [page, setPage] = useState<Page>("banks");
   const pageHeading = useRef<HTMLHeadingElement>(null);
   const previousPage = useRef<Page>(page);
@@ -442,13 +443,11 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
               <h1 ref={pageHeading} tabIndex={-1} className="text-2xl font-semibold tracking-tight outline-none">
                 {heading}
               </h1>
-              <p className="mt-1 text-sm text-muted-foreground">
+              {page !== "import" && <p className="mt-1 text-sm text-muted-foreground">
                 {page === "banks"
                   ? t("{0} 个题库 · {1} 道题目", { 0: banks.length, 1: banks.reduce((n, b) => n + b.count, 0) })
                   : listPage
                     ? t("{0} 道题目{1}", { 0: questionTotal, 1: loading ? t(" · 加载中…") : "" })
-                    : page === "import"
-                      ? t("将文档解析为题目")
                     : page === "history"
                       ? t("回顾每一次作答与进步")
                       : page === "settings"
@@ -456,10 +455,11 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                         : page === "model-settings"
                           ? t("用于文档解析与主观题评分")
                         : t("循序渐进，保持专注")}
-              </p>
+              </p>}
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {page === "import" && <div ref={setImportTabsHost} />}
             {busy && (
               <span role="status" className="text-sm text-muted-foreground">{t("处理中…")}</span>
             )}
@@ -756,7 +756,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
               onNextUnattempted={session.bankIds?.some(id => banks.some(b => b.id === id)) ? () => setPracticeSetup({ bank: null, bankIds: session.bankIds!.filter(id => banks.some(b => b.id === id)), filter: "unattempted" }) : undefined}
             />
           )}
-          {page === "import" && <ImportPage busy={busy} run={run} onPreview={(p, task)=>setImportPreview({ preview: p, initialBank: bank || "new", task })} onOpenBank={id => navigate("questions", id)} onOpenZipSettings={() => navigate("settings", null, true)} onConfigure={() => { setSettingsReturn({ bank }); navigate("model-settings"); }} />}
+          {page === "import" && <ImportPage tabsHost={importTabsHost} busy={busy} run={run} onPreview={(p, task)=>setImportPreview({ preview: p, initialBank: bank || "new", task })} onOpenBank={id => navigate("questions", id)} onOpenZipSettings={() => navigate("settings", null, true)} onConfigure={() => { setSettingsReturn({ bank }); navigate("model-settings"); }} />}
           {page === "model-settings" && (
             <div className="max-w-3xl space-y-6">
               <ConnectionSettingsPanel

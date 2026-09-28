@@ -31,11 +31,18 @@ pub enum AiRequest {
     },
     List {
         offset: usize,
+        filter: Option<String>,
     },
     Get {
         id: String,
     },
+    SelectDocument,
+    Delete {
+        id: String,
+    },
     PickDocument {
+        selection: String,
+        details: ai_work::ImportDetails,
         #[serde(default)]
         office_mode: crate::office::Mode,
     },
@@ -761,6 +768,27 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
     let _request = work.enter()?;
     // Local recovery controls must remain available even without model settings.
     match &request {
+        AiRequest::SelectDocument => {
+            let files = app
+                .dialog()
+                .file()
+                .add_filter(
+                    locale.text("源文件", "Source file"),
+                    &[
+                        "txt", "csv", "pdf", "png", "jpg", "jpeg", "doc", "docx", "xls", "xlsx",
+                    ],
+                )
+                .blocking_pick_files();
+            return match files {
+                Some(files) => work.select_documents(
+                    files
+                        .into_iter()
+                        .map(|file| file.into_path().map_err(err))
+                        .collect::<Result<Vec<_>>>()?,
+                ),
+                None => Ok(Value::Null),
+            };
+        }
         AiRequest::Operations => return ai_work::operations(&dir),
         AiRequest::Batches { offset, thread_ids } => {
             return ai_work::batches(&dir, &work, *offset, thread_ids)
@@ -768,30 +796,12 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
         AiRequest::CancelBatch { id } => return ai_work::cancel_batch(&dir, &work, id),
         _ => {}
     }
-    let selected = if matches!(request, AiRequest::PickDocument { .. }) {
-        let files = app
-            .dialog()
-            .file()
-            .add_filter(
-                locale.text("文档", "Documents"),
-                &[
-                    "txt", "csv", "pdf", "png", "jpg", "jpeg", "doc", "docx", "xls", "xlsx",
-                ],
-            )
-            .blocking_pick_files();
-        let Some(files) = files else {
-            return Ok(Value::Null);
-        };
-        if files.len() > 100 {
-            return Err(crate::language::error(
-                "LOCAL_BATCH_SIZE_INVALID",
-                json!({}),
-            ));
-        }
-        files
-            .into_iter()
-            .map(|file| file.into_path().map_err(err))
-            .collect::<Result<Vec<_>>>()?
+    let selected = if let AiRequest::PickDocument {
+        selection, details, ..
+    } = &request
+    {
+        details.validate()?;
+        work.selected_documents(selection)?
     } else {
         Vec::new()
     };
@@ -828,22 +838,42 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
                     &response,
                 )?)
         }
-        AiRequest::List { offset } => {
+        AiRequest::List { offset, filter } => {
             if offset > 1_000_000 {
                 return Err(crate::language::error(
                     "LOCAL_PAGE_INVALID",
                     serde_json::json!({}),
                 ));
             }
+            let filter_query = match filter.as_deref() {
+                None => String::new(),
+                Some(value)
+                    if [
+                        "active",
+                        "paused",
+                        "completed",
+                        "cancelled",
+                        "failed",
+                        "review",
+                        "interrupted",
+                        "expired",
+                    ]
+                    .contains(&value) =>
+                {
+                    format!("&state_filter={value}")
+                }
+                _ => return Err(crate::language::error("LOCAL_ACTION_INVALID", json!({}))),
+            };
             let mut result = process.json(
                 Method::GET,
-                &format!("/api/document-tasks?limit=20&offset={offset}"),
+                &format!("/api/document-tasks?limit=20&offset={offset}{filter_query}"),
                 None,
             )?;
             let store = shared.lock().map_err(|_| {
                 crate::language::error("LOCAL_DATABASE_UNAVAILABLE", serde_json::json!({}))
             })?;
             let db = store.connect()?;
+            let details = ai_work::import_details(&dir)?;
             for item in result["items"]
                 .as_array_mut()
                 .ok_or(crate::language::error(
@@ -855,11 +885,15 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
                 let id = contract::text(item, "threadId");
                 let bank = Store::imported_ai_with(&db, id, None, item["checkpointId"].as_str())?;
                 let previous = Store::imported_ai_with(&db, id, None, None)?.is_some();
+                let metadata = details.get(id);
+                item["bankTitle"] = json!(metadata.map(|m| &m.title));
+                item["bankDescription"] = json!(metadata.map(|m| &m.description));
                 item["importedBankId"] = json!(bank);
                 item["previouslyImported"] = json!(previous);
             }
             Ok(result)
         }
+        AiRequest::Delete { id } => ai_work::delete_task(&dir, &work, &process, &id),
         AiRequest::Get { id } => process.json(Method::GET, &task_path(&id)?, None),
         AiRequest::Control {
             id,
@@ -892,7 +926,11 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
                 &action,
             )
         }
-        AiRequest::PickDocument { office_mode } => {
+        AiRequest::PickDocument {
+            office_mode,
+            details,
+            ..
+        } => {
             let mut process = process;
             let mut engine = None;
             pick_documents(
@@ -1013,6 +1051,7 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
                                         document.clone(),
                                         &artifact.name,
                                         Some(artifact.origin.clone()),
+                                        Some(&details),
                                     )
                                 },
                             )?;
@@ -1028,6 +1067,7 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
                                     .and_then(|s| s.to_str())
                                     .unwrap_or_default(),
                                 None,
+                                Some(&details),
                             )
                         })?;
                         documents.push((
@@ -1088,7 +1128,7 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
             )
         }
         AiRequest::Preview { id } => {
-            let mut pending = process.pending(&id)?;
+            let mut pending = process.pending(&dir, &id)?;
             let store = Store {
                 dir,
                 ..Default::default()
@@ -1141,7 +1181,10 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
         AiRequest::RunBatch { id, titles } => {
             ai_work::run_batch(&dir, &work, &process, &shared, &id, titles)
         }
-        AiRequest::Operations | AiRequest::Batches { .. } | AiRequest::CancelBatch { .. } => {
+        AiRequest::SelectDocument
+        | AiRequest::Operations
+        | AiRequest::Batches { .. }
+        | AiRequest::CancelBatch { .. } => {
             unreachable!("handled before service startup")
         }
     }
@@ -1153,7 +1196,7 @@ impl Endpoint {
         contract::validate_workflow(&result, true)?;
         Ok(result)
     }
-    pub(crate) fn pending(&self, id: &str) -> AiResult<Pending> {
+    pub(crate) fn pending(&self, dir: &std::path::Path, id: &str) -> AiResult<Pending> {
         let result = self.json(Method::GET, &task_path(id)?, None)?;
         if result["threadId"] != id || result["state"] != "COMPLETED" {
             return Err(AppError::new(
@@ -1185,6 +1228,10 @@ impl Endpoint {
                 "LOCAL_RESULT_EMPTY",
                 serde_json::json!({}),
             ));
+        }
+        if let Some(details) = ai_work::import_details(dir)?.remove(id) {
+            pending.title = details.title;
+            pending.description = details.description;
         }
         pending.source = Some(ImportSource {
             thread_id: id.into(),
@@ -1262,6 +1309,23 @@ impl Endpoint {
 mod tests {
     use super::{document_format, StderrTail};
     use std::path::Path;
+
+    #[test]
+    fn document_import_requires_selection_and_details() {
+        let request = serde_json::json!({
+            "type": "pick_document", "selection": "native-selection",
+            "details": {"title": "Course", "description": "Chapter one"}
+        });
+        assert!(serde_json::from_value::<super::AiRequest>(request.clone()).is_ok());
+        for field in ["selection", "details"] {
+            let mut missing = request.clone();
+            missing.as_object_mut().unwrap().remove(field);
+            assert!(serde_json::from_value::<super::AiRequest>(missing).is_err());
+            let mut null = request.clone();
+            null[field] = serde_json::Value::Null;
+            assert!(serde_json::from_value::<super::AiRequest>(null).is_err());
+        }
+    }
 
     #[test]
     fn office_skips_keep_prior_tasks_and_continue_the_selection() {

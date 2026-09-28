@@ -718,7 +718,7 @@ class DocumentTaskControl(StrictModel):
 DocumentParseInput.model_rebuild()
 
 
-TaskState = Literal["PENDING", "RUNNING", "PAUSING", "PAUSED", "INTERRUPTED", "FAILED", "WAITING_REVIEW", "COMPLETED", "EXPIRED"]
+TaskState = Literal["PENDING", "RUNNING", "PAUSING", "PAUSED", "INTERRUPTED", "CANCELLED", "FAILED", "WAITING_REVIEW", "COMPLETED", "EXPIRED"]
 
 
 class DocumentTaskSummary(StrictModel):

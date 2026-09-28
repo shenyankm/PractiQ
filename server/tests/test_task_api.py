@@ -303,7 +303,9 @@ async def test_immediate_interrupt_reports_unknown_and_resumes_saved_work(monkey
     await task_api.control_task(thread_id, DocumentTaskControl(requestId=uuid4(), action="interrupt", runId=created["runId"]))
     await api.wait_idle()
     state = await task_api.get_task(thread_id)
-    assert state["state"] == "INTERRUPTED"
+    assert state["state"] == "CANCELLED"
+    assert (await task_api.list_tasks(state_filter="cancelled"))["items"][0]["threadId"] == thread_id
+    assert not (await task_api.list_tasks(state_filter="interrupted"))["items"]
     assert len(state["unknownUsageCalls"]) == 1
     await task_api.control_task(thread_id, DocumentTaskControl(requestId=uuid4(), action="resume", checkpointId=state["checkpointId"]))
     await api.wait_idle()
@@ -438,3 +440,42 @@ async def test_truncation_is_visible_and_not_manually_retryable(monkeypatch, pag
     assert 'retry_failed' not in state['allowedActions']
     with pytest.raises(DocumentProcessingError, match='retryable'):
         await task_api.control_task(created['threadId'], DocumentTaskControl(requestId=uuid4(), action='retry_failed', checkpointId=state['checkpointId']))
+
+
+async def test_delete_record_rejects_active_tasks_and_removes_stopped_history(monkeypatch):
+    api, reference, model = await setup_api(monkeypatch, [(0.1, parsed())])
+    created = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
+    thread_id = created['threadId']
+    with pytest.raises(DocumentProcessingError) as error:
+        await task_api.delete_task(thread_id)
+    assert error.value.code == 'TASK_BUSY'
+    await api.wait_idle()
+    calls = len(model.calls)
+    assert (await task_api.list_tasks())['items']
+    assert await task_api.delete_task(thread_id) == {'deleted': True}
+    assert await task_api.delete_task(thread_id) == {'deleted': True}
+    assert not (await task_api.list_tasks())['items']
+    assert not await api.db.rows('SELECT * FROM document_runs WHERE thread_id=?', (thread_id,))
+    assert not await api.db.rows('SELECT * FROM document_receipts WHERE thread_id=?', (thread_id,))
+    assert await api.db.checkpointer.aget_tuple({'configurable': {'thread_id': thread_id}}) is None
+    assert len(model.calls) == calls
+
+
+async def test_status_filter_paginates_after_scanning_all_records(monkeypatch):
+    api, reference, _model = await setup_api(monkeypatch, [parsed("First"), parsed("Second")])
+    ids = []
+    for _ in range(2):
+        created = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
+        ids.append(created['threadId'])
+        await api.wait_idle()
+    async with api.db.transaction() as conn:
+        for _ in range(101):
+            await conn.execute('INSERT INTO document_tasks(thread_id,request_hash,graph_id,document,failure_policy,expires_at) SELECT ?,request_hash,graph_id,document,failure_policy,? FROM document_tasks WHERE thread_id=?',
+                               (str(uuid4()), utcnow() - timedelta(days=1), ids[0]))
+    first = await task_api.list_tasks(1, state_filter='completed')
+    second = await task_api.list_tasks(1, 1, state_filter='completed')
+    assert first['hasMore'] and not second['hasMore']
+    assert {first['items'][0]['threadId'], second['items'][0]['threadId']} == set(ids)
+    assert not (await task_api.list_tasks(1, 2, state_filter='completed'))['items']
+    assert len((await task_api.list_tasks(100, state_filter='expired'))['items']) == 100
+    assert not (await task_api.list_tasks(state_filter='active'))['items']
