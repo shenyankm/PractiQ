@@ -640,9 +640,8 @@ impl Store {
                     continue;
                 }
                 let selected = match filter {
-                    "review" => {
-                        row["question"]["needsReview"] == true && row["reviewedAt"].is_null()
-                    }
+                    // Candidate roots already require a pending node; any node may match search.
+                    "review" => true,
                     "favorite" => row["favorite"] == true,
                     "wrong" => row["latestResult"] == false,
                     "unattempted" => {

@@ -130,6 +130,60 @@ fn confirmation_filters_complete_trees_and_persists_without_changing_source_flag
 }
 
 #[test]
+fn review_search_matches_other_nodes_and_shared_content_in_a_pending_tree() {
+    let (_dir, store, bank, root) = setup();
+    let pending = store.questions(Some(&bank), "", "", "review").unwrap();
+    let stats = store
+        .question_stats(Some(&bank), &[], ("", "", "review"))
+        .unwrap();
+    assert_eq!(stats["count"], 6);
+    let searches = ["reading", "seasons change", "r-choice", "Composite section"];
+    for search in searches {
+        assert_eq!(
+            store.questions(Some(&bank), search, "", "review").unwrap(),
+            pending,
+            "search {search:?} must keep the complete pending tree"
+        );
+        let page = store
+            .query_questions(
+                Some(&bank),
+                &[],
+                (search, "reading", "review"),
+                Some((1, 0)),
+            )
+            .unwrap();
+        assert_eq!(page["items"], pending);
+        assert_eq!(page["total"], 1);
+        assert_eq!(
+            store
+                .question_stats(Some(&bank), &[], (search, "reading", "review"))
+                .unwrap(),
+            stats
+        );
+    }
+    // A match in a different, already complete tree cannot satisfy the pending filter.
+    assert_eq!(
+        store
+            .questions(Some(&bank), "words-root", "", "review")
+            .unwrap(),
+        json!([])
+    );
+    store.review_question(&root, true).unwrap();
+    for search in searches {
+        assert_eq!(
+            store.questions(Some(&bank), search, "", "review").unwrap(),
+            json!([])
+        );
+        assert_eq!(
+            store
+                .question_stats(Some(&bank), &[], (search, "", "review"))
+                .unwrap()["count"],
+            0
+        );
+    }
+}
+
+#[test]
 fn review_rejects_missing_or_child_ids_and_editing_clears_tree_confirmation() {
     let (_dir, store, bank, root) = setup();
     let rows = store.question_rows().unwrap();
