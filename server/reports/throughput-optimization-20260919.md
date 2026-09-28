@@ -1,3 +1,5 @@
+> Historical evidence: behavior, measurements and validation apply only to the dated baseline below. They are not current usage instructions or acceptance of the current release.
+
 # 多文档吞吐优化与验证（2026-09-19）
 
 已修复本地启动命令没有落实任务并发配置的问题，补充分段耗时观测，并完成真实模型配置对比。保留 `8×2` 默认值；`16×1` 仅作为短文档批处理的可选配置。

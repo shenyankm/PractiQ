@@ -33,7 +33,7 @@
 2. 打开**导入题库**，选择源文件并确认解析。
 3. 检查题目、图片和警告，再新建题库或追加到已有题库。
 
-支持 **PDF、TXT、CSV 和 PNG/JPEG**。Word 和 Excel 需要本机安装含 Writer、Calc 的 [LibreOffice](https://www.libreoffice.org/download/download-libreoffice/)，由桌面端默认转为 PDF；本地转换和导出无需模型。独立服务不接受 Office 文件。文本导出方式及限制见[转换指南](server/docs/desktop-office.md)。
+支持 **PDF、TXT、CSV 和 PNG/JPEG**。桌面安装包内置 LibreOffice 26.8.0，Word 和 Excel 无需另装组件或运行时下载，默认转为 PDF；本地转换和导出无需模型。独立服务不接受 Office 文件。文本导出方式及限制见[转换指南](server/docs/desktop-office.md)。
 
 解析只提取原文已有的答案和评分细则，不替缺答案的题目解题；缺失内容保留待复核标记。任务支持暂停、恢复、重试和接受部分结果。需要保留的结果请在 **180 天**内导入题库，任务到期不影响已导入题库。
 
@@ -42,6 +42,8 @@
 API Key 保存在系统凭据存储中，备份不含密钥和 AI 任务状态。限时模考在关闭应用或电脑休眠后仍继续计时，重新进入超时考试时按最后保存的答案交卷。
 
 ## 运行桌面应用
+
+桌面数据使用新的 `v4/` 目录和 SQLite schema 11。旧目录（包括 `v3/`）原样保留，旧版完整备份不再接受；当前题库 ZIP 仍可导入。详见[数据格式边界](docs/question-model.md#versions-and-directories)。
 
 桌面构建目标包括 macOS 14+（Apple Silicon）、Windows 10/11（x64）和 Ubuntu 22.04+（x64，`.deb`）。macOS 已完成本地验证；Windows 和 Linux 已配置构建与内置服务 CI 检查，仍需在对应系统完成桌面交互验收。
 
@@ -102,7 +104,7 @@ FastAPI/LangGraph 服务监听 `127.0.0.1:8090`，使用 SQLite 和本地文件�
 - [部署与运维](server/docs/operations.md)：部署、存储与恢复
 - [效果评测](server/docs/evaluation.md)：数据集、检查与证据边界
 - [题型模型](docs/question-model.md)：题型与复合题规则
-- [首版发布说明草案](docs/first-release.md)：范围与发布前待确认项
+- [发布验证](CONTRIBUTING.md#release-verification)：发布检查与验收证据
 - [参与贡献](CONTRIBUTING.md)：开发检查与提交规范
 
 桌面检查运行 `make app-check`，AI 服务检查运行 `make verify`。浏览器检查模拟原生命令，不调用模型：

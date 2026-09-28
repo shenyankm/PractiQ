@@ -1,3 +1,5 @@
+> Historical evidence: behavior, measurements and validation apply only to the dated baseline below. They are not current usage instructions or acceptance of the current release.
+
 # Review fixes — 2026-09-28
 
 This tracks ISSUE-001–016 from the full-project review of `f999b4dbccc004b2302b32232e9d10c2bfd22ef4`. Validation below records local results; current remote CI status is reported on the pull request. Regression coverage describes the checks added for each fix, not release acceptance.

@@ -1,6 +1,6 @@
 # Question types, JSON data, and frontend rendering
 
-This reference describes the local implementation checked on 2026-09-27, against baseline commit `1cf4152`. Import JSON uses `schemaVersion: 3`; the desktop SQLite database uses `user_version=10`. Supported types have data, validation, and answering paths. This does not establish that AI extraction identifies every such question accurately in arbitrary source documents.
+This reference describes the current local implementation. Import JSON uses `schemaVersion: 3`; the desktop SQLite database uses `user_version=11`. Supported types have data, validation, and answering paths. This does not establish that AI extraction identifies every such question accurately in arbitrary source documents.
 
 The primary sources are `ParsedQuestion`, `QUESTION_KIND_MODES`, and `validate_question_tree` in [contracts.py](../server/src/practiq_ai/contracts.py), the corresponding native checks in [contract.rs](../app/src-tauri/src/contract.rs), and [schema.sql](../app/src-tauri/src/schema.sql). See [question-model.md](question-model.md) for the broader model and [question-bank-package.md](question-bank-package.md) for ZIP packaging.
 

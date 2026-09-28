@@ -1,3 +1,5 @@
+> Historical evidence: behavior, measurements and validation apply only to the dated baseline below. They are not current usage instructions or acceptance of the current release.
+
 # Performance optimization and validation (2026-09-28)
 
 Measurements compare baseline commit `0c3c020` with the accompanying optimization changes. The implementation follows audit priorities A1–A4 and the minimal solutions for B1–B5, plus removal of an unnecessary audio-reference scan when the asset table is empty. It adds no dependencies, changes no database version, and preserves durability and integrity checks. Full measurement data is in [performance-20260928.json](performance-20260928.json).

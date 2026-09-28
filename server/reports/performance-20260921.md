@@ -1,3 +1,5 @@
+> Historical evidence: behavior, measurements and validation apply only to the dated baseline below. They are not current usage instructions or acceptance of the current release.
+
 # 性能优化与合成压测记录
 
 2026-09-21；首轮基线为 `d374cc09cf2ba1cf9cb3b5d1a52eac79cfa34ba1`，首轮优化对应 `da05ded`，数据在提交前从本地工作区采集。后续 PR #39 评审修复的复测单列于下方。本次验证未部署、未调用外部模型、未访问个人题库。
