@@ -89,6 +89,28 @@
     @apply font-sans;
   }
 }
+/* Theme colors change together; individual controls must not animate inside the snapshot. */
+html.theme-changing *,
+html.theme-changing *::before,
+html.theme-changing *::after {
+  transition: none !important;
+}
+
+html.theme-transition::view-transition-group(root),
+html.theme-transition::view-transition-old(root),
+html.theme-transition::view-transition-new(root) {
+  animation-duration: 200ms;
+  animation-timing-function: ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.theme-transition::view-transition-group(root),
+  html.theme-transition::view-transition-old(root),
+  html.theme-transition::view-transition-new(root) {
+    animation: none;
+  }
+}
+
 .document-content {
   overflow-wrap: anywhere;
   line-height: 1.75;

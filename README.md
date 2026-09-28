@@ -59,6 +59,8 @@ Practice, tests, local objective scoring, and manual scoring work offline. Docum
 
 The desktop supports Simplified Chinese and English. Click **Language** above Settings to choose a language in the menu above the entry. On first launch, Chinese system languages select Simplified Chinese; other languages select English. Your choice is stored locally and included in backups. Each new AI grading request keeps the language selected when you explicitly start it, including when checking that request again. Switching language does not call a model or translate imported content or existing grading feedback.
 
+Choose **Theme → System / Light / Dark** in the sidebar. The app applies your locally saved choice before rendering its interface. Manual light/dark changes use a short fade when supported; startup, system changes, and reduced-motion preferences switch immediately. Theme preferences are not included in study-data backups.
+
 ## 📄 Import documents and review results
 
 Open **Import** in the desktop sidebar. After configuring a model, choose **Choose a document to parse**, select one or more source files, and confirm parsing for each file. Matching file content prompts you to open the existing task or explicitly parse again, which may incur another charge. Saved tasks and results remain readable without model credentials; new parsing and AI grading require a configured model.

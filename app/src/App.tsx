@@ -1,7 +1,7 @@
 import { questionKinds } from "./english";
 import type { ImportTaskContext } from "./ai-api";
 import { date, duration, message, renderMessage, type Message, t, useI18n } from "./i18n";
-import { useTheme } from "./theme";
+import { useTheme, type ThemeState } from "./theme";
 import { SessionProgress } from "./SessionProgress";
 import logo from "../src-tauri/icons/icon.png";
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, type ComponentProps } from "react";
@@ -108,9 +108,9 @@ function SidebarButton({ collapsed, label, children, className = "", ...props }:
     </Tooltip.Root>
   );
 }
-export default function App() {
+export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}) {
   const language = useI18n();
-  const theme = useTheme();
+  const theme = useTheme(initialTheme);
   const [themeOpen, setThemeOpen] = useState(false);
   const themeTrigger = useRef<HTMLButtonElement>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -366,9 +366,9 @@ export default function App() {
                   {theme.error ? <CircleAlert /> : <Palette />}
                 </SidebarButton>
               </DropdownMenuTrigger>
-              <DropdownMenuContent side="top" align="start" sideOffset={8} className="min-w-40" aria-label={t("主题")} onCloseAutoFocus={event => { event.preventDefault(); themeTrigger.current?.focus(); }}>
+              <DropdownMenuContent side="top" align="start" sideOffset={8} className="min-w-40" aria-label={t("主题")} onCloseAutoFocus={event => { event.preventDefault(); themeTrigger.current?.focus(); theme.applyPending(); }}>
                 <DropdownMenuRadioGroup value={theme.theme}>
-                  {([{ value: "system", label: "跟随系统" }, { value: "light", label: "白天" }, { value: "dark", label: "黑夜" }] as const).map(({ value, label }) => <DropdownMenuRadioItem key={value} value={value} onSelect={event => { event.preventDefault(); if (theme.change(value)) setThemeOpen(false); }}>{t(label)}</DropdownMenuRadioItem>)}
+                  {([{ value: "system", label: "跟随系统" }, { value: "light", label: "白天" }, { value: "dark", label: "黑夜" }] as const).map(({ value, label }) => <DropdownMenuRadioItem key={value} value={value} onSelect={event => { event.preventDefault(); if (theme.change(value, true)) setThemeOpen(false); }}>{t(label)}</DropdownMenuRadioItem>)}
                 </DropdownMenuRadioGroup>
                 {theme.error != null && <div role="alert" className="p-2 text-xs text-destructive"><p>{t("主题设置失败，请重试")}</p><p>{errorMessage(theme.error)}</p></div>}
               </DropdownMenuContent>
