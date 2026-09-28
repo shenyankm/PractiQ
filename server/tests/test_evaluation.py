@@ -15,6 +15,7 @@ from langchain_core.outputs import ChatGeneration, ChatResult, LLMResult
 from pydantic import Field
 
 from practiq_ai.contracts import (
+    DocumentParseResult,
     DocumentReference,
     DocumentUploadResponse,
     document_source_key,
@@ -193,6 +194,61 @@ def test_status_error_and_critical_gates() -> None:
     case["critical"] = True
     record = case_record(case, {"questions": []})
     assert "CRITICAL_CASE_FAILED:sample:1" in ev.summarize([record])["gateReasons"]
+
+
+@pytest.mark.parametrize("change", [
+    lambda qs: qs[0]["passage"][0].update(textValue="Entirely unrelated material."),
+    lambda qs: qs[1].update(parentId="c"),
+    lambda qs: qs[3].update(optionSourceId="c"),
+    lambda qs: qs[2]["passage"][1].update(questionId="w2"),
+    lambda qs: qs[2]["options"][0].update(content="black"),
+    lambda qs: qs[2].update(allowReuse=True),
+    lambda qs: qs[7]["items"][0].update(content="Three"),
+    lambda qs: qs[0].update(answerMode="cloze"),
+    lambda qs: qs.pop(0),
+    lambda qs: qs.append({**deepcopy(qs[0]), "id": "extra", "stem": "Extra material"}),
+], ids=["passage", "parent", "options-owner", "blank", "shared-options", "reuse", "items", "parent-mode", "missing-parent", "extra-parent"])
+def test_structure_errors_fail_noncritical_cases_even_when_averaged_out(change) -> None:
+    case = next(case for case in ev.load_manifest(Path("evals/cases.json"))["cases"] if case["id"] == "text-composites")
+    assert case["critical"]
+    case["critical"] = False
+    questions = deepcopy(case["expectedQuestions"])
+    change(questions)
+    record = case_record(case, {"questions": questions})
+    clean = case_record(case)
+    summary = ev.summarize([record, *[deepcopy(clean) for _ in range(100)]])
+    assert record["qualityPassed"] is False
+    assert summary["documentParser"]["structureAccuracy"] > 90
+    assert summary["status"] == "FAILED"
+    assert "STRUCTURE_MISMATCH:text-composites:1" in summary["gateReasons"]
+    assert "CRITICAL_CASE_FAILED:text-composites:1" not in summary["gateReasons"]
+    assert summary["slices"]["answerMode"]["reading"]["structureAccuracy"] is not None
+
+
+def test_structure_scoring_uses_matched_ids_and_includes_idless_material() -> None:
+    case = next(case for case in ev.load_manifest(Path("evals/cases.json"))["cases"] if case["id"] == "text-composites")
+    questions = [{key: deepcopy(value) for key, value in q.items() if key not in {"stemAliases", "answerAliases", "expectedMissingFields", "expectedNeedsReview"}} for q in case["expectedQuestions"]]
+    for q in questions:
+        for key in ("id", "parentId", "optionSourceId"):
+            if q.get(key):
+                q[key] = "parsed-" + q[key]
+        for block in q["passage"]:
+            if block.get("questionId"):
+                block["questionId"] = "parsed-" + block["questionId"]
+    result = DocumentParseResult.model_validate({"schemaVersion": 3, "questions": questions, "groups": [], "visualElements": [], "warnings": [], "confidenceScore": 100}).model_dump(mode="json")
+    summary = ev.summarize([case_record(case, result)])
+    assert summary["status"] == "PASSED"
+    assert summary["documentParser"]["structureAccuracy"] == 100
+    assert summary["slices"]["answerMode"]["reading"]["structureAccuracy"] == 100
+
+    case = gold_case()
+    case["expectedQuestions"] = [{"stem": "Material", "answerMode": "reading", "answerPayload": None, "passage": [{"partType": "text", "textValue": "Original"}]}]
+    result = {"questions": deepcopy(case["expectedQuestions"])}
+    result["questions"][0]["passage"][0]["textValue"] = "Unrelated"
+    record = case_record(case, result)
+    assert ev.summarize([record])["status"] == "FAILED"
+    assert record["score"]["fieldMismatches"] == 1
+    assert record["score"]["questions"][0]["expected"]["structure"]["passage"][0]["textValue"] == "Original"
 
 
 def test_usage_records_missing_metadata_errors_and_returned_tokens() -> None:
@@ -613,6 +669,9 @@ def test_sensitive_strings_and_old_scorers_cannot_be_published_or_compared():
     for text in ("data:image/png;base64,PRIVATE", "https://example.invalid/file?x-oss-signature=PRIVATE", "Bearer PRIVATE_TOKEN"):
         with pytest.raises(ValueError, match="credential-bearing"):
             ev.ensure_public_report({"description": text})
-    old = report_with()
-    old["scorerVersion"] = "2.0.0"
-    assert ev.compare_reports(old, report_with())["status"] == "BLOCKED"
+    for version in ("2.0.0", "4.0.0"):
+        old = report_with()
+        old["scorerVersion"] = version
+        comparison = ev.compare_reports(old, report_with())
+        assert comparison["status"] == "BLOCKED"
+        assert comparison["gateReasons"] == ["INVALID_SCORER_VERSION"]
