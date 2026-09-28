@@ -11,13 +11,18 @@ from datetime import UTC, datetime, timedelta
 from functools import lru_cache
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
-from typing import Any
+from typing import Any, LiteralString, cast, get_args
 
 from langgraph.runtime import Runtime
 from langgraph.types import interrupt
 
 from .config import load
-from .contracts import DOCUMENT_MEDIA_TYPES, ArtifactReference, DocumentReference
+from .contracts import (
+    DOCUMENT_MEDIA_TYPES,
+    ArtifactReference,
+    DocumentReference,
+    GraphId,
+)
 from .errors import DocumentProcessingError
 from .storage import get_object_store
 
@@ -76,13 +81,19 @@ def validate_execution(execution: dict[str, Any] | None) -> None:
     remaining_ttl(execution)
 
 
-def retired_task(task: Any) -> bool:
-    return task['document'].get('sourceType') not in DOCUMENT_MEDIA_TYPES or task['graph_id'] == 'docx_parser'
+# Use the contract's supported formats in both record reads and SQL selection.
+SUPPORTED_TASKS_SQL = cast(LiteralString, (
+    "SELECT thread_id FROM document_tasks WHERE graph_id IN ("
+    + ",".join(f"'{name}'" for name in get_args(GraphId))
+    + ") AND json_extract(document, '$.sourceType') IN ("
+    + ",".join(f"'{name}'" for name in DOCUMENT_MEDIA_TYPES)
+    + ")"
+))
 
 
 def require_supported_task(task: Any) -> None:
-    if retired_task(task):
-        raise DocumentProcessingError(409, '暂不支持 Office 文件，请转为 PDF 后重新导入', 'WORD_FORMAT_REMOVED')
+    if task['graph_id'] not in get_args(GraphId) or task['document'].get('sourceType') not in DOCUMENT_MEDIA_TYPES:
+        raise DocumentProcessingError(409, 'This task format is not supported; create a new task from a supported document', 'TASK_FORMAT_UNSUPPORTED')
 
 
 async def preflight(values: dict[str, Any]) -> None:
@@ -90,7 +101,7 @@ async def preflight(values: dict[str, Any]) -> None:
     store = await asyncio.to_thread(get_object_store)
     # Check the source and pending inputs, including outputs needed by assemble/merge.
     await store.get_verified(DocumentReference.model_validate(values['document']))
-    references = [item for key in ('pageRefs', 'embeddedRefs', 'chunkRefs') for item in values.get(key, [])]
+    references = [item for key in ('pageRefs', 'chunkRefs') for item in values.get(key, [])]
     if values.get('textRef'):
         references.append(values['textRef'])
     seen: set[str] = set()

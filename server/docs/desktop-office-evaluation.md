@@ -1,5 +1,7 @@
 # 本机 LibreOffice 接入评估（2026-09-28）
 
+> 以下为内置重构前的历史评估。当前版本改为随包提供 LibreOffice；此处原体积、系统安装发现和临时挂载结果不代表新包验收。新验证见下方追加记录。
+
 > Archived evaluation of the initial implementation at `730a381`. Review fixes and their current validation are recorded in [PR #70](https://github.com/shenyankm/PractiQ/pull/70); the measurements below describe the original build.
 
 已接入桌面原生选文件、LibreOffice 检测、独立导出和确认后 AI 导入。独立服务的上传类型与解析图不变。当前场景无需引入 `python-docx`、`openpyxl` 或 Python UNO；相对现有版本，可以直接删除的大依赖为 **0**。
@@ -65,3 +67,28 @@
 自动回归还覆盖冻结程序启动外部 Office 时的库搜索路径还原、无安装、组件缺失、Windows 注册表与空格路径、损坏/加密容器拒绝、文件数量与体积上限、符号链接、输出缺失、超时、取消/父进程退出及临时快照清理；前端无法指定可执行路径/文档路径，备份不能授权程序。分表请求先落盘，断线后沿用请求 ID 恢复；未确认请求阻止重复导入，重新解析保留来源关联。原 PDF/TXT/CSV 导入、旧任务读取、备份和恢复机制继续通过现有回归。
 
 三平台 CI 已配置安装测试用 LibreOffice；Linux/Windows 额外准备中文测试字体，并检查打包程序的实际转换；**本次没有运行远端 Windows/Linux/macOS CI**。Windows/Linux 真机行为、系统原生文件/保存对话框、平台凭据交互和更多真实用户文档仍需人工验收。本次未调用真实模型，不能据此声明 AI 提取准确率。
+
+
+## 内置重构后的 macOS 验证（2026-09-28）
+
+改为官方 LibreOffice 26.8.0（实际版本 26.8.0.3），运行资源仅来自安装包。下载锁覆盖 macOS arm64/x86_64、Windows x86_64 和 Linux x86_64；本次实际构建、执行的是 macOS arm64，未安装系统 LibreOffice。
+
+- `make verify`：670 通过、2 个 Windows 专用测试跳过；Ruff、Pyright、22 个评估夹具、恢复探针和 Python 包构建通过，总覆盖率 92%。
+- 桌面检查：213 个前端测试、125 个 Rust 测试通过（2 个原有忽略项），TypeScript、ESLint、Clippy 与共享契约检查通过；最后的 Office Rust 回归 8/8 通过。
+- 中英文浏览器检查通过，确认无外部程序选择或下载入口，未配置模型仍可独立导出。
+- 超时与取消由 Python/Rust 回归覆盖；未把超时注入到真实 LibreOffice 最终包中。
+- 最终 `.app` 的私有 worker：DOC/DOCX/XLS/XLSX 两种模式共 8/8 通过；含中文与空格的迁移目录、只读资源通过；两个外链探针共 0 个请求。报告为 `server/reports/checks/office.json`。
+- 在 macOS sandbox 拒绝所有入站/出站 IP 网络（保留本机 Unix socket）的条件下，DOCX/XLSX 的 PDF/文本四种组合通过，转换前后全部 Office 资源哈希相同且签名仍有效。报告为 `server/reports/checks/office-offline.json`，没有真实模型调用。
+- 通用安装包检查通过，合成模型测试及只读重启行为正常。使用原生目录复制保留 LibreOffice 框架符号链接后，内置 LibreOffice 的 `codesign --verify --deep --strict` 通过。禁用其嵌入 Python 的字节码写入，避免可写安装目录里的缓存修改破坏签名。
+
+普通文件逻辑体积（不重复计算符号链接）：
+
+| 项目 | 字节 | MiB |
+| --- | ---: | ---: |
+| LibreOffice 资源净增加 | 801,662,388 | 764.52 |
+| 完整 PractiQ.app | 931,385,365 | 888.24 |
+| DMG | 360,992,576 | 344.27 |
+
+历史未内置 DMG 的 63,454,777 B 不是同条件基准，不能据此声称精确压缩增量。当前保持完整 LibreOffice 运行目录，没有做组件裁剪。
+
+Windows/Linux CI 已改为验证安装包内置资源并取消系统 LibreOffice 安装步骤，但本次未推送或运行远端 CI，不能声称其包已通过运行验收。尚未执行 Developer ID 发布签名或 Apple 公证；上游内置程序签名通过不等于整个 PractiQ 发布签名通过。旧 DOC 分式保真限制仍然存在。

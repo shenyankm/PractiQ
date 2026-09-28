@@ -38,6 +38,6 @@ Limits are 300 MiB per ZIP, 32 MiB per JSON file, 25 MiB per image or audio file
 
 Regenerate development samples with `python3 app/scripts/package-fixtures.py`. Their hand-written content does not establish live-model quality.
 
-Listening parent questions store audio references in `audioRef`, supporting audio/mpeg, audio/mp4, audio/aac, and audio/wav. Images and audio share the package and expanded-size budgets. The current ZIP version is 2, backup version is 4, and desktop directory is v3. Older versions are explicitly rejected; old directories remain intact. Reparse source documents or generate new-format banks.
+Listening parent questions store audio references in `audioRef`, supporting audio/mpeg, audio/mp4, audio/aac, and audio/wav. Images and audio share the package and expanded-size budgets. The current ZIP version is 2, backup container version is 4 with schemaVersion 11, and the desktop directory is v4. Older versions are explicitly rejected; old directories remain intact. Reparse source documents or generate new-format banks.
 
 Initial listening-audio validation requires macOS `afinfo`. Windows and Linux currently do not support importing, exporting, or restoring banks with audio.

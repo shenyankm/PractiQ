@@ -120,12 +120,45 @@ def check_external_links(engine: str, version: str, bundle: Path | None, fixture
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument('--engine')
-    parser.add_argument('--bundle', type=Path)
+    parser.add_argument('--bundle', type=Path, default=ROOT/'app/src-tauri/bundled')
     parser.add_argument('--generate-fixtures', action='store_true')
+    parser.add_argument('--isolated', action='store_true', help='Test a relocated copy with read-only POSIX resources')
     parser.add_argument('--output', type=Path, default=ROOT/'server/reports/checks/office.json')
     args = parser.parse_args()
-    status = call_worker(args.bundle, {'type':'detect','preferred':args.engine}) if args.bundle else office.detect(args.engine)
+    from bundle_office import checksum, validate
+    if args.isolated:
+        import stat
+        with tempfile.TemporaryDirectory(prefix='practiq 中文 Program Files ') as temporary:
+            relocated = Path(temporary) / 'bundled'
+            shutil.copytree(args.bundle, relocated, symlinks=True)
+            def fingerprints():
+                return {str(p.relative_to(relocated)): checksum(p) for p in relocated.rglob('*') if p.is_file() and not p.is_symlink()}
+            before = fingerprints()
+            paths = [p for p in relocated.rglob('*') if not p.is_symlink()] + [relocated]
+            command = [sys.executable, __file__, '--bundle', str(relocated), '--output', str(args.output.resolve())]
+            try:
+                # Writable installs must remain immutable too: embedded Python caches break signatures.
+                subprocess.run(command, check=True)
+                assert fingerprints() == before, 'Conversion modified bundled resources'
+                if os.name != 'nt':
+                    for path in paths:
+                        path.chmod(stat.S_IMODE(path.stat().st_mode) & ~0o222)
+                    subprocess.run(command, check=True)
+                    assert fingerprints() == before, 'Conversion modified read-only resources'
+                if sys.platform == 'darwin':
+                    subprocess.run(['codesign', '--verify', '--deep', '--strict', str(relocated/'office/LibreOffice.app')], check=True)
+                report = json.loads(args.output.read_text(encoding='utf-8'))
+                report['relocation'] = {'unicodeAndSpaces': True, 'readOnlyResources': os.name != 'nt', 'writableResourcesUnchanged': True}
+                args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+            finally:
+                if os.name != 'nt':
+                    for path in reversed(paths):
+                        path.chmod(stat.S_IMODE(path.stat().st_mode) | stat.S_IWUSR)
+        return
+    manifest = validate(args.bundle)
+    engine = (args.bundle / 'office' / manifest['executable']).resolve()
+    status = call_worker(args.bundle, {'type':'detect','engine':str(engine)})
+    assert Path(status['path']).resolve() == engine
     assert all(status['capabilities'].values()), status
     fixture_dir = ROOT/'app/fixtures/office'
     if args.generate_fixtures:

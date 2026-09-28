@@ -15,15 +15,17 @@ it("exports locally without model settings and shows the output", async () => {
   expect(office).toHaveBeenCalledExactlyOnceWith({type:"convert",mode:"pdf"});
 });
 
-it("shows installation and partial capabilities without assuming installed means usable", async () => {
+it("checks bundled capabilities without external executable controls", async () => {
   vi.mocked(office).mockResolvedValue({path:"/opt/soffice",version:"LibreOffice 26.2",capabilities:{writer_pdf:true,writer_text:true,calc_pdf:false,calc_text:false},errors:{}});
   render(<OfficeTools mode="pdf" onMode={vi.fn()} busy={false}/>);
-  fireEvent.click(screen.getByRole("button", {name:"检测 LibreOffice"}));
+  fireEvent.click(screen.getByRole("button", {name:"检查转换组件"}));
   expect(await screen.findByText("LibreOffice 26.2")).toBeTruthy();
   expect(screen.getByText("Excel → 分表 CSV：不可用")).toBeTruthy();
+  expect(screen.queryByText("/opt/soffice")).toBeNull();
+  for (const name of ["下载 LibreOffice", "选择程序位置", "恢复自动查找"]) expect(screen.queryByRole("button", {name})).toBeNull();
   vi.mocked(office).mockResolvedValue({path:null,version:null,capabilities:{writer_pdf:false,writer_text:false,calc_pdf:false,calc_text:false},errors:{}});
-  fireEvent.click(screen.getByRole("button", {name:"恢复自动查找"}));
-  expect(await screen.findByText("未找到可用的 LibreOffice，请安装或选择程序位置。")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", {name:"检查转换组件"}));
+  expect(await screen.findByText("内置转换组件缺失或损坏，请重新安装 PractiQ。")).toBeTruthy();
 });
 
 it("warns about hidden sheets and cancels an in-flight local conversion", async () => {

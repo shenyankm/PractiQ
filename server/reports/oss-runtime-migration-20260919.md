@@ -1,3 +1,5 @@
+> Historical evidence: behavior, measurements and validation apply only to the dated baseline below. They are not current usage instructions or acceptance of the current release.
+
 # 开源 LangGraph 运行时迁移验收（2026-09-19）
 
 已用 FastAPI + 开源 LangGraph + PostgreSQL 替换官方 Agent Server。仅文档业务 API，单实例单进程；无需商业 Agent Server 运行包、Redis 或许可证。未部署、提交或推送。

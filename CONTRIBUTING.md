@@ -42,6 +42,18 @@ PRs still build and validate installers but upload only coverage and package dia
 
 Automated checks use model substitutes; they do not establish extraction or grading accuracy. See the [evaluation guide](server/docs/evaluation.md) for live-model checks. Browser checks mock native commands. Validate affected native interactions, credential storage, and audio playback on the target OS using isolated test data. Report untested platforms and flows in the pull request.
 
+## Release verification
+
+Record evidence for the final release candidate before publication:
+
+- [ ] Confirm the version, date, download URL, and signing/notarization status.
+- [ ] Run the service, desktop, browser, and package checks listed above for that candidate.
+- [ ] Verify installation, sample import, practice, submission, and backup restore on a clean target system.
+- [ ] Capture an app walkthrough or screenshots of import, practice, and score review.
+- [ ] Record live-model parsing and grading examples, failures, and consented user feedback.
+
+Report validation separately for macOS, Windows, and Linux. CI, model substitutes, hand-written samples, and historical reports do not establish clean-machine acceptance or live-model accuracy. Keep unchecked items explicit; AI grading remains a personal-practice aid and requires a reference answer or rubric.
+
 ## Submit a pull request
 
 Use Conventional Commits for commit messages and pull request titles, following [AGENTS.md](AGENTS.md#commit-conventions), for example `fix(server): reject oversized image payloads`.

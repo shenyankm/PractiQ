@@ -1,3 +1,5 @@
+> Historical evidence: behavior, measurements and validation apply only to the dated baseline below. They are not current usage instructions or acceptance of the current release.
+
 # 性能、体积与代码复用优化
 
 2026-09-25，基线为 `2c3435e`，优化结果在提交前从本地工作区采集。原始数值与安装包检查结果见 [performance-20260925.json](performance-20260925.json)。未调用真实模型，未使用个人题库；报告不代表发布或真实模型验收。

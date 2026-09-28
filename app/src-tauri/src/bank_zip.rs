@@ -568,24 +568,15 @@ mod tests {
         assert!(store.banks().unwrap().as_array().unwrap().is_empty());
     }
     #[test]
-    fn imports_into_existing_database_with_early_schema_nine_layout() {
+    fn startup_rejects_early_import_layout_without_changing_it() {
         let dir = tempfile::tempdir().unwrap();
-        let mut s = Store::new(dir.path().into()).unwrap();
-        s.connect()
-            .unwrap()
-            .execute_batch("ALTER TABLE imports ADD COLUMN raw TEXT NOT NULL DEFAULT ''; DROP INDEX visuals_bank; ALTER TABLE visuals DROP COLUMN document_level;")
-            .unwrap();
-        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../fixtures/sample.zip");
-        let p = s.preview_bank_zip(&path).unwrap();
-        let bank = s.import(text(&p, "ticket"), None, "Legacy").unwrap();
-        assert_eq!(bank["count"], 9);
-        assert_eq!(
-            s.connect()
-                .unwrap()
-                .query_row("SELECT raw FROM imports", [], |r| r.get::<_, String>(0))
-                .unwrap(),
-            ""
-        );
+        let store = Store::new(dir.path().into()).unwrap();
+        let path = store.db_path();
+        store.connect().unwrap().execute_batch("ALTER TABLE imports ADD COLUMN raw TEXT NOT NULL DEFAULT ''; DROP INDEX visuals_bank; ALTER TABLE visuals DROP COLUMN document_level;").unwrap();
+        drop(store);
+        let before = fs::read(&path).unwrap();
+        assert!(Store::new(dir.path().into()).is_err());
+        assert_eq!(fs::read(&path).unwrap(), before);
     }
     #[test]
     fn composite_roundtrip_preserves_contract_and_reference_graph() {

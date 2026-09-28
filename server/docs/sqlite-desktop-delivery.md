@@ -1,17 +1,8 @@
-# SQLite and macOS desktop delivery record
+> Historical evidence: behavior, measurements and validation apply only to the dated baseline below. They are not current usage instructions or acceptance of the current release.
 
-> Historical report: results, package sizes, hashes, and dependency descriptions apply to the version tested at the time. The current service rejects raw Office uploads; the desktop converts them with locally installed LibreOffice without bundling the suite. The Import page manages AI parsing tasks; bank ZIP import is under Settings → Restore backup. See the [project overview](../../README.md) and [service guide](service-guide.md) for current usage. Historical evidence does not establish acceptance of the current version.
+# SQLite and macOS desktop validation — 2026-09-19
 
-Validation date: 2026-09-19. Target: Apple Silicon macOS. The local system was macOS 27.0; the app declared macOS 14 as its minimum, but that version had not been tested. Nothing was committed, pushed, or published. Existing workspace changes and old PostgreSQL data were preserved.
-
-## Scope
-
-- Replaced the task queue with aiosqlite and used the official SQLite checkpoint and Store implementations, in three separate database files. All service connections use WAL, FULL synchronization, foreign keys, and a five-second busy timeout. The service and offline maintenance share an exclusive flock lock. Idempotency, run constraints, budgets, expiry, and recovery semantics remain intact.
-- The standalone service uses `AI_DATABASE_DIR` for local data and requires explicit `init-db`; the desktop initializes its dedicated directory automatically. Old `DATABASE_URI` configuration fails explicitly, without migrating or deleting old data. Interrupted initialization can retry; unknown databases and versions are rejected.
-- Rust manages a PyInstaller onedir service at a fixed resource path, passing a random token and Keychain credentials through private stdin. Python binds a random loopback port. The WebView uses only typed commands. App exit or parent disappearance triggers shutdown; isolated extraction subprocesses exit when their pipes close.
-- Added desktop dual-model settings, document selection, paginated tasks, stage/completion counts, failure details, usage, pause/resume/interrupt/retry/partial-result acceptance, and reuse of the bank-import preview. Configuration changes stop the old service. Incompatible execution signatures prevent resume. Tasks wait for explicit resume after restart.
-- Migrated desktop BLOB images individually to SHA-256 files, writing and syncing before committing database references and retaining an upgrade-recovery copy first. Images are copied from AI storage into bank storage, so practice snapshots do not depend on AI retention. ZIP v2 includes a manifest, database, and images, retains v1 restore support, and excludes AI tasks, source documents, checkpoints, and Keychain credentials.
-- Removed Excel source parsing, worksheet graphs, contract routes, evaluation samples, and openpyxl as requested. XLS/XLSX uploads return 422, and file pickers no longer offer them. Deprecated worksheet-association fields in old JSON/backups are ignored only during desktop reads; they do not enable parsing. Historical acceptance records remain with scope notices.
+Validation date: 2026-09-19. Target: Apple Silicon macOS. The local system was macOS 27.0; the app declared macOS 14 as its minimum, but that version had not been tested. The checks used isolated data.
 
 ## Packaging
 
@@ -58,7 +49,7 @@ The baseline was an isolated git archive of `cf0b1768b51ab79ac56fac1cc6cc8f75ea0
 
 Full per-round data was recorded in `../reports/checks/sqlite-comparison.json`. Health checks used in-process ASGI requests. PostgreSQL used a Docker port while SQLite accessed local files directly, so topology differed. These results describe only a local synthetic short-text workload, not real-model throughput, long-document capacity, or a production SLO.
 
-To reproduce one round, install the matching dependencies in the corresponding source tree, point `PYTHONPATH` at that version's `server/src` and `server`, and run the current `server/scripts/benchmark_runtime.py --output /absolute/result.json`. The PostgreSQL baseline also requires `TEST_DATABASE_URI` pointing to a dedicated disposable instance. Current SQLite creates temporary databases automatically. Never point this check at a business database.
+To reproduce one round, install the matching dependencies in the corresponding source tree, point `PYTHONPATH` at that version's `server/src` and `server`, and run that revision's `server/scripts/benchmark_runtime.py --output /absolute/result.json`. The PostgreSQL baseline also requires `TEST_DATABASE_URI` pointing to a dedicated disposable instance. The SQLite benchmark creates temporary databases automatically. Never point this check at a business database.
 
 ## Local build artifacts
 

@@ -809,7 +809,7 @@ PROBE_TESTS = {
     },
     "correctStopRate": {
         "test_page_rendering": ["test_missing_vision_fails_before_read_or_render"],
-        "test_runtime": ["test_retired_word_tasks_remain_readable_but_never_run"],
+        "test_runtime": ["test_unsupported_tasks_are_unchanged_and_do_not_block_current_work"],
         "test_workflows": ["test_document_integrity_fails_before_model_call", "test_structured_call_does_not_retry_permanent_errors"],
         "test_task_execution": ["test_store_failure_stops_model_calls", "test_retry_limits_shared_by_native_input_and_review"],
         "test_structured_output": ["test_corrections_keep_only_latest_output_and_stop_on_identical_failure"],

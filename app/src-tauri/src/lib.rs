@@ -386,6 +386,8 @@ async fn office_request(
     .await
     .map_err(|e| AppError::from(e.to_string()))?
 }
+pub(crate) const DATA_DIRECTORY: &str = "v4";
+
 pub fn run() {
     tauri::Builder::default()
         .manage(ai::AiState::new(None))
@@ -399,7 +401,7 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
-            let dir = app.path().app_data_dir()?.join("v3");
+            let dir = app.path().app_data_dir()?.join(DATA_DIRECTORY);
             app.manage(Arc::new(Mutex::new(
                 Store::new(dir).map_err(std::io::Error::other)?,
             )));

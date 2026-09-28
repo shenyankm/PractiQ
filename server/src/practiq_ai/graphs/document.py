@@ -269,7 +269,6 @@ class DocumentState(TypedDict):
     visualTotal: NotRequired[int]
     textRef: NotRequired[dict[str, Any] | None]
     pageRefs: NotRequired[list[dict[str, Any]]]
-    embeddedRefs: NotRequired[list[dict[str, Any]]]  # Retain historical checkpoint reads.
     visionResults: NotRequired[Annotated[list[dict[str, Any]], merge_records]]
     chunkRefs: NotRequired[list[dict[str, Any]]]
     chunkSpans: NotRequired[list[ChunkSpan]]

@@ -17,10 +17,10 @@ export function OfficeTools({ mode, onMode, busy, onBusy }: { mode: OfficeMode; 
     return () => { mounted.current = false; };
   }, []);
   useEffect(() => { onBusy?.(working); return () => onBusy?.(false); }, [working, onBusy]);
-  async function detect(type: "status" | "pick_executable" | "reset_executable") {
+  async function detect() {
     setWorking(true); setError(null);
     try {
-      const result = await office({ type });
+      const result = await office({ type: "status" });
       if (mounted.current && result) setStatus(result);
     } catch (e) { if (mounted.current) setError(e); }
     finally { if (mounted.current) setWorking(false); }
@@ -37,16 +37,13 @@ export function OfficeTools({ mode, onMode, busy, onBusy }: { mode: OfficeMode; 
     ["writer_pdf", t("Word → PDF")], ["writer_text", t("Word → TXT")],
     ["calc_pdf", t("Excel → PDF")], ["calc_text", t("Excel → 分表 CSV")],
   ] as const;
-  return <section aria-label={t("本机 LibreOffice")} className="space-y-3 rounded-lg border p-4 text-sm">
+  return <section aria-label={t("内置文档转换")} className="space-y-3 rounded-lg border p-4 text-sm">
     <div className="flex flex-wrap items-center gap-2">
-      <span className="font-medium">{t("本机 LibreOffice")}</span>
-      <Button size="sm" variant="outline" disabled={working || busy} onClick={() => void detect("status")}>{t("检测 LibreOffice")}</Button>
-      <Button size="sm" variant="ghost" disabled={working || busy} onClick={() => void detect("pick_executable")}>{t("选择程序位置")}</Button>
-      <Button size="sm" variant="ghost" disabled={working || busy} onClick={() => void detect("reset_executable")}>{t("恢复自动查找")}</Button>
-      <Button size="sm" variant="link" onClick={() => { void office({ type: "installation_guide" }).catch(setError); }}>{t("下载 LibreOffice")}</Button>
+      <span className="font-medium">{t("内置文档转换")}</span>
+      <Button size="sm" variant="outline" disabled={working || busy} onClick={() => void detect()}>{t("检查转换组件")}</Button>
     </div>
-    <p className="text-muted-foreground">{status ? status.path ? status.version : t("未找到可用的 LibreOffice，请安装或选择程序位置。") : t("首次转换时会自动检测；也可先检查本机安装。")}</p>
-    {status?.path && <><p className="break-all text-muted-foreground">{status.path}</p><ul className="flex flex-wrap gap-3">{capabilities.map(([key, label]) => <li key={key}>{label}：{status.capabilities[key] ? t("可用") : t("不可用")}</li>)}</ul></>}
+    <p className="text-muted-foreground">{status ? status.path ? status.version : t("内置转换组件缺失或损坏，请重新安装 PractiQ。") : t("转换组件随应用提供，无需另行安装；首次转换时会自动检查。")}</p>
+    {status?.path && <><ul className="flex flex-wrap gap-3">{capabilities.map(([key, label]) => <li key={key}>{label}：{status.capabilities[key] ? t("可用") : t("不可用")}</li>)}</ul></>}
     <div className="flex flex-wrap items-center gap-3">
       <label htmlFor="office-mode">{t("Word / Excel 处理方式")}</label>
       <NativeSelect id="office-mode" value={mode} disabled={busy || working} onChange={e => onMode(e.target.value as OfficeMode)}>

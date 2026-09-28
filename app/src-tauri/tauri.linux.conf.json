@@ -1,9 +1,32 @@
 {
   "bundle": {
-    "targets": ["deb"],
+    "targets": [
+      "deb"
+    ],
     "linux": {
       "deb": {
-        "depends": ["libdbus-1-3", "gstreamer1.0-plugins-good", "gstreamer1.0-plugins-bad", "gstreamer1.0-libav"]
+        "depends": [
+          "libdbus-1-3",
+          "gstreamer1.0-plugins-good",
+          "gstreamer1.0-plugins-bad",
+          "gstreamer1.0-libav",
+          "libc6",
+          "libstdc++6",
+          "libgcc-s1",
+          "libx11-6",
+          "libxinerama1",
+          "libcairo2",
+          "libcups2",
+          "libfontconfig1",
+          "libfreetype6",
+          "libsm6",
+          "libice6",
+          "libxext6",
+          "libxrender1"
+        ],
+        "files": {
+          "/usr/lib/PractiQ/bundled/office": "bundled/office"
+        }
       }
     }
   }

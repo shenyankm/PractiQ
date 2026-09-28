@@ -492,43 +492,6 @@ mod tests {
         assert!(!fields.iter().any(|s| s.contains("key")));
     }
     #[test]
-    fn removes_oss_settings_from_existing_databases_and_backups() {
-        let dir = tempfile::tempdir().unwrap();
-        let store = Store::new(dir.path().join("source")).unwrap();
-        let has_oss = |db: &rusqlite::Connection| {
-            db.query_row(
-                "SELECT EXISTS(SELECT 1 FROM pragma_table_info('settings') WHERE name='oss_url')",
-                [],
-                |row| row.get::<_, bool>(0),
-            )
-            .unwrap()
-        };
-        assert!(!has_oss(&store.connect().unwrap()));
-        // Recreate the historical schema, including its original column order.
-        let db = rusqlite::Connection::open(store.db_path()).unwrap();
-        db.execute_batch(
-            "DROP TABLE settings;
-             CREATE TABLE settings(id INTEGER PRIMARY KEY CHECK(id=1),base_url TEXT,model_id TEXT,oss_url TEXT,locale TEXT CHECK(locale IS NULL OR locale IN('zh-CN','en')), libreoffice_path TEXT);
-             INSERT INTO settings VALUES(1,NULL,'demo','https://bucket.example.com','en',NULL);",
-        )
-        .unwrap();
-        drop(db);
-        assert!(!has_oss(&store.connect().unwrap()));
-        assert_eq!(
-            store.connection_settings().unwrap().model_id.as_deref(),
-            Some("demo")
-        );
-        let archive = dir.path().join("backup.zip");
-        store.backup(&archive).unwrap();
-        let mut restored = Store::new(dir.path().join("restored")).unwrap();
-        restored.restore(&archive).unwrap();
-        assert!(!has_oss(&restored.connect().unwrap()));
-        assert_eq!(
-            restored.connection_settings().unwrap().model_id.as_deref(),
-            Some("demo")
-        );
-    }
-    #[test]
     #[ignore = "uses an isolated native credential entry; run explicitly on the target OS"]
     fn native_keychain_roundtrip() {
         #[cfg(target_os = "macos")]

@@ -1,3 +1,5 @@
+> Historical evidence: behavior, measurements and validation apply only to the dated baseline below. They are not current usage instructions or acceptance of the current release.
+
 # Closed PR review follow-up
 
 This change addresses the 44 applicable suggestions from the 2026-09-21 audit of closed PRs against `8116674`. The 26 suggestions about retired architecture and two already-fixed items need no implementation. GitHub discussion resolution is separate from this code change.

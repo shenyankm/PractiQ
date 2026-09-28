@@ -12,7 +12,13 @@ from langgraph.types import Command
 from .config import load, require_model_config
 from .database import Database, utcnow, watch_ownership
 from .errors import DocumentProcessingError
-from .execution import namespace, preflight, remaining_ttl, require_supported_task
+from .execution import (
+    SUPPORTED_TASKS_SQL,
+    namespace,
+    preflight,
+    remaining_ttl,
+    require_supported_task,
+)
 from .graphs.document import build_document_graph
 
 current: Service | None = None
@@ -45,16 +51,16 @@ class Service:
                            for name, types in GRAPH_FORMATS.items()}
             # A crash can separate the final checkpoint from the queue receipt.
             # Reconcile only this run's checkpoint, without executing graph nodes.
-            for run in await self.db.rows("SELECT * FROM document_runs WHERE status IN ('pending','running','interrupted')"):
+            for run in await self.db.rows(f"SELECT * FROM document_runs WHERE thread_id IN ({SUPPORTED_TASKS_SQL}) AND status IN ('pending','running','interrupted')"):
                 task = (await self.db.rows('SELECT * FROM document_tasks WHERE thread_id=?', (run['thread_id'],)))[0]
                 snapshot = await self.snapshot(task)
                 if (saved_status := self.saved_run_status(snapshot, run)) is not None:
                     await self.finish(run['run_id'], saved_status)
             async with self.db.connection() as conn:
                 if load().desktop_mode:
-                    await conn.execute("UPDATE document_runs SET status='interrupted' WHERE status IN ('pending','running')")
+                    await conn.execute(f"UPDATE document_runs SET status='interrupted' WHERE thread_id IN ({SUPPORTED_TASKS_SQL}) AND status IN ('pending','running')")
                 else:
-                    await conn.execute("UPDATE document_runs SET status='pending' WHERE status='running'")
+                    await conn.execute(f"UPDATE document_runs SET status='pending' WHERE thread_id IN ({SUPPORTED_TASKS_SQL}) AND status='running'")
             self.accepting = True
             self.loop = asyncio.create_task(self.dispatch(), name='document-dispatch')
             self.guard_task = asyncio.create_task(self.watch_lock(), name='database-ownership')
@@ -100,9 +106,8 @@ class Service:
         await self.db.close()
 
     async def snapshot(self, task):
-        # Read retired checkpoints without restoring a Word parser.
-        graph_id = 'document_parser' if task['graph_id'] == 'docx_parser' else task['graph_id']
-        return await self.graphs[graph_id].aget_state({'configurable': {'thread_id': task['thread_id']}})
+        require_supported_task(task)
+        return await self.graphs[task['graph_id']].aget_state({'configurable': {'thread_id': task['thread_id']}})
 
     @staticmethod
     def checkpoint_id(snapshot, run=None):
@@ -124,7 +129,7 @@ class Service:
         try:
             while not self.stopping:
                 self.wake.clear()
-                rows = await self.db.rows("SELECT * FROM document_runs WHERE status IN ('pending','running') ORDER BY created_at")
+                rows = await self.db.rows(f"SELECT * FROM document_runs WHERE thread_id IN ({SUPPORTED_TASKS_SQL}) AND status IN ('pending','running') ORDER BY created_at")
                 for run in rows:
                     run_id = run['run_id']
                     if run['cancel_requested']:
@@ -163,9 +168,9 @@ class Service:
     async def execute(self, run):
         run_id = run['run_id']
         try:
-            require_model_config()
             task = (await self.db.rows('SELECT * FROM document_tasks WHERE thread_id=?', (run['thread_id'],)))[0]
             require_supported_task(task)
+            require_model_config()
             remaining_ttl({'expiresAt': task['expires_at'].isoformat()})
             graph = self.graphs[task['graph_id']]
             snapshot = await self.snapshot(task)
@@ -196,7 +201,8 @@ class Service:
             self.fatal(70)
         except Exception as exc:  # noqa: BLE001 - task boundary stores only a sanitized error code
             code = exc.code if isinstance(exc, DocumentProcessingError) else 'RUN_DEADLINE_EXCEEDED' if isinstance(exc, TimeoutError) else 'TASK_EXECUTION_FAILED'
-            await self.finish(run_id, 'error', code)
+            if code != 'TASK_FORMAT_UNSUPPORTED':
+                await self.finish(run_id, 'error', code)
         finally:
             self.active.pop(run_id, None)
             self.wake.set()

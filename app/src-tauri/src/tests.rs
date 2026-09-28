@@ -305,7 +305,7 @@ fn transactional_import_resume_snapshot_and_latest_wrong() {
     );
 }
 #[test]
-fn startup_keeps_unlinked_legacy_visuals_and_their_assets() {
+fn startup_rejects_old_visual_schema_without_collecting_assets() {
     let (dir, s) = store();
     let bank = s.save_bank(None, "legacy", "").unwrap();
     let bytes = include_bytes!("../../fixtures/rich-content/resources/chart.png");
@@ -334,16 +334,16 @@ fn startup_keeps_unlinked_legacy_visuals_and_their_assets() {
         .execute_batch("DROP INDEX visuals_bank; ALTER TABLE visuals DROP COLUMN document_level; ALTER TABLE visuals ADD COLUMN document_level INTEGER NOT NULL DEFAULT 0 CHECK(document_level IN(0,1)); DROP TABLE question_reviews;")
         .unwrap();
     drop(s);
-    let reopened = Store::new(dir.path().to_owned()).unwrap();
+    let before = std::fs::read(dir.path().join("practiq.sqlite")).unwrap();
+    assert!(Store::new(dir.path().to_owned()).is_err());
     assert_eq!(
-        reopened
-            .connect()
-            .unwrap()
-            .query_row("SELECT COUNT(*) FROM visuals", [], |r| r.get::<_, i64>(0))
-            .unwrap(),
-        1
+        std::fs::read(dir.path().join("practiq.sqlite")).unwrap(),
+        before
     );
-    assert!(reopened.asset(&digest).unwrap().is_string());
+    assert_eq!(
+        std::fs::read(dir.path().join(format!("assets/{digest}"))).unwrap(),
+        bytes
+    );
 }
 
 #[test]
@@ -1761,19 +1761,33 @@ fn composite_import_paper_edit_history_and_restore() {
 }
 
 #[test]
-fn v2_storage_does_not_touch_legacy_files() {
+fn current_storage_does_not_touch_previous_directories() {
     let dir = tempfile::tempdir().unwrap();
-    for file in ["practiq.sqlite", "assets/old", "ai/database/tasks.sqlite"] {
+    for file in [
+        "practiq.sqlite",
+        "assets/old",
+        "ai/database/tasks.sqlite",
+        "v3/practiq.sqlite",
+        "v3/assets/old",
+        "v3/ai/database/tasks.sqlite",
+    ] {
         let path = dir.path().join(file);
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         std::fs::write(path, b"legacy untouched").unwrap();
     }
-    let mut current = Store::new(dir.path().join("v2")).unwrap();
+    let mut current = Store::new(dir.path().join(crate::DATA_DIRECTORY)).unwrap();
     import(&mut current);
     let backup = dir.path().join("new.zip");
     current.backup(&backup).unwrap();
     current.restore(&backup).unwrap();
-    for file in ["practiq.sqlite", "assets/old", "ai/database/tasks.sqlite"] {
+    for file in [
+        "practiq.sqlite",
+        "assets/old",
+        "ai/database/tasks.sqlite",
+        "v3/practiq.sqlite",
+        "v3/assets/old",
+        "v3/ai/database/tasks.sqlite",
+    ] {
         assert_eq!(
             std::fs::read(dir.path().join(file)).unwrap(),
             b"legacy untouched"

@@ -33,7 +33,7 @@ Export a bank from its card menu to share content without personal answers or sc
 2. Open **Import**, select source files, and confirm parsing.
 3. Review questions, images, and warnings, then create a bank or append to an existing one.
 
-Supported source files are **PDF, TXT, CSV, and PNG/JPEG**. Word and Excel files require locally installed [LibreOffice](https://www.libreoffice.org/download/download-libreoffice/) with Writer and Calc. The desktop converts them to PDF by default; local conversion/export needs no model. The standalone service does not accept Office files. See the [conversion guide](server/docs/desktop-office.md) for text export and limitations.
+Supported source files are **PDF, TXT, CSV, and PNG/JPEG**. Desktop packages include LibreOffice 26.8.0 for Word and Excel conversion; no separate installation or runtime download is required. The desktop converts them to PDF by default; local conversion/export needs no model. The standalone service does not accept Office files. See the [conversion guide](server/docs/desktop-office.md) for text export and limitations.
 
 Parsing extracts supplied answers and rubrics without solving unanswered questions. Missing content stays flagged for review. Tasks support pause, resume, retries, and partial results; import results within **180 days** to keep them. Expiry does not affect imported banks.
 
@@ -42,6 +42,8 @@ Practice and local scoring work offline. Parsing and AI grading require an expli
 API keys stay in the platform credential store. Backups exclude keys and AI task state. Timed exams keep their deadline when the app closes or the computer sleeps; reopening an expired exam submits the last saved answers.
 
 ## Run the desktop app
+
+Desktop data uses a fresh `v4/` directory and SQLite schema 11. Earlier directories, including `v3/`, remain untouched; old full backups are rejected. Current question-bank ZIP files can still be imported. See the [data format boundaries](docs/question-model.md#versions-and-directories).
 
 Desktop build targets are macOS 14+ (Apple Silicon), Windows 10/11 (x64), and Ubuntu 22.04+ (x64, `.deb`). macOS has been validated locally; Windows and Linux builds and bundled-service checks are configured in CI, with interactive desktop acceptance still required on those systems.
 
@@ -102,7 +104,7 @@ The FastAPI/LangGraph service listens on `127.0.0.1:8090`, uses SQLite and local
 - [Operations](server/docs/operations.md): deployment, storage, and recovery
 - [Evaluation](server/docs/evaluation.md): datasets, checks, and evidence limits
 - [Question model](docs/question-model.md): question types and composite question rules
-- [First-release draft](docs/first-release.md): scope and outstanding release checks
+- [Release verification](CONTRIBUTING.md#release-verification): publication checks and acceptance evidence
 - [Contributing](CONTRIBUTING.md): development checks and pull requests
 
 Run `make app-check` for desktop checks and `make verify` for the AI service. Browser checks use mocked native commands and no model calls:

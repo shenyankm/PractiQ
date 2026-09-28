@@ -7,7 +7,6 @@ import subprocess
 import sys
 import time
 import zipfile
-from contextlib import nullcontext
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -16,57 +15,34 @@ import pytest
 from practiq_ai import office
 
 
-def test_custom_application_and_path_discovery(tmp_path, monkeypatch):
-    assert office.candidates(str(tmp_path / "LibreOffice.app")) == [tmp_path / "LibreOffice.app/Contents/MacOS/soffice"]
-    executable = tmp_path / "soffice"
-    executable.touch()
-    monkeypatch.setattr(office.shutil, "which", lambda name: str(executable))
-    monkeypatch.setattr(office.sys, "platform", "darwin")
-    assert executable in office.candidates()
-    assert office.candidates(str(executable)) == [executable]
-
-
-def test_windows_registry_and_console_executable(tmp_path, monkeypatch):
-    program = tmp_path / "Program Files" / "LibreOffice" / "program"
-    program.mkdir(parents=True)
-    executable = program / "soffice.com"
-    executable.touch()
-    registry = SimpleNamespace(HKEY_CURRENT_USER=1, HKEY_LOCAL_MACHINE=2, KEY_WOW64_64KEY=4,
-                               KEY_WOW64_32KEY=8, KEY_READ=16,
-                               OpenKey=lambda *args: nullcontext(),
-                               QueryValueEx=lambda *args: (str(program), 1))
-    monkeypatch.setitem(sys.modules, "winreg", registry)
-    monkeypatch.setattr(office.sys, "platform", "win32")
-    monkeypatch.setattr(office.shutil, "which", lambda name: None)
-    assert executable in office.candidates()
-    assert office.candidates(str(program / "soffice.exe")) == [executable]
-
-
-def test_discovery_reports_no_installation_without_model_settings(monkeypatch):
+def test_missing_bundle_never_searches_system_path(tmp_path, monkeypatch):
     monkeypatch.delenv("AI_SERVICE_TOKEN", raising=False)
-    monkeypatch.setattr(office, "candidates", lambda preferred: [])
-    result = office.detect()
-    assert result["path"] is None
-    assert not any(result["capabilities"].values())
+    monkeypatch.setenv("PATH", str(tmp_path))
+    (tmp_path / "soffice").touch()
+    with pytest.raises(office.OfficeError, match="OFFICE_NOT_FOUND"):
+        office.detect(str(tmp_path / "missing"))
+    with pytest.raises(office.OfficeError, match="OFFICE_NOT_FOUND"):
+        office.detect("soffice")
 
 
-def test_discovery_verifies_each_capability_and_rejects_first_sheet_only(tmp_path, monkeypatch):
-    monkeypatch.setattr(office, "candidates", lambda preferred: [tmp_path / "missing", tmp_path / "fake", tmp_path / "soffice"])
-    def run(args, *unused):
-        if args[0].endswith("missing"):
-            raise OSError("missing")
-        return b"Not LibreOffice" if args[0].endswith("fake") else b"LibreOffice 26.2"
-    monkeypatch.setattr(office, "_run", run)
+def test_bundled_engine_verifies_capabilities_and_rejects_invalid_binary(tmp_path, monkeypatch):
+    engine = tmp_path / "中文 Program Files" / "soffice"
+    engine.parent.mkdir()
+    engine.touch()
+    monkeypatch.setattr(office, "_run", lambda *args: b"Not LibreOffice")
+    with pytest.raises(office.OfficeError, match="OFFICE_ENGINE_INVALID"):
+        office.detect(str(engine))
+    monkeypatch.setattr(office, "_run", lambda *args: b"LibreOffice 26.8.0.3")
     def export(engine, source, output, family, mode, deadline):
         if family == "writer" and mode == "pdf":
             raise office.OfficeError("OFFICE_CONVERSION_FAILED")
         return [{}]
     monkeypatch.setattr(office, "_export", export)
-    result = office.detect()
+    result = office.detect(str(engine))
     assert result["capabilities"] == {"writer_pdf": False, "writer_text": True, "calc_pdf": True, "calc_text": False}
     assert result["errors"]["calc_text"] == "OFFICE_SHEETS_UNSUPPORTED"
     monkeypatch.setattr(office, "_export", lambda *args: [{}, {}])
-    assert all(office.detect()["capabilities"].values())
+    assert all(office.detect(str(engine))["capabilities"].values())
 
 
 @pytest.mark.parametrize("mode,family,suffix", [("text", "writer", "txt"), ("text", "calc", "csv"), ("pdf", "writer", "pdf")])
@@ -146,6 +122,7 @@ def test_run_reaps_timeout_and_nonzero_exit(tmp_path, monkeypatch):
         office._run([sys.executable, "-c", "raise SystemExit(1)"], time.monotonic() + 10)
     assert not office._children
     assert b"hello" in office._run([sys.executable, "-c", "print('hello')"], time.monotonic() + 10)
+    assert office._run([sys.executable, "-c", "import sys; print(sys.dont_write_bytecode)"], time.monotonic() + 10).strip() == b"True"
     monkeypatch.setenv("LLM_API_KEY", "must-not-reach-office")
     result = office._run([sys.executable, "-c", "import os; print(os.getenv('LLM_API_KEY', 'absent'))"], time.monotonic() + 10)
     assert result.strip() == b"absent"
@@ -255,7 +232,7 @@ office.main()
     unrelated = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(120)"])
     try:
         assert worker.stdin is not None
-        worker.stdin.write(b'{"type":"detect","preferred":null}\n')
+        worker.stdin.write(b'{"type":"detect","engine":"/bundled/soffice"}\n')
         worker.stdin.flush()
         deadline = time.monotonic()+15
         while not marker.exists() and time.monotonic() < deadline:
@@ -278,7 +255,7 @@ office.main()
         unrelated.wait()
 
 
-@pytest.mark.parametrize("payload", [{}, [], {"type": "detect", "preferred": 3}, {"type": "convert", "engine": 1, "version": "x", "source": "x", "output": "y", "mode": "pdf"}])
+@pytest.mark.parametrize("payload", [{}, [], {"type": "detect", "engine": 3}, {"type": "convert", "engine": 1, "version": "x", "source": "x", "output": "y", "mode": "pdf"}])
 def test_private_worker_rejects_malformed_requests(payload, monkeypatch, capsys):
     monkeypatch.setattr(office.sys, "stdin", SimpleNamespace(buffer=io.BytesIO(json.dumps(payload).encode() + b"\n")))
     monkeypatch.setattr(office, "watch_parent", lambda cleanup: None)
@@ -290,9 +267,9 @@ def test_private_worker_rejects_malformed_requests(payload, monkeypatch, capsys)
 
 
 def test_private_worker_detection_has_no_service_bootstrap(monkeypatch, capsys):
-    monkeypatch.setattr(office.sys, "stdin", SimpleNamespace(buffer=io.BytesIO(b'{"type":"detect","preferred":null}\n')))
+    monkeypatch.setattr(office.sys, "stdin", SimpleNamespace(buffer=io.BytesIO(b'{"type":"detect","engine":"/bundled/soffice"}\n')))
     monkeypatch.setattr(office, "watch_parent", lambda cleanup: None)
-    monkeypatch.setattr(office, "detect", lambda preferred: {"path": None})
+    monkeypatch.setattr(office, "detect", lambda engine: {"path": None})
     if os.name == "nt":
         from practiq_ai.extractors import windows_job
         monkeypatch.setattr(windows_job, "protect_descendants", lambda: None)

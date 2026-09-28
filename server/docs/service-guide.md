@@ -141,7 +141,7 @@ Storage is local and persistent. Upload and asset-read APIs enforce authenticati
 
 AI files default to `server/.local/ai-oss`. This historical directory name does not imply cloud storage support. Relative `AI_STORAGE_DIR` paths resolve from `server/`; production must use and back up an absolute persistent mount. Sources use `practiq-agent/sources/`; derived text and images use `practiq-agent/artifacts/`. Storage I/O uses a bounded thread pool and `AI_STORAGE_TIMEOUT_SECONDS`, with shared storage errors.
 
-The OSS backend and SDK have been removed. Old `AI_STORAGE_BACKEND=oss` configuration prevents startup rather than silently switching roots. An unset variable or the old value `local` uses local storage. Remove `AI_OSS_*` settings and follow the [migration steps](operations.md#upgrade-after-oss-removal). Existing local files, databases, and backups are not automatically migrated or deleted.
+Storage uses local files. Non-local `AI_STORAGE_BACKEND` values prevent startup; remove obsolete `AI_OSS_*` settings. Existing data is never automatically moved or deleted. See [storage configuration](operations.md#storage-configuration).
 
 ## Graphs and API examples
 
@@ -199,7 +199,7 @@ The extractor delivers binary page images and a bounded manifest. The parent rea
 
 Returned `page` values are zero-based. Automated tests do not call real models; recognition quality requires separate acceptance.
 
-Raw Word/Excel service input is unsupported and `AI_SOFFICE_PATH` has no effect. The desktop uses a separate private worker to convert local Office files to PDF/TXT/CSV before upload; see [desktop Office support](desktop-office.md). Old `docx_parser` tasks still cannot resume or retry; convert their original file and create a new task. New desktop Office tasks retain supported-format artifacts and can retry/reparse without LibreOffice. Old data remains intact. The current version imports only schemaVersion 3 JSON and restores only format 4 backups. See [task errors](document-tasks.md) for details.
+Raw Word/Excel service input is unsupported and `AI_SOFFICE_PATH` has no effect. The desktop uses a separate private worker to convert local Office files to PDF/TXT/CSV before upload; see [desktop Office support](desktop-office.md). Unsupported task formats or graph identifiers return `TASK_FORMAT_UNSUPPORTED` and are excluded from lists and scheduling; convert the original file and create a new task. New desktop Office tasks retain supported-format artifacts and can retry/reparse without LibreOffice. Old data remains intact. The current version imports only schemaVersion 3 JSON and restores only format 4 backups containing database schema 11. See [task errors](document-tasks.md) for details.
 
 ## Long-running task controls
 
@@ -219,6 +219,6 @@ See [operations](operations.md) for storage paths, upload deadlines, process iso
 
 ## Question contract v3
 
-Python extracts, associates, and exports `schemaVersion: 3` JSON. Rust validates it and writes schema 10 SQLite. Reading, word-bank, and cloze use composite questions; single/multiple-choice answers share the `answerPayload.correct` array. Each word-bank/cloze blank is a choice child. IDs reference shared materials and option banks; sections remain independent of composite groups. Sources and review issues also use question IDs at export. Execution state version 6 rejects old-structure checkpoints. See the [question model and ER diagram](../../docs/question-model.md).
+Python extracts, associates, and exports `schemaVersion: 3` JSON. Rust validates it and writes schema 11 SQLite. Reading, word-bank, and cloze use composite questions; single/multiple-choice answers share the `answerPayload.correct` array. Each word-bank/cloze blank is a choice child. IDs reference shared materials and option banks; sections remain independent of composite groups. Sources and review issues also use question IDs at export. Execution state version 7 rejects old-structure checkpoints. See the [question model and ER diagram](../../docs/question-model.md).
 
 English question kinds include listening, reading, word-bank, cloze, grammar fill, sentence selection, paragraph matching, translation, and writing. Parsing extracts only supplied content; the desktop attaches listening audio locally. See the [English question model](../../docs/question-model.md#english-question-types) for fields, passage dialogs, and playback rules.

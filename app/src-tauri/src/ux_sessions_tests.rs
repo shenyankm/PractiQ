@@ -6,7 +6,6 @@ use crate::{
 };
 use rusqlite::params;
 use serde_json::{json, Value};
-use std::io::Write;
 
 fn setup() -> (tempfile::TempDir, Store, Vec<Value>) {
     let dir = tempfile::tempdir().unwrap();
@@ -172,7 +171,7 @@ fn completed_practice_accepts_only_self_assessment_without_changing_answers() {
 }
 
 #[test]
-fn grading_replays_frozen_language_and_legacy_payloads_and_clears_stale_failures() {
+fn grading_replays_frozen_language_and_rejects_missing_locale_and_clears_stale_failures() {
     let (_dir, mut store, rows) = setup();
     store.locale = Locale::English;
     let session = start(&store, &rows[4..5], "self_test");
@@ -221,8 +220,8 @@ fn grading_replays_frozen_language_and_legacy_payloads_and_clears_stale_failures
         .unwrap();
     store.locale = Locale::English;
     assert_eq!(
-        store.prepare_grade(sid, 0, false).unwrap(),
-        json!({"requestId":rid,"inputDigest":old_digest,"payload":old_raw})
+        store.prepare_grade(sid, 0, false).unwrap_err().code,
+        "LOCAL_GRADING_INPUT_CHANGED"
     );
     store
         .connect()
@@ -231,7 +230,7 @@ fn grading_replays_frozen_language_and_legacy_payloads_and_clears_stale_failures
             "UPDATE grade_requests SET input=?2 WHERE id=?1",
             params![
                 rid,
-                json!({"requestId":rid,"inputDigest":"invalid"}).to_string()
+                json!({"requestId":rid,"inputDigest":"invalid","feedbackLocale":"en"}).to_string()
             ],
         )
         .unwrap();
@@ -261,53 +260,6 @@ fn grading_replays_frozen_language_and_legacy_payloads_and_clears_stale_failures
         .unwrap();
     assert!(ungraded["latestResult"].is_null());
     assert!(ungraded["latestScore"].is_null());
-}
-
-#[test]
-fn old_schema_ten_databases_and_backups_gain_activity_without_losing_compatibility() {
-    let legacy = tempfile::tempdir().unwrap();
-    let path = legacy.path().join("practiq.sqlite");
-    let old_schema = include_str!("schema.sql").replace(", last_active_at INTEGER", "");
-    let db = rusqlite::Connection::open(&path).unwrap();
-    db.execute_batch(&old_schema).unwrap();
-    drop(db);
-    let bytes = std::fs::read(&path).unwrap();
-    let archive = legacy.path().join("legacy.zip");
-    let mut zip = zip::ZipWriter::new(std::fs::File::create(&archive).unwrap());
-    let options = zip::write::SimpleFileOptions::default();
-    zip.start_file("manifest.json", options).unwrap();
-    zip.write_all(json!({"format":"practiq-backup","version":4,"schemaVersion":10,"createdAt":1,"database":{"file":"practiq.sqlite","sha256":hash(&bytes),"sizeBytes":bytes.len()},"assets":[]}).to_string().as_bytes()).unwrap();
-    zip.start_file("practiq.sqlite", options).unwrap();
-    zip.write_all(&bytes).unwrap();
-    zip.finish().unwrap();
-    let (_dir, mut target, _rows) = setup();
-    target.restore(&archive).unwrap();
-    assert_eq!(target.banks().unwrap(), json!([]));
-    let db = rusqlite::Connection::open(&path).unwrap();
-    db.execute("INSERT INTO sessions(id,bank_title,created_at,finished_at,position,mode) VALUES('old','Old',1,10,0,'ordered')", []).unwrap();
-    drop(db);
-    let migrated = Store::new(legacy.path().to_owned()).unwrap();
-    let activity: i64 = migrated
-        .connect()
-        .unwrap()
-        .query_row(
-            "SELECT last_active_at FROM sessions WHERE id='old'",
-            [],
-            |r| r.get(0),
-        )
-        .unwrap();
-    assert_eq!(activity, 10);
-    migrated
-        .connect()
-        .unwrap()
-        .execute(
-            "INSERT INTO session_documents VALUES('old',?1)",
-            [json!({"schemaVersion":3,"questions":[],"groups":[],"visuals":[]}).to_string()],
-        )
-        .unwrap();
-    let backup = legacy.path().join("migrated.zip");
-    migrated.backup(&backup).unwrap();
-    target.restore(&backup).unwrap();
 }
 
 #[test]

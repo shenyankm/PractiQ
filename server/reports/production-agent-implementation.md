@@ -1,3 +1,5 @@
+> Historical evidence: behavior, measurements and validation apply only to the dated baseline below. They are not current usage instructions or acceptance of the current release.
+
 # 生产级 Agent 修复与验收报告
 
 日期：2026-09-18。范围：PractiQ 文档导入服务，按原架构报告的全部 P1/P2 项实施代码与运维改进。

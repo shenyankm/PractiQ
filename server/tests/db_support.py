@@ -48,7 +48,7 @@ async def setup_api(monkeypatch, responses=None, parts=None):
     service.jobs = 'inspect document_runs for runtime state'
     async def finish():
         async with asyncio.timeout(15):
-            while await db.rows("SELECT run_id FROM document_runs WHERE status IN ('pending','running')"):
+            while await db.rows(f"SELECT run_id FROM document_runs WHERE thread_id IN ({execution.SUPPORTED_TASKS_SQL}) AND status IN ('pending','running')"):
                 await asyncio.sleep(0.01)
     service.wait_idle = finish
     return service, reference, model

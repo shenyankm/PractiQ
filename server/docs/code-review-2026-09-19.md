@@ -1,15 +1,11 @@
-> Storage update: the current version uses local files only; the OSS backend has been removed. References to OSS below are preserved as historical audit or design records.
-
-> Historical record: the current version uses SQLite and no longer parses Excel source files. The scope and validation results below describe the version reviewed at the time.
-
-> Historical report: results, package sizes, hashes, and dependency descriptions apply to the version tested at the time. The current service rejects raw Office uploads; the desktop converts them with locally installed LibreOffice without bundling the suite. The Import page manages AI parsing tasks; bank ZIP import is under Settings → Restore backup. See the [project overview](../../README.md) and [service guide](service-guide.md) for current usage. Historical evidence does not establish acceptance of the current version.
+> Historical evidence: behavior, measurements and validation apply only to the dated baseline below. They are not current usage instructions or acceptance of the current release.
 
 # Detailed code review and improvement recommendations
 
 - Review date: 2026-09-19
 - Target: Python / LangGraph document import service
 - Methods: static inspection, existing tests, isolated PostgreSQL fault injection, in-memory graphs, and offline model-protocol reproductions
-- Implementation status: R01–R17 and O01–O04 were fixed in the local workspace. Section 8 records each fix and its validation. Sections 1–7 preserve the original findings and evidence.
+- Implementation status: R01–R17 and O01–O04 were fixed in the local workspace. Section 7 records each fix and its validation. Sections 1–6 preserve the original findings and evidence.
 
 ## 1. Conclusion
 
@@ -307,20 +303,9 @@ Check actual consequences—resource release, recoverable state, correct request
 - **Recommendation**: use an unprivileged user with CPU, memory, filesystem, and conversion-process isolation, and define writable temporary/persistent paths.
 - **Boundary**: this is defensive hardening, not a confirmed exploitable converter vulnerability. Evaluate permission/deployment changes separately and verify existing mounts and conversion behavior.
 
-## 7. Recommended implementation order
+## 7. Repair record (2026-09-19)
 
-| Phase | Scope | Completion criteria |
-|---|---|---|
-| 1: Core correctness and recovery | R01, R02, R03, R04 | Focused regressions for pool starvation, pause/review, XLSX omission, and default-protocol correction |
-| 2: Resource and result boundaries | R05, R06, R07, R08, R09, R10, R15 | Timeouts/failures leave no uncontrolled work; input and final-output constraints agree |
-| 3: Data and operational reliability | R11, R12, R13, R14, R16, R17 | Trustworthy recovery manifests, logs, evaluation, storage paths, and initialization |
-| 4: Continuous improvement | O01, O02, O03, O04 | Capacity-aligned alerts, correct cross-chunk structure, combined-fault coverage, and deployment isolation |
-
-Update relevant docs and focused tests with each behavior change, then run project verification. Real-provider protocols, real LibreOffice rendering, and real OSS behavior still require acceptance in appropriately authorized environments; offline fakes cannot replace it.
-
-## 8. Repair record (2026-09-19)
-
-Repairs followed section 7. Nothing was committed, pushed, or deployed, and existing storage files and business databases were neither moved nor deleted. New tests mainly reside in `tests/test_review_regressions.py`; database fault injection used a separate temporary PostgreSQL database.
+Nothing was committed, pushed, or deployed, and existing storage files and business databases were neither moved nor deleted. New tests mainly reside in `tests/test_review_regressions.py`; database fault injection used a separate temporary PostgreSQL database.
 
 | ID | Implementation | Regression evidence |
 |---|---|---|
