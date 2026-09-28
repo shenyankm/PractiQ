@@ -136,7 +136,8 @@ impl Store {
     fn paper_candidates(&self, p: &Preview) -> Result<Vec<Candidate>> {
         questions::validate_filter(&p.bank_ids, &p.mode, &p.filter)?;
         if !p.search.is_empty() {
-            let roots = self.questions_multi(None, &p.bank_ids, &p.search, &p.mode, &p.filter)?;
+            let roots =
+                self.query_questions(None, &p.bank_ids, (&p.search, &p.mode, &p.filter), None)?;
             return roots
                 .as_array()
                 .ok_or("Invalid question selection")?

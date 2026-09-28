@@ -590,12 +590,8 @@ fn active_endpoint(
             Process::start(
                 app,
                 &Store {
-                    locale: Default::default(),
                     dir: dir.to_owned(),
-                    pending: None,
-                    staged_audio: std::collections::HashMap::new(),
-                    session_clock: Default::default(),
-                    session_document_cache: Default::default(),
+                    ..Default::default()
                 },
                 model_required,
             )
@@ -674,12 +670,8 @@ pub fn read_review_image(
     process.image(
         &reference,
         &Store {
-            locale: Default::default(),
             dir,
-            pending: None,
-            staged_audio: std::collections::HashMap::new(),
-            session_clock: Default::default(),
-            session_document_cache: Default::default(),
+            ..Default::default()
         },
     )
 }
@@ -1098,12 +1090,8 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
         AiRequest::Preview { id } => {
             let mut pending = process.pending(&id)?;
             let store = Store {
-                locale: Default::default(),
                 dir,
-                pending: None,
-                staged_audio: std::collections::HashMap::new(),
-                session_clock: Default::default(),
-                session_document_cache: Default::default(),
+                ..Default::default()
             };
             process.load_assets(&mut pending, &store)?;
             let mut store = shared.lock().map_err(|_| {

@@ -174,10 +174,7 @@ pub fn snapshot(shared: &crate::Shared) -> Result<Store> {
     Ok(Store {
         locale: store.locale,
         dir: store.dir.clone(),
-        pending: None,
-        staged_audio: Default::default(),
-        session_clock: Default::default(),
-        session_document_cache: Default::default(),
+        ..Default::default()
     })
 }
 /// Display configuration without opening the credential store. A null key status

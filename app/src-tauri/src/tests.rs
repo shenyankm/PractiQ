@@ -727,7 +727,7 @@ fn merged_copy_filters_grading_and_backup_preserve_independence() {
         .unwrap();
     s.favorite(text(&qs[4], "id"), true).unwrap();
     assert_eq!(
-        s.questions_multi(None, std::slice::from_ref(&bank), "", "single", "")
+        s.query_questions(None, std::slice::from_ref(&bank), ("", "single", ""), None)
             .unwrap()
             .as_array()
             .unwrap()
@@ -735,11 +735,16 @@ fn merged_copy_filters_grading_and_backup_preserve_independence() {
         1
     );
     assert_eq!(
-        s.questions_multi(None, &[bank.clone(), second.clone()], "", "multiple", "")
-            .unwrap()
-            .as_array()
-            .unwrap()
-            .len(),
+        s.query_questions(
+            None,
+            &[bank.clone(), second.clone()],
+            ("", "multiple", ""),
+            None
+        )
+        .unwrap()
+        .as_array()
+        .unwrap()
+        .len(),
         2
     );
     let merged = s

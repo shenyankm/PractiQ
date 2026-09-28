@@ -511,12 +511,8 @@ pub fn prepare_batch(
         ));
     }
     let store = Store {
-        locale: Default::default(),
         dir: dir.into(),
-        pending: None,
-        staged_audio: std::collections::HashMap::new(),
-        session_clock: Default::default(),
-        session_document_cache: Default::default(),
+        ..Default::default()
     };
     validate_destination(&store, bank_id.as_deref())?;
     let mut batch = Batch {
@@ -582,12 +578,8 @@ pub fn batches(dir: &Path, work: &WorkState, offset: usize, threads: &[String]) 
         .lock()
         .map_err(|_| crate::language::error("LOCAL_WORK_UNAVAILABLE", serde_json::json!({})))?;
     let store = Store {
-        locale: Default::default(),
         dir: dir.into(),
-        pending: None,
-        staged_audio: std::collections::HashMap::new(),
-        session_clock: Default::default(),
-        session_document_cache: Default::default(),
+        ..Default::default()
     };
     for batch in &batches {
         validate_batch(batch)?;
@@ -765,12 +757,8 @@ fn import_item(
     endpoint.load_assets(
         &mut pending,
         &Store {
-            locale: Default::default(),
             dir: dir.into(),
-            pending: None,
-            staged_audio: std::collections::HashMap::new(),
-            session_clock: Default::default(),
-            session_document_cache: Default::default(),
+            ..Default::default()
         },
     )?;
     let result = shared

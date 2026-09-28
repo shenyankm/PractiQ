@@ -234,12 +234,8 @@ impl Store {
             ));
         }
         let staged = Store {
-            staged_audio: std::collections::HashMap::new(),
-            session_clock: Default::default(),
-            session_document_cache: Default::default(),
-            locale: Default::default(),
             dir: staging.path().to_owned(),
-            pending: None,
+            ..Default::default()
         };
         for asset in &assets {
             let digest = asset["sha256"].as_str().ok_or(crate::language::error(

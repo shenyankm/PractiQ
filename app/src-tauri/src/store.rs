@@ -87,6 +87,7 @@ impl Pending {
         ))
     }
 }
+#[derive(Default)]
 pub struct Store {
     pub session_clock: crate::session_clock::SessionClock,
     pub session_document_cache: std::cell::RefCell<Option<(String, std::sync::Arc<Value>)>>,
@@ -127,11 +128,7 @@ impl Store {
         fs::create_dir_all(&dir).map_err(err)?;
         let store = Self {
             dir,
-            pending: None,
-            staged_audio: HashMap::new(),
-            session_clock: Default::default(),
-            session_document_cache: Default::default(),
-            locale: crate::language::Locale::default(),
+            ..Default::default()
         };
         store.connect()?;
         crate::backup::validate_database_schema(&store.db_path())?;
@@ -483,6 +480,7 @@ impl Store {
         }
         Ok(Value::Null)
     }
+    #[cfg(test)]
     pub fn questions(
         &self,
         bank: Option<&str>,
@@ -491,19 +489,6 @@ impl Store {
         filter: &str,
     ) -> Result<Value> {
         self.query_questions(bank, &[], (search, mode, filter), None)
-    }
-    pub fn questions_multi(
-        &self,
-        bank: Option<&str>,
-        banks: &[String],
-        search: &str,
-        mode: &str,
-        filter: &str,
-    ) -> Result<Value> {
-        if banks.is_empty() {
-            return self.questions(bank, search, mode, filter);
-        }
-        self.query_questions(bank, banks, (search, mode, filter), None)
     }
     pub fn query_questions(
         &self,
