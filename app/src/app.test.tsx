@@ -159,12 +159,12 @@ it("stores model configuration without returning an API key to the form", async 
   expect(key.placeholder).toBe("********************************");
   expect(screen.queryByRole("button", {name:"保存"})).toBeNull();
   await userEvent.type(screen.getByLabelText("模型 ID"), "-updated");
-  await userEvent.click(screen.getByRole("button", { name: "保存并应用" }));
+  await userEvent.tab();
   await waitFor(() => expect(api).toHaveBeenCalledWith({type:"save_settings",config:{...config,model_id:"demo-model-updated"},api_key:null}));
   expect(screen.queryByRole("checkbox")).toBeNull();
   await waitFor(() => expect(key.closest("fieldset")?.disabled).toBe(false));
   await userEvent.type(key,"replacement-key");
-  await userEvent.click(screen.getByRole("button", { name: "保存并应用" }));
+  await userEvent.tab();
   await waitFor(() => expect(api).toHaveBeenCalledWith(expect.objectContaining({type:"save_settings",api_key:"replacement-key"})));
 
 });
@@ -414,47 +414,38 @@ it("keeps exam confirmation open on failure and disables duplicate submissions w
   await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
 });
 
-it("keeps configuration edits unapplied until explicit save and preserves failed drafts", async () => {
+it("autosaves on blur, removes manual buttons, and preserves failed drafts", async () => {
   const { ConnectionSettingsPanel } = await import("./ConnectionSettings");
   const { toast } = await import("./notifications");
-  const success = vi.spyOn(toast, "success").mockImplementation(() => "notice");
   const failure = vi.spyOn(toast, "error").mockImplementation(() => "notice");
   const settings = {config:{base_url:"https://example.com/v1",model_id:"demo"},hasApiKey:true};
-  let failSave = false;
+  let failSave = true;
   const flushRef = { current: async () => {} };
   vi.mocked(api).mockImplementation(async request => {
     if (request.type === "save_settings") {
       if (failSave) throw Error("save failed");
       return {...settings,config:request.config} as never;
     }
-    if (request.type === "test_settings") return null as never;
     return settings as never;
   });
   render(<ConnectionSettingsPanel busy={false} run={job => { void job().catch(failure); }} flushRef={flushRef} />);
-  const model = await screen.findByLabelText("模型 ID");
-  await waitFor(() => expect((model as HTMLInputElement).value).toBe("demo"));
+  const model = await screen.findByLabelText("模型 ID") as HTMLInputElement;
+  await waitFor(() => expect(model.value).toBe("demo"));
+  expect(screen.queryByRole("button",{name:"保存并应用"})).toBeNull();
+  expect(screen.queryByRole("button",{name:"放弃更改"})).toBeNull();
   await userEvent.type(model,"-changed");
-  await act(async () => { await new Promise(resolve => setTimeout(resolve, 650)); });
   expect(api).not.toHaveBeenCalledWith(expect.objectContaining({type:"save_settings"}));
-  await expect(flushRef.current()).rejects.toThrow("请先保存并应用，或放弃配置更改");
-  await userEvent.click(screen.getByRole("button",{name:"测试"}));
-  await waitFor(() => expect(api).toHaveBeenCalledWith({type:"test_settings",config:{...settings.config,model_id:"demo-changed"},api_key:null}));
-  expect(api).not.toHaveBeenCalledWith(expect.objectContaining({type:"save_settings"}));
-  await userEvent.click(screen.getByRole("button",{name:"保存并应用"}));
-  await waitFor(() => expect(success).toHaveBeenCalledWith(expect.objectContaining({key:"连接配置已保存"})));
-  failSave=true;
-  await userEvent.type(model,"-failed");
-  await userEvent.click(screen.getByRole("button",{name:"保存并应用"}));
-  await waitFor(() => expect(failure).toHaveBeenCalledWith(expect.objectContaining({message:"save failed"})));
-  expect((model as HTMLInputElement).value).toBe("demo-changed-failed");
+  await userEvent.tab();
+  expect(await screen.findByRole("button",{name:"重试保存"})).toBeTruthy();
+  expect(model.value).toBe("demo-changed");
+  await expect(flushRef.current()).rejects.toThrow("save failed");
   failSave=false;
   await userEvent.click(screen.getByRole("button",{name:"重试保存"}));
-  await waitFor(() => expect(screen.getByRole("button",{name:"保存并应用"}).hasAttribute("disabled")).toBe(true));
-  await userEvent.type(model,"-discard");
-  await userEvent.click(screen.getByRole("button",{name:"放弃更改"}));
-  expect((model as HTMLInputElement).value).toBe("demo-changed-failed");
-  await expect(flushRef.current()).resolves.toBeUndefined();
-  success.mockRestore(); failure.mockRestore();
+  await waitFor(() => expect(screen.queryByRole("button",{name:"重试保存"})).toBeNull());
+  await userEvent.type(model,"-latest");
+  await act(async () => { await flushRef.current(); });
+  expect(api).toHaveBeenCalledWith({type:"save_settings",config:{...settings.config,model_id:"demo-changed-latest"},api_key:null});
+  failure.mockRestore();
 });
 
 it("clears a newly saved API key from the webview before testing the Keychain copy", async () => {
@@ -470,7 +461,7 @@ it("clears a newly saved API key from the webview before testing the Keychain co
   expect(screen.queryByText(/解析配置还缺/)).toBeNull();
   expect(screen.getByRole("button", {name:"测试"}).hasAttribute("disabled")).toBe(true);
   await userEvent.type(key,"replacement-key");
-  await userEvent.click(screen.getByRole("button", { name: "保存并应用" }));
+  await userEvent.tab();
   await waitFor(() => expect(api).toHaveBeenCalledWith(expect.objectContaining({type:"save_settings",api_key:"replacement-key"})));
   await waitFor(() => expect(key.value).toBe(""));
   await userEvent.click(screen.getByRole("button",{name:"测试"}));
@@ -486,10 +477,60 @@ it("uses the pending settings save when navigation flushes", async () => {
   vi.mocked(api).mockImplementation(async request => request.type === "save_settings" ? await pending as never : settings as never);
   render(<ConnectionSettingsPanel busy={false} run={job => { void job(); }} flushRef={flushRef} />);
   await userEvent.type(await screen.findByLabelText("模型 ID"), "-new");
-  await userEvent.click(screen.getByRole("button", { name: "保存并应用" }));
+  await userEvent.tab();
   await waitFor(() => expect(vi.mocked(api).mock.calls.filter(([request]) => request.type === "save_settings")).toHaveLength(1));
   const flush = flushRef.current();
   expect(vi.mocked(api).mock.calls.filter(([request]) => request.type === "save_settings")).toHaveLength(1);
   await act(async () => { finishSave({...settings,config:{...settings.config,model_id:"demo-new"}}); await flush; });
   expect(vi.mocked(api).mock.calls.filter(([request]) => request.type === "save_settings")).toHaveLength(1);
+});
+
+it("leaves saved credentials unchecked until an explicit connection test", async () => {
+  const { ConnectionSettingsPanel } = await import("./ConnectionSettings");
+  const { missingModelSettings } = await import("./api");
+  const settings = {config:{base_url:"https://example.com/v1",model_id:"demo"},hasApiKey:null};
+  vi.mocked(api).mockImplementation(async request => {
+    if (request.type === "test_settings") return null as never;
+    return settings as never;
+  });
+  expect(missingModelSettings(settings)).toEqual([]);
+  const summary = render(<ConnectionSettingsPanel busy={false} run={job => { void job(); }} onConfigure={() => {}} />);
+  expect(await screen.findByText("已配置")).toBeTruthy();
+  summary.unmount();
+  render(<ConnectionSettingsPanel busy={false} run={job => { void job(); }} />);
+  const key = await screen.findByLabelText("API Key") as HTMLInputElement;
+  await waitFor(() => expect(key.placeholder).toBe("********************************"));
+  expect(vi.mocked(api).mock.calls.every(([request]) => request.type === "settings")).toBe(true);
+  await userEvent.click(screen.getByRole("button", {name:"测试"}));
+  await waitFor(() => expect(api).toHaveBeenCalledWith({type:"test_settings",config:settings.config,api_key:null}));
+});
+
+it("flushes the latest edit after an earlier blur save finishes", async () => {
+  const { ConnectionSettingsPanel } = await import("./ConnectionSettings");
+  const settings = {config:{base_url:"https://example.com/v1",model_id:"demo"},hasApiKey:null};
+  let finishSave!: (value: typeof settings) => void;
+  const pending = new Promise<typeof settings>(resolve => { finishSave = resolve; });
+  const flushRef = {current:async () => {}};
+  let saves = 0;
+  vi.mocked(api).mockImplementation(async request => {
+    if (request.type === "save_settings") {
+      if (++saves === 1) return await pending as never;
+      return {...settings,config:request.config} as never;
+    }
+    return settings as never;
+  });
+  render(<ConnectionSettingsPanel busy={false} run={job => { void job(); }} flushRef={flushRef} />);
+  const model = await screen.findByLabelText("模型 ID") as HTMLInputElement;
+  await waitFor(() => expect(model.value).toBe("demo"));
+  await userEvent.type(model,"-first");
+  await userEvent.tab();
+  await userEvent.type(model,"-latest");
+  const flush = flushRef.current();
+  await act(async () => {
+    finishSave({...settings,config:{...settings.config,model_id:"demo-first"}});
+    await flush;
+  });
+  expect(model.value).toBe("demo-first-latest");
+  expect(saves).toBe(2);
+  expect(api).toHaveBeenLastCalledWith({type:"save_settings",config:{...settings.config,model_id:"demo-first-latest"},api_key:null});
 });

@@ -178,25 +178,14 @@ pub fn snapshot(shared: &crate::Shared) -> Result<Store> {
         staged_audio: Default::default(),
     })
 }
-/// Read SQLite under the restore mutex, then release it before credential UI.
-pub fn settings(shared: &crate::Shared, service: &str) -> Result<Value> {
-    settings_with(shared, |base| secret(&entry(service, base)?))
-}
-fn settings_with(
-    shared: &crate::Shared,
-    read: impl FnOnce(&str) -> Result<Option<String>>,
-) -> Result<Value> {
+/// Display configuration without opening the credential store. A null key status
+/// means it will be checked by an explicit model action or connection test.
+pub fn settings(shared: &crate::Shared) -> Result<Value> {
     let config = shared
         .lock()
         .map_err(|_| crate::language::error("LOCAL_DATABASE_UNAVAILABLE", json!({})))?
         .connection_settings()?;
-    let configured = config
-        .base_url
-        .as_deref()
-        .map(read)
-        .transpose()?
-        .flatten()
-        .is_some();
+    let configured = config.base_url.is_none().then_some(false);
     Ok(json!({"config":config,"hasApiKey":configured}))
 }
 impl Store {
@@ -256,9 +245,9 @@ impl Store {
             ));
         }
         let configured = match (&config.base_url, &api_key) {
-            (Some(_), Some(key)) => !key.trim().is_empty(),
-            (Some(base), None) => secret(&entry(service, base)?)?.is_some(),
-            (None, _) => false,
+            (Some(_), Some(key)) => Some(!key.trim().is_empty()),
+            (Some(_), None) => None,
+            (None, _) => Some(false),
         };
         let previous = if let (Some(base), Some(key)) = (&config.base_url, &api_key) {
             let entry = entry(service, base)?;
@@ -356,7 +345,7 @@ mod tests {
         let (finished, result) = mpsc::channel();
         let worker = std::thread::spawn(move || {
             started.send(()).unwrap();
-            finished.send(settings(&reader, "test")).unwrap();
+            finished.send(settings(&reader)).unwrap();
         });
         ready.recv_timeout(Duration::from_secs(5)).unwrap();
         assert!(matches!(
@@ -374,50 +363,20 @@ mod tests {
         worker.join().unwrap();
     }
     #[test]
-    fn waiting_for_credentials_does_not_hold_the_offline_store_or_database() {
-        use std::sync::{mpsc, Arc, Mutex};
+    fn displaying_and_saving_nonsecret_settings_leave_credentials_unchecked() {
+        use std::sync::{Arc, Mutex};
         let dir = tempfile::tempdir().unwrap();
         let store = Store::new(dir.path().to_owned()).unwrap();
-        store
-            .connect()
-            .unwrap()
-            .execute(
-                "UPDATE settings SET base_url='https://example.com/v1',model_id='demo'",
-                [],
-            )
-            .unwrap();
+        let config = ConnectionSettings {
+            base_url: Some("https://example.com/v1".into()),
+            model_id: Some("demo".into()),
+        };
+        let saved = store.save_settings("test", config, None).unwrap();
+        assert!(saved["hasApiKey"].is_null());
         let shared = Arc::new(Mutex::new(store));
-        let reader = shared.clone();
-        let (waiting, started) = mpsc::channel();
-        let (release, resumed) = mpsc::channel();
-        let worker = std::thread::spawn(move || {
-            settings_with(&reader, |_| {
-                waiting.send(()).unwrap();
-                resumed
-                    .recv_timeout(std::time::Duration::from_secs(5))
-                    .unwrap();
-                Ok(Some("fake credential".into()))
-            })
-        });
-        started
-            .recv_timeout(std::time::Duration::from_secs(5))
-            .unwrap();
-        {
-            let store = shared
-                .try_lock()
-                .expect("Keychain wait blocked offline work");
-            assert!(store.banks().is_ok());
-            store
-                .connect()
-                .unwrap()
-                .execute(
-                    "UPDATE settings SET model_id='offline remains writable'",
-                    [],
-                )
-                .unwrap();
-        }
-        release.send(()).unwrap();
-        assert_eq!(worker.join().unwrap().unwrap()["hasApiKey"], true);
+        let displayed = settings(&shared).unwrap();
+        assert_eq!(displayed, saved);
+        assert_eq!(displayed["config"]["model_id"], "demo");
     }
 
     #[test]

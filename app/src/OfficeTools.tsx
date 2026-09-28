@@ -43,7 +43,7 @@ export function OfficeTools({ mode, onMode, busy, onBusy }: { mode: OfficeMode; 
       <Button size="sm" variant="outline" disabled={working || busy} onClick={() => void detect("status")}>{t("检测 LibreOffice")}</Button>
       <Button size="sm" variant="ghost" disabled={working || busy} onClick={() => void detect("pick_executable")}>{t("选择程序位置")}</Button>
       <Button size="sm" variant="ghost" disabled={working || busy} onClick={() => void detect("reset_executable")}>{t("恢复自动查找")}</Button>
-      <Button size="sm" variant="link" onClick={() => { void office({ type: "installation_guide" }).catch(setError); }}>{t("LibreOffice 安装指引")}</Button>
+      <Button size="sm" variant="link" onClick={() => { void office({ type: "installation_guide" }).catch(setError); }}>{t("下载 LibreOffice")}</Button>
     </div>
     <p className="text-muted-foreground">{status ? status.path ? status.version : t("未找到可用的 LibreOffice，请安装或选择程序位置。") : t("首次转换时会自动检测；也可先检查本机安装。")}</p>
     {status?.path && <><p className="break-all text-muted-foreground">{status.path}</p><ul className="flex flex-wrap gap-3">{capabilities.map(([key, label]) => <li key={key}>{label}：{status.capabilities[key] ? t("可用") : t("不可用")}</li>)}</ul></>}

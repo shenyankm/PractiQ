@@ -364,7 +364,7 @@ it("keeps model fields on a secondary settings page and refreshes the summary af
   await userEvent.clear(model);
   await userEvent.type(model,"new-model");
   expect(vi.mocked(api).mock.calls.some(([request]) => request.type === "save_settings")).toBe(false);
-  await userEvent.click(screen.getByRole("button", {name:"保存并应用"}));
+  await userEvent.tab();
   await waitFor(() => expect(api).toHaveBeenCalledWith(expect.objectContaining({type:"save_settings"})));
   await userEvent.click(screen.getByRole("button",{name:"返回设置"}));
   expect((await screen.findByText("已配置")).getAttribute("data-slot")).toBe("badge");
@@ -392,7 +392,7 @@ it("explicitly saves model setup and returns to the original import destination"
   await waitFor(() => expect(vision.closest("fieldset")?.disabled).toBe(false));
   await userEvent.type(vision,"vision");
   expect(vi.mocked(api).mock.calls.some(([request]) => request.type === "save_settings")).toBe(false);
-  await userEvent.click(screen.getByRole("button", {name:"保存并应用"}));
+  await userEvent.tab();
   await waitFor(() => expect(api).toHaveBeenCalledWith(expect.objectContaining({type:"save_settings"})));
   await waitFor(() => expect(screen.getByRole("button",{name:"返回导入"}).hasAttribute("disabled")).toBe(false));
   await userEvent.click(screen.getByRole("button",{name:"返回导入"}));
@@ -464,14 +464,14 @@ it("handles ZIP picker cancellation and package/export errors without importing"
   notified.mockRestore();
 });
 
-it("keeps a confirmed document import in the task list and opens its bank only on request", async () => {
+it("allows unchecked credentials and keeps a confirmed import in the task list until requested", async () => {
   let imported = false;
   vi.mocked(api).mockImplementation(async r => {
     if (r.type === "banks") return imported ? [{id:"bank", title:"Parsed", description:"", count:2}] as never : [] as never;
     if (r.type === "banks_page") return {items:[], total:0, offset:0} as never;
     if (r.type === "unfinished_session") return null as never;
     if (r.type === "info") return {version:"test", dataDirectory:"/tmp/test"} as never;
-    if (r.type === "settings") return {config:{base_url:"https://example.com", model_id:"model"}, hasApiKey:true} as never;
+    if (r.type === "settings") return {config:{base_url:"https://example.com", model_id:"model"}, hasApiKey:null} as never;
     if (r.type === "import") {imported = true; return {bankId:"bank", count:2, duplicate:false} as never;}
     if (r.type === "questions_page") return {items:[], total:0, offset:0} as never;
     throw Error(r.type);
