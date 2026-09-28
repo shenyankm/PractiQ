@@ -39,11 +39,28 @@ async def test_task_page_fetches_latest_runs_in_one_query(monkeypatch):
         return await original(sql, params)
 
     monkeypatch.setattr(api.db, 'rows', rows)
+    snapshots = AsyncMock(wraps=api.snapshot)
+    monkeypatch.setattr(api, 'snapshot', snapshots)
+    api.task_summaries.update((f'old-{i}', ((), {})) for i in range(256))
     page = await task_api.list_tasks(limit=2)
     assert {item['threadId'] for item in page['items']} == set(ids)
     assert all(item['state'] == 'COMPLETED' and item['questionCount'] == 1 for item in page['items'])
     assert sum('FROM document_runs' in sql for sql in reads) == 1
     assert not page['hasMore']
+    assert len(api.task_summaries) == 256 and 'old-0' not in api.task_summaries
+    assert await task_api.list_tasks(limit=2) == page
+    assert snapshots.await_count == 2
+    await api.graph.aupdate_state({'configurable': {'thread_id': ids[0]}}, {'result': parsed('Changed')}, as_node='finish')
+    refreshed = await task_api.list_tasks(limit=2)
+    assert snapshots.await_count == 3
+    assert next(item for item in refreshed['items'] if item['threadId'] == ids[0])['checkpointId'] != next(item for item in page['items'] if item['threadId'] == ids[0])['checkpointId']
+    async with api.db.connection() as conn:
+        await conn.execute('UPDATE document_tasks SET expires_at=? WHERE thread_id=?', (utcnow() - timedelta(seconds=1), ids[0]))
+        await conn.execute("UPDATE document_runs SET status='interrupted' WHERE thread_id=?", (ids[1],))
+    changed = {item['threadId']: item for item in (await task_api.list_tasks(limit=2))['items']}
+    assert changed[ids[0]]['state'] == 'EXPIRED'
+    assert changed[ids[1]]['state'] == 'INTERRUPTED'
+    assert snapshots.await_count == 4
 
 
 async def test_reparse_preserves_original_result_and_links_source_with_new_signature(monkeypatch):
