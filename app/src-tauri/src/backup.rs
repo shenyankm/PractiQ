@@ -229,7 +229,7 @@ impl Store {
                 serde_json::json!({}),
             ));
         }
-        let version = validate_database(&candidate)?;
+        let version = validate_database_schema(&candidate)?;
         if manifest["schemaVersion"] != version {
             return Err(crate::language::error(
                 "LOCAL_BACKUP_SCHEMA_MISMATCH",
@@ -238,6 +238,7 @@ impl Store {
         }
         let staged = Store {
             staged_audio: std::collections::HashMap::new(),
+            session_clock: Default::default(),
             session_document_cache: Default::default(),
             locale: Default::default(),
             dir: staging.path().to_owned(),
@@ -265,6 +266,7 @@ impl Store {
         }
         // Upgrade only the validated staging database, never the live database.
         let db = staged.connect()?;
+        validate_database_contents(&db)?;
         db.execute("UPDATE settings SET libreoffice_path=NULL", [])
             .map_err(err)?;
         let rows = db
@@ -348,6 +350,7 @@ impl Store {
                 serde_json::json!({"error": error.to_string()}),
             ));
         }
+        self.session_clock = Default::default();
         self.pending = None;
         self.staged_audio.clear();
         if let Err(error) = self.collect_unused_assets() {
@@ -387,7 +390,7 @@ fn validate_audio_segments(
     }
     Ok(())
 }
-fn validate_database(path: &Path) -> Result<i64> {
+fn validate_database_schema(path: &Path) -> Result<i64> {
     let db = Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
         .map_err(err)?;
     db.execute_batch("PRAGMA trusted_schema=OFF;")
@@ -401,10 +404,13 @@ fn validate_database(path: &Path) -> Result<i64> {
             serde_json::json!({}),
         ));
     }
+    // SQLite preserves checkout line endings inside CREATE statements. Keep every other
+    // character exact so portable backups cannot introduce different constraints or objects.
+    let normalize_line_endings = |sql: String| sql.replace("\r\n", "\n");
     let schema = |db: &Connection| -> Result<Vec<String>> {
         let mut stmt=db.prepare("SELECT type||':'||name||':'||COALESCE(sql,'') FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY name").map_err(err)?;
         let rows = stmt
-            .query_map([], |r| r.get::<_, String>(0))
+            .query_map([], |r| r.get::<_, String>(0).map(normalize_line_endings))
             .map_err(err)?
             .collect::<std::result::Result<Vec<_>, _>>()
             .map_err(err)?;
@@ -412,17 +418,6 @@ fn validate_database(path: &Path) -> Result<i64> {
     };
     let expected = Connection::open_in_memory().map_err(err)?;
     let mut expected_schema = include_str!("schema.sql").to_owned();
-    if !db
-        .query_row(
-            "SELECT EXISTS(SELECT 1 FROM pragma_table_info('sessions') WHERE name='last_active_at')",
-            [],
-            |r| r.get::<_, bool>(0),
-        )
-        .map_err(err)?
-    {
-        // Validate an older backup before its staging database gains activity timestamps.
-        expected_schema = expected_schema.replace(", last_active_at INTEGER", "");
-    }
     if !db.query_row("SELECT EXISTS(SELECT 1 FROM pragma_table_info('settings') WHERE name='libreoffice_path')", [], |r| r.get::<_, bool>(0)).map_err(err)? {
         expected_schema = expected_schema.replace(", libreoffice_path TEXT", "").replace("VALUES(1,NULL,NULL,NULL,NULL)", "VALUES(1,NULL,NULL,NULL)");
     }
@@ -440,6 +435,72 @@ fn validate_database(path: &Path) -> Result<i64> {
             .replace("VALUES(1,NULL,", "VALUES(1,NULL,NULL,");
     }
     expected.execute_batch(&expected_schema).map_err(err)?;
+    if !db
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name='question_reviews')",
+            [],
+            |row| row.get::<_, bool>(0),
+        )
+        .map_err(err)?
+    {
+        expected
+            .execute_batch("DROP TABLE IF EXISTS question_reviews;")
+            .map_err(err)?;
+    }
+    // Accept only the original or migrated definitions produced by our schema-10 updates.
+    // SQLite preserves ALTER TABLE spelling and column order in sqlite_master.sql.
+    for (table, column, addition) in [
+        (
+            "visuals",
+            ",document_level INTEGER NOT NULL CHECK(document_level IN(0,1))",
+            "document_level INTEGER NOT NULL DEFAULT 0 CHECK(document_level IN(0,1))",
+        ),
+        (
+            "listening_playback",
+            ",active_elapsed_ms INTEGER NOT NULL DEFAULT 0 CHECK(active_elapsed_ms>=0)",
+            "active_elapsed_ms INTEGER NOT NULL DEFAULT 0 CHECK(active_elapsed_ms>=0)",
+        ),
+        (
+            "sessions",
+            ", last_active_at INTEGER",
+            "last_active_at INTEGER",
+        ),
+    ] {
+        let table_sql = |connection: &Connection| -> Result<String> {
+            connection
+                .query_row(
+                    "SELECT sql FROM sqlite_master WHERE type='table' AND name=?1",
+                    [table],
+                    |row| row.get(0),
+                )
+                .map(normalize_line_endings)
+                .map_err(err)
+        };
+        let current = table_sql(&expected)?;
+        let actual = table_sql(&db)?;
+        if actual == current {
+            continue;
+        }
+        let historical = Connection::open_in_memory().map_err(err)?;
+        historical
+            .execute_batch(&current.replace(column, ""))
+            .map_err(err)?;
+        if actual != table_sql(&historical)? {
+            historical
+                .execute_batch(&format!("ALTER TABLE {table} ADD COLUMN {addition};"))
+                .map_err(err)?;
+        }
+        let allowed = table_sql(&historical)?;
+        if actual != allowed {
+            return Err(crate::language::error(
+                "LOCAL_BACKUP_SCHEMA_UNSUPPORTED",
+                json!({}),
+            ));
+        }
+        expected
+            .execute_batch(&format!("DROP TABLE {table}; {allowed};"))
+            .map_err(err)?;
+    }
     // Older backups may omit these optional indexes. Existing definitions must match exactly.
     for (name, sql) in crate::questions::READ_INDEXES {
         if db
@@ -453,33 +514,35 @@ fn validate_database(path: &Path) -> Result<i64> {
             expected.execute_batch(sql).map_err(err)?;
         }
     }
-    let locale: Option<String> = db
-        .query_row("SELECT locale FROM settings WHERE id=1", [], |r| r.get(0))
-        .map_err(err)?;
-    if locale.as_deref().is_some_and(|v| v != "zh-CN" && v != "en") {
-        return Err("Invalid locale".into());
-    }
     if schema(&db)? != schema(&expected)? {
         return Err(crate::language::error(
             "LOCAL_BACKUP_SCHEMA_UNSUPPORTED",
             serde_json::json!({}),
         ));
     }
-    if version >= 2 {
-        let config = db
-            .query_row(
-                "SELECT base_url,model_id FROM settings WHERE id=1",
-                [],
-                |r| {
-                    Ok(crate::settings::ConnectionSettings {
-                        base_url: r.get(0)?,
-                        model_id: r.get(1)?,
-                    })
-                },
-            )
-            .map_err(err)?;
-        config.validate()?;
+    Ok(version)
+}
+
+fn validate_database_contents(db: &Connection) -> Result<()> {
+    let locale: Option<String> = db
+        .query_row("SELECT locale FROM settings WHERE id=1", [], |r| r.get(0))
+        .map_err(err)?;
+    if locale.as_deref().is_some_and(|v| v != "zh-CN" && v != "en") {
+        return Err("Invalid locale".into());
     }
+    let config = db
+        .query_row(
+            "SELECT base_url,model_id FROM settings WHERE id=1",
+            [],
+            |r| {
+                Ok(crate::settings::ConnectionSettings {
+                    base_url: r.get(0)?,
+                    model_id: r.get(1)?,
+                })
+            },
+        )
+        .map_err(err)?;
+    config.validate()?;
     let integrity: String = db
         .query_row("PRAGMA integrity_check", [], |r| r.get(0))
         .map_err(err)?;
@@ -503,10 +566,10 @@ fn validate_database(path: &Path) -> Result<i64> {
             serde_json::json!({}),
         ));
     }
-    let rows = crate::questions::read(&db)?;
+    let rows = crate::questions::read(db)?;
     let mut questions: Vec<_> = rows.iter().map(|r| r["question"].clone()).collect();
     crate::contract::validate_tree(&mut questions)?;
-    crate::questions::validate_tables(&db)?;
+    crate::questions::validate_tables(db)?;
     let doc = crate::questions::freeze(&rows);
     let ids: std::collections::HashSet<_> = rows
         .iter()
@@ -593,8 +656,12 @@ fn validate_database(path: &Path) -> Result<i64> {
     if missing {
         return Err("Session snapshot is missing".into());
     }
-    Ok(version)
+    Ok(())
 }
+
+#[cfg(test)]
+#[path = "backup_schema_tests.rs"]
+mod schema_tests;
 
 #[cfg(test)]
 mod tests {
@@ -605,14 +672,14 @@ mod tests {
         let path = dir.path().join("current.sqlite");
         let db = Connection::open(&path).unwrap();
         db.execute_batch(include_str!("schema.sql")).unwrap();
-        assert_eq!(validate_database(&path).unwrap(), 10);
+        assert_eq!(validate_database_schema(&path).unwrap(), 10);
         for (_, sql) in crate::questions::READ_INDEXES {
             db.execute_batch(sql).unwrap();
         }
-        assert_eq!(validate_database(&path).unwrap(), 10);
+        assert_eq!(validate_database_schema(&path).unwrap(), 10);
         db.execute_batch("DROP INDEX visuals_bank; CREATE INDEX visuals_bank ON visuals(content)")
             .unwrap();
-        assert!(validate_database(&path).is_err());
+        assert!(validate_database_schema(&path).is_err());
     }
     #[test]
     fn restores_old_oss_backups_without_retaining_the_column() {
@@ -656,7 +723,7 @@ mod tests {
                 .unwrap(),
                 ("demo".into(), "en".into())
             );
-            assert_eq!(validate_database(&store.db_path()).unwrap(), 10);
+            assert_eq!(validate_database_schema(&store.db_path()).unwrap(), 10);
         }
     }
     #[test]
@@ -667,7 +734,7 @@ mod tests {
         db.execute_batch("PRAGMA user_version=8;").unwrap();
         drop(db);
         let before = fs::read(&path).unwrap();
-        assert!(validate_database(&path).is_err());
+        assert!(validate_database_schema(&path).is_err());
         assert_eq!(before, fs::read(&path).unwrap());
     }
 }

@@ -309,3 +309,110 @@ fn old_schema_ten_databases_and_backups_gain_activity_without_losing_compatibili
     migrated.backup(&backup).unwrap();
     target.restore(&backup).unwrap();
 }
+
+#[test]
+fn clock_jumps_do_not_reject_drafts_or_change_a_running_exam_deadline() {
+    let (_dir, store, rows) = setup();
+    let wall = 1_800_000_000_000;
+    store.session_clock.set(wall, 1_000);
+    let exam = start(&store, &rows[..1], "mock_exam");
+    let sid = text(&exam, "id");
+    store.session_clock.set(wall - 120_000, 31_000);
+    store
+        .save_draft((sid, 0), json!({"correct":["A"]}), 30_000)
+        .unwrap();
+    assert_eq!(store.session(sid).unwrap()["clockNow"], wall + 30_000);
+    store.session_clock.set(wall + 7_200_000, 61_000);
+    store
+        .save_draft((sid, 0), json!({"correct":["B"]}), 60_000)
+        .unwrap();
+    let active = store.session(sid).unwrap();
+    assert!(active["submittedAt"].is_null());
+    assert_eq!(active["clockNow"], wall + 60_000);
+    assert_eq!(active["deadlineAt"], wall + 3_600_000);
+    assert_eq!(
+        store.sessions_filtered(30, 0, "review").unwrap()["total"],
+        0
+    );
+    // The native tick includes sleep; no frontend interval or write is needed to expire.
+    store.session_clock.set(wall - 120_000, 3_601_000);
+    assert_eq!(
+        store.sessions_filtered(30, 0, "review").unwrap()["total"],
+        1
+    );
+    let expired = store.session(sid).unwrap();
+    assert!(expired["submittedAt"].is_number());
+    assert_eq!(expired["attempts"][0]["answer"], json!({"correct":["B"]}));
+}
+
+#[test]
+fn clock_restart_clamps_backwards_time_and_preserves_drafts_on_forward_expiry() {
+    let (dir, store, rows) = setup();
+    let wall = 1_800_000_000_000;
+    store.session_clock.set(wall, 1_000);
+    let exam = start(&store, &rows[..1], "mock_exam");
+    let sid = text(&exam, "id");
+    store.session_clock.set(wall + 300_000, 301_000);
+    store
+        .save_draft((sid, 0), json!({"correct":["A"]}), 300_000)
+        .unwrap();
+    drop(store);
+    let reopened = Store::new(dir.path().to_owned()).unwrap();
+    reopened.session_clock.set(wall - 120_000, 500_000);
+    let resumed = reopened.session(sid).unwrap();
+    assert_eq!(resumed["clockNow"], wall + 300_000);
+    assert_eq!(resumed["deadlineAt"], exam["deadlineAt"]);
+    reopened.session_clock.set(wall - 120_000, 620_000);
+    reopened
+        .save_draft((sid, 0), json!({"correct":["B"]}), 420_000)
+        .unwrap();
+    assert_eq!(reopened.session(sid).unwrap()["clockNow"], wall + 420_000);
+    drop(reopened);
+    // While closed there is no trusted clock: a forward wall time follows the stored deadline.
+    let reopened = Store::new(dir.path().to_owned()).unwrap();
+    reopened.session_clock.set(wall + 7_200_000, 10);
+    let expired = reopened.session(sid).unwrap();
+    assert!(expired["submittedAt"].is_number());
+    assert_eq!(expired["attempts"][0]["answer"], json!({"correct":["B"]}));
+}
+
+#[test]
+fn clock_initializes_from_all_saved_sessions_once_without_history_jumps() {
+    let (dir, store, rows) = setup();
+    let wall = 1_800_000_000_000;
+    store.session_clock.set(wall + 7_200_000, 1_000);
+    let old = start(&store, &rows[..1], "practice");
+    let old_id = text(&old, "id");
+    store
+        .save_draft((old_id, 0), json!({"correct":["A"]}), 0)
+        .unwrap();
+    drop(store);
+    let reopened = Store::new(dir.path().to_owned()).unwrap();
+    reopened.session_clock.set(wall, 100);
+    let current = start(&reopened, &rows[..1], "mock_exam");
+    let sid = text(&current, "id");
+    assert_eq!(current["createdAt"], wall + 7_200_000);
+    assert_eq!(current["deadlineAt"], wall + 10_800_000);
+    reopened.session_clock.set(wall + 7_200_000, 30_100);
+    // A later read of another session, even one with a future saved timestamp,
+    // cannot redefine an exam's already established monotonic time domain.
+    reopened
+        .connect()
+        .unwrap()
+        .execute(
+            "UPDATE sessions SET last_active_at=?2 WHERE id=?1",
+            params![old_id, wall + 14_400_000],
+        )
+        .unwrap();
+    reopened.session(old_id).unwrap();
+    let active = reopened.session(sid).unwrap();
+    assert!(active["submittedAt"].is_null());
+    assert_eq!(active["clockNow"], wall + 7_230_000);
+    let summary = reopened.sessions_filtered(30, 0, "active").unwrap();
+    let summary = list(&summary, "items")
+        .iter()
+        .find(|s| s["id"] == sid)
+        .unwrap();
+    assert_eq!(summary["clockNow"], active["clockNow"]);
+    assert_eq!(summary["deadlineAt"], active["deadlineAt"]);
+}

@@ -32,7 +32,7 @@ These rule-based synthetic samples are not independent teacher annotations or cr
 
 ## Extraction dataset and human gold labels
 
-`evals/cases.json` uses `schemaVersion: 2` and currently contains 22 synthetic cases. The scorer version in `scripts/evaluate.py` is `4.0.0`. The manifest covers Text, CSV, PDF, and Image; seven basic question types; reading, word-bank, and cloze composites; and cases involving Chinese, missing source answers, long stems with identical prefixes, legitimate duplicates, long text spanning chunks, text without questions, and corrupt PDFs. Contract and desktop tests for newer English question types, such as listening and grammar cloze, do not mean those types are covered by this live-model quality evaluation. Manifest fields mean:
+`evals/cases.json` uses `schemaVersion: 2` and currently contains 22 synthetic cases. The scorer version in `scripts/evaluate.py` is `5.0.1`. The manifest covers Text, CSV, PDF, and Image; seven basic question types; reading, word-bank, and cloze composites; and cases involving Chinese, missing source answers, long stems with identical prefixes, legitimate duplicates, long text spanning chunks, text without questions, and corrupt PDFs. Contract and desktop tests for newer English question types, such as listening and grammar cloze, do not mean those types are covered by this live-model quality evaluation. Manifest fields mean:
 
 - `id` is a stable, unique case identifier. `path` must point inside the manifest directory; path and symlink escapes are forbidden.
 - `tags` group cases by scenario. With `critical: true`, any discrepancy in an annotated field or structure fails the case.
@@ -74,12 +74,15 @@ Stem matching removes only leading question numbers and layout whitespace, prese
 | answerModeAccuracy | Questions with the correct answer mode / gold questions |
 | optionsAccuracy | Choice questions with correct options / gold choice questions |
 | parsedAnswerAccuracy | Questions with correct source answers / gold questions, including null answers |
+| structureAccuracy | Fully matched question structures / structural questions in gold or output, including missing and extra parents; checks material, mode, parent/blank/option-owner references, shared options, items, reuse policy, and gold-annotated choice/matching variants and blank counts |
 | groupF1 | 2 × fully matched groups / (gold groups + output groups), checking titles and members |
 | visualF1 | 2 × matched visuals / (gold visuals + output visuals), using multiset counts of kind and annotated page |
 
+`choiceVariant`, `matchingVariant`, and `blankCount` participate in structure scoring only when the gold value is non-null; omitted or null values are unannotated and do not require an absent output field. An annotated variant or count is sufficient to include a question in structure scoring even without material or references.
+
 Metrics range from 0 to 100. A missing denominator yields N/A; an explicitly empty annotated structure with an empty output scores 100. Overall metrics use micro-averages over questions or structures, with breakdowns by format, question type, and tag.
 
-Gates require all annotated overall quality metrics to reach at least 90%, all normal cases to be `SUCCEEDED`, all expected rejections to match, and all critical cases to have no discrepancies. Matched questions without source answers must never receive fabricated answers. Unmatched and extra questions in wholly answerless cases must also retain null answers. `PARTIAL` preserves results and stage failures but does not count as a normal-case success.
+Gates require all annotated overall quality metrics to reach at least 90%, all normal cases to be `SUCCEEDED`, all expected rejections to match, and all critical cases to have no discrepancies. Any question-structure mismatch also fails the gate, including in non-critical cases and when averaging would keep `structureAccuracy` above 90%. The `text-composites` regression case is critical. References are compared through matched questions, so changing parser-assigned IDs alone is not a mismatch. Parents participate in structure scoring even though they are excluded from answerable-question counts. Matched questions without source answers must never receive fabricated answers. Unmatched and extra questions in wholly answerless cases must also retain null answers. `PARTIAL` preserves results and stage failures but does not count as a normal-case success.
 
 | Status / exit code | Meaning |
 |---|---|
@@ -122,6 +125,8 @@ By default, runs produce `report.json` and `report.md` under `reports/evaluation
 Reports record the Git commit and dirty state, source/dependency and prompt fingerprints, model, allowlisted runtime parameters, selected gold labels and file-content hashes, scorer version, per-execution field differences, processing failures, model calls, and timing. They exclude credentials, signed URLs, object references, and raw exception bodies.
 
 A valid baseline must be PASSED. Both baseline and candidate must have at least three repetitions and identical dataset hashes, scorer versions, selected cases, and repetition counts. Comparison uses unrounded metrics and forbids decreases in overall metrics. Reports show percentage-point changes, per-case count changes, and code/model/parameter changes. A single run can check absolute gates but cannot serve as a formal comparison baseline. Changes to scoring semantics require a new `SCORER_VERSION` and a new live baseline; do not mix scoring versions. Historical reports remain read-only. The current comparator requires the current `SCORER_VERSION` and does not migrate or rewrite historical scores. The runner disables `LANGSMITH_TRACING` and `LANGCHAIN_TRACING_V2` and sends no data to a remote evaluation platform.
+
+Scorer 5 adds structure scoring and a strict structure gate. Version 5.0.1 also checks annotated choice/matching variants and blank counts; version 5.0.0 omitted these fields and is no longer a compatible baseline. Version 4 reports can have `qualityPassed: false` for material/relationship errors while their overall status is `PASSED`; they are incompatible with the current comparator. A new three-repetition live baseline is required before making current extraction-quality claims. The scorer's offline regression tests validate the gate, not model quality.
 
 ## Offline fault probes and local review
 

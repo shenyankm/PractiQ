@@ -7,6 +7,7 @@ from ..contracts import (
     ParsedQuestion,
     QualityIssue,
     QuestionSource,
+    question_missing_fields,
 )
 from ..errors import DocumentProcessingError
 
@@ -226,6 +227,12 @@ def merge_chunk_results(
     return questions, groups, warnings, truncated, sources, quality
 
 
+class SourceQuestionConflict(ValueError):
+    def __init__(self, message: str, question_index: int):
+        super().__init__(message)
+        self.question_index = question_index
+
+
 def finalize_question_ids(questions, groups, visuals, sources, quality):
     """Resolve explicit source-anchored compound fragments in the merge stage only."""
     from practiq_ai.contracts import COMPOSITE_MODES
@@ -244,11 +251,11 @@ def finalize_question_ids(questions, groups, visuals, sources, quality):
         if prior is not None and question.answerMode in COMPOSITE_MODES:
             current_units = source_units.get(index, set())
             if not any(stage == old_stage and unit == old_unit + 1 for stage, unit in current_units for old_stage, old_unit in anchor_units.get(question.id, set())):
-                raise ValueError("Composite continuation lacks adjacent source evidence")
+                raise SourceQuestionConflict("Composite continuation lacks adjacent source evidence", index)
             anchor_units[question.id] = current_units
             target = retained[prior]
             if target.answerMode != question.answerMode or target.parentId != question.parentId:
-                raise ValueError("Conflicting composite source anchor")
+                raise SourceQuestionConflict("Conflicting composite source anchor", index)
             target.passage.extend(b for b in question.passage if b not in target.passage)
             target.transcript.extend(b for b in question.transcript if b not in target.transcript)
             for field in ("questionKind", "instructions", "audioRef", "audioEndSeconds"):
@@ -256,7 +263,7 @@ def finalize_question_ids(questions, groups, visuals, sources, quality):
                 old = getattr(target, field)
                 if value is not None:
                     if old is not None and old != value:
-                        raise ValueError("Conflicting composite metadata")
+                        raise SourceQuestionConflict("Conflicting composite metadata", index)
                     setattr(target, field, value)
             for field in ("audioStartSeconds", "examPlayCount"):
                 value = getattr(question, field)
@@ -264,7 +271,7 @@ def finalize_question_ids(questions, groups, visuals, sources, quality):
                 default = ParsedQuestion.model_fields[field].default
                 if value != default:
                     if old != default and old != value:
-                        raise ValueError("Conflicting composite audio metadata")
+                        raise SourceQuestionConflict("Conflicting composite audio metadata", index)
                     setattr(target, field, value)
             target.needsReview |= question.needsReview
             target.missingFields = list(dict.fromkeys([*target.missingFields, *question.missingFields]))
@@ -274,7 +281,7 @@ def finalize_question_ids(questions, groups, visuals, sources, quality):
             index_map[index] = len(retained)
             if question.id:
                 if question.id in anchors:
-                    raise ValueError("Duplicate source question ID")
+                    raise SourceQuestionConflict("Duplicate source question ID", index)
                 anchors[question.id] = len(retained)
                 anchor_units[question.id] = source_units.get(index, set())
             retained.append(question)
@@ -283,18 +290,36 @@ def finalize_question_ids(questions, groups, visuals, sources, quality):
         q.id = f"q{index}"
         if q.parentId:
             if q.parentId not in aliases:
+                if q.optionSourceId == q.parentId:
+                    q.optionSourceId = None
                 q.parentId = None
                 q.needsReview = True
                 q.missingFields = list(dict.fromkeys([*q.missingFields, "material"]))
+                q.missingFields = question_missing_fields(q.model_dump())
             else:
                 q.parentId = aliases[q.parentId]
         if q.optionSourceId:
             q.optionSourceId = aliases.get(q.optionSourceId, q.optionSourceId)
         for block in q.passage:
             if block.questionId:
-                block.questionId = aliases.get(block.questionId, block.questionId)
+                if block.questionId in aliases:
+                    block.questionId = aliases[block.questionId]
+                else:
+                    # A skipped unit may contain this blank's child. Keep its
+                    # evidence as noninteractive text, never invent a child.
+                    # Only merged copies change; retry reuses the original unit.
+                    block.partType = "text"
+                    block.questionId = None
+                    if not any(value and value.strip() for value in (block.textValue, block.markdownValue, block.latexValue)) and block.jsonValue is None:
+                        block.textValue = "[____]"
+                    q.needsReview = True
+                    q.missingFields = list(dict.fromkeys([*q.missingFields, "material"]))
     for obj in [*groups, *visuals]:
         obj.questionIndexes = list(dict.fromkeys(index_map[i] for i in obj.questionIndexes))
     for obj in [*sources, *quality.issues]:
         obj.questionIndex = index_map[obj.questionIndex]
+    missing_indexes = {issue.questionIndex for issue in quality.issues if issue.code == "MISSING_FIELDS"}
+    for index, question in enumerate(retained):
+        if question.missingFields and index not in missing_indexes:
+            quality.issues.append(QualityIssue(questionIndex=index, code="MISSING_FIELDS"))
     return retained

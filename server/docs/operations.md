@@ -47,6 +47,12 @@ Unexpected restarts resume unfinished runs with their original IDs, deadlines, b
 
 Each run defaults to 1,800 seconds. Explicit resume creates a new run; crash recovery does not reset its deadline. A task may reserve at most 400 model calls by default. Unused reservations, failed calls, and unknown calls are not refunded. Each unit permits at most four model attempts and two manual retry rounds, using the existing error classifications.
 
+Duplicate question IDs within a model response enter bounded output correction. Conflicting IDs or incompatible composite continuations between units mark the later conflicting unit `OUTPUT_INVALID`; successful units remain available, and another model call requires explicit failed-unit retry. When a failed page contained a word bank, retained children lose the unavailable parent/option-source references and require material/options review; missing options are never invented.
+
+If skipped units contained passage children, the partial result retains their blanks as noninteractive text and marks the parent for material review. Original block content and labels remain; a blank with no content displays `[____]` as a placeholder. No child question or answer is fabricated. Successful unit checkpoints retain the original blank references, so an explicit failed-unit retry restores the complete passage links when those children become available.
+
+New model output with `confidence < 0.5` always requires review. This threshold is an extraction-review heuristic, not a calibrated probability of correctness. Original confidence, source text, answers and explanations remain unchanged. This rule does not rewrite review flags on historical or independently imported question banks.
+
 Successful checkpointed units are reused. A provider request that completed before its result was persisted may be repeated; unknown usage remains recorded. Exactly-once provider calls are not guaranteed. Pause does not forcibly cancel accepted remote requests, and canceling a local wait does not terminate an underlying synchronous thread.
 
 ## Configuration and observability

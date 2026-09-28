@@ -1038,7 +1038,7 @@
         "composite",
         "text"
       ],
-      "critical": false,
+      "critical": true,
       "expectedVisualKinds": []
     }
   ]

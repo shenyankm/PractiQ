@@ -176,6 +176,7 @@ pub fn snapshot(shared: &crate::Shared) -> Result<Store> {
         dir: store.dir.clone(),
         pending: None,
         staged_audio: Default::default(),
+        session_clock: Default::default(),
         session_document_cache: Default::default(),
     })
 }

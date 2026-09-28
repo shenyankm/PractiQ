@@ -1,7 +1,7 @@
 //! Local listening assets and per-session playback; no network or transcription.
 use crate::{
     contract::{list, text, Result},
-    store::{hash, now, read_bounded, Store},
+    store::{hash, read_bounded, Store},
 };
 use rusqlite::{params, OptionalExtension};
 use serde::Deserialize;
@@ -189,7 +189,7 @@ impl Store {
                 |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?)),
             ).optional().map_err(err)?.unwrap_or((0,start,false,0,0));
         if !matches!(action, PlaybackAction::State) {
-            let at = now();
+            let at = self.session_clock.now()?;
             if submitted.is_some() || finished.is_some() {
                 return Err("Session playback is locked; use review playback".into());
             }
@@ -669,6 +669,66 @@ mod tests {
             .listening_playback(sid, &root, PlaybackAction::Start, None)
             .is_err());
     }
+    #[test]
+    fn exam_playback_uses_continuous_time_across_clock_jumps_and_sleep() {
+        let (_dir, store, bank) = english();
+        let wall = 1_800_000_000_000;
+        store.session_clock.set(wall, 1_000);
+        let roots = store.questions(Some(&bank), "", "listening", "").unwrap();
+        let root = text(&roots[0], "id").to_owned();
+        let selected = crate::paper::selected_rows(
+            &store.question_rows().unwrap(),
+            std::slice::from_ref(&root),
+        )
+        .unwrap();
+        let session = store
+            .start_paper(crate::exams::Paper {
+                question_ids: vec![root.clone()],
+                kind: "self_test".into(),
+                minutes: None,
+                scores: vec![100, 100],
+                total_cents: 200,
+                digest: crate::paper::digest(&selected).unwrap(),
+            })
+            .unwrap();
+        let sid = text(&session, "id");
+        store
+            .listening_playback(sid, &root, PlaybackAction::Start, None)
+            .unwrap();
+        store.session_clock.set(wall - 120_000, 4_000);
+        assert_eq!(
+            store
+                .listening_playback(sid, &root, PlaybackAction::Progress, Some(3.0))
+                .unwrap()["position"],
+            3.0
+        );
+        store.session_clock.set(wall + 7_200_000, 5_000);
+        assert_eq!(
+            store
+                .listening_playback(sid, &root, PlaybackAction::Pause, Some(4.0))
+                .unwrap()["position"],
+            4.0
+        );
+        // Sleep while paused does not grant extra seek allowance or consume another play.
+        store.session_clock.set(wall + 7_200_000, 65_000);
+        assert_eq!(
+            store
+                .listening_playback(sid, &root, PlaybackAction::Start, None)
+                .unwrap()["used"],
+            1
+        );
+        assert!(store
+            .listening_playback(sid, &root, PlaybackAction::Progress, Some(9.0))
+            .is_err());
+        store.session_clock.set(wall - 120_000, 66_000);
+        assert_eq!(
+            store
+                .listening_playback(sid, &root, PlaybackAction::Progress, Some(5.0))
+                .unwrap()["position"],
+            5.0
+        );
+    }
+
     #[test]
     fn exam_progress_cannot_accumulate_seek_allowance_across_updates_or_pauses() {
         let (_dir, store, bank) = english();

@@ -57,6 +57,12 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: app/src-tauri
+      - name: Install pinned Rust advisory checker
+        if: runner.os == 'Linux'
+        run: cargo install cargo-audit --locked --version 0.22.2 --registry crates-io
+      - name: Audit locked Rust dependencies
+        if: runner.os == 'Linux'
+        run: make audit-rust
       - uses: actions/setup-python@v5
         with:
           python-version: '3.14'

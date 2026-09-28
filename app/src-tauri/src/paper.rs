@@ -1,5 +1,5 @@
 //! Group-aware selection and score allocation run only in Rust.
-use crate::question_metadata::COMPOSITE_SQL;
+use crate::question_metadata::{COMPOSITE_SQL, FILTER_MODES};
 use crate::{
     contract::{list, text, Result},
     questions,
@@ -245,7 +245,9 @@ impl Store {
             split(p.total_cents, leaves.len())?
         };
         if !p.budgets.is_empty() {
-            if p.budgets.len() > 10
+            if p.budgets
+                .keys()
+                .any(|key| !FILTER_MODES.contains(&key.as_str()))
                 || p.budgets.values().any(|v| !(0..=100_000_000).contains(v))
                 || p.budgets.values().sum::<i64>() != p.total_cents
             {
@@ -285,6 +287,40 @@ impl Store {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn reallocates_all_supported_types_without_changing_selection_or_content() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut store = Store::new(directory.path().into()).unwrap();
+        let imported = store.add_example_bank().unwrap();
+        let bank = text(&imported, "bankId");
+        let rows = store.questions(Some(bank), "", "", "").unwrap();
+        let ids: Vec<_> = rows
+            .as_array()
+            .unwrap()
+            .iter()
+            .rev()
+            .map(|r| r["id"].clone())
+            .collect();
+        let request = || {
+            serde_json::from_value::<Preview>(json!({"bank_ids":[bank],"search":"","mode":"","filter":"","selection":"manual","count":0,"quotas":{},"question_ids":ids,"random":false,"total_cents":10000})).unwrap()
+        };
+        let original = store.preview_paper(request()).unwrap();
+        let mut budgets = HashMap::new();
+        for question in list(&original, "questions") {
+            *budgets
+                .entry(text(question, "rootType").to_owned())
+                .or_insert(0) += 100;
+        }
+        assert!(budgets.len() > 10);
+        let mut allocation = request();
+        allocation.total_cents = budgets.values().sum();
+        allocation.budgets = budgets;
+        let updated = store.preview_paper(allocation).unwrap();
+        assert_eq!(updated["questionIds"], original["questionIds"]);
+        assert_eq!(updated["questions"], original["questions"]);
+        assert_eq!(updated["digest"], original["digest"]);
+        assert!(list(&updated, "scores").iter().all(|score| score == 100));
+    }
     #[test]
     fn indivisible_groups() {
         assert_eq!(exact(&[3, 4, 2], 6).unwrap(), vec![1, 2]);

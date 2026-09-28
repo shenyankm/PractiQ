@@ -28,11 +28,13 @@ Choose checks for the affected area; append `AI_PYTHON=/path/to/python3.14` to P
 | Change | Checks |
 | --- | --- |
 | AI service | `make verify` (lockfile, lint, types, fixtures, tests with 90% coverage, recovery probes, package build) |
-| Locked dependencies | `make audit` (network required) |
+| Locked dependencies | `make audit` for Python runtime, dev, and desktop extras; `make audit-rust` for Cargo.lock; `npm --prefix app audit --audit-level=high` for npm (network required) |
 | Service image | `make image-check` (Docker required; does not publish) |
 | Desktop | `make app-check` and `make app-package-check` on macOS or Linux; see the [desktop CI workflow](.github/workflows/desktop.yml) for Windows checks |
 | Desktop UI | Also run `npm --prefix app run test:browser`; see [README.md](README.md) for Chromium setup |
 | Documentation | Verify claims against source, local links, and command syntax |
+
+Install the CI-pinned [RustSec checker](https://github.com/RustSec/rustsec/releases/tag/cargo-audit/v0.22.2) with `cargo install cargo-audit --locked --version 0.22.2 --registry crates-io` before running `make audit-rust`. It checks the complete lockfile once in Linux CI, including dependencies used on other target platforms. Advisory failures block that job; audit commands do not update project dependencies.
 
 Automated checks use model substitutes; they do not establish extraction or grading accuracy. See the [evaluation guide](server/docs/evaluation.md) for live-model checks. Browser checks mock native commands. Validate affected native interactions, credential storage, and audio playback on the target OS using isolated test data. Report untested platforms and flows in the pull request.
 

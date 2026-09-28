@@ -51,6 +51,21 @@ export function BankList({ offset, onOffsetChange, revision, busy, ready, run, o
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [offset, revision, refresh, onOffsetChange]);
+  const timedSession = unfinished?.deadlineAt != null ? unfinished.id : null;
+  useEffect(() => {
+    if (!timedSession) return;
+    let active = true, loading = false;
+    const refreshClock = () => {
+      if (loading) return;
+      loading = true;
+      void api({ type: "unfinished_session" }).then(pending => {
+        if (active) setUnfinished(pending);
+      }).catch(() => {}).finally(() => { loading = false; });
+    };
+    const timer = window.setInterval(refreshClock, 3000);
+    window.addEventListener("focus", refreshClock);
+    return () => { active = false; window.clearInterval(timer); window.removeEventListener("focus", refreshClock); };
+  }, [timedSession]);
   return <div className="space-y-5">
     {(loading || error != null) && <div className="space-y-3" aria-busy={loading}>
       {loading && <p role="status">{t("加载中…")}</p>}

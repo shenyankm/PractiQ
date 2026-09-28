@@ -59,3 +59,25 @@ it("parses folded answers only after opening, and retains them on reopen", async
   await user.click(screen.getByText("答案、解析与来源"));
   expect(parse).not.toHaveBeenCalled();
 });
+
+it("uses native exam time across wall-clock jumps and resynchronizes after sleep", async () => {
+  vi.useFakeTimers();
+  const wall = 1_800_000_000_000;
+  vi.setSystemTime(wall);
+  const snapshot = {question:fixture.questions[4] as Question,groups:[],visuals:[],sources:[],warnings:[],missingAssets:false};
+  const session: Session = {id:"clock",title:"clock",kind:"mock_exam",clockNow:wall,deadlineAt:wall+60_000,createdAt:wall,finishedAt:null,submittedAt:null,position:0,mode:"ordered",attempts:[{ordinal:0,snapshot,answer:{text:"saved"},autoResult:null,result:null,gradeKind:"ungraded",submittedAt:null,skipped:false,elapsedMs:0,maxCents:100,earnedCents:null}]};
+  const onSession = vi.fn();
+  vi.mocked(api).mockResolvedValue({...session, clockNow:wall+3_000});
+  render(<Practice session={session} onSession={onSession} run={job=>{void job();}} flushRef={{current:async()=>{}}}/>);
+  vi.setSystemTime(wall - 120_000);
+  await act(async () => { await vi.advanceTimersByTimeAsync(1_000); });
+  expect(screen.getByRole("timer").textContent).toContain("0 分 59 秒");
+  vi.setSystemTime(wall + 7_200_000);
+  await act(async () => { await vi.advanceTimersByTimeAsync(2_000); });
+  expect(screen.getByRole("timer").textContent).toContain("0 分 57 秒");
+  expect(onSession).not.toHaveBeenCalled();
+  const expired = {...session,submittedAt:wall+60_000,attempts:[{...session.attempts[0],submittedAt:wall+60_000}]};
+  vi.mocked(api).mockResolvedValue(expired);
+  await act(async () => { window.dispatchEvent(new Event("focus")); });
+  expect(onSession).toHaveBeenCalledWith(expired);
+});

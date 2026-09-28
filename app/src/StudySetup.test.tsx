@@ -9,6 +9,78 @@ vi.mock("./api", async () => ({ ...(await vi.importActual<typeof import("./api")
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 const banks = [{id:"one",title:"题库一",count:2,description:"",createdAt:0}, {id:"two",title:"题库二",count:1,description:"",createdAt:0}];
 const rows = fixture.questions.slice(0,2).map((question,i) => ({id:`q${i}`,bankId:"one",bankTitle:"题库一",question,groups:[],visuals:[],sources:[],warnings:[],missingAssets:false,favorite:false,latestResult:null})) as QuestionRow[];
+
+it("preserves the review filter when opening study setup from the review list", async () => {
+  vi.mocked(api).mockResolvedValue({count:1,types:{single:1},feasibleCounts:[1]} as never);
+  render(<StudySetup banks={banks} initialBank="one" initialFilter="review" busy={false} run={job=>{void job();}} onStart={async()=>{}} onClose={()=>{}}/>);
+  await screen.findByText(/可用 1 题/);
+  await userEvent.click(screen.getByText(/高级设置/, {selector:"summary"}));
+  expect((screen.getByLabelText("范围") as HTMLSelectElement).value).toBe("review");
+  expect(screen.getByRole("status").textContent).toContain("待复核");
+  expect(api).toHaveBeenCalledWith(expect.objectContaining({type:"question_stats",filter:"review"}));
+});
+
+it("reallocates the existing random paper in place and rejects changed question content", async () => {
+  let generated = 0;
+  let changed = false;
+  const questions = [rows[0], rows[1]].map(row => ({...row, rootType:"single"}));
+  vi.mocked(api).mockImplementation(async request => {
+    if (request.type === "question_stats") return {count:2,types:{single:2},feasibleCounts:[1,2]} as never;
+    if (request.type === "preview_paper") {
+      const ids = request.request.selection === "manual" ? request.request.question_ids : ++generated === 1 ? ["q1", "q0"] : ["q0", "q1"];
+      return {questionIds:ids,digest:changed ? "changed" : "original",questions:ids.map(id => questions.find(row => row.id === id)),scores:ids.map(() => 5000),count:2} as never;
+    }
+    return {id:"session"} as never;
+  });
+  render(<StudySetup banks={banks} initialBank="one" initialFilter="" busy={false} run={job => {void job();}} onStart={async()=>{}} onClose={()=>{}}/>);
+  await screen.findByText(/可用 2 题/);
+  await userEvent.selectOptions(screen.getByLabelText("模式"), "self_test");
+  await userEvent.selectOptions(screen.getByLabelText("出题顺序"), "random");
+  await userEvent.click(screen.getByRole("button", {name:"预览题目与配分"}));
+  await userEvent.click(screen.getByText("按题型分配总分", {selector:"summary"}));
+  fireEvent.change(screen.getByLabelText("单选预算"), {target:{value:"100"}});
+  await userEvent.click(screen.getByRole("button", {name:"按题型预算重新配分（覆盖逐题修改）"}));
+  expect(api).toHaveBeenLastCalledWith(expect.objectContaining({type:"preview_paper",request:expect.objectContaining({selection:"manual",question_ids:["q1","q0"],random:false,budgets:{single:10000}})}));
+  expect(generated).toBe(1);
+  changed = true;
+  await userEvent.click(screen.getByRole("button", {name:"按题型预算重新配分（覆盖逐题修改）"}));
+  expect(screen.getByRole("alert").textContent).toContain("题目内容已变化，请重新生成组卷预览");
+  await userEvent.click(screen.getByRole("button", {name:"开始考试"}));
+  expect(api).toHaveBeenLastCalledWith(expect.objectContaining({type:"start_paper",paper:expect.objectContaining({question_ids:["q1","q0"],digest:"original"})}));
+});
+
+it("drops hidden type budgets when the paper changes and does not restore them with the old filter", async () => {
+  const questions = [{...rows[0],rootType:"single"}, {...rows[1],rootType:"fill_blank"}];
+  vi.mocked(api).mockImplementation(async request => {
+    if (request.type === "question_stats") return {count:request.mode ? 1 : 2,types:request.mode ? {single:1} : {single:1,fill_blank:1},feasibleCounts:[1,2]} as never;
+    if (request.type === "preview_paper") {
+      const selected = request.request.mode ? questions.slice(0,1) : questions;
+      return {questionIds:selected.map(row=>row.id),digest:"paper",questions:selected,scores:selected.map(()=>10000/selected.length),count:selected.length} as never;
+    }
+    return {id:"session"} as never;
+  });
+  render(<StudySetup banks={banks} initialBank="one" initialFilter="" busy={false} run={job => {void job();}} onStart={async()=>{}} onClose={()=>{}}/>);
+  await screen.findByText(/可用 2 题/);
+  await userEvent.selectOptions(screen.getByLabelText("模式"), "self_test");
+  await userEvent.click(screen.getByRole("button", {name:"预览题目与配分"}));
+  await userEvent.click(screen.getByText("按题型分配总分", {selector:"summary"}));
+  fireEvent.change(screen.getByLabelText("单选预算"), {target:{value:"50"}});
+  fireEvent.change(screen.getByLabelText("填空预算"), {target:{value:"50"}});
+  await userEvent.click(screen.getByText(/高级设置/, {selector:"summary"}));
+  await userEvent.selectOptions(screen.getByLabelText("题型"), "single");
+  await screen.findByText(/可用 1 题/);
+  await userEvent.click(screen.getByRole("button", {name:"预览题目与配分"}));
+  await userEvent.click(screen.getByText("按题型分配总分", {selector:"summary"}));
+  fireEvent.change(screen.getByLabelText("单选预算"), {target:{value:"100"}});
+  await userEvent.click(screen.getByRole("button", {name:"按题型预算重新配分（覆盖逐题修改）"}));
+  expect(api).toHaveBeenLastCalledWith(expect.objectContaining({type:"preview_paper",request:expect.objectContaining({budgets:{single:10000}})}));
+  await userEvent.selectOptions(screen.getByLabelText("题型"), "");
+  await screen.findByText(/可用 2 题/);
+  await userEvent.click(screen.getByRole("button", {name:"预览题目与配分"}));
+  await userEvent.click(screen.getByText("按题型分配总分", {selector:"summary"}));
+  expect((screen.getByLabelText("填空预算") as HTMLInputElement).value).toBe("0");
+});
+
 function setup() {
   const onStart = vi.fn(async (_s: Session) => {});
   vi.mocked(api).mockImplementation(async r => {

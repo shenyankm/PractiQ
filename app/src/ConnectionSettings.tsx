@@ -38,7 +38,7 @@ export function ConnectionSettingsPanel({
   });
   const [apiKey, setApiKey] = useState("");
   const [dirty, setDirty] = useState(false);
-  const [operation, setOperation] = useState<"test" | "save" | null>(null);
+  const [operation, setOperation] = useState<"test" | "save" | "clear" | null>(null);
   const locked = useRef(false);
   const revision = useRef(0);
   const pending = useRef<{ version: number; request: Promise<SettingsResult> } | null>(null);
@@ -117,6 +117,20 @@ export function ConnectionSettingsPanel({
       finally { locked.current = false; setOperation(null); }
     });
   }, [dirty, saved, busy, run, persist]);
+  function clearKey() {
+    if (busy || locked.current || dirty || pending.current || !saved?.config.base_url) return;
+    locked.current = true; setOperation("clear");
+    const version = ++revision.current;
+    run(async () => {
+      try {
+        const result = await api({type:"save_settings", config:saved.config, api_key:""});
+        if (version !== revision.current) return;
+        setSaved(result); setConfig(result.config); setApiKey(""); setDirty(false); setSaveError(null);
+        toast.success(message("连接配置已保存"));
+      } catch (error) { if (version === revision.current) toast.error(error); }
+      finally { locked.current = false; setOperation(null); }
+    });
+  }
   if (onConfigure) return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between gap-6">
@@ -177,6 +191,7 @@ export function ConnectionSettingsPanel({
           </fieldset>
           {saveError != null && <div role="alert" className="flex items-center justify-between gap-3 text-sm text-destructive"><span>{errorMessage(saveError)}</span><Button type="button" variant="outline" disabled={busy || operation !== null} onClick={save}>{t("重试保存")}</Button></div>}
           <div className="flex items-center justify-end gap-4 border-t pt-4">
+          <Button variant="outline" type="button" disabled={busy || operation !== null || dirty || !saved?.config.base_url || configured === false} onClick={clearKey}>{t("清除已保存的 API Key")}</Button>
           <Button variant="outline" type="button" disabled={busy || operation !== null || !saved || missing.length > 0} onClick={() => {
             if (locked.current) return;
             locked.current = true; setOperation("test"); setSaveError(null);

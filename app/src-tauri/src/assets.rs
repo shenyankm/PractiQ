@@ -13,6 +13,11 @@ impl Store {
     pub fn collect_unused_assets(&self) -> Result<()> {
         let mut db = self.connect()?;
         let tx = db.transaction().map_err(err)?;
+        tx.execute(
+            "DELETE FROM visuals WHERE document_level=0 AND NOT EXISTS(SELECT 1 FROM question_visuals WHERE visual_id=visuals.id)",
+            [],
+        )
+        .map_err(err)?;
         let hashes = tx
             .prepare("SELECT hash FROM assets")
             .map_err(err)?

@@ -114,7 +114,7 @@ make app-bundle AI_PYTHON=/path/to/python3.14
 make app-dev
 ```
 
-This builds the bundled Python service before starting the desktop app. You do not need model credentials to import ZIP and practise offline. Configure the provider URL, model ID, and API key in **Settings**, then choose **Save and apply**. Editing alone does not change the running service. Applying changes is blocked during active AI requests or parsing; pause parsing or wait for it to finish first. Parsing and AI scoring share this model, which must support text and image inputs.
+This builds the bundled Python service before starting the desktop app. You do not need model credentials to import ZIP and practise offline. Configure the provider URL, model ID, and API key in **Settings**; changes save automatically when you leave an input. Applying changes is blocked during active AI requests or parsing; pause parsing or wait for it to finish first. Parsing and AI scoring share this model, which must support text and image inputs.
 
 If a model or parser change prevents an old task from resuming, you can still inspect its saved results or explicitly parse again with the current model.
 

@@ -113,3 +113,43 @@ assert json.loads(os.environ['TAURI_CONFIG']) == {'bundle': {'resources': []}}
         capture_output=True, text=True, check=False,
     )
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+@pytest.mark.parametrize("target", ["audit", "audit-rust"])
+@pytest.mark.parametrize("failure", [False, True])
+def test_dependency_audits_cover_locked_inputs_and_propagate_failures(tmp_path, target, failure):
+    root = Path(__file__).resolve().parents[2]
+    shutil.copyfile(root / "Makefile", tmp_path / "Makefile")
+    (tmp_path / "server").mkdir()
+    checker = tmp_path / "python"
+    checker.write_text(f"#!{sys.executable}\n" + '''
+import os
+import sys
+from pathlib import Path
+
+args = sys.argv[1:]
+if args[0] == "export":
+    assert "--locked" in args and "--no-emit-project" in args
+    extras = {args[i + 1] for i, arg in enumerate(args) if arg == "--extra"}
+    assert extras == {"dev", "desktop"}
+    Path(args[args.index("-o") + 1]).write_text("pyinstaller==6.22.3\\n")
+elif args[:2] == ["-m", "pip_audit"]:
+    assert {"--strict", "--disable-pip", "--no-deps"} <= set(args)
+    assert "pyinstaller==" in Path(args[args.index("-r") + 1]).read_text()
+    sys.exit(int(os.environ["AUDIT_EXIT"]))
+else:
+    assert args == ["audit", "--file", "app/src-tauri/Cargo.lock"]
+    sys.exit(int(os.environ["AUDIT_EXIT"]))
+''')
+    checker.chmod(0o755)
+    for name in ("uv", "cargo"):
+        (tmp_path / name).symlink_to(checker)
+    result = subprocess.run(
+        ["make", target, f"AI_PYTHON={checker}"], cwd=tmp_path,
+        env={**os.environ, "PATH": f"{tmp_path}{os.pathsep}{os.environ['PATH']}",
+             "AUDIT_EXIT": "7" if failure else "0"},
+        capture_output=True, text=True, check=False,
+    )
+    assert (result.returncode != 0) == failure, result.stdout + result.stderr
+    if failure:
+        assert "Error 7" in result.stderr

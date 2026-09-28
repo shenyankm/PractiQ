@@ -31,6 +31,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from practiq_ai import telemetry
 from practiq_ai.config import load
 from practiq_ai.contracts import (
+    COMPOSITE_MODES,
     AnswerMode,
     AnswerPayload,
     ArtifactReference,
@@ -51,12 +52,12 @@ from practiq_ai.execution import runtime_version
 from practiq_ai.storage import get_object_store
 
 ROOT = Path(__file__).parents[1]
-SCORER_VERSION = "4.0.0"
+SCORER_VERSION = "5.0.1"
 SOURCE_TYPES = {"text", "csv", "pdf", "image"}
 ANSWER_MODES = {"choice", "true_false", "fill_blank", "short_answer", "ordering", "matching", "reading", "word_bank", "cloze"}
 METRICS = (
     "questionPrecision", "questionRecall", "answerModeAccuracy", "optionsAccuracy",
-    "parsedAnswerAccuracy", "groupF1", "visualF1",
+    "parsedAnswerAccuracy", "structureAccuracy", "groupF1", "visualF1",
 )
 MEDIA_TYPES = {
     "csv": "text/csv",
@@ -271,23 +272,33 @@ def score_document_case(expected: list[dict[str, Any]], predicted: list[dict[str
     # Compare links by matched identity rather than parser-assigned ID spelling.
     gold_ids = {q.get("id"): i for i, q in enumerate(expected) if q.get("id")}
     actual_ids = {predicted[row["predictedIndex"]].get("id"): row["expectedIndex"] for row in rows if row["matched"]}
-    def structure(q, ids):
+    def structure(q, ids, annotated_fields):
         blocks = [{k: (ids.get(v, "missing") if k == "questionId" else v) for k, v in block.items() if v is not None} for block in q.get("passage", [])]
-        return {"parent": ids.get(q["parentId"], "missing") if q.get("parentId") else None, "optionsOwner": ids.get(q["optionSourceId"], "missing") if q.get("optionSourceId") else None,
+        return {"answerMode": q["answerMode"], "parent": ids.get(q["parentId"], "missing") if q.get("parentId") else None, "optionsOwner": ids.get(q["optionSourceId"], "missing") if q.get("optionSourceId") else None,
                 "passage": blocks, "items": [{k: v for k, v in item.items() if v is not None} for item in q.get("items", [])],
-                "allowReuse": q.get("allowReuse", False)}
+                "sharedOptions": _question_view(q)["options"] if q["answerMode"] == "word_bank" else [],
+                "allowReuse": q.get("allowReuse", False),
+                **{field: q.get(field) for field in annotated_fields}}
     for row in rows:
-        if row["matched"]:
-            gold, actual = expected[row["expectedIndex"]], predicted[row["predictedIndex"]]
-            if gold.get("id") or gold.get("items"):
-                row["correct"]["structure"] = structure(gold, gold_ids) == structure(actual, actual_ids)
-                if not row["correct"]["structure"]:
-                    row["differences"].append("structure")
+        gold = expected[row["expectedIndex"]] if row["expectedIndex"] is not None else None
+        actual = predicted[row["predictedIndex"]] if row["predictedIndex"] is not None else None
+        annotated_fields = [field for field in ("choiceVariant", "matchingVariant", "blankCount") if gold is not None and gold.get(field) is not None]
+        if not annotated_fields and not any(q is not None and (q["answerMode"] in COMPOSITE_MODES or any(q.get(key) for key in ("parentId", "optionSourceId", "passage", "items", "allowReuse"))) for q in (gold, actual)):
+            continue
+        expected_structure = structure(gold, gold_ids, annotated_fields) if gold is not None else None
+        actual_structure = structure(actual, actual_ids, annotated_fields) if actual is not None else None
+        if row["expected"] is not None:
+            row["expected"]["structure"] = expected_structure
+        if row["predicted"] is not None:
+            row["predicted"]["structure"] = actual_structure
+        row["correct"]["structure"] = expected_structure == actual_structure
+        if not row["correct"]["structure"]:
+            row["differences"].append("structure")
     return {**question_counts(rows), "questions": rows}
 
 
 def question_counts(rows: list[dict[str, Any]]) -> dict[str, int]:
-    leaves = [row for row in rows if row["answerMode"] not in {"reading", "word_bank", "cloze"}]
+    leaves = [row for row in rows if row["answerMode"] not in COMPOSITE_MODES]
     gold = [row for row in leaves if row["expectedIndex"] is not None]
     return {
         "expected": len(gold), "predicted": sum(row["predictedIndex"] is not None for row in leaves),
@@ -296,9 +307,11 @@ def question_counts(rows: list[dict[str, Any]]) -> dict[str, int]:
         "optionsExpected": sum(row["answerMode"] == "choice" for row in gold),
         "optionsCorrect": sum(row["correct"]["options"] for row in gold if row["answerMode"] == "choice"),
         "answerCorrect": sum(row["correct"]["answerPayload"] for row in gold),
+        "structureExpected": sum("structure" in row["correct"] for row in rows),
+        "structureCorrect": sum(row["correct"].get("structure", False) for row in rows),
         "inventedAnswers": sum(row["inventedAnswer"] for row in rows),
         "extraQuestions": sum(row["expectedIndex"] is None for row in rows),
-        "fieldMismatches": sum(row["matched"] and any(not ok for ok in row["correct"].values()) for row in gold),
+        "fieldMismatches": sum(row["matched"] and any(not ok for ok in row["correct"].values()) for row in rows),
         "unverifiedQuestions": sum(row["expectedIndex"] is None for row in rows),
     }
 
@@ -418,6 +431,7 @@ def quality_metrics(scores: list[dict[str, Any]]) -> dict[str, float | None]:
         "answerModeAccuracy": percent(totals["modeCorrect"], totals["expected"]),
         "optionsAccuracy": percent(totals["optionsCorrect"], totals["optionsExpected"]),
         "parsedAnswerAccuracy": percent(totals["answerCorrect"], totals["expected"]),
+        "structureAccuracy": percent(totals["structureCorrect"], totals["structureExpected"]),
     }
     for kind, name in (("groups", "groupF1"), ("visuals", "visualF1")):
         structures = [score[kind] for score in scores if score.get(kind) is not None]
@@ -548,6 +562,8 @@ def summarize(cases: list[dict[str, Any]]) -> dict[str, Any]:
         score = case["score"]
         if score["inventedAnswers"]:
             reasons.append(f"INVENTED_ANSWER:{case['id']}:{case['repetition']}")
+        if score["structureCorrect"] != score["structureExpected"]:
+            reasons.append(f"STRUCTURE_MISMATCH:{case['id']}:{case['repetition']}")
         if any(not check["passed"] for check in case.get("visualArtifactChecks", [])):
             reasons.append(f"VISUAL_ARTIFACT_FAILED:{case['id']}:{case['repetition']}")
         if not case.get("trajectory", {}).get("passed", True):
