@@ -40,3 +40,7 @@ windows-sys = { version = "0.61", features = ["Win32_Storage_FileSystem"] }
 [profile.release]
 lto = "thin"
 strip = "symbols"
+
+# GTK3 requires glib 0.18; backport the upstream VariantStrIter safety fix.
+[patch.crates-io]
+glib = { path = "vendor/glib" }

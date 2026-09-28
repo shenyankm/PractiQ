@@ -63,6 +63,9 @@ jobs:
       - name: Audit locked Rust dependencies
         if: runner.os == 'Linux'
         run: make audit-rust
+      - name: Test GLib safety backport with release optimizations
+        if: runner.os == 'Linux'
+        run: cargo test --locked --release --manifest-path app/src-tauri/vendor/glib/Cargo.toml --target-dir app/src-tauri/target/glib-backport --lib variant_iter::tests
       - uses: actions/setup-python@v5
         with:
           python-version: '3.14'
