@@ -1,4 +1,18 @@
 export const en = {
+  "开发预览 · 示例数据": "Development preview \u00b7 Demo data",
+  "开发预览 · 真实数据": "Development preview \u00b7 Local data",
+  "示例操作仅保存在内存，不访问文件、密钥或模型。切换场景或重置将清除示例修改并回到首页。": "Demo changes stay in memory. Files, credentials and models are not accessed. Changing scenarios or resetting clears demo changes and returns home.",
+  "预览场景": "Preview scenario",
+  "真实本地数据": "Real local data",
+  "重置预览": "Reset preview",
+  "完整数据": "Full data",
+  "空数据": "Empty data",
+  "多页数据": "Multiple pages",
+  "慢加载": "Slow loading",
+  "请求失败": "Request failure",
+  "未配置模型": "Model not configured",
+  "资源缺失": "Missing assets",
+
   "暂无符合此状态的导入记录": "No imports match this status",
   "已取消": "Cancelled",
   "取消任务": "Cancel task",

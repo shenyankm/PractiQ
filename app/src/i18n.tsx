@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "./transport";
 import { en } from "./locales/en";
 
 export type Locale = "zh-CN" | "en";

@@ -11,7 +11,8 @@
     "tauri": "tauri",
     "desktop": "tauri dev",
     "check": "tsc -b && npm run lint && vitest run && cargo fmt --manifest-path src-tauri/Cargo.toml --check && cargo test --manifest-path src-tauri/Cargo.toml && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings",
-    "test:browser": "node scripts/check-i18n.mjs"
+    "test:browser": "node scripts/check-i18n.mjs",
+    "test:preview": "node scripts/check-preview.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.11.1",

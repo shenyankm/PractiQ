@@ -2,7 +2,7 @@ import { chromium } from 'playwright';
 import { createServer } from 'vite';
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
-const server = await createServer({server:{port:0,host:'127.0.0.1',strictPort:true}});
+const server = await createServer({mode:"test",server:{port:0,host:'127.0.0.1',strictPort:true}});
 await server.listen();
 let browser;
 try {

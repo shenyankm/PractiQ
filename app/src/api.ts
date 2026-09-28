@@ -1,7 +1,7 @@
 import { COMPOSITE_MODES } from "./contracts.generated";
 import nativeMessages from "./locales/native.json";
 import { t, locale, MessageError, renderMessage, type LanguageRequest, type Locale } from "./i18n";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "./transport";
 import type { Question, Answer, ParsedOption as Option, ParsedItem as Item, ContentBlock as Block } from "./contracts.generated";
 export type { Question, Answer, Option, Item, Block };
 export type Mode = NonNullable<Question["answerMode"]>;
@@ -178,7 +178,7 @@ export interface PaperPreview { questionIds: string[]; digest: string; questions
 export interface QuestionStats { count: number; types: Record<string, number>; feasibleCounts?: number[] }
 export interface PaperSelection { bank_ids: string[]; search: string; mode: string; filter: string; selection: string; count: number; quotas: Record<string,number>; question_ids: string[]; random: boolean; total_cents: number; budgets?: Record<string,number> }
 export interface PlaybackState { used:number; position:number; active:boolean; limit:number; restricted:boolean }
-type Request =
+export type Request =
   | { type:"pick_audio" }
   | { type:"release_audio"; hash:string }
   | { type:"listening_playback"; id:string; question_id:string; action:"state"|"start"|"progress"|"pause"|"end"; position?:number }

@@ -1,5 +1,5 @@
 import type { DocumentTaskSummary, DocumentTaskReview } from "./contracts.generated";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "./transport";
 import { locale } from "./i18n";
 import type { Preview, Session } from "./api";
 
@@ -59,7 +59,7 @@ export type Batch = {
     error: { code?: string; message: string; params?: Record<string, unknown> } | null;
   }[];
 };
-type Request =
+export type Request =
   | { type: "grade"; id: string; ordinal: number; retry: boolean }
   | { type: "list"; offset: number; filter?: TaskFilter }
   | { type: "get" | "preview" | "review"; id: string }

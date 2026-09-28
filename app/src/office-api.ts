@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "./transport";
 import { locale } from "./i18n";
 
 export type OfficeMode = "pdf" | "text";

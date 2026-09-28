@@ -569,23 +569,25 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                           {offset + i + 1}
                         </span>
                         <button
-                          className="grid min-w-0 flex-1 grid-cols-[5rem_minmax(0,1fr)] items-center gap-4 rounded-sm text-left focus-visible:outline-2 focus-visible:outline-ring"
+                          className="grid min-w-0 flex-1 grid-cols-[max-content_minmax(0,1fr)] items-center gap-4 rounded-sm text-left focus-visible:outline-2 focus-visible:outline-ring"
                           onClick={() => setDetail(row)}
                         >
-                          <div className="flex min-w-0 flex-wrap items-center gap-2">
-                            <Badge variant="outline">
-                              {modeNames()[row.question.answerMode || ""] ||
-                                t("未知题型")}
-                            </Badge>
-                            {[row, ...(row.children || [])].some(item => item.question.needsReview && item.reviewedAt == null) && (
-                              <CircleAlert className="size-4 text-amber-600 dark:text-amber-400" role="img" aria-label={t("待复核")} />
-                            )}
-                            {[row, ...(row.children || [])].some(item => item.latestResult === false) && (
-                              <Badge variant="destructive">{[row, ...(row.children || [])].some(item => item.latestScore && item.latestScore.earnedCents > 0 && item.latestScore.earnedCents < item.latestScore.maxCents) ? t("部分得分") : t("错题")}</Badge>
-                            )}
+                          <div className="min-w-40 space-y-2">
+                            <div className="flex items-center gap-2 whitespace-nowrap">
+                              <Badge variant="outline">
+                                {modeNames()[row.question.answerMode || ""] ||
+                                  t("未知题型")}
+                              </Badge>
+                              {[row, ...(row.children || [])].some(item => item.question.needsReview && item.reviewedAt == null) && (
+                                <CircleAlert className="size-4 text-amber-600 dark:text-amber-400" role="img" aria-label={t("待复核")} />
+                              )}
+                              {[row, ...(row.children || [])].some(item => item.latestResult === false) && (
+                                <Badge variant="destructive">{[row, ...(row.children || [])].some(item => item.latestScore && item.latestScore.earnedCents > 0 && item.latestScore.earnedCents < item.latestScore.maxCents) ? t("部分得分") : t("错题")}</Badge>
+                              )}
+                            </div>
                             {row.latestScore && <span className="text-xs text-muted-foreground">{t("上次 {0} / {1} 分", { 0: row.latestScore.earnedCents / 100, 1: row.latestScore.maxCents / 100 })}</span>}
                             {page !== "questions" && (
-                              <span className="w-full truncate text-xs text-muted-foreground" title={row.bankTitle}>
+                              <span className="block max-w-40 truncate text-xs text-muted-foreground" title={row.bankTitle}>
                                 {row.bankTitle}
                               </span>
                             )}

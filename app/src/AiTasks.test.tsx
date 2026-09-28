@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { flushSync } from "react-dom";
 import type { ReactElement } from "react";
 import { AiTasks } from "./AiTasks";
+import * as previewMode from "./preview-mode";
 import { api, blankQuestion } from "./api";
 vi.mock("./api", async () => ({ ...(await vi.importActual<typeof import("./api")>("./api")), api: vi.fn() }));
 beforeEach(() => { vi.mocked(api).mockResolvedValue([] as never); });
@@ -811,4 +812,21 @@ it("filters history through the native list and resets pagination and selection"
   expect(await screen.findByText("暂无符合此状态的导入记录")).toBeTruthy();
   await userEvent.selectOptions(screen.getByRole("combobox", {name:"导入状态"}), "all");
   expect(await screen.findByRole("button", {name:"ready.pdf"})).toBeTruthy();
+});
+
+it("uses the shared development preview for filtering and details without native requests", async () => {
+  vi.spyOn(previewMode, "previewMode").mockReturnValue("normal");
+  vi.mocked(invoke).mockRejectedValue(new Error("Native IPC must not run"));
+  const onPreview = vi.fn();
+  render(<AiTasks busy={false} run={job => {void job();}} onPreview={onPreview}/>);
+  expect(await screen.findByRole("button", {name:"高等数学 · 极限与连续"})).toBeTruthy();
+  expect(screen.queryByRole("checkbox", {name:"示例数据"})).toBeNull();
+  await userEvent.selectOptions(screen.getByRole("combobox", {name:"导入状态"}), "completed");
+  expect(await screen.findByRole("button", {name:"线性代数 · 矩阵"})).toBeTruthy();
+  expect(screen.queryByRole("button", {name:"高等数学 · 极限与连续"})).toBeNull();
+  await userEvent.click(screen.getByRole("button", {name:"线性代数 · 矩阵"}));
+  expect(await screen.findByRole("dialog", {name:"线性代数 · 矩阵"})).toBeTruthy();
+  await userEvent.click(await screen.findByRole("button", {name:"预览并导入题库"}));
+  expect(onPreview).toHaveBeenCalledWith(expect.objectContaining({ticket:"preview-ticket"}), expect.objectContaining({threadId:"demo-005"}));
+  expect(invoke).not.toHaveBeenCalled();
 });
