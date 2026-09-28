@@ -1,4 +1,4 @@
-import { message, MessageError, t, useI18n } from "./i18n";
+import { message, t, useI18n } from "./i18n";
 import { useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
 import { toast } from "./notifications";
 import { PlugZap, LoaderCircle, ChevronRight } from "lucide-react";
@@ -71,8 +71,8 @@ export function ConnectionSettingsPanel({
   };
   useEffect(load, []);
   const configured =
-    saved?.hasApiKey && saved.config.base_url === config.base_url;
-  const missing = missingModelSettings({ config, hasApiKey: !!configured || !!apiKey.trim() });
+    saved && saved.config.base_url === config.base_url ? saved.hasApiKey : null;
+  const missing = missingModelSettings({ config, hasApiKey: apiKey.trim() ? true : configured });
   function field(name: keyof ConnectionSettings, value: string) {
     invalidate();
     setConfig((old) => ({ ...old, [name]: value || null }));
@@ -83,8 +83,11 @@ export function ConnectionSettingsPanel({
   const persist = useCallback(async () => {
     if (!dirty || !saved) return saved;
     const version = revision.current;
-    if (pending.current?.version === version) return pending.current.request;
-    if (pending.current) await pending.current.request.catch(() => {});
+    while (pending.current) {
+      if (pending.current.version === version) return pending.current.request;
+      await pending.current.request.catch(() => {});
+    }
+    if (version !== revision.current) return saved;
     setSaveError(null);
     const request = api({ type: "save_settings", config, api_key: apiKey.trim() || null });
     pending.current = { version, request };
@@ -101,8 +104,7 @@ export function ConnectionSettingsPanel({
   useEffect(() => {
     if (!flushRef || onConfigure) return;
     const flush = async () => {
-      if (pending.current) { await pending.current.request; return; }
-      if (dirty) throw new MessageError(message("请先保存并应用，或放弃配置更改"));
+      await persist();
     };
     flushRef.current = flush;
     return () => { if (flushRef.current === flush) flushRef.current = async () => {}; };
@@ -147,9 +149,9 @@ export function ConnectionSettingsPanel({
               <Button type="button" variant="outline" disabled={reading} onClick={() => load()}>{t("重试")}</Button>
             </div>
           )}
-          {waiting && <p role="status" className="text-sm text-muted-foreground">{t("正在等待系统凭据存储授权；可继续离线练习，请勿重复请求。")}</p>}
-          <p className="text-sm text-muted-foreground">{t("编辑不会影响当前任务。保存并应用会更新后续模型操作；请先暂停或等待正在解析的任务完成。")}</p>
-          <fieldset disabled={busy || operation !== null || !saved} className="min-w-0 space-y-4">
+          {waiting && <p role="status" className="text-sm text-muted-foreground">{t("读取配置耗时较长；可继续离线练习，请勿重复请求。")}</p>}
+          <p className="text-sm text-muted-foreground">{t("离开输入框时自动保存。请先暂停或等待正在解析的任务完成，再修改配置。")}</p>
+          <fieldset disabled={busy || operation !== null || !saved} className="min-w-0 space-y-4" onBlur={() => { void persist().catch(e => toast.error(e)); }}>
             <div className="space-y-2">
               <div className="flex items-center gap-3"><Label htmlFor="baseUrl">Base URL</Label><span id="base-url-hint" className="text-xs text-muted-foreground">{t("OpenAI 兼容地址")}</span></div>
               <Input id="baseUrl" aria-describedby="base-url-hint" type="url" autoComplete="off" spellCheck={false} placeholder="https://api.example.com/v1" value={config.base_url || ""} onChange={e => field("base_url", e.target.value)}/>
@@ -166,7 +168,7 @@ export function ConnectionSettingsPanel({
                 autoComplete="new-password"
                 spellCheck={false}
                 placeholder={
-                  configured ? "********************************" : t("填写此地址对应的 API Key")
+                  configured !== false && config.base_url ? "********************************" : t("填写此地址对应的 API Key")
                 }
                 value={apiKey}
                 onChange={(e) => { invalidate(); setApiKey(e.target.value); }}
@@ -181,7 +183,8 @@ export function ConnectionSettingsPanel({
             const version = revision.current;
             run(async () => {
               try {
-                await api({ type: "test_settings", config, api_key: apiKey.trim() || null });
+                await persist();
+                await api({ type: "test_settings", config, api_key: null });
                 if (version !== revision.current) return;
                 toast.success(message("连接测试通过"));
               } catch (e) { if (version === revision.current) toast.error(e); }
@@ -190,13 +193,6 @@ export function ConnectionSettingsPanel({
           }}>
             {operation === "test" ? <LoaderCircle className="animate-spin" /> : <PlugZap />}
             {operation === "test" ? t("测试中…") : t("测试")}
-          </Button>
-          <Button variant="ghost" type="button" disabled={!dirty || busy || operation !== null} onClick={() => {
-            if (!saved) return;
-            ++revision.current; setConfig(saved.config); setApiKey(""); setDirty(false); setSaveError(null);
-          }}>{t("放弃更改")}</Button>
-          <Button type="button" disabled={!dirty || busy || operation !== null || !saved} onClick={save}>
-            {operation === "save" ? t("保存中…") : t("保存并应用")}
           </Button>
           </div>
         </form>

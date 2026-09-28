@@ -364,14 +364,15 @@ export interface ConnectionSettings {
 }
 export interface SettingsResult {
   config: ConnectionSettings;
-  hasApiKey: boolean;
+  /** null means unchecked; only explicit credential operations inspect the key. */
+  hasApiKey: boolean | null;
 }
 
 export function missingModelSettings(settings: SettingsResult): string[] {
   return [
     !settings.config.base_url?.trim() && t("模型 API 地址"),
     !settings.config.model_id?.trim() && t("模型 ID"),
-    !settings.hasApiKey && "API Key",
+    settings.hasApiKey === false && "API Key",
   ].filter((field): field is string => !!field);
 }
 

@@ -114,7 +114,7 @@ it.each(["zh-CN", "en"] as const)("collapses the sidebar without resetting setti
   expect(screen.getByRole("button", { name: t("设置") }).getAttribute("aria-current")).toBe("page");
   expect(screen.getByLabelText("Base URL")).toBe(input);
   expect((input as HTMLInputElement).value).toBe("https://example.com/v1");
-  expect(vi.mocked(invoke).mock.calls.slice(calls)).toEqual([]);
+  expect(vi.mocked(invoke).mock.calls.slice(calls)).toEqual([["request", {locale:value,request:{type:"save_settings",config:{base_url:"https://example.com/v1",model_id:null},api_key:null}}]]);
   await userEvent.click(screen.getByRole("button", { name: t("语言") }));
   expect(screen.getByRole("menu", { name: t("语言") })).toBeTruthy();
   await userEvent.keyboard("{Escape}");
@@ -251,7 +251,7 @@ it.each(["en", "zh-CN"] as const)("imports offline JSON and explicitly saves a t
     if (command === "ai_request" && r.type === "list") return {items:[],hasMore:false};
     if (r.type === "pick_import") return {ticket:"ticket",title:"原文 filename",count:1,reviewCount:0,assetCount:0,missingAssets:[],warnings:[],status:"SUCCEEDED"};
     if (r.type === "import") return {bankId:"bank",count:1,duplicate:false};
-    if (r.type === "save_settings") return {config:{},hasApiKey:false};
+    if (r.type === "save_settings") return {config:(r as unknown as {config:unknown}).config,hasApiKey:true};
     if (r.type === "test_settings") return null;
     return original(command,args);
   });
@@ -272,8 +272,8 @@ it.each(["en", "zh-CN"] as const)("imports offline JSON and explicitly saves a t
   await userEvent.type(model,"model-original");
   await change(value === "en" ? "zh-CN" : "en");
   expect((screen.getByLabelText(t("模型 ID")) as HTMLInputElement).value).toBe("model-original");
-  expect(vi.mocked(invoke).mock.calls.filter(([,a]) => (a as {request:{type:string}}).request.type === "save_settings")).toHaveLength(0);
-  await userEvent.click(screen.getByRole("button", {name:t("保存并应用")}));
+  expect(vi.mocked(invoke).mock.calls.some(([,a]) => (a as {request:{type:string}}).request.type === "save_settings")).toBe(true);
+  await userEvent.tab();
   await waitFor(() => expect(invoke).toHaveBeenCalledWith("request", expect.objectContaining({request:expect.objectContaining({type:"save_settings",config:expect.objectContaining({model_id:"model-original"})})})));
   expect(vi.mocked(invoke).mock.calls.filter(([c,a]) => c === "ai_request" && !["operations","batches","list"].includes((a as {request:{type:string}}).request.type))).toHaveLength(0);
 });

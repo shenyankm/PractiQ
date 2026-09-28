@@ -247,7 +247,7 @@ async fn request(
         let selected=selected.map(|p|p.into_path().map_err(|e|e.to_string())).transpose()?;
         if matches!(&request,Request::PickImport|Request::PickAudio|Request::ExportBank{..}|Request::Backup|Request::Restore)&&selected.is_none(){return Ok(Value::Null);}
         if matches!(&request, Request::Settings) {
-            return settings::settings(&shared, &app.config().identifier);
+            return settings::settings(&shared);
         }
         if let Request::TestSettings { config, api_key } = request {
             let (config, key) = settings::snapshot(&shared)?

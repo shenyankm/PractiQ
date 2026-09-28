@@ -53,6 +53,8 @@ The desktop app supports the following tasks:
 | Review scores | Check local objective scores, request AI short-answer scores, or record a manual score with a reason |
 | Keep your records | Resume practice, revisit history, and back up question banks, images, audio, attempts, and scores |
 
+Model settings save automatically when you leave a field; failed saves retain your input for retry. Opening Import or Settings reads only local configuration, without accessing the system credential store. Saved API keys are checked when you explicitly parse, grade, retry/resume, or test a connection. Saving a replacement key still accesses the credential store; saving only the URL or model ID does not.
+
 Practice, tests, local objective scoring, and manual scoring work offline. Document parsing and AI scoring send content to your configured model provider and may incur charges. Start or resume those actions explicitly; reopening the desktop app does not resume model calls.
 
 The desktop supports Simplified Chinese and English. Click **Language** above Settings to choose a language in the menu above the entry. On first launch, Chinese system languages select Simplified Chinese; other languages select English. Your choice is stored locally and included in backups. Each new AI grading request keeps the language selected when you explicitly start it, including when checking that request again. Switching language does not call a model or translate imported content or existing grading feedback.
