@@ -404,10 +404,13 @@ fn validate_database_schema(path: &Path) -> Result<i64> {
             serde_json::json!({}),
         ));
     }
+    // SQLite preserves checkout line endings inside CREATE statements. Keep every other
+    // character exact so portable backups cannot introduce different constraints or objects.
+    let normalize_line_endings = |sql: String| sql.replace("\r\n", "\n");
     let schema = |db: &Connection| -> Result<Vec<String>> {
         let mut stmt=db.prepare("SELECT type||':'||name||':'||COALESCE(sql,'') FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY name").map_err(err)?;
         let rows = stmt
-            .query_map([], |r| r.get::<_, String>(0))
+            .query_map([], |r| r.get::<_, String>(0).map(normalize_line_endings))
             .map_err(err)?
             .collect::<std::result::Result<Vec<_>, _>>()
             .map_err(err)?;
@@ -470,6 +473,7 @@ fn validate_database_schema(path: &Path) -> Result<i64> {
                     [table],
                     |row| row.get(0),
                 )
+                .map(normalize_line_endings)
                 .map_err(err)
         };
         let current = table_sql(&expected)?;
