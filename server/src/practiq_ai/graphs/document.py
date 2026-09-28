@@ -54,7 +54,13 @@ from practiq_ai.execution import (
 from practiq_ai.extractors import enforce_vision_bytes
 from practiq_ai.extractors.isolated import extract
 from practiq_ai.graphs import vision
-from practiq_ai.graphs.chunking import ChunkSpan, merge_chunk_results, split_chunk_spans
+from practiq_ai.graphs.chunking import (
+    ChunkSpan,
+    SourceQuestionConflict,
+    finalize_question_ids,
+    merge_chunk_results,
+    split_chunk_spans,
+)
 from practiq_ai.llm import get_model, structured_call
 from practiq_ai.storage import get_object_store
 
@@ -187,12 +193,19 @@ class ChunkParseResult(BaseModel):
 
     @model_validator(mode="after")
     def validate_group_indexes(self) -> Self:
+        ids = [question.id for question in self.questions if question.id is not None]
+        if len(ids) != len(set(ids)):
+            raise ValueError("question IDs must be unique within this response")
         if any(
             index < 0 or index >= len(self.questions)
             for group in self.groups
             for index in group.questionIndexes
         ):
             raise ValueError("questionIndexes must reference a fragment question")
+        for question in self.questions:
+            # A review heuristic for new model output, not calibrated accuracy.
+            if question.confidence < 0.5:
+                question.needsReview = True
         return self
 
 
@@ -854,8 +867,23 @@ async def _merge(state: DocumentState) -> dict[str, Any]:
     truncated = (
         bool(state.get("truncated")) or merge_truncated or crop_truncated
     )
-    from .chunking import finalize_question_ids
-    questions = finalize_question_ids(questions, groups, visual_elements, question_sources, quality)
+    try:
+        questions = finalize_question_ids(questions, groups, visual_elements, question_sources, quality)
+    except SourceQuestionConflict as exc:
+        # Keep successful units and require an explicit failed-unit retry. Replaying
+        # the same successful model response at merge cannot repair conflicting IDs.
+        indexes = {source.unitIndex for source in question_sources if source.questionIndex == exc.question_index}
+        update: dict[str, Any] = {"status": "", "result": {}, "processing": {},
+                                  "nextStage": "vision_review_pause" if pages else "chunk_review_pause"}
+        if pages:
+            update["visionResults"] = Overwrite([item for item in state.get("visionResults", []) if item["index"] not in indexes])
+            update["failures"] = [UnitFailure(stage="vision_parse", index=index, code="OUTPUT_INVALID", retryable=True).model_dump(mode="json") for index in sorted(indexes)]
+        else:
+            update["chunkResults"] = Overwrite([
+                {**item, "parsed": None, "failureCode": "OUTPUT_INVALID"} if item["index"] in indexes else item
+                for item in state.get("chunkResults", [])
+            ])
+        return update
     processing = DocumentProcessing(
         chunks=UnitCounts(
             total=0 if pages else len(ordered),
@@ -893,6 +921,7 @@ async def _merge(state: DocumentState) -> dict[str, Any]:
     for failure in failures:
         telemetry.failures.labels(failure.code).inc()
     return {
+        "nextStage": "result_review_pause",
         "status": status,
         "result": result.model_dump(mode="json"),
         "processing": processing.model_dump(mode="json"),
@@ -1092,7 +1121,7 @@ def build_document_graph(
     builder.add_conditional_edges("chunk_gate", _dispatch_chunks, ["chunk", "chunk_review_pause"])
     builder.add_edge("chunk", "chunk_gate")
     builder.add_conditional_edges("chunk_review", lambda state: state["nextStage"], ["chunk_gate", "merge"])
-    builder.add_edge("merge", "result_review_pause")
+    builder.add_conditional_edges("merge", lambda state: state["nextStage"], ["result_review_pause", "vision_review_pause", "chunk_review_pause"])
     builder.add_conditional_edges("result_review", lambda state: state["nextStage"], ["finish", "vision_gate", "chunk_gate"])
     builder.add_edge("finish", END)
     return cast(
