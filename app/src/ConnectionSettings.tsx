@@ -118,13 +118,12 @@ export function ConnectionSettingsPanel({
     });
   }, [dirty, saved, busy, run, persist]);
   function clearKey() {
-    if (busy || locked.current || !saved || !config.base_url) return;
+    if (busy || locked.current || dirty || pending.current || !saved?.config.base_url) return;
     locked.current = true; setOperation("clear");
     const version = ++revision.current;
     run(async () => {
       try {
-        while (pending.current) await pending.current.request.catch(() => {});
-        const result = await api({type:"save_settings", config, api_key:""});
+        const result = await api({type:"save_settings", config:saved.config, api_key:""});
         if (version !== revision.current) return;
         setSaved(result); setConfig(result.config); setApiKey(""); setDirty(false); setSaveError(null);
         toast.success(message("连接配置已保存"));
@@ -192,7 +191,7 @@ export function ConnectionSettingsPanel({
           </fieldset>
           {saveError != null && <div role="alert" className="flex items-center justify-between gap-3 text-sm text-destructive"><span>{errorMessage(saveError)}</span><Button type="button" variant="outline" disabled={busy || operation !== null} onClick={save}>{t("重试保存")}</Button></div>}
           <div className="flex items-center justify-end gap-4 border-t pt-4">
-          <Button variant="outline" type="button" disabled={busy || operation !== null || !saved || !config.base_url || configured === false} onClick={clearKey}>{t("清除已保存的 API Key")}</Button>
+          <Button variant="outline" type="button" disabled={busy || operation !== null || dirty || !saved?.config.base_url || configured === false} onClick={clearKey}>{t("清除已保存的 API Key")}</Button>
           <Button variant="outline" type="button" disabled={busy || operation !== null || !saved || missing.length > 0} onClick={() => {
             if (locked.current) return;
             locked.current = true; setOperation("test"); setSaveError(null);
