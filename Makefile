@@ -4,7 +4,7 @@ AI_PYTHON ?= $(PYTHON)
 override AI_PYTHON := $(or $(shell command -v "$(AI_PYTHON)"),$(AI_PYTHON))
 AI_PORT ?= 8090
 
-.PHONY: install server-install install-locked test test-server server-dev init-db verify audit image-check
+.PHONY: install server-install install-locked test test-server server-dev init-db verify audit audit-rust image-check
 install: server-install
 server-install:
 	uv pip install --break-system-packages --python "$(AI_PYTHON)" -e './server[dev]'
@@ -37,8 +37,10 @@ verify:
 	cd server && uv build --python "$(AI_PYTHON)"
 audit:
 	@set -eu; requirements=$$(mktemp); trap 'rm -f "$$requirements"' EXIT; \
-	cd server; uv export --locked --extra dev --no-emit-project --python "$(AI_PYTHON)" -o "$$requirements" >/dev/null; \
+	cd server; uv export --locked --extra dev --extra desktop --no-emit-project --python "$(AI_PYTHON)" -o "$$requirements" >/dev/null; \
 	"$(AI_PYTHON)" -m pip_audit --strict --disable-pip --no-deps -r "$$requirements"
+audit-rust:
+	cargo audit --file app/src-tauri/Cargo.lock
 image-check:
 	docker build -f Dockerfile.server -t practiq-ai:ci .
 
