@@ -39,6 +39,21 @@ fn desktop_stress() {
     }
     tx.commit().unwrap();
     let mut report = json!({"questions":5000,"attempts":1000,"repetitions":3});
+    report["receiptLookupsSeparate"] = measure(|| {
+        for _ in 0..40 {
+            assert!(store.imported_ai("task", None, None).unwrap().is_none());
+        }
+        Value::Null
+    });
+    report["receiptLookupsShared"] = measure(|| {
+        let db = store.connect().unwrap();
+        for _ in 0..40 {
+            assert!(Store::imported_ai_with(&db, "task", None, None)
+                .unwrap()
+                .is_none());
+        }
+        Value::Null
+    });
     report["allQuestions"] = measure(|| {
         let rows = store.questions(None, "", "", "").unwrap();
         assert_eq!(rows.as_array().unwrap().len(), 5000);
@@ -56,6 +71,32 @@ fn desktop_stress() {
         assert_eq!(page["total"], 5000);
         assert_eq!(list(&page, "items").len(), 30);
         page
+    });
+    db.execute(
+        "UPDATE questions SET favorite=1 WHERE id IN ('q1','q25')",
+        [],
+    )
+    .unwrap();
+    report["filteredSearch"] = measure(|| {
+        let page = store
+            .query_questions(
+                None,
+                &[],
+                ("Question", "true_false", "favorite"),
+                Some((30, 0)),
+            )
+            .unwrap();
+        assert_eq!(page["total"], 2);
+        page
+    });
+    report["insert1000"] = measure(|| {
+        let tx = db.transaction().unwrap();
+        for i in 0..1000 {
+            let q = json!({"id":format!("new{i}"),"stem":"New question","answerMode":"true_false","answerPayload":{"value":true},"contentBlocks":[],"missingFields":[]});
+            crate::questions::write(&tx, &q, "bulk", None, i, false, false).unwrap();
+        }
+        tx.rollback().unwrap();
+        Value::Null
     });
     let frozen = crate::questions::freeze(&store.question_rows().unwrap()[..1000]);
     let ids: Vec<_> = list(&frozen, "questions")
@@ -86,6 +127,21 @@ fn desktop_stress() {
         store
             .save_attempt(("exam0", 0), json!({"value":true}), 0, false, false, None)
             .unwrap()
+    });
+    let session = store.session("exam0").unwrap();
+    let key = text(&session, "snapshotKey");
+    report["positionUpdate"] = measure(|| {
+        let update = store.position("exam0", 1, Some(key)).unwrap();
+        assert!(list(&update, "attempts")
+            .iter()
+            .all(|a| a.get("snapshot").is_none()));
+        update
+    });
+    report["saveAttemptUpdate"] = measure(|| {
+        store
+            .write_attempt(("exam0", 0), json!({"value":true}), 0, false, false, None)
+            .unwrap();
+        store.session_data("exam0", Some(key)).unwrap()
     });
     report["saveDraft"] = measure(|| {
         store

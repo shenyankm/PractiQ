@@ -404,7 +404,7 @@ fn assets_backup_restore_and_failed_restore_preserve_data() {
     let session = practice(&s, qs.clone(), 9);
     let sid = text(&session, "id");
     s.finish(sid).unwrap();
-    assert_eq!(s.position(sid, 5).unwrap()["position"], 5);
+    assert_eq!(s.position(sid, 5, None).unwrap()["position"], 5);
     let backup = dir.path().join("saved.zip");
     s.backup(&backup).unwrap();
     s.delete_bank(&bank).unwrap();
@@ -1059,7 +1059,7 @@ fn e2e_exam_restart_restore_on_fresh_install_and_retry() {
             None,
         )
         .unwrap();
-    source.position(sid, 1).unwrap();
+    source.position(sid, 1, None).unwrap();
     drop(source);
 
     let source = Store::new(dir.path().to_owned()).unwrap();
@@ -2106,4 +2106,137 @@ fn summary_pages_keep_stable_boundaries_choices_and_expire_off_page_exams() {
         .unwrap();
     assert!(merged.is_object());
     assert_eq!(s.banks_page(30, 30).unwrap()["total"], 33);
+}
+
+#[test]
+fn compact_sessions_keep_mutable_data_and_refresh_visibility_after_expiry() {
+    let (_dir, mut s) = store();
+    let bank = import(&mut s);
+    let session = practice(
+        &s,
+        s.questions(Some(&bank), "", "true_false", "").unwrap(),
+        1,
+    );
+    let sid = text(&session, "id");
+    s.connect()
+        .unwrap()
+        .execute("UPDATE sessions SET kind='self_test' WHERE id=?1", [sid])
+        .unwrap();
+    s.connect()
+        .unwrap()
+        .execute(
+            "UPDATE attempts SET max_cents=100 WHERE session_id=?1",
+            [sid],
+        )
+        .unwrap();
+    let session = s.session(sid).unwrap();
+    assert!(session["attempts"][0]["snapshot"]["question"]["answerPayload"].is_null());
+    let key = text(&session, "snapshotKey");
+    s.save_draft((sid, 0), json!({"value":true}), 42).unwrap();
+    let compact = s.position(sid, 0, Some(key)).unwrap();
+    assert_eq!(compact["attempts"][0]["answer"], json!({"value":true}));
+    assert_eq!(compact["attempts"][0]["elapsedMs"], 42);
+    assert!(compact["attempts"][0].get("snapshot").is_none());
+    assert!(s.session_data(sid, Some("unknown")).unwrap()["attempts"][0]
+        .get("snapshot")
+        .is_some());
+    s.connect()
+        .unwrap()
+        .execute("UPDATE sessions SET deadline_at=1 WHERE id=?1", [sid])
+        .unwrap();
+    let expired = s.position(sid, 0, Some(key)).unwrap();
+    assert_ne!(expired["snapshotKey"], key);
+    assert!(!expired["submittedAt"].is_null());
+    assert!(!expired["attempts"][0]["snapshot"]["question"]["answerPayload"].is_null());
+}
+
+#[test]
+fn restore_invalidates_the_immutable_document_cache() {
+    let (dir, mut s) = store();
+    let bank = import(&mut s);
+    let session = practice(&s, s.questions(Some(&bank), "", "", "").unwrap(), 1);
+    let sid = text(&session, "id");
+    let db = s.connect().unwrap();
+    let cached = s.session_document(&db, sid).unwrap();
+    assert!(std::sync::Arc::ptr_eq(
+        &cached,
+        &s.session_document(&db, sid).unwrap()
+    ));
+    let backup = dir.path().join("cached-backup.zip");
+    s.backup(&backup).unwrap();
+    drop(db);
+    s.restore(&backup).unwrap();
+    let restored = s.session_document(&s.connect().unwrap(), sid).unwrap();
+    assert!(!std::sync::Arc::ptr_eq(&cached, &restored));
+    assert_eq!(cached, restored);
+}
+
+#[test]
+fn filtered_search_does_not_hydrate_unselected_details_or_match_a_different_favorite() {
+    let (_dir, mut s) = store();
+    let bank = import(&mut s);
+    let rows = s.questions(Some(&bank), "", "choice", "").unwrap();
+    let qid = text(&rows[0], "id");
+    let db = s.connect().unwrap();
+    db.execute(
+        "UPDATE questions SET stem='中文 MiXeD',favorite=1 WHERE id=?1",
+        [qid],
+    )
+    .unwrap();
+    db.execute("DELETE FROM true_false_questions", []).unwrap();
+    let found = s
+        .questions(Some(&bank), "文 mix", "choice", "favorite")
+        .unwrap();
+    assert_eq!(found.as_array().unwrap().len(), 1);
+    assert_eq!(found[0]["id"], qid);
+    db.execute("UPDATE questions SET favorite=0 WHERE id=?1", [qid])
+        .unwrap();
+    assert!(s
+        .questions(Some(&bank), "文 mix", "choice", "favorite")
+        .unwrap()
+        .as_array()
+        .unwrap()
+        .is_empty());
+    assert!(s.questions(Some(&bank), "", "", "").is_err());
+}
+
+#[test]
+fn read_order_and_deadline_queries_use_optional_indexes() {
+    let (_dir, s) = store();
+    let db = s.connect().unwrap();
+    for (sql, index) in [
+        ("SELECT id FROM banks ORDER BY created_at DESC,id DESC LIMIT 30", "banks_created_order"),
+        ("SELECT id FROM sessions ORDER BY COALESCE(last_active_at,created_at) DESC,id DESC LIMIT 30", "sessions_activity_order"),
+        ("SELECT id FROM sessions WHERE deadline_at<=1 AND submitted_at IS NULL", "sessions_pending_deadline"),
+    ] {
+        let plan = db.prepare(&format!("EXPLAIN QUERY PLAN {sql}")).unwrap()
+            .query_map([], |r| r.get::<_, String>(3)).unwrap().collect::<std::result::Result<Vec<_>,_>>().unwrap().join("\n");
+        assert!(plan.contains(index), "{plan}");
+        assert!(!plan.contains("TEMP B-TREE"), "{plan}");
+    }
+}
+
+#[test]
+fn new_imports_do_not_update_inserted_rows_and_edits_replace_old_details() {
+    let (_dir, mut s) = store();
+    let db = s.connect().unwrap();
+    db.execute_batch("CREATE TEMP TRIGGER forbid_update BEFORE UPDATE ON questions BEGIN SELECT RAISE(ABORT,'unnecessary update'); END;").unwrap();
+    db.execute("INSERT INTO banks VALUES('write-test','Test','',1)", [])
+        .unwrap();
+    let mut q = json!({"id":"new","stem":"Choose","answerMode":"choice","choiceVariant":"single","options":[{"label":"A","content":"one"}],"answerPayload":{"correct":["A"]},"contentBlocks":[],"missingFields":[],"instructions":"Read carefully"});
+    contract::validate_question(&mut q).unwrap();
+    crate::questions::write(&db, &q, "write-test", None, 0, true, false).unwrap();
+    db.execute_batch("DROP TRIGGER forbid_update").unwrap();
+    q["answerMode"] = json!("true_false");
+    q["choiceVariant"] = Value::Null;
+    q["options"] = json!([]);
+    q["answerPayload"] = json!({"value":true});
+    q["instructions"] = json!("Changed");
+    crate::questions::write(&db, &q, "write-test", None, 0, true, true).unwrap();
+    let rows = s.questions(Some("write-test"), "", "", "").unwrap();
+    assert_eq!(rows[0]["question"]["instructions"], "Changed");
+    assert_eq!(rows[0]["question"]["answerPayload"], json!({"value":true}));
+    assert_eq!(rows[0]["favorite"], true);
+    assert_eq!(db.query_row("SELECT (SELECT count(*) FROM choice_questions)+(SELECT count(*) FROM question_options)+(SELECT count(*) FROM option_sets)", [], |r| r.get::<_, i64>(0)).unwrap(), 0);
+    import(&mut s);
 }

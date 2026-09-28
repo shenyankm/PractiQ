@@ -114,6 +114,7 @@ export interface Attempt {
 }
 export type SessionKind = "practice" | "self_test" | "mock_exam";
 export interface Session {
+  snapshotKey?: string;
   bankIds?: string[];
   kind?: SessionKind;
   deadlineAt?: number | null;
@@ -273,11 +274,32 @@ type ResponseMap = {
   test_settings: null;
   unfinished_session: UnfinishedSession | null;
 };
-export function api<R extends Request>(request: R): Promise<ResponseMap[R["type"]]> {
+let lastSession: Session | undefined;
+let sessionEpoch = 0;
+export async function api<R extends Request>(request: R): Promise<ResponseMap[R["type"]]> {
   if (request.type === "asset") {
     return invoke<ArrayBuffer>("read_asset", { hash: request.hash }) as Promise<ResponseMap[R["type"]]>;
   }
-  return invoke<ResponseMap[R["type"]]>("request", { request, locale: locale() });
+  if (request.type === "restore") { lastSession = undefined; sessionEpoch++; }
+  const epoch = sessionEpoch;
+  const base = (request.type === "position" || request.type === "save_attempt") && lastSession?.id === request.id ? lastSession : undefined;
+  let result = await invoke<ResponseMap[R["type"]]>("request", {
+    request: base?.snapshotKey ? {...request, snapshot_key:base.snapshotKey} : request, locale: locale(),
+  });
+  if (result && typeof result === "object" && "snapshotKey" in result && "attempts" in result) {
+    let session = result as Session;
+    if (session.attempts.some(a => !a.snapshot)) {
+      if (base?.id === session.id && base.snapshotKey === session.snapshotKey && base.attempts.length === session.attempts.length
+        && session.attempts.every((a, i) => a.ordinal === base.attempts[i].ordinal)) {
+        session = {...session, attempts:session.attempts.map((a, i) => ({...a, snapshot:a.snapshot ?? base.attempts[i].snapshot}))};
+      } else {
+        session = await invoke<Session>("request", {request:{type:"session",id:session.id},locale:locale()});
+      }
+      result = session as ResponseMap[R["type"]];
+    }
+    if (epoch === sessionEpoch) lastSession = session;
+  }
+  return result;
 }
 export function errorMessage(error: unknown): string {
   if (error instanceof MessageError) return renderMessage(error.localized);

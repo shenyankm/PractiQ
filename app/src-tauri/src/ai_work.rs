@@ -515,6 +515,7 @@ pub fn prepare_batch(
         dir: dir.into(),
         pending: None,
         staged_audio: std::collections::HashMap::new(),
+        session_document_cache: Default::default(),
     };
     validate_destination(&store, bank_id.as_deref())?;
     let mut batch = Batch {
@@ -524,6 +525,7 @@ pub fn prepare_batch(
         bank_id,
         items: vec![],
     };
+    let db = store.connect()?;
     for id in ids {
         let pending = endpoint.pending(id)?;
         let source = pending.source.as_ref().ok_or(crate::language::error(
@@ -531,11 +533,10 @@ pub fn prepare_batch(
             serde_json::json!({}),
         ))?;
         let digest = pending.digest()?;
-        let bank = store
-            .imported_ai(id, Some(&digest), None)?
+        let bank = Store::imported_ai_with(&db, id, Some(&digest), None)?
             .map(|bank| imported_destination(bank, batch.bank_id.as_deref()))
             .transpose()?;
-        let previous = bank.is_none() && store.imported_ai(id, None, None)?.is_some();
+        let previous = bank.is_none() && Store::imported_ai_with(&db, id, None, None)?.is_some();
         let questions = contract::list(contract::result(&pending.root), "questions");
         batch.items.push(BatchItem {
             thread_id: id.clone(),
@@ -584,6 +585,7 @@ pub fn batches(dir: &Path, work: &WorkState, offset: usize, threads: &[String]) 
         dir: dir.into(),
         pending: None,
         staged_audio: std::collections::HashMap::new(),
+        session_document_cache: Default::default(),
     };
     for batch in &batches {
         validate_batch(batch)?;
@@ -765,6 +767,7 @@ fn import_item(
             dir: dir.into(),
             pending: None,
             staged_audio: std::collections::HashMap::new(),
+            session_document_cache: Default::default(),
         },
     )?;
     let result = shared

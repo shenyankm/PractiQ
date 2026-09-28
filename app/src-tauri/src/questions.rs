@@ -85,78 +85,87 @@ pub fn write(
     import: Option<&str>,
     position: i64,
     favorite: bool,
+    existing: bool,
 ) -> Result<()> {
     let qid = text(q, "id");
     if qid.is_empty() {
         return Err("Question ID is required".into());
     }
-    db.execute("INSERT INTO questions(id,bank_id,import_id,parent_id,position,stem,mode,question_type,analysis,source_text,source_score,scoring_rubric,score_source_text,content_blocks,confidence,needs_review,missing_fields,favorite) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18) ON CONFLICT(id) DO UPDATE SET parent_id=excluded.parent_id,position=excluded.position,stem=excluded.stem,mode=excluded.mode,question_type=excluded.question_type,analysis=excluded.analysis,source_text=excluded.source_text,source_score=excluded.source_score,scoring_rubric=excluded.scoring_rubric,score_source_text=excluded.score_source_text,content_blocks=excluded.content_blocks,confidence=excluded.confidence,needs_review=excluded.needs_review,missing_fields=excluded.missing_fields",params![qid,bank,import,nullable(q,"parentId"),position,nullable(q,"stem"),nullable(q,"answerMode"),nullable(q,"questionTypeId"),nullable(q,"analysis"),nullable(q,"sourceText"),q["sourceScore"].as_f64(),nullable(q,"scoringRubric"),nullable(q,"scoreSourceText"),q["contentBlocks"].to_string(),q["confidence"].as_f64().unwrap_or(0.0),q["needsReview"].as_bool().unwrap_or(true),q["missingFields"].to_string(),favorite]).map_err(err)?;
-    db.execute(
-        "UPDATE questions SET question_kind=?2,instructions=?3 WHERE id=?1",
-        params![
-            qid,
-            nullable(q, "questionKind"),
-            nullable(q, "instructions")
-        ],
-    )
-    .map_err(err)?;
-    for (_, table, _) in DETAILS {
-        db.execute(&format!("DELETE FROM {table} WHERE question_id=?1"), [qid])
+    db.prepare_cached("INSERT INTO questions(id,bank_id,import_id,parent_id,position,stem,mode,question_type,analysis,source_text,source_score,scoring_rubric,score_source_text,content_blocks,confidence,needs_review,missing_fields,favorite,question_kind,instructions) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20) ON CONFLICT(id) DO UPDATE SET parent_id=excluded.parent_id,position=excluded.position,stem=excluded.stem,mode=excluded.mode,question_type=excluded.question_type,analysis=excluded.analysis,source_text=excluded.source_text,source_score=excluded.source_score,scoring_rubric=excluded.scoring_rubric,score_source_text=excluded.score_source_text,content_blocks=excluded.content_blocks,confidence=excluded.confidence,needs_review=excluded.needs_review,missing_fields=excluded.missing_fields,question_kind=excluded.question_kind,instructions=excluded.instructions").map_err(err)?.execute(params![qid,bank,import,nullable(q,"parentId"),position,nullable(q,"stem"),nullable(q,"answerMode"),nullable(q,"questionTypeId"),nullable(q,"analysis"),nullable(q,"sourceText"),q["sourceScore"].as_f64(),nullable(q,"scoringRubric"),nullable(q,"scoreSourceText"),q["contentBlocks"].to_string(),q["confidence"].as_f64().unwrap_or(0.0),q["needsReview"].as_bool().unwrap_or(true),q["missingFields"].to_string(),favorite,nullable(q,"questionKind"),nullable(q,"instructions")]).map_err(err)?;
+    if existing {
+        for (_, table, _) in DETAILS {
+            db.prepare_cached(&format!("DELETE FROM {table} WHERE question_id=?1"))
+                .map_err(err)?
+                .execute([qid])
+                .map_err(err)?;
+        }
+        db.prepare_cached("DELETE FROM question_options WHERE owner_id=?1")
+            .map_err(err)?
+            .execute([qid])
+            .map_err(err)?;
+        db.prepare_cached("DELETE FROM question_items WHERE question_id=?1")
+            .map_err(err)?
+            .execute([qid])
             .map_err(err)?;
     }
-    db.execute("DELETE FROM question_options WHERE owner_id=?1", [qid])
-        .map_err(err)?;
-    db.execute("DELETE FROM question_items WHERE question_id=?1", [qid])
-        .map_err(err)?;
     let mode = text(q, "answerMode");
     let shared = nullable(q, "optionSourceId");
     if matches!(mode, "choice" | "word_bank") && shared.is_none() {
-        db.execute("INSERT OR IGNORE INTO option_sets VALUES(?1)", [qid])
+        db.prepare_cached("INSERT OR IGNORE INTO option_sets VALUES(?1)")
+            .map_err(err)?
+            .execute([qid])
             .map_err(err)?;
         for (i, o) in list(q, "options").iter().enumerate() {
-            db.execute(
-                "INSERT INTO question_options VALUES(?1,?2,?3,?4)",
-                params![qid, i as i64, nullable(o, "label"), nullable(o, "content")],
-            )
-            .map_err(err)?;
+            db.prepare_cached("INSERT INTO question_options VALUES(?1,?2,?3,?4)")
+                .map_err(err)?
+                .execute(params![
+                    qid,
+                    i as i64,
+                    nullable(o, "label"),
+                    nullable(o, "content")
+                ])
+                .map_err(err)?;
         }
     }
-    if !matches!(mode, "choice" | "word_bank") || shared.is_some() {
-        db.execute("DELETE FROM option_sets WHERE id=?1", [qid])
+    if existing && (!matches!(mode, "choice" | "word_bank") || shared.is_some()) {
+        db.prepare_cached("DELETE FROM option_sets WHERE id=?1")
+            .map_err(err)?
+            .execute([qid])
             .map_err(err)?;
     }
     let a = &q["answerPayload"];
     match mode {
         "choice" => {
-            db.execute(
-                "INSERT INTO choice_questions VALUES(?1,?2,?3,?4)",
-                params![
+            db.prepare_cached("INSERT INTO choice_questions VALUES(?1,?2,?3,?4)")
+                .map_err(err)?
+                .execute(params![
                     qid,
                     nullable(q, "choiceVariant"),
                     shared.as_deref().unwrap_or(qid),
                     a["correct"].to_string()
-                ],
-            )
-            .map_err(err)?;
+                ])
+                .map_err(err)?;
         }
         "true_false" => {
-            db.execute(
-                "INSERT INTO true_false_questions VALUES(?1,?2)",
-                params![qid, a["value"].to_string()],
-            )
-            .map_err(err)?;
+            db.prepare_cached("INSERT INTO true_false_questions VALUES(?1,?2)")
+                .map_err(err)?
+                .execute(params![qid, a["value"].to_string()])
+                .map_err(err)?;
         }
         "fill_blank" => {
-            db.execute(
-                "INSERT INTO fill_blank_questions VALUES(?1,?2,?3)",
-                params![qid, q["blankCount"].as_i64(), a["answers"].to_string()],
-            )
-            .map_err(err)?;
+            db.prepare_cached("INSERT INTO fill_blank_questions VALUES(?1,?2,?3)")
+                .map_err(err)?
+                .execute(params![
+                    qid,
+                    q["blankCount"].as_i64(),
+                    a["answers"].to_string()
+                ])
+                .map_err(err)?;
         }
         "short_answer" => {
-            db.execute(
-                "INSERT INTO short_answer_questions VALUES(?1,?2,?3,?4,?5,?6,?7)",
-                params![
+            db.prepare_cached("INSERT INTO short_answer_questions VALUES(?1,?2,?3,?4,?5,?6,?7)")
+                .map_err(err)?
+                .execute(params![
                     qid,
                     a["text"].to_string(),
                     nullable(q, "sourceLanguage"),
@@ -164,43 +173,39 @@ pub fn write(
                     nullable(q, "writingGenre"),
                     q["minWords"].as_i64(),
                     q["maxWords"].as_i64()
-                ],
-            )
-            .map_err(err)?;
+                ])
+                .map_err(err)?;
         }
         "ordering" => {
-            db.execute(
-                "INSERT INTO ordering_questions VALUES(?1,?2)",
-                params![qid, a["order"].to_string()],
-            )
-            .map_err(err)?;
+            db.prepare_cached("INSERT INTO ordering_questions VALUES(?1,?2)")
+                .map_err(err)?
+                .execute(params![qid, a["order"].to_string()])
+                .map_err(err)?;
         }
         "matching" => {
-            db.execute(
-                "INSERT INTO matching_questions VALUES(?1,?2,?3)",
-                params![
+            db.prepare_cached("INSERT INTO matching_questions VALUES(?1,?2,?3)")
+                .map_err(err)?
+                .execute(params![
                     qid,
                     nullable(q, "matchingVariant"),
                     a["matches"].to_string()
-                ],
-            )
-            .map_err(err)?;
+                ])
+                .map_err(err)?;
         }
         "word_bank" => {
-            db.execute(
-                "INSERT INTO word_bank_questions VALUES(?1,?2,?3,?1)",
-                params![
+            db.prepare_cached("INSERT INTO word_bank_questions VALUES(?1,?2,?3,?1)")
+                .map_err(err)?
+                .execute(params![
                     qid,
                     q["passage"].to_string(),
                     q["allowReuse"].as_bool().unwrap_or(false)
-                ],
-            )
-            .map_err(err)?;
+                ])
+                .map_err(err)?;
         }
         "listening" => {
-            db.execute(
-                "INSERT INTO listening_questions VALUES(?1,?2,?3,?4,?5,?6,?7)",
-                params![
+            db.prepare_cached("INSERT INTO listening_questions VALUES(?1,?2,?3,?4,?5,?6,?7)")
+                .map_err(err)?
+                .execute(params![
                     qid,
                     q["passage"].to_string(),
                     q["audioRef"].to_string(),
@@ -208,34 +213,31 @@ pub fn write(
                     q["audioEndSeconds"].as_f64(),
                     json!(list(q, "transcript")).to_string(),
                     q["examPlayCount"].as_i64().unwrap_or(2)
-                ],
-            )
-            .map_err(err)?;
+                ])
+                .map_err(err)?;
         }
         "reading" | "cloze" | "gap_fill" => {
             let table = DETAILS.iter().find(|(m, _, _)| *m == mode).unwrap().1;
-            db.execute(
-                &format!("INSERT INTO {table} VALUES(?1,?2)"),
-                params![qid, q["passage"].to_string()],
-            )
-            .map_err(err)?;
+            db.prepare_cached(&format!("INSERT INTO {table} VALUES(?1,?2)"))
+                .map_err(err)?
+                .execute(params![qid, q["passage"].to_string()])
+                .map_err(err)?;
         }
         "" => (),
         _ => return Err("Unsupported question type".into()),
     }
     for (i, item) in list(q, "items").iter().enumerate() {
-        db.execute(
-            "INSERT INTO question_items VALUES(?1,?2,?3,?4,?5,?6)",
-            params![
+        db.prepare_cached("INSERT INTO question_items VALUES(?1,?2,?3,?4,?5,?6)")
+            .map_err(err)?
+            .execute(params![
                 qid,
                 i as i64,
                 item["id"].as_i64(),
                 nullable(item, "side"),
                 nullable(item, "content"),
                 nullable(item, "label")
-            ],
-        )
-        .map_err(err)?;
+            ])
+            .map_err(err)?;
     }
     Ok(())
 }
@@ -368,6 +370,9 @@ pub fn read(db: &Connection) -> Result<Vec<Value>> {
 }
 
 pub const READ_INDEXES: &[(&str, &str)] = &[
+    ("banks_created_order", "CREATE INDEX IF NOT EXISTS banks_created_order ON banks(created_at DESC,id DESC)"),
+    ("sessions_activity_order", "CREATE INDEX IF NOT EXISTS sessions_activity_order ON sessions(COALESCE(last_active_at,created_at) DESC,id DESC)"),
+    ("sessions_pending_deadline", "CREATE INDEX IF NOT EXISTS sessions_pending_deadline ON sessions(deadline_at) WHERE submitted_at IS NULL AND deadline_at IS NOT NULL"),
     ("section_questions_question", "CREATE INDEX IF NOT EXISTS section_questions_question ON section_questions(question_id,section_id)"),
     ("question_visuals_question", "CREATE INDEX IF NOT EXISTS question_visuals_question ON question_visuals(question_id,visual_id)"),
     ("visuals_bank", "CREATE INDEX IF NOT EXISTS visuals_bank ON visuals(bank_id,document_level)"),
@@ -795,8 +800,10 @@ pub fn session_context(db: &Connection, sid: &str, qid: &str) -> Result<Vec<Valu
             |r| r.get(0),
         )
         .map_err(err)?;
-    let mut doc = json_read(raw)?;
-    let rows = list(&doc, "questions");
+    context_from_document(&json_read(raw)?, qid)
+}
+pub(crate) fn context_from_document(doc: &Value, qid: &str) -> Result<Vec<Value>> {
+    let rows = list(doc, "questions");
     let by_id: HashMap<_, _> = rows.iter().map(|r| (text(r, "id"), r)).collect();
     let mut selected = HashSet::new();
     let mut pending = vec![qid];
@@ -831,8 +838,9 @@ pub fn session_context(db: &Connection, sid: &str, qid: &str) -> Result<Vec<Valu
         .filter(|r| selected.contains(text(r, "id")))
         .cloned()
         .collect::<Vec<_>>();
-    doc["questions"] = json!(subset);
-    thaw(&doc)
+    thaw(
+        &json!({"schemaVersion":doc["schemaVersion"],"questions":subset,"groups":doc["groups"],"visuals":doc["visuals"]}),
+    )
 }
 
 pub fn session_question(db: &Connection, sid: &str, qid: &str) -> Result<Value> {
@@ -843,8 +851,33 @@ pub fn snapshot(db: &Connection, sid: &str, qid: &str) -> Result<Value> {
     let rows = session_context(db, sid, qid)?;
     Index::new(&rows).snapshot(qid)
 }
-#[cfg(test)]
 impl Store {
+    pub(crate) fn session_document(
+        &self,
+        db: &Connection,
+        sid: &str,
+    ) -> Result<std::sync::Arc<Value>> {
+        if let Some((cached_id, doc)) = self.session_document_cache.borrow().as_ref() {
+            if cached_id == sid {
+                return Ok(doc.clone());
+            }
+        }
+        let raw: String = db
+            .query_row(
+                "SELECT content FROM session_documents WHERE session_id=?1",
+                [sid],
+                |r| r.get(0),
+            )
+            .map_err(err)?;
+        let size = raw.len();
+        let doc = std::sync::Arc::new(json_read(raw)?);
+        // ponytail: retain one immutable document, capped by its encoded size; larger sessions read through.
+        *self.session_document_cache.borrow_mut() =
+            (size <= 8 * 1024 * 1024).then(|| (sid.to_owned(), doc.clone()));
+        Ok(doc)
+    }
+
+    #[cfg(test)]
     pub fn question_rows(&self) -> Result<Vec<Value>> {
         read(&self.connect()?)
     }
@@ -1082,7 +1115,15 @@ impl Store {
                 .by_id
                 .get(text(q, "id"))
                 .is_some_and(|r| r["favorite"] == true);
-            write(&tx, q, bank, None, position + i as i64, favorite)?;
+            write(
+                &tx,
+                q,
+                bank,
+                None,
+                position + i as i64,
+                favorite,
+                old_index.by_id.contains_key(text(q, "id")),
+            )?;
         }
         tx.commit().map_err(err)?;
         Ok((json!(qid), cleanup))

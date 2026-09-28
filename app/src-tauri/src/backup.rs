@@ -115,6 +115,7 @@ impl Store {
         Ok(json!({"path":destination.display().to_string()}))
     }
     pub fn restore(&mut self, source: &Path) -> Result<Value> {
+        *self.session_document_cache.get_mut() = None;
         let result = self.restore_inner(source);
         if result.is_err() {
             let _ = self.collect_unused_assets();
@@ -237,6 +238,7 @@ impl Store {
         }
         let staged = Store {
             staged_audio: std::collections::HashMap::new(),
+            session_document_cache: Default::default(),
             locale: Default::default(),
             dir: staging.path().to_owned(),
             pending: None,

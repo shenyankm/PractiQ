@@ -273,6 +273,9 @@ pub fn redact_session(session: &mut Value) {
         }
     }
     for a in session["attempts"].as_array_mut().into_iter().flatten() {
+        if a.get("snapshot").is_none() {
+            continue;
+        }
         let reveal = if exam {
             finished
         } else {
