@@ -302,7 +302,18 @@ def finalize_question_ids(questions, groups, visuals, sources, quality):
             q.optionSourceId = aliases.get(q.optionSourceId, q.optionSourceId)
         for block in q.passage:
             if block.questionId:
-                block.questionId = aliases.get(block.questionId, block.questionId)
+                if block.questionId in aliases:
+                    block.questionId = aliases[block.questionId]
+                else:
+                    # A skipped unit may contain this blank's child. Keep its
+                    # evidence as noninteractive text, never invent a child.
+                    # Only merged copies change; retry reuses the original unit.
+                    block.partType = "text"
+                    block.questionId = None
+                    if not any(value and value.strip() for value in (block.textValue, block.markdownValue, block.latexValue)) and block.jsonValue is None:
+                        block.textValue = "[____]"
+                    q.needsReview = True
+                    q.missingFields = list(dict.fromkeys([*q.missingFields, "material"]))
     for obj in [*groups, *visuals]:
         obj.questionIndexes = list(dict.fromkeys(index_map[i] for i in obj.questionIndexes))
     for obj in [*sources, *quality.issues]:
