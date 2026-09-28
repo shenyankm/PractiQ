@@ -370,15 +370,6 @@ pub fn read(db: &Connection) -> Result<Vec<Value>> {
     read_scoped(db, &[], None)
 }
 
-pub const READ_INDEXES: &[(&str, &str)] = &[
-    ("banks_created_order", "CREATE INDEX IF NOT EXISTS banks_created_order ON banks(created_at DESC,id DESC)"),
-    ("sessions_activity_order", "CREATE INDEX IF NOT EXISTS sessions_activity_order ON sessions(COALESCE(last_active_at,created_at) DESC,id DESC)"),
-    ("sessions_pending_deadline", "CREATE INDEX IF NOT EXISTS sessions_pending_deadline ON sessions(deadline_at) WHERE submitted_at IS NULL AND deadline_at IS NOT NULL"),
-    ("section_questions_question", "CREATE INDEX IF NOT EXISTS section_questions_question ON section_questions(question_id,section_id)"),
-    ("question_visuals_question", "CREATE INDEX IF NOT EXISTS question_visuals_question ON question_visuals(question_id,visual_id)"),
-    ("visuals_bank", "CREATE INDEX IF NOT EXISTS visuals_bank ON visuals(bank_id,document_level)"),
-];
-
 fn related(db: &Connection, sql: &str, scope: &str) -> Result<HashMap<String, Vec<Value>>> {
     let mut statement = db.prepare(sql).map_err(err)?;
     let records = statement
@@ -1156,7 +1147,7 @@ impl Store {
 #[cfg(test)]
 mod visual_tests {
     use super::*;
-    use std::{io::Write, path::Path};
+    use std::path::Path;
 
     fn import_bank(store: &mut Store, title: &str, visual_questions: Option<Value>) -> String {
         let mut source: Value =
@@ -1367,7 +1358,7 @@ mod visual_tests {
     }
 
     #[test]
-    fn adding_reviews_to_canonical_schema_does_not_reclassify_orphaned_visuals() {
+    fn startup_collects_canonical_orphaned_visuals() {
         let dir = tempfile::tempdir().unwrap();
         let mut store = Store::new(dir.path().into()).unwrap();
         let bank = import_bank(&mut store, "A", Some(json!(["q0"])));
@@ -1376,7 +1367,6 @@ mod visual_tests {
         let db = store.connect().unwrap();
         db.execute("DELETE FROM questions WHERE id=?1", [text(&rows[0], "id")])
             .unwrap();
-        db.execute_batch("DROP TABLE question_reviews;").unwrap();
         drop(db);
         let reopened = Store::new(dir.path().into()).unwrap();
         assert!(!reopened.asset_path(digest).unwrap().exists());
@@ -1386,123 +1376,5 @@ mod visual_tests {
             .query_row("SELECT COUNT(*) FROM visuals", [], |r| r.get(0))
             .unwrap();
         assert_eq!(count, 0);
-    }
-
-    #[test]
-    fn legacy_visual_scope_survives_first_startup_and_direct_backup_restore() {
-        for already_migrated in [false, true] {
-            let dir = tempfile::tempdir().unwrap();
-            let mut source = Store::new(dir.path().into()).unwrap();
-            let global_bank = import_bank(&mut source, "A", Some(json!([])));
-            let scoped_bank = import_bank(&mut source, "B", Some(json!(["q0"])));
-            let global_rows = source.questions(Some(&global_bank), "", "", "").unwrap();
-            let scoped_rows = source.questions(Some(&scoped_bank), "", "", "").unwrap();
-            let session = start(
-                &source,
-                vec![
-                    text(&global_rows[0], "id").into(),
-                    text(&scoped_rows[0], "id").into(),
-                ],
-                "practice",
-            );
-            let sid = text(&session, "id");
-            let db = source.connect().unwrap();
-            let snapshot: String = db
-                .query_row(
-                    "SELECT content FROM session_documents WHERE session_id=?1",
-                    [sid],
-                    |r| r.get(0),
-                )
-                .unwrap();
-            db.execute_batch(
-            "DROP INDEX visuals_bank; ALTER TABLE visuals DROP COLUMN document_level; DROP TABLE question_reviews;",
-        )
-        .unwrap();
-            if already_migrated {
-                db.execute_batch("ALTER TABLE visuals ADD COLUMN document_level INTEGER NOT NULL DEFAULT 0 CHECK(document_level IN(0,1));").unwrap();
-            }
-            drop(db);
-
-            // Package the old database directly: Store::backup would open and migrate it first.
-            let database = std::fs::read(source.db_path()).unwrap();
-            let image = &global_rows[0]["visuals"][0]["imageRef"];
-            let digest = text(image, "sha256");
-            let bytes = source
-                .read_asset(digest, image["sizeBytes"].as_u64().unwrap())
-                .unwrap();
-            let image_path = format!("assets/{digest}");
-            let manifest = json!({"format":"practiq-backup","version":4,"schemaVersion":10,
-                "database":{"file":"practiq.sqlite","sha256":crate::store::hash(&database),"sizeBytes":database.len()},
-                "assets":[{"sha256":digest,"mediaType":image["mediaType"],"sizeBytes":bytes.len(),"file":image_path}]
-            });
-            let archive = dir.path().join("legacy.zip");
-            let mut zip = zip::ZipWriter::new(std::fs::File::create(&archive).unwrap());
-            for (name, data) in [
-                ("manifest.json", manifest.to_string().into_bytes()),
-                ("practiq.sqlite", database),
-                (image_path.as_str(), bytes.clone()),
-            ] {
-                zip.start_file(name, zip::write::SimpleFileOptions::default())
-                    .unwrap();
-                zip.write_all(&data).unwrap();
-            }
-            zip.finish().unwrap();
-
-            let assert_preserved = |store: &Store| {
-                let db = store.connect().unwrap();
-                for (bank, document_level) in [(&global_bank, true), (&scoped_bank, false)] {
-                    let actual: bool = db
-                        .query_row(
-                            "SELECT document_level FROM visuals WHERE bank_id=?1",
-                            [bank],
-                            |r| r.get(0),
-                        )
-                        .unwrap();
-                    assert_eq!(actual, document_level);
-                    assert_eq!(
-                        list(
-                            &store.questions(Some(bank), "", "", "").unwrap()[0],
-                            "visuals"
-                        )
-                        .len(),
-                        1
-                    );
-                }
-                let current: String = db
-                    .query_row(
-                        "SELECT content FROM session_documents WHERE session_id=?1",
-                        [sid],
-                        |r| r.get(0),
-                    )
-                    .unwrap();
-                assert_eq!(current, snapshot);
-                assert_eq!(store.read_asset(digest, bytes.len() as u64).unwrap(), bytes);
-            };
-            let restored_dir = tempfile::tempdir().unwrap();
-            let mut restored = Store::new(restored_dir.path().into()).unwrap();
-            restored.restore(&archive).unwrap();
-            assert_preserved(&restored);
-            let mut reopened = Store::new(dir.path().into()).unwrap();
-            assert_preserved(&reopened);
-            let migrated = dir.path().join("migrated.zip");
-            reopened.backup(&migrated).unwrap();
-            restored.restore(&migrated).unwrap();
-            assert_preserved(&restored);
-            // The upgrade marker must not protect newly orphaned question images on later connections.
-            let new_bank = import_bank(&mut reopened, "New", Some(json!(["q0"])));
-            let rows = reopened.questions(Some(&new_bank), "", "", "").unwrap();
-            reopened.delete_question(text(&rows[0], "id")).unwrap();
-            let count: usize = reopened
-                .connect()
-                .unwrap()
-                .query_row(
-                    "SELECT COUNT(*) FROM visuals WHERE bank_id=?1",
-                    [&new_bank],
-                    |r| r.get(0),
-                )
-                .unwrap();
-            assert_eq!(count, 0);
-            assert_preserved(&reopened);
-        }
     }
 }

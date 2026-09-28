@@ -50,9 +50,6 @@ impl Store {
         // In-flight model requests are task state, not portable practice history.
         db.execute("DELETE FROM grade_requests WHERE response IS NULL", [])
             .map_err(err)?;
-        // Executable preferences are machine-specific; backups must never authorize programs.
-        db.execute("UPDATE settings SET libreoffice_path=NULL", [])
-            .map_err(err)?;
         let (database_size, database_hash) = file_digest(&snapshot)?;
         let assets=db.prepare("SELECT hash,media,size,path FROM assets ORDER BY hash").map_err(err)?.query_map([],|r| Ok(json!({"sha256":r.get::<_,String>(0)?,"mediaType":r.get::<_,String>(1)?,"sizeBytes":r.get::<_,u64>(2)?,"file":r.get::<_,String>(3)?}))).map_err(err)?.collect::<std::result::Result<Vec<_>,_>>().map_err(err)?;
         let version: i64 = db
@@ -264,11 +261,9 @@ impl Store {
             }
             staged.write_asset(digest, &data)?;
         }
-        // Upgrade only the validated staging database, never the live database.
+        // Open only the validated staging database, never the live database.
         let db = staged.connect()?;
         validate_database_contents(&db)?;
-        db.execute("UPDATE settings SET libreoffice_path=NULL", [])
-            .map_err(err)?;
         let rows = db
             .prepare("SELECT hash,media,size,path FROM assets")
             .map_err(err)?
@@ -390,7 +385,7 @@ fn validate_audio_segments(
     }
     Ok(())
 }
-fn validate_database_schema(path: &Path) -> Result<i64> {
+pub(crate) fn validate_database_schema(path: &Path) -> Result<i64> {
     let db = Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
         .map_err(err)?;
     db.execute_batch("PRAGMA trusted_schema=OFF;")
@@ -398,7 +393,7 @@ fn validate_database_schema(path: &Path) -> Result<i64> {
     let version: i64 = db
         .query_row("PRAGMA user_version", [], |r| r.get(0))
         .map_err(err)?;
-    if version != 10 {
+    if version != 11 {
         return Err(crate::language::error(
             "LOCAL_BACKUP_DATABASE_VERSION",
             serde_json::json!({}),
@@ -408,7 +403,7 @@ fn validate_database_schema(path: &Path) -> Result<i64> {
     // character exact so portable backups cannot introduce different constraints or objects.
     let normalize_line_endings = |sql: String| sql.replace("\r\n", "\n");
     let schema = |db: &Connection| -> Result<Vec<String>> {
-        let mut stmt=db.prepare("SELECT type||':'||name||':'||COALESCE(sql,'') FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY name").map_err(err)?;
+        let mut stmt=db.prepare("SELECT type||':'||name||':'||COALESCE(sql,'') FROM sqlite_master WHERE name NOT GLOB 'sqlite_*' ORDER BY name").map_err(err)?;
         let rows = stmt
             .query_map([], |r| r.get::<_, String>(0).map(normalize_line_endings))
             .map_err(err)?
@@ -417,103 +412,9 @@ fn validate_database_schema(path: &Path) -> Result<i64> {
         Ok(rows)
     };
     let expected = Connection::open_in_memory().map_err(err)?;
-    let mut expected_schema = include_str!("schema.sql").to_owned();
-    if !db.query_row("SELECT EXISTS(SELECT 1 FROM pragma_table_info('settings') WHERE name='libreoffice_path')", [], |r| r.get::<_, bool>(0)).map_err(err)? {
-        expected_schema = expected_schema.replace(", libreoffice_path TEXT", "").replace("VALUES(1,NULL,NULL,NULL,NULL)", "VALUES(1,NULL,NULL,NULL)");
-    }
-    if db
-        .query_row(
-            "SELECT EXISTS(SELECT 1 FROM pragma_table_info('settings') WHERE name='oss_url')",
-            [],
-            |r| r.get::<_, bool>(0),
-        )
-        .map_err(err)?
-    {
-        // Validate the original backup before removing its unused column in staging.
-        expected_schema = expected_schema
-            .replace("model_id TEXT,", "model_id TEXT,oss_url TEXT,")
-            .replace("VALUES(1,NULL,", "VALUES(1,NULL,NULL,");
-    }
-    expected.execute_batch(&expected_schema).map_err(err)?;
-    if !db
-        .query_row(
-            "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name='question_reviews')",
-            [],
-            |row| row.get::<_, bool>(0),
-        )
-        .map_err(err)?
-    {
-        expected
-            .execute_batch("DROP TABLE IF EXISTS question_reviews;")
-            .map_err(err)?;
-    }
-    // Accept only the original or migrated definitions produced by our schema-10 updates.
-    // SQLite preserves ALTER TABLE spelling and column order in sqlite_master.sql.
-    for (table, column, addition) in [
-        (
-            "visuals",
-            ",document_level INTEGER NOT NULL CHECK(document_level IN(0,1))",
-            "document_level INTEGER NOT NULL DEFAULT 0 CHECK(document_level IN(0,1))",
-        ),
-        (
-            "listening_playback",
-            ",active_elapsed_ms INTEGER NOT NULL DEFAULT 0 CHECK(active_elapsed_ms>=0)",
-            "active_elapsed_ms INTEGER NOT NULL DEFAULT 0 CHECK(active_elapsed_ms>=0)",
-        ),
-        (
-            "sessions",
-            ", last_active_at INTEGER",
-            "last_active_at INTEGER",
-        ),
-    ] {
-        let table_sql = |connection: &Connection| -> Result<String> {
-            connection
-                .query_row(
-                    "SELECT sql FROM sqlite_master WHERE type='table' AND name=?1",
-                    [table],
-                    |row| row.get(0),
-                )
-                .map(normalize_line_endings)
-                .map_err(err)
-        };
-        let current = table_sql(&expected)?;
-        let actual = table_sql(&db)?;
-        if actual == current {
-            continue;
-        }
-        let historical = Connection::open_in_memory().map_err(err)?;
-        historical
-            .execute_batch(&current.replace(column, ""))
-            .map_err(err)?;
-        if actual != table_sql(&historical)? {
-            historical
-                .execute_batch(&format!("ALTER TABLE {table} ADD COLUMN {addition};"))
-                .map_err(err)?;
-        }
-        let allowed = table_sql(&historical)?;
-        if actual != allowed {
-            return Err(crate::language::error(
-                "LOCAL_BACKUP_SCHEMA_UNSUPPORTED",
-                json!({}),
-            ));
-        }
-        expected
-            .execute_batch(&format!("DROP TABLE {table}; {allowed};"))
-            .map_err(err)?;
-    }
-    // Older backups may omit these optional indexes. Existing definitions must match exactly.
-    for (name, sql) in crate::questions::READ_INDEXES {
-        if db
-            .query_row(
-                "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name=?1)",
-                [name],
-                |r| r.get::<_, bool>(0),
-            )
-            .map_err(err)?
-        {
-            expected.execute_batch(sql).map_err(err)?;
-        }
-    }
+    expected
+        .execute_batch(include_str!("schema.sql"))
+        .map_err(err)?;
     if schema(&db)? != schema(&expected)? {
         return Err(crate::language::error(
             "LOCAL_BACKUP_SCHEMA_UNSUPPORTED",
@@ -666,66 +567,6 @@ mod schema_tests;
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[test]
-    fn optional_read_indexes_preserve_old_backups_and_reject_altered_definitions() {
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("current.sqlite");
-        let db = Connection::open(&path).unwrap();
-        db.execute_batch(include_str!("schema.sql")).unwrap();
-        assert_eq!(validate_database_schema(&path).unwrap(), 10);
-        for (_, sql) in crate::questions::READ_INDEXES {
-            db.execute_batch(sql).unwrap();
-        }
-        assert_eq!(validate_database_schema(&path).unwrap(), 10);
-        db.execute_batch("DROP INDEX visuals_bank; CREATE INDEX visuals_bank ON visuals(content)")
-            .unwrap();
-        assert!(validate_database_schema(&path).is_err());
-    }
-    #[test]
-    fn restores_old_oss_backups_without_retaining_the_column() {
-        for office_column in [false, true] {
-            let dir = tempfile::tempdir().unwrap();
-            let path = dir.path().join("old.sqlite");
-            let db = Connection::open(&path).unwrap();
-            let mut schema = include_str!("schema.sql")
-                .replace("model_id TEXT,", "model_id TEXT,oss_url TEXT,")
-                .replace("VALUES(1,NULL,", "VALUES(1,NULL,NULL,");
-            if !office_column {
-                schema = schema.replace(", libreoffice_path TEXT", "").replace(
-                    "VALUES(1,NULL,NULL,NULL,NULL,NULL)",
-                    "VALUES(1,NULL,NULL,NULL,NULL)",
-                );
-            }
-            db.execute_batch(&schema).unwrap();
-            db.execute_batch("UPDATE settings SET model_id='demo',locale='en',oss_url='https://bucket.example.com'").unwrap();
-            drop(db);
-            let (size, digest) = file_digest(&path).unwrap();
-            let archive = dir.path().join("old.zip");
-            let mut zip = ZipWriter::new(fs::File::create(&archive).unwrap());
-            zip.start_file("manifest.json", SimpleFileOptions::default())
-                .unwrap();
-            let manifest = json!({"format":"practiq-backup","version":4,"schemaVersion":10,"database":{"file":"practiq.sqlite","sha256":digest,"sizeBytes":size},"assets":[]});
-            zip.write_all(&serde_json::to_vec(&manifest).unwrap())
-                .unwrap();
-            zip.start_file("practiq.sqlite", SimpleFileOptions::default())
-                .unwrap();
-            zip.write_all(&fs::read(&path).unwrap()).unwrap();
-            zip.finish().unwrap();
-            let mut store = Store::new(dir.path().join("restored")).unwrap();
-            store.restore(&archive).unwrap();
-            let db = store.connect().unwrap();
-            assert!(!db.query_row("SELECT EXISTS(SELECT 1 FROM pragma_table_info('settings') WHERE name='oss_url')", [], |r| r.get::<_, bool>(0)).unwrap());
-            assert_eq!(
-                db.query_row("SELECT model_id,locale FROM settings", [], |r| Ok((
-                    r.get::<_, String>(0)?,
-                    r.get::<_, String>(1)?
-                )))
-                .unwrap(),
-                ("demo".into(), "en".into())
-            );
-            assert_eq!(validate_database_schema(&store.db_path()).unwrap(), 10);
-        }
-    }
     #[test]
     fn rejects_legacy_database_without_upgrading() {
         let dir = tempfile::tempdir().unwrap();

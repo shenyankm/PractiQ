@@ -41,8 +41,14 @@ CREATE TABLE listening_playback(session_id TEXT NOT NULL REFERENCES sessions(id)
 CREATE TABLE attempts(session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,ordinal INTEGER NOT NULL,question_id TEXT,snapshot_question_id TEXT NOT NULL,answer TEXT NOT NULL DEFAULT 'null' CHECK(json_valid(answer)),auto_result INTEGER,result INTEGER,grade_kind TEXT NOT NULL DEFAULT 'ungraded',submitted_at INTEGER,skipped INTEGER NOT NULL DEFAULT 0,elapsed_ms INTEGER NOT NULL DEFAULT 0,max_cents INTEGER CHECK(max_cents > 0),earned_cents INTEGER CHECK(earned_cents>=0 AND earned_cents<=max_cents),flagged INTEGER NOT NULL DEFAULT 0 CHECK(flagged IN(0,1)),grading TEXT NOT NULL DEFAULT '{}' CHECK(json_valid(grading)),PRIMARY KEY(session_id,ordinal));
 CREATE INDEX attempts_question ON attempts(question_id,submitted_at DESC);
 CREATE TABLE grade_requests(id TEXT PRIMARY KEY,session_id TEXT NOT NULL REFERENCES sessions(id),ordinal INTEGER NOT NULL,input TEXT NOT NULL CHECK(json_valid(input)),response TEXT CHECK(response IS NULL OR json_valid(response)),created_at INTEGER NOT NULL);
-CREATE TABLE settings(id INTEGER PRIMARY KEY CHECK(id=1),base_url TEXT,model_id TEXT,locale TEXT CHECK(locale IS NULL OR locale IN('zh-CN','en')), libreoffice_path TEXT);
-INSERT INTO settings VALUES(1,NULL,NULL,NULL,NULL);
+CREATE TABLE settings(id INTEGER PRIMARY KEY CHECK(id=1),base_url TEXT,model_id TEXT,locale TEXT CHECK(locale IS NULL OR locale IN('zh-CN','en')));
+INSERT INTO settings VALUES(1,NULL,NULL,NULL);
 CREATE TABLE ai_imports(thread_id TEXT NOT NULL,digest TEXT NOT NULL,checkpoint_id TEXT NOT NULL,import_id TEXT NOT NULL REFERENCES imports(id) ON DELETE CASCADE,PRIMARY KEY(thread_id,digest));
-PRAGMA user_version=10;
+CREATE INDEX banks_created_order ON banks(created_at DESC,id DESC);
+CREATE INDEX sessions_activity_order ON sessions(COALESCE(last_active_at,created_at) DESC,id DESC);
+CREATE INDEX sessions_pending_deadline ON sessions(deadline_at) WHERE submitted_at IS NULL AND deadline_at IS NOT NULL;
+CREATE INDEX section_questions_question ON section_questions(question_id,section_id);
+CREATE INDEX question_visuals_question ON question_visuals(question_id,visual_id);
+CREATE INDEX visuals_bank ON visuals(bank_id,document_level);
+PRAGMA user_version=11;
 COMMIT;

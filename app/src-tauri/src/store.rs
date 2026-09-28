@@ -134,6 +134,7 @@ impl Store {
             locale: crate::language::Locale::default(),
         };
         store.connect()?;
+        crate::backup::validate_database_schema(&store.db_path())?;
         store.collect_unused_assets()?;
         Ok(store)
     }
@@ -149,80 +150,17 @@ impl Store {
             .query_row("PRAGMA user_version", [], |r| r.get(0))
             .map_err(err)?;
         if version == 0 {
+            let objects: i64 = db
+                .query_row("SELECT count(*) FROM sqlite_master", [], |r| r.get(0))
+                .map_err(err)?;
+            if objects != 0 {
+                return Err("Cannot initialize a nonempty database".into());
+            }
             db.execute_batch(include_str!("schema.sql")).map_err(err)?;
-        } else if version != 10 {
-            return Err("Only database schema 10 is supported; legacy data remains in its original directory".into());
-        } else {
-            if !db
-                .query_row(
-                    "SELECT EXISTS(SELECT 1 FROM pragma_table_info('visuals') WHERE name='document_level')",
-                    [],
-                    |r| r.get::<_, bool>(0),
-                )
-                .map_err(err)?
-            {
-                // Legacy rows lacked an explicit scope flag; retain unassociated material conservatively.
-                db.execute_batch("BEGIN IMMEDIATE; ALTER TABLE visuals ADD COLUMN document_level INTEGER NOT NULL DEFAULT 0 CHECK(document_level IN(0,1)); UPDATE visuals SET document_level=1 WHERE NOT EXISTS(SELECT 1 FROM question_visuals WHERE visual_id=visuals.id); COMMIT;")
-                    .map_err(err)?;
-            }
-            if !db
-                .query_row(
-                    "SELECT EXISTS(SELECT 1 FROM pragma_table_info('listening_playback') WHERE name='active_elapsed_ms')",
-                    [],
-                    |r| r.get::<_, bool>(0),
-                )
-                .map_err(err)?
-            {
-                // Earlier rows tracked the last update, so restart unfinished plays with their allowance intact.
-                db.execute_batch("BEGIN IMMEDIATE; ALTER TABLE listening_playback ADD COLUMN active_elapsed_ms INTEGER NOT NULL DEFAULT 0 CHECK(active_elapsed_ms>=0); UPDATE listening_playback SET used=MAX(used-1,0),position=0,active=0,updated_at=0 WHERE active=1; COMMIT;")
-                    .map_err(err)?;
-            }
-        }
-        if !db
-            .query_row(
-                "SELECT EXISTS(SELECT 1 FROM pragma_table_info('sessions') WHERE name='last_active_at')",
-                [],
-                |r| r.get::<_, bool>(0),
-            )
-            .map_err(err)?
-        {
-            db.execute_batch("BEGIN IMMEDIATE; ALTER TABLE sessions ADD COLUMN last_active_at INTEGER; UPDATE sessions SET last_active_at=MAX(created_at,COALESCE(finished_at,0),COALESCE(submitted_at,0),COALESCE((SELECT MAX(submitted_at) FROM attempts WHERE session_id=sessions.id),0)); COMMIT;")
-                .map_err(err)?;
-        }
-        if !db.query_row("SELECT EXISTS(SELECT 1 FROM pragma_table_info('settings') WHERE name='libreoffice_path')", [], |r| r.get::<_, bool>(0)).map_err(err)? {
-            db.execute_batch("ALTER TABLE settings ADD COLUMN libreoffice_path TEXT;").map_err(err)?;
-        }
-        if db
-            .query_row(
-                "SELECT EXISTS(SELECT 1 FROM pragma_table_info('settings') WHERE name='oss_url')",
-                [],
-                |r| r.get::<_, bool>(0),
-            )
-            .map_err(err)?
-        {
-            db.execute_batch("ALTER TABLE settings DROP COLUMN oss_url;")
-                .map_err(err)?;
-        }
-        if !db
-            .query_row(
-                "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='question_reviews')",
-                [],
-                |r| r.get::<_, bool>(0),
-            )
-            .map_err(err)?
-        {
-            // Old ADD COLUMN migrations erased unassociated scope; retain ambiguous legacy material once.
-            // Creating the new review table in the same transaction marks this upgrade as complete.
-            db.execute_batch("BEGIN IMMEDIATE;
-                UPDATE visuals SET document_level=1 WHERE document_level=0
-                    AND EXISTS(SELECT 1 FROM pragma_table_info('visuals') WHERE name='document_level' AND dflt_value='0')
-                    AND NOT EXISTS(SELECT 1 FROM question_visuals WHERE visual_id=visuals.id)
-                    AND NOT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='question_reviews');
-                CREATE TABLE IF NOT EXISTS question_reviews(question_id TEXT PRIMARY KEY REFERENCES questions(id) ON DELETE CASCADE,reviewed_at INTEGER NOT NULL CHECK(reviewed_at>=0));
-                COMMIT;").map_err(err)?;
-        }
-        for (_, sql) in crate::questions::READ_INDEXES {
-            db.execute_batch(sql).map_err(err)?;
+        } else if version != 11 {
+            return Err(
+                "Only database schema 11 is supported; existing data remains unchanged".into(),
+            );
         }
         Ok(db)
     }

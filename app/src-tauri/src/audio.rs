@@ -793,15 +793,9 @@ mod tests {
             .listening_playback(sid, &root, PlaybackAction::Progress, Some(2.8))
             .is_err());
 
-        rusqlite::Connection::open(store.db_path())
-            .unwrap()
-            .execute_batch("ALTER TABLE listening_playback DROP COLUMN active_elapsed_ms;")
+        store
+            .listening_playback(sid, &root, PlaybackAction::End, Some(1.8))
             .unwrap();
-        let restarted = store
-            .listening_playback(sid, &root, PlaybackAction::State, None)
-            .unwrap();
-        assert_eq!(restarted["used"], 0);
-        assert_eq!(restarted["active"], false);
         store
             .listening_playback(sid, &root, PlaybackAction::Start, None)
             .unwrap();

@@ -566,12 +566,6 @@ impl Store {
                 let mut original: Value = serde_json::from_str(&raw).map_err(err)?;
                 match previous["feedbackLocale"].as_str() {
                     Some(locale @ ("zh-CN" | "en")) => original["feedbackLocale"] = json!(locale),
-                    None => {
-                        original
-                            .as_object_mut()
-                            .ok_or("Invalid grading payload")?
-                            .remove("feedbackLocale");
-                    }
                     _ => {
                         return Err(crate::language::error(
                             "LOCAL_GRADING_INPUT_CHANGED",
@@ -579,7 +573,7 @@ impl Store {
                         ))
                     }
                 }
-                // Rebuild from immutable content and the frozen locale; older payloads had no locale.
+                // Rebuild from immutable content and the frozen locale.
                 let original = original.to_string();
                 if previous["inputDigest"] != crate::store::hash(original.as_bytes()) {
                     return Err(crate::language::error(
