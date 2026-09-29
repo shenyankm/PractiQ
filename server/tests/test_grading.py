@@ -218,3 +218,18 @@ def test_wire_numbers_and_unicode_are_hashed_before_parsing(setup, monkeypatch):
         assert len(seen) == 1
     finally:
         webapp.app.dependency_overrides.clear()
+
+
+@pytest.mark.parametrize("format", ["GIF", "WEBP"])
+@pytest.mark.parametrize("declared_media", [None, "image/png", "image/jpeg"])
+def test_grade_images_reject_removed_formats_even_if_mislabeled(format, declared_media):
+    buffer = BytesIO()
+    Image.new("RGB", (2, 2), "red").save(buffer, format=format)
+    raw = buffer.getvalue()
+    media = declared_media or f"image/{format.lower()}"
+    image = grading.GradeImage(
+        sha256=hashlib.sha256(raw).hexdigest(),
+        data=f"data:{media};base64,{base64.b64encode(raw).decode()}",
+    )
+    with pytest.raises(ValueError, match="Invalid image"):
+        image.verified_url()

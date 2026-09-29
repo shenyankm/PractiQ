@@ -1038,5 +1038,37 @@
   "LOCAL_IMPORT_DETAILS_INVALID": {
     "zh-CN": "请填写题库名（最多 200 字）和描述（最多 20000 字）",
     "en": "Enter a bank name (up to 200 characters) and description (up to 20000 characters)"
+  },
+  "LOCAL_AUDIO_URL_INVALID": {
+    "zh-CN": "请使用公开的 HTTP/HTTPS 网址（80/443 端口），不能包含账号密码或指向本地、内网地址。",
+    "en": "Use a public HTTP/HTTPS URL on port 80 or 443, without credentials or local/private addresses."
+  },
+  "LOCAL_AUDIO_DOWNLOAD_FAILED": {
+    "zh-CN": "获取资源失败，请检查网址和网络；资源可能需要登录或已过期。也可下载音频后选择本地文件。",
+    "en": "Could not fetch this resource. Check the URL and connection; it may require sign-in or have expired. You can also download the audio and choose the local file."
+  },
+  "LOCAL_AUDIO_DOWNLOAD_SIZE": {
+    "zh-CN": "资源过大：音频最多 25 MiB，网页最多 2 MiB。",
+    "en": "Resource too large: audio is limited to 25 MiB and pages to 2 MiB."
+  },
+  "LOCAL_AUDIO_NO_LINKS": {
+    "zh-CN": "未找到公开音频链接。需要登录或运行脚本的网页，请自行下载音频后选择本地文件。",
+    "en": "No public audio links found. For pages requiring sign-in or scripts, download the audio yourself and choose the local file."
+  },
+  "LOCAL_AUDIO_QR_INVALID": {
+    "zh-CN": "未识别到有效的公开网址二维码。请选择清晰的 PNG/JPEG 图片（宽高不超过 4096 像素），或直接粘贴网址。",
+    "en": "No valid public-URL QR code found. Choose a clear PNG/JPEG image up to 4096 pixels per side, or paste the URL."
+  },
+  "LOCAL_AUDIO_INVALID": {
+    "zh-CN": "资源不是有效的 MP3、M4A/AAC 或 WAV 音频，或音频暂存空间已满。",
+    "en": "The resource is not valid MP3, M4A/AAC or WAV audio, or audio staging storage is full."
+  },
+  "LOCAL_AUDIO_MISSING": {
+    "zh-CN": "音频暂存已失效，请重新导入音频后保存。",
+    "en": "The staged audio is no longer available. Import the audio again before saving."
+  },
+  "LOCAL_BACKUP_RESOURCE_INVALID": {
+    "zh-CN": "当前数据含不支持或损坏的图片、音频，备份已取消；已有备份未被覆盖。",
+    "en": "Current data contains unsupported or damaged images or audio. Backup canceled; any existing backup was preserved."
   }
 }

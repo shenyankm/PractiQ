@@ -25,7 +25,7 @@ class GradeImage(StrictModel):
 
     def verified_url(self) -> str:
         header, sep, encoded = self.data.partition(",")
-        if not sep or header not in {"data:image/png;base64", "data:image/jpeg;base64", "data:image/webp;base64", "data:image/gif;base64"}:
+        if not sep or header not in {"data:image/png;base64", "data:image/jpeg;base64"}:
             raise ValueError("Invalid image encoding")
         raw = base64.b64decode(encoded, validate=True)
         if len(raw) > 20 * 1024 * 1024 or hashlib.sha256(raw).hexdigest() != self.sha256:

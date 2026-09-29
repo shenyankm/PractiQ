@@ -16,7 +16,7 @@ Missing or corrupt referenced images or audio prevent export. If a bank was init
 
 ## Difference from study-data backups
 
-**Export backup** in Settings still creates a ZIP containing personal banks, images, audio, answers, exams, and grading records for restoring your own data. It excludes credentials and AI task state. Restore validates the backup and retains a pre-restore copy.
+**Export backup** in Settings still creates a ZIP containing personal banks, images, audio, answers, exams, and grading records for restoring your own data. It excludes credentials and AI task state. Backup creation validates image/audio formats before publishing the ZIP. Unsupported legacy resources (including WebP/GIF) or damaged media cancel the backup without replacing an existing destination. Restore validates the backup and retains a pre-restore copy.
 
 Bank-sharing packages and study-data backups are different formats. Both operations are under **Restore backup** in Settings: **Import bank ZIP** appends content, while **Restore study-data backup** replaces personal data after confirmation. Selecting the wrong format returns an error.
 
@@ -34,10 +34,10 @@ The ZIP root contains `manifest.json`, `questions.json`, and image/audio files a
 
 `questions.json` follows the AI result contract with `schemaVersion: 3`, including `questions`, `groups`, `visualElements`, `warnings`, and `confidenceScore`. See the [question model](question-model.md) for the JSON contract. Images retain the objectKey, SHA-256, size, and media type in `imageRef` and `sourceRef`. Packages contain question data, not the desktop database or practice snapshots.
 
-Limits are 300 MiB per ZIP, 32 MiB per JSON file, 25 MiB per image or audio file, and 256 MiB for all expanded resources. The current result contract permits at most 1000 question nodes (including composite parents), 1000 material groups, 1000 visual elements, and 1000 warnings per package. Exceeding these limits rejects export rather than truncating the bank. All referenced images and audio must be present. Extra files, directory entries, duplicate entries, symlinks, and path traversal are forbidden.
+Limits are 300 MiB per ZIP, 32 MiB per JSON file, 25 MiB per image or audio file, and 256 MiB for all expanded resources. The current result contract permits at most 1000 question nodes (including composite parents), 1000 material groups, 1000 visual elements, and 1000 warnings per package. Exceeding these limits rejects export rather than truncating the bank. Images must be PNG/JPEG; WebP/GIF resources are rejected. All referenced images and audio must be present. Extra files, directory entries, duplicate entries, symlinks, and path traversal are forbidden.
 
 Regenerate development samples with `python3 app/scripts/package-fixtures.py`. Their hand-written content does not establish live-model quality.
 
 Listening parent questions store audio references in `audioRef`, supporting audio/mpeg, audio/mp4, audio/aac, and audio/wav. Images and audio share the package and expanded-size budgets. The current ZIP version is 2, backup container version is 4 with schemaVersion 11, and the desktop directory is v4. Older versions are explicitly rejected; old directories remain intact. Reparse source documents or generate new-format banks.
 
-Initial listening-audio validation requires macOS `afinfo`. Windows and Linux currently do not support importing, exporting, or restoring banks with audio.
+Listening audio is validated with Symphonia on all desktop platforms. URL/QR imports are downloaded and saved as ordinary local audio before export; recipients need no access to the original site. Playback depends on the platform WebView codecs; Linux needs the corresponding GStreamer audio plugins.

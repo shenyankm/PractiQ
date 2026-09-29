@@ -110,7 +110,9 @@ function request(r:Request,scenario:PreviewScenario):unknown {
     case "flag": {const s=getSession(r.id);s.attempts[r.ordinal].flagged=r.value;return s;}
     case "manual_score": {const s=getSession(r.id);const a=s.attempts[r.ordinal];Object.assign(a,{earnedCents:r.cents,result:r.cents===a.maxCents,gradeKind:"manual",grading:{...a.grading,manual:{reason:r.reason,scoreCents:r.cents}}});return s;}
     case "finish": case "complete_review": case "submit_paper": {const s=getSession(r.id);if(r.type==="submit_paper"){s.attempts.forEach(a=>{if(!a.submittedAt && r.submit_drafts && a.answer)score(s,a.ordinal,a.answer);});s.submittedAt=Date.now();}s.finishedAt=Date.now();return s;}
-    case "pick_audio": return {reference:english.questions[0].audioRef,duration:3};
+    case "pick_audio": return {reference:english.questions[0].audioRef,duration:3,lease:crypto.randomUUID()};
+    case "pick_audio_qr": case "decode_audio_qr": return [{url:"https://example.com/listening.mp3",label:""}];
+    case "import_audio_url": return {audio:{reference:english.questions[0].audioRef,duration:3,lease:crypto.randomUUID()},links:[]};
     case "release_audio": return null;
     case "listening_playback": return {used:r.action==="start" ? 1:0,position:r.position||0,active:r.action==="start",limit:2,restricted:false};
     case "asset": throw new Error("资产请求应通过专用演示读取入口");

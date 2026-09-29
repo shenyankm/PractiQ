@@ -620,9 +620,11 @@ def test_crop_failures_are_reported(monkeypatch):
 
 
 def test_vision_helpers_cover_media_and_crop_failures(monkeypatch):
-    assert vision._media_type(b"GIF89a") == "image/gif"
-    assert vision._media_type(b"RIFFxxxxWEBP") == "image/webp"
-    assert vision._media_type(b"jpeg") == "image/jpeg"
+    assert vision._media_type(b"\x89PNG") == "image/png"
+    assert vision._media_type(b"\xff\xd8") == "image/jpeg"
+    for unsupported in [b"GIF89a", b"RIFFxxxxWEBP", b"invalid"]:
+        with pytest.raises(ValueError, match="Only PNG and JPEG"):
+            vision._media_type(unsupported)
     assert vision.crop_figure(make_image(), [0, 0, float("inf"), 1]) is None
 
     monkeypatch.setattr(vision, "MAX_CROP_BYTES", 1)

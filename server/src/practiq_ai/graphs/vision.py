@@ -119,11 +119,9 @@ def _image_message(prompt: str, image: bytes, media_type: str) -> HumanMessage:
 def _media_type(image: bytes) -> str:
     if image.startswith(b"\x89PNG"):
         return "image/png"
-    if image.startswith(b"GIF8"):
-        return "image/gif"
-    if image.startswith(b"RIFF") and image[8:12] == b"WEBP":
-        return "image/webp"
-    return "image/jpeg"
+    if image.startswith(b"\xff\xd8"):
+        return "image/jpeg"
+    raise ValueError("Only PNG and JPEG images are supported")
 
 
 def crop_figures(page_image: bytes, boxes: list[list[float]]) -> list[bytes | None]:

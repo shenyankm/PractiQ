@@ -569,7 +569,7 @@ fn file_assets_and_corruption_do_not_replace_database() {
     use rusqlite::params;
     let dir = tempfile::tempdir().unwrap();
     let mut s = Store::new(dir.path().to_owned()).unwrap();
-    let bytes = b"\x89PNG\r\n\x1a\nfixture-image";
+    let bytes = include_bytes!("../../fixtures/rich-content/resources/chart.png");
     let digest = crate::store::hash(bytes);
     s.write_asset(&digest, bytes).unwrap();
     s.connect()
@@ -1230,6 +1230,9 @@ fn rich_content_survives_import_reopen_practice_and_backup_exactly() {
 fn image_validation_rejects_truncated_and_mislabeled_files() {
     let png = include_bytes!("../../fixtures/rich-content/resources/chart.png");
     assert!(crate::store::valid_image(png, "image/png"));
+    for media in ["image/gif", "image/webp"] {
+        assert!(!crate::store::valid_image(png, media));
+    }
     assert!(!crate::store::valid_image(&png[..16], "image/png"));
     assert!(!crate::store::valid_image(png, "image/jpeg"));
 }
@@ -2263,4 +2266,36 @@ fn new_imports_do_not_update_inserted_rows_and_edits_replace_old_details() {
     assert_eq!(rows[0]["favorite"], true);
     assert_eq!(db.query_row("SELECT (SELECT count(*) FROM choice_questions)+(SELECT count(*) FROM question_options)+(SELECT count(*) FROM option_sets)", [], |r| r.get::<_, i64>(0)).unwrap(), 0);
     import(&mut s);
+}
+
+#[test]
+fn backup_rejects_unsupported_and_corrupt_media_without_publishing() {
+    let (dir, s) = store();
+    let bytes = include_bytes!("../../fixtures/rich-content/resources/chart.png");
+    let digest = crate::store::hash(bytes);
+    s.write_asset(&digest, bytes).unwrap();
+    let destination = dir.path().join("backup.zip");
+    let db = s.connect().unwrap();
+    for media in ["image/gif", "image/webp", "audio/wav", "image/jpeg"] {
+        db.execute(
+            "INSERT OR REPLACE INTO assets VALUES(?1,?2,?3,?4)",
+            rusqlite::params![digest, media, bytes.len(), format!("assets/{digest}")],
+        )
+        .unwrap();
+        assert_eq!(
+            s.backup(&destination).unwrap_err().code,
+            "LOCAL_BACKUP_RESOURCE_INVALID"
+        );
+        assert!(!destination.exists());
+    }
+    std::fs::write(&destination, b"previous backup").unwrap();
+    assert!(s.backup(&destination).is_err());
+    assert_eq!(std::fs::read(&destination).unwrap(), b"previous backup");
+    assert_eq!(s.read_asset(&digest, bytes.len() as u64).unwrap(), bytes);
+    db.execute("UPDATE assets SET media='image/png'", [])
+        .unwrap();
+    s.backup(&destination).unwrap();
+    let restored_dir = tempfile::tempdir().unwrap();
+    let mut restored = Store::new(restored_dir.path().to_path_buf()).unwrap();
+    restored.restore(&destination).unwrap();
 }

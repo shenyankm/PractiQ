@@ -114,6 +114,9 @@ pub enum PlaybackAction {
 impl Store {
     pub fn stage_audio(&mut self, path: &Path) -> Result<Value> {
         let bytes = read_bounded(path, crate::assets::LIMIT)?;
+        self.stage_audio_bytes(bytes)
+    }
+    pub fn stage_audio_bytes(&mut self, bytes: Vec<u8>) -> Result<Value> {
         let (media, duration) = audio_info(&bytes)?;
         let digest = hash(&bytes);
         if !self.staged_audio.contains_key(&digest)
@@ -128,16 +131,41 @@ impl Store {
             return Err("Staged audio exceeds 256 MiB".into());
         }
         let reference = json!({"objectKey":format!("audio/{digest}"),"sha256":digest,"mediaType":media,"sizeBytes":bytes.len()});
+        let lease = crate::store::id();
+        self.audio_leases.insert(lease.clone(), digest.clone());
         self.staged_audio.insert(digest, (media, bytes));
-        Ok(json!({"reference":reference,"duration":duration}))
+        Ok(json!({"reference":reference,"duration":duration,"lease":lease}))
+    }
+    /// Release only this import; other editors may hold the same audio bytes.
+    pub fn release_audio(&mut self, lease: &str) {
+        if let Some(digest) = self.audio_leases.remove(lease) {
+            if !self.audio_leases.values().any(|hash| hash == &digest) {
+                self.staged_audio.remove(&digest);
+            }
+        }
     }
     pub fn persist_audio(&self, db: &rusqlite::Connection, tree: &[Value]) -> Result<()> {
-        for reference in tree
-            .iter()
-            .filter_map(|q| q.get("audioRef").filter(|v| v.is_object()))
-        {
+        for question in tree.iter().filter(|q| q["audioRef"].is_object()) {
+            let reference = &question["audioRef"];
             let digest = text(reference, "sha256");
             let Some((media, bytes)) = self.asset_bytes(digest)? else {
+                // Preserve existing incomplete imports, but never save a new dangling reference.
+                let previous: Option<String> = db
+                    .query_row(
+                        "SELECT audio_ref FROM listening_questions WHERE question_id=?1",
+                        [text(question, "id")],
+                        |row| row.get(0),
+                    )
+                    .optional()
+                    .map_err(err)?;
+                if previous
+                    .as_deref()
+                    .and_then(|v| serde_json::from_str::<Value>(v).ok())
+                    .as_ref()
+                    != Some(reference)
+                {
+                    return Err(crate::language::error("LOCAL_AUDIO_MISSING", json!({})));
+                }
                 continue;
             };
             if reference["sizeBytes"] != bytes.len() || text(reference, "mediaType") != media {
@@ -598,6 +626,77 @@ mod tests {
         assert_eq!(media, "audio/aac");
         assert!((2.9..3.3).contains(&duration), "{duration}");
         assert!(valid_media(&bytes, "audio/aac"));
+    }
+    #[test]
+    fn audio_leases_isolate_stale_cleanup_and_missing_references_cannot_be_saved() {
+        let (_dir, mut store, bank) = english();
+        let roots = store.questions(Some(&bank), "", "listening", "").unwrap();
+        let root = text(&roots[0], "id").to_owned();
+        let rows = crate::paper::selected_rows(
+            &store.question_rows().unwrap(),
+            std::slice::from_ref(&root),
+        )
+        .unwrap();
+        let mut tree: Vec<_> = rows.iter().map(|row| row["question"].clone()).collect();
+        let mut bytes = include_bytes!("../../fixtures/resources/audio/chimes.wav").to_vec();
+        *bytes.last_mut().unwrap() ^= 1;
+        let stale = store.stage_audio_bytes(bytes.clone()).unwrap();
+        let live = store.stage_audio_bytes(bytes.clone()).unwrap();
+        assert_ne!(stale["lease"], live["lease"]);
+        store.release_audio(text(&stale, "lease"));
+        store.release_audio(text(&stale, "lease")); // A duplicate late release is harmless.
+        assert!(store
+            .asset_bytes(text(&live["reference"], "sha256"))
+            .unwrap()
+            .is_some());
+        tree[0]["audioRef"] = live["reference"].clone();
+        store
+            .save_question_tree(&bank, Some(&root), tree.clone())
+            .unwrap();
+        store.release_audio(text(&live, "lease"));
+        assert!(store.staged_audio.is_empty());
+        assert!(store.audio_leases.is_empty());
+        assert!(store
+            .asset_bytes(text(&live["reference"], "sha256"))
+            .unwrap()
+            .is_some());
+
+        *bytes.last_mut().unwrap() ^= 2;
+        let expired = store.stage_audio_bytes(bytes).unwrap();
+        store.release_audio(text(&expired, "lease"));
+        tree[0]["audioRef"] = expired["reference"].clone();
+        assert_eq!(
+            store
+                .save_question_tree(&bank, Some(&root), tree)
+                .unwrap_err()
+                .code,
+            "LOCAL_AUDIO_MISSING"
+        );
+        let saved = store.questions(Some(&bank), "", "listening", "").unwrap();
+        assert_eq!(saved[0]["question"]["audioRef"], live["reference"]);
+    }
+
+    #[test]
+    fn unchanged_missing_audio_from_an_incomplete_import_remains_editable() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut store = Store::new(dir.path().to_path_buf()).unwrap();
+        let preview = store
+            .preview(
+                include_bytes!("../../fixtures/english.json").to_vec(),
+                "Partial".into(),
+            )
+            .unwrap();
+        let bank = store
+            .import(text(&preview, "ticket"), None, "Partial")
+            .unwrap();
+        let bank = text(&bank, "bankId");
+        let roots = store.questions(Some(bank), "", "listening", "").unwrap();
+        let root = text(&roots[0], "id");
+        let rows = crate::paper::selected_rows(&store.question_rows().unwrap(), &[root.to_owned()])
+            .unwrap();
+        let mut tree: Vec<_> = rows.iter().map(|row| row["question"].clone()).collect();
+        tree[0]["instructions"] = json!("Updated instructions");
+        store.save_question_tree(bank, Some(root), tree).unwrap();
     }
     #[test]
     fn audio_selection_is_staged_and_checks_real_format() {

@@ -1,40 +1,70 @@
 import { useEffect, useRef, useState } from "react";
-import { api, type Question } from "./api";
+import { api, errorMessage, type AudioLink, type StagedAudio, type Question } from "./api";
 import { t, useI18n } from "./i18n";
 import { ListeningPlayer } from "./ListeningPlayer";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-export function EnglishFields({question:q,patch}:{question:Question;patch:(q:Partial<Question>)=>void}) {
+export function EnglishFields({question:q,patch,images=[],onPendingChange}:{question:Question;patch:(q:Partial<Question>)=>void;images?:{hash:string;label:string}[];onPendingChange:(pending:boolean)=>void}) {
   useI18n();
-  const staged=useRef(new Set<string>());
+  const staged=useRef(new Map<string,string>());
   const mounted=useRef(false);
   const mode=useRef(q.answerMode);
   mode.current=q.answerMode;
-  const [error,setError]=useState(false);
+  const [error,setError]=useState("");
+  const [url,setUrl]=useState("");
+  const [links,setLinks]=useState<AudioLink[]>([]);
+  const generation=useRef(0);
   const [picking,setPicking]=useState(false);
-  useEffect(()=>{mounted.current=true;const hashes=staged.current;return ()=>{mounted.current=false;for(const hash of hashes)void api({type:"release_audio",hash}).catch(()=>{});hashes.clear();};},[]);
-  useEffect(()=>{if(q.answerMode!=="listening"){for(const hash of staged.current)void api({type:"release_audio",hash}).catch(()=>{});staged.current.clear();}},[q.answerMode]);
+  useEffect(()=>{mounted.current=true;const hashes=staged.current;const epoch=generation;return ()=>{mounted.current=false;epoch.current++;for(const lease of hashes.values())void api({type:"release_audio",lease}).catch(()=>{});hashes.clear();};},[]);
+  useEffect(()=>{generation.current++;if(q.answerMode!=="listening"){for(const lease of staged.current.values())void api({type:"release_audio",lease}).catch(()=>{});staged.current.clear();}},[q.answerMode]);
   function release(hash?:string) {
-    if(hash && staged.current.delete(hash))void api({type:"release_audio",hash}).catch(()=>{});
+    const lease=hash ? staged.current.get(hash) : undefined;
+    if(hash && lease){staged.current.delete(hash);void api({type:"release_audio",lease}).catch(()=>{});}
   }
-  async function pick() {
-    setPicking(true);setError(false);
-    try {const result=await api({type:"pick_audio"});if(result){
-      const hash=result.reference.sha256;
-      if(!mounted.current || mode.current!=="listening"){void api({type:"release_audio",hash}).catch(()=>{});return;}
-      if(q.audioRef?.sha256!==hash)release(q.audioRef?.sha256);
-      staged.current.add(hash);
-      patch({audioRef:result.reference,audioStartSeconds:0,audioEndSeconds:null,missingFields:q.missingFields.filter(f=>f!=="media")});
-    }}
-    catch {if(mounted.current)setError(true);} finally {if(mounted.current)setPicking(false);}
+  function accept(result:StagedAudio|null, version:number) {
+    if(!result)return;
+    const hash=result.reference.sha256;
+    if(!mounted.current || mode.current!=="listening" || version!==generation.current){void api({type:"release_audio",lease:result.lease}).catch(()=>{});return;}
+    release(q.audioRef?.sha256);
+    staged.current.set(hash,result.lease);
+    patch({audioRef:result.reference,audioStartSeconds:0,audioEndSeconds:null,missingFields:q.missingFields.filter(f=>f!=="media")});
+  }
+  async function pick(kind:"file"|"qr"|"url", hash?:string) {
+    if(picking)return;
+    setPicking(true);onPendingChange(true);setError("");setLinks([]);
+    const version=generation.current;
+    try {
+      if(kind==="file")accept(await api({type:"pick_audio"}),version);
+      else if(kind==="url"){
+        const result=await api({type:"import_audio_url",url:url.trim()});
+        accept(result.audio,version);
+        if(mounted.current && mode.current==="listening" && version===generation.current)setLinks(result.links);
+      } else {
+        const result=await api(hash ? {type:"decode_audio_qr",hash} : {type:"pick_audio_qr"});
+        if(result && mounted.current && mode.current==="listening" && version===generation.current){
+          setLinks(result);if(result.length===1)setUrl(result[0].url);
+        }
+      }
+    }
+    catch(e) {if(mounted.current && version===generation.current)setError(kind==="file" ? t("音频加载或播放失败，请检查文件后重试。") : errorMessage(e));}
+    finally {if(mounted.current){setPicking(false);onPendingChange(false);}}
   }
   return <section className="space-y-4">
     <label className="grid gap-2">{t("作答说明")}<Textarea value={q.instructions || ""} onChange={e=>patch({instructions:e.target.value || null})}/></label>
     {q.answerMode === "listening" && <div className="space-y-3 rounded border p-3">
-      <Button variant="outline" disabled={picking} onClick={()=>void pick()}>{t("选择听力音频")}</Button>
-      {q.audioRef && <Button variant="ghost" onClick={()=>{release(q.audioRef?.sha256);patch({audioRef:null});}}>{t("移除音频")}</Button>}
-      {error && <p role="alert">{t("音频加载或播放失败，请检查文件后重试。")}</p>}
+      <Button variant="outline" disabled={picking} onClick={()=>void pick("file")}>{t("选择听力音频")}</Button>
+      {q.audioRef && <Button variant="ghost" disabled={picking} onClick={()=>{release(q.audioRef?.sha256);patch({audioRef:null});}}>{t("移除音频")}</Button>}
+      <label className="grid gap-2">{t("听力资源网址")}<Input type="url" maxLength={8192} disabled={picking} value={url} onChange={e=>{setUrl(e.target.value);setLinks([]);setError("");}}/></label>
+      <div className="flex flex-wrap gap-2">
+        <Button variant="outline" disabled={picking || !url.trim()} onClick={()=>void pick("url")}>{t("从网址获取音频")}</Button>
+        <Button variant="outline" disabled={picking} onClick={()=>void pick("qr")}>{t("识别二维码图片")}</Button>
+      </div>
+      {images.length>0 && <details><summary>{t("识别题目图片中的二维码")}</summary><div className="flex flex-wrap gap-2">{images.map((image,i)=><Button key={image.hash} variant="outline" disabled={picking} onClick={()=>void pick("qr",image.hash)}>{t("识别图片 {0}",{0:i+1})}{image.label ? " · "+image.label : ""}</Button>)}</div></details>}
+      <p className="text-xs text-muted-foreground">{t("支持音频直链或含公开音频链接的网页。二维码先识别网址，点击获取后才联网；下载后可离线播放。")}</p>
+      {picking && <p role="status">{t("正在处理听力资源…")}</p>}
+      {links.length>0 && <div className="space-y-2"><p>{t("请选择资源网址，再点击获取音频。")}</p>{links.map(link=><Button key={link.url} variant="outline" disabled={picking} className="h-auto w-full justify-start whitespace-normal break-all text-left" onClick={()=>{setUrl(link.url);setLinks([]);}}>{link.label ? link.label+" · " : ""}{link.url}</Button>)}</div>}
+      {error && <p role="alert">{error}</p>}
       <p className="text-xs text-muted-foreground">{t("支持 MP3、M4A/AAC、WAV，每个文件不超过 25 MiB。")}</p>
       <ListeningPlayer key={q.audioRef?.sha256 || "missing"} question={q}/>
       <div className="grid grid-cols-3 gap-3">
