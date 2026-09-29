@@ -337,7 +337,11 @@ impl Store {
             .backup(rusqlite::MAIN_DB, &previous, None)
             .map_err(err)?;
         // Replace only after all resources validate. Keep a rollback generation until fsync succeeds.
+        #[cfg(test)]
+        fault_tests::checkpoint("before-publish");
         crate::filesystem::replace(&candidate, &self.db_path()).map_err(err)?;
+        #[cfg(test)]
+        fault_tests::checkpoint("after-publish");
         if let Err(error) = crate::filesystem::sync_directory(&self.dir) {
             crate::filesystem::replace(&previous, &self.db_path()).map_err(|rollback| {
                 crate::language::error("LOCAL_RESTORE_ROLLBACK_FAILED", json!({"error":error.to_string(),"rollback":rollback.to_string(),"path":recovery.display().to_string()}))
@@ -566,6 +570,10 @@ fn validate_database_contents(db: &Connection) -> Result<()> {
 #[cfg(test)]
 #[path = "backup_schema_tests.rs"]
 mod schema_tests;
+
+#[cfg(test)]
+#[path = "backup_fault_tests.rs"]
+mod fault_tests;
 
 #[cfg(test)]
 mod tests {

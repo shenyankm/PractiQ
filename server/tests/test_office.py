@@ -15,6 +15,44 @@ import pytest
 from practiq_ai import office
 
 
+def test_table_ending_docx_text_uses_private_snapshot_without_changing_input(tmp_path, monkeypatch):
+    source = Path(__file__).parents[2] / 'app/fixtures/office/regressions/table-ending.docx'
+    original = source.read_bytes()
+
+    def export(engine, snapshot, output, family, mode, deadline):
+        assert snapshot != source and snapshot.name == source.name
+        with zipfile.ZipFile(source) as before, zipfile.ZipFile(snapshot) as after:
+            assert before.namelist() == after.namelist()
+            for name in before.namelist():
+                expected = before.read(name)
+                if name == 'word/document.xml':
+                    expected = expected.replace(b'</w:tbl><w:sectPr>', b'</w:tbl><w:p/><w:sectPr>')
+                assert after.read(name) == expected
+        return [{'name':'table-ending.txt'}]
+
+    monkeypatch.setattr(office, '_export', export)
+    assert office.convert('unused', source, tmp_path/'out', 'text')
+    assert source.read_bytes() == original
+
+
+@pytest.mark.parametrize('prefix', ['w:', 'custom:', ''])
+@pytest.mark.parametrize('section', ['', '<{p}sectPr/>'])
+def test_writer_table_termination_preserves_namespaces_and_non_table_documents(prefix, section):
+    namespace = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
+    declaration = f'xmlns:{prefix[:-1]}' if prefix else 'xmlns'
+    raw = f'<{prefix}document {declaration}="{namespace}"><{prefix}body><{prefix}tbl/>{section.format(p=prefix)}</{prefix}body></{prefix}document>'.encode()
+    expected = raw.replace(f'<{prefix}tbl/>'.encode(), f'<{prefix}tbl/><{prefix}p/>'.encode())
+    assert office._terminate_writer_table(raw) == expected
+    assert office._terminate_writer_table(expected) == expected
+    assert office._terminate_writer_table(raw.decode().encode('utf-16')) == raw.decode().encode('utf-16')
+
+
+@pytest.mark.parametrize('raw', [b'<broken>', b'<!DOCTYPE x [<!ENTITY x "boom">]><x>&x;</x>'])
+def test_writer_snapshot_rejects_malformed_xml_and_entities(raw):
+    with pytest.raises(office.OfficeError, match='OFFICE_INPUT_INVALID'):
+        office._terminate_writer_table(raw)
+
+
 def test_missing_bundle_never_searches_system_path(tmp_path, monkeypatch):
     monkeypatch.delenv("AI_SERVICE_TOKEN", raising=False)
     monkeypatch.setenv("PATH", str(tmp_path))
@@ -175,7 +213,7 @@ def test_office_input_checks_package_members_and_macro_payload(tmp_path, monkeyp
     def write(macro=False):
         with zipfile.ZipFile(source, "w") as archive:
             archive.writestr("[Content_Types].xml", "test")
-            archive.writestr("word/document.xml", "test")
+            archive.writestr("word/document.xml", "<document/>")
             if macro:
                 archive.writestr("word/vbaProject.bin", "macro")
     write()

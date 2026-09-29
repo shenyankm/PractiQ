@@ -1,0 +1,97 @@
+"""Inventory local release notices; missing texts fail, SPDX declarations are not texts."""
+import argparse
+import hashlib
+import json
+import subprocess
+from email.parser import Parser
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+
+
+def license_files(directory: Path) -> list[Path]:
+    return sorted(path for path in directory.rglob('*') if path.is_file()
+                  and not any(part in {'node_modules', '.git', 'target'} for part in path.relative_to(directory).parts[:-1])
+                  and any(part.lower().startswith(('license', 'licence', 'copying', 'notice', 'copyright')) for part in path.relative_to(directory).parts))
+
+
+def inventory(bundle: Path) -> dict:
+    rows = []
+    supplements = json.loads((ROOT/'app/licenses/supplemental.json').read_text(encoding='utf-8'))
+
+    def add(ecosystem, name, version, declaration, source, files):
+        for item in supplements.get(f'{ecosystem}:{name}@{version}', []):
+            path = ROOT/'app/licenses'/item['file']
+            if hashlib.sha256(path.read_bytes()).hexdigest() != item['sha256']:
+                raise ValueError(f'Altered license text: {name}')
+            files.append(path)
+        if name == 'practiq-ai-service':
+            files.append(ROOT/'LICENSE')
+        rows.append({'ecosystem':ecosystem, 'name':name, 'version':version, 'declaration':declaration,
+                     'source':source, 'supplementalSources':supplements.get(f'{ecosystem}:{name}@{version}', []),
+                     'texts':[{'path':str(p), 'sha256':hashlib.sha256(p.read_bytes()).hexdigest()} for p in files]})
+
+    for metadata in sorted((bundle/'python/_internal').glob('*.dist-info/METADATA')):
+        parsed = Parser().parsestr(metadata.read_text(encoding='utf-8'))
+        add('python', parsed['Name'], parsed['Version'], parsed['License-Expression'] or parsed['License'],
+            parsed.get_all('Project-URL', []), license_files(metadata.parent))
+    lock = json.loads((ROOT/'app/package-lock.json').read_text(encoding='utf-8'))
+    for path, package in lock['packages'].items():
+        if not path or package.get('dev'):
+            continue
+        add('npm', path.split('node_modules/')[-1], package['version'], package.get('license'), package.get('resolved'), license_files(ROOT/'app'/path))
+    target = next(line.split(': ', 1)[1] for line in subprocess.check_output(['rustc', '-vV'], text=True).splitlines() if line.startswith('host: '))
+    metadata = json.loads(subprocess.check_output(['cargo', 'metadata', '--manifest-path', str(ROOT/'app/src-tauri/Cargo.toml'), '--locked', '--offline', '--format-version', '1', '--filter-platform', target], text=True))
+    for package in metadata['packages']:
+        if package['name'] == 'practiq-desktop':
+            continue
+        add('cargo', package['name'], package['version'], package.get('license'), package.get('repository'), license_files(Path(package['manifest_path']).parent))
+    office = bundle/'office'
+    manifest = json.loads((office/'manifest.json').read_text(encoding='utf-8'))
+    add('bundled', 'LibreOffice', manifest['version'], 'See upstream notices', manifest['source'], license_files(office))
+    add('bundled', 'Python', None, 'PSF', 'https://www.python.org', [bundle/'PYTHON-LICENSE.txt'] if (bundle/'PYTHON-LICENSE.txt').is_file() else [])
+    missing = [f'{r["ecosystem"]}:{r["name"]}@{r["version"]}' for r in rows if not r['texts']]
+    unverified = [f'{r["ecosystem"]}:{r["name"]}@{r["version"]}' for r in rows if any(s.get('note') for s in r['supplementalSources'])]
+    return {'target':target, 'scope':'Local target Cargo packages (including build dependencies), npm production closure, final bundled Python/LibreOffice. Human obligations review remains required.',
+            'passed':not missing and not unverified, 'missingTexts':missing, 'unverifiedSources':unverified, 'packages':rows}
+
+
+def write_notices(report: dict, destination: Path) -> None:
+    with destination.open('w', encoding='utf-8') as output:
+        output.write('PractiQ third-party notices\n\n'+report['scope']+'\n')
+        for package in report['packages']:
+            output.write(f'\n=== {package["ecosystem"]}: {package["name"]} {package["version"]} ===\n')
+            output.write(f'Declaration: {package["declaration"]}\nSource: {package["source"]}\n')
+            for source in package['supplementalSources']:
+                output.write(f'Supplemental source: {source["source"]}\n')
+                if source.get('note'):
+                    output.write(source['note']+'\n')
+            for item in package['texts']:
+                path = Path(item['path'])
+                raw = path.read_bytes()
+                if hashlib.sha256(raw).hexdigest() != item['sha256']:
+                    raise ValueError('License changed during notice generation')
+                output.write(f'\n--- {path.name} (SHA-256 {item["sha256"]}) ---\n')
+                output.write(raw.decode('utf-8', errors='replace')+'\n')
+        if report['missingTexts']:
+            output.write('\nUNRESOLVED NOTICE TEXTS:\n'+'\n'.join(report['missingTexts'])+'\n')
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--bundle', type=Path, required=True)
+    parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--notices', type=Path)
+    args = parser.parse_args()
+    report = inventory(args.bundle)
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    with args.output.open('x', encoding='utf-8') as output:
+        json.dump(report, output, ensure_ascii=False, indent=2)
+    if args.notices:
+        write_notices(report, args.notices)
+    print(json.dumps({'packages':len(report['packages']), 'missingTexts':report['missingTexts'], 'unverifiedSources':report['unverifiedSources']}))
+    return 0 if report['passed'] else 1
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

@@ -60,6 +60,22 @@ Use Conventional Commits for commit messages and pull request titles, following 
 
 Complete the pull request template with the problem, resulting behavior, linked issue when applicable, checks and results, and migration, configuration, or security impact. Disclose AI assistance when used. Before requesting review, inspect the diff for unrelated changes, generated files, secrets, and personal data. All changes require review before merge.
 
+## Release quality and notice gates
+
+In addition to package smoke checks, run `make app-fidelity-check` and
+`make app-license-check` with the selected `AI_PYTHON`. Their default output files
+are immutable evidence: use the underlying scripts with a fresh `--output` path
+for subsequent runs. Repeat both against the final installed package via
+`--bundle`; the Make targets inspect the local bundled resources. A failed
+fidelity or license-source check blocks release acceptance even if development
+packaging succeeds. See [supplemental notices](app/licenses/README.md).
+
+Record the candidate commit, dirty-source digest when applicable, artifact hashes,
+OS/architecture and exact commands in the release evidence. Do not label a local
+development package as a signed or clean-machine-accepted release. Require live
+extraction and grading reports, failure-injection results and target-platform
+manual checks separately. See [the September follow-up](docs/review-implementation-20260929.md).
+
 ## Report security issues privately
 
-Do not include credentials, personal data, or working exploit details in public issues. Use GitHub private vulnerability reporting when available, or contact a maintainer privately.
+Follow [SECURITY.md](SECURITY.md) for supported development versions, private reporting and the dependency-update process. Do not include credentials, personal data or exploit details in public issues.

@@ -6,6 +6,7 @@ import io
 import json
 import os
 import queue
+import re
 import shutil
 import subprocess
 import sys
@@ -123,9 +124,18 @@ def main() -> None:
     parser.add_argument('--bundle', type=Path, default=ROOT/'app/src-tauri/bundled')
     parser.add_argument('--generate-fixtures', action='store_true')
     parser.add_argument('--isolated', action='store_true', help='Test a relocated copy with read-only POSIX resources')
+    parser.add_argument('--fidelity-only', action='store_true', help='Run known formula/image/table-ending regressions; failures block fidelity acceptance')
     parser.add_argument('--output', type=Path, default=ROOT/'server/reports/checks/office.json')
     args = parser.parse_args()
     from bundle_office import checksum, validate
+    if args.fidelity_only:
+        if args.isolated or args.generate_fixtures:
+            parser.error('--fidelity-only cannot be combined with fixture generation or isolation')
+        report = check_fidelity(args.bundle)
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        with args.output.open('x', encoding='utf-8') as output:
+            json.dump(report, output, ensure_ascii=False, indent=2)
+        raise SystemExit(0 if report['passed'] else 1)
     if args.isolated:
         import stat
         with tempfile.TemporaryDirectory(prefix='practiq 中文 Program Files ') as temporary:
@@ -235,6 +245,47 @@ def main() -> None:
     finally:
         args.output.write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
     print(f'Office conversion: {len(report["cases"])} cases passed; {args.output}')
+
+
+def check_fidelity(bundle: Path) -> dict:
+    from bundle_office import validate
+    import pypdfium2 as pdfium
+    manifest = validate(bundle)
+    engine = str((bundle/'office'/manifest['executable']).resolve())
+    status = call_worker(bundle, {'type':'detect', 'engine':engine})
+    cases = []
+    fixtures_dir = ROOT/'app/fixtures/office'
+    for filename, mode in [('中文 试卷.doc', 'pdf'), ('中文 试卷.docx', 'pdf'), ('regressions/table-ending.docx', 'text')]:
+        source = fixtures_dir/filename
+        before = hashlib.sha256(source.read_bytes()).hexdigest()
+        result = {'input':filename, 'mode':mode, 'sourceSha256':before, 'passed':False}
+        try:
+            with tempfile.TemporaryDirectory(prefix='practiq-fidelity-') as tmp:
+                output = Path(tmp)/'output'
+                artifacts = call_worker(bundle, {'type':'convert', 'engine':engine, 'version':status['version'], 'source':str(source), 'output':str(output), 'mode':mode})['artifacts']
+                target = output/artifacts[0]['name']
+                if mode == 'pdf':
+                    with pdfium.PdfDocument(target) as pdf:
+                        page = pdf[0]
+                        try:
+                            textpage = page.get_textpage()
+                            try: content = textpage.get_text_range()
+                            finally: textpage.close()
+                            images = sum(1 for _ in page.get_objects(filter=[pdfium.raw.FPDF_PAGEOBJ_IMAGE]))
+                        finally: page.close()
+                    result['fractionPresent'] = re.search(r'Fraction 1/2\s+1\s+2\s+中文题目', content) is not None
+                    result['imagePresent'] = images > 0
+                    result['passed'] = result['fractionPresent'] and result['imagePresent']
+                else:
+                    content = target.read_text(encoding='utf-8-sig')
+                    result['lastRowCount'] = content.count('中文题目 069')
+                    result['passed'] = result['lastRowCount'] == 1 and content.count('答案') == 70
+        except (AssertionError, OSError, ValueError, queue.Empty) as exc:
+            result['errorType'] = type(exc).__name__
+        result['inputUnchanged'] = hashlib.sha256(source.read_bytes()).hexdigest() == before
+        result['passed'] = result['passed'] and result['inputUnchanged']
+        cases.append(result)
+    return {'platform':sys.platform, 'engine':status['version'], 'modelCalls':0, 'passed':all(c['passed'] for c in cases), 'cases':cases}
 
 
 if __name__ == '__main__':

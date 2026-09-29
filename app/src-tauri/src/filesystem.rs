@@ -1,7 +1,25 @@
 //! Publish complete files before database references or task receipts become visible.
 use std::{io, path::Path};
 
+#[cfg(test)]
+thread_local! {
+    pub static FAILURE: std::cell::Cell<Option<(&'static str, io::ErrorKind)>> = const { std::cell::Cell::new(None) };
+}
+
+#[cfg(test)]
+fn fault(operation: &str) -> io::Result<()> {
+    FAILURE.with(|failure| match failure.get() {
+        Some((name, kind)) if name == operation => {
+            failure.set(None);
+            Err(io::Error::from(kind))
+        }
+        _ => Ok(()),
+    })
+}
+
 pub fn sync_directory(path: &Path) -> io::Result<()> {
+    #[cfg(test)]
+    fault("sync")?;
     #[cfg(not(target_os = "windows"))]
     return std::fs::File::open(path)?.sync_all();
     // Windows publication uses MoveFileExW with WRITE_THROUGH instead of directory fsync.
@@ -53,6 +71,8 @@ pub fn persist(
     destination: &Path,
     overwrite: bool,
 ) -> io::Result<()> {
+    #[cfg(test)]
+    fault("persist")?;
     file.as_file().sync_all()?;
     #[cfg(target_os = "windows")]
     move_file(&file.into_temp_path(), destination, overwrite)?;

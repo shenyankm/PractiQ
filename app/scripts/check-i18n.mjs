@@ -315,6 +315,13 @@ try {
  await page.getByRole('button',{name:'Expand sidebar',exact:true}).click();
  assert.equal((await page.locator('#app-sidebar').boundingBox()).width,176);
  assert.deepEqual(errors,[]);
+ for (const [width,height] of [[960,640],[1920,1080],[2560,1440]]) {
+  await page.setViewportSize({width,height});
+  checks.push(await overflow(`practice ${width}x${height}`));
+  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+  await page.keyboard.press('Tab');
+  assert(await page.evaluate(()=>document.activeElement !== document.body), 'Keyboard focus must remain reachable');
+ }
  for (const check of checks) assert.deepEqual(check.items,[],`Text overflow: ${check.label}`);
  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
  assert.deepEqual(observedCalls.filter(c=>c.command==='ai_request'&&!['operations','batches','list','get','select_document'].includes(c.request.type)),[]);
