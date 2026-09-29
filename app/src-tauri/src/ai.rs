@@ -981,16 +981,9 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
                     }
                     let converted = if office {
                         if engine.is_none() {
-                            engine = Some(crate::office::status(&app, &shared)?);
+                            engine = Some(crate::office::status(&app)?);
                         }
-                        crate::office::prepare(
-                            &app,
-                            &shared,
-                            path,
-                            &bytes,
-                            office_mode,
-                            engine.as_ref(),
-                        )?
+                        crate::office::prepare(&app, path, &bytes, office_mode, engine.as_ref())?
                     } else {
                         Vec::new()
                     };

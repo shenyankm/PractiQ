@@ -375,13 +375,11 @@ async fn ai_request(
 #[tauri::command]
 async fn office_request(
     app: tauri::AppHandle,
-    state: State<'_, Shared>,
     request: office::Request,
     locale: Option<language::Locale>,
 ) -> std::result::Result<Value, AppError> {
-    let shared = state.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
-        office::request(app, shared, request, locale.unwrap_or_default())
+        office::request(app, request, locale.unwrap_or_default())
     })
     .await
     .map_err(|e| AppError::from(e.to_string()))?

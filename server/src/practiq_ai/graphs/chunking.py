@@ -63,10 +63,6 @@ def split_chunk_spans(text: str, target_chars: int = CHUNK_TARGET_CHARS) -> list
     return spans
 
 
-def split_into_chunks(text: str, target_chars: int = CHUNK_TARGET_CHARS) -> list[str]:
-    return [text[span["start"]:span["end"]] for span in split_chunk_spans(text, target_chars)]
-
-
 def _normalized_source(text: str, start: int) -> tuple[str, list[int]]:
     positions = [start + index for index, char in enumerate(text) if not char.isspace()]
     return re.sub(r"\s+", "", text), positions

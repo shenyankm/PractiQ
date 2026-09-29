@@ -1,5 +1,5 @@
 //! Native file authorization and the desktop-only LibreOffice sidecar command.
-use crate::{contract::Result, language::Locale, store, AppError, Shared};
+use crate::{contract::Result, language::Locale, store, AppError};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
@@ -275,7 +275,7 @@ fn bundled_engine(bundle: &Path) -> Result<PathBuf> {
     }
     Ok(path)
 }
-pub fn status(app: &tauri::AppHandle, _shared: &Shared) -> Result<Value> {
+pub fn status(app: &tauri::AppHandle) -> Result<Value> {
     let path = bundled_engine(&crate::ai::bundle_dir(app)?)?;
     app.state::<OfficeState>()
         .detect(Some(path.to_string_lossy().into_owned()), || {
@@ -413,7 +413,6 @@ fn read_artifacts(
 }
 pub fn prepare(
     app: &tauri::AppHandle,
-    shared: &Shared,
     path: &Path,
     bytes: &[u8],
     mode: Mode,
@@ -426,7 +425,7 @@ pub fn prepare(
     let engine = if let Some(engine) = engine {
         engine
     } else {
-        detected = status(app, shared)?;
+        detected = status(app)?;
         &detected
     };
     let executable = engine["path"]
@@ -469,12 +468,7 @@ pub fn prepare(
     ).inspect_err(|_| state.invalidate())?;
     read_artifacts(&output, response, path, bytes, mode, version)
 }
-pub fn request(
-    app: tauri::AppHandle,
-    shared: Shared,
-    request: Request,
-    locale: Locale,
-) -> Result<Value> {
+pub fn request(app: tauri::AppHandle, request: Request, locale: Locale) -> Result<Value> {
     if matches!(request, Request::Cancel) {
         app.state::<OfficeState>().cancel();
         return Ok(Value::Null);
@@ -484,7 +478,7 @@ pub fn request(
     match request {
         Request::Status => {
             app.state::<OfficeState>().invalidate();
-            status(&app, &shared)
+            status(&app)
         }
         Request::Convert { mode } => {
             let Some(path) = app
@@ -497,7 +491,7 @@ pub fn request(
             };
             let path = path.into_path().map_err(err)?;
             let bytes = store::read_bounded(&path, LIMIT)?;
-            let artifacts = prepare(&app, &shared, &path, &bytes, mode, None)?;
+            let artifacts = prepare(&app, &path, &bytes, mode, None)?;
             let count = artifacts.len();
             let mut destinations = Vec::new();
             let directory = if count > 1 {

@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 
-export type Theme = "system" | "light" | "dark";
+type Theme = "system" | "light" | "dark";
 const key = "practiq-theme";
 const systemQuery = "(prefers-color-scheme: dark)";
 export type ThemeState = { theme: Theme; systemDark: boolean; error: unknown };
