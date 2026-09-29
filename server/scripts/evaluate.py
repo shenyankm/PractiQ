@@ -45,6 +45,7 @@ from practiq_ai.contracts import (
     ParsedItem,
     ParsedOption,
     ParsedQuestion,
+    QuestionSource,
     VisualKind,
 )
 from practiq_ai.errors import DocumentProcessingError
@@ -52,9 +53,9 @@ from practiq_ai.execution import runtime_version
 from practiq_ai.storage import get_object_store
 
 ROOT = Path(__file__).parents[1]
-SCORER_VERSION = "5.0.1"
+SCORER_VERSION = "6.0.0"
 SOURCE_TYPES = {"text", "csv", "pdf", "image"}
-ANSWER_MODES = {"choice", "true_false", "fill_blank", "short_answer", "ordering", "matching", "reading", "word_bank", "cloze"}
+ANSWER_MODES = {"choice", "true_false", "fill_blank", "short_answer", "ordering", "matching", *COMPOSITE_MODES}
 METRICS = (
     "questionPrecision", "questionRecall", "answerModeAccuracy", "optionsAccuracy",
     "parsedAnswerAccuracy", "structureAccuracy", "groupF1", "visualF1",
@@ -102,13 +103,15 @@ class GoldQuestion(GoldModel):
     answerAliases: list[AnswerPayload] = Field(default_factory=list)
     expectedMissingFields: list[MissingField] | None = None
     expectedNeedsReview: bool | None = None
+    expectedEvidence: dict[Literal["analysis", "sourceText", "sourceScore", "scoringRubric", "scoreSourceText", "questionKind", "instructions", "transcript", "examPlayCount", "sourceLanguage", "targetLanguage", "writingGenre", "minWords", "maxWords"], Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def validate_question(self) -> Self:
         base = {
-            **self.model_dump(exclude={"stemAliases", "answerAliases", "expectedMissingFields", "expectedNeedsReview"}),
+            **self.model_dump(exclude={"stemAliases", "answerAliases", "expectedMissingFields", "expectedNeedsReview", "expectedEvidence"}),
             "questionTypeId": "expected", "confidence": 1, "needsReview": False,
             "contentBlocks": [{"partType": "text", "textValue": self.stem}],
+            **self.expectedEvidence,
         }
         parsed_answer = ParsedQuestion.model_validate(base).answerPayload
         if isinstance(parsed_answer, dict):
@@ -131,6 +134,7 @@ class ExpectedError(GoldModel):
 class GoldVisual(GoldModel):
     kind: VisualKind
     page: int | None = Field(ge=0)
+    questionIndexes: list[int] | None = None
 
 
 CallKind = Literal["document_parse", "vision_parse", "vision_describe"]
@@ -153,8 +157,11 @@ class GoldCase(GoldModel):
     expectedGroups: list[ParsedGroup] | None = None
     expectedVisualKinds: list[VisualKind] | None = None
     expectedVisuals: list[GoldVisual] | None = None
+    expectedSources: list[QuestionSource] | None = None
     expectedProcess: ProcessExpectations = Field(default_factory=ProcessExpectations)
     expectedError: ExpectedError | None = None
+    expectedStatus: Literal["SUCCEEDED", "PARTIAL"] = "SUCCEEDED"
+    expectedMissingFields: list[Literal["questions", "media"]] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def validate_expectations(self) -> Self:
@@ -165,15 +172,23 @@ class GoldCase(GoldModel):
         if self.expectedVisuals is not None and self.expectedVisualKinds is not None:
             raise ValueError("use expectedVisuals or expectedVisualKinds, not both")
         if self.expectedError:
-            if self.expectedQuestions or self.expectedGroups is not None or self.expectedVisualKinds is not None or self.expectedVisuals is not None:
+            if self.expectedQuestions or self.expectedGroups is not None or self.expectedVisualKinds is not None or self.expectedVisuals is not None or self.expectedSources is not None:
                 raise ValueError("error cases cannot contain result expectations")
             if self.expectedError.code in BLOCKING_CODES:
                 raise ValueError("service unavailability cannot be an expected success")
-        elif not self.expectedQuestions:
+        elif not self.expectedQuestions and not (self.expectedStatus == "PARTIAL" and "questions" in self.expectedMissingFields):
             raise ValueError("normal cases require expectedQuestions")
         for group in self.expectedGroups or []:
             if any(index < 0 or index >= len(self.expectedQuestions) for index in group.questionIndexes):
                 raise ValueError("expected group index is outside expectedQuestions")
+        for visual in self.expectedVisuals or []:
+            if visual.questionIndexes is not None and (len(set(visual.questionIndexes)) != len(visual.questionIndexes)
+                    or any(index < 0 or index >= len(self.expectedQuestions) for index in visual.questionIndexes)):
+                raise ValueError("invalid visual question indexes")
+        if self.expectedVisuals and len({v.questionIndexes is None for v in self.expectedVisuals}) != 1:
+            raise ValueError("annotate associations for every visual or none")
+        if any(source.questionIndex >= len(self.expectedQuestions) for source in self.expectedSources or []):
+            raise ValueError("source index is outside expectedQuestions")
         # Repeated stems are valid; aliases must not ambiguously match different stems.
         owners: dict[str, str] = {}
         for question in self.expectedQuestions:
@@ -257,6 +272,12 @@ def score_document_case(expected: list[dict[str, Any]], predicted: list[dict[str
                 if actual_view is not None and actual is not None:
                     actual_view[field] = actual.get(field)
                 correct[field] = actual is not None and actual.get(field) == gold[expectation]
+        if gold.get("expectedEvidence"):
+            expected_view["evidence"] = gold["expectedEvidence"]
+            actual_evidence = {field: actual.get(field) for field in gold["expectedEvidence"]} if actual is not None else None
+            if actual_view is not None:
+                actual_view["evidence"] = actual_evidence
+            correct["evidence"] = _normalize_json(actual_evidence) == _normalize_json(gold["expectedEvidence"])
         rows.append({
             "expectedIndex": index, "predictedIndex": actual_index,
             "answerMode": gold["answerMode"], "expected": expected_view, "predicted": actual_view,
@@ -327,7 +348,7 @@ def _structure_score(expected: list[Any] | None, predicted: list[Any]) -> dict[s
     }
 
 
-def score_result(case: dict[str, Any], result: dict[str, Any]) -> dict[str, Any]:
+def score_result(case: dict[str, Any], result: dict[str, Any], processing: dict[str, Any] | None = None) -> dict[str, Any]:
     score = score_document_case(case["expectedQuestions"], result.get("questions", []),
                                source_has_no_answers=case.get("sourceHasNoAnswers", False))
     mapping = {row["predictedIndex"]: row["expectedIndex"] for row in score["questions"] if row["matched"]}
@@ -336,6 +357,10 @@ def score_result(case: dict[str, Any], result: dict[str, Any]) -> dict[str, Any]
         (normalize_stem(group["title"]), tuple(sorted(set(group["questionIndexes"])))) for group in expected_groups
     ]
     id_indexes = {q.get("id"): i for i, q in enumerate(result.get("questions", []))}
+    score["sources"] = _structure_score(
+        [(s["questionIndex"], s["stage"], s["unitIndex"]) for s in case["expectedSources"]] if case.get("expectedSources") is not None else None,
+        [(mapping.get(id_indexes.get(s["questionId"], -1), -1), s["stage"], s["unitIndex"]) for s in (processing or {}).get("questionSources", [])],
+    )
     actual_groups = [
         (normalize_stem(group["title"]), tuple(sorted({mapping.get(i, -i - 1) for i in [id_indexes.get(qid, -1) for qid in group["questionIds"]]})))
         for group in result.get("groups", [])
@@ -343,10 +368,13 @@ def score_result(case: dict[str, Any], result: dict[str, Any]) -> dict[str, Any]
     score["groups"] = _structure_score(gold_groups, actual_groups)
     score["visuals"] = _structure_score(case.get("expectedVisualKinds"), [item["kind"] for item in result.get("visualElements", [])])
     if case.get("expectedVisuals") is not None:
+        associations = any(item.get("questionIndexes") is not None for item in case["expectedVisuals"])
         score["visuals"] = _structure_score(
-            [(item["kind"], item["page"]) for item in case["expectedVisuals"]],
-            [(item["kind"], item.get("page")) for item in result.get("visualElements", [])],
+            [(item["kind"], item["page"], tuple(sorted(item["questionIndexes"])) if associations else None) for item in case["expectedVisuals"]],
+            [(item["kind"], item.get("page"), tuple(sorted(mapping.get(id_indexes.get(qid, -1), -1) for qid in item.get("questionIds", []))) if associations else None) for item in result.get("visualElements", [])],
         )
+        visuals = score["visuals"]
+        score["visualAssociationErrors"] = int(bool(associations and visuals and (visuals["missing"] or visuals["extra"])))
     return score
 
 
@@ -372,7 +400,7 @@ def quality_passed(case: dict[str, Any]) -> bool:
     return bool(case["outcomeMatched"] and not case["blocked"]
                 and not any(row["differences"] for row in score["questions"])
                 and not score["inventedAnswers"]
-                and all(not score.get(kind) or not (score[kind]["missing"] or score[kind]["extra"]) for kind in ("groups", "visuals"))
+                and all(not score.get(kind) or not (score[kind]["missing"] or score[kind]["extra"]) for kind in ("groups", "visuals", "sources"))
                 and all(check["passed"] for check in case.get("visualArtifactChecks", []))
                 and case.get("trajectory", {}).get("passed", True))
 
@@ -381,7 +409,7 @@ def score_trajectory(case: dict[str, Any], events: list[dict[str, Any]], calls: 
     """Check per-unit constraints, never the total ordering of concurrent units."""
     expected = case.get("expectedProcess") or {}
     allowed = {"vision_parse", "vision_describe"} if case["sourceType"] in {"pdf", "image"} else {"document_parse"}
-    schemas = {"vision_parse": "PageParseResult", "vision_describe": "ImageDescription", "document_parse": "ChunkParseResult"}
+    schemas = {"vision_parse": "PageParseResult", "vision_describe": "FigureChecks", "document_parse": "ChunkParseResult"}
     starts = [e for e in events if e["event"] == "model_start"]
     limits = expected.get("maxModelCalls")
     reasons = []
@@ -400,7 +428,7 @@ def score_trajectory(case: dict[str, Any], events: list[dict[str, Any]], calls: 
                 reasons.append("WRONG_ROUTE_OR_SCHEMA")
             if "prepare" not in completed_stages or (kind == "document_parse" and "assemble" not in completed_stages):
                 reasons.append("MISSING_PREREQUISITE")
-            if not unit or not re.fullmatch(rf"{re.escape(kind)}:\d+:\d+", unit):
+            if not unit or not re.fullmatch(rf"{'vision_parse' if kind == 'vision_describe' else re.escape(kind)}:\d+:\d+", unit):
                 reasons.append("INVALID_UNIT")
             units[unit or "unknown"] += 1
             if not 1 <= event.get("attempt", 0) <= 4 or units[unit or "unknown"] > 4:
@@ -564,6 +592,12 @@ def summarize(cases: list[dict[str, Any]]) -> dict[str, Any]:
             reasons.append(f"INVENTED_ANSWER:{case['id']}:{case['repetition']}")
         if score["structureCorrect"] != score["structureExpected"]:
             reasons.append(f"STRUCTURE_MISMATCH:{case['id']}:{case['repetition']}")
+        if any(row["correct"].get("evidence") is False for row in score["questions"]):
+            reasons.append(f"EVIDENCE_MISMATCH:{case['id']}:{case['repetition']}")
+        if score.get("sources") and (score["sources"]["missing"] or score["sources"]["extra"]):
+            reasons.append(f"SOURCE_MISMATCH:{case['id']}:{case['repetition']}")
+        if score.get("visualAssociationErrors"):
+            reasons.append(f"VISUAL_ASSOCIATION_MISMATCH:{case['id']}:{case['repetition']}")
         if any(not check["passed"] for check in case.get("visualArtifactChecks", [])):
             reasons.append(f"VISUAL_ARTIFACT_FAILED:{case['id']}:{case['repetition']}")
         if not case.get("trajectory", {}).get("passed", True):
@@ -680,7 +714,7 @@ async def run_evaluation(manifest_path: Path, repetitions: int = 1, case_ids: li
                             "visuals": {"total": state.get("visualTotal", 0), "succeeded": len(state.get("visionResults", [])), "skipped": state.get("visualSkipped", 0)},
                             "truncated": bool(state.get("truncated")), "failures": failures,
                         }).model_dump(mode="json")
-            score = score_result(case, result)
+            score = score_result(case, result, processing)
             unverified = {row["predictedIndex"] for row in score["questions"] if row["expectedIndex"] is None}
             id_indexes = {q.get("id"): i for i, q in enumerate(result.get("questions", []))}
             unverified.update(id_indexes.get(issue["questionId"], -1) for issue in (processing or {}).get("quality", {}).get("issues", [])
@@ -689,7 +723,7 @@ async def run_evaluation(manifest_path: Path, repetitions: int = 1, case_ids: li
             expected_error = case["expectedError"]
             outcome_matched = (
                 error is not None and all(error[key] == value for key, value in expected_error.items())
-                if expected_error else error is None and status == "SUCCEEDED"
+                if expected_error else error is None and status == case.get("expectedStatus", "SUCCEEDED") and all(field in result.get("missingFields", []) for field in case.get("expectedMissingFields", []))
             )
             failure_codes = {item["code"] for item in (processing or {}).get("failures", [])}
             artifact_checks = await check_visual_artifacts(result)

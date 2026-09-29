@@ -1,0 +1,116 @@
+=== Section 1: text-basic ===
+
+Basic Science and Math
+
+1. Multiple choice: What is 2 + 3?
+A. 4
+B. 5
+C. 6
+Answer: B
+
+2. True or false: Pure water freezes at 0 degrees Celsius under standard atmospheric pressure.
+Answer: True
+
+=== Section 2: text-multiple-choice ===
+
+Multiple choice: Select all prime numbers below.
+A. 2
+B. 3
+C. 4
+D. 9
+Reference answers: A, B.
+
+=== Section 3: text-fill-blank ===
+
+Fill in the blank: 12 + 8 = ____.
+Reference answer: 20.
+
+=== Section 4: text-grading-evidence ===
+
+1. 说明蒸发的含义。（5分）
+参考答案：液体表面发生的汽化现象
+评分细则：汽化3分，液体表面2分。
+解析：蒸发发生在液体表面。
+2. 写一句邀请朋友读书的英文句子。
+本题没有参考答案、评分细则和分值。
+
+=== Section 5: text-composites ===
+
+Reading comprehension — Seasons
+Article: Snow is white. Grass is green.
+1. True or false: Snow is white. Answer: True.
+
+Word bank — Complete the sentence
+Bank: A. white B. green. Do not reuse words.
+Snow is [1]. Grass is [2]. Answers: 1 A; 2 B.
+
+Cloze — Complete the statement
+Snow is [1]. 1: A. white B. green. Answer: A.
+
+Ordering — Sort ascending
+Items: 0. Two; 1. One. Answer order: 1, 0.
+
+Matching — Match words and numbers (one-to-one)
+Left: 0. One; 1. Two. Right: 0. 1; 1. 2.
+Answer: left 0 -> right 0; left 1 -> right 1.
+
+=== Section 6: text-listening-evidence ===
+
+Listening: Train announcement
+Listen twice. No audio file is supplied.
+Transcript: The train leaves at nine.
+1. When does the train leave?
+A. Nine
+B. Ten
+Answer: A
+
+=== Section 7: text-grammar-evidence ===
+
+Grammar fill: Complete the sentence
+She enjoys (1) ____ every day.
+1. Hint: read
+Reference answer: reading
+
+=== Section 8: text-sentence-selection ===
+
+Sentence selection: Choose the missing sentence
+The weather was warm. (1) ____ We returned before dinner.
+Options (each used once): A. We went for a walk. B. The train was cancelled. C. The shop was closed.
+1. Choose a sentence.
+Answer: A
+
+=== Section 9: text-paragraph-matching ===
+
+Paragraph matching: Match statements to paragraphs
+Paragraphs may be used more than once.
+1. This place opens early.
+2. You can borrow books here.
+A. The public library opens at seven. Members may borrow books for two weeks.
+B. The sports centre opens at ten and closes at six.
+Answers: 1-A, 2-A
+
+=== Section 10: text-translation-writing ===
+
+Translation: Translate the passage into English. (10 points)
+阅读让我们了解不同的文化。
+Reference answer: Reading helps us understand different cultures.
+Rubric: Preserve the meaning and use grammatical English.
+Writing: Write an invitation to a reading club. (15 points)
+Write 80–120 words in English. Genre: Invitation.
+Invite your friend Alex. The club meets at the library on Saturday at 10 a.m.
+Rubric: Include the invitation, location and time. Assess clarity and grammatical accuracy. Do not invent extra requirements.
+No sample answer is supplied for the writing task.
+
+=== Section 11: rich-math-table-chart ===
+
+Using the supplied matrix A, what is its determinant?
+A=\begin{pmatrix}1&2\\3&4\end{pmatrix},\quad A^{-1}=\frac{1}{-2}\begin{pmatrix}4&-2\\-3&1\end{pmatrix}
+\begin{aligned}I&=\int_0^1\frac{x^2}{\sqrt{1-x^2}}\,dx\\&=\frac{\pi}{4},\quad S=\sum_{n=1}^{\infty}\frac{(-1)^{n+1}}{n^2}\end{aligned}
+f(x)=\begin{cases}\frac{\sqrt{x+1}}{1+x^2}&x\ge0\\-x&x<0\end{cases}
+Sample | x_i | Error | Note
+A | \frac{1}{2} | -0.002 | left | right
+B | 10^{-6} | 0 | 中文，空值用 —
+C | \sqrt{2} | +0.003 | final row
+Chart: y = x^2, x from 0 to 5. Points (0,0), (1,1), (2,4), (3,9), (4,16), (5,25). See resources/chart.png; axes, curve, grid and labels must remain visible.
+Reference answer: The supplied determinant is -2.
+Reference: $1 \times 4 - 2 \times 3 = -2$.

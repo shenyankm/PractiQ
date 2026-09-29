@@ -13,11 +13,11 @@ Evaluation uses real local file writes and `document_parser`, calling the graph 
 Configure the shared multimodal `LLM_MODEL` in the repository-root `.env`, then run from `server/`. These commands call the model and incur charges. Choose a new report path for every run:
 
 ```sh
-python scripts/evaluate_grading.py --live --repeats 2 \
+python scripts/evaluate_grading.py --live --repeats 10 \
   --output reports/grading/your_grading_run.json
 ```
 
-By default, the script runs four text cases twice each, followed by one image partial-credit case. Text cases cover full credit, partial credit, an incorrect answer, and an answer containing embedded instructions. Reports retain expected values, actual scores, absolute error, model names, and call outcomes.
+By default, the script runs four text cases and one image partial-credit case ten times each. Text cases cover full credit, partial credit, an incorrect answer, and an answer containing embedded instructions. Reports retain expected values, actual scores, absolute error, model names, and call outcomes.
 
 Check source-score extraction separately to confirm that questions without an explicit score retain `null`:
 
@@ -32,7 +32,7 @@ These rule-based synthetic samples are not independent teacher annotations or cr
 
 ## Extraction dataset and human gold labels
 
-`evals/cases.json` uses `schemaVersion: 2` and currently contains 22 synthetic cases. The scorer version in `scripts/evaluate.py` is `5.0.1`. The manifest covers Text, CSV, PDF, and Image; seven basic question types; reading, word-bank, and cloze composites; and cases involving Chinese, missing source answers, long stems with identical prefixes, legitimate duplicates, long text spanning chunks, text without questions, and corrupt PDFs. Contract and desktop tests for newer English question types, such as listening and grammar cloze, do not mean those types are covered by this live-model quality evaluation. Manifest fields mean:
+`evals/cases.json` uses `schemaVersion: 2` and currently contains 30 synthetic cases. The scorer version in `scripts/evaluate.py` is `6.0.0`. The manifest covers Text, CSV, PDF, and Image; seven basic question types; reading, word-bank, and cloze composites; and cases involving Chinese, missing source answers, long stems with identical prefixes, legitimate duplicates, long text spanning chunks, text without questions, and corrupt PDFs. Two focused text cases cover multiple-choice and ordinary fill-blank extraction. Six additional regression cases cover listening without audio, grammar fill, sentence selection, paragraph matching, translation/writing, and supplied or absent grading evidence. Their source and labels are synthetic maintenance fixtures, not independent teacher annotations. Real-model results remain separate from fixture validation. Manifest fields mean:
 
 - `id` is a stable, unique case identifier. `path` must point inside the manifest directory; path and symlink escapes are forbidden.
 - `tags` group cases by scenario. With `critical: true`, any discrepancy in an annotated field or structure fails the case.
@@ -229,3 +229,91 @@ Each model call's `validationIssues` records failing field paths and Pydantic er
 A captured response whose `questions` string wraps the remaining object fields is retained as an offline regression sample in `tests/fixtures/stringified-page-arguments.json`. Such responses remain rejected: trailing fields are not discarded, and content is not guessed. Shared correction explicitly requires real arrays and separate top-level fields; usage is counted normally. Initial prompts also specify array structure. The Bailian preset and the same custom Base URL in the desktop use identical Qwen3.7 thinking parameters. Other custom endpoints do not receive this provider-specific parameter.
 
 An experiment with `vl_high_resolution_images=true` on Bailian Qwen3.7 improved a scanned sample but introduced duplicate questions and missing answers in long PDFs during full regression, so the parameter was not adopted. A single improved high-resolution sample does not establish overall quality improvement. See [Bailian's vision documentation](https://help.aliyun.com/zh/model-studio/vision) for image parameters. Strict character scoring and human-review flags remain in place.
+
+
+## Scorer 6 evidence and release checks
+
+`expectedEvidence` annotates exact source fields (including an explicit null), such
+as `analysis`, `sourceScore`, `scoringRubric`, `scoreSourceText`, `sourceText`,
+`questionKind`, language/writing metadata and listening instructions. Only
+annotated fields are compared; any mismatch blocks the gate even in a noncritical
+case. Text normalization changes whitespace only, not meaning. Do not rewrite
+gold labels to match model output.
+
+`expectedSources` uses question indexes plus `stage` and `unitIndex` to verify
+page/chunk attribution independently of generated IDs. `expectedVisuals` may
+annotate `questionIndexes` for every visual in a case (an empty list means
+unassociated document material). Association errors also block the gate.
+Scorer 6 reports cannot be compared with earlier scorers; establish a new passing
+three-repetition baseline before claiming non-regression. Offline tests verify the
+scorer, not the model.
+
+Grading stability runs now repeat **every** text and image case, defaulting to ten
+repetitions (explicit range 1–100). Each case reports graded/failed counts, mean,
+population variance, range, mean absolute error and maximum absolute error, all in
+hundredths of a point. Missing scores remain failures and are excluded from the
+numeric statistics. Non-matching or failed trials return exit 1; setup failure
+returns exit 2. Reports are exclusively created and never overwrite earlier runs.
+
+```sh
+python scripts/evaluate_grading.py --live --repeats 10 \
+  --output reports/grading/new-stability-run.json
+python scripts/evaluate_grading.py --live --repeats 10 \
+  --anchors /absolute/path/independent-anchors.json \
+  --output reports/grading/new-human-anchor-run.json
+```
+
+External anchors have `labelProvenance` (annotator/source and review date) and a
+nonempty `cases` list. Each case has a unique `name`, integer `expectedCents`, and
+`payload` containing the existing grading fields (`question`, `answer`,
+`maxCents`, optional images/materials). Do not supply request IDs or digests.
+Only use consented material; these calls send the payload to the configured
+provider. Imported provenance is a declaration, not proof of independent review.
+The bundled synthetic anchors cannot establish teacher calibration.
+
+For the complete question-type input and expected-content checklist, see [the 16-type sample](../../app/fixtures/ai-import/README.md). The combined TXT is a manual desktop acceptance document; individual cases are scored by the existing manifest.
+
+### Incomplete exports (2026-09-29)
+
+Missing content does not block an export. Individual omissions are recorded in
+`questions[].missingFields` (for example `stem`, `answerPayload`, `options`,
+`material`, `media`), with `needsReview=true` and absent values left null. A missing
+renderable source formula is flagged as `material`; it does not discard the question.
+No reference answer is generated to fill a gap.
+
+`result.missingFields` records document-level `questions` or `media` omissions.
+Failed parsing units, truncated question extraction, and zero extracted questions
+produce an exportable `PARTIAL` result; `processing.failures` retains unit indexes,
+reason codes and retry eligibility. A zero-question result has confidence zero.
+Storage/checksum, authorization and invalid contract boundaries remain enforced.
+An empty missing-fields list is not proof that every printed question was found.
+
+Desktop question-bank ZIP exports retain these document flags across import/export,
+as well as question-level flags and nulls. The existing import warning storage
+preserves the stable `PRACTIQ_MISSING:questions` / `PRACTIQ_MISSING:media` codes;
+ZIP export derives `missingFields` from those codes, never from translated prose.
+Empty banks can be exported, including retained document-level source images.
+
+The no-question evaluation fixture now expects `PARTIAL` and
+`expectedMissingFields=["questions"]` instead of `NO_QUESTIONS_FOUND`; this is an
+explicit acceptance-rule change, not improved extraction quality. Mixed-format gold
+questions and their expected count remain unchanged.
+
+Model-only schema construction requires core evidence and matching item sides/IDs
+without forcing every unrelated type-specific question field. Fully encoded JSON
+arrays are decoded once, then subjected to the same validators; malformed or
+truncated strings are not accepted. Derived review labels and inapplicable scalar
+counts can be normalized without changing supplied answers or options. Final
+question-tree validation attributes conflicts to the originating unit, allowing
+partial export and explicit retry instead of an uncaught merge error.
+
+Figures receive a bounded review against the source page and proposed crop. The
+review checks table headers/last rows, chart titles/axes and material-versus-answer
+roles. Unverified crops are withheld with `CROP_UNVERIFIED`, `media` and review
+flags; the source page remains available. Explicit answer headers retain answer
+protection. Figure-associated questions retain review flags even when the second model agrees.
+Role correction also runs when crop completeness remains unverified; table header
+evidence tolerates equivalent rendered/LaTeX formula spelling.
+These model checks do not replace visual acceptance. They share the
+existing four-call unit budget and per-call accounting, including failed checks and
+checkpoint recovery; no extra retry budget is introduced.

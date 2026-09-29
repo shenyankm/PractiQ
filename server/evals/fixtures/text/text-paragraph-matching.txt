@@ -1,0 +1,7 @@
+Paragraph matching: Match statements to paragraphs
+Paragraphs may be used more than once.
+1. This place opens early.
+2. You can borrow books here.
+A. The public library opens at seven. Members may borrow books for two weeks.
+B. The sports centre opens at ten and closes at six.
+Answers: 1-A, 2-A

@@ -652,7 +652,7 @@ export const en = {
   "已有题库 ZIP？前往设置导入": "Have a bank ZIP? Import it in Settings",
   "已有题库 ZIP？前往设置导入（追加，不替换学习记录）": "Have a bank ZIP? Import it in Settings (adds content without replacing study records)",
   "从文档解析题目：支持 PDF、TXT、CSV、PNG 和 JPEG。Word、Excel 请先导出为 PDF。": "Parse questions from PDF, TXT, CSV, PNG, or JPEG. Export Word and Excel documents to PDF first.",
-  "解析会在确认后调用所配置的模型；查看已有结果和导入 ZIP 无需模型配置。": "Parsing calls your configured model after confirmation. Viewing existing results and importing ZIP files do not require a model.",
+  "点击开始导入即调用所配置的模型，内容将发送至模型服务，可能产生费用；查看已有结果和导入 ZIP 无需模型配置。": "Clicking Start import sends content to your configured model service and may incur charges. Viewing existing results and importing ZIP files do not require a model.",
   "解析新文档前，请配置 AI 模型": "Configure an AI model before parsing a new document",
   "读取模型配置耗时较长。不会重复发送请求；你仍可查看已有任务或前往设置导入 ZIP。": "Loading model settings is taking longer than expected. The request will not be sent again. You can still view existing tasks or import a ZIP in Settings.",
   "还缺：{0}": "Missing: {0}",

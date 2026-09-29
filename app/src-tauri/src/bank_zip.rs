@@ -243,7 +243,29 @@ impl Store {
                 .collect()
         };
         let warnings = tx.prepare("SELECT w.message FROM import_warnings w JOIN imports i ON i.id=w.import_id WHERE i.bank_id=?1 ORDER BY i.created_at,w.position").map_err(error)?.query_map([bank_id],|r|r.get::<_,String>(0)).map_err(error)?.collect::<std::result::Result<Vec<_>,_>>().map_err(error)?;
-        let root = json!({"schemaVersion":3,"questions":rows.iter().map(|r|r["question"].clone()).collect::<Vec<_>>(),"groups":clean("groups"),"visualElements":clean("visuals"),"warnings":warnings,"confidenceScore":rows.iter().map(|r|r["question"]["confidence"].as_f64().unwrap_or(0.0)).fold(1.0,f64::min)*100.0});
+        let mut visuals = clean("visuals");
+        if rows.is_empty() {
+            let mut query = tx.prepare("SELECT content FROM visuals WHERE bank_id=?1 AND document_level=1 ORDER BY rowid").map_err(error)?;
+            for content in query
+                .query_map([bank_id], |r| r.get::<_, String>(0))
+                .map_err(error)?
+            {
+                let mut visual: Value =
+                    serde_json::from_str(&content.map_err(error)?).map_err(error)?;
+                visual["questionIds"] = json!([]);
+                visuals.push(visual);
+            }
+        }
+        let missing_fields: Vec<&str> = ["questions", "media"]
+            .into_iter()
+            .filter(|field| {
+                (*field == "questions" && rows.is_empty())
+                    || warnings
+                        .iter()
+                        .any(|warning| warning == &format!("PRACTIQ_MISSING:{field}"))
+            })
+            .collect();
+        let root = json!({"missingFields":missing_fields,"schemaVersion":3,"questions":rows.iter().map(|r|r["question"].clone()).collect::<Vec<_>>(),"groups":clean("groups"),"visualElements":visuals,"warnings":warnings,"confidenceScore":if rows.is_empty() { 0.0 } else { rows.iter().map(|r|r["question"]["confidence"].as_f64().unwrap_or(0.0)).fold(1.0,f64::min)*100.0 }});
         let bytes = serde_json::to_vec(&root).map_err(error)?;
         contract::parse(&bytes)?;
         let refs = references(&root)?;
@@ -326,6 +348,51 @@ mod tests {
             .unwrap()
             .to_owned();
         (dir, s, id)
+    }
+    #[test]
+    fn missing_content_survives_export_and_reimport() {
+        for empty in [false, true] {
+            let dir = tempfile::tempdir().unwrap();
+            let mut store = Store::new(dir.path().into()).unwrap();
+            let questions = if empty {
+                json!([])
+            } else {
+                json!([{"id":"q0","stem":null,"answerMode":"short_answer","sourceText":"An incomplete supplied question","answerPayload":null}])
+            };
+            let root = json!({"schemaVersion":3,"questions":questions,"groups":[],"visualElements":[{"kind":"image","description":"Unparsed source page","questionIds":[]}],"warnings":[],"confidenceScore":0,"missingFields":["questions"]});
+            let preview = store
+                .preview(serde_json::to_vec(&root).unwrap(), "Incomplete".into())
+                .unwrap();
+            let imported = store
+                .import(text(&preview, "ticket"), None, "Incomplete")
+                .unwrap();
+            let package = dir.path().join("incomplete.zip");
+            store
+                .export_bank(text(&imported, "bankId"), &package)
+                .unwrap();
+            let mut zip = ZipArchive::new(fs::File::open(&package).unwrap()).unwrap();
+            let result: Value =
+                serde_json::from_reader(zip.by_name("questions.json").unwrap()).unwrap();
+            assert_eq!(result["missingFields"], json!(["questions"]));
+            assert_eq!(result["confidenceScore"], json!(0.0));
+            assert_eq!(list(&result, "visualElements").len(), 1);
+            assert_eq!(list(&result, "questions").len(), usize::from(!empty));
+            if !empty {
+                assert!(result["questions"][0]["stem"].is_null());
+                assert!(list(&result["questions"][0], "missingFields").contains(&json!("stem")));
+                assert!(list(&result["questions"][0], "missingFields")
+                    .contains(&json!("answerPayload")));
+            }
+            let other = tempfile::tempdir().unwrap();
+            let mut restored = Store::new(other.path().into()).unwrap();
+            let preview = restored.preview_bank_zip(&package).unwrap();
+            let bank = restored
+                .import(text(&preview, "ticket"), None, "Roundtrip")
+                .unwrap();
+            restored
+                .export_bank(text(&bank, "bankId"), &other.path().join("roundtrip.zip"))
+                .unwrap();
+        }
     }
     #[test]
     fn roundtrip_shares_content_only_and_repairs_duplicate_images() {

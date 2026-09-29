@@ -131,7 +131,8 @@ def test_e2e_upload_parse_artifacts_and_restart(service, kind):
         state = wait_task(client, path, "COMPLETED")
         assert state["status"] == "SUCCEEDED" and state["failures"] == []
         assert state["result"]["questions"][0]["stem"] == "Synthetic recovery question"
-        assert len(state["usage"]) == 1 and state["unknownUsageCalls"] == []
+        expected_calls = 2 if kind in {"image", "pdf"} else 1
+        assert len(state["usage"]) == expected_calls and state["unknownUsageCalls"] == []
         assert client.post("/api/document-tasks", json=request).json() == receipt
         preview = client.get(path + "/preview")
         assert preview.status_code == 200 and preview.json()["units"][0]["questions"] == state["result"]["questions"]
@@ -170,7 +171,7 @@ def test_e2e_upload_parse_artifacts_and_restart(service, kind):
         assert client.get("/api/document-tasks", params={"offset": 1}).json()["items"] == []
         assert client.get('/api/document-tasks', params={'sha256': document['sha256']}).json()['items'] == listing
         assert client.get('/api/document-tasks', params={'sha256': 'invalid'}).status_code == 422
-    assert len(calls.read_text().splitlines()) == 1, "Reads, restart and replay must not charge again"
+    assert len(calls.read_text().splitlines()) == expected_calls, "Reads, restart and replay must not charge again"
 
 
 def test_e2e_review_acceptance_is_explicit_and_survives_restart(service):

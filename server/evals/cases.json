@@ -579,10 +579,9 @@
         "no-questions"
       ],
       "critical": true,
-      "expectedError": {
-        "code": "NO_QUESTIONS_FOUND",
-        "statusCode": 422
-      },
+      "expectedQuestions": [],
+      "expectedStatus": "PARTIAL",
+      "expectedMissingFields": ["questions"],
       "expectedProcess": {
         "requiredCallKinds": [
           "document_parse"
@@ -1040,6 +1039,483 @@
       ],
       "critical": true,
       "expectedVisualKinds": []
+    },
+    {
+      "id": "text-listening-evidence",
+      "sourceType": "text",
+      "path": "fixtures/text/text-listening-evidence.txt",
+      "tags": [
+        "synthetic",
+        "regression",
+        "evidence"
+      ],
+      "critical": true,
+      "expectedQuestions": [
+        {
+          "id": "l",
+          "stem": "Train announcement",
+          "answerMode": "listening",
+          "answerPayload": null,
+          "expectedEvidence": {
+            "questionKind": "listening",
+            "examPlayCount": 2
+          }
+        },
+        {
+          "id": "l1",
+          "stem": "When does the train leave?",
+          "answerMode": "choice",
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "parentId": "l",
+          "choiceVariant": "single",
+          "options": [
+            {
+              "label": "A",
+              "content": "Nine"
+            },
+            {
+              "label": "B",
+              "content": "Ten"
+            }
+          ]
+        }
+      ],
+      "expectedSources": [
+        {
+          "questionIndex": 0,
+          "stage": "document_parse",
+          "unitIndex": 0
+        },
+        {
+          "questionIndex": 1,
+          "stage": "document_parse",
+          "unitIndex": 0
+        }
+      ]
+    },
+    {
+      "id": "text-grammar-evidence",
+      "sourceType": "text",
+      "path": "fixtures/text/text-grammar-evidence.txt",
+      "tags": [
+        "synthetic",
+        "regression",
+        "evidence"
+      ],
+      "critical": true,
+      "expectedQuestions": [
+        {
+          "id": "g",
+          "stem": "Complete the sentence",
+          "answerMode": "gap_fill",
+          "answerPayload": null,
+          "passage": [
+            {
+              "partType": "text",
+              "textValue": "She enjoys "
+            },
+            {
+              "partType": "blank",
+              "questionId": "g1"
+            },
+            {
+              "partType": "text",
+              "textValue": " every day."
+            }
+          ],
+          "expectedEvidence": {
+            "questionKind": "grammar_fill"
+          }
+        },
+        {
+          "id": "g1",
+          "stem": "Hint: read",
+          "answerMode": "fill_blank",
+          "answerPayload": {
+            "answers": [
+              "reading"
+            ]
+          },
+          "parentId": "g",
+          "blankCount": 1
+        }
+      ],
+      "expectedSources": [
+        {
+          "questionIndex": 0,
+          "stage": "document_parse",
+          "unitIndex": 0
+        },
+        {
+          "questionIndex": 1,
+          "stage": "document_parse",
+          "unitIndex": 0
+        }
+      ]
+    },
+    {
+      "id": "text-grading-evidence",
+      "sourceType": "text",
+      "path": "fixtures/text/text-grading-evidence.txt",
+      "tags": [
+        "synthetic",
+        "regression",
+        "evidence"
+      ],
+      "critical": true,
+      "expectedQuestions": [
+        {
+          "id": "a",
+          "stem": "说明蒸发的含义。",
+          "answerMode": "short_answer",
+          "answerPayload": {
+            "text": "液体表面发生的汽化现象"
+          },
+          "expectedEvidence": {
+            "sourceScore": 5.0,
+            "scoringRubric": "汽化3分，液体表面2分。",
+            "analysis": "蒸发发生在液体表面。",
+            "questionKind": null,
+            "sourceLanguage": null,
+            "targetLanguage": null
+          }
+        },
+        {
+          "id": "b",
+          "stem": "写一句邀请朋友读书的英文句子。",
+          "answerMode": "short_answer",
+          "answerPayload": null,
+          "expectedEvidence": {
+            "sourceScore": null,
+            "scoringRubric": null,
+            "questionKind": "writing",
+            "sourceLanguage": null,
+            "targetLanguage": "en",
+            "writingGenre": null,
+            "minWords": null,
+            "maxWords": null
+          }
+        }
+      ],
+      "expectedSources": [
+        {
+          "questionIndex": 0,
+          "stage": "document_parse",
+          "unitIndex": 0
+        },
+        {
+          "questionIndex": 1,
+          "stage": "document_parse",
+          "unitIndex": 0
+        }
+      ]
+    },
+    {
+      "id": "text-sentence-selection",
+      "sourceType": "text",
+      "path": "fixtures/text/text-sentence-selection.txt",
+      "tags": [
+        "synthetic",
+        "regression",
+        "english"
+      ],
+      "critical": true,
+      "expectedQuestions": [
+        {
+          "id": "sentences",
+          "parentId": null,
+          "optionSourceId": null,
+          "passage": [
+            {
+              "label": null,
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": "The weather was warm. ",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "label": null,
+              "partType": "blank",
+              "questionId": "sentences-1",
+              "role": null,
+              "textValue": null,
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            },
+            {
+              "label": null,
+              "partType": "text",
+              "questionId": null,
+              "role": null,
+              "textValue": " We returned before dinner.",
+              "markdownValue": null,
+              "latexValue": null,
+              "jsonValue": null
+            }
+          ],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "Choose the missing sentence",
+          "answerMode": "word_bank",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [
+            {
+              "label": "A",
+              "content": "We went for a walk."
+            },
+            {
+              "label": "B",
+              "content": "The train was cancelled."
+            },
+            {
+              "label": "C",
+              "content": "The shop was closed."
+            }
+          ],
+          "answerPayload": null,
+          "expectedEvidence": {
+            "questionKind": "sentence_selection"
+          }
+        },
+        {
+          "id": "sentences-1",
+          "parentId": "sentences",
+          "optionSourceId": "sentences",
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "Choose a sentence.",
+          "answerMode": "choice",
+          "choiceVariant": "single",
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "correct": [
+              "A"
+            ]
+          },
+          "expectedEvidence": {}
+        }
+      ]
+    },
+    {
+      "id": "text-paragraph-matching",
+      "sourceType": "text",
+      "path": "fixtures/text/text-paragraph-matching.txt",
+      "tags": [
+        "synthetic",
+        "regression",
+        "english"
+      ],
+      "critical": true,
+      "expectedQuestions": [
+        {
+          "id": "match",
+          "parentId": null,
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "Match statements to paragraphs",
+          "answerMode": "matching",
+          "choiceVariant": null,
+          "matchingVariant": "many_to_one",
+          "items": [
+            {
+              "label": "1",
+              "id": 0,
+              "side": "left",
+              "content": "This place opens early."
+            },
+            {
+              "label": "2",
+              "id": 1,
+              "side": "left",
+              "content": "You can borrow books here."
+            },
+            {
+              "label": "A",
+              "id": 0,
+              "side": "right",
+              "content": "The public library opens at seven. Members may borrow books for two weeks."
+            },
+            {
+              "label": "B",
+              "id": 1,
+              "side": "right",
+              "content": "The sports centre opens at ten and closes at six."
+            }
+          ],
+          "options": [],
+          "answerPayload": {
+            "matches": [
+              {
+                "left": 0,
+                "right": 0
+              },
+              {
+                "left": 1,
+                "right": 0
+              }
+            ]
+          },
+          "expectedEvidence": {
+            "questionKind": "paragraph_matching"
+          }
+        }
+      ]
+    },
+    {
+      "id": "text-translation-writing",
+      "sourceType": "text",
+      "path": "fixtures/text/text-translation-writing.txt",
+      "tags": [
+        "synthetic",
+        "regression",
+        "english"
+      ],
+      "critical": true,
+      "expectedQuestions": [
+        {
+          "id": "translate",
+          "parentId": null,
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "Translate the passage into English.",
+          "answerMode": "short_answer",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": {
+            "text": "Reading helps us understand different cultures."
+          },
+          "expectedEvidence": {
+            "questionKind": "translation",
+            "sourceLanguage": "zh-CN",
+            "targetLanguage": "en",
+            "sourceScore": 10.0,
+            "scoringRubric": "Preserve the meaning and use grammatical English."
+          }
+        },
+        {
+          "id": "write",
+          "parentId": null,
+          "optionSourceId": null,
+          "passage": [],
+          "allowReuse": false,
+          "blankCount": null,
+          "stem": "Write an invitation to a reading club.",
+          "answerMode": "short_answer",
+          "choiceVariant": null,
+          "matchingVariant": null,
+          "items": [],
+          "options": [],
+          "answerPayload": null,
+          "expectedEvidence": {
+            "questionKind": "writing",
+            "targetLanguage": "en",
+            "writingGenre": "Invitation",
+            "minWords": 80,
+            "maxWords": 120,
+            "sourceScore": 15.0,
+            "scoringRubric": "Include the invitation, location and time. Assess clarity and grammatical accuracy. Do not invent extra requirements."
+          }
+        }
+      ]
+    },
+    {
+      "id": "text-multiple-choice",
+      "sourceType": "text",
+      "path": "fixtures/text/text-multiple-choice.txt",
+      "tags": [
+        "synthetic",
+        "regression",
+        "question-types"
+      ],
+      "critical": true,
+      "expectedVisualKinds": [],
+      "expectedQuestions": [
+        {
+          "stem": "Select all prime numbers below.",
+          "answerMode": "choice",
+          "choiceVariant": "multiple",
+          "options": [
+            {
+              "label": "A",
+              "content": "2"
+            },
+            {
+              "label": "B",
+              "content": "3"
+            },
+            {
+              "label": "C",
+              "content": "4"
+            },
+            {
+              "label": "D",
+              "content": "9"
+            }
+          ],
+          "answerPayload": {
+            "correct": [
+              "A",
+              "B"
+            ]
+          },
+          "expectedEvidence": {
+            "questionKind": null,
+            "sourceLanguage": null,
+            "targetLanguage": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "text-fill-blank",
+      "sourceType": "text",
+      "path": "fixtures/text/text-fill-blank.txt",
+      "tags": [
+        "synthetic",
+        "regression",
+        "question-types"
+      ],
+      "critical": true,
+      "expectedVisualKinds": [],
+      "expectedQuestions": [
+        {
+          "stem": "12 + 8 = ____.",
+          "stemAliases": [
+            "Fill in the blank: 12 + 8 = ____."
+          ],
+          "answerMode": "fill_blank",
+          "blankCount": 1,
+          "answerPayload": {
+            "answers": [
+              "20"
+            ]
+          },
+          "expectedEvidence": {
+            "questionKind": null,
+            "sourceLanguage": null,
+            "targetLanguage": null
+          }
+        }
+      ]
     }
   ]
 }

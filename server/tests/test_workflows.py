@@ -177,7 +177,7 @@ def test_document_graph_returns_partial_for_one_failed_chunk(monkeypatch):
     ]
 
 
-def test_document_graph_raises_when_all_chunks_fail(monkeypatch):
+def test_document_graph_exports_missing_questions_when_all_chunks_fail(monkeypatch):
     fake_store, reference = source("1. First")
     monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
     monkeypatch.setattr(
@@ -199,13 +199,12 @@ def test_document_graph_raises_when_all_chunks_fail(monkeypatch):
     monkeypatch.setattr(document, "_chunk", failed_chunk)
     graph = local_graph(InMemorySaver())
 
-    with pytest.raises(DocumentProcessingError) as exc:
-        asyncio.run(
-            graph.ainvoke(
-                {"document": reference}, run_config()
-            )
-        )
-    assert exc.value.code == "DOCUMENT_PARSE_FAILED"
+    result = asyncio.run(graph.ainvoke({"document": reference}, run_config()))
+    assert result["status"] == "PARTIAL"
+    assert result["result"]["questions"] == []
+    assert result["result"]["missingFields"] == ["questions"]
+    assert result["processing"]["failures"][0]["code"] == "OUTPUT_INVALID"
+    assert result["processing"]["quality"]["reviewRequired"]
 
 
 def test_document_graph_resumes_without_repeating_completed_chunk(monkeypatch):
@@ -467,6 +466,9 @@ def test_extractor_truncation_makes_result_partial(monkeypatch):
 
 
 def test_document_graph_extracts_directly_from_image_and_crops(monkeypatch):
+    from tests.support import accept_figure_checks
+
+    monkeypatch.setattr(document, "_verify_figures", accept_figure_checks)
     fake_store, reference = source("")
     image = make_image()
     model = FakeModel(
@@ -526,7 +528,7 @@ def test_document_graph_rejects_documents_without_content(monkeypatch):
     assert exc.value.status_code == 422
 
 
-def test_document_graph_rejects_empty_vision_output(monkeypatch):
+def test_document_graph_exports_failed_vision_source(monkeypatch):
     fake_store, reference = source("")
     model = FakeModel(responses=[{"invalid": True}] * 4)
     monkeypatch.setattr(document, "get_object_store", lambda: fake_store)
@@ -537,16 +539,14 @@ def test_document_graph_rejects_empty_vision_output(monkeypatch):
         AsyncMock(side_effect=lambda *_args: ExtractedDocument(text="", page_images=[make_image()])),
     )
 
-    with pytest.raises(DocumentProcessingError) as exc:
-        asyncio.run(
-            local_graph(InMemorySaver()).ainvoke(
-                {"document": reference}, run_config()
-            )
-        )
-    assert exc.value.code == "DOCUMENT_PARSE_FAILED"
+    result = asyncio.run(local_graph(InMemorySaver()).ainvoke({"document": reference}, run_config()))
+    assert result["status"] == "PARTIAL"
+    assert result["result"]["questions"] == []
+    assert result["result"]["missingFields"] == ["questions"]
+    assert result["result"]["visualElements"][0]["sourceRef"]
 
 
-def test_document_graph_marks_text_truncation_and_rejects_no_questions(monkeypatch):
+def test_document_graph_marks_text_truncation_and_missing_questions(monkeypatch):
     fake_store, reference = source("1. A long question")
     model = FakeModel(
         responses=[
@@ -568,14 +568,10 @@ def test_document_graph_marks_text_truncation_and_rejects_no_questions(monkeypat
     assert output["processing"]["truncated"] is True
     assert any("truncated" in warning for warning in output["result"]["warnings"])
 
-    with pytest.raises(DocumentProcessingError) as exc:
-        asyncio.run(
-            graph.ainvoke(
-                {"document": reference},
-                run_config("no-questions"),
-            )
-        )
-    assert exc.value.code == "NO_QUESTIONS_FOUND"
+    empty = asyncio.run(graph.ainvoke({"document": reference}, run_config("no-questions")))
+    assert empty["status"] == "PARTIAL"
+    assert empty["result"]["questions"] == []
+    assert empty["result"]["missingFields"] == ["questions"]
 
 
 def test_crop_failures_are_reported(monkeypatch):

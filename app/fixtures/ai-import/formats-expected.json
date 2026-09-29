@@ -1,0 +1,106 @@
+{
+  "scope": "Synthetic sources; fixture validation is not live-model acceptance",
+  "types": 16,
+  "questionRows": 25,
+  "compositeParents": 6,
+  "answerableRows": 19,
+  "baseCases": [
+    "text-basic",
+    "text-multiple-choice",
+    "text-fill-blank",
+    "text-grading-evidence",
+    "text-composites",
+    "text-listening-evidence",
+    "text-grammar-evidence",
+    "text-sentence-selection",
+    "text-paragraph-matching",
+    "text-translation-writing"
+  ],
+  "richQuestion": {
+    "stem": "Using the supplied matrix A, what is its determinant?",
+    "answerMode": "short_answer",
+    "questionTypeId": "short_answer",
+    "choiceVariant": null,
+    "matchingVariant": null,
+    "items": [],
+    "options": [],
+    "answerPayload": {
+      "text": "The supplied determinant is -2."
+    },
+    "analysis": "Reference: $1 \\times 4 - 2 \\times 3 = -2$.",
+    "contentBlocks": [
+      {
+        "partType": "formula",
+        "latexValue": "A=\\begin{pmatrix}1&2\\\\3&4\\end{pmatrix},\\quad A^{-1}=\\frac{1}{-2}\\begin{pmatrix}4&-2\\\\-3&1\\end{pmatrix}"
+      },
+      {
+        "partType": "formula",
+        "latexValue": "\\begin{aligned}I&=\\int_0^1\\frac{x^2}{\\sqrt{1-x^2}}\\,dx\\\\&=\\frac{\\pi}{4},\\quad S=\\sum_{n=1}^{\\infty}\\frac{(-1)^{n+1}}{n^2}\\end{aligned}"
+      },
+      {
+        "partType": "formula",
+        "latexValue": "f(x)=\\begin{cases}\\frac{\\sqrt{x+1}}{1+x^2}&x\\ge0\\\\-x&x<0\\end{cases}"
+      },
+      {
+        "partType": "table",
+        "markdownValue": "| Sample | $x_i$ | Error | Note |\n| --- | ---: | ---: | --- |\n| A | $\\frac{1}{2}$ | -0.002 | left \\| right |\n| B | $10^{-6}$ | 0 | 中文，空值用 — |\n| C | $\\sqrt{2}$ | +0.003 | final row |"
+      }
+    ],
+    "sourceText": "Using the supplied matrix A, what is its determinant? Answer: The supplied determinant is -2.",
+    "confidence": 1.0,
+    "needsReview": false,
+    "missingFields": [],
+    "id": "q0"
+  },
+  "table": [
+    [
+      "Sample",
+      "x_i",
+      "Error",
+      "Note"
+    ],
+    [
+      "A",
+      "\\frac{1}{2}",
+      "-0.002",
+      "left | right"
+    ],
+    [
+      "B",
+      "10^{-6}",
+      "0",
+      "中文，空值用 —"
+    ],
+    [
+      "C",
+      "\\sqrt{2}",
+      "+0.003",
+      "final row"
+    ]
+  ],
+  "formulaLatex": [
+    "A=\\begin{pmatrix}1&2\\\\3&4\\end{pmatrix},\\quad A^{-1}=\\frac{1}{-2}\\begin{pmatrix}4&-2\\\\-3&1\\end{pmatrix}",
+    "\\begin{aligned}I&=\\int_0^1\\frac{x^2}{\\sqrt{1-x^2}}\\,dx\\\\&=\\frac{\\pi}{4},\\quad S=\\sum_{n=1}^{\\infty}\\frac{(-1)^{n+1}}{n^2}\\end{aligned}",
+    "f(x)=\\begin{cases}\\frac{\\sqrt{x+1}}{1+x^2}&x\\ge0\\\\-x&x<0\\end{cases}"
+  ],
+  "rasterSize": [
+    1908,
+    2698
+  ],
+  "pdfPages": 4,
+  "officeVersion": "26.8.0",
+  "files": {
+    "all-types-scanned.pdf": "c43131387eb3ef9bad8078c5b24f8ebf95ed2962d8deb4a6728adf40d69c5059",
+    "all-types.csv": "24d1adc6707b576dd40530c8562a550dc8cae5ae2f7170d33aebba31ce1e35d5",
+    "all-types.doc": "7ffa3dc99d73125d706e4b19679816774d9033a668a4ee6526246bb6007e87b0",
+    "all-types.docx": "1100f11e173716d116ec140645f6bc9958738725875898461f1e18c933799fd5",
+    "all-types.jpg": "0b4289ab911e2457ef07029627595d6214c1c82d3ff6a26aa30a2b75be6537a0",
+    "all-types.pdf": "15f8a86a4399d9b5f53af0552f1c534f0d2d4bd5a23c4b35b70490a5871afae8",
+    "all-types.png": "8d680f5c66490b066147d9b8c074caabeaad976e537bdfed197de50eef2fad13",
+    "all-types.txt": "8c7a08b79de0e40c560a1d98048dc8e203a49f932edd2787cbfbac564d65e3e5",
+    "all-types.xls": "3ceab6db85bc2ded17cfb94393764f8bab036f4688680d1105ad71c593759d14",
+    "all-types.xlsx": "2607d65f5e7e2d2e214b4c146e4b5226b401686eed001f1577ac00c419945f02",
+    "resources/chart.png": "d4423864a250e4940c4588ae7ade862cd5a3cead1f986d99fc4a7e3cbf529b45",
+    "resources/preview.png": "0593ff49100b3045808ef40a2cac0d43d7022ccc89a677fccce252bf5abfb7d2"
+  }
+}

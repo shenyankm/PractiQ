@@ -70,3 +70,15 @@ def test_nonadjacent_same_anchor_does_not_silently_join_articles():
     sources = [QuestionSource(questionIndex=i, stage="vision_parse", unitIndex=i * 2) for i in range(2)]
     with pytest.raises(ValueError, match="adjacent source evidence"):
         finalize_question_ids(qs, [], [], sources, DocumentQuality())
+
+
+def test_noncomposite_parent_is_rejected_before_final_export():
+    from practiq_ai.graphs.chunking import SourceQuestionConflict
+    from practiq_ai.graphs.document import ChunkParseResult
+
+    rows = [{"id": "ordinary", "stem": "A standalone question", "answerMode": "short_answer"},
+            {"id": "child", "parentId": "ordinary", "stem": "Another question", "answerMode": "short_answer"}]
+    with pytest.raises(ValueError, match="composite"):
+        ChunkParseResult.model_validate({"questions": rows})
+    with pytest.raises(SourceQuestionConflict, match="composite"):
+        finalize_question_ids([ParsedQuestion.model_validate(row) for row in rows], [], [], [], DocumentQuality())

@@ -170,7 +170,8 @@ async def test_permanent_provider_error_does_not_offer_useless_resume(monkeypatc
     created = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
     await api.wait_idle()
     state = await task_api.get_task(created['threadId'])
-    assert state['state'] == 'FAILED' and state['allowedActions'] == []
+    assert state['state'] == 'COMPLETED' and state['status'] == 'PARTIAL' and state['allowedActions'] == []
+    assert state['result']['missingFields'] == ['questions']
     assert state['failures'][0]['code'] == 'AI_PROVIDER_ERROR'
     with pytest.raises(DocumentProcessingError, match='new document'):
         await task_api.control_task(created['threadId'], DocumentTaskControl(requestId=uuid4(), action='resume', checkpointId=state['checkpointId']))
@@ -433,7 +434,8 @@ async def test_truncation_is_visible_and_not_manually_retryable(monkeypatch, pag
     created = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
     await api.wait_idle()
     state = await task_api.get_task(created['threadId'])
-    assert state['state'] == 'FAILED'
+    assert state['state'] == 'COMPLETED' and state['status'] == 'PARTIAL'
+    assert state['result']['missingFields'] == ['questions']
     assert state['failures'] == [{'stage': 'vision_parse' if pages else 'document_parse', 'index': 0,
                                   'code': 'OUTPUT_TRUNCATED', 'retryable': False, 'retriesRemaining': 0}]
     assert len(state['usage']) == 2 and state['unknownUsageCalls'] == []

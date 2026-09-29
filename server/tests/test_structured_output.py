@@ -188,7 +188,7 @@ async def test_transient_error_does_not_trigger_output_stall(monkeypatch):
     assert len(model.calls) == 4 and len(usage) == 3
 
 
-def test_model_schema_requires_presence_without_inventing_missing_values():
+def test_model_schema_requires_core_fields_without_forcing_unrelated_metadata():
     from langchain_core.utils.function_calling import convert_to_openai_tool
 
     from practiq_ai.contracts import ParsedQuestion
@@ -197,7 +197,8 @@ def test_model_schema_requires_presence_without_inventing_missing_values():
     wire = convert_to_openai_tool(llm._model_schema(PageParseResult))
     parameters = wire['function']['parameters']
     question = parameters['$defs']['ParsedQuestion']
-    assert set(question['required']) == set(ParsedQuestion.model_fields)
+    assert {'stem', 'answerMode', 'answerPayload', 'sourceText'} <= set(question['required'])
+    assert not {'questionKind', 'minWords', 'maxWords', 'sourceLanguage', 'audioRef'} & set(question['required'])
     assert set(parameters['required']) == {'questions', 'groups', 'figures'}
     assert 'kind' in parameters['$defs']['PageFigure']['required']
     assert {"type": "null"} in question['properties']['answerMode']['anyOf']

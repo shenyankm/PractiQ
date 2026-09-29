@@ -201,3 +201,13 @@ def object_store(root: Path, **overrides) -> ObjectStore:
 def upload(payload=b"quiz"):
     return DocumentUploadRequest(sourceType="text", fileName="quiz.txt", mediaType="text/plain",
                                  sizeBytes=len(payload), sha256=hashlib.sha256(payload).hexdigest())
+
+
+async def accept_figure_checks(_model, _image, figures, _runtime):
+    """Isolate existing crop/merge tests from the separately tested model reviewer."""
+    from practiq_ai.graphs.vision import FigureChecks
+
+    return FigureChecks.model_validate({"figures": [
+        {"index": i, "complete": True, "role": "answer" if f.role == "answer" else "material", "bbox": f.bbox}
+        for i, f in enumerate(figures)
+    ]}), []

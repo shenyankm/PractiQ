@@ -257,6 +257,22 @@ pub fn put_context(
         )
         .map_err(err)?;
     }
+    // Keep document omissions in the existing warning store across ZIP round trips.
+    // Stable codes are exported as missingFields, without interpreting human prose.
+    for (i, field) in list(result, "missingFields").iter().enumerate() {
+        let code = format!(
+            "PRACTIQ_MISSING:{}",
+            field.as_str().ok_or("Invalid missing field")?
+        );
+        if list(result, "warnings").contains(&json!(code)) {
+            continue;
+        }
+        db.execute(
+            "INSERT INTO import_warnings VALUES(?1,?2,?3)",
+            params![import, (list(result, "warnings").len() + i) as i64, code],
+        )
+        .map_err(err)?;
+    }
     let exported_ids: HashMap<_, _> = list(result, "questions")
         .iter()
         .zip(ids)

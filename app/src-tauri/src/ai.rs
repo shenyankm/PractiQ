@@ -19,7 +19,7 @@ use std::{
     time::{Duration, Instant},
 };
 use tauri::Manager;
-use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogResult};
+use tauri_plugin_dialog::DialogExt;
 
 #[derive(Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
@@ -534,50 +534,6 @@ fn document_format(path: &std::path::Path) -> Result<(&'static str, &'static str
     })
 }
 
-#[cfg(test)]
-fn confirm_document(
-    path: &std::path::Path,
-    config: crate::settings::ConnectionSettings,
-    locale: crate::language::Locale,
-    confirm: impl FnOnce(String) -> bool,
-) -> Result<Option<Vec<u8>>> {
-    document_format(path)?;
-    let bytes = store::read_bounded(path, 25 * 1024 * 1024)?;
-    confirm_document_bytes(path, bytes, config, locale, confirm)
-}
-fn confirm_document_bytes(
-    path: &std::path::Path,
-    bytes: Vec<u8>,
-    config: crate::settings::ConnectionSettings,
-    locale: crate::language::Locale,
-    confirm: impl FnOnce(String) -> bool,
-) -> Result<Option<Vec<u8>>> {
-    let config = config.validate()?;
-    let file_name = path
-        .file_name()
-        .and_then(|s| s.to_str())
-        .ok_or(crate::language::error(
-            "LOCAL_FILENAME_INVALID",
-            serde_json::json!({}),
-        ))?;
-    let size = bytes.len() as f64 / (1024.0 * 1024.0);
-    let base = config.base_url.as_deref().ok_or(crate::language::error(
-        "LOCAL_MODEL_URL_REQUIRED",
-        json!({}),
-    ))?;
-    let model = config
-        .model_id
-        .as_deref()
-        .ok_or(crate::language::error("LOCAL_MODEL_ID_REQUIRED", json!({})))?;
-    let message = if locale == crate::language::Locale::Chinese {
-        format!("文件：{file_name}\n大小：{size:.2} MiB\n模型服务：{base}\n模型 ID：{model}\n\n解析内容将发送给此模型服务，可能产生费用。仅提取原文提供的答案，不会生成答案。")
-    } else {
-        format!("File: {file_name}\nSize: {size:.2} MiB\nModel service: {base}\nModel ID: {model}\n\nContent will be sent to this model service and may incur charges. Only answers supplied in the source are extracted; no answers are generated.")
-    };
-    // Upload exactly the bytes the user confirmed, not a later replacement of the file.
-    Ok(confirm(message).then_some(bytes))
-}
-
 fn active_endpoint(
     app: &tauri::AppHandle,
     dir: &std::path::Path,
@@ -955,29 +911,16 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
                             .cloned()
                             .unwrap_or_default()
                     };
+                    // Reuse matching content; the explicit Reparse action creates a new task.
                     if !previous.is_empty() {
-                        let open = locale.text("打开已有任务", "Open existing task");
-                        let reparse = locale.text("重新解析", "Parse again");
-                        let choice = app.dialog().message(locale.text("已解析过相同内容的文件。可以打开已有任务，或确认后再次解析（可能再次计费）。", "A task already exists for the same file content. Open it, or confirm parsing again (additional charges may apply)."))
-                        .title(locale.text("发现相同文档", "Matching document found"))
-                        .buttons(MessageDialogButtons::YesNoCancelCustom(open.into(), reparse.into(), locale.text("跳过此文件", "Skip this file").into())).blocking_show_with_result();
-                        if choice == MessageDialogResult::Custom(open.into())
-                            || choice == MessageDialogResult::Yes
-                        {
-                            for existing in &previous {
-                                let id = contract::text(existing, "threadId");
-                                task_path(id)?;
-                                if !ids.iter().any(|saved| saved == id) {
-                                    ids.push(id.to_owned());
-                                }
+                        for existing in &previous {
+                            let id = contract::text(existing, "threadId");
+                            task_path(id)?;
+                            if !ids.iter().any(|saved| saved == id) {
+                                ids.push(id.to_owned());
                             }
-                            return Ok(ids);
                         }
-                        if choice != MessageDialogResult::Custom(reparse.into())
-                            && choice != MessageDialogResult::No
-                        {
-                            return Ok(ids);
-                        }
+                        return Ok(ids);
                     }
                     let converted = if office {
                         if engine.is_none() {
@@ -987,48 +930,10 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
                     } else {
                         Vec::new()
                     };
-                    let artifact_names = converted
-                        .iter()
-                        .map(|a| {
-                            if a.has_content {
-                                a.name.clone()
-                            } else {
-                                format!(
-                                    "{} ({})",
-                                    a.name,
-                                    locale
-                                        .text("空白文件，不创建 AI 任务", "empty file, no AI task")
-                                )
-                            }
-                        })
-                        .collect::<Vec<_>>()
-                        .join("\n");
                     if office && !converted.iter().any(|a| a.has_content) {
                         return Err(crate::language::error("OFFICE_EMPTY_OUTPUT", json!({})));
                     }
-                    let config = crate::settings::snapshot(&shared)?.connection_settings()?;
-                    let Some(bytes) =
-                        confirm_document_bytes(path, bytes, config, locale, |message| {
-                            let message = if office {
-                                format!(
-                                    "{message}\n\n{}\n{artifact_names}",
-                                    locale.text("待解析的转换文件：", "Converted files to parse:")
-                                )
-                            } else {
-                                message
-                            };
-                            app.dialog()
-                                .message(message)
-                                .title(locale.text("确认解析文档", "Confirm document parsing"))
-                                .buttons(MessageDialogButtons::OkCancelCustom(
-                                    locale.text("开始解析", "Start parsing").into(),
-                                    locale.text("跳过此文件", "Skip this file").into(),
-                                ))
-                                .blocking_show()
-                        })?
-                    else {
-                        return Ok(ids);
-                    };
+                    // Start import is the user action. Keep the selected byte snapshot for upload.
                     process = active_endpoint(&app, &dir, true)?;
                     let mut documents = Vec::new();
                     if office {
@@ -1091,25 +996,6 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
             )
         }
         AiRequest::Reparse { id } => {
-            let task = process.json(Method::GET, &task_path(&id)?, None)?;
-            let config = crate::settings::snapshot(&shared)?.connection_settings()?;
-            let message = if locale == crate::language::Locale::Chinese {
-                format!("文件：{}\n模型服务：{}\n模型 ID：{}\n\n将创建新任务重新解析原文件，旧结果保留，可能再次产生费用。", contract::text(&task, "fileName"), config.base_url.as_deref().unwrap_or_default(), config.model_id.as_deref().unwrap_or_default())
-            } else {
-                format!("File: {}\nModel service: {}\nModel ID: {}\n\nCreate a new task from the original file. Existing results are retained. This may incur additional charges.", contract::text(&task, "fileName"), config.base_url.as_deref().unwrap_or_default(), config.model_id.as_deref().unwrap_or_default())
-            };
-            if !app
-                .dialog()
-                .message(message)
-                .title(locale.text("确认重新解析", "Confirm parsing again"))
-                .buttons(MessageDialogButtons::OkCancelCustom(
-                    locale.text("重新解析", "Parse again").into(),
-                    locale.text("取消", "Cancel").into(),
-                ))
-                .blocking_show()
-            {
-                return Ok(Value::Null);
-            }
             let process = active_endpoint(&app, &dir, true)?;
             ai_work::submit_operation(
                 &dir,
@@ -1216,12 +1102,6 @@ impl Endpoint {
             output["processing"] = result["processing"].clone();
         }
         let mut pending = Pending::new(serde_json::to_vec(&output).map_err(err)?, title)?;
-        if contract::list(contract::result(&pending.root), "questions").is_empty() {
-            return Err(crate::language::error(
-                "LOCAL_RESULT_EMPTY",
-                serde_json::json!({}),
-            ));
-        }
         if let Some(details) = ai_work::import_details(dir)?.remove(id) {
             pending.title = details.title;
             pending.description = details.description;
@@ -1464,62 +1344,6 @@ mod tests {
         assert!(!diagnostic.contains("key-123456"));
         assert!(!diagnostic.contains("123456"));
         assert!(!diagnostic.contains("key-"));
-    }
-
-    #[test]
-    fn document_confirmation_is_required_and_freezes_validated_bytes() {
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("quiz.txt");
-        std::fs::write(&path, b"original").unwrap();
-        let config = crate::settings::ConnectionSettings {
-            base_url: Some("https://example.com/v1".into()),
-            model_id: Some("unified-model".into()),
-        };
-        assert!(super::confirm_document(
-            &path,
-            config.clone(),
-            crate::language::Locale::Chinese,
-            |_| false
-        )
-        .unwrap()
-        .is_none());
-        assert!(super::confirm_document(
-            &path,
-            config.clone(),
-            crate::language::Locale::English,
-            |message| {
-                assert!(message.contains("may incur charges"));
-                assert!(message.contains("no answers are generated"));
-                assert!(message.contains("Model ID:"));
-                false
-            }
-        )
-        .unwrap()
-        .is_none());
-        let bytes = super::confirm_document(
-            &path,
-            config.clone(),
-            crate::language::Locale::Chinese,
-            |message| {
-                assert!(message.contains("quiz.txt") && message.contains("unified-model"));
-                assert!(message.contains("可能产生费用"));
-                assert!(!message.contains(dir.path().to_str().unwrap()));
-                std::fs::write(&path, b"changed").unwrap();
-                true
-            },
-        )
-        .unwrap()
-        .unwrap();
-        assert_eq!(bytes, b"original");
-        let oversized = std::fs::File::create(&path).unwrap();
-        oversized.set_len(25 * 1024 * 1024 + 1).unwrap();
-        assert!(super::confirm_document(
-            &path,
-            config,
-            crate::language::Locale::Chinese,
-            |_| panic!("oversized file reached confirmation")
-        )
-        .is_err());
     }
 
     #[test]

@@ -35,6 +35,38 @@ def question(stem: str = "1. What is 2 + 2?") -> dict:
     }
 
 
+def test_annotated_evidence_is_validated_and_blocks_noncritical_cases():
+    gold = {**question(), "expectedEvidence": {"analysis": "Supplied explanation", "sourceScore": None}}
+    ev.GoldQuestion.model_validate(gold)
+    actual = {**question(), "analysis": "Supplied explanation", "sourceScore": None}
+    assert not ev.score_document_case([gold], [actual])["questions"][0]["differences"]
+    actual["sourceScore"] = 2
+    record = case_record({**gold_case(), "expectedQuestions": [gold]}, {"questions": [actual]})
+    assert ev.summarize([record])["status"] == "FAILED"
+    with pytest.raises(ValueError):
+        ev.GoldQuestion.model_validate({**gold, "expectedEvidence": {"unsupported": True}})
+
+
+def test_visual_association_checks_use_matched_question_ids():
+    case = {**gold_case(), "expectedVisuals": [{"kind": "diagram", "page": 0, "questionIndexes": [0]}]}
+    actual = {"questions": [{**question(), "id": "renamed"}], "visualElements": [{"kind": "diagram", "page": 0, "questionIds": ["renamed"]}]}
+    assert not ev.score_result(case, actual)["visuals"]["missing"]
+    actual["visualElements"][0]["questionIds"] = []
+    assert ev.score_result(case, actual)["visuals"]["missing"]
+    assert ev.summarize([case_record(case, actual)])["status"] == "FAILED"
+
+
+def test_source_associations_check_units_and_preserve_renamed_ids():
+    case = {**gold_case(), "expectedSources": [{"questionIndex": 0, "stage": "vision_parse", "unitIndex": 1}]}
+    result = {"questions": [{**question(), "id": "new"}]}
+    processing = {"questionSources": [{"questionId": "new", "stage": "vision_parse", "unitIndex": 1}]}
+    assert not ev.score_result(case, result, processing)["sources"]["missing"]
+    processing["questionSources"][0]["unitIndex"] = 2
+    record = case_record(case, result)
+    record["score"] = ev.score_result(case, result, processing)
+    assert ev.summarize([record])["status"] == "FAILED"
+
+
 def gold_case() -> dict:
     return {
         "id": "sample", "sourceType": "text", "path": "source.txt",
@@ -228,7 +260,7 @@ def test_structure_errors_fail_noncritical_cases_even_when_averaged_out(change) 
 
 def test_structure_scoring_uses_matched_ids_and_includes_idless_material() -> None:
     case = next(case for case in ev.load_manifest(Path("evals/cases.json"))["cases"] if case["id"] == "text-composites")
-    questions = [{key: deepcopy(value) for key, value in q.items() if key not in {"stemAliases", "answerAliases", "expectedMissingFields", "expectedNeedsReview"}} for q in case["expectedQuestions"]]
+    questions = [{key: deepcopy(value) for key, value in q.items() if key not in {"stemAliases", "answerAliases", "expectedMissingFields", "expectedNeedsReview", "expectedEvidence"}} for q in case["expectedQuestions"]]
     for q in questions:
         for key in ("id", "parentId", "optionSourceId"):
             if q.get(key):
@@ -707,3 +739,28 @@ def test_sensitive_strings_and_old_scorers_cannot_be_published_or_compared():
         comparison = ev.compare_reports(old, report_with())
         assert comparison["status"] == "BLOCKED"
         assert comparison["gateReasons"] == ["INVALID_SCORER_VERSION"]
+
+
+def test_all_question_type_sample_covers_contract_and_preserves_missing_evidence():
+    manifest = ev.load_manifest(ev.ROOT / "evals/cases.json")
+    cases = {case["id"]: case for case in manifest["cases"]}
+    ids = ["text-basic", "text-multiple-choice", "text-fill-blank", "text-grading-evidence",
+           "text-composites", "text-listening-evidence", "text-grammar-evidence",
+           "text-sentence-selection", "text-paragraph-matching", "text-translation-writing"]
+    questions = [q for name in ids for q in cases[name]["expectedQuestions"]]
+    assert len(questions) == 24
+    assert {q["answerMode"] for q in questions} == ev.ANSWER_MODES
+    assert {q["choiceVariant"] for q in questions} >= {"single", "multiple"}
+    assert {q["expectedEvidence"].get("questionKind") for q in questions} >= {
+        "listening", "grammar_fill", "sentence_selection", "paragraph_matching", "translation", "writing",
+    }
+    parts = [f"=== Section {index}: {name} ===\n\n" + (ev.ROOT / "evals" / cases[name]["path"]).read_text().strip()
+             for index, name in enumerate(ids, 1)]
+    assert (ev.ROOT.parent / "app/fixtures/ai-import/all-question-types.txt").read_text() == "\n\n".join(parts) + "\n"
+    short, writing = cases["text-grading-evidence"]["expectedQuestions"]
+    assert short["expectedEvidence"]["questionKind"] is None
+    assert writing["answerPayload"] is None
+    assert writing["expectedEvidence"]["sourceLanguage"] is None
+    # Catch the native acceptance failure even when the answer remains correctly absent.
+    actual = {**writing, **writing["expectedEvidence"], "questionKind": "translation", "sourceLanguage": "en", "targetLanguage": "zh"}
+    assert "evidence" in ev.score_document_case([writing], [actual])["questions"][0]["differences"]

@@ -564,6 +564,13 @@ pub fn parse(bytes: &[u8]) -> Result<Value> {
             })?;
         }
     }
+    if list(result, "questions").is_empty() {
+        let mut missing = list(result, "missingFields").to_vec();
+        if !missing.contains(&json!("questions")) {
+            missing.push(json!("questions"));
+        }
+        result["missingFields"] = json!(missing);
+    }
     schema_check(&schemas().0, result, "result")?;
     let ids: HashSet<_> = list(result, "questions")
         .iter()

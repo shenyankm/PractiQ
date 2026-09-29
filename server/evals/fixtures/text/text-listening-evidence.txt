@@ -1,0 +1,7 @@
+Listening: Train announcement
+Listen twice. No audio file is supplied.
+Transcript: The train leaves at nine.
+1. When does the train leave?
+A. Nine
+B. Ten
+Answer: A

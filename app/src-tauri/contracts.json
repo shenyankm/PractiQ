@@ -1059,7 +1059,6 @@
           "$ref": "#/$defs/ParsedQuestion"
         },
         "maxItems": 1000,
-        "minItems": 1,
         "title": "Questions",
         "type": "array"
       },
@@ -1092,6 +1091,18 @@
         "minimum": 0,
         "title": "Confidencescore",
         "type": "number"
+      },
+      "missingFields": {
+        "description": "Document-level missing content; per-question omissions are in questions[].missingFields. Empty does not prove completeness.",
+        "items": {
+          "enum": [
+            "questions",
+            "media"
+          ],
+          "type": "string"
+        },
+        "title": "Missingfields",
+        "type": "array"
       }
     },
     "required": [

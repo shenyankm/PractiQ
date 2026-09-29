@@ -1,0 +1,2 @@
+Fill in the blank: 12 + 8 = ____.
+Reference answer: 20.

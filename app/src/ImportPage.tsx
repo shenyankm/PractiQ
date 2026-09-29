@@ -33,7 +33,7 @@ export function ImportPage({ tabsHost, busy, run, onPreview, onConfigure, onOpen
   const ready = !!settings && !missing.length;
   return <AiTasks tabsHost={tabsHost} busy={busy} run={run} onPreview={onPreview} modelsReady={ready} officeMode="pdf" onOpenBank={onOpenBank}>
         <div className="space-y-2 rounded-lg border p-4 text-sm">
-          <p className="text-muted-foreground">{t("解析会在确认后调用所配置的模型；查看已有结果和导入 ZIP 无需模型配置。")}</p>
+          <p className="text-muted-foreground">{t("点击开始导入即调用所配置的模型，内容将发送至模型服务，可能产生费用；查看已有结果和导入 ZIP 无需模型配置。")}</p>
           <Button type="button" variant="link" className="h-auto whitespace-normal px-0 text-left" onClick={onOpenZipSettings}>{t("已有题库 ZIP？前往设置导入（追加，不替换学习记录）")}</Button>
         </div>
         {error ? <div role="alert" className="space-y-2"><p>{errorMessage(error)}</p><Button type="button" variant="outline" disabled={busy} onClick={() => setRevision(n => n + 1)}>{t("重试读取配置")}</Button></div>
