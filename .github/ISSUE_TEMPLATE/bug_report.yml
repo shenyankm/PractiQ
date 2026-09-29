@@ -8,6 +8,7 @@ body:
     attributes:
       value: |
         Thanks for reporting a problem. Search [existing issues](https://github.com/shenyankm/PractiQ/issues) before submitting. Do not include credentials, tokens, personal data, or working exploit details.
+        For suspected vulnerabilities, follow [SECURITY.md](https://github.com/shenyankm/PractiQ/blob/main/SECURITY.md) and use its private reporting entry instead of this public form.
 
   - type: checkboxes
     id: preflight

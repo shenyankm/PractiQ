@@ -15,6 +15,12 @@ Turn documents into question banks, then practise and take mock exams offline on
 
 The app supports Simplified Chinese and English, light and dark themes, seven basic question types, and English listening, reading, cloze, translation, and writing tasks. Practice data stays on your device; there are no accounts or cloud sync.
 
+PractiQ is in development. There is no published GitHub Release yet; run it from source using the instructions below. Platform build checks do not establish signed-release or clean-machine acceptance.
+
+![PractiQ question-bank home in the desktop development preview](docs/assets/desktop-preview.png)
+
+Development preview using in-memory sample data.
+
 ## Try it without a model
 
 [Run the desktop app](#run-the-desktop-app), then:
@@ -30,12 +36,16 @@ Export a bank from its card menu to share content without personal answers or sc
 ## Import documents with AI
 
 1. In **Settings**, configure a provider URL, model ID, and API key for a model supporting text and image inputs. Changes save when you leave a field.
-2. Open **Import**, select source files, and confirm parsing.
+2. Open **Import**, select source files, and click **Start import**.
 3. Review questions, images, and warnings, then create a bank or append to an existing one.
 
 Supported source files are **PDF, TXT, CSV, and PNG/JPEG**. Desktop packages include LibreOffice 26.8.0 for Word and Excel conversion; no separate installation or runtime download is required. The desktop converts them to PDF by default. The standalone service does not accept Office files. See the [conversion guide](server/docs/desktop-office.md) for text export and limitations.
 
-The Import page has **Import** and **Import history** tabs. Enter a bank name and description, select up to 10 source files at once, and start the import. Start import immediately starts parsing without a second confirmation. Matching files reuse existing tasks; Parse again explicitly creates a new task. New tasks appear in history; click a row to inspect details, or use the stop/resume and delete icons. Stop running tasks before deleting their records. Deletion preserves imported banks and practice data. Form metadata is stored locally and used when creating the bank. History supports lifecycle filters applied before pagination. Cancel task explicitly stops parsing while preserving saved work; resume remains an explicit allowed action. Completed means parsing is complete; the bank import status is displayed separately. Development defaults to in-memory demo data across the app. The bottom-right development preview panel switches between full, empty, paginated, slow, failed, unconfigured-model and missing-asset scenarios, or real local data. Switching or resetting returns home and clears demo edits. Demo commands do not access native data, file pickers, credentials or models; export and restore only simulate feedback. Production builds exclude the preview entry point. See [preview coverage](app/docs/development-preview.md).
+The Import page has **Import** and **Import history** tabs. Select up to 10 source files and click **Start import** to begin conversion and parsing without a second confirmation. Review results before creating a bank or appending to an existing bank.
+
+Matching files reuse existing tasks; **Parse again** creates a new task. Stop running tasks before deleting their records; deletion preserves imported banks and practice data. See the [import task guide](docs/import-tasks.md) for history, filtering, and recovery.
+
+Development starts with in-memory sample data. The preview panel lets you switch scenarios or choose real local data. See [development preview](app/docs/development-preview.md) for its controls and boundaries.
 
 Parsing extracts supplied answers and rubrics without solving unanswered questions. Missing content stays flagged for review. Tasks support pause, resume, retries, and partial results; import results within **180 days** to keep them. Expiry does not affect imported banks.
 
@@ -51,11 +61,19 @@ Desktop build targets are macOS 14+ (Apple Silicon), Windows 10/11 (x64), and Ub
 
 Development requires Node.js 22.12+, Rust, uv, and an existing Python 3.14+ interpreter. Install the [Tauri platform prerequisites](https://v2.tauri.app/start/prerequisites/): Xcode on macOS, MSVC build tools and WebView2 on Windows, or WebKitGTK 4.1, `libdbus-1-dev`, and build libraries on Linux. Linux also needs an unlocked Secret Service provider (such as GNOME Keyring) for API keys, and GStreamer audio plugins for listening playback. Do not create a project `.venv`. Build on the target OS; packages include its native Python service.
 
+Clone the repository and enter its root directory:
+
+```sh
+git clone https://github.com/shenyankm/PractiQ.git
+cd PractiQ
+```
+
 On macOS or Linux, run these commands from the repository root, replacing the Python path with your interpreter:
 
 ```sh
 make install-locked app-install-python AI_PYTHON=/path/to/python3.14
 make app-install
+cargo fetch --locked --manifest-path app/src-tauri/Cargo.toml
 make app-bundle AI_PYTHON=/path/to/python3.14
 make app-dev
 ```
@@ -72,9 +90,10 @@ On Windows, use PowerShell from the repository root:
 uv export --project server --locked --extra dev --extra desktop --no-emit-project -o "$env:TEMP/practiq-requirements.txt"
 uv pip install --python (Get-Command python).Source -r "$env:TEMP/practiq-requirements.txt"
 uv pip install --python (Get-Command python).Source --no-deps -e server
+npm --prefix app ci
+cargo fetch --locked --manifest-path app/src-tauri/Cargo.toml
 python app/scripts/bundle-python.py
 cd app
-npm ci
 npm run desktop
 # To build the Windows installer:
 npm run tauri -- build
@@ -109,10 +128,18 @@ The FastAPI/LangGraph service listens on `127.0.0.1:8090`, uses SQLite and local
 - [Release verification](CONTRIBUTING.md#release-verification): publication checks and acceptance evidence
 - [Contributing](CONTRIBUTING.md): development checks and pull requests
 
-Run `make app-check` for desktop checks and `make verify` for the AI service. Browser checks use mocked native commands and no model calls:
+Run `make app-check` for desktop checks and `make verify` for the AI service. Playwright Test checks bilingual interactions, browser preview, and rich-content rendering with mocked native commands and no model calls:
 
 ```sh
 cd app
 npx playwright install chromium --only-shell
 npm run test:browser
 ```
+
+The runner starts its own loopback Vite servers. Use `npm run test:preview` or `npm run test:rich-content` for an individual check. Failed tests retain traces and screenshots under `app/test-results/browser/`; inspect a trace with `npx playwright show-trace /path/to/trace.zip`.
+
+## Get help and contribute
+
+Report reproducible bugs or propose improvements through [GitHub Issues](https://github.com/shenyankm/PractiQ/issues/new/choose). Follow [the contribution guide](CONTRIBUTING.md) for changes and [the security policy](SECURITY.md) for private vulnerability reports.
+
+Project source uses the [MIT license](LICENSE). Bundled dependencies retain their [upstream notices](app/licenses/README.md).
