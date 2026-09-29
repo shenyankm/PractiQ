@@ -210,4 +210,4 @@ async def accept_figure_checks(_model, _image, figures, _runtime):
     return FigureChecks.model_validate({"figures": [
         {"index": i, "complete": True, "role": "answer" if f.role == "answer" else "material", "bbox": f.bbox}
         for i, f in enumerate(figures)
-    ]}), []
+    ]}), [], None

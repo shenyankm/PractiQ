@@ -513,6 +513,7 @@ class DocumentGroup(StrictModel):
 
 
 class DocumentVisual(VisualContent):
+    documentOnly: bool = Field(default=False, description="Retain unparsed source imagery without attaching it to bank questions.")
     questionIds: list[str] = Field(default_factory=list, max_length=1_000)
 
 
@@ -529,6 +530,11 @@ class DocumentParseResult(StrictModel):
     def validate_references(self) -> Self:
         if not self.questions and "questions" not in self.missingFields:
             self.missingFields.append("questions")
+        for visual in self.visualElements:
+            if not self.questions:
+                visual.documentOnly = True
+            if visual.documentOnly and visual.questionIds:
+                raise ValueError("documentOnly visuals cannot reference questions")
         validate_question_tree(self.questions)
         ids = {q.id for q in self.questions}
         if any(qid not in ids for value in [*self.groups, *self.visualElements] for qid in value.questionIds):

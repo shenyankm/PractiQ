@@ -723,7 +723,7 @@ async def run_evaluation(manifest_path: Path, repetitions: int = 1, case_ids: li
             expected_error = case["expectedError"]
             outcome_matched = (
                 error is not None and all(error[key] == value for key, value in expected_error.items())
-                if expected_error else error is None and status == case.get("expectedStatus", "SUCCEEDED") and all(field in result.get("missingFields", []) for field in case.get("expectedMissingFields", []))
+                if expected_error else error is None and status == case.get("expectedStatus", "SUCCEEDED") and set(result.get("missingFields", [])) == set(case.get("expectedMissingFields", []))
             )
             failure_codes = {item["code"] for item in (processing or {}).get("failures", [])}
             artifact_checks = await check_visual_artifacts(result)

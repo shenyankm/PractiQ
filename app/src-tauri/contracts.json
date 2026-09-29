@@ -360,6 +360,12 @@
             "default": null,
             "description": "Complete source page image for visual verification; may include printed answers."
           },
+          "documentOnly": {
+            "default": false,
+            "description": "Retain unparsed source imagery without attaching it to bank questions.",
+            "title": "Documentonly",
+            "type": "boolean"
+          },
           "questionIds": {
             "items": {
               "type": "string"
@@ -1817,6 +1823,12 @@
             ],
             "default": null,
             "description": "Complete source page image for visual verification; may include printed answers."
+          },
+          "documentOnly": {
+            "default": false,
+            "description": "Retain unparsed source imagery without attaching it to bank questions.",
+            "title": "Documentonly",
+            "type": "boolean"
           },
           "questionIds": {
             "items": {

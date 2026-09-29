@@ -244,10 +244,12 @@ impl Store {
         };
         let warnings = tx.prepare("SELECT w.message FROM import_warnings w JOIN imports i ON i.id=w.import_id WHERE i.bank_id=?1 ORDER BY i.created_at,w.position").map_err(error)?.query_map([bank_id],|r|r.get::<_,String>(0)).map_err(error)?.collect::<std::result::Result<Vec<_>,_>>().map_err(error)?;
         let mut visuals = clean("visuals");
-        if rows.is_empty() {
-            let mut query = tx.prepare("SELECT content FROM visuals WHERE bank_id=?1 AND document_level=1 ORDER BY rowid").map_err(error)?;
+        {
+            let mut query = tx.prepare("SELECT content FROM visuals WHERE bank_id=?1 AND document_level=1 AND (?2 OR json_extract(content, '$.documentOnly')=1) ORDER BY rowid").map_err(error)?;
             for content in query
-                .query_map([bank_id], |r| r.get::<_, String>(0))
+                .query_map(rusqlite::params![bank_id, rows.is_empty()], |r| {
+                    r.get::<_, String>(0)
+                })
                 .map_err(error)?
             {
                 let mut visual: Value =
@@ -349,6 +351,70 @@ mod tests {
             .to_owned();
         (dir, s, id)
     }
+    #[test]
+    fn zero_question_visuals_do_not_attach_to_existing_bank_questions() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut store = Store::new(dir.path().into()).unwrap();
+        let base = json!({"schemaVersion":3,"questions":[{"id":"q0","stem":"Existing","answerMode":"short_answer","answerPayload":null}],"groups":[],"visualElements":[],"warnings":[],"confidenceScore":0});
+        let preview = store
+            .preview(serde_json::to_vec(&base).unwrap(), "Existing".into())
+            .unwrap();
+        let bank = store
+            .import(text(&preview, "ticket"), None, "Existing")
+            .unwrap();
+        let bank_id = text(&bank, "bankId");
+        let empty = json!({"schemaVersion":3,"questions":[],"groups":[],"visualElements":[{"kind":"image","description":"Unparsed page","questionIds":[]}],"warnings":[],"confidenceScore":0});
+        for invalid in [
+            Value::Null,
+            json!("media"),
+            json!({"media":true}),
+            json!(["invalid"]),
+        ] {
+            let mut malformed = empty.clone();
+            malformed["missingFields"] = invalid;
+            assert!(crate::contract::parse(&serde_json::to_vec(&malformed).unwrap()).is_err());
+        }
+        let preview = store
+            .preview(serde_json::to_vec(&empty).unwrap(), "Unparsed".into())
+            .unwrap();
+        store
+            .import(text(&preview, "ticket"), Some(bank_id.into()), "Unparsed")
+            .unwrap();
+        assert!(list(
+            &store.questions(Some(bank_id), "", "", "").unwrap()[0],
+            "visuals"
+        )
+        .is_empty());
+        let archive = dir.path().join("mixed.zip");
+        store.export_bank(bank_id, &archive).unwrap();
+        let mut zip = ZipArchive::new(fs::File::open(&archive).unwrap()).unwrap();
+        let exported: Value =
+            serde_json::from_reader(zip.by_name("questions.json").unwrap()).unwrap();
+        assert_eq!(exported["visualElements"][0]["documentOnly"], true);
+        assert_eq!(list(&exported, "visualElements").len(), 1);
+        let other = tempfile::tempdir().unwrap();
+        let mut restored = Store::new(other.path().into()).unwrap();
+        let preview = restored.preview_bank_zip(&archive).unwrap();
+        let bank = restored
+            .import(text(&preview, "ticket"), None, "Restored")
+            .unwrap();
+        assert!(list(
+            &restored
+                .questions(Some(text(&bank, "bankId")), "", "", "")
+                .unwrap()[0],
+            "visuals"
+        )
+        .is_empty());
+        let backup = dir.path().join("backup.zip");
+        store.backup(&backup).unwrap();
+        restored.restore(&backup).unwrap();
+        assert!(list(
+            &restored.questions(Some(bank_id), "", "", "").unwrap()[0],
+            "visuals"
+        )
+        .is_empty());
+    }
+
     #[test]
     fn missing_content_survives_export_and_reimport() {
         for empty in [false, true] {

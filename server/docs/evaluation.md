@@ -26,7 +26,7 @@ python scripts/evaluate_grading.py --live --source-scores-only \
   --repeats 2 --output reports/grading/your_source_score_run.json
 ```
 
-Inspect `exactMatches`, `total`, and individual results. A successful script exit does not mean every sample passed. The script also permits overwriting output files; preserve failed reports instead of replacing them with newer results.
+Inspect `exactMatches`, `total`, and individual results. Exit code 0 means all grading samples passed; 1 means FAILED and 2 means invalid input or BLOCKED. Reports are created exclusively: an existing output path is rejected before paid calls, so choose a fresh path for every run.
 
 These rule-based synthetic samples are not independent teacher annotations or cross-subject calibration. They do not establish accuracy for formal exam grading.
 
@@ -317,3 +317,22 @@ evidence tolerates equivalent rendered/LaTeX formula spelling.
 These model checks do not replace visual acceptance. They share the
 existing four-call unit budget and per-call accounting, including failed checks and
 checkpoint recovery; no extra retry budget is introduced.
+
+### PR 83 review corrections
+
+The outcome gate requires exact document `missingFields` sets, including for
+`PARTIAL` cases. Grading anchor file, JSON and schema errors exit with code 2
+before reserving output or making model calls. Writing-language omissions stay
+null: prose matching cannot reliably distinguish alternatives, quotations and
+actual response-language requirements.
+
+A provider authentication/connectivity failure during figure verification stays
+an attributed retryable page failure, with call usage preserved. It is not
+converted into non-retryable `CROP_UNVERIFIED`.
+
+`visualElements[].documentOnly` defaults to false. Zero-question imports mark
+retained source visuals true; those visuals cannot also reference question IDs.
+Desktop storage and ZIP exports preserve them without attaching them to unrelated
+questions, including when appended to an existing bank or reimported from ZIP.
+No database migration is required. Desktop validation rejects malformed
+`missingFields` before adding derived missing-content flags.

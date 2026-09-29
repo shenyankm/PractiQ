@@ -130,7 +130,10 @@ def main():
         parser.error("Use --live explicitly; repeats must be 1–100 (model charges apply)")
     if args.anchors and args.source_scores_only:
         parser.error("--anchors cannot be combined with --source-scores-only")
-    anchors = load_anchors(args.anchors) if args.anchors else None
+    try:
+        anchors = load_anchors(args.anchors) if args.anchors else None
+    except (OSError, ValueError) as exc:
+        parser.error(f"Invalid anchors: {exc}")
     args.output.parent.mkdir(parents=True, exist_ok=True)
     # Reserve the report before any paid call; never overwrite previous evidence.
     with args.output.open("x", encoding="utf-8") as output:

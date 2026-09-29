@@ -13,7 +13,7 @@ BASE = Path(__file__).resolve().parents[2] / "app/fixtures/ai-import"
 
 
 def test_multi_format_import_corpus_preserves_content_and_assets():
-    expected = json.loads((BASE / "formats-expected.json").read_text())
+    expected = json.loads((BASE / "formats-expected.json").read_text(encoding="utf-8"))
     root = BASE / "formats"
     assert len(list(root.glob("all-types*.*"))) == 10
     assert (expected["types"], expected["questionRows"], expected["compositeParents"], expected["answerableRows"]) == (16, 25, 6, 19)
@@ -21,10 +21,10 @@ def test_multi_format_import_corpus_preserves_content_and_assets():
         data = (root / name).read_bytes()
         assert 0 < len(data) < 25 * 1024 * 1024
         assert hashlib.sha256(data).hexdigest() == digest, name
-    text = (root / "all-types.txt").read_text()
-    assert text.startswith((BASE / "all-question-types.txt").read_text())
+    text = (root / "all-types.txt").read_text(encoding="utf-8")
+    assert text.startswith((BASE / "all-question-types.txt").read_text(encoding="utf-8"))
     assert all(formula in text for formula in expected["formulaLatex"])
-    with (root / "all-types.csv").open(newline="") as stream:
+    with (root / "all-types.csv").open(newline="", encoding="utf-8") as stream:
         rows = list(csv.DictReader(stream))
     assert len(rows) == 11
     assert all(case in rows[i]["section"] for i, case in enumerate(expected["baseCases"]))

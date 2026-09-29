@@ -326,7 +326,9 @@ def finalize_question_ids(questions, groups, visuals, sources, quality):
     try:
         validate_question_tree(retained)
     except QuestionTreeError as exc:
-        retained_index = next((i for i, q in enumerate(retained) if q.id == exc.question_id), 0)
+        retained_index = next((i for i, q in enumerate(retained) if q.id == exc.question_id), None)
+        if retained_index is None:
+            raise
         original_index = next(i for i, target in index_map.items() if target == retained_index)
         raise SourceQuestionConflict(str(exc), original_index) from exc
     return retained

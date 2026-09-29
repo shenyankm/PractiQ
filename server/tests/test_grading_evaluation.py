@@ -65,3 +65,17 @@ def test_cli_failure_is_nonzero_and_existing_evidence_prevents_calls(tmp_path, m
     with pytest.raises(FileExistsError):
         ev.main()
     assert output.read_bytes() == original and calls == [(10, None)]
+
+
+@pytest.mark.parametrize("content", [None, "{", '{"cases": []}', '{"labelProvenance":"Teacher", "cases":[{"name":"a","expectedCents":1,"payload":{}}]}'])
+def test_cli_bad_anchors_exit_before_creating_report(tmp_path, monkeypatch, capsys, content):
+    anchors = tmp_path / "anchors.json"
+    if content is not None:
+        anchors.write_text(content, encoding="utf-8")
+    output = tmp_path / "report.json"
+    monkeypatch.setattr("sys.argv", ["evaluate_grading.py", "--live", "--anchors", str(anchors), "--output", str(output)])
+    with pytest.raises(SystemExit) as error:
+        ev.main()
+    assert error.value.code == 2
+    assert "Invalid anchors" in capsys.readouterr().err
+    assert not output.exists()

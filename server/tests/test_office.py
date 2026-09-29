@@ -384,3 +384,18 @@ def test_malformed_compound_allocation_and_directory_are_bounded(offset, packed)
     data[offset:offset+len(packed)] = packed
     with pytest.raises(office.OfficeError, match="OFFICE_INPUT_INVALID"):
         office._validate_legacy(bytes(data), "writer")
+
+
+@pytest.mark.parametrize("member", ["word/document.xml", "[Content_Types].xml"])
+def test_docx_snapshot_rejects_corrupt_member_crc(tmp_path, monkeypatch, member):
+    source = Path(__file__).parents[2] / "app/fixtures/office/regressions/table-ending.docx"
+    original = zipfile.ZipFile.read
+
+    def read(archive, name, *args, **kwargs):
+        if (name.filename if isinstance(name, zipfile.ZipInfo) else name) == member:
+            raise zipfile.BadZipFile("Bad CRC-32")
+        return original(archive, name, *args, **kwargs)
+
+    monkeypatch.setattr(zipfile.ZipFile, "read", read)
+    with pytest.raises(office.OfficeError, match="OFFICE_INPUT_INVALID"):
+        office.convert("unused", source, tmp_path / "out", "text")

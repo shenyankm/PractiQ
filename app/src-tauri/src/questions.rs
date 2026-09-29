@@ -582,6 +582,9 @@ pub fn read_scoped(
     }
     for (id, raw, bank, global) in visuals {
         let mut visual = json_read(raw)?;
+        if visual["documentOnly"] == true {
+            continue;
+        }
         visual["id"] = json!(id);
         visual["questionIds"] = json!(visual_refs.remove(&id).unwrap_or_default());
         let targets = if global {

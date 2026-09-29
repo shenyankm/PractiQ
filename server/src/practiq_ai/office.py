@@ -14,6 +14,7 @@ import sys
 import threading
 import time
 import zipfile
+import zlib
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
@@ -390,16 +391,19 @@ def convert(engine: str, source: Path, output: Path, mode: str, *, expected_vers
     if expected_version is not None and engine_version(Path(engine), deadline) != expected_version:
         raise OfficeError("OFFICE_ENGINE_INVALID")
     if source.suffix.lower() == '.docx' and mode == 'text':
-        with zipfile.ZipFile(io.BytesIO(data)) as archive:
-            original = archive.read('word/document.xml')
-            terminated = _terminate_writer_table(original)
-            if terminated != original:
-                with TemporaryDirectory(prefix='practiq-writer-text-') as directory:
-                    snapshot = Path(directory)/source.name
-                    with zipfile.ZipFile(snapshot, 'w', zipfile.ZIP_DEFLATED) as target:
-                        for entry in archive.infolist():
-                            target.writestr(entry, terminated if entry.filename == 'word/document.xml' else archive.read(entry))
-                    return _export(Path(engine), snapshot, output, family, mode, deadline)
+        try:
+            with zipfile.ZipFile(io.BytesIO(data)) as archive:
+                original = archive.read('word/document.xml')
+                terminated = _terminate_writer_table(original)
+                if terminated != original:
+                    with TemporaryDirectory(prefix='practiq-writer-text-') as directory:
+                        snapshot = Path(directory)/source.name
+                        with zipfile.ZipFile(snapshot, 'w', zipfile.ZIP_DEFLATED) as target:
+                            for entry in archive.infolist():
+                                target.writestr(entry, terminated if entry.filename == 'word/document.xml' else archive.read(entry))
+                        return _export(Path(engine), snapshot, output, family, mode, deadline)
+        except (zipfile.BadZipFile, RuntimeError, EOFError, zlib.error) as exc:
+            raise OfficeError("OFFICE_INPUT_INVALID") from exc
     return _export(Path(engine), source, output, family, mode, deadline)
 
 

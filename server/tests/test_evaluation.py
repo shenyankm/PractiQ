@@ -764,3 +764,22 @@ def test_all_question_type_sample_covers_contract_and_preserves_missing_evidence
     # Catch the native acceptance failure even when the answer remains correctly absent.
     actual = {**writing, **writing["expectedEvidence"], "questionKind": "translation", "sourceLanguage": "en", "targetLanguage": "zh"}
     assert "evidence" in ev.score_document_case([writing], [actual])["questions"][0]["differences"]
+
+
+@pytest.mark.parametrize("missing,matched", [(["media"], True), (["media", "questions"], False), ([], False)])
+def test_partial_runner_requires_exact_missing_fields(tmp_path, monkeypatch, missing, matched):
+    path, _ = setup_runner(tmp_path, monkeypatch, [model_result()])
+    data = json.loads(path.read_text())
+    data["cases"][0].update(expectedStatus="PARTIAL", expectedMissingFields=["media"])
+    path.write_text(json.dumps(data))
+    original = document._merge
+
+    async def partial(state):
+        output = await original(state)
+        output["status"] = "PARTIAL"
+        output["result"]["missingFields"] = missing
+        return output
+
+    monkeypatch.setattr(document, "_merge", partial)
+    report = asyncio.run(ev.run_evaluation(path))
+    assert report["cases"][0]["outcomeMatched"] is matched

@@ -62,7 +62,7 @@ async def test_reviewer_failure_does_not_publish_an_unverified_crop(monkeypatch,
         with pytest.raises(DocumentProcessingError):
             await document._verify_figures(None, make_image(), [figure], None)
     else:
-        assert await document._verify_figures(None, make_image(), [figure], None) == (None, [])
+        assert await document._verify_figures(None, make_image(), [figure], None) == (None, [], "AI_PROVIDER_ERROR")
 
 
 def test_figure_review_rejects_duplicate_and_invalid_boxes():
@@ -100,12 +100,14 @@ def test_model_only_discards_inapplicable_derived_metadata_not_source_content():
 
 
 @pytest.mark.parametrize("instruction,expected", [
-    ("Write 80–120 words in English.", "en"),
-    ("Write an invitation in Chinese.", "zh"),
+    ("Write 80–120 words in English.", None),
+    ("Write an invitation in Chinese.", None),
     ("Write a reply.", None),
+    ("Write the answer in English or Chinese", None),
+    ('Discuss the phrase "write in English".', None),
     ("Write a reply in French.", None),
 ])
-def test_explicit_writing_language_survives_model_omission(instruction, expected):
+def test_writing_language_is_never_invented_from_source_prose(instruction, expected):
     row = {"stem": instruction, "questionKind": "writing", "answerMode": "short_answer", "answerPayload": None}
     q = document.ChunkParseResult.model_validate({"questions": [row]}).questions[0]
     assert q.targetLanguage == expected
@@ -115,10 +117,10 @@ def test_explicit_writing_language_survives_model_omission(instruction, expected
     assert document.ChunkParseResult.model_validate({"questions": [row]}).questions[0].targetLanguage == "en-GB"
 
 
-def test_writing_language_preserves_direction_recorded_with_score_evidence():
+def test_score_evidence_does_not_override_unspecified_writing_language():
     row = {"stem": "Write an invitation to a reading club.", "questionKind": "writing", "answerMode": "short_answer", "answerPayload": None, "sourceText": None, "scoreSourceText": "Write 80–120 words in English. (15 points)"}
     question = document.ChunkParseResult.model_validate({"questions": [row]}).questions[0]
-    assert question.targetLanguage == "en"
+    assert question.targetLanguage is None
     assert question.answerPayload is None and question.sourceText is None
 
 
@@ -133,3 +135,25 @@ def test_model_encoded_arrays_are_unwrapped_then_strictly_validated():
         document.PageParseResult.model_validate({"questions": '[{"answerMode":"invented"}]'})
     with pytest.raises(ValueError):
         document.PageParseResult.model_validate({"questions": '[{"stem":"truncated'})
+
+
+@pytest.mark.parametrize("code", ["AI_PROVIDER_UNAVAILABLE", "AI_PROVIDER_AUTH_ERROR"])
+async def test_figure_provider_failure_preserves_retryable_unit_and_usage(monkeypatch, code):
+    store, reference = source("page")
+    model = FakeModel(responses=[{"questions": [question("Read chart")], "figures": [{"description": "Chart", "bbox": [0, 0, 1, 1], "questionIndexes": [0]}]}])
+    original = document.structured_call
+
+    async def call(model, messages, schema, kind, **kwargs):
+        if kind == "vision_describe":
+            return None, [], code
+        return await original(model, messages, schema, kind, **kwargs)
+
+    monkeypatch.setattr(document, "structured_call", call)
+    monkeypatch.setattr(document, "get_model", lambda: model)
+    monkeypatch.setattr(document, "get_object_store", lambda: store)
+    monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(text="", page_images=[make_image()])))
+    state = await local_graph().ainvoke({"document": reference})
+    failure = state["processing"]["failures"][0]
+    assert failure["code"] == code and failure["retryable"]
+    assert failure["retriesRemaining"] == 2 and len(state["usage"]) == 1
+    assert state["status"] == "PARTIAL"
