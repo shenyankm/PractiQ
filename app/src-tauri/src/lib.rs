@@ -45,7 +45,7 @@ enum Request {
         url: String,
     },
     ReleaseAudio {
-        hash: String,
+        lease: String,
     },
     ListeningPlayback {
         id: String,
@@ -304,7 +304,7 @@ async fn request(
         match request {
             Request::ImportAudioUrl { .. } | Request::PickAudioQr | Request::DecodeAudioQr { .. } => unreachable!(),
             Request::PickAudio=>store.stage_audio(&selected.ok_or("No audio selected")?),
-            Request::ReleaseAudio{hash}=>{store.staged_audio.remove(&hash);Ok(Value::Null)},
+            Request::ReleaseAudio{lease}=>{store.release_audio(&lease);Ok(Value::Null)},
             Request::ListeningPlayback{id,question_id,action,position}=>store.listening_playback(&id,&question_id,action,position),
             Request::AddExampleBank=>store.add_example_bank(),
             Request::PickImport=>store.preview_bank_zip(&selected.ok_or(language::error("LOCAL_FILE_NOT_SELECTED",json!({})))?),

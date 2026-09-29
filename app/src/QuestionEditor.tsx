@@ -38,6 +38,7 @@ export function QuestionEditor({
   const formId = useId();
   const [q, setQ] = useState<Question>(() => structuredClone({...initial, id: initial.id || crypto.randomUUID()}));
   const [children, setChildren] = useState<Question[]>(() => structuredClone(initialChildren));
+  const [audioPending, setAudioPending] = useState(false);
   const [childEditor, setChildEditor] = useState<Question | null>(null);
   const patch = (p: Partial<Question>) => setQ((v) => ({ ...v, ...p }));
   function mode(value: Mode) {
@@ -117,7 +118,7 @@ export function QuestionEditor({
               patch({questionKind:kind || null,sourceLanguage:null,targetLanguage:null,writingGenre:null,minWords:null,maxWords:null});
             }}><option value="">{t("通用题型")}</option>{Object.entries(questionKinds()).filter(([kind])=>!parent || !["reading","listening"].includes(kind)).map(([kind,label])=><option key={kind} value={kind}>{label}</option>)}</select>
           </label>}
-          <EnglishFields question={q} patch={patch} images={images}/>
+          <EnglishFields question={q} patch={patch} images={images} onPendingChange={setAudioPending}/>
           {q.answerMode === "choice" && (
             <NativeSelect
               aria-label={t("选择题类型")}
@@ -340,7 +341,7 @@ export function QuestionEditor({
         </fieldset>
         <DialogFooter>
           <Button variant="outline" disabled={busy} onClick={onClose}>{t("取消")}</Button>
-          <Button disabled={busy} onClick={() => onSave(q,children)}>{t("保存题目")}</Button>
+          <Button disabled={busy || audioPending} onClick={() => {if(!audioPending)onSave(q,children);}}>{t("保存题目")}</Button>
         </DialogFooter>
       </DialogContent>
       {childEditor && <QuestionEditor key={childEditor.id} initial={childEditor} parent={q} initialChildren={children.filter(c=>c.parentId===childEditor.id)} busy={false} onClose={()=>setChildEditor(null)} onSave={(child,nested)=>{

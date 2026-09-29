@@ -350,6 +350,7 @@ impl Store {
         self.session_clock = Default::default();
         self.pending = None;
         self.staged_audio.clear();
+        self.audio_leases.clear();
         if let Err(error) = self.collect_unused_assets() {
             eprintln!("Asset cleanup deferred after restore: {error}");
         }

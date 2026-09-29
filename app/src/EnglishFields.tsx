@@ -5,9 +5,9 @@ import { ListeningPlayer } from "./ListeningPlayer";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-export function EnglishFields({question:q,patch,images=[]}:{question:Question;patch:(q:Partial<Question>)=>void;images?:{hash:string;label:string}[]}) {
+export function EnglishFields({question:q,patch,images=[],onPendingChange}:{question:Question;patch:(q:Partial<Question>)=>void;images?:{hash:string;label:string}[];onPendingChange:(pending:boolean)=>void}) {
   useI18n();
-  const staged=useRef(new Set<string>());
+  const staged=useRef(new Map<string,string>());
   const mounted=useRef(false);
   const mode=useRef(q.answerMode);
   mode.current=q.answerMode;
@@ -16,22 +16,23 @@ export function EnglishFields({question:q,patch,images=[]}:{question:Question;pa
   const [links,setLinks]=useState<AudioLink[]>([]);
   const generation=useRef(0);
   const [picking,setPicking]=useState(false);
-  useEffect(()=>{mounted.current=true;const hashes=staged.current;const epoch=generation;return ()=>{mounted.current=false;epoch.current++;for(const hash of hashes)void api({type:"release_audio",hash}).catch(()=>{});hashes.clear();};},[]);
-  useEffect(()=>{generation.current++;if(q.answerMode!=="listening"){for(const hash of staged.current)void api({type:"release_audio",hash}).catch(()=>{});staged.current.clear();}},[q.answerMode]);
+  useEffect(()=>{mounted.current=true;const hashes=staged.current;const epoch=generation;return ()=>{mounted.current=false;epoch.current++;for(const lease of hashes.values())void api({type:"release_audio",lease}).catch(()=>{});hashes.clear();};},[]);
+  useEffect(()=>{generation.current++;if(q.answerMode!=="listening"){for(const lease of staged.current.values())void api({type:"release_audio",lease}).catch(()=>{});staged.current.clear();}},[q.answerMode]);
   function release(hash?:string) {
-    if(hash && staged.current.delete(hash))void api({type:"release_audio",hash}).catch(()=>{});
+    const lease=hash ? staged.current.get(hash) : undefined;
+    if(hash && lease){staged.current.delete(hash);void api({type:"release_audio",lease}).catch(()=>{});}
   }
   function accept(result:StagedAudio|null, version:number) {
     if(!result)return;
     const hash=result.reference.sha256;
-    if(!mounted.current || mode.current!=="listening" || version!==generation.current){void api({type:"release_audio",hash}).catch(()=>{});return;}
-    if(q.audioRef?.sha256!==hash)release(q.audioRef?.sha256);
-    staged.current.add(hash);
+    if(!mounted.current || mode.current!=="listening" || version!==generation.current){void api({type:"release_audio",lease:result.lease}).catch(()=>{});return;}
+    release(q.audioRef?.sha256);
+    staged.current.set(hash,result.lease);
     patch({audioRef:result.reference,audioStartSeconds:0,audioEndSeconds:null,missingFields:q.missingFields.filter(f=>f!=="media")});
   }
   async function pick(kind:"file"|"qr"|"url", hash?:string) {
     if(picking)return;
-    setPicking(true);setError("");setLinks([]);
+    setPicking(true);onPendingChange(true);setError("");setLinks([]);
     const version=generation.current;
     try {
       if(kind==="file")accept(await api({type:"pick_audio"}),version);
@@ -47,7 +48,7 @@ export function EnglishFields({question:q,patch,images=[]}:{question:Question;pa
       }
     }
     catch(e) {if(mounted.current && version===generation.current)setError(kind==="file" ? t("音频加载或播放失败，请检查文件后重试。") : errorMessage(e));}
-    finally {if(mounted.current)setPicking(false);}
+    finally {if(mounted.current){setPicking(false);onPendingChange(false);}}
   }
   return <section className="space-y-4">
     <label className="grid gap-2">{t("作答说明")}<Textarea value={q.instructions || ""} onChange={e=>patch({instructions:e.target.value || null})}/></label>

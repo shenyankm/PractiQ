@@ -179,13 +179,13 @@ export interface QuestionStats { count: number; types: Record<string, number>; f
 interface PaperSelection { bank_ids: string[]; search: string; mode: string; filter: string; selection: string; count: number; quotas: Record<string,number>; question_ids: string[]; random: boolean; total_cents: number; budgets?: Record<string,number> }
 export interface PlaybackState { used:number; position:number; active:boolean; limit:number; restricted:boolean }
 export interface AudioLink { url: string; label: string }
-export interface StagedAudio { reference: NonNullable<Question["audioRef"]>; duration: number }
+export interface StagedAudio { lease: string; reference: NonNullable<Question["audioRef"]>; duration: number }
 export type Request =
   | { type:"pick_audio" }
   | { type:"pick_audio_qr" }
   | { type:"decode_audio_qr"; hash:string }
   | { type:"import_audio_url"; url:string }
-  | { type:"release_audio"; hash:string }
+  | { type:"release_audio"; lease:string }
   | { type:"listening_playback"; id:string; question_id:string; action:"state"|"start"|"progress"|"pause"|"end"; position?:number }
   | { type: "banks_page"; limit: number; offset: number }
   | { type: "sessions_page"; limit: number; offset: number; filter?: SessionFilter }

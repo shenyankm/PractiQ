@@ -1063,6 +1063,10 @@
     "zh-CN": "资源不是有效的 MP3、M4A/AAC 或 WAV 音频，或音频暂存空间已满。",
     "en": "The resource is not valid MP3, M4A/AAC or WAV audio, or audio staging storage is full."
   },
+  "LOCAL_AUDIO_MISSING": {
+    "zh-CN": "音频暂存已失效，请重新导入音频后保存。",
+    "en": "The staged audio is no longer available. Import the audio again before saving."
+  },
   "LOCAL_BACKUP_RESOURCE_INVALID": {
     "zh-CN": "当前数据含不支持或损坏的图片、音频，备份已取消；已有备份未被覆盖。",
     "en": "Current data contains unsupported or damaged images or audio. Backup canceled; any existing backup was preserved."

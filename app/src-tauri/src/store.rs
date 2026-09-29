@@ -95,6 +95,7 @@ pub struct Store {
     pub dir: PathBuf,
     pub pending: Option<Pending>,
     pub staged_audio: HashMap<String, (String, Vec<u8>)>,
+    pub audio_leases: HashMap<String, String>,
 }
 fn contains_search_text(value: &Value, search: &str) -> bool {
     match value {
