@@ -4,6 +4,7 @@ import argparse
 import asyncio
 import hashlib
 import json
+import math
 import os
 import re
 import statistics
@@ -18,12 +19,19 @@ from urllib.parse import urlsplit
 from uuid import uuid4
 
 import httpx
+from prometheus_client.parser import text_string_to_metric_families
 
 from practiq_ai.execution import code_version, runtime_version
 
 ROOT = Path(__file__).parents[1]
 TERMINAL = {"success", "error", "interrupted", "timeout"}
-METRIC_PATTERN = re.compile(r"^(practiq_(?:pending_runs|running_runs|workers_max|workers_available))\s+([0-9.eE+-]+)$", re.MULTILINE)
+METRIC_SAMPLES = {
+    "practiq_pending_runs": "practiq_pending_runs",
+    "practiq_running_runs": "practiq_running_runs",
+    "practiq_workers_max": "practiq_workers_max",
+    "practiq_workers_available": "practiq_workers_available",
+    "practiq_provider_inflight": "provider_inflight",
+}
 
 
 def percentile(values: list[float], percentile_value: int) -> float:
@@ -58,12 +66,11 @@ async def monitor(
         health_latencies.append(time.perf_counter() - started)
         metrics = await client.get("/api/metrics")
         metrics.raise_for_status()
-        for name, value in METRIC_PATTERN.findall(metrics.text):
-            samples.setdefault(name, []).append(float(value))
-        application = metrics
-        application.raise_for_status()
-        for value in re.findall(r"^practiq_provider_inflight\s+([0-9.eE+-]+)$", application.text, re.MULTILINE):
-            samples.setdefault("provider_inflight", []).append(float(value))
+        for family in text_string_to_metric_families(metrics.text):
+            for sample in family.samples:
+                name = METRIC_SAMPLES.get(sample.name)
+                if name and not sample.labels and math.isfinite(sample.value):
+                    samples.setdefault(name, []).append(sample.value)
         samples.setdefault("rss_bytes", []).append(float(rss_bytes(pid)))
         try:
             await asyncio.wait_for(done.wait(), timeout=0.2)

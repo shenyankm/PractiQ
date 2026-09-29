@@ -107,7 +107,7 @@ python -m dotenv -f ../.env run -- python scripts/load_test.py \
   --total 20 --submit-concurrency 5 --output reports/new-load.json
 ```
 
-The load driver supports only the document business API. Load tests/evaluations connected to real models incur costs and require separate planning. Historical Agent Server, Redis, licensing, and capacity reports remain historical evidence, not acceptance of the current runtime.
+The load driver supports only the document business API. It uses the Prometheus text parser for the five capacity gauges and retains only finite, unlabelled samples; labelled series are not combined into deployment totals. Load tests/evaluations connected to real models incur costs and require separate planning. Historical Agent Server, Redis, licensing, and capacity reports remain historical evidence, not acceptance of the current runtime.
 
 ## Recovery and resource boundaries
 
