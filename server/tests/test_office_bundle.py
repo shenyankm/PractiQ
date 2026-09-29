@@ -1,6 +1,9 @@
 """The build must reject altered downloads and mismatched bundled resources."""
 import importlib.util
+import io
 import json
+import tarfile
+import uuid
 from pathlib import Path
 
 import pytest
@@ -44,3 +47,42 @@ def test_cached_download_is_checked_before_extraction(tmp_path, monkeypatch):
     monkeypatch.setattr(bundle_office.subprocess, 'run', lambda *args, **kwargs: pytest.fail('must reject before extraction'))
     with pytest.raises(ValueError, match='checksum mismatch'):
         bundle_office.build(tmp_path / 'bundle')
+
+
+def test_linux_bundle_seeds_stable_distinct_fontconfig_ids(tmp_path, monkeypatch):
+    monkeypatch.setattr(bundle_office, 'ROOT', tmp_path)
+    monkeypatch.setattr(bundle_office.sys, 'platform', 'linux')
+    monkeypatch.setattr(bundle_office, 'architecture', lambda: 'x86_64')
+    lock = json.loads(bundle_office.LOCK.read_text(encoding='utf-8'))
+    artifact = lock['artifacts']['linux-x86_64']
+    cached = tmp_path / 'app/.build/office-downloads' / artifact['url'].rsplit('/', 1)[1]
+    cached.parent.mkdir(parents=True)
+    with tarfile.open(cached, 'w:gz') as archive:
+        package = tarfile.TarInfo('LibreOffice/DEBS/runtime.deb')
+        package.size = 3
+        archive.addfile(package, io.BytesIO(b'deb'))
+    artifact['sha256'] = bundle_office.checksum(cached)
+    lock_path = tmp_path / 'lock.json'
+    lock_path.write_text(json.dumps(lock), encoding='utf-8')
+    monkeypatch.setattr(bundle_office, 'LOCK', lock_path)
+    font_dirs = ('share/fonts/truetype', 'program/resource/common/fonts')
+
+    def extract(command, *, check):
+        assert command[:2] == ['dpkg-deb', '-x'] and check
+        runtime = Path(command[3]) / 'opt/libreoffice26.8'
+        for relative in font_dirs:
+            (runtime / relative).mkdir(parents=True)
+            (runtime / relative / 'sample.ttf').write_bytes(b'font')
+        (runtime / 'program/soffice').touch()
+
+    monkeypatch.setattr(bundle_office.subprocess, 'run', extract)
+    snapshots = []
+    for name in ('first build', '中文 relocated build'):
+        bundle = tmp_path / name
+        bundle_office.build(bundle)
+        runtime = bundle / 'office/runtime'
+        ids = [(runtime / relative / '.uuid').read_text(encoding='ascii') for relative in font_dirs]
+        assert len({uuid.UUID(value) for value in ids}) == len(font_dirs)
+        assert all((runtime / relative / 'sample.ttf').read_bytes() == b'font' for relative in font_dirs)
+        snapshots.append(ids)
+    assert snapshots[0] == snapshots[1]

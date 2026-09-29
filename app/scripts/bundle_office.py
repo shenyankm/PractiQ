@@ -8,6 +8,7 @@ import sys
 import tarfile
 import tempfile
 import urllib.request
+import uuid
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -89,6 +90,10 @@ def build(bundle: Path) -> dict:
             if len(engines) != 1:
                 raise ValueError('Unexpected LibreOffice DEB layout')
             shutil.copytree(engines[0].parent.parent, output / 'runtime', symlinks=True)
+            # Fontconfig 2.13.1 otherwise creates these IDs on first use, modifying the install.
+            for relative in ('share/fonts/truetype', 'program/resource/common/fonts'):
+                identifier = uuid.uuid5(uuid.NAMESPACE_URL, f'{artifact["sha256"]}:{relative}')
+                (output / 'runtime' / relative / '.uuid').write_text(str(identifier), encoding='ascii')
         if not (output / artifact['executable']).is_file():
             raise ValueError('LibreOffice extraction produced no executable')
         (output / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')

@@ -134,17 +134,21 @@ def main() -> None:
             def fingerprints():
                 return {str(p.relative_to(relocated)): checksum(p) for p in relocated.rglob('*') if p.is_file() and not p.is_symlink()}
             before = fingerprints()
+            def assert_unchanged():
+                after = fingerprints()
+                changed = sorted(name for name in before.keys() | after.keys() if before.get(name) != after.get(name))
+                assert not changed, f'Conversion modified bundled resources: {changed}'
             paths = [p for p in relocated.rglob('*') if not p.is_symlink()] + [relocated]
             command = [sys.executable, __file__, '--bundle', str(relocated), '--output', str(args.output.resolve())]
             try:
                 # Writable installs must remain immutable too: embedded Python caches break signatures.
                 subprocess.run(command, check=True)
-                assert fingerprints() == before, 'Conversion modified bundled resources'
+                assert_unchanged()
                 if os.name != 'nt':
                     for path in paths:
                         path.chmod(stat.S_IMODE(path.stat().st_mode) & ~0o222)
                     subprocess.run(command, check=True)
-                    assert fingerprints() == before, 'Conversion modified read-only resources'
+                    assert_unchanged()
                 if sys.platform == 'darwin':
                     subprocess.run(['codesign', '--verify', '--deep', '--strict', str(relocated/'office/LibreOffice.app')], check=True)
                 report = json.loads(args.output.read_text(encoding='utf-8'))
