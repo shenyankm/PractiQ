@@ -31,10 +31,17 @@ def inventory(bundle: Path) -> dict:
                      'source':source, 'supplementalSources':supplements.get(f'{ecosystem}:{name}@{version}', []),
                      'texts':[{'path':str(p), 'sha256':hashlib.sha256(p.read_bytes()).hexdigest()} for p in files]})
 
+    expected = json.loads((bundle/'build-manifest.json').read_text(encoding='utf-8'))['packages']
+    if not expected:
+        raise ValueError('Bundled Python package manifest is empty')
+    found = set()
     for metadata in sorted((bundle/'python/_internal').glob('*.dist-info/METADATA')):
         parsed = Parser().parsestr(metadata.read_text(encoding='utf-8'))
+        found.add((parsed['Name'].lower().replace('_', '-'), parsed['Version']))
         add('python', parsed['Name'], parsed['Version'], parsed['License-Expression'] or parsed['License'],
             parsed.get_all('Project-URL', []), license_files(metadata.parent))
+    if found != {(p['name'].lower().replace('_', '-'), p['version']) for p in expected}:
+        raise ValueError('Bundled Python metadata does not match package manifest')
     lock = json.loads((ROOT/'app/package-lock.json').read_text(encoding='utf-8'))
     for path, package in lock['packages'].items():
         if not path or package.get('dev'):
@@ -42,8 +49,9 @@ def inventory(bundle: Path) -> dict:
         add('npm', path.split('node_modules/')[-1], package['version'], package.get('license'), package.get('resolved'), license_files(ROOT/'app'/path))
     target = next(line.split(': ', 1)[1] for line in subprocess.check_output(['rustc', '-vV'], text=True).splitlines() if line.startswith('host: '))
     metadata = json.loads(subprocess.check_output(['cargo', 'metadata', '--manifest-path', str(ROOT/'app/src-tauri/Cargo.toml'), '--locked', '--offline', '--format-version', '1', '--filter-platform', target], text=True))
+    resolved = {node['id'] for node in metadata['resolve']['nodes']}
     for package in metadata['packages']:
-        if package['name'] == 'practiq-desktop':
+        if package['id'] not in resolved or package['name'] == 'practiq-desktop':
             continue
         add('cargo', package['name'], package['version'], package.get('license'), package.get('repository'), license_files(Path(package['manifest_path']).parent))
     office = bundle/'office'

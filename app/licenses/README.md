@@ -19,3 +19,10 @@ source applicability. Build packages include the combined text in
 `bundled/THIRD-PARTY.txt`. Development builds retain unresolved entries visibly;
 release verification requires resolving them. An inventory is not a decision
 about all redistribution obligations. Repeat it for each platform's final package.
+
+The objc2-family supplemental `LICENSE.md` files currently contain links rather
+than the applicable full terms. These ten mappings are explicitly unresolved,
+alongside the unavailable npm source above. They cannot satisfy release
+acceptance until the applicable terms and their provenance are supplied.
+The checker also requires bundled Python metadata to match `build-manifest.json`
+and limits Cargo entries to the platform-filtered resolve graph.
