@@ -242,7 +242,7 @@ impl Store {
                 })
                 .collect()
         };
-        let warnings = tx.prepare("SELECT w.message FROM import_warnings w JOIN imports i ON i.id=w.import_id WHERE i.bank_id=?1 ORDER BY i.created_at,w.position").map_err(error)?.query_map([bank_id],|r|r.get::<_,String>(0)).map_err(error)?.collect::<std::result::Result<Vec<_>,_>>().map_err(error)?;
+        let mut warnings = tx.prepare("SELECT w.message FROM import_warnings w JOIN imports i ON i.id=w.import_id WHERE i.bank_id=?1 ORDER BY i.created_at,w.position").map_err(error)?.query_map([bank_id],|r|r.get::<_,String>(0)).map_err(error)?.collect::<std::result::Result<Vec<_>,_>>().map_err(error)?;
         let mut visuals = clean("visuals");
         {
             let mut query = tx.prepare("SELECT content FROM visuals WHERE bank_id=?1 AND document_level=1 AND (?2 OR json_extract(content, '$.documentOnly')=1) ORDER BY rowid").map_err(error)?;
@@ -267,7 +267,19 @@ impl Store {
                         .any(|warning| warning == &format!("PRACTIQ_MISSING:{field}"))
             })
             .collect();
-        let root = json!({"missingFields":missing_fields,"schemaVersion":3,"questions":rows.iter().map(|r|r["question"].clone()).collect::<Vec<_>>(),"groups":clean("groups"),"visualElements":visuals,"warnings":warnings,"confidenceScore":if rows.is_empty() { 0.0 } else { rows.iter().map(|r|r["question"]["confidence"].as_f64().unwrap_or(0.0)).fold(1.0,f64::min)*100.0 }});
+        warnings.retain(|warning| {
+            !matches!(
+                warning.as_str(),
+                "PRACTIQ_MISSING:questions" | "PRACTIQ_MISSING:media"
+            )
+        });
+        let mut groups = clean("groups");
+        let mut query = tx.prepare("SELECT title,instructions FROM sections s WHERE bank_id=?1 AND NOT EXISTS(SELECT 1 FROM section_questions WHERE section_id=s.id) ORDER BY rowid").map_err(error)?;
+        groups.extend(query.query_map([bank_id], |r| {
+            Ok(json!({"title":r.get::<_,String>(0)?,"instructions":r.get::<_,Option<String>>(1)?,"questionIds":[]}))
+        }).map_err(error)?.collect::<std::result::Result<Vec<_>,_>>().map_err(error)?);
+        drop(query);
+        let root = json!({"missingFields":missing_fields,"schemaVersion":3,"questions":rows.iter().map(|r|r["question"].clone()).collect::<Vec<_>>(),"groups":groups,"visualElements":visuals,"warnings":warnings,"confidenceScore":if rows.is_empty() { 0.0 } else { rows.iter().map(|r|r["question"]["confidence"].as_f64().unwrap_or(0.0)).fold(1.0,f64::min)*100.0 }});
         let bytes = serde_json::to_vec(&root).map_err(error)?;
         contract::parse(&bytes)?;
         let refs = references(&root)?;
@@ -425,7 +437,13 @@ mod tests {
             } else {
                 json!([{"id":"q0","stem":null,"answerMode":"short_answer","sourceText":"An incomplete supplied question","answerPayload":null}])
             };
-            let root = json!({"schemaVersion":3,"questions":questions,"groups":[],"visualElements":[{"kind":"image","description":"Unparsed source page","questionIds":[]}],"warnings":[],"confidenceScore":0,"missingFields":["questions"]});
+            let mut root = json!({"schemaVersion":3,"questions":questions,"groups":[{"title":"Unparsed section","instructions":"Read the supplied passage","questionIds":[]}],"visualElements":[{"kind":"image","description":"Unparsed source page","questionIds":[]}],"warnings":["Check the source", "PRACTIQ_MISSING:custom note"],"confidenceScore":0,"missingFields":["questions","media"]});
+            if !empty {
+                root["groups"].as_array_mut().unwrap().insert(
+                    0,
+                    json!({"title":"Linked section","instructions":null,"questionIds":["q0"]}),
+                );
+            }
             let preview = store
                 .preview(serde_json::to_vec(&root).unwrap(), "Incomplete".into())
                 .unwrap();
@@ -439,7 +457,21 @@ mod tests {
             let mut zip = ZipArchive::new(fs::File::open(&package).unwrap()).unwrap();
             let result: Value =
                 serde_json::from_reader(zip.by_name("questions.json").unwrap()).unwrap();
-            assert_eq!(result["missingFields"], json!(["questions"]));
+            assert_eq!(result["missingFields"], json!(["questions", "media"]));
+            assert_eq!(result["warnings"], root["warnings"]);
+            let mut expected_groups = root["groups"].clone();
+            if !empty {
+                expected_groups[0]["questionIds"] = json!([result["questions"][0]["id"]]);
+            }
+            assert_eq!(result["groups"], expected_groups);
+            if !empty {
+                assert_eq!(
+                    store
+                        .questions(Some(text(&imported, "bankId")), "", "", "")
+                        .unwrap()[0]["warnings"],
+                    root["warnings"]
+                );
+            }
             assert_eq!(result["confidenceScore"], json!(0.0));
             assert_eq!(list(&result, "visualElements").len(), 1);
             assert_eq!(list(&result, "questions").len(), usize::from(!empty));
@@ -455,9 +487,19 @@ mod tests {
             let bank = restored
                 .import(text(&preview, "ticket"), None, "Roundtrip")
                 .unwrap();
+            let roundtrip = other.path().join("roundtrip.zip");
             restored
-                .export_bank(text(&bank, "bankId"), &other.path().join("roundtrip.zip"))
+                .export_bank(text(&bank, "bankId"), &roundtrip)
                 .unwrap();
+            let mut zip = ZipArchive::new(fs::File::open(roundtrip).unwrap()).unwrap();
+            let exported: Value =
+                serde_json::from_reader(zip.by_name("questions.json").unwrap()).unwrap();
+            if !empty {
+                expected_groups[0]["questionIds"] = json!([exported["questions"][0]["id"]]);
+            }
+            assert_eq!(exported["groups"], expected_groups);
+            assert_eq!(exported["warnings"], result["warnings"]);
+            assert_eq!(exported["missingFields"], result["missingFields"]);
         }
     }
     #[test]

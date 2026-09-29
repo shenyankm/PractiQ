@@ -63,3 +63,16 @@ Conversion-only actions remain credential-free and do not submit model requests.
 
 Windows packaging now decodes Cargo/rustc output explicitly as UTF-8, matching
 the Cargo JSON encoding rather than the runner's legacy locale codec.
+
+## September 30 follow-up review
+
+Document omission codes remain stored internally and exported as `missingFields`,
+but are excluded from public warnings and question source details. Exact sentinel
+matching preserves unrelated warning prose. Sections without linked questions are
+included in ZIP exports alongside linked groups, including empty banks; export,
+reimport and re-export tests verify both the metadata and warning separation.
+
+Tree-validation conflicts now use the same retained indexes as source attribution
+after composite continuation merging. Text and page workflow regressions verify
+that a later invalid child marks its actual source unit retryable, retains earlier
+units, and completes with one explicit retry instead of replaying cached errors.

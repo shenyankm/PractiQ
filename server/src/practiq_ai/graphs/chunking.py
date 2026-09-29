@@ -329,6 +329,6 @@ def finalize_question_ids(questions, groups, visuals, sources, quality):
         retained_index = next((i for i, q in enumerate(retained) if q.id == exc.question_id), None)
         if retained_index is None:
             raise
-        original_index = next(i for i, target in index_map.items() if target == retained_index)
-        raise SourceQuestionConflict(str(exc), original_index) from exc
+        # Sources already use retained indexes after continuation collapse.
+        raise SourceQuestionConflict(str(exc), retained_index) from exc
     return retained

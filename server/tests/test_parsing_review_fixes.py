@@ -238,3 +238,48 @@ async def test_low_confidence_model_output_requires_review_without_changing_evid
     assert output["processing"]["quality"]["reviewRequired"] is review
     for field in ("confidence", "sourceText", "answerPayload", "analysis"):
         assert question[field] == original[field]
+
+
+@pytest.mark.usefixtures("disposable_databases")
+@pytest.mark.parametrize("pages", [False, True])
+async def test_tree_error_after_continuation_retries_the_offending_unit(monkeypatch, pages):
+    parent_id = "page:1:article" if pages else "fragment:1:article"
+    parent = {**complete_question("Article", parent_id), "answerMode": "reading", "answerPayload": None}
+    child = {**complete_question("Child", "child"), "parentId": parent_id}
+    child_calls = 0
+
+    def respond(messages, _schema):
+        nonlocal child_calls
+        prompt = messages[-1].content
+        if "PRIMARY page 1" in prompt or prompt.endswith("First"):
+            return {"questions": [{**parent, "sourceText": "First"}]}
+        if "PRIMARY page 2" in prompt or prompt.endswith("Second"):
+            return {"questions": [{**parent, "sourceText": "Second"}]}
+        child_calls += 1
+        return {"questions": [{**child, "answerMode": "reading" if child_calls == 1 else "short_answer",
+                               "answerPayload": None if child_calls == 1 else child["answerPayload"]}]}
+
+    api, reference, model = await setup_api(monkeypatch, [respond] * 4, parts=["First", "Second", "Child"])
+    if pages:
+        monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(
+            text="", page_images=[make_image(), make_image(), make_image()],
+        )))
+    created = await task_api.create_task(DocumentTaskCreate(
+        requestId=uuid4(), document=DocumentReference.model_validate(reference), failurePolicy="review",
+    ))
+    thread = created["threadId"]
+    await api.wait_idle()
+    state = await task_api.get_task(thread)
+    assert state["state"] == "WAITING_REVIEW"
+    assert [(f["stage"], f["index"], f["code"]) for f in state["failures"]] == [
+        ("vision_parse" if pages else "document_parse", 2, "OUTPUT_INVALID"),
+    ]
+    assert "retry_failed" in state["allowedActions"] and len(model.calls) == 3
+    await task_api.control_task(thread, DocumentTaskControl(
+        requestId=uuid4(), action="retry_failed", checkpointId=state["checkpointId"],
+    ))
+    await api.wait_idle()
+    state = await task_api.get_task(thread)
+    assert state["status"] == "SUCCEEDED" and state["failures"] == []
+    assert [(q["id"], q["parentId"]) for q in state["result"]["questions"]] == [("q0", None), ("q1", "q0")]
+    assert len(model.calls) == len(state["usage"]) == 4
