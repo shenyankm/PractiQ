@@ -53,9 +53,11 @@ check verifies version equality and actual fraction font scaling in the browser.
   `python3.14 app/scripts/check-rich-recognition.py`
   and `python3.14 app/scripts/check-rich-recognition.py --merged`.
   Normal CI never calls real models. `--check-report` rechecks the saved simple
-  result offline only when the source PDF and the three recorded parser/contract
-  file hashes match. It rejects `--merged`; use the explicit merged live probe for
-  that fixture. The live script retains outputs/resources and exits nonzero on
+  result offline only when the source PDF and the service's complete implementation
+  fingerprint match, including graph helpers, extractors and the locked runtime.
+  Older reports with partial file hashes are rejected. It rejects `--merged`; use
+  the explicit merged live probe for that fixture. The live script retains
+  outputs/resources and exits nonzero on
   a failed gate. The merged gate accepts safe PARTIAL/review outcomes, not a claim
   that every page was structurally recognized.
 - Rebuilding the simple source intentionally: from `app`, run

@@ -15,12 +15,12 @@ from dotenv import load_dotenv
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.store.memory import InMemoryStore
 from practiq_ai.contracts import DocumentUploadRequest
+from practiq_ai.execution import code_version
 from practiq_ai.storage import get_object_store
 
 
 def implementation_checksums():
-    return {name: hashlib.sha256((ROOT / 'server/src/practiq_ai' / name).read_bytes()).hexdigest()
-            for name in ('graphs/document.py', 'graphs/vision.py', 'contracts.py')}
+    return code_version()
 
 
 def check_saved_report():
