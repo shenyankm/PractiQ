@@ -226,8 +226,6 @@ impl Store {
             if ![
                 "image/png",
                 "image/jpeg",
-                "image/webp",
-                "image/gif",
                 "audio/mpeg",
                 "audio/mp4",
                 "audio/aac",
@@ -781,8 +779,6 @@ pub(crate) fn valid_image(bytes: &[u8], media: &str) -> bool {
     let format = match media {
         "image/png" => image::ImageFormat::Png,
         "image/jpeg" => image::ImageFormat::Jpeg,
-        "image/gif" => image::ImageFormat::Gif,
-        "image/webp" => image::ImageFormat::WebP,
         _ => return false,
     };
     if image::guess_format(bytes).ok() != Some(format) {

@@ -1230,6 +1230,9 @@ fn rich_content_survives_import_reopen_practice_and_backup_exactly() {
 fn image_validation_rejects_truncated_and_mislabeled_files() {
     let png = include_bytes!("../../fixtures/rich-content/resources/chart.png");
     assert!(crate::store::valid_image(png, "image/png"));
+    for media in ["image/gif", "image/webp"] {
+        assert!(!crate::store::valid_image(png, media));
+    }
     assert!(!crate::store::valid_image(&png[..16], "image/png"));
     assert!(!crate::store::valid_image(png, "image/jpeg"));
 }
