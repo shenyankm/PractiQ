@@ -55,3 +55,27 @@ def test_license_gate_checks_metadata_target_graph_and_unresolved_terms(tmp_path
     (bundle/'build-manifest.json').write_text('{"packages":[]}', encoding='utf-8')
     with pytest.raises(ValueError, match='empty'):
         inventory(bundle)
+
+
+
+def test_checksum_inputs_survive_windows_style_git_checkout(tmp_path):
+    import subprocess
+
+    root = Path(__file__).parents[2]
+    names = ["app/licenses/texts/23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3.txt", "app/fixtures/ai-import/formats/all-types.csv", "app/fixtures/ai-import/formats/all-types.txt"]
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / ".gitattributes").write_bytes((root / ".gitattributes").read_bytes())
+    for name in names:
+        destination = repo / name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes((root / name).read_bytes())
+    def git(*args):
+        subprocess.run(["git", "-c", "core.autocrlf=true", *args], cwd=repo, check=True, capture_output=True)
+    git("init")
+    git("add", ".")
+    output = tmp_path / "checkout"
+    output.mkdir()
+    git("checkout-index", "--all", f"--prefix={output.as_posix()}/")
+    for name in names:
+        assert (output / name).read_bytes() == (root / name).read_bytes()
