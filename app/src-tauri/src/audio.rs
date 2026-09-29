@@ -831,6 +831,8 @@ mod tests {
     #[test]
     fn exam_progress_cannot_accumulate_seek_allowance_across_updates_or_pauses() {
         let (_dir, store, bank) = english();
+        // CI scheduling delays must not count as actual audio playback.
+        store.session_clock.set(crate::store::now(), 1_000);
         let roots = store.questions(Some(&bank), "", "listening", "").unwrap();
         let root = text(&roots[0], "id").to_owned();
         let selected = crate::paper::selected_rows(
