@@ -565,10 +565,31 @@ pub fn parse(bytes: &[u8]) -> Result<Value> {
         }
     }
     schema_check(&schemas().0, result, "result")?;
+    if list(result, "questions").is_empty() {
+        let mut missing = list(result, "missingFields").to_vec();
+        if !missing.contains(&json!("questions")) {
+            missing.push(json!("questions"));
+        }
+        result["missingFields"] = json!(missing);
+        if let Some(visuals) = result
+            .get_mut("visualElements")
+            .and_then(Value::as_array_mut)
+        {
+            for visual in visuals {
+                visual["documentOnly"] = json!(true);
+            }
+        }
+    }
+    schema_check(&schemas().0, result, "result")?;
     let ids: HashSet<_> = list(result, "questions")
         .iter()
         .map(|q| text(q, "id"))
         .collect();
+    for visual in list(result, "visualElements") {
+        if visual["documentOnly"] == true && !list(visual, "questionIds").is_empty() {
+            return Err("documentOnly visuals cannot reference questions".into());
+        }
+    }
     for g in list(result, "groups") {
         if text(g, "title").trim().is_empty() {
             return Err(crate::language::error(

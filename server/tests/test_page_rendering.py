@@ -22,6 +22,13 @@ from tests.support import (
 )
 
 
+@pytest.fixture(autouse=True)
+def isolate_figure_reviewer(monkeypatch):
+    from tests.support import accept_figure_checks
+
+    monkeypatch.setattr(document, "_verify_figures", accept_figure_checks)
+
+
 def paged_source(kind):
     store, reference = source("document")
     old_key = reference["objectKey"]
@@ -75,11 +82,6 @@ def test_page_order_gaps_and_crops(monkeypatch, kind, failed):
             "figures": [{"kind": "image", "description": "Figure", "questionIndexes": [0], "bbox": [0.1, 0.1, 0.8, 0.8]}]}), [], None
 
     monkeypatch.setattr(document, "structured_call", page_call)
-    if len(failed) == 3:
-        with pytest.raises(DocumentProcessingError) as error:
-            asyncio.run(local_graph().ainvoke({"document": reference}))
-        assert error.value.code == "DOCUMENT_PARSE_FAILED"
-        return
     result = asyncio.run(local_graph().ainvoke({"document": reference}))
     assert not model.calls  # No transcription or subsequent text-model call.
     assert [q["stem"] for q in result["result"]["questions"]] == [f"Page {i + 1}" for i in range(3) if i not in failed]
@@ -465,3 +467,19 @@ def test_table_comparison_preserves_cells_and_non_table_text():
     for different in [table.replace("left ", "left  "), table.replace("1 |", "2 |"), table.replace(r"\|", "|"), table + "\n| 2 | |"]:
         assert table_content_key(table) != table_content_key(different)
     assert table_content_key("Merged\nSECRET") != table_content_key("Merged SECRET")
+
+
+def test_crop_only_truncation_marks_media_not_questions(monkeypatch):
+    store, reference = paged_source("pdf")
+    figure = {"kind":"diagram", "description":"Figure", "bbox":[0,0,1,1], "questionIndexes":[0]}
+    model = FakeModel(responses=[{"questions":[question("Complete source question")], "figures":[figure,figure]}])
+    monkeypatch.setattr(document, "get_model", lambda: model)
+    monkeypatch.setattr(document, "get_object_store", lambda: store)
+    monkeypatch.setattr(document.vision, "MAX_CROPS", 1)
+    async def extracted(*args, **kwargs):
+        return ExtractedDocument(text="", page_images=[make_image()])
+    monkeypatch.setattr(document, "extract", extracted)
+    result = asyncio.run(local_graph().ainvoke({"document":reference}))
+    assert result["status"] == "PARTIAL" and result["processing"]["truncated"]
+    assert len(result["result"]["questions"]) == 1
+    assert result["result"]["missingFields"] == ["media"]

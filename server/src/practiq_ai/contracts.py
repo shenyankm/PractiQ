@@ -253,7 +253,7 @@ def answer_references_missing(mode, answer, data):
         left = [m["left"] for m in matches if m.get("left") is not None]
         right = [m["right"] for m in matches if m.get("right") is not None]
         if len(set(left)) != len(left) or not set(left) <= set(ids["left"]) or not set(right) <= set(ids["right"]):
-            raise ValueError("matches must reference supplied left/right items once")
+            raise ValueError("matches must reference supplied left/right items once; each item needs side=left/right and an id, with each side numbered independently from zero; retain all supplied items and map the printed answers to those IDs")
         if data.get("matchingVariant") == "one_to_one" and len(set(right)) != len(right):
             raise ValueError("one-to-one matches require distinct right items")
         return partial or len(left) != len(ids["left"])
@@ -394,7 +394,7 @@ class ParsedQuestion(StrictModel):
     @model_validator(mode="after")
     def validate_answer(self) -> Self:
         if self.questionKind is not None and QUESTION_KIND_MODES[self.questionKind] != self.answerMode:
-            raise ValueError("questionKind does not match answerMode")
+            raise ValueError("questionKind does not match answerMode; ordinary choice/true_false/fill_blank/short_answer/ordering/matching use questionKind=null. Keep the source-supported answerMode; do not change the question type just to satisfy metadata")
         if self.audioEndSeconds is not None and self.audioEndSeconds <= self.audioStartSeconds:
             raise ValueError("audio end must be after start")
         if self.answerMode != "listening" and (self.audioRef or self.transcript or self.audioStartSeconds or self.audioEndSeconds or self.examPlayCount != 2):
@@ -402,15 +402,15 @@ class ParsedQuestion(StrictModel):
         if any(b.partType == "blank" for b in self.transcript):
             raise ValueError("transcript cannot contain answerable blanks")
         if self.questionKind != "translation" and self.sourceLanguage is not None:
-            raise ValueError("sourceLanguage requires translation")
+            raise ValueError("sourceLanguage requires translation; set sourceLanguage=null for non-translation questions, including writing. Do not reclassify the question as translation")
         if self.questionKind not in {"translation", "writing"} and self.targetLanguage is not None:
             raise ValueError("targetLanguage requires translation or writing")
         if self.questionKind != "writing" and any(v is not None for v in (self.minWords, self.maxWords, self.writingGenre)):
-            raise ValueError("writing fields require writing")
+            raise ValueError("writing fields require writing; for non-writing questions set minWords=maxWords=writingGenre=null, not 0 or 1. Do not reclassify a factual question as writing")
         if self.minWords is not None and self.maxWords is not None and self.minWords > self.maxWords:
             raise ValueError("minWords must not exceed maxWords")
         if self.answerMode not in {None, "choice", "word_bank"} and (self.options or self.choiceVariant):
-            raise ValueError("options are only allowed for choice questions")
+            raise ValueError("options are only allowed for choice questions or word_bank parents; other modes require options=[] AND choiceVariant=null. Keep the source-supported type; remove irrelevant default choiceVariant")
         if self.answerMode is not None and self.answerMode not in {"ordering", "matching"} and self.items:
             raise ValueError("items require ordering or matching mode")
         if self.answerMode is not None and self.answerMode != "matching" and self.matchingVariant:
@@ -423,13 +423,13 @@ class ParsedQuestion(StrictModel):
         if self.allowReuse and self.answerMode != "word_bank":
             raise ValueError("allowReuse requires word_bank mode")
         if self.blankCount is not None and self.answerMode != "fill_blank":
-            raise ValueError("blankCount requires fill_blank mode")
+            raise ValueError("blankCount requires fill_blank mode; set blankCount=null on composite parents and non-fill questions. Their blanks are represented by passage references")
         if any(block.partType == "blank" for block in self.contentBlocks):
             raise ValueError("blank references belong in passage")
         if self.answerMode in COMPOSITE_MODES and self.answerPayload is not None:
-            raise ValueError("composite parents cannot have answers")
+            raise ValueError("composite parents cannot have answers; put answerPayload=null on the parent and place the supplied answers on separate child records with parentId")
         if self.answerMode not in COMPOSITE_MODES and self.passage:
-            raise ValueError("passage requires a composite question")
+            raise ValueError("passage requires a composite question; retain separate composite material parents and answerable children instead of collapsing both into one record")
         if self.optionSourceId and (self.answerMode != "choice" or self.options):
             raise ValueError("shared options require a choice without local options")
         self.answerPayload = normalize_answer(self.answerMode, self.answerPayload, self.choiceVariant)
@@ -513,19 +513,28 @@ class DocumentGroup(StrictModel):
 
 
 class DocumentVisual(VisualContent):
+    documentOnly: bool = Field(default=False, description="Retain unparsed source imagery without attaching it to bank questions.")
     questionIds: list[str] = Field(default_factory=list, max_length=1_000)
 
 
 class DocumentParseResult(StrictModel):
     schemaVersion: Literal[3]
-    questions: list[ParsedQuestion] = Field(min_length=1, max_length=1_000)
+    questions: list[ParsedQuestion] = Field(max_length=1_000)
     groups: list[DocumentGroup] = Field(max_length=1_000)
     visualElements: list[DocumentVisual] = Field(max_length=1_000)
     warnings: list[str] = Field(max_length=1_000)
     confidenceScore: float = Field(ge=0, le=100)
+    missingFields: list[Literal["questions", "media"]] = Field(default_factory=list, description="Document-level missing content; per-question omissions are in questions[].missingFields. Empty does not prove completeness.")
 
     @model_validator(mode="after")
     def validate_references(self) -> Self:
+        if not self.questions and "questions" not in self.missingFields:
+            self.missingFields.append("questions")
+        for visual in self.visualElements:
+            if not self.questions:
+                visual.documentOnly = True
+            if visual.documentOnly and visual.questionIds:
+                raise ValueError("documentOnly visuals cannot reference questions")
         validate_question_tree(self.questions)
         ids = {q.id for q in self.questions}
         if any(qid not in ids for value in [*self.groups, *self.visualElements] for qid in value.questionIds):
@@ -533,38 +542,44 @@ class DocumentParseResult(StrictModel):
         return self
 
 
+class QuestionTreeError(ValueError):
+    def __init__(self, message: str, question_id: str | None):
+        super().__init__(message)
+        self.question_id = question_id
+
+
 def validate_question_tree(questions: list[ParsedQuestion]) -> None:
     by_id = {q.id: q for q in questions}
     if None in by_id or len(by_id) != len(questions):
-        raise ValueError("questions require unique IDs")
+        raise QuestionTreeError("questions require unique IDs", None)
     children: dict[str, list[ParsedQuestion]] = {}
     for q in questions:
         if q.parentId:
             parent = by_id.get(q.parentId)
             if parent is None or parent.answerMode not in COMPOSITE_MODES:
-                raise ValueError("parentId must reference a composite question")
+                raise QuestionTreeError("parentId must reference a composite question", q.id)
             if parent.answerMode in {"word_bank", "cloze"} and (q.answerMode != "choice" or q.choiceVariant != "single"):
-                raise ValueError("gap children must be single choices")
+                raise QuestionTreeError("gap children must be single choices", q.id)
             if parent.answerMode == "gap_fill" and (q.answerMode != "fill_blank" or q.blankCount != 1):
-                raise ValueError("grammar gaps require single-blank children")
+                raise QuestionTreeError("grammar gaps require single-blank children", q.id)
             if parent.answerMode == "listening" and q.answerMode not in {"choice", "fill_blank", "short_answer"}:
-                raise ValueError("invalid listening child mode")
+                raise QuestionTreeError("invalid listening child mode", q.id)
             if q.answerMode in {"reading", "listening"}:
-                raise ValueError("reading/listening questions cannot nest")
+                raise QuestionTreeError("reading/listening questions cannot nest", q.id)
             if parent.answerMode == "word_bank" and q.optionSourceId != parent.id:
-                raise ValueError("word-bank children must use their parent's options")
+                raise QuestionTreeError("word-bank children must use their parent's options", q.id)
             children.setdefault(q.parentId, []).append(q)
         seen = {q.id}
         ancestor = q.parentId
         while ancestor:
             if ancestor in seen or ancestor not in by_id:
-                raise ValueError("invalid or cyclic question ancestry")
+                raise QuestionTreeError("invalid or cyclic question ancestry", q.id)
             seen.add(ancestor)
             ancestor = by_id[ancestor].parentId
         if q.optionSourceId:
             owner = by_id.get(q.optionSourceId)
             if owner is None or owner.answerMode != "word_bank" or q.parentId != owner.id:
-                raise ValueError("optionSourceId must reference the parent word bank")
+                raise QuestionTreeError("optionSourceId must reference the parent word bank", q.id)
             answer_references_missing("choice", q.answerPayload, {**q.model_dump(), "options": [o.model_dump() for o in owner.options]})
     for q in questions:
         if q.answerMode not in COMPOSITE_MODES:
@@ -576,11 +591,11 @@ def validate_question_tree(questions: list[ParsedQuestion]) -> None:
         if q.answerMode in {"word_bank", "cloze", "gap_fill"}:
             refs = [block.questionId for block in q.passage if block.partType == "blank"]
             if len(refs) != len(set(refs)) or set(refs) != {child.id for child in descendants}:
-                raise ValueError("passage blanks must reference each child exactly once")
+                raise QuestionTreeError(f"passage blanks must reference each child exactly once: parent {q.id!r}, child IDs {[child.id for child in descendants]!r}, blank questionIds {refs!r}; preserve passage text and insert a separate partType=blank block for each printed gap", q.id)
         if q.answerMode == "word_bank" and not q.allowReuse:
             answers = [value for child in descendants for value in (child.answerPayload.model_dump() if isinstance(child.answerPayload, BaseModel) else child.answerPayload or {}).get("correct", []) if value is not None]
             if len(answers) != len(set(answers)):
-                raise ValueError("word bank does not allow reused answers")
+                raise QuestionTreeError("word bank does not allow reused answers", q.id)
 
 
 def scorable_count(questions) -> int:

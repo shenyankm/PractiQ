@@ -10,7 +10,15 @@ from typing import Literal
 
 from langchain_core.messages import HumanMessage
 from PIL import Image
-from pydantic import BaseModel, Field, StrictInt, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StrictBool,
+    StrictInt,
+    field_validator,
+    model_validator,
+)
 
 from ..contracts import VisualDescription, VisualLabel
 
@@ -100,6 +108,31 @@ class PageFigure(BaseModel):
         rows = ["| " + " | ".join(cell_text(cell) for cell in row) + " |" for row in self.tableRows]
         rows.insert(1, "| " + " | ".join("---" for _ in self.tableRows[0]) + " |")
         return "\n".join(rows)
+
+
+class FigureCheck(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    index: StrictInt = Field(ge=0, description="Index of the candidate figure being checked.")
+    complete: StrictBool = Field(description="True only if the corrected bbox contains ALL headers, rows, labels and title, without unrelated neighboring content.")
+    role: Literal["material", "answer"] = Field(description="Use answer only when the figure itself supplies an answer/solution/rubric. A data table is material even if a separate answer appears below it on the page.")
+    roleEvidence: str | None = Field(default=None, max_length=1000, description="Quote visible text INSIDE this figure supporting its role. For a material table quote its data headers, never a separate answer outside the table. Required to change an existing answer classification to material.")
+    bbox: list[float] = Field(min_length=4, max_length=4)
+
+    @field_validator("bbox")
+    @classmethod
+    def validate_bbox(cls, value):
+        return PageFigure.validate_bbox(value)
+
+
+class FigureChecks(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    figures: list[FigureCheck] = Field(max_length=MAX_CROPS)
+
+    @model_validator(mode="after")
+    def unique_indexes(self):
+        if len({figure.index for figure in self.figures}) != len(self.figures):
+            raise ValueError("figure checks require distinct indexes")
+        return self
 
 
 def _image_message(prompt: str, image: bytes, media_type: str) -> HumanMessage:

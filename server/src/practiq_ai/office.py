@@ -14,9 +14,11 @@ import sys
 import threading
 import time
 import zipfile
+import zlib
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
+from xml.parsers import expat
 
 from .extractors.isolated import _read_file, watch_parent
 
@@ -322,6 +324,48 @@ def _validate_legacy(data: bytes, family: str) -> None:
         raise OfficeError("OFFICE_INPUT_INVALID") from exc
 
 
+def _terminate_writer_table(data: bytes) -> bytes:
+    """Add an empty paragraph to a conversion snapshot, preserving every original XML byte."""
+    # ponytail: UTF-16 OOXML stays on the bounded native path; add encoding support if encountered.
+    if b'\0' in data[:100]:
+        return data
+    namespace = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main|'
+    parser = expat.ParserCreate(namespace_separator='|')
+    stack: list[str] = []
+    last, section = '', None
+    insertion: list[tuple[int, bytes]] = []
+
+    def start(name, _attributes):
+        nonlocal last, section
+        if stack and stack[-1] == namespace+'body':
+            if name == namespace+'sectPr':
+                section = parser.CurrentByteIndex
+            else:
+                last, section = name, None
+        stack.append(name)
+
+    def end(name):
+        if name == namespace+'body' and last == namespace+'tbl':
+            closing = data[parser.CurrentByteIndex:].split(b'>', 1)[0]
+            prefix = closing[2:].rsplit(b':', 1)[0]+b':' if b':' in closing else b''
+            insertion.append((section if section is not None else parser.CurrentByteIndex, b'<'+prefix+b'p/>'))
+        stack.pop()
+
+    def reject_doctype(*_args):
+        raise OfficeError('OFFICE_INPUT_INVALID')
+
+    parser.StartElementHandler, parser.EndElementHandler = start, end
+    parser.StartDoctypeDeclHandler = reject_doctype
+    try:
+        parser.Parse(data, True)
+    except expat.ExpatError as exc:
+        raise OfficeError('OFFICE_INPUT_INVALID') from exc
+    if not insertion:
+        return data
+    offset, paragraph = insertion[-1]
+    return data[:offset]+paragraph+data[offset:]
+
+
 def convert(engine: str, source: Path, output: Path, mode: str, *, expected_version: str | None = None) -> list[dict[str, Any]]:
     family = FORMATS.get(source.suffix.lower())
     if family is None or mode not in ("pdf", "text"):
@@ -346,6 +390,20 @@ def convert(engine: str, source: Path, output: Path, mode: str, *, expected_vers
     deadline = time.monotonic() + TIMEOUT
     if expected_version is not None and engine_version(Path(engine), deadline) != expected_version:
         raise OfficeError("OFFICE_ENGINE_INVALID")
+    if source.suffix.lower() == '.docx' and mode == 'text':
+        try:
+            with zipfile.ZipFile(io.BytesIO(data)) as archive:
+                original = archive.read('word/document.xml')
+                terminated = _terminate_writer_table(original)
+                if terminated != original:
+                    with TemporaryDirectory(prefix='practiq-writer-text-') as directory:
+                        snapshot = Path(directory)/source.name
+                        with zipfile.ZipFile(snapshot, 'w', zipfile.ZIP_DEFLATED) as target:
+                            for entry in archive.infolist():
+                                target.writestr(entry, terminated if entry.filename == 'word/document.xml' else archive.read(entry))
+                        return _export(Path(engine), snapshot, output, family, mode, deadline)
+        except (zipfile.BadZipFile, RuntimeError, EOFError, zlib.error) as exc:
+            raise OfficeError("OFFICE_INPUT_INVALID") from exc
     return _export(Path(engine), source, output, family, mode, deadline)
 
 

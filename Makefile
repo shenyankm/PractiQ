@@ -79,3 +79,9 @@ app-install-python:
 	uv pip install --break-system-packages --python "$(AI_PYTHON)" --no-deps -e .
 app-bundle:
 	"$(AI_PYTHON)" app/scripts/bundle-python.py
+
+.PHONY: app-fidelity-check app-license-check
+app-fidelity-check:
+	"$(AI_PYTHON)" app/scripts/check-office.py --fidelity-only --output server/reports/checks/office-fidelity.json
+app-license-check:
+	"$(AI_PYTHON)" app/scripts/check_licenses.py --bundle app/src-tauri/bundled --output server/reports/checks/licenses.json

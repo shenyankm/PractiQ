@@ -1,0 +1,6 @@
+Multiple choice: Select all prime numbers below.
+A. 2
+B. 3
+C. 4
+D. 9
+Reference answers: A, B.

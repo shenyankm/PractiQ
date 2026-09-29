@@ -39,15 +39,10 @@ async def test_retry_failed_units_preserves_successes_and_replaces_failures(monk
     monkeypatch.setattr(document, "_chunk", chunk)
     graph = local_graph(InMemorySaver())
     config = run_config()
-    if all_failed:
-        with pytest.raises(DocumentProcessingError, match="All document fragments"):
-            await graph.ainvoke({"document": reference}, config)
-        with pytest.raises(DocumentProcessingError, match="All document fragments"):
-            await graph.ainvoke(None, config)
-    else:
-        result = await graph.ainvoke({"document": reference}, config)
-        assert result["status"] == "PARTIAL"
-        assert (await graph.ainvoke(None, config))["status"] == "PARTIAL"
+    result = await graph.ainvoke({"document": reference}, config)
+    assert result["status"] == "PARTIAL"
+    assert (await graph.ainvoke(None, config))["status"] == "PARTIAL"
+    assert "questions" in result["result"]["missingFields"]
     assert calls == Counter({0: 1, 1: 1})
     failed = False
     retry = {"requestId": str(uuid4()), "units": []}
@@ -79,8 +74,9 @@ async def test_pause_between_attempts_reuses_corrections_and_budget(monkeypatch)
     assert result["__interrupt__"]
     assert len(model.calls) == 1
     resume = Command(resume={item.id: {"action": "resume"} for item in result["__interrupt__"]})
-    with pytest.raises(DocumentProcessingError, match="All document fragments"):
-        await graph.ainvoke(resume, {**config, "run_id": uuid4()})
+    output = await graph.ainvoke(resume, {**config, "run_id": uuid4()})
+    assert output["status"] == "PARTIAL"
+    assert output["result"]["missingFields"] == ["questions"]
     assert len(model.calls) == 4
     assert "failed validation" in model.calls[1][-1].text
     state = await graph.aget_state(config)
@@ -133,30 +129,31 @@ async def test_optional_review_and_decision(monkeypatch, decision):
     assert result["status"] == ("SUCCEEDED" if decision == "retry_failed" else "PARTIAL")
 
 
-async def test_no_partial_acceptance_when_every_unit_failed(monkeypatch):
+async def test_partial_export_allowed_when_every_unit_failed(monkeypatch):
     graph, _, _, reference, _ = setup_graph(monkeypatch, [{"questions": [{"stem": ""}]}] * 4)
     config = run_config()
     result = await graph.ainvoke({"document": reference, "failurePolicy": "review"}, config)
-    assert not result["__interrupt__"][0].value["canAccept"]
-    with pytest.raises(DocumentProcessingError, match="No acceptable"):
-        await graph.ainvoke(Command(resume={"action": "accept_partial"}), config)
+    assert result["__interrupt__"][0].value["canAccept"]
+    output = await graph.ainvoke(Command(resume={"action": "accept_partial"}), config)
+    assert output["status"] == "PARTIAL" and output["result"]["missingFields"] == ["questions"]
 
 
-async def test_source_text_does_not_make_failed_page_results_acceptable(monkeypatch):
+async def test_failed_page_export_retains_source_and_missing_marker(monkeypatch):
     graph, _, _, reference, _ = setup_graph(monkeypatch, [])
     monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(text="source evidence", page_images=[make_image()])))
     monkeypatch.setattr(document, "structured_call", AsyncMock(return_value=(None, [], "OUTPUT_INVALID")))
     config = run_config()
     output = await graph.ainvoke({"document": reference, "failurePolicy": "review"}, config)
     review = output["__interrupt__"][0].value
-    assert review["stage"] == "vision" and not review["canAccept"]
-    with pytest.raises(DocumentProcessingError, match="No acceptable"):
-        await graph.ainvoke(Command(resume={"action": "accept_partial"}), config)
+    assert review["stage"] == "vision" and review["canAccept"]
+    result = await graph.ainvoke(Command(resume={"action": "accept_partial"}), config)
+    assert result["status"] == "PARTIAL" and result["result"]["missingFields"] == ["questions"]
+    assert result["result"]["visualElements"][0]["sourceRef"]
 
 
 async def test_model_result_survives_artifact_write_failure(monkeypatch):
     graph, store, files, reference, model = setup_graph(monkeypatch, [parsed()])
-    vision_model = FakeModel(responses=[{**parsed(), "figures": [{"description": "Chart", "bbox": [0, 0, 1, 1]}]}])
+    vision_model = FakeModel(responses=[{**parsed(), "figures": [{"description": "Chart", "bbox": [0, 0, 1, 1]}]}, {"figures": [{"index": 0, "complete": True, "role": "material", "bbox": [0, 0, 1, 1]}]}])
     monkeypatch.setattr(document, "get_model", lambda *args: vision_model)
     monkeypatch.setattr(document, "extract", AsyncMock(side_effect=lambda *_: ExtractedDocument(text="", page_images=[make_image()])))
     original = files.put_artifact
@@ -174,10 +171,10 @@ async def test_model_result_survives_artifact_write_failure(monkeypatch):
     fail = False
     result = await graph.ainvoke(None, {**config, "run_id": uuid4()})
     assert result["status"] == "SUCCEEDED"
-    assert len(vision_model.calls) == 1
-    assert len(result["usage"]) == 1
+    assert len(vision_model.calls) == 2
+    assert len(result["usage"]) == 2
     assert not model.calls
-    assert len(await store.asearch(execution.namespace("thread-1", "calls"))) == 1
+    assert len(await store.asearch(execution.namespace("thread-1", "calls"))) == 2
 
 
 async def test_retry_page_preserves_successes_without_text_model_or_chunks(monkeypatch):
@@ -272,8 +269,9 @@ async def test_unknown_provider_usage_is_not_recorded_as_zero(monkeypatch):
     failures = [APIConnectionError(request=httpx2.Request("POST", "https://example.invalid")) for _ in range(4)]
     graph, store, _, reference, model = setup_graph(monkeypatch, failures)
     monkeypatch.setattr(llm, "_retry_delay", lambda _: 0)
-    with pytest.raises(DocumentProcessingError):
-        await graph.ainvoke({"document": reference}, run_config())
+    output = await graph.ainvoke({"document": reference}, run_config())
+    assert output["status"] == "PARTIAL"
+    assert output["result"]["missingFields"] == ["questions"]
     records = await store.asearch(execution.namespace("thread-1", "calls"))
     assert len(records) == len(model.calls) == 4
     assert all(item.value["status"] == "failed" and item.value["usageStatus"] == "unknown" and item.value["inputTokens"] is None for item in records)
@@ -282,6 +280,7 @@ async def test_unknown_provider_usage_is_not_recorded_as_zero(monkeypatch):
 async def test_crop_failure_requires_review_but_is_not_retryable(monkeypatch):
     graph, _, _, reference, model = setup_graph(monkeypatch, [
         {**parsed(), "figures": [{"description": "Chart", "bbox": [0, 0, 1, 1]}]},
+        {"figures": [{"index": 0, "complete": True, "role": "material", "bbox": [0, 0, 1, 1]}]},
     ])
     monkeypatch.setattr(document, "get_model", lambda *args: model)
     monkeypatch.setattr(document, "extract", AsyncMock(side_effect=lambda *_: ExtractedDocument(text="", page_images=[make_image()])))
@@ -293,7 +292,7 @@ async def test_crop_failure_requires_review_but_is_not_retryable(monkeypatch):
     assert review["failures"][0]["code"] == "CROP_FAILED"
     assert not review["failures"][0]["retryable"]
     output = await graph.ainvoke(Command(resume={"action": "accept_partial"}), config)
-    assert output["status"] == "PARTIAL" and len(model.calls) == 1
+    assert output["status"] == "PARTIAL" and len(model.calls) == 2
 
 
 async def test_identical_questions_on_different_pages_are_preserved(monkeypatch):
@@ -405,8 +404,9 @@ def test_retry_selection_is_atomic_and_counts_only_selected_units():
 async def test_pause_after_retry_checkpoint_does_not_spend_another_round(monkeypatch):
     graph, store, _, reference, model = setup_graph(monkeypatch, [{'questions': [{'stem': ''}]}] * 2 + [parsed()])
     config = run_config()
-    with pytest.raises(DocumentProcessingError):
-        await graph.ainvoke({'document': reference}, config)
+    output = await graph.ainvoke({'document': reference}, config)
+    assert output["status"] == "PARTIAL"
+    assert output["result"]["missingFields"] == ["questions"]
     original_gate = document._gate
 
     async def pause_after_admission(state, *, phase):
@@ -446,8 +446,9 @@ async def test_stalled_correction_is_restored_across_pause(monkeypatch):
 
     monkeypatch.setattr(llm, 'structured_attempt', attempt)
     output = await graph.ainvoke({'document': reference}, config)
-    with pytest.raises(DocumentProcessingError):
-        await graph.ainvoke(Command(resume={i.id: {'action': 'resume'} for i in output['__interrupt__']}), {**config, 'run_id': uuid4()})
+    output = await graph.ainvoke(Command(resume={i.id: {'action': 'resume'} for i in output['__interrupt__']}), {**config, 'run_id': uuid4()})
+    assert output["status"] == "PARTIAL"
+    assert output["result"]["missingFields"] == ["questions"]
     state = (await graph.aget_state(config)).values
     assert document.unit_failures(state)[0]['code'] == 'OUTPUT_STALLED'
     assert len(model.calls) == len(state['usage']) == 2
@@ -540,8 +541,9 @@ async def test_truncated_attempt_replay_preserves_reason_usage_and_budget(monkey
     monkeypatch.setattr(llm, 'structured_attempt', attempt)
     result = await graph.ainvoke({'document': reference}, config)
     assert result['__interrupt__'] and len(calls) == 1
-    with pytest.raises(DocumentProcessingError, match='All document fragments'):
-        await graph.ainvoke(Command(resume={'action': 'resume'}), {**config, 'run_id': uuid4()})
+    output = await graph.ainvoke(Command(resume={'action': 'resume'}), {**config, 'run_id': uuid4()})
+    assert output["status"] == "PARTIAL"
+    assert output["result"]["missingFields"] == ["questions"]
     state = (await graph.aget_state(config)).values
     assert len(calls) == len(state['usage']) == 2
     failure = document.unit_failures(state)[0]

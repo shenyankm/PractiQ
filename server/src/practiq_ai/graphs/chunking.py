@@ -7,7 +7,9 @@ from ..contracts import (
     ParsedQuestion,
     QualityIssue,
     QuestionSource,
+    QuestionTreeError,
     question_missing_fields,
+    validate_question_tree,
 )
 from ..errors import DocumentProcessingError
 
@@ -281,6 +283,9 @@ def finalize_question_ids(questions, groups, visuals, sources, quality):
                 anchors[question.id] = len(retained)
                 anchor_units[question.id] = source_units.get(index, set())
             retained.append(question)
+    for original_index, question in enumerate(questions):
+        if question.parentId in anchors and retained[anchors[question.parentId]].answerMode not in COMPOSITE_MODES:
+            raise SourceQuestionConflict("Parent source anchor must reference a composite question", original_index)
     aliases = {key: f"q{value}" for key, value in anchors.items()}
     for index, q in enumerate(retained):
         q.id = f"q{index}"
@@ -318,4 +323,12 @@ def finalize_question_ids(questions, groups, visuals, sources, quality):
     for index, question in enumerate(retained):
         if question.missingFields and index not in missing_indexes:
             quality.issues.append(QualityIssue(questionIndex=index, code="MISSING_FIELDS"))
+    try:
+        validate_question_tree(retained)
+    except QuestionTreeError as exc:
+        retained_index = next((i for i, q in enumerate(retained) if q.id == exc.question_id), None)
+        if retained_index is None:
+            raise
+        # Sources already use retained indexes after continuation collapse.
+        raise SourceQuestionConflict(str(exc), retained_index) from exc
     return retained

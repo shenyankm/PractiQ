@@ -130,8 +130,8 @@ async def test_model_text_limit_is_applied_before_provider(monkeypatch):
     monkeypatch.setenv("AI_MODEL_MAX_INPUT_CHARS", "1")
     graph, _, _, reference, model = setup_graph(monkeypatch, [parsed()])
     config = run_config()
-    with pytest.raises(DocumentProcessingError):
-        await graph.ainvoke({"document": reference}, config)
+    result = await graph.ainvoke({"document": reference}, config)
+    assert result["status"] == "PARTIAL" and result["result"]["missingFields"] == ["questions"]
     state = (await graph.aget_state(config)).values
     assert state["chunkResults"][0]["failureCode"] == "MODEL_INPUT_TOO_LARGE"
     assert not model.calls

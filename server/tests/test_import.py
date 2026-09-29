@@ -22,6 +22,8 @@ HEADERS = {"Authorization": "Bearer test-token"}
 def setup(monkeypatch, tmp_path):
     store = object_store(tmp_path)
     def response(_messages, schema):
+        if schema is document.vision.FigureChecks:
+            return {"figures": [{"index": 0, "complete": True, "role": "material", "bbox": [0.1, 0.1, 0.8, 0.8]}]}
         return {"questions": [question("Imported")], "groups": [], "figures": [{"kind": "image", "description": "Figure", "bbox": [0.1, 0.1, 0.8, 0.8]}]} if schema is document.PageParseResult else {"questions": [question("Imported")], "groups": []}
 
     model = FakeModel(responses=[response] * 2)

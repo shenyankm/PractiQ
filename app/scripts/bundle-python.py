@@ -8,6 +8,7 @@ import sysconfig
 from pathlib import Path
 
 from bundle_office import build as build_office
+from check_licenses import inventory, write_notices
 
 ROOT = Path(__file__).resolve().parents[2]
 OUTPUT = ROOT / 'app/src-tauri/bundled'
@@ -31,6 +32,13 @@ def main():
     packages=sorted([{'name':d.metadata['Name'],'version':d.version} for d in distributions(path=[str(OUTPUT/'python/_internal')])],key=lambda d:d['name'].lower())
     assert not {'alibabacloud-oss-v2', 'python-docx', 'openpyxl', 'psycopg', 'psycopg-pool', 'langgraph-checkpoint-postgres', 'langgraph-api', 'langgraph-runtime-inmem', 'langgraph-grpc-common'} & {p['name'].lower() for p in packages}, 'Retired dependencies were bundled'
     (OUTPUT/'build-manifest.json').write_text(json.dumps({'platform':sys.platform,'architecture':platform.machine(),'python':sys.version,'packages':packages,'libreoffice':office},indent=2), encoding='utf-8')
+    notices = inventory(OUTPUT)
+    write_notices(notices, OUTPUT/'THIRD-PARTY.txt')
+    # Notice completeness is a release gate; retain explicit gaps in development packages.
+    if notices['missingTexts']:
+        print('Unresolved release notices: '+', '.join(notices['missingTexts']))
+    if notices['unverifiedSources']:
+        print('Unverified release attributions: '+', '.join(notices['unverifiedSources']))
     print(f'Bundled resources: {OUTPUT}')
 
 if __name__=='__main__':main()

@@ -24,21 +24,21 @@ fn measure(mut run: impl FnMut() -> Value) -> Value {
 #[ignore = "synthetic performance workload; run with --release --ignored --nocapture"]
 fn desktop_stress() {
     let dir = tempfile::tempdir().unwrap();
-    let store = Store::new(dir.path().into()).unwrap();
+    let mut store = Store::new(dir.path().into()).unwrap();
     let mut db = store.connect().unwrap();
     let tx = db.transaction().unwrap();
     tx.execute("INSERT INTO banks VALUES('bulk','Bulk','',1)", [])
         .unwrap();
     tx.execute("INSERT INTO banks VALUES('small','Small','',2)", [])
         .unwrap();
-    for i in 0..5000 {
+    for i in 0..10000 {
         let id = format!("q{i}");
         tx.execute("INSERT INTO questions(id,bank_id,position,stem,mode,content_blocks,confidence,needs_review,missing_fields) VALUES(?1,?2,?3,?4,'true_false','[]',1,0,'[]')", params![id,if i<20 {"small"} else {"bulk"},i,format!("Question {i}")]).unwrap();
         tx.execute("INSERT INTO true_false_questions VALUES(?1,'true')", [id])
             .unwrap();
     }
     tx.commit().unwrap();
-    let mut report = json!({"questions":5000,"attempts":1000,"repetitions":3});
+    let mut report = json!({"questions":10000,"attempts":100000,"repetitions":3});
     report["receiptLookupsSeparate"] = measure(|| {
         for _ in 0..40 {
             assert!(store.imported_ai("task", None, None).unwrap().is_none());
@@ -56,7 +56,7 @@ fn desktop_stress() {
     });
     report["allQuestions"] = measure(|| {
         let rows = store.questions(None, "", "", "").unwrap();
-        assert_eq!(rows.as_array().unwrap().len(), 5000);
+        assert_eq!(rows.as_array().unwrap().len(), 10000);
         rows
     });
     report["smallBank"] = measure(|| {
@@ -68,7 +68,7 @@ fn desktop_stress() {
         let page = store
             .query_questions(None, &[], ("", "", ""), Some((30, 0)))
             .unwrap();
-        assert_eq!(page["total"], 5000);
+        assert_eq!(page["total"], 10000);
         assert_eq!(list(&page, "items").len(), 30);
         page
     });
@@ -103,7 +103,7 @@ fn desktop_stress() {
         .iter()
         .map(|q| text(q, "id").to_owned())
         .collect();
-    for i in 0..3 {
+    for i in 0..100 {
         let sid = format!("exam{i}");
         db.execute("INSERT INTO sessions(id,bank_title,created_at,position,mode,kind) VALUES(?1,'Exam',?2,0,'ordered','self_test')", params![sid,crate::store::now()]).unwrap();
         db.execute(
@@ -177,6 +177,30 @@ fn desktop_stress() {
             .all(|a| a["earnedCents"] == 100));
         session
     });
+    assert_eq!(
+        db.query_row("SELECT count(*) FROM attempts", [], |r| r.get::<_, i64>(0))
+            .unwrap(),
+        100000
+    );
+    report["historyPage"] = measure(|| {
+        let page = store.sessions(30, 0).unwrap();
+        assert_eq!(page["total"], 100);
+        page
+    });
+    let archive = dir.path().join("scale.zip");
+    report["backup"] = measure(|| store.backup(&archive).unwrap());
+    report["backupBytes"] = json!(std::fs::metadata(&archive).unwrap().len());
+    report["restore"] = measure(|| store.restore(&archive).unwrap());
+    let reopened = Store::new(dir.path().into()).unwrap();
+    assert_eq!(
+        reopened
+            .connect()
+            .unwrap()
+            .query_row("SELECT count(*) FROM attempts", [], |r| r.get::<_, i64>(0))
+            .unwrap(),
+        100000
+    );
+    report["scope"] = json!("Synthetic SQLite + serialization; excludes IPC/WebView, media playback and native accessibility");
     let output =
         std::env::var("PRACTIQ_BENCH_OUTPUT").expect("set PRACTIQ_BENCH_OUTPUT to the report path");
     std::fs::write(output, serde_json::to_vec_pretty(&report).unwrap()).unwrap();
