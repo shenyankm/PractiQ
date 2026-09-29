@@ -23,7 +23,7 @@ def test_dropped_matrix_is_exportable_and_flagged_without_inventing_math():
 
 
 @pytest.mark.parametrize("complete", [True, False])
-async def test_figure_reviewer_corrects_crop_and_material_role_or_preserves_source(monkeypatch, complete):
+async def test_figure_reviewer_corrects_crop_without_downgrading_answers(monkeypatch, complete):
     store, reference = source("synthetic page")
     table = "| Sample | Value |\n| --- | --- |\n| C | $\\sqrt{2}$ |"
     q = question("Read the measurements")
@@ -41,13 +41,13 @@ async def test_figure_reviewer_corrects_crop_and_material_role_or_preserves_sour
     assert len(state["usage"]) == 2
     assert visual["sourceRef"]
     if complete:
-        assert visual["role"] == "material" and visual["bbox"] == check["figures"][0]["bbox"]
+        assert visual["role"] == "answer" and visual["bbox"] == check["figures"][0]["bbox"]
         assert visual["imageRef"]
-        assert state["result"]["questions"][0]["contentBlocks"][0]["role"] == "material"
+        assert state["result"]["questions"][0]["contentBlocks"][0]["role"] == "answer"
     else:
         assert state["status"] == "PARTIAL"
         assert state["processing"]["failures"][0]["code"] == "CROP_UNVERIFIED"
-        assert visual["role"] == "material" and visual["imageRef"] is None and visual["bbox"] is None
+        assert visual["role"] == "answer" and visual["imageRef"] is None and visual["bbox"] is None
         assert state["result"]["questions"][0]["needsReview"]
         assert "media" in state["result"]["questions"][0]["missingFields"]
 
@@ -124,17 +124,12 @@ def test_score_evidence_does_not_override_unspecified_writing_language():
     assert question.answerPayload is None and question.sourceText is None
 
 
-def test_model_encoded_arrays_are_unwrapped_then_strictly_validated():
-    import json
-    row = {"stem": None, "answerMode": "short_answer", "answerPayload": {"text": "Only the supplied answer"}, "sourceText": "Answer: Only the supplied answer"}
-    result = document.PageParseResult.model_validate({"questions": json.dumps([row]), "groups": "[]", "figures": "[]"})
-    assert result.questions[0].stem is None
-    assert "stem" in result.questions[0].missingFields
-    assert result.questions[0].answerPayload is not None
+@pytest.mark.parametrize("field", ["questions", "groups", "figures"])
+def test_model_stringified_arrays_are_rejected(field):
     with pytest.raises(ValueError):
-        document.PageParseResult.model_validate({"questions": '[{"answerMode":"invented"}]'})
+        document.PageParseResult.model_validate({"questions": [], field: "[]"})
     with pytest.raises(ValueError):
-        document.PageParseResult.model_validate({"questions": '[{"stem":"truncated'})
+        document.PageParseResult.model_validate({"questions": [], field: '[{"truncated'})
 
 
 @pytest.mark.parametrize("code", ["AI_PROVIDER_UNAVAILABLE", "AI_PROVIDER_AUTH_ERROR"])
@@ -157,3 +152,24 @@ async def test_figure_provider_failure_preserves_retryable_unit_and_usage(monkey
     assert failure["code"] == code and failure["retryable"]
     assert failure["retriesRemaining"] == 2 and len(state["usage"]) == 1
     assert state["status"] == "PARTIAL"
+
+
+async def test_real_shared_figure_budget_preserves_provider_failure(monkeypatch):
+    import httpx2
+    from openai import APITimeoutError
+
+    from practiq_ai import llm
+
+    store, reference = source("page")
+    parsed = {"questions": [question("Read chart")], "figures": [{"description": "Chart", "bbox": [0, 0, 1, 1], "questionIndexes": [0]}]}
+    error = APITimeoutError(request=httpx2.Request("POST", "https://example.invalid"))
+    model = FakeModel(responses=[parsed, error, error, error])
+    monkeypatch.setattr(llm, "_retry_delay", lambda attempt: 0)
+    monkeypatch.setattr(document, "get_model", lambda: model)
+    monkeypatch.setattr(document, "get_object_store", lambda: store)
+    monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(text="", page_images=[make_image()])))
+    state = await local_graph().ainvoke({"document": reference})
+    failure = state["processing"]["failures"][0]
+    assert len(model.calls) == 4
+    assert failure["code"] == "AI_PROVIDER_UNAVAILABLE" and failure["retryable"]
+    assert len(state["usage"]) == 1

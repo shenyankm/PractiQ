@@ -241,14 +241,6 @@ class ChunkParseResult(BaseModel):
         if not isinstance(value, dict):
             return value
         value = deepcopy(value)
-        for field in ("questions", "groups", "figures"):
-            if isinstance(value.get(field), str):
-                try:
-                    decoded = json.loads(value[field])
-                except ValueError:
-                    continue
-                if isinstance(decoded, list):
-                    value[field] = decoded
         if not isinstance(value.get("questions"), list):
             return value
         for question in value["questions"]:
@@ -647,15 +639,9 @@ async def _vision(
                 if check.index >= len(parsed.figures):
                     continue
                 figure = parsed.figures[check.index]
-                evidence = re.sub(r"[^\w]", "", check.roleEvidence or "").casefold()
-                content = re.sub(r"[^\w]", "", figure.table_markdown() or figure.extractedText or "").casefold()
-                headers = [re.sub(r"[^\w]", "", cell).casefold() for cell in (figure.tableRows or [[]])[0]]
-                # The review may write √2 where extraction used \sqrt{2}; match
-                # the table headers instead of requiring identical formula spelling.
-                supports_material = bool(evidence and (evidence in content or len(headers) >= 2 and all(header and header in evidence for header in headers)))
                 if check.complete:
                     figure.bbox = check.bbox
-                if check.role == "answer" or not vision.is_answer_role(figure.role) or supports_material:
+                if check.role == "answer" or not vision.is_answer_role(figure.role):
                     figure.role = check.role
                 figure = vision.PageFigure.model_validate(figure.model_dump())  # Explicit answer headers remain protected.
                 parsed.figures[check.index] = figure
@@ -666,7 +652,7 @@ async def _vision(
                 for index in figure.questionIndexes:
                     for block in parsed.questions[index].contentBlocks:
                         if (block.partType == "table" and any(vision.table_content_key(text) == key for text in (block.markdownValue, block.textValue) if text)
-                                and (figure.role == "answer" or not vision.is_answer_role(block.role) or supports_material)):
+                                and (figure.role == "answer" or not vision.is_answer_role(block.role))):
                             block.role = figure.role
         for i, figure in enumerate(parsed.figures):
             for index in figure.questionIndexes:

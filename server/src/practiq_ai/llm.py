@@ -534,6 +534,9 @@ async def structured_call[ResultT: BaseModel](
                        if runtime and runtime.execution_info else attempt_call(attempt, None))
         if error := saved.get("error"):
             previous_failure = None
+            if error["code"] == "MODEL_BUDGET_EXCEEDED" and failure_code == "AI_PROVIDER_UNAVAILABLE":
+                decision("stop", attempt, failure_code)
+                return None, usage, failure_code
             if error["code"] in {"MODEL_BUDGET_EXCEEDED", "MODEL_INPUT_TOO_LARGE", "AI_PROVIDER_AUTH_ERROR", "AI_PROVIDER_ERROR"}:
                 decision("stop", attempt, error["code"])
                 return None, usage, error["code"]

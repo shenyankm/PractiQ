@@ -336,3 +336,8 @@ Desktop storage and ZIP exports preserve them without attaching them to unrelate
 questions, including when appended to an existing bank or reimported from ZIP.
 No database migration is required. Desktop validation rejects malformed
 `missingFields` before adding derived missing-content flags.
+
+The shared figure allowance is not increased: exhaustion after a transient
+provider failure preserves that failure's retryability. An existing answer role
+cannot be downgraded by the verifier. Structured arrays must be arrays on the
+wire; quoted JSON arrays follow the usual validation/correction path.

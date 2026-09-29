@@ -26,3 +26,20 @@ unchanged as evidence of their original runs.
 The bot's generic docstring percentage warning is not a repository quality gate;
 no bulk boilerplate docstrings were added. Real-model extraction accuracy and
 unresolved release attribution/fidelity remain separate acceptance limits.
+
+## Follow-up review and Windows packaging
+
+Figure verification keeps the existing four-call unit budget. If transient
+provider failures consume its remaining allowance, exhaustion preserves the
+underlying retryable provider error; no calls or retries are added. A regression
+uses the real shared allowance and three provider timeouts after page parsing.
+Existing answer roles cannot be downgraded by a second model, and stringified
+arrays are rejected through the normal structured-output correction path.
+
+Expired matching tasks no longer prevent a fresh import. Office receipt matches
+are refreshed against the service before reuse, with deleted tasks skipped.
+
+After the audio regression passed on Windows, packaging exposed checkout newline
+conversion in checksum-pinned license texts. Git attributes now preserve exact
+notice and multi-format fixture bytes. A test checks out representative LF text
+and CRLF CSV with `core.autocrlf=true` and verifies identical bytes.

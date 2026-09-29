@@ -507,6 +507,10 @@ fn ensure_idle(endpoint: &Endpoint) -> Result<()> {
     }
 }
 
+fn reusable_task(task: &Value) -> bool {
+    contract::text(task, "state") != "EXPIRED"
+}
+
 fn document_format(path: &std::path::Path) -> Result<(&'static str, &'static str)> {
     let extension = path
         .extension()
@@ -899,7 +903,7 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
                     }
                     let bytes = store::read_bounded(path, 25 * 1024 * 1024)?;
                     let hash = store::hash(&bytes);
-                    let previous = if office {
+                    let mut previous = if office {
                         ai_work::office_matches(&dir, &hash, office_mode)?
                     } else {
                         process.json(
@@ -911,6 +915,26 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
                             .cloned()
                             .unwrap_or_default()
                     };
+                    if office {
+                        let mut current = Vec::new();
+                        for receipt in previous {
+                            match process.json(
+                                Method::GET,
+                                &task_path(contract::text(&receipt, "threadId"))?,
+                                None,
+                            ) {
+                                Ok(task) => current.push(task),
+                                Err(error)
+                                    if matches!(
+                                        error.code.as_str(),
+                                        "TASK_NOT_FOUND" | "TASK_EXPIRED"
+                                    ) => {}
+                                Err(error) => return Err(error),
+                            }
+                        }
+                        previous = current;
+                    }
+                    previous.retain(reusable_task);
                     // Reuse matching content; the explicit Reparse action creates a new task.
                     if !previous.is_empty() {
                         for existing in &previous {
@@ -1182,6 +1206,16 @@ impl Endpoint {
 mod tests {
     use super::{document_format, StderrTail};
     use std::path::Path;
+
+    #[test]
+    fn expired_matches_require_fresh_submission() {
+        let mut tasks = vec![serde_json::json!({"threadId":"old", "state":"EXPIRED"})];
+        tasks.retain(super::reusable_task);
+        assert!(tasks.is_empty());
+        for state in ["PENDING", "RUNNING", "PAUSED", "COMPLETED", "FAILED"] {
+            assert!(super::reusable_task(&serde_json::json!({"state":state})));
+        }
+    }
 
     #[test]
     fn document_import_requires_selection_and_details() {
