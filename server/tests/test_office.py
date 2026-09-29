@@ -64,6 +64,7 @@ def test_export_validates_content_and_uses_private_profile(tmp_path, monkeypatch
     profile = office._profile(tmp_path)
     text = (profile / "user/registrymodifications.xcu").read_text()
     assert 'DisableMacrosExecution' in text and 'BlockUntrustedRefererLinks' in text
+    assert '<prop oor:name="DisablePythonRuntime" oor:op="fuse" oor:finalized="true"><value>true</value></prop>' in text
     assert 'Calc/Content/Update"><prop oor:name="Link" oor:op="fuse" oor:finalized="true"><value>1' in text
     assert 'Writer/Content/Update"><prop oor:name="Link" oor:op="fuse" oor:finalized="true"><value>0' in text
 
