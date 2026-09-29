@@ -22,7 +22,7 @@ from practiq_ai.contracts import (
 )
 from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.graphs import document
-from practiq_ai.graphs.chunking import split_into_chunks
+from practiq_ai.graphs.chunking import split_chunk_spans
 from scripts import evaluate as ev
 from tests.support import FakeObjectStore
 
@@ -76,7 +76,8 @@ def test_manifest_covers_formats_modes_and_every_fixture() -> None:
     assert {q["answerMode"] for case in cases for q in case["expectedQuestions"]} == ev.ANSWER_MODES
     assert {"chinese", "no-source-answer", "long-stem", "repeated-stem", "chunk-boundary", "no-questions", "corrupt-input"} <= {tag for case in cases for tag in case["tags"]}
     assert {Path("evals", case["path"]).resolve() for case in cases} == {path.resolve() for path in Path("evals/fixtures").rglob("*") if path.is_file()}
-    chunks = split_into_chunks(Path("evals/fixtures/text/text-multi-chunk.txt").read_text())
+    text = Path("evals/fixtures/text/text-multi-chunk.txt").read_text()
+    chunks = [text[span["start"]:span["end"]] for span in split_chunk_spans(text)]
     assert len(chunks) > 1
     assert sum("Which color is named in record two?" in chunk for chunk in chunks) == 2
     duplicate = next(case for case in cases if case["id"] == "text-repeated-stem")

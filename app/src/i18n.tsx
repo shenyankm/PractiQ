@@ -4,14 +4,14 @@ import { en } from "./locales/en";
 
 export type Locale = "zh-CN" | "en";
 export type LanguageRequest = { type: "language" } | { type: "save_language"; locale: Locale };
-export type MessageKey = keyof typeof en;
+type MessageKey = keyof typeof en;
 type Slots<S extends string> = S extends `${string}{${infer P}}${infer Rest}` ? P | Slots<Rest> : never;
-export type Value = string | number | boolean | null | undefined;
+type Value = string | number | boolean | null | undefined;
 type Args<K extends MessageKey> = [Slots<K>] extends [never] ? [] : [params: Record<Slots<K>, Value>];
 export function systemLocale(languages: readonly string[]): Locale {
   return languages[0]?.toLowerCase().split("-")[0] === "zh" ? "zh-CN" : "en";
 }
-export function isLocale(value: unknown): value is Locale { return value === "zh-CN" || value === "en"; }
+function isLocale(value: unknown): value is Locale { return value === "zh-CN" || value === "en"; }
 // One desktop window owns the locale. Async callbacks read the current language,
 // rather than retaining the language in which a request was started.
 let current: Locale = systemLocale(typeof navigator === "undefined" ? [] : navigator.languages);

@@ -45,7 +45,7 @@ export interface Group {
   contentBlocks?: Block[];
   questionIds: string[];
 }
-export interface ImageReference {
+interface ImageReference {
   sha256: string; objectKey: string; mediaType: string; sizeBytes: number;
 }
 export interface Visual {
@@ -176,7 +176,7 @@ type Query = {
 export interface Paper { question_ids: string[]; kind: SessionKind; minutes: number | null; scores: number[]; total_cents: number; digest: string }
 export interface PaperPreview { questionIds: string[]; digest: string; questions: QuestionRow[]; scores: number[]; count: number }
 export interface QuestionStats { count: number; types: Record<string, number>; feasibleCounts?: number[] }
-export interface PaperSelection { bank_ids: string[]; search: string; mode: string; filter: string; selection: string; count: number; quotas: Record<string,number>; question_ids: string[]; random: boolean; total_cents: number; budgets?: Record<string,number> }
+interface PaperSelection { bank_ids: string[]; search: string; mode: string; filter: string; selection: string; count: number; quotas: Record<string,number>; question_ids: string[]; random: boolean; total_cents: number; budgets?: Record<string,number> }
 export interface PlaybackState { used:number; position:number; active:boolean; limit:number; restricted:boolean }
 export type Request =
   | { type:"pick_audio" }

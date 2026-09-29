@@ -5,7 +5,7 @@ import type { Preview, Session } from "./api";
 
 export type TaskFilter = "active" | "paused" | "completed" | "cancelled" | "failed" | "review" | "interrupted" | "expired";
 
-export type Failure = {
+type Failure = {
   retryable: boolean;
   stage: string;
   index: number;

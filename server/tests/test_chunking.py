@@ -7,7 +7,6 @@ from practiq_ai.graphs.chunking import (
     ChunkSpan,
     merge_chunk_results,
     split_chunk_spans,
-    split_into_chunks,
 )
 
 
@@ -29,9 +28,9 @@ def question(stem: str) -> ParsedQuestion:
 def test_split_keeps_small_text_whole_and_cuts_on_question_boundaries() -> None:
     text = '\n'.join(f'{index}. Question {index} ' + 'x' * 90 for index in range(1, 101))
 
-    assert split_into_chunks(text) == [text]
+    assert split_chunk_spans(text) == [{"start": 0, "end": len(text), "overlapStart": 0, "overlapEnd": 0}]
 
-    chunks = split_into_chunks(text, target_chars=1_000)
+    chunks = [text[span["start"]:span["end"]] for span in split_chunk_spans(text, target_chars=1_000)]
     assert len(chunks) > 1
     # 除首块外每块都从题号边界开始
     assert all(chunk.lstrip()[0].isdigit() for chunk in chunks[1:])
@@ -96,7 +95,7 @@ def test_merge_caps_questions_at_schema_limit() -> None:
 def test_split_falls_back_to_bounded_chunks_without_question_numbers() -> None:
     text = "x" * 2_501
 
-    chunks = split_into_chunks(text, target_chars=1_000)
+    chunks = [text[span["start"]:span["end"]] for span in split_chunk_spans(text, target_chars=1_000)]
 
     assert [len(chunk) for chunk in chunks] == [1_000, 1_000, 501]
     assert "".join(chunks) == text
@@ -121,7 +120,8 @@ def test_merge_caps_groups_at_schema_limit() -> None:
 def test_spans_identify_overlap_even_with_repeated_text():
     text = '\n'.join(f'{i}. Repeated content' for i in range(10))
     spans = split_chunk_spans(text, target_chars=40)
-    assert [text[s['start']:s['end']] for s in spans] == split_into_chunks(text, 40)
+    assert len(spans) > 1
+    assert spans[0]['start'] == 0 and spans[-1]['end'] == len(text)
     for previous, current in pairwise(spans):
         assert current['overlapStart'] == current['start']
         assert current['overlapEnd'] == previous['end']
