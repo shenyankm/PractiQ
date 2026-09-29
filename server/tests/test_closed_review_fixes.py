@@ -76,5 +76,7 @@ async def test_rejected_model_records_are_terminal(monkeypatch, reservation_fail
         assert code == "MODEL_INPUT_TOO_LARGE"
     assert not model.calls
     assert len(records) == 1
-    assert records[0]["status"] in {"rejected", "failed"}
-    assert records[0]["error"] and records[0]["finishedAt"] and records[0]["durationMs"] >= 0
+    assert records[0]["status"] == ("failed" if reservation_failure else "rejected")
+    assert records[0]["error"] == ("MODEL_BUDGET_EXCEEDED" if reservation_failure else "MODEL_INPUT_TOO_LARGE")
+    assert records[0]["usageStatus"] == "unknown"
+    assert records[0]["finishedAt"] and records[0]["durationMs"] >= 0

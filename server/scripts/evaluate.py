@@ -872,7 +872,27 @@ def score_probes(path: Path) -> dict[str, Any]:
     root = ElementTree.parse(path).getroot()
     fingerprint = root.find(".//property[@name='practiqProbeFingerprint']")
     reasons = [] if fingerprint is not None and fingerprint.get("value") == probe_fingerprint() else ["PROBE_FINGERPRINT_MISMATCH"]
+    collection = root.find(".//property[@name='practiqProbeNodeids']")
+    expected: list[str] = []
+    if collection is None:
+        reasons.append("PROBE_COLLECTION_MISSING")
+    else:
+        try:
+            nodeids = json.loads(collection.get("value", ""))
+            probes = {(module, name) for modules in PROBE_TESTS.values() for module, names in modules.items() for name in names}
+            if not isinstance(nodeids, list) or not nodeids or not all(isinstance(nodeid, str) for nodeid in nodeids):
+                raise ValueError("Expected a nonempty nodeid list")
+            if len(nodeids) != len(set(nodeids)):
+                raise ValueError("Duplicate nodeids")
+            for nodeid in nodeids:
+                module, name = nodeid.split("::", 1)
+                if (Path(module).stem, name.split("[", 1)[0]) not in probes:
+                    raise ValueError("Unknown probe")
+            expected = nodeids
+        except (TypeError, ValueError):
+            reasons.append("PROBE_COLLECTION_INVALID")
     metrics, rows = {}, []
+    observed: Counter[str] = Counter()
     for metric, files in PROBE_TESTS.items():
         selected = []
         for module, names in files.items():
@@ -881,10 +901,16 @@ def score_probes(path: Path) -> dict[str, Any]:
                 if not matches:
                     reasons.append(f"PROBE_MISSING:{module}.{name}")
                 for item in matches:
+                    nodeid = f"{item.get('classname', '').replace('.', '/')}.py::{item.get('name', '')}"
+                    observed[nodeid] += 1
                     outcome = "FAILED" if item.find("failure") is not None else "BLOCKED" if item.find("error") is not None or item.find("skipped") is not None else "PASSED"
                     selected.append(outcome)
                     rows.append({"id": f"{module}.{item.get('name')}", "metric": metric, "status": outcome})
         metrics[metric] = percent(selected.count("PASSED"), len(selected))
+    if expected:
+        reasons.extend(f"PROBE_CASE_MISSING:{nodeid}" for nodeid in expected if not observed[nodeid])
+        reasons.extend(f"PROBE_CASE_DUPLICATE:{nodeid}" for nodeid, count in observed.items() if count > 1)
+        reasons.extend(f"PROBE_CASE_UNEXPECTED:{nodeid}" for nodeid in sorted(observed.keys() - set(expected)))
     blocked = bool(reasons) or any(row["status"] == "BLOCKED" for row in rows)
     return {"schemaVersion": 1, "kind": "probes", "runId": str(uuid4()),
             "generatedAt": datetime.now(UTC).isoformat(), "environment": "offline-fake-services",

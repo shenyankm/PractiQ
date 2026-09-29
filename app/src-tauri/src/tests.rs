@@ -525,7 +525,10 @@ fn legacy_and_malicious_backups_do_not_replace_data() {
     }
     s.save_language(crate::language::Locale::English).unwrap();
     let before = std::fs::read(s.db_path()).unwrap();
-    assert!(s.restore(&archive).is_err());
+    assert_eq!(
+        s.restore(&archive).unwrap_err().code,
+        "LOCAL_BACKUP_VERSION_UNSUPPORTED"
+    );
     assert_eq!(before, std::fs::read(s.db_path()).unwrap());
     assert_eq!(
         s.language().unwrap(),
@@ -536,13 +539,29 @@ fn legacy_and_malicious_backups_do_not_replace_data() {
         let mut zip = ZipWriter::new(std::fs::File::create(&malicious).unwrap());
         zip.start_file("../practiq.sqlite", SimpleFileOptions::default())
             .unwrap();
-        zip.write_all(b"escape").unwrap();
+        zip.write_all(&bytes).unwrap();
         zip.start_file("manifest.json", SimpleFileOptions::default())
             .unwrap();
-        zip.write_all(b"{}").unwrap();
+        zip.write_all(
+            json!({
+                "format":"practiq-backup", "version":4, "schemaVersion":11,
+                "database": {
+                    "file":"practiq.sqlite", "sha256":crate::store::hash(&bytes),
+                    "sizeBytes":bytes.len()
+                },
+                "assets":[]
+            })
+            .to_string()
+            .as_bytes(),
+        )
+        .unwrap();
         zip.finish().unwrap();
     }
-    assert!(s.restore(&malicious).is_err());
+    assert_eq!(
+        s.restore(&malicious).unwrap_err().code,
+        "LOCAL_BACKUP_UNSAFE_PATH"
+    );
+    assert_eq!(before, std::fs::read(s.db_path()).unwrap());
     assert_eq!(s.banks().unwrap()[0]["id"], bank);
 }
 

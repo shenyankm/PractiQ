@@ -56,10 +56,9 @@ def test_missing_model_fails_before_read_or_render(monkeypatch, kind):
     assert error.value.code == "MODEL_NOT_CONFIGURED"
 
 
-@pytest.mark.parametrize("kind", ["pdf"])
 @pytest.mark.parametrize("failed", [set(), {1}, {0, 1, 2}])
-def test_page_order_gaps_and_crops(monkeypatch, kind, failed):
-    store, reference = paged_source(kind)
+async def test_page_order_gaps_and_crops(monkeypatch, failed):
+    store, reference = paged_source("pdf")
     model = FakeModel(responses=[{"questions": [question("Across pages")]}])
     monkeypatch.setattr(document, "get_object_store", lambda: store)
     monkeypatch.setattr(document, "get_model", lambda *args: model)
@@ -69,26 +68,35 @@ def test_page_order_gaps_and_crops(monkeypatch, kind, failed):
         AsyncMock(side_effect=lambda *_: ExtractedDocument(text="", page_images=[make_image()] * 3)),
     )
 
+    second_finished = asyncio.Event()
+    completed = []
+
     async def page_call(_model, messages, schema, call_kind, *, runtime=None):
         prompt = messages[-1].content
         index = next(i for i in range(3) if f"PRIMARY page {i + 1}" in prompt)
         assert schema is document.PageParseResult and call_kind == "vision_parse"
         images = [message for message in messages if isinstance(message.content, list)]
         assert len(images) == (3 if index == 1 else 2)
-        await asyncio.sleep((2 - index) * 0.01)
+        if index == 0:
+            await asyncio.wait_for(second_finished.wait(), 5)
+        completed.append(index)
+        if index == 1:
+            second_finished.set()
         if index in failed:
             return None, [], "OUTPUT_INVALID"
         return schema.model_validate({"questions": [question(f"Page {index + 1}")],
             "figures": [{"kind": "image", "description": "Figure", "questionIndexes": [0], "bbox": [0.1, 0.1, 0.8, 0.8]}]}), [], None
 
     monkeypatch.setattr(document, "structured_call", page_call)
-    result = asyncio.run(local_graph().ainvoke({"document": reference}))
+    result = await local_graph().ainvoke({"document": reference})
+    assert completed.index(1) < completed.index(0)
     assert not model.calls  # No transcription or subsequent text-model call.
     assert [q["stem"] for q in result["result"]["questions"]] == [f"Page {i + 1}" for i in range(3) if i not in failed]
     assert result["status"] == ("PARTIAL" if failed else "SUCCEEDED")
     assert len(result["processing"]["failures"]) == len(failed)
 
     cropped = [v for v in result["result"]["visualElements"] if v["imageRef"]]
+    assert len(cropped) == 3 - len(failed)
     for index, figure in enumerate(cropped):
         assert figure["questionIds"] == [f"q{index}"]
         assert figure["page"] not in failed

@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 import { createRequire } from "node:module";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { Content } from "./Content";
-import type { Snapshot } from "./api";
+import { api, type Snapshot } from "./api";
 import fixture from "../fixtures/rich-content/expected.json";
-vi.mock("./api", () => ({api: vi.fn().mockRejectedValue(new Error("missing asset"))}));
-afterEach(cleanup);
+vi.mock("./api", () => ({api: vi.fn()}));
+beforeEach(() => { vi.mocked(api).mockReset().mockRejectedValue(new Error("missing asset")); });
+afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 it("renders matrices, aligned integrals, cases and every table cell without losing mixed content", async () => {
   const snapshot = {question: fixture.questions[0], groups: [], sources: [], warnings: [], missingAssets: false,
     visuals: [{...fixture.visualElements[0], extractedText: fixture.questions[0].contentBlocks.at(-1)?.markdownValue, id: "v", questionIds: ["q"]}]} as unknown as Snapshot;
@@ -31,11 +32,9 @@ it("keeps KaTeX CSS and rehype renderer on the same version", () => {
 });
 
 it("opens the full source lazily, even when the crop is missing, and hides it during exams", async () => {
-  const { api } = await import("./api");
   const user = (await import("@testing-library/user-event")).default.setup();
-  vi.mocked(api).mockClear();
-  URL.createObjectURL = vi.fn(() => "blob:full-page");
-  URL.revokeObjectURL = vi.fn();
+  vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:full-page");
+  vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
   vi.mocked(api).mockResolvedValue(new ArrayBuffer(5));
   const snapshot = {question: fixture.questions[0], groups: [], sources: [], warnings: [], missingAssets: false,
     visuals: [{...fixture.visualElements[0], imageRef: null, sourceRef: {...fixture.visualElements[0].imageRef, sha256: "full-page"}, id: "v", questionIds: ["q"]}]} as unknown as Snapshot;
@@ -51,7 +50,6 @@ it("opens the full source lazily, even when the crop is missing, and hides it du
 });
 
 it("fetches shared image bytes only when figures approach the viewport", async () => {
-  const { api } = await import("./api");
   const observers: IntersectionObserverCallback[] = [];
   vi.stubGlobal("IntersectionObserver", class {
     constructor(callback: IntersectionObserverCallback) { observers.push(callback); }
@@ -59,10 +57,9 @@ it("fetches shared image bytes only when figures approach the viewport", async (
     disconnect() {}
   });
   try {
-    vi.mocked(api).mockClear();
     vi.mocked(api).mockResolvedValue(new ArrayBuffer(4));
-    URL.createObjectURL = vi.fn(() => "blob:visible");
-    URL.revokeObjectURL = vi.fn();
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:visible");
+    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
     const visual = {...fixture.visualElements[0],sourceRef:null,questionIds:["q"]};
     const snapshot = {question:fixture.questions[0],groups:[],sources:[],warnings:[],missingAssets:false,
       visuals:[{...visual,id:"one"},{...visual,id:"two"}]} as unknown as Snapshot;

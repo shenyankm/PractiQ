@@ -1076,7 +1076,10 @@ mod tests {
                 let mut length = 0;
                 loop {
                     let mut line = String::new();
-                    reader.read_line(&mut line).unwrap();
+                    assert!(
+                        reader.read_line(&mut line).unwrap() > 0,
+                        "incomplete HTTP headers"
+                    );
                     if line == "\r\n" {
                         break;
                     }

@@ -457,8 +457,7 @@ mod tests {
         .validate()
         .unwrap();
         assert_eq!(config.base_url.as_deref(), Some("http://127.0.0.1:8317/v1"));
-        // No API key means this check can use an offline mock store and never touches user secrets.
-        keyring::set_default_credential_builder(keyring::mock::default_credential_builder());
+        // No API key means saving these settings never touches user secrets.
         s.save_settings("practiq-test", config, None).unwrap();
         assert_eq!(
             s.connection_settings().unwrap().model_id.as_deref(),

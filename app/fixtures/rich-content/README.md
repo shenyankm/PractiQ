@@ -44,19 +44,23 @@ check verifies version equality and actual fraction font scaling in the browser.
 - `make verify AI_PYTHON=/path/to/python3.14`: service checks including PDF pixels,
   coordinate mapping, failed-page originals, question-index remapping, irregular
   tables, and rejection of deliberately corrupted fidelity examples.
-- From `app`, start `npm run dev`; then
-  `node scripts/check-rich-content.mjs /path/to/playwright/index.mjs` uses installed
-  Chrome to check 960/1280px layout, fraction sizing, image decoding, zoom and focus.
-  It saves a screenshot under `app/reports/rich-content/`.
+- From `app`, install Chromium with `npx playwright install chromium --only-shell`,
+  then run `npm run test:rich-content`. Playwright Test starts its own loopback Vite
+  servers and checks 960/1280px layout, fraction sizing, image decoding, zoom and
+  focus. It saves a screenshot under `app/test-results/browser/`, with a trace and
+  additional screenshot on failure. `npm run test:browser` includes this check.
 - Explicit live calls (read `.env`, use temporary isolated local storage):
   `python3.14 app/scripts/check-rich-recognition.py`
   and `python3.14 app/scripts/check-rich-recognition.py --merged`.
   Normal CI never calls real models. `--check-report` rechecks the saved simple
-  result offline. The live script retains outputs/resources and exits nonzero on
+  result offline only when the source PDF and the three recorded parser/contract
+  file hashes match. It rejects `--merged`; use the explicit merged live probe for
+  that fixture. The live script retains outputs/resources and exits nonzero on
   a failed gate. The merged gate accepts safe PARTIAL/review outcomes, not a claim
   that every page was structurally recognized.
-- Rebuilding the simple source intentionally: append `--generate-pdf` to the
-  browser check, inspect the PDF and re-review its region hash/bounds.
+- Rebuilding the simple source intentionally: from `app`, run
+  `PRACTIQ_GENERATE_RICH_PDF=1 npm run test:rich-content`, inspect the PDF and
+  re-review its region hash/bounds. Normal checks leave the source PDF unchanged.
 
 ## Acceptance on 2026-09-20
 

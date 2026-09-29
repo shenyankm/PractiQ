@@ -1,5 +1,5 @@
 import asyncio
-import time
+import threading
 from pathlib import Path
 
 import pytest
@@ -88,12 +88,14 @@ async def test_atomic_failure_keeps_old_file_and_cleans_temporary(tmp_path, monk
 
 async def test_storage_timeout(tmp_path, monkeypatch):
     store = object_store(tmp_path, storage_timeout_seconds=0.01)
-    monkeypatch.setattr(store, '_size', lambda *_: time.sleep(0.05))
+    release = threading.Event()
+    monkeypatch.setattr(store, '_size', lambda *_: release.wait(5))
     try:
         with pytest.raises(DocumentProcessingError) as error:
             await store.prepare_document(upload())
         assert error.value.code == 'OBJECT_STORE_UNAVAILABLE'
     finally:
+        release.set()
         await asyncio.to_thread(store._executor.shutdown)
 
 

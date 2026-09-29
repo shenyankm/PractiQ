@@ -17,6 +17,8 @@ vi.mock("./api", async () => {
 });
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
   vi.clearAllMocks();
 });
 const questions = fixture.questions as unknown as Question[];
@@ -59,12 +61,16 @@ describe("answer controls", () => {
     expect(screen.getByRole("textbox", { name: "自由作答" })).toBeTruthy();
   });
   it("sorts with accessible buttons and explicit initial-order confirmation", async () => {
+    const user = userEvent.setup();
     const changed = vi.fn();
     render(
       <AnswerInput question={questions[5]} value={null} onChange={changed} />,
     );
-    await userEvent.click(screen.getByRole("button", { name: "第 2 项上移" }));
-    expect(changed).toHaveBeenCalledWith({ order: [1, 0, 2] });
+    expect(changed).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "确认当前顺序" }));
+    expect(changed).toHaveBeenCalledWith({ order: [0, 1, 2] });
+    await user.click(screen.getByRole("button", { name: "第 2 项上移" }));
+    expect(changed).toHaveBeenLastCalledWith({ order: [1, 0, 2] });
   });
 });
 it("flushes the latest draft before moving to the next question", async () => {
@@ -307,8 +313,8 @@ it("moves focus into finish confirmation and restores it when cancelling without
 
 it("opens the verified image in a keyboard-dismissable detail dialog", async () => {
   const {Content} = await import("./Content");
-  URL.createObjectURL = vi.fn(() => "blob:image");
-  URL.revokeObjectURL = vi.fn();
+  vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:image");
+  vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
   vi.mocked(api).mockResolvedValue(new ArrayBuffer(5));
   render(<Content snapshot={{question:questions[4],groups:[],sources:[],warnings:[],missingAssets:false,visuals:[{id:"v",kind:"image",description:"题目配图",questionIds:["q"],imageRef:{sha256:"digest",objectKey:"image",mediaType:"image/png",sizeBytes:5}}]}}/>);
   await userEvent.click(await screen.findByRole("button",{name:"放大查看图片"}));

@@ -699,34 +699,85 @@ def test_failed_validation_is_distinct_from_returned_response(tmp_path, monkeypa
     assert report["stageLatency"]["chunk"]["count"] == 1
 
 
-def test_probe_reports_block_missing_skipped_or_stale_evidence(tmp_path):
+@pytest.mark.parametrize("scenario,status,reason", [
+    ("passed", "PASSED", None),
+    ("failure", "FAILED", None),
+    ("error", "BLOCKED", None),
+    ("skipped", "BLOCKED", None),
+    ("missing", "BLOCKED", "PROBE_MISSING:"),
+    ("stale", "BLOCKED", "PROBE_FINGERPRINT_MISMATCH"),
+    ("partial_param", "BLOCKED", "PROBE_CASE_MISSING:"),
+    ("missing_collection", "BLOCKED", "PROBE_COLLECTION_MISSING"),
+    ("malformed_collection", "BLOCKED", "PROBE_COLLECTION_INVALID"),
+    ("duplicate_collection", "BLOCKED", "PROBE_COLLECTION_INVALID"),
+    ("unexpected_case", "BLOCKED", "PROBE_CASE_UNEXPECTED:"),
+    ("duplicate_case", "BLOCKED", "PROBE_CASE_DUPLICATE:"),
+    ("nodeid_selection", "BLOCKED", "PROBE_COLLECTION_INVALID"),
+])
+def test_probe_reports_require_complete_fresh_observations(tmp_path, scenario, status, reason):
     from xml.etree import ElementTree as ET
 
     root = ET.Element("testsuites")
     suite = ET.SubElement(root, "testsuite")
-    prop = ET.SubElement(ET.SubElement(suite, "properties"), "property", name="practiqProbeFingerprint", value=ev.probe_fingerprint())
+    properties = ET.SubElement(suite, "properties")
+    fingerprint = ET.SubElement(properties, "property", name="practiqProbeFingerprint", value=ev.probe_fingerprint())
+    nodeids = []
     for modules in ev.PROBE_TESTS.values():
         for module, names in modules.items():
             for name in names:
                 ET.SubElement(suite, "testcase", classname=f"tests.{module}", name=name)
+                nodeids.append(f"tests/{module}.py::{name}")
+    first = suite.findall("testcase")[0]
+    original_name = first.attrib["name"]
+    first.set("name", f"{original_name}[case::a]")
+    second = ET.SubElement(suite, "testcase", classname=first.attrib["classname"], name=f"{original_name}[case-b]")
+    nodeids[0] += "[case::a]"
+    nodeids.append(nodeids[0].replace("[case::a]", "[case-b]"))
+    collection = ET.SubElement(properties, "property", name="practiqProbeNodeids", value=json.dumps(nodeids))
+    if scenario in {"failure", "error", "skipped"}:
+        ET.SubElement(first, scenario)
+    elif scenario == "missing":
+        suite.remove(first)
+        suite.remove(second)
+    elif scenario == "stale":
+        fingerprint.set("value", "old")
+    elif scenario == "partial_param":
+        suite.remove(second)
+    elif scenario == "missing_collection":
+        properties.remove(collection)
+    elif scenario == "malformed_collection":
+        collection.set("value", "{")
+    elif scenario == "duplicate_collection":
+        collection.set("value", json.dumps([*nodeids, nodeids[0]]))
+    elif scenario == "unexpected_case":
+        ET.SubElement(suite, "testcase", classname=first.attrib["classname"], name=f"{original_name}[extra]")
+    elif scenario == "duplicate_case":
+        ET.SubElement(suite, "testcase", first.attrib)
+    elif scenario == "nodeid_selection":
+        from types import SimpleNamespace
+
+        from conftest import PROBE_NODEIDS, pytest_collection_modifyitems
+
+        config = cast(pytest.Config, SimpleNamespace(args=["tests"], stash={}))
+        items = [cast(pytest.Item, SimpleNamespace(
+            nodeid=nodeid, path=Path(nodeid.split("::", 1)[0]), name=nodeid.split("::", 1)[1],
+        )) for nodeid in nodeids]
+        pytest_collection_modifyitems(config, items)
+        assert config.stash[PROBE_NODEIDS] == sorted(nodeids)
+        config.args = nodeids
+        pytest_collection_modifyitems(config, items)
+        assert config.stash[PROBE_NODEIDS] == []
+        collection.set("value", json.dumps(config.stash[PROBE_NODEIDS]))
     path = tmp_path / "probes.xml"
-    def save():
-        ET.ElementTree(root).write(path)
-    save()
-    assert ev.score_probes(path)["status"] == "PASSED"
-    assert ev.main(["--probes", str(path), "--output", str(tmp_path / "probes.json")]) == 0
-    testcase = suite.findall("testcase")[0]
-    failure = ET.SubElement(testcase, "failure")
-    save()
-    assert ev.score_probes(path)["status"] == "FAILED"
-    testcase.remove(failure)
-    ET.SubElement(testcase, "skipped")
-    save()
-    assert ev.score_probes(path)["status"] == "BLOCKED"
-    suite.remove(testcase)
-    prop.set("value", "old")
-    save()
-    assert "PROBE_FINGERPRINT_MISMATCH" in ev.score_probes(path)["gateReasons"]
+    ET.ElementTree(root).write(path)
+    report = ev.score_probes(path)
+    assert report["status"] == status
+    if reason:
+        assert any(value.startswith(reason) for value in report["gateReasons"])
+    else:
+        assert report["gateReasons"] == []
+    if scenario == "passed":
+        assert ev.main(["--probes", str(path), "--output", str(tmp_path / "probes.json")]) == 0
 
 
 def test_sensitive_strings_and_old_scorers_cannot_be_published_or_compared():

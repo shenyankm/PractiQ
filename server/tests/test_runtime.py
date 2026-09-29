@@ -80,18 +80,21 @@ async def test_dispatch_recovers_committed_work_when_request_is_cancelled_before
 async def test_idle_dispatch_is_event_driven_and_read_connection_is_transaction_isolated(monkeypatch):
     service, reference, _ = await setup_api(monkeypatch, [parsed()])
     db = service.db
-    entered = asyncio.Event()
+    waiting = asyncio.Event()
     dispatches = []
     original = db.rows
     async def observed(query, params=()):
         if query.startswith('SELECT * FROM document_runs WHERE') and query.endswith('ORDER BY created_at'):
             dispatches.append(1)
-            entered.set()
         return await original(query, params)
     monkeypatch.setattr(db, 'rows', observed)
+    wait = service.wake.wait
+    async def observe_wait():
+        waiting.set()
+        return await wait()
+    monkeypatch.setattr(service.wake, 'wait', observe_wait)
     service.wake.set()
-    await asyncio.wait_for(entered.wait(), 2)
-    await asyncio.sleep(.35)
+    await asyncio.wait_for(waiting.wait(), 2)
     assert len(dispatches) == 1
     reader = db.reader
     assert reader is not None
@@ -340,6 +343,16 @@ async def test_control_waiters_do_not_starve_scheduler_connections(monkeypatch):
     fatal = []
     service.fatal = fatal.append
     entered, release = asyncio.Event(), asyncio.Event()
+    queued = asyncio.Event()
+    arrivals = 0
+    acquire = service.db.control_lock.acquire
+    async def observe_acquire():
+        nonlocal arrivals
+        arrivals += 1
+        if arrivals == len(requests):
+            queued.set()
+        return await acquire()
+    monkeypatch.setattr(service.db.control_lock, 'acquire', observe_acquire)
     original = task_api._read_task
     async def delayed(*args):
         entered.set()
@@ -349,9 +362,8 @@ async def test_control_waiters_do_not_starve_scheduler_connections(monkeypatch):
     requests = [asyncio.create_task(task_api.control_task(created['threadId'],
                 DocumentTaskControl(requestId=uuid4(), action='pause', runId=created['runId']))) for _ in range(24)]
     try:
-        await asyncio.wait_for(entered.wait(), 2)
-        await asyncio.sleep(0.1)
-        assert await asyncio.wait_for(service.db.rows('SELECT 1'), 1)
+        await asyncio.wait_for(asyncio.gather(entered.wait(), queued.wait()), 2)
+        assert await asyncio.wait_for(service.db.rows('SELECT 1 AS n'), 1) == [{'n': 1}]
         assert await service.ready() and not fatal
     finally:
         release.set()

@@ -48,15 +48,31 @@ async def test_native_extraction_roundtrip(kind):
         assert '测试' in result.text
 
 
-async def test_native_extraction_timeout_and_cancellation_recover():
+async def test_native_extraction_timeout_and_cancellation_recover(monkeypatch):
     with pytest.raises(DocumentProcessingError) as error:
         await isolated.extract('text', b'Question', timeout=0)
     assert error.value.code == 'DOCUMENT_PREPARE_TIMEOUT'
+    create_subprocess = asyncio.create_subprocess_exec
+    spawned = asyncio.Event()
+    processes = []
+
+    async def start(*args, **kwargs):
+        process = await create_subprocess(*args, **kwargs)
+        processes.append(process)
+        spawned.set()
+        return process
+
+    monkeypatch.setattr(isolated.asyncio, 'create_subprocess_exec', start)
     task = asyncio.create_task(isolated.extract('text', b'Question'))
-    await asyncio.sleep(0.01)
-    task.cancel()
-    with pytest.raises(asyncio.CancelledError):
-        await task
+    try:
+        await asyncio.wait_for(spawned.wait(), 30)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        assert processes[0].returncode is not None
+    finally:
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
     assert (await isolated.extract('text', b'Recovered')).text == 'Recovered'
 
 

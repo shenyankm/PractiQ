@@ -10,9 +10,11 @@
     "test:coverage": "vitest run --coverage",
     "tauri": "tauri",
     "desktop": "tauri dev",
+    "check:ui": "tsc -b && npm run lint && npm run test:coverage",
     "check": "tsc -b && npm run lint && vitest run && cargo fmt --manifest-path src-tauri/Cargo.toml --check && cargo test --manifest-path src-tauri/Cargo.toml && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings",
-    "test:browser": "node scripts/check-i18n.mjs",
-    "test:preview": "node scripts/check-preview.mjs"
+    "test:browser": "playwright test",
+    "test:preview": "playwright test --project preview",
+    "test:rich-content": "playwright test --project rich-content"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.11.1",
