@@ -740,5 +740,13 @@ export const en = {
   "还有 {0} 题未自评。结束后仍可在练习记录中核对并补充自评。": "You have {0} questions left to self-assess. After finishing, you can review and self-assess them in History.",
   "去核对": "Review now",
   "提交草稿并结束（保留未判定）": "Submit drafts and finish (keep ungraded answers)",
-  "草稿记为跳过并结束（保留未判定）": "Skip drafts and finish (keep ungraded answers)"
+  "草稿记为跳过并结束（保留未判定）": "Skip drafts and finish (keep ungraded answers)",
+  "听力资源网址": "Listening resource URL",
+  "从网址获取音频": "Fetch audio from URL",
+  "识别二维码图片": "Read QR image",
+  "识别题目图片中的二维码": "Read QR codes in question images",
+  "识别图片 {0}": "Read image {0}",
+  "支持音频直链或含公开音频链接的网页。二维码先识别网址，点击获取后才联网；下载后可离线播放。": "Use a direct audio URL or a page with public audio links. QR recognition only reads the URL; fetching connects to the site. Downloaded audio plays offline.",
+  "正在处理听力资源…": "Processing listening resource\u2026",
+  "请选择资源网址，再点击获取音频。": "Choose a resource URL, then fetch the audio.",
 } as const;

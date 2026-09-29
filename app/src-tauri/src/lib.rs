@@ -2,6 +2,7 @@ mod ai;
 mod ai_work;
 mod assets;
 mod audio;
+mod audio_import;
 mod backup;
 mod bank_zip;
 mod contract;
@@ -36,6 +37,13 @@ enum Request {
     PickImport,
     AddExampleBank,
     PickAudio,
+    PickAudioQr,
+    DecodeAudioQr {
+        hash: String,
+    },
+    ImportAudioUrl {
+        url: String,
+    },
     ReleaseAudio {
         hash: String,
     },
@@ -245,6 +253,7 @@ async fn request(
         // Native file dialogs select the only external paths accessible to business commands.
         let selected=match &request {
             Request::PickAudio=>app.dialog().file().add_filter(locale.text("听力音频","Listening audio"),&["mp3","m4a","aac","wav"]).blocking_pick_file(),
+            Request::PickAudioQr=>app.dialog().file().add_filter(locale.text("二维码图片","QR image"),&["png","jpg","jpeg"]).blocking_pick_file(),
             Request::PickImport=>app.dialog().file().add_filter(locale.text("PractiQ 题库 ZIP", "PractiQ bank ZIP"),&["zip"]).blocking_pick_file(),
             Request::ExportBank{bank_id}=>{
                 let title = { let store=shared.lock().map_err(|_|language::error("LOCAL_DATABASE_UNAVAILABLE",json!({})))?;
@@ -256,7 +265,26 @@ async fn request(
             _=>None,
         };
         let selected=selected.map(|p|p.into_path().map_err(|e|e.to_string())).transpose()?;
-        if matches!(&request,Request::PickImport|Request::PickAudio|Request::ExportBank{..}|Request::Backup|Request::Restore)&&selected.is_none(){return Ok(Value::Null);}
+        if matches!(&request,Request::PickImport|Request::PickAudio|Request::PickAudioQr|Request::ExportBank{..}|Request::Backup|Request::Restore)&&selected.is_none(){return Ok(Value::Null);}
+        if let Request::ImportAudioUrl { ref url } = request {
+            return match audio_import::download(url)? {
+                audio_import::Download::Links(links) => Ok(json!({"links":links,"audio":null})),
+                audio_import::Download::Audio(bytes) => {
+                    let mut store = shared.lock().map_err(|_|language::error("LOCAL_DATABASE_UNAVAILABLE",json!({})))?;
+                    let audio = store.stage_audio_bytes(bytes).map_err(|_|language::error("LOCAL_AUDIO_INVALID",json!({})))?;
+                    Ok(json!({"links":[],"audio":audio}))
+                }
+            };
+        }
+        if matches!(&request, Request::PickAudioQr | Request::DecodeAudioQr { .. }) {
+            let bytes = if let Request::DecodeAudioQr { ref hash } = request {
+                shared.lock().map_err(|_|language::error("LOCAL_DATABASE_UNAVAILABLE",json!({})))?
+                    .asset_bytes(hash)?.ok_or(language::error("LOCAL_AUDIO_QR_INVALID",json!({})))?.1
+            } else {
+                store::read_bounded(&selected.ok_or("No image selected")?, assets::LIMIT)?
+            };
+            return Ok(json!(audio_import::qr_links(&bytes)?));
+        }
         if matches!(&request, Request::Settings) {
             return settings::settings(&shared);
         }
@@ -274,6 +302,7 @@ async fn request(
         let mut store=shared.lock().map_err(|_|language::error("LOCAL_DATABASE_RESTART", json!({})))?;
         store.locale = locale;
         match request {
+            Request::ImportAudioUrl { .. } | Request::PickAudioQr | Request::DecodeAudioQr { .. } => unreachable!(),
             Request::PickAudio=>store.stage_audio(&selected.ok_or("No audio selected")?),
             Request::ReleaseAudio{hash}=>{store.staged_audio.remove(&hash);Ok(Value::Null)},
             Request::ListeningPlayback{id,question_id,action,position}=>store.listening_playback(&id,&question_id,action,position),

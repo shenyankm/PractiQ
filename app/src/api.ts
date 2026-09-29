@@ -178,8 +178,13 @@ export interface PaperPreview { questionIds: string[]; digest: string; questions
 export interface QuestionStats { count: number; types: Record<string, number>; feasibleCounts?: number[] }
 interface PaperSelection { bank_ids: string[]; search: string; mode: string; filter: string; selection: string; count: number; quotas: Record<string,number>; question_ids: string[]; random: boolean; total_cents: number; budgets?: Record<string,number> }
 export interface PlaybackState { used:number; position:number; active:boolean; limit:number; restricted:boolean }
+export interface AudioLink { url: string; label: string }
+export interface StagedAudio { reference: NonNullable<Question["audioRef"]>; duration: number }
 export type Request =
   | { type:"pick_audio" }
+  | { type:"pick_audio_qr" }
+  | { type:"decode_audio_qr"; hash:string }
+  | { type:"import_audio_url"; url:string }
   | { type:"release_audio"; hash:string }
   | { type:"listening_playback"; id:string; question_id:string; action:"state"|"start"|"progress"|"pause"|"end"; position?:number }
   | { type: "banks_page"; limit: number; offset: number }
@@ -237,7 +242,10 @@ export type Request =
   | { type: "asset"; hash: string };
 type ResponseMap = {
   asset: ArrayBuffer;
-  pick_audio: {reference:NonNullable<Question["audioRef"]>;duration:number}|null;
+  pick_audio: StagedAudio|null;
+  pick_audio_qr: AudioLink[]|null;
+  decode_audio_qr: AudioLink[];
+  import_audio_url: {audio:StagedAudio|null;links:AudioLink[]};
   release_audio: null;
   listening_playback: PlaybackState;
   backup: { path: string } | null;

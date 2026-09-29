@@ -40,4 +40,4 @@ Regenerate development samples with `python3 app/scripts/package-fixtures.py`. T
 
 Listening parent questions store audio references in `audioRef`, supporting audio/mpeg, audio/mp4, audio/aac, and audio/wav. Images and audio share the package and expanded-size budgets. The current ZIP version is 2, backup container version is 4 with schemaVersion 11, and the desktop directory is v4. Older versions are explicitly rejected; old directories remain intact. Reparse source documents or generate new-format banks.
 
-Initial listening-audio validation requires macOS `afinfo`. Windows and Linux currently do not support importing, exporting, or restoring banks with audio.
+Listening audio is validated with Symphonia on all desktop platforms. URL/QR imports are downloaded and saved as ordinary local audio before export; recipients need no access to the original site. Playback depends on the platform WebView codecs; Linux needs the corresponding GStreamer audio plugins.

@@ -148,6 +148,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
     id: string | null;
     question: Question;
     children?: Question[];
+    images?: {hash:string;label:string}[];
   } | null>(null);
   const [detail, setDetail] = useState<QuestionRow | null>(null);
   const [confirm, setConfirm] = useState<{
@@ -625,7 +626,12 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                           disabled={busy}
                           onClick={() => {
                             setBank(row.bankId);
-                            setEditor({ id: row.id, question: row.question, children: (row.children || []).map(c=>({...c.question, options:c.question.optionSourceId ? [] : c.question.options})) });
+                            const visuals = [row, ...(row.children || [])].flatMap(r=>r.visuals);
+                            const images = Array.from(new Map(visuals.flatMap(v=>{
+                              const ref = v.imageRef || v.sourceRef;
+                              return ref ? [[ref.sha256,{hash:ref.sha256,label:v.label || v.description || ""}] as const] : [];
+                            })).values());
+                            setEditor({ id: row.id, question: row.question, images, children: (row.children || []).map(c=>({...c.question, options:c.question.optionSourceId ? [] : c.question.options})) });
                           }}
                         >
                           <Pencil />
@@ -899,6 +905,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
         <Suspense fallback={loadingView}><QuestionEditor
           initial={editor.question}
           initialChildren={editor.children}
+          images={editor.images}
           busy={busy}
           onClose={() => setEditor(null)}
           onSave={(q, children) =>

@@ -20,6 +20,7 @@ export { blankQuestion } from "./api";
 export function QuestionEditor({
   initial,
   initialChildren = [],
+  images = [],
   parent,
   onClose,
   onSave,
@@ -27,6 +28,7 @@ export function QuestionEditor({
 }: {
   initial: Question;
   initialChildren?: Question[];
+  images?: {hash:string;label:string}[];
   parent?: Question;
   onClose: () => void;
   onSave: (q: Question, children: Question[]) => void;
@@ -115,7 +117,7 @@ export function QuestionEditor({
               patch({questionKind:kind || null,sourceLanguage:null,targetLanguage:null,writingGenre:null,minWords:null,maxWords:null});
             }}><option value="">{t("通用题型")}</option>{Object.entries(questionKinds()).filter(([kind])=>!parent || !["reading","listening"].includes(kind)).map(([kind,label])=><option key={kind} value={kind}>{label}</option>)}</select>
           </label>}
-          <EnglishFields question={q} patch={patch}/>
+          <EnglishFields question={q} patch={patch} images={images}/>
           {q.answerMode === "choice" && (
             <NativeSelect
               aria-label={t("选择题类型")}

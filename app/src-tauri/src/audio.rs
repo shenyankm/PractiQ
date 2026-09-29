@@ -114,6 +114,9 @@ pub enum PlaybackAction {
 impl Store {
     pub fn stage_audio(&mut self, path: &Path) -> Result<Value> {
         let bytes = read_bounded(path, crate::assets::LIMIT)?;
+        self.stage_audio_bytes(bytes)
+    }
+    pub fn stage_audio_bytes(&mut self, bytes: Vec<u8>) -> Result<Value> {
         let (media, duration) = audio_info(&bytes)?;
         let digest = hash(&bytes);
         if !self.staged_audio.contains_key(&digest)

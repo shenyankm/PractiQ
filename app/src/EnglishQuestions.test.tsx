@@ -271,3 +271,73 @@ it("resumes practice progress after remount and still permits seeking",async()=>
   await userEvent.click(screen.getByRole("button",{name:"播放听力"}));
   expect(player.currentTime).toBe(0.5);expect(state.used).toBe(1);
 });
+
+it("decodes QR locally, requires an explicit fetch, and saves downloaded audio", async()=>{
+  audioMocks();
+  const user=userEvent.setup();
+  const save=vi.fn();
+  const url="https://example.com/listening.wav";
+  mockApi.mockImplementation(async r=>{
+    if(r.type==="pick_audio_qr")return [{url,label:""}] as never;
+    if(r.type==="import_audio_url")return {audio:{reference:question("listen").audioRef,duration:3},links:[]} as never;
+    if(r.type==="asset")return new ArrayBuffer(2) as never;
+    return null as never;
+  });
+  render(<QuestionEditor initial={{...question("listen"),audioRef:null,missingFields:["media"]}} busy={false} onClose={()=>{}} onSave={save}/>);
+  await user.click(screen.getByRole("button",{name:"识别二维码图片"}));
+  expect((screen.getByRole("textbox",{name:"听力资源网址"}) as HTMLInputElement).value).toBe(url);
+  expect(mockApi.mock.calls.some(([r])=>r.type==="import_audio_url")).toBe(false);
+  await user.click(screen.getByRole("button",{name:"从网址获取音频"}));
+  await screen.findByRole("button",{name:"移除音频"});
+  await user.click(screen.getByRole("button",{name:"保存题目"}));
+  expect(save).toHaveBeenCalledWith(expect.objectContaining({audioRef:question("listen").audioRef,missingFields:[]}),[]);
+});
+
+it("selects audio from a web page and decodes an existing question image",async()=>{
+  const user=userEvent.setup();
+  const url="https://example.com/page";
+  const audio="https://cdn.example.com/audio.mp3";
+  mockApi.mockImplementation(async r=>{
+    if(r.type==="import_audio_url")return {audio:null,links:[{url:audio,label:"Track 1"}]} as never;
+    if(r.type==="decode_audio_qr")return [{url,label:""}] as never;
+    return null as never;
+  });
+  render(<QuestionEditor initial={{...question("listen"),audioRef:null}} images={[{hash:"a".repeat(64),label:"二维码"}]} busy={false} onClose={()=>{}} onSave={()=>{}}/>);
+  await user.click(screen.getByText("识别题目图片中的二维码"));
+  await user.click(screen.getByRole("button",{name:"识别图片 1 · 二维码"}));
+  expect(mockApi).toHaveBeenCalledWith({type:"decode_audio_qr",hash:"a".repeat(64)});
+  await user.click(screen.getByRole("button",{name:"从网址获取音频"}));
+  await user.click(await screen.findByRole("button",{name:"Track 1 · "+audio}));
+  expect((screen.getByRole("textbox",{name:"听力资源网址"}) as HTMLInputElement).value).toBe(audio);
+  expect(mockApi.mock.calls.filter(([r])=>r.type==="import_audio_url")).toHaveLength(1);
+});
+
+it("releases a download that finishes after closing the editor",async()=>{
+  const user=userEvent.setup();
+  let finish!:(value:never)=>void;
+  mockApi.mockImplementation(async r=>{
+    if(r.type==="import_audio_url")return await new Promise(resolve=>{finish=resolve;}) as never;
+    return null as never;
+  });
+  const view=render(<QuestionEditor initial={{...question("listen"),audioRef:null}} busy={false} onClose={()=>{}} onSave={()=>{}}/>);
+  await user.type(screen.getByRole("textbox",{name:"听力资源网址"}),"https://example.com/audio");
+  await user.click(screen.getByRole("button",{name:"从网址获取音频"}));
+  view.unmount();
+  finish({audio:{reference:question("listen").audioRef,duration:3},links:[]} as never);
+  await waitFor(()=>expect(mockApi).toHaveBeenCalledWith({type:"release_audio",hash:question("listen").audioRef!.sha256}));
+});
+
+it("shows a resource error without removing existing audio",async()=>{
+  audioMocks();
+  const user=userEvent.setup();
+  mockApi.mockImplementation(async r=>{
+    if(r.type==="import_audio_url")throw {code:"LOCAL_AUDIO_NO_LINKS"};
+    if(r.type==="asset")return new ArrayBuffer(2) as never;
+    return null as never;
+  });
+  render(<QuestionEditor initial={question("listen")} busy={false} onClose={()=>{}} onSave={()=>{}}/>);
+  await user.type(screen.getByRole("textbox",{name:"听力资源网址"}),"https://example.com/login");
+  await user.click(screen.getByRole("button",{name:"从网址获取音频"}));
+  expect((await screen.findByRole("alert")).textContent).toContain("未找到公开音频链接");
+  expect(screen.getByRole("button",{name:"移除音频"})).toBeTruthy();
+});
