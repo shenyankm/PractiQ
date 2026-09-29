@@ -228,6 +228,14 @@ sourceText and mark missingFields=[material]; do not guess a parent.
 """
 
 
+def _rendered_strings(value: Any) -> list[str]:
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, dict):
+        value = list(value.values())
+    return [text for item in value for text in _rendered_strings(item)] if isinstance(value, list) else []
+
+
 class ChunkParseResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
     questions: list[ParsedQuestion] = Field(default_factory=list, max_length=1_000)
@@ -282,7 +290,7 @@ class ChunkParseResult(BaseModel):
                 raise ValueError("parentId must reference a composite question; standalone questions have parentId=null")
             if question.answerMode != "listening":
                 formulas = re.findall(r"(?<!\\)\${1,2}([^$]+?)\${1,2}", question.sourceText or "")
-                rendered = " ".join((question.stem or "", question.analysis or "", *[b.latexValue or b.textValue or b.markdownValue or "" for b in question.contentBlocks]))
+                rendered = " ".join(_rendered_strings(question.model_dump(include={"stem", "instructions", "analysis", "scoringRubric", "answerPayload", "options", "items", "passage", "contentBlocks", "transcript"})))
                 normalize = lambda text: re.sub(r"\s+|\\(?:quad|,)|[&]", "", text).replace(r"\geq", r"\ge").replace(r"\leq", r"\le")
                 for formula in formulas:
                     if any(marker in formula for marker in (r"\begin{", r"\int", r"\sum")) and normalize(formula) not in normalize(rendered):
@@ -1031,7 +1039,7 @@ async def _merge(state: DocumentState) -> dict[str, Any]:
         }),
     )
     missing_fields = []
-    if not questions or truncated or any(f.stage in {"vision_parse", "document_parse"} for f in failures):
+    if not questions or state.get("truncated") or merge_truncated or any(f.stage in {"vision_parse", "document_parse"} for f in failures):
         missing_fields.append("questions")
     if crop_failures or crop_truncated:
         missing_fields.append("media")

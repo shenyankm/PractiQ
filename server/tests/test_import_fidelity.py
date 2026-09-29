@@ -173,3 +173,21 @@ async def test_real_shared_figure_budget_preserves_provider_failure(monkeypatch)
     assert len(model.calls) == 4
     assert failure["code"] == "AI_PROVIDER_UNAVAILABLE" and failure["retryable"]
     assert len(state["usage"]) == 1
+
+
+@pytest.mark.parametrize("field", ["instructions", "options", "items", "passage", "answerPayload", "scoringRubric"])
+def test_preserved_formulas_in_rendered_fields_are_not_missing(field):
+    formula = r"\int_0^1 x^2\,dx"
+    row = {"stem": "Use the supplied expression", "sourceText": f"Given ${formula}$", "answerMode": "short_answer", "answerPayload": None}
+    if field == "options":
+        row.update(answerMode="choice", options=[{"label":"A", "content":formula}])
+    elif field == "items":
+        row.update(answerMode="ordering", items=[{"id":0, "content":formula}])
+    elif field == "passage":
+        row.update(answerMode="reading", passage=[{"partType":"formula", "latexValue":formula}])
+    elif field == "answerPayload":
+        row[field] = {"text": formula}
+    else:
+        row[field] = formula
+    result = document.ChunkParseResult.model_validate({"questions":[row]})
+    assert "material" not in result.questions[0].missingFields

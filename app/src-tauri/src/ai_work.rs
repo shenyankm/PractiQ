@@ -392,7 +392,8 @@ pub fn office_matches(dir: &Path, hash: &str, mode: crate::office::Mode) -> Resu
                 error.request_id = Some(op.id);
                 return Err(error);
             }
-            if let (OperationStatus::Accepted, Some(receipt)) = (op.status, op.receipt) {
+            if let (OperationStatus::Accepted, Some(mut receipt)) = (op.status, op.receipt) {
+                receipt["officeArtifact"] = json!(op.label);
                 matches.push(receipt);
             }
         }

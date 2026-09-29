@@ -47,8 +47,8 @@ def inventory(bundle: Path) -> dict:
         if not path or package.get('dev'):
             continue
         add('npm', path.split('node_modules/')[-1], package['version'], package.get('license'), package.get('resolved'), license_files(ROOT/'app'/path))
-    target = next(line.split(': ', 1)[1] for line in subprocess.check_output(['rustc', '-vV'], text=True).splitlines() if line.startswith('host: '))
-    metadata = json.loads(subprocess.check_output(['cargo', 'metadata', '--manifest-path', str(ROOT/'app/src-tauri/Cargo.toml'), '--locked', '--offline', '--format-version', '1', '--filter-platform', target], text=True))
+    target = next(line.split(': ', 1)[1] for line in subprocess.check_output(['rustc', '-vV'], text=True, encoding="utf-8").splitlines() if line.startswith('host: '))
+    metadata = json.loads(subprocess.check_output(['cargo', 'metadata', '--manifest-path', str(ROOT/'app/src-tauri/Cargo.toml'), '--locked', '--offline', '--format-version', '1', '--filter-platform', target], text=True, encoding="utf-8"))
     resolved = {node['id'] for node in metadata['resolve']['nodes']}
     for package in metadata['packages']:
         if package['id'] not in resolved or package['name'] == 'practiq-desktop':

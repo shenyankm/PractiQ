@@ -467,3 +467,19 @@ def test_table_comparison_preserves_cells_and_non_table_text():
     for different in [table.replace("left ", "left  "), table.replace("1 |", "2 |"), table.replace(r"\|", "|"), table + "\n| 2 | |"]:
         assert table_content_key(table) != table_content_key(different)
     assert table_content_key("Merged\nSECRET") != table_content_key("Merged SECRET")
+
+
+def test_crop_only_truncation_marks_media_not_questions(monkeypatch):
+    store, reference = paged_source("pdf")
+    figure = {"kind":"diagram", "description":"Figure", "bbox":[0,0,1,1], "questionIndexes":[0]}
+    model = FakeModel(responses=[{"questions":[question("Complete source question")], "figures":[figure,figure]}])
+    monkeypatch.setattr(document, "get_model", lambda: model)
+    monkeypatch.setattr(document, "get_object_store", lambda: store)
+    monkeypatch.setattr(document.vision, "MAX_CROPS", 1)
+    async def extracted(*args, **kwargs):
+        return ExtractedDocument(text="", page_images=[make_image()])
+    monkeypatch.setattr(document, "extract", extracted)
+    result = asyncio.run(local_graph().ainvoke({"document":reference}))
+    assert result["status"] == "PARTIAL" and result["processing"]["truncated"]
+    assert len(result["result"]["questions"]) == 1
+    assert result["result"]["missingFields"] == ["media"]

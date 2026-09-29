@@ -43,7 +43,10 @@ def test_license_gate_checks_metadata_target_graph_and_unresolved_terms(tmp_path
     crate.mkdir()
     (crate/'LICENSE').write_text('Synthetic Cargo terms', encoding='utf-8')
     packages = [{'id':name,'name':name,'version':'1','manifest_path':str(crate/'Cargo.toml')} for name in ['local','other-target']]
-    monkeypatch.setattr('subprocess.check_output', lambda cmd, **kw: 'host: synthetic-target\n' if cmd[0]=='rustc' else json.dumps({'packages':packages,'resolve':{'nodes':[{'id':'local'}]}}))
+    def command(cmd, **kw):
+        assert kw["encoding"] == "utf-8"
+        return 'host: synthetic-target\n' if cmd[0]=='rustc' else json.dumps({'packages':packages,'resolve':{'nodes':[{'id':'local'}]}}, ensure_ascii=False)
+    monkeypatch.setattr('subprocess.check_output', command)
     report = inventory(bundle)
     assert report['passed']
     assert [p['name'] for p in report['packages'] if p['ecosystem']=='cargo'] == ['local']

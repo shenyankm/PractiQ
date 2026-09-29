@@ -507,6 +507,28 @@ fn ensure_idle(endpoint: &Endpoint) -> Result<()> {
     }
 }
 
+fn complete_office_matches(
+    receipts: Vec<Value>,
+    mut refresh: impl FnMut(&str) -> AiResult<Value>,
+) -> AiResult<Vec<Value>> {
+    let mut artifacts = std::collections::HashMap::new();
+    for receipt in receipts {
+        let artifact = contract::text(&receipt, "officeArtifact").to_owned();
+        let current = artifacts.entry(artifact).or_insert(None);
+        match refresh(contract::text(&receipt, "threadId")) {
+            Ok(task) if reusable_task(&task) => *current = Some(task),
+            Ok(_) => {}
+            Err(error) if matches!(error.code.as_str(), "TASK_NOT_FOUND" | "TASK_EXPIRED") => {}
+            Err(error) => return Err(error),
+        }
+    }
+    // Historical expired receipts are harmless if each sheet has a live replacement.
+    Ok(artifacts
+        .into_values()
+        .collect::<Option<Vec<_>>>()
+        .unwrap_or_default())
+}
+
 fn reusable_task(task: &Value) -> bool {
     contract::text(task, "state") != "EXPIRED"
 }
@@ -916,23 +938,9 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
                             .unwrap_or_default()
                     };
                     if office {
-                        let mut current = Vec::new();
-                        for receipt in previous {
-                            match process.json(
-                                Method::GET,
-                                &task_path(contract::text(&receipt, "threadId"))?,
-                                None,
-                            ) {
-                                Ok(task) => current.push(task),
-                                Err(error)
-                                    if matches!(
-                                        error.code.as_str(),
-                                        "TASK_NOT_FOUND" | "TASK_EXPIRED"
-                                    ) => {}
-                                Err(error) => return Err(error),
-                            }
-                        }
-                        previous = current;
+                        previous = complete_office_matches(previous, |id| {
+                            process.json(Method::GET, &task_path(id)?, None)
+                        })?;
                     }
                     previous.retain(reusable_task);
                     // Reuse matching content; the explicit Reparse action creates a new task.
@@ -1206,6 +1214,35 @@ impl Endpoint {
 mod tests {
     use super::{document_format, StderrTail};
     use std::path::Path;
+
+    #[test]
+    fn office_reuse_requires_all_sheets_but_allows_live_replacements() {
+        let receipts = serde_json::json!([
+            {"threadId":"one","officeArtifact":"sheet1.csv"},
+            {"threadId":"expired","officeArtifact":"hidden.csv"}
+        ])
+        .as_array()
+        .unwrap()
+        .clone();
+        for missing in ["TASK_EXPIRED", "TASK_NOT_FOUND"] {
+            let current = super::complete_office_matches(receipts.clone(), |id| {
+                if id == "expired" {
+                    Err(crate::AppError::new(missing, "missing"))
+                } else {
+                    Ok(serde_json::json!({"threadId":id,"state":"COMPLETED"}))
+                }
+            })
+            .unwrap();
+            assert!(current.is_empty());
+        }
+        let mut replaced = receipts;
+        replaced.push(serde_json::json!({"threadId":"new","officeArtifact":"hidden.csv"}));
+        let current = super::complete_office_matches(replaced, |id| {
+            Ok(serde_json::json!({"threadId":id,"state":if id=="expired" {"EXPIRED"} else {"COMPLETED"}}))
+        }).unwrap();
+        assert_eq!(current.len(), 2);
+        assert!(current.iter().all(|task| task["threadId"] != "expired"));
+    }
 
     #[test]
     fn expired_matches_require_fresh_submission() {

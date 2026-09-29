@@ -43,3 +43,23 @@ After the audio regression passed on Windows, packaging exposed checkout newline
 conversion in checksum-pinned license texts. Git attributes now preserve exact
 notice and multi-format fixture bytes. A test checks out representative LF text
 and CRLF CSV with `core.autocrlf=true` and verifies identical bytes.
+
+## September 30 review
+
+Crop-only truncation now marks missing media without claiming missing questions.
+The formula-preservation check includes all renderable question fields (including
+options, items, passage, instructions and supplied answers), while excluding raw
+source evidence. Focused tests cover both distinctions.
+
+Office reuse requires a live task for every recorded converted artifact, including
+hidden-sheet CSVs. A missing or expired sheet triggers full conversion/submission;
+historical expired receipts are harmless when that artifact has a live replacement.
+Matching is by conversion artifact name within the selected source hash and mode.
+
+The request to restore post-conversion confirmation is not adopted: the user
+explicitly requested that clicking Start import execute without another modal.
+The repository guidance is updated to match that explicit product decision.
+Conversion-only actions remain credential-free and do not submit model requests.
+
+Windows packaging now decodes Cargo/rustc output explicitly as UTF-8, matching
+the Cargo JSON encoding rather than the runner's legacy locale codec.
