@@ -16,7 +16,7 @@ Missing or corrupt referenced images or audio prevent export. If a bank was init
 
 ## Difference from study-data backups
 
-**Export backup** in Settings still creates a ZIP containing personal banks, images, audio, answers, exams, and grading records for restoring your own data. It excludes credentials and AI task state. Restore validates the backup and retains a pre-restore copy.
+**Export backup** in Settings still creates a ZIP containing personal banks, images, audio, answers, exams, and grading records for restoring your own data. It excludes credentials and AI task state. Backup creation validates image/audio formats before publishing the ZIP. Unsupported legacy resources (including WebP/GIF) or damaged media cancel the backup without replacing an existing destination. Restore validates the backup and retains a pre-restore copy.
 
 Bank-sharing packages and study-data backups are different formats. Both operations are under **Restore backup** in Settings: **Import bank ZIP** appends content, while **Restore study-data backup** replaces personal data after confirmation. Selecting the wrong format returns an error.
 

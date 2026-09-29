@@ -95,6 +95,12 @@ impl Store {
                         serde_json::json!({}),
                     ))?,
                 )?;
+                if !crate::audio::valid_media(&data, asset["mediaType"].as_str().unwrap_or("")) {
+                    return Err(crate::language::error(
+                        "LOCAL_BACKUP_RESOURCE_INVALID",
+                        json!({}),
+                    ));
+                }
                 total += data.len() as u64;
                 if total > LIMIT as u64 {
                     return Err(crate::language::error(
