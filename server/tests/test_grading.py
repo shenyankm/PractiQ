@@ -73,7 +73,7 @@ async def test_grade_partial_cache_and_rescale(setup,monkeypatch,feedback_locale
     assert result["result"]["reviewReasons"]==[missing_rubric]
     assert await grading.grade(request)==result and len(seen)==1
     bad=request.model_copy(update={"inputDigest":"0"*64})
-    with pytest.raises(DocumentProcessingError,match="内容已变化"):
+    with pytest.raises(DocumentProcessingError,match="Grading request content changed"):
         await grading.grade(bad)
     source={**payload()["question"],"sourceScore":5,"scoringRubric":"满分5分，定义3分、发生位置2分"}
     result=await grading.grade(grading.GradeRequest.model_validate(payload(question=source,maxCents=1000,**changes)))
@@ -143,7 +143,7 @@ def test_feedback_locale_is_validated_and_part_of_the_frozen_payload():
     assert grading.GradeWireRequest.model_validate(english).verified_request().feedbackLocale == "en"
     with pytest.raises(ValidationError):
         grading.GradeWireRequest.model_validate(wire(payload(feedbackLocale="fr"))).verified_request()
-    with pytest.raises(ValueError, match="摘要不匹配"):
+    with pytest.raises(ValueError, match="Grading input digest does not match"):
         grading.GradeWireRequest.model_validate({**english, "payload": english["payload"].replace('"en"', '"zh-CN"')}).verified_request()
 
 
@@ -168,17 +168,52 @@ async def test_english_grading_failures_preserve_abstention_and_unknown_replay(s
 
 
 def test_grading_endpoint_digest_auth_and_limits(setup,monkeypatch):
-    async def fake(request):return {"status":"ungraded","usage":[]}
+    seen = []
+    async def fake(request):
+        seen.append(request)
+        return {"status":"ungraded","usage":[]}
     monkeypatch.setattr(webapp,"grade",fake)
-    webapp.app.dependency_overrides[webapp.authorize]=lambda:None
-    try:
-        client=TestClient(webapp.app)
-        assert client.post("/api/subjective-grades",json=wire(payload())).status_code==200
-        bad=wire(payload());bad["payload"]=bad["payload"].replace("液体变成气体", "changed")
-        assert client.post("/api/subjective-grades",json=bad).status_code==422
-        assert client.post("/api/subjective-grades",content=b"{}",headers={"content-length":str(33*1024*1024)}).status_code==413
-    finally:
-        webapp.app.dependency_overrides.clear()
+    monkeypatch.setenv("AI_SERVICE_TOKEN", "test-token")
+    client=TestClient(webapp.app)
+    unauthorized = client.post("/api/subjective-grades",json=wire(payload()))
+    assert unauthorized.status_code == 401
+    assert unauthorized.json()["detail"]["code"] == "INVALID_SERVICE_TOKEN"
+    assert not seen
+    client.headers["Authorization"] = "Bearer test-token"
+    assert client.post("/api/subjective-grades",json=wire(payload())).status_code==200
+    bad=wire(payload());bad["payload"]=bad["payload"].replace("液体变成气体", "changed")
+    invalid = client.post("/api/subjective-grades",json=bad)
+    assert invalid.status_code == 422
+    assert invalid.json()["detail"] == {
+        "code": "GRADING_INPUT_INVALID",
+        "message": "Grading input or digest is invalid",
+        "params": {},
+    }
+    assert client.post("/api/subjective-grades",content=b"{}",headers={"content-length":str(33*1024*1024)}).status_code==413
+    assert len(seen) == 1
+
+
+def test_grading_http_conflict_and_maintenance_keep_english_diagnostics(setup, monkeypatch):
+    async def forbidden(*args, **kwargs):
+        pytest.fail("Rejected grading requests must not call the model")
+    monkeypatch.setattr(grading, "structured_call", forbidden)
+    monkeypatch.setenv("AI_SERVICE_TOKEN", "test-token")
+    request = wire(payload(feedbackLocale="en"))
+    assert grading._claim(grading.GradeWireRequest.model_validate(request).verified_request()) is None
+    changed = {**request, "payload": request["payload"].replace("液体变成气体", "changed")}
+    changed["inputDigest"] = grading.digest_payload(changed["payload"])
+    client = TestClient(webapp.app, headers={"Authorization": "Bearer test-token"})
+    conflict = client.post("/api/subjective-grades", json=changed)
+    assert conflict.status_code == 409
+    assert conflict.json()["detail"] == {
+        "code": "REQUEST_CONFLICT", "message": "Grading request content changed",
+    }
+    monkeypatch.setattr(grading, "load", lambda: SimpleNamespace(maintenance=True))
+    maintenance = client.post("/api/subjective-grades", json=request)
+    assert maintenance.status_code == 503
+    assert maintenance.json()["detail"] == {
+        "code": "MAINTENANCE", "message": "Service is under maintenance",
+    }
 
 
 async def test_exhausted_provider_failure_is_unknown_and_replay_does_not_call(setup, monkeypatch):
@@ -214,7 +249,9 @@ def test_wire_numbers_and_unicode_are_hashed_before_parsing(setup, monkeypatch):
             bad={**request, "payload":invalid}
             if invalid != raw.replace("1e-7", "1e-6"):
                 bad["inputDigest"]=grading.digest_payload(invalid)
-            assert client.post("/api/subjective-grades", json=bad).status_code == 422
+            response = client.post("/api/subjective-grades", json=bad)
+            assert response.status_code == 422
+            assert response.json()["detail"]["code"] == "GRADING_INPUT_INVALID"
         assert len(seen) == 1
     finally:
         webapp.app.dependency_overrides.clear()

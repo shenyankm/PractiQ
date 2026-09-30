@@ -68,7 +68,7 @@ class JsonBodyLimitMiddleware:
             await self.app(scope, replay_receive, send)
         except _BodyTooLarge:
             await JSONResponse(
-                {'error': {'code': 'REQUEST_TOO_LARGE', 'message': 'Request body is too large'}}, 413
+                {'detail': {'code': 'REQUEST_TOO_LARGE', 'message': 'Request body is too large', 'params': {}}}, 413
             )(scope, receive, send)
 
 

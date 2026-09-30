@@ -212,5 +212,5 @@ async def subjective_grade(request: GradeWireRequest) -> dict:
     try:
         verified = request.verified_request()
     except ValueError as exc:
-        raise HTTPException(422, "评分输入或摘要不合法") from exc
+        raise HTTPException(422, {"code": "GRADING_INPUT_INVALID", "message": "Grading input or digest is invalid", "params": {}}) from exc
     return await _task_response(grade(verified))
