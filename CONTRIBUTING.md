@@ -63,6 +63,14 @@ Automated checks use model substitutes; they do not establish extraction or grad
 
 ## Release verification
 
+Follow [the release policy](docs/releases.md) for tags, version synchronization,
+public assets and final-package evidence. The manually dispatched
+[Release draft workflow](.github/workflows/release.yml) reuses full CI at one
+candidate commit and creates only an unsigned draft after strict package gates.
+It explicitly reads [the release template](.github/RELEASE_TEMPLATE.md); complete
+the remaining manual/live/signing evidence before publication. Do not treat a
+draft, prerelease flag or ordinary CI success as release acceptance.
+
 Record evidence for the final release candidate before publication:
 
 - [ ] Confirm the version, date, download URL, and signing/notarization status.

@@ -95,7 +95,8 @@ def main() -> int:
             print(f"{args.scope} CI passed")
         else:
             payload = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text(encoding="utf-8"))
-            paths = changed_paths(os.environ["GITHUB_EVENT_NAME"], payload, os.environ["GITHUB_REPOSITORY"])
+            paths = (None if os.environ.get("CI_FULL_CHECKS") == "true" else
+                     changed_paths(os.environ["GITHUB_EVENT_NAME"], payload, os.environ["GITHUB_REPOSITORY"]))
             output = f"required={str(checks_required(args.scope, paths)).lower()}\n"
             with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as stream:
                 stream.write(output)

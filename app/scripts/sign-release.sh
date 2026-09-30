@@ -4,6 +4,11 @@ set -euo pipefail
 : "${APPLE_SIGNING_IDENTITY:?Set Developer ID Application identity}"
 : "${APPLE_NOTARY_PROFILE:?Set a notarytool Keychain profile}"
 APP_PATH="${1:?Pass the built PractiQ.app path}"
+DMG_PATH="${2:-}"
+if [ -n "$DMG_PATH" ] && [ -e "$DMG_PATH" ]; then
+  printf '%s\n' 'Use a fresh DMG path; existing artifacts must not be overwritten.' >&2
+  exit 1
+fi
 ENTITLEMENTS="$(dirname "$0")/python-entitlements.plist"
 # Sign nested Mach-O files from the inside out, including Python.
 while IFS= read -r -d '' BINARY_PATH; do
@@ -24,3 +29,17 @@ xcrun stapler validate "$APP_PATH"
 spctl --assess --type execute --verbose=2 "$APP_PATH"
 # Recreate the ZIP after stapling. This script does not publish either artifact.
 ditto -c -k --keepParent "$APP_PATH" "$RELEASE_ZIP"
+if [ -n "$DMG_PATH" ]; then
+  # The previous build's DMG still contains the unsigned app. Package the stapled app again.
+  DMG_STAGE=$(mktemp -d)
+  trap 'rm -rf "$DMG_STAGE"' EXIT
+  ditto "$APP_PATH" "$DMG_STAGE/PractiQ.app"
+  ln -s /Applications "$DMG_STAGE/Applications"
+  hdiutil create -volname PractiQ -srcfolder "$DMG_STAGE" -format UDZO "$DMG_PATH"
+  codesign --options runtime --timestamp --sign "$APPLE_SIGNING_IDENTITY" "$DMG_PATH"
+  codesign --verify --strict "$DMG_PATH"
+  xcrun notarytool submit "$DMG_PATH" --keychain-profile "$APPLE_NOTARY_PROFILE" --wait
+  xcrun stapler staple "$DMG_PATH"
+  xcrun stapler validate "$DMG_PATH"
+  spctl --assess --type open --context context:primary-signature --verbose=2 "$DMG_PATH"
+fi

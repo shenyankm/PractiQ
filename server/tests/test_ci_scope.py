@@ -210,3 +210,16 @@ def test_manual_scope_cli_requires_checks_and_writes_action_output(tmp_path, sco
                              capture_output=True, text=True, timeout=10, check=False)
     assert process.returncode == 0, process.stdout + process.stderr
     assert "required=true" in output.read_text(encoding="utf-8").splitlines()
+
+
+def test_release_ref_forces_full_checks_without_querying_changed_paths(tmp_path):
+    event, output = tmp_path / "event.json", tmp_path / "output"
+    # No PR number: accidental change detection would fail instead of querying GitHub.
+    event.write_text("{}", encoding="utf-8")
+    process = subprocess.run([sys.executable, str(SCRIPT), "scope", "desktop"],
+                             env={**os.environ, "GITHUB_EVENT_NAME": "pull_request",
+                                  "GITHUB_EVENT_PATH": str(event), "GITHUB_REPOSITORY": "owner/repo",
+                                  "CI_FULL_CHECKS": "true", "GITHUB_OUTPUT": str(output)},
+                             capture_output=True, text=True, timeout=10, check=False)
+    assert process.returncode == 0, process.stdout + process.stderr
+    assert output.read_text(encoding="utf-8") == "required=true\n"

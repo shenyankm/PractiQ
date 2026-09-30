@@ -1,0 +1,96 @@
+name: Release draft
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing immutable candidate tag, e.g. v0.1.0-alpha.1
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: release-${{ inputs.tag }}
+  cancel-in-progress: false
+jobs:
+  candidate:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    outputs:
+      sha: ${{ steps.candidate.outputs.sha }}
+      prerelease: ${{ steps.candidate.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.tag }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+      - id: candidate
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: python app/scripts/release.py check --tag "$RELEASE_TAG"
+      - name: Reject an existing release before rebuilding
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" > "$RUNNER_TEMP/releases.json"
+          python -c 'import json, os; from pathlib import Path; assert not any(r["tag_name"] == os.environ["RELEASE_TAG"] for page in json.loads(Path(os.environ["RUNNER_TEMP"], "releases.json").read_text()) for r in page), "Release already exists; do not replace its assets"'
+  service:
+    needs: candidate
+    permissions:
+      contents: read
+      pull-requests: read
+    uses: ./.github/workflows/server.yml
+    with:
+      ref: ${{ needs.candidate.outputs.sha }}
+  desktop:
+    needs: candidate
+    permissions:
+      contents: read
+      pull-requests: read
+    uses: ./.github/workflows/desktop.yml
+    with:
+      ref: ${{ needs.candidate.outputs.sha }}
+      tag: ${{ inputs.tag }}
+      release: true
+  draft:
+    needs: [candidate, service, desktop]
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.candidate.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          pattern: release-*
+          path: app/.build/release-inputs/
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: service-checks
+          path: app/.build/release-inputs/service-checks/
+      - name: Assemble versioned assets, checksums and draft notes
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: python app/scripts/release.py assemble --tag "$RELEASE_TAG" --inputs app/.build/release-inputs --output app/.build/release-assets
+      - name: Create draft without publishing or replacing assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          PRERELEASE: ${{ needs.candidate.outputs.prerelease }}
+          CANDIDATE_SHA: ${{ needs.candidate.outputs.sha }}
+        run: |
+          remote_sha=$(gh api "repos/$GITHUB_REPOSITORY/commits/$RELEASE_TAG" --jq .sha)
+          test "$remote_sha" = "$CANDIDATE_SHA"
+          flags=(--draft --verify-tag --latest=false --title "PractiQ $RELEASE_TAG" --notes-file app/.build/release-assets/RELEASE_NOTES.md)
+          if [ "$PRERELEASE" = true ]; then flags+=(--prerelease); fi
+          gh release create "$RELEASE_TAG" "${flags[@]}" app/.build/release-assets/PractiQ_* app/.build/release-assets/SHA256SUMS.txt app/.build/release-assets/release-manifest.json app/.build/release-assets/release-evidence.zip
