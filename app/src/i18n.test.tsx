@@ -4,7 +4,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { invoke } from "@tauri-apps/api/core";
-import { I18nProvider, date, duration, message, MessageError, systemLocale, number, list, locale, t, translate, useI18n, type Locale } from "./i18n";
+import { I18nProvider, contentLanguage, date, duration, formatLocale, message, MessageError, systemLocale, number, list, locale, t, translate, useI18n, type Locale } from "./i18n";
 import { en } from "./locales/en";
 import native from "./locales/native.json";
 import { errorMessage, type Session, type Question } from "./api";
@@ -62,10 +62,19 @@ it("has complete dictionaries, matching parameters and count plurals", () => {
   expect(translate("zh-CN", "选择答题方式")).toBe("选择答题方式");
   expect(translate("zh-CN", "{0} 个题库 · {1} 道题目", { 0: 1, 1: 1234 })).toBe("1 个题库 · 1,234 道题目");
 });
+it.each([0, 1, 2])("keeps file, word and review counts grammatical (%s)", count => {
+  expect(translate("en", "已选择 {0} 份文件（重新选择）", { 0: count })).toBe(`Files selected: ${count} (choose again)`);
+  expect(translate("en", "已导出 {0} 个文件", { 0: count })).toBe(`Files exported: ${count}`);
+  expect(translate("en", "当前 {0} 词", { 0: count })).toBe(`Word count: ${count}`);
+  expect(translate("en", "已加载 {0} 张图片，缺失 {1} 个资源。", { 0: count, 1: count })).toBe(`Loaded images: ${count}; missing resources: ${count}.`);
+  expect(translate("en", "已识别 {0} 道题目，其中 {1} 道待复核，仍可直接练习。", { 0: count, 1: count })).toBe(`Found ${count} ${count === 1 ? "question" : "questions"}; needing review: ${count}. You can still practice now.`);
+});
 it("resolves the system language and prefers a saved selection across remounts", async () => {
   expect(systemLocale(["zh-TW"])).toBe("zh-CN");
   expect(systemLocale(["zh-Hans-CN"])).toBe("zh-CN");
-  expect(systemLocale(["fr-FR", "zh-CN"])).toBe("en");
+  expect(systemLocale(["fr-FR", "zh-CN"])).toBe("zh-CN");
+  expect(systemLocale(["invalid_language", "en-GB", "zh-CN"])).toBe("en");
+  expect(systemLocale(["fr-FR"])).toBe("en");
   expect(systemLocale([])).toBe("en");
   Object.defineProperty(navigator, "languages", { configurable: true, value: ["en-US"] });
   const view = wrap(<App />); await ready();
@@ -74,6 +83,24 @@ it("resolves the system language and prefers a saved selection across remounts",
   expect(document.documentElement.lang).toBe("zh-CN");
   view.unmount(); wrap(<App />); await ready();
   expect(await screen.findByRole("heading", { name: "我的题库" })).toBeTruthy();
+});
+it("retries the failed language selection from the retry button", async () => {
+  wrap(<App />); await ready();
+  await userEvent.click(screen.getByRole("button", { name: "语言" }));
+  failSave = true;
+  await userEvent.click(screen.getByRole("menuitemradio", { name: "English" }));
+  const before = vi.mocked(invoke).mock.calls.length;
+  await userEvent.click(screen.getByRole("button", { name: "重试" }));
+  expect(screen.getByRole("alert").textContent).toContain("保存语言设置失败");
+  expect(document.documentElement.lang).toBe("zh-CN");
+  failSave = false;
+  await userEvent.click(screen.getByRole("button", { name: "重试" }));
+  await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+  expect(saved).toBe("en");
+  expect(document.documentElement.lang).toBe("en");
+  expect(vi.mocked(invoke).mock.calls.slice(before).map(([, args]) => (args as { request: unknown }).request)).toEqual([
+    { type: "save_language", locale: "en" }, { type: "save_language", locale: "en" },
+  ]);
 });
 it("selects language in an anchored menu and retains it on failure", async () => {
   wrap(<App />); await ready();
@@ -241,6 +268,35 @@ it.each(["en", "zh-CN"] as const)("formats dates, durations, counts and precisio
   expect(number(0, 2)).toBe("0.00");
   expect(list(["A", "B"])).toBe(value === "en" ? "A & B" : "A和B");
 });
+it("preserves regional date and number preferences independently of UI language", async () => {
+  Object.defineProperty(navigator, "languages", { configurable: true, value: ["fr-FR", "en-GB"] });
+  saved = "en"; wrap(null); await ready();
+  const timestamp = Date.UTC(2025, 0, 2, 13, 4, 5);
+  expect(locale()).toBe("en");
+  expect(formatLocale()).toBe("en-GB");
+  expect(date(timestamp)).toBe(new Date(timestamp).toLocaleString("en-GB", { hour12: false }));
+  Object.defineProperty(navigator, "languages", { configurable: true, value: ["en-IN", "zh-Hans-CN"] });
+  expect(number(1234567)).toBe("12,34,567");
+  expect(translate("en", "{0} 题", { 0: 1234567 })).toBe("12,34,567 questions");
+  await change("zh-CN");
+  expect(formatLocale()).toBe("zh-Hans-CN");
+  expect(number(1234567)).toBe("1,234,567");
+  expect(formatLocale("en", ["bad_tag", "fr-FR"])).toBe("en");
+  expect(contentLanguage("EN-gb")).toBe("en-GB");
+  expect(contentLanguage("bad_tag")).toBeUndefined();
+  expect(contentLanguage(null)).toBeUndefined();
+});
+it("formats history accuracy counts through the translated sentence", async () => {
+  saved = "en";
+  const original = vi.mocked(invoke).getMockImplementation()!;
+  vi.mocked(invoke).mockImplementation(async (command, args) => {
+    if ((args as { request: { type: string } }).request.type === "sessions_page") return { items: [{ id: "history", title: "Original", createdAt: 1, finishedAt: 2, elapsedMs: 0, correct: 5000, graded: 10000 }], total: 1, offset: 0 };
+    return original(command, args);
+  });
+  wrap(<App />); await ready();
+  await userEvent.click(screen.getByRole("button", { name: "History" }));
+  expect(await screen.findByText("Accuracy: 50% (5,000/10,000)")).toBeTruthy();
+});
 it.each(["en", "zh-CN"] as const)("imports offline JSON and explicitly saves a translated model form in %s", async value => {
   saved = value;
   const original = vi.mocked(invoke).getMockImplementation()!;
@@ -344,9 +400,14 @@ it("keeps translation parameters checked by TypeScript", () => {
 });
 it("localizes known native diagnostics without leaking application Chinese",async()=>{
   wrap(null); await ready(); await change("en");
-  for (const code of ["LOCAL_SERVICE_UNAVAILABLE","STALE_CHECKPOINT"]) {
+  for (const code of ["LOCAL_SERVICE_UNAVAILABLE","STALE_CHECKPOINT", "OPERATION_BUSY", "ARTIFACT_INVALID"]) {
     const message=errorMessage({code,message:"任务已变化，请刷新预览"});
     expect(message).not.toMatch(/[\u3400-\u9fff]/);
     expect(message).not.toContain("Diagnostic details");
   }
+  expect(errorMessage({ code: "ARTIFACT_INVALID", diagnostic: "original provider detail", requestId: "r1" })).toContain("Diagnostic details: original provider detail (r1)");
+  const legacy = { code: "AI_PROVIDER_TIMEOUT", message: "Upstream timed out after reading response headers", httpStatus: 504 };
+  expect(errorMessage(legacy)).toContain(`Diagnostic details: ${legacy.message} (504)`);
+  expect(errorMessage({ ...legacy, diagnostic: "new provider detail" })).toContain("Diagnostic details: new provider detail (504)");
+  expect(errorMessage({ ...legacy, diagnostic: "" })).not.toContain(legacy.message);
 });

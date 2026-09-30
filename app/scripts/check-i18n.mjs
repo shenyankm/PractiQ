@@ -34,7 +34,7 @@ const test=base.extend({observedCalls:[async ({page},use)=>{
    }
    switch(request.type){
     case 'language':return lang;
-    case 'save_language': lang=request.locale;localStorage.setItem('test-language',lang);return lang;
+    case 'save_language': if(window.__failLanguageSave) throw {code:'LOCAL_LANGUAGE_INVALID',message:'语言设置无效'};lang=request.locale;localStorage.setItem('test-language',lang);return lang;
     case 'banks':return banks;
     case 'banks_page':return {items:banks,total:banks.length,offset:0};
     case 'sessions_page':return {items:[],total:0,offset:0};
@@ -72,6 +72,24 @@ async function expectNoOverflow(page,label) {
  await expect.poll(()=>page.locator('aside *, main *, [role=dialog] *, [role=menu] *').evaluateAll(elements=>elements.filter(e=>e.clientWidth>0&&e.scrollWidth>e.clientWidth+3&&getComputedStyle(e).overflowX==='visible'&&e.children.length===0&&e.textContent.trim()).map(e=>({tag:e.tagName,text:e.textContent.slice(0,140),width:e.clientWidth,scroll:e.scrollWidth}))),{message:`Text overflow: ${label}`}).toEqual([]);
  await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),{message:`Page overflow: ${label}`}).toBe(true);
 }
+
+test('retry saves the failed language selection without resetting it to the saved preference',async ({page,observedCalls})=>{
+ await page.getByRole('button',{name:'Language',exact:true}).click();
+ await page.getByRole('menuitemradio',{name:'简体中文',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'我的题库',exact:true})).toBeVisible();
+ await page.evaluate(()=>{window.__failLanguageSave=true;});
+ await page.getByRole('button',{name:'语言',exact:true}).click();
+ await page.getByRole('menuitemradio',{name:'English',exact:true}).click();
+ await expect(page.getByRole('alert')).toContainText('保存语言设置失败');
+ const before=observedCalls.length;
+ await page.evaluate(()=>{window.__failLanguageSave=false;});
+ await page.getByRole('menu').getByRole('button',{name:'重试',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'My banks',exact:true})).toBeVisible();
+ await expect(page.getByRole('menu')).toHaveCount(0);
+ expect(observedCalls.slice(before).map(c=>c.request)).toEqual([{type:'save_language',locale:'en'}]);
+ await page.reload();
+ await expect(page.getByRole('heading',{name:'My banks',exact:true})).toBeVisible();
+});
 
 test('theme follows system preferences and persists an explicit choice',async ({page})=>{
  await page.emulateMedia({colorScheme:'dark'});
@@ -220,7 +238,7 @@ test('import retains drafts and autosaves settings without submitting to a model
  await page.getByLabel('Question bank name',{exact:true}).fill('Algebra');
  await page.getByLabel('Description',{exact:true}).fill('Chapter 1');
  await page.getByRole('button',{name:'Upload source file',exact:true}).click();
- await expect(page.getByRole('button',{name:'2 files selected (choose again)',exact:true})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Files selected: 2 (choose again)',exact:true})).toBeVisible();
  await expect(page.getByRole('list',{name:'Selected source files',exact:true}).getByRole('listitem')).toHaveText(['试卷 — Paper.pdf','答案 — Answers.txt']);
  await expectNoOverflow(page,'import form');
  await page.getByRole('tab',{name:'Import history',exact:true}).click();

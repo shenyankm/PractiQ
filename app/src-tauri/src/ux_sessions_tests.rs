@@ -181,12 +181,17 @@ fn grading_replays_frozen_language_and_rejects_missing_locale_and_clears_stale_f
         .save_draft((sid, 0), json!({"text":"My answer"}), 0)
         .unwrap();
     store.submit_paper(sid, true).unwrap();
-    let english = store.prepare_grade(sid, 0, false).unwrap();
+    store.locale = Locale::Chinese;
+    let english = store.prepare_grade(sid, 0, false, Locale::English).unwrap();
     let input: Value = serde_json::from_str(text(&english, "payload")).unwrap();
     assert_eq!(input["feedbackLocale"], "en");
     store.locale = Locale::Chinese;
-    assert_eq!(store.prepare_grade(sid, 0, false).unwrap(), english);
-    let chinese = store.prepare_grade(sid, 0, true).unwrap();
+    assert_eq!(
+        store.prepare_grade(sid, 0, false, Locale::Chinese).unwrap(),
+        english
+    );
+    store.locale = Locale::English;
+    let chinese = store.prepare_grade(sid, 0, true, Locale::Chinese).unwrap();
     assert_ne!(chinese["inputDigest"], english["inputDigest"]);
     assert_ne!(chinese["requestId"], english["requestId"]);
     let rid = text(&chinese, "requestId");
@@ -220,7 +225,10 @@ fn grading_replays_frozen_language_and_rejects_missing_locale_and_clears_stale_f
         .unwrap();
     store.locale = Locale::English;
     assert_eq!(
-        store.prepare_grade(sid, 0, false).unwrap_err().code,
+        store
+            .prepare_grade(sid, 0, false, Locale::Chinese)
+            .unwrap_err()
+            .code,
         "LOCAL_GRADING_INPUT_CHANGED"
     );
     store
@@ -234,7 +242,7 @@ fn grading_replays_frozen_language_and_rejects_missing_locale_and_clears_stale_f
             ],
         )
         .unwrap();
-    assert!(store.prepare_grade(sid, 0, false).is_err());
+    assert!(store.prepare_grade(sid, 0, false, Locale::Chinese).is_err());
     store
         .manual_score(sid, 0, 90, "Manual partial credit")
         .unwrap();

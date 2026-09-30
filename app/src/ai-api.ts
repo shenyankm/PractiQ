@@ -40,7 +40,7 @@ export type Review = DocumentTaskReview;
 export type PendingOperation = {
   id: string;
   label: string;
-  error: { code?: string; message: string; params?: Record<string, unknown> } | null;
+  error: { code?: string; message: string; diagnostic?: string; params?: Record<string, unknown> } | null;
 };
 export type Batch = {
   bankId?: string | null;
@@ -56,7 +56,7 @@ export type Batch = {
     previousVersion: boolean;
     status: string;
     bankId: string | null;
-    error: { code?: string; message: string; params?: Record<string, unknown> } | null;
+    error: { code?: string; message: string; diagnostic?: string; params?: Record<string, unknown> } | null;
   }[];
 };
 export type Request =

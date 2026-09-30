@@ -319,8 +319,10 @@ export function errorMessage(error: unknown): string {
   if (entry) {
     const summary = entry[locale()].replace(/\{(\w+)\}/g, (_, key: string) => String(params[key] ?? ""));
     const detail = [object.context, object.requestId, object.httpStatus].filter(v => v != null).join(" · ");
-    const diagnostic = !code.startsWith("LOCAL_") && code !== "STALE_CHECKPOINT" && typeof object.message === "string" && !Object.values(entry).includes(object.message as never)
-      ? ` ${t("诊断详情")}: ${object.message}` : "";
+    // Older saved HTTP errors kept remote diagnostics in message.
+    const rawDiagnostic = object.diagnostic ?? (object.httpStatus != null ? object.message : undefined);
+    const diagnostic = typeof rawDiagnostic === "string" && rawDiagnostic !== "" && !Object.values(entry).includes(rawDiagnostic as never)
+      ? ` ${t("诊断详情")}: ${rawDiagnostic}` : "";
     return `${summary}${diagnostic}${detail ? ` (${detail})` : ""}`;
   }
   const actions: Record<string, string> = {
@@ -332,7 +334,7 @@ export function errorMessage(error: unknown): string {
     EXECUTION_VERSION_MISMATCH: t("请使用原执行版本，或重新解析文档。"),
     LOCAL_SERVICE_UNAVAILABLE: t("如有待确认操作，请从原操作重试。"),
   };
-  const diagnostic = String(object.message ?? error);
+  const diagnostic = String(object.diagnostic ?? object.message ?? error);
   const metadata = [code, object.requestId, object.httpStatus].filter(v => v != null && v !== "").join(" · ");
   return `${actions[code] || t("操作失败，请查看诊断详情。")} ${t("诊断详情")}: ${diagnostic}${metadata ? ` (${metadata})` : ""}`;
 }

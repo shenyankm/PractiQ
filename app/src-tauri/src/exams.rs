@@ -476,7 +476,13 @@ pub(crate) fn answer_text(value: &str) -> bool {
 }
 
 impl Store {
-    pub fn prepare_grade(&self, sid: &str, ordinal: usize, retry: bool) -> Result<Value> {
+    pub fn prepare_grade(
+        &self,
+        sid: &str,
+        ordinal: usize,
+        retry: bool,
+        locale: crate::language::Locale,
+    ) -> Result<Value> {
         let db = self.connect()?;
         self.session_now_with(&db)?;
         let (snapshot,answer,max,submitted,kind,grade_kind):(String,String,Option<i64>,Option<i64>,String,String)=db.query_row("SELECT a.snapshot_question_id,a.answer,a.max_cents,s.submitted_at,s.kind,a.grade_kind FROM attempts a JOIN sessions s ON s.id=a.session_id WHERE a.session_id=?1 AND a.ordinal=?2",params![sid,ordinal],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?,r.get(5)?))).map_err(err)?;
@@ -548,7 +554,7 @@ impl Store {
         {
             return Err(crate::language::error("LOCAL_GRADING_TOO_LARGE", json!({})));
         }
-        let payload = json!({"question":q,"answer":text(&answer,"text"),"maxCents":max,"materials":materials,"images":images,"feedbackLocale":self.locale.as_str()});
+        let payload = json!({"question":q,"answer":text(&answer,"text"),"maxCents":max,"materials":materials,"images":images,"feedbackLocale":locale.as_str()});
         let raw = payload.to_string();
         if raw.len() > 31 * 1024 * 1024 {
             return Err(crate::language::error(
@@ -594,7 +600,7 @@ impl Store {
                 rid,
                 sid,
                 ordinal,
-                json!({"requestId":rid,"inputDigest":payload["inputDigest"],"feedbackLocale":self.locale.as_str()}).to_string(),
+                json!({"requestId":rid,"inputDigest":payload["inputDigest"],"feedbackLocale":locale.as_str()}).to_string(),
                 self.session_clock.now()?
             ],
         )

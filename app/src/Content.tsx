@@ -6,6 +6,7 @@ import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
 import { fieldName, type Snapshot, type Visual, type Block, type Question } from "./api";
+import { materialLanguage } from "./english";
 import { acquireAsset } from "./asset-urls";
 import { ZoomIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,10 +19,10 @@ export function LazyDetails({ summary, children, className }: { summary: ReactNo
     {loaded && children}
   </details>;
 }
-export const Markdown = memo(function Markdown({ children }: { children?: string | null }) {
-  useI18n();
+export const Markdown = memo(function Markdown({ children, lang }: { children?: string | null; lang?: string }) {
+  const { locale } = useI18n();
   return children ? (
-    <div className="document-content">
+    <div className="document-content" lang={lang}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkMath]}
         rehypePlugins={[
@@ -38,7 +39,7 @@ export const Markdown = memo(function Markdown({ children }: { children?: string
         skipHtml
         components={{
           img: ({ alt }) => (
-            <span className="text-muted-foreground">{t("[图片：{0}]", { 0: alt || t("请查看关联图片") })}</span>
+            <span lang={locale} className="text-muted-foreground">{t("[图片：{0}]", { 0: alt || t("请查看关联图片") })}</span>
           ),
           a: ({ children }) => <span className="underline">{children}</span>,
         }}
@@ -48,7 +49,7 @@ export const Markdown = memo(function Markdown({ children }: { children?: string
     </div>
   ) : null;
 });
-export function Blocks({blocks, onBlank, blankAnswers = {}}: {blocks: Block[];onBlank?:(id:string)=>void;blankAnswers?:Record<string,string>}) {
+export function Blocks({blocks, onBlank, blankAnswers = {}, language}: {blocks: Block[];onBlank?:(id:string)=>void;blankAnswers?:Record<string,string>;language?:(block:Block)=>string|undefined}) {
   const blankNumbers = new Map<string | null | undefined, number>();
   let blankCount = 0;
   for (const block of blocks) if (block.partType === "blank") {
@@ -59,10 +60,10 @@ export function Blocks({blocks, onBlank, blankAnswers = {}}: {blocks: Block[];on
   return <div className={inline ? "passage-flow" : "space-y-3"}>{blocks.map((b, i) => (
         <div key={i} className={inline && !b.label && ["text","blank"].includes(b.partType) ? "passage-fragment" : undefined}>
           {b.label && <span className="font-semibold">{b.label}</span>}
-          {b.partType === "blank" ? <Button type="button" variant="outline" size="sm" disabled={!onBlank} onClick={()=>b.questionId && onBlank?.(b.questionId)}>{t("空位")} {blankNumbers.get(b.questionId)}{b.questionId && blankAnswers[b.questionId] ? ` · ${blankAnswers[b.questionId]}` : ""}</Button> : <>
-            {b.latexValue && <Markdown>{`$$\n${b.latexValue}\n$$`}</Markdown>}
-            <Markdown>{b.markdownValue}</Markdown>
-            {b.textValue !== b.markdownValue && <Markdown>{b.textValue}</Markdown>}
+          {b.partType === "blank" ? <Button type="button" variant="outline" size="sm" disabled={!onBlank} onClick={()=>b.questionId && onBlank?.(b.questionId)}>{t("空位")} {blankNumbers.get(b.questionId)}{b.questionId && blankAnswers[b.questionId] && <> · <span lang={language?.(b)}>{blankAnswers[b.questionId]}</span></>}</Button> : <>
+            {b.latexValue && <Markdown lang={language?.(b)}>{`$$\n${b.latexValue}\n$$`}</Markdown>}
+            <Markdown lang={language?.(b)}>{b.markdownValue}</Markdown>
+            {b.textValue !== b.markdownValue && <Markdown lang={language?.(b)}>{b.textValue}</Markdown>}
           </>}
           {b.jsonValue && (
             <pre className="overflow-auto whitespace-pre-wrap rounded bg-muted p-3 text-sm">
@@ -166,9 +167,9 @@ export const Content = memo(function Content({
   function material(q:Question) {
     return <section key={q.id} className="space-y-3">
       <Markdown>{q.stem}</Markdown><Markdown>{q.instructions}</Markdown>
-      <Blocks blocks={[...(q.passage || []), ...q.contentBlocks]} blankAnswers={blankAnswers} onBlank={id=>{setOpen(false);onBlank?.(id);}}/>
-      {q.questionKind === "paragraph_matching" && q.items.filter(i=>i.side==="right").map((item,i)=><div key={item.id ?? i}><strong>{item.label || String(i+1)}</strong><Markdown>{item.content}</Markdown></div>)}
-      {!!q.transcript?.length && <LazyDetails summary={t("听力原文")}><Blocks blocks={q.transcript}/></LazyDetails>}
+      <Blocks blocks={[...(q.passage || []), ...q.contentBlocks]} language={block=>materialLanguage(q,block.role)} blankAnswers={blankAnswers} onBlank={id=>{setOpen(false);onBlank?.(id);}}/>
+      {q.questionKind === "paragraph_matching" && q.items.filter(i=>i.side==="right").map((item,i)=><div key={item.id ?? i}><strong>{item.label || String(i+1)}</strong><Markdown lang={materialLanguage(q)}>{item.content}</Markdown></div>)}
+      {!!q.transcript?.length && <LazyDetails summary={t("听力原文")}><Blocks blocks={q.transcript} language={block=>materialLanguage(q,block.role)}/></LazyDetails>}
     </section>;
   }
   return (
@@ -200,8 +201,8 @@ export const Content = memo(function Content({
         <Button ref={trigger} variant="outline" onClick={()=>setOpen(true)}>{t("查看原文")}</Button>
         <Dialog open={open} onOpenChange={setOpen}><DialogContent className="flex max-h-[85vh] flex-col sm:max-w-4xl" onCloseAutoFocus={e=>{e.preventDefault();trigger.current?.focus();}}><DialogHeader><DialogTitle>{t("查看原文")}</DialogTitle><DialogDescription>{t("题目材料；点击空位可定位对应子题。")}</DialogDescription></DialogHeader><div className="min-h-0 space-y-6 overflow-auto pr-3">{materials.map(material)}{snapshot.visuals.map(v=><ImageAsset key={v.id} visual={v}/>)}</div></DialogContent></Dialog>
       </> : !materialDialog && materials.filter(m=>m.id!==q.id).map(material)}
-      {(!materialDialog || !ownMaterial) && <Blocks blocks={[...(q.passage || []), ...q.contentBlocks]} />}
-      {!materialDialog && !!q.transcript?.length && <LazyDetails summary={t("听力原文")}><Blocks blocks={q.transcript}/></LazyDetails>}
+      {(!materialDialog || !ownMaterial) && <Blocks blocks={[...(q.passage || []), ...q.contentBlocks]} language={block=>materialLanguage(q,block.role)} />}
+      {!materialDialog && !!q.transcript?.length && <LazyDetails summary={t("听力原文")}><Blocks blocks={q.transcript} language={block=>materialLanguage(q,block.role)}/></LazyDetails>}
       {snapshot.visuals.map((v) => (
         <div key={v.id} className="space-y-2">
           <ImageAsset visual={{...v, extractedText: q.contentBlocks.some(b => b.markdownValue === v.extractedText) ? null : v.extractedText}} />

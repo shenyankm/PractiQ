@@ -71,7 +71,7 @@ impl WorkState {
             .as_ref()
             .filter(|(id, _)| id == token)
             .map(|(_, paths)| paths.clone())
-            .ok_or_else(|| AppError::new("LOCAL_SOURCE_MISSING", "请重新选择源文件"))
+            .ok_or_else(|| crate::language::error("LOCAL_SOURCE_MISSING", json!({})))
     }
     fn claim(&self, id: &str) -> Result<Lease<'_>> {
         let mut active = self
@@ -86,7 +86,7 @@ impl WorkState {
         active: &mut HashMap<String, Arc<AtomicBool>>,
     ) -> Result<Lease<'a>> {
         if active.contains_key(id) || active.contains_key("restore") {
-            return Err(AppError::new("OPERATION_BUSY", "操作正在执行，请查看进度"));
+            return Err(crate::language::error("OPERATION_BUSY", json!({})));
         }
         let cancelled = Arc::new(AtomicBool::new(false));
         active.insert(id.into(), cancelled.clone());
@@ -100,18 +100,18 @@ impl WorkState {
         self.claim(&store::id())
     }
     pub(crate) fn restore(&self) -> Result<Lease<'_>> {
-        self.exclusive("请先等待当前 AI 请求结束或停止导入批次，再恢复备份")
+        self.exclusive("LOCAL_RESTORE_BUSY")
     }
     pub(crate) fn configure(&self) -> Result<Lease<'_>> {
-        self.exclusive("请先等待当前 AI 请求结束或停止导入批次，再更改连接设置")
+        self.exclusive("LOCAL_CONFIGURE_BUSY")
     }
-    fn exclusive(&self, message: &str) -> Result<Lease<'_>> {
+    fn exclusive(&self, code: &str) -> Result<Lease<'_>> {
         let mut active = self
             .0
             .lock()
             .map_err(|_| crate::language::error("LOCAL_WORK_UNAVAILABLE", serde_json::json!({})))?;
         if !active.is_empty() {
-            return Err(AppError::new("OPERATION_BUSY", message));
+            return Err(crate::language::error(code, json!({})));
         }
         self.claim_locked("restore", &mut active)
     }
@@ -180,9 +180,9 @@ impl ImportDetails {
             || self.description.trim().is_empty()
             || self.description.chars().count() > 20_000
         {
-            return Err(AppError::new(
+            return Err(crate::language::error(
                 "LOCAL_IMPORT_DETAILS_INVALID",
-                "请填写题库名（最多 200 字）和描述（最多 20000 字）",
+                json!({}),
             ));
         }
         Ok(())
@@ -452,10 +452,7 @@ fn execute_operation(
         .json(Method::POST, &op.path, Some(&op.body))
         .and_then(|receipt| {
             if receipt["requestId"] != op.id || receipt["accepted"] != true {
-                return Err(AppError::new(
-                    "INVALID_RECEIPT",
-                    "服务回执不完整，请重试待确认操作",
-                ));
+                return Err(crate::language::error("INVALID_RECEIPT", json!({})));
             }
             Ok(receipt)
         });
@@ -529,7 +526,7 @@ pub fn delete_task(dir: &Path, work: &WorkState, endpoint: &Endpoint, id: &str) 
     let active = work.0.lock().map_err(err)?;
     for batch in all::<Batch>(dir, "import-batches")? {
         if active.contains_key(&batch.id) && batch.items.iter().any(|item| item.thread_id == id) {
-            return Err(AppError::new("OPERATION_BUSY", "请先停止导入批次"));
+            return Err(crate::language::error("LOCAL_BATCH_RUNNING", json!({})));
         }
     }
     let result = endpoint.json(Method::DELETE, &task_path(id)?, None)?;
@@ -563,9 +560,9 @@ fn validate_destination(store: &Store, bank_id: Option<&str>) -> Result<()> {
 }
 fn imported_destination(bank: String, requested: Option<&str>) -> Result<String> {
     if requested.is_some_and(|requested| requested != bank) {
-        return Err(AppError::new(
+        return Err(crate::language::error(
             "AI_RESULT_IMPORTED_ELSEWHERE",
-            "该结果已导入其他题库，请打开原题库查看",
+            json!({}),
         ));
     }
     Ok(bank)
@@ -852,9 +849,9 @@ fn import_item(
         != Some(item.checkpoint_id.as_str())
         || pending.digest()? != item.digest
     {
-        return Err(AppError::new(
-            "STALE_CHECKPOINT",
-            "结果版本已变化，请重新选择该任务创建批次",
+        return Err(crate::language::error(
+            "LOCAL_IMPORT_VERSION_CHANGED",
+            json!({}),
         ));
     }
     endpoint.load_assets(
@@ -879,6 +876,36 @@ mod tests {
         net::TcpListener,
         thread,
     };
+
+    #[test]
+    fn service_error_fallback_preserves_external_diagnostics() {
+        for (detail, code, diagnostic) in [
+            (
+                json!({"code":"GRADING_INPUT_INVALID","params":{}}),
+                "GRADING_INPUT_INVALID",
+                None,
+            ),
+            (
+                json!("Legacy service diagnostic"),
+                "SERVICE_ERROR",
+                Some("Legacy service diagnostic".to_owned()),
+            ),
+            (
+                json!([{"loc":["body","payload"],"msg":"Field required"}]),
+                "SERVICE_ERROR",
+                Some(r#"[{"loc":["body","payload"],"msg":"Field required"}]"#.to_owned()),
+            ),
+        ] {
+            let (endpoint, worker) = server(1, move |_, _| {
+                Some((422, serde_json::to_vec(&json!({"detail":detail})).unwrap()))
+            });
+            let error = endpoint.json(Method::GET, "/error", None).unwrap_err();
+            assert_eq!(error.code, code);
+            assert_eq!(error.diagnostic.as_deref(), diagnostic.as_deref());
+            assert_eq!(error.http_status, Some(422));
+            worker.join().unwrap();
+        }
+    }
 
     #[test]
     fn import_form_metadata_survives_receipts_and_populates_bank() {
@@ -1030,7 +1057,7 @@ mod tests {
             delete_task(dir.path(), &work, &endpoint, &id)
                 .unwrap_err()
                 .code,
-            "OPERATION_BUSY"
+            "LOCAL_BATCH_RUNNING"
         );
         assert!(path(dir.path(), "requests", &op.id).unwrap().exists());
         drop(lease);
@@ -1343,7 +1370,7 @@ mod tests {
             Some((
                 409,
                 serde_json::to_vec(
-                    &json!({"detail":{"code":"STALE_CHECKPOINT","message":"refresh"}}),
+                    &json!({"detail":{"code":"STALE_CHECKPOINT","message":"refresh","params":{"target":"unit-2"}}}),
                 )
                 .unwrap(),
             ))
@@ -1359,6 +1386,8 @@ mod tests {
         .unwrap_err();
         assert_eq!(error.code, "STALE_CHECKPOINT");
         assert_eq!(error.http_status, Some(409));
+        assert_eq!(error.diagnostic.as_deref(), Some("refresh"));
+        assert_eq!(error.params["target"], "unit-2");
         assert!(operations(dir.path())
             .unwrap()
             .as_array()
@@ -1492,7 +1521,10 @@ mod tests {
         )
         .unwrap();
         assert_eq!(result["items"][0]["status"], "imported");
-        assert_eq!(result["items"][1]["error"]["code"], "ARTIFACT_INVALID");
+        assert_eq!(
+            result["items"][1]["error"]["code"],
+            "LOCAL_IMAGE_ARTIFACT_INVALID"
+        );
         assert_eq!(result["items"][2]["status"], "imported");
         worker.join().unwrap();
         let db = shared.lock().unwrap().connect().unwrap();
@@ -1724,7 +1756,10 @@ mod tests {
         )
         .unwrap();
         worker.join().unwrap();
-        assert_eq!(result["items"][0]["error"]["code"], "STALE_CHECKPOINT");
+        assert_eq!(
+            result["items"][0]["error"]["code"],
+            "LOCAL_IMPORT_VERSION_CHANGED"
+        );
         assert_eq!(
             shared
                 .lock()
@@ -1743,8 +1778,17 @@ mod tests {
 fn restore_excludes_inflight_requests_in_both_directions() {
     let work = WorkState::default();
     let request = work.enter().unwrap();
-    assert!(work.restore().is_err());
-    assert!(work.configure().is_err());
+    for (error, code) in [
+        (work.restore().err().unwrap(), "LOCAL_RESTORE_BUSY"),
+        (work.configure().err().unwrap(), "LOCAL_CONFIGURE_BUSY"),
+    ] {
+        assert_eq!(error.code, code);
+        assert!(error.diagnostic.is_none());
+        assert!(
+            crate::language::message(code, &error.params, crate::language::Locale::English)
+                .starts_with("Wait for")
+        );
+    }
     drop(request);
     let restore = work.restore().unwrap();
     assert!(work.enter().is_err());

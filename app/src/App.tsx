@@ -336,7 +336,10 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                 : page === "model-settings" ? t("AI 模型") : t("设置");
   const loadingView = <p role="status" className="p-4 text-sm text-muted-foreground">{t("加载中…")}</p>;
   const listPage = ["questions", "wrong", "favorite"].includes(page);
-  const languageError = language.error != null && <div role="alert" className="text-xs text-destructive"><p>{t(language.error.key)}</p><p>{errorMessage(language.error.cause)}</p><Button size="sm" variant="outline" onClick={() => void language.reload()}>{t("重试")}</Button></div>;
+  const languageError = language.error != null && <div role="alert" className="text-xs text-destructive"><p>{t(language.error.key)}</p><p>{errorMessage(language.error.cause)}</p><Button size="sm" variant="outline" disabled={language.saving || busy} onClick={() => {
+    if (language.error?.key === "保存语言设置失败") void language.change(language.error.locale).then(saved => { if (saved) setLanguageOpen(false); });
+    else void language.reload();
+  }}>{t("重试")}</Button></div>;
   return (
     <div className="flex h-screen min-w-[960px] overflow-hidden bg-background text-foreground">
       <Tooltip.Provider delayDuration={200}>
@@ -711,7 +714,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                           {!!(s.finishedAt || s.submittedAt) && (s.kind && s.kind !== "practice" ? <>
                             <Badge variant="secondary">{t("{0} {1} / {2} 分", { 0: s.pendingGrades ? t("暂定成绩") : t("成绩"), 1: (s.earnedCents || 0) / 100, 2: (s.totalCents || 0) / 100 })}</Badge>
                             {!!s.pendingGrades && <Badge variant="outline">{t("待评分 {0} 题", { 0: s.pendingGrades })}</Badge>}
-                          </> : <span>{t("正确率 {0}", { 0: s.graded ? `${Math.round((s.correct / s.graded) * 100)}%（${s.correct}/${s.graded}）` : t("暂无已判定题目") })}</span>)}
+                          </> : <span>{s.graded ? t("正确率 {0}%（{1}/{2}）", { 0: Math.round((s.correct / s.graded) * 100), 1: s.correct, 2: s.graded }) : t("正确率 {0}", { 0: t("暂无已判定题目") })}</span>)}
                         </div>
                         {!!(s.answered || s.finishedAt || s.submittedAt) && <details className="text-sm text-muted-foreground"><summary className="cursor-pointer">{t("判定详情")}</summary><p className="mt-2">{t("自动判定 {0} · 自评 {1} · 跳过 {2} · 未判定 {3}", { 0: s.autoGraded, 1: s.selfGraded, 2: s.skipped, 3: s.kind && s.kind !== "practice" ? s.pendingGrades : s.answered - s.graded - s.skipped })}</p></details>}
                       </div>

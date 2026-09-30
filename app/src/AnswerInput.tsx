@@ -1,4 +1,4 @@
-import { t, useI18n } from "./i18n";
+import { list, t, useI18n } from "./i18n";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -7,7 +7,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { ArrowUp, ArrowDown } from "lucide-react";
 import { type Question, type Answer, canInteract, itemIds } from "./api";
-import { countEnglishWords } from "./english";
+import { answerLanguage, countEnglishWords, materialLanguage } from "./english";
 import { Markdown } from "./Content";
 export function AnswerInput({
   question: q,
@@ -25,6 +25,7 @@ export function AnswerInput({
   usedOptions?: string[];
 }) {
   useI18n();
+  const lang = answerLanguage(q);
   const a = {
     ...value,
     matches: value?.matches?.filter(
@@ -37,6 +38,7 @@ export function AnswerInput({
       <div className="space-y-2">
         <p className="text-sm text-muted-foreground">{t("题目结构不完整，使用自由作答并自评。")}</p>
         <Textarea
+          lang={lang}
           aria-label={t("自由作答")}
           disabled={disabled}
           value={a.text || ""}
@@ -70,7 +72,7 @@ export function AnswerInput({
               />
               <div className="grid min-w-0 flex-1 grid-cols-[auto_minmax(0,1fr)] items-start gap-2 leading-[1.75]">
                 <span className="min-w-6 font-medium">{o.label}.</span>
-                <Markdown>{o.content}</Markdown>
+                <Markdown lang={materialLanguage(q)}>{o.content}</Markdown>
                 {usedOptions.includes(o.label!) && <span className="text-xs text-muted-foreground">{t("已使用")}</span>}
               </div>
             </label>
@@ -92,7 +94,7 @@ export function AnswerInput({
               <RadioGroupItem className="mt-1 shrink-0" id={`${prefix}-${i}`} value={o.label!} disabled={usedOptions.includes(o.label!) && !a.correct?.includes(o.label!)} />
               <div className="grid min-w-0 flex-1 grid-cols-[auto_minmax(0,1fr)] items-start gap-2 leading-[1.75]">
                 <span className="min-w-6 font-medium">{o.label}.</span>
-                <Markdown>{o.content}</Markdown>
+                <Markdown lang={materialLanguage(q)}>{o.content}</Markdown>
                 {usedOptions.includes(o.label!) && <span className="text-xs text-muted-foreground">{t("已使用")}</span>}
               </div>
             </label>
@@ -130,6 +132,7 @@ export function AnswerInput({
             <label key={i} className="flex items-center gap-3">
               <span className="shrink-0 text-sm">{t("第 {0} 空", { 0: i + 1 })}</span>
               <Input
+                lang={lang}
                 aria-label={t("第 {0} 空", { 0: i + 1 })}
                 disabled={disabled}
                 value={a.answers?.[i] || ""}
@@ -173,7 +176,7 @@ export function AnswerInput({
             >
               <span className="text-muted-foreground">{index + 1}</span>
               <div className="flex-1">
-                <Markdown>{byId.get(id)?.content}</Markdown>
+                <Markdown lang={materialLanguage(q)}>{byId.get(id)?.content}</Markdown>
               </div>
               <Button
                 size="icon"
@@ -209,7 +212,7 @@ export function AnswerInput({
               key={item.id}
               className="grid grid-cols-2 items-center gap-4 rounded-lg border p-3"
             >
-              <Markdown>{item.content}</Markdown>
+              <Markdown lang={materialLanguage(q)}>{item.content}</Markdown>
               <NativeSelect
                 className="w-full"
                 aria-label={t("匹配 {0}", { 0: item.content })}
@@ -230,7 +233,7 @@ export function AnswerInput({
               >
                 <NativeSelectOption value="" disabled>{t("选择对应项")}</NativeSelectOption>
                 {itemIds(q, "right").map((right, index) => (
-                  <NativeSelectOption key={right.id} value={String(right.id)}>
+                  <NativeSelectOption lang={materialLanguage(q)} key={right.id} value={String(right.id)}>
                     {q.questionKind === "paragraph_matching" ? right.label || String(index+1) : right.content}
                   </NativeSelectOption>
                 ))}
@@ -243,6 +246,7 @@ export function AnswerInput({
       return (
         <div className="space-y-2">
         <Textarea
+          lang={lang}
           disabled={disabled}
           aria-label={t("作答内容")}
           placeholder={t("写下你的答案…")}
@@ -269,6 +273,7 @@ export function AnswerDisplay({
   response?: Answer | null;
 }) {
   useI18n();
+  const lang = answerLanguage(question);
   if (!answer)
     return (
       <p className="text-sm text-muted-foreground">{t("原文未提供标准答案，可保持未判定或自行评价。")}</p>
@@ -279,20 +284,23 @@ export function AnswerDisplay({
       <tbody>{Array.from({length:Math.max(answer.answers.length,response.answers.length)},(_,i)=>{
         const expected=answer.answers![i], actual=response.answers![i];
         const state=!expected?.trim()?t("参考答案不完整"):!actual?.trim()?t("未作答"):actual.trim()===expected.trim()?t("文本一致"):t("文本不一致");
-        return <tr key={i} className="border-b align-top"><th scope="row" className="p-2 font-normal">{i+1}</th><td className="p-2"><Markdown>{actual || t("未作答")}</Markdown></td><td className="p-2"><Markdown>{expected || t("缺失")}</Markdown></td><td className="p-2">{state}</td></tr>;
+        return <tr key={i} className="border-b align-top"><th scope="row" className="p-2 font-normal">{i+1}</th><td className="p-2"><Markdown lang={actual ? lang : undefined}>{actual || t("未作答")}</Markdown></td><td className="p-2"><Markdown lang={expected ? lang : undefined}>{expected || t("缺失")}</Markdown></td><td className="p-2">{state}</td></tr>;
       })}</tbody>
     </table></div>;
   }
   let rendered: string;
+  let renderedLanguage: string | undefined;
   if (answer.correct)
-    rendered = answer.correct.map((s) => s ?? t("缺失")).join("、");
+    rendered = list(answer.correct.map((s) => s ?? t("缺失")));
   else if (typeof answer.value === "boolean")
     rendered = answer.value ? t("正确") : t("错误");
-  else if (answer.answers)
+  else if (answer.answers) {
+    renderedLanguage = answer.answers.every(value => value != null) ? lang : undefined;
     rendered = answer.answers
       .map((s, i) => `${i + 1}. ${s ?? t("缺失")}`)
       .join("\n\n");
-  else if (answer.order)
+  } else if (answer.order) {
+    renderedLanguage = question && answer.order.every(id => id != null && itemIds(question).some(item => item.id === id && item.content)) ? lang : undefined;
     rendered = answer.order
       .map((id) =>
         id == null
@@ -302,10 +310,9 @@ export function AnswerDisplay({
             : String(id),
       )
       .join(" → ");
-  else if (answer.matches)
-    rendered = answer.matches
-      .map((p) => {
-        if (!p) return t("缺失");
+  } else if (answer.matches)
+    return <div className="space-y-2">{answer.matches.map((p, index) => {
+        if (!p) return <Markdown key={index}>{t("缺失")}</Markdown>;
         const label = (side: "left" | "right") =>
           p[side] == null
             ? t("缺失")
@@ -313,9 +320,9 @@ export function AnswerDisplay({
               ? itemIds(question, side).find((i) => i.id === p[side])
                   ?.content || t("题项缺失")
               : String(p[side]);
-        return `${label("left")} → ${label("right")}`;
-      })
-      .join("；");
-  else rendered = answer.text || t("参考答案不完整");
-  return <Markdown>{rendered}</Markdown>;
+        const complete = question && (["left","right"] as const).every(side => p[side] != null && itemIds(question,side).some(item => item.id === p[side] && item.content));
+        return <Markdown key={index} lang={complete ? lang : undefined}>{`${label("left")} → ${label("right")}`}</Markdown>;
+      })}</div>;
+  else { rendered = answer.text || t("参考答案不完整"); renderedLanguage = answer.text ? lang : undefined; }
+  return <Markdown lang={renderedLanguage}>{rendered}</Markdown>;
 }

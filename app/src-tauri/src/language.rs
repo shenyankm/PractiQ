@@ -113,6 +113,9 @@ mod tests {
         let serialized = serde_json::to_value(error).unwrap();
         assert_eq!(serialized["code"], "LOCAL_RESOURCE_PATH_UNSAFE");
         assert_eq!(serialized["params"]["key"], "../file");
+        assert!(serialized.get("diagnostic").is_none());
+        let diagnostic = serde_json::to_value(AppError::from("system detail".to_owned())).unwrap();
+        assert_eq!(diagnostic["diagnostic"], "system detail");
         for code in ["OFFICE_EMPTY_OUTPUT", "OFFICE_IMPORT_PENDING"] {
             let translated = message(code, &json!({}), Locale::English);
             assert!(translated.starts_with("This file"));

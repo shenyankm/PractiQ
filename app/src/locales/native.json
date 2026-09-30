@@ -1070,5 +1070,41 @@
   "LOCAL_BACKUP_RESOURCE_INVALID": {
     "zh-CN": "当前数据含不支持或损坏的图片、音频，备份已取消；已有备份未被覆盖。",
     "en": "Current data contains unsupported or damaged images or audio. Backup canceled; any existing backup was preserved."
+  },
+  "LOCAL_CONFIGURE_BUSY": {
+    "zh-CN": "请先等待当前 AI 请求结束或停止导入批次，再更改连接设置",
+    "en": "Wait for the current AI request or stop the import batch before changing connection settings."
+  },
+  "LOCAL_BATCH_RUNNING": {
+    "zh-CN": "请先停止导入批次",
+    "en": "Stop the import batch first."
+  },
+  "LOCAL_IMPORT_VERSION_CHANGED": {
+    "zh-CN": "结果版本已变化，请重新选择该任务创建批次",
+    "en": "The result version changed. Select the task again to create an import batch."
+  },
+  "LOCAL_SOURCE_ARTIFACT_INVALID": {
+    "zh-CN": "来源文本校验失败: {key}",
+    "en": "Source text failed verification: {key}"
+  },
+  "LOCAL_IMAGE_ARTIFACT_INVALID": {
+    "zh-CN": "解析图片缺失或校验失败: {key}",
+    "en": "Parsed image is missing or failed verification: {key}"
+  },
+  "GRADING_INPUT_INVALID": {
+    "zh-CN": "评分输入或摘要不合法",
+    "en": "Grading input or digest is invalid."
+  },
+  "INVALID_SERVICE_TOKEN": {
+    "zh-CN": "AI 服务令牌无效",
+    "en": "AI service token is invalid."
+  },
+  "REQUEST_TOO_LARGE": {
+    "zh-CN": "请求体过大",
+    "en": "Request body is too large."
+  },
+  "SERVICE_ERROR": {
+    "zh-CN": "AI 服务请求失败，请查看诊断详情",
+    "en": "The AI service request failed. Check the diagnostic details."
   }
 }

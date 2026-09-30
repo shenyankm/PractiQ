@@ -685,8 +685,8 @@ fn exam_submit_expiry_scores_and_manual_override() {
     assert!(s
         .save_attempt((sid, 0), json!(null), 0, false, false, None)
         .is_err());
-    let request = s.prepare_grade(sid, 1, false).unwrap();
-    assert_eq!(request, s.prepare_grade(sid, 1, false).unwrap());
+    let request = s.prepare_grade(sid, 1, false, s.locale).unwrap();
+    assert_eq!(request, s.prepare_grade(sid, 1, false, s.locale).unwrap());
     let response = json!({"status":"graded","result":{"scoreCents":400,"maxCents":667,"reason":"部分得分","evidence":[],"reviewReasons":[]}});
     s.record_grade(sid, 1, text(&request, "requestId"), &response)
         .unwrap();
@@ -814,7 +814,7 @@ fn merged_copy_filters_grading_and_backup_preserve_independence() {
     s.save_attempt((sid, 0), json!({"text":"回答"}), 0, false, false, None)
         .unwrap();
     s.submit_paper(sid, true).unwrap();
-    s.prepare_grade(sid, 0, false).unwrap();
+    s.prepare_grade(sid, 0, false, s.locale).unwrap();
     s.manual_score(sid, 0, 75, "部分得分").unwrap();
     s.delete_bank(&bank).unwrap();
     s.delete_bank(&second).unwrap();
@@ -929,7 +929,7 @@ fn exam_hides_answer_roles_and_reads_live_favorites_without_changing_snapshot() 
         .len(),
         roles.len() + 1
     );
-    let wire = s.prepare_grade(sid, 0, false).unwrap();
+    let wire = s.prepare_grade(sid, 0, false, s.locale).unwrap();
     let raw = text(&wire, "payload");
     assert!(raw.contains("1e-7"));
     assert_eq!(
@@ -938,8 +938,8 @@ fn exam_hides_answer_roles_and_reads_live_favorites_without_changing_snapshot() 
     );
     let input: Value = serde_json::from_str(raw).unwrap();
     assert_eq!(input["answer"], "中文\n😀");
-    assert_eq!(wire, s.prepare_grade(sid, 0, false).unwrap());
-    let retried = s.prepare_grade(sid, 0, true).unwrap();
+    assert_eq!(wire, s.prepare_grade(sid, 0, false, s.locale).unwrap());
+    let retried = s.prepare_grade(sid, 0, true, s.locale).unwrap();
     assert_eq!(wire["inputDigest"], retried["inputDigest"]);
     assert_ne!(wire["requestId"], retried["requestId"]);
     let db = s.connect().unwrap();
@@ -952,7 +952,7 @@ fn exam_hides_answer_roles_and_reads_live_favorites_without_changing_snapshot() 
         .query_row("SELECT COUNT(*) FROM grade_requests", [], |r| r.get(0))
         .unwrap();
     assert_eq!(
-        s.prepare_grade(sid, 0, true).unwrap_err().code,
+        s.prepare_grade(sid, 0, true, s.locale).unwrap_err().code,
         "LOCAL_GRADING_TOO_LARGE"
     );
     assert_eq!(

@@ -8,30 +8,46 @@ type MessageKey = keyof typeof en;
 type Slots<S extends string> = S extends `${string}{${infer P}}${infer Rest}` ? P | Slots<Rest> : never;
 type Value = string | number | boolean | null | undefined;
 type Args<K extends MessageKey> = [Slots<K>] extends [never] ? [] : [params: Record<Slots<K>, Value>];
+export function contentLanguage(value?: string | null): string | undefined {
+  try { return value ? Intl.getCanonicalLocales(value)[0] : undefined; }
+  catch { return undefined; }
+}
 export function systemLocale(languages: readonly string[]): Locale {
-  return languages[0]?.toLowerCase().split("-")[0] === "zh" ? "zh-CN" : "en";
+  for (const value of languages) {
+    const language = contentLanguage(value)?.split("-")[0];
+    if (language === "zh") return "zh-CN";
+    if (language === "en") return "en";
+  }
+  return "en";
 }
 function isLocale(value: unknown): value is Locale { return value === "zh-CN" || value === "en"; }
 // One desktop window owns the locale. Async callbacks read the current language,
 // rather than retaining the language in which a request was started.
 let current: Locale = systemLocale(typeof navigator === "undefined" ? [] : navigator.languages);
 export function locale() { return current; }
-const listFormats = {
-  "zh-CN": new Intl.ListFormat("zh-CN", { style: "short", type: "conjunction" }),
-  en: new Intl.ListFormat("en", { style: "short", type: "conjunction" }),
-};
+export function formatLocale(language: Locale = current, languages: readonly string[] = typeof navigator === "undefined" ? [] : navigator.languages): string {
+  const base = language.split("-")[0];
+  return languages.map(contentLanguage).find(value => value?.split("-")[0] === base) ?? language;
+}
+const listFormats = new Map<string, Intl.ListFormat>();
 const plurals = new Intl.PluralRules("en");
 const numberFormats = new Map<string, Intl.NumberFormat>();
 function numberFormat(language: Locale, digits?: number) {
-  const key = `${language}:${digits ?? "default"}`;
+  const region = formatLocale(language);
+  const key = `${region}:${digits ?? "default"}`;
   let format = numberFormats.get(key);
   if (!format) {
-    format = new Intl.NumberFormat(language, digits == null ? undefined : { minimumFractionDigits: digits, maximumFractionDigits: digits });
+    format = new Intl.NumberFormat(region, digits == null ? undefined : { minimumFractionDigits: digits, maximumFractionDigits: digits });
     numberFormats.set(key, format);
   }
   return format;
 }
-export function list(values: string[]) { return listFormats[current].format(values); }
+export function list(values: string[]) {
+  const region = formatLocale();
+  let format = listFormats.get(region);
+  if (!format) { format = new Intl.ListFormat(region, { style: "short", type: "conjunction" }); listFormats.set(region, format); }
+  return format.format(values);
+}
 export function number(value: number, digits?: number) {
   return numberFormat(current, digits).format(value);
 }
@@ -52,7 +68,7 @@ export function duration(ms: number) {
   return t("{0} 分 {1} 秒", { 0: Math.floor(seconds / 60), 1: seconds % 60 });
 }
 export function date(ms: number) {
-  return new Date(ms).toLocaleString(locale(), { hour12: false });
+  return new Date(ms).toLocaleString(formatLocale(), { hour12: false });
 }
 export type Message = { key: MessageKey; params?: Record<string, Value> };
 export function message<K extends MessageKey>(key: K, ...args: Args<K>): Message { return { key, params: args[0] }; }
@@ -63,7 +79,7 @@ export class MessageError extends Error {
   constructor(readonly localized: Message) { super(localized.key); }
 }
 
-type LanguageFailure = { key: "读取语言设置失败" | "保存语言设置失败"; cause: unknown };
+type LanguageFailure = { key: "读取语言设置失败"; cause: unknown } | { key: "保存语言设置失败"; cause: unknown; locale: Locale };
 type LanguageContext = { locale: Locale; ready: boolean; saving: boolean; error: LanguageFailure | null; reload: () => Promise<void>; change: (value: Locale) => Promise<boolean> };
 const Context = createContext<LanguageContext>({ locale: current, ready: true, saving: false, error: null, reload: async () => {}, change: async () => true });
 export function useI18n() { return useContext(Context); }
@@ -93,7 +109,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
       await invoke("request", { request: { type: "save_language", locale: value } satisfies LanguageRequest });
       if (request !== generation.current) return false;
       apply(value); setError(null); return true;
-    } catch (e) { if (request === generation.current) setError({ key: "保存语言设置失败", cause: e }); }
+    } catch (e) { if (request === generation.current) setError({ key: "保存语言设置失败", cause: e, locale: value }); }
     finally { lock.current = false; if (request === generation.current) setSaving(false); }
     return false;
   }
