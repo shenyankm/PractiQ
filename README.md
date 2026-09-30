@@ -15,9 +15,11 @@ Turn documents into question banks, then practise and take mock exams offline on
 
 The app supports Simplified Chinese and English, light and dark themes, seven basic question types, and English listening, reading, cloze, translation, and writing tasks. Practice data stays on your device; there are no accounts or cloud sync.
 
+The first supported system language is used until you choose a language in the sidebar. That choice is saved locally and included in full backups; a failed save can be retried. Dates and numbers use the matching regional system preference. Language changes preserve question content and answers; materials with known language metadata declare their own language for assistive tools. AI grading captures the selected feedback language when you start it, and resuming the same request preserves that language.
+
 PractiQ is in development. There is no published GitHub Release yet; run it from source using the instructions below. Platform build checks do not establish signed-release or clean-machine acceptance.
 
-![PractiQ question-bank home in the desktop development preview](docs/assets/desktop-preview.png)
+![PractiQ question-bank home in the English desktop development preview](docs/assets/desktop-preview-en.png)
 
 Development preview using in-memory sample data.
 
