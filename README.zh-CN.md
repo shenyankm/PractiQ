@@ -128,6 +128,7 @@ FastAPI/LangGraph 服务监听 `127.0.0.1:8090`，使用 SQLite 和本地文件�
 - [效果评测](server/docs/evaluation.md)：数据集、检查与证据边界
 - [题型模型](docs/question-model.md)：题型与复合题规则
 - [发布验证](CONTRIBUTING.md#release-verification)：发布检查与验收证据
+- [发布规范](docs/releases.md)：版本标签、下载产物、校验值与手动草稿流程
 - [参与贡献](CONTRIBUTING.md)：开发检查与提交规范
 
 桌面检查运行 `make app-check`，AI 服务检查运行 `make verify`。Playwright Test 覆盖双语交互、浏览器预览和富内容渲染，模拟原生命令，不调用模型：

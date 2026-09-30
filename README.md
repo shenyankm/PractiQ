@@ -128,6 +128,7 @@ The FastAPI/LangGraph service listens on `127.0.0.1:8090`, uses SQLite and local
 - [Evaluation](server/docs/evaluation.md): datasets, checks, and evidence limits
 - [Question model](docs/question-model.md): question types and composite question rules
 - [Release verification](CONTRIBUTING.md#release-verification): publication checks and acceptance evidence
+- [Release policy](docs/releases.md): version tags, downloads, checksums and the manual draft workflow
 - [Contributing](CONTRIBUTING.md): development checks and pull requests
 
 Run `make app-check` for desktop checks and `make verify` for the AI service. Playwright Test checks bilingual interactions, browser preview, and rich-content rendering with mocked native commands and no model calls:
