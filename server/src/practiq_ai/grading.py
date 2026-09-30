@@ -67,10 +67,10 @@ class GradeWireRequest(StrictModel):
 
     def verified_request(self) -> GradeRequest:
         if digest_payload(self.payload) != self.inputDigest:
-            raise ValueError("评分输入摘要不匹配")
+            raise ValueError("Grading input digest does not match")
         data = json.loads(self.payload)
         if not isinstance(data, dict) or {"requestId", "inputDigest"} & data.keys():
-            raise ValueError("评分输入格式不合法")
+            raise ValueError("Grading input format is invalid")
         return GradeRequest.model_validate({**data, "requestId": self.requestId, "inputDigest": self.inputDigest})
 
 
@@ -127,7 +127,7 @@ def _claim(request: GradeRequest):
         row = db.execute("SELECT digest,response FROM grades WHERE id=?", (str(request.requestId),)).fetchone()
         if row:
             if row[0] != request.inputDigest:
-                raise DocumentProcessingError(409, "评分请求内容已变化", "REQUEST_CONFLICT")
+                raise DocumentProcessingError(409, "Grading request content changed", "REQUEST_CONFLICT")
             return json.loads(row[1]) if row[1] else {"status":"unknown", "error":"Result unknown; check the record before explicitly requesting another grade." if request.feedbackLocale == "en" else "结果未知；请检查记录后明确重新评分", "usage":[]}
         db.execute("INSERT INTO grades VALUES(?,?,NULL)", (str(request.requestId),request.inputDigest))
     return None
@@ -140,7 +140,7 @@ def _save(request: GradeRequest, response: dict):
 
 async def grade(request: GradeRequest) -> dict:
     if load().maintenance:
-        raise DocumentProcessingError(503, "服务维护中", "MAINTENANCE")
+        raise DocumentProcessingError(503, "Service is under maintenance", "MAINTENANCE")
     previous = await asyncio.to_thread(_claim, request)
     if previous is not None:
         return previous

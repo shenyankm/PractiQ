@@ -3,6 +3,7 @@ import { api, type PlaybackState, type Question, type Session } from "./api";
 import { t, useI18n } from "./i18n";
 import { Markdown } from "./Content";
 import { acquireAsset } from "./asset-urls";
+import { materialLanguage } from "./english";
 import { Button } from "@/components/ui/button";
 
 export function ListeningPlayer({question:q,session}:{question:Question;session?:Session}) {
@@ -95,7 +96,7 @@ export function ListeningPlayer({question:q,session}:{question:Question;session?
     <Markdown>{q.stem}</Markdown><Markdown>{q.instructions}</Markdown>
     {!hash && <p role="note">{t("听力音频缺失，请在题目编辑中补充。")}</p>}
     {hash && <>
-      <audio ref={audio} src={src || undefined} preload="metadata"
+      <audio lang={materialLanguage(q)} ref={audio} src={src || undefined} preload="metadata"
         onLoadedMetadata={()=>{if(audio.current)audio.current.currentTime=start;}}
         onPlay={()=>setPlaying(true)} onPause={()=>{setPlaying(false);if(audio.current && !ended.current)persist("pause",audio.current.currentTime);}}
         onEnded={finish} onError={()=>setError(true)}

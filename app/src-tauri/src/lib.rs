@@ -201,8 +201,10 @@ pub struct AppError {
     #[serde(default, skip_serializing_if = "Value::is_null")]
     params: Box<Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    context: Option<String>,
+    context: Option<Box<str>>,
     message: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    diagnostic: Option<Box<str>>,
     #[serde(rename = "requestId", skip_serializing_if = "Option::is_none")]
     request_id: Option<String>,
     #[serde(rename = "httpStatus", skip_serializing_if = "Option::is_none")]
@@ -215,6 +217,7 @@ impl AppError {
             params: Box::new(Value::Null),
             context: None,
             message: message.into(),
+            diagnostic: None,
             request_id: None,
             http_status: None,
         }
@@ -222,7 +225,9 @@ impl AppError {
 }
 impl From<String> for AppError {
     fn from(message: String) -> Self {
-        Self::new("OPERATION_FAILED", message)
+        let mut error = Self::new("OPERATION_FAILED", message.clone());
+        error.diagnostic = Some(message.into_boxed_str());
+        error
     }
 }
 impl From<&str> for AppError {
@@ -390,11 +395,7 @@ async fn ai_request(
 ) -> std::result::Result<Value, AppError> {
     let shared = state.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
-        shared
-            .lock()
-            .map_err(|_| language::error("LOCAL_DATABASE_UNAVAILABLE", json!({})))?
-            .locale = locale.unwrap_or_default();
-        ai::request(app, shared, request)
+        ai::request(app, shared, request, locale.unwrap_or_default())
     })
     .await
     .map_err(|e| AppError::from(e.to_string()))?

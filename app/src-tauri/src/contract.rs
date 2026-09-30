@@ -559,7 +559,7 @@ pub fn parse(bytes: &[u8]) -> Result<Value> {
         validate_tree(questions)?;
         for (i, q) in questions.iter_mut().enumerate() {
             validate_question(q).map_err(|mut e| {
-                e.context = Some(format!("questions[{i}]"));
+                e.context = Some(format!("questions[{i}]").into_boxed_str());
                 e
             })?;
         }

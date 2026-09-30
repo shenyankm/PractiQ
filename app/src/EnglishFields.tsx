@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api, errorMessage, type AudioLink, type StagedAudio, type Question } from "./api";
-import { t, useI18n } from "./i18n";
+import { message, MessageError, t, useI18n } from "./i18n";
 import { ListeningPlayer } from "./ListeningPlayer";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,7 +11,7 @@ export function EnglishFields({question:q,patch,images=[],onPendingChange}:{ques
   const mounted=useRef(false);
   const mode=useRef(q.answerMode);
   mode.current=q.answerMode;
-  const [error,setError]=useState("");
+  const [error,setError]=useState<unknown>(null);
   const [url,setUrl]=useState("");
   const [links,setLinks]=useState<AudioLink[]>([]);
   const generation=useRef(0);
@@ -32,7 +32,7 @@ export function EnglishFields({question:q,patch,images=[],onPendingChange}:{ques
   }
   async function pick(kind:"file"|"qr"|"url", hash?:string) {
     if(picking)return;
-    setPicking(true);onPendingChange(true);setError("");setLinks([]);
+    setPicking(true);onPendingChange(true);setError(null);setLinks([]);
     const version=generation.current;
     try {
       if(kind==="file")accept(await api({type:"pick_audio"}),version);
@@ -47,7 +47,7 @@ export function EnglishFields({question:q,patch,images=[],onPendingChange}:{ques
         }
       }
     }
-    catch(e) {if(mounted.current && version===generation.current)setError(kind==="file" ? t("音频加载或播放失败，请检查文件后重试。") : errorMessage(e));}
+    catch(e) {if(mounted.current && version===generation.current)setError(kind==="file" ? new MessageError(message("音频加载或播放失败，请检查文件后重试。")) : e);}
     finally {if(mounted.current){setPicking(false);onPendingChange(false);}}
   }
   return <section className="space-y-4">
@@ -55,7 +55,7 @@ export function EnglishFields({question:q,patch,images=[],onPendingChange}:{ques
     {q.answerMode === "listening" && <div className="space-y-3 rounded border p-3">
       <Button variant="outline" disabled={picking} onClick={()=>void pick("file")}>{t("选择听力音频")}</Button>
       {q.audioRef && <Button variant="ghost" disabled={picking} onClick={()=>{release(q.audioRef?.sha256);patch({audioRef:null});}}>{t("移除音频")}</Button>}
-      <label className="grid gap-2">{t("听力资源网址")}<Input type="url" maxLength={8192} disabled={picking} value={url} onChange={e=>{setUrl(e.target.value);setLinks([]);setError("");}}/></label>
+      <label className="grid gap-2">{t("听力资源网址")}<Input type="url" maxLength={8192} disabled={picking} value={url} onChange={e=>{setUrl(e.target.value);setLinks([]);setError(null);}}/></label>
       <div className="flex flex-wrap gap-2">
         <Button variant="outline" disabled={picking || !url.trim()} onClick={()=>void pick("url")}>{t("从网址获取音频")}</Button>
         <Button variant="outline" disabled={picking} onClick={()=>void pick("qr")}>{t("识别二维码图片")}</Button>
@@ -64,7 +64,7 @@ export function EnglishFields({question:q,patch,images=[],onPendingChange}:{ques
       <p className="text-xs text-muted-foreground">{t("支持音频直链或含公开音频链接的网页。二维码先识别网址，点击获取后才联网；下载后可离线播放。")}</p>
       {picking && <p role="status">{t("正在处理听力资源…")}</p>}
       {links.length>0 && <div className="space-y-2"><p>{t("请选择资源网址，再点击获取音频。")}</p>{links.map(link=><Button key={link.url} variant="outline" disabled={picking} className="h-auto w-full justify-start whitespace-normal break-all text-left" onClick={()=>{setUrl(link.url);setLinks([]);}}>{link.label ? link.label+" · " : ""}{link.url}</Button>)}</div>}
-      {error && <p role="alert">{error}</p>}
+      {error != null && <p role="alert">{errorMessage(error)}</p>}
       <p className="text-xs text-muted-foreground">{t("支持 MP3、M4A/AAC、WAV，每个文件不超过 25 MiB。")}</p>
       <ListeningPlayer key={q.audioRef?.sha256 || "missing"} question={q}/>
       <div className="grid grid-cols-3 gap-3">

@@ -37,6 +37,8 @@ Upload the source, create a task, then read the result:
 
 The service supports `text_csv_parser`, `pdf_parser`, and the all-format `document_parser`. Task input rejects URLs, Base64, and server paths. The former product `/api/v1/ai/*` endpoints have been removed.
 
+Application errors return a structured `detail` containing a stable `code` and optional diagnostic `message` and interpolation `params`. Clients localize the code rather than display the diagnostic message as interface copy. Invalid authentication returns 401 / `INVALID_SERVICE_TOKEN`; oversized JSON bodies return 413 / `REQUEST_TOO_LARGE`. FastAPI field-validation errors retain their standard 422 validation details.
+
 Pause, interrupt, resume, retry, and partial-result acceptance use `POST /api/document-tasks/{threadId}/control`. See [task controls](document-tasks.md) for requests, idempotency, and the 180-day retention period.
 
 ## Request subjective grading
@@ -54,6 +56,8 @@ The request has three fields:
 | `payload` | JSON string containing `question`, `answer`, `maxCents`, and optional `materials`, `images`, and `feedbackLocale` |
 
 `question` follows the parsed-question contract. `maxCents` is an integer in hundredths of a point: `500` means 5 points. The inner `payload` must not contain `requestId` or `inputDigest`. Do not reserialize the string after calculating its digest.
+
+Invalid inner payloads or mismatched digests return 422 / `GRADING_INPUT_INVALID` without starting a grading call.
 
 `feedbackLocale` accepts `zh-CN` or `en` and controls generated grading explanations; quoted evidence stays in its source language. Omitted values default to `zh-CN` for existing clients. The desktop includes its current language when preparing a new request and preserves that language and digest on replay. Switching the interface language does not translate saved feedback or trigger regrading.
 

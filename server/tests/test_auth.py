@@ -15,3 +15,8 @@ def test_auth_rejects_missing_or_invalid_token(monkeypatch, authorization):
     with pytest.raises(HTTPException) as error:
         authenticate(authorization)
     assert error.value.status_code == 401
+    assert error.value.detail == {
+        "code": "INVALID_SERVICE_TOKEN",
+        "message": "Invalid service token",
+        "params": {},
+    }

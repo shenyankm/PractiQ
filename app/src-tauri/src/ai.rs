@@ -390,21 +390,26 @@ impl Endpoint {
         if let Some(body) = body {
             request = request.json(body);
         }
-        let response = request.send().map_err(|_| {
-            AppError::new(
-                "LOCAL_SERVICE_UNAVAILABLE",
-                "本地解析服务连接中断，请重试待确认操作",
-            )
-        })?;
+        let response = request
+            .send()
+            .map_err(|_| crate::language::error("LOCAL_SERVICE_UNAVAILABLE", json!({})))?;
         if !response.status().is_success() {
             let status = response.status();
             let value = read_json(response)?;
+            let detail = &value["detail"];
             let mut error = AppError::new(
-                value["detail"]["code"].as_str().unwrap_or("SERVICE_ERROR"),
-                value["detail"]["message"]
+                detail["code"].as_str().unwrap_or("SERVICE_ERROR"),
+                detail["message"]
                     .as_str()
-                    .unwrap_or("请检查配置或刷新任务状态"),
+                    .unwrap_or("AI service returned an error"),
             );
+            error.params = Box::new(detail["params"].clone());
+            error.diagnostic = detail["message"]
+                .as_str()
+                .or_else(|| detail.as_str())
+                .map(str::to_owned)
+                .or_else(|| detail.as_array().map(|_| detail.to_string()))
+                .map(String::into_boxed_str);
             error.http_status = Some(status.as_u16());
             return Err(error);
         }
@@ -587,7 +592,7 @@ fn active_endpoint(
             .map_err(|mut error| {
                 let path = dir.join("ai/parser-stderr.log");
                 if path.exists() {
-                    error.context = Some(path.display().to_string());
+                    error.context = Some(path.display().to_string().into_boxed_str());
                 }
                 error
             })?,
@@ -612,7 +617,7 @@ fn review_reference(
 ) -> AiResult<(Value, String)> {
     let review = process.review(id)?;
     if review["checkpointId"] != checkpoint_id {
-        return Err(AppError::new("STALE_CHECKPOINT", "任务已变化，请刷新预览"));
+        return Err(crate::language::error("STALE_CHECKPOINT", json!({})));
     }
     let unit = review["units"].get(unit).ok_or(crate::language::error(
         "LOCAL_PREVIEW_UNIT_MISSING",
@@ -653,7 +658,7 @@ pub fn read_review_image(
     if !media.starts_with("image/") {
         return Err(crate::language::error(
             "LOCAL_IMAGE_FORMAT_MISMATCH",
-            json!({}),
+            json!({"key": reference["objectKey"]}),
         ));
     }
     process.image(
@@ -739,12 +744,17 @@ fn pick_documents(
     })
 }
 
-pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiResult<Value> {
-    let (dir, locale) = {
+pub fn request(
+    app: tauri::AppHandle,
+    shared: Shared,
+    request: AiRequest,
+    locale: crate::language::Locale,
+) -> AiResult<Value> {
+    let dir = {
         let store = shared
             .lock()
             .map_err(|_| crate::language::error("LOCAL_DATABASE_UNAVAILABLE", json!({})))?;
-        (store.dir.clone(), store.locale)
+        store.dir.clone()
     };
     let work = app.state::<WorkState>();
     let _request = work.enter()?;
@@ -797,7 +807,7 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
                 .map_err(|_| {
                     crate::language::error("LOCAL_DATABASE_UNAVAILABLE", serde_json::json!({}))
                 })?
-                .prepare_grade(&id, ordinal, retry)?;
+                .prepare_grade(&id, ordinal, retry, locale)?;
             let response = match process.json(
                 Method::POST,
                 "/api/subjective-grades",
@@ -1070,7 +1080,10 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
                     || reference["sizeBytes"].as_u64() != Some(bytes.len() as u64)
                     || store::hash(&bytes) != contract::text(&reference, "sha256")
                 {
-                    return Err(AppError::new("ARTIFACT_INVALID", "来源文本校验失败"));
+                    return Err(crate::language::error(
+                        "LOCAL_SOURCE_ARTIFACT_INVALID",
+                        json!({"key": reference["objectKey"]}),
+                    ));
                 }
                 String::from_utf8(bytes).map_err(|_| {
                     crate::language::error("LOCAL_SOURCE_ENCODING_INVALID", serde_json::json!({}))
@@ -1078,7 +1091,7 @@ pub fn request(app: tauri::AppHandle, shared: Shared, request: AiRequest) -> AiR
             } else {
                 return Err(crate::language::error(
                     "LOCAL_IMAGE_FORMAT_MISMATCH",
-                    json!({}),
+                    json!({"key": reference["objectKey"]}),
                 ));
             };
             Ok(json!({"mediaType":media,"content":content}))
@@ -1110,10 +1123,7 @@ impl Endpoint {
     pub(crate) fn pending(&self, dir: &std::path::Path, id: &str) -> AiResult<Pending> {
         let result = self.json(Method::GET, &task_path(id)?, None)?;
         if result["threadId"] != id || result["state"] != "COMPLETED" {
-            return Err(AppError::new(
-                "TASK_NOT_COMPLETED",
-                "请先完成解析或接受部分结果",
-            ));
+            return Err(crate::language::error("TASK_NOT_COMPLETED", json!({})));
         }
         let checkpoint = result["checkpointId"]
             .as_str()
@@ -1170,7 +1180,10 @@ impl Endpoint {
             || store::hash(&bytes) != digest
             || !store::valid_image(&bytes, media)
         {
-            return Err(AppError::new("ARTIFACT_INVALID", "解析图片缺失或校验失败"));
+            return Err(crate::language::error(
+                "LOCAL_IMAGE_ARTIFACT_INVALID",
+                json!({"key": reference["objectKey"]}),
+            ));
         }
         Ok(bytes)
     }

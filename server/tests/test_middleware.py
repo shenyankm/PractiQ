@@ -33,7 +33,9 @@ async def test_task_mutations_reject_oversized_bodies_before_auth_or_json(
         response = await client.post(path, content=chunks(), headers=headers)
 
     assert response.status_code == 413
-    assert response.json()['error']['code'] == 'REQUEST_TOO_LARGE'
+    assert response.json()['detail'] == {
+        'code': 'REQUEST_TOO_LARGE', 'message': 'Request body is too large', 'params': {},
+    }
     assert reads == ([] if content_length == DEFAULT_JSON_BODY_BYTES + 1 else [DEFAULT_JSON_BODY_BYTES, 1])
 
 

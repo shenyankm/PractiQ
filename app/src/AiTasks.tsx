@@ -1,4 +1,4 @@
-import { date, message, t, useI18n } from "./i18n";
+import { date, message, number, t, useI18n } from "./i18n";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "./notifications";
 import { api, errorMessage, isComposite, type Preview, type BankChoice } from "./api";
@@ -516,7 +516,7 @@ export function AiTasks({
       <Dialog open={selected !== null} onOpenChange={open => { if (!open) { setSelected(null); setTask(null); } }}>
         <DialogContent className="inset-y-0 right-0 left-auto flex h-full w-[min(40rem,100vw)] max-w-none translate-x-0 translate-y-0 flex-col overflow-y-auto rounded-none p-6 sm:max-w-none">
           <DialogHeader><DialogTitle>{selectedRow?.bankTitle || selectedRow?.fileName || t("任务详情")}</DialogTitle><DialogDescription>{t("查看解析进度、审核内容和导入结果。")}</DialogDescription></DialogHeader>
-          <dl className="space-y-2 text-sm"><div><dt className="text-muted-foreground">{t("导入 ID")}</dt><dd className="break-all font-mono">{selected}</dd></div><div><dt className="text-muted-foreground">{t("源文件")}</dt><dd>{selectedRow?.fileName}</dd></div><div><dt className="text-muted-foreground">{t("创建时间")}</dt><dd>{selectedRow?.createdAt ? date(Date.parse(selectedRow.createdAt)) : "—"}</dd></div><div><dt className="text-muted-foreground">{t("题目 / 待复核")}</dt><dd>{selectedRow?.questionCount ?? 0} / {selectedRow?.reviewCount ?? 0}</dd></div>{selectedRow?.bankDescription && <div><dt className="text-muted-foreground">{t("描述")}</dt><dd className="whitespace-pre-wrap">{selectedRow.bankDescription}</dd></div>}</dl>
+          <dl className="space-y-2 text-sm"><div><dt className="text-muted-foreground">{t("导入 ID")}</dt><dd className="break-all font-mono">{selected}</dd></div><div><dt className="text-muted-foreground">{t("源文件")}</dt><dd>{selectedRow?.fileName}</dd></div><div><dt className="text-muted-foreground">{t("创建时间")}</dt><dd>{selectedRow?.createdAt ? date(Date.parse(selectedRow.createdAt)) : "—"}</dd></div><div><dt className="text-muted-foreground">{t("题目 / 待复核")}</dt><dd>{number(selectedRow?.questionCount ?? 0)} / {number(selectedRow?.reviewCount ?? 0)}</dd></div>{selectedRow?.bankDescription && <div><dt className="text-muted-foreground">{t("描述")}</dt><dd className="whitespace-pre-wrap">{selectedRow.bankDescription}</dd></div>}</dl>
           {selectedRow?.state === "EXPIRED" ? <p>{t("任务已过期，请重新选择文档。已有题库不受影响。")}</p> : !currentTask ? <p role="status">{detailError ? errorMessage(detailError) : t("加载中…")}</p> : null}
           {detailError != null && <Button variant="outline" disabled={busy} onClick={() => setDetailRevision(n => n + 1)}>{t("重试")}</Button>}
           {selectedRow?.importedBankId && onOpenBank && <Button onClick={() => onOpenBank(selectedRow.importedBankId!)}>{t("查看题库")}</Button>}
@@ -536,7 +536,7 @@ export function AiTasks({
               <details className="text-sm text-muted-foreground"><summary className="cursor-pointer">{t("模型用量与技术详情")}</summary><p className="mt-2">{t("阶段：{0}", { 0: task.phase })}</p><p>{t("已记录 {0} 次调用；输入 {1} / 输出 {2} tokens；用量未知 {3} 次", { 0: task.usage.length, 1: task.usage.reduce((n, u) => n + (u.inputTokens || 0), 0), 2: task.usage.reduce((n, u) => n + (u.outputTokens || 0), 0), 3: task.unknownUsageCalls.length })}</p></details>
               {task.failures.map((f, i) => (
                 <p className="text-sm text-destructive" key={i}>
-                  {phaseName(f.stage)} #{f.index + 1}：{errorMessage({code:f.code, message:f.message || failureMessage(f.code)})}
+                  {t("{0} #{1}：{2}", {0:phaseName(f.stage),1:f.index+1,2:errorMessage({code:f.code, message:f.message || failureMessage(f.code), diagnostic:f.message})})}
                   {f.retryable ? t("（可重试）") : ""}
                 </p>
               ))}
@@ -709,7 +709,7 @@ export function AiTasks({
             </div>
             {review.failures.map((f, i) => (
               <p className="text-destructive" key={i}>
-                {phaseName(f.stage)} #{f.index + 1}：{errorMessage({code:f.code, message:failureMessage(f.code)})}
+                {t("{0} #{1}：{2}", {0:phaseName(f.stage),1:f.index+1,2:errorMessage({code:f.code, message:failureMessage(f.code)})})}
               </p>
             ))}
             {review.units.map((unit, index) => (unit.questions.length > 0 || unit.groups.length > 0 || !!unit.visualElements?.length) && (

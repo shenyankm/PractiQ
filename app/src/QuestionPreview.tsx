@@ -5,6 +5,7 @@ import { fieldName, type Question, type Group, type Visual } from "./api";
 import type { DocumentQualityIssue, DocumentQuestionSource } from "./contracts.generated";
 import { Content, LazyDetails, Markdown } from "./Content";
 import { AnswerDisplay } from "./AnswerInput";
+import { materialLanguage } from "./english";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -133,7 +134,7 @@ export const QuestionPreview = memo(function QuestionPreview({ questions, groups
           {q.options?.map((o) => (
             <div key={o.label} className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-start gap-2 leading-[1.75]">
               <span className="min-w-6 font-medium">{o.label}.</span>
-              <Markdown>{o.content}</Markdown>
+              <Markdown lang={materialLanguage(q)}>{o.content}</Markdown>
             </div>
           ))}
           {q.items?.map((item, index) => (
@@ -141,7 +142,7 @@ export const QuestionPreview = memo(function QuestionPreview({ questions, groups
               <span>
                 {item.side === "left" ? t("左侧") : item.side === "right" ? t("右侧") : t("题项")} {index + 1}
               </span>
-              <Markdown>{item.content}</Markdown>
+              <Markdown lang={materialLanguage(q)}>{item.content}</Markdown>
             </div>
           ))}
           <LazyDetails summary={t("答案、解析与来源")}>
