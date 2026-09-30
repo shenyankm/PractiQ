@@ -48,11 +48,8 @@ def test_builds_supported_provider(provider: str, base_url: str) -> None:
     text = llm.build_model(provider, "test-key", "text-model")
     assert isinstance(text, ChatOpenAI)
     assert text.openai_api_base == base_url
-
-
-def test_builds_deepseek_vision_model() -> None:
-    image = llm.build_model("deepseek", "test-key", "vision-model")
-    assert isinstance(image, ChatOpenAI)
+    assert text.model_name == "text-model"
+    assert text.max_retries == 0
 
 
 def test_loopback_model_uses_native_http_clients() -> None:
@@ -366,8 +363,8 @@ def test_page_result_retains_structured_questions_and_figures():
     })
     assert parsed.questions[0].stem == "Visible question"
     assert parsed.figures[0].bbox == [0.1, 0.1, 0.6, 0.6]
-    with pytest.raises(ValueError):
-        document.PageParseResult.model_validate({"figures": [{"description": "bad", "bbox": [0, 0, 2, 1]}]})
+    with pytest.raises(ValueError, match="bbox"):
+        document.PageParseResult.model_validate({"figures": [{"kind": "chart", "description": "bad", "bbox": [0, 0, 2, 1]}]})
 
 
 def test_crop_uploads_never_exceed_global_limit(monkeypatch):

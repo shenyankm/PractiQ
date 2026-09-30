@@ -15,6 +15,12 @@
 
 应用支持简体中文和英文、明暗主题、七种基础题型，以及英语听力、阅读、完形填空、翻译和写作等题型。练习数据保存在本机，无需账号，不提供云同步。
 
+PractiQ 仍处于开发阶段，目前没有已发布的 GitHub Release；请按下方步骤从源码运行。平台构建检查不代表已完成签名发布或干净系统验收。
+
+![PractiQ 桌面开发预览中的题库首页](docs/assets/desktop-preview.png)
+
+开发预览，使用内存示例数据。
+
 ## 先体验：无需配置模型
 
 [运行桌面应用](#运行桌面应用)后：
@@ -35,7 +41,11 @@
 
 支持 **PDF、TXT、CSV 和 PNG/JPEG**。桌面安装包内置 LibreOffice 26.8.0，Word 和 Excel 无需另装组件或运行时下载，默认转为 PDF。独立服务不接受 Office 文件。文本导出方式及限制见[转换指南](server/docs/desktop-office.md)。
 
-导入题库页面分为「导入」和「导入记录」两个 Tab。填写题库名、描述并一次选择最多 10 份源文件后，点击「开始导入」即执行，不再二次弹窗。同内容文件直接打开已有任务；需要新结果时点击「重新解析」直接创建新任务。创建的任务会出现在导入记录中；点击题库名或记录行查看详情，使用图标停止或继续解析。运行中的任务须先停止才能删除记录，删除记录不影响已导入的题库及学习数据。表单名称和描述保存在本地，后续新建题库时沿用。导入记录支持按进行中、已暂停、已完成、已取消、解析失败、待审核、已中断和已过期筛选；先筛选再分页。详情中的「取消任务」停止当前解析并保留进度，可按允许的操作手动继续。已完成表示解析完成，是否入库仍单独显示。开发模式默认使用全站内存示例数据。右下角「开发预览」可切换完整、空白、多页、慢加载、请求失败、未配置模型和资源缺失场景，或切回真实本地数据。切换或重置会回到首页并清空示例修改。演示操作不访问原生数据、文件选择器、密钥或模型；导出与恢复只模拟反馈。正式构建不包含预览入口。场景范围见 [开发预览](app/docs/development-preview.md)。
+导入题库页面分为「导入」和「导入记录」两个 Tab。一次选择最多 10 份源文件，点击**开始导入**即执行转换和解析，不再二次弹窗。检查结果后，再新建题库或追加到已有题库。
+
+同内容文件直接打开已有任务；需要新结果时点击**重新解析**。运行中的任务须先停止才能删除记录，删除记录不影响已导入题库及学习数据。导入记录、筛选及恢复方式见[导入任务指南](docs/import-tasks.md)。
+
+开发模式默认使用内存示例数据。右下角开发预览面板可切换场景或选择真实本地数据，操作方式及边界见[开发预览](app/docs/development-preview.md)。
 
 解析只提取原文已有的答案和评分细则，不替缺答案的题目解题；缺失内容保留待复核标记。任务支持暂停、恢复、重试和接受部分结果。需要保留的结果请在 **180 天**内导入题库，任务到期不影响已导入题库。
 
@@ -51,11 +61,19 @@ API Key 保存在系统凭据存储中，备份不含密钥和 AI 任务状态�
 
 开发需要 Node.js 22.12+、Rust、uv 和已有 Python 3.14+ 解释器。请安装 [Tauri 对应平台的前置依赖](https://v2.tauri.app/start/prerequisites/)：macOS 使用 Xcode，Windows 使用 MSVC 构建工具和 WebView2，Linux 使用 WebKitGTK 4.1、`libdbus-1-dev` 及构建库。Linux 保存 API Key 还需要已解锁的 Secret Service 服务（如 GNOME Keyring），听力播放需要 GStreamer 音频插件。不创建项目 `.venv`。请在目标系统上构建，以打包对应平台的 Python 服务。
 
+克隆仓库并进入根目录：
+
+```sh
+git clone https://github.com/shenyankm/PractiQ.git
+cd PractiQ
+```
+
 在 macOS 或 Linux 上，从仓库根目录执行以下命令，并把 Python 路径替换为你的解释器：
 
 ```sh
 make install-locked app-install-python AI_PYTHON=/path/to/python3.14
 make app-install
+cargo fetch --locked --manifest-path app/src-tauri/Cargo.toml
 make app-bundle AI_PYTHON=/path/to/python3.14
 make app-dev
 ```
@@ -72,9 +90,10 @@ Windows 使用 PowerShell，从仓库根目录执行：
 uv export --project server --locked --extra dev --extra desktop --no-emit-project -o "$env:TEMP/practiq-requirements.txt"
 uv pip install --python (Get-Command python).Source -r "$env:TEMP/practiq-requirements.txt"
 uv pip install --python (Get-Command python).Source --no-deps -e server
+npm --prefix app ci
+cargo fetch --locked --manifest-path app/src-tauri/Cargo.toml
 python app/scripts/bundle-python.py
 cd app
-npm ci
 npm run desktop
 # 构建 Windows 安装包：
 npm run tauri -- build
@@ -109,10 +128,18 @@ FastAPI/LangGraph 服务监听 `127.0.0.1:8090`，使用 SQLite 和本地文件�
 - [发布验证](CONTRIBUTING.md#release-verification)：发布检查与验收证据
 - [参与贡献](CONTRIBUTING.md)：开发检查与提交规范
 
-桌面检查运行 `make app-check`，AI 服务检查运行 `make verify`。浏览器检查模拟原生命令，不调用模型：
+桌面检查运行 `make app-check`，AI 服务检查运行 `make verify`。Playwright Test 覆盖双语交互、浏览器预览和富内容渲染，模拟原生命令，不调用模型：
 
 ```sh
 cd app
 npx playwright install chromium --only-shell
 npm run test:browser
 ```
+
+测试运行器自动启动本机回环地址上的 Vite 服务。可运行 `npm run test:preview` 或 `npm run test:rich-content` 单独检查。失败时，执行轨迹和截图保存在 `app/test-results/browser/`；用 `npx playwright show-trace /path/to/trace.zip` 查看轨迹。
+
+## 获取帮助与参与贡献
+
+通过 [GitHub Issues](https://github.com/shenyankm/PractiQ/issues/new/choose) 报告可复现问题或提出改进建议。代码和文档贡献见[贡献指南](CONTRIBUTING.md)；漏洞请按[安全策略](SECURITY.md)私密报告。
+
+项目源码使用 [MIT 许可证](LICENSE)，内置依赖保留各自的[上游许可声明](app/licenses/README.md)。

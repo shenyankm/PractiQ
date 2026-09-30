@@ -47,12 +47,10 @@ async def test_text_formats_use_unified_model(monkeypatch, kind):
         original = reference['objectKey']
         reference.update(sourceType='csv', mediaType='text/csv', objectKey=document_source_key('csv', reference['sha256']))
         files.blobs[reference['objectKey']] = files.blobs.pop(original)
-    seen = []
     model = FakeModel(responses=[{'questions': [question('Question?')]}])
-    def get_model():
-        seen.append('unified')
-        return model
-    monkeypatch.setattr(document, 'get_model', get_model)
+    monkeypatch.setattr(document, 'get_model', lambda: model)
     monkeypatch.setattr(document, 'get_object_store', lambda: files)
     result = await local_graph().ainvoke({'document': reference}, run_config())
-    assert result['status'] == 'SUCCEEDED' and seen == ['unified', 'unified']
+    assert result['status'] == 'SUCCEEDED'
+    assert result['result']['questions'][0]['stem'] == 'Question?'
+    assert len(model.calls) == 1

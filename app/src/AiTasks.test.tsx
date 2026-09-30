@@ -92,8 +92,8 @@ it("refreshes accepted documents when a later file in the selection fails", asyn
 });
 
 it("opens the mapped original page from a final result without accepting or rerunning it", async () => {
-  URL.createObjectURL = vi.fn(() => "blob:source");
-  URL.revokeObjectURL = vi.fn();
+  vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:source");
+  vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
   vi.mocked(invoke).mockImplementation(async (command, args) => {
     if (command === "read_review_image") return new ArrayBuffer(4);
     const { type } = (args as {request:{type:string}}).request;
@@ -239,8 +239,8 @@ it.each([new Error("请先配置模型 ID"), { message: "请先配置模型 ID" 
   expect(vi.mocked(invoke).mock.calls.every(([, args]) => ["list", "operations", "batches"].includes((args as { request: { type: string } }).request.type))).toBe(true);
 });
 it("requires content review before acceptance and excludes waiting tasks from batch selection", async () => {
-  URL.createObjectURL = vi.fn(() => "blob:review-image");
-  URL.revokeObjectURL = vi.fn();
+  vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:review-image");
+  vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
   const state = {
     threadId: "task",
     runId: null,
@@ -509,7 +509,7 @@ it("replays a pending request by its persisted ID only after explicit action", a
   );
 });
 it("stops polling a completed task", async () => {
-  const timers = vi.spyOn(globalThis, "setTimeout");
+  vi.useFakeTimers();
   const state = {
     threadId: "task",
     runId: null,
@@ -533,20 +533,10 @@ it("stops polling a completed task", async () => {
     if (r.type === "get") return state as never;
     return (r.type === "batches" ? {items:[],total:0,offset:0,operations:[]} : []) as never;
   });
-  render(
-    <AiTasks
-      busy={false}
-      run={(job) => {
-        void job();
-      }}
-      onPreview={() => {}}
-    />,
-  );
-  await userEvent.click(
-    await screen.findByRole("button", { name: "done.pdf" }),
-  );
-  await screen.findByRole("button", { name: "预览并导入题库" });
-  expect(timers.mock.calls.some(([, delay]) => delay === 2000)).toBe(false);
+  await act(async () => { render(<AiTasks busy={false} run={job => {void job();}} onPreview={() => {}}/>); });
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "done.pdf" })); });
+  expect(screen.getByRole("button", { name: "预览并导入题库" })).toBeTruthy();
+  await act(async () => { await vi.advanceTimersByTimeAsync(20000); });
   expect(
     vi
       .mocked(invoke)
@@ -554,9 +544,9 @@ it("stops polling a completed task", async () => {
         ([, a]) => (a as { request: { type: string } }).request.type === "get",
       ),
   ).toHaveLength(1);
-  timers.mockRestore();
 });
 it("retries task polling after a transient read failure",async()=>{
+  vi.useFakeTimers();
   let gets=0;
   vi.mocked(invoke).mockImplementation(async(_command,args)=>{
     const r=(args as {request:{type:string}}).request;
@@ -567,9 +557,12 @@ it("retries task polling after a transient read failure",async()=>{
     }
     return (r.type === "batches" ? {items:[],total:0,offset:0,operations:[]} : []) as never;
   });
-  render(<AiTasks busy={false} run={job=>{void job();}} onPreview={()=>{}}/>);
-  await userEvent.click(await screen.findByRole("button",{name:"retry.pdf"}));
-  await waitFor(()=>expect(gets).toBe(2),{timeout:4000});
+  await act(async () => { render(<AiTasks busy={false} run={job=>{void job();}} onPreview={()=>{}}/>); });
+  await act(async () => { fireEvent.click(screen.getByRole("button",{name:"retry.pdf"})); });
+  await act(async () => { await vi.advanceTimersByTimeAsync(1999); });
+  expect(gets).toBe(1);
+  await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+  expect(gets).toBe(2);
   expect(screen.queryByText(/transient read/)).toBeNull();
 });
 

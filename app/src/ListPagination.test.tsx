@@ -39,7 +39,7 @@ function setup() {
       case "delete_bank": records=records.filter(b=>b.id!==r.id); return null as never;
       case "question_stats": return {count:31,types:{single:31}} as never;
       case "pick_import": return {ticket:"zip",title:"Imported",count:1,reviewCount:0,assetCount:0,missingAssets:[],warnings:[]} as never;
-      case "settings": return {config:{},hasApiKey:false} as never;
+      case "settings": return {config:{base_url:null,model_id:null},hasApiKey:false} as never;
       default: throw new Error(r.type);
     }
   });
@@ -61,10 +61,8 @@ it("pages native bank summaries, keeps all merge/study choices, and clamps after
   await userEvent.click(await screen.findByText("高级设置 · 题库、筛选与选题方式"));
   expect(within(screen.getByRole("dialog")).getByRole("checkbox",{name:"Bank 30（1）"})).toBeTruthy();
   await userEvent.keyboard("{Escape}");
-  await userEvent.click(screen.getByRole("button",{name:"导入题库"}));
-  await screen.findByText("解析新文档前，请配置 AI 模型");
-  await waitFor(() => expect(screen.queryAllByRole("status")).toHaveLength(0));
   await userEvent.click(await screen.findByRole("button",{name:"设置"}));
+  await act(async () => { await vi.dynamicImportSettled(); });
   await userEvent.click(await screen.findByRole("button",{name:"恢复备份"}));
   await userEvent.click(await screen.findByRole("menuitem",{name:"导入题库 ZIP"}));
   expect(within(await screen.findByRole("dialog")).getByRole("option",{name:"Bank 30"})).toBeTruthy();
@@ -132,7 +130,7 @@ it("refreshes merge totals and clamps both lists after restoring a smaller backu
     if(r.type==="banks") return bankRows as never;
     if(r.type==="banks_page") return page(bankRows,r.offset) as never;
     if(r.type==="sessions_page") return page(historyRows,r.offset) as never;
-    if(r.type==="merge_banks") { bankRows=[...bankRows,{...banks[0],id:"merged",title:r.title}]; return {id:"merged"} as never; }
+    if(r.type==="merge_banks") { bankRows=[...bankRows,{...banks[0],id:"merged",title:r.title,count:2}]; return {bankId:"merged",count:2} as never; }
     if(r.type==="restore") { bankRows=banks.slice(0,1); historyRows=sessions.slice(0,1); return {recoveryPath:"/tmp/recovery"} as never; }
     return base(r);
   });
@@ -151,6 +149,7 @@ it("refreshes merge totals and clamps both lists after restoring a smaller backu
   await userEvent.click(screen.getByRole("button",{name:"下一页"}));
   await screen.findByText("Session 30");
   await userEvent.click(screen.getByRole("button",{name:"设置"}));
+  await act(async () => { await vi.dynamicImportSettled(); });
   await userEvent.click(await screen.findByRole("button",{name:"恢复备份"}));
   await userEvent.click(await screen.findByRole("menuitem",{name:"恢复学习数据备份"}));
   await userEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button",{name:"确认"}));

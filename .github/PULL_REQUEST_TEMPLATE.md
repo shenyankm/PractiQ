@@ -36,7 +36,7 @@ Choose checks from the [contribution guide](https://github.com/shenyankm/PractiQ
 <!-- Only check verified items. Explain non-applicable items rather than marking them complete. -->
 
 - [ ] This pull request addresses one concern
-- [ ] The diff contains no unrelated or generated files
+- [ ] The diff contains no unrelated files or generated build artifacts; required tracked generated contracts are synchronized
 - [ ] Behavior changes have focused regression coverage
 - [ ] Required checks pass, or failures are explained above
 - [ ] API, schema, environment, and user-facing changes are documented

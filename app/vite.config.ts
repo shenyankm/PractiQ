@@ -2,7 +2,8 @@ import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { fileURLToPath, URL } from "node:url";
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
+  cacheDir: `node_modules/.vite/${mode}`,
   test: {
     setupFiles: ["./src/test-setup.ts"],
     coverage: {
@@ -29,4 +30,4 @@ export default defineConfig({
   resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
   server: { host: "127.0.0.1", port: 1420, strictPort: true },
   clearScreen: false,
-});
+}));

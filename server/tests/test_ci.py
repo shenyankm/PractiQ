@@ -1,4 +1,6 @@
+import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -157,36 +159,67 @@ else:
 
 
 def test_workflows_deduplicate_common_checks_without_dropping_native_gates():
-    from fnmatch import fnmatchcase
-
     root = Path(__file__).resolve().parents[2]
     workflows = {
         name: yaml.load((root / f".github/workflows/{name}.yml").read_text(), Loader=yaml.BaseLoader)
         for name in ("desktop", "server")
     }
-    for workflow in workflows.values():
+    for name, workflow in workflows.items():
+        for job in workflow["jobs"].values():
+            for step in job["steps"]:
+                if "uses" in step:
+                    assert re.fullmatch(r"[^@]+@[0-9a-f]{40}", step["uses"]), step["uses"]
         assert workflow["on"]["push"]["branches"] == ["main"]
-        paths = workflow["on"]["pull_request"]["paths"]
-        assert paths == workflow["on"]["push"]["paths"]
-        for unrelated in ("README.md", "docs/guide.md", ".agents/skills/example/SKILL.md"):
-            assert not any(fnmatchcase(unrelated, pattern) for pattern in paths)
-    for path in ("server/src/practiq_ai/webapp.py", "app/fixtures/english.json",
-                 "app/scripts/check-rich-recognition.py", ".dockerignore", "Dockerfile.server",
-                 ".github/workflows/desktop.yml", "Makefile"):
-        assert any(fnmatchcase(path, pattern) for pattern in workflows["server"]["on"]["push"]["paths"])
+        assert not workflow["on"]["pull_request"]  # Every PR receives a final check, including documentation.
+        assert "paths" not in workflow["on"]["push"]
+        assert workflow["permissions"] == {"contents": "read"}
+        scope = "service" if name == "server" else "desktop"
+        jobs = workflow["jobs"]
+        quality, changes, gate = (jobs[key] for key in ("quality", "changes", "gate"))
+        assert quality["name"] == f"{scope.title()} quality"
+        assert quality["needs"] == "changes"
+        assert quality["if"] == "needs.changes.outputs.required == 'true'"
+        assert changes["permissions"] == {"contents": "read", "pull-requests": "read"}
+        assert changes["outputs"]["required"] == "${{ steps.scope.outputs.required }}"
+        selector = next(step for step in changes["steps"] if step.get("id") == "scope")
+        assert selector["run"] == f"python server/scripts/ci_scope.py scope {scope}"
+        assert gate["name"] == f"{scope.title()} CI" and gate["if"] == "${{ always() }}"
+        assert gate["needs"] == ["changes", "quality"] + (["package"] if name == "desktop" else [])
+        gate_step = next(step for step in gate["steps"] if "run" in step)
+        assert gate_step["run"] == f"python server/scripts/ci_scope.py gate {scope}"
+        assert gate_step["env"]["NEEDS"] == "${{ toJSON(needs) }}"
+
+    ruleset = json.loads((root / ".github/main-ruleset.json").read_text())
+    required_checks = next(rule["parameters"]["required_status_checks"]
+                           for rule in ruleset["rules"] if rule["type"] == "required_status_checks")
+    assert {check["context"] for check in required_checks} == {
+        workflow["jobs"]["gate"]["name"] for workflow in workflows.values()
+    }
+    assert all(check["integration_id"] == 15368 for check in required_checks)
 
     jobs = workflows["desktop"]["jobs"]
     quality, package = jobs["quality"], jobs["package"]
     assert quality["runs-on"].startswith("ubuntu-")
-    assert package["needs"] == "quality"
+    assert package["needs"] == ["changes", "quality"]
+    assert package["if"] == quality["if"]
     assert {item["platform"] for item in package["strategy"]["matrix"]["include"]} == {"Windows", "Linux", "macOS"}
     quality_commands = "\n".join(step.get("run", "") for step in quality["steps"])
     package_commands = "\n".join(step.get("run", "") for step in package["steps"])
-    for command in ("npm run lint", "npm run test:coverage", "npm run test:browser", "npm audit",
-                    "export-contracts.py --check", "check-fixtures.py", "cargo fmt", "make audit-rust"):
+    for command in ("npm run check:ui", "npm run test:browser", "npm audit",
+                    "export-contracts.py --check", "check-fixtures.py", "cargo fmt", "make audit-rust",
+                    "server/tests/test_ci_scope.py", "server/tests/test_release_checks.py"):
         assert command in quality_commands
         assert command not in package_commands
     assert "--release --manifest-path app/src-tauri/vendor/glib/Cargo.toml" in quality_commands
+    quality_uploads = {
+        step["with"]["name"]: step
+        for step in quality["steps"] if step.get("uses", "").startswith("actions/upload-artifact@")
+    }
+    for name, path in (("desktop-browser", "app/test-results/browser/"), ("desktop-coverage", "coverage/app/")):
+        upload = quality_uploads[name]
+        assert upload["if"] == "${{ always() }}"
+        assert upload["with"]["path"] == path
+        assert upload["with"]["retention-days"] == "7"
     for command in ("cargo test --locked", "cargo clippy --locked", "--all-targets -- -D warnings",
                     "test_desktop_platforms.py", "test_office.py", "bundle-python.py", "npm run tauri -- build"):
         assert command in package_commands
@@ -198,7 +231,9 @@ def test_workflows_deduplicate_common_checks_without_dropping_native_gates():
         if platform != "macOS":
             assert "native_keychain_roundtrip -- --ignored" in commands
     uploads = [step for step in package["steps"] if step.get("uses", "").startswith("actions/upload-artifact@")]
-    reports, installers = uploads
+    by_name = {step["with"]["name"]: step for step in uploads}
+    reports = by_name["desktop-checks-${{ matrix.platform }}"]
+    installers = by_name["PractiQ-${{ matrix.platform }}"]
     assert reports["if"] == "${{ always() }}" and reports["with"]["retention-days"] == "7"
     assert installers["if"] == "github.event_name != 'pull_request'"
     assert installers["with"]["retention-days"] == "14"

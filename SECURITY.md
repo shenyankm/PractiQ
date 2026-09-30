@@ -22,6 +22,13 @@ when a checker exits successfully. Evaluate compatible updates in focused pull
 requests, regenerate lockfiles, and run the affected checks. Do not suppress an
 advisory merely to pass CI. Record retained risks and upstream blockers.
 
+GitHub Dependabot security updates, secret scanning and push protection are
+enabled for this repository. [Dependabot configuration](.github/dependabot.yml)
+also groups weekly GitHub Actions version updates; it does not automatically
+merge them or update Python, npm or Cargo versions. Workflow Actions use full
+commit SHAs. Review upstream changes and run the affected checks before merging
+dependency updates.
+
 The GLib patch has its own [provenance and removal criteria](app/src-tauri/vendor/glib/PRACTIQ-PATCH.md).
 Changing a pinned LibreOffice artifact requires checksum, license, three-platform
 package and fidelity verification. Dependency auditing does not establish license

@@ -192,7 +192,7 @@ impl Store {
         }
         let mut roots = self.paper_candidates(&p)?;
         if p.random {
-            roots.sort_by_cached_key(|_| crate::store::id());
+            fastrand::shuffle(&mut roots);
         }
         let chosen = match p.selection.as_str() {
             "count" => {
@@ -337,7 +337,7 @@ mod tests {
         assert!(exact(&[1001], 1001).is_err());
     }
     #[test]
-    fn statistics_and_manual_rows_count_complete_groups_as_subquestions() {
+    fn statistics_and_random_papers_preserve_complete_groups() {
         let directory = tempfile::tempdir().unwrap();
         let mut store = Store::new(directory.path().into()).unwrap();
         let mut document: Value =
@@ -380,16 +380,37 @@ mod tests {
         assert!(list(&page, "items")
             .iter()
             .all(|row| row["answerableCount"] == 3));
-        let request = |count| {
-            serde_json::from_value::<Preview>(json!({"bank_ids":[bank],"search":"","mode":"","filter":"","selection":"count","count":count,"quotas":{},"question_ids":[],"random":false,"total_cents":0})).unwrap()
+        let request = |count, random| {
+            serde_json::from_value::<Preview>(json!({"bank_ids":[bank],"search":"","mode":"","filter":"","selection":"count","count":count,"quotas":{},"question_ids":[],"random":random,"total_cents":0})).unwrap()
         };
-        assert!(store.preview_paper(request(20)).is_err());
-        let preview = store.preview_paper(request(18)).unwrap();
+        assert!(store.preview_paper(request(20, false)).is_err());
+        let preview = store.preview_paper(request(18, false)).unwrap();
         assert_eq!(preview["count"], 18);
         assert_eq!(list(&preview, "questionIds").len(), 6);
         assert!(list(&preview, "questions")
             .iter()
             .all(|row| row.get("answerableCount").is_none()));
+        let ordered = store.preview_paper(request(24, false)).unwrap();
+        fastrand::seed(7);
+        let shuffled = store.preview_paper(request(24, true)).unwrap();
+        assert_ne!(shuffled["questionIds"], ordered["questionIds"]);
+        let groups: HashMap<_, _> = list(&ordered, "questionIds")
+            .iter()
+            .map(|id| id.as_str().unwrap())
+            .zip(list(&ordered, "questions").chunks(3))
+            .collect();
+        let shuffled_ids: HashSet<_> = list(&shuffled, "questionIds")
+            .iter()
+            .map(|id| id.as_str().unwrap())
+            .collect();
+        assert_eq!(shuffled_ids, groups.keys().copied().collect());
+        assert_eq!(shuffled["count"], 24);
+        for (id, children) in list(&shuffled, "questionIds")
+            .iter()
+            .zip(list(&shuffled, "questions").chunks(3))
+        {
+            assert_eq!(children, groups[id.as_str().unwrap()]);
+        }
     }
     #[test]
     fn changing_previous_scores_keeps_previews_valid_and_snapshots_free_of_live_metadata() {

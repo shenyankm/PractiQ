@@ -1329,6 +1329,9 @@ mod tests {
             let server = std::thread::spawn(move || {
                 for page in 0..2 {
                     let (mut stream, _) = listener.accept().unwrap();
+                    stream
+                        .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+                        .unwrap();
                     let mut request = Vec::new();
                     while !request.ends_with(b"\r\n\r\n") {
                         let mut byte = [0];

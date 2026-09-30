@@ -1,10 +1,8 @@
 name: AI service
 on:
   pull_request:
-    paths: ['server/**', 'app/fixtures/**', 'app/scripts/check-rich-recognition.py', 'Dockerfile.server', '.dockerignore', '.env.example', 'Makefile', '.github/workflows/*.yml']
   push:
     branches: [main]
-    paths: ['server/**', 'app/fixtures/**', 'app/scripts/check-rich-recognition.py', 'Dockerfile.server', '.dockerignore', '.env.example', 'Makefile', '.github/workflows/*.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -12,15 +10,35 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 jobs:
+  changes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      required: ${{ steps.scope.outputs.required }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.14'
+      - id: scope
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python server/scripts/ci_scope.py scope service
   quality:
+    name: Service quality
+    needs: changes
+    if: needs.changes.outputs.required == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.14'
-      - uses: astral-sh/setup-uv@v7
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
         with:
           version: '0.12.13'
           enable-cache: true
@@ -33,7 +51,7 @@ jobs:
         run: make verify AI_PYTHON="$(command -v python)"
       - name: Upload check reports
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: service-checks
           path: |
@@ -47,3 +65,17 @@ jobs:
         run: make audit AI_PYTHON="$(command -v python)"
       - name: Build service image
         run: make image-check
+  gate:
+    name: Service CI
+    needs: [changes, quality]
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.14'
+      - env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: python server/scripts/ci_scope.py gate service

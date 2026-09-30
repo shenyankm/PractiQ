@@ -15,7 +15,26 @@ from dotenv import load_dotenv
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.store.memory import InMemoryStore
 from practiq_ai.contracts import DocumentUploadRequest
+from practiq_ai.execution import code_version
 from practiq_ai.storage import get_object_store
+
+
+def implementation_checksums():
+    return code_version()
+
+
+def check_saved_report():
+    target = ROOT / 'app/reports/rich-content'
+    saved = json.loads((target / 'recognition.json').read_text())
+    payload = (ROOT / 'app/fixtures/rich-content/source.pdf').read_bytes()
+    if saved.get('fixtureSourceSha256') != hashlib.sha256(payload).hexdigest():
+        raise ValueError('PDF changed: rerun the explicit recognition probe')
+    if saved.get('implementationSha256') != implementation_checksums():
+        raise ValueError('Implementation changed: rerun the explicit recognition probe')
+    checks = check_result(saved['result'], payload, target)
+    print(json.dumps(checks))
+    return all(checks.values())
+
 
 def check_result(result, payload, target):
     formulas = ''.join(b.get('latexValue') or '' for q in result['questions'] for b in q['contentBlocks'])
@@ -84,7 +103,7 @@ async def main():
             print(json.dumps({'failed': failure['code'], 'report': str(target / 'failure.json')}))
             return False
         output['fixtureSourceSha256'] = hashlib.sha256(payload).hexdigest()
-        output['implementationSha256'] = {name: hashlib.sha256((ROOT / 'server/src/practiq_ai' / name).read_bytes()).hexdigest() for name in ('graphs/document.py', 'graphs/vision.py', 'contracts.py')}
+        output['implementationSha256'] = implementation_checksums()
         result = output['result']
         target = ROOT / 'app/reports/rich-content'
         if merged:
@@ -119,11 +138,7 @@ async def main():
 
 if __name__ == '__main__':
     if '--check-report' in sys.argv:
-        target = ROOT / 'app/reports/rich-content'
-        saved = json.loads((target / 'recognition.json').read_text())
-        assert saved['fixtureSourceSha256'] == hashlib.sha256((ROOT / 'app/fixtures/rich-content/source.pdf').read_bytes()).hexdigest()
-        result = saved['result']
-        checks = check_result(result, (ROOT / 'app/fixtures/rich-content/source.pdf').read_bytes(), target)
-        print(json.dumps(checks))
-        sys.exit(0 if all(checks.values()) else 1)
+        if '--merged' in sys.argv:
+            sys.exit('--check-report supports only the simple fixture')
+        sys.exit(0 if check_saved_report() else 1)
     sys.exit(0 if asyncio.run(main()) else 1)

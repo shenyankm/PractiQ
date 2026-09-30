@@ -2,17 +2,20 @@
 use super::*;
 use crate::contract::text;
 use std::{
-    io::ErrorKind,
-    process::Command,
-    time::{Duration, Instant},
+    io::{BufRead, BufReader, ErrorKind, Write},
+    process::{Command, Stdio},
+    sync::mpsc,
+    time::Duration,
 };
 
 pub(super) fn checkpoint(phase: &str) {
     if std::env::var("PRACTIQ_RESTORE_KILL_PHASE").as_deref() == Ok(phase) {
-        let marker = std::env::var("PRACTIQ_RESTORE_MARKER").unwrap();
-        fs::write(marker, phase).unwrap();
+        let mut stdout = std::io::stdout().lock();
+        writeln!(stdout, "restore checkpoint: {phase}").unwrap();
+        stdout.flush().unwrap();
+        drop(stdout);
         loop {
-            std::thread::sleep(Duration::from_millis(50));
+            std::thread::park();
         }
     }
     if phase == "after-publish" {
@@ -150,6 +153,7 @@ fn locked_database_rejects_write_without_losing_saved_data() {
 }
 
 #[test]
+#[ignore = "subprocess entry point; exercised by killed_restore_reopens_a_complete_generation"]
 fn restore_child() {
     let Ok(root) = std::env::var("PRACTIQ_RESTORE_TEST_ROOT") else {
         return;
@@ -169,29 +173,33 @@ fn killed_restore_reopens_a_complete_generation() {
         populated(&dir.path().join("incoming"), "New")
             .backup(&dir.path().join("incoming.zip"))
             .unwrap();
-        let marker = dir.path().join("ready");
         let mut child = Command::new(std::env::current_exe().unwrap())
             .args([
                 "--exact",
                 "backup::fault_tests::restore_child",
                 "--nocapture",
+                "--ignored",
             ])
             .env("PRACTIQ_RESTORE_TEST_ROOT", dir.path())
             .env("PRACTIQ_RESTORE_KILL_PHASE", phase)
-            .env("PRACTIQ_RESTORE_MARKER", &marker)
-            .stdout(std::process::Stdio::null())
+            .stdout(Stdio::piped())
             .spawn()
             .unwrap();
-        let start = Instant::now();
-        while !marker.exists() && start.elapsed() < Duration::from_secs(20) {
-            if child.try_wait().unwrap().is_some() {
-                break;
-            }
-            std::thread::sleep(Duration::from_millis(20));
-        }
-        let reached = marker.exists();
+        let stdout = child.stdout.take().unwrap();
+        let checkpoint = format!("restore checkpoint: {phase}");
+        let (ready, result) = mpsc::channel();
+        let reader = std::thread::spawn(move || {
+            let reached = BufReader::new(stdout)
+                .lines()
+                .any(|line| line.is_ok_and(|line| line.ends_with(&checkpoint)));
+            let _ = ready.send(reached);
+        });
+        let reached = result
+            .recv_timeout(Duration::from_secs(20))
+            .unwrap_or(false);
         let _ = child.kill();
         child.wait().unwrap();
+        reader.join().unwrap();
         assert!(reached, "restore did not reach {phase}");
         let mut store = Store::new(dir.path().join("current")).unwrap();
         assert_intact(

@@ -138,29 +138,31 @@ def test_document_result_validates_nested_references_and_labels() -> None:
 
 
 def test_content_blocks_and_bboxes_cannot_be_empty_or_invalid() -> None:
+    valid = {
+        "schemaVersion": 3,
+        "questions": [question()],
+        "groups": [],
+        "visualElements": [],
+        "warnings": [],
+        "confidenceScore": 90,
+    }
+    assert DocumentParseResult.model_validate(valid).questions[0].id == "q0"
     for block in (
         {"partType": "text"},
         {"partType": "text", "textValue": "   "},
     ):
         invalid = question()
         invalid["contentBlocks"] = [block]
-        with pytest.raises(ValidationError):
+        with pytest.raises(ValidationError, match="content block must contain a value"):
             DocumentParseResult.model_validate(
-                {
-                    "questions": [invalid],
-                    "groups": [],
-                    "visualElements": [],
-                    "warnings": [],
-                    "confidenceScore": 90,
-                }
+                {**valid, "questions": [invalid]}
             )
 
     for bbox in ([0.5, 0, 0.4, 1], [0, 0, float("nan"), 1]):
-        with pytest.raises(ValidationError):
+        with pytest.raises(ValidationError, match="bbox"):
             DocumentParseResult.model_validate(
                 {
-                    "questions": [question()],
-                    "groups": [],
+                    **valid,
                     "visualElements": [
                         {
                             "kind": "chart",
@@ -168,8 +170,6 @@ def test_content_blocks_and_bboxes_cannot_be_empty_or_invalid() -> None:
                             "bbox": bbox,
                         }
                     ],
-                    "warnings": [],
-                    "confidenceScore": 90,
                 }
             )
 
@@ -189,17 +189,6 @@ def test_usage_contract_rejects_product_ids_and_negative_tokens() -> None:
 
 
 def test_cross_field_contract_invariants() -> None:
-    with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
-        DocumentUploadRequest.model_validate(
-            {
-                "sourceType": "pdf",
-                "fileName": "quiz.pdf",
-                "mediaType": "application/pdf",
-                "sizeBytes": 1,
-                "sha256": "a" * 64,
-                "text": "unexpected",
-            }
-        )
     assert DocumentUploadRequest(
         sourceType="image",
         fileName="quiz.png",

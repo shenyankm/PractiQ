@@ -145,6 +145,45 @@ async def test_load_driver_upload_auth_partial_and_overload(monkeypatch):
         assert await load_test.wait_for_run(client, asyncio.Semaphore(1), *task[:2], time.monotonic()+1, task[2]) == ("rejected_503", 0, None)
 
 
+async def test_load_monitor_parses_only_finite_unlabelled_capacity_metrics():
+    done = asyncio.Event()
+    samples = {}
+
+    def handle(request):
+        if request.url.path == "/ok":
+            return httpx.Response(200)
+        assert request.url.path == "/api/metrics"
+        done.set()
+        return httpx.Response(200, text=(
+            "# HELP practiq_pending_runs Pending document runs\n"
+            "# TYPE practiq_pending_runs gauge\n"
+            "practiq_pending_runs 3e1 123456\n"
+            'practiq_pending_runs{worker="one"} 900\n'
+            "practiq_running_runs 1.2e+1\n"
+            "practiq_workers_max 1.6e1\n"
+            "practiq_workers_available 6 123456\n"
+            "practiq_provider_inflight 2e0 123456\n"
+            'practiq_provider_inflight{provider="one"} 900\n'
+            "practiq_provider_inflight NaN\n"
+            "practiq_running_runs +Inf\n"
+            "practiq_workers_available -Inf\n"
+            "practiq_queue_capacity 999\n"
+            "other_metric 999\n"
+        ))
+
+    async with httpx.AsyncClient(base_url="http://test", transport=httpx.MockTransport(handle)) as client:
+        await load_test.monitor(client, done, [], samples, None)
+
+    assert samples == {
+        "practiq_pending_runs": [30.0],
+        "practiq_running_runs": [12.0],
+        "practiq_workers_max": [16.0],
+        "practiq_workers_available": [6.0],
+        "provider_inflight": [2.0],
+        "rss_bytes": [0.0],
+    }
+
+
 async def test_load_driver_polls_before_all_submissions_finish(tmp_path, monkeypatch):
     polled = asyncio.Event()
     source = tmp_path / "input.json"

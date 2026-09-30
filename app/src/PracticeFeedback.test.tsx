@@ -118,13 +118,16 @@ it("counts partial drafts and false answers but excludes empty values, including
   initial.kind = "self_test";
   initial.finishedAt = initial.submittedAt = null;
   const answers: (Answer | null)[] = [{ text: "  " }, { answers: [" ", ""] }, { answers: ["first", ""] }, { value: false }, null];
-  initial.attempts = answers.map((answer, ordinal) => ({ ...initial.attempts[0], ordinal, answer, submittedAt: null }));
-  initial.attempts[2].snapshot = { ...initial.attempts[2].snapshot, question: { ...initial.attempts[2].snapshot.question, answerMode: "fill_blank" } };
+  const answerModes = ["short_answer", "fill_blank", "fill_blank", "true_false", "short_answer"] as const;
+  initial.attempts = answers.map((answer, ordinal) => ({ ...initial.attempts[0], ordinal, answer, submittedAt: null,
+    snapshot: { ...initial.attempts[0].snapshot, question: { ...initial.attempts[0].snapshot.question, answerMode: answerModes[ordinal], answerPayload: null } },
+  }));
   vi.mocked(api).mockResolvedValue(initial);
   render(<Study initial={initial} />);
   expect(screen.getByText("已作答 2 / 5。草稿自动保存，可随时离开后继续。")).toBeTruthy();
   expect(screen.getByRole("button", { name: "转到第 2 题，未作答" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "转到第 3 题，草稿未完成" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "转到第 4 题，已作答，未提交" })).toBeTruthy();
   await user.type(screen.getByRole("textbox", { name: "作答内容" }), "answer");
   expect(screen.getByText("已作答 3 / 5。草稿自动保存，可随时离开后继续。")).toBeTruthy();
   await user.clear(screen.getByRole("textbox", { name: "作答内容" }));

@@ -14,10 +14,14 @@ function session(submitted:boolean):Session {
 }
 it("hides original pages before practice submission and stops history clock renders",async()=>{
   vi.useFakeTimers();
+  vi.spyOn(document, "hasFocus").mockReturnValue(true);
   const onRender=vi.fn();
   const props={run:vi.fn(),onSession:vi.fn(),flushRef:{current:async()=>{}}};
   const view=render(<Profiler id="practice" onRender={onRender}><Practice session={session(false)} {...props}/></Profiler>);
   expect(screen.queryByRole("button",{name:"查看原页"})).toBeNull();
+  onRender.mockClear();
+  await act(async()=>{await vi.advanceTimersByTimeAsync(1000);});
+  expect(onRender).toHaveBeenCalled();
   view.rerender(<Profiler id="practice" onRender={onRender}><Practice session={session(true)} {...props}/></Profiler>);
   expect(screen.getByRole("button",{name:"查看原页"})).toBeTruthy();
   onRender.mockClear();
