@@ -69,7 +69,7 @@ make app-bundle AI_PYTHON="$AI_PYTHON"
 "$AI_PYTHON" app/scripts/check-bundle.py \
   --bundle app/src-tauri/target/release/bundle/macos/PractiQ.app/Contents/Resources/bundled
 (cd app && npm run test:browser)
-# 另开终端运行 cd app && npm run dev 后：
+# After running cd app && npm run dev in another terminal:
 (cd app && node scripts/check-rich-content.mjs)
 ```
 

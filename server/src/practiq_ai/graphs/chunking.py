@@ -15,7 +15,7 @@ from ..errors import DocumentProcessingError
 
 CHUNK_TARGET_CHARS = 30_000
 CHUNK_MAX_CHARS = 40_000
-# 题号/大题起始行模式：阿拉伯数字编号、中文大题编号
+# Question and section starts: Arabic numerals or Chinese section numbers.
 QUESTION_BOUNDARY_PATTERN = re.compile(
     r'^\s*(?:\d{1,4}\s*[.、)．]|[一二三四五六七八九十]{1,3}\s*[、.．])',
     re.MULTILINE,

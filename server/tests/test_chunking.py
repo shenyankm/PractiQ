@@ -32,9 +32,9 @@ def test_split_keeps_small_text_whole_and_cuts_on_question_boundaries() -> None:
 
     chunks = [text[span["start"]:span["end"]] for span in split_chunk_spans(text, target_chars=1_000)]
     assert len(chunks) > 1
-    # 除首块外每块都从题号边界开始
+    # Every chunk after the first starts at a question boundary.
     assert all(chunk.lstrip()[0].isdigit() for chunk in chunks[1:])
-    # 相邻块重叠：上一块的最后一题也出现在下一块开头
+    # Adjacent chunks overlap: the previous chunk's last question starts the next chunk.
     for previous, current in pairwise(chunks):
         overlap_stem = current.lstrip().splitlines()[0].strip()
         assert overlap_stem in previous
@@ -48,7 +48,7 @@ def test_merge_dedupes_overlap_and_remaps_group_indexes() -> None:
     questions, groups, warnings, truncated, sources, _quality = merge_chunk_results(
         [
             (0, [q1, q2], [group_a]),
-            (1, [q2, q3], [group_b]),  # q2 是重叠区重复题
+            (1, [q2, q3], [group_b]),  # q2 is a duplicate question in the overlap.
         ], source_text="1. First\n2. Second\n3. Third",
         chunk_spans=[{"start": 0, "end": 19, "overlapStart": 0, "overlapEnd": 0},
                      {"start": 9, "end": 27, "overlapStart": 9, "overlapEnd": 19}],

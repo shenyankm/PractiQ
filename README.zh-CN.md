@@ -95,7 +95,7 @@ cargo fetch --locked --manifest-path app/src-tauri/Cargo.toml
 python app/scripts/bundle-python.py
 cd app
 npm run desktop
-# 构建 Windows 安装包：
+# Build the Windows installer:
 npm run tauri -- build
 ```
 
