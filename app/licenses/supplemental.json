@@ -10,8 +10,13 @@
     {
       "source": "https://raw.githubusercontent.com/madsmtm/objc2/b4167b582b2f75f9a1be75495c41b765344fd03c/LICENSE.md",
       "sha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
-      "file": "texts/7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt",
-      "note": "Unresolved: upstream notice only links to license terms; applicable full terms have not been bundled."
+      "file": "texts/7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt"
+    },
+    {
+      "source": "https://raw.githubusercontent.com/madsmtm/objc2/ee9a7ada2131f5944b8750428e265c15632f2a19/LICENSE-MIT.txt",
+      "sha256": "f6a2e783669a0dd7a2c3b8a4f76db40ae49033e66e1bdc30f3aa25fe5577b070",
+      "file": "texts/f6a2e783669a0dd7a2c3b8a4f76db40ae49033e66e1bdc30f3aa25fe5577b070.txt",
+      "verification": "Upstream supplied the missing MIT text in commit ee9a7ada2131f5944b8750428e265c15632f2a19 (issue #826); the original version-specific license declaration and Apple SDK notice are retained. MIT is selected where offered as an alternative."
     }
   ],
   "cargo:defmt-parser@1.0.0": [
@@ -25,72 +30,117 @@
     {
       "source": "https://raw.githubusercontent.com/madsmtm/objc2/8852b424193ca41602281b3d7540d7c8ed51e49a/LICENSE.md",
       "sha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
-      "file": "texts/7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt",
-      "note": "Unresolved: upstream notice only links to license terms; applicable full terms have not been bundled."
+      "file": "texts/7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt"
+    },
+    {
+      "source": "https://raw.githubusercontent.com/madsmtm/objc2/ee9a7ada2131f5944b8750428e265c15632f2a19/LICENSE-MIT.txt",
+      "sha256": "f6a2e783669a0dd7a2c3b8a4f76db40ae49033e66e1bdc30f3aa25fe5577b070",
+      "file": "texts/f6a2e783669a0dd7a2c3b8a4f76db40ae49033e66e1bdc30f3aa25fe5577b070.txt",
+      "verification": "Upstream supplied the missing MIT text in commit ee9a7ada2131f5944b8750428e265c15632f2a19 (issue #826); the original version-specific license declaration and Apple SDK notice are retained. MIT is selected where offered as an alternative."
     }
   ],
   "cargo:objc2@0.6.4": [
     {
       "source": "https://raw.githubusercontent.com/madsmtm/objc2/8852b424193ca41602281b3d7540d7c8ed51e49a/LICENSE.md",
       "sha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
-      "file": "texts/7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt",
-      "note": "Unresolved: upstream notice only links to license terms; applicable full terms have not been bundled."
+      "file": "texts/7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt"
+    },
+    {
+      "source": "https://raw.githubusercontent.com/madsmtm/objc2/ee9a7ada2131f5944b8750428e265c15632f2a19/LICENSE-MIT.txt",
+      "sha256": "f6a2e783669a0dd7a2c3b8a4f76db40ae49033e66e1bdc30f3aa25fe5577b070",
+      "file": "texts/f6a2e783669a0dd7a2c3b8a4f76db40ae49033e66e1bdc30f3aa25fe5577b070.txt",
+      "verification": "Upstream supplied the missing MIT text in commit ee9a7ada2131f5944b8750428e265c15632f2a19 (issue #826); the original version-specific license declaration and Apple SDK notice are retained. MIT is selected where offered as an alternative."
     }
   ],
   "cargo:objc2-app-kit@0.3.2": [
     {
       "source": "https://raw.githubusercontent.com/madsmtm/objc2/7b1abfd750a2cacaea71d6a56ecfb83cb7de560b/LICENSE.md",
       "sha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
-      "file": "texts/7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt",
-      "note": "Unresolved: upstream notice only links to license terms; applicable full terms have not been bundled."
+      "file": "texts/7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt"
+    },
+    {
+      "source": "https://raw.githubusercontent.com/madsmtm/objc2/ee9a7ada2131f5944b8750428e265c15632f2a19/LICENSE-MIT.txt",
+      "sha256": "f6a2e783669a0dd7a2c3b8a4f76db40ae49033e66e1bdc30f3aa25fe5577b070",
+      "file": "texts/f6a2e783669a0dd7a2c3b8a4f76db40ae49033e66e1bdc30f3aa25fe5577b070.txt",
+      "verification": "Upstream supplied the missing MIT text in commit ee9a7ada2131f5944b8750428e265c15632f2a19 (issue #826); the original version-specific license declaration and Apple SDK notice are retained. MIT is selected where offered as an alternative."
     }
   ],
   "cargo:objc2-core-foundation@0.3.2": [
     {
       "source": "https://raw.githubusercontent.com/madsmtm/objc2/7b1abfd750a2cacaea71d6a56ecfb83cb7de560b/LICENSE.md",
       "sha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
-      "file": "texts/7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt",
-      "note": "Unresolved: upstream notice only links to license terms; applicable full terms have not been bundled."
+      "file": "texts/7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt"
+    },
+    {
+      "source": "https://raw.githubusercontent.com/madsmtm/objc2/ee9a7ada2131f5944b8750428e265c15632f2a19/LICENSE-MIT.txt",
+      "sha256": "f6a2e783669a0dd7a2c3b8a4f76db40ae49033e66e1bdc30f3aa25fe5577b070",
+      "file": "texts/f6a2e783669a0dd7a2c3b8a4f76db40ae49033e66e1bdc30f3aa25fe5577b070.txt",
+      "verification": "Upstream supplied the missing MIT text in commit ee9a7ada2131f5944b8750428e265c15632f2a19 (issue #826); the original version-specific license declaration and Apple SDK notice are retained. MIT is selected where offered as an alternative."
     }
   ],
   "cargo:objc2-core-graphics@0.3.2": [
     {
       "source": "https://raw.githubusercontent.com/madsmtm/objc2/7b1abfd750a2cacaea71d6a56ecfb83cb7de560b/LICENSE.md",
       "sha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
-      "file": "texts/7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt",
-      "note": "Unresolved: upstream notice only links to license terms; applicable full terms have not been bundled."
+      "file": "texts/7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt"
+    },
+    {
+      "source": "https://raw.githubusercontent.com/madsmtm/objc2/ee9a7ada2131f5944b8750428e265c15632f2a19/LICENSE-MIT.txt",
+      "sha256": "f6a2e783669a0dd7a2c3b8a4f76db40ae49033e66e1bdc30f3aa25fe5577b070",
+      "file": "texts/f6a2e783669a0dd7a2c3b8a4f76db40ae49033e66e1bdc30f3aa25fe5577b070.txt",
+      "verification": "Upstream supplied the missing MIT text in commit ee9a7ada2131f5944b8750428e265c15632f2a19 (issue #826); the original version-specific license declaration and Apple SDK notice are retained. MIT is selected where offered as an alternative."
     }
   ],
   "cargo:objc2-encode@4.1.0": [
     {
       "source": "https://raw.githubusercontent.com/madsmtm/objc2/8d214f5477365ffcbcbb7de058c86ed9a518efb7/LICENSE.md",
       "sha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
-      "file": "texts/7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt",
-      "note": "Unresolved: upstream notice only links to license terms; applicable full terms have not been bundled."
+      "file": "texts/7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt"
+    },
+    {
+      "source": "https://raw.githubusercontent.com/madsmtm/objc2/ee9a7ada2131f5944b8750428e265c15632f2a19/LICENSE-MIT.txt",
+      "sha256": "f6a2e783669a0dd7a2c3b8a4f76db40ae49033e66e1bdc30f3aa25fe5577b070",
+      "file": "texts/f6a2e783669a0dd7a2c3b8a4f76db40ae49033e66e1bdc30f3aa25fe5577b070.txt",
+      "verification": "Upstream supplied the missing MIT text in commit ee9a7ada2131f5944b8750428e265c15632f2a19 (issue #826); the original version-specific license declaration and Apple SDK notice are retained. MIT is selected where offered as an alternative."
     }
   ],
   "cargo:objc2-exception-helper@0.1.1": [
     {
       "source": "https://raw.githubusercontent.com/madsmtm/objc2/8d214f5477365ffcbcbb7de058c86ed9a518efb7/LICENSE.md",
       "sha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
-      "file": "texts/7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt",
-      "note": "Unresolved: upstream notice only links to license terms; applicable full terms have not been bundled."
+      "file": "texts/7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt"
+    },
+    {
+      "source": "https://raw.githubusercontent.com/madsmtm/objc2/ee9a7ada2131f5944b8750428e265c15632f2a19/LICENSE-MIT.txt",
+      "sha256": "f6a2e783669a0dd7a2c3b8a4f76db40ae49033e66e1bdc30f3aa25fe5577b070",
+      "file": "texts/f6a2e783669a0dd7a2c3b8a4f76db40ae49033e66e1bdc30f3aa25fe5577b070.txt",
+      "verification": "Upstream supplied the missing MIT text in commit ee9a7ada2131f5944b8750428e265c15632f2a19 (issue #826); the original version-specific license declaration and Apple SDK notice are retained. MIT is selected where offered as an alternative."
     }
   ],
   "cargo:objc2-io-surface@0.3.2": [
     {
       "source": "https://raw.githubusercontent.com/madsmtm/objc2/7b1abfd750a2cacaea71d6a56ecfb83cb7de560b/LICENSE.md",
       "sha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
-      "file": "texts/7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt",
-      "note": "Unresolved: upstream notice only links to license terms; applicable full terms have not been bundled."
+      "file": "texts/7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt"
+    },
+    {
+      "source": "https://raw.githubusercontent.com/madsmtm/objc2/ee9a7ada2131f5944b8750428e265c15632f2a19/LICENSE-MIT.txt",
+      "sha256": "f6a2e783669a0dd7a2c3b8a4f76db40ae49033e66e1bdc30f3aa25fe5577b070",
+      "file": "texts/f6a2e783669a0dd7a2c3b8a4f76db40ae49033e66e1bdc30f3aa25fe5577b070.txt",
+      "verification": "Upstream supplied the missing MIT text in commit ee9a7ada2131f5944b8750428e265c15632f2a19 (issue #826); the original version-specific license declaration and Apple SDK notice are retained. MIT is selected where offered as an alternative."
     }
   ],
   "cargo:objc2-web-kit@0.3.2": [
     {
       "source": "https://raw.githubusercontent.com/madsmtm/objc2/7b1abfd750a2cacaea71d6a56ecfb83cb7de560b/LICENSE.md",
       "sha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
-      "file": "texts/7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt",
-      "note": "Unresolved: upstream notice only links to license terms; applicable full terms have not been bundled."
+      "file": "texts/7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt"
+    },
+    {
+      "source": "https://raw.githubusercontent.com/madsmtm/objc2/ee9a7ada2131f5944b8750428e265c15632f2a19/LICENSE-MIT.txt",
+      "sha256": "f6a2e783669a0dd7a2c3b8a4f76db40ae49033e66e1bdc30f3aa25fe5577b070",
+      "file": "texts/f6a2e783669a0dd7a2c3b8a4f76db40ae49033e66e1bdc30f3aa25fe5577b070.txt",
+      "verification": "Upstream supplied the missing MIT text in commit ee9a7ada2131f5944b8750428e265c15632f2a19 (issue #826); the original version-specific license declaration and Apple SDK notice are retained. MIT is selected where offered as an alternative."
     }
   ],
   "cargo:selectors@0.36.1": [
@@ -189,7 +239,11 @@
       "source": "https://raw.githubusercontent.com/theKashey/react-remove-scroll-bar/8ca9ba5ea52de03308fe8ced94f7b159a44d28ff/LICENSE",
       "file": "texts/a79aae0c0f21990d9d963bb3c5a79cdcea9a46f8523ba55c58d7fe776b6ebc84.txt",
       "sha256": "a79aae0c0f21990d9d963bb3c5a79cdcea9a46f8523ba55c58d7fe776b6ebc84",
-      "note": "Published gitHead is unavailable upstream; current upstream license pinned at retrieval. Package declares MIT. Release reviewer must confirm attribution applicability."
+      "verification": "The integrity-verified npm 2.3.8 and 2.3.7 tarballs have identical non-package.json payloads. Metadata differs only in version and the react-style-singleton dependency range. Both declare MIT and the same author. The public 2.3.7 gitHead reaches the pinned license merge with only LICENSE added; see the checksum-pinned provenance evidence.",
+      "evidence": {
+        "file": "react-remove-scroll-bar-2.3.8.provenance.json",
+        "sha256": "0d3cb6a503d8a4d0d7092e7b8930e8cad7cad9f4d53bf70e40d22ac5cee4dc35"
+      }
     }
   ]
 }

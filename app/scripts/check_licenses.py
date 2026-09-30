@@ -24,6 +24,8 @@ def inventory(bundle: Path) -> dict:
             path = ROOT/'app/licenses'/item['file']
             if hashlib.sha256(path.read_bytes()).hexdigest() != item['sha256']:
                 raise ValueError(f'Altered license text: {name}')
+            if (evidence := item.get('evidence')) and hashlib.sha256((ROOT/'app/licenses'/evidence['file']).read_bytes()).hexdigest() != evidence['sha256']:
+                raise ValueError(f'Altered license evidence: {name}')
             files.append(path)
         if name == 'practiq-ai-service':
             files.append(ROOT/'LICENSE')
@@ -74,6 +76,14 @@ def write_notices(report: dict, destination: Path) -> None:
                 output.write(f'Supplemental source: {source["source"]}\n')
                 if source.get('note'):
                     output.write(source['note']+'\n')
+                if source.get('verification'):
+                    output.write('Verification: '+source['verification']+'\n')
+                if evidence := source.get('evidence'):
+                    path = ROOT/'app/licenses'/evidence['file']
+                    raw = path.read_bytes()
+                    if hashlib.sha256(raw).hexdigest() != evidence['sha256']:
+                        raise ValueError('License evidence changed during notice generation')
+                    output.write(f'Verification evidence (SHA-256 {evidence["sha256"]}):\n'+raw.decode('utf-8')+'\n')
             for item in package['texts']:
                 path = Path(item['path'])
                 raw = path.read_bytes()

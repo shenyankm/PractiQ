@@ -55,9 +55,59 @@ def test_license_gate_checks_metadata_target_graph_and_unresolved_terms(tmp_path
     (licenses/'supplemental.json').write_text(json.dumps({'cargo:local@1':[{'file':'notice.txt','sha256':hashlib.sha256(notice.read_bytes()).hexdigest(),'source':'synthetic','note':'Full terms missing'}]}), encoding='utf-8')
     assert not inventory(bundle)['passed']
     assert inventory(bundle)['unverifiedSources'] == ['cargo:local@1']
+    evidence = licenses/'evidence.json'
+    evidence.write_text('{"source":"verified upstream"}', encoding='utf-8')
+    item = {'file':'notice.txt','sha256':hashlib.sha256(notice.read_bytes()).hexdigest(),
+            'source':'synthetic','verification':'Verified artifact attribution',
+            'evidence':{'file':'evidence.json','sha256':hashlib.sha256(evidence.read_bytes()).hexdigest()}}
+    (licenses/'supplemental.json').write_text(json.dumps({'cargo:local@1':[item]}), encoding='utf-8')
+    report = inventory(bundle)
+    assert report['passed']
+    destination = tmp_path/'THIRD-PARTY.txt'
+    scope['write_notices'](report, destination)
+    assert 'Verified artifact attribution' in destination.read_text()
+    assert evidence.read_text() in destination.read_text()
+    evidence.write_text('Changed evidence', encoding='utf-8')
+    with pytest.raises(ValueError, match='Altered license evidence'):
+        inventory(bundle)
+    with pytest.raises(ValueError, match='evidence changed'):
+        scope['write_notices'](report, destination)
     (bundle/'build-manifest.json').write_text('{"packages":[]}', encoding='utf-8')
     with pytest.raises(ValueError, match='empty'):
         inventory(bundle)
+
+
+def test_supplemental_terms_and_artifact_provenance_match_locked_versions():
+    import hashlib
+    import json
+
+    root = Path(__file__).parents[2]
+    licenses = root/'app/licenses'
+    supplements = json.loads((licenses/'supplemental.json').read_text())
+    for items in supplements.values():
+        for item in items:
+            assert hashlib.sha256((licenses/item['file']).read_bytes()).hexdigest() == item['sha256']
+    for key in ['cargo:block2@0.6.2', 'cargo:objc2@0.6.4', 'cargo:objc2-app-kit@0.3.2']:
+        items = supplements[key]
+        assert not any(item.get('note') for item in items)
+        text = '\n'.join((licenses/item['file']).read_text() for item in items)
+        assert 'Apple SDKs' in text
+        assert 'Copyright 2026 Mads Marquart' in text
+        assert 'Permission is hereby granted' in text
+        assert 'THE SOFTWARE IS PROVIDED' in text
+    item = supplements['npm:react-remove-scroll-bar@2.3.8'][0]
+    evidence = item['evidence']
+    raw = (licenses/evidence['file']).read_bytes()
+    assert hashlib.sha256(raw).hexdigest() == evidence['sha256']
+    proof = json.loads(raw)
+    lock = json.loads((root/'app/package-lock.json').read_text())
+    package = lock['packages']['node_modules/react-remove-scroll-bar']
+    release = next(release for release in proof['releases'] if release['version'] == package['version'])
+    assert release['integrity'] == package['integrity']
+    assert release['tarball'] == package['resolved']
+    assert proof['licenseSource'] == item['source']
+    assert len(proof['identicalPayloadSha256']) == 26
+    assert set(proof['packageJsonDifferences']) == {'version', 'dependencies'}
 
 
 
@@ -65,7 +115,7 @@ def test_checksum_inputs_survive_windows_style_git_checkout(tmp_path):
     import subprocess
 
     root = Path(__file__).parents[2]
-    names = ["app/licenses/texts/23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3.txt", "app/fixtures/ai-import/formats/all-types.csv", "app/fixtures/ai-import/formats/all-types.txt"]
+    names = ["app/licenses/texts/23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3.txt", "app/licenses/react-remove-scroll-bar-2.3.8.provenance.json", "app/fixtures/ai-import/formats/all-types.csv", "app/fixtures/ai-import/formats/all-types.txt"]
     repo = tmp_path / "repo"
     repo.mkdir()
     (repo / ".gitattributes").write_bytes((root / ".gitattributes").read_bytes())

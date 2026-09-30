@@ -1,3 +1,4 @@
 # Preserve checksum-pinned upstream notices and acceptance input bytes.
 app/licenses/texts/** -text
+app/licenses/*.provenance.json -text
 app/fixtures/ai-import/formats/** -text
