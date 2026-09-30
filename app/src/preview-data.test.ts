@@ -10,11 +10,16 @@ async function call<T>(request:Record<string,unknown>, command="request") {const
 
 it("provides every question mode, media, favorites, wrong answers and isolated editable data",async()=>{
  const banks=await call<Bank[]>({type:"banks"});expect(banks).toHaveLength(4);
- const query={type:"questions_page",bank_id:null,search:"",mode:"",filter:"",offset:0,limit:100};
+ const query={type:"questions_page",bank_ids:[],search:"",mode:"",filter:"",offset:0,limit:100};
  const page=await call<QuestionPage>(query);
  expect(new Set(page.items.map(q=>q.question.answerMode))).toEqual(new Set(["choice","true_false","fill_blank","short_answer","ordering","matching","reading","word_bank","cloze","listening","gap_fill"]));
  expect(page.items.some(q=>q.visuals.length)).toBe(true);
  expect(page.items.some(q=>q.question.needsReview)).toBe(true);
+ const selected=await call<QuestionPage>({...query,bank_ids:[banks[0].id]});
+ expect(selected.items.length).toBeGreaterThan(0);
+ expect(selected.items.every(q=>q.bankId===banks[0].id)).toBe(true);
+ const combined=await call<QuestionPage>({...query,bank_ids:banks.slice(0,2).map(b=>b.id)});
+ expect(new Set(combined.items.map(q=>q.bankId))).toEqual(new Set(banks.slice(0,2).map(b=>b.id)));
  expect((await call<QuestionPage>({...query,filter:"wrong"})).total).toBeGreaterThan(0);
  expect((await call<QuestionPage>({...query,filter:"favorite"})).total).toBeGreaterThan(0);
  await call({type:"favorite",id:page.items[0].id,value:false});
@@ -44,7 +49,7 @@ it("supports empty state creation and settings recovery",async()=>{
  await call({type:"save_bank",id:null,title:"新题库",description:""});
  expect(await call<Bank[]>({type:"banks"})).toHaveLength(1);
  await call({type:"add_example_bank"});
- expect((await call<QuestionPage>({type:"questions_page",bank_id:null,search:"",mode:"",filter:"",offset:0,limit:20})).total).toBe(9);
+ expect((await call<QuestionPage>({type:"questions_page",bank_ids:[],search:"",mode:"",filter:"",offset:0,limit:20})).total).toBe(9);
  vi.resetModules();mode.value="unconfigured";
  expect((await call<SettingsResult>({type:"settings"})).hasApiKey).toBe(false);
  await call({type:"save_settings",config:{base_url:"https://example.invalid",model_id:"demo"},api_key:"demo"});

@@ -224,7 +224,7 @@ it("keeps an explicit resumed bank scope instead of falling back to every bank",
   vi.mocked(api).mockResolvedValue({count:1,types:{single:1},feasibleCounts:[1]} as never);
   const props = {banks,initialBank:"one",initialFilter:"unattempted",busy:false,run:(job:()=>Promise<void>)=>{void job();},onStart:async()=>{},onClose:()=>{}};
   const view = render(<StudySetup {...props} initialBankIds={["two"]}/>);
-  await waitFor(() => expect(api).toHaveBeenCalledWith({type:"question_stats",bank_id:null,bank_ids:["two"],search:"",mode:"",filter:"unattempted"}));
+  await waitFor(() => expect(api).toHaveBeenCalledWith({type:"question_stats",bank_ids:["two"],search:"",mode:"",filter:"unattempted"}));
   view.unmount();
   vi.mocked(api).mockClear();
   render(<StudySetup {...props} initialBankIds={[]}/>);

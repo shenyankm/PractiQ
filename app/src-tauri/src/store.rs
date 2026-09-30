@@ -487,28 +487,22 @@ impl Store {
         mode: &str,
         filter: &str,
     ) -> Result<Value> {
-        self.query_questions(bank, &[], (search, mode, filter), None)
+        let banks: Vec<_> = bank.into_iter().map(str::to_owned).collect();
+        self.query_questions(&banks, (search, mode, filter), None)
     }
     pub fn query_questions(
         &self,
-        bank: Option<&str>,
         banks: &[String],
         query: (&str, &str, &str),
         page: Option<(usize, usize)>,
     ) -> Result<Value> {
-        self.query_question_data(bank, banks, query, page, false)
+        self.query_question_data(banks, query, page, false)
     }
-    pub fn question_stats(
-        &self,
-        bank: Option<&str>,
-        banks: &[String],
-        query: (&str, &str, &str),
-    ) -> Result<Value> {
-        self.query_question_data(bank, banks, query, None, true)
+    pub fn question_stats(&self, banks: &[String], query: (&str, &str, &str)) -> Result<Value> {
+        self.query_question_data(banks, query, None, true)
     }
     fn query_question_data(
         &self,
-        bank: Option<&str>,
         banks: &[String],
         query: (&str, &str, &str),
         page: Option<(usize, usize)>,
@@ -521,29 +515,17 @@ impl Store {
         }) {
             return Err(crate::language::error("LOCAL_FILTER_INVALID", json!({})));
         }
-        if bank.is_some_and(|b| !banks.is_empty() && !banks.iter().any(|v| v == b)) {
-            return Ok(if stats_only {
-                json!({"count":0,"types":{},"feasibleCounts":[]})
-            } else if page.is_some() {
-                json!({"items":[],"total":0,"offset":0})
-            } else {
-                json!([])
-            });
-        }
-        let banks = bank
-            .map(|b| vec![b.to_owned()])
-            .unwrap_or_else(|| banks.to_vec());
         let db = self.connect()?;
         let mut rows;
         let mut ids;
         if search.is_empty() {
             // ponytail: root IDs use linear memory for exact totals; move COUNT/paging into SQL if ID lists become large.
-            ids = crate::questions::matching_roots(&db, &banks, mode, filter)?;
+            ids = crate::questions::matching_roots(&db, banks, mode, filter)?;
             rows = Vec::new();
         } else {
             // Unicode substring search includes answers, shared materials and visuals.
-            let candidates = crate::questions::matching_roots(&db, &banks, mode, filter)?;
-            rows = crate::questions::read_scoped(&db, &banks, Some(&candidates))?;
+            let candidates = crate::questions::matching_roots(&db, banks, mode, filter)?;
+            rows = crate::questions::read_scoped(&db, banks, Some(&candidates))?;
             let attempted: std::collections::HashSet<String> = if filter == "unattempted" {
                 db.prepare("SELECT DISTINCT a.question_id FROM attempts a JOIN questions q ON q.id=a.question_id WHERE a.submitted_at IS NOT NULL AND a.skipped=0 AND (?1='[]' OR q.bank_id IN (SELECT value FROM json_each(?1)))").map_err(err)?
                     .query_map([json!(banks).to_string()], |r| r.get(0)).map_err(err)?
@@ -629,7 +611,7 @@ impl Store {
             0
         };
         if search.is_empty() {
-            rows = crate::questions::read_scoped(&db, &banks, Some(&ids))?;
+            rows = crate::questions::read_scoped(&db, banks, Some(&ids))?;
         }
         let index = crate::questions::Index::new(&rows);
         let mut results = Vec::with_capacity(ids.len());

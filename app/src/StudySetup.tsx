@@ -36,7 +36,7 @@ export function StudySetup({banks, initialBank, initialBankIds, initialFilter, i
       return;
     }
     const timer = setTimeout(() => {
-      void api({type:"question_stats", bank_id:null, ...values})
+      void api({type:"question_stats", ...values})
         .then(result => { if (active) { setStats(result); setCount(defaultPaperCount(result.feasibleCounts ?? Array.from({length:Math.min(1000, result.count)}, (_, i) => i + 1))); } })
         .catch(e => { if (active) { setStats({ count: 0, types: {} }); setError(e); } })
         .finally(() => { if (active) setLoadedQuery(query); });
@@ -50,7 +50,7 @@ export function StudySetup({banks, initialBank, initialBankIds, initialFilter, i
     const values = JSON.parse(query);
     if (!values.bank_ids.length) { setRootCount(0); setLoadedPage(pageQuery); return; }
     const timer = setTimeout(() => {
-      void api({type:"questions_page", bank_id:null, ...values, limit:30, offset})
+      void api({type:"questions_page", ...values, limit:30, offset})
         .then(result => { if (active) { setRows(result.items); setRootCount(result.total); setOffset(result.offset); } })
         .catch(e => { if (active) { setRootCount(0); setError(e); } })
         .finally(() => { if (active) setLoadedPage(pageQuery); });

@@ -66,7 +66,7 @@ fn desktop_stress() {
     });
     report["firstPage"] = measure(|| {
         let page = store
-            .query_questions(None, &[], ("", "", ""), Some((30, 0)))
+            .query_questions(&[], ("", "", ""), Some((30, 0)))
             .unwrap();
         assert_eq!(page["total"], 10000);
         assert_eq!(list(&page, "items").len(), 30);
@@ -79,12 +79,7 @@ fn desktop_stress() {
     .unwrap();
     report["filteredSearch"] = measure(|| {
         let page = store
-            .query_questions(
-                None,
-                &[],
-                ("Question", "true_false", "favorite"),
-                Some((30, 0)),
-            )
+            .query_questions(&[], ("Question", "true_false", "favorite"), Some((30, 0)))
             .unwrap();
         assert_eq!(page["total"], 2);
         page

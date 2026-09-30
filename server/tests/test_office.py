@@ -257,7 +257,12 @@ def test_parent_eof_reaps_only_its_office_process(tmp_path):
     workspace = tmp_path / "practiq-office-owned"
     workspace.mkdir()
     (workspace / "source.docx").write_bytes(b"private snapshot")
-    child_code = "import os,sys,time; from pathlib import Path; Path(sys.argv[1]).write_text(str(os.getpid())); time.sleep(120)"
+    # Publish the ready marker only after its PID contents are complete.
+    child_code = (
+        "import os,sys,time; from pathlib import Path; "
+        "marker=Path(sys.argv[1]); pending=marker.with_suffix('.tmp'); "
+        "pending.write_text(str(os.getpid())); pending.replace(marker); time.sleep(120)"
+    )
     probe = """
 import sys,time
 from practiq_ai import office

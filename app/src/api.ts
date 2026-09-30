@@ -2,7 +2,7 @@ import { COMPOSITE_MODES } from "./contracts.generated";
 import nativeMessages from "./locales/native.json";
 import { t, locale, MessageError, renderMessage, type LanguageRequest, type Locale } from "./i18n";
 import { invoke } from "./transport";
-import type { Question, Answer, ParsedOption as Option, ParsedItem as Item, ContentBlock as Block } from "./contracts.generated";
+import type { Question, Answer, ArtifactReference, ParsedOption as Option, ParsedItem as Item, ContentBlock as Block } from "./contracts.generated";
 export type { Question, Answer, Option, Item, Block };
 export type Mode = NonNullable<Question["answerMode"]>;
 export function isComposite(q: Question) { return COMPOSITE_MODES.includes(q.answerMode || ""); }
@@ -45,9 +45,6 @@ export interface Group {
   contentBlocks?: Block[];
   questionIds: string[];
 }
-interface ImageReference {
-  sha256: string; objectKey: string; mediaType: string; sizeBytes: number;
-}
 export interface Visual {
   role?: string | null;
   id: string;
@@ -56,8 +53,8 @@ export interface Visual {
   label?: string | null;
   extractedText?: string | null;
   questionIds: string[];
-  imageRef?: ImageReference | null;
-  sourceRef?: ImageReference | null;
+  imageRef?: ArtifactReference | null;
+  sourceRef?: ArtifactReference | null;
 }
 export interface Snapshot {
   reviewedAt?: number | null;
@@ -167,8 +164,7 @@ export interface Preview {
   assetCount: number;
 }
 type Query = {
-  bank_ids?: string[];
-  bank_id: string | null;
+  bank_ids: string[];
   search: string;
   mode: string;
   filter: string;
