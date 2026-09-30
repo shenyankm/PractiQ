@@ -59,13 +59,17 @@ fn confirmation_filters_complete_trees_and_persists_without_changing_source_flag
         pending
     );
     let page = store
-        .query_questions(Some(&bank), &[], ("", "", "review"), Some((1, 0)))
+        .query_questions(
+            std::slice::from_ref(&bank),
+            ("", "", "review"),
+            Some((1, 0)),
+        )
         .unwrap();
     assert_eq!(page["total"], 1);
     assert_eq!(page["items"], pending);
     assert!(
         store
-            .question_stats(Some(&bank), &[], ("", "", "review"))
+            .question_stats(std::slice::from_ref(&bank), ("", "", "review"))
             .unwrap()["count"]
             .as_u64()
             .unwrap()
@@ -108,7 +112,7 @@ fn confirmation_filters_complete_trees_and_persists_without_changing_source_flag
     }
     assert_eq!(
         reopened
-            .question_stats(Some(&bank), &[], ("", "", "review"))
+            .question_stats(std::slice::from_ref(&bank), ("", "", "review"))
             .unwrap()["count"],
         0
     );
@@ -134,7 +138,7 @@ fn review_search_matches_other_nodes_and_shared_content_in_a_pending_tree() {
     let (_dir, store, bank, root) = setup();
     let pending = store.questions(Some(&bank), "", "", "review").unwrap();
     let stats = store
-        .question_stats(Some(&bank), &[], ("", "", "review"))
+        .question_stats(std::slice::from_ref(&bank), ("", "", "review"))
         .unwrap();
     assert_eq!(stats["count"], 6);
     let searches = ["reading", "seasons change", "r-choice", "Composite section"];
@@ -146,8 +150,7 @@ fn review_search_matches_other_nodes_and_shared_content_in_a_pending_tree() {
         );
         let page = store
             .query_questions(
-                Some(&bank),
-                &[],
+                std::slice::from_ref(&bank),
                 (search, "reading", "review"),
                 Some((1, 0)),
             )
@@ -156,7 +159,7 @@ fn review_search_matches_other_nodes_and_shared_content_in_a_pending_tree() {
         assert_eq!(page["total"], 1);
         assert_eq!(
             store
-                .question_stats(Some(&bank), &[], (search, "reading", "review"))
+                .question_stats(std::slice::from_ref(&bank), (search, "reading", "review"))
                 .unwrap(),
             stats
         );
@@ -176,7 +179,7 @@ fn review_search_matches_other_nodes_and_shared_content_in_a_pending_tree() {
         );
         assert_eq!(
             store
-                .question_stats(Some(&bank), &[], (search, "", "review"))
+                .question_stats(std::slice::from_ref(&bank), (search, "", "review"))
                 .unwrap()["count"],
             0
         );

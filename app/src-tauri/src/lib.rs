@@ -77,7 +77,6 @@ enum Request {
     QuestionsPage {
         #[serde(default)]
         bank_ids: Vec<String>,
-        bank_id: Option<String>,
         search: String,
         mode: String,
         filter: String,
@@ -87,7 +86,6 @@ enum Request {
     QuestionStats {
         #[serde(default)]
         bank_ids: Vec<String>,
-        bank_id: Option<String>,
         search: String,
         mode: String,
         filter: String,
@@ -314,8 +312,8 @@ async fn request(
             Request::BanksPage{limit,offset}=>store.banks_page(limit,offset),
             Request::SaveBank{id,title,description}=>store.save_bank(id,&title,&description),
             Request::DeleteBank{id}=>store.delete_bank(&id),
-            Request::QuestionsPage{bank_id,bank_ids,search,mode,filter,limit,offset}=>store.query_questions(bank_id.as_deref(),&bank_ids,(&search,&mode,&filter),Some((limit,offset))),
-            Request::QuestionStats{bank_id,bank_ids,search,mode,filter}=>store.question_stats(bank_id.as_deref(),&bank_ids,(&search,&mode,&filter)),
+            Request::QuestionsPage{bank_ids,search,mode,filter,limit,offset}=>store.query_questions(&bank_ids,(&search,&mode,&filter),Some((limit,offset))),
+            Request::QuestionStats{bank_ids,search,mode,filter}=>store.question_stats(&bank_ids,(&search,&mode,&filter)),
             Request::SaveQuestionTree{bank_id,root_id,questions}=>store.save_question_tree(&bank_id,root_id.as_deref(),questions),
             Request::DeleteQuestion{id}=>store.delete_question(&id),
             Request::ReviewQuestion{id,reviewed}=>store.review_question(&id,reviewed),

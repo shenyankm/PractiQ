@@ -12,6 +12,20 @@ fn store() -> (tempfile::TempDir, Store) {
     (dir, store)
 }
 #[test]
+fn question_query_requests_use_bank_id_lists() {
+    for kind in ["questions_page", "question_stats"] {
+        let mut request =
+            json!({"type":kind,"bank_ids":["bank"],"search":"","mode":"","filter":""});
+        if kind == "questions_page" {
+            request["limit"] = json!(30);
+            request["offset"] = json!(0);
+        }
+        assert!(serde_json::from_value::<crate::Request>(request.clone()).is_ok());
+        request["bank_id"] = json!("bank");
+        assert!(serde_json::from_value::<crate::Request>(request).is_err());
+    }
+}
+#[test]
 fn paged_filters_preserve_complete_groups_and_drafts_survive_reopen() {
     let (dir, mut s) = store();
     let plain = import(&mut s);
@@ -26,13 +40,20 @@ fn paged_filters_preserve_complete_groups_and_drafts_survive_reopen() {
     let all = s.questions(Some(&grouped), "", "", "").unwrap();
     let child = text(&all[0]["children"][0], "id");
     s.favorite(child, true).unwrap();
-    for bank in [None, Some(plain.as_str()), Some(grouped.as_str())] {
+    for banks in [
+        vec![],
+        vec![plain.clone()],
+        vec![grouped.clone()],
+        vec![plain.clone(), grouped.clone()],
+    ] {
         for search in ["", "the", "材料"] {
             for mode in ["", "single", "true_false", "reading", "word_bank"] {
                 for filter in ["", "favorite", "wrong", "unattempted"] {
-                    let expected = s.questions(bank, search, mode, filter).unwrap();
+                    let expected = s
+                        .query_questions(&banks, (search, mode, filter), None)
+                        .unwrap();
                     let n = expected.as_array().unwrap().len();
-                    let stats = s.question_stats(bank, &[], (search, mode, filter)).unwrap();
+                    let stats = s.question_stats(&banks, (search, mode, filter)).unwrap();
                     let mut types = serde_json::Map::new();
                     let mut count = 0;
                     for root in expected.as_array().unwrap() {
@@ -53,7 +74,7 @@ fn paged_filters_preserve_complete_groups_and_drafts_survive_reopen() {
                     let mut combined = Vec::new();
                     for offset in 0..n.max(1) {
                         let page = s
-                            .query_questions(bank, &[], (search, mode, filter), Some((1, offset)))
+                            .query_questions(&banks, (search, mode, filter), Some((1, offset)))
                             .unwrap();
                         assert_eq!(page["total"], n);
                         combined.extend_from_slice(list(&page, "items"));
@@ -64,7 +85,11 @@ fn paged_filters_preserve_complete_groups_and_drafts_survive_reopen() {
         }
     }
     let favorites = s
-        .query_questions(Some(&grouped), &[], ("", "", "favorite"), Some((1, 0)))
+        .query_questions(
+            std::slice::from_ref(&grouped),
+            ("", "", "favorite"),
+            Some((1, 0)),
+        )
         .unwrap();
     assert_eq!(favorites["items"][0]["id"], all[0]["id"]);
     assert_eq!(
@@ -73,28 +98,27 @@ fn paged_filters_preserve_complete_groups_and_drafts_survive_reopen() {
     );
     assert_eq!(
         s.query_questions(
-            Some(&plain),
-            std::slice::from_ref(&grouped),
+            &[plain.clone(), grouped.clone()],
             ("", "", ""),
             Some((30, 0))
         )
-        .unwrap()["total"],
-        0
+        .unwrap()["items"],
+        s.questions(None, "", "", "").unwrap()
     );
-    assert!(s
-        .query_questions(None, &[], ("", "", ""), Some((0, 0)))
-        .is_err());
-    assert!(s.question_stats(None, &[], ("", "invalid", "")).is_err());
+    assert!(s.query_questions(&[], ("", "", ""), Some((0, 0))).is_err());
+    assert!(s.question_stats(&[], ("", "invalid", "")).is_err());
     assert_eq!(
-        s.question_stats(Some(&plain), std::slice::from_ref(&grouped), ("", "", ""))
-            .unwrap(),
+        s.question_stats(&["missing".into()], ("", "", "")).unwrap(),
         json!({"count":0,"types":{},"feasibleCounts":[]})
     );
     assert!(s
-        .query_questions(None, &[], ("", "", ""), Some((101, 0)))
+        .question_stats(&vec![plain.clone(); 1001], ("", "", ""))
+        .is_err());
+    assert!(s
+        .query_questions(&[], ("", "", ""), Some((101, 0)))
         .is_err());
     let last = s
-        .query_questions(Some(&plain), &[], ("", "", ""), Some((2, 999)))
+        .query_questions(std::slice::from_ref(&plain), ("", "", ""), Some((2, 999)))
         .unwrap();
     assert_eq!(last["offset"], 8);
     assert_eq!(list(&last, "items").len(), 1);
@@ -746,7 +770,7 @@ fn merged_copy_filters_grading_and_backup_preserve_independence() {
         .unwrap();
     s.favorite(text(&qs[4], "id"), true).unwrap();
     assert_eq!(
-        s.query_questions(None, std::slice::from_ref(&bank), ("", "single", ""), None)
+        s.query_questions(std::slice::from_ref(&bank), ("", "single", ""), None)
             .unwrap()
             .as_array()
             .unwrap()
@@ -754,16 +778,11 @@ fn merged_copy_filters_grading_and_backup_preserve_independence() {
         1
     );
     assert_eq!(
-        s.query_questions(
-            None,
-            &[bank.clone(), second.clone()],
-            ("", "multiple", ""),
-            None
-        )
-        .unwrap()
-        .as_array()
-        .unwrap()
-        .len(),
+        s.query_questions(&[bank.clone(), second.clone()], ("", "multiple", ""), None)
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .len(),
         2
     );
     let merged = s

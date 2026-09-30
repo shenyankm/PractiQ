@@ -249,7 +249,7 @@ it("opens study setup from each bank card with that bank selected", async () => 
     for (const [i, bank] of banks.entries()) {
       expect(within(dialog).getByRole("checkbox", { name: `${bank.title}（${bank.count}）` }).getAttribute("aria-checked")).toBe(String(i === index));
     }
-    await waitFor(() => expect(api).toHaveBeenCalledWith({ type: "question_stats", bank_id: null, bank_ids: [banks[index].id], search: "", mode: "", filter: "" }));
+    await waitFor(() => expect(api).toHaveBeenCalledWith({ type: "question_stats", bank_ids: [banks[index].id], search: "", mode: "", filter: "" }));
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     await waitFor(() => expect(document.activeElement).toBe(within(card as HTMLElement).getByRole("button", { name: "开始练习" })));
@@ -499,7 +499,7 @@ it("allows unchecked credentials and keeps a confirmed import in the task list u
   expect(vi.mocked(api).mock.calls.filter(([r]) => r.type === "import")).toHaveLength(1);
   expect(vi.mocked(api).mock.calls.some(([r]) => r.type === "questions_page")).toBe(false);
   await userEvent.click(screen.getByRole("button", {name:"查看题库"}));
-  await waitFor(() => expect(api).toHaveBeenCalledWith(expect.objectContaining({type:"questions_page",bank_id:"bank"})));
+  await waitFor(() => expect(api).toHaveBeenCalledWith(expect.objectContaining({type:"questions_page",bank_ids:["bank"]})));
 });
 
 

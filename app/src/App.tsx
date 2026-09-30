@@ -178,7 +178,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
   const filter =
     page === "wrong" ? "wrong" : page === "favorite" ? "favorite" : page === "questions" && onlyReview ? "review" : "";
   const query = {
-    bank_id: page === "questions" ? bank : null,
+    bank_ids: page === "questions" && bank ? [bank] : [],
     search,
     mode,
     filter,
@@ -245,7 +245,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
     let active = true;
     setLoading(true);
     const timer = setTimeout(() => {
-      void api({ type: "questions_page", bank_id: page === "questions" ? bank : null, search, mode, filter, limit: 30, offset })
+      void api({ type: "questions_page", bank_ids: page === "questions" && bank ? [bank] : [], search, mode, filter, limit: 30, offset })
         .then((rows) => {
           if (active) { setQuestions(rows.items); setQuestionTotal(rows.total); setOffset(rows.offset); }
         })

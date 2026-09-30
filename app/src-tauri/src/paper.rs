@@ -136,8 +136,7 @@ impl Store {
     fn paper_candidates(&self, p: &Preview) -> Result<Vec<Candidate>> {
         questions::validate_filter(&p.bank_ids, &p.mode, &p.filter)?;
         if !p.search.is_empty() {
-            let roots =
-                self.query_questions(None, &p.bank_ids, (&p.search, &p.mode, &p.filter), None)?;
+            let roots = self.query_questions(&p.bank_ids, (&p.search, &p.mode, &p.filter), None)?;
             return roots
                 .as_array()
                 .ok_or("Invalid question selection")?
@@ -366,7 +365,9 @@ mod tests {
             .import(text(&imported, "ticket"), None, "Groups")
             .unwrap();
         let bank = text(&imported, "bankId");
-        let stats = store.question_stats(Some(bank), &[], ("", "", "")).unwrap();
+        let stats = store
+            .question_stats(&[bank.to_owned()], ("", "", ""))
+            .unwrap();
         assert_eq!(stats["count"], 24);
         assert_eq!(stats["types"], json!({"reading":8}));
         assert_eq!(
@@ -374,7 +375,7 @@ mod tests {
             json!([3, 6, 9, 12, 15, 18, 21, 24])
         );
         let page = store
-            .query_questions(Some(bank), &[], ("", "", ""), Some((30, 0)))
+            .query_questions(&[bank.to_owned()], ("", "", ""), Some((30, 0)))
             .unwrap();
         assert_eq!(page["total"], 8);
         assert!(list(&page, "items")

@@ -920,7 +920,7 @@ mod tests {
     fn english_roundtrip_redaction_playback_and_immutable_history() {
         let (dir, store, bank) = english();
         let stats = store
-            .question_stats(Some(&bank), &[], ("", "", ""))
+            .question_stats(std::slice::from_ref(&bank), ("", "", ""))
             .unwrap();
         for kind in [
             "listening",
