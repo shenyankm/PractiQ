@@ -9,14 +9,12 @@ import { XIcon } from "lucide-react";
 function Dialog({
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Root>) {
-  useI18n();
   return <DialogPrimitive.Root data-slot="dialog" {...props} />;
 }
 
 function DialogPortal({
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Portal>) {
-  useI18n();
   return <DialogPrimitive.Portal data-slot="dialog-portal" {...props} />;
 }
 
@@ -24,7 +22,6 @@ function DialogOverlay({
   className,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Overlay>) {
-  useI18n();
   return (
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
@@ -91,7 +88,6 @@ function DialogContent({
 }
 
 function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
-  useI18n();
   return (
     <div
       data-slot="dialog-header"
@@ -133,7 +129,6 @@ function DialogTitle({
   className,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Title>) {
-  useI18n();
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
@@ -150,7 +145,6 @@ function DialogDescription({
   className,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Description>) {
-  useI18n();
   return (
     <DialogPrimitive.Description
       data-slot="dialog-description"
