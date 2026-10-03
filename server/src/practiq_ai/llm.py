@@ -5,6 +5,7 @@ import json
 import logging
 import random
 import time
+from copy import deepcopy
 from datetime import UTC, datetime
 from functools import lru_cache
 from typing import Any, cast
@@ -94,6 +95,7 @@ def build_model(
     )
 
 
+@lru_cache(maxsize=8)
 def _model_schema(schema: type[BaseModel]) -> dict[str, Any]:
     value = schema.model_json_schema()
 
@@ -172,7 +174,7 @@ def structured_output(model: BaseChatModel, schema: type[BaseModel]):
             "json_schema": {
                 "name": schema.__name__,
                 "strict": True,
-                "schema": _model_schema(schema),
+                "schema": deepcopy(_model_schema(schema)),
             },
         }
         return model.bind(
@@ -188,7 +190,7 @@ def structured_output(model: BaseChatModel, schema: type[BaseModel]):
             }
         )
     return model.with_structured_output(
-        convert_to_openai_tool(_model_schema(schema)) if isinstance(model, ChatOpenAI) else schema,
+        convert_to_openai_tool(deepcopy(_model_schema(schema))) if isinstance(model, ChatOpenAI) else schema,
         method="function_calling", include_raw=True
     )
 
