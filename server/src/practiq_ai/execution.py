@@ -81,14 +81,19 @@ def validate_execution(execution: dict[str, Any] | None) -> None:
     remaining_ttl(execution)
 
 
-# Use the contract's supported formats in both record reads and SQL selection.
-SUPPORTED_TASKS_SQL = cast(LiteralString, (
-    "SELECT thread_id FROM document_tasks WHERE graph_id IN ("
-    + ",".join(f"'{name}'" for name in get_args(GraphId))
-    + ") AND json_extract(document, '$.sourceType') IN ("
-    + ",".join(f"'{name}'" for name in DOCUMENT_MEDIA_TYPES)
-    + ")"
-))
+# Use the contract's supported formats without materializing every historical task.
+def supported_task_sql(alias: LiteralString = '') -> LiteralString:
+    prefix = f'{alias}.' if alias else ''
+    return cast(LiteralString, (
+        f"{prefix}graph_id IN ("
+        + ",".join(f"'{name}'" for name in get_args(GraphId))
+        + f") AND json_extract({prefix}document, '$.sourceType') IN ("
+        + ",".join(f"'{name}'" for name in DOCUMENT_MEDIA_TYPES)
+        + ")"
+    ))
+
+
+SUPPORTED_TASKS_SQL = cast(LiteralString, f'SELECT thread_id FROM document_tasks WHERE {supported_task_sql()}')
 
 
 def require_supported_task(task: Any) -> None:

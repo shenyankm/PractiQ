@@ -84,7 +84,7 @@ async def test_idle_dispatch_is_event_driven_and_read_connection_is_transaction_
     dispatches = []
     original = db.rows
     async def observed(query, params=()):
-        if query.startswith('SELECT * FROM document_runs WHERE') and query.endswith('ORDER BY created_at'):
+        if query.endswith('ORDER BY r.created_at'):
             dispatches.append(1)
         return await original(query, params)
     monkeypatch.setattr(db, 'rows', observed)

@@ -62,12 +62,113 @@ async def probe(question_count):
 
 
 
+async def filter_probe(history_count):
+    """Compare the former recursive history scan with the production filtered path."""
+    with pytest.MonkeyPatch.context() as patch:
+        for key, value in {'AI_SERVICE_TOKEN': 'test-token', 'LLM_PROVIDER': 'dashscope',
+                           'LLM_API_KEY': 'synthetic-key', 'LLM_MODEL': 'synthetic'}.items():
+            patch.setenv(key, value)
+        from practiq_ai import task_api
+        from practiq_ai.database import utcnow
+        from practiq_ai.execution import SUPPORTED_TASKS_SQL, supported_task_sql
+        from tests.db_support import cleanup, setup_api
+        from tests.support import parsed
+        try:
+            service, reference, model = await setup_api(patch, [])
+            service.stopping = True
+            service.wake.set()
+            await service.loop
+            source = str(uuid4())
+            async with service.db.connection() as conn:
+                await conn.execute('INSERT INTO document_tasks(thread_id,request_hash,graph_id,document,failure_policy,expires_at) VALUES (?,?,?,?,?,?)',
+                                   (source, source, 'document_parser', json.dumps(reference), 'return_partial', utcnow() + timedelta(days=1)))
+                await conn.execute("INSERT INTO document_runs(run_id,thread_id,request_id,context,status) VALUES (?,?,?,'{}','success')", (source, source, source))
+            await service.graph.aupdate_state({'configurable': {'thread_id': source}},
+                                            {'status': 'SUCCEEDED', 'result': parsed()}, as_node='finish')
+            async with service.db.connection() as conn:
+                for _ in range(history_count - 1):
+                    tid = str(uuid4())
+                    await conn.execute('INSERT INTO document_tasks SELECT ?,request_hash,graph_id,document,failure_policy,parent_thread_id,created_at,expires_at FROM document_tasks WHERE thread_id=?', (tid, source))
+                    await conn.execute("INSERT INTO document_runs(run_id,thread_id,request_id,context,status) VALUES (?,?,?,'{}','success')", (tid, tid, tid))
+                    await service.db.connections[0].execute(
+                        "INSERT INTO checkpoints SELECT ?,checkpoint_ns,checkpoint_id,parent_checkpoint_id,type,checkpoint,metadata FROM checkpoints WHERE thread_id=? AND checkpoint_ns='' ORDER BY checkpoint_id DESC LIMIT 1", (tid, source))
+                active = str(uuid4())
+                await conn.execute('INSERT INTO document_tasks SELECT ?,request_hash,graph_id,document,failure_policy,parent_thread_id,created_at,expires_at FROM document_tasks WHERE thread_id=?', (active, source))
+                await conn.execute("INSERT INTO document_runs(run_id,thread_id,request_id,context,status) VALUES (?,?,?,'{}','pending')", (active, active, active))
+            snapshot_reads = []
+            original = service.snapshot
+            async def observed(task):
+                snapshot_reads.append(task['thread_id'])
+                return await original(task)
+            patch.setattr(service, 'snapshot', observed)
+
+            async def former_filter(state_filter):
+                items = []
+                source_offset = 0
+                while len(items) <= 20:
+                    page = await task_api.list_tasks(100, source_offset)
+                    for item in page['items']:
+                        if item['state'] in task_api.FILTER_STATES[state_filter]:
+                            items.append(item)
+                            if len(items) > 20:
+                                break
+                    if not page['hasMore']:
+                        break
+                    source_offset += 100
+                return {'items': items[:20], 'hasMore': len(items) > 20}
+
+            results = []
+            for state_filter in ('active', 'paused', 'completed'):
+                baseline = None
+                for mode in ('formerRecursiveFilter', 'productionCandidateFilter'):
+                    service.task_summaries.clear()
+                    samples = []
+                    for _ in range(3):
+                        snapshot_reads.clear()
+                        before = time.perf_counter()
+                        page = await (former_filter(state_filter) if mode == 'formerRecursiveFilter'
+                                      else task_api.list_tasks(state_filter=state_filter))
+                        samples.append({'durationMs': round((time.perf_counter() - before) * 1000, 3),
+                                        'snapshotReads': len(snapshot_reads)})
+                        expected = 1 if state_filter == 'active' else (0 if state_filter == 'paused' else 20)
+                        assert len(page['items']) == expected
+                        assert page['hasMore'] == (state_filter == 'completed')
+                        if baseline is None:
+                            baseline = page
+                        assert page == baseline
+                    results.append({'filter': state_filter, 'mode': mode, 'samples': samples})
+            assert not model.calls
+            queries = {
+                'activeBefore': f"SELECT * FROM document_runs WHERE thread_id IN ({SUPPORTED_TASKS_SQL}) AND status IN ('pending','running') ORDER BY created_at",
+                'activeAfter': f"SELECT r.* FROM document_runs r JOIN document_tasks t ON t.thread_id=r.thread_id WHERE r.status IN ('pending','running') AND {supported_task_sql('t')} ORDER BY r.created_at",
+                'firstPageBefore': f'SELECT * FROM document_tasks WHERE thread_id IN ({SUPPORTED_TASKS_SQL}) ORDER BY created_at DESC,thread_id DESC LIMIT 21 OFFSET 0',
+                'firstPageAfter': f"SELECT t.* FROM document_tasks t WHERE {supported_task_sql('t')} ORDER BY t.created_at DESC,t.thread_id DESC LIMIT 21 OFFSET 0",
+            }
+            query_results = {}
+            for name, sql in queries.items():
+                times = []
+                for _ in range(11):
+                    before = time.perf_counter()
+                    await service.db.rows(sql)
+                    times.append((time.perf_counter() - before) * 1000)
+                query_results[name] = {'sql': sql, 'medianMs': statistics.median(times),
+                                       'plan': await service.db.rows('EXPLAIN QUERY PLAN ' + sql)}
+            return {'completedHistory': history_count, 'activeTasks': 1, 'lruLimit': 256,
+                    'results': results, 'queries': query_results, 'realModelCalls': 0}
+        finally:
+            await cleanup()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--history-tasks', type=int, default=600)
     args = parser.parse_args()
+    if args.history_tasks < 1:
+        parser.error('--history-tasks must be positive')
     results = [asyncio.run(probe(n)) for n in (1, 1000)]
-    report = {'method': 'Real disposable SQLite; 20 synthetic completed tasks, one chunk and result; five reads including cold first read; no model calls, IPC or WebView', 'results': results}
+    report = {'method': 'Real disposable SQLite; 20 synthetic completed tasks, one chunk and result; five reads including cold first read; former filter baseline uses the current unfiltered backend to isolate filter behavior; no model calls, IPC or WebView',
+              'results': results, 'filteredHistory': asyncio.run(filter_probe(args.history_tasks))}
     args.output.write_text(json.dumps(report, indent=2))
     print(json.dumps(report, indent=2))
 
