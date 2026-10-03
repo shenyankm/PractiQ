@@ -13,11 +13,11 @@ from .config import load, require_model_config
 from .database import Database, utcnow, watch_ownership
 from .errors import DocumentProcessingError
 from .execution import (
-    SUPPORTED_TASKS_SQL,
     namespace,
     preflight,
     remaining_ttl,
     require_supported_task,
+    supported_task_sql,
 )
 from .graphs.document import build_document_graph
 
@@ -51,16 +51,24 @@ class Service:
                            for name, types in GRAPH_FORMATS.items()}
             # A crash can separate the final checkpoint from the queue receipt.
             # Reconcile only this run's checkpoint, without executing graph nodes.
-            for run in await self.db.rows(f"SELECT * FROM document_runs WHERE thread_id IN ({SUPPORTED_TASKS_SQL}) AND status IN ('pending','running','interrupted')"):
-                task = (await self.db.rows('SELECT * FROM document_tasks WHERE thread_id=?', (run['thread_id'],)))[0]
-                snapshot = await self.snapshot(task)
+            previous_thread = None
+            snapshot = None
+            for run in await self.db.rows(f"SELECT r.* FROM document_runs r JOIN document_tasks t ON t.thread_id=r.thread_id WHERE r.status IN ('pending','running','interrupted') AND {supported_task_sql('t')} ORDER BY r.thread_id"):
+                if run['thread_id'] != previous_thread:
+                    task = (await self.db.rows('SELECT * FROM document_tasks WHERE thread_id=?', (run['thread_id'],)))[0]
+                    snapshot = await self.snapshot(task)
+                    previous_thread = run['thread_id']
+                assert snapshot is not None
                 if (saved_status := self.saved_run_status(snapshot, run)) is not None:
                     await self.finish(run['run_id'], saved_status)
             async with self.db.connection() as conn:
-                if load().desktop_mode:
-                    await conn.execute(f"UPDATE document_runs SET status='interrupted' WHERE thread_id IN ({SUPPORTED_TASKS_SQL}) AND status IN ('pending','running')")
-                else:
-                    await conn.execute(f"UPDATE document_runs SET status='pending' WHERE thread_id IN ({SUPPORTED_TASKS_SQL}) AND status='running'")
+                desktop = load().desktop_mode
+                await conn.execute(
+                    "UPDATE document_runs AS r SET status=? WHERE r.status IN ('pending','running') "
+                    "AND (? OR r.status='running') AND EXISTS "
+                    f"(SELECT 1 FROM document_tasks t WHERE t.thread_id=r.thread_id AND {supported_task_sql('t')})",
+                    ('interrupted' if desktop else 'pending', desktop),
+                )
             self.accepting = True
             self.loop = asyncio.create_task(self.dispatch(), name='document-dispatch')
             self.guard_task = asyncio.create_task(self.watch_lock(), name='database-ownership')
@@ -129,7 +137,7 @@ class Service:
         try:
             while not self.stopping:
                 self.wake.clear()
-                rows = await self.db.rows(f"SELECT * FROM document_runs WHERE thread_id IN ({SUPPORTED_TASKS_SQL}) AND status IN ('pending','running') ORDER BY created_at")
+                rows = await self.db.rows(f"SELECT r.* FROM document_runs r JOIN document_tasks t ON t.thread_id=r.thread_id WHERE r.status IN ('pending','running') AND {supported_task_sql('t')} ORDER BY r.created_at")
                 for run in rows:
                     run_id = run['run_id']
                     if run['cancel_requested']:
@@ -190,7 +198,7 @@ class Service:
                 if snapshot.values and snapshot.values.get('execution'):
                     await preflight(snapshot.values)
                 await graph.ainvoke(graph_input, {'configurable': {'thread_id': run['thread_id']},
-                    'run_id': run_id, 'metadata': {'practiqRunId': run_id}}, context=run['context'], durability='sync')
+                    'run_id': run_id, 'metadata': {'practiqRunId': run_id}}, context=dict(run['context']), durability='sync')
             snapshot = await self.snapshot(task)
             await self.finish(run_id, 'waiting' if snapshot.interrupts else 'success')
         except asyncio.CancelledError:

@@ -8,6 +8,7 @@ from typing import Annotated, Any
 from uuid import UUID
 from weakref import WeakKeyDictionary
 
+from anyio import CancelScope
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
@@ -25,7 +26,7 @@ from practiq_ai.contracts import (
     DocumentUploadResponse,
 )
 from practiq_ai.errors import DocumentProcessingError
-from practiq_ai.execution import SUPPORTED_TASKS_SQL
+from practiq_ai.execution import supported_task_sql
 from practiq_ai.grading import GradeWireRequest, grade
 from practiq_ai.middleware import JsonBodyLimitMiddleware, SecurityHeadersMiddleware
 from practiq_ai.storage import get_object_store
@@ -81,7 +82,7 @@ async def application_metrics() -> Response:
     from .runtime import current
     body = generate_latest(registry)
     if current:
-        rows = await current.db.rows(f"SELECT status,count(*) AS n FROM document_runs WHERE thread_id IN ({SUPPORTED_TASKS_SQL}) AND status IN ('pending','running') GROUP BY status")
+        rows = await current.db.rows(f"SELECT r.status,count(*) AS n FROM document_runs r JOIN document_tasks t ON t.thread_id=r.thread_id WHERE r.status IN ('pending','running') AND {supported_task_sql('t')} GROUP BY r.status")
         counts = {row['status']: row['n'] for row in rows}
         jobs = load().jobs_per_worker
         body += (f"practiq_pending_runs {counts.get('pending', 0)}\n"
@@ -209,8 +210,19 @@ async def readiness() -> Response:
 
 @app.post("/api/subjective-grades", dependencies=[Depends(authorize), Depends(upload_slot)])
 async def subjective_grade(request: GradeWireRequest) -> dict:
+    validation = asyncio.create_task(asyncio.to_thread(request.verified_request))
     try:
-        verified = request.verified_request()
+        verified = await asyncio.shield(validation)
+    except asyncio.CancelledError:
+        # Keep upload capacity until the worker releases its potentially large body.
+        with CancelScope(shield=True):
+            while not validation.done():
+                try:
+                    await asyncio.shield(validation)
+                except (asyncio.CancelledError, ValueError):
+                    pass
+        validation.exception()
+        raise
     except ValueError as exc:
         raise HTTPException(422, {"code": "GRADING_INPUT_INVALID", "message": "Grading input or digest is invalid", "params": {}}) from exc
     return await _task_response(grade(verified))

@@ -1,9 +1,10 @@
 import { date, message, number, t, useI18n } from "./i18n";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "./notifications";
 import { api, errorMessage, isComposite, type Preview, type BankChoice } from "./api";
 import { ai, readReviewImage, type Task, type TaskFilter, type Summary, type Review, type PendingOperation, type Batch, type ImportTaskContext, type ImportOperation } from "./ai-api";
 import { importTaskState } from "./import-task-state";
+import type { DocumentQuestionSource } from "./contracts.generated";
 import { createPortal } from "react-dom";
 import { Tabs } from "radix-ui";
 import { Pause, Play, Trash2, Upload } from "lucide-react";
@@ -12,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { QuestionPreview } from "./QuestionPreview";
-import { Markdown } from "./Content";
+import { LazyDetails, Markdown } from "./Content";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -62,6 +63,9 @@ function failureMessage(code: string) {
   return code === "AI_PROVIDER_AUTH_ERROR" ? t("模型鉴权失败，请检查设置中的 API Key，再重试失败项。") : t("此项未能完成，请检查配置或重试（{0}）。", { 0: code });
 }
 const activeStates = new Set(["PENDING", "RUNNING", "PAUSING"]);
+const ReviewDetails = memo(function ReviewDetails({ review }: { review: Review }) {
+  return <pre className="whitespace-pre-wrap text-xs">{JSON.stringify({ quality: review.quality, sources: review.questionSources }, null, 2)}</pre>;
+});
 function ReadAsset({
   review,
   unit,
@@ -142,6 +146,7 @@ export function AiTasks({
   useI18n();
   const [filter, setFilter] = useState<TaskFilter | "all">("all");
   const [tab, setTab] = useState("import");
+  const [visible, setVisible] = useState(() => document.visibilityState !== "hidden");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [source, setSource] = useState<{ token: string; fileNames: string[] } | null>(null);
@@ -167,6 +172,8 @@ export function AiTasks({
     [review, setReview] = useState<Review | null>(null);
   const [imports, setImports] = useState<Record<string, ImportOperation>>({});
   const [banks, setBanks] = useState<BankChoice[]>([]);
+  const [reviewPage, setReviewPage] = useState(0);
+  const reviewHeading = useRef<HTMLHeadingElement>(null);
   const [batchBank, setBatchBank] = useState("new");
   const [loading, setLoading] = useState(true);
   const batchWasRunning = useRef(false);
@@ -193,10 +200,20 @@ export function AiTasks({
     await localRefresh();
   }
   useEffect(() => {
+    const changed = () => setVisible(document.visibilityState !== "hidden");
+    document.addEventListener("visibilitychange", changed);
+    return () => document.removeEventListener("visibilitychange", changed);
+  }, []);
+  useEffect(() => {
+    if (tab !== "records" || !visible) return;
     let active = true;
     let timer: ReturnType<typeof setTimeout>;
     let failures = 0;
+    let reading = false;
     const poll = async () => {
+      if (!active || reading) return;
+      clearTimeout(timer);
+      reading = true;
       try {
         const r = await ai({ type: "list", offset, ...(filter === "all" ? {} : { filter }) });
         if (!active) return;
@@ -206,19 +223,22 @@ export function AiTasks({
         setError(null);
         setLoading(false);
         failures = 0;
-        if (r.items.some(row => activeStates.has(row.state)) || running || filter !== "all")
-          timer = setTimeout(poll, 2000);
+        // A slow poll still discovers tasks entering a filtered page from elsewhere.
+        timer = setTimeout(poll, r.items.some(row => activeStates.has(row.state)) || running ? 2000 : 15000);
       } catch (e) {
         if (!active) return;
         setError(e);
         setLoading(false);
         if (retryableRead(e) && ++failures <= 3) timer = setTimeout(poll, 2000);
+      } finally {
+        reading = false;
       }
     };
     setLoading(true);
     void poll();
-    return () => { active = false; clearTimeout(timer); };
-  }, [offset, revision, running, filter]);
+    window.addEventListener("focus", poll);
+    return () => { active = false; clearTimeout(timer); window.removeEventListener("focus", poll); };
+  }, [offset, revision, running, filter, tab, visible]);
   useEffect(() => {
     let active = true;
     let timer: ReturnType<typeof setTimeout>;
@@ -359,6 +379,26 @@ export function AiTasks({
   }, [hasChecked, confirmationBank]);
   const selectedRow = rows.find(row => row.threadId === selected);
   const currentTask = task?.threadId === selected ? task : null;
+  const reviewContent = useMemo(() => {
+    if (!review) return { units: [], sources: new Map<string, number>(), count: 0, needsReview: 0 };
+    const sources = new Map<string, number>();
+    let count = 0, needsReview = 0;
+    const units = review.units.map((unit, index) => {
+      const key = JSON.stringify([unit.stage, unit.index]);
+      if (unit.sourceRef != null && !sources.has(key)) sources.set(key, index);
+      for (const question of unit.questions) if (!isComposite(question)) { count++; if (question.needsReview) needsReview++; }
+      return { unit, index };
+    }).filter(({ unit }) => unit.questions.length > 0 || unit.groups.length > 0 || !!unit.visualElements?.length);
+    return { units, sources, count, needsReview };
+  }, [review]);
+  const currentReviewPage = Math.min(reviewPage, Math.max(0, Math.ceil(reviewContent.units.length / 5) - 1));
+  const renderReviewSource = useCallback((source: DocumentQuestionSource) => {
+    if (!review) return null;
+    const sourceIndex = reviewContent.sources.get(JSON.stringify([source.stage, source.unitIndex]));
+    return sourceIndex == null ? <p>{t("原始来源不可用，请核对题目中的来源文字。")}</p> : <ReadAsset review={review} unit={sourceIndex} visual={null} label={source.stage === "vision_parse" ? t("查看第 {0} 页原文", { 0: source.unitIndex + 1 }) : t("查看文本片段 {0}", { 0: source.unitIndex + 1 })}/>;
+  }, [review, reviewContent]);
+  useEffect(() => { setReviewPage(0); }, [review?.threadId, review?.checkpointId]);
+  useEffect(() => { if (reviewPage) reviewHeading.current?.focus(); }, [reviewPage]);
   async function previewTask(value: Task) {
     const checkpointId = value.checkpointId;
     const threadId = value.threadId;
@@ -700,11 +740,11 @@ export function AiTasks({
         >
           <DialogContent className="max-h-[85vh] overflow-auto sm:max-w-3xl">
             <DialogHeader>
-              <DialogTitle>{t("只读内容审核")}</DialogTitle>
+              <DialogTitle ref={reviewHeading} tabIndex={-1}>{t("只读内容审核")}</DialogTitle>
               <DialogDescription>{t("阶段：{0}。此预览不会接受结果或写入题库。", { 0: phaseName(review.phase) })}</DialogDescription>
             </DialogHeader>
             <div className="space-y-1 rounded border bg-muted/30 p-3 text-sm">
-              <p>{t("可查看 {0} 道题目，{1} 道待复核；{2} 项未完成。", { 0: review.units.reduce((count, unit) => count + unit.questions.filter(q => !isComposite(q)).length, 0), 1: review.quality.reviewQuestionCount ?? review.units.reduce((count, unit) => count + unit.questions.filter(q => q.needsReview && !isComposite(q)).length, 0), 2: review.failures.length })}</p>
+              <p>{t("可查看 {0} 道题目，{1} 道待复核；{2} 项未完成。", { 0: reviewContent.count, 1: review.quality.reviewQuestionCount ?? reviewContent.needsReview, 2: review.failures.length })}</p>
               <p>{t("先核对待复核题目及其来源；接受部分结果不会清除质量提示。")}</p>
             </div>
             {review.failures.map((f, i) => (
@@ -712,7 +752,7 @@ export function AiTasks({
                 {t("{0} #{1}：{2}", {0:phaseName(f.stage),1:f.index+1,2:errorMessage({code:f.code, message:failureMessage(f.code)})})}
               </p>
             ))}
-            {review.units.map((unit, index) => (unit.questions.length > 0 || unit.groups.length > 0 || !!unit.visualElements?.length) && (
+            {reviewContent.units.slice(currentReviewPage * 5, currentReviewPage * 5 + 5).map(({ unit, index }) => (
               <section
                 className="space-y-3"
                 key={`${review.checkpointId}:${index}`}
@@ -734,10 +774,7 @@ export function AiTasks({
                     <Markdown>{g.instructions}</Markdown>
                   </div>
                 ))}
-                <QuestionPreview questions={unit.questions} groups={unit.groups} visuals={unit.visualElements} reviewMode questionSources={review.questionSources} qualityIssues={review.quality.issues} renderSource={source => {
-                  const sourceIndex = review.units.findIndex(candidate => candidate.stage === source.stage && candidate.index === source.unitIndex && candidate.sourceRef != null);
-                  return sourceIndex < 0 ? <p>{t("原始来源不可用，请核对题目中的来源文字。")}</p> : <ReadAsset review={review} unit={sourceIndex} visual={null} label={source.stage === "vision_parse" ? t("查看第 {0} 页原文", { 0: source.unitIndex + 1 }) : t("查看文本片段 {0}", { 0: source.unitIndex + 1 })}/>;
-                }} />
+                <QuestionPreview questions={unit.questions} groups={unit.groups} visuals={unit.visualElements} reviewMode questionSources={review.questionSources} qualityIssues={review.quality.issues} renderSource={renderReviewSource} />
                 {(unit.visualElements || []).map((v, i) => (
                   <div key={i}>
                     <Markdown>{v.description}</Markdown>
@@ -753,16 +790,13 @@ export function AiTasks({
                 ))}
               </section>
             ))}
-            <details>
-              <summary>{t("来源和质量详情")}</summary>
-              <pre className="whitespace-pre-wrap text-xs">
-                {JSON.stringify(
-                  { quality: review.quality, sources: review.questionSources },
-                  null,
-                  2,
-                )}
-              </pre>
-            </details>
+            {reviewContent.units.length > 5 && <nav aria-label={t("导入任务")} className="flex items-center justify-between gap-3">
+              <span role="status">{t("第 {0}–{1} 项", { 0: currentReviewPage * 5 + 1, 1: Math.min(currentReviewPage * 5 + 5, reviewContent.units.length) })}</span>
+              <div className="flex gap-2"><Button variant="outline" disabled={!currentReviewPage} onClick={() => { setReviewPage(currentReviewPage - 1); reviewHeading.current?.focus(); }}>{t("上一页")}</Button><Button variant="outline" disabled={(currentReviewPage + 1) * 5 >= reviewContent.units.length} onClick={() => setReviewPage(currentReviewPage + 1)}>{t("下一页")}</Button></div>
+            </nav>}
+            <LazyDetails summary={t("来源和质量详情")}>
+              <ReviewDetails review={review}/>
+            </LazyDetails>
             {task?.threadId === review.threadId &&
               task.checkpointId === review.checkpointId &&
               task.allowedActions.includes("accept_partial") && (

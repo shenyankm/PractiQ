@@ -197,6 +197,14 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
         setBusy(false);
       });
   }, []);
+  const sessionId = session?.id;
+  const sessionFinishedAt = session?.finishedAt;
+  const onPracticeSession = useCallback((next: Session) => {
+    setSession(next);
+    if (next.id !== sessionId) setSessionOffset(0);
+    if (next.finishedAt && !sessionFinishedAt)
+      toast.success(message("练习已结束，记录已保存"));
+  }, [sessionId, sessionFinishedAt]);
   const reloadBanks = async () => {
     setBanks(await api({ type: "banks" }));
     setListRevision(v => v + 1);
@@ -756,12 +764,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
             <Practice
               key={session.id}
               session={session}
-              onSession={(s) => {
-                setSession(s);
-                if (s.id !== session.id) setSessionOffset(0);
-                if (s.finishedAt && !session.finishedAt)
-                  toast.success(message("练习已结束，记录已保存"));
-              }}
+              onSession={onPracticeSession}
               run={run}
               flushRef={flushRef}
               onNextUnattempted={session.bankIds?.some(id => banks.some(b => b.id === id)) ? () => setPracticeSetup({ bank: null, bankIds: session.bankIds!.filter(id => banks.some(b => b.id === id)), filter: "unattempted" }) : undefined}

@@ -203,7 +203,7 @@ def upload(payload=b"quiz"):
                                  sizeBytes=len(payload), sha256=hashlib.sha256(payload).hexdigest())
 
 
-async def accept_figure_checks(_model, _image, figures, _runtime):
+async def accept_figure_checks(_model, _image, figures, _runtime, *, data_url=None):
     """Isolate existing crop/merge tests from the separately tested model reviewer."""
     from practiq_ai.graphs.vision import FigureChecks
 

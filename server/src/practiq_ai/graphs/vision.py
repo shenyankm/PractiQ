@@ -135,14 +135,18 @@ class FigureChecks(BaseModel):
         return self
 
 
-def _image_message(prompt: str, image: bytes, media_type: str) -> HumanMessage:
+def _data_url(image: bytes, media_type: str) -> str:
+    return f"data:{media_type};base64,{base64.b64encode(image).decode()}"
+
+
+def _image_message(prompt: str, image: bytes, media_type: str, *, data_url: str | None = None) -> HumanMessage:
     return HumanMessage(
         content=[
             {"type": "text", "text": prompt},
             {
                 "type": "image_url",
                 "image_url": {
-                    "url": f"data:{media_type};base64,{base64.b64encode(image).decode()}"
+                    "url": data_url if data_url is not None else _data_url(image, media_type)
                 },
             },
         ]

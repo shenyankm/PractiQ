@@ -113,15 +113,16 @@ fn desktop_stress() {
         tx.commit().unwrap();
     }
     report["session"] = measure(|| {
-        let session = store.session("exam0").unwrap();
+        let session = store.session_data("exam0", None).unwrap();
         assert_eq!(list(&session, "attempts").len(), 1000);
         assert!(session["attempts"][0]["snapshot"]["question"]["answerPayload"].is_null());
         session
     });
     report["saveAttempt"] = measure(|| {
         store
-            .save_attempt(("exam0", 0), json!({"value":true}), 0, false, false, None)
-            .unwrap()
+            .write_attempt(("exam0", 0), json!({"value":true}), 0, false, false, None)
+            .unwrap();
+        store.session_data("exam0", None).unwrap()
     });
     let session = store.session("exam0").unwrap();
     let key = text(&session, "snapshotKey");
@@ -166,7 +167,7 @@ fn desktop_stress() {
     report["submit"] = measure(|| {
         let sid = format!("exam{i}");
         i += 1;
-        let session = store.submit_paper(&sid, true).unwrap();
+        let session = store.submit_paper_data(&sid, true).unwrap();
         assert!(list(&session, "attempts")
             .iter()
             .all(|a| a["earnedCents"] == 100));

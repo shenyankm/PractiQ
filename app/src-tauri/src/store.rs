@@ -26,6 +26,9 @@ pub fn now() -> i64 {
 pub fn hash(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
 }
+#[cfg(test)]
+#[path = "search_performance.rs"]
+mod search_tests;
 fn err(e: impl std::fmt::Display) -> crate::AppError {
     e.to_string().into()
 }
@@ -90,6 +93,7 @@ impl Pending {
 #[derive(Default)]
 pub struct Store {
     pub session_clock: crate::session_clock::SessionClock,
+    pub session_epoch: u64,
     pub session_document_cache: std::cell::RefCell<Option<(String, std::sync::Arc<Value>)>>,
     pub locale: crate::language::Locale,
     pub dir: PathBuf,
@@ -122,6 +126,135 @@ fn searchable_content_matches(value: &Value, search: &str) -> bool {
         }),
         _ => contains_search_text(value, search),
     }
+}
+
+fn search_roots(
+    db: &Connection,
+    banks: &[String],
+    candidates: Vec<String>,
+    search: &str,
+    mode: &str,
+    filter: &str,
+) -> Result<Vec<String>> {
+    if candidates.is_empty() {
+        return Ok(candidates);
+    }
+    let scope = if banks.is_empty() {
+        "?3='[]'"
+    } else {
+        "q.bank_id IN (SELECT value FROM json_each(?3))"
+    };
+    // Search the original node, before inheritance, so favorite/wrong/content belong to the same node.
+    let nodes = format!("
+        WITH RECURSIVE tree(root,id) AS (
+            SELECT q.id,q.id FROM questions q LEFT JOIN choice_questions c ON c.question_id=q.id
+            WHERE q.id IN (SELECT value FROM json_each(?1)) AND (
+                ?4='' OR COALESCE(CASE WHEN q.question_kind IS NOT NULL THEN q.question_kind WHEN q.mode='gap_fill' THEN 'grammar_fill' WHEN q.mode='choice' THEN c.variant ELSE q.mode END,'')=?4 OR
+                (?4='choice' AND q.mode='choice') OR (q.mode='choice' AND c.variant=?4)
+            )
+            UNION ALL SELECT t.root,q.id FROM questions q JOIN tree t ON q.parent_id=t.id
+        ), nodes AS (
+            SELECT t.root,q.id,q.bank_id,q.mode FROM tree t JOIN questions q ON q.id=t.id
+            WHERE {scope} AND (
+                ?2 IN ('','review') OR (?2='favorite' AND q.favorite=1) OR
+                (?2='wrong' AND (SELECT result FROM attempts WHERE question_id=q.id AND result IS NOT NULL ORDER BY submitted_at DESC,rowid DESC LIMIT 1)=0) OR
+                (?2='unattempted' AND (q.mode IS NULL OR q.mode NOT IN ({COMPOSITE_SQL})) AND NOT EXISTS(SELECT 1 FROM attempts WHERE question_id=q.id AND submitted_at IS NOT NULL AND skipped=0))
+            )
+        )
+    ");
+    let search = search.to_lowercase();
+    let mut matches = std::collections::HashSet::new();
+    let banks = json!(banks).to_string();
+    let roots = json!(candidates).to_string();
+    let mut statement = db.prepare(&format!("{nodes} SELECT n.root,q.stem,q.instructions,q.analysis,q.source_text,q.scoring_rubric,q.score_source_text,q.content_blocks FROM nodes n JOIN questions q ON q.id=n.id")).map_err(err)?;
+    let mut rows = statement
+        .query(params![roots, filter, banks, mode])
+        .map_err(err)?;
+    while let Some(row) = rows.next().map_err(err)? {
+        let root = row.get::<_, String>(0).map_err(err)?;
+        if matches.contains(&root) {
+            continue;
+        }
+        let mut found = false;
+        for column in 1..=6 {
+            if row
+                .get::<_, Option<String>>(column)
+                .map_err(err)?
+                .is_some_and(|value| value.to_lowercase().contains(&search))
+            {
+                found = true;
+                break;
+            }
+        }
+        if found
+            || searchable_content_matches(
+                &serde_json::from_str::<Value>(&row.get::<_, String>(7).map_err(err)?)
+                    .map_err(err)?,
+                &search,
+            )
+        {
+            matches.insert(root);
+        }
+    }
+    // Once a root matches, none of its remaining content needs to be read or parsed.
+    let remaining: Vec<_> = candidates
+        .iter()
+        .filter(|id| !matches.contains(*id))
+        .collect();
+    if !remaining.is_empty() {
+        let mut statement = db.prepare(&format!("{nodes}
+            SELECT n.root,d.correct,2 FROM nodes n JOIN choice_questions d ON d.question_id=n.id WHERE n.mode='choice'
+            UNION ALL SELECT n.root,d.value,2 FROM nodes n JOIN true_false_questions d ON d.question_id=n.id WHERE n.mode='true_false'
+            UNION ALL SELECT n.root,d.answers,2 FROM nodes n JOIN fill_blank_questions d ON d.question_id=n.id WHERE n.mode='fill_blank'
+            UNION ALL SELECT n.root,d.answer,2 FROM nodes n JOIN short_answer_questions d ON d.question_id=n.id WHERE n.mode='short_answer'
+            UNION ALL SELECT n.root,d.answer_order,2 FROM nodes n JOIN ordering_questions d ON d.question_id=n.id WHERE n.mode='ordering'
+            UNION ALL SELECT n.root,d.matches,2 FROM nodes n JOIN matching_questions d ON d.question_id=n.id WHERE n.mode='matching'
+            UNION ALL SELECT n.root,d.passage,1 FROM nodes n JOIN reading_questions d ON d.question_id=n.id WHERE n.mode='reading'
+            UNION ALL SELECT n.root,d.passage,1 FROM nodes n JOIN word_bank_questions d ON d.question_id=n.id WHERE n.mode='word_bank'
+            UNION ALL SELECT n.root,d.passage,1 FROM nodes n JOIN cloze_questions d ON d.question_id=n.id WHERE n.mode='cloze'
+            UNION ALL SELECT n.root,d.passage,1 FROM nodes n JOIN gap_fill_questions d ON d.question_id=n.id WHERE n.mode='gap_fill'
+            UNION ALL SELECT n.root,d.passage,1 FROM nodes n JOIN listening_questions d ON d.question_id=n.id WHERE n.mode='listening'
+            UNION ALL SELECT n.root,d.transcript,1 FROM nodes n JOIN listening_questions d ON d.question_id=n.id WHERE n.mode='listening'
+            UNION ALL SELECT n.root,o.label,0 FROM nodes n JOIN question_options o ON o.owner_id=n.id LEFT JOIN choice_questions c ON c.question_id=n.id WHERE n.mode IS NOT 'choice' OR c.option_set_id=n.id
+            UNION ALL SELECT n.root,o.content,0 FROM nodes n JOIN question_options o ON o.owner_id=n.id LEFT JOIN choice_questions c ON c.question_id=n.id WHERE n.mode IS NOT 'choice' OR c.option_set_id=n.id
+            UNION ALL SELECT n.root,i.label,0 FROM nodes n JOIN question_items i ON i.question_id=n.id
+            UNION ALL SELECT n.root,i.content,0 FROM nodes n JOIN question_items i ON i.question_id=n.id
+            UNION ALL SELECT n.root,s.title,0 FROM nodes n JOIN section_questions r ON r.question_id=n.id JOIN sections s ON s.id=r.section_id
+            UNION ALL SELECT n.root,s.instructions,0 FROM nodes n JOIN section_questions r ON r.question_id=n.id JOIN sections s ON s.id=r.section_id
+            UNION ALL SELECT n.root,v.content,1 FROM nodes n JOIN visuals v ON v.bank_id=n.bank_id AND (v.document_level=1 OR EXISTS(SELECT 1 FROM question_visuals r WHERE r.visual_id=v.id AND r.question_id=n.id)) WHERE json_type(v.content,'$.documentOnly') IS NOT 'true'
+        ")).map_err(err)?;
+        let remaining = json!(remaining).to_string();
+        let mut rows = statement
+            .query(params![remaining, filter, banks, mode])
+            .map_err(err)?;
+        while let Some(row) = rows.next().map_err(err)? {
+            let root = row.get::<_, String>(0).map_err(err)?;
+            if matches.contains(&root) {
+                continue;
+            }
+            let Some(raw) = row.get::<_, Option<String>>(1).map_err(err)? else {
+                continue;
+            };
+            let found = match row.get::<_, u8>(2).map_err(err)? {
+                0 => raw.to_lowercase().contains(&search),
+                kind => {
+                    let value = serde_json::from_str(&raw).map_err(err)?;
+                    if kind == 1 {
+                        searchable_content_matches(&value, &search)
+                    } else {
+                        contains_search_text(&value, &search)
+                    }
+                }
+            };
+            if found {
+                matches.insert(root);
+            }
+        }
+    }
+    Ok(candidates
+        .into_iter()
+        .filter(|id| matches.contains(id))
+        .collect())
 }
 
 impl Store {
@@ -516,63 +649,13 @@ impl Store {
             return Err(crate::language::error("LOCAL_FILTER_INVALID", json!({})));
         }
         let db = self.connect()?;
-        let mut rows;
-        let mut ids;
-        if search.is_empty() {
-            // ponytail: root IDs use linear memory for exact totals; move COUNT/paging into SQL if ID lists become large.
-            ids = crate::questions::matching_roots(&db, banks, mode, filter)?;
-            rows = Vec::new();
+        // ponytail: root IDs use linear memory for exact totals; move COUNT/paging into SQL if ID lists become large.
+        let candidates = crate::questions::matching_roots(&db, banks, mode, filter)?;
+        let mut ids = if search.is_empty() {
+            candidates
         } else {
-            // Unicode substring search includes answers, shared materials and visuals.
-            let candidates = crate::questions::matching_roots(&db, banks, mode, filter)?;
-            rows = crate::questions::read_scoped(&db, banks, Some(&candidates))?;
-            let attempted: std::collections::HashSet<String> = if filter == "unattempted" {
-                db.prepare("SELECT DISTINCT a.question_id FROM attempts a JOIN questions q ON q.id=a.question_id WHERE a.submitted_at IS NOT NULL AND a.skipped=0 AND (?1='[]' OR q.bank_id IN (SELECT value FROM json_each(?1)))").map_err(err)?
-                    .query_map([json!(banks).to_string()], |r| r.get(0)).map_err(err)?
-                    .collect::<std::result::Result<_, _>>().map_err(err)?
-            } else {
-                std::collections::HashSet::new()
-            };
-            let index = crate::questions::Index::new(&rows);
-            let mut matches = std::collections::HashSet::new();
-            let search = search.to_lowercase();
-            for row in &rows {
-                if ![&row["question"], &row["groups"], &row["visuals"]]
-                    .iter()
-                    .any(|value| searchable_content_matches(value, &search))
-                {
-                    continue;
-                }
-                let selected = match filter {
-                    // Candidate roots already require a pending node; any node may match search.
-                    "review" => true,
-                    "favorite" => row["favorite"] == true,
-                    "wrong" => row["latestResult"] == false,
-                    "unattempted" => {
-                        !crate::questions::composite(&row["question"])
-                            && !attempted.contains(text(row, "id"))
-                    }
-                    _ => true,
-                };
-                if selected {
-                    matches.insert(index.root_id(row));
-                }
-            }
-            ids = rows
-                .iter()
-                .filter(|row| {
-                    let q = &row["question"];
-                    text(q, "parentId").is_empty()
-                        && matches.contains(text(row, "id"))
-                        && (mode.is_empty()
-                            || crate::paper::category(q) == mode
-                            || (mode == "choice" && text(q, "answerMode") == "choice")
-                            || (text(q, "answerMode") == "choice"
-                                && text(q, "choiceVariant") == mode))
-                })
-                .map(|r| text(r, "id").to_owned())
-                .collect();
-        }
+            search_roots(&db, banks, candidates, search, mode, filter)?
+        };
         let total = ids.len();
         if stats_only {
             let mut statement = db.prepare(&format!("
@@ -610,9 +693,7 @@ impl Store {
         } else {
             0
         };
-        if search.is_empty() {
-            rows = crate::questions::read_scoped(&db, banks, Some(&ids))?;
-        }
+        let rows = crate::questions::read_scoped(&db, banks, Some(&ids))?;
         let index = crate::questions::Index::new(&rows);
         let mut results = Vec::with_capacity(ids.len());
         for id in ids {

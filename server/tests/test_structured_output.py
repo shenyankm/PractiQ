@@ -16,6 +16,27 @@ class Result(BaseModel):
     value: int = Field(ge=0)
 
 
+@pytest.mark.parametrize("method", ["function_calling", "json_schema"])
+def test_cached_schema_is_detached_from_provider_mutation(monkeypatch, method):
+    monkeypatch.setenv("AI_STRUCTURED_OUTPUT_METHOD", method)
+    model = llm.build_model("dashscope", "test", "qwen3.7-flash")
+    llm._model_schema.cache_clear()
+    schemas = []
+    if method == "json_schema":
+        def bind(_self, **kwargs):
+            schemas.append(kwargs["extra_body"]["response_format"]["json_schema"]["schema"])
+            from langchain_core.runnables import RunnableLambda
+            return RunnableLambda(lambda value: value)
+        monkeypatch.setattr(ChatOpenAI, "bind", bind)
+    else:
+        monkeypatch.setattr(ChatOpenAI, "with_structured_output", lambda self, schema, **kwargs: schemas.append(schema["function"]["parameters"]))
+    llm.structured_output(model, Result)
+    schemas[0]["properties"]["value"]["minimum"] = -100
+    llm.structured_output(model, Result)
+    assert schemas[1]["properties"]["value"]["minimum"] == 0
+    assert llm._model_schema.cache_info().misses == 1 and llm._model_schema.cache_info().hits == 1
+
+
 @pytest.mark.parametrize(
     "bad_content,finish",
     [(' {"value":1}', "length"), ('{"value":', "stop"), ('{"value":-1}', "stop")],

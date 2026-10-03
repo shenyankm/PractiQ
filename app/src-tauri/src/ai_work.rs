@@ -30,7 +30,36 @@ fn err(e: impl std::fmt::Display) -> AppError {
 pub struct WorkState(
     Mutex<HashMap<String, Arc<AtomicBool>>>,
     Mutex<Option<(String, Vec<PathBuf>)>>,
+    Mutex<Option<RequestIndex>>,
 );
+#[derive(Default)]
+struct RequestIndex {
+    dir: PathBuf,
+    details: HashMap<String, String>,
+    sources: HashMap<String, String>,
+    pending: HashMap<String, String>,
+    office: HashMap<String, (String, crate::office::Mode)>,
+}
+impl RequestIndex {
+    fn update(&mut self, op: &Operation) {
+        self.pending.remove(&op.id);
+        if op.status == OperationStatus::Pending {
+            self.pending.insert(op.id.clone(), op.identity.clone());
+        }
+        if let Some(source) = &op.office_source {
+            self.office
+                .insert(op.id.clone(), (source.source_sha256.clone(), source.mode));
+        }
+        if let Some(thread) = op.receipt.as_ref().and_then(|r| r["threadId"].as_str()) {
+            if op.import_details.is_some() {
+                self.details.insert(thread.into(), op.id.clone());
+            }
+            if op.office_source.is_some() {
+                self.sources.insert(thread.into(), op.id.clone());
+            }
+        }
+    }
+}
 pub(crate) struct Lease<'a> {
     state: &'a WorkState,
     id: String,
@@ -44,6 +73,22 @@ impl Drop for Lease<'_> {
     }
 }
 impl WorkState {
+    fn requests(&self, dir: &Path) -> Result<std::sync::MutexGuard<'_, Option<RequestIndex>>> {
+        let mut cached = self.2.lock().map_err(err)?;
+        if cached.as_ref().is_none_or(|index| index.dir != dir) {
+            let mut index = RequestIndex {
+                dir: dir.into(),
+                ..Default::default()
+            };
+            // Rebuild from durable receipts once per process; retain only IDs, never request bodies.
+            for id in manifest_ids(dir, "requests")? {
+                let op = read_operation(dir, &id)?;
+                index.update(&op);
+            }
+            *cached = Some(index);
+        }
+        Ok(cached)
+    }
     pub(crate) fn select_documents(&self, paths: Vec<PathBuf>) -> Result<Value> {
         if paths.is_empty() || paths.len() > MAX_SOURCE_FILES {
             return Err(crate::language::error(
@@ -142,8 +187,8 @@ fn read<T: DeserializeOwned>(dir: &Path, kind: &str, id: &str) -> Result<T> {
     )?)
     .map_err(err)
 }
-fn all<T: DeserializeOwned>(dir: &Path, kind: &str) -> Result<Vec<T>> {
-    // ponytail: scan local manifests; index or archive them if desktop history becomes large.
+fn manifest_ids(dir: &Path, kind: &str) -> Result<Vec<String>> {
+    // ponytail: batch history still scans; index it if directory reads dominate.
     let directory = dir.join("ai").join(kind);
     if !directory.exists() {
         return Ok(vec![]);
@@ -152,19 +197,24 @@ fn all<T: DeserializeOwned>(dir: &Path, kind: &str) -> Result<Vec<T>> {
     for entry in fs::read_dir(directory).map_err(err)? {
         let path = entry.map_err(err)?.path();
         if path.extension().is_some_and(|s| s == "json") {
-            result.push(read(
-                dir,
-                kind,
+            result.push(
                 path.file_stem()
                     .and_then(|s| s.to_str())
                     .ok_or(crate::language::error(
                         "LOCAL_WORK_FILENAME_INVALID",
                         serde_json::json!({}),
-                    ))?,
-            )?);
+                    ))?
+                    .to_owned(),
+            );
         }
     }
     Ok(result)
+}
+fn all<T: DeserializeOwned>(dir: &Path, kind: &str) -> Result<Vec<T>> {
+    manifest_ids(dir, kind)?
+        .iter()
+        .map(|id| read(dir, kind, id))
+        .collect()
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -188,12 +238,30 @@ impl ImportDetails {
         Ok(())
     }
 }
-pub fn import_details(dir: &Path) -> Result<HashMap<String, ImportDetails>> {
+pub fn import_details(
+    dir: &Path,
+    work: &WorkState,
+    threads: &[String],
+) -> Result<HashMap<String, ImportDetails>> {
+    let ids: Vec<_> = {
+        let index = work.requests(dir)?;
+        let index = index.as_ref().unwrap();
+        threads
+            .iter()
+            .filter_map(|thread| {
+                index
+                    .details
+                    .get(thread)
+                    .map(|id| (thread.clone(), id.clone()))
+            })
+            .collect()
+    };
     let mut details = HashMap::new();
-    for op in all::<Operation>(dir, "requests")? {
+    for (thread, id) in ids {
+        let op = read_operation(dir, &id)?;
         if let (Some(value), Some(receipt)) = (op.import_details, op.receipt) {
-            if let Some(id) = receipt["threadId"].as_str() {
-                details.insert(id.to_owned(), value);
+            if receipt["threadId"] == thread {
+                details.insert(thread, value);
             }
         }
     }
@@ -252,10 +320,43 @@ fn validate_operation(op: &Operation) -> Result<()> {
     }
     Ok(())
 }
-pub fn operations(dir: &Path) -> Result<Value> {
+fn read_operation(dir: &Path, id: &str) -> Result<Operation> {
+    let op: Operation = read(dir, "requests", id)?;
+    validate_operation(&op)?;
+    if op.id != id {
+        return Err(crate::language::error(
+            "LOCAL_OPERATION_ID_INVALID",
+            json!({}),
+        ));
+    }
+    Ok(op)
+}
+fn save_operation(dir: &Path, work: &WorkState, op: &Operation) -> Result<()> {
+    let mut cached = work.2.lock().map_err(err)?;
+    if let Err(error) = save(dir, "requests", &op.id, op) {
+        // Rename may have succeeded before directory fsync failed. Reconcile from receipts.
+        *cached = None;
+        return Err(error);
+    }
+    if let Some(index) = cached.as_mut() {
+        if index.dir == dir {
+            index.update(op);
+        }
+    }
+    Ok(())
+}
+pub fn operations(dir: &Path, work: &WorkState) -> Result<Value> {
+    let ids: Vec<_> = work
+        .requests(dir)?
+        .as_ref()
+        .unwrap()
+        .pending
+        .keys()
+        .cloned()
+        .collect();
     let mut result = vec![];
-    for op in all::<Operation>(dir, "requests")? {
-        validate_operation(&op)?;
+    for id in ids {
+        let op = read_operation(dir, &id)?;
         if op.status == OperationStatus::Pending {
             result.push(json!({"id":op.id,"label":op.label,"error":op.error}));
         }
@@ -274,17 +375,17 @@ pub fn submit_operation(
         .strip_prefix("/api/document-tasks/")
         .and_then(|s| s.strip_suffix("/reparse"))
     {
-        office_sources(dir)?.remove(id)
+        office_source(dir, work, id)?
     } else {
         None
     };
     let mut active = work.0.lock().map_err(err)?;
-    let mut op = stage_operation(dir, path, body, label, office_source)?;
+    let mut op = stage_operation(dir, work, path, body, label, office_source)?;
     if let Some(id) = path
         .strip_prefix("/api/document-tasks/")
         .and_then(|s| s.strip_suffix("/reparse"))
     {
-        op.import_details = import_details(dir)?.remove(id);
+        op.import_details = import_details(dir, work, &[id.into()])?.remove(id);
     }
     let lease = work.claim_locked(&op.id, &mut active)?;
     drop(active);
@@ -292,6 +393,7 @@ pub fn submit_operation(
 }
 fn stage_operation(
     dir: &Path,
+    work: &WorkState,
     path: &str,
     body: Value,
     label: &str,
@@ -306,9 +408,14 @@ fn stage_operation(
         ))?
         .remove("requestId");
     let identity = store::hash(&serde_json::to_vec(&json!([path, unsigned])).map_err(err)?);
-    let previous = all::<Operation>(dir, "requests")?
-        .into_iter()
-        .find(|op| op.identity == identity && op.status == OperationStatus::Pending);
+    let previous_id = work
+        .requests(dir)?
+        .as_ref()
+        .unwrap()
+        .pending
+        .iter()
+        .find_map(|(id, saved)| (saved == &identity).then(|| id.clone()));
+    let previous = previous_id.map(|id| read_operation(dir, &id)).transpose()?;
     let op = previous.unwrap_or_else(|| Operation {
         id: contract::text(&body, "requestId").into(),
         identity,
@@ -322,7 +429,7 @@ fn stage_operation(
         import_details: None,
     });
     validate_operation(&op)?;
-    save(dir, "requests", &op.id, &op)?;
+    save_operation(dir, work, &op)?;
     Ok(op)
 }
 
@@ -337,6 +444,7 @@ pub fn stage_document(
     let _active = work.0.lock().map_err(err)?;
     let mut op = stage_operation(
         dir,
+        work,
         "/api/document-tasks",
         json!({"requestId":store::id(),"document":document,"failurePolicy":"review"}),
         label,
@@ -345,7 +453,7 @@ pub fn stage_document(
     if let Some(details) = details {
         details.validate()?;
         op.import_details = Some(details.clone());
-        save(dir, "requests", &op.id, &op)?;
+        save_operation(dir, work, &op)?;
     }
     Ok(())
 }
@@ -362,6 +470,7 @@ pub fn submit_documents(
     for (document, label, source) in documents {
         staged.push(stage_operation(
             dir,
+            work,
             "/api/document-tasks",
             json!({"requestId":store::id(),"document":document,"failurePolicy":"review"}),
             &label,
@@ -378,10 +487,24 @@ pub fn submit_documents(
         .collect()
 }
 
-pub fn office_matches(dir: &Path, hash: &str, mode: crate::office::Mode) -> Result<Vec<Value>> {
+pub fn office_matches(
+    dir: &Path,
+    work: &WorkState,
+    hash: &str,
+    mode: crate::office::Mode,
+) -> Result<Vec<Value>> {
+    let ids: Vec<_> = work
+        .requests(dir)?
+        .as_ref()
+        .unwrap()
+        .office
+        .iter()
+        .filter(|(_, (source, saved_mode))| source == hash && *saved_mode == mode)
+        .map(|(id, _)| id.clone())
+        .collect();
     let mut matches = Vec::new();
-    for op in all::<Operation>(dir, "requests")? {
-        validate_operation(&op)?;
+    for id in ids {
+        let op = read_operation(dir, &id)?;
         if op
             .office_source
             .as_ref()
@@ -401,17 +524,33 @@ pub fn office_matches(dir: &Path, hash: &str, mode: crate::office::Mode) -> Resu
     Ok(matches)
 }
 
-fn office_sources(dir: &Path) -> Result<HashMap<String, crate::office::Origin>> {
-    let mut sources = HashMap::new();
-    for op in all::<Operation>(dir, "requests")? {
-        validate_operation(&op)?;
-        if let (Some(source), Some(receipt)) = (op.office_source, op.receipt) {
-            if let Some(id) = receipt["threadId"].as_str() {
-                sources.insert(id.to_owned(), source);
+fn office_source(
+    dir: &Path,
+    work: &WorkState,
+    thread: &str,
+) -> Result<Option<crate::office::Origin>> {
+    let id = work
+        .requests(dir)?
+        .as_ref()
+        .unwrap()
+        .sources
+        .get(thread)
+        .cloned();
+    id.map(|id| {
+        read_operation(dir, &id).map(|op| {
+            if op
+                .receipt
+                .as_ref()
+                .is_some_and(|receipt| receipt["threadId"] == thread)
+            {
+                op.office_source
+            } else {
+                None
             }
-        }
-    }
-    Ok(sources)
+        })
+    })
+    .transpose()
+    .map(Option::flatten)
 }
 
 pub fn replay_operation(
@@ -434,7 +573,7 @@ fn execute_operation(
     dir: &Path,
     endpoint: &Endpoint,
     mut op: Operation,
-    _lease: Lease<'_>,
+    lease: Lease<'_>,
 ) -> Result<Value> {
     validate_operation(&op)?;
     if op.status == OperationStatus::Accepted {
@@ -447,7 +586,7 @@ fn execute_operation(
             crate::language::error("LOCAL_OPERATION_REJECTED", serde_json::json!({}))
         }));
     }
-    save(dir, "requests", &op.id, &op)?; // Durable identity before the first POST.
+    save_operation(dir, lease.state, &op)?; // Durable identity before the first POST.
     let result = endpoint
         .json(Method::POST, &op.path, Some(&op.body))
         .and_then(|receipt| {
@@ -472,7 +611,7 @@ fn execute_operation(
             op.error = Some(error.clone());
         }
     }
-    if let Err(mut error) = save(dir, "requests", &op.id, &op) {
+    if let Err(mut error) = save_operation(dir, lease.state, &op) {
         error.request_id = Some(op.id);
         return Err(error);
     }
@@ -530,6 +669,8 @@ pub fn delete_task(dir: &Path, work: &WorkState, endpoint: &Endpoint, id: &str) 
         }
     }
     let result = endpoint.json(Method::DELETE, &task_path(id)?, None)?;
+    let mut cached = work.2.lock().map_err(err)?;
+    *cached = None;
     for op in all::<Operation>(dir, "requests")? {
         if op
             .receipt
@@ -600,6 +741,7 @@ fn validate_batch(batch: &Batch) -> Result<()> {
 }
 pub fn prepare_batch(
     dir: &Path,
+    work: &WorkState,
     endpoint: &Endpoint,
     ids: &[String],
     bank_id: Option<String>,
@@ -624,7 +766,7 @@ pub fn prepare_batch(
     };
     let db = store.connect()?;
     for id in ids {
-        let pending = endpoint.pending(dir, id)?;
+        let pending = endpoint.pending(dir, work, id)?;
         let source = pending.source.as_ref().ok_or(crate::language::error(
             "LOCAL_TASK_SOURCE_MISSING",
             serde_json::json!({}),
@@ -809,7 +951,7 @@ pub fn run_batch(
         }
         let item = &mut batch.items[index];
         // The practice database, not the manifest, decides whether a commit happened.
-        let result = import_item(dir, endpoint, shared, item, batch.bank_id.as_deref());
+        let result = import_item(dir, work, endpoint, shared, item, batch.bank_id.as_deref());
         match result {
             Ok(bank) => {
                 item.status = ItemStatus::Imported;
@@ -832,6 +974,7 @@ pub fn run_batch(
 }
 fn import_item(
     dir: &Path,
+    work: &WorkState,
     endpoint: &Endpoint,
     shared: &Shared,
     item: &BatchItem,
@@ -844,7 +987,7 @@ fn import_item(
     {
         return imported_destination(bank, bank_id);
     }
-    let mut pending = endpoint.pending(dir, &item.thread_id)?;
+    let mut pending = endpoint.pending(dir, work, &item.thread_id)?;
     if pending.source.as_ref().map(|s| s.checkpoint_id.as_str())
         != Some(item.checkpoint_id.as_str())
         || pending.digest()? != item.digest
@@ -871,6 +1014,191 @@ fn import_item(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn receipt_index_reads_only_requested_tasks_and_rebuilds_from_originals() {
+        let dir = tempfile::tempdir().unwrap();
+        let work = WorkState::default();
+        let mut ids = Vec::new();
+        for number in 0..1000 {
+            let id = store::id();
+            let mut op = Operation {
+                id: id.clone(),
+                identity: id.clone(),
+                path: "/api/document-tasks".into(),
+                body: json!({"requestId":id}),
+                label: "source".into(),
+                status: OperationStatus::Accepted,
+                receipt: Some(json!({"threadId":id})),
+                error: None,
+                office_source: None,
+                import_details: Some(ImportDetails {
+                    title: number.to_string(),
+                    description: "Description".into(),
+                }),
+            };
+            if number == 999 {
+                op.status = OperationStatus::Pending;
+                op.receipt = None;
+            }
+            save_operation(dir.path(), &work, &op).unwrap();
+            ids.push(id);
+        }
+        let requested = &ids[..20];
+        let start = std::time::Instant::now();
+        assert_eq!(
+            import_details(dir.path(), &work, requested).unwrap().len(),
+            20
+        );
+        let cold = start.elapsed();
+        // An unrelated historic body is not reread for a 20-task page or the one pending request.
+        let unrelated = path(dir.path(), "requests", &ids[500]).unwrap();
+        let original = fs::read(&unrelated).unwrap();
+        fs::write(&unrelated, b"not json").unwrap();
+        let start = std::time::Instant::now();
+        for _ in 0..10 {
+            assert_eq!(
+                import_details(dir.path(), &work, requested).unwrap().len(),
+                20
+            );
+            assert_eq!(
+                operations(dir.path(), &work)
+                    .unwrap()
+                    .as_array()
+                    .unwrap()
+                    .len(),
+                1
+            );
+        }
+        eprintln!(
+            "1000 manifests: cold {:?}, warm 20-task page + pending {:?}",
+            cold,
+            start.elapsed() / 10
+        );
+        assert!(import_details(dir.path(), &WorkState::default(), requested).is_err());
+        fs::write(&unrelated, original).unwrap();
+        assert_eq!(
+            import_details(dir.path(), &WorkState::default(), requested)
+                .unwrap()
+                .len(),
+            20
+        );
+        let selected = path(dir.path(), "requests", &ids[0]).unwrap();
+        fs::write(selected, b"not json").unwrap();
+        assert!(import_details(dir.path(), &work, requested).is_err());
+    }
+
+    #[test]
+    fn receipt_index_updates_after_acceptance_and_preserves_metadata_through_control() {
+        let dir = tempfile::tempdir().unwrap();
+        let work = WorkState::default();
+        let thread = store::id();
+        let mut op = stage_operation(
+            dir.path(),
+            &work,
+            "/api/document-tasks",
+            json!({"requestId":store::id(),"document":{}}),
+            "source",
+            None,
+        )
+        .unwrap();
+        assert_eq!(
+            operations(dir.path(), &work)
+                .unwrap()
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        op.status = OperationStatus::Accepted;
+        op.receipt = Some(json!({"threadId":thread}));
+        op.import_details = Some(ImportDetails {
+            title: "Course".into(),
+            description: "Chapter".into(),
+        });
+        save_operation(dir.path(), &work, &op).unwrap();
+        assert!(operations(dir.path(), &work)
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .is_empty());
+        let mut control = stage_operation(
+            dir.path(),
+            &work,
+            &format!("/api/document-tasks/{thread}/control"),
+            json!({"requestId":store::id(),"action":"pause"}),
+            "pause",
+            None,
+        )
+        .unwrap();
+        control.status = OperationStatus::Accepted;
+        control.receipt = Some(json!({"threadId":thread}));
+        save_operation(dir.path(), &work, &control).unwrap();
+        assert_eq!(
+            import_details(dir.path(), &work, std::slice::from_ref(&thread)).unwrap()[&thread]
+                .title,
+            "Course"
+        );
+        let (endpoint, worker) = server(1, |_, _| response(json!({"deleted":true})));
+        delete_task(dir.path(), &work, &endpoint, &thread).unwrap();
+        worker.join().unwrap();
+        assert!(import_details(dir.path(), &work, &[thread])
+            .unwrap()
+            .is_empty());
+        assert!(all::<Operation>(dir.path(), "requests").unwrap().is_empty());
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    #[test]
+    fn receipt_index_rebuilds_after_post_rename_sync_failure() {
+        let dir = tempfile::tempdir().unwrap();
+        let work = WorkState::default();
+        assert_eq!(operations(dir.path(), &work).unwrap(), json!([]));
+        crate::filesystem::FAILURE
+            .with(|fault| fault.set(Some(("sync", std::io::ErrorKind::PermissionDenied))));
+        assert!(stage_document(
+            dir.path(),
+            &work,
+            json!({"fileName":"source.txt"}),
+            "source",
+            None,
+            None
+        )
+        .is_err());
+        let pending = operations(dir.path(), &work).unwrap();
+        assert_eq!(pending.as_array().unwrap().len(), 1);
+        let id = pending[0]["id"].as_str().unwrap();
+        let mut op = read_operation(dir.path(), id).unwrap();
+        let thread = store::id();
+        op.status = OperationStatus::Accepted;
+        op.receipt = Some(json!({"threadId":thread}));
+        op.import_details = Some(ImportDetails {
+            title: "Accepted".into(),
+            description: "Published receipt".into(),
+        });
+        op.office_source = Some(crate::office::Origin {
+            file_name: "source.xlsx".into(),
+            source_sha256: "a".repeat(64),
+            mode: crate::office::Mode::Text,
+            version: "LibreOffice".into(),
+            artifact_sha256: "b".repeat(64),
+        });
+        crate::filesystem::FAILURE
+            .with(|fault| fault.set(Some(("sync", std::io::ErrorKind::PermissionDenied))));
+        assert!(save_operation(dir.path(), &work, &op).is_err());
+        assert_eq!(operations(dir.path(), &work).unwrap(), json!([]));
+        assert_eq!(
+            import_details(dir.path(), &work, std::slice::from_ref(&thread)).unwrap()[&thread]
+                .title,
+            "Accepted"
+        );
+        assert_eq!(
+            office_source(dir.path(), &work, &thread)
+                .unwrap()
+                .unwrap()
+                .source_sha256,
+            "a".repeat(64)
+        );
+    }
     use std::{
         io::{BufRead, BufReader, Read},
         net::TcpListener,
@@ -995,8 +1323,11 @@ mod tests {
             vec![(document, "source.pdf".into(), None)],
         )
         .unwrap();
-        assert_eq!(import_details(dir.path()).unwrap()[&id].title, "Course");
-        let pending = endpoint.pending(dir.path(), &id).unwrap();
+        assert_eq!(
+            import_details(dir.path(), &work, std::slice::from_ref(&id)).unwrap()[&id].title,
+            "Course"
+        );
+        let pending = endpoint.pending(dir.path(), &work, &id).unwrap();
         let store = Store::new(dir.path().into()).unwrap();
         let result = store
             .import_pending(&pending, None, &pending.title)
@@ -1022,6 +1353,7 @@ mod tests {
         let batch_id = store::id();
         let mut op = stage_operation(
             dir.path(),
+            &work,
             "/api/document-tasks",
             json!({"requestId":store::id(),"document":{}}),
             "source",
@@ -1030,7 +1362,7 @@ mod tests {
         .unwrap();
         op.status = OperationStatus::Accepted;
         op.receipt = Some(json!({"threadId":id}));
-        save(dir.path(), "requests", &op.id, &op).unwrap();
+        save_operation(dir.path(), &work, &op).unwrap();
         let batch = Batch {
             id: batch_id.clone(),
             created_at: 0,
@@ -1194,7 +1526,7 @@ mod tests {
                 });
             assert_eq!(result.is_ok(), index == 0);
         }
-        let pending = operations(dir.path()).unwrap();
+        let pending = operations(dir.path(), &WorkState::default()).unwrap();
         assert_eq!(pending.as_array().unwrap().len(), 2);
         for op in pending.as_array().unwrap() {
             let id = contract::text(op, "id");
@@ -1203,15 +1535,20 @@ mod tests {
             assert_eq!(receipt["requestId"], id);
         }
         worker.join().unwrap();
-        assert!(operations(dir.path())
+        assert!(operations(dir.path(), &WorkState::default())
             .unwrap()
             .as_array()
             .unwrap()
             .is_empty());
         assert_eq!(
-            office_matches(dir.path(), &origin.source_sha256, crate::office::Mode::Text)
-                .unwrap()
-                .len(),
+            office_matches(
+                dir.path(),
+                &WorkState::default(),
+                &origin.source_sha256,
+                crate::office::Mode::Text
+            )
+            .unwrap()
+            .len(),
             2
         );
 
@@ -1258,12 +1595,17 @@ mod tests {
         )
         .is_err());
         server_thread.join().unwrap();
-        let pending = operations(dir.path()).unwrap();
+        let pending = operations(dir.path(), &WorkState::default()).unwrap();
         assert_eq!(pending.as_array().unwrap().len(), 2);
         assert_eq!(
-            office_matches(dir.path(), &origin.source_sha256, crate::office::Mode::Text)
-                .unwrap_err()
-                .code,
+            office_matches(
+                dir.path(),
+                &WorkState::default(),
+                &origin.source_sha256,
+                crate::office::Mode::Text
+            )
+            .unwrap_err()
+            .code,
             "OFFICE_IMPORT_PENDING"
         );
         let (endpoint, server_thread) = server(2, |_, body| {
@@ -1274,27 +1616,37 @@ mod tests {
         for item in pending.as_array().unwrap() {
             let id = contract::text(item, "id");
             replay_operation(dir.path(), &WorkState::default(), &endpoint, id).unwrap();
-            let saved = office_sources(dir.path()).unwrap().remove(id).unwrap();
+            let saved = office_source(dir.path(), &WorkState::default(), id)
+                .unwrap()
+                .unwrap();
             assert_eq!(saved.source_sha256, origin.source_sha256);
             assert_eq!(saved.file_name, "source.xlsx");
         }
         server_thread.join().unwrap();
-        assert!(operations(dir.path())
+        assert!(operations(dir.path(), &WorkState::default())
             .unwrap()
             .as_array()
             .unwrap()
             .is_empty());
         assert_eq!(
-            office_matches(dir.path(), &origin.source_sha256, crate::office::Mode::Text)
-                .unwrap()
-                .len(),
+            office_matches(
+                dir.path(),
+                &WorkState::default(),
+                &origin.source_sha256,
+                crate::office::Mode::Text
+            )
+            .unwrap()
+            .len(),
             2
         );
-        assert!(
-            office_matches(dir.path(), &origin.source_sha256, crate::office::Mode::Pdf)
-                .unwrap()
-                .is_empty()
-        );
+        assert!(office_matches(
+            dir.path(),
+            &WorkState::default(),
+            &origin.source_sha256,
+            crate::office::Mode::Pdf
+        )
+        .unwrap()
+        .is_empty());
         let old = contract::text(&pending[0], "id");
         let new = store::id();
         let expected = new.clone();
@@ -1322,7 +1674,10 @@ mod tests {
         .unwrap();
         server_thread.join().unwrap();
         assert_eq!(
-            office_sources(dir.path()).unwrap()[&new].source_sha256,
+            office_source(dir.path(), &WorkState::default(), &new)
+                .unwrap()
+                .unwrap()
+                .source_sha256,
             origin.source_sha256
         );
     }
@@ -1353,10 +1708,17 @@ mod tests {
         )
         .unwrap_err();
         assert_eq!(error.request_id.as_deref(), Some(id.as_str()));
-        assert_eq!(operations(dir.path()).unwrap().as_array().unwrap().len(), 1);
+        assert_eq!(
+            operations(dir.path(), &WorkState::default())
+                .unwrap()
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
         let result = replay_operation(dir.path(), &WorkState::default(), &endpoint, &id).unwrap();
         assert_eq!(result["threadId"], "one-task");
-        assert!(operations(dir.path())
+        assert!(operations(dir.path(), &WorkState::default())
             .unwrap()
             .as_array()
             .unwrap()
@@ -1388,7 +1750,7 @@ mod tests {
         assert_eq!(error.http_status, Some(409));
         assert_eq!(error.diagnostic.as_deref(), Some("refresh"));
         assert_eq!(error.params["target"], "unit-2");
-        assert!(operations(dir.path())
+        assert!(operations(dir.path(), &WorkState::default())
             .unwrap()
             .as_array()
             .unwrap()
@@ -1509,7 +1871,8 @@ mod tests {
             let id = path.rsplit('/').next().unwrap();
             response(task(id, id == expected[1]))
         });
-        let preview = prepare_batch(dir.path(), &endpoint, &ids, None).unwrap();
+        let preview =
+            prepare_batch(dir.path(), &WorkState::default(), &endpoint, &ids, None).unwrap();
         let id = contract::text(&preview, "id");
         let result = run_batch(
             dir.path(),
@@ -1621,13 +1984,26 @@ mod tests {
         }
         let offline = Endpoint::test("http://127.0.0.1:1".into());
         assert_eq!(
-            prepare_batch(dir.path(), &offline, &ids, Some("missing".into()))
-                .unwrap_err()
-                .code,
+            prepare_batch(
+                dir.path(),
+                &WorkState::default(),
+                &offline,
+                &ids,
+                Some("missing".into())
+            )
+            .unwrap_err()
+            .code,
             "LOCAL_BANK_MISSING"
         );
         let (endpoint, worker) = server(2, |path, _| response(distinct_task(path)));
-        let preview = prepare_batch(dir.path(), &endpoint, &ids, Some(bank_id.clone())).unwrap();
+        let preview = prepare_batch(
+            dir.path(),
+            &WorkState::default(),
+            &endpoint,
+            &ids,
+            Some(bank_id.clone()),
+        )
+        .unwrap();
         worker.join().unwrap();
         assert_eq!(preview["bankId"], bank_id);
         let id = contract::text(&preview, "id").to_owned();
@@ -1691,9 +2067,15 @@ mod tests {
             .to_owned();
         let (endpoint, worker) = server(1, |path, _| response(distinct_task(path)));
         assert_eq!(
-            prepare_batch(dir.path(), &endpoint, &ids, Some(other.clone()))
-                .unwrap_err()
-                .code,
+            prepare_batch(
+                dir.path(),
+                &WorkState::default(),
+                &endpoint,
+                &ids,
+                Some(other.clone())
+            )
+            .unwrap_err()
+            .code,
             "AI_RESULT_IMPORTED_ELSEWHERE"
         );
         worker.join().unwrap();
@@ -1745,7 +2127,8 @@ mod tests {
             }
             response(result)
         });
-        let batch = prepare_batch(dir.path(), &endpoint, &[id], None).unwrap();
+        let batch =
+            prepare_batch(dir.path(), &WorkState::default(), &endpoint, &[id], None).unwrap();
         let result = run_batch(
             dir.path(),
             &WorkState::default(),

@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 
 type PreviewGroup = Omit<Group,"id"|"questionIds"> & {id?:string;questionIds?:string[];questionIndexes?:number[]};
 type PreviewVisual = Omit<Visual,"id"|"questionIds"> & {id?:string;questionIds?:string[];questionIndexes?:number[]};
+const EMPTY_ITEMS: never[] = [];
 export function indexPreviewQuestions(questions: Question[]) {
   const byId = new Map<string, Question>();
   for (const q of questions) if (q.id && !byId.has(q.id)) byId.set(q.id, q);
@@ -44,7 +45,7 @@ function qualityMessage(code: DocumentQualityIssue["code"]) {
   }
 }
 
-export const QuestionPreview = memo(function QuestionPreview({ questions, groups = [], visuals = [], reviewMode = false, reviewedQuestionIds = [], questionSources = [], qualityIssues = [], renderSource }: {
+export const QuestionPreview = memo(function QuestionPreview({ questions, groups = EMPTY_ITEMS, visuals = EMPTY_ITEMS, reviewMode = false, reviewedQuestionIds = EMPTY_ITEMS, questionSources = EMPTY_ITEMS, qualityIssues = EMPTY_ITEMS, renderSource }: {
   questions: Question[];
   groups?: PreviewGroup[];
   visuals?: PreviewVisual[];
@@ -60,16 +61,50 @@ export const QuestionPreview = memo(function QuestionPreview({ questions, groups
   const [focused, setFocused] = useState<number | null>(null);
   const articles = useRef(new Map<number, HTMLElement>());
   const { roots, trees, byId } = useMemo(() => indexPreviewQuestions(questions), [questions]);
-  const reviewIds = new Set(qualityIssues.map(issue => issue.questionId));
-  const reviewedIds = new Set(reviewedQuestionIds);
-  const needsReview = (question: Question) => !reviewedIds.has(question.id || "") && (question.needsReview || reviewIds.has(question.id || ""));
-  const reviewQuestions = questions.map((question, index) => ({ question, index })).filter(({ question }) => needsReview(question));
-  const reviewRoots = roots.filter(root => trees.get(root)?.some(({ question }) => needsReview(question)));
-  const visibleRoots = reviewMode && onlyReview && reviewRoots.length ? reviewRoots : roots;
+  const metadata = useMemo(() => {
+    const issues = new Map<string, DocumentQualityIssue[]>();
+    const sources = new Map<string, DocumentQuestionSource[]>();
+    const groupIds = new Map<string, PreviewGroup[]>(), groupIndexes = new Map<number, PreviewGroup[]>();
+    const visualIds = new Map<string, PreviewVisual[]>(), visualIndexes = new Map<number, PreviewVisual[]>();
+    const sharedVisuals: PreviewVisual[] = [];
+    function add<K, V>(map: Map<K, V[]>, key: K, value: V) { const values = map.get(key); if (values) values.push(value); else map.set(key, [value]); }
+    for (const issue of qualityIssues) add(issues, issue.questionId, issue);
+    for (const source of questionSources) add(sources, source.questionId, source);
+    for (const group of groups) {
+      for (const id of group.questionIds || []) add(groupIds, id, group);
+      for (const index of group.questionIndexes || []) add(groupIndexes, index, group);
+    }
+    for (const visual of visuals) {
+      if (!visual.questionIds?.length && !visual.questionIndexes?.length) sharedVisuals.push(visual);
+      for (const id of visual.questionIds || []) add(visualIds, id, visual);
+      for (const index of visual.questionIndexes || []) add(visualIndexes, index, visual);
+    }
+    return { issues, sources, groupIds, groupIndexes, visualIds, visualIndexes, sharedVisuals };
+  }, [qualityIssues, questionSources, groups, visuals]);
+  const reviewedIds = useMemo(() => new Set(reviewedQuestionIds), [reviewedQuestionIds]);
+  const reviewQuestions = useMemo(() => questions.map((question, index) => ({ question, index })).filter(({ question }) => !reviewedIds.has(question.id || "") && (question.needsReview || metadata.issues.has(question.id || ""))), [questions, reviewedIds, metadata]);
+  const reviewIndexes = useMemo(() => new Set(reviewQuestions.map(entry => entry.index)), [reviewQuestions]);
+  const visibleQuestions = useMemo(() => {
+    const reviewRoots = roots.filter(root => trees.get(root)?.some(entry => reviewIndexes.has(entry.index)));
+    const visibleRoots = reviewMode && onlyReview && reviewRoots.length ? reviewRoots : roots;
+    return visibleRoots.flatMap(root => trees.get(root)!).sort((a, b) => a.index - b.index);
+  }, [roots, trees, reviewMode, onlyReview, reviewIndexes]);
+  const positions = useMemo(() => new Map(visibleQuestions.map((entry, position) => [entry.index, position])), [visibleQuestions]);
+  const questionIndexes = useMemo(() => new Map(questions.map((question, index) => [question, index])), [questions]);
   const current = Math.min(
     page,
-    Math.max(0, Math.ceil(visibleRoots.length / 20) - 1),
+    Math.max(0, Math.ceil(visibleQuestions.length / 20) - 1),
   );
+  const pageQuestions = visibleQuestions.slice(current * 20, current * 20 + 20);
+  // Include only ancestors needed by this page, rather than mounting every child in a large group.
+  const context = new Map(pageQuestions.map(entry => [entry.question, entry]));
+  for (const { question } of pageQuestions) {
+    let parent = question.parentId ? byId.get(question.parentId) : undefined;
+    while (parent && !context.has(parent)) {
+      context.set(parent, { question: parent, index: questionIndexes.get(parent)! });
+      parent = parent.parentId ? byId.get(parent.parentId) : undefined;
+    }
+  }
   useEffect(() => {
     if (focused == null) return;
     const article = articles.current.get(focused);
@@ -79,8 +114,7 @@ export const QuestionPreview = memo(function QuestionPreview({ questions, groups
   function nextReview() {
     const next = reviewQuestions.find(({ index }) => index > (focused ?? -1)) ?? reviewQuestions[0];
     if (!next) return;
-    const rootIndex = visibleRoots.findIndex(root => trees.get(root)?.some(({ index }) => index === next.index));
-    setPage(Math.floor(Math.max(0, rootIndex) / 20));
+    setPage(Math.floor((positions.get(next.index) || 0) / 20));
     setFocused(next.index);
     if (next.index === focused) {
       articles.current.get(next.index)?.focus();
@@ -93,9 +127,13 @@ export const QuestionPreview = memo(function QuestionPreview({ questions, groups
         <p>{t("待复核 {0} 项；材料题会保留关联内容。", { 0: reviewQuestions.length })}</p>
         {reviewQuestions.length > 0 && <><label className="flex items-center gap-2"><Checkbox checked={onlyReview} onCheckedChange={checked => { setOnlyReview(checked === true); setPage(0); }}/>{t("仅看待复核")}</label><Button size="sm" variant="outline" onClick={nextReview}>{t("下一个待复核问题")}</Button></>}
       </div>}
-      {visibleRoots.slice(current * 20, current * 20 + 20).flatMap(root => trees.get(root)!).sort((a, b) => a.index - b.index).map(({ question: original, index: i }) => {
+      {[...context.values()].sort((a, b) => a.index - b.index).map(({ question: original, index: i }) => {
         const owner = original.optionSourceId ? byId.get(original.optionSourceId) : undefined;
         const q=owner ? {...original,options:owner.options} : original;
+        const issues = metadata.issues.get(q.id || "") || [];
+        const sources = metadata.sources.get(q.id || "") || [];
+        const associatedGroups = [...new Set([...(metadata.groupIds.get(q.id || "") || []), ...(metadata.groupIndexes.get(i) || [])])];
+        const associatedVisuals = [...new Set([...metadata.sharedVisuals, ...(metadata.visualIds.get(q.id || "") || []), ...(metadata.visualIndexes.get(i) || [])])];
         return (
         <article
           className="space-y-2 rounded border p-3"
@@ -105,12 +143,12 @@ export const QuestionPreview = memo(function QuestionPreview({ questions, groups
           ref={element => { if (element) articles.current.set(i, element); else articles.current.delete(i); }}
         >
           <p>
-            {i + 1}. {reviewedIds.has(q.id || "") ? t("已复核") : needsReview(q) ? t("待复核") : ""}
+            {i + 1}. {reviewedIds.has(q.id || "") ? t("已复核") : reviewIndexes.has(i) ? t("待复核") : ""}
           </p>
           {reviewMode && <div className="space-y-2 text-sm">
-            {qualityIssues.filter(issue => issue.questionId === q.id).map((issue, index) => <p key={index}>{qualityMessage(issue.code)}</p>)}
+            {issues.map((issue, index) => <p key={index}>{qualityMessage(issue.code)}</p>)}
             {!!q.missingFields?.length && <p>{t("缺失：{0}", { 0: list(q.missingFields.map(fieldName)) })}</p>}
-            {questionSources.filter(source => source.questionId === q.id).map((source, index) => <div key={index}>
+            {sources.map((source, index) => <div key={index}>
               <p>{source.stage === "vision_parse" ? t("来源：第 {0} 页", { 0: source.unitIndex + 1 }) : t("来源：文本片段 {0}", { 0: source.unitIndex + 1 })}</p>
               {renderSource?.(source)}
             </div>)}
@@ -123,9 +161,9 @@ export const QuestionPreview = memo(function QuestionPreview({ questions, groups
                 contentBlocks: q.contentBlocks ?? [],
                 missingFields: q.missingFields ?? [],
               },
-              groups: groups.filter(g=>g.questionIds?.includes(q.id || "") || g.questionIndexes?.includes(i)).map((g,n)=>({...g,id:g.id || `section-${n}`,questionIds:g.questionIds || []})),
-              visuals: visuals.filter(v=>(!v.questionIds?.length && !v.questionIndexes?.length) || v.questionIds?.includes(q.id || "") || v.questionIndexes?.includes(i)).map((v,n)=>({...v,id:v.id || `visual-${n}`,questionIds:v.questionIds || []})),
-              sources: questionSources.filter(source => source.questionId === q.id),
+              groups: associatedGroups.map((g,n)=>({...g,id:g.id || `section-${n}`,questionIds:g.questionIds || []})),
+              visuals: associatedVisuals.map((v,n)=>({...v,id:v.id || `visual-${n}`,questionIds:v.questionIds || []})),
+              sources,
               warnings: [],
               missingAssets: false,
             }}
@@ -153,7 +191,7 @@ export const QuestionPreview = memo(function QuestionPreview({ questions, groups
           </LazyDetails>
         </article>
       );})}
-      {visibleRoots.length > 20 && (
+      {visibleQuestions.length > 20 && (
         <div className="flex gap-2">
           <Button
             variant="outline"
@@ -161,11 +199,11 @@ export const QuestionPreview = memo(function QuestionPreview({ questions, groups
             onClick={() => setPage(current - 1)}
           >{t("前 20 题")}</Button>
           <span>
-            {current + 1} / {Math.ceil(visibleRoots.length / 20)}
+            {current + 1} / {Math.ceil(visibleQuestions.length / 20)}
           </span>
           <Button
             variant="outline"
-            disabled={(current + 1) * 20 >= visibleRoots.length}
+            disabled={(current + 1) * 20 >= visibleQuestions.length}
             onClick={() => setPage(current + 1)}
           >{t("后 20 题")}</Button>
         </div>

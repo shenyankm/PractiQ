@@ -1,9 +1,10 @@
 """Document APIs over our SQLite queue and open-source LangGraph."""
 
 import asyncio
+from collections.abc import AsyncIterator
 from datetime import timedelta
 from json import dumps as json_encode
-from typing import Any, Literal, cast
+from typing import Any, Literal, LiteralString, cast
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from .config import load, require_model_config
@@ -21,7 +22,6 @@ from .contracts import (
 from .database import utcnow
 from .errors import DocumentProcessingError
 from .execution import (
-    SUPPORTED_TASKS_SQL,
     TTL_MINUTES,
     fingerprint,
     namespace,
@@ -29,6 +29,7 @@ from .execution import (
     remaining_ttl,
     require_supported_task,
     signature,
+    supported_task_sql,
 )
 from .graphs.document import _retry_update, unit_failures
 from .storage import get_object_store
@@ -53,7 +54,7 @@ async def _admit(conn):
     require_model_config()
     if load().maintenance:
         raise DocumentProcessingError(503, 'Service is draining for maintenance', 'MAINTENANCE')
-    count = await (await conn.execute(f"SELECT count(*) AS n FROM document_runs WHERE thread_id IN ({SUPPORTED_TASKS_SQL}) AND status IN ('pending','running')")).fetchone()
+    count = await (await conn.execute(f"SELECT count(*) AS n FROM document_runs r JOIN document_tasks t ON t.thread_id=r.thread_id WHERE r.status IN ('pending','running') AND {supported_task_sql('t')}")).fetchone()
     if count['n'] >= load().max_busy_threads:
         raise DocumentProcessingError(503, 'Document queue is full; retry later', 'QUEUE_FULL')
 
@@ -97,7 +98,6 @@ async def create_task(request: DocumentTaskCreate) -> dict[str, Any]:
             if not parent:
                 raise DocumentProcessingError(404, 'Parent task not found', 'TASK_NOT_FOUND')
             require_supported_task(parent)
-        await _admit(conn)
         task = await (await conn.execute('INSERT INTO document_tasks(thread_id,request_hash,graph_id,document,failure_policy,parent_thread_id,expires_at) VALUES (?,?,?,?,?,?,?) RETURNING *',
             (thread_id, request_hash, request.graphId, json_encode(request.document.model_dump(mode='json')), request.failurePolicy,
              str(request.parentThreadId) if request.parentThreadId else None, utcnow() + timedelta(minutes=TTL_MINUTES)))).fetchone()
@@ -327,41 +327,67 @@ FILTER_STATES = {
     'completed': {'COMPLETED'}, 'cancelled': {'CANCELLED'}, 'failed': {'FAILED'},
     'review': {'WAITING_REVIEW'}, 'interrupted': {'INTERRUPTED'}, 'expired': {'EXPIRED'},
 }
+# Enqueue commits a pending run before graph writes; sync completion records success
+# only after a quiescent checkpoint. Startup reconciliation never executes nodes.
+# Keep no-run checkpoints eligible for recovery/inspection tools.
+FILTER_RUN_SQL: dict[TaskFilter, LiteralString] = {
+    'active': "(r.status IN ('pending','running') OR r.run_id IS NULL)",
+    'completed': "(r.status IN ('success','waiting') OR r.run_id IS NULL)",
+    'paused': "(r.status='waiting' OR (r.status='interrupted' AND NOT r.cancel_requested) OR r.run_id IS NULL)",
+    'review': "(r.status='waiting' OR (r.status='interrupted' AND NOT r.cancel_requested) OR r.run_id IS NULL)",
+    'cancelled': "r.status='interrupted' AND r.cancel_requested",
+    'failed': "r.status='error'",
+    'interrupted': "r.status='interrupted' AND NOT r.cancel_requested",
+}
 
 
 async def list_tasks(limit: int = 20, offset: int = 0, sha256: str | None = None, state_filter: TaskFilter | None = None) -> dict[str, Any]:
-    if state_filter is not None:
-        # ponytail: scan cached summaries for filtered pages; index lifecycle states if history grows large.
-        items = []
-        source_offset = 0
-        matched = 0
-        while len(items) <= limit:
-            page = await list_tasks(100, source_offset, sha256)
-            for item in page['items']:
-                if item['state'] in FILTER_STATES[state_filter]:
-                    if matched >= offset:
-                        items.append(item)
-                    matched += 1
-                    if len(items) > limit:
-                        break
-            if not page['hasMore']:
-                break
-            source_offset += 100
-        return DocumentTaskList(items=items[:limit], hasMore=len(items) > limit).model_dump(mode='json')
     service = client()
-    source_filter = " AND json_extract(document, '$.sha256')=?" if sha256 else ''
-    params = (sha256, limit + 1, offset) if sha256 else (limit + 1, offset)
-    rows = await service.db.rows(f'SELECT * FROM document_tasks WHERE thread_id IN ({SUPPORTED_TASKS_SQL})' + source_filter + ' ORDER BY created_at DESC,thread_id DESC LIMIT ? OFFSET ?', params)
+    source_filter = " AND json_extract(t.document, '$.sha256')=?" if sha256 else ''
+    params: tuple[Any, ...] = (sha256,) if sha256 else ()
+    join: LiteralString = ''
+    where = supported_task_sql('t') + source_filter
+    if state_filter is not None:
+        where += ' AND t.expires_at<=?' if state_filter == 'expired' else ' AND t.expires_at>?'
+        params += (utcnow(),)
+        if state_filter != 'expired':
+            join = (' LEFT JOIN document_runs r ON r.run_id='
+                    '(SELECT run_id FROM document_runs WHERE thread_id=t.thread_id ORDER BY created_at DESC LIMIT 1)')
+            # Queue lifecycle narrows candidates; the checkpoint remains authoritative.
+            where += ' AND (' + FILTER_RUN_SQL[state_filter] + ')'
+    query = f'SELECT t.* FROM document_tasks t{join} WHERE {where} ORDER BY t.created_at DESC,t.thread_id DESC LIMIT ? OFFSET ?'
+    if state_filter is None:
+        rows = await service.db.rows(query, (*params, limit + 1, offset))
+        items = [item async for item in _task_summaries(service, rows[:limit])]
+        return DocumentTaskList.model_validate({'items': items, 'hasMore': len(rows) > limit}).model_dump(mode='json')
+    items = []
+    matched = source_offset = 0
+    while len(items) <= limit:
+        rows = await service.db.rows(query, (*params, 100, source_offset))
+        # ponytail: ambiguous paused/review candidates still scan; persist head-keyed summaries if they dominate.
+        async for item in _task_summaries(service, rows):
+            if item['state'] in FILTER_STATES[state_filter]:
+                if matched >= offset:
+                    items.append(item)
+                matched += 1
+                if len(items) > limit:
+                    break
+        if len(rows) < 100 or len(items) > limit:
+            break
+        source_offset += len(rows)
+    return DocumentTaskList.model_validate({'items': items[:limit], 'hasMore': len(items) > limit}).model_dump(mode='json')
+
+
+async def _task_summaries(service, rows) -> AsyncIterator[dict[str, Any]]:
     latest_runs = await service.db.rows(
         'SELECT * FROM document_runs WHERE run_id IN '
         '(SELECT (SELECT run_id FROM document_runs r WHERE r.thread_id=t.thread_id ORDER BY created_at DESC LIMIT 1) '
         'FROM document_tasks t WHERE t.thread_id IN (SELECT value FROM json_each(?)))',
-        (json_encode([row['thread_id'] for row in rows[:limit]]),),
+        (json_encode([row['thread_id'] for row in rows]),),
     )
     runs_by_thread = {run['thread_id']: run for run in latest_runs}
-    heads = await service.db.checkpoint_heads([row['thread_id'] for row in rows[:limit]])
-    items = []
-    for row in rows[:limit]:
+    heads = await service.db.checkpoint_heads([row['thread_id'] for row in rows])
+    for row in rows:
         expired = row['expires_at'] <= utcnow()
         run = runs_by_thread.get(row['thread_id'])
         key = (heads.get(row['thread_id']), run['run_id'] if run else None, run['status'] if run else None)
@@ -383,10 +409,9 @@ async def list_tasks(limit: int = 20, offset: int = 0, sha256: str | None = None
                 service.task_summaries.move_to_end(row['thread_id'])
                 while len(service.task_summaries) > 256:
                     service.task_summaries.popitem(last=False)
-        items.append({'threadId': row['thread_id'], 'fileName': row['document'].get('fileName') or '文档',
-                      'createdAt': row['created_at'].isoformat(), 'expiresAt': row['expires_at'].isoformat(),
-                      **summary, 'state': 'EXPIRED' if expired else summary['state']})
-    return DocumentTaskList(items=items, hasMore=len(rows) > limit).model_dump(mode='json')
+        yield {'threadId': row['thread_id'], 'fileName': row['document'].get('fileName') or '文档',
+               'createdAt': row['created_at'].isoformat(), 'expiresAt': row['expires_at'].isoformat(),
+               **summary, 'state': 'EXPIRED' if expired else summary['state']}
 
 
 async def review_task(thread_id: str) -> dict[str, Any]:

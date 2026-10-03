@@ -557,12 +557,6 @@ pub fn parse(bytes: &[u8]) -> Result<Value> {
     }
     if let Some(questions) = result.get_mut("questions").and_then(Value::as_array_mut) {
         validate_tree(questions)?;
-        for (i, q) in questions.iter_mut().enumerate() {
-            validate_question(q).map_err(|mut e| {
-                e.context = Some(format!("questions[{i}]").into_boxed_str());
-                e
-            })?;
-        }
     }
     schema_check(&schemas().0, result, "result")?;
     if list(result, "questions").is_empty() {
@@ -745,8 +739,11 @@ pub fn visual_refs(visual: &Value) -> impl Iterator<Item = &Value> {
 
 /// Relational rules shared by JSON import, editing and backup validation.
 pub fn validate_tree(questions: &mut [Value]) -> Result<()> {
-    for q in questions.iter_mut() {
-        validate_question(q)?;
+    for (i, q) in questions.iter_mut().enumerate() {
+        validate_question(q).map_err(|mut error| {
+            error.context = Some(format!("questions[{i}]").into_boxed_str());
+            error
+        })?;
     }
     let mut ids = std::collections::HashMap::new();
     for (i, q) in questions.iter().enumerate() {
@@ -937,4 +934,63 @@ pub fn validate_context(groups: &[Value], visuals: &[Value], ids: &HashSet<&str>
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod validation_tests {
+    use super::*;
+
+    #[test]
+    fn import_and_tree_validation_locate_the_invalid_question() {
+        let valid = parse(include_bytes!("../../fixtures/sample.json")).unwrap();
+        let mut invalid = valid.clone();
+        invalid["questions"][1]["confidence"] = json!(2);
+        for error in [
+            parse(&serde_json::to_vec(&invalid).unwrap()).unwrap_err(),
+            validate_tree(invalid["questions"].as_array_mut().unwrap()).unwrap_err(),
+        ] {
+            assert_eq!(error.code, "LOCAL_SCHEMA_INVALID");
+            assert_eq!(error.context.as_deref(), Some("questions[1]"));
+        }
+        assert_eq!(parse(&serde_json::to_vec(&valid).unwrap()).unwrap(), valid);
+    }
+
+    #[test]
+    #[ignore = "synthetic validation benchmark; run with --release --ignored --nocapture"]
+    fn import_validation_performance() {
+        let mut document = parse(include_bytes!("../../fixtures/sample.json")).unwrap();
+        let question = document["questions"][0].clone();
+        document["questions"] = json!((0..1000)
+            .map(|i| {
+                let mut q = question.clone();
+                q["id"] = json!(format!("q{i}"));
+                q
+            })
+            .collect::<Vec<_>>());
+        document["groups"] = json!([]);
+        document["visualElements"] = json!([]);
+        let bytes = serde_json::to_vec(&document).unwrap();
+        let mut report = json!({"questions":1000,"inputBytes":bytes.len(),"rounds":7,
+            "scope":"JSON import plus the removed duplicate per-question validation pass; no database, IPC or WebView"});
+        for duplicate in [true, false] {
+            let mut times = Vec::new();
+            for _ in 0..7 {
+                let start = std::time::Instant::now();
+                let mut value = parse(&bytes).unwrap();
+                if duplicate {
+                    for q in value["questions"].as_array_mut().unwrap() {
+                        validate_question(q).unwrap();
+                    }
+                }
+                times.push(start.elapsed().as_secs_f64() * 1000.0);
+                assert_eq!(value, document);
+            }
+            times.sort_by(f64::total_cmp);
+            report[if duplicate { "before" } else { "after" }] =
+                json!({"medianMs":times[3],"samplesMs":times});
+        }
+        let output = std::env::var("PRACTIQ_BENCH_OUTPUT").expect("set PRACTIQ_BENCH_OUTPUT");
+        std::fs::write(output, serde_json::to_vec_pretty(&report).unwrap()).unwrap();
+        println!("{report}");
+    }
 }

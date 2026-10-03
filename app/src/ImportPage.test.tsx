@@ -50,9 +50,11 @@ it("explains a slow settings read without stacking requests and keeps offline na
   expect(screen.getByText(/读取模型配置耗时较长/)).toBeTruthy();
   expect(screen.queryByRole("button", {name:"重试读取配置"})).toBeNull();
   expect(api).toHaveBeenCalledTimes(1);
-  expect(vi.mocked(invoke).mock.calls.some(([, args]) => (args as {request:{type:string}}).request.type === "list")).toBe(true);
+  expect(vi.mocked(invoke).mock.calls.some(([, args]) => (args as {request:{type:string}}).request.type === "list")).toBe(false);
   fireEvent.click(screen.getByRole("button", {name:"已有题库 ZIP？前往设置导入（追加，不替换学习记录）"}));
   expect(onOpenZipSettings).toHaveBeenCalledTimes(1);
+  await act(async () => { fireEvent.mouseDown(screen.getByRole("tab", {name:"导入记录"}), {button:0,ctrlKey:false}); });
+  expect(invoke).toHaveBeenCalledWith("ai_request", {locale:"zh-CN",request:{type:"list",offset:0}});
 });
 
 it("shows partial-result and missing-resource warnings before a long question preview", () => {
@@ -170,7 +172,10 @@ it("keeps ZIP import usable without models and preserves the destination bank", 
   expect(await screen.findByRole("button", { name: "配置 AI 模型" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "开始导入" }).hasAttribute("disabled")).toBe(true);
   expect(screen.queryByRole("region", { name: "导入任务" })).toBeNull();
-  expect(vi.mocked(invoke).mock.calls.some(([,args]) => (args as {request:{type:string}}).request.type === "list")).toBe(true);
+  expect(vi.mocked(invoke).mock.calls.some(([,args]) => (args as {request:{type:string}}).request.type === "list")).toBe(false);
+  await userEvent.click(screen.getByRole("tab", {name:"导入记录"}));
+  await waitFor(() => expect(invoke).toHaveBeenCalledWith("ai_request", {locale:"zh-CN",request:{type:"list",offset:0}}));
+  expect(screen.getByRole("region", {name:"导入任务"})).toBeTruthy();
   await userEvent.click(await screen.findByRole("button",{name:"设置"}));
   await userEvent.click(await screen.findByRole("button",{name:"恢复备份"}));
   await userEvent.click(await screen.findByRole("menuitem",{name:"导入题库 ZIP"}));

@@ -32,15 +32,14 @@ def extract(
         except UnicodeDecodeError as exc:
             raise DocumentProcessingError(400, "text must contain valid UTF-8") from exc
 
-    from .csv import extract as extract_csv
-    from .image import extract as extract_image
-    from .pdf import extract as extract_pdf
-
-    extractor = {
-        "csv": extract_csv,
-        "image": extract_image,
-        "pdf": extract_pdf,
-    }[source_type]
+    if source_type == "csv":
+        from .csv import extract as extractor
+    elif source_type == "image":
+        from .image import extract as extractor
+    elif source_type == "pdf":
+        from .pdf import extract as extractor
+    else:
+        raise KeyError(source_type)
     document = extractor(payload)
     document.text = document.text.strip()
     return document

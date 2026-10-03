@@ -232,3 +232,32 @@ it("keeps an explicit resumed bank scope instead of falling back to every bank",
   expect(screen.getByRole("button",{name:"立即开始"}).hasAttribute("disabled")).toBe(true);
   expect(api).not.toHaveBeenCalled();
 });
+
+it("mounts only 30 score inputs and preserves edits across a 1000-question paper", async () => {
+  const questions = Array.from({length:1000}, (_,i)=>({...rows[0],id:`q${i}`,question:{...rows[0].question,id:`q${i}`,stem:`Question ${i}`}}));
+  vi.mocked(api).mockImplementation(async r => {
+    if(r.type === "question_stats") return {count:1000,types:{single:1000},feasibleCounts:[1000]} as never;
+    if(r.type === "preview_paper") return {questionIds:questions.map(q=>q.id),digest:"large",questions,scores:questions.map(()=>10),count:1000} as never;
+    return {id:"session"} as never;
+  });
+  render(<StudySetup banks={banks} initialBank="one" initialFilter="" busy={false} run={job=>{void job();}} onStart={async()=>{}} onClose={()=>{}}/>);
+  expect(screen.queryByRole("checkbox", {name:"题库一（2）"})).toBeNull();
+  await screen.findByText(/可用 1,000 题/);
+  await userEvent.selectOptions(screen.getByLabelText("模式"), "self_test");
+  await userEvent.click(screen.getByRole("button", {name:"预览题目与配分"}));
+  expect(document.querySelectorAll('input[aria-label$="题分值"]')).toHaveLength(30);
+  fireEvent.change(screen.getByLabelText("第 1 题分值"), {target:{value:"0.20"}});
+  await userEvent.click(screen.getByRole("button", {name:"下一页"}));
+  fireEvent.change(screen.getByLabelText("第 31 题分值"), {target:{value:"0.00"}});
+  expect(screen.queryByLabelText("第 1 题分值")).toBeNull();
+  await userEvent.click(screen.getByRole("button", {name:"上一页"}));
+  expect((screen.getByLabelText("第 1 题分值") as HTMLInputElement).value).toBe("0.20");
+  await userEvent.click(screen.getByRole("button", {name:"开始考试"}));
+  const start = vi.mocked(api).mock.calls.find(([r])=>r.type === "start_paper")?.[0];
+  expect(start).toMatchObject({type:"start_paper",paper:{scores:expect.arrayContaining([20,0])}});
+  if(start?.type !== "start_paper") throw new Error("paper was not started");
+  expect(start.paper.scores).toHaveLength(1000);
+  expect(start.paper.scores[0]).toBe(20);
+  expect(start.paper.scores[30]).toBe(0);
+  expect(start.paper.scores.reduce((n,score)=>n+score,0)).toBe(10000);
+});

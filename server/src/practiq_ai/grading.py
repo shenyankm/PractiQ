@@ -11,7 +11,7 @@ from uuid import UUID
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from PIL import Image
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, PrivateAttr, field_validator, model_validator
 
 from .config import database_dir, load
 from .contracts import ParsedQuestion, StrictModel
@@ -22,8 +22,12 @@ from .llm import get_model, structured_call
 class GradeImage(StrictModel):
     sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
     data: str = Field(max_length=28_000_000)
+    _verified_input: tuple[str, str] | None = PrivateAttr(default=None)
 
     def verified_url(self) -> str:
+        # Reuse this request's verification; changed values must be checked again.
+        if self._verified_input == (self.sha256, self.data):
+            return self.data
         header, sep, encoded = self.data.partition(",")
         if not sep or header not in {"data:image/png;base64", "data:image/jpeg;base64"}:
             raise ValueError("Invalid image encoding")
@@ -37,6 +41,7 @@ class GradeImage(StrictModel):
                 image.verify()
         except (OSError, SyntaxError, Image.DecompressionBombError) as exc:
             raise ValueError("Invalid image data") from exc
+        self._verified_input = (self.sha256, self.data)
         return self.data
 
 
@@ -153,7 +158,8 @@ async def grade(request: GradeRequest) -> dict:
         source_max = round(q.sourceScore * 100) if q.scoringRubric and q.sourceScore else request.maxCents
         payload = {"question":q.model_dump(mode="json", exclude={"sourceText", "scoreSourceText", "options", "items"}), "materials":request.materials, "answer":request.answer, "assessmentMaxCents":source_max}
         content: list = [{"type":"text", "text":json.dumps(payload, ensure_ascii=False)}]
-        content.extend({"type":"image_url", "image_url":{"url":image.verified_url()}} for image in request.images)
+        urls = await asyncio.to_thread(lambda: [image.verified_url() for image in request.images])
+        content.extend({"type":"image_url", "image_url":{"url":url}} for url in urls)
         missing_rubric = "No detailed scoring rubric was provided." if english else "未提供详细评分细则"
         language = "English" if english else "Chinese"
         prompt = f"{PROMPT}\nReturn explanations in {language}. Preserve quoted assessment evidence in its original language. If a rubric is absent, include '{missing_rubric}' in reviewReasons."

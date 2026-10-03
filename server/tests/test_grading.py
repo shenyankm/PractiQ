@@ -1,17 +1,23 @@
+import asyncio
 import base64
 import hashlib
 import json
+import struct
+import threading
+import zlib
 from io import BytesIO
 from types import SimpleNamespace
 from uuid import uuid4
 
+import anyio
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
 from pydantic import ValidationError
 
 from practiq_ai import grading, webapp
-from practiq_ai.contracts import ParsedQuestion
+from practiq_ai.contracts import ModelCallUsage, ParsedQuestion
 from practiq_ai.errors import DocumentProcessingError
 
 
@@ -134,6 +140,171 @@ async def test_verified_images_and_injection_stay_data(setup,monkeypatch):
 def wire(value):
     raw=json.dumps({k:v for k,v in value.items() if k not in {"requestId", "inputDigest"}},ensure_ascii=False)
     return {"requestId":value["requestId"],"inputDigest":grading.digest_payload(raw),"payload":raw}
+
+
+def png_image():
+    image = BytesIO()
+    Image.new("RGB", (2, 2)).save(image, format="PNG")
+    raw = image.getvalue()
+    return raw, {"sha256": hashlib.sha256(raw).hexdigest(), "data": "data:image/png;base64," + base64.b64encode(raw).decode()}
+
+
+async def test_grading_image_validation_runs_in_worker_and_keeps_event_loop_live(setup, monkeypatch):
+    _, visual = png_image()
+    started, release = threading.Event(), threading.Event()
+    worker_ids = []
+    original = Image.open
+
+    def slow_open(*args, **kwargs):
+        worker_ids.append(threading.get_ident())
+        started.set()
+        release.wait(timeout=1)
+        return original(*args, **kwargs)
+
+    async def fake_grade(request):
+        return {"status": "ungraded", "usage": []}
+
+    monkeypatch.setattr(Image, "open", slow_open)
+    monkeypatch.setattr(webapp, "grade", fake_grade)
+    monkeypatch.setattr(webapp, "require_model_config", lambda: SimpleNamespace(maintenance=False, upload_concurrency=4))
+    monkeypatch.setenv("AI_SERVICE_TOKEN", "test-token")
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=webapp.app), base_url="http://test", headers={"Authorization": "Bearer test-token"}) as client:
+        operation = asyncio.create_task(client.post("/api/subjective-grades", json=wire(payload(images=[visual]))))
+        try:
+            async def wait_for_validation():
+                while not started.is_set():
+                    await asyncio.sleep(0.001)
+            await asyncio.wait_for(wait_for_validation(), timeout=0.2)
+            assert worker_ids and worker_ids[0] != threading.get_ident()
+            assert (await asyncio.wait_for(client.get("/ok"), timeout=0.2)).status_code == 200
+            assert not operation.done()
+        finally:
+            release.set()
+            response = await operation
+        assert response.status_code == 200
+
+
+@pytest.mark.parametrize("invalid_image", [False, True])
+@pytest.mark.parametrize("cancellation", ["asyncio", "anyio"])
+async def test_cancelled_image_validation_retains_upload_slot_until_worker_finishes(monkeypatch, invalid_image, cancellation):
+    _, visual = png_image()
+    if invalid_image:
+        visual = {"sha256": hashlib.sha256(b"not an image").hexdigest(), "data": "data:image/png;base64," + base64.b64encode(b"not an image").decode()}
+    started, release = threading.Event(), threading.Event()
+    original = Image.open
+    cancel_scope = anyio.CancelScope()
+    original_shield = asyncio.shield
+    shield_calls = []
+
+    def observed_shield(future):
+        shield_calls.append(True)
+        return original_shield(future)
+
+    def slow_open(*args, **kwargs):
+        started.set()
+        release.wait(timeout=2)
+        return original(*args, **kwargs)
+
+    async def forbidden(*args, **kwargs):
+        pytest.fail("A cancelled grading request must not call the model")
+
+    monkeypatch.setattr(Image, "open", slow_open)
+    monkeypatch.setattr(asyncio, "shield", observed_shield)
+    monkeypatch.setattr(webapp, "grade", forbidden)
+    monkeypatch.setattr(webapp, "require_model_config", lambda: SimpleNamespace(maintenance=False, upload_concurrency=1))
+
+    async def admitted_request():
+        with cancel_scope:
+            admission = webapp.upload_slot()
+            await anext(admission)
+            try:
+                return await webapp.subjective_grade(grading.GradeWireRequest.model_validate(wire(payload(images=[visual]))))
+            finally:
+                await admission.aclose()
+
+    operation = asyncio.create_task(admitted_request())
+    try:
+        async def wait_for_validation():
+            while not started.is_set():
+                await asyncio.sleep(0.001)
+        await asyncio.wait_for(wait_for_validation(), timeout=0.2)
+        for _ in range(2):
+            operation.cancel() if cancellation == "asyncio" else cancel_scope.cancel()
+            await asyncio.sleep(0)
+        await asyncio.sleep(0.01)
+        assert not operation.done()
+        assert len(shield_calls) <= 4  # Level cancellation must not spin while reaping the worker.
+        with pytest.raises(webapp.HTTPException) as busy:
+            await anext(webapp.upload_slot())
+        assert busy.value.status_code == 429
+    finally:
+        release.set()
+        if cancellation == "asyncio":
+            with pytest.raises(asyncio.CancelledError):
+                await operation
+        else:
+            await operation
+    assert webapp._uploads[asyncio.get_running_loop()] == 0
+
+
+async def test_grade_verifies_each_image_once_and_replay_preserves_usage(setup, monkeypatch):
+    _, visual = png_image()
+    verified, calls = [], []
+    original = Image.open
+    usage = ModelCallUsage(callKey=uuid4(), modelId="fake", inputTokens=20, outputTokens=5, callKind="subjective_grade")
+
+    def count_open(*args, **kwargs):
+        verified.append(threading.get_ident())
+        return original(*args, **kwargs)
+
+    async def call(model, messages, *args, **kwargs):
+        calls.append(messages)
+        assert messages[1].content[1]["image_url"]["url"] == visual["data"]
+        kwargs["call_records"].append({"callKey": str(usage.callKey), "status": "succeeded"})
+        return grading.GradeResult(scoreCents=300, maxCents=500, reason="依据", evidence=[], reviewReasons=[]), [usage], None
+
+    monkeypatch.setattr(Image, "open", count_open)
+    monkeypatch.setattr(grading, "structured_call", call)
+    monkeypatch.setattr(webapp, "require_model_config", lambda: SimpleNamespace(maintenance=False, upload_concurrency=4))
+    monkeypatch.setenv("AI_SERVICE_TOKEN", "test-token")
+    request = wire(payload(images=[visual]))
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=webapp.app), base_url="http://test", headers={"Authorization": "Bearer test-token"}) as client:
+        first = await client.post("/api/subjective-grades", json=request)
+        assert first.status_code == 200
+        assert len(verified) == 1
+        replay = await client.post("/api/subjective-grades", json=request)
+        assert replay.json() == first.json()
+        assert len(verified) == 2 and len(calls) == 1
+        assert first.json()["usage"] == [usage.model_dump(mode="json")]
+        assert first.json()["calls"] == [{"callKey": str(usage.callKey), "status": "succeeded"}]
+        assert all(worker != threading.get_ident() for worker in verified)
+
+
+def test_grading_rejects_oversized_dimensions_bad_signature_and_changed_verified_images():
+    raw, visual = png_image()
+    with pytest.raises(ValidationError):
+        grading.GradeRequest.model_validate(payload(images=[visual] * 33))
+    oversized = bytearray(raw)
+    oversized[16:24] = struct.pack(">II", 8000, 5001)
+    oversized[29:33] = struct.pack(">I", zlib.crc32(oversized[12:29]))
+    for malformed in (bytes(oversized), b"bad magic" + raw[9:]):
+        image = {"sha256": hashlib.sha256(malformed).hexdigest(), "data": "data:image/png;base64," + base64.b64encode(malformed).decode()}
+        with pytest.raises(ValidationError):
+            grading.GradeRequest.model_validate(payload(images=[image]))
+    request = grading.GradeRequest.model_validate(payload(images=[visual]))
+    request.images[0].sha256 = "0" * 64
+    with pytest.raises(ValueError, match="checksum"):
+        request.images[0].verified_url()
+
+
+async def test_direct_unvalidated_grade_cannot_send_images_to_model(setup, monkeypatch):
+    async def forbidden(*args, **kwargs):
+        pytest.fail("Unverified image must not reach the model")
+    monkeypatch.setattr(grading, "structured_call", forbidden)
+    request = grading.GradeRequest.model_validate(payload())
+    request.images.append(grading.GradeImage.model_construct(sha256="0" * 64, data="https://example.com/image.png"))
+    with pytest.raises(ValueError, match="Invalid image encoding"):
+        await grading.grade(request)
 
 
 def test_feedback_locale_is_validated_and_part_of_the_frozen_payload():

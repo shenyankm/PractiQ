@@ -59,6 +59,8 @@ The request has three fields:
 
 Invalid inner payloads or mismatched digests return 422 / `GRADING_INPUT_INVALID` without starting a grading call.
 
+Payload parsing and PNG/JPEG checksum, format, and dimension validation run in a worker thread. Each unchanged image is verified once per request and reused when constructing the model message; cancelling validation retains its upload slot until the worker finishes.
+
 `feedbackLocale` accepts `zh-CN` or `en` and controls generated grading explanations; quoted evidence stays in its source language. Omitted values default to `zh-CN` for existing clients. The desktop includes its current language when preparing a new request and preserves that language and digest on replay. Switching the interface language does not translate saved feedback or trigger regrading.
 
 This synthetic example constructs a request without calling a model. Its Chinese question and rubric are sample content:

@@ -1,6 +1,6 @@
 import { expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
-import { api, type Session } from "./api";
+import { api, runSessionRequest, sessionSnapshotKey, type Session } from "./api";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 
@@ -55,4 +55,58 @@ it("polls the session clock without retransmitting immutable snapshots", async (
   expect(polled.clockNow).toBe(4000);
   expect(polled.attempts[0].snapshot).toBe(snapshot);
   expect(invoke).toHaveBeenLastCalledWith("request",expect.objectContaining({request:{type:"session",id:session.id,snapshot_key:"clock-hidden"}}));
+});
+
+it("expands pooled materials and options once while keeping mutable attempt data separate", async () => {
+  const material = {id:"material",passage:[{textValue:"shared"}]};
+  const group = {id:"group",title:"Shared instructions"};
+  const visual = {id:"visual",description:"Diagram"};
+  const options = [{label:"A",content:"shared option"}];
+  const warnings = ["Shared warning"];
+  const wire = {id:"pooled",snapshotKey:"pool-key",snapshotDocument:[material,group,visual,options,warnings],
+    attempts:[0,1].map(ordinal => ({ordinal,answer:null,snapshot:{id:`q${ordinal}`,question:{id:`q${ordinal}`,options:null},snapshotRefs:{materials:[0],groups:[1],visuals:[2],options:3,warnings:4}}}))};
+  vi.mocked(invoke).mockResolvedValueOnce(wire);
+  const session = await api({type:"session",id:wire.id});
+  expect(session.attempts[0].snapshot.materials?.[0]).toBe(material);
+  expect(session.attempts[1].snapshot.materials?.[0]).toBe(material);
+  expect(session.attempts[0].snapshot.question.options).toBe(options);
+  expect(session.attempts[1].snapshot.question.options).toBe(options);
+  expect(session.attempts[0].snapshot.groups[0]).toBe(group);
+  expect(session.attempts[0].snapshot.visuals[0]).toBe(visual);
+  expect(session.attempts[0].snapshot.warnings).toBe(warnings);
+  expect(session.attempts[1].snapshot.warnings).toBe(warnings);
+  expect(session).not.toHaveProperty("snapshotDocument");
+  expect(session.attempts[0].snapshot).not.toHaveProperty("snapshotRefs");
+  vi.mocked(invoke).mockResolvedValueOnce({...wire,snapshotDocument:undefined,attempts:[{ordinal:0,flagged:true},{ordinal:1}]});
+  const flagged = await api({type:"flag",id:wire.id,ordinal:0,value:true});
+  expect(flagged.attempts[0].snapshot).toBe(session.attempts[0].snapshot);
+  expect(flagged.attempts[0].flagged).toBe(true);
+  expect(invoke).toHaveBeenLastCalledWith("request",expect.objectContaining({request:{type:"flag",id:wire.id,ordinal:0,value:true,snapshot_key:"pool-key"}}));
+});
+
+it("reloads a complete snapshot after a malformed shared reference", async () => {
+  const snapshot = {question:{id:"q",analysis:"safe"},materials:[],groups:[],visuals:[]};
+  const complete = {id:"invalid-pool",snapshotKey:"key",attempts:[{ordinal:0,snapshot}]} as unknown as Session;
+  vi.mocked(invoke).mockResolvedValueOnce({...complete,snapshotDocument:[],attempts:[{ordinal:0,snapshot:{question:{id:"q"},snapshotRefs:{materials:[1],groups:[],visuals:[]}}}]})
+    .mockResolvedValueOnce(complete);
+  expect((await api({type:"session",id:complete.id})).attempts[0].snapshot).toBe(snapshot);
+  expect(invoke).toHaveBeenLastCalledWith("request",expect.objectContaining({request:{type:"session",id:complete.id}}));
+});
+
+it("shares the immutable cache with grading transport and ignores grading that finishes after restore", async () => {
+  const snapshot = {question:{id:"graded-question"},materials:[],groups:[],visuals:[]};
+  const session = {id:"grading-cache",snapshotKey:"graded-key",attempts:[{ordinal:0,snapshot}]} as unknown as Session;
+  vi.mocked(invoke).mockResolvedValueOnce(session);
+  await api({type:"session",id:session.id});
+  const send = vi.fn(async () => ({...session,attempts:[{ordinal:0,earnedCents:50}]}));
+  const graded = await runSessionRequest(session.id, send);
+  expect(send).toHaveBeenCalledWith("graded-key");
+  expect((graded as unknown as Session).attempts[0].snapshot).toBe(snapshot);
+  let resolve!: (value: Session) => void;
+  const pending = runSessionRequest(session.id, () => new Promise<Session>(done => {resolve=done;}));
+  vi.mocked(invoke).mockResolvedValueOnce(null);
+  await api({type:"restore"});
+  resolve(session);
+  await pending;
+  expect(sessionSnapshotKey(session.id)).toBeUndefined();
 });

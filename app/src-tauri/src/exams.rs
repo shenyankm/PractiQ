@@ -54,7 +54,16 @@ pub fn usable(s: &Value) -> bool {
 }
 
 impl Store {
+    #[cfg(test)]
     pub fn start_paper(&self, paper: Paper) -> Result<Value> {
+        let sid = self.create_paper(paper)?;
+        self.session(&sid)
+    }
+    pub fn start_paper_data(&self, paper: Paper) -> Result<Value> {
+        let sid = self.create_paper(paper)?;
+        self.session_data(&sid, None)
+    }
+    fn create_paper(&self, paper: Paper) -> Result<String> {
         let mut db = self.connect()?;
         let tx = db.transaction().map_err(err)?;
         let all = crate::questions::read_scoped(&tx, &[], Some(&paper.question_ids))?;
@@ -149,7 +158,7 @@ impl Store {
             tx.execute("INSERT INTO attempts(session_id,ordinal,question_id,snapshot_question_id,max_cents) VALUES(?1,?2,?3,?3,?4)",params![sid,i as i64,qid,if exam {Some(paper.scores[i])} else {None}]).map_err(err)?;
         }
         tx.commit().map_err(err)?;
-        self.session(&sid)
+        Ok(sid)
     }
     pub fn expire_exam(&self, sid: &str) -> Result<()> {
         let db = self.connect()?;
@@ -218,7 +227,12 @@ impl Store {
         tx.commit().map_err(err)?;
         Ok(())
     }
+    #[cfg(test)]
     pub fn submit_paper(&self, sid: &str, submit_drafts: bool) -> Result<Value> {
+        self.submit_paper_data(sid, submit_drafts)?;
+        self.session(sid)
+    }
+    pub fn submit_paper_data(&self, sid: &str, submit_drafts: bool) -> Result<Value> {
         self.submit_core(sid, submit_drafts)?;
         self.connect()?
             .execute(
@@ -226,25 +240,53 @@ impl Store {
                 params![sid, self.session_clock.now()?],
             )
             .map_err(err)?;
+        self.session_data(sid, None)
+    }
+    #[cfg(test)]
+    pub fn complete_review(&self, sid: &str) -> Result<Value> {
+        self.complete_review_data(sid)?;
         self.session(sid)
     }
-    pub fn complete_review(&self, sid: &str) -> Result<Value> {
+    pub fn complete_review_data(&self, sid: &str) -> Result<Value> {
         let db = self.connect()?;
         self.session_now_with(&db)?;
         db.execute("UPDATE sessions SET finished_at=COALESCE(finished_at,?2),last_active_at=?2 WHERE id=?1 AND submitted_at IS NOT NULL",params![sid,self.session_clock.now()?]).map_err(err)?;
+        self.session_data(sid, None)
+    }
+    #[cfg(test)]
+    pub fn flag(&self, sid: &str, ordinal: usize, value: bool) -> Result<Value> {
+        self.flag_with_key(sid, ordinal, value, None)?;
         self.session(sid)
     }
-    pub fn flag(&self, sid: &str, ordinal: usize, value: bool) -> Result<Value> {
+    pub fn flag_with_key(
+        &self,
+        sid: &str,
+        ordinal: usize,
+        value: bool,
+        snapshot_key: Option<&str>,
+    ) -> Result<Value> {
         self.expire_exam(sid)?;
         self.connect()?.execute("UPDATE attempts SET flagged=?3 WHERE session_id=?1 AND ordinal=?2 AND EXISTS(SELECT 1 FROM sessions WHERE id=?1 AND submitted_at IS NULL AND finished_at IS NULL)",params![sid,ordinal,value]).map_err(err)?;
-        self.session(sid)
+        self.session_data(sid, snapshot_key)
     }
+    #[cfg(test)]
     pub fn manual_score(
         &self,
         sid: &str,
         ordinal: usize,
         cents: i64,
         reason: &str,
+    ) -> Result<Value> {
+        self.manual_score_with_key(sid, ordinal, cents, reason, None)?;
+        self.session(sid)
+    }
+    pub fn manual_score_with_key(
+        &self,
+        sid: &str,
+        ordinal: usize,
+        cents: i64,
+        reason: &str,
+        snapshot_key: Option<&str>,
     ) -> Result<Value> {
         if reason.trim().is_empty() || reason.len() > 20_000 {
             return Err(crate::language::error(
@@ -266,7 +308,7 @@ impl Store {
             params![sid, self.session_clock.now()?],
         )
         .map_err(err)?;
-        self.session(sid)
+        self.session_data(sid, snapshot_key)
     }
     pub fn enrich_session(s: &mut Value) -> Result<()> {
         let locked = text(s, "kind") != "practice" && s["submittedAt"].is_null();
@@ -276,14 +318,7 @@ impl Store {
         ))? {
             if locked {
                 if let Some(snapshot) = a.get_mut("snapshot") {
-                    let q = &mut snapshot["question"];
-                    a_blank_count(q);
-                    strip_answer_lines(q);
-                    if let Some(materials) = snapshot["materials"].as_array_mut() {
-                        for material in materials {
-                            strip_answer_lines(material);
-                        }
-                    }
+                    enrich_snapshot(snapshot, true);
                 }
                 a["result"] = Value::Null;
                 a["autoResult"] = Value::Null;
@@ -291,8 +326,13 @@ impl Store {
         }
         Ok(())
     }
+    #[cfg(test)]
     pub fn retry_wrong(&self, sid: &str) -> Result<Value> {
-        let s = self.session(sid)?;
+        let result = self.retry_wrong_data(sid)?;
+        self.session(text(&result, "id"))
+    }
+    pub fn retry_wrong_data(&self, sid: &str) -> Result<Value> {
+        let s = self.session_data(sid, None)?;
         let mut db = self.connect()?;
         let rows = crate::questions::session_rows(&db, sid)?;
         let roots: HashSet<_> = list(&s, "attempts")
@@ -331,7 +371,7 @@ impl Store {
             tx.execute("INSERT INTO attempts(session_id,ordinal,question_id,snapshot_question_id) VALUES(?1,?2,?3,?3)",params![sid2,i as i64,text(row,"id")]).map_err(err)?;
         }
         tx.commit().map_err(err)?;
-        self.session(&sid2)
+        self.session_data(&sid2, None)
     }
     pub fn merge_banks(&self, banks: &[String], title: &str) -> Result<Value> {
         if banks.len() < 2
@@ -414,6 +454,18 @@ fn a_blank_count(q: &mut Value) {
     }
     if let Some(blocks) = q["contentBlocks"].as_array_mut() {
         blocks.retain(|block| !crate::questions::answer_content(block));
+    }
+}
+pub(crate) fn enrich_snapshot(snapshot: &mut Value, locked: bool) {
+    if locked {
+        let q = &mut snapshot["question"];
+        a_blank_count(q);
+        strip_answer_lines(q);
+        if let Some(materials) = snapshot["materials"].as_array_mut() {
+            for material in materials {
+                strip_answer_lines(material);
+            }
+        }
     }
 }
 
@@ -607,12 +659,24 @@ impl Store {
         .map_err(err)?;
         Ok(payload)
     }
+    #[cfg(test)]
     pub fn record_grade(
         &self,
         sid: &str,
         ordinal: usize,
         rid: &str,
         response: &Value,
+    ) -> Result<Value> {
+        self.record_grade_with_key(sid, ordinal, rid, response, None)?;
+        self.session(sid)
+    }
+    pub fn record_grade_with_key(
+        &self,
+        sid: &str,
+        ordinal: usize,
+        rid: &str,
+        response: &Value,
+        snapshot_key: Option<&str>,
     ) -> Result<Value> {
         let mut db = self.connect()?;
         let tx = db.transaction().map_err(err)?;
@@ -651,6 +715,6 @@ impl Store {
         }
         tx.execute("UPDATE attempts SET grading=json_set(CASE WHEN ?4 IS NULL THEN grading ELSE json_remove(grading,'$.lastRequest') END,CASE WHEN ?4 IS NULL THEN '$.lastRequest' ELSE '$.ai' END,json(?3)),earned_cents=CASE WHEN grade_kind='manual' OR ?4 IS NULL THEN earned_cents ELSE ?4 END,result=CASE WHEN grade_kind='manual' OR ?4 IS NULL THEN result ELSE (?4=max_cents) END,grade_kind=CASE WHEN grade_kind='manual' OR ?4 IS NULL THEN grade_kind ELSE 'ai' END WHERE session_id=?1 AND ordinal=?2 AND ?5=(SELECT id FROM grade_requests WHERE session_id=?1 AND ordinal=?2 ORDER BY created_at DESC,rowid DESC LIMIT 1)",params![sid,ordinal,response.to_string(),score,rid]).map_err(err)?;
         tx.commit().map_err(err)?;
-        self.session(sid)
+        self.session_data(sid, snapshot_key)
     }
 }

@@ -1,4 +1,5 @@
 import { test as base, expect } from 'playwright/test';
+import { writeFile } from 'node:fs/promises';
 
 const test=base.extend({page:async ({page},use)=>{
  const errors=[];
@@ -63,5 +64,76 @@ for(const scenario of ['empty','many','unconfigured','missing','slow','error']) 
   await expect(page.getByRole('heading',{name:'设置',exact:true})).toBeVisible();
   if(scenario==='error') await expect(page.getByRole('alert').filter({hasText:'演示请求失败'}).first()).toBeVisible();
   else await expect(page.getByRole('status').filter({hasText:scenario==='unconfigured'?'未配置':'已配置'})).toBeVisible();
+ });
+}
+
+for (const width of [960,1280]) {
+ base(`performance: 1000-question answer card stays reachable at ${width}px`,async ({page},testInfo)=>{
+  const errors=[];page.on('pageerror',error=>errors.push(error.message));
+  await page.setViewportSize({width,height:640});
+  await page.addInitScript(()=>{
+   sessionStorage.setItem('practiq-preview','local');
+   window.isTauri=false;
+   const questions=Array.from({length:1000},(_,i)=>({id:`q${i}`,bankId:'one',bankTitle:'Large bank',question:{id:`q${i}`,parentId:null,stem:`Question ${i+1}`,answerMode:'short_answer',questionTypeId:'简答题',options:[],items:[],answerPayload:{text:'Reference'},analysis:null,sourceText:null,contentBlocks:[],needsReview:false,missingFields:[],confidence:1},groups:[],visuals:[],sources:[],warnings:[],missingAssets:false,favorite:false,latestResult:null}));
+   const bank={id:'one',title:'Large bank',description:'',count:1000,createdAt:1};
+   const session={id:'large',title:'Large practice',kind:'practice',createdAt:1,finishedAt:null,position:0,mode:'ordered',attempts:questions.map((snapshot,ordinal)=>({ordinal,snapshot,answer:null,autoResult:null,result:null,gradeKind:'ungraded',submittedAt:null,skipped:false,elapsedMs:0}))};
+   window.__TAURI_INTERNALS__={invoke:async(command,{request})=>{
+    if(command!=='request')throw Error(`Unexpected command ${command}`);
+    switch(request.type){
+     case 'language':return 'zh-CN';
+     case 'banks':return [bank];
+     case 'banks_page':return {items:[bank],total:1,offset:0};
+     case 'unfinished_session':return null;
+     case 'info':return {version:'scale',dataDirectory:'/mock'};
+     case 'question_stats':return {count:1000,types:{short_answer:1000},feasibleCounts:[20,1000]};
+     case 'preview_paper':return {questionIds:questions.map(q=>q.id),digest:'large',questions,scores:questions.map(()=>0),count:1000};
+     case 'start_paper':case 'session':return structuredClone(session);
+     case 'position':session.position=request.position;return structuredClone(session);
+     case 'save_draft':session.attempts[request.ordinal].answer=request.answer;return null;
+     default:throw Error(`Unexpected request ${request.type}`);
+    }
+   }};
+  });
+  await page.goto('/');
+  await page.getByRole('button',{name:'开始练习',exact:true}).click();
+  await page.getByLabel('题目数量').fill('1000');
+  await page.getByRole('button',{name:'立即开始',exact:true}).click();
+  const grid=page.getByRole('region',{name:'答题卡',exact:true});
+  await expect(grid.getByRole('button')).toHaveCount(1000);
+  await grid.getByRole('button',{name:'转到第 501 题，未作答',exact:true}).evaluate(button=>{window.__retainedAnswerButton=button;});
+  await page.getByRole('button',{name:'转到最后一题',exact:true}).focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading',{name:'第 1,000 / 1,000 题',exact:true})).toBeFocused();
+  expect(await grid.getByRole('button',{name:'转到第 501 题，未作答',exact:true}).evaluate(button=>button===window.__retainedAnswerButton)).toBe(true);
+  await page.getByRole('button',{name:'定位当前题',exact:true}).focus();
+  await page.keyboard.press('Enter');
+  await expect(grid.getByRole('button',{name:'转到第 1,000 题，未作答',exact:true})).toBeFocused();
+  await page.getByLabel('作答内容').fill('Answer');
+  const submit=page.getByRole('button',{name:'提交答案',exact:true});
+  await expect(submit).toBeEnabled();
+  const gridBox=await grid.boundingBox(), submitBox=await submit.boundingBox();
+  expect(gridBox.height).toBeLessThanOrEqual(640*0.45+1);
+  expect(submitBox.y).toBeGreaterThanOrEqual(0);
+  expect(submitBox.y+submitBox.height).toBeLessThanOrEqual(640);
+  await page.getByRole('button',{name:'转到第一题',exact:true}).focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading',{name:'第 1 / 1,000 题',exact:true})).toBeFocused();
+  const finish=page.getByRole('button',{name:'结束练习',exact:true});
+  await finish.scrollIntoViewIfNeeded();
+  const finishBox=await finish.boundingBox();
+  expect(finishBox.y).toBeGreaterThanOrEqual(0);
+  expect(finishBox.y+finishBox.height).toBeLessThanOrEqual(640);
+  await finish.focus();
+  await page.keyboard.press('Enter');
+  const confirmation=page.getByRole('alertdialog',{name:'结束本次练习？',exact:true});
+  await expect(confirmation).toBeVisible();
+  await confirmation.getByRole('button',{name:'继续作答',exact:true}).click();
+  await expect(confirmation).toBeHidden();
+  await expect(finish).toBeFocused();
+  const measurements=testInfo.outputPath('answer-card-scale.json');
+  await writeFile(measurements,JSON.stringify({width,height:640,buttons:1000,gridHeight:gridBox.height,submitBottom:submitBox.y+submitBox.height,finishBottom:finishBox.y+finishBox.height,finishConfirmationReachable:true,retainedButton:true}));
+  await testInfo.attach('answer-card-scale.json',{path:measurements,contentType:'application/json'});
+  await page.screenshot({path:testInfo.outputPath('answer-card-scale.png')});
+  expect(errors).toEqual([]);
  });
 }
