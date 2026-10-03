@@ -8,8 +8,13 @@ import { Button } from "@/components/ui/button";
 
 export function ListeningPlayer({question:q,session}:{question:Question;session?:Session}) {
   useI18n();
+  const section=useRef<HTMLElement>(null);
   const audio=useRef<HTMLAudioElement>(null);
   const [src,setSrc]=useState<string|null>(null);
+  const [nearby,setNearby]=useState(typeof IntersectionObserver === "undefined");
+  const [loading,setLoading]=useState(false);
+  const [playRequested,setPlayRequested]=useState(false);
+  const [loadAttempt,setLoadAttempt]=useState(0);
   const [error,setError]=useState(false);
   const [playing,setPlaying]=useState(false);
   const [busy,setBusy]=useState(false);
@@ -29,14 +34,30 @@ export function ListeningPlayer({question:q,session}:{question:Question;session?
   const allowedPosition=useRef(start);
   const progressAt=useRef(0);
   useEffect(()=>{
+    if(nearby || !section.current)return;
+    const observer=new IntersectionObserver(entries=>{
+      if(entries.some(entry=>entry.isIntersecting)){setNearby(true);observer.disconnect();}
+    },{rootMargin:"200px"});
+    observer.observe(section.current);
+    return ()=>observer.disconnect();
+  },[nearby]);
+  useEffect(()=>{setPlayRequested(false);},[hash,media]);
+  useEffect(()=>{
     let active=true;
-    setSrc(null); setError(false);
-    const resource=hash ? acquireAsset(hash,media) : undefined;
+    setSrc(null); setError(false); setLoading(!!hash && nearby);
+    const resource=hash && nearby ? acquireAsset(hash,media) : undefined;
     if(resource) void resource.url.then(url=>{
       if(active) setSrc(url);
-    }).catch(()=>{if(active)setError(true);});
+    }).catch(()=>{if(active){setError(true);setPlayRequested(false);}})
+      .finally(()=>{if(active)setLoading(false);});
     return ()=>{active=false;resource?.release();};
-  },[hash,media]);
+  },[hash,media,nearby,loadAttempt]);
+  const playWhenLoaded=useEffectEvent(()=>{
+    if(playRequested){setPlayRequested(false);void toggle();}
+  });
+  useEffect(()=>{
+    if(src && Number.isFinite(audio.current?.duration))playWhenLoaded();
+  },[src,playRequested]);
   useEffect(()=>{
     if(sid && q.id && live) void api({type:"listening_playback",id:sid,question_id:q.id,action:"state"}).then(setState).catch(()=>setError(true));
   },[sid,q.id,live]);
@@ -52,14 +73,17 @@ export function ListeningPlayer({question:q,session}:{question:Question;session?
   useEffect(()=>{
     const player=audio.current;
     const stop=()=>{if(player){player.pause();saveOnExit(player.currentTime);}};
-    document.addEventListener("visibilitychange",stop);
-    window.addEventListener("pagehide",stop);
-    return ()=>{stop();document.removeEventListener("visibilitychange",stop);window.removeEventListener("pagehide",stop);};
+    const hide=()=>{setPlayRequested(false);stop();};
+    document.addEventListener("visibilitychange",hide);
+    window.addEventListener("pagehide",hide);
+    return ()=>{stop();document.removeEventListener("visibilitychange",hide);window.removeEventListener("pagehide",hide);};
   },[src]);
-  useEffect(()=>{if(!live)audio.current?.pause();},[live]);
+  useEffect(()=>{if(!live){audio.current?.pause();setPlayRequested(false);}},[live]);
   async function toggle() {
     const player=audio.current;
     if(!player || busy) return;
+    if(!src){setPlayRequested(true);setNearby(true);setLoadAttempt(value=>value+1);return;}
+    if(!Number.isFinite(player.duration)){setPlayRequested(true);return;}
     if(!player.paused){player.pause();return;}
     setBusy(true);setError(false);
     try {
@@ -91,15 +115,15 @@ export function ListeningPlayer({question:q,session}:{question:Question;session?
     started.current=false;
   }
   const exhausted=restricted && state && !state.active && state.used>=state.limit;
-  return <section className="space-y-3 rounded-lg border bg-card p-4" aria-label={t("听力播放器")}>
+  return <section ref={section} className="space-y-3 rounded-lg border bg-card p-4" aria-label={t("听力播放器")}>
     <p className="text-sm font-medium">{t("听力题")}</p>
     <Markdown>{q.stem}</Markdown><Markdown>{q.instructions}</Markdown>
     {!hash && <p role="note">{t("听力音频缺失，请在题目编辑中补充。")}</p>}
     {hash && <>
       <audio lang={materialLanguage(q)} ref={audio} src={src || undefined} preload="metadata"
-        onLoadedMetadata={()=>{if(audio.current)audio.current.currentTime=start;}}
+        onLoadedMetadata={()=>{if(audio.current)audio.current.currentTime=start;if(playRequested){setPlayRequested(false);void toggle();}}}
         onPlay={()=>setPlaying(true)} onPause={()=>{setPlaying(false);if(audio.current && !ended.current)persist("pause",audio.current.currentTime);}}
-        onEnded={finish} onError={()=>setError(true)}
+        onEnded={finish} onError={()=>{setError(true);setPlayRequested(false);}}
         onRateChange={()=>{if(restricted && audio.current)audio.current.playbackRate=1;}}
         onSeeking={()=>{const p=audio.current;if(p && restricted && Math.abs(p.currentTime-allowedPosition.current)>0.25)p.currentTime=allowedPosition.current;}}
         onTimeUpdate={()=>{
@@ -109,7 +133,7 @@ export function ListeningPlayer({question:q,session}:{question:Question;session?
           if(Date.now()-progressAt.current>1000){progressAt.current=Date.now();persist("progress",p.currentTime);}
         }}/>
       <div className="flex flex-wrap items-center gap-3">
-        <Button variant="outline" disabled={!src || busy || !!exhausted || (restricted && !state)} onClick={()=>void toggle()}>{playing?t("暂停播放"):t("播放听力")}</Button>
+        <Button variant="outline" aria-busy={loading || playRequested || busy} disabled={loading || playRequested || busy || !!exhausted || (restricted && !state)} onClick={()=>void toggle()}>{loading || playRequested ? t("加载中…") : playing?t("暂停播放"):t("播放听力")}</Button>
         {!restricted && <>
           <Button variant="outline" disabled={!src} onClick={()=>{if(audio.current){positionChosen.current=true;audio.current.currentTime=start;ended.current=false;}}}>{t("从头重听")}</Button>
           <label className="text-sm">{t("播放速度")} <select aria-label={t("播放速度")} defaultValue="1" onChange={e=>{if(audio.current)audio.current.playbackRate=Number(e.target.value);}}>{[0.75,1,1.25,1.5].map(v=><option key={v} value={v}>{v}×</option>)}</select></label>

@@ -589,7 +589,7 @@ it.each([
   await act(async () => { fireEvent.click(screen.getByRole("button", {name: "gone.pdf"})); });
   await act(async () => { await vi.advanceTimersByTimeAsync(20000); });
   expect(gets).toBe(expectedGets);
-  expect(lists).toBe(2);
+  expect(lists).toBe(3);
   expect(screen.queryByRole("button", {name: "gone.pdf"})).toBeNull();
   expect(vi.mocked(invoke).mock.calls.every(([, args]) =>
     ["list", "get", "operations", "batches"].includes((args as {request: {type: string}}).request.type),
@@ -822,4 +822,67 @@ it("uses the shared development preview for filtering and details without native
   await userEvent.click(await screen.findByRole("button", {name:"预览并导入题库"}));
   expect(onPreview).toHaveBeenCalledWith(expect.objectContaining({ticket:"preview-ticket"}), expect.objectContaining({threadId:"demo-005"}));
   expect(invoke).not.toHaveBeenCalled();
+});
+
+it("mounts only five of 100 review units and resolves a source outside the mounted page", async () => {
+  let serializations=0;
+  const quality={issues:[],toJSON:()=>{serializations++;return {issues:[]};}};
+  const units = Array.from({length:100}, (_,index)=>({stage:"vision_parse",index,questions:Array.from({length:20},(_,i)=>({...blankQuestion(),id:`q${index}-${i}`,stem:`Unit ${index} question ${i}`})),groups:[],sourceRef:{mediaType:"text/plain"}}));
+  vi.mocked(invoke).mockImplementation(async (_command,args)=>{
+    const request = (args as {request:{type:string;unit?:number}}).request;
+    if(request.type === "list") return {items:[{threadId:"large",fileName:"large.pdf",state:"COMPLETED",checkpointId:"cp"}],hasMore:false};
+    if(request.type === "get") return {threadId:"large",state:"COMPLETED",checkpointId:"cp",phase:"completed",allowedActions:[],blocking:[],failures:[],progress:{},usage:[],unknownUsageCalls:[]};
+    if(request.type === "review") return {threadId:"large",checkpointId:"cp",phase:"completed",failures:[],units,quality,questionSources:[{questionId:"q0-0",stage:"vision_parse",unitIndex:99}]};
+    if(request.type === "review_asset") return {mediaType:"text/plain",content:"Remote source unit"};
+    if(request.type === "batches") return {items:[],total:0,offset:0,operations:[]};
+    return [];
+  });
+  render(<AiTasks busy={false} run={job=>{void job();}} onPreview={()=>{}}/>);
+  await userEvent.click(await screen.findByRole("button", {name:"large.pdf"}));
+  await userEvent.click(await screen.findByRole("button", {name:"查看内容与审核"}));
+  expect(screen.getAllByRole("article")).toHaveLength(100);
+  expect(serializations).toBe(0);
+  expect(screen.queryByText("Unit 5 question 0")).toBeNull();
+  await userEvent.click(screen.getByRole("button", {name:"查看第 100 页原文"}));
+  expect(await screen.findByText("Remote source unit")).toBeTruthy();
+  expect(invoke).toHaveBeenCalledWith("ai_request", {locale:"zh-CN",request:{type:"review_asset",id:"large",checkpoint_id:"cp",unit:99,visual:null}});
+  await userEvent.click(screen.getByText("来源和质量详情", {selector:"summary"}));
+  expect(serializations).toBe(1);
+  await userEvent.click(screen.getByRole("button", {name:"下一页"}));
+  expect(screen.getAllByRole("article")).toHaveLength(100);
+  expect(screen.getByText("Unit 5 question 0")).toBeTruthy();
+  expect(screen.queryByText("Unit 0 question 0")).toBeNull();
+  expect(document.activeElement?.textContent).toBe("只读内容审核");
+  expect(serializations).toBe(1);
+});
+
+it("backs off terminal lists and stops their reads while the records or window are hidden", async () => {
+  vi.useFakeTimers();
+  let lists=0;
+  vi.mocked(invoke).mockImplementation(async (_command,args)=>{
+    const {type} = (args as {request:{type:string}}).request;
+    if(type === "list") {lists++;return {items:[],hasMore:false};}
+    return type === "batches" ? {items:[],total:0,offset:0,operations:[]} : [];
+  });
+  await act(async()=>{render(<AiTasks busy={false} run={job=>{void job();}} onPreview={()=>{}}/>);});
+  await act(async()=>{fireEvent.change(screen.getByRole("combobox", {name:"导入状态"}), {target:{value:"completed"}});});
+  const initial=lists;
+  await act(async()=>{await vi.advanceTimersByTimeAsync(14999);});
+  expect(lists).toBe(initial);
+  await act(async()=>{await vi.advanceTimersByTimeAsync(1);});
+  expect(lists).toBe(initial+1);
+  await act(async()=>{fireEvent.mouseDown(screen.getByRole("tab", {name:"导入"}), {button:0,ctrlKey:false});});
+  await act(async()=>{await vi.advanceTimersByTimeAsync(60000);});
+  expect(lists).toBe(initial+1);
+  await act(async()=>{fireEvent.mouseDown(screen.getByRole("tab", {name:"导入记录"}), {button:0,ctrlKey:false});});
+  expect(lists).toBe(initial+2);
+  const visibility=vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+  await act(async()=>{fireEvent(document,new Event("visibilitychange"));});
+  await act(async()=>{await vi.advanceTimersByTimeAsync(60000);});
+  expect(lists).toBe(initial+2);
+  visibility.mockReturnValue("visible");
+  await act(async()=>{fireEvent(document,new Event("visibilitychange"));});
+  expect(lists).toBe(initial+3);
+  await act(async()=>{window.dispatchEvent(new Event("focus"));});
+  expect(lists).toBe(initial+4);
 });

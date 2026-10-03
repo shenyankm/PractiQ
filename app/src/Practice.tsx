@@ -15,16 +15,67 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Check, X, SkipForward, Pencil } from "lucide-react";
+import { Check, X, SkipForward, Pencil, ArrowUpToLine, ArrowDownToLine, LocateFixed } from "lucide-react";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel } from "@/components/ui/alert-dialog";
 import { Content, Markdown } from "./Content";
 import { AnswerInput, AnswerDisplay } from "./AnswerInput";
 import type { MutableRefObject } from "react";
-export function Practice(props: Parameters<typeof PracticeQuestion>[0]) {
-  const listening=props.session.attempts[props.session.position].snapshot.materials?.find(q=>q.answerMode === "listening");
+type PracticeProps = {
+  session: Session;
+  onSession: (s: Session) => void;
+  run: (job: () => Promise<void>) => void;
+  flushRef: MutableRefObject<() => Promise<void>>;
+  onNextUnattempted?: () => void;
+};
+export function Practice(props: PracticeProps) {
+  const { session, onSession, run, flushRef } = props;
+  useI18n();
+  const attempt = session.attempts[session.position];
+  const listening=attempt.snapshot.materials?.find(q=>q.answerMode === "listening");
+  const exam = !!session.kind && session.kind !== "practice";
+  const finished = session.finishedAt !== null || (exam && session.submittedAt != null);
+  const [draft, setDraft] = useState<{ sessionId: string; position: number; answer: Answer | null }>();
+  const answer = !finished && draft?.sessionId === session.id && draft.position === session.position ? draft.answer : attempt.answer;
+  const onDraft = useCallback((answer: Answer | null) => setDraft({ sessionId: session.id, position: session.position, answer }), [session.id, session.position]);
+  const [confirmFinish,setConfirmFinish]=useState(false);
+  const [finishing, setFinishing] = useState(false);
+  useEffect(() => { setConfirmFinish(false); setDraft(undefined); }, [session.id]);
+  const finishButton = useRef<HTMLButtonElement>(null);
+  const questionHeading = useRef<HTMLHeadingElement>(null);
+  const reviewOnClose = useRef(false);
+  const go = useCallback((position: number) => {
+    run(async () => {
+      await flushRef.current();
+      onSession(await api({ type: "position", id: session.id, position }));
+    });
+  }, [run, onSession, session.id, flushRef]);
+  const unassessed = exam ? [] : session.attempts.filter(a => a.submittedAt != null && !a.skipped && a.result === null);
+  function finish(submitDrafts: boolean) {
+    run(async () => {
+      setFinishing(true);
+      try {
+        await flushRef.current();
+        onSession(await api({ type: "submit_paper", id: session.id, submit_drafts: submitDrafts }));
+        setConfirmFinish(false);
+      } finally { setFinishing(false); }
+    });
+  }
   return <div className="space-y-4">
-    {listening && <ListeningPlayer key={`${props.session.id}-${listening.id}-${listening.audioRef?.sha256}`} question={listening} session={props.session}/>}
-    <PracticeQuestion key={`${props.session.id}-${props.session.position}`} {...props}/>
+    {listening && <ListeningPlayer key={`${session.id}-${listening.id}-${listening.audioRef?.sha256}`} question={listening} session={session}/>}
+    <div className="grid grid-cols-[minmax(0,1fr)_240px] gap-6">
+      <PracticeQuestion key={`${session.id}-${session.position}`} {...props} go={go} onDraft={onDraft} questionHeading={questionHeading}/>
+      <aside className="sticky top-0 self-start space-y-4">
+        <AnswerCard key={session.id} session={session} answer={answer} exam={exam} go={go} />
+        {!finished && <Button ref={finishButton} className="w-full" variant="outline" onClick={() => run(async () => { await flushRef.current(); onSession(await api({type:"session", id:session.id})); setConfirmFinish(true); })}>{exam ? t("交卷") : t("结束练习")}</Button>}
+        <AlertDialog open={confirmFinish && !finished} onOpenChange={open => { if (!finishing) setConfirmFinish(open); }}>
+          <AlertDialogContent className="sm:max-w-lg" onCloseAutoFocus={event => { event.preventDefault(); (reviewOnClose.current ? questionHeading : finishButton).current?.focus(); reviewOnClose.current = false; }}>
+            <AlertDialogHeader><AlertDialogTitle>{exam ? t("确认交卷？") : t("结束本次练习？")}</AlertDialogTitle><AlertDialogDescription>{t("已提交 {0} 题；未提交草稿 {1} 题；空白 {2} 题。结束后不能修改答案。", { 0: session.attempts.filter(a => a.submittedAt != null).length, 1: session.attempts.filter(a => a.submittedAt == null && hasAnswer(a.answer)).length, 2: session.attempts.filter(a => a.submittedAt == null && !hasAnswer(a.answer)).length })}{unassessed.length > 0 && <span className="mt-2 block">{t("还有 {0} 题未自评。结束后仍可在练习记录中核对并补充自评。", {0:unassessed.length})}</span>}</AlertDialogDescription></AlertDialogHeader>
+            <AlertDialogFooter className="flex-wrap"><AlertDialogCancel disabled={finishing}>{t("继续作答")}</AlertDialogCancel>{unassessed.length > 0 && <Button variant="outline" disabled={finishing} onClick={() => { reviewOnClose.current = true; setConfirmFinish(false); go(unassessed[0].ordinal); }}>{t("去核对")}</Button>}{!exam && <Button variant="outline" disabled={finishing} onClick={() => finish(false)}>{unassessed.length > 0 ? t("草稿记为跳过并结束（保留未判定）") : t("草稿记为跳过并结束")}</Button>}<Button disabled={finishing} onClick={() => finish(true)}>{finishing ? t("正在保存…") : exam ? t("确认交卷") : unassessed.length > 0 ? t("提交草稿并结束（保留未判定）") : t("提交草稿并结束")}</Button></AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+        {finished && <Card><CardContent className="pt-5 text-sm">{t("作答已锁定，当前显示作答时的内容快照。")}</CardContent></Card>}
+      </aside>
+    </div>
   </div>;
 }
 function PracticeQuestion({
@@ -33,12 +84,13 @@ function PracticeQuestion({
   run,
   flushRef,
   onNextUnattempted,
-}: {
-  session: Session;
-  onSession: (s: Session) => void;
-  run: (job: () => Promise<void>) => void;
-  flushRef: MutableRefObject<() => Promise<void>>;
-  onNextUnattempted?: () => void;
+  go,
+  onDraft,
+  questionHeading,
+}: PracticeProps & {
+  go: (position: number) => void;
+  onDraft: (answer: Answer | null) => void;
+  questionHeading: MutableRefObject<HTMLHeadingElement | null>;
 }) {
   useI18n();
   const attempt = session.attempts[session.position];
@@ -46,10 +98,6 @@ function PracticeQuestion({
   const [answer, setAnswer] = useState<Answer | null>(attempt.answer);
   const [saved, setSaved] = useState<"已保存" | "保存中…" | "保存失败" | "待保存">("已保存");
   const [saveError, setSaveError] = useState(false);
-  const [finishing, setFinishing] = useState(false);
-  const finishButton = useRef<HTMLButtonElement>(null);
-  const questionHeading = useRef<HTMLHeadingElement>(null);
-  const reviewOnClose = useRef(false);
   const elapsed = useRef(attempt.elapsedMs);
   const answerRef = useRef(answer);
   const chain = useRef(Promise.resolve());
@@ -59,9 +107,8 @@ function PracticeQuestion({
   const exam = !!session.kind && session.kind !== "practice";
   const handedIn = exam && session.submittedAt != null;
   const finished = session.finishedAt !== null || handedIn;
-  const [confirmFinish,setConfirmFinish]=useState(false);
   const favorite = attempt.favorite;
-  useEffect(() => { questionHeading.current?.focus(); }, []);
+  useEffect(() => { questionHeading.current?.focus(); }, [questionHeading]);
   useEffect(() => {
     if (handedIn) {
       setAnswer(attempt.answer);
@@ -135,24 +182,19 @@ function PracticeQuestion({
   }, [session.id, session.position, submitted, finished, persist, flushRef]);
   function change(a: Answer | null) {
     setAnswer(a);
+    onDraft(a);
     answerRef.current = a;
     setSaved("待保存");
     void persist().catch(() => {});
   }
-  const go = useCallback((position: number) => {
-    run(async () => {
-      await flushRef.current();
-      onSession(
-        await api({ type: "position", id: session.id, position }),
-      );
-    });
-  }, [run, onSession, session.id, flushRef]);
   const blankTargets = useMemo(() => {
     const ids = new Set([q, ...(attempt.snapshot.materials || [])]
       .flatMap(material => [...(material.passage || []), ...material.contentBlocks])
       .filter(block => block.partType === "blank").map(block => block.questionId));
     return ids.size ? session.attempts.filter(a => ids.has(a.snapshot.question.id)) : [];
   }, [q, attempt.snapshot.materials, session.attempts]);
+  const materialSiblings = useMemo(() => attempt.snapshot.materials?.length ? session.attempts.filter(a => a.snapshot.question.parentId === q.parentId) : [], [attempt.snapshot.materials, session.attempts, q.parentId]);
+  const siblingPage = Math.floor(Math.max(0, materialSiblings.findIndex(a => a.ordinal === session.position)) / 30);
   const onBlank = useCallback((id: string) => {
     const target = blankTargets.find(a => a.snapshot.question.id === id);
     if (target) go(target.ordinal);
@@ -161,27 +203,15 @@ function PracticeQuestion({
     const value = a.ordinal === session.position ? answer : a.answer;
     return [a.snapshot.question.id || "", value?.correct?.join(", ") || value?.answers?.join(", ") || ""];
   })) : undefined, [blankTargets, session.position, answer]);
-  function finish(submitDrafts: boolean) {
-    run(async () => {
-      setFinishing(true);
-      try {
-        await flushRef.current();
-        onSession(await api({ type: "submit_paper", id: session.id, submit_drafts: submitDrafts }));
-        setConfirmFinish(false);
-      } finally { setFinishing(false); }
-    });
-  }
   const selfAllowed =
     !attempt.skipped &&
     !exam && (attempt.autoResult === null || q.answerMode === "fill_blank");
-  const unassessed = exam ? [] : session.attempts.filter(a => a.submittedAt != null && !a.skipped && a.result === null);
   const resultLabel = exam
     ? attempt.earnedCents == null ? t("待评分") : t("{0}{1} / {2} 分", { 0: attempt.skipped ? t("未答 · ") : attempt.earnedCents > 0 && attempt.earnedCents < (attempt.maxCents || 0) ? `${t("部分得分")} · ` : "", 1: attempt.earnedCents / 100, 2: (attempt.maxCents || 0) / 100 })
     : attempt.skipped ? t("已跳过") : attempt.result === true ? t("回答正确") : attempt.result === false
       ? q.answerMode === "fill_blank" && attempt.gradeKind === "auto" ? t("文本不完全一致") : t("回答错误")
       : t("未判定");
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_240px] gap-6">
       <Card className="overflow-visible">
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -211,8 +241,12 @@ function PracticeQuestion({
           {!exam && <p role="status" aria-label={t("答题状态")} aria-live="polite" aria-atomic="true" className="sr-only">{submitted ? t("第 {0} 题：{1}", {0:attempt.ordinal+1,1:resultLabel}) : ""}</p>}
           <Content snapshot={attempt.snapshot} exam={exam&&!handedIn} revealOriginal={exam ? handedIn : submitted} materialDialog
             onBlank={blankTargets.length ? onBlank : undefined} blankAnswers={blankAnswers}/>
-          {!!attempt.snapshot.materials?.length && <nav className="flex flex-wrap gap-2" aria-label={t("题组子题")}>
-            {session.attempts.filter(a=>a.snapshot.question.parentId===q.parentId).map(a=><Button key={a.ordinal} variant={a.ordinal===session.position?"secondary":"outline"} size="sm" onClick={()=>go(a.ordinal)}>{a.ordinal+1}</Button>)}
+          {!!materialSiblings.length && <nav className="flex flex-wrap gap-2" aria-label={t("题组子题")}>
+            {materialSiblings.slice(siblingPage * 30, siblingPage * 30 + 30).map(a=><Button key={a.ordinal} variant={a.ordinal===session.position?"secondary":"outline"} size="sm" onClick={()=>go(a.ordinal)}>{a.ordinal+1}</Button>)}
+            {materialSiblings.length > 30 && <div className="flex w-full items-center justify-between gap-3 text-sm">
+              <span>{t("第 {0}–{1} 项", { 0: siblingPage * 30 + 1, 1: Math.min(siblingPage * 30 + 30, materialSiblings.length) })}</span>
+              <div className="flex gap-2"><Button variant="outline" size="sm" disabled={!siblingPage} onClick={() => go(materialSiblings[(siblingPage - 1) * 30].ordinal)}>{t("上一页")}</Button><Button variant="outline" size="sm" disabled={(siblingPage + 1) * 30 >= materialSiblings.length} onClick={() => go(materialSiblings[(siblingPage + 1) * 30].ordinal)}>{t("下一页")}</Button></div>
+            </div>}
           </nav>}
           <AnswerInput
             question={q}
@@ -311,22 +345,6 @@ function PracticeQuestion({
           </div>
         </CardContent>
       </Card>
-      <aside className="sticky top-0 self-start space-y-4">
-        <AnswerCard session={session} answer={answer} exam={exam} go={go} />
-        {!finished && <Button ref={finishButton} className="w-full" variant="outline" onClick={() => run(async () => { await flushRef.current(); onSession(await api({type:"session", id:session.id})); setConfirmFinish(true); })}>{exam ? t("交卷") : t("结束练习")}</Button>}
-        <AlertDialog open={confirmFinish && !finished} onOpenChange={open => { if (!finishing) setConfirmFinish(open); }}>
-          <AlertDialogContent className="sm:max-w-lg" onCloseAutoFocus={event => { event.preventDefault(); (reviewOnClose.current ? questionHeading : finishButton).current?.focus(); reviewOnClose.current = false; }}>
-            <AlertDialogHeader><AlertDialogTitle>{exam ? t("确认交卷？") : t("结束本次练习？")}</AlertDialogTitle><AlertDialogDescription>{t("已提交 {0} 题；未提交草稿 {1} 题；空白 {2} 题。结束后不能修改答案。", { 0: session.attempts.filter(a => a.submittedAt != null).length, 1: session.attempts.filter(a => a.submittedAt == null && hasAnswer(a.answer)).length, 2: session.attempts.filter(a => a.submittedAt == null && !hasAnswer(a.answer)).length })}{unassessed.length > 0 && <span className="mt-2 block">{t("还有 {0} 题未自评。结束后仍可在练习记录中核对并补充自评。", {0:unassessed.length})}</span>}</AlertDialogDescription></AlertDialogHeader>
-            <AlertDialogFooter className="flex-wrap"><AlertDialogCancel disabled={finishing}>{t("继续作答")}</AlertDialogCancel>{unassessed.length > 0 && <Button variant="outline" disabled={finishing} onClick={() => { reviewOnClose.current = true; setConfirmFinish(false); go(unassessed[0].ordinal); }}>{t("去核对")}</Button>}{!exam && <Button variant="outline" disabled={finishing} onClick={() => finish(false)}>{unassessed.length > 0 ? t("草稿记为跳过并结束（保留未判定）") : t("草稿记为跳过并结束")}</Button>}<Button disabled={finishing} onClick={() => finish(true)}>{finishing ? t("正在保存…") : exam ? t("确认交卷") : unassessed.length > 0 ? t("提交草稿并结束（保留未判定）") : t("提交草稿并结束")}</Button></AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-        {finished && (
-          <Card>
-            <CardContent className="pt-5 text-sm">{t("作答已锁定，当前显示作答时的内容快照。")}</CardContent>
-          </Card>
-        )}
-      </aside>
-    </div>
   );
 }
 
@@ -410,32 +428,22 @@ function answerState(a: Attempt, draft: Answer | null, exam: boolean) {
     return t("未作答");
   }
 
-const AnswerCardItem = memo(function AnswerCardItem({a, current, answer, exam, go}: {
-  a: Attempt; current: boolean; answer: Answer | null; exam: boolean; go: (position: number) => void;
+const AnswerCardItem = memo(function AnswerCardItem({ordinal, current, state, answered, flagged, variant, go}: {
+  ordinal: number; current: boolean; state: string; answered: boolean; flagged: boolean;
+  variant: "default" | "destructive" | "secondary" | "outline"; go: (position: number) => void;
 }) {
   useI18n();
-  const state = answerState(a, answer, exam);
-  const answered = !current && !a.skipped && a.result !== false && hasAnswer(answer);
   return (
                 <Button
-                  key={a.ordinal}
                   size="sm"
-                  variant={
-                    current
-                      ? "default"
-                      : a.result === false && !(exam && (a.earnedCents || 0) > 0)
-                        ? "destructive"
-                        : a.submittedAt
-                          ? "secondary"
-                          : "outline"
-                  }
-                  className={`relative min-h-9 ${current ? "underline decoration-2 underline-offset-4" : answered ? "border-sky-200 bg-sky-100 text-sky-900 hover:bg-sky-200 dark:border-sky-800 dark:bg-sky-950/60 dark:text-sky-100 dark:hover:bg-sky-900/60" : ""} ${a.flagged ? "ring-2 ring-amber-400 ring-offset-1" : ""}`}
+                  variant={variant}
+                  className={`relative min-h-9 ${current ? "underline decoration-2 underline-offset-4" : answered ? "border-sky-200 bg-sky-100 text-sky-900 hover:bg-sky-200 dark:border-sky-800 dark:bg-sky-950/60 dark:text-sky-100 dark:hover:bg-sky-900/60" : ""} ${flagged ? "ring-2 ring-amber-400 ring-offset-1" : ""}`}
                   aria-current={current ? "step" : undefined}
-                  aria-label={t("转到第 {0} 题，{1}{2}", { 0: a.ordinal + 1, 1: state, 2: a.flagged ? t("，待检查") : "" })}
-                  title={`${state}${a.flagged ? t("，待检查") : ""}`}
-                  onClick={() => go(a.ordinal)}
+                  aria-label={t("转到第 {0} 题，{1}{2}", { 0: ordinal + 1, 1: state, 2: flagged ? t("，待检查") : "" })}
+                  title={`${state}${flagged ? t("，待检查") : ""}`}
+                  onClick={() => go(ordinal)}
                 >
-                  {a.ordinal + 1}
+                  {ordinal + 1}
                 </Button>
   );
 });
@@ -444,14 +452,33 @@ const AnswerCard = memo(function AnswerCard({session, answer, exam, go}: {
   session: Session; answer: Answer | null; exam: boolean; go: (position: number) => void;
 }) {
   useI18n();
+  const grid = useRef<HTMLDivElement>(null);
+  const revealCurrent = useCallback((focus = false) => {
+    const container = grid.current;
+    const current = container?.querySelector<HTMLElement>('[aria-current="step"]');
+    if (!container || !current) return;
+    if (current.offsetTop < container.scrollTop) container.scrollTop = current.offsetTop;
+    else if (current.offsetTop + current.offsetHeight > container.scrollTop + container.clientHeight) container.scrollTop = current.offsetTop + current.offsetHeight - container.clientHeight;
+    if (focus) current.focus({ preventScroll: true });
+  }, []);
+  useEffect(() => { revealCurrent(); }, [session.position, revealCurrent]);
   return (
         <Card>
           <CardHeader>
             <CardTitle>{t("答题卡")}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-4 gap-2">
-              {session.attempts.map(a => <AnswerCardItem key={a.ordinal} a={a} current={a.ordinal === session.position} answer={a.ordinal === session.position ? answer : a.answer} exam={exam} go={go} />)}
+            <div className="mb-3 flex gap-2">
+              <Button variant="outline" size="icon" aria-label={t("转到第一题")} title={t("转到第一题")} disabled={session.position === 0} onClick={() => go(0)}><ArrowUpToLine/></Button>
+              <Button variant="outline" size="icon" aria-label={t("定位当前题")} title={t("定位当前题")} onClick={() => revealCurrent(true)}><LocateFixed/></Button>
+              <Button variant="outline" size="icon" aria-label={t("转到最后一题")} title={t("转到最后一题")} disabled={session.position === session.attempts.length - 1} onClick={() => go(session.attempts.length - 1)}><ArrowDownToLine/></Button>
+            </div>
+            <div ref={grid} role="region" aria-label={t("答题卡")} tabIndex={0} className="relative grid max-h-[min(45vh,24rem)] grid-cols-4 gap-2 overflow-y-auto rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              {session.attempts.map(a => {
+                const current = a.ordinal === session.position;
+                const draft = current ? answer : a.answer;
+                return <AnswerCardItem key={a.ordinal} ordinal={a.ordinal} current={current} state={answerState(a, draft, exam)} answered={!current && !a.skipped && a.result !== false && hasAnswer(draft)} flagged={!!a.flagged} variant={current ? "default" : a.result === false && !(exam && (a.earnedCents || 0) > 0) ? "destructive" : a.submittedAt ? "secondary" : "outline"} go={go}/>;
+              })}
             </div>
             <p className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground"><span className="flex items-center gap-1"><Pencil className="size-3"/>{t("草稿")}</span><span className="flex items-center gap-1"><Check className="size-3"/>{t("已提交")}</span><span className="flex items-center gap-1"><X className="size-3"/>{exam ? t("未得满分") : t("错误")}</span><span className="flex items-center gap-1"><SkipForward className="size-3"/>{t("跳过")}</span></p>
             <p className="mt-4 text-xs leading-5 text-muted-foreground">{t("{0} {1} / {2}。草稿自动保存，可随时离开后继续。", { 0: exam ? t("已作答") : t("已提交"), 1: session.attempts.filter((a) => exam ? hasAnswer(a.ordinal === session.position ? answer : a.answer) : a.submittedAt != null).length, 2: session.attempts.length })}</p>

@@ -1,4 +1,7 @@
 export const en = {
+  "转到第一题": "Go to first question",
+  "定位当前题": "Locate current question",
+  "转到最后一题": "Go to last question",
   "{0} #{1}：{2}": "{0} #{1}: {2}",
   "开发预览 · 示例数据": "Development preview \u00b7 Demo data",
   "开发预览 · 真实数据": "Development preview \u00b7 Local data",

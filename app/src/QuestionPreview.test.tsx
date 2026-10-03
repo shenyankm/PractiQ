@@ -27,3 +27,31 @@ it("filters review issues, preserves material context and focuses the next issue
   expect(document.activeElement).toBe(screen.getByRole("article", { name: "预览题目 42" }));
   expect(screen.queryByText("Question 2")).toBeNull();
 });
+
+it("bounds a 1000-node material group and carries context and shared options to the focused review page", async () => {
+  const questions = Array.from({length:1000}, (_, i) => ({...blankQuestion(),id:`q${i}`,parentId:i ? "q0" : null,stem:i ? `Child ${i}` : "Shared material",needsReview:i===999,optionSourceId:i ? "q0" : null}));
+  questions[0].answerMode = "word_bank";
+  questions[0].options = [{label:"A",content:"Shared option"}];
+  render(<QuestionPreview questions={questions} reviewMode/>);
+  expect(screen.getAllByRole("article")).toHaveLength(20);
+  await userEvent.click(screen.getByRole("button", {name:"下一个待复核问题"}));
+  expect(screen.getAllByRole("article")).toHaveLength(21);
+  expect(document.activeElement).toBe(screen.getByRole("article", {name:"预览题目 1,000"}));
+  expect(screen.getByText("Shared material")).toBeTruthy();
+  expect(screen.getAllByText("Shared option")).toHaveLength(21);
+  expect(screen.queryByText("Child 1")).toBeNull();
+});
+
+it("indexes source and quality associations once instead of scanning them for every visible question", async () => {
+  let sourceReads=0, issueReads=0;
+  const questions = Array.from({length:1000}, (_, i)=>({...blankQuestion(),id:`q${i}`,stem:`Indexed ${i}`}));
+  const questionSources = questions.map((q,i)=>({get questionId(){sourceReads++;return q.id;},stage:"document_parse" as const,unitIndex:i}));
+  const qualityIssues = questions.map(q=>({get questionId(){issueReads++;return q.id;},code:"NEEDS_REVIEW" as const}));
+  render(<QuestionPreview questions={questions} questionSources={questionSources} qualityIssues={qualityIssues} reviewMode/>);
+  expect(sourceReads).toBe(1000);
+  expect(issueReads).toBe(1000);
+  await userEvent.click(screen.getByRole("button", {name:"后 20 题"}));
+  expect(sourceReads).toBe(1000);
+  expect(issueReads).toBe(1000);
+  expect(screen.getByText("来源：文本片段 21")).toBeTruthy();
+});
