@@ -51,3 +51,12 @@ is represented as retrieved:
 artifact URLs, integrity values, file hashes and metadata differences. Its
 SHA-256 is pinned in `supplemental.json`, checked during inventory and checked
 again when embedding it in `THIRD-PARTY.txt`. The dependency remains at 2.3.8.
+
+## Local shadcn CSS variants
+
+The application uses its existing generated shadcn components without installing
+the component-generator CLI. `app/src/index.css` retains the four used variants
+from shadcn 4.21.0: `data-open`, `data-closed`, `data-checked` and `data-disabled`.
+The source is [release commit 7c9eaba](https://github.com/shadcn-ui/ui/tree/7c9eaba1c0a6404c990c144a654792e3313c650d/packages/shadcn).
+The same file includes the complete upstream MIT license and copyright notice
+in a preserved CSS comment, so built application styles carry the terms.
