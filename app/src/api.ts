@@ -185,7 +185,7 @@ export type Request =
   | { type:"listening_playback"; id:string; question_id:string; action:"state"|"start"|"progress"|"pause"|"end"; position?:number }
   | { type: "banks_page"; limit: number; offset: number }
   | { type: "sessions_page"; limit: number; offset: number; filter?: SessionFilter }
-  | { type: "self_assess"; id: string; ordinal: number; result: boolean }
+  | { type: "self_assess"; id: string; ordinal: number; result: boolean; snapshot_key?: string }
   | { type: "export_bank"; bank_id: string }
   | { type: "preview_paper"; request: PaperSelection }
   | { type: "save_question_tree"; bank_id: string; root_id: string | null; questions: Question[] }
@@ -194,8 +194,8 @@ export type Request =
   | { type: "start_paper"; paper: Paper }
   | { type: "submit_paper"; id: string; submit_drafts: boolean }
   | { type: "complete_review" | "retry_wrong"; id: string }
-  | { type: "flag"; id: string; ordinal: number; value: boolean }
-  | { type: "manual_score"; id: string; ordinal: number; cents: number; reason: string }
+  | { type: "flag"; id: string; ordinal: number; value: boolean; snapshot_key?: string }
+  | { type: "manual_score"; id: string; ordinal: number; cents: number; reason: string; snapshot_key?: string }
   | { type: "merge_banks"; bank_ids: string[]; title: string }
   | { type: "settings" }
   | {
@@ -285,30 +285,70 @@ type ResponseMap = {
 };
 let lastSession: Session | undefined;
 let sessionEpoch = 0;
-export async function api<R extends Request>(request: R): Promise<ResponseMap[R["type"]]> {
-  if (request.type === "asset") {
-    return invoke<ArrayBuffer>("read_asset", { hash: request.hash }) as Promise<ResponseMap[R["type"]]>;
+export function sessionSnapshotKey(id: string): string | undefined {
+  return lastSession?.id === id ? lastSession.snapshotKey : undefined;
+}
+function expandSession(session: Session): Session {
+  const wire = session as Session & {snapshotDocument?: unknown[]};
+  if (!wire.snapshotDocument) {
+    if (session.attempts.some(a => a.snapshot && "snapshotRefs" in a.snapshot)) throw new Error("Missing session snapshot document");
+    return session;
   }
-  if (request.type === "restore") { lastSession = undefined; sessionEpoch++; }
+  const document = wire.snapshotDocument;
+  if (!Array.isArray(document)) throw new Error("Invalid session snapshot document");
+  function reference(index: number): unknown {
+    if (!Number.isInteger(index) || index < 0 || index >= document.length) throw new Error("Invalid session snapshot reference");
+    const value = document[index];
+    if (value == null || typeof value !== "object") throw new Error("Invalid session snapshot content");
+    return value;
+  }
+  const {snapshotDocument: _document, ...rest} = wire;
+  return {...rest, attempts: session.attempts.map(attempt => {
+    const snapshot = attempt.snapshot as typeof attempt.snapshot & {snapshotRefs?: {materials?: number[]; groups?: number[]; visuals?: number[]; options?: number; warnings?: number}};
+    if (!snapshot?.snapshotRefs) return attempt;
+    const {snapshotRefs: refs, ...fields} = snapshot;
+    return {...attempt, snapshot: {...fields,
+      materials: refs.materials ? refs.materials.map(index => reference(index) as Question) : fields.materials,
+      groups: refs.groups ? refs.groups.map(index => reference(index) as Group) : fields.groups,
+      visuals: refs.visuals ? refs.visuals.map(index => reference(index) as Visual) : fields.visuals,
+      warnings: refs.warnings == null ? fields.warnings : reference(refs.warnings) as string[],
+      question: refs.options == null ? fields.question : {...fields.question, options: reference(refs.options) as Question["options"]},
+    }};
+  })};
+}
+export async function runSessionRequest<T>(id: string, send: (snapshotKey?: string) => Promise<T>): Promise<T> {
   const epoch = sessionEpoch;
-  const base = (request.type === "session" || request.type === "position" || request.type === "save_attempt") && lastSession?.id === request.id ? lastSession : undefined;
-  let result = await invoke<ResponseMap[R["type"]]>("request", {
-    request: base?.snapshotKey ? {...request, snapshot_key:base.snapshotKey} : request, locale: locale(),
-  });
+  const base = lastSession?.id === id ? lastSession : undefined;
+  let result: T = await send(base?.snapshotKey);
   if (result && typeof result === "object" && "snapshotKey" in result && "attempts" in result) {
-    let session = result as Session;
+    let session: Session;
+    try {
+      session = expandSession(result as unknown as Session);
+    } catch {
+      session = expandSession(await invoke<Session>("request", {request:{type:"session",id:(result as unknown as Session).id},locale:locale()}));
+    }
     if (session.attempts.some(a => !a.snapshot)) {
       if (base?.id === session.id && base.snapshotKey === session.snapshotKey && base.attempts.length === session.attempts.length
         && session.attempts.every((a, i) => a.ordinal === base.attempts[i].ordinal)) {
         session = {...session, attempts:session.attempts.map((a, i) => ({...a, snapshot:a.snapshot ?? base.attempts[i].snapshot}))};
       } else {
-        session = await invoke<Session>("request", {request:{type:"session",id:session.id},locale:locale()});
+        session = expandSession(await invoke<Session>("request", {request:{type:"session",id:session.id},locale:locale()}));
       }
-      result = session as ResponseMap[R["type"]];
     }
+    result = session as T;
     if (epoch === sessionEpoch) lastSession = session;
   }
   return result;
+}
+export async function api<R extends Request>(request: R): Promise<ResponseMap[R["type"]]> {
+  if (request.type === "asset") {
+    return invoke<ArrayBuffer>("read_asset", { hash: request.hash }) as Promise<ResponseMap[R["type"]]>;
+  }
+  if (request.type === "restore") { lastSession = undefined; sessionEpoch++; }
+  const id = ["session", "position", "save_attempt", "flag", "self_assess", "manual_score"].includes(request.type) && "id" in request && typeof request.id === "string" ? request.id : "";
+  return runSessionRequest(id, snapshotKey => invoke<ResponseMap[R["type"]]>("request", {
+    request: snapshotKey ? {...request, snapshot_key:snapshotKey} : request, locale: locale(),
+  }));
 }
 export function errorMessage(error: unknown): string {
   if (error instanceof MessageError) return renderMessage(error.localized);

@@ -865,6 +865,16 @@ pub(crate) fn context_from_document(doc: &Value, qid: &str) -> Result<Vec<Value>
     )
 }
 
+pub(crate) fn question_from_document<'a>(doc: &'a Value, qid: &str) -> Result<&'a Value> {
+    if doc["schemaVersion"] != 3 {
+        return Err("Unsupported session snapshot".into());
+    }
+    list(doc, "questions")
+        .iter()
+        .find(|row| text(row, "id") == qid)
+        .map(|row| &row["question"])
+        .ok_or_else(|| "Snapshot question is missing".into())
+}
 pub fn session_question(db: &Connection, sid: &str, qid: &str) -> Result<Value> {
     let raw: String = db.query_row("SELECT q.value FROM session_documents d,json_each(d.content,'$.questions') q WHERE d.session_id=?1 AND json_extract(d.content,'$.schemaVersion')=3 AND json_extract(q.value,'$.id')=?2",params![sid,qid],|r|r.get(0)).map_err(err)?;
     Ok(json_read(raw)?["question"].take())

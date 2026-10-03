@@ -1119,7 +1119,7 @@ fn e2e_exam_restart_restore_on_fresh_install_and_retry() {
     assert_eq!(submitted["attempts"][0]["earnedCents"], 0);
     assert!(submitted["attempts"][1]["earnedCents"].is_null());
     source.manual_score(sid, 1, 400, "覆盖部分得分点").unwrap();
-    let finished = source.complete_review(sid).unwrap();
+    let mut finished = source.complete_review(sid).unwrap();
     let summaries = source.sessions(100, 0).unwrap()["items"].clone();
     assert_eq!(summaries[0]["earnedCents"], 400);
     assert_eq!(summaries[0]["totalCents"], 1000);
@@ -1129,7 +1129,14 @@ fn e2e_exam_restart_restore_on_fresh_install_and_retry() {
     // Restore into an empty installation, so existing files cannot hide a broken backup.
     let (_destination, mut restored) = store();
     restored.restore(&backup).unwrap();
-    assert_eq!(restored.session(sid).unwrap(), finished);
+    let mut restored_session = restored.session(sid).unwrap();
+    assert_ne!(restored_session["snapshotKey"], finished["snapshotKey"]);
+    restored_session
+        .as_object_mut()
+        .unwrap()
+        .remove("snapshotKey");
+    finished.as_object_mut().unwrap().remove("snapshotKey");
+    assert_eq!(restored_session, finished);
     assert_eq!(
         restored.sessions(100, 0).unwrap()["items"].clone(),
         summaries
@@ -2221,6 +2228,7 @@ fn restore_invalidates_the_immutable_document_cache() {
     let bank = import(&mut s);
     let session = practice(&s, s.questions(Some(&bank), "", "", "").unwrap(), 1);
     let sid = text(&session, "id");
+    let old_key = text(&session, "snapshotKey").to_owned();
     let db = s.connect().unwrap();
     let cached = s.session_document(&db, sid).unwrap();
     assert!(std::sync::Arc::ptr_eq(
@@ -2234,6 +2242,9 @@ fn restore_invalidates_the_immutable_document_cache() {
     let restored = s.session_document(&s.connect().unwrap(), sid).unwrap();
     assert!(!std::sync::Arc::ptr_eq(&cached, &restored));
     assert_eq!(cached, restored);
+    let response = s.session_data(sid, Some(&old_key)).unwrap();
+    assert_ne!(response["snapshotKey"], old_key);
+    assert!(response["attempts"][0]["snapshot"].is_object());
 }
 
 #[test]

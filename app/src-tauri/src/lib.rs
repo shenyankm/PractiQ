@@ -132,11 +132,15 @@ enum Request {
         id: String,
     },
     Flag {
+        #[serde(default)]
+        snapshot_key: Option<String>,
         id: String,
         ordinal: usize,
         value: bool,
     },
     ManualScore {
+        #[serde(default)]
+        snapshot_key: Option<String>,
         id: String,
         ordinal: usize,
         cents: i64,
@@ -156,6 +160,8 @@ enum Request {
         elapsed_ms: i64,
     },
     SelfAssess {
+        #[serde(default)]
+        snapshot_key: Option<String>,
         id: String,
         ordinal: usize,
         result: bool,
@@ -326,22 +332,22 @@ async fn request(
             Request::Session{id,snapshot_key}=>store.session_data(&id,snapshot_key.as_deref()),
             Request::SessionsPage{limit,offset,filter}=>store.sessions_filtered(limit,offset,if filter.is_empty(){"all"}else{&filter}),
             Request::UnfinishedSession=>store.unfinished_session(),
-            Request::StartPaper{paper}=>store.start_paper(paper),
+            Request::StartPaper{paper}=>store.start_paper_data(paper),
             Request::PreviewPaper{request}=>store.preview_paper(request),
-            Request::SubmitPaper{id,submit_drafts}=>store.submit_paper(&id,submit_drafts),
-            Request::CompleteReview{id}=>store.complete_review(&id),
-            Request::Flag{id,ordinal,value}=>store.flag(&id,ordinal,value),
-            Request::ManualScore{id,ordinal,cents,reason}=>store.manual_score(&id,ordinal,cents,&reason),
-            Request::RetryWrong{id}=>store.retry_wrong(&id),
+            Request::SubmitPaper{id,submit_drafts}=>store.submit_paper_data(&id,submit_drafts),
+            Request::CompleteReview{id}=>store.complete_review_data(&id),
+            Request::Flag{id,ordinal,value,snapshot_key}=>store.flag_with_key(&id,ordinal,value,snapshot_key.as_deref()),
+            Request::ManualScore{id,ordinal,cents,reason,snapshot_key}=>store.manual_score_with_key(&id,ordinal,cents,&reason,snapshot_key.as_deref()),
+            Request::RetryWrong{id}=>store.retry_wrong_data(&id),
             Request::MergeBanks{bank_ids,title}=>store.merge_banks(&bank_ids,&title),
             Request::SaveAttempt{id,ordinal,answer,elapsed_ms,submit,skip,self_result,snapshot_key}=>{
                 store.write_attempt((&id, ordinal),answer,elapsed_ms,submit,skip,self_result)?;
                 store.session_data(&id,snapshot_key.as_deref())
             },
             Request::SaveDraft{id,ordinal,answer,elapsed_ms}=>store.save_draft((&id,ordinal),answer,elapsed_ms),
-            Request::SelfAssess{id,ordinal,result}=>store.self_assess(&id,ordinal,result),
+            Request::SelfAssess{id,ordinal,result,snapshot_key}=>store.self_assess_with_key(&id,ordinal,result,snapshot_key.as_deref()),
             Request::Position{id,position,snapshot_key}=>store.position(&id,position,snapshot_key.as_deref()),
-            Request::Finish{id}=>store.finish(&id),
+            Request::Finish{id}=>store.finish_data(&id),
             Request::Backup=>store.backup(&selected.ok_or(language::error("LOCAL_SAVE_LOCATION_MISSING", json!({})))?),
             Request::Restore=>store.restore(&selected.ok_or(language::error("LOCAL_BACKUP_NOT_SELECTED", json!({})))?),
             Request::Language=>Ok(json!(store.language()?)),

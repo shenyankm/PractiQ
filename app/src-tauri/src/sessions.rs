@@ -4,9 +4,81 @@ use crate::{
 };
 use rusqlite::{params, OptionalExtension};
 use serde_json::{json, Value};
+use std::collections::HashMap;
 
 fn err(e: impl std::fmt::Display) -> crate::AppError {
     e.to_string().into()
+}
+
+#[derive(Default)]
+struct SnapshotDocument {
+    content: Vec<Value>,
+    references: HashMap<(String, String), Vec<usize>>,
+}
+impl SnapshotDocument {
+    fn intern(&mut self, field: &str, id: &str, value: Value) -> usize {
+        let entries = self
+            .references
+            .entry((field.into(), id.into()))
+            .or_default();
+        if let Some(index) = entries.iter().copied().find(|i| self.content[*i] == value) {
+            return index;
+        }
+        let index = self.content.len();
+        self.content.push(value);
+        entries.push(index);
+        index
+    }
+    fn share(&mut self, snapshot: &mut Value) {
+        let mut refs = serde_json::Map::new();
+        for field in ["materials", "groups", "visuals"] {
+            let values = snapshot[field].take();
+            if values.as_array().is_none_or(|values| values.is_empty()) {
+                snapshot[field] = values;
+                continue;
+            }
+            let ids = if let Value::Array(values) = values {
+                values
+                    .into_iter()
+                    .map(|value| {
+                        let id = text(&value, "id").to_owned();
+                        json!(self.intern(field, &id, value))
+                    })
+                    .collect::<Vec<_>>()
+            } else {
+                Vec::new()
+            };
+            refs.insert(field.into(), json!(ids));
+            snapshot.as_object_mut().unwrap().remove(field);
+        }
+        let owner = text(&snapshot["question"], "optionSourceId").to_owned();
+        let options = snapshot["question"]["options"].take();
+        if !owner.is_empty()
+            && options
+                .as_array()
+                .is_some_and(|options| !options.is_empty())
+        {
+            refs.insert(
+                "options".into(),
+                json!(self.intern("options", &owner, options)),
+            );
+        } else {
+            snapshot["question"]["options"] = options;
+        }
+        let warnings = snapshot["warnings"].take();
+        if warnings.as_array().is_some_and(|values| !values.is_empty()) {
+            let root = text(snapshot, "rootId").to_owned();
+            refs.insert(
+                "warnings".into(),
+                json!(self.intern("warnings", &root, warnings)),
+            );
+        } else {
+            snapshot["warnings"] = warnings;
+        }
+        if !refs.is_empty() {
+            snapshot["snapshotRefs"] = json!(refs);
+        }
+    }
 }
 
 impl Store {
@@ -21,28 +93,31 @@ impl Store {
         self.session_clock.at_least(saved)
     }
 
+    #[cfg(test)]
     pub fn session(&self, sid: &str) -> Result<Value> {
-        self.session_data(sid, None)
+        self.session_with(&self.connect()?, sid, None, false)
     }
     pub(crate) fn session_data(&self, sid: &str, snapshot_key: Option<&str>) -> Result<Value> {
         let db = self.connect()?;
-        self.session_with(&db, sid, snapshot_key)
+        self.session_with(&db, sid, snapshot_key, true)
     }
     fn session_with(
         &self,
         db: &rusqlite::Connection,
         sid: &str,
         snapshot_key: Option<&str>,
+        compact: bool,
     ) -> Result<Value> {
         self.expire_exam_with(db, sid)?;
         let mut session=db.query_row("SELECT id,bank_title,created_at,finished_at,position,mode,kind,deadline_at,submitted_at FROM sessions WHERE id=?1",[sid],|r|Ok(json!({"id":r.get::<_,String>(0)?,"title":r.get::<_,String>(1)?,"createdAt":r.get::<_,i64>(2)?,"finishedAt":r.get::<_,Option<i64>>(3)?,"position":r.get::<_,i64>(4)?,"mode":r.get::<_,String>(5)?,"kind":r.get::<_,String>(6)?,"deadlineAt":r.get::<_,Option<i64>>(7)?,"submittedAt":r.get::<_,Option<i64>>(8)?}))).map_err(err)?;
         let mut stmt=db.prepare("SELECT a.ordinal,a.snapshot_question_id,a.answer,a.auto_result,a.result,a.grade_kind,a.submitted_at,a.skipped,a.elapsed_ms,a.max_cents,a.earned_cents,a.flagged,a.grading,q.favorite FROM attempts a LEFT JOIN questions q ON q.id=a.question_id WHERE a.session_id=?1 ORDER BY a.ordinal").map_err(err)?;
         let attempts=stmt.query_map([sid],|r|Ok(json!({"ordinal":r.get::<_,i64>(0)?,"snapshotId":r.get::<_,String>(1)?,"answer":serde_json::from_str::<Value>(&r.get::<_,String>(2)?).unwrap_or(Value::Null),"autoResult":r.get::<_,Option<bool>>(3)?,"result":r.get::<_,Option<bool>>(4)?,"gradeKind":r.get::<_,String>(5)?,"submittedAt":r.get::<_,Option<i64>>(6)?,"skipped":r.get::<_,bool>(7)?,"elapsedMs":r.get::<_,i64>(8)?,"maxCents":r.get::<_,Option<i64>>(9)?,"earnedCents":r.get::<_,Option<i64>>(10)?,"flagged":r.get::<_,bool>(11)?,"grading":serde_json::from_str::<Value>(&r.get::<_,String>(12)?).map_err(|e|rusqlite::Error::FromSqlConversionFailure(12,rusqlite::types::Type::Text,Box::new(e)))?,"favorite":r.get::<_,Option<bool>>(13)?}))).map_err(err)?.collect::<std::result::Result<Vec<_>,_>>().map_err(err)?;
         let mut attempts = attempts;
-        // Immutable snapshots change visibility only when an attempt/session is submitted or finished.
+        // Restore can replace immutable content with the same session/attempt identities.
         let key = crate::store::hash(
             json!([
                 sid,
+                self.session_epoch,
                 session["kind"],
                 session["finishedAt"],
                 session["submittedAt"],
@@ -54,11 +129,44 @@ impl Store {
             .to_string()
             .as_bytes(),
         );
+        let mut document = SnapshotDocument::default();
         if snapshot_key != Some(key.as_str()) {
             let frozen = crate::questions::thaw(self.session_document(db, sid)?.as_ref())?;
             let index = crate::questions::Index::new(&frozen);
+            let mut open = HashMap::new();
+            let submitted: HashMap<_, _> = attempts
+                .iter()
+                .map(|a| (text(a, "snapshotId"), !a["submittedAt"].is_null()))
+                .collect();
+            for row in frozen
+                .iter()
+                .filter(|row| text(&row["question"], "answerMode") == "listening")
+            {
+                let unlocked = index.trees[text(row, "id")]
+                    .iter()
+                    .filter_map(|child| submitted.get(text(child, "id")))
+                    .all(|value| *value);
+                open.insert(text(row, "id").to_owned(), unlocked);
+            }
+            let exam = text(&session, "kind") != "practice";
+            let finished = !session["submittedAt"].is_null() || !session["finishedAt"].is_null();
             for a in &mut attempts {
-                a["snapshot"] = index.snapshot(text(a, "snapshotId"))?;
+                let mut snapshot = index.snapshot(text(a, "snapshotId"))?;
+                if compact {
+                    crate::exams::enrich_snapshot(
+                        &mut snapshot,
+                        exam && session["submittedAt"].is_null(),
+                    );
+                    crate::audio::redact_snapshot(
+                        &mut snapshot,
+                        exam,
+                        finished,
+                        !a["submittedAt"].is_null(),
+                        &open,
+                    );
+                    document.share(&mut snapshot);
+                }
+                a["snapshot"] = snapshot;
             }
         }
         for a in &mut attempts {
@@ -75,8 +183,20 @@ impl Store {
             .map_err(err)?
             .collect::<std::result::Result<Vec<_>, _>>()
             .map_err(err)?);
-        Self::enrich_session(&mut session)?;
-        crate::audio::redact_session(&mut session);
+        if compact {
+            if !document.content.is_empty() {
+                session["snapshotDocument"] = json!(document.content);
+            }
+            if text(&session, "kind") != "practice" && session["submittedAt"].is_null() {
+                for a in session["attempts"].as_array_mut().unwrap() {
+                    a["result"] = Value::Null;
+                    a["autoResult"] = Value::Null;
+                }
+            }
+        } else {
+            Self::enrich_session(&mut session)?;
+            crate::audio::redact_session(&mut session);
+        }
         Ok(session)
     }
     fn expire_sessions(&self) -> Result<()> {
@@ -140,7 +260,18 @@ impl Store {
         }
         Ok(json!({"items":rows,"total":total,"offset":offset}))
     }
+    #[cfg(test)]
     pub fn self_assess(&self, sid: &str, ordinal: usize, result: bool) -> Result<Value> {
+        self.self_assess_with_key(sid, ordinal, result, None)?;
+        self.session(sid)
+    }
+    pub fn self_assess_with_key(
+        &self,
+        sid: &str,
+        ordinal: usize,
+        result: bool,
+        snapshot_key: Option<&str>,
+    ) -> Result<Value> {
         let mut db = self.connect()?;
         let tx = db.transaction().map_err(err)?;
         let attempt = tx.query_row(
@@ -170,7 +301,7 @@ impl Store {
         )
         .map_err(err)?;
         tx.commit().map_err(err)?;
-        self.session(sid)
+        self.session_data(sid, snapshot_key)
     }
     #[cfg(test)]
     pub fn save_attempt(
@@ -337,15 +468,26 @@ impl Store {
         let db = self.connect()?;
         self.session_now_with(&db)?;
         db.execute("UPDATE sessions SET position=?2,last_active_at=?3 WHERE id=?1 AND finished_at IS NULL AND EXISTS(SELECT 1 FROM attempts WHERE session_id=?1 AND ordinal=?2)",params![sid,position,self.session_clock.now()?]).map_err(err)?;
-        let mut session = self.session_with(&db, sid, snapshot_key)?;
+        let mut session = self.session_with(&db, sid, snapshot_key, true)?;
         if position < list(&session, "attempts").len() {
             session["position"] = json!(position);
         }
         Ok(session)
     }
+    #[cfg(test)]
     pub fn finish(&self, sid: &str) -> Result<Value> {
-        if self.session(sid)?["kind"] != "practice" {
-            return self.submit_paper(sid, true);
+        self.finish_data(sid)?;
+        self.session(sid)
+    }
+    pub fn finish_data(&self, sid: &str) -> Result<Value> {
+        let kind: String = self
+            .connect()?
+            .query_row("SELECT kind FROM sessions WHERE id=?1", [sid], |row| {
+                row.get(0)
+            })
+            .map_err(err)?;
+        if kind != "practice" {
+            return self.submit_paper_data(sid, true);
         }
         let mut db = self.connect()?;
         let tx = db.transaction().map_err(err)?;
@@ -356,10 +498,13 @@ impl Store {
         )
         .map_err(err)?;
         tx.commit().map_err(err)?;
-        self.session(sid)
+        self.session_data(sid, None)
     }
 }
 
+#[cfg(test)]
+#[path = "shared_snapshots_tests.rs"]
+mod shared_snapshots_tests;
 #[cfg(test)]
 #[path = "ux_sessions_tests.rs"]
 mod ux_sessions_tests;

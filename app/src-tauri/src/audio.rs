@@ -201,8 +201,16 @@ impl Store {
                 |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
             )
             .map_err(err)?;
-        let q = crate::questions::session_question(&tx, sid, qid)?;
-        if text(&q, "answerMode") != "listening" {
+        let document = self.session_document_cache.borrow();
+        let selected;
+        let q = if let Some((_, doc)) = document.as_ref().filter(|(id, _)| id == sid) {
+            crate::questions::question_from_document(doc, qid)?
+        } else {
+            // Large documents retain the selective read-through path instead of allocating the full tree per tick.
+            selected = crate::questions::session_question(&tx, sid, qid)?;
+            &selected
+        };
+        if text(q, "answerMode") != "listening" {
             return Err("Listening group is not in this session".into());
         }
         let start = q["audioStartSeconds"].as_f64().unwrap_or(0.0);
@@ -304,62 +312,66 @@ pub fn redact_session(session: &mut Value) {
         if a.get("snapshot").is_none() {
             continue;
         }
-        let reveal = if exam {
-            finished
-        } else {
-            !a["submittedAt"].is_null() || finished
-        };
-        let protected =
-            exam || matches!(
-                text(&a["snapshot"]["question"], "questionKind"),
-                "translation" | "writing"
-            ) || list(&a["snapshot"], "materials")
-                .iter()
-                .any(|p| text(p, "answerMode") == "listening");
-        if !reveal && protected {
-            strip_answers(&mut a["snapshot"]["question"]);
+        let submitted = !a["submittedAt"].is_null();
+        redact_snapshot(&mut a["snapshot"], exam, finished, submitted, &open);
+    }
+}
+pub(crate) fn redact_snapshot(
+    snapshot: &mut Value,
+    exam: bool,
+    finished: bool,
+    submitted: bool,
+    open: &std::collections::HashMap<String, bool>,
+) {
+    let reveal = if exam {
+        finished
+    } else {
+        submitted || finished
+    };
+    let protected =
+        exam || matches!(
+            text(&snapshot["question"], "questionKind"),
+            "translation" | "writing"
+        ) || list(snapshot, "materials")
+            .iter()
+            .any(|p| text(p, "answerMode") == "listening");
+    if !reveal && protected {
+        strip_answers(&mut snapshot["question"]);
+    }
+    let materials = snapshot.get_mut("materials").and_then(Value::as_array_mut);
+    let mut listening_locked = false;
+    for p in materials.into_iter().flatten() {
+        let is_listening = text(p, "answerMode") == "listening";
+        let unlocked = finished || (!exam && open.get(text(p, "id")).copied().unwrap_or(false));
+        if (!reveal && protected) || (is_listening && !unlocked) {
+            strip_answers(p);
         }
-        let materials = a["snapshot"]
-            .get_mut("materials")
-            .and_then(Value::as_array_mut);
-        let mut listening_locked = false;
-        for p in materials.into_iter().flatten() {
-            let is_listening = text(p, "answerMode") == "listening";
-            let unlocked = finished || (!exam && open.get(text(p, "id")).copied().unwrap_or(false));
-            if (!reveal && protected) || (is_listening && !unlocked) {
-                strip_answers(p);
-            }
-            if is_listening && !unlocked {
-                p["transcript"] = json!([]);
-                listening_locked = true;
-            }
+        if is_listening && !unlocked {
+            p["transcript"] = json!([]);
+            listening_locked = true;
         }
-        if (!reveal && protected) || listening_locked {
-            if let Some(groups) = a["snapshot"]["groups"].as_array_mut() {
-                groups.retain(|g| {
-                    !crate::exams::answer_text(text(g, "title"))
-                        && !crate::exams::answer_text(text(g, "instructions"))
-                });
-            }
-            if let Some(visuals) = a["snapshot"]["visuals"].as_array_mut() {
-                visuals.retain(|v| !crate::questions::answer_content(v));
-            }
+    }
+    if (!reveal && protected) || listening_locked {
+        if let Some(groups) = snapshot["groups"].as_array_mut() {
+            groups.retain(|g| {
+                !crate::exams::answer_text(text(g, "title"))
+                    && !crate::exams::answer_text(text(g, "instructions"))
+            });
         }
-        if listening_locked {
-            if let Some(blocks) = a["snapshot"]["question"]["contentBlocks"].as_array_mut() {
-                blocks.retain(|b| !crate::questions::answer_content(b));
-            }
+        if let Some(visuals) = snapshot["visuals"].as_array_mut() {
+            visuals.retain(|v| !crate::questions::answer_content(v));
         }
-        if (!reveal && protected) || listening_locked {
-            a["snapshot"]["question"]["sourceText"] = Value::Null;
-            for visual in a["snapshot"]["visuals"]
-                .as_array_mut()
-                .into_iter()
-                .flatten()
-            {
-                if let Some(visual) = visual.as_object_mut() {
-                    visual.remove("sourceRef");
-                }
+    }
+    if listening_locked {
+        if let Some(blocks) = snapshot["question"]["contentBlocks"].as_array_mut() {
+            blocks.retain(|b| !crate::questions::answer_content(b));
+        }
+    }
+    if (!reveal && protected) || listening_locked {
+        snapshot["question"]["sourceText"] = Value::Null;
+        for visual in snapshot["visuals"].as_array_mut().into_iter().flatten() {
+            if let Some(visual) = visual.as_object_mut() {
+                visual.remove("sourceRef");
             }
         }
     }

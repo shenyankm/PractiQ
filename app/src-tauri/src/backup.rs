@@ -70,8 +70,9 @@ impl Store {
         let mut output = tempfile::NamedTempFile::new_in(parent).map_err(err)?;
         {
             let mut zip = ZipWriter::new(output.as_file_mut());
-            let options =
-                SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+            let options = SimpleFileOptions::default()
+                .compression_method(zip::CompressionMethod::Deflated)
+                .compression_level(Some(1));
             zip.start_file("manifest.json", options).map_err(err)?;
             zip.write_all(&manifest).map_err(err)?;
             zip.start_file("practiq.sqlite", options).map_err(err)?;
@@ -119,6 +120,7 @@ impl Store {
     }
     pub fn restore(&mut self, source: &Path) -> Result<Value> {
         *self.session_document_cache.get_mut() = None;
+        self.session_epoch = self.session_epoch.wrapping_add(1);
         let result = self.restore_inner(source);
         if result.is_err() {
             let _ = self.collect_unused_assets();
@@ -488,14 +490,14 @@ fn validate_database_contents(db: &Connection) -> Result<()> {
         crate::contract::list(&doc, "visuals"),
         &ids,
     )?;
-    let sessions = db
+    let mut snapshots = db
         .prepare("SELECT session_id,content FROM session_documents")
-        .map_err(err)?
-        .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))
-        .map_err(err)?
-        .collect::<std::result::Result<Vec<_>, _>>()
         .map_err(err)?;
-    for (sid, raw) in sessions {
+    let sessions = snapshots
+        .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))
+        .map_err(err)?;
+    for session in sessions {
+        let (sid, raw) = session.map_err(err)?;
         if raw.len() > LIMIT {
             return Err("Snapshot exceeds backup limit".into());
         }

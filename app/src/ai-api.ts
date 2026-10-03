@@ -1,7 +1,7 @@
 import type { DocumentTaskSummary, DocumentTaskReview } from "./contracts.generated";
 import { invoke } from "./transport";
 import { locale } from "./i18n";
-import type { Preview, Session } from "./api";
+import { runSessionRequest, type Preview, type Session } from "./api";
 
 export type TaskFilter = "active" | "paused" | "completed" | "cancelled" | "failed" | "review" | "interrupted" | "expired";
 
@@ -60,7 +60,7 @@ export type Batch = {
   }[];
 };
 export type Request =
-  | { type: "grade"; id: string; ordinal: number; retry: boolean }
+  | { type: "grade"; id: string; ordinal: number; retry: boolean; snapshot_key?: string }
   | { type: "list"; offset: number; filter?: TaskFilter }
   | { type: "get" | "preview" | "review"; id: string }
   | { type: "reparse"; id: string }
@@ -108,6 +108,12 @@ type ResponseMap = {
   review_asset: { mediaType: string; content: string };
 };
 export function ai<R extends Request>(request: R): Promise<ResponseMap[R["type"]]> {
+  if (request.type === "grade") {
+    return runSessionRequest(request.id, snapshotKey => invoke<ResponseMap[R["type"]]>("ai_request", {
+      request: snapshotKey ? {...request, snapshot_key: snapshotKey} : request,
+      locale: locale(),
+    }));
+  }
   return invoke<ResponseMap[R["type"]]>("ai_request", { request, locale: locale() });
 }
 export function readReviewImage(request: { id: string; checkpointId: string; unit: number; visual: number | null }): Promise<ArrayBuffer> {

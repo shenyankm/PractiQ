@@ -28,6 +28,8 @@ pub enum AiRequest {
         id: String,
         ordinal: usize,
         retry: bool,
+        #[serde(default)]
+        snapshot_key: Option<String>,
     },
     List {
         offset: usize,
@@ -781,7 +783,7 @@ pub fn request(
                 None => Ok(Value::Null),
             };
         }
-        AiRequest::Operations => return ai_work::operations(&dir),
+        AiRequest::Operations => return ai_work::operations(&dir, &work),
         AiRequest::Batches { offset, thread_ids } => {
             return ai_work::batches(&dir, &work, *offset, thread_ids)
         }
@@ -801,7 +803,12 @@ pub fn request(
         || matches!(&request, AiRequest::Control { action, .. } if matches!(action.as_str(), "resume" | "retry_failed" | "accept_partial"));
     let process = active_endpoint(&app, &dir, model_required)?;
     match request {
-        AiRequest::Grade { id, ordinal, retry } => {
+        AiRequest::Grade {
+            id,
+            ordinal,
+            retry,
+            snapshot_key,
+        } => {
             let payload = shared
                 .lock()
                 .map_err(|_| {
@@ -823,11 +830,12 @@ pub fn request(
                 .map_err(|_| {
                     crate::language::error("LOCAL_DATABASE_UNAVAILABLE", serde_json::json!({}))
                 })?
-                .record_grade(
+                .record_grade_with_key(
                     &id,
                     ordinal,
                     contract::text(&payload, "requestId"),
                     &response,
+                    snapshot_key.as_deref(),
                 )?)
         }
         AiRequest::List { offset, filter } => {
@@ -861,11 +869,17 @@ pub fn request(
                 &format!("/api/document-tasks?limit=20&offset={offset}{filter_query}"),
                 None,
             )?;
+            let threads: Vec<_> = result["items"]
+                .as_array()
+                .ok_or(crate::language::error("LOCAL_TASK_LIST_INVALID", json!({})))?
+                .iter()
+                .map(|item| contract::text(item, "threadId").to_owned())
+                .collect();
+            let details = ai_work::import_details(&dir, &work, &threads)?;
             let store = shared.lock().map_err(|_| {
                 crate::language::error("LOCAL_DATABASE_UNAVAILABLE", serde_json::json!({}))
             })?;
             let db = store.connect()?;
-            let details = ai_work::import_details(&dir)?;
             for item in result["items"]
                 .as_array_mut()
                 .ok_or(crate::language::error(
@@ -936,7 +950,7 @@ pub fn request(
                     let bytes = store::read_bounded(path, 25 * 1024 * 1024)?;
                     let hash = store::hash(&bytes);
                     let mut previous = if office {
-                        ai_work::office_matches(&dir, &hash, office_mode)?
+                        ai_work::office_matches(&dir, &work, &hash, office_mode)?
                     } else {
                         process.json(
                             Method::GET,
@@ -1049,7 +1063,7 @@ pub fn request(
             )
         }
         AiRequest::Preview { id } => {
-            let mut pending = process.pending(&dir, &id)?;
+            let mut pending = process.pending(&dir, &work, &id)?;
             let store = Store {
                 dir,
                 ..Default::default()
@@ -1100,7 +1114,7 @@ pub fn request(
             ai_work::replay_operation(&dir, &work, &process, &request_id)
         }
         AiRequest::PrepareBatch { ids, bank_id } => {
-            ai_work::prepare_batch(&dir, &process, &ids, bank_id)
+            ai_work::prepare_batch(&dir, &work, &process, &ids, bank_id)
         }
         AiRequest::RunBatch { id, titles } => {
             ai_work::run_batch(&dir, &work, &process, &shared, &id, titles)
@@ -1120,7 +1134,12 @@ impl Endpoint {
         contract::validate_workflow(&result, true)?;
         Ok(result)
     }
-    pub(crate) fn pending(&self, dir: &std::path::Path, id: &str) -> AiResult<Pending> {
+    pub(crate) fn pending(
+        &self,
+        dir: &std::path::Path,
+        work: &WorkState,
+        id: &str,
+    ) -> AiResult<Pending> {
         let result = self.json(Method::GET, &task_path(id)?, None)?;
         if result["threadId"] != id || result["state"] != "COMPLETED" {
             return Err(crate::language::error("TASK_NOT_COMPLETED", json!({})));
@@ -1144,7 +1163,7 @@ impl Endpoint {
             output["processing"] = result["processing"].clone();
         }
         let mut pending = Pending::new(serde_json::to_vec(&output).map_err(err)?, title)?;
-        if let Some(details) = ai_work::import_details(dir)?.remove(id) {
+        if let Some(details) = ai_work::import_details(dir, work, &[id.into()])?.remove(id) {
             pending.title = details.title;
             pending.description = details.description;
         }

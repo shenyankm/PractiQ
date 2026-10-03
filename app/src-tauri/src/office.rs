@@ -368,6 +368,7 @@ fn read_artifacts(
     let mut artifacts = Vec::new();
     let mut total = 0;
     let mut seen = std::collections::HashSet::new();
+    let source_sha256 = store::hash(bytes);
     for file in files {
         let path = Path::new(&file.name);
         if path.components().count() != 1
@@ -402,7 +403,7 @@ fn read_artifacts(
             has_content: file.has_content,
             origin: Origin {
                 file_name: original_name.into(),
-                source_sha256: store::hash(bytes),
+                source_sha256: source_sha256.clone(),
                 mode,
                 version: version.into(),
                 artifact_sha256: file.sha256,
@@ -706,6 +707,36 @@ mod tests {
         )
         .is_err());
     }
+    #[test]
+    fn sheet_artifacts_share_original_digest_and_keep_each_output_digest() {
+        let dir = tempfile::tempdir().unwrap();
+        let files: Vec<_> = [("source-A.csv", b"one".as_slice()), ("source-B.csv", b"two".as_slice())]
+            .into_iter().map(|(name, bytes)| {
+                fs::write(dir.path().join(name), bytes).unwrap();
+                json!({"name":name,"sha256":store::hash(bytes),"sizeBytes":bytes.len(),"hasContent":true})
+            }).collect();
+        let result = read_artifacts(
+            dir.path(),
+            json!({"artifacts":files}),
+            Path::new("book.xlsx"),
+            b"original workbook",
+            Mode::Text,
+            "LibreOffice",
+        )
+        .unwrap();
+        assert_eq!(result.len(), 2);
+        for artifact in result {
+            assert_eq!(
+                artifact.origin.source_sha256,
+                store::hash(b"original workbook")
+            );
+            assert_eq!(
+                artifact.origin.artifact_sha256,
+                store::hash(&artifact.bytes)
+            );
+        }
+    }
+
     #[test]
     fn conversion_serializes_cancellation_and_resets_state() {
         let state = OfficeState::default();

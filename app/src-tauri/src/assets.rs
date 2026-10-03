@@ -9,6 +9,7 @@ pub const LIMIT: usize = 25 * 1024 * 1024;
 fn err(e: impl std::fmt::Display) -> crate::AppError {
     e.to_string().into()
 }
+
 impl Store {
     pub fn collect_unused_assets(&self) -> Result<()> {
         let mut db = self.connect()?;
@@ -41,7 +42,14 @@ impl Store {
                 used.extend(image.into_iter().chain(source));
             }
         }
-        if !hashes.is_empty() {
+        let has_audio: bool = tx
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM assets WHERE media NOT IN ('image/png','image/jpeg'))",
+                [],
+                |row| row.get(0),
+            )
+            .map_err(err)?;
+        if has_audio {
             let mut statement=tx.prepare("SELECT json_extract(audio_ref,'$.sha256') FROM listening_questions UNION SELECT json_extract(value,'$.question.audioRef.sha256') FROM session_documents,json_each(session_documents.content,'$.questions')").map_err(err)?;
             for digest in statement
                 .query_map([], |r| r.get::<_, Option<String>>(0))
@@ -158,5 +166,64 @@ impl Store {
             ));
         }
         Ok(bytes)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rusqlite::params;
+    use serde_json::json;
+
+    #[test]
+    fn image_only_collection_skips_audio_content_and_preserves_snapshot_audio_when_present() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path().into()).unwrap();
+        let image = include_bytes!("../../fixtures/rich-content/resources/chart.png");
+        let image_hash = hash(image);
+        store.write_asset(&image_hash, image).unwrap();
+        let db = store.connect().unwrap();
+        db.execute(
+            "INSERT INTO assets VALUES(?1,'image/png',?2,?3)",
+            params![image_hash, image.len(), format!("assets/{image_hash}")],
+        )
+        .unwrap();
+        db.execute("INSERT INTO sessions(id,bank_title,created_at,position,mode) VALUES('snapshot','bank',0,0,'all')", []).unwrap();
+        // Cleanup extracts resource references, not question content; only an audio scan would
+        // attempt json_extract on this string. Full restore still validates every snapshot.
+        let mut document = json!({"visuals":[{"imageRef":{"sha256":image_hash}}],"questions":["content without audio"]});
+        db.execute(
+            "INSERT INTO session_documents VALUES('snapshot',?1)",
+            [document.to_string()],
+        )
+        .unwrap();
+        store.collect_unused_assets().unwrap();
+        assert!(store.asset_bytes(&image_hash).unwrap().is_some());
+
+        let audio = include_bytes!("../../fixtures/resources/audio/chimes.wav");
+        let audio_hash = hash(audio);
+        store.write_asset(&audio_hash, audio).unwrap();
+        db.execute(
+            "INSERT INTO assets VALUES(?1,'audio/wav',?2,?3)",
+            params![audio_hash, audio.len(), format!("assets/{audio_hash}")],
+        )
+        .unwrap();
+        document["questions"] = json!([{"question":{"audioRef":{"sha256":audio_hash}}}]);
+        db.execute(
+            "UPDATE session_documents SET content=?1 WHERE session_id='snapshot'",
+            [document.to_string()],
+        )
+        .unwrap();
+        store.collect_unused_assets().unwrap();
+        assert!(store.asset_bytes(&audio_hash).unwrap().is_some());
+        document["questions"] = json!([]);
+        db.execute(
+            "UPDATE session_documents SET content=?1 WHERE session_id='snapshot'",
+            [document.to_string()],
+        )
+        .unwrap();
+        store.collect_unused_assets().unwrap();
+        assert!(store.asset_bytes(&audio_hash).unwrap().is_none());
+        assert!(store.asset_bytes(&image_hash).unwrap().is_some());
     }
 }
