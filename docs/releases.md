@@ -129,11 +129,20 @@ to derive checked resources from the selected final file and rebuild local
 assets. Default `release.py stage` remains the unsigned CI path. Explicit
 staging requires the original unsigned CI platform candidate, installer and bound
 evidence, preserves its build URL, and checks the selected installer's actual
-desktop version. The original evidence directory must resolve within the downloaded
+desktop version. The original installer must be a regular non-link file with real
+parent directories and resolve within its downloaded candidate directory.
+The original evidence directory must resolve within the downloaded
 candidate directory, and each evidence file must resolve within that evidence root.
 Previously restaged candidates cannot replace that original
 build provenance. Windows desktop executables must have bounded, complete PE
-headers identifying x64 (`0x8664`) and PE32+ (`0x20b`). Final DEBs must declare `amd64` and mandatory GTK/WebKit plus
+headers identifying x64 (`0x8664`) and PE32+ (`0x20b`), with the executable flag
+(`0x0002`) set and the DLL flag (`0x2000`) clear, as defined in the
+[Microsoft PE specification](https://learn.microsoft.com/en-us/windows/win32/debug/pe-format#characteristics).
+Final DEBs must use the candidate's Tauri product name converted with
+[Tauri's kebab-case rule](https://github.com/tauri-apps/tauri/blob/tauri-cli-v2.11.5/crates/tauri-bundler/src/bundle/linux/debian.rs#L172-L173):
+`PractiQ` produces control `Package: practi-q`, independently of the installer
+filename and Cargo package name. The checker supports ASCII product names and
+rejects unsupported or invalid names. DEBs must also declare `amd64` and mandatory GTK/WebKit plus
 every runtime dependency in the candidate's Linux Tauri configuration. Version
 bounds and `:amd64`/`:any` qualifiers are accepted; an alternative package does
 not satisfy a required library. Extracted resource directories must be real and

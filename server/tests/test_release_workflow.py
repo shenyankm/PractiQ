@@ -22,13 +22,14 @@ LINUX_DEPENDENCIES = ["libwebkit2gtk-4.1-0", "libgtk-3-0", *json.loads(
 )["bundle"]["linux"]["deb"]["depends"]]
 
 
-def native_pe(machine=0x8664, magic=0x20B):
+def native_pe(machine=0x8664, magic=0x20B, characteristics=0x0002):
     payload = bytearray(512)
     payload[:2] = b"MZ"
     payload[60:64] = (128).to_bytes(4, "little")
     payload[128:132] = b"PE\0\0"
     payload[132:134] = machine.to_bytes(2, "little")
     payload[148:150] = (240).to_bytes(2, "little")
+    payload[150:152] = characteristics.to_bytes(2, "little")
     payload[152:154] = magic.to_bytes(2, "little")
     return bytes(payload)
 
@@ -364,7 +365,8 @@ def final_setup(release, source, monkeypatch):
                     plist.symlink_to(external)
             elif platform == "win32":
                 (bundle.parent / "PractiQ.exe").write_bytes(native_pe(0xAA64 if fault == "windows_arm64" else 0x14C if fault == "windows_x86" else 0x8664,
-                                                                      0x10B if fault == "windows_pe32" else 0x20B))
+                                                                      0x10B if fault == "windows_pe32" else 0x20B,
+                                                                      state.get("pe_characteristics", 0x0002)))
                 (bundle.parent / "uninstall.exe").write_bytes(b"synthetic uninstaller")
             else:
                 application = bundle.parents[3] / "usr/bin/PractiQ"
@@ -484,6 +486,8 @@ def final_setup(release, source, monkeypatch):
             if command[0] == "7z":
                 return "Path = PractiQ.exe\nSize = 1\n\nPath = bundled/build-manifest.json\nSize = 1\n"
             if command[:2] == ["dpkg-deb", "-f"]:
+                if command[-1] == "Package":
+                    return state.get("package", "practi-q") + "\n"
                 if command[-1] == "Architecture":
                     return "arm64\n" if fault == "deb_architecture" else "amd64\n"
                 if command[-1] == "Depends":
@@ -501,6 +505,66 @@ def test_final_deb_rejects_wrong_architecture_before_bundle_gates(release, sourc
     with pytest.raises(ValueError, match="architecture"):
         release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=state["build_candidate"])
     assert not output.exists() and not state["calls"]
+
+
+@pytest.mark.parametrize("package", ["", "another-application", "practiq", "PractiQ", "practiq-desktop"])
+def test_final_deb_rejects_package_identity_drift_before_extraction_and_gates(release, source, final_setup, package):
+    installer, output, reports, state = final_setup("linux")
+    state["package"] = package
+    with pytest.raises(ValueError, match="DEB package"):
+        release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=state["build_candidate"])
+    assert not output.exists() and not state["calls"] and not state["native"]
+
+
+def test_final_deb_accepts_tauri_product_name_identity_not_cargo_name(release, source, final_setup):
+    installer, output, reports, state = final_setup("linux")
+    assert json.loads((source / "app/src-tauri/tauri.conf.json").read_text())["productName"] == "PractiQ"
+    state["package"] = " \tpracti-q\n"
+    release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=state["build_candidate"])
+    assert output.exists() and len(state["calls"]) == 4
+
+
+@pytest.mark.parametrize(("product", "package"), [
+    ("PractiQ", "practi-q"), ("XMLHttpRequest", "xml-http-request"),
+    ("SHOUTY_SNAKE_CASE", "shouty-snake-case"), ("PractiQ 2", "practi-q-2"),
+    ("ABC1Def", "abc1-def"), ("a1B2Cd", "a1-b2-cd"), ("1Cd", "1cd"),
+])
+def test_deb_identity_follows_tauri_heck_word_boundaries(release, source, final_setup, product, package):
+    installer, _, _, state = final_setup("linux")
+    config_path = source / "app/src-tauri/tauri.conf.json"
+    config = json.loads(config_path.read_text())
+    config["productName"] = product
+    config_path.write_text(json.dumps(config))
+    state["package"] = package
+    release.check_deb(installer, source)
+    state["package"] = "unrelated-package"
+    with pytest.raises(ValueError, match="DEB package"):
+        release.check_deb(installer, source)
+
+
+def test_deb_identity_uses_linux_product_override_and_cargo_fallback(release, source, final_setup):
+    installer, _, _, state = final_setup("linux")
+    linux_path = source / "app/src-tauri/tauri.linux.conf.json"
+    linux = json.loads(linux_path.read_text())
+    linux["productName"] = "LinuxProduct"
+    linux_path.write_text(json.dumps(linux))
+    state["package"] = "linux-product"
+    release.check_deb(installer, source)
+    linux["productName"] = None
+    linux_path.write_text(json.dumps(linux))
+    state["package"] = "practiq-desktop"
+    release.check_deb(installer, source)
+
+
+@pytest.mark.parametrize("product", ["练习", "A", "", 42])
+def test_deb_identity_rejects_unsupported_or_invalid_candidate_names(release, source, final_setup, product):
+    installer, _, _, _ = final_setup("linux")
+    config_path = source / "app/src-tauri/tauri.conf.json"
+    config = json.loads(config_path.read_text())
+    config["productName"] = product
+    config_path.write_text(json.dumps(config))
+    with pytest.raises(ValueError, match="DEB package identity"):
+        release.check_deb(installer, source)
 
 
 @pytest.mark.parametrize("missing", LINUX_DEPENDENCIES)
@@ -788,6 +852,23 @@ def test_final_windows_rejects_malformed_native_pe(release, source, final_setup,
     application.write_bytes(payload)
     with pytest.raises(ValueError, match="PE|executable"):
         release.check_desktop_version(installer, bundle, "0.1.0", "PractiQ")
+
+
+@pytest.mark.parametrize("characteristics", [0, 0x0020, 0x2002, 0x2022])
+def test_final_windows_rejects_nonexecutable_or_dll_pe_before_gates(release, source, final_setup, characteristics):
+    installer, output, reports, state = final_setup("win32")
+    state["pe_characteristics"] = characteristics
+    with pytest.raises(ValueError, match="PE.*executable.*DLL"):
+        release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=state["build_candidate"])
+    assert not output.exists() and not state["calls"]
+
+
+@pytest.mark.parametrize("characteristics", [0x0002, 0x0022])
+def test_final_windows_accepts_executable_pe_with_other_valid_flags(release, source, final_setup, characteristics):
+    installer, output, reports, state = final_setup("win32")
+    state["pe_characteristics"] = characteristics
+    release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=state["build_candidate"])
+    assert output.exists() and len(state["calls"]) == 4
 
 
 @pytest.mark.parametrize("status", ["verified", "unsigned", "failed"])
@@ -1166,6 +1247,59 @@ def test_original_build_rejects_evidence_root_outside_downloaded_candidate(relea
     with pytest.raises(ValueError, match="evidence.*escaped|evidence.*directory"):
         release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=path)
     assert not output.exists() and not reports.exists() and not state["native"] and not state["calls"]
+
+
+@pytest.mark.parametrize("fault", ["absolute_external", "relative_external", "internal", "dangling", "directory"])
+def test_original_build_requires_regular_nonlink_installer_before_provenance_claim(release, source, final_setup, fault):
+    installer, output, reports, state = final_setup()
+    path = state["build_candidate"]
+    candidate = json.loads(path.read_text())
+    asset = path.parent / candidate["file"]
+    if fault == "directory":
+        asset.unlink()
+        asset.mkdir()
+    else:
+        target = path.parent / "other-installer.dmg" if fault == "internal" else source / "unrelated-installer.dmg"
+        asset.rename(target)
+        if fault == "dangling":
+            target.unlink()
+        link = target if fault == "absolute_external" else Path(os.path.relpath(target, asset.parent))
+        asset.symlink_to(link)
+    with pytest.raises(ValueError, match="Original build asset.*regular|Original build asset.*contained"):
+        release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=path)
+    assert not output.exists() and not reports.exists() and not state["native"] and not state["calls"]
+
+
+@pytest.mark.parametrize("absolute", [False, True])
+@pytest.mark.parametrize("nested", [False, True])
+def test_original_build_rejects_redirected_candidate_parent_before_provenance_claim(release, source, final_setup, absolute, nested):
+    installer, output, reports, state = final_setup()
+    path = state["build_candidate"]
+    directory = path.parent
+    if nested:
+        ancestor = source / "download-parent"
+        ancestor.mkdir()
+        directory.rename(ancestor / directory.name)
+        path = ancestor / directory.name / path.name
+        directory = ancestor
+    target = source / "redirected-download"
+    directory.rename(target)
+    directory.symlink_to(target if absolute else Path(target.name), target_is_directory=True)
+    with pytest.raises(ValueError, match="Original build asset.*parent"):
+        release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=path)
+    assert not output.exists() and not reports.exists() and not state["native"] and not state["calls"]
+
+
+def test_original_build_binds_regular_installer_inside_candidate_directory(release, source, final_setup):
+    _, _, _, state = final_setup()
+    path = state["build_candidate"]
+    provenance, raw = release.original_build(source, "v0.1.0", "a" * 40, path)
+    candidate = json.loads(raw)
+    asset = path.parent / candidate["file"]
+    assert asset.is_file() and not asset.is_symlink()
+    assert provenance["assetAndEvidenceVerified"] is True
+    assert provenance["candidateSha256"] == hashlib.sha256(raw).hexdigest()
+    assert not state["native"] and not state["calls"]
 
 
 def test_original_build_allows_evidence_root_resolving_inside_downloaded_candidate(release, source, final_setup):
