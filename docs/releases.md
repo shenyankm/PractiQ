@@ -135,7 +135,9 @@ to derive checked resources from the selected final file and rebuild local
 assets. Default `release.py stage` remains the unsigned CI path. Explicit
 staging requires the original unsigned CI platform candidate, installer and bound
 evidence, preserves its build URL, and checks the selected installer's actual
-desktop version. Previously restaged candidates cannot replace that original
+desktop version. The original evidence directory must resolve within the downloaded
+candidate directory, and each evidence file must resolve within that evidence root.
+Previously restaged candidates cannot replace that original
 build provenance. Actual application headers must identify an executable Mach-O
 arm64 slice on macOS, x64 PE32+ on Windows, or ELF64 little-endian x86-64 executable
 or PIE on Linux. Universal Mach-O table entries must match their actual member

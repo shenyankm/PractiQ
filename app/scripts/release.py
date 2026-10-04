@@ -180,7 +180,7 @@ def original_build(root: Path, tag: str, source_sha: str, path: Path) -> dict:
         raise ValueError("Original build evidence directory escaped the downloaded candidate")
     for relative, digest in evidence.items():
         item = path.parent / relative
-        if not item.resolve().is_relative_to((path.parent / "evidence").resolve()) or checksum(item) != normalized_digest(digest):
+        if not item.resolve().is_relative_to(evidence_root.resolve()) or checksum(item) != normalized_digest(digest):
             raise ValueError("Original build evidence changed or escaped its directory")
     for name in ("desktop-bundle.json", "licenses.json"):
         if "evidence/" + name not in evidence or read_json(path.parent / "evidence" / name).get("passed") is not True:
