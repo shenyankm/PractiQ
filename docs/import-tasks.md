@@ -1,36 +1,39 @@
 # Document import tasks
 
-The Import page keeps document selection above a paginated task list, newest first. The task heading and table are hidden when there are no tasks; loading, errors, pending operations and pagination remain visible when needed. Each source document is one task. The detail drawer shows saved progress, review content, errors and model usage. ZIP import remains under Settings > Restore backup.
+The independent AI service's Web frontend handles source selection, upload, task history, progress and saved-result review. The desktop app imports downloaded question-bank ZIP files under **Settings → Restore backup**. It contains no AI document-task interface.
+
+## Start and review
+
+Enter the service access token in the Web frontend; it remains in browser memory. Choose up to ten supported files, select the Office mode when available and explicitly start import. File selection makes no upload or model request. The server validates the source bytes and stores the original SHA-256; Office normalization remains part of that same source task.
+
+Inspect saved questions, supplied answers, images, source associations, quality warnings, errors and usage. `COMPLETED` can contain `PARTIAL`; a completed task is not a claim that extraction is accurate. Missing answers remain null and require review. Parsing does not solve unanswered questions.
+
+Download a completed result as a bank ZIP, then open it with the desktop importer. Review flags do not block ZIP import or offline practice. Native import lets you create a bank or append to an existing one. Personal answers and historical score snapshots stay local.
 
 ## State and actions
 
-The server owns parsing state and `allowedActions`. The desktop combines that state with the current checkpoint's local import receipt; it does not persist a second parsing state machine.
+The server owns parsing state and `allowedActions`. Read the latest detail before choosing a control; send its unchanged run or checkpoint identifier.
 
 | State | Meaning and next action |
 | --- | --- |
-| Queued / Parsing | Wait, pause or interrupt when allowed by the server. |
-| Pausing | Wait for the server to acknowledge the pause. |
-| Paused / Interrupted | Resume or retry failed units when allowed. |
-| Parsing failed | Inspect the error, resume/retry when allowed, otherwise select the document again. |
-| Awaiting review | Inspect saved content before explicitly accepting partial results or retrying failed units. |
-| Ready to import | Preview and confirm a new bank or append to an existing bank. |
-| Importing | Local import is in progress; duplicate submission is blocked. |
-| Import failed | Saved parsing results remain available; preview and confirm again to retry. |
-| Imported | Open the existing bank. The current result is not offered for duplicate import. |
-| Expired | Parsing results cannot be resumed or imported. An existing bank remains accessible. |
+| PENDING / RUNNING | Wait, pause or interrupt when allowed. |
+| PAUSING | Wait for the server to acknowledge the pause. |
+| PAUSED / INTERRUPTED / CANCELLED | Explicitly resume when allowed and compatible. |
+| FAILED | Inspect the failure; explicitly resume or retry eligible failed units. |
+| WAITING_REVIEW | Review retained content before accepting a partial result or retrying eligible units. |
+| COMPLETED | Review and download; retry eligible failed units only through an explicit action. |
+| EXPIRED | Results cannot be resumed or downloaded; existing desktop banks remain available. |
 
-Partial results, questions needing review and previously imported versions are separate indicators. Question-level review flags do not block imports. A retry that produces another checkpoint is evaluated separately from the previously imported result; old banks remain intact.
+Reading lists, details, preview artifacts and downloading ZIP files do not call a model. Resume, failed-unit retry and parse again can call the configured provider and incur charges. Accepting partial content preserves missing fields and warnings; it does not verify their correctness. Successful checkpointed units are reused.
 
-Single-import progress and errors are transient UI state. After reopening the app, the local receipt determines whether the result is imported or ready to import. Batch progress and pending control requests retain their existing recovery records. An uncertain control response is not treated as a successful state transition; explicit replay uses the original request identifier.
+An uncertain mutation is not a successful transition. Persistent server receipts bind request IDs to their original payloads; explicit replay must reuse both. Do not create an automatic new request after a connection failure. Query saved state first. Web refresh/reopening performs reads, never a control or new parsing action.
 
-## Refresh and confirmation
+## Office and retention
 
-Active tasks on the current page refresh every two seconds even when the drawer is closed. Only the selected task loads detailed progress. Old responses are ignored after page changes, closing the drawer or unmounting. Transient reads retry at most three times; missing and expired task reads stop immediately.
+Office tasks retain the original document identity and mode. PDF is the default; text mode includes ordered Excel sheets, including hidden sheets. Duplicate checks use the raw source hash and mode. A mode change is new parsing work. Converted artifacts and the engine identity are verified on resume; an incompatible deployment requires the original version or a new task.
 
-Batch selection applies to the current page. Selection clears on page changes and when a task becomes ineligible for import.
+Task results expire after 180 days. Download needed banks before then. Safe task deletion requires stopping active work and does not delete already imported banks or practice history. Existing desktop AI files and import receipts from older builds remain untouched; they are not migrated into the independent service.
 
-Local batch history has its own 20-batch pages; active batches remain visible on every history page. Import failures for the visible tasks and the selected task are resolved independently of the history page. An active pending import takes precedence over historical failures for the same task and checkpoint. Receipt reconciliation reuses one SQLite connection per page. Manifest discovery still scans the local batch directory; it does not load every historical item into the UI.
+The empty **My banks** page still offers **Add example bank**. It imports the bundled all-types ZIP locally without model configuration or calls.
 
-Selecting a file still requires explicit confirmation before parsing. Reviewing saved results and importing do not call a model. Resume/retry calls require explicit user action. Confirmed imports stay on the task list; opening a bank is a separate action. Local batch recovery controls remain visible without model configuration.
-
-An empty My Banks page offers **Add example bank**. It imports the bundled all-types ZIP locally without model configuration or calls, covering every answer mode and English question kind, including chime audio for listening and an image example.
+See the [API contract](../server/docs/document-tasks.md) and [Office guide](../server/docs/desktop-office.md).

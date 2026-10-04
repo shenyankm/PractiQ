@@ -1,8 +1,10 @@
 # Release policy
 
-PractiQ releases deliver the offline desktop application. The bundled AI service
-keeps its own package version; record it with Python, LibreOffice and locked
-dependencies in the release evidence. Do not publish separate platform tags,
+PractiQ releases deliver the offline desktop practice application. AI source
+import, Office conversion and parsing run in the independently deployed service
+and its web frontend. Desktop grading explicitly calls that service over HTTP.
+The service keeps its own source version; record it separately without claiming
+it is deployed by a desktop installer. Do not publish separate platform tags,
 server wheels, container images or updater assets without a supported delivery
 workflow. Actions artifacts expire and are not public releases.
 
@@ -42,13 +44,16 @@ for an accepted ordinary release. A draft is preparation, not acceptance.
 | Windows x64 | Windows 10/11 with WebView2 | `PractiQ_<version>_windows_x64_setup.exe` |
 | Linux amd64 | Ubuntu 22.04+ | `PractiQ_<version>_linux_amd64.deb` |
 
-These are the current release targets. Office runtime availability for another
-architecture is not application acceptance. A macOS application ZIP is optional;
+These are the current desktop release targets. A macOS application ZIP is optional;
 if supplied, preserve symlinks with `ditto` and verify the final archive too.
 Do not add MSI, AppImage, RPM or more architectures before their package checks.
 
-Every installer includes the platform-native Python service, pinned LibreOffice,
-build manifest and full notices. Users do not install Python or Office. Document
+Every installer includes only desktop code, schema 2 build metadata with
+`packageMode: desktop-practice`, and Cargo/npm notices. Its exact resource
+whitelist contains `bundled/build-manifest.json` and `bundled/THIRD-PARTY.txt`.
+Python, LibreOffice and AI workers must be absent from the whole application.
+Existing ignored engine caches and historical packages remain untouched and
+must never enter a new desktop installer. Document
 Linux system-library/audio dependencies and an unlocked Secret Service, plus the
 Windows WebView2 requirement, rather than promising a dependency-free package.
 
@@ -76,16 +81,17 @@ gh workflow run release.yml --ref main -f tag=v0.1.0-alpha.1
 The workflow validates versions, the tag's commit, clean source and ancestry on
 `main`. It reuses Service and Desktop CI at that exact commit, forces full checks
 regardless of changed paths, and runs the existing package matrix. It mounts the
-final macOS DMG, uses the installed NSIS application and extracted DEB, then runs
-`check-bundle.py`, isolated Office conversion, strict fidelity and license-source
-checks. Any failure blocks release asset staging and draft creation; failure
+final macOS DMG, safely extracts the NSIS payload and extracts the DEB from a
+private read-only installer snapshot, then checks actual desktop version,
+engine absence, expected regular native executable, build metadata and Cargo/npm
+license sources. The generated notices must match the embedded file byte for
+byte. Windows extraction uses full 7-Zip; CI does not execute the installer. Any failure blocks release asset staging and draft creation; failure
 diagnostics remain in Actions. Prerelease status never bypasses these gates.
 
 Assembly rejects missing platforms, mismatched commits/versions, altered
 installers or missing/failed package evidence. It rechecks copied installers and
-archived candidate, package and service evidence before writing the public
-manifest or checksums, so an input changed during assembly fails the handoff.
-It bundles service reports,
+archived candidate, package and service evidence before handing off public
+assets, so an input changed during assembly fails. It bundles service reports,
 generates checksums, and fills [the release template](../.github/RELEASE_TEMPLATE.md).
 The template is project-owned; GitHub does not load this filename automatically.
 The workflow verifies the remote tag again, creates only a draft and never
@@ -120,7 +126,7 @@ certificate and verify both; signing is not configured by this workflow.
 Record Linux package-signing status separately.
 
 After any asset replacement, mount/install/extract the actual final file and
-repeat package, isolated Office, fidelity and license checks with fresh output
+repeat desktop package and license checks with fresh output
 paths. Update its manifest size/hash and verified signing identity/status, add
 the new reports to evidence, and regenerate the evidence hash and SHA256SUMS.
 Do not reuse an unsigned candidate's checksums or acceptance labels.
@@ -134,33 +140,26 @@ parent directories and resolve within its downloaded candidate directory.
 The original evidence directory must resolve within the downloaded
 candidate directory, and each evidence file must resolve within that evidence root.
 Previously restaged candidates cannot replace that original
-build provenance. Windows desktop executables must have bounded, complete PE
-headers identifying x64 (`0x8664`) and PE32+ (`0x20b`), with the executable flag
-(`0x0002`) set and the DLL flag (`0x2000`) clear, as defined in the
+build provenance. Actual application headers must identify an executable Mach-O
+arm64 slice on macOS, x64 PE32+ on Windows, or ELF64 little-endian x86-64 executable
+or PIE on Linux. Universal Mach-O table entries must match their actual member
+headers and have bounded, distinct ranges. Windows PE headers require the executable
+flag (`0x0002`) set and the DLL flag (`0x2000`) clear, as defined in the
 [Microsoft PE specification](https://learn.microsoft.com/en-us/windows/win32/debug/pe-format#characteristics).
-Final DEBs must use the candidate's Tauri product name converted with
+DEBs must use the candidate's Tauri product name converted with
 [Tauri's kebab-case rule](https://github.com/tauri-apps/tauri/blob/tauri-cli-v2.11.5/crates/tauri-bundler/src/bundle/linux/debian.rs#L172-L173):
 `PractiQ` produces control `Package: practi-q`, independently of the installer
 filename and Cargo package name. The checker supports ASCII product names and
-rejects unsupported or invalid names. DEBs must also declare `amd64` and mandatory GTK/WebKit plus
-every runtime dependency in the candidate's Linux Tauri configuration. Version
-bounds and `:amd64`/`:any` qualifiers are accepted; an alternative package does
-not satisfy a required library. Extracted resource directories must be real and
-remain within that package. Relative runtime links may resolve within the bundle;
-absolute, external and dangling links are rejected. The macOS version plist must
-be a regular file and identify the candidate's executable in `Contents/MacOS`.
-Both that executable and the DEB's `usr/bin` desktop executable must be nonempty
-regular files with real parent directories inside the selected payload. macOS
-and Linux binaries must retain POSIX execute permission bits; Windows PE checks
-do not depend on POSIX modes. macOS
-requires an actual arm64 Mach-O executable header, either thin or in a universal
-container. Universal tables are bounded to 64 members; slice ranges, alignment,
-duplicate CPU/subtype pairs and agreement with each slice's actual header are
-checked before accepting the arm64 member. Linux requires ELF64 little-endian
-x86-64 headers for an executable or PIE, with contained program/section tables.
-These architecture checks inspect bounded headers; they do not attest signatures
-or replace launching the installed desktop during clean-machine acceptance. These
-checks do not start the application. Windows payload extraction requires installed full 7-Zip;
+rejects unsupported or invalid names. DEBs must also declare amd64 and mandatory
+GTK/WebKit plus every runtime dependency in the candidate's Tauri configuration;
+version bounds and :amd64/:any qualifiers are accepted, but alternatives do not
+satisfy required libraries. Resource directories and relative links remain
+contained in that selected payload. Native files are nonempty regular files
+with real contained parents, and macOS Info.plist names that actual executable.
+macOS and Linux binaries require POSIX execute permission bits; Windows PE
+checks remain independent of POSIX modes.
+Bounded header checks do not prove startup, full loadability, signing or platform
+compatibility. Windows payload extraction requires installed full 7-Zip;
 it does not execute NSIS or count as installation acceptance. Raw local reports
 remain private; the public evidence copy replaces machine paths, including `file:`
 URIs in values or keys, before hashing.
@@ -186,14 +185,14 @@ This prevents a later decoded value from hiding a private value still present in
 the original bytes. Rejection retains the private input or existing raw report
 and creates no public result; ordinary report JSON parsing is unchanged.
 Staging does not attest Actions provenance or verify signing. Archive actual
-signing results with `artifactSha256` bound to the final SHA-256 and a `status`
-of `verified`, `unsigned` or `failed`. The candidate and final manifest retain
-this declaration as `externally_reported_verified`, `externally_reported_unsigned`
-or `externally_reported_failed`; without a report, final staging records `unverified`.
-Assembly rejects a status that differs from its bound report. These labels
-describe external evidence, not cryptographic verification by this script.
-Review the original download's build provenance and the actual signing commands,
-publisher identity and results before recording verified status in the release template.
+signing results with artifactSha256 bound to the final SHA-256 and status of
+verified, unsigned or failed. Candidate and manifest preserve these declarations
+as externally_reported_verified, externally_reported_unsigned or
+externally_reported_failed. Without a report, final staging records unverified;
+assembly rejects a status that differs from its bound report. These fields do
+not attest cryptographic verification. Review the original build download's
+provenance, actual verification commands, publisher and results independently
+before recording verified status in the release template.
 
 Explicit final staging also accepts `--clean-machine-report` and
 `--live-model-report` for independently reviewed acceptance records. Each report
@@ -221,11 +220,11 @@ signing and manual/platform acceptance; they still require strict package gates
 and disclosure of known failures. Ordinary releases require all applicable
 [release acceptance requirements](../CONTRIBUTING.md#release-verification).
 
-Current recorded gaps include legacy DOC equation fidelity, unresolved notice
-sources and missing final-source live/clean-machine acceptance. See
-[the follow-up record](review-implementation-20260929.md) and
-[notice requirements](../app/licenses/README.md). This workflow does not fix or
-waive those findings, and must fail until the applicable strict gates pass.
+Historical embedded-engine reports remain historical evidence. Service Office
+fidelity and service dependency notices belong to that independent deployment;
+removing engines from the desktop does not establish their acceptance. See
+[notice requirements](../app/licenses/README.md). Final-source live grading,
+service import and clean-machine acceptance remain separate required records.
 
 Complete every section of the template: user-visible changes, downloads and
 installation, data compatibility, known limitations, distinct validation results,

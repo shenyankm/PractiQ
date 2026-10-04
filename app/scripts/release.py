@@ -11,18 +11,28 @@ import stat
 import subprocess
 import sys
 import tempfile
-import tomllib
 import zipfile
 from contextlib import contextmanager
 from itertools import pairwise
 from pathlib import Path, PureWindowsPath
 from urllib.parse import urlsplit
 
+import tomllib
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from desktop_package import (
+    PACKAGE_MODE,
+    SCHEMA_VERSION,
+    native_application,
+    validate_manifest,
+)
+
 ROOT = Path(__file__).resolve().parents[2]
 NUMBER = r"(?:0|[1-9][0-9]*)"
 TAG = re.compile(rf"v({NUMBER}\.{NUMBER}\.{NUMBER}(?:-(?:alpha|beta|rc)\.{NUMBER})?)")
 MACHINE_PATH = re.compile(r'''(?<![\w:/\\>])(?:(?P<quote>["'])(?:[A-Za-z]:[\\/]|\\\\|/)[^"']*(?P=quote)|(?:[A-Za-z]:[\\/][^\s"'<>|;]*|\\\\[^\\\s"'<>|;]+\\[^\s"'<>|;]*|//[^/\s"'<>|;]+/[^\s"'<>|;]*|/[^/\s"'<>|;]+/[^\s"'<>|;]*))''')
 FILE_URI = re.compile(r'''(?<![\w:/\\>])(?:(?P<quote>["'])file:(?:[/\\]|[A-Za-z]:[\\/])[^"']*(?P=quote)|file:(?:[/\\]|[A-Za-z]:[\\/])[^\s"'<>|;]*)''', re.IGNORECASE)
+
 PLATFORMS = {
     "darwin": ("macos", "arm64", "dmg/*.dmg", ".dmg"),
     "win32": ("windows", "x64", "nsis/*-setup.exe", "_setup.exe"),
@@ -92,7 +102,7 @@ def versions(root: Path, tag: str) -> dict:
     if len(own) != 1 or desktop + [own[0]["version"]] != [version] * 6:
         raise ValueError("Tag, npm/Tauri/Cargo versions and both lockfiles must match")
     service = tomllib.loads((root / "server/pyproject.toml").read_text(encoding="utf-8"))
-    return {"desktop": version, "aiService": service["project"]["version"]}
+    return {"desktop": version, "aiServiceSource": service["project"]["version"]}
 
 
 def check_candidate(root: Path, tag: str) -> dict:
@@ -107,12 +117,7 @@ def check_candidate(root: Path, tag: str) -> dict:
 
 
 def check_build(manifest: dict, platform: str, components: dict) -> None:
-    expected_arch = {"arm64", "aarch64"} if platform == "darwin" else {"x86_64", "AMD64", "amd64"}
-    if manifest["platform"] != platform or manifest["architecture"] not in expected_arch:
-        raise ValueError("Only macOS arm64 and Windows/Linux x64 are release targets")
-    service = [p["version"] for p in manifest["packages"] if p["name"] == "practiq-ai-service"]
-    if service != [components["aiService"]]:
-        raise ValueError("Bundled AI service does not match the candidate version")
+    validate_manifest(manifest, platform, components["desktop"])
 
 
 def normalized_digest(value: object) -> str:
@@ -124,7 +129,6 @@ def normalized_digest(value: object) -> str:
 def check_original_candidate(candidate: dict) -> None:
     if "restagedFinalBytes" in candidate or candidate.get("signing") != "unsigned":
         raise ValueError("Build provenance requires the original unsigned CI candidate")
-
 
 def external_signing_status(report: dict, artifact_sha: str) -> str:
     """Bind a declared outcome; this does not verify signatures or publisher identity."""
@@ -206,6 +210,8 @@ def original_build(root: Path, tag: str, source_sha: str, path: Path) -> tuple[d
     check_original_candidate(candidate)
     os_name, arch, _, suffix = PLATFORMS[sys.platform]
     components = versions(root, tag)
+    if (candidate.get("packageSchemaVersion"), candidate.get("packageMode")) != (SCHEMA_VERSION, PACKAGE_MODE):
+        raise ValueError("Original build must be a pure desktop-practice package")
     if (candidate.get("tag"), candidate.get("commit"), candidate.get("components"),
             candidate.get("os"), candidate.get("architecture")) != (tag, source_sha, components, os_name, arch):
         raise ValueError("Original build candidate does not match source, versions or platform")
@@ -234,9 +240,11 @@ def original_build(root: Path, tag: str, source_sha: str, path: Path) -> tuple[d
         item = path.parent / relative
         if not item.resolve().is_relative_to(evidence_root.resolve()) or checksum(item) != normalized_digest(digest):
             raise ValueError("Original build evidence changed or escaped its directory")
-    for name in ("desktop-bundle.json", "office.json", "office-fidelity.json", "licenses.json"):
+    for name in ("desktop-bundle.json", "licenses.json"):
         if "evidence/" + name not in evidence or read_json(path.parent / "evidence" / name).get("passed") is not True:
             raise ValueError("Original build gate evidence is incomplete")
+    if "evidence/desktop-version.json" not in evidence or read_json(path.parent / "evidence/desktop-version.json") != {"passed": True, "platform": sys.platform, "version": components["desktop"]}:
+        raise ValueError("Original build desktop version evidence is missing or inconsistent")
     if "evidence/build-manifest.json" not in evidence:
         raise ValueError("Original build manifest is missing")
     check_build(read_json(path.parent / "evidence/build-manifest.json"), sys.platform, components)
@@ -284,12 +292,11 @@ def stage(root: Path, tag: str, bundle: Path, installer: Path, output: Path, *,
             raise ValueError("Original candidate bytes differ from the verified identity")
         if public_report(original, roots) != original:
             raise ValueError("Original candidate contains private paths; keep raw diagnostics private instead of publishing")
+    if desktop_version is not None:
         (reports / "desktop-version.json").write_text(json.dumps({"passed": True, "platform": sys.platform, "version": desktop_version}) + "\n", encoding="utf-8")
     for script, filename, options in (
         ("check-bundle.py", "desktop-bundle.json", []),
-        ("check-office.py", "office.json", ["--isolated"]),
-        ("check-office.py", "office-fidelity.json", ["--fidelity-only"]),
-        ("check_licenses.py", "licenses.json", ["--notices", str(reports / "expected-THIRD-PARTY.txt")] if restaged else []),
+        ("check_licenses.py", "licenses.json", ["--notices", str(reports / "expected-THIRD-PARTY.txt")]),
     ):
         subprocess.run([sys.executable, str(root / "app/scripts" / script), "--bundle", str(bundle),
                         "--output", str(reports / filename), *options], cwd=root, check=True)
@@ -297,14 +304,14 @@ def stage(root: Path, tag: str, bundle: Path, installer: Path, output: Path, *,
             raise ValueError(f"Release gate did not pass: {filename}")
     if payload is not None and payload_fingerprint(payload) != payload_identity:
         raise ValueError("Final installer payload changed during package checks")
+    if (reports / "expected-THIRD-PARTY.txt").read_bytes() != (bundle / "THIRD-PARTY.txt").read_bytes():
+        raise ValueError("Final bundle third-party notices differ from candidate notices")
+    (reports / "notices-match.json").write_text(json.dumps({"passed": True, "sha256": checksum(bundle / "THIRD-PARTY.txt")}) + "\n", encoding="utf-8")
+    if source_sha is not None and (git(root, "rev-parse", "HEAD") != source_sha or git(root, "status", "--porcelain", "--untracked-files=all")):
+        raise ValueError("Candidate source changed during final-package checks")
+    if installer_sha is not None and checksum(installer) != installer_sha:
+        raise ValueError("Final installer snapshot changed during package checks")
     if restaged:
-        if (reports / "expected-THIRD-PARTY.txt").read_bytes() != (bundle / "THIRD-PARTY.txt").read_bytes():
-            raise ValueError("Final bundle third-party notices differ from candidate notices")
-        (reports / "notices-match.json").write_text(json.dumps({"passed": True, "sha256": checksum(bundle / "THIRD-PARTY.txt")}) + "\n", encoding="utf-8")
-        if git(root, "rev-parse", "HEAD") != source_sha or git(root, "status", "--porcelain", "--untracked-files=all"):
-            raise ValueError("Candidate source changed during final-package checks")
-        if checksum(installer) != installer_sha:
-            raise ValueError("Final installer snapshot changed during package checks")
         if signing_report:
             shutil.copyfile(signing_report, reports / "signing-report.json")
             signing = external_signing_status(read_json(reports / "signing-report.json"), installer_sha)
@@ -319,7 +326,7 @@ def stage(root: Path, tag: str, bundle: Path, installer: Path, output: Path, *,
     output.mkdir(parents=True, exist_ok=False)
     name = f"PractiQ_{components['desktop']}_{os_name}_{arch}{suffix}"
     shutil.copyfile(installer, output / name)
-    if restaged and checksum(output / name) != installer_sha:
+    if installer_sha is not None and checksum(output / name) != installer_sha:
         raise ValueError("Final installer changed while copying the public asset")
     evidence = output / "evidence"
     shutil.copytree(reports, evidence)
@@ -329,11 +336,13 @@ def stage(root: Path, tag: str, bundle: Path, installer: Path, output: Path, *,
                 raise ValueError("Original candidate bytes changed during evidence copy")
             continue
         report.write_text(json.dumps(public_report(read_json(report), roots), indent=2) + "\n", encoding="utf-8")
-    for filename in ("build-manifest.json", "THIRD-PARTY.txt", "PYTHON-LICENSE.txt"):
+    for filename in ("build-manifest.json", "THIRD-PARTY.txt"):
         shutil.copyfile(bundle / filename, evidence / filename)
     if payload is not None and payload_fingerprint(payload) != payload_identity:
         raise ValueError("Final installer payload changed before final asset handoff")
     candidate = {
+        "packageSchemaVersion": SCHEMA_VERSION, "packageMode": PACKAGE_MODE,
+        "componentScope": "Desktop application; aiServiceSource is independent source version, not deployed in these assets",
         "tag": tag, "commit": git(root, "rev-parse", "HEAD"), "components": components,
         "os": os_name, "architecture": arch, "file": name, "sha256": checksum(output / name),
         "sizeBytes": (output / name).stat().st_size, "signing": signing,
@@ -361,49 +370,59 @@ def stage_installer(root: Path, tag: str) -> None:
     if len(installers) != 1:
         raise ValueError("Expected exactly one installer; remove stale build output before building")
     output = root / "app/.build/release"
-    temporary = Path(os.environ["RUNNER_TEMP"])
-    if sys.platform == "darwin":
-        with tempfile.TemporaryDirectory(prefix="practiq-release-dmg-") as directory:
-            mount = Path(directory) / "mounted"
-            subprocess.run(["hdiutil", "attach", str(installers[0]), "-readonly", "-nobrowse",
-                            "-mountpoint", str(mount)], check=True)
-            try:
-                payload = mount / "PractiQ.app"
-                identity = payload_fingerprint(payload)
-                stage(root, tag, payload / "Contents/Resources/bundled", installers[0], output,
-                      payload=payload, payload_identity=identity)
-                if payload_fingerprint(payload) != identity:
-                    raise ValueError("Final installer payload changed before final asset handoff")
-            finally:
-                subprocess.run(["hdiutil", "detach", str(mount)], check=True)
-    else:
-        payload = temporary / ("PractiQ" if sys.platform == "win32" else "practiq-package")
-        identity = payload_fingerprint(payload)
-        bundle = payload / ("bundled" if sys.platform == "win32" else "usr/lib/PractiQ/bundled")
-        stage(root, tag, bundle, installers[0], output, payload=payload, payload_identity=identity)
-        if payload_fingerprint(payload) != identity:
-            raise ValueError("Final installer payload changed before final asset handoff")
+    if output.exists() or output.is_symlink():
+        raise FileExistsError(f"Asset directory already exists: {output}")
+    source_sha = git(root, "rev-parse", "HEAD")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="practiq-ci-assets-", dir=output.parent) as directory:
+        staged = Path(directory) / "assets"
+        with (installer_snapshot(installers[0]) as (snapshot, installer_sha),
+              final_bundle(snapshot, root=root) as bundle):
+            payload = bundle.parents[2] if sys.platform == "darwin" else bundle.parent if sys.platform == "win32" else bundle.parents[3]
+            identity = payload_fingerprint(payload)
+            version = check_desktop_version(snapshot, bundle, versions(root, tag)["desktop"], "PractiQ")
+            stage(root, tag, bundle, snapshot, staged, desktop_version=version,
+                  source_sha=source_sha, installer_sha=installer_sha, payload=payload, payload_identity=identity)
+            if payload_fingerprint(payload) != identity:
+                raise ValueError("Final installer payload changed before final asset handoff")
+        if git(root, "rev-parse", "HEAD") != source_sha or git(root, "status", "--porcelain", "--untracked-files=all"):
+            raise ValueError("Candidate source changed before final asset handoff")
+        if output.exists() or output.is_symlink():
+            raise FileExistsError(f"Asset directory already exists: {output}")
+        staged.rename(output)
 
 
-def contained_bundle(directory: Path, relative: str) -> Path:
-    bundle = directory / relative
-    current = directory
-    for part in ("", *Path(relative).parts):
-        current = current / part
-        if current.is_symlink() or current.is_junction() or not current.is_dir():
-            raise ValueError("Final bundle must use real directories inside the extracted package")
-    if not bundle.resolve(strict=True).is_relative_to(directory.resolve(strict=True)):
-        raise ValueError("Final bundle escaped the extracted package")
+@contextmanager
+def installer_snapshot(installer: Path):
+    """Inspect and deliver the same private read-only bytes even if the input path changes."""
+    original_sha = checksum(installer)
+    with tempfile.TemporaryDirectory(prefix="practiq-installer-snapshot-") as directory:
+        snapshot = Path(directory) / installer.name
+        shutil.copyfile(installer, snapshot)
+        if checksum(snapshot) != original_sha or checksum(installer) != original_sha:
+            raise ValueError("Final installer changed while creating its snapshot")
+        snapshot.chmod(snapshot.stat().st_mode & ~0o222)
+        yield snapshot, original_sha
+        if checksum(snapshot) != original_sha:
+            raise ValueError("Final installer snapshot changed after package checks")
+
+
+def contained_bundle(payload: Path, bundle: Path) -> Path:
+    """The bundle and its parent directories must belong to this extracted or mounted payload."""
+    if not bundle.resolve().is_relative_to(payload.resolve()):
+        raise ValueError("Final bundle escapes the selected installer payload")
+    for part in (bundle, *bundle.parents):
+        if part == payload.parent:
+            break
+        if part.is_symlink() or part.is_junction() or not part.is_dir():
+            raise ValueError("Final bundle payload requires real contained directories")
+        if part == payload:
+            break
     for item in bundle.rglob("*"):
-        if item.is_junction():
-            raise ValueError("Final bundle cannot contain machine-bound junctions")
-        if item.is_symlink():
-            try:
-                contained = not item.readlink().is_absolute() and item.resolve(strict=True).is_relative_to(bundle.resolve())
-            except (OSError, RuntimeError):
-                contained = False
-            if not contained:
-                raise ValueError("Final bundle links must resolve within its payload")
+        if item.is_junction() or (item.is_symlink() and
+                (item.readlink().is_absolute() or not item.exists() or
+                 not item.resolve().is_relative_to(bundle.resolve()))):
+            raise ValueError("Final bundle links must identify relative bytes inside this payload")
     return bundle
 
 
@@ -427,24 +446,27 @@ def deb_package_name(root: Path) -> str:
     return package
 
 
-def check_deb(installer: Path, root: Path) -> None:
+
+def check_deb_metadata(installer: Path, root: Path) -> None:
     package = subprocess.check_output(["dpkg-deb", "-f", str(installer), "Package"], text=True).strip()
     if package != deb_package_name(root):
         raise ValueError("Final DEB package identity does not match the candidate product name")
     architecture = subprocess.check_output(["dpkg-deb", "-f", str(installer), "Architecture"], text=True).strip()
-    if architecture != PLATFORMS["linux"][1]:
+    if architecture != "amd64":
         raise ValueError("Final DEB architecture must be amd64")
-    declared = read_json(root / "app/src-tauri/tauri.linux.conf.json")["bundle"]["linux"]["deb"].get("depends", [])
-    required = {"libwebkit2gtk-4.1-0", "libgtk-3-0", *declared}
-    depends = subprocess.check_output(["dpkg-deb", "-f", str(installer), "Depends"], text=True)
+    configured = read_json(root / "app/src-tauri/tauri.linux.conf.json")["bundle"]["linux"]["deb"]["depends"]
+    required = {"libwebkit2gtk-4.1-0", "libgtk-3-0", *configured}
+    dependencies = subprocess.check_output(["dpkg-deb", "-f", str(installer), "Depends"], text=True).strip()
     mandatory = set()
-    for clause in depends.split(","):
-        # Alternatives do not guarantee installation of a required runtime library.
-        match = re.fullmatch(r"([a-z0-9][a-z0-9+.-]*)(?::(?:amd64|any))?(?:\s+\([^)]+\))?", clause.strip())
+    for clause in dependencies.split(","):
+        # An alternative does not guarantee that this required runtime will be installed.
+        if "|" in clause:
+            continue
+        match = re.fullmatch(r"\s*([a-z0-9][a-z0-9+.-]*)(?::(?:any|amd64))?(?:\s*\([^()]+\))?\s*", clause)
         if match:
             mandatory.add(match[1])
-    if missing := required - mandatory:
-        raise ValueError("Final DEB is missing required dependencies: " + ", ".join(sorted(missing)))
+    if not required.issubset(mandatory):
+        raise ValueError("Final DEB dependencies omit required desktop runtime libraries")
 
 
 @contextmanager
@@ -456,7 +478,7 @@ def final_bundle(installer: Path, seven_zip: Path | None = None, application_nam
             mount = temporary / "mounted"
             subprocess.run(["hdiutil", "attach", str(installer), "-readonly", "-nobrowse", "-mountpoint", str(mount)], check=True)
             try:
-                yield contained_bundle(mount, "PractiQ.app/Contents/Resources/bundled")
+                yield contained_bundle(mount, mount / "PractiQ.app/Contents/Resources/bundled")
             finally:
                 subprocess.run(["hdiutil", "detach", str(mount)], check=True)
         elif sys.platform == "win32":
@@ -482,45 +504,12 @@ def final_bundle(installer: Path, seven_zip: Path | None = None, application_nam
             for item in destination.rglob("*"):
                 if item.is_symlink() or item.is_junction() or not item.resolve().is_relative_to(destination.resolve()):
                     raise ValueError("NSIS extraction escaped its temporary directory")
-            yield contained_bundle(destination, "bundled")
+            yield destination / "bundled"
         else:
-            check_deb(installer, root)
+            check_deb_metadata(installer, root)
             extracted = temporary / "extracted"
             subprocess.run(["dpkg-deb", "-x", str(installer), str(extracted)], check=True)
-            yield contained_bundle(extracted, "usr/lib/PractiQ/bundled")
-
-
-def check_desktop_version(installer: Path, bundle: Path, expected: str, application_name: str) -> str:
-    if sys.platform == "darwin":
-        plist = bundle.parents[1] / "Info.plist"
-        if plist.is_symlink() or not plist.is_file():
-            raise ValueError("Final desktop version metadata must be a regular file")
-        metadata = plistlib.loads(plist.read_bytes())
-        if metadata.get("CFBundleExecutable") != application_name:
-            raise ValueError("Final desktop executable identity does not match the candidate")
-        application = bundle.parents[1] / "MacOS" / application_name
-        check_native_executable(bundle.parents[2], application)
-        check_macos_architecture(application)
-        actual = metadata.get("CFBundleShortVersionString")
-    elif sys.platform == "win32":
-        application = bundle.parent / (application_name + ".exe")
-        check_native_executable(bundle.parent, application)
-        check_windows_architecture(application)
-        for executable in (installer, application):
-            environment = os.environ | {"PRACTIQ_RELEASE_VERSION_FILE": str(executable)}
-            actual = subprocess.check_output(["powershell", "-NoProfile", "-NonInteractive", "-Command",
-                "$ErrorActionPreference = 'Stop'; [Diagnostics.FileVersionInfo]::GetVersionInfo($env:PRACTIQ_RELEASE_VERSION_FILE).ProductVersion"],
-                env=environment, text=True).strip()
-            if actual != expected:
-                raise ValueError("Final installer desktop version does not match the candidate")
-    else:
-        application = bundle.parents[3] / "usr/bin" / application_name
-        check_native_executable(bundle.parents[3], application)
-        check_linux_architecture(application)
-        actual = subprocess.check_output(["dpkg-deb", "-f", str(installer), "Version"], text=True).strip()
-    if actual != expected:
-        raise ValueError("Final installer desktop version does not match the candidate")
-    return actual
+            yield contained_bundle(extracted, extracted / "usr/lib/PractiQ/bundled")
 
 
 def check_windows_architecture(executable: Path) -> None:
@@ -544,7 +533,6 @@ def check_windows_architecture(executable: Path) -> None:
         if not characteristics & 0x0002 or characteristics & 0x2000:
             raise ValueError("Final Windows PE must be an executable application, not a DLL")
 
-
 def macho_architecture(stream, offset: int, size: int) -> tuple[int, int]:
     stream.seek(offset)
     header = stream.read(min(size, 32))
@@ -561,7 +549,6 @@ def macho_architecture(stream, offset: int, size: int) -> tuple[int, int]:
             commands_size % (8 if header_size == 32 else 4) or (cpu == 0x100000C and order != "little")):
         raise ValueError("Final macOS Mach-O executable has invalid or unbounded headers")
     return cpu, subtype
-
 
 def check_macos_architecture(executable: Path) -> None:
     """Require a real arm64 member, not merely a universal container's CPU label."""
@@ -602,7 +589,6 @@ def check_macos_architecture(executable: Path) -> None:
         if not any(cpu == 0x100000C for cpu, _ in architectures):
             raise ValueError("Final macOS Mach-O executable requires an arm64 slice")
 
-
 def check_linux_architecture(executable: Path) -> None:
     """Check the native ELF identity independently of the DEB control metadata."""
     with executable.open("rb") as stream:
@@ -622,19 +608,29 @@ def check_linux_architecture(executable: Path) -> None:
             raise ValueError("Final Linux ELF tables are missing or outside the executable")
 
 
-def check_native_executable(payload: Path, executable: Path) -> None:
-    """Check selected native bytes without executing the application."""
-    if executable.is_symlink() or executable.is_junction() or not executable.is_file() or not executable.stat().st_size:
-        raise ValueError("Final desktop executable must be a nonempty regular file")
-    if sys.platform != "win32" and not executable.stat().st_mode & 0o111:
+def check_desktop_version(installer: Path, bundle: Path, expected: str, application_name: str) -> str:
+    application = native_application(bundle, application_name)
+    if sys.platform != "win32" and not application.stat().st_mode & 0o111:
         raise ValueError("Final desktop executable requires POSIX execute permission")
-    for directory in executable.parents:
-        if directory.is_symlink() or directory.is_junction() or not directory.is_dir():
-            raise ValueError("Final desktop executable requires real contained parent directories")
-        if directory == payload:
-            break
-    if not executable.resolve(strict=True).is_relative_to(payload.resolve(strict=True)):
-        raise ValueError("Final desktop executable escaped the selected installer payload")
+    if sys.platform == "darwin":
+        check_macos_architecture(application)
+        info = bundle.parents[1] / "Info.plist"
+        actual = plistlib.loads(info.read_bytes()).get("CFBundleShortVersionString")
+    elif sys.platform == "win32":
+        check_windows_architecture(application)
+        for executable in (installer, application):
+            environment = os.environ | {"PRACTIQ_RELEASE_VERSION_FILE": str(executable)}
+            actual = subprocess.check_output(["powershell", "-NoProfile", "-NonInteractive", "-Command",
+                "$ErrorActionPreference = 'Stop'; [Diagnostics.FileVersionInfo]::GetVersionInfo($env:PRACTIQ_RELEASE_VERSION_FILE).ProductVersion"],
+                env=environment, text=True).strip()
+            if actual != expected:
+                raise ValueError("Final installer desktop version does not match the candidate")
+    else:
+        check_linux_architecture(application)
+        actual = subprocess.check_output(["dpkg-deb", "-f", str(installer), "Version"], text=True).strip()
+    if actual != expected:
+        raise ValueError("Final installer desktop version does not match the candidate")
+    return actual
 
 
 def restage_installer(root: Path, tag: str, installer: Path, output: Path,
@@ -691,12 +687,19 @@ def restage_installer(root: Path, tag: str, installer: Path, output: Path,
 def assemble(root: Path, tag: str, inputs: Path, output: Path) -> None:
     components = versions(root, tag)
     sha = git(root, "rev-parse", "HEAD")
-    candidates = [(path.parent, read_json(path)) for path in sorted(inputs.glob("release-*/candidate.json"))]
+    candidates = []
+    candidate_digests = {}
+    for path in sorted(inputs.glob("release-*/candidate.json")):
+        raw = path.read_bytes()
+        candidates.append((path.parent, json.loads(raw)))
+        candidate_digests[path.parent] = hashlib.sha256(raw).hexdigest()
     if len(candidates) != 3 or {c["os"] for _, c in candidates} != {"macos", "windows", "linux"}:
         raise ValueError("All three gated platform candidates are required")
     if len({bool(candidate.get("restagedFinalBytes")) for _, candidate in candidates}) != 1:
         raise ValueError("Mixed original CI and final-byte staging modes in release assets")
     for folder, candidate in candidates:
+        if (candidate.get("packageSchemaVersion"), candidate.get("packageMode")) != (SCHEMA_VERSION, PACKAGE_MODE):
+            raise ValueError("Release assets must use pure desktop-practice package schema 2")
         if (candidate["tag"], candidate["commit"], candidate["components"]) != (tag, sha, components):
             raise ValueError("Mixed source commits or versions in release assets")
         os_name, arch, _, suffix = next(p for p in PLATFORMS.values() if p[0] == candidate["os"])
@@ -709,10 +712,10 @@ def assemble(root: Path, tag: str, inputs: Path, output: Path) -> None:
             path = folder / relative
             if not path.resolve().is_relative_to((folder / "evidence").resolve()) or checksum(path) != digest:
                 raise ValueError("Invalid or altered release evidence")
-        for filename in ("desktop-bundle.json", "office.json", "office-fidelity.json", "licenses.json"):
+        for filename in ("desktop-bundle.json", "licenses.json"):
             if f"evidence/{filename}" not in candidate["evidence"] or read_json(folder / "evidence" / filename).get("passed") is not True:
                 raise ValueError(f"Missing or failed release gate: {filename}")
-        for filename in ("build-manifest.json", "THIRD-PARTY.txt", "PYTHON-LICENSE.txt"):
+        for filename in ("build-manifest.json", "THIRD-PARTY.txt"):
             if f"evidence/{filename}" not in candidate["evidence"]:
                 raise ValueError(f"Missing component or notice evidence: {filename}")
         for field, kind in ACCEPTANCES:
@@ -730,13 +733,13 @@ def assemble(root: Path, tag: str, inputs: Path, output: Path) -> None:
                 expected = external_acceptance_status(json.loads(acceptance_bytes(path)), kind, candidate)
             if candidate.get(field + "Acceptance", "pending") != expected:
                 raise ValueError("Final acceptance status differs from its bound external report")
+        comparison = read_json(folder / "evidence/notices-match.json") if "evidence/notices-match.json" in candidate["evidence"] else {}
+        if (comparison.get("passed") is not True or
+                comparison.get("sha256") != checksum(folder / "evidence/THIRD-PARTY.txt") or
+                "evidence/expected-THIRD-PARTY.txt" not in candidate["evidence"] or
+                (folder / "evidence/expected-THIRD-PARTY.txt").read_bytes() != (folder / "evidence/THIRD-PARTY.txt").read_bytes()):
+            raise ValueError("Missing final embedded-notice comparison")
         if candidate.get("restagedFinalBytes"):
-            comparison = read_json(folder / "evidence/notices-match.json") if "evidence/notices-match.json" in candidate["evidence"] else {}
-            if (comparison.get("passed") is not True or
-                    comparison.get("sha256") != checksum(folder / "evidence/THIRD-PARTY.txt") or
-                    "evidence/expected-THIRD-PARTY.txt" not in candidate["evidence"] or
-                    (folder / "evidence/expected-THIRD-PARTY.txt").read_bytes() != (folder / "evidence/THIRD-PARTY.txt").read_bytes()):
-                raise ValueError("Missing final embedded-notice comparison")
             report = candidate.get("signingReport")
             signing = "unverified"
             if report:
@@ -766,54 +769,67 @@ def assemble(root: Path, tag: str, inputs: Path, output: Path) -> None:
                     normalized_digest(build.get("verifiedCandidateSha256")) != hashlib.sha256(json.dumps(prior, sort_keys=True, separators=(",", ":")).encode()).hexdigest() or
                     any(prior.get(key) != candidate[key] for key in ("tag", "commit", "components", "os", "architecture", "buildRun"))):
                 raise ValueError("Original build identity differs from the final candidate")
-            desktop = read_json(folder / "evidence/desktop-version.json") if "evidence/desktop-version.json" in candidate["evidence"] else {}
-            if desktop.get("passed") is not True or desktop.get("version") != components["desktop"]:
-                raise ValueError("Missing final desktop version evidence")
+        desktop = read_json(folder / "evidence/desktop-version.json") if "evidence/desktop-version.json" in candidate["evidence"] else {}
+        if desktop.get("passed") is not True or desktop.get("version") != components["desktop"]:
+            raise ValueError("Missing final desktop version evidence")
         platform = next(key for key, value in PLATFORMS.items() if value[0] == os_name)
         check_build(read_json(folder / "evidence/build-manifest.json"), platform, components)
     service = inputs / "service-checks"
     service_files = [service / name for name in ("probes.json", "probes.md", "probes.xml", "coverage.xml")]
     if not all(path.is_file() for path in service_files):
         raise ValueError("Service verification evidence is incomplete")
-    service_digests = {path.name: checksum(path) for path in service_files}
-    output.mkdir(parents=True, exist_ok=False)
+    expected_archive = {f"service/{path.name}": checksum(path) for path in service_files}
     for folder, candidate in candidates:
-        shutil.copyfile(folder / candidate["file"], output / candidate["file"])
-    with zipfile.ZipFile(output / "release-evidence.zip", "w", zipfile.ZIP_DEFLATED) as archive:
+        expected_archive[f"{candidate['os']}/candidate.json"] = candidate_digests[folder]
+        expected_archive.update({f"{candidate['os']}/{relative}": digest for relative, digest in candidate["evidence"].items()})
+    if output.exists() or output.is_symlink():
+        raise FileExistsError(f"Asset directory already exists: {output}")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="practiq-assembled-assets-", dir=output.parent) as directory:
+        staged = Path(directory) / "assets"
+        staged.mkdir()
         for folder, candidate in candidates:
-            archive.write(folder / "candidate.json", f"{candidate['os']}/candidate.json")
-            for relative in sorted(candidate["evidence"]):
-                archive.write(folder / relative, f"{candidate['os']}/{relative}")
-        for path in service_files:
-            archive.write(path, f"service/{path.name}")
-    # Validate the delivered bytes; input validation alone cannot bind a later copy.
-    with zipfile.ZipFile(output / "release-evidence.zip") as archive:
+            shutil.copyfile(folder / candidate["file"], staged / candidate["file"])
+        with zipfile.ZipFile(staged / "release-evidence.zip", "w", zipfile.ZIP_DEFLATED) as archive:
+            for folder, candidate in candidates:
+                archive.write(folder / "candidate.json", f"{candidate['os']}/candidate.json")
+                for relative in sorted(candidate["evidence"]):
+                    archive.write(folder / relative, f"{candidate['os']}/{relative}")
+            for path in service_files:
+                archive.write(path, f"service/{path.name}")
         for _, candidate in candidates:
-            asset = output / candidate["file"]
+            asset = staged / candidate["file"]
             if checksum(asset) != candidate["sha256"] or asset.stat().st_size != candidate["sizeBytes"]:
-                raise ValueError("Installer changed during release assembly")
-            if json.loads(archive.read(f"{candidate['os']}/candidate.json")) != candidate:
-                raise ValueError("Candidate changed during release assembly")
-            for relative, digest in candidate["evidence"].items():
-                with archive.open(f"{candidate['os']}/{relative}") as entry:
-                    if hashlib.file_digest(entry, "sha256").hexdigest() != digest:
-                        raise ValueError("Evidence changed during release assembly")
-        for filename, digest in service_digests.items():
-            with archive.open(f"service/{filename}") as entry:
-                if hashlib.file_digest(entry, "sha256").hexdigest() != digest:
-                    raise ValueError("Service evidence changed during release assembly")
-    manifest = {"tag": tag, "commit": sha, "components": components,
-                "publicationStatus": "draft; independent signing and acceptance review pending" if candidates[0][1].get("restagedFinalBytes") else "draft; signing and manual/live acceptance pending",
-                "assets": [candidate for _, candidate in candidates],
-                "evidenceSha256": checksum(output / "release-evidence.zip")}
-    (output / "release-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
-    (output / "SHA256SUMS.txt").write_text(
-        "".join(f"{checksum(path)}  {path.name}\n" for path in sorted(output.iterdir()) if path.is_file()), encoding="utf-8")
-    notes = (root / ".github/RELEASE_TEMPLATE.md").read_text(encoding="utf-8")
-    for key, value in {"TAG": tag, "VERSION": components["desktop"], "COMMIT": sha,
-                       "AI_VERSION": components["aiService"]}.items():
-        notes = notes.replace(f"@{key}@", value)
-    (output / "RELEASE_NOTES.md").write_text(notes, encoding="utf-8")
+                raise ValueError("Installer identity changed during assembly handoff")
+        with zipfile.ZipFile(staged / "release-evidence.zip") as archive:
+            if len(archive.namelist()) != len(expected_archive) or set(archive.namelist()) != set(expected_archive):
+                raise ValueError("Evidence archive identity changed during assembly handoff")
+            for name, digest in expected_archive.items():
+                with archive.open(name) as stream:
+                    if hashlib.file_digest(stream, "sha256").hexdigest() != digest:
+                        raise ValueError("Evidence identity changed during assembly handoff")
+            for _, candidate in candidates:
+                if json.loads(archive.read(f"{candidate['os']}/candidate.json")) != candidate:
+                    raise ValueError("Candidate identity changed during assembly handoff")
+        manifest = {"packageSchemaVersion": SCHEMA_VERSION, "packageMode": PACKAGE_MODE,
+                    "componentScope": "Desktop assets; aiServiceSource is source-only and not a deployed component",
+                    "tag": tag, "commit": sha, "components": components,
+                    "publicationStatus": "draft; independent signing and acceptance review pending" if candidates[0][1].get("restagedFinalBytes") else "draft; signing and manual/live acceptance pending",
+                    "assets": [candidate for _, candidate in candidates],
+                    "evidenceSha256": checksum(staged / "release-evidence.zip")}
+        (staged / "release-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+        (staged / "SHA256SUMS.txt").write_text(
+            "".join(f"{checksum(path)}  {path.name}\n" for path in sorted(staged.iterdir()) if path.is_file()), encoding="utf-8")
+        notes = (root / ".github/RELEASE_TEMPLATE.md").read_text(encoding="utf-8")
+        for key, value in {"TAG": tag, "VERSION": components["desktop"], "COMMIT": sha,
+                           "AI_VERSION": components["aiServiceSource"]}.items():
+            notes = notes.replace(f"@{key}@", value)
+        (staged / "RELEASE_NOTES.md").write_text(notes, encoding="utf-8")
+        if git(root, "rev-parse", "HEAD") != sha:
+            raise ValueError("Candidate source changed before assembly handoff")
+        if output.exists() or output.is_symlink():
+            raise FileExistsError(f"Asset directory already exists: {output}")
+        staged.rename(output)
 
 
 def main() -> None:

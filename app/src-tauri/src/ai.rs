@@ -1,8 +1,7 @@
+//! Explicit subjective grading through an independently managed AI service.
 use crate::{
-    ai_work::{self, WorkState},
     contract::{self, Result},
-    store::{self, ImportSource, Pending, Store},
-    AppError, Shared,
+    settings, AppError, Shared,
 };
 use reqwest::{
     blocking::{Client, Response},
@@ -10,16 +9,8 @@ use reqwest::{
 };
 use serde::Deserialize;
 use serde_json::{json, Value};
-use std::{
-    fs,
-    io::{BufRead, BufReader, Read, Write},
-    path::PathBuf,
-    process::{Child, ChildStdin, Command, Stdio},
-    sync::{Arc, Mutex},
-    time::{Duration, Instant},
-};
+use std::{io::Read, sync::Mutex, time::Duration};
 use tauri::Manager;
-use tauri_plugin_dialog::DialogExt;
 
 #[derive(Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
@@ -31,719 +22,221 @@ pub enum AiRequest {
         #[serde(default)]
         snapshot_key: Option<String>,
     },
-    List {
-        offset: usize,
-        filter: Option<String>,
-    },
-    Get {
-        id: String,
-    },
-    SelectDocument,
-    Delete {
-        id: String,
-    },
-    PickDocument {
-        selection: String,
-        details: ai_work::ImportDetails,
-        #[serde(default)]
-        office_mode: crate::office::Mode,
-    },
-    Reparse {
-        id: String,
-    },
-    Control {
-        id: String,
-        action: String,
-        run_id: Option<String>,
-        checkpoint_id: Option<String>,
-        units: Option<Value>,
-    },
-    Preview {
-        id: String,
-    },
-    Review {
-        id: String,
-    },
-    ReviewAsset {
-        id: String,
-        checkpoint_id: String,
-        unit: usize,
-        visual: Option<usize>,
-    },
-    Operations,
-    Replay {
-        request_id: String,
-    },
-    Batches {
-        offset: usize,
-        thread_ids: Vec<String>,
-    },
-    PrepareBatch {
-        ids: Vec<String>,
-        bank_id: Option<String>,
-    },
-    RunBatch {
-        id: String,
-        titles: Option<Vec<String>>,
-    },
-    CancelBatch {
-        id: String,
-    },
 }
-type AiResult<T> = std::result::Result<T, AppError>;
-pub type AiState = Mutex<Option<Process>>;
-pub struct Process {
-    model_enabled: bool,
-    child: Child,
-    input: Option<ChildStdin>,
-    endpoint: Endpoint,
-    stderr: Arc<Mutex<StderrTail>>,
-    stderr_done: std::sync::mpsc::Receiver<()>,
-    diagnostic_path: PathBuf,
+
+#[derive(Default)]
+struct Activity {
+    active: usize,
+    exclusive: bool,
 }
-#[derive(Clone)]
-pub(crate) struct Endpoint {
+#[derive(Default)]
+pub struct GradingState(Mutex<Activity>);
+pub(crate) struct Lease<'a> {
+    state: &'a GradingState,
+    exclusive: bool,
+}
+impl Drop for Lease<'_> {
+    fn drop(&mut self) {
+        if let Ok(mut activity) = self.state.0.lock() {
+            if self.exclusive {
+                activity.exclusive = false;
+            } else {
+                activity.active -= 1;
+            }
+        }
+    }
+}
+impl GradingState {
+    fn enter(&self) -> Result<Lease<'_>> {
+        let mut activity = self
+            .0
+            .lock()
+            .map_err(|_| crate::language::error("LOCAL_WORK_UNAVAILABLE", json!({})))?;
+        if activity.exclusive {
+            return Err(crate::language::error("OPERATION_BUSY", json!({})));
+        }
+        activity.active += 1;
+        Ok(Lease {
+            state: self,
+            exclusive: false,
+        })
+    }
+    fn exclusive(&self, code: &str) -> Result<Lease<'_>> {
+        let mut activity = self
+            .0
+            .lock()
+            .map_err(|_| crate::language::error("LOCAL_WORK_UNAVAILABLE", json!({})))?;
+        if activity.active != 0 || activity.exclusive {
+            return Err(crate::language::error(code, json!({})));
+        }
+        activity.exclusive = true;
+        Ok(Lease {
+            state: self,
+            exclusive: true,
+        })
+    }
+    pub(crate) fn restore(&self) -> Result<Lease<'_>> {
+        self.exclusive("LOCAL_RESTORE_BUSY")
+    }
+    fn configure(&self) -> Result<Lease<'_>> {
+        self.exclusive("LOCAL_CONFIGURE_BUSY")
+    }
+}
+
+struct Endpoint {
     client: Client,
     origin: String,
     token: String,
 }
-fn err(e: impl std::fmt::Display) -> crate::AppError {
-    e.to_string().into()
-}
-pub(crate) fn bundle_dir(app: &tauri::AppHandle) -> Result<PathBuf> {
-    let resources = app.path().resource_dir().map_err(err)?;
-    let bundle = if cfg!(debug_assertions) {
-        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("bundled")
-    } else {
-        resources.join("bundled")
-    };
-    Ok(bundle)
-}
-pub(crate) fn executable(app: &tauri::AppHandle) -> Result<PathBuf> {
-    let executable = bundle_dir(app)?
-        .join("python")
-        .join(format!("practiq-ai{}", std::env::consts::EXE_SUFFIX));
-    if !executable.is_file() {
-        return Err(crate::language::error(
-            "LOCAL_BUNDLE_MISSING",
-            serde_json::json!({}),
-        ));
-    }
-    Ok(executable)
-}
-const STDERR_LIMIT: usize = 16 * 1024;
-fn replace_all(haystack: &[u8], needle: &[u8], replacement: &[u8]) -> Vec<u8> {
-    if needle.is_empty() {
-        return haystack.to_vec();
-    }
-    let mut output = Vec::with_capacity(haystack.len());
-    let mut start = 0;
-    while let Some(position) = haystack[start..]
-        .windows(needle.len())
-        .position(|window| window == needle)
-    {
-        output.extend_from_slice(&haystack[start..start + position]);
-        output.extend_from_slice(replacement);
-        start += position + needle.len();
-    }
-    output.extend_from_slice(&haystack[start..]);
-    output
-}
-// Redact while ingesting, before bytes are committed or truncated: a secret
-// split by a read or by the retained-tail boundary can then never leave a
-// partial credential in the diagnostic.
-struct StderrTail {
-    output: Vec<u8>,
-    pending: Vec<u8>,
-    guard: usize,
-}
-impl StderrTail {
-    fn new(secrets: &[String]) -> Self {
-        Self {
-            output: Vec::new(),
-            pending: Vec::new(),
-            guard: secrets
-                .iter()
-                .map(String::len)
-                .max()
-                .unwrap_or(0)
-                .saturating_sub(1),
-        }
-    }
-    fn append(&mut self, chunk: &[u8], secrets: &[String]) {
-        self.pending.extend_from_slice(chunk);
-        for secret in secrets {
-            if !secret.is_empty() {
-                self.pending = replace_all(&self.pending, secret.as_bytes(), b"[redacted]");
-            }
-        }
-        let keep = self.pending.len().saturating_sub(self.guard);
-        if keep == 0 {
-            return;
-        }
-        self.output.extend_from_slice(&self.pending[..keep]);
-        self.pending.drain(..keep);
-        if self.output.len() > STDERR_LIMIT {
-            self.output.drain(..self.output.len() - STDERR_LIMIT);
-        }
-    }
-    fn diagnostic(&mut self) -> String {
-        self.output.extend_from_slice(&self.pending);
-        self.pending.clear();
-        if self.output.len() > STDERR_LIMIT {
-            self.output.drain(..self.output.len() - STDERR_LIMIT);
-        }
-        String::from_utf8_lossy(&self.output).into_owned()
-    }
-}
-impl Drop for Process {
-    fn drop(&mut self) {
-        self.input.take();
-        let until = Instant::now() + Duration::from_secs(13);
-        let mut exited = false;
-        while Instant::now() < until {
-            if self.child.try_wait().ok().flatten().is_some() {
-                exited = true;
-                break;
-            }
-            std::thread::sleep(Duration::from_millis(50));
-        }
-        if !exited {
-            let _ = self.child.kill();
-            let _ = self.child.wait();
-        }
-        let _ = self.stderr_done.recv_timeout(Duration::from_millis(250));
-        if let Ok(mut tail) = self.stderr.lock() {
-            let diagnostic = tail.diagnostic();
-            if !diagnostic.is_empty() {
-                if let Some(dir) = self.diagnostic_path.parent() {
-                    if fs::create_dir_all(dir).is_ok() {
-                        if let Ok(mut file) = tempfile::NamedTempFile::new_in(dir) {
-                            let _ = file.write_all(diagnostic.as_bytes());
-                            let _ = file.persist(&self.diagnostic_path);
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-impl Process {
-    fn start(app: &tauri::AppHandle, store: &Store, model_enabled: bool) -> Result<Self> {
-        let config = if model_enabled {
-            store.connection_settings()?.validate()?
-        } else {
-            Default::default()
-        };
-        let (base, model, key) = if model_enabled {
-            let base = config.base_url.as_deref().ok_or(crate::language::error(
-                "LOCAL_MODEL_URL_REQUIRED",
-                json!({}),
-            ))?;
-            let model = config
-                .model_id
-                .as_deref()
-                .ok_or(crate::language::error("LOCAL_MODEL_ID_REQUIRED", json!({})))?;
-            (
-                base,
-                model,
-                store.model_secret(&app.config().identifier, base)?,
-            )
-        } else {
-            ("", "", String::new())
-        };
-        let executable = executable(app)?;
-        let token = format!("{}{}", store::id(), store::id());
-        let redactions = vec![token.clone(), key.clone()];
-        let _ = fs::remove_file(store.dir.join("ai/parser-stderr.log"));
-        let bootstrap = json!({"AI_SERVICE_TOKEN":token,"LLM_API_KEY":key,"LLM_BASE_URL":base,"LLM_MODEL":model,
-            "AI_DATABASE_DIR":store.dir.join("ai/database"),"AI_STORAGE_DIR":store.dir.join("ai/files")});
+impl Endpoint {
+    fn new(origin: String, token: String) -> Result<Self> {
         let client = Client::builder()
             .no_proxy()
             .redirect(reqwest::redirect::Policy::none())
-            .timeout(Duration::from_secs(120))
+            .timeout(Duration::from_secs(900))
             .build()
-            .map_err(err)?;
-        let mut command = Command::new(executable);
-        #[cfg(target_os = "windows")]
-        {
-            use std::os::windows::process::CommandExt;
-            command.creation_flags(0x08000000); // CREATE_NO_WINDOW; keep stdio pipes.
-        }
-        let mut child = command
-            .arg("serve")
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .map_err(|_| {
-                crate::language::error("LOCAL_BUNDLE_START_FAILED", serde_json::json!({}))
-            })?;
-        let mut stderr = child.stderr.take().ok_or(crate::language::error(
-            "LOCAL_STATUS_PIPE_FAILED",
-            serde_json::json!({}),
-        ))?;
-        let tail = Arc::new(Mutex::new(StderrTail::new(&redactions)));
-        let writer = tail.clone();
-        let secrets = redactions.clone();
-        let (done, stderr_done) = std::sync::mpsc::channel();
-        std::thread::spawn(move || {
-            let mut buffer = [0u8; 4096];
-            while let Ok(count) = stderr.read(&mut buffer) {
-                if count == 0 {
-                    break;
-                }
-                if let Ok(mut tail) = writer.lock() {
-                    tail.append(&buffer[..count], &secrets);
-                }
-            }
-            let _ = done.send(());
-        });
-        let mut process = Self {
-            model_enabled,
-            child,
-            input: None,
-            stderr: tail,
-            stderr_done,
-            diagnostic_path: store.dir.join("ai/parser-stderr.log"),
-            endpoint: Endpoint {
-                client,
-                origin: String::new(),
-                token,
-            },
-        };
-        let mut input = process.child.stdin.take().ok_or(crate::language::error(
-            "LOCAL_INPUT_PIPE_FAILED",
-            serde_json::json!({}),
-        ))?;
-        writeln!(input, "{bootstrap}").map_err(|_| {
-            crate::language::error("LOCAL_BUNDLE_INIT_FAILED", serde_json::json!({}))
-        })?;
-        input.flush().map_err(err)?;
-        process.input = Some(input);
-        let stdout = process.child.stdout.take().ok_or(crate::language::error(
-            "LOCAL_STATUS_PIPE_FAILED",
-            serde_json::json!({}),
-        ))?;
-        let (tx, rx) = std::sync::mpsc::channel();
-        std::thread::spawn(move || {
-            let mut reader = BufReader::new(stdout);
-            let mut line = String::new();
-            let ready =
-                reader.by_ref().take(4097).read_line(&mut line).is_ok() && line.len() <= 4096;
-            let _ = tx.send(if ready {
-                serde_json::from_str::<Value>(&line).ok()
-            } else {
-                None
-            });
-            let _ = std::io::copy(&mut reader, &mut std::io::sink());
-        });
-        let ready = rx
-            .recv_timeout(Duration::from_secs(45))
-            .map_err(|_| crate::language::error("LOCAL_BUNDLE_TIMEOUT", serde_json::json!({})))?
-            .ok_or(crate::language::error(
-                "LOCAL_BUNDLE_INIT_FAILED",
-                serde_json::json!({}),
-            ))?;
-        let port = ready["port"]
-            .as_u64()
-            .filter(|p| *p > 0 && *p <= 65535)
-            .ok_or(crate::language::error(
-                "LOCAL_BUNDLE_PORT_INVALID",
-                serde_json::json!({}),
-            ))?;
-        process.endpoint.origin = format!("http://127.0.0.1:{port}");
-        let status = process
-            .endpoint
-            .client
-            .get(format!("{}/ready", process.endpoint.origin))
-            .send()
-            .map_err(|_| crate::language::error("LOCAL_BUNDLE_NOT_READY", serde_json::json!({})))?;
-        if !status.status().is_success() {
-            return Err(crate::language::error(
-                "LOCAL_BUNDLE_NOT_READY",
-                serde_json::json!({}),
-            ));
-        }
-        Ok(process)
-    }
-}
-impl Endpoint {
-    #[cfg(test)]
-    pub(crate) fn test(origin: String) -> Self {
-        Self {
-            client: Client::builder()
-                .no_proxy()
-                .timeout(Duration::from_secs(3))
-                .build()
-                .unwrap(),
+            .map_err(|_| crate::language::error("LOCAL_SERVICE_UNAVAILABLE", json!({})))?;
+        Ok(Self {
+            client,
             origin,
-            token: "test".into(),
-        }
+            token,
+        })
     }
-    fn send(&self, method: Method, path: &str, body: Option<&Value>) -> AiResult<Response> {
-        let mut request = self
+    fn grade(&self, payload: &Value) -> Result<Value> {
+        let response = self
             .client
-            .request(method, format!("{}{path}", self.origin))
-            .bearer_auth(&self.token);
-        if path == "/api/subjective-grades" {
-            request = request.timeout(Duration::from_secs(900));
-        }
-        if let Some(body) = body {
-            request = request.json(body);
-        }
-        let response = request
+            .post(format!("{}/api/subjective-grades", self.origin))
+            .bearer_auth(&self.token)
+            .json(payload)
             .send()
             .map_err(|_| crate::language::error("LOCAL_SERVICE_UNAVAILABLE", json!({})))?;
-        if !response.status().is_success() {
-            let status = response.status();
-            let value = read_json(response)?;
+        let status = response.status();
+        let value = redact(read_json(response, contract::MAX_JSON)?, &self.token);
+        if !status.is_success() {
             let detail = &value["detail"];
-            let mut error = AppError::new(
-                detail["code"].as_str().unwrap_or("SERVICE_ERROR"),
-                detail["message"]
-                    .as_str()
-                    .unwrap_or("AI service returned an error"),
-            );
-            error.params = Box::new(detail["params"].clone());
-            error.diagnostic = detail["message"]
+            let code = detail["code"]
+                .as_str()
+                .filter(|code| {
+                    !code.is_empty()
+                        && code.len() <= 64
+                        && code
+                            .chars()
+                            .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '_')
+                })
+                .unwrap_or("SERVICE_ERROR");
+            let message: String = detail["message"]
                 .as_str()
                 .or_else(|| detail.as_str())
-                .map(str::to_owned)
-                .or_else(|| detail.as_array().map(|_| detail.to_string()))
-                .map(String::into_boxed_str);
+                .unwrap_or("AI service returned an error")
+                .chars()
+                .take(4096)
+                .collect();
+            let mut error = AppError::new(code, message.clone());
+            if detail["params"].to_string().len() <= 16 * 1024 {
+                error.params = Box::new(detail["params"].clone());
+            }
+            error.diagnostic = Some(message.into_boxed_str());
             error.http_status = Some(status.as_u16());
             return Err(error);
         }
-        Ok(response)
-    }
-    pub(crate) fn json(&self, method: Method, path: &str, body: Option<&Value>) -> AiResult<Value> {
-        read_json(self.send(method, path, body)?)
+        Ok(value)
     }
 }
-fn read_json(response: Response) -> Result<Value> {
+fn redact(value: Value, token: &str) -> Value {
+    if token.is_empty() {
+        return value;
+    }
+    match value {
+        Value::String(text) => Value::String(text.replace(token, "[redacted]")),
+        Value::Array(items) => {
+            Value::Array(items.into_iter().map(|item| redact(item, token)).collect())
+        }
+        Value::Object(items) => Value::Object(
+            items
+                .into_iter()
+                .map(|(key, item)| (key.replace(token, "[redacted]"), redact(item, token)))
+                .collect(),
+        ),
+        other => other,
+    }
+}
+fn read_json(response: Response, limit: usize) -> Result<Value> {
     let mut bytes = Vec::new();
     response
-        .take(contract::MAX_JSON as u64 + 1)
+        .take(limit as u64 + 1)
         .read_to_end(&mut bytes)
-        .map_err(err)?;
-    if bytes.len() > contract::MAX_JSON {
+        .map_err(|_| crate::language::error("LOCAL_RESPONSE_INVALID", json!({})))?;
+    if bytes.len() > limit {
         return Err(crate::language::error(
             "LOCAL_RESPONSE_TOO_LARGE",
-            serde_json::json!({}),
+            json!({}),
         ));
     }
     serde_json::from_slice(&bytes)
-        .map_err(|_| crate::language::error("LOCAL_RESPONSE_INVALID", serde_json::json!({})))
+        .map_err(|_| crate::language::error("LOCAL_RESPONSE_INVALID", json!({})))
 }
-pub(crate) fn task_path(id: &str) -> Result<String> {
-    let id = uuid::Uuid::parse_str(id)
-        .map_err(|_| crate::language::error("LOCAL_TASK_ID_INVALID", serde_json::json!({})))?;
-    Ok(format!("/api/document-tasks/{id}"))
+
+pub fn test_connection(origin: &str, token: String) -> Result<Value> {
+    let endpoint = Endpoint::new(origin.to_owned(), token)?;
+    let response = endpoint
+        .client
+        .request(Method::GET, format!("{origin}/api/maintenance"))
+        .timeout(Duration::from_secs(15))
+        .bearer_auth(&endpoint.token)
+        .send()
+        .map_err(|_| crate::language::error("LOCAL_CONNECTION_FAILED", json!({})))?;
+    if !response.status().is_success() {
+        return Err(crate::language::error(
+            "LOCAL_CONNECTION_HTTP",
+            json!({"status":response.status().as_u16()}),
+        ));
+    }
+    let value = read_json(response, 1024 * 1024)
+        .map_err(|_| crate::language::error("LOCAL_CONNECTION_RESPONSE", json!({})))?;
+    if !value["enabled"].is_boolean() {
+        return Err(crate::language::error(
+            "LOCAL_CONNECTION_RESPONSE",
+            json!({}),
+        ));
+    }
+    Ok(Value::Null)
 }
-pub fn stop(app: &tauri::AppHandle) -> Result<()> {
-    app.state::<AiState>()
-        .lock()
-        .map_err(|_| {
-            crate::language::error("LOCAL_PARSER_STATE_UNAVAILABLE", serde_json::json!({}))
-        })?
-        .take();
-    Ok(())
-}
+
 pub fn save_settings(
     app: &tauri::AppHandle,
     shared: &Shared,
-    config: crate::settings::ConnectionSettings,
-    api_key: Option<String>,
+    config: settings::ServiceSettings,
+    service_token: Option<String>,
 ) -> Result<Value> {
-    let work = app.state::<WorkState>();
-    let _configuration = work.configure()?;
-    let endpoint = {
-        let state = app.state::<AiState>();
-        let mut state = state
-            .lock()
-            .map_err(|_| crate::language::error("LOCAL_PARSER_STATE_UNAVAILABLE", json!({})))?;
-        if state
-            .as_mut()
-            .is_some_and(|process| process.child.try_wait().ok().flatten().is_some())
-        {
-            state.take();
-        }
-        state.as_ref().map(|process| process.endpoint.clone())
-    };
-    if let Some(endpoint) = endpoint {
-        ensure_idle(&endpoint)?;
-    }
-    let result = crate::settings::snapshot(shared)?.save_settings(
-        &app.config().identifier,
-        config,
-        api_key,
-    )?;
-    stop(app)?;
-    Ok(result)
-}
-fn ensure_idle(endpoint: &Endpoint) -> Result<()> {
-    let mut offset = 0;
-    loop {
-        let page = endpoint.json(
-            Method::GET,
-            &format!("/api/document-tasks?limit=100&offset={offset}"),
-            None,
-        )?;
-        let tasks = page["items"]
-            .as_array()
-            .ok_or(crate::language::error("LOCAL_TASK_LIST_INVALID", json!({})))?;
-        if tasks.iter().any(|task| {
-            matches!(
-                task["state"].as_str(),
-                Some("PENDING" | "RUNNING" | "PAUSING")
-            )
-        }) {
-            return Err(crate::language::error(
-                "LOCAL_SETTINGS_ACTIVE_TASKS",
-                json!({}),
-            ));
-        }
-        if page["hasMore"] != true {
-            return Ok(());
-        }
-        offset += tasks.len();
-        if tasks.is_empty() || offset > 1_000_000 {
-            return Err(crate::language::error("LOCAL_TASK_LIST_INVALID", json!({})));
-        }
-    }
+    let state = app.state::<GradingState>();
+    let _configuration = state.configure()?;
+    settings::snapshot(shared)?.save_settings(&app.config().identifier, config, service_token)
 }
 
-fn complete_office_matches(
-    receipts: Vec<Value>,
-    mut refresh: impl FnMut(&str) -> AiResult<Value>,
-) -> AiResult<Vec<Value>> {
-    let mut artifacts = std::collections::HashMap::new();
-    for receipt in receipts {
-        let artifact = contract::text(&receipt, "officeArtifact").to_owned();
-        let current = artifacts.entry(artifact).or_insert(None);
-        match refresh(contract::text(&receipt, "threadId")) {
-            Ok(task) if reusable_task(&task) => *current = Some(task),
-            Ok(_) => {}
-            Err(error) if matches!(error.code.as_str(), "TASK_NOT_FOUND" | "TASK_EXPIRED") => {}
-            Err(error) => return Err(error),
-        }
-    }
-    // Historical expired receipts are harmless if each sheet has a live replacement.
-    Ok(artifacts
-        .into_values()
-        .collect::<Option<Vec<_>>>()
-        .unwrap_or_default())
-}
-
-fn reusable_task(task: &Value) -> bool {
-    contract::text(task, "state") != "EXPIRED"
-}
-
-fn document_format(path: &std::path::Path) -> Result<(&'static str, &'static str)> {
-    let extension = path
-        .extension()
-        .and_then(|s| s.to_str())
-        .unwrap_or("")
-        .to_ascii_lowercase();
-    Ok(match extension.as_str() {
-        "txt" => ("text", "text/plain"),
-        "csv" => ("csv", "text/csv"),
-        "pdf" => ("pdf", "application/pdf"),
-        "doc" | "docx" | "xls" | "xlsx" | "docm" | "xlsm" | "xlsb" => {
-            return Err(crate::language::error(
-                "LOCAL_WORD_UNSUPPORTED",
-                serde_json::json!({}),
-            ))
-        }
-        "png" => ("image", "image/png"),
-        "jpg" | "jpeg" => ("image", "image/jpeg"),
-        _ => {
-            return Err(crate::language::error(
-                "LOCAL_DOCUMENT_UNSUPPORTED",
-                serde_json::json!({}),
-            ))
-        }
-    })
-}
-
-fn active_endpoint(
-    app: &tauri::AppHandle,
-    dir: &std::path::Path,
-    model_required: bool,
-) -> AiResult<Endpoint> {
-    let state = app.state::<AiState>();
-    let mut state = state.lock().map_err(|_| {
-        crate::language::error("LOCAL_PARSER_STATE_UNAVAILABLE", serde_json::json!({}))
-    })?;
-    if state.as_mut().is_some_and(|p| {
-        p.child.try_wait().ok().flatten().is_some() || (model_required && !p.model_enabled)
-    }) {
-        state.take();
-    }
-    if state.is_none() {
-        *state = Some(
-            Process::start(
-                app,
-                &Store {
-                    dir: dir.to_owned(),
-                    ..Default::default()
-                },
-                model_required,
-            )
-            .map_err(|mut error| {
-                let path = dir.join("ai/parser-stderr.log");
-                if path.exists() {
-                    error.context = Some(path.display().to_string().into_boxed_str());
-                }
-                error
-            })?,
-        );
-    }
-    Ok(state
-        .as_ref()
-        .ok_or(crate::language::error(
-            "LOCAL_PARSER_UNAVAILABLE",
-            serde_json::json!({}),
-        ))?
-        .endpoint
-        .clone())
-}
-
-fn review_reference(
-    process: &Endpoint,
+fn grade(
+    shared: &Shared,
+    endpoint: &Endpoint,
     id: &str,
-    checkpoint_id: &str,
-    unit: usize,
-    visual: Option<usize>,
-) -> AiResult<(Value, String)> {
-    let review = process.review(id)?;
-    if review["checkpointId"] != checkpoint_id {
-        return Err(crate::language::error("STALE_CHECKPOINT", json!({})));
-    }
-    let unit = review["units"].get(unit).ok_or(crate::language::error(
-        "LOCAL_PREVIEW_UNIT_MISSING",
-        serde_json::json!({}),
-    ))?;
-    let reference = match visual {
-        Some(index) => &unit["visualElements"]
-            .get(index)
-            .ok_or(crate::language::error(
-                "LOCAL_IMAGE_MISSING",
-                serde_json::json!({}),
-            ))?["imageRef"],
-        None => &unit["sourceRef"],
-    };
-    Ok((
-        reference.clone(),
-        contract::text(reference, "mediaType").to_owned(),
-    ))
-}
-
-pub fn read_review_image(
-    app: tauri::AppHandle,
-    shared: Shared,
-    id: String,
-    checkpoint_id: String,
-    unit: usize,
-    visual: Option<usize>,
-) -> AiResult<Vec<u8>> {
-    let dir = shared
+    ordinal: usize,
+    retry: bool,
+    snapshot_key: Option<&str>,
+    locale: crate::language::Locale,
+) -> Result<Value> {
+    let payload = shared
         .lock()
         .map_err(|_| crate::language::error("LOCAL_DATABASE_UNAVAILABLE", json!({})))?
-        .dir
-        .clone();
-    let work = app.state::<WorkState>();
-    let _request = work.enter()?;
-    let process = active_endpoint(&app, &dir, false)?;
-    let (reference, media) = review_reference(&process, &id, &checkpoint_id, unit, visual)?;
-    if !media.starts_with("image/") {
-        return Err(crate::language::error(
-            "LOCAL_IMAGE_FORMAT_MISMATCH",
-            json!({"key": reference["objectKey"]}),
-        ));
-    }
-    process.image(
-        &reference,
-        &Store {
-            dir,
-            ..Default::default()
-        },
-    )
-}
-
-pub(crate) fn upload_document(
-    process: &Endpoint,
-    path: &std::path::Path,
-    bytes: Vec<u8>,
-    record: impl FnOnce(&Value) -> Result<()>,
-) -> Result<Value> {
-    let (kind, media) = document_format(path)?;
-    let body = json!({"sourceType":kind,"fileName":path.file_name().and_then(|s|s.to_str()).ok_or(crate::language::error("LOCAL_FILENAME_INVALID", serde_json::json!({})))?,"mediaType":media,"sha256":store::hash(&bytes),"sizeBytes":bytes.len()});
-    let prepared = process.json(Method::POST, "/api/uploads", Some(&body))?;
-    // Record ownership before a PUT can persist content or lose its response.
-    record(&prepared["document"])?;
-    if !prepared["upload"].is_null() {
-        let relative = prepared["upload"]["url"]
-            .as_str()
-            .ok_or(crate::language::error(
-                "LOCAL_UPLOAD_URL_INVALID",
-                serde_json::json!({}),
-            ))?;
-        if !relative.starts_with("/api/uploads/content?") {
-            return Err(crate::language::error(
-                "LOCAL_UPLOAD_URL_OUTSIDE",
-                serde_json::json!({}),
-            ));
-        }
-        let response = process
-            .client
-            .put(format!("{}{relative}", process.origin))
-            .bearer_auth(&process.token)
-            .body(bytes)
-            .send()
-            .map_err(|_| crate::language::error("LOCAL_UPLOAD_FAILED", serde_json::json!({})))?;
-        if !response.status().is_success() {
-            return Err(crate::language::error(
-                "LOCAL_UPLOAD_RETRY",
-                serde_json::json!({}),
-            ));
-        }
-    }
-    Ok(prepared["document"].clone())
-}
-
-fn pick_documents(
-    selected: Vec<PathBuf>,
-    mut import: impl FnMut(&std::path::Path) -> Result<Vec<String>>,
-    mut skipped: impl FnMut(&std::path::Path, AppError),
-) -> Result<Value> {
-    let mut ids = Vec::new();
-    for path in selected {
-        match import(&path) {
-            Ok(tasks) => {
-                for id in tasks {
-                    if !ids.contains(&id) {
-                        ids.push(id);
-                    }
-                }
-            }
-            Err(error)
-                if matches!(
-                    error.code.as_str(),
-                    "OFFICE_IMPORT_PENDING" | "OFFICE_EMPTY_OUTPUT"
-                ) =>
-            {
-                skipped(&path, error)
-            }
-            Err(error) => return Err(error),
-        }
-    }
-    Ok(if ids.is_empty() {
-        Value::Null
-    } else {
-        json!({"threadId":ids[0],"threadIds":ids})
-    })
+        .prepare_grade(id, ordinal, retry, locale)?;
+    let response = endpoint.grade(&payload).unwrap_or_else(|error| json!({"status":"unknown","error":error.message,"appError":error,"usageStatus":"unknown"}));
+    shared
+        .lock()
+        .map_err(|_| crate::language::error("LOCAL_DATABASE_UNAVAILABLE", json!({})))?
+        .record_grade_with_key(
+            id,
+            ordinal,
+            contract::text(&payload, "requestId"),
+            &response,
+            snapshot_key,
+        )
 }
 
 pub fn request(
@@ -751,724 +244,346 @@ pub fn request(
     shared: Shared,
     request: AiRequest,
     locale: crate::language::Locale,
-) -> AiResult<Value> {
-    let dir = {
-        let store = shared
-            .lock()
-            .map_err(|_| crate::language::error("LOCAL_DATABASE_UNAVAILABLE", json!({})))?;
-        store.dir.clone()
-    };
-    let work = app.state::<WorkState>();
-    let _request = work.enter()?;
-    // Local recovery controls must remain available even without model settings.
-    match &request {
-        AiRequest::SelectDocument => {
-            let files = app
-                .dialog()
-                .file()
-                .add_filter(
-                    locale.text("源文件", "Source file"),
-                    &[
-                        "txt", "csv", "pdf", "png", "jpg", "jpeg", "doc", "docx", "xls", "xlsx",
-                    ],
-                )
-                .blocking_pick_files();
-            return match files {
-                Some(files) => work.select_documents(
-                    files
-                        .into_iter()
-                        .map(|file| file.into_path().map_err(err))
-                        .collect::<Result<Vec<_>>>()?,
-                ),
-                None => Ok(Value::Null),
-            };
-        }
-        AiRequest::Operations => return ai_work::operations(&dir, &work),
-        AiRequest::Batches { offset, thread_ids } => {
-            return ai_work::batches(&dir, &work, *offset, thread_ids)
-        }
-        AiRequest::CancelBatch { id } => return ai_work::cancel_batch(&dir, &work, id),
-        _ => {}
-    }
-    let selected = if let AiRequest::PickDocument {
-        selection, details, ..
-    } = &request
-    {
-        details.validate()?;
-        work.selected_documents(selection)?
-    } else {
-        Vec::new()
-    };
-    let model_required = matches!(&request, AiRequest::Grade { .. } | AiRequest::Replay { .. })
-        || matches!(&request, AiRequest::Control { action, .. } if matches!(action.as_str(), "resume" | "retry_failed" | "accept_partial"));
-    let process = active_endpoint(&app, &dir, model_required)?;
-    match request {
-        AiRequest::Grade {
-            id,
-            ordinal,
-            retry,
-            snapshot_key,
-        } => {
-            let payload = shared
-                .lock()
-                .map_err(|_| {
-                    crate::language::error("LOCAL_DATABASE_UNAVAILABLE", serde_json::json!({}))
-                })?
-                .prepare_grade(&id, ordinal, retry, locale)?;
-            let response = match process.json(
-                Method::POST,
-                "/api/subjective-grades",
-                Some(&payload),
-            ) {
-                Ok(value) => value,
-                Err(error) => {
-                    serde_json::json!({"status":"unknown","error":error.message,"appError":error,"usageStatus":"unknown"})
-                }
-            };
-            Ok(shared
-                .lock()
-                .map_err(|_| {
-                    crate::language::error("LOCAL_DATABASE_UNAVAILABLE", serde_json::json!({}))
-                })?
-                .record_grade_with_key(
-                    &id,
-                    ordinal,
-                    contract::text(&payload, "requestId"),
-                    &response,
-                    snapshot_key.as_deref(),
-                )?)
-        }
-        AiRequest::List { offset, filter } => {
-            if offset > 1_000_000 {
-                return Err(crate::language::error(
-                    "LOCAL_PAGE_INVALID",
-                    serde_json::json!({}),
-                ));
-            }
-            let filter_query = match filter.as_deref() {
-                None => String::new(),
-                Some(value)
-                    if [
-                        "active",
-                        "paused",
-                        "completed",
-                        "cancelled",
-                        "failed",
-                        "review",
-                        "interrupted",
-                        "expired",
-                    ]
-                    .contains(&value) =>
-                {
-                    format!("&state_filter={value}")
-                }
-                _ => return Err(crate::language::error("LOCAL_ACTION_INVALID", json!({}))),
-            };
-            let mut result = process.json(
-                Method::GET,
-                &format!("/api/document-tasks?limit=20&offset={offset}{filter_query}"),
-                None,
-            )?;
-            let threads: Vec<_> = result["items"]
-                .as_array()
-                .ok_or(crate::language::error("LOCAL_TASK_LIST_INVALID", json!({})))?
-                .iter()
-                .map(|item| contract::text(item, "threadId").to_owned())
-                .collect();
-            let details = ai_work::import_details(&dir, &work, &threads)?;
-            let store = shared.lock().map_err(|_| {
-                crate::language::error("LOCAL_DATABASE_UNAVAILABLE", serde_json::json!({}))
-            })?;
-            let db = store.connect()?;
-            for item in result["items"]
-                .as_array_mut()
-                .ok_or(crate::language::error(
-                    "LOCAL_TASK_LIST_INVALID",
-                    serde_json::json!({}),
-                ))?
-            {
-                contract::validate_workflow(item, false)?;
-                let id = contract::text(item, "threadId");
-                let bank = Store::imported_ai_with(&db, id, None, item["checkpointId"].as_str())?;
-                let previous = Store::imported_ai_with(&db, id, None, None)?.is_some();
-                let metadata = details.get(id);
-                item["bankTitle"] = json!(metadata.map(|m| &m.title));
-                item["bankDescription"] = json!(metadata.map(|m| &m.description));
-                item["importedBankId"] = json!(bank);
-                item["previouslyImported"] = json!(previous);
-            }
-            Ok(result)
-        }
-        AiRequest::Delete { id } => ai_work::delete_task(&dir, &work, &process, &id),
-        AiRequest::Get { id } => process.json(Method::GET, &task_path(&id)?, None),
-        AiRequest::Control {
-            id,
-            action,
-            run_id,
-            checkpoint_id,
-            units,
-        } => {
-            if ![
-                "pause",
-                "resume",
-                "interrupt",
-                "retry_failed",
-                "accept_partial",
-            ]
-            .contains(&action.as_str())
-            {
-                return Err(crate::language::error(
-                    "LOCAL_ACTION_INVALID",
-                    serde_json::json!({}),
-                ));
-            }
-            let body = json!({"requestId":store::id(),"action":action,"runId":run_id,"checkpointId":checkpoint_id,"units":units.unwrap_or(json!([]))});
-            ai_work::submit_operation(
-                &dir,
-                &work,
-                &process,
-                &format!("{}/control", task_path(&id)?),
-                body,
-                &action,
-            )
-        }
-        AiRequest::PickDocument {
-            office_mode,
-            details,
-            ..
-        } => {
-            let mut process = process;
-            let mut engine = None;
-            pick_documents(
-                selected,
-                |path| {
-                    let mut ids = Vec::new();
-                    let office = crate::office::is_office(path);
-                    if !office {
-                        document_format(path)?;
-                    }
-                    let bytes = store::read_bounded(path, 25 * 1024 * 1024)?;
-                    let hash = store::hash(&bytes);
-                    let mut previous = if office {
-                        ai_work::office_matches(&dir, &work, &hash, office_mode)?
-                    } else {
-                        process.json(
-                            Method::GET,
-                            &format!("/api/document-tasks?limit=1&sha256={hash}"),
-                            None,
-                        )?["items"]
-                            .as_array()
-                            .cloned()
-                            .unwrap_or_default()
-                    };
-                    if office {
-                        previous = complete_office_matches(previous, |id| {
-                            process.json(Method::GET, &task_path(id)?, None)
-                        })?;
-                    }
-                    previous.retain(reusable_task);
-                    // Reuse matching content; the explicit Reparse action creates a new task.
-                    if !previous.is_empty() {
-                        for existing in &previous {
-                            let id = contract::text(existing, "threadId");
-                            task_path(id)?;
-                            if !ids.iter().any(|saved| saved == id) {
-                                ids.push(id.to_owned());
-                            }
-                        }
-                        return Ok(ids);
-                    }
-                    let converted = if office {
-                        if engine.is_none() {
-                            engine = Some(crate::office::status(&app)?);
-                        }
-                        crate::office::prepare(&app, path, &bytes, office_mode, engine.as_ref())?
-                    } else {
-                        Vec::new()
-                    };
-                    if office && !converted.iter().any(|a| a.has_content) {
-                        return Err(crate::language::error("OFFICE_EMPTY_OUTPUT", json!({})));
-                    }
-                    // Start import is the user action. Keep the selected byte snapshot for upload.
-                    process = active_endpoint(&app, &dir, true)?;
-                    let mut documents = Vec::new();
-                    if office {
-                        for artifact in converted.into_iter().filter(|a| a.has_content) {
-                            let document = upload_document(
-                                &process,
-                                std::path::Path::new(&artifact.name),
-                                artifact.bytes,
-                                |document| {
-                                    ai_work::stage_document(
-                                        &dir,
-                                        &work,
-                                        document.clone(),
-                                        &artifact.name,
-                                        Some(artifact.origin.clone()),
-                                        Some(&details),
-                                    )
-                                },
-                            )?;
-                            documents.push((document, artifact.name, Some(artifact.origin)));
-                        }
-                    } else {
-                        let document = upload_document(&process, path, bytes, |document| {
-                            ai_work::stage_document(
-                                &dir,
-                                &work,
-                                document.clone(),
-                                path.file_name()
-                                    .and_then(|s| s.to_str())
-                                    .unwrap_or_default(),
-                                None,
-                                Some(&details),
-                            )
-                        })?;
-                        documents.push((
-                            document,
-                            path.file_name()
-                                .and_then(|s| s.to_str())
-                                .unwrap_or_default()
-                                .to_owned(),
-                            None,
-                        ));
-                    }
-                    for receipt in ai_work::submit_documents(&dir, &work, &process, documents)? {
-                        let id = contract::text(&receipt, "threadId");
-                        task_path(id)?;
-                        ids.push(id.to_owned());
-                    }
-                    Ok(ids)
-                },
-                |path, error| {
-                    app.dialog()
-                        .message(format!(
-                            "{}\n{}",
-                            path.file_name().unwrap_or_default().to_string_lossy(),
-                            crate::language::message(&error.code, &error.params, locale)
-                        ))
-                        .blocking_show();
-                },
-            )
-        }
-        AiRequest::Reparse { id } => {
-            let process = active_endpoint(&app, &dir, true)?;
-            ai_work::submit_operation(
-                &dir,
-                &work,
-                &process,
-                &format!("{}/reparse", task_path(&id)?),
-                json!({"requestId":store::id()}),
-                locale.text("重新解析文档", "Parse document again"),
-            )
-        }
-        AiRequest::Preview { id } => {
-            let mut pending = process.pending(&dir, &work, &id)?;
-            let store = Store {
-                dir,
-                ..Default::default()
-            };
-            process.load_assets(&mut pending, &store)?;
-            let mut store = shared.lock().map_err(|_| {
-                crate::language::error("LOCAL_DATABASE_UNAVAILABLE", serde_json::json!({}))
-            })?;
-            store.pending = Some(pending);
-            Ok(store.preview_value()?)
-        }
-        AiRequest::Review { id } => process.review(&id),
-        AiRequest::ReviewAsset {
-            id,
-            checkpoint_id,
-            unit,
-            visual,
-        } => {
-            let (reference, media) = review_reference(&process, &id, &checkpoint_id, unit, visual)?;
-            let content = if media == "text/plain" || media.starts_with("text/plain;") {
-                let mut bytes = Vec::new();
-                process
-                    .send(Method::POST, "/api/artifacts/read", Some(&reference))?
-                    .take(contract::MAX_JSON as u64 + 1)
-                    .read_to_end(&mut bytes)
-                    .map_err(err)?;
-                if bytes.len() > contract::MAX_JSON
-                    || reference["sizeBytes"].as_u64() != Some(bytes.len() as u64)
-                    || store::hash(&bytes) != contract::text(&reference, "sha256")
-                {
-                    return Err(crate::language::error(
-                        "LOCAL_SOURCE_ARTIFACT_INVALID",
-                        json!({"key": reference["objectKey"]}),
-                    ));
-                }
-                String::from_utf8(bytes).map_err(|_| {
-                    crate::language::error("LOCAL_SOURCE_ENCODING_INVALID", serde_json::json!({}))
-                })?
-            } else {
-                return Err(crate::language::error(
-                    "LOCAL_IMAGE_FORMAT_MISMATCH",
-                    json!({"key": reference["objectKey"]}),
-                ));
-            };
-            Ok(json!({"mediaType":media,"content":content}))
-        }
-        AiRequest::Replay { request_id } => {
-            ai_work::replay_operation(&dir, &work, &process, &request_id)
-        }
-        AiRequest::PrepareBatch { ids, bank_id } => {
-            ai_work::prepare_batch(&dir, &work, &process, &ids, bank_id)
-        }
-        AiRequest::RunBatch { id, titles } => {
-            ai_work::run_batch(&dir, &work, &process, &shared, &id, titles)
-        }
-        AiRequest::SelectDocument
-        | AiRequest::Operations
-        | AiRequest::Batches { .. }
-        | AiRequest::CancelBatch { .. } => {
-            unreachable!("handled before service startup")
-        }
-    }
-}
-
-impl Endpoint {
-    fn review(&self, id: &str) -> AiResult<Value> {
-        let result = self.json(Method::GET, &format!("{}/preview", task_path(id)?), None)?;
-        contract::validate_workflow(&result, true)?;
-        Ok(result)
-    }
-    pub(crate) fn pending(
-        &self,
-        dir: &std::path::Path,
-        work: &WorkState,
-        id: &str,
-    ) -> AiResult<Pending> {
-        let result = self.json(Method::GET, &task_path(id)?, None)?;
-        if result["threadId"] != id || result["state"] != "COMPLETED" {
-            return Err(crate::language::error("TASK_NOT_COMPLETED", json!({})));
-        }
-        let checkpoint = result["checkpointId"]
-            .as_str()
-            .filter(|s| !s.is_empty())
-            .ok_or(crate::language::error(
-                "LOCAL_RESULT_VERSION_MISSING",
-                serde_json::json!({}),
-            ))?
-            .to_owned();
-        let title = std::path::Path::new(result["fileName"].as_str().unwrap_or("PractiQ"))
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or("PractiQ")
-            .to_owned();
-        // Store portable document output, not run state or model-call logs, in practice backups.
-        let mut output = json!({"status":result["status"],"result":result["result"]});
-        if !result["processing"].is_null() {
-            output["processing"] = result["processing"].clone();
-        }
-        let mut pending = Pending::new(serde_json::to_vec(&output).map_err(err)?, title)?;
-        if let Some(details) = ai_work::import_details(dir, work, &[id.into()])?.remove(id) {
-            pending.title = details.title;
-            pending.description = details.description;
-        }
-        pending.source = Some(ImportSource {
-            thread_id: id.into(),
-            checkpoint_id: checkpoint,
-        });
-        Ok(pending)
-    }
-    fn image(&self, reference: &Value, store: &Store) -> AiResult<Vec<u8>> {
-        let digest = contract::text(reference, "sha256");
-        let media = contract::text(reference, "mediaType");
-        let size = reference["sizeBytes"]
-            .as_u64()
-            .filter(|n| *n > 0 && *n <= crate::assets::LIMIT as u64)
-            .ok_or(crate::language::error(
-                "LOCAL_IMAGE_SIZE_OUTSIDE",
-                serde_json::json!({}),
-            ))?;
-        let path = store.asset_path(digest)?;
-        let bytes = if path.exists() {
-            store.read_asset(digest, size)?
-        } else {
-            let response = self.send(Method::POST, "/api/artifacts/read", Some(reference))?;
-            let mut bytes = Vec::new();
-            response
-                .take(crate::assets::LIMIT as u64 + 1)
-                .read_to_end(&mut bytes)
-                .map_err(err)?;
-            bytes
-        };
-        if bytes.len() as u64 != size
-            || store::hash(&bytes) != digest
-            || !store::valid_image(&bytes, media)
-        {
-            return Err(crate::language::error(
-                "LOCAL_IMAGE_ARTIFACT_INVALID",
-                json!({"key": reference["objectKey"]}),
-            ));
-        }
-        Ok(bytes)
-    }
-    pub(crate) fn load_assets(&self, pending: &mut Pending, store: &Store) -> AiResult<()> {
-        let mut total = 0usize;
-        for reference in contract::list(contract::result(&pending.root), "visualElements")
-            .iter()
-            .flat_map(contract::visual_refs)
-        {
-            let digest = contract::text(reference, "sha256");
-            if pending.assets.contains_key(digest) {
-                continue;
-            }
-            let bytes = self.image(reference, store)?;
-            total += bytes.len();
-            if total > 256 * 1024 * 1024 {
-                return Err(crate::language::error(
-                    "LOCAL_RESOURCES_TOO_LARGE",
-                    serde_json::json!({}),
-                ));
-            }
-            pending.assets.insert(
-                digest.into(),
-                (contract::text(reference, "mediaType").into(), bytes),
-            );
-        }
-        pending.missing.clear();
-        for reference in contract::resource_refs(contract::result(&pending.root)) {
-            let digest = contract::text(reference, "sha256");
-            if !pending.assets.contains_key(digest) && store.asset_bytes(digest)?.is_none() {
-                pending
-                    .missing
-                    .push(contract::text(reference, "objectKey").into());
-            }
-        }
-        Ok(())
-    }
+) -> Result<Value> {
+    let state = app.state::<GradingState>();
+    let _grading = state.enter()?;
+    let (origin, token) = settings::snapshot(&shared)?.grading_input(&app.config().identifier)?;
+    let endpoint = Endpoint::new(origin, token)?;
+    let AiRequest::Grade {
+        id,
+        ordinal,
+        retry,
+        snapshot_key,
+    } = request;
+    grade(
+        &shared,
+        &endpoint,
+        &id,
+        ordinal,
+        retry,
+        snapshot_key.as_deref(),
+        locale,
+    )
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{document_format, StderrTail};
-    use std::path::Path;
+    use super::*;
+    use crate::store::{Pending, Store};
+    use std::{
+        io::{Read, Write},
+        net::TcpListener,
+        sync::Arc,
+    };
 
-    #[test]
-    fn office_reuse_requires_all_sheets_but_allows_live_replacements() {
-        let receipts = serde_json::json!([
-            {"threadId":"one","officeArtifact":"sheet1.csv"},
-            {"threadId":"expired","officeArtifact":"hidden.csv"}
-        ])
-        .as_array()
-        .unwrap()
-        .clone();
-        for missing in ["TASK_EXPIRED", "TASK_NOT_FOUND"] {
-            let current = super::complete_office_matches(receipts.clone(), |id| {
-                if id == "expired" {
-                    Err(crate::AppError::new(missing, "missing"))
-                } else {
-                    Ok(serde_json::json!({"threadId":id,"state":"COMPLETED"}))
-                }
+    fn server(
+        status: &'static str,
+        body: String,
+        path: &'static str,
+    ) -> (String, std::thread::JoinHandle<Value>) {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let origin = format!("http://{}", listener.local_addr().unwrap());
+        let handle = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            stream
+                .set_read_timeout(Some(Duration::from_secs(5)))
+                .unwrap();
+            let mut headers = Vec::new();
+            while !headers.ends_with(b"\r\n\r\n") {
+                let mut byte = [0];
+                stream.read_exact(&mut byte).unwrap();
+                headers.push(byte[0]);
+            }
+            let headers = String::from_utf8(headers).unwrap();
+            assert!(headers.starts_with(path), "{headers}");
+            assert!(headers
+                .to_lowercase()
+                .contains("authorization: bearer test-service-token"));
+            let length = headers
+                .lines()
+                .find_map(|line| {
+                    line.to_lowercase()
+                        .strip_prefix("content-length: ")
+                        .and_then(|n| n.trim().parse::<usize>().ok())
+                })
+                .unwrap_or(0);
+            let mut request_body = vec![0; length];
+            stream.read_exact(&mut request_body).unwrap();
+            let request = if request_body.is_empty() {
+                Value::Null
+            } else {
+                serde_json::from_slice(&request_body).unwrap()
+            };
+            let redirect = if status.starts_with("30") {
+                "Location: http://127.0.0.1:9/credential-redirect\r\n"
+            } else {
+                ""
+            };
+            let _ = write!(stream, "HTTP/1.1 {status}\r\n{redirect}Content-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len());
+            request
+        });
+        (origin, handle)
+    }
+    fn submitted() -> (tempfile::TempDir, Shared, String) {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path().to_owned()).unwrap();
+        let mut result: Value =
+            serde_json::from_slice(include_bytes!("../../fixtures/sample.json")).unwrap();
+        result["visualElements"] = json!([]);
+        let pending =
+            Pending::new(serde_json::to_vec(&result).unwrap(), "Subjective".into()).unwrap();
+        let bank = store.import_pending(&pending, None, "Subjective").unwrap();
+        let rows = store.question_rows().unwrap();
+        let question_ids = vec![contract::text(&rows[4], "id").to_owned()];
+        let selected = crate::paper::selected_rows(&rows, &question_ids).unwrap();
+        let session = store
+            .start_paper(crate::exams::Paper {
+                question_ids,
+                kind: "self_test".into(),
+                minutes: None,
+                scores: vec![1000],
+                total_cents: 1000,
+                digest: crate::paper::digest(&selected).unwrap(),
             })
             .unwrap();
-            assert!(current.is_empty());
-        }
-        let mut replaced = receipts;
-        replaced.push(serde_json::json!({"threadId":"new","officeArtifact":"hidden.csv"}));
-        let current = super::complete_office_matches(replaced, |id| {
-            Ok(serde_json::json!({"threadId":id,"state":if id=="expired" {"EXPIRED"} else {"COMPLETED"}}))
-        }).unwrap();
-        assert_eq!(current.len(), 2);
-        assert!(current.iter().all(|task| task["threadId"] != "expired"));
-    }
-
-    #[test]
-    fn expired_matches_require_fresh_submission() {
-        let mut tasks = vec![serde_json::json!({"threadId":"old", "state":"EXPIRED"})];
-        tasks.retain(super::reusable_task);
-        assert!(tasks.is_empty());
-        for state in ["PENDING", "RUNNING", "PAUSED", "COMPLETED", "FAILED"] {
-            assert!(super::reusable_task(&serde_json::json!({"state":state})));
-        }
-    }
-
-    #[test]
-    fn document_import_requires_selection_and_details() {
-        let request = serde_json::json!({
-            "type": "pick_document", "selection": "native-selection",
-            "details": {"title": "Course", "description": "Chapter one"}
-        });
-        assert!(serde_json::from_value::<super::AiRequest>(request.clone()).is_ok());
-        for field in ["selection", "details"] {
-            let mut missing = request.clone();
-            missing.as_object_mut().unwrap().remove(field);
-            assert!(serde_json::from_value::<super::AiRequest>(missing).is_err());
-            let mut null = request.clone();
-            null[field] = serde_json::Value::Null;
-            assert!(serde_json::from_value::<super::AiRequest>(null).is_err());
-        }
-    }
-
-    #[test]
-    fn office_skips_keep_prior_tasks_and_continue_the_selection() {
-        for code in ["OFFICE_IMPORT_PENDING", "OFFICE_EMPTY_OUTPUT"] {
-            let mut visited = Vec::new();
-            let mut skipped = Vec::new();
-            let result = super::pick_documents(
-                ["a.pdf", "empty.xlsx", "c.docx"].map(Into::into).to_vec(),
-                |path| {
-                    let name = path.to_str().unwrap().to_owned();
-                    visited.push(name.clone());
-                    if name == "empty.xlsx" {
-                        Err(crate::language::error(code, serde_json::json!({})))
-                    } else {
-                        Ok(vec![name])
-                    }
-                },
-                |path, error| skipped.push((path.to_owned(), error.code)),
-            )
+        let id = contract::text(&session, "id").to_owned();
+        store
+            .save_attempt((&id, 0), json!({"text":"Student answer"}), 0, false, false)
             .unwrap();
-            assert_eq!(visited, ["a.pdf", "empty.xlsx", "c.docx"]);
-            assert_eq!(
-                result,
-                serde_json::json!({"threadId":"a.pdf","threadIds":["a.pdf","c.docx"]})
-            );
-            assert_eq!(skipped, [("empty.xlsx".into(), code.into())]);
-        }
-        let error = super::pick_documents(
-            vec!["a.xlsx".into()],
-            |_| Err(crate::AppError::new("STORAGE_FAILED", "failed")),
-            |_, _| panic!("unexpected skip"),
-        )
-        .unwrap_err();
-        assert_eq!(error.code, "STORAGE_FAILED");
-        assert!(super::pick_documents(
-            vec!["empty.xlsx".into()],
-            |_| Err(crate::language::error(
-                "OFFICE_EMPTY_OUTPUT",
-                serde_json::json!({})
-            )),
-            |_, _| {}
-        )
-        .unwrap()
-        .is_null());
+        store.submit_paper(&id, true).unwrap();
+        assert!(!bank["bankId"].is_null());
+        (dir, Arc::new(Mutex::new(store)), id)
     }
 
     #[test]
-    fn applying_settings_rejects_active_tasks_on_later_pages() {
-        use std::{
-            io::{Read, Write},
-            net::TcpListener,
-        };
-        for state in ["PENDING", "RUNNING", "PAUSING", "COMPLETED"] {
-            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-            let endpoint =
-                super::Endpoint::test(format!("http://{}", listener.local_addr().unwrap()));
-            let server = std::thread::spawn(move || {
-                for page in 0..2 {
-                    let (mut stream, _) = listener.accept().unwrap();
-                    stream
-                        .set_read_timeout(Some(std::time::Duration::from_secs(5)))
-                        .unwrap();
-                    let mut request = Vec::new();
-                    while !request.ends_with(b"\r\n\r\n") {
-                        let mut byte = [0];
-                        stream.read_exact(&mut byte).unwrap();
-                        request.push(byte[0]);
-                    }
-                    assert!(String::from_utf8(request)
-                        .unwrap()
-                        .contains(&format!("offset={page}")));
-                    let body = serde_json::json!({"items":[{"state":if page == 0 { "COMPLETED" } else { state }}],"hasMore":page==0}).to_string();
-                    write!(
-                        stream,
-                        "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
-                        body.len()
-                    )
-                    .unwrap();
-                }
-            });
-            let result = super::ensure_idle(&endpoint);
-            assert_eq!(result.is_ok(), state == "COMPLETED");
-            if let Err(error) = result {
-                assert_eq!(error.code, "LOCAL_SETTINGS_ACTIVE_TASKS");
+    fn connects_with_service_auth_without_model_calls_or_redirects() {
+        for (status, body, code) in [
+            ("200 OK", r#"{"enabled":false}"#, None),
+            (
+                "401 Unauthorized",
+                "test-service-token",
+                Some("LOCAL_CONNECTION_HTTP"),
+            ),
+            ("302 Found", "", Some("LOCAL_CONNECTION_HTTP")),
+            (
+                "200 OK",
+                r#"{"enabled":"false"}"#,
+                Some("LOCAL_CONNECTION_RESPONSE"),
+            ),
+            ("200 OK", "not json", Some("LOCAL_CONNECTION_RESPONSE")),
+        ] {
+            let (origin, handle) = server(status, body.into(), "GET /api/maintenance HTTP/1.1");
+            let result = test_connection(&origin, "test-service-token".into());
+            if let Some(code) = code {
+                let error = result.unwrap_err();
+                assert_eq!(error.code, code);
+                assert!(!error.message.contains("test-service-token"));
+            } else {
+                assert_eq!(result.unwrap(), Value::Null);
             }
-            server.join().unwrap();
+            assert!(handle.join().unwrap().is_null());
         }
     }
-
     #[test]
-    fn ai_preview_preserves_missing_audio_reference() {
-        let dir = tempfile::tempdir().unwrap();
-        let store = crate::store::Store::new(dir.path().to_owned()).unwrap();
-        let mut pending = crate::store::Pending::new(
-            include_bytes!("../../fixtures/english.json").to_vec(),
-            "English".into(),
+    fn explicit_grade_sends_frozen_payload_and_preserves_local_manual_override() {
+        let (_dir, shared, id) = submitted();
+        let (origin, handle) = server("200 OK", r#"{"status":"graded","result":{"scoreCents":600,"maxCents":1000,"reason":"Partial","evidence":[],"reviewReasons":[]}}"#.into(), "POST /api/subjective-grades HTTP/1.1");
+        let endpoint = Endpoint::new(origin, "test-service-token".into()).unwrap();
+        let result = grade(
+            &shared,
+            &endpoint,
+            &id,
+            0,
+            false,
+            None,
+            crate::language::Locale::default(),
         )
         .unwrap();
-        super::Endpoint::test("http://127.0.0.1:1".into())
-            .load_assets(&mut pending, &store)
-            .unwrap();
-        assert_eq!(pending.missing, ["audio/chimes.wav"]);
-        let imported = store.import_pending(&pending, None, "English").unwrap();
-        let listening = store
-            .questions(imported["bankId"].as_str(), "", "listening", "")
-            .unwrap();
-        assert_eq!(listening[0]["missingAssets"], true);
-    }
-
-    #[test]
-    fn stderr_diagnostics_are_bounded_and_redacted() {
-        let secrets = ["key-123".to_string(), "token-456".to_string()];
-        let mut tail = StderrTail::new(&secrets);
-        tail.append(&vec![b'x'; 20 * 1024], &secrets);
-        tail.append(b" key-123 token-456", &secrets);
-        let diagnostic = tail.diagnostic();
-        assert!(diagnostic.len() <= 16 * 1024);
-        assert!(!diagnostic.contains("key-123"));
-        assert!(!diagnostic.contains("token-456"));
-        assert!(diagnostic.contains("[redacted]"));
-    }
-
-    #[test]
-    fn stderr_secrets_split_across_reads_stay_redacted() {
-        let secrets = ["token-789".to_string()];
-        let mut tail = StderrTail::new(&secrets);
-        tail.append(b"error: token-", &secrets);
-        tail.append(b"789 done", &secrets);
-        let diagnostic = tail.diagnostic();
-        assert!(!diagnostic.contains("token-789"));
-        assert!(diagnostic.contains("[redacted] done"));
-    }
-
-    #[test]
-    fn stderr_secrets_at_the_truncation_boundary_stay_redacted() {
-        let secrets = ["key-123456".to_string()];
-        let mut tail = StderrTail::new(&secrets);
-        let mut first = vec![b'x'; 16];
-        first.extend_from_slice(b"key-");
-        tail.append(&first, &secrets);
-        let mut second = b"123456".to_vec();
-        second.resize(16 * 1024, b'y');
-        tail.append(&second, &secrets);
-        let diagnostic = tail.diagnostic();
-        assert!(diagnostic.len() <= 16 * 1024);
-        assert!(!diagnostic.contains("key-123456"));
-        assert!(!diagnostic.contains("123456"));
-        assert!(!diagnostic.contains("key-"));
-    }
-
-    #[test]
-    fn supported_formats_and_word_guidance() {
-        for extension in ["txt", "csv", "pdf", "png", "jpg", "jpeg"] {
-            assert!(document_format(Path::new(&format!("quiz.{extension}"))).is_ok());
-        }
+        assert_eq!(result["attempts"][0]["earnedCents"], 600);
+        assert_eq!(result["attempts"][0]["gradeKind"], "ai");
+        let wire = handle.join().unwrap();
+        let payload: Value = serde_json::from_str(contract::text(&wire, "payload")).unwrap();
+        assert_eq!(payload["answer"], "Student answer");
+        assert_eq!(payload["maxCents"], 1000);
         assert_eq!(
-            document_format(Path::new("quiz.PDF")).unwrap(),
-            ("pdf", "application/pdf")
+            wire["inputDigest"],
+            crate::store::hash(contract::text(&wire, "payload").as_bytes())
         );
-        for extension in ["doc", "DOCX", "xls", "XLSX", "docm", "xlsm", "xlsb"] {
-            assert!(document_format(Path::new(&format!("quiz.{extension}")))
-                .unwrap_err()
-                .message
-                .contains("PDF"));
+        let store = shared.lock().unwrap();
+        assert_eq!(
+            store.prepare_grade(&id, 0, false, store.locale).unwrap(),
+            wire
+        );
+        store.manual_score(&id, 0, 800, "Review").unwrap();
+        let late = store
+            .record_grade_with_key(
+                &id,
+                0,
+                contract::text(&wire, "requestId"),
+                &json!({"status":"graded","result":{"scoreCents":600,"maxCents":1000}}),
+                None,
+            )
+            .unwrap();
+        assert_eq!(late["attempts"][0]["earnedCents"], 800);
+        assert_eq!(late["attempts"][0]["gradeKind"], "manual");
+    }
+    #[test]
+    fn network_failure_stays_unknown_and_resume_reuses_only_the_same_request() {
+        let (_dir, shared, id) = submitted();
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let origin = format!("http://{}", listener.local_addr().unwrap());
+        drop(listener);
+        let endpoint = Endpoint::new(origin, "test-service-token".into()).unwrap();
+        let result = grade(
+            &shared,
+            &endpoint,
+            &id,
+            0,
+            false,
+            None,
+            crate::language::Locale::default(),
+        )
+        .unwrap();
+        assert!(result["attempts"][0]["earnedCents"].is_null());
+        assert_eq!(result["attempts"][0]["gradeKind"], "ungraded");
+        assert_eq!(
+            result["attempts"][0]["grading"]["lastRequest"]["status"],
+            "unknown"
+        );
+        let wire = shared
+            .lock()
+            .unwrap()
+            .prepare_grade(&id, 0, false, crate::language::Locale::default())
+            .unwrap();
+        let (origin, handle) = server(
+            "200 OK",
+            r#"{"status":"ungraded","error":"Missing evidence"}"#.into(),
+            "POST /api/subjective-grades HTTP/1.1",
+        );
+        let endpoint = Endpoint::new(origin, "test-service-token".into()).unwrap();
+        grade(
+            &shared,
+            &endpoint,
+            &id,
+            0,
+            false,
+            None,
+            crate::language::Locale::default(),
+        )
+        .unwrap();
+        assert_eq!(handle.join().unwrap()["requestId"], wire["requestId"]);
+        let (origin, handle) = server(
+            "200 OK",
+            r#"{"status":"ungraded","error":"Missing evidence"}"#.into(),
+            "POST /api/subjective-grades HTTP/1.1",
+        );
+        let endpoint = Endpoint::new(origin, "test-service-token".into()).unwrap();
+        grade(
+            &shared,
+            &endpoint,
+            &id,
+            0,
+            true,
+            None,
+            crate::language::Locale::default(),
+        )
+        .unwrap();
+        assert_ne!(handle.join().unwrap()["requestId"], wire["requestId"]);
+    }
+    #[test]
+    fn responses_are_bounded_and_cannot_redirect_grade_credentials() {
+        for (status, body, expected) in [
+            ("200 OK", "{".into(), "LOCAL_RESPONSE_INVALID"),
+            (
+                "200 OK",
+                " ".repeat(contract::MAX_JSON + 1),
+                "LOCAL_RESPONSE_TOO_LARGE",
+            ),
+            (
+                "307 Temporary Redirect",
+                r#"{"detail":{"code":"NO_REDIRECT","message":"Stay here"}}"#.into(),
+                "NO_REDIRECT",
+            ),
+        ] {
+            let (origin, handle) = server(status, body, "POST /api/subjective-grades HTTP/1.1");
+            let endpoint = Endpoint::new(origin, "test-service-token".into()).unwrap();
+            assert_eq!(
+                endpoint
+                    .grade(&json!({"requestId":"test"}))
+                    .unwrap_err()
+                    .code,
+                expected
+            );
+            handle.join().unwrap();
         }
-        for extension in ["exe", "webp", "gif"] {
-            assert!(document_format(Path::new(&format!("quiz.{extension}"))).is_err());
+    }
+    #[test]
+    fn reflected_service_tokens_never_reach_local_grade_history_or_diagnostics() {
+        let token = "test-service-token";
+        for (status, body) in [
+            (
+                "401 Unauthorized",
+                json!({"detail":{"code":"INVALID_SERVICE_TOKEN","message":format!("Authorization: Bearer {token}"),"params":{token:[{"nested":token}]}}}),
+            ),
+            (
+                "200 OK",
+                json!({"status":"ungraded","error":format!("Echo {token}")}),
+            ),
+        ] {
+            let (_dir, shared, id) = submitted();
+            let (origin, handle) = server(
+                status,
+                body.to_string(),
+                "POST /api/subjective-grades HTTP/1.1",
+            );
+            let endpoint = Endpoint::new(origin, token.into()).unwrap();
+            let result = grade(
+                &shared,
+                &endpoint,
+                &id,
+                0,
+                false,
+                None,
+                crate::language::Locale::default(),
+            )
+            .unwrap();
+            assert!(!result.to_string().contains(token));
+            let store = shared.lock().unwrap();
+            let response: String = store
+                .connect()
+                .unwrap()
+                .query_row(
+                    "SELECT response FROM grade_requests WHERE session_id=?1",
+                    [&id],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            assert!(!response.contains(token));
+            assert!(response.contains("[redacted]"));
+            if status.starts_with("401") {
+                let error = &result["attempts"][0]["grading"]["lastRequest"]["appError"];
+                assert_eq!(error["code"], "INVALID_SERVICE_TOKEN");
+                assert_eq!(error["httpStatus"], 401);
+            }
+            handle.join().unwrap();
         }
+    }
+    #[test]
+    fn grading_blocks_restore_and_settings_only_while_a_request_is_active() {
+        let state = GradingState::default();
+        let first = state.enter().unwrap();
+        let second = state.enter().unwrap();
+        assert!(state.restore().is_err());
+        assert!(state.configure().is_err());
+        drop(first);
+        assert!(state.restore().is_err());
+        drop(second);
+        let restore = state.restore().unwrap();
+        assert!(state.enter().is_err());
+        drop(restore);
+        let configure = state.configure().unwrap();
+        assert!(state.enter().is_err());
+        drop(configure);
+        assert!(state.enter().is_ok());
     }
 }

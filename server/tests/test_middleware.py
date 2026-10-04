@@ -43,7 +43,8 @@ async def test_task_mutations_reject_oversized_bodies_before_auth_or_json(
 @pytest.mark.parametrize('authenticated', [False, True])
 async def test_reparse_accepts_limit_sized_json_only_with_auth(monkeypatch, streamed, authenticated):
     thread_id, request_id = str(uuid4()), str(uuid4())
-    reparse = AsyncMock(return_value={'threadId': thread_id})
+    receipt = {'threadId': thread_id, 'requestId': request_id, 'runId': str(uuid4()), 'accepted': True}
+    reparse = AsyncMock(return_value=receipt)
     monkeypatch.setattr(task_api, 'reparse_task', reparse)
     body = f'{{"requestId":"{request_id}"}}'.encode().ljust(DEFAULT_JSON_BODY_BYTES)
 
@@ -60,7 +61,7 @@ async def test_reparse_accepts_limit_sized_json_only_with_auth(monkeypatch, stre
 
     if authenticated:
         assert response.status_code == 202
-        assert response.json() == {'threadId': thread_id}
+        assert response.json() == receipt
         reparse.assert_awaited_once()
         assert reparse.call_args.args[0] == thread_id
         assert str(reparse.call_args.args[1].requestId) == request_id

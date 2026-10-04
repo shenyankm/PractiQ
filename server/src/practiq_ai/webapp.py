@@ -1,33 +1,47 @@
 """Authenticated document APIs with a SQLite-backed LangGraph runtime."""
 
 import asyncio
+import os
 from collections.abc import AsyncGenerator, AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 from sqlite3 import Error as DatabaseError
-from typing import Annotated, Any
+from typing import Annotated, Any, BinaryIO, get_args
 from uuid import UUID
 from weakref import WeakKeyDictionary
 
 from anyio import CancelScope
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response
+from fastapi.staticfiles import StaticFiles
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+from starlette.responses import StreamingResponse
+from starlette.types import Receive, Scope, Send
 
 from practiq_ai import task_api
+from practiq_ai.bank_export import ZIP_CHUNK_BYTES
 from practiq_ai.config import load, require_model_config
 from practiq_ai.contracts import (
+    OFFICE_SOURCE_TYPES,
     ArtifactReference,
     DocumentReference,
+    DocumentSourceType,
     DocumentTaskControl,
     DocumentTaskCreate,
     DocumentTaskDetail,
     DocumentTaskList,
+    DocumentTaskReceipt,
     DocumentTaskReparse,
     DocumentTaskReview,
     DocumentUploadRequest,
     DocumentUploadResponse,
+    ImportCapabilities,
+    OfficeMode,
+    document_source_key,
+    document_source_limit,
 )
 from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.execution import supported_task_sql
+from practiq_ai.extractors.isolated import _thread_io
 from practiq_ai.grading import GradeWireRequest, grade
 from practiq_ai.middleware import JsonBodyLimitMiddleware, SecurityHeadersMiddleware
 from practiq_ai.storage import get_object_store
@@ -39,14 +53,14 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     from . import runtime
     from .database import Database
     configure_logging()
-    settings = await asyncio.to_thread(load)
+    await asyncio.to_thread(load)
     service = runtime.Service(Database())
     await service.start()
     runtime.current = service
     try:
         yield
     finally:
-        await service.stop(timeout=10 if settings.desktop_mode else 60)
+        await service.stop(timeout=60)
         runtime.current = None
 
 
@@ -54,6 +68,41 @@ app = FastAPI(lifespan=lifespan)
 app.add_middleware(JsonBodyLimitMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 _uploads: WeakKeyDictionary[asyncio.AbstractEventLoop, int] = WeakKeyDictionary()
+_exports: WeakKeyDictionary[asyncio.AbstractEventLoop, int] = WeakKeyDictionary()
+
+
+async def export_slot() -> AsyncGenerator[None]:
+    # Hold one bounded archive build/download per loop until its response closes.
+    loop = asyncio.get_running_loop()
+    if _exports.get(loop, 0):
+        raise HTTPException(429, {"code": "BANK_EXPORT_BUSY"}, headers={"Retry-After": "1"})
+    _exports[loop] = 1
+    try:
+        yield
+    finally:
+        _exports[loop] = 0
+
+
+class BankZipResponse(StreamingResponse):
+    def __init__(self, payload: BinaryIO, filename: str):
+        self.file = payload
+        payload.seek(0, 2)
+        size = payload.tell()
+        payload.seek(0)
+        super().__init__(self.chunks(), media_type="application/zip", headers={
+            "Content-Length": str(size), "Cache-Control": "no-store",
+            "Content-Disposition": f'attachment; filename="{filename}"'})
+
+    async def chunks(self) -> AsyncIterator[bytes]:
+        while chunk := await _thread_io(self.file.read, ZIP_CHUNK_BYTES):
+            yield chunk
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        try:
+            await super().__call__(scope, receive, send)
+        finally:
+            # Includes disconnect before the iterator starts and cancelled reads.
+            self.file.close()
 
 
 def authorize(authorization: str | None = Header(default=None)) -> None:
@@ -63,7 +112,7 @@ def authorize(authorization: str | None = Header(default=None)) -> None:
 
 async def upload_slot() -> AsyncGenerator[None]:
     try:
-        config = require_model_config()
+        config = load()
     except DocumentProcessingError as exc:
         raise HTTPException(exc.status_code, {"code": exc.code, "message": exc.detail}) from exc
     loop = asyncio.get_running_loop()
@@ -76,6 +125,13 @@ async def upload_slot() -> AsyncGenerator[None]:
         yield
     finally:
         _uploads[loop] -= 1
+
+
+def model_configured() -> None:
+    try:
+        require_model_config()
+    except DocumentProcessingError as exc:
+        raise HTTPException(exc.status_code, {"code": exc.code, "message": exc.detail}) from exc
 
 
 @app.get("/api/metrics", dependencies=[Depends(authorize)])
@@ -99,6 +155,16 @@ async def maintenance_status() -> dict[str, bool]:
     return {"enabled": load().maintenance}
 
 
+@app.get("/api/import-capabilities", response_model=ImportCapabilities, dependencies=[Depends(authorize)])
+async def import_capabilities() -> ImportCapabilities:
+    settings = load()
+    office = settings.office_executable is not None and settings.office_executable.is_file()
+    return ImportCapabilities(sourceTypes=[kind for kind in get_args(DocumentSourceType) if office or kind not in OFFICE_SOURCE_TYPES],
+                              sourceMaxBytes=settings.source_max_bytes, officeAvailable=office,
+                              officeSourceMaxBytes=document_source_limit("docx", settings.source_max_bytes) if office else None,
+                              officeModes=["pdf", "text"] if office else [], modelConfigured=not settings.read_only)
+
+
 async def _task_response(operation: Any) -> dict[str, Any]:
     try:
         return await operation
@@ -110,7 +176,7 @@ async def _task_response(operation: Any) -> dict[str, Any]:
         raise HTTPException(503, {"code": "TASK_SERVICE_UNAVAILABLE", "message": "Task database is unavailable"}) from exc
 
 
-@app.post("/api/document-tasks", status_code=202, dependencies=[Depends(authorize)])
+@app.post("/api/document-tasks", status_code=202, response_model=DocumentTaskReceipt, dependencies=[Depends(authorize)])
 async def create_document_task(request: DocumentTaskCreate) -> dict[str, Any]:
     return await _task_response(task_api.create_task(request))
 
@@ -118,8 +184,8 @@ async def create_document_task(request: DocumentTaskCreate) -> dict[str, Any]:
 @app.get("/api/document-tasks", response_model=DocumentTaskList, dependencies=[Depends(authorize)])
 async def list_document_tasks(limit: int = Query(default=20, ge=1, le=100), offset: int = Query(default=0, ge=0),
                               sha256: str | None = Query(default=None, pattern=r'^[a-f0-9]{64}$'),
-                              state_filter: task_api.TaskFilter | None = None):
-    return await _task_response(task_api.list_tasks(limit, offset, sha256, state_filter))
+                              state_filter: task_api.TaskFilter | None = None, officeMode: OfficeMode | None = None):
+    return await _task_response(task_api.list_tasks(limit, offset, sha256, state_filter, officeMode))
 
 
 @app.get("/api/document-tasks/{thread_id}", response_model=DocumentTaskDetail, dependencies=[Depends(authorize)])
@@ -137,12 +203,27 @@ async def preview_document_task(thread_id: UUID) -> dict[str, Any]:
     return await _task_response(task_api.review_task(str(thread_id)))
 
 
-@app.post("/api/document-tasks/{thread_id}/control", status_code=202, dependencies=[Depends(authorize)])
+@app.get("/api/document-tasks/{thread_id}/export", dependencies=[Depends(authorize), Depends(export_slot)])
+async def export_document_task(thread_id: UUID, checkpoint_id: str | None = Query(default=None, max_length=255)) -> Response:
+    try:
+        payload = await task_api.export_task(str(thread_id), checkpoint_id)
+    except DocumentProcessingError as exc:
+        raise HTTPException(exc.status_code, {"code": exc.code, "message": exc.detail}) from exc
+    except DatabaseError as exc:
+        raise HTTPException(503, {"code": "TASK_SERVICE_UNAVAILABLE"}) from exc
+    try:
+        return BankZipResponse(payload, f"practiq-bank-{thread_id}.zip")
+    except BaseException:
+        payload.close()
+        raise
+
+
+@app.post("/api/document-tasks/{thread_id}/control", status_code=202, response_model=DocumentTaskReceipt, dependencies=[Depends(authorize)])
 async def control_document_task(thread_id: UUID, request: DocumentTaskControl) -> dict[str, Any]:
     return await _task_response(task_api.control_task(str(thread_id), request))
 
 
-@app.post("/api/document-tasks/{thread_id}/reparse", status_code=202, dependencies=[Depends(authorize)])
+@app.post("/api/document-tasks/{thread_id}/reparse", status_code=202, response_model=DocumentTaskReceipt, dependencies=[Depends(authorize)])
 async def reparse_document_task(thread_id: UUID, request: DocumentTaskReparse) -> dict[str, Any]:
     return await _task_response(task_api.reparse_task(str(thread_id), request))
 
@@ -168,7 +249,11 @@ async def upload_document(request: DocumentUploadRequest) -> DocumentUploadRespo
 async def read_artifact(reference: ArtifactReference) -> Response:
     """Private verified download; never expose service credentials to clients."""
     try:
-        payload = await (await asyncio.to_thread(get_object_store)).get_verified(reference)
+        checked: ArtifactReference | DocumentReference = reference
+        if (reference.mediaType in {"image/png", "image/jpeg"}
+                and reference.objectKey == document_source_key("image", reference.sha256)):
+            checked = DocumentReference(sourceType="image", fileName=None, **reference.model_dump())
+        payload = await (await asyncio.to_thread(get_object_store)).get_verified(checked)
     except DocumentProcessingError as exc:
         raise HTTPException(exc.status_code, {"code": exc.code, "message": exc.detail}) from exc
     return Response(payload, media_type=reference.mediaType,
@@ -209,7 +294,7 @@ async def readiness() -> Response:
     return Response(status_code=200 if ready else 503)
 
 
-@app.post("/api/subjective-grades", dependencies=[Depends(authorize), Depends(upload_slot)])
+@app.post("/api/subjective-grades", dependencies=[Depends(authorize), Depends(upload_slot), Depends(model_configured)])
 async def subjective_grade(request: GradeWireRequest) -> dict:
     validation = asyncio.create_task(asyncio.to_thread(request.verified_request))
     try:
@@ -227,3 +312,21 @@ async def subjective_grade(request: GradeWireRequest) -> dict:
     except ValueError as exc:
         raise HTTPException(422, {"code": "GRADING_INPUT_INVALID", "message": "Grading input or digest is invalid", "params": {}}) from exc
     return await _task_response(grade(verified))
+
+
+class WebStaticFiles(StaticFiles):
+    async def get_response(self, path: str, scope) -> Response:
+        if scope["method"] not in {"GET", "HEAD"}:
+            # Unknown/removed API routes keep their existing 404 semantics even
+            # when the optional frontend is mounted at the root.
+            raise HTTPException(404, "Not Found")
+        return await super().get_response(path, scope)
+
+
+def mount_web(application: FastAPI, directory: Path) -> None:
+    """An absent optional frontend does not prevent API deployments from starting."""
+    if (directory / "index.html").is_file():
+        application.mount("/", WebStaticFiles(directory=directory, html=True), name="web")
+
+
+mount_web(app, Path(os.environ.get("AI_WEB_DIR", str(Path(__file__).resolve().parents[3] / "web/dist"))))

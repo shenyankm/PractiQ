@@ -27,25 +27,27 @@ Keep each change focused:
 - Test observable behavior with current contracts and complete valid fixtures. Change only the intended field in rejection tests, and assert the corresponding error. Reset mocks and global stubs per test; use events, fake time, or retrying assertions for asynchronous work. Keep UI behavior in component tests, layout and browser focus in Playwright, and persistence/recovery boundaries in native or service integration tests.
 - Update affected documentation, contracts, and `.env.example`.
 - Write project documentation in English, except `README.zh-CN.md`. Preserve source-language examples, quoted UI labels, and archived evaluation evidence.
-- For frontend copy, use Simplified Chinese message keys and add English translations to `app/src/locales/en.ts`.
+- For desktop frontend copy, use Simplified Chinese message keys and add English translations to `app/src/locales/en.ts`.
 - Keep secrets, personal data, local databases, and generated build output out of Git. Never put API keys in SQLite, logs, fixtures, or backups.
 
 Commit tracked generated contracts when their source changes. Regenerate them with your Python 3.14+ interpreter using `app/scripts/export-contracts.py`; CI checks that they match the shared contracts.
 
 ## Validate the change
 
-Run checks from the repository root. For frontend changes, install locked npm dependencies with `make app-install`. For Python-dependent checks, use an existing Python 3.14+ interpreter, select it with `AI_PYTHON=/path/to/python3.14`, and do not create a project `.venv`. Install locked service dependencies with `make install-locked AI_PYTHON=/path/to/python3.14`; package checks also need `make app-install-python AI_PYTHON=/path/to/python3.14`. See [README.md](README.md) for target-platform prerequisites.
+Run checks from the repository root. For frontend changes, install locked npm dependencies with `make app-install` or `make web-install` for the affected frontend. For Python-dependent checks, use an existing Python 3.14+ interpreter, select it with `AI_PYTHON=/path/to/python3.14`, and do not create a project `.venv`. Install locked service dependencies with `make install-locked AI_PYTHON=/path/to/python3.14`; the desktop build uses that interpreter only to prepare metadata and notices, without embedding a Python runtime. See [README.md](README.md) for target-platform prerequisites.
 
 Choose checks for every affected area; append `AI_PYTHON=/path/to/python3.14` to Python-dependent Make commands:
 
 | Change | Checks |
 | --- | --- |
 | AI service | `make verify` (lockfile, lint, types, fixtures, tests with 90% coverage, recovery probes, package build) |
-| Shared AI contracts | `make verify` and `make app-check`; regenerate tracked contracts before checking |
+| Shared AI contracts | `make verify`, `make app-check` and `make web-check`; regenerate both tracked frontend contracts before checking |
+| Import Web frontend | `make web-install web-check web-build`; browser checks use an authenticated fake HTTP service and no real models |
 | Desktop UI | `npm --prefix app run check:ui` (types, lint, coverage) and `npm --prefix app run test:browser`; see [README.md](README.md) for Chromium setup |
 | Desktop native commands, storage, or recovery | `make app-check` and affected native flows on the target OS |
-| Office conversion, bundled service, resources, or packaging | Run the selected Python interpreter with `-m pytest server/tests/test_desktop_platforms.py server/tests/test_office.py server/tests/test_office_bundle.py`, then `make app-check` and `make app-package-check` on macOS or Linux; see [README.md](README.md) and the [desktop CI workflow](.github/workflows/desktop.yml) for Windows checks |
-| Locked dependencies | Run the affected ecosystem's audit: `make audit` for Python runtime, dev, and desktop extras; `make audit-rust` for Cargo.lock; `npm --prefix app audit --audit-level=high` for npm (network required) |
+| Service Office conversion | Focused Office/normalization tests and `make verify`; verify fidelity with the actual deployed engine separately |
+| Desktop resources or packaging | Focused desktop package/release regressions, `make app-check` and `make app-package-check`; final installers must contain no Python/LibreOffice runtime |
+| Locked dependencies | Run the affected ecosystem's audit: `make audit` for Python runtime and dev dependencies; `make audit-rust` for Cargo.lock; `npm --prefix app audit --audit-level=high` and/or `npm --prefix web audit --audit-level=high` for the affected npm lockfiles (network required) |
 | Service image | `make image-check` (Docker required; does not publish) |
 | Documentation | Verify claims against source, local links, and command syntax |
 
@@ -53,9 +55,9 @@ Install the CI-pinned [RustSec checker](https://github.com/RustSec/rustsec/relea
 
 CI starts on every pull request, push to `main`, and manual dispatch. A lightweight job selects the relevant work using [the shared path rules](server/scripts/ci_scope.py). Documentation-only changes skip heavy jobs; workflow changes and manual dispatch run all checks. The final `Service CI` and `Desktop CI` jobs always run and reject failed, cancelled, or unexpected skipped dependencies. Use these unique names for required merge checks.
 
-Desktop CI runs frontend types, lint, coverage, browser checks, contracts, fixtures, release-check regressions and dependency audits once on Ubuntu, then gates a Windows/Linux/macOS package matrix. Every platform retains Rust tests and Clippy, Python process/file/Office tests, and installed or packaged service/Office checks; Windows and Linux also retain native credential round-trips. Rust is pinned in `rust-toolchain.toml`; the macOS runner is explicitly `macos-15`. Browser checks use mocked native commands.
+Desktop CI runs frontend types, lint, coverage, browser checks, contracts, fixtures, release-check regressions and dependency audits once on Ubuntu, then gates a Windows/Linux/macOS package matrix. Every platform retains Rust tests, Clippy, native package version/notices checks and rejection of embedded Python/LibreOffice engines; Windows and Linux also retain native credential round-trips. Rust is pinned in `rust-toolchain.toml`; the macOS runner is explicitly `macos-15`. Browser checks use mocked native commands.
 
-PRs that affect desktop inputs build and validate installers but upload only coverage, browser diagnostics, and package diagnostics (7 days). Main/manual runs additionally upload installers (14 days); browser and package diagnostics upload even after failure. Service CI keeps its full verification, audit and image build in one job. Its inputs include desktop fixtures, the rich-content checker consumed by service tests, and Docker context configuration. Desktop inputs include `.gitattributes` and license texts used in package checks.
+PRs that affect desktop inputs build and validate installers but upload only coverage, browser diagnostics, and package diagnostics (7 days). Main/manual runs additionally upload installers (14 days); browser and package diagnostics upload even after failure. Service CI also checks and builds the separate Web frontend, then runs full service verification, audit and image build. Its inputs include desktop fixtures, the rich-content checker consumed by service tests, and Docker context configuration. Desktop inputs include `.gitattributes` and license texts used in package checks.
 
 Actions are pinned to full commit SHAs and [Dependabot](.github/dependabot.yml) proposes grouped weekly Action updates. Review the upstream commit and rerun CI before accepting an update. Maintainers can apply [the main-branch ruleset](.github/main-ruleset.json) after these workflows are merged into `main` and both final checks have succeeded on GitHub. It requires a pull request, resolved review conversations, and checks against the current base; it blocks deletion and force pushes. It does not require a second maintainer's approval.
 
@@ -76,7 +78,7 @@ Record evidence for the final release candidate before publication:
 - [ ] Confirm the version, date, download URL, and signing/notarization status.
 - [ ] Run the service, desktop, browser, and package checks listed above for that candidate.
 - [ ] Verify installation, sample import, practice, submission, and backup restore on a clean target system.
-- [ ] Capture an app walkthrough or screenshots of import, practice, and score review.
+- [ ] Capture the Web import/review and desktop ZIP import/practice/score workflows, identifying their separate candidates.
 - [ ] Record live-model parsing and grading examples, failures, and consented user feedback.
 
 Report validation separately for macOS, Windows, and Linux. CI, model substitutes, hand-written samples, and historical reports do not establish clean-machine acceptance or live-model accuracy. Keep unchecked items explicit; AI grading remains a personal-practice aid and requires a reference answer or rubric.
@@ -95,19 +97,11 @@ Open a pull request from your fork's branch to `shenyankm/PractiQ` with base bra
 
 ## Release quality and notice gates
 
-In addition to package smoke checks, run `make app-fidelity-check` and
-`make app-license-check` with the selected `AI_PYTHON`. Their default output files
-are immutable evidence: use the underlying scripts with a fresh `--output` path
-for subsequent runs. Repeat both against the final installed package via
-`--bundle`; the Make targets inspect the local bundled resources. A failed
-fidelity or license-source check blocks release acceptance even if development
-packaging succeeds. See [supplemental notices](app/licenses/README.md).
+Run `make app-license-check` against the practice-only resources, and repeat package and notice checks against the actual final installer. Use fresh report paths and preserve first failures. Source/installer checks must reject mixed package modes, modified artifacts, wrong versions and embedded engines. See [supplemental notices](app/licenses/README.md).
 
-Record the candidate commit, dirty-source digest when applicable, artifact hashes,
-OS/architecture and exact commands in the release evidence. Do not label a local
-development package as a signed or clean-machine-accepted release. Require live
-extraction and grading reports, failure-injection results and target-platform
-manual checks separately. See [the September follow-up](docs/review-implementation-20260929.md).
+Office fidelity belongs to the independently deployed service. Verify its exact engine and retained source/derived hashes separately using the [Office guide](server/docs/desktop-office.md); ordinary desktop package success establishes no document-conversion quality.
+
+Record the candidate commit, artifact hashes, OS/architecture and exact commands. Do not label a local development package as signed or accepted on a clean machine. Require live extraction/grading, failure-injection and platform manual checks separately; historical desktop-bundled-service reports remain historical.
 
 ## Report security issues privately
 

@@ -1,5 +1,5 @@
 name: Feature request
-description: Propose an improvement to PractiQ's desktop app, AI service, or development workflow
+description: Propose an improvement to PractiQ's desktop app, import Web frontend, AI service, or development workflow
 title: "[Feature]: "
 labels:
   - enhancement
@@ -25,6 +25,7 @@ body:
       label: Primary area
       options:
         - Python AI service (`server/`)
+        - Import Web frontend (`web/`)
         - Desktop application (`app/`)
         - Documentation
         - Build or development tooling

@@ -8,6 +8,10 @@ server/**
 !server/uv.lock
 !server/src/
 !server/src/**
+!web/
+web/**
+!web/dist/
+!web/dist/**
 
 # Exclude generated Python files and local secrets even inside src.
 **/__pycache__/

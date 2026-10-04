@@ -11,7 +11,7 @@ from pathlib import Path
 
 PATTERNS = {
     "service": (
-        "server/**", "app/fixtures/**", "app/scripts/check-rich-recognition.py",
+        "server/**", "web/**", "app/fixtures/**", "app/scripts/check-rich-recognition.py",
         "Dockerfile.server", ".dockerignore", ".gitignore", ".env.example", "Makefile",
     ),
     "desktop": ("app/**", "server/**", "Makefile", "rust-toolchain.toml", ".gitattributes", ".gitignore", "LICENSE"),

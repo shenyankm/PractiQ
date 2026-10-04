@@ -30,7 +30,6 @@ commit SHAs. Review upstream changes and run the affected checks before merging
 dependency updates.
 
 The GLib patch has its own [provenance and removal criteria](app/src-tauri/vendor/glib/PRACTIQ-PATCH.md).
-Changing a pinned LibreOffice artifact requires checksum, license, three-platform
-package and fidelity verification. Dependency auditing does not establish license
+Changing the independently deployed LibreOffice engine requires version, checksum, license and Office fidelity verification in that deployment. Desktop package checks must reject embedded Python and LibreOffice engines. Dependency auditing does not establish license
 compliance; release notice inventories and their unresolved entries must also be
 reviewed.

@@ -17,7 +17,10 @@ from pydantic import (
 )
 
 AnswerMode = Literal["choice", "true_false", "fill_blank", "short_answer", "ordering", "matching", "reading", "word_bank", "cloze", "listening", "gap_fill"]
-DocumentSourceType = Literal["csv", "image", "text", "pdf"]
+DocumentSourceType = Literal["csv", "image", "text", "pdf", "doc", "docx", "xls", "xlsx"]
+OfficeMode = Literal["pdf", "text"]
+OFFICE_SOURCE_TYPES = {"doc", "docx", "xls", "xlsx"}
+OFFICE_FILE_MAX_BYTES = 25 * 1024 * 1024
 ContentPartType = Literal[
     "text",
     "formula",
@@ -37,6 +40,10 @@ DOCUMENT_MEDIA_TYPES = {
     "csv": {"text/csv"},
     "pdf": {"application/pdf"},
     "text": {"text/plain"},
+    "doc": {"application/msword"},
+    "docx": {"application/vnd.openxmlformats-officedocument.wordprocessingml.document"},
+    "xls": {"application/vnd.ms-excel"},
+    "xlsx": {"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"},
 }
 
 
@@ -58,6 +65,10 @@ def _media_type_matches(source_type: DocumentSourceType, media_type: str) -> boo
 def document_source_key(source_type: DocumentSourceType, sha256: str) -> str:
     suffix = "txt" if source_type == "text" else source_type
     return f"practiq-agent/sources/{sha256}/source.{suffix}"
+
+
+def document_source_limit(source_type: DocumentSourceType, configured: int) -> int:
+    return min(configured, OFFICE_FILE_MAX_BYTES) if source_type in OFFICE_SOURCE_TYPES else configured
 
 
 class ModelCallUsage(StrictModel):
@@ -474,6 +485,15 @@ class DocumentUploadResponse(StrictModel):
     upload: LocalUpload | None
 
 
+class ImportCapabilities(StrictModel):
+    sourceTypes: list[DocumentSourceType]
+    sourceMaxBytes: int = Field(gt=0)
+    officeSourceMaxBytes: int | None = Field(default=None, gt=0)
+    officeAvailable: bool
+    officeModes: list[OfficeMode]
+    modelConfigured: bool
+
+
 VisualLabel = Annotated[str, Field(max_length=1_000)]
 VisualDescription = Annotated[str, Field(min_length=1, max_length=20_000), AfterValidator(_non_blank)]
 
@@ -681,6 +701,7 @@ class RetryUnits(StrictModel):
 class DocumentParseInput(StrictModel):
     document: DocumentReference
     failurePolicy: Literal["return_partial", "review"] = "return_partial"
+    officeMode: OfficeMode | None = None
     retry: RetryUnits | None = None
 
     @model_validator(mode="after")
@@ -691,6 +712,10 @@ class DocumentParseInput(StrictModel):
             raise ValueError("document must reference a managed storage source object")
         if not _media_type_matches(document.sourceType, document.mediaType):
             raise ValueError("document mediaType does not match sourceType")
+        if document.sourceType in OFFICE_SOURCE_TYPES:
+            self.officeMode = self.officeMode or "pdf"
+        elif self.officeMode is not None:
+            raise ValueError("officeMode is only accepted for Office documents")
         return self
 
 
@@ -703,11 +728,22 @@ class DocumentTaskCreate(StrictModel):
     document: DocumentReference
     failurePolicy: Literal["return_partial", "review"] = "return_partial"
     parentThreadId: UUID | None = None
+    officeMode: OfficeMode | None = None
 
     @model_validator(mode="after")
     def validate_document(self) -> Self:
-        DocumentParseInput(document=self.document)
+        parsed = DocumentParseInput(document=self.document, officeMode=self.officeMode)
+        self.officeMode = parsed.officeMode
+        if self.document.sourceType in OFFICE_SOURCE_TYPES and self.graphId != "document_parser":
+            raise ValueError("Office documents require document_parser")
         return self
+
+
+class DocumentTaskReceipt(StrictModel):
+    threadId: UUID
+    requestId: UUID
+    runId: UUID
+    accepted: Literal[True]
 
 
 class DocumentTaskReparse(StrictModel):

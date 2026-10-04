@@ -26,6 +26,7 @@ body:
       label: Affected area
       options:
         - Python AI service (`server/`)
+        - Import Web frontend (`web/`)
         - Desktop application (`app/`)
         - Documentation
         - Build or development tooling

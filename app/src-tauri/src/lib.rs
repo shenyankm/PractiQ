@@ -1,5 +1,4 @@
 mod ai;
-mod ai_work;
 mod assets;
 mod audio;
 mod audio_import;
@@ -9,7 +8,6 @@ mod contract;
 mod exams;
 mod filesystem;
 mod language;
-mod office;
 mod paper;
 #[cfg(test)]
 mod performance;
@@ -17,6 +15,8 @@ mod question_metadata;
 #[cfg(test)]
 mod question_review_tests;
 mod questions;
+#[cfg(test)]
+mod service_export_tests;
 mod session_clock;
 mod sessions;
 mod settings;
@@ -192,12 +192,12 @@ enum Request {
     },
     Settings,
     TestSettings {
-        config: settings::ConnectionSettings,
-        api_key: Option<String>,
+        config: settings::ServiceSettings,
+        service_token: Option<String>,
     },
     SaveSettings {
-        config: settings::ConnectionSettings,
-        api_key: Option<String>,
+        config: settings::ServiceSettings,
+        service_token: Option<String>,
     },
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -296,17 +296,16 @@ async fn request(
         if matches!(&request, Request::Settings) {
             return settings::settings(&shared);
         }
-        if let Request::TestSettings { config, api_key } = request {
+        if let Request::TestSettings { config, service_token } = request {
             let (config, key) = settings::snapshot(&shared)?
-                .connection_test_input(&app.config().identifier, config, api_key)?;
+                .connection_test_input(&app.config().identifier, config, service_token)?;
             return settings::test_connection(config, key);
         }
-        if let Request::SaveSettings { config, api_key } = request {
-            return ai::save_settings(&app, &shared, config, api_key);
+        if let Request::SaveSettings { config, service_token } = request {
+            return ai::save_settings(&app, &shared, config, service_token);
         }
-        let work = app.state::<ai_work::WorkState>();
+        let work = app.state::<ai::GradingState>();
         let _restore = if matches!(&request, Request::Restore) { Some(work.restore()?) } else { None };
-        if matches!(&request, Request::Restore) {ai::stop(&app)?;}
         let mut store=shared.lock().map_err(|_|language::error("LOCAL_DATABASE_RESTART", json!({})))?;
         store.locale = locale;
         match request {
@@ -375,23 +374,6 @@ async fn read_asset(
     .map_err(|e| AppError::from(e.to_string()))?
 }
 #[tauri::command]
-async fn read_review_image(
-    app: tauri::AppHandle,
-    state: State<'_, Shared>,
-    id: String,
-    checkpoint_id: String,
-    unit: usize,
-    visual: Option<usize>,
-) -> std::result::Result<tauri::ipc::Response, AppError> {
-    let shared = state.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        ai::read_review_image(app, shared, id, checkpoint_id, unit, visual)
-            .map(tauri::ipc::Response::new)
-    })
-    .await
-    .map_err(|e| AppError::from(e.to_string()))?
-}
-#[tauri::command]
 async fn ai_request(
     app: tauri::AppHandle,
     state: State<'_, Shared>,
@@ -405,25 +387,11 @@ async fn ai_request(
     .await
     .map_err(|e| AppError::from(e.to_string()))?
 }
-#[tauri::command]
-async fn office_request(
-    app: tauri::AppHandle,
-    request: office::Request,
-    locale: Option<language::Locale>,
-) -> std::result::Result<Value, AppError> {
-    tauri::async_runtime::spawn_blocking(move || {
-        office::request(app, request, locale.unwrap_or_default())
-    })
-    .await
-    .map_err(|e| AppError::from(e.to_string()))?
-}
 pub(crate) const DATA_DIRECTORY: &str = "v4";
 
 pub fn run() {
     tauri::Builder::default()
-        .manage(ai::AiState::new(None))
-        .manage(ai_work::WorkState::default())
-        .manage(office::OfficeState::default())
+        .manage(ai::GradingState::default())
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.show();
@@ -438,20 +406,10 @@ pub fn run() {
             )));
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![
-            request,
-            ai_request,
-            office_request,
-            read_asset,
-            read_review_image
-        ])
+        .invoke_handler(tauri::generate_handler![request, ai_request, read_asset])
         .build(tauri::generate_context!())
         .expect("Unable to start PractiQ")
         .run(|app, event| {
-            if let tauri::RunEvent::Exit = event {
-                app.state::<office::OfficeState>().shutdown();
-                let _ = ai::stop(app);
-            }
             if let tauri::RunEvent::ExitRequested { api, .. } = event {
                 if let Some(window) = app.get_webview_window("main") {
                     api.prevent_exit();

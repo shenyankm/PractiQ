@@ -1,5 +1,5 @@
-"""Generate synthetic all-type import documents; requires the artifact Python runtime.
-No model calls. LibreOffice is validated against the existing bundled manifest.
+"""Generate synthetic all-type import documents; requires the independent service development runtime.
+No model calls. Office requires an explicitly configured service engine; no downloads or discovery.
 """
 import csv
 import hashlib
@@ -12,8 +12,9 @@ from html import escape
 from pathlib import Path
 
 import pypdfium2 as pdfium
-from bundle_office import validate
 from PIL import Image
+from practiq_ai.config import load
+from practiq_ai.office_service import engine_identity
 from pypdf import PdfWriter
 from reportlab.lib import colors
 from reportlab.lib.styles import ParagraphStyle
@@ -77,9 +78,11 @@ def frame(name, width, height):
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT/'resources').mkdir(exist_ok=True)
-    bundle = ROOT/'app/src-tauri/bundled'
-    manifest = validate(bundle)
-    engine = (bundle/'office'/manifest['executable']).resolve()
+    config = load()
+    manifest = engine_identity(config)
+    engine = config.office_executable
+    if engine is None:
+        raise ValueError('Set AI_OFFICE_EXECUTABLE and AI_OFFICE_VERSION explicitly')
     base = (BASE/'all-question-types.txt').read_text()
     rich = json.loads((RICH/'expected.json').read_text())['questions'][0]
     formulas = [b['latexValue'] for b in rich['contentBlocks'] if b['partType']=='formula']

@@ -19,18 +19,24 @@ test('development preview pages stay offline',async ({page},testInfo)=>{
  await page.getByRole('button',{name:'开始练习',exact:true}).first().click();
  await page.getByRole('button',{name:'立即开始',exact:true}).click();
  await expect(page.getByText('下面哪一个是质数？',{exact:true}).first()).toBeVisible();
- for(const name of ['错题本','收藏夹','练习记录','导入题库','设置']) {
+ for(const name of ['错题本','收藏夹','练习记录','设置']) {
   await page.getByRole('button',{name,exact:true}).first().click();
   await expect(page.getByRole('heading',{name,exact:true})).toBeVisible();
  }
  await page.getByRole('button',{name:'练习记录',exact:true}).click();
  await page.getByRole('button',{name:'继续练习',exact:true}).first().click();
  await expect(page.getByText('下面哪一个是质数？',{exact:true}).first()).toBeVisible();
- await page.getByRole('button',{name:'导入题库',exact:true}).click();
- await page.getByRole('tab',{name:'导入记录',exact:true}).click();
- await page.getByRole('button',{name:'线性代数 · 矩阵',exact:true}).click();
- await page.getByRole('button',{name:'查看内容与审核',exact:true}).click();
- await expect(page.getByText(/可查看 9 道题目/)).toBeVisible();
+ await expect(page.locator('aside').getByRole('button',{name:'导入题库',exact:true})).toHaveCount(0);
+ await page.getByRole('button',{name:'我的题库',exact:true}).click();
+ await page.getByRole('button',{name:'已有题库 ZIP？前往设置导入',exact:true}).click();
+ await expect(page.getByRole('menuitem',{name:'导入题库 ZIP',exact:true})).toBeVisible();
+ await expect(page.getByRole('menuitem',{name:'恢复学习数据备份',exact:true})).toBeVisible();
+ await page.keyboard.press('Escape');
+ await expect(page.getByRole('heading',{name:'设置',exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'我的题库',exact:true}).click();
+ const bank=page.locator('[data-slot=card]').filter({has:page.getByText('基础知识 · 全题型',{exact:true})});
+ await bank.getByRole('button',{name:'查看题目',exact:true}).click();
+ await expect(page.getByText('9 道题目',{exact:true})).toBeVisible();
  await page.screenshot({path:testInfo.outputPath('preview.png'),fullPage:true});
 });
 
@@ -447,7 +453,14 @@ for(const scenario of ['empty','many','unconfigured','missing','slow','error']) 
   await page.addInitScript(value=>sessionStorage.setItem('practiq-preview',value),scenario);
   await page.goto('/');
   await expect(page.getByRole('heading',{name:'我的题库',exact:true})).toBeVisible();
-  if(scenario==='empty') await expect(page.getByText('从第一份题库开始',{exact:true})).toBeVisible();
+  if(scenario==='empty') {
+   await expect(page.getByText('从第一份题库开始',{exact:true})).toBeVisible();
+   await page.getByRole('button',{name:'导入题库 ZIP',exact:true}).click();
+   await expect(page.getByRole('menuitem',{name:'导入题库 ZIP',exact:true})).toBeVisible();
+   await expect(page.getByRole('menuitem',{name:'恢复学习数据备份',exact:true})).toBeVisible();
+   await page.keyboard.press('Escape');
+   await expect(page.getByRole('heading',{name:'设置',exact:true})).toBeVisible();
+  }
   else if(scenario==='error') await expect(page.getByRole('alert').filter({hasText:'演示请求失败'}).first()).toBeVisible();
   else await expect(page.getByText('基础知识 · 全题型',{exact:true}).first()).toBeVisible();
   if(scenario==='many') {
@@ -565,6 +578,7 @@ base('study setup retries failed statistics and manual pages without resetting s
  expect(pageRequests[2]).toEqual(pageRequests[1]);
  expect(errors).toEqual([]);
 });
+
 for (const colorScheme of ['light','dark']) {
  base(`answer-card status markers match the legend and preserve keyboard navigation in ${colorScheme} theme`,async ({page},testInfo)=>{
   const errors=[];page.on('pageerror',error=>errors.push(error.message));

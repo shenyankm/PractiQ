@@ -1,0 +1,28 @@
+{
+  "archive": "partial-media-bank.zip",
+  "archiveSha256": "991ba0f66d3a37d020926cc71801a405ce2ed70766f5ef58812ab705ed9587df",
+  "archiveBytes": 2616,
+  "source": {
+    "objectKey": "practiq-agent/sources/db77a84c6a464b05c4174f4268f2e0d85dd95b5b83e2c4e2d3017c2918be7c26/source.txt",
+    "sha256": "db77a84c6a464b05c4174f4268f2e0d85dd95b5b83e2c4e2d3017c2918be7c26",
+    "mediaType": "text/plain",
+    "sizeBytes": 101,
+    "sourceType": "text",
+    "fileName": "partial-media.txt"
+  },
+  "image": {
+    "objectKey": "practiq-agent/artifacts/db77a84c6a464b05c4174f4268f2e0d85dd95b5b83e2c4e2d3017c2918be7c26/visual/0-2d7bad51a5116b8baa8b654fce0080b44b71289bc75a95717dd905d6e8a2816c.png",
+    "sha256": "2d7bad51a5116b8baa8b654fce0080b44b71289bc75a95717dd905d6e8a2816c",
+    "mediaType": "image/png",
+    "sizeBytes": 83
+  },
+  "audio": {
+    "objectKey": "practiq-agent/artifacts/db77a84c6a464b05c4174f4268f2e0d85dd95b5b83e2c4e2d3017c2918be7c26/audio/0-c726d333dd159a31423f3480dbb1c5c4a9dfcd30efe1f7e12ade390dc92e8908.bin",
+    "sha256": "c726d333dd159a31423f3480dbb1c5c4a9dfcd30efe1f7e12ade390dc92e8908",
+    "mediaType": "audio/wav",
+    "sizeBytes": 1644
+  },
+  "resultDumpSha256": "a3a2284a8b83f7bdba22ce6c60b875227b14afcd4e4e6580c3ab660d4d14ff22",
+  "exporterSha256": "a4d079acccb8273b73026e26cbc1ae469f2a20d0efb051586834dc1eff12f77f",
+  "boundary": "Real exporter/ObjectStore bytes; fake supplied parse result; no models or native acceptance yet."
+}

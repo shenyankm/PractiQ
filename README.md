@@ -45,31 +45,36 @@ When editing a bank or question, Escape, the close button, and clicking outside 
 
 ## Import documents with AI
 
-1. In **Settings**, configure a provider URL, model ID, and API key for a model supporting text and image inputs. Changes save when you leave a field.
-2. Open **Import**, select source files, and click **Start import**.
-3. Review questions, images, and warnings, then create a bank or append to an existing one.
+Use the independent service's Web frontend for document import:
 
-Supported source files are **PDF, TXT, CSV, and PNG/JPEG**. Desktop packages include LibreOffice 26.8.0 for Word and Excel conversion; no separate installation or runtime download is required. The desktop converts them to PDF by default. The standalone service does not accept Office files. See the [conversion guide](server/docs/desktop-office.md) for text export and limitations.
+1. Start the [independent AI service](#run-the-ai-service-independently), open its Web frontend and enter the service access token. Model configuration and provider credentials stay in the service environment.
+2. Select up to 10 source files and explicitly choose **Start import**. Selecting files does not upload or parse them.
+3. Inspect task progress, saved questions, images, supplied answers and review warnings. Download the result as a question-bank ZIP.
+4. In the desktop app, use **Settings → Restore backup → Import bank ZIP** to create a bank or append content to an existing bank.
 
-The Import page has **Import** and **Import history** tabs. Select up to 10 source files and click **Start import** to begin conversion and parsing without a second confirmation. Review results before creating a bank or appending to an existing bank.
+The service accepts **PDF, TXT, CSV and PNG/JPEG**. Deployments configured with LibreOffice also accept **DOC, DOCX, XLS and XLSX**. Office normalization runs in the service, using PDF by default or text exports, including hidden Excel sheets. Desktop packages contain no Python service or LibreOffice. See the [Office guide](server/docs/desktop-office.md) for deployment and fidelity boundaries.
 
-Matching files reuse existing tasks; **Parse again** creates a new task. Stop running tasks before deleting their records; deletion preserves imported banks and practice data. See the [import task guide](docs/import-tasks.md) for history, filtering, and recovery.
+Task history, pause, interrupt, resume, failed-unit retry, partial-result review and parse-again controls belong to the Web frontend. Read-only review and ZIP download make no model calls. Resume, retry and parse again are explicit actions; their model work may incur charges. See the [import task guide](docs/import-tasks.md).
+
+![Independent document import Web frontend](docs/assets/new-web-import.png)
+
+Browser capture of the built Web frontend served by a local read-only AI service, with an empty task database and no configured model. Selecting the sample file made no upload or model call.
+
+Parsing extracts supplied answers and rubrics without solving unanswered questions. Missing content stays flagged for review. Download results within **180 days** to keep them; task expiry does not affect banks already imported into the app.
+
+Practice and local scoring work offline. For optional subjective AI grading, configure the independent service URL and access token in desktop **Settings → AI service**, then explicitly start grading or retry. Grading requires a reference answer or rubric; missing evidence, failed calls and unknown outcomes remain ungraded. It is intended for personal practice, not formal examination scoring. Opening the app or changing settings does not call a model.
+
+The desktop service access token stays in the platform credential store; the Web token stays in browser memory. The service URL is stored in the separate versioned `v4/service-settings-v1.sqlite` database; practice data remains on schema 11. Backups include only the URL through an optional versioned manifest field and exclude credentials and AI task state. Existing provider settings and keys are preserved, including after saving or clearing a service URL, and are not automatically used as service credentials. Older schema-11 backups remain supported; only their exact existing service marker identifies a service URL. A pending restore record resolves the URL with the published practice database before any offline writes after restart. If publication or durable rollback cannot finish, the current app instance blocks database operations until restart recovery. A killed first settings initialization may leave an empty SQLite file; reads leave it untouched and an explicit save may initialize it. Timed exams keep their deadline when the app closes or the computer sleeps; reopening an expired exam submits the last saved answers.
 
 Development starts with in-memory sample data. The preview panel lets you switch scenarios or choose real local data. See [development preview](app/docs/development-preview.md) for its controls and boundaries.
-
-Parsing extracts supplied answers and rubrics without solving unanswered questions. Missing content stays flagged for review. Tasks support pause, resume, retries, and partial results; import results within **180 days** to keep them. Expiry does not affect imported banks.
-
-Practice and local scoring work offline. Parsing and AI grading require an explicit action, send content to your configured provider, and may incur charges. Reopening the app does not resume model calls. AI grading requires a reference answer or rubric; missing evidence and failed calls remain ungraded. It is intended for personal practice, not formal examination scoring.
-
-API keys stay in the platform credential store. Backups exclude keys and AI task state. Timed exams keep their deadline when the app closes or the computer sleeps; reopening an expired exam submits the last saved answers.
 
 ## Run the desktop app
 
 Desktop data uses a fresh `v4/` directory and SQLite schema 11. Earlier directories, including `v3/`, remain untouched; old full backups are rejected. Current question-bank ZIP files can still be imported. See the [data format boundaries](docs/question-model.md#versions-and-directories).
 
-Desktop build targets are macOS 14+ (Apple Silicon), Windows 10/11 (x64), and Ubuntu 22.04+ (x64, `.deb`). macOS has been validated locally; Windows and Linux builds and bundled-service checks are configured in CI, with interactive desktop acceptance still required on those systems.
+Desktop build targets are macOS 14+ (Apple Silicon), Windows 10/11 (x64), and Ubuntu 22.04+ (x64, `.deb`). CI builds practice-only packages for all three platforms; interactive desktop and signed-release acceptance remain separate.
 
-Development requires Node.js 22.12+, Rust, uv, and an existing Python 3.14+ interpreter. Install the [Tauri platform prerequisites](https://v2.tauri.app/start/prerequisites/): Xcode on macOS, MSVC build tools and WebView2 on Windows, or WebKitGTK 4.1, `libdbus-1-dev`, and build libraries on Linux. Linux also needs an unlocked Secret Service provider (such as GNOME Keyring) for API keys, and GStreamer audio plugins for listening playback. Do not create a project `.venv`. Build on the target OS; packages include its native Python service.
+Development requires Node.js 22.12+ and Rust. Package preparation and shared-contract checks also use an existing Python 3.14+ interpreter and uv; Python is a build tool and is not shipped in the desktop package. Install the [Tauri platform prerequisites](https://v2.tauri.app/start/prerequisites/): Xcode on macOS, MSVC build tools and WebView2 on Windows, or WebKitGTK 4.1, `libdbus-1-dev`, and build libraries on Linux. Linux needs an unlocked Secret Service provider (such as GNOME Keyring) for the service token and GStreamer audio plugins for listening playback. Do not create a project `.venv`.
 
 Clone the repository and enter its root directory:
 
@@ -78,42 +83,34 @@ git clone https://github.com/shenyankm/PractiQ.git
 cd PractiQ
 ```
 
-On macOS or Linux, run these commands from the repository root, replacing the Python path with your interpreter:
+On macOS or Linux, replace the Python path with your interpreter:
 
 ```sh
-make install-locked app-install-python AI_PYTHON=/path/to/python3.14
+make install-locked AI_PYTHON=/path/to/python3.14
 make app-install
 cargo fetch --locked --manifest-path app/src-tauri/Cargo.toml
-make app-bundle AI_PYTHON=/path/to/python3.14
-make app-dev
-```
-
-To build a local application package, run:
-
-```sh
+make app-dev AI_PYTHON=/path/to/python3.14
+# Build a local application package:
 make app-build AI_PYTHON=/path/to/python3.14
 ```
 
 On Windows, use PowerShell from the repository root:
 
 ```powershell
-uv export --project server --locked --extra dev --extra desktop --no-emit-project -o "$env:TEMP/practiq-requirements.txt"
-uv pip install --python (Get-Command python).Source -r "$env:TEMP/practiq-requirements.txt"
-uv pip install --python (Get-Command python).Source --no-deps -e server
 npm --prefix app ci
 cargo fetch --locked --manifest-path app/src-tauri/Cargo.toml
-python app/scripts/bundle-python.py
+python app/scripts/prepare-package.py
 cd app
 npm run desktop
-# To build the Windows installer:
+# Build the Windows installer:
 npm run tauri -- build
 ```
 
-Packages are written under `app/src-tauri/target/release/bundle`: `.app`/`.dmg` on macOS, NSIS `.exe` on Windows, and `.deb` on Linux. CI checks each packaged Python service using synthetic model responses and real PDF rendering; it does not certify installer signing or interactive playback.
+Use Python 3.14+ for `prepare-package.py`. It generates build metadata and Cargo/npm notices, without downloading or copying document-processing runtimes. Packages are written under `app/src-tauri/target/release/bundle`: `.app`/`.dmg` on macOS, NSIS `.exe` on Windows, and `.deb` on Linux. Package checks verify version, notices and absence of embedded engines; they do not certify signing or interactive playback.
 
 ## Run the AI service independently
 
-For API integration, use Python 3.14+, uv, and a model supporting text and image inputs. Copy the configuration template without overwriting existing settings:
+The independent service provides document import through its Web frontend and API, and explicit grading for the desktop. Use Python 3.14+, uv, Node.js 22.12+ for the Web build, and a model supporting text and image inputs. Copy the configuration template without overwriting existing settings:
 
 ```sh
 cp -n .env.example .env
@@ -124,10 +121,12 @@ Set the service token, model credentials, `LLM_MODEL`, database directory, and f
 ```sh
 make install-locked AI_PYTHON=/path/to/python3.14
 make init-db AI_PYTHON=/path/to/python3.14
+make web-install
+make web-build
 make server-dev AI_PYTHON=/path/to/python3.14
 ```
 
-The FastAPI/LangGraph service listens on `127.0.0.1:8090`, uses SQLite and local file storage, and runs one process per database. Uploads, tasks, artifacts, and grading require authentication. See the [service guide](server/docs/service-guide.md).
+The FastAPI/LangGraph service listens on `127.0.0.1:8090`, uses SQLite and local file storage, and runs one process per database. Uploads, tasks, artifacts, and grading require authentication. Open `http://127.0.0.1:8090/` for the built Web frontend. For development, run `make web-dev` separately; its loopback Vite server proxies API requests to the service. Configure `AI_OFFICE_EXECUTABLE` and `AI_OFFICE_VERSION` only on the service when Office support is needed. See the [service guide](server/docs/service-guide.md).
 
 ## Documentation and development
 
@@ -139,7 +138,7 @@ The FastAPI/LangGraph service listens on `127.0.0.1:8090`, uses SQLite and local
 - [Release policy](docs/releases.md): version tags, downloads, checksums and the manual draft workflow
 - [Contributing](CONTRIBUTING.md): development checks and pull requests
 
-Run `make app-check` for desktop checks and `make verify` for the AI service. Playwright Test checks bilingual interactions, browser preview, and rich-content rendering with mocked native commands and no model calls:
+Run `make app-check` for desktop checks, `make web-check` for the import Web frontend and `make verify` for the AI service. Playwright Test checks bilingual interactions, browser preview, and rich-content rendering with mocked native commands and no model calls:
 
 ```sh
 cd app

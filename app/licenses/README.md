@@ -3,23 +3,24 @@
 Some published dependency archives omit their license text. `supplemental.json`
 maps exact package versions to upstream text, its SHA-256 and source URL. Cargo
 sources use each crate's `.cargo_vcs_info.json` commit; npm sources use registry
-`gitHead` where available. Python sources use the matching upstream release.
-Selectors declares MPL-2.0; its full license text comes from Mozilla.
+`gitHead` where available. Historic supplemental texts remain source evidence; unused
+Python notices are not selected for desktop assets.
 
 Do not replace these with a generic SPDX identifier or infer copyright holders.
 Retain upstream text verbatim. Any `note` marks source applicability that needs
 release review; the notice checker fails rather than silently accepting it.
 
 `app/scripts/check_licenses.py` inventories the local target's Cargo packages,
-npm production dependency closure and final Python/LibreOffice resources. It
+and npm production dependency closure for the desktop practice application. It
 checks supplemental hashes and returns nonzero for missing text or unverified
 source applicability. Build packages include the combined text in
-`bundled/THIRD-PARTY.txt`. Development builds retain unresolved entries visibly;
-release verification requires resolving them. An inventory is not a decision
+`bundled/THIRD-PARTY.txt`. Preparation fails on unresolved entries. An inventory is not a decision
 about all redistribution obligations. Repeat it for each platform's final package.
 
-The checker also requires bundled Python metadata to match `build-manifest.json`
-and limits Cargo entries to the platform-filtered resolve graph.
+The checker validates schema 2 desktop build metadata and limits Cargo entries to
+the platform-filtered resolve graph. AI service dependencies and its configured
+Office engine are independently deployed and require their own license review.
+They are never claimed as redistributed desktop components.
 
 ## objc2-family terms
 

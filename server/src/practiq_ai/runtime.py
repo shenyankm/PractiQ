@@ -62,12 +62,12 @@ class Service:
                 if (saved_status := self.saved_run_status(snapshot, run)) is not None:
                     await self.finish(run['run_id'], saved_status)
             async with self.db.connection() as conn:
-                desktop = load().desktop_mode
+                read_only = load().read_only
                 await conn.execute(
                     "UPDATE document_runs AS r SET status=? WHERE r.status IN ('pending','running') "
                     "AND (? OR r.status='running') AND EXISTS "
                     f"(SELECT 1 FROM document_tasks t WHERE t.thread_id=r.thread_id AND {supported_task_sql('t')})",
-                    ('interrupted' if desktop else 'pending', desktop),
+                    ('interrupted' if read_only else 'pending', read_only),
                 )
             self.accepting = True
             self.loop = asyncio.create_task(self.dispatch(), name='document-dispatch')

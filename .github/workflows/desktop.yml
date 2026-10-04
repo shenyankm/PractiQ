@@ -74,7 +74,7 @@ jobs:
         run: make install-locked AI_PYTHON=python
       - run: python app/scripts/export-contracts.py --check
       - run: python app/scripts/check-fixtures.py
-      - run: python -m pytest server/tests/test_ci.py server/tests/test_ci_scope.py server/tests/test_release_checks.py server/tests/test_release_workflow.py
+      - run: python -m pytest server/tests/test_ci.py server/tests/test_ci_scope.py server/tests/test_release_checks.py server/tests/test_release_workflow.py server/tests/test_desktop_package.py
       - run: npm ci
         working-directory: app
       - name: Check frontend types, lint and coverage
@@ -160,19 +160,6 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.14'
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-        with:
-          version: '0.12.13'
-          enable-cache: true
-          cache-dependency-glob: server/uv.lock
-      - name: Install locked Python runtime and bundler
-        working-directory: server
-        run: |
-          desktop_python="$(python -c 'import sys; print(sys.executable)')"
-          uv export --locked --extra dev --extra desktop --no-emit-project -o "$RUNNER_TEMP/requirements.txt"
-          uv pip install --python "$desktop_python" -r "$RUNNER_TEMP/requirements.txt"
-          uv pip install --python "$desktop_python" --no-deps -e .
-      - run: python -m pytest server/tests/test_desktop_platforms.py server/tests/test_office.py server/tests/test_office_bundle.py
       - run: npm ci
         working-directory: app
       - name: Verify Rust flows and lint
@@ -192,35 +179,27 @@ jobs:
           TAURI_CONFIG: '{"bundle":{"resources":[]}}'
         run: |
           dbus-run-session -- bash -c 'printf "ci-test-password" | gnome-keyring-daemon --unlock --components=secrets; cargo test --locked --manifest-path app/src-tauri/Cargo.toml native_keychain_roundtrip -- --ignored'
-      - run: python app/scripts/bundle-python.py
+      - run: python app/scripts/prepare-package.py
       - run: npm run tauri -- build
         working-directory: app
-      - name: Verify installed Windows service
+      - name: Verify extracted Windows desktop payload
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           $installer = (Get-ChildItem app/src-tauri/target/release/bundle/nsis/*-setup.exe)[0]
-          $destination = Join-Path $env:RUNNER_TEMP 'PractiQ'
-          $process = Start-Process -FilePath $installer.FullName -ArgumentList '/S', "/D=$destination" -Wait -PassThru
-          if ($process.ExitCode -ne 0) { throw "Installer failed: $($process.ExitCode)" }
-          python app/scripts/check-bundle.py --bundle "$destination/bundled"
-          if ($LASTEXITCODE -ne 0) { throw "Packaged service checks failed" }
-          python app/scripts/check-office.py --isolated --bundle "$destination/bundled"
-      - name: Verify packaged Linux service
+          python app/scripts/check-installer.py --installer $installer.FullName --output server/reports/checks/desktop-bundle.json
+          if ($LASTEXITCODE -ne 0) { throw "Desktop payload checks failed" }
+      - name: Verify packaged Linux desktop payload
         if: runner.os == 'Linux'
         run: |
           dependencies="$(dpkg-deb -f app/src-tauri/target/release/bundle/deb/*.deb Depends)"
           for dependency in libwebkit2gtk-4.1-0 libgtk-3-0; do
             printf '%s\n' "$dependencies" | tr ',' '\n' | sed 's/^ *//' | grep -Fx "$dependency"
           done
-          dpkg-deb -x app/src-tauri/target/release/bundle/deb/*.deb "$RUNNER_TEMP/practiq-package"
-          python app/scripts/check-bundle.py --bundle "$RUNNER_TEMP/practiq-package/usr/lib/PractiQ/bundled"
-          python app/scripts/check-office.py --isolated --bundle "$RUNNER_TEMP/practiq-package/usr/lib/PractiQ/bundled"
-      - name: Verify packaged macOS service
+          python app/scripts/check-installer.py --installer app/src-tauri/target/release/bundle/deb/*.deb --output server/reports/checks/desktop-bundle.json
+      - name: Verify packaged macOS desktop payload
         if: runner.os == 'macOS'
-        run: |
-          python app/scripts/check-bundle.py --bundle app/src-tauri/target/release/bundle/macos/PractiQ.app/Contents/Resources/bundled
-          python app/scripts/check-office.py --isolated --bundle app/src-tauri/target/release/bundle/macos/PractiQ.app/Contents/Resources/bundled
+        run: python app/scripts/check-installer.py --installer app/src-tauri/target/release/bundle/dmg/*.dmg --output server/reports/checks/desktop-bundle.json
       - name: Archive macOS application
         if: runner.os == 'macOS' && github.event_name != 'pull_request'
         run: ditto -c -k --keepParent app/src-tauri/target/release/bundle/macos/PractiQ.app app/PractiQ-macOS.zip
@@ -245,9 +224,9 @@ jobs:
           name: desktop-checks-${{ matrix.platform }}
           path: |
             server/reports/checks/desktop-bundle.json
-            server/reports/checks/office*
             server/reports/checks/release/
             app/src-tauri/bundled/build-manifest.json
+            app/src-tauri/bundled/THIRD-PARTY.txt
           retention-days: 7
       - name: Upload installers
         if: github.event_name != 'pull_request'

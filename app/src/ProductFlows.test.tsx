@@ -14,6 +14,19 @@ HTMLElement.prototype.hasPointerCapture = () => false;
 HTMLElement.prototype.scrollIntoView = () => {};
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
+it("keeps desktop navigation focused on offline practice without AI import requests", async () => {
+  setup(); render(<App />);
+  await screen.findByText("English");
+  expect(screen.queryByRole("button", { name: "导入题库" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "从文档解析题目" })).toBeNull();
+  await userEvent.click(screen.getByRole("button", { name: "设置" }));
+  await userEvent.click(await screen.findByRole("button", { name: "配置" }));
+  expect(await screen.findByRole("heading", { name: "AI 服务", level: 1 })).toBeTruthy();
+  expect(screen.queryByLabelText("模型 ID")).toBeNull();
+  const { invoke } = await import("@tauri-apps/api/core");
+  expect(vi.mocked(invoke).mock.calls.some(([command]) => command === "ai_request" || command === "office_request")).toBe(false);
+});
+
 const exam: SessionSummary = {
   id: "exam", title: "English · Mock exam · 20", kind: "mock_exam", createdAt: 1,
   deadlineAt: Date.now() + 60_000, finishedAt: null, submittedAt: null,
@@ -45,7 +58,7 @@ function setup(question = row, failReview = false) {
         return reviewedAt as never;
       }
       case "info": return { version: "test", dataDirectory: "/tmp/test" } as never;
-      case "settings": return { config: { base_url: null, model_id: null }, hasApiKey: false } as never;
+      case "settings": return { config: { service_url: null }, hasServiceToken: false } as never;
       case "pick_import": return null as never;
       case "question_stats": return { count: 0, types: {}, feasibleCounts: [] } as never;
       default: throw new Error(`Unexpected request: ${request.type}`);
@@ -60,6 +73,26 @@ it("opens the existing offline ZIP entry with an explicit append/replace distinc
   expect(await screen.findByRole("menuitem", { name: "导入题库 ZIP" })).toBeTruthy();
   expect(screen.getByText("追加题库，不替换已有学习记录")).toBeTruthy();
   expect(screen.getByText("替换全部本地数据，操作前需确认")).toBeTruthy();
+  await userEvent.click(screen.getByRole("menuitem", { name: "导入题库 ZIP" }));
+  await waitFor(() => expect(api).toHaveBeenCalledWith({ type: "pick_import" }));
+});
+
+it.each([false, true])("routes the empty-bank action to the offline ZIP menu (existing bank=%s)", async existing => {
+  setup();
+  const original = vi.mocked(api).getMockImplementation()!;
+  vi.mocked(api).mockImplementation(async request => {
+    const banks = existing ? [{ id: "bank", title: "Empty bank", count: 0, description: "" }] : [];
+    if (request.type === "banks") return banks as never;
+    if (request.type === "banks_page") return { items: banks, total: banks.length, offset: 0 } as never;
+    if (request.type === "unfinished_session") return null as never;
+    return original(request);
+  });
+  render(<App />);
+  await userEvent.click(await screen.findByRole("button", { name: "导入题库 ZIP" }));
+  expect(await screen.findByRole("menuitem", { name: "导入题库 ZIP" })).toBeTruthy();
+  expect(screen.getByRole("heading", { level: 1, hidden: true }).textContent).toBe("设置");
+  expect(screen.queryByRole("button", { name: "开始导入" })).toBeNull();
+  expect(api).not.toHaveBeenCalledWith({ type: "pick_import" });
   await userEvent.click(screen.getByRole("menuitem", { name: "导入题库 ZIP" }));
   await waitFor(() => expect(api).toHaveBeenCalledWith({ type: "pick_import" }));
 });

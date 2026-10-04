@@ -1,0 +1,56 @@
+{
+  "checkedAt": "2026-10-04",
+  "package": "libappindicator-sys",
+  "version": "0.9.0",
+  "crate": {
+    "source": "https://static.crates.io/crates/libappindicator-sys/libappindicator-sys-0.9.0.crate",
+    "sha256": "6e9ec52138abedcc58dc17a7c6c0c00a2bdb4f3427c7f63fa97fd0d859155caf",
+    "verification": "Cached published crate bytes match this exact package and version checksum in app/src-tauri/Cargo.lock."
+  },
+  "publishedCargoTomlSha256": "5f1a49e786206ea35dca5d45a82b84cfb99839ecaff47f579ae3b63496586e86",
+  "publishedRepository": null,
+  "declaredLicense": "Apache-2.0 OR MIT",
+  "selectedLicense": "MIT",
+  "cargoVcsInfo": {
+    "archivePath": "libappindicator-sys-0.9.0/.cargo_vcs_info.json",
+    "sha256": "2eb6d78db3efbbb1c498618238bad1377e08f43f12e9ba7e1fb128a8aedfe2c5",
+    "contents": {
+      "git": {
+        "sha1": "eafd1e3682a1247f595410266091e9684021cb6f"
+      },
+      "path_in_vcs": "sys"
+    }
+  },
+  "upstreamRepository": "https://github.com/tauri-apps/libappindicator-rs",
+  "upstreamCommit": "eafd1e3682a1247f595410266091e9684021cb6f",
+  "repositoryAttribution": "The published package omits a repository URL. Both sys/Cargo.toml and sys/src/lib.rs match the archive bytes exactly at its recorded VCS commit in tauri-apps/libappindicator-rs.",
+  "license": {
+    "source": "https://raw.githubusercontent.com/tauri-apps/libappindicator-rs/eafd1e3682a1247f595410266091e9684021cb6f/LICENSE-MIT",
+    "path": "LICENSE-MIT",
+    "sha256": "eb227437252b2a7a9c1fc342c93ade1f3d7ce38cc6dd754f613db07d53ceff0b",
+    "gitBlobSha1": "50e79e21ccd1454f00695108ae01eaff9569689a",
+    "sizeBytes": 1109,
+    "verification": "Complete upstream file, unchanged bytes, from the same commit recorded in this published crate; Git blob SHA-1 independently matches the commit tree."
+  },
+  "publishedSourceComparison": [
+    {
+      "archivePath": "Cargo.toml.orig",
+      "upstreamPath": "sys/Cargo.toml",
+      "archiveSha256": "ffa544131659aeeff24cdf56faf7f89e0dcd4e1eb0f6e03b1616436eab4bc815",
+      "upstreamSha256": "ffa544131659aeeff24cdf56faf7f89e0dcd4e1eb0f6e03b1616436eab4bc815",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 356,
+      "upstreamSizeBytes": 356
+    },
+    {
+      "archivePath": "src/lib.rs",
+      "upstreamPath": "sys/src/lib.rs",
+      "archiveSha256": "742a25cd2a4c09762f57c3dfaa8958e6c62c771e28916a58b45a85fae84aea6d",
+      "upstreamSha256": "742a25cd2a4c09762f57c3dfaa8958e6c62c771e28916a58b45a85fae84aea6d",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 37038,
+      "upstreamSizeBytes": 37038
+    }
+  ],
+  "licenseSelection": "MIT is one of the alternatives explicitly offered by the published Apache-2.0 OR MIT declaration; the upstream MIT copyright and all terms are retained."
+}

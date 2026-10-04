@@ -1,8 +1,8 @@
-"""Real desktop bootstrap, HTTP, SQLite and extraction; only the provider is synthetic."""
+"""Independent Uvicorn, HTTP, SQLite and extraction; only the provider is synthetic."""
 import hashlib
 import json
 import os
-import selectors
+import signal
 import socket
 import subprocess
 import sys
@@ -44,36 +44,46 @@ def service(tmp_path):
         # A dead proxy makes loopback bypass part of this end-to-end check.
         env.update(ALL_PROXY="http://127.0.0.1:9", NO_PROXY="")
         env["PYTHONPATH"] = str(Path(__file__).resolve().parents[1] / "src")
+        env.update(bootstrap, LLM_PROVIDER="openai")
+        if read_only:
+            env["AI_READ_ONLY"] = "1"
+            for key in ("LLM_API_KEY", "LLM_BASE_URL", "LLM_MODEL", "LLM_PROVIDER"):
+                env.pop(key, None)
+        if not (tmp_path / "db" / "tasks.sqlite").exists():
+            subprocess.run([sys.executable, "-m", "practiq_ai.manage", "init-db"],
+                           check=True, capture_output=True, text=True, cwd=tmp_path, env=env, timeout=15)
+        with socket.socket() as port_socket:
+            port_socket.bind(("127.0.0.1", 0))
+            port = port_socket.getsockname()[1]
         with (tmp_path / "service.log").open("w+") as log:
-            process = subprocess.Popen([sys.executable, "-m", "practiq_ai.desktop", "serve"],
-                                       stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                       stderr=log, cwd=tmp_path, env=env, text=True)
-            assert process.stdin is not None and process.stdout is not None
+            process = subprocess.Popen([sys.executable, "-m", "uvicorn", "practiq_ai.webapp:app",
+                                        "--host", "127.0.0.1", "--port", str(port), "--workers", "1"],
+                                       stdout=log, stderr=log, cwd=tmp_path, env=env, text=True)
             try:
-                settings = {**bootstrap, **({key: '' for key in ('LLM_API_KEY', 'LLM_BASE_URL', 'LLM_MODEL')} if read_only else {})}
-                process.stdin.write(json.dumps(settings) + "\n")
-                process.stdin.flush()
-                with selectors.DefaultSelector() as selector:
-                    selector.register(process.stdout, selectors.EVENT_READ)
-                    assert selector.select(30), "Desktop bootstrap timed out"
-                line = process.stdout.readline()
-                log.seek(0)
-                assert line, log.read()
-                ready = json.loads(line)
-                with httpx.Client(base_url=f"http://127.0.0.1:{ready['port']}",
+                with httpx.Client(base_url=f"http://127.0.0.1:{port}",
                                   headers={"Authorization": "Bearer e2e-token"}, timeout=10, trust_env=False) as client:
-                    assert client.get("/ready").status_code == 200
+                    deadline = time.monotonic() + 30
+                    while time.monotonic() < deadline and process.poll() is None:
+                        try:
+                            if client.get("/ready").status_code == 200:
+                                break
+                        except httpx.ConnectError:
+                            pass
+                        time.sleep(0.02)
+                    else:
+                        log.seek(0)
+                        pytest.fail(f"Independent service did not become ready: {log.read()}")
                     yield client
-                process.stdin.close()
+                process.terminate()
                 process.wait(timeout=20)
                 log.seek(0)
-                assert process.returncode == 0, log.read()
+                shutdown_log = log.read()
+                assert process.returncode in {0, -signal.SIGTERM}, shutdown_log
+                assert "Application shutdown complete" in shutdown_log
             finally:
                 if process.poll() is None:
                     process.kill()
                     process.wait(timeout=5)
-                process.stdin.close()
-                process.stdout.close()
 
     try:
         yield start, calls
@@ -241,18 +251,3 @@ def test_e2e_rejected_uploads_never_queue_work(service):
         assert client.post("/api/uploads", json=metadata).json()["upload"] is None
         assert client.post("/api/artifacts/read", json={**artifact, "objectKey": "../outside"}).status_code == 422
         assert not calls.exists()
-
-
-@pytest.mark.parametrize(("args", "bootstrap", "message"), [
-    ([], "", "Expected serve, extract or office"),
-    (["serve"], "{}\n", "Invalid bootstrap"),
-    (["serve"], "[]\n", "Invalid bootstrap"),
-    (["serve"], "x" * 65537, "Bootstrap too large"),
-])
-def test_e2e_bootstrap_rejects_invalid_input(tmp_path, args, bootstrap, message):
-    result = subprocess.run([sys.executable, "-m", "practiq_ai.desktop", *args],
-                            input=bootstrap, text=True, capture_output=True, timeout=15, check=False,
-                            cwd=tmp_path, env={**os.environ, "PYTHONPATH": str(Path(__file__).resolve().parents[1] / "src")})
-    assert result.returncode != 0 and message in result.stderr
-    assert result.stdout == ""
-    assert not list(tmp_path.iterdir())

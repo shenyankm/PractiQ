@@ -1,6 +1,6 @@
 # Import, export, and back up question-bank ZIP files
 
-A single ZIP is enough to share a question bank. The app no longer offers separate JSON or image-directory pickers. Document parsing and AI task import retain their existing workflow.
+A single ZIP is enough to share a question bank. The app no longer offers separate JSON or image-directory pickers. The independent service's Web frontend parses documents and downloads this same ZIP format; desktop import remains offline.
 
 ## Import and share
 
@@ -32,7 +32,7 @@ The ZIP root contains `manifest.json`, `questions.json`, and image/audio files a
 }
 ```
 
-`questions.json` follows the AI result contract with `schemaVersion: 3`, including `questions`, `groups`, `visualElements`, `warnings`, and `confidenceScore`. See the [question model](question-model.md) for the JSON contract. Images retain the objectKey, SHA-256, size, and media type in `imageRef` and `sourceRef`. Packages contain question data, not the desktop database or practice snapshots.
+`questions.json` accepts the existing portable `{status,result,processing}` envelope or result object with `schemaVersion: 3`, including `questions`, `groups`, `visualElements`, `warnings`, and `confidenceScore`. See the [question model](question-model.md) for the JSON contract. Images retain the objectKey, SHA-256, size, and media type in `imageRef` and `sourceRef`. Packages contain question data, not the desktop database or practice snapshots.
 
 Limits are 300 MiB per ZIP, 32 MiB per JSON file, 25 MiB per image or audio file, and 256 MiB for all expanded resources. The current result contract permits at most 1000 question nodes (including composite parents), 1000 material groups, 1000 visual elements, and 1000 warnings per package. Exceeding these limits rejects export rather than truncating the bank. Images must be PNG/JPEG; WebP/GIF resources are rejected. All referenced images and audio must be present. Extra files, directory entries, duplicate entries, symlinks, and path traversal are forbidden.
 

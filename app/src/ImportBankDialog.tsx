@@ -10,13 +10,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 
-export function ImportBankDialog({ preview, banks, initialBank, busy, run, onClose, onImported, onState }: {
+export function ImportBankDialog({ preview, banks, initialBank, busy, run, onClose, onImported }: {
   preview: Preview;
   banks: BankChoice[];
   initialBank: string;
   busy: boolean;
   run: (job: () => Promise<void>) => void;
-  onState?: (state: "importing" | "failed", error?: unknown) => void;
   onClose: () => void;
   onImported: (bankId: string) => Promise<void>;
 }) {
@@ -54,11 +53,10 @@ export function ImportBankDialog({ preview, banks, initialBank, busy, run, onClo
           <Button disabled={busy || !title.trim()} onClick={() => run(async () => {
             if (submitting.current) return;
             submitting.current = true;
-            onState?.("importing");
             let result;
             try {
               result = await api({ type: "import", ticket: preview.ticket, bank_id: bank === "new" ? null : bank, title });
-            } catch (error) { onState?.("failed", error); throw error; }
+            }
             finally { submitting.current = false; }
             onClose();
             await onImported(result.bankId);

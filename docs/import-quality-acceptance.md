@@ -31,7 +31,7 @@ Use the existing [scorer and quality gates](../server/docs/evaluation.md#scoring
 | --- | --- | --- |
 | PDF / scanned PDF / PNG / JPEG | Four pages, original figure/crop bounds, supplied answer roles | Source-to-output mappings, omission/extra/duplicate and image checks |
 | TXT / CSV | Original wording, quoted multiline fields, no implicit local-image access | Supplied answers/nulls, composite links and source associations |
-| DOC / DOCX / XLS / XLSX | Pinned bundled Office; input/output hashes, mode and converter version | Converted content fidelity plus separate model result; hidden-sheet text checks use Office fixtures |
+| DOC / DOCX / XLS / XLSX | Independently deployed Office; original/derived hashes, ordered manifest, mode and exact engine version | Converted content fidelity plus separate model result; hidden-sheet text checks use Office fixtures |
 | All formats | Provided scores/rubrics, missing listening audio, unanswered writing tasks | Review, ZIP export/reimport and offline practice preserve nulls, warnings and available content |
 
 ## Offline preparation commands
@@ -45,7 +45,7 @@ AI_PYTHON=/absolute/path/to/python3.14
 "$AI_PYTHON" app/scripts/check-fixtures.py
 ```
 
-These checks inspect fixture integrity and scorer behavior with substitutes; they do not call a provider. For Office fidelity and release package checks follow the existing [release policy](releases.md); choose fresh report paths and retain failures.
+These checks inspect fixture integrity and scorer behavior with substitutes; they do not call a provider. For Office fidelity use the independent [service Office guide](../server/docs/desktop-office.md); for desktop package checks follow the [release policy](releases.md); choose fresh report paths and retain failures.
 
 ## Offline DOC equation repair
 
@@ -53,10 +53,10 @@ The unchanged [Office regression DOC](../app/fixtures/office/README.md) loses it
 
 The private worker now converts only legacy DOC/PDF inputs through a temporary DOCX, then exports the PDF with the same pinned engine. Both stages share the original timeout, use fresh hardened profiles and retain output size, regular-file and package checks. The intermediate DOCX is never an artifact. Original input bytes, metadata and native source associations remain unchanged; DOC text, DOCX and Excel conversion keep their existing paths.
 
-The local source-worker check first failed on the old path, then passed the unchanged fraction/image gate after this repair. The resulting PDF also retained all 70 table rows, 70 supplied answers, the final paragraph and three pages. These runs used the existing bundled macOS engine without model calls. They establish this fixture's source-worker behavior, not arbitrary Office fidelity, rebuilt-package acceptance or live recognition. The older application package still contains the failing worker. Rebuild the combined candidate and retain fresh strict fidelity, isolated conversion and package reports for each target before acceptance; keep the original failed report.
+The local source-worker check first failed on the old path, then passed the unchanged fraction/image gate after this repair. The resulting PDF also retained all 70 table rows, 70 supplied answers, the final paragraph and three pages. These runs used the existing bundled macOS engine without model calls. They establish this fixture's source-worker behavior, not arbitrary Office fidelity, rebuilt-package acceptance or live recognition. This is historical desktop-worker evidence. The current architecture runs normalization in the independent service and ships no Office engine in the app. Retain fresh strict fidelity/conversion reports for the selected service deployment and separate practice-only desktop package reports before acceptance; keep the original failed report.
 
 ## Live run and completion record
 
 Do not run a provider until model/provider, authorized public corpus and a cost ceiling are explicitly agreed. Reuse the [evaluation runner](../server/docs/evaluation.md), freeze source SHA, corpus/manifest hashes, scorer version, settings/prompt hashes and model identity. Record run date, repetitions, retries, latency, known tokens and unknown calls. The ten-format combined corpus requires source-aligned manual review in addition to the existing individual-case runner; do not insert guessed gold structures to manufacture a passing manifest.
 
-For each discrepancy record source location, expected supplied content, actual output, repeat/run identity, severity and linked regression/fix. Verify the affected native import/review/ZIP round trip on the same candidate. A final sanitized report must include per-format attempted/passed/failed/not-run counts, independent source-review provenance, retained failing artifacts and remaining blockers. No current live result or clean-machine acceptance is recorded here.
+For each discrepancy record source location, expected supplied content, actual output, repeat/run identity, severity and linked regression/fix. Verify Web import/review/export and native ZIP import/offline practice on the same declared service and desktop candidates. A final sanitized report must include per-format attempted/passed/failed/not-run counts, independent source-review provenance, retained failing artifacts and remaining blockers. No current live result or clean-machine acceptance is recorded here.

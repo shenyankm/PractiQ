@@ -34,16 +34,35 @@ def test_load_reads_model_and_storage_settings(monkeypatch: pytest.MonkeyPatch):
     assert loaded.storage_concurrency == 4
 
 
+@pytest.mark.parametrize("unavailable", ["missing", "directory"])
+def test_office_availability_is_checked_only_for_office_work(monkeypatch, tmp_path, unavailable):
+    from practiq_ai.errors import DocumentProcessingError
+    from practiq_ai.office_service import engine_identity
+
+    engine = tmp_path / "soffice"
+    engine.write_bytes(b"deployed engine")
+    _env(monkeypatch, AI_OFFICE_EXECUTABLE=str(engine), AI_OFFICE_VERSION="LibreOffice 26.8.0.3")
+    assert config.load().office_executable == engine
+    engine.unlink()
+    if unavailable == "directory":
+        engine.mkdir()
+    settings = config.load()
+    assert settings.office_executable == engine
+    with pytest.raises(DocumentProcessingError) as error:
+        engine_identity(settings)
+    assert error.value.status_code == 503 and error.value.code == "OFFICE_ENGINE_INVALID"
+
+
 def test_load_requires_service_token(monkeypatch: pytest.MonkeyPatch):
     _env(monkeypatch, AI_SERVICE_TOKEN='')
     with pytest.raises(ValueError, match='AI_SERVICE_TOKEN'):
         config.load()
 
 
-def test_desktop_read_only_requires_auth_but_no_model(monkeypatch):
+def test_service_read_only_requires_auth_but_no_model(monkeypatch):
     from practiq_ai.errors import DocumentProcessingError
 
-    _env(monkeypatch, AI_DESKTOP_MODE='1', AI_READ_ONLY='1')
+    _env(monkeypatch, AI_READ_ONLY='1')
     for key in ('LLM_PROVIDER', 'LLM_API_KEY', 'LLM_MODEL', 'LLM_BASE_URL'):
         monkeypatch.delenv(key, raising=False)
     settings = config.load()
@@ -52,9 +71,7 @@ def test_desktop_read_only_requires_auth_but_no_model(monkeypatch):
         config.require_model_config()
     assert error.value.code == 'MODEL_NOT_CONFIGURED'
     monkeypatch.setenv('AI_DESKTOP_MODE', '0')
-    with pytest.raises(ValueError, match='requires desktop'):
-        config.load()
-    monkeypatch.setenv('AI_DESKTOP_MODE', '1')
+    assert config.load().read_only
     monkeypatch.delenv('AI_SERVICE_TOKEN')
     with pytest.raises(ValueError, match='AI_SERVICE_TOKEN'):
         config.load()

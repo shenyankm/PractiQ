@@ -56,8 +56,8 @@
     "en": "An operation is running. Check its progress."
   },
   "LOCAL_RESTORE_BUSY": {
-    "zh-CN": "请先等待当前 AI 请求结束或停止导入批次，再恢复备份",
-    "en": "Wait for the current AI request or stop the import batch before restoring a backup."
+    "zh-CN": "请等待当前 AI 评分请求结束后，再恢复备份",
+    "en": "Wait for the current AI grading request to finish before restoring a backup."
   },
   "LOCAL_OPERATION_ID_INVALID": {
     "zh-CN": "操作 ID 不合法",
@@ -476,12 +476,12 @@
     "en": "Cannot read the system credential store. Check that it is unlocked."
   },
   "LOCAL_KEYCHAIN_WRITE": {
-    "zh-CN": "无法写入系统凭据存储；API Key 未保存",
-    "en": "Cannot write to the system credential store. The API key was not saved."
+    "zh-CN": "无法写入系统凭据存储；访问令牌未保存",
+    "en": "Cannot write to the system credential store. The access token was not saved."
   },
   "LOCAL_KEYCHAIN_DELETE": {
-    "zh-CN": "无法移除系统凭据存储中的 API Key",
-    "en": "Cannot remove the API key from the credential store"
+    "zh-CN": "无法移除系统凭据存储中的访问令牌",
+    "en": "Cannot remove the access token from the credential store"
   },
   "LOCAL_KEYCHAIN_INIT": {
     "zh-CN": "无法初始化系统凭据存储",
@@ -500,8 +500,8 @@
     "en": "Enter a Base URL before saving an API key"
   },
   "LOCAL_KEYCHAIN_ROLLBACK": {
-    "zh-CN": "设置保存失败，系统凭据存储回滚失败；请重新设置 API Key",
-    "en": "Settings could not be saved and credential store rollback failed. Set the API key again."
+    "zh-CN": "设置保存失败，系统凭据存储回滚失败；请重新设置访问令牌",
+    "en": "Settings could not be saved and credential store rollback failed. Set the access token again."
   },
   "LOCAL_FILTER_INVALID": {
     "zh-CN": "筛选条件不合法",
@@ -584,12 +584,12 @@
     "en": "Invalid language setting"
   },
   "LOCAL_RESPONSE_TOO_LARGE": {
-    "zh-CN": "解析响应过大",
-    "en": "Parser response is too large"
+    "zh-CN": "AI 服务响应过大",
+    "en": "AI service response is too large"
   },
   "LOCAL_RESPONSE_INVALID": {
-    "zh-CN": "解析服务返回无效数据",
-    "en": "Parser service returned invalid data"
+    "zh-CN": "AI 服务返回无效数据",
+    "en": "The AI service returned invalid data"
   },
   "LOCAL_TASK_ID_INVALID": {
     "zh-CN": "任务 ID 不合法",
@@ -920,8 +920,8 @@
     "en": "Edit the complete group to remove a subquestion"
   },
   "LOCAL_SERVICE_UNAVAILABLE": {
-    "zh-CN": "本地解析服务连接中断。如有待确认操作，请从原操作重试。",
-    "en": "The local parser disconnected. Retry any unconfirmed operation from its original entry."
+    "zh-CN": "AI 服务连接中断。请检查服务地址和网络，再从原评分操作重试。",
+    "en": "The AI service connection failed. Check the service URL and network, then retry the original grading action."
   },
   "STALE_CHECKPOINT": {
     "zh-CN": "任务已变化，请刷新任务或重新创建导入批次。",
@@ -940,24 +940,24 @@
     "en": "This is a question-bank package. In Settings, choose Restore backup, then Import bank ZIP."
   },
   "LOCAL_CONNECTION_FAILED": {
-    "zh-CN": "连接失败或超时，请检查地址和网络。",
-    "en": "Connection failed or timed out. Check the URL and network."
+    "zh-CN": "AI 服务连接失败或超时，请检查地址和网络。",
+    "en": "AI service connection failed or timed out. Check the URL and network."
   },
   "LOCAL_CONNECTION_HTTP": {
-    "zh-CN": "连接测试失败（HTTP {status}），请检查地址、API Key 和访问权限。",
-    "en": "Connection test failed (HTTP {status}). Check the URL, API key and access permissions."
+    "zh-CN": "AI 服务连接测试失败（HTTP {status}），请检查地址、访问令牌和访问权限。",
+    "en": "AI service connection test failed (HTTP {status}). Check the URL, access token and permissions."
   },
   "LOCAL_CONNECTION_RESPONSE": {
-    "zh-CN": "模型列表响应无效，无法验证连接。",
-    "en": "Invalid model list response; the connection could not be verified."
+    "zh-CN": "AI 服务响应无效，无法验证连接。",
+    "en": "Invalid AI service response; the connection could not be verified."
   },
   "LOCAL_CONNECTION_MODEL": {
     "zh-CN": "模型列表中未找到该模型 ID，请检查模型名称和访问权限。",
     "en": "Model ID not found in the model list. Check the model name and access permissions."
   },
   "LOCAL_CONNECTION_FIELDS": {
-    "zh-CN": "请先填写 Base URL 和模型 ID。",
-    "en": "Enter a Base URL and model ID first."
+    "zh-CN": "请先填写 AI 服务地址。",
+    "en": "Enter an AI service URL first."
   },
   "LOCAL_SELF_ASSESSMENT_INELIGIBLE": {
     "zh-CN": "此题不能自评：仅支持已提交、未跳过且允许自评的普通练习题。",
@@ -968,8 +968,8 @@
     "en": "This result was already imported into another bank. Open that bank to view it."
   },
   "LOCAL_SETTINGS_ACTIVE_TASKS": {
-    "zh-CN": "请先暂停或等待正在解析的任务完成，再应用配置。",
-    "en": "Pause active parsing tasks or wait for them to finish before applying settings."
+    "zh-CN": "请等待正在进行的 AI 评分完成，再应用配置。",
+    "en": "Wait for active AI grading to finish before applying settings."
   },
   "MODEL_NOT_CONFIGURED": {
     "zh-CN": "开始或继续 AI 任务前，请先配置模型。",
@@ -1072,8 +1072,8 @@
     "en": "Current data contains unsupported or damaged images or audio. Backup canceled; any existing backup was preserved."
   },
   "LOCAL_CONFIGURE_BUSY": {
-    "zh-CN": "请先等待当前 AI 请求结束或停止导入批次，再更改连接设置",
-    "en": "Wait for the current AI request or stop the import batch before changing connection settings."
+    "zh-CN": "请等待当前 AI 评分请求结束，再更改服务连接设置",
+    "en": "Wait for the current AI grading request to finish before changing service connection settings."
   },
   "LOCAL_BATCH_RUNNING": {
     "zh-CN": "请先停止导入批次",
@@ -1106,5 +1106,17 @@
   "SERVICE_ERROR": {
     "zh-CN": "AI 服务请求失败，请查看诊断详情",
     "en": "The AI service request failed. Check the diagnostic details."
+  },
+  "LOCAL_SERVICE_URL_REQUIRED": {
+    "zh-CN": "请配置 AI 服务地址",
+    "en": "Configure an AI service URL"
+  },
+  "LOCAL_SERVICE_TOKEN_REQUIRED": {
+    "zh-CN": "请配置 AI 服务访问令牌",
+    "en": "Configure an AI service access token"
+  },
+  "LOCAL_SERVICE_TOKEN_INVALID": {
+    "zh-CN": "AI 服务访问令牌格式无效",
+    "en": "Invalid AI service access token format"
   }
 }

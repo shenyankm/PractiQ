@@ -26,6 +26,8 @@ def ci_scope():
     ([".github/PULL_REQUEST_TEMPLATE.md"], True, True),
     ([".github/actions/check/action.yml"], True, True),
     (["server/src/practiq_ai/webapp.py"], True, True),
+    (["web/src/App.tsx"], True, False),
+    (["web/package-lock.json"], True, False),
     (["app/fixtures/english.json"], True, True),
     (["app/scripts/check-rich-recognition.py"], True, True),
     (["app/scripts/check_licenses.py"], False, True),

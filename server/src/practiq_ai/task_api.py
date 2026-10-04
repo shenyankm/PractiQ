@@ -4,12 +4,13 @@ import asyncio
 from collections.abc import AsyncIterator
 from datetime import timedelta
 from json import dumps as json_encode
-from typing import Any, Literal, LiteralString, cast
+from typing import Any, BinaryIO, Literal, LiteralString, cast
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from .config import load, require_model_config
 from .contracts import (
     COMPOSITE_MODES,
+    OFFICE_SOURCE_TYPES,
     DocumentReference,
     DocumentTaskControl,
     DocumentTaskCreate,
@@ -17,6 +18,7 @@ from .contracts import (
     DocumentTaskList,
     DocumentTaskReparse,
     DocumentTaskReview,
+    OfficeMode,
     RetryUnits,
     TaskAction,
     TaskState,
@@ -35,7 +37,7 @@ from .execution import (
     supported_task_sql,
 )
 from .graphs.document import _retry_update, unit_failures
-from .storage import get_object_store
+from .storage import get_object_store, validate_source_size
 
 
 def client():
@@ -91,11 +93,15 @@ async def create_task(request: DocumentTaskCreate) -> dict[str, Any]:
     service = client()
     request_id = str(request.requestId)
     thread_id = str(uuid5(NAMESPACE_URL, f'practiq/document/{request_id}'))
-    request_hash = fingerprint(request.model_dump(mode='json'))
+    request_hash = fingerprint(_create_payload(request))
     async with service.db.transaction() as conn:
         previous = await _replay(conn, thread_id, request_id, request_hash)
         if previous:
             return previous
+        settings = load()
+        if request.document.sourceType in OFFICE_SOURCE_TYPES and settings.office_executable is None:
+            raise DocumentProcessingError(503, 'Office conversion is not configured in this deployment', 'OFFICE_NOT_CONFIGURED')
+        validate_source_size(request.document.sizeBytes, request.document.sourceType, settings)
         if request.parentThreadId:
             parent = await (await conn.execute('SELECT * FROM document_tasks WHERE thread_id=?', (str(request.parentThreadId),))).fetchone()
             if not parent:
@@ -105,10 +111,23 @@ async def create_task(request: DocumentTaskCreate) -> dict[str, Any]:
             (thread_id, request_hash, request.graphId, json_encode(request.document.model_dump(mode='json')), request.failurePolicy,
              str(request.parentThreadId) if request.parentThreadId else None, utcnow() + timedelta(minutes=TTL_MINUTES)))).fetchone()
         response = await _enqueue(conn, task, request_id, request_hash,
-                                  graph_input=request.model_dump(mode='json', include={'document', 'failurePolicy'}))
+                                  graph_input=request.model_dump(mode='json', include={'document', 'failurePolicy', 'officeMode'}))
         await _save_receipt(conn, thread_id, request_id, request_hash, response)
     service.wake.set()
     return response
+
+
+def _create_payload(request: DocumentTaskCreate) -> dict[str, Any]:
+    # Preserve historical non-Office request receipts when adding this option.
+    return request.model_dump(mode='json', exclude={'officeMode'} if request.officeMode is None else set())
+
+
+async def _office_mode(service, thread_id: str) -> OfficeMode | None:
+    # The initial run input is already committed atomically with the task.
+    # Reuse it instead of changing schema-1 databases or checkpoint identities.
+    rows = await service.db.rows('SELECT input FROM document_runs WHERE thread_id=? AND input IS NOT NULL '
+                                 'ORDER BY created_at,run_id LIMIT 1', (thread_id,))
+    return rows[0]['input'].get('officeMode') if rows else None
 
 
 async def _read_task(service, thread_id):
@@ -131,10 +150,11 @@ async def reparse_task(thread_id: str, request: DocumentTaskReparse) -> dict[str
     task = tasks[0]
     require_supported_task(task)
     create = DocumentTaskCreate(requestId=request.requestId, document=DocumentReference.model_validate(task['document']),
-                                graphId=task['graph_id'], failurePolicy=task['failure_policy'], parentThreadId=UUID(thread_id))
+                                graphId=task['graph_id'], failurePolicy=task['failure_policy'], parentThreadId=UUID(thread_id),
+                                officeMode=await _office_mode(service, thread_id))
     async with service.db.connection() as conn:
         previous = await _replay(conn, str(uuid5(NAMESPACE_URL, f'practiq/document/{request.requestId}')),
-                                 str(request.requestId), fingerprint(create.model_dump(mode='json')))
+                                 str(request.requestId), fingerprint(_create_payload(create)))
     if previous:
         return previous
     remaining_ttl({'expiresAt': task['expires_at'].isoformat()})
@@ -231,6 +251,27 @@ async def get_task(thread_id: str) -> dict[str, Any]:
     }).model_dump(mode='json')
 
 
+async def export_task(thread_id: str, checkpoint_id: str | None = None) -> BinaryIO:
+    from .bank_export import export_task_bank
+    service = client()
+    task, snapshot, run = await _read_task(service, thread_id)
+    current_checkpoint = service.checkpoint_id(snapshot, run)
+    if checkpoint_id is not None and checkpoint_id != current_checkpoint:
+        raise conflict('The reviewed checkpoint changed', 'STALE_CHECKPOINT')
+    detail = DocumentTaskDetail.model_validate(await get_task(thread_id))
+    if detail.checkpointId != current_checkpoint:
+        raise conflict('The task changed during export', 'STALE_CHECKPOINT')
+    payload = await export_task_bank(detail, get_object_store(), source=DocumentReference.model_validate(task['document']))
+    try:
+        _, latest, latest_run = await _read_task(service, thread_id)
+        if service.checkpoint_id(latest, latest_run) != current_checkpoint or _task_state(latest, latest_run)[0] != 'COMPLETED':
+            raise conflict('The task changed during export', 'STALE_CHECKPOINT')
+    except BaseException:
+        payload.close()
+        raise
+    return payload
+
+
 async def control_task(thread_id: str, request: DocumentTaskControl) -> dict[str, Any]:
     service = client()
     request_id = str(request.requestId)
@@ -286,14 +327,16 @@ async def control_task(thread_id: str, request: DocumentTaskControl) -> dict[str
                 raise conflict('There is no acceptable partial result')
             graph_input = None
             if not values:
-                graph_input = {'document': task['document'], 'failurePolicy': task['failure_policy']}
+                graph_input = {'document': task['document'], 'failurePolicy': task['failure_policy'],
+                               'officeMode': await _office_mode(service, thread_id)}
             if request.action == 'retry_failed':
                 retry = RetryUnits(requestId=request.requestId, units=request.units)
                 _retry_update(cast(Any, values), retry)
                 if not reviews:
                     if interruptions:
                         raise conflict('Resume the paused task before retrying failed units')
-                    graph_input = {'document': values['document'], 'failurePolicy': values.get('failurePolicy', 'return_partial'), 'retry': retry.model_dump(mode='json')}
+                    graph_input = {'document': values['document'], 'failurePolicy': values.get('failurePolicy', 'return_partial'),
+                                   'officeMode': values.get('officeMode'), 'retry': retry.model_dump(mode='json')}
             command = {'resume': {key: request.model_dump(mode='json') for key in interruptions}} if interruptions else None
             admission = await service.db.store.aget(namespace(thread_id, 'control'), 'admission', refresh_ttl=False)
             response = await _enqueue(conn, task, request_id, request_hash, graph_input=graph_input, command=command,
@@ -345,12 +388,19 @@ FILTER_RUN_SQL: dict[TaskFilter, LiteralString] = {
 }
 
 
-async def list_tasks(limit: int = 20, offset: int = 0, sha256: str | None = None, state_filter: TaskFilter | None = None) -> dict[str, Any]:
+async def list_tasks(limit: int = 20, offset: int = 0, sha256: str | None = None, state_filter: TaskFilter | None = None,
+                     office_mode: OfficeMode | None = None) -> dict[str, Any]:
     service = client()
     source_filter = " AND json_extract(t.document, '$.sha256')=?" if sha256 else ''
     params: tuple[Any, ...] = (sha256,) if sha256 else ()
     join: LiteralString = ''
     where = supported_task_sql('t') + source_filter
+    if office_mode is not None:
+        where += (" AND json_extract(t.document,'$.sourceType') IN ('doc','docx','xls','xlsx')"
+                  " AND (SELECT json_extract(initial.input,'$.officeMode') FROM document_runs initial"
+                  " WHERE initial.thread_id=t.thread_id AND initial.input IS NOT NULL"
+                  " ORDER BY initial.created_at,initial.run_id LIMIT 1)=?")
+        params += (office_mode,)
     if state_filter is not None:
         where += ' AND t.expires_at<=?' if state_filter == 'expired' else ' AND t.expires_at>?'
         params += (utcnow(),)

@@ -9,8 +9,8 @@ if [ -n "$DMG_PATH" ] && [ -e "$DMG_PATH" ]; then
   printf '%s\n' 'Use a fresh DMG path; existing artifacts must not be overwritten.' >&2
   exit 1
 fi
-ENTITLEMENTS="$(dirname "$0")/python-entitlements.plist"
-# Sign nested Mach-O files from the inside out, including Python.
+ENTITLEMENTS="$(dirname "$0")/desktop-entitlements.plist"
+# Sign nested Mach-O files from the inside out, including the desktop WebView runtime.
 while IFS= read -r -d '' BINARY_PATH; do
   if file -b "$BINARY_PATH" | /usr/bin/grep -q 'Mach-O'; then
     codesign --force --options runtime --timestamp --entitlements "$ENTITLEMENTS" --sign "$APPLE_SIGNING_IDENTITY" "$BINARY_PATH"

@@ -1,0 +1,271 @@
+{
+  "checkedAt": "2026-10-04",
+  "package": "dlopen2",
+  "version": "0.8.2",
+  "crate": {
+    "source": "https://static.crates.io/crates/dlopen2/dlopen2-0.8.2.crate",
+    "sha256": "5e2c5bd4158e66d1e215c49b837e11d62f3267b30c92f1d171c4d3105e3dc4d4",
+    "verification": "Cached published crate bytes match this exact package and version checksum in app/src-tauri/Cargo.lock."
+  },
+  "publishedCargoTomlSha256": "f6d596541d0293eb91794a2fb9fe75ca3d0d12886027d5fa8de9c8d117453130",
+  "publishedRepository": "https://github.com/OpenByteDev/dlopen2",
+  "declaredLicense": "MIT",
+  "selectedLicense": "MIT",
+  "cargoVcsInfo": {
+    "archivePath": "dlopen2-0.8.2/.cargo_vcs_info.json",
+    "sha256": "ed795da0aa7789a000ca4c8708d047c26148b3938d44897c45c9acce4d3ae015",
+    "contents": {
+      "git": {
+        "sha1": "cc80e4a0a90d499b677fdf7743699b4b3a43a989"
+      },
+      "path_in_vcs": "dlopen2"
+    }
+  },
+  "upstreamRepository": "https://github.com/OpenByteDev/dlopen2",
+  "upstreamCommit": "cc80e4a0a90d499b677fdf7743699b4b3a43a989",
+  "repositoryAttribution": "Published package repository; original manifest and all published src files match this VCS commit, allowing only the individually recorded CRLF/LF differences.",
+  "license": {
+    "source": "https://raw.githubusercontent.com/OpenByteDev/dlopen2/cc80e4a0a90d499b677fdf7743699b4b3a43a989/LICENSE",
+    "path": "LICENSE",
+    "sha256": "39fa265207450e77c62e90c5594a06c085b655d8374c7ced4bf7894b6bd95dd2",
+    "gitBlobSha1": "d38093a7a564c64ad15e459f2e0a1f86a443c8b3",
+    "sizeBytes": 1184,
+    "verification": "Complete upstream file, unchanged bytes, from the same commit recorded in this published crate; Git blob SHA-1 independently matches the commit tree."
+  },
+  "publishedSourceComparison": [
+    {
+      "archivePath": "Cargo.toml.orig",
+      "upstreamPath": "dlopen2/Cargo.toml",
+      "archiveSha256": "4db2cb7eef7db93aac79ebab07af14ef27e00cc322ebb9f3744fcc971a1a6b6a",
+      "upstreamSha256": "0153c3c729490e105d65aa883c3891323ae801aedbf24eac4edbe21de6d2efa7",
+      "comparison": "identical after CRLF to LF normalization only",
+      "archiveSizeBytes": 1611,
+      "upstreamSizeBytes": 1542
+    },
+    {
+      "archivePath": "src/err.rs",
+      "upstreamPath": "dlopen2/src/err.rs",
+      "archiveSha256": "615a164ce2e6168f61ca44e040e7eb6b732c4d1c8def51e8dd6f12e662933020",
+      "upstreamSha256": "615a164ce2e6168f61ca44e040e7eb6b732c4d1c8def51e8dd6f12e662933020",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 1786,
+      "upstreamSizeBytes": 1786
+    },
+    {
+      "archivePath": "src/lib.rs",
+      "upstreamPath": "dlopen2/src/lib.rs",
+      "archiveSha256": "e99da1fe29c4c9391b6e0f2de4220da7b5dafa62649a9889a9ab4a9f3722cbb5",
+      "upstreamSha256": "e99da1fe29c4c9391b6e0f2de4220da7b5dafa62649a9889a9ab4a9f3722cbb5",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 6245,
+      "upstreamSizeBytes": 6245
+    },
+    {
+      "archivePath": "src/raw/common.rs",
+      "upstreamPath": "dlopen2/src/raw/common.rs",
+      "archiveSha256": "efd977a826325a1e9c8c0d90edefffa8957c7e7813fe580e63e492b8a73c48c5",
+      "upstreamSha256": "efd977a826325a1e9c8c0d90edefffa8957c7e7813fe580e63e492b8a73c48c5",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 8733,
+      "upstreamSizeBytes": 8733
+    },
+    {
+      "archivePath": "src/raw/mod.rs",
+      "upstreamPath": "dlopen2/src/raw/mod.rs",
+      "archiveSha256": "0778689be10e11d7a7bb1f980d7a3bd8b8609a55998f9910143b58b606497ba0",
+      "upstreamSha256": "0778689be10e11d7a7bb1f980d7a3bd8b8609a55998f9910143b58b606497ba0",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 1037,
+      "upstreamSizeBytes": 1037
+    },
+    {
+      "archivePath": "src/raw/tests.rs",
+      "upstreamPath": "dlopen2/src/raw/tests.rs",
+      "archiveSha256": "617241077da82f00d8f3afb259a019326c6484db756082926d6dc8cc43ae4b48",
+      "upstreamSha256": "617241077da82f00d8f3afb259a019326c6484db756082926d6dc8cc43ae4b48",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 1869,
+      "upstreamSizeBytes": 1869
+    },
+    {
+      "archivePath": "src/raw/unix.rs",
+      "upstreamPath": "dlopen2/src/raw/unix.rs",
+      "archiveSha256": "48845a8f71eb608246d2a89e4f1b50d3eed3aba64809de7b12e84ba199adb291",
+      "upstreamSha256": "48845a8f71eb608246d2a89e4f1b50d3eed3aba64809de7b12e84ba199adb291",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 4584,
+      "upstreamSizeBytes": 4584
+    },
+    {
+      "archivePath": "src/raw/windows.rs",
+      "upstreamPath": "dlopen2/src/raw/windows.rs",
+      "archiveSha256": "d44700a74b8d85cbd7ceeaf92b7695059867c87518ae45213d66e242541bfb6e",
+      "upstreamSha256": "d44700a74b8d85cbd7ceeaf92b7695059867c87518ae45213d66e242541bfb6e",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 9204,
+      "upstreamSizeBytes": 9204
+    },
+    {
+      "archivePath": "src/symbor/api.rs",
+      "upstreamPath": "dlopen2/src/symbor/api.rs",
+      "archiveSha256": "f75170c815d2f29ffd4d6d06433b2c1e7322357713c5c4d72c8c9a698c072934",
+      "upstreamSha256": "f75170c815d2f29ffd4d6d06433b2c1e7322357713c5c4d72c8c9a698c072934",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 2911,
+      "upstreamSizeBytes": 2911
+    },
+    {
+      "archivePath": "src/symbor/container.rs",
+      "upstreamPath": "dlopen2/src/symbor/container.rs",
+      "archiveSha256": "dc59404d51489eef30e3b87dfbd01eb43a3d7ce43a9e0b1aa6c0d3eec7649a30",
+      "upstreamSha256": "dc59404d51489eef30e3b87dfbd01eb43a3d7ce43a9e0b1aa6c0d3eec7649a30",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 3038,
+      "upstreamSizeBytes": 3038
+    },
+    {
+      "archivePath": "src/symbor/from_raw.rs",
+      "upstreamPath": "dlopen2/src/symbor/from_raw.rs",
+      "archiveSha256": "61c0681a26b8cafa2dd480ffb1227e3f917beb596ea1e075993bf5c10fa19543",
+      "upstreamSha256": "61c0681a26b8cafa2dd480ffb1227e3f917beb596ea1e075993bf5c10fa19543",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 837,
+      "upstreamSizeBytes": 837
+    },
+    {
+      "archivePath": "src/symbor/library.rs",
+      "upstreamPath": "dlopen2/src/symbor/library.rs",
+      "archiveSha256": "f6eba94586baa4e11364674031561d3d3d34cf3c69eb6d0838a331e66f221499",
+      "upstreamSha256": "f6eba94586baa4e11364674031561d3d3d34cf3c69eb6d0838a331e66f221499",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 6025,
+      "upstreamSizeBytes": 6025
+    },
+    {
+      "archivePath": "src/symbor/mod.rs",
+      "upstreamPath": "dlopen2/src/symbor/mod.rs",
+      "archiveSha256": "1e14df95e0d9c4b7834931e51c1b83fdbb543e6d91f2192de2c15d331eca0c9e",
+      "upstreamSha256": "1e14df95e0d9c4b7834931e51c1b83fdbb543e6d91f2192de2c15d331eca0c9e",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 3615,
+      "upstreamSizeBytes": 3615
+    },
+    {
+      "archivePath": "src/symbor/option.rs",
+      "upstreamPath": "dlopen2/src/symbor/option.rs",
+      "archiveSha256": "1f3b0de356c1b698d83f38571c5ea770c77492760d1fe4fd8cd63b599d14820e",
+      "upstreamSha256": "1f3b0de356c1b698d83f38571c5ea770c77492760d1fe4fd8cd63b599d14820e",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 407,
+      "upstreamSizeBytes": 407
+    },
+    {
+      "archivePath": "src/symbor/ptr_or_null.rs",
+      "upstreamPath": "dlopen2/src/symbor/ptr_or_null.rs",
+      "archiveSha256": "46fbfa4705dfd5d9bdcc66baeb58cf5941e8bf9104b5e3748d10de6370ab0317",
+      "upstreamSha256": "46fbfa4705dfd5d9bdcc66baeb58cf5941e8bf9104b5e3748d10de6370ab0317",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 1152,
+      "upstreamSizeBytes": 1152
+    },
+    {
+      "archivePath": "src/symbor/ptr_or_null_mut.rs",
+      "upstreamPath": "dlopen2/src/symbor/ptr_or_null_mut.rs",
+      "archiveSha256": "8a5e8480a0dd4f0ad66ebe9b61c393c960368aaaf400e649a939aef8a7e16444",
+      "upstreamSha256": "8a5e8480a0dd4f0ad66ebe9b61c393c960368aaaf400e649a939aef8a7e16444",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 1171,
+      "upstreamSizeBytes": 1171
+    },
+    {
+      "archivePath": "src/symbor/reference.rs",
+      "upstreamPath": "dlopen2/src/symbor/reference.rs",
+      "archiveSha256": "e4130ce5a5a982fd7b5ca9079191a788aee9b1f62194c3fd5850e88c9b0f1b95",
+      "upstreamSha256": "e4130ce5a5a982fd7b5ca9079191a788aee9b1f62194c3fd5850e88c9b0f1b95",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 1279,
+      "upstreamSizeBytes": 1279
+    },
+    {
+      "archivePath": "src/symbor/reference_mut.rs",
+      "upstreamPath": "dlopen2/src/symbor/reference_mut.rs",
+      "archiveSha256": "af10481e3dbea7260bf5719c045186c80bcbde929a846b755193b055a6c8c162",
+      "upstreamSha256": "af10481e3dbea7260bf5719c045186c80bcbde929a846b755193b055a6c8c162",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 1458,
+      "upstreamSizeBytes": 1458
+    },
+    {
+      "archivePath": "src/symbor/symbol.rs",
+      "upstreamPath": "dlopen2/src/symbor/symbol.rs",
+      "archiveSha256": "5316a3b532de9d5bfd3ea6b8a2a0374715a93ad63baa487eb9070c428ca9900f",
+      "upstreamSha256": "5316a3b532de9d5bfd3ea6b8a2a0374715a93ad63baa487eb9070c428ca9900f",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 1768,
+      "upstreamSizeBytes": 1768
+    },
+    {
+      "archivePath": "src/utils.rs",
+      "upstreamPath": "dlopen2/src/utils.rs",
+      "archiveSha256": "8e8c2f46e44f515be7b55be7a522ebd116094c1f912f1147bb159a0420a59008",
+      "upstreamSha256": "8e8c2f46e44f515be7b55be7a522ebd116094c1f912f1147bb159a0420a59008",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 2154,
+      "upstreamSizeBytes": 2154
+    },
+    {
+      "archivePath": "src/wrapper/api.rs",
+      "upstreamPath": "dlopen2/src/wrapper/api.rs",
+      "archiveSha256": "bb8ecf5b90eb3382b996ad8ff67b278930b6834509731d75911a1db7ec1dcd15",
+      "upstreamSha256": "bb8ecf5b90eb3382b996ad8ff67b278930b6834509731d75911a1db7ec1dcd15",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 3291,
+      "upstreamSizeBytes": 3291
+    },
+    {
+      "archivePath": "src/wrapper/container.rs",
+      "upstreamPath": "dlopen2/src/wrapper/container.rs",
+      "archiveSha256": "87380ee33880d0be780e34ef8e997150fd99c250833d6fc573a14b5ccbb02a73",
+      "upstreamSha256": "87380ee33880d0be780e34ef8e997150fd99c250833d6fc573a14b5ccbb02a73",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 3118,
+      "upstreamSizeBytes": 3118
+    },
+    {
+      "archivePath": "src/wrapper/mod.rs",
+      "upstreamPath": "dlopen2/src/wrapper/mod.rs",
+      "archiveSha256": "be99684278fa390a2dbd9dad65966c507234fe2fdc78e4d9154a855874c0da6c",
+      "upstreamSha256": "be99684278fa390a2dbd9dad65966c507234fe2fdc78e4d9154a855874c0da6c",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 2647,
+      "upstreamSizeBytes": 2647
+    },
+    {
+      "archivePath": "src/wrapper/multi_api.rs",
+      "upstreamPath": "dlopen2/src/wrapper/multi_api.rs",
+      "archiveSha256": "17118c6781b6ffeadfcdd56db736fcbf2d9a70415276aefc37fb3a520257b6e6",
+      "upstreamSha256": "17118c6781b6ffeadfcdd56db736fcbf2d9a70415276aefc37fb3a520257b6e6",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 2049,
+      "upstreamSizeBytes": 2049
+    },
+    {
+      "archivePath": "src/wrapper/option.rs",
+      "upstreamPath": "dlopen2/src/wrapper/option.rs",
+      "archiveSha256": "a3bd77d10e2324730312082500d68da901b2ca41dba40293ac37e9a2cc4da183",
+      "upstreamSha256": "a3bd77d10e2324730312082500d68da901b2ca41dba40293ac37e9a2cc4da183",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 365,
+      "upstreamSizeBytes": 365
+    },
+    {
+      "archivePath": "src/wrapper/optional.rs",
+      "upstreamPath": "dlopen2/src/wrapper/optional.rs",
+      "archiveSha256": "85735d98a26efd5ba5139f9e402513cfb2dd2e5802961e81390c70c37d2bf87e",
+      "upstreamSha256": "85735d98a26efd5ba5139f9e402513cfb2dd2e5802961e81390c70c37d2bf87e",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 4155,
+      "upstreamSizeBytes": 4155
+    }
+  ]
+}

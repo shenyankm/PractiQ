@@ -53,6 +53,30 @@ jobs:
           version: '0.12.13'
           enable-cache: true
           cache-dependency-glob: server/uv.lock
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install independent web dependencies
+        run: make web-install
+      - name: Install browser for service web checks
+        run: npx --prefix web playwright install --with-deps chromium
+      - name: Verify and build independent service web frontend
+        env:
+          VITEST_MAX_WORKERS: '2'
+        run: |
+          make web-check
+          make web-build
+      - name: Upload service web check reports
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: service-web-checks
+          path: |
+            web/test-results/
+            coverage/web/
+          retention-days: 7
       - name: Install PDF fallback fonts
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends fonts-noto-cjk
       - name: Install locked dependencies

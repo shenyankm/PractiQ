@@ -168,22 +168,25 @@ async def test_binary_upload_over_one_mib_uses_source_limit(tmp_path, monkeypatc
         assert response.status_code == 200, response.text
 
 
-@pytest.mark.parametrize("kind", ["xlsx", "xls", "xlsm", "xlsb"])
-async def test_removed_spreadsheet_upload_is_rejected_before_storage(monkeypatch, kind):
+@pytest.mark.parametrize("kind,media", [("xlsx", "application/vnd.ms-excel"),
+    ("xls", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+    ("xlsm", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+    ("xlsb", "application/vnd.ms-excel")])
+async def test_unsupported_or_mismatched_spreadsheet_upload_is_rejected_before_storage(monkeypatch, kind, media):
     monkeypatch.setattr(webapp, "get_object_store", lambda: pytest.fail("unsupported format reached storage"))
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test",
                            headers={"Authorization": "Bearer test-token"}) as client:
         response = await client.post("/api/uploads", json={"sourceType": kind, "fileName": "quiz." + kind,
-            "mediaType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "mediaType": media,
             "sizeBytes": 4, "sha256": "a" * 64})
     assert response.status_code == 422
 
 @pytest.mark.parametrize('kind,media', [
-    ('doc', 'application/msword'),
+    ('doc', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'),
     ('docm', 'application/vnd.ms-word.document.macroEnabled.12'),
-    ('docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'),
+    ('docx', 'application/msword'),
 ])
-async def test_word_uploads_and_tasks_are_rejected(kind, media):
+async def test_unsupported_or_mismatched_word_uploads_and_tasks_are_rejected(kind, media):
     from uuid import uuid4
 
     payload = {'sourceType': kind, 'fileName': f'quiz.{kind}', 'mediaType': media,

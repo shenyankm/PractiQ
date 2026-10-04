@@ -26,6 +26,38 @@ fn question_query_requests_use_bank_id_lists() {
     }
 }
 #[test]
+fn desktop_ai_requests_only_accept_explicit_grading() {
+    for request in [
+        json!({"type":"select_document"}),
+        json!({"type":"list","offset":0,"filter":null}),
+        json!({"type":"get","id":"task"}),
+        json!({"type":"reparse","id":"task"}),
+        json!({"type":"pick_document","selection":"selection","details":{"title":"Title","description":"Description"}}),
+        json!({"type":"operations"}),
+        json!({"type":"replay","request_id":"operation"}),
+        json!({"type":"prepare_batch","ids":[],"bank_id":null}),
+    ] {
+        assert!(
+            serde_json::from_value::<crate::ai::AiRequest>(request.clone()).is_err(),
+            "{request}"
+        );
+    }
+    let grade =
+        json!({"type":"grade","id":"session","ordinal":0,"retry":false,"snapshot_key":"snapshot"});
+    assert!(serde_json::from_value::<crate::ai::AiRequest>(grade.clone()).is_ok());
+    let mut unexpected = grade;
+    unexpected["service_url"] = json!("https://untrusted.invalid");
+    assert!(serde_json::from_value::<crate::ai::AiRequest>(unexpected).is_err());
+}
+#[test]
+fn service_settings_requests_reject_legacy_provider_fields() {
+    for kind in ["save_settings", "test_settings"] {
+        assert!(serde_json::from_value::<crate::Request>(json!({"type":kind,"config":{"service_url":"http://127.0.0.1:8123"},"service_token":null})).is_ok());
+        assert!(serde_json::from_value::<crate::Request>(json!({"type":kind,"config":{"base_url":"https://provider.example/v1","model_id":"legacy"},"api_key":"old-key"})).is_err());
+        assert!(serde_json::from_value::<crate::Request>(json!({"type":kind,"config":{"service_url":"http://127.0.0.1:8123","model_id":"urn:practiq:ai-service:v1"},"service_token":null})).is_err());
+    }
+}
+#[test]
 fn save_attempt_requests_keep_self_assessment_separate() {
     let request = json!({"type":"save_attempt","id":"practice","ordinal":0,"answer":{"text":"answer"},"elapsed_ms":0,"submit":true,"skip":false});
     assert!(serde_json::from_value::<crate::Request>(request.clone()).is_ok());
@@ -1011,6 +1043,21 @@ fn ai_import_receipts_deduplicate_versions_and_survive_backup_without_work_manif
         b"not backed up",
     )
     .unwrap();
+    let legacy_files = [
+        ("ai/requests/00000000-0000-0000-0000-000000000001.json", br#"{"officeSource":{"fileName":"old.xlsx","sourceSha256":"source","mode":"text","version":"LibreOffice","artifactSha256":"artifact"}}"#.as_slice()),
+        ("ai/database/tasks.sqlite", b"legacy task database".as_slice()),
+        ("ai/files/original.xlsx", b"legacy source bytes".as_slice()),
+    ];
+    for (name, bytes) in legacy_files {
+        let path = dir.path().join(name);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, bytes).unwrap();
+    }
+    db.execute(
+        "UPDATE settings SET base_url='https://provider.example/v1',model_id='legacy-model'",
+        [],
+    )
+    .unwrap();
     let archive = dir.path().join("receipt-backup.zip");
     s.backup(&archive).unwrap();
     let mut zip = zip::ZipArchive::new(std::fs::File::open(&archive).unwrap()).unwrap();
@@ -1019,6 +1066,21 @@ fn ai_import_receipts_deduplicate_versions_and_survive_backup_without_work_manif
     }
     drop(db);
     s.restore(&archive).unwrap();
+    for (name, bytes) in legacy_files {
+        assert_eq!(std::fs::read(dir.path().join(name)).unwrap(), bytes);
+    }
+    assert_eq!(
+        s.connection_settings().unwrap().model_id.as_deref(),
+        Some("legacy-model")
+    );
+    assert!(s.service_settings().unwrap().service_url.is_none());
+    assert_eq!(
+        s.connect()
+            .unwrap()
+            .query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
+            .unwrap(),
+        11
+    );
     assert_eq!(
         s.import_pending(&pending, None, "after restore").unwrap()["bankId"],
         first["bankId"]

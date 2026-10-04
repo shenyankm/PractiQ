@@ -9,6 +9,7 @@
 ## Affected areas
 
 - [ ] Python AI service (`server/`)
+- [ ] Import Web frontend (`web/`)
 - [ ] Desktop application (`app/`)
 - [ ] Documentation or tooling
 

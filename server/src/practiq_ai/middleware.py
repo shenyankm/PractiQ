@@ -5,6 +5,10 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse, Response
 
 DEFAULT_JSON_BODY_BYTES = 1 * 1024 * 1024
+WEB_CONTENT_SECURITY_POLICY = ("default-src 'none'; script-src 'self'; connect-src 'self'; "
+                               "img-src 'self' blob:; media-src 'self' blob:; font-src 'self'; "
+                               "style-src 'self' 'unsafe-inline'; base-uri 'none'; object-src 'none'; "
+                               "frame-ancestors 'none'; form-action 'self'")
 
 
 class _BodyTooLarge(Exception):
@@ -74,4 +78,11 @@ class JsonBodyLimitMiddleware:
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        return apply_security_headers(await call_next(request))
+        response = apply_security_headers(await call_next(request))
+        # Static assets use the same-origin Web client; uploaded artifacts remain
+        # under the strict API policy and are displayed only through checked blobs.
+        if (request.url.path not in {'/ok', '/ready'}
+                and not request.url.path.startswith('/api/')
+                and request.method in {'GET', 'HEAD'}):
+            response.headers['Content-Security-Policy'] = WEB_CONTENT_SECURITY_POLICY
+        return response

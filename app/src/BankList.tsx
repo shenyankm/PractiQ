@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 
-export function BankList({ offset, onOffsetChange, revision, busy, ready, run, onOpenSession, onAddExample, onImport, onOpenZipSettings, onHistory, onOpenQuestions, onPractice, onPracticeUnattempted, onEdit, onDelete }: {
+export function BankList({ offset, onOffsetChange, revision, busy, ready, run, onOpenSession, onAddExample, onOpenZipSettings, onHistory, onOpenQuestions, onPractice, onPracticeUnattempted, onEdit, onDelete }: {
   offset: number;
   onOffsetChange: (offset: number) => void;
   revision: number;
@@ -19,7 +19,6 @@ export function BankList({ offset, onOffsetChange, revision, busy, ready, run, o
   run: (job: () => Promise<void>) => void;
   onOpenSession: (id: string) => void;
   onAddExample: () => void;
-  onImport: (bankId: string | null) => void;
   onOpenZipSettings: () => void;
   onHistory: () => void;
   onOpenQuestions: (bankId: string) => void;
@@ -72,7 +71,7 @@ export function BankList({ offset, onOffsetChange, revision, busy, ready, run, o
       {error != null && <div role="alert"><p>{errorMessage(error)}</p><Button variant="outline" onClick={() => setRefresh(value => value + 1)}>{t("重试")}</Button></div>}
     </div>}
     {!loading && !error && unfinished && <Card className="border-primary/30 bg-primary/5"><CardContent className="flex items-center justify-between gap-4"><div className="min-w-0"><h2 className="font-semibold">{t("继续未完成的练习")}</h2><p className="mt-1 break-words text-sm text-muted-foreground">{unfinished.title} · <SessionProgress session={unfinished} onExpired={() => setRefresh(value => value + 1)}/></p></div><div className="flex shrink-0 gap-2"><Button variant="outline" disabled={busy} onClick={onHistory}>{t("查看全部")}</Button><Button disabled={busy} onClick={() => onOpenSession(unfinished.id)}><Play />{unfinished.kind && unfinished.kind !== "practice" ? t("继续考试") : t("继续练习")}</Button></div></CardContent></Card>}
-    {!page.total && !loading && !error && ready && <Empty className="min-h-96 border border-dashed"><EmptyHeader><EmptyMedia variant="icon"><BookOpen /></EmptyMedia><EmptyTitle>{t("从第一份题库开始")}</EmptyTitle><EmptyDescription>{t("已有 PractiQ ZIP 可离线导入；PDF、文本或图片可通过 AI 解析为题目。")}</EmptyDescription></EmptyHeader><EmptyContent><Button onClick={() => onImport(null)}><Upload />{t("从文档解析题目")}</Button><Button variant="outline" disabled={busy} onClick={onAddExample}><BookOpen />{t("添加示例题库")}</Button></EmptyContent></Empty>}
+    {!page.total && !loading && !error && ready && <Empty className="min-h-96 border border-dashed"><EmptyHeader><EmptyMedia variant="icon"><BookOpen /></EmptyMedia><EmptyTitle>{t("从第一份题库开始")}</EmptyTitle><EmptyDescription>{t("导入题库 ZIP 或添加示例题库，开始离线练习。文档解析请使用独立 AI 服务网页。")}</EmptyDescription></EmptyHeader><EmptyContent><Button onClick={onOpenZipSettings}><Upload />{t("导入题库 ZIP")}</Button><Button variant="outline" disabled={busy} onClick={onAddExample}><BookOpen />{t("添加示例题库")}</Button></EmptyContent></Empty>}
     <Button variant="link" disabled={busy} onClick={onOpenZipSettings}>{t("已有题库 ZIP？前往设置导入")}</Button>
     <div className="grid grid-cols-2 gap-5 xl:grid-cols-3">
       {!loading && !error && page.items.map(bank => <Card key={bank.id}>
@@ -100,7 +99,7 @@ export function BankList({ offset, onOffsetChange, revision, busy, ready, run, o
         <CardContent className="mt-auto grid grid-cols-2 gap-2">
           <Button variant="outline" disabled={busy} onClick={() => onOpenQuestions(bank.id)}>{t("查看题目")}<ChevronRight /></Button>
           {bank.count ? <Button disabled={busy} onClick={() => onPractice(bank.id)}><Play />{t("开始练习")}</Button>
-            : <Button disabled={busy} onClick={() => onImport(bank.id)}><Upload />{t("导入题目")}</Button>}
+            : <Button disabled={busy} onClick={onOpenZipSettings}><Upload />{t("导入题库 ZIP")}</Button>}
         </CardContent>
       </Card>)}
     </div>
