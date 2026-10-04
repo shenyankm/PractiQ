@@ -21,11 +21,11 @@ All paths below are relative to `app/fixtures/ai-import/`. These hashes bind the
 | formats/all-types.xls | 106496 | `3ceab6db85bc2ded17cfb94393764f8bab036f4688680d1105ad71c593759d14` |
 | formats/all-types.xlsx | 98438 | `2607d65f5e7e2d2e214b4c146e4b5226b401686eed001f1577ac00c419945f02` |
 
-Metadata: `formats-expected.json` SHA-256 `994a7fb033372f4f6795cf0d394370032efc2f0aa24b74d63fd1050c60a90478`; corpus `README.md` SHA-256 `876fd50695e2da17bd9f7e681f139fa461cc9aae310b214654c3a5c4b8f97008`. Supporting `resources/chart.png` SHA-256 `d4423864a250e4940c4588ae7ade862cd5a3cead1f986d99fc4a7e3cbf529b45`; `resources/preview.png` SHA-256 `0593ff49100b3045808ef40a2cac0d43d7022ccc89a677fccce252bf5abfb7d2`. The preview resource was hashed only, not treated as an independent input.
+Metadata: `formats-expected.json` SHA-256 `994a7fb033372f4f6795cf0d394370032efc2f0aa24b74d63fd1050c60a90478`; corpus `README.md` SHA-256 `876fd50695e2da17bd9f7e681f139fa461cc9aae310b214654c3a5c4b8f97008`. Supporting `formats/resources/chart.png` SHA-256 `d4423864a250e4940c4588ae7ade862cd5a3cead1f986d99fc4a7e3cbf529b45`; `formats/resources/preview.png` SHA-256 `0593ff49100b3045808ef40a2cac0d43d7022ccc89a677fccce252bf5abfb7d2`. The preview resource was hashed only, not treated as an independent input.
 
 ## Source-derived question and evidence map
 
-Review anchors below are draft structural IDs, not native parser IDs. Six material parents plus 19 answerable leaves give 25 records and 16 source-grounded draft type labels. Only 17 leaves have a printed reference answer: two explicitly omit one. Word bank is one exercise with two answer slots; paragraph matching has two printed child statements. These representation choices still require consenting subject-reviewer confirmation.
+Review anchors below are draft structural IDs, not native parser IDs. Six material parents plus 19 answerable leaves give 25 records and 16 source-grounded draft type labels. Only 17 leaves have a printed reference answer: two explicitly omit one. The word bank is a material parent with two single-choice children using its shared options. Paragraph matching is one standalone many-to-one matching record with two left statements and two right paragraphs. The grouping follows the [AI contract](../server/src/practiq_ai/contracts.py) and established [text-composites and text-paragraph-matching cases](../server/evals/cases.json), whose complete printed source text matches Sections 5 and 9. The earlier opposing grouping errors cancelled in the totals; counts alone do not verify structure. Subject-reviewer confirmation of supplied content and annotations remains pending.
 
 Each Section number identifies the actual TXT section, corresponding CSV multiline field, original DOCX paragraph group, and XLSX worksheet `Section NN`. TXT and DOCX exact line/paragraph anchors appear below. Original PDF/scanned PDF and PNG/JPEG quadrants locate Sections 1–4 on page/quadrant 1, 5–8 on 2, 9–10 on 3 and rich content on 4.
 
@@ -39,7 +39,9 @@ Each Section number identifies the actual TXT section, corresponding CSV multili
 | r06; S4; 34,35 | 2. 写一句邀请朋友读书的英文句子。 | not supplied | not supplied; not supplied | standalone |
 | r07; S5; 39,40 | Reading comprehension — Seasons: Snow is white. Grass is green. | material parent; no reference answer | not supplied; not supplied | parent of r08 |
 | r08; S5; 41 | 1. True or false: Snow is white. | True | not supplied; not supplied | child of r07 |
-| r09; S5; 43,44,45 | Snow is [1]. Grass is [2]. | {"1":"A","2":"B"} | not supplied; not supplied | standalone |
+| r09; S5; 43,44,45 | Word bank — Complete the sentence: Snow is [1]. Grass is [2]. | material parent; no reference answer | not supplied; not supplied | parent of r09-1,r09-2; owns options |
+| r09-1; S5; 45 | Snow is [1]. | A | not supplied; not supplied | child of r09; shared options from r09 |
+| r09-2; S5; 45 | Grass is [2]. | B | not supplied; not supplied | child of r09; shared options from r09 |
 | r10; S5; 47,48 | Cloze — Complete the statement: Snow is [1]. | material parent; no reference answer | not supplied; not supplied | parent of r11 |
 | r11; S5; 48 | 1: A. white B. green. | A | not supplied; not supplied | child of r10 |
 | r12; S5; 50,51 | Ordering — Sort ascending | ["1","0"] | not supplied; not supplied | standalone |
@@ -50,14 +52,12 @@ Each Section number identifies the actual TXT section, corresponding CSV multili
 | r17; S7; 71,72 | Hint: read | reading | not supplied; not supplied | child of r16 |
 | r18; S8; 76,77,78 | Sentence selection: Choose the missing sentence: The weather was warm. (1) ____ We returned before dinner. | material parent; no reference answer | not supplied; not supplied | parent of r19 |
 | r19; S8; 79,80 | 1. Choose a sentence. | A | not supplied; not supplied | child of r18 |
-| r20; S9; 84,85,88,89 | Paragraph matching: Match statements to paragraphs | material parent; no reference answer | not supplied; not supplied | parent of r21,r22 |
-| r21; S9; 86,90 | 1. This place opens early. | A | not supplied; not supplied | child of r20 |
-| r22; S9; 87,90 | 2. You can borrow books here. | A | not supplied; not supplied | child of r20 |
+| r20; S9; 84–90 | Paragraph matching: Match statements to paragraphs; left 1: This place opens early.; left 2: You can borrow books here.; right A/B: full supplied paragraphs | 1→A, 2→A | not supplied; not supplied | standalone many-to-one; four sided items, two matches |
 | r23; S10; 94,95,96,97 | Translation: Translate the passage into English. (10 points) 阅读让我们了解不同的文化。 | Reading helps us understand different cultures. | 10; Preserve the meaning and use grammatical English. | standalone |
 | r24; S10; 98,99,100,101,102 | Writing: Write an invitation to a reading club. (15 points) | not supplied | 15; Include the invitation, location and time. Assess clarity and grammatical accuracy. Do not invent extra requirements. | standalone |
 | r25; S11; image104 / TXT106–116 | Using the supplied matrix A, what is its determinant? | The supplied determinant is -2. | not supplied; not supplied | standalone |
 
-Supplied options and constraints remain part of the map: basic math A: 4 / B: 5 / C: 6; primes A: 2 / B: 3 / C: 4 / D: 9; word bank A: white / B: green with no reuse and answers 1→A / 2→B; cloze child A: white / B: green; ordering IDs 0: Two / 1: One with printed order 1, 0; one-to-one matching One→1/Two→2 using printed IDs 0→0 / 1→1; listening A: Nine / B: Ten; sentence selection A: “We went for a walk.”, B: “The train was cancelled.”, C: “The shop was closed.” with each used once. Paragraph options are A: “The public library opens at seven. Members may borrow books for two weeks.” and B: “The sports centre opens at ten and closes at six.” Reuse is explicitly allowed (both statements→A).
+Supplied options and constraints remain part of the map: basic math A: 4 / B: 5 / C: 6; primes A: 2 / B: 3 / C: 4 / D: 9; word-bank parent options A: white / B: green with no reuse; child r09-1 supplies A and child r09-2 supplies B, both sharing the parent options; cloze child A: white / B: green; ordering IDs 0: Two / 1: One with printed order 1, 0; one-to-one matching One→1/Two→2 using printed IDs 0→0 / 1→1; listening A: Nine / B: Ten; sentence selection A: “We went for a walk.”, B: “The train was cancelled.”, C: “The shop was closed.” with each used once. Paragraph options are A: “The public library opens at seven. Members may borrow books for two weeks.” and B: “The sports centre opens at ten and closes at six.” Paragraph reuse is explicitly allowed (both statements→A), represented by many-to-one matching. Its `options` and `passage` are empty, with no parent or option-source reference; the contract’s word-bank-only `allowReuse` field remains false.
 
 The listening parent says **listen twice** and supplies “The train leaves at nine.” as transcript, with **no audio file supplied**. Grammar child hint is “read”. Translation direction is Chinese→English. Writing asks for 80–120 English words, genre Invitation, friend Alex, the library, Saturday 10 a.m.; its supplied 15 point rubric covers invitation/location/time, clarity and grammar without extra requirements. No sample answer is supplied.
 
