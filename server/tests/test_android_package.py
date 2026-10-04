@@ -33,7 +33,7 @@ def manifest(abi: str) -> dict:
             "architecture": "arm64" if abi == "arm64-v8a" else "x86_64", "desktopVersion": VERSION}
 
 
-def entries(abi: str) -> list[tuple[str, bytes]]:
+def entries(abi: str) -> list[tuple[str | zipfile.ZipInfo, bytes]]:
     return [("AndroidManifest.xml", b"Synthetic binary manifest inspected by the fake SDK"),
             ("classes.dex", b"Synthetic Android code; never executed"),
             (MANIFEST_PATH, json.dumps(manifest(abi)).encode()),

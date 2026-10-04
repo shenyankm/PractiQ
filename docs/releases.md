@@ -165,7 +165,26 @@ in CI. Its Gradle runtime inventory is passed to the license gate and retained
 as `android-runtime-inventory.json` in candidate evidence. Release assets
 must contain only the `arm64-v8a` ABI. Windows payload extraction requires
 installed full 7-Zip; it does not execute NSIS or count as installation acceptance. Raw local reports
-remain private; the public evidence copy replaces machine paths before hashing.
+remain private; the public evidence copy replaces machine paths, including `file:`
+URIs in values or keys, before hashing.
+Normal HTTP(S) path namespaces containing `file:` identifiers remain intact;
+local paths in query parameters and known machine roots remain redacted.
+If sanitized keys collide, deterministic
+numbered suffixes retain every value without overriding existing literal keys.
+Both ordinary CI staging and explicit final staging fingerprint the complete
+selected application/extraction tree before gates, after gates and before final
+asset handoff. Changes to file bytes, POSIX modes, file types, directory membership
+or link targets invalidate the staged result even when the installer snapshot is
+unchanged. This integrity check does not attest safety of executing a package.
+On Android, the full immutable APK remains bound by SHA-256; the tree fingerprint
+supplements checks of its temporary metadata extraction.
+The private reports retain the exact original CI candidate bytes. The public
+archive retains those same bytes as `evidence/original-candidate.json` only if the
+decoded candidate contains no machine paths requiring redaction; otherwise staging
+fails while retaining private diagnostics. Assembly verifies their byte digest
+against `candidateSha256` and requires their decoded identity to match the nested
+original candidate, in addition to its existing canonical semantic digest. A
+reformatted or sanitized serialization cannot substitute for the original bytes.
 Staging does not attest Actions provenance or verify signing. Archive actual
 signing results with artifactSha256 bound to the final SHA-256 and status of
 verified, unsigned or failed. Candidate and manifest preserve these declarations
