@@ -64,7 +64,7 @@ def test_license_gate_checks_metadata_target_graph_and_unresolved_terms(tmp_path
         inventory(bundle)
     with pytest.raises(ValueError, match='evidence changed'):
         scope['write_notices'](report, destination)
-    (bundle/'build-manifest.json').write_text('{"packages":[]}', encoding='utf-8')
+    (bundle/'build-manifest.json').write_text('{"platform":"darwin","packages":[]}', encoding='utf-8')
     with pytest.raises(ValueError, match='pure desktop'):
         inventory(bundle)
 
