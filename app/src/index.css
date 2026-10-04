@@ -278,6 +278,7 @@ html[data-native-insets="true"] {
     max-width: none;
     max-height: none;
     transform: none;
+    translate: none;
     display: flex;
     flex-direction: column;
     border-radius: 0;
@@ -287,8 +288,9 @@ html[data-native-insets="true"] {
 
 /* The same controls remain comfortable on narrow windows and touch-capable desktops. */
 @media (max-width: 767px), (any-pointer: coarse) {
-  html[lang] [data-slot="button"],
-  html[lang] [data-slot="button"]:not([data-size^="icon"]),
+  /* Radix asChild supplies its own slot names; retain the semantic button target. */
+  html[lang] button:not([role="checkbox"]):not([role="radio"]),
+  html[lang] a[data-size],
   [data-slot="input"],
   [data-slot="input-group"],
   [data-slot="input-group-control"],
@@ -298,13 +300,14 @@ html[data-native-insets="true"] {
   summary {
     min-height: 3rem;
   }
-  html[lang] [data-slot="button"] { min-width: 3rem; }
-  html[lang] [data-slot="button"]:not([data-size^="icon"]) {
+  html[lang] button:not([role="checkbox"]):not([role="radio"]),
+  html[lang] a[data-size] { min-width: 3rem; }
+  html[lang] button:not([role="checkbox"]):not([role="radio"]):not([data-size^="icon"]),
+  html[lang] a[data-size]:not([data-size^="icon"]) {
     height: auto;
     max-width: 100%;
     white-space: normal;
   }
-  html[lang] [data-slot="button"][data-size^="icon"] { min-width: 3rem; }
   [data-slot="input"], [data-slot="input-group-control"], [data-slot="native-select"], [data-slot="textarea"] { font-size: 1rem; }
   label:has([data-slot="checkbox"]), label:has(input[type="checkbox"]), label:has([data-slot="radio-group-item"]) { min-height: 3rem; }
   .answer-card-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }

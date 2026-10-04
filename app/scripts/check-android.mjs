@@ -72,7 +72,7 @@ async function startPractice(page, title = '基础知识 · 全题型', count = 
   await noHorizontalOverflow(page, 'question quotas');
   await setup.getByRole('button', { name: '预览题目与配分', exact: true }).tap();
   await setup.getByText('按题型分配总分', { exact: true }).tap();
-  const budget = setup.getByLabel('单选题预算', { exact: true });
+  const budget = setup.getByLabel('单选预算', { exact: true });
   await touchTarget(budget);
   await budget.fill('90');
   await noHorizontalOverflow(page, 'score budgets');
@@ -297,8 +297,10 @@ test('listening uses local audio with touch-sized playback, speed and seek contr
   await expect(play).toBeVisible();
   await seek.tap();
   await expect.poll(() => player.locator('audio').evaluate(audio => audio.currentTime)).toBeGreaterThan(0.5);
-  const selectedPosition = Number(await seek.inputValue());
-  await expect.poll(() => player.locator('audio').evaluate(audio => audio.currentTime)).toBeCloseTo(selectedPosition, 1);
+  await expect.poll(async () => {
+    const position = await player.locator('audio').evaluate(audio => audio.currentTime);
+    return Math.abs(position - Number(await seek.inputValue()));
+  }).toBeLessThan(0.05);
   await expect(player.locator('audio')).toHaveJSProperty('playbackRate', 0.75);
   await player.getByRole('button', { name: '从头重听', exact: true }).tap();
   await expect.poll(() => player.locator('audio').evaluate(audio => audio.currentTime)).toBeCloseTo(0, 1);
@@ -341,7 +343,9 @@ test('dirty dialogs retain and save edits after a shortened viewport', async ({ 
   await expect(stem).toHaveValue(`${original} 移动端保存`);
   await expect(maximum).toHaveValue('180');
   await page.screenshot({ path: testInfo.outputPath('android-saved-editor.png'), fullPage: true });
-  await editor.getByRole('button', { name: '关闭', exact: true }).tap();
+  const close = editor.getByRole('button', { name: '关闭', exact: true });
+  await touchTarget(close);
+  await close.tap();
   await expect(editor).toBeHidden();
   await expect(page.getByRole('alertdialog')).toHaveCount(0);
 });
