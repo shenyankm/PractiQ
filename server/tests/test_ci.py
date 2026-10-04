@@ -1,3 +1,4 @@
+import inspect
 import json
 import os
 import re
@@ -336,7 +337,7 @@ def test_native_guard_compile_errors_are_not_skipped(monkeypatch, tmp_path_facto
 
     monkeypatch.setattr(subprocess, "run", compile_error)
     with pytest.raises(subprocess.CalledProcessError):
-        app_build_guard.__wrapped__(tmp_path_factory)
+        inspect.unwrap(app_build_guard)(tmp_path_factory)
 
 
 @pytest.mark.parametrize("target_os", ["macos", "windows", "android", "linux", "ios", "freebsd", None])
