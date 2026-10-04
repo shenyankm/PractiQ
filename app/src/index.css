@@ -278,7 +278,9 @@ html[data-native-insets="true"] {
     max-width: none;
     max-height: none;
     transform: none;
-    translate: none;
+    /* Reset Dialog's individual translate through the production utility variables. */
+    --tw-translate-x: 0px;
+    --tw-translate-y: 0px;
     display: flex;
     flex-direction: column;
     border-radius: 0;
