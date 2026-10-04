@@ -58,14 +58,18 @@ Android Back closes the current dialog or navigation drawer first. Unsaved edito
 
 ## Test the actual Android host
 
-Run shared native/frontend checks and the touch-browser scenarios first:
+On any Android development host, run the shared contracts, frontend checks and touch-browser scenarios first:
 
 ```sh
-make app-check AI_PYTHON=/absolute/path/to/python3.14
+/absolute/path/to/python3.14 app/scripts/export-contracts.py --check
+/absolute/path/to/python3.14 app/scripts/check-fixtures.py
+npm --prefix app run check:ui
 npm --prefix app run test:android-browser
 ```
 
-Browser scenarios mock native commands; they do not validate a device file picker, Keystore or Android lifecycle. For native checks, start a selected arm64 API 35 emulator and finish the actual CLI APK build above. Gradle can then reuse that JNI artifact for Kotlin unit and instrumented tests:
+On macOS/Windows, also run `make app-check AI_PYTHON=/absolute/path/to/python3.14` for host Rust integration tests and Clippy. That command compiles the host app and cannot run on Linux; Linux can build the Android target through the CLI commands above. Desktop CI runs the host Rust checks on macOS/Windows.
+
+Browser scenarios mock native commands; they do not validate a device file picker, Keystore or Android lifecycle. For native Android checks on any host, start a selected arm64 API 35 emulator and finish the actual CLI APK build above. Gradle can then reuse that JNI artifact for Kotlin unit and instrumented tests:
 
 ```sh
 app/src-tauri/gen/android/gradlew -p app/src-tauri/gen/android \

@@ -1,9 +1,11 @@
 import json
 import os
 import re
+import runpy
 import shutil
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -249,18 +251,92 @@ else:
         assert "GLib dependency is reachable on aarch64-apple-darwin" in result.stderr
 
 
+def test_rust_target_graph_timeout_fails_the_gate(monkeypatch):
+    root = Path(__file__).resolve().parents[2]
+
+    def timed_out(command, **kwargs):
+        assert kwargs["timeout"] == 300
+        assert command[command.index("--target") + 1] == "aarch64-apple-darwin"
+        raise subprocess.TimeoutExpired(command, kwargs["timeout"])
+
+    monkeypatch.setattr(subprocess, "run", timed_out)
+    with pytest.raises(subprocess.TimeoutExpired):
+        runpy.run_path(str(root / "app/scripts/check-rust-targets.py"), run_name="__main__")
+
+
+def native_guard_compiler(root):
+    compiler = shutil.which("rustc")
+    env = {**os.environ, "RUSTUP_AUTO_INSTALL": "0"}
+    pinned = tomllib.loads((root / "rust-toolchain.toml").read_text())["toolchain"]["channel"]
+    try:
+        if compiler is None:
+            raise FileNotFoundError("rustc is absent")
+        version = subprocess.run(
+            [compiler, "--version"], cwd=root, env=env, capture_output=True, text=True,
+            check=True, timeout=30,
+        ).stdout
+        if not version.startswith(f"rustc {pinned} "):
+            raise ValueError(f"Rust {pinned} is not the installed compiler")
+    except (OSError, ValueError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
+        message = f"Native build guard needs installed Rust {pinned}: {error}"
+        if os.environ.get("PRACTIQ_REQUIRE_NATIVE_BUILD_GUARD") == "1":
+            pytest.fail(message)
+        pytest.skip(message)
+    return compiler, env
+
+
+@pytest.mark.parametrize("strict", [False, True])
+@pytest.mark.parametrize("availability", ["installed", "absent", "missing-toolchain", "timeout", "wrong-version"])
+def test_native_guard_compiler_never_installs_missing_toolchains(monkeypatch, strict, availability):
+    root = Path(__file__).resolve().parents[2]
+    pinned = tomllib.loads((root / "rust-toolchain.toml").read_text())["toolchain"]["channel"]
+    monkeypatch.setenv("PRACTIQ_REQUIRE_NATIVE_BUILD_GUARD", "1" if strict else "0")
+    monkeypatch.setenv("RUSTUP_AUTO_INSTALL", "1")
+    monkeypatch.setattr(shutil, "which", lambda _: None if availability == "absent" else "/rustc")
+
+    def probe(command, **kwargs):
+        assert command == ["/rustc", "--version"]
+        assert kwargs["env"]["RUSTUP_AUTO_INSTALL"] == "0"
+        assert kwargs["cwd"] == root and kwargs["timeout"] == 30 and kwargs["check"]
+        if availability == "missing-toolchain":
+            raise subprocess.CalledProcessError(1, command)
+        if availability == "timeout":
+            raise subprocess.TimeoutExpired(command, 30)
+        version = "rustc 0.0.0 (unavailable)" if availability == "wrong-version" else f"rustc {pinned} (installed)"
+        return subprocess.CompletedProcess(command, 0, stdout=version)
+
+    monkeypatch.setattr(subprocess, "run", probe)
+    if availability == "installed":
+        compiler, env = native_guard_compiler(root)
+        assert compiler == "/rustc" and env["RUSTUP_AUTO_INSTALL"] == "0"
+    else:
+        with pytest.raises(pytest.fail.Exception if strict else pytest.skip.Exception):
+            native_guard_compiler(root)
+
+
 @pytest.fixture(scope="module")
 def app_build_guard(tmp_path_factory):
-    if shutil.which("rustc") is None:
-        pytest.skip("Native build guard needs Rust; Desktop CI requires the pinned toolchain")
     root = Path(__file__).resolve().parents[2]
+    compiler, env = native_guard_compiler(root)
     folder = tmp_path_factory.mktemp("app-build-guard")
     source = folder / "guard.rs"
     source.write_text('mod tauri_build { pub fn build() { println!("TAURI_BUILD_CALLED"); } }\n'
                       + (root / "app/src-tauri/build.rs").read_text())
     executable = folder / "guard"
-    subprocess.run(["rustc", str(source), "-o", str(executable)], check=True, capture_output=True)
+    subprocess.run([compiler, str(source), "-o", str(executable)], cwd=root, env=env,
+                   check=True, capture_output=True, timeout=30)
     return executable
+
+
+def test_native_guard_compile_errors_are_not_skipped(monkeypatch, tmp_path_factory):
+    monkeypatch.setattr(sys.modules[__name__], "native_guard_compiler", lambda _: ("/rustc", os.environ.copy()))
+
+    def compile_error(command, **kwargs):
+        raise subprocess.CalledProcessError(1, command, stderr=b"invalid build script")
+
+    monkeypatch.setattr(subprocess, "run", compile_error)
+    with pytest.raises(subprocess.CalledProcessError):
+        app_build_guard.__wrapped__(tmp_path_factory)
 
 
 @pytest.mark.parametrize("target_os", ["macos", "windows", "android", "linux", "ios", "freebsd", None])
@@ -285,6 +361,11 @@ def test_workflows_deduplicate_common_checks_without_dropping_native_gates():
         name: yaml.load((root / f".github/workflows/{name}.yml").read_text(), Loader=yaml.BaseLoader)
         for name in ("desktop", "server", "android")
     }
+    native_regressions, = (
+        step for step in workflows["desktop"]["jobs"]["quality"]["steps"]
+        if "python -m pytest server/tests/test_ci.py" in step.get("run", "")
+    )
+    assert native_regressions["env"]["PRACTIQ_REQUIRE_NATIVE_BUILD_GUARD"] == "1"
     for name, workflow in workflows.items():
         for job in workflow["jobs"].values():
             for step in job["steps"]:

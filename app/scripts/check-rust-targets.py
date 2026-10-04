@@ -18,7 +18,7 @@ def main() -> None:
         result = subprocess.run(
             ["cargo", "tree", "--locked", "--manifest-path", str(ROOT / "app/src-tauri/Cargo.toml"),
              "--target", target, "--prefix", "none", "--format", "{p}"],
-            cwd=ROOT, capture_output=True, text=True, check=True,
+            cwd=ROOT, capture_output=True, text=True, check=True, timeout=300,
         )
         packages = [line.split()[0] for line in result.stdout.splitlines() if line.strip()]
         if not packages or "practiq-desktop" not in packages:
