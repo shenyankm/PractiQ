@@ -7,6 +7,7 @@ export default defineConfig({
   timeout: 60_000,
   expect: { timeout: 10_000 },
   outputDir: "./test-results/browser",
+  reporter: [["list"], ["json", { outputFile: "./test-results/browser/results.json" }]],
   use: {
     browserName: "chromium",
     baseURL: "http://127.0.0.1:1671",
