@@ -190,7 +190,13 @@ test('incomplete question reference fallbacks close after reverting text and kee
   const title=`Incomplete ${mode} reference`;
   await editor.getByRole('textbox',{name:'题干（支持 Markdown 和公式）',exact:true}).fill(title);
   await editor.getByRole('button',{name:'保存题目',exact:true}).click();
-  const open=()=>page.getByRole('button',{name:new RegExp(`${title}$`)}).locator('..').getByRole('button',{name:'编辑题目',exact:true}).click();
+  const open=async()=>{
+   const button=page.getByRole('button',{name:new RegExp(`${title}$`)}).locator('..').getByRole('button',{name:'编辑题目',exact:true});
+   await button.evaluate(node=>node.scrollIntoView({block:'center'}));
+   await page.mouse.move(0,0);
+   await expect(page.getByText('题目已保存，历史练习不受影响',{exact:true})).toBeHidden();
+   await button.click();
+  };
   for(const dismiss of ['Escape','close','outside']){
    await open();
    const text=editor.getByRole('textbox',{name:'自由作答',exact:true});
