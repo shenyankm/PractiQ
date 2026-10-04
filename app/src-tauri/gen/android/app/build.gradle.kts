@@ -1,5 +1,6 @@
 import java.util.Properties
 import java.security.MessageDigest
+import java.util.concurrent.Callable
 
 plugins {
     id("com.android.application")
@@ -85,13 +86,19 @@ configurations.matching { it.name.endsWith("DebugRuntimeClasspath") }.configureE
 // every artifact and POM against the reviewed notice lock before preparing assets.
 tasks.register("exportRuntimeNoticeInventory") {
     dependsOn(":tauri-android:bundleDebugAar", ":tauri-plugin-dialog:bundleDebugAar")
-    doLast {
-        val configurationName = providers.gradleProperty("practiqNoticeConfiguration").get()
+    val noticeConfigurationName = providers.gradleProperty("practiqNoticeConfiguration")
+    val noticeRuntimeArtifacts = noticeConfigurationName.map { configurationName ->
         require(configurationName in setOf("arm64DebugRuntimeClasspath", "x86_64DebugRuntimeClasspath", "universalDebugRuntimeClasspath"))
-        val configuration = configurations.getByName(configurationName)
-        val runtimeArtifacts = configuration.incoming.artifactView {
+        configurations.getByName(configurationName).incoming.artifactView {
             attributes.attribute(Attribute.of("artifactType", String::class.java), "android-classes-jar")
-        }.artifacts.artifacts.sortedBy { it.id.componentIdentifier.displayName }
+        }.artifacts
+    }
+    inputs.files(noticeRuntimeArtifacts.map { it.artifactFiles }).withPropertyName("noticeRuntimeArtifacts")
+    dependsOn(Callable { noticeRuntimeArtifacts.get().artifactFiles.buildDependencies })
+    doLast {
+        val configurationName = noticeConfigurationName.get()
+        val configuration = configurations.getByName(configurationName)
+        val runtimeArtifacts = noticeRuntimeArtifacts.get().artifacts.sortedBy { it.id.componentIdentifier.displayName }
         val originalArtifacts = configuration.incoming.artifactView {
             componentFilter { it is org.gradle.api.artifacts.component.ModuleComponentIdentifier }
         }.artifacts.artifacts.associateBy { it.id.componentIdentifier.displayName + "|" + it.file.name }
