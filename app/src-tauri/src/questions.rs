@@ -2,14 +2,11 @@
 use crate::question_metadata::COMPOSITE_SQL;
 use crate::{
     contract::{self, list, text, Result},
-    store::{id, Store},
+    store::{err, id, Store},
 };
 use rusqlite::{params, Connection};
 use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};
-fn err(e: impl std::fmt::Display) -> crate::AppError {
-    e.to_string().into()
-}
 pub fn composite(q: &Value) -> bool {
     crate::question_metadata::COMPOSITE_MODES.contains(&text(q, "answerMode"))
 }

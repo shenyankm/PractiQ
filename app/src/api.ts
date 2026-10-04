@@ -365,13 +365,11 @@ export function errorMessage(error: unknown): string {
     return `${summary}${diagnostic}${detail ? ` (${detail})` : ""}`;
   }
   const actions: Record<string, string> = {
-    STALE_CHECKPOINT: t("请刷新任务或重新创建导入批次。"),
     STALE_RUN: t("请刷新任务状态。"),
     TASK_BUSY: t("请等待当前运行结束后刷新。"),
     AI_PROVIDER_AUTH_ERROR: t("AI 服务的模型鉴权失败，请检查服务端模型配置后重试。"),
     AI_PROVIDER_UNAVAILABLE: t("请稍后重试失败项。"),
     EXECUTION_VERSION_MISMATCH: t("请使用原执行版本，或重新解析文档。"),
-    LOCAL_SERVICE_UNAVAILABLE: t("如有待确认操作，请从原操作重试。"),
   };
   const diagnostic = String(object.diagnostic ?? object.message ?? error);
   const metadata = [code, object.requestId, object.httpStatus].filter(v => v != null && v !== "").join(" · ");
