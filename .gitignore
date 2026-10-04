@@ -32,6 +32,7 @@ node_modules/
 /app/src-tauri/gen/*
 !/app/src-tauri/gen/android/
 /app/src-tauri/gen/android/app/src/main/jniLibs/
+/app/src-tauri/gen/android/app/src/main/assets/
 /app/src-tauri/gen/android/app/tauri.build.gradle.kts
 /app/src-tauri/gen/android/app/tauri.properties
 /app/src-tauri/gen/android/tauri.properties

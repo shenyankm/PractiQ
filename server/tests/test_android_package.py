@@ -20,6 +20,35 @@ MANIFEST_PATH = "assets/bundled/build-manifest.json"
 NOTICE_PATH = "assets/bundled/THIRD-PARTY.txt"
 
 
+def test_android_resource_whitelist_has_only_the_official_cli_asset_producer():
+    config = json.loads((ROOT / "app/src-tauri/tauri.conf.json").read_text())
+    android = json.loads((ROOT / "app/src-tauri/tauri.android.conf.json").read_text())
+    assert config["bundle"]["resources"] == {
+        "bundled/build-manifest.json": "bundled/build-manifest.json",
+        "bundled/THIRD-PARTY.txt": "bundled/THIRD-PARTY.txt",
+    }
+    assert "resources" not in android["bundle"]
+    gradle = (ROOT / "app/src-tauri/gen/android/app/build.gradle.kts").read_text()
+    # The CLI injects both leaves into main/assets before Gradle merges assets.
+    # Adding the same leaves through another source directory makes that merge fail.
+    assert "syncPracticeResources" not in gradle
+    assert "generated/practice-resources" not in gradle
+    assert ".assets.srcDir" not in gradle
+    assert "duplicatesStrategy" not in gradle
+
+
+@pytest.mark.parametrize("path,ignored", [
+    ("app/src-tauri/gen/android/app/src/main/assets/tauri.conf.json", True),
+    ("app/src-tauri/gen/android/app/src/main/assets/bundled/build-manifest.json", True),
+    ("app/src-tauri/gen/android/app/src/main/assets/bundled/THIRD-PARTY.txt", True),
+    ("app/src-tauri/gen/android/app/src/main/AndroidManifest.xml", False),
+    ("app/src-tauri/gen/android/app/src/main/java/com/practiq/android/MainActivity.kt", False),
+])
+def test_android_cli_generated_assets_are_ignored_without_hiding_host_sources(path, ignored):
+    result = subprocess.run(["git", "check-ignore", "--no-index", "--quiet", path], cwd=ROOT, check=False)
+    assert result.returncode == (0 if ignored else 1)
+
+
 def elf(abi: str) -> bytes:
     header = bytearray(64)
     header[:7] = b"\x7fELF\x02\x01\x01"

@@ -77,17 +77,6 @@ dependencies {
 
 apply(from = "tauri.build.gradle.kts")
 
-// Only these generated practice-client notices are Android assets. Old ignored
-// desktop engine directories are never inputs to this task.
-val practiceResources = tasks.register<Sync>("syncPracticeResources") {
-    from("../../../bundled") {
-        include("build-manifest.json", "THIRD-PARTY.txt")
-    }
-    into(layout.buildDirectory.dir("generated/practice-resources/bundled"))
-}
-android.sourceSets.getByName("main").assets.srcDir(layout.buildDirectory.dir("generated/practice-resources"))
-tasks.named("preBuild").configure { dependsOn(practiceResources) }
-
 configurations.matching { it.name.endsWith("DebugRuntimeClasspath") }.configureEach {
     resolutionStrategy.activateDependencyLocking()
 }

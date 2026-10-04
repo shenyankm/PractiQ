@@ -27,6 +27,8 @@ Run `make android-dev` with a selected emulator or device. This development comm
 
 A distributable APK must include exactly the generated `bundled/build-manifest.json` and `bundled/THIRD-PARTY.txt` resource leaves, with no Python or LibreOffice engine. Notices cover the locked Cargo/npm dependencies and the actual resolved Gradle runtime artifacts, POMs and source/license evidence. Gradle exports an inventory; package preparation verifies it against the committed Android runtime license lock before generating notices.
 
+For each ABI, prepare its metadata and notices, then run the full Tauri CLI build. The CLI copies the two whitelisted resource leaves into its generated `app/src/main/assets/` directory before Gradle merges assets; do not add a second Gradle asset source or replace this build with direct Gradle packaging. Generated assets are ignored by Git, but the strict final APK check still rejects unexpected bundled resources and embedded engines.
+
 On a fresh checkout, bootstrap the generated Tauri Gradle settings and local Android AAR by compiling once without package resources:
 
 ```sh
