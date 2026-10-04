@@ -35,6 +35,8 @@ No API key is needed. The hand-written samples demonstrate question types and re
 
 Export a bank from its card menu to share content without personal answers or scores. Bank import appends content; restoring a full learning-data backup replaces personal data after confirmation. See the [package guide](docs/question-bank-package.md).
 
+When editing a bank or question, Escape, the close button, and clicking outside ask you to **Continue editing** or **Discard changes** if the draft has changed. Unchanged or reverted drafts close immediately. **Discard changes** in the editor deliberately closes without saving. Child-question changes are staged in their parent; save the top-level question to commit the complete tree. Drafts remain in memory while the editor is open and are not recovered after closing the app.
+
 ## Import documents with AI
 
 1. In **Settings**, configure a provider URL, model ID, and API key for a model supporting text and image inputs. Changes save when you leave a field.

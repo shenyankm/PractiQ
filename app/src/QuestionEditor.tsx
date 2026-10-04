@@ -1,13 +1,8 @@
 import { t, useI18n } from "./i18n";
 import { useId, useState } from "react";
 import { blankQuestion, type Question, type Mode, modeNames, isComposite } from "./api";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
+import { DialogFooter } from "@/components/ui/dialog";
+import { EditorDialog } from "./EditorDialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -38,8 +33,10 @@ export function QuestionEditor({
   const formId = useId();
   const [q, setQ] = useState<Question>(() => structuredClone({...initial, id: initial.id || crypto.randomUUID()}));
   const [children, setChildren] = useState<Question[]>(() => structuredClone(initialChildren));
+  const [original] = useState(() => JSON.stringify([q, children]));
   const [audioPending, setAudioPending] = useState(false);
   const [childEditor, setChildEditor] = useState<Question | null>(null);
+  const dirty = JSON.stringify([q, children]) !== original;
   const patch = (p: Partial<Question>) => setQ((v) => ({ ...v, ...p }));
   function mode(value: Mode) {
     setChildren([]);
@@ -75,16 +72,7 @@ export function QuestionEditor({
     });
   }
   return (
-    <Dialog
-      open
-      onOpenChange={(v) => {
-        if (!v && !busy) onClose();
-      }}
-    >
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
-        <DialogHeader>
-          <DialogTitle>{t("编辑题目")}</DialogTitle>
-        </DialogHeader>
+      <EditorDialog title={t("编辑题目")} dirty={dirty || audioPending} busy={busy} onClose={onClose} className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
         <fieldset disabled={busy} className="space-y-5">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -340,16 +328,17 @@ export function QuestionEditor({
           </div>
         </fieldset>
         <DialogFooter>
-          <Button variant="outline" disabled={busy} onClick={onClose}>{t("取消")}</Button>
+          <Button variant="outline" disabled={busy} onClick={onClose}>{t("放弃更改")}</Button>
           <Button disabled={busy || audioPending} onClick={() => {if(!audioPending)onSave(q,children);}}>{t("保存题目")}</Button>
         </DialogFooter>
-      </DialogContent>
       {childEditor && <QuestionEditor key={childEditor.id} initial={childEditor} parent={q} initialChildren={children.filter(c=>c.parentId===childEditor.id)} busy={false} onClose={()=>setChildEditor(null)} onSave={(child,nested)=>{
+        const index=children.findIndex(c=>c.id===child.id);
+        if(index>=0 && JSON.stringify([children[index],children.filter(c=>c.parentId===child.id)])===JSON.stringify([child,nested])){setChildEditor(null);return;}
         const removed=new Set([child.id]);for(const c of children) if(removed.has(c.parentId))removed.add(c.id);
-        const index=children.findIndex(c=>c.id===child.id);const kept=children.filter(c=>!removed.has(c.id));kept.splice(index<0 ? kept.length : index,0,child,...nested);setChildren(kept);
+        const kept=children.filter(c=>!removed.has(c.id));const insertion=index<0 ? kept.length : children.slice(0,index).filter(c=>!removed.has(c.id)).length;kept.splice(insertion,0,child,...nested);setChildren(kept);
         if(!["reading","listening"].includes(q.answerMode || "") && !(q.passage || []).some(b=>b.questionId===child.id))patch({passage:[...(q.passage || []),{partType:"blank",questionId:child.id}]});
         setChildEditor(null);
       }}/>}
-    </Dialog>
+      </EditorDialog>
   );
 }

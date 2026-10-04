@@ -123,3 +123,129 @@ it("keeps an unknown answer mode empty until selected and disables editing while
   await user.selectOptions(mode, "ordering");
   expect(mode.value).toBe("");
 });
+
+it("protects changed question drafts on Escape and closes reverted drafts immediately", async () => {
+  const user = userEvent.setup();
+  const initial = { ...blankQuestion(), stem: "Original stem" };
+  const close = vi.fn();
+  render(<QuestionEditor initial={initial} busy={false} onClose={close} onSave={vi.fn()} />);
+  const stem = screen.getByRole("textbox", { name: "题干（支持 Markdown 和公式）" });
+  await user.clear(stem);
+  await user.type(stem, "Changed stem");
+  await user.keyboard("{Escape}");
+  expect(close).not.toHaveBeenCalled();
+  const confirmation = screen.getByRole("alertdialog", { name: "放弃未保存的更改？" });
+  await user.click(within(confirmation).getByRole("button", { name: "继续编辑" }));
+  expect((stem as HTMLTextAreaElement).value).toBe("Changed stem");
+  expect(document.activeElement).toBe(stem);
+  await user.clear(stem);
+  await user.type(stem, "Original stem");
+  await user.keyboard("{Escape}");
+  expect(close).toHaveBeenCalledOnce();
+  expect(screen.queryByRole("alertdialog")).toBeNull();
+});
+
+it.each(["Escape", "close", "discard"])("closes an unchanged question immediately through %s", async action => {
+  const user = userEvent.setup();
+  const close = vi.fn();
+  render(<QuestionEditor initial={{ ...blankQuestion(), id: null }} busy={false} onClose={close} onSave={vi.fn()} />);
+  if (action === "Escape") await user.keyboard("{Escape}");
+  else await user.click(screen.getByRole("button", { name: action === "close" ? "关闭" : "放弃更改" }));
+  expect(close).toHaveBeenCalledOnce();
+  expect(screen.queryByRole("alertdialog")).toBeNull();
+});
+
+it("protects a changed question on X and lets explicit discard close directly", async () => {
+  const user = userEvent.setup();
+  const close = vi.fn(), save = vi.fn();
+  render(<QuestionEditor initial={blankQuestion()} busy={false} onClose={close} onSave={save} />);
+  await user.type(screen.getByRole("textbox", { name: "解析" }), "Draft analysis");
+  await user.click(screen.getByRole("button", { name: "关闭" }));
+  expect(close).not.toHaveBeenCalled();
+  await user.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "继续编辑" }));
+  await user.click(screen.getByRole("button", { name: "放弃更改" }));
+  expect(close).toHaveBeenCalledOnce();
+  expect(save).not.toHaveBeenCalled();
+  expect(screen.queryByRole("alertdialog")).toBeNull();
+});
+
+it("protects saved descendant drafts at every ancestor and saves the complete edited tree", async () => {
+  const user = userEvent.setup();
+  const root = { ...blankQuestion(), id: "root", answerMode: "reading" as const, choiceVariant: null, options: [], stem: "Shared material" };
+  const child = { ...blankQuestion(), id: "child", parentId: "root", answerMode: "cloze" as const, choiceVariant: null, options: [], stem: "Cloze material" };
+  const leaf = { ...blankQuestion(), id: "leaf", parentId: "child", stem: "Original leaf" };
+  const close = vi.fn(), save = vi.fn();
+  render(<QuestionEditor initial={root} initialChildren={[child, leaf]} busy={false} onClose={close} onSave={save} />);
+  await user.click(screen.getByRole("button", { name: "编辑题目" }));
+  await user.click(screen.getByRole("button", { name: "编辑题目" }));
+  const leafStem = screen.getByRole("textbox", { name: "题干（支持 Markdown 和公式）" });
+  await user.clear(leafStem);
+  await user.type(leafStem, "Edited leaf");
+  await user.keyboard("{Escape}");
+  await user.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "继续编辑" }));
+  expect((leafStem as HTMLTextAreaElement).value).toBe("Edited leaf");
+  await user.click(screen.getByRole("button", { name: "保存题目" }));
+  await user.click(screen.getByRole("button", { name: "关闭" }));
+  await user.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "继续编辑" }));
+  expect(screen.getByText("1. Edited leaf")).toBeTruthy();
+  await user.click(screen.getByRole("button", { name: "保存题目" }));
+  await user.keyboard("{Escape}");
+  expect(close).not.toHaveBeenCalled();
+  await user.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "继续编辑" }));
+  await user.click(screen.getByRole("button", { name: "保存题目" }));
+  expect(save).toHaveBeenCalledWith(root, [expect.objectContaining({ id: "child", parentId: "root" }), expect.objectContaining({ id: "leaf", parentId: "child", stem: "Edited leaf" })]);
+  expect(leaf.stem).toBe("Original leaf");
+});
+
+it("discards a changed child without changing the parent's tree or dirty state", async () => {
+  const user = userEvent.setup();
+  const root = { ...blankQuestion(), id: "root", answerMode: "reading" as const, choiceVariant: null, options: [] };
+  const child = { ...blankQuestion(), id: "child", parentId: "root", stem: "Original child" };
+  const close = vi.fn(), save = vi.fn();
+  render(<QuestionEditor initial={root} initialChildren={[child]} busy={false} onClose={close} onSave={save} />);
+  await user.click(screen.getByRole("button", { name: "编辑题目" }));
+  await user.type(screen.getByRole("textbox", { name: "题干（支持 Markdown 和公式）" }), " discarded");
+  await user.keyboard("{Escape}");
+  await user.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "放弃更改" }));
+  expect(screen.getByText("1. Original child")).toBeTruthy();
+  await user.keyboard("{Escape}");
+  expect(close).toHaveBeenCalledOnce();
+  expect(save).not.toHaveBeenCalled();
+});
+
+function childBeforeParentTree() {
+  const root = { ...blankQuestion(), id: "root", answerMode: "reading" as const, choiceVariant: null, options: [], stem: "Shared material" };
+  const child = { ...blankQuestion(), id: "child", parentId: "root", answerMode: "cloze" as const, choiceVariant: null, options: [], stem: "Cloze material", passage: [{ partType: "blank" as const, questionId: "leaf" }] };
+  const leaf = { ...blankQuestion(), id: "leaf", parentId: "child", stem: "Nested leaf" };
+  const sibling = { ...blankQuestion(), id: "sibling", parentId: "root", stem: "Sibling question" };
+  return { root, children: [leaf, child, sibling] };
+}
+
+it("does not dirty or reorder a child-before-parent imported tree when saving an unchanged child", async () => {
+  const user = userEvent.setup();
+  const { root, children } = childBeforeParentTree();
+  const close = vi.fn(), save = vi.fn();
+  render(<QuestionEditor initial={root} initialChildren={children} busy={false} onClose={close} onSave={save} />);
+  await user.click(screen.getAllByRole("button", { name: "编辑题目" })[0]);
+  await user.click(screen.getByRole("button", { name: "保存题目" }));
+  await user.click(screen.getByRole("button", { name: "保存题目" }));
+  expect(save).toHaveBeenCalledWith(root, children);
+  await user.keyboard("{Escape}");
+  expect(close).toHaveBeenCalledOnce();
+  expect(screen.queryByRole("alertdialog")).toBeNull();
+});
+
+it("preserves sibling order when saving a changed child whose descendant precedes it", async () => {
+  const user = userEvent.setup();
+  const { root, children } = childBeforeParentTree();
+  const save = vi.fn();
+  render(<QuestionEditor initial={root} initialChildren={children} busy={false} onClose={vi.fn()} onSave={save} />);
+  await user.click(screen.getAllByRole("button", { name: "编辑题目" })[0]);
+  await user.type(screen.getByRole("textbox", { name: "题干（支持 Markdown 和公式）" }), " changed");
+  await user.click(screen.getByRole("button", { name: "保存题目" }));
+  expect(screen.getByText("1. Cloze material changed")).toBeTruthy();
+  expect(screen.getByText("2. Sibling question")).toBeTruthy();
+  await user.click(screen.getByRole("button", { name: "保存题目" }));
+  expect(save.mock.calls[0][1].map((question: { id: string }) => question.id)).toEqual(["child", "leaf", "sibling"]);
+  expect(save.mock.calls[0][1].find((question: { id: string }) => question.id === "leaf")).toEqual(children[0]);
+});

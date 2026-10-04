@@ -34,6 +34,117 @@ test('development preview pages stay offline',async ({page},testInfo)=>{
  await page.screenshot({path:testInfo.outputPath('preview.png'),fullPage:true});
 });
 
+for (const kind of ['bank','question']) {
+ test(`${kind} editor protects drafts from implicit dismissal`,async ({page})=>{
+  await page.goto('/');
+  await expect(page.getByText('基础知识 · 全题型',{exact:true}).first()).toBeVisible();
+  const bankTitle='基础知识 · 全题型';
+  if(kind==='question')await page.getByRole('button',{name:'查看题目',exact:true}).first().click();
+  const title=kind==='bank'?'编辑题库':'编辑题目';
+  const fieldName=kind==='bank'?'题库名称':'题干（支持 Markdown 和公式）';
+  const open=async()=>{
+   if(kind==='bank'){
+    await page.getByRole('button',{name:`题库操作 ${bankTitle}`,exact:true}).click();
+    await page.getByRole('menuitem',{name:title,exact:true}).click();
+   }else await page.getByRole('button',{name:title,exact:true}).first().click();
+   await expect(page.getByRole('dialog',{name:title,exact:true})).toBeVisible();
+  };
+  const dismiss=async action=>{
+   if(action==='Escape')await page.keyboard.press('Escape');
+   else if(action==='close')await page.getByRole('dialog',{name:title,exact:true}).getByRole('button',{name:'关闭',exact:true}).click();
+   else await page.mouse.click(8,8);
+  };
+  const actions=['Escape','close','outside'];
+  for(const action of actions){
+   await open();
+   await dismiss(action);
+   await expect(page.getByRole('dialog',{name:title,exact:true})).toBeHidden();
+   await expect(page.getByRole('alertdialog')).toHaveCount(0);
+  }
+  await open();
+  const editor=page.getByRole('dialog',{name:title,exact:true});
+  const field=editor.getByRole('textbox',{name:fieldName,exact:true});
+  const original=await field.inputValue();
+  await field.fill(`${original} draft`);
+  for(const action of actions){
+   await field.focus();
+   await dismiss(action);
+   const confirmation=page.getByRole('alertdialog',{name:'放弃未保存的更改？',exact:true});
+   await expect(confirmation).toBeVisible();
+   const resume=confirmation.getByRole('button',{name:'继续编辑',exact:true});
+   await expect(resume).toBeFocused();
+   await resume.click();
+   await expect(confirmation).toBeHidden();
+   await expect(field).toHaveValue(`${original} draft`);
+   await expect(action==='close'?editor.getByRole('button',{name:'关闭',exact:true}):field).toBeFocused();
+  }
+  await editor.getByRole('button',{name:'放弃更改',exact:true}).click();
+  await expect(editor).toBeHidden();
+  await expect(page.getByRole('alertdialog')).toHaveCount(0);
+  await open();
+  await expect(field).toHaveValue(original);
+  await field.fill(`${original} saved`);
+  await editor.getByRole('button',{name:kind==='bank'?'保存题库':'保存题目',exact:true}).click();
+  await expect(editor).toBeHidden();
+  if(kind==='bank'){
+   await page.getByRole('button',{name:`题库操作 ${original} saved`,exact:true}).click();
+   await page.getByRole('menuitem',{name:title,exact:true}).click();
+  }else{
+   const row=page.getByRole('button',{name:new RegExp(`${original} saved`)}).locator('..');
+   await row.getByRole('button',{name:title,exact:true}).click();
+  }
+  await expect(field).toHaveValue(`${original} saved`);
+  await page.keyboard.press('Escape');
+  await expect(editor).toBeHidden();
+  await expect(page.getByRole('alertdialog')).toHaveCount(0);
+ });
+}
+
+test('child editors retain changed drafts and stage changes until the parent saves',async ({page})=>{
+ await page.goto('/');
+ const bank=page.locator('[data-slot=card]').filter({has:page.getByText('阅读与组合题',{exact:true})});
+ await bank.getByRole('button',{name:'查看题目',exact:true}).click();
+ const openRoot=()=>page.getByRole('button',{name:/words-root$/}).locator('..').getByRole('button',{name:'编辑题目',exact:true}).click();
+ const editor=page.getByRole('dialog',{name:'编辑题目',exact:true});
+ const field=editor.getByRole('textbox',{name:'题干（支持 Markdown 和公式）',exact:true});
+ await openRoot();
+ await editor.getByText('1. words-root1',{exact:true}).locator('..').getByRole('button',{name:'编辑题目',exact:true}).click();
+ await expect(field).toHaveValue('words-root1');
+ await field.fill('Changed child draft');
+ for(const action of ['Escape','close','outside']){
+  if(action==='Escape')await page.keyboard.press('Escape');
+  else if(action==='close')await editor.getByRole('button',{name:'关闭',exact:true}).click();
+  else await page.mouse.click(8,8);
+  const confirmation=page.getByRole('alertdialog',{name:'放弃未保存的更改？',exact:true});
+  await expect(confirmation).toBeVisible();
+  await confirmation.getByRole('button',{name:'继续编辑',exact:true}).click();
+  await expect(field).toHaveValue('Changed child draft');
+ }
+ await editor.getByRole('button',{name:'放弃更改',exact:true}).click();
+ await expect(field).toHaveValue('words-root');
+ await expect(editor.getByText('1. words-root1',{exact:true})).toBeVisible();
+ await page.keyboard.press('Escape');
+ await expect(editor).toBeHidden();
+ await expect(page.getByRole('alertdialog')).toHaveCount(0);
+ await openRoot();
+ await editor.getByText('1. words-root1',{exact:true}).locator('..').getByRole('button',{name:'编辑题目',exact:true}).click();
+ await field.fill('Saved child draft');
+ await editor.getByRole('button',{name:'保存题目',exact:true}).click();
+ await expect(editor.getByText('1. Saved child draft',{exact:true})).toBeVisible();
+ await page.keyboard.press('Escape');
+ const confirmation=page.getByRole('alertdialog',{name:'放弃未保存的更改？',exact:true});
+ await expect(confirmation).toBeVisible();
+ await confirmation.getByRole('button',{name:'继续编辑',exact:true}).click();
+ await editor.getByRole('button',{name:'保存题目',exact:true}).click();
+ await expect(editor).toBeHidden();
+ await openRoot();
+ await expect(editor.getByText('1. Saved child draft',{exact:true})).toBeVisible();
+ await expect(editor.getByText('2. words-root2',{exact:true})).toBeVisible();
+ await page.keyboard.press('Escape');
+ await expect(editor).toBeHidden();
+ await expect(page.getByRole('alertdialog')).toHaveCount(0);
+});
+
 for(const scenario of ['empty','many','unconfigured','missing','slow','error']) {
  test(`preview scenario ${scenario} stays offline`,async ({page})=>{
   await page.addInitScript(value=>sessionStorage.setItem('practiq-preview',value),scenario);
