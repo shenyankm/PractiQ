@@ -1657,6 +1657,78 @@
           "vision_parse"
         ]
       }
+    },
+    {
+      "id": "image-no-answer",
+      "sourceType": "image",
+      "path": "fixtures/image/answerless.png",
+      "tags": [
+        "synthetic",
+        "regression",
+        "no-source-answer"
+      ],
+      "critical": true,
+      "expectedQuestions": [
+        {
+          "stem": "1. What is the tallest mountain on Earth?",
+          "answerMode": "choice",
+          "options": [
+            {
+              "label": "A",
+              "content": "K2"
+            },
+            {
+              "label": "B",
+              "content": "Mount Everest"
+            },
+            {
+              "label": "C",
+              "content": "Kangchenjunga"
+            }
+          ],
+          "answerPayload": null,
+          "expectedNeedsReview": true,
+          "expectedEvidence": {
+            "analysis": null,
+            "sourceScore": null,
+            "scoringRubric": null,
+            "scoreSourceText": null
+          }
+        },
+        {
+          "stem": "2. Which planet is known as the Red Planet?",
+          "answerMode": "choice",
+          "options": [
+            {
+              "label": "A",
+              "content": "Venus"
+            },
+            {
+              "label": "B",
+              "content": "Mars"
+            },
+            {
+              "label": "C",
+              "content": "Jupiter"
+            }
+          ],
+          "answerPayload": null,
+          "expectedNeedsReview": true,
+          "expectedEvidence": {
+            "analysis": null,
+            "sourceScore": null,
+            "scoringRubric": null,
+            "scoreSourceText": null
+          }
+        }
+      ],
+      "expectedVisualKinds": [],
+      "expectedProcess": {
+        "requiredCallKinds": [
+          "vision_parse"
+        ]
+      },
+      "sourceHasNoAnswers": true
     }
   ]
 }

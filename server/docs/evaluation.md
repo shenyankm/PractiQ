@@ -48,6 +48,19 @@ These rule-based synthetic samples are not independent teacher annotations or cr
 
 Check gold labels against source files manually; never copy model outputs back as correct answers. PDF and image figures are evaluated using visual-model categories such as `diagram`. Humans review the meaning of visual descriptions.
 
+### Answerless PNG provenance and source review
+
+`image-no-answer` retains the original 600×400 PNG contributed by Cid-oe in [fork PR #1](https://github.com/Cid-oe/PractiQ/pull/1), linked from [issue #114](https://github.com/shenyankm/PractiQ/issues/114#issuecomment-5976045114). The authoritative [source file at commit `7f297461`](https://github.com/Cid-oe/PractiQ/blob/7f2974618279e3fd0b27301f126a1a19206c4aac/server/evals/fixtures/image/answerless.png) is kept unchanged with SHA-256 `859c132e2b50555d146b73cb737be15087237222c7f430b4fe6c8aceba1bb92f`. Generation note: this supplied raster places two questions and their ordered choices as black text on a white background. The contributor supplied no generator, font provenance or generation command, so regenerating identical PNG bytes is not established; retain this exact public version when reproducing the evaluation.
+
+Codex-assisted visual source review on 2026-10-04 checked both printed questions and all six options against the gold entry:
+
+| Printed question | Ordered options |
+| --- | --- |
+| What is the tallest mountain on Earth? | A: K2; B: Mount Everest; C: Kangchenjunga |
+| Which planet is known as the Red Planet? | A: Venus; B: Mars; C: Jupiter |
+
+The entire image has no supplied answers, scores or rubrics. Both gold answers remain `null` and require review; no question was solved to construct them. The actual manifest-case regressions accept null answers and reject fabricated answers for matched, rewritten, extra and unmatched outputs. They exercise the offline scorer, not real-model image recognition or independent human annotation. Existing labels, critical/holdout semantics and quality thresholds are unchanged. Run the offline manifest and focused checks below, then `make verify AI_PYTHON=/absolute/path/to/python3.14` from the repository root before delivering the fixture PR.
+
 `csv-no-answer` was authored directly as a tiny original UTF-8 CSV in
 `evals/fixtures/csv/csv-no-answer.csv`; no binary generator, personal data or
 third-party material is involved. Source review compared both printed question
