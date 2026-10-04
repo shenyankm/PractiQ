@@ -88,6 +88,37 @@ test('preview nested word-bank answers use inherited choices offline',async ({pa
  await expect(page.getByRole('status',{name:'答题状态',exact:true})).toHaveText('第 3 题：回答正确');
 });
 
+test('preview material dialog hides ancestor answer passage before submission',async ({page})=>{
+ await page.goto('/');
+ await page.evaluate(async()=>{
+  const {invoke}=await import('/src/transport.ts');
+  const {default:fixture}=await import('/fixtures/composite.json');
+  const questions=structuredClone(fixture.questions);
+  const root=questions.find(q=>q.id==='reading');
+  root.passage.push({partType:'text',role:'prompt',textValue:'Visible preview material marker'});
+  root.passage.push({partType:'text',role:'ANSWER key',textValue:'Hidden preview solution marker'});
+  await invoke('request',{request:{type:'save_question_tree',root_id:'2-reading',bank_id:'preview-bank-2',questions}});
+ });
+ await page.getByRole('button',{name:'开始练习',exact:true}).nth(2).click();
+ await page.getByLabel('出题顺序',{exact:true}).selectOption('ordered');
+ await page.getByText('高级设置 · 题库、筛选与选题方式',{exact:true}).click();
+ await page.getByRole('combobox',{name:'题型',exact:true}).selectOption('reading');
+ await expect(page.getByRole('status').filter({hasText:'可用 6 题'})).toBeVisible();
+ await page.getByRole('spinbutton',{name:'题目数量',exact:true}).fill('6');
+ await page.getByRole('button',{name:'立即开始',exact:true}).click();
+ await page.getByRole('region',{name:'答题卡',exact:true}).getByRole('button',{name:/^转到第 3 题，未作答/}).click();
+ await page.getByRole('button',{name:'查看原文',exact:true}).click();
+ const dialog=page.getByRole('dialog');
+ await expect(dialog.getByText('Visible preview material marker',{exact:true})).toBeVisible();
+ await expect(dialog.getByText('Hidden preview solution marker',{exact:true})).toBeHidden();
+ const source=await page.evaluate(async()=>{
+  const {invoke}=await import('/src/transport.ts');
+  const result=await invoke('request',{request:{type:'questions_page',bank_ids:['preview-bank-2'],search:'',mode:'reading',filter:'',offset:0,limit:20}});
+  return result.items[0].question.passage;
+ });
+ expect(source.some(block=>block.textValue==='Hidden preview solution marker')).toBe(true);
+});
+
 for(const scenario of ['empty','many','unconfigured','missing','slow','error']) {
  test(`preview scenario ${scenario} stays offline`,async ({page})=>{
   await page.addInitScript(value=>sessionStorage.setItem('practiq-preview',value),scenario);

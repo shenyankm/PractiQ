@@ -1,6 +1,7 @@
 import { beforeEach, expect, it, vi } from "vitest";
-import { canInteract, type Bank, type PaperPreview, type Question, type QuestionPage, type Session, type SessionPage, type SettingsResult } from "./api";
+import { canInteract, type Bank, type PaperPreview, type Question, type QuestionPage, type QuestionRow, type Session, type SessionPage, type SettingsResult } from "./api";
 import composite from "../fixtures/composite.json";
+import sample from "../fixtures/sample.json";
 import type { Summary, Task } from "./ai-api";
 import type { PreviewScenario } from "./preview-mode";
 const mode=vi.hoisted(()=>({value:"normal" as PreviewScenario}));
@@ -122,6 +123,7 @@ it("preserves the full material ancestor chain in papers and immutable practice 
  const session=await call<Session>({type:"start_paper",paper:{question_ids:paper.questionIds,kind:"practice",minutes:null,scores:paper.scores,total_cents:0,digest:paper.digest}});
  const snapshot=session.attempts.find(attempt=>attempt.snapshot.id===leaf.id)!.snapshot;
  expect(snapshot.materials).toEqual(leaf.materials);
+ expect(snapshot).toMatchObject({rootId:"2-reading",rootType:"reading"});
  const questions=structuredClone(composite.questions) as Question[];
  questions.find(q=>q.id==="reading")!.stem="Edited outer material";
  await call({type:"save_question_tree",root_id:"2-reading",bank_id:"preview-bank-2",questions});
@@ -146,6 +148,112 @@ it("hydrates shared options for paper questions and immutable choice snapshots",
  await call({type:"save_question_tree",root_id:"2-reading",bank_id:"preview-bank-2",questions});
  const resumed=await call<Session>({type:"session",id:session.id});
  expect(resumed.attempts[attempt.ordinal].snapshot.question.options).toEqual(owner.options);
+});
+
+function materialRows():QuestionRow[] {
+ return structuredClone(composite.questions.filter(q=>["reading","words","words1"].includes(q.id))).map(question=>({id:`2-${question.id}`,bankId:"preview-bank-2",bankTitle:"Materials",question:question as Question,groups:[],visuals:[],sources:[],warnings:[],missingAssets:false,favorite:false,latestResult:null}));
+}
+
+it("filters only ancestor passage answer roles and keeps source content and own answers intact",async()=>{
+ const questions=structuredClone(composite.questions) as Question[];
+ const roles=["ANSWER key","worked analysis","Solution","Explanation","Rubric","transcript","听力原文","答案","解析","解答","评分"];
+ const parent=questions.find(q=>q.id==="reading")!;
+ parent.passage=[{partType:"text",role:"prompt",textValue:"Visible material"},...roles.map(role=>({partType:"text" as const,role,textValue:`Hidden ${role}`}))];
+ const own=questions.find(q=>q.id==="words1")!;
+ own.passage=[{partType:"text",role:"answer",textValue:"Own raw answer block"}];
+ const source=structuredClone(questions);
+ await call({type:"save_question_tree",root_id:"2-reading",bank_id:"preview-bank-2",questions});
+ const paper=await call<PaperPreview>({type:"preview_paper",request:{bank_ids:["preview-bank-2"],search:"",mode:"reading",filter:"",selection:"manual",question_ids:["reading"],count:6,quotas:{},random:false,total_cents:0}});
+ const leaf=paper.questions.find(row=>row.id==="words1")!;
+ expect(leaf.materials?.[0].passage).toEqual([parent.passage[0]]);
+ expect(leaf.materials?.[0].analysis).toBe(parent.analysis);
+ expect(leaf.question).toMatchObject({passage:own.passage,answerPayload:own.answerPayload});
+ const session=await call<Session>({type:"start_paper",paper:{question_ids:paper.questionIds,kind:"practice",minutes:null,scores:paper.scores,total_cents:0,digest:paper.digest}});
+ expect(session.attempts.find(a=>a.snapshot.id===leaf.id)?.snapshot).toMatchObject({materials:leaf.materials,rootId:"reading",rootType:"reading"});
+ const stored=(await call<QuestionPage>({...query,bank_ids:["preview-bank-2"],mode:"reading"})).items[0];
+ expect(stored.question.passage).toEqual(parent.passage);
+ expect(questions).toEqual(source);
+});
+
+it("inherits ancestor contexts in child-first order with isolated copies and root metadata",async()=>{
+ const items=materialRows(),[root,parent,leaf]=items;
+ root.groups=[{id:"shared",title:"Outer duplicate",questionIds:[root.question.id!]},{id:"outer",title:"Outer",questionIds:[root.question.id!]}];
+ parent.groups=[{id:"shared",title:"Near duplicate",questionIds:[parent.question.id!]},{id:"near",title:"Near",questionIds:[parent.question.id!]}];
+ leaf.groups=[{id:"shared",title:"Child wins",questionIds:[leaf.question.id!]}];
+ root.visuals=[{id:"same",kind:"image",description:"Outer duplicate",questionIds:[]},{id:"outer",kind:"image",description:"Outer",questionIds:[]}];
+ parent.visuals=[{id:"same",kind:"image",description:"Near wins",questionIds:[]},{id:"near",kind:"image",description:"Near",questionIds:[]}];
+ leaf.visuals=[{id:"child",kind:"image",description:"Child",questionIds:[leaf.question.id!]}];
+ root.missingAssets=true;root.sources=[{fileName:"outer.pdf"}];root.warnings=["Outer warning"];root.favorite=true;root.reviewedAt=1;
+ leaf.sources=[{fileName:"leaf.pdf"}];leaf.warnings=["Own warning"];leaf.reviewedAt=2;
+ const source=structuredClone(items);
+ const {hydrateQuestion}=await import("./preview-data");
+ const result=hydrateQuestion(leaf,items);
+ expect(result.groups.map(g=>[g.id,g.title])).toEqual([["shared","Child wins"],["near","Near"],["outer","Outer"]]);
+ expect(result.visuals.map(v=>[v.id,v.description])).toEqual([["child","Child"],["same","Near wins"],["near","Near"],["outer","Outer"]]);
+ expect(result).toMatchObject({missingAssets:true,rootId:root.id,rootType:"reading",sources:leaf.sources,warnings:leaf.warnings,favorite:false,reviewedAt:2});
+ expect(result.materials?.map(q=>q.id)).toEqual(["reading","words"]);
+ result.groups[0].title="Edited copy";result.visuals[1].description="Edited copy";result.question.options[0].content="Edited copy";result.materials![0].stem="Edited copy";
+ expect(items).toEqual(source);
+});
+
+it.each(["material","media","options"] as const)("propagates the ancestor %s quality gap without changing own flags",async(field)=>{
+ const items=materialRows(),leaf=items[2];items[1].question.missingFields=[field];
+ const {hydrateQuestion}=await import("./preview-data");
+ expect(hydrateQuestion(leaf,items)).toMatchObject({missingAssets:true,question:{missingFields:leaf.question.missingFields,needsReview:leaf.question.needsReview}});
+ items[1].question.missingFields=["answerPayload"];
+ expect(hydrateQuestion(leaf,items).missingAssets).toBe(false);
+});
+
+it("handles missing parents and cyclic material references with native root projections",async()=>{
+ const items=materialRows(),[root,parent,leaf]=items;
+ const {hydrateQuestion}=await import("./preview-data");
+ root.question.parentId="absent";
+ expect(hydrateQuestion(leaf,items)).toMatchObject({missingAssets:true,rootId:root.id,rootType:"reading"});
+ root.question.parentId=parent.question.id;
+ const cyclic=hydrateQuestion(leaf,items);
+ expect(cyclic.materials?.map(q=>q.id)).toEqual(["reading","words"]);
+ expect(cyclic).toMatchObject({missingAssets:false,rootId:parent.id,rootType:"word_bank"});
+ const foreign=structuredClone(root);foreign.bankId="other-bank";foreign.question.parentId=null;
+ expect(hydrateQuestion(leaf,[leaf,foreign])).toMatchObject({missingAssets:true,rootId:leaf.id,rootType:"single"});
+ const standalone=structuredClone(leaf);standalone.question.parentId=null;standalone.question.optionSourceId=null;
+ expect(hydrateQuestion(standalone,[standalone])).toMatchObject({rootId:standalone.id,rootType:"single",materials:[]});
+ for(const [question,rootType] of [[{...standalone.question,questionKind:"translation"},"translation"],[{...standalone.question,answerMode:"gap_fill"},"grammar_fill"],[{...standalone.question,choiceVariant:"multiple"},"multiple"],[{...standalone.question,answerMode:null},""]] as const) {
+  const row={...standalone,question:question as Question};
+  expect(hydrateQuestion(row,[row]).rootType).toBe(rootType);
+ }
+ standalone.question.parentId=standalone.question.id;
+ expect(hydrateQuestion(standalone,[standalone]).materials?.map(q=>q.id)).toEqual([standalone.question.id]);
+});
+
+it("keeps context identity and global visual scope isolated across merged banks",async()=>{
+ const fixture=structuredClone(sample);
+ fixture.groups.push({...fixture.groups[0],title:"Another group",questionIds:["q1","q2"]});
+ fixture.visualElements.push({...fixture.visualElements[0],description:"Global visual",questionIds:[]});
+ fixture.visualElements.push({...fixture.visualElements[0],description:"Document-only visual",documentOnly:true} as typeof fixture.visualElements[number]);
+ vi.doMock("../fixtures/sample.json",()=>({default:fixture}));
+ try {
+  const source=(await call<QuestionPage>({...query,bank_ids:["preview-bank-0"]})).items;
+  expect(source.every(row=>row.visuals.some(v=>v.description==="Global visual"))).toBe(true);
+  expect(source.every(row=>row.visuals.every(v=>v.description!=="Document-only visual"))).toBe(true);
+  expect(source.find(row=>row.id==="0-q1")!.groups.map(g=>g.id)).toEqual(["group-0","group-1"]);
+  expect(source.find(row=>row.id==="0-q2")!.groups.map(g=>g.id)).toEqual(["group-0","group-1"]);
+  const other=await call<{bankId:string}>({type:"add_example_bank"});
+  const merged=await call<{bankId:string}>({type:"merge_banks",bank_ids:["preview-bank-0",other.bankId],title:"Context copies"});
+  const copied=(await call<QuestionPage>({...query,bank_ids:[merged.bankId]})).items;
+  const halves=[copied.slice(0,9),copied.slice(9)];
+  for(const half of halves) {
+   const ids=half.map(row=>row.question.id);
+   const globals=half.map(row=>row.visuals.find(v=>v.description==="Global visual")!);
+   expect(new Set(globals.map(v=>v.id)).size).toBe(1);
+   expect(globals.every(v=>JSON.stringify(v.questionIds)===JSON.stringify(ids))).toBe(true);
+   expect(new Set(half.flatMap(row=>row.groups.map(g=>g.id))).size).toBe(2);
+  }
+  for(const key of ["groups","visuals"] as const) {
+   const firstIds=new Set(halves[0].flatMap(row=>row[key].map(c=>c.id)));
+   expect(halves[1].every(row=>row[key].every(c=>!firstIds.has(c.id)))).toBe(true);
+  }
+  expect((await call<QuestionPage>({...query,bank_ids:["preview-bank-0"]})).items).toEqual(source);
+ } finally {vi.doUnmock("../fixtures/sample.json");}
 });
 
 it("remaps merged composite copies and keeps their descendants and option owners isolated",async()=>{
