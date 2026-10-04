@@ -12,7 +12,7 @@ use std::{
 };
 use zip::{write::SimpleFileOptions, ZipArchive, ZipWriter};
 
-const ZIP_LIMIT: u64 = 300 * 1024 * 1024;
+pub(crate) const ZIP_LIMIT: u64 = 300 * 1024 * 1024;
 const IMAGE_LIMIT: usize = 256 * 1024 * 1024;
 const MANIFEST_LIMIT: usize = 64 * 1024;
 #[derive(Deserialize, Serialize)]
@@ -119,7 +119,7 @@ pub fn filename(title: &str) -> String {
 }
 impl Store {
     pub fn add_example_bank(&mut self) -> Result<Value> {
-        let mut file = tempfile::NamedTempFile::new().map_err(error)?;
+        let mut file = tempfile::NamedTempFile::new_in(&self.dir).map_err(error)?;
         file.write_all(include_bytes!("../../fixtures/all-types.zip"))
             .map_err(error)?;
         let preview = self.preview_bank_zip(file.path())?;

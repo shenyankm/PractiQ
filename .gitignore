@@ -29,7 +29,23 @@ node_modules/
 /app/dist/
 /app/.build/
 /app/src-tauri/target/
-/app/src-tauri/gen/
+/app/src-tauri/gen/*
+!/app/src-tauri/gen/android/
+/app/src-tauri/gen/android/app/src/main/jniLibs/
+/app/src-tauri/gen/android/app/tauri.build.gradle.kts
+/app/src-tauri/gen/android/app/tauri.properties
+/app/src-tauri/gen/android/tauri.properties
+/app/src-tauri/gen/android/tauri.settings.gradle
+/app/src-tauri/gen/android/local.properties
+/app/src-tauri/gen/android/.tauri/
+/app/src-tauri/gen/android/**/build/
+/app/src-tauri/gen/android/**/.gradle/
+/app/src-tauri/gen/android/**/.cxx/
+/app/src-tauri/gen/android/**/.externalNativeBuild/
+*.jks
+*.keystore
+key.properties
+keystore.properties
 /app/src-tauri/bundled/
 /app/*.zip
 

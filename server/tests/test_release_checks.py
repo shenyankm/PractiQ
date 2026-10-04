@@ -28,10 +28,8 @@ def test_license_gate_checks_metadata_target_graph_and_unresolved_terms(tmp_path
     (tmp_path/'app/package-lock.json').write_text('{"packages":{}}', encoding='utf-8')
     bundle = tmp_path/'bundle'
     bundle.mkdir(parents=True)
-    import platform
-    import sys
-    manifest = {"schemaVersion": 2, "packageMode": "desktop-practice", "platform": sys.platform,
-                "architecture": platform.machine(), "desktopVersion": "0.1.0"}
+    manifest = {"schemaVersion": 2, "packageMode": "desktop-practice", "platform": "darwin",
+                "architecture": "arm64", "desktopVersion": "0.1.0"}
     (bundle/'build-manifest.json').write_text(json.dumps(manifest), encoding='utf-8')
     crate = tmp_path/'crate'
     crate.mkdir()

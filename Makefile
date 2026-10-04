@@ -55,12 +55,16 @@ app-check:
 	"$(AI_PYTHON)" app/scripts/check-fixtures.py
 	cd app && TAURI_CONFIG='{"bundle":{"resources":[]}}' npm run check
 app-build: app-prepare-package
+ifeq ($(shell uname -s),Darwin)
 	cd app && npm run tauri -- build
+else
+	@echo "Use Windows PowerShell build commands or make android-build; Linux applications are not supported."; exit 1
+endif
 app-package-check: app-build
 ifeq ($(shell uname -s),Darwin)
 	"$(AI_PYTHON)" app/scripts/check-installer.py --installer app/src-tauri/target/release/bundle/dmg/*.dmg --output "$(APP_PACKAGE_REPORT)"
 else
-	"$(AI_PYTHON)" app/scripts/check-installer.py --installer app/src-tauri/target/release/bundle/deb/*.deb --output "$(APP_PACKAGE_REPORT)"
+	@echo "Use Windows PowerShell package checks or make android-package-check."; exit 1
 endif
 
 .PHONY: test-e2e
@@ -85,3 +89,17 @@ web-check:
 	npm --prefix web run test:browser
 web-build:
 	npm --prefix web run build
+
+ANDROID_RUNTIME_INVENTORY ?= $(CURDIR)/app/.build/android-runtime.json
+ANDROID_APK ?= app/src-tauri/gen/android/app/build/outputs/apk/arm64/debug/app-arm64-debug.apk
+ANDROID_AAPT2 ?= $(ANDROID_HOME)/build-tools/36.0.0/aapt2
+ANDROID_PACKAGE_REPORT ?= server/reports/checks/android-package.json
+.PHONY: android-dev android-build android-prepare-package android-package-check
+android-dev:
+	cd app && npm run tauri -- android dev
+android-prepare-package:
+	"$(AI_PYTHON)" app/scripts/prepare-package.py --platform android --architecture arm64 --android-runtime-inventory "$(ANDROID_RUNTIME_INVENTORY)"
+android-build: android-prepare-package
+	cd app && npm run tauri -- android build --debug --apk --split-per-abi --target aarch64 --ci
+android-package-check: android-build
+	"$(AI_PYTHON)" app/scripts/check-apk.py --installer "$(ANDROID_APK)" --abi arm64-v8a --aapt2 "$(ANDROID_AAPT2)" --expected-notices app/src-tauri/bundled/THIRD-PARTY.txt --output "$(ANDROID_PACKAGE_REPORT)"

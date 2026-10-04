@@ -12,6 +12,7 @@ use std::{
 };
 use zip::{write::SimpleFileOptions, ZipArchive, ZipWriter};
 const LIMIT: usize = 512 * 1024 * 1024;
+pub(crate) const ARCHIVE_LIMIT: u64 = (LIMIT + 2 * 1024 * 1024) as u64;
 fn err(e: impl std::fmt::Display) -> crate::AppError {
     e.to_string().into()
 }
@@ -129,7 +130,7 @@ impl Store {
     }
     fn restore_inner(&mut self, source: &Path) -> Result<Value> {
         let file = fs::File::open(source).map_err(err)?;
-        if file.metadata().map_err(err)?.len() > (LIMIT + 2 * 1024 * 1024) as u64 {
+        if file.metadata().map_err(err)?.len() > ARCHIVE_LIMIT {
             return Err(crate::language::error(
                 "LOCAL_ARCHIVE_TOO_LARGE",
                 serde_json::json!({}),

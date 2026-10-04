@@ -56,8 +56,18 @@ jobs:
       ref: ${{ needs.candidate.outputs.sha }}
       tag: ${{ inputs.tag }}
       release: true
+  android:
+    needs: candidate
+    permissions:
+      contents: read
+      pull-requests: read
+    uses: ./.github/workflows/android.yml
+    with:
+      ref: ${{ needs.candidate.outputs.sha }}
+      tag: ${{ inputs.tag }}
+      release: true
   draft:
-    needs: [candidate, service, desktop]
+    needs: [candidate, service, desktop, android]
     runs-on: ubuntu-22.04
     timeout-minutes: 10
     permissions:

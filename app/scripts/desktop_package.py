@@ -11,30 +11,29 @@ PACKAGE_MODE = "desktop-practice"
 
 
 def validate_manifest(manifest: dict, platform: str = sys.platform, version: str | None = None) -> None:
-    if platform not in {"darwin", "win32", "linux"}:
+    if platform not in {"darwin", "win32", "android"}:
         raise ValueError("Unsupported desktop package platform")
     if set(manifest) != {"schemaVersion", "packageMode", "platform", "architecture", "desktopVersion"}:
         raise ValueError("Expected pure desktop package metadata")
     if manifest["schemaVersion"] != SCHEMA_VERSION or manifest["packageMode"] != PACKAGE_MODE:
         raise ValueError("Unsupported desktop package mode or schema")
-    architectures = {"arm64", "aarch64"} if platform == "darwin" else {"x86_64", "AMD64", "amd64"}
+    architectures = {"darwin": {"arm64", "aarch64"}, "win32": {"x86_64", "AMD64", "amd64"},
+                     "android": {"arm64", "x86_64"}}[platform]
     if manifest["platform"] != platform or manifest["architecture"] not in architectures:
         raise ValueError("Unsupported desktop package platform or architecture")
     if not isinstance(manifest["desktopVersion"], str) or not manifest["desktopVersion"] or (version is not None and manifest["desktopVersion"] != version):
         raise ValueError("Desktop package metadata does not match the candidate version")
 
 
-def read_manifest(bundle: Path) -> dict:
+def read_manifest(bundle: Path, platform: str | None = None) -> dict:
     manifest = json.loads((bundle / "build-manifest.json").read_text(encoding="utf-8"))
-    validate_manifest(manifest)
+    validate_manifest(manifest, platform or sys.platform)
     return manifest
 
 
 def application_root(bundle: Path) -> Path:
     if sys.platform == "darwin":
         return bundle.parents[2]
-    if sys.platform == "linux" and bundle.parent.parent.name == "lib" and bundle.parent.parent.parent.name == "usr":
-        return bundle.parents[3]
     return bundle.parent
 
 
@@ -44,7 +43,7 @@ def native_application(bundle: Path, application_name: str = "PractiQ") -> Path:
     def regular_file(path: Path) -> None:
         if not path.resolve().is_relative_to(application.resolve()):
             raise ValueError(f"Desktop native executable or Info.plist escapes the application payload: {path.name}")
-        if path.is_symlink() or path.is_junction() or not path.is_file():
+        if path.is_symlink() or path.is_junction() or not path.is_file() or path.stat().st_size == 0:
             raise ValueError(f"Desktop native executable or Info.plist must be a regular file: {path.name}")
         for directory in path.parents:
             if directory.is_symlink() or directory.is_junction() or not directory.is_dir():
@@ -60,7 +59,7 @@ def native_application(bundle: Path, application_name: str = "PractiQ") -> Path:
     elif sys.platform == "win32":
         executable = application / (application_name + ".exe")
     else:
-        executable = application / "usr/bin" / application_name
+        raise ValueError("Linux desktop applications are no longer a package target")
     regular_file(executable)
     return executable
 

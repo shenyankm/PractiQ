@@ -65,25 +65,17 @@ fn continuous_millis() -> Result<u64> {
     }
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(target_os = "android")]
 fn continuous_millis() -> Result<u64> {
-    #[repr(C)]
-    struct Timespec {
-        seconds: std::ffi::c_long,
-        nanoseconds: std::ffi::c_long,
-    }
-    unsafe extern "C" {
-        fn clock_gettime(clock: std::ffi::c_int, time: *mut Timespec) -> std::ffi::c_int;
-    }
-    let mut time = Timespec {
-        seconds: 0,
-        nanoseconds: 0,
+    let mut time = libc::timespec {
+        tv_sec: 0,
+        tv_nsec: 0,
     };
-    // CLOCK_BOOTTIME (7) is monotonic and includes suspended time.
-    if unsafe { clock_gettime(7, &mut time) } != 0 {
+    // Bionic CLOCK_BOOTTIME is monotonic and includes Android suspended time.
+    if unsafe { libc::clock_gettime(libc::CLOCK_BOOTTIME, &mut time) } != 0 {
         return Err(std::io::Error::last_os_error().to_string().into());
     }
-    Ok(time.seconds as u64 * 1000 + time.nanoseconds as u64 / 1_000_000)
+    Ok(time.tv_sec as u64 * 1000 + time.tv_nsec as u64 / 1_000_000)
 }
 
 #[cfg(target_os = "windows")]

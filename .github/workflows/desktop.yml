@@ -74,7 +74,7 @@ jobs:
         run: make install-locked AI_PYTHON=python
       - run: python app/scripts/export-contracts.py --check
       - run: python app/scripts/check-fixtures.py
-      - run: python -m pytest server/tests/test_ci.py server/tests/test_ci_scope.py server/tests/test_release_checks.py server/tests/test_release_workflow.py server/tests/test_desktop_package.py
+      - run: python -m pytest server/tests/test_ci.py server/tests/test_ci_scope.py server/tests/test_release_checks.py server/tests/test_release_workflow.py server/tests/test_desktop_package.py server/tests/test_android_package.py server/tests/test_android_licenses.py
       - run: npm ci
         working-directory: app
       - name: Check frontend types, lint and coverage
@@ -97,11 +97,6 @@ jobs:
       - name: Install pinned Rust advisory checker
         run: cargo install cargo-audit --locked --version 0.22.2 --registry crates-io
       - run: make audit-rust
-      - name: Test GLib safety backport with release optimizations
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libglib2.0-dev
-          cargo test --locked --release --manifest-path app/src-tauri/vendor/glib/Cargo.toml --target-dir app/src-tauri/target/glib-backport --lib variant_iter::tests
       - name: Upload frontend coverage
         if: ${{ always() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -119,8 +114,6 @@ jobs:
         include:
           - os: windows-2022
             platform: Windows
-          - os: ubuntu-22.04
-            platform: Linux
           - os: macos-15
             platform: macOS
     runs-on: ${{ matrix.os }}
@@ -132,11 +125,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.ref || github.sha }}
-      - name: Install Linux build and media dependencies
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libdbus-1-dev gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-libav gnome-keyring libxinerama1 libcairo2 libcups2 libfontconfig1 libsm6 libice6 libxext6 libxrender1 fonts-noto-cjk
       - name: Install CJK test font on Windows
         if: runner.os == 'Windows'
         shell: pwsh
@@ -173,12 +161,6 @@ jobs:
         env:
           TAURI_CONFIG: '{"bundle":{"resources":[]}}'
         run: cargo test --locked --manifest-path app/src-tauri/Cargo.toml native_keychain_roundtrip -- --ignored
-      - name: Verify Linux credential storage
-        if: runner.os == 'Linux'
-        env:
-          TAURI_CONFIG: '{"bundle":{"resources":[]}}'
-        run: |
-          dbus-run-session -- bash -c 'printf "ci-test-password" | gnome-keyring-daemon --unlock --components=secrets; cargo test --locked --manifest-path app/src-tauri/Cargo.toml native_keychain_roundtrip -- --ignored'
       - run: python app/scripts/prepare-package.py
       - run: npm run tauri -- build
         working-directory: app
@@ -189,14 +171,6 @@ jobs:
           $installer = (Get-ChildItem app/src-tauri/target/release/bundle/nsis/*-setup.exe)[0]
           python app/scripts/check-installer.py --installer $installer.FullName --output server/reports/checks/desktop-bundle.json
           if ($LASTEXITCODE -ne 0) { throw "Desktop payload checks failed" }
-      - name: Verify packaged Linux desktop payload
-        if: runner.os == 'Linux'
-        run: |
-          dependencies="$(dpkg-deb -f app/src-tauri/target/release/bundle/deb/*.deb Depends)"
-          for dependency in libwebkit2gtk-4.1-0 libgtk-3-0; do
-            printf '%s\n' "$dependencies" | tr ',' '\n' | sed 's/^ *//' | grep -Fx "$dependency"
-          done
-          python app/scripts/check-installer.py --installer app/src-tauri/target/release/bundle/deb/*.deb --output server/reports/checks/desktop-bundle.json
       - name: Verify packaged macOS desktop payload
         if: runner.os == 'macOS'
         run: python app/scripts/check-installer.py --installer app/src-tauri/target/release/bundle/dmg/*.dmg --output server/reports/checks/desktop-bundle.json
@@ -235,7 +209,6 @@ jobs:
           name: PractiQ-${{ matrix.platform }}
           path: |
             app/src-tauri/target/release/bundle/nsis/*-setup.exe
-            app/src-tauri/target/release/bundle/deb/*.deb
             app/src-tauri/target/release/bundle/dmg/*.dmg
             app/PractiQ-macOS.zip
           if-no-files-found: error

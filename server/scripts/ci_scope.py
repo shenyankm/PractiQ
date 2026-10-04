@@ -14,6 +14,7 @@ PATTERNS = {
         "server/**", "web/**", "app/fixtures/**", "app/scripts/check-rich-recognition.py",
         "Dockerfile.server", ".dockerignore", ".gitignore", ".env.example", "Makefile",
     ),
+    "android": ("app/**", "server/**", "Makefile", "rust-toolchain.toml", ".gitattributes", ".gitignore", "LICENSE"),
     "desktop": ("app/**", "server/**", "Makefile", "rust-toolchain.toml", ".gitattributes", ".gitignore", "LICENSE"),
 }
 DOCUMENTATION = (
@@ -68,7 +69,7 @@ def changed_paths(event_name: str, payload: dict, repository: str) -> list[str] 
 
 
 def check_gate(scope: str, needs: dict) -> None:
-    jobs = {"changes", "quality"} | ({"package"} if scope == "desktop" else set())
+    jobs = {"changes", "quality"} | ({"package", "emulator"} if scope == "android" else {"package"} if scope == "desktop" else set())
     if set(needs) != jobs:
         raise ValueError("Missing or unexpected CI dependencies")
     changes = needs["changes"]

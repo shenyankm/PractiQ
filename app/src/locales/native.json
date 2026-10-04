@@ -1118,5 +1118,17 @@
   "LOCAL_SERVICE_TOKEN_INVALID": {
     "zh-CN": "AI 服务访问令牌格式无效",
     "en": "Invalid AI service access token format"
+  },
+  "LOCAL_DOCUMENT_UNAVAILABLE": {
+    "zh-CN": "无法读取授权文件或创建临时副本，请重新选择文件",
+    "en": "Cannot read the authorized file or create a temporary copy. Choose the file again."
+  },
+  "LOCAL_DOCUMENT_TOO_LARGE": {
+    "zh-CN": "所选文件超过允许大小，请选择较小的文件",
+    "en": "The selected file exceeds the size limit. Choose a smaller file."
+  },
+  "LOCAL_DOCUMENT_SAVE_FAILED": {
+    "zh-CN": "无法保存到授权位置，请重新选择保存位置",
+    "en": "Cannot save to the authorized location. Choose the save location again."
   }
 }

@@ -1,8 +1,8 @@
 use crate::{
     contract::Result,
+    credentials::Credential,
     store::{hash, Store},
 };
-use keyring::Entry;
 use rusqlite::params;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -83,7 +83,7 @@ fn validate_url(value: Option<String>, name: &str) -> Result<Option<String>> {
     }
     Ok(Some(url.to_string().trim_end_matches('/').to_owned()))
 }
-fn validate_service_token(token: &str) -> Result<()> {
+pub(crate) fn validate_service_token(token: &str) -> Result<()> {
     // The HTTP service accepts ASCII Bearer tokens; Windows stores UTF-16 blobs.
     if !token.is_ascii()
         || token.len() > 8192
@@ -97,24 +97,11 @@ fn validate_service_token(token: &str) -> Result<()> {
     }
     Ok(())
 }
-fn secret(entry: &Entry) -> Result<Option<String>> {
-    match entry.get_password() {
-        Ok(s) => Ok(Some(s)),
-        Err(keyring::Error::NoEntry) => Ok(None),
-        Err(_) => Err(crate::language::error("LOCAL_KEYCHAIN_READ", json!({}))),
-    }
+fn secret(entry: &impl Credential) -> Result<Option<String>> {
+    entry.read()
 }
-fn write_secret(entry: &Entry, value: Option<&str>) -> Result<()> {
-    if let Some(value) = value {
-        entry
-            .set_password(value)
-            .map_err(|_| crate::language::error("LOCAL_KEYCHAIN_WRITE", json!({})))
-    } else {
-        match entry.delete_credential() {
-            Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
-            Err(_) => Err(crate::language::error("LOCAL_KEYCHAIN_DELETE", json!({}))),
-        }
-    }
+fn write_secret(entry: &impl Credential, value: Option<&str>) -> Result<()> {
+    entry.write(value)
 }
 fn credential_account(service_url: &str) -> Result<String> {
     let url = validate_url(Some(service_url.into()), "Service URL")?.ok_or(
@@ -122,11 +109,10 @@ fn credential_account(service_url: &str) -> Result<String> {
     )?;
     Ok(format!("ai-service-token-{}", hash(url.as_bytes())))
 }
-fn entry(service: &str, service_url: &str) -> Result<Entry> {
-    Entry::new(service, &credential_account(service_url)?)
-        .map_err(|_| crate::language::error("LOCAL_KEYCHAIN_INIT", json!({})))
+fn entry(app: &tauri::AppHandle, service_url: &str) -> Result<Box<dyn Credential>> {
+    crate::credentials::entry(app, &credential_account(service_url)?)
 }
-fn required_service_token(entry: &Entry) -> Result<String> {
+fn required_service_token(entry: &impl Credential) -> Result<String> {
     let token = secret(entry)?
         .filter(|s| !s.trim().is_empty())
         .ok_or(crate::language::error(
@@ -137,7 +123,7 @@ fn required_service_token(entry: &Entry) -> Result<String> {
     Ok(token.trim().to_owned())
 }
 fn persist_with_secret(
-    entry: &Entry,
+    entry: &impl Credential,
     value: Option<&str>,
     persist: impl FnOnce() -> Result<()>,
 ) -> Result<()> {
@@ -191,9 +177,17 @@ pub fn settings(shared: &crate::Shared) -> Result<Value> {
 impl Store {
     pub fn connection_test_input(
         &self,
-        service: &str,
+        app: &tauri::AppHandle,
         config: ServiceSettings,
         service_token: Option<String>,
+    ) -> Result<(ServiceSettings, String)> {
+        self.connection_test_input_with(config, service_token, |url| entry(app, url))
+    }
+    fn connection_test_input_with<C: Credential>(
+        &self,
+        config: ServiceSettings,
+        service_token: Option<String>,
+        credential: impl FnOnce(&str) -> Result<C>,
     ) -> Result<(ServiceSettings, String)> {
         let config = config.validate()?;
         let url = config.service_url.as_deref().ok_or(crate::language::error(
@@ -205,15 +199,18 @@ impl Store {
         }
         let token = match service_token {
             Some(token) if !token.trim().is_empty() => token.trim().to_owned(),
-            _ => self.service_secret(service, url)?,
+            _ => required_service_token(&credential(url)?)?,
         };
         Ok((config, token))
     }
-    pub fn service_secret(&self, service: &str, service_url: &str) -> Result<String> {
-        required_service_token(&entry(service, service_url)?)
-    }
     /// Called only by the explicit subjective-grading or grading-retry action.
-    pub fn grading_input(&self, service: &str) -> Result<(String, String)> {
+    pub fn grading_input(&self, app: &tauri::AppHandle) -> Result<(String, String)> {
+        self.grading_input_with(|url| entry(app, url))
+    }
+    fn grading_input_with<C: Credential>(
+        &self,
+        credential: impl FnOnce(&str) -> Result<C>,
+    ) -> Result<(String, String)> {
         let url =
             self.service_settings()?
                 .validate()?
@@ -222,7 +219,7 @@ impl Store {
                     "LOCAL_SERVICE_URL_REQUIRED",
                     json!({}),
                 ))?;
-        let token = self.service_secret(service, &url)?;
+        let token = required_service_token(&credential(&url)?)?;
         Ok((url, token))
     }
     pub fn connection_settings(&self) -> Result<ConnectionSettings> {
@@ -252,17 +249,17 @@ impl Store {
     }
     pub fn save_settings(
         &self,
-        service: &str,
+        app: &tauri::AppHandle,
         config: ServiceSettings,
         service_token: Option<String>,
     ) -> Result<Value> {
-        self.save_settings_with(config, service_token, |url| entry(service, url))
+        self.save_settings_with(config, service_token, |url| entry(app, url))
     }
-    fn save_settings_with(
+    fn save_settings_with<C: Credential>(
         &self,
         config: ServiceSettings,
         service_token: Option<String>,
-        credential: impl FnOnce(&str) -> Result<Entry>,
+        credential: impl FnOnce(&str) -> Result<C>,
     ) -> Result<Value> {
         let config = config.validate()?;
         if let Some(token) = &service_token {
@@ -297,6 +294,13 @@ impl Store {
         if let (Some(url), Some(token)) = (&config.service_url, &service_token) {
             let entry = credential(url)?;
             let token = token.trim();
+            // Explicit clearing of the current account can recover unreadable Android
+            // ciphertext. No database write is needed, so no rollback read is needed.
+            // Changing configuration still requires a readable previous credential.
+            if token.is_empty() && self.service_settings()? == config {
+                write_secret(&entry, None)?;
+                return Ok(json!({"config":config,"hasServiceToken":false}));
+            }
             persist_with_secret(
                 &entry,
                 if token.is_empty() { None } else { Some(token) },
@@ -319,12 +323,53 @@ mod tests {
             service_url: Some(url.into()),
         }
     }
-    fn mock_entry(value: Option<&str>) -> Entry {
-        let entry = Entry::new_with_credential(Box::new(keyring::mock::MockCredential::default()));
-        write_secret(&entry, value).unwrap();
-        entry
+    #[derive(Clone)]
+    struct MockEntry(Arc<Mutex<MockState>>);
+    #[derive(Default)]
+    struct MockState {
+        value: Option<String>,
+        read_error: bool,
+        write_error: bool,
+        reads: usize,
+        writes: Vec<Option<String>>,
     }
-    fn fail_credential(_: &str) -> Result<Entry> {
+    impl Credential for MockEntry {
+        fn read(&self) -> Result<Option<String>> {
+            let mut state = self.0.lock().unwrap();
+            state.reads += 1;
+            if state.read_error {
+                Err(crate::language::error("LOCAL_KEYCHAIN_READ", json!({})))
+            } else {
+                Ok(state.value.clone())
+            }
+        }
+        fn write(&self, value: Option<&str>) -> Result<()> {
+            let mut state = self.0.lock().unwrap();
+            state.writes.push(value.map(str::to_owned));
+            if state.write_error {
+                return Err(crate::language::error(
+                    if value.is_some() {
+                        "LOCAL_KEYCHAIN_WRITE"
+                    } else {
+                        "LOCAL_KEYCHAIN_DELETE"
+                    },
+                    json!({}),
+                ));
+            }
+            state.value = value.map(str::to_owned);
+            if value.is_none() {
+                state.read_error = false;
+            }
+            Ok(())
+        }
+    }
+    fn mock_entry(value: Option<&str>) -> MockEntry {
+        MockEntry(Arc::new(Mutex::new(MockState {
+            value: value.map(str::to_owned),
+            ..Default::default()
+        })))
+    }
+    fn fail_credential(_: &str) -> Result<MockEntry> {
         panic!("passive configuration must not open the credential store")
     }
 
@@ -424,7 +469,7 @@ mod tests {
         );
         let store = shared.lock().unwrap();
         assert_eq!(
-            store.grading_input("test").unwrap_err().code,
+            store.grading_input_with(fail_credential).unwrap_err().code,
             "LOCAL_SERVICE_URL_REQUIRED"
         );
         assert_eq!(std::fs::read(store.db_path()).unwrap(), before);
@@ -560,7 +605,11 @@ mod tests {
             );
             assert_eq!(
                 store
-                    .connection_test_input("test", config("https://example.com"), Some(token))
+                    .connection_test_input_with(
+                        config("https://example.com"),
+                        Some(token),
+                        fail_credential
+                    )
                     .unwrap_err()
                     .code,
                 "LOCAL_SERVICE_TOKEN_INVALID"
@@ -579,10 +628,10 @@ mod tests {
         let store = Store::new(dir.path().to_owned()).unwrap();
         let before = std::fs::read(store.db_path()).unwrap();
         let (cfg, token) = store
-            .connection_test_input(
-                "test",
+            .connection_test_input_with(
                 config(" https://service.example.com/ "),
                 Some(" dummy-token ".into()),
+                fail_credential,
             )
             .unwrap();
         assert_eq!(cfg, config("https://service.example.com"));
@@ -590,10 +639,10 @@ mod tests {
         assert_eq!(std::fs::read(store.db_path()).unwrap(), before);
         assert_eq!(
             store
-                .connection_test_input(
-                    "test",
+                .connection_test_input_with(
                     ServiceSettings::default(),
-                    Some("dummy-token".into())
+                    Some("dummy-token".into()),
+                    fail_credential,
                 )
                 .unwrap_err()
                 .code,
@@ -692,13 +741,6 @@ mod tests {
             assert_eq!(error.message, "database-write-failed");
             assert_eq!(secret(&entry).unwrap().as_deref(), previous);
         }
-        let entry = mock_entry(Some("dummy-old-token"));
-        let mock = entry
-            .get_credential()
-            .downcast_ref::<keyring::mock::MockCredential>()
-            .unwrap();
-        mock.set_error(keyring::Error::NoEntry);
-        assert!(persist_with_secret(&entry, Some("dummy-new-token"), || Ok(())).is_ok());
     }
     #[test]
     fn credential_errors_do_not_leak_values_or_persist_configuration() {
@@ -710,14 +752,7 @@ mod tests {
             Some("dummy-new-token".into()),
             |_| {
                 let entry = mock_entry(Some("dummy-old-token"));
-                entry
-                    .get_credential()
-                    .downcast_ref::<keyring::mock::MockCredential>()
-                    .unwrap()
-                    .set_error(keyring::Error::Invalid(
-                        "dummy-secret-detail".into(),
-                        "failure".into(),
-                    ));
+                entry.0.lock().unwrap().read_error = true;
                 Ok(entry)
             },
         );
@@ -727,6 +762,165 @@ mod tests {
             .unwrap()
             .contains("dummy-secret"));
         assert_eq!(std::fs::read(store.db_path()).unwrap(), before);
+    }
+    #[test]
+    fn real_sqlite_failure_rolls_back_token_replacement_and_deletion() {
+        for token in ["dummy-new-token", ""] {
+            let dir = tempfile::tempdir().unwrap();
+            let store = Store::new(dir.path().to_owned()).unwrap();
+            store
+                .save_settings_with(config("https://old.example.com"), None, fail_credential)
+                .unwrap();
+            store.connect().unwrap().execute_batch(
+                "CREATE TRIGGER fail_settings_update BEFORE UPDATE ON settings BEGIN SELECT RAISE(ABORT,'forced-settings-failure'); END;"
+            ).unwrap();
+            let credential = mock_entry(Some("dummy-old-token"));
+            let clone = credential.clone();
+            let error = store
+                .save_settings_with(
+                    config("https://new.example.com"),
+                    Some(token.into()),
+                    |_| Ok(clone),
+                )
+                .unwrap_err();
+            assert_eq!(
+                store.service_settings().unwrap(),
+                config("https://old.example.com")
+            );
+            assert_eq!(
+                secret(&credential).unwrap().as_deref(),
+                Some("dummy-old-token")
+            );
+            assert_eq!(
+                credential.0.lock().unwrap().writes,
+                [
+                    (!token.is_empty()).then(|| token.to_owned()),
+                    Some("dummy-old-token".into())
+                ]
+            );
+            assert!(!serde_json::to_string(&error).unwrap().contains("dummy-"));
+        }
+    }
+    #[test]
+    fn explicit_current_account_clear_recovers_unreadable_credentials_without_sql_or_read() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path().to_owned()).unwrap();
+        let config = config("https://service.example.com");
+        store
+            .save_settings_with(config.clone(), None, fail_credential)
+            .unwrap();
+        let before = std::fs::read(store.db_path()).unwrap();
+        let credential = mock_entry(Some("unreadable-dummy-token"));
+        credential.0.lock().unwrap().read_error = true;
+        let clone = credential.clone();
+        let saved = store
+            .save_settings_with(config.clone(), Some(" ".into()), |_| Ok(clone))
+            .unwrap();
+        assert_eq!(saved, json!({"config":config,"hasServiceToken":false}));
+        assert_eq!(std::fs::read(store.db_path()).unwrap(), before);
+        {
+            let state = credential.0.lock().unwrap();
+            assert_eq!(state.reads, 0);
+            assert_eq!(state.writes, [None]);
+            assert!(state.value.is_none());
+        }
+        let clone = credential.clone();
+        store
+            .save_settings_with(config, Some("replacement-dummy-token".into()), |_| {
+                Ok(clone)
+            })
+            .unwrap();
+        assert_eq!(
+            secret(&credential).unwrap().as_deref(),
+            Some("replacement-dummy-token")
+        );
+    }
+    #[test]
+    fn unreadable_credential_clear_cannot_silently_change_configuration_and_delete_errors_stay_errors(
+    ) {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path().to_owned()).unwrap();
+        let current = config("https://service.example.com");
+        store
+            .save_settings_with(current.clone(), None, fail_credential)
+            .unwrap();
+        let credential = mock_entry(Some("unreadable-dummy-token"));
+        credential.0.lock().unwrap().read_error = true;
+        let clone = credential.clone();
+        assert_eq!(
+            store
+                .save_settings_with(
+                    config("https://other.example.com"),
+                    Some("".into()),
+                    |_| Ok(clone)
+                )
+                .unwrap_err()
+                .code,
+            "LOCAL_KEYCHAIN_READ"
+        );
+        assert!(credential.0.lock().unwrap().writes.is_empty());
+        credential.0.lock().unwrap().write_error = true;
+        let clone = credential.clone();
+        assert_eq!(
+            store
+                .save_settings_with(current.clone(), Some("".into()), |_| Ok(clone))
+                .unwrap_err()
+                .code,
+            "LOCAL_KEYCHAIN_DELETE"
+        );
+        assert_eq!(store.service_settings().unwrap(), current);
+        assert_eq!(
+            credential.0.lock().unwrap().value.as_deref(),
+            Some("unreadable-dummy-token")
+        );
+    }
+    #[test]
+    fn explicit_grade_and_test_read_only_the_selected_account_and_validate_saved_tokens() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path().to_owned()).unwrap();
+        let config = config("https://service.example.com");
+        store
+            .save_settings_with(config.clone(), None, fail_credential)
+            .unwrap();
+        let credential = mock_entry(Some("dummy-token"));
+        let clone = credential.clone();
+        assert_eq!(
+            store
+                .grading_input_with(|url| {
+                    assert_eq!(url, "https://service.example.com");
+                    Ok(clone)
+                })
+                .unwrap(),
+            ("https://service.example.com".into(), "dummy-token".into())
+        );
+        let clone = credential.clone();
+        assert_eq!(
+            store
+                .connection_test_input_with(config, None, |_| Ok(clone))
+                .unwrap()
+                .1,
+            "dummy-token"
+        );
+        assert_eq!(credential.0.lock().unwrap().reads, 2);
+        assert!(credential.0.lock().unwrap().writes.is_empty());
+        assert_eq!(
+            store
+                .grading_input_with(|_| Ok(mock_entry(Some("invalid\nvalue"))))
+                .unwrap_err()
+                .code,
+            "LOCAL_SERVICE_TOKEN_INVALID"
+        );
+    }
+    #[test]
+    fn failed_credential_rollback_reports_a_safe_error() {
+        let credential = mock_entry(Some("dummy-old-token"));
+        let error = persist_with_secret(&credential, Some("dummy-new-token"), || {
+            credential.0.lock().unwrap().write_error = true;
+            Err("database-write-failed".into())
+        })
+        .unwrap_err();
+        assert_eq!(error.code, "LOCAL_KEYCHAIN_ROLLBACK");
+        assert!(!serde_json::to_string(&error).unwrap().contains("dummy-"));
     }
     #[test]
     fn legacy_and_service_marker_backups_restore_without_schema_migration() {
@@ -811,11 +1005,12 @@ mod tests {
         worker.join().unwrap();
     }
     #[test]
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     #[ignore = "uses an isolated native credential entry; run explicitly on the target OS"]
     fn native_keychain_roundtrip() {
-        let entry = entry(
+        let entry = crate::credentials::desktop_entry(
             &format!("com.practiq.test.{}", crate::store::id()),
-            "https://example.com",
+            &credential_account("https://example.com").unwrap(),
         )
         .unwrap();
         write_secret(&entry, Some("practiq-dummy-test-value")).unwrap();

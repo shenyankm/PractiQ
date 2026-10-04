@@ -6,6 +6,7 @@ import os
 import plistlib
 import runpy
 import shutil
+import struct
 import subprocess
 import sys
 import zipfile
@@ -19,15 +20,81 @@ import yaml
 ROOT = Path(__file__).parents[2]
 
 
+def native_pe(machine=0x8664, magic=0x20B):
+    payload = bytearray(512)
+    payload[:2] = b"MZ"
+    payload[60:64] = (128).to_bytes(4, "little")
+    payload[128:132] = b"PE\0\0"
+    payload[132:134] = machine.to_bytes(2, "little")
+    payload[148:150] = (240).to_bytes(2, "little")
+    payload[152:154] = magic.to_bytes(2, "little")
+    return bytes(payload)
+
+def native_macho(cpu=0x100000C, subtype=0, filetype=2):
+    return struct.pack("<IIIIIIIIII", 0xFEEDFACF, cpu, subtype, filetype, 1, 8, 0, 0, 0x80000028, 8)
+
+def native_fat(slices, wide=False, byteorder="big"):
+    order = ">" if byteorder == "big" else "<"
+    entry_size = 32 if wide else 20
+    payload = bytearray(struct.pack(order + "II", 0xCAFEBABF if wide else 0xCAFEBABE, len(slices)))
+    payload.extend(b"\0" * (entry_size * len(slices)))
+    for index, (cpu, subtype, data) in enumerate(slices):
+        offset = (len(payload) + 63) // 64 * 64
+        payload.extend(b"\0" * (offset - len(payload)))
+        entry = struct.pack(order + ("IIQQII" if wide else "IIIII"), cpu, subtype, offset, len(data), 6, *([0] if wide else []))
+        payload[8 + index * entry_size:8 + (index + 1) * entry_size] = entry
+        payload.extend(data)
+    return bytes(payload)
+
+
+def android_elf() -> bytes:
+    header = bytearray(64)
+    header[:7] = b"\x7fELF\x02\x01\x01"
+    struct.pack_into("<HHI", header, 16, 3, 183, 1)
+    struct.pack_into("<H", header, 52, 64)
+    return bytes(header) + b"Synthetic Android library; never executed"
+
+
+def android_manifest(version="0.1.0") -> dict:
+    return {"platform": "android", "architecture": "arm64", "schemaVersion": 2,
+            "packageMode": "desktop-practice", "desktopVersion": version}
+
+
+def android_package_report(path: Path, notice: bytes, version="0.1.0") -> dict:
+    return {"passed": True, "packageMode": "desktop-practice", "manifest": android_manifest(version),
+            "desktopVersion": version, "installerSha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+            "nativeAbi": "arm64-v8a", "embeddedAiEngines": [], "nativeExecutable": "lib/arm64-v8a/libpractiq_desktop.so",
+            "nativeLibrarySha256": hashlib.sha256(android_elf()).hexdigest(), "noticeSha256": hashlib.sha256(notice).hexdigest(),
+            "nativePackage": {"identifier": "com.practiq.android", "versionName": version, "versionCode": 1, "minSdkVersion": 26}}
+
+
 @pytest.fixture
 def release():
     return SimpleNamespace(**runpy.run_path(str(ROOT / "app/scripts/release.py")))
 
 
+def test_release_targets_android_instead_of_a_linux_client(release):
+    assert set(release.PLATFORMS) == {"darwin", "win32", "android"}
+    assert release.PLATFORMS["android"][0:2] == ("android", "arm64")
+    assert release.PLATFORMS["android"][3] == ".apk"
+
+
+def test_android_release_stage_explicitly_selects_the_sdk_on_a_linux_ci_host(release, monkeypatch, tmp_path):
+    sdk = tmp_path / "sdk/aapt2"
+    inventory = tmp_path / "runtime.json"
+    calls = []
+    monkeypatch.setattr(sys, "platform", "linux")
+    monkeypatch.setitem(release.main.__globals__, "stage_installer", lambda root, tag, **kwargs: calls.append((tag, kwargs)))
+    monkeypatch.setattr(sys, "argv", ["release.py", "stage", "--tag", "v0.1.0", "--platform", "android", "--aapt2", str(sdk),
+                                     "--android-runtime-inventory", str(inventory)])
+    release.main()
+    assert calls == [("v0.1.0", {"platform": "android", "aapt2": sdk, "android_runtime_inventory": inventory})]
+
+
 @pytest.fixture
 def source(tmp_path):
     for name in ("app/package.json", "app/package-lock.json", "app/src-tauri/Cargo.toml",
-                 "app/src-tauri/Cargo.lock", "app/src-tauri/tauri.conf.json", "app/src-tauri/tauri.linux.conf.json", "server/pyproject.toml",
+                 "app/src-tauri/Cargo.lock", "app/src-tauri/tauri.conf.json", "app/src-tauri/tauri.android.conf.json", "server/pyproject.toml",
                  ".github/RELEASE_TEMPLATE.md"):
         destination = tmp_path / name
         destination.parent.mkdir(parents=True, exist_ok=True)
@@ -60,40 +127,6 @@ def test_release_assembly_rejects_old_embedded_engine_candidate_mode(release, so
     with pytest.raises(ValueError, match="desktop-practice"):
         release.assemble(source, "v0.1.0", staged, source / "assets")
     assert not (source / "assets").exists()
-
-
-@pytest.mark.parametrize("fault", ["architecture", "depends"])
-def test_final_deb_checks_actual_architecture_and_required_native_dependencies(release, tmp_path, monkeypatch, fault):
-    monkeypatch.setattr(sys, "platform", "linux")
-    installer = tmp_path / "final.deb"
-    installer.write_bytes(b"Synthetic DEB")
-    def field(command, **kwargs):
-        return ("arm64" if fault == "architecture" else "amd64") if command[-1] == "Architecture" else ("libgtk-3-0" if fault == "depends" else "libwebkit2gtk-4.1-0, libgtk-3-0, libdbus-1-3, gstreamer1.0-plugins-good, gstreamer1.0-plugins-bad, gstreamer1.0-libav")
-    def extract(command, **kwargs):
-        (Path(command[-1]) / "usr/lib/PractiQ/bundled").mkdir(parents=True)
-    monkeypatch.setattr(subprocess, "check_output", field)
-    monkeypatch.setattr(subprocess, "run", extract)
-    with pytest.raises(ValueError, match="architecture|dependencies"), release.final_bundle(installer):
-        pass
-
-
-@pytest.mark.parametrize("fault", [None, "configured_dependency", "alternative", "empty_architecture"])
-def test_deb_checks_candidate_configuration_and_dependency_qualifiers(release, source, monkeypatch, fault):
-    config = source / "app/src-tauri/tauri.linux.conf.json"
-    config.write_text(json.dumps({"bundle": {"linux": {"deb": {"depends": ["candidate-runtime-library"]}}}}))
-    dependencies = "libwebkit2gtk-4.1-0:amd64 (>= 2.40), libgtk-3-0:any (>= 3.24)"
-    if fault != "configured_dependency":
-        dependencies += ", candidate-runtime-library"
-    if fault == "alternative":
-        dependencies = dependencies.replace("libgtk-3-0:any (>= 3.24)", "libgtk-3-0 | optional-alternative")
-    def field(command, **kwargs):
-        return ("" if fault == "empty_architecture" else "amd64") if command[-1] == "Architecture" else dependencies
-    monkeypatch.setattr(subprocess, "check_output", field)
-    if fault:
-        with pytest.raises(ValueError, match="architecture|dependencies"):
-            release.check_deb_metadata(source / "candidate.deb", source)
-    else:
-        release.check_deb_metadata(source / "candidate.deb", source)
 
 
 @pytest.mark.parametrize("fault", ["missing", "file", "parent_symlink"])
@@ -150,18 +183,15 @@ def test_macos_desktop_version_rejects_a_host_plist_symlink(release, tmp_path, m
 
 
 @pytest.mark.parametrize("platform,fault", [("darwin", "missing"), ("darwin", "symlink"),
-                                           ("darwin", "executable_identity"), ("linux", "missing"),
-                                           ("linux", "symlink"), ("linux", "parent_symlink"),
-                                           ("win32", "symlink")])
+                                           ("darwin", "executable_identity"), ("darwin", "parent_symlink"),
+                                           ("win32", "symlink"), ("darwin", "empty"),
+                                           ("win32", "empty")])
 def test_native_version_checks_require_the_actual_contained_application(release, tmp_path, monkeypatch, platform, fault):
     monkeypatch.setattr(sys, "platform", platform)
     application = tmp_path / "payload"
     if platform == "darwin":
         bundle = application / "PractiQ.app/Contents/Resources/bundled"
         executable = application / "PractiQ.app/Contents/MacOS/PractiQ"
-    elif platform == "linux":
-        bundle = application / "usr/lib/PractiQ/bundled"
-        executable = application / "usr/bin/PractiQ"
     else:
         bundle = application / "bundled"
         executable = application / "PractiQ.exe"
@@ -182,30 +212,28 @@ def test_native_version_checks_require_the_actual_contained_application(release,
         executable.parent.symlink_to(host_directory, target_is_directory=True)
     elif fault == "executable_identity":
         executable.write_bytes(b"Native executable")
+    elif fault == "empty":
+        executable.touch()
     monkeypatch.setattr(subprocess, "check_output", lambda *args, **kwargs: "0.1.0")
     with pytest.raises(ValueError, match="native|executable|Info.plist"):
         release.check_desktop_version(tmp_path / "candidate", bundle, "0.1.0", "PractiQ")
 
 
-@pytest.mark.parametrize("platform", ["darwin", "linux"])
+@pytest.mark.parametrize("platform", ["darwin"])
 def test_final_package_rejects_bundle_symlink_to_an_unrelated_local_directory(release, tmp_path, monkeypatch, platform):
     monkeypatch.setattr(sys, "platform", platform)
-    installer = tmp_path / ("final.dmg" if platform == "darwin" else "final.deb")
+    installer = tmp_path / "final.dmg"
     installer.write_bytes(b"Synthetic installer")
     unrelated = tmp_path / "unrelated-bundle"
     unrelated.mkdir()
     def extract(command, **kwargs):
-        if command[0] == "hdiutil":
-            if command[1] == "detach":
-                return
-            base = Path(command[command.index("-mountpoint") + 1])
-            bundle = base / "PractiQ.app/Contents/Resources/bundled"
-        else:
-            bundle = Path(command[-1]) / "usr/lib/PractiQ/bundled"
+        if command[1] == "detach":
+            return
+        base = Path(command[command.index("-mountpoint") + 1])
+        bundle = base / "PractiQ.app/Contents/Resources/bundled"
         bundle.parent.mkdir(parents=True)
         bundle.symlink_to(unrelated, target_is_directory=True)
     monkeypatch.setattr(subprocess, "run", extract)
-    monkeypatch.setattr(subprocess, "check_output", lambda cmd, **kw: "amd64" if cmd[-1] == "Architecture" else "libwebkit2gtk-4.1-0, libgtk-3-0, libdbus-1-3, gstreamer1.0-plugins-good, gstreamer1.0-plugins-bad, gstreamer1.0-libav")
     with pytest.raises(ValueError, match="bundle|payload"), release.final_bundle(installer):
         pass
 
@@ -224,7 +252,7 @@ def test_unsigned_stage_uses_checked_snapshot_when_original_installer_path_chang
     def extracted(path, *args, **kwargs):
         assert path.read_bytes() == b"Checked original installer"
         yield bundle
-    def version(path, *args):
+    def version(path, *args, **kwargs):
         target = installer if mutation == "original" else path
         target.chmod(0o600)
         target.write_bytes(b"Unchecked replacement installer")
@@ -289,19 +317,28 @@ def staged(release, source, monkeypatch):
         for report in ("desktop-bundle.json", "licenses.json"):
             (evidence / report).write_text('{"passed":true}')
         (evidence / "build-manifest.json").write_text(json.dumps({
-            "platform": platform, "architecture": "arm64" if platform == "darwin" else "x86_64",
+            "platform": platform, "architecture": "arm64" if platform in {"darwin", "android"} else "x86_64",
             "schemaVersion": 2, "packageMode": "desktop-practice", "desktopVersion": "0.1.0",
         }))
         for notice_name in ("THIRD-PARTY.txt", "expected-THIRD-PARTY.txt"):
             (evidence / notice_name).write_text("Synthetic notice")
         (evidence / "notices-match.json").write_text(json.dumps({"passed": True, "sha256": release.checksum(evidence / "THIRD-PARTY.txt")}))
         (evidence / "desktop-version.json").write_text(json.dumps({"passed": True, "platform": platform, "version": "0.1.0"}))
+        if platform == "android":
+            (evidence / "android-runtime-inventory.json").write_text('{"synthetic":true}')
+            inventory_sha = release.checksum(evidence / "android-runtime-inventory.json")
+            (evidence / "licenses.json").write_text(json.dumps({"passed": True, "androidRuntimeInventorySha256": inventory_sha}))
+            (evidence / "desktop-bundle.json").write_text(json.dumps(android_package_report(folder / filename, b"Synthetic notice")))
         candidate = {"packageSchemaVersion": 2, "packageMode": "desktop-practice", "tag": "v0.1.0", "commit": "a" * 40,
                      "components": release.versions(source, "v0.1.0"), "os": os_name,
                      "architecture": arch, "file": filename, "sizeBytes": (folder / filename).stat().st_size,
-                     "sha256": release.checksum(folder / filename), "signing": "unsigned",
+                     "sha256": release.checksum(folder / filename),
+                     "signing": "debug/test; publisher unverified" if platform == "android" else "unsigned",
                      "buildRun": "https://github.com/test/repo/actions/runs/42",
                      "evidence": {f"evidence/{p.name}": release.checksum(p) for p in evidence.iterdir()}}
+        if platform == "android":
+            candidate["androidRuntimeInventory"] = "evidence/android-runtime-inventory.json"
+            candidate["androidRuntimeInventorySha256"] = inventory_sha
         (folder / "candidate.json").write_text(json.dumps(candidate))
     service = inputs / "service-checks"
     service.mkdir()
@@ -380,6 +417,33 @@ def test_release_stage_propagates_strict_gate_failure_before_copying_assets(rele
     assert not (source / "assets").exists()
 
 
+@pytest.mark.parametrize("mutation", ["asset", "evidence", "candidate", "service"])
+def test_assembly_rejects_mutated_inputs_during_final_copy_and_archive_handoff(release, source, staged, monkeypatch, mutation):
+    copyfile = shutil.copyfile
+    archive_write = zipfile.ZipFile.write
+    mutated = False
+    def copy(path, destination, *args, **kwargs):
+        nonlocal mutated
+        if mutation == "asset" and not mutated:
+            Path(path).write_bytes(b"Unchecked replacement asset")
+            mutated = True
+        return copyfile(path, destination, *args, **kwargs)
+    def write(archive, path, arcname=None, *args, **kwargs):
+        nonlocal mutated
+        if not mutated and ((mutation == "evidence" and arcname == "macos/evidence/licenses.json") or
+                            (mutation == "candidate" and arcname == "macos/candidate.json") or
+                            (mutation == "service" and arcname == "service/probes.json")):
+            Path(path).write_text('{"passed":false}')
+            mutated = True
+        return archive_write(archive, path, arcname, *args, **kwargs)
+    monkeypatch.setattr(shutil, "copyfile", copy)
+    monkeypatch.setattr(zipfile.ZipFile, "write", write)
+    output = source / "assembled-assets"
+    with pytest.raises(ValueError, match="handoff|changed|identity"):
+        release.assemble(source, "v0.1.0", staged, output)
+    assert mutated and not output.exists()
+
+
 def test_windows_stage_uses_portable_evidence_paths_for_linux_assembly(release, source, monkeypatch):
     bundle, output = source / "bundle", source / "assets"
     bundle.mkdir()
@@ -417,7 +481,7 @@ def final_setup(release, source, monkeypatch):
         state = {"head": "a" * 40, "calls": [], "mounted": [], "native": []}
         monkeypatch.setitem(release.restage_installer.__globals__, "check_candidate", lambda *_: {"commit": "a" * 40})
         monkeypatch.setitem(release.stage.__globals__, "git", lambda root, *args: "" if args[0] == "status" else state["head"])
-        suffix = {"darwin": ".dmg", "win32": ".exe", "linux": ".deb"}[platform]
+        suffix = {"darwin": ".dmg", "win32": ".exe"}[platform]
         installer = source / "signed" / ("selected-final" + suffix)
         installer.parent.mkdir()
         installer.write_bytes(b"selected final installer bytes")
@@ -457,14 +521,10 @@ def final_setup(release, source, monkeypatch):
                 (bundle.parents[1] / "Info.plist").write_bytes(plistlib.dumps({"CFBundleShortVersionString": "0.2.0" if fault == "desktop_version" else "0.1.0", "CFBundleExecutable": "PractiQ"}))
                 executable = bundle.parents[1] / "MacOS/PractiQ"
                 executable.parent.mkdir()
-                executable.write_bytes(b"Synthetic native application")
+                executable.write_bytes(state.get("native_payload", native_macho()))
             elif platform == "win32":
-                (bundle.parent / "PractiQ.exe").write_bytes(b"synthetic application")
+                (bundle.parent / "PractiQ.exe").write_bytes(native_pe())
                 (bundle.parent / "uninstall.exe").write_bytes(b"synthetic uninstaller")
-            else:
-                executable = bundle.parents[3] / "usr/bin/PractiQ"
-                executable.parent.mkdir(parents=True)
-                executable.write_bytes(b"Synthetic native application")
 
         def run(command, **kwargs):
             state["native"].append(command)
@@ -479,9 +539,6 @@ def final_setup(release, source, monkeypatch):
                     return
                 snapshot = Path(command[2])
                 bundle = Path(command[command.index("-mountpoint") + 1]) / "PractiQ.app/Contents/Resources/bundled"
-            elif command[0] == "dpkg-deb":
-                snapshot = Path(command[2])
-                bundle = Path(command[3]) / "usr/lib/PractiQ/bundled"
             elif command[0] == "powershell":
                 snapshot = Path(kwargs["env"]["PRACTIQ_RELEASE_INSTALLER"])
                 bundle = Path(kwargs["env"]["PRACTIQ_RELEASE_DESTINATION"]) / "bundled"
@@ -515,10 +572,6 @@ def final_setup(release, source, monkeypatch):
 
         monkeypatch.setattr(subprocess, "run", run)
         def check_output(command, **kwargs):
-            if command[-1] == "Architecture":
-                return "amd64"
-            if command[-1] == "Depends":
-                return "libwebkit2gtk-4.1-0, libgtk-3-0, libdbus-1-3, gstreamer1.0-plugins-good, gstreamer1.0-plugins-bad, gstreamer1.0-libav"
             if command[0] == "7z":
                 return "Path = PractiQ.exe\nSize = 1\n\nPath = bundled/build-manifest.json\nSize = 1\n"
             return "0.2.0\n" if fault == "desktop_version" else "0.1.0\n"
@@ -528,7 +581,203 @@ def final_setup(release, source, monkeypatch):
     return setup
 
 
-@pytest.mark.parametrize("platform", ["darwin", "win32", "linux"])
+@pytest.fixture
+def android_final_setup(release, source, monkeypatch):
+    """Real ZIP/ELF bytes and source-bound report shapes, with SDK/license substitutes."""
+    monkeypatch.setattr(sys, "platform", "linux")
+    state = {"head": "a" * 40, "calls": [], "sdk_calls": [], "fault": None}
+    monkeypatch.setitem(release.restage_installer.__globals__, "check_candidate", lambda *_: {"commit": "a" * 40})
+    monkeypatch.setitem(release.stage.__globals__, "git", lambda root, *args: "" if args[0] == "status" else state["head"])
+    for key, value in {"GITHUB_SERVER_URL": "https://github.com", "GITHUB_REPOSITORY": "test/repo", "GITHUB_RUN_ID": "42"}.items():
+        monkeypatch.setenv(key, value)
+    sdk = source / "sdk/aapt2"
+    sdk.parent.mkdir()
+    sdk.write_bytes(b"Mocked Android SDK; never executed")
+    inventory = source / "gradle-runtime.json"
+    inventory.write_text(json.dumps({"synthetic": True, "source": str(source / "private/gradle-cache")}))
+    installer = source / "selected-final.apk"
+    notice = b"Synthetic Android candidate notice"
+    with zipfile.ZipFile(installer, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("AndroidManifest.xml", b"Synthetic binary manifest inspected by mocked SDK")
+        archive.writestr("assets/bundled/build-manifest.json", json.dumps(android_manifest()))
+        archive.writestr("assets/bundled/THIRD-PARTY.txt", notice)
+        archive.writestr("lib/arm64-v8a/libpractiq_desktop.so", android_elf())
+    state["original"] = installer.read_bytes()
+    state["selected"] = installer
+    original = source / "original-android"
+    evidence = original / "evidence"
+    evidence.mkdir(parents=True)
+    name = "PractiQ_0.1.0_android_arm64.apk"
+    (original / name).write_bytes(state["original"])
+    (evidence / "build-manifest.json").write_text(json.dumps(android_manifest()))
+    (evidence / "THIRD-PARTY.txt").write_bytes(notice)
+    (evidence / "desktop-bundle.json").write_text(json.dumps(android_package_report(original / name, notice)))
+    (evidence / "licenses.json").write_text(json.dumps({"passed": True, "androidRuntimeInventorySha256": release.checksum(inventory)}))
+    (evidence / "desktop-version.json").write_text('{"passed":true,"platform":"android","version":"0.1.0"}')
+    (evidence / "android-runtime-inventory.json").write_bytes(inventory.read_bytes())
+    candidate = {"packageSchemaVersion": 2, "packageMode": "desktop-practice", "tag": "v0.1.0", "commit": "a" * 40,
+                 "components": release.versions(source, "v0.1.0"), "os": "android", "architecture": "arm64", "file": name,
+                 "sha256": release.checksum(original / name), "sizeBytes": (original / name).stat().st_size,
+                 "signing": "debug/test; publisher unverified", "androidRuntimeInventory": "evidence/android-runtime-inventory.json",
+                 "androidRuntimeInventorySha256": release.checksum(inventory),
+                 "buildRun": "https://github.com/test/repo/actions/runs/42",
+                 "evidence": {"evidence/" + path.name: release.checksum(path) for path in evidence.iterdir()}}
+    build = original / "candidate.json"
+    build.write_text(json.dumps(candidate))
+    options = {"platform": "android", "aapt2": sdk, "android_runtime_inventory": inventory}
+    output, reports = source / "final-android", source / "fresh-android-reports"
+
+    def sdk_dump(command, **kwargs):
+        assert command[:3] == [str(sdk), "dump", "badging"]
+        snapshot = Path(command[3])
+        assert snapshot != state["selected"]
+        assert not snapshot.stat().st_mode & 0o222
+        state["sdk_calls"].append(command)
+        if state["fault"] in {"original", "snapshot"} and len(state["sdk_calls"]) == 1:
+            target = state["selected"] if state["fault"] == "original" else snapshot
+            target.chmod(0o600)
+            target.write_bytes(state["original"] + b"Unchecked replacement bytes")
+            if state["fault"] == "snapshot":
+                target.chmod(0o400)
+        version = "0.2.0" if state["fault"] == "version" else "0.1.0"
+        return f"package: name='com.practiq.android' versionCode='1' versionName='{version}'\nsdkVersion:'26'\nnative-code: 'arm64-v8a'\n"
+
+    def gate(command, **kwargs):
+        state["calls"].append(command)
+        report = Path(command[command.index("--output") + 1])
+        if Path(command[1]).name == "check-apk.py":
+            snapshot = Path(command[command.index("--installer") + 1])
+            result = release.apk_checker().validate_apk(snapshot, sdk, "arm64-v8a", "0.1.0")
+            result["installerSha256"] = release.checksum(snapshot)
+            if state["fault"] == "unbound_apk_report":
+                result["installerSha256"] = "b" * 64
+            report.write_text(json.dumps(result))
+            return
+        assert Path(command[1]).name == "check_licenses.py"
+        assert Path(command[command.index("--android-runtime-inventory") + 1]) == inventory
+        original_inventory = inventory.read_bytes()
+        if state["fault"] == "inventory_swap_restore":
+            inventory.write_text('{"synthetic":"Other inventory read by license checker"}')
+        consumed_sha = release.checksum(inventory)
+        inventory.write_bytes(original_inventory)
+        report.write_text(json.dumps({"passed": True, "source": str(source / "private/LICENSE"), "androidRuntimeInventorySha256": consumed_sha}))
+        Path(command[command.index("--notices") + 1]).write_bytes(b"Changed notice" if state["fault"] == "notice" else notice)
+        if state["fault"] == "inventory":
+            inventory.write_text('{"synthetic":"Unchecked replacement"}')
+        if state["fault"] == "source":
+            state["head"] = "b" * 40
+
+    monkeypatch.setattr(subprocess, "check_output", sdk_dump)
+    monkeypatch.setattr(subprocess, "run", gate)
+    state.update(installer=installer, output=output, reports=reports, build_candidate=build, options=options)
+    return state
+
+
+@pytest.mark.parametrize("mode", ["ordinary", "restage"])
+def test_android_release_stage_checks_same_apk_and_binds_runtime_inventory_without_executing_it(release, source, android_final_setup, mode):
+    state = android_final_setup
+    if mode == "ordinary":
+        selected = source / "app/.build/android-final/PractiQ.apk"
+        selected.parent.mkdir(parents=True)
+        selected.write_bytes(state["original"])
+        state["selected"] = selected
+        release.stage_installer(source, "v0.1.0", **state["options"])
+        output = source / "app/.build/release"
+    else:
+        release.restage_installer(source, "v0.1.0", state["installer"], state["output"], state["reports"],
+                                  build_candidate=state["build_candidate"], **state["options"])
+        output = state["output"]
+    candidate = json.loads((output / "candidate.json").read_text())
+    assert candidate["file"] == "PractiQ_0.1.0_android_arm64.apk"
+    assert (output / candidate["file"]).read_bytes() == state["original"]
+    assert candidate["sha256"] == hashlib.sha256(state["original"]).hexdigest()
+    assert candidate["signing"] == ("debug/test; publisher unverified" if mode == "ordinary" else "unverified")
+    assert candidate["cleanMachineAcceptance"] == candidate["liveModelAcceptance"] == "pending"
+    assert candidate["androidRuntimeInventory"] in candidate["evidence"]
+    assert candidate["androidRuntimeInventorySha256"] == release.checksum(state["options"]["android_runtime_inventory"])
+    assert json.loads((output / "evidence/licenses.json").read_text())["androidRuntimeInventorySha256"] == candidate["androidRuntimeInventorySha256"]
+    assert json.loads((output / "evidence/desktop-version.json").read_text()) == {"passed": True, "platform": "android", "version": "0.1.0"}
+    assert json.loads((output / "evidence/desktop-bundle.json").read_text())["installerSha256"] == candidate["sha256"]
+    assert str(source) not in (output / "evidence/android-runtime-inventory.json").read_text()
+    assert state["sdk_calls"] and len(state["calls"]) == 2
+
+
+@pytest.mark.parametrize("mode", ["ordinary", "restage"])
+@pytest.mark.parametrize("fault", ["original", "snapshot", "inventory", "inventory_swap_restore", "source", "notice", "version", "unbound_apk_report"])
+def test_android_release_rejects_unchecked_snapshot_source_inventory_or_native_identity(release, source, android_final_setup, mode, fault):
+    state = android_final_setup
+    state["fault"] = fault
+    if mode == "ordinary":
+        selected = source / "app/.build/android-final/PractiQ.apk"
+        selected.parent.mkdir(parents=True)
+        selected.write_bytes(state["original"])
+        state["selected"] = selected
+        action = lambda: release.stage_installer(source, "v0.1.0", **state["options"])
+        output = source / "app/.build/release"
+    else:
+        action = lambda: release.restage_installer(source, "v0.1.0", state["installer"], state["output"], state["reports"],
+                                                  build_candidate=state["build_candidate"], **state["options"])
+        output = state["output"]
+    if fault == "original":
+        action()
+        candidate = json.loads((output / "candidate.json").read_text())
+        assert candidate["sha256"] == hashlib.sha256(state["original"]).hexdigest()
+        assert (output / candidate["file"]).read_bytes() == state["original"]
+    else:
+        with pytest.raises(ValueError):
+            action()
+        assert not output.exists()
+
+
+@pytest.mark.parametrize("missing", ["aapt2", "android_runtime_inventory"])
+def test_android_final_stage_requires_explicit_sdk_and_source_checked_runtime_inventory(release, source, android_final_setup, missing):
+    state = android_final_setup
+    options = state["options"] | {missing: None}
+    with pytest.raises(ValueError, match="aapt2|runtime-inventory"):
+        release.restage_installer(source, "v0.1.0", state["installer"], state["output"], state["reports"],
+                                  build_candidate=state["build_candidate"], **options)
+    assert not state["output"].exists() and not state["reports"].exists() and not state["calls"]
+
+
+@pytest.mark.parametrize("fault", ["abi", "version", "identifier", "installer_hash", "missing_inventory", "inventory_identity", "debug_label", "x86_manifest"])
+def test_android_assembly_requires_actual_arm64_apk_identity_and_test_status(release, source, staged, fault):
+    folder = staged / "release-android"
+    path = folder / "candidate.json"
+    candidate = json.loads(path.read_text())
+    package = folder / "evidence/desktop-bundle.json"
+    report = json.loads(package.read_text())
+    if fault == "abi":
+        report["nativeAbi"] = "x86_64"
+    elif fault == "version":
+        report["nativePackage"]["versionName"] = "0.2.0"
+    elif fault == "identifier":
+        report["nativePackage"]["identifier"] = "com.other.application"
+    elif fault == "installer_hash":
+        report["installerSha256"] = "b" * 64
+    elif fault == "missing_inventory":
+        candidate["evidence"].pop("evidence/android-runtime-inventory.json")
+    elif fault == "debug_label":
+        candidate["signing"] = "publisher verified"
+    elif fault == "inventory_identity":
+        licenses = folder / "evidence/licenses.json"
+        payload = json.loads(licenses.read_text()) | {"androidRuntimeInventorySha256": "b" * 64}
+        licenses.write_text(json.dumps(payload))
+        candidate["evidence"]["evidence/licenses.json"] = release.checksum(licenses)
+    else:
+        metadata = folder / "evidence/build-manifest.json"
+        payload = json.loads(metadata.read_text()) | {"architecture": "x86_64"}
+        metadata.write_text(json.dumps(payload))
+        candidate["evidence"]["evidence/build-manifest.json"] = release.checksum(metadata)
+    package.write_text(json.dumps(report))
+    candidate["evidence"]["evidence/desktop-bundle.json"] = release.checksum(package)
+    path.write_text(json.dumps(candidate))
+    output = source / "rejected-android-assets"
+    with pytest.raises(ValueError, match="Android|APK"):
+        release.assemble(source, "v0.1.0", staged, output)
+    assert not output.exists()
+
+
+@pytest.mark.parametrize("platform", ["darwin", "win32"])
 def test_explicit_final_staging_uses_selected_snapshot_and_fresh_reports_without_actions(release, source, final_setup, platform):
     installer, output, reports, state = final_setup(platform)
     signing = source / "independent-signing.json"
@@ -551,7 +800,7 @@ def test_explicit_final_staging_uses_selected_snapshot_and_fresh_reports_without
         assert state["mounted"] == ["detached"]
 
 
-@pytest.mark.parametrize("platform", ["darwin", "win32", "linux"])
+@pytest.mark.parametrize("platform", ["darwin", "win32"])
 def test_final_installer_rejects_wrong_desktop_version_with_matching_service(release, source, final_setup, platform):
     installer, output, reports, state = final_setup(platform, "desktop_version")
     with pytest.raises(ValueError, match="desktop version"):
@@ -668,7 +917,7 @@ def test_final_windows_requires_existing_full_7zip_without_installing(release, s
     assert not output.exists() and not state["native"]
 
 
-@pytest.mark.parametrize("platform", ["darwin", "win32", "linux"])
+@pytest.mark.parametrize("platform", ["darwin", "win32"])
 def test_final_native_version_preserves_prerelease_identity(release, source, final_setup, monkeypatch, platform):
     installer, _, _, _ = final_setup(platform)
     bundle = source / "Example.app/Contents/Resources/bundled" if platform == "darwin" else source / "extracted/bundled"
@@ -678,13 +927,9 @@ def test_final_native_version_preserves_prerelease_identity(release, source, fin
         (bundle.parents[1] / "Info.plist").write_bytes(plistlib.dumps({"CFBundleShortVersionString": expected, "CFBundleExecutable": "PractiQ"}))
         executable = bundle.parents[1] / "MacOS/PractiQ"
         executable.parent.mkdir()
-        executable.write_bytes(b"Synthetic native executable")
+        executable.write_bytes(native_macho())
     elif platform == "win32":
-        (bundle.parent / "PractiQ.exe").touch()
-    else:
-        executable = bundle.parent / "usr/bin/PractiQ"
-        executable.parent.mkdir(parents=True)
-        executable.write_bytes(b"Synthetic native executable")
+        (bundle.parent / "PractiQ.exe").write_bytes(native_pe())
     monkeypatch.setattr(subprocess, "check_output", lambda *args, **kwargs: expected + "\n")
     assert release.check_desktop_version(installer, bundle, expected, "PractiQ") == expected
     with pytest.raises(ValueError, match="desktop version"):
@@ -765,8 +1010,8 @@ def restaged(release, staged):
     return staged
 
 
-@pytest.mark.parametrize("original_platforms", [("macos",), ("windows",), ("linux",),
-                                               ("macos", "windows"), ("macos", "linux"), ("windows", "linux")])
+@pytest.mark.parametrize("original_platforms", [("macos",), ("windows",), ("android",),
+                                               ("macos", "windows"), ("macos", "android"), ("windows", "android")])
 def test_final_assembly_rejects_mixed_staging_modes_before_creating_assets(release, source, restaged, original_platforms):
     for platform in original_platforms:
         path = restaged / f"release-{platform}/candidate.json"
@@ -874,7 +1119,87 @@ def test_release_workflow_uses_full_checks_and_only_creates_drafts():
                     assert step["with"]["ref"] == "${{ inputs.ref || github.sha }}"
         selector = next(s for s in reused["jobs"]["changes"]["steps"] if s.get("id") == "scope")
         assert selector["env"]["CI_FULL_CHECKS"] == "${{ inputs.ref != '' }}"
-    assert workflow["jobs"]["draft"]["needs"] == ["candidate", "service", "desktop"]
+    assert workflow["jobs"]["draft"]["needs"] == ["candidate", "service", "desktop", "android"]
+    assert workflow["jobs"]["android"]["uses"] == "./.github/workflows/android.yml"
+    assert workflow["jobs"]["android"]["with"] == {"ref": "${{ needs.candidate.outputs.sha }}", "tag": "${{ inputs.tag }}", "release": "true"}
     commands = "\n".join(s.get("run", "") for s in workflow["jobs"]["draft"]["steps"])
     assert "--draft --verify-tag --latest=false" in commands and "--clobber" not in commands
     assert "remote_sha" in commands and "release publish" not in commands
+
+
+@pytest.mark.parametrize("platform,damage", [("darwin", "wrong_cpu"), ("darwin", "script"),
+    ("darwin", "truncated"), ("darwin", "not_executable"), ("win32", "wrong_cpu"),
+    ("win32", "script"), ("win32", "truncated"), ("win32", "not_executable")])
+def test_native_release_architecture_is_bound_to_actual_package_bytes(release, tmp_path, monkeypatch, platform, damage):
+    monkeypatch.setattr(sys, "platform", platform)
+    if platform == "darwin":
+        bundle = tmp_path / "PractiQ.app/Contents/Resources/bundled"
+        executable = bundle.parents[1] / "MacOS/PractiQ"
+        bundle.mkdir(parents=True)
+        (bundle.parents[1] / "Info.plist").write_bytes(plistlib.dumps({"CFBundleExecutable": "PractiQ", "CFBundleShortVersionString": "0.1.0"}))
+        payload = native_macho(0x1000007) if damage == "wrong_cpu" else native_macho(filetype=6) if damage == "not_executable" else native_macho()
+    else:
+        bundle = tmp_path / "bundled"
+        bundle.mkdir()
+        executable = tmp_path / "PractiQ.exe"
+        payload = native_pe(machine=0xAA64) if damage == "wrong_cpu" else native_pe(magic=0x10B) if damage == "not_executable" else native_pe()
+    if damage == "script":
+        payload = b"#!/bin/sh\nexit 0\n"
+    elif damage == "truncated":
+        payload = payload[:24]
+    executable.parent.mkdir(parents=True, exist_ok=True)
+    executable.write_bytes(payload)
+    monkeypatch.setattr(subprocess, "check_output", lambda *args, **kwargs: "0.1.0")
+    with pytest.raises(ValueError, match="Mach-O|arm64|PE"):
+        release.check_desktop_version(tmp_path / "selected", bundle, "0.1.0", "PractiQ")
+
+
+@pytest.mark.parametrize("wide", [False, True])
+@pytest.mark.parametrize("byteorder", ["big", "little"])
+def test_final_macos_accepts_bounded_universal_executable_with_actual_arm64_slice(release, source, final_setup, wide, byteorder):
+    installer, output, reports, state = final_setup()
+    state["native_payload"] = native_fat([(0x1000007, 3, native_macho(0x1000007, 3)), (0x100000C, 0, native_macho())], wide, byteorder)
+    release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=state["build_candidate"])
+    assert output.exists() and len(state["calls"]) == 2
+
+
+@pytest.mark.parametrize("damage", ["no_arm64", "cpu_mismatch", "subtype_mismatch", "duplicate", "overlap", "outside", "table_offset", "zero_count", "huge_count", "truncated_table", "invalid_slice", "short_slice", "alignment", "commands"])
+def test_final_macos_rejects_fat_table_spoofs_and_unbounded_slices(release, source, final_setup, damage):
+    installer, output, reports, state = final_setup()
+    slices = [(0x1000007, 3, native_macho(0x1000007, 3)), (0x100000C, 0, native_macho())]
+    if damage == "no_arm64":
+        slices = slices[:1]
+    elif damage == "cpu_mismatch":
+        slices[1] = (0x100000C, 0, native_macho(0x1000007))
+    elif damage == "subtype_mismatch":
+        slices[1] = (0x100000C, 0, native_macho(subtype=2))
+    elif damage == "duplicate":
+        slices = [slices[1], slices[1]]
+    elif damage == "invalid_slice":
+        slices[1] = (0x100000C, 0, b"not a Mach-O native executable" * 2)
+    elif damage == "commands":
+        data = bytearray(native_macho())
+        data[20:24] = (0xFFFFFFFF).to_bytes(4, "little")
+        slices[1] = (0x100000C, 0, bytes(data))
+    payload = bytearray(native_fat(slices))
+    if damage == "overlap":
+        payload[36:40] = payload[16:20]
+    elif damage == "outside":
+        payload[36:40] = (len(payload) + 1).to_bytes(4, "big")
+    elif damage == "table_offset":
+        payload[36:40] = (0).to_bytes(4, "big")
+    elif damage == "zero_count":
+        payload[4:8] = b"\0" * 4
+    elif damage == "huge_count":
+        payload[4:8] = (0xFFFFFFFF).to_bytes(4, "big")
+    elif damage == "truncated_table":
+        del payload[35:]
+    elif damage == "short_slice":
+        payload[40:44] = (16).to_bytes(4, "big")
+    elif damage == "alignment":
+        payload[44:48] = (63).to_bytes(4, "big")
+    state["native_payload"] = payload
+    with pytest.raises(ValueError, match="Mach-O|arm64"):
+        release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=state["build_candidate"])
+    assert not output.exists() and not reports.exists() and not state["calls"]
+    assert state["mounted"] == ["detached"]

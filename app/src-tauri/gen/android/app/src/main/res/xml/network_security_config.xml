@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors><certificates src="system" /></trust-anchors>
+    </base-config>
+    <!-- Tauri serves bundled assets locally; local service testing uses adb reverse. -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain>tauri.localhost</domain>
+        <domain>localhost</domain>
+        <domain>127.0.0.1</domain>
+        <domain>ip6-localhost</domain>
+        <domain>::1</domain>
+    </domain-config>
+</network-security-config>

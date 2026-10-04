@@ -12,10 +12,11 @@ import pytest
 ROOT = Path(__file__).parents[2]
 
 
-@pytest.fixture
-def package(tmp_path):
+@pytest.fixture(params=["darwin", "win32"])
+def package(tmp_path, monkeypatch, request):
+    monkeypatch.setattr(sys, "platform", request.param)
     app = tmp_path / ("PractiQ.app" if sys.platform == "darwin" else "application")
-    bundle = app / {"darwin": "Contents/Resources/bundled", "linux": "usr/lib/PractiQ/bundled",
+    bundle = app / {"darwin": "Contents/Resources/bundled",
                     "win32": "bundled"}[sys.platform]
     bundle.mkdir(parents=True)
     (bundle / "build-manifest.json").write_text(json.dumps({
@@ -23,7 +24,7 @@ def package(tmp_path):
         "architecture": "arm64" if sys.platform == "darwin" else "x86_64", "desktopVersion": "0.1.0",
     }))
     (bundle / "THIRD-PARTY.txt").write_text("Synthetic desktop notices")
-    executable = app / {"darwin": "Contents/MacOS/PractiQ", "linux": "usr/bin/PractiQ",
+    executable = app / {"darwin": "Contents/MacOS/PractiQ",
                         "win32": "PractiQ.exe"}[sys.platform]
     executable.parent.mkdir(parents=True, exist_ok=True)
     executable.write_bytes(b"Synthetic native application; never executed")
@@ -89,7 +90,7 @@ def test_desktop_resources_are_an_exact_metadata_and_notice_whitelist():
         "bundled/build-manifest.json": "bundled/build-manifest.json",
         "bundled/THIRD-PARTY.txt": "bundled/THIRD-PARTY.txt",
     }
-    for platform in ("windows", "linux"):
+    for platform in ("windows",):
         config = json.loads((ROOT / f"app/src-tauri/tauri.{platform}.conf.json").read_text())
         assert "office" not in json.dumps(config).lower()
         assert "python" not in json.dumps(config).lower()
@@ -108,12 +109,11 @@ def test_desktop_package_rejects_extra_payload_and_external_symlinks(package, tm
         checker()(bundle, app)
 
 
-def test_linux_package_checks_the_whole_extracted_tree_not_only_resource_directory(tmp_path, monkeypatch):
-    scope = runpy.run_path(str(ROOT / "app/scripts/check-bundle.py"))
-    locate = scope["application_root"]
-    monkeypatch.setitem(locate.__globals__, "sys", type("Platform", (), {"platform": "linux"})())
-    bundle = tmp_path / "extracted/usr/lib/PractiQ/bundled"
-    assert locate(bundle) == tmp_path / "extracted"
+def test_linux_app_target_and_config_are_removed():
+    scope = runpy.run_path(str(ROOT / "app/scripts/desktop_package.py"))
+    with pytest.raises(ValueError, match="Unsupported"):
+        scope["validate_manifest"]({}, "linux")
+    assert not (ROOT / "app/src-tauri/tauri.linux.conf.json").exists()
 
 
 @pytest.mark.parametrize("mutation", ["original", "snapshot"])

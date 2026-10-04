@@ -14,7 +14,8 @@
     "check": "tsc -b && npm run lint && vitest run && cargo fmt --manifest-path src-tauri/Cargo.toml --check && cargo test --manifest-path src-tauri/Cargo.toml && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings",
     "test:browser": "playwright test",
     "test:preview": "playwright test --project preview",
-    "test:rich-content": "playwright test --project rich-content"
+    "test:rich-content": "playwright test --project rich-content",
+    "test:android-browser": "playwright test --project android-390 --project android-360"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.11.1",

@@ -1,0 +1,56 @@
+{
+  "checkedAt": "2026-10-04",
+  "package": "jni-sys-macros",
+  "version": "0.4.1",
+  "crate": {
+    "source": "https://static.crates.io/crates/jni-sys-macros/jni-sys-macros-0.4.1.crate",
+    "sha256": "38c0b942f458fe50cdac086d2f946512305e5631e720728f2a61aabcd47a6264",
+    "verification": "Cached published crate bytes match this exact package and version checksum in app/src-tauri/Cargo.lock."
+  },
+  "publishedCargoTomlSha256": "b5a9f66e6501e17d0e790fecffa657df060b1bc41ac4d5f8cb5d7388098326a4",
+  "publishedRepository": "https://github.com/jni-rs/jni-sys",
+  "declaredLicense": "MIT OR Apache-2.0",
+  "selectedLicense": "MIT",
+  "cargoVcsInfo": {
+    "archivePath": "jni-sys-macros-0.4.1/.cargo_vcs_info.json",
+    "sha256": "1824b83bc25a1e245bcb97a6503105bfe07078a47cddc924c6b7db91e8852f45",
+    "contents": {
+      "git": {
+        "sha1": "64d77b7a5f119d7b55b4e2c169a4668067ff59e6"
+      },
+      "path_in_vcs": "jni-sys-macros"
+    }
+  },
+  "upstreamRepository": "https://github.com/jni-rs/jni-sys",
+  "upstreamCommit": "64d77b7a5f119d7b55b4e2c169a4668067ff59e6",
+  "repositoryAttribution": "Published package repository; original manifest and all published src files match this VCS commit byte for byte.",
+  "license": {
+    "source": "https://raw.githubusercontent.com/jni-rs/jni-sys/64d77b7a5f119d7b55b4e2c169a4668067ff59e6/LICENSE-MIT",
+    "path": "LICENSE-MIT",
+    "sha256": "1d85bd754b04ceec93e98e890edd1fa3c6a22e81bcb32135806beeccefa51cd1",
+    "gitBlobSha1": "2008402b8a1299cf118ea38e02116bfcc72e53c3",
+    "sizeBytes": 1071,
+    "verification": "Complete upstream file, unchanged bytes, from the same commit recorded in this published crate; Git blob SHA-1 independently matches the commit tree."
+  },
+  "publishedSourceComparison": [
+    {
+      "archivePath": "Cargo.toml.orig",
+      "upstreamPath": "jni-sys-macros/Cargo.toml",
+      "archiveSha256": "6501ef93eff9b37ab65ec846bd06992d79cc28d8ef1f02f13b0488ff441ed90a",
+      "upstreamSha256": "6501ef93eff9b37ab65ec846bd06992d79cc28d8ef1f02f13b0488ff441ed90a",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 473,
+      "upstreamSizeBytes": 473
+    },
+    {
+      "archivePath": "src/lib.rs",
+      "upstreamPath": "jni-sys-macros/src/lib.rs",
+      "archiveSha256": "8a840d780fe8aedbcaef7e1b36ab1abd4c2e9e1303eece70d0800f80d69445fa",
+      "upstreamSha256": "8a840d780fe8aedbcaef7e1b36ab1abd4c2e9e1303eece70d0800f80d69445fa",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 6893,
+      "upstreamSizeBytes": 6893
+    }
+  ],
+  "licenseSelection": "MIT is one of the alternatives explicitly offered by the published MIT OR Apache-2.0 declaration; the complete upstream MIT file and any copyright notice it contains are retained unchanged."
+}

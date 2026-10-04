@@ -10,7 +10,7 @@
 
 - [ ] Python AI service (`server/`)
 - [ ] Import Web frontend (`web/`)
-- [ ] Desktop application (`app/`)
+- [ ] Practice application (`app/`, macOS/Windows/Android)
 - [ ] Documentation or tooling
 
 ## Validation

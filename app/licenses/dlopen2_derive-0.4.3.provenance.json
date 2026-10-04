@@ -1,0 +1,91 @@
+{
+  "checkedAt": "2026-10-04",
+  "package": "dlopen2_derive",
+  "version": "0.4.3",
+  "crate": {
+    "source": "https://static.crates.io/crates/dlopen2_derive/dlopen2_derive-0.4.3.crate",
+    "sha256": "0fbbb781877580993a8707ec48672673ec7b81eeba04cfd2310bd28c08e47c8f",
+    "verification": "Cached published crate bytes match this exact package and version checksum in app/src-tauri/Cargo.lock."
+  },
+  "publishedCargoTomlSha256": "ee0c5e9ad3c8992fa6f1a0b5f73005aa9689af7fbdc804a3868b2597d53e1a09",
+  "publishedRepository": "https://github.com/OpenByteDev/dlopen2",
+  "declaredLicense": "MIT",
+  "selectedLicense": "MIT",
+  "cargoVcsInfo": {
+    "archivePath": "dlopen2_derive-0.4.3/.cargo_vcs_info.json",
+    "sha256": "90a5b706d2f492723b4c81afa07cea75eda9a4e4c7fc98c368931f539bf5b439",
+    "contents": {
+      "git": {
+        "sha1": "cc80e4a0a90d499b677fdf7743699b4b3a43a989"
+      },
+      "path_in_vcs": "dlopen2-derive"
+    }
+  },
+  "upstreamRepository": "https://github.com/OpenByteDev/dlopen2",
+  "upstreamCommit": "cc80e4a0a90d499b677fdf7743699b4b3a43a989",
+  "repositoryAttribution": "Published package repository; original manifest and all published src files match this VCS commit, allowing only the individually recorded CRLF/LF differences.",
+  "license": {
+    "source": "https://raw.githubusercontent.com/OpenByteDev/dlopen2/cc80e4a0a90d499b677fdf7743699b4b3a43a989/LICENSE",
+    "path": "LICENSE",
+    "sha256": "39fa265207450e77c62e90c5594a06c085b655d8374c7ced4bf7894b6bd95dd2",
+    "gitBlobSha1": "d38093a7a564c64ad15e459f2e0a1f86a443c8b3",
+    "sizeBytes": 1184,
+    "verification": "Complete upstream file, unchanged bytes, from the same commit recorded in this published crate; Git blob SHA-1 independently matches the commit tree."
+  },
+  "publishedSourceComparison": [
+    {
+      "archivePath": "Cargo.toml.orig",
+      "upstreamPath": "dlopen2-derive/Cargo.toml",
+      "archiveSha256": "5e3d2d7fe64c4b47b01d4c2e88dbf669bf0950d937b43757b48f965bea4e254a",
+      "upstreamSha256": "8a2558abfe3b44960eaca355b1f3262b86d27760978f8a34d317d1b3daa92965",
+      "comparison": "identical after CRLF to LF normalization only",
+      "archiveSizeBytes": 499,
+      "upstreamSizeBytes": 480
+    },
+    {
+      "archivePath": "src/api.rs",
+      "upstreamPath": "dlopen2-derive/src/api.rs",
+      "archiveSha256": "4f1ac5c1d76081399f67de01be8e57fb55d947e70acb5f53034e640215733d2e",
+      "upstreamSha256": "4f1ac5c1d76081399f67de01be8e57fb55d947e70acb5f53034e640215733d2e",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 1084,
+      "upstreamSizeBytes": 1084
+    },
+    {
+      "archivePath": "src/common.rs",
+      "upstreamPath": "dlopen2-derive/src/common.rs",
+      "archiveSha256": "2c986f6129c8e98785b4769bd35cd791438ee9ff8a78a015376f796ec275e16f",
+      "upstreamSha256": "78d04c4bbea78447c7906b19c29738f33e410e7240f6182baeda603fd5f82467",
+      "comparison": "identical after CRLF to LF normalization only",
+      "archiveSizeBytes": 2486,
+      "upstreamSizeBytes": 2407
+    },
+    {
+      "archivePath": "src/lib.rs",
+      "upstreamPath": "dlopen2-derive/src/lib.rs",
+      "archiveSha256": "f172e1b7acca5edabefc867c1f7dd8f6deaf3eeb0f53097740961fe47b770a72",
+      "upstreamSha256": "f172e1b7acca5edabefc867c1f7dd8f6deaf3eeb0f53097740961fe47b770a72",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 1351,
+      "upstreamSizeBytes": 1351
+    },
+    {
+      "archivePath": "src/multi_api.rs",
+      "upstreamPath": "dlopen2-derive/src/multi_api.rs",
+      "archiveSha256": "075775904efd9ea4f9011c5e0e4154c7d1a056e475eec84965c10492523127f0",
+      "upstreamSha256": "075775904efd9ea4f9011c5e0e4154c7d1a056e475eec84965c10492523127f0",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 975,
+      "upstreamSizeBytes": 975
+    },
+    {
+      "archivePath": "src/wrapper.rs",
+      "upstreamPath": "dlopen2-derive/src/wrapper.rs",
+      "archiveSha256": "18f3abf0ed0dfaa129cbcdac7f98e953e348d2bb7119857e6d37fe6a30d635a9",
+      "upstreamSha256": "18f3abf0ed0dfaa129cbcdac7f98e953e348d2bb7119857e6d37fe6a30d635a9",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 11567,
+      "upstreamSizeBytes": 11567
+    }
+  ]
+}

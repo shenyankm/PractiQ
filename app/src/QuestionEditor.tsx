@@ -115,7 +115,7 @@ export function QuestionEditor({
   return (
       <EditorDialog title={t("编辑题目")} dirty={dirty || audioPending || audioDraft} busy={busy} onClose={onClose} className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
         <fieldset disabled={busy} className="space-y-5">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor={`${formId}-answer-mode`}>{t("答题方式")}</Label>
               <NativeSelect

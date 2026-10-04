@@ -29,7 +29,7 @@ merge them or update Python, npm or Cargo versions. Workflow Actions use full
 commit SHAs. Review upstream changes and run the affected checks before merging
 dependency updates.
 
-The GLib patch has its own [provenance and removal criteria](app/src-tauri/vendor/glib/PRACTIQ-PATCH.md).
+Android access tokens use Keystore-backed encryption and private no-backup storage; automatic Android backups are disabled. User-selected exports exclude credentials. The private credential/file-descriptor bridge rejects frontend invocation. See the [Android guide](app/docs/android.md) for native checks and supported targets.
 Changing the independently deployed LibreOffice engine requires version, checksum, license and Office fidelity verification in that deployment. Desktop package checks must reject embedded Python and LibreOffice engines. Dependency auditing does not establish license
 compliance; release notice inventories and their unresolved entries must also be
 reviewed.

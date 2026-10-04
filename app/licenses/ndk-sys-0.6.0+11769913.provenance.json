@@ -1,0 +1,92 @@
+{
+  "checkedAt": "2026-10-04",
+  "package": "ndk-sys",
+  "version": "0.6.0+11769913",
+  "crate": {
+    "source": "https://static.crates.io/crates/ndk-sys/ndk-sys-0.6.0+11769913.crate",
+    "sha256": "ee6cda3051665f1fb8d9e08fc35c96d5a244fb1be711a03b71118828afc9a873",
+    "verification": "Cached published crate bytes match this exact package and version checksum in app/src-tauri/Cargo.lock."
+  },
+  "publishedCargoTomlSha256": "228e4432b6367f8c8348757f9798732b331b1748c116a0af9d2a1ef02b92eaa8",
+  "publishedRepository": "https://github.com/rust-mobile/ndk",
+  "declaredLicense": "MIT OR Apache-2.0",
+  "selectedLicense": "MIT",
+  "cargoVcsInfo": {
+    "archivePath": "ndk-sys-0.6.0+11769913/.cargo_vcs_info.json",
+    "sha256": "04855a5c956a06190b9aae90fe172c8857d1afbf8fd676acc4c555161537b06e",
+    "contents": {
+      "git": {
+        "sha1": "49bbbba16c58ff63cb8a0ad0eca5a9fb7ecaec25"
+      },
+      "path_in_vcs": "ndk-sys"
+    }
+  },
+  "upstreamRepository": "https://github.com/rust-mobile/ndk",
+  "upstreamCommit": "49bbbba16c58ff63cb8a0ad0eca5a9fb7ecaec25",
+  "repositoryAttribution": "Published package repository; original manifest and all published src files match this VCS commit byte for byte.",
+  "license": {
+    "source": "https://raw.githubusercontent.com/rust-mobile/ndk/49bbbba16c58ff63cb8a0ad0eca5a9fb7ecaec25/LICENSE-MIT",
+    "path": "LICENSE-MIT",
+    "sha256": "508a77d2e7b51d98adeed32648ad124b7b30241a8e70b2e72c99f92d8e5874d1",
+    "gitBlobSha1": "9cf106272ac3b56b0c4c80218e8fc10a664ca5f4",
+    "sizeBytes": 1036,
+    "verification": "Complete upstream file, unchanged bytes, from the same commit recorded in this published crate; Git blob SHA-1 independently matches the commit tree."
+  },
+  "publishedSourceComparison": [
+    {
+      "archivePath": "Cargo.toml.orig",
+      "upstreamPath": "ndk-sys/Cargo.toml",
+      "archiveSha256": "c860c6b92e9c7fb701d0ab8ba09b2ec6f35c78a3c609fcc32e73581b3e230eb1",
+      "upstreamSha256": "c860c6b92e9c7fb701d0ab8ba09b2ec6f35c78a3c609fcc32e73581b3e230eb1",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 721,
+      "upstreamSizeBytes": 721
+    },
+    {
+      "archivePath": "src/ffi_aarch64.rs",
+      "upstreamPath": "ndk-sys/src/ffi_aarch64.rs",
+      "archiveSha256": "d93eb87810876180e906cf02b599dbb299c581384b38e5c3e9617000e1fd332e",
+      "upstreamSha256": "d93eb87810876180e906cf02b599dbb299c581384b38e5c3e9617000e1fd332e",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 837653,
+      "upstreamSizeBytes": 837653
+    },
+    {
+      "archivePath": "src/ffi_arm.rs",
+      "upstreamPath": "ndk-sys/src/ffi_arm.rs",
+      "archiveSha256": "62b88068ea170726581c6b7077e2ae07dca3dc1f636af1cac20bf3cf4ccaefb3",
+      "upstreamSha256": "62b88068ea170726581c6b7077e2ae07dca3dc1f636af1cac20bf3cf4ccaefb3",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 846990,
+      "upstreamSizeBytes": 846990
+    },
+    {
+      "archivePath": "src/ffi_i686.rs",
+      "upstreamPath": "ndk-sys/src/ffi_i686.rs",
+      "archiveSha256": "ede1fa2a87d3c15697e0fd452d4cdf6c35ee889046064e3b2c7bfcbc629914c5",
+      "upstreamSha256": "ede1fa2a87d3c15697e0fd452d4cdf6c35ee889046064e3b2c7bfcbc629914c5",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 892464,
+      "upstreamSizeBytes": 892464
+    },
+    {
+      "archivePath": "src/ffi_x86_64.rs",
+      "upstreamPath": "ndk-sys/src/ffi_x86_64.rs",
+      "archiveSha256": "0a4fc4dc60378ca3433927d1ad500fa9e33e7069e974fa3f89a3c97e7fcabf6b",
+      "upstreamSha256": "0a4fc4dc60378ca3433927d1ad500fa9e33e7069e974fa3f89a3c97e7fcabf6b",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 896280,
+      "upstreamSizeBytes": 896280
+    },
+    {
+      "archivePath": "src/lib.rs",
+      "upstreamPath": "ndk-sys/src/lib.rs",
+      "archiveSha256": "22999084db740073e1db22d0d47ed56035cc665c1ce353c1753a8e9cb917efdd",
+      "upstreamSha256": "22999084db740073e1db22d0d47ed56035cc665c1ce353c1753a8e9cb917efdd",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 1806,
+      "upstreamSizeBytes": 1806
+    }
+  ],
+  "licenseSelection": "MIT is one of the alternatives explicitly offered by the published MIT OR Apache-2.0 declaration; the complete upstream MIT file and any copyright notice it contains are retained unchanged."
+}

@@ -5,6 +5,7 @@ import { Markdown } from "./Content";
 import { acquireAsset } from "./asset-urls";
 import { materialLanguage } from "./english";
 import { Button } from "@/components/ui/button";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 
 export function ListeningPlayer({question:q,session}:{question:Question;session?:Session}) {
   useI18n();
@@ -136,7 +137,7 @@ export function ListeningPlayer({question:q,session}:{question:Question;session?
         <Button variant="outline" aria-busy={loading || playRequested || busy} disabled={loading || playRequested || busy || !!exhausted || (restricted && !state)} onClick={()=>void toggle()}>{loading || playRequested ? t("加载中…") : playing?t("暂停播放"):t("播放听力")}</Button>
         {!restricted && <>
           <Button variant="outline" disabled={!src} onClick={()=>{if(audio.current){positionChosen.current=true;audio.current.currentTime=start;ended.current=false;}}}>{t("从头重听")}</Button>
-          <label className="text-sm">{t("播放速度")} <select aria-label={t("播放速度")} defaultValue="1" onChange={e=>{if(audio.current)audio.current.playbackRate=Number(e.target.value);}}>{[0.75,1,1.25,1.5].map(v=><option key={v} value={v}>{v}×</option>)}</select></label>
+          <label className="grid gap-2 text-sm">{t("播放速度")} <NativeSelect aria-label={t("播放速度")} defaultValue="1" onChange={e=>{if(audio.current)audio.current.playbackRate=Number(e.target.value);}}>{[0.75,1,1.25,1.5].map(v=><NativeSelectOption key={v} value={v}>{v}×</NativeSelectOption>)}</NativeSelect></label>
           <AudioSeek player={audio.current} start={start} end={end} onSeek={()=>{positionChosen.current=true;}}/>
         </>}
         {restricted && state && <span className="text-sm">{t("已播放 {0} / {1} 遍",{0:state.used,1:state.limit})}</span>}
@@ -155,5 +156,5 @@ function AudioSeek({player,start,end,onSeek}:{player:HTMLAudioElement|null;start
     return ()=>{player.removeEventListener("timeupdate",sync);player.removeEventListener("loadedmetadata",sync);};
   },[player]);
   const max=Math.max(start,Math.min(end ?? Infinity,Number.isFinite(duration)?duration:start));
-  return <input type="range" aria-label={t("听力播放进度")} min={start} max={max} step="0.1" value={Math.min(position,max)} onChange={e=>{if(player){onSeek();player.currentTime=Number(e.target.value);}}}/>;
+  return <input className="audio-seek w-full accent-primary sm:w-48" type="range" aria-label={t("听力播放进度")} min={start} max={max} step="0.1" value={Math.min(position,max)} onChange={e=>{if(player){onSeek();player.currentTime=Number(e.target.value);}}}/>;
 }

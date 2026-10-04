@@ -70,10 +70,10 @@ export function BankList({ offset, onOffsetChange, revision, busy, ready, run, o
       {loading && <p role="status">{t("加载中…")}</p>}
       {error != null && <div role="alert"><p>{errorMessage(error)}</p><Button variant="outline" onClick={() => setRefresh(value => value + 1)}>{t("重试")}</Button></div>}
     </div>}
-    {!loading && !error && unfinished && <Card className="border-primary/30 bg-primary/5"><CardContent className="flex items-center justify-between gap-4"><div className="min-w-0"><h2 className="font-semibold">{t("继续未完成的练习")}</h2><p className="mt-1 break-words text-sm text-muted-foreground">{unfinished.title} · <SessionProgress session={unfinished} onExpired={() => setRefresh(value => value + 1)}/></p></div><div className="flex shrink-0 gap-2"><Button variant="outline" disabled={busy} onClick={onHistory}>{t("查看全部")}</Button><Button disabled={busy} onClick={() => onOpenSession(unfinished.id)}><Play />{unfinished.kind && unfinished.kind !== "practice" ? t("继续考试") : t("继续练习")}</Button></div></CardContent></Card>}
+    {!loading && !error && unfinished && <Card className="border-primary/30 bg-primary/5"><CardContent className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center"><div className="min-w-0"><h2 className="font-semibold">{t("继续未完成的练习")}</h2><p className="mt-1 break-words text-sm text-muted-foreground">{unfinished.title} · <SessionProgress session={unfinished} onExpired={() => setRefresh(value => value + 1)}/></p></div><div className="flex flex-wrap gap-2"><Button variant="outline" disabled={busy} onClick={onHistory}>{t("查看全部")}</Button><Button disabled={busy} onClick={() => onOpenSession(unfinished.id)}><Play />{unfinished.kind && unfinished.kind !== "practice" ? t("继续考试") : t("继续练习")}</Button></div></CardContent></Card>}
     {!page.total && !loading && !error && ready && <Empty className="min-h-96 border border-dashed"><EmptyHeader><EmptyMedia variant="icon"><BookOpen /></EmptyMedia><EmptyTitle>{t("从第一份题库开始")}</EmptyTitle><EmptyDescription>{t("导入题库 ZIP 或添加示例题库，开始离线练习。文档解析请使用独立 AI 服务网页。")}</EmptyDescription></EmptyHeader><EmptyContent><Button onClick={onOpenZipSettings}><Upload />{t("导入题库 ZIP")}</Button><Button variant="outline" disabled={busy} onClick={onAddExample}><BookOpen />{t("添加示例题库")}</Button></EmptyContent></Empty>}
     <Button variant="link" disabled={busy} onClick={onOpenZipSettings}>{t("已有题库 ZIP？前往设置导入")}</Button>
-    <div className="grid grid-cols-2 gap-5 xl:grid-cols-3">
+    <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
       {!loading && !error && page.items.map(bank => <Card key={bank.id}>
         <CardHeader>
           <div className="flex items-start justify-between gap-2">
@@ -105,7 +105,7 @@ export function BankList({ offset, onOffsetChange, revision, busy, ready, run, o
     </div>
     <div className="flex items-center justify-end gap-3">
       {page.total > 30 && (
-        <nav aria-label={t("题库分页")} className="flex flex-1 items-center justify-between gap-3">
+        <nav aria-label={t("题库分页")} className="flex flex-1 flex-wrap items-center justify-between gap-3">
           <span role="status" className="text-sm text-muted-foreground">{!loading && !error && t("{0}–{1} / {2} 条", { 0: page.total ? page.offset + 1 : 0, 1: page.offset + page.items.length, 2: page.total })}</span>
           <div className="flex gap-2">
             <Button variant="outline" disabled={busy || loading || !!error || page.offset === 0} onClick={() => onOffsetChange(Math.max(0, page.offset - 30))}>{t("上一页")}</Button>

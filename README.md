@@ -6,7 +6,7 @@
 
 English | [简体中文](README.zh-CN.md)
 
-Turn documents into question banks, then practise and take mock exams offline on your desktop.
+Turn documents into question banks, then practise and take mock exams offline on macOS, Windows or Android.
 
 - **Import and review**: extract questions from documents with AI, review warnings, and organize your banks.
 - **Practise and test**: select across banks by question type, mistakes, bookmarks, or unanswered questions; practise, take self-tests, or set up timed exams.
@@ -64,7 +64,7 @@ Parsing extracts supplied answers and rubrics without solving unanswered questio
 
 Practice and local scoring work offline. For optional subjective AI grading, configure the independent service URL and access token in desktop **Settings → AI service**, then explicitly start grading or retry. Grading requires a reference answer or rubric; missing evidence, failed calls and unknown outcomes remain ungraded. It is intended for personal practice, not formal examination scoring. Opening the app or changing settings does not call a model.
 
-The desktop service access token stays in the platform credential store; the Web token stays in browser memory. Backups exclude credentials and AI task state. Existing provider settings and keys are preserved but are not automatically used as service credentials. Timed exams keep their deadline when the app closes or the computer sleeps; reopening an expired exam submits the last saved answers.
+The app service access token stays in macOS Keychain, Windows Credential Manager or Android Keystore-backed private storage; the Web token stays in browser memory. Backups exclude credentials and AI task state. Existing provider settings and keys are preserved but are not automatically used as service credentials. Timed exams keep their deadline when the app closes or the computer sleeps; reopening an expired exam submits the last saved answers.
 
 Development starts with in-memory sample data. The preview panel lets you switch scenarios or choose real local data. See [development preview](app/docs/development-preview.md) for its controls and boundaries.
 
@@ -72,9 +72,9 @@ Development starts with in-memory sample data. The preview panel lets you switch
 
 Desktop data uses a fresh `v4/` directory and SQLite schema 11. Earlier directories, including `v3/`, remain untouched; old full backups are rejected. Current question-bank ZIP files can still be imported. See the [data format boundaries](docs/question-model.md#versions-and-directories).
 
-Desktop build targets are macOS 14+ (Apple Silicon), Windows 10/11 (x64), and Ubuntu 22.04+ (x64, `.deb`). CI builds practice-only packages for all three platforms; interactive desktop and signed-release acceptance remain separate.
+App targets are macOS 14+ (Apple Silicon), Windows 10/11 (x64), and Android 8+ (API 26+, arm64 APK). Linux app packages are removed. Linux remains an AI-service and CI host. CI checks native macOS/Windows packages and an Android APK plus API 35 emulator tests; physical-device, minimum-version and signed-release acceptance remain separate.
 
-Development requires Node.js 22.12+ and Rust. Package preparation and shared-contract checks also use an existing Python 3.14+ interpreter and uv; Python is a build tool and is not shipped in the desktop package. Install the [Tauri platform prerequisites](https://v2.tauri.app/start/prerequisites/): Xcode on macOS, MSVC build tools and WebView2 on Windows, or WebKitGTK 4.1, `libdbus-1-dev`, and build libraries on Linux. Linux needs an unlocked Secret Service provider (such as GNOME Keyring) for the service token and GStreamer audio plugins for listening playback. Do not create a project `.venv`.
+Development requires Node.js 22.12+ and Rust. Package preparation and shared-contract checks also use an existing Python 3.14+ interpreter and uv; Python is a build tool and is not shipped in the desktop package. Install the [Tauri platform prerequisites](https://v2.tauri.app/start/prerequisites/): Xcode on macOS or MSVC build tools and WebView2 on Windows. Android also needs JDK 21, SDK 36 and NDK 28.2.13676358; see the [Android guide](app/docs/android.md). Do not create a project `.venv`.
 
 Clone the repository and enter its root directory:
 
@@ -83,7 +83,7 @@ git clone https://github.com/shenyankm/PractiQ.git
 cd PractiQ
 ```
 
-On macOS or Linux, replace the Python path with your interpreter:
+On macOS, replace the Python path with your interpreter:
 
 ```sh
 make install-locked AI_PYTHON=/path/to/python3.14
@@ -106,7 +106,7 @@ npm run desktop
 npm run tauri -- build
 ```
 
-Use Python 3.14+ for `prepare-package.py`. It generates build metadata and Cargo/npm notices, without downloading or copying document-processing runtimes. Packages are written under `app/src-tauri/target/release/bundle`: `.app`/`.dmg` on macOS, NSIS `.exe` on Windows, and `.deb` on Linux. Package checks verify version, notices and absence of embedded engines; they do not certify signing or interactive playback.
+Use Python 3.14+ for `prepare-package.py`. It generates build metadata and Cargo/npm notices, without downloading or copying document-processing runtimes. Packages are written under `app/src-tauri/target/release/bundle`: `.app`/`.dmg` on macOS and NSIS `.exe` on Windows. Android APKs use the separate [Android build and emulator commands](app/docs/android.md). Package checks verify version, notices and absence of embedded engines; they do not certify signing or interactive playback.
 
 ## Run the AI service independently
 
@@ -138,7 +138,7 @@ The FastAPI/LangGraph service listens on `127.0.0.1:8090`, uses SQLite and local
 - [Release policy](docs/releases.md): version tags, downloads, checksums and the manual draft workflow
 - [Contributing](CONTRIBUTING.md): development checks and pull requests
 
-Run `make app-check` for desktop checks, `make web-check` for the import Web frontend and `make verify` for the AI service. Playwright Test checks bilingual interactions, browser preview, and rich-content rendering with mocked native commands and no model calls:
+Run `make app-check` for shared app checks and follow the [Android guide](app/docs/android.md) for APK and native emulator checks, `make web-check` for the import Web frontend and `make verify` for the AI service. Playwright Test checks bilingual interactions, browser preview, and rich-content rendering with mocked native commands and no model calls:
 
 ```sh
 cd app

@@ -33,7 +33,7 @@ def ci_scope():
     (["app/scripts/check_licenses.py"], False, True),
     (["app/licenses/texts/notice.txt"], False, True),
     (["app/licenses/texts/notice.md"], False, True),
-    (["app/src-tauri/vendor/glib/LICENSE.md"], False, True),
+    (["app/licenses/android-runtime.lock.json"], False, True),
     (["server/src/practiq_ai/prompts/import.md"], True, True),
     (["app/src/App.tsx", "README.md"], False, True),
     (["Makefile"], True, True),
@@ -49,6 +49,7 @@ def ci_scope():
 def test_selectors_preserve_real_inputs_and_skip_documentation(ci_scope, paths, service, desktop):
     assert ci_scope.checks_required("service", paths) is service
     assert ci_scope.checks_required("desktop", paths) is desktop
+    assert ci_scope.checks_required("android", paths) is desktop
 
 
 def test_pr_paths_include_every_api_page_and_both_sides_of_a_rename(ci_scope, monkeypatch):
@@ -122,18 +123,20 @@ def needs_for(scope, required=True):
     result = "success" if required else "skipped"
     needs = {"changes": {"result": "success", "outputs": {"required": str(required).lower()}},
              "quality": {"result": result}}
-    if scope == "desktop":
+    if scope in {"desktop", "android"}:
         needs["package"] = {"result": result}
+    if scope == "android":
+        needs["emulator"] = {"result": result}
     return needs
 
 
-@pytest.mark.parametrize("scope", ["service", "desktop"])
+@pytest.mark.parametrize("scope", ["service", "desktop", "android"])
 @pytest.mark.parametrize("required", [True, False])
 def test_gate_accepts_completed_checks_or_deliberate_documentation_skip(ci_scope, scope, required):
     ci_scope.check_gate(scope, needs_for(scope, required))
 
 
-@pytest.mark.parametrize("scope,job", [("service", "quality"), ("desktop", "quality"), ("desktop", "package")])
+@pytest.mark.parametrize("scope,job", [("service", "quality"), ("desktop", "quality"), ("desktop", "package"), ("android", "package"), ("android", "emulator")])
 @pytest.mark.parametrize("required,result", [
     (True, "failure"), (True, "cancelled"), (True, "skipped"),
     (False, "failure"), (False, "cancelled"),
@@ -160,7 +163,7 @@ def test_gate_rejects_failed_or_missing_scope_detection(ci_scope, changes):
         ci_scope.check_gate("service", needs)
 
 
-@pytest.mark.parametrize("scope", ["service", "desktop"])
+@pytest.mark.parametrize("scope", ["service", "desktop", "android"])
 @pytest.mark.parametrize("mutation", ["missing", "extra", "unexpected_run"])
 def test_gate_rejects_incomplete_dependencies_and_inconsistent_skip(ci_scope, scope, mutation):
     needs = needs_for(scope, required=mutation != "unexpected_run")
@@ -201,7 +204,7 @@ def test_gate_cli_accepts_deliberate_documentation_skip():
     assert process.returncode == 0, process.stdout + process.stderr
 
 
-@pytest.mark.parametrize("scope", ["service", "desktop"])
+@pytest.mark.parametrize("scope", ["service", "desktop", "android"])
 def test_manual_scope_cli_requires_checks_and_writes_action_output(tmp_path, scope):
     event, output = tmp_path / "event.json", tmp_path / "output"
     event.write_text("{}", encoding="utf-8")
