@@ -1,9 +1,8 @@
 {
   "schemaVersion": 1,
-  "method": "Exact upstream POM and binary artifact downloads matched the local runtime source SHA-256. Selected variants originate from the actual Gradle runtime configuration; complete canonical terms and every embedded LICENSE/NOTICE were retained. Local project licenses are covered by exact Cargo source identity; the reviewed Tauri lifecycle modification, compiled replacement bytes and actual compiler source collection are bound by the regenerated runtime inventories.",
-  "verifiedUpstreamCount": 72,
-  "selectedMavenCount": 64,
-  "runtimeInventorySha256": "49b28bc1ec5b55f475487abd42d31a8622ad224ac23591429c147a72f388a935",
+  "method": "Exact upstream POM and binary artifact downloads matched the local runtime source SHA-256. Selected variants originate from the actual Gradle runtime configuration; complete canonical terms and every embedded LICENSE/NOTICE were retained. Local project licenses are covered by exact Cargo source identity and use unmodified Cargo-resolved sources. The added Jackson JSON-org 2.15.3 JAR/POM and its parent POM were retrieved from official Maven Central; selected arm64 and x86_64 runtime JAR/POM bytes match those downloads. Historical runtime inventory hashes and source override records below describe the former Tauri 2.11.5 lifecycle replacement and do not identify current builds.",
+  "selectedMavenCount": 65,
+  "historicalRuntimeInventorySha256": "49b28bc1ec5b55f475487abd42d31a8622ad224ac23591429c147a72f388a935",
   "artifacts": [
     {
       "coordinate": "androidx.activity:activity-ktx:1.10.1",
@@ -501,6 +500,22 @@
       "artifactFileName": "jackson-databind-2.15.3.jar"
     },
     {
+      "coordinate": "com.fasterxml.jackson.datatype:jackson-datatype-json-org:2.15.3",
+      "artifactSource": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/datatype/jackson-datatype-json-org/2.15.3/jackson-datatype-json-org-2.15.3.jar",
+      "artifactSha256": "98069467c4ff9354311c52f0998fad340f29f51446e284e5dab1523a92dcbdac",
+      "pomSource": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/datatype/jackson-datatype-json-org/2.15.3/jackson-datatype-json-org-2.15.3.pom",
+      "pomSha256": "b8de601828358313189e10f45962cd4127fccc62aa7c87507e96eb23ad13214c",
+      "artifactIdentity": "jackson-datatype-json-org-2.15.3.jar (com.fasterxml.jackson.datatype:jackson-datatype-json-org:2.15.3)",
+      "artifactFileName": "jackson-datatype-json-org-2.15.3.jar",
+      "parentPoms": [
+        {
+          "file": "texts/4b2dc9ec4a10e051b98568633f01ca6d8d9d268cb9e266ec6ae432eeca59e09a.pom",
+          "sha256": "4b2dc9ec4a10e051b98568633f01ca6d8d9d268cb9e266ec6ae432eeca59e09a",
+          "source": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/datatype/jackson-datatypes-misc-parent/2.15.3/jackson-datatypes-misc-parent-2.15.3.pom"
+        }
+      ]
+    },
+    {
       "coordinate": "com.google.android.material:material:1.13.0",
       "artifactSource": "https://dl.google.com/dl/android/maven2/com/google/android/material/material/1.13.0/material-1.13.0.aar",
       "artifactSha256": "6d5e1cbb67c05bcdcbbf84005787dafd354a155f59a4d3800fd45fa7eb3689f5",
@@ -583,11 +598,11 @@
     }
   ],
   "originalVerificationRuntimeInventorySha256": "5600f35f5b3461fda46f8c35340164c988b7d1dc6d05c97682673bf9565ffc7c",
-  "runtimeInventorySha256ByArchitecture": {
+  "historicalRuntimeInventorySha256ByArchitecture": {
     "arm64": "49b28bc1ec5b55f475487abd42d31a8622ad224ac23591429c147a72f388a935",
     "x86_64": "32721fc10da1992454507d9cab32c549de208159608145c4152b1f421b720a70"
   },
-  "localProjectSourceOverrides": [
+  "historicalLocalProjectSourceOverrides": [
     {
       "project": "tauri-android",
       "provenanceFile": "tauri-android-lifecycle.provenance.json",
@@ -610,5 +625,11 @@
       "bytes": 1090,
       "verification": "The exact embedded FastDoubleParser-NOTICE names this fixed upstream MIT license. Complete copyright and terms were retrieved unchanged from that commit. All original artifact LICENSE/NOTICE texts remain; the embedded FastDoubleParser-LICENSE is Apache-2.0 and is not presented as this MIT text or its source."
     }
-  ]
+  ],
+  "originalVerifiedUpstreamCount": 72,
+  "runtimeInventorySha256": "f5da80007f65dc98976ef714825fec62bb42b98c58954d46ccc065df663036e3",
+  "runtimeInventorySha256ByArchitecture": {
+    "arm64": "f5da80007f65dc98976ef714825fec62bb42b98c58954d46ccc065df663036e3",
+    "x86_64": "91c1535aa55e9da66f1c7c4ae5fa6597b7e0d279d8cad415815d68073663b62c"
+  }
 }

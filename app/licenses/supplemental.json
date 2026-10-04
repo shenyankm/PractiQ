@@ -353,5 +353,51 @@
         "sha256": "6eb897e6ee1aa008fdabc50fa6b3a763052c59d3086b029f2ec91d8ac3f6b62e"
       }
     }
+  ],
+  "cargo:alloc-stdlib@0.3.0": [
+    {
+      "source": "https://raw.githubusercontent.com/dropbox/rust-alloc-no-stdlib/0a81fd6928ea3b33c8cd484aa4575d50ffb98012/LICENSE",
+      "sha256": "c0c56f26d9c051cac4d200c34c84e7ae9aaa853e01a982a1df08b09931e518ae",
+      "file": "texts/c0c56f26d9c051cac4d200c34c84e7ae9aaa853e01a982a1df08b09931e518ae.txt",
+      "verification": "Complete upstream file, unchanged bytes, from the same commit recorded in the locked published crate. Git blob SHA-1 independently matches the upstream commit tree.",
+      "evidence": {
+        "file": "alloc-stdlib-0.3.0.provenance.json",
+        "sha256": "7e1b5cdfa2f50233d101745accdbb6fe3e958e52972e587011373dd4b3eaac26"
+      }
+    }
+  ],
+  "cargo:selectors@0.38.0": [
+    {
+      "source": "https://www.mozilla.org/media/MPL/2.0/index.txt",
+      "sha256": "3f3d9e0024b1921b067d6f7f88deb4a60cbe7a78e76c64e3f1d7fc3b779b9d04",
+      "file": "texts/3f3d9e0024b1921b067d6f7f88deb4a60cbe7a78e76c64e3f1d7fc3b779b9d04.txt",
+      "verification": "Complete canonical MPL 2.0 terms retrieved unchanged from Mozilla. The exact published manifest declares MPL-2.0; lib.rs matches the same VCS commit and retains its notice linking to Mozilla MPL 2.0.",
+      "evidence": {
+        "file": "selectors-0.38.0.provenance.json",
+        "sha256": "1eadf85bc6243c39d8812740b921d125370581b92cba88c1eb30c754aa9734c0"
+      }
+    }
+  ],
+  "cargo:ndk-context@0.1.1": [
+    {
+      "source": "https://raw.githubusercontent.com/rust-windowing/android-ndk-rs/10f2ba388fca20f7349996ebae26ccda7a6fda5c/LICENSE-MIT",
+      "sha256": "508a77d2e7b51d98adeed32648ad124b7b30241a8e70b2e72c99f92d8e5874d1",
+      "file": "texts/508a77d2e7b51d98adeed32648ad124b7b30241a8e70b2e72c99f92d8e5874d1.txt",
+      "verification": "Complete upstream file, unchanged bytes, from the same commit recorded in the locked published crate. Git blob SHA-1 independently matches the upstream commit tree.",
+      "evidence": {
+        "file": "ndk-context-0.1.1.provenance.json",
+        "sha256": "f4121a4e8ad17fa72305027aa4ed98fd70f51ae606b4d731902be4d3b2cf5cad"
+      }
+    },
+    {
+      "source": "https://raw.githubusercontent.com/rust-windowing/android-ndk-rs/10f2ba388fca20f7349996ebae26ccda7a6fda5c/LICENSE-APACHE",
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "file": "texts/c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4.txt",
+      "verification": "Complete upstream file, unchanged bytes, from the same commit recorded in the locked published crate. Git blob SHA-1 independently matches the upstream commit tree.",
+      "evidence": {
+        "file": "ndk-context-0.1.1.provenance.json",
+        "sha256": "f4121a4e8ad17fa72305027aa4ed98fd70f51ae606b4d731902be4d3b2cf5cad"
+      }
+    }
   ]
 }

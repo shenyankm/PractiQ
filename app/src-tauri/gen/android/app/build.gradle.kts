@@ -137,23 +137,10 @@ tasks.register("exportRuntimeNoticeInventory") {
                 require(component is org.gradle.api.artifacts.component.ProjectComponentIdentifier)
                 val dependencyProject = rootProject.project(component.projectPath)
                 val artifact = dependencyProject.layout.buildDirectory.file("outputs/aar/${dependencyProject.name}-debug.aar").get().asFile
-                val overrides = if (dependencyProject.name == "tauri-android") {
-                    val original = dependencyProject.file("src/main/java/app/tauri/plugin/PluginManager.kt")
-                    val replacement = rootProject.file("patches/tauri-2.11.5/app/tauri/plugin/LifecyclePluginManager.kt")
-                    val compiled = rootProject.file("build/generated/tauri-lifecycle-sources/app/tauri/plugin/LifecyclePluginManager.kt")
-                    val compiler = dependencyProject.tasks.named("compileDebugKotlin").get() as org.jetbrains.kotlin.gradle.tasks.KotlinCompile
-                    val sources = compiler.sources.files.map { it.canonicalFile }
-                    listOf(mapOf("originalFile" to original.absolutePath, "originalSha256" to digest(original),
-                        "replacementFile" to replacement.absolutePath, "replacementSha256" to digest(replacement),
-                        "compiledReplacementFile" to compiled.absolutePath, "compiledReplacementSha256" to digest(compiled),
-                        "originalCompiled" to sources.any { it.name == "PluginManager.kt" },
-                        "replacementCompiled" to sources.contains(compiled.canonicalFile)))
-                } else emptyList()
                 runtime + mapOf("group" to dependencyProject.group.toString(), "name" to dependencyProject.name,
                     "version" to dependencyProject.version.toString(), "classifier" to null, "extension" to "aar",
                     "project" to true, "projectDirectory" to dependencyProject.projectDir.absolutePath,
-                    "artifact" to artifact.absolutePath, "artifactSha256" to digest(artifact), "pom" to null, "pomSha256" to null,
-                    "sourceOverrides" to overrides)
+                    "artifact" to artifact.absolutePath, "artifactSha256" to digest(artifact), "pom" to null, "pomSha256" to null)
             }
         }
         val output = file(providers.gradleProperty("practiqNoticeOutput").get())

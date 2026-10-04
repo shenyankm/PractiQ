@@ -33,15 +33,25 @@ hashes and complete upstream license texts. Android preparation requires this
 inventory and rejects extra, missing or changed dependencies, unmatched POM
 identities and altered terms. Local Tauri Android libraries must come from the
 same Cargo-resolved crate directories and use those crates' complete terms.
-The repository carries a reviewed Tauri Activity recreation fix. Its original
-Cargo archive/VCS source, unchanged full license terms, original copyright header,
-functional condition change and PractiQ modification notice are recorded in
-`tauri-android-lifecycle.provenance.json`. The project override lock binds both
-source files and that proof. The runtime export must demonstrate that the actual
-Kotlin inputs exclude the original file and include the byte-identical generated
-replacement; preparation rejects missing or altered overrides. Combined notices
-retain this modification proof alongside the original complete Cargo terms.
+Tauri 2.12.1 supplies the upstream Activity lifecycle and system-result launcher
+management; Gradle compiles its original Cargo source without a local Kotlin
+replacement. The former Tauri 2.11.5 replacement under
+`app/src-tauri/gen/android/patches/` and
+`tauri-android-lifecycle.provenance.json` remain inactive historical source/license
+evidence. They are absent from the current build source selection and override
+lock, and their old inventory hashes are explicitly historical in
+`android-runtime.provenance.json`. Each current build still exports and verifies
+its exact resolved runtime inventory and local AAR identity.
 Maven SPDX declarations alone cannot pass the gate.
+
+Tauri 2.12.1 adds Jackson JSON-org 2.15.3 to this runtime. Its selected JAR and
+POM match the official Maven Central downloads; the notice lock retains the
+complete Apache 2.0 terms, both embedded notice files and its parent POM identity
+proof. The corresponding Cargo upgrade supplements `alloc-stdlib` 0.3.0,
+`ndk-context` 0.1.1 and `selectors` 0.38.0 with complete terms. Their pinned
+provenance records bind official crate checksums, packaged VCS commits and
+matching upstream manifests; `selectors` also retains its original MPL 2.0 source
+notice and the complete canonical terms from Mozilla.
 
 Jackson Core 2.15.3 shades FastDoubleParser. Its embedded `FastDoubleParser-NOTICE`
 identifies Werner Randelshofer's MIT code and a fixed upstream commit, while its

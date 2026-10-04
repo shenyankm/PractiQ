@@ -1,0 +1,47 @@
+{
+  "checkedAt": "2026-10-05",
+  "package": "alloc-stdlib",
+  "version": "0.3.0",
+  "crate": {
+    "source": "https://static.crates.io/crates/alloc-stdlib/alloc-stdlib-0.3.0.crate",
+    "sha256": "0b5c1865780388bfa186411ab5f247819487fc4864c6e9c3106611fa347586e1",
+    "verification": "Official published crate download matches the exact package/version checksum in app/src-tauri/Cargo.lock."
+  },
+  "publishedCargoTomlSha256": "bd73bb44d77b96ac83b93eed2e47d8c8cac86dc2df39602b67e783675ba01229",
+  "publishedRepository": "https://github.com/dropbox/rust-alloc-no-stdlib",
+  "declaredLicense": "BSD-3-Clause",
+  "selectedLicense": "BSD-3-Clause",
+  "cargoVcsInfo": {
+    "archivePath": "alloc-stdlib-0.3.0/.cargo_vcs_info.json",
+    "sha256": "2bfc044805e0e75273a7e4d06c9d72f4e029a6cb926e4645c382bde160ecfd95",
+    "contents": {
+      "git": {
+        "sha1": "0a81fd6928ea3b33c8cd484aa4575d50ffb98012"
+      },
+      "path_in_vcs": "alloc-stdlib"
+    }
+  },
+  "upstreamRepository": "https://github.com/dropbox/rust-alloc-no-stdlib",
+  "upstreamCommit": "0a81fd6928ea3b33c8cd484aa4575d50ffb98012",
+  "publishedSourceComparison": [
+    {
+      "archivePath": "Cargo.toml.orig",
+      "upstreamPath": "alloc-stdlib/Cargo.toml",
+      "source": "https://raw.githubusercontent.com/dropbox/rust-alloc-no-stdlib/0a81fd6928ea3b33c8cd484aa4575d50ffb98012/alloc-stdlib/Cargo.toml",
+      "archiveSha256": "13c6e8d5ec2e75ae6b66542498e049e1100e71ef25e29ccb9cb083b40d6279ea",
+      "upstreamSha256": "13c6e8d5ec2e75ae6b66542498e049e1100e71ef25e29ccb9cb083b40d6279ea",
+      "comparison": "identical bytes",
+      "sizeBytes": 697
+    }
+  ],
+  "license": {
+    "source": "https://raw.githubusercontent.com/dropbox/rust-alloc-no-stdlib/0a81fd6928ea3b33c8cd484aa4575d50ffb98012/LICENSE",
+    "path": "LICENSE",
+    "file": "texts/c0c56f26d9c051cac4d200c34c84e7ae9aaa853e01a982a1df08b09931e518ae.txt",
+    "sha256": "c0c56f26d9c051cac4d200c34c84e7ae9aaa853e01a982a1df08b09931e518ae",
+    "sizeBytes": 1483,
+    "license": "BSD-3-Clause",
+    "gitBlobSha1": "cd496ba72eb37e83a44958358d1f89a8a28cbc15",
+    "verification": "Complete upstream file, unchanged bytes, from the same commit recorded in the locked published crate. Git blob SHA-1 independently matches the upstream commit tree."
+  }
+}

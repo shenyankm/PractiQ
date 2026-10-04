@@ -1,0 +1,59 @@
+{
+  "checkedAt": "2026-10-05",
+  "package": "ndk-context",
+  "version": "0.1.1",
+  "crate": {
+    "source": "https://static.crates.io/crates/ndk-context/ndk-context-0.1.1.crate",
+    "sha256": "27b02d87554356db9e9a873add8782d4ea6e3e58ea071a9adb9a2e8ddb884a8b",
+    "verification": "Official published crate download matches the exact package/version checksum in app/src-tauri/Cargo.lock."
+  },
+  "publishedCargoTomlSha256": "caed75f8ae352e5f07b1cf5b34cfb1e47cc4d76485dbaf12fe6cd033075bc67a",
+  "publishedRepository": "https://github.com/rust-windowing/android-ndk-rs",
+  "declaredLicense": "MIT OR Apache-2.0",
+  "selectedLicense": "MIT",
+  "cargoVcsInfo": {
+    "archivePath": "ndk-context-0.1.1/.cargo_vcs_info.json",
+    "sha256": "63e46f6a74bfd27b6634c1ebffab676492f589a2bc12010a2ef50a0f11660844",
+    "contents": {
+      "git": {
+        "sha1": "10f2ba388fca20f7349996ebae26ccda7a6fda5c"
+      },
+      "path_in_vcs": "ndk-context"
+    }
+  },
+  "upstreamRepository": "https://github.com/rust-windowing/android-ndk-rs",
+  "upstreamCommit": "10f2ba388fca20f7349996ebae26ccda7a6fda5c",
+  "publishedSourceComparison": [
+    {
+      "archivePath": "Cargo.toml.orig",
+      "upstreamPath": "ndk-context/Cargo.toml",
+      "source": "https://raw.githubusercontent.com/rust-windowing/android-ndk-rs/10f2ba388fca20f7349996ebae26ccda7a6fda5c/ndk-context/Cargo.toml",
+      "archiveSha256": "762e72071e7cdb369e564ddb2e11b2e489ec80ddfbd422bba774fae5818cf5c7",
+      "upstreamSha256": "762e72071e7cdb369e564ddb2e11b2e489ec80ddfbd422bba774fae5818cf5c7",
+      "comparison": "identical bytes",
+      "sizeBytes": 409
+    }
+  ],
+  "license": {
+    "source": "https://raw.githubusercontent.com/rust-windowing/android-ndk-rs/10f2ba388fca20f7349996ebae26ccda7a6fda5c/LICENSE-MIT",
+    "path": "LICENSE-MIT",
+    "file": "texts/508a77d2e7b51d98adeed32648ad124b7b30241a8e70b2e72c99f92d8e5874d1.txt",
+    "sha256": "508a77d2e7b51d98adeed32648ad124b7b30241a8e70b2e72c99f92d8e5874d1",
+    "sizeBytes": 1036,
+    "license": "MIT",
+    "gitBlobSha1": "9cf106272ac3b56b0c4c80218e8fc10a664ca5f4",
+    "verification": "Complete upstream file, unchanged bytes, from the same commit recorded in the locked published crate. Git blob SHA-1 independently matches the upstream commit tree."
+  },
+  "additionalLicenses": [
+    {
+      "source": "https://raw.githubusercontent.com/rust-windowing/android-ndk-rs/10f2ba388fca20f7349996ebae26ccda7a6fda5c/LICENSE-APACHE",
+      "path": "LICENSE-APACHE",
+      "file": "texts/c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4.txt",
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "sizeBytes": 11357,
+      "license": "Apache-2.0",
+      "gitBlobSha1": "261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64",
+      "verification": "Complete upstream file, unchanged bytes, from the same commit recorded in the locked published crate. Git blob SHA-1 independently matches the upstream commit tree."
+    }
+  ]
+}
