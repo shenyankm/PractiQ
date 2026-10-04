@@ -114,3 +114,5 @@ manual checks separately. See [the September follow-up](docs/review-implementati
 Follow [SECURITY.md](SECURITY.md) for supported development versions, private reporting and the dependency-update process. Do not include credentials, personal data or exploit details in public issues.
 
 New contributors can start with the [bounded fixture tasks and handover checklist](docs/contributor-handover.md). Roles remain opt-in; no repository or secret access is granted by a task listing.
+
+For opt-in feedback collection and sanitized result reporting, follow the [desktop trial protocol](docs/desktop-user-trial.md). Recruitment and participation remain separately authorized.
