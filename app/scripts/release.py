@@ -12,6 +12,7 @@ import sys
 import tempfile
 import zipfile
 from contextlib import contextmanager
+from itertools import pairwise
 from pathlib import Path, PureWindowsPath
 from urllib.parse import urlsplit
 
@@ -88,6 +89,20 @@ def normalized_digest(value: object) -> str:
     return value.lower()
 
 
+def check_original_candidate(candidate: dict) -> None:
+    if "restagedFinalBytes" in candidate or candidate.get("signing") != "unsigned":
+        raise ValueError("Build provenance requires the original unsigned CI candidate")
+
+def external_signing_status(report: dict, artifact_sha: str) -> str:
+    """Bind a declared outcome; this does not verify signatures or publisher identity."""
+    if normalized_digest(report.get("artifactSha256")) != artifact_sha:
+        raise ValueError("Signing report must identify the exact final installer SHA-256")
+    status = report.get("status")
+    if not isinstance(status, str) or status not in ("verified", "unsigned", "failed"):
+        raise ValueError("External signing status must be verified, unsigned or failed")
+    return "externally_reported_" + status
+
+
 def public_report(value, roots):
     """Keep raw reports private; replace machine paths in the public JSON copy."""
     if isinstance(value, dict):
@@ -107,6 +122,7 @@ def original_build(root: Path, tag: str, source_sha: str, path: Path) -> dict:
     """Bind downloaded original build assets/evidence; external provenance still needs review."""
     raw = path.read_bytes()
     candidate = json.loads(raw)
+    check_original_candidate(candidate)
     os_name, arch, _, suffix = PLATFORMS[sys.platform]
     components = versions(root, tag)
     if (candidate.get("packageSchemaVersion"), candidate.get("packageMode")) != (SCHEMA_VERSION, PACKAGE_MODE):
@@ -125,6 +141,9 @@ def original_build(root: Path, tag: str, source_sha: str, path: Path) -> dict:
             or not re.fullmatch(r"/[^/]+/[^/]+/actions/runs/[1-9][0-9]*", run.path)):
         raise ValueError("Original build candidate must retain its immutable build-run URL")
     evidence = candidate.get("evidence", {})
+    evidence_root = path.parent / "evidence"
+    if not evidence_root.resolve().is_relative_to(path.parent.resolve()):
+        raise ValueError("Original build evidence directory escaped the downloaded candidate")
     for relative, digest in evidence.items():
         item = path.parent / relative
         if not item.resolve().is_relative_to((path.parent / "evidence").resolve()) or checksum(item) != normalized_digest(digest):
@@ -149,6 +168,7 @@ def stage(root: Path, tag: str, bundle: Path, installer: Path, output: Path, *,
           signing_report: Path | None = None, build_candidate: dict | None = None,
           desktop_version: str | None = None) -> None:
     components = versions(root, tag)
+    signing = "unverified" if restaged else "unsigned"
     os_name, arch, _, suffix = PLATFORMS[sys.platform]
     manifest = read_json(bundle / "build-manifest.json")
     check_build(manifest, sys.platform, components)
@@ -179,8 +199,7 @@ def stage(root: Path, tag: str, bundle: Path, installer: Path, output: Path, *,
     if restaged:
         if signing_report:
             shutil.copyfile(signing_report, reports / "signing-report.json")
-            if normalized_digest(read_json(reports / "signing-report.json").get("artifactSha256")) != installer_sha:
-                raise ValueError("Signing report must identify the exact final installer SHA-256")
+            signing = external_signing_status(read_json(reports / "signing-report.json"), installer_sha)
         (reports / "build-candidate.json").write_text(json.dumps(build_candidate, indent=2) + "\n", encoding="utf-8")
     output.mkdir(parents=True, exist_ok=False)
     name = f"PractiQ_{components['desktop']}_{os_name}_{arch}{suffix}"
@@ -200,7 +219,7 @@ def stage(root: Path, tag: str, bundle: Path, installer: Path, output: Path, *,
         "componentScope": "Desktop application; aiServiceSource is independent source version, not deployed in these assets",
         "tag": tag, "commit": git(root, "rev-parse", "HEAD"), "components": components,
         "os": os_name, "architecture": arch, "file": name, "sha256": checksum(output / name),
-        "sizeBytes": (output / name).stat().st_size, "signing": "unverified" if restaged else "unsigned",
+        "sizeBytes": (output / name).stat().st_size, "signing": signing,
         "cleanMachineAcceptance": "pending", "liveModelAcceptance": "pending",
         "buildRun": build_candidate["candidate"]["buildRun"] if restaged else f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}",
         "evidence": {p.relative_to(output).as_posix(): checksum(p) for p in sorted(evidence.rglob("*")) if p.is_file()},
@@ -335,12 +354,107 @@ def final_bundle(installer: Path, seven_zip: Path | None = None, application_nam
             yield contained_bundle(extracted, extracted / "usr/lib/PractiQ/bundled")
 
 
+def check_windows_architecture(executable: Path) -> None:
+    """Inspect bounded PE headers; do not execute or infer architecture from a label."""
+    size = executable.stat().st_size
+    with executable.open("rb") as stream:
+        dos = stream.read(64)
+        if len(dos) != 64 or dos[:2] != b"MZ":
+            raise ValueError("Final Windows desktop executable requires a valid PE header")
+        offset = int.from_bytes(dos[60:64], "little")
+        if not 64 <= offset <= size - 26:
+            raise ValueError("Final Windows PE header is outside the executable")
+        stream.seek(offset)
+        header = stream.read(26)
+        optional_size = int.from_bytes(header[20:22], "little")
+        if header[:4] != b"PE\0\0" or optional_size < 2 or offset + 24 + optional_size > size:
+            raise ValueError("Final Windows desktop executable requires complete PE headers")
+        if int.from_bytes(header[4:6], "little") != 0x8664 or int.from_bytes(header[24:26], "little") != 0x20B:
+            raise ValueError("Final Windows desktop executable must be x64 PE32+")
+
+def macho_architecture(stream, offset: int, size: int) -> tuple[int, int]:
+    stream.seek(offset)
+    header = stream.read(min(size, 32))
+    formats = {b"\xcf\xfa\xed\xfe": ("little", 32), b"\xfe\xed\xfa\xcf": ("big", 32),
+               b"\xce\xfa\xed\xfe": ("little", 28), b"\xfe\xed\xfa\xce": ("big", 28)}
+    if header[:4] not in formats:
+        raise ValueError("Final macOS executable requires a Mach-O header")
+    order, header_size = formats[header[:4]]
+    if len(header) < header_size:
+        raise ValueError("Final macOS Mach-O header is truncated")
+    cpu, subtype, filetype, count, commands_size = [int.from_bytes(header[n:n + 4], order) for n in range(4, 24, 4)]
+    if (filetype != 2 or bool(cpu & 0x1000000) != (header_size == 32) or
+            commands_size > size - header_size or count * 8 > commands_size or
+            commands_size % (8 if header_size == 32 else 4) or (cpu == 0x100000C and order != "little")):
+        raise ValueError("Final macOS Mach-O executable has invalid or unbounded headers")
+    return cpu, subtype
+
+def check_macos_architecture(executable: Path) -> None:
+    """Require a real arm64 member, not merely a universal container's CPU label."""
+    size = executable.stat().st_size
+    with executable.open("rb") as stream:
+        header = stream.read(8)
+        formats = {b"\xca\xfe\xba\xbe": ("big", 20), b"\xbe\xba\xfe\xca": ("little", 20),
+                   b"\xca\xfe\xba\xbf": ("big", 32), b"\xbf\xba\xfe\xca": ("little", 32)}
+        if header[:4] not in formats:
+            architectures = {macho_architecture(stream, 0, size)}
+        else:
+            order, width = formats[header[:4]]
+            count = int.from_bytes(header[4:8], order)
+            table_end = 8 + count * width
+            # Universal binaries have few members; bound work even for hostile counts.
+            if len(header) != 8 or not 1 <= count <= 64 or table_end > size:
+                raise ValueError("Final macOS Mach-O universal table is invalid or truncated")
+            table = stream.read(count * width)
+            if len(table) != count * width:
+                raise ValueError("Final macOS Mach-O universal table is truncated")
+            architectures, ranges = set(), []
+            for index in range(count):
+                entry = table[index * width:(index + 1) * width]
+                cpu, subtype = int.from_bytes(entry[:4], order), int.from_bytes(entry[4:8], order)
+                field = 8 if width == 32 else 4
+                offset, length = int.from_bytes(entry[8:8 + field], order), int.from_bytes(entry[8 + field:8 + field * 2], order)
+                alignment = int.from_bytes(entry[8 + field * 2:12 + field * 2], order)
+                if ((cpu, subtype) in architectures or offset < table_end or length < 28 or offset + length > size or
+                        alignment > 63 or offset % (1 << alignment) or (width == 32 and int.from_bytes(entry[28:32], order))):
+                    raise ValueError("Final macOS Mach-O universal members are duplicated or out of bounds")
+                if macho_architecture(stream, offset, length) != (cpu, subtype):
+                    raise ValueError("Final macOS Mach-O member differs from its universal CPU label")
+                architectures.add((cpu, subtype))
+                ranges.append((offset, offset + length))
+            ranges.sort()
+            if any(current[0] < prior[1] for prior, current in pairwise(ranges)):
+                raise ValueError("Final macOS Mach-O universal members overlap")
+        if not any(cpu == 0x100000C for cpu, _ in architectures):
+            raise ValueError("Final macOS Mach-O executable requires an arm64 slice")
+
+def check_linux_architecture(executable: Path) -> None:
+    """Check the native ELF identity independently of the DEB control metadata."""
+    with executable.open("rb") as stream:
+        header = stream.read(64)
+    if (len(header) != 64 or header[:7] != b"\x7fELF\x02\x01\x01" or
+            int.from_bytes(header[16:18], "little") not in (2, 3) or
+            int.from_bytes(header[18:20], "little") != 62 or
+            int.from_bytes(header[20:24], "little") != 1 or int.from_bytes(header[52:54], "little") != 64):
+        raise ValueError("Final Linux executable must be a complete ELF64 little-endian x86-64 executable or PIE")
+    size = executable.stat().st_size
+    for start, width, count in ((32, 54, 56), (40, 58, 60)):
+        offset, entry_size, entries = (int.from_bytes(header[start:start + 8], "little"),
+                                       int.from_bytes(header[width:width + 2], "little"),
+                                       int.from_bytes(header[count:count + 2], "little"))
+        expected = 56 if start == 32 else 64
+        if (start == 32 and not entries) or (entries and (entry_size != expected or offset < 64 or offset + entry_size * entries > size)):
+            raise ValueError("Final Linux ELF tables are missing or outside the executable")
+
+
 def check_desktop_version(installer: Path, bundle: Path, expected: str, application_name: str) -> str:
     application = native_application(bundle, application_name)
     if sys.platform == "darwin":
+        check_macos_architecture(application)
         info = bundle.parents[1] / "Info.plist"
         actual = plistlib.loads(info.read_bytes()).get("CFBundleShortVersionString")
     elif sys.platform == "win32":
+        check_windows_architecture(application)
         for executable in (installer, application):
             environment = os.environ | {"PRACTIQ_RELEASE_VERSION_FILE": str(executable)}
             actual = subprocess.check_output(["powershell", "-NoProfile", "-NonInteractive", "-Command",
@@ -349,6 +463,7 @@ def check_desktop_version(installer: Path, bundle: Path, expected: str, applicat
             if actual != expected:
                 raise ValueError("Final installer desktop version does not match the candidate")
     else:
+        check_linux_architecture(application)
         actual = subprocess.check_output(["dpkg-deb", "-f", str(installer), "Version"], text=True).strip()
     if actual != expected:
         raise ValueError("Final installer desktop version does not match the candidate")
@@ -441,13 +556,19 @@ def assemble(root: Path, tag: str, inputs: Path, output: Path) -> None:
             raise ValueError("Missing final embedded-notice comparison")
         if candidate.get("restagedFinalBytes"):
             report = candidate.get("signingReport")
-            if report and (report != "evidence/signing-report.json" or report not in candidate["evidence"] or normalized_digest(read_json(folder / report).get("artifactSha256")) != candidate["sha256"]):
-                raise ValueError("Signing evidence must identify the final asset SHA-256")
+            signing = "unverified"
+            if report:
+                if report != "evidence/signing-report.json" or report not in candidate["evidence"]:
+                    raise ValueError("Signing evidence must identify the final asset SHA-256")
+                signing = external_signing_status(read_json(folder / report), candidate["sha256"])
+            if candidate.get("signing") != signing:
+                raise ValueError("Final signing status differs from its bound external report")
             original = candidate.get("originalBuildCandidate")
             if original != "evidence/build-candidate.json" or original not in candidate["evidence"]:
                 raise ValueError("Missing original build identity")
             build = read_json(folder / original)
             prior = build.get("candidate", {})
+            check_original_candidate(prior)
             normalized_digest(build.get("candidateSha256"))
             if (build.get("assetAndEvidenceVerified") is not True or
                     normalized_digest(build.get("verifiedCandidateSha256")) != hashlib.sha256(json.dumps(prior, sort_keys=True, separators=(",", ":")).encode()).hexdigest() or

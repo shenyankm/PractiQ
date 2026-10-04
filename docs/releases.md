@@ -89,7 +89,9 @@ byte. Windows extraction uses full 7-Zip; CI does not execute the installer. Any
 diagnostics remain in Actions. Prerelease status never bypasses these gates.
 
 Assembly rejects missing platforms, mismatched commits/versions, altered
-installers or missing/failed package evidence. It bundles service reports,
+installers or missing/failed package evidence. It rechecks copied installers and
+archived candidate, package and service evidence before handing off public
+assets, so an input changed during assembly fails. It bundles service reports,
 generates checksums, and fills [the release template](../.github/RELEASE_TEMPLATE.md).
 The template is project-owned; GitHub does not load this filename automatically.
 The workflow verifies the remote tag again, creates only a draft and never
@@ -131,14 +133,31 @@ Do not reuse an unsigned candidate's checksums or acceptance labels.
 Use the [explicit final-installer staging commands](final-package-acceptance.md#review-and-publication-handoff)
 to derive checked resources from the selected final file and rebuild local
 assets. Default `release.py stage` remains the unsigned CI path. Explicit
-staging requires the original CI platform candidate, installer and bound
+staging requires the original unsigned CI platform candidate, installer and bound
 evidence, preserves its build URL, and checks the selected installer's actual
-desktop version. Windows payload extraction requires installed full 7-Zip;
+desktop version. Previously restaged candidates cannot replace that original
+build provenance. Actual application headers must identify an executable Mach-O
+arm64 slice on macOS, x64 PE32+ on Windows, or ELF64 little-endian x86-64 executable
+or PIE on Linux. Universal Mach-O table entries must match their actual member
+headers and have bounded, distinct ranges. DEBs must declare amd64 and mandatory
+GTK/WebKit plus every runtime dependency in the candidate's Tauri configuration;
+version bounds and :amd64/:any qualifiers are accepted, but alternatives do not
+satisfy required libraries. Resource directories and relative links remain
+contained in that selected payload. Native files are nonempty regular files
+with real contained parents, and macOS Info.plist names that actual executable.
+Bounded header checks do not prove startup, full loadability, signing or platform
+compatibility. Windows payload extraction requires installed full 7-Zip;
 it does not execute NSIS or count as installation acceptance. Raw local reports
 remain private; the public evidence copy replaces machine paths before hashing.
 Staging does not attest Actions provenance or verify signing. Archive actual
-signing results bound to the final SHA-256 and review the original download's
-build provenance before recording verified status in the release template.
+signing results with artifactSha256 bound to the final SHA-256 and status of
+verified, unsigned or failed. Candidate and manifest preserve these declarations
+as externally_reported_verified, externally_reported_unsigned or
+externally_reported_failed. Without a report, final staging records unverified;
+assembly rejects a status that differs from its bound report. These fields do
+not attest cryptographic verification. Review the original build download's
+provenance, actual verification commands, publisher and results independently
+before recording verified status in the release template.
 
 For each public platform record OS version, architecture, date and results for
 clean installation, upgrade/uninstall, native dialogs, credentials, audio,
