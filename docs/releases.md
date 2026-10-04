@@ -139,7 +139,14 @@ remain within that package. Relative runtime links may resolve within the bundle
 absolute, external and dangling links are rejected. The macOS version plist must
 be a regular file and identify the candidate's executable in `Contents/MacOS`.
 Both that executable and the DEB's `usr/bin` desktop executable must be nonempty
-regular files with real parent directories inside the selected payload. These
+regular files with real parent directories inside the selected payload. macOS
+requires an actual arm64 Mach-O executable header, either thin or in a universal
+container. Universal tables are bounded to 64 members; slice ranges, alignment,
+duplicate CPU/subtype pairs and agreement with each slice's actual header are
+checked before accepting the arm64 member. Linux requires ELF64 little-endian
+x86-64 headers for an executable or PIE, with contained program/section tables.
+These architecture checks inspect bounded headers; they do not attest signatures
+or replace launching the installed desktop during clean-machine acceptance. These
 checks do not start the application. Windows payload extraction requires installed full 7-Zip;
 it does not execute NSIS or count as installation acceptance. Raw local reports
 remain private; the public evidence copy replaces machine paths before hashing.

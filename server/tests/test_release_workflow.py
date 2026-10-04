@@ -6,6 +6,7 @@ import os
 import plistlib
 import runpy
 import shutil
+import struct
 import subprocess
 import sys
 import zipfile
@@ -29,6 +30,33 @@ def native_pe(machine=0x8664, magic=0x20B):
     payload[132:134] = machine.to_bytes(2, "little")
     payload[148:150] = (240).to_bytes(2, "little")
     payload[152:154] = magic.to_bytes(2, "little")
+    return bytes(payload)
+
+
+def native_macho(cpu=0x100000C, subtype=0, filetype=2):
+    return struct.pack("<IIIIIIIIII", 0xFEEDFACF, cpu, subtype, filetype, 1, 8, 0, 0, 0x80000028, 8)
+
+
+def native_fat(slices, wide=False, byteorder="big"):
+    order = ">" if byteorder == "big" else "<"
+    entry_size = 32 if wide else 20
+    payload = bytearray(struct.pack(order + "II", 0xCAFEBABF if wide else 0xCAFEBABE, len(slices)))
+    payload.extend(b"\0" * (entry_size * len(slices)))
+    for index, (cpu, subtype, data) in enumerate(slices):
+        offset = (len(payload) + 63) // 64 * 64
+        payload.extend(b"\0" * (offset - len(payload)))
+        entry = struct.pack(order + ("IIQQII" if wide else "IIIII"), cpu, subtype, offset, len(data), 6, *([0] if wide else []))
+        payload[8 + index * entry_size:8 + (index + 1) * entry_size] = entry
+        payload.extend(data)
+    return bytes(payload)
+
+
+def native_elf(machine=62, filetype=3):
+    payload = bytearray(120)
+    payload[:7] = b"\x7fELF\x02\x01\x01"
+    payload[16:24] = struct.pack("<HHI", filetype, machine, 1)
+    payload[32:40] = (64).to_bytes(8, "little")
+    payload[52:58] = struct.pack("<HHH", 64, 56, 1)
     return bytes(payload)
 
 
@@ -326,7 +354,16 @@ def final_setup(release, source, monkeypatch):
             if platform != "win32":
                 assert application is not None
                 application.parent.mkdir(parents=True)
-                application.write_bytes(b"synthetic native desktop application")
+                payload = native_macho() if platform == "darwin" else native_elf()
+                if fault == "native_wrong_arch":
+                    payload = native_macho(0x1000007) if platform == "darwin" else native_elf(183)
+                elif fault == "native_script":
+                    payload = b"#!/bin/sh\nexit 0\n"
+                elif fault == "native_truncated":
+                    payload = payload[:24]
+                elif fault == "native_not_executable":
+                    payload = native_macho(filetype=6) if platform == "darwin" else native_elf(filetype=1)
+                application.write_bytes(state.get("native_payload", payload))
                 if fault == "native_missing":
                     application.unlink()
                 elif fault == "native_empty":
@@ -598,6 +635,101 @@ def test_final_windows_rejects_wrong_native_architecture_before_bundle_gates(rel
     assert not output.exists() and not reports.exists() and not state["calls"]
 
 
+@pytest.mark.parametrize("platform", ["darwin", "linux"])
+@pytest.mark.parametrize("fault", ["native_wrong_arch", "native_script", "native_truncated", "native_not_executable"])
+def test_final_native_rejects_wrong_or_unusable_architecture_before_bundle_gates(release, source, final_setup, platform, fault):
+    installer, output, reports, state = final_setup(platform, fault)
+    with pytest.raises(ValueError, match="Mach-O|ELF"):
+        release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=state["build_candidate"])
+    assert not output.exists() and not reports.exists() and not state["calls"]
+    if platform == "darwin":
+        assert state["mounted"] == ["detached"]
+
+
+@pytest.mark.parametrize("wide", [False, True])
+@pytest.mark.parametrize("byteorder", ["big", "little"])
+def test_final_macos_accepts_bounded_universal_executable_with_actual_arm64_slice(release, source, final_setup, wide, byteorder):
+    installer, output, reports, state = final_setup()
+    state["native_payload"] = native_fat([(0x1000007, 3, native_macho(0x1000007, 3)), (0x100000C, 0, native_macho())], wide, byteorder)
+    release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=state["build_candidate"])
+    assert output.exists() and len(state["calls"]) == 4
+
+
+@pytest.mark.parametrize("damage", ["no_arm64", "cpu_mismatch", "subtype_mismatch", "duplicate", "overlap", "outside", "table_offset", "zero_count", "huge_count", "truncated_table", "invalid_slice", "short_slice", "alignment", "commands"])
+def test_final_macos_rejects_fat_table_spoofs_and_unbounded_slices(release, source, final_setup, damage):
+    installer, output, reports, state = final_setup()
+    slices = [(0x1000007, 3, native_macho(0x1000007, 3)), (0x100000C, 0, native_macho())]
+    if damage == "no_arm64":
+        slices = slices[:1]
+    elif damage == "cpu_mismatch":
+        slices[1] = (0x100000C, 0, native_macho(0x1000007))
+    elif damage == "subtype_mismatch":
+        slices[1] = (0x100000C, 0, native_macho(subtype=2))
+    elif damage == "duplicate":
+        slices = [slices[1], slices[1]]
+    elif damage == "invalid_slice":
+        slices[1] = (0x100000C, 0, b"not a Mach-O native executable" * 2)
+    elif damage == "commands":
+        data = bytearray(native_macho())
+        data[20:24] = (0xFFFFFFFF).to_bytes(4, "little")
+        slices[1] = (0x100000C, 0, bytes(data))
+    payload = bytearray(native_fat(slices))
+    if damage == "overlap":
+        payload[36:40] = payload[16:20]
+    elif damage == "outside":
+        payload[36:40] = (len(payload) + 1).to_bytes(4, "big")
+    elif damage == "table_offset":
+        payload[36:40] = (0).to_bytes(4, "big")
+    elif damage == "zero_count":
+        payload[4:8] = b"\0" * 4
+    elif damage == "huge_count":
+        payload[4:8] = (0xFFFFFFFF).to_bytes(4, "big")
+    elif damage == "truncated_table":
+        del payload[35:]
+    elif damage == "short_slice":
+        payload[40:44] = (16).to_bytes(4, "big")
+    elif damage == "alignment":
+        payload[44:48] = (63).to_bytes(4, "big")
+    state["native_payload"] = payload
+    with pytest.raises(ValueError, match="Mach-O|arm64"):
+        release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=state["build_candidate"])
+    assert not output.exists() and not reports.exists() and not state["calls"]
+    assert state["mounted"] == ["detached"]
+
+
+@pytest.mark.parametrize("damage", ["class32", "big_endian", "ident_version", "header_version", "header_size", "program_bounds", "section_bounds"])
+def test_final_linux_rejects_malformed_x64_elf_headers(release, source, final_setup, damage):
+    installer, output, reports, state = final_setup("linux")
+    payload = bytearray(native_elf())
+    if damage == "class32":
+        payload[4] = 1
+    elif damage == "big_endian":
+        payload[5] = 2
+    elif damage == "ident_version":
+        payload[6] = 0
+    elif damage == "header_version":
+        payload[20:24] = b"\0" * 4
+    elif damage == "header_size":
+        payload[52:54] = (32).to_bytes(2, "little")
+    elif damage == "program_bounds":
+        payload[32:40] = (len(payload)).to_bytes(8, "little")
+    else:
+        payload[40:48] = (len(payload)).to_bytes(8, "little")
+        payload[58:62] = struct.pack("<HH", 64, 1)
+    state["native_payload"] = payload
+    with pytest.raises(ValueError, match="ELF"):
+        release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=state["build_candidate"])
+    assert not output.exists() and not reports.exists() and not state["calls"]
+
+
+@pytest.mark.parametrize("filetype", [2, 3])
+def test_final_linux_accepts_elf64_x86_64_executable_and_pie_headers(release, source, final_setup, filetype):
+    installer, output, reports, state = final_setup("linux")
+    state["native_payload"] = native_elf(filetype=filetype)
+    release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=state["build_candidate"])
+    assert output.exists() and len(state["calls"]) == 4
+
+
 @pytest.mark.parametrize("damage", ["empty", "dos", "offset", "signature", "optional_length", "optional_truncated"])
 def test_final_windows_rejects_malformed_native_pe(release, source, final_setup, damage):
     installer, _, _, _ = final_setup("win32")
@@ -776,13 +908,13 @@ def test_final_native_version_preserves_prerelease_identity(release, source, fin
         (bundle.parents[1] / "Info.plist").write_bytes(plistlib.dumps({"CFBundleShortVersionString": expected, "CFBundleExecutable": "PractiQ"}))
         application = bundle.parents[1] / "MacOS/PractiQ"
         application.parent.mkdir()
-        application.write_bytes(b"synthetic native desktop application")
+        application.write_bytes(native_macho())
     elif platform == "win32":
         (bundle.parent / "PractiQ.exe").write_bytes(native_pe())
     else:
         application = bundle.parents[3] / "usr/bin/PractiQ"
         application.parent.mkdir()
-        application.write_bytes(b"synthetic native desktop application")
+        application.write_bytes(native_elf())
     def metadata(command, **kwargs):
         return ({"Architecture": "amd64", "Depends": ", ".join(LINUX_DEPENDENCIES)}.get(command[-1], expected)) + "\n"
     monkeypatch.setattr(subprocess, "check_output", metadata)

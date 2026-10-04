@@ -13,6 +13,7 @@ import tempfile
 import tomllib
 import zipfile
 from contextlib import contextmanager
+from itertools import pairwise
 from pathlib import Path, PureWindowsPath
 from urllib.parse import urlsplit
 
@@ -335,7 +336,9 @@ def check_desktop_version(installer: Path, bundle: Path, expected: str, applicat
         metadata = plistlib.loads(plist.read_bytes())
         if metadata.get("CFBundleExecutable") != application_name:
             raise ValueError("Final desktop executable identity does not match the candidate")
-        check_native_executable(bundle.parents[2], bundle.parents[1] / "MacOS" / application_name)
+        application = bundle.parents[1] / "MacOS" / application_name
+        check_native_executable(bundle.parents[2], application)
+        check_macos_architecture(application)
         actual = metadata.get("CFBundleShortVersionString")
     elif sys.platform == "win32":
         application = bundle.parent / (application_name + ".exe")
@@ -349,7 +352,9 @@ def check_desktop_version(installer: Path, bundle: Path, expected: str, applicat
             if actual != expected:
                 raise ValueError("Final installer desktop version does not match the candidate")
     else:
-        check_native_executable(bundle.parents[3], bundle.parents[3] / "usr/bin" / application_name)
+        application = bundle.parents[3] / "usr/bin" / application_name
+        check_native_executable(bundle.parents[3], application)
+        check_linux_architecture(application)
         actual = subprocess.check_output(["dpkg-deb", "-f", str(installer), "Version"], text=True).strip()
     if actual != expected:
         raise ValueError("Final installer desktop version does not match the candidate")
@@ -373,6 +378,83 @@ def check_windows_architecture(executable: Path) -> None:
             raise ValueError("Final Windows desktop executable requires complete PE headers")
         if int.from_bytes(header[4:6], "little") != 0x8664 or int.from_bytes(header[24:26], "little") != 0x20B:
             raise ValueError("Final Windows desktop executable must be x64 PE32+")
+
+
+def macho_architecture(stream, offset: int, size: int) -> tuple[int, int]:
+    stream.seek(offset)
+    header = stream.read(min(size, 32))
+    formats = {b"\xcf\xfa\xed\xfe": ("little", 32), b"\xfe\xed\xfa\xcf": ("big", 32),
+               b"\xce\xfa\xed\xfe": ("little", 28), b"\xfe\xed\xfa\xce": ("big", 28)}
+    if header[:4] not in formats:
+        raise ValueError("Final macOS executable requires a Mach-O header")
+    order, header_size = formats[header[:4]]
+    if len(header) < header_size:
+        raise ValueError("Final macOS Mach-O header is truncated")
+    cpu, subtype, filetype, count, commands_size = [int.from_bytes(header[n:n + 4], order) for n in range(4, 24, 4)]
+    if (filetype != 2 or bool(cpu & 0x1000000) != (header_size == 32) or
+            commands_size > size - header_size or count * 8 > commands_size or
+            commands_size % (8 if header_size == 32 else 4) or (cpu == 0x100000C and order != "little")):
+        raise ValueError("Final macOS Mach-O executable has invalid or unbounded headers")
+    return cpu, subtype
+
+
+def check_macos_architecture(executable: Path) -> None:
+    """Require a real arm64 member, not merely a universal container's CPU label."""
+    size = executable.stat().st_size
+    with executable.open("rb") as stream:
+        header = stream.read(8)
+        formats = {b"\xca\xfe\xba\xbe": ("big", 20), b"\xbe\xba\xfe\xca": ("little", 20),
+                   b"\xca\xfe\xba\xbf": ("big", 32), b"\xbf\xba\xfe\xca": ("little", 32)}
+        if header[:4] not in formats:
+            architectures = {macho_architecture(stream, 0, size)}
+        else:
+            order, width = formats[header[:4]]
+            count = int.from_bytes(header[4:8], order)
+            table_end = 8 + count * width
+            # Universal binaries have few members; bound work even for hostile counts.
+            if len(header) != 8 or not 1 <= count <= 64 or table_end > size:
+                raise ValueError("Final macOS Mach-O universal table is invalid or truncated")
+            table = stream.read(count * width)
+            if len(table) != count * width:
+                raise ValueError("Final macOS Mach-O universal table is truncated")
+            architectures, ranges = set(), []
+            for index in range(count):
+                entry = table[index * width:(index + 1) * width]
+                cpu, subtype = int.from_bytes(entry[:4], order), int.from_bytes(entry[4:8], order)
+                field = 8 if width == 32 else 4
+                offset, length = int.from_bytes(entry[8:8 + field], order), int.from_bytes(entry[8 + field:8 + field * 2], order)
+                alignment = int.from_bytes(entry[8 + field * 2:12 + field * 2], order)
+                if ((cpu, subtype) in architectures or offset < table_end or length < 28 or offset + length > size or
+                        alignment > 63 or offset % (1 << alignment) or (width == 32 and int.from_bytes(entry[28:32], order))):
+                    raise ValueError("Final macOS Mach-O universal members are duplicated or out of bounds")
+                if macho_architecture(stream, offset, length) != (cpu, subtype):
+                    raise ValueError("Final macOS Mach-O member differs from its universal CPU label")
+                architectures.add((cpu, subtype))
+                ranges.append((offset, offset + length))
+            ranges.sort()
+            if any(current[0] < prior[1] for prior, current in pairwise(ranges)):
+                raise ValueError("Final macOS Mach-O universal members overlap")
+        if not any(cpu == 0x100000C for cpu, _ in architectures):
+            raise ValueError("Final macOS Mach-O executable requires an arm64 slice")
+
+
+def check_linux_architecture(executable: Path) -> None:
+    """Check the native ELF identity independently of the DEB control metadata."""
+    with executable.open("rb") as stream:
+        header = stream.read(64)
+    if (len(header) != 64 or header[:7] != b"\x7fELF\x02\x01\x01" or
+            int.from_bytes(header[16:18], "little") not in (2, 3) or
+            int.from_bytes(header[18:20], "little") != 62 or
+            int.from_bytes(header[20:24], "little") != 1 or int.from_bytes(header[52:54], "little") != 64):
+        raise ValueError("Final Linux executable must be a complete ELF64 little-endian x86-64 executable or PIE")
+    size = executable.stat().st_size
+    for start, width, count in ((32, 54, 56), (40, 58, 60)):
+        offset, entry_size, entries = (int.from_bytes(header[start:start + 8], "little"),
+                                       int.from_bytes(header[width:width + 2], "little"),
+                                       int.from_bytes(header[count:count + 2], "little"))
+        expected = 56 if start == 32 else 64
+        if (start == 32 and not entries) or (entries and (entry_size != expected or offset < 64 or offset + entry_size * entries > size)):
+            raise ValueError("Final Linux ELF tables are missing or outside the executable")
 
 
 def check_native_executable(payload: Path, executable: Path) -> None:
