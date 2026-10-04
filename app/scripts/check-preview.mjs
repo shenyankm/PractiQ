@@ -224,6 +224,48 @@ test('listening URL drafts survive every implicit dismissal without triggering d
  expect(remoteRequests).toEqual([]);
 });
 
+test('applied listening URLs become guarded when their audio is removed or replaced',async ({page})=>{
+ const remoteRequests=[];
+ page.on('request',request=>{if(request.url().startsWith('https://example.com/'))remoteRequests.push(request.url());});
+ await page.goto('/');
+ const bank=page.locator('[data-slot=card]').filter({has:page.getByText('英语专项 · 听力与写作',{exact:true})});
+ await bank.getByRole('button',{name:'查看题目',exact:true}).click();
+ const editor=page.getByRole('dialog',{name:'编辑题目',exact:true});
+ const input=editor.getByRole('textbox',{name:'听力资源网址',exact:true});
+ const save=editor.getByRole('button',{name:'保存题目',exact:true});
+ const confirmation=page.getByRole('alertdialog',{name:'放弃未保存的更改？',exact:true});
+ for(const action of ['remove','mode','file']){
+  await page.getByRole('button',{name:/Listening — chimes$/}).locator('..').getByRole('button',{name:'编辑题目',exact:true}).click();
+  const url=`https://example.com/${action}.wav`;
+  await input.fill(url);
+  await editor.getByRole('button',{name:'从网址获取音频',exact:true}).click();
+  await expect(save).toBeEnabled();
+  if(action==='remove')await editor.getByRole('button',{name:'移除音频',exact:true}).click();
+  else if(action==='mode'){
+   await editor.getByRole('combobox',{name:'答题方式',exact:true}).selectOption('short_answer');
+   await editor.getByRole('combobox',{name:'答题方式',exact:true}).selectOption('listening');
+  }else await editor.getByRole('button',{name:'选择听力音频',exact:true}).click();
+  await expect(save).toBeDisabled();
+  await expect(input).toHaveValue(url);
+  await expect(editor.getByRole('status').filter({hasText:'网址尚未应用'})).toBeVisible();
+  for(const dismiss of ['Escape','close','outside']){
+   await input.focus();
+   if(dismiss==='Escape')await page.keyboard.press('Escape');
+   else if(dismiss==='close')await editor.getByRole('button',{name:'关闭',exact:true}).click();
+   else await page.mouse.click(8,8);
+   await expect(confirmation).toBeVisible();
+   await confirmation.getByRole('button',{name:'继续编辑',exact:true}).click();
+   await expect(input).toHaveValue(url);
+   await expect(save).toBeDisabled();
+  }
+  await input.fill('');
+  await expect(save).toBeEnabled();
+  await editor.getByRole('button',{name:'放弃更改',exact:true}).click();
+  await expect(editor).toBeHidden();
+ }
+ expect(remoteRequests).toEqual([]);
+});
+
 test('child editors retain changed drafts and stage changes until the parent saves',async ({page})=>{
  await page.goto('/');
  const bank=page.locator('[data-slot=card]').filter({has:page.getByText('阅读与组合题',{exact:true})});

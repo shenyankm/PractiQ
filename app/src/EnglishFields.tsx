@@ -13,30 +13,31 @@ export function EnglishFields({question:q,patch,images=[],onPendingChange,onDraf
   mode.current=q.answerMode;
   const [error,setError]=useState<unknown>(null);
   const [url,setUrl]=useState("");
-  const [appliedUrl,setAppliedUrl]=useState("");
+  const [appliedUrl,setAppliedUrl]=useState<{url:string;sha256:string}|null>(null);
   const [links,setLinks]=useState<AudioLink[]>([]);
   const generation=useRef(0);
   const [picking,setPicking]=useState(false);
-  const urlDraft=q.answerMode==="listening" && url!=="" && url!==appliedUrl;
+  const urlDraft=q.answerMode==="listening" && url!=="" && !(url===appliedUrl?.url && q.audioRef?.sha256===appliedUrl.sha256);
   useEffect(()=>{onDraftChange?.(urlDraft);},[urlDraft,onDraftChange]);
   useEffect(()=>{mounted.current=true;const hashes=staged.current;const epoch=generation;return ()=>{mounted.current=false;epoch.current++;for(const lease of hashes.values())void api({type:"release_audio",lease}).catch(()=>{});hashes.clear();};},[]);
-  useEffect(()=>{generation.current++;if(q.answerMode!=="listening"){for(const lease of staged.current.values())void api({type:"release_audio",lease}).catch(()=>{});staged.current.clear();}},[q.answerMode]);
+  useEffect(()=>{generation.current++;if(q.answerMode!=="listening"){setAppliedUrl(null);for(const lease of staged.current.values())void api({type:"release_audio",lease}).catch(()=>{});staged.current.clear();}},[q.answerMode]);
   function release(hash?:string) {
     const lease=hash ? staged.current.get(hash) : undefined;
     if(hash && lease){staged.current.delete(hash);void api({type:"release_audio",lease}).catch(()=>{});}
   }
-  function accept(result:StagedAudio|null, version:number) {
+  function accept(result:StagedAudio|null, version:number, requestedUrl?:string) {
     if(!result)return false;
     const hash=result.reference.sha256;
     if(!mounted.current || mode.current!=="listening" || version!==generation.current){void api({type:"release_audio",lease:result.lease}).catch(()=>{});return false;}
     release(q.audioRef?.sha256);
     staged.current.set(hash,result.lease);
+    setAppliedUrl(requestedUrl===undefined ? null : {url:requestedUrl,sha256:hash});
     patch({audioRef:result.reference,audioStartSeconds:0,audioEndSeconds:null,missingFields:q.missingFields.filter(f=>f!=="media")});
     return true;
   }
   function changeUrl(value:string) {
     setUrl(value);
-    onDraftChange?.(mode.current==="listening" && value!=="" && value!==appliedUrl);
+    onDraftChange?.(mode.current==="listening" && value!=="" && !(value===appliedUrl?.url && q.audioRef?.sha256===appliedUrl.sha256));
   }
   async function pick(kind:"file"|"qr"|"url", hash?:string) {
     if(picking)return;
@@ -47,7 +48,7 @@ export function EnglishFields({question:q,patch,images=[],onPendingChange,onDraf
       else if(kind==="url"){
         const requestedUrl=url;
         const result=await api({type:"import_audio_url",url:requestedUrl.trim()});
-        if(accept(result.audio,version)){setAppliedUrl(requestedUrl);onDraftChange?.(false);}
+        accept(result.audio,version,requestedUrl);
         if(mounted.current && mode.current==="listening" && version===generation.current)setLinks(result.links);
       } else {
         const result=await api(hash ? {type:"decode_audio_qr",hash} : {type:"pick_audio_qr"});
@@ -63,7 +64,7 @@ export function EnglishFields({question:q,patch,images=[],onPendingChange,onDraf
     <label className="grid gap-2">{t("作答说明")}<Textarea value={q.instructions || ""} onChange={e=>patch({instructions:e.target.value || null})}/></label>
     {q.answerMode === "listening" && <div className="space-y-3 rounded border p-3">
       <Button variant="outline" disabled={picking} onClick={()=>void pick("file")}>{t("选择听力音频")}</Button>
-      {q.audioRef && <Button variant="ghost" disabled={picking} onClick={()=>{release(q.audioRef?.sha256);patch({audioRef:null});}}>{t("移除音频")}</Button>}
+      {q.audioRef && <Button variant="ghost" disabled={picking} onClick={()=>{release(q.audioRef?.sha256);setAppliedUrl(null);patch({audioRef:null});}}>{t("移除音频")}</Button>}
       <label className="grid gap-2">{t("听力资源网址")}<Input type="url" maxLength={8192} disabled={picking} value={url} onChange={e=>{changeUrl(e.target.value);setLinks([]);setError(null);}}/></label>
       {urlDraft && !picking && <p role="status" className="text-xs text-muted-foreground">{t("网址尚未应用，请先获取音频或清空网址后保存。")}</p>}
       <div className="flex flex-wrap gap-2">
