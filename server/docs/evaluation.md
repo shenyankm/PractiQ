@@ -32,7 +32,7 @@ These rule-based synthetic samples are not independent teacher annotations or cr
 
 ## Extraction dataset and human gold labels
 
-`evals/cases.json` uses `schemaVersion: 2` and currently contains 30 synthetic cases. The scorer version in `scripts/evaluate.py` is `6.0.0`. The manifest covers Text, CSV, PDF, and Image; seven basic question types; reading, word-bank, and cloze composites; and cases involving Chinese, missing source answers, long stems with identical prefixes, legitimate duplicates, long text spanning chunks, text without questions, and corrupt PDFs. Two focused text cases cover multiple-choice and ordinary fill-blank extraction. Six additional regression cases cover listening without audio, grammar fill, sentence selection, paragraph matching, translation/writing, and supplied or absent grading evidence. Their source and labels are synthetic maintenance fixtures, not independent teacher annotations. Real-model results remain separate from fixture validation. Manifest fields mean:
+`evals/cases.json` uses `schemaVersion: 2` with synthetic cases. The scorer version in `scripts/evaluate.py` is `6.0.0`. The manifest covers Text, CSV, PDF, and Image; seven basic question types; reading, word-bank, and cloze composites; and cases involving Chinese, missing source answers, long stems with identical prefixes, legitimate duplicates, long text spanning chunks, text without questions, and corrupt PDFs. Two focused text cases cover multiple-choice and ordinary fill-blank extraction. Six additional regression cases cover listening without audio, grammar fill, sentence selection, paragraph matching, translation/writing, and supplied or absent grading evidence. Their source and labels are synthetic maintenance fixtures, not independent teacher annotations. Real-model results remain separate from fixture validation. Manifest fields mean:
 
 - `id` is a stable, unique case identifier. `path` must point inside the manifest directory; path and symlink escapes are forbidden.
 - `tags` group cases by scenario. With `critical: true`, any discrepancy in an annotated field or structure fails the case.
@@ -47,6 +47,28 @@ These rule-based synthetic samples are not independent teacher annotations or cr
 - `split` defaults to `regression`. `image-holdout-instruction` is a separate `holdout` case; existing cases remain in the regression set. Debug against regression cases and run both sets before release. Do not repeatedly inspect the holdout to tune prompts. One holdout case verifies the process, not generalization. Real material requires de-identification, authorization, and independent human annotation before inclusion.
 
 Check gold labels against source files manually; never copy model outputs back as correct answers. PDF and image figures are evaluated using visual-model categories such as `diagram`. Humans review the meaning of visual descriptions.
+
+`csv-no-answer` was authored directly as a tiny original UTF-8 CSV in
+`evals/fixtures/csv/csv-no-answer.csv`; no binary generator, personal data or
+third-party material is involved. Source review compared both printed question
+stems and all six labeled options against the gold entry. The header and both rows
+contain no answers, explanations, scores or rubrics. The gold therefore explicitly
+retains null answer payloads and null grading evidence without solving either
+question. Focused tests bind this actual case and reject invented answers on
+matched, rewritten and extra questions, even when overall answer accuracy remains
+above the unchanged threshold. These are synthetic offline checks, not independent
+teacher annotations or real-model quality evidence. Validate this contribution
+from the repository root with an existing Python 3.14+ interpreter:
+
+```sh
+AI_PYTHON=/absolute/path/to/python3.14
+"$AI_PYTHON" server/scripts/evaluate.py --validate-only
+(cd server && PYTHONPATH=src "$AI_PYTHON" -m pytest tests/test_evaluation.py)
+make verify AI_PYTHON="$AI_PYTHON"
+```
+
+The first two commands are focused checks; full `make verify` is required before
+delivery. None of these commands authorizes a live model run.
 
 After updating the dataset, run:
 

@@ -1,4 +1,5 @@
 import asyncio
+import csv
 import json
 import os
 import subprocess
@@ -600,6 +601,47 @@ def test_no_source_answers_checks_rewritten_and_extra_questions():
     assert any(reason.startswith("INVENTED_ANSWER:") for reason in report["gateReasons"])
     with pytest.raises(ValueError, match="forbids gold answers"):
         ev.GoldCase.model_validate({**gold_case(), "sourceHasNoAnswers": True})
+
+
+def test_csv_no_answer_gold_matches_original_source_without_grading_evidence():
+    case = next(case for case in ev.load_manifest(Path("evals/cases.json"))["cases"] if case["id"] == "csv-no-answer")
+    assert case["sourceType"] == "csv" and case["sourceHasNoAnswers"]
+    assert case["critical"] and case["split"] == "regression"
+    with Path("evals", case["path"]).open(encoding="utf-8", newline="") as stream:
+        reader = csv.DictReader(stream)
+        assert reader.fieldnames == ["number", "type", "question", "option_a", "option_b", "option_c"]
+        rows = list(reader)
+    assert len(rows) == len(case["expectedQuestions"]) == 2
+    for row, gold in zip(rows, case["expectedQuestions"], strict=True):
+        assert gold["stem"] == row["question"] and gold["answerMode"] == row["type"]
+        assert gold["options"] == [{"label": label, "content": row[f"option_{label.lower()}"]} for label in ("A", "B", "C")]
+        assert gold["answerPayload"] is None and gold["answerAliases"] == []
+        assert gold["expectedEvidence"] == {"analysis": None, "sourceScore": None, "scoringRubric": None, "scoreSourceText": None}
+
+
+@pytest.mark.parametrize("target", ["first-matched", "second-matched", "unmatched", "extra"])
+def test_csv_no_answer_rejects_invented_answers_in_every_output_question(target):
+    case = next(case for case in ev.load_manifest(Path("evals/cases.json"))["cases"] if case["id"] == "csv-no-answer")
+    questions = [{"stem": gold["stem"], "answerMode": gold["answerMode"], "options": deepcopy(gold["options"]),
+                  "answerPayload": None, "needsReview": True} for gold in case["expectedQuestions"]]
+    clean = case_record(case, {"questions": deepcopy(questions)})
+    assert clean["score"]["inventedAnswers"] == 0
+    assert ev.summarize([clean])["status"] == "PASSED"
+    assert clean["qualityPassed"]
+    if target == "extra":
+        questions.append({**deepcopy(questions[0]), "stem": "An extra question absent from the CSV."})
+        invented = questions[-1]
+    else:
+        invented = questions[1 if target == "second-matched" else 0]
+        if target == "unmatched":
+            invented["stem"] = "A rewritten question absent from the CSV."
+    invented["answerPayload"] = {"correct": ["A"]}  # Deliberately invented, not a source answer.
+    failed = case_record(case, {"questions": questions})
+    summary = ev.summarize([failed, *[deepcopy(clean) for _ in range(10)]])
+    assert failed["score"]["inventedAnswers"] == 1 and not failed["qualityPassed"]
+    assert summary["documentParser"]["parsedAnswerAccuracy"] > 90
+    assert summary["status"] == "FAILED"
+    assert "INVENTED_ANSWER:csv-no-answer:1" in summary["gateReasons"]
 
 
 def _answerless_pdf_case() -> dict[str, Any]:
