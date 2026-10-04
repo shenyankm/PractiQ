@@ -20,8 +20,20 @@ export const importDemoRows: Summary[] = examples.map(([state, bankTitle, fileNa
 }));
 export function importDemoTask(id: string): Task {
   const row = importDemoRows.find(row => row.threadId === id)!;
-  return { threadId: id, runId: null, checkpointId: row.checkpointId, state: row.state,
-    phase: row.state === "COMPLETED" ? "completed" : "document_parse", allowedActions: [], blocking: [],
-    failures: row.state === "FAILED" ? [{retryable:true,stage:"document_parse",index:0,code:"DEMO_ERROR",message:"示例：模型请求超时，已保存部分进度。"}] : [],
-    progress: {chunks:{total:8,succeeded:row.state === "COMPLETED" ? 8 : 3,failed:row.state === "FAILED" ? 1 : 0}}, usage:[], unknownUsageCalls:[] };
+  const succeeded = row.state === "COMPLETED" ? 8 : 3;
+  const failed = row.state === "FAILED" ? 1 : 0;
+  return {
+    threadId: id, runId: null, parentThreadId: null, checkpointId: row.checkpointId,
+    modelConfigured: false, resumeCompatible: false, fileName: row.fileName,
+    updatedAt: row.createdAt, expiresAt: row.expiresAt, state: row.state, status: row.status,
+    phase: row.state === "COMPLETED" ? "completed" : "chunk",
+    result: null, processing: null, modelBudget: {limit: 2000, reserved: 0},
+    allowedActions: [], blocking: [],
+    failures: row.state === "FAILED" ? [{retryable: true, stage: "document_parse", index: 0, code: "DEMO_ERROR", retriesRemaining: 2}] : [],
+    progress: {
+      visuals: {total: 0, succeeded: 0, failed: 0, remaining: 0},
+      chunks: {total: 8, succeeded, failed, remaining: 8 - succeeded - failed},
+    },
+    usage: [], unknownUsageCalls: [],
+  };
 }

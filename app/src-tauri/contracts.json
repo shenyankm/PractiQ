@@ -1239,8 +1239,12 @@
         "additionalProperties": false,
         "properties": {
           "stage": {
-            "maxLength": 64,
-            "minLength": 1,
+            "enum": [
+              "document_parse",
+              "vision_parse",
+              "vision_describe",
+              "visual_crop"
+            ],
             "title": "Stage",
             "type": "string"
           },
@@ -2657,8 +2661,12 @@
         "additionalProperties": false,
         "properties": {
           "stage": {
-            "maxLength": 64,
-            "minLength": 1,
+            "enum": [
+              "document_parse",
+              "vision_parse",
+              "vision_describe",
+              "visual_crop"
+            ],
             "title": "Stage",
             "type": "string"
           },
@@ -2898,6 +2906,1642 @@
       "questionSources"
     ],
     "title": "DocumentTaskReview",
+    "type": "object"
+  },
+  "taskDetail": {
+    "$defs": {
+      "ArtifactReference": {
+        "additionalProperties": false,
+        "properties": {
+          "objectKey": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Objectkey",
+            "type": "string"
+          },
+          "sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sha256",
+            "type": "string"
+          },
+          "mediaType": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Mediatype",
+            "type": "string"
+          },
+          "sizeBytes": {
+            "minimum": 0,
+            "title": "Sizebytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "objectKey",
+          "sha256",
+          "mediaType",
+          "sizeBytes"
+        ],
+        "title": "ArtifactReference",
+        "type": "object"
+      },
+      "AudioReference": {
+        "additionalProperties": false,
+        "properties": {
+          "objectKey": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Objectkey",
+            "type": "string"
+          },
+          "sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sha256",
+            "type": "string"
+          },
+          "mediaType": {
+            "pattern": "^audio/(mpeg|mp4|aac|wav)$",
+            "title": "Mediatype",
+            "type": "string"
+          },
+          "sizeBytes": {
+            "exclusiveMinimum": 0,
+            "maximum": 26214400,
+            "title": "Sizebytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "objectKey",
+          "sha256",
+          "mediaType",
+          "sizeBytes"
+        ],
+        "title": "AudioReference",
+        "type": "object"
+      },
+      "ChoiceAnswerPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "correct": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Correct",
+            "type": "array"
+          }
+        },
+        "required": [
+          "correct"
+        ],
+        "title": "ChoiceAnswerPayload",
+        "type": "object"
+      },
+      "ContentBlock": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Label"
+          },
+          "partType": {
+            "enum": [
+              "text",
+              "formula",
+              "image",
+              "table",
+              "list",
+              "html",
+              "markdown",
+              "chart",
+              "diagram",
+              "blank",
+              "qr_code"
+            ],
+            "title": "Parttype",
+            "type": "string"
+          },
+          "questionId": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Questionid"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Role"
+          },
+          "textValue": {
+            "anyOf": [
+              {
+                "maxLength": 120000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Textvalue"
+          },
+          "markdownValue": {
+            "anyOf": [
+              {
+                "maxLength": 100000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Markdownvalue"
+          },
+          "latexValue": {
+            "anyOf": [
+              {
+                "maxLength": 20000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Latexvalue"
+          },
+          "jsonValue": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Jsonvalue"
+          }
+        },
+        "required": [
+          "partType"
+        ],
+        "title": "ContentBlock",
+        "type": "object"
+      },
+      "DocumentGroup": {
+        "additionalProperties": false,
+        "properties": {
+          "title": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "instructions": {
+            "anyOf": [
+              {
+                "maxLength": 20000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Instructions"
+          },
+          "questionIds": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "title": "Questionids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "title",
+          "questionIds"
+        ],
+        "title": "DocumentGroup",
+        "type": "object"
+      },
+      "DocumentParseResult": {
+        "additionalProperties": false,
+        "properties": {
+          "schemaVersion": {
+            "const": 3,
+            "title": "Schemaversion",
+            "type": "integer"
+          },
+          "questions": {
+            "items": {
+              "$ref": "#/$defs/ParsedQuestion"
+            },
+            "maxItems": 1000,
+            "title": "Questions",
+            "type": "array"
+          },
+          "groups": {
+            "items": {
+              "$ref": "#/$defs/DocumentGroup"
+            },
+            "maxItems": 1000,
+            "title": "Groups",
+            "type": "array"
+          },
+          "visualElements": {
+            "items": {
+              "$ref": "#/$defs/DocumentVisual"
+            },
+            "maxItems": 1000,
+            "title": "Visualelements",
+            "type": "array"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "title": "Warnings",
+            "type": "array"
+          },
+          "confidenceScore": {
+            "maximum": 100,
+            "minimum": 0,
+            "title": "Confidencescore",
+            "type": "number"
+          },
+          "missingFields": {
+            "description": "Document-level missing content; per-question omissions are in questions[].missingFields. Empty does not prove completeness.",
+            "items": {
+              "enum": [
+                "questions",
+                "media"
+              ],
+              "type": "string"
+            },
+            "title": "Missingfields",
+            "type": "array"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "questions",
+          "groups",
+          "visualElements",
+          "warnings",
+          "confidenceScore"
+        ],
+        "title": "DocumentParseResult",
+        "type": "object"
+      },
+      "DocumentProcessing": {
+        "additionalProperties": false,
+        "properties": {
+          "chunks": {
+            "$ref": "#/$defs/UnitCounts"
+          },
+          "visuals": {
+            "$ref": "#/$defs/UnitCounts"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          },
+          "failures": {
+            "items": {
+              "$ref": "#/$defs/UnitFailure"
+            },
+            "maxItems": 2000,
+            "title": "Failures",
+            "type": "array"
+          },
+          "questionSources": {
+            "items": {
+              "$ref": "#/$defs/DocumentQuestionSource"
+            },
+            "title": "Questionsources",
+            "type": "array"
+          },
+          "quality": {
+            "$ref": "#/$defs/ExportQuality"
+          }
+        },
+        "required": [
+          "chunks",
+          "visuals",
+          "truncated",
+          "failures"
+        ],
+        "title": "DocumentProcessing",
+        "type": "object"
+      },
+      "DocumentQualityIssue": {
+        "additionalProperties": false,
+        "properties": {
+          "questionId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Questionid",
+            "type": "string"
+          },
+          "code": {
+            "enum": [
+              "SOURCE_TEXT_NOT_FOUND",
+              "AMBIGUOUS_OVERLAP",
+              "OVERLAP_CONFLICT",
+              "MISSING_FIELDS",
+              "NEEDS_REVIEW"
+            ],
+            "title": "Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "questionId",
+          "code"
+        ],
+        "title": "DocumentQualityIssue",
+        "type": "object"
+      },
+      "DocumentQuestionSource": {
+        "additionalProperties": false,
+        "properties": {
+          "questionId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Questionid",
+            "type": "string"
+          },
+          "stage": {
+            "enum": [
+              "document_parse",
+              "vision_parse"
+            ],
+            "title": "Stage",
+            "type": "string"
+          },
+          "unitIndex": {
+            "minimum": 0,
+            "title": "Unitindex",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "questionId",
+          "stage",
+          "unitIndex"
+        ],
+        "title": "DocumentQuestionSource",
+        "type": "object"
+      },
+      "DocumentVisual": {
+        "additionalProperties": false,
+        "properties": {
+          "role": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Content role; answer-bearing visuals use answer and are hidden during unsubmitted exams.",
+            "title": "Role"
+          },
+          "kind": {
+            "enum": [
+              "image",
+              "table",
+              "chart",
+              "diagram",
+              "qr_code"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Label"
+          },
+          "description": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "title": "Description",
+            "type": "string"
+          },
+          "extractedText": {
+            "anyOf": [
+              {
+                "maxLength": 100000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Extractedtext"
+          },
+          "page": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Page"
+          },
+          "bbox": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "maxItems": 4,
+                "minItems": 4,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Bbox"
+          },
+          "imageRef": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ArtifactReference"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "sourceRef": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ArtifactReference"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Complete source page image for visual verification; may include printed answers."
+          },
+          "documentOnly": {
+            "default": false,
+            "description": "Retain unparsed source imagery without attaching it to bank questions.",
+            "title": "Documentonly",
+            "type": "boolean"
+          },
+          "questionIds": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "title": "Questionids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "kind",
+          "description"
+        ],
+        "title": "DocumentVisual",
+        "type": "object"
+      },
+      "ExportQuality": {
+        "additionalProperties": false,
+        "properties": {
+          "reviewRequired": {
+            "default": false,
+            "title": "Reviewrequired",
+            "type": "boolean"
+          },
+          "reviewQuestionCount": {
+            "default": 0,
+            "minimum": 0,
+            "title": "Reviewquestioncount",
+            "type": "integer"
+          },
+          "issues": {
+            "items": {
+              "$ref": "#/$defs/DocumentQualityIssue"
+            },
+            "title": "Issues",
+            "type": "array"
+          }
+        },
+        "title": "ExportQuality",
+        "type": "object"
+      },
+      "FillBlankAnswerPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "answers": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Answers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "answers"
+        ],
+        "title": "FillBlankAnswerPayload",
+        "type": "object"
+      },
+      "MatchPair": {
+        "additionalProperties": false,
+        "properties": {
+          "left": {
+            "title": "Left",
+            "type": "integer"
+          },
+          "right": {
+            "title": "Right",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "left",
+          "right"
+        ],
+        "title": "MatchPair",
+        "type": "object"
+      },
+      "MatchingAnswerPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "matches": {
+            "items": {
+              "$ref": "#/$defs/MatchPair"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Matches",
+            "type": "array"
+          }
+        },
+        "required": [
+          "matches"
+        ],
+        "title": "MatchingAnswerPayload",
+        "type": "object"
+      },
+      "ModelCallUsage": {
+        "additionalProperties": false,
+        "properties": {
+          "callKey": {
+            "format": "uuid",
+            "title": "Callkey",
+            "type": "string"
+          },
+          "modelId": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Modelid",
+            "type": "string"
+          },
+          "inputTokens": {
+            "minimum": 0,
+            "title": "Inputtokens",
+            "type": "integer"
+          },
+          "outputTokens": {
+            "minimum": 0,
+            "title": "Outputtokens",
+            "type": "integer"
+          },
+          "callKind": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Callkind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "callKey",
+          "modelId",
+          "inputTokens",
+          "outputTokens",
+          "callKind"
+        ],
+        "title": "ModelCallUsage",
+        "type": "object"
+      },
+      "OrderingAnswerPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "order": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Order",
+            "type": "array"
+          }
+        },
+        "required": [
+          "order"
+        ],
+        "title": "OrderingAnswerPayload",
+        "type": "object"
+      },
+      "ParsedItem": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Label"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Id"
+          },
+          "side": {
+            "anyOf": [
+              {
+                "enum": [
+                  "left",
+                  "right"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Side"
+          },
+          "content": {
+            "anyOf": [
+              {
+                "maxLength": 20000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Content"
+          }
+        },
+        "title": "ParsedItem",
+        "type": "object"
+      },
+      "ParsedOption": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Label"
+          },
+          "content": {
+            "anyOf": [
+              {
+                "maxLength": 20000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Content"
+          }
+        },
+        "title": "ParsedOption",
+        "type": "object"
+      },
+      "ParsedQuestion": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Id"
+          },
+          "parentId": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Parentid"
+          },
+          "questionKind": {
+            "anyOf": [
+              {
+                "enum": [
+                  "listening",
+                  "reading",
+                  "word_bank",
+                  "cloze",
+                  "grammar_fill",
+                  "sentence_selection",
+                  "paragraph_matching",
+                  "translation",
+                  "writing"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Questionkind"
+          },
+          "instructions": {
+            "anyOf": [
+              {
+                "maxLength": 20000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Instructions"
+          },
+          "audioRef": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AudioReference"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "audioStartSeconds": {
+            "default": 0,
+            "maximum": 86400,
+            "minimum": 0,
+            "title": "Audiostartseconds",
+            "type": "number"
+          },
+          "audioEndSeconds": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "maximum": 86400,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Audioendseconds"
+          },
+          "transcript": {
+            "items": {
+              "$ref": "#/$defs/ContentBlock"
+            },
+            "maxItems": 1000,
+            "title": "Transcript",
+            "type": "array"
+          },
+          "examPlayCount": {
+            "default": 2,
+            "maximum": 100,
+            "minimum": 1,
+            "title": "Examplaycount",
+            "type": "integer"
+          },
+          "sourceLanguage": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "pattern": "^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Sourcelanguage"
+          },
+          "targetLanguage": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "pattern": "^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Targetlanguage"
+          },
+          "writingGenre": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Writinggenre"
+          },
+          "minWords": {
+            "anyOf": [
+              {
+                "maximum": 100000,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Minwords"
+          },
+          "maxWords": {
+            "anyOf": [
+              {
+                "maximum": 100000,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Maxwords"
+          },
+          "optionSourceId": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Optionsourceid"
+          },
+          "passage": {
+            "items": {
+              "$ref": "#/$defs/ContentBlock"
+            },
+            "maxItems": 1000,
+            "title": "Passage",
+            "type": "array"
+          },
+          "allowReuse": {
+            "default": false,
+            "title": "Allowreuse",
+            "type": "boolean"
+          },
+          "blankCount": {
+            "anyOf": [
+              {
+                "maximum": 100,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Blankcount"
+          },
+          "stem": {
+            "anyOf": [
+              {
+                "maxLength": 120000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Stem"
+          },
+          "answerMode": {
+            "anyOf": [
+              {
+                "enum": [
+                  "choice",
+                  "true_false",
+                  "fill_blank",
+                  "short_answer",
+                  "ordering",
+                  "matching",
+                  "reading",
+                  "word_bank",
+                  "cloze",
+                  "listening",
+                  "gap_fill"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Answermode"
+          },
+          "questionTypeId": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Questiontypeid"
+          },
+          "choiceVariant": {
+            "anyOf": [
+              {
+                "enum": [
+                  "single",
+                  "multiple"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Choicevariant"
+          },
+          "matchingVariant": {
+            "anyOf": [
+              {
+                "enum": [
+                  "one_to_one",
+                  "many_to_one"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Matchingvariant"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/$defs/ParsedItem"
+            },
+            "maxItems": 100,
+            "title": "Items",
+            "type": "array"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/$defs/ParsedOption"
+            },
+            "maxItems": 100,
+            "title": "Options",
+            "type": "array"
+          },
+          "answerPayload": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ChoiceAnswerPayload"
+              },
+              {
+                "$ref": "#/$defs/TrueFalseAnswerPayload"
+              },
+              {
+                "$ref": "#/$defs/FillBlankAnswerPayload"
+              },
+              {
+                "$ref": "#/$defs/ShortAnswerPayload"
+              },
+              {
+                "$ref": "#/$defs/OrderingAnswerPayload"
+              },
+              {
+                "$ref": "#/$defs/MatchingAnswerPayload"
+              },
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Extract only an answer explicitly supplied by the source; never solve the question. Use null when absent.",
+            "title": "Answerpayload"
+          },
+          "sourceScore": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "maximum": 1000000,
+                "multipleOf": 0.01,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Sourcescore"
+          },
+          "scoringRubric": {
+            "anyOf": [
+              {
+                "maxLength": 100000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Scoringrubric"
+          },
+          "scoreSourceText": {
+            "anyOf": [
+              {
+                "maxLength": 100000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Scoresourcetext"
+          },
+          "analysis": {
+            "anyOf": [
+              {
+                "maxLength": 100000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Analysis"
+          },
+          "contentBlocks": {
+            "items": {
+              "$ref": "#/$defs/ContentBlock"
+            },
+            "maxItems": 1000,
+            "title": "Contentblocks",
+            "type": "array"
+          },
+          "sourceText": {
+            "anyOf": [
+              {
+                "maxLength": 120000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Literal source text for locating this question; do not summarize or paraphrase.",
+            "title": "Sourcetext"
+          },
+          "confidence": {
+            "default": 0,
+            "description": "Reliability of extraction, not confidence that the answer is correct.",
+            "maximum": 1,
+            "minimum": 0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "needsReview": {
+            "default": true,
+            "description": "True when extraction is uncertain; missing fields also force review during validation.",
+            "title": "Needsreview",
+            "type": "boolean"
+          },
+          "missingFields": {
+            "items": {
+              "enum": [
+                "stem",
+                "questionTypeId",
+                "answerMode",
+                "choiceVariant",
+                "matchingVariant",
+                "options",
+                "items",
+                "answerPayload",
+                "analysis",
+                "sourceText",
+                "media",
+                "material"
+              ],
+              "type": "string"
+            },
+            "title": "Missingfields",
+            "type": "array"
+          }
+        },
+        "title": "ParsedQuestion",
+        "type": "object"
+      },
+      "ShortAnswerPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "text": {
+            "maxLength": 120000,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "ShortAnswerPayload",
+        "type": "object"
+      },
+      "TaskModelBudget": {
+        "additionalProperties": false,
+        "properties": {
+          "limit": {
+            "minimum": 0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "reserved": {
+            "minimum": 0,
+            "title": "Reserved",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "limit",
+          "reserved"
+        ],
+        "title": "TaskModelBudget",
+        "type": "object"
+      },
+      "TaskProgress": {
+        "additionalProperties": false,
+        "properties": {
+          "visuals": {
+            "$ref": "#/$defs/TaskUnitProgress"
+          },
+          "chunks": {
+            "$ref": "#/$defs/TaskUnitProgress"
+          }
+        },
+        "required": [
+          "visuals",
+          "chunks"
+        ],
+        "title": "TaskProgress",
+        "type": "object"
+      },
+      "TaskUnitProgress": {
+        "additionalProperties": false,
+        "properties": {
+          "total": {
+            "minimum": 0,
+            "title": "Total",
+            "type": "integer"
+          },
+          "succeeded": {
+            "minimum": 0,
+            "title": "Succeeded",
+            "type": "integer"
+          },
+          "failed": {
+            "minimum": 0,
+            "title": "Failed",
+            "type": "integer"
+          },
+          "remaining": {
+            "minimum": 0,
+            "title": "Remaining",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "succeeded",
+          "failed",
+          "remaining"
+        ],
+        "title": "TaskUnitProgress",
+        "type": "object"
+      },
+      "TrueFalseAnswerPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "value": {
+            "title": "Value",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "value"
+        ],
+        "title": "TrueFalseAnswerPayload",
+        "type": "object"
+      },
+      "UnitCounts": {
+        "additionalProperties": false,
+        "properties": {
+          "total": {
+            "minimum": 0,
+            "title": "Total",
+            "type": "integer"
+          },
+          "succeeded": {
+            "minimum": 0,
+            "title": "Succeeded",
+            "type": "integer"
+          },
+          "skipped": {
+            "default": 0,
+            "minimum": 0,
+            "title": "Skipped",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "succeeded"
+        ],
+        "title": "UnitCounts",
+        "type": "object"
+      },
+      "UnitFailure": {
+        "additionalProperties": false,
+        "properties": {
+          "stage": {
+            "enum": [
+              "document_parse",
+              "vision_parse",
+              "vision_describe",
+              "visual_crop"
+            ],
+            "title": "Stage",
+            "type": "string"
+          },
+          "index": {
+            "minimum": 0,
+            "title": "Index",
+            "type": "integer"
+          },
+          "code": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Code",
+            "type": "string"
+          },
+          "retryable": {
+            "title": "Retryable",
+            "type": "boolean"
+          },
+          "retriesRemaining": {
+            "default": 0,
+            "maximum": 2,
+            "minimum": 0,
+            "title": "Retriesremaining",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "stage",
+          "index",
+          "code",
+          "retryable"
+        ],
+        "title": "UnitFailure",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "description": "Existing task GET response; nullable fields are always present on the wire.",
+    "properties": {
+      "threadId": {
+        "format": "uuid",
+        "title": "Threadid",
+        "type": "string"
+      },
+      "runId": {
+        "anyOf": [
+          {
+            "format": "uuid",
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Runid"
+      },
+      "parentThreadId": {
+        "anyOf": [
+          {
+            "format": "uuid",
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Parentthreadid"
+      },
+      "modelConfigured": {
+        "title": "Modelconfigured",
+        "type": "boolean"
+      },
+      "resumeCompatible": {
+        "title": "Resumecompatible",
+        "type": "boolean"
+      },
+      "fileName": {
+        "title": "Filename",
+        "type": "string"
+      },
+      "state": {
+        "enum": [
+          "PENDING",
+          "RUNNING",
+          "PAUSING",
+          "PAUSED",
+          "INTERRUPTED",
+          "CANCELLED",
+          "FAILED",
+          "WAITING_REVIEW",
+          "COMPLETED",
+          "EXPIRED"
+        ],
+        "title": "State",
+        "type": "string"
+      },
+      "phase": {
+        "enum": [
+          "pending",
+          "prepare",
+          "vision",
+          "chunk",
+          "vision_review",
+          "chunk_review",
+          "result_review",
+          "result",
+          "completed"
+        ],
+        "title": "Phase",
+        "type": "string"
+      },
+      "checkpointId": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Checkpointid"
+      },
+      "updatedAt": {
+        "title": "Updatedat",
+        "type": "string"
+      },
+      "expiresAt": {
+        "title": "Expiresat",
+        "type": "string"
+      },
+      "allowedActions": {
+        "items": {
+          "enum": [
+            "pause",
+            "interrupt",
+            "resume",
+            "retry_failed",
+            "accept_partial"
+          ],
+          "type": "string"
+        },
+        "title": "Allowedactions",
+        "type": "array"
+      },
+      "failures": {
+        "items": {
+          "$ref": "#/$defs/UnitFailure"
+        },
+        "title": "Failures",
+        "type": "array"
+      },
+      "blocking": {
+        "items": {},
+        "title": "Blocking",
+        "type": "array"
+      },
+      "progress": {
+        "$ref": "#/$defs/TaskProgress"
+      },
+      "status": {
+        "anyOf": [
+          {
+            "enum": [
+              "SUCCEEDED",
+              "PARTIAL"
+            ],
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Status"
+      },
+      "result": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/DocumentParseResult"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "modelBudget": {
+        "$ref": "#/$defs/TaskModelBudget"
+      },
+      "processing": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/DocumentProcessing"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "usage": {
+        "items": {
+          "$ref": "#/$defs/ModelCallUsage"
+        },
+        "title": "Usage",
+        "type": "array"
+      },
+      "unknownUsageCalls": {
+        "items": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "title": "Unknownusagecalls",
+        "type": "array"
+      }
+    },
+    "required": [
+      "threadId",
+      "runId",
+      "parentThreadId",
+      "modelConfigured",
+      "resumeCompatible",
+      "fileName",
+      "state",
+      "phase",
+      "checkpointId",
+      "updatedAt",
+      "expiresAt",
+      "allowedActions",
+      "failures",
+      "blocking",
+      "progress",
+      "status",
+      "result",
+      "modelBudget",
+      "processing",
+      "usage",
+      "unknownUsageCalls"
+    ],
+    "title": "DocumentTaskDetail",
     "type": "object"
   }
 }
