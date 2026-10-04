@@ -104,7 +104,7 @@ function request(r:Request,scenario:PreviewScenario):unknown {
     case "start_paper": {const s=makeSession(crypto.randomUUID(),"示例练习",r.paper.kind,false,r.paper.question_ids.map(id=>rows.find(q=>q.id===id)!));s.attempts.forEach((a,i)=>{a.answer=null;a.maxCents=r.paper.scores[i] ?? null;});s.deadlineAt=r.paper.minutes ? Date.now()+r.paper.minutes*60000:null;sessions.unshift(s);return s;}
     case "retry_wrong": {const previous=getSession(r.id);const s=makeSession(crypto.randomUUID(),"错题重练","practice",false,previous.attempts.filter(a=>a.result===false).map(a=>a.snapshot as QuestionRow));sessions.unshift(s);return s;}
     case "save_draft": {const a=getSession(r.id).attempts[r.ordinal];a.answer=r.answer;a.elapsedMs=r.elapsed_ms;return null;}
-    case "save_attempt": {const s=getSession(r.id);const a=s.attempts[r.ordinal];a.answer=r.answer;a.elapsedMs=r.elapsed_ms;a.skipped=r.skip;if(r.submit)score(s,r.ordinal,r.answer);if(r.self_result!==null){a.result=r.self_result;a.gradeKind="self";}return s;}
+    case "save_attempt": {const s=getSession(r.id);const a=s.attempts[r.ordinal];a.answer=r.answer;a.elapsedMs=r.elapsed_ms;a.skipped=r.skip;if(r.submit)score(s,r.ordinal,r.answer);return s;}
     case "self_assess": {const s=getSession(r.id);Object.assign(s.attempts[r.ordinal],{result:r.result,gradeKind:"self"});return s;}
     case "position": {const s=getSession(r.id);s.position=r.position;return s;}
     case "flag": {const s=getSession(r.id);s.attempts[r.ordinal].flagged=r.value;return s;}

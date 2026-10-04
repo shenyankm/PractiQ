@@ -73,6 +73,45 @@ async function expectNoOverflow(page,label) {
  await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),{message:`Page overflow: ${label}`}).toBe(true);
 }
 
+test('question-list failures persist, hide stale actions and retry the current filters',async ({page,observedCalls})=>{
+ await page.evaluate(()=>{
+  const original=window.__TAURI_INTERNALS__.invoke;
+  window.__TAURI_INTERNALS__.invoke=async(command,args)=>{
+   if(command!=='request'||args.request.type!=='questions_page') return original(command,args);
+   const result=await original(command,args);
+   if(window.__failQuestionRead) throw Error('Question read unavailable');
+   const stem=args.request.search?'Current beta question':'Previous alpha question';
+   return {items:[{...result.items[0],question:{...result.items[0].question,stem}}],total:60,offset:args.request.offset};
+  };
+ });
+ await page.getByRole('button',{name:'View questions',exact:true}).first().click();
+ await expect(page.getByText('Previous alpha question',{exact:true})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Edit question',exact:true})).toBeEnabled();
+ await page.evaluate(()=>{window.__failQuestionRead=true;});
+ await page.getByRole('textbox',{name:'Search questions',exact:true}).fill('beta');
+ await page.getByRole('combobox',{name:'Filter by question type',exact:true}).selectOption('single');
+ await page.getByRole('checkbox',{name:'Show only items needing review',exact:true}).check();
+ const alert=page.getByRole('alert');
+ await expect(alert).toContainText('Could not load questions');
+ await expect(alert).toContainText('Question read unavailable');
+ await expect(page.getByText('Previous alpha question',{exact:true})).toHaveCount(0);
+ await expect(page.getByText('60 questions',{exact:true})).toHaveCount(0);
+ for(const name of ['Edit question','Delete question','Favorite question','Next page']) await expect(page.getByRole('button',{name,exact:true})).toHaveCount(0);
+ await expect(page.getByRole('button',{name:'Start practice',exact:true})).toBeDisabled();
+ await expect(page.getByText('No questions found',{exact:true})).toHaveCount(0);
+ await expectNoOverflow(page,'question-list failure');
+ await page.evaluate(()=>{window.__failQuestionRead=false;});
+ const retry=alert.getByRole('button',{name:'Retry',exact:true});
+ await retry.focus();
+ await page.keyboard.press('Enter');
+ await expect(page.getByText('Current beta question',{exact:true})).toBeVisible();
+ await expect(alert).toHaveCount(0);
+ await expect(page.getByRole('textbox',{name:'Search questions',exact:true})).toHaveValue('beta');
+ await expect(page.getByRole('combobox',{name:'Filter by question type',exact:true})).toHaveValue('single');
+ await expect(page.getByRole('checkbox',{name:'Show only items needing review',exact:true})).toBeChecked();
+ expect(observedCalls.filter(c=>c.request.type==='questions_page').at(-1).request).toEqual({type:'questions_page',bank_ids:['one'],search:'beta',mode:'single',filter:'review',limit:30,offset:0});
+});
+
 test('retry saves the failed language selection without resetting it to the saved preference',async ({page,observedCalls})=>{
  await page.getByRole('button',{name:'Language',exact:true}).click();
  await page.getByRole('menuitemradio',{name:'简体中文',exact:true}).click();

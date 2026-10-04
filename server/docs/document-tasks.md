@@ -19,9 +19,15 @@ First obtain a `document` reference through the [authenticated upload API](servi
 
 `graphId` accepts `document_parser` (the default, for all formats), `text_csv_parser`, or `pdf_parser`. Optional `parentThreadId` links only to an existing task in the new runtime and does not overwrite it. Unknown fields, raw state, URLs, Base64, server file paths, and client-supplied model results are rejected.
 
-`GET /api/document-tasks/{threadId}` returns `state`, `phase`, `progress`, `failures`, `blocking`, `allowedActions`, `checkpointId`, `expiresAt`, `updatedAt`, `status`, `result`, `processing`, `usage`, `unknownUsageCalls`, and `modelBudget`. Before the first checkpoint, it returns an opaque `pending:<runId>` token used only for task control. This is not a LangGraph checkpoint; clients must not parse or construct it.
+`GET /api/document-tasks/{threadId}` returns `threadId`, `runId`, `parentThreadId`, `fileName`, `modelConfigured`, `resumeCompatible`, `state`, `phase`, `progress`, `failures`, `blocking`, `allowedActions`, `checkpointId`, `expiresAt`, `updatedAt`, `status`, `result`, `processing`, `usage`, `unknownUsageCalls`, and `modelBudget`. Before the first checkpoint, it returns an opaque `pending:<runId>` token used only for task control. This is not a LangGraph checkpoint; clients must not parse or construct it.
 
-Details also include `parentThreadId` (nullable), `modelConfigured`, and `resumeCompatible`. The last field is false when this process has no model configuration or the saved execution signature differs. `allowedActions` describes the saved task state; model configuration and signature checks still apply when performing a control.
+`DocumentTaskDetail` in `contracts.py` is the authoritative response model. The existing exporter derives `taskDetail` in `app/src-tauri/contracts.json` and `DocumentTaskDetail` in `app/src/contracts.generated.ts`; `app/scripts/export-contracts.py --check` rejects field, nullability, state, phase, or action drift.
+
+All detail fields are present. `runId`, `parentThreadId`, `checkpointId`, `status`, `result`, and `processing` can be null. `status` is `SUCCEEDED`, `PARTIAL`, or null; a running task may retain a previous result. `modelConfigured` reports whether the service has model settings, and `resumeCompatible` also checks the saved execution signature. `allowedActions` describes the saved task state; these flags do not start work or replace the model configuration and signature checks performed during control.
+
+`phase` is `pending`, `prepare`, `vision`, `chunk`, `vision_review`, `chunk_review`, `result_review`, `result`, or `completed`. `progress.visuals` and `progress.chunks` each contain `total`, `succeeded`, `failed`, and `remaining`. Failures reuse `UnitFailure`: `stage` is `document_parse`, `vision_parse`, `vision_describe`, or `visual_crop`, with `index`, `code`, `retryable`, and `retriesRemaining`. Failure messages are resolved by clients from codes. `blocking` preserves saved interrupt payloads or error codes. `usage` contains completed `ModelCallUsage` records, and `unknownUsageCalls` lists call IDs whose usage is uncertain. `modelBudget` contains `limit` and `reserved`.
+
+Expired detail requests still return HTTP 410 / `TASK_EXPIRED`; the list endpoint exposes the `EXPIRED` state. Authentication and error response shapes are unchanged.
 
 Choose controls from `state` and `allowedActions`:
 

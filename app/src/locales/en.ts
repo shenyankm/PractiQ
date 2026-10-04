@@ -1,4 +1,5 @@
 export const en = {
+  "加载题目失败": "Could not load questions",
   "转到第一题": "Go to first question",
   "定位当前题": "Locate current question",
   "转到最后一题": "Go to last question",

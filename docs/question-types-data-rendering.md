@@ -486,6 +486,8 @@ Sources: [ListeningPlayer.tsx](../app/src/ListeningPlayer.tsx), `listening_playb
 
 Session behavior is selected by `Session.kind` / `sessions.kind`, not question `answerMode` or the separate `sessions.mode` used for ordering.
 
+Answer-card buttons show their question number above a compact status icon that matches the visible legend: an empty circle for unanswered questions, a pencil for complete or incomplete drafts, a check for submitted answers (including answers awaiting grading), an X for incorrect answers or exam scores below full marks, and skip arrows for skipped questions. Current-question underlining and flagged-question outlines remain separate indicators. Accessible names and hover titles retain the more detailed state, including partial scores and exact-text fill-answer mismatches. Icons are decorative for assistive technology; numbered buttons keep their existing keyboard navigation and focus behavior in both themes.
+
 | Behavior | `practice` | `self_test` | `mock_exam` |
 | --- | --- | --- | --- |
 | Submission | Submit/skip individual questions; on finish submit drafts or mark them skipped | Submit the entire paper; drafts remain editable beforehand | Entire-paper submission; expiration submits saved drafts |
