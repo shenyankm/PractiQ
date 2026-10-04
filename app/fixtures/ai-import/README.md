@@ -1,8 +1,8 @@
 # Question-type import samples
 
-Select **all-question-types.txt** in the desktop Import page to exercise all 16 user-facing question types in one document. It contains 24 structured question rows: six composite parents and 18 answerable rows. Parent rows are material containers, not additional questions to score. The file contains supplied answers where stated and deliberately omits answers for two writing tasks. No real-person data or externally fetched content is included.
+Select **all-question-types.txt** in the independent service's import Web frontend to exercise all 16 user-facing question types in one document. Starting import explicitly calls the configured model; file selection alone does not. Download the resulting question-bank ZIP and append it in the practice app under Settings > Restore backup. The source contains 24 structured question rows: six composite parents and 18 answerable rows. Parent rows are material containers, not additional questions to score. The file contains supplied answers where stated and deliberately omits answers for two writing tasks. No real-person data or externally fetched content is included.
 
-The combined file concatenates these existing or focused regression inputs in this order. Expected structures and answers live in `server/evals/cases.json` under the listed case IDs. Use individual files to isolate a failed type; the combined file is for manual mixed-document desktop acceptance and is not an extra default live-evaluation case.
+The combined file concatenates these existing or focused regression inputs in this order. Expected structures and answers live in `server/evals/cases.json` under the listed case IDs. Use individual files to isolate a failed type; the combined file is for manual service extraction followed by offline practice acceptance and is not an extra default live-evaluation case.
 
 | Section / case | Types | Expected content |
 | --- | --- | --- |
@@ -38,7 +38,7 @@ All samples are synthetic regression material. Adding them or validating their g
 
 `formats-expected.json` 保存基础案例 ID、富内容预期、行数、图片尺寸、生成所用 Office 版本和各文件 SHA-256。`resources/preview.png` 是总览，`resources/chart.png` 是文本样本引用的图，不是独立的全题型输入。
 
-生成脚本为 `app/scripts/build-import-corpus.py`，在 macOS 使用已安装的 artifact Python（ReportLab、Pillow、pypdf、PDFium）和项目校验通过的内置 LibreOffice；无需真实模型，不增加产品依赖。运行后用 `server/tests/test_import_corpus.py` 检查交付文件。Office 的分页由格式和转换器决定，可能附带空白页；验收以完整内容为准。
+生成脚本为 `app/scripts/build-import-corpus.py`，在 macOS 使用已有的 artifact Python（ReportLab、Pillow、pypdf、PDFium）和服务端显式配置的 LibreOffice。按[服务 Office 指南](../../../server/docs/desktop-office.md)设置 `AI_OFFICE_EXECUTABLE` 和精确 `AI_OFFICE_VERSION`；离线再生成设置 `AI_READ_ONLY=1` 与合成的 `AI_SERVICE_TOKEN=local-corpus-generation`，从仓库根目录以 `PYTHONPATH=server/src` 运行该脚本。它会覆盖该测试集的生成文件，须显式再生成并核对源文件、版本和校验和；无需真实模型，不增加产品依赖。运行后用 `server/tests/test_import_corpus.py` 检查交付文件。Office 的分页由格式和转换器决定，可能附带空白页；验收以完整内容为准。
 
 本轮已在 macOS 使用打包的 Office worker 验证 DOC/DOCX/XLS/XLSX → PDF，并检查渲染结果。真实模型重跑已完成，结果为 **6 份失败、4 份部分成功、完整通过 0/10**；详见[中文验收报告](../../../docs/ai-import-all-formats-acceptance-20260929.zh-CN.md)。原生 Office 公式、跨页表格、合并单元格等专项仍使用 `app/fixtures/office/` 与 `app/fixtures/rich-content/`，避免混合测试替代专项回归。
 
