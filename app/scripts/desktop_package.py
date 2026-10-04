@@ -44,7 +44,7 @@ def native_application(bundle: Path, application_name: str = "PractiQ") -> Path:
     def regular_file(path: Path) -> None:
         if not path.resolve().is_relative_to(application.resolve()):
             raise ValueError(f"Desktop native executable or Info.plist escapes the application payload: {path.name}")
-        if path.is_symlink() or path.is_junction() or not path.is_file():
+        if path.is_symlink() or path.is_junction() or not path.is_file() or path.stat().st_size == 0:
             raise ValueError(f"Desktop native executable or Info.plist must be a regular file: {path.name}")
         for directory in path.parents:
             if directory.is_symlink() or directory.is_junction() or not directory.is_dir():

@@ -152,7 +152,8 @@ def test_macos_desktop_version_rejects_a_host_plist_symlink(release, tmp_path, m
 @pytest.mark.parametrize("platform,fault", [("darwin", "missing"), ("darwin", "symlink"),
                                            ("darwin", "executable_identity"), ("linux", "missing"),
                                            ("linux", "symlink"), ("linux", "parent_symlink"),
-                                           ("win32", "symlink")])
+                                           ("win32", "symlink"), ("darwin", "empty"),
+                                           ("linux", "empty"), ("win32", "empty")])
 def test_native_version_checks_require_the_actual_contained_application(release, tmp_path, monkeypatch, platform, fault):
     monkeypatch.setattr(sys, "platform", platform)
     application = tmp_path / "payload"
@@ -182,6 +183,8 @@ def test_native_version_checks_require_the_actual_contained_application(release,
         executable.parent.symlink_to(host_directory, target_is_directory=True)
     elif fault == "executable_identity":
         executable.write_bytes(b"Native executable")
+    elif fault == "empty":
+        executable.touch()
     monkeypatch.setattr(subprocess, "check_output", lambda *args, **kwargs: "0.1.0")
     with pytest.raises(ValueError, match="native|executable|Info.plist"):
         release.check_desktop_version(tmp_path / "candidate", bundle, "0.1.0", "PractiQ")
@@ -378,6 +381,33 @@ def test_release_stage_propagates_strict_gate_failure_before_copying_assets(rele
         release.stage(source, "v0.1.0", bundle, source / "installer.dmg", source / "assets")
     assert len(calls) == 2 and "check_licenses.py" in calls[1][1]
     assert not (source / "assets").exists()
+
+
+@pytest.mark.parametrize("mutation", ["asset", "evidence", "candidate", "service"])
+def test_assembly_rejects_mutated_inputs_during_final_copy_and_archive_handoff(release, source, staged, monkeypatch, mutation):
+    copyfile = shutil.copyfile
+    archive_write = zipfile.ZipFile.write
+    mutated = False
+    def copy(path, destination, *args, **kwargs):
+        nonlocal mutated
+        if mutation == "asset" and not mutated:
+            Path(path).write_bytes(b"Unchecked replacement asset")
+            mutated = True
+        return copyfile(path, destination, *args, **kwargs)
+    def write(archive, path, arcname=None, *args, **kwargs):
+        nonlocal mutated
+        if not mutated and ((mutation == "evidence" and arcname == "macos/evidence/licenses.json") or
+                            (mutation == "candidate" and arcname == "macos/candidate.json") or
+                            (mutation == "service" and arcname == "service/probes.json")):
+            Path(path).write_text('{"passed":false}')
+            mutated = True
+        return archive_write(archive, path, arcname, *args, **kwargs)
+    monkeypatch.setattr(shutil, "copyfile", copy)
+    monkeypatch.setattr(zipfile.ZipFile, "write", write)
+    output = source / "assembled-assets"
+    with pytest.raises(ValueError, match="handoff|changed|identity"):
+        release.assemble(source, "v0.1.0", staged, output)
+    assert mutated and not output.exists()
 
 
 def test_windows_stage_uses_portable_evidence_paths_for_linux_assembly(release, source, monkeypatch):
@@ -680,7 +710,7 @@ def test_final_native_version_preserves_prerelease_identity(release, source, fin
         executable.parent.mkdir()
         executable.write_bytes(b"Synthetic native executable")
     elif platform == "win32":
-        (bundle.parent / "PractiQ.exe").touch()
+        (bundle.parent / "PractiQ.exe").write_bytes(b"Synthetic native executable")
     else:
         executable = bundle.parent / "usr/bin/PractiQ"
         executable.parent.mkdir(parents=True)

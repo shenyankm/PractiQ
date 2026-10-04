@@ -402,7 +402,12 @@ def restage_installer(root: Path, tag: str, installer: Path, output: Path,
 def assemble(root: Path, tag: str, inputs: Path, output: Path) -> None:
     components = versions(root, tag)
     sha = git(root, "rev-parse", "HEAD")
-    candidates = [(path.parent, read_json(path)) for path in sorted(inputs.glob("release-*/candidate.json"))]
+    candidates = []
+    candidate_digests = {}
+    for path in sorted(inputs.glob("release-*/candidate.json")):
+        raw = path.read_bytes()
+        candidates.append((path.parent, json.loads(raw)))
+        candidate_digests[path.parent] = hashlib.sha256(raw).hexdigest()
     if len(candidates) != 3 or {c["os"] for _, c in candidates} != {"macos", "windows", "linux"}:
         raise ValueError("All three gated platform candidates are required")
     if len({bool(candidate.get("restagedFinalBytes")) for _, candidate in candidates}) != 1:
@@ -457,30 +462,58 @@ def assemble(root: Path, tag: str, inputs: Path, output: Path) -> None:
     service_files = [service / name for name in ("probes.json", "probes.md", "probes.xml", "coverage.xml")]
     if not all(path.is_file() for path in service_files):
         raise ValueError("Service verification evidence is incomplete")
-    output.mkdir(parents=True, exist_ok=False)
+    expected_archive = {f"service/{path.name}": checksum(path) for path in service_files}
     for folder, candidate in candidates:
-        shutil.copyfile(folder / candidate["file"], output / candidate["file"])
-    with zipfile.ZipFile(output / "release-evidence.zip", "w", zipfile.ZIP_DEFLATED) as archive:
+        expected_archive[f"{candidate['os']}/candidate.json"] = candidate_digests[folder]
+        expected_archive.update({f"{candidate['os']}/{relative}": digest for relative, digest in candidate["evidence"].items()})
+    if output.exists() or output.is_symlink():
+        raise FileExistsError(f"Asset directory already exists: {output}")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="practiq-assembled-assets-", dir=output.parent) as directory:
+        staged = Path(directory) / "assets"
+        staged.mkdir()
         for folder, candidate in candidates:
-            archive.write(folder / "candidate.json", f"{candidate['os']}/candidate.json")
-            for relative in sorted(candidate["evidence"]):
-                archive.write(folder / relative, f"{candidate['os']}/{relative}")
-        for path in service_files:
-            archive.write(path, f"service/{path.name}")
-    manifest = {"packageSchemaVersion": SCHEMA_VERSION, "packageMode": PACKAGE_MODE,
-                "componentScope": "Desktop assets; aiServiceSource is source-only and not a deployed component",
-                "tag": tag, "commit": sha, "components": components,
-                "publicationStatus": "draft; signing and manual/live acceptance pending",
-                "assets": [candidate for _, candidate in candidates],
-                "evidenceSha256": checksum(output / "release-evidence.zip")}
-    (output / "release-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
-    (output / "SHA256SUMS.txt").write_text(
-        "".join(f"{checksum(path)}  {path.name}\n" for path in sorted(output.iterdir()) if path.is_file()), encoding="utf-8")
-    notes = (root / ".github/RELEASE_TEMPLATE.md").read_text(encoding="utf-8")
-    for key, value in {"TAG": tag, "VERSION": components["desktop"], "COMMIT": sha,
-                       "AI_VERSION": components["aiServiceSource"]}.items():
-        notes = notes.replace(f"@{key}@", value)
-    (output / "RELEASE_NOTES.md").write_text(notes, encoding="utf-8")
+            shutil.copyfile(folder / candidate["file"], staged / candidate["file"])
+        with zipfile.ZipFile(staged / "release-evidence.zip", "w", zipfile.ZIP_DEFLATED) as archive:
+            for folder, candidate in candidates:
+                archive.write(folder / "candidate.json", f"{candidate['os']}/candidate.json")
+                for relative in sorted(candidate["evidence"]):
+                    archive.write(folder / relative, f"{candidate['os']}/{relative}")
+            for path in service_files:
+                archive.write(path, f"service/{path.name}")
+        for _, candidate in candidates:
+            asset = staged / candidate["file"]
+            if checksum(asset) != candidate["sha256"] or asset.stat().st_size != candidate["sizeBytes"]:
+                raise ValueError("Installer identity changed during assembly handoff")
+        with zipfile.ZipFile(staged / "release-evidence.zip") as archive:
+            if len(archive.namelist()) != len(expected_archive) or set(archive.namelist()) != set(expected_archive):
+                raise ValueError("Evidence archive identity changed during assembly handoff")
+            for name, digest in expected_archive.items():
+                with archive.open(name) as stream:
+                    if hashlib.file_digest(stream, "sha256").hexdigest() != digest:
+                        raise ValueError("Evidence identity changed during assembly handoff")
+            for _, candidate in candidates:
+                if json.loads(archive.read(f"{candidate['os']}/candidate.json")) != candidate:
+                    raise ValueError("Candidate identity changed during assembly handoff")
+        manifest = {"packageSchemaVersion": SCHEMA_VERSION, "packageMode": PACKAGE_MODE,
+                    "componentScope": "Desktop assets; aiServiceSource is source-only and not a deployed component",
+                    "tag": tag, "commit": sha, "components": components,
+                    "publicationStatus": "draft; signing and manual/live acceptance pending",
+                    "assets": [candidate for _, candidate in candidates],
+                    "evidenceSha256": checksum(staged / "release-evidence.zip")}
+        (staged / "release-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+        (staged / "SHA256SUMS.txt").write_text(
+            "".join(f"{checksum(path)}  {path.name}\n" for path in sorted(staged.iterdir()) if path.is_file()), encoding="utf-8")
+        notes = (root / ".github/RELEASE_TEMPLATE.md").read_text(encoding="utf-8")
+        for key, value in {"TAG": tag, "VERSION": components["desktop"], "COMMIT": sha,
+                           "AI_VERSION": components["aiServiceSource"]}.items():
+            notes = notes.replace(f"@{key}@", value)
+        (staged / "RELEASE_NOTES.md").write_text(notes, encoding="utf-8")
+        if git(root, "rev-parse", "HEAD") != sha:
+            raise ValueError("Candidate source changed before assembly handoff")
+        if output.exists() or output.is_symlink():
+            raise FileExistsError(f"Asset directory already exists: {output}")
+        staged.rename(output)
 
 
 def main() -> None:

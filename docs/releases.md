@@ -83,7 +83,7 @@ The workflow validates versions, the tag's commit, clean source and ancestry on
 regardless of changed paths, and runs the existing package matrix. It mounts the
 final macOS DMG, safely extracts the NSIS payload and extracts the DEB from a
 private read-only installer snapshot, then checks actual desktop version,
-engine absence, build metadata and Cargo/npm
+engine absence, expected regular native executable, build metadata and Cargo/npm
 license sources. The generated notices must match the embedded file byte for
 byte. Windows extraction uses full 7-Zip; CI does not execute the installer. Any failure blocks release asset staging and draft creation; failure
 diagnostics remain in Actions. Prerelease status never bypasses these gates.
