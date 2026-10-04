@@ -17,6 +17,8 @@ The app supports Simplified Chinese and English, light and dark themes, seven ba
 
 The first supported system language is used until you choose a language in the sidebar. That choice is saved locally and included in full backups; a failed save can be retried. Dates and numbers use the matching regional system preference. Language changes preserve question content and answers; materials with known language metadata declare their own language for assistive tools. AI grading captures the selected feedback language when you start it, and resuming the same request preserves that language.
 
+Question lists hide previous results while loading. A failed read stays visible with a Retry action that preserves the current bank, search, type, review filter and page.
+
 PractiQ is in development. There is no published GitHub Release yet; run it from source using the instructions below. Platform build checks do not establish signed-release or clean-machine acceptance.
 
 ![PractiQ question-bank home in the English desktop development preview](docs/assets/desktop-preview-en.png)
