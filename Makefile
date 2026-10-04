@@ -42,6 +42,7 @@ audit:
 	"$(AI_PYTHON)" -m pip_audit --strict --disable-pip --no-deps -r "$$requirements"
 audit-rust:
 	cargo audit --file app/src-tauri/Cargo.lock
+	"$(AI_PYTHON)" app/scripts/check-rust-targets.py
 image-check: web-build
 	docker build -f Dockerfile.server -t practiq-ai:ci .
 
