@@ -245,5 +245,77 @@
         "sha256": "0d3cb6a503d8a4d0d7092e7b8930e8cad7cad9f4d53bf70e40d22ac5cee4dc35"
       }
     }
+  ],
+  "cargo:dlopen2@0.8.2": [
+    {
+      "source": "https://raw.githubusercontent.com/OpenByteDev/dlopen2/cc80e4a0a90d499b677fdf7743699b4b3a43a989/LICENSE",
+      "sha256": "39fa265207450e77c62e90c5594a06c085b655d8374c7ced4bf7894b6bd95dd2",
+      "file": "texts/39fa265207450e77c62e90c5594a06c085b655d8374c7ced4bf7894b6bd95dd2.txt",
+      "verification": "Exact Cargo.lock crate checksum and packaged .cargo_vcs_info commit verified; full upstream MIT text at that same commit. The pinned provenance records original-manifest/source comparisons.",
+      "evidence": {
+        "file": "dlopen2-0.8.2.provenance.json",
+        "sha256": "cb8d487c8f7da85e5b052209de04d51c294e1f7586c5d81e0ed710bdd03f1248"
+      }
+    }
+  ],
+  "cargo:dlopen2_derive@0.4.3": [
+    {
+      "source": "https://raw.githubusercontent.com/OpenByteDev/dlopen2/cc80e4a0a90d499b677fdf7743699b4b3a43a989/LICENSE",
+      "sha256": "39fa265207450e77c62e90c5594a06c085b655d8374c7ced4bf7894b6bd95dd2",
+      "file": "texts/39fa265207450e77c62e90c5594a06c085b655d8374c7ced4bf7894b6bd95dd2.txt",
+      "verification": "Exact Cargo.lock crate checksum and packaged .cargo_vcs_info commit verified; full upstream MIT text at that same commit. The pinned provenance records original-manifest/source comparisons.",
+      "evidence": {
+        "file": "dlopen2_derive-0.4.3.provenance.json",
+        "sha256": "e10804f19746e8674efb05cb4410313fd76bba12f524f3a666a2245cba4ffb57"
+      }
+    }
+  ],
+  "cargo:libappindicator-sys@0.9.0": [
+    {
+      "source": "https://raw.githubusercontent.com/tauri-apps/libappindicator-rs/eafd1e3682a1247f595410266091e9684021cb6f/LICENSE-MIT",
+      "sha256": "eb227437252b2a7a9c1fc342c93ade1f3d7ce38cc6dd754f613db07d53ceff0b",
+      "file": "texts/eb227437252b2a7a9c1fc342c93ade1f3d7ce38cc6dd754f613db07d53ceff0b.txt",
+      "verification": "Exact Cargo.lock crate checksum and packaged .cargo_vcs_info commit verified; full upstream MIT text at that same commit. The pinned provenance records original-manifest/source comparisons. MIT is selected from the declared Apache-2.0 OR MIT alternatives.",
+      "evidence": {
+        "file": "libappindicator-sys-0.9.0.provenance.json",
+        "sha256": "eb3fcdb3e97b4b7271b423a1739f5aa31be581414b36671f9999b0f0a66f9939"
+      }
+    }
+  ],
+  "cargo:webview2-com-macros@0.8.1": [
+    {
+      "source": "https://raw.githubusercontent.com/wravery/webview2-rs/dffa41a8a46d3f5565eefbff2de57d38d399f158/LICENSE",
+      "sha256": "0dcf41516e608bbcb6cdc5229feb7b86fe4a643b85e7df251133c93408fdac73",
+      "file": "texts/0dcf41516e608bbcb6cdc5229feb7b86fe4a643b85e7df251133c93408fdac73.txt",
+      "verification": "Exact Cargo.lock crate checksum and packaged .cargo_vcs_info commit verified; full upstream MIT text at that same commit. The pinned provenance records original-manifest/source comparisons.",
+      "evidence": {
+        "file": "webview2-com-macros-0.8.1.provenance.json",
+        "sha256": "10eda4368c9b09673d8926ba3a584f0856d23797fdee5bf5e93b75b01d212463"
+      }
+    }
+  ],
+  "cargo:webview2-com-sys@0.38.2": [
+    {
+      "source": "https://raw.githubusercontent.com/wravery/webview2-rs/b74dc5e2b394044bea5191052868ce7a106c202c/LICENSE",
+      "sha256": "0dcf41516e608bbcb6cdc5229feb7b86fe4a643b85e7df251133c93408fdac73",
+      "file": "texts/0dcf41516e608bbcb6cdc5229feb7b86fe4a643b85e7df251133c93408fdac73.txt",
+      "verification": "Exact Cargo.lock crate checksum and packaged .cargo_vcs_info commit verified; full upstream MIT text at that same commit. The pinned provenance records original-manifest/source comparisons.",
+      "evidence": {
+        "file": "webview2-com-sys-0.38.2.provenance.json",
+        "sha256": "1e5b7201f6b2b5f868a48cd9f9a7b513c9ec8d656ed700561c748a6b5757974b"
+      }
+    }
+  ],
+  "cargo:webview2-com@0.38.2": [
+    {
+      "source": "https://raw.githubusercontent.com/wravery/webview2-rs/b74dc5e2b394044bea5191052868ce7a106c202c/LICENSE",
+      "sha256": "0dcf41516e608bbcb6cdc5229feb7b86fe4a643b85e7df251133c93408fdac73",
+      "file": "texts/0dcf41516e608bbcb6cdc5229feb7b86fe4a643b85e7df251133c93408fdac73.txt",
+      "verification": "Exact Cargo.lock crate checksum and packaged .cargo_vcs_info commit verified; full upstream MIT text at that same commit. The pinned provenance records original-manifest/source comparisons.",
+      "evidence": {
+        "file": "webview2-com-0.38.2.provenance.json",
+        "sha256": "db1c71cd7a80c98d9b192783ca363291abdb7535838c125b95a957cebc9b8bb0"
+      }
+    }
   ]
 }

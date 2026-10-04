@@ -1,0 +1,73 @@
+{
+  "checkedAt": "2026-10-04",
+  "package": "webview2-com-sys",
+  "version": "0.38.2",
+  "crate": {
+    "source": "https://static.crates.io/crates/webview2-com-sys/webview2-com-sys-0.38.2.crate",
+    "sha256": "381336cfffd772377d291702245447a5251a2ffa5bad679c99e61bc48bacbf9c",
+    "verification": "Cached published crate bytes match this exact package and version checksum in app/src-tauri/Cargo.lock."
+  },
+  "publishedCargoTomlSha256": "a6d5d71806b135cc7c101a2599b97e7fda28be0223f27577433eb1577addef7c",
+  "publishedRepository": "https://github.com/wravery/webview2-rs",
+  "declaredLicense": "MIT",
+  "selectedLicense": "MIT",
+  "cargoVcsInfo": {
+    "archivePath": "webview2-com-sys-0.38.2/.cargo_vcs_info.json",
+    "sha256": "8af502bd8832383dc1dd8bbd7fb00eb76a72b111688bc492e110bbac44cb005f",
+    "contents": {
+      "git": {
+        "sha1": "b74dc5e2b394044bea5191052868ce7a106c202c"
+      },
+      "path_in_vcs": "crates/bindings"
+    }
+  },
+  "upstreamRepository": "https://github.com/wravery/webview2-rs",
+  "upstreamCommit": "b74dc5e2b394044bea5191052868ce7a106c202c",
+  "repositoryAttribution": "Published package repository; original manifest and all published src files match this VCS commit, allowing only the individually recorded CRLF/LF differences.",
+  "license": {
+    "source": "https://raw.githubusercontent.com/wravery/webview2-rs/b74dc5e2b394044bea5191052868ce7a106c202c/LICENSE",
+    "path": "LICENSE",
+    "sha256": "0dcf41516e608bbcb6cdc5229feb7b86fe4a643b85e7df251133c93408fdac73",
+    "gitBlobSha1": "de9a7e660e173136b351982a34f715af424ff812",
+    "sizeBytes": 1067,
+    "verification": "Complete upstream file, unchanged bytes, from the same commit recorded in this published crate; Git blob SHA-1 independently matches the commit tree."
+  },
+  "publishedSourceComparison": [
+    {
+      "archivePath": "Cargo.toml.orig",
+      "upstreamPath": "crates/bindings/Cargo.toml",
+      "archiveSha256": "00229c125c597e4f0ddb9e598738ee5b38a9086fd59eea6d2577cdda5f8e5875",
+      "upstreamSha256": "00229c125c597e4f0ddb9e598738ee5b38a9086fd59eea6d2577cdda5f8e5875",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 627,
+      "upstreamSizeBytes": 627
+    },
+    {
+      "archivePath": "src/bindings.rs",
+      "upstreamPath": "crates/bindings/src/bindings.rs",
+      "archiveSha256": "d47ecf982c4199d0a3b378caf66f076231af2b5b342497f7380630b22b29f917",
+      "upstreamSha256": "d47ecf982c4199d0a3b378caf66f076231af2b5b342497f7380630b22b29f917",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 1679541,
+      "upstreamSizeBytes": 1679541
+    },
+    {
+      "archivePath": "src/declared_interfaces.rs",
+      "upstreamPath": "crates/bindings/src/declared_interfaces.rs",
+      "archiveSha256": "eda44887797af8ac657085d1bd6798ba4d627835c39121860f42f4d7ae7e2ba6",
+      "upstreamSha256": "eda44887797af8ac657085d1bd6798ba4d627835c39121860f42f4d7ae7e2ba6",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 7600,
+      "upstreamSizeBytes": 7600
+    },
+    {
+      "archivePath": "src/lib.rs",
+      "upstreamPath": "crates/bindings/src/lib.rs",
+      "archiveSha256": "bd953534fa9b15d39ac69c9afa82762adaaa81621a0adb687ba385327ee6689a",
+      "upstreamSha256": "b0f575a4f8c711f35972254de4a3b1732d500f301a6af10f727131ece97a5786",
+      "comparison": "identical after CRLF to LF normalization only",
+      "archiveSizeBytes": 1878,
+      "upstreamSizeBytes": 1812
+    }
+  ]
+}

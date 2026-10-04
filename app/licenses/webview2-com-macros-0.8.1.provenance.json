@@ -1,0 +1,55 @@
+{
+  "checkedAt": "2026-10-04",
+  "package": "webview2-com-macros",
+  "version": "0.8.1",
+  "crate": {
+    "source": "https://static.crates.io/crates/webview2-com-macros/webview2-com-macros-0.8.1.crate",
+    "sha256": "67a921c1b6914c367b2b823cd4cde6f96beec77d30a939c8199bb377cf9b9b54",
+    "verification": "Cached published crate bytes match this exact package and version checksum in app/src-tauri/Cargo.lock."
+  },
+  "publishedCargoTomlSha256": "b006cef88171ef3675df724a900cb31eb1f74158f77a20680915f1dbe95d457e",
+  "publishedRepository": "https://github.com/wravery/webview2-rs",
+  "declaredLicense": "MIT",
+  "selectedLicense": "MIT",
+  "cargoVcsInfo": {
+    "archivePath": "webview2-com-macros-0.8.1/.cargo_vcs_info.json",
+    "sha256": "c24c2646f52e6cb4c1f382afc69fa99c0dc78d6d8e4316ade7e51707b4f9af8e",
+    "contents": {
+      "git": {
+        "sha1": "dffa41a8a46d3f5565eefbff2de57d38d399f158"
+      },
+      "path_in_vcs": "crates/callback-macros"
+    }
+  },
+  "upstreamRepository": "https://github.com/wravery/webview2-rs",
+  "upstreamCommit": "dffa41a8a46d3f5565eefbff2de57d38d399f158",
+  "repositoryAttribution": "Published package repository; original manifest and all published src files match this VCS commit, allowing only the individually recorded CRLF/LF differences.",
+  "license": {
+    "source": "https://raw.githubusercontent.com/wravery/webview2-rs/dffa41a8a46d3f5565eefbff2de57d38d399f158/LICENSE",
+    "path": "LICENSE",
+    "sha256": "0dcf41516e608bbcb6cdc5229feb7b86fe4a643b85e7df251133c93408fdac73",
+    "gitBlobSha1": "de9a7e660e173136b351982a34f715af424ff812",
+    "sizeBytes": 1067,
+    "verification": "Complete upstream file, unchanged bytes, from the same commit recorded in this published crate; Git blob SHA-1 independently matches the commit tree."
+  },
+  "publishedSourceComparison": [
+    {
+      "archivePath": "Cargo.toml.orig",
+      "upstreamPath": "crates/callback-macros/Cargo.toml",
+      "archiveSha256": "a615e325d5acebc64f6553724028cd5e3639397e534cef107f172540cb78d0fd",
+      "upstreamSha256": "a615e325d5acebc64f6553724028cd5e3639397e534cef107f172540cb78d0fd",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 419,
+      "upstreamSizeBytes": 419
+    },
+    {
+      "archivePath": "src/lib.rs",
+      "upstreamPath": "crates/callback-macros/src/lib.rs",
+      "archiveSha256": "3e0fb6feaaea5811a304205b8eaba424a5763947143fc27357f0106db3681ed3",
+      "upstreamSha256": "0e04b45fa54d548e31b5dbfe295f2eac28ea308bf0339d2357f0c0be1b9daf36",
+      "comparison": "identical after CRLF to LF normalization only",
+      "archiveSizeBytes": 8428,
+      "upstreamSizeBytes": 8178
+    }
+  ]
+}
