@@ -1,9 +1,9 @@
 """Export a completed parser result in the existing portable desktop bank format."""
 
-import asyncio
 import io
 import json
-from typing import Any
+from tempfile import TemporaryFile
+from typing import Any, BinaryIO
 from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 from PIL import Image
@@ -18,6 +18,7 @@ from .contracts import (
     document_source_key,
 )
 from .errors import DocumentProcessingError
+from .extractors.isolated import _thread_io
 from .storage import ARTIFACT_KEY_PATTERN, ObjectStore
 
 MANIFEST_LIMIT = 64 * 1024
@@ -26,6 +27,7 @@ RESOURCE_LIMIT = 25 * 1024 * 1024
 RESOURCES_LIMIT = 256 * 1024 * 1024
 ZIP_LIMIT = 300 * 1024 * 1024
 ENTRY_LIMIT = 2002
+ZIP_CHUNK_BYTES = 64 * 1024
 IMAGE_MEDIA = {"image/png", "image/jpeg"}
 AUDIO_MEDIA = {"audio/mpeg", "audio/mp4", "audio/aac", "audio/wav"}
 
@@ -84,18 +86,17 @@ def _image(reference: ArtifactReference, payload: bytes) -> None:
             raise _invalid("Invalid packaged image content") from exc
 
 
-def _zip(manifest: bytes, questions: bytes, resources: dict[str, bytes]) -> bytes:
-    buffer = io.BytesIO()
-    with ZipFile(buffer, "w", compression=ZIP_DEFLATED) as archive:
-        for name, payload in [("manifest.json", manifest), ("questions.json", questions), *sorted(resources.items())]:
-            entry = ZipInfo(name)
-            entry.create_system = 3
-            entry.external_attr = 0o100600 << 16
-            entry.compress_type = ZIP_DEFLATED
-            archive.writestr(entry, payload)
-            _limit(buffer.tell(), ZIP_LIMIT, "ZIP")
-    _limit(buffer.tell(), ZIP_LIMIT, "ZIP")
-    return buffer.getvalue()
+def _write_entry(archive: ZipFile, output: BinaryIO, name: str, payload: bytes) -> None:
+    entry = ZipInfo(name)
+    entry.create_system = 3
+    entry.external_attr = 0o100600 << 16
+    entry.compress_type = ZIP_DEFLATED
+    with archive.open(entry, "w") as target:
+        view = memoryview(payload)
+        for offset in range(0, len(view), ZIP_CHUNK_BYTES):
+            target.write(view[offset:offset + ZIP_CHUNK_BYTES])
+            _limit(output.tell(), ZIP_LIMIT, "ZIP")
+    _limit(output.tell(), ZIP_LIMIT, "ZIP")
 
 
 async def export_task_bank(
@@ -105,12 +106,13 @@ async def export_task_bank(
     source: DocumentReference,
     title: str | None = None,
     description: str = "",
-) -> bytes:
+) -> BinaryIO:
     """Package a caller-authorized current task snapshot without running a model.
 
     The caller obtains ``source`` from that task's authoritative record. Resource
     ownership is checked against its source SHA, then ObjectStore verifies every
-    declared object. Desktop import retains its full image/audio validation.
+    declared object. The caller owns and closes the returned private archive.
+    Desktop import retains its full image/audio validation.
     """
     if detail.state != "COMPLETED" or not detail.checkpointId or detail.result is None or detail.status is None:
         raise DocumentProcessingError(409, "Task has no completed current result", "BANK_EXPORT_NOT_READY")
@@ -137,10 +139,24 @@ async def export_task_bank(
     _limit(len(manifest), MANIFEST_LIMIT, "Manifest JSON")
     _limit(len(questions), JSON_LIMIT, "Questions JSON")
     references = _references(result, source)
-    source_payload = await store.get_verified(source)
-    resources: dict[str, bytes] = {}
-    for name, reference in references.items():
-        payload = source_payload if reference.objectKey == source.objectKey else await store.get_verified(reference)
-        await asyncio.to_thread(_image, reference, payload)
-        resources[name] = payload
-    return await asyncio.to_thread(_zip, manifest, questions, resources)
+    output = TemporaryFile("w+b")  # noqa: SIM115 - ownership transfers to the response on success
+    try:
+        with ZipFile(output, "w", compression=ZIP_DEFLATED) as archive:
+            await _thread_io(_write_entry, archive, output, "manifest.json", manifest)
+            await _thread_io(_write_entry, archive, output, "questions.json", questions)
+            del manifest, questions
+            if not any(reference.objectKey == source.objectKey for reference in references.values()):
+                # Verify the origin without retaining it while reading resources.
+                await store.get_verified(source)
+            for name, reference in sorted(references.items()):
+                checked = source if reference.objectKey == source.objectKey else reference
+                payload = await store.get_verified(checked)
+                await _thread_io(_image, reference, payload)
+                await _thread_io(_write_entry, archive, output, name, payload)
+                del payload
+        _limit(output.tell(), ZIP_LIMIT, "ZIP")
+        output.seek(0)
+        return output
+    except BaseException:
+        output.close()
+        raise

@@ -1,12 +1,18 @@
 """Portable bank export uses the existing desktop ZIP and result contracts."""
 
+import asyncio
+import gc
 import hashlib
 import io
 import json
+import threading
+import tracemalloc
 import wave
 from pathlib import Path
+from tempfile import TemporaryFile
 from zipfile import ZipFile
 
+import httpx
 import pytest
 from PIL import Image
 
@@ -51,7 +57,7 @@ def parsed(task: DocumentTaskDetail) -> DocumentParseResult:
 
 
 def unpack(payload):
-    with ZipFile(io.BytesIO(payload)) as archive:
+    with payload, ZipFile(payload) as archive:
         return {entry.filename: archive.read(entry) for entry in archive.infolist()}
 
 
@@ -60,6 +66,9 @@ async def test_export_preserves_partial_nulls_tree_and_only_portable_task_fields
     root = json.loads((Path(__file__).parents[2] / "app/fixtures/composite.json").read_text())
     task = detail(root)
     payload = await bank_export.export_task_bank(task, store, source=source, title="课程", description="供离线追加")
+    with ZipFile(payload) as archive:
+        assert all(not entry.is_dir() and entry.create_system == 3 and entry.external_attr >> 16 & 0o170000 == 0o100000 for entry in archive.infolist())
+    payload.seek(0)
     files = unpack(payload)
     assert set(files) == {"manifest.json", "questions.json"}
     assert json.loads(files["manifest.json"]) == {
@@ -69,8 +78,6 @@ async def test_export_preserves_partial_nulls_tree_and_only_portable_task_fields
     assert output == {"status": "PARTIAL", "result": parsed(task).model_dump(mode="json"), "processing": None}
     assert DocumentParseResult.model_validate(output["result"]) == task.result
     assert "usage" not in output and "threadId" not in output and "document" not in output
-    with ZipFile(io.BytesIO(payload)) as archive:
-        assert all(not entry.is_dir() and entry.create_system == 3 and entry.external_attr >> 16 & 0o170000 == 0o100000 for entry in archive.infolist())
 
 
 async def test_export_defaults_to_full_filename_when_dot_extension_has_no_stem(tmp_path):
@@ -251,3 +258,314 @@ async def test_export_revalidates_count_limits_in_a_mutated_result(tmp_path, key
     task = task.model_copy(update={"result": value})
     with pytest.raises(DocumentProcessingError, match="result contract"):
         await bank_export.export_task_bank(task, store, source=source)
+
+
+async def test_export_peak_memory_tracks_one_resource_instead_of_the_expanded_bank(tmp_path, record_property):
+    store, source = await source_store(tmp_path)
+    root = parsed(detail()).model_dump(mode="json")
+    template = root["questions"][0]
+    root["questions"] = []
+    resource_size = 4 * 1024 * 1024
+    content = io.BytesIO()
+    with wave.open(content, "wb") as audio:
+        audio.setnchannels(1); audio.setsampwidth(2); audio.setframerate(8000)
+        audio.writeframes(b"\0\0" * (resource_size // 2))
+    resources = []
+    audio_bytes = bytearray(content.getvalue())
+    for index in range(8):
+        audio_bytes[-2] = index
+        reference = await store.put_artifact(bytes(audio_bytes), source_sha256=source.sha256,
+            kind="audio", index=index, media_type="audio/wav")
+        resources.append(reference)
+        root["questions"].append({**template, "id": f"q{index}", "answerMode": "listening", "questionKind": "listening",
+                                  "audioRef": reference.model_dump(), "passage": []})
+    root["groups"][0]["questionIds"] = [question["id"] for question in root["questions"]]
+    task = detail(root)
+    assert len({reference.sha256 for reference in resources}) == 8
+    assert len({reference.objectKey for reference in resources}) == 8
+    expanded = sum(reference.sizeBytes for reference in resources)
+    assert expanded == 8 * (resource_size + 44)
+    del audio_bytes
+    content.close(); gc.collect(); tracemalloc.start()
+    payload = None
+    try:
+        payload = await bank_export.export_task_bank(task, store, source=source)
+        _, peak = tracemalloc.get_traced_memory()
+        record_property("unique_resources", 8)
+        record_property("expanded_resources_bytes", expanded)
+        record_property("peak_python_allocation_bytes", peak)
+        with ZipFile(io.BytesIO(payload) if isinstance(payload, bytes) else payload) as archive:
+            assert len(archive.infolist()) == 10
+            packaged = [entry for entry in archive.infolist() if entry.filename.startswith("resources/")]
+            assert len(packaged) == 8 and sum(entry.file_size for entry in packaged) == expanded
+            record_property("packaged_resource_entries", len(packaged))
+        assert peak < 3 * resource_size, f"Expanded {expanded} byte bank used {peak} Python allocation bytes"
+        assert not isinstance(payload, bytes)
+    finally:
+        tracemalloc.stop()
+        if payload is not None and not isinstance(payload, bytes):
+            payload.close()
+
+
+async def test_export_closes_private_archive_on_resource_integrity_failure(tmp_path, monkeypatch):
+    store, source = await source_store(tmp_path)
+    image = await store.put_artifact(make_image(), source_sha256=source.sha256, kind="visual", index=0, media_type="image/png")
+    root = parsed(detail()).model_dump(mode="json")
+    root["visualElements"] = [{"kind": "image", "description": "Figure", "questionIds": ["q"], "imageRef": image.model_dump()}]
+    (tmp_path / image.objectKey).write_bytes(b"invalid")
+    files = []
+    def temporary(*args, **kwargs):
+        file = TemporaryFile(*args, **kwargs)  # noqa: SIM115 - caller owns the tracked archive
+        files.append(file); return file
+    monkeypatch.setattr(bank_export, "TemporaryFile", temporary, raising=False)
+    with pytest.raises(DocumentProcessingError):
+        await bank_export.export_task_bank(detail(root), store, source=source)
+    assert len(files) == 1 and files[0].closed
+
+
+@pytest.mark.parametrize("failure", ["stale", "cancelled"])
+async def test_task_export_closes_archive_when_the_final_snapshot_cannot_be_used(tmp_path, monkeypatch, failure):
+    from types import SimpleNamespace
+
+    from practiq_ai import task_api
+    store, source = await source_store(tmp_path)
+    entered = asyncio.Event()
+    calls = 0
+    async def read_task(_service, _thread):
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            entered.set()
+            if failure == "cancelled":
+                await asyncio.Event().wait()
+        return {"document": source.model_dump()}, "current-result" if calls == 1 else "stale", None
+    async def get_task(_thread):
+        return detail().model_dump(mode="json")
+    payload = TemporaryFile("w+b")  # noqa: SIM115 - assert production closes the transferred file
+    async def export(*_args, **_kwargs):
+        return payload
+    monkeypatch.setattr(task_api, "client", lambda: SimpleNamespace(checkpoint_id=lambda snapshot, _run: snapshot))
+    monkeypatch.setattr(task_api, "_read_task", read_task)
+    monkeypatch.setattr(task_api, "get_task", get_task)
+    monkeypatch.setattr(task_api, "get_object_store", lambda: store)
+    monkeypatch.setattr(bank_export, "export_task_bank", export)
+    operation = asyncio.create_task(task_api.export_task(str(detail().threadId), "current-result"))
+    try:
+        await entered.wait()
+        if failure == "cancelled":
+            operation.cancel()
+        with pytest.raises(asyncio.CancelledError if failure == "cancelled" else DocumentProcessingError):
+            await operation
+        assert payload.closed
+    finally:
+        payload.close()
+
+
+async def test_export_waits_for_a_cancelled_writer_before_closing_its_archive(tmp_path, monkeypatch):
+    store, source = await source_store(tmp_path)
+    image = await store.put_artifact(make_image(), source_sha256=source.sha256, kind="visual", index=0, media_type="image/png")
+    root = parsed(detail()).model_dump(mode="json")
+    root["visualElements"] = [{"kind": "image", "description": "Figure", "questionIds": ["q"], "imageRef": image.model_dump()}]
+    files, errors = [], []
+    entered, released, finished = threading.Event(), threading.Event(), threading.Event()
+    original_write = bank_export._write_entry
+    def temporary(*args, **kwargs):
+        file = TemporaryFile(*args, **kwargs)  # noqa: SIM115 - production must close this file
+        files.append(file); return file
+    def write(archive, output, name, payload):
+        if not name.startswith("resources/"):
+            return original_write(archive, output, name, payload)
+        entered.set()
+        try:
+            assert released.wait(5), "Cancelled writer was never released"
+            original_write(archive, output, name, payload)
+        except BaseException as exc:
+            errors.append(exc)
+            raise
+        finally:
+            finished.set()
+    monkeypatch.setattr(bank_export, "TemporaryFile", temporary)
+    monkeypatch.setattr(bank_export, "_write_entry", write)
+    operation = asyncio.create_task(bank_export.export_task_bank(detail(root), store, source=source))
+    try:
+        assert await asyncio.wait_for(asyncio.to_thread(entered.wait, 5), timeout=6)
+        operation.cancel()
+        await asyncio.sleep(0.01)
+        operation.cancel()
+        await asyncio.sleep(0.01)
+        assert not operation.done() and len(files) == 1 and not files[0].closed
+        released.set()
+        with pytest.raises(asyncio.CancelledError):
+            await operation
+        assert finished.is_set() and not errors and files[0].closed
+    finally:
+        released.set()
+        if not operation.done():
+            operation.cancel()
+            await asyncio.gather(operation, return_exceptions=True)
+        for file in files:
+            file.close()
+
+
+@pytest.mark.parametrize("failure", [None, "cancelled", "disconnect"])
+async def test_export_http_slot_holds_through_download_and_releases_after_response(monkeypatch, failure):
+    from practiq_ai import task_api, webapp
+    monkeypatch.setenv("AI_SERVICE_TOKEN", "export-test-token")
+    endpoint = f"/api/document-tasks/{detail().threadId}/export"
+    entered, released = asyncio.Event(), asyncio.Event()
+    files = []
+    async def export(*_args):
+        payload = TemporaryFile("w+b")  # noqa: SIM115 - response receives ownership
+        payload.write(b"x" * (128 * 1024 + 17)); payload.seek(0)
+        files.append(payload)
+        return payload
+    monkeypatch.setattr(task_api, "export_task", export)
+    async def receive():
+        await asyncio.Event().wait()
+        return {"type": "http.disconnect"}
+    async def slow_send(message):
+        if message["type"] == "http.response.body" and message.get("body"):
+            entered.set()
+            await released.wait()
+            if failure == "disconnect":
+                raise OSError("Synthetic disconnected HTTP client")
+    scope = {"type": "http", "method": "GET", "path": endpoint,
+             "query_string": b"checkpoint_id=current-result", "headers": [(b"authorization", b"Bearer export-test-token")],
+             "asgi": {"version": "3.0", "spec_version": "2.4"}, "scheme": "http", "http_version": "1.1"}
+    first = asyncio.create_task(webapp.app(scope, receive, slow_send))
+    try:
+        await asyncio.wait_for(entered.wait(), timeout=5)
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=webapp.app), base_url="http://test") as client:
+            assert (await client.get(endpoint)).status_code == 401
+            client.headers["Authorization"] = "Bearer export-test-token"
+            busy = await client.get(endpoint)
+            assert busy.status_code == 429 and busy.json()["detail"]["code"] == "BANK_EXPORT_BUSY"
+            assert busy.headers["retry-after"] == "1" and len(files) == 1
+            if failure == "cancelled":
+                first.cancel()
+            released.set()
+            if failure:
+                with pytest.raises(asyncio.CancelledError if failure == "cancelled" else Exception):
+                    await first
+            else:
+                await first
+            assert files[0].closed
+            exported = await client.get(endpoint)
+            assert exported.status_code == 200 and len(exported.content) == 128 * 1024 + 17
+            assert len(files) == 2 and all(file.closed for file in files)
+    finally:
+        released.set()
+        if not first.done():
+            first.cancel()
+            await asyncio.gather(first, return_exceptions=True)
+        for file in files:
+            file.close()
+
+
+async def test_export_http_slot_releases_after_archive_build_failure(monkeypatch):
+    from practiq_ai import task_api, webapp
+    monkeypatch.setenv("AI_SERVICE_TOKEN", "export-test-token")
+    files = []
+    calls = 0
+    async def export(*_args):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise DocumentProcessingError(503, "Synthetic archive build failure", "TEST_EXPORT_FAILURE")
+        payload = TemporaryFile("w+b")  # noqa: SIM115 - response receives ownership
+        payload.write(b"archive"); payload.seek(0); files.append(payload)
+        return payload
+    monkeypatch.setattr(task_api, "export_task", export)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=webapp.app), base_url="http://test",
+                                headers={"Authorization": "Bearer export-test-token"}) as client:
+        endpoint = f"/api/document-tasks/{detail().threadId}/export"
+        failure = await client.get(endpoint)
+        assert failure.status_code == 503 and failure.json()["detail"]["code"] == "TEST_EXPORT_FAILURE"
+        success = await client.get(endpoint)
+        assert success.status_code == 200 and success.content == b"archive" and files[0].closed
+
+
+@pytest.mark.parametrize("failure", [None, "disconnect", "cancelled", "header_disconnect", "legacy_disconnect"])
+async def test_export_response_reads_bounded_chunks_and_closes_on_completion_or_disconnect(monkeypatch, failure):
+    from practiq_ai import task_api, webapp
+    payload = TemporaryFile("w+b")  # noqa: SIM115 - assert production closes the transferred file
+    payload.write(b"x" * (128 * 1024 + 17)); payload.seek(0)
+    async def export(*_args):
+        return payload
+    monkeypatch.setattr(task_api, "export_task", export)
+    messages = []
+    async def send(message):
+        messages.append(message)
+        if message["type"] == "http.response.start" and failure == "header_disconnect":
+            raise OSError("Synthetic disconnected client before its first read")
+        if message["type"] == "http.response.body" and failure in {"disconnect", "cancelled"}:
+            if failure == "disconnect":
+                raise OSError("Synthetic disconnected client")
+            raise asyncio.CancelledError
+    async def receive():
+        if failure != "legacy_disconnect":
+            await asyncio.Event().wait()
+        return {"type": "http.disconnect"}
+    try:
+        response = await webapp.export_document_task(detail().threadId, "current-result")
+        assert response.headers["content-length"] == str(128 * 1024 + 17)
+        scope = {"type": "http", "method": "GET", "asgi": {"spec_version": "2.0" if failure == "legacy_disconnect" else "2.4"}}
+        if failure and failure != "legacy_disconnect":
+            with pytest.raises(asyncio.CancelledError if failure == "cancelled" else Exception):
+                await response(scope, receive, send)
+        else:
+            await response(scope, receive, send)
+        if not failure:
+            bodies = [message["body"] for message in messages if message["type"] == "http.response.body"]
+            assert b"".join(bodies) == b"x" * (128 * 1024 + 17)
+        assert payload.closed
+        assert all(len(message.get("body", b"")) <= 64 * 1024 for message in messages)
+    finally:
+        payload.close()
+
+
+async def test_export_response_waits_for_a_cancelled_read_before_closing_its_archive(monkeypatch):
+    from practiq_ai import task_api, webapp
+    payload = TemporaryFile("w+b")  # noqa: SIM115 - assert production closes the transferred file
+    payload.write(b"archive"); payload.seek(0)
+    entered, released, finished = threading.Event(), threading.Event(), threading.Event()
+    errors = []
+    original_read = payload.read
+    def read(size):
+        entered.set()
+        try:
+            assert released.wait(5), "Cancelled archive read was never released"
+            return original_read(size)
+        except BaseException as exc:
+            errors.append(exc)
+            raise
+        finally:
+            finished.set()
+    async def export(*_args):
+        return payload
+    async def receive():
+        await asyncio.Event().wait()
+        return {"type": "http.disconnect"}
+    async def send(_message):
+        pass
+    monkeypatch.setattr(payload, "read", read)
+    monkeypatch.setattr(task_api, "export_task", export)
+    response = await webapp.export_document_task(detail().threadId, "current-result")
+    operation = asyncio.create_task(response({"type": "http", "method": "GET", "asgi": {"spec_version": "2.4"}}, receive, send))
+    try:
+        assert await asyncio.wait_for(asyncio.to_thread(entered.wait, 5), timeout=6)
+        operation.cancel()
+        await asyncio.sleep(0.01)
+        operation.cancel()
+        await asyncio.sleep(0.01)
+        assert not operation.done() and not payload.closed
+        released.set()
+        with pytest.raises(asyncio.CancelledError):
+            await operation
+        assert finished.is_set() and not errors and payload.closed
+    finally:
+        released.set()
+        if not operation.done():
+            operation.cancel()
+            await asyncio.gather(operation, return_exceptions=True)
+        payload.close()

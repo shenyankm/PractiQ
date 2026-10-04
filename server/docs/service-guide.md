@@ -42,6 +42,8 @@ Upload the source, create a task, then read and download the result:
 4. Submit an `ArtifactReference` to `POST /api/artifacts/read` to read asset bytes after authentication, size, and SHA-256 checks.
 5. For a completed result, `GET /api/document-tasks/{threadId}/export?checkpoint_id=<currentCheckpoint>` downloads the existing desktop-compatible bank ZIP. A stale checkpoint returns `STALE_CHECKPOINT`; an unfinished or missing result returns `BANK_EXPORT_NOT_READY`. Export makes no model call.
 
+Export verifies and writes one resource at a time into a private disk ZIP, then streams it in 64 KiB chunks. The single-process service allows one export build/download per event loop until that response finishes. A competing authenticated export receives HTTP 429 with `BANK_EXPORT_BUSY` and `Retry-After: 1`; retry explicitly after the current download finishes. Completion, failed builds, disconnects and cancellation close the temporary archive and release the slot. Existing JSON, individual resource, expanded-resource and ZIP limits still apply.
+
 The service supports `text_csv_parser`, `pdf_parser`, and the all-format `document_parser`. Task input rejects URLs, Base64, and server paths. The former product `/api/v1/ai/*` endpoints have been removed.
 
 Application errors return a structured `detail` containing a stable `code` and optional diagnostic `message` and interpolation `params`. Clients localize the code rather than display the diagnostic message as interface copy. Invalid authentication returns 401 / `INVALID_SERVICE_TOKEN`; oversized JSON bodies return 413 / `REQUEST_TOO_LARGE`. FastAPI field-validation errors retain their standard 422 validation details.
