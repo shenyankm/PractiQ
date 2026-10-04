@@ -3,3 +3,4 @@ app/licenses/texts/** -text
 app/licenses/*.provenance.json -text
 app/fixtures/ai-import/formats/** -text
 server/evals/fixtures/pdf/pdf-no-answer.pdf binary
+docs/evidence/2026-10-04-package-reference/** -text
