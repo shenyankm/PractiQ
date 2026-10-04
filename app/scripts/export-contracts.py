@@ -6,13 +6,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'server/src'))
 from practiq_ai.contracts import (  # noqa: E402
-    AnswerMode, COMPOSITE_MODES, QUESTION_KIND_MODES, DocumentParseResult, DocumentProcessing, DocumentTaskReview, DocumentTaskSummary,
+    AnswerMode, COMPOSITE_MODES, QUESTION_KIND_MODES, DocumentParseResult, DocumentProcessing, DocumentTaskDetail, DocumentTaskReview, DocumentTaskSummary,
 )
 
 path = Path(__file__).resolve().parents[1] / 'src-tauri/contracts.json'
 content = json.dumps({name: model.model_json_schema() for name, model in {
     'result': DocumentParseResult, 'processing': DocumentProcessing,
-    'taskSummary': DocumentTaskSummary, 'taskReview': DocumentTaskReview,
+    'taskSummary': DocumentTaskSummary, 'taskReview': DocumentTaskReview, 'taskDetail': DocumentTaskDetail,
 }.items()}, ensure_ascii=False, indent=2) + '\n'
 if '--check' in sys.argv:
     if path.read_text(encoding='utf-8') != content:
@@ -49,7 +49,7 @@ def ts_type(node):
     raise ValueError(f'Unsupported schema type: {node}')
 
 schema = DocumentParseResult.model_json_schema()
-definitions = {**DocumentTaskSummary.model_json_schema().get('$defs', {}), **DocumentTaskReview.model_json_schema()['$defs'], **schema['$defs']}
+definitions = {**DocumentTaskDetail.model_json_schema()['$defs'], **DocumentTaskSummary.model_json_schema().get('$defs', {}), **DocumentTaskReview.model_json_schema()['$defs'], **schema['$defs']}
 # These fields are always present on normalized UI questions, as before v2.
 normalized = {'stem', 'answerMode', 'questionTypeId', 'options', 'items', 'answerPayload', 'contentBlocks', 'confidence', 'needsReview', 'missingFields'}
 definitions['ParsedQuestion']['required'] = sorted(normalized)
@@ -63,7 +63,7 @@ for name, node in definitions.items():
 lines.append('export type Answer = ' + ts_type({'type': 'object', 'properties': answer_fields}) + ';')
 lines.append('export type Question = Omit<ParsedQuestion, "answerPayload"> & { answerPayload: Answer | null };')
 lines.append('export type DocumentResult = ' + ts_type(schema) + ';')
-for model in (DocumentTaskSummary, DocumentTaskReview):
+for model in (DocumentTaskSummary, DocumentTaskReview, DocumentTaskDetail):
     lines.append('export type ' + model.__name__ + ' = ' + ts_type(model.model_json_schema()) + ';')
 lines.append('export const QUESTION_KIND_MODES = ' + json.dumps(QUESTION_KIND_MODES) + ' as const;')
 lines.append('export const COMPOSITE_MODES: readonly string[] = ' + json.dumps(sorted(COMPOSITE_MODES)) + ';')

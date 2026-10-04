@@ -5,6 +5,7 @@ import json
 import logging
 import random
 import time
+from collections.abc import Awaitable, Callable
 from copy import deepcopy
 from datetime import UTC, datetime
 from functools import lru_cache
@@ -423,8 +424,9 @@ async def structured_call[ResultT: BaseModel](
     *,
     runtime: Runtime[Any] | None = None,
     call_records: list[dict[str, Any]] | None = None,
+    call_record_writer: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
 ) -> tuple[ResultT | None, list[ModelCallUsage], str | None]:
-    """Checkpoint individual attempts; replay never replenishes the four-call budget."""
+    """Persist each attempt before advancing; graph replay retains its call budget."""
     usage: list[ModelCallUsage] = []
     failure_code = "OUTPUT_INVALID"
     original_messages = list(messages)
@@ -459,6 +461,8 @@ async def structured_call[ResultT: BaseModel](
             async with provider_slot(record):
                 if runtime:
                     await store_put(runtime, "calls", str(call_key), record)
+                if call_record_writer:
+                    await call_record_writer(record)
                 provider_started = True
                 telemetry.event("model_start", callKey=str(call_key), kind=call_kind,
                                 schema=schema.__name__, attempt=attempt, unitKey=CURRENT_UNIT.get(),
@@ -510,10 +514,14 @@ async def structured_call[ResultT: BaseModel](
                             concurrencyWaitMs=record.get("concurrencyWaitMs"),
                             rateWaitMs=record.get("rateWaitMs"), providerRequestMs=record.get("providerRequestMs"),
                             **({"validationIssues": record["validationIssues"]} if "validationIssues" in record else {}))
+            if call_record_writer and outcome != "known":
+                await call_record_writer(record)
         record.update(call_usage.model_dump(mode="json"), status="completed", usageStatus="known",
                       finishedAt=datetime.now(UTC).isoformat(), durationMs=round((time.monotonic() - started) * 1000, 3))
         if runtime:
             await store_put(runtime, "calls", str(call_key), record)
+        if call_record_writer:
+            await call_record_writer(record)
         return {
             "parsed": parsed.model_dump(mode="json") if parsed is not None else None,
             "correction": messages_to_dict(corrected[len(messages):]),

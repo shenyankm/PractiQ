@@ -105,9 +105,9 @@ Send `request_body` as JSON to the grading endpoint. This response illustrates t
 }
 ```
 
-`status` is `graded`, `ungraded`, or `unknown`. Missing evidence, invalid model output, and unknown request outcomes must not become zero scores. Inspect `result`, `error`, `usage`, optional `usageStatus`, and `calls`. Responses may omit `calls` when no model call occurred or a replay has no saved result yet.
+`status` is `graded`, `ungraded`, or `unknown`. Missing evidence, invalid model output, and unknown request outcomes must not become zero scores. Inspect `result`, `error`, `usage`, optional `usageStatus`, and `calls`. Responses may omit `calls` when no model call occurred. Interrupted-request replays include persisted call records, already-known usage, and `usageStatus: unknown`; an unfinished attempt has unknown usage and null token counts rather than zero consumption.
 
-Replaying the same ID and digest returns the saved result. If no result has been saved, it returns `unknown` without another model call. Reusing an ID with a different digest returns 409 / `REQUEST_CONFLICT`. Regrading requires explicit confirmation and a new ID and may incur additional charges. The grading cache does not guarantee exactly-once provider calls or automatically resume interrupted grading.
+Replaying the same ID and digest returns the saved result. If no result has been saved, it returns `unknown` with any persisted attempt evidence without another model call. Known usage from completed attempts survives cancellation or process restart, including when a later correction is interrupted. Historical interrupted requests without attempt records still have empty usage. Reusing an ID with a different digest returns 409 / `REQUEST_CONFLICT`. Regrading requires explicit confirmation and a new ID and may incur additional charges. The grading cache does not guarantee exactly-once provider calls or automatically resume interrupted grading.
 
 Grading input limits:
 
