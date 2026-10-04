@@ -152,3 +152,5 @@ Report reproducible bugs or propose improvements through [GitHub Issues](https:/
 Project source uses the [MIT license](LICENSE). Bundled dependencies retain their [upstream notices](app/licenses/README.md).
 
 Shared dialogs, confirmation dialogs and menus respect the system reduced-motion preference by disabling their entry and exit animations. Keyboard focus entry, dismissal and restoration use the same behavior for both motion preferences.
+
+The [roadmap evidence record](docs/roadmap-evidence.md) links the current quality, release, user-trial and contributor workstreams with their remaining acceptance requirements. The native GitHub roadmap and sub-issues remain authoritative.
