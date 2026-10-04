@@ -257,6 +257,13 @@ def original_build(root: Path, tag: str, source_sha: str, path: Path, *, platfor
     if candidate.get("file") != filename:
         raise ValueError("Original build candidate has an unexpected asset name")
     asset = path.parent / filename
+    if asset.is_symlink() or asset.is_junction() or not asset.is_file():
+        raise ValueError("Original build asset must be a regular non-link file")
+    for directory in asset.parents:
+        if directory.is_symlink() or directory.is_junction() or not directory.is_dir():
+            raise ValueError("Original build asset requires real parent directories")
+    if not asset.resolve(strict=True).is_relative_to(path.parent.resolve(strict=True)):
+        raise ValueError("Original build asset must remain contained in its candidate directory")
     if checksum(asset) != normalized_digest(candidate.get("sha256")) or asset.stat().st_size != candidate.get("sizeBytes"):
         raise ValueError("Original build asset changed")
     run = urlsplit(candidate.get("buildRun") or "")
@@ -567,6 +574,9 @@ def check_windows_architecture(executable: Path) -> None:
             raise ValueError("Final Windows desktop executable requires complete PE headers")
         if int.from_bytes(header[4:6], "little") != 0x8664 or int.from_bytes(header[24:26], "little") != 0x20B:
             raise ValueError("Final Windows desktop executable must be x64 PE32+")
+        characteristics = int.from_bytes(header[22:24], "little")
+        if not characteristics & 0x0002 or characteristics & 0x2000:
+            raise ValueError("Final Windows PE must be an executable application, not a DLL")
 
 def macho_architecture(stream, offset: int, size: int) -> tuple[int, int]:
     stream.seek(offset)

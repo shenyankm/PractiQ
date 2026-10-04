@@ -65,7 +65,7 @@ ANDROID_RUNTIME_INVENTORY=/absolute/path/to/source-checked-gradle-runtime.json
 
 CI stages exactly one selected actual arm64 APK at `app/.build/android-final/PractiQ.apk`; an older build or emulator APK must not be selected through a broad output glob.
 
-For final signed, stapled or otherwise replaced installers, use explicit staging below. It requires an original schema 2 client CI candidate. Older bundled-engine candidates are rejected even if their historical reports passed. Keep its original installer and complete `evidence/` directory beside `candidate.json`. Review its Actions origin independently; local hashes alone do not attest provenance.
+For final signed, stapled or otherwise replaced installers, use explicit staging below. It requires an original schema 2 client CI candidate. Older bundled-engine candidates are rejected even if their historical reports passed. Keep its original installer and complete `evidence/` directory beside `candidate.json`. The original installer must be a regular non-link file inside that directory, with real parent directories; links and redirected download directories are rejected before claiming verified asset provenance. Review its Actions origin independently; local hashes alone do not attest provenance.
 
 ## Review and publication handoff
 
@@ -135,7 +135,7 @@ if ($LASTEXITCODE -ne 0 -or $Dirty) { throw 'Candidate checkout must be clean' }
 if ($LASTEXITCODE -ne 0) { throw 'Final Windows staging failed' }
 ```
 
-Explicit staging first makes a private read-only installer snapshot. Resources come from that snapshot, with contained-directory checks or APK archive/identity/ABI checks shared by ordinary package checks and CI staging. It verifies application version using macOS `Info.plist`, Windows installer/application `ProductVersion`, or the Android binary manifest's `versionName`, including prerelease suffixes. It requires the retained schema 2 practice-client metadata and scans the whole application payload for embedded Python, LibreOffice or AI workers. Cargo/npm inventories, plus Maven on Android, must have complete source-bound license texts; freshly generated combined notices must match embedded bytes.
+Explicit staging first makes a private read-only installer snapshot. Resources come from that snapshot, with contained-directory checks or APK archive/identity/ABI checks shared by ordinary package checks and CI staging. It verifies application version using macOS `Info.plist`, Windows installer/application `ProductVersion`, or the Android binary manifest's `versionName`, including prerelease suffixes. Windows PE headers must identify an executable application with the executable flag set and DLL flag clear. It requires the retained schema 2 practice-client metadata and scans the whole application payload for embedded Python, LibreOffice or AI workers. Cargo/npm inventories, plus Maven on Android, must have complete source-bound license texts; freshly generated combined notices must match embedded bytes.
 
 Raw reports remain private in `FINAL_REPORTS`. A separate public evidence copy replaces absolute machine paths, including paths embedded in commands, before hashing. Review that sanitized copy before publication. Failed checks leave diagnostic reports and never produce public staged assets. Source HEAD/status and installer snapshot hashes are rechecked before delivery. No Actions environment variables are needed for explicit staging.
 

@@ -20,13 +20,14 @@ import yaml
 ROOT = Path(__file__).parents[2]
 
 
-def native_pe(machine=0x8664, magic=0x20B):
+def native_pe(machine=0x8664, magic=0x20B, characteristics=0x0002):
     payload = bytearray(512)
     payload[:2] = b"MZ"
     payload[60:64] = (128).to_bytes(4, "little")
     payload[128:132] = b"PE\0\0"
     payload[132:134] = machine.to_bytes(2, "little")
     payload[148:150] = (240).to_bytes(2, "little")
+    payload[150:152] = characteristics.to_bytes(2, "little")
     payload[152:154] = magic.to_bytes(2, "little")
     return bytes(payload)
 
@@ -524,7 +525,7 @@ def final_setup(release, source, monkeypatch):
                 executable.write_bytes(state.get("native_payload", native_macho()))
                 executable.chmod(state.get("native_mode", 0o755))
             elif platform == "win32":
-                (bundle.parent / "PractiQ.exe").write_bytes(native_pe())
+                (bundle.parent / "PractiQ.exe").write_bytes(native_pe(characteristics=state.get("pe_characteristics", 0x0002)))
                 (bundle.parent / "uninstall.exe").write_bytes(b"synthetic uninstaller")
 
         def run(command, **kwargs):
@@ -1860,3 +1861,73 @@ def test_assembly_rejects_original_duplicate_keys_after_all_digests_are_regenera
     with pytest.raises(ValueError, match="duplicate object keys"):
         release.assemble(source, "v0.1.0", restaged, output)
     assert not output.exists() and (evidence / "original-candidate.json").read_bytes() == raw
+
+
+@pytest.mark.parametrize("characteristics", [0, 0x0020, 0x2002, 0x2022])
+def test_final_windows_rejects_nonexecutable_or_dll_pe_before_gates(release, source, final_setup, characteristics):
+    installer, output, reports, state = final_setup("win32")
+    state["pe_characteristics"] = characteristics
+    with pytest.raises(ValueError, match="PE.*executable.*DLL"):
+        release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=state["build_candidate"])
+    assert not output.exists() and not state["calls"]
+
+
+@pytest.mark.parametrize("characteristics", [0x0002, 0x0022])
+def test_final_windows_accepts_executable_pe_with_other_valid_flags(release, source, final_setup, characteristics):
+    installer, output, reports, state = final_setup("win32")
+    state["pe_characteristics"] = characteristics
+    release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=state["build_candidate"])
+    assert output.exists() and len(state["calls"]) == 2
+
+
+@pytest.mark.parametrize("fault", ["absolute_external", "relative_external", "internal", "dangling", "directory"])
+def test_original_build_requires_regular_nonlink_installer_before_provenance_claim(release, source, final_setup, fault):
+    installer, output, reports, state = final_setup()
+    path = state["build_candidate"]
+    candidate = json.loads(path.read_text())
+    asset = path.parent / candidate["file"]
+    if fault == "directory":
+        asset.unlink()
+        asset.mkdir()
+    else:
+        target = path.parent / "other-installer.dmg" if fault == "internal" else source / "unrelated-installer.dmg"
+        asset.rename(target)
+        if fault == "dangling":
+            target.unlink()
+        link = target if fault == "absolute_external" else Path(os.path.relpath(target, asset.parent))
+        asset.symlink_to(link)
+    with pytest.raises(ValueError, match="Original build asset.*regular|Original build asset.*contained"):
+        release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=path)
+    assert not output.exists() and not reports.exists() and not state["native"] and not state["calls"]
+
+
+@pytest.mark.parametrize("absolute", [False, True])
+@pytest.mark.parametrize("nested", [False, True])
+def test_original_build_rejects_redirected_candidate_parent_before_provenance_claim(release, source, final_setup, absolute, nested):
+    installer, output, reports, state = final_setup()
+    path = state["build_candidate"]
+    directory = path.parent
+    if nested:
+        ancestor = source / "download-parent"
+        ancestor.mkdir()
+        directory.rename(ancestor / directory.name)
+        path = ancestor / directory.name / path.name
+        directory = ancestor
+    target = source / "redirected-download"
+    directory.rename(target)
+    directory.symlink_to(target if absolute else Path(target.name), target_is_directory=True)
+    with pytest.raises(ValueError, match="Original build asset.*parent"):
+        release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=path)
+    assert not output.exists() and not reports.exists() and not state["native"] and not state["calls"]
+
+
+def test_original_build_binds_regular_installer_inside_candidate_directory(release, source, final_setup):
+    _, _, _, state = final_setup()
+    path = state["build_candidate"]
+    provenance, raw = release.original_build(source, "v0.1.0", "a" * 40, path)
+    candidate = json.loads(raw)
+    asset = path.parent / candidate["file"]
+    assert asset.is_file() and not asset.is_symlink()
+    assert provenance["assetAndEvidenceVerified"] is True
+    assert provenance["candidateSha256"] == hashlib.sha256(raw).hexdigest()
+    assert not state["native"] and not state["calls"]

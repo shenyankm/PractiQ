@@ -153,9 +153,14 @@ assets. Default `release.py stage` remains the CI path: unsigned desktop
 candidates or debug/test Android candidates with publisher verification unverified. Explicit
 staging requires the original CI platform candidate, installer and bound
 evidence, preserves its build URL, and checks the selected installer's actual
-application version. The original evidence directory must resolve within the
+application version. The original installer must be a regular non-link file with
+real parent directories and resolve within its downloaded candidate directory.
+The original evidence directory must resolve within the
 downloaded candidate directory, and each file must resolve within that evidence
 root. Previously restaged candidates cannot replace original build evidence.
+Windows PE headers require the executable flag (`0x0002`) set and the DLL flag
+(`0x2000`) clear, as defined in the
+[Microsoft PE specification](https://learn.microsoft.com/en-us/windows/win32/debug/pe-format#characteristics).
 macOS executables require POSIX execute permission; Windows PE checks remain
 independent of POSIX modes. Android staging explicitly selects `--platform android`
 and `--aapt2 /absolute/path/to/SDK/build-tools/<version>/aapt2`, plus
