@@ -1,6 +1,6 @@
 use crate::{
     contract::Result,
-    store::{id, now, Store},
+    store::{err, id, now, Store},
 };
 use rusqlite::Connection;
 use serde_json::{json, Value};
@@ -13,9 +13,6 @@ use std::{
 use zip::{write::SimpleFileOptions, ZipArchive, ZipWriter};
 const LIMIT: usize = 512 * 1024 * 1024;
 pub(crate) const ARCHIVE_LIMIT: u64 = (LIMIT + 2 * 1024 * 1024) as u64;
-fn err(e: impl std::fmt::Display) -> crate::AppError {
-    e.to_string().into()
-}
 pub(crate) fn file_digest(path: &Path) -> Result<(u64, String)> {
     let mut file = fs::File::open(path).map_err(err)?;
     let mut digest = Sha256::new();

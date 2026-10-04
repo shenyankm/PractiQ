@@ -23,7 +23,7 @@ async def extract(source_type: DocumentSourceType, payload: bytes, *, timeout: f
         source, output = root / "source", root / "result"
         await _thread_io(source.write_bytes, payload)
         process = await asyncio.create_subprocess_exec(
-            *([sys.executable, "extract"] if getattr(sys, "frozen", False) else [sys.executable, "-m", __name__]), source_type, str(source), str(output),
+            sys.executable, "-m", __name__, source_type, str(source), str(output),
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             start_new_session=os.name != "nt", env={**os.environ, "TMPDIR": directory},
             stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL,

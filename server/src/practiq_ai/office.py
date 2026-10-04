@@ -94,24 +94,6 @@ def _check_outputs(directory: Path, *, writing: bool = False) -> list[Path]:
     return sorted(files)
 
 
-def _spawn(arguments: list[str], **options: Any) -> subprocess.Popen:
-    if sys.platform != "win32" or not getattr(sys, "frozen", False):
-        return subprocess.Popen(arguments, **options)
-    import ctypes
-    from ctypes import wintypes
-    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
-    setter = kernel.SetDllDirectoryW
-    setter.argtypes = [wintypes.LPCWSTR]
-    setter.restype = wintypes.BOOL
-    if not setter(None):
-        raise OSError("Cannot restore system DLL search path")
-    try:
-        return subprocess.Popen(arguments, **options)
-    finally:
-        # The private worker still needs its bundled libraries for PDF validation.
-        setter(vars(sys)["_MEIPASS"])
-
-
 def _run(arguments: list[str], deadline: float, output: Path | None = None) -> bytes:
     # Logs can contain source text. Keep them out of diagnostics and limit version output.
     with TemporaryDirectory(prefix="practiq-office-log-") as directory:
@@ -121,21 +103,13 @@ def _run(arguments: list[str], deadline: float, output: Path | None = None) -> b
                    if not key.startswith(("AI_", "LLM_", "DATABASE_"))}
             # LibreOffice embeds Python; bytecode writes would invalidate signed resources.
             env["PYTHONDONTWRITEBYTECODE"] = "1"
-            if getattr(sys, "frozen", False):
-                if sys.platform == "linux":
-                    env["LD_LIBRARY_PATH"] = env.get("LD_LIBRARY_PATH_ORIG", "")
-                root = Path(vars(sys)["_MEIPASS"]).resolve()
-                for key in ("PATH", "DYLD_LIBRARY_PATH"):
-                    if key in env:
-                        env[key] = os.pathsep.join(part for part in env[key].split(os.pathsep)
-                                                   if not part or not Path(part).resolve().is_relative_to(root))
             if sys.platform == "darwin":
                 # Native CoreText finds macOS fonts; generic headless VCL can omit CJK glyphs.
                 env.setdefault("SAL_USE_VCLPLUGIN", "osx")
             with _lock:
                 if _abandoned:
                     raise OfficeError("OFFICE_CONVERSION_FAILED")
-                process = _spawn(arguments, stdin=subprocess.DEVNULL,
+                process = subprocess.Popen(arguments, stdin=subprocess.DEVNULL,
                                            stdout=stream if output is None else subprocess.DEVNULL,
                                            stderr=subprocess.DEVNULL, env=env,
                                            start_new_session=os.name != "nt",

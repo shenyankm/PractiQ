@@ -945,7 +945,6 @@ dependencies = [
 [package.optional-dependencies]
 dev = [
     { name = "coverage" },
-    { name = "httpx" },
     { name = "pip-audit" },
     { name = "pyright" },
     { name = "pytest" },
@@ -959,7 +958,6 @@ requires-dist = [
     { name = "coverage", marker = "extra == 'dev'", specifier = "==7.16.0" },
     { name = "fastapi", specifier = "==0.139.0" },
     { name = "httpx", specifier = "==0.28.1" },
-    { name = "httpx", marker = "extra == 'dev'", specifier = "==0.28.1" },
     { name = "httpx2", specifier = "==2.13.0" },
     { name = "langchain-core", specifier = "==1.5.6" },
     { name = "langchain-openai", specifier = "==1.5.1" },

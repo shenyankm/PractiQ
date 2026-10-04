@@ -324,37 +324,6 @@ def test_run_reaps_timeout_and_nonzero_exit(tmp_path, monkeypatch):
     assert result.strip() == b"absent"
 
 
-def test_frozen_worker_external_process_uses_system_library_environment(tmp_path, monkeypatch):
-    bundle = tmp_path / "bundled"
-    monkeypatch.setattr(sys, "frozen", True, raising=False)
-    monkeypatch.setattr(sys, "_MEIPASS", str(bundle), raising=False)
-    monkeypatch.setattr(sys, "platform", "linux")
-    monkeypatch.setenv("LD_LIBRARY_PATH", str(bundle))
-    monkeypatch.setenv("LD_LIBRARY_PATH_ORIG", "/system/libraries")
-    monkeypatch.setenv("PATH", os.pathsep.join([str(bundle), "/usr/bin"]))
-    code = "import os,json; print(json.dumps([os.getenv('LD_LIBRARY_PATH'),os.getenv('PATH')]))"
-    assert json.loads(office._run([sys.executable, "-c", code], time.monotonic()+10)) == ["/system/libraries", "/usr/bin"]
-    assert os.environ["LD_LIBRARY_PATH"] == str(bundle)
-
-
-def test_windows_frozen_dll_search_is_restored_after_spawn_failure(monkeypatch):
-    import ctypes
-    calls = []
-    def setter(value):
-        calls.append(value)
-        return True
-    monkeypatch.setattr(ctypes, "WinDLL", lambda *args, **kwargs: SimpleNamespace(SetDllDirectoryW=setter), raising=False)
-    monkeypatch.setattr(sys, "platform", "win32")
-    monkeypatch.setattr(sys, "frozen", True, raising=False)
-    monkeypatch.setattr(sys, "_MEIPASS", "private-bundle", raising=False)
-    def missing(*args, **kwargs):
-        raise FileNotFoundError()
-    monkeypatch.setattr(office.subprocess, "Popen", missing)
-    with pytest.raises(FileNotFoundError):
-        office._spawn(["missing"])
-    assert calls == [None, "private-bundle"]
-
-
 @pytest.mark.parametrize("extension", ["doc", "docx", "xls", "xlsx", "docm", "xlsm", "xlsb"])
 def test_invalid_office_input_never_launches_engine(tmp_path, monkeypatch, extension):
     source = tmp_path / f"source.{extension}"

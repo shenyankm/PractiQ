@@ -142,10 +142,6 @@ def check_candidate(root: Path, tag: str) -> dict:
     return {"tag": tag, "commit": sha, "components": components, "prerelease": "-" in tag}
 
 
-def check_build(manifest: dict, platform: str, components: dict) -> None:
-    validate_manifest(manifest, platform, components["desktop"])
-
-
 def normalized_digest(value: object) -> str:
     if not isinstance(value, str) or not re.fullmatch(r"[0-9a-fA-F]{64}", value):
         raise ValueError("Expected a complete SHA-256 hexadecimal digest")
@@ -285,7 +281,7 @@ def original_build(root: Path, tag: str, source_sha: str, path: Path, *, platfor
         raise ValueError("Original build desktop version evidence is missing or inconsistent")
     if "evidence/build-manifest.json" not in evidence:
         raise ValueError("Original build manifest is missing")
-    check_build(read_json(path.parent / "evidence/build-manifest.json"), platform, components)
+    validate_manifest(read_json(path.parent / "evidence/build-manifest.json"), platform, components["desktop"])
     if platform == "android":
         if candidate.get("androidRuntimeInventory") != "evidence/android-runtime-inventory.json" or candidate.get("signing") != "debug/test; publisher unverified":
             raise ValueError("Original Android candidate must identify its runtime inventory and debug/test status")
@@ -328,7 +324,7 @@ def stage(root: Path, tag: str, bundle: Path, installer: Path, output: Path, *,
     if (payload is None) != (payload_identity is None):
         raise ValueError("Final payload checks require an explicit directory and its pre-gate identity")
     manifest = read_json(bundle / "build-manifest.json")
-    check_build(manifest, platform, components)
+    validate_manifest(manifest, platform, components["desktop"])
     if platform == "android" and manifest["architecture"] != "arm64":
         raise ValueError("Public Android release assets require arm64; x86_64 is diagnostic only")
     if restaged and (build_candidate is None or original_candidate_bytes is None or payload is None or
@@ -810,7 +806,7 @@ def assemble(root: Path, tag: str, inputs: Path, output: Path) -> None:
             raise ValueError("Missing final desktop version evidence")
         platform = next(key for key, value in PLATFORMS.items() if value[0] == os_name)
         metadata = read_json(folder / "evidence/build-manifest.json")
-        check_build(metadata, platform, components)
+        validate_manifest(metadata, platform, components["desktop"])
         if platform == "android":
             if (metadata["architecture"] != "arm64" or candidate.get("androidRuntimeInventory") != "evidence/android-runtime-inventory.json"
                     or "evidence/android-runtime-inventory.json" not in candidate["evidence"]

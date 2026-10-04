@@ -19,17 +19,13 @@ from practiq_ai.execution import code_version
 from practiq_ai.storage import get_object_store
 
 
-def implementation_checksums():
-    return code_version()
-
-
 def check_saved_report():
     target = ROOT / 'app/reports/rich-content'
     saved = json.loads((target / 'recognition.json').read_text())
     payload = (ROOT / 'app/fixtures/rich-content/source.pdf').read_bytes()
     if saved.get('fixtureSourceSha256') != hashlib.sha256(payload).hexdigest():
         raise ValueError('PDF changed: rerun the explicit recognition probe')
-    if saved.get('implementationSha256') != implementation_checksums():
+    if saved.get('implementationSha256') != code_version():
         raise ValueError('Implementation changed: rerun the explicit recognition probe')
     checks = check_result(saved['result'], payload, target)
     print(json.dumps(checks))
@@ -103,12 +99,8 @@ async def main():
             print(json.dumps({'failed': failure['code'], 'report': str(target / 'failure.json')}))
             return False
         output['fixtureSourceSha256'] = hashlib.sha256(payload).hexdigest()
-        output['implementationSha256'] = implementation_checksums()
+        output['implementationSha256'] = code_version()
         result = output['result']
-        target = ROOT / 'app/reports/rich-content'
-        if merged:
-            target = target / 'merged'
-        target.mkdir(parents=True, exist_ok=True)
         (target / 'recognition.json').write_text(json.dumps(output, ensure_ascii=False, indent=2, default=str))
         # Preserve crops for human semantic/legibility review, not just checksum checks.
         from practiq_ai.contracts import ArtifactReference

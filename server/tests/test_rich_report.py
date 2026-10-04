@@ -22,7 +22,7 @@ def test_rich_report_rechecks_only_matching_source_and_implementation(tmp_path, 
     source.parent.mkdir(parents=True)
     source.write_bytes(b"synthetic PDF fixture")
     version = Mock(return_value="a" * 64)
-    monkeypatch.setitem(check.__globals__, "implementation_checksums", version)
+    monkeypatch.setitem(check.__globals__, "code_version", version)
     saved = {"fixtureSourceSha256": hashlib.sha256(source.read_bytes()).hexdigest(),
              "implementationSha256": version.return_value, "result": {"questions": []}}
     if scenario == "source_changed":
@@ -71,7 +71,7 @@ def test_rich_report_fingerprint_covers_parser_and_dependencies(tmp_path, monkey
     monkeypatch.setitem(check.__globals__, "check_result", checker)
     execution.code_version.cache_clear()
     try:
-        version = scope["implementation_checksums"]()
+        version = scope["code_version"]()
         assert isinstance(version, str) and len(version) == 64
         saved = {"fixtureSourceSha256": hashlib.sha256(source.read_bytes()).hexdigest(),
                  "implementationSha256": version, "result": {"questions": []}}
@@ -81,7 +81,7 @@ def test_rich_report_fingerprint_covers_parser_and_dependencies(tmp_path, monkey
         path = tmp_path / changed
         path.write_bytes(path.read_bytes() + b"\n# fingerprint regression\n")
         execution.code_version.cache_clear()
-        assert scope["implementation_checksums"]() != version
+        assert scope["code_version"]() != version
         with pytest.raises(ValueError, match="Implementation changed"):
             check()
         checker.assert_not_called()

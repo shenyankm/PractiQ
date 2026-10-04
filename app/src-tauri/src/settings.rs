@@ -1,7 +1,7 @@
 use crate::{
     contract::Result,
     credentials::Credential,
-    store::{hash, Store},
+    store::{err, hash, Store},
 };
 use rusqlite::{params, Connection, OpenFlags};
 use serde::{Deserialize, Serialize};
@@ -37,33 +37,30 @@ struct ServiceSettingsState {
     active: Option<ServiceSettings>,
     pending: Option<PendingServiceRestore>,
 }
-fn settings_error(error: impl std::fmt::Display) -> crate::AppError {
-    error.to_string().into()
-}
 fn empty_sidecar(db: &Connection) -> Result<bool> {
     db.execute_batch("PRAGMA trusted_schema=OFF;")
-        .map_err(settings_error)?;
+        .map_err(err)?;
     let version: i64 = db
         .query_row("PRAGMA user_version", [], |r| r.get(0))
-        .map_err(settings_error)?;
+        .map_err(err)?;
     let objects: i64 = db
         .query_row("SELECT count(*) FROM sqlite_master", [], |r| r.get(0))
-        .map_err(settings_error)?;
+        .map_err(err)?;
     Ok(version == 0 && objects == 0)
 }
 fn validate_sidecar(db: &Connection) -> Result<()> {
     db.execute_batch("PRAGMA trusted_schema=OFF;")
-        .map_err(settings_error)?;
+        .map_err(err)?;
     let version: i64 = db
         .query_row("PRAGMA user_version", [], |r| r.get(0))
-        .map_err(settings_error)?;
+        .map_err(err)?;
     let objects: Vec<(String, String, String)> = db
         .prepare("SELECT type,name,COALESCE(sql,'') FROM sqlite_master WHERE name NOT GLOB 'sqlite_*' ORDER BY name")
-        .map_err(settings_error)?
+        .map_err(err)?
         .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
-        .map_err(settings_error)?
+        .map_err(err)?
         .collect::<std::result::Result<_, _>>()
-        .map_err(settings_error)?;
+        .map_err(err)?;
     if version != 1
         || objects
             != [(
@@ -83,16 +80,16 @@ fn read_sidecar(db: &Connection) -> Result<ServiceSettingsState> {
             [],
             |r| Ok((r.get(0)?, r.get(1)?)),
         )
-        .map_err(settings_error)?;
+        .map_err(err)?;
     if active.len() > 4096 || pending.as_ref().is_some_and(|s| s.len() > 16384) {
         return Err("Service settings exceed their size limit".into());
     }
-    let active: Option<ServiceSettings> = serde_json::from_str(&active).map_err(settings_error)?;
+    let active: Option<ServiceSettings> = serde_json::from_str(&active).map_err(err)?;
     let active = active.map(ServiceSettings::validate).transpose()?;
     let pending: Option<PendingServiceRestore> = pending
         .map(|s| serde_json::from_str(&s))
         .transpose()
-        .map_err(settings_error)?;
+        .map_err(err)?;
     let pending = pending
         .map(|p| -> Result<_> {
             if p.candidate_sha256.len() != 64
@@ -116,15 +113,15 @@ fn write_sidecar(db: &Connection, state: ServiceSettingsState) -> Result<()> {
     db.execute(
         "UPDATE service_settings SET active=?1,pending=?2 WHERE id=1",
         params![
-            serde_json::to_string(&state.active).map_err(settings_error)?,
+            serde_json::to_string(&state.active).map_err(err)?,
             state
                 .pending
                 .map(|p| serde_json::to_string(&p))
                 .transpose()
-                .map_err(settings_error)?,
+                .map_err(err)?,
         ],
     )
-    .map_err(settings_error)?;
+    .map_err(err)?;
     Ok(())
 }
 #[cfg(test)]
@@ -225,12 +222,6 @@ pub(crate) fn validate_service_token(token: &str) -> Result<()> {
     }
     Ok(())
 }
-fn secret(entry: &impl Credential) -> Result<Option<String>> {
-    entry.read()
-}
-fn write_secret(entry: &impl Credential, value: Option<&str>) -> Result<()> {
-    entry.write(value)
-}
 fn credential_account(service_url: &str) -> Result<String> {
     let url = validate_url(Some(service_url.into()), "Service URL")?.ok_or(
         crate::language::error("LOCAL_SERVICE_URL_REQUIRED", json!({})),
@@ -241,7 +232,8 @@ fn entry(app: &tauri::AppHandle, service_url: &str) -> Result<Box<dyn Credential
     crate::credentials::entry(app, &credential_account(service_url)?)
 }
 fn required_service_token(entry: &impl Credential) -> Result<String> {
-    let token = secret(entry)?
+    let token = entry
+        .read()?
         .filter(|s| !s.trim().is_empty())
         .ok_or(crate::language::error(
             "LOCAL_SERVICE_TOKEN_REQUIRED",
@@ -255,10 +247,11 @@ fn persist_with_secret(
     value: Option<&str>,
     persist: impl FnOnce() -> Result<()>,
 ) -> Result<()> {
-    let previous = secret(entry)?;
-    write_secret(entry, value)?;
+    let previous = entry.read()?;
+    entry.write(value)?;
     if let Err(error) = persist() {
-        write_secret(entry, previous.as_deref())
+        entry
+            .write(previous.as_deref())
             .map_err(|_| crate::language::error("LOCAL_KEYCHAIN_ROLLBACK", json!({})))?;
         return Err(error);
     }
@@ -311,7 +304,7 @@ impl Store {
             Ok(metadata) if metadata.is_file() && !metadata.file_type().is_symlink() => Ok(true),
             Ok(_) => Err("Service settings database must be a regular file".into()),
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
-            Err(error) => Err(settings_error(error)),
+            Err(error) => Err(err(error)),
         }
     }
     fn sidecar_state(&self) -> Result<Option<ServiceSettingsState>> {
@@ -324,7 +317,7 @@ impl Store {
             // Never CREATE or initialize a database from this passive read path.
             OpenFlags::SQLITE_OPEN_READ_WRITE,
         )
-        .map_err(settings_error)?;
+        .map_err(err)?;
         // A killed first initialization can leave only an empty SQLite file.
         // Passive reads treat that state as absent, without writing its bytes.
         if empty_sidecar(&db)? {
@@ -338,22 +331,22 @@ impl Store {
         update: impl FnOnce(ServiceSettingsState) -> Result<ServiceSettingsState>,
     ) -> Result<()> {
         self.sidecar_exists()?;
-        let mut db = Connection::open(self.service_settings_path()).map_err(settings_error)?;
+        let mut db = Connection::open(self.service_settings_path()).map_err(err)?;
         db.busy_timeout(std::time::Duration::from_secs(5))
-            .map_err(settings_error)?;
+            .map_err(err)?;
         let transaction = db
             .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
-            .map_err(settings_error)?;
+            .map_err(err)?;
         let initializing = empty_sidecar(&transaction)?;
         if initializing {
             transaction
                 .execute_batch(SERVICE_SETTINGS_SCHEMA)
-                .map_err(settings_error)?;
+                .map_err(err)?;
             transaction
                 .execute_batch(
                     "INSERT INTO service_settings VALUES(1,'null',NULL); PRAGMA user_version=1;",
                 )
-                .map_err(settings_error)?;
+                .map_err(err)?;
         }
         validate_sidecar(&transaction)?;
         let state = update(read_sidecar(&transaction)?)?;
@@ -362,7 +355,7 @@ impl Store {
         if initializing {
             tests::initialization_checkpoint();
         }
-        transaction.commit().map_err(settings_error)
+        transaction.commit().map_err(err)
     }
     pub(crate) fn service_settings_override(&self) -> Result<Option<ServiceSettings>> {
         let Some(state) = self.sidecar_state()? else {
@@ -419,11 +412,11 @@ impl Store {
         // Let SQLite roll back an interrupted existing transaction before hashing
         // committed bytes. This handle cannot CREATE, initialize or alter schema.
         let db = Connection::open_with_flags(self.db_path(), OpenFlags::SQLITE_OPEN_READ_WRITE)
-            .map_err(settings_error)?;
+            .map_err(err)?;
         db.execute_batch("PRAGMA trusted_schema=OFF;")
-            .map_err(settings_error)?;
+            .map_err(err)?;
         db.query_row("PRAGMA schema_version", [], |r| r.get::<_, i64>(0))
-            .map_err(settings_error)?;
+            .map_err(err)?;
         drop(db);
         crate::backup::validate_database_schema(&self.db_path())?;
         let published = crate::backup::file_digest(&self.db_path())?.1 == pending.candidate_sha256;
@@ -552,7 +545,7 @@ impl Store {
             // ciphertext. No database write is needed, so no rollback read is needed.
             // Changing configuration still requires a readable previous credential.
             if token.is_empty() && self.service_settings()? == config {
-                write_secret(&entry, None)?;
+                entry.write(None)?;
                 return Ok(json!({"config":config,"hasServiceToken":false}));
             }
             persist_with_secret(
@@ -992,7 +985,7 @@ mod tests {
             "LOCAL_SERVICE_TOKEN_REQUIRED"
         );
         assert_eq!(
-            secret(&old_model_key).unwrap().as_deref(),
+            old_model_key.read().unwrap().as_deref(),
             Some("dummy-provider-key")
         );
     }
@@ -1025,7 +1018,7 @@ mod tests {
         assert!(std::fs::read(store.db_path()).unwrap() == before);
         let entry = mock_entry(Some("dummy-token"));
         persist_with_secret(&entry, None, || Ok(())).unwrap();
-        assert!(secret(&entry).unwrap().is_none());
+        assert!(entry.read().unwrap().is_none());
         persist_with_secret(&entry, None, || Ok(())).unwrap();
         assert_eq!(
             required_service_token(&entry).unwrap_err().code,
@@ -1058,7 +1051,7 @@ mod tests {
         );
         assert!(result.is_err());
         assert_eq!(
-            secret(&credential).unwrap().as_deref(),
+            credential.read().unwrap().as_deref(),
             Some("dummy-old-token")
         );
         assert!(std::fs::read(store.db_path()).unwrap() == before);
@@ -1091,7 +1084,7 @@ mod tests {
             )
             .is_err());
         assert_eq!(
-            secret(&credential).unwrap().as_deref(),
+            credential.read().unwrap().as_deref(),
             Some("dummy-old-token")
         );
         assert!(std::fs::read(store.db_path()).unwrap() == before);
@@ -1174,7 +1167,7 @@ mod tests {
             json!({"version":1,"config":{"service_url":null},"service_token":"dummy-token"}),
         ] {
             let result = serde_json::from_value::<ServiceSettingsBackup>(value)
-                .map_err(settings_error)
+                .map_err(err)
                 .and_then(ServiceSettingsBackup::validate);
             assert!(result.is_err());
         }
@@ -1464,7 +1457,7 @@ mod tests {
             })
             .unwrap_err();
             assert_eq!(error.message, "database-write-failed");
-            assert_eq!(secret(&entry).unwrap().as_deref(), previous);
+            assert_eq!(entry.read().unwrap().as_deref(), previous);
         }
     }
     #[test]
@@ -1539,7 +1532,7 @@ mod tests {
                 config("https://old.example.com")
             );
             assert_eq!(
-                secret(&credential).unwrap().as_deref(),
+                credential.read().unwrap().as_deref(),
                 Some("dummy-old-token")
             );
             assert_eq!(
@@ -1582,7 +1575,7 @@ mod tests {
             })
             .unwrap();
         assert_eq!(
-            secret(&credential).unwrap().as_deref(),
+            credential.read().unwrap().as_deref(),
             Some("replacement-dummy-token")
         );
     }
@@ -1847,10 +1840,10 @@ mod tests {
             &credential_account("https://example.com").unwrap(),
         )
         .unwrap();
-        write_secret(&entry, Some("practiq-dummy-test-value")).unwrap();
+        entry.write(Some("practiq-dummy-test-value")).unwrap();
         let read = required_service_token(&entry).unwrap();
-        write_secret(&entry, None).unwrap();
+        entry.write(None).unwrap();
         assert_eq!(read, "practiq-dummy-test-value");
-        assert!(secret(&entry).unwrap().is_none());
+        assert!(entry.read().unwrap().is_none());
     }
 }

@@ -1,15 +1,12 @@
 //! Local listening assets and per-session playback; no network or transcription.
 use crate::{
     contract::{list, text, Result},
-    store::{hash, read_bounded, Store},
+    store::{err, hash, read_bounded, Store},
 };
 use rusqlite::{params, OptionalExtension};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::{io::Cursor, path::Path};
-fn err(e: impl std::fmt::Display) -> crate::AppError {
-    e.to_string().into()
-}
 
 /// Probe and decode bounded input; filenames and supplied MIME types are untrusted.
 pub fn audio_info(bytes: &[u8]) -> Result<(String, f64)> {
