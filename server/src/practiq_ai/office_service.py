@@ -73,10 +73,10 @@ def _error(code: str) -> DocumentProcessingError:
 
 
 def _environment(directory: str) -> dict[str, str]:
-    # The conversion worker needs deployment code and OS libraries, never model credentials.
+    # Keep deployment code and OS libraries, excluding model and deployment token credentials.
     env = {key: value for key, value in os.environ.items()
            if not key.upper().startswith(("AI_", "LLM_", "DATABASE_"))
-           and not any(word in key.upper() for word in ("API_KEY", "ACCESS_TOKEN", "SECRET", "PASSWORD"))}
+           and not any(word in key.upper() for word in ("API_KEY", "TOKEN", "SECRET", "PASSWORD"))}
     env.update(TMPDIR=directory, TEMP=directory, TMP=directory,
                PRACTIQ_OFFICE_WORKSPACE=directory, PYTHONDONTWRITEBYTECODE="1",
                PYTHONPATH=str(Path(__file__).parent.parent))

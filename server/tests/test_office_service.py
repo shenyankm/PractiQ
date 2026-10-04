@@ -149,6 +149,34 @@ async def test_worker_protocol_keeps_stdin_open_and_preserves_sheet_order_and_em
     assert not Path(worker.request["source"]).parent.exists()
 
 
+@pytest.mark.parametrize("name", ["AWS_SESSION_TOKEN", "GH_TOKEN", "GITHUB_TOKEN", "NPM_TOKEN",
+                                 "SERVICE_TOKEN", "CI_JOB_TOKEN"])
+@pytest.mark.parametrize("casing", [str.upper, str.lower, str.title], ids=["upper", "lower", "mixed"])
+async def test_worker_does_not_inherit_deployment_tokens(tmp_path, monkeypatch, name, casing):
+    credential = casing(name)
+    runtime = {"PATH": "/runtime/bin", "HOME": "/runtime/home", "SystemRoot": "C:\\Windows",
+               "USERPROFILE": "C:\\Users\\runtime", "PYTHONHOME": "/runtime/python",
+               "APPDATA": "C:\\Users\\runtime\\AppData", "LANG": "en_US.UTF-8", "LC_CTYPE": "UTF-8",
+               "LD_LIBRARY_PATH": "/runtime/lib", "LD_LIBRARY_PATH_ORIG": "/runtime/system-lib",
+               "DYLD_LIBRARY_PATH": "/runtime/dylib",
+               "FONTCONFIG_PATH": "/runtime/fonts", "SAL_USE_VCLPLUGIN": "osx"}
+    monkeypatch.setattr(office_service.os, "environ", {**runtime, credential: "must-not-inherit"})
+    data = b"converted"
+    worker = FakeWorker([artifact("source.csv", data)], {"source.csv": data})
+    install(monkeypatch, worker)
+
+    converted = await office_service.convert_office(source(), b"raw Office", mode="text", config=settings(tmp_path), timeout=2)
+
+    assert converted[0].payload == data
+    env = worker.options["env"]
+    assert credential not in env
+    assert {key: env.get(key) for key in runtime} == runtime
+    workspace = str(Path(worker.request["source"]).parent)
+    assert env["TMPDIR"] == env["TEMP"] == env["TMP"] == env["PRACTIQ_OFFICE_WORKSPACE"] == workspace
+    assert env["PYTHONPATH"] == str(Path(office_service.__file__).parent.parent)
+    assert env["PYTHONDONTWRITEBYTECODE"] == "1"
+
+
 @pytest.mark.parametrize("kind,mode,name,expected", [("doc", "pdf", "source.pdf", ("pdf", "application/pdf")),
                                                      ("docx", "text", "source.txt", ("text", "text/plain")),
                                                      ("xls", "pdf", "source.pdf", ("pdf", "application/pdf"))])
