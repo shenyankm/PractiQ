@@ -151,3 +151,5 @@ published assets/tags are locked, while explanatory release notes remain editabl
 Publish a suffix version as Pre-release; promote only an accepted ordinary
 release to Latest. If a published build is defective, explain the issue in its
 notes and deliver a new version without silently replacing files.
+
+Use the [final-package acceptance record](final-package-acceptance.md) to collect the candidate identity and per-platform manual evidence tracked by #91.
