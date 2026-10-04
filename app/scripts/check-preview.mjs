@@ -137,3 +137,59 @@ for (const width of [960,1280]) {
   expect(errors).toEqual([]);
  });
 }
+
+for (const reducedMotion of ['reduce', 'no-preference']) {
+ test(`shared overlays honor ${reducedMotion} and restore keyboard focus`, async ({page}) => {
+  await page.emulateMedia({reducedMotion});
+  await page.goto('/');
+  const expected = reducedMotion === 'reduce' ? 'none' : 'enter';
+  const expectExitStyle = async slots => {
+   const animations = await page.evaluate(slots => slots.map(slot => {
+    const element = document.querySelector(`[data-slot="${slot}"]`);
+    const state = element.getAttribute('data-state');
+    // Conditional editor unmounts can bypass the exit animation; inspect the shared closed-state rule directly.
+    element.setAttribute('data-state', 'closed');
+    const animation = getComputedStyle(element).animationName;
+    element.setAttribute('data-state', state);
+    return animation;
+   }), slots);
+   expect(animations).toEqual(slots.map(() => reducedMotion === 'reduce' ? 'none' : 'exit'));
+  };
+  const theme = page.getByRole('button', {name:'主题', exact:true});
+  await theme.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('menu', {name:'主题', exact:true})).toHaveCSS('animation-name', expected);
+  await expectExitStyle(['dropdown-menu-content']);
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('menu')).toBeHidden();
+  await expect(theme).toBeFocused();
+  await page.getByRole('button', {name:'查看题目', exact:true}).first().click();
+  const add = page.getByRole('button', {name:'新增题目', exact:true});
+  await add.focus();
+  await page.keyboard.press('Enter');
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toHaveCSS('animation-name', expected);
+  await expect(page.locator('[data-slot="dialog-overlay"]')).toHaveCSS('animation-name', expected);
+  await expect(dialog).toContainText('编辑题目');
+  expect(await dialog.evaluate(element => element.contains(document.activeElement))).toBe(true);
+  await expectExitStyle(['dialog-content', 'dialog-overlay']);
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(add).toBeFocused();
+  await page.getByRole('button', {name:'我的题库', exact:true}).click();
+  await page.getByRole('button', {name:'开始练习', exact:true}).first().click();
+  await page.getByRole('button', {name:'立即开始', exact:true}).click();
+  const finish = page.getByRole('button', {name:'结束练习', exact:true});
+  await finish.scrollIntoViewIfNeeded();
+  await finish.focus();
+  await page.keyboard.press('Enter');
+  const alert = page.getByRole('alertdialog');
+  await expect(alert).toHaveCSS('animation-name', expected);
+  await expect(page.locator('[data-slot="alert-dialog-overlay"]')).toHaveCSS('animation-name', expected);
+  await expect(alert.getByRole('button', {name:'继续作答', exact:true})).toBeFocused();
+  await expectExitStyle(['alert-dialog-content', 'alert-dialog-overlay']);
+  await page.keyboard.press('Escape');
+  await expect(alert).toBeHidden();
+  await expect(finish).toBeFocused();
+ });
+}
