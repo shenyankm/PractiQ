@@ -24,6 +24,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
 @RunWith(AndroidJUnit4::class)
@@ -112,15 +113,21 @@ class SecureStoragePluginTest {
     }
 
     private fun awaitScript(script: String, expected: String, message: String,
-        deadline: Long = SystemClock.elapsedRealtime() + 15000) {
+        deadline: Long = SystemClock.elapsedRealtime() + 15000,
+        failureDiagnostics: (() -> String)? = null) {
         while (true) {
             val actual = evaluate(script)
             if (actual == expected) {
-                assertTrue("$message: completed after deadline", SystemClock.elapsedRealtime() < deadline)
+                val withinDeadline = SystemClock.elapsedRealtime() < deadline
+                val diagnostic = if (withinDeadline) "" else failureDiagnostics?.invoke().orEmpty()
+                assertTrue("$message: completed after deadline$diagnostic", withinDeadline)
                 return
             }
-            assertTrue("$message: expected=$expected actual=$actual stage=${lifecycleStage()}",
-                SystemClock.elapsedRealtime() < deadline)
+            val stage = lifecycleStage()
+            val withinDeadline = SystemClock.elapsedRealtime() < deadline
+            val diagnostic = if (withinDeadline) "" else failureDiagnostics?.invoke().orEmpty()
+            assertTrue("$message: expected=$expected actual=$actual stage=$stage$diagnostic",
+                withinDeadline)
             SystemClock.sleep(100)
         }
     }
@@ -189,7 +196,7 @@ class SecureStoragePluginTest {
         awaitScript("Boolean(window.__TAURI_INTERNALS__) && document.readyState === 'complete' && document.documentElement.dataset.nativeInsets === 'true'",
             "true", "Recreated final page should initialize")
         requireResumedActivity("Picker precondition")
-        repeat(2) {
+        repeat(2) { cycle ->
         evaluate("window.__practiqPickerProbe='pending';window.__TAURI_INTERNALS__.invoke('request',{request:{type:'pick_import'},locale:'en'}).then(value=>{window.__practiqPickerProbe=value===null?'canceled':'unexpected'},()=>{window.__practiqPickerProbe='error'});true")
         val deadline = SystemClock.elapsedRealtime() + 15000
         while (true) {
@@ -208,15 +215,56 @@ class SecureStoragePluginTest {
             assertTrue("The actual DocumentsUI picker must become active", SystemClock.elapsedRealtime() < deadline)
             SystemClock.sleep(100)
         }
-        val cancellationDeadline = SystemClock.elapsedRealtime() + 15000
-        val pressedAt = SystemClock.uptimeMillis()
-        assertTrue("System Back down must be injected", automation.injectInputEvent(
-            KeyEvent(pressedAt, pressedAt, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_BACK, 0).apply { source = InputDevice.SOURCE_KEYBOARD }, true))
-        assertTrue("System Back up must be injected", automation.injectInputEvent(
-            KeyEvent(pressedAt, SystemClock.uptimeMillis(), KeyEvent.ACTION_UP, KeyEvent.KEYCODE_BACK, 0).apply { source = InputDevice.SOURCE_KEYBOARD }, true))
-        awaitScript("window.__practiqPickerProbe", "\"canceled\"", "Native picker cancellation should settle", cancellationDeadline)
-        awaitResumedActivity(cancellationDeadline, "Picker cancellation must return to the app")
-        evaluate("delete window.__practiqPickerProbe;true")
+        // Observe the existing result callback without replacing its behavior.
+        val callbackField = PluginManager::class.java.getDeclaredField("startActivityForResultCallback").apply { isAccessible = true }
+        val originalCallback = AtomicReference<PluginManager.ActivityResultCallback>()
+        val activityIdentity = AtomicInteger()
+        val resultCount = AtomicInteger()
+        val resultCode = AtomicReference<Int>()
+        val delegateReturned = AtomicInteger()
+        val delegateThrowable = AtomicReference<String>()
+        val observer = PluginManager.ActivityResultCallback { result ->
+            resultCount.incrementAndGet()
+            resultCode.set(result.resultCode)
+            try {
+                originalCallback.get().onResult(result)
+                delegateReturned.incrementAndGet()
+            } catch (failure: Throwable) {
+                delegateThrowable.set(failure.javaClass.name)
+                throw failure
+            }
+        }
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        instrumentation.runOnMainSync {
+            activityIdentity.set(System.identityHashCode(activity))
+            originalCallback.set(callbackField.get(PluginManager) as? PluginManager.ActivityResultCallback)
+            if (originalCallback.get() != null) callbackField.set(PluginManager, observer)
+        }
+        try {
+            assertNotNull("Native picker must retain its existing result callback", originalCallback.get())
+            val cancellationDeadline = SystemClock.elapsedRealtime() + 15000
+            val pressedAt = SystemClock.uptimeMillis()
+            assertTrue("System Back down must be injected", automation.injectInputEvent(
+                KeyEvent(pressedAt, pressedAt, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_BACK, 0).apply { source = InputDevice.SOURCE_KEYBOARD }, true))
+            assertTrue("System Back up must be injected", automation.injectInputEvent(
+                KeyEvent(pressedAt, SystemClock.uptimeMillis(), KeyEvent.ACTION_UP, KeyEvent.KEYCODE_BACK, 0).apply { source = InputDevice.SOURCE_KEYBOARD }, true))
+            awaitScript("window.__practiqPickerProbe", "\"canceled\"", "Native picker cancellation should settle", cancellationDeadline) {
+                " cycle=${cycle + 1} activityIdentity=${activityIdentity.get()}" +
+                    " nativeResultCount=${resultCount.get()} nativeResultCode=${resultCode.get()}" +
+                    " delegateReturned=${delegateReturned.get()} delegateThrowable=${delegateThrowable.get()}"
+            }
+            awaitResumedActivity(cancellationDeadline, "Picker cancellation must return to the app")
+            assertEquals("Exactly one native result should reach the existing callback", 1, resultCount.get())
+            assertEquals("The system picker must report cancellation", Activity.RESULT_CANCELED, resultCode.get())
+            assertEquals("The existing native callback should return", 1, delegateReturned.get())
+            evaluate("delete window.__practiqPickerProbe;true")
+        } finally {
+            instrumentation.runOnMainSync {
+                if (callbackField.get(PluginManager) === observer) {
+                    callbackField.set(PluginManager, originalCallback.get())
+                }
+            }
+        }
         }
     }
 
