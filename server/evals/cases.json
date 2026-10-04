@@ -1518,6 +1518,147 @@
       ]
     },
     {
+      "id": "csv-no-answer",
+      "sourceType": "csv",
+      "path": "fixtures/csv/csv-no-answer.csv",
+      "tags": [
+        "synthetic",
+        "regression",
+        "csv",
+        "no-source-answer"
+      ],
+      "critical": true,
+      "sourceHasNoAnswers": true,
+      "expectedQuestions": [
+        {
+          "stem": "Which route should the practice note use?",
+          "answerMode": "choice",
+          "options": [
+            {
+              "label": "A",
+              "content": "North path"
+            },
+            {
+              "label": "B",
+              "content": "South path"
+            },
+            {
+              "label": "C",
+              "content": "East path"
+            }
+          ],
+          "answerPayload": null,
+          "expectedNeedsReview": true,
+          "expectedEvidence": {
+            "analysis": null,
+            "sourceScore": null,
+            "scoringRubric": null,
+            "scoreSourceText": null
+          }
+        },
+        {
+          "stem": "Which label should the exercise card show?",
+          "answerMode": "choice",
+          "options": [
+            {
+              "label": "A",
+              "content": "Cedar"
+            },
+            {
+              "label": "B",
+              "content": "Maple"
+            },
+            {
+              "label": "C",
+              "content": "Willow"
+            }
+          ],
+          "answerPayload": null,
+          "expectedNeedsReview": true,
+          "expectedEvidence": {
+            "analysis": null,
+            "sourceScore": null,
+            "scoringRubric": null,
+            "scoreSourceText": null
+          }
+        }
+      ],
+      "expectedVisualKinds": [],
+      "expectedProcess": {
+        "requiredCallKinds": [
+          "document_parse"
+        ]
+      }
+    },
+    {
+      "id": "pdf-no-answer",
+      "sourceType": "pdf",
+      "path": "fixtures/pdf/pdf-no-answer.pdf",
+      "tags": [
+        "synthetic",
+        "regression",
+        "pdf",
+        "no-source-answer"
+      ],
+      "critical": true,
+      "split": "regression",
+      "sourceHasNoAnswers": true,
+      "expectedQuestions": [
+        {
+          "stem": "Which tag was assigned to Sample Cedar?",
+          "answerMode": "choice",
+          "choiceVariant": "single",
+          "options": [
+            {
+              "label": "A",
+              "content": "Amber"
+            },
+            {
+              "label": "B",
+              "content": "Indigo"
+            }
+          ],
+          "answerPayload": null,
+          "expectedNeedsReview": true,
+          "expectedEvidence": {
+            "analysis": null,
+            "sourceScore": null,
+            "scoringRubric": null,
+            "scoreSourceText": null
+          }
+        },
+        {
+          "stem": "Which route was assigned to Sample Juniper?",
+          "answerMode": "choice",
+          "choiceVariant": "single",
+          "options": [
+            {
+              "label": "A",
+              "content": "Harbor"
+            },
+            {
+              "label": "B",
+              "content": "Meadow"
+            }
+          ],
+          "answerPayload": null,
+          "expectedNeedsReview": true,
+          "expectedEvidence": {
+            "analysis": null,
+            "sourceScore": null,
+            "scoringRubric": null,
+            "scoreSourceText": null
+          }
+        }
+      ],
+      "expectedVisualKinds": [],
+      "expectedProcess": {
+        "requiredCallKinds": [
+          "vision_parse"
+        ]
+      }
+    },
+    {
       "id": "image-no-answer",
       "sourceType": "image",
       "path": "fixtures/image/answerless.png",

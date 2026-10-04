@@ -32,7 +32,7 @@ These rule-based synthetic samples are not independent teacher annotations or cr
 
 ## Extraction dataset and human gold labels
 
-`evals/cases.json` uses `schemaVersion: 2` and currently contains 31 synthetic cases. The scorer version in `scripts/evaluate.py` is `6.0.0`. The manifest covers Text, CSV, PDF, and Image; seven basic question types; reading, word-bank, and cloze composites; and cases involving Chinese, missing source answers, long stems with identical prefixes, legitimate duplicates, long text spanning chunks, text without questions, and corrupt PDFs. Two focused text cases cover multiple-choice and ordinary fill-blank extraction. Six additional regression cases cover listening without audio, grammar fill, sentence selection, paragraph matching, translation/writing, and supplied or absent grading evidence. Their source and labels are synthetic maintenance fixtures, not independent teacher annotations. Real-model results remain separate from fixture validation. Manifest fields mean:
+`evals/cases.json` uses `schemaVersion: 2` with synthetic cases. The scorer version in `scripts/evaluate.py` is `6.0.0`. The manifest covers Text, CSV, PDF, and Image; seven basic question types; reading, word-bank, and cloze composites; and cases involving Chinese, missing source answers, long stems with identical prefixes, legitimate duplicates, long text spanning chunks, text without questions, and corrupt PDFs. Two focused text cases cover multiple-choice and ordinary fill-blank extraction. Six additional regression cases cover listening without audio, grammar fill, sentence selection, paragraph matching, translation/writing, and supplied or absent grading evidence. Their source and labels are synthetic maintenance fixtures, not independent teacher annotations. Real-model results remain separate from fixture validation. Manifest fields mean:
 
 - `id` is a stable, unique case identifier. `path` must point inside the manifest directory; path and symlink escapes are forbidden.
 - `tags` group cases by scenario. With `critical: true`, any discrepancy in an annotated field or structure fails the case.
@@ -60,6 +60,28 @@ Codex-assisted visual source review on 2026-10-04 checked both printed questions
 | Which planet is known as the Red Planet? | A: Venus; B: Mars; C: Jupiter |
 
 The entire image has no supplied answers, scores or rubrics. Both gold answers remain `null` and require review; no question was solved to construct them. The actual manifest-case regressions accept null answers and reject fabricated answers for matched, rewritten, extra and unmatched outputs. They exercise the offline scorer, not real-model image recognition or independent human annotation. Existing labels, critical/holdout semantics and quality thresholds are unchanged. Run the offline manifest and focused checks below, then `make verify AI_PYTHON=/absolute/path/to/python3.14` from the repository root before delivering the fixture PR.
+
+`csv-no-answer` was authored directly as a tiny original UTF-8 CSV in
+`evals/fixtures/csv/csv-no-answer.csv`; no binary generator, personal data or
+third-party material is involved. Source review compared both printed question
+stems and all six labeled options against the gold entry. The header and both rows
+contain no answers, explanations, scores or rubrics. The gold therefore explicitly
+retains null answer payloads and null grading evidence without solving either
+question. Focused tests bind this actual case and reject invented answers on
+matched, rewritten and extra questions, even when overall answer accuracy remains
+above the unchanged threshold. These are synthetic offline checks, not independent
+teacher annotations or real-model quality evidence. Validate this contribution
+from the repository root with an existing Python 3.14+ interpreter:
+
+```sh
+AI_PYTHON=/absolute/path/to/python3.14
+"$AI_PYTHON" server/scripts/evaluate.py --validate-only
+(cd server && PYTHONPATH=src "$AI_PYTHON" -m pytest tests/test_evaluation.py)
+make verify AI_PYTHON="$AI_PYTHON"
+```
+
+The first two commands are focused checks; full `make verify` is required before
+delivery. None of these commands authorizes a live model run.
 
 After updating the dataset, run:
 
@@ -356,3 +378,79 @@ cannot be downgraded by the verifier. Structured arrays must be arrays on the
 wire; quoted JSON arrays follow the usual validation/correction path.
 
 For the frozen-source ten-format preparation and unresolved acceptance work in #90, use the [import quality worksheet](../../docs/import-quality-acceptance.md).
+
+
+## Fully answerless PDF regression fixture (#113)
+
+`pdf-no-answer` adds one original synthetic, one-page PDF with two single-choice questions. This is an AI-assisted maintenance fixture, not independent contributor evidence or real-model acceptance. It is wholly answerless: the arbitrary sample assignments are not supplied, and the gold does not solve either question. Both answer payloads are null; analysis, source score, scoring rubric and score-source text are explicitly absent. The case is a critical regression with `sourceHasNoAnswers: true` and the existing PDF `vision_parse` process requirement. Existing gold entries, holdout labels, scorer and thresholds are unchanged.
+
+The complete printed source is:
+
+```text
+Synthetic worksheet
+Choose one option for each item.
+1. Which tag was assigned to Sample Cedar?
+A. Amber
+B. Indigo
+2. Which route was assigned to Sample Juniper?
+A. Harbor
+B. Meadow
+```
+
+Offline source review on 2026-10-04 checked the rendered page and extracted text against these lines and the two gold stems/options. The PDF contains no supplied answers, answer key, explanation, scoring instructions, rubric or scores; it has no annotations, attachments or form fields. SHA-256: `18aa64f287c98429dc71e7d2b612d568e6f9eefffadcb580962757cbb725b4cd`. The focused scorer regression accepts the unchanged null-answer output and rejects a fabricated answer on a matched, extra or rewritten/unmatched question, as well as fabricated grading evidence. These deterministic checks do not measure model extraction quality.
+
+Reproduce the 974-byte PDF from the repository root with the existing Python 3.14+ interpreter. This fixture-only writer uses the standard library, plain ASCII source and the PDF standard Helvetica font; it adds no service dependency or parser:
+
+```sh
+AI_PYTHON=/absolute/path/to/python3.14
+"$AI_PYTHON" - <<'PY'
+from pathlib import Path
+
+lines = [
+    (18, 54, 786, "Synthetic worksheet"),
+    (12, 54, 756, "Choose one option for each item."),
+    (12, 54, 706, "1. Which tag was assigned to Sample Cedar?"),
+    (12, 72, 678, "A. Amber"),
+    (12, 72, 654, "B. Indigo"),
+    (12, 54, 602, "2. Which route was assigned to Sample Juniper?"),
+    (12, 72, 574, "A. Harbor"),
+    (12, 72, 550, "B. Meadow"),
+]
+content = "".join(
+    f"BT /F1 {size} Tf {x} {y} Td ({text}) Tj ET\n"
+    for size, x, y, text in lines
+).encode("ascii")
+objects = [
+    b"<< /Type /Catalog /Pages 2 0 R >>",
+    b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] "
+    b"/Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+    b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    b"<< /Length " + str(len(content)).encode("ascii") + b" >>\nstream\n"
+    + content + b"endstream",
+]
+pdf = bytearray(b"%PDF-1.4\n")
+offsets = [0]
+for number, body in enumerate(objects, 1):
+    offsets.append(len(pdf))
+    pdf.extend(f"{number} 0 obj\n".encode("ascii") + body + b"\nendobj\n")
+xref = len(pdf)
+pdf.extend(f"xref\n0 {len(offsets)}\n0000000000 65535 f \n".encode("ascii"))
+for offset in offsets[1:]:
+    pdf.extend(f"{offset:010d} 00000 n \n".encode("ascii"))
+pdf.extend(
+    f"trailer\n<< /Size {len(offsets)} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n".encode("ascii")
+)
+Path("server/evals/fixtures/pdf/pdf-no-answer.pdf").write_bytes(pdf)
+PY
+```
+
+Run the offline checks from the repository root:
+
+```sh
+"$AI_PYTHON" server/scripts/evaluate.py --validate-only
+(cd server && PYTHONPATH=src "$AI_PYTHON" -m pytest tests/test_evaluation.py)
+make verify AI_PYTHON="$AI_PYTHON"
+```
+
+The first two commands validate the dataset and scorer with substitutes. Complete `make verify` before delivering the fixture change; it remains separate from paid/live model evaluation.
