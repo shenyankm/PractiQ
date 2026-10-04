@@ -5,6 +5,10 @@ import gc
 import hashlib
 import io
 import json
+import os
+import runpy
+import subprocess
+import sys
 import threading
 import tracemalloc
 import wave
@@ -20,6 +24,44 @@ from practiq_ai import bank_export
 from practiq_ai.contracts import DocumentParseResult, DocumentTaskDetail
 from practiq_ai.errors import DocumentProcessingError
 from tests.support import make_image, object_store, upload
+
+
+def test_documented_fixture_generator_consumes_stream_and_preserves_portable_content(tmp_path):
+    root = Path(__file__).parents[2]
+    fixture = root / "app/fixtures/service-export"
+    output = tmp_path / "generated"
+    process = subprocess.run([sys.executable, str(fixture / "generate.py"), str(output)],
+                             env=os.environ | {"PYTHONPATH": str(root / "server/src")},
+                             capture_output=True, text=True, check=True, timeout=30)
+    provenance = json.loads((output / "provenance.json").read_text())
+    archive = output / provenance["archive"]
+    assert json.loads(process.stdout) == provenance
+    assert provenance["archiveBytes"] == archive.stat().st_size
+    assert provenance["archiveSha256"] == hashlib.sha256(archive.read_bytes()).hexdigest()
+    historical = json.loads((fixture / "provenance.json").read_text())
+    for field in ("source", "image", "audio", "resultDumpSha256"):
+        assert provenance[field] == historical[field]
+    assert provenance["exporterSha256"] == hashlib.sha256((root / "server/src/practiq_ai/bank_export.py").read_bytes()).hexdigest()
+    with ZipFile(archive) as generated, ZipFile(fixture / "partial-media-bank.zip") as original:
+        assert generated.namelist() == original.namelist()
+        assert all(generated.read(name) == original.read(name) for name in original.namelist())
+
+
+def test_fixture_generator_closes_export_stream_when_destination_cannot_open(tmp_path, monkeypatch):
+    payload = io.BytesIO(b"Synthetic archive; no model")
+    async def export(*_args, **_kwargs):
+        return payload
+    monkeypatch.setattr(bank_export, "export_task_bank", export)
+    monkeypatch.setattr(sys, "argv", ["generate.py", str(tmp_path)])
+    original_open = Path.open
+    def open_file(path, *args, **kwargs):
+        if path.name == "partial-media-bank.zip" and args == ("wb",):
+            raise OSError("Synthetic destination failure")
+        return original_open(path, *args, **kwargs)
+    monkeypatch.setattr(Path, "open", open_file)
+    with pytest.raises(OSError, match="Synthetic destination failure"):
+        runpy.run_path(str(Path(__file__).parents[2] / "app/fixtures/service-export/generate.py"))
+    assert payload.closed and not (tmp_path / "provenance.json").exists()
 
 
 def detail(result=None, **changes):
