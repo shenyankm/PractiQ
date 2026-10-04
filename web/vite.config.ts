@@ -20,6 +20,8 @@ export default defineConfig({
     maxWorkers: 2,
     coverage: {
       provider: "v8",
+      reportsDirectory: "../coverage/web",
+      reportOnFailure: true,
       include: ["src/**/*.{ts,tsx}"],
       exclude: ["src/**/*.test.{ts,tsx}", "src/test-setup.ts", "src/test-fixtures.ts", "src/contracts.generated.ts", "src/main.tsx", "src/components/ui/**"],
       reporter: ["text", "json-summary", "html"],

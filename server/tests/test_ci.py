@@ -240,6 +240,26 @@ def test_workflows_deduplicate_common_checks_without_dropping_native_gates():
     assert installers["with"]["retention-days"] == "14"
 
 
+def test_service_web_upload_covers_configured_nonhidden_report_outputs():
+    root = Path(__file__).resolve().parents[2]
+    workflow = yaml.load((root / ".github/workflows/server.yml").read_text(), Loader=yaml.BaseLoader)
+    upload, = (
+        step for step in workflow["jobs"]["quality"]["steps"]
+        if step.get("uses", "").startswith("actions/upload-artifact@")
+        and step["with"].get("name") == "service-web-checks"
+    )
+    assert upload["if"] == "${{ always() }}"
+    assert upload["with"]["if-no-files-found"] == "error"
+    upload_roots = [(root / line.strip()).resolve() for line in upload["with"]["path"].splitlines()]
+    assert re.search(r"\breportOnFailure:\s*true\b", (root / "web/vite.config.ts").read_text())
+    for config, option in (("vite.config.ts", "reportsDirectory"), ("playwright.config.mjs", "outputFile")):
+        matches = re.findall(rf"\b{option}:\s*([\"'])(.*?)\1", (root / "web" / config).read_text())
+        (_, relative), = matches
+        output = (root / "web" / relative).resolve()
+        assert not any(part.startswith(".") for part in output.relative_to(root).parts)
+        assert any(output == directory or directory in output.parents for directory in upload_roots), output
+
+
 def test_android_ci_uses_the_actual_apk_runtime_and_emulator_not_linux_application():
     root = Path(__file__).resolve().parents[2]
     workflow = yaml.load((root / ".github/workflows/android.yml").read_text(), Loader=yaml.BaseLoader)
