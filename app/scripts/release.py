@@ -37,6 +37,8 @@ PLATFORMS = {
     "android": ("android", "arm64", "app/.build/android-final/*.apk", ".apk"),
 }
 
+ACCEPTANCES = (("cleanMachine", "clean-machine"), ("liveModel", "live-model"))
+
 
 def release_platform(platform: str | None = None) -> str:
     platform = platform or sys.platform
@@ -114,6 +116,51 @@ def normalized_digest(value: object) -> str:
     return value.lower()
 
 
+def check_original_candidate(candidate: dict) -> None:
+    if "restagedFinalBytes" in candidate or candidate.get("signing") != ("debug/test; publisher unverified" if candidate.get("os") == "android" else "unsigned"):
+        raise ValueError("Build provenance requires the original unsigned desktop or debug/test Android CI candidate")
+
+def external_signing_status(report: dict, artifact_sha: str) -> str:
+    """Bind a declared outcome; this does not verify signatures or publisher identity."""
+    if normalized_digest(report.get("artifactSha256")) != artifact_sha:
+        raise ValueError("Signing report must identify the exact final installer SHA-256")
+    status = report.get("status")
+    if not isinstance(status, str) or status not in ("verified", "unsigned", "failed"):
+        raise ValueError("External signing status must be verified, unsigned or failed")
+    return "externally_reported_" + status
+
+def acceptance_bytes(path: Path) -> bytes:
+    with path.open("rb") as stream:
+        raw = stream.read(1024 * 1024 + 1)
+    if len(raw) > 1024 * 1024:
+        raise ValueError("Acceptance report exceeds 1 MiB")
+    return raw
+
+def external_acceptance_status(report, kind: str, identity: dict) -> str:
+    """Validate external evidence metadata without claiming to perform its checks."""
+    required = {"schemaVersion", "kind", "artifactSha256", "tag", "commit", "components", "os",
+                "architecture", "status", "reviewedBy", "verificationResults"}
+    optional = {"verificationCommands", "limitations", "reviewedAt", "osVersion"}
+    if (not isinstance(report, dict) or not required.issubset(report) or set(report) - required - optional or
+            type(report["schemaVersion"]) is not int or report["schemaVersion"] != 1 or report["kind"] != kind):
+        raise ValueError("Acceptance report has an invalid schema or kind")
+    if (normalized_digest(report["artifactSha256"]) != identity["sha256"] or
+            any(report[key] != identity[key] for key in ("tag", "commit", "components", "os", "architecture"))):
+        raise ValueError("Acceptance report does not identify the final artifact, source and platform")
+    for name in ("reviewedBy", "reviewedAt", "osVersion"):
+        if name in report and (not isinstance(report[name], str) or not report[name].strip() or len(report[name]) > 8192):
+            raise ValueError("Acceptance report requires bounded reviewer metadata")
+    for name in ("verificationResults", "verificationCommands", "limitations"):
+        if name in report:
+            values = report[name]
+            if (not isinstance(values, list) or len(values) > 128 or (name == "verificationResults" and not values) or
+                    any(not isinstance(value, str) or not value.strip() or len(value) > 8192 for value in values)):
+                raise ValueError("Acceptance report requires bounded verification results")
+    if not isinstance(report["status"], str) or report["status"] not in ("passed", "failed"):
+        raise ValueError("Acceptance status must be passed or failed")
+    return "externally_reported_" + report["status"]
+
+
 def check_apk_evidence(report: dict, digest: str, manifest: dict, version: str, notice_sha: str) -> None:
     identity = report.get("nativePackage", {})
     if (report.get("passed") is not True or report.get("installerSha256") != digest
@@ -146,6 +193,7 @@ def original_build(root: Path, tag: str, source_sha: str, path: Path, *, platfor
     """Bind downloaded original build assets/evidence; external provenance still needs review."""
     raw = path.read_bytes()
     candidate = json.loads(raw)
+    check_original_candidate(candidate)
     platform = release_platform(platform)
     os_name, arch, _, suffix = PLATFORMS[platform]
     components = versions(root, tag)
@@ -165,9 +213,12 @@ def original_build(root: Path, tag: str, source_sha: str, path: Path, *, platfor
             or not re.fullmatch(r"/[^/]+/[^/]+/actions/runs/[1-9][0-9]*", run.path)):
         raise ValueError("Original build candidate must retain its immutable build-run URL")
     evidence = candidate.get("evidence", {})
+    evidence_root = path.parent / "evidence"
+    if not evidence_root.resolve().is_relative_to(path.parent.resolve()):
+        raise ValueError("Original build evidence directory escaped the downloaded candidate")
     for relative, digest in evidence.items():
         item = path.parent / relative
-        if not item.resolve().is_relative_to((path.parent / "evidence").resolve()) or checksum(item) != normalized_digest(digest):
+        if not item.resolve().is_relative_to(evidence_root.resolve()) or checksum(item) != normalized_digest(digest):
             raise ValueError("Original build evidence changed or escaped its directory")
     for name in ("desktop-bundle.json", "licenses.json"):
         if "evidence/" + name not in evidence or read_json(path.parent / "evidence" / name).get("passed") is not True:
@@ -199,7 +250,8 @@ def stage(root: Path, tag: str, bundle: Path, installer: Path, output: Path, *,
           source_sha: str | None = None, installer_sha: str | None = None,
           signing_report: Path | None = None, build_candidate: dict | None = None,
           desktop_version: str | None = None, platform: str | None = None,
-          aapt2: Path | None = None, android_runtime_inventory: Path | None = None) -> None:
+          aapt2: Path | None = None, android_runtime_inventory: Path | None = None,
+          clean_machine_report: Path | None = None, live_model_report: Path | None = None) -> None:
     components = versions(root, tag)
     platform = release_platform(platform)
     if platform == "android":
@@ -208,6 +260,11 @@ def stage(root: Path, tag: str, bundle: Path, installer: Path, output: Path, *,
             raise ValueError("Android license checks require --android-runtime-inventory")
         inventory_sha = checksum(android_runtime_inventory)
     os_name, arch, _, suffix = PLATFORMS[platform]
+    signing = "unverified" if restaged else ("debug/test; publisher unverified" if platform == "android" else "unsigned")
+    acceptance_paths = {"cleanMachine": clean_machine_report, "liveModel": live_model_report}
+    acceptances = {field + "Acceptance": "pending" for field, _ in ACCEPTANCES}
+    if not restaged and any(acceptance_paths.values()):
+        raise ValueError("Acceptance reports require explicit final-byte staging")
     manifest = read_json(bundle / "build-manifest.json")
     check_build(manifest, platform, components)
     if platform == "android" and manifest["architecture"] != "arm64":
@@ -249,8 +306,14 @@ def stage(root: Path, tag: str, bundle: Path, installer: Path, output: Path, *,
     if restaged:
         if signing_report:
             shutil.copyfile(signing_report, reports / "signing-report.json")
-            if normalized_digest(read_json(reports / "signing-report.json").get("artifactSha256")) != installer_sha:
-                raise ValueError("Signing report must identify the exact final installer SHA-256")
+            signing = external_signing_status(read_json(reports / "signing-report.json"), installer_sha)
+        identity = {"tag": tag, "commit": source_sha, "components": components, "os": os_name,
+                    "architecture": arch, "sha256": installer_sha}
+        for field, kind in ACCEPTANCES:
+            if path := acceptance_paths[field]:
+                raw = acceptance_bytes(path)
+                acceptances[field + "Acceptance"] = external_acceptance_status(json.loads(raw), kind, identity)
+                (reports / (kind + "-report.json")).write_bytes(raw)
         (reports / "build-candidate.json").write_text(json.dumps(build_candidate, indent=2) + "\n", encoding="utf-8")
     output.mkdir(parents=True, exist_ok=False)
     name = f"PractiQ_{components['desktop']}_{os_name}_{arch}{suffix}"
@@ -271,8 +334,8 @@ def stage(root: Path, tag: str, bundle: Path, installer: Path, output: Path, *,
         "tag": tag, "commit": git(root, "rev-parse", "HEAD"), "components": components,
         "os": os_name, "architecture": arch, "file": name, "sha256": checksum(output / name),
         "sizeBytes": (output / name).stat().st_size,
-        "signing": "unverified" if restaged else ("debug/test; publisher unverified" if platform == "android" else "unsigned"),
-        "cleanMachineAcceptance": "pending", "liveModelAcceptance": "pending",
+        "signing": signing,
+        **acceptances,
         "buildRun": build_candidate["candidate"]["buildRun"] if restaged else f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}",
         "evidence": {p.relative_to(output).as_posix(): checksum(p) for p in sorted(evidence.rglob("*")) if p.is_file()},
     }
@@ -285,8 +348,12 @@ def stage(root: Path, tag: str, bundle: Path, installer: Path, output: Path, *,
         candidate["originalBuildCandidate"] = "evidence/build-candidate.json"
         candidate["buildSourceIdentity"] = "Independent build provenance review required; commit identifies the checker candidate checkout"
         candidate["signingVerification"] = "Not performed by restaging; inspect independent final-artifact signing evidence"
+        candidate["acceptanceVerification"] = "Not performed by restaging; independently review external acceptance reports"
         if signing_report:
             candidate["signingReport"] = "evidence/signing-report.json"
+        for field, kind in ACCEPTANCES:
+            if acceptance_paths[field]:
+                candidate[field + "Report"] = "evidence/" + kind + "-report.json"
     (output / "candidate.json").write_text(json.dumps(candidate, indent=2) + "\n", encoding="utf-8")
 
 
@@ -487,6 +554,8 @@ def check_desktop_version(installer: Path, bundle: Path, expected: str, applicat
     if platform == "android":
         return apk_checker().native_manifest(installer, android_sdk(aapt2), "arm64-v8a", expected)["versionName"]
     application = native_application(bundle, application_name)
+    if platform == "darwin" and not application.stat().st_mode & 0o111:
+        raise ValueError("Final desktop executable requires POSIX execute permission")
     if platform == "darwin":
         check_macos_architecture(application)
         info = bundle.parents[1] / "Info.plist"
@@ -509,7 +578,8 @@ def restage_installer(root: Path, tag: str, installer: Path, output: Path,
                       reports: Path, signing_report: Path | None = None,
                       build_candidate: Path | None = None, seven_zip: Path | None = None, *,
                       platform: str | None = None, aapt2: Path | None = None,
-                      android_runtime_inventory: Path | None = None) -> None:
+                      android_runtime_inventory: Path | None = None, clean_machine_report: Path | None = None,
+                      live_model_report: Path | None = None) -> None:
     """Recheck final bytes locally while keeping signing/manual/live verification separate."""
     platform = release_platform(platform)
     if platform == "android":
@@ -547,7 +617,8 @@ def restage_installer(root: Path, tag: str, installer: Path, output: Path,
                 stage(root, tag, bundle, snapshot, staged, reports=reports, restaged=True,
                       source_sha=candidate["commit"], installer_sha=original_sha, signing_report=signing_report,
                       build_candidate=provenance, desktop_version=desktop_version, platform=platform,
-                      aapt2=aapt2, android_runtime_inventory=android_runtime_inventory)
+                      aapt2=aapt2, android_runtime_inventory=android_runtime_inventory,
+                      clean_machine_report=clean_machine_report, live_model_report=live_model_report)
             if checksum(snapshot) != original_sha:
                 raise ValueError("Final installer snapshot changed after package checks")
             if git(root, "rev-parse", "HEAD") != candidate["commit"] or git(root, "status", "--porcelain", "--untracked-files=all"):
@@ -591,6 +662,21 @@ def assemble(root: Path, tag: str, inputs: Path, output: Path) -> None:
         for filename in ("build-manifest.json", "THIRD-PARTY.txt"):
             if f"evidence/{filename}" not in candidate["evidence"]:
                 raise ValueError(f"Missing component or notice evidence: {filename}")
+        for field, kind in ACCEPTANCES:
+            expected = "pending"
+            if field + "Report" in candidate:
+                relative = "evidence/" + kind + "-report.json"
+                if (not candidate.get("restagedFinalBytes") or candidate[field + "Report"] != relative or
+                        relative not in candidate["evidence"]):
+                    raise ValueError("Acceptance evidence must use its bound final-candidate report path")
+                path = folder / relative
+                if (path.is_symlink() or path.is_junction() or not path.is_file() or
+                        path.parent.is_symlink() or path.parent.is_junction() or
+                        not path.resolve(strict=True).is_relative_to(folder.resolve(strict=True))):
+                    raise ValueError("Acceptance report must remain inside its final candidate directory")
+                expected = external_acceptance_status(json.loads(acceptance_bytes(path)), kind, candidate)
+            if candidate.get(field + "Acceptance", "pending") != expected:
+                raise ValueError("Final acceptance status differs from its bound external report")
         comparison = read_json(folder / "evidence/notices-match.json") if "evidence/notices-match.json" in candidate["evidence"] else {}
         if (comparison.get("passed") is not True or
                 comparison.get("sha256") != checksum(folder / "evidence/THIRD-PARTY.txt") or
@@ -599,13 +685,19 @@ def assemble(root: Path, tag: str, inputs: Path, output: Path) -> None:
             raise ValueError("Missing final embedded-notice comparison")
         if candidate.get("restagedFinalBytes"):
             report = candidate.get("signingReport")
-            if report and (report != "evidence/signing-report.json" or report not in candidate["evidence"] or normalized_digest(read_json(folder / report).get("artifactSha256")) != candidate["sha256"]):
-                raise ValueError("Signing evidence must identify the final asset SHA-256")
+            signing = "unverified"
+            if report:
+                if report != "evidence/signing-report.json" or report not in candidate["evidence"]:
+                    raise ValueError("Signing evidence must identify the final asset SHA-256")
+                signing = external_signing_status(read_json(folder / report), candidate["sha256"])
+            if candidate.get("signing") != signing:
+                raise ValueError("Final signing status differs from its bound external report")
             original = candidate.get("originalBuildCandidate")
             if original != "evidence/build-candidate.json" or original not in candidate["evidence"]:
                 raise ValueError("Missing original build identity")
             build = read_json(folder / original)
             prior = build.get("candidate", {})
+            check_original_candidate(prior)
             normalized_digest(build.get("candidateSha256"))
             if (build.get("assetAndEvidenceVerified") is not True or
                     normalized_digest(build.get("verifiedCandidateSha256")) != hashlib.sha256(json.dumps(prior, sort_keys=True, separators=(",", ":")).encode()).hexdigest() or
@@ -666,7 +758,7 @@ def assemble(root: Path, tag: str, inputs: Path, output: Path) -> None:
         manifest = {"packageSchemaVersion": SCHEMA_VERSION, "packageMode": PACKAGE_MODE,
                     "componentScope": "Practice assets; aiServiceSource is source-only and not a deployed component",
                     "tag": tag, "commit": sha, "components": components,
-                    "publicationStatus": "draft; signing and manual/live acceptance pending",
+                    "publicationStatus": "draft; independent signing and acceptance review pending" if candidates[0][1].get("restagedFinalBytes") else "draft; signing and manual/live acceptance pending",
                     "assets": [candidate for _, candidate in candidates],
                     "evidenceSha256": checksum(staged / "release-evidence.zip")}
         (staged / "release-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
@@ -693,6 +785,8 @@ def main() -> None:
     parser.add_argument("--installer", type=Path, help="Explicit final native installer; stage with fresh --reports and --output")
     parser.add_argument("--reports", type=Path, help="Fresh directory retaining final-package gate reports, including failures")
     parser.add_argument("--signing-report", type=Path, help="Independent signing report bound by artifactSha256; stage does not verify signing")
+    parser.add_argument("--clean-machine-report", type=Path, help="Reviewed clean-machine acceptance metadata bound to final bytes; no acceptance is executed")
+    parser.add_argument("--live-model-report", type=Path, help="Reviewed live-model acceptance metadata bound to final bytes; no model is called")
     parser.add_argument("--build-candidate", type=Path, help="Original CI candidate.json with its installer and bound evidence in the same directory")
     parser.add_argument("--seven-zip", type=Path, help="Installed full 7z.exe for Windows NSIS payload extraction")
     parser.add_argument("--platform", choices=("android",), help="Explicit Android target; macOS/Windows default to the native host")
@@ -703,7 +797,7 @@ def main() -> None:
         parser.error("Android target and SDK options apply only to stage")
     if args.platform != "android" and (args.aapt2 is not None or args.android_runtime_inventory is not None):
         parser.error("Android SDK/inventory options require --platform android")
-    explicit = any(value is not None for value in (args.installer, args.reports, args.signing_report, args.build_candidate, args.seven_zip))
+    explicit = any(value is not None for value in (args.installer, args.reports, args.signing_report, args.build_candidate, args.seven_zip, args.clean_machine_report, args.live_model_report))
     if explicit and (args.command != "stage" or args.installer is None or args.reports is None or args.output is None or args.build_candidate is None):
         parser.error("Explicit final staging requires stage --installer --reports --output --build-candidate")
     if args.command == "check":
@@ -715,7 +809,8 @@ def main() -> None:
     elif args.command == "stage":
         if explicit:
             restage_installer(ROOT, args.tag, args.installer, args.output, args.reports, args.signing_report, args.build_candidate, args.seven_zip,
-                              platform=args.platform, aapt2=args.aapt2, android_runtime_inventory=args.android_runtime_inventory)
+                              platform=args.platform, aapt2=args.aapt2, android_runtime_inventory=args.android_runtime_inventory,
+                              clean_machine_report=args.clean_machine_report, live_model_report=args.live_model_report)
         else:
             if args.output is not None:
                 parser.error("stage --output also requires --installer and --reports")

@@ -139,7 +139,51 @@ Explicit staging first makes a private read-only installer snapshot. Resources c
 
 Raw reports remain private in `FINAL_REPORTS`. A separate public evidence copy replaces absolute machine paths, including paths embedded in commands, before hashing. Review that sanitized copy before publication. Failed checks leave diagnostic reports and never produce public staged assets. Source HEAD/status and installer snapshot hashes are rechecked before delivery. No Actions environment variables are needed for explicit staging.
 
-Archive signing verification independently: exact artifact SHA-256, expected publisher identity, commands and results. An independent JSON report must contain a complete 64-hex `artifactSha256` matching the final installer; hexadecimal case does not change identity. It may also contain `status`, `identity`, `verificationCommands` and `verificationResults`. Pass `--signing-report /absolute/path/to/actual-signing-report.json` to retain it as bound evidence. Staging records its own signing check as **unverified** because it does not execute verification; the independently reviewed report and release template record actual signing status. Source checkout identity alone cannot prove installer build provenance. Manual and live acceptance remain **pending**.
+Archive signing verification independently: exact artifact SHA-256, expected publisher identity, commands and results. An independent JSON report must contain a complete 64-hex `artifactSha256` matching the final installer; hexadecimal case does not change identity. Its required `status` is `verified`, `unsigned` or `failed`. For a `verified` declaration, independent publication review must require `identity` identifying the expected and observed publisher, the exact `verificationCommands`, and their `verificationResults`, all bound to that same final artifact SHA-256. A declared status alone is insufficient for verified acceptance. These audit fields are optional for `unsigned` or `failed` reports; retain them when available. The metadata parser checks the artifact/status binding; it does not enforce this independent audit policy or establish that the commands ran. Pass `--signing-report /absolute/path/to/actual-signing-report.json` to retain it as bound evidence. Candidate and assembled manifest preserve the report declaration as `externally_reported_verified`, `externally_reported_unsigned` or `externally_reported_failed`; without a report, final staging records **unverified**. The script rejects mismatched artifact hashes, unknown statuses and report/manifest status drift; it does not execute verification or attest the supplied report. The original build candidate must be the unsigned desktop or debug/test Android CI output, never an earlier restaging. Source checkout identity alone cannot prove installer build provenance. Without the acceptance reports below, manual and live acceptance remain **pending**.
+
+### Acceptance report inputs
+
+After the actual final installer completes independent clean-machine and live-model acceptance, provide two separate reviewed JSON reports for that platform. The following are schema examples with placeholders, not passing acceptance evidence. Replace every placeholder with the actual frozen candidate identity and reviewed results; use `passed` only after the relevant checks genuinely pass, or `failed` to retain a reviewed failure. The script validates metadata and hashes, does not perform those checks or prove that the declarations are true, and never treats synthetic fixtures as actual release acceptance.
+
+Clean-machine report:
+
+```json
+{
+  "schemaVersion": 1,
+  "kind": "clean-machine",
+  "artifactSha256": "<exact-final-installer-64-hex-sha256>",
+  "tag": "<candidate-tag>",
+  "commit": "<exact-candidate-source-commit>",
+  "components": {"desktop": "<desktop-version>", "aiServiceSource": "<independent-service-source-version>"},
+  "os": "<macos-or-windows-or-android>",
+  "architecture": "<arm64-or-x64>",
+  "status": "<passed-or-failed>",
+  "reviewedBy": "<actual-reviewer-identity>",
+  "verificationResults": ["<actual per-platform clean-machine matrix results and limitations>"]
+}
+```
+
+Live-model report, prepared only after separately authorized real-model checks:
+
+```json
+{
+  "schemaVersion": 1,
+  "kind": "live-model",
+  "artifactSha256": "<exact-final-installer-64-hex-sha256>",
+  "tag": "<candidate-tag>",
+  "commit": "<exact-candidate-source-commit>",
+  "components": {"desktop": "<desktop-version>", "aiServiceSource": "<independent-service-source-version>"},
+  "os": "<macos-or-windows-or-android>",
+  "architecture": "<arm64-or-x64>",
+  "status": "<passed-or-failed>",
+  "reviewedBy": "<actual-reviewer-identity>",
+  "verificationResults": ["<actual separately deployed service parsing and explicit client grading results and human review>"]
+}
+```
+
+Each file is at most 1 MiB. Only the required fields shown and optional `verificationCommands`, `limitations`, `reviewedAt`, and `osVersion` are accepted. `verificationResults` must contain 1–128 nonempty strings; optional command and limitation lists contain at most 128. Every string in those lists and reviewer/OS/time metadata is bounded to 8192 characters. Review all content for credentials and personal data before supplying it. Add `--clean-machine-report /absolute/path/to/actual-clean-machine.json` and `--live-model-report /absolute/path/to/actual-live-model.json` to the explicit final staging command. These flags do not call a model or authorize publication.
+
+Staging retains the raw records privately in the fresh reports directory and creates sanitized public copies as `evidence/clean-machine-report.json` and `evidence/live-model-report.json`. `cleanMachineAcceptance` and `liveModelAcceptance` become `externally_reported_passed` or `externally_reported_failed` according to the corresponding bound report; a missing report remains `pending`. Assembly revalidates the schema, identity, fixed contained report path, status and archived bytes. The release remains a draft with independent signing and acceptance review pending, including when both reports declare success. If final signing/repackaging changes the installer bytes or candidate identity, the prior reports cannot be reused for that different artifact.
 
 After macOS arm64, Windows x64 and Android arm64 package gates pass, copy source-aligned independent service verification reports into `FINAL_INPUTS/service-checks`. Assemble into a new directory:
 

@@ -338,7 +338,7 @@ def staged(release, source, monkeypatch):
                      "evidence": {f"evidence/{p.name}": release.checksum(p) for p in evidence.iterdir()}}
         if platform == "android":
             candidate["androidRuntimeInventory"] = "evidence/android-runtime-inventory.json"
-            candidate["androidRuntimeInventorySha256"] = inventory_sha
+            candidate["androidRuntimeInventorySha256"] = release.checksum(evidence / "android-runtime-inventory.json")
         (folder / "candidate.json").write_text(json.dumps(candidate))
     service = inputs / "service-checks"
     service.mkdir()
@@ -506,7 +506,7 @@ def final_setup(release, source, monkeypatch):
             "packageSchemaVersion": 2, "packageMode": "desktop-practice", "tag": "v0.1.0", "commit": "a" * 40, "components": release.versions(source, "v0.1.0"),
             "os": os_name, "architecture": arch, "file": original_name,
             "sha256": release.checksum(original / original_name), "sizeBytes": (original / original_name).stat().st_size,
-            "buildRun": "https://github.com/test/repo/actions/runs/42",
+            "buildRun": "https://github.com/test/repo/actions/runs/42", "signing": "unsigned",
             "evidence": {"evidence/" + path.name: release.checksum(path) for path in original_evidence.iterdir()}}))
 
         def make_bundle(bundle):
@@ -522,6 +522,7 @@ def final_setup(release, source, monkeypatch):
                 executable = bundle.parents[1] / "MacOS/PractiQ"
                 executable.parent.mkdir()
                 executable.write_bytes(state.get("native_payload", native_macho()))
+                executable.chmod(state.get("native_mode", 0o755))
             elif platform == "win32":
                 (bundle.parent / "PractiQ.exe").write_bytes(native_pe())
                 (bundle.parent / "uninstall.exe").write_bytes(b"synthetic uninstaller")
@@ -781,12 +782,12 @@ def test_android_assembly_requires_actual_arm64_apk_identity_and_test_status(rel
 def test_explicit_final_staging_uses_selected_snapshot_and_fresh_reports_without_actions(release, source, final_setup, platform):
     installer, output, reports, state = final_setup(platform)
     signing = source / "independent-signing.json"
-    signing.write_text(json.dumps({"artifactSha256": release.checksum(installer), "status": "verified by independent reviewer", "verificationCommands": ["Synthetic verification evidence"]}))
+    signing.write_text(json.dumps({"artifactSha256": release.checksum(installer), "status": "verified", "verificationCommands": ["Synthetic verification evidence"]}))
     release.restage_installer(source, "v0.1.0", installer, output, reports, signing, state["build_candidate"])
     candidate = json.loads((output / "candidate.json").read_text())
     assert (output / candidate["file"]).read_bytes() == b"selected final installer bytes"
     assert candidate["sha256"] == release.checksum(installer)
-    assert candidate["restagedFinalBytes"] and candidate["signing"] == "unverified"
+    assert candidate["restagedFinalBytes"] and candidate["signing"] == "externally_reported_verified"
     assert candidate["cleanMachineAcceptance"] == candidate["liveModelAcceptance"] == "pending"
     assert candidate["buildRun"] == "https://github.com/test/repo/actions/runs/42" and "Independent" in candidate["buildSourceIdentity"]
     bound = json.loads((output / candidate["originalBuildCandidate"]).read_text())
@@ -836,7 +837,7 @@ def test_final_signing_commands_remove_other_machine_paths_before_public_hashing
                 "signtool verify /pa \\\\build-server\\Private\\PractiQ.exe",
                 "signtool verify /pa //build-server/Private/PractiQ.exe",
                 "source https://github.com/test/repo/actions/runs/42"]
-    signing.write_text(json.dumps({"artifactSha256": release.checksum(installer), "verificationCommands": commands}))
+    signing.write_text(json.dumps({"artifactSha256": release.checksum(installer), "status": "verified", "verificationCommands": commands}))
     release.restage_installer(source, "v0.1.0", installer, output, reports, signing, state["build_candidate"])
     assert json.loads((reports / "signing-report.json").read_text())["verificationCommands"] == commands
     public = json.loads((output / "evidence/signing-report.json").read_text())
@@ -850,7 +851,7 @@ def test_final_signing_commands_remove_other_machine_paths_before_public_hashing
 def test_final_signing_report_accepts_uppercase_equivalent_digest(release, source, final_setup):
     installer, output, reports, state = final_setup()
     signing = source / "signing.json"
-    signing.write_text(json.dumps({"artifactSha256": release.checksum(installer).upper()}))
+    signing.write_text(json.dumps({"artifactSha256": release.checksum(installer).upper(), "status": "verified"}))
     release.restage_installer(source, "v0.1.0", installer, output, reports, signing, state["build_candidate"])
     assert (output / "candidate.json").is_file()
 
@@ -928,6 +929,7 @@ def test_final_native_version_preserves_prerelease_identity(release, source, fin
         executable = bundle.parents[1] / "MacOS/PractiQ"
         executable.parent.mkdir()
         executable.write_bytes(native_macho())
+        executable.chmod(0o755)
     elif platform == "win32":
         (bundle.parent / "PractiQ.exe").write_bytes(native_pe())
     monkeypatch.setattr(subprocess, "check_output", lambda *args, **kwargs: expected + "\n")
@@ -996,7 +998,7 @@ def restaged(release, staged):
         evidence = folder / "evidence"
         candidate = json.loads((folder / "candidate.json").read_text())
         prior = dict(candidate)
-        candidate.update(restagedFinalBytes=True, signing="unverified", signingReport="evidence/signing-report.json")
+        candidate.update(restagedFinalBytes=True, signing="externally_reported_verified", signingReport="evidence/signing-report.json")
         candidate["originalBuildCandidate"] = "evidence/build-candidate.json"
         (evidence / "build-candidate.json").write_text(json.dumps({"candidateSha256": "a" * 64,
             "verifiedCandidateSha256": hashlib.sha256(json.dumps(prior, sort_keys=True, separators=(",", ":")).encode()).hexdigest(),
@@ -1004,7 +1006,7 @@ def restaged(release, staged):
         (evidence / "desktop-version.json").write_text('{"passed":true,"version":"0.1.0"}')
         (evidence / "expected-THIRD-PARTY.txt").write_bytes((evidence / "THIRD-PARTY.txt").read_bytes())
         (evidence / "notices-match.json").write_text(json.dumps({"passed": True, "sha256": release.checksum(evidence / "THIRD-PARTY.txt")}))
-        (evidence / "signing-report.json").write_text(json.dumps({"artifactSha256": candidate["sha256"], "status": "Independent test evidence"}))
+        (evidence / "signing-report.json").write_text(json.dumps({"artifactSha256": candidate["sha256"], "status": "verified"}))
         candidate["evidence"] = {f"evidence/{path.name}": release.checksum(path) for path in evidence.iterdir()}
         (folder / "candidate.json").write_text(json.dumps(candidate))
     return staged
@@ -1041,7 +1043,7 @@ def test_final_assembly_preserves_bound_signing_evidence_and_rejects_notice_drif
     elif mutation == "signing_hash":
         (evidence / "signing-report.json").write_text('{"artifactSha256":"wrong"}')
     elif mutation == "uppercase":
-        (evidence / "signing-report.json").write_text(json.dumps({"artifactSha256": candidate["sha256"].upper()}))
+        (evidence / "signing-report.json").write_text(json.dumps({"artifactSha256": candidate["sha256"].upper(), "status": "verified"}))
     elif mutation == "build_identity":
         build = json.loads((evidence / "build-candidate.json").read_text())
         build["candidate"]["buildRun"] = "https://github.com/test/repo/actions/runs/43"
@@ -1059,7 +1061,7 @@ def test_final_assembly_preserves_bound_signing_evidence_and_rejects_notice_drif
         release.assemble(source, "v0.1.0", staged, output)
         manifest = json.loads((output / "release-manifest.json").read_text())
         assert all(asset["restagedFinalBytes"] is True for asset in manifest["assets"])
-        assert manifest["assets"][1]["signing"] == "unverified"
+        assert manifest["assets"][1]["signing"] == "externally_reported_verified"
         assert "pending" in manifest["publicationStatus"]
         with zipfile.ZipFile(output / "release-evidence.zip") as archive:
             assert "macos/evidence/signing-report.json" in archive.namelist()
@@ -1149,6 +1151,7 @@ def test_native_release_architecture_is_bound_to_actual_package_bytes(release, t
         payload = payload[:24]
     executable.parent.mkdir(parents=True, exist_ok=True)
     executable.write_bytes(payload)
+    executable.chmod(0o755)
     monkeypatch.setattr(subprocess, "check_output", lambda *args, **kwargs: "0.1.0")
     with pytest.raises(ValueError, match="Mach-O|arm64|PE"):
         release.check_desktop_version(tmp_path / "selected", bundle, "0.1.0", "PractiQ")
@@ -1203,3 +1206,338 @@ def test_final_macos_rejects_fat_table_spoofs_and_unbounded_slices(release, sour
         release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=state["build_candidate"])
     assert not output.exists() and not reports.exists() and not state["calls"]
     assert state["mounted"] == ["detached"]
+
+
+@pytest.mark.parametrize("absolute", [False, True])
+def test_original_build_rejects_evidence_root_outside_downloaded_candidate(release, source, final_setup, absolute):
+    installer, output, reports, state = final_setup()
+    path = state["build_candidate"]
+    evidence = path.parent / "evidence"
+    outside = source / "unrelated-evidence"
+    shutil.copytree(evidence, outside)
+    shutil.rmtree(evidence)
+    evidence.symlink_to(outside if absolute else Path("../unrelated-evidence"), target_is_directory=True)
+    with pytest.raises(ValueError, match="evidence.*escaped|evidence.*directory"):
+        release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=path)
+    assert not output.exists() and not reports.exists() and not state["native"] and not state["calls"]
+
+
+
+def test_original_build_allows_evidence_root_resolving_inside_downloaded_candidate(release, source, final_setup):
+    installer, output, reports, state = final_setup()
+    path = state["build_candidate"]
+    evidence = path.parent / "evidence"
+    evidence.rename(path.parent / "contained-evidence")
+    evidence.symlink_to("contained-evidence", target_is_directory=True)
+    release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=path)
+    original = json.loads((output / "evidence/build-candidate.json").read_text())
+    assert original["assetAndEvidenceVerified"] is True and len(state["calls"]) == 2
+
+
+
+def test_original_build_rejects_absolute_individual_evidence_outside_directory(release, source, final_setup):
+    installer, output, reports, state = final_setup()
+    path = state["build_candidate"]
+    outside = source / "unrelated-report.json"
+    outside.write_text('{"passed":true}')
+    candidate = json.loads(path.read_text())
+    candidate["evidence"][str(outside)] = release.checksum(outside)
+    path.write_text(json.dumps(candidate))
+    with pytest.raises(ValueError, match="evidence.*escaped"):
+        release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=path)
+    assert not output.exists() and not reports.exists() and not state["native"] and not state["calls"]
+
+
+
+@pytest.mark.parametrize("status", ["verified", "unsigned", "failed"])
+def test_final_staging_binds_external_signing_status_without_attesting_it(release, source, final_setup, status):
+    installer, output, reports, state = final_setup()
+    signing = source / "signing.json"
+    signing.write_text(json.dumps({"artifactSha256": release.checksum(installer), "status": status}))
+    release.restage_installer(source, "v0.1.0", installer, output, reports, signing, state["build_candidate"])
+    candidate = json.loads((output / "candidate.json").read_text())
+    assert candidate["signing"] == "externally_reported_" + status
+    assert "Not performed" in candidate["signingVerification"]
+
+
+
+@pytest.mark.parametrize("status", [None, "", True, "verified by someone", "signed", {"verified": True}])
+def test_final_staging_rejects_ambiguous_signing_status(release, source, final_setup, status):
+    installer, output, reports, state = final_setup()
+    signing = source / "signing.json"
+    report = {"artifactSha256": release.checksum(installer)}
+    if status is not None:
+        report["status"] = status
+    signing.write_text(json.dumps(report))
+    with pytest.raises(ValueError, match="signing status"):
+        release.restage_installer(source, "v0.1.0", installer, output, reports, signing, state["build_candidate"])
+    assert reports.exists() and not output.exists()
+
+
+
+@pytest.mark.parametrize("mutation", ["restaged", "false_marker", "missing_signing", "signed"])
+def test_final_staging_rejects_nonoriginal_build_candidates(release, source, final_setup, mutation):
+    installer, output, reports, state = final_setup()
+    path = state["build_candidate"]
+    candidate = json.loads(path.read_text())
+    if mutation in {"restaged", "false_marker"}:
+        candidate["restagedFinalBytes"] = mutation == "restaged"
+    elif mutation == "missing_signing":
+        candidate.pop("signing")
+    else:
+        candidate["signing"] = "externally_reported_verified"
+    path.write_text(json.dumps(candidate))
+    with pytest.raises(ValueError, match="original unsigned"):
+        release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=path)
+    assert not output.exists() and not reports.exists() and not state["native"]
+
+
+
+@pytest.mark.parametrize("mutation", ["candidate_status", "report_status", "missing_report", "prior_restaged", "prior_signing"])
+def test_final_assembly_rejects_drifted_signing_status_or_nonoriginal_provenance(release, source, restaged, mutation):
+    folder = restaged / "release-macos"
+    evidence = folder / "evidence"
+    candidate = json.loads((folder / "candidate.json").read_text())
+    candidate["signing"] = "externally_reported_verified"
+    report = {"artifactSha256": candidate["sha256"], "status": "verified"}
+    if mutation == "candidate_status":
+        candidate["signing"] = "externally_reported_failed"
+    elif mutation == "report_status":
+        report["status"] = "signed somehow"
+    elif mutation == "missing_report":
+        candidate.pop("signingReport")
+    elif mutation in {"prior_restaged", "prior_signing"}:
+        build = json.loads((evidence / "build-candidate.json").read_text())
+        if mutation == "prior_restaged":
+            build["candidate"]["restagedFinalBytes"] = True
+        else:
+            build["candidate"]["signing"] = "externally_reported_verified"
+        build["verifiedCandidateSha256"] = hashlib.sha256(json.dumps(build["candidate"], sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+        (evidence / "build-candidate.json").write_text(json.dumps(build))
+    (evidence / "signing-report.json").write_text(json.dumps(report))
+    candidate["evidence"] = {f"evidence/{path.name}": release.checksum(path) for path in evidence.iterdir()}
+    (folder / "candidate.json").write_text(json.dumps(candidate))
+    output = source / "final-assembly"
+    with pytest.raises(ValueError, match="signing|original unsigned"):
+        release.assemble(source, "v0.1.0", restaged, output)
+    assert not output.exists()
+
+
+
+@pytest.mark.parametrize("damage", ["empty", "dos", "offset", "signature", "optional_length", "optional_truncated"])
+def test_final_windows_rejects_malformed_native_pe(release, source, final_setup, damage):
+    installer, _, _, _ = final_setup("win32")
+    bundle = source / "extracted/bundled"
+    bundle.mkdir(parents=True)
+    application = bundle.parent / "PractiQ.exe"
+    payload = bytearray(native_pe())
+    if damage == "empty":
+        payload = bytearray()
+    elif damage == "dos":
+        payload[:2] = b"NO"
+    elif damage == "offset":
+        payload[60:64] = (0xFFFFFFFF).to_bytes(4, "little")
+    elif damage == "signature":
+        payload[128:132] = b"NONE"
+    elif damage == "optional_length":
+        payload[148:150] = (0).to_bytes(2, "little")
+    else:
+        del payload[160:]
+    application.write_bytes(payload)
+    with pytest.raises(ValueError, match="PE|executable"):
+        release.check_desktop_version(installer, bundle, "0.1.0", "PractiQ")
+
+
+
+def test_original_build_evidence_cannot_resolve_outside_the_downloaded_candidate(release, source, final_setup):
+    installer, output, reports, state = final_setup()
+    evidence = state["build_candidate"].parent / "evidence"
+    outside = source / "unrelated-evidence"
+    shutil.copytree(evidence, outside)
+    shutil.rmtree(evidence)
+    evidence.symlink_to(outside, target_is_directory=True)
+    with pytest.raises(ValueError, match="evidence.*escaped|evidence.*directory"):
+        release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=state["build_candidate"])
+    assert not output.exists() and not reports.exists() and not state["native"]
+
+
+
+def acceptance_report(candidate, kind, status="passed"):
+    return {"schemaVersion": 1, "kind": kind, "artifactSha256": candidate["sha256"],
+            **{key: candidate[key] for key in ("tag", "commit", "components", "os", "architecture")},
+            "status": status, "reviewedBy": "Synthetic fixture reviewer",
+            "verificationResults": ["Synthetic schema test only; no installation or real model was run"]}
+
+
+
+@pytest.mark.parametrize("platform", ["darwin"])
+@pytest.mark.parametrize("mode", [0o644, 0o666])
+def test_final_native_requires_posix_execute_permission(release, source, final_setup, platform, mode):
+    installer, output, reports, state = final_setup(platform)
+    state["native_mode"] = mode
+    with pytest.raises(ValueError, match="execute permission"):
+        release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=state["build_candidate"])
+    assert not output.exists() and not reports.exists() and not state["calls"]
+
+
+
+@pytest.mark.parametrize("platform", ["darwin", "win32"])
+def test_final_native_accepts_owner_executable_and_windows_without_posix_execute_bits(release, source, final_setup, platform):
+    installer, output, reports, state = final_setup(platform)
+    state["native_mode"] = 0o700
+    release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=state["build_candidate"])
+    assert output.exists()
+
+
+
+@pytest.mark.parametrize("kind,field", [("clean-machine", "cleanMachine"), ("live-model", "liveModel")])
+@pytest.mark.parametrize("status", ["passed", "failed"])
+def test_final_staging_binds_external_acceptance_without_running_or_attesting_it(release, source, final_setup, kind, field, status):
+    installer, output, reports, state = final_setup()
+    identity = json.loads(state["build_candidate"].read_text()) | {"sha256": release.checksum(installer)}
+    report = acceptance_report(identity, kind, status)
+    report["verificationResults"].append(f"Synthetic evidence at {source}/private-test")
+    path = source / (kind + ".json")
+    path.write_text(json.dumps(report))
+    option = "clean_machine_report" if kind == "clean-machine" else "live_model_report"
+    release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=state["build_candidate"], **{option: path})
+    candidate = json.loads((output / "candidate.json").read_text())
+    assert candidate[field + "Acceptance"] == "externally_reported_" + status
+    other = "liveModel" if field == "cleanMachine" else "cleanMachine"
+    assert candidate[other + "Acceptance"] == "pending"
+    assert "Not performed" in candidate["acceptanceVerification"]
+    filename = kind + "-report.json"
+    assert json.loads((reports / filename).read_text()) == report
+    public = (output / candidate[field + "Report"]).read_text()
+    assert str(source) not in public and "Synthetic schema test only" in public
+    assert candidate["evidence"][candidate[field + "Report"]] == release.checksum(output / candidate[field + "Report"])
+    assert len(state["calls"]) == 2
+
+
+
+@pytest.mark.parametrize("kind", ["clean-machine", "live-model"])
+@pytest.mark.parametrize("mutation", ["kind", "os", "architecture", "commit", "tag", "components", "artifact", "schema_bool", "unknown", "missing_reviewer", "empty_results", "missing_results", "status", "synthetic_status"])
+def test_final_staging_rejects_mixed_incomplete_or_ambiguous_acceptance_reports(release, source, final_setup, kind, mutation):
+    installer, output, reports, state = final_setup()
+    identity = json.loads(state["build_candidate"].read_text()) | {"sha256": release.checksum(installer)}
+    report = acceptance_report(identity, kind)
+    if mutation in {"kind", "os", "architecture", "tag"}:
+        report[mutation] = "different"
+    elif mutation == "commit":
+        report["commit"] = "b" * 40
+    elif mutation == "components":
+        report["components"] = {"desktop": "0.2.0", "aiService": "0.3.0"}
+    elif mutation == "artifact":
+        report["artifactSha256"] = "b" * 64
+    elif mutation == "schema_bool":
+        report["schemaVersion"] = True
+    elif mutation == "unknown":
+        report["unrecognized"] = "not in the schema"
+    elif mutation == "missing_reviewer":
+        report.pop("reviewedBy")
+    elif mutation == "missing_results":
+        report.pop("verificationResults")
+    elif mutation == "empty_results":
+        report["verificationResults"] = []
+    else:
+        report["status"] = True if mutation == "status" else "synthetic"
+    path = source / (kind + ".json")
+    path.write_text(json.dumps(report))
+    option = "clean_machine_report" if kind == "clean-machine" else "live_model_report"
+    with pytest.raises(ValueError, match="Acceptance|acceptance"):
+        release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=state["build_candidate"], **{option: path})
+    assert not output.exists()
+
+
+
+@pytest.fixture
+def accepted_reports(restaged):
+    for folder in restaged.glob("release-*"):
+        candidate = json.loads((folder / "candidate.json").read_text())
+        for kind, field in (("clean-machine", "cleanMachine"), ("live-model", "liveModel")):
+            path = folder / "evidence" / (kind + "-report.json")
+            path.write_text(json.dumps(acceptance_report(candidate, kind)))
+            candidate[field + "Report"] = "evidence/" + path.name
+            candidate[field + "Acceptance"] = "externally_reported_passed"
+        candidate["evidence"] = {f"evidence/{path.name}": hashlib.sha256(path.read_bytes()).hexdigest() for path in (folder / "evidence").iterdir()}
+        (folder / "candidate.json").write_text(json.dumps(candidate))
+    return restaged
+
+
+
+def test_final_assembly_preserves_reported_acceptance_and_keeps_publication_review_pending(release, source, accepted_reports):
+    output = source / "reported-assets"
+    release.assemble(source, "v0.1.0", accepted_reports, output)
+    manifest = json.loads((output / "release-manifest.json").read_text())
+    assert all(asset["cleanMachineAcceptance"] == asset["liveModelAcceptance"] == "externally_reported_passed" for asset in manifest["assets"])
+    assert "independent" in manifest["publicationStatus"] and "pending" in manifest["publicationStatus"]
+    with zipfile.ZipFile(output / "release-evidence.zip") as archive:
+        report = json.loads(archive.read("macos/evidence/live-model-report.json"))
+        assert report["verificationResults"] == ["Synthetic schema test only; no installation or real model was run"]
+
+
+
+@pytest.mark.parametrize("field", ["cleanMachine", "liveModel"])
+@pytest.mark.parametrize("mutation", ["status", "report_status", "missing_report", "absolute_path", "outside_path", "report_identity", "report_link", "evidence_link"])
+def test_final_assembly_rejects_acceptance_status_drift_and_unbound_report_paths(release, source, accepted_reports, field, mutation):
+    folder = accepted_reports / "release-macos"
+    candidate_path = folder / "candidate.json"
+    candidate = json.loads(candidate_path.read_text())
+    report = folder / candidate[field + "Report"]
+    if mutation == "status":
+        candidate[field + "Acceptance"] = "passed"
+    elif mutation == "missing_report":
+        candidate.pop(field + "Report")
+    elif mutation in {"absolute_path", "outside_path"}:
+        candidate[field + "Report"] = str(report) if mutation == "absolute_path" else "../outside.json"
+    elif mutation == "report_link":
+        external = source / "external-report.json"
+        report.rename(external)
+        report.symlink_to(external)
+    elif mutation == "evidence_link":
+        external = source / "external-evidence"
+        (folder / "evidence").rename(external)
+        (folder / "evidence").symlink_to(external, target_is_directory=True)
+    else:
+        value = json.loads(report.read_text())
+        value["status" if mutation == "report_status" else "commit"] = "failed" if mutation == "report_status" else "b" * 40
+        report.write_text(json.dumps(value))
+    candidate["evidence"] = {f"evidence/{path.name}": hashlib.sha256(path.read_bytes()).hexdigest() for path in (folder / "evidence").iterdir()}
+    candidate_path.write_text(json.dumps(candidate))
+    output = source / "reported-assets"
+    with pytest.raises(ValueError, match="acceptance|Acceptance|release evidence"):
+        release.assemble(source, "v0.1.0", accepted_reports, output)
+    assert not output.exists()
+
+
+
+@pytest.mark.parametrize("kind", ["clean-machine", "live-model"])
+def test_final_assembly_rechecks_archived_acceptance_bytes_after_input_validation(release, source, accepted_reports, monkeypatch, kind):
+    original = zipfile.ZipFile.write
+    changed = False
+    def changed_report(archive, path, *args, **kwargs):
+        nonlocal changed
+        path = Path(path)
+        if not changed and path.name == kind + "-report.json":
+            report = json.loads(path.read_text())
+            report["verificationResults"] = ["Different report after validation"]
+            path.write_text(json.dumps(report))
+            changed = True
+        return original(archive, path, *args, **kwargs)
+    monkeypatch.setattr(zipfile.ZipFile, "write", changed_report)
+    output = source / "reported-assets"
+    with pytest.raises(ValueError, match="assembly"):
+        release.assemble(source, "v0.1.0", accepted_reports, output)
+    assert changed and not (output / "release-manifest.json").exists()
+
+
+
+def test_final_cli_passes_acceptance_reports_only_to_explicit_final_staging(release, monkeypatch):
+    calls = []
+    monkeypatch.setitem(release.main.__globals__, "restage_installer", lambda *args, **kwargs: calls.append((args, kwargs)))
+    monkeypatch.setattr(sys, "argv", ["release.py", "stage", "--tag", "v0.1.0", "--installer", "final.dmg", "--reports", "reports", "--output", "output", "--build-candidate", "candidate.json", "--clean-machine-report", "clean.json", "--live-model-report", "live.json"])
+    release.main()
+    assert calls[0][1] == {"platform": None, "aapt2": None, "android_runtime_inventory": None, "clean_machine_report": Path("clean.json"), "live_model_report": Path("live.json")}
+    monkeypatch.setattr(sys, "argv", ["release.py", "check", "--tag", "v0.1.0", "--clean-machine-report", "clean.json"])
+    with pytest.raises(SystemExit):
+        release.main()

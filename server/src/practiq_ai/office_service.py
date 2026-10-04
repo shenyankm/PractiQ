@@ -17,11 +17,16 @@ from tempfile import TemporaryDirectory
 from typing import Literal
 
 from .config import Config
-from .contracts import DocumentReference, OfficeMode
+from .contracts import (
+    OFFICE_FILE_MAX_BYTES,
+    DocumentReference,
+    OfficeMode,
+    document_source_limit,
+)
 from .errors import DocumentProcessingError
 from .extractors.isolated import _read_file, _thread_io
 
-FILE_LIMIT = 25 * 1024 * 1024
+FILE_LIMIT = OFFICE_FILE_MAX_BYTES
 TOTAL_LIMIT = 100 * 1024 * 1024
 FILE_COUNT = 100
 JSON_LINE_LIMIT = 1024 * 1024
@@ -183,7 +188,7 @@ async def convert_office(reference: DocumentReference, payload: bytes, *, mode: 
         raise _error("OFFICE_FORMAT_UNSUPPORTED")
     if mode not in {"pdf", "text"} or not math.isfinite(timeout) or timeout <= 0:
         raise _error("OFFICE_INPUT_INVALID")
-    limit = min(FILE_LIMIT, config.source_max_bytes)
+    limit = min(FILE_LIMIT, document_source_limit(reference.sourceType, config.source_max_bytes))
     if len(payload) > limit:
         raise DocumentProcessingError(413, "Office source exceeds the configured limit", "SOURCE_TOO_LARGE")
     if len(payload) != reference.sizeBytes:

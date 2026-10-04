@@ -178,6 +178,42 @@ test("failed reads retry explicitly and stale pages cannot overwrite a new filte
   expect(mutations(http.calls)).toHaveLength(0);
 });
 
+test("expired task deletion stays explicit and recoverable when detail and preview return 410", async ({ page }) => {
+  const http = await fakeHTTP(page, { ...task, state: "EXPIRED", allowedActions: [] }); let failDelete = true;
+  let release: (() => Promise<void>) | undefined;
+  http.server.intercept = async (route, call) => {
+    if (call.path === `/api/document-tasks/${taskId}` && call.method === "DELETE" && failDelete) {
+      failDelete = false;
+      await new Promise<void>(resolve => { release = async () => { await respond(route, { detail: { code: "DELETE_UNAVAILABLE" } }, 503); resolve(); }; });
+      return true;
+    }
+    if (call.method === "GET" && [`/api/document-tasks/${taskId}`, `/api/document-tasks/${taskId}/preview`].includes(call.path)) { await respond(route, { detail: { code: "TASK_EXPIRED" } }, 410); return true; }
+    return false;
+  };
+  await connect(page); await page.getByRole("button", { name: /sample.docx.*已过期/ }).click();
+  await expect(page.getByRole("button", { name: "重试任务详情", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "删除已过期任务 sample.docx", exact: true }).click();
+  expect(mutations(http.calls)).toHaveLength(0);
+  await page.getByRole("button", { name: "保留任务", exact: true }).click();
+  await expect(page.getByRole("group", { name: "删除任务确认" })).toHaveCount(0);
+  await page.getByRole("button", { name: "删除已过期任务 sample.docx", exact: true }).click();
+  await page.getByRole("button", { name: "确认删除", exact: true }).click();
+  await expect(page.getByRole("button", { name: "确认删除", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "保留任务", exact: true })).toBeDisabled();
+  await expect.poll(() => typeof release).toBe("function"); await release!();
+  await expect(page.getByText(/DELETE_UNAVAILABLE/)).toBeVisible();
+  await expect(page.getByRole("group", { name: "删除任务确认" })).toBeVisible();
+  expect(http.records.has(taskId)).toBe(true);
+  await page.clock.install(); await page.clock.runFor(6000);
+  expect(mutations(http.calls).map(call => call.method)).toEqual(["DELETE"]);
+  await page.getByRole("button", { name: "确认删除", exact: true }).click();
+  await expect(page.getByText("任务已删除。", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "删除已过期任务 sample.docx", exact: true })).toHaveCount(0);
+  await expect(page.getByText("选择一个任务查看结果", { exact: true })).toBeVisible();
+  expect(mutations(http.calls).map(call => call.method)).toEqual(["DELETE", "DELETE"]);
+  expect(http.records.has(taskId)).toBe(false); expect(http.server.modelStarts).toBe(0);
+});
+
 test("reparse and delete require explicit actions and delete confirmation", async ({ page }) => {
   const http = await fakeHTTP(page); await connect(page); await openTask(page);
   expect(mutations(http.calls)).toHaveLength(0);

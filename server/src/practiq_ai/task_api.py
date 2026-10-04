@@ -37,7 +37,7 @@ from .execution import (
     supported_task_sql,
 )
 from .graphs.document import _retry_update, unit_failures
-from .storage import get_object_store
+from .storage import get_object_store, validate_source_size
 
 
 def client():
@@ -98,8 +98,10 @@ async def create_task(request: DocumentTaskCreate) -> dict[str, Any]:
         previous = await _replay(conn, thread_id, request_id, request_hash)
         if previous:
             return previous
-        if request.document.sourceType in OFFICE_SOURCE_TYPES and load().office_executable is None:
+        settings = load()
+        if request.document.sourceType in OFFICE_SOURCE_TYPES and settings.office_executable is None:
             raise DocumentProcessingError(503, 'Office conversion is not configured in this deployment', 'OFFICE_NOT_CONFIGURED')
+        validate_source_size(request.document.sizeBytes, request.document.sourceType, settings)
         if request.parentThreadId:
             parent = await (await conn.execute('SELECT * FROM document_tasks WHERE thread_id=?', (str(request.parentThreadId),))).fetchone()
             if not parent:

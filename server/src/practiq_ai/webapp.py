@@ -34,6 +34,7 @@ from practiq_ai.contracts import (
     ImportCapabilities,
     OfficeMode,
     document_source_key,
+    document_source_limit,
 )
 from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.execution import supported_task_sql
@@ -121,6 +122,7 @@ async def import_capabilities() -> ImportCapabilities:
     office = settings.office_executable is not None
     return ImportCapabilities(sourceTypes=[kind for kind in get_args(DocumentSourceType) if office or kind not in OFFICE_SOURCE_TYPES],
                               sourceMaxBytes=settings.source_max_bytes, officeAvailable=office,
+                              officeSourceMaxBytes=document_source_limit("docx", settings.source_max_bytes) if office else None,
                               officeModes=["pdf", "text"] if office else [], modelConfigured=not settings.read_only)
 
 

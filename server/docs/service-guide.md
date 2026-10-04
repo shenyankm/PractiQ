@@ -32,7 +32,7 @@ Source images support PNG/JPEG only (`image/png`, `image/jpeg`). Declaring WebP/
 
 Open the built Web frontend at the service root, or run `make web-dev` for its loopback development proxy. The Web token stays in memory; provider credentials and Office executable paths stay in the service environment. File selection is passive; Start import authorizes upload, normalization and parsing. The desktop uses the resulting ZIP offline and calls the service only for explicit grading.
 
-`GET /api/import-capabilities` is authenticated and reports supported source types, source size limit, Office availability/modes and model configuration. Read-only deployments can serve existing results without a configured model; new model work returns `MODEL_NOT_CONFIGURED`.
+`GET /api/import-capabilities` is authenticated and reports supported source types, the configured `sourceMaxBytes`, Office availability/modes and model configuration. When Office is available, `officeSourceMaxBytes` is the smaller of `sourceMaxBytes` and the converter's 25 MiB ceiling; otherwise it is null. Upload metadata, binary upload and task admission reject oversized sources before reading their content or queuing work. Non-Office formats retain the configured `sourceMaxBytes`. Read-only deployments can serve existing results without a configured model; new model work returns `MODEL_NOT_CONFIGURED`.
 
 Upload the source, create a task, then read and download the result:
 
