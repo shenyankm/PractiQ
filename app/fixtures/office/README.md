@@ -38,7 +38,8 @@ a task or calling a model. This writes a fresh temporary output directory and
 retains source/output hashes for inspection:
 
 ```sh
-AI_READ_ONLY=1 AI_SERVICE_TOKEN=local-conversion-only PYTHONPATH=src python3.14 - <<'PY'
+AI_PYTHON=/absolute/path/to/python3.14
+AI_READ_ONLY=1 AI_SERVICE_TOKEN=local-conversion-only PYTHONPATH=src "$AI_PYTHON" - <<'PY'
 import asyncio
 import hashlib
 import json
@@ -86,3 +87,43 @@ Keep the first failure and record the source/engine identity, output hashes and
 manual observations. Successful conversion is not a fidelity pass. The focused
 worker/service tests in the linked guide use controlled engines and model fakes;
 they do not replace this deployed-engine inspection or live extraction evaluation.
+
+## Retained service probe
+
+On 2026-10-04, `practiq_ai.office_service.convert_office` at `b10ad6c696e5594cc961d89e31e038673c44b85a` converted the five unchanged fixtures in PDF and text modes: ten operations, twelve artifacts, zero conversion failures and zero model calls/tasks. Python was 3.14.7. The engine identity was exactly `LibreOffice 26.8.0.3 bce0998afefdbc355585ca324285661a2170ba77`.
+
+The probe mounted an existing [official macOS arm64 archive](https://downloadarchive.documentfoundation.org/libreoffice/stable/26.8.0/mac/aarch64/LibreOffice_26.8.0_MacOS_aarch64.dmg) read-only, checked against the [immutable former lock at `1bb1baee`](https://github.com/shenyankm/PractiQ/blob/1bb1baeeec774170b846271bf064dd8b49648c60/app/scripts/libreoffice.lock.json). Archive SHA-256 was `8858d8058da4f862f47559486814e65efc27294da67c5e4bb56b006b1ee59f89`; executable SHA-256 before and after was `820ce37c7f7f496f73516d932109b1254463b33a993ceae0cfbaabac62f164bf`. This did not install or discover an app-bundled engine, enable the host's unconfigured Office settings or change persistent configuration. Only that owned mount was detached afterward; the mounted executable was absent and no other Office processes were killed.
+
+| Outputs | Targeted observations | Known boundary |
+| --- | --- | --- |
+| Three Word PDFs | Numerator 1, fraction line and denominator 2 checked separately from the title; icon visually present; 70 rows, 70 supplied answers and final row 069 exactly once; normal END once, table-ending END absent | All-page text checked; first/last pages visually reviewed. No pixel-identical layout or arbitrary-document fidelity claim |
+| Three Word TXTs | 70 rows, 70 supplied answers and final row retained | Native equation, icon and layout losses observed; no full fidelity pass |
+| Two Excel PDFs | One page each with visible print-area content, `001`, formula result `3`, date `3/15/2023` and merged label once | Hidden sheet/outside-print-area content omitted by printing; slight spacing differences remained |
+| Four Excel CSVs | All 96 cells across four 8×3 outputs checked; actual A1 distinguished visible/hidden sheets; `001`, displayed formula/date values, merged label once and outside-print-area values retained | Formula syntax, original types, merge spans, print definitions and hidden flags are flattened; sheet filename order is not workbook tab order |
+
+The following hashes identify retained bytes. New PDF metadata or deployment fonts may change output bytes; preserve each new run's hashes and compare supplied content rather than treating a checksum match as a fidelity gate. Source fixtures and all twelve retained artifacts were unchanged at final rehash.
+
+| Fixture | Original SHA-256 |
+| --- | --- |
+| `中文 试卷.doc` | `27b8e595c7d8a136dd5d20f19d1236e9a9ca857174318a2421fc143d5f4c09c6` |
+| `中文 试卷.docx` | `5ea72921b3f4d6a91e2bb59dbac70adae41a2a5cae13d9b061c6196a33420b3f` |
+| `中文 表格.xls` | `38937c01c8a41e7176b5c6767ab33d6ec0e86c6a689fe6e22ef7f7bef1e5682d` |
+| `中文 表格.xlsx` | `288d667dce51ce797886ef4ae35bd776c242fb0ebe2d3a1db6b6f8355ff38d2d` |
+| `regressions/table-ending.docx` | `ec928c2d6db4b7230dbca3b2afb696566605c44c43f5ab8aa800a02cf510c6c1` |
+
+| Fixture | Mode / output | Retained SHA-256 |
+| --- | --- | --- |
+| `中文 试卷.doc` | pdf / `source.pdf` | `dd6bf90b74973c690b6dac044042a4fc19454c1fe5e13cb4cc9b0c046d8aee8d` |
+| `中文 试卷.doc` | text / `source.txt` | `65abb12da628cde185b8271cdbb4d5cdff290ba00c437c6eccc3e457e44ff336` |
+| `中文 试卷.docx` | pdf / `source.pdf` | `f04d1b7a212d4d2d0d287e4aa49c62e0faecfaa6d20bfbb57863ee2c435dac87` |
+| `中文 试卷.docx` | text / `source.txt` | `65abb12da628cde185b8271cdbb4d5cdff290ba00c437c6eccc3e457e44ff336` |
+| `中文 表格.xls` | pdf / `source.pdf` | `03e4ce2ceaad51431dcc12fade2c3a40163c91082506d4924278dfafee8cb9a6` |
+| `中文 表格.xls` | text / `source-隐藏表.csv` | `3deafa274846c4e827c0ed5533d126e815d4a6fc8b71285833b4088328595ffc` |
+| `中文 表格.xls` | text / `source-题目.csv` | `821bc186723e983b45f74b271f81528a69e104d1275a479ec54aa188903b3750` |
+| `中文 表格.xlsx` | pdf / `source.pdf` | `f748e2fc88767bcfa516e04b903dbb0df00709052b3e17001402130872780e30` |
+| `中文 表格.xlsx` | text / `source-隐藏表.csv` | `3deafa274846c4e827c0ed5533d126e815d4a6fc8b71285833b4088328595ffc` |
+| `中文 表格.xlsx` | text / `source-题目.csv` | `821bc186723e983b45f74b271f81528a69e104d1275a479ec54aa188903b3750` |
+| `table-ending.docx` | pdf / `source.pdf` | `6026b05fc927d181ca61640e6e1e5e7483946895dd2372112eea7c4004cf8c1d` |
+| `table-ending.docx` | text / `source.txt` | `10ecff842e8abb2463d9e9e2e174cd8bd975faa133fddb3e3a22a8cccd53ed7c` |
+
+The first temporary inspection helper failed on the invalid encoding name `utf8-sig`; its log was retained, the helper alone was corrected to `utf-8-sig`, and the same outputs were reread without another conversion. The final review SHA-256 is `82f7269865dff6c0a1bc727ae28d10b8b4767bb5096725b2aa9afcb4289bf711`. This is targeted current-adapter fixture evidence with known losses, not a full fidelity pass, configured-host deployment, live recognition, release-signing or native practice acceptance. Repeat the conversion command above against the actual selected deployment before relying on that host; never start a model task merely to inspect conversion.
