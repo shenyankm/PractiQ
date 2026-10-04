@@ -15,7 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Check, X, SkipForward, Pencil, ArrowUpToLine, ArrowDownToLine, LocateFixed } from "lucide-react";
+import { Check, X, SkipForward, Pencil, Circle, ArrowUpToLine, ArrowDownToLine, LocateFixed, type LucideIcon } from "lucide-react";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel } from "@/components/ui/alert-dialog";
 import { Content, Markdown } from "./Content";
 import { AnswerInput, AnswerDisplay } from "./AnswerInput";
@@ -428,8 +428,15 @@ function answerState(a: Attempt, draft: Answer | null, exam: boolean) {
     return t("未作答");
   }
 
-const AnswerCardItem = memo(function AnswerCardItem({ordinal, current, state, answered, flagged, variant, go}: {
+function answerMarker(a: Attempt, draft: Answer | null): LucideIcon {
+  if (a.skipped) return SkipForward;
+  if (a.submittedAt != null) return a.result === false ? X : Check;
+  return hasAnswer(draft) ? Pencil : Circle;
+}
+
+const AnswerCardItem = memo(function AnswerCardItem({ordinal, current, state, Marker, answered, flagged, variant, go}: {
   ordinal: number; current: boolean; state: string; answered: boolean; flagged: boolean;
+  Marker: LucideIcon;
   variant: "default" | "destructive" | "secondary" | "outline"; go: (position: number) => void;
 }) {
   useI18n();
@@ -437,13 +444,14 @@ const AnswerCardItem = memo(function AnswerCardItem({ordinal, current, state, an
                 <Button
                   size="sm"
                   variant={variant}
-                  className={`relative min-h-9 ${current ? "underline decoration-2 underline-offset-4" : answered ? "border-sky-200 bg-sky-100 text-sky-900 hover:bg-sky-200 dark:border-sky-800 dark:bg-sky-950/60 dark:text-sky-100 dark:hover:bg-sky-900/60" : ""} ${flagged ? "ring-2 ring-amber-400 ring-offset-1" : ""}`}
+                  className={`relative h-auto min-h-10 flex-col gap-0 px-1 py-1 ${current ? "underline decoration-2 underline-offset-4" : answered ? "border-sky-200 bg-sky-100 text-sky-900 hover:bg-sky-200 dark:border-sky-800 dark:bg-sky-950/60 dark:text-sky-100 dark:hover:bg-sky-900/60" : ""} ${flagged ? "ring-2 ring-amber-400 ring-offset-1" : ""}`}
                   aria-current={current ? "step" : undefined}
                   aria-label={t("转到第 {0} 题，{1}{2}", { 0: ordinal + 1, 1: state, 2: flagged ? t("，待检查") : "" })}
                   title={`${state}${flagged ? t("，待检查") : ""}`}
                   onClick={() => go(ordinal)}
                 >
-                  {ordinal + 1}
+                  <span>{ordinal + 1}</span>
+                  <Marker className="size-3" aria-hidden="true" focusable="false"/>
                 </Button>
   );
 });
@@ -477,10 +485,10 @@ const AnswerCard = memo(function AnswerCard({session, answer, exam, go}: {
               {session.attempts.map(a => {
                 const current = a.ordinal === session.position;
                 const draft = current ? answer : a.answer;
-                return <AnswerCardItem key={a.ordinal} ordinal={a.ordinal} current={current} state={answerState(a, draft, exam)} answered={!current && !a.skipped && a.result !== false && hasAnswer(draft)} flagged={!!a.flagged} variant={current ? "default" : a.result === false && !(exam && (a.earnedCents || 0) > 0) ? "destructive" : a.submittedAt ? "secondary" : "outline"} go={go}/>;
+                return <AnswerCardItem key={a.ordinal} ordinal={a.ordinal} current={current} state={answerState(a, draft, exam)} Marker={answerMarker(a, draft)} answered={!current && !a.skipped && a.result !== false && hasAnswer(draft)} flagged={!!a.flagged} variant={current ? "default" : a.result === false && !(exam && (a.earnedCents || 0) > 0) ? "destructive" : a.submittedAt ? "secondary" : "outline"} go={go}/>;
               })}
             </div>
-            <p className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground"><span className="flex items-center gap-1"><Pencil className="size-3"/>{t("草稿")}</span><span className="flex items-center gap-1"><Check className="size-3"/>{t("已提交")}</span><span className="flex items-center gap-1"><X className="size-3"/>{exam ? t("未得满分") : t("错误")}</span><span className="flex items-center gap-1"><SkipForward className="size-3"/>{t("跳过")}</span></p>
+            <p className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground"><span className="flex items-center gap-1"><Circle className="size-3" aria-hidden="true"/>{t("未作答")}</span><span className="flex items-center gap-1"><Pencil className="size-3" aria-hidden="true"/>{t("草稿")}</span><span className="flex items-center gap-1"><Check className="size-3" aria-hidden="true"/>{t("已提交")}</span><span className="flex items-center gap-1"><X className="size-3" aria-hidden="true"/>{exam ? t("未得满分") : t("错误")}</span><span className="flex items-center gap-1"><SkipForward className="size-3" aria-hidden="true"/>{t("跳过")}</span></p>
             <p className="mt-4 text-xs leading-5 text-muted-foreground">{t("{0} {1} / {2}。草稿自动保存，可随时离开后继续。", { 0: exam ? t("已作答") : t("已提交"), 1: session.attempts.filter((a) => exam ? hasAnswer(a.ordinal === session.position ? answer : a.answer) : a.submittedAt != null).length, 2: session.attempts.length })}</p>
           </CardContent>
         </Card>

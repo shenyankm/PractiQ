@@ -67,6 +67,78 @@ for(const scenario of ['empty','many','unconfigured','missing','slow','error']) 
  });
 }
 
+for (const colorScheme of ['light','dark']) {
+ base(`answer-card status markers match the legend and preserve keyboard navigation in ${colorScheme} theme`,async ({page},testInfo)=>{
+  const errors=[];page.on('pageerror',error=>errors.push(error.message));
+  await page.emulateMedia({colorScheme});
+  await page.setViewportSize({width:960,height:640});
+  await page.addInitScript(()=>{
+   sessionStorage.setItem('practiq-preview','local');
+   window.isTauri=false;
+   const question={id:'q',parentId:null,passage:[],allowReuse:false,stem:'Answer-card status matrix',answerMode:'short_answer',questionTypeId:'简答题',choiceVariant:null,matchingVariant:null,options:[],items:[],answerPayload:{text:'Reference'},analysis:null,sourceText:null,contentBlocks:[],needsReview:false,missingFields:[],confidence:1};
+   const snapshot={question,groups:[],visuals:[],sources:[],warnings:[],missingAssets:false};
+   const partial={...snapshot,question:{...question,answerMode:'fill_blank',blankCount:2,answerPayload:{answers:['first','second']}}};
+   const changes=[{}, {answer:{text:'Draft'},flagged:true}, {snapshot:partial,answer:{answers:['first','']}}, {answer:{text:'Submitted'},submittedAt:1}, {answer:{text:'Correct'},submittedAt:1,result:true}, {answer:{text:'Wrong'},submittedAt:1,result:false}, {submittedAt:1,skipped:true}, {snapshot:partial,answer:{answers:['First','second']},submittedAt:1,result:false,gradeKind:'auto'}];
+   const session={id:'markers',title:'Status matrix',kind:'practice',createdAt:1,finishedAt:null,position:0,mode:'ordered',attempts:changes.map((change,ordinal)=>({ordinal,snapshot,answer:null,autoResult:null,result:null,gradeKind:'ungraded',submittedAt:null,skipped:false,elapsedMs:0,...change}))};
+   const bank={id:'one',title:'Status matrix',description:'',count:8,createdAt:1};
+   const questions=session.attempts.map(({snapshot},i)=>({...snapshot,id:String(i),bankId:'one',bankTitle:bank.title,favorite:false,latestResult:null}));
+   window.__TAURI_INTERNALS__={invoke:async(command,{request})=>{
+    if(command!=='request')throw Error(`Unexpected command ${command}`);
+    switch(request.type){
+     case 'language':return 'zh-CN';
+     case 'banks':return [bank];
+     case 'banks_page':return {items:[bank],total:1,offset:0};
+     case 'unfinished_session':return null;
+     case 'info':return {version:'markers',dataDirectory:'/mock'};
+     case 'question_stats':return {count:8,types:{short_answer:6,fill_blank:2},feasibleCounts:[8]};
+     case 'preview_paper':return {questionIds:questions.map(q=>q.id),digest:'markers',questions,scores:questions.map(()=>0),count:8};
+     case 'start_paper':case 'session':return structuredClone(session);
+     case 'position':session.position=request.position;return structuredClone(session);
+     case 'save_draft':session.attempts[request.ordinal].answer=request.answer;return null;
+     default:throw Error(`Unexpected request ${request.type}`);
+    }
+   }};
+  });
+  await page.goto('/');
+  await page.getByRole('button',{name:'开始练习',exact:true}).click();
+  await page.getByLabel('题目数量').fill('8');
+  await page.getByRole('button',{name:'立即开始',exact:true}).click();
+  const grid=page.getByRole('region',{name:'答题卡',exact:true});
+  await expect(grid.getByRole('button')).toHaveCount(8);
+  await expect(page.locator('html')).toHaveClass(colorScheme==='dark'?/dark/:/^(?!.*dark)/);
+  const matrix=[['未作答','circle','未作答'],['已作答，未提交，待检查','pencil','草稿'],['草稿未完成','pencil','草稿'],['已提交，待判定','check','已提交'],['正确','check','已提交'],['错误','x','错误'],['已跳过','skip-forward','跳过'],['文本不完全一致','x','错误']];
+  for(const [index,[label,marker,legend]] of matrix.entries()) {
+   const button=grid.getByRole('button',{name:`转到第 ${index+1} 题，${label}`,exact:true});
+   const icon=button.locator(`svg.lucide-${marker}`);
+   await expect(button).toBeVisible();
+   await expect(button).toHaveText(String(index+1));
+   await expect(icon).toBeVisible();
+   await expect(icon).toHaveAttribute('aria-hidden','true');
+   await expect(page.locator('p > span').filter({hasText:legend}).locator(`svg.lucide-${marker}`)).toBeVisible();
+   const fits=await button.evaluate(element=>{const box=element.getBoundingClientRect();return [...element.children].every(child=>{const rect=child.getBoundingClientRect();return rect.left>=box.left&&rect.right<=box.right&&rect.top>=box.top&&rect.bottom<=box.bottom;});});
+   expect(fits).toBe(true);
+  }
+  const current=grid.getByRole('button',{name:'转到第 1 题，未作答',exact:true});
+  await expect(current).toHaveAttribute('aria-current','step');
+  await expect(current).toHaveCSS('text-decoration-line','underline');
+  const flagged=grid.getByRole('button',{name:'转到第 2 题，已作答，未提交，待检查',exact:true});
+  await expect(flagged).toHaveClass(/ring-2/);
+  await current.focus();
+  await page.keyboard.press('Tab');
+  await expect(flagged).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading',{name:'第 2 / 8 题',exact:true})).toBeFocused();
+  await expect(flagged).toHaveAttribute('aria-current','step');
+  await page.getByRole('button',{name:'定位当前题',exact:true}).focus();
+  await page.keyboard.press('Enter');
+  await expect(flagged).toBeFocused();
+  await page.keyboard.press('Space');
+  await expect(page.getByRole('heading',{name:'第 2 / 8 题',exact:true})).toBeVisible();
+  await page.screenshot({path:testInfo.outputPath(`answer-card-markers-${colorScheme}.png`)});
+  expect(errors).toEqual([]);
+ });
+}
+
 for (const width of [960,1280]) {
  base(`performance: 1000-question answer card stays reachable at ${width}px`,async ({page},testInfo)=>{
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
