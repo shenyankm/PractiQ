@@ -1,5 +1,6 @@
 import asyncio
 import csv
+import hashlib
 import json
 import os
 import subprocess
@@ -9,6 +10,7 @@ from pathlib import Path
 from typing import Any, cast
 from uuid import uuid4
 
+import pypdfium2 as pdfium
 import pytest
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage
@@ -745,6 +747,56 @@ def _answerless_pdf_output(case: dict[str, Any]) -> dict[str, Any]:
     for item in questions:
         item.update(item["expectedEvidence"], needsReview=True)
     return {"questions": questions, "groups": [], "visualElements": []}
+
+
+def test_answerless_pdf_gold_matches_pinned_rendered_source():
+    case = _answerless_pdf_case()
+    payload = Path("evals", case["path"]).read_bytes()
+    assert len(payload) == 974
+    assert hashlib.sha256(payload).hexdigest() == "18aa64f287c98429dc71e7d2b612d568e6f9eefffadcb580962757cbb725b4cd"
+    questions = case["expectedQuestions"]
+    assert len(questions) == 2 and sum(len(item["options"]) for item in questions) == 4
+    lines = ["Synthetic worksheet", "Choose one option for each item."]
+    for number, item in enumerate(questions, start=1):
+        lines.append(f"{number}. {item['stem']}")
+        lines.extend(f"{option['label']}. {option['content']}" for option in item["options"])
+    origins = [(54, 786), (54, 756), (54, 706), (72, 678), (72, 654), (54, 602), (72, 574), (72, 550)]
+    with pdfium.PdfDocument(payload) as source:
+        assert len(source) == 1
+        page = source[0]
+        try:
+            width, height = page.get_size()
+            assert (width, height) == (595, 842)
+            textpage = page.get_textpage()
+            try:
+                text = textpage.get_text_range()
+                assert text.splitlines() == lines  # No printed answer, rubric or scoring line.
+                rectangles = []
+                previous_bottom = height
+                for line, (x, y) in zip(lines, origins, strict=True):
+                    start = text.index(line)
+                    boxes = [textpage.get_charbox(index) for index in range(start, start + len(line))]
+                    left, bottom = min(box[0] for box in boxes), min(box[1] for box in boxes)
+                    right, top = max(box[2] for box in boxes), max(box[3] for box in boxes)
+                    assert 0 <= left < right <= width and 0 <= bottom < top < previous_bottom
+                    assert left == pytest.approx(x, abs=2) and bottom == pytest.approx(y, abs=4)
+                    rectangles.append((int(left), int(height - top), int(right) + 1, int(height - bottom) + 1))
+                    previous_bottom = bottom
+            finally:
+                textpage.close()
+            bitmap = page.render(scale=1)
+            try:
+                with bitmap.to_pil() as image, image.convert("L") as grayscale:
+                    assert image.size == (595, 842)
+                    for rectangle in rectangles:
+                        with grayscale.crop(rectangle) as printed_line:
+                            assert printed_line.getextrema()[0] < 64
+                    with grayscale.crop((0, 300, 595, 842)) as blank_remainder:
+                        assert blank_remainder.getextrema() == (255, 255)
+            finally:
+                bitmap.close()
+        finally:
+            page.close()
 
 
 def test_answerless_pdf_preserves_null_answers_and_absent_grading_evidence():
