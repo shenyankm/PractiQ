@@ -76,6 +76,8 @@ app/src-tauri/gen/android/gradlew -p app/src-tauri/gen/android \
 
 Skipping the Rust hook is valid only after compiling the same source and target through the Tauri CLI. CI uses the corresponding x86_64 tasks after its actual x86_64 APK build. Preserve Gradle test reports and first failures; a successful test compile is not a successful instrumentation run. The connected Gradle test task uninstalls its target app during cleanup, removing that installation's practice data. Use a disposable test installation for this task.
 
+The native picker regression waits for the completed WebView page and active system DocumentsUI before injecting Back. Both Back events must be accepted, and both picker rounds must return null and restore the Activity to RESUMED within the existing cancellation wait. Root Back requires a live resumed Activity with an enabled app callback; failed picker state must not dispatch the default finish path from a stopped Activity. Lifecycle state is collected on Android's main thread and checked on the instrumentation thread. Preserve the existing waits and original failures; retries or longer timeouts do not establish acceptance.
+
 For a manual flow, set the exact emulator/device serial, install the final APK, resolve the launch activity, and start it:
 
 ```sh
