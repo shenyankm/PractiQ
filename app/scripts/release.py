@@ -342,6 +342,8 @@ def assemble(root: Path, tag: str, inputs: Path, output: Path) -> None:
     candidates = [(path.parent, read_json(path)) for path in sorted(inputs.glob("release-*/candidate.json"))]
     if len(candidates) != 3 or {c["os"] for _, c in candidates} != {"macos", "windows", "linux"}:
         raise ValueError("All three gated platform candidates are required")
+    if len({bool(candidate.get("restagedFinalBytes")) for _, candidate in candidates}) != 1:
+        raise ValueError("Mixed original CI and final-byte staging modes in release assets")
     for folder, candidate in candidates:
         if (candidate["tag"], candidate["commit"], candidate["components"]) != (tag, sha, components):
             raise ValueError("Mixed source commits or versions in release assets")

@@ -521,20 +521,46 @@ def test_explicit_final_staging_rejects_installer_mutation_while_snapshotting(re
     assert not output.exists() and not reports.exists() and not state["calls"]
 
 
+@pytest.fixture
+def restaged(release, staged):
+    for folder in staged.glob("release-*"):
+        evidence = folder / "evidence"
+        candidate = json.loads((folder / "candidate.json").read_text())
+        prior = dict(candidate)
+        candidate.update(restagedFinalBytes=True, signing="unverified", signingReport="evidence/signing-report.json")
+        candidate["originalBuildCandidate"] = "evidence/build-candidate.json"
+        (evidence / "build-candidate.json").write_text(json.dumps({"candidateSha256": "a" * 64,
+            "verifiedCandidateSha256": hashlib.sha256(json.dumps(prior, sort_keys=True, separators=(",", ":")).encode()).hexdigest(),
+            "assetAndEvidenceVerified": True, "candidate": prior}))
+        (evidence / "desktop-version.json").write_text('{"passed":true,"version":"0.1.0"}')
+        (evidence / "expected-THIRD-PARTY.txt").write_bytes((evidence / "THIRD-PARTY.txt").read_bytes())
+        (evidence / "notices-match.json").write_text(json.dumps({"passed": True, "sha256": release.checksum(evidence / "THIRD-PARTY.txt")}))
+        (evidence / "signing-report.json").write_text(json.dumps({"artifactSha256": candidate["sha256"], "status": "Independent test evidence"}))
+        candidate["evidence"] = {f"evidence/{path.name}": release.checksum(path) for path in evidence.iterdir()}
+        (folder / "candidate.json").write_text(json.dumps(candidate))
+    return staged
+
+
+@pytest.mark.parametrize("original_platforms", [("macos",), ("windows",), ("linux",),
+                                               ("macos", "windows"), ("macos", "linux"), ("windows", "linux")])
+def test_final_assembly_rejects_mixed_staging_modes_before_creating_assets(release, source, restaged, original_platforms):
+    for platform in original_platforms:
+        path = restaged / f"release-{platform}/candidate.json"
+        candidate = json.loads(path.read_text())
+        candidate.pop("restagedFinalBytes")
+        path.write_text(json.dumps(candidate))
+    output = source / "mixed-final-assets"
+    with pytest.raises(ValueError, match="staging modes"):
+        release.assemble(source, "v0.1.0", restaged, output)
+    assert not output.exists()
+
+
 @pytest.mark.parametrize("mutation", [None, "uppercase", "missing_comparison", "missing_expected", "notice_hash", "expected_notice", "signing_hash", "build_identity", "desktop_version"])
-def test_final_assembly_preserves_bound_signing_evidence_and_rejects_notice_drift(release, source, staged, mutation):
+def test_final_assembly_preserves_bound_signing_evidence_and_rejects_notice_drift(release, source, restaged, mutation):
+    staged = restaged
     folder = staged / "release-macos"
     evidence = folder / "evidence"
     candidate = json.loads((folder / "candidate.json").read_text())
-    candidate.update(restagedFinalBytes=True, signing="unverified", signingReport="evidence/signing-report.json")
-    candidate["originalBuildCandidate"] = "evidence/build-candidate.json"
-    (evidence / "build-candidate.json").write_text(json.dumps({"candidateSha256": "a" * 64,
-        "verifiedCandidateSha256": hashlib.sha256(json.dumps(candidate, sort_keys=True, separators=(",", ":")).encode()).hexdigest(),
-        "assetAndEvidenceVerified": True, "candidate": dict(candidate)}))
-    (evidence / "desktop-version.json").write_text('{"passed":true,"version":"0.1.0"}')
-    (evidence / "expected-THIRD-PARTY.txt").write_bytes((evidence / "THIRD-PARTY.txt").read_bytes())
-    (evidence / "notices-match.json").write_text(json.dumps({"passed": True, "sha256": release.checksum(evidence / "THIRD-PARTY.txt")}))
-    (evidence / "signing-report.json").write_text(json.dumps({"artifactSha256": candidate["sha256"], "status": "Independent test evidence"}))
     if mutation == "missing_comparison":
         (evidence / "notices-match.json").unlink()
     elif mutation == "missing_expected":
@@ -563,6 +589,7 @@ def test_final_assembly_preserves_bound_signing_evidence_and_rejects_notice_drif
     else:
         release.assemble(source, "v0.1.0", staged, output)
         manifest = json.loads((output / "release-manifest.json").read_text())
+        assert all(asset["restagedFinalBytes"] is True for asset in manifest["assets"])
         assert manifest["assets"][1]["signing"] == "unverified"
         assert "pending" in manifest["publicationStatus"]
         with zipfile.ZipFile(output / "release-evidence.zip") as archive:
