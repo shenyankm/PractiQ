@@ -92,6 +92,7 @@ impl Pending {
 }
 #[derive(Default)]
 pub struct Store {
+    pub(crate) service_settings_recovery_required: std::cell::Cell<bool>,
     pub session_clock: crate::session_clock::SessionClock,
     pub session_epoch: u64,
     pub session_document_cache: std::cell::RefCell<Option<(String, std::sync::Arc<Value>)>>,
@@ -264,6 +265,7 @@ impl Store {
             dir,
             ..Default::default()
         };
+        store.recover_service_settings()?;
         store.connect()?;
         crate::backup::validate_database_schema(&store.db_path())?;
         store.collect_unused_assets()?;
@@ -273,6 +275,9 @@ impl Store {
         self.dir.join("practiq.sqlite")
     }
     pub fn connect(&self) -> Result<Connection> {
+        if self.service_settings_recovery_required.get() {
+            return Err("Database restoration requires recovery; restart before continuing".into());
+        }
         let db = Connection::open(self.db_path()).map_err(err)?;
         db.busy_timeout(std::time::Duration::from_secs(5))
             .map_err(err)?;
