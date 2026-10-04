@@ -603,6 +603,69 @@ def test_no_source_answers_checks_rewritten_and_extra_questions(source_type):
         ev.GoldCase.model_validate({**gold_case(), "sourceType": source_type, "sourceHasNoAnswers": True})
 
 
+@pytest.fixture
+def answerless_image_case() -> dict[str, Any]:
+    manifest = ev.load_manifest(Path("evals/cases.json"))
+    return next(case for case in manifest["cases"] if case["id"] == "image-no-answer")
+
+
+def _answerless_image_result(case: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "questions": [
+            {
+                "id": f"image-{index}", "stem": gold["stem"], "answerMode": gold["answerMode"],
+                "options": deepcopy(gold["options"]), "answerPayload": None, "needsReview": True,
+            }
+            for index, gold in enumerate(case["expectedQuestions"])
+        ],
+        "groups": [], "visualElements": [],
+    }
+
+
+def test_answerless_image_manifest_case_accepts_null_answers(answerless_image_case: dict[str, Any]) -> None:
+    case = answerless_image_case
+    assert case["sourceType"] == "image" and case["path"] == "fixtures/image/answerless.png"
+    assert case["sourceHasNoAnswers"] and case["critical"] and case["split"] == "regression"
+    assert len(case["expectedQuestions"]) == 2
+    assert all(gold["answerPayload"] is None and gold["expectedNeedsReview"] for gold in case["expectedQuestions"])
+    assert all(not gold["expectedEvidence"] for gold in case["expectedQuestions"])
+    record = case_record(case, _answerless_image_result(case))
+    report = ev.summarize([record])
+    assert record["score"]["matched"] == 2 and record["score"]["inventedAnswers"] == 0
+    assert record["qualityPassed"] and report["status"] == "PASSED" and not report["gateReasons"]
+
+
+@pytest.mark.parametrize("scenario,matched,unverified", [
+    ("matched", 2, 0),
+    ("rewritten", 1, 1),
+    ("extra", 2, 1),
+    ("unmatched", 0, 2),
+])
+def test_answerless_image_manifest_case_rejects_invented_answers(
+    answerless_image_case: dict[str, Any], scenario: str, matched: int, unverified: int,
+) -> None:
+    case = answerless_image_case
+    result = _answerless_image_result(case)
+    invented = result["questions"][0]
+    if scenario == "extra":
+        invented = {**deepcopy(invented), "id": "extra", "stem": "Extra invented question"}
+        result["questions"].append(invented)
+    elif scenario == "rewritten":
+        invented["stem"] = "Rewritten source question"
+    elif scenario == "unmatched":
+        invented["stem"] = "Unrelated output question"
+        result["questions"][1]["stem"] = "Another unrelated output question"
+    # An arbitrary non-null payload probes rejection; it is not a source answer.
+    invented["answerPayload"] = {"correct": ["A"]}
+    record = case_record(case, result)
+    report = ev.summarize([record])
+    assert record["score"]["matched"] == matched
+    assert record["score"]["unverifiedQuestions"] == unverified
+    assert record["score"]["inventedAnswers"] == 1 and not record["qualityPassed"]
+    assert report["status"] == "FAILED"
+    assert "INVENTED_ANSWER:image-no-answer:1" in report["gateReasons"]
+
+
 def test_quality_reliability_counts_documents_and_expected_rejections_separately():
     records = [case_record(repetition=n) for n in (1, 2, 3)]
     records[1]["score"] = ev.score_result(gold_case(), {"questions": []})

@@ -32,7 +32,7 @@ These rule-based synthetic samples are not independent teacher annotations or cr
 
 ## Extraction dataset and human gold labels
 
-`evals/cases.json` uses `schemaVersion: 2` and currently contains 30 synthetic cases. The scorer version in `scripts/evaluate.py` is `6.0.0`. The manifest covers Text, CSV, PDF, and Image; seven basic question types; reading, word-bank, and cloze composites; and cases involving Chinese, missing source answers, long stems with identical prefixes, legitimate duplicates, long text spanning chunks, text without questions, and corrupt PDFs. Two focused text cases cover multiple-choice and ordinary fill-blank extraction. Six additional regression cases cover listening without audio, grammar fill, sentence selection, paragraph matching, translation/writing, and supplied or absent grading evidence. Their source and labels are synthetic maintenance fixtures, not independent teacher annotations. Real-model results remain separate from fixture validation. Manifest fields mean:
+`evals/cases.json` uses `schemaVersion: 2` and currently contains 31 synthetic cases. The scorer version in `scripts/evaluate.py` is `6.0.0`. The manifest covers Text, CSV, PDF, and Image; seven basic question types; reading, word-bank, and cloze composites; and cases involving Chinese, missing source answers, long stems with identical prefixes, legitimate duplicates, long text spanning chunks, text without questions, and corrupt PDFs. Two focused text cases cover multiple-choice and ordinary fill-blank extraction. Six additional regression cases cover listening without audio, grammar fill, sentence selection, paragraph matching, translation/writing, and supplied or absent grading evidence. Their source and labels are synthetic maintenance fixtures, not independent teacher annotations. Real-model results remain separate from fixture validation. Manifest fields mean:
 
 - `id` is a stable, unique case identifier. `path` must point inside the manifest directory; path and symlink escapes are forbidden.
 - `tags` group cases by scenario. With `critical: true`, any discrepancy in an annotated field or structure fails the case.
@@ -47,6 +47,19 @@ These rule-based synthetic samples are not independent teacher annotations or cr
 - `split` defaults to `regression`. `image-holdout-instruction` is a separate `holdout` case; existing cases remain in the regression set. Debug against regression cases and run both sets before release. Do not repeatedly inspect the holdout to tune prompts. One holdout case verifies the process, not generalization. Real material requires de-identification, authorization, and independent human annotation before inclusion.
 
 Check gold labels against source files manually; never copy model outputs back as correct answers. PDF and image figures are evaluated using visual-model categories such as `diagram`. Humans review the meaning of visual descriptions.
+
+### Answerless PNG provenance and source review
+
+`image-no-answer` retains the original 600×400 PNG contributed by Cid-oe in [fork PR #1](https://github.com/Cid-oe/PractiQ/pull/1), linked from [issue #114](https://github.com/shenyankm/PractiQ/issues/114#issuecomment-5976045114). The authoritative [source file at commit `7f297461`](https://github.com/Cid-oe/PractiQ/blob/7f2974618279e3fd0b27301f126a1a19206c4aac/server/evals/fixtures/image/answerless.png) is kept unchanged with SHA-256 `859c132e2b50555d146b73cb737be15087237222c7f430b4fe6c8aceba1bb92f`. Generation note: this supplied raster places two questions and their ordered choices as black text on a white background. The contributor supplied no generator, font provenance or generation command, so regenerating identical PNG bytes is not established; retain this exact public version when reproducing the evaluation.
+
+Codex-assisted visual source review on 2026-10-04 checked both printed questions and all six options against the gold entry:
+
+| Printed question | Ordered options |
+| --- | --- |
+| What is the tallest mountain on Earth? | A: K2; B: Mount Everest; C: Kangchenjunga |
+| Which planet is known as the Red Planet? | A: Venus; B: Mars; C: Jupiter |
+
+The entire image has no supplied answers, scores or rubrics. Both gold answers remain `null` and require review; no question was solved to construct them. The actual manifest-case regressions accept null answers and reject fabricated answers for matched, rewritten, extra and unmatched outputs. They exercise the offline scorer, not real-model image recognition or independent human annotation. Existing labels, critical/holdout semantics and quality thresholds are unchanged. Run the offline manifest and focused checks below, then `make verify AI_PYTHON=/absolute/path/to/python3.14` from the repository root before delivering the fixture PR.
 
 After updating the dataset, run:
 
