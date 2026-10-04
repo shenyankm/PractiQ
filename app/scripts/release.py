@@ -219,6 +219,13 @@ def original_build(root: Path, tag: str, source_sha: str, path: Path) -> tuple[d
     if candidate.get("file") != filename:
         raise ValueError("Original build candidate has an unexpected asset name")
     asset = path.parent / filename
+    if asset.is_symlink() or asset.is_junction() or not asset.is_file():
+        raise ValueError("Original build asset must be a regular non-link file")
+    for directory in asset.parents:
+        if directory.is_symlink() or directory.is_junction() or not directory.is_dir():
+            raise ValueError("Original build asset requires real parent directories")
+    if not asset.resolve(strict=True).is_relative_to(path.parent.resolve(strict=True)):
+        raise ValueError("Original build asset must remain contained in its candidate directory")
     if checksum(asset) != normalized_digest(candidate.get("sha256")) or asset.stat().st_size != candidate.get("sizeBytes"):
         raise ValueError("Original build asset changed")
     run = urlsplit(candidate.get("buildRun") or "")
@@ -419,7 +426,31 @@ def contained_bundle(payload: Path, bundle: Path) -> Path:
     return bundle
 
 
+def deb_package_name(root: Path) -> str:
+    """Match Tauri's heck::AsKebabCase product name for ASCII release names."""
+    config = read_json(root / "app/src-tauri/tauri.conf.json")
+    config.update(read_json(root / "app/src-tauri/tauri.linux.conf.json"))
+    product = config.get("productName")
+    if product is None:
+        product = tomllib.loads((root / "app/src-tauri/Cargo.toml").read_text(encoding="utf-8"))["package"]["name"]
+    if not isinstance(product, str) or not product.isascii():
+        raise ValueError("DEB package identity requires an ASCII candidate product name")
+    words = []
+    for word in re.findall(r"[A-Za-z0-9]+", product):
+        # heck retains digit runs in the current case mode when finding boundaries.
+        word = re.sub(r"([A-Z][0-9]*)([A-Z][a-z])", r"\1-\2", word)
+        words.append(re.sub(r"([a-z][0-9]*)([A-Z])", r"\1-\2", word).lower())
+    package = "-".join(words)
+    if not re.fullmatch(r"[a-z0-9][a-z0-9-]+", package):
+        raise ValueError("DEB package identity requires a valid candidate package name")
+    return package
+
+
+
 def check_deb_metadata(installer: Path, root: Path) -> None:
+    package = subprocess.check_output(["dpkg-deb", "-f", str(installer), "Package"], text=True).strip()
+    if package != deb_package_name(root):
+        raise ValueError("Final DEB package identity does not match the candidate product name")
     architecture = subprocess.check_output(["dpkg-deb", "-f", str(installer), "Architecture"], text=True).strip()
     if architecture != "amd64":
         raise ValueError("Final DEB architecture must be amd64")
@@ -498,6 +529,9 @@ def check_windows_architecture(executable: Path) -> None:
             raise ValueError("Final Windows desktop executable requires complete PE headers")
         if int.from_bytes(header[4:6], "little") != 0x8664 or int.from_bytes(header[24:26], "little") != 0x20B:
             raise ValueError("Final Windows desktop executable must be x64 PE32+")
+        characteristics = int.from_bytes(header[22:24], "little")
+        if not characteristics & 0x0002 or characteristics & 0x2000:
+            raise ValueError("Final Windows PE must be an executable application, not a DLL")
 
 def macho_architecture(stream, offset: int, size: int) -> tuple[int, int]:
     stream.seek(offset)

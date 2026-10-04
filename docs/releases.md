@@ -135,13 +135,22 @@ to derive checked resources from the selected final file and rebuild local
 assets. Default `release.py stage` remains the unsigned CI path. Explicit
 staging requires the original unsigned CI platform candidate, installer and bound
 evidence, preserves its build URL, and checks the selected installer's actual
-desktop version. The original evidence directory must resolve within the downloaded
+desktop version. The original installer must be a regular non-link file with real
+parent directories and resolve within its downloaded candidate directory.
+The original evidence directory must resolve within the downloaded
 candidate directory, and each evidence file must resolve within that evidence root.
 Previously restaged candidates cannot replace that original
 build provenance. Actual application headers must identify an executable Mach-O
 arm64 slice on macOS, x64 PE32+ on Windows, or ELF64 little-endian x86-64 executable
 or PIE on Linux. Universal Mach-O table entries must match their actual member
-headers and have bounded, distinct ranges. DEBs must declare amd64 and mandatory
+headers and have bounded, distinct ranges. Windows PE headers require the executable
+flag (`0x0002`) set and the DLL flag (`0x2000`) clear, as defined in the
+[Microsoft PE specification](https://learn.microsoft.com/en-us/windows/win32/debug/pe-format#characteristics).
+DEBs must use the candidate's Tauri product name converted with
+[Tauri's kebab-case rule](https://github.com/tauri-apps/tauri/blob/tauri-cli-v2.11.5/crates/tauri-bundler/src/bundle/linux/debian.rs#L172-L173):
+`PractiQ` produces control `Package: practi-q`, independently of the installer
+filename and Cargo package name. The checker supports ASCII product names and
+rejects unsupported or invalid names. DEBs must also declare amd64 and mandatory
 GTK/WebKit plus every runtime dependency in the candidate's Tauri configuration;
 version bounds and :amd64/:any qualifiers are accepted, but alternatives do not
 satisfy required libraries. Resource directories and relative links remain
