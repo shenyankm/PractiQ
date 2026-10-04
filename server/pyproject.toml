@@ -24,7 +24,6 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
   "coverage==7.16.0",
-  "httpx==0.28.1",
   "pip-audit==2.10.1",
   "pyright==1.1.411",
   "pytest==9.1.1",

@@ -94,6 +94,7 @@ async def test_extractor_reaps_blocked_process_and_descendants(monkeypatch, tmp_
     child_pid = tmp_path / 'child'
     ready = asyncio.Event()
     async def blocked(*args, **kwargs):
+        assert args[:4] == (sys.executable, "-m", "practiq_ai.extractors.isolated", "text")
         code = ('import subprocess,sys,time; from pathlib import Path; '
                 'p=subprocess.Popen([sys.executable,"-c","import time; time.sleep(60)"]); '
                 f'ready=Path({str(child_pid)!r}); pending=ready.with_suffix(".tmp"); '
