@@ -1,0 +1,19 @@
+{
+  "passed": true,
+  "bundle": "PractiQ.app/Contents/Resources/bundled",
+  "application": "PractiQ.app",
+  "packageMode": "desktop-practice",
+  "manifest": {
+    "schemaVersion": 2,
+    "packageMode": "desktop-practice",
+    "platform": "darwin",
+    "architecture": "arm64",
+    "desktopVersion": "0.1.0"
+  },
+  "embeddedAiEngines": [],
+  "nativeExecutable": "PractiQ.app/Contents/MacOS/PractiQ",
+  "noticeSha256": "eafe47ec924363c31424123905bb4408fe13042748d0020e3d202f225c3f0505",
+  "sizeBytes": 25968929,
+  "desktopVersion": "0.1.0",
+  "installerSha256": "cb2ee14358bd5d3a97916a8cb0f8afa1c0aaae4f17e03f21ee33cd955950a3f0"
+}

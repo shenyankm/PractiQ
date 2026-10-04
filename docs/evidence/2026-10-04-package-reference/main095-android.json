@@ -1,0 +1,28 @@
+{
+  "passed": true,
+  "packageMode": "desktop-practice",
+  "manifest": {
+    "schemaVersion": 2,
+    "packageMode": "desktop-practice",
+    "platform": "android",
+    "architecture": "arm64",
+    "desktopVersion": "0.1.0"
+  },
+  "embeddedAiEngines": [],
+  "nativePackage": {
+    "identifier": "com.practiq.android",
+    "versionName": "0.1.0",
+    "versionCode": 1,
+    "minSdkVersion": 26,
+    "targetSdkVersion": 36
+  },
+  "desktopVersion": "0.1.0",
+  "nativeExecutable": "lib/arm64-v8a/libpractiq_desktop.so",
+  "nativeAbi": "arm64-v8a",
+  "nativeLibrarySha256": "de514de1e6d40922781852941b65ddf847a02254e17bec16dab27a25ad9f288d",
+  "noticeSha256": "9ea14ecc1b4b645f8213ed57328be44b10f09e901e374c1994c19541bae8b589",
+  "sizeBytes": 261564363,
+  "installerSha256": "eb1f408d197b3fd3b4f8ac02414a86b75cb01f1adab09e955723009f96d5fb1e",
+  "expectedNoticeSha256": "9ea14ecc1b4b645f8213ed57328be44b10f09e901e374c1994c19541bae8b589",
+  "retainedInstallerSha256": "eb1f408d197b3fd3b4f8ac02414a86b75cb01f1adab09e955723009f96d5fb1e"
+}

@@ -1,0 +1,19 @@
+{
+  "passed": true,
+  "bundle": "PractiQ/bundled",
+  "application": "PractiQ",
+  "packageMode": "desktop-practice",
+  "manifest": {
+    "schemaVersion": 2,
+    "packageMode": "desktop-practice",
+    "platform": "win32",
+    "architecture": "AMD64",
+    "desktopVersion": "0.1.0"
+  },
+  "embeddedAiEngines": [],
+  "nativeExecutable": "PractiQ/PractiQ.exe",
+  "noticeSha256": "31dfa847f93efe051dde5fe961ac9e4fb455ba581e141ca4377cbf526361c713",
+  "sizeBytes": 28255437,
+  "desktopVersion": "0.1.0",
+  "installerSha256": "4c6312f5e817cef95fb5e5609332083ac733f98db6247282e416b6beb685529c"
+}

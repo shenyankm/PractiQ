@@ -1,0 +1,123 @@
+{
+  "recordedDate": "2026-10-04",
+  "purpose": "Durable sanitized copies of five package-check reports; engineering reference only, not final release acceptance.",
+  "referenceCommit": "095a33b0e55d613f0a934701cc2d2b2b3ef72416",
+  "reportFileBase": "Paths in reportFile resolve relative to this manifest.",
+  "pathExplanation": "Desktop bundle/application/nativeExecutable are normalized package-relative payload locations, not public installer filenames. Original temporary CI runner extraction roots were omitted. Android reports contain no such host paths and retain original bytes.",
+  "actionsRetention": "These small package-report archives use retention-days: 7; Actions URLs may expire. Installer/release-candidate archives have separate retention and are not mirrored here.",
+  "limits": [
+    "Installer hashes are checker-reported identities. No installer was downloaded, executed or independently rehashed for these mirrors.",
+    "Original archive/report SHA-256 values identify the inspected original bytes; sanitized hashes identify the durable copies. Desktop sanitized bytes are not original report bytes.",
+    "Main 095 Desktop/Android workflows were cancelled with failed aggregates; preserved component reports passed. PR #136 built synthetic merge 3c85f37, not 095.",
+    "Publisher signing, clean-machine and authorized real-model acceptance remain pending; no tag or publication was selected."
+  ],
+  "reports": [
+    {
+      "label": "main095-macos",
+      "platform": "macOS arm64",
+      "sourceCheckout": "095a33b0e55d613f0a934701cc2d2b2b3ef72416",
+      "workflowHeadSha": "095a33b0e55d613f0a934701cc2d2b2b3ef72416",
+      "runId": 37195722419,
+      "artifactId": 11300807419,
+      "artifactName": "desktop-checks-macOS",
+      "buildUrl": "https://github.com/shenyankm/PractiQ/actions/runs/37195722419",
+      "originalArtifactUrl": "https://github.com/shenyankm/PractiQ/actions/runs/37195722419/artifacts/11300807419",
+      "originalArchiveSha256": "1a5a0b57b1dc6b9c72fdaa55d4b1e9ef42550cdddc8a0c4fdcc325e9e48d8a6a",
+      "originalReportEntry": "server/reports/checks/desktop-bundle.json",
+      "originalReportSha256": "19cbf79faa5edeee6808ac3ec2b755bf475e202663d5286376de0176dd286be9",
+      "sanitizedReportSha256": "88bc86eeb13a2d3aec8f7ed834c46378df49ed0cdd0cf2d0b273630caee575a2",
+      "reportFile": "main095-macos.json",
+      "sanitizedFields": [
+        "bundle",
+        "application",
+        "nativeExecutable"
+      ],
+      "originalReportBytesPreserved": false,
+      "copyMethod": "Only the three CI extraction-path values were replaced by package-relative paths; all other JSON fields and values and original whitespace/line endings retained."
+    },
+    {
+      "label": "main095-android",
+      "platform": "Android arm64 debug",
+      "sourceCheckout": "095a33b0e55d613f0a934701cc2d2b2b3ef72416",
+      "workflowHeadSha": "095a33b0e55d613f0a934701cc2d2b2b3ef72416",
+      "runId": 37195722354,
+      "artifactId": 11301436538,
+      "artifactName": "android-package-evidence",
+      "buildUrl": "https://github.com/shenyankm/PractiQ/actions/runs/37195722354",
+      "originalArtifactUrl": "https://github.com/shenyankm/PractiQ/actions/runs/37195722354/artifacts/11301436538",
+      "originalArchiveSha256": "fd7ca335624a0652b8dbb667fa815e0334f0da6be4085d107fb013b045fa0cac",
+      "originalReportEntry": "server/reports/checks/android-package.json",
+      "originalReportSha256": "6a2acd12f14e718112011e3e112f351c103ffee000f3289cd9f7114409be3d53",
+      "sanitizedReportSha256": "6a2acd12f14e718112011e3e112f351c103ffee000f3289cd9f7114409be3d53",
+      "reportFile": "main095-android.json",
+      "sanitizedFields": [],
+      "originalReportBytesPreserved": true,
+      "copyMethod": "Original report bytes copied unchanged."
+    },
+    {
+      "label": "pr136-macos",
+      "platform": "macOS arm64",
+      "sourceCheckout": "3c85f37ec15ffef7302bbe8b84cec0217ce9958f",
+      "workflowHeadSha": "e27c67a4695e57639880a04a5f69742cd7a69112",
+      "runId": 37194573437,
+      "artifactId": 11300109972,
+      "artifactName": "desktop-checks-macOS",
+      "buildUrl": "https://github.com/shenyankm/PractiQ/actions/runs/37194573437",
+      "originalArtifactUrl": "https://github.com/shenyankm/PractiQ/actions/runs/37194573437/artifacts/11300109972",
+      "originalArchiveSha256": "1e2d702040bdd26a61ff870010cdc0976ac60f78cf5e2b9978972505fdc0f857",
+      "originalReportEntry": "server/reports/checks/desktop-bundle.json",
+      "originalReportSha256": "a0a7e30cc47ea24cf3cd983c36c50322e9cd7dce5bebf0d981a1310c9373effb",
+      "sanitizedReportSha256": "9e400bd87d159dde905e28e7a05fe06d04b0ae57cadb9307b8392b02eb814246",
+      "reportFile": "pr136-macos.json",
+      "sanitizedFields": [
+        "bundle",
+        "application",
+        "nativeExecutable"
+      ],
+      "originalReportBytesPreserved": false,
+      "copyMethod": "Only the three CI extraction-path values were replaced by package-relative paths; all other JSON fields and values and original whitespace/line endings retained."
+    },
+    {
+      "label": "pr136-windows",
+      "platform": "Windows x64",
+      "sourceCheckout": "3c85f37ec15ffef7302bbe8b84cec0217ce9958f",
+      "workflowHeadSha": "e27c67a4695e57639880a04a5f69742cd7a69112",
+      "runId": 37194573437,
+      "artifactId": 11300986256,
+      "artifactName": "desktop-checks-Windows",
+      "buildUrl": "https://github.com/shenyankm/PractiQ/actions/runs/37194573437",
+      "originalArtifactUrl": "https://github.com/shenyankm/PractiQ/actions/runs/37194573437/artifacts/11300986256",
+      "originalArchiveSha256": "3149c917f95f2d05523eefd69fd459b068d9d42e77688f378116d47d8e5f6aa9",
+      "originalReportEntry": "server/reports/checks/desktop-bundle.json",
+      "originalReportSha256": "9d876c20d0537735be594b185d6da699b6f018e65fff4a99d54dabf5d77916c9",
+      "sanitizedReportSha256": "612e32c162dd6f76a352ad4feb41aa18fa3e8e26769c9ef3bddb0e1591800759",
+      "reportFile": "pr136-windows.json",
+      "sanitizedFields": [
+        "bundle",
+        "application",
+        "nativeExecutable"
+      ],
+      "originalReportBytesPreserved": false,
+      "copyMethod": "Only the three CI extraction-path values were replaced by package-relative paths; all other JSON fields and values and original whitespace/line endings retained."
+    },
+    {
+      "label": "pr136-android",
+      "platform": "Android arm64 debug",
+      "sourceCheckout": "3c85f37ec15ffef7302bbe8b84cec0217ce9958f",
+      "workflowHeadSha": "e27c67a4695e57639880a04a5f69742cd7a69112",
+      "runId": 37194573433,
+      "artifactId": 11300481638,
+      "artifactName": "android-package-evidence",
+      "buildUrl": "https://github.com/shenyankm/PractiQ/actions/runs/37194573433",
+      "originalArtifactUrl": "https://github.com/shenyankm/PractiQ/actions/runs/37194573433/artifacts/11300481638",
+      "originalArchiveSha256": "0502169c701f4a903165eb0dd4706ede804af3a2d733769947b41e7b95f24742",
+      "originalReportEntry": "server/reports/checks/android-package.json",
+      "originalReportSha256": "1a674fed590667a6d0c9085f3591bf5c85a59b95b4d7af8363c1964ad94b56d1",
+      "sanitizedReportSha256": "1a674fed590667a6d0c9085f3591bf5c85a59b95b4d7af8363c1964ad94b56d1",
+      "reportFile": "pr136-android.json",
+      "sanitizedFields": [],
+      "originalReportBytesPreserved": true,
+      "copyMethod": "Original report bytes copied unchanged."
+    }
+  ]
+}
