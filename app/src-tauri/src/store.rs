@@ -29,7 +29,7 @@ pub fn hash(bytes: &[u8]) -> String {
 #[cfg(test)]
 #[path = "search_performance.rs"]
 mod search_tests;
-fn err(e: impl std::fmt::Display) -> crate::AppError {
+pub(crate) fn err(e: impl std::fmt::Display) -> crate::AppError {
     e.to_string().into()
 }
 pub fn read_bounded(path: &Path, limit: usize) -> Result<Vec<u8>> {

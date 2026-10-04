@@ -1,14 +1,10 @@
 use crate::{
     contract::{self, list, text, Result},
-    store::{validate_page, Store},
+    store::{err, validate_page, Store},
 };
 use rusqlite::{params, OptionalExtension};
 use serde_json::{json, Value};
 use std::collections::HashMap;
-
-fn err(e: impl std::fmt::Display) -> crate::AppError {
-    e.to_string().into()
-}
 
 #[derive(Default)]
 struct SnapshotDocument {

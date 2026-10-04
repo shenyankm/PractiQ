@@ -1,14 +1,11 @@
 use crate::{
     contract::{self, list, text, Result},
-    store::{id, now, Store},
+    store::{err, id, now, Store},
 };
 use rusqlite::params;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};
-fn err(e: impl std::fmt::Display) -> crate::AppError {
-    e.to_string().into()
-}
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]

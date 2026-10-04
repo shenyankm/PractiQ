@@ -1,14 +1,11 @@
 use crate::{
     contract::Result,
-    store::{hash, read_bounded, Store},
+    store::{err, hash, read_bounded, Store},
 };
 use std::{collections::HashSet, fs, io::Write, path::PathBuf};
 
 // Match the accepted source-image upload limit, including full-page references.
 pub const LIMIT: usize = 25 * 1024 * 1024;
-fn err(e: impl std::fmt::Display) -> crate::AppError {
-    e.to_string().into()
-}
 
 impl Store {
     pub fn collect_unused_assets(&self) -> Result<()> {
