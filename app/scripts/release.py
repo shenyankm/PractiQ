@@ -84,6 +84,21 @@ def normalized_digest(value: object) -> str:
     return value.lower()
 
 
+def check_original_candidate(candidate: dict) -> None:
+    if "restagedFinalBytes" in candidate or candidate.get("signing") != "unsigned":
+        raise ValueError("Build provenance requires the original unsigned CI candidate")
+
+
+def external_signing_status(report: dict, artifact_sha: str) -> str:
+    """Bind a declared outcome; this does not verify signatures or publisher identity."""
+    if normalized_digest(report.get("artifactSha256")) != artifact_sha:
+        raise ValueError("Signing report must identify the exact final installer SHA-256")
+    status = report.get("status")
+    if not isinstance(status, str) or status not in ("verified", "unsigned", "failed"):
+        raise ValueError("External signing status must be verified, unsigned or failed")
+    return "externally_reported_" + status
+
+
 def public_report(value, roots):
     """Keep raw reports private; replace machine paths in the public JSON copy."""
     if isinstance(value, dict):
@@ -103,6 +118,7 @@ def original_build(root: Path, tag: str, source_sha: str, path: Path) -> dict:
     """Bind downloaded original build assets/evidence; external provenance still needs review."""
     raw = path.read_bytes()
     candidate = json.loads(raw)
+    check_original_candidate(candidate)
     os_name, arch, _, suffix = PLATFORMS[sys.platform]
     components = versions(root, tag)
     if (candidate.get("tag"), candidate.get("commit"), candidate.get("components"),
@@ -141,6 +157,7 @@ def stage(root: Path, tag: str, bundle: Path, installer: Path, output: Path, *,
           signing_report: Path | None = None, build_candidate: dict | None = None,
           desktop_version: str | None = None) -> None:
     components = versions(root, tag)
+    signing = "unverified" if restaged else "unsigned"
     os_name, arch, _, suffix = PLATFORMS[sys.platform]
     manifest = read_json(bundle / "build-manifest.json")
     check_build(manifest, sys.platform, components)
@@ -173,8 +190,7 @@ def stage(root: Path, tag: str, bundle: Path, installer: Path, output: Path, *,
             raise ValueError("Final installer snapshot changed during package checks")
         if signing_report:
             shutil.copyfile(signing_report, reports / "signing-report.json")
-            if normalized_digest(read_json(reports / "signing-report.json").get("artifactSha256")) != installer_sha:
-                raise ValueError("Signing report must identify the exact final installer SHA-256")
+            signing = external_signing_status(read_json(reports / "signing-report.json"), installer_sha)
         (reports / "build-candidate.json").write_text(json.dumps(build_candidate, indent=2) + "\n", encoding="utf-8")
     output.mkdir(parents=True, exist_ok=False)
     name = f"PractiQ_{components['desktop']}_{os_name}_{arch}{suffix}"
@@ -192,7 +208,7 @@ def stage(root: Path, tag: str, bundle: Path, installer: Path, output: Path, *,
     candidate = {
         "tag": tag, "commit": git(root, "rev-parse", "HEAD"), "components": components,
         "os": os_name, "architecture": arch, "file": name, "sha256": checksum(output / name),
-        "sizeBytes": (output / name).stat().st_size, "signing": "unverified" if restaged else "unsigned",
+        "sizeBytes": (output / name).stat().st_size, "signing": signing,
         "cleanMachineAcceptance": "pending", "liveModelAcceptance": "pending",
         "buildRun": build_candidate["candidate"]["buildRun"] if restaged else f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}",
         "evidence": {p.relative_to(output).as_posix(): checksum(p) for p in sorted(evidence.rglob("*")) if p.is_file()},
@@ -323,8 +339,8 @@ def check_desktop_version(installer: Path, bundle: Path, expected: str, applicat
         actual = metadata.get("CFBundleShortVersionString")
     elif sys.platform == "win32":
         application = bundle.parent / (application_name + ".exe")
-        if not application.is_file():
-            raise ValueError("Desktop executable is missing from the extracted NSIS payload")
+        check_native_executable(bundle.parent, application)
+        check_windows_architecture(application)
         for executable in (installer, application):
             environment = os.environ | {"PRACTIQ_RELEASE_VERSION_FILE": str(executable)}
             actual = subprocess.check_output(["powershell", "-NoProfile", "-NonInteractive", "-Command",
@@ -338,6 +354,25 @@ def check_desktop_version(installer: Path, bundle: Path, expected: str, applicat
     if actual != expected:
         raise ValueError("Final installer desktop version does not match the candidate")
     return actual
+
+
+def check_windows_architecture(executable: Path) -> None:
+    """Inspect bounded PE headers; do not execute or infer architecture from a label."""
+    size = executable.stat().st_size
+    with executable.open("rb") as stream:
+        dos = stream.read(64)
+        if len(dos) != 64 or dos[:2] != b"MZ":
+            raise ValueError("Final Windows desktop executable requires a valid PE header")
+        offset = int.from_bytes(dos[60:64], "little")
+        if not 64 <= offset <= size - 26:
+            raise ValueError("Final Windows PE header is outside the executable")
+        stream.seek(offset)
+        header = stream.read(26)
+        optional_size = int.from_bytes(header[20:22], "little")
+        if header[:4] != b"PE\0\0" or optional_size < 2 or offset + 24 + optional_size > size:
+            raise ValueError("Final Windows desktop executable requires complete PE headers")
+        if int.from_bytes(header[4:6], "little") != 0x8664 or int.from_bytes(header[24:26], "little") != 0x20B:
+            raise ValueError("Final Windows desktop executable must be x64 PE32+")
 
 
 def check_native_executable(payload: Path, executable: Path) -> None:
@@ -432,13 +467,19 @@ def assemble(root: Path, tag: str, inputs: Path, output: Path) -> None:
                     (folder / "evidence/expected-THIRD-PARTY.txt").read_bytes() != (folder / "evidence/THIRD-PARTY.txt").read_bytes()):
                 raise ValueError("Missing final embedded-notice comparison")
             report = candidate.get("signingReport")
-            if report and (report != "evidence/signing-report.json" or report not in candidate["evidence"] or normalized_digest(read_json(folder / report).get("artifactSha256")) != candidate["sha256"]):
-                raise ValueError("Signing evidence must identify the final asset SHA-256")
+            signing = "unverified"
+            if report:
+                if report != "evidence/signing-report.json" or report not in candidate["evidence"]:
+                    raise ValueError("Signing evidence must identify the final asset SHA-256")
+                signing = external_signing_status(read_json(folder / report), candidate["sha256"])
+            if candidate.get("signing") != signing:
+                raise ValueError("Final signing status differs from its bound external report")
             original = candidate.get("originalBuildCandidate")
             if original != "evidence/build-candidate.json" or original not in candidate["evidence"]:
                 raise ValueError("Missing original build identity")
             build = read_json(folder / original)
             prior = build.get("candidate", {})
+            check_original_candidate(prior)
             normalized_digest(build.get("candidateSha256"))
             if (build.get("assetAndEvidenceVerified") is not True or
                     normalized_digest(build.get("verifiedCandidateSha256")) != hashlib.sha256(json.dumps(prior, sort_keys=True, separators=(",", ":")).encode()).hexdigest() or

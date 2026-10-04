@@ -127,9 +127,11 @@ Do not reuse an unsigned candidate's checksums or acceptance labels.
 Use the [explicit final-installer staging commands](final-package-acceptance.md#review-and-publication-handoff)
 to derive checked resources from the selected final file and rebuild local
 assets. Default `release.py stage` remains the unsigned CI path. Explicit
-staging requires the original CI platform candidate, installer and bound
+staging requires the original unsigned CI platform candidate, installer and bound
 evidence, preserves its build URL, and checks the selected installer's actual
-desktop version. Final DEBs must declare `amd64` and mandatory GTK/WebKit plus
+desktop version. Previously restaged candidates cannot replace that original
+build provenance. Windows desktop executables must have bounded, complete PE
+headers identifying x64 (`0x8664`) and PE32+ (`0x20b`). Final DEBs must declare `amd64` and mandatory GTK/WebKit plus
 every runtime dependency in the candidate's Linux Tauri configuration. Version
 bounds and `:amd64`/`:any` qualifiers are accepted; an alternative package does
 not satisfy a required library. Extracted resource directories must be real and
@@ -142,8 +144,14 @@ checks do not start the application. Windows payload extraction requires install
 it does not execute NSIS or count as installation acceptance. Raw local reports
 remain private; the public evidence copy replaces machine paths before hashing.
 Staging does not attest Actions provenance or verify signing. Archive actual
-signing results bound to the final SHA-256 and review the original download's
-build provenance before recording verified status in the release template.
+signing results with `artifactSha256` bound to the final SHA-256 and a `status`
+of `verified`, `unsigned` or `failed`. The candidate and final manifest retain
+this declaration as `externally_reported_verified`, `externally_reported_unsigned`
+or `externally_reported_failed`; without a report, final staging records `unverified`.
+Assembly rejects a status that differs from its bound report. These labels
+describe external evidence, not cryptographic verification by this script.
+Review the original download's build provenance and the actual signing commands,
+publisher identity and results before recording verified status in the release template.
 
 For each public platform record OS version, architecture, date and results for
 clean installation, upgrade/uninstall, native dialogs, credentials, audio,
