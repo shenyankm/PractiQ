@@ -16,6 +16,9 @@ import pytest
 import yaml
 
 ROOT = Path(__file__).parents[2]
+LINUX_DEPENDENCIES = ["libwebkit2gtk-4.1-0", "libgtk-3-0", *json.loads(
+    (ROOT / "app/src-tauri/tauri.linux.conf.json").read_text()
+)["bundle"]["linux"]["deb"]["depends"]]
 
 
 @pytest.fixture
@@ -26,7 +29,7 @@ def release():
 @pytest.fixture
 def source(tmp_path):
     for name in ("app/package.json", "app/package-lock.json", "app/src-tauri/Cargo.toml",
-                 "app/src-tauri/Cargo.lock", "app/src-tauri/tauri.conf.json", "server/pyproject.toml",
+                 "app/src-tauri/Cargo.lock", "app/src-tauri/tauri.conf.json", "app/src-tauri/tauri.linux.conf.json", "server/pyproject.toml",
                  ".github/RELEASE_TEMPLATE.md"):
         destination = tmp_path / name
         destination.parent.mkdir(parents=True, exist_ok=True)
@@ -249,9 +252,43 @@ def final_setup(release, source, monkeypatch):
                 (bundle / name).write_text("Synthetic candidate notice")
             if platform == "darwin":
                 (bundle.parents[1] / "Info.plist").write_bytes(plistlib.dumps({"CFBundleShortVersionString": "0.2.0" if fault == "desktop_version" else "0.1.0"}))
+                if fault == "desktop_version_link":
+                    plist = bundle.parents[1] / "Info.plist"
+                    external = source / "unrelated-version.plist"
+                    plist.rename(external)
+                    plist.symlink_to(external)
             elif platform == "win32":
                 (bundle.parent / "PractiQ.exe").write_bytes(b"synthetic application")
                 (bundle.parent / "uninstall.exe").write_bytes(b"synthetic uninstaller")
+            if fault in {"bundle_dangling_resource", "bundle_cyclic_resource"}:
+                (bundle / "python").mkdir()
+                (bundle / "python/practiq-ai").symlink_to("missing-or-cyclic-engine")
+                if fault == "bundle_cyclic_resource":
+                    (bundle / "python/missing-or-cyclic-engine").symlink_to("practiq-ai")
+            elif fault == "bundle_internal_directory":
+                (bundle / "engine-files").mkdir()
+                (bundle / "engine-files/practiq-ai").write_bytes(b"Synthetic service binary")
+                (bundle / "python").symlink_to("engine-files", target_is_directory=True)
+            elif fault in {"bundle_external_resource", "bundle_relative_external_resource", "bundle_absolute_internal_resource", "bundle_internal_resource"}:
+                (bundle / "python").mkdir()
+                target = (bundle / "python/real-engine" if "internal" in fault else source / "unrelated-engine")
+                target.write_bytes(b"Synthetic service binary")
+                link = (os.path.relpath(target, bundle / "python") if fault.startswith("bundle_relative") or fault == "bundle_internal_resource" else target)
+                (bundle / "python/practiq-ai").symlink_to(link)
+            elif fault == "bundle_missing":
+                shutil.rmtree(bundle)
+            elif fault == "bundle_file":
+                shutil.rmtree(bundle)
+                bundle.write_bytes(b"Not a directory")
+            elif fault and fault.startswith("bundle_link_"):
+                target = bundle.parent if fault.endswith("parent") else bundle
+                if fault.endswith("root"):
+                    target = bundle.parents[3]
+                replacement = (bundle.parent / "actual-bundled" if fault.endswith("internal")
+                               else source / "unrelated-installed-bundle")
+                target.rename(replacement)
+                link = os.path.relpath(replacement, target.parent) if "relative" in fault else replacement
+                target.symlink_to(link, target_is_directory=True)
 
         def run(command, **kwargs):
             state["native"].append(command)
@@ -304,11 +341,107 @@ def final_setup(release, source, monkeypatch):
         def check_output(command, **kwargs):
             if command[0] == "7z":
                 return "Path = PractiQ.exe\nSize = 1\n\nPath = bundled/build-manifest.json\nSize = 1\n"
+            if command[:2] == ["dpkg-deb", "-f"]:
+                if command[-1] == "Architecture":
+                    return "arm64\n" if fault == "deb_architecture" else "amd64\n"
+                if command[-1] == "Depends":
+                    state["dependencies"] = state.get("dependencies", ", ".join(LINUX_DEPENDENCIES))
+                    return state["dependencies"] + "\n"
             return "0.2.0\n" if fault == "desktop_version" else "0.1.0\n"
         monkeypatch.setattr(subprocess, "check_output", check_output)
         monkeypatch.setattr(shutil, "which", lambda name: "7z" if name == "7z" else None)
         return installer, output, reports, state
     return setup
+
+
+def test_final_deb_rejects_wrong_architecture_before_bundle_gates(release, source, final_setup):
+    installer, output, reports, state = final_setup("linux", "deb_architecture")
+    with pytest.raises(ValueError, match="architecture"):
+        release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=state["build_candidate"])
+    assert not output.exists() and not state["calls"]
+
+
+@pytest.mark.parametrize("missing", LINUX_DEPENDENCIES)
+def test_final_deb_requires_every_native_and_declared_runtime_dependency(release, source, final_setup, missing):
+    installer, output, reports, state = final_setup("linux")
+    state["dependencies"] = ", ".join(name for name in LINUX_DEPENDENCIES if name != missing)
+    with pytest.raises(ValueError, match="dependencies"):
+        release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=state["build_candidate"])
+    assert not output.exists() and not state["calls"]
+
+
+def test_final_deb_does_not_treat_an_optional_dependency_as_required(release, source, final_setup):
+    installer, output, reports, state = final_setup("linux")
+    state["dependencies"] = ", ".join(LINUX_DEPENDENCIES).replace("libgtk-3-0", "libgtk-3-0 | substitute")
+    with pytest.raises(ValueError, match="dependencies"):
+        release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=state["build_candidate"])
+    assert not output.exists() and not state["calls"]
+
+
+def test_final_deb_reads_candidate_runtime_dependencies(release, source, final_setup):
+    installer, output, reports, state = final_setup("linux")
+    config_path = source / "app/src-tauri/tauri.linux.conf.json"
+    config = json.loads(config_path.read_text())
+    config["bundle"]["linux"]["deb"]["depends"].append("candidate-runtime")
+    config_path.write_text(json.dumps(config))
+    with pytest.raises(ValueError, match="candidate-runtime"):
+        release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=state["build_candidate"])
+    assert not output.exists() and not state["calls"]
+
+
+def test_final_deb_accepts_extra_dependencies_and_control_field_whitespace(release, source, final_setup):
+    installer, output, reports, state = final_setup("linux")
+    state["dependencies"] = " ,\n\t".join([*LINUX_DEPENDENCIES, "extra-runtime (>= 2)"])
+    release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=state["build_candidate"])
+    assert output.is_dir() and len(state["calls"]) == 4
+
+
+@pytest.mark.parametrize("suffix", ["", " (>= 1.0)", ":amd64 (>= 1.0)", ":any"])
+def test_final_deb_accepts_mandatory_versioned_and_qualified_dependencies(release, source, final_setup, suffix):
+    installer, output, reports, state = final_setup("linux")
+    state["dependencies"] = ", ".join(name + suffix for name in LINUX_DEPENDENCIES)
+    release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=state["build_candidate"])
+    assert output.is_dir() and len(state["calls"]) == 4
+
+
+@pytest.mark.parametrize("platform", ["darwin", "linux"])
+@pytest.mark.parametrize("fault", ["bundle_missing", "bundle_file", "bundle_link_absolute",
+                                   "bundle_link_relative", "bundle_link_absolute_parent", "bundle_link_relative_parent",
+                                   "bundle_link_absolute_root", "bundle_link_relative_internal"])
+def test_final_bundle_rejects_missing_non_directory_and_symlinked_paths_before_gates(release, source, final_setup, platform, fault):
+    installer, output, reports, state = final_setup(platform, fault)
+    with pytest.raises(ValueError, match="bundle"):
+        release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=state["build_candidate"])
+    assert not output.exists() and not state["calls"]
+    if platform == "darwin":
+        assert state["mounted"] == ["detached"]
+
+
+@pytest.mark.parametrize("platform", ["darwin", "linux"])
+@pytest.mark.parametrize("fault", ["bundle_external_resource", "bundle_relative_external_resource", "bundle_absolute_internal_resource",
+                                   "bundle_dangling_resource", "bundle_cyclic_resource"])
+def test_final_bundle_rejects_resource_links_to_machine_paths(release, source, final_setup, platform, fault):
+    installer, output, reports, state = final_setup(platform, fault)
+    with pytest.raises(ValueError, match="bundle"):
+        release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=state["build_candidate"])
+    assert not output.exists() and not state["calls"]
+    if platform == "darwin":
+        assert state["mounted"] == ["detached"]
+
+
+@pytest.mark.parametrize("platform", ["darwin", "linux"])
+@pytest.mark.parametrize("fault", ["bundle_internal_resource", "bundle_internal_directory"])
+def test_final_bundle_keeps_relative_internal_runtime_links(release, source, final_setup, platform, fault):
+    installer, output, reports, state = final_setup(platform, fault)
+    release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=state["build_candidate"])
+    assert output.is_dir() and len(state["calls"]) == 4
+
+
+def test_final_macos_version_cannot_follow_an_external_plist(release, source, final_setup):
+    installer, output, reports, state = final_setup("darwin", "desktop_version_link")
+    with pytest.raises(ValueError, match="desktop version"):
+        release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=state["build_candidate"])
+    assert not output.exists() and not state["calls"] and state["mounted"] == ["detached"]
 
 
 @pytest.mark.parametrize("platform", ["darwin", "win32", "linux"])
@@ -461,7 +594,9 @@ def test_final_native_version_preserves_prerelease_identity(release, source, fin
         (bundle.parents[1] / "Info.plist").write_bytes(plistlib.dumps({"CFBundleShortVersionString": expected}))
     elif platform == "win32":
         (bundle.parent / "PractiQ.exe").touch()
-    monkeypatch.setattr(subprocess, "check_output", lambda *args, **kwargs: expected + "\n")
+    def metadata(command, **kwargs):
+        return ({"Architecture": "amd64", "Depends": ", ".join(LINUX_DEPENDENCIES)}.get(command[-1], expected)) + "\n"
+    monkeypatch.setattr(subprocess, "check_output", metadata)
     assert release.check_desktop_version(installer, bundle, expected, "PractiQ") == expected
     with pytest.raises(ValueError, match="desktop version"):
         release.check_desktop_version(installer, bundle, "0.1.0", "PractiQ")

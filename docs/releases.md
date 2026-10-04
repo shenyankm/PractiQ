@@ -126,7 +126,13 @@ to derive checked resources from the selected final file and rebuild local
 assets. Default `release.py stage` remains the unsigned CI path. Explicit
 staging requires the original CI platform candidate, installer and bound
 evidence, preserves its build URL, and checks the selected installer's actual
-desktop version. Windows payload extraction requires installed full 7-Zip;
+desktop version. Final DEBs must declare `amd64` and mandatory GTK/WebKit plus
+every runtime dependency in the candidate's Linux Tauri configuration. Version
+bounds and `:amd64`/`:any` qualifiers are accepted; an alternative package does
+not satisfy a required library. Extracted resource directories must be real and
+remain within that package. Relative runtime links may resolve within the bundle;
+absolute, external and dangling links are rejected. The macOS version plist must
+be a regular file. Windows payload extraction requires installed full 7-Zip;
 it does not execute NSIS or count as installation acceptance. Raw local reports
 remain private; the public evidence copy replaces machine paths before hashing.
 Staging does not attest Actions provenance or verify signing. Archive actual

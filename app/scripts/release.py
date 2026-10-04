@@ -229,8 +229,47 @@ def stage_installer(root: Path, tag: str) -> None:
         stage(root, tag, bundle, installers[0], output)
 
 
+def contained_bundle(directory: Path, relative: str) -> Path:
+    bundle = directory / relative
+    current = directory
+    for part in ("", *Path(relative).parts):
+        current = current / part
+        if current.is_symlink() or current.is_junction() or not current.is_dir():
+            raise ValueError("Final bundle must use real directories inside the extracted package")
+    if not bundle.resolve(strict=True).is_relative_to(directory.resolve(strict=True)):
+        raise ValueError("Final bundle escaped the extracted package")
+    for item in bundle.rglob("*"):
+        if item.is_junction():
+            raise ValueError("Final bundle cannot contain machine-bound junctions")
+        if item.is_symlink():
+            try:
+                contained = not item.readlink().is_absolute() and item.resolve(strict=True).is_relative_to(bundle.resolve())
+            except (OSError, RuntimeError):
+                contained = False
+            if not contained:
+                raise ValueError("Final bundle links must resolve within its payload")
+    return bundle
+
+
+def check_deb(installer: Path, root: Path) -> None:
+    architecture = subprocess.check_output(["dpkg-deb", "-f", str(installer), "Architecture"], text=True).strip()
+    if architecture != PLATFORMS["linux"][1]:
+        raise ValueError("Final DEB architecture must be amd64")
+    declared = read_json(root / "app/src-tauri/tauri.linux.conf.json")["bundle"]["linux"]["deb"].get("depends", [])
+    required = {"libwebkit2gtk-4.1-0", "libgtk-3-0", *declared}
+    depends = subprocess.check_output(["dpkg-deb", "-f", str(installer), "Depends"], text=True)
+    mandatory = set()
+    for clause in depends.split(","):
+        # Alternatives do not guarantee installation of a required runtime library.
+        match = re.fullmatch(r"([a-z0-9][a-z0-9+.-]*)(?::(?:amd64|any))?(?:\s+\([^)]+\))?", clause.strip())
+        if match:
+            mandatory.add(match[1])
+    if missing := required - mandatory:
+        raise ValueError("Final DEB is missing required dependencies: " + ", ".join(sorted(missing)))
+
+
 @contextmanager
-def final_bundle(installer: Path, seven_zip: Path | None = None, application_name: str = "PractiQ"):
+def final_bundle(installer: Path, seven_zip: Path | None = None, application_name: str = "PractiQ", *, root: Path = ROOT):
     """Derive resources from the selected snapshot, never an unrelated installation."""
     with tempfile.TemporaryDirectory(prefix="practiq-final-package-") as directory:
         temporary = Path(directory)
@@ -238,7 +277,7 @@ def final_bundle(installer: Path, seven_zip: Path | None = None, application_nam
             mount = temporary / "mounted"
             subprocess.run(["hdiutil", "attach", str(installer), "-readonly", "-nobrowse", "-mountpoint", str(mount)], check=True)
             try:
-                yield mount / "PractiQ.app/Contents/Resources/bundled"
+                yield contained_bundle(mount, "PractiQ.app/Contents/Resources/bundled")
             finally:
                 subprocess.run(["hdiutil", "detach", str(mount)], check=True)
         elif sys.platform == "win32":
@@ -264,16 +303,20 @@ def final_bundle(installer: Path, seven_zip: Path | None = None, application_nam
             for item in destination.rglob("*"):
                 if item.is_symlink() or item.is_junction() or not item.resolve().is_relative_to(destination.resolve()):
                     raise ValueError("NSIS extraction escaped its temporary directory")
-            yield destination / "bundled"
+            yield contained_bundle(destination, "bundled")
         else:
+            check_deb(installer, root)
             extracted = temporary / "extracted"
             subprocess.run(["dpkg-deb", "-x", str(installer), str(extracted)], check=True)
-            yield extracted / "usr/lib/PractiQ/bundled"
+            yield contained_bundle(extracted, "usr/lib/PractiQ/bundled")
 
 
 def check_desktop_version(installer: Path, bundle: Path, expected: str, application_name: str) -> str:
     if sys.platform == "darwin":
-        actual = plistlib.loads((bundle.parents[1] / "Info.plist").read_bytes()).get("CFBundleShortVersionString")
+        plist = bundle.parents[1] / "Info.plist"
+        if plist.is_symlink() or not plist.is_file():
+            raise ValueError("Final desktop version metadata must be a regular file")
+        actual = plistlib.loads(plist.read_bytes()).get("CFBundleShortVersionString")
     elif sys.platform == "win32":
         application = bundle.parent / (application_name + ".exe")
         if not application.is_file():
@@ -322,7 +365,7 @@ def restage_installer(root: Path, tag: str, installer: Path, output: Path,
         output.parent.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(prefix="practiq-final-assets-", dir=output.parent) as staging:
             staged = Path(staging) / "assets"
-            with final_bundle(snapshot, seven_zip, application_name) as bundle:
+            with final_bundle(snapshot, seven_zip, application_name, root=root) as bundle:
                 desktop_version = check_desktop_version(snapshot, bundle, versions(root, tag)["desktop"], application_name)
                 stage(root, tag, bundle, snapshot, staged, reports=reports, restaged=True,
                       source_sha=candidate["commit"], installer_sha=original_sha, signing_report=signing_report,
