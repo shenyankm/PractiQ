@@ -4,7 +4,7 @@ import asyncio
 from collections.abc import AsyncIterator
 from datetime import timedelta
 from json import dumps as json_encode
-from typing import Any, Literal, LiteralString, cast
+from typing import Any, BinaryIO, Literal, LiteralString, cast
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from .config import load, require_model_config
@@ -251,7 +251,7 @@ async def get_task(thread_id: str) -> dict[str, Any]:
     }).model_dump(mode='json')
 
 
-async def export_task(thread_id: str, checkpoint_id: str | None = None) -> bytes:
+async def export_task(thread_id: str, checkpoint_id: str | None = None) -> BinaryIO:
     from .bank_export import export_task_bank
     service = client()
     task, snapshot, run = await _read_task(service, thread_id)
@@ -262,9 +262,13 @@ async def export_task(thread_id: str, checkpoint_id: str | None = None) -> bytes
     if detail.checkpointId != current_checkpoint:
         raise conflict('The task changed during export', 'STALE_CHECKPOINT')
     payload = await export_task_bank(detail, get_object_store(), source=DocumentReference.model_validate(task['document']))
-    _, latest, latest_run = await _read_task(service, thread_id)
-    if service.checkpoint_id(latest, latest_run) != current_checkpoint or _task_state(latest, latest_run)[0] != 'COMPLETED':
-        raise conflict('The task changed during export', 'STALE_CHECKPOINT')
+    try:
+        _, latest, latest_run = await _read_task(service, thread_id)
+        if service.checkpoint_id(latest, latest_run) != current_checkpoint or _task_state(latest, latest_run)[0] != 'COMPLETED':
+            raise conflict('The task changed during export', 'STALE_CHECKPOINT')
+    except BaseException:
+        payload.close()
+        raise
     return payload
 
 
