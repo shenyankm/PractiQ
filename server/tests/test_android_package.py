@@ -84,6 +84,7 @@ def write_apk(path: Path, contents: list[tuple[str | zipfile.ZipInfo, bytes]]) -
 def badging(abi: str) -> str:
     return (f"package: name='com.practiq.android' versionCode='1' versionName='{VERSION}'\n"
             "sdkVersion:'26'\n"
+            "targetSdkVersion:'36'\n"
             f"native-code: '{abi}'\n")
 
 
@@ -139,7 +140,7 @@ def test_apk_checks_actual_native_identity_resources_and_same_installer_bytes(ap
     assert report["manifest"] == manifest(abi)
     assert report["desktopVersion"] == VERSION
     assert report["nativePackage"] == {"identifier": "com.practiq.android", "versionName": VERSION,
-                                        "versionCode": 1, "minSdkVersion": 26}
+                                        "versionCode": 1, "minSdkVersion": 26, "targetSdkVersion": 36}
     assert report["nativeExecutable"] == f"lib/{abi}/libpractiq_desktop.so"
     assert report["nativeAbi"] == abi and report["embeddedAiEngines"] == []
     assert report["nativeLibrarySha256"] == hashlib.sha256(elf(abi)).hexdigest()
@@ -147,6 +148,54 @@ def test_apk_checks_actual_native_identity_resources_and_same_installer_bytes(ap
     assert report["installerSha256"] == hashlib.sha256(apk_case["original"]).hexdigest()
     assert report["sizeBytes"] == len(apk_case["original"])
     assert len(apk_case["calls"]) == 1
+
+
+def test_apk_accepts_actual_sdk_36_badging_and_records_both_sdk_bounds(apk_case):
+    # Header observed from the selected build-tools 36.0.0 AAPT2, with its
+    # additional compile/platform attributes and current minimum-SDK spelling.
+    apk_case["badging"] = (
+        f"package: name='com.practiq.android' versionCode='1' versionName='{VERSION}' "
+        "platformBuildVersionName='16' platformBuildVersionCode='36' "
+        "compileSdkVersion='36' compileSdkVersionCodename='16'\n"
+        "minSdkVersion:'26'\ntargetSdkVersion:'36'\nnative-code: 'arm64-v8a'\n"
+    )
+    identity = apk_case["invoke"]()["nativePackage"]
+    assert identity["minSdkVersion"] == 26
+    assert identity["targetSdkVersion"] == 36
+
+
+@pytest.mark.parametrize("field", ["sdkVersion", "minSdkVersion"])
+def test_apk_accepts_one_minimum_sdk_alias_and_records_target_sdk(apk_case, field):
+    apk_case["badging"] = apk_case["badging"].replace("sdkVersion:", field + ":")
+    identity = apk_case["invoke"]()["nativePackage"]
+    assert identity["minSdkVersion"] == 26
+    assert identity["targetSdkVersion"] == 36
+
+
+@pytest.mark.parametrize("minimum", [
+    "", "sdkVersion:'25'", "minSdkVersion:'27'", "sdkVersion:''", "minSdkVersion:'unknown'",
+    "sdkVersion:26", "minSdkVersion:'26' extra", " minSdkVersion:'26'",
+    "sdkVersion:'26'\nsdkVersion:'26'", "minSdkVersion:'26'\nminSdkVersion:'26'",
+    "sdkVersion:'26'\nminSdkVersion:'26'", "minSdkVersion:'26'\nsdkVersion:'26'",
+    "sdkVersion:'26'\nminSdkVersion:''", "minSdkVersion:'26'\nsdkVersion:26",
+])
+def test_apk_rejects_missing_malformed_wrong_or_ambiguous_minimum_sdk_without_a_report(apk_case, minimum):
+    apk_case["badging"] = apk_case["badging"].replace("sdkVersion:'26'", minimum)
+    with pytest.raises(ValueError, match="minSdk"):
+        apk_case["invoke"]()
+    assert not apk_case["output"].exists()
+
+
+@pytest.mark.parametrize("target", [
+    "", "targetSdkVersion:'35'", "targetSdkVersion:''", "targetSdkVersion:'unknown'",
+    "targetSdkVersion:36", "targetSdkVersion:'36' extra", " targetSdkVersion:'36'",
+    "targetSdkVersion:'36'\ntargetSdkVersion:'36'", "targetSdkVersion:'36'\ntargetSdkVersion:''",
+])
+def test_apk_rejects_missing_malformed_wrong_or_ambiguous_target_sdk_without_a_report(apk_case, target):
+    apk_case["badging"] = apk_case["badging"].replace("targetSdkVersion:'36'", target)
+    with pytest.raises(ValueError, match="targetSdk"):
+        apk_case["invoke"]()
+    assert not apk_case["output"].exists()
 
 
 @pytest.mark.parametrize("old,new,error", [

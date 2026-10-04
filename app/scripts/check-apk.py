@@ -117,14 +117,17 @@ def native_manifest(installer: Path, aapt2: Path, abi: str, version: str) -> dic
         raise ValueError("APK native version does not match the app candidate version")
     if not re.fullmatch(r"[1-9][0-9]*", values.get("versionCode", "")):
         raise ValueError("APK native versionCode must be a positive integer")
-    sdk = [line for line in output.splitlines() if line.startswith("sdkVersion:")]
-    if sdk != ["sdkVersion:'26'"]:
+    sdk = [line for line in output.splitlines() if line.lstrip().startswith(("sdkVersion", "minSdkVersion"))]
+    if len(sdk) != 1 or sdk[0] not in {"sdkVersion:'26'", "minSdkVersion:'26'"}:
         raise ValueError("APK native minSdk must be 26")
+    target = [line for line in output.splitlines() if line.lstrip().startswith("targetSdkVersion")]
+    if target != ["targetSdkVersion:'36'"]:
+        raise ValueError("APK native targetSdk must be 36")
     architectures = [line.removeprefix("native-code:").strip() for line in output.splitlines() if line.startswith("native-code:")]
     if architectures != [f"'{abi}'"]:
         raise ValueError("APK SDK native ABI does not match the selected ABI")
     return {"identifier": values["name"], "versionName": values["versionName"],
-            "versionCode": int(values["versionCode"]), "minSdkVersion": 26}
+            "versionCode": int(values["versionCode"]), "minSdkVersion": 26, "targetSdkVersion": 36}
 
 
 def validate_apk(installer: Path, aapt2: Path, abi: str, version: str) -> dict:

@@ -642,7 +642,7 @@ def android_final_setup(release, source, monkeypatch):
             if state["fault"] == "snapshot":
                 target.chmod(0o400)
         version = "0.2.0" if state["fault"] == "version" else "0.1.0"
-        return f"package: name='com.practiq.android' versionCode='1' versionName='{version}'\nsdkVersion:'26'\nnative-code: 'arm64-v8a'\n"
+        return f"package: name='com.practiq.android' versionCode='1' versionName='{version}'\nsdkVersion:'26'\ntargetSdkVersion:'36'\nnative-code: 'arm64-v8a'\n"
 
     def gate(command, **kwargs):
         state["calls"].append(command)
