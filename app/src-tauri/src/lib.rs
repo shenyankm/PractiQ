@@ -174,7 +174,6 @@ enum Request {
         elapsed_ms: i64,
         submit: bool,
         skip: bool,
-        self_result: Option<bool>,
     },
     Position {
         snapshot_key: Option<String>,
@@ -340,8 +339,8 @@ async fn request(
             Request::ManualScore{id,ordinal,cents,reason,snapshot_key}=>store.manual_score_with_key(&id,ordinal,cents,&reason,snapshot_key.as_deref()),
             Request::RetryWrong{id}=>store.retry_wrong_data(&id),
             Request::MergeBanks{bank_ids,title}=>store.merge_banks(&bank_ids,&title),
-            Request::SaveAttempt{id,ordinal,answer,elapsed_ms,submit,skip,self_result,snapshot_key}=>{
-                store.write_attempt((&id, ordinal),answer,elapsed_ms,submit,skip,self_result)?;
+            Request::SaveAttempt{id,ordinal,answer,elapsed_ms,submit,skip,snapshot_key}=>{
+                store.write_attempt((&id, ordinal),answer,elapsed_ms,submit,skip)?;
                 store.session_data(&id,snapshot_key.as_deref())
             },
             Request::SaveDraft{id,ordinal,answer,elapsed_ms}=>store.save_draft((&id,ordinal),answer,elapsed_ms),

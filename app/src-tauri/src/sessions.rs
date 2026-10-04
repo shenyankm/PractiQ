@@ -311,13 +311,12 @@ impl Store {
         elapsed: i64,
         submit: bool,
         skip: bool,
-        self_result: Option<bool>,
     ) -> Result<Value> {
-        self.write_attempt(target, answer, elapsed, submit, skip, self_result)?;
+        self.write_attempt(target, answer, elapsed, submit, skip)?;
         self.session(target.0)
     }
     pub fn save_draft(&self, target: (&str, usize), answer: Value, elapsed: i64) -> Result<Value> {
-        self.write_attempt(target, answer, elapsed, false, false, None)?;
+        self.write_attempt(target, answer, elapsed, false, false)?;
         Ok(Value::Null)
     }
     pub(crate) fn write_attempt(
@@ -327,7 +326,6 @@ impl Store {
         elapsed: i64,
         submit: bool,
         skip: bool,
-        self_result: Option<bool>,
     ) -> Result<()> {
         let (sid, ordinal) = target;
         let mut db = self.connect()?;
@@ -339,7 +337,7 @@ impl Store {
                 |r| Ok((r.get::<_, String>(0)?, r.get::<_, Option<i64>>(1)?)),
             )
             .map_err(err)?;
-        if exam.0 != "practice" && (submit || skip || self_result.is_some() || exam.1.is_some()) {
+        if exam.0 != "practice" && (submit || skip || exam.1.is_some()) {
             return Err(crate::language::error(
                 "LOCAL_EXAM_LOCKED",
                 serde_json::json!({}),
@@ -377,7 +375,7 @@ impl Store {
                 serde_json::json!({}),
             ));
         }
-        let (snapshot,submitted,kind):(String,Option<i64>,String)=tx.query_row("SELECT snapshot_question_id,submitted_at,grade_kind FROM attempts WHERE session_id=?1 AND ordinal=?2",params![sid,ordinal],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).map_err(err)?;
+        let (snapshot,submitted):(String,Option<i64>)=tx.query_row("SELECT snapshot_question_id,submitted_at FROM attempts WHERE session_id=?1 AND ordinal=?2",params![sid,ordinal],|r|Ok((r.get(0)?,r.get(1)?))).map_err(err)?;
         let frozen = crate::questions::context_from_document(
             self.session_document(&tx, sid)?.as_ref(),
             &snapshot,
@@ -422,34 +420,14 @@ impl Store {
             }
         }
 
-        if submitted.is_some() {
-            if submit
-                && self_result.is_some()
-                && (kind != "auto" || text(q, "answerMode") == "fill_blank")
-            {
-                tx.execute("UPDATE attempts SET result=?3,grade_kind='self' WHERE session_id=?1 AND ordinal=?2 AND skipped=0",params![sid,ordinal,self_result]).map_err(err)?;
-            }
-        } else {
+        if submitted.is_none() {
             let auto = if submit && !skip && snapshot["missingAssets"] != true {
                 contract::grade(q, &answer)
             } else {
                 None
             };
-            let own =
-                if submit && !skip && (auto.is_none() || text(q, "answerMode") == "fill_blank") {
-                    self_result
-                } else {
-                    None
-                };
-            let result = own.or(auto);
-            let grade_kind = if own.is_some() {
-                "self"
-            } else if auto.is_some() {
-                "auto"
-            } else {
-                "ungraded"
-            };
-            tx.execute("UPDATE attempts SET answer=?3,elapsed_ms=MAX(elapsed_ms,?4),submitted_at=?5,skipped=?6,auto_result=?7,result=?8,grade_kind=?9 WHERE session_id=?1 AND ordinal=?2",params![sid,ordinal,answer.to_string(),elapsed,if submit{Some(self.session_clock.now()?)}else{None},submit&&skip,auto,result,grade_kind]).map_err(err)?;
+            let grade_kind = if auto.is_some() { "auto" } else { "ungraded" };
+            tx.execute("UPDATE attempts SET answer=?3,elapsed_ms=MAX(elapsed_ms,?4),submitted_at=?5,skipped=?6,auto_result=?7,result=?7,grade_kind=?8 WHERE session_id=?1 AND ordinal=?2",params![sid,ordinal,answer.to_string(),elapsed,if submit{Some(self.session_clock.now()?)}else{None},submit&&skip,auto,grade_kind]).map_err(err)?;
         }
         tx.execute(
             "UPDATE sessions SET position=?2,last_active_at=?3 WHERE id=?1",

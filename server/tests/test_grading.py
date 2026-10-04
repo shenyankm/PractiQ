@@ -2,23 +2,31 @@ import asyncio
 import base64
 import hashlib
 import json
+import os
+import sqlite3
 import struct
+import subprocess
+import sys
 import threading
+import time
 import zlib
 from io import BytesIO
+from pathlib import Path
 from types import SimpleNamespace
 from uuid import uuid4
 
 import anyio
 import httpx
+import httpx2
 import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
 from pydantic import ValidationError
 
-from practiq_ai import grading, webapp
+from practiq_ai import capacity, grading, llm, telemetry, webapp
 from practiq_ai.contracts import ModelCallUsage, ParsedQuestion
 from practiq_ai.errors import DocumentProcessingError
+from tests.support import FakeModel
 
 
 def payload(**changes):
@@ -34,6 +42,226 @@ def setup(monkeypatch,tmp_path):
     monkeypatch.setattr(grading,"load",lambda:SimpleNamespace(maintenance=False))
     monkeypatch.setattr(grading,"get_model",lambda: "unified")
     return tmp_path
+
+
+@pytest.fixture
+def shared_grading_model(setup, monkeypatch):
+    config = SimpleNamespace(model_max_input_chars=500_000, structured_output_method="function_calling", provider_concurrency=4, provider_rpm=1000)
+    monkeypatch.setattr(llm, "load", lambda: config)
+    monkeypatch.setattr(capacity, "load", lambda: config)
+    valid = {"scoreCents": 300, "maxCents": 500, "reason": "Supplied evidence", "evidence": [], "reviewReasons": []}
+    model = FakeModel(responses=[{**valid, "scoreCents": 501}, valid])
+    monkeypatch.setattr(grading, "get_model", lambda: model)
+    return model, valid
+
+
+@pytest.mark.parametrize("interrupted_attempt", [1, 2])
+async def test_cancelled_grading_preserves_completed_usage_and_unknown_attempt(setup, shared_grading_model, interrupted_attempt):
+    model, valid = shared_grading_model
+    started = asyncio.Event()
+
+    def block(messages, schema):
+        started.set()
+        return 60, valid
+
+    model.responses[interrupted_attempt - 1] = block
+    request = grading.GradeRequest.model_validate(payload(feedbackLocale="en"))
+    operation = asyncio.create_task(grading.grade(request))
+    try:
+        await asyncio.wait_for(started.wait(), timeout=5)
+        operation.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await operation
+    finally:
+        operation.cancel()
+        await asyncio.gather(operation, return_exceptions=True)
+
+    replay = await grading.grade(request)
+    assert replay["status"] == replay["usageStatus"] == "unknown"
+    assert len(replay["calls"]) == interrupted_attempt
+    assert replay["calls"][-1]["status"] == "started"
+    assert replay["calls"][-1]["usageStatus"] == "unknown"
+    assert replay["calls"][-1]["inputTokens"] is None
+    assert replay["calls"][-1]["outputTokens"] is None
+    assert len(replay["usage"]) == interrupted_attempt - 1
+    if interrupted_attempt == 2:
+        known = replay["calls"][0]
+        assert known["status"] == "completed" and known["validation"] == "failed"
+        assert replay["usage"][0] == {
+            "callKey": known["callKey"], "modelId": "fake", "inputTokens": 10,
+            "outputTokens": 5, "callKind": "subjective_grade",
+        }
+        assert known["finishedAt"]
+    assert await grading.grade(request) == replay
+    assert len(model.calls) == interrupted_attempt
+    with pytest.raises(DocumentProcessingError, match="Grading request content changed"):
+        await grading.grade(request.model_copy(update={"inputDigest": "0" * 64}))
+
+
+def test_process_kill_during_grading_correction_preserves_usage_on_restart(setup, monkeypatch):
+    request = grading.GradeRequest.model_validate(payload(feedbackLocale="en"))
+    script = """
+import asyncio, sys
+from pathlib import Path
+from types import SimpleNamespace
+from practiq_ai import capacity, grading, llm
+from tests.support import FakeModel
+
+root = Path(sys.argv[1])
+config = SimpleNamespace(maintenance=False, model_max_input_chars=500_000,
+    structured_output_method="function_calling", provider_concurrency=4, provider_rpm=1000)
+grading.database_dir = lambda: root
+grading.load = llm.load = capacity.load = lambda: config
+valid = {"scoreCents": 300, "maxCents": 500, "reason": "Supplied evidence", "evidence": [], "reviewReasons": []}
+def block(messages, schema):
+    (root / "correction-started").write_text("started")
+    return 60, valid
+model = FakeModel(responses=[{**valid, "scoreCents": 501}, block])
+grading.get_model = lambda: model
+asyncio.run(grading.grade(grading.GradeRequest.model_validate_json(sys.argv[2])))
+"""
+    root = Path(__file__).parents[1]
+    env = {**os.environ, "PYTHONPATH": str(root / "src") + os.pathsep + str(root)}
+    with (setup / "process.log").open("w") as log:
+        process = subprocess.Popen([sys.executable, "-c", script, str(setup), request.model_dump_json()], cwd=root, env=env, stdout=log, stderr=subprocess.STDOUT)
+        try:
+            deadline = time.monotonic() + 20
+            while not (setup / "correction-started").exists():
+                assert process.poll() is None, (setup / "process.log").read_text()
+                assert time.monotonic() < deadline, (setup / "process.log").read_text()
+                time.sleep(0.02)
+        finally:
+            process.kill()
+            process.wait(timeout=5)
+
+    async def forbidden(*args, **kwargs):
+        pytest.fail("Restart replay must not dispatch a provider call")
+
+    monkeypatch.setattr(grading, "structured_call", forbidden)
+    replay = asyncio.run(grading.grade(request))
+    assert replay["status"] == replay["usageStatus"] == "unknown"
+    assert [(call["status"], call["usageStatus"]) for call in replay["calls"]] == [("completed", "known"), ("started", "unknown")]
+    assert len(replay["usage"]) == 1
+    assert replay["usage"][0]["inputTokens"] == 10
+    assert replay["usage"][0]["outputTokens"] == 5
+    assert asyncio.run(grading.grade(request)) == replay
+
+
+async def test_completed_grading_correction_preserves_both_calls_on_replay(shared_grading_model):
+    model, _ = shared_grading_model
+    request = grading.GradeRequest.model_validate(payload())
+    response = await grading.grade(request)
+    assert response["status"] == "graded" and response["result"]["scoreCents"] == 300
+    assert len(response["usage"]) == len(response["calls"]) == 2
+    assert [call["validation"] for call in response["calls"]] == ["failed", "passed"]
+    assert all(call["status"] == "completed" and call["usageStatus"] == "known" and call["finishedAt"] for call in response["calls"])
+    assert sum(usage["inputTokens"] for usage in response["usage"]) == 20
+    assert sum(usage["outputTokens"] for usage in response["usage"]) == 10
+    assert await grading.grade(request) == response
+    assert len(model.calls) == 2
+
+
+@pytest.mark.parametrize("failure", ["provider", "missing_usage"])
+async def test_grading_correction_failure_retains_earlier_known_usage(shared_grading_model, monkeypatch, failure):
+    model, _ = shared_grading_model
+    if failure == "provider":
+        model.responses[1] = RuntimeError("Provider failed")
+    else:
+        original = llm.usage_from_response
+
+        def missing_usage(*args, **kwargs):
+            if len(model.calls) == 2:
+                raise DocumentProcessingError(502, "Missing usage", "AI_USAGE_MISSING")
+            return original(*args, **kwargs)
+
+        monkeypatch.setattr(llm, "usage_from_response", missing_usage)
+    request = grading.GradeRequest.model_validate(payload())
+    response = await grading.grade(request)
+    assert response["status"] == ("unknown" if failure == "provider" else "ungraded")
+    assert len(response["usage"]) == 1
+    assert response["usage"][0]["inputTokens"] == 10
+    assert response["usage"][0]["outputTokens"] == 5
+    assert response["calls"][-1]["status"] == "failed"
+    assert response["calls"][-1]["usageStatus"] == "unknown"
+    assert await grading.grade(request) == response
+    assert len(model.calls) == 2
+
+
+@pytest.mark.parametrize("failed_write", ["started", "completed"])
+async def test_grading_call_storage_failure_stops_before_more_provider_calls(shared_grading_model, monkeypatch, failed_write):
+    model, _ = shared_grading_model
+    original = grading._save_call
+
+    def unavailable(request, record):
+        if record["status"] == failed_write:
+            raise sqlite3.OperationalError("Storage unavailable")
+        original(request, record)
+
+    monkeypatch.setattr(grading, "_save_call", unavailable)
+    request = grading.GradeRequest.model_validate(payload())
+    response = await grading.grade(request)
+    assert response["status"] == "ungraded" and response["error"] == "EXECUTION_STORE_UNAVAILABLE"
+    assert len(model.calls) == (1 if failed_write == "completed" else 0)
+    assert len(response["usage"]) == len(model.calls)
+    assert await grading.grade(request) == response
+
+
+@pytest.mark.parametrize("retryable", [False, True])
+async def test_failed_correction_call_write_retains_unknown_attempt_and_telemetry(shared_grading_model, monkeypatch, retryable):
+    model, valid = shared_grading_model
+    model.responses[1] = llm.APIConnectionError(request=httpx2.Request("POST", "https://example.invalid")) if retryable else RuntimeError("Provider failed")
+    model.responses.append(valid)
+    original = grading._save_call
+
+    def unavailable(request, record):
+        if record["status"] == "failed":
+            raise sqlite3.OperationalError("Storage unavailable")
+        original(request, record)
+
+    monkeypatch.setattr(grading, "_save_call", unavailable)
+    request = grading.GradeRequest.model_validate(payload())
+    labels = {"kind": "subjective_grade", "outcome": "unknown"}
+    histogram_labels = {"stage": "model", "outcome": "unknown"}
+    counter_before = telemetry.registry.get_sample_value("practiq_model_calls_total", labels) or 0
+    duration_before = telemetry.registry.get_sample_value("practiq_stage_seconds_count", histogram_labels) or 0
+    with telemetry.capture_events() as events:
+        response = await grading.grade(request)
+        assert await grading.grade(request) == response
+    assert response["error"] == "EXECUTION_STORE_UNAVAILABLE"
+    assert response["usageStatus"] == "unknown"
+    assert len(response["usage"]) == 1
+    assert len(response["calls"]) == 2
+    assert [(call["status"], call["usageStatus"]) for call in response["calls"]] == [("completed", "known"), ("failed", "unknown")]
+    assert response["calls"][-1]["inputTokens"] is None
+    assert response["calls"][-1]["outputTokens"] is None
+    assert len(model.calls) == 2
+    starts = [event for event in events if event["event"] == "model_start"]
+    completed = [event for event in events if event["event"] == "model_call"]
+    assert len(starts) == len(completed) == 2
+    assert {event["callKey"] for event in starts} == {event["callKey"] for event in completed} == {call["callKey"] for call in response["calls"]}
+    assert completed[-1]["outcome"] == "unknown"
+    assert completed[-1]["errorCode"] == ("AI_PROVIDER_UNAVAILABLE" if retryable else "AI_PROVIDER_ERROR")
+    assert telemetry.registry.get_sample_value("practiq_model_calls_total", labels) == counter_before + 1
+    assert telemetry.registry.get_sample_value("practiq_stage_seconds_count", histogram_labels) == duration_before + 1
+
+
+async def test_existing_grading_cache_preserves_responses_and_unknown_requests(setup, monkeypatch):
+    saved = grading.GradeRequest.model_validate(payload())
+    interrupted = grading.GradeRequest.model_validate(payload())
+    response = {"status": "ungraded", "error": "OUTPUT_INVALID", "usage": []}
+    with sqlite3.connect(setup / "subjective-grades.sqlite") as db:
+        db.execute("CREATE TABLE grades(id TEXT PRIMARY KEY,digest TEXT NOT NULL,response TEXT)")
+        db.execute("INSERT INTO grades VALUES(?,?,?)", (str(saved.requestId), saved.inputDigest, json.dumps(response)))
+        db.execute("INSERT INTO grades VALUES(?,?,NULL)", (str(interrupted.requestId), interrupted.inputDigest))
+
+    async def forbidden(*args, **kwargs):
+        pytest.fail("Existing grading records must never automatically call the model")
+
+    monkeypatch.setattr(grading, "structured_call", forbidden)
+    assert await grading.grade(saved) == response
+    replay = await grading.grade(interrupted)
+    assert replay["status"] == replay["usageStatus"] == "unknown"
+    assert replay["usage"] == replay["calls"] == []
 
 
 def test_score_contract_nullable_and_strict():

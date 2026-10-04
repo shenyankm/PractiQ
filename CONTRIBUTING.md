@@ -112,3 +112,5 @@ manual checks separately. See [the September follow-up](docs/review-implementati
 ## Report security issues privately
 
 Follow [SECURITY.md](SECURITY.md) for supported development versions, private reporting and the dependency-update process. Do not include credentials, personal data or exploit details in public issues.
+
+New contributors can start with the [bounded fixture tasks and handover checklist](docs/contributor-handover.md). Roles remain opt-in; no repository or secret access is granted by a task listing.

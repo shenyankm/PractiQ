@@ -609,7 +609,7 @@ it.each(["COMPLETED", "WAITING_REVIEW"])("retains %s controls when membership re
     }
     if (type === "get") {
       gets++;
-      return {threadId: "task", state, phase: "completed", progress: {}, allowedActions: [], blocking: [], failures: [{stage: "text", index: 0, code: "TEST_FAILURE", message: "retained detail", retryable: false}], usage: [], unknownUsageCalls: []} as never;
+      return {threadId: "task", state, phase: "completed", progress: {}, allowedActions: [], blocking: [], failures: [{stage: "document_parse", index: 0, code: "TEST_FAILURE", retriesRemaining: 0, retryable: false}], usage: [], unknownUsageCalls: []} as never;
     }
     if (type === "review") return {threadId: "task", checkpointId: "cp", phase: "completed", units: [], failures: [], quality: {}, questionSources: []} as never;
     if (type === "preview") return preview as never;
@@ -621,7 +621,7 @@ it.each(["COMPLETED", "WAITING_REVIEW"])("retains %s controls when membership re
   expect(gets).toBe(1);
   expect(lists).toBe(5);
   expect(screen.getByText(/membership unavailable/)).toBeTruthy();
-  expect(screen.getByText(/retained detail/)).toBeTruthy();
+  expect(screen.getByText(/TEST_FAILURE/)).toBeTruthy();
   if (state === "COMPLETED") {
     await act(async () => { fireEvent.click(screen.getByRole("button", {name: "预览并导入题库"})); });
     expect(onPreview).toHaveBeenCalledWith(preview, expect.objectContaining({threadId: "task"}));

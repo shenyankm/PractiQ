@@ -614,8 +614,11 @@ class UnitCounts(StrictModel):
         return self
 
 
+UnitFailureStage = Literal["document_parse", "vision_parse", "vision_describe", "visual_crop"]
+
+
 class UnitFailure(StrictModel):
-    stage: str = Field(min_length=1, max_length=64)
+    stage: UnitFailureStage
     index: int = Field(ge=0)
     code: str = Field(min_length=1, max_length=64)
     retryable: bool
@@ -711,9 +714,12 @@ class DocumentTaskReparse(StrictModel):
     requestId: UUID
 
 
+TaskAction = Literal["pause", "interrupt", "resume", "retry_failed", "accept_partial"]
+
+
 class DocumentTaskControl(StrictModel):
     requestId: UUID
-    action: Literal["pause", "interrupt", "resume", "retry_failed", "accept_partial"]
+    action: TaskAction
     runId: UUID | None = None
     checkpointId: str | None = Field(default=None, min_length=1, max_length=128)
     units: list[FailedUnit] = Field(default_factory=list, max_length=2_000)
@@ -734,6 +740,52 @@ DocumentParseInput.model_rebuild()
 
 
 TaskState = Literal["PENDING", "RUNNING", "PAUSING", "PAUSED", "INTERRUPTED", "CANCELLED", "FAILED", "WAITING_REVIEW", "COMPLETED", "EXPIRED"]
+
+
+TaskPhase = Literal["pending", "prepare", "vision", "chunk", "vision_review", "chunk_review", "result_review", "result", "completed"]
+
+
+class TaskUnitProgress(StrictModel):
+    total: int = Field(ge=0)
+    succeeded: int = Field(ge=0)
+    failed: int = Field(ge=0)
+    remaining: int = Field(ge=0)
+
+
+class TaskProgress(StrictModel):
+    visuals: TaskUnitProgress
+    chunks: TaskUnitProgress
+
+
+class TaskModelBudget(StrictModel):
+    limit: int = Field(ge=0)
+    reserved: int = Field(ge=0)
+
+
+class DocumentTaskDetail(StrictModel):
+    """Existing task GET response; nullable fields are always present on the wire."""
+
+    threadId: UUID
+    runId: UUID | None
+    parentThreadId: UUID | None
+    modelConfigured: bool
+    resumeCompatible: bool
+    fileName: str
+    state: TaskState
+    phase: TaskPhase
+    checkpointId: str | None
+    updatedAt: str
+    expiresAt: str
+    allowedActions: list[TaskAction]
+    failures: list[UnitFailure]
+    blocking: list[Any]
+    progress: TaskProgress
+    status: Literal["SUCCEEDED", "PARTIAL"] | None
+    result: DocumentParseResult | None
+    modelBudget: TaskModelBudget
+    processing: DocumentProcessing | None
+    usage: list[ModelCallUsage]
+    unknownUsageCalls: list[UUID]
 
 
 class DocumentTaskSummary(StrictModel):

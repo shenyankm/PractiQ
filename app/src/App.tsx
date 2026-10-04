@@ -125,6 +125,8 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
   const [bank, setBank] = useState<string | null>(null);
   const [questions, setQuestions] = useState<QuestionRow[]>([]);
   const [questionTotal, setQuestionTotal] = useState(0);
+  const [questionRevision, setQuestionRevision] = useState(0);
+  const [questionError, setQuestionError] = useState<unknown>(null);
   const [sessionPage, setSessionPage] = useState<SessionPage>({ items: [], total: 0, offset: 0 });
   const [bankOffset, setBankOffset] = useState(0);
   const [sessionOffset, setSessionOffset] = useState(0);
@@ -248,6 +250,9 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
     if (!["questions", "wrong", "favorite"].includes(page)) return;
     let active = true;
     setLoading(true);
+    setQuestionError(null);
+    setQuestions([]);
+    setQuestionTotal(0);
     const timer = setTimeout(() => {
       void api({ type: "questions_page", bank_ids: page === "questions" && bank ? [bank] : [], search, mode, filter, limit: 30, offset })
         .then((rows) => {
@@ -255,7 +260,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
         })
         .catch((e) => {
           if (active) {
-            toast.error(e);
+            setQuestionError(e);
           }
         })
         .finally(() => {
@@ -266,7 +271,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
       active = false;
       clearTimeout(timer);
     };
-  }, [page, bank, search, mode, filter, offset]);
+  }, [page, bank, search, mode, filter, offset, questionRevision]);
   useEffect(() => {
     if (!isTauri()) return;
     let disposed = false;
@@ -455,7 +460,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                 {page === "banks"
                   ? t("{0} 个题库 · {1} 道题目", { 0: banks.length, 1: banks.reduce((n, b) => n + b.count, 0) })
                   : listPage
-                    ? t("{0} 道题目{1}", { 0: questionTotal, 1: loading ? t(" · 加载中…") : "" })
+                    ? questionError != null ? t("加载题目失败") : loading ? t("加载中…") : t("{0} 道题目{1}", { 0: questionTotal, 1: "" })
                     : page === "history"
                       ? t("回顾每一次作答与进步")
                       : page === "settings"
@@ -494,7 +499,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                     <Plus />{t("新增题目")}</Button>
                 )}
                 <Button
-                  disabled={busy || !questions.length || loading}
+                  disabled={busy || !questions.length || loading || questionError != null}
                   onClick={() => {
                     setPracticeSetup({ bank: page === "questions" ? bank : null });
                   }}
@@ -568,7 +573,13 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                 {page === "questions" && <label className="flex shrink-0 items-center gap-2 text-sm"><Checkbox checked={onlyReview} disabled={busy} onCheckedChange={checked => setOnlyReview(checked === true)} />{t("仅看待复核")}</label>}
               </div>
               {page === "wrong" && questions.length > 0 && <p className="text-sm text-muted-foreground">{t("错误和未得满分的题目会出现在这里，再次答对或得满分后自动移出；未评分不算错题。")}</p>}
-              {questions.length ? (
+              {loading ? loadingView : questionError != null ? (
+                <div role="alert" className="space-y-3 rounded-xl border p-4">
+                  <p className="font-medium">{t("加载题目失败")}</p>
+                  <p className="text-sm text-muted-foreground">{errorMessage(questionError)}</p>
+                  <Button variant="outline" disabled={busy} onClick={() => setQuestionRevision(value => value + 1)}>{t("重试")}</Button>
+                </div>
+              ) : questions.length ? (
                 <>
                   <div className="divide-y rounded-xl border">
                     {questions.map((row, i) => (

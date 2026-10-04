@@ -13,10 +13,13 @@ from .contracts import (
     DocumentReference,
     DocumentTaskControl,
     DocumentTaskCreate,
+    DocumentTaskDetail,
     DocumentTaskList,
     DocumentTaskReparse,
     DocumentTaskReview,
     RetryUnits,
+    TaskAction,
+    TaskState,
     scorable_count,
 )
 from .database import utcnow
@@ -153,12 +156,13 @@ async def _calls(service, thread_id):
             return values
 
 
-def _task_state(snapshot, run):
+def _task_state(snapshot, run) -> tuple[TaskState, list[TaskAction], list[dict[str, Any]]]:
     values = snapshot.values or {}
     interruptions = _interrupts(snapshot)
     failures = unit_failures(values)
     active = bool(run and run['status'] in {'pending', 'running'})
-    actions = []
+    state: TaskState
+    actions: list[TaskAction] = []
     if active:
         assert run is not None
         state = 'PAUSING' if run['pause_requested'] else ('PENDING' if run['status'] == 'pending' else 'RUNNING')
@@ -205,7 +209,7 @@ async def get_task(thread_id: str) -> dict[str, Any]:
     usage = {item['callKey']: item for item in values.get('usage', [])}
     usage.update({item['callKey']: {k: item[k] for k in ('callKey', 'modelId', 'inputTokens', 'outputTokens', 'callKind')}
                   for item in calls if item['status'] == 'completed'})
-    return {
+    return DocumentTaskDetail.model_validate({
         'threadId': thread_id, 'runId': run['run_id'] if run else None,
         'parentThreadId': task['parent_thread_id'],
         'modelConfigured': not load().read_only,
@@ -224,7 +228,7 @@ async def get_task(thread_id: str) -> dict[str, Any]:
         'modelBudget': {'limit': values.get('execution', {}).get('signature', {}).get('settings', {}).get('task_max_model_calls', load().task_max_model_calls), 'reserved': values.get('reservedCalls', 0)},
         'processing': values.get('processing') or None, 'usage': list(usage.values()),
         'unknownUsageCalls': [item['callKey'] for item in calls if item['status'] != 'completed'],
-    }
+    }).model_dump(mode='json')
 
 
 async def control_task(thread_id: str, request: DocumentTaskControl) -> dict[str, Any]:
