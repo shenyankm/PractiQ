@@ -602,6 +602,73 @@ def test_no_source_answers_checks_rewritten_and_extra_questions():
         ev.GoldCase.model_validate({**gold_case(), "sourceHasNoAnswers": True})
 
 
+def _answerless_pdf_case() -> dict[str, Any]:
+    cases = ev.load_manifest(Path("evals/cases.json"))["cases"]
+    matching = [case for case in cases if case["id"] == "pdf-no-answer"]
+    assert len(matching) == 1, "The fully answerless PDF regression fixture must be present"
+    return matching[0]
+
+
+def _answerless_pdf_output(case: dict[str, Any]) -> dict[str, Any]:
+    questions = deepcopy(case["expectedQuestions"])
+    for item in questions:
+        item.update(item["expectedEvidence"], needsReview=True)
+    return {"questions": questions, "groups": [], "visualElements": []}
+
+
+def test_answerless_pdf_preserves_null_answers_and_absent_grading_evidence():
+    case = _answerless_pdf_case()
+    assert case["sourceType"] == "pdf" and case["sourceHasNoAnswers"]
+    assert case["split"] == "regression" and case["critical"]
+    assert len(case["expectedQuestions"]) == 2
+    for item in case["expectedQuestions"]:
+        assert item["answerPayload"] is None
+        assert item["expectedEvidence"] == {"analysis": None, "sourceScore": None,
+                                            "scoringRubric": None, "scoreSourceText": None}
+    record = case_record(case, _answerless_pdf_output(case))
+    assert record["score"]["inventedAnswers"] == 0
+    assert ev.summarize([record])["status"] == "PASSED" and record["qualityPassed"]
+
+
+@pytest.mark.parametrize("location", ["matched", "extra", "unmatched"])
+def test_answerless_pdf_rejects_invented_answers_in_all_output_questions(location):
+    case = _answerless_pdf_case()
+    output = _answerless_pdf_output(case)
+    if location == "extra":
+        invented = deepcopy(output["questions"][0])
+        invented["stem"] = "An unprinted extra question?"
+        output["questions"].append(invented)
+    else:
+        invented = output["questions"][0]
+        if location == "unmatched":
+            invented["stem"] = "A rewritten question not printed in this source?"
+    invented["answerPayload"] = {"correct": ["A"]}
+    record = case_record(case, output)
+    assert record["score"]["inventedAnswers"] == 1
+    if location != "matched":
+        assert record["score"]["unverifiedQuestions"] == 1
+    if location == "unmatched":
+        assert record["score"]["matched"] == 1
+    summary = ev.summarize([record])
+    assert summary["status"] == "FAILED" and not record["qualityPassed"]
+    assert "INVENTED_ANSWER:pdf-no-answer:1" in summary["gateReasons"]
+
+
+@pytest.mark.parametrize(("field", "invented"), [
+    ("analysis", "Fabricated explanation."), ("sourceScore", 7),
+    ("scoringRubric", "Fabricated scoring criteria."), ("scoreSourceText", "Worth 7 points."),
+])
+def test_answerless_pdf_rejects_invented_grading_evidence(field, invented):
+    case = _answerless_pdf_case()
+    output = _answerless_pdf_output(case)
+    output["questions"][0][field] = invented
+    record = case_record(case, output)
+    summary = ev.summarize([record])
+    assert record["score"]["inventedAnswers"] == 0
+    assert summary["status"] == "FAILED" and not record["qualityPassed"]
+    assert "EVIDENCE_MISMATCH:pdf-no-answer:1" in summary["gateReasons"]
+
+
 def test_quality_reliability_counts_documents_and_expected_rejections_separately():
     records = [case_record(repetition=n) for n in (1, 2, 3)]
     records[1]["score"] = ev.score_result(gold_case(), {"questions": []})

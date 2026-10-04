@@ -1516,6 +1516,74 @@
           }
         }
       ]
+    },
+    {
+      "id": "pdf-no-answer",
+      "sourceType": "pdf",
+      "path": "fixtures/pdf/pdf-no-answer.pdf",
+      "tags": [
+        "synthetic",
+        "regression",
+        "pdf",
+        "no-source-answer"
+      ],
+      "critical": true,
+      "split": "regression",
+      "sourceHasNoAnswers": true,
+      "expectedQuestions": [
+        {
+          "stem": "Which tag was assigned to Sample Cedar?",
+          "answerMode": "choice",
+          "choiceVariant": "single",
+          "options": [
+            {
+              "label": "A",
+              "content": "Amber"
+            },
+            {
+              "label": "B",
+              "content": "Indigo"
+            }
+          ],
+          "answerPayload": null,
+          "expectedNeedsReview": true,
+          "expectedEvidence": {
+            "analysis": null,
+            "sourceScore": null,
+            "scoringRubric": null,
+            "scoreSourceText": null
+          }
+        },
+        {
+          "stem": "Which route was assigned to Sample Juniper?",
+          "answerMode": "choice",
+          "choiceVariant": "single",
+          "options": [
+            {
+              "label": "A",
+              "content": "Harbor"
+            },
+            {
+              "label": "B",
+              "content": "Meadow"
+            }
+          ],
+          "answerPayload": null,
+          "expectedNeedsReview": true,
+          "expectedEvidence": {
+            "analysis": null,
+            "sourceScore": null,
+            "scoringRubric": null,
+            "scoreSourceText": null
+          }
+        }
+      ],
+      "expectedVisualKinds": [],
+      "expectedProcess": {
+        "requiredCallKinds": [
+          "vision_parse"
+        ]
+      }
     }
   ]
 }
