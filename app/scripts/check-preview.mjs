@@ -67,6 +67,97 @@ for(const scenario of ['empty','many','unconfigured','missing','slow','error']) 
  });
 }
 
+base('study setup retries failed statistics and manual pages without resetting settings',async ({page})=>{
+ const errors=[];page.on('pageerror',error=>errors.push(error.message));
+ await page.addInitScript(()=>{
+  sessionStorage.setItem('practiq-preview','local');
+  window.isTauri=false;
+  const questions=Array.from({length:31},(_,i)=>({id:`q${i}`,bankId:'one',bankTitle:'Retry bank',question:{id:`q${i}`,parentId:null,stem:`Retry question ${i}`,answerMode:'short_answer',questionTypeId:'简答题',options:[],items:[],answerPayload:{text:'Reference'},analysis:null,sourceText:null,contentBlocks:[],needsReview:false,missingFields:[],confidence:1},groups:[],visuals:[],sources:[],warnings:[],missingAssets:false,favorite:false,latestResult:null}));
+  const bank={id:'one',title:'Retry bank',description:'',count:31,createdAt:1};
+  const statistics={count:31,types:{short_answer:31},feasibleCounts:Array.from({length:31},(_,i)=>i+1)};
+  window.__studyRequests=[];
+  window.__studyStatsFail=true;
+  window.__studyPageFail=true;
+  window.__TAURI_INTERNALS__={invoke:async(command,{request})=>{
+   if(command!=='request')throw Error(`Unexpected command ${command}`);
+   switch(request.type){
+    case 'language':return 'zh-CN';
+    case 'banks':return [bank];
+    case 'banks_page':return {items:[bank],total:1,offset:0};
+    case 'unfinished_session':return null;
+    case 'info':return {version:'retry-test',dataDirectory:'/mock'};
+    case 'question_stats':
+     window.__studyRequests.push(request);
+     if(window.__studyStatsFail)throw Error('Statistics unavailable');
+     return new Promise(resolve=>{window.__resolveStudyStats=()=>resolve(statistics);});
+    case 'questions_page':{
+     window.__studyRequests.push(request);
+     const result={items:questions.slice(request.offset,request.offset+request.limit),total:31,offset:request.offset};
+     if(request.offset===30){
+      if(window.__studyPageFail)throw Error('Question page unavailable');
+      return new Promise(resolve=>{window.__resolveStudyPage=()=>resolve(result);});
+     }
+     return result;
+    }
+    default:throw Error(`Unexpected request ${request.type}`);
+   }
+  }};
+ });
+ await page.goto('/');
+ await page.getByRole('button',{name:'开始练习',exact:true}).click();
+ const dialog=page.getByRole('dialog');
+ await expect(dialog.getByRole('alert')).toContainText('Statistics unavailable');
+ await dialog.getByRole('combobox',{name:/^模式/}).selectOption('mock_exam');
+ await dialog.getByLabel('考试分钟数',{exact:true}).fill('45');
+ await dialog.getByLabel('题目数量',{exact:true}).fill('10');
+ await dialog.getByLabel('考试总分',{exact:true}).fill('90');
+ await dialog.getByText('高级设置 · 题库、筛选与选题方式',{exact:true}).click();
+ await dialog.getByRole('combobox',{name:/^选题方式/}).selectOption('quota');
+ await dialog.getByLabel('简答题数',{exact:true}).fill('3');
+ await page.evaluate(()=>{window.__studyStatsFail=false;});
+ const statsRetry=dialog.getByRole('button',{name:'重试题目统计',exact:true});
+ await statsRetry.click();
+ await expect(statsRetry).toBeDisabled();
+ await statsRetry.evaluate(button=>button.click());
+ await expect.poll(()=>page.evaluate(()=>window.__studyRequests.filter(r=>r.type==='question_stats').length)).toBe(2);
+ await page.evaluate(()=>window.__resolveStudyStats());
+ await expect(statsRetry).toHaveCount(0);
+ await expect(dialog.getByRole('alert')).toHaveCount(0);
+ await expect(dialog.getByLabel('简答题数',{exact:true})).toHaveValue('3');
+ await dialog.getByRole('combobox',{name:/^选题方式/}).selectOption('manual');
+ await dialog.getByRole('checkbox',{name:'Retry question 0',exact:true}).check();
+ await dialog.getByRole('button',{name:'下一页',exact:true}).click();
+ await expect(dialog.getByRole('alert')).toContainText('Question page unavailable');
+ await page.evaluate(()=>{window.__studyPageFail=false;});
+ const pageRetry=dialog.getByRole('button',{name:'重试选题列表',exact:true});
+ await pageRetry.click();
+ await expect(pageRetry).toBeDisabled();
+ await pageRetry.evaluate(button=>button.click());
+ await expect.poll(()=>page.evaluate(()=>window.__studyRequests.filter(r=>r.type==='questions_page').length)).toBe(3);
+ await page.evaluate(()=>window.__resolveStudyPage());
+ await expect(pageRetry).toHaveCount(0);
+ await expect(dialog.getByRole('alert')).toHaveCount(0);
+ await dialog.getByRole('checkbox',{name:'Retry question 30',exact:true}).check();
+ await dialog.getByRole('button',{name:'上一页',exact:true}).focus();
+ await page.keyboard.press('Enter');
+ await expect(dialog.getByRole('checkbox',{name:'Retry question 0',exact:true})).toBeChecked();
+ await expect(dialog.getByRole('status')).toContainText('本次 2 题');
+ await expect(dialog.getByLabel('考试分钟数',{exact:true})).toHaveValue('45');
+ await expect(dialog.getByLabel('考试总分',{exact:true})).toHaveValue('90');
+ await expect(dialog.getByRole('checkbox',{name:'Retry bank（31）',exact:true})).toBeChecked();
+ await dialog.getByRole('combobox',{name:/^选题方式/}).selectOption('quota');
+ await expect(dialog.getByLabel('简答题数',{exact:true})).toHaveValue('3');
+ await dialog.getByRole('combobox',{name:/^选题方式/}).selectOption('count');
+ await expect(dialog.getByLabel('题目数量',{exact:true})).toHaveValue('10');
+ const requests=await page.evaluate(()=>window.__studyRequests);
+ const statsRequests=requests.filter(r=>r.type==='question_stats');
+ const pageRequests=requests.filter(r=>r.type==='questions_page');
+ expect(statsRequests).toHaveLength(2);
+ expect(statsRequests[1]).toEqual(statsRequests[0]);
+ expect(pageRequests[2]).toEqual(pageRequests[1]);
+ expect(errors).toEqual([]);
+});
+
 for (const width of [960,1280]) {
  base(`performance: 1000-question answer card stays reachable at ${width}px`,async ({page},testInfo)=>{
   const errors=[];page.on('pageerror',error=>errors.push(error.message));

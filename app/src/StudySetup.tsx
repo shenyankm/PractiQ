@@ -18,6 +18,8 @@ export function StudySetup({banks, initialBank, initialBankIds, initialFilter, i
   const [stats, setStats] = useState<QuestionStats>({ count: 0, types: {} });
   const [offset, setOffset] = useState(0), [rootCount, setRootCount] = useState(0), [loadedPage, setLoadedPage] = useState("");
   const [error, setError] = useState<unknown>(null);
+  const [statsError, setStatsError] = useState<unknown>(null), [pageError, setPageError] = useState<unknown>(null);
+  const [statsRetry, setStatsRetry] = useState({query:"",attempt:0}), [pageRetry, setPageRetry] = useState({query:"",attempt:0});
   const [count, setCount] = useState(20), [minutes, setMinutes] = useState(60), [random, setRandom] = useState(false);
   const [selection, setSelection] = useState("count"), [selected, setSelected] = useState<Record<string, { count: number; group: boolean }>>({}), [quotas, setQuotas] = useState<Record<string,number>>({});
   const [paper, setPaper] = useState<PaperPreview | null>(null);
@@ -27,39 +29,48 @@ export function StudySetup({banks, initialBank, initialBankIds, initialFilter, i
   const currentScorePage = Math.min(scorePage, Math.max(0, Math.ceil(preview.length / 30) - 1));
   const previewTypes = Array.from(new Set(preview.map(row => row.rootType ?? questionType(row.question))));
   const query = JSON.stringify({bank_ids: bankIds, search, mode, filter});
-  const pageQuery = JSON.stringify({ query, offset });
+  const statsAttempt = statsRetry.query === query ? statsRetry.attempt : 0;
+  const statsQuery = JSON.stringify({ query, attempt:statsAttempt });
+  const pageRequest = JSON.stringify({ query, offset });
+  const pageAttempt = pageRetry.query === pageRequest ? pageRetry.attempt : 0;
+  const pageQuery = JSON.stringify({ request:pageRequest, attempt:pageAttempt });
+  const statsLoading = loadedQuery !== statsQuery;
   const pageLoading = selection === "manual" && loadedPage !== pageQuery;
-  const loading = loadedQuery !== query || pageLoading;
+  const loading = statsLoading || pageLoading;
+  useEffect(() => {
+    setError(null); setStatsError(null); setPageError(null); setPreview([]); setPaper(null); setSelected({}); setOffset(0);
+    setStatsRetry({query:"",attempt:0}); setPageRetry({query:"",attempt:0});
+  }, [query]);
   useEffect(() => {
     let active = true;
-    setError(null); setPreview([]); setPaper(null); setSelected({}); setOffset(0);
     const values = JSON.parse(query);
     if (!values.bank_ids.length) {
-      setRows([]); setStats({ count: 0, types: {} }); setCount(0); setLoadedQuery(query);
+      setRows([]); setStats({ count: 0, types: {} }); setCount(0); setLoadedQuery(statsQuery);
       return;
     }
     const timer = setTimeout(() => {
       void api({type:"question_stats", ...values})
-        .then(result => { if (active) { setStats(result); setCount(defaultPaperCount(result.feasibleCounts ?? Array.from({length:Math.min(1000, result.count)}, (_, i) => i + 1))); } })
-        .catch(e => { if (active) { setStats({ count: 0, types: {} }); setError(e); } })
-        .finally(() => { if (active) setLoadedQuery(query); });
+        .then(result => { if (active) { setStats(result); setStatsError(null); if (!statsAttempt) setCount(defaultPaperCount(result.feasibleCounts ?? Array.from({length:Math.min(1000, result.count)}, (_, i) => i + 1))); } })
+        .catch(e => { if (active) { setStats({ count: 0, types: {} }); setStatsError(e); } })
+        .finally(() => { if (active) setLoadedQuery(statsQuery); });
     }, 150);
     return () => { active = false; clearTimeout(timer); };
-  }, [query]);
+  }, [query, statsQuery, statsAttempt]);
   useEffect(() => {
     if (selection !== "manual") return;
     let active = true;
     setRows([]);
+    if (!pageAttempt) setPageError(null);
     const values = JSON.parse(query);
     if (!values.bank_ids.length) { setRootCount(0); setLoadedPage(pageQuery); return; }
     const timer = setTimeout(() => {
       void api({type:"questions_page", ...values, limit:30, offset})
-        .then(result => { if (active) { setRows(result.items); setRootCount(result.total); setOffset(result.offset); } })
-        .catch(e => { if (active) { setRootCount(0); setError(e); } })
+        .then(result => { if (active) { setRows(result.items); setRootCount(result.total); setOffset(result.offset); setPageError(null); } })
+        .catch(e => { if (active) { setRootCount(0); setPageError(e); } })
         .finally(() => { if (active) setLoadedPage(pageQuery); });
     }, 150);
     return () => { active = false; clearTimeout(timer); };
-  }, [query, pageQuery, selection, offset]);
+  }, [query, pageQuery, pageAttempt, selection, offset]);
     const perform = (job:()=>Promise<void>) => run(async()=>{setError(null);try{await job();}catch(e){setError(e);}});
   const invalidate = () => { setPreview([]); setPaper(null); setScorePage(0); };
   async function generate(withBudgets = false) {
@@ -140,6 +151,8 @@ export function StudySetup({banks, initialBank, initialBankIds, initialFilter, i
         <p role="status" className="text-sm">{!bankIds.length ? t("请选择至少一个题库") : loading ? t("正在加载题目…") : <>{t("已选 {0} · 可用 {1} 题 · 本次 {2}{3}{4}{5}", { 0: chosen.length === 1 ? chosen[0].title : t("{0} 个题库", { 0: chosen.length }), 1: available, 2: selectionSummary, 3: filter && ` · ${{wrong:t("错题"), favorite:t("收藏"), unattempted:t("未做题"), review:t("待复核")}[filter]}`, 4: mode && ` · ${types()[mode] || t("选择题")}`, 5: search && t(" · 关键词：{0}", { 0: search }) })}</>}</p>
         {!!filter && ["reading", "word_bank", "cloze", "listening", "gap_fill", "grammar_fill", "sentence_selection"].some(type => stats.types[type]) && <p className="text-sm text-muted-foreground">{t("命中子题时纳入完整题组，包含组内其他子题。")}</p>}
         {selection === "manual" && manualCount > 1000 && <p role="alert" className="text-sm text-destructive">{t("每次最多选择 1000 小题。")}</p>}
+        {statsError != null && <div role="alert" className="space-y-2 text-sm text-destructive"><p>{errorMessage(statsError)}</p><Button variant="outline" disabled={busy || statsLoading} onClick={() => setStatsRetry(previous => ({query,attempt:previous.query === query ? previous.attempt + 1 : 1}))}>{t("重试题目统计")}</Button></div>}
+        {selection === "manual" && pageError != null && <div role="alert" className="space-y-2 text-sm text-destructive"><p>{errorMessage(pageError)}</p><Button variant="outline" disabled={busy || pageLoading} onClick={() => setPageRetry(previous => ({query:pageRequest,attempt:previous.query === pageRequest ? previous.attempt + 1 : 1}))}>{t("重试选题列表")}</Button></div>}
         {error != null && <p role="alert" className="text-sm text-destructive">{errorMessage(error)}</p>}
         <div className="flex justify-end gap-2"><Button variant="outline" disabled={busy} onClick={onClose}>{t("取消")}</Button>{kind !== "practice" && <Button variant={preview.length ? "outline" : "default"} disabled={busy || loading || !available || !bankIds.length || invalidSelection} onClick={() => perform(async () => { await generate(); })}>{preview.length ? t("重新生成预览") : t("预览题目与配分")}</Button>}{(kind === "practice" || !!preview.length) && <Button disabled={busy || loading || !available || !bankIds.length || invalidSelection} onClick={start}>{kind === "practice" ? t("立即开始") : t("开始考试")}</Button>}</div>
       </div>

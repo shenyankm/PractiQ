@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StudySetup } from "./StudySetup";
 import { api, type QuestionRow, type Session } from "./api";
@@ -96,6 +96,135 @@ function setup() {
   render(<StudySetup banks={banks} initialBank="one" initialFilter="" busy={false} run={job => { void job(); }} onStart={onStart} onClose={() => {}}/>);
   return onStart;
 }
+
+it("retries statistics without resetting selections, quotas, count or exam settings", async () => {
+  setup();
+  const base = vi.mocked(api).getMockImplementation()!;
+  let resolveStats: (value: unknown) => void = () => {};
+  let failing = true;
+  vi.mocked(api).mockImplementation(async request => {
+    if (request.type !== "question_stats") return base(request);
+    if (failing) throw new Error("Statistics unavailable");
+    return new Promise(resolve => { resolveStats = resolve; }) as never;
+  });
+  expect((await screen.findByRole("alert")).textContent).toContain("Statistics unavailable");
+  await userEvent.selectOptions(screen.getByLabelText("模式"), "mock_exam");
+  fireEvent.change(screen.getByLabelText("考试分钟数"), {target:{value:"45"}});
+  fireEvent.change(screen.getByLabelText("考试总分"), {target:{value:"90"}});
+  fireEvent.change(screen.getByLabelText("题目数量"), {target:{value:"1"}});
+  await userEvent.selectOptions(screen.getByLabelText("出题顺序"), "random");
+  await userEvent.click(screen.getByText(/高级设置/, {selector:"summary"}));
+  await userEvent.selectOptions(screen.getByLabelText("选题方式"), "quota");
+  fireEvent.change(screen.getByLabelText("单选题数"), {target:{value:"1"}});
+  await userEvent.selectOptions(screen.getByLabelText("选题方式"), "manual");
+  await userEvent.click(await screen.findByRole("checkbox", {name:rows[0].question.stem!}));
+  failing = false;
+  const retry = screen.getByRole("button", {name:"重试题目统计"});
+  await userEvent.click(retry);
+  expect(retry.hasAttribute("disabled")).toBe(true);
+  await userEvent.click(retry);
+  await waitFor(() => expect(vi.mocked(api).mock.calls.filter(([r]) => r.type === "question_stats")).toHaveLength(2));
+  const requests = vi.mocked(api).mock.calls.filter(([r]) => r.type === "question_stats");
+  expect(requests[1][0]).toEqual(requests[0][0]);
+  expect(screen.getByRole("alert").textContent).toContain("Statistics unavailable");
+  await act(async () => { resolveStats({count:2,types:{single:2},feasibleCounts:[1,2]}); });
+  await waitFor(() => expect(screen.queryByRole("button", {name:"重试题目统计"})).toBeNull());
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(screen.getByRole("checkbox", {name:rows[0].question.stem!}).getAttribute("aria-checked")).toBe("true");
+  expect(screen.getByRole("checkbox", {name:"题库一（2）"}).getAttribute("aria-checked")).toBe("true");
+  expect(screen.getByRole("checkbox", {name:"题库二（1）"}).getAttribute("aria-checked")).toBe("false");
+  expect((screen.getByLabelText("考试分钟数") as HTMLInputElement).value).toBe("45");
+  expect((screen.getByLabelText("考试总分") as HTMLInputElement).value).toBe("90");
+  await userEvent.selectOptions(screen.getByLabelText("选题方式"), "quota");
+  expect((screen.getByLabelText("单选题数") as HTMLInputElement).value).toBe("1");
+  await userEvent.selectOptions(screen.getByLabelText("选题方式"), "count");
+  expect((screen.getByLabelText("题目数量") as HTMLInputElement).value).toBe("1");
+  expect((screen.getByLabelText("出题顺序") as HTMLSelectElement).value).toBe("random");
+  vi.mocked(api).mockImplementation(base);
+  await userEvent.selectOptions(screen.getByLabelText("范围"), "wrong");
+  await waitFor(() => expect((screen.getByLabelText("题目数量") as HTMLInputElement).value).toBe("2"));
+  fireEvent.change(screen.getByLabelText("题目数量"), {target:{value:"1"}});
+  await userEvent.selectOptions(screen.getByLabelText("范围"), "");
+  await waitFor(() => expect((screen.getByLabelText("题目数量") as HTMLInputElement).value).toBe("2"));
+});
+
+it("retries a failed manual page in place and keeps choices from earlier pages", async () => {
+  const all = Array.from({length:31}, (_, i) => ({...rows[0],id:`q${i}`,question:{...rows[0].question,stem:`Question ${i}`}}));
+  let resolvePage: (value: unknown) => void = () => {};
+  let failing = true;
+  vi.mocked(api).mockImplementation(async request => {
+    if (request.type === "question_stats") return {count:31,types:{single:31},feasibleCounts:Array.from({length:31}, (_, i) => i + 1)} as never;
+    if (request.type === "questions_page") {
+      if (request.offset === 30) {
+        if (failing) throw new Error("Question page unavailable");
+        return new Promise(resolve => { resolvePage = resolve; }) as never;
+      }
+      return {items:all.slice(0,30),total:31,offset:0} as never;
+    }
+    return {id:"session"} as never;
+  });
+  render(<StudySetup banks={banks} initialBank="one" initialFilter="review" initialSearch="sample" busy={false} run={job=>{void job();}} onStart={async()=>{}} onClose={()=>{}}/>);
+  await screen.findByText(/可用 31 题/);
+  await userEvent.selectOptions(screen.getByLabelText("模式"), "mock_exam");
+  fireEvent.change(screen.getByLabelText("考试分钟数"), {target:{value:"45"}});
+  fireEvent.change(screen.getByLabelText("题目数量"), {target:{value:"10"}});
+  await userEvent.click(screen.getByText(/高级设置/, {selector:"summary"}));
+  await userEvent.selectOptions(screen.getByLabelText("选题方式"), "quota");
+  fireEvent.change(screen.getByLabelText("单选题数"), {target:{value:"3"}});
+  await userEvent.selectOptions(screen.getByLabelText("选题方式"), "manual");
+  await userEvent.click(await screen.findByRole("checkbox", {name:"Question 0"}));
+  await userEvent.click(screen.getByRole("button", {name:"下一页"}));
+  expect((await screen.findByRole("alert")).textContent).toContain("Question page unavailable");
+  const retry = screen.getByRole("button", {name:"重试选题列表"});
+  failing = false;
+  await userEvent.click(retry);
+  expect(retry.hasAttribute("disabled")).toBe(true);
+  await userEvent.click(retry);
+  await waitFor(() => expect(vi.mocked(api).mock.calls.filter(([r]) => r.type === "questions_page")).toHaveLength(3));
+  const requests = vi.mocked(api).mock.calls.filter(([r]) => r.type === "questions_page");
+  expect(requests[2][0]).toEqual(requests[1][0]);
+  expect(requests[2][0]).toMatchObject({bank_ids:["one"],filter:"review",search:"sample",offset:30});
+  expect(vi.mocked(api).mock.calls.filter(([r]) => r.type === "question_stats")).toHaveLength(1);
+  await act(async () => { resolvePage({items:all.slice(30),total:31,offset:30}); });
+  await userEvent.click(await screen.findByRole("checkbox", {name:"Question 30"}));
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(screen.getByRole("status").textContent).toContain("本次 2 题");
+  await userEvent.click(screen.getByRole("button", {name:"上一页"}));
+  expect((await screen.findByRole("checkbox", {name:"Question 0"})).getAttribute("aria-checked")).toBe("true");
+  expect((screen.getByLabelText("考试分钟数") as HTMLInputElement).value).toBe("45");
+  await userEvent.selectOptions(screen.getByLabelText("选题方式"), "quota");
+  expect((screen.getByLabelText("单选题数") as HTMLInputElement).value).toBe("3");
+  await userEvent.selectOptions(screen.getByLabelText("选题方式"), "count");
+  expect((screen.getByLabelText("题目数量") as HTMLInputElement).value).toBe("10");
+});
+
+it("clears only the successfully retried read error when both reads fail", async () => {
+  let statisticsFail = true, pageFail = true;
+  vi.mocked(api).mockImplementation(async request => {
+    if (request.type === "question_stats") {
+      if (statisticsFail) throw new Error("Statistics unavailable");
+      return {count:2,types:{single:2},feasibleCounts:[1,2]} as never;
+    }
+    if (request.type === "questions_page") {
+      if (pageFail) throw new Error("Question page unavailable");
+      return {items:rows,total:2,offset:0} as never;
+    }
+    throw new Error(request.type);
+  });
+  render(<StudySetup banks={banks} initialBank="one" initialFilter="" busy={false} run={job=>{void job();}} onStart={async()=>{}} onClose={()=>{}}/>);
+  await screen.findByRole("button", {name:"重试题目统计"});
+  await userEvent.click(screen.getByText(/高级设置/, {selector:"summary"}));
+  await userEvent.selectOptions(screen.getByLabelText("选题方式"), "manual");
+  await screen.findByRole("button", {name:"重试选题列表"});
+  statisticsFail = false;
+  await userEvent.click(screen.getByRole("button", {name:"重试题目统计"}));
+  await waitFor(() => expect(screen.queryByRole("button", {name:"重试题目统计"})).toBeNull());
+  expect(screen.getByRole("alert").textContent).toContain("Question page unavailable");
+  pageFail = false;
+  await userEvent.click(screen.getByRole("button", {name:"重试选题列表"}));
+  await screen.findByRole("checkbox", {name:rows[0].question.stem!});
+  expect(screen.queryByRole("alert")).toBeNull();
+});
 it("starts ordinary practice directly with the selected questions and no exam scores", async () => {
   const started = setup();
   const button = screen.getByRole("button",{name:"立即开始"});
