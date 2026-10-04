@@ -52,8 +52,14 @@ def android_elf() -> bytes:
     header = bytearray(64)
     header[:7] = b"\x7fELF\x02\x01\x01"
     struct.pack_into("<HHI", header, 16, 3, 183, 1)
+    struct.pack_into("<Q", header, 32, 64)
     struct.pack_into("<H", header, 52, 64)
-    return bytes(header) + b"Synthetic Android library; never executed"
+    struct.pack_into("<HH", header, 54, 56, 2)
+    payload = b"Synthetic Android library; never executed"
+    size = len(header) + 2 * 56 + len(payload)
+    load = struct.pack("<IIQQQQQQ", 1, 4, 0, 0, 0, size, 16_384, 16_384)
+    relro = struct.pack("<IIQQQQQQ", 0x6474E552, 4, 0, 0, 0, size, 16_384, 1)
+    return bytes(header) + load + relro + payload
 
 
 def android_manifest(version="0.1.0") -> dict:
