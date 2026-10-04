@@ -1,6 +1,6 @@
 # Verify document extraction and subjective grading
 
-This guide separates document extraction quality, subjective grading samples, and engineering checks. Service extraction evaluation covers text, CSV, PDF, and images; raw Office upload rejection remains covered. Desktop conversion is evaluated separately using actual bundled LibreOffice, without model calls: see [Office evaluation](desktop-office.md) and `app/scripts/check-office.py`. Historical DOCX model results below and in `server/reports/` describe earlier parsers, not the quality of the current desktop conversion path.
+This guide separates document extraction quality, subjective grading samples, and engineering checks. The extraction dataset covers text, CSV, PDF and images. Word/Excel uploads are normalized by the independent service before entering these same extractors; Office availability and source limits follow the [service Office guide](desktop-office.md). Verify the deployed engine separately, without model calls, using the [unchanged Office fixtures and conversion procedure](../../app/fixtures/office/README.md). The practice app contains no Office engine. Historical DOCX model results below and in `server/reports/` describe earlier parsers, not the quality of the current service conversion path.
 
 Use an existing Python 3.14+ environment and run the commands from `server/`.
 

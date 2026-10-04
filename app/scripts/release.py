@@ -71,6 +71,18 @@ def read_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def original_json(raw: bytes) -> dict:
+    """Reject ambiguous objects anywhere in exact original candidate bytes."""
+    def object_pairs(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError("Original candidate JSON contains duplicate object keys")
+            result[key] = value
+        return result
+    return json.loads(raw, object_pairs_hook=object_pairs)
+
+
 def checksum(path: Path) -> str:
     with path.open("rb") as stream:
         return hashlib.file_digest(stream, "sha256").hexdigest()
@@ -231,7 +243,7 @@ def public_report(value, roots):
 def original_build(root: Path, tag: str, source_sha: str, path: Path, *, platform: str | None = None) -> tuple[dict, bytes]:
     """Bind downloaded original build assets/evidence; external provenance still needs review."""
     raw = path.read_bytes()
-    candidate = json.loads(raw)
+    candidate = original_json(raw)
     check_original_candidate(candidate)
     platform = release_platform(platform)
     os_name, arch, _, suffix = PLATFORMS[platform]
@@ -325,7 +337,7 @@ def stage(root: Path, tag: str, bundle: Path, installer: Path, output: Path, *,
     if restaged:
         assert build_candidate is not None and original_candidate_bytes is not None
         (reports / "original-candidate.json").write_bytes(original_candidate_bytes)
-        original = json.loads(original_candidate_bytes)
+        original = original_json(original_candidate_bytes)
         if (original != build_candidate["candidate"] or
                 hashlib.sha256(original_candidate_bytes).hexdigest() != normalized_digest(build_candidate["candidateSha256"])):
             raise ValueError("Original candidate bytes differ from the verified identity")
@@ -776,7 +788,7 @@ def assemble(root: Path, tag: str, inputs: Path, output: Path) -> None:
                     not raw_path.resolve(strict=True).is_relative_to(folder.resolve(strict=True))):
                 raise ValueError("Original candidate bytes must remain bound inside the final evidence directory")
             raw = raw_path.read_bytes()
-            if (hashlib.sha256(raw).hexdigest() != normalized_digest(build.get("candidateSha256")) or json.loads(raw) != prior or
+            if (hashlib.sha256(raw).hexdigest() != normalized_digest(build.get("candidateSha256")) or original_json(raw) != prior or
                     public_report(prior, [(folder.resolve(), "<candidate>"), (Path.home(), "<home>")]) != prior):
                 raise ValueError("Original candidate bytes differ from the archived build identity or contain private paths")
             if (build.get("assetAndEvidenceVerified") is not True or

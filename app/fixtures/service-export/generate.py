@@ -4,12 +4,14 @@ import asyncio
 import hashlib
 import io
 import json
+import shutil
 import sys
 import wave
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from PIL import Image
+
 from practiq_ai.bank_export import export_task_bank
 from practiq_ai.config import Config
 from practiq_ai.contracts import DocumentTaskDetail, DocumentUploadRequest
@@ -72,10 +74,13 @@ async def main():
             "usage":[],"unknownUsageCalls":[]})
         payload = await export_task_bank(task, store, source=source, title="Service partial media", description="Real exporter acceptance fixture")
         archive = destination / "partial-media-bank.zip"
-        archive.write_bytes(payload)
+        with payload, archive.open("wb") as stream:
+            shutil.copyfileobj(payload, stream, length=64 * 1024)
         assert task.result is not None
         dumped = json.dumps(task.result.model_dump(mode="json"), sort_keys=True, ensure_ascii=False).encode()
-        manifest = {"archive":archive.name, "archiveSha256":hashlib.sha256(payload).hexdigest(), "archiveBytes":len(payload),
+        with archive.open("rb") as stream:
+            archive_sha = hashlib.file_digest(stream, "sha256").hexdigest()
+        manifest = {"archive":archive.name, "archiveSha256":archive_sha, "archiveBytes":archive.stat().st_size,
                     "source":source.model_dump(mode="json"), "image":image.model_dump(mode="json"),
                     "audio":audio.model_dump(mode="json"), "resultDumpSha256":hashlib.sha256(dumped).hexdigest(),
                     "exporterSha256":hashlib.sha256(Path(export_task_bank.__code__.co_filename).read_bytes()).hexdigest(),

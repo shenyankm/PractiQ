@@ -185,6 +185,11 @@ fails while retaining private diagnostics. Assembly verifies their byte digest
 against `candidateSha256` and requires their decoded identity to match the nested
 original candidate, in addition to its existing canonical semantic digest. A
 reformatted or sanitized serialization cannot substitute for the original bytes.
+Original candidate JSON rejects duplicate keys in every object, including nested
+objects, arrays and escaped equivalent names; harmless duplicates also fail.
+This prevents a later decoded value from hiding a private value still present in
+the original bytes. Rejection retains the private input or existing raw report
+and creates no public result; ordinary report JSON parsing is unchanged.
 Staging does not attest Actions provenance or verify signing. Archive actual
 signing results with artifactSha256 bound to the final SHA-256 and status of
 verified, unsigned or failed. Candidate and manifest preserve these declarations
