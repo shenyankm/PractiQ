@@ -108,13 +108,17 @@ class SecureStoragePluginTest {
             SystemClock.sleep(100)
         }
         requireResumedActivity(message)
+        assertTrue("$message: Activity resumed after deadline", SystemClock.elapsedRealtime() < deadline)
     }
 
     private fun awaitScript(script: String, expected: String, message: String,
         deadline: Long = SystemClock.elapsedRealtime() + 15000) {
         while (true) {
             val actual = evaluate(script)
-            if (actual == expected) return
+            if (actual == expected) {
+                assertTrue("$message: completed after deadline", SystemClock.elapsedRealtime() < deadline)
+                return
+            }
             assertTrue("$message: expected=$expected actual=$actual stage=${lifecycleStage()}",
                 SystemClock.elapsedRealtime() < deadline)
             SystemClock.sleep(100)
