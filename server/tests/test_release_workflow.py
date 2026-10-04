@@ -60,6 +60,13 @@ def native_elf(machine=62, filetype=3):
     return bytes(payload)
 
 
+def acceptance_report(candidate, kind, status="passed"):
+    return {"schemaVersion": 1, "kind": kind, "artifactSha256": candidate["sha256"],
+            **{key: candidate[key] for key in ("tag", "commit", "components", "os", "architecture")},
+            "status": status, "reviewedBy": "Synthetic fixture reviewer",
+            "verificationResults": ["Synthetic schema test only; no installation or real model was run"]}
+
+
 @pytest.fixture
 def release():
     return SimpleNamespace(**runpy.run_path(str(ROOT / "app/scripts/release.py")))
@@ -140,6 +147,7 @@ def staged(release, source, monkeypatch):
                      "architecture": arch, "file": filename, "sizeBytes": (folder / filename).stat().st_size,
                      "sha256": release.checksum(folder / filename), "signing": "unsigned",
                      "buildRun": "https://github.com/test/repo/actions/runs/42",
+                     "cleanMachineAcceptance": "pending", "liveModelAcceptance": "pending",
                      "evidence": {f"evidence/{p.name}": release.checksum(p) for p in evidence.iterdir()}}
         (folder / "candidate.json").write_text(json.dumps(candidate))
     service = inputs / "service-checks"
@@ -364,6 +372,7 @@ def final_setup(release, source, monkeypatch):
                 elif fault == "native_not_executable":
                     payload = native_macho(filetype=6) if platform == "darwin" else native_elf(filetype=1)
                 application.write_bytes(state.get("native_payload", payload))
+                application.chmod(state.get("native_mode", 0o755))
                 if fault == "native_missing":
                     application.unlink()
                 elif fault == "native_empty":
@@ -730,6 +739,24 @@ def test_final_linux_accepts_elf64_x86_64_executable_and_pie_headers(release, so
     assert output.exists() and len(state["calls"]) == 4
 
 
+@pytest.mark.parametrize("platform", ["darwin", "linux"])
+@pytest.mark.parametrize("mode", [0o644, 0o666])
+def test_final_native_requires_posix_execute_permission(release, source, final_setup, platform, mode):
+    installer, output, reports, state = final_setup(platform)
+    state["native_mode"] = mode
+    with pytest.raises(ValueError, match="execute permission"):
+        release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=state["build_candidate"])
+    assert not output.exists() and not reports.exists() and not state["calls"]
+
+
+@pytest.mark.parametrize("platform", ["darwin", "linux", "win32"])
+def test_final_native_accepts_owner_executable_and_windows_without_posix_execute_bits(release, source, final_setup, platform):
+    installer, output, reports, state = final_setup(platform)
+    state["native_mode"] = 0o700
+    release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=state["build_candidate"])
+    assert output.exists()
+
+
 @pytest.mark.parametrize("damage", ["empty", "dos", "offset", "signature", "optional_length", "optional_truncated"])
 def test_final_windows_rejects_malformed_native_pe(release, source, final_setup, damage):
     installer, _, _, _ = final_setup("win32")
@@ -909,12 +936,14 @@ def test_final_native_version_preserves_prerelease_identity(release, source, fin
         application = bundle.parents[1] / "MacOS/PractiQ"
         application.parent.mkdir()
         application.write_bytes(native_macho())
+        application.chmod(0o755)
     elif platform == "win32":
         (bundle.parent / "PractiQ.exe").write_bytes(native_pe())
     else:
         application = bundle.parents[3] / "usr/bin/PractiQ"
         application.parent.mkdir()
         application.write_bytes(native_elf())
+        application.chmod(0o755)
     def metadata(command, **kwargs):
         return ({"Architecture": "amd64", "Depends": ", ".join(LINUX_DEPENDENCIES)}.get(command[-1], expected)) + "\n"
     monkeypatch.setattr(subprocess, "check_output", metadata)
@@ -1080,6 +1109,153 @@ def test_final_assembly_rejects_drifted_signing_status_or_nonoriginal_provenance
     with pytest.raises(ValueError, match="signing|original unsigned"):
         release.assemble(source, "v0.1.0", restaged, output)
     assert not output.exists()
+
+
+@pytest.mark.parametrize("kind,field", [("clean-machine", "cleanMachine"), ("live-model", "liveModel")])
+@pytest.mark.parametrize("status", ["passed", "failed"])
+def test_final_staging_binds_external_acceptance_without_running_or_attesting_it(release, source, final_setup, kind, field, status):
+    installer, output, reports, state = final_setup()
+    identity = json.loads(state["build_candidate"].read_text()) | {"sha256": release.checksum(installer)}
+    report = acceptance_report(identity, kind, status)
+    report["verificationResults"].append(f"Synthetic evidence at {source}/private-test")
+    path = source / (kind + ".json")
+    path.write_text(json.dumps(report))
+    option = "clean_machine_report" if kind == "clean-machine" else "live_model_report"
+    release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=state["build_candidate"], **{option: path})
+    candidate = json.loads((output / "candidate.json").read_text())
+    assert candidate[field + "Acceptance"] == "externally_reported_" + status
+    other = "liveModel" if field == "cleanMachine" else "cleanMachine"
+    assert candidate[other + "Acceptance"] == "pending"
+    assert "Not performed" in candidate["acceptanceVerification"]
+    filename = kind + "-report.json"
+    assert json.loads((reports / filename).read_text()) == report
+    public = (output / candidate[field + "Report"]).read_text()
+    assert str(source) not in public and "Synthetic schema test only" in public
+    assert candidate["evidence"][candidate[field + "Report"]] == release.checksum(output / candidate[field + "Report"])
+    assert len(state["calls"]) == 4
+
+
+@pytest.mark.parametrize("kind", ["clean-machine", "live-model"])
+@pytest.mark.parametrize("mutation", ["kind", "os", "architecture", "commit", "tag", "components", "artifact", "schema_bool", "unknown", "missing_reviewer", "empty_results", "missing_results", "status", "synthetic_status"])
+def test_final_staging_rejects_mixed_incomplete_or_ambiguous_acceptance_reports(release, source, final_setup, kind, mutation):
+    installer, output, reports, state = final_setup()
+    identity = json.loads(state["build_candidate"].read_text()) | {"sha256": release.checksum(installer)}
+    report = acceptance_report(identity, kind)
+    if mutation in {"kind", "os", "architecture", "tag"}:
+        report[mutation] = "different"
+    elif mutation == "commit":
+        report["commit"] = "b" * 40
+    elif mutation == "components":
+        report["components"] = {"desktop": "0.2.0", "aiService": "0.3.0"}
+    elif mutation == "artifact":
+        report["artifactSha256"] = "b" * 64
+    elif mutation == "schema_bool":
+        report["schemaVersion"] = True
+    elif mutation == "unknown":
+        report["unrecognized"] = "not in the schema"
+    elif mutation == "missing_reviewer":
+        report.pop("reviewedBy")
+    elif mutation == "missing_results":
+        report.pop("verificationResults")
+    elif mutation == "empty_results":
+        report["verificationResults"] = []
+    else:
+        report["status"] = True if mutation == "status" else "synthetic"
+    path = source / (kind + ".json")
+    path.write_text(json.dumps(report))
+    option = "clean_machine_report" if kind == "clean-machine" else "live_model_report"
+    with pytest.raises(ValueError, match="Acceptance|acceptance"):
+        release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=state["build_candidate"], **{option: path})
+    assert not output.exists()
+
+
+@pytest.fixture
+def accepted_reports(restaged):
+    for folder in restaged.glob("release-*"):
+        candidate = json.loads((folder / "candidate.json").read_text())
+        for kind, field in (("clean-machine", "cleanMachine"), ("live-model", "liveModel")):
+            path = folder / "evidence" / (kind + "-report.json")
+            path.write_text(json.dumps(acceptance_report(candidate, kind)))
+            candidate[field + "Report"] = "evidence/" + path.name
+            candidate[field + "Acceptance"] = "externally_reported_passed"
+        candidate["evidence"] = {f"evidence/{path.name}": hashlib.sha256(path.read_bytes()).hexdigest() for path in (folder / "evidence").iterdir()}
+        (folder / "candidate.json").write_text(json.dumps(candidate))
+    return restaged
+
+
+def test_final_assembly_preserves_reported_acceptance_and_keeps_publication_review_pending(release, source, accepted_reports):
+    output = source / "reported-assets"
+    release.assemble(source, "v0.1.0", accepted_reports, output)
+    manifest = json.loads((output / "release-manifest.json").read_text())
+    assert all(asset["cleanMachineAcceptance"] == asset["liveModelAcceptance"] == "externally_reported_passed" for asset in manifest["assets"])
+    assert "independent" in manifest["publicationStatus"] and "pending" in manifest["publicationStatus"]
+    with zipfile.ZipFile(output / "release-evidence.zip") as archive:
+        report = json.loads(archive.read("macos/evidence/live-model-report.json"))
+        assert report["verificationResults"] == ["Synthetic schema test only; no installation or real model was run"]
+
+
+@pytest.mark.parametrize("field", ["cleanMachine", "liveModel"])
+@pytest.mark.parametrize("mutation", ["status", "report_status", "missing_report", "absolute_path", "outside_path", "report_identity", "report_link", "evidence_link"])
+def test_final_assembly_rejects_acceptance_status_drift_and_unbound_report_paths(release, source, accepted_reports, field, mutation):
+    folder = accepted_reports / "release-macos"
+    candidate_path = folder / "candidate.json"
+    candidate = json.loads(candidate_path.read_text())
+    report = folder / candidate[field + "Report"]
+    if mutation == "status":
+        candidate[field + "Acceptance"] = "passed"
+    elif mutation == "missing_report":
+        candidate.pop(field + "Report")
+    elif mutation in {"absolute_path", "outside_path"}:
+        candidate[field + "Report"] = str(report) if mutation == "absolute_path" else "../outside.json"
+    elif mutation == "report_link":
+        external = source / "external-report.json"
+        report.rename(external)
+        report.symlink_to(external)
+    elif mutation == "evidence_link":
+        external = source / "external-evidence"
+        (folder / "evidence").rename(external)
+        (folder / "evidence").symlink_to(external, target_is_directory=True)
+    else:
+        value = json.loads(report.read_text())
+        value["status" if mutation == "report_status" else "commit"] = "failed" if mutation == "report_status" else "b" * 40
+        report.write_text(json.dumps(value))
+    candidate["evidence"] = {f"evidence/{path.name}": hashlib.sha256(path.read_bytes()).hexdigest() for path in (folder / "evidence").iterdir()}
+    candidate_path.write_text(json.dumps(candidate))
+    output = source / "reported-assets"
+    with pytest.raises(ValueError, match="acceptance|Acceptance|release evidence"):
+        release.assemble(source, "v0.1.0", accepted_reports, output)
+    assert not output.exists()
+
+
+@pytest.mark.parametrize("kind", ["clean-machine", "live-model"])
+def test_final_assembly_rechecks_archived_acceptance_bytes_after_input_validation(release, source, accepted_reports, monkeypatch, kind):
+    original = zipfile.ZipFile.write
+    changed = False
+    def changed_report(archive, path, *args, **kwargs):
+        nonlocal changed
+        path = Path(path)
+        if not changed and path.name == kind + "-report.json":
+            report = json.loads(path.read_text())
+            report["verificationResults"] = ["Different report after validation"]
+            path.write_text(json.dumps(report))
+            changed = True
+        return original(archive, path, *args, **kwargs)
+    monkeypatch.setattr(zipfile.ZipFile, "write", changed_report)
+    output = source / "reported-assets"
+    with pytest.raises(ValueError, match="assembly"):
+        release.assemble(source, "v0.1.0", accepted_reports, output)
+    assert changed and not (output / "release-manifest.json").exists()
+
+
+def test_final_cli_passes_acceptance_reports_only_to_explicit_final_staging(release, monkeypatch):
+    calls = []
+    monkeypatch.setitem(release.main.__globals__, "restage_installer", lambda *args, **kwargs: calls.append((args, kwargs)))
+    monkeypatch.setattr(sys, "argv", ["release.py", "stage", "--tag", "v0.1.0", "--installer", "final.dmg", "--reports", "reports", "--output", "output", "--build-candidate", "candidate.json", "--clean-machine-report", "clean.json", "--live-model-report", "live.json"])
+    release.main()
+    assert calls[0][1] == {"clean_machine_report": Path("clean.json"), "live_model_report": Path("live.json")}
+    monkeypatch.setattr(sys, "argv", ["release.py", "check", "--tag", "v0.1.0", "--clean-machine-report", "clean.json"])
+    with pytest.raises(SystemExit):
+        release.main()
 
 
 def test_signed_dmg_contains_stapled_app_and_existing_dmg_is_preserved(tmp_path):

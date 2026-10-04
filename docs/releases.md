@@ -140,6 +140,8 @@ absolute, external and dangling links are rejected. The macOS version plist must
 be a regular file and identify the candidate's executable in `Contents/MacOS`.
 Both that executable and the DEB's `usr/bin` desktop executable must be nonempty
 regular files with real parent directories inside the selected payload. macOS
+and Linux binaries must retain POSIX execute permission bits; Windows PE checks
+do not depend on POSIX modes. macOS
 requires an actual arm64 Mach-O executable header, either thin or in a universal
 container. Universal tables are bounded to 64 members; slice ranges, alignment,
 duplicate CPU/subtype pairs and agreement with each slice's actual header are
@@ -159,6 +161,22 @@ Assembly rejects a status that differs from its bound report. These labels
 describe external evidence, not cryptographic verification by this script.
 Review the original download's build provenance and the actual signing commands,
 publisher identity and results before recording verified status in the release template.
+
+Explicit final staging also accepts `--clean-machine-report` and
+`--live-model-report` for independently reviewed acceptance records. Each report
+uses schema 1 and binds its kind, candidate tag/commit/component versions,
+OS/architecture and exact final installer SHA-256. It requires a nonempty reviewer
+identity and verification-results list, with a declared `passed` or `failed`
+status. See the [report examples](final-package-acceptance.md#acceptance-report-inputs).
+The candidate and assembled manifest record `externally_reported_passed` or
+`externally_reported_failed`; an absent report remains `pending`. Assembly rejects
+mismatched identities, report paths and status drift, and verifies archived bytes
+against the candidate's evidence hashes. These inputs do not run installation or
+model checks, establish the truth of a supplied record, complete #91, or authorize
+publication. Independent publication review remains pending even when both reports
+declare success. Raw reports remain private; only sanitized, hash-bound copies
+enter public evidence. Synthetic test fixtures validate this contract and never
+establish actual clean-machine or live-model acceptance.
 
 For each public platform record OS version, architecture, date and results for
 clean installation, upgrade/uninstall, native dialogs, credentials, audio,

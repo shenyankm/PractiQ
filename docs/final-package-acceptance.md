@@ -156,7 +156,51 @@ Run the equivalent command on each native target, using the final NSIS `.exe` or
 
 Staging compares the actual desktop version from macOS `Info.plist`, Windows installer and application `ProductVersion`, or DEB control `Version` with the complete candidate version, including any prerelease suffix. It derives the bundle from those selected bytes, reruns all four strict gates and compares embedded notices. It retains raw reports privately in `FINAL_REPORTS`; the public evidence copy replaces absolute machine paths before calculating evidence hashes. Review all public evidence before publication. Failed reports remain available, and output assets appear only after source, version, provenance and artifact checks pass. Existing report or output directories are rejected; no Actions environment variables are required.
 
-Record actual signing verification separately, including the final installer SHA-256, expected publisher identity, exact verification commands and their sanitized results. Retain an independent JSON report with a complete 64-hex `artifactSha256` matching that final file; uppercase and lowercase hexadecimal identify the same bytes. Its required `status` is `verified`, `unsigned` or `failed`; it may also record `identity`, `verificationCommands` and `verificationResults`. Add `--signing-report /absolute/path/to/actual-signing-report.json` to explicit staging to archive it as `evidence/signing-report.json`. The candidate and assembled manifest record `externally_reported_verified`, `externally_reported_unsigned` or `externally_reported_failed`, preserving the report's declaration for those exact bytes. Without a report, final staging records **unverified**. The tool rejects mismatched hashes, unknown statuses and manifest/report status drift; it does not execute cryptographic signing verification or attest the supplied report's truth. Review the signing evidence independently before publication. The original `--build-candidate` must be the unsigned CI output, never an earlier restaging. The staging checkout SHA identifies the check inputs and cannot by itself prove the installer was built from that commit. Manual and live-model acceptance remain **pending**.
+Record actual signing verification separately, including the final installer SHA-256, expected publisher identity, exact verification commands and their sanitized results. Retain an independent JSON report with a complete 64-hex `artifactSha256` matching that final file; uppercase and lowercase hexadecimal identify the same bytes. Its required `status` is `verified`, `unsigned` or `failed`; it may also record `identity`, `verificationCommands` and `verificationResults`. Add `--signing-report /absolute/path/to/actual-signing-report.json` to explicit staging to archive it as `evidence/signing-report.json`. The candidate and assembled manifest record `externally_reported_verified`, `externally_reported_unsigned` or `externally_reported_failed`, preserving the report's declaration for those exact bytes. Without a report, final staging records **unverified**. The tool rejects mismatched hashes, unknown statuses and manifest/report status drift; it does not execute cryptographic signing verification or attest the supplied report's truth. Review the signing evidence independently before publication. The original `--build-candidate` must be the unsigned CI output, never an earlier restaging. The staging checkout SHA identifies the check inputs and cannot by itself prove the installer was built from that commit. Without the acceptance reports below, manual and live-model acceptance remain **pending**.
+
+### Acceptance report inputs
+
+After the actual final installer completes independent clean-machine and live-model acceptance, provide two separate reviewed JSON reports for that platform. The following are schema examples with placeholders, not passing acceptance evidence. Replace every placeholder with the actual frozen candidate identity and reviewed results; use `passed` only after the relevant checks genuinely pass, or `failed` to retain a reviewed failure. The script validates metadata and hashes, does not perform those checks or prove that the declarations are true, and never treats synthetic fixtures as actual release acceptance.
+
+Clean-machine report:
+
+```json
+{
+  "schemaVersion": 1,
+  "kind": "clean-machine",
+  "artifactSha256": "<exact-final-installer-64-hex-sha256>",
+  "tag": "<candidate-tag>",
+  "commit": "<exact-candidate-source-commit>",
+  "components": {"desktop": "<desktop-version>", "aiService": "<service-version>"},
+  "os": "<macos-or-windows-or-linux>",
+  "architecture": "<arm64-or-x64-or-amd64>",
+  "status": "<passed-or-failed>",
+  "reviewedBy": "<actual-reviewer-identity>",
+  "verificationResults": ["<actual per-platform clean-machine matrix results and limitations>"]
+}
+```
+
+Live-model report, prepared only after separately authorized real-model checks:
+
+```json
+{
+  "schemaVersion": 1,
+  "kind": "live-model",
+  "artifactSha256": "<exact-final-installer-64-hex-sha256>",
+  "tag": "<candidate-tag>",
+  "commit": "<exact-candidate-source-commit>",
+  "components": {"desktop": "<desktop-version>", "aiService": "<service-version>"},
+  "os": "<macos-or-windows-or-linux>",
+  "architecture": "<arm64-or-x64-or-amd64>",
+  "status": "<passed-or-failed>",
+  "reviewedBy": "<actual-reviewer-identity>",
+  "verificationResults": ["<actual frozen-source parsing/grading results and human review>"]
+}
+```
+
+Each file is at most 1 MiB. Only the required fields shown and optional `verificationCommands`, `limitations`, `reviewedAt`, and `osVersion` are accepted. `verificationResults` must contain 1–128 nonempty strings; optional command and limitation lists contain at most 128. Every string in those lists and reviewer/OS/time metadata is bounded to 8192 characters. Review all content for credentials and personal data before supplying it. Add `--clean-machine-report /absolute/path/to/actual-clean-machine.json` and `--live-model-report /absolute/path/to/actual-live-model.json` to the explicit final staging command. These flags do not call a model or authorize publication.
+
+Staging retains the raw records privately in the fresh reports directory and creates sanitized public copies as `evidence/clean-machine-report.json` and `evidence/live-model-report.json`. `cleanMachineAcceptance` and `liveModelAcceptance` become `externally_reported_passed` or `externally_reported_failed` according to the corresponding bound report; a missing report remains `pending`. Assembly revalidates the schema, identity, fixed contained report path, status and archived bytes. The release remains a draft with independent signing and acceptance review pending, including when both reports declare success. If final signing/repackaging changes the installer bytes or candidate identity, the prior reports cannot be reused for that different artifact.
 
 After collecting all three new platform candidates, copy the service verification reports for that same source into `FINAL_INPUTS/service-checks` as required by the existing workflow, then assemble into another fresh directory:
 
