@@ -83,6 +83,13 @@ it("uses service limits and configuration before starting, and keeps provider se
   await openTask(user); expect((screen.getByRole("button", { name: "重新解析为新任务" }) as HTMLButtonElement).disabled).toBe(false); // Existing task exposes its own current configuration.
   expect(screen.queryByLabelText(/API Key|模型密钥/)).toBeNull(); expect(http.calls.filter(call => call.method !== "GET")).toHaveLength(0);
 });
+it("displays the source-specific Office ceiling alongside the configured general ceiling", async () => {
+  const user = userEvent.setup(); const http = fakeHTTP();
+  http.server.intercept = url => url.includes("capabilities") ? json({ ...capabilities, sourceMaxBytes: 100 * 1024 * 1024, officeSourceMaxBytes: 25 * 1024 * 1024 }) : undefined;
+  render(<App />); await connect(user);
+  expect(screen.getByText(/每个不超过 100.0 MB，Word \/ Excel 不超过 25.0 MB/)).toBeTruthy();
+  expect(http.calls.every(call => call.method === "GET")).toBe(true);
+});
 it("polling paused/partial checkpoints only reads; resume/retry/pause require explicit clicks", async () => {
   const user = userEvent.setup(); const http = fakeHTTP({ ...task, state: "PAUSED", phase: "chunk_review", allowedActions: ["resume", "retry_failed", "accept_partial"] }); render(<App />); await connect(user); await openTask(user);
   expect(screen.getByRole("button", { name: "重试失败单元" })).toBeTruthy(); expect(screen.getByRole("button", { name: "接受部分结果" })).toBeTruthy();
@@ -130,4 +137,28 @@ it("creates a reparse task only on explicit action and confirms deletion before 
   await user.click(screen.getByRole("button", { name: "重新解析为新任务" })); await screen.findByRole("heading", { name: "reparsed.docx", level: 2 }); expect(http.calls.filter(call => call.url.endsWith("/reparse"))).toHaveLength(1);
   await user.click(screen.getByRole("button", { name: /sample.docx/ })); await screen.findByRole("heading", { name: "sample.docx", level: 2 });
   await user.click(screen.getByRole("button", { name: "删除任务" })); await user.click(screen.getByRole("button", { name: "确认删除" })); await screen.findByText("任务已删除。"); expect(http.calls.filter(call => call.method === "DELETE")).toHaveLength(1);
+});
+
+it("deletes an expired row despite 410 detail reads only after confirmation, retaining failed attempts", async () => {
+  const user = userEvent.setup(); const http = fakeHTTP({ ...task, state: "EXPIRED", allowedActions: [] }); let failDelete = true;
+  http.server.intercept = (url, init) => {
+    if (init.method === "DELETE" && failDelete) { failDelete = false; return json({ detail: { code: "DELETE_UNAVAILABLE" } }, 503); }
+    if (init.method !== "DELETE" && [ `/api/document-tasks/${taskId}`, `/api/document-tasks/${taskId}/preview` ].includes(url)) return json({ detail: { code: "TASK_EXPIRED" } }, 410);
+  };
+  render(<App />); await connect(user);
+  await user.click(await screen.findByRole("button", { name: /sample.docx.*已过期/ }));
+  await screen.findByRole("button", { name: "重试任务详情" });
+  await user.click(screen.getByRole("button", { name: "删除已过期任务 sample.docx" }));
+  expect(http.calls.filter(call => call.method === "DELETE")).toHaveLength(0);
+  await user.click(screen.getByRole("button", { name: "保留任务" }));
+  await user.click(screen.getByRole("button", { name: "删除已过期任务 sample.docx" }));
+  await user.click(screen.getByRole("button", { name: "确认删除" }));
+  await screen.findByText(/DELETE_UNAVAILABLE/);
+  expect(screen.getByRole("group", { name: "删除任务确认" })).toBeTruthy(); expect(http.records.has(taskId)).toBe(true);
+  vi.useFakeTimers(); await act(async () => vi.advanceTimersByTimeAsync(6000)); vi.useRealTimers();
+  expect(http.calls.filter(call => call.method === "DELETE")).toHaveLength(1);
+  await user.click(screen.getByRole("button", { name: "确认删除" })); await screen.findByText("任务已删除。");
+  await waitFor(() => expect(screen.queryByRole("button", { name: "删除已过期任务 sample.docx" })).toBeNull());
+  expect(http.calls.filter(call => call.method === "DELETE")).toHaveLength(2); expect(http.records.has(taskId)).toBe(false);
+  expect(screen.getByText("选择一个任务查看结果")).toBeTruthy();
 });

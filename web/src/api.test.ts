@@ -24,6 +24,19 @@ function mockUpload(options: { existing?: boolean; badReference?: boolean; badUr
 }
 
 describe("source selection and bounded upload", () => {
+  it("uses the optional Office ceiling before hashing or HTTP and retains larger PDF limits", async () => {
+    const limits = { ...capabilities, sourceMaxBytes: 100 * 1024 * 1024, officeSourceMaxBytes: 25 * 1024 * 1024 };
+    const office = new File(["x"], "large.docx");
+    Object.defineProperty(office, "size", { value: 25 * 1024 * 1024 + 1 });
+    const read = vi.spyOn(office, "arrayBuffer"); const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
+    await expect(new Client("fake").start(office, limits, taskId, "pdf", () => {})).rejects.toMatchObject({ code: "DOCUMENT_TOO_LARGE" });
+    expect(read).not.toHaveBeenCalled(); expect(fetcher).not.toHaveBeenCalled();
+    const pdf = new File(["x"], "large.pdf"); Object.defineProperty(pdf, "size", { value: office.size });
+    expect(() => validateFiles([pdf], limits)).not.toThrow();
+    const boundary = new File(["x"], "exact.xlsx"); Object.defineProperty(boundary, "size", { value: limits.officeSourceMaxBytes });
+    expect(() => validateFiles([boundary], limits)).not.toThrow();
+    expect(() => validateFiles([office], { ...capabilities, sourceMaxBytes: limits.sourceMaxBytes })).not.toThrow();
+  });
   it("validates formats, filenames, empty files, count and authoritative size before HTTP", () => {
     expect(fileFormat(new File(["x"], "a.JPEG"))).toEqual({ sourceType: "image", mediaType: "image/jpeg" });
     expect(() => fileFormat(new File(["x"], "a.exe"))).toThrow(ApiError);
@@ -89,6 +102,17 @@ describe("source selection and bounded upload", () => {
   });
 });
 describe("task reads and explicit controls", () => {
+  it.each([0, -1, 1.5, "25", 26 * 1024 * 1024])("rejects an invalid optional Office limit: %s", async officeSourceMaxBytes => {
+    vi.stubGlobal("fetch", vi.fn(async () => json({ ...capabilities, officeSourceMaxBytes })));
+    await expect(new Client("fake").capabilities()).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
+  });
+  it("accepts absent or null Office limits from older or non-Office services", async () => {
+    const noOffice = { ...capabilities, officeAvailable: false, officeModes: [], sourceTypes: ["text"], officeSourceMaxBytes: null };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(json(capabilities)).mockResolvedValueOnce(json(noOffice)));
+    const client = new Client("fake");
+    await expect(client.capabilities()).resolves.toEqual(capabilities);
+    await expect(client.capabilities()).resolves.toEqual(noOffice);
+  });
   it("reads capabilities/list/detail/preview and deletes using only same-origin authenticated paths", async () => {
     const fetcher = vi.fn(async (url: string) => json(url.includes("capabilities") ? capabilities : url.includes("preview") ? { units: [] } : url.includes("?") ? { items: [], hasMore: false } : { deleted: true }));
     vi.stubGlobal("fetch", fetcher);

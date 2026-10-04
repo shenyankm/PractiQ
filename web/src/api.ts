@@ -28,7 +28,7 @@ export class ApiError extends Error {
   constructor(message: string, public readonly code = "CLIENT_ERROR", public readonly status = 0) { super(message); }
 }
 export const isOffice = (source: SourceType) => ["doc", "docx", "xls", "xlsx"].includes(source);
-export const sourceLimit = (capabilities: Capabilities) => capabilities.sourceMaxBytes;
+export const sourceLimit = (capabilities: Capabilities, source?: SourceType) => source && isOffice(source) ? Math.min(capabilities.sourceMaxBytes, capabilities.officeSourceMaxBytes ?? capabilities.sourceMaxBytes) : capabilities.sourceMaxBytes;
 export function fileFormat(file: File) {
   const format = formats[file.name.split(".").at(-1)?.toLowerCase() || ""];
   if (!format || file.name.length > 255) throw new ApiError("请选择支持的文档格式，文件名最多 255 个字符。", "UNSUPPORTED_FILE");
@@ -39,7 +39,7 @@ export function validateFiles(files: File[], capabilities: Capabilities) {
   for (const file of files) {
     const format = fileFormat(file);
     if (!capabilities.sourceTypes.includes(format.sourceType)) throw new ApiError(`服务暂不支持 ${file.name} 的格式。`, "UNSUPPORTED_FILE");
-    if (!file.size || file.size > sourceLimit(capabilities)) throw new ApiError(`${file.name} 为空或超过单文件大小限制。`, "DOCUMENT_TOO_LARGE");
+    if (!file.size || file.size > sourceLimit(capabilities, format.sourceType)) throw new ApiError(`${file.name} 为空或超过单文件大小限制。`, "DOCUMENT_TOO_LARGE");
   }
 }
 export async function sha256(bytes: ArrayBuffer) {
@@ -118,6 +118,7 @@ export class Client {
   async capabilities(signal?: AbortSignal) {
     const value = await this.json<Capabilities>("/api/import-capabilities", undefined, signal);
     if (!Number.isSafeInteger(value.sourceMaxBytes) || value.sourceMaxBytes <= 0 || !Array.isArray(value.sourceTypes) || !value.sourceTypes.every(type => ["pdf", "text", "csv", "image", "doc", "docx", "xls", "xlsx"].includes(type)) || !Array.isArray(value.officeModes) || !value.officeModes.every(mode => ["pdf", "text"].includes(mode)) || typeof value.officeAvailable !== "boolean" || typeof value.modelConfigured !== "boolean") throw new ApiError("服务能力响应无效。", "INVALID_RESPONSE");
+    if (value.officeSourceMaxBytes != null && (!Number.isSafeInteger(value.officeSourceMaxBytes) || value.officeSourceMaxBytes <= 0 || value.officeSourceMaxBytes > value.sourceMaxBytes)) throw new ApiError("服务能力响应无效。", "INVALID_RESPONSE");
     return value;
   }
   list(offset: number, filter = "", signal?: AbortSignal) {

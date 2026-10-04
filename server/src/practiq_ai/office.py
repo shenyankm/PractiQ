@@ -20,9 +20,10 @@ from tempfile import TemporaryDirectory
 from typing import Any
 from xml.parsers import expat
 
+from .contracts import OFFICE_FILE_MAX_BYTES
 from .extractors.isolated import _read_file, watch_parent
 
-FILE_LIMIT = 25 * 1024 * 1024
+FILE_LIMIT = OFFICE_FILE_MAX_BYTES
 TOTAL_LIMIT = 100 * 1024 * 1024
 FILE_COUNT = 100
 TIMEOUT = 180

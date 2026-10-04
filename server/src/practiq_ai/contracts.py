@@ -20,6 +20,7 @@ AnswerMode = Literal["choice", "true_false", "fill_blank", "short_answer", "orde
 DocumentSourceType = Literal["csv", "image", "text", "pdf", "doc", "docx", "xls", "xlsx"]
 OfficeMode = Literal["pdf", "text"]
 OFFICE_SOURCE_TYPES = {"doc", "docx", "xls", "xlsx"}
+OFFICE_FILE_MAX_BYTES = 25 * 1024 * 1024
 ContentPartType = Literal[
     "text",
     "formula",
@@ -64,6 +65,10 @@ def _media_type_matches(source_type: DocumentSourceType, media_type: str) -> boo
 def document_source_key(source_type: DocumentSourceType, sha256: str) -> str:
     suffix = "txt" if source_type == "text" else source_type
     return f"practiq-agent/sources/{sha256}/source.{suffix}"
+
+
+def document_source_limit(source_type: DocumentSourceType, configured: int) -> int:
+    return min(configured, OFFICE_FILE_MAX_BYTES) if source_type in OFFICE_SOURCE_TYPES else configured
 
 
 class ModelCallUsage(StrictModel):
@@ -483,6 +488,7 @@ class DocumentUploadResponse(StrictModel):
 class ImportCapabilities(StrictModel):
     sourceTypes: list[DocumentSourceType]
     sourceMaxBytes: int = Field(gt=0)
+    officeSourceMaxBytes: int | None = Field(default=None, gt=0)
     officeAvailable: bool
     officeModes: list[OfficeMode]
     modelConfigured: bool

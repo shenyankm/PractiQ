@@ -266,6 +266,8 @@ select:disabled { opacity: .6; }
 .file-list span { display: block; font-size: 11px; color: var(--muted-foreground); }
 .file-list p { font-size: 12px; }
 .task-list { max-height: 470px; overflow-y: auto; }
+.task-list-item { margin-bottom: 8px; }
+.task-list-item > .task-row { margin-bottom: 4px; }
 .task-row { display: flex; flex-direction: column; gap: 8px; width: 100%; text-align: left; padding: 12px; margin-bottom: 8px; border: 1px solid var(--border); border-radius: 9px; background: var(--background); }
 .task-row:hover { background: var(--muted); }
 .task-row[aria-pressed="true"] { border-color: var(--primary); background: #f6eef9; }

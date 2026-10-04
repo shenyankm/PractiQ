@@ -16,10 +16,12 @@ from .contracts import (
     OFFICE_SOURCE_TYPES,
     ArtifactReference,
     DocumentReference,
+    DocumentSourceType,
     DocumentUploadRequest,
     DocumentUploadResponse,
     LocalUpload,
     document_source_key,
+    document_source_limit,
 )
 from .errors import DocumentProcessingError
 
@@ -28,6 +30,11 @@ ARTIFACT_KEY_PATTERN = re.compile(
     r"^practiq-agent/artifacts/[0-9a-f]{64}/[a-z][a-z0-9_-]{0,63}/"
     r"(?:0|[1-9][0-9]*)-([0-9a-f]{64})\.([a-z0-9]+)$"
 )
+
+
+def validate_source_size(size: int, source_type: DocumentSourceType, config: Config) -> None:
+    if size > document_source_limit(source_type, config.source_max_bytes):
+        raise DocumentProcessingError(413, "Uploaded file is too large", "DOCUMENT_TOO_LARGE")
 
 
 class ObjectStore:
@@ -45,7 +52,7 @@ class ObjectStore:
             and request.sizeBytes is not None
             and request.mediaType is not None
         )
-        self._validate_source_size(request.sizeBytes)
+        validate_source_size(request.sizeBytes, request.sourceType, self._config)
         key = document_source_key(request.sourceType, request.sha256)
         existing_size = await self._head_size(key)
         if existing_size is not None and existing_size != request.sizeBytes:
@@ -136,6 +143,8 @@ class ObjectStore:
             )
         if not valid_reference:
             raise _invalid_reference()
+        if isinstance(reference, DocumentReference):
+            validate_source_size(reference.sizeBytes, reference.sourceType, self._config)
         size = await self._head_size(reference.objectKey)
         if size is None:
             raise DocumentProcessingError(
@@ -147,8 +156,6 @@ class ObjectStore:
                 "Stored document size does not match",
                 "DOCUMENT_SIZE_MISMATCH",
             )
-        if isinstance(reference, DocumentReference):
-            self._validate_source_size(size)
         payload = await self._call(self._read, reference.objectKey, reference.sizeBytes)
         if len(payload) != reference.sizeBytes:
             raise DocumentProcessingError(
@@ -164,12 +171,6 @@ class ObjectStore:
                 "DOCUMENT_CHECKSUM_MISMATCH",
             )
         return payload
-
-    def _validate_source_size(self, size: int) -> None:
-        if size > self._config.source_max_bytes:
-            raise DocumentProcessingError(
-                413, "Uploaded file is too large", "DOCUMENT_TOO_LARGE"
-            )
 
     def _path(self, key: str) -> Path:
         path = self.root / key

@@ -55,7 +55,7 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [operationError, setOperationError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ threadId: string; fileName: string } | null>(null);
   const job = useRef<symbol | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   useEffect(() => () => client?.disconnect(), [client]);
@@ -88,7 +88,7 @@ export default function App() {
     return () => { controller.abort(); clearTimeout(timer); };
   }, [client, offset, filter, listRevision]);
   useEffect(() => {
-    setDetail(null); setPreview(null); setDetailError(null); setPreviewError(null); setDetailFresh(false); setConfirmDelete(false);
+    setDetail(null); setPreview(null); setDetailError(null); setPreviewError(null); setDetailFresh(false);
     if (!client || !selected) return;
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout>;
@@ -109,7 +109,7 @@ export default function App() {
     catch (error) { setCapError(errorText(error)); }
   }
   function disconnect() {
-    client?.disconnect(); job.current = null; setClient(null); setDraftToken(""); setSelected(null); setFiles([]); setBusy(false); setOperationError(null); setNotice(null); setFileError(null); setOffset(0); setFilter("");
+    client?.disconnect(); job.current = null; setClient(null); setDraftToken(""); setSelected(null); setDeleteTarget(null); setFiles([]); setBusy(false); setOperationError(null); setNotice(null); setFileError(null); setOffset(0); setFilter("");
   }
   async function run(perform: (current: Client) => Promise<void>) {
     if (!client || job.current) return;
@@ -159,7 +159,7 @@ export default function App() {
         <div className="workspace-grid"><aside className="space-y-5">
           <Card><CardHeader><CardTitle className="flex items-center gap-2"><Upload />导入文档</CardTitle></CardHeader><CardContent className="space-y-4">
             {!capabilities ? <p>正在读取服务支持的格式与限制…</p> : <>
-              <p className="text-sm text-muted-foreground">一次最多 {MAX_FILES} 个文件，每个不超过 {sizeLabel(sourceLimit(capabilities))}。选择文件后不会上传，点击「开始导入」才会提交并调用模型。</p>
+              <p className="text-sm text-muted-foreground">一次最多 {MAX_FILES} 个文件，每个不超过 {sizeLabel(sourceLimit(capabilities))}{capabilities.officeAvailable && sourceLimit(capabilities, "docx") < sourceLimit(capabilities) && `，Word / Excel 不超过 ${sizeLabel(sourceLimit(capabilities, "docx"))}`}。选择文件后不会上传，点击「开始导入」才会提交并调用模型。</p>
               <label className="file-picker"><FileText /><span>选择文档</span><Input ref={fileInput} type="file" multiple accept=".pdf,.txt,.csv,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx" disabled={busy} onChange={event => chooseFiles(Array.from(event.target.files || []))} /></label>
               <p className="text-xs text-muted-foreground">服务支持：{capabilities.sourceTypes.map(type => formatLabels[type]).join("、")}{!capabilities.officeAvailable && "。Office 转换当前不可用。"}</p>
               {capabilities.officeAvailable && <label className="space-y-1 block"><span>Word / Excel 转换模式</span><select aria-label="Word / Excel 转换模式" value={officeMode} disabled={busy || files.some(file => file.state !== "ready")} onChange={event => setOfficeMode(event.target.value as OfficeMode)}>{capabilities.officeModes.map(mode => <option key={mode} value={mode}>{mode === "pdf" ? "PDF（保留版面）" : "文本 / 每工作表 CSV"}</option>)}</select><p className="text-xs text-muted-foreground">转换在服务端完成；模式在开始导入后固定，重新解析沿用该模式。</p></label>}
@@ -174,10 +174,11 @@ export default function App() {
             <label className="block"><span className="sr-only">筛选任务状态</span><select value={filter} onChange={event => { setFilter(event.target.value); setOffset(0); }}>{[["", "全部任务"], ["active", "正在处理"], ["paused", "已暂停"], ["review", "等待复核"], ["failed", "失败"], ["completed", "已完成"], ["interrupted", "已中断"], ["expired", "已过期"]].map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
             {listError && <div role="alert" className="space-y-2"><p className="text-destructive">{listError}</p><Button variant="outline" onClick={() => setListRevision(value => value + 1)}>重试任务列表</Button></div>}
             {!tasks.items.length && !listError && <p className="text-muted-foreground">{listLoading ? "正在读取任务…" : "当前没有任务。"}</p>}
-            <div className="task-list">{tasks.items.map(task => <button type="button" key={task.threadId} className="task-row" aria-pressed={selected === task.threadId} onClick={() => setSelected(task.threadId)}><strong>{task.fileName}</strong><span><Badge variant="outline">{stateLabels[task.state]}</Badge>{task.status === "PARTIAL" && <Badge variant="secondary">部分结果</Badge>}</span><small>{task.questionCount} 条题目 · {task.reviewCount} 条待复核</small></button>)}</div>
+            <div className="task-list">{tasks.items.map(task => <div key={task.threadId} className="task-list-item"><button type="button" className="task-row" aria-pressed={selected === task.threadId} onClick={() => { setSelected(task.threadId); setDeleteTarget(null); }}><strong>{task.fileName}</strong><span><Badge variant="outline">{stateLabels[task.state]}</Badge>{task.status === "PARTIAL" && <Badge variant="secondary">部分结果</Badge>}</span><small>{task.questionCount} 条题目 · {task.reviewCount} 条待复核</small></button>{task.state === "EXPIRED" && <Button variant="destructive" size="sm" disabled={busy} aria-label={`删除已过期任务 ${task.fileName}`} onClick={() => setDeleteTarget({ threadId: task.threadId, fileName: task.fileName })}><Trash2 />删除已过期任务</Button>}</div>)}</div>
             <nav aria-label="任务列表分页" className="flex items-center justify-between"><Button variant="outline" size="icon" aria-label="上一页任务" disabled={!offset || listLoading} onClick={() => setOffset(value => Math.max(0, value - 20))}><ChevronLeft /></Button><span className="text-xs">第 {Math.floor(offset / 20) + 1} 页</span><Button variant="outline" size="icon" aria-label="下一页任务" disabled={!tasks.hasMore || listLoading} onClick={() => setOffset(value => value + 20)}><ChevronRight /></Button></nav>
           </CardContent></Card>
         </aside><section className="task-panel" aria-label="任务详情">
+          {deleteTarget && <div className="notice" role="group" aria-label="删除任务确认"><p>确认删除「{deleteTarget.fileName}」及其检查点？已下载的题库不受影响。</p><div className="flex gap-2 mt-3"><Button variant="destructive" disabled={busy} onClick={() => void run(async current => { await current.delete(deleteTarget.threadId); if (current.active) { setSelected(value => value === deleteTarget.threadId ? null : value); setListRevision(value => value + 1); setDeleteTarget(null); setNotice("任务已删除。"); } })}>确认删除</Button><Button variant="outline" disabled={busy} onClick={() => setDeleteTarget(null)}>保留任务</Button></div></div>}
           {!selected ? <div className="empty-panel"><FileText /><h2>选择一个任务查看结果</h2><p>页面会自动读取进度。暂停、继续、重试和重新解析都需要明确点击。</p></div> : <>
             {detailError && <div className="error-banner" role="alert">{detailError}<Button variant="outline" onClick={() => setDetailRevision(value => value + 1)}>重试任务详情</Button></div>}
             {previewError && <div className="error-banner" role="alert">{previewError}<Button variant="outline" onClick={() => setDetailRevision(value => value + 1)}>重试检查点预览</Button></div>}
@@ -186,8 +187,7 @@ export default function App() {
               {!detailFresh && <p className="notice">当前显示上次成功读取的信息，任务操作已停用，请先刷新。</p>}
               {preview && preview.checkpointId !== detail.checkpointId && <p className="notice">任务检查点正在更新，读取一致后才能继续或导出。</p>}
               <Progress task={detail} />
-              <div className="task-actions">{detail.allowedActions.map(action => <Button key={action} variant="outline" disabled={busy || !detailFresh || (!["pause", "interrupt"].includes(action) && !matchingCheckpoint) || (["resume", "retry_failed"].includes(action) && (!detail.modelConfigured || !detail.resumeCompatible))} onClick={() => act(action)}>{actionLabels[action]}</Button>)}<Button variant="outline" disabled={busy || !detailFresh || !detail.modelConfigured || detail.state === "EXPIRED"} onClick={() => void run(async current => { const receipt = await current.reparse(detail.threadId); if (current.active) { setSelected(value => value === detail.threadId ? receipt.threadId : value); setListRevision(value => value + 1); setDetailRevision(value => value + 1); setNotice("新解析任务已创建。"); } })}><RefreshCw />重新解析为新任务</Button><Button disabled={busy || !canExport} onClick={() => void run(async current => { const exported = await current.exportBank(detail); if (current.active) { downloadBlob(exported.blob, exported.name); setNotice("题库 ZIP 已下载。请在应用设置中追加导入。"); } })}><Download />下载题库 ZIP</Button><Button variant="destructive" disabled={busy || !detailFresh || ["RUNNING", "PENDING", "PAUSING"].includes(detail.state)} onClick={() => setConfirmDelete(true)}><Trash2 />删除任务</Button></div>
-              {confirmDelete && <div className="notice" role="group" aria-label="删除任务确认"><p>确认删除此任务及其检查点？已下载的题库不受影响。</p><div className="flex gap-2 mt-3"><Button variant="destructive" disabled={busy} onClick={() => void run(async current => { await current.delete(detail.threadId); if (current.active) { setSelected(value => value === detail.threadId ? null : value); setListRevision(value => value + 1); setConfirmDelete(false); setNotice("任务已删除。"); } })}>确认删除</Button><Button variant="outline" onClick={() => setConfirmDelete(false)}>保留任务</Button></div></div>}
+              <div className="task-actions">{detail.allowedActions.map(action => <Button key={action} variant="outline" disabled={busy || !detailFresh || (!["pause", "interrupt"].includes(action) && !matchingCheckpoint) || (["resume", "retry_failed"].includes(action) && (!detail.modelConfigured || !detail.resumeCompatible))} onClick={() => act(action)}>{actionLabels[action]}</Button>)}<Button variant="outline" disabled={busy || !detailFresh || !detail.modelConfigured || detail.state === "EXPIRED"} onClick={() => void run(async current => { const receipt = await current.reparse(detail.threadId); if (current.active) { setSelected(value => value === detail.threadId ? receipt.threadId : value); setListRevision(value => value + 1); setDetailRevision(value => value + 1); setNotice("新解析任务已创建。"); } })}><RefreshCw />重新解析为新任务</Button><Button disabled={busy || !canExport} onClick={() => void run(async current => { const exported = await current.exportBank(detail); if (current.active) { downloadBlob(exported.blob, exported.name); setNotice("题库 ZIP 已下载。请在应用设置中追加导入。"); } })}><Download />下载题库 ZIP</Button><Button variant="destructive" disabled={busy || !detailFresh || ["RUNNING", "PENDING", "PAUSING"].includes(detail.state)} onClick={() => setDeleteTarget({ threadId: detail.threadId, fileName: detail.fileName })}><Trash2 />删除任务</Button></div>
               {!!detail.failures.length && <section className="notice"><h3>失败单元</h3><ul>{detail.failures.map(failure => <li key={`${failure.stage}:${failure.index}`}>{failure.stage} · {failure.index} · {failure.code} · {failure.retryable ? `可重试，剩余 ${failure.retriesRemaining ?? 0} 次` : "不可重试"}</li>)}</ul></section>}
               {(!detail.modelConfigured || !detail.resumeCompatible) && <p className="notice">{!detail.modelConfigured ? "服务端模型未配置。" : "当前模型配置与检查点不兼容。"}继续和重试暂不可用，现有结果仍可检查。</p>}
               <Usage task={detail} />
