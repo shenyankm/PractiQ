@@ -43,6 +43,8 @@ For each task ask participants to describe what they expected, where they hesita
 
 Use participant codes such as P01 only after consent; these remain identifiable to the coordinator until the mapping is deleted. Copy all nine rows below for each participant and record each task separately. For each AI row, record not offered (with reason), offered/awaiting decision, declined or opted in. Blank means unrecorded, not success. Attempts that stop with an obstacle are failed or incomplete; distinguish participant withdrawal from application failure.
 
+Store all filled-in task records, per-attempt records and raw notes, including participant codes and free text, privately under the coordinator's control; do not commit or upload them to a repository. Apply the existing raw-note deletion deadline above to all of these records. Publish only consented, sanitized aggregates or public artifacts whose exact version has been approved under the publication-consent rules above; remove participant codes and identifying details.
+
 | Participant code | Build SHA/version | OS/architecture | Task | AI offer/opt-in | Attempted? | Outcome: completed/failed/incomplete/not attempted | Help needed | Reproduction/obstacle | Approved screenshot/quote ID(s), if any |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Pending | Pending | Pending | T1 | N/A | Unrecorded | Unrecorded | Unrecorded | Unrecorded | Unrecorded |
