@@ -1,6 +1,6 @@
 # Import quality acceptance worksheet
 
-Tracks [#90](https://github.com/shenyankm/PractiQ/issues/90). Prepared on 2026-10-04 against main commit `2e9215f59920a7e2f7d9bf9b64ff61b6d1f6ccd7`. This is a reproducible preparation snapshot; select a new clean candidate after the pending repairs merge. Real-model calls were explicitly declined for this work. Live extraction, independent annotation and native round-trip acceptance remain pending; this document does not close the issue.
+Tracks [#90](https://github.com/shenyankm/PractiQ/issues/90). Prepared on 2026-10-04 against main commit `2e9215f59920a7e2f7d9bf9b64ff61b6d1f6ccd7`, with the offline DOC repair described below. Select a new clean candidate after the pending repairs merge. Real-model calls were explicitly declined for this work. Live extraction, independent annotation and native round-trip acceptance remain pending; this document does not close the issue.
 
 ## Corpus and provenance
 
@@ -46,6 +46,14 @@ AI_PYTHON=/absolute/path/to/python3.14
 ```
 
 These checks inspect fixture integrity and scorer behavior with substitutes; they do not call a provider. For Office fidelity and release package checks follow the existing [release policy](releases.md); choose fresh report paths and retain failures.
+
+## Offline DOC equation repair
+
+The unchanged [Office regression DOC](../app/fixtures/office/README.md) loses its fraction's numerator and denominator during direct PDF export with bundled LibreOffice 26.8.0.3. Visual review confirms the loss; it is not just a PDF text-order mismatch. The source still contains the equation: the same engine's DOCX export retains its numerator and denominator. Regenerating DOC from the committed DOCX reproduces the exact committed DOC hash.
+
+The private worker now converts only legacy DOC/PDF inputs through a temporary DOCX, then exports the PDF with the same pinned engine. Both stages share the original timeout, use fresh hardened profiles and retain output size, regular-file and package checks. The intermediate DOCX is never an artifact. Original input bytes, metadata and native source associations remain unchanged; DOC text, DOCX and Excel conversion keep their existing paths.
+
+The local source-worker check first failed on the old path, then passed the unchanged fraction/image gate after this repair. The resulting PDF also retained all 70 table rows, 70 supplied answers, the final paragraph and three pages. These runs used the existing bundled macOS engine without model calls. They establish this fixture's source-worker behavior, not arbitrary Office fidelity, rebuilt-package acceptance or live recognition. The older application package still contains the failing worker. Rebuild the combined candidate and retain fresh strict fidelity, isolated conversion and package reports for each target before acceptance; keep the original failed report.
 
 ## Live run and completion record
 

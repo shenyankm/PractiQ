@@ -1,4 +1,5 @@
 """Local conversion checks never use a model or a running HTTP service."""
+import hashlib
 import io
 import json
 import os
@@ -13,6 +14,161 @@ from types import SimpleNamespace
 import pytest
 
 from practiq_ai import office
+
+
+def test_legacy_doc_pdf_preserves_source_and_uses_private_normalized_snapshot(tmp_path, monkeypatch):
+    source = Path(__file__).parents[2] / 'app/fixtures/office/中文 试卷.doc'
+    docx = source.with_suffix('.docx').read_bytes()
+    original, metadata = source.read_bytes(), source.stat()
+    calls = []
+    snapshots = []
+
+    def run(args, deadline, output):
+        assert args[0] == '/bundled/soffice'
+        assert '--headless' in args and '--norestore' in args
+        profile = next(arg for arg in args if arg.startswith('-env:UserInstallation='))
+        calls.append((profile, deadline))
+        if len(calls) == 1:
+            assert args[-1] == str(source)
+            assert args[args.index('--convert-to') + 1] == 'docx:Office Open XML Text'
+            (output / source.with_suffix('.docx').name).write_bytes(docx)
+        else:
+            from PIL import Image
+            snapshot = Path(args[-1])
+            assert snapshot != source and snapshot.suffix == '.docx' and snapshot.read_bytes() == docx
+            assert output == tmp_path / 'out'
+            assert args[args.index('--convert-to') + 1] == 'pdf:writer_pdf_Export'
+            snapshots.append(snapshot)
+            Image.new('RGB', (24, 24)).save(output / source.with_suffix('.pdf').name, 'PDF')
+
+    monkeypatch.setattr(office, '_run', run)
+    artifacts = office.convert('/bundled/soffice', source, tmp_path / 'out', 'pdf')
+    assert len(artifacts) == 1 and artifacts[0]['name'] == source.with_suffix('.pdf').name
+    assert artifacts[0]['sha256'] == hashlib.sha256((tmp_path / 'out' / artifacts[0]['name']).read_bytes()).hexdigest()
+    assert len(calls) == 2 and calls[0][0] != calls[1][0] and calls[0][1] == calls[1][1]
+    assert len(snapshots) == 1 and not snapshots[0].exists()
+    assert source.read_bytes() == original
+    assert (source.stat().st_size, source.stat().st_mtime_ns) == (metadata.st_size, metadata.st_mtime_ns)
+
+
+@pytest.mark.parametrize('case,code', [
+    ('missing', 'OFFICE_CONVERSION_FAILED'), ('wrong_name', 'OFFICE_OUTPUT_INVALID'),
+    ('extra', 'OFFICE_OUTPUT_INVALID'), ('directory', 'OFFICE_OUTPUT_INVALID'),
+    ('bad_zip', 'OFFICE_OUTPUT_INVALID'), ('missing_members', 'OFFICE_OUTPUT_INVALID'),
+    ('macro', 'OFFICE_OUTPUT_INVALID'), ('oversized', 'OFFICE_OUTPUT_LIMIT'),
+    ('expanded', 'OFFICE_OUTPUT_INVALID'),
+    ('bad_crc', 'OFFICE_OUTPUT_INVALID'), ('bad_image_crc', 'OFFICE_OUTPUT_INVALID'),
+    ('bad_xml', 'OFFICE_OUTPUT_INVALID'), ('bad_utf16_xml', 'OFFICE_OUTPUT_INVALID'),
+    ('doctype', 'OFFICE_OUTPUT_INVALID'), ('doctype_utf16', 'OFFICE_OUTPUT_INVALID'),
+    ('duplicate', 'OFFICE_OUTPUT_INVALID'),
+])
+def test_legacy_doc_pdf_rejects_invalid_intermediate_without_export(tmp_path, monkeypatch, case, code):
+    source = Path(__file__).parents[2] / 'app/fixtures/office/中文 试卷.doc'
+    workspaces = []
+
+    def run(args, deadline, output):
+        workspaces.append(output)
+        target = output / source.with_suffix('.docx').name
+        if case == 'missing':
+            return
+        if case == 'directory':
+            target.mkdir()
+        elif case == 'bad_zip':
+            target.write_bytes(b'not a ZIP')
+        elif case == 'oversized':
+            monkeypatch.setattr(office, 'FILE_LIMIT', source.stat().st_size)
+            target.write_bytes(b'x' * (office.FILE_LIMIT + 1))
+        else:
+            with zipfile.ZipFile(target, 'w', zipfile.ZIP_DEFLATED) as archive:
+                archive.writestr('[Content_Types].xml', '<Types/>')
+                if case != 'missing_members':
+                    xml = '<document/>'
+                    if case == 'expanded':
+                        xml = 'x' * 10000
+                    elif case in {'bad_xml', 'bad_utf16_xml'}:
+                        xml = '<document>'
+                    elif case in {'doctype', 'doctype_utf16'}:
+                        xml = '<!DOCTYPE document [<!ENTITY x "boom">]><document>&x;</document>'
+                    archive.writestr('word/document.xml', xml.encode('utf-16') if case.endswith('utf16') or case == 'bad_utf16_xml' else xml)
+                    if case == 'duplicate':
+                        with pytest.warns(UserWarning, match='Duplicate name'):
+                            archive.writestr('word/document.xml', '<document/>')
+                if case == 'macro':
+                    archive.writestr('word/vbaProject.bin', b'macro')
+                if case == 'bad_image_crc':
+                    archive.writestr('word/media/image.png', b'image-data')
+            if case in {'bad_crc', 'bad_image_crc'}:
+                data = bytearray(target.read_bytes())
+                offset = data.index(b'PK\x01\x02') if case == 'bad_crc' else data.rindex(b'PK\x01\x02')
+                struct.pack_into('<I', data, offset + 16, 0)
+                target.write_bytes(data)
+            if case == 'wrong_name':
+                target.rename(output / 'wrong.docx')
+            elif case == 'extra':
+                (output / 'extra.docx').write_bytes(target.read_bytes())
+            elif case == 'expanded':
+                monkeypatch.setattr(office, 'TOTAL_LIMIT', 1000)
+
+    monkeypatch.setattr(office, '_run', run)
+    monkeypatch.setattr(office, '_export', lambda *args: pytest.fail('Invalid intermediate must not start PDF export'))
+    with pytest.raises(office.OfficeError, match=code):
+        office.convert('/bundled/soffice', source, tmp_path / 'out', 'pdf')
+    assert len(workspaces) == 1 and not workspaces[0].exists()
+
+
+@pytest.mark.parametrize('stage', ['normalization', 'pdf'])
+def test_legacy_doc_pdf_cleans_intermediate_after_conversion_failure(tmp_path, monkeypatch, stage):
+    source = Path(__file__).parents[2] / 'app/fixtures/office/中文 试卷.doc'
+    workspaces = []
+    def run(args, deadline, output):
+        workspaces.append(output)
+        if stage == 'normalization':
+            raise office.OfficeError('OFFICE_CONVERSION_FAILED')
+        (output / source.with_suffix('.docx').name).write_bytes(source.with_suffix('.docx').read_bytes())
+    def export(*args):
+        raise office.OfficeError('OFFICE_CONVERSION_FAILED')
+    monkeypatch.setattr(office, '_run', run)
+    monkeypatch.setattr(office, '_export', export)
+    with pytest.raises(office.OfficeError, match='OFFICE_CONVERSION_FAILED'):
+        office.convert('/bundled/soffice', source, tmp_path / 'out', 'pdf')
+    assert len(workspaces) == 1 and not workspaces[0].exists()
+
+
+@pytest.mark.parametrize('stage', ['normalization', 'pdf'])
+def test_legacy_doc_pdf_shared_deadline_stops_before_next_engine_launch(tmp_path, monkeypatch, stage):
+    source = Path(__file__).parents[2] / 'app/fixtures/office/中文 试卷.doc'
+    now, calls = 0, []
+    monkeypatch.setattr(office, 'TIMEOUT', 1)
+    monkeypatch.setattr(office.time, 'monotonic', lambda: now)
+    def version(engine, deadline):
+        nonlocal now
+        assert deadline == 1
+        if stage == 'normalization':
+            now = 2
+        return 'pinned-version'
+    def run(args, deadline, output):
+        nonlocal now
+        calls.append(deadline)
+        (output / source.with_suffix('.docx').name).write_bytes(source.with_suffix('.docx').read_bytes())
+        now = 2
+    monkeypatch.setattr(office, 'engine_version', version)
+    monkeypatch.setattr(office, '_run', run)
+    monkeypatch.setattr(office, '_export', lambda *args: pytest.fail('Expired budget must not start PDF export'))
+    with pytest.raises(office.OfficeError, match='OFFICE_TIMEOUT'):
+        office.convert('/bundled/soffice', source, tmp_path / 'out', 'pdf', expected_version='pinned-version')
+    assert calls == ([] if stage == 'normalization' else [1])
+
+
+@pytest.mark.parametrize('extension,mode', [('doc', 'text'), ('docx', 'pdf'), ('docx', 'text'), ('xls', 'pdf'), ('xls', 'text'), ('xlsx', 'pdf'), ('xlsx', 'text')])
+def test_other_office_paths_do_not_normalize_legacy_word(tmp_path, monkeypatch, extension, mode):
+    fixtures = Path(__file__).parents[2] / 'app/fixtures/office'
+    source = next(fixtures.glob(f'*.{extension}'))
+    def export(engine, snapshot, output, family, selected_mode, deadline):
+        assert snapshot == source and selected_mode == mode
+        return [{'name': 'existing-path'}]
+    monkeypatch.setattr(office, '_export', export)
+    monkeypatch.setattr(office, '_run', lambda *args: pytest.fail('This format/mode must not add normalization'))
+    assert office.convert('/bundled/soffice', source, tmp_path / 'out', mode) == [{'name': 'existing-path'}]
 
 
 def test_table_ending_docx_text_uses_private_snapshot_without_changing_input(tmp_path, monkeypatch):
@@ -343,6 +499,10 @@ def test_legacy_input_checks_root_stream_family_before_launch(tmp_path, monkeypa
     source = tmp_path / f"selected.{extension}"
     source.write_bytes(original)
     monkeypatch.setattr(office, "_export", lambda *args: [{"name": "converted"}])
+    def normalize(args, deadline, output):
+        assert args[args.index('--convert-to') + 1] == 'docx:Office Open XML Text'
+        (output / source.with_suffix('.docx').name).write_bytes(next(fixtures.glob('*.docx')).read_bytes())
+    monkeypatch.setattr(office, '_run', normalize)
     assert office.convert("unused", source, tmp_path / "out", "pdf")
     assert source.read_bytes() == original
     # A real Word container renamed to XLS (and vice versa) is not accepted.
