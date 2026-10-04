@@ -124,9 +124,14 @@ Do not reuse an unsigned candidate's checksums or acceptance labels.
 Use the [explicit final-installer staging commands](final-package-acceptance.md#review-and-publication-handoff)
 to derive checked resources from the selected final file and rebuild local
 assets. Default `release.py stage` remains the unsigned CI path. Explicit
-staging does not verify signing or source-build provenance; archive actual
-signing results bound to the final SHA-256 and preserve independent build
-evidence before recording verified status in the release template.
+staging requires the original CI platform candidate, installer and bound
+evidence, preserves its build URL, and checks the selected installer's actual
+desktop version. Windows payload extraction requires installed full 7-Zip;
+it does not execute NSIS or count as installation acceptance. Raw local reports
+remain private; the public evidence copy replaces machine paths before hashing.
+Staging does not attest Actions provenance or verify signing. Archive actual
+signing results bound to the final SHA-256 and review the original download's
+build provenance before recording verified status in the release template.
 
 For each public platform record OS version, architecture, date and results for
 clean installation, upgrade/uninstall, native dialogs, credentials, audio,

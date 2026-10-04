@@ -128,14 +128,35 @@ TAG=your_selected_candidate_tag
 FINAL_INSTALLER=/absolute/path/to/exact/final-installer.dmg
 FINAL_INPUTS=/absolute/path/to/fresh/final-inputs
 FINAL_REPORTS=/absolute/path/to/fresh/final-reports-macos
+BUILD_CANDIDATE=/absolute/path/to/original-release-macos/candidate.json
 "$AI_PYTHON" app/scripts/release.py stage --tag "$TAG" \
   --installer "$FINAL_INSTALLER" --reports "$FINAL_REPORTS" \
+  --build-candidate "$BUILD_CANDIDATE" \
   --output "$FINAL_INPUTS/release-macos"
 ```
 
-Run this command on each clean target validation system, using the final NSIS `.exe` or DEB `.deb` and distinct `release-windows` or `release-linux` output folders. In PowerShell use `& $AiPython app/scripts/release.py stage --tag $Tag --installer $FinalInstaller --reports $FinalReports --output "$FinalInputs/release-windows"`, then reject a nonzero `$LASTEXITCODE`. This explicit mode copies the selected installer to a private read-only snapshot, mounts that DMG, installs that NSIS into a fresh temporary destination, or extracts that DEB. It derives the bundle from those selected bytes, reruns all four strict gates and compares embedded notices. It keeps failed reports and creates the output candidate only after source and artifact checks pass. Existing report or output directories are rejected; no Actions environment variables are required.
+Use the corresponding original platform candidate downloaded from the immutable CI run. Keep its original installer and complete `evidence/` directory beside `candidate.json`. Staging checks the original tag, source SHA, component versions, platform, asset bytes and evidence hashes, preserves the build URL, and archives the original candidate identity. Review the download's Actions provenance independently; matching local hashes cannot attest its origin.
 
-Record actual signing verification separately, including the final installer SHA-256, expected publisher identity, exact verification commands and their sanitized results. Retain an independent JSON report with `artifactSha256` matching that final file; it may also record `status`, `identity`, `verificationCommands` and `verificationResults`. Add `--signing-report /absolute/path/to/actual-signing-report.json` to explicit staging to archive it as `evidence/signing-report.json`. The tool rejects a report bound to different bytes. It records **unverified** for its own signing check because it does not execute signing verification; the linked report and release template record the actual independently verified status. Preserve the original immutable build run/source evidence: the staging checkout SHA identifies the check inputs and cannot by itself prove the installer was built from that commit. Manual and live-model acceptance remain **pending**.
+On Windows, use an installed full [7-Zip](https://7-zip.org/7z.html) with NSIS support. `7za` and `7zr` are insufficient. Define the values before staging; `$FinalReports` must be fresh and must not reuse the already populated `$ReportDir`:
+
+```powershell
+$Tag = 'your_selected_candidate_tag'
+$FinalInstaller = $Installer
+$FinalReports = 'C:\absolute\path\to\fresh-final-reports-windows'
+$FinalInputs = 'C:\absolute\path\to\fresh-final-inputs'
+$BuildCandidate = 'C:\absolute\path\to\original-release-windows\candidate.json'
+$SevenZip = (Get-Command 7z.exe -ErrorAction Stop).Source
+& $AiPython app/scripts/release.py stage --tag $Tag --installer $FinalInstaller `
+  --reports $FinalReports --build-candidate $BuildCandidate --seven-zip $SevenZip `
+  --output "$FinalInputs/release-windows"
+if ($LASTEXITCODE -ne 0) { throw 'Final Windows staging failed' }
+```
+
+Run the equivalent command on each native target, using the final NSIS `.exe` or DEB `.deb`, matching original build candidate and distinct `release-windows` or `release-linux` output folders. Explicit staging copies the selected installer to a private read-only snapshot, mounts that DMG, extracts the NSIS payload with 7-Zip, or extracts that DEB. It never executes the Windows installer or creates uninstall entries and shortcuts. Payload extraction is engineering evidence; installed UI and clean-machine acceptance still require the platform matrix above. Missing 7-Zip or unsafe payload paths block staging.
+
+Staging compares the actual desktop version from macOS `Info.plist`, Windows installer and application `ProductVersion`, or DEB control `Version` with the complete candidate version, including any prerelease suffix. It derives the bundle from those selected bytes, reruns all four strict gates and compares embedded notices. It retains raw reports privately in `FINAL_REPORTS`; the public evidence copy replaces absolute machine paths before calculating evidence hashes. Review all public evidence before publication. Failed reports remain available, and output assets appear only after source, version, provenance and artifact checks pass. Existing report or output directories are rejected; no Actions environment variables are required.
+
+Record actual signing verification separately, including the final installer SHA-256, expected publisher identity, exact verification commands and their sanitized results. Retain an independent JSON report with a complete 64-hex `artifactSha256` matching that final file; uppercase and lowercase hexadecimal identify the same bytes. It may also record `status`, `identity`, `verificationCommands` and `verificationResults`. Add `--signing-report /absolute/path/to/actual-signing-report.json` to explicit staging to archive it as `evidence/signing-report.json`. The tool rejects a report bound to different bytes. It records **unverified** for its own signing check because it does not execute signing verification; the linked report and release template record the actual independently verified status. The staging checkout SHA identifies the check inputs and cannot by itself prove the installer was built from that commit. Manual and live-model acceptance remain **pending**.
 
 After collecting all three new platform candidates, copy the service verification reports for that same source into `FINAL_INPUTS/service-checks` as required by the existing workflow, then assemble into another fresh directory:
 
