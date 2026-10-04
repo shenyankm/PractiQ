@@ -347,3 +347,52 @@ test('practice preserves answers across sidebar and viewport changes',async ({pa
   assert(await page.evaluate(()=>document.activeElement !== document.body), 'Keyboard focus must remain reachable');
  }
 });
+
+
+for (const delay of ['reload', 'mutation']) test(`favorite ${delay} completion preserves the current question filters and pagination`, async ({page, observedCalls}) => {
+ await page.evaluate(({question, delay}) => {
+  const originalInvoke = window.__TAURI_INTERNALS__.invoke;
+  const row = id => ({id, bankId:'one', bankTitle:'Test bank', question:{...question,id,stem:id},groups:[],visuals:[],sources:[],warnings:[],missingAssets:false,favorite:true,latestResult:null});
+  const alpha = row('alpha'), beta = row('beta');
+  let mutated = false, holdReload = true;
+  window.__questionRefresh = {release:null};
+  window.__TAURI_INTERNALS__.invoke = async (command, args) => {
+   const request = args?.request;
+   if (command !== 'request' || !['favorite','questions_page'].includes(request?.type)) return originalInvoke(command,args);
+   await window.__recordMockCall({command,request});
+   if (request.type === 'favorite') {
+    if (delay === 'mutation') await new Promise(resolve => {window.__questionRefresh.release=resolve;});
+    mutated = true;
+    return null;
+   }
+   if (delay === 'reload' && mutated && holdReload && !request.search) {
+    holdReload = false;
+    return new Promise(resolve => {window.__questionRefresh.release=()=>resolve({items:[alpha],total:61,offset:30});});
+   }
+   return {items:[request.search === 'beta' ? beta : alpha],total:request.search === 'beta' ? 31 : 61,offset:request.offset};
+  };
+ }, {question:JSON.parse(fs.readFileSync('fixtures/sample.json','utf8')).questions.find(q=>q.answerMode==='true_false'), delay});
+ await page.getByRole('button',{name:'Favorites',exact:true}).click();
+ await expect(page.getByText('alpha',{exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'Next page',exact:true}).click();
+ await expect(page.getByText('Questions 31–60',{exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'Remove favorite',exact:true}).click();
+ await expect.poll(()=>page.evaluate(()=>typeof window.__questionRefresh.release)).toBe('function');
+ const search=page.getByRole('textbox',{name:'Search questions',exact:true});
+ await expect(search).toBeEnabled();
+ await search.fill('beta');
+ await page.getByRole('combobox',{name:'Filter by question type',exact:true}).selectOption('true_false');
+ await expect(page.getByText('beta',{exact:true})).toBeVisible();
+ await expect(page.getByText('Questions 1–30',{exact:true})).toBeVisible();
+ const reads=observedCalls.filter(call=>call.request.type==='questions_page').length;
+ await page.evaluate(()=>window.__questionRefresh.release());
+ if (delay === 'mutation') {
+  await expect.poll(()=>observedCalls.filter(call=>call.request.type==='questions_page').length).toBe(reads+1);
+  expect(observedCalls.filter(call=>call.request.type==='questions_page').at(-1).request).toMatchObject({search:'beta',mode:'true_false',offset:0,filter:'favorite'});
+ }
+ await expect(page.getByText('alpha',{exact:true})).toHaveCount(0);
+ await expect(search).toHaveValue('beta');
+ await expect(page.getByText('Questions 1–30',{exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'Next page',exact:true}).click();
+ await expect(page.getByText('Questions 31–31',{exact:true})).toBeVisible();
+});
