@@ -67,6 +67,15 @@ def acceptance_report(candidate, kind, status="passed"):
             "verificationResults": ["Synthetic schema test only; no installation or real model was run"]}
 
 
+def duplicate_original_bytes(candidate, location, private):
+    hidden = "file:///Users/Alice/private/report.json" if private else "harmless first value"
+    pair = f'"path":{json.dumps(hidden)},"path":"safe"'
+    duplicate = (f'"privateDiagnostic":{json.dumps(hidden)}' + r',"private\u0044iagnostic":"safe"' if location == "escaped" else
+                 f'"privateDiagnostic":{json.dumps(hidden)},"privateDiagnostic":"safe"' if location == "top" else
+                 f'"diagnostic":{{{pair}}}' if location == "nested" else f'"diagnostics":[{{{pair}}}]')
+    return (json.dumps(candidate, indent=3)[:-1] + "," + duplicate + "}").encode()
+
+
 @pytest.fixture
 def release():
     return SimpleNamespace(**runpy.run_path(str(ROOT / "app/scripts/release.py")))
@@ -944,6 +953,35 @@ def test_final_staging_preserves_exact_original_candidate_bytes(release, source,
     assert bound["originalCandidate"] == "evidence/original-candidate.json"
 
 
+@pytest.mark.parametrize("location", ["top", "nested", "array", "escaped"])
+@pytest.mark.parametrize("private", [False, True])
+def test_original_build_rejects_all_duplicate_json_keys_before_public_staging(release, source, final_setup, location, private):
+    installer, output, reports, state = final_setup()
+    path = state["build_candidate"]
+    raw = duplicate_original_bytes(json.loads(path.read_bytes()), location, private)
+    path.write_bytes(raw)
+    with pytest.raises(ValueError, match="duplicate object keys"):
+        release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=path)
+    assert path.read_bytes() == raw and not output.exists() and not reports.exists()
+    assert not state["calls"] and not state["native"]
+
+
+@pytest.mark.parametrize("location", ["top", "nested", "array", "escaped"])
+@pytest.mark.parametrize("private", [False, True])
+def test_stage_rechecks_duplicate_keys_in_exact_original_bytes_and_retains_private_raw(release, source, final_setup, monkeypatch, location, private):
+    installer, output, reports, state = final_setup()
+    provenance, _ = release.original_build(source, "v0.1.0", "a" * 40, state["build_candidate"])
+    raw = duplicate_original_bytes(provenance["candidate"], location, private)
+    provenance["candidate"] = json.loads(raw)
+    provenance["candidateSha256"] = hashlib.sha256(raw).hexdigest()
+    provenance["verifiedCandidateSha256"] = hashlib.sha256(json.dumps(provenance["candidate"], sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    # Isolate the later public stage boundary even if earlier provenance validation was bypassed.
+    monkeypatch.setitem(release.restage_installer.__globals__, "original_build", lambda *_: (provenance, raw))
+    with pytest.raises(ValueError, match="duplicate object keys"):
+        release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=state["build_candidate"])
+    assert (reports / "original-candidate.json").read_bytes() == raw and not output.exists() and not state["calls"]
+
+
 @pytest.mark.parametrize("private", ["file:///Users/Alice/private/report.json", "/Users/Alice/private/report.json"])
 def test_final_staging_keeps_private_original_candidate_and_refuses_public_paths(release, source, final_setup, private):
     installer, output, reports, state = final_setup()
@@ -1317,6 +1355,29 @@ def test_final_assembly_archives_the_exact_original_candidate_bytes(release, sou
     release.assemble(source, "v0.1.0", restaged, output)
     with zipfile.ZipFile(output / "release-evidence.zip") as archive:
         assert archive.read("macos/evidence/original-candidate.json") == expected
+
+
+@pytest.mark.parametrize("location", ["top", "nested", "array", "escaped"])
+@pytest.mark.parametrize("private", [False, True])
+def test_assembly_rejects_original_duplicate_keys_after_all_digests_are_regenerated(release, source, restaged, location, private):
+    folder = restaged / "release-macos"
+    evidence = folder / "evidence"
+    bound_path = evidence / "build-candidate.json"
+    bound = json.loads(bound_path.read_bytes())
+    raw = duplicate_original_bytes(bound["candidate"], location, private)
+    (evidence / "original-candidate.json").write_bytes(raw)
+    bound["candidate"] = json.loads(raw)
+    bound["candidateSha256"] = hashlib.sha256(raw).hexdigest()
+    bound["verifiedCandidateSha256"] = hashlib.sha256(json.dumps(bound["candidate"], sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    bound_path.write_text(json.dumps(bound))
+    path = folder / "candidate.json"
+    candidate = json.loads(path.read_bytes())
+    candidate["evidence"] = {f"evidence/{item.name}": release.checksum(item) for item in evidence.iterdir()}
+    path.write_text(json.dumps(candidate))
+    output = source / "ambiguous-original-assets"
+    with pytest.raises(ValueError, match="duplicate object keys"):
+        release.assemble(source, "v0.1.0", restaged, output)
+    assert not output.exists() and (evidence / "original-candidate.json").read_bytes() == raw
 
 
 @pytest.mark.parametrize("original_platforms", [("macos",), ("windows",), ("linux",),
