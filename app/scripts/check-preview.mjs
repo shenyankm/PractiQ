@@ -34,6 +34,91 @@ test('development preview pages stay offline',async ({page},testInfo)=>{
  await page.screenshot({path:testInfo.outputPath('preview.png'),fullPage:true});
 });
 
+test('preview question filters preserve imported warnings through review confirmation',async ({page})=>{
+ await page.goto('/');
+ await page.getByRole('button',{name:'查看题目',exact:true}).first().click();
+ const type=page.getByLabel('筛选题型');
+ await type.selectOption('single');
+ await expect(page.getByRole('button',{name:/下面哪一个是质数？/})).toBeVisible();
+ await expect(page.getByRole('button',{name:/请选择偶数。/})).toBeHidden();
+ await type.selectOption('multiple');
+ await expect(page.getByRole('button',{name:/请选择偶数。/})).toBeVisible();
+ await expect(page.getByRole('button',{name:/下面哪一个是质数？/})).toBeHidden();
+ await type.selectOption('');
+ await page.getByRole('checkbox',{name:'仅看待复核',exact:true}).check();
+ const question=page.getByRole('button',{name:/观察 PractiQ 图标，描述你的印象。/});
+ await question.click();
+ const dialog=page.getByRole('dialog',{name:'题目详情',exact:true});
+ await dialog.getByRole('button',{name:'标记已复核',exact:true}).click();
+ await expect(dialog.getByRole('button',{name:'撤销复核确认',exact:true})).toBeVisible();
+ const stored=await page.evaluate(async()=>{
+  const {invoke}=await import('/src/transport.ts');
+  const result=await invoke('request',{request:{type:'questions_page',bank_ids:['preview-bank-0'],search:'',mode:'',filter:'',offset:0,limit:20}});
+  return result.items.find(row=>row.id==='0-q8');
+ });
+ expect(stored.question.needsReview).toBe(true);
+ expect(stored.reviewedAt).toBeGreaterThan(0);
+ expect(stored.warnings).toEqual(['原文未提供参考答案，请人工确认。']);
+ await page.keyboard.press('Escape');
+ await expect(question).toBeHidden();
+ await page.getByRole('checkbox',{name:'仅看待复核',exact:true}).uncheck();
+ await question.click();
+ await dialog.getByRole('button',{name:'撤销复核确认',exact:true}).click();
+ await page.keyboard.press('Escape');
+ await page.getByRole('checkbox',{name:'仅看待复核',exact:true}).check();
+ await expect(question).toBeVisible();
+});
+
+test('preview nested word-bank answers use inherited choices offline',async ({page})=>{
+ await page.goto('/');
+ await page.getByRole('button',{name:'开始练习',exact:true}).nth(2).click();
+ await page.getByLabel('出题顺序',{exact:true}).selectOption('ordered');
+ await page.getByText('高级设置 · 题库、筛选与选题方式',{exact:true}).click();
+ await page.getByRole('combobox',{name:'题型',exact:true}).selectOption('reading');
+ await expect(page.getByRole('status').filter({hasText:'可用 6 题'})).toBeVisible();
+ await page.getByRole('spinbutton',{name:'题目数量',exact:true}).fill('6');
+ await page.getByRole('button',{name:'立即开始',exact:true}).click();
+ await page.getByRole('region',{name:'答题卡',exact:true}).getByRole('button',{name:/^转到第 3 题，未作答/}).click();
+ await expect(page.getByRole('heading',{name:'第 3 / 6 题',exact:true})).toBeVisible();
+ const choices=page.getByRole('radiogroup',{name:'选择答案',exact:true});
+ await expect(choices.getByRole('radio')).toHaveCount(2);
+ await expect(page.getByLabel('自由作答',{exact:true})).toBeHidden();
+ await choices.getByRole('radio').first().check();
+ await page.getByRole('button',{name:'提交答案',exact:true}).click();
+ await expect(page.getByRole('status',{name:'答题状态',exact:true})).toHaveText('第 3 题：回答正确');
+});
+
+test('preview material dialog hides ancestor answer passage before submission',async ({page})=>{
+ await page.goto('/');
+ await page.evaluate(async()=>{
+  const {invoke}=await import('/src/transport.ts');
+  const {default:fixture}=await import('/fixtures/composite.json');
+  const questions=structuredClone(fixture.questions);
+  const root=questions.find(q=>q.id==='reading');
+  root.passage.push({partType:'text',role:'prompt',textValue:'Visible preview material marker'});
+  root.passage.push({partType:'text',role:'ANSWER key',textValue:'Hidden preview solution marker'});
+  await invoke('request',{request:{type:'save_question_tree',root_id:'2-reading',bank_id:'preview-bank-2',questions}});
+ });
+ await page.getByRole('button',{name:'开始练习',exact:true}).nth(2).click();
+ await page.getByLabel('出题顺序',{exact:true}).selectOption('ordered');
+ await page.getByText('高级设置 · 题库、筛选与选题方式',{exact:true}).click();
+ await page.getByRole('combobox',{name:'题型',exact:true}).selectOption('reading');
+ await expect(page.getByRole('status').filter({hasText:'可用 6 题'})).toBeVisible();
+ await page.getByRole('spinbutton',{name:'题目数量',exact:true}).fill('6');
+ await page.getByRole('button',{name:'立即开始',exact:true}).click();
+ await page.getByRole('region',{name:'答题卡',exact:true}).getByRole('button',{name:/^转到第 3 题，未作答/}).click();
+ await page.getByRole('button',{name:'查看原文',exact:true}).click();
+ const dialog=page.getByRole('dialog');
+ await expect(dialog.getByText('Visible preview material marker',{exact:true})).toBeVisible();
+ await expect(dialog.getByText('Hidden preview solution marker',{exact:true})).toBeHidden();
+ const source=await page.evaluate(async()=>{
+  const {invoke}=await import('/src/transport.ts');
+  const result=await invoke('request',{request:{type:'questions_page',bank_ids:['preview-bank-2'],search:'',mode:'reading',filter:'',offset:0,limit:20}});
+  return result.items[0].question.passage;
+ });
+ expect(source.some(block=>block.textValue==='Hidden preview solution marker')).toBe(true);
+});
+
 for(const scenario of ['empty','many','unconfigured','missing','slow','error']) {
  test(`preview scenario ${scenario} stays offline`,async ({page})=>{
   await page.addInitScript(value=>sessionStorage.setItem('practiq-preview',value),scenario);
