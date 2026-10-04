@@ -43,6 +43,14 @@ replacement; preparation rejects missing or altered overrides. Combined notices
 retain this modification proof alongside the original complete Cargo terms.
 Maven SPDX declarations alone cannot pass the gate.
 
+Jackson Core 2.15.3 shades FastDoubleParser. Its embedded `FastDoubleParser-NOTICE`
+identifies Werner Randelshofer's MIT code and a fixed upstream commit, while its
+embedded `FastDoubleParser-LICENSE` contains Apache 2.0 terms. Retain both original
+files and every other artifact notice. The supplemental complete MIT copyright
+and terms come from that exact referenced commit, with their own pinned SHA-256;
+the checker binds the source URL to the exact embedded NOTICE bytes and records
+that provenance separately from Jackson's POM declaration and embedded LICENSE.
+
 Review new runtime versions by resolving the selected Gradle configuration with
 `--write-locks`, verifying the corresponding upstream artifact/POM sources and
 full terms, and updating both reviewed locks. Retain the verification evidence.

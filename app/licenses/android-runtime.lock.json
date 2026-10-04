@@ -1243,6 +1243,16 @@
           "sha256": "800a2a1fa6141763161e6d9ea5ceb283152ef3695dad10cee7243b63b9986c9f",
           "source": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/core/jackson-core/2.15.3/jackson-core-2.15.3.jar!META-INF/bigint-LICENSE",
           "artifactEntry": "META-INF/bigint-LICENSE"
+        },
+        {
+          "file": "texts/5f7260e2124be5a560d2c5ec1824475f76bb02dcb352b7f4848a1d702948007c.txt",
+          "sha256": "5f7260e2124be5a560d2c5ec1824475f76bb02dcb352b7f4848a1d702948007c",
+          "source": "https://github.com/wrandelshofer/FastDoubleParser/blob/522be16e145f43308c43b23094e31d5efcaa580e/LICENSE",
+          "sourceReference": {
+            "artifactEntry": "META-INF/FastDoubleParser-NOTICE",
+            "sha256": "2ab080dba155f30307a3ad98a6b0ab6526fd1f6745de92436ad54dba8a7940f9",
+            "url": "https://github.com/wrandelshofer/FastDoubleParser/blob/522be16e145f43308c43b23094e31d5efcaa580e/LICENSE"
+          }
         }
       ],
       "artifactFileName": "jackson-core-2.15.3.jar",

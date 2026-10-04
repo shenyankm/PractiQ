@@ -594,5 +594,21 @@
       "provenanceSha256": "6b33dda2b926dcf1d3d0e778ab89aebc2a0aa642c5bdb66f7be84329d9a33a2b",
       "verification": "Actual compileDebugKotlin source collection excludes original PluginManager.kt and includes the byte-identical generated LifecyclePluginManager.kt. Both actual runtime inventories were regenerated after the lifecycle source modification; runtime helper passed for each ABI."
     }
+  ],
+  "supplementalLicenseTexts": [
+    {
+      "coordinate": "com.fasterxml.jackson.core:jackson-core:2.15.3",
+      "file": "texts/5f7260e2124be5a560d2c5ec1824475f76bb02dcb352b7f4848a1d702948007c.txt",
+      "sha256": "5f7260e2124be5a560d2c5ec1824475f76bb02dcb352b7f4848a1d702948007c",
+      "source": "https://github.com/wrandelshofer/FastDoubleParser/blob/522be16e145f43308c43b23094e31d5efcaa580e/LICENSE",
+      "sourceReference": {
+        "artifactEntry": "META-INF/FastDoubleParser-NOTICE",
+        "sha256": "2ab080dba155f30307a3ad98a6b0ab6526fd1f6745de92436ad54dba8a7940f9",
+        "url": "https://github.com/wrandelshofer/FastDoubleParser/blob/522be16e145f43308c43b23094e31d5efcaa580e/LICENSE"
+      },
+      "downloadSource": "https://raw.githubusercontent.com/wrandelshofer/FastDoubleParser/522be16e145f43308c43b23094e31d5efcaa580e/LICENSE",
+      "bytes": 1090,
+      "verification": "The exact embedded FastDoubleParser-NOTICE names this fixed upstream MIT license. Complete copyright and terms were retrieved unchanged from that commit. All original artifact LICENSE/NOTICE texts remain; the embedded FastDoubleParser-LICENSE is Apache-2.0 and is not presented as this MIT text or its source."
+    }
   ]
 }

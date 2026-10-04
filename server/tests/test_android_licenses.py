@@ -155,6 +155,85 @@ def test_android_notices_bind_the_actual_maven_runtime_and_local_cargo_sources(n
     assert rows[0]["texts"] and "exact runtime POM SHA-256" in rows[0]["supplementalSources"][0]["verification"]
 
 
+def test_fastdoubleparser_complete_mit_terms_are_bound_to_its_embedded_pinned_notice():
+    lock = json.loads((ROOT / "app/licenses/android-runtime.lock.json").read_text())
+    pinned = next(row for row in lock["artifacts"] if row["coordinate"] == "com.fasterxml.jackson.core:jackson-core:2.15.3")
+    terms = next(item for item in pinned["texts"] if item.get("sourceReference"))
+    assert terms["sha256"] == "5f7260e2124be5a560d2c5ec1824475f76bb02dcb352b7f4848a1d702948007c"
+    raw = (ROOT / "app/licenses" / terms["file"]).read_bytes()
+    assert hashlib.sha256(raw).hexdigest() == terms["sha256"]
+    assert b"Copyright (c) 2023 Werner Randelshofer, Switzerland." in raw
+    notice = next(item for item in pinned["texts"] if item.get("artifactEntry") == "META-INF/FastDoubleParser-NOTICE")
+    assert terms["sourceReference"] == {"artifactEntry": notice["artifactEntry"], "sha256": notice["sha256"],
+        "url": "https://github.com/wrandelshofer/FastDoubleParser/blob/522be16e145f43308c43b23094e31d5efcaa580e/LICENSE"}
+    assert terms["source"] == terms["sourceReference"]["url"]
+    assert len([item for item in pinned["texts"] if "sourceReference" not in item]) == 6
+
+
+@pytest.mark.parametrize("entry", [None, "", 42])
+def test_android_embedded_notice_entry_cannot_bypass_source_binding_with_invalid_types(notice_runtime, entry):
+    validate, root, report, cargo, _, pinned = notice_runtime
+    pinned["texts"][0].pop("declarationUrl")
+    pinned["texts"][0]["artifactEntry"] = entry
+    (root / "app/licenses/android-runtime.lock.json").write_text(json.dumps({"schemaVersion": 1, "artifacts": [pinned]}))
+    with pytest.raises(ValueError, match="embedded notice entry"):
+        validate(root, report, "arm64", cargo)
+
+
+@pytest.mark.parametrize("damage", [None, "missing", "terms_sha", "notice_sha", "reference", "source", "unpinned",
+                                   "notice_entry", "notice_extra", "notice_empty", "ambiguous", "notice_text", "reference_null"])
+def test_android_supplemental_terms_require_the_exact_embedded_notice_and_fixed_source(notice_runtime, damage):
+    validate, root, report, cargo, rows, pinned = notice_runtime
+    url = "https://github.com/example/runtime/blob/" + "a" * 40 + "/LICENSE"
+    reference = {"artifactEntry": "META-INF/NOTICE", "sha256": "", "url": url}
+    embedded = ("Synthetic component is MIT licensed.\n" + url + "\n").encode()
+    if damage == "notice_text":
+        embedded = b"Synthetic component notice does not name the claimed fixed source.\n"
+    reference["sha256"] = hashlib.sha256(embedded).hexdigest()
+    artifact = Path(rows[0]["artifact"])
+    with ZipFile(artifact, "a") as archive:
+        archive.writestr("META-INF/NOTICE", embedded)
+    pinned["artifactSha256"] = rows[0]["artifactSha256"] = hashlib.sha256(artifact.read_bytes()).hexdigest()
+    terms = root / "app/licenses/component-MIT.txt"
+    terms.write_text("Synthetic complete MIT terms and original copyright")
+    supplemental: dict[str, object] = {"file": terms.name, "sha256": hashlib.sha256(terms.read_bytes()).hexdigest(),
+                                       "source": url, "sourceReference": reference}
+    if damage == "missing":
+        terms.unlink()
+    elif damage == "terms_sha":
+        supplemental["sha256"] = "b" * 64
+    elif damage == "notice_sha":
+        reference["sha256"] = "b" * 64
+    elif damage == "reference":
+        reference["url"] = supplemental["source"] = url.replace("a" * 40, "b" * 40)
+    elif damage == "source":
+        supplemental["source"] = "https://example.test/unrelated-MIT"
+    elif damage == "unpinned":
+        reference["url"] = supplemental["source"] = url.replace("a" * 40, "main")
+    elif damage == "notice_entry":
+        reference["artifactEntry"] = "META-INF/UNRELATED"
+    elif damage == "notice_extra":
+        reference["artifactEntry"] += "!ignored!ignored"
+    elif damage == "notice_empty":
+        reference["artifactEntry"] = ""
+    elif damage == "ambiguous":
+        supplemental["declarationUrl"] = "https://example.test/terms"
+    elif damage == "reference_null":
+        supplemental["sourceReference"] = None
+    pinned["texts"].append(supplemental)
+    (root / "app/licenses/android-runtime.lock.json").write_text(json.dumps({"schemaVersion": 1, "artifacts": [pinned]}))
+    data = json.loads(report.read_text()); data["artifacts"] = rows; report.write_text(json.dumps(data))
+    if damage is None:
+        package = validate(root, report, "arm64", cargo)[0]
+        assert package["texts"][-1]["sha256"] == supplemental["sha256"]
+        proof = package["supplementalSources"][-1]
+        assert proof["source"] == url and reference["sha256"] in proof["verification"]
+        assert "embedded notice" in proof["verification"] and "POM" not in proof["verification"]
+    else:
+        with pytest.raises((ValueError, FileNotFoundError, KeyError)):
+            validate(root, report, "arm64", cargo)
+
+
 @pytest.mark.parametrize("mutation", [None, "bytes", "identity", "escape"])
 def test_android_notices_bind_inherited_identity_and_terms_to_a_contained_parent_pom(notice_runtime, mutation):
     validate, root, report, cargo, rows, pinned = notice_runtime

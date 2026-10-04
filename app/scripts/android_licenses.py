@@ -186,27 +186,49 @@ def runtime_notices(root: Path, inventory_path: Path | None, architecture: str, 
             parent = parent_tree.find("m:parent", namespace)
         if fields != [artifact["group"], artifact["name"], artifact["version"]]:
             raise ValueError("Android POM identity differs from its artifact")
-        if not pinned["texts"] or any(text.get("declarationUrl") not in declarations for text in pinned["texts"] if "artifactEntry" not in text):
+        if not pinned["texts"] or any(text.get("declarationUrl") not in declarations for text in pinned["texts"]
+                                      if "artifactEntry" not in text and "sourceReference" not in text):
             raise ValueError("Android full license texts are not bound to its POM declaration")
-        texts = []
+        texts, sources = [], []
         for item in pinned["texts"]:
             path = notice_path(root, item["file"])
             checked_file(path, item["sha256"])
-            if "artifactEntry" in item:
-                parts = item["artifactEntry"].split("!")
+            reference = item.get("sourceReference")
+            entry = item.get("artifactEntry")
+            if "artifactEntry" in item and (not isinstance(entry, str) or not entry):
+                raise ValueError("Invalid Android embedded notice entry reference")
+            verification = f'Full text bound to exact runtime POM SHA-256 {pinned["pomSha256"]}'
+            if "sourceReference" in item:
+                if (not isinstance(reference, dict) or not all(isinstance(reference.get(key), str) for key in ("artifactEntry", "sha256", "url"))
+                        or "artifactEntry" in item or "declarationUrl" in item or item["source"] != reference["url"]
+                        or not re.fullmatch(r"https://github\.com/[^/]+/[^/]+/blob/[0-9a-f]{40}/[^?#]+", reference["url"])
+                        or not re.fullmatch(r"[0-9a-f]{64}", reference["sha256"])):
+                    raise ValueError("Android supplemental license source reference is not fixed and unambiguous")
+                entry = reference["artifactEntry"]
+            if entry is not None:
+                parts = entry.split("!")
+                if len(parts) > 2 or not all(parts):
+                    raise ValueError("Invalid Android embedded notice entry reference")
                 with ZipFile(artifact["artifact"]) as archive:
                     embedded = archive.read(parts[0])
                     if len(parts) == 2:
                         with ZipFile(io.BytesIO(embedded)) as nested:
                             embedded = nested.read(parts[1])
-                if hashlib.sha256(embedded).hexdigest() != item["sha256"]:
+                expected_sha = reference["sha256"] if reference is not None else item["sha256"]
+                if hashlib.sha256(embedded).hexdigest() != expected_sha:
                     raise ValueError("Android embedded license text differs from its exact runtime artifact")
+                if reference is not None:
+                    if reference["url"] not in embedded.decode("utf-8").splitlines():
+                        raise ValueError("Android supplemental source is not referenced by its exact embedded notice")
+                    verification = f'Supplemental full text referenced by exact embedded notice {entry} SHA-256 {expected_sha} from runtime artifact SHA-256 {pinned["artifactSha256"]}'
+                else:
+                    verification = f'Full text bound to exact embedded artifact entry {entry} SHA-256 {expected_sha} from runtime artifact SHA-256 {pinned["artifactSha256"]}'
             texts.append({"path": str(path), "sha256": item["sha256"]})
+            sources.append({"source": item["source"], "verification": verification})
         rows.append({"ecosystem": "maven", "name": f'{artifact["group"]}:{artifact["name"]}',
                      "version": artifact["version"], "declaration": pinned["declaration"],
                      "source": pinned["pomSource"], "artifactSha256": pinned["artifactSha256"],
-                     "pomSha256": pinned["pomSha256"], "supplementalSources": [
-                         {"source": item["source"], "verification": f'Full text bound to exact runtime POM SHA-256 {pinned["pomSha256"]}'} for item in pinned["texts"]],
+                     "pomSha256": pinned["pomSha256"], "supplementalSources": sources,
                      "texts": texts})
     if seen != set(expected) or projects != {"tauri-android", "tauri-plugin-dialog"}:
         raise ValueError("Android runtime closure differs from the reviewed notice lock")
