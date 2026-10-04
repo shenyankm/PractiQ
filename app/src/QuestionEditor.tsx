@@ -1,6 +1,6 @@
 import { t, useI18n } from "./i18n";
 import { useId, useState } from "react";
-import { blankQuestion, type Question, type Mode, modeNames, isComposite } from "./api";
+import { blankQuestion, type Question, type Mode, modeNames, isComposite, canInteract } from "./api";
 import { DialogFooter } from "@/components/ui/dialog";
 import { EditorDialog } from "./EditorDialog";
 import { Input } from "@/components/ui/input";
@@ -21,31 +21,36 @@ const nullableQuestionFields = new Set<keyof Question>([
 const blockTextFields = new Set(["label", "textValue", "markdownValue", "latexValue"]);
 const blockNullFields = new Set(["role", "questionId", "jsonValue"]);
 const optionTextFields = new Set(["label", "content"]);
-function draftSnapshot(question: Question, children: Question[]) {
+function editorAnswerQuestion(question: Question, parent?: Question) {
+  return { ...question, options: question.optionSourceId ? parent?.options || [] : question.options, answerPayload: null };
+}
+function draftSnapshot(question: Question, children: Question[], parent?: Question) {
+  const parents = new Map([question, ...children].map(value => [value.id, value]));
   // Normalize only known control defaults; preserve metadata, JSON content and array order.
   const normalize = (value: object, emptyFields: ReadonlySet<string>) => Object.fromEntries(Object.entries(value)
     .filter(([key, field]) => !emptyFields.has(key) || (field != null && field !== ""))
     .sort(([left], [right]) => left.localeCompare(right)));
   const blocks = (values: Question["passage"]) => (values || []).map(value => normalize(Object.fromEntries(Object.entries(value)
     .filter(([key, field]) => !blockNullFields.has(key) || field != null)), blockTextFields));
-  const answer = (value: Question) => {
+  const answer = (value: Question, owner?: Question) => {
     const payload = value.answerPayload;
+    const interactive = canInteract(editorAnswerQuestion(value, owner));
     if (payload && Object.keys(payload).length === 1 && (
-      (value.answerMode === "short_answer" && payload.text === "") ||
-      (value.answerMode === "choice" && value.choiceVariant === "multiple" && Array.isArray(payload.correct) && payload.correct.length === 0) ||
+      (!isComposite(value) && payload.text === "" && (value.answerMode === "short_answer" || !interactive)) ||
+      (interactive && value.answerMode === "choice" && value.choiceVariant === "multiple" && Array.isArray(payload.correct) && payload.correct.length === 0) ||
       (value.answerMode === "fill_blank" && Array.isArray(payload.answers) && payload.answers.length === (value.blankCount || 1) && payload.answers.every(text => text === ""))
     )) return null;
     return payload;
   };
-  const normalizeQuestion = (value: Question) => normalize({
+  const normalizeQuestion = (value: Question, owner?: Question) => normalize({
     ...value,
-    answerPayload: answer(value),
+    answerPayload: answer(value, owner),
     options: value.options.map(option => normalize(option, optionTextFields)),
     items: value.items.map(item => normalize(item, optionTextFields)),
     contentBlocks: blocks(value.contentBlocks), passage: blocks(value.passage), transcript: blocks(value.transcript),
     allowReuse: value.allowReuse ?? false, audioStartSeconds: value.audioStartSeconds ?? 0, examPlayCount: value.examPlayCount ?? 2,
   }, nullableQuestionFields);
-  return JSON.stringify([normalizeQuestion(question), children.map(normalizeQuestion)]);
+  return JSON.stringify([normalizeQuestion(question, parent), children.map(value => normalizeQuestion(value, parents.get(value.parentId)))]);
 }
 export function QuestionEditor({
   initial,
@@ -68,11 +73,11 @@ export function QuestionEditor({
   const formId = useId();
   const [q, setQ] = useState<Question>(() => structuredClone({...initial, id: initial.id || crypto.randomUUID()}));
   const [children, setChildren] = useState<Question[]>(() => structuredClone(initialChildren));
-  const [original] = useState(() => draftSnapshot(q, children));
+  const [original] = useState(() => draftSnapshot(q, children, parent));
   const [audioPending, setAudioPending] = useState(false);
   const [audioDraft, setAudioDraft] = useState(false);
   const [childEditor, setChildEditor] = useState<Question | null>(null);
-  const dirty = draftSnapshot(q, children) !== original;
+  const dirty = draftSnapshot(q, children, parent) !== original;
   const patch = (p: Partial<Question>) => setQ((v) => ({ ...v, ...p }));
   function mode(value: Mode) {
     setChildren([]);
@@ -331,7 +336,7 @@ export function QuestionEditor({
             </div>
             <AnswerInput
               prefix="editor-answer"
-              question={{ ...q, options: q.optionSourceId ? parent?.options || [] : q.options, answerPayload: null }}
+              question={editorAnswerQuestion(q, parent)}
               value={q.answerPayload}
               onChange={(a) => patch({ answerPayload: a })}
             />
@@ -369,7 +374,7 @@ export function QuestionEditor({
         </DialogFooter>
       {childEditor && <QuestionEditor key={childEditor.id} initial={childEditor} parent={q} initialChildren={children.filter(c=>c.parentId===childEditor.id)} busy={false} onClose={()=>setChildEditor(null)} onSave={(child,nested)=>{
         const index=children.findIndex(c=>c.id===child.id);
-        if(index>=0 && draftSnapshot(children[index],children.filter(c=>c.parentId===child.id))===draftSnapshot(child,nested)){setChildEditor(null);return;}
+        if(index>=0 && draftSnapshot(children[index],children.filter(c=>c.parentId===child.id),q)===draftSnapshot(child,nested,q)){setChildEditor(null);return;}
         const removed=new Set([child.id]);for(const c of children) if(removed.has(c.parentId))removed.add(c.id);
         const kept=children.filter(c=>!removed.has(c.id));const insertion=index<0 ? kept.length : children.slice(0,index).filter(c=>!removed.has(c.id)).length;kept.splice(insertion,0,child,...nested);setChildren(kept);
         if(!["reading","listening"].includes(q.answerMode || "") && !(q.passage || []).some(b=>b.questionId===child.id))patch({passage:[...(q.passage || []),{partType:"blank",questionId:child.id}]});

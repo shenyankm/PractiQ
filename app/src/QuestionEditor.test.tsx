@@ -183,6 +183,102 @@ it.each(emptyReferenceCases)("closes reverted null $answerMode references throug
   }
 });
 
+const fallbackReferenceCases: { name: string; question: Question }[] = [
+  { name: "new single choice", question: blankQuestion() },
+  { name: "unknown mode", question: { ...blankQuestion(), answerMode: null } },
+  { name: "missing choice variant", question: { ...blankQuestion(), choiceVariant: null, options: [{ label: "A", content: "One" }, { label: "B", content: "Two" }] } },
+  { name: "incomplete ordering", question: { ...blankQuestion(), answerMode: "ordering", choiceVariant: null, items: [{ id: 0, content: "First" }, { id: 1, content: "" }] } },
+  { name: "duplicate ordering IDs", question: { ...blankQuestion(), answerMode: "ordering", choiceVariant: null, items: [{ id: 0, content: "First" }, { id: 0, content: "Second" }] } },
+  { name: "incomplete matching", question: { ...blankQuestion(), answerMode: "matching", choiceVariant: null, matchingVariant: "one_to_one", items: [{ id: 0, side: "left", content: "Left" }, { id: 0, side: "right", content: "Right" }] } },
+];
+it.each(fallbackReferenceCases)("closes reverted $name fallback references and preserves raw saves", async scenario => {
+  for (const action of ["Escape", "close", "outside"]) {
+    const user = userEvent.setup(), close = vi.fn(), save = vi.fn();
+    const initial: Question = { ...scenario.question, answerPayload: null, needsReview: true, missingFields: ["answerPayload"] };
+    render(<QuestionEditor initial={initial} busy={false} onClose={close} onSave={save} />);
+    const text = screen.getByRole("textbox", { name: "自由作答" });
+    await user.type(text, "Temporary reference");
+    await user.clear(text);
+    if (action === "Escape") await user.keyboard("{Escape}");
+    else if (action === "close") await user.click(screen.getByRole("button", { name: "关闭" }));
+    else await user.click(document.querySelector("[data-slot=dialog-overlay]")!);
+    expect(close).toHaveBeenCalledOnce();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "保存题目" }));
+    expect(save).toHaveBeenCalledWith(expect.objectContaining({ answerPayload: { text: "" }, needsReview: true, missingFields: ["answerPayload"] }), []);
+    expect(initial.answerPayload).toBeNull();
+    cleanup();
+  }
+});
+
+it("keeps changed fallback text, other fields and removed payload evidence dirty", async () => {
+  for (const payload of [null, { text: "Original reference" }, { text: " " }, { value: false }, { order: [0] }, { correct: [] }, { text: "", metadata: { count: 0, flag: false } }]) {
+    const user = userEvent.setup(), close = vi.fn(), save = vi.fn();
+    render(<QuestionEditor initial={{ ...blankQuestion(), choiceVariant: payload && "correct" in payload ? "multiple" : "single", answerPayload: payload as Question["answerPayload"] }} busy={false} onClose={close} onSave={save} />);
+    const text = screen.getByRole("textbox", { name: "自由作答" });
+    await user.type(text, "Changed reference");
+    if (payload !== null) await user.clear(text);
+    await user.keyboard("{Escape}");
+    expect(close).not.toHaveBeenCalled();
+    await user.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "继续编辑" }));
+    await user.click(screen.getByRole("button", { name: "保存题目" }));
+    expect(save).toHaveBeenCalledWith(expect.objectContaining({ answerPayload: { text: payload === null ? "Changed reference" : "" } }), []);
+    cleanup();
+  }
+  const user = userEvent.setup(), close = vi.fn();
+  render(<QuestionEditor initial={blankQuestion()} busy={false} onClose={close} onSave={vi.fn()} />);
+  const text = screen.getByRole("textbox", { name: "自由作答" });
+  await user.type(text, "Temporary reference");
+  await user.clear(text);
+  await user.type(screen.getByRole("textbox", { name: "题干（支持 Markdown 和公式）" }), "Actual change");
+  await user.keyboard("{Escape}");
+  expect(close).not.toHaveBeenCalled();
+  expect(screen.getByRole("alertdialog")).toBeTruthy();
+});
+
+it("does not stage a reverted shared-option fallback child as a parent edit", async () => {
+  const user = userEvent.setup(), close = vi.fn(), save = vi.fn();
+  const root: Question = { ...blankQuestion(), id: "root", answerMode: "word_bank", choiceVariant: null, options: [] };
+  const child: Question = { ...blankQuestion(), id: "child", parentId: "root", optionSourceId: "root", stem: "Shared child", options: [{ label: "A", content: "Own one" }, { label: "B", content: "Own two" }] };
+  render(<QuestionEditor initial={root} initialChildren={[child]} busy={false} onClose={close} onSave={save} />);
+  await user.click(screen.getByRole("button", { name: "编辑题目" }));
+  const text = screen.getByRole("textbox", { name: "自由作答" });
+  await user.type(text, "Temporary reference");
+  await user.clear(text);
+  await user.click(screen.getByRole("button", { name: "保存题目" }));
+  await user.keyboard("{Escape}");
+  expect(close).toHaveBeenCalledOnce();
+  expect(screen.queryByRole("alertdialog")).toBeNull();
+  await user.click(screen.getByRole("button", { name: "保存题目" }));
+  expect(save).toHaveBeenCalledWith(root, [child]);
+});
+
+it("keeps empty text evidence distinct when shared options render an interactive choice", async () => {
+  const user = userEvent.setup(), close = vi.fn(), save = vi.fn();
+  const parent: Question = { ...blankQuestion(), id: "root", answerMode: "word_bank", options: [{ label: "A", content: "One" }, { label: "B", content: "Two" }] };
+  const initial: Question = { ...blankQuestion(), parentId: "root", optionSourceId: "root", options: [], answerPayload: { text: "" } };
+  render(<QuestionEditor initial={initial} parent={parent} busy={false} onClose={close} onSave={save} />);
+  expect(screen.queryByRole("textbox", { name: "自由作答" })).toBeNull();
+  expect(screen.getAllByRole("radio")).toHaveLength(2);
+  await user.click(screen.getByRole("button", { name: "清空参考答案" }));
+  await user.keyboard("{Escape}");
+  expect(close).not.toHaveBeenCalled();
+  await user.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "继续编辑" }));
+  await user.click(screen.getByRole("button", { name: "保存题目" }));
+  expect(save).toHaveBeenCalledWith(expect.objectContaining({ answerPayload: null }), []);
+  expect(initial.answerPayload).toEqual({ text: "" });
+});
+
+it("preserves reference payloads hidden by composite editors", async () => {
+  const save = vi.fn();
+  const initial: Question = { ...blankQuestion(), answerMode: "reading", answerPayload: { text: "", metadata: { count: 0, flag: false } } as Question["answerPayload"] };
+  render(<QuestionEditor initial={initial} busy={false} onClose={vi.fn()} onSave={save} />);
+  expect(screen.queryByRole("textbox", { name: "自由作答" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "清空参考答案" })).toBeNull();
+  await userEvent.click(screen.getByRole("button", { name: "保存题目" }));
+  expect(save).toHaveBeenCalledWith(initial, []);
+});
+
 it.each(emptyReferenceCases)("keeps real edits dirty after reverting $answerMode reference controls", async scenario => {
   const user = userEvent.setup(), close = vi.fn(), save = vi.fn();
   render(<QuestionEditor initial={{ ...referenceQuestion(scenario), answerPayload: null }} busy={false} onClose={close} onSave={save} />);

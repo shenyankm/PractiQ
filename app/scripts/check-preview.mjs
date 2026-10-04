@@ -180,6 +180,46 @@ test('reverted empty reference answers close without losing real editor changes'
  await expect(editor).toBeHidden();
 });
 
+test('incomplete question reference fallbacks close after reverting text and keep real edits',async ({page})=>{
+ await page.goto('/');
+ await page.getByRole('button',{name:'查看题目',exact:true}).first().click();
+ const editor=page.getByRole('dialog',{name:'编辑题目',exact:true});
+ for(const mode of ['choice','ordering','matching']){
+  await page.getByRole('button',{name:'新增题目',exact:true}).click();
+  if(mode!=='choice')await editor.getByRole('combobox',{name:'答题方式',exact:true}).selectOption(mode);
+  const title=`Incomplete ${mode} reference`;
+  await editor.getByRole('textbox',{name:'题干（支持 Markdown 和公式）',exact:true}).fill(title);
+  await editor.getByRole('button',{name:'保存题目',exact:true}).click();
+  const open=()=>page.getByRole('button',{name:new RegExp(`${title}$`)}).locator('..').getByRole('button',{name:'编辑题目',exact:true}).click();
+  for(const dismiss of ['Escape','close','outside']){
+   await open();
+   const text=editor.getByRole('textbox',{name:'自由作答',exact:true});
+   await text.fill('Temporary reference');await text.fill('');
+   if(dismiss==='Escape')await page.keyboard.press('Escape');
+   else if(dismiss==='close')await editor.getByRole('button',{name:'关闭',exact:true}).click();
+   else await page.mouse.click(8,8);
+   await expect(editor).toBeHidden();
+   await expect(page.getByRole('alertdialog')).toHaveCount(0);
+  }
+  await open();
+  const text=editor.getByRole('textbox',{name:'自由作答',exact:true});
+  await text.fill('Actual reference');
+  await page.keyboard.press('Escape');
+  const confirmation=page.getByRole('alertdialog',{name:'放弃未保存的更改？',exact:true});
+  await expect(confirmation).toBeVisible();
+  await confirmation.getByRole('button',{name:'继续编辑',exact:true}).click();
+  await expect(text).toHaveValue('Actual reference');
+  await editor.getByRole('button',{name:'保存题目',exact:true}).click();
+  await open();
+  await expect(text).toHaveValue('Actual reference');
+  await text.fill('');
+  await page.keyboard.press('Escape');
+  await expect(confirmation).toBeVisible();
+  await confirmation.getByRole('button',{name:'继续编辑',exact:true}).click();
+  await editor.getByRole('button',{name:'放弃更改',exact:true}).click();
+ }
+});
+
 test('listening URL drafts survive every implicit dismissal without triggering downloads',async ({page})=>{
  const remoteRequests=[];
  page.on('request',request=>{if(request.url().startsWith('https://example.com/'))remoteRequests.push(request.url());});
