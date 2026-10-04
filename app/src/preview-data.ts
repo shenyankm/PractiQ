@@ -29,7 +29,20 @@ function tree(root:QuestionRow,items=rows) {
       ids.add(child.question.id);descendants.push(child);
     }
   }
-  return [root,...items.filter(q=>q.bankId===root.bankId && q!==root && ids.has(q.question.id))];
+  const reached=new Set(descendants);
+  return [root,...items.filter(q=>reached.has(q))];
+}
+function withAncestorMaterials(row:QuestionRow):QuestionRow {
+  const materials:Question[]=[];
+  const seen=new Set([row.question.id]);
+  let parentId=row.question.parentId;
+  while(parentId && !seen.has(parentId)) {
+    seen.add(parentId);
+    const parent=rows.find(q=>q.bankId===row.bankId && q.question.id===parentId);
+    if(!parent)break;
+    materials.unshift(parent.question);parentId=parent.question.parentId;
+  }
+  return {...row,materials};
 }
 function roots(items:QuestionRow[]) { return items.filter(r=>!r.question.parentId).map(root=>{const nodes=tree(root,items);return {...root,children:nodes.slice(1),favorite:nodes.some(q=>q.favorite),answerableCount:nodes.filter(q=>!COMPOSITE_MODES.includes(q.question.answerMode||"")).length};}); }
 function questionType(q:Question) { return q.questionKind || (q.answerMode==="choice" ? q.choiceVariant : q.answerMode==="gap_fill" ? "grammar_fill":q.answerMode) || "unknown"; }
@@ -68,7 +81,7 @@ function preview():Preview {return {ticket:"preview-ticket",title:"示例导入�
 function filtered(r:{bank_ids:string[];search?:string;mode?:string;filter?:string},empty:boolean) {
   const matchesFilter=(q:QuestionRow)=>r.filter==="wrong" ? q.latestResult===false:r.filter==="favorite" ? q.favorite:r.filter==="review" ? q.question.needsReview && q.reviewedAt==null:r.filter==="unattempted" ? !COMPOSITE_MODES.includes(q.question.answerMode||"") && q.latestResult===null:true;
   return empty ? []:roots(rows).filter(root=>{
-    const q=root.question,nodes=[root,...root.children];
+    const q=root.question,nodes=[rows.find(row=>row.id===root.id)!,...root.children];
     return (!r.bank_ids.length || r.bank_ids.includes(root.bankId)) &&
       (!r.mode || (q.questionKind??q.answerMode)===r.mode || (r.mode==="grammar_fill" && q.answerMode==="gap_fill") || (q.answerMode==="choice" && q.choiceVariant===r.mode)) &&
       nodes.some(matchesFilter) && (!r.search || nodes.some(node=>(!r.filter || r.filter==="review" || matchesFilter(node)) && `${node.question.stem} ${node.bankTitle}`.toLowerCase().includes(r.search!.toLowerCase())));
@@ -98,7 +111,7 @@ function request(r:Request,scenario:PreviewScenario):unknown {
     case "save_bank": {const b=banks.find(b=>b.id===r.id);if(b)Object.assign(b,{title:r.title,description:r.description});else banks.push({id:crypto.randomUUID(),title:r.title,description:r.description,count:0,createdAt:Date.now()});return b?.id || banks.at(-1)!.id;}
     case "delete_bank": {const i=banks.findIndex(b=>b.id===r.id);if(i>=0)banks.splice(i,1);rows=rows.filter(q=>q.bankId!==r.id);return null;}
     case "delete_question": {const row=rows.find(q=>q.id===r.id);rows=rows.filter(q=>q.id!==r.id && !(row && q.bankId===row.bankId && q.question.parentId===row.question.id));return null;}
-    case "favorite": {const q=rows.find(q=>q.id===r.id);if(q)q.favorite=r.value;return r.value;}
+    case "favorite": {const q=rows.find(q=>q.id===r.id);if(q)tree(q).forEach(node=>{node.favorite=r.value;});return r.value;}
     case "review_question": {const root=rows.find(q=>q.id===r.id);if(!root || root.question.parentId)throw new Error("只能确认示例顶层题目的复核状态");const at=r.reviewed ? Date.now():null;tree(root).forEach(q=>{q.reviewedAt=at;});return at;}
     case "save_question_tree": {rows=rows.filter(q=>!(q.bankId===r.bank_id && (q.id===r.root_id || r.questions.some(v=>v.id===q.question.id))));for(const q of r.questions)rows.push({id:q.id!,bankId:r.bank_id,bankTitle:banks.find(b=>b.id===r.bank_id)?.title||"",question:q,groups:[],visuals:[],sources:[],warnings:[],missingAssets:false,favorite:false,latestResult:null});return r.questions[0].id;}
     case "merge_banks": {const id=crypto.randomUUID();banks.push({id,title:r.title,description:"示例合并题库",createdAt:Date.now(),count:0});rows.push(...structuredClone(rows.filter(q=>r.bank_ids.includes(q.bankId))).map(q=>({...q,id:crypto.randomUUID(),bankId:id,bankTitle:r.title})));return {bankId:id,count:rows.filter(q=>q.bankId===id).length};}
@@ -115,11 +128,11 @@ function request(r:Request,scenario:PreviewScenario):unknown {
         if(q.selection==="manual")return q.question_ids.includes(root.id) || root.children.some(c=>q.question_ids.includes(c.id));
         if(q.selection==="quota"){const type=questionType(root.question);if(!quotas[type])return false;quotas[type]--;return true;}
         if(root.answerableCount>remaining)return false;remaining-=root.answerableCount;return true;
-      }).flatMap<QuestionRow>(root=>root.children.length ? root.children.filter(child=>!COMPOSITE_MODES.includes(child.question.answerMode||"")).map(child=>({...child,rootId:root.id,rootType:questionType(root.question)})):[root]);
+      }).flatMap<QuestionRow>(root=>root.children.length ? root.children.filter(child=>!COMPOSITE_MODES.includes(child.question.answerMode||"")).map(child=>({...withAncestorMaterials(child),rootId:root.id,rootType:questionType(root.question)})):[withAncestorMaterials(root)]);
       const total=q.total_cents;const scores=selected.map((_,i)=>Math.floor(total/Math.max(1,selected.length))+(i<total%Math.max(1,selected.length) ? 1:0));
       return {questionIds:selected.map(q=>q.id),questions:selected,scores,count:selected.length,digest:"preview-paper"};
     }
-    case "start_paper": {const s=makeSession(crypto.randomUUID(),"示例练习",r.paper.kind,false,r.paper.question_ids.map(id=>rows.find(q=>q.id===id)!));s.attempts.forEach((a,i)=>{a.answer=null;a.maxCents=r.paper.scores[i] ?? null;});s.deadlineAt=r.paper.minutes ? Date.now()+r.paper.minutes*60000:null;sessions.unshift(s);return s;}
+    case "start_paper": {const s=makeSession(crypto.randomUUID(),"示例练习",r.paper.kind,false,r.paper.question_ids.map(id=>withAncestorMaterials(rows.find(q=>q.id===id)!)));s.attempts.forEach((a,i)=>{a.answer=null;a.maxCents=r.paper.scores[i] ?? null;});s.deadlineAt=r.paper.minutes ? Date.now()+r.paper.minutes*60000:null;sessions.unshift(s);return s;}
     case "retry_wrong": {const previous=getSession(r.id);const s=makeSession(crypto.randomUUID(),"错题重练","practice",false,previous.attempts.filter(a=>a.result===false).map(a=>a.snapshot as QuestionRow));sessions.unshift(s);return s;}
     case "save_draft": {const a=getSession(r.id).attempts[r.ordinal];a.answer=r.answer;a.elapsedMs=r.elapsed_ms;return null;}
     case "save_attempt": {const s=getSession(r.id);const a=s.attempts[r.ordinal];a.answer=r.answer;a.elapsedMs=r.elapsed_ms;a.skipped=r.skip;if(r.submit)score(s,r.ordinal,r.answer);if(r.self_result!==null){a.result=r.self_result;a.gradeKind="self";}return s;}

@@ -1,5 +1,5 @@
 import { beforeEach, expect, it, vi } from "vitest";
-import type { Bank, Question, QuestionPage, Session, SessionPage, SettingsResult } from "./api";
+import type { Bank, PaperPreview, Question, QuestionPage, Session, SessionPage, SettingsResult } from "./api";
 import composite from "../fixtures/composite.json";
 import type { Summary, Task } from "./ai-api";
 import type { PreviewScenario } from "./preview-mode";
@@ -57,6 +57,58 @@ it("filters and confirms the entire nested composite tree without changing impor
  await call({type:"review_question",id:root.id,reviewed:false});
  const undone=(await call<QuestionPage>(scope)).items[0];
  expect([undone,...undone.children!].every(row=>row.reviewedAt===null)).toBe(true);
+});
+
+it("keeps favorite search tied to the same original node",async()=>{
+ const scope={...query,bank_ids:["preview-bank-1"],mode:"word_bank",filter:"favorite"};
+ const result=await call<QuestionPage>(scope);
+ expect(result.items.map(row=>row.id)).toEqual(["1-words"]);
+ expect(result.items[0].favorite).toBe(true);
+ expect((await call<QuestionPage>({...scope,search:"Complete the passage"})).total).toBe(0);
+ expect((await call<QuestionPage>({...scope,search:"Choose the word for gap 1"})).items.map(row=>row.id)).toEqual(["1-words"]);
+ await call({type:"favorite",id:"1-words",value:true});
+ expect((await call<QuestionPage>({...scope,search:"Complete the passage"})).total).toBe(1);
+});
+
+it("sets and clears favorites for a complete nested composite subtree",async()=>{
+ const scope={...query,bank_ids:["preview-bank-2"],mode:"reading"};
+ const root=(await call<QuestionPage>(scope)).items[0];
+ await call({type:"favorite",id:root.id,value:false});
+ expect((await call<QuestionPage>({...scope,filter:"favorite"})).total).toBe(0);
+ const cleared=(await call<QuestionPage>(scope)).items[0];
+ expect([cleared,...cleared.children!].every(row=>!row.favorite)).toBe(true);
+ await call({type:"favorite",id:root.id,value:true});
+ const selected=(await call<QuestionPage>({...scope,filter:"favorite"})).items[0];
+ expect([selected,...selected.children!].every(row=>row.favorite)).toBe(true);
+});
+
+it("does not treat duplicate merged root IDs as descendants or confirm unrelated roots",async()=>{
+ const added=await call<{bankId:string}>({type:"add_example_bank"});
+ const merged=await call<{bankId:string}>({type:"merge_banks",bank_ids:["preview-bank-0",added.bankId],title:"Merged samples"});
+ const scope={...query,bank_ids:[merged.bankId]};
+ const result=await call<QuestionPage>(scope);
+ expect(result.items).toHaveLength(18);
+ expect(result.items.every(row=>row.answerableCount===1 && row.children?.length===0)).toBe(true);
+ const duplicates=result.items.filter(row=>row.question.id==="q8");
+ expect(duplicates).toHaveLength(2);
+ await call({type:"review_question",id:duplicates[0].id,reviewed:true});
+ expect((await call<QuestionPage>({...scope,filter:"review"})).items.map(row=>row.id)).toEqual([duplicates[1].id]);
+ expect((await call<QuestionPage>(scope)).items.find(row=>row.id===duplicates[1].id)?.reviewedAt).toBe(duplicates[1].reviewedAt);
+});
+
+it("preserves the full material ancestor chain in papers and immutable practice snapshots",async()=>{
+ const paper=await call<PaperPreview>({type:"preview_paper",request:{bank_ids:["preview-bank-2"],search:"",mode:"reading",filter:"",selection:"manual",question_ids:["2-reading"],count:6,quotas:{},random:false,total_cents:0}});
+ const leaf=paper.questions.find(row=>row.id==="2-words1")!;
+ expect(leaf.materials?.map(q=>q.id)).toEqual(["reading","words"]);
+ expect(paper.questions.find(row=>row.id==="2-r-choice")?.materials?.map(q=>q.id)).toEqual(["reading"]);
+ const session=await call<Session>({type:"start_paper",paper:{question_ids:paper.questionIds,kind:"practice",minutes:null,scores:paper.scores,total_cents:0,digest:paper.digest}});
+ const snapshot=session.attempts.find(attempt=>attempt.snapshot.id===leaf.id)!.snapshot;
+ expect(snapshot.materials).toEqual(leaf.materials);
+ const questions=structuredClone(composite.questions) as Question[];
+ questions.find(q=>q.id==="reading")!.stem="Edited outer material";
+ await call({type:"save_question_tree",root_id:"2-reading",bank_id:"preview-bank-2",questions});
+ const resumed=await call<Session>({type:"session",id:session.id});
+ expect(resumed.attempts.find(attempt=>attempt.snapshot.id===leaf.id)?.snapshot.materials).toEqual(snapshot.materials);
 });
 
 it("provides every question mode, media, favorites, wrong answers and isolated editable data",async()=>{
