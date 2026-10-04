@@ -12,6 +12,19 @@ import { EnglishFields } from "./EnglishFields";
 import { kindModes, questionKinds } from "./english";
 import { AnswerInput } from "./AnswerInput";
 export { blankQuestion } from "./api";
+const nullableQuestionFields = new Set<keyof Question>([
+  "id", "parentId", "questionKind", "instructions", "audioRef", "audioEndSeconds",
+  "sourceLanguage", "targetLanguage", "writingGenre", "minWords", "maxWords",
+  "optionSourceId", "blankCount", "choiceVariant", "matchingVariant", "sourceScore",
+  "scoringRubric", "scoreSourceText", "analysis", "sourceText",
+]);
+function draftSnapshot(question: Question, children: Question[]) {
+  // Omitted nullable defaults and explicit nulls are equivalent only for comparison.
+  const normalize = (value: Question) => Object.fromEntries(Object.entries(value)
+    .filter(([key, field]) => field !== null || !nullableQuestionFields.has(key as keyof Question))
+    .sort(([left], [right]) => left.localeCompare(right)));
+  return JSON.stringify([normalize(question), children.map(normalize)]);
+}
 export function QuestionEditor({
   initial,
   initialChildren = [],
@@ -33,10 +46,10 @@ export function QuestionEditor({
   const formId = useId();
   const [q, setQ] = useState<Question>(() => structuredClone({...initial, id: initial.id || crypto.randomUUID()}));
   const [children, setChildren] = useState<Question[]>(() => structuredClone(initialChildren));
-  const [original] = useState(() => JSON.stringify([q, children]));
+  const [original] = useState(() => draftSnapshot(q, children));
   const [audioPending, setAudioPending] = useState(false);
   const [childEditor, setChildEditor] = useState<Question | null>(null);
-  const dirty = JSON.stringify([q, children]) !== original;
+  const dirty = draftSnapshot(q, children) !== original;
   const patch = (p: Partial<Question>) => setQ((v) => ({ ...v, ...p }));
   function mode(value: Mode) {
     setChildren([]);
@@ -333,7 +346,7 @@ export function QuestionEditor({
         </DialogFooter>
       {childEditor && <QuestionEditor key={childEditor.id} initial={childEditor} parent={q} initialChildren={children.filter(c=>c.parentId===childEditor.id)} busy={false} onClose={()=>setChildEditor(null)} onSave={(child,nested)=>{
         const index=children.findIndex(c=>c.id===child.id);
-        if(index>=0 && JSON.stringify([children[index],children.filter(c=>c.parentId===child.id)])===JSON.stringify([child,nested])){setChildEditor(null);return;}
+        if(index>=0 && draftSnapshot(children[index],children.filter(c=>c.parentId===child.id))===draftSnapshot(child,nested)){setChildEditor(null);return;}
         const removed=new Set([child.id]);for(const c of children) if(removed.has(c.parentId))removed.add(c.id);
         const kept=children.filter(c=>!removed.has(c.id));const insertion=index<0 ? kept.length : children.slice(0,index).filter(c=>!removed.has(c.id)).length;kept.splice(insertion,0,child,...nested);setChildren(kept);
         if(!["reading","listening"].includes(q.answerMode || "") && !(q.passage || []).some(b=>b.questionId===child.id))patch({passage:[...(q.passage || []),{partType:"blank",questionId:child.id}]});

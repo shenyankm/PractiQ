@@ -100,6 +100,37 @@ for (const kind of ['bank','question']) {
  });
 }
 
+test('new question reverted nullable fields close without discarding other edits',async ({page})=>{
+ await page.goto('/');
+ await page.getByRole('button',{name:'查看题目',exact:true}).first().click();
+ const editor=page.getByRole('dialog',{name:'编辑题目',exact:true});
+ const instructions=editor.getByRole('textbox',{name:'作答说明',exact:true});
+ const open=()=>page.getByRole('button',{name:'新增题目',exact:true}).click();
+ for(const action of ['Escape','close','outside']){
+  await open();
+  await instructions.fill('Temporary instructions');
+  await instructions.fill('');
+  if(action==='Escape')await page.keyboard.press('Escape');
+  else if(action==='close')await editor.getByRole('button',{name:'关闭',exact:true}).click();
+  else await page.mouse.click(8,8);
+  await expect(editor).toBeHidden();
+  await expect(page.getByRole('alertdialog')).toHaveCount(0);
+ }
+ await open();
+ await instructions.fill('Temporary instructions');
+ await instructions.fill('');
+ const stem=editor.getByRole('textbox',{name:'题干（支持 Markdown 和公式）',exact:true});
+ await stem.fill('Actual changed stem');
+ await page.keyboard.press('Escape');
+ const confirmation=page.getByRole('alertdialog',{name:'放弃未保存的更改？',exact:true});
+ await expect(confirmation).toBeVisible();
+ await confirmation.getByRole('button',{name:'继续编辑',exact:true}).click();
+ await expect(stem).toHaveValue('Actual changed stem');
+ await expect(stem).toBeFocused();
+ await editor.getByRole('button',{name:'放弃更改',exact:true}).click();
+ await expect(editor).toBeHidden();
+});
+
 test('child editors retain changed drafts and stage changes until the parent saves',async ({page})=>{
  await page.goto('/');
  const bank=page.locator('[data-slot=card]').filter({has:page.getByText('阅读与组合题',{exact:true})});

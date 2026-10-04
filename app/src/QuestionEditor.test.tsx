@@ -155,6 +155,55 @@ it.each(["Escape", "close", "discard"])("closes an unchanged question immediatel
   expect(screen.queryByRole("alertdialog")).toBeNull();
 });
 
+it.each([
+  ["textbox", "作答说明", "Draft instructions"],
+  ["spinbutton", "原卷分值（没有则留空）", "2.5"],
+  ["textbox", "原文评分细则", "Draft rubric"],
+  ["textbox", "分值与细则的原文依据", "Draft source"],
+] as const)("closes a new question after reverting omitted %s field %s", async (role, name, draft) => {
+  const user = userEvent.setup();
+  const initial = blankQuestion();
+  const close = vi.fn(), save = vi.fn();
+  render(<QuestionEditor initial={initial} busy={false} onClose={close} onSave={save} />);
+  const field = screen.getByRole(role, { name });
+  await user.type(field, draft);
+  await user.clear(field);
+  await user.keyboard("{Escape}");
+  expect(close).toHaveBeenCalledOnce();
+  expect(screen.queryByRole("alertdialog")).toBeNull();
+  expect(save).not.toHaveBeenCalled();
+  expect(initial).not.toHaveProperty("instructions");
+});
+
+it("keeps other edits dirty after reverting instructions and saves explicit null", async () => {
+  const user = userEvent.setup();
+  const close = vi.fn(), save = vi.fn();
+  render(<QuestionEditor initial={blankQuestion()} busy={false} onClose={close} onSave={save} />);
+  const instructions = screen.getByRole("textbox", { name: "作答说明" });
+  await user.type(instructions, "Temporary instructions");
+  await user.clear(instructions);
+  await user.type(screen.getByRole("textbox", { name: "题干（支持 Markdown 和公式）" }), "Actual change");
+  await user.keyboard("{Escape}");
+  expect(close).not.toHaveBeenCalled();
+  await user.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "继续编辑" }));
+  await user.click(screen.getByRole("button", { name: "保存题目" }));
+  expect(save).toHaveBeenCalledWith(expect.objectContaining({ stem: "Actual change", instructions: null }), []);
+});
+
+it("protects clearing existing instructions and preserves null when saving", async () => {
+  const user = userEvent.setup();
+  const initial = { ...blankQuestion(), instructions: "Original instructions" };
+  const close = vi.fn(), save = vi.fn();
+  render(<QuestionEditor initial={initial} busy={false} onClose={close} onSave={save} />);
+  await user.clear(screen.getByRole("textbox", { name: "作答说明" }));
+  await user.keyboard("{Escape}");
+  expect(close).not.toHaveBeenCalled();
+  await user.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "继续编辑" }));
+  await user.click(screen.getByRole("button", { name: "保存题目" }));
+  expect(save).toHaveBeenCalledWith(expect.objectContaining({ instructions: null }), []);
+  expect(initial.instructions).toBe("Original instructions");
+});
+
 it("protects a changed question on X and lets explicit discard close directly", async () => {
   const user = userEvent.setup();
   const close = vi.fn(), save = vi.fn();
@@ -221,12 +270,15 @@ function childBeforeParentTree() {
   return { root, children: [leaf, child, sibling] };
 }
 
-it("does not dirty or reorder a child-before-parent imported tree when saving an unchanged child", async () => {
+it("does not dirty or reorder a child-before-parent imported tree when saving reverted instructions", async () => {
   const user = userEvent.setup();
   const { root, children } = childBeforeParentTree();
   const close = vi.fn(), save = vi.fn();
   render(<QuestionEditor initial={root} initialChildren={children} busy={false} onClose={close} onSave={save} />);
   await user.click(screen.getAllByRole("button", { name: "编辑题目" })[0]);
+  const instructions = screen.getByRole("textbox", { name: "作答说明" });
+  await user.type(instructions, "Temporary child instructions");
+  await user.clear(instructions);
   await user.click(screen.getByRole("button", { name: "保存题目" }));
   await user.click(screen.getByRole("button", { name: "保存题目" }));
   expect(save).toHaveBeenCalledWith(root, children);
@@ -241,11 +293,15 @@ it("preserves sibling order when saving a changed child whose descendant precede
   const save = vi.fn();
   render(<QuestionEditor initial={root} initialChildren={children} busy={false} onClose={vi.fn()} onSave={save} />);
   await user.click(screen.getAllByRole("button", { name: "编辑题目" })[0]);
+  const instructions = screen.getByRole("textbox", { name: "作答说明" });
+  await user.type(instructions, "Temporary child instructions");
+  await user.clear(instructions);
   await user.type(screen.getByRole("textbox", { name: "题干（支持 Markdown 和公式）" }), " changed");
   await user.click(screen.getByRole("button", { name: "保存题目" }));
   expect(screen.getByText("1. Cloze material changed")).toBeTruthy();
   expect(screen.getByText("2. Sibling question")).toBeTruthy();
   await user.click(screen.getByRole("button", { name: "保存题目" }));
   expect(save.mock.calls[0][1].map((question: { id: string }) => question.id)).toEqual(["child", "leaf", "sibling"]);
+  expect(save.mock.calls[0][1][0]).toMatchObject({ stem: "Cloze material changed", instructions: null });
   expect(save.mock.calls[0][1].find((question: { id: string }) => question.id === "leaf")).toEqual(children[0]);
 });
