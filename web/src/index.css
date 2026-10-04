@@ -1,5 +1,4 @@
 @import "tailwindcss";
-@import "tw-animate-css";
 /*!
 shadcn 4.21.0 CSS variants.
 Source: https://github.com/shadcn-ui/ui/tree/7c9eaba1c0a6404c990c144a654792e3313c650d/packages/shadcn
@@ -27,34 +26,6 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
-
-@custom-variant data-open {
-  &:where([data-state="open"]),
-  &:where([data-open]:not([data-open="false"])) {
-    @slot;
-  }
-}
-
-@custom-variant data-closed {
-  &:where([data-state="closed"]),
-  &:where([data-closed]:not([data-closed="false"])) {
-    @slot;
-  }
-}
-
-@custom-variant data-checked {
-  &:where([data-state="checked"]),
-  &:where([data-checked]:not([data-checked="false"])) {
-    @slot;
-  }
-}
-
-@custom-variant data-disabled {
-  &:where([data-disabled="true"]),
-  &:where([data-disabled]:not([data-disabled="false"])) {
-    @slot;
-  }
-}
 
 @custom-variant dark (&:is(.dark *));
 
@@ -143,28 +114,6 @@ SOFTWARE.
     @apply font-sans;
   }
 }
-/* Theme colors change together; individual controls must not animate inside the snapshot. */
-html.theme-changing *,
-html.theme-changing *::before,
-html.theme-changing *::after {
-  transition: none !important;
-}
-
-html.theme-transition::view-transition-group(root),
-html.theme-transition::view-transition-old(root),
-html.theme-transition::view-transition-new(root) {
-  animation-duration: 200ms;
-  animation-timing-function: ease-out;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  html.theme-transition::view-transition-group(root),
-  html.theme-transition::view-transition-old(root),
-  html.theme-transition::view-transition-new(root) {
-    animation: none;
-  }
-}
-
 .document-content {
   overflow-wrap: anywhere;
   line-height: 1.75;
