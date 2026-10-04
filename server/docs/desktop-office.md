@@ -1,6 +1,6 @@
 # Office import in the independent AI service
 
-Office import runs in the independent service and its Web frontend. The desktop app ships no Python or LibreOffice runtime and accepts downloaded question-bank ZIP files for offline practice. This guide retains its historical filename so existing links remain valid.
+Office import runs in the independent service and its Web frontend. The practice app ships no Python or LibreOffice runtime and accepts downloaded question-bank ZIP files for offline practice. This guide retains its historical filename so existing links remain valid.
 
 ## Deployment
 
@@ -11,7 +11,7 @@ AI_OFFICE_EXECUTABLE=/absolute/path/to/soffice
 AI_OFFICE_VERSION=LibreOffice <exact deployed version and build identity>
 ```
 
-Use the exact output of the selected executable's `--version`, rather than the placeholder above. The executable path must be absolute and point to the trusted deployed program. Missing or mismatched configuration prevents Office processing. Neither HTTP inputs nor desktop settings can choose an executable or command arguments. The authenticated `GET /api/import-capabilities` describes supported formats, modes, upload limits and model availability. Office sources are limited to the smaller of `AI_SOURCE_MAX_BYTES` and 25 MiB, reported as `officeSourceMaxBytes`; raising the configured limit still permits larger non-Office sources. Oversized Office metadata is rejected before upload content is read or a task is queued. A deployment without Office configuration does not advertise Office support.
+Use the exact output of the selected executable's `--version`, rather than the placeholder above. The executable path must be absolute and point to the trusted deployed program. Missing or mismatched configuration prevents Office processing. Neither HTTP inputs nor practice-app settings can choose an executable or command arguments. The authenticated `GET /api/import-capabilities` describes supported formats, modes, upload limits and model availability. Office sources are limited to the smaller of `AI_SOURCE_MAX_BYTES` and 25 MiB, reported as `officeSourceMaxBytes`; raising the configured limit still permits larger non-Office sources. Oversized Office metadata is rejected before upload content is read or a task is queued. A deployment without Office configuration does not advertise Office support.
 
 Settings loading validates paired configuration, the absolute path and version format. The capability response excludes Office when that path is missing or is not a regular file; conversion and Office resume verify the deployed engine's bytes and identity. An unavailable Office engine does not block non-Office work, saved-result reads or ZIP exports.
 
@@ -43,10 +43,13 @@ Office executable and version settings are bound by the normalization manifest, 
 Use an existing Python 3.14+ interpreter, without a project virtual environment. Focused worker and service tests use temporary data and model substitutes:
 
 ```sh
+AI_PYTHON=/absolute/path/to/python3.14
 cd server
-PYTHONPATH=src python3.14 -m pytest tests/test_office.py tests/test_office_service.py tests/test_service_import_contracts.py
+PYTHONPATH=src "$AI_PYTHON" -m pytest tests/test_office.py tests/test_office_service.py tests/test_service_import_contracts.py
 ```
 
 Run `make verify AI_PYTHON=/path/to/python3.14` from the repository root for the complete service gate. Verify the actual deployed engine separately with the unchanged [Office fixtures](../../app/fixtures/office/README.md), original/derived hashes, mode and engine version. Keep first failures and use fresh report paths; do not rewrite fixtures or expected equations to obtain a passing result.
 
-The [historical evaluation](desktop-office-evaluation.md) and [import quality worksheet](../../docs/import-quality-acceptance.md) describe their original candidates. They are not acceptance of this independent deployment. Real-model quality, deployment fidelity and practice-only desktop packages require separate evidence.
+A fresh 2026-10-04 probe used the independent adapter at `b10ad6c696e5594cc961d89e31e038673c44b85a`, Python 3.14.7 and a temporary read-only official engine with exact identity `LibreOffice 26.8.0.3 bce0998afefdbc355585ca324285661a2170ba77`. All ten conversions produced twelve checksum-verified artifacts, with targeted Word/Excel observations and known TXT/CSV losses. The [fixture evidence and reproducible no-task command](../../app/fixtures/office/README.md#retained-service-probe) retain original/output checksums and the first temporary inspection-helper failure. The probe used no models, changed no persistent settings, and detached only its own mount. Both actual host Office variables remained unconfigured; this is no configured-host or full fidelity acceptance. A deployed engine needs its own fresh inspection.
+
+The [historical evaluation](desktop-office-evaluation.md) retains its original failures. The [import quality worksheet](../../docs/import-quality-acceptance.md#current-engineering-checks-without-a-real-model) separates this probe and the actual Web/HTTP/SQLite export experiment with two fake-model calls from live recognition. Real-model quality remains unperformed because authorization was declined. Independent source review, actual deployment fidelity, native ZIP/practice and signed release packages require their own evidence.
