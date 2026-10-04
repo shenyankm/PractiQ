@@ -1,34 +1,11 @@
-import type { DocumentTaskSummary, DocumentTaskReview } from "./contracts.generated";
+import type { DocumentTaskSummary, DocumentTaskReview, DocumentTaskDetail } from "./contracts.generated";
 import { invoke } from "./transport";
 import { locale } from "./i18n";
 import { runSessionRequest, type Preview, type Session } from "./api";
 
 export type TaskFilter = "active" | "paused" | "completed" | "cancelled" | "failed" | "review" | "interrupted" | "expired";
 
-type Failure = {
-  retryable: boolean;
-  stage: string;
-  index: number;
-  code: string;
-  message?: string;
-};
-export type Task = {
-  expiresAt?: string;
-  threadId: string;
-  runId: string | null;
-  checkpointId: string | null;
-  state: string;
-  phase: string;
-  allowedActions: string[];
-  blocking: unknown[];
-  failures: Failure[];
-  progress: Record<
-    string,
-    { total: number; succeeded: number; failed: number }
-  >;
-  usage: { inputTokens: number | null; outputTokens: number | null }[];
-  unknownUsageCalls: string[];
-};
+export type Task = DocumentTaskDetail;
 export type ImportOperation = { checkpointId: string | null; state: "importing" | "failed"; error?: unknown };
 export type ImportTaskContext = {
   threadId: string;
@@ -71,7 +48,7 @@ export type Request =
   | {
       type: "control";
       id: string;
-      action: string;
+      action: Task["allowedActions"][number];
       run_id: string | null;
       checkpoint_id: string | null;
       units: unknown[];

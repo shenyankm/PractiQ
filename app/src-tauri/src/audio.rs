@@ -1097,14 +1097,14 @@ mod tests {
             json!([])
         );
         let first = store
-            .save_attempt((sid, 0), json!({"correct":["B"]}), 0, true, false, None)
+            .save_attempt((sid, 0), json!({"correct":["B"]}), 0, true, false)
             .unwrap();
         assert_eq!(
             first["attempts"][0]["snapshot"]["materials"][0]["transcript"],
             json!([])
         );
         let done = store
-            .save_attempt((sid, 1), Value::Null, 0, true, true, None)
+            .save_attempt((sid, 1), Value::Null, 0, true, true)
             .unwrap();
         assert!(!list(
             &done["attempts"][0]["snapshot"]["materials"][0],

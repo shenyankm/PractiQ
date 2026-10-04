@@ -19,6 +19,7 @@ from practiq_ai.contracts import (
     DocumentReference,
     DocumentTaskControl,
     DocumentTaskCreate,
+    DocumentTaskDetail,
     DocumentTaskList,
     DocumentTaskReparse,
     DocumentTaskReview,
@@ -121,7 +122,7 @@ async def list_document_tasks(limit: int = Query(default=20, ge=1, le=100), offs
     return await _task_response(task_api.list_tasks(limit, offset, sha256, state_filter))
 
 
-@app.get("/api/document-tasks/{thread_id}", dependencies=[Depends(authorize)])
+@app.get("/api/document-tasks/{thread_id}", response_model=DocumentTaskDetail, dependencies=[Depends(authorize)])
 async def get_document_task(thread_id: UUID) -> dict[str, Any]:
     return await _task_response(task_api.get_task(str(thread_id)))
 

@@ -232,7 +232,6 @@ export type Request =
       elapsed_ms: number;
       submit: boolean;
       skip: boolean;
-      self_result: boolean | null;
     }
   | { type: "position"; id: string; position: number }
   | { type: "asset"; hash: string };

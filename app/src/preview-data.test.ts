@@ -43,6 +43,13 @@ it("previews history, snapshots, grading and import state transitions",async()=>
  await call({type:"control",id:"demo-001",action:"resume"},"ai_request");
  expect((await call<Task>({type:"get",id:"demo-001"},"ai_request")).state).toBe("RUNNING");
 });
+it("submits preview practice separately from self-assessment and preserves the answer",async()=>{
+ const submitted=await call<Session>({type:"save_attempt",id:"preview-practice",ordinal:4,answer:{text:"My answer"},elapsed_ms:123,submit:true,skip:false});
+ expect(submitted.attempts[4]).toMatchObject({answer:{text:"My answer"},elapsedMs:123,gradeKind:"ungraded",result:null,autoResult:null});
+ expect(submitted.attempts[4].submittedAt).toBeGreaterThan(0);
+ const assessed=await call<Session>({type:"self_assess",id:submitted.id,ordinal:4,result:false});
+ expect(assessed.attempts[4]).toEqual({...submitted.attempts[4],result:false,gradeKind:"self"});
+});
 it("supports empty state creation and settings recovery",async()=>{
  mode.value="empty";
  expect(await call({type:"banks"})).toEqual([]);
