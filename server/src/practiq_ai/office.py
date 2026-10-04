@@ -1,4 +1,4 @@
-"""Desktop-only LibreOffice worker. No HTTP endpoints, credentials or model calls."""
+"""Isolated Office worker. No HTTP endpoints, credentials or model calls."""
 
 import csv
 import hashlib
@@ -29,6 +29,7 @@ TIMEOUT = 180
 FORMATS = {".doc": "writer", ".docx": "writer", ".xls": "calc", ".xlsx": "calc"}
 _children: set[subprocess.Popen] = set()
 _lock = threading.Lock()
+_abandoned = False
 
 
 class OfficeError(Exception):
@@ -56,8 +57,13 @@ def _stop_children() -> None:
 
 
 def _abandon() -> None:
-    _stop_children()
-    # Only the native host supplies this dedicated workspace; original inputs never live here.
+    global _abandoned
+    # EOF can race the next stage of a DOC conversion. Never launch another session after cleanup.
+    with _lock:
+        _abandoned = True
+        for process in _children:
+            _stop(process)
+    # The host supplies this dedicated workspace; original inputs never live here.
     directory = Path(os.environ.get("PRACTIQ_OFFICE_WORKSPACE", ""))
     if directory.is_absolute() and directory.name.startswith("practiq-office-") and not directory.is_symlink():
         shutil.rmtree(directory, ignore_errors=True)
@@ -126,6 +132,8 @@ def _run(arguments: list[str], deadline: float, output: Path | None = None) -> b
                 # Native CoreText finds macOS fonts; generic headless VCL can omit CJK glyphs.
                 env.setdefault("SAL_USE_VCLPLUGIN", "osx")
             with _lock:
+                if _abandoned:
+                    raise OfficeError("OFFICE_CONVERSION_FAILED")
                 process = _spawn(arguments, stdin=subprocess.DEVNULL,
                                            stdout=stream if output is None else subprocess.DEVNULL,
                                            stderr=subprocess.DEVNULL, env=env,

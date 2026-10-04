@@ -28,7 +28,6 @@ class Config:
     model_timeout_seconds: float
     model_max_tokens: int
     base_url: str | None = None
-    desktop_mode: bool = False
     read_only: bool = False
     jobs_per_worker: int = 8
     task_max_model_calls: int = 400
@@ -42,6 +41,8 @@ class Config:
     max_busy_threads: int = 300
     maintenance: bool = False
     structured_output_method: str = "function_calling"
+    office_executable: Path | None = None
+    office_version: str | None = None
 
 
 def _required(values: dict[str, str], key: str) -> str:
@@ -88,10 +89,20 @@ def is_loopback_host(hostname: str | None) -> bool:
 
 def load() -> Config:
     values = dict(os.environ)
+    office_path = values.get("AI_OFFICE_EXECUTABLE", "").strip()
+    office_version = values.get("AI_OFFICE_VERSION", "").strip()
+    if bool(office_path) != bool(office_version):
+        raise ValueError("AI_OFFICE_EXECUTABLE and AI_OFFICE_VERSION must be configured together")
+    office_executable = Path(office_path) if office_path else None
+    if office_executable is not None:
+        if not office_executable.is_absolute():
+            raise ValueError("AI_OFFICE_EXECUTABLE must be an explicit absolute path")
+        if not office_executable.is_file():
+            raise ValueError("AI_OFFICE_EXECUTABLE must be a deployed regular file")
+        if not office_version.startswith(("LibreOffice ", "LibreOfficeDev ")) or len(office_version) > 255:
+            raise ValueError("AI_OFFICE_VERSION must contain the exact deployed LibreOffice version")
     _required(values, "AI_SERVICE_TOKEN")
     read_only = values.get("AI_READ_ONLY") == "1"
-    if read_only and values.get("AI_DESKTOP_MODE") != "1":
-        raise ValueError("AI_READ_ONLY requires desktop mode")
     provider = "" if read_only else _required(values, "LLM_PROVIDER")
     if not read_only and provider not in {"dashscope", "deepseek", "moonshot", "openai"}:
         raise ValueError(f"Unsupported LLM_PROVIDER: {provider}")
@@ -130,7 +141,6 @@ def load() -> Config:
             raise ValueError("LLM_BASE_URL requires HTTPS or loopback HTTP without credentials, query or fragment")
     return Config(
         base_url=base_url,
-        desktop_mode=values.get("AI_DESKTOP_MODE") == "1",
         read_only=read_only,
         jobs_per_worker=jobs_per_worker,
         maintenance=maintenance == "true",
@@ -144,6 +154,8 @@ def load() -> Config:
         upload_timeout_seconds=_positive_float(values, "AI_UPLOAD_TIMEOUT_SECONDS", 120),
         max_busy_threads=_positive_int(values, "AI_MAX_BUSY_THREADS", 300),
         structured_output_method=method,
+        office_executable=office_executable,
+        office_version=office_version or None,
         provider=provider,
         api_key="" if read_only else _required(values, "LLM_API_KEY"),
         model_id=model_id,

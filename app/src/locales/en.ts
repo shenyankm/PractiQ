@@ -1,4 +1,24 @@
 export const en = {
+  "网址尚未应用，请先获取音频或清空网址后保存。": "This URL has not been applied. Fetch the audio or clear the URL before saving.",
+
+  "继续编辑": "Continue editing",
+
+  "更改尚未保存。放弃后将无法恢复。": "Your changes have not been saved. Discarding them cannot be undone.",
+
+  "放弃未保存的更改？": "Discard unsaved changes?",
+
+  "AI 服务": "AI service",
+  "AI 服务地址": "AI service URL",
+  "AI 服务访问令牌": "AI service access token",
+  "填写此服务对应的访问令牌": "Enter the access token for this service",
+  "清除已保存的访问令牌": "Clear saved access token",
+  "管理 AI 服务连接与本地学习数据": "Manage the AI service connection and local study data",
+  "用于显式请求主观题 AI 评分": "For explicitly requested AI grading of subjective answers",
+  "离开输入框时自动保存。AI 服务连接仅用于显式评分；离线练习无需配置。": "Changes save when you leave a field. The AI service is used only for explicit grading; offline practice needs no connection.",
+  "导入题库 ZIP 或添加示例题库，开始离线练习。文档解析请使用独立 AI 服务网页。": "Import a bank ZIP or add the example bank to practise offline. Use the independent AI service website to parse documents.",
+  "包含题库、图片、收藏、作答和评分记录。不包含原始文档、AI 任务及服务访问令牌；在其他设备恢复后需重新配置令牌。请定期保存到其他位置。": "Includes banks, images, favorites, answers and grading records. Excludes source documents, AI tasks and service tokens; configure the token again after restoring on another device. Save backups elsewhere regularly.",
+  "未配置 AI 服务": "AI service not configured",
+
   "加载题目失败": "Could not load questions",
   "转到第一题": "Go to first question",
   "定位当前题": "Locate current question",
@@ -204,7 +224,7 @@ export const en = {
   "审核题目": "Reviewing questions",
   "审核结果": "Reviewing results",
   "处理文档": "Processing document",
-  "模型鉴权失败，请检查设置中的 API Key，再重试失败项。": "Model authentication failed. Check the API key in Settings, then retry failed items.",
+  "AI 服务的模型鉴权失败，请检查服务端模型配置后重试。": "The AI service model authentication failed. Check the server model configuration, then retry.",
   "此项未能完成，请检查配置或重试（{0}）。": "This item could not be completed. Check your settings or retry ({0}).",
   "上传": "Upload",
   "刷新任务": "Refresh tasks",

@@ -16,7 +16,7 @@ make server-dev AI_PYTHON=/path/to/python3.14
 
 `make server-dev` starts one Uvicorn process on `127.0.0.1:8090` with persistent local SQLite files. Missing or incompatible databases prevent startup; there is no in-memory fallback. Python registers graphs directly, without `langgraph.json` or the LangGraph CLI server.
 
-`Dockerfile.server` builds the production image with Python 3.14, PDFium, and Chinese fonts. Linux ECS deployments use host networking. The container listens on `127.0.0.1:8000` by default, behind a host HTTPS reverse proxy. Do not expose database or application backend ports. `deploy/nginx.conf` is a host-loopback HTTP proxy example; a trusted upstream entry point provides TLS.
+`Dockerfile.server` builds the production image with Python 3.14, PDFium, Chinese fonts and the built import Web frontend. Office normalization belongs to this deployment; configure and verify its LibreOffice executable/version separately. Linux ECS deployments use host networking. The container listens on `127.0.0.1:8000` by default, behind a host HTTPS reverse proxy. Do not expose database or application backend ports. `deploy/nginx.conf` is a host-loopback HTTP proxy example; a trusted upstream entry point provides TLS.
 
 Size resources using representative documents, model latency, and concurrency tests. Historical capacity reports do not guarantee current deployment capacity. Do not use multiple Uvicorn workers, scale-to-zero function instances, or overlapping rolling replicas.
 
@@ -74,7 +74,7 @@ Each provider attempt is recorded before dispatch. Returned usage and completion
 
 Call events, counters, and timings are recorded even if persisting an attempt's outcome fails. A ledger write failure stops further provider dispatch, including automatic retries; already-known usage and dispatched unknown attempts remain in the cached response if final-response storage succeeds.
 
-Desktop ZIP backups include exams and saved scores, but exclude the service cache and API keys. Full service backups and desktop bank backups serve different purposes and cannot replace each other.
+Desktop ZIP backups include exams and saved scores, but exclude the service cache and all credentials. The desktop service token is in the platform credential store; provider keys remain in the service environment. Full service backups and desktop bank backups serve different purposes and cannot replace each other.
 
 ## Retention and cleanup
 
@@ -133,4 +133,4 @@ The image uses UID/GID `10001:10001`. `server/deploy/service.compose.yml` suppli
 
 Set `PRACTIQ_STORAGE_DIR` to a verified absolute host directory and ensure UID 10001 can read/write it. Do not recursively change existing mount permissions automatically. Use an existing dedicated group/ACL or manually copy to a new dedicated directory while preserving rollback data. SQLite lives at `/var/lib/practiq/database` within the persistent mount. Remove old `DATABASE_URI` from `.env`. Host networking exposes the service only on `127.0.0.1:8000`. Validate with `docker compose -f server/deploy/service.compose.yml config --quiet`, then start in an authorized deployment environment. These resource quotas are starting values; validate against representative documents and concurrency.
 
-Only supported task records participate in startup recovery, scheduling and queue capacity. Unsupported records remain unchanged and return `TASK_FORMAT_UNSUPPORTED` on direct access. Desktop mode leaves unfinished supported tasks interrupted after restart and makes new model calls only after an explicit Resume action. The independent server resumes the original run automatically. Desktop ZIP backups exclude the AI task directory.
+Only supported task records participate in startup recovery, scheduling and queue capacity. Unsupported records remain unchanged and return `TASK_FORMAT_UNSUPPORTED` on direct access. Read-only service mode leaves unfinished tasks waiting and makes no model calls. Ordinary independent deployments retain automatic recovery of originally authorized unfinished runs. Browser GET polling starts no new model work. Desktop ZIP backups exclude legacy AI task directories.

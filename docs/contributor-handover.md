@@ -27,7 +27,7 @@ make app-install
 (cd server && PYTHONPATH=src "$AI_PYTHON" -m pytest tests/test_evaluation.py)
 ```
 
-For UI changes run the existing UI/browser gates; for fixture/service changes run `make verify AI_PYTHON="$AI_PYTHON"` before requesting review. Setting the selected interpreter avoids accidentally using a shell's older `python`. Evaluation tests use paths relative to `server/`, so run them there; running them from root fails to locate `evals/cases.json`. Neither setup nor focused tests need a model key. For browser dependencies use the locked setup from README, not a symlink to another checkout's `node_modules`.
+For desktop UI changes run the existing UI/browser gates; for import Web changes run `make web-install web-check` and its browser checks; for fixture/service changes run `make verify AI_PYTHON="$AI_PYTHON"` before requesting review. Setting the selected interpreter avoids accidentally using a shell's older `python`. Evaluation tests use paths relative to `server/`, so run them there; running them from root fails to locate `evals/cases.json`. Neither setup nor focused tests need a model key. For browser dependencies use the locked setup from README, not a symlink to another checkout's `node_modules`.
 
 The isolated-checkout exercise for this PR ran locked `make app-install`, generated-contract check, shared fixture check and frontend lint successfully. Focused evaluation tests were run in the separate #90 preparation checkout from the same main source. Locked Python dependency installation was not repeated, and no clean-machine, bundled package or Windows/Linux onboarding is claimed. Report a concrete command/platform/error if these steps fail on a new machine; never include keys or personal paths in public logs.
 

@@ -1,0 +1,21 @@
+# PractiQ AI import Web
+
+This independent React/Vite frontend uploads source documents to the authenticated AI service, reads task progress and checkpoints, reviews extracted content, and downloads question-bank ZIP packages. Practice remains in the offline desktop app. There is no browser learning backend, account system, or billing flow.
+
+```sh
+npm ci --prefix web
+npm --prefix web run dev
+npm --prefix web run check
+npm --prefix web run test:browser
+npm --prefix web run build
+```
+
+Development binds to `127.0.0.1:5173` and proxies `/api` to the loopback service on port `8090`. Production builds into `web/dist`; the independent service serves those assets from `/` when available and can also run without Web assets. API requests use the same origin as the page. The service token is entered into a password field, kept only in memory, and cleared on disconnect or page reload. Provider credentials and model configuration stay on the server. No credentials are saved in browser storage or included in URLs.
+
+The service's capability response supplies supported formats, the per-file byte limit, Office availability and conversion modes. A selection contains at most ten files. Selecting files makes no upload or model request. Clicking **Start import** computes each file's SHA-256, prepares and uploads its exact bytes, and creates a task with a stable request ID. Word and Excel conversion runs on the server; PDF is the default and text mode uses Word text or one CSV per worksheet. The selected conversion mode is fixed after submission. A failed or uncertain submission is never replayed automatically; an explicit retry reuses its request ID and mode.
+
+Polling only reads task lists, details and previews. Resume, retry failed units, accept partial results, pause, interrupt, reparse and delete require their corresponding actions. Checkpoint actions and export stay disabled when the latest detail and preview disagree or cannot be read. Task deletion requires confirmation. Completed partial results can be exported without changing their status, warnings, review flags, missing values or source associations. ZIP downloads use authenticated requests for the current checkpoint and the same 300 MiB archive ceiling as the service and native importer. In the desktop app, **Settings → Restore backup → Import bank ZIP** appends the downloaded bank.
+
+Result review displays questions, parent material, shared options, source units, quality records and immutable image references without adding answers. Document/model HTML is inert; external Markdown images and links never make requests. Images are fetched only on an explicit click through the authenticated artifact endpoint, checked against MIME, byte size and SHA-256, then displayed through a temporary blob URL. Image and download URLs are released after use. Known model usage and calls with unknown usage remain distinct.
+
+Vitest uses at most two workers and enforces the existing desktop coverage thresholds (80% statements, 73% branches/functions, 85% lines). Playwright uses one Chromium worker on loopback port `1671` and intercepts every API request with synthetic HTTP responses. Its ZIP fixture checks download transport and bytes; native ZIP compatibility is covered by the shared service/desktop contract and native tests. These browser tests do not run a model, Office conversion, or a real service. A separate bounded hosting smoke may load built assets from a disposable read-only local service with model configuration absent; that checks static hosting, authentication and passive file selection, not live AI parsing or production deployment.

@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import sys
 import zipfile
+from contextlib import contextmanager
 from pathlib import Path, PureWindowsPath
 from types import SimpleNamespace
 
@@ -26,7 +27,7 @@ def release():
 @pytest.fixture
 def source(tmp_path):
     for name in ("app/package.json", "app/package-lock.json", "app/src-tauri/Cargo.toml",
-                 "app/src-tauri/Cargo.lock", "app/src-tauri/tauri.conf.json", "server/pyproject.toml",
+                 "app/src-tauri/Cargo.lock", "app/src-tauri/tauri.conf.json", "app/src-tauri/tauri.linux.conf.json", "server/pyproject.toml",
                  ".github/RELEASE_TEMPLATE.md"):
         destination = tmp_path / name
         destination.parent.mkdir(parents=True, exist_ok=True)
@@ -41,13 +42,213 @@ def test_release_rejects_noncanonical_tags(release, source, tag):
 
 
 def test_release_versions_preserve_independent_service_and_reject_lock_drift(release, source):
-    assert release.versions(source, "v0.1.0") == {"desktop": "0.1.0", "aiService": "0.3.0"}
+    assert release.versions(source, "v0.1.0") == {"desktop": "0.1.0", "aiServiceSource": "0.3.0"}
     lock = source / "app/package-lock.json"
     payload = json.loads(lock.read_text())
     payload["packages"][""]["version"] = "0.1.1"
     lock.write_text(json.dumps(payload))
     with pytest.raises(ValueError, match="must match"):
         release.versions(source, "v0.1.0")
+
+
+@pytest.mark.parametrize("field,value", [("packageMode", "bundled-ai"), ("packageSchemaVersion", 1)])
+def test_release_assembly_rejects_old_embedded_engine_candidate_mode(release, source, staged, field, value):
+    candidate_path = staged / "release-macos/candidate.json"
+    candidate = json.loads(candidate_path.read_text())
+    candidate[field] = value
+    candidate_path.write_text(json.dumps(candidate))
+    with pytest.raises(ValueError, match="desktop-practice"):
+        release.assemble(source, "v0.1.0", staged, source / "assets")
+    assert not (source / "assets").exists()
+
+
+@pytest.mark.parametrize("fault", ["architecture", "depends"])
+def test_final_deb_checks_actual_architecture_and_required_native_dependencies(release, tmp_path, monkeypatch, fault):
+    monkeypatch.setattr(sys, "platform", "linux")
+    installer = tmp_path / "final.deb"
+    installer.write_bytes(b"Synthetic DEB")
+    def field(command, **kwargs):
+        return ("arm64" if fault == "architecture" else "amd64") if command[-1] == "Architecture" else ("libgtk-3-0" if fault == "depends" else "libwebkit2gtk-4.1-0, libgtk-3-0, libdbus-1-3, gstreamer1.0-plugins-good, gstreamer1.0-plugins-bad, gstreamer1.0-libav")
+    def extract(command, **kwargs):
+        (Path(command[-1]) / "usr/lib/PractiQ/bundled").mkdir(parents=True)
+    monkeypatch.setattr(subprocess, "check_output", field)
+    monkeypatch.setattr(subprocess, "run", extract)
+    with pytest.raises(ValueError, match="architecture|dependencies"), release.final_bundle(installer):
+        pass
+
+
+@pytest.mark.parametrize("fault", [None, "configured_dependency", "alternative", "empty_architecture"])
+def test_deb_checks_candidate_configuration_and_dependency_qualifiers(release, source, monkeypatch, fault):
+    config = source / "app/src-tauri/tauri.linux.conf.json"
+    config.write_text(json.dumps({"bundle": {"linux": {"deb": {"depends": ["candidate-runtime-library"]}}}}))
+    dependencies = "libwebkit2gtk-4.1-0:amd64 (>= 2.40), libgtk-3-0:any (>= 3.24)"
+    if fault != "configured_dependency":
+        dependencies += ", candidate-runtime-library"
+    if fault == "alternative":
+        dependencies = dependencies.replace("libgtk-3-0:any (>= 3.24)", "libgtk-3-0 | optional-alternative")
+    def field(command, **kwargs):
+        return ("" if fault == "empty_architecture" else "amd64") if command[-1] == "Architecture" else dependencies
+    monkeypatch.setattr(subprocess, "check_output", field)
+    if fault:
+        with pytest.raises(ValueError, match="architecture|dependencies"):
+            release.check_deb_metadata(source / "candidate.deb", source)
+    else:
+        release.check_deb_metadata(source / "candidate.deb", source)
+
+
+@pytest.mark.parametrize("fault", ["missing", "file", "parent_symlink"])
+def test_final_resources_require_real_directory_chain_in_the_same_payload(release, tmp_path, fault):
+    payload = tmp_path / "payload"
+    payload.mkdir()
+    bundle = payload / "resources/bundled"
+    if fault == "parent_symlink":
+        internal = payload / "internal"
+        (internal / "bundled").mkdir(parents=True)
+        bundle.parent.symlink_to(internal, target_is_directory=True)
+    else:
+        bundle.parent.mkdir()
+        if fault == "file":
+            bundle.write_bytes(b"Resource path is a file")
+    with pytest.raises(ValueError, match="real contained directories"):
+        release.contained_bundle(payload, bundle)
+
+
+@pytest.mark.parametrize("fault", ["absolute_internal", "absolute_external", "relative_external", "dangling"])
+def test_final_resources_reject_leaf_links_not_bound_to_relative_payload_bytes(release, tmp_path, fault):
+    payload = tmp_path / "payload"
+    bundle = payload / "resources/bundled"
+    bundle.mkdir(parents=True)
+    internal = bundle / "real-notices.txt"
+    internal.write_text("Notices")
+    external = tmp_path / "host-notices.txt"
+    external.write_text("Host notices")
+    target = {"absolute_internal": internal, "absolute_external": external,
+              "relative_external": "../../../host-notices.txt", "dangling": "missing.txt"}[fault]
+    (bundle / "THIRD-PARTY.txt").symlink_to(target)
+    with pytest.raises(ValueError, match="bundle|payload"):
+        release.contained_bundle(payload, bundle)
+
+
+def test_final_resources_accept_a_relative_link_to_bytes_inside_the_bundle(release, tmp_path):
+    payload = tmp_path / "payload"
+    bundle = payload / "resources/bundled"
+    bundle.mkdir(parents=True)
+    (bundle / "real-notices.txt").write_text("Notices")
+    (bundle / "THIRD-PARTY.txt").symlink_to("real-notices.txt")
+    assert release.contained_bundle(payload, bundle) == bundle
+
+
+def test_macos_desktop_version_rejects_a_host_plist_symlink(release, tmp_path, monkeypatch):
+    monkeypatch.setattr(sys, "platform", "darwin")
+    bundle = tmp_path / "PractiQ.app/Contents/Resources/bundled"
+    bundle.mkdir(parents=True)
+    host = tmp_path / "host.plist"
+    host.write_bytes(plistlib.dumps({"CFBundleShortVersionString": "0.1.0"}))
+    (bundle.parents[1] / "Info.plist").symlink_to(host)
+    with pytest.raises(ValueError, match="Info.plist"):
+        release.check_desktop_version(tmp_path / "selected.dmg", bundle, "0.1.0", "PractiQ")
+
+
+@pytest.mark.parametrize("platform,fault", [("darwin", "missing"), ("darwin", "symlink"),
+                                           ("darwin", "executable_identity"), ("linux", "missing"),
+                                           ("linux", "symlink"), ("linux", "parent_symlink"),
+                                           ("win32", "symlink")])
+def test_native_version_checks_require_the_actual_contained_application(release, tmp_path, monkeypatch, platform, fault):
+    monkeypatch.setattr(sys, "platform", platform)
+    application = tmp_path / "payload"
+    if platform == "darwin":
+        bundle = application / "PractiQ.app/Contents/Resources/bundled"
+        executable = application / "PractiQ.app/Contents/MacOS/PractiQ"
+    elif platform == "linux":
+        bundle = application / "usr/lib/PractiQ/bundled"
+        executable = application / "usr/bin/PractiQ"
+    else:
+        bundle = application / "bundled"
+        executable = application / "PractiQ.exe"
+    bundle.mkdir(parents=True)
+    executable.parent.mkdir(parents=True, exist_ok=True)
+    if platform == "darwin":
+        (bundle.parents[1] / "Info.plist").write_bytes(plistlib.dumps({"CFBundleShortVersionString": "0.1.0",
+            "CFBundleExecutable": "Unrelated" if fault == "executable_identity" else "PractiQ"}))
+    host = tmp_path / "host-native"
+    host.write_bytes(b"Native bytes from an unrelated path")
+    if fault == "symlink":
+        executable.symlink_to(host)
+    elif fault == "parent_symlink":
+        executable.parent.rmdir()
+        host_directory = tmp_path / "host-bin"
+        host_directory.mkdir()
+        (host_directory / executable.name).write_bytes(b"Native bytes outside the payload")
+        executable.parent.symlink_to(host_directory, target_is_directory=True)
+    elif fault == "executable_identity":
+        executable.write_bytes(b"Native executable")
+    monkeypatch.setattr(subprocess, "check_output", lambda *args, **kwargs: "0.1.0")
+    with pytest.raises(ValueError, match="native|executable|Info.plist"):
+        release.check_desktop_version(tmp_path / "candidate", bundle, "0.1.0", "PractiQ")
+
+
+@pytest.mark.parametrize("platform", ["darwin", "linux"])
+def test_final_package_rejects_bundle_symlink_to_an_unrelated_local_directory(release, tmp_path, monkeypatch, platform):
+    monkeypatch.setattr(sys, "platform", platform)
+    installer = tmp_path / ("final.dmg" if platform == "darwin" else "final.deb")
+    installer.write_bytes(b"Synthetic installer")
+    unrelated = tmp_path / "unrelated-bundle"
+    unrelated.mkdir()
+    def extract(command, **kwargs):
+        if command[0] == "hdiutil":
+            if command[1] == "detach":
+                return
+            base = Path(command[command.index("-mountpoint") + 1])
+            bundle = base / "PractiQ.app/Contents/Resources/bundled"
+        else:
+            bundle = Path(command[-1]) / "usr/lib/PractiQ/bundled"
+        bundle.parent.mkdir(parents=True)
+        bundle.symlink_to(unrelated, target_is_directory=True)
+    monkeypatch.setattr(subprocess, "run", extract)
+    monkeypatch.setattr(subprocess, "check_output", lambda cmd, **kw: "amd64" if cmd[-1] == "Architecture" else "libwebkit2gtk-4.1-0, libgtk-3-0, libdbus-1-3, gstreamer1.0-plugins-good, gstreamer1.0-plugins-bad, gstreamer1.0-libav")
+    with pytest.raises(ValueError, match="bundle|payload"), release.final_bundle(installer):
+        pass
+
+
+@pytest.mark.parametrize("mutation", ["original", "snapshot"])
+def test_unsigned_stage_uses_checked_snapshot_when_original_installer_path_changes(release, source, monkeypatch, mutation):
+    monkeypatch.setattr(sys, "platform", "darwin")
+    installer = source / "app/src-tauri/target/release/bundle/dmg/final.dmg"
+    installer.parent.mkdir(parents=True)
+    installer.write_bytes(b"Checked original installer")
+    bundle = source / "checked-payload"
+    bundle.mkdir()
+    (bundle / "build-manifest.json").write_text(json.dumps({"schemaVersion": 2, "packageMode": "desktop-practice", "platform": "darwin", "architecture": "arm64", "desktopVersion": "0.1.0"}))
+    (bundle / "THIRD-PARTY.txt").write_text("Synthetic notice")
+    @contextmanager
+    def extracted(path, *args, **kwargs):
+        assert path.read_bytes() == b"Checked original installer"
+        yield bundle
+    def version(path, *args):
+        target = installer if mutation == "original" else path
+        target.chmod(0o600)
+        target.write_bytes(b"Unchecked replacement installer")
+        return "0.1.0"
+    def gate(command, **kwargs):
+        Path(command[command.index("--output") + 1]).write_text('{"passed":true}')
+        if "--notices" in command:
+            Path(command[command.index("--notices") + 1]).write_text("Synthetic notice")
+    monkeypatch.setitem(release.stage_installer.__globals__, "final_bundle", extracted)
+    monkeypatch.setitem(release.stage_installer.__globals__, "check_desktop_version", version)
+    monkeypatch.setitem(release.stage_installer.__globals__, "git", lambda root, *args: "" if args[0] == "status" else "a" * 40)
+    monkeypatch.setattr(subprocess, "run", gate)
+    for key, value in {"GITHUB_SERVER_URL": "https://github.com", "GITHUB_REPOSITORY": "test/repo", "GITHUB_RUN_ID": "1"}.items():
+        monkeypatch.setenv(key, value)
+    output = source / "app/.build/release"
+    if mutation == "snapshot":
+        with pytest.raises(ValueError, match="snapshot"):
+            release.stage_installer(source, "v0.1.0")
+        assert not output.exists()
+        return
+    release.stage_installer(source, "v0.1.0")
+    candidate = json.loads((output / "candidate.json").read_text())
+    assert (output / candidate["file"]).read_bytes() == b"Checked original installer"
+    assert candidate["sha256"] == hashlib.sha256(b"Checked original installer").hexdigest()
 
 
 def test_release_candidate_requires_clean_tagged_main_ancestor(release, source):
@@ -85,15 +286,17 @@ def staged(release, source, monkeypatch):
         evidence.mkdir(parents=True)
         filename = f"PractiQ_0.1.0_{os_name}_{arch}{suffix}"
         (folder / filename).write_bytes(b"synthetic installer")
-        for report in ("desktop-bundle.json", "office.json", "office-fidelity.json", "licenses.json"):
+        for report in ("desktop-bundle.json", "licenses.json"):
             (evidence / report).write_text('{"passed":true}')
         (evidence / "build-manifest.json").write_text(json.dumps({
             "platform": platform, "architecture": "arm64" if platform == "darwin" else "x86_64",
-            "packages": [{"name": "practiq-ai-service", "version": "0.3.0"}],
+            "schemaVersion": 2, "packageMode": "desktop-practice", "desktopVersion": "0.1.0",
         }))
-        for notice_name in ("THIRD-PARTY.txt", "PYTHON-LICENSE.txt"):
+        for notice_name in ("THIRD-PARTY.txt", "expected-THIRD-PARTY.txt"):
             (evidence / notice_name).write_text("Synthetic notice")
-        candidate = {"tag": "v0.1.0", "commit": "a" * 40,
+        (evidence / "notices-match.json").write_text(json.dumps({"passed": True, "sha256": release.checksum(evidence / "THIRD-PARTY.txt")}))
+        (evidence / "desktop-version.json").write_text(json.dumps({"passed": True, "platform": platform, "version": "0.1.0"}))
+        candidate = {"packageSchemaVersion": 2, "packageMode": "desktop-practice", "tag": "v0.1.0", "commit": "a" * 40,
                      "components": release.versions(source, "v0.1.0"), "os": os_name,
                      "architecture": arch, "file": filename, "sizeBytes": (folder / filename).stat().st_size,
                      "sha256": release.checksum(folder / filename), "signing": "unsigned",
@@ -119,7 +322,7 @@ def test_release_assembly_hashes_every_public_asset_and_keeps_acceptance_pending
     assert manifest["commit"] == "a" * 40 and "pending" in manifest["publicationStatus"]
     assert len(manifest["assets"]) == 3
     with zipfile.ZipFile(output / "release-evidence.zip") as archive:
-        assert "macos/evidence/office-fidelity.json" in archive.namelist()
+        assert "macos/evidence/licenses.json" in archive.namelist()
         assert "service/probes.json" in archive.namelist()
     notes = (output / "RELEASE_NOTES.md").read_text()
     assert "@VERSION@" not in notes and "0.3.0" in notes and "[ ]" in notes
@@ -139,11 +342,11 @@ def test_release_assembly_rejects_mixed_altered_or_incomplete_candidates(release
     elif mutation == "asset":
         (folder / candidate["file"]).write_bytes(b"changed installer")
     elif mutation == "evidence":
-        (folder / "evidence/office-fidelity.json").write_text("altered evidence")
+        (folder / "evidence/licenses.json").write_text("altered evidence")
     elif mutation == "failed_gate":
-        path = folder / "evidence/office-fidelity.json"
+        path = folder / "evidence/licenses.json"
         path.write_text('{"passed":false}')
-        candidate["evidence"]["evidence/office-fidelity.json"] = release.checksum(path)
+        candidate["evidence"]["evidence/licenses.json"] = release.checksum(path)
     elif mutation == "escape":
         candidate["evidence"]["../outside.json"] = "a" * 64
     elif mutation == "missing_notice":
@@ -160,7 +363,7 @@ def test_release_assembly_rejects_mixed_altered_or_incomplete_candidates(release
 def test_release_stage_propagates_strict_gate_failure_before_copying_assets(release, source, monkeypatch):
     bundle = source / "bundle"
     bundle.mkdir()
-    (bundle / "build-manifest.json").write_text('{"platform":"darwin","architecture":"arm64","packages":[{"name":"practiq-ai-service","version":"0.3.0"}]}')
+    (bundle / "build-manifest.json").write_text('{"platform":"darwin","architecture":"arm64","schemaVersion":2,"packageMode":"desktop-practice","desktopVersion":"0.1.0"}')
     monkeypatch.setattr(sys, "platform", "darwin")
     monkeypatch.setitem(release.stage.__globals__, "git", lambda *_: "")
     calls = []
@@ -168,20 +371,20 @@ def test_release_stage_propagates_strict_gate_failure_before_copying_assets(rele
         calls.append(command)
         report = Path(command[command.index("--output") + 1])
         report.write_text('{"passed":true}')
-        if "--fidelity-only" in command:
+        if "check_licenses.py" in command[1]:
             raise subprocess.CalledProcessError(1, command)
     monkeypatch.setattr(subprocess, "run", run)
     with pytest.raises(subprocess.CalledProcessError):
         release.stage(source, "v0.1.0", bundle, source / "installer.dmg", source / "assets")
-    assert len(calls) == 3 and "--isolated" in calls[1]
+    assert len(calls) == 2 and "check_licenses.py" in calls[1][1]
     assert not (source / "assets").exists()
 
 
 def test_windows_stage_uses_portable_evidence_paths_for_linux_assembly(release, source, monkeypatch):
     bundle, output = source / "bundle", source / "assets"
     bundle.mkdir()
-    (bundle / "build-manifest.json").write_text('{"platform":"win32","architecture":"AMD64","packages":[{"name":"practiq-ai-service","version":"0.3.0"}]}')
-    for filename in ("THIRD-PARTY.txt", "PYTHON-LICENSE.txt"):
+    (bundle / "build-manifest.json").write_text('{"platform":"win32","architecture":"AMD64","schemaVersion":2,"packageMode":"desktop-practice","desktopVersion":"0.1.0"}')
+    for filename in ("THIRD-PARTY.txt",):
         (bundle / filename).write_text("Synthetic notice")
     installer = source / "installer.exe"
     installer.write_bytes(b"synthetic installer")
@@ -191,15 +394,17 @@ def test_windows_stage_uses_portable_evidence_paths_for_linux_assembly(release, 
         monkeypatch.setenv(key, value)
     def run(command, **kwargs):
         Path(command[command.index("--output") + 1]).write_text('{"passed":true}')
+        if "--notices" in command:
+            Path(command[command.index("--notices") + 1]).write_text("Synthetic notice")
     monkeypatch.setattr(subprocess, "run", run)
     relative_to = Path.relative_to
     def windows_relative_path(path, *args, **kwargs):
         relative = relative_to(path, *args, **kwargs)
         return PureWindowsPath(relative) if args == (output,) else relative
     monkeypatch.setattr(Path, "relative_to", windows_relative_path)
-    release.stage(source, "v0.1.0", bundle, installer, output)
+    release.stage(source, "v0.1.0", bundle, installer, output, desktop_version="0.1.0")
     candidate = json.loads((output / "candidate.json").read_text())
-    assert "evidence/office-fidelity.json" in candidate["evidence"]
+    assert "evidence/licenses.json" in candidate["evidence"]
     assert all("\\" not in path for path in candidate["evidence"])
 
 
@@ -226,14 +431,15 @@ def final_setup(release, source, monkeypatch):
         os_name, arch, _, asset_suffix = release.PLATFORMS[platform]
         original_name = f"PractiQ_0.1.0_{os_name}_{arch}{asset_suffix}"
         (original / original_name).write_bytes(b"original unsigned installer")
-        for name in ("desktop-bundle.json", "office.json", "office-fidelity.json", "licenses.json"):
+        for name in ("desktop-bundle.json", "licenses.json"):
             (original_evidence / name).write_text('{"passed":true}')
         (original_evidence / "build-manifest.json").write_text(json.dumps({
             "platform": platform, "architecture": "arm64" if platform == "darwin" else "x86_64",
-            "packages": [{"name": "practiq-ai-service", "version": "0.3.0"}]}))
+            "schemaVersion": 2, "packageMode": "desktop-practice", "desktopVersion": "0.1.0"}))
+        (original_evidence / "desktop-version.json").write_text(json.dumps({"passed": True, "platform": platform, "version": "0.1.0"}))
         state["build_candidate"] = original / "candidate.json"
         state["build_candidate"].write_text(json.dumps({
-            "tag": "v0.1.0", "commit": "a" * 40, "components": release.versions(source, "v0.1.0"),
+            "packageSchemaVersion": 2, "packageMode": "desktop-practice", "tag": "v0.1.0", "commit": "a" * 40, "components": release.versions(source, "v0.1.0"),
             "os": os_name, "architecture": arch, "file": original_name,
             "sha256": release.checksum(original / original_name), "sizeBytes": (original / original_name).stat().st_size,
             "buildRun": "https://github.com/test/repo/actions/runs/42",
@@ -243,15 +449,22 @@ def final_setup(release, source, monkeypatch):
             bundle.mkdir(parents=True)
             (bundle / "build-manifest.json").write_text(json.dumps({
                 "platform": platform, "architecture": "arm64" if platform == "darwin" else "x86_64",
-                "packages": [{"name": "practiq-ai-service", "version": "0.3.0"}],
+                "schemaVersion": 2, "packageMode": "desktop-practice", "desktopVersion": "0.1.0",
             }))
-            for name in ("THIRD-PARTY.txt", "PYTHON-LICENSE.txt"):
+            for name in ("THIRD-PARTY.txt",):
                 (bundle / name).write_text("Synthetic candidate notice")
             if platform == "darwin":
-                (bundle.parents[1] / "Info.plist").write_bytes(plistlib.dumps({"CFBundleShortVersionString": "0.2.0" if fault == "desktop_version" else "0.1.0"}))
+                (bundle.parents[1] / "Info.plist").write_bytes(plistlib.dumps({"CFBundleShortVersionString": "0.2.0" if fault == "desktop_version" else "0.1.0", "CFBundleExecutable": "PractiQ"}))
+                executable = bundle.parents[1] / "MacOS/PractiQ"
+                executable.parent.mkdir()
+                executable.write_bytes(b"Synthetic native application")
             elif platform == "win32":
                 (bundle.parent / "PractiQ.exe").write_bytes(b"synthetic application")
                 (bundle.parent / "uninstall.exe").write_bytes(b"synthetic uninstaller")
+            else:
+                executable = bundle.parents[3] / "usr/bin/PractiQ"
+                executable.parent.mkdir(parents=True)
+                executable.write_bytes(b"Synthetic native application")
 
         def run(command, **kwargs):
             state["native"].append(command)
@@ -282,7 +495,7 @@ def final_setup(release, source, monkeypatch):
                 bundle = Path(command[command.index("--bundle") + 1])
                 report = Path(command[command.index("--output") + 1])
                 report.write_text(json.dumps({"passed": True, "bundle": str(bundle), "engine": {"path": str(bundle / "office/soffice")}, "packages": [{"texts": [{"path": "C:\\Users\\Maintainer\\private\\LICENSE"}, {"path": str(source / "private/LICENSE")}, {"path": "/Users/Another/private/LICENSE"}]}]}))
-                if "--fidelity-only" in command and fault == "gate":
+                if "check_licenses.py" in command[1] and fault == "gate":
                     raise subprocess.CalledProcessError(1, command)
                 if "--notices" in command:
                     expected = Path(command[command.index("--notices") + 1])
@@ -302,6 +515,10 @@ def final_setup(release, source, monkeypatch):
 
         monkeypatch.setattr(subprocess, "run", run)
         def check_output(command, **kwargs):
+            if command[-1] == "Architecture":
+                return "amd64"
+            if command[-1] == "Depends":
+                return "libwebkit2gtk-4.1-0, libgtk-3-0, libdbus-1-3, gstreamer1.0-plugins-good, gstreamer1.0-plugins-bad, gstreamer1.0-libav"
             if command[0] == "7z":
                 return "Path = PractiQ.exe\nSize = 1\n\nPath = bundled/build-manifest.json\nSize = 1\n"
             return "0.2.0\n" if fault == "desktop_version" else "0.1.0\n"
@@ -328,8 +545,8 @@ def test_explicit_final_staging_uses_selected_snapshot_and_fresh_reports_without
     assert bound["assetAndEvidenceVerified"] is True
     assert json.loads((output / candidate["signingReport"]).read_text()) == json.loads(signing.read_text())
     assert "evidence/notices-match.json" in candidate["evidence"]
-    assert len(state["calls"]) == 4
-    assert "--isolated" in state["calls"][1] and "--fidelity-only" in state["calls"][2]
+    assert len(state["calls"]) == 2
+    assert "check_licenses.py" in state["calls"][1][1]
     if platform == "darwin":
         assert state["mounted"] == ["detached"]
 
@@ -415,13 +632,13 @@ def test_final_staging_requires_matching_original_build_assets_and_evidence(rele
     elif mutation == "asset":
         (path.parent / candidate["file"]).write_bytes(b"altered original")
     elif mutation == "evidence":
-        (path.parent / "evidence/office.json").write_text("altered original report")
+        (path.parent / "evidence/licenses.json").write_text("altered original report")
     elif mutation == "failed_gate":
-        report = path.parent / "evidence/office.json"
+        report = path.parent / "evidence/licenses.json"
         report.write_text('{"passed":false}')
-        candidate["evidence"]["evidence/office.json"] = release.checksum(report)
+        candidate["evidence"]["evidence/licenses.json"] = release.checksum(report)
     elif mutation == "missing_gate":
-        candidate["evidence"].pop("evidence/office.json")
+        candidate["evidence"].pop("evidence/licenses.json")
     elif mutation == "build_run":
         candidate["buildRun"] = "https://github.com/test/repo/actions/runs/42?replace=true"
     else:
@@ -458,9 +675,16 @@ def test_final_native_version_preserves_prerelease_identity(release, source, fin
     bundle.mkdir(parents=True)
     expected = "0.1.0-alpha.1"
     if platform == "darwin":
-        (bundle.parents[1] / "Info.plist").write_bytes(plistlib.dumps({"CFBundleShortVersionString": expected}))
+        (bundle.parents[1] / "Info.plist").write_bytes(plistlib.dumps({"CFBundleShortVersionString": expected, "CFBundleExecutable": "PractiQ"}))
+        executable = bundle.parents[1] / "MacOS/PractiQ"
+        executable.parent.mkdir()
+        executable.write_bytes(b"Synthetic native executable")
     elif platform == "win32":
         (bundle.parent / "PractiQ.exe").touch()
+    else:
+        executable = bundle.parent / "usr/bin/PractiQ"
+        executable.parent.mkdir(parents=True)
+        executable.write_bytes(b"Synthetic native executable")
     monkeypatch.setattr(subprocess, "check_output", lambda *args, **kwargs: expected + "\n")
     assert release.check_desktop_version(installer, bundle, expected, "PractiQ") == expected
     with pytest.raises(ValueError, match="desktop version"):
@@ -477,7 +701,7 @@ def test_explicit_final_staging_keeps_failed_evidence_and_produces_no_assets(rel
     with pytest.raises((ValueError, OSError, subprocess.CalledProcessError)):
         release.restage_installer(source, "v0.1.0", installer, output, reports, signing, state["build_candidate"])
     assert reports.is_dir() and not output.exists()
-    assert (reports / "office-fidelity.json").exists()
+    assert (reports / "licenses.json").exists()
     assert state["mounted"] == ["detached"]
 
 

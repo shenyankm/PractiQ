@@ -3,8 +3,11 @@ import argparse
 import hashlib
 import json
 import subprocess
-from email.parser import Parser
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from desktop_package import read_manifest
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -27,23 +30,11 @@ def inventory(bundle: Path) -> dict:
             if (evidence := item.get('evidence')) and hashlib.sha256((ROOT/'app/licenses'/evidence['file']).read_bytes()).hexdigest() != evidence['sha256']:
                 raise ValueError(f'Altered license evidence: {name}')
             files.append(path)
-        if name == 'practiq-ai-service':
-            files.append(ROOT/'LICENSE')
         rows.append({'ecosystem':ecosystem, 'name':name, 'version':version, 'declaration':declaration,
                      'source':source, 'supplementalSources':supplements.get(f'{ecosystem}:{name}@{version}', []),
                      'texts':[{'path':str(p), 'sha256':hashlib.sha256(p.read_bytes()).hexdigest()} for p in files]})
 
-    expected = json.loads((bundle/'build-manifest.json').read_text(encoding='utf-8'))['packages']
-    if not expected:
-        raise ValueError('Bundled Python package manifest is empty')
-    found = set()
-    for metadata in sorted((bundle/'python/_internal').glob('*.dist-info/METADATA')):
-        parsed = Parser().parsestr(metadata.read_text(encoding='utf-8'))
-        found.add((parsed['Name'].lower().replace('_', '-'), parsed['Version']))
-        add('python', parsed['Name'], parsed['Version'], parsed['License-Expression'] or parsed['License'],
-            parsed.get_all('Project-URL', []), license_files(metadata.parent))
-    if found != {(p['name'].lower().replace('_', '-'), p['version']) for p in expected}:
-        raise ValueError('Bundled Python metadata does not match package manifest')
+    read_manifest(bundle)
     lock = json.loads((ROOT/'app/package-lock.json').read_text(encoding='utf-8'))
     for path, package in lock['packages'].items():
         if not path or package.get('dev'):
@@ -56,13 +47,9 @@ def inventory(bundle: Path) -> dict:
         if package['id'] not in resolved or package['name'] == 'practiq-desktop':
             continue
         add('cargo', package['name'], package['version'], package.get('license'), package.get('repository'), license_files(Path(package['manifest_path']).parent))
-    office = bundle/'office'
-    manifest = json.loads((office/'manifest.json').read_text(encoding='utf-8'))
-    add('bundled', 'LibreOffice', manifest['version'], 'See upstream notices', manifest['source'], license_files(office))
-    add('bundled', 'Python', None, 'PSF', 'https://www.python.org', [bundle/'PYTHON-LICENSE.txt'] if (bundle/'PYTHON-LICENSE.txt').is_file() else [])
     missing = [f'{r["ecosystem"]}:{r["name"]}@{r["version"]}' for r in rows if not r['texts']]
     unverified = [f'{r["ecosystem"]}:{r["name"]}@{r["version"]}' for r in rows if any(s.get('note') for s in r['supplementalSources'])]
-    return {'target':target, 'scope':'Local target Cargo packages (including build dependencies), npm production closure, final bundled Python/LibreOffice. Human obligations review remains required.',
+    return {'target':target, 'scope':'Desktop target Cargo packages (including build dependencies) and npm production closure. The independently deployed AI service is outside this desktop notice scope. Human obligations review remains required.',
             'passed':not missing and not unverified, 'missingTexts':missing, 'unverifiedSources':unverified, 'packages':rows}
 
 

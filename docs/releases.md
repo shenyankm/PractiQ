@@ -1,8 +1,10 @@
 # Release policy
 
-PractiQ releases deliver the offline desktop application. The bundled AI service
-keeps its own package version; record it with Python, LibreOffice and locked
-dependencies in the release evidence. Do not publish separate platform tags,
+PractiQ releases deliver the offline desktop practice application. AI source
+import, Office conversion and parsing run in the independently deployed service
+and its web frontend. Desktop grading explicitly calls that service over HTTP.
+The service keeps its own source version; record it separately without claiming
+it is deployed by a desktop installer. Do not publish separate platform tags,
 server wheels, container images or updater assets without a supported delivery
 workflow. Actions artifacts expire and are not public releases.
 
@@ -42,13 +44,16 @@ for an accepted ordinary release. A draft is preparation, not acceptance.
 | Windows x64 | Windows 10/11 with WebView2 | `PractiQ_<version>_windows_x64_setup.exe` |
 | Linux amd64 | Ubuntu 22.04+ | `PractiQ_<version>_linux_amd64.deb` |
 
-These are the current release targets. Office runtime availability for another
-architecture is not application acceptance. A macOS application ZIP is optional;
+These are the current desktop release targets. A macOS application ZIP is optional;
 if supplied, preserve symlinks with `ditto` and verify the final archive too.
 Do not add MSI, AppImage, RPM or more architectures before their package checks.
 
-Every installer includes the platform-native Python service, pinned LibreOffice,
-build manifest and full notices. Users do not install Python or Office. Document
+Every installer includes only desktop code, schema 2 build metadata with
+`packageMode: desktop-practice`, and Cargo/npm notices. Its exact resource
+whitelist contains `bundled/build-manifest.json` and `bundled/THIRD-PARTY.txt`.
+Python, LibreOffice and AI workers must be absent from the whole application.
+Existing ignored engine caches and historical packages remain untouched and
+must never enter a new desktop installer. Document
 Linux system-library/audio dependencies and an unlocked Secret Service, plus the
 Windows WebView2 requirement, rather than promising a dependency-free package.
 
@@ -76,9 +81,11 @@ gh workflow run release.yml --ref main -f tag=v0.1.0-alpha.1
 The workflow validates versions, the tag's commit, clean source and ancestry on
 `main`. It reuses Service and Desktop CI at that exact commit, forces full checks
 regardless of changed paths, and runs the existing package matrix. It mounts the
-final macOS DMG, uses the installed NSIS application and extracted DEB, then runs
-`check-bundle.py`, isolated Office conversion, strict fidelity and license-source
-checks. Any failure blocks release asset staging and draft creation; failure
+final macOS DMG, safely extracts the NSIS payload and extracts the DEB from a
+private read-only installer snapshot, then checks actual desktop version,
+engine absence, build metadata and Cargo/npm
+license sources. The generated notices must match the embedded file byte for
+byte. Windows extraction uses full 7-Zip; CI does not execute the installer. Any failure blocks release asset staging and draft creation; failure
 diagnostics remain in Actions. Prerelease status never bypasses these gates.
 
 Assembly rejects missing platforms, mismatched commits/versions, altered
@@ -117,7 +124,7 @@ certificate and verify both; signing is not configured by this workflow.
 Record Linux package-signing status separately.
 
 After any asset replacement, mount/install/extract the actual final file and
-repeat package, isolated Office, fidelity and license checks with fresh output
+repeat desktop package and license checks with fresh output
 paths. Update its manifest size/hash and verified signing identity/status, add
 the new reports to evidence, and regenerate the evidence hash and SHA256SUMS.
 Do not reuse an unsigned candidate's checksums or acceptance labels.
@@ -143,11 +150,11 @@ signing and manual/platform acceptance; they still require strict package gates
 and disclosure of known failures. Ordinary releases require all applicable
 [release acceptance requirements](../CONTRIBUTING.md#release-verification).
 
-Current recorded gaps include legacy DOC equation fidelity, unresolved notice
-sources and missing final-source live/clean-machine acceptance. See
-[the follow-up record](review-implementation-20260929.md) and
-[notice requirements](../app/licenses/README.md). This workflow does not fix or
-waive those findings, and must fail until the applicable strict gates pass.
+Historical embedded-engine reports remain historical evidence. Service Office
+fidelity and service dependency notices belong to that independent deployment;
+removing engines from the desktop does not establish their acceptance. See
+[notice requirements](../app/licenses/README.md). Final-source live grading,
+service import and clean-machine acceptance remain separate required records.
 
 Complete every section of the template: user-visible changes, downloads and
 installation, data compatibility, known limitations, distinct validation results,

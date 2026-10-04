@@ -17,23 +17,30 @@ Configure the service token, model, dedicated SQLite directory, and file storage
 ```sh
 make install-locked AI_PYTHON=/path/to/python3.14
 make init-db AI_PYTHON=/path/to/python3.14
+make web-install
+make web-build
 make server-dev AI_PYTHON=/path/to/python3.14
 ```
 
 The default address is `127.0.0.1:8090`. `GET /ok` checks liveness; `GET /ready` checks readiness. Both local and production deployments require SQLite. Initialization accepts only an empty database and does not read or migrate old Agent Server data. A single service process holds an exclusive lock. Restarting resumes unfinished tasks automatically; manually paused tasks and tasks awaiting review remain waiting.
 
-`LLM_MODEL` is required and selects one model supporting text and image inputs. The old `LLM_TEXT_MODEL` / `LLM_VISION_MODEL` settings are no longer read. Set `LLM_MODEL` to the previous vision model ID, or the previous text model if no vision model was configured; the selected model must support both input types. TXT/CSV extraction uses text input; PDF/image extraction uses image input directly. PDFium renders PDFs. The deployment image includes Chinese fonts and requires no office software. Export Word files (.doc/.docx) to PDF in Word or WPS first.
+`LLM_MODEL` is required for model-enabled deployments and selects one model supporting text and image inputs. The old `LLM_TEXT_MODEL` / `LLM_VISION_MODEL` settings are no longer read. Set `LLM_MODEL` to the previous vision model ID, or the previous text model if no vision model was configured; the selected model must support both input types. TXT/CSV extraction uses text input; PDF/image extraction uses image input directly. PDFium renders PDFs. The deployment image includes Chinese fonts. Office uploads require the independently deployed LibreOffice configuration described in the [Office guide](desktop-office.md); they are normalized before entering these same extractors. Set `AI_READ_ONLY=1` to run without model configuration for reading saved results; unfinished tasks remain stopped and new model work is rejected.
 
 Source images support PNG/JPEG only (`image/png`, `image/jpeg`). Declaring WebP/GIF at upload returns 422. Renaming those files to PNG/JPEG does not bypass actual-format validation during parsing. Existing question-bank images and backups are not deleted.
 
 ## Import workflow
 
-Upload the source, create a task, then read the result:
+Open the built Web frontend at the service root, or run `make web-dev` for its loopback development proxy. The Web token stays in memory; provider credentials and Office executable paths stay in the service environment. File selection is passive; Start import authorizes upload, normalization and parsing. The desktop uses the resulting ZIP offline and calls the service only for explicit grading.
+
+`GET /api/import-capabilities` is authenticated and reports supported source types, source size limit, Office availability/modes and model configuration. Read-only deployments can serve existing results without a configured model; new model work returns `MODEL_NOT_CONFIGURED`.
+
+Upload the source, create a task, then read and download the result:
 
 1. Send `Authorization: Bearer your_service_token_here`, replacing the placeholder with `AI_SERVICE_TOKEN`, to `POST /api/uploads` to request a file reference.
 2. Send the raw bytes with an authenticated PUT to the returned address using its Content-Type. An existing file may return a reference without requiring upload.
 3. Submit `document` and a UUID `requestId` to `POST /api/document-tasks`; poll `GET /api/document-tasks/{threadId}`. Official native Graph/SDK APIs are not exposed.
-4. Submit an `ArtifactReference` to `POST /api/artifacts/read` to read original asset bytes after authentication, size, and SHA-256 checks.
+4. Submit an `ArtifactReference` to `POST /api/artifacts/read` to read asset bytes after authentication, size, and SHA-256 checks.
+5. For a completed result, `GET /api/document-tasks/{threadId}/export?checkpoint_id=<currentCheckpoint>` downloads the existing desktop-compatible bank ZIP. A stale checkpoint returns `STALE_CHECKPOINT`; an unfinished or missing result returns `BANK_EXPORT_NOT_READY`. Export makes no model call.
 
 The service supports `text_csv_parser`, `pdf_parser`, and the all-format `document_parser`. Task input rejects URLs, Base64, and server paths. The former product `/api/v1/ai/*` endpoints have been removed.
 
@@ -133,7 +140,7 @@ make audit AI_PYTHON=/path/to/python3.14
 make image-check
 ```
 
-Database tests explicitly request `disposable_databases` and use temporary SQLite directories; no Docker database is needed. Pure unit tests, such as `cd server && python -m pytest tests/test_schemas.py tests/test_auth.py`, require neither a database nor Docker. Shared fakes and data builders live in `tests/support.py`; database helpers live in `tests/db_support.py`. CI installs PDF fallback fonts and uses real PDFium rendering for digital, scanned, and mixed PDFs, without external converters.
+Database tests explicitly request `disposable_databases` and use temporary SQLite directories; no Docker database is needed. Pure unit tests, such as `cd server && python -m pytest tests/test_schemas.py tests/test_auth.py`, require neither a database nor Docker. Shared fakes and data builders live in `tests/support.py`; database helpers live in `tests/db_support.py`. CI installs PDF fallback fonts and uses real PDFium rendering for digital, scanned, and mixed PDFs. Office adapter tests use bounded temporary conversions and retain separate deployed-engine acceptance boundaries.
 
 `make verify` checks lockfile consistency, Ruff, Pyright, evaluation fixtures, one test run with at least 90% coverage, recovery probes, and package builds. `make audit` audits locked runtime/development dependencies, requires network access, and fails on vulnerabilities or audit errors. `make image-check` requires Docker and builds the service image without publishing it.
 
@@ -157,7 +164,7 @@ The repository registers two format-specific graphs and one general entry point:
 | --- | --- |
 | `text_csv_parser` | `text`, `csv` |
 | `pdf_parser` | `pdf` |
-| `document_parser` | `text`, `csv`, `pdf`, `image` |
+| `document_parser` | `text`, `csv`, `pdf`, `image`, plus `doc`, `docx`, `xls`, `xlsx` with configured Office support |
 
 All entries share extraction, vision, chunking, and merge logic. Format-specific entries validate the format before reading files and raise `DOCUMENT_SOURCE_TYPE_MISMATCH` on a mismatch, including when resuming a read node from a checkpoint. They share deployment workers and concurrency settings; there is no separate resource isolation per graph.
 
@@ -201,11 +208,11 @@ For simple tables, the model returns rectangular cell arrays. The service escape
 
 PDFium renders in a terminable isolated process. Page images and crops enter asset storage; temporary files are removed after extraction. Page-count, pixel, aggregate vision-byte, and crop limits still apply. Full-page recognition increases model calls, cost, and latency.
 
-The extractor delivers binary page images and a bounded manifest. The parent reads/writes temporary files in a thread and waits for active file operations before cleanup on cancellation. This internal protocol must ship with the bundled Python service; external task and artifact APIs are unchanged.
+The extractor delivers binary page images and a bounded manifest. The parent reads/writes temporary files in a thread and waits for active file operations before cleanup on cancellation. This internal protocol ships with the independent service; external task and artifact APIs remain authenticated and checksum-checked.
 
 Returned `page` values are zero-based. Automated tests do not call real models; recognition quality requires separate acceptance.
 
-Raw Word/Excel service input is unsupported and `AI_SOFFICE_PATH` has no effect. The desktop uses a separate private worker to convert local Office files to PDF/TXT/CSV before upload; see [desktop Office support](desktop-office.md). Unsupported task formats or graph identifiers return `TASK_FORMAT_UNSUPPORTED` and are excluded from lists and scheduling; convert the original file and create a new task. New desktop Office tasks retain supported-format artifacts and can retry/reparse without LibreOffice. Old data remains intact. The current version imports only schemaVersion 3 JSON and restores only format 4 backups containing database schema 11. See [task errors](document-tasks.md) for details.
+Raw Word/Excel uploads use the independently configured [service Office adapter](desktop-office.md); their original references remain task identity. Unsupported historical graph identifiers still return `TASK_FORMAT_UNSUPPORTED` and are excluded from scheduling without deleting old data. Desktop ZIP import accepts AI JSON schema 3; full restore requires backup container 4 and database schema 11. See [task errors](document-tasks.md) for details.
 
 ## Long-running task controls
 

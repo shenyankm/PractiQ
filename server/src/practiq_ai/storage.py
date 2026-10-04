@@ -13,6 +13,7 @@ from urllib.parse import urlencode
 
 from .config import Config, load
 from .contracts import (
+    OFFICE_SOURCE_TYPES,
     ArtifactReference,
     DocumentReference,
     DocumentUploadRequest,
@@ -77,10 +78,21 @@ class ObjectStore:
         prepared = await self.prepare_document(request)
         if hashlib.sha256(payload).hexdigest() != prepared.document.sha256 or len(payload) != prepared.document.sizeBytes:
             raise DocumentProcessingError(409, "Source does not match metadata", "DOCUMENT_CHECKSUM_MISMATCH")
+        if prepared.document.sourceType in OFFICE_SOURCE_TYPES:
+            await asyncio.to_thread(self._validate_office, payload, prepared.document.sourceType)
         if prepared.upload is not None:
             await self._call(self._write, prepared.document.objectKey, payload)
         await self.get_verified(prepared.document)
         return prepared.document
+
+    @staticmethod
+    def _validate_office(payload: bytes, source_type: str) -> None:
+        from .office import OfficeError, _validate_legacy, _validate_ooxml
+        family = "writer" if source_type in {"doc", "docx"} else "calc"
+        try:
+            (_validate_legacy if source_type in {"doc", "xls"} else _validate_ooxml)(payload, family)
+        except OfficeError as exc:
+            raise DocumentProcessingError(422, "Office container does not match the declared source type", exc.code) from exc
 
     async def put_artifact(
         self,

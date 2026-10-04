@@ -1,5 +1,4 @@
 import { questionKinds } from "./english";
-import type { ImportTaskContext } from "./ai-api";
 import { date, duration, message, renderMessage, type Message, t, useI18n } from "./i18n";
 import { useTheme, type ThemeState } from "./theme";
 import { SessionProgress } from "./SessionProgress";
@@ -47,9 +46,9 @@ import {
   type SessionFilter,
 } from "./api";
 import { Button } from "@/components/ui/button";
+import { BankEditor, type BankDraft } from "./BankEditor";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
@@ -75,7 +74,6 @@ import { Toaster } from "@/components/ui/sonner";
 
 const QuestionPreview = lazy(() => import("./QuestionPreview").then(module => ({default:module.QuestionPreview})));
 const StudySetup = lazy(() => import("./StudySetup").then(module => ({default:module.StudySetup})));
-const ImportPage = lazy(() => import("./ImportPage").then(module => ({default:module.ImportPage})));
 const Content = lazy(() => import("./Content").then(module => ({default:module.Content})));
 const AnswerDisplay = lazy(() => import("./AnswerInput").then(module => ({default:module.AnswerDisplay})));
 const AnswerInput = lazy(() => import("./AnswerInput").then(module => ({default:module.AnswerInput})));
@@ -92,9 +90,8 @@ type Page =
   | "wrong"
   | "favorite"
   | "history"
-  | "import"
   | "settings"
-  | "model-settings"
+  | "service-settings"
   | "practice";
 function SidebarButton({ collapsed, label, children, className = "", ...props }: ComponentProps<typeof Button> & { collapsed: boolean; label: string }) {
   return (
@@ -116,7 +113,6 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [languageOpen, setLanguageOpen] = useState(false);
   const languageTrigger = useRef<HTMLButtonElement>(null);
-  const [importTabsHost, setImportTabsHost] = useState<HTMLDivElement | null>(null);
   const [page, setPage] = useState<Page>("banks");
   const pageHeading = useRef<HTMLHeadingElement>(null);
   const previousPage = useRef<Page>(page);
@@ -140,12 +136,8 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
   const [onlyReview, setOnlyReview] = useState(false);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [importPreview, setImportPreview] = useState<{ preview: Preview; initialBank: string; task?: ImportTaskContext } | null>(null);
-  const [bankEditor, setBankEditor] = useState<{
-    id: string | null;
-    title: string;
-    description: string;
-  } | null>(null);
+  const [importPreview, setImportPreview] = useState<{ preview: Preview; initialBank: string } | null>(null);
+  const [bankEditor, setBankEditor] = useState<BankDraft | null>(null);
   const [editor, setEditor] = useState<{
     id: string | null;
     question: Question;
@@ -169,7 +161,6 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
   const [mergeSelection, setMergeSelection] = useState<string[]>([]);
   const [mergeTitle,setMergeTitle]=useState("");
   const [settingsRevision, setSettingsRevision] = useState(0);
-  const [settingsReturn, setSettingsReturn] = useState<{ bank: string | null } | null>(null);
   const [info, setInfo] = useState<{
     dataDirectory: string;
     version: string;
@@ -301,7 +292,6 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
     run(async () => {
       await flushRef.current();
       flushRef.current = async () => {};
-      if (next !== "model-settings") setSettingsReturn(null);
       setPage(next);
       setRestoreOpen(showRestore);
       setBank(bankId);
@@ -327,7 +317,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
     if (p) setImportPreview({ preview: p, initialBank: "new" });
   }
   const heading =
-    page === "import" ? t("导入题库") : page === "banks"
+    page === "banks"
       ? t("我的题库")
       : page === "questions"
         ? currentBank?.title || t("题库")
@@ -339,7 +329,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
               ? t("练习记录")
               : page === "practice"
                 ? t("专注练习")
-                : page === "model-settings" ? t("AI 模型") : t("设置");
+                : page === "service-settings" ? t("AI 服务") : t("设置");
   const loadingView = <p role="status" className="p-4 text-sm text-muted-foreground">{t("加载中…")}</p>;
   const listPage = ["questions", "wrong", "favorite"].includes(page);
   const languageError = language.error != null && <div role="alert" className="text-xs text-destructive"><p>{t(language.error.key)}</p><p>{errorMessage(language.error.cause)}</p><Button size="sm" variant="outline" disabled={language.saving || busy} onClick={() => {
@@ -363,7 +353,6 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
           {(
             [
               { id: "banks", label: t("我的题库"), icon: BookOpen },
-              { id: "import", label: t("导入题库"), icon: Upload },
               { id: "wrong", label: t("错题本"), icon: BookmarkX },
               { id: "favorite", label: t("收藏夹"), icon: Star },
               { id: "history", label: t("练习记录"), icon: History },
@@ -421,10 +410,10 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
           <SidebarButton
             collapsed={sidebarCollapsed}
             label={t("设置")}
-            variant={page === "settings" || page === "model-settings" ? "secondary" : "ghost"}
-            aria-current={page === "settings" || page === "model-settings" ? "page" : undefined}
+            variant={page === "settings" || page === "service-settings" ? "secondary" : "ghost"}
+            aria-current={page === "settings" || page === "service-settings" ? "page" : undefined}
             disabled={busy}
-            onClick={() => { setSettingsReturn(null); navigate("settings"); }}
+            onClick={() => navigate("settings")}
           >
             <Settings /></SidebarButton>
         </div>
@@ -444,8 +433,8 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                 <ArrowLeft />
               </Button>
             )}
-            {page === "model-settings" && (
-              <Button size="icon" variant="ghost" disabled={busy} aria-label={settingsReturn ? t("返回导入") : t("返回设置")} onClick={() => navigate(settingsReturn ? "import" : "settings", settingsReturn?.bank ?? null)}>
+            {page === "service-settings" && (
+              <Button size="icon" variant="ghost" disabled={busy} aria-label={t("返回设置")} onClick={() => navigate("settings")}>
                 <ArrowLeft />
               </Button>
             )}
@@ -453,7 +442,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
               <h1 ref={pageHeading} tabIndex={-1} className="text-2xl font-semibold tracking-tight outline-none">
                 {heading}
               </h1>
-              {page !== "import" && <p className="mt-1 text-sm text-muted-foreground">
+              <p className="mt-1 text-sm text-muted-foreground">
                 {page === "banks"
                   ? t("{0} 个题库 · {1} 道题目", { 0: banks.length, 1: banks.reduce((n, b) => n + b.count, 0) })
                   : listPage
@@ -461,15 +450,14 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                     : page === "history"
                       ? t("回顾每一次作答与进步")
                       : page === "settings"
-                        ? t("管理模型配置与本地学习数据")
-                        : page === "model-settings"
-                          ? t("用于文档解析与主观题评分")
+                        ? t("管理 AI 服务连接与本地学习数据")
+                        : page === "service-settings"
+                          ? t("用于显式请求主观题 AI 评分")
                         : t("循序渐进，保持专注")}
-              </p>}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {page === "import" && <div ref={setImportTabsHost} />}
             {busy && (
               <span role="status" className="text-sm text-muted-foreground">{t("处理中…")}</span>
             )}
@@ -482,9 +470,9 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                 {page !== "favorite" && <Button
                   variant="outline"
                   disabled={busy}
-                  onClick={() => navigate("import", page === "questions" ? bank : null)}
+                  onClick={() => navigate("settings", null, true)}
                 >
-                  <Upload />{t("导入")}</Button>}
+                  <Upload />{t("导入题库 ZIP")}</Button>}
                 {page === "questions" && (
                   <Button
                     variant="outline"
@@ -526,7 +514,6 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
             run={run}
             onAddExample={() => run(async () => { await api({ type: "add_example_bank" }); await reloadBanks(); })}
             onOpenSession={openSession}
-            onImport={bankId => navigate("import", bankId)}
             onOpenZipSettings={() => navigate("settings", null, true)}
             onHistory={() => { setSessionFilter("active"); setSessionOffset(0); navigate("history"); }}
             onOpenQuestions={bankId => navigate("questions", bankId)}
@@ -774,8 +761,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
               onNextUnattempted={session.bankIds?.some(id => banks.some(b => b.id === id)) ? () => setPracticeSetup({ bank: null, bankIds: session.bankIds!.filter(id => banks.some(b => b.id === id)), filter: "unattempted" }) : undefined}
             />
           )}
-          {page === "import" && <ImportPage tabsHost={importTabsHost} busy={busy} run={run} onPreview={(p, task)=>setImportPreview({ preview: p, initialBank: bank || "new", task })} onOpenBank={id => navigate("questions", id)} onOpenZipSettings={() => navigate("settings", null, true)} onConfigure={() => { setSettingsReturn({ bank }); navigate("model-settings"); }} />}
-          {page === "model-settings" && (
+          {page === "service-settings" && (
             <div className="max-w-3xl space-y-6">
               <ConnectionSettingsPanel
                 key={settingsRevision}
@@ -788,7 +774,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
           {page === "settings" && (
             <SettingsPage busy={busy} run={run} flushRef={flushRef} revision={settingsRevision} version={info?.version}
               restoreOpen={restoreOpen} onRestoreOpenChange={setRestoreOpen}
-              onConfigure={() => navigate("model-settings")}
+              onConfigure={() => navigate("service-settings")}
               onPickImport={pickImport}
               onRestore={() => setConfirm({
                 title: message("用备份替换当前数据？"),
@@ -852,12 +838,9 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
         initialBank={importPreview.initialBank}
         busy={busy}
         run={run}
-        onState={importPreview.task?.onState}
         onClose={() => setImportPreview(null)}
         onImported={async bankId => {
-          importPreview.task?.onImported(bankId);
           await reloadBanks();
-          if (importPreview.task) return;
           setBank(bankId);
           setSearch("");
           setMode("");
@@ -868,48 +851,16 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
         }}
       /></Suspense>}
       {bankEditor && (
-        <Dialog
-          open
-          onOpenChange={(v) => {
-            if (!v && !busy) setBankEditor(null);
-          }}
-        >
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{t("编辑题库")}</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <Label htmlFor="bankTitle">{t("题库名称")}</Label>
-              <Input
-                id="bankTitle"
-                value={bankEditor.title}
-                onChange={(e) =>
-                  setBankEditor({ ...bankEditor, title: e.target.value })
-                }
-              />
-              <Label htmlFor="description">{t("说明")}</Label>
-              <Textarea
-                id="description"
-                value={bankEditor.description}
-                onChange={(e) =>
-                  setBankEditor({ ...bankEditor, description: e.target.value })
-                }
-              />
-            </div>
-            <DialogFooter>
-              <Button
-                disabled={busy || !bankEditor.title.trim()}
-                onClick={() =>
-                  run(async () => {
-                    await api({ type: "save_bank", ...bankEditor });
-                    setBankEditor(null);
-                    await reloadBanks();
-                  })
-                }
-              >{t("保存题库")}</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <BankEditor
+          initial={bankEditor}
+          busy={busy}
+          onClose={() => setBankEditor(null)}
+          onSave={draft => run(async () => {
+            await api({ type: "save_bank", ...draft });
+            setBankEditor(null);
+            await reloadBanks();
+          })}
+        />
       )}
       {editor && bank && (
         <Suspense fallback={loadingView}><QuestionEditor

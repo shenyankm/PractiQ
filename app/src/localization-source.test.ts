@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { expect, it } from "vitest";
 
 // Product/technical names and the two self-identifying language choices are intentional.
-const literalLabels = new Set(["PractiQ", "API Key", "Base URL", "https://api.example.com/v1", "简体中文", "English"]);
+const literalLabels = new Set(["PractiQ", "http://127.0.0.1:8000", "简体中文", "English"]);
 function untranslated(source: string) {
   const failures: string[] = [];
   const bindings = new Map<string, any>();

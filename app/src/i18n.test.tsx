@@ -38,8 +38,8 @@ beforeEach(() => {
       case "questions_page": return {items:[],total:0,offset:0} as never;
       case "question_stats": return {count:0,types:{}};
       case "info": return { version: "test", dataDirectory: "/test" };
-      case "save_settings": return {config:request.config,hasApiKey:false};
-      case "settings": return { config: { base_url: null, model_id: null }, hasApiKey: false };
+      case "save_settings": return {config:request.config,hasServiceToken:false};
+      case "settings": return { config: { service_url: null }, hasServiceToken: false };
       default: throw new Error(`Unexpected command: ${request.type}`);
     }
   });
@@ -130,7 +130,7 @@ it.each(["zh-CN", "en"] as const)("collapses the sidebar without resetting setti
   wrap(<App />); await ready();
   await userEvent.click(screen.getByRole("button", { name: t("设置") }));
   await userEvent.click(await screen.findByRole("button", { name: t("配置") }));
-  const input = await screen.findByLabelText("Base URL");
+  const input = await screen.findByLabelText(t("AI 服务地址"));
   await userEvent.type(input, "https://example.com/v1");
   const calls = vi.mocked(invoke).mock.calls.length;
   const toggle = screen.getByRole("button", { name: t("收起侧边栏") });
@@ -139,15 +139,15 @@ it.each(["zh-CN", "en"] as const)("collapses the sidebar without resetting setti
   expect(toggle.getAttribute("aria-expanded")).toBe("false");
   expect(screen.getByRole("button", { name: t("展开侧边栏") })).toBe(toggle);
   expect(screen.getByRole("button", { name: t("设置") }).getAttribute("aria-current")).toBe("page");
-  expect(screen.getByLabelText("Base URL")).toBe(input);
+  expect(screen.getByLabelText(t("AI 服务地址"))).toBe(input);
   expect((input as HTMLInputElement).value).toBe("https://example.com/v1");
-  expect(vi.mocked(invoke).mock.calls.slice(calls)).toEqual([["request", {locale:value,request:{type:"save_settings",config:{base_url:"https://example.com/v1",model_id:null},api_key:null}}]]);
+  expect(vi.mocked(invoke).mock.calls.slice(calls)).toEqual([["request", {locale:value,request:{type:"save_settings",config:{service_url:"https://example.com/v1"},service_token:null}}]]);
   await userEvent.click(screen.getByRole("button", { name: t("语言") }));
   expect(screen.getByRole("menu", { name: t("语言") })).toBeTruthy();
   await userEvent.keyboard("{Escape}");
   await userEvent.click(toggle);
   expect(toggle.getAttribute("aria-expanded")).toBe("true");
-  expect(screen.getByLabelText("Base URL")).toBe(input);
+  expect(screen.getByLabelText(t("AI 服务地址"))).toBe(input);
   expect((input as HTMLInputElement).value).toBe("https://example.com/v1");
 });
 it("keeps editor input and an open dialog while changing all its labels", async () => {
@@ -297,22 +297,18 @@ it("formats history accuracy counts through the translated sentence", async () =
   await userEvent.click(screen.getByRole("button", { name: "History" }));
   expect(await screen.findByText("Accuracy: 50% (5,000/10,000)")).toBeTruthy();
 });
-it.each(["en", "zh-CN"] as const)("imports offline JSON and explicitly saves a translated model form in %s", async value => {
+it.each(["en", "zh-CN"] as const)("imports offline ZIP and saves a translated service form in %s", async value => {
   saved = value;
   const original = vi.mocked(invoke).getMockImplementation()!;
   vi.mocked(invoke).mockImplementation(async (command, args) => {
     const r = (args as {request:{type:string}}).request;
-    if (command === "ai_request" && r.type === "batches") return {items:[],total:0,offset:0,operations:[]};
-    if (command === "ai_request" && r.type === "operations") return [];
-    if (command === "ai_request" && r.type === "list") return {items:[],hasMore:false};
     if (r.type === "pick_import") return {ticket:"ticket",title:"原文 filename",count:1,reviewCount:0,assetCount:0,missingAssets:[],warnings:[],status:"SUCCEEDED"};
     if (r.type === "import") return {bankId:"bank",count:1,duplicate:false};
-    if (r.type === "save_settings") return {config:(r as unknown as {config:unknown}).config,hasApiKey:true};
+    if (r.type === "save_settings") return {config:(r as unknown as {config:unknown}).config,hasServiceToken:true};
     if (r.type === "test_settings") return null;
     return original(command,args);
   });
   wrap(<App />); await ready();
-  await userEvent.click(screen.getByRole("button", {name:t("从文档解析题目")}));
   await userEvent.click(await screen.findByRole("button",{name:t("设置")}));
   await userEvent.click(await screen.findByRole("button",{name:t("恢复备份")}));
   await userEvent.click(await screen.findByRole("menuitem",{name:t("导入题库 ZIP")}));
@@ -321,17 +317,16 @@ it.each(["en", "zh-CN"] as const)("imports offline JSON and explicitly saves a t
   await waitFor(() => expect(invoke).toHaveBeenCalledWith("request", expect.objectContaining({locale:value,request:expect.objectContaining({type:"import",ticket:"ticket",title:"原文 filename"})})));
   await userEvent.click(screen.getByRole("button", {name:t("设置")}));
   await userEvent.click(await screen.findByRole("button", {name:t("配置")}));
-  const model = await screen.findByLabelText(t("模型 ID"));
+  const model = await screen.findByLabelText(t("AI 服务地址"));
   await waitFor(() => expect(model.closest("fieldset")?.disabled).toBe(false));
-  await userEvent.type(screen.getByLabelText("Base URL"),"https://example.com/v1");
-  await userEvent.type(screen.getByLabelText("API Key"),"test-key");
-  await userEvent.type(model,"model-original");
+  await userEvent.type(screen.getByLabelText(t("AI 服务访问令牌")),"test-key");
+  await userEvent.type(model,"https://service.example.com");
   await change(value === "en" ? "zh-CN" : "en");
-  expect((screen.getByLabelText(t("模型 ID")) as HTMLInputElement).value).toBe("model-original");
+  expect((screen.getByLabelText(t("AI 服务地址")) as HTMLInputElement).value).toBe("https://service.example.com");
   expect(vi.mocked(invoke).mock.calls.some(([,a]) => (a as {request:{type:string}}).request.type === "save_settings")).toBe(true);
   await userEvent.tab();
-  await waitFor(() => expect(invoke).toHaveBeenCalledWith("request", expect.objectContaining({request:expect.objectContaining({type:"save_settings",config:expect.objectContaining({model_id:"model-original"})})})));
-  expect(vi.mocked(invoke).mock.calls.filter(([c,a]) => c === "ai_request" && !["operations","batches","list"].includes((a as {request:{type:string}}).request.type))).toHaveLength(0);
+  await waitFor(() => expect(invoke).toHaveBeenCalledWith("request", expect.objectContaining({request:expect.objectContaining({type:"save_settings",config:expect.objectContaining({service_url:"https://service.example.com"})})})));
+  expect(vi.mocked(invoke).mock.calls.filter(([c]) => c === "ai_request")).toHaveLength(0);
 });
 it.each(["en", "zh-CN"] as const)("keeps grading explicit and formats partial scores in %s", async value => {
   saved = value;
@@ -410,4 +405,13 @@ it("localizes known native diagnostics without leaking application Chinese",asyn
   expect(errorMessage(legacy)).toContain(`Diagnostic details: ${legacy.message} (504)`);
   expect(errorMessage({ ...legacy, diagnostic: "new provider detail" })).toContain("Diagnostic details: new provider detail (504)");
   expect(errorMessage({ ...legacy, diagnostic: "" })).not.toContain(legacy.message);
+});
+
+it.each(["zh-CN", "en"] as const)("directs provider authentication failures to server configuration in %s", async value => {
+  saved = value;
+  wrap(null); await ready();
+  const message = errorMessage({code:"AI_PROVIDER_AUTH_ERROR",diagnostic:"Provider rejected credentials"});
+  expect(message).toContain(value === "en" ? "server model configuration" : "服务端模型配置");
+  expect(message).toContain("Provider rejected credentials");
+  expect(message).not.toContain("API Key");
 });

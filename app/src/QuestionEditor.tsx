@@ -1,13 +1,8 @@
 import { t, useI18n } from "./i18n";
 import { useId, useState } from "react";
-import { blankQuestion, type Question, type Mode, modeNames, isComposite } from "./api";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
+import { blankQuestion, type Question, type Mode, modeNames, isComposite, canInteract } from "./api";
+import { DialogFooter } from "@/components/ui/dialog";
+import { EditorDialog } from "./EditorDialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -17,6 +12,46 @@ import { EnglishFields } from "./EnglishFields";
 import { kindModes, questionKinds } from "./english";
 import { AnswerInput } from "./AnswerInput";
 export { blankQuestion } from "./api";
+const nullableQuestionFields = new Set<keyof Question>([
+  "id", "parentId", "questionKind", "instructions", "audioRef", "audioEndSeconds",
+  "sourceLanguage", "targetLanguage", "writingGenre", "minWords", "maxWords",
+  "optionSourceId", "blankCount", "choiceVariant", "matchingVariant", "sourceScore",
+  "scoringRubric", "scoreSourceText", "analysis", "sourceText", "stem", "questionTypeId",
+]);
+const blockTextFields = new Set(["label", "textValue", "markdownValue", "latexValue"]);
+const blockNullFields = new Set(["role", "questionId", "jsonValue"]);
+const optionTextFields = new Set(["label", "content"]);
+function editorAnswerQuestion(question: Question, parent?: Question) {
+  return { ...question, options: question.optionSourceId ? parent?.options || [] : question.options, answerPayload: null };
+}
+function draftSnapshot(question: Question, children: Question[], parent?: Question) {
+  const parents = new Map([question, ...children].map(value => [value.id, value]));
+  // Normalize only known control defaults; preserve metadata, JSON content and array order.
+  const normalize = (value: object, emptyFields: ReadonlySet<string>) => Object.fromEntries(Object.entries(value)
+    .filter(([key, field]) => !emptyFields.has(key) || (field != null && field !== ""))
+    .sort(([left], [right]) => left.localeCompare(right)));
+  const blocks = (values: Question["passage"]) => (values || []).map(value => normalize(Object.fromEntries(Object.entries(value)
+    .filter(([key, field]) => !blockNullFields.has(key) || field != null)), blockTextFields));
+  const answer = (value: Question, owner?: Question) => {
+    const payload = value.answerPayload;
+    const interactive = canInteract(editorAnswerQuestion(value, owner));
+    if (payload && Object.keys(payload).length === 1 && (
+      (!isComposite(value) && payload.text === "" && (value.answerMode === "short_answer" || !interactive)) ||
+      (interactive && value.answerMode === "choice" && value.choiceVariant === "multiple" && Array.isArray(payload.correct) && payload.correct.length === 0) ||
+      (value.answerMode === "fill_blank" && Array.isArray(payload.answers) && payload.answers.length === (value.blankCount || 1) && payload.answers.every(text => text === ""))
+    )) return null;
+    return payload;
+  };
+  const normalizeQuestion = (value: Question, owner?: Question) => normalize({
+    ...value,
+    answerPayload: answer(value, owner),
+    options: value.options.map(option => normalize(option, optionTextFields)),
+    items: value.items.map(item => normalize(item, optionTextFields)),
+    contentBlocks: blocks(value.contentBlocks), passage: blocks(value.passage), transcript: blocks(value.transcript),
+    allowReuse: value.allowReuse ?? false, audioStartSeconds: value.audioStartSeconds ?? 0, examPlayCount: value.examPlayCount ?? 2,
+  }, nullableQuestionFields);
+  return JSON.stringify([normalizeQuestion(question, parent), children.map(value => normalizeQuestion(value, parents.get(value.parentId)))]);
+}
 export function QuestionEditor({
   initial,
   initialChildren = [],
@@ -38,8 +73,11 @@ export function QuestionEditor({
   const formId = useId();
   const [q, setQ] = useState<Question>(() => structuredClone({...initial, id: initial.id || crypto.randomUUID()}));
   const [children, setChildren] = useState<Question[]>(() => structuredClone(initialChildren));
+  const [original] = useState(() => draftSnapshot(q, children, parent));
   const [audioPending, setAudioPending] = useState(false);
+  const [audioDraft, setAudioDraft] = useState(false);
   const [childEditor, setChildEditor] = useState<Question | null>(null);
+  const dirty = draftSnapshot(q, children, parent) !== original;
   const patch = (p: Partial<Question>) => setQ((v) => ({ ...v, ...p }));
   function mode(value: Mode) {
     setChildren([]);
@@ -75,16 +113,7 @@ export function QuestionEditor({
     });
   }
   return (
-    <Dialog
-      open
-      onOpenChange={(v) => {
-        if (!v && !busy) onClose();
-      }}
-    >
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
-        <DialogHeader>
-          <DialogTitle>{t("编辑题目")}</DialogTitle>
-        </DialogHeader>
+      <EditorDialog title={t("编辑题目")} dirty={dirty || audioPending || audioDraft} busy={busy} onClose={onClose} className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
         <fieldset disabled={busy} className="space-y-5">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -118,7 +147,7 @@ export function QuestionEditor({
               patch({questionKind:kind || null,sourceLanguage:null,targetLanguage:null,writingGenre:null,minWords:null,maxWords:null});
             }}><option value="">{t("通用题型")}</option>{Object.entries(questionKinds()).filter(([kind])=>!parent || !["reading","listening"].includes(kind)).map(([kind,label])=><option key={kind} value={kind}>{label}</option>)}</select>
           </label>}
-          <EnglishFields question={q} patch={patch} images={images} onPendingChange={setAudioPending}/>
+          <EnglishFields question={q} patch={patch} images={images} onPendingChange={setAudioPending} onDraftChange={setAudioDraft}/>
           {q.answerMode === "choice" && (
             <NativeSelect
               aria-label={t("选择题类型")}
@@ -307,7 +336,7 @@ export function QuestionEditor({
             </div>
             <AnswerInput
               prefix="editor-answer"
-              question={{ ...q, options: q.optionSourceId ? parent?.options || [] : q.options, answerPayload: null }}
+              question={editorAnswerQuestion(q, parent)}
               value={q.answerPayload}
               onChange={(a) => patch({ answerPayload: a })}
             />
@@ -340,16 +369,17 @@ export function QuestionEditor({
           </div>
         </fieldset>
         <DialogFooter>
-          <Button variant="outline" disabled={busy} onClick={onClose}>{t("取消")}</Button>
-          <Button disabled={busy || audioPending} onClick={() => {if(!audioPending)onSave(q,children);}}>{t("保存题目")}</Button>
+          <Button variant="outline" disabled={busy} onClick={onClose}>{t("放弃更改")}</Button>
+          <Button disabled={busy || audioPending || audioDraft} onClick={() => {if(!audioPending && !audioDraft)onSave(q,children);}}>{t("保存题目")}</Button>
         </DialogFooter>
-      </DialogContent>
       {childEditor && <QuestionEditor key={childEditor.id} initial={childEditor} parent={q} initialChildren={children.filter(c=>c.parentId===childEditor.id)} busy={false} onClose={()=>setChildEditor(null)} onSave={(child,nested)=>{
+        const index=children.findIndex(c=>c.id===child.id);
+        if(index>=0 && draftSnapshot(children[index],children.filter(c=>c.parentId===child.id),q)===draftSnapshot(child,nested,q)){setChildEditor(null);return;}
         const removed=new Set([child.id]);for(const c of children) if(removed.has(c.parentId))removed.add(c.id);
-        const index=children.findIndex(c=>c.id===child.id);const kept=children.filter(c=>!removed.has(c.id));kept.splice(index<0 ? kept.length : index,0,child,...nested);setChildren(kept);
+        const kept=children.filter(c=>!removed.has(c.id));const insertion=index<0 ? kept.length : children.slice(0,index).filter(c=>!removed.has(c.id)).length;kept.splice(insertion,0,child,...nested);setChildren(kept);
         if(!["reading","listening"].includes(q.answerMode || "") && !(q.passage || []).some(b=>b.questionId===child.id))patch({passage:[...(q.passage || []),{partType:"blank",questionId:child.id}]});
         setChildEditor(null);
       }}/>}
-    </Dialog>
+      </EditorDialog>
   );
 }

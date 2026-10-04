@@ -549,6 +549,7 @@ impl Store {
         Ok(json!({"duplicate":false,"bankId":bank,"count":count}))
     }
 
+    #[cfg(test)]
     pub fn imported_ai(
         &self,
         thread: &str,
@@ -557,6 +558,7 @@ impl Store {
     ) -> Result<Option<String>> {
         Self::imported_ai_with(&self.connect()?, thread, digest, checkpoint)
     }
+    #[cfg(test)]
     pub(crate) fn imported_ai_with(
         db: &Connection,
         thread: &str,

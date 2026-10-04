@@ -30,23 +30,18 @@
       "dmg"
     ],
     "category": "Education",
-    "shortDescription": "离线题库与练习",
+    "shortDescription": "\u79bb\u7ebf\u9898\u5e93\u4e0e\u7ec3\u4e60",
     "icon": [
       "icons/icon.png",
       "icons/icon.icns",
       "icons/icon.ico"
     ],
     "resources": {
-      "bundled/python/": "bundled/python/",
       "bundled/build-manifest.json": "bundled/build-manifest.json",
-      "bundled/THIRD-PARTY.txt": "bundled/THIRD-PARTY.txt",
-      "bundled/PYTHON-LICENSE.txt": "bundled/PYTHON-LICENSE.txt"
+      "bundled/THIRD-PARTY.txt": "bundled/THIRD-PARTY.txt"
     },
     "macOS": {
-      "minimumSystemVersion": "14.0",
-      "files": {
-        "Resources/bundled/office": "bundled/office"
-      }
+      "minimumSystemVersion": "14.0"
     }
   }
 }

@@ -439,7 +439,7 @@ async def test_cancelled_image_validation_retains_upload_slot_until_worker_finis
     monkeypatch.setattr(Image, "open", slow_open)
     monkeypatch.setattr(asyncio, "shield", observed_shield)
     monkeypatch.setattr(webapp, "grade", forbidden)
-    monkeypatch.setattr(webapp, "require_model_config", lambda: SimpleNamespace(maintenance=False, upload_concurrency=1))
+    monkeypatch.setenv("AI_UPLOAD_CONCURRENCY", "1")
 
     async def admitted_request():
         with cancel_scope:

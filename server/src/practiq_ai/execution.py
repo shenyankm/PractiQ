@@ -42,7 +42,10 @@ def fingerprint(value: Any) -> str:
 @lru_cache(maxsize=1)
 def code_version() -> str:
     root = Path(__file__).parent
-    paths = [root / name for name in ("contracts.py", "grading.py", "llm.py", "execution.py", "config.py", "storage.py", "json_repair.py", "capacity.py", "telemetry.py", "runtime.py", "database.py", "task_api.py")]
+    paths = [root / name for name in ("contracts.py", "grading.py", "llm.py", "execution.py", "config.py", "storage.py", "json_repair.py", "capacity.py", "telemetry.py", "runtime.py", "database.py", "task_api.py", "office.py")]
+    if (root / "office_service.py").is_file():
+        paths.append(root / "office_service.py")
+    paths.append(root / "normalization.py")
     paths.extend(sorted((root / "graphs").glob("*.py")))
     paths.extend(sorted((root / "extractors").glob("*.py")))
     bundled_lock = root / "uv.lock"
@@ -68,6 +71,8 @@ def signature() -> dict[str, Any]:
     for key in ("jobs_per_worker", "graph_max_concurrency", "storage_concurrency", "storage_timeout_seconds", "model_timeout_seconds", "deployment_workers", "provider_concurrency", "provider_rpm", "upload_concurrency", "upload_timeout_seconds", "max_busy_threads", "maintenance", "read_only"):
         settings.pop(key)
     settings["storage_dir"] = str(settings["storage_dir"])
+    if settings.get("office_executable") is not None:
+        settings["office_executable"] = str(settings["office_executable"])
     return {"version": STATE_VERSION, "code": code_version(), "runtime": runtime_version(), "settings": settings}
 
 
@@ -106,6 +111,10 @@ async def preflight(values: dict[str, Any]) -> None:
     store = await asyncio.to_thread(get_object_store)
     # Check the source and pending inputs, including outputs needed by assemble/merge.
     await store.get_verified(DocumentReference.model_validate(values['document']))
+    if values.get('normalization'):
+        from .normalization import verified_normalization
+        await verified_normalization(DocumentReference.model_validate(values['document']), values['normalization'],
+                                     mode=values.get('officeMode') or 'pdf', store=store, config=load())
     references = [item for key in ('pageRefs', 'chunkRefs') for item in values.get(key, [])]
     if values.get('textRef'):
         references.append(values['textRef'])

@@ -25,7 +25,7 @@ export function SettingsPage({ busy, run, flushRef, revision, version, onConfigu
     <Card>
       <CardHeader>
         <CardTitle>{t("学习数据备份")}</CardTitle>
-        <CardDescription>{t("包含题库、图片、收藏、作答和评分记录。不包含原始文档、AI 任务及 API Key；在其他设备恢复后需重新配置密钥。请定期保存到其他位置。")}</CardDescription>
+        <CardDescription>{t("包含题库、图片、收藏、作答和评分记录。不包含原始文档、AI 任务及服务访问令牌；在其他设备恢复后需重新配置令牌。请定期保存到其他位置。")}</CardDescription>
       </CardHeader>
       <CardContent className="flex gap-3">
         <Button disabled={busy} onClick={() => run(async () => {

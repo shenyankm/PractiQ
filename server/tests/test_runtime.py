@@ -440,9 +440,8 @@ async def test_recovery_preflight_is_inside_run_deadline(monkeypatch, expired):
     assert entered.is_set() == stopped.is_set() == (not expired)
 
 
-@pytest.mark.parametrize('read_only', [False, True])
-async def test_desktop_restart_requires_explicit_resume_and_lists_tasks(monkeypatch, read_only):
-    monkeypatch.setenv('AI_DESKTOP_MODE', '1')
+@pytest.mark.parametrize('resume_enabled', [False, True])
+async def test_read_only_restart_requires_explicit_resume_and_lists_tasks(monkeypatch, resume_enabled):
     service, reference, model = await setup_api(monkeypatch, [(30, parsed()), parsed()])
     created = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
     async with asyncio.timeout(10):
@@ -450,8 +449,7 @@ async def test_desktop_restart_requires_explicit_resume_and_lists_tasks(monkeypa
             await asyncio.sleep(0.01)
     directory = service.db.directory
     await service.stop(timeout=0)
-    if read_only:
-        monkeypatch.setenv('AI_READ_ONLY', '1')
+    monkeypatch.setenv('AI_READ_ONLY', '1')
     restarted = runtime.Service(Database(directory))
     await restarted.start()
     SERVICES.append(restarted)
@@ -464,13 +462,14 @@ async def test_desktop_restart_requires_explicit_resume_and_lists_tasks(monkeypa
     assert listing['items'][0]['threadId'] == created['threadId']
     assert not listing['hasMore']
     assert not (await task_api.list_tasks(1, 1))['items']
-    if read_only:
+    if not resume_enabled:
         assert not state['modelConfigured'] and not state['resumeCompatible']
         with pytest.raises(DocumentProcessingError) as error:
             await task_api.control_task(created['threadId'], DocumentTaskControl(requestId=uuid4(), action='resume', checkpointId=state['checkpointId']))
         assert error.value.code == 'MODEL_NOT_CONFIGURED'
         assert len(model.calls) == 1
         return
+    monkeypatch.delenv('AI_READ_ONLY')
     await task_api.control_task(created['threadId'], DocumentTaskControl(requestId=uuid4(), action='resume', checkpointId=state['checkpointId']))
     async with asyncio.timeout(10):
         while await restarted.db.rows("SELECT run_id FROM document_runs WHERE status IN ('pending','running')"):
@@ -478,14 +477,14 @@ async def test_desktop_restart_requires_explicit_resume_and_lists_tasks(monkeypa
     assert (await task_api.get_task(created['threadId']))['state'] == 'COMPLETED'
 
 
-@pytest.mark.parametrize('desktop', [True, False])
-async def test_restart_reconciles_final_checkpoint_without_model_work(monkeypatch, desktop):
-    monkeypatch.setenv('AI_DESKTOP_MODE', '1' if desktop else '0')
+@pytest.mark.parametrize('read_only', [True, False])
+async def test_restart_reconciles_final_checkpoint_without_model_work(monkeypatch, read_only):
     service, reference, model = await setup_api(monkeypatch)
     created = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
     await service.wait_idle()
     directory = service.db.directory
     await service.stop(timeout=0)
+    monkeypatch.setenv('AI_READ_ONLY', '1' if read_only else '0')
     db = Database(directory)
     async with db.connection() as conn:
         # Disk state after checkpoint commit but before the run's finish commit.
@@ -550,9 +549,9 @@ async def test_missing_checkpoint_tables_fail_closed():
     finally:
         await db.close()
 
-@pytest.mark.parametrize('desktop', [False, True])
-@pytest.mark.parametrize(('graph_id', 'kind'), [('docx_parser', 'text'), ('document_parser', 'docx'), ('document_parser', 'xlsx')])
-async def test_unsupported_tasks_are_unchanged_and_do_not_block_current_work(monkeypatch, graph_id, kind, desktop):
+@pytest.mark.parametrize('pending', [False, True])
+@pytest.mark.parametrize(('graph_id', 'kind'), [('docx_parser', 'text'), ('document_parser', 'docm'), ('document_parser', 'xlsm')])
+async def test_unsupported_tasks_are_unchanged_and_do_not_block_current_work(monkeypatch, graph_id, kind, pending):
     from json import dumps
 
     import httpx
@@ -560,7 +559,6 @@ async def test_unsupported_tasks_are_unchanged_and_do_not_block_current_work(mon
     from practiq_ai.webapp import app
 
     monkeypatch.setenv('AI_SERVICE_TOKEN', 'test-token')
-    monkeypatch.setenv('AI_DESKTOP_MODE', '1' if desktop else '0')
     service, reference, model = await setup_api(monkeypatch, [parsed(), parsed(), parsed()])
     good = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
     old = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
@@ -571,7 +569,7 @@ async def test_unsupported_tasks_are_unchanged_and_do_not_block_current_work(mon
     async with service.db.connection() as conn:
         await conn.execute('UPDATE document_tasks SET graph_id=?,document=? WHERE thread_id=?',
                            (graph_id, dumps({**reference, 'sourceType': kind}), thread_id))
-        await conn.execute('UPDATE document_runs SET status=? WHERE thread_id=?', ('pending' if desktop else 'running', thread_id))
+        await conn.execute('UPDATE document_runs SET status=? WHERE thread_id=?', ('pending' if pending else 'running', thread_id))
     before_task = await service.db.rows('SELECT * FROM document_tasks WHERE thread_id=?', (thread_id,))
     before_runs = await service.db.rows('SELECT * FROM document_runs WHERE thread_id=?', (thread_id,))
     before_heads = await service.db.checkpoint_heads([thread_id])

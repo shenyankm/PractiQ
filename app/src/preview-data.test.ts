@@ -2,7 +2,6 @@ import { beforeEach, expect, it, vi } from "vitest";
 import { canInteract, type Bank, type PaperPreview, type Question, type QuestionPage, type QuestionRow, type Session, type SessionPage, type SettingsResult } from "./api";
 import composite from "../fixtures/composite.json";
 import sample from "../fixtures/sample.json";
-import type { Summary, Task } from "./ai-api";
 import type { PreviewScenario } from "./preview-mode";
 const mode=vi.hoisted(()=>({value:"normal" as PreviewScenario}));
 vi.mock("./preview-mode",()=>({previewMode:()=>mode.value}));
@@ -312,7 +311,7 @@ it("provides every question mode, media, favorites, wrong answers and isolated e
  expect((await call<QuestionPage>(query)).items[0].question.stem).not.toBe("mutated response");
  await expect(call({type:"unsupported"})).rejects.toThrow("未实现操作");
 });
-it("previews history, snapshots, grading and import state transitions",async()=>{
+it("preserves history and grading snapshots while rejecting desktop import commands",async()=>{
  const history=await call<SessionPage>({type:"sessions_page",offset:0,limit:20});
  expect(history.items.map(s=>s.kind)).toContain("mock_exam");
  expect((await call<SessionPage>({type:"sessions_page",offset:0,limit:20,filter:"review"})).items).toHaveLength(2);
@@ -320,12 +319,11 @@ it("previews history, snapshots, grading and import state transitions",async()=>
  const graded=await call<Session>({type:"grade",id:session.id,ordinal:4,retry:false},"ai_request");
  expect(graded.attempts[4].gradeKind).toBe("ai");
  expect(graded.attempts[4].grading?.ai?.result?.reason).toContain("未调用模型");
- const tasks=await call<{items:Summary[]}>({type:"list",offset:0},"ai_request");
- expect(new Set(tasks.items.map(t=>t.state)).size).toBe(10);
- await call({type:"control",id:"demo-001",action:"pause"},"ai_request");
- expect((await call<Task>({type:"get",id:"demo-001"},"ai_request")).state).toBe("PAUSED");
- await call({type:"control",id:"demo-001",action:"resume"},"ai_request");
- expect((await call<Task>({type:"get",id:"demo-001"},"ai_request")).state).toBe("RUNNING");
+ for (const type of ["list", "get", "select_document", "pick_document", "control", "prepare_batch"]) {
+  await expect(call({type,id:"demo-001",offset:0},"ai_request")).rejects.toThrow("未实现操作");
+ }
+ await expect(call({type:"status"},"office_request")).rejects.toThrow("未实现命令");
+ await expect(call({type:"review"},"read_review_image")).rejects.toThrow("未实现命令");
 });
 it("submits preview practice separately from self-assessment and preserves the answer",async()=>{
  const submitted=await call<Session>({type:"save_attempt",id:"preview-practice",ordinal:4,answer:{text:"My answer"},elapsed_ms:123,submit:true,skip:false});
@@ -342,9 +340,15 @@ it("supports empty state creation and settings recovery",async()=>{
  await call({type:"add_example_bank"});
  expect((await call<QuestionPage>({type:"questions_page",bank_ids:[],search:"",mode:"",filter:"",offset:0,limit:20})).total).toBe(9);
  vi.resetModules();mode.value="unconfigured";
- expect((await call<SettingsResult>({type:"settings"})).hasApiKey).toBe(false);
- await call({type:"save_settings",config:{base_url:"https://example.invalid",model_id:"demo"},api_key:"demo"});
- expect((await call<SettingsResult>({type:"settings"})).hasApiKey).toBe(true);
+ expect((await call<SettingsResult>({type:"settings"})).hasServiceToken).toBe(false);
+ await call({type:"save_settings",config:{service_url:"https://example.invalid"},service_token:"demo"});
+ expect((await call<SettingsResult>({type:"settings"})).hasServiceToken).toBe(true);
+ await call({type:"save_settings",config:{service_url:"https://example.invalid"},service_token:null});
+ expect((await call<SettingsResult>({type:"settings"})).hasServiceToken).toBe(true);
+ await call({type:"save_settings",config:{service_url:"https://example.invalid"},service_token:""});
+ expect((await call<SettingsResult>({type:"settings"})).hasServiceToken).toBe(false);
+ await call({type:"save_settings",config:{service_url:"https://other.example.invalid"},service_token:null});
+ expect((await call<SettingsResult>({type:"settings"})).hasServiceToken).toBeNull();
 });
 it("paginates large data and exposes failure and loading scenarios without native fallback",async()=>{
  mode.value="many";

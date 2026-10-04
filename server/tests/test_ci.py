@@ -89,11 +89,11 @@ with Path(os.environ['INSTALL_CALLS']).open('a') as log:
     uv.chmod(0o755)
     calls = tmp_path / 'calls'
     selected = str(tmp_path / 'python') if explicit_path else 'python'
-    result = subprocess.run(['make', 'server-install', 'install-locked', 'app-install-python', f'AI_PYTHON={selected}'],
+    result = subprocess.run(['make', 'server-install', 'install-locked', f'AI_PYTHON={selected}'],
         cwd=root, env={**os.environ, 'PATH': f'{tmp_path}{os.pathsep}{os.environ["PATH"]}', 'INSTALL_CALLS': str(calls)},
         capture_output=True, text=True, check=False)
     assert result.returncode == 0, result.stdout + result.stderr
-    assert [json.loads(line) for line in calls.read_text().splitlines()].count(['pip', 'install']) == 5
+    assert [json.loads(line) for line in calls.read_text().splitlines()].count(['pip', 'install']) == 3
 
 
 def test_app_check_does_not_require_bundled_resources(tmp_path):
@@ -134,11 +134,11 @@ args = sys.argv[1:]
 if args[0] == "export":
     assert "--locked" in args and "--no-emit-project" in args
     extras = {args[i + 1] for i, arg in enumerate(args) if arg == "--extra"}
-    assert extras == {"dev", "desktop"}
-    Path(args[args.index("-o") + 1]).write_text("pyinstaller==6.22.3\\n")
+    assert extras == {"dev"}
+    Path(args[args.index("-o") + 1]).write_text("langgraph==1.2.1\\n")
 elif args[:2] == ["-m", "pip_audit"]:
     assert {"--strict", "--disable-pip", "--no-deps"} <= set(args)
-    assert "pyinstaller==" in Path(args[args.index("-r") + 1]).read_text()
+    assert "langgraph==" in Path(args[args.index("-r") + 1]).read_text()
     sys.exit(int(os.environ["AUDIT_EXIT"]))
 else:
     assert args == ["audit", "--file", "app/src-tauri/Cargo.lock"]
@@ -221,13 +221,14 @@ def test_workflows_deduplicate_common_checks_without_dropping_native_gates():
         assert upload["with"]["path"] == path
         assert upload["with"]["retention-days"] == "7"
     for command in ("cargo test --locked", "cargo clippy --locked", "--all-targets -- -D warnings",
-                    "test_desktop_platforms.py", "test_office.py", "bundle-python.py", "npm run tauri -- build"):
+                    "prepare-package.py", "npm run tauri -- build"):
         assert command in package_commands
     assert "npm run build" not in package_commands  # Tauri already invokes beforeBuildCommand.
     for platform in ("Windows", "Linux", "macOS"):
         commands = "\n".join(step.get("run", "") for step in package["steps"]
                              if step.get("if") == f"runner.os == '{platform}'")
-        assert "check-bundle.py" in commands and "check-office.py" in commands
+        assert "check-installer.py" in commands
+        assert "check-office.py" not in commands and "Start-Process" not in commands
         if platform != "macOS":
             assert "native_keychain_roundtrip -- --ignored" in commands
     uploads = [step for step in package["steps"] if step.get("uses", "").startswith("actions/upload-artifact@")]

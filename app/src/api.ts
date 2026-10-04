@@ -200,8 +200,8 @@ export type Request =
   | { type: "settings" }
   | {
       type: "save_settings" | "test_settings";
-      config: ConnectionSettings;
-      api_key: string | null;
+      config: ServiceConfig;
+      service_token: string | null;
     }
   | {
       type:
@@ -368,7 +368,7 @@ export function errorMessage(error: unknown): string {
     STALE_CHECKPOINT: t("请刷新任务或重新创建导入批次。"),
     STALE_RUN: t("请刷新任务状态。"),
     TASK_BUSY: t("请等待当前运行结束后刷新。"),
-    AI_PROVIDER_AUTH_ERROR: t("模型鉴权失败，请检查设置中的 API Key，再重试失败项。"),
+    AI_PROVIDER_AUTH_ERROR: t("AI 服务的模型鉴权失败，请检查服务端模型配置后重试。"),
     AI_PROVIDER_UNAVAILABLE: t("请稍后重试失败项。"),
     EXECUTION_VERSION_MISMATCH: t("请使用原执行版本，或重新解析文档。"),
     LOCAL_SERVICE_UNAVAILABLE: t("如有待确认操作，请从原操作重试。"),
@@ -430,21 +430,19 @@ export function canInteract(q: Question) {
   return true;
 }
 
-export interface ConnectionSettings {
-  base_url: string | null;
-  model_id: string | null;
+export interface ServiceConfig {
+  service_url: string | null;
 }
 export interface SettingsResult {
-  config: ConnectionSettings;
-  /** null means unchecked; only explicit credential operations inspect the key. */
-  hasApiKey: boolean | null;
+  config: ServiceConfig;
+  /** null means unchecked; only explicit credential operations inspect the token. */
+  hasServiceToken: boolean | null;
 }
 
-export function missingModelSettings(settings: SettingsResult): string[] {
+export function missingServiceSettings(settings: SettingsResult): string[] {
   return [
-    !settings.config.base_url?.trim() && t("模型 API 地址"),
-    !settings.config.model_id?.trim() && t("模型 ID"),
-    settings.hasApiKey === false && "API Key",
+    !settings.config.service_url?.trim() && t("AI 服务地址"),
+    settings.hasServiceToken === false && t("AI 服务访问令牌"),
   ].filter((field): field is string => !!field);
 }
 

@@ -1,164 +1,105 @@
 # Final-package acceptance record
 
-Tracks [#91](https://github.com/shenyankm/PractiQ/issues/91). Preparation reviewed on 2026-10-04 at main `2e9215f59920a7e2f7d9bf9b64ff61b6d1f6ccd7`. Desktop component versions are `0.1.0`; a permitted matching tag and final release candidate have not been selected in this PR. Keep #91 open until final artifacts and evidence meet the [release policy](releases.md). This worksheet does not authorize tag creation, paid calls, secret changes or publication.
+Tracks [#91](https://github.com/shenyankm/PractiQ/issues/91) under the independent-service architecture in [#130](https://github.com/shenyankm/PractiQ/issues/130). Desktop artifacts deliver offline practice and ZIP import. AI source import and Office conversion belong to the independent service and its web frontend; explicit desktop grading calls that service over HTTP. Historical embedded-engine packages and reports remain preserved and cannot establish acceptance of this architecture. No final candidate, signing, clean-machine or live-model acceptance is recorded by this worksheet.
 
 ## Candidate identity
 
-Fill these fields once the pending implementation PRs merge. Use one clean main commit and retain the value in every platform report; reselecting the source or signing/repackaging invalidates earlier artifact hashes.
+Use one clean main commit and retain its SHA in every platform record. Signing, repackaging or reselecting source invalidates earlier artifact hashes.
 
 | Field | Required value / current evidence |
 | --- | --- |
 | Source SHA / tag / desktop version | Pending; six npm/Tauri/Cargo version entries must match the tag |
-| AI service / Python / pinned Office versions | Read from final build manifest; development runtime versions are insufficient |
-| Build URL / OS / architecture / date | One record per final platform installer |
+| Desktop package schema / mode | `schemaVersion: 2`, `packageMode: desktop-practice`; actual native version must match |
+| Independent AI service source version | Separate version from tagged source; desktop artifacts do not deploy that service |
+| Build URL / OS / architecture / date | Original immutable CI build candidate plus independent provenance review |
 | Installer path / bytes / SHA-256 | Calculate after all signing, notarization, stapling and packaging |
 | Signing / identity / verification command | Pending; record unsigned explicitly when applicable |
-| Final-package reports | Fresh bundle, isolated Office, fidelity and license-source outputs |
-| Live quality / failure-injection reports | Pending; separate model authorization and source-aligned review required |
-| Reviewed release evidence / asset downloads | Pending; all download sizes and hashes must match SHA256SUMS |
+| Desktop package evidence | Native version, engine absence, metadata, Cargo/npm licenses and byte-exact embedded notices |
+| Service deployment / import / grading evidence | Separate service identity, configured Office engine and authorized live checks |
+| Reviewed release evidence / downloads | Pending; download sizes and hashes must match SHA256SUMS |
 
 ## Platform evidence matrix
 
-Use **Passed**, **Failed**, **Blocked**, or **Not run**, with a report or reason for each cell. No clean-machine runs or signing evidence are recorded by this PR.
+Use **Passed**, **Failed**, **Blocked**, or **Not run**, with evidence or a reason in every cell. Payload extraction is engineering evidence, not installation or clean-machine acceptance.
 
 | Flow | macOS 14+ arm64 | Windows 10/11 x64 | Ubuntu 22.04+ amd64 |
 | --- | --- | --- | --- |
-| Actual final installer + bundled service/Office checks | Not run | Not run | Not run |
+| Actual final installer: native version, no Python/Office/AI worker, notices | Not run | Not run | Not run |
 | Signing/notarization or package signature verification | Not run | Not run | Not run |
 | Clean installation, upgrade, uninstall | Not run | Not run | Not run |
-| Native open/save dialogs and authorized file access | Not run | Not run | Not run |
-| Credential set/read/delete, no backup leakage | Not run | Not run | Not run |
-| Listening playback using a supplied public audio fixture | Not run | Not run | Not run |
+| Native open/save dialogs and authorized ZIP/audio access | Not run | Not run | Not run |
+| Service token set/read/delete, no backup leakage | Not run | Not run | Not run |
+| Listening playback using an authorized public audio fixture | Not run | Not run | Not run |
 | ZIP append import; offline practice and submission | Not run | Not run | Not run |
-| Installed UI source import: native selection, explicit Start import, task progress/review, then bank import | Not run | Not run | Not run |
-| Installed UI Word/Excel import using bundled conversion before the same task/review flow | Not run | Not run | Not run |
-| File selection and standalone Office conversion make no model calls | Not run | Not run | Not run |
+| Explicit grading/retry through independent service; absent evidence stays ungraded | Not run | Not run | Not run |
+| Offline practice with service unavailable; no import worker spawned | Not run | Not run | Not run |
 | Full backup restore after replacement confirmation | Not run | Not run | Not run |
 | Old data directories untouched; unsupported backup rejected | Not run | Not run | Not run |
-| No system Python/Office discovery | Not run | Not run | Not run |
 
-Record Windows WebView2 and Linux WebView/audio libraries plus unlocked Secret Service. Do not infer native credential acceptance from a browser mock. Use isolated synthetic data and an authorized public audio fixture; do not publish local databases, credentials, raw user material or backups.
+Record Windows WebView2 and Linux WebView/audio libraries plus unlocked Secret Service. Do not infer native credential acceptance from browser mocks. Use synthetic practice data and authorized public audio; never publish credentials, databases or backups. Real grading requires an explicitly authorized provider and budget; otherwise mark its row **Blocked**.
 
-For source import, use a synthetic PDF, TXT, CSV or PNG/JPEG fixture through the installed **Import** page. Select it with the native picker, confirm selection alone sends no model request, then explicitly choose **Start import**. Record task progress, any review/retry boundary, and the final bank import. Repeat with synthetic Word and Excel sources to exercise the packaged Office worker. ZIP append import and scripts that call the sidecar directly do not establish this desktop flow. Use a provider and cost budget already authorized for this acceptance run; otherwise mark these model-dependent rows **Blocked**. The explicit **Start import** action authorizes conversion and submission without a second confirmation. Standalone conversion needs no model configuration and must send no model request.
+Record independent-service acceptance separately: deployed source/image identity, web upload selection with no model request, explicit Start import, Word/Excel conversion using its configured engine, task progress/review/retry, ZIP export and desktop ZIP append import. Service Office fidelity and dependency licenses require their own evidence. Desktop package checks cannot establish those results, and moving conversion to the service does not waive fidelity requirements.
 
-## Execute existing gates against final bytes
+## Execute gates against final bytes
 
-Use the existing [draft workflow](../.github/workflows/release.yml) and [contribution checks](../CONTRIBUTING.md#validate-the-change) after an explicit candidate/tag decision. The workflow runs strict package gates against the mounted DMG, installed NSIS app and extracted DEB; ordinary CI remains engineering evidence only.
+Use the [draft workflow](../.github/workflows/release.yml) after selecting a committed candidate and matching existing tag. Install the candidate's locked desktop dependencies, native Cargo toolchain and existing Python 3.14+ build/check interpreter on each native platform. Python is a build/check tool and is never shipped. Supplemental notices, lockfiles and check scripts must come from that candidate's clean checkout.
 
-Run the checks from a dedicated, clean checkout of the recorded candidate's full source SHA. Install that candidate's locked dependencies using the [contribution guide](../CONTRIBUTING.md#validate-the-change); the checks read checkout fixtures, locks and supplemental notices. Use a native checkout and toolchain matching the final artifact's platform and architecture. Keep evidence outside the checkout, and record the checkout SHA alongside every platform report directory.
+For unsigned CI artifacts, `release.py stage --tag ...` selects exactly one newly built native installer. It makes a private read-only snapshot, extracts those exact bytes, verifies the native version, runs `check-bundle.py` and `check_licenses.py`, and compares generated notices with the embedded `THIRD-PARTY.txt`. macOS uses a read-only DMG mount; Linux extracts the DEB; Windows safely extracts NSIS using full 7-Zip. DEB metadata must declare amd64 and every required native runtime dependency. Mounted and extracted resource directories must be real directories contained in that installer payload. Resource links must be relative, resolve inside the bundle and identify existing bytes; macOS `Info.plist` must be a regular file. No installer execution, model call, service spawn or signing occurs in these checks.
 
-After final signing or repackaging, mount/install/extract the exact final installer again. Select its `bundled` directory; on macOS this is inside the mounted app's `Contents/Resources`, and in an extracted DEB it is `usr/lib/PractiQ/bundled`. The following macOS/Linux setup stops on a wrong SHA, a dirty checkout or an existing evidence directory:
+For final signed, stapled or otherwise replaced installers, use explicit staging below. It requires an original schema 2 desktop CI candidate. Older bundled-engine candidates are rejected even if their historical reports passed. Keep its original installer and complete `evidence/` directory beside `candidate.json`. Review its Actions origin independently; local hashes alone do not attest provenance.
+
+## Review and publication handoff
+
+Run from a dedicated clean candidate checkout on the same platform and architecture as the installer. Keep reports and output outside the checkout, use fresh directories for every run, and retain failed reports. The following macOS/Linux command defines every input and checks the candidate before staging:
 
 ```sh
 set -eu
 CANDIDATE_SHA=your_candidate_full_sha_here
-test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
-CHECKOUT_STATUS=$(git status --porcelain)
-test -z "$CHECKOUT_STATUS"
-AI_PYTHON=/absolute/path/to/python3.14
-BUNDLE=/absolute/path/to/final/package/bundled
-REPORT_DIR=/absolute/path/to/fresh/evidence-directory
-mkdir -p "$(dirname "$REPORT_DIR")"
-mkdir "$REPORT_DIR"
-printf '%s\n' "$CANDIDATE_SHA" > "$REPORT_DIR/source-sha.txt"
-```
-
-Run all four gates and compare freshly generated notices with the file shipped in the final bundle:
-
-```sh
-"$AI_PYTHON" app/scripts/check-bundle.py --bundle "$BUNDLE" --output "$REPORT_DIR/desktop-bundle.json"
-"$AI_PYTHON" app/scripts/check-office.py --isolated --bundle "$BUNDLE" --output "$REPORT_DIR/office.json"
-"$AI_PYTHON" app/scripts/check-office.py --fidelity-only --bundle "$BUNDLE" --output "$REPORT_DIR/office-fidelity.json"
-"$AI_PYTHON" app/scripts/check_licenses.py --bundle "$BUNDLE" --output "$REPORT_DIR/licenses.json" --notices "$REPORT_DIR/expected-THIRD-PARTY.txt"
-cp "$BUNDLE/THIRD-PARTY.txt" "$REPORT_DIR/shipped-THIRD-PARTY.txt"
-cmp "$REPORT_DIR/expected-THIRD-PARTY.txt" "$BUNDLE/THIRD-PARTY.txt"
-printf '%s\n' 'Passed: embedded THIRD-PARTY.txt matches candidate notices' > "$REPORT_DIR/notices-match.txt"
-```
-
-The license inventory alone does not check the combined `THIRD-PARTY.txt` shipped to users. A missing or changed bundle notice must fail the comparison. Retain both expected and shipped notices with the reports. Keep failed reports; use a new evidence directory for each rerun. A failed gate or notice comparison blocks acceptance.
-
-On Windows, run PowerShell from the candidate checkout root after installing its locked dependencies. Select an existing Python 3.14+ interpreter and the exact final signed or explicitly unsigned NSIS installer. The [desktop workflow's installed-package step](../.github/workflows/desktop.yml) uses the same `/S` and `/D=` installation arguments. Choose a fresh install destination and evidence directory:
-
-```powershell
-$ErrorActionPreference = 'Stop'
-$CandidateSha = 'your_candidate_full_sha_here'
-$HeadSha = git rev-parse HEAD
-if ($LASTEXITCODE -ne 0 -or $HeadSha -ne $CandidateSha) { throw 'Wrong candidate checkout' }
-$Dirty = git status --porcelain
-if ($LASTEXITCODE -ne 0 -or $Dirty) { throw 'Candidate checkout must be clean' }
-$AiPython = 'C:\absolute\path\to\python.exe'
-$Installer = 'C:\absolute\path\to\final-setup.exe'
-$Destination = 'C:\absolute\path\to\fresh-install'
-$ReportDir = 'C:\absolute\path\to\fresh-evidence'
-if ((Test-Path $Destination) -or (Test-Path $ReportDir)) { throw 'Choose fresh directories' }
-New-Item -ItemType Directory -Force -Path (Split-Path $ReportDir) | Out-Null
-New-Item -ItemType Directory -Path $ReportDir | Out-Null
-$CandidateSha | Set-Content (Join-Path $ReportDir 'source-sha.txt')
-$Install = Start-Process -FilePath $Installer -ArgumentList '/S', "/D=$Destination" -Wait -PassThru
-if ($Install.ExitCode -ne 0) { throw "Installer failed: $($Install.ExitCode)" }
-$Bundle = Join-Path $Destination 'bundled'
-```
-
-Run the four checks with explicit failure handling, then compare notice hashes. PowerShell's error preference alone does not reject every failed native command:
-
-```powershell
-& $AiPython app/scripts/check-bundle.py --bundle $Bundle --output "$ReportDir/desktop-bundle.json"
-if ($LASTEXITCODE -ne 0) { throw 'Final bundle check failed' }
-& $AiPython app/scripts/check-office.py --isolated --bundle $Bundle --output "$ReportDir/office.json"
-if ($LASTEXITCODE -ne 0) { throw 'Isolated Office check failed' }
-& $AiPython app/scripts/check-office.py --fidelity-only --bundle $Bundle --output "$ReportDir/office-fidelity.json"
-if ($LASTEXITCODE -ne 0) { throw 'Office fidelity check failed' }
-& $AiPython app/scripts/check_licenses.py --bundle $Bundle --output "$ReportDir/licenses.json" --notices "$ReportDir/expected-THIRD-PARTY.txt"
-if ($LASTEXITCODE -ne 0) { throw 'License-source check failed' }
-Copy-Item -LiteralPath "$Bundle/THIRD-PARTY.txt" -Destination "$ReportDir/shipped-THIRD-PARTY.txt"
-$Expected = (Get-FileHash "$ReportDir/expected-THIRD-PARTY.txt" -Algorithm SHA256).Hash
-$Shipped = (Get-FileHash "$Bundle/THIRD-PARTY.txt" -Algorithm SHA256).Hash
-if ($Expected -ne $Shipped) { throw 'Embedded third-party notices differ' }
-'Passed: embedded THIRD-PARTY.txt matches candidate notices' | Set-Content "$ReportDir/notices-match.txt"
-```
-
-Record the final installer size and SHA-256 in the candidate table. Archive the notice comparison result and both notice files with each platform's evidence. These commands do not perform signing, live-model evaluation or clean-machine UI acceptance.
-
-## Review and publication handoff
-
-Follow the existing [signing and final acceptance](releases.md#final-signing-and-acceptance) procedures; do not relabel an earlier unsigned DMG. The default `release.py stage --tag ...` command discovers unsigned CI build output. For a signed, stapled or otherwise replaced installer, explicitly select the final file with the same candidate checkout and native platform:
-
-```sh
 TAG=your_selected_candidate_tag
+AI_PYTHON=/absolute/path/to/python3.14
 FINAL_INSTALLER=/absolute/path/to/exact/final-installer.dmg
 FINAL_INPUTS=/absolute/path/to/fresh/final-inputs
 FINAL_REPORTS=/absolute/path/to/fresh/final-reports-macos
 BUILD_CANDIDATE=/absolute/path/to/original-release-macos/candidate.json
+test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+test -z "$(git status --porcelain --untracked-files=all)"
 "$AI_PYTHON" app/scripts/release.py stage --tag "$TAG" \
   --installer "$FINAL_INSTALLER" --reports "$FINAL_REPORTS" \
   --build-candidate "$BUILD_CANDIDATE" \
   --output "$FINAL_INPUTS/release-macos"
 ```
 
-Use the corresponding original platform candidate downloaded from the immutable CI run. Keep its original installer and complete `evidence/` directory beside `candidate.json`. Staging checks the original tag, source SHA, component versions, platform, asset bytes and evidence hashes, preserves the build URL, and archives the original candidate identity. Review the download's Actions provenance independently; matching local hashes cannot attest its origin.
+On Linux use the exact DEB, original `release-linux/candidate.json`, fresh Linux reports and `release-linux` output. The staging command creates fresh report/output directories and rejects existing destinations; parent directories may already exist.
 
-On Windows, use an installed full [7-Zip](https://7-zip.org/7z.html) with NSIS support. `7za` and `7zr` are insufficient. Define the values before staging; `$FinalReports` must be fresh and must not reuse the already populated `$ReportDir`:
+On Windows install full [7-Zip](https://7-zip.org/7z.html) with NSIS support; `7za` and `7zr` are insufficient. Extraction does not create uninstall registry entries or shortcuts and does not count as installation acceptance. Missing tools or unsafe payload paths fail closed. Define every PowerShell input and explicitly check native command exits:
 
 ```powershell
+$ErrorActionPreference = 'Stop'
+$CandidateSha = 'your_candidate_full_sha_here'
 $Tag = 'your_selected_candidate_tag'
-$FinalInstaller = $Installer
+$AiPython = 'C:\absolute\path\to\python.exe'
+$FinalInstaller = 'C:\absolute\path\to\exact-final-setup.exe'
 $FinalReports = 'C:\absolute\path\to\fresh-final-reports-windows'
 $FinalInputs = 'C:\absolute\path\to\fresh-final-inputs'
 $BuildCandidate = 'C:\absolute\path\to\original-release-windows\candidate.json'
 $SevenZip = (Get-Command 7z.exe -ErrorAction Stop).Source
+$HeadSha = git rev-parse HEAD
+if ($LASTEXITCODE -ne 0 -or $HeadSha -ne $CandidateSha) { throw 'Wrong candidate checkout' }
+$Dirty = git status --porcelain --untracked-files=all
+if ($LASTEXITCODE -ne 0 -or $Dirty) { throw 'Candidate checkout must be clean' }
 & $AiPython app/scripts/release.py stage --tag $Tag --installer $FinalInstaller `
   --reports $FinalReports --build-candidate $BuildCandidate --seven-zip $SevenZip `
   --output "$FinalInputs/release-windows"
 if ($LASTEXITCODE -ne 0) { throw 'Final Windows staging failed' }
 ```
 
-Run the equivalent command on each native target, using the final NSIS `.exe` or DEB `.deb`, matching original build candidate and distinct `release-windows` or `release-linux` output folders. Explicit staging copies the selected installer to a private read-only snapshot, mounts that DMG, extracts the NSIS payload with 7-Zip, or extracts that DEB. It never executes the Windows installer or creates uninstall entries and shortcuts. Payload extraction is engineering evidence; installed UI and clean-machine acceptance still require the platform matrix above. Missing 7-Zip or unsafe payload paths block staging.
+Explicit staging first makes a private read-only installer snapshot. Resources come from that snapshot, with contained-directory and DEB architecture/dependency checks shared by ordinary package checks and CI staging. It verifies desktop version using macOS `Info.plist`, Windows installer/application `ProductVersion`, or DEB control `Version`, including prerelease suffixes. It requires pure desktop metadata and scans the entire application payload for embedded Python, LibreOffice or AI workers. The Cargo/npm inventory must have complete source-bound license texts; its freshly generated combined notices must match embedded bytes.
 
-Staging compares the actual desktop version from macOS `Info.plist`, Windows installer and application `ProductVersion`, or DEB control `Version` with the complete candidate version, including any prerelease suffix. It derives the bundle from those selected bytes, reruns all four strict gates and compares embedded notices. It retains raw reports privately in `FINAL_REPORTS`; the public evidence copy replaces absolute machine paths before calculating evidence hashes. Review all public evidence before publication. Failed reports remain available, and output assets appear only after source, version, provenance and artifact checks pass. Existing report or output directories are rejected; no Actions environment variables are required.
+Raw reports remain private in `FINAL_REPORTS`. A separate public evidence copy replaces absolute machine paths, including paths embedded in commands, before hashing. Review that sanitized copy before publication. Failed checks leave diagnostic reports and never produce public staged assets. Source HEAD/status and installer snapshot hashes are rechecked before delivery. No Actions environment variables are needed for explicit staging.
 
-Record actual signing verification separately, including the final installer SHA-256, expected publisher identity, exact verification commands and their sanitized results. Retain an independent JSON report with a complete 64-hex `artifactSha256` matching that final file; uppercase and lowercase hexadecimal identify the same bytes. It may also record `status`, `identity`, `verificationCommands` and `verificationResults`. Add `--signing-report /absolute/path/to/actual-signing-report.json` to explicit staging to archive it as `evidence/signing-report.json`. The tool rejects a report bound to different bytes. It records **unverified** for its own signing check because it does not execute signing verification; the linked report and release template record the actual independently verified status. The staging checkout SHA identifies the check inputs and cannot by itself prove the installer was built from that commit. Manual and live-model acceptance remain **pending**.
+Archive signing verification independently: exact artifact SHA-256, expected publisher identity, commands and results. An independent JSON report must contain a complete 64-hex `artifactSha256` matching the final installer; hexadecimal case does not change identity. It may also contain `status`, `identity`, `verificationCommands` and `verificationResults`. Pass `--signing-report /absolute/path/to/actual-signing-report.json` to retain it as bound evidence. Staging records its own signing check as **unverified** because it does not execute verification; the independently reviewed report and release template record actual signing status. Source checkout identity alone cannot prove installer build provenance. Manual and live acceptance remain **pending**.
 
-After collecting all three new platform candidates, copy the service verification reports for that same source into `FINAL_INPUTS/service-checks` as required by the existing workflow, then assemble into another fresh directory:
+After all three native platforms pass, copy source-aligned independent service verification reports into `FINAL_INPUTS/service-checks`. Assemble into a new directory:
 
 ```sh
 FINAL_ASSETS=/absolute/path/to/fresh/final-assets
@@ -166,6 +107,6 @@ FINAL_ASSETS=/absolute/path/to/fresh/final-assets
   --inputs "$FINAL_INPUTS" --output "$FINAL_ASSETS"
 ```
 
-Assembly requires a consistent staging mode across all three platforms: either all original unsigned CI candidates or all explicitly restaged final-byte candidates. It rejects a mixed set before creating output assets. Assembly verifies candidate source, installer and evidence hashes, then regenerates `release-manifest.json`, `release-evidence.zip` and `SHA256SUMS.txt` from the selected final bytes. It creates local draft assets; it does not publish or complete #91. Complete every field in the [release template](../.github/RELEASE_TEMPLATE.md) with actual per-platform signing evidence, acceptance results and unresolved limitations, then download staged assets and check each hash.
+Assembly requires schema 2 desktop candidates in one mode: all original unsigned CI candidates or all explicitly restaged final-byte candidates. It rejects mixed modes, old embedded-engine candidates, drifted source/versions, changed installers, missing evidence and altered notices before creating output. It regenerates `release-manifest.json`, `release-evidence.zip` and `SHA256SUMS.txt`; these are local draft assets, not publication or acceptance of #91 or #130.
 
-Before closing #91 link the selected main candidate, immutable reports, actual final installer hashes, native clean-machine records and verified signing status. Test-version deferrals must follow existing policy and remain visible. Signing credentials, target systems, final candidate and live evidence are still required from maintainers; this preparation PR provides none of those external acceptances.
+Complete the [release template](../.github/RELEASE_TEMPLATE.md) with actual per-platform signing, installation, grading and independent service evidence. Verify every downloaded attachment against its size/hash. Link the chosen main candidate and immutable evidence before closing #91. Test-version deferrals must remain explicit under the [release policy](releases.md). This worksheet supplies no signing credentials, target systems or live-model acceptance.

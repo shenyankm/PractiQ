@@ -2,8 +2,7 @@ import sample from "../fixtures/sample.json";
 import english from "../fixtures/english.json";
 import composite from "../fixtures/composite.json";
 import type { Answer, Bank, Question, QuestionRow, Request, Session, SettingsResult, Preview } from "./api";
-import type { Request as AiRequest, Summary, Batch } from "./ai-api";
-import { importDemoRows, importDemoTask } from "./import-demo";
+import type { Request as AiRequest } from "./ai-api";
 import type { PreviewScenario } from "./preview-mode";
 import { COMPOSITE_MODES } from "./contracts.generated";
 
@@ -86,14 +85,7 @@ Object.assign(gradingSession.attempts[2],{gradeKind:"ai",earnedCents:600,result:
 Object.assign(gradingSession.attempts[3],{gradeKind:"manual",earnedCents:800,result:false,grading:{manual:{reason:"演示人工复核",scoreCents:800}}});
 gradingSession.attempts[4].snapshot.question.answerPayload=null;
 sessions.push(gradingSession);
-let settings:SettingsResult={config:{base_url:"https://example.invalid/v1",model_id:"demo-model"},hasApiKey:true};
-let tasks:Summary[]=[...structuredClone(importDemoRows),
-  {...importDemoRows[4],threadId:"demo-imported",bankTitle:"已入库 · 基础知识",importedBankId:"preview-bank-0"},
-  {...importDemoRows[4],threadId:"demo-import-failed",bankTitle:"入库失败 · 可重试"}];
-const batches:Batch[]=[{id:"demo-batch",status:"paused",items:[
-  {threadId:"demo-imported",checkpointId:"demo-checkpoint-4",title:"基础知识",questionCount:9,reviewCount:1,partial:false,previousVersion:false,status:"imported",bankId:"preview-bank-0",error:null},
-  {threadId:"demo-import-failed",checkpointId:"demo-checkpoint-4",title:"待重试题库",questionCount:9,reviewCount:1,partial:true,previousVersion:false,status:"failed",bankId:null,error:{code:"DEMO_IMPORT_ERROR",message:"示例写入失败，可继续未成功项。"}}
-]}];
+let settings:SettingsResult={config:{service_url:"https://service.example.invalid"},hasServiceToken:true};
 function getSession(id:string) {const s=sessions.find(s=>s.id===id);if(!s)throw new Error("示例练习不存在");return s;}
 function summary(s:Session) {const a=s.attempts;return {...s,attempts:undefined,count:a.length,answered:a.filter(a=>a.submittedAt!=null).length,draftAnswered:a.filter(a=>a.answer!=null).length,correct:a.filter(a=>a.result===true).length,graded:a.filter(a=>a.result!=null).length,skipped:a.filter(a=>a.skipped).length,elapsedMs:a.reduce((n,a)=>n+a.elapsedMs,0),selfGraded:a.filter(a=>a.gradeKind==="self").length,autoGraded:a.filter(a=>a.gradeKind==="auto").length,pendingGrades:a.filter(a=>a.submittedAt && a.gradeKind==="ungraded").length,totalCents:a.reduce((n,a)=>n+(a.maxCents||0),0),earnedCents:a.reduce((n,a)=>n+(a.earnedCents||0),0),lastActiveAt:now};}
 function page<T>(items:T[],offset=0,limit=20) {return {items:items.slice(offset,offset+limit),total:items.length,offset};}
@@ -150,7 +142,10 @@ function request(r:Request,scenario:PreviewScenario):unknown {
     case "unfinished_session": return empty || !sessions.some(s=>!s.finishedAt && !s.submittedAt) ? null:summary(sessions.find(s=>!s.finishedAt && !s.submittedAt)!);
     case "session": return {...getSession(r.id),clockNow:Date.now()};
     case "settings": return settings;
-    case "save_settings": settings={config:r.config,hasApiKey:r.api_key ? true:settings.hasApiKey};return settings;
+    case "save_settings": {
+      const hasServiceToken=r.service_token===null ? (r.config.service_url===settings.config.service_url ? settings.hasServiceToken:null):!!r.service_token.trim();
+      settings={config:r.config,hasServiceToken};return settings;
+    }
     case "test_settings": return null;
     case "save_bank": {const b=banks.find(b=>b.id===r.id);if(b)Object.assign(b,{title:r.title,description:r.description});else banks.push({id:crypto.randomUUID(),title:r.title,description:r.description,count:0,createdAt:Date.now()});return b?.id || banks.at(-1)!.id;}
     case "delete_bank": {const i=banks.findIndex(b=>b.id===r.id);if(i>=0)banks.splice(i,1);rows=rows.filter(q=>q.bankId!==r.id);return null;}
@@ -195,35 +190,19 @@ function request(r:Request,scenario:PreviewScenario):unknown {
 }
 function aiRequest(r:AiRequest):unknown {
   switch(r.type) {
-    case "list": {const states:Record<string,string[]>={active:["RUNNING","PENDING","PAUSING"],paused:["PAUSED"],completed:["COMPLETED"],cancelled:["CANCELLED"],failed:["FAILED"],review:["WAITING_REVIEW"],interrupted:["INTERRUPTED"],expired:["EXPIRED"]};return {items:tasks.filter(t=>!r.filter || states[r.filter].includes(t.state)).slice(r.offset,r.offset+20),hasMore:tasks.filter(t=>!r.filter || states[r.filter].includes(t.state)).length>r.offset+20};}
-    case "get": {const row=tasks.find(t=>t.threadId===r.id);if(!row)throw new Error("示例任务不存在");const task=importDemoTask(importDemoRows.find(t=>t.state===row.state)?.threadId || "demo-001");return {...task,threadId:r.id,state:row.state,allowedActions:["RUNNING","PENDING"].includes(row.state) ? ["pause","interrupt"]:["PAUSED","CANCELLED","INTERRUPTED"].includes(row.state) ? ["resume"]:row.state==="FAILED" ? ["retry_failed"]:row.state==="WAITING_REVIEW" ? ["accept_partial"]:[]};}
-    case "operations": return [];
-    case "batches": return {...page(batches,r.offset),operations:tasks.some(t=>t.threadId==="demo-import-failed") && batches.some(b=>b.items.some(i=>i.status==="failed")) ? [{threadId:"demo-import-failed",checkpointId:"demo-checkpoint-4",state:"failed",error:{message:"示例入库失败，可重试。"}}]:[]};
-    case "select_document": return {token:"preview-files",fileNames:["高等数学.pdf","课堂练习.docx","补充习题.xlsx"]};
-    case "pick_document": case "reparse": {const id=crypto.randomUUID();tasks.unshift({...importDemoRows[0],threadId:id,bankTitle:r.type==="pick_document" ? r.details.title:"重新解析示例",createdAt:new Date().toISOString()});return {threadId:id,threadIds:[id]};}
-    case "delete": tasks=tasks.filter(t=>t.threadId!==r.id);return {deleted:true};
-    case "control": {const t=tasks.find(t=>t.threadId===r.id)!;t.state=r.action==="pause" ? "PAUSED":r.action==="interrupt" ? "CANCELLED":r.action==="accept_partial" ? "COMPLETED":"RUNNING";return null;}
-    case "preview": return preview();
-    case "review": return {threadId:r.id,checkpointId:"preview-checkpoint",state:"WAITING_REVIEW",phase:"review",units:[{stage:"result",index:0,questions:sample.questions,groups:[],visualElements:[]}],failures:[],quality:{reviewRequired:true,reviewQuestionCount:1,issues:[]},questionSources:[]};
-    case "prepare_batch": {const b:Batch={id:crypto.randomUUID(),status:"ready",items:r.ids.map(id=>({threadId:id,checkpointId:"preview",title:tasks.find(t=>t.threadId===id)?.bankTitle||"示例",questionCount:9,reviewCount:1,partial:false,previousVersion:false,status:"pending",bankId:null,error:null}))};batches.push(b);return b;}
-    case "run_batch": {const b=batches.find(b=>b.id===r.id)!;b.status="completed";b.items.forEach(i=>{i.status="imported";i.bankId=addBank(i.title).bankId;});return b;}
-    case "cancel_batch": {const b=batches.find(b=>b.id===r.id);if(b)b.status="paused";return null;}
-    case "replay": return null;
     case "grade": {const s=getSession(r.id);const a=s.attempts[r.ordinal];a.gradeKind="ai";a.earnedCents=Math.floor((a.maxCents||1000)*0.6);a.result=false;a.grading={ai:{status:"graded",result:{scoreCents:a.earnedCents,maxCents:a.maxCents||1000,reason:"演示评分：覆盖部分要点。未调用模型。",evidence:["示例参考答案"],reviewReasons:[]}}};return s;}
-    case "review_asset": throw new Error("此演示审核单元没有图片");
   }
 }
 let initialized = false;
 function initialize(scenario: PreviewScenario) {
   if (initialized) return;
   initialized = true;
-  if (scenario === "empty") { banks.length=0; rows=[]; sessions.length=0; tasks=[]; batches.length=0; }
-  if (scenario === "unconfigured") settings={config:{base_url:null,model_id:null},hasApiKey:false};
+  if (scenario === "empty") { banks.length=0; rows=[]; sessions.length=0; }
+  if (scenario === "unconfigured") settings={config:{service_url:null},hasServiceToken:false};
   if (scenario === "many") {
     for (let i=1;i<=40;i++) {
       addBank(`综合复习 · 第 ${i} 单元`);
       sessions.push(makeSession(`history-${i}`,`复习记录 · 第 ${i} 次`,"practice",true));
-      tasks.push({...importDemoRows[i%10],threadId:`history-task-${i}`,bankTitle:`综合复习 · 第 ${i} 单元`});
     }
   }
 }
@@ -232,16 +211,15 @@ export async function demoInvoke(command:string,args:Record<string,unknown>,scen
   const type=(args.request as {type?:string}|undefined)?.type;
   if(scenario==="slow")await new Promise(resolve=>setTimeout(resolve,1500));
   if(scenario==="error" && !["language","save_language","info"].includes(type||""))throw new Error("演示请求失败：切换完整数据后重试。");
-  if(command==="read_asset" || command==="read_review_image") {
+  if(command==="read_asset") {
     if(scenario==="missing")throw new Error("演示资源缺失");
     const audio=args.hash===english.questions[0].audioRef?.sha256;
-    if(command==="read_asset" && !audio && args.hash!==sample.visualElements[0].imageRef.sha256)throw new Error("未知演示资源");
+    if(!audio && args.hash!==sample.visualElements[0].imageRef.sha256)throw new Error("未知演示资源");
     return (await fetch(audio ? audioUrl:imageUrl)).arrayBuffer();
   }
   let value:unknown;
   if(command==="request")value=request(args.request as Request,scenario);
   else if(command==="ai_request")value=aiRequest(args.request as AiRequest);
-  else if(command==="office_request")value=type==="status" ? {path:"[演示]",version:"演示转换组件",capabilities:{writer_pdf:true,writer_text:true,calc_pdf:true,calc_text:true},errors:{}}:type==="convert" ? {paths:["[演示] 文档.pdf"],count:1}:null;
   else throw new Error(`开发预览未实现命令：${command}`);
   if(value===undefined)throw new Error(`开发预览未实现操作：${type}`);
   return structuredClone(value);

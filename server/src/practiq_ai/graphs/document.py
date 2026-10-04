@@ -1,6 +1,7 @@
 """Durable document parsing graph with bounded fan-out."""
 
 import asyncio
+import hashlib
 import json
 import re
 import time
@@ -23,6 +24,7 @@ from practiq_ai import telemetry
 from practiq_ai.config import load
 from practiq_ai.contracts import (
     COMPOSITE_MODES,
+    OFFICE_SOURCE_TYPES,
     ArtifactReference,
     ContentBlock,
     DocumentGroup,
@@ -67,6 +69,7 @@ from practiq_ai.graphs.chunking import (
     split_chunk_spans,
 )
 from practiq_ai.llm import get_model, structured_call
+from practiq_ai.normalization import OfficeNormalization, normalize_source
 from practiq_ai.storage import get_object_store
 
 SYSTEM_PROMPT = """Extract assessment questions faithfully from the supplied fragment.
@@ -351,6 +354,11 @@ class DocumentGraphOutput(TypedDict):
 
 class DocumentState(TypedDict):
     document: dict[str, Any]
+    officeMode: NotRequired[str | None]
+    normalization: NotRequired[dict[str, Any] | None]
+    effectiveSourceType: NotRequired[str]
+    textUnits: NotRequired[list[dict[str, Any]]]
+    chunkSources: NotRequired[list[dict[str, Any]]]
     execution: NotRequired[dict[str, Any]]
     failurePolicy: NotRequired[str]
     retry: NotRequired[dict[str, Any] | None]
@@ -433,6 +441,8 @@ async def _load_context(state: DocumentState, runtime: Runtime[None]) -> dict[st
         await asyncio.to_thread(validate_execution, execution)
         if execution.get("document") != incoming.document.model_dump(mode="json"):
             raise DocumentProcessingError(409, "Retry cannot change the source document", "INVALID_CONTROL")
+        if execution.get("officeMode") != incoming.officeMode:
+            raise DocumentProcessingError(409, "Retry cannot change Office conversion mode", "INVALID_CONTROL")
         token = CURRENT_EXECUTION.set(execution)
         try:
             await guard(runtime, execution)
@@ -443,6 +453,7 @@ async def _load_context(state: DocumentState, runtime: Runtime[None]) -> dict[st
         raise DocumentProcessingError(409, "Use resume/retry or create a new thread", "TASK_ALREADY_STARTED")
     execution = await asyncio.to_thread(new_execution)
     execution["document"] = incoming.document.model_dump(mode="json")
+    execution["officeMode"] = incoming.officeMode
     context = runtime.context if isinstance(runtime.context, dict) else {}
     if expires_at := context.get("documentControl", {}).get("expiresAt"):
         execution["expiresAt"] = expires_at
@@ -453,12 +464,17 @@ async def _load_context(state: DocumentState, runtime: Runtime[None]) -> dict[st
         CURRENT_EXECUTION.reset(token)
     return {
         "document": incoming.document.model_dump(mode="json"),
+        "officeMode": incoming.officeMode,
+        "normalization": None,
+        "effectiveSourceType": incoming.document.sourceType,
+        "textUnits": [],
+        "chunkSources": [],
         "execution": execution,
         "failurePolicy": incoming.failurePolicy,
         "retry": None,
         "round": 0,
         "phase": "prepare",
-        "nextStage": "prepare",
+        "nextStage": "normalize" if incoming.document.sourceType in OFFICE_SOURCE_TYPES else "prepare",
         "appliedRetries": [],
         "retryCounts": {},
         "callAllowances": {},
@@ -480,11 +496,11 @@ async def _load_context(state: DocumentState, runtime: Runtime[None]) -> dict[st
     }
 
 
-async def _prepare(
+def _graph_reference(
     state: DocumentState,
     *,
     source_types: tuple[DocumentSourceType, ...] | None = None,
-) -> dict[str, Any]:
+) -> DocumentReference:
     reference = DocumentParseInput.model_validate(
         {"document": state["document"]}
     ).document
@@ -494,13 +510,62 @@ async def _prepare(
             f"This graph accepts only: {', '.join(source_types)}",
             "DOCUMENT_SOURCE_TYPE_MISMATCH",
         )
+    return reference
+
+
+async def _normalize(state: DocumentState, runtime: Runtime[Any], *,
+                     source_types: tuple[DocumentSourceType, ...] | None = None) -> dict[str, Any]:
+    _graph_reference(state, source_types=source_types)
+    return await normalize_source(cast(dict[str, Any], state), runtime)
+
+
+async def _prepare(state: DocumentState, *, source_types: tuple[DocumentSourceType, ...] | None = None) -> dict[str, Any]:
+    reference = _graph_reference(state, source_types=source_types)
     await asyncio.to_thread(get_model)
     store = await asyncio.to_thread(get_object_store)
     source = await store.get_verified(reference)
-    document = await extract(reference.sourceType, source)
-    visual_total = len(document.page_images)
-    enforce_vision_bytes(sum(map(len, document.page_images)))
-    warnings = list(document.warnings)
+    normalization_value = state.get("normalization")
+    normalized = OfficeNormalization.model_validate(normalization_value) if normalization_value else None
+    if reference.sourceType in OFFICE_SOURCE_TYPES and normalized is None:
+        raise DocumentProcessingError(503, "Office preparation has no durable manifest", "OFFICE_MANIFEST_INVALID")
+    inputs: list[tuple[DocumentSourceType, ArtifactReference | DocumentReference, str, bool]] = [(item.sourceType, item.reference, item.name, item.hasContent)
+              for item in normalized.sources] if normalized else [(reference.sourceType, reference, reference.fileName or "source", True)]
+    page_images: list[bytes] = []
+    texts: list[str] = []
+    units: list[dict[str, Any]] = []
+    warnings: list[str] = []
+    truncated = False
+    total_chars = 0
+    effective_type = inputs[0][0]
+    for source_index, (kind, input_reference, name, has_content) in enumerate(inputs):
+        if not has_content:
+            warnings.append(f"Converted source {name} is empty.")
+            continue
+        payload = await store.get_verified(input_reference) if normalized else source
+        extracted = await extract(kind, payload)
+        warnings.extend(extracted.warnings)
+        truncated |= extracted.truncated
+        page_images.extend(extracted.page_images)
+        if len(page_images) > load().max_document_pages:
+            raise DocumentProcessingError(413, "Converted document exceeds the page limit", "PDF_PAGE_LIMIT_EXCEEDED")
+        enforce_vision_bytes(sum(map(len, page_images)))
+        text = extracted.text
+        if normalized and text:
+            separator = "\n\n" if texts else ""
+            remaining = max(0, load().max_total_input_chars - total_chars - len(separator))
+            if len(text) > remaining:
+                text = text[:remaining]
+                truncated = True
+                warnings.append(f"Converted source {name} exceeds the shared text limit.")
+            if text:
+                start = total_chars + len(separator)
+                texts.append(separator + text)
+                total_chars = start + len(text)
+                units.append({"start": start, "end": total_chars, "fileName": name, "sourceType": kind,
+                              "sourceIndex": source_index})
+        elif text:
+            texts.append(text)
+    text = "".join(texts)
 
     async def put(item: tuple[bytes, str, int, str]) -> ArtifactReference:
         data, kind, index, media_type = item
@@ -513,22 +578,24 @@ async def _prepare(
         )
 
     text_ref = (
-        await put((document.text.encode("utf-8"), "text", 0, "text/plain"))
-        if document.text
+        await put((text.encode("utf-8"), "text", 0, "text/plain"))
+        if text
         else None
     )
     page_refs = await _bounded_map(
         [
             (data, "page", index, vision._media_type(data))
-            for index, data in enumerate(document.page_images)
+            for index, data in enumerate(page_images)
         ],
         put,
     )
     return {
         "chunkRefs": [],
         "warnings": warnings,
-        "truncated": document.truncated,
-        "visualTotal": visual_total,
+        "truncated": truncated,
+        "visualTotal": len(page_images),
+        "effectiveSourceType": effective_type,
+        "textUnits": units,
         "textRef": text_ref.model_dump(mode="json") if text_ref else None,
         "pageRefs": [item.model_dump(mode="json") for item in page_refs],
     }
@@ -817,7 +884,20 @@ async def _assemble(state: DocumentState) -> dict[str, Any]:
         raise DocumentProcessingError(422, "Document contains no extractable text")
 
     reference = DocumentReference.model_validate(state["document"])
-    spans = split_chunk_spans(text)
+    spans: list[ChunkSpan] = []
+    chunk_sources = []
+    text_units = state.get("textUnits", [])
+    if text_units and not state.get("visualTotal"):
+        for unit in text_units:
+            start, end = unit["start"], min(unit["end"], len(text))
+            if end <= start:
+                continue
+            for span in split_chunk_spans(text[start:end]):
+                spans.append(cast(ChunkSpan, {key: value + start for key, value in span.items()}))
+                chunk_sources.append({"fileName": unit["fileName"], "sourceType": unit["sourceType"],
+                                      "sourceIndex": unit["sourceIndex"]})
+    else:
+        spans = split_chunk_spans(text)
     chunks = [text[span["start"]:span["end"]] for span in spans]
 
     async def put_chunk(item: tuple[int, str]) -> ArtifactReference:
@@ -836,12 +916,14 @@ async def _assemble(state: DocumentState) -> dict[str, Any]:
         "truncated": truncated,
         "chunkRefs": [item.model_dump(mode="json") for item in chunk_refs],
         "chunkSpans": spans,
+        "chunkSources": chunk_sources,
     }
 
 
 def _dispatch_chunks(state: DocumentState) -> list[Send] | str:
     reference = DocumentReference.model_validate(state["document"])
     chunks = state.get("chunkRefs", [])
+    chunk_sources = state.get("chunkSources", [])
     completed = {item["index"] for item in state.get("chunkResults", [])}
     work = [
         Send(
@@ -849,8 +931,8 @@ def _dispatch_chunks(state: DocumentState) -> list[Send] | str:
             {
                 "index": index,
                 "total": len(chunks),
-                "sourceType": reference.sourceType,
-                "fileName": reference.fileName,
+                "sourceType": chunk_sources[index]["sourceType"] if chunk_sources else reference.sourceType,
+                "fileName": chunk_sources[index]["fileName"] if chunk_sources else reference.fileName,
                 "artifact": item,
                 "execution": state.get("execution"),
                 "round": state.get("round", 0),
@@ -962,10 +1044,28 @@ async def _crop_visuals(
     failures: list[UnitFailure] = []
     for index, artifact, failure in await _bounded_map(selected, crop):
         if artifact is not None:
-            visuals[index] = visuals[index].model_copy(update={"imageRef": artifact, "description": ("[page crop] " + visuals[index].description)[:20_000] if reference.sourceType == "pdf" else visuals[index].description})
+            visuals[index] = visuals[index].model_copy(update={"imageRef": artifact, "description": ("[page crop] " + visuals[index].description)[:20_000] if state.get("effectiveSourceType", reference.sourceType) == "pdf" else visuals[index].description})
         if failure is not None:
             failures.append(failure)
     return visuals, failures, truncated
+
+
+def _scope_sheet_ids(result: ChunkParseResult, source_index: int) -> None:
+    """Printed anchors are local to a worksheet, including material and blanks."""
+    def scoped(value: str | None) -> str | None:
+        if value is None:
+            return None
+        # Keep the existing continuation category and bound temporary IDs to
+        # the shared 128-character contract even for long supplied source IDs.
+        category = "fragment:" if value.startswith("fragment:") else "page:" if value.startswith("page:") else ""
+        return f"{category}office:{source_index}:{hashlib.sha256(value.encode()).hexdigest()}"
+
+    for question in result.questions:
+        question.id = scoped(question.id)
+        question.parentId = scoped(question.parentId)
+        question.optionSourceId = scoped(question.optionSourceId)
+        for block in [*question.passage, *question.transcript, *question.contentBlocks]:
+            block.questionId = scoped(block.questionId)
 
 
 async def _merge(state: DocumentState) -> dict[str, Any]:
@@ -988,6 +1088,10 @@ async def _merge(state: DocumentState) -> dict[str, Any]:
         for item in ordered
         if item["parsed"] is not None
     ]
+    if not pages and state.get("normalization") and state["document"].get("sourceType") in {"xls", "xlsx"}:
+        chunk_sources = state.get("chunkSources", [])
+        for index, result in parsed:
+            _scope_sheet_ids(result, chunk_sources[index]["sourceIndex"])
     text_ref = state.get("textRef")
     source_text = None
     if not pages and text_ref:
@@ -1209,10 +1313,12 @@ async def _review(state: DocumentState, *, phase: str) -> dict[str, Any]:
 def _guarded(function: Callable[..., Awaitable[dict[str, Any]]], *, with_runtime: bool = False, check_pause: bool = True):
     async def run(state: Any, runtime: Runtime[None]) -> dict[str, Any]:
         if "document" in state:
-            DocumentParseInput.model_validate({"document": state["document"]})
+            DocumentParseInput.model_validate({"document": state["document"], "officeMode": state.get("officeMode")})
         await asyncio.to_thread(validate_execution, state.get("execution"))
         if "document" in state and "document" in state["execution"] and state["execution"]["document"] != DocumentReference.model_validate(state["document"]).model_dump(mode="json"):
             raise DocumentProcessingError(409, "Resume cannot change the source document", "INVALID_CONTROL")
+        if "document" in state and state["execution"].get("officeMode") != state.get("officeMode"):
+            raise DocumentProcessingError(409, "Resume cannot change Office conversion mode", "INVALID_CONTROL")
         token = CURRENT_EXECUTION.set(state["execution"])
         artifact_token = CURRENT_ARTIFACT.set(state.get("artifact"))
         unit_token = CURRENT_UNIT.set(state.get("unitKey"))
@@ -1289,6 +1395,7 @@ def build_document_graph(
         output_schema=DocumentGraphOutput,
     )
     builder.add_node("load_context", _load_context)
+    builder.add_node("normalize", _guarded(partial(_normalize, source_types=source_types), with_runtime=True))
     builder.add_node("prepare", _guarded(partial(_prepare, source_types=source_types)))
     builder.add_node("vision", _guarded(_vision, with_runtime=True), input_schema=VisionTask)
     builder.add_node("assemble", _guarded(_assemble))
@@ -1307,7 +1414,8 @@ def build_document_graph(
     builder.add_edge("result_review_pause", "result_review")
     builder.add_node("finish", _guarded(partial(_gate, phase="completed")))
     builder.add_edge(START, "load_context")
-    builder.add_conditional_edges("load_context", lambda state: state.get("nextStage", "prepare"), ["prepare", "vision_gate", "chunk_gate"])
+    builder.add_conditional_edges("load_context", lambda state: state.get("nextStage", "prepare"), ["normalize", "prepare", "vision_gate", "chunk_gate"])
+    builder.add_edge("normalize", "prepare")
     builder.add_edge("prepare", "vision_gate")
     builder.add_conditional_edges("vision_gate", _dispatch_vision, ["vision", "vision_review_pause"])
     builder.add_edge("vision", "vision_gate")

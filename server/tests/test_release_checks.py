@@ -27,18 +27,12 @@ def test_license_gate_checks_metadata_target_graph_and_unresolved_terms(tmp_path
     (licenses/'supplemental.json').write_text('{}', encoding='utf-8')
     (tmp_path/'app/package-lock.json').write_text('{"packages":{}}', encoding='utf-8')
     bundle = tmp_path/'bundle'
-    metadata = bundle/'python/_internal/sample.dist-info'
-    metadata.mkdir(parents=True)
-    (bundle/'build-manifest.json').write_text('{"packages":[{"name":"sample","version":"1"}]}', encoding='utf-8')
-    with pytest.raises(ValueError, match='metadata'):
-        inventory(bundle)
-    (metadata/'METADATA').write_text('Name: sample\nVersion: 1\nLicense: MIT\n', encoding='utf-8')
-    (metadata/'LICENSE').write_text('Synthetic full license terms', encoding='utf-8')
-    office = bundle/'office'
-    office.mkdir()
-    (office/'manifest.json').write_text('{"version":"1","source":"synthetic"}', encoding='utf-8')
-    (office/'LICENSE').write_text('Synthetic Office terms', encoding='utf-8')
-    (bundle/'PYTHON-LICENSE.txt').write_text('Synthetic Python terms', encoding='utf-8')
+    bundle.mkdir(parents=True)
+    import platform
+    import sys
+    manifest = {"schemaVersion": 2, "packageMode": "desktop-practice", "platform": sys.platform,
+                "architecture": platform.machine(), "desktopVersion": "0.1.0"}
+    (bundle/'build-manifest.json').write_text(json.dumps(manifest), encoding='utf-8')
     crate = tmp_path/'crate'
     crate.mkdir()
     (crate/'LICENSE').write_text('Synthetic Cargo terms', encoding='utf-8')
@@ -73,7 +67,7 @@ def test_license_gate_checks_metadata_target_graph_and_unresolved_terms(tmp_path
     with pytest.raises(ValueError, match='evidence changed'):
         scope['write_notices'](report, destination)
     (bundle/'build-manifest.json').write_text('{"packages":[]}', encoding='utf-8')
-    with pytest.raises(ValueError, match='empty'):
+    with pytest.raises(ValueError, match='pure desktop'):
         inventory(bundle)
 
 

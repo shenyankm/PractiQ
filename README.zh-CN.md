@@ -39,31 +39,36 @@ PractiQ 仍处于开发阶段，目前没有已发布的 GitHub Release；请按
 
 ## 用 AI 导入文档
 
-1. 在**设置**中填写支持文本及图片输入的模型服务地址、模型 ID 和 API Key，离开输入框时自动保存。
-2. 打开**导入题库**，选择源文件并点击「开始导入」。
-3. 检查题目、图片和警告，再新建题库或追加到已有题库。
+文档导入在独立 AI 服务的 Web 前端完成：
 
-支持 **PDF、TXT、CSV 和 PNG/JPEG**。桌面安装包内置 LibreOffice 26.8.0，Word 和 Excel 无需另装组件或运行时下载，默认转为 PDF。独立服务不接受 Office 文件。文本导出方式及限制见[转换指南](server/docs/desktop-office.md)。
+1. [启动独立 AI 服务](#独立运行-ai-服务)，打开 Web 前端，填写服务访问令牌。模型配置及供应商密钥留在服务端。
+2. 一次选择最多 10 份源文件，主动点击**开始导入**。只选择文件不会上传或调用模型。
+3. 查看任务进度、保存的题目、图片、原文答案与待复核提示，下载题库 ZIP。
+4. 在桌面 app 中通过**设置 → 恢复备份 → 导入题库 ZIP**新建题库或追加到已有题库。
 
-导入题库页面分为「导入」和「导入记录」两个 Tab。一次选择最多 10 份源文件，点击**开始导入**即执行转换和解析，不再二次弹窗。检查结果后，再新建题库或追加到已有题库。
+服务支持 **PDF、TXT、CSV 和 PNG/JPEG**；部署端配置 LibreOffice 后，还可导入 **DOC、DOCX、XLS、XLSX**。Office 规范化由服务执行，默认转为 PDF，也可导出文本，包含 Excel 隐藏工作表。桌面安装包不再内置 Python 服务或 LibreOffice。部署方式与保真边界见[Office 指南](server/docs/desktop-office.md)。
 
-同内容文件直接打开已有任务；需要新结果时点击**重新解析**。运行中的任务须先停止才能删除记录，删除记录不影响已导入题库及学习数据。导入记录、筛选及恢复方式见[导入任务指南](docs/import-tasks.md)。
+任务历史、暂停、中断、恢复、失败单元重试、部分结果复核与重新解析均在 Web 前端处理。读取结果、复核和下载 ZIP 不调用模型；恢复、重试及重新解析须主动触发，可能产生费用。详见[导入任务指南](docs/import-tasks.md)。
 
-开发模式默认使用内存示例数据。右下角开发预览面板可切换场景或选择真实本地数据，操作方式及边界见[开发预览](app/docs/development-preview.md)。
+![独立文档导入 Web 前端](docs/assets/new-web-import.png)
 
-解析只提取原文已有的答案和评分细则，不替缺答案的题目解题；缺失内容保留待复核标记。任务支持暂停、恢复、重试和接受部分结果。需要保留的结果请在 **180 天**内导入题库，任务到期不影响已导入题库。
+截图来自本机只读 AI 服务实际提供的 Web 构建产物；任务数据库为空，未配置模型。选择示例文件没有上传或调用模型。
 
-练习和本地判分可离线使用。解析与 AI 评分需要主动触发，会将内容发送给你配置的模型提供方，可能产生费用；重新打开应用不会自动恢复模型调用。AI 评分须有参考答案或评分细则，缺少依据或调用失败时保持未判定，仅用于个人练习，不作为正式考试阅卷依据。
+解析只提取原文已有答案与评分细则，不替缺答案的题目解题；缺失内容保留待复核标记。请在 **180 天**内下载需要保留的结果，任务到期不影响已导入 app 的题库。
 
-API Key 保存在系统凭据存储中，备份不含密钥和 AI 任务状态。限时模考在关闭应用或电脑休眠后仍继续计时，重新进入超时考试时按最后保存的答案交卷。
+练习和本地判分可离线使用。需要主观题 AI 评分时，在桌面**设置 → AI 服务**中配置独立服务地址及访问令牌，再主动开始评分或重试。评分须有参考答案或评分细则；缺少依据、失败或结果未知时保持未判定。此功能用于个人练习，不作为正式考试阅卷依据。打开 app 或修改设置不会调用模型。
+
+桌面访问令牌保存在系统凭据存储中，Web 令牌只保存在浏览器内存中。备份不含凭据及 AI 任务状态。旧模型配置与密钥原样保留，不会自动作为独立服务凭据使用。限时模考在关闭应用或电脑休眠后仍继续计时，重新进入超时考试时按最后保存的答案交卷。
+
+开发模式默认使用内存示例数据；预览面板可切换场景或选择真实本地数据，详见[开发预览](app/docs/development-preview.md)。
 
 ## 运行桌面应用
 
 桌面数据使用新的 `v4/` 目录和 SQLite schema 11。旧目录（包括 `v3/`）原样保留，旧版完整备份不再接受；当前题库 ZIP 仍可导入。详见[数据格式边界](docs/question-model.md#versions-and-directories)。
 
-桌面构建目标包括 macOS 14+（Apple Silicon）、Windows 10/11（x64）和 Ubuntu 22.04+（x64，`.deb`）。macOS 已完成本地验证；Windows 和 Linux 已配置构建与内置服务 CI 检查，仍需在对应系统完成桌面交互验收。
+桌面构建目标包括 macOS 14+（Apple Silicon）、Windows 10/11（x64）和 Ubuntu 22.04+（x64，`.deb`）。CI 构建三个平台的练习客户端；桌面交互和签名发布验收需分别完成。
 
-开发需要 Node.js 22.12+、Rust、uv 和已有 Python 3.14+ 解释器。请安装 [Tauri 对应平台的前置依赖](https://v2.tauri.app/start/prerequisites/)：macOS 使用 Xcode，Windows 使用 MSVC 构建工具和 WebView2，Linux 使用 WebKitGTK 4.1、`libdbus-1-dev` 及构建库。Linux 保存 API Key 还需要已解锁的 Secret Service 服务（如 GNOME Keyring），听力播放需要 GStreamer 音频插件。不创建项目 `.venv`。请在目标系统上构建，以打包对应平台的 Python 服务。
+开发需要 Node.js 22.12+ 和 Rust。打包准备及共享契约检查还需要 uv 与已有 Python 3.14+ 解释器；Python 仅作为构建工具，不随桌面包分发。请安装 [Tauri 平台前置依赖](https://v2.tauri.app/start/prerequisites/)：macOS 使用 Xcode，Windows 使用 MSVC 构建工具和 WebView2，Linux 使用 WebKitGTK 4.1、`libdbus-1-dev` 及构建库。Linux 保存服务令牌需要已解锁的 Secret Service（如 GNOME Keyring），听力播放需要 GStreamer 音频插件。不创建项目 `.venv`。
 
 克隆仓库并进入根目录：
 
@@ -72,42 +77,34 @@ git clone https://github.com/shenyankm/PractiQ.git
 cd PractiQ
 ```
 
-在 macOS 或 Linux 上，从仓库根目录执行以下命令，并把 Python 路径替换为你的解释器：
+macOS 或 Linux 从仓库根目录执行，并替换 Python 路径：
 
 ```sh
-make install-locked app-install-python AI_PYTHON=/path/to/python3.14
+make install-locked AI_PYTHON=/path/to/python3.14
 make app-install
 cargo fetch --locked --manifest-path app/src-tauri/Cargo.toml
-make app-bundle AI_PYTHON=/path/to/python3.14
-make app-dev
-```
-
-构建本地应用安装包：
-
-```sh
+make app-dev AI_PYTHON=/path/to/python3.14
+# 构建本地应用安装包：
 make app-build AI_PYTHON=/path/to/python3.14
 ```
 
-Windows 使用 PowerShell，从仓库根目录执行：
+Windows 使用 PowerShell：
 
 ```powershell
-uv export --project server --locked --extra dev --extra desktop --no-emit-project -o "$env:TEMP/practiq-requirements.txt"
-uv pip install --python (Get-Command python).Source -r "$env:TEMP/practiq-requirements.txt"
-uv pip install --python (Get-Command python).Source --no-deps -e server
 npm --prefix app ci
 cargo fetch --locked --manifest-path app/src-tauri/Cargo.toml
-python app/scripts/bundle-python.py
+python app/scripts/prepare-package.py
 cd app
 npm run desktop
-# Build the Windows installer:
+# 构建 Windows 安装包：
 npm run tauri -- build
 ```
 
-构建产物位于 `app/src-tauri/target/release/bundle`：macOS 为 `.app`/`.dmg`，Windows 为 NSIS `.exe`，Linux 为 `.deb`。CI 使用模拟模型响应和真实 PDF 渲染检查各平台打包后的 Python 服务，不代表已验证安装包签名或桌面音频播放。
+`prepare-package.py` 使用 Python 3.14+，生成构建元数据与 Cargo/npm 许可声明，不下载或复制文档处理运行时。产物位于 `app/src-tauri/target/release/bundle`：macOS 为 `.app`/`.dmg`，Windows 为 NSIS `.exe`，Linux 为 `.deb`。打包检查验证版本、许可声明及没有内置引擎；它不代表已验证签名或桌面音频播放。
 
 ## 独立运行 AI 服务
 
-接入 API 需要 Python 3.14+、uv，以及支持文本及图片输入的模型。复制配置模板，保留已有设置：
+独立服务通过 Web 前端及 API 提供文档导入，也为桌面 app 提供显式评分。需要 Python 3.14+、uv、用于 Web 构建的 Node.js 22.12+，以及支持文本和图片输入的模型。复制配置模板，保留已有设置：
 
 ```sh
 cp -n .env.example .env
@@ -118,10 +115,12 @@ cp -n .env.example .env
 ```sh
 make install-locked AI_PYTHON=/path/to/python3.14
 make init-db AI_PYTHON=/path/to/python3.14
+make web-install
+make web-build
 make server-dev AI_PYTHON=/path/to/python3.14
 ```
 
-FastAPI/LangGraph 服务监听 `127.0.0.1:8090`，使用 SQLite 和本地文件存储，每个数据库只运行一个进程。上传、任务、素材和评分接口均需鉴权，详见[服务指南](server/docs/service-guide.md)。
+FastAPI/LangGraph 服务监听 `127.0.0.1:8090`，使用 SQLite 和本地文件存储，每个数据库只运行一个进程。上传、任务、素材和评分接口均需鉴权。打开 `http://127.0.0.1:8090/` 使用已构建的 Web 前端；开发时可另外运行 `make web-dev`，其本机 Vite 服务将 API 请求代理到独立服务。需要 Office 支持时，仅在服务部署端配置 `AI_OFFICE_EXECUTABLE` 与 `AI_OFFICE_VERSION`。详见[服务指南](server/docs/service-guide.md)。
 
 ## 文档与开发
 
@@ -133,7 +132,7 @@ FastAPI/LangGraph 服务监听 `127.0.0.1:8090`，使用 SQLite 和本地文件�
 - [发布规范](docs/releases.md)：版本标签、下载产物、校验值与手动草稿流程
 - [参与贡献](CONTRIBUTING.md)：开发检查与提交规范
 
-桌面检查运行 `make app-check`，AI 服务检查运行 `make verify`。Playwright Test 覆盖双语交互、浏览器预览和富内容渲染，模拟原生命令，不调用模型：
+桌面检查运行 `make app-check`，导入 Web 前端检查运行 `make web-check`，AI 服务检查运行 `make verify`。Playwright Test 覆盖双语交互、浏览器预览和富内容渲染，模拟原生命令，不调用模型：
 
 ```sh
 cd app

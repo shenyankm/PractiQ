@@ -40,10 +40,10 @@ def test_load_requires_service_token(monkeypatch: pytest.MonkeyPatch):
         config.load()
 
 
-def test_desktop_read_only_requires_auth_but_no_model(monkeypatch):
+def test_service_read_only_requires_auth_but_no_model(monkeypatch):
     from practiq_ai.errors import DocumentProcessingError
 
-    _env(monkeypatch, AI_DESKTOP_MODE='1', AI_READ_ONLY='1')
+    _env(monkeypatch, AI_READ_ONLY='1')
     for key in ('LLM_PROVIDER', 'LLM_API_KEY', 'LLM_MODEL', 'LLM_BASE_URL'):
         monkeypatch.delenv(key, raising=False)
     settings = config.load()
@@ -52,9 +52,7 @@ def test_desktop_read_only_requires_auth_but_no_model(monkeypatch):
         config.require_model_config()
     assert error.value.code == 'MODEL_NOT_CONFIGURED'
     monkeypatch.setenv('AI_DESKTOP_MODE', '0')
-    with pytest.raises(ValueError, match='requires desktop'):
-        config.load()
-    monkeypatch.setenv('AI_DESKTOP_MODE', '1')
+    assert config.load().read_only
     monkeypatch.delenv('AI_SERVICE_TOKEN')
     with pytest.raises(ValueError, match='AI_SERVICE_TOKEN'):
         config.load()
