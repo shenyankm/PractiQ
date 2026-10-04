@@ -107,6 +107,7 @@ function copyBankRows(sourceBank:string,bankId:string,title:string) {
     row.question=copyQuestion(row.question);row.materials=row.materials?.map(copyQuestion);
     for(const context of [...row.groups,...row.visuals])context.questionIds=context.questionIds.map(remap);
     row.id=row.question.id!;row.bankId=bankId;row.bankTitle=title;
+    row.reviewedAt=null;row.latestResult=null;row.latestScore=null;
   }
   return copied;
 }

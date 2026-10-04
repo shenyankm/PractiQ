@@ -96,6 +96,24 @@ it("keeps merged standalone roots and review confirmations isolated",async()=>{
  expect((await call<QuestionPage>(scope)).items.find(row=>row.id===duplicates[1].id)?.reviewedAt).toBe(duplicates[1].reviewedAt);
 });
 
+it("merges fresh review and practice state while preserving favorites and imported flags",async()=>{
+ const at=await call<number>({type:"review_question",id:"0-q8",reviewed:true});
+ await call({type:"favorite",id:"0-q8",value:true});
+ const source=(await call<QuestionPage>({...query,bank_ids:["preview-bank-0"]})).items.find(row=>row.id==="0-q8")!;
+ expect(source).toMatchObject({reviewedAt:at,latestResult:false,favorite:true,question:{needsReview:true}});
+ const other=await call<{bankId:string}>({type:"add_example_bank"});
+ const merged=await call<{bankId:string}>({type:"merge_banks",bank_ids:["preview-bank-0",other.bankId],title:"Fresh merged copies"});
+ const scope={...query,bank_ids:[merged.bankId]};
+ const copies=(await call<QuestionPage>(scope)).items;
+ const copied=copies.find(row=>row.question.stem===source.question.stem)!;
+ expect(copied).toMatchObject({reviewedAt:null,latestResult:null,latestScore:null,favorite:true,question:{needsReview:true},warnings:source.warnings});
+ expect((await call<QuestionPage>({...scope,filter:"review"})).total).toBe(2);
+ expect((await call<QuestionPage>({...scope,filter:"wrong"})).total).toBe(0);
+ expect((await call<QuestionPage>({...scope,filter:"unattempted"})).total).toBe(18);
+ expect(copies.every(row=>row.reviewedAt===null && row.latestResult===null && row.latestScore===null)).toBe(true);
+ expect((await call<QuestionPage>({...query,bank_ids:["preview-bank-0"]})).items.find(row=>row.id===source.id)).toEqual(source);
+});
+
 it("preserves the full material ancestor chain in papers and immutable practice snapshots",async()=>{
  const paper=await call<PaperPreview>({type:"preview_paper",request:{bank_ids:["preview-bank-2"],search:"",mode:"reading",filter:"",selection:"manual",question_ids:["2-reading"],count:6,quotas:{},random:false,total_cents:0}});
  const leaf=paper.questions.find(row=>row.id==="2-words1")!;
