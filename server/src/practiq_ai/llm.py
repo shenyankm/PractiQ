@@ -499,10 +499,10 @@ async def structured_call[ResultT: BaseModel](
         finally:
             if not provider_started and record["status"] == "started":
                 record.update(status="rejected", error=error_code or "MODEL_CALL_REJECTED", finishedAt=datetime.now(UTC).isoformat(), durationMs=round((time.monotonic() - started) * 1000, 3))
-            if call_record_writer and outcome != "known":
-                await call_record_writer(record)
             if call_records is not None:
                 call_records.append(record)
+            if call_record_writer and outcome != "known":
+                await call_record_writer(record)
             elapsed = time.monotonic() - started
             if not provider_started and outcome == "unknown":
                 outcome = "rejected"

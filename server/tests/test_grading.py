@@ -205,6 +205,30 @@ async def test_grading_call_storage_failure_stops_before_more_provider_calls(sha
     assert await grading.grade(request) == response
 
 
+async def test_failed_correction_call_write_retains_unknown_attempt_in_cached_response(shared_grading_model, monkeypatch):
+    model, _ = shared_grading_model
+    model.responses[1] = RuntimeError("Provider failed")
+    original = grading._save_call
+
+    def unavailable(request, record):
+        if record["status"] == "failed":
+            raise sqlite3.OperationalError("Storage unavailable")
+        original(request, record)
+
+    monkeypatch.setattr(grading, "_save_call", unavailable)
+    request = grading.GradeRequest.model_validate(payload())
+    response = await grading.grade(request)
+    assert response["error"] == "EXECUTION_STORE_UNAVAILABLE"
+    assert response["usageStatus"] == "unknown"
+    assert len(response["usage"]) == 1
+    assert len(response["calls"]) == 2
+    assert [(call["status"], call["usageStatus"]) for call in response["calls"]] == [("completed", "known"), ("failed", "unknown")]
+    assert response["calls"][-1]["inputTokens"] is None
+    assert response["calls"][-1]["outputTokens"] is None
+    assert await grading.grade(request) == response
+    assert len(model.calls) == 2
+
+
 async def test_existing_grading_cache_preserves_responses_and_unknown_requests(setup, monkeypatch):
     saved = grading.GradeRequest.model_validate(payload())
     interrupted = grading.GradeRequest.model_validate(payload())
