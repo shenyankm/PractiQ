@@ -17,6 +17,7 @@ from practiq_ai import office
 
 
 def test_legacy_doc_pdf_preserves_source_and_uses_private_normalized_snapshot(tmp_path, monkeypatch):
+    engine = tmp_path / 'bundled' / 'soffice'
     source = Path(__file__).parents[2] / 'app/fixtures/office/中文 试卷.doc'
     docx = source.with_suffix('.docx').read_bytes()
     original, metadata = source.read_bytes(), source.stat()
@@ -24,7 +25,7 @@ def test_legacy_doc_pdf_preserves_source_and_uses_private_normalized_snapshot(tm
     snapshots = []
 
     def run(args, deadline, output):
-        assert args[0] == '/bundled/soffice'
+        assert args[0] == str(engine)
         assert '--headless' in args and '--norestore' in args
         profile = next(arg for arg in args if arg.startswith('-env:UserInstallation='))
         calls.append((profile, deadline))
@@ -42,7 +43,7 @@ def test_legacy_doc_pdf_preserves_source_and_uses_private_normalized_snapshot(tm
             Image.new('RGB', (24, 24)).save(output / source.with_suffix('.pdf').name, 'PDF')
 
     monkeypatch.setattr(office, '_run', run)
-    artifacts = office.convert('/bundled/soffice', source, tmp_path / 'out', 'pdf')
+    artifacts = office.convert(str(engine), source, tmp_path / 'out', 'pdf')
     assert len(artifacts) == 1 and artifacts[0]['name'] == source.with_suffix('.pdf').name
     assert artifacts[0]['sha256'] == hashlib.sha256((tmp_path / 'out' / artifacts[0]['name']).read_bytes()).hexdigest()
     assert len(calls) == 2 and calls[0][0] != calls[1][0] and calls[0][1] == calls[1][1]
