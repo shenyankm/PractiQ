@@ -5,6 +5,7 @@ import type { Answer, Bank, Question, QuestionRow, Request, Session, SettingsRes
 import type { Request as AiRequest, Summary, Batch } from "./ai-api";
 import { importDemoRows, importDemoTask } from "./import-demo";
 import type { PreviewScenario } from "./preview-mode";
+import { COMPOSITE_MODES } from "./contracts.generated";
 
 const now = Date.now();
 const imageUrl = new URL("../fixtures/resources/practiq-agent/artifacts/194d631965b1f86c4cf32eac39eee06a6a0523a127204b3995999240546deeaa/fixture/0-194d631965b1f86c4cf32eac39eee06a6a0523a127204b3995999240546deeaa.png", import.meta.url).href;
@@ -19,8 +20,19 @@ let rows: QuestionRow[] = [sample,english,composite].flatMap((fixture,bankIndex)
     sources:[{fileName:"演示源文件.pdf",page:i+1}],warnings:q.needsReview ? ["原文未提供参考答案，请人工确认。"]:[],missingAssets:false,favorite:i%3===0,latestResult:i%4===0 ? false:i%4===1 ? true:null}));
 });
 const sampleRows=structuredClone(rows.filter(q=>q.bankId==="preview-bank-0"));
-function roots(items:QuestionRow[]) { return items.filter(r=>!r.question.parentId).map(r=>({...r,children:items.filter(c=>c.bankId===r.bankId && c.question.parentId===r.question.id),answerableCount:Math.max(1,items.filter(c=>c.bankId===r.bankId && c.question.parentId===r.question.id).length)})); }
-function questionType(q:Question) { return q.questionKind || (q.answerMode==="choice" ? q.choiceVariant : q.answerMode) || "unknown"; }
+function tree(root:QuestionRow,items=rows) {
+  const ids=new Set([root.question.id]);
+  const descendants:QuestionRow[]=[];
+  for(let index=0;index<=descendants.length;index++) {
+    const parent=index===0 ? root:descendants[index-1];
+    for(const child of items.filter(c=>c.bankId===root.bankId && c.question.parentId===parent.question.id && !ids.has(c.question.id))) {
+      ids.add(child.question.id);descendants.push(child);
+    }
+  }
+  return [root,...items.filter(q=>q.bankId===root.bankId && q!==root && ids.has(q.question.id))];
+}
+function roots(items:QuestionRow[]) { return items.filter(r=>!r.question.parentId).map(root=>{const nodes=tree(root,items);return {...root,children:nodes.slice(1),favorite:nodes.some(q=>q.favorite),answerableCount:nodes.filter(q=>!COMPOSITE_MODES.includes(q.question.answerMode||"")).length};}); }
+function questionType(q:Question) { return q.questionKind || (q.answerMode==="choice" ? q.choiceVariant : q.answerMode==="gap_fill" ? "grammar_fill":q.answerMode) || "unknown"; }
 function leaves(items:QuestionRow[]) { return items.filter(q=>!rows.some(c=>c.bankId===q.bankId && c.question.parentId===q.question.id)); }
 function bankList() { return banks.map(b=>({...b,count:leaves(rows.filter(q=>q.bankId===b.id)).length})); }
 function makeSession(id:string,title:string,kind:Session["kind"],done:boolean,items=rows.slice(0,9)):Session {
@@ -54,7 +66,13 @@ function summary(s:Session) {const a=s.attempts;return {...s,attempts:undefined,
 function page<T>(items:T[],offset=0,limit=20) {return {items:items.slice(offset,offset+limit),total:items.length,offset};}
 function preview():Preview {return {ticket:"preview-ticket",title:"示例导入题库",count:9,reviewCount:1,warnings:["演示解析结果，包含一道缺少参考答案的题目。"],status:"PARTIAL",processing:null,missingAssets:[],assetCount:1,questions:sample.questions as Question[],groups:[],visuals:[]};}
 function filtered(r:{bank_ids:string[];search?:string;mode?:string;filter?:string},empty:boolean) {
-  return empty ? []:rows.filter(q=>(!r.bank_ids.length || r.bank_ids.includes(q.bankId)) && (!r.search || `${q.question.stem} ${q.bankTitle}`.toLowerCase().includes(r.search.toLowerCase())) && (!r.mode || q.question.answerMode===r.mode) && (r.filter!=="wrong" || q.latestResult===false) && (r.filter!=="favorite" || q.favorite) && (r.filter!=="review" || q.question.needsReview) && (r.filter!=="unattempted" || q.latestResult===null));
+  const matchesFilter=(q:QuestionRow)=>r.filter==="wrong" ? q.latestResult===false:r.filter==="favorite" ? q.favorite:r.filter==="review" ? q.question.needsReview && q.reviewedAt==null:r.filter==="unattempted" ? !COMPOSITE_MODES.includes(q.question.answerMode||"") && q.latestResult===null:true;
+  return empty ? []:roots(rows).filter(root=>{
+    const q=root.question,nodes=[root,...root.children];
+    return (!r.bank_ids.length || r.bank_ids.includes(root.bankId)) &&
+      (!r.mode || (q.questionKind??q.answerMode)===r.mode || (r.mode==="grammar_fill" && q.answerMode==="gap_fill") || (q.answerMode==="choice" && q.choiceVariant===r.mode)) &&
+      nodes.some(matchesFilter) && (!r.search || nodes.some(node=>(!r.filter || r.filter==="review" || matchesFilter(node)) && `${node.question.stem} ${node.bankTitle}`.toLowerCase().includes(r.search!.toLowerCase())));
+  });
 }
 function score(s:Session,ordinal:number,answer:Answer|null) {
   const a=s.attempts[ordinal];a.answer=answer;a.submittedAt=Date.now();
@@ -69,8 +87,8 @@ function request(r:Request,scenario:PreviewScenario):unknown {
     case "info": return {version:"开发预览",dataDirectory:"仅内存 · 不写入本地数据"};
     case "banks": return empty ? []:bankList();
     case "banks_page": return page(empty ? []:bankList(),r.offset,r.limit);
-    case "questions_page": return page(roots(filtered(r,empty)).map(q=>({...q,missingAssets:scenario==="missing"})),r.offset,r.limit);
-    case "question_stats": {const q=roots(filtered(r,empty));const counts=new Set([0]);for(const root of q){const size=root.answerableCount;for(const n of [...counts])counts.add(n+size);}return {count:q.reduce((n,r)=>n+r.answerableCount,0),feasibleCounts:[...counts].filter(n=>n>0).sort((a,b)=>a-b),types:q.reduce<Record<string,number>>((o,q)=>{const type=questionType(q.question);o[type]=(o[type]||0)+1;return o;},{})};}
+    case "questions_page": return page(filtered(r,empty).map(q=>({...q,missingAssets:scenario==="missing"})),r.offset,r.limit);
+    case "question_stats": {const q=filtered(r,empty);const counts=new Set([0]);for(const root of q){const size=root.answerableCount;for(const n of [...counts])counts.add(n+size);}return {count:q.reduce((n,r)=>n+r.answerableCount,0),feasibleCounts:[...counts].filter(n=>n>0).sort((a,b)=>a-b),types:q.reduce<Record<string,number>>((o,q)=>{const type=questionType(q.question);o[type]=(o[type]||0)+1;return o;},{})};}
     case "sessions_page": return page(empty ? []:sessions.filter(s=>!r.filter || r.filter==="all" || (r.filter==="active" ? !s.finishedAt && !s.submittedAt:r.filter==="review" ? !s.finishedAt && !!s.submittedAt:!!s.finishedAt)).map(summary),r.offset,r.limit);
     case "unfinished_session": return empty || !sessions.some(s=>!s.finishedAt && !s.submittedAt) ? null:summary(sessions.find(s=>!s.finishedAt && !s.submittedAt)!);
     case "session": return {...getSession(r.id),clockNow:Date.now()};
@@ -81,7 +99,7 @@ function request(r:Request,scenario:PreviewScenario):unknown {
     case "delete_bank": {const i=banks.findIndex(b=>b.id===r.id);if(i>=0)banks.splice(i,1);rows=rows.filter(q=>q.bankId!==r.id);return null;}
     case "delete_question": {const row=rows.find(q=>q.id===r.id);rows=rows.filter(q=>q.id!==r.id && !(row && q.bankId===row.bankId && q.question.parentId===row.question.id));return null;}
     case "favorite": {const q=rows.find(q=>q.id===r.id);if(q)q.favorite=r.value;return r.value;}
-    case "review_question": {const q=rows.find(q=>q.id===r.id);if(q){q.question.needsReview=!r.reviewed;q.reviewedAt=r.reviewed ? Date.now():null;}return q?.reviewedAt ?? null;}
+    case "review_question": {const root=rows.find(q=>q.id===r.id);if(!root || root.question.parentId)throw new Error("只能确认示例顶层题目的复核状态");const at=r.reviewed ? Date.now():null;tree(root).forEach(q=>{q.reviewedAt=at;});return at;}
     case "save_question_tree": {rows=rows.filter(q=>!(q.bankId===r.bank_id && (q.id===r.root_id || r.questions.some(v=>v.id===q.question.id))));for(const q of r.questions)rows.push({id:q.id!,bankId:r.bank_id,bankTitle:banks.find(b=>b.id===r.bank_id)?.title||"",question:q,groups:[],visuals:[],sources:[],warnings:[],missingAssets:false,favorite:false,latestResult:null});return r.questions[0].id;}
     case "merge_banks": {const id=crypto.randomUUID();banks.push({id,title:r.title,description:"示例合并题库",createdAt:Date.now(),count:0});rows.push(...structuredClone(rows.filter(q=>r.bank_ids.includes(q.bankId))).map(q=>({...q,id:crypto.randomUUID(),bankId:id,bankTitle:r.title})));return {bankId:id,count:rows.filter(q=>q.bankId===id).length};}
     case "pick_import": return preview();
@@ -90,14 +108,14 @@ function request(r:Request,scenario:PreviewScenario):unknown {
     case "backup": case "export_bank": return {path:"[演示] 未创建文件"};
     case "restore": return {recoveryPath:"[演示] 未替换本地数据"};
     case "preview_paper": {
-      const q=r.request;let candidates=roots(filtered({bank_ids:q.bank_ids,search:q.search,mode:q.mode,filter:q.filter},empty));
+      const q=r.request;let candidates=filtered({bank_ids:q.bank_ids,search:q.search,mode:q.mode,filter:q.filter},empty);
       if(q.random)candidates=candidates.map(row=>({row,key:Math.random()})).sort((a,b)=>a.key-b.key).map(item=>item.row);
       const quotas={...q.quotas};let remaining=q.count;
       const selected=candidates.filter(root=>{
         if(q.selection==="manual")return q.question_ids.includes(root.id) || root.children.some(c=>q.question_ids.includes(c.id));
         if(q.selection==="quota"){const type=questionType(root.question);if(!quotas[type])return false;quotas[type]--;return true;}
         if(root.answerableCount>remaining)return false;remaining-=root.answerableCount;return true;
-      }).flatMap<QuestionRow>(root=>root.children.length ? root.children.map(child=>({...child,rootId:root.id,rootType:questionType(root.question)})):[root]);
+      }).flatMap<QuestionRow>(root=>root.children.length ? root.children.filter(child=>!COMPOSITE_MODES.includes(child.question.answerMode||"")).map(child=>({...child,rootId:root.id,rootType:questionType(root.question)})):[root]);
       const total=q.total_cents;const scores=selected.map((_,i)=>Math.floor(total/Math.max(1,selected.length))+(i<total%Math.max(1,selected.length) ? 1:0));
       return {questionIds:selected.map(q=>q.id),questions:selected,scores,count:selected.length,digest:"preview-paper"};
     }

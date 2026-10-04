@@ -34,6 +34,41 @@ test('development preview pages stay offline',async ({page},testInfo)=>{
  await page.screenshot({path:testInfo.outputPath('preview.png'),fullPage:true});
 });
 
+test('preview question filters preserve imported warnings through review confirmation',async ({page})=>{
+ await page.goto('/');
+ await page.getByRole('button',{name:'查看题目',exact:true}).first().click();
+ const type=page.getByLabel('筛选题型');
+ await type.selectOption('single');
+ await expect(page.getByRole('button',{name:/下面哪一个是质数？/})).toBeVisible();
+ await expect(page.getByRole('button',{name:/请选择偶数。/})).toBeHidden();
+ await type.selectOption('multiple');
+ await expect(page.getByRole('button',{name:/请选择偶数。/})).toBeVisible();
+ await expect(page.getByRole('button',{name:/下面哪一个是质数？/})).toBeHidden();
+ await type.selectOption('');
+ await page.getByRole('checkbox',{name:'仅看待复核',exact:true}).check();
+ const question=page.getByRole('button',{name:/观察 PractiQ 图标，描述你的印象。/});
+ await question.click();
+ const dialog=page.getByRole('dialog',{name:'题目详情',exact:true});
+ await dialog.getByRole('button',{name:'标记已复核',exact:true}).click();
+ await expect(dialog.getByRole('button',{name:'撤销复核确认',exact:true})).toBeVisible();
+ const stored=await page.evaluate(async()=>{
+  const {invoke}=await import('/src/transport.ts');
+  const result=await invoke('request',{request:{type:'questions_page',bank_ids:['preview-bank-0'],search:'',mode:'',filter:'',offset:0,limit:20}});
+  return result.items.find(row=>row.id==='0-q8');
+ });
+ expect(stored.question.needsReview).toBe(true);
+ expect(stored.reviewedAt).toBeGreaterThan(0);
+ expect(stored.warnings).toEqual(['原文未提供参考答案，请人工确认。']);
+ await page.keyboard.press('Escape');
+ await expect(question).toBeHidden();
+ await page.getByRole('checkbox',{name:'仅看待复核',exact:true}).uncheck();
+ await question.click();
+ await dialog.getByRole('button',{name:'撤销复核确认',exact:true}).click();
+ await page.keyboard.press('Escape');
+ await page.getByRole('checkbox',{name:'仅看待复核',exact:true}).check();
+ await expect(question).toBeVisible();
+});
+
 for(const scenario of ['empty','many','unconfigured','missing','slow','error']) {
  test(`preview scenario ${scenario} stays offline`,async ({page})=>{
   await page.addInitScript(value=>sessionStorage.setItem('practiq-preview',value),scenario);
