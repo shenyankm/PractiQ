@@ -26,6 +26,23 @@ fn question_query_requests_use_bank_id_lists() {
     }
 }
 #[test]
+fn save_attempt_requests_keep_self_assessment_separate() {
+    let request = json!({"type":"save_attempt","id":"practice","ordinal":0,"answer":{"text":"answer"},"elapsed_ms":0,"submit":true,"skip":false});
+    assert!(serde_json::from_value::<crate::Request>(request.clone()).is_ok());
+    for legacy_result in [Value::Null, json!(true), json!(false)] {
+        let mut legacy = request.clone();
+        legacy["self_result"] = legacy_result;
+        let error = serde_json::from_value::<crate::Request>(legacy)
+            .err()
+            .unwrap();
+        assert!(error.to_string().contains("unknown field `self_result`"));
+    }
+    assert!(serde_json::from_value::<crate::Request>(
+        json!({"type":"self_assess","id":"practice","ordinal":0,"result":true})
+    )
+    .is_ok());
+}
+#[test]
 fn paged_filters_preserve_complete_groups_and_drafts_survive_reopen() {
     let (dir, mut s) = store();
     let plain = import(&mut s);
@@ -262,20 +279,13 @@ fn transactional_import_resume_snapshot_and_latest_wrong() {
     );
     let session = practice(&s, s.questions(Some(&bank), "", "choice", "").unwrap(), 1);
     let sid = text(&session, "id");
-    s.save_attempt(
-        (sid, 0),
-        json!({"correct": ["B"]}),
-        1000,
-        false,
-        false,
-        None,
-    )
-    .unwrap();
+    s.save_attempt((sid, 0), json!({"correct": ["B"]}), 1000, false, false)
+        .unwrap();
     let resumed = Store::new(s.dir.clone()).unwrap().session(sid).unwrap();
     assert_eq!(resumed["attempts"][0]["answer"]["correct"][0], "B");
-    s.save_attempt((sid, 0), json!({"correct": ["B"]}), 1000, true, false, None)
+    s.save_attempt((sid, 0), json!({"correct": ["B"]}), 1000, true, false)
         .unwrap();
-    s.save_attempt((sid, 0), json!({"correct": ["A"]}), 1000, true, false, None)
+    s.save_attempt((sid, 0), json!({"correct": ["A"]}), 1000, true, false)
         .unwrap();
     assert_eq!(
         s.session(sid).unwrap()["attempts"][0]["result"],
@@ -301,7 +311,6 @@ fn transactional_import_resume_snapshot_and_latest_wrong() {
         0,
         true,
         false,
-        None,
     )
     .unwrap();
     assert_eq!(
@@ -485,18 +494,9 @@ fn self_grade_preserves_auto_result_and_ungraded_denominator() {
         1,
     );
     let sid = text(&session, "id");
-    s.save_attempt(
-        (sid, 0),
-        json!({"answers":["北京城"]}),
-        0,
-        true,
-        false,
-        None,
-    )
-    .unwrap();
-    let v = s
-        .save_attempt((sid, 0), json!({}), 0, true, false, Some(true))
+    s.save_attempt((sid, 0), json!({"answers":["北京城"]}), 0, true, false)
         .unwrap();
+    let v = s.self_assess(sid, 0, true).unwrap();
     assert_eq!(v["attempts"][0]["result"], true);
     assert_eq!(v["attempts"][0]["autoResult"], false);
     assert_eq!(v["attempts"][0]["answer"]["answers"][0], "北京城");
@@ -511,7 +511,6 @@ fn self_grade_preserves_auto_result_and_ungraded_denominator() {
         0,
         true,
         false,
-        None,
     )
     .unwrap();
     s.finish(text(&subjective, "id")).unwrap();
@@ -524,6 +523,14 @@ fn self_grade_preserves_auto_result_and_ungraded_denominator() {
         .unwrap();
     assert_eq!(summary["graded"], 0);
     assert_eq!(summary["skipped"], 1);
+    let assessed = s.self_assess(text(&subjective, "id"), 0, false).unwrap();
+    assert_eq!(
+        assessed["attempts"][0]["answer"],
+        json!({"text":"my answer"})
+    );
+    assert_eq!(assessed["attempts"][0]["gradeKind"], "self");
+    assert_eq!(assessed["attempts"][0]["autoResult"], Value::Null);
+    assert!(s.self_assess(text(&subjective, "id"), 1, true).is_err());
 }
 
 #[test]
@@ -670,11 +677,11 @@ fn exam_submit_expiry_scores_and_manual_override() {
     let sid = text(&exam, "id");
     assert!(exam["attempts"][0]["snapshot"]["question"]["answerPayload"].is_null());
     assert!(s
-        .save_attempt((sid, 0), json!({"correct": ["A"]}), 0, true, false, None)
+        .save_attempt((sid, 0), json!({"correct": ["A"]}), 0, true, false)
         .is_err());
-    s.save_attempt((sid, 0), json!({"correct": ["A"]}), 0, false, false, None)
+    s.save_attempt((sid, 0), json!({"correct": ["A"]}), 0, false, false)
         .unwrap();
-    s.save_attempt((sid, 1), json!({"text":"学生作答"}), 0, false, false, None)
+    s.save_attempt((sid, 1), json!({"text":"学生作答"}), 0, false, false)
         .unwrap();
     s.flag(sid, 1, true).unwrap();
     let result = s.submit_paper(sid, true).unwrap();
@@ -683,7 +690,7 @@ fn exam_submit_expiry_scores_and_manual_override() {
     assert_eq!(result["attempts"][1]["flagged"], true);
     assert_eq!(s.submit_paper(sid, true).unwrap(), result);
     assert!(s
-        .save_attempt((sid, 0), json!(null), 0, false, false, None)
+        .save_attempt((sid, 0), json!(null), 0, false, false)
         .is_err());
     let request = s.prepare_grade(sid, 1, false, s.locale).unwrap();
     assert_eq!(request, s.prepare_grade(sid, 1, false, s.locale).unwrap());
@@ -739,7 +746,7 @@ fn exam_submit_expiry_scores_and_manual_override() {
         })
         .unwrap();
     let sid = text(&exam, "id");
-    s.save_attempt((sid, 0), json!({"correct": ["B"]}), 0, false, false, None)
+    s.save_attempt((sid, 0), json!({"correct": ["B"]}), 0, false, false)
         .unwrap();
     s.connect()
         .unwrap()
@@ -749,7 +756,7 @@ fn exam_submit_expiry_scores_and_manual_override() {
     assert!(reopened["submittedAt"].is_number());
     assert_eq!(reopened["attempts"][0]["earnedCents"], 0);
     assert!(s
-        .save_attempt((sid, 0), json!({"correct": ["A"]}), 0, false, false, None)
+        .save_attempt((sid, 0), json!({"correct": ["A"]}), 0, false, false)
         .is_err());
 }
 
@@ -811,7 +818,7 @@ fn merged_copy_filters_grading_and_backup_preserve_independence() {
         })
         .unwrap();
     let sid = text(&paper, "id");
-    s.save_attempt((sid, 0), json!({"text":"回答"}), 0, false, false, None)
+    s.save_attempt((sid, 0), json!({"text":"回答"}), 0, false, false)
         .unwrap();
     s.submit_paper(sid, true).unwrap();
     s.prepare_grade(sid, 0, false, s.locale).unwrap();
@@ -845,7 +852,7 @@ fn merged_copy_filters_grading_and_backup_preserve_independence() {
     assert_eq!(before, s.banks().unwrap());
     let session = practice(&s, s.questions(Some(new), "", "true_false", "").unwrap(), 1);
     let sid = text(&session, "id");
-    s.save_attempt((sid, 0), json!({"value":false}), 0, false, false, None)
+    s.save_attempt((sid, 0), json!({"value":false}), 0, false, false)
         .unwrap();
     let done = s.submit_paper(sid, true).unwrap();
     assert_eq!(done["attempts"][0]["skipped"], false);
@@ -918,7 +925,7 @@ fn exam_hides_answer_roles_and_reads_live_favorites_without_changing_snapshot() 
     );
     s.favorite(qid, false).unwrap();
     assert_eq!(s.session(sid).unwrap()["attempts"][0]["favorite"], false);
-    s.save_attempt((sid, 0), json!({"text":"中文\n😀"}), 0, false, false, None)
+    s.save_attempt((sid, 0), json!({"text":"中文\n😀"}), 0, false, false)
         .unwrap();
     let submitted = s.submit_paper(sid, true).unwrap();
     assert_eq!(
@@ -1088,24 +1095,10 @@ fn e2e_exam_restart_restore_on_fresh_install_and_retry() {
         .unwrap();
     let sid = text(&exam, "id");
     source
-        .save_attempt(
-            (sid, 0),
-            json!({"correct": ["B"]}),
-            1200,
-            false,
-            false,
-            None,
-        )
+        .save_attempt((sid, 0), json!({"correct": ["B"]}), 1200, false, false)
         .unwrap();
     source
-        .save_attempt(
-            (sid, 1),
-            json!({"text":"我的作答"}),
-            2300,
-            false,
-            false,
-            None,
-        )
+        .save_attempt((sid, 1), json!({"text":"我的作答"}), 2300, false, false)
         .unwrap();
     source.position(sid, 1, None).unwrap();
     drop(source);
@@ -1152,7 +1145,7 @@ fn e2e_exam_restart_restore_on_fresh_install_and_retry() {
         1
     );
     assert!(restored
-        .save_attempt((sid, 0), json!({"correct": ["A"]}), 0, false, false, None)
+        .save_attempt((sid, 0), json!({"correct": ["A"]}), 0, false, false)
         .is_err());
     let retry = restored.retry_wrong(sid).unwrap();
     assert_eq!(retry["attempts"].as_array().unwrap().len(), 2);
@@ -1163,7 +1156,6 @@ fn e2e_exam_restart_restore_on_fresh_install_and_retry() {
             10,
             true,
             false,
-            None,
         )
         .unwrap();
     assert_eq!(retried["attempts"][0]["result"], true);
@@ -1537,7 +1529,6 @@ fn missing_optional_source_page_does_not_disable_grading() {
                 1,
                 true,
                 false,
-                None,
             )
             .unwrap();
         let result = &graded["attempts"][0]["autoResult"];
@@ -1745,38 +1736,17 @@ fn composite_import_paper_edit_history_and_restore() {
         .filter(|(_, a)| !text(&a["snapshot"]["question"], "optionSourceId").is_empty())
         .map(|(i, _)| i)
         .collect();
-    s.save_attempt(
-        (sid, words[0]),
-        json!({"correct":["A"]}),
-        0,
-        false,
-        false,
-        None,
-    )
-    .unwrap();
-    assert!(s
-        .save_attempt(
-            (sid, words[1]),
-            json!({"correct":["A"]}),
-            0,
-            false,
-            false,
-            None
-        )
-        .is_err());
-    s.save_attempt((sid, words[0]), Value::Null, 0, false, false, None)
+    s.save_attempt((sid, words[0]), json!({"correct":["A"]}), 0, false, false)
         .unwrap();
-    s.save_attempt(
-        (sid, words[1]),
-        json!({"correct":["A"]}),
-        0,
-        false,
-        false,
-        None,
-    )
-    .unwrap();
+    assert!(s
+        .save_attempt((sid, words[1]), json!({"correct":["A"]}), 0, false, false)
+        .is_err());
+    s.save_attempt((sid, words[0]), Value::Null, 0, false, false)
+        .unwrap();
+    s.save_attempt((sid, words[1]), json!({"correct":["A"]}), 0, false, false)
+        .unwrap();
     for (i, a) in attempts.iter().enumerate() {
-        s.save_attempt((sid, i), Value::Null, 0, false, false, None)
+        s.save_attempt((sid, i), Value::Null, 0, false, false)
             .unwrap();
         let q = &a["snapshot"]["question"];
         if text(q, "answerMode") != "short_answer" {

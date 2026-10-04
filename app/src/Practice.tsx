@@ -126,7 +126,7 @@ function PracticeQuestion({
       job = chain.current.catch(() => {}).then(() => api({
         type: "save_attempt", id: session.id, ordinal: session.position,
         answer: captured.answer, elapsed_ms: captured.elapsed,
-        submit, skip, self_result: null,
+        submit, skip,
       }));
     } else {
       pendingDraft.current = captured;
