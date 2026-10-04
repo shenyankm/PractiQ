@@ -6,6 +6,7 @@ import os
 import subprocess
 import sys
 from copy import deepcopy
+from io import BytesIO
 from pathlib import Path
 from typing import Any, cast
 from uuid import uuid4
@@ -15,6 +16,7 @@ import pytest
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage
 from langchain_core.outputs import ChatGeneration, ChatResult, LLMResult
+from PIL import Image
 from pydantic import Field
 
 from practiq_ai.contracts import (
@@ -623,6 +625,15 @@ def _answerless_image_result(case: dict[str, Any]) -> dict[str, Any]:
         ],
         "groups": [], "visualElements": [],
     }
+
+
+def test_answerless_image_source_matches_pinned_png(answerless_image_case: dict[str, Any]) -> None:
+    payload = Path("evals", answerless_image_case["path"]).read_bytes()
+    assert len(payload) == 20678
+    assert hashlib.sha256(payload).hexdigest() == "859c132e2b50555d146b73cb737be15087237222c7f430b4fe6c8aceba1bb92f"
+    with Image.open(BytesIO(payload)) as image:
+        assert image.format == "PNG" and image.size == (600, 400)
+        image.load()
 
 
 def test_answerless_image_manifest_case_accepts_null_answers(answerless_image_case: dict[str, Any]) -> None:
