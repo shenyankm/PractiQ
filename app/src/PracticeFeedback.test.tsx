@@ -37,6 +37,31 @@ it("self-assesses a finished practice while keeping the answer locked and announ
   expect(input.disabled).toBe(true);
 });
 
+it("submits practice answers before self-assessing through the separate command", async () => {
+  const user = userEvent.setup();
+  const initial = practice();
+  initial.finishedAt = initial.submittedAt = null;
+  initial.attempts[0].submittedAt = null;
+  const submitted = { ...initial, attempts: [{ ...initial.attempts[0], submittedAt: 2 }] };
+  vi.mocked(api).mockImplementation(async request => {
+    if (request.type === "save_attempt") return submitted as never;
+    if (request.type === "self_assess") return { ...submitted, attempts: [{ ...submitted.attempts[0], result: false, gradeKind: "self" }] } as never;
+    throw new Error(`Unexpected request: ${request.type}`);
+  });
+  render(<Study initial={initial} />);
+  expect(screen.queryByRole("button", { name: "我答错了" })).toBeNull();
+  await user.click(screen.getByRole("button", { name: "提交答案" }));
+  await user.click(await screen.findByRole("button", { name: "我答错了" }));
+  await waitFor(() => expect(screen.getByRole("status", { name: "答题状态" }).textContent).toBe("第 1 题：回答错误"));
+  expect(vi.mocked(api).mock.calls.map(([request]) => request)).toEqual([
+    { type: "save_attempt", id: "practice", ordinal: 0, answer: { text: "My answer" }, elapsed_ms: expect.any(Number), submit: true, skip: false },
+    { type: "self_assess", id: "practice", ordinal: 0, result: false },
+  ]);
+  const input = screen.getByRole("textbox", { name: "作答内容" }) as HTMLTextAreaElement;
+  expect(input.value).toBe("My answer");
+  expect(input.disabled).toBe(true);
+});
+
 it.each(["skipped", "auto"])("does not offer self-assessment for a %s attempt", kind => {
   const initial = practice();
   if (kind === "skipped") initial.attempts[0].skipped = true;
