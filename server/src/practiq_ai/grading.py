@@ -6,7 +6,7 @@ import io
 import json
 import sqlite3
 from contextlib import closing, contextmanager
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID
 
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -14,7 +14,7 @@ from PIL import Image
 from pydantic import Field, PrivateAttr, field_validator, model_validator
 
 from .config import database_dir, load
-from .contracts import ParsedQuestion, StrictModel
+from .contracts import ModelCallUsage, ParsedQuestion, StrictModel
 from .errors import DocumentProcessingError
 from .llm import get_model, structured_call
 
@@ -121,7 +121,12 @@ assessmentMaxCents. Scores are integer hundredths of one point."""
 @contextmanager
 def _database():
     with closing(sqlite3.connect(database_dir() / "subjective-grades.sqlite", timeout=5)) as db:
+        db.execute("PRAGMA foreign_keys = ON")
         db.execute("CREATE TABLE IF NOT EXISTS grades(id TEXT PRIMARY KEY,digest TEXT NOT NULL,response TEXT)")
+        db.execute("""CREATE TABLE IF NOT EXISTS grade_calls(
+            grade_id TEXT NOT NULL REFERENCES grades(id),
+            call_key TEXT NOT NULL, record TEXT NOT NULL,
+            PRIMARY KEY(grade_id,call_key))""")
         with db:
             db.execute("BEGIN IMMEDIATE")
             yield db
@@ -133,14 +138,39 @@ def _claim(request: GradeRequest):
         if row:
             if row[0] != request.inputDigest:
                 raise DocumentProcessingError(409, "Grading request content changed", "REQUEST_CONFLICT")
-            return json.loads(row[1]) if row[1] else {"status":"unknown", "error":"Result unknown; check the record before explicitly requesting another grade." if request.feedbackLocale == "en" else "结果未知；请检查记录后明确重新评分", "usage":[]}
+            if row[1]:
+                return json.loads(row[1])
+            calls = [json.loads(record[0]) for record in db.execute(
+                "SELECT record FROM grade_calls WHERE grade_id=? ORDER BY rowid", (str(request.requestId),)
+            )]
+            usage = _known_usage(calls)
+            return {"status":"unknown", "error":"Result unknown; check the record before explicitly requesting another grade." if request.feedbackLocale == "en" else "结果未知；请检查记录后明确重新评分", "usage":usage, "usageStatus":"unknown", "calls":calls}
         db.execute("INSERT INTO grades VALUES(?,?,NULL)", (str(request.requestId),request.inputDigest))
     return None
+
+
+def _known_usage(calls: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [{key: call[key] for key in ModelCallUsage.model_fields}
+            for call in calls if call.get("usageStatus") == "known"]
 
 
 def _save(request: GradeRequest, response: dict):
     with _database() as db:
         db.execute("UPDATE grades SET response=? WHERE id=?", (json.dumps(response,ensure_ascii=False),str(request.requestId)))
+
+
+def _save_call(request: GradeRequest, record: dict[str, Any]) -> None:
+    with _database() as db:
+        db.execute("""INSERT INTO grade_calls(grade_id,call_key,record) VALUES(?,?,?)
+            ON CONFLICT(grade_id,call_key) DO UPDATE SET record=excluded.record""",
+            (str(request.requestId), record["callKey"], json.dumps(record, ensure_ascii=False)))
+
+
+async def _record_call(request: GradeRequest, record: dict[str, Any]) -> None:
+    try:
+        await asyncio.to_thread(_save_call, request, record)
+    except sqlite3.Error as exc:
+        raise DocumentProcessingError(503, "Grading call storage is unavailable", "EXECUTION_STORE_UNAVAILABLE") from exc
 
 
 async def grade(request: GradeRequest) -> dict:
@@ -165,7 +195,11 @@ async def grade(request: GradeRequest) -> dict:
         prompt = f"{PROMPT}\nReturn explanations in {language}. Preserve quoted assessment evidence in its original language. If a rubric is absent, include '{missing_rubric}' in reviewReasons."
         calls: list[dict] = []
         try:
-            result, usage, failure = await structured_call(get_model(), [SystemMessage(content=prompt), HumanMessage(content=content)], GradeResult, "subjective_grade", call_records=calls)
+            result, usage, failure = await structured_call(
+                get_model(), [SystemMessage(content=prompt), HumanMessage(content=content)],
+                GradeResult, "subjective_grade", call_records=calls,
+                call_record_writer=lambda record: _record_call(request, record),
+            )
             if result is None or result.maxCents != source_max:
                 response = {"status":"ungraded", "error":failure or ("The grading maximum does not match the requested score." if english else "评分满分不匹配"), "usage":[u.model_dump(mode="json") for u in usage]}
                 if failure and failure.startswith("AI_PROVIDER"):
@@ -180,7 +214,7 @@ async def grade(request: GradeRequest) -> dict:
                     result.reviewReasons.append(missing_rubric)
                 response = {"status":"graded" if result.scoreCents is not None else "ungraded", "result":result.model_dump(), "usage":[u.model_dump(mode="json") for u in usage]}
         except DocumentProcessingError as exc:
-            response = {"status":"unknown" if exc.code.startswith("AI_PROVIDER") else "ungraded", "error":exc.code, "usage":[u.model_dump(mode="json") for u in exc.usage], "usageStatus":"unknown"}
+            response = {"status":"unknown" if exc.code.startswith("AI_PROVIDER") else "ungraded", "error":exc.code, "usage":_known_usage(calls) or [u.model_dump(mode="json") for u in exc.usage], "usageStatus":"unknown"}
         response["calls"] = calls
     await asyncio.to_thread(_save, request, response)
     return response

@@ -308,7 +308,7 @@ export function AiTasks({
       clearTimeout(timer);
     };
   }, [selected, detailRevision, selectedExpired]);
-  async function control(action: string, target = task) {
+  async function control(action: Task["allowedActions"][number], target = task) {
     if (!target || !target.allowedActions.includes(action)) return;
     const task = target;
     try {
@@ -576,7 +576,7 @@ export function AiTasks({
               <details className="text-sm text-muted-foreground"><summary className="cursor-pointer">{t("模型用量与技术详情")}</summary><p className="mt-2">{t("阶段：{0}", { 0: task.phase })}</p><p>{t("已记录 {0} 次调用；输入 {1} / 输出 {2} tokens；用量未知 {3} 次", { 0: task.usage.length, 1: task.usage.reduce((n, u) => n + (u.inputTokens || 0), 0), 2: task.usage.reduce((n, u) => n + (u.outputTokens || 0), 0), 3: task.unknownUsageCalls.length })}</p></details>
               {task.failures.map((f, i) => (
                 <p className="text-sm text-destructive" key={i}>
-                  {t("{0} #{1}：{2}", {0:phaseName(f.stage),1:f.index+1,2:errorMessage({code:f.code, message:f.message || failureMessage(f.code), diagnostic:f.message})})}
+                  {t("{0} #{1}：{2}", {0:phaseName(f.stage),1:f.index+1,2:errorMessage({code:f.code, message:failureMessage(f.code)})})}
                   {f.retryable ? t("（可重试）") : ""}
                 </p>
               ))}

@@ -120,7 +120,7 @@ fn desktop_stress() {
     });
     report["saveAttempt"] = measure(|| {
         store
-            .write_attempt(("exam0", 0), json!({"value":true}), 0, false, false, None)
+            .write_attempt(("exam0", 0), json!({"value":true}), 0, false, false)
             .unwrap();
         store.session_data("exam0", None).unwrap()
     });
@@ -135,7 +135,7 @@ fn desktop_stress() {
     });
     report["saveAttemptUpdate"] = measure(|| {
         store
-            .write_attempt(("exam0", 0), json!({"value":true}), 0, false, false, None)
+            .write_attempt(("exam0", 0), json!({"value":true}), 0, false, false)
             .unwrap();
         store.session_data("exam0", Some(key)).unwrap()
     });

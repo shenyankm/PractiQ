@@ -25,7 +25,7 @@ Size resources using representative documents, model latency, and concurrency te
 Keep matching database, file, and configuration backups:
 
 - `tasks.sqlite` stores tasks, runs, and idempotency receipts. Official SQLite persistence components manage `checkpoints.sqlite` and `store.sqlite`. Connections enable WAL, FULL synchronization, foreign keys, and a five-second busy timeout. Network filesystems and multiple service processes are unsupported.
-- `subjective-grades.sqlite` stores grading request IDs, digests, and responses. It is created on the first grading request. Independent-service backups must preserve it to retain replay records. It is outside the document queue and is not cleaned by document-task cleanup.
+- `subjective-grades.sqlite` stores grading request IDs, digests, responses, and per-attempt call records. It is created on the first grading request. The additive `grade_calls` table is created when opening an existing grading cache; existing requests and responses remain intact. Independent-service backups must preserve it to retain replay records. It is outside the document queue and is not cleaned by document-task cleanup.
 - New service instances use a local file root. The default is `.local/ai-oss`; production must use an absolute persistent mount. Old tasks, checkpoints, and files stay in their original environment. Old state stores are neither automatically migrated, deleted, nor reused.
 - Local uploads and asset reads retain authentication, size, and SHA-256 checks.
 - Finish old tasks on their original version before changing storage, code, models, or semantic configuration. Do not bypass execution fingerprints. Database credentials do not belong in graph state or logs.
@@ -70,7 +70,9 @@ See the [configuration template](../../.env.example) for all variables. Limits i
 
 `POST /api/subjective-grades` handles one question synchronously, outside the document queue. Maintenance mode rejects grading, but already dispatched model calls may finish. Grading reuses shared model limits, retries, and usage accounting. Document-task retention of 180 days, the 400-call task budget, and run deadlines do not govern grading.
 
-Process interruption may leave a registered grading request without a result. Replaying its ID returns `unknown`; the service does not call the model again automatically. Only explicit regrading with a new ID starts another request. Preserve unknown usage and reconcile it against provider billing. The service does not automatically clean grading caches; plan their retention separately.
+Each provider attempt is recorded before dispatch. Returned usage and completion are committed before the next correction or retry begins. Process interruption may leave a registered grading request without a result. Replaying its ID returns `unknown` with the already-known `usage` and persisted `calls`; in-flight attempts retain `usageStatus: unknown` and null token counts. The service does not call the model again automatically. Only explicit regrading with a new ID starts another request. Historical interrupted requests without call records retain empty usage because it cannot be reconstructed. Preserve unknown usage and reconcile it against provider billing. The service does not automatically clean grading caches; plan their retention separately.
+
+Call events, counters, and timings are recorded even if persisting an attempt's outcome fails. A ledger write failure stops further provider dispatch, including automatic retries; already-known usage and dispatched unknown attempts remain in the cached response if final-response storage succeeds.
 
 Desktop ZIP backups include exams and saved scores, but exclude the service cache and API keys. Full service backups and desktop bank backups serve different purposes and cannot replace each other.
 

@@ -40,6 +40,7 @@ from practiq_ai.contracts import (
     RetryUnits,
     UnitCounts,
     UnitFailure,
+    UnitFailureStage,
     VisualElement,
 )
 from practiq_ai.errors import DocumentProcessingError
@@ -777,7 +778,7 @@ async def _vision(
 
 
 def _unit_failure(
-    stage: str,
+    stage: UnitFailureStage,
     index: int,
     code: str,
     usage: list[Any],
