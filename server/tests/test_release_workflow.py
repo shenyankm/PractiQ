@@ -862,6 +862,215 @@ def test_final_signing_report_accepts_uppercase_equivalent_digest(release, sourc
     assert (output / "candidate.json").is_file()
 
 
+@pytest.mark.parametrize("uri", ["file:///Users/Alice/private/report.json", "file:///C:/Users/Alice/report.json",
+                                "file://private-server/work/report.json", "FILE:///Users/Alice/Private%20Work/report.json"])
+def test_public_reports_redact_file_uri_machine_paths(release, source, final_setup, uri):
+    installer, output, reports, state = final_setup()
+    signing = source / "signing.json"
+    report = {"artifactSha256": release.checksum(installer), "status": "verified", "verificationCommands": [f"opened {uri}"]}
+    signing.write_text(json.dumps(report))
+    release.restage_installer(source, "v0.1.0", installer, output, reports, signing, state["build_candidate"])
+    assert json.loads((reports / "signing-report.json").read_text()) == report
+    public = json.loads((output / "evidence/signing-report.json").read_text())
+    assert public["verificationCommands"] == ["opened <local>"]
+    assert release.public_report({uri: uri}, []) == {"<local>": "<local>"}
+    assert release.public_report("https://github.com/test/repo/actions/runs/42", []) == "https://github.com/test/repo/actions/runs/42"
+
+
+@pytest.mark.parametrize("nested", [False, True])
+def test_public_reports_preserve_every_value_when_redacted_keys_collide(release, nested):
+    records = {"file:///Users/Alice/private/a.json": {"status": "failed"},
+               "file:///Users/Bob/private/b.json": {"status": "passed"}}
+    payload = {"reports": [records]} if nested else records
+    expected_records = {"<local>": {"status": "failed"}, "<local>#2": {"status": "passed"}}
+    expected = {"reports": [expected_records]} if nested else expected_records
+    assert release.public_report(payload, []) == expected
+    assert release.public_report(payload, []) == release.public_report(payload, [])
+    assert "Alice" not in json.dumps(release.public_report(payload, [])) and "Bob" not in json.dumps(release.public_report(payload, []))
+
+
+@pytest.mark.parametrize("paths_first", [False, True])
+def test_public_reports_keep_existing_literal_keys_when_redacted_keys_collide(release, paths_first):
+    paths = {"file:///Users/Alice/private/a.json": "failed", "file:///Users/Bob/private/b.json": "passed"}
+    literals = {"<local>": "existing base", "<local>#2": "existing two", "<local>#3": "existing three"}
+    records = {**paths, **literals} if paths_first else {**literals, **paths}
+    result = release.public_report({"nested": [records]}, [])["nested"][0]
+    assert len(result) == 5 and result == {**literals, "<local>#4": "failed", "<local>#5": "passed"}
+    assert list(result.values()) == list(records.values())
+
+
+@pytest.mark.parametrize("url", ["https://example.test/artifacts/file:report.json", "https://example.test/artifacts/file:///public/report.json",
+                                "https://example.test/artifact#file:report.json"])
+def test_public_reports_keep_complete_http_links_containing_file_uri_text(release, url):
+    assert release.public_report(url, []) == url
+    assert release.public_report(f"fetch '{url}'", []) == f"fetch '{url}'"
+    assert release.public_report({url: f'fetch "{url}" --input=file://private-server/work%20dir/report.json'}, []) == {
+        url: f'fetch "{url}" --input=<local>'}
+
+
+@pytest.mark.parametrize("local", ["/Users/Alice/private/report.json", "C:\\Users\\Alice\\private\\report.json",
+                                  "file:///Users/Alice/private/report.json", "file:///C:/Users/Alice/private/report.json"])
+def test_public_reports_redact_local_paths_inside_http_query_parameters(release, local):
+    url = "https://example.test/check?report=" + local
+    assert release.public_report(url, []) == "https://example.test/check?report=<local>"
+    assert release.public_report(f"fetch '{url}'", []) == "fetch 'https://example.test/check?report=<local>'"
+
+
+def test_public_reports_preserve_known_machine_root_redaction_in_http_links(release):
+    assert release.public_report("https://example.test/check?report=/private/candidate/report.json",
+                                 [(Path("/private/candidate"), "<source>")]) == "https://example.test/check?report=<source>/report.json"
+
+
+@pytest.mark.parametrize("uri", ["file:///Users/Alice/private/report.json", "file:///C:/Users/Alice/report.json",
+                                "file://private-server/work%20dir/report.json"])
+def test_public_reports_still_redact_quoted_and_assigned_local_file_uris(release, uri):
+    assert release.public_report(f"--input='{uri}'", []) == "--input='<local>'"
+    assert release.public_report(f'open "{uri}"', []) == 'open "<local>"'
+    assert release.public_report(f"--input={uri}", []) == "--input=<local>"
+
+
+def test_final_staging_preserves_exact_original_candidate_bytes(release, source, final_setup):
+    installer, output, reports, state = final_setup()
+    path = state["build_candidate"]
+    prior = json.loads(path.read_text())
+    raw = (" \n" + json.dumps(prior, indent=3, sort_keys=True) + "\n\n").encode()
+    path.write_bytes(raw)
+    release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=path)
+    candidate = json.loads((output / "candidate.json").read_text())
+    bound = json.loads((output / candidate["originalBuildCandidate"]).read_text())
+    assert (reports / "original-candidate.json").read_bytes() == raw
+    assert (output / "evidence/original-candidate.json").read_bytes() == raw
+    assert bound["candidateSha256"] == hashlib.sha256(raw).hexdigest()
+    assert bound["originalCandidate"] == "evidence/original-candidate.json"
+
+
+@pytest.mark.parametrize("private", ["file:///Users/Alice/private/report.json", "/Users/Alice/private/report.json"])
+def test_final_staging_keeps_private_original_candidate_and_refuses_public_paths(release, source, final_setup, private):
+    installer, output, reports, state = final_setup()
+    path = state["build_candidate"]
+    prior = json.loads(path.read_text())
+    prior["privateDiagnostic"] = private
+    raw = json.dumps(prior).encode()
+    path.write_bytes(raw)
+    with pytest.raises(ValueError, match="Original candidate.*private|Original candidate.*public"):
+        release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=path)
+    assert (reports / "original-candidate.json").read_bytes() == raw and not output.exists()
+    assert not state["calls"]
+
+
+@pytest.mark.parametrize("platform", ["win32", "linux"])
+@pytest.mark.parametrize("mutation", ["bytes", "mode", "add", "remove", "type", "link"])
+def test_final_staging_rejects_gate_mutations_to_complete_selected_payload(release, source, final_setup, monkeypatch, platform, mutation):
+    installer, output, reports, state = final_setup(platform)
+    run = subprocess.run
+    def mutate(command, **kwargs):
+        result = run(command, **kwargs)
+        if command[0] in {"7z", "dpkg-deb"}:
+            payload = (Path(next(arg[2:] for arg in command if arg.startswith("-o"))) if command[0] == "7z" else Path(command[3]))
+            state["payload"] = payload
+            (payload / "engine.cfg").write_bytes(b"original selected bytes")
+            (payload / "engine.cfg").chmod(0o755)
+            (payload / "other.cfg").write_bytes(b"another selected file")
+            if platform == "win32":
+                (payload / "engine.link").write_bytes(b"original regular NSIS entry")
+            else:
+                (payload / "engine.link").symlink_to("engine.cfg")
+        elif "check-bundle.py" in command[1]:
+            target = state["payload"] / "engine.cfg"
+            if mutation == "bytes":
+                target.write_bytes(b"modified selected bytes")
+            elif mutation == "mode":
+                target.chmod(0o644)
+            elif mutation == "add":
+                (target.parent / "added.cfg").write_bytes(b"gate-added bytes")
+            elif mutation == "remove":
+                target.unlink()
+            elif mutation == "type":
+                target.unlink()
+                target.mkdir()
+            else:
+                link = target.parent / "engine.link"
+                link.unlink()
+                link.symlink_to("other.cfg")
+            assert release.checksum(state["snapshot"]) == release.checksum(installer)
+        return result
+    monkeypatch.setattr(subprocess, "run", mutate)
+    with pytest.raises(ValueError, match="payload.*changed"):
+        release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=state["build_candidate"])
+    assert not output.exists() and reports.exists()
+
+
+@pytest.mark.parametrize("platform", ["win32", "linux"])
+def test_final_staging_rechecks_complete_payload_before_final_asset_handoff(release, source, final_setup, monkeypatch, platform):
+    installer, output, reports, state = final_setup(platform)
+    copyfile = shutil.copyfile
+    mutated = False
+    def copy(path, destination, *args, **kwargs):
+        nonlocal mutated
+        result = copyfile(path, destination, *args, **kwargs)
+        path = Path(path)
+        if path.name == "PYTHON-LICENSE.txt" and "bundled" in path.parts:
+            bundle = path.parent
+            application = bundle.parent / "PractiQ.exe" if platform == "win32" else bundle.parents[3] / "usr/bin/PractiQ"
+            application.write_bytes(application.read_bytes() + b"unchecked handoff mutation")
+            mutated = True
+        return result
+    monkeypatch.setattr(shutil, "copyfile", copy)
+    with pytest.raises(ValueError, match="payload.*changed.*handoff"):
+        release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=state["build_candidate"])
+    assert mutated and len(state["calls"]) == 4 and not output.exists() and reports.exists()
+
+
+@pytest.mark.parametrize("platform", ["win32", "linux"])
+@pytest.mark.parametrize("phase", [None, "gate", "handoff"])
+def test_ordinary_ci_staging_binds_complete_payload_before_gates_and_handoff(release, source, monkeypatch, platform, phase):
+    monkeypatch.setattr(sys, "platform", platform)
+    temporary = source / "runner"
+    for name, value in {"RUNNER_TEMP": str(temporary), "GITHUB_SERVER_URL": "https://github.com",
+                        "GITHUB_REPOSITORY": "test/repo", "GITHUB_RUN_ID": "42"}.items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.setitem(release.stage.__globals__, "git", lambda _, *args: "" if args[0] == "status" else "a" * 40)
+    payload = temporary / ("PractiQ" if platform == "win32" else "practiq-package")
+    bundle = payload / ("bundled" if platform == "win32" else "usr/lib/PractiQ/bundled")
+    bundle.mkdir(parents=True)
+    (bundle / "build-manifest.json").write_text(json.dumps({"platform": platform, "architecture": "x86_64",
+                                                          "packages": [{"name": "practiq-ai-service", "version": "0.3.0"}]}))
+    for filename in ("THIRD-PARTY.txt", "PYTHON-LICENSE.txt"):
+        (bundle / filename).write_text("Synthetic candidate notice")
+    application = payload / ("PractiQ.exe" if platform == "win32" else "usr/bin/PractiQ")
+    application.parent.mkdir(parents=True, exist_ok=True)
+    application.write_bytes(native_pe() if platform == "win32" else native_elf())
+    application.chmod(0o755)
+    installer = source / "app/src-tauri/target/release/bundle" / ("nsis/selected-setup.exe" if platform == "win32" else "deb/selected.deb")
+    installer.parent.mkdir(parents=True)
+    installer.write_bytes(b"synthetic ordinary CI installer")
+    calls = []
+    def run(command, **kwargs):
+        calls.append(command)
+        Path(command[command.index("--output") + 1]).write_text('{"passed":true}')
+        if phase == "gate" and "check-bundle.py" in command[1]:
+            application.write_bytes(application.read_bytes() + b"gate mutation")
+    copyfile = shutil.copyfile
+    def copy(path, destination, *args, **kwargs):
+        result = copyfile(path, destination, *args, **kwargs)
+        if phase == "handoff" and Path(path) == bundle / "PYTHON-LICENSE.txt":
+            application.write_bytes(application.read_bytes() + b"handoff mutation")
+        return result
+    monkeypatch.setattr(subprocess, "run", run)
+    monkeypatch.setattr(shutil, "copyfile", copy)
+    output = source / "app/.build/release"
+    if phase:
+        with pytest.raises(ValueError, match="payload.*changed"):
+            release.stage_installer(source, "v0.1.0")
+        assert not (output / "candidate.json").exists()
+    else:
+        release.stage_installer(source, "v0.1.0")
+        candidate = json.loads((output / "candidate.json").read_text())
+        assert candidate["signing"] == "unsigned" and candidate["cleanMachineAcceptance"] == candidate["liveModelAcceptance"] == "pending"
+        assert (output / candidate["file"]).read_bytes() == installer.read_bytes()
+    assert len(calls) == 4
+
+
 @pytest.mark.parametrize("value", [None, "a" * 63, "g" * 64, "A" * 65, " " + "a" * 64])
 def test_final_signing_report_rejects_incomplete_or_invalid_digests(release, source, final_setup, value):
     installer, output, reports, state = final_setup()
@@ -1052,7 +1261,10 @@ def restaged(release, staged):
         prior = dict(candidate)
         candidate.update(restagedFinalBytes=True, signing="externally_reported_verified", signingReport="evidence/signing-report.json")
         candidate["originalBuildCandidate"] = "evidence/build-candidate.json"
-        (evidence / "build-candidate.json").write_text(json.dumps({"candidateSha256": "a" * 64,
+        raw = json.dumps(prior, indent=3).encode()
+        (evidence / "original-candidate.json").write_bytes(raw)
+        (evidence / "build-candidate.json").write_text(json.dumps({"candidateSha256": hashlib.sha256(raw).hexdigest(),
+            "originalCandidate": "evidence/original-candidate.json",
             "verifiedCandidateSha256": hashlib.sha256(json.dumps(prior, sort_keys=True, separators=(",", ":")).encode()).hexdigest(),
             "assetAndEvidenceVerified": True, "candidate": prior}))
         (evidence / "desktop-version.json").write_text('{"passed":true,"version":"0.1.0"}')
@@ -1062,6 +1274,49 @@ def restaged(release, staged):
         candidate["evidence"] = {f"evidence/{path.name}": release.checksum(path) for path in evidence.iterdir()}
         (folder / "candidate.json").write_text(json.dumps(candidate))
     return staged
+
+
+@pytest.mark.parametrize("mutation", ["digest", "nested", "raw", "missing", "outside", "absolute", "link"])
+def test_final_assembly_binds_exact_original_candidate_bytes_despite_new_outer_digest(release, source, restaged, mutation):
+    folder = restaged / "release-macos"
+    evidence = folder / "evidence"
+    bound_path = evidence / "build-candidate.json"
+    bound = json.loads(bound_path.read_text())
+    raw_path = evidence / "original-candidate.json"
+    if mutation == "digest":
+        bound["candidateSha256"] = "b" * 64
+    elif mutation == "nested":
+        bound["candidate"]["sha256"] = "b" * 64
+        bound["verifiedCandidateSha256"] = hashlib.sha256(json.dumps(bound["candidate"], sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    elif mutation == "raw":
+        raw_path.write_bytes(raw_path.read_bytes() + b"\n")
+    elif mutation == "missing":
+        raw_path.unlink()
+    elif mutation in {"outside", "absolute"}:
+        outside = source / "unrelated-original-candidate.json"
+        outside.write_bytes(raw_path.read_bytes())
+        bound["originalCandidate"] = str(outside) if mutation == "absolute" else "../unrelated-original-candidate.json"
+    else:
+        outside = source / "unrelated-original-candidate.json"
+        raw_path.rename(outside)
+        raw_path.symlink_to(outside)
+    bound_path.write_text(json.dumps(bound))
+    path = folder / "candidate.json"
+    candidate = json.loads(path.read_text())
+    candidate["evidence"] = {f"evidence/{item.name}": release.checksum(item) for item in evidence.iterdir()}
+    path.write_text(json.dumps(candidate))
+    output = source / "modified-provenance-assets"
+    with pytest.raises(ValueError, match="Original candidate|original candidate|release evidence"):
+        release.assemble(source, "v0.1.0", restaged, output)
+    assert not output.exists()
+
+
+def test_final_assembly_archives_the_exact_original_candidate_bytes(release, source, restaged):
+    expected = (restaged / "release-macos/evidence/original-candidate.json").read_bytes()
+    output = source / "exact-provenance-assets"
+    release.assemble(source, "v0.1.0", restaged, output)
+    with zipfile.ZipFile(output / "release-evidence.zip") as archive:
+        assert archive.read("macos/evidence/original-candidate.json") == expected
 
 
 @pytest.mark.parametrize("original_platforms", [("macos",), ("windows",), ("linux",),

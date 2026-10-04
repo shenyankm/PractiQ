@@ -7,6 +7,7 @@ import os
 import plistlib
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -21,6 +22,7 @@ ROOT = Path(__file__).resolve().parents[2]
 NUMBER = r"(?:0|[1-9][0-9]*)"
 TAG = re.compile(rf"v({NUMBER}\.{NUMBER}\.{NUMBER}(?:-(?:alpha|beta|rc)\.{NUMBER})?)")
 MACHINE_PATH = re.compile(r'''(?<![\w:/\\>])(?:(?P<quote>["'])(?:[A-Za-z]:[\\/]|\\\\|/)[^"']*(?P=quote)|(?:[A-Za-z]:[\\/][^\s"'<>|;]*|\\\\[^\\\s"'<>|;]+\\[^\s"'<>|;]*|//[^/\s"'<>|;]+/[^\s"'<>|;]*|/[^/\s"'<>|;]+/[^\s"'<>|;]*))''')
+FILE_URI = re.compile(r'''(?<![\w:/\\>])(?:(?P<quote>["'])file:(?:[/\\]|[A-Za-z]:[\\/])[^"']*(?P=quote)|file:(?:[/\\]|[A-Za-z]:[\\/])[^\s"'<>|;]*)''', re.IGNORECASE)
 PLATFORMS = {
     "darwin": ("macos", "arm64", "dmg/*.dmg", ".dmg"),
     "win32": ("windows", "x64", "nsis/*-setup.exe", "_setup.exe"),
@@ -36,6 +38,27 @@ def read_json(path: Path) -> dict:
 def checksum(path: Path) -> str:
     with path.open("rb") as stream:
         return hashlib.file_digest(stream, "sha256").hexdigest()
+
+
+def payload_fingerprint(payload: Path) -> dict:
+    """Bind all extracted bytes, modes, types and links without following links."""
+    if payload.is_symlink() or payload.is_junction() or not payload.is_dir():
+        raise ValueError("Final installer payload requires a real directory")
+    identity = {}
+    for item in [payload, *sorted(payload.rglob("*"))]:
+        mode = item.lstat().st_mode
+        if item.is_junction():
+            raise ValueError("Final installer payload cannot contain junctions")
+        if stat.S_ISREG(mode):
+            content = checksum(item)
+        elif stat.S_ISLNK(mode):
+            content = str(item.readlink())
+        elif stat.S_ISDIR(mode):
+            content = None
+        else:
+            raise ValueError("Final installer payload contains an unsupported file type")
+        identity[item.relative_to(payload).as_posix()] = (mode, content)
+    return identity
 
 
 def git(root: Path, *args: str) -> str:
@@ -137,10 +160,25 @@ def external_acceptance_status(report, kind: str, identity: dict) -> str:
 def public_report(value, roots):
     """Keep raw reports private; replace machine paths in the public JSON copy."""
     if isinstance(value, dict):
-        return {key: public_report(item, roots) for key, item in value.items()}
+        keys = {key: public_report(key, roots) for key in value}
+        reserved = set(keys.values())
+        unchanged = {key for key, cleaned in keys.items() if key == cleaned}
+        result = {}
+        suffixes = {}
+        for key, item in value.items():
+            cleaned = keys[key]
+            if cleaned in result or (key != cleaned and cleaned in unchanged):
+                suffix = suffixes.get(cleaned, 2)
+                while f"{cleaned}#{suffix}" in reserved or f"{cleaned}#{suffix}" in result:
+                    suffix += 1
+                suffixes[cleaned] = suffix + 1
+                cleaned = f"{cleaned}#{suffix}"
+            result[cleaned] = public_report(item, roots)
+        return result
     if isinstance(value, list):
         return [public_report(item, roots) for item in value]
     if isinstance(value, str):
+        value = FILE_URI.sub(lambda match: (match["quote"] or "") + "<local>" + (match["quote"] or ""), value)
         for directory, label in roots:
             value = value.replace(str(directory), label)
         if Path(value).is_absolute() or PureWindowsPath(value).is_absolute():
@@ -149,7 +187,7 @@ def public_report(value, roots):
     return value
 
 
-def original_build(root: Path, tag: str, source_sha: str, path: Path) -> dict:
+def original_build(root: Path, tag: str, source_sha: str, path: Path) -> tuple[dict, bytes]:
     """Bind downloaded original build assets/evidence; external provenance still needs review."""
     raw = path.read_bytes()
     candidate = json.loads(raw)
@@ -184,9 +222,10 @@ def original_build(root: Path, tag: str, source_sha: str, path: Path) -> dict:
         raise ValueError("Original build manifest is missing")
     check_build(read_json(path.parent / "evidence/build-manifest.json"), sys.platform, components)
     return {"candidateSha256": hashlib.sha256(raw).hexdigest(), "candidate": candidate,
+            "originalCandidate": "evidence/original-candidate.json",
             "verifiedCandidateSha256": hashlib.sha256(json.dumps(candidate, sort_keys=True, separators=(",", ":")).encode()).hexdigest(),
             "assetAndEvidenceVerified": True,
-            "provenanceReview": "Verify the original Actions download/source independently; local hashes do not attest its origin"}
+            "provenanceReview": "Verify the original Actions download/source independently; local hashes do not attest its origin"}, raw
 
 
 def stage(root: Path, tag: str, bundle: Path, installer: Path, output: Path, *,
@@ -194,7 +233,8 @@ def stage(root: Path, tag: str, bundle: Path, installer: Path, output: Path, *,
           source_sha: str | None = None, installer_sha: str | None = None,
           signing_report: Path | None = None, build_candidate: dict | None = None,
           desktop_version: str | None = None, clean_machine_report: Path | None = None,
-          live_model_report: Path | None = None) -> None:
+          live_model_report: Path | None = None, original_candidate_bytes: bytes | None = None,
+          payload: Path | None = None, payload_identity: dict | None = None) -> None:
     components = versions(root, tag)
     signing = "unverified" if restaged else "unsigned"
     os_name, arch, _, suffix = PLATFORMS[sys.platform]
@@ -202,16 +242,29 @@ def stage(root: Path, tag: str, bundle: Path, installer: Path, output: Path, *,
     acceptances = {field + "Acceptance": "pending" for field, _ in ACCEPTANCES}
     if not restaged and any(acceptance_paths.values()):
         raise ValueError("Acceptance reports require explicit final-byte staging")
+    if (payload is None) != (payload_identity is None):
+        raise ValueError("Final payload checks require an explicit directory and its pre-gate identity")
     manifest = read_json(bundle / "build-manifest.json")
     check_build(manifest, sys.platform, components)
-    if restaged and (build_candidate is None or desktop_version != components["desktop"]):
+    if restaged and (build_candidate is None or original_candidate_bytes is None or payload is None or
+                     payload_identity is None or desktop_version != components["desktop"]):
         raise ValueError("Final desktop version and original build identity must be checked")
     if git(root, "status", "--porcelain", "--untracked-files=all"):
         raise ValueError("Release source changed during the build")
     fresh_reports = reports is not None
     reports = reports or root / "server/reports/checks/release"
     reports.mkdir(parents=True, exist_ok=not fresh_reports)
+    roots = sorted([(bundle.resolve(), "<bundle>"), (root.resolve(), "<source>"),
+                    (reports.resolve(), "<reports>"), (Path.home(), "<home>")], key=lambda item: len(str(item[0])), reverse=True)
     if restaged:
+        assert build_candidate is not None and original_candidate_bytes is not None
+        (reports / "original-candidate.json").write_bytes(original_candidate_bytes)
+        original = json.loads(original_candidate_bytes)
+        if (original != build_candidate["candidate"] or
+                hashlib.sha256(original_candidate_bytes).hexdigest() != normalized_digest(build_candidate["candidateSha256"])):
+            raise ValueError("Original candidate bytes differ from the verified identity")
+        if public_report(original, roots) != original:
+            raise ValueError("Original candidate contains private paths; keep raw diagnostics private instead of publishing")
         (reports / "desktop-version.json").write_text(json.dumps({"passed": True, "platform": sys.platform, "version": desktop_version}) + "\n", encoding="utf-8")
     for script, filename, options in (
         ("check-bundle.py", "desktop-bundle.json", []),
@@ -223,6 +276,8 @@ def stage(root: Path, tag: str, bundle: Path, installer: Path, output: Path, *,
                         "--output", str(reports / filename), *options], cwd=root, check=True)
         if read_json(reports / filename).get("passed") is not True:
             raise ValueError(f"Release gate did not pass: {filename}")
+    if payload is not None and payload_fingerprint(payload) != payload_identity:
+        raise ValueError("Final installer payload changed during package checks")
     if restaged:
         if (reports / "expected-THIRD-PARTY.txt").read_bytes() != (bundle / "THIRD-PARTY.txt").read_bytes():
             raise ValueError("Final bundle third-party notices differ from candidate notices")
@@ -249,12 +304,16 @@ def stage(root: Path, tag: str, bundle: Path, installer: Path, output: Path, *,
         raise ValueError("Final installer changed while copying the public asset")
     evidence = output / "evidence"
     shutil.copytree(reports, evidence)
-    roots = sorted([(bundle.resolve(), "<bundle>"), (root.resolve(), "<source>"),
-                    (reports.resolve(), "<reports>"), (Path.home(), "<home>")], key=lambda item: len(str(item[0])), reverse=True)
     for report in evidence.rglob("*.json"):
+        if restaged and report.name == "original-candidate.json":
+            if report.read_bytes() != original_candidate_bytes:
+                raise ValueError("Original candidate bytes changed during evidence copy")
+            continue
         report.write_text(json.dumps(public_report(read_json(report), roots), indent=2) + "\n", encoding="utf-8")
     for filename in ("build-manifest.json", "THIRD-PARTY.txt", "PYTHON-LICENSE.txt"):
         shutil.copyfile(bundle / filename, evidence / filename)
+    if payload is not None and payload_fingerprint(payload) != payload_identity:
+        raise ValueError("Final installer payload changed before final asset handoff")
     candidate = {
         "tag": tag, "commit": git(root, "rev-parse", "HEAD"), "components": components,
         "os": os_name, "architecture": arch, "file": name, "sha256": checksum(output / name),
@@ -290,13 +349,21 @@ def stage_installer(root: Path, tag: str) -> None:
             subprocess.run(["hdiutil", "attach", str(installers[0]), "-readonly", "-nobrowse",
                             "-mountpoint", str(mount)], check=True)
             try:
-                stage(root, tag, mount / "PractiQ.app/Contents/Resources/bundled", installers[0], output)
+                payload = mount / "PractiQ.app"
+                identity = payload_fingerprint(payload)
+                stage(root, tag, payload / "Contents/Resources/bundled", installers[0], output,
+                      payload=payload, payload_identity=identity)
+                if payload_fingerprint(payload) != identity:
+                    raise ValueError("Final installer payload changed before final asset handoff")
             finally:
                 subprocess.run(["hdiutil", "detach", str(mount)], check=True)
     else:
-        bundle = (temporary / "PractiQ/bundled" if sys.platform == "win32" else
-                  temporary / "practiq-package/usr/lib/PractiQ/bundled")
-        stage(root, tag, bundle, installers[0], output)
+        payload = temporary / ("PractiQ" if sys.platform == "win32" else "practiq-package")
+        identity = payload_fingerprint(payload)
+        bundle = payload / ("bundled" if sys.platform == "win32" else "usr/lib/PractiQ/bundled")
+        stage(root, tag, bundle, installers[0], output, payload=payload, payload_identity=identity)
+        if payload_fingerprint(payload) != identity:
+            raise ValueError("Final installer payload changed before final asset handoff")
 
 
 def contained_bundle(directory: Path, relative: str) -> Path:
@@ -542,7 +609,7 @@ def restage_installer(root: Path, tag: str, installer: Path, output: Path,
         raise ValueError("Final installer does not match the native platform")
     if build_candidate is None:
         raise ValueError("Explicit final staging requires --build-candidate and its original asset/evidence")
-    provenance = original_build(root, tag, candidate["commit"], build_candidate)
+    provenance, original_candidate_bytes = original_build(root, tag, candidate["commit"], build_candidate)
     cargo = tomllib.loads((root / "app/src-tauri/Cargo.toml").read_text(encoding="utf-8"))
     config = read_json(root / "app/src-tauri/tauri.conf.json")
     application_name = config.get("mainBinaryName") or cargo.get("bin", [{"name": cargo["package"]["name"]}])[0]["name"]
@@ -557,11 +624,16 @@ def restage_installer(root: Path, tag: str, installer: Path, output: Path,
         with tempfile.TemporaryDirectory(prefix="practiq-final-assets-", dir=output.parent) as staging:
             staged = Path(staging) / "assets"
             with final_bundle(snapshot, seven_zip, application_name, root=root) as bundle:
+                payload = bundle.parents[2] if sys.platform == "darwin" else bundle.parent if sys.platform == "win32" else bundle.parents[3]
+                payload_identity = payload_fingerprint(payload)
                 desktop_version = check_desktop_version(snapshot, bundle, versions(root, tag)["desktop"], application_name)
                 stage(root, tag, bundle, snapshot, staged, reports=reports, restaged=True,
                       source_sha=candidate["commit"], installer_sha=original_sha, signing_report=signing_report,
                       build_candidate=provenance, desktop_version=desktop_version,
-                      clean_machine_report=clean_machine_report, live_model_report=live_model_report)
+                      clean_machine_report=clean_machine_report, live_model_report=live_model_report,
+                      original_candidate_bytes=original_candidate_bytes, payload=payload, payload_identity=payload_identity)
+                if payload_fingerprint(payload) != payload_identity:
+                    raise ValueError("Final installer payload changed before final asset handoff")
             if checksum(snapshot) != original_sha:
                 raise ValueError("Final installer snapshot changed after package checks")
             if git(root, "rev-parse", "HEAD") != candidate["commit"] or git(root, "status", "--porcelain", "--untracked-files=all"):
@@ -634,7 +706,17 @@ def assemble(root: Path, tag: str, inputs: Path, output: Path) -> None:
             build = read_json(folder / original)
             prior = build.get("candidate", {})
             check_original_candidate(prior)
-            normalized_digest(build.get("candidateSha256"))
+            raw_relative = "evidence/original-candidate.json"
+            raw_path = folder / raw_relative
+            if (build.get("originalCandidate") != raw_relative or raw_relative not in candidate["evidence"] or
+                    raw_path.is_symlink() or raw_path.is_junction() or not raw_path.is_file() or
+                    raw_path.parent.is_symlink() or raw_path.parent.is_junction() or
+                    not raw_path.resolve(strict=True).is_relative_to(folder.resolve(strict=True))):
+                raise ValueError("Original candidate bytes must remain bound inside the final evidence directory")
+            raw = raw_path.read_bytes()
+            if (hashlib.sha256(raw).hexdigest() != normalized_digest(build.get("candidateSha256")) or json.loads(raw) != prior or
+                    public_report(prior, [(folder.resolve(), "<candidate>"), (Path.home(), "<home>")]) != prior):
+                raise ValueError("Original candidate bytes differ from the archived build identity or contain private paths")
             if (build.get("assetAndEvidenceVerified") is not True or
                     normalized_digest(build.get("verifiedCandidateSha256")) != hashlib.sha256(json.dumps(prior, sort_keys=True, separators=(",", ":")).encode()).hexdigest() or
                     any(prior.get(key) != candidate[key] for key in ("tag", "commit", "components", "os", "architecture", "buildRun"))):

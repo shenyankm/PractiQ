@@ -153,7 +153,24 @@ These architecture checks inspect bounded headers; they do not attest signatures
 or replace launching the installed desktop during clean-machine acceptance. These
 checks do not start the application. Windows payload extraction requires installed full 7-Zip;
 it does not execute NSIS or count as installation acceptance. Raw local reports
-remain private; the public evidence copy replaces machine paths before hashing.
+remain private; the public evidence copy replaces machine paths, including `file:`
+URIs in values or keys, before hashing.
+Normal HTTP(S) path namespaces containing `file:` identifiers remain intact;
+local paths in query parameters and known machine roots remain redacted.
+If sanitized keys collide, deterministic
+numbered suffixes retain every value without overriding existing literal keys.
+Both ordinary CI staging and explicit final staging fingerprint the complete
+selected application/extraction tree before gates, after gates and before final
+asset handoff. Changes to file bytes, POSIX modes, file types, directory membership
+or link targets invalidate the staged result even when the installer snapshot is
+unchanged. This integrity check does not attest safety of executing a package.
+The private reports retain the exact original unsigned candidate bytes. The public
+archive retains those same bytes as `evidence/original-candidate.json` only if the
+decoded candidate contains no machine paths requiring redaction; otherwise staging
+fails while retaining private diagnostics. Assembly verifies their byte digest
+against `candidateSha256` and requires their decoded identity to match the nested
+original candidate, in addition to its existing canonical semantic digest. A
+reformatted or sanitized serialization cannot substitute for the original bytes.
 Staging does not attest Actions provenance or verify signing. Archive actual
 signing results with `artifactSha256` bound to the final SHA-256 and a `status`
 of `verified`, `unsigned` or `failed`. The candidate and final manifest retain
