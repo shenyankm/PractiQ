@@ -210,7 +210,7 @@ For simple tables, the model returns rectangular cell arrays. The service escape
 
 PDFium renders in a terminable isolated process. Page images and crops enter asset storage; temporary files are removed after extraction. Page-count, pixel, aggregate vision-byte, and crop limits still apply. Full-page recognition increases model calls, cost, and latency.
 
-The extractor delivers binary page images and a bounded manifest. The parent reads/writes temporary files in a thread and waits for active file operations before cleanup on cancellation. This internal protocol ships with the independent service; external task and artifact APIs remain authenticated and checksum-checked.
+The extractor delivers binary page images and a bounded manifest. The parent reads/writes temporary files in a thread and waits for active file operations before cleanup on cancellation. Workers start with the service interpreter through `python -m practiq_ai.extractors.isolated` or `python -m practiq_ai.office`. This internal protocol ships with the independent service; external task and artifact APIs remain authenticated and checksum-checked.
 
 Returned `page` values are zero-based. Automated tests do not call real models; recognition quality requires separate acceptance.
 

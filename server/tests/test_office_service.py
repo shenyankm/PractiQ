@@ -398,7 +398,7 @@ def test_engine_identity_rejects_fifo_without_waiting_for_writer(tmp_path, monke
 def test_abandoned_worker_never_starts_a_new_engine_session(tmp_path, monkeypatch):
     monkeypatch.setattr(office, "_abandoned", False, raising=False)
     monkeypatch.delenv("PRACTIQ_OFFICE_WORKSPACE", raising=False)
-    monkeypatch.setattr(office, "_spawn", lambda *args, **kwargs: pytest.fail("EOF must prevent any later engine spawn"))
+    monkeypatch.setattr(office.subprocess, "Popen", lambda *args, **kwargs: pytest.fail("EOF must prevent any later engine spawn"))
     office._abandon()
     with pytest.raises(office.OfficeError, match="OFFICE_CONVERSION_FAILED"):
         office._run(["unused-engine"], time.monotonic() + 2)
