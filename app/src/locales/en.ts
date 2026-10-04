@@ -751,6 +751,7 @@ export const en = {
   "提交草稿并结束（保留未判定）": "Submit drafts and finish (keep ungraded answers)",
   "草稿记为跳过并结束（保留未判定）": "Skip drafts and finish (keep ungraded answers)",
   "听力资源网址": "Listening resource URL",
+  "网址尚未应用，请先获取音频或清空网址后保存。": "This URL has not been applied. Fetch the audio or clear the URL before saving.",
   "从网址获取音频": "Fetch audio from URL",
   "识别二维码图片": "Read QR image",
   "识别题目图片中的二维码": "Read QR codes in question images",

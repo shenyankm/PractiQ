@@ -131,6 +131,50 @@ test('new question reverted nullable fields close without discarding other edits
  await expect(editor).toBeHidden();
 });
 
+test('listening URL drafts survive every implicit dismissal without triggering downloads',async ({page})=>{
+ const remoteRequests=[];
+ page.on('request',request=>{if(request.url().startsWith('https://example.com/'))remoteRequests.push(request.url());});
+ await page.goto('/');
+ const bank=page.locator('[data-slot=card]').filter({has:page.getByText('英语专项 · 听力与写作',{exact:true})});
+ await bank.getByRole('button',{name:'查看题目',exact:true}).click();
+ const open=()=>page.getByRole('button',{name:/Listening — chimes$/}).locator('..').getByRole('button',{name:'编辑题目',exact:true}).click();
+ const editor=page.getByRole('dialog',{name:'编辑题目',exact:true});
+ const input=editor.getByRole('textbox',{name:'听力资源网址',exact:true});
+ await open();
+ const url='https://example.com/unapplied.wav';
+ await input.fill(url);
+ await expect(editor.getByRole('button',{name:'保存题目',exact:true})).toBeDisabled();
+ await expect(editor.getByRole('status').filter({hasText:'网址尚未应用'})).toBeVisible();
+ for(const action of ['Escape','close','outside']){
+  await input.focus();
+  if(action==='Escape')await page.keyboard.press('Escape');
+  else if(action==='close')await editor.getByRole('button',{name:'关闭',exact:true}).click();
+  else await page.mouse.click(8,8);
+  const confirmation=page.getByRole('alertdialog',{name:'放弃未保存的更改？',exact:true});
+  await expect(confirmation).toBeVisible();
+  await confirmation.getByRole('button',{name:'继续编辑',exact:true}).click();
+  await expect(confirmation).toBeHidden();
+  await expect(input).toHaveValue(url);
+  await expect(action==='close'?editor.getByRole('button',{name:'关闭',exact:true}):input).toBeFocused();
+ }
+ await input.fill('');
+ await expect(editor.getByRole('button',{name:'保存题目',exact:true})).toBeEnabled();
+ await page.keyboard.press('Escape');
+ await expect(editor).toBeHidden();
+ await expect(page.getByRole('alertdialog')).toHaveCount(0);
+ await open();
+ await editor.getByRole('button',{name:'识别二维码图片',exact:true}).click();
+ await expect(input).toHaveValue('https://example.com/listening.mp3');
+ await page.keyboard.press('Escape');
+ const confirmation=page.getByRole('alertdialog',{name:'放弃未保存的更改？',exact:true});
+ await expect(confirmation).toBeVisible();
+ await confirmation.getByRole('button',{name:'继续编辑',exact:true}).click();
+ await expect(input).toHaveValue('https://example.com/listening.mp3');
+ await editor.getByRole('button',{name:'放弃更改',exact:true}).click();
+ await expect(editor).toBeHidden();
+ expect(remoteRequests).toEqual([]);
+});
+
 test('child editors retain changed drafts and stage changes until the parent saves',async ({page})=>{
  await page.goto('/');
  const bank=page.locator('[data-slot=card]').filter({has:page.getByText('阅读与组合题',{exact:true})});

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Content } from "./Content";
 import { AnswerInput } from "./AnswerInput";
@@ -293,6 +293,90 @@ it("decodes QR locally, requires an explicit fetch, and saves downloaded audio",
   expect(save).toHaveBeenCalledWith(expect.objectContaining({audioRef:question("listen").audioRef,missingFields:[]}),[]);
 });
 
+it.each(["typed", "QR", "selected"])("protects an unapplied %s listening URL and keeps it after continuing", async source => {
+  const user = userEvent.setup();
+  const close = vi.fn(), save = vi.fn();
+  const url = "https://example.com/listening.wav";
+  mockApi.mockImplementation(async request => {
+    if (request.type === "pick_audio_qr") return (source === "QR" ? [{ url, label: "" }] : [{ url, label: "Track 1" }, { url: "https://example.com/other.wav", label: "Track 2" }]) as never;
+    return null as never;
+  });
+  render(<QuestionEditor initial={{ ...question("listen"), audioRef: null }} busy={false} onClose={close} onSave={save} />);
+  const input = screen.getByRole("textbox", { name: "听力资源网址" });
+  if (source === "typed") await user.type(input, url);
+  else {
+    await user.click(screen.getByRole("button", { name: "识别二维码图片" }));
+    if (source === "selected") await user.click(await screen.findByRole("button", { name: "Track 1 · " + url }));
+  }
+  const calls = mockApi.mock.calls.length;
+  const saveButton = screen.getByRole("button", { name: "保存题目" }) as HTMLButtonElement;
+  expect(saveButton.disabled).toBe(true);
+  await user.click(saveButton);
+  expect(save).not.toHaveBeenCalled();
+  expect(close).not.toHaveBeenCalled();
+  await user.click(input);
+  await user.keyboard("{Escape}");
+  expect(close).not.toHaveBeenCalled();
+  await user.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "继续编辑" }));
+  expect((input as HTMLInputElement).value).toBe(url);
+  expect(document.activeElement).toBe(input);
+  expect(mockApi.mock.calls).toHaveLength(calls);
+  await user.clear(input);
+  expect(saveButton.disabled).toBe(false);
+  await user.click(saveButton);
+  expect(save).toHaveBeenCalledOnce();
+  await user.keyboard("{Escape}");
+  expect(close).toHaveBeenCalledOnce();
+  expect(mockApi.mock.calls.some(([request]) => request.type === "import_audio_url")).toBe(false);
+});
+
+it("keeps a failed listening URL guarded without retrying when continuing", async () => {
+  const user = userEvent.setup();
+  const close = vi.fn();
+  const url = "https://example.com/unavailable.wav";
+  mockApi.mockRejectedValue({ code: "LOCAL_AUDIO_NO_LINKS" });
+  render(<QuestionEditor initial={{ ...question("listen"), audioRef: null }} busy={false} onClose={close} onSave={vi.fn()} />);
+  const input = screen.getByRole("textbox", { name: "听力资源网址" });
+  await user.type(input, url);
+  await user.click(screen.getByRole("button", { name: "从网址获取音频" }));
+  await screen.findByRole("alert");
+  await user.keyboard("{Escape}");
+  expect(close).not.toHaveBeenCalled();
+  await user.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "继续编辑" }));
+  expect((input as HTMLInputElement).value).toBe(url);
+  expect(mockApi.mock.calls.filter(([request]) => request.type === "import_audio_url")).toHaveLength(1);
+});
+
+it("marks only accepted listening URLs applied while later URL edits remain guarded", async () => {
+  audioMocks();
+  const user = userEvent.setup();
+  const close = vi.fn();
+  const initial = { ...question("listen"), audioStartSeconds: 0, audioEndSeconds: null, missingFields: [] };
+  mockApi.mockImplementation(async request => {
+    if (request.type === "import_audio_url") return { audio: { reference: initial.audioRef, duration: 3, lease: "existing-audio" }, links: [] } as never;
+    if (request.type === "asset") return new ArrayBuffer(2) as never;
+    return null as never;
+  });
+  render(<QuestionEditor initial={initial} busy={false} onClose={close} onSave={vi.fn()} />);
+  const input = screen.getByRole("textbox", { name: "听力资源网址" });
+  await user.type(input, "https://example.com/existing.wav");
+  await user.click(screen.getByRole("button", { name: "从网址获取音频" }));
+  await waitFor(() => expect((screen.getByRole("button", { name: "保存题目" }) as HTMLButtonElement).disabled).toBe(false));
+  await user.keyboard("{Escape}");
+  expect(close).toHaveBeenCalledOnce();
+  expect(screen.queryByRole("alertdialog")).toBeNull();
+  close.mockClear();
+  await user.clear(input);
+  await user.type(input, "https://example.com/unapplied.wav");
+  await user.keyboard("{Escape}");
+  expect(close).not.toHaveBeenCalled();
+  await user.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "继续编辑" }));
+  await user.clear(input);
+  await user.keyboard("{Escape}");
+  expect(close).toHaveBeenCalledOnce();
+  expect(mockApi.mock.calls.filter(([request]) => request.type === "import_audio_url")).toHaveLength(1);
+});
+
 it("selects audio from a web page and decodes an existing question image",async()=>{
   const user=userEvent.setup();
   const url="https://example.com/page";
@@ -360,6 +444,11 @@ it("blocks save until the requested audio finishes and then saves the replacemen
   expect(button.disabled).toBe(true);
   await user.click(button);
   expect(save).not.toHaveBeenCalled();
+  await user.keyboard("{Escape}");
+  await user.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "继续编辑" }));
+  expect(button.disabled).toBe(true);
+  expect((screen.getByRole("textbox", { name: "听力资源网址" }) as HTMLInputElement).value).toBe("https://example.com/replacement.wav");
+  expect(mockApi.mock.calls.filter(([request]) => request.type === "import_audio_url")).toHaveLength(1);
   finish({audio:{reference,duration:3,lease:"replacement"},links:[]} as never);
   await waitFor(()=>expect(button.disabled).toBe(false));
   await user.click(button);

@@ -3,6 +3,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { blankQuestion, QuestionEditor } from "./QuestionEditor";
+import type { Question } from "./api";
 
 HTMLElement.prototype.scrollIntoView = () => {};
 afterEach(cleanup);
@@ -202,6 +203,123 @@ it("protects clearing existing instructions and preserves null when saving", asy
   await user.click(screen.getByRole("button", { name: "保存题目" }));
   expect(save).toHaveBeenCalledWith(expect.objectContaining({ instructions: null }), []);
   expect(initial.instructions).toBe("Original instructions");
+});
+
+it.each([
+  ["stem", "题干（支持 Markdown 和公式）"],
+  ["questionTypeId", "题型名称"],
+] as const)("closes a reverted nullable %s without changing saved missing evidence", async (key, name) => {
+  const user = userEvent.setup();
+  const initial: Question = { ...blankQuestion(), [key]: null, needsReview: true, missingFields: [key] };
+  const close = vi.fn(), save = vi.fn();
+  render(<QuestionEditor initial={initial} busy={false} onClose={close} onSave={save} />);
+  const field = screen.getByRole("textbox", { name });
+  await user.type(field, "Temporary text");
+  await user.clear(field);
+  await user.keyboard("{Escape}");
+  expect(close).toHaveBeenCalledOnce();
+  expect(screen.queryByRole("alertdialog")).toBeNull();
+  await user.click(screen.getByRole("button", { name: "保存题目" }));
+  expect(save).toHaveBeenCalledWith(expect.objectContaining({ [key]: "", needsReview: true, missingFields: [key] }), []);
+  expect(initial[key]).toBeNull();
+});
+
+it.each(["passage", "contentBlocks"] as const)("closes reverted %s block edits while preserving roles and JSON content", async field => {
+  const user = userEvent.setup();
+  const jsonValue = { label: null, textValue: null, rows: [{ value: null }] };
+  const initial: Question = { ...blankQuestion(), answerMode: field === "passage" ? "reading" : "short_answer", questionKind: field === "passage" ? "reading" : "writing", choiceVariant: null, options: [], [field]: [{ partType: "text", role: "material", textValue: "Original text", jsonValue }] };
+  const close = vi.fn(), save = vi.fn();
+  render(<QuestionEditor initial={initial} busy={false} onClose={close} onSave={save} />);
+  const label = screen.getByRole("textbox", { name: field === "passage" ? "段落标签" : "材料段落标签" });
+  const text = screen.getByRole("textbox", { name: field === "passage" ? "文章段落" : "材料内容" });
+  await user.type(label, "Temporary label");
+  await user.clear(label);
+  await user.clear(text);
+  await user.type(text, "Original text");
+  await user.keyboard("{Escape}");
+  expect(close).toHaveBeenCalledOnce();
+  expect(screen.queryByRole("alertdialog")).toBeNull();
+  await user.click(screen.getByRole("button", { name: "保存题目" }));
+  expect(save.mock.calls[0][0][field]).toEqual([{ ...initial[field]![0], label: null, markdownValue: null, ...(field === "passage" ? { latexValue: null } : {}) }]);
+  expect(save.mock.calls[0][0][field][0].jsonValue).toEqual(jsonValue);
+  expect(initial[field]![0]).not.toHaveProperty("label");
+  close.mockClear();
+  save.mockClear();
+  await user.type(label, "Changed label");
+  await user.type(text, " changed");
+  await user.keyboard("{Escape}");
+  expect(close).not.toHaveBeenCalled();
+  await user.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "继续编辑" }));
+  await user.click(screen.getByRole("button", { name: "保存题目" }));
+  expect(save.mock.calls[0][0][field]).toEqual([{ ...initial[field]![0], label: "Changed label", textValue: "Original text changed", markdownValue: null, ...(field === "passage" ? { latexValue: null } : {}) }]);
+});
+
+it.each(["options", "items"] as const)("closes reverted nullable %s labels and content", async field => {
+  const user = userEvent.setup();
+  const initial: Question = { ...blankQuestion(), answerMode: field === "options" ? "choice" : "ordering", [field]: field === "options" ? [{ label: null, content: null }, { label: "B", content: "Two" }] : [{ id: 0, content: null }] };
+  const close = vi.fn();
+  render(<QuestionEditor initial={initial} busy={false} onClose={close} onSave={vi.fn()} />);
+  for (const name of field === "options" ? ["选项 1 标签", "选项 1 内容"] : ["段落标签", "题项 1"]) {
+    const input = screen.getByRole("textbox", { name });
+    await user.type(input, "Temporary text");
+    await user.clear(input);
+  }
+  await user.keyboard("{Escape}");
+  expect(close).toHaveBeenCalledOnce();
+  expect(screen.queryByRole("alertdialog")).toBeNull();
+});
+
+it("keeps changed nested content and transcript removal dirty", async () => {
+  const user = userEvent.setup();
+  const initial: Question = { ...blankQuestion(), answerMode: "listening", questionKind: "listening", choiceVariant: null, options: [], transcript: [{ partType: "text", role: "material", textValue: "Original transcript", jsonValue: { note: null } }] };
+  const close = vi.fn(), save = vi.fn();
+  render(<QuestionEditor initial={initial} busy={false} onClose={close} onSave={save} />);
+  await user.clear(screen.getByRole("textbox", { name: "听力原文" }));
+  await user.keyboard("{Escape}");
+  expect(close).not.toHaveBeenCalled();
+  await user.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "继续编辑" }));
+  await user.click(screen.getByRole("button", { name: "保存题目" }));
+  expect(save).toHaveBeenCalledWith(expect.objectContaining({ transcript: [] }), []);
+  expect(initial.transcript).toHaveLength(1);
+});
+
+it("closes reverted listening defaults without changing the saved shape", async () => {
+  const user = userEvent.setup();
+  const initial: Question = { ...blankQuestion(), answerMode: "listening", questionKind: "listening", choiceVariant: null, options: [] };
+  const close = vi.fn(), save = vi.fn();
+  render(<QuestionEditor initial={initial} busy={false} onClose={close} onSave={save} />);
+  for (const [name, original] of [["开始秒数", "0"], ["考试播放次数", "2"]]) {
+    const field = screen.getByRole("spinbutton", { name });
+    await user.clear(field);
+    await user.type(field, "3");
+    await user.clear(field);
+    await user.type(field, original);
+  }
+  const transcript = screen.getByRole("textbox", { name: "听力原文" });
+  await user.type(transcript, "Temporary transcript");
+  await user.clear(transcript);
+  await user.keyboard("{Escape}");
+  expect(close).toHaveBeenCalledOnce();
+  expect(screen.queryByRole("alertdialog")).toBeNull();
+  await user.click(screen.getByRole("button", { name: "保存题目" }));
+  expect(save).toHaveBeenCalledWith(expect.objectContaining({ audioStartSeconds: 0, examPlayCount: 2, transcript: [] }), []);
+  expect(initial).not.toHaveProperty("transcript");
+});
+
+it("closes a restored transcript with declared outer null defaults", async () => {
+  const user = userEvent.setup();
+  const initial: Question = { ...blankQuestion(), answerMode: "listening", questionKind: "listening", choiceVariant: null, options: [], transcript: [{ partType: "text", label: null, role: null, questionId: null, textValue: "Original transcript", markdownValue: null, latexValue: null, jsonValue: null }] };
+  const close = vi.fn(), save = vi.fn();
+  render(<QuestionEditor initial={initial} busy={false} onClose={close} onSave={save} />);
+  const transcript = screen.getByRole("textbox", { name: "听力原文" });
+  await user.clear(transcript);
+  await user.type(transcript, "Original transcript");
+  await user.keyboard("{Escape}");
+  expect(close).toHaveBeenCalledOnce();
+  expect(screen.queryByRole("alertdialog")).toBeNull();
+  await user.click(screen.getByRole("button", { name: "保存题目" }));
+  expect(save).toHaveBeenCalledWith(expect.objectContaining({ transcript: [{ partType: "text", textValue: "Original transcript" }] }), []);
+  expect(initial.transcript![0]).toHaveProperty("jsonValue", null);
 });
 
 it("protects a changed question on X and lets explicit discard close directly", async () => {

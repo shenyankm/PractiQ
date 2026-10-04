@@ -16,14 +16,26 @@ const nullableQuestionFields = new Set<keyof Question>([
   "id", "parentId", "questionKind", "instructions", "audioRef", "audioEndSeconds",
   "sourceLanguage", "targetLanguage", "writingGenre", "minWords", "maxWords",
   "optionSourceId", "blankCount", "choiceVariant", "matchingVariant", "sourceScore",
-  "scoringRubric", "scoreSourceText", "analysis", "sourceText",
+  "scoringRubric", "scoreSourceText", "analysis", "sourceText", "stem", "questionTypeId",
 ]);
+const blockTextFields = new Set(["label", "textValue", "markdownValue", "latexValue"]);
+const blockNullFields = new Set(["role", "questionId", "jsonValue"]);
+const optionTextFields = new Set(["label", "content"]);
 function draftSnapshot(question: Question, children: Question[]) {
-  // Omitted nullable defaults and explicit nulls are equivalent only for comparison.
-  const normalize = (value: Question) => Object.fromEntries(Object.entries(value)
-    .filter(([key, field]) => field !== null || !nullableQuestionFields.has(key as keyof Question))
+  // Normalize only known control defaults; preserve metadata, JSON content and array order.
+  const normalize = (value: object, emptyFields: ReadonlySet<string>) => Object.fromEntries(Object.entries(value)
+    .filter(([key, field]) => !emptyFields.has(key) || (field != null && field !== ""))
     .sort(([left], [right]) => left.localeCompare(right)));
-  return JSON.stringify([normalize(question), children.map(normalize)]);
+  const blocks = (values: Question["passage"]) => (values || []).map(value => normalize(Object.fromEntries(Object.entries(value)
+    .filter(([key, field]) => !blockNullFields.has(key) || field != null)), blockTextFields));
+  const normalizeQuestion = (value: Question) => normalize({
+    ...value,
+    options: value.options.map(option => normalize(option, optionTextFields)),
+    items: value.items.map(item => normalize(item, optionTextFields)),
+    contentBlocks: blocks(value.contentBlocks), passage: blocks(value.passage), transcript: blocks(value.transcript),
+    allowReuse: value.allowReuse ?? false, audioStartSeconds: value.audioStartSeconds ?? 0, examPlayCount: value.examPlayCount ?? 2,
+  }, nullableQuestionFields);
+  return JSON.stringify([normalizeQuestion(question), children.map(normalizeQuestion)]);
 }
 export function QuestionEditor({
   initial,
@@ -48,6 +60,7 @@ export function QuestionEditor({
   const [children, setChildren] = useState<Question[]>(() => structuredClone(initialChildren));
   const [original] = useState(() => draftSnapshot(q, children));
   const [audioPending, setAudioPending] = useState(false);
+  const [audioDraft, setAudioDraft] = useState(false);
   const [childEditor, setChildEditor] = useState<Question | null>(null);
   const dirty = draftSnapshot(q, children) !== original;
   const patch = (p: Partial<Question>) => setQ((v) => ({ ...v, ...p }));
@@ -85,7 +98,7 @@ export function QuestionEditor({
     });
   }
   return (
-      <EditorDialog title={t("编辑题目")} dirty={dirty || audioPending} busy={busy} onClose={onClose} className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
+      <EditorDialog title={t("编辑题目")} dirty={dirty || audioPending || audioDraft} busy={busy} onClose={onClose} className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
         <fieldset disabled={busy} className="space-y-5">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -119,7 +132,7 @@ export function QuestionEditor({
               patch({questionKind:kind || null,sourceLanguage:null,targetLanguage:null,writingGenre:null,minWords:null,maxWords:null});
             }}><option value="">{t("通用题型")}</option>{Object.entries(questionKinds()).filter(([kind])=>!parent || !["reading","listening"].includes(kind)).map(([kind,label])=><option key={kind} value={kind}>{label}</option>)}</select>
           </label>}
-          <EnglishFields question={q} patch={patch} images={images} onPendingChange={setAudioPending}/>
+          <EnglishFields question={q} patch={patch} images={images} onPendingChange={setAudioPending} onDraftChange={setAudioDraft}/>
           {q.answerMode === "choice" && (
             <NativeSelect
               aria-label={t("选择题类型")}
@@ -342,7 +355,7 @@ export function QuestionEditor({
         </fieldset>
         <DialogFooter>
           <Button variant="outline" disabled={busy} onClick={onClose}>{t("放弃更改")}</Button>
-          <Button disabled={busy || audioPending} onClick={() => {if(!audioPending)onSave(q,children);}}>{t("保存题目")}</Button>
+          <Button disabled={busy || audioPending || audioDraft} onClick={() => {if(!audioPending && !audioDraft)onSave(q,children);}}>{t("保存题目")}</Button>
         </DialogFooter>
       {childEditor && <QuestionEditor key={childEditor.id} initial={childEditor} parent={q} initialChildren={children.filter(c=>c.parentId===childEditor.id)} busy={false} onClose={()=>setChildEditor(null)} onSave={(child,nested)=>{
         const index=children.findIndex(c=>c.id===child.id);
