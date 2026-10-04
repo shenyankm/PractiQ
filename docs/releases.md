@@ -129,7 +129,9 @@ to derive checked resources from the selected final file and rebuild local
 assets. Default `release.py stage` remains the unsigned CI path. Explicit
 staging requires the original unsigned CI platform candidate, installer and bound
 evidence, preserves its build URL, and checks the selected installer's actual
-desktop version. Previously restaged candidates cannot replace that original
+desktop version. The original evidence directory must resolve within the downloaded
+candidate directory, and each evidence file must resolve within that evidence root.
+Previously restaged candidates cannot replace that original
 build provenance. Windows desktop executables must have bounded, complete PE
 headers identifying x64 (`0x8664`) and PE32+ (`0x20b`). Final DEBs must declare `amd64` and mandatory GTK/WebKit plus
 every runtime dependency in the candidate's Linux Tauri configuration. Version

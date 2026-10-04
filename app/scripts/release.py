@@ -170,9 +170,12 @@ def original_build(root: Path, tag: str, source_sha: str, path: Path) -> dict:
             or not re.fullmatch(r"/[^/]+/[^/]+/actions/runs/[1-9][0-9]*", run.path)):
         raise ValueError("Original build candidate must retain its immutable build-run URL")
     evidence = candidate.get("evidence", {})
+    evidence_root = path.parent / "evidence"
+    if not evidence_root.resolve().is_relative_to(path.parent.resolve()):
+        raise ValueError("Original build evidence directory escaped the downloaded candidate")
     for relative, digest in evidence.items():
         item = path.parent / relative
-        if not item.resolve().is_relative_to((path.parent / "evidence").resolve()) or checksum(item) != normalized_digest(digest):
+        if not item.resolve().is_relative_to(evidence_root.resolve()) or checksum(item) != normalized_digest(digest):
             raise ValueError("Original build evidence changed or escaped its directory")
     for name in ("desktop-bundle.json", "office.json", "office-fidelity.json", "licenses.json"):
         if "evidence/" + name not in evidence or read_json(path.parent / "evidence" / name).get("passed") is not True:

@@ -907,6 +907,44 @@ def test_final_staging_requires_matching_original_build_assets_and_evidence(rele
     assert not output.exists() and not reports.exists() and not state["calls"]
 
 
+@pytest.mark.parametrize("absolute", [False, True])
+def test_original_build_rejects_evidence_root_outside_downloaded_candidate(release, source, final_setup, absolute):
+    installer, output, reports, state = final_setup()
+    path = state["build_candidate"]
+    evidence = path.parent / "evidence"
+    outside = source / "unrelated-evidence"
+    shutil.copytree(evidence, outside)
+    shutil.rmtree(evidence)
+    evidence.symlink_to(outside if absolute else Path("../unrelated-evidence"), target_is_directory=True)
+    with pytest.raises(ValueError, match="evidence.*escaped|evidence.*directory"):
+        release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=path)
+    assert not output.exists() and not reports.exists() and not state["native"] and not state["calls"]
+
+
+def test_original_build_allows_evidence_root_resolving_inside_downloaded_candidate(release, source, final_setup):
+    installer, output, reports, state = final_setup()
+    path = state["build_candidate"]
+    evidence = path.parent / "evidence"
+    evidence.rename(path.parent / "contained-evidence")
+    evidence.symlink_to("contained-evidence", target_is_directory=True)
+    release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=path)
+    original = json.loads((output / "evidence/build-candidate.json").read_text())
+    assert original["assetAndEvidenceVerified"] is True and len(state["calls"]) == 4
+
+
+def test_original_build_rejects_absolute_individual_evidence_outside_directory(release, source, final_setup):
+    installer, output, reports, state = final_setup()
+    path = state["build_candidate"]
+    outside = source / "unrelated-report.json"
+    outside.write_text('{"passed":true}')
+    candidate = json.loads(path.read_text())
+    candidate["evidence"][str(outside)] = release.checksum(outside)
+    path.write_text(json.dumps(candidate))
+    with pytest.raises(ValueError, match="evidence.*escaped"):
+        release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=path)
+    assert not output.exists() and not reports.exists() and not state["native"] and not state["calls"]
+
+
 @pytest.mark.parametrize("payload", ["../outside", "C:\\outside", "\\outside", "bundled/file:stream", ""])
 def test_final_windows_rejects_unsafe_or_missing_payload_before_extraction(release, source, final_setup, monkeypatch, payload):
     installer, output, reports, state = final_setup("win32")
