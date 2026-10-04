@@ -56,8 +56,8 @@
     "en": "An operation is running. Check its progress."
   },
   "LOCAL_RESTORE_BUSY": {
-    "zh-CN": "请先等待当前 AI 请求结束或停止导入批次，再恢复备份",
-    "en": "Wait for the current AI request or stop the import batch before restoring a backup."
+    "zh-CN": "请等待当前 AI 评分请求结束后，再恢复备份",
+    "en": "Wait for the current AI grading request to finish before restoring a backup."
   },
   "LOCAL_OPERATION_ID_INVALID": {
     "zh-CN": "操作 ID 不合法",
