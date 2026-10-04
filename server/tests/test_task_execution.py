@@ -9,7 +9,7 @@ from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.types import Command
 
 from practiq_ai import execution, llm
-from practiq_ai.contracts import FailedUnit, RetryUnits
+from practiq_ai.contracts import FailedUnit, RetryUnits, document_source_key
 from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.extractors import ExtractedDocument
 from practiq_ai.graphs import document
@@ -105,6 +105,51 @@ async def test_parallel_pause_stops_future_batches_and_resumes_all_interrupts(mo
     result = await graph.ainvoke(Command(resume={item.id: {"action": "resume"} for item in result["__interrupt__"]}), {**config, "run_id": uuid4()})
     assert result["status"] == "SUCCEEDED"
     assert len(model.calls) == 4
+
+
+@pytest.mark.parametrize("kind", ["text", "csv", "pdf", "image"])
+@pytest.mark.parametrize("change", ["path", "version", "unconfigured", "unavailable"])
+async def test_non_office_pause_resumes_after_office_deployment_changes(monkeypatch, tmp_path, kind, change):
+    engine = tmp_path / "soffice"
+    engine.write_bytes(b"deployed Office engine")
+    monkeypatch.setenv("AI_OFFICE_EXECUTABLE", str(engine))
+    monkeypatch.setenv("AI_OFFICE_VERSION", "LibreOffice 26.8.0.3")
+    graph, store, files, reference, model = setup_graph(monkeypatch, [parsed()])
+    old_key = reference["objectKey"]
+    reference.update(sourceType=kind, mediaType={"text": "text/plain", "csv": "text/csv",
+        "pdf": "application/pdf", "image": "image/png"}[kind],
+        objectKey=document_source_key(kind, reference["sha256"]), fileName=f"source.{kind}")
+    files.blobs[reference["objectKey"]] = files.blobs.pop(old_key)
+    monkeypatch.setattr(document, "extract", AsyncMock(return_value=ExtractedDocument(text="First")))
+    original = document._chunk
+    config = run_config()
+
+    async def chunk(state, runtime):
+        if str(runtime.execution_info.run_id) == str(config.get("run_id")):
+            await store.aput(execution.namespace("thread-1", "pause"), str(config.get("run_id")), {"requested": True})
+        return await original(state, runtime)
+
+    monkeypatch.setattr(document, "_chunk", chunk)
+    graph = local_graph(InMemorySaver(), store=store)
+    paused = await graph.ainvoke({"document": reference}, config)
+    assert paused["__interrupt__"] and not model.calls
+    if change == "path":
+        replacement = tmp_path / "replacement-soffice"
+        replacement.write_bytes(b"different deployed engine")
+        monkeypatch.setenv("AI_OFFICE_EXECUTABLE", str(replacement))
+    elif change == "version":
+        monkeypatch.setenv("AI_OFFICE_VERSION", "LibreOffice 26.8.1.1")
+    elif change == "unconfigured":
+        monkeypatch.delenv("AI_OFFICE_EXECUTABLE")
+        monkeypatch.delenv("AI_OFFICE_VERSION")
+    else:
+        engine.unlink()
+    resumed = await graph.ainvoke(Command(resume={item.id: {"action": "resume"}
+        for item in paused["__interrupt__"]}), {**config, "run_id": uuid4()})
+    assert resumed["status"] == "SUCCEEDED"
+    snapshot = await graph.aget_state(config)
+    assert snapshot.values["document"] == reference and not snapshot.values.get("normalization")
+    assert len(model.calls) == 1 and len(resumed["usage"]) == 1
 
 
 @pytest.mark.parametrize("decision", ["accept_partial", "retry_failed"])

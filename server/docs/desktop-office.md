@@ -13,7 +13,9 @@ AI_OFFICE_VERSION=LibreOffice <exact deployed version and build identity>
 
 Use the exact output of the selected executable's `--version`, rather than the placeholder above. The executable path must be absolute and point to the trusted deployed program. Missing or mismatched configuration prevents Office processing. Neither HTTP inputs nor desktop settings can choose an executable or command arguments. The authenticated `GET /api/import-capabilities` describes supported formats, modes, upload limits and model availability. Office sources are limited to the smaller of `AI_SOURCE_MAX_BYTES` and 25 MiB, reported as `officeSourceMaxBytes`; raising the configured limit still permits larger non-Office sources. Oversized Office metadata is rejected before upload content is read or a task is queued. A deployment without Office configuration does not advertise Office support.
 
-Use a fixed deployment image/version and retain upstream licenses, source links and artifact checksums. Engine changes require fresh fidelity checks and affect checkpoint compatibility. The [LibreOffice license page](https://www.libreoffice.org/licenses/) describes its upstream licensing; a successful dependency audit does not replace deployment license review.
+Settings loading validates paired configuration, the absolute path and version format. The capability response excludes Office when that path is missing or is not a regular file; conversion and Office resume verify the deployed engine's bytes and identity. An unavailable Office engine does not block non-Office work, saved-result reads or ZIP exports.
+
+Use a fixed deployment image/version and retain upstream licenses, source links and artifact checksums. Engine changes require fresh fidelity checks and affect Office checkpoint compatibility. The [LibreOffice license page](https://www.libreoffice.org/licenses/) describes its upstream licensing; a successful dependency audit does not replace deployment license review.
 
 ## Modes and source identity
 
@@ -33,6 +35,8 @@ Each operation uses temporary source/output directories and a separate hardened 
 The private standard-library Office worker keeps its legacy DOC-to-temporary-DOCX PDF path and table-ending DOCX text regression repair. The intermediate DOCX is never a public artifact or replacement source. The same timeout and validation boundaries cover both DOC stages. These are conversion compatibility fixes, not another source parser.
 
 Resume verifies retained original and derived bytes, ordering, mode and execution identity before model work. An incompatible signature fails rather than silently mixing engines or recomputing a checkpoint. Parse again is explicit new work from the retained original source and mode. Reads, capability checks and ZIP downloads make no model calls.
+
+Office executable and version settings are bound by the normalization manifest, rather than the shared execution signature. Within the same code and runtime deployment, changing them preserves paused PDF, TXT, CSV and image tasks; their model and document-limit compatibility checks still apply. A code or runtime change still requires the original compatible deployment or a new task.
 
 ## Verification
 

@@ -70,9 +70,10 @@ def signature() -> dict[str, Any]:
     # Concurrency and timeouts can change without changing document semantics.
     for key in ("jobs_per_worker", "graph_max_concurrency", "storage_concurrency", "storage_timeout_seconds", "model_timeout_seconds", "deployment_workers", "provider_concurrency", "provider_rpm", "upload_concurrency", "upload_timeout_seconds", "max_busy_threads", "maintenance", "read_only"):
         settings.pop(key)
+    # Office manifests independently bind the engine version and executable checksum.
+    for key in ("office_executable", "office_version"):
+        settings.pop(key)
     settings["storage_dir"] = str(settings["storage_dir"])
-    if settings.get("office_executable") is not None:
-        settings["office_executable"] = str(settings["office_executable"])
     return {"version": STATE_VERSION, "code": code_version(), "runtime": runtime_version(), "settings": settings}
 
 
