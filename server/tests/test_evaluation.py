@@ -629,7 +629,9 @@ def test_answerless_image_manifest_case_accepts_null_answers(answerless_image_ca
     assert case["sourceHasNoAnswers"] and case["critical"] and case["split"] == "regression"
     assert len(case["expectedQuestions"]) == 2
     assert all(gold["answerPayload"] is None and gold["expectedNeedsReview"] for gold in case["expectedQuestions"])
-    assert all(not gold["expectedEvidence"] for gold in case["expectedQuestions"])
+    assert all(gold["expectedEvidence"] == {"analysis": None, "sourceScore": None,
+                                           "scoringRubric": None, "scoreSourceText": None}
+               for gold in case["expectedQuestions"])
     record = case_record(case, _answerless_image_result(case))
     report = ev.summarize([record])
     assert record["score"]["matched"] == 2 and record["score"]["inventedAnswers"] == 0
@@ -665,6 +667,29 @@ def test_answerless_image_manifest_case_rejects_invented_answers(
     assert record["score"]["inventedAnswers"] == 1 and not record["qualityPassed"]
     assert report["status"] == "FAILED"
     assert "INVENTED_ANSWER:image-no-answer:1" in report["gateReasons"]
+
+
+@pytest.mark.parametrize("question_index", [0, 1], ids=["first-question", "second-question"])
+@pytest.mark.parametrize(("field", "invented"), [
+    ("analysis", "Fabricated explanation."), ("sourceScore", 7),
+    ("scoringRubric", "Fabricated scoring criteria."), ("scoreSourceText", "Worth 7 points."),
+])
+def test_answerless_image_manifest_case_rejects_invented_grading_evidence(
+    answerless_image_case: dict[str, Any], question_index: int, field: str, invented: Any,
+) -> None:
+    case = answerless_image_case
+    clean = case_record(case, _answerless_image_result(case))
+    assert ev.summarize([clean])["status"] == "PASSED" and clean["qualityPassed"]
+    result = _answerless_image_result(case)
+    result["questions"][question_index][field] = invented
+    record = case_record(case, result)
+    report = ev.summarize([record, *[deepcopy(clean) for _ in range(10)]])
+    assert record["score"]["matched"] == 2 and record["score"]["inventedAnswers"] == 0
+    assert report["documentParser"]["parsedAnswerAccuracy"] == 100
+    assert report["status"] == "FAILED" and not record["qualityPassed"]
+    assert "evidence" in record["score"]["questions"][question_index]["differences"]
+    assert "EVIDENCE_MISMATCH:image-no-answer:1" in report["gateReasons"]
+    assert "CRITICAL_CASE_FAILED:image-no-answer:1" in report["gateReasons"]
 
 
 def test_csv_no_answer_gold_matches_original_source_without_grading_evidence():

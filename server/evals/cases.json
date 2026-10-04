@@ -1687,7 +1687,13 @@
             }
           ],
           "answerPayload": null,
-          "expectedNeedsReview": true
+          "expectedNeedsReview": true,
+          "expectedEvidence": {
+            "analysis": null,
+            "sourceScore": null,
+            "scoringRubric": null,
+            "scoreSourceText": null
+          }
         },
         {
           "stem": "2. Which planet is known as the Red Planet?",
@@ -1707,7 +1713,13 @@
             }
           ],
           "answerPayload": null,
-          "expectedNeedsReview": true
+          "expectedNeedsReview": true,
+          "expectedEvidence": {
+            "analysis": null,
+            "sourceScore": null,
+            "scoringRubric": null,
+            "scoreSourceText": null
+          }
         }
       ],
       "expectedVisualKinds": [],
