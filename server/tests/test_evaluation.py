@@ -587,8 +587,9 @@ def test_nullable_draft_fields_are_scored_without_breaking_report(tmp_path):
     assert path.is_file()
 
 
-def test_no_source_answers_checks_rewritten_and_extra_questions():
-    case = {**gold_case(), "sourceHasNoAnswers": True}
+@pytest.mark.parametrize("source_type", ["text", "image"])
+def test_no_source_answers_checks_rewritten_and_extra_questions(source_type):
+    case = {**gold_case(), "sourceType": source_type, "sourceHasNoAnswers": True}
     case["expectedQuestions"][0]["answerPayload"] = None
     output = {"questions": [question("Rewritten stem"), question("Invented extra")], "groups": [], "visualElements": []}
     score = ev.score_result(case, output)
@@ -599,7 +600,7 @@ def test_no_source_answers_checks_rewritten_and_extra_questions():
     assert report["status"] == "FAILED" and not record["qualityPassed"]
     assert any(reason.startswith("INVENTED_ANSWER:") for reason in report["gateReasons"])
     with pytest.raises(ValueError, match="forbids gold answers"):
-        ev.GoldCase.model_validate({**gold_case(), "sourceHasNoAnswers": True})
+        ev.GoldCase.model_validate({**gold_case(), "sourceType": source_type, "sourceHasNoAnswers": True})
 
 
 def test_quality_reliability_counts_documents_and_expected_rejections_separately():

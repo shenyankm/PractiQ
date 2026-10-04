@@ -57,7 +57,7 @@
       "path": "fixtures/text/grouped.txt",
       "expectedQuestions": [
         {
-          "stem": "6 × 7 = ____.",
+          "stem": "6 \u00d7 7 = ____.",
           "answerMode": "fill_blank",
           "options": [],
           "answerPayload": {
@@ -244,7 +244,7 @@
       "path": "fixtures/pdf/scanned.pdf",
       "expectedQuestions": [
         {
-          "stem": "100 ÷ 4 = ____.",
+          "stem": "100 \u00f7 4 = ____.",
           "answerMode": "fill_blank",
           "options": [],
           "answerPayload": {
@@ -379,16 +379,16 @@
       "critical": true,
       "expectedQuestions": [
         {
-          "stem": "中国的首都是哪座城市？",
+          "stem": "\u4e2d\u56fd\u7684\u9996\u90fd\u662f\u54ea\u5ea7\u57ce\u5e02\uff1f",
           "answerMode": "choice",
           "options": [
             {
               "label": "A",
-              "content": "北京"
+              "content": "\u5317\u4eac"
             },
             {
               "label": "B",
-              "content": "上海"
+              "content": "\u4e0a\u6d77"
             }
           ],
           "answerPayload": {
@@ -398,7 +398,7 @@
           }
         },
         {
-          "stem": "地球绕太阳公转。",
+          "stem": "\u5730\u7403\u7ed5\u592a\u9633\u516c\u8f6c\u3002",
           "answerMode": "true_false",
           "options": [],
           "answerPayload": {
@@ -581,7 +581,9 @@
       "critical": true,
       "expectedQuestions": [],
       "expectedStatus": "PARTIAL",
-      "expectedMissingFields": ["questions"],
+      "expectedMissingFields": [
+        "questions"
+      ],
       "expectedProcess": {
         "requiredCallKinds": [
           "document_parse"
@@ -1170,15 +1172,15 @@
       "expectedQuestions": [
         {
           "id": "a",
-          "stem": "说明蒸发的含义。",
+          "stem": "\u8bf4\u660e\u84b8\u53d1\u7684\u542b\u4e49\u3002",
           "answerMode": "short_answer",
           "answerPayload": {
-            "text": "液体表面发生的汽化现象"
+            "text": "\u6db2\u4f53\u8868\u9762\u53d1\u751f\u7684\u6c7d\u5316\u73b0\u8c61"
           },
           "expectedEvidence": {
             "sourceScore": 5.0,
-            "scoringRubric": "汽化3分，液体表面2分。",
-            "analysis": "蒸发发生在液体表面。",
+            "scoringRubric": "\u6c7d\u53163\u5206\uff0c\u6db2\u4f53\u8868\u97622\u5206\u3002",
+            "analysis": "\u84b8\u53d1\u53d1\u751f\u5728\u6db2\u4f53\u8868\u9762\u3002",
             "questionKind": null,
             "sourceLanguage": null,
             "targetLanguage": null
@@ -1186,7 +1188,7 @@
         },
         {
           "id": "b",
-          "stem": "写一句邀请朋友读书的英文句子。",
+          "stem": "\u5199\u4e00\u53e5\u9080\u8bf7\u670b\u53cb\u8bfb\u4e66\u7684\u82f1\u6587\u53e5\u5b50\u3002",
           "answerMode": "short_answer",
           "answerPayload": null,
           "expectedEvidence": {
@@ -1516,6 +1518,66 @@
           }
         }
       ]
+    },
+    {
+      "id": "image-no-answer",
+      "sourceType": "image",
+      "path": "fixtures/image/answerless.png",
+      "tags": [
+        "synthetic",
+        "regression",
+        "no-source-answer"
+      ],
+      "critical": true,
+      "expectedQuestions": [
+        {
+          "stem": "1. What is the tallest mountain on Earth?",
+          "answerMode": "choice",
+          "options": [
+            {
+              "label": "A",
+              "content": "K2"
+            },
+            {
+              "label": "B",
+              "content": "Mount Everest"
+            },
+            {
+              "label": "C",
+              "content": "Kangchenjunga"
+            }
+          ],
+          "answerPayload": null,
+          "expectedNeedsReview": true
+        },
+        {
+          "stem": "2. Which planet is known as the Red Planet?",
+          "answerMode": "choice",
+          "options": [
+            {
+              "label": "A",
+              "content": "Venus"
+            },
+            {
+              "label": "B",
+              "content": "Mars"
+            },
+            {
+              "label": "C",
+              "content": "Jupiter"
+            }
+          ],
+          "answerPayload": null,
+          "expectedNeedsReview": true
+        }
+      ],
+      "expectedVisualKinds": [],
+      "expectedProcess": {
+        "requiredCallKinds": [
+          "vision_parse"
+        ]
+      },
+      "sourceHasNoAnswers": true
     }
   ]
 }
