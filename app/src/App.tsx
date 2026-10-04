@@ -47,9 +47,9 @@ import {
   type SessionFilter,
 } from "./api";
 import { Button } from "@/components/ui/button";
+import { BankEditor, type BankDraft } from "./BankEditor";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
@@ -141,11 +141,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
   const [importPreview, setImportPreview] = useState<{ preview: Preview; initialBank: string; task?: ImportTaskContext } | null>(null);
-  const [bankEditor, setBankEditor] = useState<{
-    id: string | null;
-    title: string;
-    description: string;
-  } | null>(null);
+  const [bankEditor, setBankEditor] = useState<BankDraft | null>(null);
   const [editor, setEditor] = useState<{
     id: string | null;
     question: Question;
@@ -868,48 +864,16 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
         }}
       /></Suspense>}
       {bankEditor && (
-        <Dialog
-          open
-          onOpenChange={(v) => {
-            if (!v && !busy) setBankEditor(null);
-          }}
-        >
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{t("编辑题库")}</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <Label htmlFor="bankTitle">{t("题库名称")}</Label>
-              <Input
-                id="bankTitle"
-                value={bankEditor.title}
-                onChange={(e) =>
-                  setBankEditor({ ...bankEditor, title: e.target.value })
-                }
-              />
-              <Label htmlFor="description">{t("说明")}</Label>
-              <Textarea
-                id="description"
-                value={bankEditor.description}
-                onChange={(e) =>
-                  setBankEditor({ ...bankEditor, description: e.target.value })
-                }
-              />
-            </div>
-            <DialogFooter>
-              <Button
-                disabled={busy || !bankEditor.title.trim()}
-                onClick={() =>
-                  run(async () => {
-                    await api({ type: "save_bank", ...bankEditor });
-                    setBankEditor(null);
-                    await reloadBanks();
-                  })
-                }
-              >{t("保存题库")}</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <BankEditor
+          initial={bankEditor}
+          busy={busy}
+          onClose={() => setBankEditor(null)}
+          onSave={draft => run(async () => {
+            await api({ type: "save_bank", ...draft });
+            setBankEditor(null);
+            await reloadBanks();
+          })}
+        />
       )}
       {editor && bank && (
         <Suspense fallback={loadingView}><QuestionEditor

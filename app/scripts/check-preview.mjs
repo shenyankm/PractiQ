@@ -69,6 +69,329 @@ test('preview question filters preserve imported warnings through review confirm
  await expect(question).toBeVisible();
 });
 
+for (const kind of ['bank','question']) {
+ test(`${kind} editor protects drafts from implicit dismissal`,async ({page})=>{
+  await page.goto('/');
+  await expect(page.getByText('基础知识 · 全题型',{exact:true}).first()).toBeVisible();
+  const bankTitle='基础知识 · 全题型';
+  if(kind==='question')await page.getByRole('button',{name:'查看题目',exact:true}).first().click();
+  const title=kind==='bank'?'编辑题库':'编辑题目';
+  const fieldName=kind==='bank'?'题库名称':'题干（支持 Markdown 和公式）';
+  const open=async()=>{
+   if(kind==='bank'){
+    await page.getByRole('button',{name:`题库操作 ${bankTitle}`,exact:true}).click();
+    await page.getByRole('menuitem',{name:title,exact:true}).click();
+   }else await page.getByRole('button',{name:title,exact:true}).first().click();
+   await expect(page.getByRole('dialog',{name:title,exact:true})).toBeVisible();
+  };
+  const dismiss=async action=>{
+   if(action==='Escape')await page.keyboard.press('Escape');
+   else if(action==='close')await page.getByRole('dialog',{name:title,exact:true}).getByRole('button',{name:'关闭',exact:true}).click();
+   else await page.mouse.click(8,8);
+  };
+  const actions=['Escape','close','outside'];
+  for(const action of actions){
+   await open();
+   await dismiss(action);
+   await expect(page.getByRole('dialog',{name:title,exact:true})).toBeHidden();
+   await expect(page.getByRole('alertdialog')).toHaveCount(0);
+  }
+  await open();
+  const editor=page.getByRole('dialog',{name:title,exact:true});
+  const field=editor.getByRole('textbox',{name:fieldName,exact:true});
+  const original=await field.inputValue();
+  await field.fill(`${original} draft`);
+  for(const action of actions){
+   await field.focus();
+   await dismiss(action);
+   const confirmation=page.getByRole('alertdialog',{name:'放弃未保存的更改？',exact:true});
+   await expect(confirmation).toBeVisible();
+   const resume=confirmation.getByRole('button',{name:'继续编辑',exact:true});
+   await expect(resume).toBeFocused();
+   await resume.click();
+   await expect(confirmation).toBeHidden();
+   await expect(field).toHaveValue(`${original} draft`);
+   await expect(action==='close'?editor.getByRole('button',{name:'关闭',exact:true}):field).toBeFocused();
+  }
+  await editor.getByRole('button',{name:'放弃更改',exact:true}).click();
+  await expect(editor).toBeHidden();
+  await expect(page.getByRole('alertdialog')).toHaveCount(0);
+  await open();
+  await expect(field).toHaveValue(original);
+  await field.fill(`${original} saved`);
+  await editor.getByRole('button',{name:kind==='bank'?'保存题库':'保存题目',exact:true}).click();
+  await expect(editor).toBeHidden();
+  if(kind==='bank'){
+   await page.getByRole('button',{name:`题库操作 ${original} saved`,exact:true}).click();
+   await page.getByRole('menuitem',{name:title,exact:true}).click();
+  }else{
+   const row=page.getByRole('button',{name:new RegExp(`${original} saved`)}).locator('..');
+   await row.getByRole('button',{name:title,exact:true}).click();
+  }
+  await expect(field).toHaveValue(`${original} saved`);
+  await page.keyboard.press('Escape');
+  await expect(editor).toBeHidden();
+  await expect(page.getByRole('alertdialog')).toHaveCount(0);
+ });
+}
+
+test('new question reverted nullable fields close without discarding other edits',async ({page})=>{
+ await page.goto('/');
+ await page.getByRole('button',{name:'查看题目',exact:true}).first().click();
+ const editor=page.getByRole('dialog',{name:'编辑题目',exact:true});
+ const instructions=editor.getByRole('textbox',{name:'作答说明',exact:true});
+ const open=()=>page.getByRole('button',{name:'新增题目',exact:true}).click();
+ for(const action of ['Escape','close','outside']){
+  await open();
+  await instructions.fill('Temporary instructions');
+  await instructions.fill('');
+  if(action==='Escape')await page.keyboard.press('Escape');
+  else if(action==='close')await editor.getByRole('button',{name:'关闭',exact:true}).click();
+  else await page.mouse.click(8,8);
+  await expect(editor).toBeHidden();
+  await expect(page.getByRole('alertdialog')).toHaveCount(0);
+ }
+ await open();
+ await instructions.fill('Temporary instructions');
+ await instructions.fill('');
+ const stem=editor.getByRole('textbox',{name:'题干（支持 Markdown 和公式）',exact:true});
+ await stem.fill('Actual changed stem');
+ await page.keyboard.press('Escape');
+ const confirmation=page.getByRole('alertdialog',{name:'放弃未保存的更改？',exact:true});
+ await expect(confirmation).toBeVisible();
+ await confirmation.getByRole('button',{name:'继续编辑',exact:true}).click();
+ await expect(stem).toHaveValue('Actual changed stem');
+ await expect(stem).toBeFocused();
+ await editor.getByRole('button',{name:'放弃更改',exact:true}).click();
+ await expect(editor).toBeHidden();
+});
+
+test('reverted empty reference answers close without losing real editor changes',async ({page})=>{
+ await page.goto('/');
+ await page.getByRole('button',{name:'查看题目',exact:true}).first().click();
+ const editor=page.getByRole('dialog',{name:'编辑题目',exact:true});
+ const open=()=>page.getByRole('button',{name:'新增题目',exact:true}).click();
+ for(const mode of ['short_answer','choice','fill_blank']){
+  for(const action of ['Escape','close','outside']){
+   await open();
+   if(mode!=='choice')await editor.getByLabel('答题方式',{exact:true}).selectOption(mode);
+   else {
+    await editor.getByLabel('选择题类型',{exact:true}).selectOption('multiple');
+    await editor.getByRole('textbox',{name:'选项 1 内容',exact:true}).fill('One');
+    await editor.getByRole('textbox',{name:'选项 2 内容',exact:true}).fill('Two');
+   }
+   // Save the mode first so the reopened reference starts null with no other draft.
+   await editor.getByRole('textbox',{name:'题干（支持 Markdown 和公式）',exact:true}).fill(`Empty reference ${mode} ${action}`);
+   await editor.getByRole('button',{name:'保存题目',exact:true}).click();
+   const row=page.getByRole('button',{name:new RegExp(`Empty reference ${mode} ${action}$`)}).locator('..');
+   await row.getByRole('button',{name:'编辑题目',exact:true}).click();
+   if(mode==='choice'){
+    const choice=editor.getByRole('checkbox',{name:/A\./});
+    await choice.check();await choice.uncheck();
+   }else{
+    const text=editor.getByRole('textbox',{name:mode==='short_answer'?'作答内容':'第 1 空',exact:true});
+    await text.fill('Temporary reference');await text.fill('');
+   }
+   if(action==='Escape')await page.keyboard.press('Escape');
+   else if(action==='close')await editor.getByRole('button',{name:'关闭',exact:true}).click();
+   else await page.mouse.click(8,8);
+   await expect(editor).toBeHidden();
+   await expect(page.getByRole('alertdialog')).toHaveCount(0);
+  }
+ }
+ const changedRow=page.getByRole('button',{name:/Empty reference fill_blank outside$/}).locator('..');
+ await changedRow.getByRole('button',{name:'编辑题目',exact:true}).click();
+ const answer=editor.getByRole('textbox',{name:'第 1 空',exact:true});
+ await answer.fill('Real reference');
+ await page.keyboard.press('Escape');
+ const confirmation=page.getByRole('alertdialog',{name:'放弃未保存的更改？',exact:true});
+ await expect(confirmation).toBeVisible();
+ await confirmation.getByRole('button',{name:'继续编辑',exact:true}).click();
+ await expect(answer).toHaveValue('Real reference');
+ await editor.getByRole('button',{name:'保存题目',exact:true}).click();
+ await changedRow.getByRole('button',{name:'编辑题目',exact:true}).click();
+ await expect(answer).toHaveValue('Real reference');
+ await page.keyboard.press('Escape');
+ await expect(editor).toBeHidden();
+});
+
+test('incomplete question reference fallbacks close after reverting text and keep real edits',async ({page})=>{
+ await page.goto('/');
+ await page.getByRole('button',{name:'查看题目',exact:true}).first().click();
+ const editor=page.getByRole('dialog',{name:'编辑题目',exact:true});
+ for(const mode of ['choice','ordering','matching']){
+  await page.getByRole('button',{name:'新增题目',exact:true}).click();
+  if(mode!=='choice')await editor.getByRole('combobox',{name:'答题方式',exact:true}).selectOption(mode);
+  const title=`Incomplete ${mode} reference`;
+  await editor.getByRole('textbox',{name:'题干（支持 Markdown 和公式）',exact:true}).fill(title);
+  await editor.getByRole('button',{name:'保存题目',exact:true}).click();
+  const open=async()=>{
+   const button=page.getByRole('button',{name:new RegExp(`${title}$`)}).locator('..').getByRole('button',{name:'编辑题目',exact:true});
+   await button.evaluate(node=>node.scrollIntoView({block:'center'}));
+   await page.mouse.move(0,0);
+   await expect(page.getByText('题目已保存，历史练习不受影响',{exact:true})).toBeHidden();
+   await button.click();
+  };
+  for(const dismiss of ['Escape','close','outside']){
+   await open();
+   const text=editor.getByRole('textbox',{name:'自由作答',exact:true});
+   await text.fill('Temporary reference');await text.fill('');
+   if(dismiss==='Escape')await page.keyboard.press('Escape');
+   else if(dismiss==='close')await editor.getByRole('button',{name:'关闭',exact:true}).click();
+   else await page.mouse.click(8,8);
+   await expect(editor).toBeHidden();
+   await expect(page.getByRole('alertdialog')).toHaveCount(0);
+  }
+  await open();
+  const text=editor.getByRole('textbox',{name:'自由作答',exact:true});
+  await text.fill('Actual reference');
+  await page.keyboard.press('Escape');
+  const confirmation=page.getByRole('alertdialog',{name:'放弃未保存的更改？',exact:true});
+  await expect(confirmation).toBeVisible();
+  await confirmation.getByRole('button',{name:'继续编辑',exact:true}).click();
+  await expect(text).toHaveValue('Actual reference');
+  await editor.getByRole('button',{name:'保存题目',exact:true}).click();
+  await open();
+  await expect(text).toHaveValue('Actual reference');
+  await text.fill('');
+  await page.keyboard.press('Escape');
+  await expect(confirmation).toBeVisible();
+  await confirmation.getByRole('button',{name:'继续编辑',exact:true}).click();
+  await editor.getByRole('button',{name:'放弃更改',exact:true}).click();
+ }
+});
+
+test('listening URL drafts survive every implicit dismissal without triggering downloads',async ({page})=>{
+ const remoteRequests=[];
+ page.on('request',request=>{if(request.url().startsWith('https://example.com/'))remoteRequests.push(request.url());});
+ await page.goto('/');
+ const bank=page.locator('[data-slot=card]').filter({has:page.getByText('英语专项 · 听力与写作',{exact:true})});
+ await bank.getByRole('button',{name:'查看题目',exact:true}).click();
+ const open=()=>page.getByRole('button',{name:/Listening — chimes$/}).locator('..').getByRole('button',{name:'编辑题目',exact:true}).click();
+ const editor=page.getByRole('dialog',{name:'编辑题目',exact:true});
+ const input=editor.getByRole('textbox',{name:'听力资源网址',exact:true});
+ await open();
+ const url='https://example.com/unapplied.wav';
+ await input.fill(url);
+ await expect(editor.getByRole('button',{name:'保存题目',exact:true})).toBeDisabled();
+ await expect(editor.getByRole('status').filter({hasText:'网址尚未应用'})).toBeVisible();
+ for(const action of ['Escape','close','outside']){
+  await input.focus();
+  if(action==='Escape')await page.keyboard.press('Escape');
+  else if(action==='close')await editor.getByRole('button',{name:'关闭',exact:true}).click();
+  else await page.mouse.click(8,8);
+  const confirmation=page.getByRole('alertdialog',{name:'放弃未保存的更改？',exact:true});
+  await expect(confirmation).toBeVisible();
+  await confirmation.getByRole('button',{name:'继续编辑',exact:true}).click();
+  await expect(confirmation).toBeHidden();
+  await expect(input).toHaveValue(url);
+  await expect(action==='close'?editor.getByRole('button',{name:'关闭',exact:true}):input).toBeFocused();
+ }
+ await input.fill('');
+ await expect(editor.getByRole('button',{name:'保存题目',exact:true})).toBeEnabled();
+ await page.keyboard.press('Escape');
+ await expect(editor).toBeHidden();
+ await expect(page.getByRole('alertdialog')).toHaveCount(0);
+ await open();
+ await editor.getByRole('button',{name:'识别二维码图片',exact:true}).click();
+ await expect(input).toHaveValue('https://example.com/listening.mp3');
+ await page.keyboard.press('Escape');
+ const confirmation=page.getByRole('alertdialog',{name:'放弃未保存的更改？',exact:true});
+ await expect(confirmation).toBeVisible();
+ await confirmation.getByRole('button',{name:'继续编辑',exact:true}).click();
+ await expect(input).toHaveValue('https://example.com/listening.mp3');
+ await editor.getByRole('button',{name:'放弃更改',exact:true}).click();
+ await expect(editor).toBeHidden();
+ expect(remoteRequests).toEqual([]);
+});
+
+test('applied listening URLs become guarded when their audio is removed or replaced',async ({page})=>{
+ const remoteRequests=[];
+ page.on('request',request=>{if(request.url().startsWith('https://example.com/'))remoteRequests.push(request.url());});
+ await page.goto('/');
+ const bank=page.locator('[data-slot=card]').filter({has:page.getByText('英语专项 · 听力与写作',{exact:true})});
+ await bank.getByRole('button',{name:'查看题目',exact:true}).click();
+ const editor=page.getByRole('dialog',{name:'编辑题目',exact:true});
+ const input=editor.getByRole('textbox',{name:'听力资源网址',exact:true});
+ const save=editor.getByRole('button',{name:'保存题目',exact:true});
+ const confirmation=page.getByRole('alertdialog',{name:'放弃未保存的更改？',exact:true});
+ for(const action of ['remove','mode','file']){
+  await page.getByRole('button',{name:/Listening — chimes$/}).locator('..').getByRole('button',{name:'编辑题目',exact:true}).click();
+  const url=`https://example.com/${action}.wav`;
+  await input.fill(url);
+  await editor.getByRole('button',{name:'从网址获取音频',exact:true}).click();
+  await expect(save).toBeEnabled();
+  if(action==='remove')await editor.getByRole('button',{name:'移除音频',exact:true}).click();
+  else if(action==='mode'){
+   await editor.getByRole('combobox',{name:'答题方式',exact:true}).selectOption('short_answer');
+   await editor.getByRole('combobox',{name:'答题方式',exact:true}).selectOption('listening');
+  }else await editor.getByRole('button',{name:'选择听力音频',exact:true}).click();
+  await expect(save).toBeDisabled();
+  await expect(input).toHaveValue(url);
+  await expect(editor.getByRole('status').filter({hasText:'网址尚未应用'})).toBeVisible();
+  for(const dismiss of ['Escape','close','outside']){
+   await input.focus();
+   if(dismiss==='Escape')await page.keyboard.press('Escape');
+   else if(dismiss==='close')await editor.getByRole('button',{name:'关闭',exact:true}).click();
+   else await page.mouse.click(8,8);
+   await expect(confirmation).toBeVisible();
+   await confirmation.getByRole('button',{name:'继续编辑',exact:true}).click();
+   await expect(input).toHaveValue(url);
+   await expect(save).toBeDisabled();
+  }
+  await input.fill('');
+  await expect(save).toBeEnabled();
+  await editor.getByRole('button',{name:'放弃更改',exact:true}).click();
+  await expect(editor).toBeHidden();
+ }
+ expect(remoteRequests).toEqual([]);
+});
+
+test('child editors retain changed drafts and stage changes until the parent saves',async ({page})=>{
+ await page.goto('/');
+ const bank=page.locator('[data-slot=card]').filter({has:page.getByText('阅读与组合题',{exact:true})});
+ await bank.getByRole('button',{name:'查看题目',exact:true}).click();
+ const openRoot=()=>page.getByRole('button',{name:/words-root$/}).locator('..').getByRole('button',{name:'编辑题目',exact:true}).click();
+ const editor=page.getByRole('dialog',{name:'编辑题目',exact:true});
+ const field=editor.getByRole('textbox',{name:'题干（支持 Markdown 和公式）',exact:true});
+ await openRoot();
+ await editor.getByText('1. words-root1',{exact:true}).locator('..').getByRole('button',{name:'编辑题目',exact:true}).click();
+ await expect(field).toHaveValue('words-root1');
+ await field.fill('Changed child draft');
+ for(const action of ['Escape','close','outside']){
+  if(action==='Escape')await page.keyboard.press('Escape');
+  else if(action==='close')await editor.getByRole('button',{name:'关闭',exact:true}).click();
+  else await page.mouse.click(8,8);
+  const confirmation=page.getByRole('alertdialog',{name:'放弃未保存的更改？',exact:true});
+  await expect(confirmation).toBeVisible();
+  await confirmation.getByRole('button',{name:'继续编辑',exact:true}).click();
+  await expect(field).toHaveValue('Changed child draft');
+ }
+ await editor.getByRole('button',{name:'放弃更改',exact:true}).click();
+ await expect(field).toHaveValue('words-root');
+ await expect(editor.getByText('1. words-root1',{exact:true})).toBeVisible();
+ await page.keyboard.press('Escape');
+ await expect(editor).toBeHidden();
+ await expect(page.getByRole('alertdialog')).toHaveCount(0);
+ await openRoot();
+ await editor.getByText('1. words-root1',{exact:true}).locator('..').getByRole('button',{name:'编辑题目',exact:true}).click();
+ await field.fill('Saved child draft');
+ await editor.getByRole('button',{name:'保存题目',exact:true}).click();
+ await expect(editor.getByText('1. Saved child draft',{exact:true})).toBeVisible();
+ await page.keyboard.press('Escape');
+ const confirmation=page.getByRole('alertdialog',{name:'放弃未保存的更改？',exact:true});
+ await expect(confirmation).toBeVisible();
+ await confirmation.getByRole('button',{name:'继续编辑',exact:true}).click();
+ await editor.getByRole('button',{name:'保存题目',exact:true}).click();
+ await expect(editor).toBeHidden();
+ await openRoot();
+ await expect(editor.getByText('1. Saved child draft',{exact:true})).toBeVisible();
+ await expect(editor.getByText('2. words-root2',{exact:true})).toBeVisible();
+ await page.keyboard.press('Escape');
+ await expect(editor).toBeHidden();
+ await expect(page.getByRole('alertdialog')).toHaveCount(0);
+});
+
 test('preview nested word-bank answers use inherited choices offline',async ({page})=>{
  await page.goto('/');
  await page.getByRole('button',{name:'开始练习',exact:true}).nth(2).click();
@@ -242,7 +565,6 @@ base('study setup retries failed statistics and manual pages without resetting s
  expect(pageRequests[2]).toEqual(pageRequests[1]);
  expect(errors).toEqual([]);
 });
-
 for (const colorScheme of ['light','dark']) {
  base(`answer-card status markers match the legend and preserve keyboard navigation in ${colorScheme} theme`,async ({page},testInfo)=>{
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
