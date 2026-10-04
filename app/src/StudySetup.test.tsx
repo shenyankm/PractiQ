@@ -97,6 +97,29 @@ function setup() {
   return onStart;
 }
 
+it.each([{feasibleCounts:[1,2],expected:2}, {feasibleCounts:[3,6,9],expected:9}])("initializes an untouched count after the first statistics read succeeds on retry ($expected)", async ({feasibleCounts,expected}) => {
+  vi.mocked(api).mockRejectedValueOnce(new Error("Statistics unavailable")).mockResolvedValue({count:expected,types:{single:expected},feasibleCounts} as never);
+  render(<StudySetup banks={banks} initialBank="one" initialFilter="" busy={false} run={job=>{void job();}} onStart={async()=>{}} onClose={()=>{}}/>);
+  const retry = await screen.findByRole("button", {name:"重试题目统计"});
+  expect((screen.getByLabelText("题目数量") as HTMLInputElement).value).toBe("20");
+  await userEvent.click(retry);
+  await waitFor(() => expect(screen.queryByRole("button", {name:"重试题目统计"})).toBeNull());
+  expect((screen.getByLabelText("题目数量") as HTMLInputElement).value).toBe(String(expected));
+  expect(screen.getByRole("button", {name:"立即开始"}).hasAttribute("disabled")).toBe(false);
+  expect(screen.queryByText("该数量无法由完整题组组成，请选择可用数量。")).toBeNull();
+});
+
+it("preserves a count entered while the first statistics read is pending", async () => {
+  let resolveStats: (value: unknown) => void = () => {};
+  vi.mocked(api).mockImplementation(async () => new Promise(resolve => { resolveStats = resolve; }) as never);
+  render(<StudySetup banks={banks} initialBank="one" initialFilter="" busy={false} run={job=>{void job();}} onStart={async()=>{}} onClose={()=>{}}/>);
+  fireEvent.change(screen.getByLabelText("题目数量"), {target:{value:"1"}});
+  await waitFor(() => expect(api).toHaveBeenCalled());
+  await act(async () => { resolveStats({count:2,types:{single:2},feasibleCounts:[1,2]}); });
+  await waitFor(() => expect(screen.getByRole("button", {name:"立即开始"}).hasAttribute("disabled")).toBe(false));
+  expect((screen.getByLabelText("题目数量") as HTMLInputElement).value).toBe("1");
+});
+
 it("retries statistics without resetting selections, quotas, count or exam settings", async () => {
   setup();
   const base = vi.mocked(api).getMockImplementation()!;

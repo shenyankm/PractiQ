@@ -1,6 +1,6 @@
 import { COMPOSITE_FILTERS } from "./contracts.generated";
 import { message, MessageError, t, useI18n } from "./i18n";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, errorMessage, isComposite, type BankChoice, type Session, type SessionKind, type QuestionRow, type QuestionStats, type PaperPreview } from "./api";
 import { cents, defaultPaperCount, questionType, types } from "./paper";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,7 @@ export function StudySetup({banks, initialBank, initialBankIds, initialFilter, i
   const [statsError, setStatsError] = useState<unknown>(null), [pageError, setPageError] = useState<unknown>(null);
   const [statsRetry, setStatsRetry] = useState({query:"",attempt:0}), [pageRetry, setPageRetry] = useState({query:"",attempt:0});
   const [count, setCount] = useState(20), [minutes, setMinutes] = useState(60), [random, setRandom] = useState(false);
+  const countEditedForQuery = useRef(false);
   const [selection, setSelection] = useState("count"), [selected, setSelected] = useState<Record<string, { count: number; group: boolean }>>({}), [quotas, setQuotas] = useState<Record<string,number>>({});
   const [paper, setPaper] = useState<PaperPreview | null>(null);
   const [preview, setPreview] = useState<QuestionRow[]>([]), [scores, setScores] = useState<string[]>([]), [total, setTotal] = useState("100"), [budgets, setBudgets] = useState<Record<string,string>>({});
@@ -38,6 +39,7 @@ export function StudySetup({banks, initialBank, initialBankIds, initialFilter, i
   const pageLoading = selection === "manual" && loadedPage !== pageQuery;
   const loading = statsLoading || pageLoading;
   useEffect(() => {
+    countEditedForQuery.current = false;
     setError(null); setStatsError(null); setPageError(null); setPreview([]); setPaper(null); setSelected({}); setOffset(0);
     setStatsRetry({query:"",attempt:0}); setPageRetry({query:"",attempt:0});
   }, [query]);
@@ -50,12 +52,12 @@ export function StudySetup({banks, initialBank, initialBankIds, initialFilter, i
     }
     const timer = setTimeout(() => {
       void api({type:"question_stats", ...values})
-        .then(result => { if (active) { setStats(result); setStatsError(null); if (!statsAttempt) setCount(defaultPaperCount(result.feasibleCounts ?? Array.from({length:Math.min(1000, result.count)}, (_, i) => i + 1))); } })
+        .then(result => { if (active) { setStats(result); setStatsError(null); if (!countEditedForQuery.current) setCount(defaultPaperCount(result.feasibleCounts ?? Array.from({length:Math.min(1000, result.count)}, (_, i) => i + 1))); } })
         .catch(e => { if (active) { setStats({ count: 0, types: {} }); setStatsError(e); } })
         .finally(() => { if (active) setLoadedQuery(statsQuery); });
     }, 150);
     return () => { active = false; clearTimeout(timer); };
-  }, [query, statsQuery, statsAttempt]);
+  }, [query, statsQuery]);
   useEffect(() => {
     if (selection !== "manual") return;
     let active = true;
@@ -108,11 +110,11 @@ export function StudySetup({banks, initialBank, initialBankIds, initialFilter, i
         <div className="grid grid-cols-2 gap-4">
           <label className="grid gap-2 font-medium">{t("模式")}<NativeSelect disabled={busy} className="w-full" value={kind} onChange={e => { setKind(e.target.value as SessionKind); invalidate(); }}><NativeSelectOption value="practice">{t("即时反馈练习")}</NativeSelectOption><NativeSelectOption value="self_test">{t("不限时自测")}</NativeSelectOption><NativeSelectOption value="mock_exam">{t("限时模考")}</NativeSelectOption></NativeSelect></label>
           {kind === "mock_exam" && <label className="grid gap-2 font-medium">{t("考试时长（分钟）")}<Input aria-label={t("考试分钟数")} type="number" min={1} max={1440} value={minutes} onChange={e => setMinutes(Number(e.target.value))}/></label>}
-          {selection === "count" && <label className="grid gap-2 font-medium">{t("题目数量")}<Input type="number" min={1} max={Math.min(1000, available)} value={count} onChange={e => { setCount(Number(e.target.value)); invalidate(); }}/></label>}
+          {selection === "count" && <label className="grid gap-2 font-medium">{t("题目数量")}<Input type="number" min={1} max={Math.min(1000, available)} value={count} onChange={e => { countEditedForQuery.current = true; setCount(Number(e.target.value)); invalidate(); }}/></label>}
           {kind !== "practice" && <label className="grid gap-2 font-medium">{t("考试总分")}<Input value={total} onChange={e => { setTotal(e.target.value); invalidate(); }}/></label>}
         </div>
         {selection === "count" && <p className="text-sm text-muted-foreground">{t("材料题按小题计数，始终整组选取，最多 1000 小题。")}</p>}
-        {invalidCount && !loading && available > 0 && <div role="status" className="space-y-2 text-sm"><p>{t(feasibleCounts.length ? "该数量无法由完整题组组成，请选择可用数量。" : "当前完整题组均超过 1000 小题上限，请调整筛选。")}</p><div className="flex gap-2">{nearbyCounts.map(n => <Button key={n} variant="outline" onClick={() => { setCount(n); invalidate(); }}>{t("选择 {0} 小题", {0:n})}</Button>)}</div></div>}
+        {invalidCount && !loading && available > 0 && <div role="status" className="space-y-2 text-sm"><p>{t(feasibleCounts.length ? "该数量无法由完整题组组成，请选择可用数量。" : "当前完整题组均超过 1000 小题上限，请调整筛选。")}</p><div className="flex gap-2">{nearbyCounts.map(n => <Button key={n} variant="outline" onClick={() => { countEditedForQuery.current = true; setCount(n); invalidate(); }}>{t("选择 {0} 小题", {0:n})}</Button>)}</div></div>}
         {selection !== "manual" && <label className="flex items-center gap-2">{t("出题顺序")}<NativeSelect disabled={busy} aria-label={t("出题顺序")} className="w-full max-w-40" value={random ? "random" : "ordered"} onChange={e => { setRandom(e.target.value === "random"); invalidate(); }}><NativeSelectOption value="ordered">{t("顺序练习")}</NativeSelectOption><NativeSelectOption value="random">{t("随机抽题")}</NativeSelectOption></NativeSelect></label>}
         <details className="rounded-lg border p-4" onToggle={event => { if (event.currentTarget.open) setAdvancedLoaded(true); }}>
           <summary className="cursor-pointer font-medium">{t("高级设置 · 题库、筛选与选题方式")}</summary>
