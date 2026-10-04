@@ -53,8 +53,14 @@ def elf(abi: str) -> bytes:
     header = bytearray(64)
     header[:7] = b"\x7fELF\x02\x01\x01"
     struct.pack_into("<HHI", header, 16, 3, 183 if abi == "arm64-v8a" else 62, 1)
+    struct.pack_into("<Q", header, 32, 64)
     struct.pack_into("<H", header, 52, 64)
-    return bytes(header) + b"Synthetic shared-library payload; never executed"
+    struct.pack_into("<HH", header, 54, 56, 2)
+    payload = b"Synthetic shared-library payload; never executed"
+    size = len(header) + 2 * 56 + len(payload)
+    load = struct.pack("<IIQQQQQQ", 1, 4, 0, 0, 0, size, 16_384, 16_384)
+    relro = struct.pack("<IIQQQQQQ", 0x6474E552, 4, 0, 0, 0, size, 16_384, 1)
+    return bytes(header) + load + relro + payload
 
 
 def manifest(abi: str) -> dict:
@@ -245,6 +251,105 @@ def test_apk_requires_a_regular_nonempty_native_library_for_the_selected_abi(apk
     with pytest.raises(ValueError, match="regular|native library|ELF|ABI"):
         apk_case["invoke"](contents)
     assert not apk_case["output"].exists()
+
+
+@pytest.mark.parametrize("changes,truncate", [
+    ([(32, "Q", 0)], None),
+    ([(32, "Q", 32)], None),
+    ([(32, "Q", 2**64 - 1)], None),
+    ([(54, "H", 0)], None),
+    ([(54, "H", 55)], None),
+    ([(54, "H", 57)], None),
+    ([(56, "H", 0)], None),
+    ([(56, "H", 4097)], None),
+    ([(56, "H", 65535)], None),
+    ([], 64 + 55),
+    ([], 64 + 2 * 56 - 1),
+    ([(64, "I", 2)], None),
+], ids=["missing-table", "overlapping-header", "table-offset-overflow", "zero-entry-width",
+        "short-entry-width", "long-entry-width", "no-headers", "header-count-limit",
+        "extended-count", "first-header-truncated", "last-header-truncated", "no-load-segment"])
+def test_apk_rejects_invalid_or_unbounded_program_headers(apk_case, changes, truncate):
+    data = bytearray(elf("arm64-v8a"))
+    for offset, format_, value in changes:
+        struct.pack_into("<" + format_, data, offset, value)
+    if truncate is not None:
+        data = data[:truncate]
+    contents = [(name, bytes(data) if name == "lib/arm64-v8a/libpractiq_desktop.so" else payload)
+                for name, payload in entries("arm64-v8a")]
+    with pytest.raises(ValueError, match="ELF|program|LOAD"):
+        apk_case["invoke"](contents)
+    assert not apk_case["output"].exists() and apk_case["calls"] == []
+
+
+@pytest.mark.parametrize("changes", [
+    [(64 + 48, "Q", 0)], [(64 + 48, "Q", 1)], [(64 + 48, "Q", 4096)],
+    [(64 + 48, "Q", 24_576)], [(64 + 16, "Q", 1)],
+    [(64 + 32, "Q", 16_385)], [(64 + 40, "Q", 1)],
+    [(64 + 8, "Q", 1024), (64 + 16, "Q", 1024)],
+    [(64 + 16, "Q", 2**64 - 16_384), (64 + 40, "Q", 32_768)],
+], ids=["zero-alignment", "one-alignment", "4k-alignment", "non-power-of-two",
+        "incongruent-address", "file-range", "memory-smaller-than-file", "file-offset",
+        "virtual-range-overflow"])
+def test_apk_rejects_unsafe_load_segments(apk_case, changes):
+    data = bytearray(elf("arm64-v8a"))
+    for offset, format_, value in changes:
+        struct.pack_into("<" + format_, data, offset, value)
+    contents = [(name, bytes(data) if name == "lib/arm64-v8a/libpractiq_desktop.so" else payload)
+                for name, payload in entries("arm64-v8a")]
+    with pytest.raises(ValueError, match="ELF|LOAD|16 KiB"):
+        apk_case["invoke"](contents)
+    assert not apk_case["output"].exists() and apk_case["calls"] == []
+
+
+@pytest.mark.parametrize("changes", [
+    [(120 + 40, "Q", 4096)],
+    [(120 + 16, "Q", 2**64 - 16), (120 + 40, "Q", 32)],
+], ids=["unaligned-relro-end", "relro-address-overflow"])
+def test_apk_rejects_unsafe_relro_segments(apk_case, changes):
+    data = bytearray(elf("arm64-v8a"))
+    for offset, format_, value in changes:
+        struct.pack_into("<" + format_, data, offset, value)
+    contents = [(name, bytes(data) if name == "lib/arm64-v8a/libpractiq_desktop.so" else payload)
+                for name, payload in entries("arm64-v8a")]
+    with pytest.raises(ValueError, match="ELF|RELRO|16 KiB"):
+        apk_case["invoke"](contents)
+    assert not apk_case["output"].exists() and apk_case["calls"] == []
+
+
+@pytest.mark.parametrize("changes", [
+    [(56, "H", 1)],
+    [(64 + 48, "Q", 32_768)],
+    [(64 + 8, "Q", 1), (64 + 16, "Q", 1), (64 + 32, "Q", 0)],
+    [(64 + 8, "Q", 16_384), (64 + 16, "Q", 16_384), (64 + 32, "Q", 0)],
+    [(120 + 16, "Q", 16_368), (120 + 32, "Q", 32), (120 + 40, "Q", 16)],
+    [(120, "I", 0), (120 + 8, "Q", 2**64 - 1), (120 + 16, "Q", 2**64 - 1)],
+], ids=["no-relro", "32k-load-alignment", "congruent-nonaligned-addresses", "zero-file-bss",
+        "relro-file-larger-than-memory", "null-header-undefined-fields"])
+def test_apk_accepts_valid_aligned_load_and_relro_segments(apk_case, changes):
+    data = bytearray(elf("arm64-v8a"))
+    for offset, format_, value in changes:
+        struct.pack_into("<" + format_, data, offset, value)
+    contents = [(name, bytes(data) if name == "lib/arm64-v8a/libpractiq_desktop.so" else payload)
+                for name, payload in entries("arm64-v8a")]
+    assert apk_case["invoke"](contents)["passed"]
+
+
+@pytest.mark.parametrize("fault", ["valid", "wrong-machine", "unaligned-relro", "unaligned-alias", "missing-table"])
+def test_apk_checks_all_native_libraries_not_only_the_app_library(apk_case, fault):
+    data = bytearray(elf("x86_64" if fault == "wrong-machine" else "arm64-v8a"))
+    if fault in {"unaligned-relro", "unaligned-alias"}:
+        struct.pack_into("<Q", data, 120 + 40, 4096)
+    if fault == "missing-table":
+        struct.pack_into("<H", data, 56, 0)
+    name = "libdependency.binary" if fault == "unaligned-alias" else "libdependency.so"
+    contents = entries("arm64-v8a") + [(f"lib/arm64-v8a/{name}", bytes(data))]
+    if fault == "valid":
+        assert apk_case["invoke"](contents)["passed"]
+    else:
+        with pytest.raises(ValueError, match="ELF|RELRO|program"):
+            apk_case["invoke"](contents)
+        assert not apk_case["output"].exists() and apk_case["calls"] == []
 
 
 @pytest.mark.parametrize("path", ["../outside", "/absolute", "assets/../outside", "C:/absolute", "assets\\outside",

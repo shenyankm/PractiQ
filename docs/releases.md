@@ -252,7 +252,13 @@ release to Latest. If a published build is defective, explain the issue in its
 notes and deliver a new version without silently replacing files.
 
 Use the [final-package acceptance record](final-package-acceptance.md) to collect
-the candidate identity and per-platform evidence. Final acceptance remains pending
-for [#91](https://github.com/shenyankm/PractiQ/issues/91), the independent-service
-architecture in [#130](https://github.com/shenyankm/PractiQ/issues/130), and Android
-delivery in [#131](https://github.com/shenyankm/PractiQ/issues/131).
+the candidate identity and per-platform evidence for
+[#91](https://github.com/shenyankm/PractiQ/issues/91). Final-release acceptance
+requires the signing, clean-machine and separately authorized live-model evidence
+defined above. Feature implementation in [#130](https://github.com/shenyankm/PractiQ/issues/130)
+and [#131](https://github.com/shenyankm/PractiQ/issues/131) follows its own
+issue-specific implementation, test, CI and review gates; those issue closures
+do not certify final-release acceptance or authorize publication. The independent-service
+implementation was delivered by [merged PR #132](https://github.com/shenyankm/PractiQ/pull/132);
+[PR #133](https://github.com/shenyankm/PractiQ/pull/133) records Android implementation
+and validation status.

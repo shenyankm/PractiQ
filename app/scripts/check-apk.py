@@ -24,6 +24,9 @@ MAX_APK_BYTES = 512 * 1024 * 1024
 MAX_ENTRIES = 100_000
 MAX_MEMBER_BYTES = 512 * 1024 * 1024
 MAX_UNCOMPRESSED_BYTES = 2 * 1024 * 1024 * 1024
+MAX_PROGRAM_HEADERS = 4096
+PAGE_SIZE = 16_384
+MAX_ELF_ADDRESS = 2**64 - 1
 
 
 def archive_entries(archive: zipfile.ZipFile) -> dict[str, zipfile.ZipInfo]:
@@ -72,14 +75,8 @@ def bounded_member(archive: zipfile.ZipFile, member: zipfile.ZipInfo, maximum: i
     return data
 
 
-def native_library(archive: zipfile.ZipFile, members: dict[str, zipfile.ZipInfo], abi: str) -> tuple[str, str]:
-    native = f"lib/{abi}/libpractiq_desktop.so"
-    platforms = {PurePosixPath(name).parts[1] for name, item in members.items()
-                 if not item.is_dir() and name.startswith("lib/") and len(PurePosixPath(name).parts) >= 3}
-    if platforms != {abi}:
-        raise ValueError("APK native library ABI does not match the selected ABI")
-    member = members.get(native)
-    if member is None or member.is_dir() or not member.file_size:
+def native_member(archive: zipfile.ZipFile, member: zipfile.ZipInfo, abi: str) -> str:
+    if member.is_dir() or not member.file_size:
         raise ValueError("APK requires a regular nonempty native library")
     with archive.open(member) as stream:
         header = stream.read(64)
@@ -87,8 +84,35 @@ def native_library(archive: zipfile.ZipFile, members: dict[str, zipfile.ZipInfo]
                 or struct.unpack_from("<HHI", header, 16) != (3, ABIS[abi][1], 1)
                 or struct.unpack_from("<H", header, 52)[0] != 64):
             raise ValueError("APK native library must be an ELF64 shared library for the selected ABI")
-        digest = hashlib.sha256(header)
-        total = len(header)
+        offset = struct.unpack_from("<Q", header, 32)[0]
+        width, count = struct.unpack_from("<HH", header, 54)
+        if (offset < 64 or width != 56 or not 1 <= count <= MAX_PROGRAM_HEADERS
+                or offset + count * width > member.file_size):
+            raise ValueError("APK native ELF program header table is invalid or exceeds its limit")
+        stream.seek(offset)
+        table = stream.read(count * width)
+        if len(table) != count * width:
+            raise ValueError("APK native ELF program header table is truncated")
+        has_load = False
+        for kind, _flags, file_offset, address, _physical, file_size, memory_size, alignment in struct.iter_unpack("<IIQQQQQQ", table):
+            if kind not in {1, 0x6474E552}:  # PT_LOAD and GNU_RELRO; PT_NULL fields are undefined.
+                continue
+            if memory_size > MAX_ELF_ADDRESS - address:
+                raise ValueError("APK native ELF segment address overflows")
+            if kind == 1:
+                has_load = True
+                if file_size > memory_size or (file_size and file_offset + file_size > member.file_size):
+                    raise ValueError("APK native ELF LOAD segment range is invalid")
+                if (alignment < PAGE_SIZE or alignment & (alignment - 1)
+                        or file_offset % alignment != address % alignment):
+                    raise ValueError("APK native ELF LOAD segments require congruent 16 KiB alignment")
+            elif (address + memory_size) % PAGE_SIZE:
+                raise ValueError("APK native ELF RELRO end requires 16 KiB alignment")
+        if not has_load:
+            raise ValueError("APK native ELF requires a LOAD segment")
+        stream.seek(0)
+        digest = hashlib.sha256()
+        total = 0
         while block := stream.read(1024 * 1024):
             total += len(block)
             if total > MAX_MEMBER_BYTES:
@@ -96,7 +120,27 @@ def native_library(archive: zipfile.ZipFile, members: dict[str, zipfile.ZipInfo]
             digest.update(block)
     if total != member.file_size:
         raise ValueError("APK native library size does not match its archive entry")
-    return native, digest.hexdigest()
+    return digest.hexdigest()
+
+
+def native_library(archive: zipfile.ZipFile, members: dict[str, zipfile.ZipInfo], abi: str) -> tuple[str, str]:
+    native = f"lib/{abi}/libpractiq_desktop.so"
+    platforms = {PurePosixPath(name).parts[1] for name, item in members.items()
+                 if not item.is_dir() and name.startswith("lib/") and len(PurePosixPath(name).parts) >= 3}
+    if platforms != {abi}:
+        raise ValueError("APK native library ABI does not match the selected ABI")
+    member = members.get(native)
+    if member is None:
+        raise ValueError("APK requires a regular nonempty native library")
+    native_sha = native_member(archive, member, abi)
+    for name, item in members.items():
+        if name == native or item.is_dir() or not name.startswith(f"lib/{abi}/"):
+            continue
+        with archive.open(item) as stream:
+            magic = stream.read(4)
+        if name.endswith(".so") or magic == b"\x7fELF":
+            native_member(archive, item, abi)
+    return native, native_sha
 
 
 def native_manifest(installer: Path, aapt2: Path, abi: str, version: str) -> dict:
