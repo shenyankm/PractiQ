@@ -121,6 +121,12 @@ repeat package, isolated Office, fidelity and license checks with fresh output
 paths. Update its manifest size/hash and verified signing identity/status, add
 the new reports to evidence, and regenerate the evidence hash and SHA256SUMS.
 Do not reuse an unsigned candidate's checksums or acceptance labels.
+Use the [explicit final-installer staging commands](final-package-acceptance.md#review-and-publication-handoff)
+to derive checked resources from the selected final file and rebuild local
+assets. Default `release.py stage` remains the unsigned CI path. Explicit
+staging does not verify signing or source-build provenance; archive actual
+signing results bound to the final SHA-256 and preserve independent build
+evidence before recording verified status in the release template.
 
 For each public platform record OS version, architecture, date and results for
 clean installation, upgrade/uninstall, native dialogs, credentials, audio,
