@@ -4,6 +4,8 @@ import android.app.Activity
 import android.content.Intent
 import android.os.ParcelFileDescriptor
 import android.os.SystemClock
+import android.view.InputDevice
+import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebView
@@ -78,10 +80,47 @@ class SecureStoragePluginTest {
         return result.get()
     }
 
-    private fun awaitScript(script: String, expected: String, message: String) {
-        val deadline = SystemClock.elapsedRealtime() + 15000
-        while (evaluate(script) != expected) {
-            assertTrue(message, SystemClock.elapsedRealtime() < deadline)
+    private fun lifecycleStage(): Stage {
+        val stage = AtomicReference<Stage>()
+        InstrumentationRegistry.getInstrumentation().runOnMainSync {
+            stage.set(ActivityLifecycleMonitorRegistry.getInstance().getLifecycleStageOf(activity))
+        }
+        return stage.get()
+    }
+
+    private fun requireResumedActivity(message: String) {
+        val state = AtomicReference<Triple<Boolean, Boolean, Stage>>()
+        InstrumentationRegistry.getInstrumentation().runOnMainSync {
+            state.set(Triple(activity.isFinishing, activity.isDestroyed,
+                ActivityLifecycleMonitorRegistry.getInstance().getLifecycleStageOf(activity)))
+        }
+        // Assertion failures belong to the instrumentation test thread, not the
+        // Android main loop that runOnMainSync uses to collect this snapshot.
+        val snapshot = state.get()
+        assertFalse("$message: Activity is finishing", snapshot.first)
+        assertFalse("$message: Activity is destroyed", snapshot.second)
+        assertEquals("$message: Activity must be foreground", Stage.RESUMED, snapshot.third)
+    }
+
+    private fun awaitResumedActivity(deadline: Long, message: String) {
+        while (lifecycleStage() != Stage.RESUMED) {
+            assertTrue("$message: stage=${lifecycleStage()}", SystemClock.elapsedRealtime() < deadline)
+            SystemClock.sleep(100)
+        }
+        requireResumedActivity(message)
+        assertTrue("$message: Activity resumed after deadline", SystemClock.elapsedRealtime() < deadline)
+    }
+
+    private fun awaitScript(script: String, expected: String, message: String,
+        deadline: Long = SystemClock.elapsedRealtime() + 15000) {
+        while (true) {
+            val actual = evaluate(script)
+            if (actual == expected) {
+                assertTrue("$message: completed after deadline", SystemClock.elapsedRealtime() < deadline)
+                return
+            }
+            assertTrue("$message: expected=$expected actual=$actual stage=${lifecycleStage()}",
+                SystemClock.elapsedRealtime() < deadline)
             SystemClock.sleep(100)
         }
     }
@@ -110,7 +149,20 @@ class SecureStoragePluginTest {
 
     @Test fun uncanceledRootBackPreservesActivityAndCanReopen() {
         awaitScript("document.documentElement.dataset.nativeInsets === 'true'", "true", "WebView should initialize")
-        InstrumentationRegistry.getInstrumentation().runOnMainSync { (activity as MainActivity).onBackPressedDispatcher.onBackPressed() }
+        // A failed preceding picker must not dispatch Back on a stopped Activity:
+        // lifecycle-owned callbacks are inactive there and the fallback finishes it.
+        requireResumedActivity("Root Back precondition")
+        val dispatched = AtomicReference(false)
+        InstrumentationRegistry.getInstrumentation().runOnMainSync {
+            val current = activity as MainActivity
+            if (!current.isFinishing && !current.isDestroyed &&
+                ActivityLifecycleMonitorRegistry.getInstance().getLifecycleStageOf(current) == Stage.RESUMED &&
+                current.onBackPressedDispatcher.hasEnabledCallbacks()) {
+                current.onBackPressedDispatcher.onBackPressed()
+                dispatched.set(true)
+            }
+        }
+        assertTrue("Root Back requires a live foreground Activity with an active app callback", dispatched.get())
         val deadline = SystemClock.elapsedRealtime() + 15000
         while (true) {
             val stopped = AtomicReference<Boolean>()
@@ -134,7 +186,9 @@ class SecureStoragePluginTest {
         scenario.recreate()
         scenario.onActivity { activity = it }
         assertSame(activity, PluginManager.activity)
-        awaitScript("Boolean(window.__TAURI_INTERNALS__)", "true", "Recreated Tauri should initialize")
+        awaitScript("Boolean(window.__TAURI_INTERNALS__) && document.readyState === 'complete' && document.documentElement.dataset.nativeInsets === 'true'",
+            "true", "Recreated final page should initialize")
+        requireResumedActivity("Picker precondition")
         repeat(2) {
         evaluate("window.__practiqPickerProbe='pending';window.__TAURI_INTERNALS__.invoke('request',{request:{type:'pick_import'},locale:'en'}).then(value=>{window.__practiqPickerProbe=value===null?'canceled':'unexpected'},()=>{window.__practiqPickerProbe='error'});true")
         val deadline = SystemClock.elapsedRealtime() + 15000
@@ -148,10 +202,20 @@ class SecureStoragePluginTest {
             assertTrue("Native picker should open", SystemClock.elapsedRealtime() < deadline)
             SystemClock.sleep(100)
         }
-        InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand("input keyevent 4").use {
-            ParcelFileDescriptor.AutoCloseInputStream(it).readBytes()
+        val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
+        while (automation.rootInActiveWindow?.packageName?.toString()?.endsWith(".documentsui") != true) {
+            assertEquals("Picker must remain pending before the system window is active", "\"pending\"", evaluate("window.__practiqPickerProbe"))
+            assertTrue("The actual DocumentsUI picker must become active", SystemClock.elapsedRealtime() < deadline)
+            SystemClock.sleep(100)
         }
-        awaitScript("window.__practiqPickerProbe", "\"canceled\"", "Native picker cancellation should settle")
+        val cancellationDeadline = SystemClock.elapsedRealtime() + 15000
+        val pressedAt = SystemClock.uptimeMillis()
+        assertTrue("System Back down must be injected", automation.injectInputEvent(
+            KeyEvent(pressedAt, pressedAt, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_BACK, 0).apply { source = InputDevice.SOURCE_KEYBOARD }, true))
+        assertTrue("System Back up must be injected", automation.injectInputEvent(
+            KeyEvent(pressedAt, SystemClock.uptimeMillis(), KeyEvent.ACTION_UP, KeyEvent.KEYCODE_BACK, 0).apply { source = InputDevice.SOURCE_KEYBOARD }, true))
+        awaitScript("window.__practiqPickerProbe", "\"canceled\"", "Native picker cancellation should settle", cancellationDeadline)
+        awaitResumedActivity(cancellationDeadline, "Picker cancellation must return to the app")
         evaluate("delete window.__practiqPickerProbe;true")
         }
     }
