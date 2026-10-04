@@ -69,6 +69,25 @@ test('preview question filters preserve imported warnings through review confirm
  await expect(question).toBeVisible();
 });
 
+test('preview nested word-bank answers use inherited choices offline',async ({page})=>{
+ await page.goto('/');
+ await page.getByRole('button',{name:'开始练习',exact:true}).nth(2).click();
+ await page.getByLabel('出题顺序',{exact:true}).selectOption('ordered');
+ await page.getByText('高级设置 · 题库、筛选与选题方式',{exact:true}).click();
+ await page.getByRole('combobox',{name:'题型',exact:true}).selectOption('reading');
+ await expect(page.getByRole('status').filter({hasText:'可用 6 题'})).toBeVisible();
+ await page.getByRole('spinbutton',{name:'题目数量',exact:true}).fill('6');
+ await page.getByRole('button',{name:'立即开始',exact:true}).click();
+ await page.getByRole('region',{name:'答题卡',exact:true}).getByRole('button',{name:/^转到第 3 题，未作答/}).click();
+ await expect(page.getByRole('heading',{name:'第 3 / 6 题',exact:true})).toBeVisible();
+ const choices=page.getByRole('radiogroup',{name:'选择答案',exact:true});
+ await expect(choices.getByRole('radio')).toHaveCount(2);
+ await expect(page.getByLabel('自由作答',{exact:true})).toBeHidden();
+ await choices.getByRole('radio').first().check();
+ await page.getByRole('button',{name:'提交答案',exact:true}).click();
+ await expect(page.getByRole('status',{name:'答题状态',exact:true})).toHaveText('第 3 题：回答正确');
+});
+
 for(const scenario of ['empty','many','unconfigured','missing','slow','error']) {
  test(`preview scenario ${scenario} stays offline`,async ({page})=>{
   await page.addInitScript(value=>sessionStorage.setItem('practiq-preview',value),scenario);

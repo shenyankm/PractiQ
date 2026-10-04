@@ -1,5 +1,5 @@
 import { beforeEach, expect, it, vi } from "vitest";
-import type { Bank, PaperPreview, Question, QuestionPage, Session, SessionPage, SettingsResult } from "./api";
+import { canInteract, type Bank, type PaperPreview, type Question, type QuestionPage, type Session, type SessionPage, type SettingsResult } from "./api";
 import composite from "../fixtures/composite.json";
 import type { Summary, Task } from "./ai-api";
 import type { PreviewScenario } from "./preview-mode";
@@ -82,14 +82,14 @@ it("sets and clears favorites for a complete nested composite subtree",async()=>
  expect([selected,...selected.children!].every(row=>row.favorite)).toBe(true);
 });
 
-it("does not treat duplicate merged root IDs as descendants or confirm unrelated roots",async()=>{
+it("keeps merged standalone roots and review confirmations isolated",async()=>{
  const added=await call<{bankId:string}>({type:"add_example_bank"});
  const merged=await call<{bankId:string}>({type:"merge_banks",bank_ids:["preview-bank-0",added.bankId],title:"Merged samples"});
  const scope={...query,bank_ids:[merged.bankId]};
  const result=await call<QuestionPage>(scope);
  expect(result.items).toHaveLength(18);
  expect(result.items.every(row=>row.answerableCount===1 && row.children?.length===0)).toBe(true);
- const duplicates=result.items.filter(row=>row.question.id==="q8");
+ const duplicates=result.items.filter(row=>row.question.stem==="观察 PractiQ 图标，描述你的印象。");
  expect(duplicates).toHaveLength(2);
  await call({type:"review_question",id:duplicates[0].id,reviewed:true});
  expect((await call<QuestionPage>({...scope,filter:"review"})).items.map(row=>row.id)).toEqual([duplicates[1].id]);
@@ -109,6 +109,61 @@ it("preserves the full material ancestor chain in papers and immutable practice 
  await call({type:"save_question_tree",root_id:"2-reading",bank_id:"preview-bank-2",questions});
  const resumed=await call<Session>({type:"session",id:session.id});
  expect(resumed.attempts.find(attempt=>attempt.snapshot.id===leaf.id)?.snapshot.materials).toEqual(snapshot.materials);
+});
+
+it("hydrates shared options for paper questions and immutable choice snapshots",async()=>{
+ const paper=await call<PaperPreview>({type:"preview_paper",request:{bank_ids:["preview-bank-2"],search:"",mode:"reading",filter:"",selection:"manual",question_ids:["2-reading"],count:6,quotas:{},random:false,total_cents:0}});
+ const leaf=paper.questions.find(row=>row.id==="2-words1")!;
+ const owner=composite.questions.find(q=>q.id==="words")!;
+ expect(leaf.question.options).toEqual(owner.options);
+ expect(canInteract(leaf.question)).toBe(true);
+ const session=await call<Session>({type:"start_paper",paper:{question_ids:paper.questionIds,kind:"practice",minutes:null,scores:paper.scores,total_cents:0,digest:paper.digest}});
+ const attempt=session.attempts.find(a=>a.snapshot.id===leaf.id)!;
+ expect(attempt.snapshot.question.options).toEqual(owner.options);
+ expect(canInteract(attempt.snapshot.question)).toBe(true);
+ const submitted=await call<Session>({type:"save_attempt",id:session.id,ordinal:attempt.ordinal,answer:{correct:["A"]},elapsed_ms:0,skip:false,submit:true,self_result:null});
+ expect(submitted.attempts[attempt.ordinal]).toMatchObject({autoResult:true,result:true,gradeKind:"auto"});
+ const questions=structuredClone(composite.questions) as Question[];
+ questions.find(q=>q.id==="words")!.options[0].content="Edited option";
+ await call({type:"save_question_tree",root_id:"2-reading",bank_id:"preview-bank-2",questions});
+ const resumed=await call<Session>({type:"session",id:session.id});
+ expect(resumed.attempts[attempt.ordinal].snapshot.question.options).toEqual(owner.options);
+});
+
+it("remaps merged composite copies and keeps their descendants and option owners isolated",async()=>{
+ const other=await call<string>({type:"save_bank",id:null,title:"Other composite",description:""});
+ const questions=structuredClone(composite.questions) as Question[];
+ questions.find(q=>q.id==="reading")!.stem="Other reading material";
+ questions.find(q=>q.id==="words")!.options[0].content="Other option";
+ await call({type:"save_question_tree",root_id:"reading",bank_id:other,questions});
+ const merged=await call<{bankId:string;count:number}>({type:"merge_banks",bank_ids:["preview-bank-2",other],title:"Merged composite copies"});
+ const scope={...query,bank_ids:[merged.bankId],mode:"reading"};
+ const roots=(await call<QuestionPage>(scope)).items;
+ expect(roots).toHaveLength(2);
+ expect(roots.map(root=>root.children?.length)).toEqual([8,8]);
+ expect(roots.map(root=>root.answerableCount)).toEqual([6,6]);
+ expect(merged.count).toBe(20);
+ const nodes=roots.flatMap(root=>[root,...root.children!]);
+ expect(new Set(nodes.map(row=>row.question.id)).size).toBe(nodes.length);
+ expect(nodes.every(row=>row.id===row.question.id)).toBe(true);
+ const first=roots[0],second=roots[1];
+ const secondIds=new Set([second,...second.children!].map(row=>row.question.id));
+ expect(second.children!.every(row=>secondIds.has(row.question.parentId))).toBe(true);
+ const words=second.children!.find(row=>row.question.answerMode==="word_bank")!;
+ expect(words.question.passage?.filter(block=>block.questionId).map(block=>block.questionId)).toEqual(second.children!.filter(row=>row.question.parentId===words.question.id).map(row=>row.question.id));
+ const paper=await call<PaperPreview>({type:"preview_paper",request:{bank_ids:[merged.bankId],search:"",mode:"reading",filter:"",selection:"manual",question_ids:[second.id],count:6,quotas:{},random:false,total_cents:0}});
+ expect(paper.count).toBe(6);
+ const leaf=paper.questions.find(row=>row.question.optionSourceId===words.question.id)!;
+ expect(leaf.materials?.map(q=>q.id)).toEqual([second.question.id,words.question.id]);
+ expect(leaf.materials?.[0].stem).toBe("Other reading material");
+ expect(leaf.question.options[0].content).toBe("Other option");
+ const session=await call<Session>({type:"start_paper",paper:{question_ids:paper.questionIds,kind:"practice",minutes:null,scores:paper.scores,total_cents:0,digest:paper.digest}});
+ expect(session.attempts.find(a=>a.snapshot.id===leaf.id)?.snapshot).toMatchObject({question:leaf.question,materials:leaf.materials});
+ await call({type:"favorite",id:second.id,value:false});
+ await call({type:"review_question",id:second.id,reviewed:true});
+ const unchanged=(await call<QuestionPage>(scope)).items.find(root=>root.id===first.id)!;
+ expect(unchanged).toEqual(first);
+ expect((await call<QuestionPage>({...query,bank_ids:["preview-bank-2"],mode:"reading"})).items[0].id).toBe("2-reading");
 });
 
 it("provides every question mode, media, favorites, wrong answers and isolated editable data",async()=>{
