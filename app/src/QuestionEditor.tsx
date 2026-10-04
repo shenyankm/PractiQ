@@ -28,8 +28,18 @@ function draftSnapshot(question: Question, children: Question[]) {
     .sort(([left], [right]) => left.localeCompare(right)));
   const blocks = (values: Question["passage"]) => (values || []).map(value => normalize(Object.fromEntries(Object.entries(value)
     .filter(([key, field]) => !blockNullFields.has(key) || field != null)), blockTextFields));
+  const answer = (value: Question) => {
+    const payload = value.answerPayload;
+    if (payload && Object.keys(payload).length === 1 && (
+      (value.answerMode === "short_answer" && payload.text === "") ||
+      (value.answerMode === "choice" && value.choiceVariant === "multiple" && Array.isArray(payload.correct) && payload.correct.length === 0) ||
+      (value.answerMode === "fill_blank" && Array.isArray(payload.answers) && payload.answers.length === (value.blankCount || 1) && payload.answers.every(text => text === ""))
+    )) return null;
+    return payload;
+  };
   const normalizeQuestion = (value: Question) => normalize({
     ...value,
+    answerPayload: answer(value),
     options: value.options.map(option => normalize(option, optionTextFields)),
     items: value.items.map(item => normalize(item, optionTextFields)),
     contentBlocks: blocks(value.contentBlocks), passage: blocks(value.passage), transcript: blocks(value.transcript),

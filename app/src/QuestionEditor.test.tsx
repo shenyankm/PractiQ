@@ -146,6 +146,105 @@ it("protects changed question drafts on Escape and closes reverted drafts immedi
   expect(screen.queryByRole("alertdialog")).toBeNull();
 });
 
+const emptyReferenceCases = [
+  { answerMode: "short_answer", choiceVariant: null, options: [], blankCount: null, control: "text", payload: { text: "" } },
+  { answerMode: "choice", choiceVariant: "multiple", options: [{ label: "A", content: "One" }, { label: "B", content: "Two" }], blankCount: null, control: "choice", payload: { correct: [] } },
+  { answerMode: "fill_blank", choiceVariant: null, options: [], blankCount: 2, control: "blank", payload: { answers: ["", ""] } },
+] as const;
+function referenceQuestion(scenario: typeof emptyReferenceCases[number]): Question {
+  return { ...blankQuestion(), answerMode: scenario.answerMode, choiceVariant: scenario.choiceVariant, options: [...scenario.options], blankCount: scenario.blankCount };
+}
+async function revertReference(user: ReturnType<typeof userEvent.setup>, control: string) {
+  if (control === "choice") {
+    const choice = screen.getByRole("checkbox", { name: /A\. One/ });
+    await user.click(choice);
+    await user.click(choice);
+  } else {
+    const text = screen.getByRole("textbox", { name: control === "text" ? "作答内容" : "第 1 空" });
+    await user.type(text, "Temporary reference");
+    await user.clear(text);
+  }
+}
+it.each(emptyReferenceCases)("closes reverted null $answerMode references through every dismissal and preserves raw saved payloads", async scenario => {
+  const initial: Question = { ...referenceQuestion(scenario), answerPayload: null, needsReview: true, missingFields: ["answerPayload"] };
+  for (const action of ["Escape", "close", "outside"]) {
+    const user = userEvent.setup(), close = vi.fn(), save = vi.fn();
+    render(<QuestionEditor initial={initial} busy={false} onClose={close} onSave={save} />);
+    await revertReference(user, scenario.control);
+    if (action === "Escape") await user.keyboard("{Escape}");
+    else if (action === "close") await user.click(screen.getByRole("button", { name: "关闭" }));
+    else await user.click(document.querySelector("[data-slot=dialog-overlay]")!);
+    expect(close).toHaveBeenCalledOnce();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "保存题目" }));
+    expect(save).toHaveBeenCalledWith(expect.objectContaining({ answerPayload: scenario.payload, needsReview: true, missingFields: ["answerPayload"] }), []);
+    expect(initial.answerPayload).toBeNull();
+    cleanup();
+  }
+});
+
+it.each(emptyReferenceCases)("keeps real edits dirty after reverting $answerMode reference controls", async scenario => {
+  const user = userEvent.setup(), close = vi.fn(), save = vi.fn();
+  render(<QuestionEditor initial={{ ...referenceQuestion(scenario), answerPayload: null }} busy={false} onClose={close} onSave={save} />);
+  await revertReference(user, scenario.control);
+  await user.type(screen.getByRole("textbox", { name: "题干（支持 Markdown 和公式）" }), "Actual change");
+  await user.keyboard("{Escape}");
+  expect(close).not.toHaveBeenCalled();
+  await user.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "继续编辑" }));
+  await user.click(screen.getByRole("button", { name: "保存题目" }));
+  expect(save).toHaveBeenCalledWith(expect.objectContaining({ stem: "Actual change", answerPayload: scenario.payload }), []);
+});
+
+it("protects clearing actual reference evidence including false and extra metadata", async () => {
+  for (const initial of [
+    { ...blankQuestion(), answerMode: "short_answer" as const, answerPayload: { text: "Original reference" } },
+    { ...blankQuestion(), answerMode: "short_answer" as const, answerPayload: { text: " " } },
+    { ...blankQuestion(), choiceVariant: "multiple" as const, answerPayload: { correct: ["A"] } },
+    { ...blankQuestion(), answerMode: "fill_blank" as const, blankCount: 2, answerPayload: { answers: ["", "Provided"] } },
+    { ...blankQuestion(), answerMode: "fill_blank" as const, blankCount: 2, answerPayload: { answers: [null, null] } },
+    { ...blankQuestion(), answerMode: "true_false" as const, answerPayload: { value: false } },
+    { ...blankQuestion(), answerMode: "short_answer" as const, answerPayload: { text: "", metadata: { missing: null } } as Question["answerPayload"] },
+  ]) {
+    const user = userEvent.setup(), close = vi.fn();
+    render(<QuestionEditor initial={initial} busy={false} onClose={close} onSave={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: "清空参考答案" }));
+    await user.keyboard("{Escape}");
+    expect(close).not.toHaveBeenCalled();
+    expect(screen.getByRole("alertdialog")).not.toBeNull();
+    cleanup();
+  }
+});
+
+it("keeps added empty answer slots and explicit ordering references dirty", async () => {
+  for (const scenario of [
+    { question: { ...blankQuestion(), answerMode: "fill_blank" as const, blankCount: null }, action: "增加一空" },
+    { question: { ...blankQuestion(), answerMode: "ordering" as const, items: [{ id: 0, content: "First" }, { id: 1, content: "Second" }] }, action: "确认当前顺序" },
+  ]) {
+    const user = userEvent.setup(), close = vi.fn();
+    render(<QuestionEditor initial={scenario.question} busy={false} onClose={close} onSave={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: scenario.action }));
+    await user.keyboard("{Escape}");
+    expect(close).not.toHaveBeenCalled();
+    expect(screen.getByRole("alertdialog")).not.toBeNull();
+    cleanup();
+  }
+});
+
+it("does not stage a reverted empty child reference as a parent change", async () => {
+  const user = userEvent.setup(), close = vi.fn(), save = vi.fn();
+  const root: Question = { ...blankQuestion(), id: "root", answerMode: "reading", choiceVariant: null, options: [] };
+  const child: Question = { ...referenceQuestion(emptyReferenceCases[0]), id: "child", parentId: "root", answerPayload: null };
+  render(<QuestionEditor initial={root} initialChildren={[child]} busy={false} onClose={close} onSave={save} />);
+  await user.click(screen.getByRole("button", { name: "编辑题目" }));
+  await revertReference(user, "text");
+  await user.click(screen.getByRole("button", { name: "保存题目" }));
+  await user.keyboard("{Escape}");
+  expect(close).toHaveBeenCalledOnce();
+  expect(screen.queryByRole("alertdialog")).toBeNull();
+  await user.click(screen.getByRole("button", { name: "保存题目" }));
+  expect(save).toHaveBeenCalledWith(root, [child]);
+});
+
 it.each(["Escape", "close", "discard"])("closes an unchanged question immediately through %s", async action => {
   const user = userEvent.setup();
   const close = vi.fn();

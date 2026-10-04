@@ -131,6 +131,55 @@ test('new question reverted nullable fields close without discarding other edits
  await expect(editor).toBeHidden();
 });
 
+test('reverted empty reference answers close without losing real editor changes',async ({page})=>{
+ await page.goto('/');
+ await page.getByRole('button',{name:'查看题目',exact:true}).first().click();
+ const editor=page.getByRole('dialog',{name:'编辑题目',exact:true});
+ const open=()=>page.getByRole('button',{name:'新增题目',exact:true}).click();
+ for(const mode of ['short_answer','choice','fill_blank']){
+  for(const action of ['Escape','close','outside']){
+   await open();
+   if(mode!=='choice')await editor.getByLabel('答题方式',{exact:true}).selectOption(mode);
+   else {
+    await editor.getByLabel('选择题类型',{exact:true}).selectOption('multiple');
+    await editor.getByRole('textbox',{name:'选项 1 内容',exact:true}).fill('One');
+    await editor.getByRole('textbox',{name:'选项 2 内容',exact:true}).fill('Two');
+   }
+   // Save the mode first so the reopened reference starts null with no other draft.
+   await editor.getByRole('textbox',{name:'题干（支持 Markdown 和公式）',exact:true}).fill(`Empty reference ${mode} ${action}`);
+   await editor.getByRole('button',{name:'保存题目',exact:true}).click();
+   const row=page.getByRole('button',{name:new RegExp(`Empty reference ${mode} ${action}$`)}).locator('..');
+   await row.getByRole('button',{name:'编辑题目',exact:true}).click();
+   if(mode==='choice'){
+    const choice=editor.getByRole('checkbox',{name:/A\./});
+    await choice.check();await choice.uncheck();
+   }else{
+    const text=editor.getByRole('textbox',{name:mode==='short_answer'?'作答内容':'第 1 空',exact:true});
+    await text.fill('Temporary reference');await text.fill('');
+   }
+   if(action==='Escape')await page.keyboard.press('Escape');
+   else if(action==='close')await editor.getByRole('button',{name:'关闭',exact:true}).click();
+   else await page.mouse.click(8,8);
+   await expect(editor).toBeHidden();
+   await expect(page.getByRole('alertdialog')).toHaveCount(0);
+  }
+ }
+ const changedRow=page.getByRole('button',{name:/Empty reference fill_blank outside$/}).locator('..');
+ await changedRow.getByRole('button',{name:'编辑题目',exact:true}).click();
+ const answer=editor.getByRole('textbox',{name:'第 1 空',exact:true});
+ await answer.fill('Real reference');
+ await page.keyboard.press('Escape');
+ const confirmation=page.getByRole('alertdialog',{name:'放弃未保存的更改？',exact:true});
+ await expect(confirmation).toBeVisible();
+ await confirmation.getByRole('button',{name:'继续编辑',exact:true}).click();
+ await expect(answer).toHaveValue('Real reference');
+ await editor.getByRole('button',{name:'保存题目',exact:true}).click();
+ await changedRow.getByRole('button',{name:'编辑题目',exact:true}).click();
+ await expect(answer).toHaveValue('Real reference');
+ await page.keyboard.press('Escape');
+ await expect(editor).toBeHidden();
+});
+
 test('listening URL drafts survive every implicit dismissal without triggering downloads',async ({page})=>{
  const remoteRequests=[];
  page.on('request',request=>{if(request.url().startsWith('https://example.com/'))remoteRequests.push(request.url());});
