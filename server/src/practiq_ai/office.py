@@ -366,6 +366,74 @@ def _terminate_writer_table(data: bytes) -> bytes:
     return data[:offset]+paragraph+data[offset:]
 
 
+def _validate_ooxml(data: bytes, family: str) -> None:
+    try:
+        with zipfile.ZipFile(io.BytesIO(data)) as archive:
+            entries = archive.infolist()
+            names = archive.namelist()
+            required = "word/document.xml" if family == "writer" else "xl/workbook.xml"
+            if (required not in names or "[Content_Types].xml" not in names
+                    or len(entries) > 10000 or sum(entry.file_size for entry in entries) > TOTAL_LIMIT
+                    or any(entry.flag_bits & 1 or entry.filename.lower().endswith("vbaproject.bin") for entry in entries)):
+                raise OfficeError("OFFICE_INPUT_INVALID")
+    except zipfile.BadZipFile as exc:
+        raise OfficeError("OFFICE_INPUT_INVALID") from exc
+
+
+def _validate_normalized_docx(data: bytes) -> None:
+    def reject_doctype(*_args):
+        raise OfficeError("OFFICE_OUTPUT_INVALID")
+
+    try:
+        _validate_ooxml(data, "writer")
+        with zipfile.ZipFile(io.BytesIO(data)) as archive:
+            if len(archive.namelist()) != len(set(archive.namelist())):
+                raise OfficeError("OFFICE_OUTPUT_INVALID")
+            total = 0
+            for entry in archive.infolist():
+                parser = expat.ParserCreate() if entry.filename.lower().endswith((".xml", ".rels")) else None
+                if parser:
+                    parser.StartDoctypeDeclHandler = reject_doctype
+                with archive.open(entry) as stream:
+                    while chunk := stream.read(65536):
+                        total += len(chunk)
+                        if total > TOTAL_LIMIT:
+                            raise OfficeError("OFFICE_OUTPUT_LIMIT")
+                        if parser:
+                            parser.Parse(chunk, False)
+                    if parser:
+                        parser.Parse(b"", True)
+    except OfficeError as exc:
+        if exc.code == "OFFICE_INPUT_INVALID":
+            raise OfficeError("OFFICE_OUTPUT_INVALID") from exc
+        raise
+    except (zipfile.BadZipFile, RuntimeError, EOFError, zlib.error, expat.ExpatError) as exc:
+        raise OfficeError("OFFICE_OUTPUT_INVALID") from exc
+
+
+def _legacy_writer_pdf(engine: Path, source: Path, output: Path, deadline: float) -> list[dict[str, Any]]:
+    # LO's legacy DOC PDF path can render an equation's bar without its digits.
+    # The same engine preserves the formula through a private DOCX snapshot.
+    with TemporaryDirectory(prefix="practiq-writer-pdf-") as directory:
+        root = Path(directory)
+        normalized = root / "converted"
+        normalized.mkdir()
+        profile = _profile(root)
+        if time.monotonic() >= deadline:
+            raise OfficeError("OFFICE_TIMEOUT")
+        _run([str(engine), f"-env:UserInstallation={profile.as_uri()}", "--headless", "--norestore",
+              "--convert-to", "docx:Office Open XML Text", "--outdir", str(normalized), str(source)], deadline, normalized)
+        files = _check_outputs(normalized)
+        if not files:
+            raise OfficeError("OFFICE_CONVERSION_FAILED")
+        if len(files) != 1 or files[0].name != source.with_suffix(".docx").name:
+            raise OfficeError("OFFICE_OUTPUT_INVALID")
+        _validate_normalized_docx(_read_file(files[0], FILE_LIMIT))
+        if time.monotonic() >= deadline:
+            raise OfficeError("OFFICE_TIMEOUT")
+        return _export(engine, files[0], output, "writer", "pdf", deadline)
+
+
 def convert(engine: str, source: Path, output: Path, mode: str, *, expected_version: str | None = None) -> list[dict[str, Any]]:
     family = FORMATS.get(source.suffix.lower())
     if family is None or mode not in ("pdf", "text"):
@@ -376,20 +444,12 @@ def convert(engine: str, source: Path, output: Path, mode: str, *, expected_vers
     if source.suffix.lower() in (".doc", ".xls"):
         _validate_legacy(data, family)
     else:
-        try:
-            with zipfile.ZipFile(io.BytesIO(data)) as archive:
-                entries = archive.infolist()
-                names = archive.namelist()
-                required = "word/document.xml" if family == "writer" else "xl/workbook.xml"
-                if (required not in names or "[Content_Types].xml" not in names
-                        or len(entries) > 10000 or sum(entry.file_size for entry in entries) > TOTAL_LIMIT
-                        or any(entry.flag_bits & 1 or entry.filename.lower().endswith("vbaproject.bin") for entry in entries)):
-                    raise OfficeError("OFFICE_INPUT_INVALID")
-        except zipfile.BadZipFile as exc:
-            raise OfficeError("OFFICE_INPUT_INVALID") from exc
+        _validate_ooxml(data, family)
     deadline = time.monotonic() + TIMEOUT
     if expected_version is not None and engine_version(Path(engine), deadline) != expected_version:
         raise OfficeError("OFFICE_ENGINE_INVALID")
+    if source.suffix.lower() == '.doc' and mode == 'pdf':
+        return _legacy_writer_pdf(Path(engine), source, output, deadline)
     if source.suffix.lower() == '.docx' and mode == 'text':
         try:
             with zipfile.ZipFile(io.BytesIO(data)) as archive:

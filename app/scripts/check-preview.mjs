@@ -34,6 +34,41 @@ test('development preview pages stay offline',async ({page},testInfo)=>{
  await page.screenshot({path:testInfo.outputPath('preview.png'),fullPage:true});
 });
 
+test('preview question filters preserve imported warnings through review confirmation',async ({page})=>{
+ await page.goto('/');
+ await page.getByRole('button',{name:'查看题目',exact:true}).first().click();
+ const type=page.getByLabel('筛选题型');
+ await type.selectOption('single');
+ await expect(page.getByRole('button',{name:/下面哪一个是质数？/})).toBeVisible();
+ await expect(page.getByRole('button',{name:/请选择偶数。/})).toBeHidden();
+ await type.selectOption('multiple');
+ await expect(page.getByRole('button',{name:/请选择偶数。/})).toBeVisible();
+ await expect(page.getByRole('button',{name:/下面哪一个是质数？/})).toBeHidden();
+ await type.selectOption('');
+ await page.getByRole('checkbox',{name:'仅看待复核',exact:true}).check();
+ const question=page.getByRole('button',{name:/观察 PractiQ 图标，描述你的印象。/});
+ await question.click();
+ const dialog=page.getByRole('dialog',{name:'题目详情',exact:true});
+ await dialog.getByRole('button',{name:'标记已复核',exact:true}).click();
+ await expect(dialog.getByRole('button',{name:'撤销复核确认',exact:true})).toBeVisible();
+ const stored=await page.evaluate(async()=>{
+  const {invoke}=await import('/src/transport.ts');
+  const result=await invoke('request',{request:{type:'questions_page',bank_ids:['preview-bank-0'],search:'',mode:'',filter:'',offset:0,limit:20}});
+  return result.items.find(row=>row.id==='0-q8');
+ });
+ expect(stored.question.needsReview).toBe(true);
+ expect(stored.reviewedAt).toBeGreaterThan(0);
+ expect(stored.warnings).toEqual(['原文未提供参考答案，请人工确认。']);
+ await page.keyboard.press('Escape');
+ await expect(question).toBeHidden();
+ await page.getByRole('checkbox',{name:'仅看待复核',exact:true}).uncheck();
+ await question.click();
+ await dialog.getByRole('button',{name:'撤销复核确认',exact:true}).click();
+ await page.keyboard.press('Escape');
+ await page.getByRole('checkbox',{name:'仅看待复核',exact:true}).check();
+ await expect(question).toBeVisible();
+});
+
 for (const kind of ['bank','question']) {
  test(`${kind} editor protects drafts from implicit dismissal`,async ({page})=>{
   await page.goto('/');
@@ -357,6 +392,56 @@ test('child editors retain changed drafts and stage changes until the parent sav
  await expect(page.getByRole('alertdialog')).toHaveCount(0);
 });
 
+test('preview nested word-bank answers use inherited choices offline',async ({page})=>{
+ await page.goto('/');
+ await page.getByRole('button',{name:'开始练习',exact:true}).nth(2).click();
+ await page.getByLabel('出题顺序',{exact:true}).selectOption('ordered');
+ await page.getByText('高级设置 · 题库、筛选与选题方式',{exact:true}).click();
+ await page.getByRole('combobox',{name:'题型',exact:true}).selectOption('reading');
+ await expect(page.getByRole('status').filter({hasText:'可用 6 题'})).toBeVisible();
+ await page.getByRole('spinbutton',{name:'题目数量',exact:true}).fill('6');
+ await page.getByRole('button',{name:'立即开始',exact:true}).click();
+ await page.getByRole('region',{name:'答题卡',exact:true}).getByRole('button',{name:/^转到第 3 题，未作答/}).click();
+ await expect(page.getByRole('heading',{name:'第 3 / 6 题',exact:true})).toBeVisible();
+ const choices=page.getByRole('radiogroup',{name:'选择答案',exact:true});
+ await expect(choices.getByRole('radio')).toHaveCount(2);
+ await expect(page.getByLabel('自由作答',{exact:true})).toBeHidden();
+ await choices.getByRole('radio').first().check();
+ await page.getByRole('button',{name:'提交答案',exact:true}).click();
+ await expect(page.getByRole('status',{name:'答题状态',exact:true})).toHaveText('第 3 题：回答正确');
+});
+
+test('preview material dialog hides ancestor answer passage before submission',async ({page})=>{
+ await page.goto('/');
+ await page.evaluate(async()=>{
+  const {invoke}=await import('/src/transport.ts');
+  const {default:fixture}=await import('/fixtures/composite.json');
+  const questions=structuredClone(fixture.questions);
+  const root=questions.find(q=>q.id==='reading');
+  root.passage.push({partType:'text',role:'prompt',textValue:'Visible preview material marker'});
+  root.passage.push({partType:'text',role:'ANSWER key',textValue:'Hidden preview solution marker'});
+  await invoke('request',{request:{type:'save_question_tree',root_id:'2-reading',bank_id:'preview-bank-2',questions}});
+ });
+ await page.getByRole('button',{name:'开始练习',exact:true}).nth(2).click();
+ await page.getByLabel('出题顺序',{exact:true}).selectOption('ordered');
+ await page.getByText('高级设置 · 题库、筛选与选题方式',{exact:true}).click();
+ await page.getByRole('combobox',{name:'题型',exact:true}).selectOption('reading');
+ await expect(page.getByRole('status').filter({hasText:'可用 6 题'})).toBeVisible();
+ await page.getByRole('spinbutton',{name:'题目数量',exact:true}).fill('6');
+ await page.getByRole('button',{name:'立即开始',exact:true}).click();
+ await page.getByRole('region',{name:'答题卡',exact:true}).getByRole('button',{name:/^转到第 3 题，未作答/}).click();
+ await page.getByRole('button',{name:'查看原文',exact:true}).click();
+ const dialog=page.getByRole('dialog');
+ await expect(dialog.getByText('Visible preview material marker',{exact:true})).toBeVisible();
+ await expect(dialog.getByText('Hidden preview solution marker',{exact:true})).toBeHidden();
+ const source=await page.evaluate(async()=>{
+  const {invoke}=await import('/src/transport.ts');
+  const result=await invoke('request',{request:{type:'questions_page',bank_ids:['preview-bank-2'],search:'',mode:'reading',filter:'',offset:0,limit:20}});
+  return result.items[0].question.passage;
+ });
+ expect(source.some(block=>block.textValue==='Hidden preview solution marker')).toBe(true);
+});
+
 for(const scenario of ['empty','many','unconfigured','missing','slow','error']) {
  test(`preview scenario ${scenario} stays offline`,async ({page})=>{
   await page.addInitScript(value=>sessionStorage.setItem('practiq-preview',value),scenario);
@@ -390,6 +475,96 @@ for(const scenario of ['empty','many','unconfigured','missing','slow','error']) 
  });
 }
 
+base('study setup retries failed statistics and manual pages without resetting settings',async ({page})=>{
+ const errors=[];page.on('pageerror',error=>errors.push(error.message));
+ await page.addInitScript(()=>{
+  sessionStorage.setItem('practiq-preview','local');
+  window.isTauri=false;
+  const questions=Array.from({length:31},(_,i)=>({id:`q${i}`,bankId:'one',bankTitle:'Retry bank',question:{id:`q${i}`,parentId:null,stem:`Retry question ${i}`,answerMode:'short_answer',questionTypeId:'简答题',options:[],items:[],answerPayload:{text:'Reference'},analysis:null,sourceText:null,contentBlocks:[],needsReview:false,missingFields:[],confidence:1},groups:[],visuals:[],sources:[],warnings:[],missingAssets:false,favorite:false,latestResult:null}));
+  const bank={id:'one',title:'Retry bank',description:'',count:31,createdAt:1};
+  const statistics={count:31,types:{short_answer:31},feasibleCounts:Array.from({length:31},(_,i)=>i+1)};
+  window.__studyRequests=[];
+  window.__studyStatsFail=true;
+  window.__studyPageFail=true;
+  window.__TAURI_INTERNALS__={invoke:async(command,{request})=>{
+   if(command!=='request')throw Error(`Unexpected command ${command}`);
+   switch(request.type){
+    case 'language':return 'zh-CN';
+    case 'banks':return [bank];
+    case 'banks_page':return {items:[bank],total:1,offset:0};
+    case 'unfinished_session':return null;
+    case 'info':return {version:'retry-test',dataDirectory:'/mock'};
+    case 'question_stats':
+     window.__studyRequests.push(request);
+     if(window.__studyStatsFail)throw Error('Statistics unavailable');
+     return new Promise(resolve=>{window.__resolveStudyStats=()=>resolve(statistics);});
+    case 'questions_page':{
+     window.__studyRequests.push(request);
+     const result={items:questions.slice(request.offset,request.offset+request.limit),total:31,offset:request.offset};
+     if(request.offset===30){
+      if(window.__studyPageFail)throw Error('Question page unavailable');
+      return new Promise(resolve=>{window.__resolveStudyPage=()=>resolve(result);});
+     }
+     return result;
+    }
+    default:throw Error(`Unexpected request ${request.type}`);
+   }
+  }};
+ });
+ await page.goto('/');
+ await page.getByRole('button',{name:'开始练习',exact:true}).click();
+ const dialog=page.getByRole('dialog');
+ await expect(dialog.getByRole('alert')).toContainText('Statistics unavailable');
+ await dialog.getByRole('combobox',{name:/^模式/}).selectOption('mock_exam');
+ await dialog.getByLabel('考试分钟数',{exact:true}).fill('45');
+ await dialog.getByLabel('题目数量',{exact:true}).fill('10');
+ await dialog.getByLabel('考试总分',{exact:true}).fill('90');
+ await dialog.getByText('高级设置 · 题库、筛选与选题方式',{exact:true}).click();
+ await dialog.getByRole('combobox',{name:/^选题方式/}).selectOption('quota');
+ await dialog.getByLabel('简答题数',{exact:true}).fill('3');
+ await page.evaluate(()=>{window.__studyStatsFail=false;});
+ const statsRetry=dialog.getByRole('button',{name:'重试题目统计',exact:true});
+ await statsRetry.click();
+ await expect(statsRetry).toBeDisabled();
+ await statsRetry.evaluate(button=>button.click());
+ await expect.poll(()=>page.evaluate(()=>window.__studyRequests.filter(r=>r.type==='question_stats').length)).toBe(2);
+ await page.evaluate(()=>window.__resolveStudyStats());
+ await expect(statsRetry).toHaveCount(0);
+ await expect(dialog.getByRole('alert')).toHaveCount(0);
+ await expect(dialog.getByLabel('简答题数',{exact:true})).toHaveValue('3');
+ await dialog.getByRole('combobox',{name:/^选题方式/}).selectOption('manual');
+ await dialog.getByRole('checkbox',{name:'Retry question 0',exact:true}).check();
+ await dialog.getByRole('button',{name:'下一页',exact:true}).click();
+ await expect(dialog.getByRole('alert')).toContainText('Question page unavailable');
+ await page.evaluate(()=>{window.__studyPageFail=false;});
+ const pageRetry=dialog.getByRole('button',{name:'重试选题列表',exact:true});
+ await pageRetry.click();
+ await expect(pageRetry).toBeDisabled();
+ await pageRetry.evaluate(button=>button.click());
+ await expect.poll(()=>page.evaluate(()=>window.__studyRequests.filter(r=>r.type==='questions_page').length)).toBe(3);
+ await page.evaluate(()=>window.__resolveStudyPage());
+ await expect(pageRetry).toHaveCount(0);
+ await expect(dialog.getByRole('alert')).toHaveCount(0);
+ await dialog.getByRole('checkbox',{name:'Retry question 30',exact:true}).check();
+ await dialog.getByRole('button',{name:'上一页',exact:true}).focus();
+ await page.keyboard.press('Enter');
+ await expect(dialog.getByRole('checkbox',{name:'Retry question 0',exact:true})).toBeChecked();
+ await expect(dialog.getByRole('status')).toContainText('本次 2 题');
+ await expect(dialog.getByLabel('考试分钟数',{exact:true})).toHaveValue('45');
+ await expect(dialog.getByLabel('考试总分',{exact:true})).toHaveValue('90');
+ await expect(dialog.getByRole('checkbox',{name:'Retry bank（31）',exact:true})).toBeChecked();
+ await dialog.getByRole('combobox',{name:/^选题方式/}).selectOption('quota');
+ await expect(dialog.getByLabel('简答题数',{exact:true})).toHaveValue('3');
+ await dialog.getByRole('combobox',{name:/^选题方式/}).selectOption('count');
+ await expect(dialog.getByLabel('题目数量',{exact:true})).toHaveValue('10');
+ const requests=await page.evaluate(()=>window.__studyRequests);
+ const statsRequests=requests.filter(r=>r.type==='question_stats');
+ const pageRequests=requests.filter(r=>r.type==='questions_page');
+ expect(statsRequests).toHaveLength(2);
+ expect(statsRequests[1]).toEqual(statsRequests[0]);
+ expect(pageRequests[2]).toEqual(pageRequests[1]);
+ expect(errors).toEqual([]);
+});
 for (const colorScheme of ['light','dark']) {
  base(`answer-card status markers match the legend and preserve keyboard navigation in ${colorScheme} theme`,async ({page},testInfo)=>{
   const errors=[];page.on('pageerror',error=>errors.push(error.message));

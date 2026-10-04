@@ -210,6 +210,8 @@ export const en = {
   "刷新任务": "Refresh tasks",
   "批量导入已选任务（{0}）": "Import selected tasks ({0})",
   "重试": "Retry",
+  "重试题目统计": "Retry question statistics",
+  "重试选题列表": "Retry question list",
   "待确认操作": "Unconfirmed operations",
   "服务可能已接收请求。重试会使用原请求编号，不会重复创建任务；不会自动重试。": "The service may have received the request. Retrying reuses its original ID to avoid duplicate tasks. Retries are never automatic.",
   "重试待确认操作": "Retry unconfirmed operation",

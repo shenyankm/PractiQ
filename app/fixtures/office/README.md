@@ -17,6 +17,17 @@ section properties and namespaces remain in place. PDF export is unaffected.
 
 Run `check-office.py --fidelity-only` against the final package. This separate gate
 checks fraction numerator/denominator text, image presence and exactly one final
-table row. It must report the legacy DOC fraction loss as a failure until the
-pinned engine preserves it; the normal eight conversion checks do not establish
-full fidelity. These checks are not pixel-level layout or all-document acceptance.
+table row. The private worker normalizes legacy DOC to a temporary DOCX before
+PDF export because direct DOC PDF export can omit the fraction's digits. Both
+stages use the same pinned engine and timeout, with separate hardened profiles
+and bounded intermediate output. The original DOC and its metadata stay intact;
+the DOCX is private and only the final PDF is returned.
+
+The unchanged DOC fixture has SHA-256
+`27b8e595c7d8a136dd5d20f19d1236e9a9ca857174318a2421fc143d5f4c09c6`.
+The source-worker regression with bundled LibreOffice 26.8.0.3 preserves the
+fraction, icon, 70 table rows and final paragraph. The older packaged worker
+still fails this fixture; rerun the strict gate on a newly built final package
+before claiming packaged fidelity. The normal eight conversion checks do not
+establish full fidelity. These checks are not pixel-level layout or all-document
+acceptance.

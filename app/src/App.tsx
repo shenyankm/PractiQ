@@ -175,12 +175,6 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
   const lock = useRef(false);
   const filter =
     page === "wrong" ? "wrong" : page === "favorite" ? "favorite" : page === "questions" && onlyReview ? "review" : "";
-  const query = {
-    bank_ids: page === "questions" && bank ? [bank] : [],
-    search,
-    mode,
-    filter,
-  };
   const currentBank = banks.find((b) => b.id === bank);
   const run = useCallback((job: () => Promise<void>) => {
     if (lock.current) return;
@@ -321,9 +315,8 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
       setPage("practice");
     });
   }
-  async function refreshQuestions() {
-    const result = await api({ type: "questions_page", ...query, limit: 30, offset });
-    setQuestions(result.items); setQuestionTotal(result.total); setOffset(result.offset);
+  function refreshQuestions() {
+    setQuestionRevision(value => value + 1);
   }
   async function pickImport() {
     const p = await api({ type: "pick_import" });
@@ -629,7 +622,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                                 id: row.id,
                                 value: !row.favorite,
                               });
-                              await refreshQuestions();
+                              refreshQuestions();
                             })
                           }
                         >
@@ -668,7 +661,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                                   type: "delete_question",
                                   id: row.id,
                                 });
-                                await refreshQuestions();
+                                refreshQuestions();
                                 await reloadBanks();
                               },
                             })
@@ -898,7 +891,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                 questions: [q,...children],
               });
               setEditor(null);
-              await refreshQuestions();
+              refreshQuestions();
               await reloadBanks();
               toast.success(message("题目已保存，历史练习不受影响"));
             })
@@ -920,7 +913,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
             <Button variant="outline" disabled={busy} onClick={() => run(async () => {
               const reviewedAt = await api({ type: "review_question", id: detail.id, reviewed: detail.reviewedAt == null });
               setDetail(current => current?.id === detail.id ? { ...current, reviewedAt, children: current.children?.map(child => ({ ...child, reviewedAt })) } : current);
-              await refreshQuestions();
+              refreshQuestions();
             })}>{detail.reviewedAt == null ? t("标记已复核") : t("撤销复核确认")}</Button>
             <Suspense fallback={loadingView}>
             {!!detail.children?.length && <QuestionPreview questions={[detail.question,...detail.children.map(c=>c.question)]} reviewedQuestionIds={[detail,...detail.children].filter(row => row.reviewedAt != null).map(row => row.question.id || row.id)} groups={Array.from(new Map([detail,...detail.children].flatMap(r=>r.groups).map(g=>[g.id,g])).values())} visuals={Array.from(new Map([detail,...detail.children].flatMap(r=>r.visuals).map(v=>[v.id,v])).values())}/>}
