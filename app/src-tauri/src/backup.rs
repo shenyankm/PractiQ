@@ -15,7 +15,7 @@ const LIMIT: usize = 512 * 1024 * 1024;
 fn err(e: impl std::fmt::Display) -> crate::AppError {
     e.to_string().into()
 }
-fn file_digest(path: &Path) -> Result<(u64, String)> {
+pub(crate) fn file_digest(path: &Path) -> Result<(u64, String)> {
     let mut file = fs::File::open(path).map_err(err)?;
     let mut digest = Sha256::new();
     let mut size = 0u64;
@@ -35,7 +35,10 @@ fn file_digest(path: &Path) -> Result<(u64, String)> {
 }
 impl Store {
     pub fn backup(&self, destination: &Path) -> Result<Value> {
-        if destination.starts_with(self.dir.join("assets")) || destination == self.db_path() {
+        if destination.starts_with(self.dir.join("assets"))
+            || destination == self.db_path()
+            || destination == self.service_settings_path()
+        {
             return Err(crate::language::error(
                 "LOCAL_BACKUP_OVERWRITE",
                 serde_json::json!({}),
@@ -55,7 +58,12 @@ impl Store {
         let version: i64 = db
             .query_row("PRAGMA user_version", [], |r| r.get(0))
             .map_err(err)?;
-        let manifest = json!({"format":"practiq-backup","version":4,"schemaVersion":version,"createdAt":now(),"database":{"file":"practiq.sqlite","sha256":database_hash,"sizeBytes":database_size},"assets":assets});
+        let mut manifest = json!({"format":"practiq-backup","version":4,"schemaVersion":version,"createdAt":now(),"database":{"file":"practiq.sqlite","sha256":database_hash,"sizeBytes":database_size},"assets":assets});
+        if let Some(config) = self.service_settings_override()? {
+            manifest["serviceSettings"] =
+                serde_json::to_value(crate::settings::ServiceSettingsBackup { version: 1, config })
+                    .map_err(err)?;
+        }
         let manifest = serde_json::to_vec(&manifest).map_err(err)?;
         if manifest.len() > 1024 * 1024 {
             return Err(crate::language::error(
@@ -122,10 +130,32 @@ impl Store {
         *self.session_document_cache.get_mut() = None;
         self.session_epoch = self.session_epoch.wrapping_add(1);
         let result = self.restore_inner(source);
-        if result.is_err() {
+        // Preserve the journal's database generation if publication/rollback
+        // could not finish. Startup resolves it before any cleanup writes.
+        if result.is_err() && self.service_settings_override().is_ok() {
             let _ = self.collect_unused_assets();
         }
         result
+    }
+    fn rollback_restore_database(
+        &self,
+        previous: &Path,
+        recovery: &Path,
+        error: &dyn std::fmt::Display,
+    ) -> Result<()> {
+        let failed = |rollback: String| {
+            crate::language::error(
+                "LOCAL_RESTORE_ROLLBACK_FAILED",
+                json!({"error":error.to_string(),"rollback":rollback,"path":recovery.display().to_string()}),
+            )
+        };
+        crate::filesystem::replace(previous, &self.db_path()).map_err(|e| failed(e.to_string()))?;
+        #[cfg(test)]
+        crate::settings::rollback_sync_checkpoint();
+        // Keep pending until the rollback rename is durably published.
+        crate::filesystem::sync_directory(&self.dir).map_err(|e| failed(e.to_string()))?;
+        self.finish_service_settings_restore(false)
+            .map_err(|e| failed(e.to_string()))
     }
     fn restore_inner(&mut self, source: &Path) -> Result<Value> {
         let file = fs::File::open(source).map_err(err)?;
@@ -159,6 +189,14 @@ impl Store {
                 serde_json::json!({}),
             ));
         }
+        let service_settings = manifest
+            .get("serviceSettings")
+            .map(|value| -> Result<_> {
+                serde_json::from_value::<crate::settings::ServiceSettingsBackup>(value.clone())
+                    .map_err(err)?
+                    .validate()
+            })
+            .transpose()?;
         let assets = {
             manifest["assets"]
                 .as_array()
@@ -339,19 +377,25 @@ impl Store {
             .backup(rusqlite::MAIN_DB, &previous, None)
             .map_err(err)?;
         // Replace only after all resources validate. Keep a rollback generation until fsync succeeds.
+        self.prepare_service_settings_restore(service_settings, file_digest(&candidate)?.1)?;
         #[cfg(test)]
         fault_tests::checkpoint("before-publish");
-        crate::filesystem::replace(&candidate, &self.db_path()).map_err(err)?;
+        if let Err(error) = crate::filesystem::replace(&candidate, &self.db_path()) {
+            self.finish_service_settings_restore(false)?;
+            return Err(err(error));
+        }
         #[cfg(test)]
         fault_tests::checkpoint("after-publish");
         if let Err(error) = crate::filesystem::sync_directory(&self.dir) {
-            crate::filesystem::replace(&previous, &self.db_path()).map_err(|rollback| {
-                crate::language::error("LOCAL_RESTORE_ROLLBACK_FAILED", json!({"error":error.to_string(),"rollback":rollback.to_string(),"path":recovery.display().to_string()}))
-            })?;
+            self.rollback_restore_database(&previous, &recovery, &error)?;
             return Err(crate::language::error(
                 "LOCAL_RESTORE_FAILED",
                 serde_json::json!({"error": error.to_string()}),
             ));
+        }
+        if let Err(error) = self.finish_service_settings_restore(true) {
+            self.rollback_restore_database(&previous, &recovery, &error)?;
+            return Err(error);
         }
         self.session_clock = Default::default();
         self.pending = None;

@@ -3,11 +3,139 @@ use crate::{
     store::{hash, Store},
 };
 use keyring::Entry;
-use rusqlite::params;
+use rusqlite::{params, Connection, OpenFlags};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 const SERVICE_MARKER: &str = "urn:practiq:ai-service:v1";
+const SERVICE_SETTINGS_FILE: &str = "service-settings-v1.sqlite";
+const SERVICE_SETTINGS_SCHEMA: &str = "CREATE TABLE service_settings(id INTEGER PRIMARY KEY CHECK(id=1),active TEXT NOT NULL,pending TEXT)";
+
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct ServiceSettingsBackup {
+    pub version: u8,
+    pub config: ServiceSettings,
+}
+impl ServiceSettingsBackup {
+    pub(crate) fn validate(self) -> Result<ServiceSettings> {
+        if self.version != 1 {
+            return Err("Unsupported service settings backup version".into());
+        }
+        self.config.validate()
+    }
+}
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct PendingServiceRestore {
+    candidate_sha256: String,
+    previous: Option<ServiceSettings>,
+    next: Option<ServiceSettings>,
+}
+#[derive(Default)]
+struct ServiceSettingsState {
+    active: Option<ServiceSettings>,
+    pending: Option<PendingServiceRestore>,
+}
+fn settings_error(error: impl std::fmt::Display) -> crate::AppError {
+    error.to_string().into()
+}
+fn empty_sidecar(db: &Connection) -> Result<bool> {
+    db.execute_batch("PRAGMA trusted_schema=OFF;")
+        .map_err(settings_error)?;
+    let version: i64 = db
+        .query_row("PRAGMA user_version", [], |r| r.get(0))
+        .map_err(settings_error)?;
+    let objects: i64 = db
+        .query_row("SELECT count(*) FROM sqlite_master", [], |r| r.get(0))
+        .map_err(settings_error)?;
+    Ok(version == 0 && objects == 0)
+}
+fn validate_sidecar(db: &Connection) -> Result<()> {
+    db.execute_batch("PRAGMA trusted_schema=OFF;")
+        .map_err(settings_error)?;
+    let version: i64 = db
+        .query_row("PRAGMA user_version", [], |r| r.get(0))
+        .map_err(settings_error)?;
+    let objects: Vec<(String, String, String)> = db
+        .prepare("SELECT type,name,COALESCE(sql,'') FROM sqlite_master WHERE name NOT GLOB 'sqlite_*' ORDER BY name")
+        .map_err(settings_error)?
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+        .map_err(settings_error)?
+        .collect::<std::result::Result<_, _>>()
+        .map_err(settings_error)?;
+    if version != 1
+        || objects
+            != [(
+                "table".into(),
+                "service_settings".into(),
+                SERVICE_SETTINGS_SCHEMA.into(),
+            )]
+    {
+        return Err("Unsupported service settings database".into());
+    }
+    Ok(())
+}
+fn read_sidecar(db: &Connection) -> Result<ServiceSettingsState> {
+    let (active, pending): (String, Option<String>) = db
+        .query_row(
+            "SELECT active,pending FROM service_settings WHERE id=1",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .map_err(settings_error)?;
+    if active.len() > 4096 || pending.as_ref().is_some_and(|s| s.len() > 16384) {
+        return Err("Service settings exceed their size limit".into());
+    }
+    let active: Option<ServiceSettings> = serde_json::from_str(&active).map_err(settings_error)?;
+    let active = active.map(ServiceSettings::validate).transpose()?;
+    let pending: Option<PendingServiceRestore> = pending
+        .map(|s| serde_json::from_str(&s))
+        .transpose()
+        .map_err(settings_error)?;
+    let pending = pending
+        .map(|p| -> Result<_> {
+            if p.candidate_sha256.len() != 64
+                || !p
+                    .candidate_sha256
+                    .bytes()
+                    .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+            {
+                return Err("Invalid service settings restore digest".into());
+            }
+            Ok(PendingServiceRestore {
+                candidate_sha256: p.candidate_sha256,
+                previous: p.previous.map(ServiceSettings::validate).transpose()?,
+                next: p.next.map(ServiceSettings::validate).transpose()?,
+            })
+        })
+        .transpose()?;
+    Ok(ServiceSettingsState { active, pending })
+}
+fn write_sidecar(db: &Connection, state: ServiceSettingsState) -> Result<()> {
+    db.execute(
+        "UPDATE service_settings SET active=?1,pending=?2 WHERE id=1",
+        params![
+            serde_json::to_string(&state.active).map_err(settings_error)?,
+            state
+                .pending
+                .map(|p| serde_json::to_string(&p))
+                .transpose()
+                .map_err(settings_error)?,
+        ],
+    )
+    .map_err(settings_error)?;
+    Ok(())
+}
+#[cfg(test)]
+pub(crate) fn rollback_sync_checkpoint() {
+    tests::ROLLBACK_SYNC_ERROR.with(|flag| {
+        if flag.replace(false) {
+            crate::filesystem::FAILURE
+                .with(|failure| failure.set(Some(("sync", std::io::ErrorKind::StorageFull))));
+        }
+    });
+}
 
 /// Raw schema-11 configuration retained for validation of existing backups.
 #[derive(Clone, Default, Deserialize, Serialize)]
@@ -189,6 +317,132 @@ pub fn settings(shared: &crate::Shared) -> Result<Value> {
     Ok(json!({"config":config,"hasServiceToken":configured}))
 }
 impl Store {
+    pub(crate) fn service_settings_path(&self) -> std::path::PathBuf {
+        self.dir.join(SERVICE_SETTINGS_FILE)
+    }
+    fn sidecar_exists(&self) -> Result<bool> {
+        match std::fs::symlink_metadata(self.service_settings_path()) {
+            Ok(metadata) if metadata.is_file() && !metadata.file_type().is_symlink() => Ok(true),
+            Ok(_) => Err("Service settings database must be a regular file".into()),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
+            Err(error) => Err(settings_error(error)),
+        }
+    }
+    fn sidecar_state(&self) -> Result<Option<ServiceSettingsState>> {
+        if !self.sidecar_exists()? {
+            return Ok(None);
+        }
+        let db = Connection::open_with_flags(
+            self.service_settings_path(),
+            // Existing SQLite rollback journals must recover after a killed write.
+            // Never CREATE or initialize a database from this passive read path.
+            OpenFlags::SQLITE_OPEN_READ_WRITE,
+        )
+        .map_err(settings_error)?;
+        // A killed first initialization can leave only an empty SQLite file.
+        // Passive reads treat that state as absent, without writing its bytes.
+        if empty_sidecar(&db)? {
+            return Ok(None);
+        }
+        validate_sidecar(&db)?;
+        read_sidecar(&db).map(Some)
+    }
+    fn update_sidecar(
+        &self,
+        update: impl FnOnce(ServiceSettingsState) -> Result<ServiceSettingsState>,
+    ) -> Result<()> {
+        self.sidecar_exists()?;
+        let mut db = Connection::open(self.service_settings_path()).map_err(settings_error)?;
+        db.busy_timeout(std::time::Duration::from_secs(5))
+            .map_err(settings_error)?;
+        let transaction = db
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+            .map_err(settings_error)?;
+        let initializing = empty_sidecar(&transaction)?;
+        if initializing {
+            transaction
+                .execute_batch(SERVICE_SETTINGS_SCHEMA)
+                .map_err(settings_error)?;
+            transaction
+                .execute_batch(
+                    "INSERT INTO service_settings VALUES(1,'null',NULL); PRAGMA user_version=1;",
+                )
+                .map_err(settings_error)?;
+        }
+        validate_sidecar(&transaction)?;
+        let state = update(read_sidecar(&transaction)?)?;
+        write_sidecar(&transaction, state)?;
+        #[cfg(test)]
+        if initializing {
+            tests::initialization_checkpoint();
+        }
+        transaction.commit().map_err(settings_error)
+    }
+    pub(crate) fn service_settings_override(&self) -> Result<Option<ServiceSettings>> {
+        let Some(state) = self.sidecar_state()? else {
+            return Ok(None);
+        };
+        if state.pending.is_some() {
+            return Err("Service settings restoration is pending".into());
+        }
+        Ok(state.active)
+    }
+    pub(crate) fn prepare_service_settings_restore(
+        &self,
+        next: Option<ServiceSettings>,
+        candidate_sha256: String,
+    ) -> Result<()> {
+        self.update_sidecar(|mut state| {
+            if state.pending.is_some() {
+                return Err("Service settings restoration is pending".into());
+            }
+            state.pending = Some(PendingServiceRestore {
+                candidate_sha256,
+                previous: state.active.clone(),
+                next,
+            });
+            Ok(state)
+        })?;
+        self.service_settings_recovery_required.set(true);
+        Ok(())
+    }
+    pub(crate) fn finish_service_settings_restore(&self, success: bool) -> Result<()> {
+        self.update_sidecar(|mut state| {
+            let pending = state
+                .pending
+                .take()
+                .ok_or("Service settings restoration is not pending")?;
+            state.active = if success {
+                pending.next
+            } else {
+                pending.previous
+            };
+            Ok(state)
+        })?;
+        self.service_settings_recovery_required.set(false);
+        Ok(())
+    }
+    /// Resolve a killed restore before opening the study database for any writes.
+    pub(crate) fn recover_service_settings(&self) -> Result<()> {
+        let Some(state) = self.sidecar_state()? else {
+            return Ok(());
+        };
+        let Some(pending) = state.pending else {
+            return Ok(());
+        };
+        // Let SQLite roll back an interrupted existing transaction before hashing
+        // committed bytes. This handle cannot CREATE, initialize or alter schema.
+        let db = Connection::open_with_flags(self.db_path(), OpenFlags::SQLITE_OPEN_READ_WRITE)
+            .map_err(settings_error)?;
+        db.execute_batch("PRAGMA trusted_schema=OFF;")
+            .map_err(settings_error)?;
+        db.query_row("PRAGMA schema_version", [], |r| r.get::<_, i64>(0))
+            .map_err(settings_error)?;
+        drop(db);
+        crate::backup::validate_database_schema(&self.db_path())?;
+        let published = crate::backup::file_digest(&self.db_path())?.1 == pending.candidate_sha256;
+        self.finish_service_settings_restore(published)
+    }
     pub fn connection_test_input(
         &self,
         service: &str,
@@ -240,6 +494,9 @@ impl Store {
             .map_err(|e| crate::AppError::from(e.to_string()))
     }
     pub fn service_settings(&self) -> Result<ServiceSettings> {
+        if let Some(config) = self.service_settings_override()? {
+            return Ok(config);
+        }
         let raw = self.connection_settings()?;
         // A URL from an old model-provider configuration is never a service endpoint.
         if raw.model_id.as_deref() != Some(SERVICE_MARKER) {
@@ -283,16 +540,13 @@ impl Store {
         };
         // Do not hold a SQLite write transaction while the OS credential UI waits.
         let persist = || {
-            self.connect()?
-                .execute(
-                    "UPDATE settings SET base_url=?1,model_id=?2 WHERE id=1",
-                    params![
-                        config.service_url,
-                        config.service_url.as_ref().map(|_| SERVICE_MARKER)
-                    ],
-                )
-                .map(|_| ())
-                .map_err(|error| crate::AppError::from(error.to_string()))
+            self.update_sidecar(|mut state| {
+                if state.pending.is_some() {
+                    return Err("Service settings restoration is pending".into());
+                }
+                state.active = Some(config.clone());
+                Ok(state)
+            })
         };
         if let (Some(url), Some(token)) = (&config.service_url, &service_token) {
             let entry = credential(url)?;
@@ -313,6 +567,21 @@ impl Store {
 mod tests {
     use super::*;
     use std::sync::{Arc, Mutex};
+    thread_local! {
+        pub(super) static ROLLBACK_SYNC_ERROR: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    }
+    pub(super) fn initialization_checkpoint() {
+        if std::env::var("PRACTIQ_SERVICE_INITIALIZE_KILL").is_ok() {
+            use std::io::Write;
+            let mut stdout = std::io::stdout().lock();
+            writeln!(stdout, "service initialization checkpoint").unwrap();
+            stdout.flush().unwrap();
+            drop(stdout);
+            loop {
+                std::thread::park();
+            }
+        }
+    }
 
     fn config(url: &str) -> ServiceSettings {
         ServiceSettings {
@@ -328,6 +597,34 @@ mod tests {
         panic!("passive configuration must not open the credential store")
     }
 
+    fn seed_legacy(store: &Store) {
+        store.connect().unwrap().execute(
+            "UPDATE settings SET base_url='https://provider.example.com/v1',model_id='legacy-model',locale='en' WHERE id=1", [],
+        ).unwrap();
+    }
+    #[test]
+    fn repeated_service_url_changes_preserve_legacy_database_bytes() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path().to_owned()).unwrap();
+        seed_legacy(&store);
+        let before = std::fs::read(store.db_path()).unwrap();
+        for url in [
+            "https://first.example.com",
+            "https://second.example.com",
+            "https://second.example.com",
+        ] {
+            let cfg = config(url);
+            store
+                .save_settings_with(cfg.clone(), None, fail_credential)
+                .unwrap();
+            assert_eq!(store.service_settings().unwrap(), cfg);
+            assert!(std::fs::read(store.db_path()).unwrap() == before);
+        }
+        assert_eq!(
+            crate::backup::validate_database_schema(&store.db_path()).unwrap(),
+            11
+        );
+    }
     #[test]
     fn service_settings_are_strict_and_do_not_accept_provider_fields_or_tokens() {
         let parsed: ServiceSettings =
@@ -405,7 +702,7 @@ mod tests {
         }
     }
     #[test]
-    fn legacy_provider_settings_remain_unchanged_and_unconfigured_until_explicit_save() {
+    fn legacy_provider_settings_remain_unchanged_after_explicit_service_saves() {
         let dir = tempfile::tempdir().unwrap();
         let store = Store::new(dir.path().to_owned()).unwrap();
         store
@@ -427,7 +724,7 @@ mod tests {
             store.grading_input("test").unwrap_err().code,
             "LOCAL_SERVICE_URL_REQUIRED"
         );
-        assert_eq!(std::fs::read(store.db_path()).unwrap(), before);
+        assert!(std::fs::read(store.db_path()).unwrap() == before);
         let raw = store.connection_settings().unwrap();
         assert_eq!(
             raw.base_url.as_deref(),
@@ -443,8 +740,9 @@ mod tests {
         );
         assert_eq!(
             store.connection_settings().unwrap().model_id.as_deref(),
-            Some(SERVICE_MARKER)
+            Some("legacy-model")
         );
+        assert!(std::fs::read(store.db_path()).unwrap() == before);
         assert_eq!(
             store
                 .connect()
@@ -517,6 +815,8 @@ mod tests {
     fn clearing_the_service_url_preserves_schema_eleven_without_credentials() {
         let dir = tempfile::tempdir().unwrap();
         let store = Store::new(dir.path().to_owned()).unwrap();
+        seed_legacy(&store);
+        let before = std::fs::read(store.db_path()).unwrap();
         store
             .save_settings_with(config("https://service.example.com"), None, fail_credential)
             .unwrap();
@@ -527,7 +827,16 @@ mod tests {
             json!({"config":{"service_url":null},"hasServiceToken":false})
         );
         let raw = store.connection_settings().unwrap();
-        assert!(raw.base_url.is_none() && raw.model_id.is_none());
+        assert_eq!(
+            raw.base_url.as_deref(),
+            Some("https://provider.example.com/v1")
+        );
+        assert_eq!(raw.model_id.as_deref(), Some("legacy-model"));
+        assert_eq!(
+            store.service_settings().unwrap(),
+            ServiceSettings::default()
+        );
+        assert!(std::fs::read(store.db_path()).unwrap() == before);
         assert_eq!(
             crate::backup::validate_database_schema(&store.db_path()).unwrap(),
             11
@@ -587,7 +896,7 @@ mod tests {
             .unwrap();
         assert_eq!(cfg, config("https://service.example.com"));
         assert_eq!(token, "dummy-token");
-        assert_eq!(std::fs::read(store.db_path()).unwrap(), before);
+        assert!(std::fs::read(store.db_path()).unwrap() == before);
         assert_eq!(
             store
                 .connection_test_input(
@@ -642,6 +951,8 @@ mod tests {
     fn explicit_token_save_and_empty_token_clear_return_only_configuration_and_status() {
         let dir = tempfile::tempdir().unwrap();
         let store = Store::new(dir.path().to_owned()).unwrap();
+        seed_legacy(&store);
+        let before = std::fs::read(store.db_path()).unwrap();
         let cfg = config("https://service.example.com");
         let saved = store
             .save_settings_with(cfg.clone(), Some(" dummy-token ".into()), |_| {
@@ -660,8 +971,9 @@ mod tests {
         assert_eq!(cleared["hasServiceToken"], false);
         assert_eq!(
             store.connection_settings().unwrap().model_id.as_deref(),
-            Some(SERVICE_MARKER)
+            Some("legacy-model")
         );
+        assert!(std::fs::read(store.db_path()).unwrap() == before);
         let entry = mock_entry(Some("dummy-token"));
         persist_with_secret(&entry, None, || Ok(())).unwrap();
         assert!(secret(&entry).unwrap().is_none());
@@ -680,6 +992,440 @@ mod tests {
             .collect::<std::result::Result<Vec<_>, _>>()
             .unwrap();
         assert_eq!(columns, ["id", "base_url", "model_id", "locale"]);
+    }
+    struct SharedMockCredential(Arc<keyring::mock::MockCredential>);
+    impl keyring::credential::CredentialApi for SharedMockCredential {
+        fn set_secret(&self, value: &[u8]) -> keyring::Result<()> {
+            self.0.set_secret(value)
+        }
+        fn get_secret(&self) -> keyring::Result<Vec<u8>> {
+            self.0.get_secret()
+        }
+        fn delete_credential(&self) -> keyring::Result<()> {
+            self.0.delete_credential()
+        }
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+    }
+    #[test]
+    fn failed_service_sidecar_save_rolls_back_mock_token_and_preserves_legacy_bytes() {
+        use keyring::credential::CredentialApi;
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path().to_owned()).unwrap();
+        seed_legacy(&store);
+        let before = std::fs::read(store.db_path()).unwrap();
+        let blocked = store.dir.join("service-settings-v1.sqlite");
+        std::fs::create_dir(&blocked).unwrap();
+        let credential = Arc::new(keyring::mock::MockCredential::default());
+        credential.set_password("dummy-old-token").unwrap();
+        let result = store.save_settings_with(
+            config("https://service.example.com"),
+            Some("dummy-new-token".into()),
+            |_| {
+                Ok(Entry::new_with_credential(Box::new(SharedMockCredential(
+                    credential.clone(),
+                ))))
+            },
+        );
+        assert!(result.is_err());
+        assert_eq!(credential.get_password().unwrap(), "dummy-old-token");
+        assert!(std::fs::read(store.db_path()).unwrap() == before);
+        assert_eq!(
+            store.connection_settings().unwrap().model_id.as_deref(),
+            Some("legacy-model")
+        );
+    }
+    #[test]
+    fn pending_restore_rejects_service_save_and_rolls_back_mock_token() {
+        use keyring::credential::CredentialApi;
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path().to_owned()).unwrap();
+        seed_legacy(&store);
+        store
+            .save_settings_with(config("https://old.example.com"), None, fail_credential)
+            .unwrap();
+        let before = std::fs::read(store.db_path()).unwrap();
+        store
+            .prepare_service_settings_restore(
+                Some(config("https://new.example.com")),
+                hash(&before),
+            )
+            .unwrap();
+        let credential = Arc::new(keyring::mock::MockCredential::default());
+        credential.set_password("dummy-old-token").unwrap();
+        assert!(store
+            .save_settings_with(
+                config("https://other.example.com"),
+                Some("dummy-new-token".into()),
+                |_| {
+                    Ok(Entry::new_with_credential(Box::new(SharedMockCredential(
+                        credential.clone(),
+                    ))))
+                }
+            )
+            .is_err());
+        assert_eq!(credential.get_password().unwrap(), "dummy-old-token");
+        assert!(std::fs::read(store.db_path()).unwrap() == before);
+        store.finish_service_settings_restore(false).unwrap();
+        assert_eq!(
+            store.service_settings().unwrap(),
+            config("https://old.example.com")
+        );
+    }
+    #[test]
+    fn recovery_boundary_blocks_active_store_writes_until_restore_finishes() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path().to_owned()).unwrap();
+        store
+            .prepare_service_settings_restore(None, hash(&std::fs::read(store.db_path()).unwrap()))
+            .unwrap();
+        let before = std::fs::read(store.db_path()).unwrap();
+        assert!(store.save_bank(None, "Blocked", "").is_err());
+        assert!(std::fs::read(store.db_path()).unwrap() == before);
+        store.finish_service_settings_restore(false).unwrap();
+        store.save_bank(None, "Allowed", "").unwrap();
+    }
+    #[test]
+    fn recovery_boundary_failed_rollback_sync_keeps_pending_and_blocks_offline_writes() {
+        let dir = tempfile::tempdir().unwrap();
+        let (mut target, archive) = service_restore_fixture(dir.path(), false);
+        crate::filesystem::FAILURE
+            .with(|f| f.set(Some(("restore-sync", std::io::ErrorKind::StorageFull))));
+        ROLLBACK_SYNC_ERROR.with(|flag| flag.set(true));
+        let error = target.restore(&archive).unwrap_err();
+        crate::filesystem::FAILURE.with(|f| f.set(None));
+        assert_eq!(error.code, "LOCAL_RESTORE_ROLLBACK_FAILED");
+        assert!(target.sidecar_state().unwrap().unwrap().pending.is_some());
+        let before = std::fs::read(target.db_path()).unwrap();
+        assert!(target.save_bank(None, "Blocked", "").is_err());
+        assert!(std::fs::read(target.db_path()).unwrap() == before);
+        let reopened = Store::new(target.dir.clone()).unwrap();
+        assert_eq!(
+            reopened.service_settings().unwrap(),
+            config("https://old.example.com")
+        );
+        assert_eq!(reopened.banks().unwrap()[0]["title"], "Previous");
+        reopened.save_bank(None, "Allowed", "").unwrap();
+    }
+    #[test]
+    fn unknown_or_corrupt_service_sidecars_are_not_reinitialized() {
+        {
+            let bytes = b"not-a-database".as_slice();
+            let dir = tempfile::tempdir().unwrap();
+            let store = Store::new(dir.path().to_owned()).unwrap();
+            seed_legacy(&store);
+            std::fs::write(store.service_settings_path(), bytes).unwrap();
+            let before = std::fs::read(store.db_path()).unwrap();
+            assert!(store.service_settings().is_err());
+            assert!(store
+                .save_settings_with(config("https://service.example.com"), None, fail_credential)
+                .is_err());
+            assert_eq!(std::fs::read(store.service_settings_path()).unwrap(), bytes);
+            assert!(std::fs::read(store.db_path()).unwrap() == before);
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path().to_owned()).unwrap();
+        Connection::open(store.service_settings_path())
+            .unwrap()
+            .execute_batch("CREATE TABLE unknown(value TEXT); PRAGMA user_version=2;")
+            .unwrap();
+        let before = std::fs::read(store.service_settings_path()).unwrap();
+        assert!(store.service_settings().is_err());
+        assert!(store
+            .save_settings_with(ServiceSettings::default(), None, fail_credential)
+            .is_err());
+        assert!(std::fs::read(store.service_settings_path()).unwrap() == before);
+    }
+    #[test]
+    fn service_settings_backup_artifact_is_strict_and_versioned() {
+        for value in [
+            json!({"version":2,"config":{"service_url":null}}),
+            json!({"version":1,"config":{"service_url":"http://example.com"}}),
+            json!({"version":1,"config":{"service_url":null,"service_token":"dummy-token"}}),
+            json!({"version":1,"config":{"service_url":null},"service_token":"dummy-token"}),
+        ] {
+            let result = serde_json::from_value::<ServiceSettingsBackup>(value)
+                .map_err(settings_error)
+                .and_then(ServiceSettingsBackup::validate);
+            assert!(result.is_err());
+        }
+    }
+    fn service_restore_fixture(
+        root: &std::path::Path,
+        identical_databases: bool,
+    ) -> (Store, std::path::PathBuf) {
+        let source = Store::new(root.join("source")).unwrap();
+        let target = Store::new(root.join("target")).unwrap();
+        seed_legacy(&source);
+        seed_legacy(&target);
+        if !identical_databases {
+            source.save_bank(None, "Incoming", "").unwrap();
+            target.save_bank(None, "Previous", "").unwrap();
+        }
+        source
+            .save_settings_with(config("https://new.example.com"), None, fail_credential)
+            .unwrap();
+        target
+            .save_settings_with(config("https://old.example.com"), None, fail_credential)
+            .unwrap();
+        let archive = root.join("incoming.zip");
+        source.backup(&archive).unwrap();
+        if identical_databases {
+            let mut zip = zip::ZipArchive::new(std::fs::File::open(&archive).unwrap()).unwrap();
+            std::io::copy(
+                &mut zip.by_name("practiq.sqlite").unwrap(),
+                &mut std::fs::File::create(target.db_path()).unwrap(),
+            )
+            .unwrap();
+        }
+        (target, archive)
+    }
+    #[test]
+    fn restore_sync_error_keeps_previous_service_url_even_for_identical_database_bytes() {
+        let dir = tempfile::tempdir().unwrap();
+        let (mut target, archive) = service_restore_fixture(dir.path(), true);
+        let mut zip = zip::ZipArchive::new(std::fs::File::open(&archive).unwrap()).unwrap();
+        let mut incoming = Vec::new();
+        std::io::Read::read_to_end(&mut zip.by_name("practiq.sqlite").unwrap(), &mut incoming)
+            .unwrap();
+        assert!(std::fs::read(target.db_path()).unwrap() == incoming);
+        crate::filesystem::FAILURE
+            .with(|f| f.set(Some(("restore-sync", std::io::ErrorKind::StorageFull))));
+        assert!(target.restore(&archive).is_err());
+        assert_eq!(
+            target.service_settings().unwrap(),
+            config("https://old.example.com")
+        );
+        assert_eq!(
+            Store::new(target.dir.clone())
+                .unwrap()
+                .service_settings()
+                .unwrap(),
+            config("https://old.example.com")
+        );
+        target.restore(&archive).unwrap();
+        assert_eq!(
+            target.service_settings().unwrap(),
+            config("https://new.example.com")
+        );
+        assert_eq!(
+            target.connection_settings().unwrap().model_id.as_deref(),
+            Some("legacy-model")
+        );
+    }
+    #[test]
+    #[ignore = "subprocess entry point; invoked only by the disposable killed restore test"]
+    fn service_restore_child() {
+        let root = std::env::var("PRACTIQ_SERVICE_RESTORE_TEST_ROOT").unwrap();
+        if std::env::var("PRACTIQ_SERVICE_INITIALIZE_KILL").is_ok() {
+            let store = Store::new(std::path::Path::new(&root).join("target")).unwrap();
+            store
+                .save_settings_with(config("https://new.example.com"), None, fail_credential)
+                .unwrap();
+        }
+        if let Ok(mode) = std::env::var("PRACTIQ_SERVICE_SIDECAR_JOURNAL") {
+            use std::io::Write;
+            let store = Store::new(std::path::Path::new(&root).join("target")).unwrap();
+            let (path, sql) = if mode == "main" {
+                store
+                    .prepare_service_settings_restore(
+                        Some(config("https://new.example.com")),
+                        "f".repeat(64),
+                    )
+                    .unwrap();
+                (store.db_path(), "PRAGMA cache_size=1; BEGIN IMMEDIATE; CREATE TABLE uncommitted_payload(value BLOB); INSERT INTO uncommitted_payload VALUES(zeroblob(100000));")
+            } else {
+                (store.service_settings_path(), "PRAGMA cache_size=1; BEGIN IMMEDIATE; UPDATE service_settings SET active=lower(hex(zeroblob(100000)));")
+            };
+            let db = Connection::open(path).unwrap();
+            db.execute_batch(sql).unwrap();
+            let mut stdout = std::io::stdout().lock();
+            writeln!(stdout, "service sidecar checkpoint").unwrap();
+            stdout.flush().unwrap();
+            drop(stdout);
+            loop {
+                std::thread::park();
+            }
+        }
+        Store::new(std::path::Path::new(&root).join("target"))
+            .unwrap()
+            .restore(&std::path::Path::new(&root).join("incoming.zip"))
+            .unwrap();
+    }
+    #[test]
+    fn recovery_boundary_killed_first_sidecar_initialization_preserves_offline_startup() {
+        use std::{
+            io::{BufRead, BufReader},
+            process::{Command, Stdio},
+            sync::mpsc,
+            time::Duration,
+        };
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path().join("target")).unwrap();
+        seed_legacy(&store);
+        let before = std::fs::read(store.db_path()).unwrap();
+        let mut child = Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "settings::tests::service_restore_child",
+                "--nocapture",
+                "--ignored",
+            ])
+            .env("PRACTIQ_SERVICE_RESTORE_TEST_ROOT", dir.path())
+            .env("PRACTIQ_SERVICE_INITIALIZE_KILL", "1")
+            .stdout(Stdio::piped())
+            .spawn()
+            .unwrap();
+        let stdout = child.stdout.take().unwrap();
+        let (ready, result) = mpsc::channel();
+        let reader = std::thread::spawn(move || {
+            let reached = BufReader::new(stdout).lines().any(|line| {
+                line.is_ok_and(|line| line.ends_with("service initialization checkpoint"))
+            });
+            let _ = ready.send(reached);
+        });
+        let reached = result
+            .recv_timeout(Duration::from_secs(20))
+            .unwrap_or(false);
+        let _ = child.kill();
+        child.wait().unwrap();
+        reader.join().unwrap();
+        assert!(reached);
+        let empty = std::fs::read(store.service_settings_path()).unwrap();
+        let reopened = Store::new(store.dir.clone()).unwrap();
+        assert_eq!(
+            reopened.service_settings().unwrap(),
+            ServiceSettings::default()
+        );
+        assert!(std::fs::read(store.db_path()).unwrap() == before);
+        assert!(std::fs::read(store.service_settings_path()).unwrap() == empty);
+        reopened
+            .save_settings_with(config("https://saved.example.com"), None, fail_credential)
+            .unwrap();
+        assert_eq!(
+            reopened.service_settings().unwrap(),
+            config("https://saved.example.com")
+        );
+        assert!(std::fs::read(store.db_path()).unwrap() == before);
+    }
+    #[test]
+    fn killed_sqlite_writes_recover_journals_before_resolving_service_settings() {
+        use std::{
+            io::{BufRead, BufReader},
+            process::{Command, Stdio},
+            sync::mpsc,
+            time::Duration,
+        };
+        for mode in ["sidecar", "main"] {
+            let dir = tempfile::tempdir().unwrap();
+            let store = Store::new(dir.path().join("target")).unwrap();
+            seed_legacy(&store);
+            store
+                .save_settings_with(config("https://old.example.com"), None, fail_credential)
+                .unwrap();
+            let before = std::fs::read(store.db_path()).unwrap();
+            let mut child = Command::new(std::env::current_exe().unwrap())
+                .args([
+                    "--exact",
+                    "settings::tests::service_restore_child",
+                    "--nocapture",
+                    "--ignored",
+                ])
+                .env("PRACTIQ_SERVICE_RESTORE_TEST_ROOT", dir.path())
+                .env("PRACTIQ_SERVICE_SIDECAR_JOURNAL", mode)
+                .stdout(Stdio::piped())
+                .spawn()
+                .unwrap();
+            let stdout = child.stdout.take().unwrap();
+            let (ready, result) = mpsc::channel();
+            let reader = std::thread::spawn(move || {
+                let reached = BufReader::new(stdout).lines().any(|line| {
+                    line.is_ok_and(|line| line.ends_with("service sidecar checkpoint"))
+                });
+                let _ = ready.send(reached);
+            });
+            let reached = result
+                .recv_timeout(Duration::from_secs(20))
+                .unwrap_or(false);
+            let _ = child.kill();
+            child.wait().unwrap();
+            reader.join().unwrap();
+            assert!(reached);
+            let journal = if mode == "main" {
+                store.db_path()
+            } else {
+                store.service_settings_path()
+            }
+            .with_extension("sqlite-journal");
+            assert!(journal.exists());
+            let reopened = Store::new(store.dir.clone()).unwrap();
+            assert_eq!(
+                reopened.service_settings().unwrap(),
+                config("https://old.example.com")
+            );
+            assert!(std::fs::read(store.db_path()).unwrap() == before);
+        }
+    }
+    #[test]
+    fn killed_restore_recovers_service_url_before_first_offline_database_write() {
+        use std::{
+            io::{BufRead, BufReader},
+            process::{Command, Stdio},
+            sync::mpsc,
+            time::Duration,
+        };
+        for phase in ["before-publish", "after-publish"] {
+            let dir = tempfile::tempdir().unwrap();
+            service_restore_fixture(dir.path(), false);
+            let mut child = Command::new(std::env::current_exe().unwrap())
+                .args([
+                    "--exact",
+                    "settings::tests::service_restore_child",
+                    "--nocapture",
+                    "--ignored",
+                ])
+                .env("PRACTIQ_SERVICE_RESTORE_TEST_ROOT", dir.path())
+                .env("PRACTIQ_RESTORE_KILL_PHASE", phase)
+                .stdout(Stdio::piped())
+                .spawn()
+                .unwrap();
+            let stdout = child.stdout.take().unwrap();
+            let checkpoint = format!("restore checkpoint: {phase}");
+            let (ready, result) = mpsc::channel();
+            let reader = std::thread::spawn(move || {
+                let reached = BufReader::new(stdout)
+                    .lines()
+                    .any(|line| line.is_ok_and(|line| line.ends_with(&checkpoint)));
+                let _ = ready.send(reached);
+            });
+            let reached = result
+                .recv_timeout(Duration::from_secs(20))
+                .unwrap_or(false);
+            let _ = child.kill();
+            child.wait().unwrap();
+            reader.join().unwrap();
+            assert!(reached, "restore did not reach {phase}");
+            let store = Store::new(dir.path().join("target")).unwrap();
+            let incoming = phase == "after-publish";
+            assert_eq!(
+                store.banks().unwrap()[0]["title"],
+                if incoming { "Incoming" } else { "Previous" }
+            );
+            store.save_bank(None, "Offline first", "").unwrap();
+            assert_eq!(
+                store.service_settings().unwrap(),
+                config(if incoming {
+                    "https://new.example.com"
+                } else {
+                    "https://old.example.com"
+                })
+            );
+            assert_eq!(
+                store.connection_settings().unwrap().model_id.as_deref(),
+                Some("legacy-model")
+            );
+        }
     }
     #[test]
     fn failed_database_persistence_restores_the_previous_token() {
@@ -726,7 +1472,7 @@ mod tests {
         assert!(!serde_json::to_string(&error)
             .unwrap()
             .contains("dummy-secret"));
-        assert_eq!(std::fs::read(store.db_path()).unwrap(), before);
+        assert!(std::fs::read(store.db_path()).unwrap() == before);
     }
     #[test]
     fn legacy_and_service_marker_backups_restore_without_schema_migration() {
@@ -760,6 +1506,23 @@ mod tests {
             config("https://service.example.com")
         );
         assert_eq!(
+            target.connection_settings().unwrap().model_id.as_deref(),
+            Some("old-model")
+        );
+        assert_eq!(
+            target.connection_settings().unwrap().base_url.as_deref(),
+            Some("https://provider.example.com/v1")
+        );
+        target.restore(&legacy).unwrap();
+        assert_eq!(
+            target.service_settings().unwrap(),
+            ServiceSettings::default()
+        );
+        assert_eq!(
+            target.connection_settings().unwrap().model_id.as_deref(),
+            Some("old-model")
+        );
+        assert_eq!(
             crate::backup::validate_database_schema(&target.db_path()).unwrap(),
             11
         );
@@ -767,6 +1530,72 @@ mod tests {
             .unwrap()
             .windows(b"dummy-secret-token".len())
             .any(|part| part == b"dummy-secret-token"));
+    }
+    #[test]
+    fn old_service_marker_backup_and_explicit_clear_overlay_restore_independently() {
+        let dir = tempfile::tempdir().unwrap();
+        let source = Store::new(dir.path().join("source")).unwrap();
+        source.connect().unwrap().execute(
+            "UPDATE settings SET base_url='https://old-service.example.com',model_id=?1 WHERE id=1", [SERVICE_MARKER],
+        ).unwrap();
+        let mut target = Store::new(dir.path().join("target")).unwrap();
+        target
+            .save_settings_with(config("https://other.example.com"), None, fail_credential)
+            .unwrap();
+        let old_backup = dir.path().join("old-marker.zip");
+        source.backup(&old_backup).unwrap();
+        assert!(!source.service_settings_path().exists());
+        target.restore(&old_backup).unwrap();
+        assert_eq!(
+            target.service_settings().unwrap(),
+            config("https://old-service.example.com")
+        );
+        let before = std::fs::read(target.db_path()).unwrap();
+        target
+            .save_settings_with(ServiceSettings::default(), None, fail_credential)
+            .unwrap();
+        assert!(std::fs::read(target.db_path()).unwrap() == before);
+        assert_eq!(
+            target.service_settings().unwrap(),
+            ServiceSettings::default()
+        );
+        let cleared_backup = dir.path().join("cleared.zip");
+        target.backup(&cleared_backup).unwrap();
+        let mut zip = zip::ZipArchive::new(std::fs::File::open(&cleared_backup).unwrap()).unwrap();
+        assert_eq!(zip.len(), 2);
+        let manifest: Value =
+            serde_json::from_reader(zip.by_name("manifest.json").unwrap()).unwrap();
+        assert_eq!(
+            manifest["serviceSettings"],
+            json!({"version":1,"config":{"service_url":null}})
+        );
+        assert_eq!(
+            target
+                .backup(&target.service_settings_path())
+                .unwrap_err()
+                .code,
+            "LOCAL_BACKUP_OVERWRITE"
+        );
+        target
+            .save_settings_with(
+                config("https://replacement.example.com"),
+                None,
+                fail_credential,
+            )
+            .unwrap();
+        target.restore(&cleared_backup).unwrap();
+        assert_eq!(
+            target.service_settings().unwrap(),
+            ServiceSettings::default()
+        );
+        assert_eq!(
+            target.connection_settings().unwrap().model_id.as_deref(),
+            Some(SERVICE_MARKER)
+        );
+        assert_eq!(
+            target.connection_settings().unwrap().base_url.as_deref(),
+            Some("https://old-service.example.com")
+        );
     }
     #[test]
     fn settings_read_waits_for_restore_to_release_the_store() {
