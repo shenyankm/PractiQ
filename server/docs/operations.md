@@ -72,6 +72,8 @@ See the [configuration template](../../.env.example) for all variables. Limits i
 
 Each provider attempt is recorded before dispatch. Returned usage and completion are committed before the next correction or retry begins. Process interruption may leave a registered grading request without a result. Replaying its ID returns `unknown` with the already-known `usage` and persisted `calls`; in-flight attempts retain `usageStatus: unknown` and null token counts. The service does not call the model again automatically. Only explicit regrading with a new ID starts another request. Historical interrupted requests without call records retain empty usage because it cannot be reconstructed. Preserve unknown usage and reconcile it against provider billing. The service does not automatically clean grading caches; plan their retention separately.
 
+Call events, counters, and timings are recorded even if persisting an attempt's outcome fails. A ledger write failure stops further provider dispatch, including automatic retries; already-known usage and dispatched unknown attempts remain in the cached response if final-response storage succeeds.
+
 Desktop ZIP backups include exams and saved scores, but exclude the service cache and API keys. Full service backups and desktop bank backups serve different purposes and cannot replace each other.
 
 ## Retention and cleanup

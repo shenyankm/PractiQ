@@ -17,12 +17,13 @@ from uuid import uuid4
 
 import anyio
 import httpx
+import httpx2
 import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
 from pydantic import ValidationError
 
-from practiq_ai import capacity, grading, llm, webapp
+from practiq_ai import capacity, grading, llm, telemetry, webapp
 from practiq_ai.contracts import ModelCallUsage, ParsedQuestion
 from practiq_ai.errors import DocumentProcessingError
 from tests.support import FakeModel
@@ -205,9 +206,11 @@ async def test_grading_call_storage_failure_stops_before_more_provider_calls(sha
     assert await grading.grade(request) == response
 
 
-async def test_failed_correction_call_write_retains_unknown_attempt_in_cached_response(shared_grading_model, monkeypatch):
-    model, _ = shared_grading_model
-    model.responses[1] = RuntimeError("Provider failed")
+@pytest.mark.parametrize("retryable", [False, True])
+async def test_failed_correction_call_write_retains_unknown_attempt_and_telemetry(shared_grading_model, monkeypatch, retryable):
+    model, valid = shared_grading_model
+    model.responses[1] = llm.APIConnectionError(request=httpx2.Request("POST", "https://example.invalid")) if retryable else RuntimeError("Provider failed")
+    model.responses.append(valid)
     original = grading._save_call
 
     def unavailable(request, record):
@@ -217,7 +220,13 @@ async def test_failed_correction_call_write_retains_unknown_attempt_in_cached_re
 
     monkeypatch.setattr(grading, "_save_call", unavailable)
     request = grading.GradeRequest.model_validate(payload())
-    response = await grading.grade(request)
+    labels = {"kind": "subjective_grade", "outcome": "unknown"}
+    histogram_labels = {"stage": "model", "outcome": "unknown"}
+    counter_before = telemetry.registry.get_sample_value("practiq_model_calls_total", labels) or 0
+    duration_before = telemetry.registry.get_sample_value("practiq_stage_seconds_count", histogram_labels) or 0
+    with telemetry.capture_events() as events:
+        response = await grading.grade(request)
+        assert await grading.grade(request) == response
     assert response["error"] == "EXECUTION_STORE_UNAVAILABLE"
     assert response["usageStatus"] == "unknown"
     assert len(response["usage"]) == 1
@@ -225,8 +234,15 @@ async def test_failed_correction_call_write_retains_unknown_attempt_in_cached_re
     assert [(call["status"], call["usageStatus"]) for call in response["calls"]] == [("completed", "known"), ("failed", "unknown")]
     assert response["calls"][-1]["inputTokens"] is None
     assert response["calls"][-1]["outputTokens"] is None
-    assert await grading.grade(request) == response
     assert len(model.calls) == 2
+    starts = [event for event in events if event["event"] == "model_start"]
+    completed = [event for event in events if event["event"] == "model_call"]
+    assert len(starts) == len(completed) == 2
+    assert {event["callKey"] for event in starts} == {event["callKey"] for event in completed} == {call["callKey"] for call in response["calls"]}
+    assert completed[-1]["outcome"] == "unknown"
+    assert completed[-1]["errorCode"] == ("AI_PROVIDER_UNAVAILABLE" if retryable else "AI_PROVIDER_ERROR")
+    assert telemetry.registry.get_sample_value("practiq_model_calls_total", labels) == counter_before + 1
+    assert telemetry.registry.get_sample_value("practiq_stage_seconds_count", histogram_labels) == duration_before + 1
 
 
 async def test_existing_grading_cache_preserves_responses_and_unknown_requests(setup, monkeypatch):
