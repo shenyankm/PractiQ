@@ -26,11 +26,20 @@ from practiq_ai.errors import DocumentProcessingError
 from tests.support import make_image, object_store, upload
 
 
-def test_documented_fixture_generator_consumes_stream_and_preserves_portable_content(tmp_path):
+@pytest.mark.parametrize("png_compression", [None, 0])
+def test_documented_fixture_generator_consumes_stream_and_preserves_portable_content(tmp_path, png_compression):
     root = Path(__file__).parents[2]
     fixture = root / "app/fixtures/service-export"
     output = tmp_path / "generated"
-    process = subprocess.run([sys.executable, str(fixture / "generate.py"), str(output)],
+    command = [sys.executable, str(fixture / "generate.py"), str(output)]
+    if png_compression is not None:
+        # PNG encoders can produce different compressed bytes for identical pixels.
+        program = ("import runpy, sys; from PIL import Image; compression=int(sys.argv.pop(1)); "
+                   "original=Image.Image.save; "
+                   "Image.Image.save=lambda image,*args,**kwargs:original(image,*args,**(kwargs|{'compress_level':compression})); "
+                   "sys.argv=sys.argv[1:]; runpy.run_path(sys.argv[0],run_name='__main__')")
+        command = [sys.executable, "-c", program, str(png_compression), *command[1:]]
+    process = subprocess.run(command,
                              env=os.environ | {"PYTHONPATH": str(root / "server/src")},
                              capture_output=True, text=True, check=True, timeout=30)
     provenance = json.loads((output / "provenance.json").read_text())
@@ -39,12 +48,35 @@ def test_documented_fixture_generator_consumes_stream_and_preserves_portable_con
     assert provenance["archiveBytes"] == archive.stat().st_size
     assert provenance["archiveSha256"] == hashlib.sha256(archive.read_bytes()).hexdigest()
     historical = json.loads((fixture / "provenance.json").read_text())
-    for field in ("source", "image", "audio", "resultDumpSha256"):
+    for field in ("source", "audio"):
         assert provenance[field] == historical[field]
     assert provenance["exporterSha256"] == hashlib.sha256((root / "server/src/practiq_ai/bank_export.py").read_bytes()).hexdigest()
     with ZipFile(archive) as generated, ZipFile(fixture / "partial-media-bank.zip") as original:
-        assert generated.namelist() == original.namelist()
-        assert all(generated.read(name) == original.read(name) for name in original.namelist())
+        image_path = "resources/" + provenance["image"]["objectKey"]
+        old_image_path = "resources/" + historical["image"]["objectKey"]
+        assert generated.namelist() == [image_path if name == old_image_path else name for name in original.namelist()]
+        image_bytes = generated.read(image_path)
+        assert provenance["image"]["sha256"] == hashlib.sha256(image_bytes).hexdigest()
+        assert provenance["image"]["sizeBytes"] == len(image_bytes)
+        assert provenance["image"]["mediaType"] == historical["image"]["mediaType"] == "image/png"
+        with Image.open(io.BytesIO(image_bytes)) as image, Image.open(io.BytesIO(original.read(old_image_path))) as previous:
+            assert image.format == previous.format == "PNG"
+            assert image.mode == previous.mode == "RGB"
+            assert image.size == previous.size == (16, 12)
+            assert image.tobytes() == previous.tobytes() == b"\xff" * (16 * 12 * 3)
+        if png_compression is not None:
+            assert image_bytes != original.read(old_image_path)
+        actual = json.loads(generated.read("questions.json"))
+        expected = json.loads(original.read("questions.json"))
+        for field in ("imageRef", "sourceRef"):
+            assert expected["result"]["visualElements"][0][field] == historical["image"]
+            expected["result"]["visualElements"][0][field] = provenance["image"]
+        assert actual == expected
+        dumped = json.dumps(actual["result"], sort_keys=True, ensure_ascii=False).encode()
+        assert provenance["resultDumpSha256"] == hashlib.sha256(dumped).hexdigest()
+        for name in original.namelist():
+            if name not in {old_image_path, "questions.json"}:
+                assert generated.read(name) == original.read(name)
 
 
 def test_fixture_generator_closes_export_stream_when_destination_cannot_open(tmp_path, monkeypatch):
