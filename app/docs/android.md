@@ -96,6 +96,8 @@ Keep the test APK, final app APK and source hashes together. Instrumentation can
 
 Use isolated synthetic banks to verify native ZIP selection/import, image and audio playback, practice and draft recovery, dirty-editor Back, export/restore confirmation, rotation, background/resume and Activity recreation. Capture the actual OS/API, WebView version, APK SHA-256, source commit, commands and outcomes. Do not reset unrelated devices or personal app data.
 
+For listening playback, let a clip finish naturally, pause and resume it, seek with **Replay from start** and then select **Play audio**, and background the app while playback is starting. Replay seeks the clip without starting playback. Record native outcomes separately from component tests, including any playback error; component regressions do not establish device acceptance.
+
 An emulator can reach a host-loopback independent service through an explicit port reverse:
 
 ```sh

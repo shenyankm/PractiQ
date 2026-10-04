@@ -304,6 +304,17 @@ test('listening uses local audio with touch-sized playback, speed and seek contr
   await expect(player.locator('audio')).toHaveJSProperty('playbackRate', 0.75);
   await player.getByRole('button', { name: '从头重听', exact: true }).tap();
   await expect.poll(() => player.locator('audio').evaluate(audio => audio.currentTime)).toBeCloseTo(0, 1);
+  // The preview accepts playback requests; this checks real Chromium EOF/UI
+  // replay, while strict native End/Pause state is verified separately.
+  await play.tap();
+  await expect.poll(() => player.locator('audio').evaluate(audio => audio.ended && audio.paused)).toBe(true);
+  await expect(play).toBeEnabled();
+  await expect(player.getByRole('alert')).toHaveCount(0);
+  await play.tap();
+  await expect(player.getByRole('button', { name: '暂停播放', exact: true })).toBeVisible();
+  await expect.poll(() => player.locator('audio').evaluate(audio => !audio.ended && !audio.paused && audio.currentTime > 0.1)).toBe(true);
+  await player.getByRole('button', { name: '暂停播放', exact: true }).tap();
+  await expect(play).toBeVisible();
   await noHorizontalOverflow(page, 'listening controls');
 });
 

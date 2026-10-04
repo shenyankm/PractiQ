@@ -37,6 +37,157 @@ function reveal(index=0){
 }
 const assetCalls=()=>mockApi.mock.calls.filter(([request])=>request.type==="asset");
 
+function strictPlayback(beforeStart?:()=>Promise<void>,restricted=false) {
+  const state={used:0,position:0,active:false,limit:2,restricted};
+  let paused=false;
+  mockApi.mockImplementation(async request=>{
+    if(request.type==="asset")return new ArrayBuffer(2) as never;
+    if(request.type!=="listening_playback")return null as never;
+    if(request.action==="start"){
+      await beforeStart?.();
+      if(!state.active){
+        if(state.restricted && state.used>=state.limit)throw new Error("No listening plays remaining");
+        state.used++;state.position=0;state.active=true;
+      }
+      paused=false;
+    } else if(request.action!=="state"){
+      if(!state.active)throw new Error("Listening playback has not started");
+      if(paused && request.action!=="pause")throw new Error("Listening playback is paused");
+      if(!paused){
+        state.position=request.position!;
+        if(request.action==="pause")paused=true;
+        if(request.action==="end")state.active=false;
+      }
+    }
+    return {...state} as never;
+  });
+  return {state,isPaused:()=>paused};
+}
+
+it.each(["practice","self_test"] as const)("records natural EOF once without pausing native %s playback first",async kind=>{
+  const {state}=strictPlayback(undefined,kind!=="practice");
+  const session={id:"session",kind,finishedAt:null,submittedAt:null} as Session;
+  const view=render(<ListeningPlayer question={question} session={session}/>);
+  reveal();
+  await waitFor(()=>expect(view.container.querySelector("audio")?.getAttribute("src")).toBe("blob:audio"));
+  await userEvent.click(screen.getByRole("button",{name:"播放听力"}));
+  await waitFor(()=>expect(state.active).toBe(true));
+  const player=view.container.querySelector("audio")!;
+  const ended=vi.spyOn(HTMLMediaElement.prototype,"ended","get").mockReturnValue(true);
+  act(()=>{
+    player.currentTime=3;
+    fireEvent.timeUpdate(player);
+    player.pause();
+    fireEvent.ended(player);
+  });
+  await waitFor(()=>expect(state.active).toBe(false));
+  expect(screen.queryByRole("alert")).toBeNull();
+  const requests=mockApi.mock.calls.map(([request])=>request).filter(request=>request.type==="listening_playback");
+  expect(requests.filter(request=>request.action==="end")).toHaveLength(1);
+  expect(requests.filter(request=>request.action==="pause")).toHaveLength(0);
+  expect(state.used).toBe(1);
+  ended.mockReturnValue(false);
+  if(kind==="practice"){
+    await userEvent.click(screen.getByRole("button",{name:"从头重听"}));
+    expect(player.currentTime).toBe(0);
+    expect(player.paused).toBe(true);
+    expect(state.used).toBe(1);
+  }
+  await userEvent.click(screen.getByRole("button",{name:"播放听力"}));
+  await waitFor(()=>expect(state.used).toBe(2));
+  expect(player.currentTime).toBe(0);
+  ended.mockReturnValue(true);
+  act(()=>{player.currentTime=3;fireEvent.timeUpdate(player);player.pause();fireEvent.ended(player);});
+  await waitFor(()=>expect(state.active).toBe(false));
+  expect(mockApi.mock.calls.filter(([request])=>request.type==="listening_playback" && request.action==="end")).toHaveLength(2);
+  expect(mockApi.mock.calls.filter(([request])=>request.type==="listening_playback" && request.action==="pause")).toHaveLength(0);
+  expect((screen.getByRole("button",{name:"播放听力"}) as HTMLButtonElement).disabled).toBe(kind!=="practice");
+  expect(screen.queryByRole("alert")).toBeNull();
+});
+
+it("waits for native resume before saving progress",async()=>{
+  let starts=0;
+  let resume! : ()=>void;
+  const resumed=new Promise<void>(resolve=>{resume=resolve;});
+  const {state,isPaused}=strictPlayback(async()=>{if(++starts===2)await resumed;});
+  const session={id:"session",kind:"practice",finishedAt:null,submittedAt:null} as Session;
+  const view=render(<ListeningPlayer question={question} session={session}/>);
+  reveal();
+  await waitFor(()=>expect(view.container.querySelector("audio")?.getAttribute("src")).toBe("blob:audio"));
+  await userEvent.click(screen.getByRole("button",{name:"播放听力"}));
+  await waitFor(()=>expect(state.active).toBe(true));
+  await userEvent.click(screen.getByRole("button",{name:"暂停播放"}));
+  await waitFor(()=>expect(isPaused()).toBe(true));
+  await userEvent.click(screen.getByRole("button",{name:"播放听力"}));
+  await waitFor(()=>expect(starts).toBe(2));
+  const player=view.container.querySelector("audio")!;
+  const now=vi.spyOn(Date,"now").mockReturnValue(10_000);
+  act(()=>{player.currentTime=1;fireEvent.timeUpdate(player);});
+  await act(async()=>{await Promise.resolve();});
+  expect(mockApi.mock.calls.filter(([request])=>request.type==="listening_playback" && request.action==="progress")).toHaveLength(0);
+  await act(async()=>{resume();await resumed;});
+  now.mockReturnValue(11_001);
+  act(()=>{player.currentTime=1.5;fireEvent.timeUpdate(player);});
+  await waitFor(()=>expect(state.position).toBe(1.5));
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(state.used).toBe(1);
+});
+
+it("saves a visibility pause after the pending native start completes",async()=>{
+  let complete! : ()=>void;
+  const pending=new Promise<void>(resolve=>{complete=resolve;});
+  let starting=false;
+  const {state,isPaused}=strictPlayback(async()=>{starting=true;await pending;});
+  const session={id:"session",kind:"practice",finishedAt:null,submittedAt:null} as Session;
+  const view=render(<ListeningPlayer question={question} session={session}/>);
+  reveal();
+  await waitFor(()=>expect(view.container.querySelector("audio")?.getAttribute("src")).toBe("blob:audio"));
+  await userEvent.click(screen.getByRole("button",{name:"播放听力"}));
+  await waitFor(()=>expect(starting).toBe(true));
+  const player=view.container.querySelector("audio")!;
+  act(()=>{player.currentTime=0.5;fireEvent(document,new Event("visibilitychange"));});
+  expect(player.paused).toBe(true);
+  await act(async()=>{complete();await pending;});
+  await waitFor(()=>expect(isPaused()).toBe(true));
+  expect(state.position).toBe(0.5);
+  expect(state.used).toBe(1);
+  expect(screen.queryByRole("alert")).toBeNull();
+});
+
+it.each(["replay","seek","seek-end"] as const)("keeps paused %s positioning local until playback resumes",async action=>{
+  const {state,isPaused}=strictPlayback();
+  const session={id:"session",kind:"practice",finishedAt:null,submittedAt:null} as Session;
+  const view=render(<ListeningPlayer question={question} session={session}/>);
+  reveal();
+  await waitFor(()=>expect(view.container.querySelector("audio")?.getAttribute("src")).toBe("blob:audio"));
+  await userEvent.click(screen.getByRole("button",{name:"播放听力"}));
+  await waitFor(()=>expect(state.active).toBe(true));
+  const player=view.container.querySelector("audio")!;
+  act(()=>{player.currentTime=1;});
+  await userEvent.click(screen.getByRole("button",{name:"暂停播放"}));
+  await waitFor(()=>expect(isPaused()).toBe(true));
+  expect(state.position).toBe(1);
+  const now=vi.spyOn(Date,"now").mockReturnValue(10_000);
+  if(action==="replay")await userEvent.click(screen.getByRole("button",{name:"从头重听"}));
+  else fireEvent.change(screen.getByRole("slider"),{target:{value:action==="seek-end"?"3":"0.5"}});
+  const ended=vi.spyOn(HTMLMediaElement.prototype,"ended","get").mockReturnValue(action==="seek-end");
+  act(()=>{fireEvent.timeUpdate(player);if(action==="seek-end")fireEvent.ended(player);});
+  await act(async()=>{await Promise.resolve();});
+  expect(mockApi.mock.calls.filter(([request])=>request.type==="listening_playback" && request.action==="progress")).toHaveLength(0);
+  expect(mockApi.mock.calls.filter(([request])=>request.type==="listening_playback" && request.action==="end")).toHaveLength(0);
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(player.currentTime).toBe(action==="replay"?0:action==="seek-end"?3:0.5);
+  ended.mockReturnValue(false);
+  await userEvent.click(screen.getByRole("button",{name:"播放听力"}));
+  await waitFor(()=>expect(isPaused()).toBe(false));
+  expect(player.currentTime).toBe(action==="seek"?0.5:0);
+  now.mockReturnValue(11_001);
+  act(()=>{player.currentTime=0.8;fireEvent.timeUpdate(player);});
+  await waitFor(()=>expect(state.position).toBe(0.8));
+  expect(state.used).toBe(1);
+  expect(screen.queryByRole("alert")).toBeNull();
+});
+
 it("does not read offscreen audio and releases it after entering the nearby viewport",async()=>{
   const view=render(<ListeningPlayer question={question}/>);
   expect(assetCalls()).toHaveLength(0);

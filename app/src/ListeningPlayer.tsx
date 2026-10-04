@@ -23,6 +23,7 @@ export function ListeningPlayer({question:q,session}:{question:Question;session?
   const chain=useRef(Promise.resolve());
   const started=useRef(false);
   const deferredEnd=useRef<number|null>(null);
+  const deferredPause=useRef<number|null>(null);
   const positionChosen=useRef(false);
   const ended=useRef(false);
   const start=q.audioStartSeconds ?? 0;
@@ -97,10 +98,13 @@ export function ListeningPlayer({question:q,session}:{question:Question;session?
       if(restricted || (!started.current && !positionChosen.current && current?.active)) player.currentTime=current?.active ? current.position : start;
       else if(player.currentTime<start || player.currentTime>=limit || ended.current) player.currentTime=start;
       allowedPosition.current=player.currentTime;ended.current=false;deferredEnd.current=null;
+      started.current=false;deferredPause.current=null;
       await player.play();
       if(sid && q.id && live) setState(await api({type:"listening_playback",id:sid,question_id:q.id,action:"start"}));
       started.current=true;
       if(deferredEnd.current != null){persist("end",deferredEnd.current);deferredEnd.current=null;started.current=false;}
+      else if(deferredPause.current != null){persist("pause",deferredPause.current);started.current=false;}
+      deferredPause.current=null;
     } catch {player.pause();setError(true);} finally {setBusy(false);}
   }
   function finish() {
@@ -123,7 +127,15 @@ export function ListeningPlayer({question:q,session}:{question:Question;session?
     {hash && <>
       <audio lang={materialLanguage(q)} ref={audio} src={src || undefined} preload="metadata"
         onLoadedMetadata={()=>{if(audio.current)audio.current.currentTime=start;if(playRequested){setPlayRequested(false);void toggle();}}}
-        onPlay={()=>setPlaying(true)} onPause={()=>{setPlaying(false);if(audio.current && !ended.current)persist("pause",audio.current.currentTime);}}
+        onPlay={()=>setPlaying(true)} onPause={()=>{
+          setPlaying(false);
+          const player=audio.current;
+          // Natural EOF fires pause before ended; only ended completes that play.
+          if(player && !ended.current && !player.ended){
+            if(started.current){persist("pause",player.currentTime);started.current=false;}
+            else deferredPause.current=player.currentTime;
+          }
+        }}
         onEnded={finish} onError={()=>{setError(true);setPlayRequested(false);}}
         onRateChange={()=>{if(restricted && audio.current)audio.current.playbackRate=1;}}
         onSeeking={()=>{const p=audio.current;if(p && restricted && Math.abs(p.currentTime-allowedPosition.current)>0.25)p.currentTime=allowedPosition.current;}}
