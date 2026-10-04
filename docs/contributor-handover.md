@@ -1,20 +1,28 @@
 # Contributor entry point and maintenance handover
 
-Tracks [#93](https://github.com/shenyankm/PractiQ/issues/93). Prepared on 2026-10-04 against main `2e9215f59920a7e2f7d9bf9b64ff61b6d1f6ccd7`. Setup was exercised in an isolated managed checkout, not a clean machine. Existing Python/Node/Rust installations and installed service dependencies were reused; Windows/Linux onboarding and independent contributor participation remain unverified.
+Tracks [#93](https://github.com/shenyankm/PractiQ/issues/93). On 2026-10-04 a maintainer rehearsed the complete focused setup in one fresh managed checkout of `8cdc570e17657250a6a4e82f1049e359e3104e80`, the [#133 Android candidate](https://github.com/shenyankm/PractiQ/pull/133). That candidate has since merged. At the 10:21 UTC status observation, main was `71b7988e6ef275f82ce8f65419f7727998e948ff`, containing [#133](https://github.com/shenyankm/PractiQ/pull/133), CSV [#134](https://github.com/shenyankm/PractiQ/pull/134), PDF [#135](https://github.com/shenyankm/PractiQ/pull/135) and the trial protocol [#137](https://github.com/shenyankm/PractiQ/pull/137). [#92](https://github.com/shenyankm/PractiQ/issues/92) remains open for actual consented trials; the no-model engineering record for #90 is in open [#138](https://github.com/shenyankm/PractiQ/pull/138). Existing macOS arm64 runtimes were reused: Python 3.14.7, Node 22.23.2, npm 10.9.8 and uv 0.12.13. The maintainer execution verifies that the documented setup commands work in an isolated checkout with reused runtimes; it records no clean-machine test or another person's participation.
 
-Current app targets are macOS, Windows and Android; Linux app packaging is removed. The onboarding evidence above remains a record of its original commit. Follow the [Android guide](../app/docs/android.md) for the current SDK, APK and emulator checks; independent Android contributor onboarding remains unverified.
+The rehearsed candidate targets macOS, Windows and Android and removes Linux app packaging; Linux remains a service/CI host. Follow the [Android guide](../app/docs/android.md) for SDK, APK and emulator checks. This rehearsal exercised no Rust/native package, Android SDK/device, Windows native or Linux service-host checks.
 
-## Choose one bounded fixture task
+## Review bounded fixture contributions
 
-The current evaluation manifest contains wholly answerless TXT sources, but no wholly answerless CSV, PDF or standalone PNG source. These small coverage additions use original synthetic content and offline scorer tests; they do not require paid model access or release credentials. Each issue contains affected files, exact validation commands and independently source-checked null-answer acceptance criteria.
+The three initial tasks addressed actual gaps for wholly answerless CSV, PDF and standalone PNG sources; answerless TXT sources already existed. They use original synthetic content and offline scorer tests and require neither paid model access nor release credentials. Each issue contains affected files, exact validation commands and independently source-checked null-answer acceptance criteria. The table records the GitHub status observed at 10:21 UTC on 2026-10-04; recheck its issue and PR before choosing work.
 
-| Contribution issue | Input / scope | Validation |
-| --- | --- | --- |
-| [#112: answerless CSV](https://github.com/shenyankm/PractiQ/issues/112) | One original two-question CSV + gold manifest + scorer regression | Validate manifest; focused evaluation tests; full service verify |
-| [#113: answerless PDF](https://github.com/shenyankm/PractiQ/issues/113) | One original two-question PDF + reproducible source + gold/scorer regression | Same offline checks; visually inspect printed questions and absence of answers |
-| [#114: answerless PNG](https://github.com/shenyankm/PractiQ/issues/114) | One original two-question image + reproducible source + gold/scorer regression | Same offline checks; inspect rendered source and explicit nulls |
+| Contribution issue | Input / scope | Validation | Observed status |
+| --- | --- | --- | --- |
+| [#112: answerless CSV](https://github.com/shenyankm/PractiQ/issues/112) | One original two-question CSV + gold manifest + scorer regression | Validate manifest; focused evaluation tests; full service verify | Completed: [#134](https://github.com/shenyankm/PractiQ/pull/134) merged; issue closed |
+| [#113: answerless PDF](https://github.com/shenyankm/PractiQ/issues/113) | One original two-question PDF + reproducible source + gold/scorer regression | Same offline checks; visually inspect printed questions and absence of answers | Completed: [#135](https://github.com/shenyankm/PractiQ/pull/135) merged; issue closed |
+| [#114: answerless PNG](https://github.com/shenyankm/PractiQ/issues/114) | One original two-question image + original-source provenance/generation note + gold/scorer regression | Same offline checks; inspect rendered source and explicit nulls | [#136](https://github.com/shenyankm/PractiQ/pull/136) open; issue open |
 
-These are unassigned `good first issue` / `help wanted` tasks. A label is an invitation, not an assignment or a record of a contribution. Broad release, live-model quality and user recruitment work is not labeled as beginner work.
+The initial listings used `good first issue` / `help wanted` for these bounded tasks. A label is an invitation, not an assignment or evidence of a completed contribution. Completed rows are examples, and an open issue with an active PR needs coordination before duplicating its work; do not recreate listings solely to maintain a count. Broad release, live-model quality and user recruitment work is not beginner work.
+
+Cid-oe publicly offered a PNG fixture in [the #114 source comment](https://github.com/shenyankm/PractiQ/issues/114#issuecomment-5976045114). [The original fork commit](https://github.com/Cid-oe/PractiQ/commit/7f2974618279e3fd0b27301f126a1a19206c4aac) records Siddharth U as its author; upstream [#136](https://github.com/shenyankm/PractiQ/pull/136) preserves that attribution. This records an actual offered external contribution and its upstream review, without claiming acceptance, another person's onboarding experience or an agreed maintainer role.
+
+The [first public P2 review finding](https://github.com/shenyankm/PractiQ/pull/136#discussion_r4176918805) identified unchecked absent grading evidence. [Repair `129bd83`](https://github.com/shenyankm/PractiQ/commit/129bd83feb6819338be9a3dcb9ea6266c4d86de5) records all four evidence fields as null for both image questions and tests hallucinated evidence as a critical failure. The [second public P2 finding](https://github.com/shenyankm/PractiQ/pull/136#discussion_r4177014721) required source-byte binding; [repair `e27c67a`](https://github.com/shenyankm/PractiQ/commit/e27c67a4695e57639880a04a5f69742cd7a69112) pins the PNG checksum and 600×400 dimensions. Both review threads were resolved at the 10:21 UTC observation.
+
+At that observation, #136 remained open at `e27c67a4695e57639880a04a5f69742cd7a69112`. Service quality, Android quality, Desktop quality and Service CI were successful; Android APK/emulator and Windows/macOS package jobs were still running, and CodeRabbit was pending in the [check summary](https://github.com/shenyankm/PractiQ/pull/136/checks). [The latest Codex activity](https://github.com/shenyankm/PractiQ/pull/136#issuecomment-5978459193) reported completed review of `e27c67a`; the public reviews were COMMENTED, not APPROVED. Merge and upstream acceptance remain subject to the latest required checks and review. These are recorded contribution/review outcomes, not a claim that all gates passed.
+
+Later status observation (2026-10-04): [#138](https://github.com/shenyankm/PractiQ/pull/138) merged at 10:27:41 UTC; [#136](https://github.com/shenyankm/PractiQ/pull/136) merged at 10:32:59 UTC, and [#114](https://github.com/shenyankm/PractiQ/issues/114) closed at 10:33:01 UTC. The 10:21 UTC snapshot above remains the historical observation.
 
 ## Reproduce focused setup
 
@@ -24,18 +32,24 @@ Follow [README prerequisites](../README.md) and [CONTRIBUTING](../CONTRIBUTING.m
 AI_PYTHON=/absolute/path/to/python3.14
 make install-locked AI_PYTHON="$AI_PYTHON"
 make app-install
+make web-install
 "$AI_PYTHON" app/scripts/export-contracts.py --check
 "$AI_PYTHON" app/scripts/check-fixtures.py
+(cd server && PYTHONPATH=src "$AI_PYTHON" scripts/evaluate.py --validate-only)
 (cd server && PYTHONPATH=src "$AI_PYTHON" -m pytest tests/test_evaluation.py)
+(cd web && ./node_modules/.bin/playwright install chromium --only-shell)
+make web-check
 ```
 
-For desktop UI changes run the existing UI/browser gates; for import Web changes run `make web-install web-check` and its browser checks; for fixture/service changes run `make verify AI_PYTHON="$AI_PYTHON"` before requesting review. Setting the selected interpreter avoids accidentally using a shell's older `python`. Evaluation tests use paths relative to `server/`, so run them there; running them from root fails to locate `evals/cases.json`. Neither setup nor focused tests need a model key. For browser dependencies use the locked setup from README, not a symlink to another checkout's `node_modules`.
+For app UI changes run the existing UI/browser gates and Android checks when applicable; for fixture/service changes run `make verify AI_PYTHON="$AI_PYTHON"` before requesting review. Setting the selected interpreter avoids accidentally using a shell's older `python`. Evaluation tests use paths relative to `server/`, so run them there; running them from root fails to locate `evals/cases.json`. Neither setup nor focused checks need a model key, a provider configuration or a running AI service. Web browser tests start their own loopback Vite frontend and substitute the task APIs. Use independently installed locked dependencies, including the local Playwright executable above, rather than another checkout's `node_modules`.
 
-The isolated-checkout exercise for this PR ran locked `make app-install`, generated-contract check, shared fixture check and frontend lint successfully. Focused evaluation tests were run in the separate #90 preparation checkout from the same main source. Locked Python dependency installation was not repeated, and no clean-machine, bundled package or Windows/Linux onboarding is claimed. Report a concrete command/platform/error if these steps fail on a new machine; never include keys or personal paths in public logs.
+All commands above passed on their first attempt in the same isolated checkout: full `make install-locked`, independent app/Web `npm ci`, generated-contract parity, shared fixtures, 30 evaluation cases, 83 focused pytest checks, Web TypeScript/lint, 41 Web unit tests and 9 browser tests. No setup failure required a repair or rerun. The 86 applicable locked Python dependency versions already matched; the install command still ran and temporarily rebound the existing editable service package. Its original source pointer was restored afterward, all global distribution versions stayed unchanged, all tracked source bytes stayed unchanged and no project `.venv` was created. No model environment file contents or provider key were read, no AI service was started and no real model was called.
+
+These results apply to the identified 30-case candidate; they do not claim the separately merged CSV fixture was tested in that rehearsal. Full service verification and native package/platform checks remain separate engineering evidence under their own issues. Report a concrete command/platform/error if these steps fail on a new machine; never include keys or personal paths in public logs.
 
 ## Responsibilities and current ownership
 
-`shenyankm` is the repository owner. This PR creates no new repository role or access grant. Contributor, reviewer, signing/release operator and backup maintainer assignments remain opt-in and require explicit agreement; no backup maintainer is recorded here. Do not infer a person has accepted a role from a task listing or commit identity.
+Use [CONTRIBUTING](../CONTRIBUTING.md), [SECURITY.md](../SECURITY.md) and the [release policy](releases.md) for the responsibilities below. `shenyankm` is the repository owner. This PR creates no new repository role or access grant. Contributor, reviewer, signing/release operator and backup maintainer assignments remain opt-in and require explicit agreement; no backup maintainer is recorded here. Do not infer a person has accepted a role from a task listing or commit identity.
 
 | Responsibility | Required evidence / access boundary |
 | --- | --- |
@@ -50,11 +64,11 @@ The isolated-checkout exercise for this PR ran locked `make app-install`, genera
 
 - [ ] Record named opt-in owners, accepted scope, required access and backup maintainer status.
 - [ ] Inventory active PRs/issues, required checks, current source/schema/backup boundaries and known release blockers.
-- [ ] Reproduce focused setup on an isolated checkout; distinguish reused runtimes from a fresh-machine test.
+- [x] Reproduce focused setup on an isolated checkout; the documented commands passed in the maintainer rehearsal above with reused runtimes.
 - [ ] Review service recovery, local storage, native file authorization, credential isolation and explicit model-action boundaries in AGENTS.md.
-- [ ] Walk through one actual issue triage and PR review, retaining links and outcomes.
+- [x] Record actual issue triage and PR review; #114/#136 links, findings, repairs and observed outcomes are retained above.
 - [ ] Walk through the release policy and signing evidence without sharing credentials; publication remains separately authorized.
 - [ ] Verify permission changes and credential handover through approved stores, then record only nonsecret access status.
-- [ ] Link an actual external contribution/review outcome; leave this item open until someone participates.
+- [x] Track the actual offered external contribution and public review outcomes with links; the pending #136 acceptance state is explicit above.
 
-No external contribution or review outcome is recorded by this preparation PR. Keep #93 open for independent onboarding, actual contributions and any agreed backup maintainer. Do not claim community growth from creating these three listings.
+Five of the six #93 outcomes are recorded: (1) three bounded contribution issues with input/scope/acceptance/check guidance; (2) suitable initial good first issue/help wanted labels; (4) triage/review/release responsibilities and access boundaries; (5) a handover checklist with opt-in ownership and the backup maintainer role explicitly vacant; and (6) linked external contribution/review findings, repairs and observed outcomes. Criterion 3 remains pending an actual consenting new contributor following the existing setup and focused checks from an isolated checkout, with concrete blockers and fixes recorded. The maintainer rehearsal and its checked checklist item document only that execution; they do not verify a new contributor's experience. Keep #93 open until this original criterion is verified; this PR references #93 and does not close it. The sixth requirement is tracking actual outcomes, without adding a merge or APPROVED-review requirement. Future role appointments, release/signing walkthroughs and credential handover remain unchecked until separately agreed and verified; the vacant backup role creates no additional completion condition. Do not claim community growth or another person's setup experience from the listings or maintainer rehearsal.
