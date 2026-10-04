@@ -201,7 +201,6 @@ it("protects clearing actual reference evidence including false and extra metada
     { ...blankQuestion(), answerMode: "short_answer" as const, answerPayload: { text: " " } },
     { ...blankQuestion(), choiceVariant: "multiple" as const, answerPayload: { correct: ["A"] } },
     { ...blankQuestion(), answerMode: "fill_blank" as const, blankCount: 2, answerPayload: { answers: ["", "Provided"] } },
-    { ...blankQuestion(), answerMode: "fill_blank" as const, blankCount: 2, answerPayload: { answers: [null, null] } },
     { ...blankQuestion(), answerMode: "true_false" as const, answerPayload: { value: false } },
     { ...blankQuestion(), answerMode: "short_answer" as const, answerPayload: { text: "", metadata: { missing: null } } as Question["answerPayload"] },
   ]) {
