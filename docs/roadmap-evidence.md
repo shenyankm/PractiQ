@@ -1,14 +1,14 @@
 # Roadmap evidence and completion boundaries
 
-Tracks [#89](https://github.com/shenyankm/PractiQ/issues/89). The issue and its native sub-issues remain the authoritative roadmap; this record connects the reviewed preparation PRs and explains outstanding acceptance. Updated 2026-10-04 against main `2e9215f59920a7e2f7d9bf9b64ff61b6d1f6ccd7`. PR submission and ordinary CI do not establish acceptance or close a rolling roadmap.
+Tracks [#89](https://github.com/shenyankm/PractiQ/issues/89). The issue and its native sub-issues remain the authoritative roadmap; this record connects the repair and acceptance PRs and explains outstanding validation. Updated 2026-10-04 against main `9985104091be4fc7161573f4df95ae2742103679`. At this snapshot, PRs #118, #119, #120, #122, #125, #126 and #128 have merged; the linked PRs provide their live status. PR submission and ordinary CI do not establish acceptance or close a rolling roadmap.
 
 ## Now / Next / Later
 
 | Priority | Workstream | Current deliverable | Remaining requirement before completion |
 | --- | --- | --- | --- |
-| Now | [#90 import quality](https://github.com/shenyankm/PractiQ/issues/90) | [PR #115](https://github.com/shenyankm/PractiQ/pull/115): checksummed source/candidate worksheet; 30 manifest cases validated, 84 offline corpus/scorer tests passed | Independent source-checked annotations, explicit live-run authorization/model/cost ceiling, current source-aligned model report and native round trip. User declined live calls for this work. |
-| Now | [#91 final packages](https://github.com/shenyankm/PractiQ/issues/91) | [PR #116](https://github.com/shenyankm/PractiQ/pull/116): final-byte candidate identity and platform/manual/signing matrix using existing gates | Selected main candidate/tag, actual final installers/hashes, all strict gates, signing status and clean-machine native evidence per public platform. No publication requested. |
-| Next | [#92 consented trials](https://github.com/shenyankm/PractiQ/issues/92) | [PR #117](https://github.com/shenyankm/PractiQ/pull/117): consent, offline task protocol, anonymized outcomes and retest/summary rules | Tested distributable build, explicit recruitment/contact authorization, actual voluntary participants and reviewed sanitized outcomes with denominators. No participants contacted. |
+| Now | [#90 import quality](https://github.com/shenyankm/PractiQ/issues/90) | [PR #115](https://github.com/shenyankm/PractiQ/pull/115): checksummed source/candidate worksheet and legacy DOC/PDF formula repair through temporary DOCX normalization, with shared limits, CRC/XML checks and unchanged source files | Independent source-checked annotations, explicit live-run authorization/model/cost ceiling, current source-aligned model report and native round trip. User declined live calls for this work. |
+| Now | [#91 final packages](https://github.com/shenyankm/PractiQ/issues/91) | [PR #116](https://github.com/shenyankm/PractiQ/pull/116): explicit final-installer restaging from a read-only snapshot, four strict gates, embedded-notice checks and SHA-bound evidence; platform/manual/signing matrix | Selected main candidate/tag, actual final installers/hashes, all strict gates, signing status and clean-machine native evidence per public platform. No publication requested. |
+| Next | [#92 consented trials](https://github.com/shenyankm/PractiQ/issues/92) | [PR #117](https://github.com/shenyankm/PractiQ/pull/117): consent, offline and optional AI task protocols, approved artifact versions, per-attempt outcomes and retest/summary rules | Tested distributable build, explicit recruitment/contact authorization, actual voluntary participants and reviewed sanitized outcomes with denominators. No participants contacted. |
 | Later | [#93 contribution/continuity](https://github.com/shenyankm/PractiQ/issues/93) | [PR #118](https://github.com/shenyankm/PractiQ/pull/118): isolated-checkout setup checks, starter issues #112–#114 and handover/access checklist | Independent onboarding/contribution and review evidence; explicit consent/access checks for any backup maintainer. No backup role recorded. |
 
 These are dependency priorities, not promised dates. Keep unresolved work visible in the existing sub-issues. New starter tasks are opt-in fixture contributions; they do not expand the current repair batch into an unbounded issue sweep.
@@ -21,7 +21,7 @@ A reviewed PR counts as integrated implementation on main only after it merges. 
 
 ## Current repair batch
 
-The 2026-10-04 repair batch is the ten existing code issues #94–#102 and #110; each gets a focused independent PR against main. The links below record local validation and PR submission. No PR in this batch authorizes merging, tagging, publishing, contacting people or any live/external model calls.
+The 2026-10-04 repair batch is the ten existing code issues #94–#102 and #110; each gets a focused independent PR against main. The links below record implementation and its validation scope. The user authorized merging each PR after its latest-head CI and reviews pass. This authorization does not include tagging, publishing, contacting people or live/external model calls. Real model calls remain explicitly declined.
 
 | Issue | Independent implementation PR | Validation scope |
 | --- | --- | --- |
@@ -36,7 +36,7 @@ The 2026-10-04 repair batch is the ten existing code issues #94–#102 and #110;
 | #102 | [#125](https://github.com/shenyankm/PractiQ/pull/125) | Generated task detail contracts; service/UI/native/browser checks |
 | #110 | [#126](https://github.com/shenyankm/PractiQ/pull/126) | Single self-assessment command; strict legacy field rejection, submit/result/snapshot regressions; UI/native/browser checks |
 
-All PRs target the current main independently. A pairwise text-merge check found the following overlapping edits; it does not establish combined behavior. Preserve both concerns during integration and run their regression checks against the resulting source.
+Each issue retains its own PR. Remaining branches incorporate reviewed main changes when needed to resolve conflicts. A pairwise text-merge check identified the following overlaps; the check itself does not establish combined behavior. Preserve both concerns during integration and run their regression checks against the resulting source.
 
 | PR pair | Overlap | Resolution requirement |
 | --- | --- | --- |
@@ -48,4 +48,4 @@ All PRs target the current main independently. A pairwise text-merge check found
 
 These mechanical overlaps do not change standalone PR evidence. Integrated checks and current-base review remain necessary before merging.
 
-Keep #89 open while any required workstream acceptance remains pending. Revisit priorities after the repair PRs are reviewed and merged, then select one candidate for new acceptance evidence rather than relabeling the preparation snapshot.
+Keep #89 open while any required workstream acceptance remains pending. After the repair PRs merge, select one main candidate for new acceptance evidence. Keep its source and final-artifact hashes distinct from earlier branch, combined-checkout and development-package results.
