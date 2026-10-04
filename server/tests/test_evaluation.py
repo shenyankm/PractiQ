@@ -1,5 +1,6 @@
 import asyncio
 import csv
+import hashlib
 import json
 import os
 import subprocess
@@ -9,6 +10,7 @@ from pathlib import Path
 from typing import Any, cast
 from uuid import uuid4
 
+import pypdfium2 as pdfium
 import pytest
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage
@@ -642,6 +644,123 @@ def test_csv_no_answer_rejects_invented_answers_in_every_output_question(target)
     assert summary["documentParser"]["parsedAnswerAccuracy"] > 90
     assert summary["status"] == "FAILED"
     assert "INVENTED_ANSWER:csv-no-answer:1" in summary["gateReasons"]
+
+
+def _answerless_pdf_case() -> dict[str, Any]:
+    cases = ev.load_manifest(Path("evals/cases.json"))["cases"]
+    matching = [case for case in cases if case["id"] == "pdf-no-answer"]
+    assert len(matching) == 1, "The fully answerless PDF regression fixture must be present"
+    return matching[0]
+
+
+def _answerless_pdf_output(case: dict[str, Any]) -> dict[str, Any]:
+    questions = deepcopy(case["expectedQuestions"])
+    for item in questions:
+        item.update(item["expectedEvidence"], needsReview=True)
+    return {"questions": questions, "groups": [], "visualElements": []}
+
+
+def test_answerless_pdf_gold_matches_pinned_rendered_source():
+    case = _answerless_pdf_case()
+    payload = Path("evals", case["path"]).read_bytes()
+    assert len(payload) == 974
+    assert hashlib.sha256(payload).hexdigest() == "18aa64f287c98429dc71e7d2b612d568e6f9eefffadcb580962757cbb725b4cd"
+    questions = case["expectedQuestions"]
+    assert len(questions) == 2 and sum(len(item["options"]) for item in questions) == 4
+    lines = ["Synthetic worksheet", "Choose one option for each item."]
+    for number, item in enumerate(questions, start=1):
+        lines.append(f"{number}. {item['stem']}")
+        lines.extend(f"{option['label']}. {option['content']}" for option in item["options"])
+    origins = [(54, 786), (54, 756), (54, 706), (72, 678), (72, 654), (54, 602), (72, 574), (72, 550)]
+    with pdfium.PdfDocument(payload) as source:
+        assert len(source) == 1
+        page = source[0]
+        try:
+            width, height = page.get_size()
+            assert (width, height) == (595, 842)
+            textpage = page.get_textpage()
+            try:
+                text = textpage.get_text_range()
+                assert text.splitlines() == lines  # No printed answer, rubric or scoring line.
+                rectangles = []
+                previous_bottom = height
+                for line, (x, y) in zip(lines, origins, strict=True):
+                    start = text.index(line)
+                    boxes = [textpage.get_charbox(index) for index in range(start, start + len(line))]
+                    left, bottom = min(box[0] for box in boxes), min(box[1] for box in boxes)
+                    right, top = max(box[2] for box in boxes), max(box[3] for box in boxes)
+                    assert 0 <= left < right <= width and 0 <= bottom < top < previous_bottom
+                    assert left == pytest.approx(x, abs=2) and bottom == pytest.approx(y, abs=4)
+                    rectangles.append((int(left), int(height - top), int(right) + 1, int(height - bottom) + 1))
+                    previous_bottom = bottom
+            finally:
+                textpage.close()
+            bitmap = page.render(scale=1)
+            try:
+                with bitmap.to_pil() as image, image.convert("L") as grayscale:
+                    assert image.size == (595, 842)
+                    for rectangle in rectangles:
+                        with grayscale.crop(rectangle) as printed_line:
+                            assert printed_line.getextrema()[0] < 64
+                    with grayscale.crop((0, 300, 595, 842)) as blank_remainder:
+                        assert blank_remainder.getextrema() == (255, 255)
+            finally:
+                bitmap.close()
+        finally:
+            page.close()
+
+
+def test_answerless_pdf_preserves_null_answers_and_absent_grading_evidence():
+    case = _answerless_pdf_case()
+    assert case["sourceType"] == "pdf" and case["sourceHasNoAnswers"]
+    assert case["split"] == "regression" and case["critical"]
+    assert len(case["expectedQuestions"]) == 2
+    for item in case["expectedQuestions"]:
+        assert item["answerPayload"] is None
+        assert item["expectedEvidence"] == {"analysis": None, "sourceScore": None,
+                                            "scoringRubric": None, "scoreSourceText": None}
+    record = case_record(case, _answerless_pdf_output(case))
+    assert record["score"]["inventedAnswers"] == 0
+    assert ev.summarize([record])["status"] == "PASSED" and record["qualityPassed"]
+
+
+@pytest.mark.parametrize("location", ["matched", "extra", "unmatched"])
+def test_answerless_pdf_rejects_invented_answers_in_all_output_questions(location):
+    case = _answerless_pdf_case()
+    output = _answerless_pdf_output(case)
+    if location == "extra":
+        invented = deepcopy(output["questions"][0])
+        invented["stem"] = "An unprinted extra question?"
+        output["questions"].append(invented)
+    else:
+        invented = output["questions"][0]
+        if location == "unmatched":
+            invented["stem"] = "A rewritten question not printed in this source?"
+    invented["answerPayload"] = {"correct": ["A"]}
+    record = case_record(case, output)
+    assert record["score"]["inventedAnswers"] == 1
+    if location != "matched":
+        assert record["score"]["unverifiedQuestions"] == 1
+    if location == "unmatched":
+        assert record["score"]["matched"] == 1
+    summary = ev.summarize([record])
+    assert summary["status"] == "FAILED" and not record["qualityPassed"]
+    assert "INVENTED_ANSWER:pdf-no-answer:1" in summary["gateReasons"]
+
+
+@pytest.mark.parametrize(("field", "invented"), [
+    ("analysis", "Fabricated explanation."), ("sourceScore", 7),
+    ("scoringRubric", "Fabricated scoring criteria."), ("scoreSourceText", "Worth 7 points."),
+])
+def test_answerless_pdf_rejects_invented_grading_evidence(field, invented):
+    case = _answerless_pdf_case()
+    output = _answerless_pdf_output(case)
+    output["questions"][0][field] = invented
+    record = case_record(case, output)
+    summary = ev.summarize([record])
+    assert record["score"]["inventedAnswers"] == 0
+    assert summary["status"] == "FAILED" and not record["qualityPassed"]
+    assert "EVIDENCE_MISMATCH:pdf-no-answer:1" in summary["gateReasons"]
 
 
 def test_quality_reliability_counts_documents_and_expected_rejections_separately():
