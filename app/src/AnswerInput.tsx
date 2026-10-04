@@ -175,7 +175,7 @@ export function AnswerInput({
               className="flex items-center gap-3 rounded-lg border p-3"
             >
               <span className="text-muted-foreground">{index + 1}</span>
-              <div className="flex-1">
+              <div className="min-w-0 flex-1">
                 <Markdown lang={materialLanguage(q)}>{byId.get(id)?.content}</Markdown>
               </div>
               <Button
@@ -210,7 +210,7 @@ export function AnswerInput({
           {itemIds(q, "left").map((item) => (
             <div
               key={item.id}
-              className="grid grid-cols-2 items-center gap-4 rounded-lg border p-3"
+              className="grid grid-cols-1 items-center gap-4 sm:grid-cols-2 rounded-lg border p-3"
             >
               <Markdown lang={materialLanguage(q)}>{item.content}</Markdown>
               <NativeSelect

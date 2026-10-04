@@ -210,7 +210,7 @@ pub fn save_settings(
 ) -> Result<Value> {
     let state = app.state::<GradingState>();
     let _configuration = state.configure()?;
-    settings::snapshot(shared)?.save_settings(&app.config().identifier, config, service_token)
+    settings::snapshot(shared)?.save_settings(app, config, service_token)
 }
 
 fn grade(
@@ -247,7 +247,7 @@ pub fn request(
 ) -> Result<Value> {
     let state = app.state::<GradingState>();
     let _grading = state.enter()?;
-    let (origin, token) = settings::snapshot(&shared)?.grading_input(&app.config().identifier)?;
+    let (origin, token) = settings::snapshot(&shared)?.grading_input(&app)?;
     let endpoint = Endpoint::new(origin, token)?;
     let AiRequest::Grade {
         id,

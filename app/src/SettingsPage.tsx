@@ -27,7 +27,7 @@ export function SettingsPage({ busy, run, flushRef, revision, version, onConfigu
         <CardTitle>{t("学习数据备份")}</CardTitle>
         <CardDescription>{t("包含题库、图片、收藏、作答和评分记录。不包含原始文档、AI 任务及服务访问令牌；在其他设备恢复后需重新配置令牌。请定期保存到其他位置。")}</CardDescription>
       </CardHeader>
-      <CardContent className="flex gap-3">
+      <CardContent className="flex flex-wrap gap-3">
         <Button disabled={busy} onClick={() => run(async () => {
           const result = await api({ type: "backup" });
           if (result) toast.success(message("备份已保存：{0}", { 0: result.path }));

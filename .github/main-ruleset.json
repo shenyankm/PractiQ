@@ -28,7 +28,8 @@
       "parameters": {
         "required_status_checks": [
           { "context": "Service CI", "integration_id": 15368 },
-          { "context": "Desktop CI", "integration_id": 15368 }
+          { "context": "Desktop CI", "integration_id": 15368 },
+          { "context": "Android CI", "integration_id": 15368 }
         ],
         "strict_required_status_checks_policy": true
       }

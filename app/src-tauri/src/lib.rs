@@ -5,6 +5,7 @@ mod audio_import;
 mod backup;
 mod bank_zip;
 mod contract;
+mod credentials;
 mod exams;
 mod filesystem;
 mod language;
@@ -15,6 +16,7 @@ mod question_metadata;
 #[cfg(test)]
 mod question_review_tests;
 mod questions;
+mod selected_file;
 #[cfg(test)]
 mod service_export_tests;
 mod session_clock;
@@ -272,7 +274,18 @@ async fn request(
             Request::Restore=>app.dialog().file().add_filter(locale.text("PractiQ 备份", "PractiQ backup"),&["zip"]).blocking_pick_file(),
             _=>None,
         };
-        let selected=selected.map(|p|p.into_path().map_err(|e|e.to_string())).transpose()?;
+        let selected=selected.map(|file| {
+            if matches!(&request, Request::Backup | Request::ExportBank { .. }) {
+                selected_file::SelectedFile::output(&app, file)
+            } else {
+                let limit = match &request {
+                    Request::Restore => backup::ARCHIVE_LIMIT,
+                    Request::PickImport => bank_zip::ZIP_LIMIT,
+                    _ => assets::LIMIT as u64,
+                };
+                selected_file::SelectedFile::input(&app, file, limit)
+            }
+        }).transpose()?;
         if matches!(&request,Request::PickImport|Request::PickAudio|Request::PickAudioQr|Request::ExportBank{..}|Request::Backup|Request::Restore)&&selected.is_none(){return Ok(Value::Null);}
         if let Request::ImportAudioUrl { ref url } = request {
             return match audio_import::download(url)? {
@@ -289,7 +302,7 @@ async fn request(
                 shared.lock().map_err(|_|language::error("LOCAL_DATABASE_UNAVAILABLE",json!({})))?
                     .asset_bytes(hash)?.ok_or(language::error("LOCAL_AUDIO_QR_INVALID",json!({})))?.1
             } else {
-                store::read_bounded(&selected.ok_or("No image selected")?, assets::LIMIT)?
+                store::read_bounded(selected.as_ref().ok_or("No image selected")?.path(), assets::LIMIT)?
             };
             return Ok(json!(audio_import::qr_links(&bytes)?));
         }
@@ -298,7 +311,7 @@ async fn request(
         }
         if let Request::TestSettings { config, service_token } = request {
             let (config, key) = settings::snapshot(&shared)?
-                .connection_test_input(&app.config().identifier, config, service_token)?;
+                .connection_test_input(&app, config, service_token)?;
             return settings::test_connection(config, key);
         }
         if let Request::SaveSettings { config, service_token } = request {
@@ -308,14 +321,14 @@ async fn request(
         let _restore = if matches!(&request, Request::Restore) { Some(work.restore()?) } else { None };
         let mut store=shared.lock().map_err(|_|language::error("LOCAL_DATABASE_RESTART", json!({})))?;
         store.locale = locale;
-        match request {
+        let result = match request {
             Request::ImportAudioUrl { .. } | Request::PickAudioQr | Request::DecodeAudioQr { .. } => unreachable!(),
-            Request::PickAudio=>store.stage_audio(&selected.ok_or("No audio selected")?),
+            Request::PickAudio=>store.stage_audio(selected.as_ref().ok_or("No audio selected")?.path()),
             Request::ReleaseAudio{lease}=>{store.release_audio(&lease);Ok(Value::Null)},
             Request::ListeningPlayback{id,question_id,action,position}=>store.listening_playback(&id,&question_id,action,position),
             Request::AddExampleBank=>store.add_example_bank(),
-            Request::PickImport=>store.preview_bank_zip(&selected.ok_or(language::error("LOCAL_FILE_NOT_SELECTED",json!({})))?),
-            Request::ExportBank{bank_id}=>store.export_bank(&bank_id,&selected.ok_or(language::error("LOCAL_SAVE_LOCATION_MISSING",json!({})))?),
+            Request::PickImport=>store.preview_bank_zip(selected.as_ref().ok_or(language::error("LOCAL_FILE_NOT_SELECTED",json!({})))?.path()),
+            Request::ExportBank{bank_id}=>store.export_bank(&bank_id,selected.as_ref().ok_or(language::error("LOCAL_SAVE_LOCATION_MISSING",json!({})))?.path()),
             Request::Import{ticket,bank_id,title}=>store.import(&ticket,bank_id,&title),
             Request::Banks=>store.banks(),
             Request::BanksPage{limit,offset}=>store.banks_page(limit,offset),
@@ -346,12 +359,17 @@ async fn request(
             Request::SelfAssess{id,ordinal,result,snapshot_key}=>store.self_assess_with_key(&id,ordinal,result,snapshot_key.as_deref()),
             Request::Position{id,position,snapshot_key}=>store.position(&id,position,snapshot_key.as_deref()),
             Request::Finish{id}=>store.finish_data(&id),
-            Request::Backup=>store.backup(&selected.ok_or(language::error("LOCAL_SAVE_LOCATION_MISSING", json!({})))?),
-            Request::Restore=>store.restore(&selected.ok_or(language::error("LOCAL_BACKUP_NOT_SELECTED", json!({})))?),
+            Request::Backup=>store.backup(selected.as_ref().ok_or(language::error("LOCAL_SAVE_LOCATION_MISSING", json!({})))?.path()),
+            Request::Restore=>store.restore(selected.as_ref().ok_or(language::error("LOCAL_BACKUP_NOT_SELECTED", json!({})))?.path()),
             Request::Language=>Ok(json!(store.language()?)),
             Request::SaveLanguage{locale}=>store.save_language(locale),
             Request::TestSettings{..}|Request::Settings|Request::SaveSettings{..}=>unreachable!(),
             Request::Info=>Ok(json!({"dataDirectory":store.dir.display().to_string(),"version":env!("CARGO_PKG_VERSION")})),
+        }?;
+        drop(store);
+        match selected {
+            Some(file) => file.publish(&app, result),
+            None => Ok(result),
         }
     }).await.map_err(|e|AppError::from(e.to_string()))?
 }
@@ -389,16 +407,27 @@ async fn ai_request(
 }
 pub(crate) const DATA_DIRECTORY: &str = "v4";
 
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .manage(ai::GradingState::default())
-        .plugin(tauri_plugin_single_instance::init(|app, _, _| {
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.show();
-                let _ = window.set_focus();
+        .plugin(tauri_plugin_dialog::init());
+    #[cfg(target_os = "android")]
+    let builder = builder
+        .plugin(credentials::init())
+        .on_page_load(|webview, payload| {
+            if payload.event() == tauri::webview::PageLoadEvent::Finished {
+                let _ = webview.eval("document.documentElement.dataset.nativeInsets = 'true'");
             }
-        }))
-        .plugin(tauri_plugin_dialog::init())
+        });
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _, _| {
+        if let Some(window) = app.get_webview_window("main") {
+            let _ = window.show();
+            let _ = window.set_focus();
+        }
+    }));
+    builder
         .setup(|app| {
             let dir = app.path().app_data_dir()?.join(DATA_DIRECTORY);
             app.manage(Arc::new(Mutex::new(
@@ -410,11 +439,14 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("Unable to start PractiQ")
         .run(|app, event| {
+            #[cfg(any(target_os = "macos", target_os = "windows"))]
             if let tauri::RunEvent::ExitRequested { api, .. } = event {
                 if let Some(window) = app.get_webview_window("main") {
                     api.prevent_exit();
                     let _ = window.close();
                 }
             }
+            #[cfg(target_os = "android")]
+            let _ = (app, event);
         });
 }

@@ -6,7 +6,7 @@
 
 [English](README.md) | 简体中文
 
-把文档变成题库，在桌面端离线练习、自测和模考。
+把文档变成题库，在 macOS、Windows 或 Android 上离线练习、自测和模考。
 
 - **导入与复核**：用 AI 提取文档中的题目，检查质量提示，整理题库。
 - **练习与组卷**：跨题库按题型、错题、收藏或未做题筛选，进行练习、自测或限时模考。
@@ -58,7 +58,7 @@ PractiQ 仍处于开发阶段，目前没有已发布的 GitHub Release；请按
 
 练习和本地判分可离线使用。需要主观题 AI 评分时，在桌面**设置 → AI 服务**中配置独立服务地址及访问令牌，再主动开始评分或重试。评分须有参考答案或评分细则；缺少依据、失败或结果未知时保持未判定。此功能用于个人练习，不作为正式考试阅卷依据。打开 app 或修改设置不会调用模型。
 
-桌面访问令牌保存在系统凭据存储中，Web 令牌只保存在浏览器内存中。备份不含凭据及 AI 任务状态。旧模型配置与密钥原样保留，不会自动作为独立服务凭据使用。限时模考在关闭应用或电脑休眠后仍继续计时，重新进入超时考试时按最后保存的答案交卷。
+app 访问令牌保存在 macOS Keychain、Windows Credential Manager 或 Android Keystore 保护的私有存储中，Web 令牌只保存在浏览器内存中。备份不含凭据及 AI 任务状态。旧模型配置与密钥原样保留，不会自动作为独立服务凭据使用。限时模考在关闭应用或电脑休眠后仍继续计时，重新进入超时考试时按最后保存的答案交卷。
 
 开发模式默认使用内存示例数据；预览面板可切换场景或选择真实本地数据，详见[开发预览](app/docs/development-preview.md)。
 
@@ -66,9 +66,9 @@ PractiQ 仍处于开发阶段，目前没有已发布的 GitHub Release；请按
 
 桌面数据使用新的 `v4/` 目录和 SQLite schema 11。旧目录（包括 `v3/`）原样保留，旧版完整备份不再接受；当前题库 ZIP 仍可导入。详见[数据格式边界](docs/question-model.md#versions-and-directories)。
 
-桌面构建目标包括 macOS 14+（Apple Silicon）、Windows 10/11（x64）和 Ubuntu 22.04+（x64，`.deb`）。CI 构建三个平台的练习客户端；桌面交互和签名发布验收需分别完成。
+app 支持 macOS 14+（Apple Silicon）、Windows 10/11（x64）和 Android 8+（API 26+，arm64 APK）。Linux app 安装包已移除；Linux 仍可作为 AI 服务和 CI 主机。CI 检查 macOS/Windows 安装包、Android APK 与 API 35 模拟器；实体设备、最低系统版本和签名发布仍需分别验收。
 
-开发需要 Node.js 22.12+ 和 Rust。打包准备及共享契约检查还需要 uv 与已有 Python 3.14+ 解释器；Python 仅作为构建工具，不随桌面包分发。请安装 [Tauri 平台前置依赖](https://v2.tauri.app/start/prerequisites/)：macOS 使用 Xcode，Windows 使用 MSVC 构建工具和 WebView2，Linux 使用 WebKitGTK 4.1、`libdbus-1-dev` 及构建库。Linux 保存服务令牌需要已解锁的 Secret Service（如 GNOME Keyring），听力播放需要 GStreamer 音频插件。不创建项目 `.venv`。
+开发需要 Node.js 22.12+ 和 Rust。打包准备及共享契约检查还需要 uv 与已有 Python 3.14+ 解释器；Python 仅作为构建工具，不随桌面包分发。请安装 [Tauri 平台前置依赖](https://v2.tauri.app/start/prerequisites/)：macOS 使用 Xcode，Windows 使用 MSVC 构建工具和 WebView2。Android 还需要 JDK 21、SDK 36 和 NDK 28.2.13676358，详见 [Android 指南](app/docs/android.md)。不创建项目 `.venv`。
 
 克隆仓库并进入根目录：
 
@@ -77,7 +77,7 @@ git clone https://github.com/shenyankm/PractiQ.git
 cd PractiQ
 ```
 
-macOS 或 Linux 从仓库根目录执行，并替换 Python 路径：
+macOS 从仓库根目录执行，并替换 Python 路径：
 
 ```sh
 make install-locked AI_PYTHON=/path/to/python3.14
@@ -100,7 +100,7 @@ npm run desktop
 npm run tauri -- build
 ```
 
-`prepare-package.py` 使用 Python 3.14+，生成构建元数据与 Cargo/npm 许可声明，不下载或复制文档处理运行时。产物位于 `app/src-tauri/target/release/bundle`：macOS 为 `.app`/`.dmg`，Windows 为 NSIS `.exe`，Linux 为 `.deb`。打包检查验证版本、许可声明及没有内置引擎；它不代表已验证签名或桌面音频播放。
+`prepare-package.py` 使用 Python 3.14+，生成构建元数据与 Cargo/npm 许可声明，不下载或复制文档处理运行时。产物位于 `app/src-tauri/target/release/bundle`：macOS 为 `.app`/`.dmg`，Windows 为 NSIS `.exe`。Android APK 使用单独的[构建与模拟器命令](app/docs/android.md)。打包检查验证版本、许可声明及没有内置引擎；它不代表已验证签名或桌面音频播放。
 
 ## 独立运行 AI 服务
 

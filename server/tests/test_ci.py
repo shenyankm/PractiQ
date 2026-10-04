@@ -162,7 +162,7 @@ def test_workflows_deduplicate_common_checks_without_dropping_native_gates():
     root = Path(__file__).resolve().parents[2]
     workflows = {
         name: yaml.load((root / f".github/workflows/{name}.yml").read_text(), Loader=yaml.BaseLoader)
-        for name in ("desktop", "server")
+        for name in ("desktop", "server", "android")
     }
     for name, workflow in workflows.items():
         for job in workflow["jobs"].values():
@@ -173,7 +173,7 @@ def test_workflows_deduplicate_common_checks_without_dropping_native_gates():
         assert not workflow["on"]["pull_request"]  # Every PR receives a final check, including documentation.
         assert "paths" not in workflow["on"]["push"]
         assert workflow["permissions"] == {"contents": "read"}
-        scope = "service" if name == "server" else "desktop"
+        scope = "service" if name == "server" else name
         jobs = workflow["jobs"]
         quality, changes, gate = (jobs[key] for key in ("quality", "changes", "gate"))
         assert quality["name"] == f"{scope.title()} quality"
@@ -184,7 +184,7 @@ def test_workflows_deduplicate_common_checks_without_dropping_native_gates():
         selector = next(step for step in changes["steps"] if step.get("id") == "scope")
         assert selector["run"] == f"python server/scripts/ci_scope.py scope {scope}"
         assert gate["name"] == f"{scope.title()} CI" and gate["if"] == "${{ always() }}"
-        assert gate["needs"] == ["changes", "quality"] + (["package"] if name == "desktop" else [])
+        assert gate["needs"] == ["changes", "quality"] + (["package", "emulator"] if name == "android" else ["package"] if name == "desktop" else [])
         gate_step = next(step for step in gate["steps"] if "run" in step)
         assert gate_step["run"] == f"python server/scripts/ci_scope.py gate {scope}"
         assert gate_step["env"]["NEEDS"] == "${{ toJSON(needs) }}"
@@ -202,7 +202,7 @@ def test_workflows_deduplicate_common_checks_without_dropping_native_gates():
     assert quality["runs-on"].startswith("ubuntu-")
     assert package["needs"] == ["changes", "quality"]
     assert package["if"] == quality["if"]
-    assert {item["platform"] for item in package["strategy"]["matrix"]["include"]} == {"Windows", "Linux", "macOS"}
+    assert {item["platform"] for item in package["strategy"]["matrix"]["include"]} == {"Windows", "macOS"}
     quality_commands = "\n".join(step.get("run", "") for step in quality["steps"])
     package_commands = "\n".join(step.get("run", "") for step in package["steps"])
     for command in ("npm run check:ui", "npm run test:browser", "npm audit",
@@ -210,7 +210,7 @@ def test_workflows_deduplicate_common_checks_without_dropping_native_gates():
                     "server/tests/test_ci_scope.py", "server/tests/test_release_checks.py"):
         assert command in quality_commands
         assert command not in package_commands
-    assert "--release --manifest-path app/src-tauri/vendor/glib/Cargo.toml" in quality_commands
+    assert "src-tauri/vendor" not in quality_commands
     quality_uploads = {
         step["with"]["name"]: step
         for step in quality["steps"] if step.get("uses", "").startswith("actions/upload-artifact@")
@@ -224,7 +224,7 @@ def test_workflows_deduplicate_common_checks_without_dropping_native_gates():
                     "prepare-package.py", "npm run tauri -- build"):
         assert command in package_commands
     assert "npm run build" not in package_commands  # Tauri already invokes beforeBuildCommand.
-    for platform in ("Windows", "Linux", "macOS"):
+    for platform in ("Windows", "macOS"):
         commands = "\n".join(step.get("run", "") for step in package["steps"]
                              if step.get("if") == f"runner.os == '{platform}'")
         assert "check-installer.py" in commands
@@ -238,3 +238,27 @@ def test_workflows_deduplicate_common_checks_without_dropping_native_gates():
     assert reports["if"] == "${{ always() }}" and reports["with"]["retention-days"] == "7"
     assert installers["if"] == "github.event_name != 'pull_request'"
     assert installers["with"]["retention-days"] == "14"
+
+
+def test_android_ci_uses_the_actual_apk_runtime_and_emulator_not_linux_application():
+    root = Path(__file__).resolve().parents[2]
+    workflow = yaml.load((root / ".github/workflows/android.yml").read_text(), Loader=yaml.BaseLoader)
+    jobs = workflow["jobs"]
+    for name in ("package", "emulator"):
+        job = jobs[name]
+        assert job["needs"] == ["changes", "quality"]
+        commands = "\n".join(step.get("run", "") for step in job["steps"])
+        assert "--split-per-abi" in commands
+        assert "exportRuntimeNoticeInventory" in commands and "--android-runtime-inventory" in commands
+        assert "check-apk.py" in commands and "--aapt2" in commands
+        assert "--write-locks" not in commands  # CI consumes reviewed locks; it does not accept a new closure.
+        assert "--release" not in commands  # Test keys are not publisher signing.
+        assert not any("tauri -- build" in step.get("run", "") for step in job["steps"])
+        sdk = next(step for step in job["steps"] if step.get("uses", "").startswith("android-actions/setup-android@"))
+        assert "android-36" in sdk["with"]["packages"] and "ndk;28.2.13676358" in sdk["with"]["packages"]
+        java = next(step for step in job["steps"] if step.get("uses", "").startswith("actions/setup-java@"))
+        assert java["with"]["java-version"] == "21"
+    emulator = next(step for step in jobs["emulator"]["steps"] if step.get("uses", "").startswith("ReactiveCircus/android-emulator-runner@"))
+    assert emulator["with"]["api-level"] == "35" and emulator["with"]["arch"] == "x86_64"
+    assert "connectedX86_64DebugAndroidTest" in emulator["with"]["script"]
+    assert "-x rustBuildX86_64Debug" in emulator["with"]["script"]

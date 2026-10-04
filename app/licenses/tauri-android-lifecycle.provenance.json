@@ -1,0 +1,91 @@
+{
+  "checkedAt": "2026-10-04",
+  "package": "tauri",
+  "version": "2.11.5",
+  "crate": {
+    "source": "https://static.crates.io/crates/tauri/tauri-2.11.5.crate",
+    "sha256": "667b20e2726d572dea2de7370da16e188eb06008faf9a92fab7cdc46791190b5",
+    "verification": "Cached published crate bytes match this exact package and version checksum in app/src-tauri/Cargo.lock."
+  },
+  "publishedCargoTomlSha256": "899b9a26104a4088eb7439c4c9c1ac80b279006a69b07bbbd3a0c607f897f11e",
+  "publishedRepository": "https://github.com/tauri-apps/tauri",
+  "declaredLicense": "Apache-2.0 OR MIT",
+  "selectedLicense": "MIT",
+  "cargoVcsInfo": {
+    "archivePath": "tauri-2.11.5/.cargo_vcs_info.json",
+    "sha256": "8ea0b0c91caf3bd1e630f3ff2af7c309e7f12b67ed4754223f5dc84f0cce5581",
+    "contents": {
+      "git": {
+        "sha1": "7cd71369c00978a3783b6ae3e9972358abbe4ae6"
+      },
+      "path_in_vcs": "crates/tauri"
+    }
+  },
+  "upstreamRepository": "https://github.com/tauri-apps/tauri",
+  "upstreamCommit": "7cd71369c00978a3783b6ae3e9972358abbe4ae6",
+  "repositoryAttribution": "The complete published Android PluginManager.kt source bytes equal this official upstream commit and the extracted Cargo source. The repository replacement retains that package and object identity; its explicit PractiQ modification notice identifies the single functional onActivityCreate guard change.",
+  "license": {
+    "source": "https://raw.githubusercontent.com/tauri-apps/tauri/7cd71369c00978a3783b6ae3e9972358abbe4ae6/LICENSE_MIT",
+    "path": "LICENSE_MIT",
+    "archivePath": "tauri-2.11.5/LICENSE_MIT",
+    "sha256": "9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d",
+    "gitBlobSha1": "b08530d59433b3060f4fad8751ac2610c0b0aff3",
+    "sizeBytes": 1090,
+    "verification": "Complete upstream file, unchanged bytes, from the same commit recorded in the locked published crate; Git blob SHA-1 independently matches the commit tree. The complete file is already included by cargo:tauri@2.11.5 in the Cargo license inventory."
+  },
+  "additionalLicenses": [
+    {
+      "source": "https://raw.githubusercontent.com/tauri-apps/tauri/7cd71369c00978a3783b6ae3e9972358abbe4ae6/LICENSE_APACHE-2.0",
+      "path": "LICENSE_APACHE-2.0",
+      "archivePath": "tauri-2.11.5/LICENSE_APACHE-2.0",
+      "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594",
+      "gitBlobSha1": "f433b1a53f5b830a205fd2df78e2b34974656c7b",
+      "sizeBytes": 10174,
+      "verification": "Complete upstream file, unchanged bytes, from the same commit recorded in the locked published crate; Git blob SHA-1 independently matches the commit tree. The complete file is already included by cargo:tauri@2.11.5 in the Cargo license inventory."
+    }
+  ],
+  "licenseSelection": "MIT is an alternative explicitly offered by the published Apache-2.0 OR MIT declaration. The original source copyright and both SPDX identifiers are retained unchanged; both complete crate license texts remain in the Cargo inventory. The local override introduces no additional third-party source.",
+  "originalSource": {
+    "path": "mobile/android/src/main/java/app/tauri/plugin/PluginManager.kt",
+    "archivePath": "tauri-2.11.5/mobile/android/src/main/java/app/tauri/plugin/PluginManager.kt",
+    "upstreamPath": "crates/tauri/mobile/android/src/main/java/app/tauri/plugin/PluginManager.kt",
+    "source": "https://raw.githubusercontent.com/tauri-apps/tauri/7cd71369c00978a3783b6ae3e9972358abbe4ae6/crates/tauri/mobile/android/src/main/java/app/tauri/plugin/PluginManager.kt",
+    "sha256": "2b0ef3b8cc92182858456f4b504330d61d23a3fe62a2e4e08c8f5c09cbdb4312",
+    "gitBlobSha1": "0c64bb5f341103cde31958315df821eb22dd0adc",
+    "sizeBytes": 7249,
+    "lineCount": 224,
+    "header": [
+      "// Copyright 2019-2024 Tauri Programme within The Commons Conservancy",
+      "// SPDX-License-Identifier: Apache-2.0",
+      "// SPDX-License-Identifier: MIT"
+    ]
+  },
+  "replacement": {
+    "path": "app/src-tauri/gen/android/patches/tauri-2.11.5/app/tauri/plugin/LifecyclePluginManager.kt",
+    "sha256": "f57b27173278c5e40cbe0d2b3c05b10a144398e9d757ff871c42a13bfd247b71",
+    "sizeBytes": 7359,
+    "lineCount": 225,
+    "change": {
+      "before": "if (::activity.isInitialized) {",
+      "after": "if (::activity.isInitialized && this.activity === activity) {",
+      "occurrences": 1
+    },
+    "verification": "Replacement bytes equal the entire verified original source after the one literal condition substitution and the one explicit PractiQ modification-notice insertion recorded here. All original copyright and license header lines and every other byte outside those two recorded changes remain unchanged; only the source filename is renamed.",
+    "modificationNotice": {
+      "after": "// SPDX-License-Identifier: MIT\n",
+      "text": "// PractiQ: rebind ActivityResult launchers when the Activity instance changes.\n"
+    }
+  },
+  "publishedSourceComparison": [
+    {
+      "archivePath": "mobile/android/src/main/java/app/tauri/plugin/PluginManager.kt",
+      "upstreamPath": "crates/tauri/mobile/android/src/main/java/app/tauri/plugin/PluginManager.kt",
+      "archiveSha256": "2b0ef3b8cc92182858456f4b504330d61d23a3fe62a2e4e08c8f5c09cbdb4312",
+      "upstreamSha256": "2b0ef3b8cc92182858456f4b504330d61d23a3fe62a2e4e08c8f5c09cbdb4312",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 7249,
+      "upstreamSizeBytes": 7249
+    }
+  ],
+  "scope": "Source and license attribution only. Gradle compiler source selection, AAR/APK identity and runtime lifecycle behavior require their separate build and runtime evidence."
+}

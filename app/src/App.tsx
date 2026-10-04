@@ -3,12 +3,13 @@ import { date, duration, message, renderMessage, type Message, t, useI18n } from
 import { useTheme, type ThemeState } from "./theme";
 import { SessionProgress } from "./SessionProgress";
 import logo from "../src-tauri/icons/icon.png";
-import { lazy, Suspense, useCallback, useEffect, useRef, useState, type ComponentProps } from "react";
+import { lazy, Suspense, useCallback, useEffect, useEffectEvent, useRef, useState, useSyncExternalStore, type ComponentProps } from "react";
 import { Tooltip } from "radix-ui";
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   BookOpen,
+  Menu,
   Upload,
   Plus,
   Star,
@@ -105,12 +106,23 @@ function SidebarButton({ collapsed, label, children, className = "", ...props }:
     </Tooltip.Root>
   );
 }
+const compactNavigationQuery = "(max-width: 767px)";
+function subscribeCompactNavigation(listener: () => void) {
+  const media = window.matchMedia(compactNavigationQuery);
+  media.addEventListener("change", listener);
+  return () => media.removeEventListener("change", listener);
+}
+function compactNavigation() { return window.matchMedia(compactNavigationQuery).matches; }
+function desktopNavigation() { return false; }
 export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}) {
   const language = useI18n();
   const theme = useTheme(initialTheme);
   const [themeOpen, setThemeOpen] = useState(false);
   const themeTrigger = useRef<HTMLButtonElement>(null);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const compact = useSyncExternalStore(subscribeCompactNavigation, compactNavigation, desktopNavigation);
+  const [navigationOpen, setNavigationOpen] = useState(false);
+  const [desktopSidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const sidebarCollapsed = !compact && desktopSidebarCollapsed;
   const [languageOpen, setLanguageOpen] = useState(false);
   const languageTrigger = useRef<HTMLButtonElement>(null);
   const [page, setPage] = useState<Page>("banks");
@@ -293,6 +305,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
       await flushRef.current();
       flushRef.current = async () => {};
       setPage(next);
+      setNavigationOpen(false);
       setRestoreOpen(showRestore);
       setBank(bankId);
       setDetail(null);
@@ -302,6 +315,23 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
       if (next === "banks" || next === "history") setListRevision(v => v + 1);
     });
   }
+  const onAndroidBack = useEffectEvent((event: Event) => {
+    if (lock.current) { event.preventDefault(); return; }
+    if (document.querySelector('[data-state="open"][role="dialog"], [data-state="open"][role="alertdialog"], [data-state="open"][role="menu"]')) {
+      event.preventDefault();
+      // Reuse each surface's close handler, including the editor's dirty confirmation.
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+      return;
+    }
+    if (page !== "banks") {
+      event.preventDefault();
+      navigate(page === "service-settings" ? "settings" : page === "practice" ? "history" : "banks");
+    }
+  });
+  useEffect(() => {
+    document.addEventListener("practiq-android-back", onAndroidBack);
+    return () => document.removeEventListener("practiq-android-back", onAndroidBack);
+  }, []);
   function openSession(id: string) {
     run(async () => {
       await flushRef.current();
@@ -336,15 +366,12 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
     if (language.error?.key === "保存语言设置失败") void language.change(language.error.locale).then(saved => { if (saved) setLanguageOpen(false); });
     else void language.reload();
   }}>{t("重试")}</Button></div>;
-  return (
-    <div className="flex h-screen min-w-[960px] overflow-hidden bg-background text-foreground">
-      <Tooltip.Provider delayDuration={200}>
-      <aside id="app-sidebar" className={`flex shrink-0 flex-col border-r bg-muted/25 px-2 py-4 transition-[width] duration-200 ease-in-out motion-reduce:transition-none ${sidebarCollapsed ? "w-16" : "w-44"}`}>
+  const navigationContent = <>
         <div className="mb-4 flex items-center gap-2 overflow-hidden px-1 pt-3">
-          <Button variant="ghost" size="icon" className="group relative size-10 shrink-0 rounded-xl" aria-label={sidebarCollapsed ? t("展开侧边栏") : t("收起侧边栏")} aria-expanded={!sidebarCollapsed} aria-controls="app-sidebar" onClick={() => setSidebarCollapsed(value => !value)}>
+          {compact ? <img src={logo} alt="" className="size-10 rounded-xl object-contain" /> : <Button variant="ghost" size="icon" className="group relative size-10 shrink-0 rounded-xl" aria-label={sidebarCollapsed ? t("展开侧边栏") : t("收起侧边栏")} aria-expanded={!sidebarCollapsed} aria-controls="app-sidebar" onClick={() => setSidebarCollapsed(value => !value)}>
             <img src={logo} alt="" className="size-10 rounded-xl object-contain group-hover:opacity-0 group-focus-visible:opacity-0" />
             <span className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100" aria-hidden="true">{sidebarCollapsed ? <PanelLeftOpen /> : <PanelLeftClose />}</span>
-          </Button>
+          </Button>}
           <div aria-hidden={sidebarCollapsed} className="sidebar-label shrink-0">
             <div className="text-lg font-semibold tracking-tight">PractiQ</div>
           </div>
@@ -375,7 +402,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
             </SidebarButton>
           ))}
         </nav>
-        <div className="mt-auto space-y-4">
+        <div className="mt-auto space-y-4 pt-6">
           <div className="space-y-2">
             <DropdownMenu open={themeOpen} onOpenChange={setThemeOpen}>
               <DropdownMenuTrigger asChild>
@@ -417,11 +444,22 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
           >
             <Settings /></SidebarButton>
         </div>
-      </aside>
+  </>;
+  return (
+    <div className="app-shell flex overflow-hidden bg-background text-foreground">
+      <Tooltip.Provider delayDuration={200}>
+      {compact ? <Dialog open={navigationOpen} onOpenChange={setNavigationOpen}>
+        <DialogContent className="navigation-drawer" aria-describedby={undefined}>
+          <DialogHeader className="sr-only"><DialogTitle>{t("主导航")}</DialogTitle></DialogHeader>
+          <div className="flex min-h-0 flex-1 flex-col">{navigationContent}</div>
+        </DialogContent>
+      </Dialog> : <aside id="app-sidebar" className={`flex shrink-0 flex-col border-r bg-muted/25 px-2 py-4 transition-[width] duration-200 ease-in-out motion-reduce:transition-none ${sidebarCollapsed ? "w-16" : "w-44"}`}>{navigationContent}</aside>}
       </Tooltip.Provider>
       <main className="flex min-w-0 flex-1 flex-col">
-        <header className="flex min-h-24 shrink-0 items-center justify-between gap-4 border-b px-8">
-          <div className="flex items-center gap-3">
+        <header className="app-header flex shrink-0 flex-wrap items-center justify-between gap-4 border-b">
+          <div className="flex min-w-0 items-center gap-3">
+            {compact && <Button size="icon" variant="ghost" aria-label={t("打开主导航")} aria-expanded={navigationOpen} disabled={busy} onClick={() => setNavigationOpen(true)}><Menu /></Button>}
+            {page === "practice" && <Button size="icon" variant="ghost" aria-label={t("返回练习记录")} disabled={busy} onClick={() => navigate("history")}><ArrowLeft /></Button>}
             {page === "questions" && (
               <Button
                 size="icon"
@@ -438,8 +476,8 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                 <ArrowLeft />
               </Button>
             )}
-            <div>
-              <h1 ref={pageHeading} tabIndex={-1} className="text-2xl font-semibold tracking-tight outline-none">
+            <div className="min-w-0">
+              <h1 ref={pageHeading} tabIndex={-1} className="break-words text-xl font-semibold tracking-tight outline-none md:text-2xl">
                 {heading}
               </h1>
               <p className="mt-1 text-sm text-muted-foreground">
@@ -457,7 +495,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
             {busy && (
               <span role="status" className="text-sm text-muted-foreground">{t("处理中…")}</span>
             )}
@@ -494,9 +532,9 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
             )}
           </div>
         </header>
-        <div className="flex-1 overflow-y-auto p-8">
+        <div className="app-content min-h-0 flex-1 overflow-y-auto">
           <Suspense fallback={loadingView}>
-          {page === "history" && <div className="mb-5 flex items-center gap-3"><Label htmlFor="history-filter">{t("练习记录状态")}</Label><NativeSelect id="history-filter" value={sessionFilter} disabled={busy} onChange={e => { setSessionFilter(e.target.value as SessionFilter); setSessionOffset(0); }}>
+          {page === "history" && <div className="mb-5 flex flex-wrap items-center gap-3"><Label htmlFor="history-filter">{t("练习记录状态")}</Label><NativeSelect id="history-filter" value={sessionFilter} disabled={busy} onChange={e => { setSessionFilter(e.target.value as SessionFilter); setSessionOffset(0); }}>
             <NativeSelectOption value="all">{t("全部")}</NativeSelectOption><NativeSelectOption value="active">{t("进行中")}</NativeSelectOption><NativeSelectOption value="review">{t("待核对")}</NativeSelectOption><NativeSelectOption value="finished">{t("已结束")}</NativeSelectOption>
           </NativeSelect></div>}
           {page === "history" && (summaryLoading || summaryError != null) && (
@@ -531,8 +569,8 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
           />}
           {listPage && (
             <div className="space-y-5">
-              <div className="flex items-center gap-3">
-                <InputGroup className="flex-1">
+              <div className="flex flex-wrap items-center gap-3">
+                <InputGroup className="min-w-0 basis-full sm:basis-0 sm:flex-1">
                   <InputGroupAddon><Search /></InputGroupAddon>
                   <InputGroupInput
                     aria-label={t("搜索题目")}
@@ -542,7 +580,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                   />
                 </InputGroup>
                 <NativeSelect
-                  className="w-40"
+                  className="w-full sm:w-40"
                   aria-label={t("筛选题型")}
                   value={mode}
                   onChange={(event) => setMode(event.target.value)}
@@ -567,16 +605,16 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                 <>
                   <div className="divide-y rounded-xl border">
                     {questions.map((row, i) => (
-                      <div key={row.id} className="flex min-h-20 items-center gap-4 p-4">
+                      <div key={row.id} className="flex min-h-20 flex-wrap items-center gap-3 p-3 sm:flex-nowrap sm:gap-4 sm:p-4">
                         <span className="w-8 shrink-0 text-sm text-muted-foreground">
                           {offset + i + 1}
                         </span>
                         <button
-                          className="grid min-w-0 flex-1 grid-cols-[max-content_minmax(0,1fr)] items-center gap-4 rounded-sm text-left focus-visible:outline-2 focus-visible:outline-ring"
+                          className="grid min-w-0 flex-1 grid-cols-1 items-center gap-2 md:grid-cols-[max-content_minmax(0,1fr)] md:gap-4 rounded-sm text-left focus-visible:outline-2 focus-visible:outline-ring"
                           onClick={() => setDetail(row)}
                         >
-                          <div className="min-w-40 space-y-2">
-                            <div className="flex items-center gap-2 whitespace-nowrap">
+                          <div className="min-w-0 space-y-2 md:min-w-40">
+                            <div className="flex flex-wrap items-center gap-2">
                               <Badge variant="outline">
                                 {modeNames()[row.question.answerMode || ""] ||
                                   t("未知题型")}
@@ -697,7 +735,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
               <div className="space-y-3">
                 {sessionPage.items.map((s) => (
                   <Card key={s.id} className="py-3">
-                    <CardContent className="flex items-center justify-between gap-4">
+                    <CardContent className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
                       <div className="min-w-0 flex-1 space-y-2">
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                           <h2 className="min-w-0 break-words font-medium">{s.title}</h2>
@@ -805,7 +843,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
           <fieldset disabled={busy} className="min-w-0 space-y-4">
             <fieldset className="min-w-0">
               <legend className="mb-2 text-sm font-medium">{t("选择题库")}</legend>
-              <div className="grid max-h-64 grid-cols-2 gap-2 overflow-y-auto">
+              <div className="grid max-h-64 grid-cols-1 sm:grid-cols-2 gap-2 overflow-y-auto">
                 {banks.map((b) => (
                   <label key={b.id} className="flex min-w-0 cursor-pointer items-start gap-2 rounded-lg border p-3 text-sm has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5">
                     <Checkbox disabled={busy} className="mt-0.5" checked={mergeSelection.includes(b.id)} onCheckedChange={(checked) => setMergeSelection(checked === true ? [...mergeSelection, b.id] : mergeSelection.filter(id => id !== b.id))} />

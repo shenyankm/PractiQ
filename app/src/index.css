@@ -230,3 +230,88 @@ html[lang="en"] [data-slot="button"]:not([data-size^="icon"]) {
 .passage-flow { line-height: 2.5; }
 .passage-fragment, .passage-fragment .document-content, .passage-fragment .document-content > p { display: inline; white-space: pre-wrap; }
 .passage-fragment .document-content > p { margin: 0; }
+
+/* Native Android already applies system-bar, cutout and IME insets to the WebView. */
+:root {
+  --app-safe-top: env(safe-area-inset-top, 0px);
+  --app-safe-right: env(safe-area-inset-right, 0px);
+  --app-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --app-safe-left: env(safe-area-inset-left, 0px);
+}
+html[data-native-insets="true"] {
+  --app-safe-top: 0px;
+  --app-safe-right: 0px;
+  --app-safe-bottom: 0px;
+  --app-safe-left: 0px;
+}
+.app-shell {
+  height: 100dvh;
+  min-width: 0;
+  padding: var(--app-safe-top) var(--app-safe-right) var(--app-safe-bottom) var(--app-safe-left);
+}
+.app-header { min-height: 6rem; padding: 1rem 2rem; }
+.app-content { padding: 2rem; overscroll-behavior: contain; }
+.audio-seek { min-height: 3rem; }
+
+@media (max-width: 767px) {
+  .app-header { min-height: 4.5rem; padding: 0.75rem 1rem; }
+  .app-content { padding: 1rem; }
+  /* This panel exists only in development; reserve its closed footprint below the app. */
+  #root:has(.preview-controls) .app-shell { height: calc(100dvh - 6rem); }
+  .preview-controls {
+    z-index: 40;
+    max-width: calc(100vw - 1.5rem);
+    max-height: 50dvh;
+    overflow-y: auto;
+  }
+  html [data-slot="dialog-content"],
+  html [data-slot="alert-dialog-content"] {
+    max-height: calc(100dvh - var(--app-safe-top) - var(--app-safe-bottom) - 1rem);
+    max-width: calc(100vw - var(--app-safe-left) - var(--app-safe-right) - 1rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  [data-slot="dialog-content"] > [data-slot="dialog-header"] { padding-right: 3rem; }
+  html [data-slot="dialog-content"].navigation-drawer {
+    inset: var(--app-safe-top) auto var(--app-safe-bottom) var(--app-safe-left);
+    width: min(20rem, calc(100vw - var(--app-safe-left) - var(--app-safe-right) - 3rem));
+    max-width: none;
+    max-height: none;
+    transform: none;
+    /* Reset Dialog's individual translate through the production utility variables. */
+    --tw-translate-x: 0px;
+    --tw-translate-y: 0px;
+    display: flex;
+    flex-direction: column;
+    border-radius: 0;
+    padding: 1rem;
+  }
+}
+
+/* The same controls remain comfortable on narrow windows and touch-capable desktops. */
+@media (max-width: 767px), (any-pointer: coarse) {
+  /* Radix asChild supplies its own slot names; retain the semantic button target. */
+  html[lang] button:not([role="checkbox"]):not([role="radio"]),
+  html[lang] a[data-size],
+  [data-slot="input"],
+  [data-slot="input-group"],
+  [data-slot="input-group-control"],
+  [data-slot="native-select"],
+  [role="menuitem"],
+  [role="menuitemradio"],
+  summary {
+    min-height: 3rem;
+  }
+  html[lang] button:not([role="checkbox"]):not([role="radio"]),
+  html[lang] a[data-size] { min-width: 3rem; }
+  html[lang] button:not([role="checkbox"]):not([role="radio"]):not([data-size^="icon"]),
+  html[lang] a[data-size]:not([data-size^="icon"]) {
+    height: auto;
+    max-width: 100%;
+    white-space: normal;
+  }
+  [data-slot="input"], [data-slot="input-group-control"], [data-slot="native-select"], [data-slot="textarea"] { font-size: 1rem; }
+  label:has([data-slot="checkbox"]), label:has(input[type="checkbox"]), label:has([data-slot="radio-group-item"]) { min-height: 3rem; }
+  .answer-card-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  summary { display: list-item; align-content: center; }
+}

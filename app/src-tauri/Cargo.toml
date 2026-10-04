@@ -29,8 +29,6 @@ base64 = "0.22"
 zip = { version = "4", default-features = false, features = ["deflate"] }
 
 tempfile = "3"
-tauri-plugin-single-instance = "2"
-keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service", "crypto-rust"] }
 symphonia = { version = "0.6.1", default-features = false, features = ["aac", "mp3", "isomp4", "wav", "pcm", "alac", "id3v2"] }
 url = "2"
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
@@ -39,11 +37,17 @@ dom_query = { version = "0.27", default-features = false }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows-sys = { version = "0.61", features = ["Win32_Storage_FileSystem"] }
+keyring = { version = "3", features = ["windows-native"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+keyring = { version = "3", features = ["apple-native"] }
+
+[target.'cfg(any(target_os = "macos", target_os = "windows"))'.dependencies]
+tauri-plugin-single-instance = "2"
+
+[target.'cfg(target_os = "android")'.dependencies]
+libc = "0.2"
 
 [profile.release]
 lto = "thin"
 strip = "symbols"
-
-# GTK3 requires glib 0.18; backport the upstream VariantStrIter safety fix.
-[patch.crates-io]
-glib = { path = "vendor/glib" }

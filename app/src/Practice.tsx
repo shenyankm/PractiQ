@@ -62,9 +62,9 @@ export function Practice(props: PracticeProps) {
   }
   return <div className="space-y-4">
     {listening && <ListeningPlayer key={`${session.id}-${listening.id}-${listening.audioRef?.sha256}`} question={listening} session={session}/>}
-    <div className="grid grid-cols-[minmax(0,1fr)_240px] gap-6">
+    <div className="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_240px]">
       <PracticeQuestion key={`${session.id}-${session.position}`} {...props} go={go} onDraft={onDraft} questionHeading={questionHeading}/>
-      <aside className="sticky top-0 self-start space-y-4">
+      <aside className="min-w-0 self-start space-y-4 md:sticky md:top-0">
         <AnswerCard key={session.id} session={session} answer={answer} exam={exam} go={go} />
         {!finished && <Button ref={finishButton} className="w-full" variant="outline" onClick={() => run(async () => { await flushRef.current(); onSession(await api({type:"session", id:session.id})); setConfirmFinish(true); })}>{exam ? t("交卷") : t("结束练习")}</Button>}
         <AlertDialog open={confirmFinish && !finished} onOpenChange={open => { if (!finishing) setConfirmFinish(open); }}>
@@ -232,8 +232,8 @@ function PracticeQuestion({
           <p className="truncate text-xs text-muted-foreground" title={session.title}>{session.title}</p>
         </CardHeader>
         <CardContent className="space-y-6">
-          {saveError && <div role="alert" className="flex items-center justify-between gap-3 rounded-lg border border-destructive/40 p-3 text-sm"><p>{t("答案保存失败，请重试或保持窗口打开。")}</p><Button variant="outline" disabled={saved === "保存中…"} onClick={() => run(async () => { await persist(); })}>{t("重试保存")}</Button></div>}
-          <div className="flex gap-2">
+          {saveError && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/40 p-3 text-sm"><p>{t("答案保存失败，请重试或保持窗口打开。")}</p><Button variant="outline" disabled={saved === "保存中…"} onClick={() => run(async () => { await persist(); })}>{t("重试保存")}</Button></div>}
+          <div className="flex flex-wrap gap-2">
             {attempt.snapshot.id && favorite != null && <Button variant="outline" onClick={()=>run(async()=>{await api({type:"favorite",id:attempt.snapshot.id!,value:!favorite});onSession(await api({type:"session",id:session.id}));})}>{favorite?t("取消收藏"):t("收藏原题")}</Button>}
             {exam && !handedIn && <Button variant="outline" onClick={()=>run(async()=>{await flushRef.current();onSession(await api({type:"flag",id:session.id,ordinal:session.position,value:!attempt.flagged}));})}>{attempt.flagged?t("取消待检查标记"):t("标记待检查")}</Button>}
           </div>
@@ -245,7 +245,7 @@ function PracticeQuestion({
             {materialSiblings.slice(siblingPage * 30, siblingPage * 30 + 30).map(a=><Button key={a.ordinal} variant={a.ordinal===session.position?"secondary":"outline"} size="sm" onClick={()=>go(a.ordinal)}>{a.ordinal+1}</Button>)}
             {materialSiblings.length > 30 && <div className="flex w-full items-center justify-between gap-3 text-sm">
               <span>{t("第 {0}–{1} 项", { 0: siblingPage * 30 + 1, 1: Math.min(siblingPage * 30 + 30, materialSiblings.length) })}</span>
-              <div className="flex gap-2"><Button variant="outline" size="sm" disabled={!siblingPage} onClick={() => go(materialSiblings[(siblingPage - 1) * 30].ordinal)}>{t("上一页")}</Button><Button variant="outline" size="sm" disabled={(siblingPage + 1) * 30 >= materialSiblings.length} onClick={() => go(materialSiblings[(siblingPage + 1) * 30].ordinal)}>{t("下一页")}</Button></div>
+              <div className="flex flex-wrap gap-2"><Button variant="outline" size="sm" disabled={!siblingPage} onClick={() => go(materialSiblings[(siblingPage - 1) * 30].ordinal)}>{t("上一页")}</Button><Button variant="outline" size="sm" disabled={(siblingPage + 1) * 30 >= materialSiblings.length} onClick={() => go(materialSiblings[(siblingPage + 1) * 30].ordinal)}>{t("下一页")}</Button></div>
             </div>}
           </nav>}
           <AnswerInput
@@ -258,7 +258,7 @@ function PracticeQuestion({
           {!submitted && !finished && answer != null && <Button variant="outline" onClick={()=>change(null)}>{t("清空作答")}</Button>}
           {submitted && (
             <section className="space-y-4 rounded-lg border bg-muted/30 p-5">
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <Badge
                   variant={
                     attempt.result === false && !(exam && (attempt.earnedCents || 0) > 0) ? "destructive" : "secondary"
@@ -278,7 +278,7 @@ function PracticeQuestion({
               <h3 className="font-medium">{t("参考答案")}</h3>
               <AnswerDisplay answer={q.answerPayload} question={q} response={attempt.answer} />
               {selfAllowed && (
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
                   <span className="text-sm">{t("对照答案自评：")}</span>
                   <Button
                     variant="outline"
@@ -305,7 +305,7 @@ function PracticeQuestion({
               <Markdown>{q.analysis || t("原文未提供解析。")}</Markdown>
             </section>
           )}
-          <div className="sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-3 border-t bg-card py-3">
+          <div className="z-10 flex md:sticky md:bottom-0 flex-wrap items-center justify-between gap-3 border-t bg-card py-3">
           {!exam && !submitted && !finished && (
             <div className="flex gap-3">
               <Button
@@ -481,7 +481,7 @@ const AnswerCard = memo(function AnswerCard({session, answer, exam, go}: {
               <Button variant="outline" size="icon" aria-label={t("定位当前题")} title={t("定位当前题")} onClick={() => revealCurrent(true)}><LocateFixed/></Button>
               <Button variant="outline" size="icon" aria-label={t("转到最后一题")} title={t("转到最后一题")} disabled={session.position === session.attempts.length - 1} onClick={() => go(session.attempts.length - 1)}><ArrowDownToLine/></Button>
             </div>
-            <div ref={grid} role="region" aria-label={t("答题卡")} tabIndex={0} className="relative grid max-h-[min(45vh,24rem)] grid-cols-4 gap-2 overflow-y-auto rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <div ref={grid} role="region" aria-label={t("答题卡")} tabIndex={0} className="answer-card-grid relative grid max-h-[min(45vh,24rem)] grid-cols-4 gap-2 overflow-y-auto rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring">
               {session.attempts.map(a => {
                 const current = a.ordinal === session.position;
                 const draft = current ? answer : a.answer;

@@ -10,8 +10,8 @@ Do not replace these with a generic SPDX identifier or infer copyright holders.
 Retain upstream text verbatim. Any `note` marks source applicability that needs
 release review; the notice checker fails rather than silently accepting it.
 
-`app/scripts/check_licenses.py` inventories the local target's Cargo packages,
-and npm production dependency closure for the desktop practice application. It
+`app/scripts/check_licenses.py` inventories the selected target's Cargo packages,
+npm production dependency closure and Android's resolved Maven runtime. It
 checks supplemental hashes and returns nonzero for missing text or unverified
 source applicability. Build packages include the combined text in
 `bundled/THIRD-PARTY.txt`. Preparation fails on unresolved entries. An inventory is not a decision
@@ -21,6 +21,42 @@ The checker validates schema 2 desktop build metadata and limits Cargo entries t
 the platform-filtered resolve graph. AI service dependencies and its configured
 Office engine are independently deployed and require their own license review.
 They are never claimed as redistributed desktop components.
+
+## Android runtime source evidence
+
+The Gradle `exportRuntimeNoticeInventory` task resolves the actual variant's
+runtime graph. It records raw Maven AAR/JAR and version-specific POM SHA-256,
+and the locally built Tauri Android libraries. `gradle.lockfile` pins runtime
+versions; CI consumes this reviewed lock and does not regenerate it.
+`android-runtime.lock.json` binds the exact external closure to artifact/POM
+hashes and complete upstream license texts. Android preparation requires this
+inventory and rejects extra, missing or changed dependencies, unmatched POM
+identities and altered terms. Local Tauri Android libraries must come from the
+same Cargo-resolved crate directories and use those crates' complete terms.
+The repository carries a reviewed Tauri Activity recreation fix. Its original
+Cargo archive/VCS source, unchanged full license terms, original copyright header,
+functional condition change and PractiQ modification notice are recorded in
+`tauri-android-lifecycle.provenance.json`. The project override lock binds both
+source files and that proof. The runtime export must demonstrate that the actual
+Kotlin inputs exclude the original file and include the byte-identical generated
+replacement; preparation rejects missing or altered overrides. Combined notices
+retain this modification proof alongside the original complete Cargo terms.
+Maven SPDX declarations alone cannot pass the gate.
+
+Jackson Core 2.15.3 shades FastDoubleParser. Its embedded `FastDoubleParser-NOTICE`
+identifies Werner Randelshofer's MIT code and a fixed upstream commit, while its
+embedded `FastDoubleParser-LICENSE` contains Apache 2.0 terms. Retain both original
+files and every other artifact notice. The supplemental complete MIT copyright
+and terms come from that exact referenced commit, with their own pinned SHA-256;
+the checker binds the source URL to the exact embedded NOTICE bytes and records
+that provenance separately from Jackson's POM declaration and embedded LICENSE.
+
+Review new runtime versions by resolving the selected Gradle configuration with
+`--write-locks`, verifying the corresponding upstream artifact/POM sources and
+full terms, and updating both reviewed locks. Retain the verification evidence.
+This is a build-time operation; no dependency discovery or download occurs in
+the installed practice client. Android x86_64 uses the same reviewed runtime
+closure for emulator checks, while advertised APK candidates use arm64-v8a.
 
 ## objc2-family terms
 

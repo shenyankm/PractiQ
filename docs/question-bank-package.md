@@ -1,6 +1,6 @@
 # Import, export, and back up question-bank ZIP files
 
-A single ZIP is enough to share a question bank. The app no longer offers separate JSON or image-directory pickers. The independent service's Web frontend parses documents and downloads this same ZIP format; desktop import remains offline.
+A single ZIP is enough to share a question bank. The app no longer offers separate JSON or image-directory pickers. The independent service's Web frontend parses documents and downloads this same ZIP format; app import remains offline on macOS, Windows and Android.
 
 ## Import and share
 
@@ -12,11 +12,11 @@ On the empty question-bank page, choose **Add example bank** to add the [all-typ
 
 Sharing packages retain questions, answers, explanations, source content, shared materials, composite relationships, source scores, rubrics, images, listening audio, and review flags. They exclude bookmarks, mistake status, personal answers, practice history, grading records, connection settings, and credentials.
 
-Missing or corrupt referenced images or audio prevent export. If a bank was initially imported without images, append a complete ZIP with the same content: questions are not duplicated, verified images are added, and historical snapshots remain unchanged. Export writes a temporary file and publishes it only after all steps succeed; existing filenames cannot be overwritten.
+Missing or corrupt referenced images or audio prevent export. If a bank was initially imported without images, append a complete ZIP with the same content: questions are not duplicated, verified images are added, and historical snapshots remain unchanged. On macOS/Windows, bank export writes a temporary file and publishes it only after all steps succeed; existing filenames cannot be overwritten. On Android, export completes and validates a private ZIP before copying it to the system-picker destination. The app reports write/sync failures, but a provider destination may contain partial bytes after failure; native file-provider writes do not guarantee atomic publication or rollback. Inspect or remove that destination before sharing.
 
 ## Difference from study-data backups
 
-**Export backup** in Settings still creates a ZIP containing personal banks, images, audio, answers, exams, and grading records for restoring your own data. It excludes credentials and AI task state. Backup creation validates image/audio formats before publishing the ZIP. Unsupported legacy resources (including WebP/GIF) or damaged media cancel the backup without replacing an existing destination. Restore validates the backup and retains a pre-restore copy.
+**Export backup** in Settings still creates a ZIP containing personal banks, images, audio, answers, exams, and grading records for restoring your own data. It excludes credentials and AI task state. Backup creation validates image/audio formats before writing the ZIP. Unsupported legacy resources (including WebP/GIF) or damaged media cancel the backup before publication or selected-provider writing. A desktop destination is replaced only after the private ZIP is complete; Android provider destinations have the write/sync failure boundary above. Restore validates the backup and retains a pre-restore copy.
 
 Bank-sharing packages and study-data backups are different formats. Both operations are under **Restore backup** in Settings: **Import bank ZIP** appends content, while **Restore study-data backup** replaces personal data after confirmation. Selecting the wrong format returns an error.
 
@@ -40,4 +40,4 @@ Regenerate development samples with `python3 app/scripts/package-fixtures.py`. T
 
 Listening parent questions store audio references in `audioRef`, supporting audio/mpeg, audio/mp4, audio/aac, and audio/wav. Images and audio share the package and expanded-size budgets. The current ZIP version is 2, backup container version is 4 with schemaVersion 11, and the desktop directory is v4. Older versions are explicitly rejected; old directories remain intact. Reparse source documents or generate new-format banks.
 
-Listening audio is validated with Symphonia on all desktop platforms. URL/QR imports are downloaded and saved as ordinary local audio before export; recipients need no access to the original site. Playback depends on the platform WebView codecs; Linux needs the corresponding GStreamer audio plugins.
+Listening audio is validated with Symphonia on all app platforms. URL/QR imports are downloaded and saved as ordinary local audio before export; recipients need no access to the original site. Playback depends on the platform WebView codecs; verify the intended Android device and WebView version separately. Android import and export use the system file picker, with bounded private copies for input and verified complete ZIPs before writing selected output descriptors. Bank import appends content; full study-data restoration requires replacement confirmation.

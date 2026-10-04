@@ -778,4 +778,6 @@ export const en = {
   "支持音频直链或含公开音频链接的网页。二维码先识别网址，点击获取后才联网；下载后可离线播放。": "Use a direct audio URL or a page with public audio links. QR recognition only reads the URL; fetching connects to the site. Downloaded audio plays offline.",
   "正在处理听力资源…": "Processing listening resource\u2026",
   "请选择资源网址，再点击获取音频。": "Choose a resource URL, then fetch the audio.",
+  "打开主导航": "Open navigation",
+  "返回练习记录": "Back to practice history",
 } as const;

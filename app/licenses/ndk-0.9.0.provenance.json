@@ -1,0 +1,263 @@
+{
+  "checkedAt": "2026-10-04",
+  "package": "ndk",
+  "version": "0.9.0",
+  "crate": {
+    "source": "https://static.crates.io/crates/ndk/ndk-0.9.0.crate",
+    "sha256": "c3f42e7bbe13d351b6bead8286a43aac9534b82bd3cc43e47037f012ebfd62d4",
+    "verification": "Cached published crate bytes match this exact package and version checksum in app/src-tauri/Cargo.lock."
+  },
+  "publishedCargoTomlSha256": "e2fd0c3c8be9826bfc4a52735e948e38588621edb3df9314ca60e819080e9835",
+  "publishedRepository": "https://github.com/rust-mobile/ndk",
+  "declaredLicense": "MIT OR Apache-2.0",
+  "selectedLicense": "MIT",
+  "cargoVcsInfo": {
+    "archivePath": "ndk-0.9.0/.cargo_vcs_info.json",
+    "sha256": "77723ef695dbacca767bc080c017fe1c4ee651bb0bbd94512e0de3597558a536",
+    "contents": {
+      "git": {
+        "sha1": "49bbbba16c58ff63cb8a0ad0eca5a9fb7ecaec25"
+      },
+      "path_in_vcs": "ndk"
+    }
+  },
+  "upstreamRepository": "https://github.com/rust-mobile/ndk",
+  "upstreamCommit": "49bbbba16c58ff63cb8a0ad0eca5a9fb7ecaec25",
+  "repositoryAttribution": "Published package repository; original manifest and all published src files match this VCS commit byte for byte.",
+  "license": {
+    "source": "https://raw.githubusercontent.com/rust-mobile/ndk/49bbbba16c58ff63cb8a0ad0eca5a9fb7ecaec25/LICENSE-MIT",
+    "path": "LICENSE-MIT",
+    "sha256": "508a77d2e7b51d98adeed32648ad124b7b30241a8e70b2e72c99f92d8e5874d1",
+    "gitBlobSha1": "9cf106272ac3b56b0c4c80218e8fc10a664ca5f4",
+    "sizeBytes": 1036,
+    "verification": "Complete upstream file, unchanged bytes, from the same commit recorded in this published crate; Git blob SHA-1 independently matches the commit tree."
+  },
+  "publishedSourceComparison": [
+    {
+      "archivePath": "Cargo.toml.orig",
+      "upstreamPath": "ndk/Cargo.toml",
+      "archiveSha256": "2fef16f26085f508a2404e52d4ed9dc54dbc915cf89c2868f25fb49a2e940e2a",
+      "upstreamSha256": "2fef16f26085f508a2404e52d4ed9dc54dbc915cf89c2868f25fb49a2e940e2a",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 1863,
+      "upstreamSizeBytes": 1863
+    },
+    {
+      "archivePath": "src/asset.rs",
+      "upstreamPath": "ndk/src/asset.rs",
+      "archiveSha256": "d12fe272759c5c48807a472841d619645bbfb366744749167dbd684c38e9f78b",
+      "upstreamSha256": "d12fe272759c5c48807a472841d619645bbfb366744749167dbd684c38e9f78b",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 10306,
+      "upstreamSizeBytes": 10306
+    },
+    {
+      "archivePath": "src/audio.rs",
+      "upstreamPath": "ndk/src/audio.rs",
+      "archiveSha256": "31fa9e844cf7150df0d6ea26301e85e760684825622f103925d01ecfd62b1b38",
+      "upstreamSha256": "31fa9e844cf7150df0d6ea26301e85e760684825622f103925d01ecfd62b1b38",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 60949,
+      "upstreamSizeBytes": 60949
+    },
+    {
+      "archivePath": "src/bitmap.rs",
+      "upstreamPath": "ndk/src/bitmap.rs",
+      "archiveSha256": "8509b1de801db8555ac42947c56b9b52dbdd822d2e03a6eee3680061ee3a641f",
+      "upstreamSha256": "8509b1de801db8555ac42947c56b9b52dbdd822d2e03a6eee3680061ee3a641f",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 18933,
+      "upstreamSizeBytes": 18933
+    },
+    {
+      "archivePath": "src/configuration.rs",
+      "upstreamPath": "ndk/src/configuration.rs",
+      "archiveSha256": "2f4971a43dacd467759121a122bd50d65c7c9d6ad9d067f16961964ab2009f2e",
+      "upstreamSha256": "2f4971a43dacd467759121a122bd50d65c7c9d6ad9d067f16961964ab2009f2e",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 19777,
+      "upstreamSizeBytes": 19777
+    },
+    {
+      "archivePath": "src/data_space.rs",
+      "upstreamPath": "ndk/src/data_space.rs",
+      "archiveSha256": "162e5d847c0c4bcf09444cfbbd95fe23622302baf7e834f0057a4bc33d93b322",
+      "upstreamSha256": "162e5d847c0c4bcf09444cfbbd95fe23622302baf7e834f0057a4bc33d93b322",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 27117,
+      "upstreamSizeBytes": 27117
+    },
+    {
+      "archivePath": "src/event.rs",
+      "upstreamPath": "ndk/src/event.rs",
+      "archiveSha256": "c46e778a70aa11373367d92b6cfa2b8a84c1faa08127b44fdab18537a71b40ec",
+      "upstreamSha256": "c46e778a70aa11373367d92b6cfa2b8a84c1faa08127b44fdab18537a71b40ec",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 55281,
+      "upstreamSizeBytes": 55281
+    },
+    {
+      "archivePath": "src/font.rs",
+      "upstreamPath": "ndk/src/font.rs",
+      "archiveSha256": "47a622f6fe4a4ad797d7e5763b889f12d0cf9266f727f9f39679f6e60efc1881",
+      "upstreamSha256": "47a622f6fe4a4ad797d7e5763b889f12d0cf9266f727f9f39679f6e60efc1881",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 20246,
+      "upstreamSizeBytes": 20246
+    },
+    {
+      "archivePath": "src/hardware_buffer.rs",
+      "upstreamPath": "ndk/src/hardware_buffer.rs",
+      "archiveSha256": "38af184bb04ec6e6a00d847812b127562f17bcb7c69fab921ba4038bc2ba4af4",
+      "upstreamSha256": "38af184bb04ec6e6a00d847812b127562f17bcb7c69fab921ba4038bc2ba4af4",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 32242,
+      "upstreamSizeBytes": 32242
+    },
+    {
+      "archivePath": "src/hardware_buffer_format.rs",
+      "upstreamPath": "ndk/src/hardware_buffer_format.rs",
+      "archiveSha256": "1f20bd261fa51e52b9cc14f71b4123a8485a8f1753ea70183872fec8003fc47a",
+      "upstreamSha256": "1f20bd261fa51e52b9cc14f71b4123a8485a8f1753ea70183872fec8003fc47a",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 5112,
+      "upstreamSizeBytes": 5112
+    },
+    {
+      "archivePath": "src/input_queue.rs",
+      "upstreamPath": "ndk/src/input_queue.rs",
+      "archiveSha256": "5c1b77460f9a06809356f8c94c69cafcf09f1b971a6b2dede499e30089bf7f55",
+      "upstreamSha256": "5c1b77460f9a06809356f8c94c69cafcf09f1b971a6b2dede499e30089bf7f55",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 5427,
+      "upstreamSizeBytes": 5427
+    },
+    {
+      "archivePath": "src/lib.rs",
+      "upstreamPath": "ndk/src/lib.rs",
+      "archiveSha256": "e36fe74be270e989dc0d0208828b3bcc96488118ea08228edbeaa497f113b243",
+      "upstreamSha256": "e36fe74be270e989dc0d0208828b3bcc96488118ea08228edbeaa497f113b243",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 676,
+      "upstreamSizeBytes": 676
+    },
+    {
+      "archivePath": "src/looper.rs",
+      "upstreamPath": "ndk/src/looper.rs",
+      "archiveSha256": "62e1ba23d6c62fd976bab169f50d277bc6f212019faaffab85aa3e360be2d5f4",
+      "upstreamSha256": "62e1ba23d6c62fd976bab169f50d277bc6f212019faaffab85aa3e360be2d5f4",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 18263,
+      "upstreamSizeBytes": 18263
+    },
+    {
+      "archivePath": "src/media/image_reader.rs",
+      "upstreamPath": "ndk/src/media/image_reader.rs",
+      "archiveSha256": "7d75b5212a6bf9356dc013c6919be688d1bd20f896728ea3dea6fc8a972774e7",
+      "upstreamSha256": "7d75b5212a6bf9356dc013c6919be688d1bd20f896728ea3dea6fc8a972774e7",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 17116,
+      "upstreamSizeBytes": 17116
+    },
+    {
+      "archivePath": "src/media/media_codec.rs",
+      "upstreamPath": "ndk/src/media/media_codec.rs",
+      "archiveSha256": "b43855608fcd56520ce8ce92a7e00c8fc9ca1475943d716d6341f2674c998b5b",
+      "upstreamSha256": "b43855608fcd56520ce8ce92a7e00c8fc9ca1475943d716d6341f2674c998b5b",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 21961,
+      "upstreamSizeBytes": 21961
+    },
+    {
+      "archivePath": "src/media/media_format.rs",
+      "upstreamPath": "ndk/src/media/media_format.rs",
+      "archiveSha256": "f06e62d9b3400f661af96abf022a6d4859bb4392be4a6efabb81ad415a80b1c1",
+      "upstreamSha256": "f06e62d9b3400f661af96abf022a6d4859bb4392be4a6efabb81ad415a80b1c1",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 8461,
+      "upstreamSizeBytes": 8461
+    },
+    {
+      "archivePath": "src/media/mod.rs",
+      "upstreamPath": "ndk/src/media/mod.rs",
+      "archiveSha256": "106354627d1c6b4669a2a571d72d7ddd3b582adab60b964a848c2d0b766f08e2",
+      "upstreamSha256": "106354627d1c6b4669a2a571d72d7ddd3b582adab60b964a848c2d0b766f08e2",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 222,
+      "upstreamSizeBytes": 222
+    },
+    {
+      "archivePath": "src/media_error.rs",
+      "upstreamPath": "ndk/src/media_error.rs",
+      "archiveSha256": "695766a65e3027f63482dfba522342cbb470dcbd08f1f4c3d102e303d4bbdf6d",
+      "upstreamSha256": "695766a65e3027f63482dfba522342cbb470dcbd08f1f4c3d102e303d4bbdf6d",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 6859,
+      "upstreamSizeBytes": 6859
+    },
+    {
+      "archivePath": "src/native_activity.rs",
+      "upstreamPath": "ndk/src/native_activity.rs",
+      "archiveSha256": "213b3c757c9112726dfc87a2b124a7e2214e1fc34a6c6298f200ff2738f503ae",
+      "upstreamSha256": "213b3c757c9112726dfc87a2b124a7e2214e1fc34a6c6298f200ff2738f503ae",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 10487,
+      "upstreamSizeBytes": 10487
+    },
+    {
+      "archivePath": "src/native_window.rs",
+      "upstreamPath": "ndk/src/native_window.rs",
+      "archiveSha256": "885df9e6647615651a32fc0b3a4892194d9992cda4a1c58345f1a2480aba72ef",
+      "upstreamSha256": "885df9e6647615651a32fc0b3a4892194d9992cda4a1c58345f1a2480aba72ef",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 20568,
+      "upstreamSizeBytes": 20568
+    },
+    {
+      "archivePath": "src/shared_memory.rs",
+      "upstreamPath": "ndk/src/shared_memory.rs",
+      "archiveSha256": "59bd11f04b18e8e5310f1149d0b57e6efeb5c7bb9ec2e725aa64594b4a537ca7",
+      "upstreamSha256": "59bd11f04b18e8e5310f1149d0b57e6efeb5c7bb9ec2e725aa64594b4a537ca7",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 5823,
+      "upstreamSizeBytes": 5823
+    },
+    {
+      "archivePath": "src/surface_texture.rs",
+      "upstreamPath": "ndk/src/surface_texture.rs",
+      "archiveSha256": "2d2a37361fd0b01a4b99b9c21dad3de16a2a703088f5baaf4fc4636e9fc219e7",
+      "upstreamSha256": "2d2a37361fd0b01a4b99b9c21dad3de16a2a703088f5baaf4fc4636e9fc219e7",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 7950,
+      "upstreamSizeBytes": 7950
+    },
+    {
+      "archivePath": "src/sync.rs",
+      "upstreamPath": "ndk/src/sync.rs",
+      "archiveSha256": "415b66a2b9d441a69171b1cb69291f0ed75a7257589aad13e4dcef0689daae06",
+      "upstreamSha256": "415b66a2b9d441a69171b1cb69291f0ed75a7257589aad13e4dcef0689daae06",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 4455,
+      "upstreamSizeBytes": 4455
+    },
+    {
+      "archivePath": "src/trace.rs",
+      "upstreamPath": "ndk/src/trace.rs",
+      "archiveSha256": "c546adaf3e065cfac2650f6113a9a03a4142639f8d38d27fdc6404f0c00cc601",
+      "upstreamSha256": "c546adaf3e065cfac2650f6113a9a03a4142639f8d38d27fdc6404f0c00cc601",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 2123,
+      "upstreamSizeBytes": 2123
+    },
+    {
+      "archivePath": "src/utils.rs",
+      "upstreamPath": "ndk/src/utils.rs",
+      "archiveSha256": "3c8cd12af90ea3bea30e0ac836a1b91d583e78c69a648675d31b6d7f348b6d5f",
+      "upstreamSha256": "3c8cd12af90ea3bea30e0ac836a1b91d583e78c69a648675d31b6d7f348b6d5f",
+      "comparison": "identical bytes",
+      "archiveSizeBytes": 2791,
+      "upstreamSizeBytes": 2791
+    }
+  ],
+  "licenseSelection": "MIT is one of the alternatives explicitly offered by the published MIT OR Apache-2.0 declaration; the complete upstream MIT file and any copyright notice it contains are retained unchanged."
+}

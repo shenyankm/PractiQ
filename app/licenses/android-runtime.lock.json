@@ -1,0 +1,1502 @@
+{
+  "schemaVersion": 1,
+  "artifacts": [
+    {
+      "coordinate": "androidx.activity:activity-ktx:1.10.1",
+      "extension": "aar",
+      "artifactSha256": "f396f58dbd772c065b873696b74a3d4d087554b3766280e63b49b25dbb53ab16",
+      "pomSha256": "4213490e4ce2b5750e4445246dfe9de4f6655c2123c04a79a8248cc8893e2bf4",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/activity/activity-ktx/1.10.1/activity-ktx-1.10.1.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/activity/activity-ktx/1.10.1/activity-ktx-1.10.1.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        },
+        {
+          "file": "texts/809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0.txt",
+          "sha256": "809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0",
+          "source": "https://dl.google.com/dl/android/maven2/androidx/activity/activity-ktx/1.10.1/activity-ktx-1.10.1.aar!META-INF/androidx/activity/activity-ktx/LICENSE.txt",
+          "artifactEntry": "META-INF/androidx/activity/activity-ktx/LICENSE.txt"
+        }
+      ],
+      "artifactFileName": "activity-ktx-1.10.1.aar",
+      "artifactIdentity": "activity-ktx-1.10.1.aar (androidx.activity:activity-ktx:1.10.1)",
+      "artifactVariant": "androidx.activity:activity-ktx:1.10.1 variant releaseVariantReleaseRuntimePublication"
+    },
+    {
+      "coordinate": "androidx.activity:activity:1.10.1",
+      "extension": "aar",
+      "artifactSha256": "b62b528c917de9be497eb6f88830197c20e9d21267c3916c613492e5ee837d4d",
+      "pomSha256": "0ae4de888974f5cef982660900ec32a33f10968750db7afa9438daec183f14e7",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/activity/activity/1.10.1/activity-1.10.1.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/activity/activity/1.10.1/activity-1.10.1.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        },
+        {
+          "file": "texts/809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0.txt",
+          "sha256": "809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0",
+          "source": "https://dl.google.com/dl/android/maven2/androidx/activity/activity/1.10.1/activity-1.10.1.aar!META-INF/androidx/activity/activity/LICENSE.txt",
+          "artifactEntry": "META-INF/androidx/activity/activity/LICENSE.txt"
+        }
+      ],
+      "artifactFileName": "activity-1.10.1.aar",
+      "artifactIdentity": "activity-1.10.1.aar (androidx.activity:activity:1.10.1)",
+      "artifactVariant": "androidx.activity:activity:1.10.1 variant releaseVariantReleaseRuntimePublication"
+    },
+    {
+      "coordinate": "androidx.annotation:annotation-experimental:1.4.1",
+      "extension": "aar",
+      "artifactSha256": "6bd4c7c7476f8260cd3bdbb81183583e93fc9f790c27dea7dc314181cbf87aa0",
+      "pomSha256": "fe57b228417f4d7c677903dc61fb4a7cf993d603499de26d8d8113e477cc4f1b",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/annotation/annotation-experimental/1.4.1/annotation-experimental-1.4.1.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/annotation/annotation-experimental/1.4.1/annotation-experimental-1.4.1.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "artifactFileName": "annotation-experimental-1.4.1.aar",
+      "artifactIdentity": "annotation-experimental-1.4.1.aar (androidx.annotation:annotation-experimental:1.4.1)",
+      "artifactVariant": "androidx.annotation:annotation-experimental:1.4.1 variant releaseVariantReleaseRuntimePublication"
+    },
+    {
+      "coordinate": "androidx.annotation:annotation-jvm:1.9.1",
+      "extension": "jar",
+      "artifactSha256": "1e343917ebf27ba96fe4dc52b1cad7fd32b738fbc6355bb6cd5b3b305d7212d0",
+      "pomSha256": "89b99c218d60019316b50aab79816707bc21696c896a030e1b1ae038961bcb8e",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/annotation/annotation-jvm/1.9.1/annotation-jvm-1.9.1.jar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/annotation/annotation-jvm/1.9.1/annotation-jvm-1.9.1.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        },
+        {
+          "file": "texts/809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0.txt",
+          "sha256": "809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0",
+          "source": "https://dl.google.com/dl/android/maven2/androidx/annotation/annotation-jvm/1.9.1/annotation-jvm-1.9.1.jar!META-INF/androidx/annotation/annotation/LICENSE.txt",
+          "artifactEntry": "META-INF/androidx/annotation/annotation/LICENSE.txt"
+        }
+      ],
+      "artifactFileName": "annotation-jvm-1.9.1.jar",
+      "artifactIdentity": "annotation-jvm-1.9.1.jar (androidx.annotation:annotation-jvm:1.9.1)",
+      "artifactVariant": "androidx.annotation:annotation-jvm:1.9.1 variant jvmRuntimeElements-published"
+    },
+    {
+      "coordinate": "androidx.appcompat:appcompat-resources:1.7.1",
+      "extension": "aar",
+      "artifactSha256": "8e2db31224ca53b108c784da2b361959062716d416b210cfef3d5a3828306df0",
+      "pomSha256": "2faf922e8c3d706f29d862b3fbb3aa1347705c21c6eae18586d2bb1f7366ea01",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/appcompat/appcompat-resources/1.7.1/appcompat-resources-1.7.1.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/appcompat/appcompat-resources/1.7.1/appcompat-resources-1.7.1.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "artifactFileName": "appcompat-resources-1.7.1.aar",
+      "artifactIdentity": "appcompat-resources-1.7.1.aar (androidx.appcompat:appcompat-resources:1.7.1)",
+      "artifactVariant": "androidx.appcompat:appcompat-resources:1.7.1 variant releaseVariantReleaseRuntimePublication"
+    },
+    {
+      "coordinate": "androidx.appcompat:appcompat:1.7.1",
+      "extension": "aar",
+      "artifactSha256": "2ad334a323b28046e89b738c77d184cb3dcca32a551ab048851b2fda23a3ba26",
+      "pomSha256": "1f79910cc20de198acf3867b1e93f9ed59ddb643585b2e9c28ee55518af1bc00",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/appcompat/appcompat/1.7.1/appcompat-1.7.1.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/appcompat/appcompat/1.7.1/appcompat-1.7.1.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "artifactFileName": "appcompat-1.7.1.aar",
+      "artifactIdentity": "appcompat-1.7.1.aar (androidx.appcompat:appcompat:1.7.1)",
+      "artifactVariant": "androidx.appcompat:appcompat:1.7.1 variant releaseVariantReleaseRuntimePublication"
+    },
+    {
+      "coordinate": "androidx.arch.core:core-common:2.2.0",
+      "extension": "jar",
+      "artifactSha256": "65308a06b1c00ee186cb9e19321383f043b993813f1522c47f4a3e3303bdba41",
+      "pomSha256": "1e17d4af8d6425be2a69f8af4d654a87e0456259a9eef1542869bcb023547e28",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/arch/core/core-common/2.2.0/core-common-2.2.0.jar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/arch/core/core-common/2.2.0/core-common-2.2.0.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "artifactFileName": "core-common-2.2.0.jar",
+      "artifactIdentity": "core-common-2.2.0.jar (androidx.arch.core:core-common:2.2.0)",
+      "artifactVariant": "androidx.arch.core:core-common:2.2.0 variant runtimeElements"
+    },
+    {
+      "coordinate": "androidx.arch.core:core-runtime:2.2.0",
+      "extension": "aar",
+      "artifactSha256": "a1be5e0caa2b07623862af6ae21b3ab0718123245184d0e30dea81b53f990a47",
+      "pomSha256": "0f953706598140d9d8735cdd5aeb1fa35933f4e2f31c0bf3eb81a053a4c8c1a5",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/arch/core/core-runtime/2.2.0/core-runtime-2.2.0.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/arch/core/core-runtime/2.2.0/core-runtime-2.2.0.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "artifactFileName": "core-runtime-2.2.0.aar",
+      "artifactIdentity": "core-runtime-2.2.0.aar (androidx.arch.core:core-runtime:2.2.0)",
+      "artifactVariant": "androidx.arch.core:core-runtime:2.2.0 variant releaseVariantReleaseRuntimePublication"
+    },
+    {
+      "coordinate": "androidx.cardview:cardview:1.0.0",
+      "extension": "aar",
+      "artifactSha256": "1193c04c22a3d6b5946dae9f4e8c59d6adde6a71b6bd5d87fb99d82dda1afec7",
+      "pomSha256": "e64ef4e08b58358fe27b599e6fe80a1b153db014c644beee630ab271061c3e6c",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/cardview/cardview/1.0.0/cardview-1.0.0.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/cardview/cardview/1.0.0/cardview-1.0.0.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "artifactFileName": "cardview-1.0.0.aar",
+      "artifactIdentity": "cardview-1.0.0.aar (androidx.cardview:cardview:1.0.0)",
+      "artifactVariant": "androidx.cardview:cardview:1.0.0 configuration runtime"
+    },
+    {
+      "coordinate": "androidx.collection:collection-jvm:1.4.2",
+      "extension": "jar",
+      "artifactSha256": "984ce9bd780055eafb8a105aca3f514686bf7b1b6272ec7c645a98ce40fc7db4",
+      "pomSha256": "adbb379e2b160f08e63e341ad04bbcc7033f6d868ec51ac11e4334642a4e39ef",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/collection/collection-jvm/1.4.2/collection-jvm-1.4.2.jar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/collection/collection-jvm/1.4.2/collection-jvm-1.4.2.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "artifactFileName": "collection-jvm-1.4.2.jar",
+      "artifactIdentity": "collection-jvm-1.4.2.jar (androidx.collection:collection-jvm:1.4.2)",
+      "artifactVariant": "androidx.collection:collection-jvm:1.4.2 variant jvmRuntimeElements-published"
+    },
+    {
+      "coordinate": "androidx.concurrent:concurrent-futures:1.1.0",
+      "extension": "jar",
+      "artifactSha256": "0ce067c514a0d1049d1bebdf709e344ed3266fe9744275682937cdcb13334e9e",
+      "pomSha256": "748a34eb5d13d19d187adecaea82667fded5f1b0b98a655e13ed2e4a8b3d8ae6",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/concurrent/concurrent-futures/1.1.0/concurrent-futures-1.1.0.jar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/concurrent/concurrent-futures/1.1.0/concurrent-futures-1.1.0.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "artifactFileName": "concurrent-futures-1.1.0.jar",
+      "artifactIdentity": "concurrent-futures-1.1.0.jar (androidx.concurrent:concurrent-futures:1.1.0)",
+      "artifactVariant": "androidx.concurrent:concurrent-futures:1.1.0 variant runtimeElements"
+    },
+    {
+      "coordinate": "androidx.constraintlayout:constraintlayout-core:1.0.0",
+      "extension": "jar",
+      "artifactSha256": "496c8c79664bd970c6a6be7a960a20dd157dfc5aa2f18e5b8333767ffbc59911",
+      "pomSha256": "93e01622e90b5879bb950fedb5c417c8024555fdc779481bcee21a3b5977cb8c",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/constraintlayout/constraintlayout-core/1.0.0/constraintlayout-core-1.0.0.jar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/constraintlayout/constraintlayout-core/1.0.0/constraintlayout-core-1.0.0.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "artifactFileName": "constraintlayout-core-1.0.0.jar",
+      "artifactIdentity": "constraintlayout-core-1.0.0.jar (androidx.constraintlayout:constraintlayout-core:1.0.0)",
+      "artifactVariant": "androidx.constraintlayout:constraintlayout-core:1.0.0 variant runtimeElements"
+    },
+    {
+      "coordinate": "androidx.constraintlayout:constraintlayout:2.1.0",
+      "extension": "aar",
+      "artifactSha256": "a458a7562363bd59c209a7dea847326a0e2b26b37a883dc3e29065a79a1c788b",
+      "pomSha256": "25104af5ae91efe5fe6c9178eee35f6b02e31349505738cceb4df2df8385b585",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/constraintlayout/constraintlayout/2.1.0/constraintlayout-2.1.0.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/constraintlayout/constraintlayout/2.1.0/constraintlayout-2.1.0.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "artifactFileName": "constraintlayout-2.1.0.aar",
+      "artifactIdentity": "constraintlayout-2.1.0.aar (androidx.constraintlayout:constraintlayout:2.1.0)",
+      "artifactVariant": "androidx.constraintlayout:constraintlayout:2.1.0 variant releaseRuntimePublication"
+    },
+    {
+      "coordinate": "androidx.coordinatorlayout:coordinatorlayout:1.1.0",
+      "extension": "aar",
+      "artifactSha256": "44a9e30abf56af1025c52a0af506fee9c4131aa55efda52f9fd9451211c5e8cb",
+      "pomSha256": "a67c52c9ddfaff2ffb2fd4b97cd94fa382e837ea8a5874d029e0a04fa63e5caf",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/coordinatorlayout/coordinatorlayout/1.1.0/coordinatorlayout-1.1.0.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/coordinatorlayout/coordinatorlayout/1.1.0/coordinatorlayout-1.1.0.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "artifactFileName": "coordinatorlayout-1.1.0.aar",
+      "artifactIdentity": "coordinatorlayout-1.1.0.aar (androidx.coordinatorlayout:coordinatorlayout:1.1.0)",
+      "artifactVariant": "androidx.coordinatorlayout:coordinatorlayout:1.1.0 configuration runtime"
+    },
+    {
+      "coordinate": "androidx.core:core-ktx:1.13.1",
+      "extension": "aar",
+      "artifactSha256": "19ba50d094c7368ede1b4ccf1195ceb83e35970736593f823e5af716f8d05d70",
+      "pomSha256": "31cc345b8c6cdd2046dcf67872df8a8cb4f44ea0cade4df80002caa7e3b71809",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/core/core-ktx/1.13.1/core-ktx-1.13.1.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/core/core-ktx/1.13.1/core-ktx-1.13.1.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "artifactFileName": "core-ktx-1.13.1.aar",
+      "artifactIdentity": "core-ktx-1.13.1.aar (androidx.core:core-ktx:1.13.1)",
+      "artifactVariant": "androidx.core:core-ktx:1.13.1 variant releaseVariantReleaseRuntimePublication"
+    },
+    {
+      "coordinate": "androidx.core:core-viewtree:1.0.0",
+      "extension": "aar",
+      "artifactSha256": "dc1b678d58ebcf2bfa1587be68ff826694ce3d221251b9ef30d4d4b36297e6de",
+      "pomSha256": "d4f2ed1176fa8c5612b80f74c952a8799142a9ed36022a1a238fde5b140580d9",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/core/core-viewtree/1.0.0/core-viewtree-1.0.0.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/core/core-viewtree/1.0.0/core-viewtree-1.0.0.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        },
+        {
+          "file": "texts/809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0.txt",
+          "sha256": "809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0",
+          "source": "https://dl.google.com/dl/android/maven2/androidx/core/core-viewtree/1.0.0/core-viewtree-1.0.0.aar!META-INF/androidx/core/core-viewtree/LICENSE.txt",
+          "artifactEntry": "META-INF/androidx/core/core-viewtree/LICENSE.txt"
+        }
+      ],
+      "artifactFileName": "core-viewtree-1.0.0.aar",
+      "artifactIdentity": "core-viewtree-1.0.0.aar (androidx.core:core-viewtree:1.0.0)",
+      "artifactVariant": "androidx.core:core-viewtree:1.0.0 variant releaseVariantReleaseRuntimePublication"
+    },
+    {
+      "coordinate": "androidx.core:core:1.13.1",
+      "extension": "aar",
+      "artifactSha256": "2c27de199535675005553066597a4b20fa1eea7c228ab4ef6b32b5fe39ca1f59",
+      "pomSha256": "527abfa5a8d6af748b37e1c0162d1633a2d5ea4387b0205a8b436b6214ba1cf6",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/core/core/1.13.1/core-1.13.1.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/core/core/1.13.1/core-1.13.1.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "artifactFileName": "core-1.13.1.aar",
+      "artifactIdentity": "core-1.13.1.aar (androidx.core:core:1.13.1)",
+      "artifactVariant": "adhoc variant for androidx.core:core:1.13.1"
+    },
+    {
+      "coordinate": "androidx.cursoradapter:cursoradapter:1.0.0",
+      "extension": "aar",
+      "artifactSha256": "a81c8fe78815fa47df5b749deb52727ad11f9397da58b16017f4eb2c11e28564",
+      "pomSha256": "62d95c89850af21030b19f14d5f7ecd6d8bcc9a3014c59002ec99624caac8100",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/cursoradapter/cursoradapter/1.0.0/cursoradapter-1.0.0.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/cursoradapter/cursoradapter/1.0.0/cursoradapter-1.0.0.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "artifactFileName": "cursoradapter-1.0.0.aar",
+      "artifactIdentity": "cursoradapter-1.0.0.aar (androidx.cursoradapter:cursoradapter:1.0.0)",
+      "artifactVariant": "androidx.cursoradapter:cursoradapter:1.0.0 configuration runtime"
+    },
+    {
+      "coordinate": "androidx.customview:customview:1.1.0",
+      "extension": "aar",
+      "artifactSha256": "01f76ab043770a97b054046f9815717b82ce0355c02967d16c61981359dc189a",
+      "pomSha256": "c814d435f73e9e6d169886d0eb96b5c5361feb48449fbbb315c908c03c588c94",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/customview/customview/1.1.0/customview-1.1.0.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/customview/customview/1.1.0/customview-1.1.0.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "artifactFileName": "customview-1.1.0.aar",
+      "artifactIdentity": "customview-1.1.0.aar (androidx.customview:customview:1.1.0)",
+      "artifactVariant": "adhoc variant for androidx.customview:customview:1.1.0"
+    },
+    {
+      "coordinate": "androidx.drawerlayout:drawerlayout:1.1.1",
+      "extension": "aar",
+      "artifactSha256": "2c5f0dca378eb78ca2c4403f9889c77daa3059302260f26a07fe9f63c08926fe",
+      "pomSha256": "c12fa903ba53005962a72405f37896608718f41673fc4a62312e4536132f6f45",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/drawerlayout/drawerlayout/1.1.1/drawerlayout-1.1.1.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/drawerlayout/drawerlayout/1.1.1/drawerlayout-1.1.1.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "artifactFileName": "drawerlayout-1.1.1.aar",
+      "artifactIdentity": "drawerlayout-1.1.1.aar (androidx.drawerlayout:drawerlayout:1.1.1)",
+      "artifactVariant": "androidx.drawerlayout:drawerlayout:1.1.1 configuration runtime"
+    },
+    {
+      "coordinate": "androidx.dynamicanimation:dynamicanimation:1.1.0",
+      "extension": "aar",
+      "artifactSha256": "9062cc6637136a49ad17f8603c72519052ff9a569e617fc1b6db7086304da88f",
+      "pomSha256": "caecb7b379585d8e4070ebafae3974a137c6689de8077f9165935b3605784a93",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/dynamicanimation/dynamicanimation/1.1.0/dynamicanimation-1.1.0.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/dynamicanimation/dynamicanimation/1.1.0/dynamicanimation-1.1.0.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        },
+        {
+          "file": "texts/809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0.txt",
+          "sha256": "809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0",
+          "source": "https://dl.google.com/dl/android/maven2/androidx/dynamicanimation/dynamicanimation/1.1.0/dynamicanimation-1.1.0.aar!META-INF/androidx/dynamicanimation/dynamicanimation/LICENSE.txt",
+          "artifactEntry": "META-INF/androidx/dynamicanimation/dynamicanimation/LICENSE.txt"
+        }
+      ],
+      "artifactFileName": "dynamicanimation-1.1.0.aar",
+      "artifactIdentity": "dynamicanimation-1.1.0.aar (androidx.dynamicanimation:dynamicanimation:1.1.0)",
+      "artifactVariant": "androidx.dynamicanimation:dynamicanimation:1.1.0 variant releaseVariantReleaseRuntimePublication"
+    },
+    {
+      "coordinate": "androidx.emoji2:emoji2-views-helper:1.3.0",
+      "extension": "aar",
+      "artifactSha256": "9a1351295a4f739df0efe8344adaa9afb34856c3af584d4a9afbec105a45b90b",
+      "pomSha256": "2673b0f5859d4361a4e9a30457852a6745d0c3c85b5e0412070483f3963ef526",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/emoji2/emoji2-views-helper/1.3.0/emoji2-views-helper-1.3.0.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/emoji2/emoji2-views-helper/1.3.0/emoji2-views-helper-1.3.0.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "artifactFileName": "emoji2-views-helper-1.3.0.aar",
+      "artifactIdentity": "emoji2-views-helper-1.3.0.aar (androidx.emoji2:emoji2-views-helper:1.3.0)",
+      "artifactVariant": "androidx.emoji2:emoji2-views-helper:1.3.0 variant releaseVariantReleaseRuntimePublication"
+    },
+    {
+      "coordinate": "androidx.emoji2:emoji2:1.3.0",
+      "extension": "aar",
+      "artifactSha256": "2bf23818b23a996ddaa1b5fd5bb32129daff6bbb2dce15166e2fccdd2010b1a5",
+      "pomSha256": "14ebbea8234f013211965fdd08b42ee907ce0075af321018c8c2865c2e5db0eb",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/emoji2/emoji2/1.3.0/emoji2-1.3.0.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/emoji2/emoji2/1.3.0/emoji2-1.3.0.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "artifactFileName": "emoji2-1.3.0.aar",
+      "artifactIdentity": "emoji2-1.3.0.aar (androidx.emoji2:emoji2:1.3.0)",
+      "artifactVariant": "androidx.emoji2:emoji2:1.3.0 variant releaseVariantReleaseRuntimePublication"
+    },
+    {
+      "coordinate": "androidx.fragment:fragment:1.5.4",
+      "extension": "aar",
+      "artifactSha256": "bc3c2431dda42e94bb9511c587eae890d276e4aafe393a8da7b00169186dafde",
+      "pomSha256": "f8ca1877c66e642c554907e1ce5a493a897ca29270cb19e2bb6d424ba43b6c98",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/fragment/fragment/1.5.4/fragment-1.5.4.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/fragment/fragment/1.5.4/fragment-1.5.4.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "artifactFileName": "fragment-1.5.4.aar",
+      "artifactIdentity": "fragment-1.5.4.aar (androidx.fragment:fragment:1.5.4)",
+      "artifactVariant": "adhoc variant for androidx.fragment:fragment:1.5.4"
+    },
+    {
+      "coordinate": "androidx.graphics:graphics-shapes-android:1.0.1",
+      "extension": "aar",
+      "artifactSha256": "7171269a4122feabb071768df46d10b362e47ac75fd0aa8dbcafa1f44f61b40c",
+      "pomSha256": "81de7bcc8549084d104d5af33b120f93e10d45424a15a454cfa1f24304aa4d11",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/graphics/graphics-shapes-android/1.0.1/graphics-shapes-android-1.0.1.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/graphics/graphics-shapes-android/1.0.1/graphics-shapes-android-1.0.1.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        },
+        {
+          "file": "texts/809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0.txt",
+          "sha256": "809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0",
+          "source": "https://dl.google.com/dl/android/maven2/androidx/graphics/graphics-shapes-android/1.0.1/graphics-shapes-android-1.0.1.aar!META-INF/androidx/graphics/graphics-shapes/LICENSE.txt",
+          "artifactEntry": "META-INF/androidx/graphics/graphics-shapes/LICENSE.txt"
+        }
+      ],
+      "artifactFileName": "graphics-shapes-release.aar",
+      "artifactIdentity": "graphics-shapes-release.aar (androidx.graphics:graphics-shapes-android:1.0.1)",
+      "artifactVariant": "androidx.graphics:graphics-shapes-android:1.0.1 variant releaseRuntimeElements-published"
+    },
+    {
+      "coordinate": "androidx.interpolator:interpolator:1.0.0",
+      "extension": "aar",
+      "artifactSha256": "33193135a64fe21fa2c35eec6688f1a76e512606c0fc83dc1b689e37add7732a",
+      "pomSha256": "0ddc07cc39699f48ecd9ec894b5830c0f09e22e82959294edf37217224c88b7b",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/interpolator/interpolator/1.0.0/interpolator-1.0.0.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/interpolator/interpolator/1.0.0/interpolator-1.0.0.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "artifactFileName": "interpolator-1.0.0.aar",
+      "artifactIdentity": "interpolator-1.0.0.aar (androidx.interpolator:interpolator:1.0.0)",
+      "artifactVariant": "androidx.interpolator:interpolator:1.0.0 configuration runtime"
+    },
+    {
+      "coordinate": "androidx.lifecycle:lifecycle-common-jvm:2.10.0",
+      "extension": "jar",
+      "artifactSha256": "15943082d87bcd78830398fa377f2c8b12643de290d0906ed8e49a2d335ddb54",
+      "pomSha256": "ca062b9abb0298b0d40ae10c2d1ca06d4129f5f60efdc5e8c44c6c2b3375d15b",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-common-jvm/2.10.0/lifecycle-common-jvm-2.10.0.jar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-common-jvm/2.10.0/lifecycle-common-jvm-2.10.0.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        },
+        {
+          "file": "texts/809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0.txt",
+          "sha256": "809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0",
+          "source": "https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-common-jvm/2.10.0/lifecycle-common-jvm-2.10.0.jar!META-INF/androidx/lifecycle/lifecycle-common/LICENSE.txt",
+          "artifactEntry": "META-INF/androidx/lifecycle/lifecycle-common/LICENSE.txt"
+        }
+      ],
+      "artifactFileName": "lifecycle-common-jvm-2.10.0.jar",
+      "artifactIdentity": "lifecycle-common-jvm-2.10.0.jar (androidx.lifecycle:lifecycle-common-jvm:2.10.0)",
+      "artifactVariant": "androidx.lifecycle:lifecycle-common-jvm:2.10.0 variant jvmRuntimeElements-published"
+    },
+    {
+      "coordinate": "androidx.lifecycle:lifecycle-livedata-core-ktx:2.10.0",
+      "extension": "aar",
+      "artifactSha256": "5f18429749a183e19178d8665ae42bf7b6310b50358ae9e0e0cc452afd6e0bc3",
+      "pomSha256": "d982082c3279eeb9c187d9897665ca9a90d3443f35dadc689261f4b27c72d9ac",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-livedata-core-ktx/2.10.0/lifecycle-livedata-core-ktx-2.10.0.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-livedata-core-ktx/2.10.0/lifecycle-livedata-core-ktx-2.10.0.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        },
+        {
+          "file": "texts/809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0.txt",
+          "sha256": "809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0",
+          "source": "https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-livedata-core-ktx/2.10.0/lifecycle-livedata-core-ktx-2.10.0.aar!META-INF/androidx/lifecycle/lifecycle-livedata-core-ktx/LICENSE.txt",
+          "artifactEntry": "META-INF/androidx/lifecycle/lifecycle-livedata-core-ktx/LICENSE.txt"
+        }
+      ],
+      "artifactFileName": "lifecycle-livedata-core-ktx-2.10.0.aar",
+      "artifactIdentity": "lifecycle-livedata-core-ktx-2.10.0.aar (androidx.lifecycle:lifecycle-livedata-core-ktx:2.10.0)",
+      "artifactVariant": "androidx.lifecycle:lifecycle-livedata-core-ktx:2.10.0 variant releaseVariantReleaseRuntimePublication"
+    },
+    {
+      "coordinate": "androidx.lifecycle:lifecycle-livedata-core:2.10.0",
+      "extension": "aar",
+      "artifactSha256": "12dd61a9843ccebb4547d3ebe2f6d030ca8f6988d22f8fad19c0af93b4a97e95",
+      "pomSha256": "4bed5e91cd2a7c01558320b6a176dbb867fca3c4c697db948e203be45f910d64",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-livedata-core/2.10.0/lifecycle-livedata-core-2.10.0.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-livedata-core/2.10.0/lifecycle-livedata-core-2.10.0.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        },
+        {
+          "file": "texts/809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0.txt",
+          "sha256": "809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0",
+          "source": "https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-livedata-core/2.10.0/lifecycle-livedata-core-2.10.0.aar!META-INF/androidx/lifecycle/lifecycle-livedata-core/LICENSE.txt",
+          "artifactEntry": "META-INF/androidx/lifecycle/lifecycle-livedata-core/LICENSE.txt"
+        }
+      ],
+      "artifactFileName": "lifecycle-livedata-core-2.10.0.aar",
+      "artifactIdentity": "lifecycle-livedata-core-2.10.0.aar (androidx.lifecycle:lifecycle-livedata-core:2.10.0)",
+      "artifactVariant": "androidx.lifecycle:lifecycle-livedata-core:2.10.0 variant releaseVariantReleaseRuntimePublication"
+    },
+    {
+      "coordinate": "androidx.lifecycle:lifecycle-livedata:2.10.0",
+      "extension": "aar",
+      "artifactSha256": "3e8c009fc88da1c52e4ed05a81269d5ac9bd405046f300307f5e3a17e201a6df",
+      "pomSha256": "b6b93686c55a1ca8ec20e7d84a5fe341267e5dac6e390fb1cca398383111eb08",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-livedata/2.10.0/lifecycle-livedata-2.10.0.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-livedata/2.10.0/lifecycle-livedata-2.10.0.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        },
+        {
+          "file": "texts/809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0.txt",
+          "sha256": "809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0",
+          "source": "https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-livedata/2.10.0/lifecycle-livedata-2.10.0.aar!META-INF/androidx/lifecycle/lifecycle-livedata/LICENSE.txt",
+          "artifactEntry": "META-INF/androidx/lifecycle/lifecycle-livedata/LICENSE.txt"
+        }
+      ],
+      "artifactFileName": "lifecycle-livedata-2.10.0.aar",
+      "artifactIdentity": "lifecycle-livedata-2.10.0.aar (androidx.lifecycle:lifecycle-livedata:2.10.0)",
+      "artifactVariant": "adhoc variant for androidx.lifecycle:lifecycle-livedata:2.10.0"
+    },
+    {
+      "coordinate": "androidx.lifecycle:lifecycle-process:2.10.0",
+      "extension": "aar",
+      "artifactSha256": "10bb5bb12773dca11d8343c014cfd17dfb40967d6ece37e8f15d04d8ceb0775c",
+      "pomSha256": "a2c3062320873f9ac29ded1d9ca4a2415529c2e4568d53b5f2b813ec52adc664",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-process/2.10.0/lifecycle-process-2.10.0.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-process/2.10.0/lifecycle-process-2.10.0.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        },
+        {
+          "file": "texts/809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0.txt",
+          "sha256": "809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0",
+          "source": "https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-process/2.10.0/lifecycle-process-2.10.0.aar!META-INF/androidx/lifecycle/lifecycle-process/LICENSE.txt",
+          "artifactEntry": "META-INF/androidx/lifecycle/lifecycle-process/LICENSE.txt"
+        }
+      ],
+      "artifactFileName": "lifecycle-process-2.10.0.aar",
+      "artifactIdentity": "lifecycle-process-2.10.0.aar (androidx.lifecycle:lifecycle-process:2.10.0)",
+      "artifactVariant": "androidx.lifecycle:lifecycle-process:2.10.0 variant releaseVariantReleaseRuntimePublication"
+    },
+    {
+      "coordinate": "androidx.lifecycle:lifecycle-runtime-android:2.10.0",
+      "extension": "aar",
+      "artifactSha256": "2193a1573d623f37b20c7d27d1a8f903a72f651cc6f32e5794f85dda744fee75",
+      "pomSha256": "e97ee01daf6f4dccb900bdb7672baab5ad3c7c25c45491fdccf5eba33b6eafff",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-runtime-android/2.10.0/lifecycle-runtime-android-2.10.0.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-runtime-android/2.10.0/lifecycle-runtime-android-2.10.0.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        },
+        {
+          "file": "texts/809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0.txt",
+          "sha256": "809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0",
+          "source": "https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-runtime-android/2.10.0/lifecycle-runtime-android-2.10.0.aar!META-INF/androidx/lifecycle/lifecycle-runtime/LICENSE.txt",
+          "artifactEntry": "META-INF/androidx/lifecycle/lifecycle-runtime/LICENSE.txt"
+        }
+      ],
+      "artifactFileName": "lifecycle-runtime.aar",
+      "artifactIdentity": "lifecycle-runtime.aar (androidx.lifecycle:lifecycle-runtime-android:2.10.0)",
+      "artifactVariant": "androidx.lifecycle:lifecycle-runtime-android:2.10.0 variant androidRuntimeElements-published"
+    },
+    {
+      "coordinate": "androidx.lifecycle:lifecycle-runtime-ktx-android:2.10.0",
+      "extension": "aar",
+      "artifactSha256": "871883703339f87284d232cb436e317c6f4af5612d92b43f27c6b13b92109fa7",
+      "pomSha256": "5c1a269dd0f0ace87f22832883b898bd7b4252d6a87f04c17347d83e3128660e",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-runtime-ktx-android/2.10.0/lifecycle-runtime-ktx-android-2.10.0.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-runtime-ktx-android/2.10.0/lifecycle-runtime-ktx-android-2.10.0.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        },
+        {
+          "file": "texts/809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0.txt",
+          "sha256": "809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0",
+          "source": "https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-runtime-ktx-android/2.10.0/lifecycle-runtime-ktx-android-2.10.0.aar!META-INF/androidx/lifecycle/lifecycle-runtime-ktx/LICENSE.txt",
+          "artifactEntry": "META-INF/androidx/lifecycle/lifecycle-runtime-ktx/LICENSE.txt"
+        }
+      ],
+      "artifactFileName": "lifecycle-runtime-ktx.aar",
+      "artifactIdentity": "lifecycle-runtime-ktx.aar (androidx.lifecycle:lifecycle-runtime-ktx-android:2.10.0)",
+      "artifactVariant": "androidx.lifecycle:lifecycle-runtime-ktx-android:2.10.0 variant androidRuntimeElements-published"
+    },
+    {
+      "coordinate": "androidx.lifecycle:lifecycle-viewmodel-android:2.10.0",
+      "extension": "aar",
+      "artifactSha256": "9303287030027ca0b8cf98a748ddeb121ec1bfa1312c0069428e4765bbabce78",
+      "pomSha256": "0aa171a50f50a85c90687ad82dcd37f31afdd1bfd2463c215d1322960e51e228",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-viewmodel-android/2.10.0/lifecycle-viewmodel-android-2.10.0.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-viewmodel-android/2.10.0/lifecycle-viewmodel-android-2.10.0.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        },
+        {
+          "file": "texts/809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0.txt",
+          "sha256": "809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0",
+          "source": "https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-viewmodel-android/2.10.0/lifecycle-viewmodel-android-2.10.0.aar!META-INF/androidx/lifecycle/lifecycle-viewmodel/LICENSE.txt",
+          "artifactEntry": "META-INF/androidx/lifecycle/lifecycle-viewmodel/LICENSE.txt"
+        }
+      ],
+      "artifactFileName": "lifecycle-viewmodel.aar",
+      "artifactIdentity": "lifecycle-viewmodel.aar (androidx.lifecycle:lifecycle-viewmodel-android:2.10.0)",
+      "artifactVariant": "androidx.lifecycle:lifecycle-viewmodel-android:2.10.0 variant androidRuntimeElements-published"
+    },
+    {
+      "coordinate": "androidx.lifecycle:lifecycle-viewmodel-ktx:2.10.0",
+      "extension": "aar",
+      "artifactSha256": "54295ac86b67886dc0613e38f621c531995d0662005fc763e340e19a90994f84",
+      "pomSha256": "e139dbb1a00ce08aaed86557aa968eec7151d6d4b304c324e2e572275aacd908",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-viewmodel-ktx/2.10.0/lifecycle-viewmodel-ktx-2.10.0.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-viewmodel-ktx/2.10.0/lifecycle-viewmodel-ktx-2.10.0.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        },
+        {
+          "file": "texts/809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0.txt",
+          "sha256": "809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0",
+          "source": "https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-viewmodel-ktx/2.10.0/lifecycle-viewmodel-ktx-2.10.0.aar!META-INF/androidx/lifecycle/lifecycle-viewmodel-ktx/LICENSE.txt",
+          "artifactEntry": "META-INF/androidx/lifecycle/lifecycle-viewmodel-ktx/LICENSE.txt"
+        }
+      ],
+      "artifactFileName": "lifecycle-viewmodel-ktx-2.10.0.aar",
+      "artifactIdentity": "lifecycle-viewmodel-ktx-2.10.0.aar (androidx.lifecycle:lifecycle-viewmodel-ktx:2.10.0)",
+      "artifactVariant": "androidx.lifecycle:lifecycle-viewmodel-ktx:2.10.0 variant releaseVariantReleaseRuntimePublication"
+    },
+    {
+      "coordinate": "androidx.lifecycle:lifecycle-viewmodel-savedstate-android:2.10.0",
+      "extension": "aar",
+      "artifactSha256": "19404239fa584322c2f81e9659e162bc011b746d29dc950a11d260624d83225e",
+      "pomSha256": "5fcd429ba57e1dde1b438534e53c23d6274d234e33c748963f6faa9f81933c87",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-viewmodel-savedstate-android/2.10.0/lifecycle-viewmodel-savedstate-android-2.10.0.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-viewmodel-savedstate-android/2.10.0/lifecycle-viewmodel-savedstate-android-2.10.0.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        },
+        {
+          "file": "texts/809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0.txt",
+          "sha256": "809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0",
+          "source": "https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-viewmodel-savedstate-android/2.10.0/lifecycle-viewmodel-savedstate-android-2.10.0.aar!META-INF/androidx/lifecycle/lifecycle-viewmodel-savedstate/LICENSE.txt",
+          "artifactEntry": "META-INF/androidx/lifecycle/lifecycle-viewmodel-savedstate/LICENSE.txt"
+        }
+      ],
+      "artifactFileName": "lifecycle-viewmodel-savedstate.aar",
+      "artifactIdentity": "lifecycle-viewmodel-savedstate.aar (androidx.lifecycle:lifecycle-viewmodel-savedstate-android:2.10.0)",
+      "artifactVariant": "androidx.lifecycle:lifecycle-viewmodel-savedstate-android:2.10.0 variant androidRuntimeElements-published"
+    },
+    {
+      "coordinate": "androidx.lifecycle:lifecycle-viewmodel:2.10.0",
+      "extension": "aar",
+      "artifactSha256": "4b809cf9eb7323d200504e95921feb777ff080215cadb8237742d5ed0ba5b792",
+      "pomSha256": "1d860aff0ca598d48e8e83da3f4e6769078498574a18d3b889ec2b8c4090b198",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-viewmodel/2.10.0/lifecycle-viewmodel-2.10.0.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-viewmodel/2.10.0/lifecycle-viewmodel-2.10.0.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        },
+        {
+          "file": "texts/809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0.txt",
+          "sha256": "809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0",
+          "source": "https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-viewmodel/2.10.0/lifecycle-viewmodel-2.10.0.aar!META-INF/androidx/lifecycle/lifecycle-viewmodel/LICENSE.txt",
+          "artifactEntry": "META-INF/androidx/lifecycle/lifecycle-viewmodel/LICENSE.txt"
+        }
+      ],
+      "artifactFileName": "lifecycle-viewmodel-2.10.0.aar",
+      "artifactIdentity": "lifecycle-viewmodel-2.10.0.aar (androidx.lifecycle:lifecycle-viewmodel:2.10.0)",
+      "artifactVariant": "adhoc variant for androidx.lifecycle:lifecycle-viewmodel:2.10.0"
+    },
+    {
+      "coordinate": "androidx.loader:loader:1.0.0",
+      "extension": "aar",
+      "artifactSha256": "11f735cb3b55c458d470bed9e25254375b518b4b1bad6926783a7026db0f5025",
+      "pomSha256": "c978d550808b47434aa49a63164110a50b55b0bcc6160a93a2e37d5110df8c5e",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/loader/loader/1.0.0/loader-1.0.0.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/loader/loader/1.0.0/loader-1.0.0.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "artifactFileName": "loader-1.0.0.aar",
+      "artifactIdentity": "loader-1.0.0.aar (androidx.loader:loader:1.0.0)",
+      "artifactVariant": "androidx.loader:loader:1.0.0 configuration runtime"
+    },
+    {
+      "coordinate": "androidx.profileinstaller:profileinstaller:1.4.0",
+      "extension": "aar",
+      "artifactSha256": "d502141fcce902430f62b674c32aecd0f75262e7ee2cd15c74adb617cd13130a",
+      "pomSha256": "d5fe39981a3b4b7c39585130da0bfc93835054c834a438d3e63e065e5f78be55",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/profileinstaller/profileinstaller/1.4.0/profileinstaller-1.4.0.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/profileinstaller/profileinstaller/1.4.0/profileinstaller-1.4.0.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        },
+        {
+          "file": "texts/809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0.txt",
+          "sha256": "809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0",
+          "source": "https://dl.google.com/dl/android/maven2/androidx/profileinstaller/profileinstaller/1.4.0/profileinstaller-1.4.0.aar!META-INF/androidx/profileinstaller/profileinstaller/LICENSE.txt",
+          "artifactEntry": "META-INF/androidx/profileinstaller/profileinstaller/LICENSE.txt"
+        }
+      ],
+      "artifactFileName": "profileinstaller-1.4.0.aar",
+      "artifactIdentity": "profileinstaller-1.4.0.aar (androidx.profileinstaller:profileinstaller:1.4.0)",
+      "artifactVariant": "androidx.profileinstaller:profileinstaller:1.4.0 variant releaseVariantReleaseRuntimePublication"
+    },
+    {
+      "coordinate": "androidx.recyclerview:recyclerview:1.2.1",
+      "extension": "aar",
+      "artifactSha256": "a1ea0329ee6d938305dfd0f8ce5c48dea2aac14e5606d23e7fb60afcfb655d6e",
+      "pomSha256": "db162fcfc032cb737ba07faf2d1936c9ee362b74e0c38f31ccd2c6a2ccd79090",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/recyclerview/recyclerview/1.2.1/recyclerview-1.2.1.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/recyclerview/recyclerview/1.2.1/recyclerview-1.2.1.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "artifactFileName": "recyclerview-1.2.1.aar",
+      "artifactIdentity": "recyclerview-1.2.1.aar (androidx.recyclerview:recyclerview:1.2.1)",
+      "artifactVariant": "adhoc variant for androidx.recyclerview:recyclerview:1.2.1"
+    },
+    {
+      "coordinate": "androidx.resourceinspection:resourceinspection-annotation:1.0.1",
+      "extension": "jar",
+      "artifactSha256": "8cff870ec6fb31db48a52f4a792335b4bf8de07e03bd37823181526433ccd5cb",
+      "pomSha256": "b8eb4938ed95d7fcdaa2712ebca363e46a0f9228b8be7f23154def56846815dc",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/resourceinspection/resourceinspection-annotation/1.0.1/resourceinspection-annotation-1.0.1.jar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/resourceinspection/resourceinspection-annotation/1.0.1/resourceinspection-annotation-1.0.1.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "artifactFileName": "resourceinspection-annotation-1.0.1.jar",
+      "artifactIdentity": "resourceinspection-annotation-1.0.1.jar (androidx.resourceinspection:resourceinspection-annotation:1.0.1)",
+      "artifactVariant": "androidx.resourceinspection:resourceinspection-annotation:1.0.1 variant runtimeElements"
+    },
+    {
+      "coordinate": "androidx.savedstate:savedstate-android:1.4.0",
+      "extension": "aar",
+      "artifactSha256": "1656ce62cd233d488bdbbd42e533b80b22435b7a690acae6dbe7302392512c14",
+      "pomSha256": "b44b215b4cce24ca64b5faa58ff463f4b91abc02af95ba405ade488828f4f779",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/savedstate/savedstate-android/1.4.0/savedstate-android-1.4.0.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/savedstate/savedstate-android/1.4.0/savedstate-android-1.4.0.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        },
+        {
+          "file": "texts/809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0.txt",
+          "sha256": "809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0",
+          "source": "https://dl.google.com/dl/android/maven2/androidx/savedstate/savedstate-android/1.4.0/savedstate-android-1.4.0.aar!META-INF/androidx/savedstate/savedstate/LICENSE.txt",
+          "artifactEntry": "META-INF/androidx/savedstate/savedstate/LICENSE.txt"
+        }
+      ],
+      "artifactFileName": "savedstate.aar",
+      "artifactIdentity": "savedstate.aar (androidx.savedstate:savedstate-android:1.4.0)",
+      "artifactVariant": "androidx.savedstate:savedstate-android:1.4.0 variant androidRuntimeElements-published"
+    },
+    {
+      "coordinate": "androidx.savedstate:savedstate-ktx:1.4.0",
+      "extension": "aar",
+      "artifactSha256": "23593939446bc5a154a1e35fddd87b82f19e2adf072207f115bf29a8b431c1d3",
+      "pomSha256": "b085af7cc4bb297ed0f25ca85d3629613ab253c0b532684c6cf77c2aee7471c5",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/savedstate/savedstate-ktx/1.4.0/savedstate-ktx-1.4.0.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/savedstate/savedstate-ktx/1.4.0/savedstate-ktx-1.4.0.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        },
+        {
+          "file": "texts/809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0.txt",
+          "sha256": "809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0",
+          "source": "https://dl.google.com/dl/android/maven2/androidx/savedstate/savedstate-ktx/1.4.0/savedstate-ktx-1.4.0.aar!META-INF/androidx/savedstate/savedstate-ktx/LICENSE.txt",
+          "artifactEntry": "META-INF/androidx/savedstate/savedstate-ktx/LICENSE.txt"
+        }
+      ],
+      "artifactFileName": "savedstate-ktx-1.4.0.aar",
+      "artifactIdentity": "savedstate-ktx-1.4.0.aar (androidx.savedstate:savedstate-ktx:1.4.0)",
+      "artifactVariant": "androidx.savedstate:savedstate-ktx:1.4.0 variant releaseVariantReleaseRuntimePublication"
+    },
+    {
+      "coordinate": "androidx.startup:startup-runtime:1.1.1",
+      "extension": "aar",
+      "artifactSha256": "e0a6329a371262fe4c450372b70fdaf33b769ef6917094723787cfce896b1dd3",
+      "pomSha256": "f4114b5c6859bb1bc3caf281cb6d6f25998fa7f7292c64ceaea74a93210e746b",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/startup/startup-runtime/1.1.1/startup-runtime-1.1.1.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/startup/startup-runtime/1.1.1/startup-runtime-1.1.1.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "artifactFileName": "startup-runtime-1.1.1.aar",
+      "artifactIdentity": "startup-runtime-1.1.1.aar (androidx.startup:startup-runtime:1.1.1)",
+      "artifactVariant": "androidx.startup:startup-runtime:1.1.1 variant releaseVariantReleaseRuntimePublication"
+    },
+    {
+      "coordinate": "androidx.tracing:tracing:1.0.0",
+      "extension": "aar",
+      "artifactSha256": "07b8b6139665b884a162eccf97891ca50f7f56831233bf25168ae04f7b568612",
+      "pomSha256": "cd0299a90d4720d78f1cfb5ff7505f4dbc1a70d05fe23fd9f4d4b77ea59ca05e",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/tracing/tracing/1.0.0/tracing-1.0.0.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/tracing/tracing/1.0.0/tracing-1.0.0.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "artifactFileName": "tracing-1.0.0.aar",
+      "artifactIdentity": "tracing-1.0.0.aar (androidx.tracing:tracing:1.0.0)",
+      "artifactVariant": "androidx.tracing:tracing:1.0.0 variant releaseRuntimePublication"
+    },
+    {
+      "coordinate": "androidx.transition:transition:1.5.0",
+      "extension": "aar",
+      "artifactSha256": "0aa66a0ea406d25a1091f96a3b753b4b12e44fdc43b91ec52c17831e9c31f54b",
+      "pomSha256": "db6c7497f0f094ff2eecfb329e1700658f0d6c56fb088482f7e9b774de9ad53f",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/transition/transition/1.5.0/transition-1.5.0.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/transition/transition/1.5.0/transition-1.5.0.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "artifactFileName": "transition-1.5.0.aar",
+      "artifactIdentity": "transition-1.5.0.aar (androidx.transition:transition:1.5.0)",
+      "artifactVariant": "androidx.transition:transition:1.5.0 variant releaseVariantReleaseRuntimePublication"
+    },
+    {
+      "coordinate": "androidx.vectordrawable:vectordrawable-animated:1.1.0",
+      "extension": "aar",
+      "artifactSha256": "76da2c502371d9c38054df5e2b248d00da87809ed058f3363eae87ce5e2403f8",
+      "pomSha256": "276a20116b705fb75b9003ee9496c56f6fd3b32375fb232472811eba60a040bd",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/vectordrawable/vectordrawable-animated/1.1.0/vectordrawable-animated-1.1.0.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/vectordrawable/vectordrawable-animated/1.1.0/vectordrawable-animated-1.1.0.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "artifactFileName": "vectordrawable-animated-1.1.0.aar",
+      "artifactIdentity": "vectordrawable-animated-1.1.0.aar (androidx.vectordrawable:vectordrawable-animated:1.1.0)",
+      "artifactVariant": "androidx.vectordrawable:vectordrawable-animated:1.1.0 configuration runtime"
+    },
+    {
+      "coordinate": "androidx.vectordrawable:vectordrawable:1.1.0",
+      "extension": "aar",
+      "artifactSha256": "46fd633ac01b49b7fcabc263bf098c5a8b9e9a69774d234edcca04fb02df8e26",
+      "pomSha256": "5b0e2d5b2179e54804785cbc21ce5f473b5e1ddd55a57da482e94dcd39492bb2",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/vectordrawable/vectordrawable/1.1.0/vectordrawable-1.1.0.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/vectordrawable/vectordrawable/1.1.0/vectordrawable-1.1.0.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "artifactFileName": "vectordrawable-1.1.0.aar",
+      "artifactIdentity": "vectordrawable-1.1.0.aar (androidx.vectordrawable:vectordrawable:1.1.0)",
+      "artifactVariant": "androidx.vectordrawable:vectordrawable:1.1.0 configuration runtime"
+    },
+    {
+      "coordinate": "androidx.versionedparcelable:versionedparcelable:1.1.1",
+      "extension": "aar",
+      "artifactSha256": "57e8d93260d18d5b9007c9eed3c64ad159de90c8609ebfc74a347cbd514535a4",
+      "pomSha256": "5f51e65873ca612de3838fa90d2ee95b8d040efd31b9c390a19bf94d615cdb2f",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/versionedparcelable/versionedparcelable/1.1.1/versionedparcelable-1.1.1.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/versionedparcelable/versionedparcelable/1.1.1/versionedparcelable-1.1.1.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "artifactFileName": "versionedparcelable-1.1.1.aar",
+      "artifactIdentity": "versionedparcelable-1.1.1.aar (androidx.versionedparcelable:versionedparcelable:1.1.1)",
+      "artifactVariant": "androidx.versionedparcelable:versionedparcelable:1.1.1 configuration runtime"
+    },
+    {
+      "coordinate": "androidx.viewpager2:viewpager2:1.0.0",
+      "extension": "aar",
+      "artifactSha256": "e95c0031d4cc247cd48196c6287e58d2cee54d9c79b85afea7c90920330275af",
+      "pomSha256": "4063bca7fe94fe65c98f4168f97ae10e02da0248598ad3ac21c432c7f608a17a",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/viewpager2/viewpager2/1.0.0/viewpager2-1.0.0.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/viewpager2/viewpager2/1.0.0/viewpager2-1.0.0.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "artifactFileName": "viewpager2-1.0.0.aar",
+      "artifactIdentity": "viewpager2-1.0.0.aar (androidx.viewpager2:viewpager2:1.0.0)",
+      "artifactVariant": "androidx.viewpager2:viewpager2:1.0.0 configuration runtime"
+    },
+    {
+      "coordinate": "androidx.viewpager:viewpager:1.0.0",
+      "extension": "aar",
+      "artifactSha256": "147af4e14a1984010d8f155e5e19d781f03c1d70dfed02a8e0d18428b8fc8682",
+      "pomSha256": "1f72f836339d03c6eb013f65075e76ca87075a577578eb4f95f74a3a5d253128",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/viewpager/viewpager/1.0.0/viewpager-1.0.0.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/viewpager/viewpager/1.0.0/viewpager-1.0.0.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "artifactFileName": "viewpager-1.0.0.aar",
+      "artifactIdentity": "viewpager-1.0.0.aar (androidx.viewpager:viewpager:1.0.0)",
+      "artifactVariant": "androidx.viewpager:viewpager:1.0.0 configuration runtime"
+    },
+    {
+      "coordinate": "androidx.webkit:webkit:1.14.0",
+      "extension": "aar",
+      "artifactSha256": "265604786ea1c9679e3f860f7f13072375c141f46db9092ed8ef5ecd599a516d",
+      "pomSha256": "230b7ba1631c5f6baad08f3915f9db6d550d215b3658c82eb38ceb2dff72cad1",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/androidx/webkit/webkit/1.14.0/webkit-1.14.0.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/webkit/webkit/1.14.0/webkit-1.14.0.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        },
+        {
+          "file": "texts/809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0.txt",
+          "sha256": "809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0",
+          "source": "https://dl.google.com/dl/android/maven2/androidx/webkit/webkit/1.14.0/webkit-1.14.0.aar!META-INF/androidx/webkit/webkit/LICENSE.txt",
+          "artifactEntry": "META-INF/androidx/webkit/webkit/LICENSE.txt"
+        }
+      ],
+      "artifactFileName": "webkit-1.14.0.aar",
+      "artifactIdentity": "webkit-1.14.0.aar (androidx.webkit:webkit:1.14.0)",
+      "artifactVariant": "androidx.webkit:webkit:1.14.0 variant releaseVariantReleaseRuntimePublication"
+    },
+    {
+      "coordinate": "com.fasterxml.jackson.core:jackson-annotations:2.15.3",
+      "extension": "jar",
+      "artifactSha256": "aae865c3d88256d61b11523cb1e88bd48d5b9ad5855fa1fc859504fd2204708a",
+      "pomSha256": "ffa67166fbe4cff3497d0cc629c2019cd0e7cd5ed01bec683a7cbf213d030ec8",
+      "artifactSource": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/core/jackson-annotations/2.15.3/jackson-annotations-2.15.3.jar",
+      "pomSource": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/core/jackson-annotations/2.15.3/jackson-annotations-2.15.3.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "https://www.apache.org/licenses/LICENSE-2.0.txt"
+        },
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/core/jackson-annotations/2.15.3/jackson-annotations-2.15.3.jar!META-INF/LICENSE",
+          "artifactEntry": "META-INF/LICENSE"
+        },
+        {
+          "file": "texts/612b14bc77c944ce229cbba0d14919162cfea8ed802cbf06a8e865e032d03201.txt",
+          "sha256": "612b14bc77c944ce229cbba0d14919162cfea8ed802cbf06a8e865e032d03201",
+          "source": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/core/jackson-annotations/2.15.3/jackson-annotations-2.15.3.jar!META-INF/NOTICE",
+          "artifactEntry": "META-INF/NOTICE"
+        }
+      ],
+      "artifactFileName": "jackson-annotations-2.15.3.jar",
+      "artifactIdentity": "jackson-annotations-2.15.3.jar (com.fasterxml.jackson.core:jackson-annotations:2.15.3)",
+      "artifactVariant": "com.fasterxml.jackson.core:jackson-annotations:2.15.3 variant runtimeElements"
+    },
+    {
+      "coordinate": "com.fasterxml.jackson.core:jackson-core:2.15.3",
+      "extension": "jar",
+      "artifactSha256": "51fab7aad51ed588482edc507fd542747936c5094d1ab76ed21ddb63b96b610d",
+      "pomSha256": "ccd500917483b21ae1835df9845b91ab11ac9aba08b793d2ecf82d28c069ece2",
+      "artifactSource": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/core/jackson-core/2.15.3/jackson-core-2.15.3.jar",
+      "pomSource": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/core/jackson-core/2.15.3/jackson-core-2.15.3.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "https://www.apache.org/licenses/LICENSE-2.0.txt"
+        },
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/core/jackson-core/2.15.3/jackson-core-2.15.3.jar!META-INF/FastDoubleParser-LICENSE",
+          "artifactEntry": "META-INF/FastDoubleParser-LICENSE"
+        },
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/core/jackson-core/2.15.3/jackson-core-2.15.3.jar!META-INF/LICENSE",
+          "artifactEntry": "META-INF/LICENSE"
+        },
+        {
+          "file": "texts/0a0042db627fe915c6a1d9ef74927af5081446063e8888494be6718d692dd2b8.txt",
+          "sha256": "0a0042db627fe915c6a1d9ef74927af5081446063e8888494be6718d692dd2b8",
+          "source": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/core/jackson-core/2.15.3/jackson-core-2.15.3.jar!META-INF/NOTICE",
+          "artifactEntry": "META-INF/NOTICE"
+        },
+        {
+          "file": "texts/2ab080dba155f30307a3ad98a6b0ab6526fd1f6745de92436ad54dba8a7940f9.txt",
+          "sha256": "2ab080dba155f30307a3ad98a6b0ab6526fd1f6745de92436ad54dba8a7940f9",
+          "source": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/core/jackson-core/2.15.3/jackson-core-2.15.3.jar!META-INF/FastDoubleParser-NOTICE",
+          "artifactEntry": "META-INF/FastDoubleParser-NOTICE"
+        },
+        {
+          "file": "texts/800a2a1fa6141763161e6d9ea5ceb283152ef3695dad10cee7243b63b9986c9f.txt",
+          "sha256": "800a2a1fa6141763161e6d9ea5ceb283152ef3695dad10cee7243b63b9986c9f",
+          "source": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/core/jackson-core/2.15.3/jackson-core-2.15.3.jar!META-INF/bigint-LICENSE",
+          "artifactEntry": "META-INF/bigint-LICENSE"
+        },
+        {
+          "file": "texts/5f7260e2124be5a560d2c5ec1824475f76bb02dcb352b7f4848a1d702948007c.txt",
+          "sha256": "5f7260e2124be5a560d2c5ec1824475f76bb02dcb352b7f4848a1d702948007c",
+          "source": "https://github.com/wrandelshofer/FastDoubleParser/blob/522be16e145f43308c43b23094e31d5efcaa580e/LICENSE",
+          "sourceReference": {
+            "artifactEntry": "META-INF/FastDoubleParser-NOTICE",
+            "sha256": "2ab080dba155f30307a3ad98a6b0ab6526fd1f6745de92436ad54dba8a7940f9",
+            "url": "https://github.com/wrandelshofer/FastDoubleParser/blob/522be16e145f43308c43b23094e31d5efcaa580e/LICENSE"
+          }
+        }
+      ],
+      "artifactFileName": "jackson-core-2.15.3.jar",
+      "artifactIdentity": "jackson-core-2.15.3.jar (com.fasterxml.jackson.core:jackson-core:2.15.3)",
+      "artifactVariant": "com.fasterxml.jackson.core:jackson-core:2.15.3 variant runtimeElements"
+    },
+    {
+      "coordinate": "com.fasterxml.jackson.core:jackson-databind:2.15.3",
+      "extension": "jar",
+      "artifactSha256": "c3c53333a2172a80678bda1803e39cff45bec6ae3e9c7d4f44a81ec4e2ab18dc",
+      "pomSha256": "b6e3cd4ae77d0ff9507eab1ce794b3aa9ee278241c6544333bdb7efbc5a2e4f9",
+      "artifactSource": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/core/jackson-databind/2.15.3/jackson-databind-2.15.3.jar",
+      "pomSource": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/core/jackson-databind/2.15.3/jackson-databind-2.15.3.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "https://www.apache.org/licenses/LICENSE-2.0.txt"
+        },
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/core/jackson-databind/2.15.3/jackson-databind-2.15.3.jar!META-INF/LICENSE",
+          "artifactEntry": "META-INF/LICENSE"
+        },
+        {
+          "file": "texts/612b14bc77c944ce229cbba0d14919162cfea8ed802cbf06a8e865e032d03201.txt",
+          "sha256": "612b14bc77c944ce229cbba0d14919162cfea8ed802cbf06a8e865e032d03201",
+          "source": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/core/jackson-databind/2.15.3/jackson-databind-2.15.3.jar!META-INF/NOTICE",
+          "artifactEntry": "META-INF/NOTICE"
+        }
+      ],
+      "artifactFileName": "jackson-databind-2.15.3.jar",
+      "artifactIdentity": "jackson-databind-2.15.3.jar (com.fasterxml.jackson.core:jackson-databind:2.15.3)",
+      "artifactVariant": "com.fasterxml.jackson.core:jackson-databind:2.15.3 variant runtimeElements"
+    },
+    {
+      "coordinate": "com.google.android.material:material:1.13.0",
+      "extension": "aar",
+      "artifactSha256": "6d5e1cbb67c05bcdcbbf84005787dafd354a155f59a4d3800fd45fa7eb3689f5",
+      "pomSha256": "9c1f3c4600295cc5d7f6d6886aea16d497f13f9af4675442ad271e7c2febf772",
+      "artifactSource": "https://dl.google.com/dl/android/maven2/com/google/android/material/material/1.13.0/material-1.13.0.aar",
+      "pomSource": "https://dl.google.com/dl/android/maven2/com/google/android/material/material/1.13.0/material-1.13.0.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "artifactFileName": "material-1.13.0.aar",
+      "artifactIdentity": "material-1.13.0.aar (com.google.android.material:material:1.13.0)",
+      "artifactVariant": "com.google.android.material:material:1.13.0 variant releaseVariantReleaseRuntimePublication"
+    },
+    {
+      "coordinate": "com.google.errorprone:error_prone_annotations:2.15.0",
+      "extension": "jar",
+      "artifactSha256": "067047714349e7789a5bdbfad9d1c0af9f3a1eb28c55a0ee3f68e682f905c4eb",
+      "pomSha256": "7bae617e32681ebbb289c203c905f646c2a0397598af786d961a54aaa3d2b1e6",
+      "artifactSource": "https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_annotations/2.15.0/error_prone_annotations-2.15.0.jar",
+      "pomSource": "https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_annotations/2.15.0/error_prone_annotations-2.15.0.pom",
+      "declaration": "Apache 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "artifactFileName": "error_prone_annotations-2.15.0.jar",
+      "artifactIdentity": "error_prone_annotations-2.15.0.jar (com.google.errorprone:error_prone_annotations:2.15.0)",
+      "artifactVariant": "com.google.errorprone:error_prone_annotations:2.15.0 configuration runtime",
+      "parentPoms": [
+        {
+          "file": "texts/11dcacd17aaac69a99405273badfdaa5f9661d60d179b8a44f503958baa55f88.pom",
+          "sha256": "11dcacd17aaac69a99405273badfdaa5f9661d60d179b8a44f503958baa55f88",
+          "source": "https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_parent/2.15.0/error_prone_parent-2.15.0.pom"
+        }
+      ]
+    },
+    {
+      "coordinate": "com.google.guava:listenablefuture:1.0",
+      "extension": "jar",
+      "artifactSha256": "e4ad7607e5c0477c6f890ef26a49cb8d1bb4dffb650bab4502afee64644e3069",
+      "pomSha256": "53873caf26bc1ed8a567ea6c939ab2aaa3f47a5e32d5cade95ddf5080d23238a",
+      "artifactSource": "https://repo.maven.apache.org/maven2/com/google/guava/listenablefuture/1.0/listenablefuture-1.0.jar",
+      "pomSource": "https://repo.maven.apache.org/maven2/com/google/guava/listenablefuture/1.0/listenablefuture-1.0.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "parentPoms": [
+        {
+          "file": "texts/f8698ab46ca996ce889c1afc8ca4f25eb8ac6b034dc898d4583742360016cc04.pom",
+          "sha256": "f8698ab46ca996ce889c1afc8ca4f25eb8ac6b034dc898d4583742360016cc04",
+          "source": "https://repo.maven.apache.org/maven2/com/google/guava/guava-parent/26.0-android/guava-parent-26.0-android.pom"
+        }
+      ],
+      "artifactFileName": "listenablefuture-1.0.jar",
+      "artifactIdentity": "listenablefuture-1.0.jar (com.google.guava:listenablefuture:1.0)",
+      "artifactVariant": "com.google.guava:listenablefuture:1.0 configuration runtime"
+    },
+    {
+      "coordinate": "org.jetbrains.kotlin:kotlin-stdlib:2.0.21",
+      "extension": "jar",
+      "artifactSha256": "f31cc53f105a7e48c093683bbd5437561d1233920513774b470805641bedbc09",
+      "pomSha256": "fcbada4cd2e9f39658293570ef613752331db69fd1dad1cabaa60548403e17da",
+      "artifactSource": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/2.0.21/kotlin-stdlib-2.0.21.jar",
+      "pomSource": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/2.0.21/kotlin-stdlib-2.0.21.pom",
+      "declaration": "The Apache License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "artifactFileName": "kotlin-stdlib-2.0.21.jar",
+      "artifactIdentity": "kotlin-stdlib-2.0.21.jar (org.jetbrains.kotlin:kotlin-stdlib:2.0.21)",
+      "artifactVariant": "org.jetbrains.kotlin:kotlin-stdlib:2.0.21 variant jvmRuntimeElements"
+    },
+    {
+      "coordinate": "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0",
+      "extension": "jar",
+      "artifactSha256": "bd783acd2f9738845d58380f46f45b5cde95d0cb03027d56725338b26bfc4d72",
+      "pomSha256": "be86020cd5b93b8a68ca43185a049b9b0baa345fd1be1fdaa014fdaef92d6e7c",
+      "artifactSource": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-android/1.9.0/kotlinx-coroutines-android-1.9.0.jar",
+      "pomSource": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-android/1.9.0/kotlinx-coroutines-android-1.9.0.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "https://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "artifactFileName": "kotlinx-coroutines-android-1.9.0.jar",
+      "artifactIdentity": "kotlinx-coroutines-android-1.9.0.jar (org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0)",
+      "artifactVariant": "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0 variant runtimeElements"
+    },
+    {
+      "coordinate": "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.9.0",
+      "extension": "jar",
+      "artifactSha256": "ad89c2892235e670f222d819cb3d81188143cb19a05b59df9889ae4269f5c70a",
+      "pomSha256": "19c4889941b3aa098bd57cc64f02f9adacc654d571a12a956de4b5bb148c6499",
+      "artifactSource": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-core-jvm/1.9.0/kotlinx-coroutines-core-jvm-1.9.0.jar",
+      "pomSource": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-core-jvm/1.9.0/kotlinx-coroutines-core-jvm-1.9.0.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "https://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "artifactFileName": "kotlinx-coroutines-core-jvm-1.9.0.jar",
+      "artifactIdentity": "kotlinx-coroutines-core-jvm-1.9.0.jar (org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.9.0)",
+      "artifactVariant": "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.9.0 variant jvmRuntimeElements-published"
+    },
+    {
+      "coordinate": "org.jetbrains.kotlinx:kotlinx-serialization-core-jvm:1.7.3",
+      "extension": "jar",
+      "artifactSha256": "f0adde45864144475385cf4aa7e0b7feb27f61fcf9472665ed98cc971b06b1eb",
+      "pomSha256": "734f5f749208dd0bef3d98caa594cf9222afdf0fee5b6843347a8fe64e240427",
+      "artifactSource": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-serialization-core-jvm/1.7.3/kotlinx-serialization-core-jvm-1.7.3.jar",
+      "pomSource": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-serialization-core-jvm/1.7.3/kotlinx-serialization-core-jvm-1.7.3.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "https://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "artifactFileName": "kotlinx-serialization-core-jvm-1.7.3.jar",
+      "artifactIdentity": "kotlinx-serialization-core-jvm-1.7.3.jar (org.jetbrains.kotlinx:kotlinx-serialization-core-jvm:1.7.3)",
+      "artifactVariant": "org.jetbrains.kotlinx:kotlinx-serialization-core-jvm:1.7.3 variant jvmRuntimeElements-published"
+    },
+    {
+      "coordinate": "org.jetbrains:annotations:23.0.0",
+      "extension": "jar",
+      "artifactSha256": "7b0f19724082cbfcbc66e5abea2b9bc92cf08a1ea11e191933ed43801eb3cd05",
+      "pomSha256": "c9490f655132328df2cfbcfdf743f53fc3916d6c1d10437175a6ca6e3a67771c",
+      "artifactSource": "https://repo.maven.apache.org/maven2/org/jetbrains/annotations/23.0.0/annotations-23.0.0.jar",
+      "pomSource": "https://repo.maven.apache.org/maven2/org/jetbrains/annotations/23.0.0/annotations-23.0.0.pom",
+      "declaration": "The Apache Software License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "https://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "artifactFileName": "annotations-23.0.0.jar",
+      "artifactIdentity": "annotations-23.0.0.jar (org.jetbrains:annotations:23.0.0)",
+      "artifactVariant": "org.jetbrains:annotations:23.0.0 configuration runtime"
+    },
+    {
+      "coordinate": "org.jspecify:jspecify:1.0.0",
+      "extension": "jar",
+      "artifactSha256": "1fad6e6be7557781e4d33729d49ae1cdc8fdda6fe477bb0cc68ce351eafdfbab",
+      "pomSha256": "cdab929a3b95211f43d2090c5e2d0dfe8465960e378bc32b35841dab324433a6",
+      "artifactSource": "https://repo.maven.apache.org/maven2/org/jspecify/jspecify/1.0.0/jspecify-1.0.0.jar",
+      "pomSource": "https://repo.maven.apache.org/maven2/org/jspecify/jspecify/1.0.0/jspecify-1.0.0.pom",
+      "declaration": "The Apache License, Version 2.0",
+      "texts": [
+        {
+          "file": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+          "declarationUrl": "http://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "artifactFileName": "jspecify-1.0.0.jar",
+      "artifactIdentity": "jspecify-1.0.0.jar (org.jspecify:jspecify:1.0.0)",
+      "artifactVariant": "org.jspecify:jspecify:1.0.0 variant runtimeElements"
+    }
+  ],
+  "projectOverrides": {
+    "tauri-android": [
+      {
+        "originalFile": "src/main/java/app/tauri/plugin/PluginManager.kt",
+        "originalSha256": "2b0ef3b8cc92182858456f4b504330d61d23a3fe62a2e4e08c8f5c09cbdb4312",
+        "replacementFile": "app/src-tauri/gen/android/patches/tauri-2.11.5/app/tauri/plugin/LifecyclePluginManager.kt",
+        "replacementSha256": "f57b27173278c5e40cbe0d2b3c05b10a144398e9d757ff871c42a13bfd247b71",
+        "compiledFile": "app/src-tauri/gen/android/build/generated/tauri-lifecycle-sources/app/tauri/plugin/LifecyclePluginManager.kt",
+        "provenanceFile": "tauri-android-lifecycle.provenance.json",
+        "provenanceSha256": "6b33dda2b926dcf1d3d0e778ab89aebc2a0aa642c5bdb66f7be84329d9a33a2b"
+      }
+    ]
+  }
+}

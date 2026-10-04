@@ -2,6 +2,8 @@
 
 Tracks [#93](https://github.com/shenyankm/PractiQ/issues/93). Prepared on 2026-10-04 against main `2e9215f59920a7e2f7d9bf9b64ff61b6d1f6ccd7`. Setup was exercised in an isolated managed checkout, not a clean machine. Existing Python/Node/Rust installations and installed service dependencies were reused; Windows/Linux onboarding and independent contributor participation remain unverified.
 
+Current app targets are macOS, Windows and Android; Linux app packaging is removed. The onboarding evidence above remains a record of its original commit. Follow the [Android guide](../app/docs/android.md) for the current SDK, APK and emulator checks; independent Android contributor onboarding remains unverified.
+
 ## Choose one bounded fixture task
 
 The current evaluation manifest contains wholly answerless TXT sources, but no wholly answerless CSV, PDF or standalone PNG source. These small coverage additions use original synthetic content and offline scorer tests; they do not require paid model access or release credentials. Each issue contains affected files, exact validation commands and independently source-checked null-answer acceptance criteria.

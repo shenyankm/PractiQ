@@ -156,7 +156,7 @@ export function ConnectionSettingsPanel({
           {error != null && (
             <div
               role="alert"
-              className="flex items-center justify-between gap-3 text-sm text-destructive"
+              className="flex flex-wrap items-center justify-between gap-3 text-sm text-destructive"
             >
               <span>{errorMessage(error)}</span>
               <Button type="button" variant="outline" disabled={reading} onClick={() => load()}>{t("重试")}</Button>
@@ -167,13 +167,15 @@ export function ConnectionSettingsPanel({
           <fieldset disabled={busy || operation !== null || !saved} className="min-w-0 space-y-4" onBlur={() => { void persist().catch(e => toast.error(e)); }}>
             <div className="space-y-2">
               <Label htmlFor="serviceUrl">{t("AI 服务地址")}</Label>
-              <Input id="serviceUrl" type="url" autoComplete="off" spellCheck={false} placeholder="http://127.0.0.1:8000" value={config.service_url || ""} onChange={e => field("service_url", e.target.value)}/>
+              <Input id="serviceUrl" type="url" autoCapitalize="none" enterKeyHint="done" autoComplete="off" spellCheck={false} placeholder="http://127.0.0.1:8000" value={config.service_url || ""} onChange={e => field("service_url", e.target.value)}/>
             </div>
             <div className="space-y-2">
               <Label htmlFor="serviceToken">{t("AI 服务访问令牌")}</Label>
               <Input
                 id="serviceToken"
                 type="password"
+                autoCapitalize="none"
+                enterKeyHint="done"
                 autoComplete="new-password"
                 spellCheck={false}
                 placeholder={
@@ -184,8 +186,8 @@ export function ConnectionSettingsPanel({
               />
             </div>
           </fieldset>
-          {saveError != null && <div role="alert" className="flex items-center justify-between gap-3 text-sm text-destructive"><span>{errorMessage(saveError)}</span><Button type="button" variant="outline" disabled={busy || operation !== null} onClick={save}>{t("重试保存")}</Button></div>}
-          <div className="flex items-center justify-end gap-4 border-t pt-4">
+          {saveError != null && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 text-sm text-destructive"><span>{errorMessage(saveError)}</span><Button type="button" variant="outline" disabled={busy || operation !== null} onClick={save}>{t("重试保存")}</Button></div>}
+          <div className="flex flex-wrap items-center justify-end gap-3 border-t pt-4">
           <Button variant="outline" type="button" disabled={busy || operation !== null || dirty || !saved?.config.service_url || configured === false} onClick={clearToken}>{t("清除已保存的访问令牌")}</Button>
           <Button variant="outline" type="button" disabled={busy || operation !== null || !saved || missing.length > 0} onClick={() => {
             if (locked.current) return;

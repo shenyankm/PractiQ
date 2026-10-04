@@ -1,6 +1,6 @@
 # Contribute to PractiQ
 
-Use this guide to prepare a focused change to the offline desktop app or its AI service. Follow [AGENTS.md](AGENTS.md) for architecture and coding rules, and [README.md](README.md) for setup and platform-specific commands.
+Use this guide to prepare a focused change to the offline practice app or its independent AI service and import Web frontend. Follow [AGENTS.md](AGENTS.md) for architecture and coding rules, and [README.md](README.md) for setup and platform-specific commands.
 
 ## Choose a change
 
@@ -43,23 +43,24 @@ Choose checks for every affected area; append `AI_PYTHON=/path/to/python3.14` to
 | AI service | `make verify` (lockfile, lint, types, fixtures, tests with 90% coverage, recovery probes, package build) |
 | Shared AI contracts | `make verify`, `make app-check` and `make web-check`; regenerate both tracked frontend contracts before checking |
 | Import Web frontend | `make web-install web-check web-build`; browser checks use an authenticated fake HTTP service and no real models |
-| Desktop UI | `npm --prefix app run check:ui` (types, lint, coverage) and `npm --prefix app run test:browser`; see [README.md](README.md) for Chromium setup |
-| Desktop native commands, storage, or recovery | `make app-check` and affected native flows on the target OS |
+| Practice app UI (desktop and touch) | `npm --prefix app run check:ui` (types, lint, coverage) and `npm --prefix app run test:browser`; see [README.md](README.md) for Chromium setup |
+| App native commands, storage, or recovery | `make app-check` and affected native flows on the target OS |
 | Service Office conversion | Focused Office/normalization tests and `make verify`; verify fidelity with the actual deployed engine separately |
-| Desktop resources or packaging | Focused desktop package/release regressions, `make app-check` and `make app-package-check`; final installers must contain no Python/LibreOffice runtime |
+| macOS/Windows resources or packaging | Focused package/release regressions and `make app-check`; on macOS run `make app-package-check`; on Windows run `python app/scripts/check-installer.py --installer C:/path/to/final-installer.exe --output C:/path/to/fresh-package-report.json` with Python 3.14+ and 7-Zip. Final installers must contain no Python/LibreOffice runtime |
+| Android host, storage or packaging | `make app-check`, `npm --prefix app run test:android-browser`, actual APK package checks, Kotlin unit/instrumentation tests and the affected native flows in the [Android guide](app/docs/android.md) |
 | Locked dependencies | Run the affected ecosystem's audit: `make audit` for Python runtime and dev dependencies; `make audit-rust` for Cargo.lock; `npm --prefix app audit --audit-level=high` and/or `npm --prefix web audit --audit-level=high` for the affected npm lockfiles (network required) |
 | Service image | `make image-check` (Docker required; does not publish) |
 | Documentation | Verify claims against source, local links, and command syntax |
 
 Install the CI-pinned [RustSec checker](https://github.com/RustSec/rustsec/releases/tag/cargo-audit/v0.22.2) with `cargo install cargo-audit --locked --version 0.22.2 --registry crates-io` before running `make audit-rust`. It checks the complete lockfile once in Linux CI, including dependencies used on other target platforms. Advisory failures block that job; audit commands do not update project dependencies.
 
-CI starts on every pull request, push to `main`, and manual dispatch. A lightweight job selects the relevant work using [the shared path rules](server/scripts/ci_scope.py). Documentation-only changes skip heavy jobs; workflow changes and manual dispatch run all checks. The final `Service CI` and `Desktop CI` jobs always run and reject failed, cancelled, or unexpected skipped dependencies. Use these unique names for required merge checks.
+CI starts on every pull request, push to `main`, and manual dispatch. A lightweight job selects the relevant work using [the shared path rules](server/scripts/ci_scope.py). Documentation-only changes skip heavy jobs; workflow changes and manual dispatch run all checks. The final `Service CI`, `Desktop CI` and `Android CI` jobs always run and reject failed, cancelled, or unexpected skipped dependencies. Use these unique names for required merge checks.
 
-Desktop CI runs frontend types, lint, coverage, browser checks, contracts, fixtures, release-check regressions and dependency audits once on Ubuntu, then gates a Windows/Linux/macOS package matrix. Every platform retains Rust tests, Clippy, native package version/notices checks and rejection of embedded Python/LibreOffice engines; Windows and Linux also retain native credential round-trips. Rust is pinned in `rust-toolchain.toml`; the macOS runner is explicitly `macos-15`. Browser checks use mocked native commands.
+Desktop CI runs frontend types, lint, coverage, browser checks, contracts, fixtures, release-check regressions and dependency audits once on Ubuntu, then gates a Windows/macOS package matrix. Every platform retains Rust tests, Clippy, native package version/notices checks and rejection of embedded Python/LibreOffice engines; Windows also retains native credential round-trips. Android CI separately checks the shared frontend/contracts, builds and validates an arm64 APK with exact runtime notices, then runs Kotlin unit and native instrumentation tests on an API 35 x86_64 emulator. Android tokens use Keystore-backed private storage; its file picker uses Storage Access Framework descriptors. Rust is pinned in `rust-toolchain.toml`; the macOS runner is explicitly `macos-15`. Browser checks use mocked native commands.
 
 PRs that affect desktop inputs build and validate installers but upload only coverage, browser diagnostics, and package diagnostics (7 days). Main/manual runs additionally upload installers (14 days); browser and package diagnostics upload even after failure. Service CI also checks and builds the separate Web frontend, then runs full service verification, audit and image build. Its inputs include desktop fixtures, the rich-content checker consumed by service tests, and Docker context configuration. Desktop inputs include `.gitattributes` and license texts used in package checks.
 
-Actions are pinned to full commit SHAs and [Dependabot](.github/dependabot.yml) proposes grouped weekly Action updates. Review the upstream commit and rerun CI before accepting an update. Maintainers can apply [the main-branch ruleset](.github/main-ruleset.json) after these workflows are merged into `main` and both final checks have succeeded on GitHub. It requires a pull request, resolved review conversations, and checks against the current base; it blocks deletion and force pushes. It does not require a second maintainer's approval.
+Actions are pinned to full commit SHAs and [Dependabot](.github/dependabot.yml) proposes grouped weekly Action updates. Review the upstream commit and rerun CI before accepting an update. Maintainers can apply [the main-branch ruleset](.github/main-ruleset.json) after these workflows are merged into `main` and all three final checks have succeeded on GitHub. It requires a pull request, resolved review conversations, and checks against the current base; it blocks deletion and force pushes. It does not require a second maintainer's approval.
 
 Automated checks use model substitutes; they do not establish extraction or grading accuracy. See the [evaluation guide](server/docs/evaluation.md) for live-model checks. Browser checks mock native commands. Validate affected native interactions, credential storage, and audio playback on the target OS using isolated test data. Report untested platforms and flows in the pull request.
 
@@ -81,7 +82,7 @@ Record evidence for the final release candidate before publication:
 - [ ] Capture the Web import/review and desktop ZIP import/practice/score workflows, identifying their separate candidates.
 - [ ] Record live-model parsing and grading examples, failures, and consented user feedback.
 
-Report validation separately for macOS, Windows, and Linux. CI, model substitutes, hand-written samples, and historical reports do not establish clean-machine acceptance or live-model accuracy. Keep unchecked items explicit; AI grading remains a personal-practice aid and requires a reference answer or rubric.
+Report validation separately for macOS, Windows and Android. Distinguish mocked touch-browser checks, emulator tests, physical devices and minimum Android/WebView versions. CI, model substitutes, hand-written samples, and historical reports do not establish clean-machine acceptance or live-model accuracy. Keep unchecked items explicit; AI grading remains a personal-practice aid and requires a reference answer or rubric.
 
 ## Submit a pull request
 
