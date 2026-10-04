@@ -316,7 +316,11 @@ def check_desktop_version(installer: Path, bundle: Path, expected: str, applicat
         plist = bundle.parents[1] / "Info.plist"
         if plist.is_symlink() or not plist.is_file():
             raise ValueError("Final desktop version metadata must be a regular file")
-        actual = plistlib.loads(plist.read_bytes()).get("CFBundleShortVersionString")
+        metadata = plistlib.loads(plist.read_bytes())
+        if metadata.get("CFBundleExecutable") != application_name:
+            raise ValueError("Final desktop executable identity does not match the candidate")
+        check_native_executable(bundle.parents[2], bundle.parents[1] / "MacOS" / application_name)
+        actual = metadata.get("CFBundleShortVersionString")
     elif sys.platform == "win32":
         application = bundle.parent / (application_name + ".exe")
         if not application.is_file():
@@ -329,10 +333,24 @@ def check_desktop_version(installer: Path, bundle: Path, expected: str, applicat
             if actual != expected:
                 raise ValueError("Final installer desktop version does not match the candidate")
     else:
+        check_native_executable(bundle.parents[3], bundle.parents[3] / "usr/bin" / application_name)
         actual = subprocess.check_output(["dpkg-deb", "-f", str(installer), "Version"], text=True).strip()
     if actual != expected:
         raise ValueError("Final installer desktop version does not match the candidate")
     return actual
+
+
+def check_native_executable(payload: Path, executable: Path) -> None:
+    """Check selected native bytes without executing the application."""
+    if executable.is_symlink() or executable.is_junction() or not executable.is_file() or not executable.stat().st_size:
+        raise ValueError("Final desktop executable must be a nonempty regular file")
+    for directory in executable.parents:
+        if directory.is_symlink() or directory.is_junction() or not directory.is_dir():
+            raise ValueError("Final desktop executable requires real contained parent directories")
+        if directory == payload:
+            break
+    if not executable.resolve(strict=True).is_relative_to(payload.resolve(strict=True)):
+        raise ValueError("Final desktop executable escaped the selected installer payload")
 
 
 def restage_installer(root: Path, tag: str, installer: Path, output: Path,
@@ -435,6 +453,7 @@ def assemble(root: Path, tag: str, inputs: Path, output: Path) -> None:
     service_files = [service / name for name in ("probes.json", "probes.md", "probes.xml", "coverage.xml")]
     if not all(path.is_file() for path in service_files):
         raise ValueError("Service verification evidence is incomplete")
+    service_digests = {path.name: checksum(path) for path in service_files}
     output.mkdir(parents=True, exist_ok=False)
     for folder, candidate in candidates:
         shutil.copyfile(folder / candidate["file"], output / candidate["file"])
@@ -445,6 +464,22 @@ def assemble(root: Path, tag: str, inputs: Path, output: Path) -> None:
                 archive.write(folder / relative, f"{candidate['os']}/{relative}")
         for path in service_files:
             archive.write(path, f"service/{path.name}")
+    # Validate the delivered bytes; input validation alone cannot bind a later copy.
+    with zipfile.ZipFile(output / "release-evidence.zip") as archive:
+        for _, candidate in candidates:
+            asset = output / candidate["file"]
+            if checksum(asset) != candidate["sha256"] or asset.stat().st_size != candidate["sizeBytes"]:
+                raise ValueError("Installer changed during release assembly")
+            if json.loads(archive.read(f"{candidate['os']}/candidate.json")) != candidate:
+                raise ValueError("Candidate changed during release assembly")
+            for relative, digest in candidate["evidence"].items():
+                with archive.open(f"{candidate['os']}/{relative}") as entry:
+                    if hashlib.file_digest(entry, "sha256").hexdigest() != digest:
+                        raise ValueError("Evidence changed during release assembly")
+        for filename, digest in service_digests.items():
+            with archive.open(f"service/{filename}") as entry:
+                if hashlib.file_digest(entry, "sha256").hexdigest() != digest:
+                    raise ValueError("Service evidence changed during release assembly")
     manifest = {"tag": tag, "commit": sha, "components": components,
                 "publicationStatus": "draft; signing and manual/live acceptance pending",
                 "assets": [candidate for _, candidate in candidates],

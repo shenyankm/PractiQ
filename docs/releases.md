@@ -82,7 +82,10 @@ checks. Any failure blocks release asset staging and draft creation; failure
 diagnostics remain in Actions. Prerelease status never bypasses these gates.
 
 Assembly rejects missing platforms, mismatched commits/versions, altered
-installers or missing/failed package evidence. It bundles service reports,
+installers or missing/failed package evidence. It rechecks copied installers and
+archived candidate, package and service evidence before writing the public
+manifest or checksums, so an input changed during assembly fails the handoff.
+It bundles service reports,
 generates checksums, and fills [the release template](../.github/RELEASE_TEMPLATE.md).
 The template is project-owned; GitHub does not load this filename automatically.
 The workflow verifies the remote tag again, creates only a draft and never
@@ -132,7 +135,10 @@ bounds and `:amd64`/`:any` qualifiers are accepted; an alternative package does
 not satisfy a required library. Extracted resource directories must be real and
 remain within that package. Relative runtime links may resolve within the bundle;
 absolute, external and dangling links are rejected. The macOS version plist must
-be a regular file. Windows payload extraction requires installed full 7-Zip;
+be a regular file and identify the candidate's executable in `Contents/MacOS`.
+Both that executable and the DEB's `usr/bin` desktop executable must be nonempty
+regular files with real parent directories inside the selected payload. These
+checks do not start the application. Windows payload extraction requires installed full 7-Zip;
 it does not execute NSIS or count as installation acceptance. Raw local reports
 remain private; the public evidence copy replaces machine paths before hashing.
 Staging does not attest Actions provenance or verify signing. Archive actual

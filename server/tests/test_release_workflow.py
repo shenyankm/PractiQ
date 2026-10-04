@@ -130,6 +130,43 @@ def test_release_assembly_hashes_every_public_asset_and_keeps_acceptance_pending
         release.assemble(source, "v0.1.0", staged, output)
 
 
+@pytest.mark.parametrize("mutation", ["installer", "evidence", "candidate", "service"])
+def test_release_assembly_rechecks_delivered_bytes_after_input_validation(release, source, staged, monkeypatch, mutation):
+    output = source / "assets"
+    copy = shutil.copyfile
+    write = zipfile.ZipFile.write
+    changed = False
+
+    def copy_with_change(src, dst, *args, **kwargs):
+        nonlocal changed
+        if mutation == "installer" and not changed and Path(src).suffix == ".dmg":
+            Path(src).write_bytes(b"different installer")
+            changed = True
+        return copy(src, dst, *args, **kwargs)
+
+    def archive_with_change(archive, filename, *args, **kwargs):
+        nonlocal changed
+        path = Path(filename)
+        if not changed and ((mutation == "evidence" and path.name == "licenses.json") or
+                            (mutation == "candidate" and path.name == "candidate.json") or
+                            (mutation == "service" and path.name == "coverage.xml")):
+            value = json.loads(path.read_text()) if mutation != "service" else None
+            if mutation == "evidence":
+                value["passed"] = False
+            elif mutation == "candidate":
+                value["sha256"] = "b" * 64
+            path.write_text(json.dumps(value) if value is not None else "changed service evidence")
+            changed = True
+        return write(archive, filename, *args, **kwargs)
+
+    monkeypatch.setattr(shutil, "copyfile", copy_with_change)
+    monkeypatch.setattr(zipfile.ZipFile, "write", archive_with_change)
+    with pytest.raises(ValueError, match="assembly"):
+        release.assemble(source, "v0.1.0", staged, output)
+    assert changed and not (output / "release-manifest.json").exists()
+    assert not (output / "SHA256SUMS.txt").exists()
+
+
 @pytest.mark.parametrize("mutation", ["missing_platform", "commit", "asset", "evidence", "failed_gate", "escape", "missing_notice", "missing_service"])
 def test_release_assembly_rejects_mixed_altered_or_incomplete_candidates(release, source, staged, mutation):
     folder = staged / "release-macos"
@@ -251,7 +288,15 @@ def final_setup(release, source, monkeypatch):
             for name in ("THIRD-PARTY.txt", "PYTHON-LICENSE.txt"):
                 (bundle / name).write_text("Synthetic candidate notice")
             if platform == "darwin":
-                (bundle.parents[1] / "Info.plist").write_bytes(plistlib.dumps({"CFBundleShortVersionString": "0.2.0" if fault == "desktop_version" else "0.1.0"}))
+                info = {"CFBundleShortVersionString": "0.2.0" if fault == "desktop_version" else "0.1.0", "CFBundleExecutable": "PractiQ"}
+                if fault == "native_identity_missing":
+                    del info["CFBundleExecutable"]
+                elif fault == "native_identity_wrong":
+                    info["CFBundleExecutable"] = "AnotherApplication"
+                elif fault == "native_identity_path":
+                    info["CFBundleExecutable"] = "../Resources/bundled/python/practiq-ai"
+                (bundle.parents[1] / "Info.plist").write_bytes(plistlib.dumps(info))
+                application = bundle.parents[1] / "MacOS/PractiQ"
                 if fault == "desktop_version_link":
                     plist = bundle.parents[1] / "Info.plist"
                     external = source / "unrelated-version.plist"
@@ -260,6 +305,31 @@ def final_setup(release, source, monkeypatch):
             elif platform == "win32":
                 (bundle.parent / "PractiQ.exe").write_bytes(b"synthetic application")
                 (bundle.parent / "uninstall.exe").write_bytes(b"synthetic uninstaller")
+            else:
+                application = bundle.parents[3] / "usr/bin/PractiQ"
+            if platform != "win32":
+                application.parent.mkdir(parents=True)
+                application.write_bytes(b"synthetic native desktop application")
+                if fault == "native_missing":
+                    application.unlink()
+                elif fault == "native_empty":
+                    application.write_bytes(b"")
+                elif fault == "native_directory":
+                    application.unlink()
+                    application.mkdir()
+                elif fault in {"native_absolute_link", "native_relative_link"}:
+                    target = source / "unrelated-native-application"
+                    application.rename(target)
+                    application.symlink_to(target if fault == "native_absolute_link" else os.path.relpath(target, application.parent))
+                elif fault in {"native_parent_absolute_link", "native_parent_relative_link"}:
+                    parent = application.parent
+                    target = source / "unrelated-native-directory"
+                    parent.rename(target)
+                    parent.symlink_to(target if fault == "native_parent_absolute_link" else os.path.relpath(target, parent.parent), target_is_directory=True)
+                elif fault == "native_internal_link":
+                    target = application.with_name("other-binary")
+                    application.rename(target)
+                    application.symlink_to(target.name)
             if fault in {"bundle_dangling_resource", "bundle_cyclic_resource"}:
                 (bundle / "python").mkdir()
                 (bundle / "python/practiq-ai").symlink_to("missing-or-cyclic-engine")
@@ -444,6 +514,27 @@ def test_final_macos_version_cannot_follow_an_external_plist(release, source, fi
     assert not output.exists() and not state["calls"] and state["mounted"] == ["detached"]
 
 
+@pytest.mark.parametrize("platform", ["darwin", "linux"])
+@pytest.mark.parametrize("fault", ["native_missing", "native_empty", "native_directory", "native_absolute_link",
+                                   "native_relative_link", "native_parent_absolute_link", "native_parent_relative_link",
+                                   "native_internal_link"])
+def test_final_staging_requires_the_contained_native_desktop_executable(release, source, final_setup, platform, fault):
+    installer, output, reports, state = final_setup(platform, fault)
+    with pytest.raises(ValueError, match="desktop executable"):
+        release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=state["build_candidate"])
+    assert not output.exists() and not state["calls"]
+    if platform == "darwin":
+        assert state["mounted"] == ["detached"]
+
+
+@pytest.mark.parametrize("fault", ["native_identity_missing", "native_identity_wrong", "native_identity_path"])
+def test_final_macos_plist_must_identify_the_expected_native_executable(release, source, final_setup, fault):
+    installer, output, reports, state = final_setup("darwin", fault)
+    with pytest.raises(ValueError, match="desktop executable"):
+        release.restage_installer(source, "v0.1.0", installer, output, reports, build_candidate=state["build_candidate"])
+    assert not output.exists() and not state["calls"] and state["mounted"] == ["detached"]
+
+
 @pytest.mark.parametrize("platform", ["darwin", "win32", "linux"])
 def test_explicit_final_staging_uses_selected_snapshot_and_fresh_reports_without_actions(release, source, final_setup, platform):
     installer, output, reports, state = final_setup(platform)
@@ -587,13 +678,21 @@ def test_final_windows_requires_existing_full_7zip_without_installing(release, s
 @pytest.mark.parametrize("platform", ["darwin", "win32", "linux"])
 def test_final_native_version_preserves_prerelease_identity(release, source, final_setup, monkeypatch, platform):
     installer, _, _, _ = final_setup(platform)
-    bundle = source / "Example.app/Contents/Resources/bundled" if platform == "darwin" else source / "extracted/bundled"
+    bundle = (source / "Example.app/Contents/Resources/bundled" if platform == "darwin" else
+              source / "extracted/usr/lib/PractiQ/bundled" if platform == "linux" else source / "extracted/bundled")
     bundle.mkdir(parents=True)
     expected = "0.1.0-alpha.1"
     if platform == "darwin":
-        (bundle.parents[1] / "Info.plist").write_bytes(plistlib.dumps({"CFBundleShortVersionString": expected}))
+        (bundle.parents[1] / "Info.plist").write_bytes(plistlib.dumps({"CFBundleShortVersionString": expected, "CFBundleExecutable": "PractiQ"}))
+        application = bundle.parents[1] / "MacOS/PractiQ"
+        application.parent.mkdir()
+        application.write_bytes(b"synthetic native desktop application")
     elif platform == "win32":
         (bundle.parent / "PractiQ.exe").touch()
+    else:
+        application = bundle.parents[3] / "usr/bin/PractiQ"
+        application.parent.mkdir()
+        application.write_bytes(b"synthetic native desktop application")
     def metadata(command, **kwargs):
         return ({"Architecture": "amd64", "Depends": ", ".join(LINUX_DEPENDENCIES)}.get(command[-1], expected)) + "\n"
     monkeypatch.setattr(subprocess, "check_output", metadata)
