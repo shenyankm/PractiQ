@@ -1,0 +1,64 @@
+{
+  "checkedAt": "2026-10-05",
+  "package": "objc2-quartz-core",
+  "version": "0.3.2",
+  "crate": {
+    "source": "https://static.crates.io/crates/objc2-quartz-core/objc2-quartz-core-0.3.2.crate",
+    "sha256": "96c1358452b371bf9f104e21ec536d37a650eb10f7ee379fff67d2e08d537f1f",
+    "verification": "Official published crate download matches the exact package/version checksum in app/src-tauri/Cargo.lock."
+  },
+  "publishedCargoTomlSha256": "7af27150fadd5ac0b3e86ec173b4e3e2b0dd42d614de963a0c9f0bf55cc7b4d9",
+  "publishedRepository": "https://github.com/madsmtm/objc2",
+  "declaredLicense": "Zlib OR Apache-2.0 OR MIT",
+  "selectedLicense": "MIT",
+  "cargoVcsInfo": {
+    "archivePath": "objc2-quartz-core-0.3.2/.cargo_vcs_info.json",
+    "sha256": "d18b21bb115491577880f7f8c491ac10dd8d9947bd27fdc3f6dafcf4cf92b2e9",
+    "contents": {
+      "git": {
+        "sha1": "7b1abfd750a2cacaea71d6a56ecfb83cb7de560b"
+      },
+      "path_in_vcs": "framework-crates/objc2-quartz-core"
+    }
+  },
+  "upstreamRepository": "https://github.com/madsmtm/objc2",
+  "upstreamCommit": "7b1abfd750a2cacaea71d6a56ecfb83cb7de560b",
+  "publishedSourceComparison": [
+    {
+      "archivePath": "Cargo.toml.orig",
+      "upstreamPath": "framework-crates/objc2-quartz-core/Cargo.toml",
+      "source": "https://raw.githubusercontent.com/madsmtm/objc2/7b1abfd750a2cacaea71d6a56ecfb83cb7de560b/framework-crates/objc2-quartz-core/Cargo.toml",
+      "archiveSha256": "ca303efdd2bcb7958d3e0a08f9b7adb327a2942d0730cda5991365c48016f4d4",
+      "upstreamSha256": "ca303efdd2bcb7958d3e0a08f9b7adb327a2942d0730cda5991365c48016f4d4",
+      "comparison": "identical bytes",
+      "sizeBytes": 5427
+    }
+  ],
+  "workspaceLicenseDeclaration": {
+    "source": "https://raw.githubusercontent.com/madsmtm/objc2/7b1abfd750a2cacaea71d6a56ecfb83cb7de560b/Cargo.toml",
+    "sha256": "2a5d4807cb132ce1d3f5b591a760643db49ca835dedefddcbd3087ad962360cd",
+    "license": "Zlib OR Apache-2.0 OR MIT",
+    "verification": "The published original manifest inherits this workspace license; the normalized published manifest declares the same alternatives."
+  },
+  "originalLicenseNotice": {
+    "source": "https://raw.githubusercontent.com/madsmtm/objc2/7b1abfd750a2cacaea71d6a56ecfb83cb7de560b/LICENSE.md",
+    "path": "LICENSE.md",
+    "file": "texts/7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt",
+    "sha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
+    "sizeBytes": 1339,
+    "gitBlobSha1": "540ae4c81adb5f64a9f61e222b688880da24300e",
+    "verification": "Complete original release notice retained unchanged, including the license alternatives and Apple SDK attribution. Git blob SHA-1 matches the official release tree."
+  },
+  "license": {
+    "source": "https://raw.githubusercontent.com/madsmtm/objc2/ee9a7ada2131f5944b8750428e265c15632f2a19/LICENSE-MIT.txt",
+    "path": "LICENSE-MIT.txt",
+    "file": "texts/f6a2e783669a0dd7a2c3b8a4f76db40ae49033e66e1bdc30f3aa25fe5577b070.txt",
+    "sha256": "f6a2e783669a0dd7a2c3b8a4f76db40ae49033e66e1bdc30f3aa25fe5577b070",
+    "sizeBytes": 1053,
+    "license": "MIT",
+    "gitBlobSha1": "ce8c4c17fd88f6cf5f3720c08fa685434e3cbcbb",
+    "upstreamCommit": "ee9a7ada2131f5944b8750428e265c15632f2a19",
+    "commitSource": "https://github.com/madsmtm/objc2/commit/ee9a7ada2131f5944b8750428e265c15632f2a19",
+    "verification": "Upstream later supplied this complete MIT text in the official commit fixing issue #826. It is supplemental full terms for the MIT alternative already declared by version 0.3.2, not a file shipped in that original archive. Complete copyright, grant and disclaimer bytes are unchanged; Git blob SHA-1 matches the official commit."
+  }
+}

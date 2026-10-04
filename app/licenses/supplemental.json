@@ -399,5 +399,51 @@
         "sha256": "f4121a4e8ad17fa72305027aa4ed98fd70f51ae606b4d731902be4d3b2cf5cad"
       }
     }
+  ],
+  "cargo:objc2-quartz-core@0.3.2": [
+    {
+      "source": "https://raw.githubusercontent.com/madsmtm/objc2/7b1abfd750a2cacaea71d6a56ecfb83cb7de560b/LICENSE.md",
+      "sha256": "7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54",
+      "file": "texts/7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54.txt",
+      "verification": "Complete original release license declaration and Apple SDK notice, unchanged bytes. The locked published crate and original manifest are bound to this VCS commit by the verification evidence.",
+      "evidence": {
+        "file": "objc2-quartz-core-0.3.2.provenance.json",
+        "sha256": "1d8e515d03410d74ed2fc9b30db226c4870c03461f771a9cc7e03461a10f77b2"
+      }
+    },
+    {
+      "source": "https://raw.githubusercontent.com/madsmtm/objc2/ee9a7ada2131f5944b8750428e265c15632f2a19/LICENSE-MIT.txt",
+      "sha256": "f6a2e783669a0dd7a2c3b8a4f76db40ae49033e66e1bdc30f3aa25fe5577b070",
+      "file": "texts/f6a2e783669a0dd7a2c3b8a4f76db40ae49033e66e1bdc30f3aa25fe5577b070.txt",
+      "verification": "Upstream supplied the missing complete MIT text in commit ee9a7ada2131f5944b8750428e265c15632f2a19 (issue #826); MIT is selected from the original version-specific alternatives. The later supplemental text is not claimed to have shipped in the original crate. Its unchanged bytes and Git blob identity are recorded in the verification evidence.",
+      "evidence": {
+        "file": "objc2-quartz-core-0.3.2.provenance.json",
+        "sha256": "1d8e515d03410d74ed2fc9b30db226c4870c03461f771a9cc7e03461a10f77b2"
+      }
+    }
+  ],
+  "cargo:webview2-com@0.39.1": [
+    {
+      "source": "https://raw.githubusercontent.com/wravery/webview2-rs/edc2caf886175ccaebe86078c9cfe1ae2a187328/LICENSE",
+      "sha256": "0dcf41516e608bbcb6cdc5229feb7b86fe4a643b85e7df251133c93408fdac73",
+      "file": "texts/0dcf41516e608bbcb6cdc5229feb7b86fe4a643b85e7df251133c93408fdac73.txt",
+      "verification": "Exact Cargo.lock crate checksum and packaged .cargo_vcs_info commit verified; full upstream MIT text at that same commit. The pinned provenance records original-manifest/source comparisons and independent commit-tree Git blob checks.",
+      "evidence": {
+        "file": "webview2-com-0.39.1.provenance.json",
+        "sha256": "0e47f3b65fbf4ed994f299bba6aff941f6460d4374b7175ad40bc108529f4a74"
+      }
+    }
+  ],
+  "cargo:webview2-com-sys@0.39.1": [
+    {
+      "source": "https://raw.githubusercontent.com/wravery/webview2-rs/edc2caf886175ccaebe86078c9cfe1ae2a187328/LICENSE",
+      "sha256": "0dcf41516e608bbcb6cdc5229feb7b86fe4a643b85e7df251133c93408fdac73",
+      "file": "texts/0dcf41516e608bbcb6cdc5229feb7b86fe4a643b85e7df251133c93408fdac73.txt",
+      "verification": "Exact Cargo.lock crate checksum and packaged .cargo_vcs_info commit verified; full upstream MIT text at that same commit. The pinned provenance records original-manifest/source comparisons and independent commit-tree Git blob checks.",
+      "evidence": {
+        "file": "webview2-com-sys-0.39.1.provenance.json",
+        "sha256": "178b2aeab305af17f50a3d09f8391ffb3d11426d302d8ac85fb8fdd555ada634"
+      }
+    }
   ]
 }
