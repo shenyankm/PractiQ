@@ -35,6 +35,7 @@ PLATFORMS = {
     "win32": ("windows", "x64", "nsis/*-setup.exe", "_setup.exe"),
     "linux": ("linux", "amd64", "deb/*.deb", ".deb"),
 }
+ACCEPTANCES = (("cleanMachine", "clean-machine"), ("liveModel", "live-model"))
 
 
 def read_json(path: Path) -> dict:
@@ -103,6 +104,39 @@ def external_signing_status(report: dict, artifact_sha: str) -> str:
     return "externally_reported_" + status
 
 
+def acceptance_bytes(path: Path) -> bytes:
+    with path.open("rb") as stream:
+        raw = stream.read(1024 * 1024 + 1)
+    if len(raw) > 1024 * 1024:
+        raise ValueError("Acceptance report exceeds 1 MiB")
+    return raw
+
+
+def external_acceptance_status(report, kind: str, identity: dict) -> str:
+    """Validate external evidence metadata without claiming to perform its checks."""
+    required = {"schemaVersion", "kind", "artifactSha256", "tag", "commit", "components", "os",
+                "architecture", "status", "reviewedBy", "verificationResults"}
+    optional = {"verificationCommands", "limitations", "reviewedAt", "osVersion"}
+    if (not isinstance(report, dict) or not required.issubset(report) or set(report) - required - optional or
+            type(report["schemaVersion"]) is not int or report["schemaVersion"] != 1 or report["kind"] != kind):
+        raise ValueError("Acceptance report has an invalid schema or kind")
+    if (normalized_digest(report["artifactSha256"]) != identity["sha256"] or
+            any(report[key] != identity[key] for key in ("tag", "commit", "components", "os", "architecture"))):
+        raise ValueError("Acceptance report does not identify the final artifact, source and platform")
+    for name in ("reviewedBy", "reviewedAt", "osVersion"):
+        if name in report and (not isinstance(report[name], str) or not report[name].strip() or len(report[name]) > 8192):
+            raise ValueError("Acceptance report requires bounded reviewer metadata")
+    for name in ("verificationResults", "verificationCommands", "limitations"):
+        if name in report:
+            values = report[name]
+            if (not isinstance(values, list) or len(values) > 128 or (name == "verificationResults" and not values) or
+                    any(not isinstance(value, str) or not value.strip() or len(value) > 8192 for value in values)):
+                raise ValueError("Acceptance report requires bounded verification results")
+    if not isinstance(report["status"], str) or report["status"] not in ("passed", "failed"):
+        raise ValueError("Acceptance status must be passed or failed")
+    return "externally_reported_" + report["status"]
+
+
 def public_report(value, roots):
     """Keep raw reports private; replace machine paths in the public JSON copy."""
     if isinstance(value, dict):
@@ -166,10 +200,15 @@ def stage(root: Path, tag: str, bundle: Path, installer: Path, output: Path, *,
           reports: Path | None = None, restaged: bool = False,
           source_sha: str | None = None, installer_sha: str | None = None,
           signing_report: Path | None = None, build_candidate: dict | None = None,
-          desktop_version: str | None = None) -> None:
+          desktop_version: str | None = None, clean_machine_report: Path | None = None,
+          live_model_report: Path | None = None) -> None:
     components = versions(root, tag)
     signing = "unverified" if restaged else "unsigned"
     os_name, arch, _, suffix = PLATFORMS[sys.platform]
+    acceptance_paths = {"cleanMachine": clean_machine_report, "liveModel": live_model_report}
+    acceptances = {field + "Acceptance": "pending" for field, _ in ACCEPTANCES}
+    if not restaged and any(acceptance_paths.values()):
+        raise ValueError("Acceptance reports require explicit final-byte staging")
     manifest = read_json(bundle / "build-manifest.json")
     check_build(manifest, sys.platform, components)
     if restaged and (build_candidate is None or desktop_version != components["desktop"]):
@@ -200,6 +239,13 @@ def stage(root: Path, tag: str, bundle: Path, installer: Path, output: Path, *,
         if signing_report:
             shutil.copyfile(signing_report, reports / "signing-report.json")
             signing = external_signing_status(read_json(reports / "signing-report.json"), installer_sha)
+        identity = {"tag": tag, "commit": source_sha, "components": components, "os": os_name,
+                    "architecture": arch, "sha256": installer_sha}
+        for field, kind in ACCEPTANCES:
+            if path := acceptance_paths[field]:
+                raw = acceptance_bytes(path)
+                acceptances[field + "Acceptance"] = external_acceptance_status(json.loads(raw), kind, identity)
+                (reports / (kind + "-report.json")).write_bytes(raw)
         (reports / "build-candidate.json").write_text(json.dumps(build_candidate, indent=2) + "\n", encoding="utf-8")
     output.mkdir(parents=True, exist_ok=False)
     name = f"PractiQ_{components['desktop']}_{os_name}_{arch}{suffix}"
@@ -220,7 +266,7 @@ def stage(root: Path, tag: str, bundle: Path, installer: Path, output: Path, *,
         "tag": tag, "commit": git(root, "rev-parse", "HEAD"), "components": components,
         "os": os_name, "architecture": arch, "file": name, "sha256": checksum(output / name),
         "sizeBytes": (output / name).stat().st_size, "signing": signing,
-        "cleanMachineAcceptance": "pending", "liveModelAcceptance": "pending",
+        **acceptances,
         "buildRun": build_candidate["candidate"]["buildRun"] if restaged else f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}",
         "evidence": {p.relative_to(output).as_posix(): checksum(p) for p in sorted(evidence.rglob("*")) if p.is_file()},
     }
@@ -229,8 +275,12 @@ def stage(root: Path, tag: str, bundle: Path, installer: Path, output: Path, *,
         candidate["originalBuildCandidate"] = "evidence/build-candidate.json"
         candidate["buildSourceIdentity"] = "Independent build provenance review required; commit identifies the checker candidate checkout"
         candidate["signingVerification"] = "Not performed by restaging; inspect independent final-artifact signing evidence"
+        candidate["acceptanceVerification"] = "Not performed by restaging; independently review external acceptance reports"
         if signing_report:
             candidate["signingReport"] = "evidence/signing-report.json"
+        for field, kind in ACCEPTANCES:
+            if acceptance_paths[field]:
+                candidate[field + "Report"] = "evidence/" + kind + "-report.json"
     (output / "candidate.json").write_text(json.dumps(candidate, indent=2) + "\n", encoding="utf-8")
 
 
@@ -449,6 +499,8 @@ def check_linux_architecture(executable: Path) -> None:
 
 def check_desktop_version(installer: Path, bundle: Path, expected: str, application_name: str) -> str:
     application = native_application(bundle, application_name)
+    if sys.platform != "win32" and not application.stat().st_mode & 0o111:
+        raise ValueError("Final desktop executable requires POSIX execute permission")
     if sys.platform == "darwin":
         check_macos_architecture(application)
         info = bundle.parents[1] / "Info.plist"
@@ -472,7 +524,8 @@ def check_desktop_version(installer: Path, bundle: Path, expected: str, applicat
 
 def restage_installer(root: Path, tag: str, installer: Path, output: Path,
                       reports: Path, signing_report: Path | None = None,
-                      build_candidate: Path | None = None, seven_zip: Path | None = None) -> None:
+                      build_candidate: Path | None = None, seven_zip: Path | None = None, *,
+                      clean_machine_report: Path | None = None, live_model_report: Path | None = None) -> None:
     """Recheck final bytes locally while keeping signing/manual/live verification separate."""
     candidate = check_candidate(root, tag)
     for path in (output, reports):
@@ -504,7 +557,8 @@ def restage_installer(root: Path, tag: str, installer: Path, output: Path,
                 desktop_version = check_desktop_version(snapshot, bundle, versions(root, tag)["desktop"], application_name)
                 stage(root, tag, bundle, snapshot, staged, reports=reports, restaged=True,
                       source_sha=candidate["commit"], installer_sha=original_sha, signing_report=signing_report,
-                      build_candidate=provenance, desktop_version=desktop_version)
+                      build_candidate=provenance, desktop_version=desktop_version,
+                      clean_machine_report=clean_machine_report, live_model_report=live_model_report)
             if checksum(snapshot) != original_sha:
                 raise ValueError("Final installer snapshot changed after package checks")
             if git(root, "rev-parse", "HEAD") != candidate["commit"] or git(root, "status", "--porcelain", "--untracked-files=all"):
@@ -548,6 +602,21 @@ def assemble(root: Path, tag: str, inputs: Path, output: Path) -> None:
         for filename in ("build-manifest.json", "THIRD-PARTY.txt"):
             if f"evidence/{filename}" not in candidate["evidence"]:
                 raise ValueError(f"Missing component or notice evidence: {filename}")
+        for field, kind in ACCEPTANCES:
+            expected = "pending"
+            if field + "Report" in candidate:
+                relative = "evidence/" + kind + "-report.json"
+                if (not candidate.get("restagedFinalBytes") or candidate[field + "Report"] != relative or
+                        relative not in candidate["evidence"]):
+                    raise ValueError("Acceptance evidence must use its bound final-candidate report path")
+                path = folder / relative
+                if (path.is_symlink() or path.is_junction() or not path.is_file() or
+                        path.parent.is_symlink() or path.parent.is_junction() or
+                        not path.resolve(strict=True).is_relative_to(folder.resolve(strict=True))):
+                    raise ValueError("Acceptance report must remain inside its final candidate directory")
+                expected = external_acceptance_status(json.loads(acceptance_bytes(path)), kind, candidate)
+            if candidate.get(field + "Acceptance", "pending") != expected:
+                raise ValueError("Final acceptance status differs from its bound external report")
         comparison = read_json(folder / "evidence/notices-match.json") if "evidence/notices-match.json" in candidate["evidence"] else {}
         if (comparison.get("passed") is not True or
                 comparison.get("sha256") != checksum(folder / "evidence/THIRD-PARTY.txt") or
@@ -619,7 +688,7 @@ def assemble(root: Path, tag: str, inputs: Path, output: Path) -> None:
         manifest = {"packageSchemaVersion": SCHEMA_VERSION, "packageMode": PACKAGE_MODE,
                     "componentScope": "Desktop assets; aiServiceSource is source-only and not a deployed component",
                     "tag": tag, "commit": sha, "components": components,
-                    "publicationStatus": "draft; signing and manual/live acceptance pending",
+                    "publicationStatus": "draft; independent signing and acceptance review pending" if candidates[0][1].get("restagedFinalBytes") else "draft; signing and manual/live acceptance pending",
                     "assets": [candidate for _, candidate in candidates],
                     "evidenceSha256": checksum(staged / "release-evidence.zip")}
         (staged / "release-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
@@ -646,10 +715,12 @@ def main() -> None:
     parser.add_argument("--installer", type=Path, help="Explicit final native installer; stage with fresh --reports and --output")
     parser.add_argument("--reports", type=Path, help="Fresh directory retaining final-package gate reports, including failures")
     parser.add_argument("--signing-report", type=Path, help="Independent signing report bound by artifactSha256; stage does not verify signing")
+    parser.add_argument("--clean-machine-report", type=Path, help="Reviewed clean-machine acceptance metadata bound to final bytes; no acceptance is executed")
+    parser.add_argument("--live-model-report", type=Path, help="Reviewed live-model acceptance metadata bound to final bytes; no model is called")
     parser.add_argument("--build-candidate", type=Path, help="Original CI candidate.json with its installer and bound evidence in the same directory")
     parser.add_argument("--seven-zip", type=Path, help="Installed full 7z.exe for Windows NSIS payload extraction")
     args = parser.parse_args()
-    explicit = any(value is not None for value in (args.installer, args.reports, args.signing_report, args.build_candidate, args.seven_zip))
+    explicit = any(value is not None for value in (args.installer, args.reports, args.signing_report, args.build_candidate, args.seven_zip, args.clean_machine_report, args.live_model_report))
     if explicit and (args.command != "stage" or args.installer is None or args.reports is None or args.output is None or args.build_candidate is None):
         parser.error("Explicit final staging requires stage --installer --reports --output --build-candidate")
     if args.command == "check":
@@ -660,7 +731,8 @@ def main() -> None:
                 stream.write(f"sha={candidate['commit']}\nprerelease={str(candidate['prerelease']).lower()}\n")
     elif args.command == "stage":
         if explicit:
-            restage_installer(ROOT, args.tag, args.installer, args.output, args.reports, args.signing_report, args.build_candidate, args.seven_zip)
+            restage_installer(ROOT, args.tag, args.installer, args.output, args.reports, args.signing_report, args.build_candidate, args.seven_zip,
+                              clean_machine_report=args.clean_machine_report, live_model_report=args.live_model_report)
         else:
             if args.output is not None:
                 parser.error("stage --output also requires --installer and --reports")

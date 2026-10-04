@@ -145,6 +145,8 @@ version bounds and :amd64/:any qualifiers are accepted, but alternatives do not
 satisfy required libraries. Resource directories and relative links remain
 contained in that selected payload. Native files are nonempty regular files
 with real contained parents, and macOS Info.plist names that actual executable.
+macOS and Linux binaries require POSIX execute permission bits; Windows PE
+checks remain independent of POSIX modes.
 Bounded header checks do not prove startup, full loadability, signing or platform
 compatibility. Windows payload extraction requires installed full 7-Zip;
 it does not execute NSIS or count as installation acceptance. Raw local reports
@@ -158,6 +160,22 @@ assembly rejects a status that differs from its bound report. These fields do
 not attest cryptographic verification. Review the original build download's
 provenance, actual verification commands, publisher and results independently
 before recording verified status in the release template.
+
+Explicit final staging also accepts `--clean-machine-report` and
+`--live-model-report` for independently reviewed acceptance records. Each report
+uses schema 1 and binds its kind, candidate tag/commit/component versions,
+OS/architecture and exact final installer SHA-256. It requires a nonempty reviewer
+identity and verification-results list, with a declared `passed` or `failed`
+status. See the [report examples](final-package-acceptance.md#acceptance-report-inputs).
+The candidate and assembled manifest record `externally_reported_passed` or
+`externally_reported_failed`; an absent report remains `pending`. Assembly rejects
+mismatched identities, report paths and status drift, and verifies archived bytes
+against the candidate's evidence hashes. These inputs do not run installation or
+model checks, establish the truth of a supplied record, complete #91, or authorize
+publication. Independent publication review remains pending even when both reports
+declare success. Raw reports remain private; only sanitized, hash-bound copies
+enter public evidence. Synthetic test fixtures validate this contract and never
+establish actual clean-machine or live-model acceptance.
 
 For each public platform record OS version, architecture, date and results for
 clean installation, upgrade/uninstall, native dialogs, credentials, audio,
