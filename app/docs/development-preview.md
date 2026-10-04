@@ -1,22 +1,24 @@
-# 开发预览
+# Development preview
 
-`make app-dev` 默认启用内存 demo；也可直接 `npm run dev` 在浏览器中预览，无需启动原生服务。右下角展开「开发预览」切换场景，或重置所有示例修改。切换会重新加载并回到首页。「真实本地数据」恢复原有原生调用，仅在桌面运行时使用。
+`make app-dev` starts with in-memory demo data. You can also run `npm run dev` in a browser without the native service. Expand the “开发预览” panel at the lower right to switch scenarios or reset changes. Switching reloads the app and returns to the home page. “真实本地数据” uses native commands and requires the desktop app.
 
-| 页面 / 流程 | 示例覆盖 |
+| Page or flow | Demo coverage |
 | --- | --- |
-| 我的题库 | 有内容、空题库、新增、编辑、合并、删除、分页 |
-| 题目列表 / 详情 / 编辑 | 全部 11 种答题方式；单多选、两种匹配、英语专项、组合材料、公式、表格、图片、音频、待复核和缺少参考答案 |
-| 错题本 / 收藏夹 | 有记录、移除收藏、搜索/类型/题库筛选、无匹配结果 |
-| 练习设置 / 作答 | 顺序、随机、手动、配额选择；练习、自测、限时考试；草稿、跳过、标记、提交、历史快照 |
-| 练习记录 / 评分 | 进行中、已结束、待核对；客观判分、未判定、部分得分、AI 示例分、人工改分、请求失败、结果待确认、缺少评分依据 |
-| 导入表单 / 记录 / 详情 | 模拟多文件选择；10 种解析状态、已入库、入库失败；筛选、暂停/继续/取消、删除、部分结果审核、预览、批次重试 |
-| 设置 / 模型配置 | 已配置、未配置、修改保存、测试连接；备份、恢复、ZIP 导入确认及模拟反馈 |
-| 主题 / 语言 | 使用原有主题和语言菜单；示例文档内容保持原文 |
+| Question banks | Populated and empty banks, creation, editing, merging, deletion and pagination |
+| Question list, detail and editor | All 11 answer modes; single/multiple choice, matching variants, English question kinds, composite materials, formulas, tables, images, audio, review warnings and missing reference answers |
+| Wrong answers and favorites | Existing records, removing favorites, search/type/bank filters and empty results |
+| Practice setup and answers | Ordered, random, manual and quota selection; practice, self-tests and timed exams; drafts, skips, flags, submission and historical snapshots |
+| Practice history and grading | Active, finished and review states; objective results, ungraded answers, partial credit, simulated AI scores, manual overrides, failures, unknown results and missing grading evidence |
+| Document import | Simulated multi-file selection; ten task states, imported and failed bank writes; filtering, controls, partial-result review, preview and batch retries |
+| Settings and model configuration | Configured/unconfigured states, simulated saving and connection tests; backup, restore, ZIP import confirmation and feedback |
+| Theme and language | Existing theme/language menus; source-language document content stays unchanged |
 
-全局场景：完整数据、空数据、多页数据、每次请求延迟 1.5 秒、请求失败、未配置模型、资源缺失。空数据场景仍允许创建新题库。未配置场景可保存演示配置。
+Global scenarios include normal, empty, many pages, a 1.5-second request delay, failed requests, unconfigured models and missing resources. Empty data still allows bank creation; unconfigured models accept demo configuration.
 
-题目分页和统计请求统一使用 `bank_ids`：空数组查询全部题库，单题库传 `[id]`，多题库传多个 ID；开发预览与原生命令采用相同约定。
+Question pagination and statistics use `bank_ids`: an empty array selects all banks, `[id]` selects one bank, and multiple IDs select several banks. Type filters match root question kinds, single/multiple choice variants and the `grammar_fill` alias used by native commands. Composite results include all descendants and count only answerable nodes. Review filtering includes a root when it or any descendant has an imported `needsReview` flag without a separate `reviewedAt` confirmation. Confirming or undoing review updates the entire descendant tree and preserves imported quality flags, missing-field markers and warnings. Favorite changes apply to the selected subtree, while a favorite-filtered search must match content and favorite state on the same original node. Selected paper questions and their practice snapshots retain the full material ancestor chain in source order and inherit options from their shared option owner. Ancestor passage blocks whose roles contain answer, analysis, solution, explanation, rubric, transcript or their native Chinese equivalents are excluded from practice materials; source questions and each answerable question’s own answer fields remain intact. Snapshots include the root ID and type, inherit ancestor groups and visuals in child-first order with ID deduplication, and propagate missing parents, unavailable ancestor resources and material/media/options quality gaps. Hydration creates independent copies without inheriting ancestor warnings, sources, favorites or review confirmations. Global visuals apply only within their source bank, and document-only visuals stay out of question context. Merged bank copies receive fresh question and context IDs, with parent, option-owner and passage-blank references remapped within each source bank so repeated composite content stays isolated. Global visual references become explicit copied-question references during merging. Copies preserve favorites and imported quality flags, but start without local review confirmations or practice results and scores.
 
-所有业务调用由 `transport.ts` 在开发模式下转到 `preview-data.ts`，未知命令直接报错，不回退到原生调用。导入记录也使用这条调用路径，示例数据统一由右下角的开发预览面板切换。仅固定的仓库图片/音频通过 Vite 读取。示例更改只保存在内存；密钥不保存，模型不调用，文件选择/转换/导出/恢复均模拟。开发预览只验证界面和交互，不验证原生存储、真实解析质量、文件权限或模型服务。评分和选题是界面演示用的简化逻辑，真实规则由原生端测试验证。
+In development mode, `transport.ts` sends business calls to `preview-data.ts`. Unknown commands fail without native fallback. Import tasks use the same transport and scenario controls. Only fixed repository image/audio fixtures are read through Vite. Changes stay in memory; keys are not persisted, no models are called, and file selection/conversion/export/restore are simulated.
 
-验证：在 `app/` 运行 `npx vitest run`、`npm run test:browser`、`npm run test:preview`。`npm run build` 用于检查正式产物排除预览代码与样例资源。
+The preview validates UI behavior and interaction. It does not validate native storage, extraction quality, file authorization or model services. Scoring and question selection remain simplified demonstrations; native tests verify their full rules.
+
+Run `npx vitest run`, `npm run test:browser` or `npm run test:preview` from `app/`. `npm run build` checks the production build, which excludes preview code and demo resources.
