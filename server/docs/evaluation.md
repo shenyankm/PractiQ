@@ -341,3 +341,5 @@ The shared figure allowance is not increased: exhaustion after a transient
 provider failure preserves that failure's retryability. An existing answer role
 cannot be downgraded by the verifier. Structured arrays must be arrays on the
 wire; quoted JSON arrays follow the usual validation/correction path.
+
+For the frozen-source ten-format preparation and unresolved acceptance work in #90, use the [import quality worksheet](../../docs/import-quality-acceptance.md).
