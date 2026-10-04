@@ -82,6 +82,70 @@ async def test_http_bank_export_requires_current_completed_checkpoint_and_preser
         assert missing.status_code == 404
 
 
+@pytest.mark.parametrize("read", ["maintenance", "capabilities", "detail", "export"])
+async def test_saved_non_office_reads_survive_unavailable_office_engine(monkeypatch, tmp_path, read):
+    engine = tmp_path / "soffice"
+    engine.write_bytes(b"deployed Office engine")
+    monkeypatch.setenv("AI_OFFICE_EXECUTABLE", str(engine))
+    monkeypatch.setenv("AI_OFFICE_VERSION", "LibreOffice 26.8.0.3")
+    service, reference, model = await setup_api(monkeypatch)
+    receipt = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
+    await service.wait_idle()
+    detail = await task_api.get_task(receipt["threadId"])
+    assert detail["state"] == "COMPLETED" and len(model.calls) == 1
+    engine.unlink()
+    monkeypatch.setenv("AI_READ_ONLY", "1")
+    for key in ("LLM_PROVIDER", "LLM_API_KEY", "LLM_MODEL"):
+        monkeypatch.delenv(key, raising=False)
+    path = {"maintenance": "/api/maintenance", "capabilities": "/api/import-capabilities",
+            "detail": f'/api/document-tasks/{receipt["threadId"]}',
+            "export": f'/api/document-tasks/{receipt["threadId"]}/export'}[read]
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=webapp.app, raise_app_exceptions=False),
+                                base_url="http://test", headers={"Authorization": "Bearer test-service-token"}) as client:
+        assert (await client.get(path, headers={"Authorization": "Bearer wrong"})).status_code == 401
+        response = await client.get(path, params={"checkpoint_id": detail["checkpointId"]} if read == "export" else {})
+    assert response.status_code == 200, response.text
+    if read == "detail":
+        assert response.json()["result"] == detail["result"] and not response.json()["modelConfigured"]
+    elif read == "export":
+        with ZipFile(io.BytesIO(response.content)) as archive:
+            assert json.loads(archive.read("questions.json"))["result"] == detail["result"]
+    elif read == "capabilities":
+        capabilities = response.json()
+        assert not capabilities["officeAvailable"] and capabilities["officeModes"] == []
+        assert capabilities["officeSourceMaxBytes"] is None
+        assert set(capabilities["sourceTypes"]) == {"pdf", "text", "csv", "image"}
+    else:
+        assert response.json() == {"enabled": False}
+    assert len(model.calls) == 1
+
+
+async def test_capabilities_do_not_advertise_directory_as_office_engine(monkeypatch, tmp_path):
+    monkeypatch.setenv("AI_OFFICE_EXECUTABLE", str(tmp_path))
+    monkeypatch.setenv("AI_OFFICE_VERSION", "LibreOffice 26.8.0.3")
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=webapp.app, raise_app_exceptions=False),
+                                base_url="http://test", headers={"Authorization": "Bearer test-service-token"}) as client:
+        response = await client.get("/api/import-capabilities")
+    assert response.status_code == 200, response.text
+    assert not response.json()["officeAvailable"] and response.json()["officeModes"] == []
+    assert response.json()["officeSourceMaxBytes"] is None
+    assert set(response.json()["sourceTypes"]) == {"pdf", "text", "csv", "image"}
+
+
+async def test_non_office_queue_still_runs_after_configured_engine_disappears(monkeypatch, tmp_path):
+    engine = tmp_path / "soffice"
+    engine.write_bytes(b"deployed Office engine")
+    monkeypatch.setenv("AI_OFFICE_EXECUTABLE", str(engine))
+    monkeypatch.setenv("AI_OFFICE_VERSION", "LibreOffice 26.8.0.3")
+    service, reference, model = await setup_api(monkeypatch)
+    engine.unlink()
+    receipt = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
+    await service.wait_idle()
+    detail = await task_api.get_task(receipt["threadId"])
+    assert service.accepting and detail["state"] == "COMPLETED", detail
+    assert len(model.calls) == 1 and len(detail["usage"]) == 1
+
+
 async def test_upload_remains_available_in_service_read_only_mode_but_start_is_blocked(monkeypatch, tmp_path):
     await setup_api(monkeypatch)
     store = object_store(tmp_path)

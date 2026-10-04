@@ -158,7 +158,7 @@ async def maintenance_status() -> dict[str, bool]:
 @app.get("/api/import-capabilities", response_model=ImportCapabilities, dependencies=[Depends(authorize)])
 async def import_capabilities() -> ImportCapabilities:
     settings = load()
-    office = settings.office_executable is not None
+    office = settings.office_executable is not None and settings.office_executable.is_file()
     return ImportCapabilities(sourceTypes=[kind for kind in get_args(DocumentSourceType) if office or kind not in OFFICE_SOURCE_TYPES],
                               sourceMaxBytes=settings.source_max_bytes, officeAvailable=office,
                               officeSourceMaxBytes=document_source_limit("docx", settings.source_max_bytes) if office else None,

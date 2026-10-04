@@ -97,8 +97,6 @@ def load() -> Config:
     if office_executable is not None:
         if not office_executable.is_absolute():
             raise ValueError("AI_OFFICE_EXECUTABLE must be an explicit absolute path")
-        if not office_executable.is_file():
-            raise ValueError("AI_OFFICE_EXECUTABLE must be a deployed regular file")
         if not office_version.startswith(("LibreOffice ", "LibreOfficeDev ")) or len(office_version) > 255:
             raise ValueError("AI_OFFICE_VERSION must contain the exact deployed LibreOffice version")
     _required(values, "AI_SERVICE_TOKEN")
