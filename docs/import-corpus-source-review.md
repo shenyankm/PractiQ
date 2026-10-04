@@ -71,7 +71,20 @@ The visually read matrix is A rows (1,2)/(3,4); the inverse has factor 1/−2 an
 
 The table has Sample/x_i/Error/Note columns and rows A:½/−0.002/“left | right”; B:10⁻⁶/0/“中文，空值用 —”; C:√2/+0.003/“final row”. The TXT/CSV linear A-row contains an unescaped internal pipe; native spreadsheet cells and the rendered table place “left | right” in one Note cell. Keep that ambiguity visible until a subject reviewer confirms the interpretation.
 
-The actual chart has black axes, gray grid, blue curve, title y=x² on [0,5], x labels 0–5 and small caption. Numeric y-axis labels are absent. TXT/CSV/XLSX strings explicitly list (0,0),(1,1),(2,4),(3,9),(4,16),(5,25); the raster alone does not independently establish exact ordinates. Figure association is r25 at page/quadrant 4; dedicated chart-crop bounds are pending and whole-page/quadrant bounds must not be presented as an exact chart crop. Local resource names in source text do not grant importer filesystem authorization.
+The actual chart has black axes, gray grid, blue curve, title y=x² on [0,5], x labels 0–5 and small caption. Numeric y-axis labels are absent. TXT/CSV/XLSX strings explicitly list (0,0),(1,1),(2,4),(3,9),(4,16),(5,25); the raster alone does not independently establish exact ordinates. Figure association is r25 at page/quadrant 4. Static dedicated-chart geometry candidates are recorded below as AI annotations pending human review; no crop image or model result was produced. Whole-page/quadrant bounds remain context, not an exact chart crop. Local resource names in source text do not grant importer filesystem authorization.
+
+### Static chart geometry candidates
+
+Use zero-based top-left half-open pixel bounds `[xmin, ymin, xmax, ymax)`. The target is the dedicated chart image canvas, including its title, axes and x labels, but excluding the separate rich-panel border and caption below. Coordinates were read from unchanged sources and existing images; no crop was generated. These AI annotations do not establish human source-quality acceptance, an importer/model crop or the historical 0/10 live-model acceptance.
+
+| Source-bound location | Dedicated chart candidate | Scope and precision |
+| --- | --- | --- |
+| `resources/chart.png`, 800×300; source SHA-256 recorded above | `[0, 0, 800, 300)` px | Exact standalone chart canvas; it is not the shared rich-page embedded PNG. |
+| `all-types.pdf`, page 4, 595.91998×842.88 pt, rotation 0 | `[64.499997, 493.499979, 531.749978, 668.999972)` top-left pt | Exact `/X19` image placement from the PDF content matrix; its 800×300 decoded RGB equals the chart resource RGB. This does not verify figure framing or content correctness. |
+| `all-types.png` and `all-types.jpg`, 1908×2698 | `[1057, 2138, 1805, 2420)` px | Visually checked AI chart-canvas candidates; the whole rich quadrant is `[954, 1349, 1908, 2698)`. JPEG, interpolation and white-edge precision remain pending. |
+| Shared DOCX/XLSX embedded PNG, 894×1265, SHA-256 `1ab39c378c580cd8b684bf8e9579fa071ee777218ee489662cb942fb648df391` | `[96, 740, 798, 1004)` image-local px | Visually checked AI candidate inside the rich-page image. Global Word/worksheet/printed-page chart bounds remain pending; OXML supplies no chart subcrop. |
+
+The PDF image maps resource pixels to top-left page points by `x = 64.499997 + 0.584062476 u`, `y = 493.499979 + 0.584999976 v`. The raster candidates use an engineering affine correspondence of 1.6 px/pt plus offset `(954,1349)` for the mosaics, and 1.5 px/pt for the embedded image, checked against the original blue-curve support and existing visuals. Those raster correspondences are candidates, not serialized crop metadata. Scanned PDF and legacy DOC/XLS tight chart crops remain pending; their whole-page images or converted pages must not substitute for a dedicated chart crop. Human review must confirm whether the separate caption should be included.
 
 ## Authorized legacy derivatives and limits
 
