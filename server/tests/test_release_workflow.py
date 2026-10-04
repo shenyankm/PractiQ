@@ -200,6 +200,190 @@ def test_windows_stage_uses_portable_evidence_paths_for_linux_assembly(release, 
     assert all("\\" not in path for path in candidate["evidence"])
 
 
+@pytest.fixture
+def final_setup(release, source, monkeypatch):
+    def setup(platform="darwin", fault=None):
+        monkeypatch.setattr(sys, "platform", platform)
+        for key in ("RUNNER_TEMP", "GITHUB_SERVER_URL", "GITHUB_REPOSITORY", "GITHUB_RUN_ID"):
+            monkeypatch.delenv(key, raising=False)
+        state = {"head": "a" * 40, "calls": [], "mounted": []}
+        monkeypatch.setitem(release.restage_installer.__globals__, "check_candidate", lambda *_: {"commit": "a" * 40})
+        monkeypatch.setitem(release.stage.__globals__, "git", lambda root, *args: "" if args[0] == "status" else state["head"])
+        suffix = {"darwin": ".dmg", "win32": ".exe", "linux": ".deb"}[platform]
+        installer = source / "signed" / ("selected-final" + suffix)
+        installer.parent.mkdir()
+        installer.write_bytes(b"selected final installer bytes")
+        stale = source / "app/src-tauri/target/release/bundle" / ("old-unsigned" + suffix)
+        stale.parent.mkdir(parents=True)
+        stale.write_bytes(b"stale unsigned bytes must not be selected")
+        output, reports = source / "final-assets", source / "fresh-reports"
+
+        def make_bundle(bundle):
+            bundle.mkdir(parents=True)
+            (bundle / "build-manifest.json").write_text(json.dumps({
+                "platform": platform, "architecture": "arm64" if platform == "darwin" else "x86_64",
+                "packages": [{"name": "practiq-ai-service", "version": "0.3.0"}],
+            }))
+            for name in ("THIRD-PARTY.txt", "PYTHON-LICENSE.txt"):
+                (bundle / name).write_text("Synthetic candidate notice")
+
+        def run(command, **kwargs):
+            if command[0] == "hdiutil":
+                if command[1] == "detach":
+                    state["mounted"].append("detached")
+                    if fault == "source_after_checks":
+                        state["head"] = "b" * 40
+                    if fault == "snapshot_after_checks":
+                        state["snapshot"].chmod(0o600)
+                        state["snapshot"].write_bytes(b"changed after package checks")
+                    return
+                snapshot = Path(command[2])
+                bundle = Path(command[command.index("-mountpoint") + 1]) / "PractiQ.app/Contents/Resources/bundled"
+            elif command[0] == "dpkg-deb":
+                snapshot = Path(command[2])
+                bundle = Path(command[3]) / "usr/lib/PractiQ/bundled"
+            elif command[0] == "powershell":
+                snapshot = Path(kwargs["env"]["PRACTIQ_RELEASE_INSTALLER"])
+                bundle = Path(kwargs["env"]["PRACTIQ_RELEASE_DESTINATION"]) / "bundled"
+                assert "Start-Process" in command[-1] and "'/S'" in command[-1]
+                assert "$ErrorActionPreference = 'Stop'" in command[-1]
+            else:
+                state["calls"].append(command)
+                bundle = Path(command[command.index("--bundle") + 1])
+                report = Path(command[command.index("--output") + 1])
+                report.write_text('{"passed":true}')
+                if "--fidelity-only" in command and fault == "gate":
+                    raise subprocess.CalledProcessError(1, command)
+                if "--notices" in command:
+                    expected = Path(command[command.index("--notices") + 1])
+                    expected.write_text("Changed notice" if fault == "notice" else "Synthetic candidate notice")
+                    if fault == "missing_notice":
+                        (bundle / "THIRD-PARTY.txt").unlink()
+                    if fault == "source":
+                        state["head"] = "b" * 40
+                    if fault == "snapshot":
+                        state["snapshot"].chmod(0o600)
+                        state["snapshot"].write_bytes(b"changed snapshot")
+                return
+            assert snapshot != installer and snapshot.read_bytes() == installer.read_bytes()
+            assert not snapshot.stat().st_mode & 0o222
+            state["snapshot"] = snapshot
+            make_bundle(bundle)
+
+        monkeypatch.setattr(subprocess, "run", run)
+        return installer, output, reports, state
+    return setup
+
+
+@pytest.mark.parametrize("platform", ["darwin", "win32", "linux"])
+def test_explicit_final_staging_uses_selected_snapshot_and_fresh_reports_without_actions(release, source, final_setup, platform):
+    installer, output, reports, state = final_setup(platform)
+    signing = source / "independent-signing.json"
+    signing.write_text(json.dumps({"artifactSha256": release.checksum(installer), "status": "verified by independent reviewer", "verificationCommands": ["Synthetic verification evidence"]}))
+    release.restage_installer(source, "v0.1.0", installer, output, reports, signing)
+    candidate = json.loads((output / "candidate.json").read_text())
+    assert (output / candidate["file"]).read_bytes() == b"selected final installer bytes"
+    assert candidate["sha256"] == release.checksum(installer)
+    assert candidate["restagedFinalBytes"] and candidate["signing"] == "unverified"
+    assert candidate["cleanMachineAcceptance"] == candidate["liveModelAcceptance"] == "pending"
+    assert candidate["buildRun"] is None and "Independent" in candidate["buildSourceIdentity"]
+    assert json.loads((output / candidate["signingReport"]).read_text()) == json.loads(signing.read_text())
+    assert "evidence/notices-match.json" in candidate["evidence"]
+    assert len(state["calls"]) == 4
+    assert "--isolated" in state["calls"][1] and "--fidelity-only" in state["calls"][2]
+    if platform == "darwin":
+        assert state["mounted"] == ["detached"]
+
+
+@pytest.mark.parametrize("fault", ["gate", "notice", "missing_notice", "source", "snapshot", "signing", "source_after_checks", "snapshot_after_checks"])
+def test_explicit_final_staging_keeps_failed_evidence_and_produces_no_assets(release, source, final_setup, fault):
+    installer, output, reports, state = final_setup(fault=fault)
+    signing = None
+    if fault == "signing":
+        signing = source / "wrong-signing.json"
+        signing.write_text(json.dumps({"artifactSha256": "0" * 64}))
+    with pytest.raises((ValueError, OSError, subprocess.CalledProcessError)):
+        release.restage_installer(source, "v0.1.0", installer, output, reports, signing)
+    assert reports.is_dir() and not output.exists()
+    assert (reports / "office-fidelity.json").exists()
+    assert state["mounted"] == ["detached"]
+
+
+@pytest.mark.parametrize("existing", ["output", "reports"])
+def test_explicit_final_staging_rejects_existing_directories_before_gates(release, source, final_setup, existing):
+    installer, output, reports, state = final_setup()
+    path = output if existing == "output" else reports
+    path.mkdir()
+    (path / "prior.txt").write_text("Preserve prior evidence")
+    with pytest.raises(FileExistsError):
+        release.restage_installer(source, "v0.1.0", installer, output, reports)
+    assert (path / "prior.txt").read_text() == "Preserve prior evidence"
+    assert not state["calls"]
+
+
+def test_explicit_final_staging_rejects_changed_copy_before_public_handoff(release, source, final_setup, monkeypatch):
+    installer, output, reports, _ = final_setup()
+    copyfile = shutil.copyfile
+    def change_copy(src, dst, *args, **kwargs):
+        result = copyfile(src, dst, *args, **kwargs)
+        if Path(dst).name.startswith("PractiQ_0.1.0_"):
+            Path(dst).write_bytes(b"changed final asset copy")
+        return result
+    monkeypatch.setattr(shutil, "copyfile", change_copy)
+    with pytest.raises(ValueError, match="copying"):
+        release.restage_installer(source, "v0.1.0", installer, output, reports)
+    assert not output.exists() and (reports / "notices-match.json").exists()
+
+
+def test_explicit_final_staging_rejects_installer_mutation_while_snapshotting(release, source, final_setup, monkeypatch):
+    installer, output, reports, state = final_setup()
+    copyfile = shutil.copyfile
+    def mutate_original(src, dst, *args, **kwargs):
+        result = copyfile(src, dst, *args, **kwargs)
+        if Path(src) == installer:
+            installer.write_bytes(b"changed original during snapshot")
+        return result
+    monkeypatch.setattr(shutil, "copyfile", mutate_original)
+    with pytest.raises(ValueError, match="snapshot"):
+        release.restage_installer(source, "v0.1.0", installer, output, reports)
+    assert not output.exists() and not reports.exists() and not state["calls"]
+
+
+@pytest.mark.parametrize("mutation", [None, "missing_comparison", "missing_expected", "notice_hash", "expected_notice", "signing_hash"])
+def test_final_assembly_preserves_bound_signing_evidence_and_rejects_notice_drift(release, source, staged, mutation):
+    folder = staged / "release-macos"
+    evidence = folder / "evidence"
+    candidate = json.loads((folder / "candidate.json").read_text())
+    candidate.update(restagedFinalBytes=True, signing="unverified", signingReport="evidence/signing-report.json")
+    (evidence / "expected-THIRD-PARTY.txt").write_bytes((evidence / "THIRD-PARTY.txt").read_bytes())
+    (evidence / "notices-match.json").write_text(json.dumps({"passed": True, "sha256": release.checksum(evidence / "THIRD-PARTY.txt")}))
+    (evidence / "signing-report.json").write_text(json.dumps({"artifactSha256": candidate["sha256"], "status": "Independent test evidence"}))
+    if mutation == "missing_comparison":
+        (evidence / "notices-match.json").unlink()
+    elif mutation == "missing_expected":
+        (evidence / "expected-THIRD-PARTY.txt").unlink()
+    elif mutation == "notice_hash":
+        (evidence / "notices-match.json").write_text('{"passed":true,"sha256":"wrong"}')
+    elif mutation == "expected_notice":
+        (evidence / "expected-THIRD-PARTY.txt").write_text("Altered generated notices")
+    elif mutation == "signing_hash":
+        (evidence / "signing-report.json").write_text('{"artifactSha256":"wrong"}')
+    candidate["evidence"] = {f"evidence/{path.name}": release.checksum(path) for path in evidence.iterdir()}
+    (folder / "candidate.json").write_text(json.dumps(candidate))
+    output = source / "final-assembly"
+    if mutation:
+        with pytest.raises(ValueError):
+            release.assemble(source, "v0.1.0", staged, output)
+        assert not output.exists()
+    else:
+        release.assemble(source, "v0.1.0", staged, output)
+        manifest = json.loads((output / "release-manifest.json").read_text())
+        assert manifest["assets"][1]["signing"] == "unverified"
+        assert "pending" in manifest["publicationStatus"]
+        with zipfile.ZipFile(output / "release-evidence.zip") as archive:
+            assert "macos/evidence/signing-report.json" in archive.namelist()
+
+
 def test_signed_dmg_contains_stapled_app_and_existing_dmg_is_preserved(tmp_path):
     app = tmp_path / "PractiQ.app"
     (app / "Contents").mkdir(parents=True)

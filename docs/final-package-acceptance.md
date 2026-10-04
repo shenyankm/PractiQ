@@ -121,6 +121,30 @@ Record the final installer size and SHA-256 in the candidate table. Archive the 
 
 ## Review and publication handoff
 
-Follow the existing [signing and final acceptance](releases.md#final-signing-and-acceptance) procedures; do not relabel an earlier unsigned DMG. Verify all six desktop versions using `app/scripts/release.py`, regenerate build/release manifests, evidence ZIP and checksums after any final-byte change, then download staged assets and check each hash. Complete every field in the [release template](../.github/RELEASE_TEMPLATE.md) with actual per-platform evidence and unresolved limitations.
+Follow the existing [signing and final acceptance](releases.md#final-signing-and-acceptance) procedures; do not relabel an earlier unsigned DMG. The default `release.py stage --tag ...` command discovers unsigned CI build output. For a signed, stapled or otherwise replaced installer, explicitly select the final file with the same candidate checkout and native platform:
+
+```sh
+TAG=your_selected_candidate_tag
+FINAL_INSTALLER=/absolute/path/to/exact/final-installer.dmg
+FINAL_INPUTS=/absolute/path/to/fresh/final-inputs
+FINAL_REPORTS=/absolute/path/to/fresh/final-reports-macos
+"$AI_PYTHON" app/scripts/release.py stage --tag "$TAG" \
+  --installer "$FINAL_INSTALLER" --reports "$FINAL_REPORTS" \
+  --output "$FINAL_INPUTS/release-macos"
+```
+
+Run this command on each clean target validation system, using the final NSIS `.exe` or DEB `.deb` and distinct `release-windows` or `release-linux` output folders. In PowerShell use `& $AiPython app/scripts/release.py stage --tag $Tag --installer $FinalInstaller --reports $FinalReports --output "$FinalInputs/release-windows"`, then reject a nonzero `$LASTEXITCODE`. This explicit mode copies the selected installer to a private read-only snapshot, mounts that DMG, installs that NSIS into a fresh temporary destination, or extracts that DEB. It derives the bundle from those selected bytes, reruns all four strict gates and compares embedded notices. It keeps failed reports and creates the output candidate only after source and artifact checks pass. Existing report or output directories are rejected; no Actions environment variables are required.
+
+Record actual signing verification separately, including the final installer SHA-256, expected publisher identity, exact verification commands and their sanitized results. Retain an independent JSON report with `artifactSha256` matching that final file; it may also record `status`, `identity`, `verificationCommands` and `verificationResults`. Add `--signing-report /absolute/path/to/actual-signing-report.json` to explicit staging to archive it as `evidence/signing-report.json`. The tool rejects a report bound to different bytes. It records **unverified** for its own signing check because it does not execute signing verification; the linked report and release template record the actual independently verified status. Preserve the original immutable build run/source evidence: the staging checkout SHA identifies the check inputs and cannot by itself prove the installer was built from that commit. Manual and live-model acceptance remain **pending**.
+
+After collecting all three new platform candidates, copy the service verification reports for that same source into `FINAL_INPUTS/service-checks` as required by the existing workflow, then assemble into another fresh directory:
+
+```sh
+FINAL_ASSETS=/absolute/path/to/fresh/final-assets
+"$AI_PYTHON" app/scripts/release.py assemble --tag "$TAG" \
+  --inputs "$FINAL_INPUTS" --output "$FINAL_ASSETS"
+```
+
+Assembly verifies candidate source, installer and evidence hashes, then regenerates `release-manifest.json`, `release-evidence.zip` and `SHA256SUMS.txt` from the selected final bytes. It creates local draft assets; it does not publish or complete #91. Complete every field in the [release template](../.github/RELEASE_TEMPLATE.md) with actual per-platform signing evidence, acceptance results and unresolved limitations, then download staged assets and check each hash.
 
 Before closing #91 link the selected main candidate, immutable reports, actual final installer hashes, native clean-machine records and verified signing status. Test-version deferrals must follow existing policy and remain visible. Signing credentials, target systems, final candidate and live evidence are still required from maintainers; this preparation PR provides none of those external acceptances.
