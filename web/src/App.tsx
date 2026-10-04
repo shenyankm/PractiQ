@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
 import { Badge } from "./components/ui/badge";
 const ResultReview = lazy(() => import("./ResultReview"));
 
-type FileItem = { id: string; file: File; mode?: OfficeMode; state: "ready" | UploadStage | "created" | "failed"; threadId?: string; error?: string };
+type FileItem = { id: string; file: File; mode?: OfficeMode; state: "ready" | UploadStage | "created" | "failed"; error?: string };
 const stateLabels: Record<DocumentTaskSummary["state"], string> = { PENDING: "等待开始", RUNNING: "正在解析", PAUSING: "正在暂停", PAUSED: "已暂停", INTERRUPTED: "已中断", CANCELLED: "已取消", FAILED: "失败", WAITING_REVIEW: "等待复核", COMPLETED: "已完成", EXPIRED: "已过期" };
 const actionLabels: Record<Action, string> = { pause: "暂停", interrupt: "中断", resume: "继续解析", retry_failed: "重试失败单元", accept_partial: "接受部分结果" };
 const formatLabels: Record<Capabilities["sourceTypes"][number], string> = { pdf: "PDF", text: "TXT", csv: "CSV", image: "PNG/JPEG", doc: "Word (.doc)", docx: "Word (.docx)", xls: "Excel (.xls)", xlsx: "Excel (.xlsx)" };
@@ -136,7 +136,7 @@ export default function App() {
         update({ mode, error: undefined });
         try {
           const receipt = await current.start(item.file, capabilities, item.id, mode, stage => update({ state: stage }));
-          update({ state: "created", threadId: receipt.threadId }); created = receipt.threadId;
+          update({ state: "created" }); created = receipt.threadId;
         } catch (error) { update({ state: "failed", error: errorText(error) }); }
         if (!current.active) return;
       }
