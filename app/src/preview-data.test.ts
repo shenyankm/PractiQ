@@ -1,5 +1,5 @@
 import { beforeEach, expect, it, vi } from "vitest";
-import { canInteract, type Bank, type PaperPreview, type Question, type QuestionPage as SummaryPage, type QuestionRow, type Session, type SessionPage, type SettingsResult } from "./api";
+import { canInteract, type Bank, type PaperPreview, type Question, type QuestionPage as SummaryPage, type QuestionRow, type Request, type Session, type SessionPage, type SettingsResult } from "./api";
 import composite from "../fixtures/composite.json";
 import sample from "../fixtures/sample.json";
 import type { PreviewScenario } from "./preview-mode";
@@ -149,7 +149,7 @@ it("hydrates shared options for paper questions and immutable choice snapshots",
  const attempt=session.attempts.find(a=>a.snapshot.id===leaf.id)!;
  expect(attempt.snapshot.question.options).toEqual(owner.options);
  expect(canInteract(attempt.snapshot.question)).toBe(true);
- const submitted=await call<Session>({type:"save_attempt",id:session.id,ordinal:attempt.ordinal,answer:{correct:["A"]},elapsed_ms:0,skip:false,submit:true,self_result:null});
+ const submitted=await call<Session>({type:"save_attempt",id:session.id,ordinal:attempt.ordinal,answer:{correct:["A"]},elapsed_ms:0,skip:false,submit:true} satisfies Request);
  expect(submitted.attempts[attempt.ordinal]).toMatchObject({autoResult:true,result:true,gradeKind:"auto"});
  const questions=structuredClone(composite.questions) as Question[];
  questions.find(q=>q.id==="words")!.options[0].content="Edited option";
@@ -335,7 +335,7 @@ it("preserves history and grading snapshots while rejecting desktop import comma
  await expect(call({type:"review"},"read_review_image")).rejects.toThrow("未实现命令");
 });
 it("submits preview practice separately from self-assessment and preserves the answer",async()=>{
- const submitted=await call<Session>({type:"save_attempt",id:"preview-practice",ordinal:4,answer:{text:"My answer"},elapsed_ms:123,submit:true,skip:false});
+ const submitted=await call<Session>({type:"save_attempt",id:"preview-practice",ordinal:4,answer:{text:"My answer"},elapsed_ms:123,submit:true,skip:false} satisfies Request);
  expect(submitted.attempts[4]).toMatchObject({answer:{text:"My answer"},elapsedMs:123,gradeKind:"ungraded",result:null,autoResult:null});
  expect(submitted.attempts[4].submittedAt).toBeGreaterThan(0);
  const assessed=await call<Session>({type:"self_assess",id:submitted.id,ordinal:4,result:false});

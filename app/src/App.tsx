@@ -724,7 +724,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                 !loading && (
                   <Empty className="min-h-96 border border-dashed">
                     <EmptyHeader>
-                      <EmptyMedia variant="icon">{page === "favorite" ? <Star /> : <BookOpen />}</EmptyMedia>
+                      <EmptyMedia>{page === "favorite" ? <Star /> : <BookOpen />}</EmptyMedia>
                       <EmptyTitle>{page === "wrong" ? t("暂时没有错题") : page === "favorite" ? t("还没有收藏题目") : t("没有找到题目")}</EmptyTitle>
                       <EmptyDescription>{page === "wrong" ? t("错误和未得满分的题目会出现在这里，再次答对或得满分后自动移出；未评分不算错题。") : t("尝试调整筛选，或导入新的题目。")}</EmptyDescription>
                     </EmptyHeader>
@@ -774,7 +774,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
             ) : (
               <Empty className="min-h-96 border border-dashed">
                 <EmptyHeader>
-                  <EmptyMedia variant="icon"><History /></EmptyMedia>
+                  <EmptyMedia><History /></EmptyMedia>
                   <EmptyTitle>{sessionFilter === "all" ? t("还没有练习记录") : t("没有符合此状态的记录")}</EmptyTitle>
                   <EmptyDescription>{sessionFilter === "all" ? t("开始练习后，即可在这里继续作答或回顾结果。") : t("尝试选择其他状态。")}</EmptyDescription>
                 </EmptyHeader>
