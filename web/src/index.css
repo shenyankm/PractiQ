@@ -149,37 +149,6 @@ SOFTWARE.
   overflow-y: hidden;
 }
 
-/* English actions need room to wrap within the desktop's existing columns. */
-html[lang="en"] [data-slot="button"]:not([data-size^="icon"]) {
-  height: auto;
-  min-height: 2rem;
-  white-space: normal;
-}
-
-.sidebar-label {
-  opacity: 1;
-  visibility: visible;
-  transition: opacity 120ms ease-out, visibility 0s;
-}
-
-.sidebar-label[aria-hidden="true"] {
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity 120ms ease-out, visibility 0s linear 120ms;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .sidebar-label,
-  .sidebar-label[aria-hidden="true"] {
-    transition: none;
-  }
-}
-
-/* Keep explicit passage gaps in the surrounding sentence, including whitespace. */
-.passage-flow { line-height: 2.5; }
-.passage-fragment, .passage-fragment .document-content, .passage-fragment .document-content > p { display: inline; white-space: pre-wrap; }
-.passage-fragment .document-content > p { margin: 0; }
-
 /* Independent import workspace; shares the desktop brand and base tokens. */
 body { margin: 0; background: #faf9fc; }
 .web-shell { min-width: 860px; min-height: 100vh; }
