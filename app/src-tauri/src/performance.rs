@@ -39,21 +39,6 @@ fn desktop_stress() {
     }
     tx.commit().unwrap();
     let mut report = json!({"questions":10000,"attempts":100000,"repetitions":3});
-    report["receiptLookupsSeparate"] = measure(|| {
-        for _ in 0..40 {
-            assert!(store.imported_ai("task", None, None).unwrap().is_none());
-        }
-        Value::Null
-    });
-    report["receiptLookupsShared"] = measure(|| {
-        let db = store.connect().unwrap();
-        for _ in 0..40 {
-            assert!(Store::imported_ai_with(&db, "task", None, None)
-                .unwrap()
-                .is_none());
-        }
-        Value::Null
-    });
     report["allQuestions"] = measure(|| {
         let rows = store.questions(None, "", "", "").unwrap();
         assert_eq!(rows.as_array().unwrap().len(), 10000);

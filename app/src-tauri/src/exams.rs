@@ -439,7 +439,7 @@ impl Store {
         )
     }
 }
-fn a_blank_count(q: &mut Value) {
+pub(crate) fn clear_answer_fields(q: &mut Value) {
     for k in [
         "answerPayload",
         "analysis",
@@ -449,14 +449,14 @@ fn a_blank_count(q: &mut Value) {
     ] {
         q[k] = Value::Null;
     }
-    if let Some(blocks) = q["contentBlocks"].as_array_mut() {
-        blocks.retain(|block| !crate::questions::answer_content(block));
-    }
 }
 pub(crate) fn enrich_snapshot(snapshot: &mut Value, locked: bool) {
     if locked {
         let q = &mut snapshot["question"];
-        a_blank_count(q);
+        clear_answer_fields(q);
+        if let Some(blocks) = q["contentBlocks"].as_array_mut() {
+            blocks.retain(|block| !crate::questions::answer_content(block));
+        }
         strip_answer_lines(q);
         if let Some(materials) = snapshot["materials"].as_array_mut() {
             for material in materials {

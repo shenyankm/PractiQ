@@ -1019,29 +1019,25 @@ fn exam_hides_answer_roles_and_reads_live_favorites_without_changing_snapshot() 
 }
 
 #[test]
-fn ai_import_receipts_deduplicate_versions_and_survive_backup_without_work_manifests() {
-    use crate::store::{ImportSource, Pending};
+fn legacy_ai_import_receipts_survive_backup_without_work_manifests() {
+    use crate::store::Pending;
     let (dir, mut s) = store();
     let task = crate::store::id();
     let mut result: Value = serde_json::from_slice(&sample()).unwrap();
     result["visualElements"] = json!([]);
-    let mut pending = Pending::new(serde_json::to_vec(&result).unwrap(), "first".into()).unwrap();
-    pending.source = Some(ImportSource {
-        thread_id: task.clone(),
-        checkpoint_id: "cp1".into(),
-    });
+    let pending = Pending::new(serde_json::to_vec(&result).unwrap(), "first".into()).unwrap();
     let first = s.import_pending(&pending, None, "first").unwrap();
     let duplicate = s
-        .import_pending(&pending, None, "new bank should not exist")
+        .import_pending(
+            &pending,
+            first["bankId"].as_str().map(String::from),
+            "existing bank",
+        )
         .unwrap();
     assert_eq!(duplicate["bankId"], first["bankId"]);
     assert_eq!(duplicate["duplicate"], true);
     result["questions"][0]["stem"] = json!("Changed source result");
-    let mut revised = Pending::new(serde_json::to_vec(&result).unwrap(), "second".into()).unwrap();
-    revised.source = Some(ImportSource {
-        thread_id: task.clone(),
-        checkpoint_id: "cp2".into(),
-    });
+    let revised = Pending::new(serde_json::to_vec(&result).unwrap(), "second".into()).unwrap();
     let second = s.import_pending(&revised, None, "second").unwrap();
     assert_ne!(second["bankId"], first["bankId"]);
     let db = s.connect().unwrap();
@@ -1049,8 +1045,37 @@ fn ai_import_receipts_deduplicate_versions_and_survive_backup_without_work_manif
         db.query_row("SELECT COUNT(*) FROM ai_imports", [], |r| r
             .get::<_, i64>(0))
             .unwrap(),
-        2
+        0
     );
+    // Existing schema-11 receipts remain portable; current ZIP imports do not create them.
+    for (bank, checkpoint) in [(&first, "cp1"), (&second, "cp2")] {
+        db.execute(
+            "INSERT INTO ai_imports SELECT ?1,digest,?2,id FROM imports WHERE bank_id=?3",
+            rusqlite::params![task, checkpoint, text(bank, "bankId")],
+        )
+        .unwrap();
+    }
+    let receipts = |store: &Store| {
+        store
+            .connect()
+            .unwrap()
+            .prepare(
+                "SELECT thread_id,digest,checkpoint_id,import_id FROM ai_imports ORDER BY digest",
+            )
+            .unwrap()
+            .query_map([], |r| {
+                Ok((
+                    r.get::<_, String>(0)?,
+                    r.get::<_, String>(1)?,
+                    r.get::<_, String>(2)?,
+                    r.get::<_, String>(3)?,
+                ))
+            })
+            .unwrap()
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .unwrap()
+    };
+    let previous_receipts = receipts(&s);
     std::fs::create_dir_all(dir.path().join("ai/import-batches")).unwrap();
     std::fs::write(
         dir.path().join("ai/import-batches/excluded.json"),
@@ -1096,27 +1121,24 @@ fn ai_import_receipts_deduplicate_versions_and_survive_backup_without_work_manif
         11
     );
     assert_eq!(
-        s.import_pending(&pending, None, "after restore").unwrap()["bankId"],
+        s.import_pending(
+            &pending,
+            first["bankId"].as_str().map(String::from),
+            "after restore",
+        )
+        .unwrap()["bankId"],
         first["bankId"]
     );
-    assert_eq!(
-        s.imported_ai(&task, Some(&revised.digest().unwrap()), None)
-            .unwrap(),
-        second["bankId"].as_str().map(String::from)
-    );
+    assert_eq!(receipts(&s), previous_receipts);
 }
 
 #[test]
-fn database_failure_rolls_back_bank_and_receipt_together() {
-    use crate::store::{ImportSource, Pending};
+fn database_failure_rolls_back_bank_and_import_together() {
+    use crate::store::Pending;
     let (_dir, s) = store();
     let mut result: Value = serde_json::from_slice(&sample()).unwrap();
     result["visualElements"] = json!([]);
     let mut pending = Pending::new(serde_json::to_vec(&result).unwrap(), "failure".into()).unwrap();
-    pending.source = Some(ImportSource {
-        thread_id: crate::store::id(),
-        checkpoint_id: "cp".into(),
-    });
     let orphan = b"failed import".to_vec();
     let orphan_hash = crate::store::hash(&orphan);
     pending

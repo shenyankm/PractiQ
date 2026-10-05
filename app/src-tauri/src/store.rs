@@ -59,11 +59,6 @@ pub struct Pending {
     pub description: String,
     pub assets: HashMap<String, (String, Vec<u8>)>,
     pub missing: Vec<String>,
-    pub source: Option<ImportSource>,
-}
-pub struct ImportSource {
-    pub thread_id: String,
-    pub checkpoint_id: String,
 }
 impl Pending {
     pub fn new(bytes: Vec<u8>, title: String) -> Result<Self> {
@@ -78,13 +73,9 @@ impl Pending {
             description: String::new(),
             assets: HashMap::new(),
             missing,
-            source: None,
         })
     }
     pub fn digest(&self) -> Result<String> {
-        if self.source.is_some() {
-            return Ok(hash(&serde_json::to_vec(&json!({"result":contract::result(&self.root),"status":self.root["status"],"processing":self.root["processing"]})).map_err(err)?));
-        }
         Ok(hash(
             &serde_json::to_vec(contract::result(&self.root)).map_err(err)?,
         ))
@@ -446,17 +437,6 @@ impl Store {
             .map_err(err)?;
         }
         let digest = p.digest()?;
-        if let Some(source) = &p.source {
-            if let Some(bank) = tx.query_row(
-                "SELECT i.bank_id FROM ai_imports a JOIN imports i ON i.id=a.import_id WHERE a.thread_id=?1 AND a.digest=?2",
-                params![source.thread_id, digest], |r| r.get::<_, String>(0),
-            ).optional().map_err(err)? {
-                tx.execute("UPDATE ai_imports SET checkpoint_id=?3 WHERE thread_id=?1 AND digest=?2",
-                    params![source.thread_id, digest, source.checkpoint_id]).map_err(err)?;
-                tx.commit().map_err(err)?;
-                return Ok(json!({"duplicate":true,"bankId":bank,"count":0}));
-            }
-        }
         let existing_bank = bank_id.is_some();
         let bank = bank_id.unwrap_or_else(id);
         let exists: bool = tx
@@ -487,10 +467,6 @@ impl Store {
             )
             .map_err(err)?
         {
-            if let Some(source) = &p.source {
-                tx.execute("INSERT INTO ai_imports(thread_id,digest,checkpoint_id,import_id) SELECT ?1,?2,?3,id FROM imports WHERE bank_id=?4 AND digest=?2",
-                    params![source.thread_id, digest, source.checkpoint_id, bank]).map_err(err)?;
-            }
             tx.commit().map_err(err)?;
             return Ok(json!({"duplicate":true,"bankId":bank,"count":0}));
         }
@@ -502,30 +478,11 @@ impl Store {
             .zip(&ids)
             .map(|(q, id)| (text(q, "id").to_owned(), id.clone()))
             .collect();
-        // Early schema 9 databases still have an unused, required raw column.
-        let has_raw = tx
-            .query_row(
-                "SELECT EXISTS(SELECT 1 FROM pragma_table_info('imports') WHERE name='raw')",
-                [],
-                |r| r.get::<_, bool>(0),
-            )
-            .map_err(err)?;
         tx.execute(
-            if has_raw {
-                "INSERT INTO imports(id,bank_id,digest,raw,created_at) VALUES(?1,?2,?3,'',?4)"
-            } else {
-                "INSERT INTO imports(id,bank_id,digest,created_at) VALUES(?1,?2,?3,?4)"
-            },
+            "INSERT INTO imports(id,bank_id,digest,created_at) VALUES(?1,?2,?3,?4)",
             params![import_id, bank, digest, now()],
         )
         .map_err(err)?;
-        if let Some(source) = &p.source {
-            tx.execute(
-                "INSERT INTO ai_imports VALUES(?1,?2,?3,?4)",
-                params![source.thread_id, digest, source.checkpoint_id, import_id],
-            )
-            .map_err(err)?;
-        }
         let offset: i64 = tx
             .query_row(
                 "SELECT COALESCE(MAX(position),-1)+1 FROM questions WHERE bank_id=?1",
@@ -555,27 +512,6 @@ impl Store {
         Ok(json!({"duplicate":false,"bankId":bank,"count":count}))
     }
 
-    #[cfg(test)]
-    pub fn imported_ai(
-        &self,
-        thread: &str,
-        digest: Option<&str>,
-        checkpoint: Option<&str>,
-    ) -> Result<Option<String>> {
-        Self::imported_ai_with(&self.connect()?, thread, digest, checkpoint)
-    }
-    #[cfg(test)]
-    pub(crate) fn imported_ai_with(
-        db: &Connection,
-        thread: &str,
-        digest: Option<&str>,
-        checkpoint: Option<&str>,
-    ) -> Result<Option<String>> {
-        db.query_row(
-            "SELECT i.bank_id FROM ai_imports a JOIN imports i ON i.id=a.import_id WHERE a.thread_id=?1 AND (?2 IS NULL OR a.digest=?2) AND (?3 IS NULL OR a.checkpoint_id=?3) LIMIT 1",
-            params![thread, digest, checkpoint], |r| r.get(0),
-        ).optional().map_err(err)
-    }
     pub fn banks(&self) -> Result<Value> {
         let db = self.connect()?;
         let mut stmt = db.prepare(&format!("SELECT b.id,b.title,COUNT(q.id) FROM banks b LEFT JOIN questions q ON q.bank_id=b.id AND (q.mode IS NULL OR q.mode NOT IN ({COMPOSITE_SQL})) GROUP BY b.id ORDER BY b.created_at DESC,b.id DESC")).map_err(err)?;
@@ -660,10 +596,8 @@ impl Store {
     ) -> Result<Value> {
         let (search, mode, filter) = query;
         crate::questions::validate_filter(banks, mode, filter)?;
-        if page.is_some_and(|(limit, offset)| {
-            !(1..=100).contains(&limit) || offset > i64::MAX as usize
-        }) {
-            return Err(crate::language::error("LOCAL_FILTER_INVALID", json!({})));
+        if let Some((limit, offset)) = page {
+            validate_page(limit, offset)?;
         }
         let db = self.connect()?;
         // ponytail: root IDs use linear memory for exact totals; move COUNT/paging into SQL if ID lists become large.
@@ -675,21 +609,13 @@ impl Store {
         };
         let total = ids.len();
         let stats = if stats_only || include_stats {
-            let mut statement = db.prepare(&format!("
-                WITH RECURSIVE tree(root,id) AS (
-                    SELECT value,value FROM json_each(?1)
-                    UNION ALL SELECT t.root,q.id FROM questions q JOIN tree t ON q.parent_id=t.id
-                ) SELECT COALESCE(CASE WHEN r.question_kind IS NOT NULL THEN r.question_kind WHEN r.mode='gap_fill' THEN 'grammar_fill' WHEN r.mode='choice' THEN c.variant ELSE r.mode END,''),
-                    SUM(n.mode IS NULL OR n.mode NOT IN ({COMPOSITE_SQL}))
-                FROM tree t JOIN questions r ON r.id=t.root JOIN questions n ON n.id=t.id
-                LEFT JOIN choice_questions c ON c.question_id=r.id GROUP BY r.id
-            ")).map_err(err)?;
+            let mut statement = crate::questions::prepare_root_metadata(&db)?;
             let mut types = serde_json::Map::new();
             let mut count = 0;
             let mut weights = Vec::new();
             for row in statement
                 .query_map([json!(ids).to_string()], |r| {
-                    Ok((r.get::<_, String>(0)?, r.get::<_, usize>(1)?))
+                    Ok((r.get::<_, String>(1)?, r.get::<_, usize>(2)?))
                 })
                 .map_err(err)?
             {
@@ -748,11 +674,7 @@ impl Store {
             );
             results.push(root);
         }
-        Ok(if page.is_some() {
-            json!({"items":results,"total":total,"offset":offset})
-        } else {
-            json!(results)
-        })
+        Ok(json!(results))
     }
     pub fn question_detail(&self, qid: &str) -> Result<Value> {
         let db = self.connect()?;

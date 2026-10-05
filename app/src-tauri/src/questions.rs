@@ -19,6 +19,18 @@ pub(crate) fn validate_filter(banks: &[String], mode: &str, filter: &str) -> Res
     }
     Ok(())
 }
+pub(crate) fn prepare_root_metadata(db: &Connection) -> Result<rusqlite::Statement<'_>> {
+    db.prepare(&format!("
+        WITH RECURSIVE tree(root,id) AS (
+            SELECT value,value FROM json_each(?1)
+            UNION ALL SELECT t.root,q.id FROM questions q JOIN tree t ON q.parent_id=t.id
+        ) SELECT t.root,
+            COALESCE(CASE WHEN r.question_kind IS NOT NULL THEN r.question_kind WHEN r.mode='gap_fill' THEN 'grammar_fill' WHEN r.mode='choice' THEN c.variant ELSE r.mode END,''),
+            SUM(n.mode IS NULL OR n.mode NOT IN ({COMPOSITE_SQL}))
+        FROM tree t JOIN questions r ON r.id=t.root JOIN questions n ON n.id=t.id
+        LEFT JOIN choice_questions c ON c.question_id=r.id GROUP BY t.root
+    ")).map_err(err)
+}
 pub(crate) fn answer_content(content: &Value) -> bool {
     let role = text(content, "role").to_lowercase();
     [

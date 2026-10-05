@@ -375,15 +375,7 @@ pub(crate) fn redact_snapshot(
 }
 fn strip_answers(q: &mut Value) {
     crate::exams::strip_answer_lines(q);
-    for k in [
-        "answerPayload",
-        "analysis",
-        "sourceText",
-        "scoringRubric",
-        "scoreSourceText",
-    ] {
-        q[k] = Value::Null;
-    }
+    crate::exams::clear_answer_fields(q);
     for key in ["contentBlocks", "passage"] {
         if let Some(blocks) = q.get_mut(key).and_then(Value::as_array_mut) {
             blocks.retain(|b| !crate::questions::answer_content(b));

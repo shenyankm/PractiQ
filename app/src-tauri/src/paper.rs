@@ -1,5 +1,5 @@
 //! Group-aware selection and score allocation run only in Rust.
-use crate::question_metadata::{COMPOSITE_SQL, FILTER_MODES};
+use crate::question_metadata::FILTER_MODES;
 use crate::{
     contract::{text, Result},
     questions,
@@ -151,8 +151,8 @@ impl Store {
         if ids.is_empty() {
             return Ok(Vec::new());
         }
-        let mut stmt = db.prepare(&format!("WITH RECURSIVE tree(root,id) AS (SELECT value,value FROM json_each(?1) UNION ALL SELECT t.root,q.id FROM questions q JOIN tree t ON q.parent_id=t.id) SELECT t.root,COALESCE(CASE WHEN r.question_kind IS NOT NULL THEN r.question_kind WHEN r.mode='gap_fill' THEN 'grammar_fill' WHEN r.mode='choice' THEN c.variant ELSE r.mode END,''),SUM(n.mode IS NULL OR n.mode NOT IN ({COMPOSITE_SQL})) FROM tree t JOIN questions r ON r.id=t.root JOIN questions n ON n.id=t.id LEFT JOIN choice_questions c ON c.question_id=r.id GROUP BY t.root")).map_err(|e| e.to_string())?;
-        let mut details = stmt
+        let mut statement = questions::prepare_root_metadata(&db)?;
+        let mut details = statement
             .query_map([json!(ids).to_string()], |r| {
                 Ok((
                     r.get::<_, String>(0)?,
@@ -391,6 +391,13 @@ mod tests {
             .iter()
             .all(|row| row.get("answerableCount").is_none()));
         let ordered = store.preview_paper(request(24, false)).unwrap();
+        assert_eq!(
+            ordered["questionIds"],
+            json!(list(&page, "items")
+                .iter()
+                .map(|row| &row["id"])
+                .collect::<Vec<_>>())
+        );
         fastrand::seed(7);
         let shuffled = store.preview_paper(request(24, true)).unwrap();
         assert_ne!(shuffled["questionIds"], ordered["questionIds"]);
