@@ -19,6 +19,7 @@ from typing import Literal
 from .config import Config
 from .contracts import (
     OFFICE_FILE_MAX_BYTES,
+    OFFICE_SOURCE_TYPES,
     DocumentReference,
     OfficeMode,
     document_source_limit,
@@ -31,7 +32,6 @@ TOTAL_LIMIT = 100 * 1024 * 1024
 FILE_COUNT = 100
 JSON_LINE_LIMIT = 1024 * 1024
 CLEANUP_TIMEOUT = 2.0
-OFFICE_TYPES = {"doc", "docx", "xls", "xlsx"}
 WORKER_ERRORS = {
     "OFFICE_CONVERSION_FAILED": 502, "OFFICE_ENGINE_INVALID": 503,
     "OFFICE_FORMAT_UNSUPPORTED": 422, "OFFICE_INPUT_INVALID": 422,
@@ -184,7 +184,7 @@ def _read_artifacts(output: Path, entries: object, *, kind: str, mode: OfficeMod
 
 async def convert_office(reference: DocumentReference, payload: bytes, *, mode: OfficeMode,
                          config: Config, timeout: float) -> list[ConvertedSource]:
-    if reference.sourceType not in OFFICE_TYPES:
+    if reference.sourceType not in OFFICE_SOURCE_TYPES:
         raise _error("OFFICE_FORMAT_UNSUPPORTED")
     if mode not in {"pdf", "text"} or not math.isfinite(timeout) or timeout <= 0:
         raise _error("OFFICE_INPUT_INVALID")

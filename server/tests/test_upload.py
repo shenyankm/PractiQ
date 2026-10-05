@@ -4,33 +4,13 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from practiq_ai import webapp
-from practiq_ai.contracts import (
-    DocumentReference,
-    DocumentUploadResponse,
-    document_source_key,
-)
 from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.webapp import app
-
-
-class UploadStore:
-    async def prepare_document(self, request):
-        digest = request.sha256
-        return DocumentUploadResponse(
-            document=DocumentReference(
-                objectKey=document_source_key(request.sourceType, digest),
-                sha256=digest,
-                mediaType=request.mediaType,
-                sizeBytes=request.sizeBytes,
-                sourceType=request.sourceType,
-                fileName=request.fileName,
-            ),
-            upload=None,
-        )
+from tests.support import FakeObjectStore
 
 
 async def test_upload_returns_typed_content_addressed_reference(monkeypatch):
-    monkeypatch.setattr(webapp, "get_object_store", lambda: UploadStore())
+    monkeypatch.setattr(webapp, "get_object_store", lambda: FakeObjectStore({}))
     request = {
         "sourceType": "text",
         "fileName": "quiz.txt",

@@ -56,6 +56,7 @@ it("paginates every question record without modifying the DTO, and supports resu
   expect(screen.getByText("无文档分组。")).toBeTruthy(); expect(screen.getByText("无关联图片。")).toBeTruthy();
 });
 it("renders structured formulas/blanks/items and only reads images on an explicit click", async () => {
+  const errors = vi.spyOn(console, "error").mockImplementation(() => {});
   const user = userEvent.setup(); const client = new Client("fake"); const image = vi.spyOn(client, "image").mockResolvedValue(new Blob(["image"], { type: "image/png" })); const create = vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:checked-image"); const revoke = vi.spyOn(URL, "revokeObjectURL");
   const reference = { objectKey: "managed/image.png", sha256: "a".repeat(64), mediaType: "image/png", sizeBytes: 5 };
   const q = question({ parentId: null, optionSourceId: null, answerPayload: { text: "原文答案" }, analysis: "解析原文", scoringRubric: "文档评分依据", options: [{ label: null, content: null }], items: [{ id: 1, side: "left", content: "项目" }], contentBlocks: [{ partType: "formula", label: "公式", role: "question", latexValue: "x^2" }, { partType: "blank", questionId: "child" }, { partType: "text", textValue: "独立正文", jsonValue: { rows: [["a"]] } }] });
@@ -68,6 +69,10 @@ it("renders structured formulas/blanks/items and only reads images on an explici
   const figure = screen.getByText("受校验图片", { selector: "figcaption" }).closest("figure")!;
   await user.click(within(figure).getByRole("button", { name: "查看图片" }));
   expect(await within(figure).findByRole("img", { name: "受校验图片" })).toBeTruthy(); expect(create).toHaveBeenCalledTimes(1);
+  const sourceFigure = screen.getByText("完整来源页", { selector: "figcaption" }).closest("figure")!;
+  await user.click(within(sourceFigure).getByRole("button", { name: "查看图片" }));
+  expect(await within(sourceFigure).findByRole("img", { name: "完整来源页" })).toBeTruthy(); expect(image).toHaveBeenCalledTimes(2);
+  expect(errors).not.toHaveBeenCalled();
   view.unmount(); expect(revoke).toHaveBeenCalledWith("blob:checked-image");
 });
 it("does not leak an object URL if image loading completes after unmount, and allows a manual error retry", async () => {

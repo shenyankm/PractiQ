@@ -1,7 +1,7 @@
 import { COMPOSITE_FILTERS } from "./contracts.generated";
 import { message, MessageError, t, useI18n } from "./i18n";
 import { useEffect, useRef, useState } from "react";
-import { api, errorMessage, isComposite, type BankChoice, type Session, type SessionKind, type QuestionRow, type QuestionSummary, type QuestionStats, type PaperPreview } from "./api";
+import { api, errorMessage, isComposite, type BankChoice, type Session, type SessionKind, type QuestionSummary, type QuestionStats, type PaperPreview } from "./api";
 import { cents, defaultPaperCount, questionType, types } from "./paper";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -24,7 +24,8 @@ export function StudySetup({banks, initialBank, initialBankIds, initialFilter, i
   const countEditedForQuery = useRef(false);
   const [selection, setSelection] = useState("count"), [selected, setSelected] = useState<Record<string, { count: number; group: boolean }>>({}), [quotas, setQuotas] = useState<Record<string,number>>({});
   const [paper, setPaper] = useState<PaperPreview | null>(null);
-  const [preview, setPreview] = useState<QuestionRow[]>([]), [scores, setScores] = useState<string[]>([]), [total, setTotal] = useState("100"), [budgets, setBudgets] = useState<Record<string,string>>({});
+  const preview = paper?.questions ?? [];
+  const [scores, setScores] = useState<string[]>([]), [total, setTotal] = useState("100"), [budgets, setBudgets] = useState<Record<string,string>>({});
   const [scorePage, setScorePage] = useState(0);
   const [advancedLoaded, setAdvancedLoaded] = useState(false);
   const currentScorePage = Math.min(scorePage, Math.max(0, Math.ceil(preview.length / 30) - 1));
@@ -43,7 +44,7 @@ export function StudySetup({banks, initialBank, initialBankIds, initialFilter, i
     countEditedForQuery.current = false;
     completedStats.current = ""; completedPage.current = "";
     setLoadedQuery(""); setLoadedPage("");
-    setError(null); setStatsError(null); setPageError(null); setPreview([]); setPaper(null); setSelected({}); setOffset(0);
+    setError(null); setStatsError(null); setPageError(null); setPaper(null); setSelected({}); setOffset(0);
     setStatsRetry({query:"",attempt:0}); setPageRetry({query:"",attempt:0});
   }, [query]);
   useEffect(() => {
@@ -84,12 +85,12 @@ export function StudySetup({banks, initialBank, initialBankIds, initialFilter, i
     return () => { active = false; clearTimeout(timer); };
   }, [query,statsQuery,pageQuery,pageAttempt,selection,offset]);
     const perform = (job:()=>Promise<void>) => run(async()=>{setError(null);try{await job();}catch(e){setError(e);}});
-  const invalidate = () => { setPreview([]); setPaper(null); setScorePage(0); };
+  const invalidate = () => { setPaper(null); setScorePage(0); };
   async function generate(withBudgets = false) {
     if (withBudgets && !paper) throw new MessageError(message("请先选择题目并生成预览"));
     const result = await api({type:"preview_paper", request:{bank_ids:bankIds,search,mode,filter,selection:withBudgets ? "manual" : selection,count,quotas,question_ids:withBudgets ? paper!.questionIds : Object.keys(selected),random:withBudgets ? false : random,total_cents:kind === "practice" ? 0 : cents(total),budgets:withBudgets ? Object.fromEntries(previewTypes.map(key => [key,cents(budgets[key] || "0")])) : {}}});
     if (withBudgets && result.digest !== paper!.digest) throw {code:"LOCAL_PAPER_CHANGED"};
-    setPaper(result); setPreview(result.questions); setScores(result.scores.map(v=>(v/100).toFixed(2)));
+    setPaper(result); setScores(result.scores.map(v=>(v/100).toFixed(2)));
     if (!withBudgets) setScorePage(0);
     const resultTypes = new Set(result.questions.map(row => row.rootType ?? questionType(row.question)));
     setBudgets(previous => Object.fromEntries(Object.entries(previous).filter(([key]) => resultTypes.has(key))));

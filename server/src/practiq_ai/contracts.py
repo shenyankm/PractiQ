@@ -192,7 +192,7 @@ def normalize_missing_values(value):
     return value
 
 
-def normalize_answer(mode, payload, variant=None):
+def normalize_answer(mode, payload):
     if isinstance(payload, BaseModel):
         payload = payload.model_dump()
     payload = normalize_missing_values(payload)
@@ -289,7 +289,7 @@ def question_missing_fields(data):
             missing.append("matchingVariant")
         if len(items)<2 or any(not item.get("content") for item in items) or mode == "matching" and (any(i.get("side") is None for i in items) or sum(i.get("side")=="left" for i in items)<2 or sum(i.get("side")=="right" for i in items)<2):
             missing.append("items")
-    answer = normalize_answer(mode, data.get("answerPayload"), data.get("choiceVariant"))
+    answer = normalize_answer(mode, data.get("answerPayload"))
     if mode not in COMPOSITE_MODES and answer_references_missing(mode, answer, data):
         missing.append("answerPayload")
     for field in ("analysis", "sourceText"):
@@ -443,7 +443,7 @@ class ParsedQuestion(StrictModel):
             raise ValueError("passage requires a composite question; retain separate composite material parents and answerable children instead of collapsing both into one record")
         if self.optionSourceId and (self.answerMode != "choice" or self.options):
             raise ValueError("shared options require a choice without local options")
-        self.answerPayload = normalize_answer(self.answerMode, self.answerPayload, self.choiceVariant)
+        self.answerPayload = normalize_answer(self.answerMode, self.answerPayload)
         if self.answerMode == "fill_blank" and isinstance(self.answerPayload, FillBlankAnswerPayload):
             count = len(self.answerPayload.answers)
             if self.blankCount is not None and self.blankCount != count:

@@ -22,6 +22,8 @@ from practiq_ai.contracts import (
     ArtifactReference,
     DocumentReference,
     DocumentUploadRequest,
+    DocumentUploadResponse,
+    document_source_key,
 )
 from practiq_ai.errors import DocumentProcessingError
 from practiq_ai.graphs import document
@@ -74,6 +76,13 @@ class FakeObjectStore:
     def __init__(self, blobs: dict[str, bytes]):
         self.blobs = blobs
         self.put_kinds: list[str] = []
+
+    async def prepare_document(self, request):
+        return DocumentUploadResponse(document=DocumentReference(
+            objectKey=document_source_key(request.sourceType, request.sha256), sha256=request.sha256,
+            mediaType=request.mediaType, sizeBytes=request.sizeBytes, sourceType=request.sourceType,
+            fileName=request.fileName,
+        ), upload=None)
 
     async def get_verified(self, reference):
         payload = self.blobs[reference.objectKey]
@@ -148,7 +157,7 @@ def run_config(thread: str = "thread-1") -> RunnableConfig:
 
 
 def local_graph(checkpointer=None, **kwargs):
-    """Explicit local Store; production uses PostgreSQL-backed storage."""
+    """Explicit local Store; production uses SQLite-backed storage."""
     kwargs.setdefault("store", InMemoryStore())
     return document.build_document_graph(checkpointer, **kwargs).with_config(run_config())
 

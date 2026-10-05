@@ -4,6 +4,7 @@ import hashlib
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Literal, cast
+from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import pytest
@@ -105,8 +106,14 @@ async def test_durable_manifest_replays_without_conversion_and_rejects_cross_sou
     monkeypatch.setattr(office_service, "convert_office", convert)
     runtime = cast(Any, SimpleNamespace(store=MemoryStore(), execution_info=SimpleNamespace(thread_id="task", run_id="run")))
     state = {"document": reference.model_dump(mode="json"), "officeMode": "text"}
+    verified = AsyncMock(wraps=store.get_verified)
+    monkeypatch.setattr(store, "get_verified", verified)
     first = await normalization.normalize_source(state, runtime)
+    assert sum(call.args[0] == reference for call in verified.call_args_list) == 1
+    verified.reset_mock()
     assert await normalization.normalize_source(state, runtime) == first
+    assert sum(call.args[0] == reference for call in verified.call_args_list) == 1
+    assert len(verified.call_args_list) == 2  # Original and cached derived artifact.
     assert len(calls) == 1
     manifest = first["normalization"]
     altered = {**manifest, "engine": {**identity, "sha256": "0" * 64}}

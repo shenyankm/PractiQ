@@ -4,7 +4,7 @@ import { capabilities, task, taskId, runId } from "./test-fixtures";
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 const receipt = { threadId: taskId, requestId: taskId, runId, accepted: true };
-function mockUpload(options: { existing?: boolean; badReference?: boolean; badUrl?: boolean; networkAtCreate?: boolean } = {}) {
+function mockUpload(options: { existing?: boolean; badReference?: boolean; badUploadedReference?: boolean; badUrl?: boolean; networkAtCreate?: boolean } = {}) {
   let document: Record<string, unknown>;
   const fetcher = vi.fn(async (path: string, init: RequestInit) => {
     if (path === "/api/uploads") {
@@ -12,7 +12,7 @@ function mockUpload(options: { existing?: boolean; badReference?: boolean; badUr
       document = { ...metadata, objectKey: `practiq-agent/sources/${metadata.sha256}/source.${metadata.sourceType === "text" ? "txt" : metadata.sourceType}` };
       return json({ document: options.badReference ? { ...document, sha256: "0".repeat(64) } : document, upload: options.existing ? null : { method: "PUT", url: (options.badUrl ? "https://untrusted.invalid" : "") + "/api/uploads/content?" + new URLSearchParams(metadata), headers: { "Content-Type": metadata.mediaType } } });
     }
-    if (path.startsWith("/api/uploads/content?")) return json(document);
+    if (path.startsWith("/api/uploads/content?")) return json(options.badUploadedReference ? { ...document, sha256: "0".repeat(64) } : Object.fromEntries(Object.entries(document).reverse()));
     if (path === "/api/document-tasks") {
       if (options.networkAtCreate) throw new TypeError("connection lost");
       return json(receipt, 202);
@@ -48,7 +48,7 @@ describe("source selection and bounded upload", () => {
     expect(() => validateFiles([new File(["x"], "a.docx")], { ...capabilities, sourceTypes: ["pdf"] })).toThrow("暂不支持");
     expect(sourceLimit({ ...capabilities, sourceMaxBytes: 101 * 1024 * 1024 })).toBe(101 * 1024 * 1024);
   });
-  it("hashes exact bytes, uploads with Bearer, then creates exactly one explicit task", async () => {
+  it("hashes exact bytes, uploads with Bearer, accepts reordered fields, then creates one explicit task", async () => {
     const fetcher = mockUpload();
     const stages: string[] = [];
     const client = new Client("fake-service-token");
@@ -78,6 +78,11 @@ describe("source selection and bounded upload", () => {
     const fetcher = mockUpload(options);
     await expect(new Client("fake").start(new File(["x"], "a.txt"), capabilities, taskId, "pdf", () => {})).rejects.toBeInstanceOf(ApiError);
     expect(fetcher.mock.calls).toHaveLength(1);
+  });
+  it("rejects an altered uploaded reference before task creation", async () => {
+    const fetcher = mockUpload({ badUploadedReference: true });
+    await expect(new Client("fake").start(new File(["x"], "a.txt"), capabilities, taskId, "pdf", () => {})).rejects.toMatchObject({ code: "INVALID_REFERENCE" });
+    expect(fetcher.mock.calls.map(([url]) => new URL(url, location.origin).pathname)).toEqual(["/api/uploads", "/api/uploads/content"]);
   });
   it("does not replay an uncertain create automatically and preserves the supplied request ID for explicit retry", async () => {
     const fetcher = mockUpload({ existing: true, networkAtCreate: true });

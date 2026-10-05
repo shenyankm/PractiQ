@@ -85,7 +85,7 @@ async def normalize_source(state: dict[str, Any], runtime: Runtime[Any]) -> dict
     if config.office_executable is None:
         raise DocumentProcessingError(503, "Office conversion is not configured", "OFFICE_NOT_CONFIGURED")
     store = await asyncio.to_thread(get_object_store)
-    await store.get_verified(reference)
+    payload = await store.get_verified(reference)
     info = runtime.execution_info
     if runtime.store is None or info is None or info.thread_id is None:
         raise DocumentProcessingError(503, "Office preparation requires a durable Store", "EXECUTION_STORE_REQUIRED")
@@ -94,9 +94,9 @@ async def normalize_source(state: dict[str, Any], runtime: Runtime[Any]) -> dict
     except Exception as exc:
         raise DocumentProcessingError(503, "Office preparation storage is unavailable", "EXECUTION_STORE_UNAVAILABLE") from exc
     if previous:
+        del payload
         manifest = await verified_normalization(reference, previous.value, mode=mode, store=store, config=config)
     else:
-        payload = await store.get_verified(reference)
         identity = await asyncio.to_thread(engine_identity, config)
         converted = await convert_office(reference, payload, mode=mode, config=config,
                                         timeout=min(180, await run_remaining(runtime)))

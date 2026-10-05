@@ -149,9 +149,7 @@ export class Client {
       const keys = Object.keys(metadata) as (keyof typeof metadata)[];
       if (prepared.upload.method !== "PUT" || url.origin !== location.origin || url.pathname !== "/api/uploads/content" || url.hash || Array.from(url.searchParams).length !== keys.length || !keys.every(key => url.searchParams.get(key) === String(metadata[key]))) throw new ApiError("服务返回的上传地址不匹配。", "INVALID_URL");
       const uploaded = await this.json<UploadDocument>(url.pathname + url.search, { method: "PUT", headers: { "Content-Type": metadata.mediaType }, body: bytes });
-      if (JSON.stringify(uploaded) !== JSON.stringify(document)) {
-        if (Object.keys(document).some(key => uploaded[key as keyof UploadDocument] !== document[key as keyof UploadDocument])) throw new ApiError("上传后的文件引用不匹配。", "INVALID_REFERENCE");
-      }
+      if (Object.keys(document).some(key => uploaded[key as keyof UploadDocument] !== document[key as keyof UploadDocument])) throw new ApiError("上传后的文件引用不匹配。", "INVALID_REFERENCE");
     }
     onStage("starting");
     const request: DocumentTaskCreate = { requestId, document, graphId: "document_parser", failurePolicy: "return_partial", ...(isOffice(format.sourceType) ? { officeMode } : {}) };

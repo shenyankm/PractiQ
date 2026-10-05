@@ -24,7 +24,7 @@ import pytest
 REPOSITORY = Path(__file__).resolve().parents[2]
 ENVIRONMENT = {"AI_SERVICE_TOKEN": "synthetic-profile", "LLM_PROVIDER": "dashscope",
                "LLM_API_KEY": "synthetic-profile", "LLM_MODEL": "synthetic",
-               "AI_PROVIDER_RPM": "100000", "AI_DESKTOP_MODE": "1", "AI_READ_ONLY": "0"}
+               "AI_PROVIDER_RPM": "100000", "AI_READ_ONLY": "0"}
 
 
 def import_profile():
