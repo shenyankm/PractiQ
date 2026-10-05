@@ -107,6 +107,7 @@ test("invalid auth makes no model request; disconnect and reload clear memory-on
 });
 
 test("uncertain accepted POST never auto replays; explicit retry preserves requestId and Office mode", async ({ page }) => {
+  await page.clock.install();
   const http = await fakeHTTP(page); let lose = true;
   http.server.intercept = async (route, call) => {
     if (call.path === "/api/document-tasks" && call.method === "POST" && lose) {
@@ -119,6 +120,7 @@ test("uncertain accepted POST never auto replays; explicit retry preserves reque
   await page.getByLabel("选择文档").setInputFiles({ name: "uncertain.docx", mimeType: "application/octet-stream", buffer: Buffer.from("fake office") });
   await page.getByRole("button", { name: "开始导入", exact: true }).click(); await expect(page.getByRole("button", { name: "重试开始", exact: true })).toBeVisible();
   const reads = http.calls.filter(call => call.method === "GET").length;
+  await page.clock.fastForward(30000);
   await expect.poll(() => http.calls.filter(call => call.method === "GET").length).toBeGreaterThan(reads);
   expect(starts(http.calls)).toHaveLength(1); await expect(page.getByLabel("Word / Excel 转换模式")).toBeDisabled();
   await page.getByRole("button", { name: "重试开始", exact: true }).click(); await expect(page.getByText(/任务已创建。页面/)).toBeVisible();
@@ -126,11 +128,12 @@ test("uncertain accepted POST never auto replays; explicit retry preserves reque
 });
 
 test("paused partial checkpoints only poll GET until explicit resume and pause actions", async ({ page }) => {
+  await page.clock.install();
   const http = await fakeHTTP(page, { ...task, state: "PAUSED", phase: "chunk_review", allowedActions: ["resume", "retry_failed", "accept_partial"] });
   await connect(page); await openTask(page);
   await expect(page.getByRole("button", { name: "重试失败单元", exact: true })).toBeEnabled(); await expect(page.getByRole("button", { name: "接受部分结果", exact: true })).toBeEnabled();
   await page.getByText("模型用量与任务诊断", { exact: true }).click(); await expect(page.getByText(/实际总用量未知/)).toBeVisible();
-  const reads = http.calls.length; await expect.poll(() => http.calls.length).toBeGreaterThan(reads); expect(mutations(http.calls)).toHaveLength(0);
+  const reads = http.calls.length; await page.clock.fastForward(30000); await expect.poll(() => http.calls.length).toBeGreaterThan(reads); expect(mutations(http.calls)).toHaveLength(0);
   await page.getByRole("button", { name: "继续解析", exact: true }).click(); await expect(page.getByRole("button", { name: "暂停", exact: true })).toBeEnabled();
   expect(http.calls.find(call => call.path.endsWith("/control"))?.body).toMatchObject({ action: "resume", runId: null, checkpointId: "checkpoint-one", units: [] });
   await page.getByRole("button", { name: "暂停", exact: true }).click(); await expect(page.getByRole("button", { name: "继续解析", exact: true })).toBeEnabled();

@@ -1,4 +1,4 @@
-import type { ArtifactReference, DocumentReference, DocumentSourceType, DocumentTaskControl, DocumentTaskCreate, DocumentTaskDetail, DocumentTaskList, DocumentTaskReceipt, DocumentTaskReparse, DocumentTaskReview, DocumentUploadResponse, ImportCapabilities, OfficeMode } from "./contracts.generated";
+import type { ArtifactReference, DocumentReference, DocumentSourceType, DocumentTaskControl, DocumentTaskCreate, DocumentTaskDetail, DocumentTaskHead, DocumentTaskList, DocumentTaskReceipt, DocumentTaskReparse, DocumentTaskReview, DocumentUploadResponse, ImportCapabilities, OfficeMode } from "./contracts.generated";
 
 export type SourceType = DocumentSourceType;
 export type { OfficeMode } from "./contracts.generated";
@@ -121,12 +121,14 @@ export class Client {
     if (value.officeSourceMaxBytes != null && (!Number.isSafeInteger(value.officeSourceMaxBytes) || value.officeSourceMaxBytes <= 0 || value.officeSourceMaxBytes > value.sourceMaxBytes)) throw new ApiError("服务能力响应无效。", "INVALID_RESPONSE");
     return value;
   }
-  list(offset: number, filter = "", signal?: AbortSignal) {
-    const query = new URLSearchParams({ limit: "20", offset: String(offset) });
+  list(offset: number, filter = "", signal?: AbortSignal, cursor?: string) {
+    const query = new URLSearchParams({ limit: "20", offset: String(cursor ? 0 : offset) });
+    if (cursor) query.set("cursor", cursor);
     if (filter) query.set("state_filter", filter);
     return this.json<TaskList>(`/api/document-tasks?${query}`, undefined, signal);
   }
   detail(id: string, signal?: AbortSignal) { return this.json<DocumentTaskDetail>(`/api/document-tasks/${encodeURIComponent(id)}`, undefined, signal); }
+  head(id: string, signal?: AbortSignal) { return this.json<DocumentTaskHead>(`/api/document-tasks/${encodeURIComponent(id)}/head`, undefined, signal); }
   preview(id: string, signal?: AbortSignal) { return this.json<DocumentTaskReview>(`/api/document-tasks/${encodeURIComponent(id)}/preview`, undefined, signal); }
   async start(file: File, capabilities: Capabilities, requestId: string, officeMode: OfficeMode, onStage: (stage: UploadStage) => void) {
     validateFiles([file], capabilities);

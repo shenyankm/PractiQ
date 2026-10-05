@@ -81,3 +81,19 @@ it("does not leak an object URL if image loading completes after unmount, and al
   await user.click(screen.getByRole("button", { name: "查看图片" })); expect(await screen.findByRole("alert")).toBeTruthy();
   await user.click(screen.getByRole("button", { name: "查看图片" })); expect(await screen.findByRole("img", { name: "图片" })).toBeTruthy();
 });
+
+
+it("paginates source resources and preserves unit-local duplicate question references",async()=>{
+  const user = userEvent.setup();
+  const units = [0,1].map(index=>({...preview.units[0],stage:"document_parse" as const,index,questions:[question({id:"owner",stem:`Owner ${index}`,parentId:null,optionSourceId:null}),question({id:`child${index}`,stem:`Child ${index}`,parentId:"owner",optionSourceId:null})],groups:Array.from({length:25},(_,i)=>({title:`Group ${index}-${i}`,questionIndexes:[0,1]})),visualElements:[]}));
+  units[0].questions.unshift(question({id:JSON.stringify(["document_parse",1,"owner"]),stem:"Collision bait",parentId:null,optionSourceId:null}));
+  render(<ResultReview task={task} preview={{...preview,units}} client={new Client("fake")}/>);
+  await user.click(screen.getByText("Child 1"));
+  const child = screen.getByText("Child 1",{selector:"summary span"}).closest("details")!;
+  expect(within(child).getByText("Owner 1")).toBeTruthy(); expect(within(child).queryByText("Owner 0")).toBeNull();
+  await user.click(screen.getByRole("button",{name:"来源与资源"}));
+  expect(screen.getByText("Group 0-0")).toBeTruthy(); expect(screen.queryByText("Group 0-20")).toBeNull();
+  await user.click(screen.getByRole("button",{name:"下一页资源"}));
+  expect(screen.getByText("Group 0-20")).toBeTruthy(); expect(screen.queryByText("Group 0-0")).toBeNull();
+  await user.click(screen.getByRole("button",{name:"上一页资源"})); expect(screen.getByText("Group 0-0")).toBeTruthy();
+});

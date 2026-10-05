@@ -7,7 +7,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'server/src'))
 from practiq_ai.contracts import (  # noqa: E402
     AnswerMode, COMPOSITE_MODES, QUESTION_KIND_MODES, DocumentParseResult, DocumentProcessing,
-    DocumentSourceType, DocumentTaskControl, DocumentTaskCreate, DocumentTaskDetail, DocumentTaskList,
+    DocumentSourceType, DocumentTaskControl, DocumentTaskCreate, DocumentTaskDetail, DocumentTaskHead, DocumentTaskList,
     DocumentTaskReceipt, DocumentTaskReparse, DocumentTaskReview, DocumentTaskSummary, DocumentUploadRequest,
     DocumentUploadResponse, ImportCapabilities, OfficeMode,
 )
@@ -61,7 +61,7 @@ def ts_type(node):
     raise ValueError(f'Unsupported schema type: {node}')
 
 schema = DocumentParseResult.model_json_schema()
-wire_models = (DocumentTaskSummary, DocumentTaskReview, DocumentTaskDetail, DocumentTaskList,
+wire_models = (DocumentTaskSummary, DocumentTaskReview, DocumentTaskDetail, DocumentTaskHead, DocumentTaskList,
                DocumentTaskCreate, DocumentTaskControl, DocumentTaskReparse, DocumentTaskReceipt,
                DocumentUploadRequest, DocumentUploadResponse, ImportCapabilities)
 definitions = {}

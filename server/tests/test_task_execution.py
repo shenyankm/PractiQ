@@ -347,7 +347,7 @@ async def test_identical_questions_on_different_pages_are_preserved(monkeypatch)
     result = await graph.ainvoke({"document": reference}, run_config())
     assert [q["stem"] for q in result["result"]["questions"]] == ["Repeated", "Repeated"]
     assert len(model.calls) == 2
-    assert set(files.put_kinds) == {"page"}
+    assert set(files.put_kinds) == {"page", "unit-result"}
 
 
 async def test_recovery_provider_uses_real_model_http_protocol(tmp_path):

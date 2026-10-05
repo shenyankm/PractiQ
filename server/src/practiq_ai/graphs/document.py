@@ -390,6 +390,7 @@ class VisionTask(TypedDict):
     index: int
     neighbors: NotRequired[list[dict[str, Any]]]
     artifact: dict[str, Any]
+    sourceSha256: NotRequired[str]
     execution: NotRequired[dict[str, Any]]
     round: NotRequired[int]
     callAllowance: NotRequired[int]
@@ -402,6 +403,7 @@ class ChunkTask(TypedDict):
     sourceType: str
     fileName: str | None
     artifact: dict[str, Any]
+    sourceSha256: NotRequired[str]
     execution: NotRequired[dict[str, Any]]
     round: NotRequired[int]
     callAllowance: NotRequired[int]
@@ -612,6 +614,7 @@ def _dispatch_vision(state: DocumentState) -> list[Send] | str:
                 "neighbors": [{"index": other, "artifact": pages[other]}
                               for other in range(max(0, index - 1), min(len(pages), index + 2))],
                 "artifact": item,
+                "sourceSha256": state["document"]["sha256"],
                 "execution": state.get("execution"),
                 "round": state.get("round", 0),
             },
@@ -934,6 +937,7 @@ def _dispatch_chunks(state: DocumentState) -> list[Send] | str:
                 "sourceType": chunk_sources[index]["sourceType"] if chunk_sources else reference.sourceType,
                 "fileName": chunk_sources[index]["fileName"] if chunk_sources else reference.fileName,
                 "artifact": item,
+                "sourceSha256": reference.sha256,
                 "execution": state.get("execution"),
                 "round": state.get("round", 0),
             },
@@ -1068,7 +1072,27 @@ def _scope_sheet_ids(result: ChunkParseResult, source_index: int) -> None:
             block.questionId = scoped(block.questionId)
 
 
+async def load_unit_result(item: dict[str, Any], source_sha256: str) -> dict[str, Any]:
+    if not item.get("resultRef") or item.get("parsed") is None:
+        return item  # Existing checkpoints keep their inline unit records.
+    store = await asyncio.to_thread(get_object_store)
+    try:
+        reference = ArtifactReference.model_validate(item["resultRef"])
+        if not reference.objectKey.startswith(f"practiq-agent/artifacts/{source_sha256}/unit-result/{item['index']}-") or reference.mediaType != "application/json":
+            raise DocumentProcessingError(409, "Unit result reference is invalid", "UNIT_RESULT_INVALID")
+        payload = json.loads(await store.get_verified(reference))
+        parsed = ChunkParseResult.model_validate(payload["parsed"]).model_dump(mode="json")
+        visuals = [VisualElement.model_validate(value).model_dump(mode="json") for value in payload.get("visuals", [])]
+    except (ValueError, KeyError, TypeError) as exc:
+        raise DocumentProcessingError(409, "Stored unit result is invalid", "UNIT_RESULT_INVALID") from exc
+    return {**item, "parsed": parsed, "visuals": visuals}
+
+
 async def _merge(state: DocumentState) -> dict[str, Any]:
+    checkpoint_state = state
+    source_sha256 = state["document"]["sha256"]
+    state = cast(DocumentState, {**state, **{key: await _bounded_map(state.get(key, []), lambda item: load_unit_result(item, source_sha256))
+                                           for key in ("visionResults", "chunkResults")}})
     pages = bool(state.get("pageRefs"))
     ordered = sorted(
         [item for item in state.get("visionResults", []) if item["kind"] == "page"] if pages else state.get("chunkResults", []),
@@ -1158,12 +1182,12 @@ async def _merge(state: DocumentState) -> dict[str, Any]:
         update: dict[str, Any] = {"status": "", "result": {}, "processing": {},
                                   "nextStage": "vision_review_pause" if pages else "chunk_review_pause"}
         if pages:
-            update["visionResults"] = Overwrite([item for item in state.get("visionResults", []) if item["index"] not in indexes])
+            update["visionResults"] = Overwrite([item for item in checkpoint_state.get("visionResults", []) if item["index"] not in indexes])
             update["failures"] = [UnitFailure(stage="vision_parse", index=index, code="OUTPUT_INVALID", retryable=True).model_dump(mode="json") for index in sorted(indexes)]
         else:
             update["chunkResults"] = Overwrite([
-                {**item, "parsed": None, "failureCode": "OUTPUT_INVALID"} if item["index"] in indexes else item
-                for item in state.get("chunkResults", [])
+                {**{key: value for key, value in item.items() if key != "resultRef"}, "parsed": None, "failureCode": "OUTPUT_INVALID"} if item["index"] in indexes else item
+                for item in checkpoint_state.get("chunkResults", [])
             ])
         return update
     processing = DocumentProcessing(
@@ -1342,6 +1366,17 @@ def _guarded(function: Callable[..., Awaitable[dict[str, Any]]], *, with_runtime
             for key in ("visionResults", "chunkResults", "failures"):
                 if isinstance(result.get(key), list):
                     result[key] = [dict(item, round=state.get("round", 0)) for item in result[key]]
+                    if key != "failures":
+                        for item in result[key]:
+                            if item.get("parsed") is None or item.get("resultRef"):
+                                continue
+                            store = await asyncio.to_thread(get_object_store)
+                            payload = json.dumps({"parsed":item["parsed"], "visuals":item.get("visuals", [])}, ensure_ascii=False, separators=(",", ":")).encode()
+                            source_sha256 = state.get("sourceSha256") or state["execution"]["document"]["sha256"]
+                            reference = await store.put_artifact(payload, source_sha256=source_sha256, kind="unit-result", index=item["index"], media_type="application/json")
+                            item["resultRef"] = reference.model_dump(mode="json")
+                            item["parsed"] = {"questionCount":len(item["parsed"].get("questions", []))}
+                            item["visuals"] = []
             if result.get("status") in {"SUCCEEDED", "PARTIAL"}:
                 telemetry.event("review_candidate", status=result["status"], sourceType=source_type,
                                 reviewRequired=result.get("processing", {}).get("quality", {}).get("reviewRequired", False),

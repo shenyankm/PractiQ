@@ -1,9 +1,11 @@
 """Document APIs over our SQLite queue and open-source LangGraph."""
 
 import asyncio
+from base64 import b64decode, urlsafe_b64encode
 from collections.abc import AsyncIterator
-from datetime import timedelta
+from datetime import datetime, timedelta
 from json import dumps as json_encode
+from json import loads as json_decode
 from typing import Any, BinaryIO, Literal, LiteralString, cast
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
@@ -15,6 +17,7 @@ from .contracts import (
     DocumentTaskControl,
     DocumentTaskCreate,
     DocumentTaskDetail,
+    DocumentTaskHead,
     DocumentTaskList,
     DocumentTaskReparse,
     DocumentTaskReview,
@@ -36,7 +39,7 @@ from .execution import (
     signature,
     supported_task_sql,
 )
-from .graphs.document import _retry_update, unit_failures
+from .graphs.document import _retry_update, load_unit_result, unit_failures
 from .storage import get_object_store, validate_source_size
 
 
@@ -251,6 +254,19 @@ async def get_task(thread_id: str) -> dict[str, Any]:
     }).model_dump(mode='json')
 
 
+async def get_task_head(thread_id: str) -> dict[str, Any]:
+    service = client()
+    task, snapshot, run = await _read_task(service, thread_id)
+    values = snapshot.values or {}
+    return DocumentTaskHead.model_validate({
+        'threadId': thread_id, 'runId': run['run_id'] if run else None,
+        'state': _task_state(snapshot, run)[0], 'checkpointId': service.checkpoint_id(snapshot, run),
+        'updatedAt': snapshot.created_at or task['created_at'].isoformat(),
+        'modelConfigured': not load().read_only,
+        'resumeCompatible': not load().read_only and (not values.get('execution') or values['execution'].get('signature') == signature()),
+    }).model_dump(mode='json')
+
+
 async def export_task(thread_id: str, checkpoint_id: str | None = None) -> BinaryIO:
     from .bank_export import export_task_bank
     service = client()
@@ -389,8 +405,23 @@ FILTER_RUN_SQL: dict[TaskFilter, LiteralString] = {
 
 
 async def list_tasks(limit: int = 20, offset: int = 0, sha256: str | None = None, state_filter: TaskFilter | None = None,
-                     office_mode: OfficeMode | None = None) -> dict[str, Any]:
+                     office_mode: OfficeMode | None = None, cursor: str | None = None) -> dict[str, Any]:
     service = client()
+    after = None
+    scope = [sha256, state_filter, office_mode]
+    if cursor:
+        try:
+            if offset or len(cursor) > 2048:
+                raise ValueError('Cursor cannot be combined with offset')
+            created, thread, bound_scope = json_decode(b64decode(cursor.encode('ascii'), altchars=b'-_', validate=True))
+            if not isinstance(created, str) or not isinstance(thread, str):
+                raise TypeError('Invalid cursor position')
+            timestamp = datetime.fromisoformat(created)
+            if timestamp.tzinfo is None or bound_scope != scope:
+                raise ValueError('Invalid cursor scope')
+            after = (timestamp, str(UUID(thread)))
+        except (ValueError, TypeError, UnicodeError) as exc:
+            raise DocumentProcessingError(400, 'Invalid task page cursor', 'INVALID_CURSOR') from exc
     source_filter = " AND json_extract(t.document, '$.sha256')=?" if sha256 else ''
     params: tuple[Any, ...] = (sha256,) if sha256 else ()
     join: LiteralString = ''
@@ -409,15 +440,26 @@ async def list_tasks(limit: int = 20, offset: int = 0, sha256: str | None = None
                     '(SELECT run_id FROM document_runs WHERE thread_id=t.thread_id ORDER BY created_at DESC LIMIT 1)')
             # Queue lifecycle narrows candidates; the checkpoint remains authoritative.
             where += ' AND (' + FILTER_RUN_SQL[state_filter] + ')'
-    query = f'SELECT t.* FROM document_tasks t{join} WHERE {where} ORDER BY t.created_at DESC,t.thread_id DESC LIMIT ? OFFSET ?'
+    def page_query(position):
+        if position:
+            return (f'SELECT t.* FROM document_tasks t{join} WHERE {where} AND (t.created_at,t.thread_id)<(?,?) '
+                    'ORDER BY t.created_at DESC,t.thread_id DESC LIMIT ? OFFSET ?'), (*params, *position)
+        return (f'SELECT t.* FROM document_tasks t{join} WHERE {where} ORDER BY t.created_at DESC,t.thread_id DESC LIMIT ? OFFSET ?'), params
+
+    def result(items, more):
+        next_cursor = urlsafe_b64encode(json_encode([items[-1]['createdAt'], items[-1]['threadId'], scope]).encode()).decode() if more else None
+        return DocumentTaskList.model_validate({'items': items, 'hasMore': more, 'nextCursor': next_cursor}).model_dump(mode='json')
+
     if state_filter is None:
-        rows = await service.db.rows(query, (*params, limit + 1, offset))
+        query, arguments = page_query(after)
+        rows = await service.db.rows(query, (*arguments, limit + 1, offset))
         items = [item async for item in _task_summaries(service, rows[:limit])]
-        return DocumentTaskList.model_validate({'items': items, 'hasMore': len(rows) > limit}).model_dump(mode='json')
+        return result(items, len(rows) > limit)
     items = []
-    matched = source_offset = 0
+    matched = 0
     while len(items) <= limit:
-        rows = await service.db.rows(query, (*params, 100, source_offset))
+        query, arguments = page_query(after)
+        rows = await service.db.rows(query, (*arguments, 100, 0))
         # ponytail: ambiguous paused/review candidates still scan; persist head-keyed summaries if they dominate.
         async for item in _task_summaries(service, rows):
             if item['state'] in FILTER_STATES[state_filter]:
@@ -428,8 +470,8 @@ async def list_tasks(limit: int = 20, offset: int = 0, sha256: str | None = None
                     break
         if len(rows) < 100 or len(items) > limit:
             break
-        source_offset += len(rows)
-    return DocumentTaskList.model_validate({'items': items[:limit], 'hasMore': len(items) > limit}).model_dump(mode='json')
+        after = (rows[-1]['created_at'], rows[-1]['thread_id'])
+    return result(items[:limit], len(items) > limit)
 
 
 async def _task_summaries(service, rows) -> AsyncIterator[dict[str, Any]]:
@@ -487,6 +529,7 @@ async def review_task(thread_id: str) -> dict[str, Any]:
             for item in sorted(values.get(key, []), key=lambda item: item['index']):
                 if not item.get('parsed'):
                     continue
+                item = await load_unit_result(item, _task['document']['sha256'])
                 references = values.get(refs, [])
                 units.append({'stage': stage, 'index': item['index'], 'questions': item['parsed'].get('questions', []),
                               'groups': item['parsed'].get('groups', []), 'visualElements': item.get('visuals', []),

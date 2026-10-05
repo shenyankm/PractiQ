@@ -268,6 +268,7 @@ def _suffix(media_type: str) -> str:
         "image/png": "png",
         "image/jpeg": "jpg",
         "text/plain": "txt",
+        "application/json": "json",
     }.get(media_type, "bin")
 
 

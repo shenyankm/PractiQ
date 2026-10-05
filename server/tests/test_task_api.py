@@ -481,3 +481,22 @@ async def test_status_filter_paginates_after_scanning_all_records(monkeypatch):
     assert not (await task_api.list_tasks(1, 2, state_filter='completed'))['items']
     assert len((await task_api.list_tasks(100, state_filter='expired'))['items']) == 100
     assert not (await task_api.list_tasks(state_filter='active'))['items']
+
+
+async def test_head_returns_only_current_read_state_without_building_usage_or_results(monkeypatch):
+    service, reference, model = await setup_api(monkeypatch, [parsed()])
+    created = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(),document=DocumentReference.model_validate(reference)))
+    await service.wait_idle()
+    detail = await task_api.get_task(created['threadId'])
+    async def forbidden(*_args):
+        raise AssertionError('Head must not read all usage calls')
+    monkeypatch.setattr(task_api,'_calls',forbidden)
+    head = await task_api.get_task_head(created['threadId'])
+    assert head == {key:detail[key] for key in ('threadId','runId','state','checkpointId','updatedAt','modelConfigured','resumeCompatible')}
+    assert len(model.calls) == 1
+    monkeypatch.setenv('AI_SERVICE_TOKEN','head-test-token')
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),base_url='http://test') as http:
+        endpoint = f"/api/document-tasks/{created['threadId']}/head"
+        assert (await http.get(endpoint)).status_code == 401
+        response = await http.get(endpoint,headers={'Authorization':'Bearer head-test-token'})
+        assert response.status_code == 200 and response.json() == head

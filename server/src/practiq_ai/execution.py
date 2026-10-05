@@ -117,6 +117,11 @@ async def preflight(values: dict[str, Any]) -> None:
         await verified_normalization(DocumentReference.model_validate(values['document']), values['normalization'],
                                      mode=values.get('officeMode') or 'pdf', store=store, config=load())
     references = [item for key in ('pageRefs', 'chunkRefs') for item in values.get(key, [])]
+    from .graphs.document import load_unit_result
+    for key in ('visionResults', 'chunkResults'):
+        for item in values.get(key, []):
+            if item.get('resultRef'):
+                await load_unit_result(item, values['document']['sha256'])
     if values.get('textRef'):
         references.append(values['textRef'])
     seen: set[str] = set()
