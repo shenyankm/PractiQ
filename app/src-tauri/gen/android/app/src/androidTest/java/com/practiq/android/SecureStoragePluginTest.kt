@@ -257,9 +257,10 @@ class SecureStoragePluginTest {
             assertEquals("Exactly one native result should reach the existing callback", 1, resultCount.get())
             assertEquals("The system picker must report cancellation", Activity.RESULT_CANCELED, resultCode.get())
             assertEquals("The existing native callback should return", 1, delegateReturned.get())
+            val nativeCommandDeadline = SystemClock.elapsedRealtime() + 15000
             evaluate("window.__practiqAfterPickerProbe=null;window.__TAURI_INTERNALS__.invoke('request',{request:{type:'banks'},locale:'en'}).then(()=>{window.__practiqAfterPickerProbe=true},()=>{window.__practiqAfterPickerProbe=false});true")
             awaitScript("window.__practiqAfterPickerProbe", "true",
-                "Native command after cancellation should settle", cancellationDeadline)
+                "Native command after cancellation should settle", nativeCommandDeadline)
             evaluate("delete window.__practiqPickerProbe;delete window.__practiqAfterPickerProbe;true")
         } finally {
             instrumentation.runOnMainSync {
