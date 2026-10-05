@@ -9,6 +9,7 @@ import pypdfium2 as pdfium
 
 from ..config import load
 from . import (
+    VISION_BYTES_LIMIT_DETAIL,
     DocumentProcessingError,
     ExtractedDocument,
     enforce_vision_bytes,
@@ -48,10 +49,16 @@ def _extract(file_bytes: bytes) -> ExtractedDocument:
 
 def render_pages(file_bytes: bytes, indexes: list[int]) -> list[bytes]:
     with PDFIUM_LOCK:
-        return _render_pages(file_bytes, indexes)
+        try:
+            return _render_pages(file_bytes, indexes)
+        except DocumentProcessingError as exc:
+            if exc.code != "IMAGE_TOO_LARGE" and exc.detail != VISION_BYTES_LIMIT_DETAIL:
+                raise
+            # Keep the former byte-limit acceptance at the boundary.
+            return _render_pages(file_bytes, indexes, compress_level=6)
 
 
-def _render_pages(file_bytes: bytes, indexes: list[int]) -> list[bytes]:
+def _render_pages(file_bytes: bytes, indexes: list[int], *, compress_level: int = 3) -> list[bytes]:
     images: list[bytes] = []
     total_bytes = 0
     document = pdfium.PdfDocument(file_bytes)
@@ -72,7 +79,7 @@ def _render_pages(file_bytes: bytes, indexes: list[int]) -> list[bytes]:
                     image = bitmap.to_pil()
                     try:
                         with BytesIO() as buffer:
-                            image.save(buffer, format="PNG")
+                            image.save(buffer, format="PNG", compress_level=compress_level)
                             data = buffer.getvalue()
                     finally:
                         image.close()

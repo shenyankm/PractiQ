@@ -643,3 +643,20 @@ async def test_export_response_waits_for_a_cancelled_read_before_closing_its_arc
             operation.cancel()
             await asyncio.gather(operation, return_exceptions=True)
         payload.close()
+
+
+def test_export_entries_use_fast_compression_and_preserve_content_and_permissions(monkeypatch):
+    output = io.BytesIO()
+    payload = b'unchanged source and question bytes' * 1000
+    with ZipFile(output,'w') as archive:
+        original = archive.open
+        def observed(entry, mode='r', *args, **kwargs):
+            assert entry.compress_type == bank_export.ZIP_DEFLATED and entry.compress_level == 1
+            assert mode == 'w'
+            return original(entry,'w',*args,**kwargs)
+        monkeypatch.setattr(archive,'open',observed)
+        bank_export._write_entry(archive,output,'questions.json',payload)
+    with ZipFile(io.BytesIO(output.getvalue())) as archive:
+        assert archive.read('questions.json') == payload
+        assert archive.getinfo('questions.json').external_attr >> 16 == 0o100600
+        assert archive.testzip() is None

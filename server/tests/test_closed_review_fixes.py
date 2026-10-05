@@ -1,6 +1,7 @@
 """Regression checks for outstanding closed-PR review feedback; no model calls."""
 import base64
 import hashlib
+from io import BytesIO
 from pathlib import Path
 from unittest.mock import AsyncMock
 
@@ -80,3 +81,19 @@ async def test_rejected_model_records_are_terminal(monkeypatch, reservation_fail
     assert records[0]["error"] == ("MODEL_BUDGET_EXCEEDED" if reservation_failure else "MODEL_INPUT_TOO_LARGE")
     assert records[0]["usageStatus"] == "unknown"
     assert records[0]["finishedAt"] and records[0]["durationMs"] >= 0
+
+
+@pytest.mark.parametrize("fixture", ["text-layer.pdf", "scanned.pdf", "long-material-answer-key.pdf"])
+def test_pdf_fast_png_keeps_identical_pixels_and_original_byte_limit_acceptance(monkeypatch, fixture):
+    from practiq_ai.extractors import pdf
+    source = (Path(__file__).parents[1] / 'evals/fixtures/pdf' / fixture).read_bytes()
+    import pypdfium2 as pdfium
+    with pdfium.PdfDocument(source) as document:
+        indexes = list(range(len(document)))
+    original = pdf._render_pages(source,indexes,compress_level=6)
+    faster = render_pages(source,indexes)
+    for before, after in zip(original,faster,strict=True):
+        with Image.open(BytesIO(before)) as a, Image.open(BytesIO(after)) as b:
+            assert (a.mode,a.size,a.tobytes()) == (b.mode,b.size,b.tobytes())
+    monkeypatch.setenv('AI_MAX_VISION_BYTES',str(sum(map(len,original))))
+    assert render_pages(source,indexes) == original
